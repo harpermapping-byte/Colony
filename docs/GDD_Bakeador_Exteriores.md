@@ -31,6 +31,22 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 - **Bordes/costas con detalle fractal a varias escalas** (ondulación grande + ondulación fina encima), no una sola escala de ruido.
 - **Reskin estacional** (4 estaciones): cambia qué textura usa cada terreno/planta (visual, gratis) y qué entradas del catálogo son válidas ahora mismo (lógico — un recurso puede estar etiquetado "solo otoño", filtra el pool de spawn sin regenerar nada). La estación se calcula con la misma fórmula barata que la hora solar compartida.
 
+### 3.1. Tabla de clasificación de bioma (valores de referencia, 0=mínimo, 1=máximo)
+
+Valores de partida para el mapa inicial — ajustables desde el catálogo de configuración sin tocar el algoritmo:
+
+| Bioma | Temperatura | Humedad | Elevación (banda) | Continentalidad | Notas |
+|---|---|---|---|---|---|
+| Pradera Central | 0.4 – 0.6 | 0.4 – 0.6 | 2 – 3 | alta (interior) | bioma inicial/seguro |
+| Bosque | 0.4 – 0.6 | 0.6 – 0.8 | 2 – 4 | media-alta | — |
+| Montaña Nevada | 0.0 – 0.2 | cualquiera | 6 – 7 | cualquiera | borde norte cerrado |
+| Desierto | 0.8 – 1.0 | 0.0 – 0.2 | 1 – 3 | media | — |
+| Costa/Playa | cualquiera | cualquiera | 1 – 2 | muy baja (borde de costa) | franja de transición, no compite por área con los demás |
+| Pantano | 0.5 – 0.7 | 0.8 – 1.0 | 1 – 2 | media | requiere drenaje bajo |
+| Tierras Quemadas | cualquiera | baja | cualquiera | cualquiera | activado por vulcanismo alto, no por el rombo temperatura/humedad — puede aparecer como bolsa dentro de Montaña o Desierto |
+
+El parámetro de **"rareza"** puede saltarse estas reglas con probabilidad baja (la combinación inesperada y controlada que ya mencionamos, ej. un oasis de humedad en pleno desierto fuera de las zonas de agua horneadas).
+
 ## 4. Hidrología
 
 - **Ríos/lagos/cascadas/desembocaduras**: se hornean una sola vez con un algoritmo de "seguir la pendiente" (o su versión mejorada, **erosión hidráulica por partículas**, que además esculpe el relieve real en vez de solo marcar tiles de agua — más realista, sigue siendo gratis porque se calcula una sola vez offline).
@@ -75,6 +91,13 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 - **Viento**: se prepara como otra variable más del mismo sistema de estado climático (dirección + fuerza) — no requiere nada nuevo del bakeador ahora, listo para cuando se diseñe a fondo.
 - **Sistema de acumulación** (mecanismo genérico, reutilizado para todo lo siguiente): un valor por región que tiende hacia un objetivo según el clima actual, calculado bajo demanda (nunca corriendo en segundo plano) con la fórmula "tiempo transcurrido × velocidad de cambio según el clima". Aplicaciones: profundidad de nieve acumulada, tamaño de charcos, barro en caminos (reduce temporalmente su bonus de velocidad), caudal extra en ríos durante tormentas (más energía en los molinos), hielo en agua quieta con frío sostenido.
 - Efectos visuales derivados del mismo dato de "humedad actual" combinado (bioma + lluvia reciente + cercanía al agua): mojado temporal del suelo, niebla en valles húmedos al amanecer, moho en rocas según humedad del bioma.
+
+### 8.1. Constantes de calendario (valores de referencia, configurables)
+
+- 1 día de juego completo ≈ 30 minutos reales (día/noche dentro de ese ciclo, ej. 20 min de día + 10 min de noche).
+- 1 estación ≈ 7 días de juego.
+- 1 año de juego = 4 estaciones ≈ 28 días de juego (~14 horas reales).
+- Todo esto vive en el catálogo de configuración, no en código — se puede acelerar/ralentizar el reloj entero cambiando un solo número, y cualquier sistema que dependa del tiempo (acumulación, regeneración de recursos, estaciones) se ajusta solo porque todos leen la misma fórmula compartida.
 
 ## 9. Fauna
 
@@ -158,3 +181,36 @@ Hierba Curativa · Hierba Venenosa · Hierba Aromática · Flor Medicinal · Hon
 
 - **Bakeador de interiores**: usará Wave Function Collapse (coherencia de reglas locales, ideal para habitaciones/edificios).
 - **Bakeador de mazmorras/híbridos**: usará BSP (mazmorras "construidas", habitaciones+pasillos) o autómata celular (cuevas naturales) según el tipo. Este bakeador de exteriores solo coloca la puerta/enlace hacia ellas, nunca su contenido.
+
+## 17. Esquema de campos del catálogo (por tipo de entrada)
+
+Referencia canónica — todo lo que se ha ido mencionando a lo largo del diseño, consolidado aquí para que al construir el catálogo no falte nada. Todas las entradas comparten `id` (nombre único, real cuando aplique) y `categoria` (a qué tabla pertenece).
+
+**Entrada de tipo de terreno:**
+`transitable` · `modificador_velocidad` · `quema` (bool) · `requiere_nadar` (bool) · `estratigrafia` (id del terreno expuesto al cavar un nivel) · `textura_base` (tileset) · `variantes_temporales` (mojado, escarcha, nieve — activadas por clima, no horneadas)
+
+**Entrada de especie de vegetación/recurso:**
+`categoria_recurso` (referencia al nivel 2, sección 12.5) · `biomas_validos` · `bandas_elevacion_validas` · `estaciones_validas` (vacío = todo el año) · `variantes_arte` (lista, mínimo 1) · `permite_transformacion` (rotación/escala/espejo) · `densidad_base` / `escala_ruido` / `agrupamiento` (parámetros del mapa de calor, en catálogo de configuración) · `recolectable_por` (herramienta/mecánica) · `rendimiento` (cantidad + categoría de recurso) · `tiempo_regeneracion` · `contencion` (`compartido` / `por_jugador`) · `punto_anclaje` (Y-sorting) · `altura` (para sombra) · **`uso`** (obligatorio, texto libre — para qué sirve; sin esto la entrada no se acepta)
+
+**Entrada de estructura/POI:**
+`tipo` (`integrado` / `portal`) · `biomas_validos` · `reglas_de_sitio` (cerca de agua, terreno llano, visibilidad...) · `separacion_minima` · `variantes` (pool, incluida posible variante `legendaria` con probabilidad baja) · `contenido` (integrado: lista de sub-elementos que estampa; portal: referencia al mapa/instancia destino) · `punto_anclaje` · `altura`
+
+**Entrada de animal:**
+`categoria_recurso_carne` · `categoria_recurso_piel` · `biomas_validos` · `bandas_elevacion_validas` · `estaciones_validas` · `poblacion_inicial` / `capacidad_maxima` (por región, lo único que decide el bakeador) · `peligroso` (bool) · `domesticable` (bool) · `variantes_arte`
+
+## 18. Formato de salida del bakeador
+
+- **Un archivo índice por mapa**: nombre, semilla, tamaño en chunks, tipo/nombre de cada borde (sección 1), **número de versión del horneado**.
+- **Un archivo por chunk**, nombrado por coordenadas (ej. `chunk_012_034`), con: rejilla de terreno, elevación, objetos colocados (referencia de catálogo + posición + variante + transformación), POIs que caen en ese chunk.
+- La **versión del horneado** viaja en cada archivo — es lo que permite que, si más adelante se vuelve a hornear esa región con parámetros nuevos, el sistema sepa distinguir "terreno de fábrica nuevo" de "aquí un jugador ya dejó un cambio sobre la versión anterior" y no lo pise por accidente (ver sección 5, deltas).
+- Es el mismo formato que lee tanto el visor de cámara libre del bakeador como el servidor del juego en producción — una sola definición, dos consumidores.
+
+## 19. Principio de extensibilidad (regla permanente, no solo para el bakeador)
+
+Para que añadir o cambiar cosas más adelante sea siempre rápido y sencillo, sin retrabajo:
+
+- **Los campos del catálogo solo se añaden, nunca se renombran ni se reordena su significado** — una entrada horneada con una versión antigua del catálogo debe seguir funcionando cuando el catálogo crezca.
+- **Una referencia a un `id` que el juego todavía no reconoce no rompe nada** — se muestra con una plantilla genérica (placeholder) hasta que esa entrada exista de verdad, tal como ya definimos para el sistema de referencias por nombre.
+- **Ningún número mágico en el código**: cualquier valor ajustable (radios, tiempos, densidades, duración del calendario) vive en el catálogo de configuración, nunca escrito directamente en la lógica.
+- **Todo dato horneado lleva su número de versión** (sección 18), así una regeneración futura nunca pisa el progreso de los jugadores sin darse cuenta.
+- Estas cuatro reglas son las que hacen que la lista de "detalles de acabado" (secciones 3-11) haya podido crecer tanto sin tocar la arquitectura ni una sola vez — y son las que hay que seguir respetando en todo lo que se construya a partir de aquí, no solo en este bakeador.
