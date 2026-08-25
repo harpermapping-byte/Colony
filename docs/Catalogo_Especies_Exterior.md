@@ -156,6 +156,67 @@ Esto es un primer lote, no el catálogo final — según la regla de extensibili
 | Buitre carroñero | — | — | — |
 | Cuervo de ceniza | — | — | decorativo |
 
+## Variantes de color/patrón (mismo mecanismo que "8 modelos de roca", no son especies nuevas)
+
+| Especie | Variantes |
+|---|---|
+| Gallina | blanca · negra · marrón · gris jaspeada |
+| Vaca salvaje | marrón · negra · gris · blanca con manchas negras · blanca con manchas marrones |
+| Oveja salvaje | blanca · negra · marrón claro |
+| Cabra | blanca · marrón · negra · manchada |
+| Caballo salvaje | negro · marrón · gris (tordo) · blanco |
+| Conejo | marrón · gris · blanco · negro |
+| Zorro | rojo estándar · plateado (raro) · ártico blanco (solo Montaña Nevada, ligado a bioma) |
+| Lobo | gris estándar · negro · blanco (más común en Montaña Nevada, ligado a bioma/estación) |
+| Perdiz/codorniz | marrón moteado · gris moteado |
+| Camello | beige estándar · marrón oscuro |
+| Amapola | roja estándar · blanca (rara) · rosa (rara) |
+| Margarita | blanca estándar · amarilla |
+| Trébol | verde estándar · con mancha blanca (rara, "de la suerte" — buena candidata a variante legendaria en vez de solo de color) |
+
+Este mecanismo se puede seguir aplicando a cualquier especie del catálogo sin necesidad de que quede documentado aquí uno por uno — es la vía por defecto para pedir "más variedad" antes de plantearse una especie nueva.
+
+## Rocas y minerales — entradas de especie (visual), aparte de las categorías de recurso mineral
+
+Igual que la vegetación, la roca también tiene "especies" visuales que apuntan a las categorías de recurso mineral ya fijadas (sección 12.5 del GDD):
+
+| Nombre | Categoría de recurso | Bioma típico |
+|---|---|---|
+| Granito | Piedra Común | Pradera, Bosque |
+| Caliza | Piedra Común | Pradera, Costa |
+| Pizarra | Piedra Común | Montaña, Bosque |
+| Arenisca | Piedra Común / Arenisca (desierto) | Desierto |
+| Pedernal | Pedernal | todos |
+| Cuarzo | Pedernal (variante decorativa) | Bosque, Montaña |
+| Veta de hierro | Hierro | Montaña |
+| Veta de cobre | Cobre | Desierto, Montaña |
+| Veta de plata | Plata | Montaña |
+| Veta de oro | Oro | Montaña (rara) |
+| Arcilla | Arcilla | Pradera, Pantano |
+| Obsidiana | Obsidiana | Tierras Quemadas |
+| Azufre | Azufre | Tierras Quemadas |
+| Gema en bruto | Gema (legendario) | Montaña, Tierras Quemadas — muy rara |
+
+Cada una usa las variantes de color/musgo/agrietado ya definidas en el GDD (sección 11.5), ponderadas por humedad del bioma.
+
+## Plantillas de POI por bioma (roster concreto, no solo ejemplos)
+
+Para que el pool de disco de Poisson (sección 6 del GDD) tenga variedad real donde elegir:
+
+**Pradera Central**: granja abandonada, círculo de piedras, pozo de aldea, espantapájaros solitario, cruce de caminos con hito.
+
+**Bosque**: claro con altar antiguo, campamento de cazador abandonado, árbol hueco gigante, ruinas cubiertas de musgo, guarida de lobo (portal a mini-mazmorra opcional).
+
+**Montaña Nevada**: cabaña de cazador, mina abandonada (portal), refugio de piedra, nido de águila en saliente, cascada congelada como hito.
+
+**Desierto**: oasis pequeño · oasis grande con mercader y tienda · ruinas semienterradas · campo de dunas gigantes · huesos de criatura enorme · caravana abandonada.
+
+**Costa/Playa**: barco encallado, faro abandonado (portal a su interior), muelle de pescadores en ruinas, cueva de marea (portal), colonia de focas.
+
+**Pantano**: choza de bruja/curandero, altar hundido, árbol podrido gigante, restos de puente de madera, guarida de cocodrilo.
+
+**Tierras Quemadas**: chimenea volcánica activa, campo de obsidiana, restos calcinados de estructura antigua, grieta de azufre humeante.
+
 ## Resumen del lote
 
 - Vegetación (árboles + plantas): ~62 especies reales repartidas entre biomas.

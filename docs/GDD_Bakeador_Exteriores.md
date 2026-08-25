@@ -243,6 +243,8 @@ Referencia canónica — todo lo que se ha ido mencionando a lo largo del diseñ
 **Entrada de animal:**
 `categoria_recurso_carne` · `categoria_recurso_piel` · `biomas_validos` · `bandas_elevacion_validas` · `estaciones_validas` · `poblacion_inicial` / `capacidad_maxima` (por región, lo único que decide el bakeador) · `peligroso` (bool) · `domesticable` (bool) · `variantes_arte`
 
+**Variantes de color/patrón, dentro del mismo `variantes_arte`**: la forma más barata de dar sensación de variedad — una gallina blanca, negra, marrón o gris no son 4 especies distintas, es **1 especie con 4 variantes de color** en el mismo campo que ya usábamos para "8 modelos de roca". No añade categoría de recurso ni ficha nueva, solo más arte para la misma entrada. Aplica igual a plantas (una amapola puede tener variante roja/blanca/rosa). Por defecto cada variante tiene el mismo peso (al azar uniforme); si se quiere que una variante sea más rara (ej. vaca blanca poco común) o esté ligada a estación/región (ej. más pelaje blanco en invierno o en Montaña Nevada), se declara un peso o una condición junto a esa variante — mismo mecanismo que ya usamos para ponderar variantes de roca por humedad (sección 11.5).
+
 ## 18. Formato de salida del bakeador
 
 - **Un archivo índice por mapa**: nombre, semilla, tamaño en chunks, tipo/nombre de cada borde (sección 1), **número de versión del horneado**.
