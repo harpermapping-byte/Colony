@@ -144,7 +144,9 @@ Esto es un primer lote, no el catálogo final — según la regla de extensibili
 | Cocodrilo del pantano | Carne de Caza Mayor | Cuero de Reptil | peligroso |
 | Luciérnaga | — | — | decorativo, nocturno |
 
-## Tierras Quemadas / Volcánico
+## Tierras Quemadas / Volcánico (reservado — no va en el mapa inicial)
+
+Región futura conectada (borde abierto sin enlazar todavía). Estas mismas entradas son también las que usará más adelante la mecánica de fuego para representar zonas quemadas en cualquier otro bioma — doble uso sin trabajo extra.
 
 **Vegetación** — Árbol carbonizado (Madera Carbonizada, decorativo) · Liquen de ceniza (resistente)
 

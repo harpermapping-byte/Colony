@@ -8,7 +8,7 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 
 - El mundo no es un mapa único continuo: hay un **Hub** (ciudad, persistente), **instancias privadas** (interiores, parcelas, mazmorras) y **regiones exteriores con nombre** (ej. "Bosque Norte", "Llanura Central"), cada una su propia room/instancia con tope de jugadores.
 - Cada región exterior se divide en **chunks de 32x32 casillas** — solo se cargan en memoria los chunks cercanos a jugadores activos (streaming tipo Minecraft); el resto no cuesta nada.
-- Cada mapa exterior puede ser **muy grande** (recorrerlo de borde a borde puede tardar 5-10 minutos andando; cientos de chunks de lado) sin coste extra en vivo, porque el coste depende de cuánto está cargado ahora, no del tamaño total.
+- Cada mapa exterior puede ser **muy grande** sin coste extra en vivo, porque el coste depende de cuánto está cargado ahora, no del tamaño total. **Valor de referencia fijado para el mapa inicial: 200x200 chunks** (~6.400 casillas de lado, ~25-30 minutos andando de punta a punta) — cambiable en cualquier momento sin coste, es solo un parámetro del bakeador.
 - **Bordes de mapa**: cada borde (norte/sur/este/oeste, o los que tenga) se etiqueta como `cerrado` (fin del mundo, ej. montaña/bosque impenetrable), `mar abierto` o `tierra abierta` (puede conectar a otro mapa horneado aparte, estilo Valheim — expansión futura tipo DLC sin retocar los mapas existentes). Cada borde tiene nombre propio, registrado en el catálogo, para poder enlazarlo más adelante sin rehacer nada.
 - Un borde abierto sin mapa enlazado todavía se comporta como un límite temporal (no deja avanzar), no como un error.
 
@@ -47,7 +47,7 @@ Valores de partida para el mapa inicial — ajustables desde el catálogo de con
 | Desierto | 0.8 – 1.0 | 0.0 – 0.2 | 1 – 3 | media | — |
 | Costa/Playa | cualquiera | cualquiera | 1 – 2 | muy baja (borde de costa) | franja de transición, no compite por área con los demás |
 | Pantano | 0.5 – 0.7 | 0.8 – 1.0 | 1 – 2 | media | requiere drenaje bajo |
-| Tierras Quemadas | cualquiera | baja | cualquiera | cualquiera | activado por vulcanismo alto, no por el rombo temperatura/humedad — puede aparecer como bolsa dentro de Montaña o Desierto |
+| Tierras Quemadas | cualquiera | baja | cualquiera | cualquiera | **decisión fijada: no aparece en el mapa inicial** — reservado como región futura conectada (borde abierto sin enlazar todavía, estilo Valheim, más difícil). Además, sus mismos datos (terreno ceniza/tierra quemada, árbol carbonizado) son los que usará más adelante la mecánica de fuego para representar cualquier zona quemada de **cualquier** bioma — no hace falta trabajo nuevo cuando llegue esa mecánica, ya está todo definido aquí y solo hay que aplicarlo como delta puntual sobre el terreno que se queme. |
 
 El parámetro de **"rareza"** puede saltarse estas reglas con probabilidad baja (la combinación inesperada y controlada que ya mencionamos, ej. un oasis de humedad en pleno desierto fuera de las zonas de agua horneadas).
 
@@ -64,7 +64,7 @@ El parámetro de **"rareza"** puede saltarse estas reglas con probabilidad baja 
 - Cada categoría (césped, flores, hojas, setas, rocas, minerales...) usa su **propio mapa de calor derivado** de `(bioma, terreno, elevación)`, con **ruido independiente por categoría** (distinta semilla/escala) para que no se agrupen todas igual — así salen claros, manchas de flores, zonas de piedrecitas sueltas, en vez de un "mar" uniforme.
 - **Capas que influyen en otras**: la densidad de árboles genera un mapa de sombra derivado que aumenta la probabilidad de setas y reduce la de flores en esas zonas — coherencia ecológica gratis, sin diseñarlo a mano.
 - **Variantes reales por tipo** (8 modelos de roca, 4 de pino, 5 de abeto...) elegidas al azar por instancia, **combinadas con transformación individual** (rotación, escala, espejo) — evita que se vea todo como copias idénticas. Un solo placeholder por variante en la carpeta de arte, sustituible más adelante.
-- **Sistema de pool de recursos** (estilo WoW): más posiciones candidatas de las que están activas a la vez (ej. 50 posibles vetas, 20 activas al azar) — da sensación de exploración en vez de recursos siempre en el mismo sitio.
+- **Sistema de pool de recursos** (estilo WoW): más posiciones candidatas de las que están activas a la vez. **Ratio de referencia: ~40% activos** (ej. de 50 candidatas, 20 activas al azar en cada momento) — da sensación de exploración en vez de recursos siempre en el mismo sitio.
 - **Regeneración perezosa**: cuando se agota un recurso, no hay temporizador corriendo — se calcula al vuelo, la próxima vez que se consulta, si ya ha pasado suficiente tiempo real para que vuelva a estar disponible.
 - Decidir por tipo de recurso si es **compartido** (el primero que lo agota, se acabó para todos) o **por-jugador** (cada uno tiene su copia) — importante con mucha gente conectada a la vez.
 - **Regla obligatoria de catálogo**: ninguna entrada nueva se registra sin declarar al menos un uso — nada existe solo de adorno.
@@ -112,8 +112,8 @@ El parámetro de **"rareza"** puede saltarse estas reglas con probabilidad baja 
 
 ## 10. Peligro, zonas seguras y parcelas
 
-- **Radio duro de zona segura** alrededor de cada ciudad: dentro de él no spawnean enemigos peligrosos.
-- **Gradiente de peligro** continuo (no a saltos) por distancia a la ciudad más cercana y, dentro del propio mapa, por distancia al centro (estilo Valheim) — se suma al salto de dificultad entre mapas conectados distintos.
+- **Radio duro de zona segura** alrededor de cada ciudad: dentro de él no spawnean enemigos peligrosos. **Valor de referencia: 20 casillas** desde el centro de la ciudad.
+- **Gradiente de peligro** continuo (no a saltos) por distancia a la ciudad más cercana y, dentro del propio mapa, por distancia al centro (estilo Valheim) — se suma al salto de dificultad entre mapas conectados distintos. **Forma de la curva de referencia**: plana dentro de la zona segura (peligro 0), luego sube de forma gradual (no exponencial brusca) hasta un tope máximo a partir de cierta distancia — así siempre hay un techo predecible, nunca "imposible" solo por alejarse mucho dentro del mismo mapa (para eso está el salto a un mapa conectado distinto, que sí puede subir el techo).
 - Campamentos hostiles con más probabilidad cerca de caminos (lógica de emboscada).
 - **Parcelas edificables**: mismo pipeline de POIs (Poisson-disc), pero con restricciones extra — dentro de zona segura, sin pisar caminos ni otras estructuras, tamaños S/M/L, alrededor de ciudades (actuales o futuras).
 
@@ -248,7 +248,7 @@ Referencia canónica — todo lo que se ha ido mencionando a lo largo del diseñ
 ## 18. Formato de salida del bakeador
 
 - **Un archivo índice por mapa**: nombre, semilla, tamaño en chunks, tipo/nombre de cada borde (sección 1), **número de versión del horneado**.
-- **Un archivo por chunk**, nombrado por coordenadas (ej. `chunk_012_034`), con: rejilla de terreno, elevación, objetos colocados (referencia de catálogo + posición + variante + transformación), POIs que caen en ese chunk.
+- **Un archivo por "sector"** (agrupación de 10x10 chunks, nombrado por coordenadas de sector, ej. `sector_02_03`), no un archivo por chunk suelto — con mapas tan grandes (200x200 chunks = 40.000 chunks), un archivo por chunk serían decenas de miles de archivos, poco manejable en Git/GitHub. Cada sector agrupa: rejilla de terreno, elevación, objetos colocados (referencia de catálogo + posición + variante + transformación), POIs de esos 100 chunks. El servidor carga el sector entero en cuanto un jugador entra en cualquiera de sus chunks — sigue siendo un archivo pequeño (unos pocos MB), ligero de más para RAM.
 - La **versión del horneado** viaja en cada archivo — es lo que permite que, si más adelante se vuelve a hornear esa región con parámetros nuevos, el sistema sepa distinguir "terreno de fábrica nuevo" de "aquí un jugador ya dejó un cambio sobre la versión anterior" y no lo pise por accidente (ver sección 5, deltas).
 - Es el mismo formato que lee tanto el visor de cámara libre del bakeador como el servidor del juego en producción — una sola definición, dos consumidores.
 
