@@ -105,6 +105,35 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 - **Pasada de validación automática** al terminar de hornear: comprueba que todas las ciudades estén conectadas por camino, que no haya zonas completamente aisladas, etc.
 - **Reglas de terreno definidas antes de generar** (no solo validadas después): qué es transitable, qué quema, qué hunde — el bakeador las respeta mientras coloca cosas, en vez de descubrir el problema al final.
 
+## 12.5. Catálogo de contenido en dos niveles — especies vs. recursos
+
+Principio fijado, aplica a vegetación y fauna por igual:
+
+- **Nivel de recursos** (pequeño, fijo, es lo único que ve la economía/crafteo): un puñado de categorías de materiales. Añadir una especie nueva nunca añade una categoría de recurso nueva.
+- **Nivel de especies** (grande, sin límite real — objetivo de referencia: ~100 tipos de árbol, ~200 tipos de animal): cada especie es una ficha de contenido (nombre real, sprite, reglas de bioma/spawn) que **apunta a una de las categorías de recurso** de arriba. Así hay variedad visual y de exploración enorme sin que la economía se vuelva inmanejable.
+- **Los nombres de especie son siempre reales** (roble, lobo, camello...), nunca inventados — lo fantástico/único queda reservado para las variantes legendarias raras de POIs, que son otra pieza distinta.
+- Rellenar el listado completo de las ~300 especies es tarea de contenido aparte, no bloquea el diseño — se hace por biomas, según convenga.
+
+### Categorías de recurso — madera
+
+Madera Blanda · Madera Dura · Madera de Abedul · Madera de Sauce (flexible, cestería) · Madera de Palmera (exótica) · Madera Carbonizada (bioma quemado)
+
+### Categorías de recurso — carne
+
+Carne Roja · Carne Blanca · Carne de Caza Mayor · Carne Exótica · Pescado de Río · Pescado de Mar · Marisco
+
+### Categorías de recurso — cuero/piel
+
+Piel Basta · Piel Fina · Piel de Invierno · Piel Exótica · Cuero de Reptil · Cuero Grueso (jabalí y similares)
+
+### Categorías de recurso — mineral/piedra
+
+Piedra Común · Pedernal · Arcilla · Hierro · Cobre · Plata · Oro · Obsidiana · Azufre · Gema (legendario/raro)
+
+### Categorías de recurso — plantas/hierbas (pensando en alquimia futura)
+
+Hierba Curativa · Hierba Venenosa · Hierba Aromática · Flor Medicinal · Hongo Medicinal · Raíz · Fibra Vegetal
+
 ## 13. Catálogo (obligatorio en todo el proyecto, no solo el bakeador)
 
 - **Catálogo de contenido**: qué es cada cosa (árbol, roca, animal, estructura) — el bakeador solo coloca referencias por nombre a este catálogo, nunca datos "a fuego". Esto permite hornear mapas con cosas (ej. "camello", "mercader") antes de que exista su mecánica — al registrarse en el catálogo más adelante, cobran vida automáticamente en todos los mapas ya horneados, sin regenerar nada.
@@ -120,7 +149,7 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 
 ## 15. Pendiente de definir (siguiente tarea, no bloquea el diseño del bakeador)
 
-- Lista real de contenido: especies de árboles/rocas/animales por bioma, cantidades objetivo, nombres — esto es rellenar el catálogo, no diseño de algoritmo.
+- Listado completo de especies reales (~100 árboles, ~200 animales, objetivo de referencia) por bioma, cada una etiquetada con su categoría de recurso del nivel dos (sección 12.5) — es rellenar el catálogo, no diseño de algoritmo. Se puede hacer por tandas, un bioma a la vez.
 - Nombres de zonas/regiones del mapa (cuando el mapa esté trazado completo).
 - Sistema de fertilidad del suelo para granjas (mecánica de juego, no del bakeador).
 - Zonas de ambiente sonoro/partículas por bioma (dato a rellenar, mecanismo ya definido).
