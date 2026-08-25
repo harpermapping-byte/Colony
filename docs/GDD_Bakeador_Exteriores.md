@@ -1,6 +1,6 @@
 # Streamer Colony — Diseño del Bakeador de Exteriores
 
-Documento de referencia con todo lo decidido sobre el bakeador de mapas exteriores (bosques, llanuras, territorios, etc.). No es el bakeador de interiores ni el de mazmorras/híbridos — esos son piezas aparte con sus propias reglas (ver sección 16).
+Documento de referencia con todo lo decidido sobre el bakeador de mapas exteriores (bosques, llanuras, territorios, etc.). No es el bakeador de interiores ni el de mazmorras/híbridos — esos son piezas aparte con sus propias reglas (ver sección 16). Tampoco es el mapa de la ciudad: ese es un **JPG pintado a mano por el streamer**, fijo y sin variación procedural — no usa tileset ni biomas, porque no lo genera este bakeador. El tileset y todo lo de este documento es específico de las zonas exteriores procedurales.
 
 Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálculo perezoso** para todo lo que cambia con el tiempo (nada corre en segundo plano), y **todo lo que existe en el mapa tiene un uso** (obligatorio en el catálogo). Diseñado para correr en infraestructura 100% gratuita (Render free + Colyseus, un solo proceso con muchas rooms/chunks).
 
@@ -14,8 +14,9 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 
 ## 2. Terreno base (independiente del arte visual)
 
-- **Rejilla de tipo de terreno**: capa lógica (césped, tierra, arena, roca, agua, nieve...) separada del JPG/tileset visual — es la fuente de verdad para mecánicas.
-- Cada tipo de terreno en el catálogo define: si es transitable, modificador de velocidad de movimiento (caminos = bonus, nieve/roca = penalización), y **estratigrafía** (qué terreno queda expuesto si se cava ahí — césped → tierra → roca, por ejemplo).
+- **Rejilla de tipo de terreno**: capa lógica (césped, tierra, arena, roca, agua, nieve...) separada del JPG/tileset visual — es la fuente de verdad para mecánicas. No es solo para hornear: **el servidor la consulta en vivo** en todo momento (un jugador se mueve → se mira su bonus; un objeto cae al suelo → se mira si puede caer ahí; se interactúa con el suelo → se mira qué acciones tiene sentido ofrecer) — cada chunk cargado mantiene esta rejilla en memoria para consulta O(1), sin coste de red.
+- Cada tipo de terreno en el catálogo define: si es transitable, modificador de velocidad de movimiento (caminos = bonus, nieve/roca = penalización — este modificador es el mismo dato que usará cualquier futura montura, solo con su propio multiplicador aparte), y **estratigrafía** (qué terreno queda expuesto si se cava ahí — césped → tierra → roca, por ejemplo).
+- **Solo son "tipo de terreno" las superficies que cambian la jugabilidad** (transitabilidad, velocidad, bioma). El detalle decorativo (hojas sueltas, ramitas, piedrecitas) **nunca** es un tipo de terreno nuevo — son objetos de la capa de vegetación/recursos (sección 5) colocados encima de un terreno normal. Esto evita que la lista de terrenos se dispare y evita el problema de tener que dibujar una transición para cada par de tipos (ver regla de mezcla en la sección 3).
 - Existe un **suelo mínimo cavable** por región/bioma (equivalente al bedrock de Minecraft) para que cavar no rompa el mapa.
 - **Cavar** es un sistema de delta (igual que talar un árbol): se guarda solo el cambio puntual, no se regenera nada. El sistema de acantilados (ver siguiente punto) ya cubre visualmente el hueco que deja cavar, sin reglas nuevas.
 - **Elevación en niveles discretos** (6-10 bandas: agua profunda, nivel de agua, llanura, colinas, montaña, cumbre inaccesible). Un salto de más de un nivel entre casillas vecinas genera automáticamente un acantilado infranqueable (salvo rampa/escalera puesta por el bakeador) — esto da fronteras naturales entre zonas y el aspecto 2.5D "terraceado" a la vez.
@@ -29,6 +30,9 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 - **Suavizado por autómata celular**: pasada de limpieza que elimina "salpicaduras" (celdas sueltas de un bioma en medio de otro), dando fronteras con formas naturales.
 - **Reglas de vecindad entre biomas**: qué biomas pueden tocarse directamente y cuáles necesitan un bioma de transición en medio (evita, ej., desierto pegado a pantano sin sentido).
 - **Bordes/costas con detalle fractal a varias escalas** (ondulación grande + ondulación fina encima), no una sola escala de ruido.
+- **Mezcla de terrenos por capas con prioridad, no por pares**: cada tipo de terreno se pinta como una capa con un borde difuminado orgánico propio (1 textura + 1 máscara de borde), apiladas por prioridad (ej. arena de base, tierra encima, césped encima de esa). Así cualquier combinación entre dos tipos cualesquiera queda bien sin tener que dibujar una transición específica para cada par — evita la explosión combinatoria de piezas de arte.
+- **Considerado y descartado por ahora**: un boceto de biomas pintado a mano por el streamer como entrada del bakeador (en vez de puro ruido/parámetros). Se decidió empezar solo con parámetros por ser más simple e iterable; queda como posible capa opcional a añadir más adelante sin romper nada de lo ya construido.
+- **Reglas de colocación en dos niveles**: elementos discretos/importantes (POIs, parcelas, zona segura) usan reglas **duras** por radio/distancia; el relleno ambiental (biomas, vegetación, caminos) usa reglas **blandas**/procedurales por ruido — nunca al revés, para que lo importante tenga sentido y lo ambiental se vea orgánico.
 - **Reskin estacional** (4 estaciones): cambia qué textura usa cada terreno/planta (visual, gratis) y qué entradas del catálogo son válidas ahora mismo (lógico — un recurso puede estar etiquetado "solo otoño", filtra el pool de spawn sin regenerar nada). La estación se calcula con la misma fórmula barata que la hora solar compartida.
 
 ### 3.1. Tabla de clasificación de bioma (valores de referencia, 0=mínimo, 1=máximo)
@@ -121,6 +125,32 @@ El parámetro de **"rareza"** puede saltarse estas reglas con probabilidad baja 
 - Erosión/escombros en la base de los acantilados para vender mejor el cambio de altura.
 - Marcas de erosión (roca/tierra expuesta) en pendientes muy pronunciadas.
 
+## 11.5. Detalles de acabado — lista completa de auditoría
+
+Todos siguen el mismo principio (sección 14): fórmula barata sobre datos que el bakeador ya calcula, nunca simulación nueva. Se listan aquí de forma exhaustiva para no perder ninguno tras las rondas de "más ideas" de la sesión de diseño.
+
+**Vetas y minería** (usan elevación + estratigrafía, sección 2): las vetas siguen forma de filón alargado (ruido direccional), no manchas redondas; los materiales más raros solo aparecen cavando más profundo; fragmentos sueltos en superficie insinúan una veta rica debajo.
+
+**Rocas y superficies** (usan humedad/bioma): variante de roca (musgosa/seca/agrietada) ponderada por la humedad del bioma en vez de puramente al azar.
+
+**POIs con más lógica** (usan caminos + elevación + agua): torres/fortines con visibilidad mutua o hacia la ciudad; pozos de agua automáticos en asentamientos sin río cerca; muelles automáticos en asentamientos junto a un río.
+
+**Caminos** (usan el grafo de A\*): marcador/hito automático en cada cruce.
+
+**Estructuras y sombra** (usan altura + Y-sorting, sección 11): la sombra de un edificio reduce la vegetación justo debajo, igual que el dosel de los árboles.
+
+**Bordes de mapa** (usan el tipo de borde, sección 1): los bordes cerrados llevan más densidad de detalle justo en el límite para reforzar que es un muro real; los bordes de mar sin conectar todavía muestran una bruma en el horizonte, sugiriendo mundo más allá sin poder llegar.
+
+**Microterreno costero**: pequeñas pozas de marea en la franja entre playa y mar; posibles salitrales/lechos secos en desierto donde la elevación diría "aquí se acumularía agua" pero casi nunca llueve (mismo cálculo que las zonas inundables, resultado distinto).
+
+**Vegetación estacional** (usan densidad de árboles ya colocada + estación): hojarasca de otoño más densa cerca de árboles de hoja caduca.
+
+**Detalles narrativos raros**: cicatrices de rayo (permanentes, poco frecuentes) en llanuras abiertas durante tormentas; tocones y restos con segundo uso (raíces/hongos excavables, material de construcción rústico — refuerza la regla de "nada sin uso" hasta en los subproductos).
+
+**Estructuras naturales menores**: troncos caídos como puentes naturales entre bosque denso y ríos estrechos; hormigueros/termiteros como estructura decorativa menor en pradera.
+
+**Fauna ambiental**: bandadas migratorias sobrevolando en primavera/otoño (puro adorno visual); insectos/luciérnagas cerca de agua estancada en noches de verano; escarcha en estructuras/rocas por las mañanas frías (aparte de la nieve del suelo, mismo mecanismo de acumulación).
+
 ## 12. Herramientas del bakeador
 
 - **Visor con cámara libre** ("volar" por el mapa), con el mismo sistema de carga por chunks que el juego real (solo se cargan los chunks cercanos a la cámara) — valida la misma pieza que usará el juego en producción.
@@ -157,6 +187,19 @@ Piedra Común · Pedernal · Arcilla · Hierro · Cobre · Plata · Oro · Obsid
 
 Hierba Curativa · Hierba Venenosa · Hierba Aromática · Flor Medicinal · Hongo Medicinal · Raíz · Fibra Vegetal
 
+## 12.6. Orden de ejecución del pipeline (referencia rápida)
+
+1. **Ruido base** (elevación, temperatura, humedad, continentalidad, rareza + drenaje/vulcanismo).
+2. **Clasificación de bioma** contra la tabla de la sección 3.1 (técnica: diagrama de Whittaker, la usa Dwarf Fortress; Minecraft usa la variante de 5 parámetros).
+3. **Suavizado** por autómata celular (limpia salpicaduras, técnica que usa Minecraft).
+4. **Hidrología**: erosión hidráulica por partículas → ríos/lagos/cascadas/desembocaduras.
+5. **Colocación de POIs y parcelas**: muestreo por disco de Poisson + pool de plantillas por bioma.
+6. **Decoración/mapas de calor**: vegetación, rocas, fauna inicial.
+7. **Caminos**: A\* entre puntos importantes.
+8. **Bordes del mapa**: etiquetado (cerrado/mar abierto/tierra abierta) + nombre para el catálogo.
+9. **Exportado por chunks**: un archivo por chunk + índice con versión (sección 18).
+10. **Validación automática** (sección 12): conectividad, zonas alcanzables.
+
 ## 13. Catálogo (obligatorio en todo el proyecto, no solo el bakeador)
 
 - **Catálogo de contenido**: qué es cada cosa (árbol, roca, animal, estructura) — el bakeador solo coloca referencias por nombre a este catálogo, nunca datos "a fuego". Esto permite hornear mapas con cosas (ej. "camello", "mercader") antes de que exista su mecánica — al registrarse en el catálogo más adelante, cobran vida automáticamente en todos los mapas ya horneados, sin regenerar nada.
@@ -176,6 +219,8 @@ Hierba Curativa · Hierba Venenosa · Hierba Aromática · Flor Medicinal · Hon
 - Nombres de zonas/regiones del mapa (cuando el mapa esté trazado completo).
 - Sistema de fertilidad del suelo para granjas (mecánica de juego, no del bakeador).
 - Zonas de ambiente sonoro/partículas por bioma (dato a rellenar, mecanismo ya definido).
+- **Niebla de guerra / descubrimiento del mapa** (mecánica de jugador, no bakeador): reutilizará el propio sistema de chunks — guardar por jugador qué chunks ha visitado alguna vez da minimapa progresivo casi gratis.
+- **Viaje rápido al descubrir un POI** (mecánica de jugador, no bakeador): descubrir un POI importante lo desbloquea como punto de teletransporte — conecta con el punto anterior.
 
 ## 16. Fuera del alcance de este bakeador (piezas aparte)
 
