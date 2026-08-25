@@ -23,6 +23,7 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 
 ## 3. Generación de biomas
 
+- **Biomas habilitados por mapa**: el bakeador recibe, como parámetro de entrada de cada horneado, qué biomas del catálogo completo (sección 3.1) están habilitados para ESE mapa en concreto — un subconjunto, decidido libremente por quien hornea. El mapa principal puede tener los 6 biomas base; un mapa conectado más allá de un borde abierto puede tener solo 2, o combinar alguno ya existente con uno nuevo (ej. Tierras Quemadas). La clasificación de bioma (siguiente punto) solo elige entre los biomas habilitados para ese mapa, nunca del catálogo completo.
 - Ruido de baja frecuencia con **5 parámetros** (inspirado en el sistema moderno de Minecraft): elevación, temperatura, humedad, **continentalidad** (distancia a costa, independiente de la elevación) y **"rareza"** (permite combinaciones inesperadas y controladas, ej. selva sobre montaña).
 - Parámetros extra opcionales inspirados en Dwarf Fortress: **drenaje** (dónde se forman lagos/pantanos de forma más natural que solo por pendiente) y **vulcanismo** (zonas volcánicas/geotérmicas como bioma peligroso extra).
 - **Domain warping**: se distorsionan las coordenadas antes de leer el ruido — rompe el aspecto "ondulado reconocible" del ruido puro y da formas mucho más orgánicas a costas/fronteras de bioma.
