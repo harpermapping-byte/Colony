@@ -114,6 +114,20 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const superficies = []; // hosts con esSuperficie:true ya colocados, para apilar sobreSuperficie encima
   const bordesOcupados = new Set(); // "x_y" de segmentos de pared ya usados por colgadoEnPared
 
+  // Ninguna pieza puede tapar la casilla de entrada justo delante de la
+  // puerta (origenCirculacion): circulacionIntacta no lo detecta por sí
+  // sola si esa casilla concreta queda ocupada (ver comentario en
+  // salas.js — "no es este chequeo el que debe rechazarlo"), así que hace
+  // falta este guardia aparte para que nunca se bloquee la entrada.
+  function cubreOrigen(x, y, huella) {
+    const [hw, hl] = huella || [1, 1];
+    const [ox, oy] = origenCirculacion;
+    return ox >= x && ox < x + hw && oy >= y && oy < y + hl;
+  }
+
+  // Fallback genérico (usado por "libre" y como último recurso si la
+  // colocación sistemática de abajo no encuentra sitio en ningún muro/
+  // centro): posición al azar entre 25 intentos, orientación al azar.
   function intentarColocarEnSuelo(el) {
     const intentos = 25;
     const preferido = el.colocacion.find((c) => c === "esquina" || c === "pegadaAPared" || c === "centroSala" || c === "libre" || c === "juntoAMesa" || c === "simetrico");
@@ -130,6 +144,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       const grados = orientacionesDisponibles[elegirEntero(0, orientacionesDisponibles.length - 1)];
       const huellaRot = rotarHuella(el.huella || [1, 1], grados);
       if (!huecoLibre(x, y, huellaRot)) continue;
+      if (cubreOrigen(x, y, huellaRot)) continue;
       if ((preferido === "pegadaAPared" || preferido === "esquina") && !tocaPared(x, y)) continue;
       if (!ocuparSiCirculacionIntacta(x, y, huellaRot)) continue;
       const item = { id: el.id, x, y, ancho: huellaRot[0], largo: huellaRot[1], rotacion: grados, colorDebug: el.colorDebug, capa: el.capa };
@@ -145,36 +160,156 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     return false;
   }
 
+  // Huecos válidos a lo largo de UN muro para una huella ya rotada: la
+  // coordenada perpendicular al muro queda fija (pegada a él), la otra
+  // recorre todo el largo del muro — así se puede escanear el muro entero
+  // en vez de tirar posiciones al azar.
+  function candidatosPegadoAPared(lado, huellaRot) {
+    const [hw, hl] = huellaRot;
+    const candidatos = [];
+    if (lado === "norte") {
+      for (let x = 1; x <= ancho - 1 - hw; x++) candidatos.push([x, 1]);
+    } else if (lado === "sur") {
+      const y = largo - 1 - hl;
+      for (let x = 1; x <= ancho - 1 - hw; x++) candidatos.push([x, y]);
+    } else if (lado === "oeste") {
+      for (let y = 1; y <= largo - 1 - hl; y++) candidatos.push([1, y]);
+    } else {
+      const x = ancho - 1 - hw;
+      for (let y = 1; y <= largo - 1 - hl; y++) candidatos.push([x, y]);
+    }
+    return candidatos;
+  }
+
+  // Colocación sistemática pegada a un muro (GDD sección 7ter,
+  // "pegadaAPared"/"esquina"): recorre las 4 paredes en orden aleatorio y
+  // DENTRO de cada una prueba cada hueco válido a lo largo del muro entero
+  // — no 25 tiros al azar y a rendirse — así encuentra cualquier sitio que
+  // exista de verdad. La rotación no es al azar: cada lado fuerza el
+  // ángulo que hace que el mueble le dé la espalda a ESE muro y el frente
+  // mire hacia dentro de la sala (convención del catálogo: a 0° un mueble
+  // "abre"/mira hacia el sur — su tileInteraccion, cuando lo tiene, cae
+  // siempre en el borde sur de la huella sin rotar — así que pegado al
+  // muro norte va a 0°, pegado al sur necesita 180° para que el frente
+  // mire hacia dentro y no hacia el muro, este/oeste 90°/270°). Con
+  // `priorizarEsquina` se prueban primero los huecos más cercanos a un
+  // extremo del muro (una esquina de la sala), sin dejar de recorrer el
+  // resto si están ocupados.
+  function intentarPegadoAPared(el, priorizarEsquina) {
+    const huellaBase = el.huella || [1, 1];
+    const lados = barajar(["norte", "sur", "este", "oeste"], rnd);
+    const gradosPorLado = { norte: 0, sur: 180, oeste: 270, este: 90 };
+    for (const lado of lados) {
+      const grados = gradosPorLado[lado];
+      const huellaRot = rotarHuella(huellaBase, grados);
+      let candidatos = candidatosPegadoAPared(lado, huellaRot);
+      if (candidatos.length === 0) continue;
+      if (priorizarEsquina) {
+        const maxX = ancho - 1 - huellaRot[0];
+        const maxY = largo - 1 - huellaRot[1];
+        const distAExtremo = ([x, y]) => (lado === "norte" || lado === "sur" ? Math.min(x - 1, maxX - x) : Math.min(y - 1, maxY - y));
+        candidatos = candidatos
+          .map((c) => [c, distAExtremo(c) + rnd() * 0.5])
+          .sort((a, b) => a[1] - b[1])
+          .map(([c]) => c);
+      } else {
+        candidatos = barajar(candidatos, rnd);
+      }
+      for (const [x, y] of candidatos) {
+        if (esPuerta(x, y)) continue;
+        if (!huecoLibre(x, y, huellaRot)) continue;
+        if (cubreOrigen(x, y, huellaRot)) continue;
+        if (!ocuparSiCirculacionIntacta(x, y, huellaRot)) continue;
+        const item = { id: el.id, x, y, ancho: huellaRot[0], largo: huellaRot[1], rotacion: grados, colorDebug: el.colorDebug, capa: el.capa };
+        if (el.aportes) item.aportes = el.aportes;
+        if (el.tileInteraccion) {
+          const [ix, iy] = rotarOffset(el.tileInteraccion, huellaBase, grados);
+          item.tileInteraccion = [x + ix, y + iy];
+        }
+        colocados.push(item);
+        if (el.esSuperficie) superficies.push(item);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Colocación centrada (mesas/anclas grandes de "centroSala"): recorre
+  // TODO el interior ordenado por cercanía al centro geométrico real de
+  // la sala (con un poco de jitter determinista para variar entre
+  // semillas), en vez de 25 posiciones sueltas al azar — así una mesa
+  // grande cae cerca del centro de verdad en vez de en cualquier hueco
+  // libre que le toque.
+  function intentarCentroSala(el) {
+    const huellaBase = el.huella || [1, 1];
+    const orientaciones = barajar(el.rotacionesPermitidas || ORIENTACIONES, rnd);
+    const cx = (ancho - 1) / 2;
+    const cy = (largo - 1) / 2;
+    const candidatos = [];
+    for (let y = 1; y <= largo - 2; y++) {
+      for (let x = 1; x <= ancho - 2; x++) candidatos.push([x, y, Math.hypot(x - cx, y - cy) + rnd() * 0.75]);
+    }
+    candidatos.sort((a, b) => a[2] - b[2]);
+    for (const [x, y] of candidatos) {
+      if (esPuerta(x, y)) continue;
+      for (const grados of orientaciones) {
+        const huellaRot = rotarHuella(huellaBase, grados);
+        if (!huecoLibre(x, y, huellaRot)) continue;
+        if (cubreOrigen(x, y, huellaRot)) continue;
+        if (!ocuparSiCirculacionIntacta(x, y, huellaRot)) continue;
+        const item = { id: el.id, x, y, ancho: huellaRot[0], largo: huellaRot[1], rotacion: grados, colorDebug: el.colorDebug, capa: el.capa };
+        if (el.aportes) item.aportes = el.aportes;
+        if (el.tileInteraccion) {
+          const [ix, iy] = rotarOffset(el.tileInteraccion, huellaBase, grados);
+          item.tileInteraccion = [x + ix, y + iy];
+        }
+        colocados.push(item);
+        if (el.esSuperficie) superficies.push(item);
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Anillo de casillas justo alrededor de la huella de un ancla (mesa,
   // mostrador, altar...) — donde se sientan sus sillas/bancos, no en
   // cualquier sitio libre de la sala.
   function tilesAlrededorDe(ancla) {
     const tiles = [];
     for (let dx = -1; dx <= ancla.ancho; dx++) {
-      tiles.push([ancla.x + dx, ancla.y - 1]);
-      tiles.push([ancla.x + dx, ancla.y + ancla.largo]);
+      tiles.push({ x: ancla.x + dx, y: ancla.y - 1, lado: "norte" });
+      tiles.push({ x: ancla.x + dx, y: ancla.y + ancla.largo, lado: "sur" });
     }
     for (let dy = 0; dy < ancla.largo; dy++) {
-      tiles.push([ancla.x - 1, ancla.y + dy]);
-      tiles.push([ancla.x + ancla.ancho, ancla.y + dy]);
+      tiles.push({ x: ancla.x - 1, y: ancla.y + dy, lado: "oeste" });
+      tiles.push({ x: ancla.x + ancla.ancho, y: ancla.y + dy, lado: "este" });
     }
-    return tiles.filter(([x, y]) => x >= 1 && y >= 1 && x <= ancho - 2 && y <= largo - 2 && !esPuerta(x, y));
+    return tiles.filter(({ x, y }) => x >= 1 && y >= 1 && x <= ancho - 2 && y <= largo - 2 && !esPuerta(x, y));
   }
 
   // "juntoAMesa" de verdad: se sienta junto a un ancla (esSuperficie) ya
   // colocada en esta sala, no en un punto aleatorio de la sala — así una
   // silla siempre aparece pegada a una mesa real, nunca suelta por ahí. Si
   // hay varias mesas, reparte entre las que menos sillas tengan todavía.
+  // La orientación no es al azar: según de qué lado del ancla venga el
+  // hueco, se fuerza el ángulo que hace que el satélite mire HACIA el
+  // ancla (misma convención de "0° mira al sur" que intentarPegadoAPared)
+  // — una silla al norte de la mesa mira al sur, una al sur mira al
+  // norte, etc., así las sillas quedan mirando a la mesa, no de espaldas.
   function intentarJuntoAMesa(el) {
     if (superficies.length === 0) return intentarColocarEnSuelo(el);
     const anclasOrdenadas = superficies.slice().sort((a, b) => (a._satelites || 0) - (b._satelites || 0));
+    const gradosParaMirarAncla = { norte: 0, sur: 180, oeste: 270, este: 90 };
     for (const anclaEl of anclasOrdenadas) {
       const anillo = barajar(tilesAlrededorDe(anclaEl), rnd);
-      for (const [x, y] of anillo) {
-        const huella = el.huella || [1, 1];
+      for (const { x, y, lado } of anillo) {
+        const huellaBase = el.huella || [1, 1];
+        const grados = gradosParaMirarAncla[lado];
+        const huella = rotarHuella(huellaBase, grados);
         if (!huecoLibre(x, y, huella)) continue;
+        if (cubreOrigen(x, y, huella)) continue;
         if (!ocuparSiCirculacionIntacta(x, y, huella)) continue;
-        const item = { id: el.id, x, y, ancho: huella[0], largo: huella[1], colorDebug: el.colorDebug, capa: el.capa };
+        const item = { id: el.id, x, y, ancho: huella[0], largo: huella[1], rotacion: grados, colorDebug: el.colorDebug, capa: el.capa };
         if (el.aportes) item.aportes = el.aportes;
         colocados.push(item);
         anclaEl._satelites = (anclaEl._satelites || 0) + 1;
@@ -197,6 +332,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       const y = elegirEntero(1, largo - 1 - hl);
       const xEspejo = ancho - hw - x;
       if (esPuerta(x, y) || esPuerta(xEspejo, y)) continue;
+      if (cubreOrigen(x, y, el.huella) || cubreOrigen(xEspejo, y, el.huella)) continue;
       if (!huecoLibre(x, y, el.huella)) continue;
       if (xEspejo !== x && !huecoLibre(xEspejo, y, el.huella)) continue;
       if (!ocuparSiCirculacionIntacta(x, y, el.huella)) continue;
@@ -263,6 +399,15 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     if (defSala.simetrico && el.colocacion.length === 1 && el.colocacion[0] === "simetrico") {
       return colocarSimetrico(el);
     }
+    // pegadaAPared/esquina/centroSala usan ahora la colocación sistemática
+    // (muro escaneado entero con orientación forzada / centro real de la
+    // sala) en vez del muestreo al azar de intentarColocarEnSuelo — esa
+    // función queda como último recurso si no encuentran sitio de verdad
+    // (p.ej. las 4 paredes ya llenas), y sigue siendo la vía normal para
+    // "libre".
+    if (el.colocacion.includes("pegadaAPared")) return intentarPegadoAPared(el, false) || intentarColocarEnSuelo(el);
+    if (el.colocacion.includes("esquina")) return intentarPegadoAPared(el, true) || intentarColocarEnSuelo(el);
+    if (el.colocacion.includes("centroSala")) return intentarCentroSala(el) || intentarColocarEnSuelo(el);
     return intentarColocarEnSuelo(el);
   }
 
