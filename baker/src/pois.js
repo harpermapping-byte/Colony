@@ -46,6 +46,7 @@ function colocarPOIs({ anchoTiles, altoTiles, separacionMinima, semilla, biomaEn
         x,
         y,
         legendario: esLegendario,
+        radio: elegida.radio || 3, // cuánto ocupa la estructura (casillas), para despejar decoración alrededor
       });
     }
   }

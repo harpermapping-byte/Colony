@@ -21,7 +21,7 @@ function crearExportador(carpetaSalida, leyendaTerreno) {
     return `${sx}_${sy}`;
   }
 
-  function agregarChunk(chunkX, chunkY, tamanoChunk, terrenoPorCasilla, objetos, poisDelChunk) {
+  function agregarChunk(chunkX, chunkY, tamanoChunk, terrenoPorCasilla, objetos, poisDelChunk, elevacionPorCasilla) {
     const sx = Math.floor(chunkX / TAMANO_SECTOR_CHUNKS);
     const sy = Math.floor(chunkY / TAMANO_SECTOR_CHUNKS);
     const clave = claveSector(sx, sy);
@@ -37,6 +37,7 @@ function crearExportador(carpetaSalida, leyendaTerreno) {
 
     sectores.get(clave).chunks[`${chunkX}_${chunkY}`] = {
       terreno: cadena,
+      elevacion: elevacionPorCasilla || "",
       tamano: tamanoChunk,
       objetos,
       pois: poisDelChunk || [],

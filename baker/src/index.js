@@ -59,6 +59,7 @@ function main() {
   console.log("Clasificando biomas...");
   const biomaGrid = new Uint8Array(anchoTiles * altoTiles);
   const bandaGrid = new Uint8Array(anchoTiles * altoTiles);
+  const elevacionGrid = new Float32Array(anchoTiles * altoTiles); // altura continua 0..1, para hidrología y sombreado
   const listaIdsBiomas = Object.keys(catalogoBiomas);
   const idxBiomaDe = new Map(listaIdsBiomas.map((id, i) => [id, i]));
   const biomaDeIdx = (i) => listaIdsBiomas[i];
@@ -69,6 +70,7 @@ function main() {
       const i = y * anchoTiles + x;
       biomaGrid[i] = idxBiomaDe.get(r.bioma) ?? 0;
       bandaGrid[i] = r.banda;
+      elevacionGrid[i] = r.elevacionContinua;
     }
     if (y % Math.max(1, Math.floor(altoTiles / 10)) === 0) {
       process.stdout.write(`  fila ${y}/${altoTiles}\r`);
@@ -84,7 +86,10 @@ function main() {
     anchoTiles,
     altoTiles,
     paso: pasoHidrologia,
-    elevacionEn: (x, y) => 1 - bandaGrid[Math.min(altoTiles - 1, y) * anchoTiles + Math.min(anchoTiles - 1, x)] / 6,
+    // Altura continua, no la banda escalonada — con la banda (solo 7 valores
+    // posibles) salían demasiados empates de pendiente y el agua se quedaba
+    // en charcos sueltos en vez de fluir en cadena hacia el mar.
+    elevacionEn: (x, y) => elevacionGrid[Math.min(altoTiles - 1, y) * anchoTiles + Math.min(anchoTiles - 1, x)],
     umbralRio: config.umbralRio || 6,
   });
 
@@ -142,20 +147,33 @@ function main() {
     resultadosCaminos.push({ poiId: poi.id, x: poi.x, y: poi.y, encontrada: !!camino });
     if (camino) {
       for (let i = 0; i < camino.length - 1; i++) {
-        marcarSegmentoComoCamino(camino[i], camino[i + 1], tilesCaminoRoad, 2);
+        marcarSegmentoComoCamino(camino[i], camino[i + 1], tilesCaminoRoad, 1);
       }
     }
   }
   console.log(`  ${resultadosCaminos.filter((r) => r.encontrada).length}/${resultadosCaminos.length} caminos trazados con éxito.`);
 
+  // Traza el segmento con una ligera ondulación (no una línea perfectamente
+  // recta) desplazando cada punto intermedio en perpendicular a la
+  // dirección del segmento, con una onda suave — mismo espíritu que el
+  // "no parezca generado a la brava" del resto del bakeador.
   function marcarSegmentoComoCamino(a, b, set, radio) {
-    const pasos = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y)));
+    const largo = Math.hypot(b.x - a.x, b.y - a.y);
+    const pasos = Math.max(1, Math.ceil(largo));
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const perpX = largo > 0 ? -dy / largo : 0;
+    const perpY = largo > 0 ? dx / largo : 0;
+    const amplitud = Math.min(4, largo / 6);
+
     for (let s = 0; s <= pasos; s++) {
-      const px = Math.round(a.x + ((b.x - a.x) * s) / pasos);
-      const py = Math.round(a.y + ((b.y - a.y) * s) / pasos);
-      for (let dy = -radio; dy <= radio; dy++) {
-        for (let dx = -radio; dx <= radio; dx++) {
-          set.add(`${px + dx}_${py + dy}`);
+      const t = s / pasos;
+      const ondulacion = Math.sin(t * Math.PI * 2 + a.x * 0.13 + a.y * 0.07) * amplitud;
+      const px = Math.round(a.x + dx * t + perpX * ondulacion);
+      const py = Math.round(a.y + dy * t + perpY * ondulacion);
+      for (let ddy = -radio; ddy <= radio; ddy++) {
+        for (let ddx = -radio; ddx <= radio; ddx++) {
+          set.add(`${px + ddx}_${py + ddy}`);
         }
       }
     }
@@ -181,10 +199,30 @@ function main() {
       tipo: poi.tipo,
       bioma: poi.bioma,
       legendario: poi.legendario,
+      radio: poi.radio,
       x: poi.x % tamanoChunk,
       y: poi.y % tamanoChunk,
     });
   }
+
+  // La ciudad en sí NO la genera este bakeador (es un mapa aparte, pintado a
+  // mano — ver GDD). Aquí solo marcamos su punto de entrada como un POI más,
+  // para que se vea y se nombre igual que cualquier otro en el visor.
+  {
+    const cxCiudad = Math.floor(ciudad.x / tamanoChunk);
+    const cyCiudad = Math.floor(ciudad.y / tamanoChunk);
+    const claveCiudad = `${cxCiudad}_${cyCiudad}`;
+    if (!poisPorChunk.has(claveCiudad)) poisPorChunk.set(claveCiudad, []);
+    poisPorChunk.get(claveCiudad).push({
+      id: "entrada_ciudad",
+      tipo: "portal",
+      bioma: null,
+      legendario: false,
+      x: ciudad.x % tamanoChunk,
+      y: ciudad.y % tamanoChunk,
+    });
+  }
+  const RADIO_EXPLANADA_CIUDAD = 8; // casillas alrededor de la entrada sin decoración, para que no crezcan árboles encima
 
   const biomaChunkCache = new Map(); // para la imagen de resumen
   const aguaChunkCache = new Set();
@@ -207,7 +245,19 @@ function main() {
           const banda = bandaGrid[i];
           const h = hidro.consultar(x, y);
           const esCamino = tilesCaminoRoad.has(`${x}_${y}`);
-          const idTerreno = decidirTerreno({ biomaId, catalogoBiomas, banda, hidro: h, esCamino });
+          let idTerreno = decidirTerreno({ biomaId, catalogoBiomas, banda, hidro: h, esCamino });
+
+          // Acantilado (GDD sección 2): un salto de más de un nivel de altura
+          // respecto al vecino inmediato es infranqueable — salvo que sea
+          // camino (hace de rampa) o ya sea agua. Es lo que faltaba para que
+          // la elevación se note de verdad, no solo cambie el tipo de bioma.
+          if (!esCamino && idTerreno !== "agua" && idTerreno !== "agua_profunda") {
+            const bandaDer = x + 1 < anchoTiles ? bandaGrid[i + 1] : banda;
+            const bandaAbajo = y + 1 < altoTiles ? bandaGrid[i + anchoTiles] : banda;
+            if (Math.abs(banda - bandaDer) >= 2 || Math.abs(banda - bandaAbajo) >= 2) {
+              idTerreno = "roca_inaccesible";
+            }
+          }
 
           const idxLocal = ly * tamanoChunk + lx;
           terrenoPorCasilla[idxLocal] = idTerreno;
@@ -230,7 +280,7 @@ function main() {
       if (hayAgua) aguaChunkCache.add(`${cx}_${cy}`);
       if (hayCamino) caminoChunkCache.add(`${cx}_${cy}`);
 
-      const objetos = decorador.generarParaChunk(cx, cy, tamanoChunk, (lx, ly) => {
+      let objetos = decorador.generarParaChunk(cx, cy, tamanoChunk, (lx, ly) => {
         const idxLocal = ly * tamanoChunk + lx;
         const idT = terrenoPorCasilla[idxLocal];
         return {
@@ -241,7 +291,38 @@ function main() {
         };
       });
 
-      exportador.agregarChunk(cx, cy, tamanoChunk, terrenoPorCasilla, objetos, poisPorChunk.get(`${cx}_${cy}`) || []);
+      // Explanada despejada alrededor de la entrada a la ciudad y de cada
+      // estructura (su "radio" de ocupación, GDD sección 6) — nada de
+      // árboles/rocas creciendo encima. Solo miramos POIs de este chunk y
+      // los 8 vecinos, de sobra dado que los radios son pequeños.
+      const poisCercanos = [];
+      for (let dcy = -1; dcy <= 1; dcy++) {
+        for (let dcx = -1; dcx <= 1; dcx++) {
+          const lista = poisPorChunk.get(`${cx + dcx}_${cy + dcy}`);
+          if (!lista) continue;
+          for (const p of lista) {
+            poisCercanos.push({ x: (cx + dcx) * tamanoChunk + p.x, y: (cy + dcy) * tamanoChunk + p.y, radio: p.radio || 3 });
+          }
+        }
+      }
+      objetos = objetos.filter((obj) => {
+        const tileX = cx * tamanoChunk + obj.x;
+        const tileY = cy * tamanoChunk + obj.y;
+        if (Math.hypot(tileX - ciudad.x, tileY - ciudad.y) <= RADIO_EXPLANADA_CIUDAD) return false;
+        for (const p of poisCercanos) {
+          if (Math.hypot(tileX - p.x, tileY - p.y) <= p.radio) return false;
+        }
+        return true;
+      });
+
+      // Elevación empaquetada igual que el terreno (un carácter base36 por
+      // casilla, 0-6) — así el visor puede sombrear por altura de verdad.
+      let cadenaElevacion = "";
+      for (let k = 0; k < bandaLocalPorCasilla.length; k++) {
+        cadenaElevacion += bandaLocalPorCasilla[k].toString(36);
+      }
+
+      exportador.agregarChunk(cx, cy, tamanoChunk, terrenoPorCasilla, objetos, poisPorChunk.get(`${cx}_${cy}`) || [], cadenaElevacion);
     }
     if (cy % Math.max(1, Math.floor(altoChunks / 10)) === 0) {
       process.stdout.write(`  fila de chunks ${cy}/${altoChunks}\r`);

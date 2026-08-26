@@ -1,32 +1,32 @@
 {
   "_nota": "Plantillas de POI por bioma (GDD sección 6). tipo: integrado (vive en el propio mapa) o portal (enlaza a instancia aparte, este bakeador solo coloca el disparador).",
   "pradera": [
-    { "id": "granja_abandonada", "tipo": "integrado", "reglasSitio": ["terrenoLlano"] },
-    { "id": "circulo_piedras", "tipo": "integrado", "reglasSitio": ["terrenoLlano"] },
-    { "id": "pozo_aldea", "tipo": "integrado", "reglasSitio": ["terrenoLlano"] }
+    { "id": "granja_abandonada", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 6 },
+    { "id": "circulo_piedras", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 3 },
+    { "id": "pozo_aldea", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 2 }
   ],
   "bosque": [
-    { "id": "claro_altar_antiguo", "tipo": "integrado", "reglasSitio": [] },
-    { "id": "campamento_cazador", "tipo": "integrado", "reglasSitio": [] },
-    { "id": "guarida_lobo", "tipo": "portal", "reglasSitio": [] }
+    { "id": "claro_altar_antiguo", "tipo": "integrado", "reglasSitio": [], "radio": 4 },
+    { "id": "campamento_cazador", "tipo": "integrado", "reglasSitio": [], "radio": 4 },
+    { "id": "guarida_lobo", "tipo": "portal", "reglasSitio": [], "radio": 3 }
   ],
   "montana_nevada": [
-    { "id": "cabana_cazador", "tipo": "integrado", "reglasSitio": ["bandaElevacionMin:4"] },
-    { "id": "mina_abandonada", "tipo": "portal", "reglasSitio": ["bandaElevacionMin:4"] }
+    { "id": "cabana_cazador", "tipo": "integrado", "reglasSitio": ["bandaElevacionMin:4"], "radio": 3 },
+    { "id": "mina_abandonada", "tipo": "portal", "reglasSitio": ["bandaElevacionMin:4"], "radio": 3 }
   ],
   "desierto": [
-    { "id": "oasis_pequeno", "tipo": "integrado", "reglasSitio": ["terrenoLlano"] },
-    { "id": "oasis_mercader", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "legendario": false },
-    { "id": "ruinas_semienterradas", "tipo": "integrado", "reglasSitio": [] },
-    { "id": "campo_dunas_gigantes", "tipo": "integrado", "reglasSitio": [] }
+    { "id": "oasis_pequeno", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 5 },
+    { "id": "oasis_mercader", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "legendario": false, "radio": 8 },
+    { "id": "ruinas_semienterradas", "tipo": "integrado", "reglasSitio": [], "radio": 5 },
+    { "id": "campo_dunas_gigantes", "tipo": "integrado", "reglasSitio": [], "radio": 10 }
   ],
   "costa": [
-    { "id": "barco_encallado", "tipo": "integrado", "reglasSitio": ["cercaAgua"] },
-    { "id": "faro_abandonado", "tipo": "portal", "reglasSitio": ["cercaAgua"] }
+    { "id": "barco_encallado", "tipo": "integrado", "reglasSitio": ["cercaAgua"], "radio": 4 },
+    { "id": "faro_abandonado", "tipo": "portal", "reglasSitio": ["cercaAgua"], "radio": 3 }
   ],
   "pantano": [
-    { "id": "choza_curandero", "tipo": "integrado", "reglasSitio": [] },
-    { "id": "altar_hundido", "tipo": "integrado", "reglasSitio": ["cercaAgua"] }
+    { "id": "choza_curandero", "tipo": "integrado", "reglasSitio": [], "radio": 3 },
+    { "id": "altar_hundido", "tipo": "integrado", "reglasSitio": ["cercaAgua"], "radio": 3 }
   ],
   "_legendarias": {
     "probabilidad": 0.02,
