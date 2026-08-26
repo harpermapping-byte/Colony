@@ -69,7 +69,7 @@ const servidor = http.createServer(async (req, res) => {
   if (url.pathname === "/api/opciones" && req.method === "GET") {
     const catalogos = cargarCatalogos();
     const biomas = Object.entries(catalogos.biomas)
-      .filter(([id]) => !id.startsWith("_"))
+      .filter(([id, datos]) => !id.startsWith("_") && !datos.siempreActivo)
       .map(([id, datos]) => ({
         id,
         habilitadoPorDefecto: !!datos.habilitadoPorDefecto,

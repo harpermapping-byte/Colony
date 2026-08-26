@@ -34,6 +34,7 @@ Si prefieres seguir usando la terminal directamente:
 ```bash
 cd baker
 node src/index.js config/ejemplo-rapido.json      # mapa pequeño de prueba
+node src/index.js config/ejemplo-bordes.json      # mapa pequeño con los 4 tipos de borde a la vez (mar, montaña, tierra, cerrado) — para ver el efecto de cada uno
 node src/index.js config/mapa-principal.json      # el mapa grande de verdad
 ```
 
@@ -54,7 +55,7 @@ Todo lo que ves en el formulario de la interfaz gráfica también se puede edita
 - `biomasHabilitados`: qué biomas de `catalogo/biomas.json` pueden aparecer en este mapa en concreto (GDD sección 3, "biomas habilitados por mapa").
 - `anchoChunks` / `altoChunks`: tamaño del mapa.
 - `separacionMinimaPOI`: cuánto espacio mínimo entre puntos de interés.
-- `bordes`: qué hay en cada lado del mapa (`cerrado`, `mar_abierto`, `tierra_abierta` con un `nombre` para conectarlo a un mapa futuro).
+- `bordes`: qué hay en cada lado del mapa (`cerrado`, `mar_abierto`, `montana`, `tierra_abierta` con un `nombre` para conectarlo a un mapa futuro). El tipo influye de verdad en el terreno cercano a ese lado: `mar_abierto` empuja el mar hacia ahí (la costa se forma algo más adentro, dejando franja de agua real entre el borde y la orilla — con variedad de acantilados/playas/cabos según la zona), `montana`/`cerrado` levantan un muro de roca infranqueable, y `tierra_abierta` deja una frontera de tierra normal sin forzar nada.
 
 El **contenido** (qué árboles, animales, rocas y POIs existen) está en `catalogo/*.json` — añadir una especie nueva es añadir una entrada nueva a esos archivos, no toca el código del bakeador (regla de extensibilidad del GDD, sección 19).
 
@@ -78,7 +79,10 @@ Sube la carpeta `output/<nombre-del-mapa>/` al repositorio (a `baker/output/` o 
 
 Para que quede claro qué es fiel al diseño y qué está simplificado de momento:
 
-- **Hidrología**: usa el algoritmo simple de "seguir la pendiente" (GDD sección 4), no la versión mejorada de erosión hidráulica por partículas — funciona bien, pero el relieve de los cauces es menos realista que la versión avanzada.
+- **Hidrología**: usa el algoritmo simple de "seguir la pendiente" (GDD sección 4), no la versión mejorada de erosión hidráulica por partículas — funciona bien, pero el relieve de los cauces es menos realista que la versión avanzada. Si el mapa no genera ningún lago natural, se fuerza una charca pequeña en el punto más bajo del interior para que nunca falte un cuerpo de agua quieta.
+- **Bioma marino**: `mar_bajo` (franja costera menos profunda) y `mar_profundo` son automáticos — no aparecen como checkbox en la interfaz, se activan solos donde la elevación cae lo bastante (normalmente cerca de un borde `mar_abierto`, pero también puede salir un mar pequeño de pura casualidad del ruido). Tienen su propio catálogo de vida (peces de varios tamaños, depredadores, ballenas, pulpos, calamares, moluscos, crustáceos, estrellas y pepinos de mar, corales y algas) en `catalogo/vegetacion.json` y `catalogo/animales.json`. Ojo con el tiempo de horneado: decorar océanos enteros (donde antes no se procesaba nada por no ser terreno transitable) añade trabajo real — un mapa con un borde de mar grande puede tardar bastante más que uno completamente cerrado.
+- **Caminos en montaña**: los tramos que cruzan banda de elevación alta zigzaguean con más amplitud y curvas, imitando una carretera de montaña real en vez de subir en línea recta.
+- **Densidad de bosque**: varía por región (una capa de ruido de gran escala hace que unas zonas de bosque salgan grandes y muy pobladas y otras más pequeñas y ralas), no es la misma densidad uniforme en todo el bioma.
 - **Catálogo de contenido**: `catalogo/*.json` trae un subconjunto representativo (no las ~300 especies completas de `docs/Catalogo_Especies_Exterior.md`) — se amplía añadiendo entradas nuevas a esos JSON, sin tocar el código.
 - **No implementado todavía** (son efectos que el propio diseño define como "en vivo", no horneados — le tocan al servidor del juego más adelante, no a este bakeador): clima, estaciones, acumulación de nieve/charcos, sombras dinámicas, niebla de guerra, reproducción de fauna. El bakeador ya deja los datos que esos sistemas van a necesitar (posición de la ciudad, alturas, tipos de terreno), pero no calcula los efectos en sí.
 - **Domain warping y suavizado**: implementados y activos, dan el aspecto orgánico que buscábamos (compáralo con un mapa de ruido puro sin estas dos técnicas y se nota la diferencia).

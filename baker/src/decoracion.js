@@ -17,6 +17,16 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
     return capasRuido.get(clave);
   }
 
+  // Densidad regional de bosque: capa de ruido de gran escala (regiones
+  // enteras, no casilla a casilla) que multiplica la densidad de la
+  // vegetación del bioma "bosque" — así unas zonas de bosque salen grandes
+  // y muy pobladas y otras más pequeñas y ralas, nunca todas iguales.
+  const nDensidadBosque = new CapaRuido(semilla + ":densidadRegionBosque", 550);
+  function factorDensidadRegional(bioma, x, y) {
+    if (bioma !== "bosque") return 1;
+    return 0.35 + nDensidadBosque.fbm(x, y, 2) * 1.5; // ~0.35..1.85
+  }
+
   function entradasValidas(catalogo, bioma, banda) {
     const salida = [];
     for (const [id, datos] of Object.entries(catalogo)) {
@@ -35,12 +45,21 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
     const candidatos = entradasValidas(catalogo, bioma, banda);
     const resultado = [];
     for (const [id, datos] of candidatos) {
-      if (opciones.requiereAgua && !opciones.esAgua) continue;
-      if (opciones.requiereCercaAgua && !opciones.cercaAgua) continue;
+      // Vida acuática (requiereAgua) solo en agua; todo lo demás nunca en
+      // agua abierta — antes esta comprobación estaba rota (opciones.esAgua
+      // siempre llegaba a false), así que ni una sola casilla de agua
+      // procesaba decoración: nada de vida marina podía existir nunca.
+      if (opciones.esAgua) {
+        if (!datos.requiereAgua) continue;
+      } else {
+        if (datos.requiereAgua) continue;
+        if (datos.requiereCercaAgua && !opciones.cercaAgua) continue;
+      }
       const ruido = capaPara(id, datos.escalaRuido || 20).fbm(x, y, 3);
-      const densidad = (datos.densidadBase || 0.01) * ruido * 2; // ruido 0..1 -> variación en torno a la base
+      const densidad = (datos.densidadBase || 0.01) * ruido * 2 * factorDensidadRegional(bioma, x, y);
       if (prngLocal() < densidad) {
         const variantes = datos.variantes || 1;
+        const escalaBase = datos.escalaBase || 1;
         // Claves cortas y escala redondeada a 2 decimales — con miles de
         // objetos por chunk, el peso de cada campo cuenta de verdad
         // (GDD sección 14, optimización). t: v=vegetación, a=animal, r=roca.
@@ -49,7 +68,7 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
           t: catalogo === catalogoAnimales ? "a" : catalogo === catalogoRocas ? "r" : "v",
           va: Math.floor(prngLocal() * variantes),
           ro: Math.floor(prngLocal() * 360),
-          es: Math.round((0.85 + prngLocal() * 0.3) * 100) / 100,
+          es: Math.round(escalaBase * (0.85 + prngLocal() * 0.3) * 100) / 100,
         });
         break; // solo un objeto de esta capa por casilla, evita amontonar
       }
@@ -65,9 +84,13 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         const x = chunkX * tamanoChunk + lx;
         const y = chunkY * tamanoChunk + ly;
         const celda = obtenerCelda(lx, ly);
-        if (!celda || !celda.transitable) continue;
+        if (!celda) continue;
+        // Las casillas de agua (esAgua) no son "transitable" pero sí deben
+        // procesarse — es donde vive la fauna y flora marina/de río. Roca
+        // sólida u otro terreno intransitable sin agua no lleva decoración.
+        if (!celda.transitable && !celda.esAgua) continue;
 
-        const opciones = { esAgua: false, cercaAgua: celda.cercaAgua };
+        const opciones = { esAgua: !!celda.esAgua, cercaAgua: celda.cercaAgua };
         const veg = objetosEnCasilla(catalogoVegetacion, celda.bioma, celda.banda, x, y, prng, opciones);
         const roc = objetosEnCasilla(catalogoRocas, celda.bioma, celda.banda, x, y, prng, opciones);
         const fauna = objetosEnCasilla(catalogoAnimales, celda.bioma, celda.banda, x, y, prng, opciones);

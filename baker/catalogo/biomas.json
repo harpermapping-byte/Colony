@@ -1,5 +1,21 @@
 {
   "_nota": "Rangos 0..1 salvo bandaElevacion (entero 0..6: 0 agua profunda, 1 agua/orilla, 2 playa/bajos, 3 llanura, 4 colinas, 5 montaña, 6 cumbre). Ver GDD sección 3.1.",
+  "mar_profundo": {
+    "elevacionMax": 0.10,
+    "terrenoBase": "agua_profunda",
+    "colorDebug": "#0d2c4a",
+    "siempreActivo": true,
+    "esMarino": true,
+    "_nota": "Clasificado por umbral directo de elevación, no por el sistema de rangos habitual — ver crearGeneradorBiomas en biomas.js. Siempre activo, no aparece como checkbox en la GUI."
+  },
+  "mar_bajo": {
+    "elevacionMax": 0.22,
+    "terrenoBase": "agua",
+    "colorDebug": "#3fa9c9",
+    "siempreActivo": true,
+    "esMarino": true,
+    "_nota": "Franja costera menos profunda, entre mar_profundo y la banda de playa/costa. Mismo mecanismo de umbral directo."
+  },
   "pradera": {
     "rangos": { "temperatura": [0.4, 0.6], "humedad": [0.35, 0.6], "bandaElevacion": [3, 4], "continentalidad": [0.4, 1.0] },
     "terrenoBase": "cesped",

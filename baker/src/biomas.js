@@ -9,7 +9,22 @@ function distanciaFuera(valor, min, max) {
   return 0;
 }
 
-function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas) {
+// Cuánto empuja cada tipo de borde a la elevación continua (0..1) cerca de
+// ese lado del mapa, y qué tan gruesa (en tiles) es la franja de influencia
+// como fracción de la dimensión menor del mapa. mar_abierto empuja fuerte
+// hacia abajo (mar), montana/cerrado empujan fuerte hacia arriba (muro
+// infranqueable — banda 6 es roca_inaccesible), tierra_abierta apenas
+// suaviza para que no salgan ni charcos ni picos justo en el borde.
+const PERFIL_BORDE = {
+  mar_abierto: { objetivo: -0.62, fraccionGrosor: 0.16 },
+  montana: { objetivo: 0.85, fraccionGrosor: 0.07 },
+  cerrado: { objetivo: 0.85, fraccionGrosor: 0.07 },
+  tierra_abierta: { objetivo: 0.12, fraccionGrosor: 0.035 },
+};
+
+function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas, opciones = {}) {
+  const { anchoTiles = 0, altoTiles = 0, bordes = null } = opciones;
+
   // Capas de ruido independientes (GDD sección 3): elevación, temperatura,
   // humedad, continentalidad, más warp para romper el aspecto "de ordenador".
   const nElevacion = new CapaRuido(semilla + ":elevacion", 180);
@@ -19,11 +34,53 @@ function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas) {
   const warpX = new CapaRuido(semilla + ":warpx", 90);
   const warpY = new CapaRuido(semilla + ":warpy", 90);
   const nVulcanismo = new CapaRuido(semilla + ":vulcanismo", 250);
+  // Modula localmente cuánto empuja un borde de mar/montaña: en vez de un
+  // muro/costa perfectamente uniforme, unos tramos reciben más empuje
+  // (acantilados que caen o suben de golpe) y otros menos (playas suaves,
+  // cabos que resisten y se meten mar adentro) — GDD sección "bordes".
+  const nAsperezaBorde = new CapaRuido(semilla + ":asperezaborde", 70);
 
-  const entradas = biomasHabilitados.map((id) => ({ id, ...catalogoBiomas[id] }));
+  const dimensionMenor = Math.max(1, Math.min(anchoTiles || Infinity, altoTiles || Infinity));
+
+  const bordesInfo = bordes
+    ? [
+        ["norte", bordes.norte],
+        ["sur", bordes.sur],
+        ["este", bordes.este],
+        ["oeste", bordes.oeste],
+      ].filter(([, b]) => b && PERFIL_BORDE[b.tipo])
+    : [];
+
+  function distanciaABorde(lado, x, y) {
+    if (lado === "norte") return y;
+    if (lado === "sur") return altoTiles - 1 - y;
+    if (lado === "este") return anchoTiles - 1 - x;
+    return x; // oeste
+  }
+
+  // Sesgo aditivo de elevación por cercanía a bordes configurados: el borde
+  // más influyente en este punto (mayor magnitud) gana, para no sumar
+  // empujes contradictorios en las esquinas donde coinciden dos tipos.
+  function sesgoElevacionBorde(x, y) {
+    if (bordesInfo.length === 0) return 0;
+    let mejorValor = 0;
+    for (const [lado, borde] of bordesInfo) {
+      const perfil = PERFIL_BORDE[borde.tipo];
+      const grosor = Math.max(12, dimensionMenor * perfil.fraccionGrosor);
+      const d = distanciaABorde(lado, x, y);
+      if (d >= grosor) continue;
+      const t = 1 - d / grosor;
+      const curva = t * t; // cae rápido al alejarse del borde
+      const textura = 0.55 + nAsperezaBorde.fbm(x, y, 2) * 0.9; // ~0.55..1.45
+      const valor = perfil.objetivo * curva * textura;
+      if (Math.abs(valor) > Math.abs(mejorValor)) mejorValor = valor;
+    }
+    return mejorValor;
+  }
 
   function muestrear(x, y) {
-    const elevacion = conDomainWarp(nElevacion, warpX, warpY, x, y, 60);
+    const elevacionBase = conDomainWarp(nElevacion, warpX, warpY, x, y, 60);
+    const elevacion = Math.min(1, Math.max(0, elevacionBase + sesgoElevacionBorde(x, y)));
     const temperatura = nTemperatura.fbm(x, y, 3);
     const humedad = conDomainWarp(nHumedad, warpX, warpY, x, y, 40);
     const continentalidad = nContinental.fbm(x, y, 2);
@@ -36,9 +93,24 @@ function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas) {
     return Math.min(6, Math.floor(elevacionContinua * 7));
   }
 
+  const bMarProfundo = catalogoBiomas["mar_profundo"];
+  const bMarBajo = catalogoBiomas["mar_bajo"];
+  const entradas = biomasHabilitados.map((id) => ({ id, ...catalogoBiomas[id] }));
+
   function clasificar(x, y) {
     const m = muestrear(x, y);
     const banda = bandaDeElevacion(m.elevacion);
+
+    // El mar (profundo o bajo) se decide por umbral directo de elevación,
+    // antes que el resto de biomas por rangos — así siempre hay océano de
+    // verdad donde la elevación cae lo bastante, tanto si lo empuja un
+    // borde de mar_abierto como si sale de pura casualidad del ruido base.
+    if (bMarProfundo && m.elevacion < bMarProfundo.elevacionMax) {
+      return { bioma: "mar_profundo", banda, elevacionContinua: m.elevacion, humedad: m.humedad, temperatura: m.temperatura };
+    }
+    if (bMarBajo && m.elevacion < bMarBajo.elevacionMax) {
+      return { bioma: "mar_bajo", banda, elevacionContinua: m.elevacion, humedad: m.humedad, temperatura: m.temperatura };
+    }
 
     let mejor = null;
     let mejorPuntuacion = Infinity;

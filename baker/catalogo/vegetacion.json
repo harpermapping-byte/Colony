@@ -59,6 +59,16 @@
   "juncos_de_playa": { "biomas": ["costa"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.04, "escalaRuido": 10, "variantes": 2, "colorDebug": "#8a9a4a" },
   "cardo_maritimo": { "biomas": ["costa"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.02, "escalaRuido": 12, "variantes": 1, "colorDebug": "#7a9aa0" },
 
+  "_nota_mar": "Flora acuática de verdad (requiereAgua) — solo en casillas de agua de mar_bajo/mar_profundo.",
+  "alga_parda": { "biomas": ["mar_bajo"], "requiereAgua": true, "categoriaRecurso": "alga", "densidadBase": 0.06, "escalaRuido": 14, "variantes": 2, "colorDebug": "#3a6a3a" },
+  "alga_roja": { "biomas": ["mar_bajo", "mar_profundo"], "requiereAgua": true, "categoriaRecurso": "alga", "densidadBase": 0.03, "escalaRuido": 12, "variantes": 2, "colorDebug": "#8a3a4a" },
+  "posidonia": { "biomas": ["mar_bajo"], "requiereAgua": true, "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.05, "escalaRuido": 10, "variantes": 1, "colorDebug": "#2a7a5a" },
+  "coral_cerebro": { "biomas": ["mar_bajo"], "requiereAgua": true, "categoriaRecurso": "coral", "densidadBase": 0.02, "escalaRuido": 16, "variantes": 2, "colorDebug": "#c07a5a" },
+  "coral_cuerno_de_ciervo": { "biomas": ["mar_bajo"], "requiereAgua": true, "categoriaRecurso": "coral", "densidadBase": 0.018, "escalaRuido": 16, "variantes": 2, "colorDebug": "#d09a6a" },
+  "coral_blando": { "biomas": ["mar_bajo"], "requiereAgua": true, "categoriaRecurso": "coral", "densidadBase": 0.02, "escalaRuido": 14, "variantes": 3, "colorDebug": "#c060a0" },
+  "alga_bioluminiscente": { "biomas": ["mar_profundo"], "requiereAgua": true, "categoriaRecurso": "alga", "densidadBase": 0.012, "escalaRuido": 18, "variantes": 1, "colorDebug": "#3ac0e0" },
+  "musgo_abisal": { "biomas": ["mar_profundo"], "requiereAgua": true, "categoriaRecurso": "alga", "densidadBase": 0.02, "escalaRuido": 20, "variantes": 1, "colorDebug": "#1a3a3a" },
+
   "junco": { "biomas": ["pantano"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.1, "escalaRuido": 8, "variantes": 2, "colorDebug": "#6a8a3a" },
   "nenufar": { "biomas": ["pantano"], "categoriaRecurso": "flor_medicinal", "densidadBase": 0.03, "escalaRuido": 10, "requiereAgua": true, "variantes": 2, "colorDebug": "#3a7a5a" },
   "espadana": { "biomas": ["pantano"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.05, "escalaRuido": 8, "variantes": 1, "colorDebug": "#6a7a2a" },

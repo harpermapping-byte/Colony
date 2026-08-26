@@ -57,8 +57,12 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   onProgreso(`Horneando "${config.nombre}" — ${anchoChunks}x${altoChunks} chunks (${anchoTiles}x${altoTiles} casillas), semilla "${config.semilla}"`);
   onProgreso(`Biomas habilitados: ${biomasHabilitados.join(", ")}`);
 
+  // --- 0. Bordes (GDD sección 1) — se normalizan ya aquí porque el tipo de
+  // cada lado (mar/montaña/tierra) sesga la elevación desde el principio.
+  const bordes = normalizarBordes(config.bordes);
+
   // --- 1-3. Ruido, clasificación de bioma y suavizado (GDD sección 3) ---
-  const generadorBiomas = crearGeneradorBiomas(config.semilla, biomasHabilitados, catalogoBiomas);
+  const generadorBiomas = crearGeneradorBiomas(config.semilla, biomasHabilitados, catalogoBiomas, { anchoTiles, altoTiles, bordes });
 
   onProgreso("Clasificando biomas...");
   const biomaGrid = new Uint8Array(anchoTiles * altoTiles);
@@ -159,11 +163,20 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     const dy = b.y - a.y;
     const perpX = largo > 0 ? -dy / largo : 0;
     const perpY = largo > 0 ? dx / largo : 0;
-    const amplitud = Math.min(4, largo / 6);
+
+    // Tramos que entran en banda de montaña (4+) zigzaguean como una
+    // carretera de montaña real en vez de subir en línea recta: más
+    // amplitud de curva y más vueltas cuanto más largo el tramo.
+    const bandaA = bandaEnTile(Math.round(a.x), Math.round(a.y));
+    const bandaB = bandaEnTile(Math.round(b.x), Math.round(b.y));
+    const enMontana = Math.max(bandaA, bandaB) >= 4;
+    const amplitudBase = Math.min(4, largo / 6);
+    const amplitud = enMontana ? Math.min(9, amplitudBase * 2.2) : amplitudBase;
+    const ciclos = enMontana ? Math.max(2, Math.round(largo / 20)) : 1;
 
     for (let s = 0; s <= pasos; s++) {
       const t = s / pasos;
-      const ondulacion = Math.sin(t * Math.PI * 2 + a.x * 0.13 + a.y * 0.07) * amplitud;
+      const ondulacion = Math.sin(t * Math.PI * 2 * ciclos + a.x * 0.13 + a.y * 0.07) * amplitud;
       const px = Math.round(a.x + dx * t + perpX * ondulacion);
       const py = Math.round(a.y + dy * t + perpY * ondulacion);
       for (let ddy = -radio; ddy <= radio; ddy++) {
@@ -173,9 +186,6 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       }
     }
   }
-
-  // --- 7. Bordes (GDD sección 1) ---
-  const bordes = normalizarBordes(config.bordes);
 
   // --- 8-9. Terreno final + decoración + exportado por sectores ---
   onProgreso("Generando terreno, decoración y exportando por sectores...");
@@ -275,6 +285,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
           transitable: catalogoTerrenos[idT]?.transitable ?? false,
           bioma: biomaDeIdx(biomaGridSuave[(cy * tamanoChunk + ly) * anchoTiles + (cx * tamanoChunk + lx)]),
           banda: bandaLocalPorCasilla[idxLocal],
+          esAgua: idT === "agua" || idT === "agua_profunda",
           cercaAgua: idT === "agua" || idT === "playa",
         };
       });

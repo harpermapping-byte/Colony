@@ -1,0 +1,21 @@
+{
+  "nombre": "ejemplo-bordes",
+  "semilla": "prueba-bordes-01",
+  "anchoChunks": 24,
+  "altoChunks": 24,
+  "tamanoChunk": 32,
+  "biomasHabilitados": ["pradera", "bosque", "montana_nevada", "desierto", "costa", "pantano"],
+  "separacionMinimaPOI": 150,
+  "probabilidadLegendaria": 0.02,
+  "pasoHidrologia": 12,
+  "umbralRio": 6,
+  "pasoCaminos": 24,
+  "maxCaminosAPOIs": 25,
+  "bordes": {
+    "norte": { "tipo": "mar_abierto", "nombre": "mar-norte" },
+    "sur": { "tipo": "montana", "nombre": "cordillera-sur" },
+    "este": { "tipo": "tierra_abierta", "nombre": "frontera-este" },
+    "oeste": { "tipo": "cerrado" }
+  },
+  "carpetaSalida": "output/ejemplo-bordes"
+}

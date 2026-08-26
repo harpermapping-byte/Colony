@@ -63,6 +63,46 @@ function generarHidrologia({ anchoTiles, altoTiles, paso, elevacionEn, umbralRio
     }
   }
 
+  // Charca garantizada: en mapas pequeños o de relieve muy plano puede no
+  // salir ningún lago natural. Para que nunca falte un cuerpo de agua
+  // quieta, forzamos una charca pequeña en el punto más bajo del interior
+  // del mapa (con margen del 10% para no meterla pegada a un borde, donde
+  // podría solaparse con un océano si el borde es de tipo mar_abierto).
+  let hayLago = false;
+  for (let i = 0; i < total; i++) {
+    if (esLago[i]) {
+      hayLago = true;
+      break;
+    }
+  }
+  if (!hayLago) {
+    const margenCols = Math.max(1, Math.floor(cols * 0.1));
+    const margenFilas = Math.max(1, Math.floor(filas * 0.1));
+    let mejorI = -1;
+    let menorElev = Infinity;
+    for (let cy = margenFilas; cy < filas - margenFilas; cy++) {
+      for (let cx = margenCols; cx < cols - margenCols; cx++) {
+        const i = idx(cx, cy);
+        if (elevaciones[i] < menorElev) {
+          menorElev = elevaciones[i];
+          mejorI = i;
+        }
+      }
+    }
+    if (mejorI !== -1) {
+      const cx0 = mejorI % cols;
+      const cy0 = Math.floor(mejorI / cols);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = cx0 + dx;
+          const ny = cy0 + dy;
+          if (nx < 0 || ny < 0 || nx >= cols || ny >= filas) continue;
+          esLago[idx(nx, ny)] = 1;
+        }
+      }
+    }
+  }
+
   function celdaMasCercana(x, y) {
     const cx = Math.min(cols - 1, Math.max(0, Math.round(x / paso)));
     const cy = Math.min(filas - 1, Math.max(0, Math.round(y / paso)));
