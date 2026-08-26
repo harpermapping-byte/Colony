@@ -9,6 +9,9 @@
 // para el significado exacto de cada valor de colocacion).
 
 const { riquezaAlcanza } = require("./catalogo");
+const { crearRejilla, detectarSalas, circulacionIntacta, TIPO_TILE } = require("./salas");
+const { ORIENTACIONES, rotarHuella, rotarOffset } = require("./rotacion");
+const { calcularEstadisticas } = require("./estadisticas");
 
 // PRNG determinista pequeño (mulberry32) — mismo semilla, mismo resultado,
 // sin depender de nada del bakeador de exteriores (interiores es una
@@ -71,6 +74,21 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const esPuerta = (x, y) => x === puerta.x && y === puerta.y;
   const tocaPared = (x, y) => x === 1 || y === 1 || x === ancho - 2 || y === largo - 2;
 
+  // Rejilla real de tiles (sección 2 del pedido de integración): borde =
+  // pared, un hueco en el borde sur = puerta, interior = suelo.
+  // `detectarSalas` la reduce a un objeto Sala (tiles + aberturas) que no
+  // sabe ni le importa que este rectángulo viniera de un flood-fill, una
+  // selección manual o una herramienta rectangular — es la misma forma
+  // para las tres. Esa Sala es también la base del chequeo de circulación
+  // de las funciones de colocación de abajo (sección 6).
+  const rejilla = crearRejilla(ancho, largo, TIPO_TILE.PARED);
+  for (let y = 1; y < largo - 1; y++) {
+    for (let x = 1; x < ancho - 1; x++) rejilla.set(x, y, TIPO_TILE.SUELO);
+  }
+  rejilla.set(puerta.x, puerta.y, TIPO_TILE.PUERTA);
+  const [sala] = detectarSalas(rejilla);
+  const origenCirculacion = [puerta.x, largo - 2]; // tile de suelo justo dentro de la puerta
+
   function huecoLibre(x, y, huella) {
     const [hw, hl] = huella || [1, 1];
     if (x < 1 || y < 1 || x + hw > ancho - 1 || y + hl > largo - 1) return false;
@@ -81,13 +99,35 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     }
     return true;
   }
+  const ocupadasSet = new Set(); // "x_y" de toda casilla de suelo ocupada por una huella — mismo formato que sala.tiles, se pasa tal cual a circulacionIntacta
   function ocupar(x, y, huella) {
     const [hw, hl] = huella || [1, 1];
     for (let dy = 0; dy < hl; dy++) {
       for (let dx = 0; dx < hw; dx++) {
         libreSuelo[y + dy][x + dx] = false;
+        ocupadasSet.add(`${x + dx}_${y + dy}`);
       }
     }
+  }
+  function liberar(x, y, huella) {
+    const [hw, hl] = huella || [1, 1];
+    for (let dy = 0; dy < hl; dy++) {
+      for (let dx = 0; dx < hw; dx++) {
+        libreSuelo[y + dy][x + dx] = true;
+        ocupadasSet.delete(`${x + dx}_${y + dy}`);
+      }
+    }
+  }
+  // Ocupa de forma tentativa y comprueba que la sala sigue teniendo
+  // circulación desde la puerta con ese mueble puesto (sección 6: "no
+  // puede bloquear la circulación principal"); si la bloquea, deshace la
+  // ocupación — el sitio se descarta exactamente igual que si no hubiera
+  // cabido.
+  function ocuparSiCirculacionIntacta(x, y, huella) {
+    ocupar(x, y, huella);
+    if (circulacionIntacta(sala, ocupadasSet, origenCirculacion)) return true;
+    liberar(x, y, huella);
+    return false;
   }
 
   const colocados = []; // mobiliario/decoración en el plano suelo, con footprint real
@@ -103,10 +143,19 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       const x = elegirEntero(1, ancho - 2);
       const y = elegirEntero(1, largo - 2);
       if (esPuerta(x, y)) continue;
-      if (!huecoLibre(x, y, el.huella)) continue;
+      // Orientación 0/90/180/270 (sección 7): rota la huella entera junto
+      // con el tile de interacción, no solo el dibujo.
+      const grados = ORIENTACIONES[elegirEntero(0, ORIENTACIONES.length - 1)];
+      const huellaRot = rotarHuella(el.huella || [1, 1], grados);
+      if (!huecoLibre(x, y, huellaRot)) continue;
       if ((preferido === "pegadaAPared" || preferido === "esquina") && !tocaPared(x, y)) continue;
-      ocupar(x, y, el.huella);
-      const item = { id: el.id, x, y, ancho: (el.huella || [1, 1])[0], largo: (el.huella || [1, 1])[1], colorDebug: el.colorDebug, capa: el.capa };
+      if (!ocuparSiCirculacionIntacta(x, y, huellaRot)) continue;
+      const item = { id: el.id, x, y, ancho: huellaRot[0], largo: huellaRot[1], rotacion: grados, colorDebug: el.colorDebug, capa: el.capa };
+      if (el.aportes) item.aportes = el.aportes;
+      if (el.tileInteraccion) {
+        const [ix, iy] = rotarOffset(el.tileInteraccion, el.huella || [1, 1], grados);
+        item.tileInteraccion = [x + ix, y + iy];
+      }
       colocados.push(item);
       if (el.esSuperficie) superficies.push(item);
       return true;
@@ -140,9 +189,12 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     for (const anclaEl of anclasOrdenadas) {
       const anillo = barajar(tilesAlrededorDe(anclaEl), rnd);
       for (const [x, y] of anillo) {
-        if (!huecoLibre(x, y, el.huella)) continue;
-        ocupar(x, y, el.huella);
-        colocados.push({ id: el.id, x, y, ancho: 1, largo: 1, colorDebug: el.colorDebug, capa: el.capa });
+        const huella = el.huella || [1, 1];
+        if (!huecoLibre(x, y, huella)) continue;
+        if (!ocuparSiCirculacionIntacta(x, y, huella)) continue;
+        const item = { id: el.id, x, y, ancho: huella[0], largo: huella[1], colorDebug: el.colorDebug, capa: el.capa };
+        if (el.aportes) item.aportes = el.aportes;
+        colocados.push(item);
         anclaEl._satelites = (anclaEl._satelites || 0) + 1;
         return true;
       }
@@ -165,11 +217,18 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       if (esPuerta(x, y) || esPuerta(xEspejo, y)) continue;
       if (!huecoLibre(x, y, el.huella)) continue;
       if (xEspejo !== x && !huecoLibre(xEspejo, y, el.huella)) continue;
-      ocupar(x, y, el.huella);
-      colocados.push({ id: el.id, x, y, ancho: hw, largo: hl, colorDebug: el.colorDebug, capa: el.capa });
+      if (!ocuparSiCirculacionIntacta(x, y, el.huella)) continue;
+      if (xEspejo !== x && !ocuparSiCirculacionIntacta(xEspejo, y, el.huella)) {
+        liberar(x, y, el.huella); // el segundo del par rompe la circulación: deshacer también el primero
+        continue;
+      }
+      const item1 = { id: el.id, x, y, ancho: hw, largo: hl, colorDebug: el.colorDebug, capa: el.capa };
+      if (el.aportes) item1.aportes = el.aportes;
+      colocados.push(item1);
       if (xEspejo !== x) {
-        ocupar(xEspejo, y, el.huella);
-        colocados.push({ id: el.id, x: xEspejo, y, ancho: hw, largo: hl, colorDebug: el.colorDebug, capa: el.capa });
+        const item2 = { id: el.id, x: xEspejo, y, ancho: hw, largo: hl, colorDebug: el.colorDebug, capa: el.capa };
+        if (el.aportes) item2.aportes = el.aportes;
+        colocados.push(item2);
       }
       return true;
     }
@@ -189,7 +248,9 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       const clave = `${x}_${y}`;
       if (bordesOcupados.has(clave)) continue;
       bordesOcupados.add(clave);
-      colgados.push({ id: el.id, x, y, lado, colorDebug: el.colorDebug });
+      const item = { id: el.id, x, y, lado, colorDebug: el.colorDebug };
+      if (el.aportes) item.aportes = el.aportes;
+      colgados.push(item);
       return true;
     }
     return false;
@@ -200,11 +261,15 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       if (superficies.length === 0) return false;
       const host = superficies[elegirEntero(0, superficies.length - 1)];
       host.sobre = host.sobre || [];
-      host.sobre.push({ id: el.id, colorDebug: el.colorDebug });
+      const item = { id: el.id, colorDebug: el.colorDebug };
+      if (el.aportes) item.aportes = el.aportes;
+      host.sobre.push(item);
       return true;
     }
     if (el.colocacion.includes("techo")) {
-      techo.push({ id: el.id, colorDebug: el.colorDebug });
+      const item = { id: el.id, colorDebug: el.colorDebug };
+      if (el.aportes) item.aportes = el.aportes;
+      techo.push(item);
       return true;
     }
     if (el.colocacion.includes("colgadoEnPared")) {
@@ -263,7 +328,15 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     }
   }
 
-  return { tipoSalaId, ancho, largo, materialSuelo, materialPared, riqueza, amueblado, semilla, puerta, colocados, colgados, techo };
+  // Estadísticas/funcionalidad de sala (sección 9): suma aditiva de los
+  // `aportes` de cada pieza realmente colocada, en cualquier plano (suelo,
+  // pared, techo o encima de una superficie). Una sala vacía o sin ninguna
+  // pieza con aportes da `{}` — el tipo de sala nunca depende de esto para
+  // seguir siendo válido (sección 8).
+  const sobreTodos = colocados.flatMap((c) => c.sobre || []);
+  const estadisticas = calcularEstadisticas([...colocados, ...colgados, ...techo, ...sobreTodos]);
+
+  return { tipoSalaId, ancho, largo, materialSuelo, materialPared, riqueza, amueblado, semilla, puerta, sala, colocados, colgados, techo, estadisticas };
 }
 
 module.exports = { colocarSala, crearPRNG };
