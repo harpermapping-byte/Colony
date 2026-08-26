@@ -12,7 +12,7 @@ const { colocarPOIs } = require("./pois");
 const { crearBuscadorCaminos } = require("./caminos");
 const { normalizarBordes } = require("./bordes");
 const { crearExportador } = require("./exportar");
-const { generarImagenResumen } = require("./overview");
+const { generarImagenesResumen } = require("./overview");
 const { validarMapa } = require("./validar");
 
 function cargarJSON(ruta) {
@@ -352,7 +352,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     chunkY: Math.floor(p.y / tamanoChunk),
     legendario: p.legendario,
   }));
-  const png = generarImagenResumen({
+  const { mapaGeneral, mapaElevacion } = generarImagenesResumen({
     anchoChunks,
     altoChunks,
     tamanoChunk,
@@ -361,7 +361,8 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     catalogoBiomas,
     pois: poisParaImagen,
   });
-  fs.writeFileSync(path.join(carpetaSalida, "mapa_general.png"), png);
+  fs.writeFileSync(path.join(carpetaSalida, "mapa_general.png"), mapaGeneral);
+  fs.writeFileSync(path.join(carpetaSalida, "mapa_elevacion.png"), mapaElevacion);
 
   // --- 11. Validación ---
   const resultadoValidacion = validarMapa({

@@ -24,7 +24,8 @@ Hay dos botones de preset (**rápido**, para probar en segundos, y **mapa princi
 El resultado se guarda igual que siempre en `output/<nombre-del-mapa>/`:
 - `indice.json` — metadatos del mapa (semilla, tamaño, bordes, posición de la ciudad).
 - `sector_XXX_YYY.json` — un archivo por cada 10x10 chunks (terreno + objetos + POIs de esos chunks).
-- `mapa_general.png` — imagen de resumen de todo el mapa visto desde arriba.
+- `mapa_general.png` — imagen de resumen de todo el mapa visto desde arriba (terreno/bioma real).
+- `mapa_elevacion.png` — el mismo mapa coloreado solo por banda de elevación (azul oscuro=mar profundo → blanco=cumbre), como un mapa topográfico — útil para ver el desnivel completo de un vistazo.
 - `informe_validacion.txt` — te avisa si algo no cuadra (POIs sin camino, etc.).
 
 ## 1b. Generar un mapa — por terminal (alternativa, para scripts/automatizar)
