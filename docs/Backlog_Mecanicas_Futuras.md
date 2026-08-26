@@ -36,6 +36,66 @@ Sed, enfermedades, nutrientes del suelo, transplante, muerte, curación — menc
 - Empieza con sprite placeholder genérico como cualquier otra entrada nueva de catálogo.
 - **Pendiente**: probabilidad de éxito del injerto, qué pasa si falla, cómo se traducen los 6 atributos en efectos de juego concretos (precio de venta, tiempo de espera, etc.).
 
+## Combate — sin diseñar
+
+Armas cuerpo a cuerpo y a distancia, salud/aguante, PvE contra fauna peligrosa y monstruos de mazmorra. PvP probablemente limitado o desactivado por defecto dado el enfoque comunitario del proyecto — a decidir cuando toque.
+
+## Oficios de crafteo (herrería, talla, y los que falten) — sin diseñar
+
+Recetas, estaciones de trabajo (yunque, mesa de talla...), progresión de habilidad por oficio, qué herramienta/nivel hace falta para cada receta.
+
+## Cocina — sin diseñar
+
+Recetas combinando categorías de recurso ya existentes (carne, pescado, plantas/hierbas), posibles beneficios temporales al comer.
+
+## Construcción de estructuras (más allá de las parcelas ya definidas) — sin diseñar
+
+Planos/blueprints, materiales requeridos, niveles de mejora de una construcción, quién puede construir dónde (ligado a permisos de parcela).
+
+## Sistema de personaje — sin diseñar
+
+Estadísticas, progresión/experiencia, slots de equipo, apariencia personalizable, límites de inventario. Recordar el principio ya fijado: inventario y equipo son autoritativos en servidor, el cliente solo predice/muestra (ver conversación de arquitectura general).
+
+## Muerte y respawn — sin diseñar
+
+Qué pasa al morir (¿se pierden objetos?, ¿punto de reaparición?, ¿penalización temporal?) — nada decidido todavía.
+
+## Monturas — sin diseñar
+
+Domesticación, control de movimiento, resistencia. Ya hay un gancho preparado: el modificador de velocidad por tipo de terreno del bakeador (GDD sección 2) está pensado desde el principio para que una montura solo necesite su propio multiplicador aparte, sin tocar la tabla de terrenos.
+
+## Pesca — sin diseñar
+
+Cebos (conecta con "capturar insectos" ya anotado como verbo pendiente), cañas/redes, zonas de pesca por bioma (agua dulce vs. mar, ya diferenciadas en el catálogo de recursos como Pescado de Río / Pescado de Mar / Marisco).
+
+## Barcos y navegación marítima — sin diseñar
+
+Construcción de barco, navegar el mar (ya establecido como navegable, con fondo marino investigable como capa aparte), cargar mercancía, descubrir islas, cruzar a otro mapa por un borde de mar abierto.
+
+## Comercio y economía — sin diseñar
+
+Moneda, mercaderes NPC (los que ya aparecen en plantillas de POI como "oasis_mercader"), compraventa entre jugadores, si hay fluctuación de precios.
+
+## Gremios / equipos — sin diseñar
+
+Parcelas compartidas de gremio (mencionado ya en la arquitectura general del proyecto), roles dentro del gremio, construcción colaborativa.
+
+## Roles de Twitch dentro del juego — concepto decidido, beneficios concretos sin definir
+
+Ya está decidido que el login es OAuth de Twitch y que sub/mod/VIP dan ventajas dentro del juego (una de las 5 decisiones fundacionales del proyecto) — falta decidir qué ventaja concreta da cada rol.
+
+## NPCs Gobernadores con IA — concepto decidido, mecánica concreta sin definir
+
+Ya está decidido el modelo híbrido: NPCs base con IA simple/rutinas, y 3-4 NPCs "Gobernador" con integración LLM en tiempo real que generan misiones según la economía de la ciudad y responden al chat. Falta definir cómo mantienen memoria de conversación, límites de coste/latencia, y el contexto exacto que reciben.
+
+## Modo Live — eventos de Twitch en tiempo real — concepto decidido, mapeo concreto sin definir
+
+Ya está decidido que cuando el streamer está en directo, eventos de Twitch (subs, bits, raids) generan eventos en el mundo (clima, spawns de recursos, hordas). Falta el mapeo concreto: qué evento de Twitch dispara exactamente qué efecto y con qué intensidad.
+
+## Facciones y la ciudad enemiga — sin diseñar
+
+Ya está decidido que hay una ciudad neutral y una ciudad enemiga en el mapa. Falta diseñar reputación, conflicto entre ambas, y si el jugador puede elegir bando o interactuar con la facción enemiga de alguna forma.
+
 ## Verbos de interacción a cubrir más adelante (recordatorio, sin diseñar)
 
 - **Plantas**: regar, enfermar, curar, transplantar, morir, cosechar, injertar.
