@@ -63,7 +63,19 @@ Todos los parámetros están en `config/*.json` — copia uno y crea el tuyo pro
 
 El **contenido** (qué árboles, animales, rocas y POIs existen) está en `catalogo/*.json` — añadir una especie nueva es añadir una entrada nueva a esos archivos, no toca el código del bakeador (regla de extensibilidad del GDD, sección 19).
 
-## 4. Cuando el mapa te convenza
+## 4. Sustituir los placeholders por tu propio arte
+
+En la carpeta `assets/` (en la raíz del repo, no dentro de `baker/`) hay un archivo de imagen por cada especie/terreno del catálogo — son los placeholders reales, ya generados, listos para que sustituyas cualquiera por tu propia imagen (mismo nombre de archivo). Instrucciones completas en `assets/README.md`.
+
+Si añades contenido nuevo al catálogo más adelante, genera los placeholders que falten con:
+
+```bash
+node src/generar_placeholders.js
+```
+
+Esto no toca los archivos que ya hayas sustituido por arte de verdad, solo crea los que falten.
+
+## 5. Cuando el mapa te convenza
 
 Sube la carpeta `output/<nombre-del-mapa>/` al repositorio (a `baker/output/` o donde decidamos que vive en el juego final) con un commit normal — es la forma de "instalarlo" en el juego, tal como planeamos desde el principio.
 
