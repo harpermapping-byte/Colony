@@ -139,7 +139,9 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   const tilesCaminoRoad = new Set();
   const resultadosCaminos = [];
   const poisConCamino = pois.filter((p) => !p.legendario).slice(0, config.maxCaminosAPOIs ?? 40);
-  for (const poi of poisConCamino) {
+  for (let iPoi = 0; iPoi < poisConCamino.length; iPoi++) {
+    const poi = poisConCamino[iPoi];
+    if (iPoi % 5 === 0) onProgreso(`  camino ${iPoi}/${poisConCamino.length}...`);
     const camino = buscador.buscar(ciudad, { x: poi.x, y: poi.y });
     resultadosCaminos.push({ poiId: poi.id, x: poi.x, y: poi.y, encontrada: !!camino });
     if (camino) {
