@@ -14,7 +14,7 @@
   "tamarisco": { "biomas": ["desierto"], "categoriaRecurso": "madera_blanda", "densidadBase": 0.015, "escalaRuido": 30, "variantes": 2, "colorDebug": "#6a7a3a" },
   "barron": { "biomas": ["costa"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.06, "escalaRuido": 10, "variantes": 2, "colorDebug": "#a8a35a" },
   "palmera_costera": { "biomas": ["costa"], "categoriaRecurso": "madera_palmera", "densidadBase": 0.015, "escalaRuido": 30, "variantes": 2, "colorDebug": "#5a8a3a" },
-  "sauce_llorón": { "biomas": ["pantano"], "categoriaRecurso": "madera_sauce", "densidadBase": 0.03, "escalaRuido": 20, "variantes": 2, "colorDebug": "#3a5a2a" },
+  "sauce_lloron": { "biomas": ["pantano"], "categoriaRecurso": "madera_sauce", "densidadBase": 0.03, "escalaRuido": 20, "variantes": 2, "colorDebug": "#3a5a2a" },
   "junco": { "biomas": ["pantano"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.1, "escalaRuido": 8, "variantes": 2, "colorDebug": "#6a8a3a" },
   "nenufar": { "biomas": ["pantano"], "categoriaRecurso": "flor_medicinal", "densidadBase": 0.03, "escalaRuido": 10, "requiereAgua": true, "variantes": 2, "colorDebug": "#3a7a5a" }
 }
