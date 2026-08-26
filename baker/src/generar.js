@@ -91,7 +91,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     }
   }
   onProgreso("Suavizando fronteras de bioma...");
-  const biomaGridSuave = suavizarBiomas(Array.from(biomaGrid), anchoTiles, altoTiles, 2);
+  const biomaGridSuave = suavizarBiomas(biomaGrid, anchoTiles, altoTiles, 2);
 
   // --- 4. Hidrología (GDD sección 4) ---
   onProgreso("Generando hidrología...");
@@ -147,7 +147,13 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     },
   });
 
+  // Claves numéricas (y*anchoTiles+x), no strings `${x}_${y}` — este Set se
+  // consulta 41M veces (una por casilla) en el bucle principal más abajo, y
+  // un string nuevo por consulta es mucha basura innecesaria en el punto
+  // más caliente de todo el pipeline (mismo motivo que el fix de hidrología).
   const tilesCaminoRoad = new Set();
+  const dentroDelMapa = (x, y) => x >= 0 && y >= 0 && x < anchoTiles && y < altoTiles;
+  const claveTile = (x, y) => y * anchoTiles + x;
   const resultadosCaminos = [];
   // Sin maxCaminosAPOIs explícito, el límite escala con el área del mapa —
   // el número de POIs crece con el área, así que un tope fijo (el 40 de
@@ -205,7 +211,9 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       const py = Math.round(a.y + dy * t + perpY * ondulacion);
       for (let ddy = -radio; ddy <= radio; ddy++) {
         for (let ddx = -radio; ddx <= radio; ddx++) {
-          set.add(`${px + ddx}_${py + ddy}`);
+          const x = px + ddx;
+          const y = py + ddy;
+          if (dentroDelMapa(x, y)) set.add(claveTile(x, y));
         }
       }
     }
@@ -214,7 +222,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   // --- 8-9. Terreno final + decoración + exportado por sectores ---
   onProgreso("Generando terreno, decoración y exportando por sectores...");
   const listaIdsTerreno = Object.keys(catalogoTerrenos);
-  const exportador = crearExportador(path.resolve(config.carpetaSalida || "output"), listaIdsTerreno);
+  const exportador = crearExportador(path.resolve(config.carpetaSalida || "output"), listaIdsTerreno, anchoChunks, altoChunks);
   const decorador = crearColocadorDecoracion(config.semilla, catalogoVegetacion, catalogoAnimales, catalogoRocas);
 
   const poisPorChunk = new Map();
@@ -259,7 +267,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     const biomaId = biomaDeIdx(biomaGridSuave[i]);
     const banda = bandaGrid[i];
     const h = hidro.consultar(x, y);
-    const esCamino = tilesCaminoRoad.has(`${x}_${y}`);
+    const esCamino = tilesCaminoRoad.has(claveTile(x, y));
     let idTerreno = decidirTerreno({ biomaId, catalogoBiomas, banda, hidro: h, esCamino, variante: varianteTerrenoEn(x, y) });
 
     if (!esCamino && idTerreno !== "agua" && idTerreno !== "agua_profunda") {

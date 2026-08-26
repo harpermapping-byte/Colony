@@ -138,34 +138,47 @@ function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas, opcion
 // Suavizado por autómata celular: cada celda adopta el bioma mayoritario de
 // sus vecinas tras unas pocas pasadas, elimina "salpicaduras" (GDD sección 3).
 function suavizarBiomas(rejilla, ancho, alto, iteraciones = 2) {
+  // rejilla es un Uint8Array (índice de bioma, valor pequeño acotado) — se
+  // opera siempre sobre typed arrays para no pagar el coste de un Array JS
+  // plano de 41M elementos (boxing/representación no empaquetada, ~1.4GB
+  // extra medidos en el mapa principal de 200x200 chunks).
+  const conteo = new Uint16Array(256); // más que suficiente para el nº de biomas del catálogo
+  const tocados = new Uint8Array(256); // biomas distintos vistos en la ventana 3x3 de esta celda
+  const bufA = new Uint8Array(rejilla.length);
+  const bufB = iteraciones > 1 ? new Uint8Array(rejilla.length) : null;
   let actual = rejilla;
+  let siguiente = bufA;
   for (let it = 0; it < iteraciones; it++) {
-    const siguiente = new Array(actual.length);
     for (let y = 0; y < alto; y++) {
       for (let x = 0; x < ancho; x++) {
         const idx = y * ancho + x;
-        const conteo = new Map();
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const nx = x + dx;
-            const ny = y + dy;
-            if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto) continue;
+        const yMin = Math.max(0, y - 1);
+        const yMax = Math.min(alto - 1, y + 1);
+        const xMin = Math.max(0, x - 1);
+        const xMax = Math.min(ancho - 1, x + 1);
+        let nTocados = 0;
+        for (let ny = yMin; ny <= yMax; ny++) {
+          for (let nx = xMin; nx <= xMax; nx++) {
             const b = actual[ny * ancho + nx];
-            conteo.set(b, (conteo.get(b) || 0) + 1);
+            if (conteo[b] === 0) tocados[nTocados++] = b;
+            conteo[b]++;
           }
         }
         let mejorBioma = actual[idx];
         let mejorConteo = -1;
-        for (const [bioma, n] of conteo) {
-          if (n > mejorConteo) {
-            mejorConteo = n;
-            mejorBioma = bioma;
+        for (let i = 0; i < nTocados; i++) {
+          const b = tocados[i];
+          if (conteo[b] > mejorConteo) {
+            mejorConteo = conteo[b];
+            mejorBioma = b;
           }
+          conteo[b] = 0;
         }
         siguiente[idx] = mejorBioma;
       }
     }
     actual = siguiente;
+    siguiente = siguiente === bufA ? bufB : bufA;
   }
   return actual;
 }
