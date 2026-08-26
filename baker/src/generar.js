@@ -91,7 +91,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     }
   }
   onProgreso("Suavizando fronteras de bioma...");
-  const biomaGridSuave = suavizarBiomas(biomaGrid, anchoTiles, altoTiles, 2);
+  const biomaGridSuave = suavizarBiomas(biomaGrid, anchoTiles, altoTiles, 3);
 
   // --- 4. Hidrología (GDD sección 4) ---
   onProgreso("Generando hidrología...");
@@ -134,22 +134,14 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   onProgreso(`  ${pois.length} POIs colocados.`);
 
   // --- 6. Caminos (GDD sección 7) ---
-  onProgreso("Trazando caminos...");
-  const ciudad = config.ciudad || { x: Math.floor(anchoTiles / 2), y: Math.floor(altoTiles / 2) };
+  // La ciudad capital es opcional y configurable por bake: no todos los
+  // mapas son "el mapa principal" que maneja el streamer — un mapa sin
+  // ciudad capital simplemente no genera red de caminos (la red es
+  // intrínsecamente radial desde un centro; sin centro no hay de dónde
+  // partir). ciudadCapital por defecto true para no romper bakes previos.
+  const ciudadCapital = config.ciudadCapital !== false;
+  const ciudad = ciudadCapital ? config.ciudad || { x: Math.floor(anchoTiles / 2), y: Math.floor(altoTiles / 2) } : null;
   const pasoCaminos = config.pasoCaminos || 32;
-  const buscador = crearBuscadorCaminos({
-    anchoTiles,
-    altoTiles,
-    paso: pasoCaminos,
-    costoEn: (x, y) => {
-      const banda = bandaEnTile(x, y);
-      const h = hidro.consultar(x, y);
-      if (h.esLago || (h.esRio && banda >= 2)) return Infinity;
-      if (banda === 6) return Infinity;
-      if (banda === 5) return 4;
-      return 1;
-    },
-  });
 
   // Claves numéricas (y*anchoTiles+x), no strings `${x}_${y}` — este Set se
   // consulta 41M veces (una por casilla) en el bucle principal más abajo, y
@@ -159,23 +151,70 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   const dentroDelMapa = (x, y) => x >= 0 && y >= 0 && x < anchoTiles && y < altoTiles;
   const claveTile = (x, y) => y * anchoTiles + x;
   const resultadosCaminos = [];
-  // Sin maxCaminosAPOIs explícito, el límite escala con el área del mapa —
-  // el número de POIs crece con el área, así que un tope fijo (el 40 de
-  // antes) deja la inmensa mayoría sin camino en mapas grandes.
-  const maxCaminosPorDefecto = Math.max(15, Math.round((anchoChunks * altoChunks) / 100));
-  const poisConCamino = pois.filter((p) => !p.legendario).slice(0, config.maxCaminosAPOIs ?? maxCaminosPorDefecto);
-  for (let iPoi = 0; iPoi < poisConCamino.length; iPoi++) {
-    const poi = poisConCamino[iPoi];
-    if (iPoi % 5 === 0) onProgreso(`  camino ${iPoi}/${poisConCamino.length}...`);
-    const camino = buscador.buscar(ciudad, { x: poi.x, y: poi.y });
-    resultadosCaminos.push({ poiId: poi.id, x: poi.x, y: poi.y, encontrada: !!camino });
-    if (camino) {
-      for (let i = 0; i < camino.length - 1; i++) {
-        marcarSegmentoComoCamino(camino[i], camino[i + 1], tilesCaminoRoad, 1);
+
+  if (ciudad) {
+    onProgreso("Trazando caminos...");
+    const elevacionEnTile = (x, y) => elevacionGrid[Math.min(altoTiles - 1, y) * anchoTiles + Math.min(anchoTiles - 1, x)];
+    // Coste por ARISTA, no por nodo: además de la rugosidad del terreno de
+    // destino (igual que antes — agua y banda de roca impasables, nieve
+    // alta más cara), penaliza la pendiente REAL entre los dos nodos del
+    // tramo. Así el propio A*/Dijkstra prefiere rodear una subida en vez
+    // de trepar en línea recta, y el zigzag de montaña nace de la ruta
+    // real en vez de ser solo un adorno pintado encima (ver
+    // marcarSegmentoComoCamino, que ahora solo añade un serpenteo sutil).
+    const PESO_PENDIENTE = 35;
+    const costoArista = (x0, y0, x1, y1) => {
+      const banda1 = bandaEnTile(x1, y1);
+      const h1 = hidro.consultar(x1, y1);
+      if (h1.esLago || (h1.esRio && banda1 >= 2)) return Infinity;
+      if (banda1 === 6) return Infinity;
+      const rugosidad = banda1 === 5 ? 4 : 1;
+      const distancia = Math.hypot(x1 - x0, y1 - y0) / pasoCaminos;
+      const pendiente = Math.abs(elevacionEnTile(x1, y1) - elevacionEnTile(x0, y0));
+      return distancia * (rugosidad + pendiente * PESO_PENDIENTE);
+    };
+    const buscador = crearBuscadorCaminos({ anchoTiles, altoTiles, paso: pasoCaminos, costoArista });
+
+    // Sin maxCaminosAPOIs explícito, el límite escala con el área del mapa —
+    // el número de POIs crece con el área, así que un tope fijo (el 40 de
+    // antes) deja la inmensa mayoría sin camino en mapas grandes.
+    const maxCaminosPorDefecto = Math.max(15, Math.round((anchoChunks * altoChunks) / 100));
+    // Orden de conexión: del POI más cercano a la ciudad al más lejano. La
+    // red se construye como un árbol que crece desde el centro (GDD
+    // sección 7) — conectar primero lo cercano hace que los troncos
+    // principales se establezcan antes de que lleguen las ramas lejanas,
+    // que además así tienen más tramos ya construidos a los que
+    // engancharse en vez de tener que llegar todas hasta la ciudad.
+    const poisConCamino = pois
+      .filter((p) => !p.legendario)
+      .map((p) => ({ p, distCiudad: Math.hypot(p.x - ciudad.x, p.y - ciudad.y) }))
+      .sort((a, b) => a.distCiudad - b.distCiudad)
+      .slice(0, config.maxCaminosAPOIs ?? maxCaminosPorDefecto)
+      .map(({ p }) => p);
+
+    // La red arranca conteniendo solo el nodo de la ciudad; cada camino
+    // que se traza con éxito añade sus nodos a la red, así el siguiente
+    // POI puede enganchar con el tronco más cercano en vez de trazar su
+    // propia línea independiente hasta el centro — de ahí sale la
+    // ramificación que pidió el usuario.
+    const nodosDeRed = new Set([buscador.idxDeTile(ciudad.x, ciudad.y)]);
+
+    for (let iPoi = 0; iPoi < poisConCamino.length; iPoi++) {
+      const poi = poisConCamino[iPoi];
+      if (iPoi % 5 === 0) onProgreso(`  camino ${iPoi}/${poisConCamino.length}...`);
+      const camino = iPoi === 0 ? buscador.buscar(ciudad, { x: poi.x, y: poi.y }) : buscador.buscarHastaRed({ x: poi.x, y: poi.y }, nodosDeRed);
+      resultadosCaminos.push({ poiId: poi.id, x: poi.x, y: poi.y, encontrada: !!camino });
+      if (camino) {
+        for (const nodo of camino) nodosDeRed.add(buscador.idxDeTile(nodo.x, nodo.y));
+        for (let i = 0; i < camino.length - 1; i++) {
+          marcarSegmentoComoCamino(camino[i], camino[i + 1], tilesCaminoRoad, 1);
+        }
       }
     }
+    onProgreso(`  ${resultadosCaminos.filter((r) => r.encontrada).length}/${resultadosCaminos.length} caminos trazados con éxito.`);
+  } else {
+    onProgreso("Sin ciudad capital configurada (ciudadCapital: false): se omite la red de caminos.");
   }
-  onProgreso(`  ${resultadosCaminos.filter((r) => r.encontrada).length}/${resultadosCaminos.length} caminos trazados con éxito.`);
 
   function marcarSegmentoComoCamino(a, b, set, radio) {
     const largo = Math.hypot(b.x - a.x, b.y - a.y);
@@ -185,25 +224,37 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     const perpX = largo > 0 ? -dy / largo : 0;
     const perpY = largo > 0 ? dx / largo : 0;
 
-    // Tres carácteres de camino según el desnivel del tramo (GDD sección
-    // 7): terreno llano de verdad → recto, como una carretera real no
-    // tendría motivo para curvarse; colinas suaves → la ondulación
-    // orgánica de siempre; sube de banda de montaña de verdad → zigzag
-    // real, con más amplitud y vueltas cuanto más largo el tramo.
+    // Tres carácteres de camino según el desnivel REAL del tramo (GDD
+    // sección 7), comprobado antes que la banda absoluta: el zigzag existe
+    // para salvar una cuesta, no porque el tramo "esté en zona de
+    // montaña" — un tramo llano en lo alto de una meseta (bandaMax alta
+    // pero sin subir ni bajar en ESTE tramo) va tan recto como uno en la
+    // pradera, no zigzaguea sin motivo.
     const bandaA = bandaEnTile(Math.round(a.x), Math.round(a.y));
     const bandaB = bandaEnTile(Math.round(b.x), Math.round(b.y));
     const bandaMax = Math.max(bandaA, bandaB);
     const desnivel = Math.abs(bandaA - bandaB);
     let amplitud;
     let ciclos;
-    if (bandaMax <= 3 && desnivel === 0) {
-      amplitud = 0;
+    if (desnivel === 0) {
+      // Sin cuesta que salvar en este tramo: lo más recto posible, pero
+      // con un serpenteo muy sutil — ninguna carretera real es una regla
+      // perfecta, aunque aquí no haga falta zigzaguear de verdad.
+      amplitud = Math.min(1.2, largo / 30);
       ciclos = 1;
     } else if (bandaMax >= 4) {
-      const amplitudBase = Math.min(4, largo / 6);
-      amplitud = Math.min(9, amplitudBase * (2.2 + desnivel * 0.4));
-      ciclos = Math.max(2, Math.round(largo / 20));
+      // Sube/baja de banda de verdad en zona de montaña. La ruta en sí ya
+      // serpentea de verdad aquí (costoArista penaliza la pendiente real,
+      // ver sección 6 más abajo), así que este zigzag es solo un adorno
+      // adicional sutil encima de un trazado que ya rodea la subida — no
+      // hace falta tanta amplitud como cuando el zigzag era el único
+      // recurso para sugerir la cuesta.
+      const amplitudBase = Math.min(3, largo / 8);
+      amplitud = Math.min(6, amplitudBase * (1.4 + desnivel * 0.25));
+      ciclos = Math.max(1, Math.round(largo / 28));
     } else {
+      // Colina suave (bandaMax baja pero con algo de desnivel): la
+      // ondulación orgánica de siempre, sin llegar a zigzag de montaña.
       amplitud = Math.min(4, largo / 6);
       ciclos = 1;
     }
@@ -249,7 +300,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     });
   }
 
-  {
+  if (ciudad) {
     const cxCiudad = Math.floor(ciudad.x / tamanoChunk);
     const cyCiudad = Math.floor(ciudad.y / tamanoChunk);
     const claveCiudad = `${cxCiudad}_${cyCiudad}`;
@@ -328,7 +379,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       objetos = objetos.filter((obj) => {
         const tileX = cx * tamanoChunk + obj.x;
         const tileY = cy * tamanoChunk + obj.y;
-        if (Math.hypot(tileX - ciudad.x, tileY - ciudad.y) <= RADIO_EXPLANADA_CIUDAD) return false;
+        if (ciudad && Math.hypot(tileX - ciudad.x, tileY - ciudad.y) <= RADIO_EXPLANADA_CIUDAD) return false;
         for (const p of poisCercanos) {
           if (Math.hypot(tileX - p.x, tileY - p.y) <= p.radio) return false;
         }

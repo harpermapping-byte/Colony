@@ -25,22 +25,58 @@ const PERFIL_BORDE = {
 function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas, opciones = {}) {
   const { anchoTiles = 0, altoTiles = 0, bordes = null } = opciones;
 
+  // Todas las escalas de "qué bioma es esto" (temperatura/humedad/
+  // continentalidad/elevación) se fijan como fracción del lado menor del
+  // mapa, no como constantes absolutas — así "cuántas zonas de bioma caben
+  // en el mapa" no depende de si el mapa mide 40 o 100 chunks, y una
+  // fracción más grande que antes da zonas GRANDES y coherentes (praderas,
+  // bosques, cordilleras enteras) en vez de mosaico de trozos pequeños, que
+  // era el problema real: con una escala fija (ej. 180 tiles) un mapa de
+  // miles de tiles de lado mete decenas de oscilaciones del ruido, cada una
+  // un cambio de bioma.
+  //
+  // OJO con pasarse: `ruido.js` es ruido de valor con una sola celda
+  // bilineal por "escala" (no Simplex/Perlin de verdad) — si la escala se
+  // acerca al tamaño del mapa, quedan tan pocas celdas de rejilla (2-3)
+  // que la propia interpolación bilineal se ve como bandas diagonales
+  // geométricas en vez de terreno orgánico (visto de verdad probando con
+  // fracciones altas: el mapa de elevación salía con una "X" perfecta).
+  // Por eso el objetivo aquí es unas 6-10 celdas de rejilla por el lado
+  // menor del mapa — bastante menos que las ~25-40 de antes (de ahí el
+  // mosaico pequeño), pero lejos de las 2-3 que rompen la textura. El
+  // detalle fino DENTRO de cada zona no se pierde — sigue viniendo de las
+  // octavas altas de cada `fbm` (1/2, 1/4, 1/8 de esta escala base) y de
+  // la decoración/vegetación, que es su propia capa. 400 tiles de mínimo
+  // evita escalas absurdas si algún caller no pasa anchoTiles/altoTiles
+  // (tests, mapas de prueba diminutos).
+  const dimensionMenor = Math.max(400, Math.min(anchoTiles || Infinity, altoTiles || Infinity));
+  const escalaClima = (fraccion) => Math.round(dimensionMenor * fraccion);
+
   // Capas de ruido independientes (GDD sección 3): elevación, temperatura,
   // humedad, continentalidad, más warp para romper el aspecto "de ordenador".
-  const nElevacion = new CapaRuido(semilla + ":elevacion", 180);
-  const nTemperatura = new CapaRuido(semilla + ":temperatura", 220);
-  const nHumedad = new CapaRuido(semilla + ":humedad", 160);
-  const nContinental = new CapaRuido(semilla + ":continental", 300);
-  const warpX = new CapaRuido(semilla + ":warpx", 90);
-  const warpY = new CapaRuido(semilla + ":warpy", 90);
-  const nVulcanismo = new CapaRuido(semilla + ":vulcanismo", 250);
+  // La elevación se queda con más celdas que el resto (ratio ~10) porque
+  // además de decidir bioma da forma al terreno real que siguen ríos y
+  // caminos — demasiado pocas celdas ahí se nota mucho más que en un eje
+  // puramente climático.
+  const nElevacion = new CapaRuido(semilla + ":elevacion", escalaClima(0.10));
+  const nTemperatura = new CapaRuido(semilla + ":temperatura", escalaClima(0.15));
+  const nHumedad = new CapaRuido(semilla + ":humedad", escalaClima(0.13));
+  const nContinental = new CapaRuido(semilla + ":continental", escalaClima(0.17));
+  // El domain warp escala con la capa que distorsiona (mantiene la misma
+  // fuerza RELATIVA que antes — ver `fuerza` en las llamadas a
+  // conDomainWarp más abajo) en vez de quedarse en una escala fija: si la
+  // escala base crece pero el warp no, el warp se vuelve casi invisible y
+  // los límites de zona salen demasiado lisos/geométricos otra vez.
+  const warpX = new CapaRuido(semilla + ":warpx", escalaClima(0.10));
+  const warpY = new CapaRuido(semilla + ":warpy", escalaClima(0.10));
+  const nVulcanismo = new CapaRuido(semilla + ":vulcanismo", escalaClima(0.15));
   // Modula localmente cuánto empuja un borde de mar/montaña: en vez de un
   // muro/costa perfectamente uniforme, unos tramos reciben más empuje
   // (acantilados que caen o suben de golpe) y otros menos (playas suaves,
-  // cabos que resisten y se meten mar adentro) — GDD sección "bordes".
+  // cabos que resisten y se meten mar adentro) — GDD sección "bordes". Esta
+  // sí se queda en escala fina absoluta a propósito: es textura LOCAL del
+  // borde, no una zona de bioma, no debe crecer con el mapa.
   const nAsperezaBorde = new CapaRuido(semilla + ":asperezaborde", 70);
-
-  const dimensionMenor = Math.max(1, Math.min(anchoTiles || Infinity, altoTiles || Infinity));
 
   const bordesInfo = bordes
     ? [
@@ -79,10 +115,15 @@ function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas, opcion
   }
 
   function muestrear(x, y) {
-    const elevacionBase = conDomainWarp(nElevacion, warpX, warpY, x, y, 60);
+    // Fuerza del warp como fracción de la escala de la capa que distorsiona
+    // (mismo ratio ~1/3 y ~1/4 que tenía el bakeador antes de que estas
+    // escalas empezaran a depender del tamaño del mapa) — así el warp
+    // sigue rompiendo el borde con la misma fuerza relativa sea cual sea
+    // el tamaño del mapa, en vez de volverse invisible al crecer la base.
+    const elevacionBase = conDomainWarp(nElevacion, warpX, warpY, x, y, nElevacion.escala / 3);
     const elevacion = Math.min(1, Math.max(0, elevacionBase + sesgoElevacionBorde(x, y)));
     const temperatura = nTemperatura.fbm(x, y, 3);
-    const humedad = conDomainWarp(nHumedad, warpX, warpY, x, y, 40);
+    const humedad = conDomainWarp(nHumedad, warpX, warpY, x, y, nHumedad.escala / 4);
     const continentalidad = nContinental.fbm(x, y, 2);
     const vulcanismo = nVulcanismo.fbm(x, y, 2);
     return { elevacion, temperatura, humedad, continentalidad, vulcanismo };

@@ -139,6 +139,12 @@
           <small class="ayuda">Se sugiere solo automáticamente al cambiar el tamaño del mapa (si tú no lo tocas a mano) — un mapa grande tiene muchos más POIs y necesita un número más alto o la mayoría se quedan sin camino.</small>
         </div>
       </div>
+      <div class="fila">
+        <div>
+          <label><input type="checkbox" id="ciudadCapital" checked /> Ciudad capital en el centro</label>
+          <small class="ayuda">Coloca la ciudad que maneja el streamer en el centro del mapa y traza la red de caminos que se ramifica desde ella hacia los POIs. Desactívalo para un mapa sin ciudad principal — no se genera ninguna red de caminos.</small>
+        </div>
+      </div>
     </fieldset>
 
     <div class="acciones">
@@ -222,8 +228,9 @@ document.querySelectorAll("[data-preset]").forEach((btn) => {
       document.getElementById("anchoChunks").value = 12;
       document.getElementById("altoChunks").value = 12;
     } else {
-      document.getElementById("anchoChunks").value = 200;
-      document.getElementById("altoChunks").value = 200;
+      document.getElementById("anchoChunks").value = 100;
+      document.getElementById("altoChunks").value = 100;
+      document.getElementById("umbralRio").value = 24;
     }
     actualizarAyudaTamano();
     sugerirMaxCaminos();
@@ -248,6 +255,7 @@ function leerConfig() {
     probabilidadLegendaria: Number(document.getElementById("probabilidadLegendaria").value),
     umbralRio: Number(document.getElementById("umbralRio").value),
     maxCaminosAPOIs: Number(document.getElementById("maxCaminosAPOIs").value),
+    ciudadCapital: document.getElementById("ciudadCapital").checked,
     pasoHidrologia: 16,
     pasoCaminos: 32,
     bordes: {

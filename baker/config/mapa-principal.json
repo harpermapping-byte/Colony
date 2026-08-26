@@ -1,14 +1,15 @@
 {
   "nombre": "mapa-principal",
   "semilla": "colonia-01",
-  "anchoChunks": 200,
-  "altoChunks": 200,
+  "anchoChunks": 100,
+  "altoChunks": 100,
   "tamanoChunk": 32,
+  "ciudadCapital": true,
   "biomasHabilitados": ["pradera", "bosque", "montana_nevada", "desierto", "costa", "pantano"],
   "separacionMinimaPOI": 200,
   "probabilidadLegendaria": 0.02,
   "pasoHidrologia": 16,
-  "umbralRio": 8,
+  "umbralRio": 24,
   "pasoCaminos": 32,
   "maxCaminosAPOIs": 60,
   "bordes": {
