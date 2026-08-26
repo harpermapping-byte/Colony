@@ -1,0 +1,14 @@
+{
+  "_nota": "Propiedades intrínsecas de cada tipo de sala (GDD_Bakeador_Interiores sección 5). Qué elementos puede llevar NO se declara aquí — lo declara cada elemento en elementos.json vía tiposSalaValidos, mismo patrón bioma/especie que en exteriores (biomas.json no lista especies, vegetacion.json/animales.json listan biomas).",
+
+  "dormitorio": { "anchoTiles": [4, 7], "largoTiles": [4, 7], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false },
+  "cocina": { "anchoTiles": [4, 7], "largoTiles": [4, 8], "materialSuelo": "piedra", "materialPared": "estuco", "simetrico": false },
+  "sala_comun": { "anchoTiles": [6, 10], "largoTiles": [6, 12], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false },
+  "almacen": { "anchoTiles": [3, 6], "largoTiles": [3, 6], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": false },
+  "bodega": { "anchoTiles": [5, 10], "largoTiles": [5, 10], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": false, "_nota": "Solo aparece en plantas bajo tierra — nunca lleva ventana." },
+  "biblioteca": { "anchoTiles": [5, 9], "largoTiles": [5, 9], "materialSuelo": "madera", "materialPared": "madera", "simetrico": false },
+  "taller": { "anchoTiles": [4, 7], "largoTiles": [4, 7], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": false },
+  "pasillo": { "anchoTiles": [1, 3], "largoTiles": [3, 15], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false, "esPasillo": true },
+  "gran_salon": { "anchoTiles": [9, 16], "largoTiles": [12, 20], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": true },
+  "sala_comercio": { "anchoTiles": [5, 9], "largoTiles": [5, 9], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false }
+}

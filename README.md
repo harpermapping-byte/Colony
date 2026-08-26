@@ -5,7 +5,8 @@ Prototipo mínimo cliente-servidor: dos (o más) sprites placeholder moviéndose
 - **`server/`** — Node.js + [Colyseus](https://colyseus.io/) (sala `hub` autoritativa).
 - **`client/`** — [Phaser 3](https://phaser.io/) + Vite + TypeScript.
 - **`baker/`** — bakeador de mapas exteriores (genera el mundo una sola vez, offline, sin dependencias) + visor con cámara libre para revisarlo. Ver `baker/README.md` para instrucciones.
-- **`docs/`** — documento de diseño del bakeador (`GDD_Bakeador_Exteriores.md`) y catálogo de especies (`Catalogo_Especies_Exterior.md`).
+- **`interiores/`** — catálogo del bakeador de interiores (casas, tabernas, castillos — instancias separadas del mapa exterior, a las que se entra por los POI tipo `portal`). Motor de generación (WFC) todavía sin construir — ver `interiores/README.md`.
+- **`docs/`** — documentos de diseño: `GDD_Bakeador_Exteriores.md`, `GDD_Bakeador_Interiores.md`, catálogo de especies (`Catalogo_Especies_Exterior.md`) y backlog de mecánicas futuras (`Backlog_Mecanicas_Futuras.md`).
 
 ## Cómo correrlo en local
 

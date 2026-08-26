@@ -1,0 +1,12 @@
+{
+  "_nota": "Acabado de suelo/pared/techo — equivalente a categoriaRecurso en el bakeador de exteriores (GDD_Bakeador_Interiores sección 3). Cada elemento del catálogo grande filtra por estos vía materialesCompatibles.",
+
+  "madera": { "riquezaTipica": ["humilde", "modesta", "noble"], "colorDebug": "#8a6a3a" },
+  "piedra": { "riquezaTipica": ["humilde", "modesta", "noble"], "colorDebug": "#8a8a8a" },
+  "ladrillo": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#a85a3a" },
+  "estuco": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#e8ddc8" },
+  "papel_pintado": { "riquezaTipica": ["noble"], "colorDebug": "#c98aa0" },
+  "tela_tapiz": { "riquezaTipica": ["noble"], "colorDebug": "#7a2a3a" },
+  "metal": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#6a6a70" },
+  "cristal": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#bcdff0" }
+}

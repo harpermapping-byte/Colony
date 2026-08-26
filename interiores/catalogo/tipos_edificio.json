@@ -1,0 +1,89 @@
+{
+  "_nota": "Cada tipoEdificio declara el patrón típico de plantas y qué salas le tocan por rol de planta (bodega/planta_baja/planta_alta — no por número concreto, eso lo decide el config al pedir el edificio, ver GDD_Bakeador_Interiores sección 1 y 6). salasPorPlanta: lista de [tipoSala, peso] — más peso, más frecuente en esa planta. poiVinculado: qué POIs del exterior (baker/catalogo/pois.json) pueden disparar este tipoEdificio, para no inventar un sistema de enganche nuevo.",
+
+  "casa_humilde": {
+    "riqueza": "humilde",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "planta_baja": [["sala_comun", 10], ["dormitorio", 6], ["almacen", 3]]
+    },
+    "materialesPreferidos": ["madera", "piedra"],
+    "poiVinculado": ["granja_abandonada", "cabana_cazador"]
+  },
+
+  "choza_pescador": {
+    "riqueza": "humilde",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "planta_baja": [["sala_comun", 8], ["dormitorio", 4], ["almacen", 3]]
+    },
+    "materialesPreferidos": ["madera"],
+    "poiVinculado": ["cabana_pesca", "aldea_pescadores"]
+  },
+
+  "casa_noble": {
+    "riqueza": "noble",
+    "tieneBodega": true,
+    "rangoPlantasAltas": [1, 2],
+    "salasPorPlanta": {
+      "bodega": [["almacen", 10]],
+      "planta_baja": [["gran_salon", 6], ["biblioteca", 4], ["sala_comun", 4], ["pasillo", 8]],
+      "planta_alta": [["dormitorio", 8], ["pasillo", 6]]
+    },
+    "materialesPreferidos": ["piedra", "madera", "tela_tapiz"],
+    "poiVinculado": ["aldea_agricola"]
+  },
+
+  "taberna": {
+    "riqueza": "modesta",
+    "tieneBodega": true,
+    "rangoPlantasAltas": [1, 1],
+    "salasPorPlanta": {
+      "bodega": [["almacen", 10]],
+      "planta_baja": [["sala_comun", 10], ["cocina", 5], ["almacen", 3]],
+      "planta_alta": [["dormitorio", 8], ["pasillo", 5]]
+    },
+    "materialesPreferidos": ["madera", "piedra"],
+    "poiVinculado": ["mercado_itinerante", "aldea_agricola"]
+  },
+
+  "tienda": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 1],
+    "salasPorPlanta": {
+      "planta_baja": [["sala_comercio", 10], ["almacen", 5]],
+      "planta_alta": [["dormitorio", 4], ["almacen", 3]]
+    },
+    "materialesPreferidos": ["madera"],
+    "poiVinculado": ["tienda_cazador", "oasis_mercader", "mercado_itinerante"]
+  },
+
+  "castillo": {
+    "riqueza": "noble",
+    "tieneBodega": true,
+    "rangoPlantasAltas": [2, 3],
+    "salasPorPlanta": {
+      "bodega": [["almacen", 8], ["taller", 3]],
+      "planta_baja": [["gran_salon", 8], ["cocina", 4], ["pasillo", 8]],
+      "planta_alta": [["dormitorio", 6], ["biblioteca", 3], ["pasillo", 6]]
+    },
+    "materialesPreferidos": ["piedra", "tela_tapiz", "metal"],
+    "poiVinculado": ["castillo_en_ruinas", "fuerte_barbaro"]
+  },
+
+  "torre_militar": {
+    "_nota": "Interior de una torre de vigía o barracón — sigue siendo arquitectura civil/militar con WFC normal, no el futuro bakeador de mazmorras orgánicas (ver GDD sección 11).",
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [1, 2],
+    "salasPorPlanta": {
+      "planta_baja": [["almacen", 6], ["taller", 4]],
+      "planta_alta": [["dormitorio", 6], ["pasillo", 4]]
+    },
+    "materialesPreferidos": ["piedra", "metal"],
+    "poiVinculado": ["torre_vigia_enemiga", "barracones_abandonados"]
+  }
+}

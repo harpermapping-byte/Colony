@@ -1,0 +1,22 @@
+{
+  "_nota": "GDD_Bakeador_Interiores sección 7. Una ventana final es la COMBINACIÓN de un valor de cada eje (forma+tamano+marco+cristal), no una entrada única de catálogo — así tamaño×altura×marco×cristal da variación combinatoria real sin pintar cientos de imágenes a mano. El arte se compone por capas superpuestas (marco + hueco + cristal). Solo aparecen en plantas con fachada al exterior — nunca en bodega. Solo dejan pasar luz, nunca renderizan vista al exterior (el interior es instancia separada).",
+
+  "forma": {
+    "rectangular": { "colorDebug": "#a9c9d6" },
+    "arco": { "colorDebug": "#a9c9d6" },
+    "redonda": { "colorDebug": "#a9c9d6", "_nota": "Típica de torres/castillo." }
+  },
+  "tamano": {
+    "pequena": { "anchoTiles": 1, "altaEnPared": true },
+    "media": { "anchoTiles": 1, "altaEnPared": false },
+    "grande": { "anchoTiles": 2, "altaEnPared": false }
+  },
+  "marco": {
+    "con_marco": { "materialesCompatibles": ["madera", "metal"] },
+    "sin_marco": {}
+  },
+  "cristal": {
+    "liso": {},
+    "vidriera": { "riquezaMinima": "noble", "_nota": "Coloreado, propio de edificios nobles/religiosos." }
+  }
+}

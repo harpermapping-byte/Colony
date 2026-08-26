@@ -1,0 +1,8 @@
+{
+  "_nota": "Conectan dos plantas consecutivas verticalmente (GDD_Bakeador_Interiores sección 7). huella: [ancho,largo] en tiles, igual en ambas plantas que conecta. permitePasarMobiliarioGrande: si un armario/cama grande puede subir o bajar por aquí — dato para la futura mecánica de mudanza de objetos.",
+
+  "escalera_recta": { "huella": [1, 3], "permitePasarMobiliarioGrande": true, "colorDebug": "#8a6a3a" },
+  "escalera_caracol": { "huella": [2, 2], "permitePasarMobiliarioGrande": false, "colorDebug": "#6a5a3a" },
+  "escalera_vertical": { "huella": [1, 1], "permitePasarMobiliarioGrande": false, "colorDebug": "#5a4a2a", "_nota": "Escala de mano/servicio — típica de bodega o torre de vigía." },
+  "trampilla": { "huella": [1, 1], "permitePasarMobiliarioGrande": false, "colorDebug": "#4a3a26", "_nota": "Mismo hueco conceptual que una puerta, pero en el plano techo/suelo." }
+}

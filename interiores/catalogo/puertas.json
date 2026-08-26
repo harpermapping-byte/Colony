@@ -1,0 +1,7 @@
+{
+  "_nota": "GDD_Bakeador_Interiores sección 7. anchoHueco en tiles.",
+
+  "puerta_individual": { "anchoHueco": 1, "esPuertaPrincipal": false, "colorDebug": "#7a5a34" },
+  "puerta_doble": { "anchoHueco": 2, "esPuertaPrincipal": false, "colorDebug": "#8a6a3a" },
+  "puerta_principal": { "anchoHueco": 2, "esPuertaPrincipal": true, "colorDebug": "#5a3a20", "_nota": "La que conecta con el POI del exterior (tipo portal) — marco más trabajado, siempre en planta_baja." }
+}
