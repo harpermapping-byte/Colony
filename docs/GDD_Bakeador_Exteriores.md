@@ -25,6 +25,7 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 - Existe un **suelo mínimo cavable** por región/bioma (equivalente al bedrock de Minecraft) para que cavar no rompa el mapa.
 - **Cavar** es un sistema de delta (igual que talar un árbol): se guarda solo el cambio puntual, no se regenera nada. El sistema de acantilados (ver siguiente punto) ya cubre visualmente el hueco que deja cavar, sin reglas nuevas.
 - **Elevación en niveles discretos** (6-10 bandas: agua profunda, nivel de agua, llanura, colinas, montaña, cumbre inaccesible). Un salto de más de un nivel entre casillas vecinas genera automáticamente un acantilado infranqueable (salvo rampa/escalera puesta por el bakeador) — esto da fronteras naturales entre zonas y el aspecto 2.5D "terraceado" a la vez.
+- **Variantes de terreno dentro del mismo bioma**: una capa de ruido de alta frecuencia ("variante") elige entre alternativas del terreno base de un bioma, para que no sea un único tile plano repetido — costa: playa arenosa o `playa_rocosa`; pradera/bosque: césped o `cesped_ralo` (transición real hacia tierra desnuda, en manchas). `tierra_baldia` y `suelo_barbecho` ya están en el catálogo pero reservados para la futura mecánica de fertilidad del suelo (igual que `tierra_labrada` para cultivos) — el bakeador no los coloca todavía en el mapa salvaje.
 
 ## 3. Generación de biomas
 
@@ -84,6 +85,10 @@ El parámetro de **"rareza"** puede saltarse estas reglas con probabilidad baja 
 - **Reglas de sitio lógico**: cada tipo de POI declara dónde tiene sentido estar (aldea cerca de agua dulce y terreno llano; torre de vigía en alto con visibilidad; mazmorra cerca de montaña/cueva) — no solo "hay hueco aquí".
 - **Escenas narrativas menores (vignettes)**: grupos pequeños de objetos con historia implícita (carreta volcada, choza abandonada), mismo mecanismo que los POIs grandes pero más frecuente y con menos restricciones de espacio.
 - La naturaleza "reclama" las ruinas: más vegetación silvestre alrededor de estructuras abandonadas.
+- **Reglas de sitio, implementado de verdad**: `reglasSitio` (`terrenoLlano`, `cercaAgua`, `bandaElevacionMin`/`Max`) estaban declaradas desde el principio pero nunca se comprobaban en `colocarPOIs` — arreglado, ahora se filtran los candidatos antes de elegir plantilla.
+- **Selección ponderada por rareza**: cada plantilla lleva un `peso` (10 por defecto); con eso conviven en el mismo pool tipos comunes (peso alto) y tipos raros/"TOP" (peso bajo, p.ej. 0.6-1.2) sin necesidad de un sistema de rareza aparte.
+- **Pool `_cualquiera`**: además del pool por bioma, existe una clave especial `_cualquiera` en el catálogo que se suma siempre — para POIs que tienen sentido en cualquier bioma (cuevas, mazmorras, ruinas de varios tamaños, POIs enemigos) sin duplicar la entrada en cada bioma.
+- **Catálogo ampliado**: asentamientos (aldea de pescadores/agrícola/maderera, ciudad poblada menor), comercio (mercado itinerante, caravana ambulante, circo, tienda de cazador, cabaña de pesca), cuevas y mazmorras en dos niveles de profundidad, ruinas en tres tamaños, y una familia de POIs **enemigos** marcados con `faccion: "hostil"` (campamento bárbaro pequeño/grande, guarida de bandidos, campamento de cazadores furtivos, torre de vigía enemiga, barracones abandonados, fuerte bárbaro, castillo en ruinas) — listos para que la futura mecánica de peligro/combate (sección 10) los reconozca por ese campo.
 
 ## 7. Caminos
 

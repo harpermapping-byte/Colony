@@ -3,6 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 
+const { CapaRuido } = require("./ruido");
 const { crearGeneradorBiomas, suavizarBiomas } = require("./biomas");
 const { generarHidrologia } = require("./hidrologia");
 const { decidirTerreno } = require("./terreno");
@@ -63,6 +64,11 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
 
   // --- 1-3. Ruido, clasificación de bioma y suavizado (GDD sección 3) ---
   const generadorBiomas = crearGeneradorBiomas(config.semilla, biomasHabilitados, catalogoBiomas, { anchoTiles, altoTiles, bordes });
+  // Ruido de alta frecuencia para elegir entre variantes de terreno del
+  // mismo bioma (playa arenosa/rocosa, manchas de césped raído) — ver
+  // decidirTerreno en terreno.js.
+  const nVarianteTerreno = new CapaRuido(config.semilla + ":varianteterreno", 22);
+  const varianteTerrenoEn = (x, y) => nVarianteTerreno.fbm(x, y, 2);
 
   onProgreso("Clasificando biomas...");
   const biomaGrid = new Uint8Array(anchoTiles * altoTiles);
@@ -106,7 +112,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     const b = biomaEnTile(x, y);
     const banda = bandaEnTile(x, y);
     const h = hidro.consultar(x, y);
-    const id = decidirTerreno({ biomaId: b, catalogoBiomas, banda, hidro: h, esCamino: false });
+    const id = decidirTerreno({ biomaId: b, catalogoBiomas, banda, hidro: h, esCamino: false, variante: varianteTerrenoEn(x, y) });
     return catalogoTerrenos[id];
   };
 
@@ -117,6 +123,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     semilla: config.semilla,
     biomaEn: biomaEnTile,
     terrenoEn: terrenoBaseEnTile,
+    bandaEn: bandaEnTile,
     catalogoPOIs,
     probabilidadLegendaria: config.probabilidadLegendaria ?? 0.02,
   });
@@ -204,6 +211,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       tipo: poi.tipo,
       bioma: poi.bioma,
       legendario: poi.legendario,
+      faccion: poi.faccion || null,
       radio: poi.radio,
       x: poi.x % tamanoChunk,
       y: poi.y % tamanoChunk,
@@ -247,7 +255,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
           const banda = bandaGrid[i];
           const h = hidro.consultar(x, y);
           const esCamino = tilesCaminoRoad.has(`${x}_${y}`);
-          let idTerreno = decidirTerreno({ biomaId, catalogoBiomas, banda, hidro: h, esCamino });
+          let idTerreno = decidirTerreno({ biomaId, catalogoBiomas, banda, hidro: h, esCamino, variante: varianteTerrenoEn(x, y) });
 
           if (!esCamino && idTerreno !== "agua" && idTerreno !== "agua_profunda") {
             const bandaDer = x + 1 < anchoTiles ? bandaGrid[i + 1] : banda;
@@ -286,7 +294,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
           bioma: biomaDeIdx(biomaGridSuave[(cy * tamanoChunk + ly) * anchoTiles + (cx * tamanoChunk + lx)]),
           banda: bandaLocalPorCasilla[idxLocal],
           esAgua: idT === "agua" || idT === "agua_profunda",
-          cercaAgua: idT === "agua" || idT === "playa",
+          cercaAgua: idT === "agua" || catalogoTerrenos[idT]?.esPlaya === true,
         };
       });
 

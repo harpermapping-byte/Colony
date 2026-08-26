@@ -1,32 +1,62 @@
 {
-  "_nota": "Plantillas de POI por bioma (GDD sección 6). tipo: integrado (vive en el propio mapa) o portal (enlaza a instancia aparte, este bakeador solo coloca el disparador).",
+  "_nota": "Plantillas de POI por bioma (GDD sección 6). tipo: integrado (vive en el propio mapa) o portal (enlaza a instancia aparte, este bakeador solo coloca el disparador). peso: probabilidad relativa dentro de su pool (por defecto 10) — bajarlo hace un POI más raro/\"TOP\" sin tener que sacarlo del pool. faccion: \"hostil\" marca POIs enemigos (campamentos, fuertes...) para que la mecánica de peligro/combate los reconozca más adelante. \"_cualquiera\" es un pool extra que se suma siempre al pool del bioma, para tipos que pueden salir en cualquier sitio (cuevas, ruinas, POIs enemigos) sin duplicarlos en cada bioma.",
   "pradera": [
     { "id": "granja_abandonada", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 6 },
     { "id": "circulo_piedras", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 3 },
-    { "id": "pozo_aldea", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 2 }
+    { "id": "pozo_aldea", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 2 },
+    { "id": "aldea_agricola", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 10, "peso": 4 },
+    { "id": "ciudad_poblada_menor", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 16, "peso": 0.6 },
+    { "id": "cabana_cazador", "tipo": "integrado", "reglasSitio": [], "radio": 3, "peso": 6 }
   ],
   "bosque": [
     { "id": "claro_altar_antiguo", "tipo": "integrado", "reglasSitio": [], "radio": 4 },
     { "id": "campamento_cazador", "tipo": "integrado", "reglasSitio": [], "radio": 4 },
-    { "id": "guarida_lobo", "tipo": "portal", "reglasSitio": [], "radio": 3 }
+    { "id": "guarida_lobo", "tipo": "portal", "reglasSitio": [], "radio": 3 },
+    { "id": "aldea_maderera", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 9, "peso": 4 },
+    { "id": "tienda_cazador", "tipo": "integrado", "reglasSitio": [], "radio": 3, "peso": 8 },
+    { "id": "cabana_cazador", "tipo": "integrado", "reglasSitio": [], "radio": 3, "peso": 6 }
   ],
   "montana_nevada": [
     { "id": "cabana_cazador", "tipo": "integrado", "reglasSitio": ["bandaElevacionMin:4"], "radio": 3 },
-    { "id": "mina_abandonada", "tipo": "portal", "reglasSitio": ["bandaElevacionMin:4"], "radio": 3 }
+    { "id": "mina_abandonada", "tipo": "portal", "reglasSitio": ["bandaElevacionMin:4"], "radio": 3 },
+    { "id": "tienda_cazador", "tipo": "integrado", "reglasSitio": ["bandaElevacionMin:4"], "radio": 3, "peso": 6 }
   ],
   "desierto": [
     { "id": "oasis_pequeno", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 5 },
-    { "id": "oasis_mercader", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "legendario": false, "radio": 8 },
+    { "id": "oasis_mercader", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "legendario": false, "radio": 8, "peso": 2 },
     { "id": "ruinas_semienterradas", "tipo": "integrado", "reglasSitio": [], "radio": 5 },
-    { "id": "campo_dunas_gigantes", "tipo": "integrado", "reglasSitio": [], "radio": 10 }
+    { "id": "campo_dunas_gigantes", "tipo": "integrado", "reglasSitio": [], "radio": 10, "peso": 3 },
+    { "id": "caravana_ambulante", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 4, "peso": 6 }
   ],
   "costa": [
     { "id": "barco_encallado", "tipo": "integrado", "reglasSitio": ["cercaAgua"], "radio": 4 },
-    { "id": "faro_abandonado", "tipo": "portal", "reglasSitio": ["cercaAgua"], "radio": 3 }
+    { "id": "faro_abandonado", "tipo": "portal", "reglasSitio": ["cercaAgua"], "radio": 3 },
+    { "id": "aldea_pescadores", "tipo": "integrado", "reglasSitio": ["cercaAgua"], "radio": 9, "peso": 4 },
+    { "id": "cabana_pesca", "tipo": "integrado", "reglasSitio": ["cercaAgua"], "radio": 3, "peso": 8 }
   ],
   "pantano": [
     { "id": "choza_curandero", "tipo": "integrado", "reglasSitio": [], "radio": 3 },
-    { "id": "altar_hundido", "tipo": "integrado", "reglasSitio": ["cercaAgua"], "radio": 3 }
+    { "id": "altar_hundido", "tipo": "integrado", "reglasSitio": ["cercaAgua"], "radio": 3 },
+    { "id": "cabana_pesca", "tipo": "integrado", "reglasSitio": ["cercaAgua"], "radio": 3, "peso": 6 }
+  ],
+  "_cualquiera": [
+    { "id": "cueva_pequena", "tipo": "portal", "reglasSitio": ["bandaElevacionMin:3"], "radio": 3, "peso": 10 },
+    { "id": "cueva_profunda", "tipo": "portal", "reglasSitio": ["bandaElevacionMin:3"], "radio": 4, "peso": 4 },
+    { "id": "mazmorra_olvidada", "tipo": "portal", "reglasSitio": [], "radio": 5, "peso": 3 },
+    { "id": "mazmorra_antigua", "tipo": "portal", "reglasSitio": [], "radio": 6, "peso": 1 },
+    { "id": "ruinas_pequenas", "tipo": "integrado", "reglasSitio": [], "radio": 4, "peso": 10 },
+    { "id": "ruinas_medianas", "tipo": "integrado", "reglasSitio": [], "radio": 7, "peso": 4 },
+    { "id": "ruinas_grandes", "tipo": "integrado", "reglasSitio": [], "radio": 11, "peso": 1.2 },
+    { "id": "mercado_itinerante", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 5, "peso": 5 },
+    { "id": "circo_ambulante", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "radio": 6, "peso": 1.5 },
+    { "id": "campamento_barbaros_pequeno", "tipo": "integrado", "reglasSitio": [], "radio": 5, "peso": 8, "faccion": "hostil" },
+    { "id": "campamento_barbaros_grande", "tipo": "integrado", "reglasSitio": [], "radio": 9, "peso": 2.5, "faccion": "hostil" },
+    { "id": "guarida_bandidos", "tipo": "integrado", "reglasSitio": [], "radio": 6, "peso": 5, "faccion": "hostil" },
+    { "id": "campamento_cazadores_furtivos", "tipo": "integrado", "reglasSitio": [], "radio": 5, "peso": 5, "faccion": "hostil" },
+    { "id": "torre_vigia_enemiga", "tipo": "integrado", "reglasSitio": [], "radio": 3, "peso": 6, "faccion": "hostil" },
+    { "id": "barracones_abandonados", "tipo": "integrado", "reglasSitio": [], "radio": 8, "peso": 3, "faccion": "hostil" },
+    { "id": "fuerte_barbaro", "tipo": "integrado", "reglasSitio": [], "radio": 12, "peso": 1, "faccion": "hostil" },
+    { "id": "castillo_en_ruinas", "tipo": "integrado", "reglasSitio": [], "radio": 14, "peso": 0.8, "faccion": "hostil" }
   ],
   "_legendarias": {
     "probabilidad": 0.02,
