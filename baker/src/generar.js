@@ -175,15 +175,28 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     const perpX = largo > 0 ? -dy / largo : 0;
     const perpY = largo > 0 ? dx / largo : 0;
 
-    // Tramos que entran en banda de montaña (4+) zigzaguean como una
-    // carretera de montaña real en vez de subir en línea recta: más
-    // amplitud de curva y más vueltas cuanto más largo el tramo.
+    // Tres carácteres de camino según el desnivel del tramo (GDD sección
+    // 7): terreno llano de verdad → recto, como una carretera real no
+    // tendría motivo para curvarse; colinas suaves → la ondulación
+    // orgánica de siempre; sube de banda de montaña de verdad → zigzag
+    // real, con más amplitud y vueltas cuanto más largo el tramo.
     const bandaA = bandaEnTile(Math.round(a.x), Math.round(a.y));
     const bandaB = bandaEnTile(Math.round(b.x), Math.round(b.y));
-    const enMontana = Math.max(bandaA, bandaB) >= 4;
-    const amplitudBase = Math.min(4, largo / 6);
-    const amplitud = enMontana ? Math.min(9, amplitudBase * 2.2) : amplitudBase;
-    const ciclos = enMontana ? Math.max(2, Math.round(largo / 20)) : 1;
+    const bandaMax = Math.max(bandaA, bandaB);
+    const desnivel = Math.abs(bandaA - bandaB);
+    let amplitud;
+    let ciclos;
+    if (bandaMax <= 3 && desnivel === 0) {
+      amplitud = 0;
+      ciclos = 1;
+    } else if (bandaMax >= 4) {
+      const amplitudBase = Math.min(4, largo / 6);
+      amplitud = Math.min(9, amplitudBase * (2.2 + desnivel * 0.4));
+      ciclos = Math.max(2, Math.round(largo / 20));
+    } else {
+      amplitud = Math.min(4, largo / 6);
+      ciclos = 1;
+    }
 
     for (let s = 0; s <= pasos; s++) {
       const t = s / pasos;

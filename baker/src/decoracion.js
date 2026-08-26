@@ -17,14 +17,19 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
     return capasRuido.get(clave);
   }
 
-  // Densidad regional de bosque: capa de ruido de gran escala (regiones
-  // enteras, no casilla a casilla) que multiplica la densidad de la
-  // vegetación del bioma "bosque" — así unas zonas de bosque salen grandes
-  // y muy pobladas y otras más pequeñas y ralas, nunca todas iguales.
-  const nDensidadBosque = new CapaRuido(semilla + ":densidadRegionBosque", 550);
-  function factorDensidadRegional(bioma, x, y) {
-    if (bioma !== "bosque") return 1;
-    return 0.35 + nDensidadBosque.fbm(x, y, 2) * 1.5; // ~0.35..1.85
+  // Densidad regional: capa de ruido de gran escala (regiones enteras, no
+  // casilla a casilla) que multiplica la densidad — así hay zonas de bosque
+  // grandes y muy pobladas y otras pequeñas y ralas, praderas con más o
+  // menos flores, tramos de desierto con más o menos rocas, etc. Nunca todo
+  // el mapa a la misma densidad. Una capa independiente por categoría
+  // (vegetación/fauna/rocas) para que no salgan siempre correlacionadas
+  // (una mancha de rocas no tiene por qué coincidir con una de flores).
+  const nDensidadRegionVeg = new CapaRuido(semilla + ":densidadRegionVeg", 550);
+  const nDensidadRegionFauna = new CapaRuido(semilla + ":densidadRegionFauna", 480);
+  const nDensidadRegionRocas = new CapaRuido(semilla + ":densidadRegionRocas", 620);
+  function factorDensidadRegional(catalogo, x, y) {
+    const capa = catalogo === catalogoAnimales ? nDensidadRegionFauna : catalogo === catalogoRocas ? nDensidadRegionRocas : nDensidadRegionVeg;
+    return 0.35 + capa.fbm(x, y, 2) * 1.5; // ~0.35..1.85
   }
 
   // Indexado por bioma UNA VEZ al construir el colocador — con el catálogo
@@ -78,7 +83,7 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         if (datos.requiereCercaAgua && !opciones.cercaAgua) continue;
       }
       const ruido = capaPara(id, datos.escalaRuido || 20).fbm(x, y, 3);
-      const densidad = (datos.densidadBase || 0.01) * ruido * 2 * factorDensidadRegional(bioma, x, y);
+      const densidad = (datos.densidadBase || 0.01) * ruido * 2 * factorDensidadRegional(catalogo, x, y);
       if (prngLocal() < densidad) {
         const variantes = datos.variantes || 1;
         const escalaBase = datos.escalaBase || 1;

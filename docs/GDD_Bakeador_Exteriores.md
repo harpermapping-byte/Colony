@@ -16,8 +16,8 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 - Si un mapa no genera ningún lago natural (relieve muy plano o mapa pequeño), la hidrología fuerza una charca pequeña en el punto más bajo de su interior — nunca falta un cuerpo de agua quieta.
 - **Ríos y lagos con forma real, no en bloques**: la primera versión asignaba cada casilla a la celda de rejilla de hidrología más cercana, lo que pintaba bloques cuadrados de hasta medio chunk de lado — se veía como cuadrados de agua pegados, no un río. Se corrigió trazando una línea fina real entre cada celda de río y aquella a la que fluye (garantizado continuo, porque el caudal solo crece aguas abajo), con anchura proporcional al caudal; los lagos se rellenan como un círculo. El mapa resumen (`mapa_general.png`) también pasó de un bloque de color por chunk a muestrear el terreno real varias veces dentro de cada chunk, por el mismo motivo.
 - **El límite de caminos trazados a POIs escala con el área del mapa** en vez de ser un número fijo — con un tope fijo, un mapa grande con cientos de POIs dejaba a la inmensa mayoría sin siquiera intentar un camino.
-- Los tramos de camino que cruzan banda de elevación de montaña zigzaguean con más amplitud y curvas que el resto, imitando una carretera de montaña real en vez de subir en línea recta.
-- La densidad de vegetación del bioma bosque varía por región (capa de ruido de gran escala), para que no todos los bosques del mapa salgan igual de grandes/poblados.
+- Los caminos tienen tres carácteres según el desnivel del tramo: llano de verdad → recto, colinas suaves → ondulación orgánica moderada, sube de banda de montaña → zigzag real (más marcado cuanto mayor el desnivel) — no toda carretera se curva igual, como en el terreno real.
+- La densidad regional (capa de ruido de gran escala que hace zonas más/menos pobladas) aplica a las tres categorías de decoración (vegetación, fauna, rocas) en todos los biomas, no solo a los árboles de bosque — cada categoría con su propia capa independiente para que las manchas de una y otra no coincidan siempre.
 
 ## 2. Terreno base (independiente del arte visual)
 
