@@ -12,6 +12,22 @@
 const { colocarSala } = require("./colocarElementos");
 const { rotarHuella, rotarOffset, ORIENTACIONES } = require("./rotacion");
 const { calcularEstadisticas } = require("./estadisticas");
+const { reglasParaElemento } = require("./catalogoContenido");
+
+// reglas por defecto cuando no hay definición de catálogo a mano (item
+// suelto sin `catalogos`, o id no encontrado) — reproduce EXACTAMENTE el
+// comportamiento que ya tenía este archivo antes del catálogo de
+// contenido: solo la suciedad podía solaparse, nada bloqueaba puerta "de
+// más". `reglasParaElemento` (catalogoContenido.js) da estos mismos
+// valores por defecto para cualquier elemento sin overrides explícitos,
+// así que pasar o no `catalogos` no cambia el resultado salvo que una
+// pieza declare `puedeSolapar`/`puedeBloquearPuerta`/`rotacionesPermitidas`
+// a propósito (sección 8 del pedido de catálogo de contenido).
+function reglasDe(catalogos, elementoId, capaFallback) {
+  const def = catalogos?.elementos?.[elementoId];
+  if (def) return reglasParaElemento(def);
+  return reglasParaElemento({ capa: capaFallback });
+}
 
 function buscarItem(resultado, instanceId) {
   for (const capa of ["colocados", "colgados", "techo"]) {
@@ -49,15 +65,18 @@ function calcularOcupacion(resultado, ignorarInstanceId = null) {
 // de la sala rompe el dato, no es una cuestión de gusto). Solapamiento y
 // bloqueo de puerta son avisos, no bloqueos — el diseñador puede
 // ignorarlos a propósito (sección 9: "no ser demasiado restrictivo").
-function validarHueco(resultado, x, y, ancho, largo, ocupadas, capa) {
+// `reglas` viene del catálogo de contenido (catalogoContenido.js sección
+// 8 de ese pedido: "el catálogo únicamente debe proporcionar las reglas;
+// la política de bloqueo sigue perteneciendo al sistema de edición") —
+// este archivo decide qué hacer con `puedeSolapar`/`puedeBloquearPuerta`,
+// el catálogo solo dice si la pieza los tiene marcados.
+function validarHueco(resultado, x, y, ancho, largo, ocupadas, reglas) {
   const avisos = [];
   const fueraDeLimites = x < 1 || y < 1 || x + ancho > resultado.ancho - 1 || y + largo > resultado.largo - 1;
   if (fueraDeLimites) return { ok: false, avisos: ["fuera_de_limites"] };
 
-  // La suciedad (GDD sección 7ter) es puramente cosmética — "se puede
-  // pisar/superponer con cualquier otra cosa" — nunca avisa de solape.
   let solapa = false;
-  if (capa !== "suciedad") {
+  if (!reglas.puedeSolapar) {
     for (let dy = 0; dy < largo && !solapa; dy++) {
       for (let dx = 0; dx < ancho && !solapa; dx++) {
         if (ocupadas.has(`${x + dx}_${y + dy}`)) solapa = true;
@@ -68,14 +87,16 @@ function validarHueco(resultado, x, y, ancho, largo, ocupadas, capa) {
 
   const { puerta } = resultado;
   const cubrePuerta = x <= puerta.x && puerta.x < x + ancho && y <= puerta.y && puerta.y < y + largo;
-  if (cubrePuerta) avisos.push("bloquea_la_puerta");
+  if (cubrePuerta && !reglas.puedeBloquearPuerta) avisos.push("bloquea_la_puerta");
 
   return { ok: true, avisos };
 }
 
 // mover — sección 4/9: reposiciona una pieza ya colocada. `forzar:true`
 // ignora los avisos de solape/puerta (siguen registrados en la respuesta,
-// pero no impiden el movimiento).
+// pero no impiden el movimiento). `opts.catalogos` es opcional — sin él
+// se usan las reglas por defecto (mismo comportamiento que antes del
+// catálogo de contenido).
 function moverElemento(resultado, instanceId, x, y, opts = {}) {
   const encontrado = buscarItem(resultado, instanceId);
   if (!encontrado) return { ok: false, avisos: ["instancia_no_encontrada"] };
@@ -83,7 +104,8 @@ function moverElemento(resultado, instanceId, x, y, opts = {}) {
   if (item.x === undefined) return { ok: false, avisos: ["esta_pieza_no_esta_en_el_suelo"] }; // colgado/techo/sobre no se "mueve" por tile, sección 10
 
   const ocupadas = calcularOcupacion(resultado, instanceId);
-  const validacion = validarHueco(resultado, x, y, item.ancho, item.largo, ocupadas, item.capa);
+  const reglas = reglasDe(opts.catalogos, item.id, item.capa);
+  const validacion = validarHueco(resultado, x, y, item.ancho, item.largo, ocupadas, reglas);
   if (!validacion.ok) return validacion;
   if (validacion.avisos.length > 0 && !opts.forzar) return { ok: false, avisos: validacion.avisos, requiereForzar: true };
 
@@ -106,11 +128,19 @@ function rotarElemento(resultado, instanceId, catalogos, gradosAbsolutos, opts =
   const def = catalogos.elementos[item.id];
   const huellaBase = def?.huella || [item.ancho, item.largo];
   const [nuevoAncho, nuevoLargo] = rotarHuella(huellaBase, gradosAbsolutos);
+  const reglas = reglasDe(catalogos, item.id, item.capa);
+
+  // rotacionesPermitidas (catálogo, opcional): aviso forzable, no bloqueo
+  // duro — misma filosofía que solape/puerta (sección 8/9 del pedido de
+  // catálogo). Sin esa restricción declarada (la mayoría de piezas), las
+  // 4 orientaciones siguen abiertas como siempre.
+  const avisosRotacion = reglas.rotacionesPermitidas && !reglas.rotacionesPermitidas.includes(gradosAbsolutos) ? ["rotacion_no_habitual_para_esta_pieza"] : [];
 
   const ocupadas = calcularOcupacion(resultado, instanceId);
-  const validacion = validarHueco(resultado, item.x, item.y, nuevoAncho, nuevoLargo, ocupadas, item.capa);
+  const validacion = validarHueco(resultado, item.x, item.y, nuevoAncho, nuevoLargo, ocupadas, reglas);
   if (!validacion.ok) return validacion;
-  if (validacion.avisos.length > 0 && !opts.forzar) return { ok: false, avisos: validacion.avisos, requiereForzar: true };
+  const avisos = [...validacion.avisos, ...avisosRotacion];
+  if (avisos.length > 0 && !opts.forzar) return { ok: false, avisos, requiereForzar: true };
 
   item.ancho = nuevoAncho;
   item.largo = nuevoLargo;
@@ -120,7 +150,7 @@ function rotarElemento(resultado, instanceId, catalogos, gradosAbsolutos, opts =
     item.tileInteraccion = [item.x + ix, item.y + iy];
   }
   item.origen = "modificado";
-  return { ok: true, avisos: validacion.avisos };
+  return { ok: true, avisos };
 }
 
 // eliminar — sección 4/9. Funciona en cualquier capa (suelo/pared/techo/
@@ -148,16 +178,18 @@ function anadirElemento(resultado, catalogos, elementoId, x, y, opts = {}) {
 
   const grados = opts.rotacion ?? 0;
   const [ancho, largo] = rotarHuella(def.huella || [1, 1], grados);
+  const reglas = reglasParaElemento(def);
   const ocupadas = calcularOcupacion(resultado);
-  const validacion = validarHueco(resultado, x, y, ancho, largo, ocupadas, def.capa);
+  const validacion = validarHueco(resultado, x, y, ancho, largo, ocupadas, reglas);
   if (!validacion.ok) return validacion;
 
   const avisosCatalogo = [];
   if (def.tiposSalaValidos && !def.tiposSalaValidos.includes(resultado.tipoSalaId)) avisosCatalogo.push("tipo_de_sala_no_habitual_para_esta_pieza");
+  if (reglas.rotacionesPermitidas && !reglas.rotacionesPermitidas.includes(grados)) avisosCatalogo.push("rotacion_no_habitual_para_esta_pieza");
   const avisos = [...validacion.avisos, ...avisosCatalogo];
   if (avisos.length > 0 && !opts.forzar) return { ok: false, avisos, requiereForzar: true };
 
-  const item = { id: elementoId, x, y, ancho, largo, rotacion: grados, colorDebug: def.colorDebug, capa: def.capa, instanceId: nuevoInstanceId(elementoId), origen: "modificado" };
+  const item = { id: elementoId, x, y, ancho, largo, rotacion: grados, colorDebug: def.colorDebug, capa: def.capa, instanceId: nuevoInstanceId(elementoId), origen: "modificado", estado: opts.estado || { desgastado: false, roto: false, sucio: false } };
   if (def.aportes) item.aportes = def.aportes;
   if (def.tileInteraccion) {
     const [ix, iy] = rotarOffset(def.tileInteraccion, def.huella || [1, 1], grados);
@@ -171,19 +203,20 @@ function anadirElemento(resultado, catalogos, elementoId, x, y, opts = {}) {
 // duplicar — sección 9: copia una pieza ya colocada al tile libre más
 // cercano (búsqueda simple en espiral corta); si no encuentra hueco en el
 // radio de búsqueda, falla explícito en vez de superponer en silencio.
-function duplicarElemento(resultado, instanceId) {
+function duplicarElemento(resultado, instanceId, opts = {}) {
   const encontrado = buscarItem(resultado, instanceId);
   if (!encontrado) return { ok: false, avisos: ["instancia_no_encontrada"] };
   const { item } = encontrado;
   if (item.x === undefined) return { ok: false, avisos: ["esta_pieza_no_esta_en_el_suelo"] };
 
+  const reglas = reglasDe(opts.catalogos, item.id, item.capa);
   const ocupadas = calcularOcupacion(resultado);
   const RADIO = 6;
   for (let r = 1; r <= RADIO; r++) {
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
         const x = item.x + dx, y = item.y + dy;
-        const validacion = validarHueco(resultado, x, y, item.ancho, item.largo, ocupadas, item.capa);
+        const validacion = validarHueco(resultado, x, y, item.ancho, item.largo, ocupadas, reglas);
         if (validacion.ok && validacion.avisos.length === 0) {
           const copia = { ...item, x, y, instanceId: nuevoInstanceId(item.id), origen: "modificado" };
           resultado.colocados.push(copia);
@@ -209,7 +242,7 @@ function sustituirElemento(resultado, catalogos, instanceId, nuevoElementoId) {
   if (item.x !== undefined) {
     const [ancho, largo] = rotarHuella(def.huella || [1, 1], item.rotacion || 0);
     const ocupadas = calcularOcupacion(resultado, instanceId);
-    const validacion = validarHueco(resultado, item.x, item.y, ancho, largo, ocupadas, def.capa);
+    const validacion = validarHueco(resultado, item.x, item.y, ancho, largo, ocupadas, reglasParaElemento(def));
     if (!validacion.ok) return validacion;
     item.ancho = ancho;
     item.largo = largo;
@@ -221,6 +254,21 @@ function sustituirElemento(resultado, catalogos, instanceId, nuevoElementoId) {
   else delete item.aportes;
   item.origen = "modificado";
   return { ok: true, avisos: [] };
+}
+
+// cambiarEstado — sección 5 del pedido de catálogo de contenido: el modelo
+// de instancia lleva `estado` (desgastado/roto/sucio) preparado desde ya,
+// aunque todavía no haya ninguna mecánica que lo module ella sola —
+// cambiarlo a mano es una edición como cualquier otra, así que también
+// marca origen:"modificado" y sobrevive a una regeneración igual que
+// mover/rotar/sustituir.
+function cambiarEstado(resultado, instanceId, cambios) {
+  const encontrado = buscarItem(resultado, instanceId);
+  if (!encontrado) return { ok: false, avisos: ["instancia_no_encontrada"] };
+  const { item } = encontrado;
+  item.estado = { ...(item.estado || {}), ...cambios };
+  item.origen = "modificado";
+  return { ok: true, avisos: [], estado: item.estado };
 }
 
 // cambiarTipoSala — sección 8: cambia la clasificación/materiales por
@@ -305,6 +353,7 @@ module.exports = {
   anadirElemento,
   duplicarElemento,
   sustituirElemento,
+  cambiarEstado,
   cambiarTipoSala,
   regenerarMobiliario,
   regenerarHabitacion,

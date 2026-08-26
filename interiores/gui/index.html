@@ -32,9 +32,15 @@
   .botones button, .panel select, .panel input { background:#2c2c38; color:var(--texto); border:1px solid var(--borde); border-radius:4px; padding:5px 8px; font-size:12px; cursor:pointer; }
   .botones button:hover { border-color:var(--acento); }
   .botones button.peligro:hover { border-color:var(--peligro); }
-  .paleta { display:flex; flex-direction:column; gap:4px; max-height:260px; overflow-y:auto; }
+  .paleta-controles { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
+  .paleta-controles input, .paleta-controles select { width:100%; }
+  .paleta { display:flex; flex-direction:column; gap:4px; max-height:320px; overflow-y:auto; }
   .paleta .grupo-cap { font-size:10px; text-transform:uppercase; color:var(--tenue); margin-top:6px; }
-  .paleta button { text-align:left; display:flex; align-items:center; gap:6px; }
+  .paleta .contador { color:var(--tenue); font-weight:normal; text-transform:none; }
+  .paleta button { text-align:left; display:flex; flex-direction:column; gap:2px; padding:6px 8px; }
+  .paleta button .fila-item { display:flex; align-items:center; gap:6px; }
+  .paleta button .detalle-item { font-size:10px; color:var(--tenue); padding-left:16px; }
+  .paleta button .estructural-item { font-size:10px; color:var(--aviso); padding-left:16px; }
   .paleta button.armado { outline:2px solid var(--acento); }
   .swatch { width:10px; height:10px; border-radius:2px; flex:none; }
   .estado-origen { display:inline-block; font-size:10px; padding:1px 6px; border-radius:8px; }
@@ -76,8 +82,15 @@
       <div class="bloque" id="panelMueble"><div class="vacio">Haz clic en un mueble</div></div>
     </div>
     <div>
-      <h2>Añadir mueble <span class="hint" id="hintAnadir"></span></h2>
-      <div class="bloque"><div class="paleta" id="paleta"></div></div>
+      <h2>Catálogo de contenido <span class="hint" id="hintAnadir"></span></h2>
+      <div class="bloque">
+        <div class="paleta-controles">
+          <input id="inBuscarCatalogo" placeholder="buscar por nombre, id o tag…" />
+          <select id="selCategoriaCatalogo"><option value="">todas las categorías</option></select>
+          <select id="selTagCatalogo"><option value="">todos los tags</option></select>
+        </div>
+        <div class="paleta" id="paleta"></div>
+      </div>
     </div>
   </aside>
 </div>
@@ -109,7 +122,11 @@ let edificio = null;
 let nivelSel = null, indiceSalaSel = null;
 let instanceSel = null;
 let elementoArmado = null; // id de catálogo listo para colocar al hacer clic en una casilla
-let catalogoElementos = [];
+let catalogoElementos = []; // lista plana simple (id/capa/huella) — se mantiene para no romper nada que ya la use
+let catalogoContenidoItems = []; // catálogo normalizado (nombre/categoria/subcategoria/tags/dimensiones/reglas) — sección 10
+let categoriasCatalogo = [];
+let tagsCatalogo = [];
+let filtroTexto = "", filtroCategoria = "", filtroTag = "";
 
 const $ = (sel) => document.querySelector(sel);
 const estadoTxt = $("#estadoTxt");
@@ -188,10 +205,17 @@ function renderPanelMueble() {
   const s = salaActual();
   const item = s && instanceSel ? buscarItemCliente(s.resultado, instanceSel) : null;
   if (!item) { panel.innerHTML = '<div class="vacio">Haz clic en un mueble</div>'; return; }
+  const estadoTxt = item.estado ? Object.entries(item.estado).filter(([, v]) => v).map(([k]) => k).join(", ") || "intacto" : "—";
   panel.innerHTML = `
     <div class="fila"><span class="k">Pieza</span><span>${item.id} <span class="estado-origen ${item.origen}">${item.origen}</span></span></div>
+    ${item.variante ? `<div class="fila"><span class="k">Variante</span><span>${item.variante}</span></div>` : ""}
     <div class="fila"><span class="k">Posición</span><span>${item.x !== undefined ? `(${item.x}, ${item.y})` : "—"}</span></div>
     <div class="fila"><span class="k">Rotación</span><span>${item.rotacion ?? 0}°</span></div>
+    <div class="fila"><span class="k">Estado</span><span>${estadoTxt}</span></div>
+    <div class="botones">
+      <button id="btnRoto">${item.estado?.roto ? "✓ roto" : "marcar roto"}</button>
+      <button id="btnSucio">${item.estado?.sucio ? "✓ sucio" : "marcar sucio"}</button>
+    </div>
     <div class="botones">
       <button id="btnRotar">🔄 Rotar 90°</button>
       <button id="btnDuplicar">⧉ Duplicar</button>
@@ -203,11 +227,13 @@ function renderPanelMueble() {
     </div>
     <div class="hint" style="margin-top:8px">Flechas: mover 1 tile · Supr: eliminar · R: rotar</div>
     <div class="avisos" id="avisosMueble"></div>`;
-  $("#selSustituir").innerHTML = catalogoElementos.map((e) => `<option value="${e.id}" ${e.id === item.id ? "selected" : ""}>${e.id}</option>`).join("");
+  $("#selSustituir").innerHTML = catalogoContenidoItems.filter((it) => !it.estructural).map((it) => `<option value="${it.id}" ${it.id === item.id ? "selected" : ""}>${it.nombre}</option>`).join("");
   $("#btnRotar").onclick = () => rotarSeleccionado();
   $("#btnDuplicar").onclick = () => duplicarSeleccionado();
   $("#btnEliminar").onclick = () => eliminarSeleccionado();
   $("#btnSustituir").onclick = () => sustituirSeleccionado($("#selSustituir").value);
+  $("#btnRoto").onclick = () => cambiarEstadoSeleccionado({ roto: !item.estado?.roto });
+  $("#btnSucio").onclick = () => cambiarEstadoSeleccionado({ sucio: !item.estado?.sucio });
 }
 
 function buscarItemCliente(resultado, instanceId) {
@@ -260,6 +286,10 @@ async function sustituirSeleccionado(nuevoElementoId) {
   const res = await api("/api/editar/sustituir", "POST", { nivel: nivelSel, indiceSala: indiceSalaSel, instanceId: instanceSel, nuevoElementoId });
   if (res.ok) { const s = salaActual(); s.resultado = res.resultado; renderTodo(); } else avisar(res);
 }
+async function cambiarEstadoSeleccionado(cambios) {
+  const res = await api("/api/editar/cambiarEstado", "POST", { nivel: nivelSel, indiceSala: indiceSalaSel, instanceId: instanceSel, cambios });
+  if (res.ok) { const s = salaActual(); s.resultado = res.resultado; renderTodo(); }
+}
 async function anadirEnTile(x, y, forzar) {
   const res = await api("/api/editar/anadir", "POST", { nivel: nivelSel, indiceSala: indiceSalaSel, elementoId: elementoArmado, x, y, forzar });
   if (!res.ok && res.requiereForzar && confirm(`Aviso: ${res.avisos.join(", ")}\n¿Añadir de todas formas?`)) return anadirEnTile(x, y, true);
@@ -267,23 +297,50 @@ async function anadirEnTile(x, y, forzar) {
   else avisar(res);
 }
 
-// ---- Paleta de mobiliario para añadir (sección 4) ----
+// ---- Catálogo de contenido: navegar por categoría, buscar, filtrar por
+// tag, y colocar la pieza elegida (sección 10 del pedido de catálogo de
+// contenido) — sustituye la lista plana de antes por la consulta real al
+// catálogo normalizado (categoria/subcategoria/tags/dimensiones/reglas).
+function itemsFiltradosCatalogo() {
+  let items = catalogoContenidoItems;
+  if (filtroCategoria) items = items.filter((it) => it.categoria === filtroCategoria);
+  if (filtroTag) items = items.filter((it) => it.tags.includes(filtroTag));
+  if (filtroTexto) {
+    const q = filtroTexto.toLowerCase();
+    items = items.filter((it) => it.id.includes(q) || it.nombre.toLowerCase().includes(q) || it.tags.some((t) => t.includes(q)));
+  }
+  return items;
+}
+
 function renderPaleta() {
   const cont = $("#paleta");
-  const porCapa = {};
-  for (const e of catalogoElementos) (porCapa[e.capa] = porCapa[e.capa] || []).push(e);
+  const items = itemsFiltradosCatalogo();
+  const porCategoria = {};
+  for (const it of items) (porCategoria[it.categoria] = porCategoria[it.categoria] || []).push(it);
   cont.innerHTML = "";
-  for (const capa of Object.keys(porCapa).sort()) {
-    const t = document.createElement("div"); t.className = "grupo-cap"; t.textContent = capa; cont.appendChild(t);
-    for (const e of porCapa[capa]) {
+  for (const categoria of Object.keys(porCategoria).sort()) {
+    const t = document.createElement("div");
+    t.className = "grupo-cap";
+    t.innerHTML = `${categoria} <span class="contador">(${porCategoria[categoria].length})</span>`;
+    cont.appendChild(t);
+    for (const it of porCategoria[categoria]) {
       const b = document.createElement("button");
-      b.innerHTML = `<span class="swatch" style="background:${e.colorDebug || "#888"}"></span>${e.id}`;
-      if (elementoArmado === e.id) b.classList.add("armado");
-      b.onclick = () => { elementoArmado = elementoArmado === e.id ? null : e.id; renderTodo(); };
+      const dims = `${it.dimensiones.ancho}x${it.dimensiones.largo} tiles`;
+      const tagsTxt = it.tags.slice(0, 4).join(", ");
+      b.innerHTML = `
+        <span class="fila-item"><span class="swatch" style="background:${it.colorDebug || "#888"}"></span>${it.nombre}</span>
+        <span class="detalle-item">${dims} · ${tagsTxt}</span>
+        ${it.estructural ? '<span class="estructural-item">estructural — aún no colocable como instancia suelta</span>' : ""}`;
+      b.title = `${it.nombre} (${it.id})\n${it.subcategoria} · ${dims}\ntags: ${it.tags.join(", ")}\npuedeSolapar: ${it.reglas.puedeSolapar} · requierePared: ${it.reglas.requierePared}`;
+      if (it.estructural) b.disabled = true;
+      if (elementoArmado === it.id) b.classList.add("armado");
+      b.onclick = () => { elementoArmado = elementoArmado === it.id ? null : it.id; renderTodo(); };
       cont.appendChild(b);
     }
   }
-  $("#hintAnadir").textContent = elementoArmado ? `→ clic en una casilla libre para colocar "${elementoArmado}"` : "";
+  if (items.length === 0) cont.innerHTML = '<div class="vacio">Sin resultados</div>';
+  const armadoInfo = elementoArmado ? catalogoContenidoItems.find((it) => it.id === elementoArmado) : null;
+  $("#hintAnadir").textContent = armadoInfo ? `→ clic en una casilla libre para colocar "${armadoInfo.nombre}"` : "";
 }
 
 // ---- Lienzo isométrico interactivo ----
@@ -392,12 +449,21 @@ function renderTodo() { renderArbol(); renderPanelSala(); renderPanelMueble(); r
 // ---- Arranque ----
 let catalogoTiposSala = [];
 async function iniciar() {
-  const [tiposEdificio, tiposSala, elementos] = await Promise.all([
-    api("/api/tiposEdificio"), api("/api/tiposSala"), api("/api/elementos"),
+  const [tiposEdificio, tiposSala, elementos, catalogo] = await Promise.all([
+    api("/api/tiposEdificio"), api("/api/tiposSala"), api("/api/elementos"), api("/api/catalogo"),
   ]);
   $("#selTipoEdificio").innerHTML = tiposEdificio.tiposEdificio.map((t) => `<option>${t}</option>`).join("");
   catalogoTiposSala = tiposSala.tiposSala;
   catalogoElementos = elementos.elementos;
+  catalogoContenidoItems = catalogo.items;
+  categoriasCatalogo = catalogo.categorias;
+  tagsCatalogo = catalogo.tags;
+
+  $("#selCategoriaCatalogo").innerHTML = '<option value="">todas las categorías</option>' + categoriasCatalogo.map((c) => `<option value="${c}">${c}</option>`).join("");
+  $("#selTagCatalogo").innerHTML = '<option value="">todos los tags</option>' + tagsCatalogo.map((t) => `<option value="${t}">${t}</option>`).join("");
+  $("#inBuscarCatalogo").oninput = (ev) => { filtroTexto = ev.target.value; renderPaleta(); };
+  $("#selCategoriaCatalogo").onchange = (ev) => { filtroCategoria = ev.target.value; renderPaleta(); };
+  $("#selTagCatalogo").onchange = (ev) => { filtroTag = ev.target.value; renderPaleta(); };
 
   const actual = await api("/api/edificio");
   if (actual.edificio) { edificio = actual.edificio; nivelSel = edificio.plantas[0].nivel; indiceSalaSel = 0; }

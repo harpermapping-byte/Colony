@@ -12,34 +12,8 @@ const { riquezaAlcanza } = require("./catalogo");
 const { crearRejilla, detectarSalas, circulacionIntacta, TIPO_TILE } = require("./salas");
 const { ORIENTACIONES, rotarHuella, rotarOffset } = require("./rotacion");
 const { calcularEstadisticas } = require("./estadisticas");
-
-// PRNG determinista pequeño (mulberry32) — mismo semilla, mismo resultado,
-// sin depender de nada del bakeador de exteriores (interiores es una
-// instancia separada, GDD sección 1).
-function crearPRNG(semillaTexto) {
-  let h = 1779033703 ^ semillaTexto.length;
-  for (let i = 0; i < semillaTexto.length; i++) {
-    h = Math.imul(h ^ semillaTexto.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  let a = h >>> 0;
-  return function siguiente() {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function barajar(lista, rnd) {
-  const copia = lista.slice();
-  for (let i = copia.length - 1; i > 0; i--) {
-    const j = Math.floor(rnd() * (i + 1));
-    [copia[i], copia[j]] = [copia[j], copia[i]];
-  }
-  return copia;
-}
+const { crearPRNG, barajar } = require("./azar");
+const { construirCatalogoContenido } = require("./catalogoContenido");
 
 // Capas incluidas según el nivel de amueblado (GDD sección 1).
 const CAPAS_POR_AMUEBLADO = {
@@ -148,8 +122,12 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       const y = elegirEntero(1, largo - 2);
       if (esPuerta(x, y)) continue;
       // Orientación 0/90/180/270 (sección 7): rota la huella entera junto
-      // con el tile de interacción, no solo el dibujo.
-      const grados = ORIENTACIONES[elegirEntero(0, ORIENTACIONES.length - 1)];
+      // con el tile de interacción, no solo el dibujo. `rotacionesPermitidas`
+      // (catálogo de contenido, opcional) reduce el abanico para piezas que
+      // no tienen sentido en cualquier ángulo — por defecto (ausente) son
+      // las 4 de siempre, así que ningún elemento existente cambia.
+      const orientacionesDisponibles = el.rotacionesPermitidas || ORIENTACIONES;
+      const grados = orientacionesDisponibles[elegirEntero(0, orientacionesDisponibles.length - 1)];
       const huellaRot = rotarHuella(el.huella || [1, 1], grados);
       if (!huecoLibre(x, y, huellaRot)) continue;
       if ((preferido === "pegadaAPared" || preferido === "esquina") && !tocaPared(x, y)) continue;
@@ -337,11 +315,21 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   // pieza (no por tipo: puede haber 4 sillas del mismo `id` de catálogo en
   // una sala) para que el editor pueda seleccionar/mover/eliminar una
   // instancia concreta sin ambigüedad. edicion.js es quien cambia origen a
-  // "modificado" cuando el usuario toca algo.
+  // "modificado" cuando el usuario toca algo. `estado` (desgastado/roto/
+  // sucio) viaja vacío desde ya para que una instancia pueda conservarlo
+  // sin romper compatibilidad cuando exista la mecánica que lo rellene
+  // (catálogo de contenido sección 5). `variante` se resuelve aquí mismo,
+  // con la MISMA semilla de la sala — catálogo → selección → instancia
+  // determinista de punta a punta: dos bakeados con la misma semilla dan
+  // siempre la misma variante, sin aleatoriedad no determinista.
+  const catalogoContenido = construirCatalogoContenido(catalogos);
   let contadorInstancia = 0;
   const marcarGenerado = (item) => {
     item.instanceId = `${tipoSalaId}_${semilla}_${contadorInstancia++}`;
     item.origen = "generado";
+    item.estado = { desgastado: false, roto: false, sucio: false };
+    const variante = catalogoContenido.elegirVariante(item.id, item.instanceId);
+    if (variante !== item.id) item.variante = variante;
     return item;
   };
   for (const item of colocados) {

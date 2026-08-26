@@ -24,18 +24,9 @@
 //   escalera/trampilla"): cada planta solo guarda en qué sala y tile cae
 //   el conector de subida/bajada.
 
-const { colocarSala, crearPRNG } = require("./colocarElementos");
+const { colocarSala } = require("./colocarElementos");
 const { crearRejilla, detectarSalas, TIPO_TILE } = require("./salas");
-
-function elegirPonderado(lista, rnd) {
-  const total = lista.reduce((s, [, peso]) => s + peso, 0);
-  let tirada = rnd() * total;
-  for (const [id, peso] of lista) {
-    tirada -= peso;
-    if (tirada <= 0) return id;
-  }
-  return lista[lista.length - 1][0];
-}
+const { crearPRNG, elegirPonderado } = require("./azar");
 
 // Cuántas salas le tocan a una planta — variación real (sección 12): la
 // misma semilla siempre da el mismo edificio, otra semilla da otra mezcla
