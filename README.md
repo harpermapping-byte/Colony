@@ -5,8 +5,9 @@ Prototipo mínimo cliente-servidor: dos (o más) sprites placeholder moviéndose
 - **`server/`** — Node.js + [Colyseus](https://colyseus.io/) (sala `hub` autoritativa).
 - **`client/`** — [Phaser 3](https://phaser.io/) + Vite + TypeScript.
 - **`baker/`** — bakeador de mapas exteriores (genera el mundo una sola vez, offline, sin dependencias) + visor con cámara libre para revisarlo. Ver `baker/README.md` para instrucciones.
-- **`interiores/`** — catálogo del bakeador de interiores (casas, tabernas, castillos — instancias separadas del mapa exterior, a las que se entra por los POI tipo `portal`). Motor de generación (WFC) todavía sin construir — ver `interiores/README.md`.
-- **`docs/`** — documentos de diseño: `GDD_Bakeador_Exteriores.md`, `GDD_Bakeador_Interiores.md`, catálogo de especies (`Catalogo_Especies_Exterior.md`) y backlog de mecánicas futuras (`Backlog_Mecanicas_Futuras.md`).
+- **`interiores/`** — catálogo del bakeador de interiores (casas, castillos, tabernas, herrerías, ayuntamientos... — instancias separadas del mapa exterior, a las que se entra por puerta). Motor de generación (WFC) todavía sin construir — ver `interiores/README.md`.
+- **Tres tipos de mapa en total**: exterior total (`baker/`) → mapa de POI (aldea/castillo, semi-exterior con varios edificios enterables — esqueleto de diseño en `docs/GDD_Bakeador_POIs.md`, sin construir) → interiores (`interiores/`). Ver `docs/GDD_Bakeador_POIs.md` sección 1.
+- **`docs/`** — documentos de diseño: `GDD_Bakeador_Exteriores.md`, `GDD_Bakeador_Interiores.md`, `GDD_Bakeador_POIs.md`, catálogo de especies (`Catalogo_Especies_Exterior.md`) y backlog de mecánicas futuras (`Backlog_Mecanicas_Futuras.md`).
 
 ## Cómo correrlo en local
 

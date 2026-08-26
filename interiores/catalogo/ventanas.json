@@ -4,12 +4,14 @@
   "forma": {
     "rectangular": { "colorDebug": "#a9c9d6" },
     "arco": { "colorDebug": "#a9c9d6" },
-    "redonda": { "colorDebug": "#a9c9d6", "_nota": "Típica de torres/castillo." }
+    "redonda": { "colorDebug": "#a9c9d6", "_nota": "Típica de torres/castillo." },
+    "ojival": { "colorDebug": "#a9c9d6", "riquezaMinima": "noble", "_nota": "Arco apuntado gótico — capilla o castillo noble." }
   },
   "tamano": {
     "pequena": { "anchoTiles": 1, "altaEnPared": true },
     "media": { "anchoTiles": 1, "altaEnPared": false },
-    "grande": { "anchoTiles": 2, "altaEnPared": false }
+    "grande": { "anchoTiles": 2, "altaEnPared": false },
+    "tronera": { "anchoTiles": 1, "altaEnPared": true, "aporteLuz": 0.2, "_nota": "Aspillera defensiva estrecha — castillo/torre_militar. Deja pasar muy poca luz (ver sección de iluminación del GDD)." }
   },
   "marco": {
     "con_marco": { "materialesCompatibles": ["madera", "metal"] },
@@ -17,6 +19,7 @@
   },
   "cristal": {
     "liso": {},
-    "vidriera": { "riquezaMinima": "noble", "_nota": "Coloreado, propio de edificios nobles/religiosos." }
+    "vidriera": { "riquezaMinima": "noble", "_nota": "Coloreado, propio de edificios nobles/religiosos." },
+    "esmerilado": { "aporteLuz": 0.5, "_nota": "Translúcido, no transparente — letrina/sala_banos, deja pasar luz pero no forma." }
   }
 }

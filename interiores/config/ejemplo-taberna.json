@@ -1,0 +1,29 @@
+{
+  "tipoEdificio": "taberna",
+  "semilla": "taberna-aldea-04",
+  "contexto": { "bioma": "pradera", "poi": "aldea_agricola" },
+  "riqueza": "modesta",
+  "estadoConservacion": "habitado",
+  "materialesPreferidos": ["madera", "piedra"],
+  "densidadDecoracion": 0.7,
+  "densidadSuciedad": 0.2,
+  "plantas": [
+    {
+      "nivel": -1,
+      "tipo": "bodega",
+      "materialPreferido": "piedra",
+      "tamano": { "anchoTiles": [7, 9], "largoTiles": [7, 10] },
+      "salasForzadas": ["almacen"]
+    },
+    {
+      "nivel": 0,
+      "tipo": "planta_baja",
+      "conectorArriba": "escalera_recta"
+    },
+    {
+      "nivel": 1,
+      "tipo": "planta_alta",
+      "tamano": { "anchoTiles": [6, 8], "largoTiles": [8, 10] }
+    }
+  ]
+}

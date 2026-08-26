@@ -1,0 +1,12 @@
+{
+  "tipoEdificio": "casa_modesta",
+  "semilla": "parcela-jugador-victor-01",
+  "riqueza": "modesta",
+  "amueblado": "vacio",
+  "materialesPreferidos": ["madera", "ladrillo"],
+  "plantas": [
+    { "nivel": 0, "tipo": "planta_baja" },
+    { "nivel": 1, "tipo": "planta_alta" }
+  ],
+  "_nota": "Vivienda de jugador: solo cascarón estructural (paredes/suelo/techo/puertas/ventanas/escalera). decorFija y decorMovible se dejan vacíos a propósito para que el jugador amueble desde el menú de construcción (GDD sección 7ter)."
+}

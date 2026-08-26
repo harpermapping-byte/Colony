@@ -1,12 +1,18 @@
 {
   "_nota": "Acabado de suelo/pared/techo — equivalente a categoriaRecurso en el bakeador de exteriores (GDD_Bakeador_Interiores sección 3). Cada elemento del catálogo grande filtra por estos vía materialesCompatibles.",
 
-  "madera": { "riquezaTipica": ["humilde", "modesta", "noble"], "colorDebug": "#8a6a3a" },
-  "piedra": { "riquezaTipica": ["humilde", "modesta", "noble"], "colorDebug": "#8a8a8a" },
+  "madera": { "riquezaTipica": ["humilde", "modesta", "noble"], "colorDebug": "#8a6a3a", "especiesFuente": "baker/catalogo/vegetacion.json — cualquier especie con categoriaRecurso que empiece por 'madera_' (madera_dura, madera_blanda, madera_sauce, madera_abedul, madera_palmera, madera_carbonizada; ~26 especies reales como pino, roble, abedul, sauce...). Un mueble de madera no tiene un número de 'variantes' arbitrario — su especie/tinte concreto se resuelve contra ese mismo catálogo, así que crece solo si se amplía vegetacion.json, sin tocar interiores/. Ver GDD_Bakeador_Interiores sección 3." },
+  "piedra": { "riquezaTipica": ["humilde", "modesta", "noble"], "colorDebug": "#8a8a8a", "especiesFuente": "baker/catalogo/rocas.json — cualquier especie con categoriaRecurso 'piedra_comun' (granito, pizarra, roca_caliza, arenisca...). Mismo mecanismo que madera arriba." },
   "ladrillo": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#a85a3a" },
   "estuco": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#e8ddc8" },
   "papel_pintado": { "riquezaTipica": ["noble"], "colorDebug": "#c98aa0" },
   "tela_tapiz": { "riquezaTipica": ["noble"], "colorDebug": "#7a2a3a" },
   "metal": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#6a6a70" },
-  "cristal": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#bcdff0" }
+  "cristal": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#bcdff0" },
+
+  "adobe": { "riquezaTipica": ["humilde", "modesta"], "colorDebug": "#c9a06a", "_nota": "Casas de desierto/oasis." },
+  "marmol": { "riquezaTipica": ["noble"], "colorDebug": "#e8e4dc" },
+  "mimbre": { "riquezaTipica": ["humilde", "modesta"], "colorDebug": "#c9a860" },
+  "paja": { "riquezaTipica": ["humilde"], "colorDebug": "#d4b84a", "_nota": "Techo/pared rústica, o jergones de celda." },
+  "cuero": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#7a4a2a" }
 }

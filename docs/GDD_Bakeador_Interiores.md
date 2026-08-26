@@ -7,22 +7,49 @@ Diseño del generador de interiores (casas, tabernas, castillos, aldeas — **no
 - **Cada interior es una instancia separada**, con su propio espacio de coordenadas — nada que ver con la rejilla de chunks del mapa exterior. Se entra por la puerta de un POI del exterior (mismo mecanismo `tipo: "portal"` que ya existe en `baker/catalogo/pois.json`), que solo coloca el disparador; la instancia real vive aparte.
 - **Escala humana, no de mapa exterior**: un edificio no necesita tiles equivalentes a "20 minutos andando". Misma unidad de tile que exteriores (para que moverse por una puerta no cambie la sensación de escala del personaje), pero una sala es una rejilla pequeña — del orden de 5 a 15 tiles de lado según tipo de sala — en vez de un chunk de 32x32. El detalle fino (columnas, conductos, mobiliario) sale de tener muchos elementos pequeños colocables, no de subdividir el tile.
 - **Un edificio de varias plantas es una pila de plantas WFC independientes** (sótano/bodega hacia abajo, pisos hacia arriba desde la entrada), conectadas verticalmente por huecos de escalera/trampilla — mismo concepto que una puerta entre dos salas de la misma planta, solo que en el eje Z.
-- **Generación dirigida por config**, igual que `generarMapa(config)` en exteriores: el usuario (o el propio POI del exterior) pide `tipoEdificio` + plantas + preferencias de material/riqueza, y el motor resuelve el resto con WFC + catálogo. Misma semilla = mismo edificio siempre; otra semilla = layout distinto pero coherente con lo pedido. Ejemplo de config:
+- **Generación dirigida por config**, igual que `generarMapa(config)` en exteriores: el usuario (o el propio POI del exterior) pide `tipoEdificio` + plantas + preferencias de material/riqueza, y el motor resuelve el resto con WFC + catálogo. Misma semilla = mismo edificio siempre; otra semilla = layout distinto pero coherente con lo pedido.
+- **Consola visual con campos, no descripción libre** — mismo motivo que la GUI de exteriores tiene checkboxes/campos numéricos en vez de un prompt: la coherencia sale de que las reglas del motor actúan sobre un config estructurado, no de interpretar bien un texto la primera vez. Una capa de texto→config (ej. "taberna 2 pisos 1 bodega en aldea" → el JSON de abajo) puede añadirse después como azúcar sobre lo mismo, nunca como sustituto.
+- **Todos los campos son opcionales excepto `tipoEdificio`** — lo que no se especifica lo decide `tipos_edificio.json` (rango de plantas, mezcla de salas por planta, riqueza, materiales) tirando de la semilla, exactamente como en exteriores un bioma sin `reglasSitio` extra simplemente usa el pool por defecto. Ejemplo con (casi) todos los campos usados a la vez:
 
 ```json
 {
   "tipoEdificio": "taberna",
   "semilla": "taberna-aldea-04",
   "contexto": { "bioma": "pradera", "poi": "aldea_agricola" },
-  "plantas": [
-    { "nivel": -1, "tipo": "bodega", "materialPreferido": "piedra" },
-    { "nivel": 0,  "tipo": "planta_baja" },
-    { "nivel": 1,  "tipo": "planta_alta" }
-  ],
+  "riqueza": "modesta",
+  "estadoConservacion": "habitado",
   "materialesPreferidos": ["madera", "piedra"],
-  "riqueza": "modesta"
+  "densidadDecoracion": 0.7,
+  "densidadSuciedad": 0.2,
+  "plantas": [
+    {
+      "nivel": -1,
+      "tipo": "bodega",
+      "materialPreferido": "piedra",
+      "tamano": { "anchoTiles": [7, 9], "largoTiles": [7, 10] },
+      "salasForzadas": ["almacen"]
+    },
+    {
+      "nivel": 0,
+      "tipo": "planta_baja",
+      "conectorArriba": "escalera_recta"
+    },
+    {
+      "nivel": 1,
+      "tipo": "planta_alta",
+      "tamano": { "anchoTiles": [6, 8], "largoTiles": [8, 10] }
+    }
+  ]
 }
 ```
+
+Campos de la sección `plantas[]`: `nivel` (0 = planta baja, negativo = bajo tierra, positivo = superior — decide ventanas automáticamente, sección 7), `tipo` (rol de planta usado para elegir el pool de `salasPorPlanta` en `tipos_edificio.json`), `materialPreferido` (override puntual de esa planta, si no se hereda `materialesPreferidos`), `tamano` (override del rango de tiles de esa planta — si se omite, sale del tamaño típico de las salas que le tocan), `salasForzadas` (tipos de sala que sí o sí aparecen, aunque el sorteo ponderado no los saque), `conectorArriba` (qué tipo de `conectores.json` sube a la siguiente planta — si se omite, el motor elige uno válido según riqueza/rol). `densidadDecoracion` y `densidadSuciedad` son los mismos multiplicadores 0-1 que ya existen en exteriores para vegetación/fauna, aplicados aquí a mobiliario y a la capa de suciedad respectivamente — independientes entre sí, para poder pedir "una sala noble pero muy sucia" (abandonada hace tiempo) sin bajarle la riqueza.
+
+- **`amueblado`** (opcional, por defecto `"completo"`) — qué capas de decoración coloca el bakeador de verdad, pensado para que un edificio propiedad de un jugador pueda generarse como cascarón y el jugador lo amueble él mismo desde el futuro menú de construcción (sección 7ter):
+  - `"vacio"`: solo capa Estructural (suelo/pared/techo/puertas/ventanas/escaleras) — nada de `decorFija`, `decorMovible`, `iluminacion` ni `suciedad`.
+  - `"fijo"`: Estructural + `decorFija` (chimenea, columnas, estanterías empotradas, tapices) — `decorMovible` se deja vacío a propósito, son justo los huecos que el jugador rellena.
+  - `"completo"` (lo que se ha descrito hasta ahora en todo este documento): las 5 capas, igual que un edificio NPC que nadie va a redecorar.
+  - Un edificio NPC (taberna, castillo, ayuntamiento...) casi siempre pide `"completo"`; una parcela de vivienda de jugador pide `"vacio"` o `"fijo"`.
 
 ## 2. Generación de la forma: Wave Function Collapse
 
@@ -35,6 +62,7 @@ Diseño del generador de interiores (casas, tabernas, castillos, aldeas — **no
 
 - **Materiales** (lista pequeña, ampliable) — el acabado de suelo/pared/techo: madera, piedra, ladrillo, estuco, papel pintado, tela/tapiz, metal, cristal. Equivalente a `categoriaRecurso` en exteriores.
 - **Elementos** (lista grande, ampliable) — cada mueble/decoración/estructura fija es su propia entrada, como una `especie` en vegetación/animales. Campos por entrada: `capa`, `colocacion` (reglas de sitio, como `reglasSitio` en POIs), `huella` (footprint rectangular, como `radio` en POIs), `variantes`, `tiposSalaValidos`, `materialesCompatibles`.
+- **`madera` y `piedra` no tienen un número de variantes propio — reutilizan el catálogo real de exteriores**: una mesa de madera puede salir de cualquiera de las ~26 especies de árbol ya definidas en `baker/catalogo/vegetacion.json` (pino, roble, abedul, sauce...), agrupadas por su `categoriaRecurso` (`madera_dura`/`madera_blanda`/`madera_sauce`/`madera_abedul`/`madera_palmera`/`madera_carbonizada`); un mueble de piedra igual contra `baker/catalogo/rocas.json` (`categoriaRecurso: piedra_comun` — granito, pizarra, caliza...). El cambio es sobre todo de tinte/textura del sprite, no una malla distinta — es la forma barata de multiplicar variación real (`interiores/catalogo/materiales.json` documenta el campo `especiesFuente` exacto). Una sola fuente de verdad: si se amplía el catálogo de árboles/rocas de exteriores, el mobiliario de interiores se vuelve más variado sin tocar nada aquí.
 
 ## 4. Capas
 
@@ -42,15 +70,19 @@ Diseño del generador de interiores (casas, tabernas, castillos, aldeas — **no
 2. **Decoración fija** — no se mueve en juego: estanterías empotradas, chimenea, columnas, ventanas, puertas.
 3. **Decoración movible** — mobiliario: cama, mesa, silla, arcón. "Movible" es una etiqueta para una futura mecánica (el jugador podría reposicionarlo); el bakeador la coloca igual que la fija, no cambia cómo se genera.
 4. **Suciedad/desgaste** — capa puramente cosmética encima de las anteriores: telarañas, grietas, manchas, hojas caídas, polvo. No bloquea nada. Densidad modulada por el **estado de conservación del edificio** (nuevo/habitado/abandonado/ruina parcial) — mismo mecanismo que la densidad regional del bosque en exteriores, pero aquí ligada al tipo de POI (una `mazmorra_antigua` parte con más suciedad base que un `mercado_itinerante`). El estado de conservación también puede implicar **daño estructural real** (un boquete en la pared, techo hundido en una zona), no solo suciedad ambiental.
-5. **Iluminación** (datos, no cálculo) — cada ventana/vela/antorcha es una fuente de luz de datos (posición) para que el motor en vivo calcule sombras — el bakeador nunca calcula el efecto en sí, igual que con clima/sombras en exteriores.
+5. **Iluminación** (datos, no cálculo) — cada ventana/vela/antorcha es una fuente de luz de datos (posición) para que el motor en vivo calcule sombras — el bakeador nunca calcula el efecto en sí, igual que con clima/sombras en exteriores. Ver sección 7bis para el detalle de qué dato exacto deja cada ventana y cómo se separa de la luz de las fuentes interiores.
 
 ## 5. Tipos de sala (como los biomas)
 
 Cada tipo de sala (dormitorio, cocina, sala_comun, almacén, biblioteca, taller, bodega, pasillo, gran_salón, sala_comercio...) declara su propia lista de elementos válidos y densidades — mismo mecanismo que biomas→especies. **Los pasillos son un tipo de sala propio**, no solo habitaciones con función: dan sensación de casa real en vez de habitaciones pegadas sin transición, con ancho variable y decoración mínima (alfombra corrida, cuadros).
 
+- **Familias de sala por tamaño/configuración, no un único tipo genérico con un rango de tiles amplio**: `dormitorio` (genérico, se mantiene) convive con `dormitorio_individual` / `dormitorio_doble` / `dormitorio_comunal` / `dormitorio_con_bano` / `dormitorio_enorme`, y lo mismo con `comedor_pequeno` / `comedor_mediano` / `comedor_grande` / `cocina_comedor` (cocina y comedor en planta abierta, sin dividir en dos salas). No es solo cuestión de tamaño — cada variante implica mobiliario distinto (una `dormitorio_comunal` lleva literas, una `dormitorio_doble` una cama de matrimonio) y a veces riqueza mínima distinta (`dormitorio_con_bano`/`dormitorio_enorme` son noble). Esto le da a cada `tipoEdificio` control fino real: una taberna pide una mezcla de `dormitorio_individual`+`dormitorio_comunal` en sus habitaciones de huéspedes, un castillo mezcla `dormitorio_enorme` (alcoba del señor) + `dormitorio_doble` (nobles) + `dormitorio_comunal` (guarnición/servidumbre) en la misma planta — algo que un único tipo `dormitorio` con rango de tamaño no puede expresar. Mismo patrón aplicable a cualquier otra sala que lo necesite (`sala_comun`, `almacen`...) cuando haga falta, no es exclusivo de estas dos familias.
+
 ## 6. Tipos de edificio
 
 Cada `tipoEdificio` (casa_humilde, casa_noble, taberna, tienda, castillo, choza_pescador...) declara: rango de plantas típico, qué tipos de sala le tocan por planta y con qué peso, riqueza típica, materiales por defecto. Se puede enganchar directamente a un POI del exterior (`tienda_cazador` → tipoEdificio pequeño y modesto; `castillo_en_ruinas` → tipoEdificio noble con daño estructural) sin inventar un sistema nuevo — o pedirse a mano vía config, igual que hoy se puede lanzar el bakeador de exteriores sin pasar por la GUI.
+- **Cobertura amplia, estilo Skyrim/Stardew Valley/WoW**: vivienda (varios niveles de riqueza), oficios (herrería, molino, panadería, sastre...), negocios/hostelería (tienda, taberna, posada), gobierno/comunidad (ayuntamiento, casa de gremio, cuartel), servicios públicos y cultura (biblioteca pública, museo, baños públicos, templo) — ver `interiores/README.md` para el listado completo. El catálogo de tipos de edificio crece igual que el de elementos: se sigue añadiendo según haga falta, no hay un tope pensado.
+- **`poiVinculado` es opcional, no obligatorio** — muchos `tipoEdificio` de pueblo/ciudad (herrería, ayuntamiento, casa de gremio, biblioteca pública...) no tienen ni necesitan un POI 1:1 en el exterior total. Un asentamiento (`aldea_agricola`, `ciudad_poblada_menor`) es en realidad su propia instancia navegable con varios edificios a la vez, cada uno con su propia puerta — un tercer tipo de mapa, intermedio entre el exterior total y los interiores. Diseño capturado por separado en `GDD_Bakeador_POIs.md` (esqueleto, sin motor todavía) para no mezclar dos escalas distintas en este documento.
 
 ## 7. Conectores verticales y aberturas
 
@@ -61,6 +93,32 @@ Cada `tipoEdificio` (casa_humilde, casa_noble, taberna, tienda, castillo, choza_
 - **Ventanas**: solo dejan pasar luz — nunca renderizan vista al exterior (el interior es instancia separada, no tiene sentido "ver" el mapa exterior desde dentro). Solo pueden aparecer en plantas con fachada al exterior — sótanos/bodegas nunca llevan ventana (regla de sitio por nivel de planta, igual que `bandaElevacionMin` en exteriores).
 - **Ventanas y puertas como combinación de atributos, no variantes fijas**: para cubrir tamaño × altura × marco × forma × cristal sin tener que pintar cientos de combinaciones a mano, cada ventana compone varios ejes independientes (`forma`: rectangular/redonda/arco: `tamano`: pequeña/media/grande; `marco`: con/sin; `cristal`: liso/vidriera) en vez de un único campo `variantes` como en exteriores. El arte se compone por capas superpuestas (marco + hueco + cristal).
 - **Balcón/galería interior de doble altura** — un piso superior con hueco que mira a la sala de abajo, típico de gran salón de castillo. Siempre interior, nunca un balcón que mire al mapa exterior.
+
+## 7bis. Iluminación: dato de "aporte de luz" vs. cálculo en vivo por hora
+
+Misma separación dato/cálculo que el resto del proyecto (clima y sombras en exteriores, cono de visión en `Backlog_Mecanicas_Futuras.md`) — el bakeador nunca calcula cuánta luz hay en una sala en un momento dado, solo dos tipos de dato que el motor en vivo necesita para hacerlo:
+
+- **Luz ambiente (exterior colándose por ventana)**: cada instancia de ventana ya colocada lleva un campo `aporteLuz` numérico, resuelto por el bakeador a partir de sus atributos combinatorios (`tamano.anchoTiles` × factor por `altaEnPared` × factor por `cristal` — normalmente 1, pero `cristal.esmerilado` y `tamano.tronera` declaran su propio `aporteLuz` explícito en `ventanas.json` porque su geometría no sigue la fórmula simple). Una sala sin ninguna ventana no lleva este dato — luz ambiente siempre 0 para ella, nunca se calcula "a través de la pared" ni de una sala vecina. **Sin orientación** — coherente con la sección 10 (nada de orientación solar): da igual a qué lado del edificio mire la ventana, solo cuenta su tamaño/tipo. El motor en vivo suma el `aporteLuz` de las ventanas de la sala y lo multiplica por una curva día/noche global (día: variable según hora; noche: 0 o un valor bajo fijo si hay luna) — esa curva y el resultado final NO son responsabilidad del bakeador, se explica en el backlog.
+- **Luces interiores** (vela, antorcha, candelabro, lámpara — capa `iluminacion` de `elementos.json`): cada una es una fuente de luz de datos con posición fija, independiente de la hora exterior — normalmente se consideran encendidas de forma constante (nada de simular quién las enciende/apaga, eso sería una mecánica de juego aparte, no bakeador).
+
+## 7ter. Reglas de colocación por plano — pared/suelo/techo, para que el futuro menú de construcción sea intuitivo
+
+Hasta ahora `colocacion` en `elementos.json` era una etiqueta suelta ("pegadaAPared", "colgadoEnPared"...). Aquí se formaliza qué implica cada valor en términos de plano, colisión y requisito — la misma tabla que tendrá que consultar el motor de generación (para no colocar nada ilegal) y, más adelante, el menú de construcción en vivo (para saber qué puede hacer el jugador y dónde). Es la razón de ser de esta sección: preparar el dato ahora para que esa mecánica futura no tenga que inventarse sus propias reglas de cero, y quede coherente con lo que generó el bakeador.
+
+| `colocacion` | Plano | ¿Bloquea movimiento? | ¿Bloquea visión? | Requisito para colocarse |
+|---|---|---|---|---|
+| `colgadoEnPared` | Pared | No | No | Un segmento de pared **en blanco** en esa posición — nunca sobre un hueco de puerta/ventana. Es el único valor "de pared": ningún elemento sin este tag puede ir sobre el plano pared. |
+| `pegadaAPared` | Suelo, tocando una pared | Sí, según su `huella` (igual que cualquier decorMovible/decorFija con footprint) | No | Casilla de suelo libre adyacente a un segmento de pared (puede ser una pared con ventana encima, no hace falta que esté en blanco — solo el propio hueco de la puerta queda excluido). |
+| `centroSala` / `libre` / `esquina` / `juntoAMesa` / `simetrico` | Suelo | Sí, según `huella` | No | Igual que `pegadaAPared` pero sin requisito de estar junto a una pared — cada tag matiza la posición preferida dentro de la sala, no cambia la colisión. |
+| `sobreSuperficie` | Suelo, pero encima de otro elemento | No (ya la bloquea el elemento anfitrión) | No | Requiere un elemento con `esSuperficie: true` ya colocado en esa misma casilla (mesa, mostrador, atril, altar — sección 3bis de `elementos.json`). Sin anfitrión no es una posición válida. |
+| `techo` | Techo | No | No | Ninguno especial — cualquier casilla de la sala (viga vista, bóveda, artesonado, araña de luces). |
+| `suelo` (capa suciedad) | Suelo, decal | No | No | Ninguno — es puramente cosmético, se puede pisar/superponer con cualquier otra cosa. |
+
+Reglas estructurales que se derivan de la misma tabla, ya establecidas en otras secciones pero explicitadas aquí como regla formal:
+
+- **Las paredes bloquean movimiento y visión** — no se puede atravesar ni ver a través de una pared. Coherente con la maqueta 2.5D validada al principio de esta conversación (oclusión exacta a la silueta del hueco de la puerta, sección 11/`Backlog_Mecanicas_Futuras.md`).
+- **Puertas y ventanas son huecos en la pared, no la pared misma** — una puerta abierta no bloquea movimiento; ni puerta ni ventana bloquean visión en su propia silueta (la puerta porque literalmente no hay pared ahí; la ventana porque dejar pasar la vista sería lo mismo que "ver el exterior", explícitamente descartado en la sección 10 — así que una ventana bloquea visión igual que una pared, solo deja pasar el dato de luz de la sección 7bis). Ninguna de las dos admite un elemento `colgadoEnPared` en su misma posición.
+- **Solo `decorMovible` desaparece bajo `amueblado: "vacio"`/`"fijo"`** (sección 1) — las reglas de esta tabla no cambian con el nivel de amueblado, solo cambia qué subconjunto de elementos coloca el bakeador de antemano. Los huecos que quedan vacíos son exactamente las posiciones legales (según esta misma tabla) que el jugador podrá rellenar desde el menú de construcción — mismo patrón dato-ahora/mecánica-después que iluminación (7bis) y el cono de visión.
 
 ## 8. Suelos
 
@@ -90,9 +148,10 @@ Cada `tipoEdificio` (casa_humilde, casa_noble, taberna, tienda, castillo, choza_
 ## 11. Fuera del alcance de este bakeador
 
 - **Mazmorras/cuevas/dungeons** — geometría mucho más orgánica (BSP/autómata celular en vez de WFC con reglas de arquitectura civil), es un bakeador aparte. No reutilizar este diseño para eso sin pensarlo de nuevo.
-- **Cálculo de sombras/iluminación en vivo** — el bakeador solo deja los datos (posición de fuentes de luz); el cálculo es del servidor en vivo.
+- **Cálculo de sombras/iluminación en vivo, incluida la curva de luz ambiente por hora del día** — el bakeador solo deja los datos (posición de fuentes de luz, `aporteLuz` de cada ventana — sección 7bis); el cálculo del resultado final (cuánta luz hay en la sala a las 14:00 vs. a medianoche) es del servidor en vivo.
 - **Cono de visión del jugador entre salas** — apuntado en `Backlog_Mecanicas_Futuras.md`, es cálculo en vivo del cliente/servidor según posición y orientación del jugador, no responsabilidad del bakeador.
+- **El menú de construcción en sí** (arrastrar/soltar mobiliario, validar una colocación, guardarla) — apuntado en `Backlog_Mecanicas_Futuras.md`. El bakeador (sección 7ter) deja la tabla de reglas de colocación y el nivel `amueblado` que decide qué huecos quedan libres; construir la interfaz y la lógica de validación en vivo es mecánica de cliente/servidor, no del bakeador.
 
 ## 12. Estado actual
 
-Diseño cerrado en esta fase de conversación. Catálogo (`interiores/catalogo/*.json`) en construcción — ver `interiores/README.md` para el estado exacto de qué hay ya escrito. El motor de generación (WFC + colocación de elementos) todavía no está construido; primero se rellena el catálogo, como se hizo con exteriores.
+Diseño cerrado en esta fase de conversación. Catálogo (`interiores/catalogo/*.json`) ampliado a un tamaño comparable al de exteriores en su primera pasada — ver `interiores/README.md` para el recuento exacto y el detalle de qué hay ya escrito. `interiores/config/*.json` documenta con ejemplos el schema de config que consumirá el motor (sección 1), aunque el motor todavía no existe para leerlo de verdad. El motor de generación (WFC + colocación de elementos + lectura de config) todavía no está construido; primero se rellena el catálogo, como se hizo con exteriores.

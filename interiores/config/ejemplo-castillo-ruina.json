@@ -1,0 +1,16 @@
+{
+  "tipoEdificio": "castillo",
+  "semilla": "castillo-ruinas-norte-02",
+  "contexto": { "bioma": "montana_nevada", "poi": "castillo_en_ruinas" },
+  "riqueza": "noble",
+  "estadoConservacion": "ruina_parcial",
+  "materialesPreferidos": ["piedra", "metal"],
+  "densidadDecoracion": 0.4,
+  "densidadSuciedad": 0.9,
+  "plantas": [
+    { "nivel": -1, "tipo": "bodega", "salasForzadas": ["arsenal"] },
+    { "nivel": 0, "tipo": "planta_baja", "conectorArriba": "escalera_doble" },
+    { "nivel": 1, "tipo": "planta_alta" },
+    { "nivel": 2, "tipo": "planta_alta", "conectorArriba": "escalera_caracol" }
+  ]
+}

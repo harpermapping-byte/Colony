@@ -10,5 +10,38 @@
   "taller": { "anchoTiles": [4, 7], "largoTiles": [4, 7], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": false },
   "pasillo": { "anchoTiles": [1, 3], "largoTiles": [3, 15], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false, "esPasillo": true },
   "gran_salon": { "anchoTiles": [9, 16], "largoTiles": [12, 20], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": true },
-  "sala_comercio": { "anchoTiles": [5, 9], "largoTiles": [5, 9], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false }
+  "sala_comercio": { "anchoTiles": [5, 9], "largoTiles": [5, 9], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false },
+
+  "capilla": { "anchoTiles": [4, 7], "largoTiles": [6, 10], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": true },
+  "sala_banos": { "anchoTiles": [3, 5], "largoTiles": [3, 6], "materialSuelo": "marmol", "materialPared": "estuco", "simetrico": false, "riquezaMinima": "noble" },
+  "celda": { "anchoTiles": [2, 3], "largoTiles": [2, 3], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": false, "_nota": "Prisión — torre_militar/castillo, o campamentos hostiles." },
+  "cuadra": { "anchoTiles": [4, 8], "largoTiles": [5, 10], "materialSuelo": "piedra", "materialPared": "madera", "simetrico": false },
+  "despensa": { "anchoTiles": [2, 4], "largoTiles": [2, 4], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": false },
+  "arsenal": { "anchoTiles": [3, 6], "largoTiles": [3, 6], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": false },
+  "sala_consejo": { "anchoTiles": [6, 9], "largoTiles": [6, 10], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": true, "riquezaMinima": "noble" },
+  "letrina": { "anchoTiles": [1, 2], "largoTiles": [1, 2], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": false },
+  "vestibulo": { "anchoTiles": [3, 6], "largoTiles": [3, 5], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false, "_nota": "Sala justo tras la puerta principal — primera impresión del edificio." },
+  "camarote": { "anchoTiles": [2, 4], "largoTiles": [2, 4], "materialSuelo": "madera", "materialPared": "madera", "simetrico": false, "_nota": "Interior de barco_encallado." },
+
+  "comedor_pequeno": { "anchoTiles": [3, 4], "largoTiles": [3, 5], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false },
+  "comedor_mediano": { "anchoTiles": [4, 6], "largoTiles": [5, 7], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false },
+  "comedor_grande": { "anchoTiles": [6, 9], "largoTiles": [7, 11], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": true, "riquezaMinima": "modesta" },
+  "cocina_comedor": { "anchoTiles": [5, 8], "largoTiles": [5, 9], "materialSuelo": "piedra", "materialPared": "estuco", "simetrico": false, "_nota": "Cocina y comedor en planta abierta, sin dividir en dos salas — típico de casa humilde/modesta." },
+
+  "dormitorio_individual": { "anchoTiles": [3, 4], "largoTiles": [3, 5], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false },
+  "dormitorio_doble": { "anchoTiles": [4, 6], "largoTiles": [4, 6], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false, "_nota": "Cama de matrimonio — pareja, riqueza modesta o superior." },
+  "dormitorio_comunal": { "anchoTiles": [6, 10], "largoTiles": [5, 9], "materialSuelo": "madera", "materialPared": "piedra", "simetrico": true, "_nota": "Varias literas — barracón, servidumbre, o dormitorio de posada compartido entre viajeros." },
+  "dormitorio_con_bano": { "anchoTiles": [6, 9], "largoTiles": [6, 9], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false, "riquezaMinima": "noble", "_nota": "Habitación y zona de baño integradas sin pasillo entre medias — suite noble." },
+  "dormitorio_enorme": { "anchoTiles": [8, 12], "largoTiles": [8, 12], "materialSuelo": "madera", "materialPared": "tela_tapiz", "simetrico": true, "riquezaMinima": "noble", "_nota": "Alcoba principal — señor de la casa noble o del castillo." },
+
+  "cocina_industrial": { "anchoTiles": [6, 9], "largoTiles": [6, 10], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": false, "_nota": "Cocina a gran escala — taberna grande, castillo, posada." },
+  "sala_alquimia": { "anchoTiles": [3, 6], "largoTiles": [3, 6], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": false },
+  "invernadero": { "anchoTiles": [4, 8], "largoTiles": [5, 9], "materialSuelo": "piedra", "materialPared": "cristal", "simetrico": false, "riquezaMinima": "noble" },
+  "cripta": { "anchoTiles": [4, 8], "largoTiles": [5, 10], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": true, "_nota": "Bajo un templo o una casa noble — no lleva ventana, cuenta como bajo tierra aunque no sea la bodega principal del edificio." },
+  "estudio": { "anchoTiles": [3, 5], "largoTiles": [3, 6], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false, "_nota": "Despacho/escritorio — escribano, erudito, administración del edificio." },
+  "guardarropa": { "anchoTiles": [2, 4], "largoTiles": [2, 4], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false, "riquezaMinima": "noble" },
+  "sala_ritual": { "anchoTiles": [4, 7], "largoTiles": [4, 7], "materialSuelo": "piedra", "materialPared": "piedra", "simetrico": true, "_nota": "Sala oculta/secreta de culto — casa noble con puerta_secreta, campamento hostil, ruina." },
+  "salon_baile": { "anchoTiles": [10, 16], "largoTiles": [12, 20], "materialSuelo": "marmol", "materialPared": "piedra", "simetrico": true, "riquezaMinima": "noble" },
+  "lonja": { "anchoTiles": [6, 10], "largoTiles": [7, 12], "materialSuelo": "piedra", "materialPared": "madera", "simetrico": false, "_nota": "Mercado cubierto/lonja — más grande y comunal que sala_comercio, para varios puestos a la vez." },
+  "sala_juegos": { "anchoTiles": [4, 7], "largoTiles": [4, 7], "materialSuelo": "madera", "materialPared": "estuco", "simetrico": false }
 }

@@ -4,5 +4,7 @@
   "escalera_recta": { "huella": [1, 3], "permitePasarMobiliarioGrande": true, "colorDebug": "#8a6a3a" },
   "escalera_caracol": { "huella": [2, 2], "permitePasarMobiliarioGrande": false, "colorDebug": "#6a5a3a" },
   "escalera_vertical": { "huella": [1, 1], "permitePasarMobiliarioGrande": false, "colorDebug": "#5a4a2a", "_nota": "Escala de mano/servicio — típica de bodega o torre de vigía." },
-  "trampilla": { "huella": [1, 1], "permitePasarMobiliarioGrande": false, "colorDebug": "#4a3a26", "_nota": "Mismo hueco conceptual que una puerta, pero en el plano techo/suelo." }
+  "trampilla": { "huella": [1, 1], "permitePasarMobiliarioGrande": false, "colorDebug": "#4a3a26", "_nota": "Mismo hueco conceptual que una puerta, pero en el plano techo/suelo." },
+  "escalera_doble": { "huella": [3, 3], "permitePasarMobiliarioGrande": true, "riquezaMinima": "noble", "colorDebug": "#a88a4a", "_nota": "Escalinata de doble tramo simétrica — vestíbulo de castillo o casa noble." },
+  "rampa": { "huella": [2, 4], "permitePasarMobiliarioGrande": true, "colorDebug": "#7a6a5a", "_nota": "Para barriles/carros en bodegas y almacenes grandes, en vez de escalón." }
 }

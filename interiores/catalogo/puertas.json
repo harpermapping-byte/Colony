@@ -3,5 +3,8 @@
 
   "puerta_individual": { "anchoHueco": 1, "esPuertaPrincipal": false, "colorDebug": "#7a5a34" },
   "puerta_doble": { "anchoHueco": 2, "esPuertaPrincipal": false, "colorDebug": "#8a6a3a" },
-  "puerta_principal": { "anchoHueco": 2, "esPuertaPrincipal": true, "colorDebug": "#5a3a20", "_nota": "La que conecta con el POI del exterior (tipo portal) — marco más trabajado, siempre en planta_baja." }
+  "puerta_principal": { "anchoHueco": 2, "esPuertaPrincipal": true, "colorDebug": "#5a3a20", "_nota": "La que conecta con el POI del exterior (tipo portal) — marco más trabajado, siempre en planta_baja." },
+  "puerta_secreta": { "anchoHueco": 1, "esPuertaPrincipal": false, "riquezaMinima": "noble", "colorDebug": "#6a5a3a", "_nota": "Disfrazada de estantería/panel de pared — pasaje oculto en casa noble o castillo." },
+  "arco_abierto": { "anchoHueco": 2, "esPuertaPrincipal": false, "colorDebug": "#9a9a92", "_nota": "Vano sin hoja — transición siempre abierta, típica entre pasillo y gran_salon." },
+  "reja": { "anchoHueco": 2, "esPuertaPrincipal": false, "colorDebug": "#4a4a50", "_nota": "Verja de metal — celda, mazmorra o entrada defensiva de castillo." }
 }
