@@ -102,7 +102,11 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     paso: pasoHidrologia,
     elevacionEn: (x, y) => elevacionGrid[Math.min(altoTiles - 1, y) * anchoTiles + Math.min(anchoTiles - 1, x)],
     umbralRio: config.umbralRio || 6,
+    nivelMar: catalogoBiomas.mar_bajo?.elevacionMax ?? 0.22,
+    maxRiosPrincipales: config.maxRiosPrincipales,
+    maxLagos: config.maxLagos,
   });
+  onProgreso(`  ${hidro.numeroRiosPrincipales} río(s) principal(es), ${hidro.numeroLagos} lago(s).`);
 
   // --- 5. Colocación de POIs (GDD sección 6) ---
   onProgreso("Colocando POIs...");
@@ -223,7 +227,9 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   onProgreso("Generando terreno, decoración y exportando por sectores...");
   const listaIdsTerreno = Object.keys(catalogoTerrenos);
   const exportador = crearExportador(path.resolve(config.carpetaSalida || "output"), listaIdsTerreno, anchoChunks, altoChunks);
-  const decorador = crearColocadorDecoracion(config.semilla, catalogoVegetacion, catalogoAnimales, catalogoRocas);
+  const decorador = crearColocadorDecoracion(config.semilla, catalogoVegetacion, catalogoAnimales, catalogoRocas, {
+    multiplicadorPool: config.multiplicadorPool,
+  });
 
   const poisPorChunk = new Map();
   for (const poi of pois) {

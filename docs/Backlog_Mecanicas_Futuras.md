@@ -2,6 +2,24 @@
 
 Ideas que ya hemos hablado y queremos que no se pierdan, aunque todavía no toque implementarlas. Nivel de detalle desigual a propósito: algunas están casi listas para construir, otras son solo el esqueleto de la idea. Se retoma y se afina cada una cuando le llegue el turno — no bloquea nada del bakeador de exteriores, que sigue siendo la pieza cerrada y ya construida.
 
+## Crecimiento de bosques con el tiempo (dispersión de semillas) — concepto decidido, mecánica en vivo
+
+Al ampliar el catálogo de recolectables (árboles frutales, bayas, minerales — `baker/catalogo/vegetacion.json`/`rocas.json`) salió la idea de que los árboles no se queden fijos para siempre una vez horneados: cada X tiempo (a definir), un árbol existente "tira" una semilla al suelo en un radio corto a su alrededor, y de ahí puede nacer un árbol nuevo — así los bosques ya marcados por el bakeador crecen y se extienden con el tiempo jugado, como en la vida real, en vez de ser una foto fija del día 1. Confirmado explícitamente: **esto no es tarea del bakeador** — el bakeador solo genera el estado inicial (día 0) del mundo; que un bosque crezca con el tiempo es simulación en vivo del servidor, mismo principio que el resto de mecánicas de esta lista (clima, sombras, cono de visión, luz ambiente de interiores).
+
+**Pendiente de definir cuando toque**: cada cuánto tiempo "cae" una semilla (por árbol o por región de bosque), el radio de dispersión, qué hace que una semilla prenda o no (¿necesita casilla transitable y bioma compatible, como ya comprueba el bakeador al colocar vegetación?), si hay un tope de densidad de árboles por región para que un bosque no crezca sin límite, y si esto consume del pool de puntos de spawn reservados del propio bakeador (ver más abajo, "Recolectables...") o genera posiciones nuevas fuera de ese pool.
+
+## Recolectables con pool de puntos de spawn — concepto y bakeador cerrados, activación/respawn en vivo pendiente
+
+Con el catálogo de recolectables (comida: bayas, frutas, frutos secos, raíces, setas, cereales, hierbas — `categoriaRecurso` en `vegetacion.json`) creció la pregunta de qué pasa cuando el jugador recoge algo: **los árboles no desaparecen** (se coge el fruto, el árbol se queda — mismo árbol seguirá dando fruta), pero **arbustos, plantas silvestres y setas sí desaparecen** al recolectarse (`desaparaceAlRecolectar: true` en el catálogo) y necesitan reaparecer en algún otro punto más adelante para que el recurso no se agote para siempre.
+
+Ya está construido en el bakeador (`baker/src/decoracion.js`) el mecanismo de datos que hace esto posible sin tener que re-hornear el mapa cada vez que cambie la densidad de spawn deseada: en vez de decidir un único resultado final por casilla, el bakeador genera un **pool de candidatos** (`multiplicadorPool`, por defecto 3x más candidatos de los que estarán activos al principio) y marca cada uno `activo`/`ac:0` (inactivo, reserva) — mismo patrón aplicado ya a las 3 capas (vegetación, fauna, rocas), no solo a la comida. Con `multiplicadorPool: 1` se comporta exactamante como antes (todo activo, sin reserva).
+
+**Lo que falta y es responsabilidad del servidor en vivo, no del bakeador**:
+- Cuando el jugador recoge un `activo` con `desaparaceAlRecolectar: true`: marcarlo inactivo y activar OTRO punto del pool (no necesariamente el mismo sitio) — así el recurso "se mueve" con el tiempo en vez de reaparecer siempre en el mismo punto exacto.
+- Cuánto tarda en reactivarse un punto tras recolectarse (tiempo de respawn) — pendiente de decidir.
+- Si la fauna sigue el mismo pool/mecanismo de activación (el diseño ya lo soporta, capa `a` en los objetos exportados) o necesita reglas propias por ser móvil.
+- Cómo cambia el jugador/streamer la cantidad activa en vivo (ej. "quiero más densidad de animales") sin re-hornear — leer más puntos del mismo pool ya exportado y activarlos, dato ya disponible en el archivo de sector.
+
 ## Ciclo de vida y reproducción animal — propuesto, falta confirmar del todo
 
 Plantillas compartidas por familia de animal (mismo patrón que categorías de recurso — pocas plantillas, cada especie apunta a una):

@@ -7,7 +7,19 @@ const { CapaRuido, crearPRNG, semillaDesdeTexto } = require("./ruido");
 // capa de ruido independiente (GDD sección 5) para que no se agrupen todas
 // igual — así salen claros, manchas y zonas dispersas en vez de un "mar"
 // uniforme del mismo tipo.
-function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales, catalogoRocas) {
+function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales, catalogoRocas, opcionesGlobales = {}) {
+  // Pool de spawn en vez de "un único resultado final" (GDD: ver
+  // Backlog_Mecanicas_Futuras.md sección de recolectables): el bakeador ya
+  // no decide para siempre qué hay en cada casilla — marca varios candidatos
+  // válidos por casilla (el pool) y solo una fracción arranca "activa"
+  // (`ac` en el objeto exportado). El resto queda en el archivo, inactivo,
+  // como reserva para que un servidor en vivo pueda activarlo más adelante
+  // (más densidad de fauna/recolectables configurada, o repoblar un punto
+  // tras recolectar uno activo) sin tener que re-hornear el mapa. Con
+  // multiplicadorPool=1 (o desactivado) se comporta exactamente como antes
+  // — un único resultado, siempre activo.
+  const multiplicadorPool = Math.max(1, opcionesGlobales.multiplicadorPool ?? 3);
+  const fraccionActivaInicial = 1 / multiplicadorPool;
   const capasRuido = new Map();
   function capaPara(nombre, escala) {
     const clave = nombre + ":" + escala;
@@ -84,7 +96,12 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
       }
       const ruido = capaPara(id, datos.escalaRuido || 20).fbm(x, y, 3);
       const densidad = (datos.densidadBase || 0.01) * ruido * 2 * factorDensidadRegional(catalogo, x, y);
-      if (prngLocal() < densidad) {
+      // La tirada de "es candidato del pool" usa la densidad multiplicada
+      // (más candidatos que los que estarán activos de entrada); el peso
+      // para elegir ganador entre varios candidatos de la misma casilla
+      // sigue siendo la densidad real, sin multiplicar, para no sesgar la
+      // proporción entre especies.
+      if (prngLocal() < densidad * multiplicadorPool) {
         exitos.push([id, datos, densidad]);
       }
     }
@@ -111,6 +128,12 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
     const [id, datos] = elegido;
     const variantes = datos.variantes || 1;
     const escalaBase = datos.escalaBase || 1;
+    // Tirada de activación independiente de cuál especie ganó la casilla —
+    // así la proporción activo/reserva es la misma para todas las especies,
+    // no depende de si una es más rara que otra. `ac` se omite cuando está
+    // activo (el caso normal) y solo se guarda `ac:0` para los inactivos —
+    // más barato en el JSON exportado que guardar el campo siempre.
+    const activo = prngLocal() < fraccionActivaInicial;
     // Claves cortas y escala redondeada a 2 decimales — con miles de
     // objetos por chunk, el peso de cada campo cuenta de verdad (GDD
     // sección 14, optimización). t: v=vegetación, a=animal, r=roca.
@@ -120,6 +143,7 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
       va: Math.floor(prngLocal() * variantes),
       ro: Math.floor(prngLocal() * 360),
       es: Math.round(escalaBase * (0.85 + prngLocal() * 0.3) * 100) / 100,
+      ...(activo ? {} : { ac: 0 }),
     }];
   }
 
