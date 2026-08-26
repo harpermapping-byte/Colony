@@ -6,6 +6,7 @@
   "cesped": { "transitable": true, "modVelocidad": 1.0, "estratigrafia": "tierra", "colorDebug": "#5a9c4c" },
   "tierra": { "transitable": true, "modVelocidad": 1.0, "estratigrafia": "roca", "colorDebug": "#7a5a3a" },
   "camino": { "transitable": true, "modVelocidad": 1.3, "estratigrafia": "tierra", "colorDebug": "#b89a6a" },
+  "tierra_labrada": { "transitable": true, "modVelocidad": 0.95, "estratigrafia": "tierra", "colorDebug": "#5c4425", "_nota": "Terreno de cultivo arado — el bakeador no lo coloca en el mapa salvaje; lo usará la futura mecanica de granja dentro de las parcelas del jugador." },
   "barro": { "transitable": true, "modVelocidad": 0.7, "estratigrafia": "tierra", "colorDebug": "#5c4a30" },
   "nieve": { "transitable": true, "modVelocidad": 0.6, "estratigrafia": "roca", "colorDebug": "#eef2f5" },
   "hielo": { "transitable": true, "modVelocidad": 0.8, "estratigrafia": "roca", "colorDebug": "#bfe3ee" },
