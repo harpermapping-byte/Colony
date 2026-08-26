@@ -70,7 +70,7 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
   // fauna o roca) le corresponden, si le corresponde alguno.
   function objetosEnCasilla(catalogo, bioma, banda, x, y, prngLocal, opciones = {}) {
     const candidatos = entradasValidas(catalogo, bioma, banda);
-    const resultado = [];
+    const exitos = [];
     for (const [id, datos] of candidatos) {
       // Vida acuática (requiereAgua) solo en agua; todo lo demás nunca en
       // agua abierta — antes esta comprobación estaba rota (opciones.esAgua
@@ -85,22 +85,42 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
       const ruido = capaPara(id, datos.escalaRuido || 20).fbm(x, y, 3);
       const densidad = (datos.densidadBase || 0.01) * ruido * 2 * factorDensidadRegional(catalogo, x, y);
       if (prngLocal() < densidad) {
-        const variantes = datos.variantes || 1;
-        const escalaBase = datos.escalaBase || 1;
-        // Claves cortas y escala redondeada a 2 decimales — con miles de
-        // objetos por chunk, el peso de cada campo cuenta de verdad
-        // (GDD sección 14, optimización). t: v=vegetación, a=animal, r=roca.
-        resultado.push({
-          i: id,
-          t: catalogo === catalogoAnimales ? "a" : catalogo === catalogoRocas ? "r" : "v",
-          va: Math.floor(prngLocal() * variantes),
-          ro: Math.floor(prngLocal() * 360),
-          es: Math.round(escalaBase * (0.85 + prngLocal() * 0.3) * 100) / 100,
-        });
-        break; // solo un objeto de esta capa por casilla, evita amontonar
+        exitos.push([id, datos, densidad]);
       }
     }
-    return resultado;
+    if (exitos.length === 0) return [];
+
+    // Solo un objeto de esta capa por casilla (evita amontonar) — pero si
+    // varias especies "acertaron" a la vez, se elige una ponderada por su
+    // propia densidad, no siempre la primera del catálogo: antes el orden
+    // de declaración en el JSON decidía casi siempre el empate (una especie
+    // muy común y listada primero, como el pino, se comía el hueco de las
+    // demás casi cada vez que también acertaban).
+    let elegido = exitos[0];
+    if (exitos.length > 1) {
+      const total = exitos.reduce((suma, e) => suma + e[2], 0);
+      let r = prngLocal() * total;
+      for (const e of exitos) {
+        r -= e[2];
+        if (r <= 0) {
+          elegido = e;
+          break;
+        }
+      }
+    }
+    const [id, datos] = elegido;
+    const variantes = datos.variantes || 1;
+    const escalaBase = datos.escalaBase || 1;
+    // Claves cortas y escala redondeada a 2 decimales — con miles de
+    // objetos por chunk, el peso de cada campo cuenta de verdad (GDD
+    // sección 14, optimización). t: v=vegetación, a=animal, r=roca.
+    return [{
+      i: id,
+      t: catalogo === catalogoAnimales ? "a" : catalogo === catalogoRocas ? "r" : "v",
+      va: Math.floor(prngLocal() * variantes),
+      ro: Math.floor(prngLocal() * 360),
+      es: Math.round(escalaBase * (0.85 + prngLocal() * 0.3) * 100) / 100,
+    }];
   }
 
   function generarParaChunk(chunkX, chunkY, tamanoChunk, obtenerCelda) {

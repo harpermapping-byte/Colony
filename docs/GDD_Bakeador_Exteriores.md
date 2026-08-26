@@ -18,6 +18,9 @@ Filosofía general del proyecto: generar **una vez** (nunca en directo), **cálc
 - **El límite de caminos trazados a POIs escala con el área del mapa** en vez de ser un número fijo — con un tope fijo, un mapa grande con cientos de POIs dejaba a la inmensa mayoría sin siquiera intentar un camino.
 - Los caminos tienen tres carácteres según el desnivel del tramo: llano de verdad → recto, colinas suaves → ondulación orgánica moderada, sube de banda de montaña → zigzag real (más marcado cuanto mayor el desnivel) — no toda carretera se curva igual, como en el terreno real.
 - La densidad regional (capa de ruido de gran escala que hace zonas más/menos pobladas) aplica a las tres categorías de decoración (vegetación, fauna, rocas) en todos los biomas, no solo a los árboles de bosque — cada categoría con su propia capa independiente para que las manchas de una y otra no coincidan siempre.
+- **Reparto justo cuando varias especies "aciertan" en la misma casilla**: medido con un bake real, el pino llegaba al 52% de toda la vegetación de un bosque porque, además de tener una densidad muy alta, siempre ganaba el empate por ser la primera especie del catálogo. Ahora se recogen todas las especies que aciertan esa casilla y se elige una ponderada por su propia densidad, no por el orden de declaración en el JSON — junto con rebajar la densidad de las especies dominantes, el pino baja a ~24%, un reparto mucho más sano sin dejar de ser el árbol más común (como en un pinar real).
+- **Catálogo de rocas** ampliado de 6 a 16 entradas — antes pradera/costa/pantano casi no tenían variedad de rocas propia.
+- **Variantes visuales**: las especies más comunes (que se repiten mucho por tener alta densidad) llevan más variantes que las raras, para que la repetición no se note como "el mismo objeto copiado" — mismo recurso al recolectar, aspecto distinto.
 
 ## 2. Terreno base (independiente del arte visual)
 
