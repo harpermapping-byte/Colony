@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Visor del bakeador — Streamer Colony</title>
+<style>
+  html, body { margin: 0; background: #111318; color: #ddd; font-family: system-ui, sans-serif; overflow: hidden; }
+  #hud {
+    position: fixed; top: 8px; left: 8px; background: rgba(0,0,0,0.6);
+    padding: 8px 12px; border-radius: 6px; font-size: 13px; line-height: 1.5;
+    pointer-events: none; z-index: 10;
+  }
+  #selector {
+    position: fixed; top: 8px; right: 8px; background: rgba(0,0,0,0.6);
+    padding: 8px 12px; border-radius: 6px; font-size: 13px; z-index: 10;
+  }
+  select, button { font-size: 13px; }
+  canvas { display: block; cursor: crosshair; }
+</style>
+</head>
+<body>
+<div id="hud">
+  Cámara libre — <b>WASD</b> o flechas para moverte, rueda del ratón para zoom.<br />
+  <span id="info">cargando…</span>
+</div>
+<div id="selector">
+  Mapa: <select id="mapaSelect"></select>
+  <button id="recargar">Recargar</button>
+</div>
+<canvas id="lienzo"></canvas>
+
+<script>
+"use strict";
+
+// Visor standalone del bakeador (GDD sección 12): cámara libre sin
+// personaje ni servidor de juego, solo para revisar el resultado horneado.
+// Lee los sectores directamente por fetch — hace falta un servidor estático
+// simple (ver README del baker), abrir el archivo con file:// no funciona
+// por las restricciones CORS del navegador.
+
+const lienzo = document.getElementById("lienzo");
+const ctx = lienzo.getContext("2d");
+const info = document.getElementById("info");
+const mapaSelect = document.getElementById("mapaSelect");
+
+function ajustarTamano() {
+  lienzo.width = window.innerWidth;
+  lienzo.height = window.innerHeight;
+}
+window.addEventListener("resize", ajustarTamano);
+ajustarTamano();
+
+const MAPAS_CONOCIDOS = ["ejemplo-rapido", "mapa-principal"];
+for (const m of MAPAS_CONOCIDOS) {
+  const opt = document.createElement("option");
+  opt.value = m;
+  opt.textContent = m;
+  mapaSelect.appendChild(opt);
+}
+
+let indice = null;
+let catalogoTerrenosColor = {};
+const cacheSectores = new Map(); // "sx_sy" -> datos del sector (o "cargando")
+
+let camara = { x: 0, y: 0, zoomPixelesPorTile: 4 };
+const teclas = new Set();
+window.addEventListener("keydown", (e) => teclas.add(e.key.toLowerCase()));
+window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));
+lienzo.addEventListener("wheel", (e) => {
+  camara.zoomPixelesPorTile = Math.max(0.5, Math.min(16, camara.zoomPixelesPorTile - e.deltaY * 0.01));
+  e.preventDefault();
+}, { passive: false });
+
+async function cargarMapa(nombre) {
+  const base = `../output/${nombre}/`;
+  const resp = await fetch(base + "indice.json");
+  if (!resp.ok) {
+    info.textContent = `No se encontró ${base}indice.json — ¿ya horneaste este mapa?`;
+    return;
+  }
+  indice = await resp.json();
+  indice._base = base;
+  cacheSectores.clear();
+  camara.x = (indice.ciudad?.x ?? 0);
+  camara.y = (indice.ciudad?.y ?? 0);
+
+  // Colores de depuración: mezcla de la tabla de terrenos y de biomas
+  // embebida aquí para no depender de más ficheros (el visor es standalone).
+  catalogoTerrenosColor = {
+    agua_profunda: "#1b4f8a", agua: "#2f6fb0", playa: "#e0d19a", arena: "#d8c477",
+    cesped: "#5a9c4c", tierra: "#7a5a3a", camino: "#b89a6a", barro: "#5c4a30",
+    nieve: "#eef2f5", hielo: "#bfe3ee", roca: "#8a8a8a", roca_inaccesible: "#5c5c5c",
+    ceniza: "#4a4440", roca_volcanica: "#2e2825", lava: "#c9401f",
+  };
+
+  info.textContent = `${indice.nombre} — ${indice.anchoChunks}x${indice.altoChunks} chunks, semilla "${indice.semilla}"`;
+}
+
+function sectorDe(chunkX, chunkY) {
+  const t = indice.tamanoSectorChunks;
+  const sx = Math.floor(chunkX / t);
+  const sy = Math.floor(chunkY / t);
+  const clave = `${sx}_${sy}`;
+  if (chunkX < 0 || chunkY < 0 || chunkX >= indice.anchoChunks || chunkY >= indice.altoChunks) return null;
+
+  if (!cacheSectores.has(clave)) {
+    cacheSectores.set(clave, "cargando");
+    fetch(`${indice._base}sector_${String(sx).padStart(3, "0")}_${String(sy).padStart(3, "0")}.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => cacheSectores.set(clave, d))
+      .catch(() => cacheSectores.set(clave, null));
+  }
+  const v = cacheSectores.get(clave);
+  return v === "cargando" ? null : v;
+}
+
+function terrenoEnTile(tileX, tileY) {
+  const tamanoChunk = indice.tamanoChunk;
+  const cx = Math.floor(tileX / tamanoChunk);
+  const cy = Math.floor(tileY / tamanoChunk);
+  const sector = sectorDe(cx, cy);
+  if (!sector) return null;
+  const chunk = sector.chunks[`${cx}_${cy}`];
+  if (!chunk) return null;
+  const lx = ((tileX % tamanoChunk) + tamanoChunk) % tamanoChunk;
+  const ly = ((tileY % tamanoChunk) + tamanoChunk) % tamanoChunk;
+  const idxCaracter = ly * tamanoChunk + lx;
+  const idxLeyenda = parseInt(chunk.terreno[idxCaracter], 36);
+  return { idTerreno: indice.leyendaTerreno[idxLeyenda], chunk, lx, ly, cx, cy };
+}
+
+function actualizar() {
+  const velocidad = 12 / camara.zoomPixelesPorTile + 4;
+  if (teclas.has("w") || teclas.has("arrowup")) camara.y -= velocidad;
+  if (teclas.has("s") || teclas.has("arrowdown")) camara.y += velocidad;
+  if (teclas.has("a") || teclas.has("arrowleft")) camara.x -= velocidad;
+  if (teclas.has("d") || teclas.has("arrowright")) camara.x += velocidad;
+}
+
+function dibujar() {
+  ctx.fillStyle = "#111318";
+  ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+  if (!indice) return;
+
+  const px = camara.zoomPixelesPorTile;
+  const tilesVisiblesX = Math.ceil(lienzo.width / px) + 2;
+  const tilesVisiblesY = Math.ceil(lienzo.height / px) + 2;
+  const inicioX = Math.floor(camara.x - tilesVisiblesX / 2);
+  const inicioY = Math.floor(camara.y - tilesVisiblesY / 2);
+
+  for (let ty = 0; ty < tilesVisiblesY; ty++) {
+    for (let tx = 0; tx < tilesVisiblesX; tx++) {
+      const tileX = inicioX + tx;
+      const tileY = inicioY + ty;
+      const info = terrenoEnTile(tileX, tileY);
+      const sx = (tileX - camara.x) * px + lienzo.width / 2;
+      const sy = (tileY - camara.y) * px + lienzo.height / 2;
+      if (!info) {
+        ctx.fillStyle = "#050608";
+        ctx.fillRect(sx, sy, px + 1, px + 1);
+        continue;
+      }
+      ctx.fillStyle = catalogoTerrenosColor[info.idTerreno] || "#333";
+      ctx.fillRect(sx, sy, px + 1, px + 1);
+    }
+  }
+
+  // Objetos (vegetación/animales/rocas) y POIs de los chunks visibles.
+  const chunkMinX = Math.floor(inicioX / indice.tamanoChunk) - 1;
+  const chunkMaxX = Math.floor((inicioX + tilesVisiblesX) / indice.tamanoChunk) + 1;
+  const chunkMinY = Math.floor(inicioY / indice.tamanoChunk) - 1;
+  const chunkMaxY = Math.floor((inicioY + tilesVisiblesY) / indice.tamanoChunk) + 1;
+
+  for (let cy = chunkMinY; cy <= chunkMaxY; cy++) {
+    for (let cx = chunkMinX; cx <= chunkMaxX; cx++) {
+      const sector = sectorDe(cx, cy);
+      if (!sector) continue;
+      const chunk = sector.chunks[`${cx}_${cy}`];
+      if (!chunk) continue;
+
+      for (const obj of chunk.objetos) {
+        const tileX = cx * indice.tamanoChunk + obj.x;
+        const tileY = cy * indice.tamanoChunk + obj.y;
+        const sx = (tileX - camara.x) * px + lienzo.width / 2;
+        const sy = (tileY - camara.y) * px + lienzo.height / 2;
+        ctx.fillStyle = obj.t === "a" ? "#ffcc33" : obj.t === "r" ? "#999999" : "#1f8a3a";
+        const r = Math.max(1, px * 0.3);
+        ctx.beginPath();
+        ctx.arc(sx + px / 2, sy + px / 2, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      for (const poi of chunk.pois || []) {
+        const tileX = cx * indice.tamanoChunk + poi.x;
+        const tileY = cy * indice.tamanoChunk + poi.y;
+        const sx = (tileX - camara.x) * px + lienzo.width / 2;
+        const sy = (tileY - camara.y) * px + lienzo.height / 2;
+        ctx.fillStyle = poi.legendario ? "#ffd700" : "#e02020";
+        ctx.fillRect(sx - 3, sy - 3, 7, 7);
+        ctx.fillStyle = "#fff";
+        ctx.font = "10px sans-serif";
+        ctx.fillText(poi.id, sx + 6, sy + 3);
+      }
+    }
+  }
+
+  // Marca de la ciudad (centro del mapa por defecto).
+  if (indice.ciudad) {
+    const sx = (indice.ciudad.x - camara.x) * px + lienzo.width / 2;
+    const sy = (indice.ciudad.y - camara.y) * px + lienzo.height / 2;
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  document.getElementById("info").textContent =
+    `${indice.nombre} — cámara en tile (${Math.round(camara.x)}, ${Math.round(camara.y)}) — zoom ${camara.zoomPixelesPorTile.toFixed(1)}px/tile`;
+}
+
+function bucle() {
+  actualizar();
+  dibujar();
+  requestAnimationFrame(bucle);
+}
+
+mapaSelect.addEventListener("change", () => cargarMapa(mapaSelect.value));
+document.getElementById("recargar").addEventListener("click", () => cargarMapa(mapaSelect.value));
+
+cargarMapa(mapaSelect.value).then(bucle);
+</script>
+</body>
+</html>

@@ -4,6 +4,8 @@ Prototipo mínimo cliente-servidor: dos (o más) sprites placeholder moviéndose
 
 - **`server/`** — Node.js + [Colyseus](https://colyseus.io/) (sala `hub` autoritativa).
 - **`client/`** — [Phaser 3](https://phaser.io/) + Vite + TypeScript.
+- **`baker/`** — bakeador de mapas exteriores (genera el mundo una sola vez, offline, sin dependencias) + visor con cámara libre para revisarlo. Ver `baker/README.md` para instrucciones.
+- **`docs/`** — documento de diseño del bakeador (`GDD_Bakeador_Exteriores.md`) y catálogo de especies (`Catalogo_Especies_Exterior.md`).
 
 ## Cómo correrlo en local
 

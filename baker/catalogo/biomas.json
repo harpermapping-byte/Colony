@@ -1,0 +1,48 @@
+{
+  "_nota": "Rangos 0..1 salvo bandaElevacion (entero 0..6: 0 agua profunda, 1 agua/orilla, 2 playa/bajos, 3 llanura, 4 colinas, 5 montaña, 6 cumbre). Ver GDD sección 3.1.",
+  "pradera": {
+    "rangos": { "temperatura": [0.4, 0.6], "humedad": [0.35, 0.6], "bandaElevacion": [3, 4], "continentalidad": [0.4, 1.0] },
+    "terrenoBase": "cesped",
+    "colorDebug": "#6fb24a",
+    "habilitadoPorDefecto": true
+  },
+  "bosque": {
+    "rangos": { "temperatura": [0.3, 0.65], "humedad": [0.55, 0.85], "bandaElevacion": [3, 5], "continentalidad": [0.25, 1.0] },
+    "terrenoBase": "cesped",
+    "colorDebug": "#2e6b2e",
+    "habilitadoPorDefecto": true
+  },
+  "montana_nevada": {
+    "rangos": { "temperatura": [0.0, 0.2], "humedad": [0.0, 1.0], "bandaElevacion": [5, 6], "continentalidad": [0.0, 1.0] },
+    "terrenoBase": "nieve",
+    "colorDebug": "#e8f0f5",
+    "habilitadoPorDefecto": true
+  },
+  "desierto": {
+    "rangos": { "temperatura": [0.75, 1.0], "humedad": [0.0, 0.2], "bandaElevacion": [2, 4], "continentalidad": [0.2, 1.0] },
+    "terrenoBase": "arena",
+    "colorDebug": "#d9b35a",
+    "habilitadoPorDefecto": true
+  },
+  "costa": {
+    "rangos": { "temperatura": [0.0, 1.0], "humedad": [0.0, 1.0], "bandaElevacion": [1, 2], "continentalidad": [0.0, 0.15] },
+    "terrenoBase": "playa",
+    "colorDebug": "#e0d19a",
+    "habilitadoPorDefecto": true
+  },
+  "pantano": {
+    "rangos": { "temperatura": [0.45, 0.7], "humedad": [0.75, 1.0], "bandaElevacion": [1, 2], "continentalidad": [0.2, 0.8] },
+    "terrenoBase": "barro",
+    "colorDebug": "#4a5c3a",
+    "drenajeBajo": true,
+    "habilitadoPorDefecto": true
+  },
+  "tierras_quemadas": {
+    "rangos": { "temperatura": [0.0, 1.0], "humedad": [0.0, 0.3], "bandaElevacion": [0, 6], "continentalidad": [0.0, 1.0] },
+    "terrenoBase": "ceniza",
+    "colorDebug": "#4a4440",
+    "requiereVulcanismo": true,
+    "habilitadoPorDefecto": false,
+    "_nota_diseno": "Reservado para mapas conectados futuros (GDD sección 3.1). No se habilita en el mapa principal salvo que el config lo pida explícitamente."
+  }
+}

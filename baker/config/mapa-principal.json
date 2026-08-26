@@ -1,0 +1,21 @@
+{
+  "nombre": "mapa-principal",
+  "semilla": "colonia-01",
+  "anchoChunks": 200,
+  "altoChunks": 200,
+  "tamanoChunk": 32,
+  "biomasHabilitados": ["pradera", "bosque", "montana_nevada", "desierto", "costa", "pantano"],
+  "separacionMinimaPOI": 200,
+  "probabilidadLegendaria": 0.02,
+  "pasoHidrologia": 16,
+  "umbralRio": 8,
+  "pasoCaminos": 32,
+  "maxCaminosAPOIs": 60,
+  "bordes": {
+    "norte": { "tipo": "cerrado" },
+    "sur": { "tipo": "tierra_abierta", "nombre": "frontera-sur" },
+    "este": { "tipo": "tierra_abierta", "nombre": "frontera-este" },
+    "oeste": { "tipo": "mar_abierto", "nombre": "mar-oeste" }
+  },
+  "carpetaSalida": "output/mapa-principal"
+}

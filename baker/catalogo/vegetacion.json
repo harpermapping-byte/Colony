@@ -1,0 +1,20 @@
+{
+  "_nota": "Subconjunto representativo cableado al generador. El listado completo de referencia (~62 especies) vive en docs/Catalogo_Especies_Exterior.md — se amplía este JSON por tandas sin romper nada de lo ya horneado (regla de extensibilidad, GDD sección 19).",
+  "roble": { "biomas": ["pradera", "bosque"], "categoriaRecurso": "madera_dura", "densidadBase": 0.05, "escalaRuido": 30, "variantes": 3, "colorDebug": "#3a6b1f" },
+  "sauce": { "biomas": ["pradera"], "categoriaRecurso": "madera_sauce", "densidadBase": 0.02, "escalaRuido": 20, "variantes": 2, "requiereCercaAgua": true, "colorDebug": "#5c8a3a" },
+  "trebol": { "biomas": ["pradera"], "categoriaRecurso": "hierba_aromatica", "densidadBase": 0.12, "escalaRuido": 10, "variantes": 2, "colorDebug": "#4fae3a" },
+  "amapola": { "biomas": ["pradera"], "categoriaRecurso": "flor_medicinal", "densidadBase": 0.03, "escalaRuido": 15, "variantes": 3, "colorDebug": "#c92f3a" },
+  "pino": { "biomas": ["bosque"], "categoriaRecurso": "madera_blanda", "densidadBase": 0.08, "escalaRuido": 25, "variantes": 4, "colorDebug": "#1f4a1f" },
+  "abeto": { "biomas": ["bosque"], "categoriaRecurso": "madera_blanda", "densidadBase": 0.07, "escalaRuido": 25, "variantes": 3, "colorDebug": "#204d2e" },
+  "roble_grande": { "biomas": ["bosque"], "categoriaRecurso": "madera_dura", "densidadBase": 0.04, "escalaRuido": 35, "variantes": 3, "colorDebug": "#2e5a1a" },
+  "boletus": { "biomas": ["bosque"], "categoriaRecurso": "hongo_medicinal", "densidadBase": 0.02, "escalaRuido": 8, "variantes": 2, "colorDebug": "#8a5a3a" },
+  "pino_nevado": { "biomas": ["montana_nevada"], "categoriaRecurso": "madera_blanda", "densidadBase": 0.03, "bandaElevacionMax": 4, "escalaRuido": 25, "variantes": 2, "colorDebug": "#3a5a4a" },
+  "liquen_roca": { "biomas": ["montana_nevada"], "categoriaRecurso": "hierba_aromatica", "densidadBase": 0.04, "escalaRuido": 12, "variantes": 2, "colorDebug": "#7a8a6a" },
+  "saguaro": { "biomas": ["desierto"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.02, "escalaRuido": 25, "variantes": 2, "colorDebug": "#4a7a3a" },
+  "tamarisco": { "biomas": ["desierto"], "categoriaRecurso": "madera_blanda", "densidadBase": 0.015, "escalaRuido": 30, "variantes": 2, "colorDebug": "#6a7a3a" },
+  "barron": { "biomas": ["costa"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.06, "escalaRuido": 10, "variantes": 2, "colorDebug": "#a8a35a" },
+  "palmera_costera": { "biomas": ["costa"], "categoriaRecurso": "madera_palmera", "densidadBase": 0.015, "escalaRuido": 30, "variantes": 2, "colorDebug": "#5a8a3a" },
+  "sauce_llorón": { "biomas": ["pantano"], "categoriaRecurso": "madera_sauce", "densidadBase": 0.03, "escalaRuido": 20, "variantes": 2, "colorDebug": "#3a5a2a" },
+  "junco": { "biomas": ["pantano"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.1, "escalaRuido": 8, "variantes": 2, "colorDebug": "#6a8a3a" },
+  "nenufar": { "biomas": ["pantano"], "categoriaRecurso": "flor_medicinal", "densidadBase": 0.03, "escalaRuido": 10, "requiereAgua": true, "variantes": 2, "colorDebug": "#3a7a5a" }
+}

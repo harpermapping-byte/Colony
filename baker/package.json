@@ -1,0 +1,14 @@
+{
+  "name": "colony-baker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Bakeador de mapas exteriores para Streamer Colony. Sin dependencias externas.",
+  "main": "src/index.js",
+  "scripts": {
+    "bake:rapido": "node src/index.js config/ejemplo-rapido.json",
+    "bake:principal": "node src/index.js config/mapa-principal.json"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

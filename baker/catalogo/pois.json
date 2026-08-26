@@ -1,0 +1,35 @@
+{
+  "_nota": "Plantillas de POI por bioma (GDD sección 6). tipo: integrado (vive en el propio mapa) o portal (enlaza a instancia aparte, este bakeador solo coloca el disparador).",
+  "pradera": [
+    { "id": "granja_abandonada", "tipo": "integrado", "reglasSitio": ["terrenoLlano"] },
+    { "id": "circulo_piedras", "tipo": "integrado", "reglasSitio": ["terrenoLlano"] },
+    { "id": "pozo_aldea", "tipo": "integrado", "reglasSitio": ["terrenoLlano"] }
+  ],
+  "bosque": [
+    { "id": "claro_altar_antiguo", "tipo": "integrado", "reglasSitio": [] },
+    { "id": "campamento_cazador", "tipo": "integrado", "reglasSitio": [] },
+    { "id": "guarida_lobo", "tipo": "portal", "reglasSitio": [] }
+  ],
+  "montana_nevada": [
+    { "id": "cabana_cazador", "tipo": "integrado", "reglasSitio": ["bandaElevacionMin:4"] },
+    { "id": "mina_abandonada", "tipo": "portal", "reglasSitio": ["bandaElevacionMin:4"] }
+  ],
+  "desierto": [
+    { "id": "oasis_pequeno", "tipo": "integrado", "reglasSitio": ["terrenoLlano"] },
+    { "id": "oasis_mercader", "tipo": "integrado", "reglasSitio": ["terrenoLlano"], "legendario": false },
+    { "id": "ruinas_semienterradas", "tipo": "integrado", "reglasSitio": [] },
+    { "id": "campo_dunas_gigantes", "tipo": "integrado", "reglasSitio": [] }
+  ],
+  "costa": [
+    { "id": "barco_encallado", "tipo": "integrado", "reglasSitio": ["cercaAgua"] },
+    { "id": "faro_abandonado", "tipo": "portal", "reglasSitio": ["cercaAgua"] }
+  ],
+  "pantano": [
+    { "id": "choza_curandero", "tipo": "integrado", "reglasSitio": [] },
+    { "id": "altar_hundido", "tipo": "integrado", "reglasSitio": ["cercaAgua"] }
+  ],
+  "_legendarias": {
+    "probabilidad": 0.02,
+    "_nota": "En vez de una plantilla normal del pool, con esta probabilidad se marca el POI como legendario (GDD sección 6) — la variante concreta la diseña el streamer a mano más adelante."
+  }
+}

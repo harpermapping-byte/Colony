@@ -1,0 +1,17 @@
+{
+  "agua_profunda": { "transitable": false, "requiereNadar": true, "modVelocidad": 1.0, "colorDebug": "#1b4f8a" },
+  "agua": { "transitable": false, "requiereNadar": true, "modVelocidad": 1.0, "colorDebug": "#2f6fb0" },
+  "playa": { "transitable": true, "modVelocidad": 1.0, "estratigrafia": "arena", "colorDebug": "#e0d19a" },
+  "arena": { "transitable": true, "modVelocidad": 0.9, "estratigrafia": "arenisca", "colorDebug": "#d8c477" },
+  "cesped": { "transitable": true, "modVelocidad": 1.0, "estratigrafia": "tierra", "colorDebug": "#5a9c4c" },
+  "tierra": { "transitable": true, "modVelocidad": 1.0, "estratigrafia": "roca", "colorDebug": "#7a5a3a" },
+  "camino": { "transitable": true, "modVelocidad": 1.3, "estratigrafia": "tierra", "colorDebug": "#b89a6a" },
+  "barro": { "transitable": true, "modVelocidad": 0.7, "estratigrafia": "tierra", "colorDebug": "#5c4a30" },
+  "nieve": { "transitable": true, "modVelocidad": 0.6, "estratigrafia": "roca", "colorDebug": "#eef2f5" },
+  "hielo": { "transitable": true, "modVelocidad": 0.8, "estratigrafia": "roca", "colorDebug": "#bfe3ee" },
+  "roca": { "transitable": true, "modVelocidad": 0.6, "esBaseRocosa": true, "colorDebug": "#8a8a8a" },
+  "roca_inaccesible": { "transitable": false, "colorDebug": "#5c5c5c" },
+  "ceniza": { "transitable": true, "modVelocidad": 0.7, "estratigrafia": "roca_volcanica", "colorDebug": "#4a4440" },
+  "roca_volcanica": { "transitable": true, "modVelocidad": 0.6, "esBaseRocosa": true, "colorDebug": "#2e2825" },
+  "lava": { "transitable": false, "quema": true, "colorDebug": "#c9401f" }
+}

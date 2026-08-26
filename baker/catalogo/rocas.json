@@ -1,0 +1,9 @@
+{
+  "_nota": "Entradas de roca/mineral, ponderadas por humedad del bioma (GDD sección 11.5).",
+  "granito": { "biomas": ["pradera", "bosque"], "categoriaRecurso": "piedra_comun", "densidadBase": 0.01, "escalaRuido": 20, "variantes": 4, "colorDebug": "#8a8a8a" },
+  "pizarra": { "biomas": ["bosque", "montana_nevada"], "categoriaRecurso": "piedra_comun", "densidadBase": 0.008, "escalaRuido": 20, "variantes": 3, "colorDebug": "#5a5a6a" },
+  "veta_hierro": { "biomas": ["montana_nevada"], "categoriaRecurso": "hierro", "densidadBase": 0.004, "escalaRuido": 15, "variantes": 2, "colorDebug": "#8a5a3a" },
+  "veta_cobre": { "biomas": ["desierto", "montana_nevada"], "categoriaRecurso": "cobre", "densidadBase": 0.003, "escalaRuido": 15, "variantes": 2, "colorDebug": "#c9773a" },
+  "veta_plata": { "biomas": ["montana_nevada"], "categoriaRecurso": "plata", "densidadBase": 0.0015, "escalaRuido": 15, "variantes": 2, "colorDebug": "#c0c0c8" },
+  "arenisca": { "biomas": ["desierto"], "categoriaRecurso": "piedra_comun", "densidadBase": 0.012, "escalaRuido": 20, "variantes": 3, "colorDebug": "#c9a15a" }
+}

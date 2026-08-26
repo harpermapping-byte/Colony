@@ -1,0 +1,21 @@
+{
+  "nombre": "ejemplo-rapido",
+  "semilla": "prueba-01",
+  "anchoChunks": 12,
+  "altoChunks": 12,
+  "tamanoChunk": 32,
+  "biomasHabilitados": ["pradera", "bosque", "montana_nevada", "desierto", "costa", "pantano"],
+  "separacionMinimaPOI": 60,
+  "probabilidadLegendaria": 0.02,
+  "pasoHidrologia": 8,
+  "umbralRio": 5,
+  "pasoCaminos": 16,
+  "maxCaminosAPOIs": 15,
+  "bordes": {
+    "norte": { "tipo": "cerrado" },
+    "sur": { "tipo": "cerrado" },
+    "este": { "tipo": "cerrado" },
+    "oeste": { "tipo": "cerrado" }
+  },
+  "carpetaSalida": "output/ejemplo-rapido"
+}
