@@ -109,68 +109,29 @@ function renderSalaSVG(resultado) {
 
   let cuerpo = "";
 
-  // Suelo: SOLO el interior caminable (1..ancho-1 / 1..largo-1 en
-  // coordenadas de mundo), no el rectángulo completo. El anillo exterior
-  // (fila/columna 0 y ancho-1/largo-1) es la propia pared, no suelo — si
-  // se pintaba como suelo hasta el borde y el muro solo se levantaba en el
-  // canto exterior, quedaba una franja entera de "suelo" visible entre el
-  // muro de verdad y donde empieza el interior (el hueco que se veía).
-  cuerpo += poligono(
-    [proyectar(1, 1, 0), proyectar(ancho - 1, 1, 0), proyectar(ancho - 1, largo - 1, 0), proyectar(1, largo - 1, 0)],
-    colorSuelo,
-    'stroke="#0004" stroke-width="0.5"'
-  );
+  // Suelo: todo el rectángulo ancho x largo, de borde a borde — el muro
+  // no ocupa ninguna casilla propia (colocarElementos.js), es un límite
+  // sin grosor justo en el canto de este mismo rectángulo, así que el
+  // suelo llega hasta ahí sin dejar ningún hueco de por medio.
+  cuerpo += poligono([proyectar(0, 0, 0), proyectar(ancho, 0, 0), proyectar(ancho, largo, 0), proyectar(0, largo, 0)], colorSuelo, 'stroke="#0004" stroke-width="0.5"');
 
   // Muros sólidos: sur (y=largo, con hueco de puerta) y este (x=ancho) —
   // los que quedan "al fondo" desde esta cámara, dejando norte/oeste
   // abiertos para ver el interior. Un segmento de pared por tile, así el
-  // hueco de la puerta es un recorte real, no un simple marcador. Cada
-  // muro lleva además su propia base a ras de suelo (la fila/columna que
-  // ocupa de verdad, del mismo color que el muro) para que no quede ese
-  // hueco de suelo entre el pie del muro y el interior.
+  // hueco de la puerta es un recorte real, no un simple marcador.
   const colorParedOscuro = sombrear(colorPared, 0.75);
   for (let x = 0; x < ancho; x++) {
-    const esHuecoPuerta = puerta.lado === "sur" && x === puerta.x;
-    if (!esHuecoPuerta) {
-      const b0 = proyectar(x, largo - 1, 0), b1 = proyectar(x + 1, largo - 1, 0);
-      const b2 = proyectar(x + 1, largo, 0), b3 = proyectar(x, largo, 0);
-      cuerpo += poligono([b0, b1, b2, b3], colorParedOscuro, 'stroke="#0004" stroke-width="0.4"');
-    }
-    if (esHuecoPuerta) continue; // hueco de la puerta: sin muro vertical tampoco
+    if (puerta.lado === "sur" && x === puerta.x) continue; // hueco de la puerta
     const p0 = proyectar(x, largo, 0), p1 = proyectar(x + 1, largo, 0);
     const p2 = proyectar(x + 1, largo, ALTURA_PARED), p3 = proyectar(x, largo, ALTURA_PARED);
     cuerpo += poligono([p0, p1, p2, p3], colorParedOscuro, 'stroke="#0006" stroke-width="0.6"');
   }
   const colorParedClaro = sombrear(colorPared, 0.9);
   for (let y = 0; y < largo; y++) {
-    const esHuecoPuerta = puerta.lado === "este" && y === puerta.y;
-    if (!esHuecoPuerta) {
-      const b0 = proyectar(ancho - 1, y, 0), b1 = proyectar(ancho - 1, y + 1, 0);
-      const b2 = proyectar(ancho, y + 1, 0), b3 = proyectar(ancho, y, 0);
-      cuerpo += poligono([b0, b1, b2, b3], colorParedClaro, 'stroke="#0004" stroke-width="0.4"');
-    }
-    if (esHuecoPuerta) continue;
+    if (puerta.lado === "este" && y === puerta.y) continue;
     const p0 = proyectar(ancho, y, 0), p1 = proyectar(ancho, y + 1, 0);
     const p2 = proyectar(ancho, y + 1, ALTURA_PARED), p3 = proyectar(ancho, y, ALTURA_PARED);
     cuerpo += poligono([p0, p1, p2, p3], colorParedClaro, 'stroke="#0006" stroke-width="0.6"');
-  }
-
-  // Mismo hueco existía en los dos lados que no se dibujan en alzado
-  // (norte/oeste): su franja de pared también se pintaba como suelo. Se
-  // rellena con un tono apagado (no un muro entero, para no tapar la
-  // vista) coherente con el borde discontinuo de esos lados.
-  const colorParedFantasma = sombrear(colorPared, 0.6);
-  for (let x = 0; x < ancho; x++) {
-    if (puerta.lado === "norte" && x === puerta.x) continue;
-    const b0 = proyectar(x, 0, 0), b1 = proyectar(x + 1, 0, 0);
-    const b2 = proyectar(x + 1, 1, 0), b3 = proyectar(x, 1, 0);
-    cuerpo += poligono([b0, b1, b2, b3], colorParedFantasma, 'fill-opacity="0.5" stroke="#0003" stroke-width="0.4"');
-  }
-  for (let y = 0; y < largo; y++) {
-    if (puerta.lado === "oeste" && y === puerta.y) continue;
-    const b0 = proyectar(0, y, 0), b1 = proyectar(0, y + 1, 0);
-    const b2 = proyectar(1, y + 1, 0), b3 = proyectar(1, y, 0);
-    cuerpo += poligono([b0, b1, b2, b3], colorParedFantasma, 'fill-opacity="0.5" stroke="#0003" stroke-width="0.4"');
   }
 
   // Norte/oeste quedan sin muro sólido a propósito (para ver el interior

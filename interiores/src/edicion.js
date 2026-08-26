@@ -72,7 +72,10 @@ function calcularOcupacion(resultado, ignorarInstanceId = null) {
 // el catálogo solo dice si la pieza los tiene marcados.
 function validarHueco(resultado, x, y, ancho, largo, ocupadas, reglas) {
   const avisos = [];
-  const fueraDeLimites = x < 1 || y < 1 || x + ancho > resultado.ancho - 1 || y + largo > resultado.largo - 1;
+  // El muro no ocupa casilla propia (ver colocarElementos.js): el
+  // rectángulo entero resultado.ancho x resultado.largo es suelo válido,
+  // sin margen que restar.
+  const fueraDeLimites = x < 0 || y < 0 || x + ancho > resultado.ancho || y + largo > resultado.largo;
   if (fueraDeLimites) return { ok: false, avisos: ["fuera_de_limites"] };
 
   let solapa = false;
@@ -85,8 +88,13 @@ function validarHueco(resultado, x, y, ancho, largo, ocupadas, reglas) {
   }
   if (solapa) avisos.push("solapa_con_otro_mueble");
 
+  // La puerta en sí ya no es una casilla de suelo (cae justo fuera del
+  // rectángulo, en y=resultado.largo) — "bloquear la puerta" significa
+  // tapar la última fila de suelo, pegada a ese hueco, por donde se
+  // entra de verdad.
   const { puerta } = resultado;
-  const cubrePuerta = x <= puerta.x && puerta.x < x + ancho && y <= puerta.y && puerta.y < y + largo;
+  const entradaY = resultado.largo - 1;
+  const cubrePuerta = x <= puerta.x && puerta.x < x + ancho && y <= entradaY && entradaY < y + largo;
   if (cubrePuerta && !reglas.puedeBloquearPuerta) avisos.push("bloquea_la_puerta");
 
   return { ok: true, avisos };

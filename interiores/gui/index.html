@@ -359,9 +359,11 @@ function renderLienzo() {
   // suelo
   svg.appendChild(poligonoEl([proyectar(0, 0, 0), proyectar(r.ancho, 0, 0), proyectar(r.ancho, r.largo, 0), proyectar(0, r.largo, 0)], "#c9b896", { stroke: "#0004", "stroke-width": 0.5 }));
 
-  // casillas interiores clicables (para mover-aquí / añadir-aquí)
-  for (let y = 1; y < r.largo - 1; y++) {
-    for (let x = 1; x < r.ancho - 1; x++) {
+  // casillas clicables (para mover-aquí / añadir-aquí) — el muro no ocupa
+  // casilla propia (colocarElementos.js), todo el rectángulo r.ancho x
+  // r.largo es suelo real.
+  for (let y = 0; y < r.largo; y++) {
+    for (let x = 0; x < r.ancho; x++) {
       const p0 = proyectar(x, y, 0.01), p1 = proyectar(x + 1, y, 0.01), p2 = proyectar(x + 1, y + 1, 0.01), p3 = proyectar(x, y + 1, 0.01);
       const tile = poligonoEl([p0, p1, p2, p3], "transparent", { style: "cursor:pointer" });
       tile.addEventListener("click", () => {

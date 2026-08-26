@@ -40,30 +40,26 @@ function elegirNumeroSalas(disponibles, riqueza, rnd) {
 }
 
 // Pinta una Sala ya resuelta (ancho/largo/puerta) sobre la rejilla de la
-// planta en el offset que le toque. `puertasExtraLocales` son huecos de
-// puerta adicionales (sección "sin pasillo" de más arriba) que colocarSala
-// no puso por su cuenta. Unión con "la puerta gana": si dos salas pintan
-// la misma casilla global (fila/columna compartida a propósito), un hueco
-// de puerta nunca se pisa por un muro.
-function pintarSalaEnPlanta(rejillaPiso, resultadoSala, offsetX, offsetY, puertasExtraLocales = []) {
+// planta en el offset que le toque. El muro ya no es una casilla propia
+// de la sala (colocarElementos.js: ancho x largo es suelo real de borde a
+// borde) — aquí solo se pinta ESE suelo más la puerta propia de la sala
+// (que colocarSala ya coloca un poco más allá de su propio rectángulo,
+// en la fila/columna colchón). Dos salas nunca deberían pisarse: quien
+// llama a esto es responsable de dejar hueco de separación entre salas
+// contiguas (columna/fila sin pintar, que queda VACIO = muro implícito) y
+// de punzar ahí una puerta nueva si hace falta conectar dos salas
+// directamente. "La puerta gana" si por lo que sea coincide con algo ya
+// pintado, para no tapar nunca un hueco ya abierto.
+function pintarSalaEnPlanta(rejillaPiso, resultadoSala, offsetX, offsetY) {
   const { ancho, largo, puerta } = resultadoSala;
   for (let y = 0; y < largo; y++) {
     for (let x = 0; x < ancho; x++) {
-      const esBorde = x === 0 || y === 0 || x === ancho - 1 || y === largo - 1;
-      const esPuertaPropia = x === puerta.x && y === puerta.y;
-      const esPuertaExtra = puertasExtraLocales.some(([ex, ey]) => ex === x && ey === y);
-      let tipo;
-      if (esPuertaPropia || esPuertaExtra) tipo = TIPO_TILE.PUERTA;
-      else if (esBorde) tipo = TIPO_TILE.PARED;
-      else tipo = TIPO_TILE.SUELO;
-
       const gx = offsetX + x, gy = offsetY + y;
-      const actual = rejillaPiso.get(gx, gy);
-      if (actual === TIPO_TILE.PUERTA) continue; // la puerta ya pintada gana, nunca se tapa con muro
-      if (actual === TIPO_TILE.SUELO && tipo === TIPO_TILE.PARED) continue; // no degradar suelo ya pintado
-      rejillaPiso.set(gx, gy, tipo);
+      if (rejillaPiso.get(gx, gy) === TIPO_TILE.PUERTA) continue;
+      rejillaPiso.set(gx, gy, TIPO_TILE.SUELO);
     }
   }
+  rejillaPiso.set(offsetX + puerta.x, offsetY + puerta.y, TIPO_TILE.PUERTA);
 }
 
 // Habitación NO rectangular (sección 3 del pedido): un "brazo" en L hecho
@@ -81,29 +77,41 @@ function generarHabitacionCompuestaL({ tipoSalaId, catalogos, riqueza, amueblado
 
   // brazoB cuelga del muro este de brazoA, desplazado hacia abajo para que
   // el conjunto lea como una L (no como dos salas en fila): su borde
-  // superior queda a mitad del brazoA en vez de alineado arriba/abajo.
-  const offsetXB = brazoA.ancho - 1; // solapa 1 columna, misma fusión que generarPlanta
+  // superior queda a mitad del brazoA en vez de alineado arriba/abajo. El
+  // muro ya no es una casilla propia de ninguno de los dos brazos (ver
+  // pintarSalaEnPlanta), así que hace falta una columna de separación de
+  // verdad entre ambos — la abertura ancha se punza ahí mismo, no en una
+  // columna que ninguno de los dos brazos ya "traía puesta".
+  const offsetXB = brazoA.ancho + 1;
   const offsetYB = Math.max(1, Math.floor(brazoA.largo * 0.4));
 
+  // +1 de margen vertical: la puerta propia de cada brazo cae una fila
+  // por debajo de su propio rectángulo (colocarElementos.js), hace falta
+  // sitio en la rejilla para esa fila aunque sea la sala más alta de las
+  // dos.
   const anchoTotal = offsetXB + brazoB.ancho;
-  const altoTotal = Math.max(brazoA.largo, offsetYB + brazoB.largo);
+  const altoTotal = Math.max(brazoA.largo, offsetYB + brazoB.largo) + 1;
   const rejilla = crearRejilla(anchoTotal, altoTotal, TIPO_TILE.VACIO);
 
   pintarSalaEnPlanta(rejilla, brazoA, 0, 0);
+  pintarSalaEnPlanta(rejilla, brazoB, offsetXB, offsetYB);
 
-  // Abertura ancha en la columna compartida: todas las filas interiores
-  // de brazoB que caen dentro del rango vertical de brazoA, no solo una
-  // — así se ve como un hueco real entre las dos alas, no una puerta.
-  const puertasAnchas = [];
-  for (let y = 1; y < brazoB.largo - 1; y++) {
-    const globalY = offsetYB + y;
-    if (globalY >= 1 && globalY <= brazoA.largo - 2) puertasAnchas.push([0, y]);
+  // Abertura ancha en la columna de separación: todas las filas donde se
+  // solapan verticalmente los dos brazos, con un margen de 1 casilla en
+  // cada extremo (si el solape da para ello) para que no sea una abertura
+  // muro a muro — así se lee como un hueco real entre las dos alas, no
+  // una puerta de una sola casilla.
+  const colX = offsetXB - 1;
+  const inicioSolape = Math.max(0, offsetYB);
+  const finSolape = Math.min(brazoA.largo - 1, offsetYB + brazoB.largo - 1);
+  const margen = finSolape - inicioSolape + 1 >= 3 ? 1 : 0;
+  for (let gy = inicioSolape + margen; gy <= finSolape - margen; gy++) {
+    rejilla.set(colX, gy, TIPO_TILE.PUERTA);
   }
-  pintarSalaEnPlanta(rejilla, brazoB, offsetXB, offsetYB, puertasAnchas);
 
   const salasDetectadas = detectarSalas(rejilla);
-  const salaA = salasDetectadas.find((s) => s.tiles.has("1_1"));
-  const salaB = salasDetectadas.find((s) => s.tiles.has(`${offsetXB + 1}_${offsetYB + 1}`));
+  const salaA = salasDetectadas.find((s) => s.tiles.has("0_0"));
+  const salaB = salasDetectadas.find((s) => s.tiles.has(`${offsetXB}_${offsetYB}`));
 
   return {
     tipo: "compuestaL",
@@ -136,7 +144,15 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
     colocarSala({ tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:${nivel}:${i}` })
   );
 
-  const anchoTotal = salasFila.reduce((s, r) => s + r.ancho, 0);
+  // El muro ya no es una casilla propia de cada sala (colocarElementos.js:
+  // ancho x largo es suelo real de borde a borde), así que dos salas
+  // contiguas en la fila necesitan una columna de separación de verdad
+  // entre ellas — de ahí el "+1" por cada hueco entre salas, tanto si hay
+  // pasillo (esa columna se queda como muro, cada sala se conecta al
+  // pasillo por su cuenta) como si no (ahí se punza la puerta que las une
+  // directamente).
+  const numHuecosFila = Math.max(0, salasFila.length - 1);
+  const anchoTotal = salasFila.reduce((s, r) => s + r.ancho, 0) + numHuecosFila;
   const altoFila = Math.max(...salasFila.map((r) => r.largo), 4);
 
   let pasillo = null;
@@ -152,12 +168,16 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
     });
   }
 
-  // Con pasillo, su muro norte comparte la MISMA fila global que el muro
-  // sur (con puerta) de las salas de encima — por eso resta 1, no suma: es
-  // la fila que se fusiona, no una fila nueva aparte.
+  // Con pasillo, se deja una fila de separación de verdad entre la fila de
+  // salas y el pasillo (ya no hay muro compartido que fusionar): la puerta
+  // propia de cada sala (que cae justo en esa fila, un paso más allá de su
+  // propio rectángulo) es la que conecta con el suelo del pasillo justo
+  // debajo — no hace falta punzar ninguna puerta nueva ahí.
   const anchoPlanta = pasillo ? Math.max(anchoTotal, pasillo.ancho) : anchoTotal;
-  const altoPlanta = pasillo ? altoFila - 1 + pasillo.largo : altoFila;
-  const rejillaPiso = crearRejilla(Math.max(anchoPlanta, 4), Math.max(altoPlanta, 4), TIPO_TILE.VACIO);
+  const altoPlanta = pasillo ? altoFila + 1 + pasillo.largo : altoFila;
+  // +1 de margen: la puerta de la última sala/el pasillo cae una fila más
+  // allá de su propio rectángulo, hace falta sitio en la rejilla para eso.
+  const rejillaPiso = crearRejilla(Math.max(anchoPlanta, 4), Math.max(altoPlanta, 4) + 1, TIPO_TILE.VACIO);
 
   const salasColocadas = [];
   let cursorX = 0;
@@ -165,22 +185,23 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
   for (let i = 0; i < salasFila.length; i++) {
     const r = salasFila[i];
     const offsetY = altoFila - r.largo; // alineadas por el muro sur, igual que la fila entera toca el pasillo
-    if (!pasillo && i > 0) {
-      // Sin pasillo: la sala anterior y esta comparten UNA columna (se
-      // solapan 1 tile a propósito) y ahí se abre una puerta nueva — el
-      // único caso donde hace falta inventar una puerta que colocarSala
-      // no trajera ya.
-      cursorX -= 1; // solapa con el muro este de la sala anterior
+    if (i > 0) cursorX += 1; // columna de separación con la sala anterior, siempre
+    pintarSalaEnPlanta(rejillaPiso, r, cursorX, offsetY);
+    if (i > 0 && !pasillo) {
+      // Sin pasillo: la única conexión entre esta sala y la anterior es
+      // esta puerta punzada a mano en la columna de separación — el único
+      // caso donde de verdad hace falta inventar una puerta que
+      // colocarSala no trajera ya (con pasillo, cada sala se conecta a
+      // ÉL por su cuenta, no directamente con la de al lado).
+      rejillaPiso.set(cursorX - 1, altoFila - 1, TIPO_TILE.PUERTA);
     }
-    const puertasExtra = i > 0 && !pasillo ? [[0, r.largo - 2]] : [];
-    pintarSalaEnPlanta(rejillaPiso, r, cursorX, offsetY, puertasExtra);
     salasColocadas.push({ resultado: r, offsetX: cursorX, offsetY, tipoSalaId: r.tipoSalaId, nivel, rol, origen: "generado" });
     cursorX += r.ancho;
   }
 
   let conectorPasillo = null;
   if (pasillo) {
-    const offsetYPasillo = altoFila - 1; // su muro norte se fusiona con el muro sur (con puerta) de la fila de arriba
+    const offsetYPasillo = altoFila + 1;
     pintarSalaEnPlanta(rejillaPiso, pasillo, 0, offsetYPasillo);
     salasColocadas.push({ resultado: pasillo, offsetX: 0, offsetY: offsetYPasillo, tipoSalaId: pasillo.tipoSalaId, nivel, rol, esPasillo: true, origen: "generado" });
     conectorPasillo = salasColocadas[salasColocadas.length - 1];
@@ -192,7 +213,7 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
   // salas vecinas — eso ya es, por definición, la conexión entre ambas.
   const salasDetectadas = detectarSalas(rejillaPiso);
   for (const s of salasColocadas) {
-    const puntoInterior = `${s.offsetX + 1}_${s.offsetY + 1}`;
+    const puntoInterior = `${s.offsetX}_${s.offsetY}`;
     s.salaPlanta = salasDetectadas.find((sd) => sd.tiles.has(puntoInterior)) || null;
   }
 

@@ -38,38 +38,45 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const materialSuelo = defSala.materialSuelo;
   const materialPared = defSala.materialPared;
 
-  // Puerta en el punto medio del lado sur.
-  const puerta = { lado: "sur", x: Math.floor(ancho / 2), y: largo - 1 };
+  // El muro NO ocupa ninguna casilla propia — es un límite sin grosor en
+  // el borde de la sala, no una fila/columna de suelo reservada. ancho x
+  // largo es exactamente el suelo caminable de verdad (x∈[0,ancho-1],
+  // y∈[0,largo-1]), sin margen perdido en ningún lado. La puerta, al ser
+  // el hueco EN ese límite, cae en y=largo — una fila más allá de la
+  // última fila de suelo, no sobre una casilla de suelo.
+  const puerta = { lado: "sur", x: Math.floor(ancho / 2), y: largo };
 
-  // Ocupación de suelo interior: true = libre. El anillo exterior (x=0,
-  // x=ancho-1, y=0, y=largo-1) representa la pared, no es "suelo".
+  // Ocupación de suelo: true = libre. Todo el rectángulo ancho x largo es
+  // suelo real, no hay anillo exterior reservado para muro.
   const libreSuelo = [];
   for (let y = 0; y < largo; y++) {
     libreSuelo.push(new Array(ancho).fill(true));
   }
 
-  const esBorde = (x, y) => x === 0 || y === 0 || x === ancho - 1 || y === largo - 1;
   const esPuerta = (x, y) => x === puerta.x && y === puerta.y;
-  const tocaPared = (x, y) => x === 1 || y === 1 || x === ancho - 2 || y === largo - 2;
+  const tocaPared = (x, y) => x === 0 || y === 0 || x === ancho - 1 || y === largo - 1;
 
-  // Rejilla real de tiles (sección 2 del pedido de integración): borde =
-  // pared, un hueco en el borde sur = puerta, interior = suelo.
-  // `detectarSalas` la reduce a un objeto Sala (tiles + aberturas) que no
-  // sabe ni le importa que este rectángulo viniera de un flood-fill, una
-  // selección manual o una herramienta rectangular — es la misma forma
-  // para las tres. Esa Sala es también la base del chequeo de circulación
-  // de las funciones de colocación de abajo (sección 6).
-  const rejilla = crearRejilla(ancho, largo, TIPO_TILE.PARED);
-  for (let y = 1; y < largo - 1; y++) {
-    for (let x = 1; x < ancho - 1; x++) rejilla.set(x, y, TIPO_TILE.SUELO);
+  // Rejilla real de tiles (sección 2 del pedido de integración): todo el
+  // rectángulo es suelo, con una fila extra de colchón (largo+1) solo
+  // para poder marcar el hueco de la puerta como PUERTA de verdad — esa
+  // fila colchón no es suelo de la sala, es lo que hay justo al otro lado
+  // del límite. `detectarSalas` la reduce a un objeto Sala (tiles +
+  // aberturas) que no sabe ni le importa que este rectángulo viniera de
+  // un flood-fill, una selección manual o una herramienta rectangular —
+  // es la misma forma para las tres. Esa Sala es también la base del
+  // chequeo de circulación de las funciones de colocación de abajo
+  // (sección 6).
+  const rejilla = crearRejilla(ancho, largo + 1, TIPO_TILE.PARED);
+  for (let y = 0; y < largo; y++) {
+    for (let x = 0; x < ancho; x++) rejilla.set(x, y, TIPO_TILE.SUELO);
   }
   rejilla.set(puerta.x, puerta.y, TIPO_TILE.PUERTA);
   const [sala] = detectarSalas(rejilla);
-  const origenCirculacion = [puerta.x, largo - 2]; // tile de suelo justo dentro de la puerta
+  const origenCirculacion = [puerta.x, largo - 1]; // última fila de suelo, pegada a la puerta
 
   function huecoLibre(x, y, huella) {
     const [hw, hl] = huella || [1, 1];
-    if (x < 1 || y < 1 || x + hw > ancho - 1 || y + hl > largo - 1) return false;
+    if (x < 0 || y < 0 || x + hw > ancho || y + hl > largo) return false;
     for (let dy = 0; dy < hl; dy++) {
       for (let dx = 0; dx < hw; dx++) {
         if (!libreSuelo[y + dy][x + dx]) return false;
@@ -132,8 +139,8 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     const intentos = 25;
     const preferido = el.colocacion.find((c) => c === "esquina" || c === "pegadaAPared" || c === "centroSala" || c === "libre" || c === "juntoAMesa" || c === "simetrico");
     for (let i = 0; i < intentos; i++) {
-      const x = elegirEntero(1, ancho - 2);
-      const y = elegirEntero(1, largo - 2);
+      const x = elegirEntero(0, ancho - 1);
+      const y = elegirEntero(0, largo - 1);
       if (esPuerta(x, y)) continue;
       // Orientación 0/90/180/270 (sección 7): rota la huella entera junto
       // con el tile de interacción, no solo el dibujo. `rotacionesPermitidas`
@@ -168,15 +175,15 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     const [hw, hl] = huellaRot;
     const candidatos = [];
     if (lado === "norte") {
-      for (let x = 1; x <= ancho - 1 - hw; x++) candidatos.push([x, 1]);
+      for (let x = 0; x <= ancho - hw; x++) candidatos.push([x, 0]);
     } else if (lado === "sur") {
-      const y = largo - 1 - hl;
-      for (let x = 1; x <= ancho - 1 - hw; x++) candidatos.push([x, y]);
+      const y = largo - hl;
+      for (let x = 0; x <= ancho - hw; x++) candidatos.push([x, y]);
     } else if (lado === "oeste") {
-      for (let y = 1; y <= largo - 1 - hl; y++) candidatos.push([1, y]);
+      for (let y = 0; y <= largo - hl; y++) candidatos.push([0, y]);
     } else {
-      const x = ancho - 1 - hw;
-      for (let y = 1; y <= largo - 1 - hl; y++) candidatos.push([x, y]);
+      const x = ancho - hw;
+      for (let y = 0; y <= largo - hl; y++) candidatos.push([x, y]);
     }
     return candidatos;
   }
@@ -205,9 +212,9 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       let candidatos = candidatosPegadoAPared(lado, huellaRot);
       if (candidatos.length === 0) continue;
       if (priorizarEsquina) {
-        const maxX = ancho - 1 - huellaRot[0];
-        const maxY = largo - 1 - huellaRot[1];
-        const distAExtremo = ([x, y]) => (lado === "norte" || lado === "sur" ? Math.min(x - 1, maxX - x) : Math.min(y - 1, maxY - y));
+        const maxX = ancho - huellaRot[0];
+        const maxY = largo - huellaRot[1];
+        const distAExtremo = ([x, y]) => (lado === "norte" || lado === "sur" ? Math.min(x, maxX - x) : Math.min(y, maxY - y));
         candidatos = candidatos
           .map((c) => [c, distAExtremo(c) + rnd() * 0.5])
           .sort((a, b) => a[1] - b[1])
@@ -246,8 +253,8 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     const cx = (ancho - 1) / 2;
     const cy = (largo - 1) / 2;
     const candidatos = [];
-    for (let y = 1; y <= largo - 2; y++) {
-      for (let x = 1; x <= ancho - 2; x++) candidatos.push([x, y, Math.hypot(x - cx, y - cy) + rnd() * 0.75]);
+    for (let y = 0; y <= largo - 1; y++) {
+      for (let x = 0; x <= ancho - 1; x++) candidatos.push([x, y, Math.hypot(x - cx, y - cy) + rnd() * 0.75]);
     }
     candidatos.sort((a, b) => a[2] - b[2]);
     for (const [x, y] of candidatos) {
@@ -284,7 +291,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       tiles.push({ x: ancla.x - 1, y: ancla.y + dy, lado: "oeste" });
       tiles.push({ x: ancla.x + ancla.ancho, y: ancla.y + dy, lado: "este" });
     }
-    return tiles.filter(({ x, y }) => x >= 1 && y >= 1 && x <= ancho - 2 && y <= largo - 2 && !esPuerta(x, y));
+    return tiles.filter(({ x, y }) => x >= 0 && y >= 0 && x <= ancho - 1 && y <= largo - 1 && !esPuerta(x, y));
   }
 
   // "juntoAMesa" de verdad: se sienta junto a un ancla (esSuperficie) ya
@@ -328,8 +335,8 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     const [hw, hl] = el.huella || [1, 1];
     const intentos = 20;
     for (let i = 0; i < intentos; i++) {
-      const x = elegirEntero(1, ancho - 1 - hw);
-      const y = elegirEntero(1, largo - 1 - hl);
+      const x = elegirEntero(0, ancho - hw);
+      const y = elegirEntero(0, largo - hl);
       const xEspejo = ancho - hw - x;
       if (esPuerta(x, y) || esPuerta(xEspejo, y)) continue;
       if (cubreOrigen(x, y, el.huella) || cubreOrigen(xEspejo, y, el.huella)) continue;
@@ -358,10 +365,10 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     for (let i = 0; i < intentos; i++) {
       const lado = ["norte", "sur", "este", "oeste"][elegirEntero(0, 3)];
       let x, y;
-      if (lado === "norte") { x = elegirEntero(1, ancho - 2); y = 0; }
-      else if (lado === "sur") { x = elegirEntero(1, ancho - 2); y = largo - 1; }
-      else if (lado === "oeste") { x = 0; y = elegirEntero(1, largo - 2); }
-      else { x = ancho - 1; y = elegirEntero(1, largo - 2); }
+      if (lado === "norte") { x = elegirEntero(0, ancho - 1); y = 0; }
+      else if (lado === "sur") { x = elegirEntero(0, ancho - 1); y = largo - 1; }
+      else if (lado === "oeste") { x = 0; y = elegirEntero(0, largo - 1); }
+      else { x = ancho - 1; y = elegirEntero(0, largo - 1); }
       if (esPuerta(x, y)) continue;
       const clave = `${x}_${y}`;
       if (bordesOcupados.has(clave)) continue;
