@@ -152,21 +152,29 @@ function renderSalaSVG(resultado) {
     }
   }
 
-  // Elementos colgados en pared — solo se ven los que caen en un muro
-  // realmente dibujado (sur/este); los de norte/oeste quedan en el muro
-  // abierto y se listan en el pie en vez de intentar dibujarlos flotando.
+  // Elementos colgados en pared. Los de sur/este caen en un muro que sí se
+  // dibuja entero: círculo sólido a media altura sobre el propio muro. Los
+  // de norte/oeste caen en un muro que esta cámara no dibuja (para poder
+  // ver el interior) — se marcan igualmente sobre la línea discontinua de
+  // ese borde, más tenues/punteados para distinguirlos, en vez de
+  // ocultarlos: así se ve que SÍ existen y dónde, aunque el muro real no
+  // esté dibujado en este ángulo.
   const colgadosVisibles = colgados.filter((c) => c.lado === "sur" || c.lado === "este");
   for (const c of colgadosVisibles) {
     const zc = ALTURA_PARED * 0.55;
     const [px, py] = c.lado === "sur" ? proyectar(c.x + 0.5, largo, zc) : proyectar(ancho, c.y + 0.5, zc);
     cuerpo += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="5" fill="${c.colorDebug || "#ccc"}" stroke="#000" stroke-width="0.7"/>`;
   }
+  const colgadosFantasma = colgados.filter((c) => c.lado === "norte" || c.lado === "oeste");
+  for (const c of colgadosFantasma) {
+    const [px, py] = c.lado === "norte" ? proyectar(c.x + 0.5, 0, 0) : proyectar(0, c.y + 0.5, 0);
+    cuerpo += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="5" fill="${c.colorDebug || "#ccc"}" fill-opacity="0.5" stroke="#fff" stroke-width="0.8" stroke-dasharray="2,2"/>`;
+  }
 
   const puertaLabel = proyectar(puerta.x + 0.5, largo, 0);
   cuerpo += `<text x="${puertaLabel[0].toFixed(1)}" y="${(puertaLabel[1] + 14).toFixed(1)}" font-size="8" fill="#ccc" text-anchor="middle">puerta</text>`;
 
-  const norteOeste = colgados.filter((c) => c.lado === "norte" || c.lado === "oeste").map((c) => c.id);
-  const piePie = `techo: ${techo.map((t) => t.id).join(", ") || "—"}${norteOeste.length ? ` · en pared norte/oeste (no visible desde este ángulo): ${norteOeste.join(", ")}` : ""}`;
+  const piePie = `techo: ${techo.map((t) => t.id).join(", ") || "—"}`;
 
   return { svg: `<svg width="${w.toFixed(0)}" height="${h.toFixed(0)}" viewBox="${minX.toFixed(1)} ${minY.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}" xmlns="http://www.w3.org/2000/svg" font-family="monospace">${cuerpo}</svg>`, pie: piePie };
 }
