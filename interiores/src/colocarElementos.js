@@ -114,6 +114,68 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     return false;
   }
 
+  // Anillo de casillas justo alrededor de la huella de un ancla (mesa,
+  // mostrador, altar...) — donde se sientan sus sillas/bancos, no en
+  // cualquier sitio libre de la sala.
+  function tilesAlrededorDe(ancla) {
+    const tiles = [];
+    for (let dx = -1; dx <= ancla.ancho; dx++) {
+      tiles.push([ancla.x + dx, ancla.y - 1]);
+      tiles.push([ancla.x + dx, ancla.y + ancla.largo]);
+    }
+    for (let dy = 0; dy < ancla.largo; dy++) {
+      tiles.push([ancla.x - 1, ancla.y + dy]);
+      tiles.push([ancla.x + ancla.ancho, ancla.y + dy]);
+    }
+    return tiles.filter(([x, y]) => x >= 1 && y >= 1 && x <= ancho - 2 && y <= largo - 2 && !esPuerta(x, y));
+  }
+
+  // "juntoAMesa" de verdad: se sienta junto a un ancla (esSuperficie) ya
+  // colocada en esta sala, no en un punto aleatorio de la sala — así una
+  // silla siempre aparece pegada a una mesa real, nunca suelta por ahí. Si
+  // hay varias mesas, reparte entre las que menos sillas tengan todavía.
+  function intentarJuntoAMesa(el) {
+    if (superficies.length === 0) return intentarColocarEnSuelo(el);
+    const anclasOrdenadas = superficies.slice().sort((a, b) => (a._satelites || 0) - (b._satelites || 0));
+    for (const anclaEl of anclasOrdenadas) {
+      const anillo = barajar(tilesAlrededorDe(anclaEl), rnd);
+      for (const [x, y] of anillo) {
+        if (!huecoLibre(x, y, el.huella)) continue;
+        ocupar(x, y, el.huella);
+        colocados.push({ id: el.id, x, y, ancho: 1, largo: 1, colorDebug: el.colorDebug, capa: el.capa });
+        anclaEl._satelites = (anclaEl._satelites || 0) + 1;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Pares en espejo para decoración simétrica de sala noble (columnas a
+  // ambos lados, etc.) — solo para elementos cuya única colocación es
+  // "simetrico" (una pieza como el trono, que combina centroSala+simetrico,
+  // sigue yendo por intentarColocarEnSuelo: ahí simetrico significa
+  // "respeta el eje", no "duplícate").
+  function colocarSimetrico(el) {
+    const [hw, hl] = el.huella || [1, 1];
+    const intentos = 20;
+    for (let i = 0; i < intentos; i++) {
+      const x = elegirEntero(1, ancho - 1 - hw);
+      const y = elegirEntero(1, largo - 1 - hl);
+      const xEspejo = ancho - hw - x;
+      if (esPuerta(x, y) || esPuerta(xEspejo, y)) continue;
+      if (!huecoLibre(x, y, el.huella)) continue;
+      if (xEspejo !== x && !huecoLibre(xEspejo, y, el.huella)) continue;
+      ocupar(x, y, el.huella);
+      colocados.push({ id: el.id, x, y, ancho: hw, largo: hl, colorDebug: el.colorDebug, capa: el.capa });
+      if (xEspejo !== x) {
+        ocupar(xEspejo, y, el.huella);
+        colocados.push({ id: el.id, x: xEspejo, y, ancho: hw, largo: hl, colorDebug: el.colorDebug, capa: el.capa });
+      }
+      return true;
+    }
+    return false;
+  }
+
   function intentarColgarEnPared(el) {
     const intentos = 25;
     for (let i = 0; i < intentos; i++) {
@@ -148,6 +210,12 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     if (el.colocacion.includes("colgadoEnPared")) {
       return intentarColgarEnPared(el);
     }
+    if (el.colocacion.includes("juntoAMesa")) {
+      return intentarJuntoAMesa(el);
+    }
+    if (defSala.simetrico && el.colocacion.length === 1 && el.colocacion[0] === "simetrico") {
+      return colocarSimetrico(el);
+    }
     return intentarColocarEnSuelo(el);
   }
 
@@ -164,12 +232,30 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       .filter((el) => (el.tiposSalaValidos || []).includes(tipoSalaId))
       .filter((el) => riquezaAlcanza(riqueza, el.riquezaMinima));
 
-    const barajados = barajar(candidatos, rnd);
+    // Anclas (esSuperficie, ej. mesa_comedor) primero, luego sus satélites
+    // (juntoAMesa, ej. silla) — si no, una silla puede intentar colocarse
+    // antes de que exista ninguna mesa en la sala y perder su hueco del
+    // límite de la capa con un mueble suelto sin relación con nada.
+    const rango = (el) => (el.esSuperficie ? 0 : el.colocacion.includes("juntoAMesa") ? 1 : 2);
+    const barajados = barajar(candidatos, rnd).sort((a, b) => rango(a) - rango(b));
     let colocadosEnCapa = 0;
     const idsYaUsados = new Set();
+    const MAX_SATELITES_POR_TIPO = 4; // ej. hasta 4 sillas repartidas entre las mesas de la sala
     for (const el of barajados) {
       if (colocadosEnCapa >= LIMITE_POR_CAPA[capa]) break;
-      if (idsYaUsados.has(el.id)) continue; // no repetir la misma pieza dos veces en una sala pequeña
+      if (idsYaUsados.has(el.id)) continue; // no repetir la misma pieza dos veces en una sala pequeña...
+      if (el.colocacion.includes("juntoAMesa")) {
+        // ...salvo los satélites de un ancla (silla/banco/taburete junto a
+        // una mesa): esos sí deben repetirse, es justo lo que da la imagen
+        // de "mesa con varias sillas alrededor" en vez de una silla suelta.
+        let colocadasDeEste = 0;
+        while (colocadasDeEste < MAX_SATELITES_POR_TIPO && colocadosEnCapa < LIMITE_POR_CAPA[capa] && colocarUno(el)) {
+          colocadasDeEste++;
+          colocadosEnCapa++;
+        }
+        if (colocadasDeEste > 0) idsYaUsados.add(el.id);
+        continue;
+      }
       if (colocarUno(el)) {
         colocadosEnCapa++;
         idsYaUsados.add(el.id);
