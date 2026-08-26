@@ -27,11 +27,33 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
     return 0.35 + nDensidadBosque.fbm(x, y, 2) * 1.5; // ~0.35..1.85
   }
 
-  function entradasValidas(catalogo, bioma, banda) {
-    const salida = [];
+  // Indexado por bioma UNA VEZ al construir el colocador — con el catálogo
+  // ya bastante grande (~70 especies de vegetación, ~110 de fauna), volver a
+  // recorrer Object.entries(catalogo) entero en cada casilla (3 veces por
+  // casilla, una por capa) es el cuello de botella real en mapas grandes:
+  // aquí se pasa de O(catálogo completo) a O(solo lo que aplica a ese bioma).
+  function indexarPorBioma(catalogo) {
+    const indice = new Map();
     for (const [id, datos] of Object.entries(catalogo)) {
-      if (id.startsWith("_")) continue;
-      if (!datos.biomas || !datos.biomas.includes(bioma)) continue;
+      if (id.startsWith("_") || !datos.biomas) continue;
+      for (const bioma of datos.biomas) {
+        if (!indice.has(bioma)) indice.set(bioma, []);
+        indice.get(bioma).push([id, datos]);
+      }
+    }
+    return indice;
+  }
+  const indices = new Map([
+    [catalogoVegetacion, indexarPorBioma(catalogoVegetacion)],
+    [catalogoAnimales, indexarPorBioma(catalogoAnimales)],
+    [catalogoRocas, indexarPorBioma(catalogoRocas)],
+  ]);
+
+  function entradasValidas(catalogo, bioma, banda) {
+    const lista = indices.get(catalogo).get(bioma);
+    if (!lista || lista.length === 0) return lista || [];
+    const salida = [];
+    for (const [id, datos] of lista) {
       if (datos.bandaElevacionMax !== undefined && banda > datos.bandaElevacionMax) continue;
       if (datos.bandaElevacionMin !== undefined && banda < datos.bandaElevacionMin) continue;
       salida.push([id, datos]);

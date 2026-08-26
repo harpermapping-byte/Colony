@@ -149,7 +149,11 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
 
   const tilesCaminoRoad = new Set();
   const resultadosCaminos = [];
-  const poisConCamino = pois.filter((p) => !p.legendario).slice(0, config.maxCaminosAPOIs ?? 40);
+  // Sin maxCaminosAPOIs explícito, el límite escala con el área del mapa —
+  // el número de POIs crece con el área, así que un tope fijo (el 40 de
+  // antes) deja la inmensa mayoría sin camino en mapas grandes.
+  const maxCaminosPorDefecto = Math.max(15, Math.round((anchoChunks * altoChunks) / 100));
+  const poisConCamino = pois.filter((p) => !p.legendario).slice(0, config.maxCaminosAPOIs ?? maxCaminosPorDefecto);
   for (let iPoi = 0; iPoi < poisConCamino.length; iPoi++) {
     const poi = poisConCamino[iPoi];
     if (iPoi % 5 === 0) onProgreso(`  camino ${iPoi}/${poisConCamino.length}...`);
@@ -234,57 +238,43 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   }
   const RADIO_EXPLANADA_CIUDAD = 8;
 
-  const biomaChunkCache = new Map();
-  const aguaChunkCache = new Set();
-  const caminoChunkCache = new Set();
+  // Decisión de terreno final para una casilla — compartida entre el bucle
+  // principal y el muestreo de la imagen de resumen (sección 10), así
+  // ambos ven exactamente el mismo mapa, sin duplicar la lógica.
+  function calcularTerrenoTile(x, y) {
+    const i = y * anchoTiles + x;
+    const biomaId = biomaDeIdx(biomaGridSuave[i]);
+    const banda = bandaGrid[i];
+    const h = hidro.consultar(x, y);
+    const esCamino = tilesCaminoRoad.has(`${x}_${y}`);
+    let idTerreno = decidirTerreno({ biomaId, catalogoBiomas, banda, hidro: h, esCamino, variante: varianteTerrenoEn(x, y) });
+
+    if (!esCamino && idTerreno !== "agua" && idTerreno !== "agua_profunda") {
+      const bandaDer = x + 1 < anchoTiles ? bandaGrid[i + 1] : banda;
+      const bandaAbajo = y + 1 < altoTiles ? bandaGrid[i + anchoTiles] : banda;
+      if (Math.abs(banda - bandaDer) >= 2 || Math.abs(banda - bandaAbajo) >= 2) {
+        idTerreno = "roca_inaccesible";
+      }
+    }
+    return { idTerreno, biomaId, banda, esCamino };
+  }
 
   for (let cy = 0; cy < altoChunks; cy++) {
     for (let cx = 0; cx < anchoChunks; cx++) {
       const terrenoPorCasilla = new Array(tamanoChunk * tamanoChunk);
       const bandaLocalPorCasilla = new Array(tamanoChunk * tamanoChunk);
-      let hayAgua = false;
-      let hayCamino = false;
-      const conteoBioma = new Map();
 
       for (let ly = 0; ly < tamanoChunk; ly++) {
         for (let lx = 0; lx < tamanoChunk; lx++) {
           const x = cx * tamanoChunk + lx;
           const y = cy * tamanoChunk + ly;
-          const i = y * anchoTiles + x;
-          const biomaId = biomaDeIdx(biomaGridSuave[i]);
-          const banda = bandaGrid[i];
-          const h = hidro.consultar(x, y);
-          const esCamino = tilesCaminoRoad.has(`${x}_${y}`);
-          let idTerreno = decidirTerreno({ biomaId, catalogoBiomas, banda, hidro: h, esCamino, variante: varianteTerrenoEn(x, y) });
-
-          if (!esCamino && idTerreno !== "agua" && idTerreno !== "agua_profunda") {
-            const bandaDer = x + 1 < anchoTiles ? bandaGrid[i + 1] : banda;
-            const bandaAbajo = y + 1 < altoTiles ? bandaGrid[i + anchoTiles] : banda;
-            if (Math.abs(banda - bandaDer) >= 2 || Math.abs(banda - bandaAbajo) >= 2) {
-              idTerreno = "roca_inaccesible";
-            }
-          }
+          const { idTerreno, banda } = calcularTerrenoTile(x, y);
 
           const idxLocal = ly * tamanoChunk + lx;
           terrenoPorCasilla[idxLocal] = idTerreno;
           bandaLocalPorCasilla[idxLocal] = banda;
-          if (idTerreno === "agua" || idTerreno === "agua_profunda") hayAgua = true;
-          if (esCamino) hayCamino = true;
-          conteoBioma.set(biomaId, (conteoBioma.get(biomaId) || 0) + 1);
         }
       }
-
-      let biomaDominante = null;
-      let maxConteo = -1;
-      for (const [b, n] of conteoBioma) {
-        if (n > maxConteo) {
-          maxConteo = n;
-          biomaDominante = b;
-        }
-      }
-      biomaChunkCache.set(`${cx}_${cy}`, biomaDominante);
-      if (hayAgua) aguaChunkCache.add(`${cx}_${cy}`);
-      if (hayCamino) caminoChunkCache.add(`${cx}_${cy}`);
 
       let objetos = decorador.generarParaChunk(cx, cy, tamanoChunk, (lx, ly) => {
         const idxLocal = ly * tamanoChunk + lx;
@@ -352,10 +342,10 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   const png = generarImagenResumen({
     anchoChunks,
     altoChunks,
-    biomaDelChunk: (cx, cy) => biomaChunkCache.get(`${cx}_${cy}`),
+    tamanoChunk,
+    muestrearTile: calcularTerrenoTile,
+    catalogoTerrenos,
     catalogoBiomas,
-    esAguaChunk: (cx, cy) => aguaChunkCache.has(`${cx}_${cy}`),
-    esCaminoChunk: (cx, cy) => caminoChunkCache.has(`${cx}_${cy}`),
     pois: poisParaImagen,
   });
   fs.writeFileSync(path.join(carpetaSalida, "mapa_general.png"), png);

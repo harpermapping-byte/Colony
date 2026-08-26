@@ -136,6 +136,7 @@
         <div>
           <label>Máx. caminos trazados a POIs</label>
           <input type="number" id="maxCaminosAPOIs" value="15" />
+          <small class="ayuda">Se sugiere solo automáticamente al cambiar el tamaño del mapa (si tú no lo tocas a mano) — un mapa grande tiene muchos más POIs y necesita un número más alto o la mayoría se quedan sin camino.</small>
         </div>
       </div>
     </fieldset>
@@ -190,10 +191,30 @@ function actualizarAyudaTamano() {
   document.getElementById("ayudaTamano").textContent =
     `${tilesAncho}x${alto * tamChunk} casillas — cruzar de lado a lado tardaría ~${minutos} min andando.`;
 }
+let maxCaminosTocado = false;
+document.getElementById("maxCaminosAPOIs").addEventListener("input", () => {
+  maxCaminosTocado = true;
+});
+
+// El número de POIs crece con el área del mapa, así que un límite fijo de
+// caminos trazados deja la mayoría de POIs sin camino en mapas grandes — se
+// sugiere un valor proporcional al tamaño, salvo que el usuario ya lo haya
+// tocado a mano (entonces se respeta su valor).
+function sugerirMaxCaminos() {
+  if (maxCaminosTocado) return;
+  const ancho = Number(document.getElementById("anchoChunks").value) || 0;
+  const alto = Number(document.getElementById("altoChunks").value) || 0;
+  document.getElementById("maxCaminosAPOIs").value = Math.max(15, Math.round((ancho * alto) / 100));
+}
+
 ["anchoChunks", "altoChunks", "tamanoChunk"].forEach((id) =>
-  document.getElementById(id).addEventListener("input", actualizarAyudaTamano)
+  document.getElementById(id).addEventListener("input", () => {
+    actualizarAyudaTamano();
+    sugerirMaxCaminos();
+  })
 );
 actualizarAyudaTamano();
+sugerirMaxCaminos();
 
 document.querySelectorAll("[data-preset]").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -205,6 +226,7 @@ document.querySelectorAll("[data-preset]").forEach((btn) => {
       document.getElementById("altoChunks").value = 200;
     }
     actualizarAyudaTamano();
+    sugerirMaxCaminos();
   });
 });
 

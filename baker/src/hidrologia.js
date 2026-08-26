@@ -109,12 +109,69 @@ function generarHidrologia({ anchoTiles, altoTiles, paso, elevacionEn, umbralRio
     return idx(cx, cy);
   }
 
+  // Dibujar el río/lago directamente como "toda la celda de rejilla más
+  // cercana" da bloques cuadrados de hasta `paso` tiles de lado (con
+  // paso=16, casi medio chunk) — se ve como cuadrados azules pegados unos a
+  // otros, no como un río. En vez de eso, trazamos una línea fina real
+  // entre cada celda de río y la celda a la que fluye (garantizado
+  // continuo: el caudal solo crece aguas abajo, así que si una celda supera
+  // el umbral, su destino también lo supera, hasta llegar a un lago/borde),
+  // y los lagos se rellenan como un círculo en vez de un cuadrado.
+  const tilesRio = new Set();
+  const tilesLago = new Set();
+
+  function trazarLinea(x0, y0, x1, y1, radio, destinoSet) {
+    const largo = Math.hypot(x1 - x0, y1 - y0);
+    const pasosLinea = Math.max(1, Math.ceil(largo));
+    for (let s = 0; s <= pasosLinea; s++) {
+      const t = s / pasosLinea;
+      const px = Math.round(x0 + (x1 - x0) * t);
+      const py = Math.round(y0 + (y1 - y0) * t);
+      for (let ddy = -radio; ddy <= radio; ddy++) {
+        for (let ddx = -radio; ddx <= radio; ddx++) {
+          destinoSet.add(`${px + ddx}_${py + ddy}`);
+        }
+      }
+    }
+  }
+
+  function estamparDisco(cx, cy, radio, destinoSet) {
+    for (let dy = -radio; dy <= radio; dy++) {
+      for (let dx = -radio; dx <= radio; dx++) {
+        if (dx * dx + dy * dy > radio * radio) continue;
+        destinoSet.add(`${cx + dx}_${cy + dy}`);
+      }
+    }
+  }
+
+  for (let i = 0; i < total; i++) {
+    if (esLago[i] || flujo[i] < umbralRio) continue;
+    const j = destino[i];
+    if (j === -1) continue;
+    const cx = i % cols;
+    const cy = Math.floor(i / cols);
+    const jx = j % cols;
+    const jy = Math.floor(j / cols);
+    // Más caudal = río algo más ancho, acotado para que no se desmadre.
+    const radio = Math.min(3, 1 + Math.floor(flujo[i] / (umbralRio * 4)));
+    trazarLinea(cx * paso, cy * paso, jx * paso, jy * paso, radio, tilesRio);
+  }
+
+  const radioLago = Math.max(4, Math.round(paso * 0.6));
+  for (let i = 0; i < total; i++) {
+    if (!esLago[i]) continue;
+    const cx = i % cols;
+    const cy = Math.floor(i / cols);
+    estamparDisco(cx * paso, cy * paso, radioLago, tilesLago);
+  }
+
   function consultar(x, y) {
     const i = celdaMasCercana(x, y);
+    const clave = `${x}_${y}`;
     return {
       caudal: flujo[i],
-      esRio: flujo[i] >= umbralRio && !esLago[i],
-      esLago: !!esLago[i],
+      esRio: tilesRio.has(clave),
+      esLago: tilesLago.has(clave),
     };
   }
 
