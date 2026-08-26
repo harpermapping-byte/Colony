@@ -130,6 +130,14 @@ function renderSalaSVG(resultado) {
     cuerpo += poligono([p0, p1, p2, p3], colorParedClaro, 'stroke="#0006" stroke-width="0.6"');
   }
 
+  // Norte/oeste quedan sin muro sólido a propósito (para ver el interior
+  // desde esta cámara) pero eso puede confundir: un mueble pegado a ESOS
+  // dos muros no tiene ninguna línea al lado que lo confirme y parece
+  // "flotando en el centro". Se marca su línea base (sin altura, para no
+  // tapar nada) para poder comprobar a simple vista que el mueble toca
+  // ese borde igual que tocaría el muro sur/este si lo dibujáramos entero.
+  cuerpo += `<polyline points="${[proyectar(0, largo, 0), proyectar(0, 0, 0), proyectar(ancho, 0, 0)].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ")}" fill="none" stroke="#fff8" stroke-width="1.4" stroke-dasharray="3,3"/>`;
+
   // Mobiliario en suelo, ordenado por profundidad (x+y creciente = más
   // cerca de cámara = se dibuja después, por encima de lo lejano).
   const colocadosOrdenados = colocados.slice().sort((a, b) => (a.x + a.y) - (b.x + b.y));
