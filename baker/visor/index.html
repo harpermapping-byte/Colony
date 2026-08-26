@@ -50,12 +50,30 @@ function ajustarTamano() {
 window.addEventListener("resize", ajustarTamano);
 ajustarTamano();
 
-const MAPAS_CONOCIDOS = ["ejemplo-rapido", "mapa-principal"];
-for (const m of MAPAS_CONOCIDOS) {
-  const opt = document.createElement("option");
-  opt.value = m;
-  opt.textContent = m;
-  mapaSelect.appendChild(opt);
+// La lista de mapas se pide al servidor de la GUI (gui/servidor.js), que
+// sirve este visor además del formulario. Si se abre este visor suelto
+// (con python -m http.server, sin la GUI), /api/mapas no existirá — en ese
+// caso caemos en los dos nombres de ejemplo de siempre.
+async function poblarSelectorMapas() {
+  let nombres = ["ejemplo-rapido", "mapa-principal"];
+  try {
+    const resp = await fetch("/api/mapas");
+    if (resp.ok) {
+      const datos = await resp.json();
+      if (datos.mapas && datos.mapas.length > 0) nombres = datos.mapas;
+    }
+  } catch (e) {
+    // sin servidor de GUI detrás — usamos la lista de respaldo
+  }
+  mapaSelect.innerHTML = "";
+  for (const m of nombres) {
+    const opt = document.createElement("option");
+    opt.value = m;
+    opt.textContent = m;
+    mapaSelect.appendChild(opt);
+  }
+  const porURL = new URLSearchParams(location.search).get("mapa");
+  if (porURL && nombres.includes(porURL)) mapaSelect.value = porURL;
 }
 
 let indice = null;
@@ -253,7 +271,7 @@ function bucle() {
 mapaSelect.addEventListener("change", () => cargarMapa(mapaSelect.value));
 document.getElementById("recargar").addEventListener("click", () => cargarMapa(mapaSelect.value));
 
-cargarMapa(mapaSelect.value).then(bucle);
+poblarSelectorMapas().then(() => cargarMapa(mapaSelect.value)).then(bucle);
 </script>
 </body>
 </html>

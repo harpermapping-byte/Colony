@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Bakeador de mapas — Streamer Colony</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; background: #14161c; color: #e6e6e6; font-family: system-ui, sans-serif; }
+  .contenedor { max-width: 880px; margin: 0 auto; padding: 24px 20px 60px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .subtitulo { color: #999; font-size: 13px; margin-bottom: 24px; }
+  fieldset { border: 1px solid #333; border-radius: 8px; margin-bottom: 16px; padding: 14px 16px; }
+  legend { padding: 0 6px; font-weight: 600; font-size: 14px; color: #cbd; }
+  label { display: block; font-size: 13px; margin: 10px 0 4px; color: #ccc; }
+  input[type="text"], input[type="number"], select {
+    background: #1e2129; border: 1px solid #3a3f4b; color: #eee; border-radius: 6px;
+    padding: 6px 8px; font-size: 13px; width: 100%; box-sizing: border-box;
+  }
+  .fila { display: flex; gap: 12px; }
+  .fila > div { flex: 1; }
+  .biomas { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 8px; }
+  .biomas label { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; }
+  .presets { display: flex; gap: 8px; margin-bottom: 10px; }
+  button {
+    background: #3a6bd8; color: white; border: none; border-radius: 6px;
+    padding: 9px 16px; font-size: 14px; cursor: pointer;
+  }
+  button.secundario { background: #333846; }
+  button.peligro { background: #7a2d2d; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .acciones { display: flex; gap: 10px; margin-top: 18px; align-items: center; }
+  #progreso {
+    background: #0c0d10; border: 1px solid #333; border-radius: 8px; padding: 12px;
+    font-family: monospace; font-size: 12px; white-space: pre-wrap; max-height: 260px;
+    overflow-y: auto; margin-top: 16px; display: none;
+  }
+  #resultado { margin-top: 16px; display: none; }
+  #resultado img { max-width: 100%; border: 1px solid #333; border-radius: 6px; }
+  .ok { color: #6fd06f; }
+  .aviso { color: #e0b34a; }
+  .error { color: #e05a5a; }
+  small.ayuda { color: #888; display: block; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="contenedor">
+  <h1>Bakeador de mapas — Streamer Colony</h1>
+  <div class="subtitulo">Configura y genera un mapa exterior sin tocar la terminal ni editar JSON a mano.</div>
+
+  <form id="formulario">
+    <fieldset>
+      <legend>General</legend>
+      <div class="presets">
+        <button type="button" class="secundario" data-preset="rapido">Preset: rápido (probar)</button>
+        <button type="button" class="secundario" data-preset="principal">Preset: mapa principal (grande)</button>
+      </div>
+      <div class="fila">
+        <div>
+          <label>Nombre del mapa</label>
+          <input type="text" id="nombre" value="mi-mapa" />
+        </div>
+        <div>
+          <label>Semilla</label>
+          <input type="text" id="semilla" value="colonia-01" />
+        </div>
+        <div style="flex: 0 0 auto; align-self: flex-end;">
+          <button type="button" class="secundario" id="btnSemillaAleatoria">🎲 Al azar</button>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Tamaño</legend>
+      <div class="fila">
+        <div>
+          <label>Ancho (chunks)</label>
+          <input type="number" id="anchoChunks" value="12" min="2" />
+        </div>
+        <div>
+          <label>Alto (chunks)</label>
+          <input type="number" id="altoChunks" value="12" min="2" />
+        </div>
+        <div>
+          <label>Tamaño de chunk (casillas)</label>
+          <input type="number" id="tamanoChunk" value="32" min="8" />
+        </div>
+      </div>
+      <small class="ayuda" id="ayudaTamano"></small>
+    </fieldset>
+
+    <fieldset>
+      <legend>Biomas habilitados en este mapa</legend>
+      <div class="biomas" id="listaBiomas">Cargando...</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Bordes del mapa</legend>
+      <div class="fila">
+        <div>
+          <label>Norte</label>
+          <select id="bordeNorte"><option value="cerrado">Cerrado</option><option value="mar_abierto">Mar abierto</option><option value="tierra_abierta">Tierra abierta</option></select>
+        </div>
+        <div>
+          <label>Sur</label>
+          <select id="bordeSur"><option value="cerrado">Cerrado</option><option value="mar_abierto">Mar abierto</option><option value="tierra_abierta">Tierra abierta</option></select>
+        </div>
+        <div>
+          <label>Este</label>
+          <select id="bordeEste"><option value="cerrado">Cerrado</option><option value="mar_abierto">Mar abierto</option><option value="tierra_abierta">Tierra abierta</option></select>
+        </div>
+        <div>
+          <label>Oeste</label>
+          <select id="bordeOeste"><option value="cerrado">Cerrado</option><option value="mar_abierto">Mar abierto</option><option value="tierra_abierta">Tierra abierta</option></select>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Avanzado (valores de referencia ya rellenados — cámbialos si sabes lo que haces)</legend>
+      <div class="fila">
+        <div>
+          <label>Separación mínima entre POIs (casillas)</label>
+          <input type="number" id="separacionMinimaPOI" value="60" />
+        </div>
+        <div>
+          <label>Probabilidad de POI legendario</label>
+          <input type="number" id="probabilidadLegendaria" value="0.02" step="0.01" min="0" max="1" />
+        </div>
+      </div>
+      <div class="fila">
+        <div>
+          <label>Umbral de caudal para río</label>
+          <input type="number" id="umbralRio" value="5" />
+        </div>
+        <div>
+          <label>Máx. caminos trazados a POIs</label>
+          <input type="number" id="maxCaminosAPOIs" value="15" />
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="acciones">
+      <button type="submit" id="btnGenerar">Generar mapa</button>
+      <button type="button" class="secundario" id="btnAbrirVisor" disabled>Abrir visor</button>
+      <button type="button" class="peligro" id="btnCerrar">Cerrar</button>
+    </div>
+  </form>
+
+  <div id="progreso"></div>
+  <div id="resultado"></div>
+</div>
+
+<script>
+"use strict";
+
+const form = document.getElementById("formulario");
+const divProgreso = document.getElementById("progreso");
+const divResultado = document.getElementById("resultado");
+const btnGenerar = document.getElementById("btnGenerar");
+const btnAbrirVisor = document.getElementById("btnAbrirVisor");
+const btnCerrar = document.getElementById("btnCerrar");
+const listaBiomas = document.getElementById("listaBiomas");
+
+let ultimoNombreMapa = null;
+
+async function cargarOpciones() {
+  const resp = await fetch("/api/opciones");
+  const datos = await resp.json();
+  listaBiomas.innerHTML = "";
+  for (const bioma of datos.biomas) {
+    const etiqueta = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = bioma.id;
+    cb.checked = bioma.habilitadoPorDefecto;
+    etiqueta.appendChild(cb);
+    etiqueta.appendChild(document.createTextNode(bioma.id + (bioma.requiereVulcanismo ? " (reservado)" : "")));
+    listaBiomas.appendChild(etiqueta);
+  }
+}
+cargarOpciones();
+
+function actualizarAyudaTamano() {
+  const ancho = Number(document.getElementById("anchoChunks").value) || 0;
+  const alto = Number(document.getElementById("altoChunks").value) || 0;
+  const tamChunk = Number(document.getElementById("tamanoChunk").value) || 32;
+  const tilesAncho = ancho * tamChunk;
+  const minutos = Math.round((tilesAncho / 4 / 60) * 10) / 10; // ~4 casillas/seg de referencia
+  document.getElementById("ayudaTamano").textContent =
+    `${tilesAncho}x${alto * tamChunk} casillas — cruzar de lado a lado tardaría ~${minutos} min andando.`;
+}
+["anchoChunks", "altoChunks", "tamanoChunk"].forEach((id) =>
+  document.getElementById(id).addEventListener("input", actualizarAyudaTamano)
+);
+actualizarAyudaTamano();
+
+document.querySelectorAll("[data-preset]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.preset === "rapido") {
+      document.getElementById("anchoChunks").value = 12;
+      document.getElementById("altoChunks").value = 12;
+    } else {
+      document.getElementById("anchoChunks").value = 200;
+      document.getElementById("altoChunks").value = 200;
+    }
+    actualizarAyudaTamano();
+  });
+});
+
+document.getElementById("btnSemillaAleatoria").addEventListener("click", () => {
+  document.getElementById("semilla").value = "semilla-" + Math.floor(Math.random() * 1000000);
+});
+
+function leerConfig() {
+  const biomasHabilitados = Array.from(listaBiomas.querySelectorAll("input:checked")).map((cb) => cb.value);
+  const nombre = document.getElementById("nombre").value.trim() || "mi-mapa";
+  return {
+    nombre,
+    semilla: document.getElementById("semilla").value.trim() || "semilla",
+    anchoChunks: Number(document.getElementById("anchoChunks").value),
+    altoChunks: Number(document.getElementById("altoChunks").value),
+    tamanoChunk: Number(document.getElementById("tamanoChunk").value),
+    biomasHabilitados,
+    separacionMinimaPOI: Number(document.getElementById("separacionMinimaPOI").value),
+    probabilidadLegendaria: Number(document.getElementById("probabilidadLegendaria").value),
+    umbralRio: Number(document.getElementById("umbralRio").value),
+    maxCaminosAPOIs: Number(document.getElementById("maxCaminosAPOIs").value),
+    pasoHidrologia: 16,
+    pasoCaminos: 32,
+    bordes: {
+      norte: { tipo: document.getElementById("bordeNorte").value },
+      sur: { tipo: document.getElementById("bordeSur").value },
+      este: { tipo: document.getElementById("bordeEste").value },
+      oeste: { tipo: document.getElementById("bordeOeste").value },
+    },
+    carpetaSalida: "output/" + nombre,
+  };
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const config = leerConfig();
+  if (config.biomasHabilitados.length === 0) {
+    alert("Selecciona al menos un bioma.");
+    return;
+  }
+
+  btnGenerar.disabled = true;
+  btnAbrirVisor.disabled = true;
+  divProgreso.style.display = "block";
+  divProgreso.textContent = "";
+  divResultado.style.display = "none";
+
+  const resp = await fetch("/api/generar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+
+  const lector = resp.body.getReader();
+  const decodificador = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await lector.read();
+    if (done) break;
+    buffer += decodificador.decode(value, { stream: true });
+
+    const bloques = buffer.split("\n\n");
+    buffer = bloques.pop();
+    for (const bloque of bloques) {
+      const lineaEvento = bloque.split("\n").find((l) => l.startsWith("event: "));
+      const lineaDatos = bloque.split("\n").find((l) => l.startsWith("data: "));
+      if (!lineaEvento || !lineaDatos) continue;
+      const evento = lineaEvento.slice(7);
+      const datos = JSON.parse(lineaDatos.slice(6));
+
+      if (evento === "progreso") {
+        divProgreso.textContent += datos.mensaje + "\n";
+        divProgreso.scrollTop = divProgreso.scrollHeight;
+      } else if (evento === "fin") {
+        btnGenerar.disabled = false;
+        divResultado.style.display = "block";
+        if (datos.ok) {
+          ultimoNombreMapa = config.nombre;
+          btnAbrirVisor.disabled = false;
+          const problemas = datos.validacion.problemas.length
+            ? `<div class="aviso">${datos.validacion.problemas.join("<br/>")}</div>`
+            : `<div class="ok">Validación OK.</div>`;
+          divResultado.innerHTML = `
+            <p>Mapa generado en ${datos.segundos}s — ${datos.numeroSectores} sectores. ${problemas}</p>
+            <img src="/output/${config.nombre}/mapa_general.png" alt="Mapa general" />
+          `;
+        } else {
+          divResultado.innerHTML = `<div class="error">Error: ${datos.error}</div>`;
+        }
+      }
+    }
+  }
+});
+
+btnAbrirVisor.addEventListener("click", () => {
+  if (ultimoNombreMapa) window.open(`/visor/index.html?mapa=${encodeURIComponent(ultimoNombreMapa)}`, "_blank");
+});
+
+btnCerrar.addEventListener("click", async () => {
+  await fetch("/api/apagar", { method: "POST" }).catch(() => {});
+  document.body.innerHTML =
+    '<div style="padding:40px;text-align:center;font-family:system-ui;color:#ccc">Servidor detenido — ya puedes cerrar esta pestaña.</div>';
+  window.close();
+});
+</script>
+</body>
+</html>

@@ -8,52 +8,47 @@ Genera mapas exteriores (bosques, llanuras, desiertos...) según el diseño de `
 
 Solo Node.js 18 o superior instalado. Nada más.
 
-## 1. Generar un mapa
+## 1. Generar un mapa — interfaz gráfica (recomendado)
 
 ```bash
 cd baker
-node src/index.js config/ejemplo-rapido.json
+node gui/servidor.js
 ```
 
-Esto genera un mapa pequeño (12x12 chunks) en unos segundos — úsalo primero para probar que todo funciona y para ver el resultado rápido antes de lanzar el mapa grande de verdad.
+Esto abre automáticamente tu navegador en una pantalla con el formulario — nombre, semilla, tamaño, qué biomas quieres, bordes del mapa, todo con botones y casillas, sin tocar JSON ni la terminal para nada más. Pulsa **"Generar mapa"** y verás el progreso en vivo; al terminar aparece la imagen de resumen ahí mismo, y un botón **"Abrir visor"** que te lleva directo a explorar ese mapa con cámara libre (WASD) — ya no hace falta el `python -m http.server` de antes, este mismo servidor sirve también el visor.
 
-Cuando quieras el mapa principal (200x200 chunks, el tamaño de referencia que fijamos — **ojo, tardará bastante más**, es un mapa mucho más grande, es normal y esperado):
+Cuando termines, el botón **"Cerrar"** apaga el servidor — o simplemente cierra la ventana de la terminal donde lo lanzaste.
 
-```bash
-node src/index.js config/mapa-principal.json
-```
+Hay dos botones de preset (**rápido**, para probar en segundos, y **mapa principal**, el tamaño grande de 200x200 chunks que fijamos — tardará bastante más, es normal).
 
-El resultado se guarda en `output/<nombre-del-mapa>/`:
+El resultado se guarda igual que siempre en `output/<nombre-del-mapa>/`:
 - `indice.json` — metadatos del mapa (semilla, tamaño, bordes, posición de la ciudad).
 - `sector_XXX_YYY.json` — un archivo por cada 10x10 chunks (terreno + objetos + POIs de esos chunks).
-- `mapa_general.png` — imagen de resumen de todo el mapa visto desde arriba, para revisar de un vistazo si la distribución de biomas/ríos/caminos te convence.
-- `informe_validacion.txt` — te avisa si algún POI se quedó sin camino hasta la ciudad o si algo más no cuadra.
+- `mapa_general.png` — imagen de resumen de todo el mapa visto desde arriba.
+- `informe_validacion.txt` — te avisa si algo no cuadra (POIs sin camino, etc.).
 
-**Primero mira `mapa_general.png`.** Es la forma más rápida de juzgar si el mapa está bien — si algo se ve raro ahí, ajusta el archivo de configuración (semilla, densidades, biomas habilitados) y vuelve a generar antes de meterte a revisar con el visor.
+## 1b. Generar un mapa — por terminal (alternativa, para scripts/automatizar)
+
+Si prefieres seguir usando la terminal directamente:
+
+```bash
+cd baker
+node src/index.js config/ejemplo-rapido.json      # mapa pequeño de prueba
+node src/index.js config/mapa-principal.json      # el mapa grande de verdad
+```
 
 ## 2. Ver el mapa con la cámara libre (WASD)
 
-El visor es una página web sola, sin instalar nada — pero el navegador no te deja abrir el archivo directamente por doble clic (restricción de seguridad de los navegadores, CORS), hace falta un servidor local muy simple. Dos opciones, la primera es la más fácil si tienes Python (viene instalado en casi cualquier PC/Mac):
+Si generaste el mapa con la interfaz gráfica, el botón "Abrir visor" ya te lleva ahí directo. Si generaste por terminal, con el servidor de la GUI corriendo (`node gui/servidor.js`) abre en el navegador: **http://localhost:4000/visor/index.html**
 
-```bash
-# Opción A — con Python (ya viene instalado en la mayoría de sistemas)
-cd baker
-python3 -m http.server 8000
-
-# Opción B — con Node, si no tienes Python
-npx serve .
-```
-
-Con el servidor corriendo, abre en el navegador: **http://localhost:8000/visor/index.html**
-
-- Elige el mapa en el desplegable de arriba a la derecha (aparecerá si ya lo horneaste en el paso 1).
+- Elige el mapa en el desplegable de arriba a la derecha.
 - Muévete con **WASD** o las flechas, haz zoom con la rueda del ratón.
-- El punto blanco marca la ciudad. Los cuadraditos rojos son POIs (dorados si son legendarios). Los puntitos verdes/amarillos/grises son vegetación/animales/rocas.
-- Solo carga los sectores cerca de donde estás mirando (streaming por chunks, igual que hará el juego real) — así puedes "volar" por un mapa de 200x200 chunks sin que se cuelgue el navegador.
+- El punto blanco marca la entrada a la ciudad. Los círculos rojos son POIs (dorados si son legendarios) con su tamaño real de ocupación. Los puntitos verdes/amarillos/grises son vegetación/animales/rocas.
+- Solo carga los sectores cerca de donde estás mirando (streaming por chunks, igual que hará el juego real).
 
 ## 3. Ajustar el mapa
 
-Todos los parámetros están en `config/*.json` — copia uno y crea el tuyo propio si quieres probar variaciones (otra semilla, más/menos biomas, mapa más pequeño para probar rápido). No hace falta tocar el código para nada de esto:
+Todo lo que ves en el formulario de la interfaz gráfica también se puede editar directamente en `config/*.json` (copia uno y crea el tuyo propio). No hace falta tocar el código para nada de esto:
 
 - `semilla`: cambia el mapa entero manteniendo las mismas reglas.
 - `biomasHabilitados`: qué biomas de `catalogo/biomas.json` pueden aparecer en este mapa en concreto (GDD sección 3, "biomas habilitados por mapa").
@@ -87,4 +82,5 @@ Para que quede claro qué es fiel al diseño y qué está simplificado de moment
 - **Catálogo de contenido**: `catalogo/*.json` trae un subconjunto representativo (no las ~300 especies completas de `docs/Catalogo_Especies_Exterior.md`) — se amplía añadiendo entradas nuevas a esos JSON, sin tocar el código.
 - **No implementado todavía** (son efectos que el propio diseño define como "en vivo", no horneados — le tocan al servidor del juego más adelante, no a este bakeador): clima, estaciones, acumulación de nieve/charcos, sombras dinámicas, niebla de guerra, reproducción de fauna. El bakeador ya deja los datos que esos sistemas van a necesitar (posición de la ciudad, alturas, tipos de terreno), pero no calcula los efectos en sí.
 - **Domain warping y suavizado**: implementados y activos, dan el aspecto orgánico que buscábamos (compáralo con un mapa de ruido puro sin estas dos técnicas y se nota la diferencia).
+- **Posición de la ciudad**: por defecto se coloca en el centro exacto del mapa, sin comprobar si ahí hay agua/terreno raro — en el `config` puedes fijar `ciudad: {x, y}` a mano si el centro te sale mal situado. Comprobarlo automáticamente es una mejora pendiente.
 - **Tamaño de archivo**: con mapas grandes y mucha decoración, los sectores pesan varios cientos de KB a un par de MB cada uno — si el mapa de 200x200 casillas te sale muy pesado en total para GitHub, baja las `densidadBase` de `catalogo/vegetacion.json`/`animales.json`/`rocas.json`, es el ajuste más directo para reducir peso sin tocar el algoritmo.
