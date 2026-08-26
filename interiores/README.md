@@ -15,9 +15,14 @@ Diseño completo en `docs/GDD_Bakeador_Interiores.md`. Esta carpeta contiene el 
 
 Todas las referencias cruzadas (tipo de sala, material, POI vinculado) están comprobadas contra el resto del catálogo — sin entradas huérfanas.
 
+## Qué hay ya — motor (prototipo)
+
+- `src/catalogo.js` — carga `catalogo/*.json` y compara riqueza (humilde < modesta < noble).
+- `src/colocarElementos.js` — **prototipo real** de colocación de elementos dentro de una sala: dado un `tipoSalaId` + riqueza + `amueblado` (vacio/fijo/completo) + semilla, coloca estructura + decorFija/decorMovible/iluminacion/suciedad respetando las reglas de `colocacion` de la sección 7ter del GDD (pared en blanco para colgadoEnPared, adyacencia a pared para pegadaAPared, anclaje a un host `esSuperficie` para sobreSuperficie...) y el filtro de riqueza. **La forma de la sala sigue siendo un rectángulo simple, no WFC** — eso es lo que falta de verdad (ver abajo). Probado de verdad con `src/prueba_render.js` (dibuja unas salas de ejemplo en planta y las abre en un HTML) — confirma que el catálogo, el filtro de riqueza y las reglas de colocación funcionan juntas de punta a punta.
+
 ## Qué falta
 
-- **El motor de generación en sí** (Wave Function Collapse para resolver la forma de cada planta, clasificación de sala, colocación de elementos con densidad/variantes, conducto de chimenea vertical, escaleras conectando plantas, lectura de los config de `config/*.json`). Nada de esto está implementado todavía — es el siguiente paso lógico, igual que en exteriores se escribió primero `catalogo/*.json` y después `src/biomas.js`, `src/decoracion.js`, etc.
+- **Resolver la forma de la sala con Wave Function Collapse** (hoy es un rectángulo fijo) — clasificación de sala, conducto de chimenea vertical, escaleras conectando plantas, lectura de los config de `config/*.json` para encadenar varias plantas de un edificio completo. Es el siguiente paso lógico, igual que en exteriores se escribió primero `catalogo/*.json` y después `src/biomas.js`, `src/decoracion.js`, etc.
 - El cálculo en vivo de luz ambiente por hora del día (curva día/noche, cómo se combina con las luces interiores) — fuera del bakeador por diseño, ver `docs/Backlog_Mecanicas_Futuras.md`.
 - Placeholders visuales (`assets/`) para las entradas de este catálogo — mismo mecanismo que exteriores, pendiente de generar cuando exista el equivalente a `generar_placeholders.js` para interiores.
 - Seguir ampliando el catálogo con más variedad según se vaya necesitando — extensible por diseño, igual que exteriores.
