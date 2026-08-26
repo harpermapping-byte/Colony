@@ -23,6 +23,10 @@ const PRUEBAS = [
   { titulo: "cocina_comedor — completo (mesa+sillas coherente)", tipoSalaId: "cocina_comedor", riqueza: "humilde", amueblado: "completo", semilla: "test-coherencia" },
   { titulo: "dormitorio_doble — completo", tipoSalaId: "dormitorio_doble", riqueza: "modesta", amueblado: "completo", semilla: "prueba-01" },
   { titulo: "gran_salon — completo (noble, simétrico)", tipoSalaId: "gran_salon", riqueza: "noble", amueblado: "completo", semilla: "prueba-03" },
+  { titulo: "taller — completo (yunque/fragua, tileInteraccion)", tipoSalaId: "taller", riqueza: "modesta", amueblado: "completo", semilla: "prueba-taller-02" },
+  { titulo: "sala_alquimia — completo", tipoSalaId: "sala_alquimia", riqueza: "noble", amueblado: "completo", semilla: "prueba-alq-01" },
+  { titulo: "capilla — completo (simétrico, religioso)", tipoSalaId: "capilla", riqueza: "modesta", amueblado: "completo", semilla: "prueba-capilla-01" },
+  { titulo: "dormitorio_individual — vacío (amueblado:\"vacio\")", tipoSalaId: "dormitorio_individual", riqueza: "humilde", amueblado: "vacio", semilla: "prueba-vacio-01" },
 ];
 
 const U = 26; // tamaño de unidad isométrica en px
@@ -164,12 +168,15 @@ function construirHTML() {
     const r = colocarSala({ tipoSalaId: p.tipoSalaId, catalogos, riqueza: p.riqueza, amueblado: p.amueblado, semilla: p.semilla });
     const { svg, pie } = renderSalaSVG(r);
     const nDecor = r.colocados.length + r.colgados.length;
+    const catSala = catalogos.tiposSala[p.tipoSalaId];
+    const statsTxt = Object.entries(r.estadisticas).map(([k, v]) => `${k}:${v}`).join(" ") || "—";
     return `
       <div class="sala">
         <h2>${escaparXML(p.titulo)}</h2>
-        <p class="meta">${r.ancho}x${r.largo} tiles · suelo ${r.materialSuelo} · pared ${r.materialPared} · ${nDecor} piezas</p>
+        <p class="meta">${catSala.categoria}/${escaparXML(catSala.nombre)} · ${r.ancho}x${r.largo} tiles · suelo ${r.materialSuelo} · pared ${r.materialPared} · ${nDecor} piezas</p>
         ${svg}
         <p class="pie">${escaparXML(pie)}</p>
+        <p class="stats">estadisticas: ${escaparXML(statsTxt)}</p>
       </div>`;
   }).join("\n");
 
@@ -181,6 +188,7 @@ function construirHTML() {
     h2 { font-size: 14px; margin: 0 0 4px; }
     .meta { font-size: 11px; color: #aaa; margin: 0 0 8px; }
     .pie { font-size: 10px; color: #888; margin-top: 6px; max-width: 420px; }
+    .stats { font-size: 10px; color: #8ac9e0; margin-top: 2px; max-width: 420px; }
     svg { display: block; background: #2a2a32; border-radius: 4px; }
   </style></head><body>
   <h1>Prototipo de interiores — vista isométrica 2.5D</h1>

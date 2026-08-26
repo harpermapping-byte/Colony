@@ -48,15 +48,19 @@ const CAPAS_POR_AMUEBLADO = {
   completo: ["decorFija", "decorMovible", "iluminacion", "suciedad"],
 };
 
-function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba" }) {
+function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado }) {
   const defSala = catalogos.tiposSala[tipoSalaId];
   if (!defSala) throw new Error(`tipoSala desconocido: ${tipoSalaId}`);
 
   const rnd = crearPRNG(`${semilla}:${tipoSalaId}`);
   const elegirEntero = (min, max) => min + Math.floor(rnd() * (max - min + 1));
 
-  const ancho = Math.max(4, elegirEntero(defSala.anchoTiles[0], defSala.anchoTiles[1]));
-  const largo = Math.max(4, elegirEntero(defSala.largoTiles[0], defSala.largoTiles[1]));
+  // anchoForzado/largoForzado (opcionales): para cuando quien pide la sala
+  // necesita un tamaño exacto en vez del rango típico del tipo de sala —
+  // ej. edificio.js generando un pasillo tan ancho como la fila de
+  // habitaciones que tiene que soportar (GDD sección 1bis).
+  const ancho = Math.max(4, anchoForzado ?? elegirEntero(defSala.anchoTiles[0], defSala.anchoTiles[1]));
+  const largo = Math.max(4, largoForzado ?? elegirEntero(defSala.largoTiles[0], defSala.largoTiles[1]));
   const materialSuelo = defSala.materialSuelo;
   const materialPared = defSala.materialPared;
 
@@ -328,6 +332,25 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     }
   }
 
+  // Marca de origen (edicion.js sección 5 del pedido de edificios/editor):
+  // todo lo que sale del generador nace "generado" — instanceId único por
+  // pieza (no por tipo: puede haber 4 sillas del mismo `id` de catálogo en
+  // una sala) para que el editor pueda seleccionar/mover/eliminar una
+  // instancia concreta sin ambigüedad. edicion.js es quien cambia origen a
+  // "modificado" cuando el usuario toca algo.
+  let contadorInstancia = 0;
+  const marcarGenerado = (item) => {
+    item.instanceId = `${tipoSalaId}_${semilla}_${contadorInstancia++}`;
+    item.origen = "generado";
+    return item;
+  };
+  for (const item of colocados) {
+    marcarGenerado(item);
+    for (const s of item.sobre || []) marcarGenerado(s);
+  }
+  for (const item of colgados) marcarGenerado(item);
+  for (const item of techo) marcarGenerado(item);
+
   // Estadísticas/funcionalidad de sala (sección 9): suma aditiva de los
   // `aportes` de cada pieza realmente colocada, en cualquier plano (suelo,
   // pared, techo o encima de una superficie). Una sala vacía o sin ninguna
@@ -336,7 +359,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const sobreTodos = colocados.flatMap((c) => c.sobre || []);
   const estadisticas = calcularEstadisticas([...colocados, ...colgados, ...techo, ...sobreTodos]);
 
-  return { tipoSalaId, ancho, largo, materialSuelo, materialPared, riqueza, amueblado, semilla, puerta, sala, colocados, colgados, techo, estadisticas };
+  return { tipoSalaId, ancho, largo, materialSuelo, materialPared, riqueza, amueblado, semilla, puerta, sala, colocados, colgados, techo, estadisticas, origen: "generado" };
 }
 
 module.exports = { colocarSala, crearPRNG };
