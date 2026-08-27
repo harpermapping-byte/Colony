@@ -1,0 +1,111 @@
+<title>Laboratorio de Personajes</title>
+<style>
+  :root{
+    --paper:#EFE9DD; --ink:#2B2825; --wood:#B96A2C; --wood-dark:#8A4E20;
+    --blue:#3A5A78; --line:#D9D0BC; --panel:#F7F3E9;
+    --ok:#4d7a4d; --redo:#a3372d;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family:ui-monospace,Menlo,Consolas,monospace;}
+  #app{max-width:1100px;margin:0 auto;padding:20px 16px 40px;}
+  header{display:flex;align-items:baseline;justify-content:space-between;
+    border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:14px;flex-wrap:wrap;gap:6px;}
+  h1{font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:700;margin:0;}
+  .tag{font-size:11px;text-transform:uppercase;letter-spacing:1.3px;color:var(--wood-dark);}
+  #status{font-size:12px;color:var(--blue);min-height:16px;margin:0 0 10px;}
+  #status.err{color:var(--redo);}
+  #layout{display:flex;gap:14px;align-items:flex-start;}
+  #sidebar{width:250px;flex:0 0 250px;border:1.5px solid var(--ink);background:var(--panel);
+    border-radius:2px;display:flex;flex-direction:column;max-height:640px;}
+  .sidebar-titulo{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--wood-dark);
+    padding:8px 10px 6px;border-bottom:1px solid var(--line);}
+  #lista{overflow-y:auto;flex:1;padding:4px 0;}
+  .item{display:flex;align-items:center;gap:7px;padding:5px 10px;font-size:12px;cursor:pointer;
+    border-left:3px solid transparent;}
+  .item:hover{background:var(--line);}
+  .item.selected{background:var(--line);border-left-color:var(--wood);}
+  .item .dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px;background:var(--blue);opacity:.55;}
+  .item.selected .dot{background:var(--wood);opacity:1;}
+  .item .nombre{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #infoModelo{font-size:10px;color:#8A8577;padding:7px 10px;border-top:1px solid var(--line);}
+  #main{flex:1;min-width:0;}
+  #stage-wrap{border:1.5px solid var(--ink);background:#E4DDCB;position:relative;border-radius:2px;overflow:hidden;}
+  #stage{width:100%;height:460px;display:block;cursor:grab;touch-action:none;}
+  #stage:active{cursor:grabbing;}
+  #hud{position:absolute;top:10px;left:12px;font-size:11px;color:var(--ink);
+    background:rgba(247,243,233,.85);padding:4px 8px;border:1px solid var(--line);
+    text-transform:uppercase;letter-spacing:1px;}
+  #ficha{margin-top:10px;font-size:12px;}
+  #ficha h2{font-size:16px;margin:0 0 3px;font-family:Georgia,serif;}
+  #ficha .meta{color:#8A8577;font-size:11px;margin-bottom:8px;}
+  .sliderRow{display:flex;align-items:center;gap:10px;margin:6px 0;}
+  .sliderRow label{width:70px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--wood-dark);}
+  .sliderRow input[type=range]{flex:1;accent-color:var(--wood);}
+  .sliderRow output{width:48px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;}
+  #acciones{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;align-items:center;}
+  button{border:1.5px solid var(--ink);background:var(--panel);color:var(--ink);
+    font-family:inherit;font-size:12px;padding:7px 12px;cursor:pointer;border-radius:2px;}
+  button:hover{background:var(--line);}
+  button.active{background:var(--wood);border-color:var(--wood-dark);color:#fff;}
+  button:focus-visible,.item:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+  #fileGlb{display:none;}
+  label[for=fileGlb]{border:1.5px solid var(--ink);background:var(--panel);font-size:12px;
+    padding:7px 12px;cursor:pointer;border-radius:2px;}
+  label[for=fileGlb]:hover{background:var(--line);}
+  @media (max-width:760px){
+    #layout{flex-direction:column;}
+    #sidebar{width:100%;flex:none;max-height:220px;}
+    #stage{height:360px;}
+  }
+</style>
+
+<div id="app">
+  <header>
+    <h1>Laboratorio de Personajes</h1>
+    <span class="tag">taller de vóxeles — colony</span>
+  </header>
+  <div id="status">Cargando personaje…</div>
+  <div id="layout">
+    <div id="sidebar">
+      <div class="sidebar-titulo">Esqueleto — 15 huesos</div>
+      <div id="lista"></div>
+      <div id="infoModelo"></div>
+    </div>
+    <div id="main">
+      <div id="stage-wrap">
+        <canvas id="stage"></canvas>
+        <div id="hud">arrastrar · orbitar &nbsp;/&nbsp; rueda · zoom</div>
+      </div>
+      <div id="ficha">
+        <h2 id="fichaNombre">—</h2>
+        <div class="meta" id="fichaMeta">elige un hueso en la lista</div>
+        <div class="sliderRow">
+          <label for="rotX">Rotación X</label>
+          <input type="range" id="rotX" min="-180" max="180" value="0" step="1">
+          <output id="rotXVal">0°</output>
+        </div>
+        <div class="sliderRow">
+          <label for="rotY">Rotación Y</label>
+          <input type="range" id="rotY" min="-180" max="180" value="0" step="1">
+          <output id="rotYVal">0°</output>
+        </div>
+        <div class="sliderRow">
+          <label for="rotZ">Rotación Z</label>
+          <input type="range" id="rotZ" min="-180" max="180" value="0" step="1">
+          <output id="rotZVal">0°</output>
+        </div>
+        <div id="acciones">
+          <button id="btnAndar" type="button">▶ Andar</button>
+          <button id="btnReposo" type="button">Reposo</button>
+          <button id="btnEsqueleto" type="button">Esqueleto</button>
+          <label for="fileGlb">Cargar otro .glb…</label>
+          <input type="file" id="fileGlb" accept=".glb,model/gltf-binary">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script id="glb-data" type="text/plain">{{GLB_B64}}</script>
+<script>{{BUNDLE}}</script>
