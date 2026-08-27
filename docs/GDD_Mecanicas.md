@@ -320,6 +320,29 @@ Reglas pactadas con el usuario:
   pantalla/lejos cuando haga falta (el bucle de animables ya está
   centralizado en `game.ts` — es un `if` de distancia).
 
+**Monturas (acordado 2026-08-27).** Habrá animales montables: el PJ se
+sube encima y **se convierten en UNA sola cosa** a todos los efectos.
+Reglas pactadas para cuando se implemente:
+
+- **Servidor — una entidad física**: montar fusiona los dos cuerpos en uno.
+  Se simula SOLO la montura (su velocidad, su radio de colisión, su medio —
+  un caballo no bucea) y el PJ deja de tener cuerpo propio: va anclado. El
+  input del jugador mueve a la montura. Desmontar los separa de nuevo en
+  dos entidades. Nada de simular dos cuerpos "pegados" — es la misma regla
+  de la ropa: lo montado no tiene física propia.
+- **Cliente — colgar del pivote, como la ropa**: el rig del PJ se cuelga
+  del pivote `cuerpo` de la montura en su punto de silla y HEREDA la
+  animación gratis (galopa la montura, el jinete se mueve con ella — cero
+  código de sincronización). La pose sentada es rotar los pivotes de
+  piernas del rig, que ya existen.
+- **Catálogo como siempre**: `montable: true` en la entrada de la especie
+  (`personajes/catalogo/animales_rig.json`) + su `velocidadMontura`. El
+  punto de silla NO se escribe a mano: se deriva de las proporciones
+  (centro del lomo = `altoPata + altoCuerpo`), así cualquier especie que se
+  marque montable funciona sola — caballo, camello, o lo que se invente.
+- **Solo esqueletos que aguanten**: montable es un flag por especie, no por
+  plantilla — el burro sí, el conejo no, aunque compartan esqueleto.
+
 ### 5.10 Combate PvE y PvP (pedido por el usuario)
 
 - Mismo esqueleto que todo lo demás: el arma es lo que llevas en la MANO
