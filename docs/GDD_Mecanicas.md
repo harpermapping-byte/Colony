@@ -207,7 +207,8 @@ oro repetida: catálogo como fuente de verdad + servidor autoritativo
 - **Stack**: el mismo material apila en una celda hasta su pila máxima; el
   peso del stack es peso unitario × cantidad (stackear no descuenta peso).
 - Capacidad de peso = base del PJ + atributos + equipo (5.4). Pasarse de
-  peso: penaliza velocidad (no bloquea coger — a afinar).
+  peso PENALIZA VELOCIDAD progresivamente, estilo Project Zomboid (no
+  bloquea coger) — decidido por el usuario 2026-08-27.
 - Servidor autoritativo también en la COLOCACIÓN: mover un objeto en la
   rejilla es un mensaje validado (anti-duplicación); el inventario de cada
   jugador solo se sincroniza a su dueño (filtrado por cliente de
@@ -262,14 +263,116 @@ con escritura PEREZOSA (guardar al salir el jugador + snapshot periódico
 espaciado, nunca cada tick). Decidir esto ANTES de implementar EXP e
 inventario, porque son los primeros datos que duele perder.
 
-### 5.8 Orden de construcción propuesto
+### 5.8 Vivienda: constructor/decorador de interiores para jugadores (pedido por el usuario)
 
-1. Recursos v1 (§3) + inventario simple (contador) → 2. módulo central de
-EXP/habilidades + persistencia (5.7) → 3. inventario rejilla+peso (5.3) →
-4. equipo/slots (5.4) → 5. crafteo con recetas y estaciones (5.2) →
-6. drops en suelo (5.5) → 7. comercio jugador-jugador → 8. NPCs IA (5.6).
+- El jugador tiene (compra/gana) un edificio propio y lo DECORA él mismo.
+  La base ya existe entera: el motor de interiores con su catálogo de
+  ~140 muebles, edición NO destructiva y colocación validada por RoomTags
+  — el "modo decorador" del jugador es una versión in-game del editor web
+  de `interiores/`, con las mismas reglas de colocación.
+- Los muebles se CRAFTEAN (5.2) o se compran (5.9), viven en el inventario
+  como objetos y al colocarlos pasan a ser estado del interior (instancia
+  con su room propia, ver 5.11-zonas).
+- Permisos: dueño (edita), invitados (entran), público (tienda, 5.9).
+- Fase 2: construir/ampliar la estructura (paredes, habitaciones) con el
+  generador de interiores como base — decorar primero, construir después.
+
+### 5.9 Economía, moneda y tiendas (pedido por el usuario)
+
+- UNA moneda. Entra al mundo por fuentes contadas (venta a NPC, misiones,
+  eventos) y SALE por sumideros (compras a NPC, reparaciones, impuestos de
+  tienda/vivienda) — sin sumideros un MMO se infla, así que cada fuente
+  nueva se apunta aquí con su sumidero.
+- **Tienda de jugador**: un mueble-mostrador en su vivienda (5.8) donde
+  deja objetos con precio; vende incluso con el dueño desconectado. La
+  compra es el mismo intercambio ATÓMICO arbitrado de siempre (objeto ↔
+  moneda, entero o nada).
+- Vendedores NPC con inventario limitado que rota (cálculo perezoso, no
+  timers), precios fijos al principio (nada de economía dinámica hasta
+  que haya datos reales).
+
+### 5.10 Combate PvE y PvP (pedido por el usuario)
+
+- Mismo esqueleto que todo lo demás: el arma es lo que llevas en la MANO
+  (slot de §3.4/5.4), sus stats salen del catálogo de objetos, la defensa
+  del equipo puesto, y el servidor resuelve cada golpe (alcance por
+  casillas, cooldown por arma, daño = arma vs defensa; nada calculado en
+  cliente).
+- **PvE**: requiere fauna/criaturas MÓVILES — hoy los animales son props
+  estáticos bakeados. El paso previo es "despertar" a los que tengan tag
+  hostil/cazable: entidades con IA sencilla en servidor (deambular,
+  huir/agredir por cercanía), simuladas SOLO cerca de jugadores activos
+  (regla de oro del free tier) y ancladas a los pools de spawn bakeados.
+- **PvP**: por ZONAS, nunca global: el Hub y las viviendas son seguros;
+  regiones salvajes/mazmorras marcan PvP activado (el mapa bakeado ya
+  tiene regiones/POIs donde colgar la bandera de zona).
+- **Muerte**: ⚠️ decisión pendiente (qué se pierde: ¿nada / moneda / drops
+  parciales del inventario?). El respawn es en el Hub. Se decide cuando se
+  diseñe combate en detalle; las animaciones de pegar reutilizan el rig y
+  los clips glTF del taller de PJ.
+
+### 5.11 Twitch: jerarquía, títulos y viewers (pedido por el usuario)
+
+- Los ROLES del chat de Twitch (mod, VIP, sub, viewer) se traducen en
+  TÍTULOS visibles sobre el PJ y en la jerarquía social del pueblo del
+  streamer. Perks COSMÉTICOS y sociales (título, color de nombre, acceso a
+  zonas sociales), nunca ventaja de poder — el poder se gana jugando.
+- La vinculación cuenta-Twitch ↔ PJ es parte de la identidad persistente
+  (5.7). Los títulos se refrescan al conectar (rol actual del canal).
+- Viewers desde el chat (visión ya en CLAUDE.md): comandos que influyen en
+  el mundo (eventos, regalos, votar) — cada comando es un mensaje más al
+  servidor autoritativo, con presupuesto/rate-limit por viewer.
+- El STREAMER es el administrador: comandos GM (teleport, spawn de evento,
+  kick/ban) reservados a su cuenta.
+
+### 5.12 Sistemas que faltaban para cerrar el esqueleto (propuestos y aceptados a pulir)
+
+- **Muerte y respawn** (transversal a PvE/PvP/supervivencia): qué se
+  conserva, dónde se reaparece, penalización. Sin esto ninguna mecánica de
+  riesgo tiene dientes. (Decisión pendiente, ver 5.10.)
+- **Zonas e instancias**: el mapa ya es Hub + instancias por diseño; aquí
+  se fijan las REGLAS por zona (seguro/PvP, se puede construir/decorar,
+  capacidad de la instancia, qué rooms de Colyseus abre cada una). Es el
+  paraguas de vivienda (5.8), PvP (5.10) y mazmorras futuras.
+- **Fauna móvil / IA de criaturas**: prerequisito de PvE y de la caza;
+  descrito en 5.10. También da vida al mundo sin combate (ciervos que
+  huyen).
+- **Ciclo día/noche y tiempo de mundo**: reloj de mundo PEREZOSO (hora =
+  función del timestamp, nada que simular); condiciona spawns nocturnos,
+  horarios de NPCs y luz del cliente. Barato y da muchísima atmósfera.
+- **Comida y descanso (supervivencia LIGERA)**: da uso real al tag
+  `comida` y a las camas de interiores — comer/dormir da buffs (velocidad,
+  EXP), NO muerte por hambre (esto es un MMO social de stream, no un
+  survival duro). ⚠️ A confirmar tono con el usuario.
+- **Misiones/encargos**: NPCs piden "N objetos de tag X" (los tags hacen
+  las misiones genéricas y baratas de crear); recompensa moneda/EXP/
+  blueprints. Primer uso real de los NPCs antes incluso de la IA
+  conversacional.
+- **Chat y social in-game**: chat local/global, emotes del rig, grupos
+  (party) para PvE y reparto de botín; gremios mucho después.
+- **Eventos de mundo**: invasiones, ferias, apariciones raras —
+  disparados por el streamer o por hitos de viewers (5.11). Contenido de
+  stream puro con el esqueleto de zonas + spawns.
+- **Administración y anti-abuso**: además de los comandos GM del streamer,
+  rate-limit por mensaje, validación estricta de TODOS los inputs (ya es
+  la norma) y registro de acciones económicas (auditar duplicaciones).
+
+### 5.13 Orden de construcción propuesto (actualizado)
+
+**Fase A — bucle de juego base**: 1. recursos v1 (§3) + inventario simple
+→ 2. módulo EXP/habilidades + PERSISTENCIA (5.7, la decisión gorda) →
+3. inventario rejilla+peso (5.3) → 4. equipo/slots (5.4) → 5. crafteo
+(5.2) → 6. drops en suelo (5.5).
+**Fase B — mundo vivo**: 7. día/noche → 8. fauna móvil → 9. combate PvE
+(5.10) → 10. comida/descanso ligero → 11. misiones.
+**Fase C — sociedad**: 12. moneda + tiendas NPC (5.9) → 13. zonas e
+instancias formales → 14. vivienda/decorador (5.8) → 15. tiendas de
+jugador → 16. comercio jugador-jugador → 17. chat/grupos.
+**Fase D — el stream y la IA**: 18. Twitch títulos/jerarquía (5.11) →
+19. comandos de viewers + eventos → 20. PvP por zonas → 21. NPCs IA
+conversacional (5.6).
 Cada paso entra por su sección de este GDD, se pule, y solo entonces se
-codifica.
+codifica. El orden dentro de cada fase es flexible; entre fases, no mucho.
 
 ## 6. Cómo se prueba (obligatorio antes de tocar estas reglas)
 
