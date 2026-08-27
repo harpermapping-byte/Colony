@@ -185,6 +185,10 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         // procesarse — es donde vive la fauna y flora marina/de río. Roca
         // sólida u otro terreno intransitable sin agua no lleva decoración.
         if (!celda.transitable && !celda.esAgua) continue;
+        // Calzada (camino/puente): transitable, pero nunca con decoración
+        // encima — un roble en mitad de la carretera no es un bosque, es
+        // un bug (la gente PISA por aquí a diario, nada crece ni anida).
+        if (celda.esCamino) continue;
 
         const opciones = { esAgua: !!celda.esAgua, cercaAgua: celda.cercaAgua };
         const veg = objetosEnCasilla(catalogoVegetacion, celda.bioma, celda.banda, x, y, prng, opciones);

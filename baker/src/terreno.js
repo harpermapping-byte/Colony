@@ -6,7 +6,11 @@
 // alternativas del mismo bioma para que el suelo no sea un único tile
 // plano repetido — playa arenosa vs. rocosa, césped raído en manchas.
 function decidirTerreno({ biomaId, catalogoBiomas, banda, hidro, esCamino, variante = 0.5 }) {
-  if (esCamino) return "camino";
+  // Camino que cruza agua = puente, no "camino pintado encima del río":
+  // el cruce se ve como estructura de verdad. Los caminos solo pueden
+  // cruzar ríos de banda baja (costoArista los hace impasables en banda
+  // alta), así que un puente siempre cae sobre un tramo vadeable.
+  if (esCamino) return hidro.esRio || hidro.esLago ? "puente" : "camino";
 
   if (hidro.esLago || hidro.esRio) {
     return banda <= 1 ? "agua" : "agua_profunda";

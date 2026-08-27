@@ -114,6 +114,17 @@ function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas, opcion
     return mejorValor;
   }
 
+  // Cuánto pesa cada componente de la temperatura final. La latitud manda
+  // (bandas climáticas coherentes de norte a sur, como en un mapa real),
+  // el ruido rompe la franja perfecta (una península cálida que sube, un
+  // valle frío que baja), y la altitud SIEMPRE enfría por encima del
+  // umbral — así una cumbre nunca sale "cálida" por casualidad del ruido y
+  // la nieve de montaña aparece donde la esperas, no salpicada al azar.
+  const PESO_LATITUD_TEMP = 0.5;
+  const PESO_RUIDO_TEMP = 0.5;
+  const UMBRAL_ALTITUD_FRIA = 0.55; // elevación a partir de la cual se nota el frío de altura
+  const ENFRIAMIENTO_ALTITUD = 1.1; // cuánto resta la altitud por encima del umbral (lapse rate)
+
   function muestrear(x, y) {
     // Fuerza del warp como fracción de la escala de la capa que distorsiona
     // (mismo ratio ~1/3 y ~1/4 que tenía el bakeador antes de que estas
@@ -122,7 +133,16 @@ function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas, opcion
     // el tamaño del mapa, en vez de volverse invisible al crecer la base.
     const elevacionBase = conDomainWarp(nElevacion, warpX, warpY, x, y, nElevacion.escala / 3);
     const elevacion = Math.min(1, Math.max(0, elevacionBase + sesgoElevacionBorde(x, y)));
-    const temperatura = nTemperatura.fbm(x, y, 3);
+
+    // Temperatura con física básica de mapa (no solo ruido): gradiente
+    // latitudinal norte (frío) → sur (cálido) + ruido, menos el
+    // enfriamiento por altitud sobre la elevación YA final (con el sesgo
+    // de borde incluido: una muralla de borde-montaña también es fría).
+    const latitud = altoTiles > 1 ? y / (altoTiles - 1) : 0.5; // 0 = norte, 1 = sur
+    const temperaturaBase = latitud * PESO_LATITUD_TEMP + nTemperatura.fbm(x, y, 3) * PESO_RUIDO_TEMP;
+    const frioAltitud = Math.max(0, elevacion - UMBRAL_ALTITUD_FRIA) * ENFRIAMIENTO_ALTITUD;
+    const temperatura = Math.min(1, Math.max(0, temperaturaBase - frioAltitud));
+
     const humedad = conDomainWarp(nHumedad, warpX, warpY, x, y, nHumedad.escala / 4);
     const continentalidad = nContinental.fbm(x, y, 2);
     const vulcanismo = nVulcanismo.fbm(x, y, 2);

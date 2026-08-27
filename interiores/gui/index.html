@@ -69,6 +69,8 @@
   <button id="btnRegenEdificio">↻ edificio completo</button>
   <div class="sep"></div>
   <button id="btnGuardar">💾 Guardar</button>
+  <select id="selGuardados"><option value="">— guardados —</option></select>
+  <button id="btnCargar">📂 Cargar</button>
   <span id="estadoTxt" class="hint"></span>
 </header>
 <div class="layout">
@@ -96,6 +98,7 @@
     </div>
   </aside>
 </div>
+<script type="module" src="/vista3d.js"></script>
 <script>
 "use strict";
 
@@ -351,6 +354,7 @@ function renderPaleta() {
 // ---- Lienzo isométrico interactivo ----
 function renderLienzo() {
   const cont = $("#lienzo");
+  desmontarVista3D(); // si veníamos de la vista 3D, parar su bucle de render
   cont.style.display = "";
   cont.style.overflow = "";
   const s = salaActual();
@@ -454,95 +458,43 @@ function renderLienzo() {
   cont.appendChild(piePie);
 }
 
-// ---- Vista de edificio completo: planos 2D de todas las plantas apiladas
-// (nivel más alto arriba), cada sala en su offsetX/offsetY real dentro de
-// la rejilla de planta, con las puertas compartidas entre salas vecinas
-// marcadas — reutiliza tal cual los datos que edificio.js/generarPlanta ya
-// calcula (salaPlanta.puertas = coordenadas globales de puerta detectadas
-// por detectarSalas; una coordenada que aparece en el `puertas` de DOS
-// salas es, por definición, la conexión entre ambas). No hace falta pedir
-// nada nuevo al servidor: todo esto ya viaja en /api/generar y /api/edificio.
+// ---- Vista de edificio completo en 3D girable (vista3d.js, Three.js
+// servido en local desde el node_modules del repo): el edificio entero con
+// las plantas apiladas por nivel, paredes con sus huecos de puerta reales
+// (salaPlanta.puertas, lo mismo que ya calcula edificio.js) y cada mueble
+// como caja con su colorDebug. Órbita/zoom con el ratón; clic en el suelo
+// de una sala salta a su vista de habitación. Sustituye al plano 2D
+// anterior — mismos datos (nada nuevo del servidor), otra presentación.
 function colorParaTipoSala(id) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return `hsl(${h % 360}, 42%, 52%)`;
 }
 
-// El conector vertical (escalera/trampilla) de una planta apunta a uno de
-// sus `salas[]` por referencia de objeto en memoria del servidor, pero esa
-// referencia concreta no viaja serializada (sus Sets internos se pierden
-// en el JSON) — se re-localiza por offset, que sí es un valor plano.
-function salaConectorDe(planta) {
-  const sc = planta.salaConector;
-  if (!sc) return null;
-  return planta.salas.find((s) => s.offsetX === sc.offsetX && s.offsetY === sc.offsetY && s.tipoSalaId === sc.tipoSalaId) || null;
+let vista3dHandle = null;
+
+function desmontarVista3D() {
+  if (vista3dHandle) { vista3dHandle.destruir(); vista3dHandle = null; }
 }
 
 function renderVistaEdificio() {
   const cont = $("#lienzo");
-  cont.style.display = "block";
-  cont.style.overflow = "auto";
+  desmontarVista3D();
   if (!edificio) { cont.innerHTML = '<div class="vacio">Genera un edificio para empezar</div>'; return; }
-  const ESCALA = 15;
-  const plantasOrden = edificio.plantas.slice().sort((a, b) => b.nivel - a.nivel);
-
-  const wrap = document.createElement("div");
-  wrap.style.cssText = "display:flex;flex-direction:column;gap:10px;padding:22px;align-items:flex-start;";
-  const leyenda = document.createElement("div");
-  leyenda.className = "hint";
-  leyenda.style.marginBottom = "6px";
-  leyenda.innerHTML = "Plantas de arriba a abajo (nivel más alto primero). <span style=\"color:#e8d8a0\">■</span> puerta entre dos salas · <span style=\"color:#e8d8a066\">■</span> puerta hacia fuera de la planta · <span style=\"color:#ffe08a\">⬍</span> conector vertical con la planta contigua. Clic en una sala para abrir su vista de habitación.";
-  wrap.appendChild(leyenda);
-
-  for (const planta of plantasOrden) {
-    const anchoPx = Math.max(1, planta.ancho) * ESCALA, altoPx = Math.max(1, planta.alto) * ESCALA;
-    const svg = svgEl("svg", { width: anchoPx, height: altoPx, viewBox: `0 0 ${anchoPx} ${altoPx}`, style: "background:#14141a;border-radius:4px;box-shadow:0 0 0 1px var(--borde);" });
-
-    // puertas: coordenada global -> índices de sala que la tienen en su
-    // salaPlanta.puertas (2 dueños = conexión interna, 1 = hacia fuera).
-    const dueñosPuerta = new Map();
-    planta.salas.forEach((s, i) => {
-      for (const clave of (s.salaPlanta ? s.salaPlanta.puertas : [])) {
-        if (!dueñosPuerta.has(clave)) dueñosPuerta.set(clave, []);
-        dueñosPuerta.get(clave).push(i);
-      }
-    });
-
-    const conectorSala = salaConectorDe(planta);
-
-    planta.salas.forEach((s, i) => {
-      const r = s.resultado;
-      const x = s.offsetX * ESCALA, y = s.offsetY * ESCALA, w = r.ancho * ESCALA, h = r.largo * ESCALA;
-      const seleccionada = planta.nivel === nivelSel && i === indiceSalaSel;
-      const g = svgEl("g", { style: "cursor:pointer" });
-      g.appendChild(svgEl("rect", { x, y, width: w, height: h, fill: colorParaTipoSala(s.tipoSalaId), stroke: seleccionada ? "#fff" : "#00000070", "stroke-width": seleccionada ? 2.4 : 1 }));
-      if (s.esPasillo) g.appendChild(svgEl("rect", { x: x + 1.5, y: y + 1.5, width: Math.max(0, w - 3), height: Math.max(0, h - 3), fill: "none", stroke: "#ffffff70", "stroke-dasharray": "3 2" }));
-      const txt = svgEl("text", { x: x + w / 2, y: y + h / 2, "font-size": Math.min(10, ESCALA * 0.72), fill: "#000a", "text-anchor": "middle", "dominant-baseline": "middle", stroke: "#fffb", "stroke-width": 2.5, style: "paint-order:stroke" });
-      txt.textContent = s.tipoSalaId;
-      g.appendChild(txt);
-      if (conectorSala && conectorSala.offsetX === s.offsetX && conectorSala.offsetY === s.offsetY) {
-        g.appendChild(svgEl("text", { x: x + w / 2, y: y + h - 5, "font-size": 10, fill: "#ffe08a", "text-anchor": "middle" })).textContent = "⬍";
-      }
-      g.addEventListener("click", () => { nivelSel = planta.nivel; indiceSalaSel = i; instanceSel = null; elementoArmado = null; vistaModo = "sala"; renderTodo(); });
-      svg.appendChild(g);
-    });
-
-    for (const [clave, duenos] of dueñosPuerta) {
-      const [gx, gy] = clave.split("_").map(Number);
-      svg.appendChild(svgEl("rect", { x: gx * ESCALA, y: gy * ESCALA, width: ESCALA, height: ESCALA, fill: duenos.length > 1 ? "#e8d8a0" : "#e8d8a066" }));
-    }
-
-    const cab = document.createElement("div");
-    cab.style.cssText = "font-size:12px;color:var(--tenue);";
-    cab.textContent = `Planta ${planta.nivel} (${planta.rol}) — ${planta.salas.length} salas`;
-    const bloque = document.createElement("div");
-    bloque.appendChild(cab);
-    bloque.appendChild(svg);
-    wrap.appendChild(bloque);
+  if (!window.Vista3D) {
+    // El módulo 3D aún no terminó de cargar (script type=module, diferido)
+    cont.innerHTML = '<div class="vacio">Cargando vista 3D…</div>';
+    setTimeout(() => { if (vistaModo === "edificio") renderVistaEdificio(); }, 120);
+    return;
   }
-
-  cont.innerHTML = "";
-  cont.appendChild(wrap);
+  vista3dHandle = window.Vista3D.montar(cont, edificio, {
+    colorParaTipoSala,
+    alSeleccionarSala: (nivel, indiceSala) => {
+      nivelSel = nivel; indiceSalaSel = indiceSala; instanceSel = null; elementoArmado = null;
+      vistaModo = "sala";
+      renderTodo();
+    },
+  });
 }
 
 async function apiMoverA(x, y) {
@@ -656,9 +608,37 @@ $("#btnRegenEdificio").onclick = async () => {
 $("#btnGuardar").onclick = async () => {
   const res = await api("/api/guardar", "POST", {});
   estadoTxt.textContent = res.ok ? `guardado en ${res.archivo}` : (res.error || "error al guardar");
+  if (res.ok) refrescarGuardados();
+};
+
+// ---- Cargar un edificio guardado (output/*.json) para seguir editándolo ----
+async function refrescarGuardados() {
+  const res = await api("/api/guardados");
+  const sel = $("#selGuardados");
+  const previo = sel.value;
+  sel.innerHTML = '<option value="">— guardados —</option>' + (res.archivos || []).map((a) => `<option value="${a}">${a}</option>`).join("");
+  if ((res.archivos || []).includes(previo)) sel.value = previo;
+}
+
+$("#btnCargar").onclick = async () => {
+  const archivo = $("#selGuardados").value;
+  if (!archivo) { estadoTxt.textContent = "elige un guardado del desplegable"; return; }
+  const res = await api("/api/cargar", "POST", { archivo });
+  if (res.ok) {
+    edificio = res.edificio;
+    nivelSel = edificio.plantas[0].nivel;
+    indiceSalaSel = 0;
+    instanceSel = null;
+    elementoArmado = null;
+    estadoTxt.textContent = `cargado ${archivo}`;
+    renderTodo();
+  } else {
+    estadoTxt.textContent = res.error || "error al cargar";
+  }
 };
 
 iniciar();
+refrescarGuardados();
 </script>
 </body>
 </html>

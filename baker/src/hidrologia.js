@@ -1,5 +1,7 @@
 "use strict";
 
+const { CapaRuido } = require("./ruido");
+
 // Hidrología: versión "seguir la pendiente" del GDD (sección 4) — más simple
 // que la erosión hidráulica por partículas descrita como mejora futura, pero
 // ya da ríos, lagos y caudal reales. Corre sobre una rejilla reducida (no
@@ -129,10 +131,22 @@ function rellenarDepresiones(elevaciones, cols, filas, nivelMar) {
   return { rellenas, orden };
 }
 
-function generarHidrologia({ anchoTiles, altoTiles, paso, elevacionEn, umbralRio, nivelMar = 0.22, maxRiosPrincipales, maxLagos }) {
+function generarHidrologia({ anchoTiles, altoTiles, paso, elevacionEn, umbralRio, nivelMar = 0.22, maxRiosPrincipales, maxLagos, semilla = "hidro" }) {
   const cols = Math.ceil(anchoTiles / paso);
   const filas = Math.ceil(altoTiles / paso);
   const total = cols * filas;
+
+  // Ruido para el trazado orgánico del agua (no para decidir DÓNDE hay
+  // agua — eso sigue siendo el flujo D8 de siempre — sino para que lo que
+  // se dibuja no sea geométrico): meandros de río (jitter determinista de
+  // cada nodo de la polilínea) y orillas de lago irregulares en vez de
+  // círculos perfectos.
+  // Escala CORTA respecto al paso de rejilla: con una escala mayor que el
+  // paso, el campo desplaza tramos enteros en bloque (la línea sigue recta,
+  // solo derrapa) — con ~0.8x el paso, cada tramo se curva DENTRO de sí
+  // mismo, que es lo que rompe las diagonales largas del flujo D8.
+  const nMeandro = new CapaRuido(semilla + ":meandro", Math.max(5, paso * 0.8));
+  const nOrillaLago = new CapaRuido(semilla + ":orillalago", Math.max(5, paso * 0.9));
 
   if (maxRiosPrincipales === undefined) {
     maxRiosPrincipales = Math.max(2, Math.round(Math.sqrt(cols * filas) / 15));
@@ -327,15 +341,34 @@ function generarHidrologia({ anchoTiles, altoTiles, paso, elevacionEn, umbralRio
     }
   }
 
-  function estamparDisco(cx, cy, radio, destinoSet) {
-    for (let dy = -radio; dy <= radio; dy++) {
-      for (let dx = -radio; dx <= radio; dx++) {
-        if (dx * dx + dy * dy > radio * radio) continue;
+  // Orilla irregular: el borde del lago no es un círculo perfecto — el
+  // radio efectivo de cada casilla se modula con ruido según su ángulo/
+  // posición (entrantes y salientes como en una orilla real). El centro
+  // sigue garantizado (dentro del 55% del radio siempre es agua).
+  function estamparLagoOrganico(cx, cy, radio, destinoSet) {
+    const margen = Math.ceil(radio * 1.35);
+    for (let dy = -margen; dy <= margen; dy++) {
+      for (let dx = -margen; dx <= margen; dx++) {
         const x = cx + dx;
         const y = cy + dy;
-        if (dentro(x, y)) destinoSet.add(clave(x, y));
+        if (!dentro(x, y)) continue;
+        const dist = Math.hypot(dx, dy);
+        const factorOrilla = 0.7 + nOrillaLago.fbm(x, y, 2) * 0.65; // ~0.7..1.35
+        if (dist <= radio * Math.max(0.55, factorOrilla)) destinoSet.add(clave(x, y));
       }
     }
+  }
+
+  // Meandro determinista: desplaza los puntos de DIBUJO del río (nunca la
+  // celda de flujo — caudal/destino no cambian) con un campo de ruido,
+  // idéntico para el mismo punto lo mire quien lo mire, así los tramos que
+  // comparten nodo siguen empalmando y el río queda continuo pero curvo.
+  const AMPLITUD_MEANDRO = Math.max(2, paso * 0.45);
+  function desplazarConMeandro(x, y) {
+    return [
+      x + (nMeandro.fbm(x + 1000, y, 2) - 0.5) * 2 * AMPLITUD_MEANDRO,
+      y + (nMeandro.fbm(x, y + 1000, 2) - 0.5) * 2 * AMPLITUD_MEANDRO,
+    ];
   }
 
   for (let i = 0; i < total; i++) {
@@ -350,7 +383,24 @@ function generarHidrologia({ anchoTiles, altoTiles, paso, elevacionEn, umbralRio
     // acerca al mar y le van cayendo afluentes — acotado para que no se
     // desmadre en el tramo final de un río muy largo.
     const radio = Math.min(5, 1 + Math.floor(flujo[i] / (umbralRio * 6)));
-    trazarLinea(cx * paso, cy * paso, jx * paso, jy * paso, radio, tilesRio);
+    // El tramo se subdivide en puntos cada ~3-4 tiles y CADA punto se
+    // desplaza con el campo de meandro — la polilínea resultante curva de
+    // verdad a lo largo de todo el tramo (con un único punto intermedio,
+    // los tramos largos seguían leyéndose como rectas con codos duros).
+    // Los extremos usan el mismo campo, así el empalme entre tramos que
+    // comparten nodo es exacto.
+    const xa = cx * paso, ya = cy * paso;
+    const xb = jx * paso, yb = jy * paso;
+    const largoTramo = Math.hypot(xb - xa, yb - ya);
+    const subdivisiones = Math.max(2, Math.round(largoTramo / 3.5));
+    let [xPrev, yPrev] = desplazarConMeandro(xa, ya);
+    for (let s = 1; s <= subdivisiones; s++) {
+      const t = s / subdivisiones;
+      const [xs, ys] = desplazarConMeandro(xa + (xb - xa) * t, ya + (yb - ya) * t);
+      trazarLinea(xPrev, yPrev, xs, ys, radio, tilesRio);
+      xPrev = xs;
+      yPrev = ys;
+    }
   }
 
   const radioLago = Math.max(4, Math.round(paso * 0.6));
@@ -359,12 +409,12 @@ function generarHidrologia({ anchoTiles, altoTiles, paso, elevacionEn, umbralRio
     const cy = Math.floor(i / cols);
     // Un lago con más caudal entrante es un lago más grande.
     const factor = Math.min(2.2, 1 + flujo[i] / (umbralRio * 12));
-    estamparDisco(cx * paso, cy * paso, Math.round(radioLago * factor), tilesLago);
+    estamparLagoOrganico(cx * paso, cy * paso, Math.round(radioLago * factor), tilesLago);
   }
   if (charcaGarantizadaIdx !== -1) {
     const cx = charcaGarantizadaIdx % cols;
     const cy = Math.floor(charcaGarantizadaIdx / cols);
-    estamparDisco(cx * paso, cy * paso, radioLago, tilesLago);
+    estamparLagoOrganico(cx * paso, cy * paso, radioLago, tilesLago);
   }
 
   function consultar(x, y) {

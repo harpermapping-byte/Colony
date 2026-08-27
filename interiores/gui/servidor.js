@@ -96,6 +96,31 @@ function serializarEdificio(edificio) {
   };
 }
 
+// Inverso de serializarSala/serializarEdificio: reconstruye los Sets desde
+// los arrays del JSON guardado en disco, para que un edificio CARGADO sea
+// indistinguible en memoria de uno recién generado — todas las operaciones
+// de edición/regeneración (que consultan sala.tiles/puertas como Sets)
+// funcionan igual sobre él, y el estado generado/modificado de cada pieza
+// viaja tal cual (una regeneración sigue respetando lo editado a mano).
+function deserializarSala(sala) {
+  if (!sala) return null;
+  return { ...sala, tiles: new Set(sala.tiles || []), puertas: new Set(sala.puertas || []), ventanas: new Set(sala.ventanas || []) };
+}
+
+function deserializarEdificio(json) {
+  return {
+    ...json,
+    plantas: (json.plantas || []).map((p) => ({
+      ...p,
+      salas: (p.salas || []).map((s) => ({
+        ...s,
+        resultado: s.resultado ? { ...s.resultado, sala: deserializarSala(s.resultado.sala) } : s.resultado,
+        salaPlanta: deserializarSala(s.salaPlanta),
+      })),
+    })),
+  };
+}
+
 function encontrarSala(edificio, nivel, indiceSala) {
   const planta = edificio.plantas.find((p) => p.nivel === nivel);
   if (!planta) return null;
@@ -223,10 +248,51 @@ const servidor = http.createServer(async (req, res) => {
       return responderJSON(res, 200, { ok: true, archivo: rutaArchivo });
     }
 
+    // --- Cargar un edificio guardado (el hueco que faltaba: guardar sin
+    // poder reabrir convertía cada guardado en un callejón sin salida) ---
+    if (url.pathname === "/api/guardados" && req.method === "GET") {
+      const archivos = fs.existsSync(CARPETA_OUTPUT)
+        ? fs.readdirSync(CARPETA_OUTPUT).filter((f) => f.endsWith(".json")).sort()
+        : [];
+      return responderJSON(res, 200, { archivos });
+    }
+    if (url.pathname === "/api/cargar" && req.method === "POST") {
+      const body = await leerCuerpoJSON(req);
+      // path.basename: nunca aceptar rutas con directorios — solo nombres
+      // de archivo de la propia carpeta output.
+      const nombre = path.basename(String(body.archivo || ""));
+      if (!nombre.endsWith(".json")) return responderJSON(res, 400, { ok: false, error: "archivo inválido" });
+      const rutaArchivo = path.join(CARPETA_OUTPUT, nombre);
+      if (!fs.existsSync(rutaArchivo)) return responderJSON(res, 404, { ok: false, error: `no existe ${nombre}` });
+      try {
+        edificioActual = deserializarEdificio(JSON.parse(fs.readFileSync(rutaArchivo, "utf8")));
+      } catch (e) {
+        return responderJSON(res, 400, { ok: false, error: `no se pudo leer ${nombre}: ${e.message}` });
+      }
+      return responderJSON(res, 200, { ok: true, edificio: serializarEdificio(edificioActual) });
+    }
+
     if (url.pathname === "/api/apagar" && req.method === "POST") {
       responderJSON(res, 200, { ok: true });
       setTimeout(() => process.exit(0), 200);
       return;
+    }
+
+    // --- three.js servido desde el node_modules del propio repo (para la
+    // vista 3D del edificio) — sin CDN ni dependencia nueva: es el mismo
+    // paquete `three` que ya usa el cliente del juego. Se sirve el
+    // directorio build/ entero (no solo three.module.js) porque desde
+    // r167+ ese archivo importa internamente "./three.core.js". ---
+    if (url.pathname.startsWith("/vendor/") && req.method === "GET") {
+      const carpetaBuildThree = path.join(RAIZ_INTERIORES, "..", "node_modules", "three", "build");
+      const nombre = path.basename(decodeURIComponent(url.pathname)); // sin subdirectorios: solo archivos del build
+      const rutaThree = path.join(carpetaBuildThree, nombre);
+      if (!nombre.endsWith(".js") || !fs.existsSync(rutaThree)) {
+        res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+        return res.end("no encontrado — ¿npm install en la raíz del repo?");
+      }
+      res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8" });
+      return res.end(fs.readFileSync(rutaThree));
     }
 
     // --- Estáticos ---

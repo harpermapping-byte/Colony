@@ -10,6 +10,7 @@
   "tierra_baldia": { "transitable": true, "modVelocidad": 1.0, "estratigrafia": "roca", "colorDebug": "#8a7a5a", "_nota": "Suelo pobre/infértil reservado para la futura mecánica de fertilidad del suelo — el bakeador no lo coloca en el mapa salvaje todavía." },
   "suelo_barbecho": { "transitable": true, "modVelocidad": 1.0, "estratigrafia": "tierra", "colorDebug": "#9c8a5c", "_nota": "Tierra labrada en descanso (barbecho), reservado para la futura mecánica de granja/fertilidad — el bakeador no lo coloca en el mapa salvaje todavía." },
   "camino": { "transitable": true, "modVelocidad": 1.3, "estratigrafia": "tierra", "colorDebug": "#b89a6a" },
+  "puente": { "transitable": true, "modVelocidad": 1.3, "estratigrafia": "agua", "colorDebug": "#9a7a52", "_nota": "Camino cruzando un río/lago vadeable — lo pone el bakeador automáticamente en la intersección camino-agua, nunca se coloca por bioma." },
   "tierra_labrada": { "transitable": true, "modVelocidad": 0.95, "estratigrafia": "tierra", "colorDebug": "#5c4425", "_nota": "Terreno de cultivo arado — el bakeador no lo coloca en el mapa salvaje; lo usará la futura mecanica de granja dentro de las parcelas del jugador." },
   "barro": { "transitable": true, "modVelocidad": 0.7, "estratigrafia": "tierra", "colorDebug": "#5c4a30" },
   "nieve": { "transitable": true, "modVelocidad": 0.6, "estratigrafia": "roca", "colorDebug": "#eef2f5" },

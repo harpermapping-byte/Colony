@@ -1,8 +1,15 @@
 "use strict";
 
-// Ruido de valor con fBm (fractal Brownian motion), sin dependencias externas.
-// No es Simplex/Perlin de verdad, pero da resultados orgánicos suficientes
-// para el bakeador, y evita instalar cualquier paquete de npm.
+// Ruido de GRADIENTE (estilo Perlin mejorado) con fBm, sin dependencias
+// externas. Antes esto era ruido de valor con interpolación bilineal — más
+// simple, pero con artefactos cuadriculados alineados con los ejes (las
+// "esquinas" sutiles que se veían en costas y fronteras de bioma). El ruido
+// de gradiente interpola PENDIENTES por celda en vez de valores, con curva
+// de suavizado quíntica (la del paper de Perlin mejorado, derivada segunda
+// continua) — el estándar de la generación procedural profesional. La API
+// (CapaRuido/fbm/conDomainWarp) no cambia; misma semilla ≠ mismo mapa que
+// antes (el campo de ruido es otro), así que los mapas existentes deben
+// rehornearse.
 
 function semillaDesdeTexto(texto) {
   let h = 1779033703 ^ texto.length;
@@ -25,15 +32,19 @@ function crearPRNG(semilla) {
   };
 }
 
-function suavizado(t) {
-  return t * t * (3 - 2 * t);
+// Curva de suavizado quíntica de Perlin mejorado: 6t⁵-15t⁴+10t³. A
+// diferencia de la smoothstep cúbica, su segunda derivada también es 0 en
+// los extremos — sin ella, las costuras entre celdas de rejilla se marcan
+// como pliegues visibles al derivar (normales/pendientes del terreno).
+function suavizadoQuintico(t) {
+  return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
 function interpolar(a, b, t) {
   return a + (b - a) * t;
 }
 
-// Genera una capa de ruido de valor 2D con una semilla propia.
+// Genera una capa de ruido de gradiente 2D con una semilla propia.
 class CapaRuido {
   constructor(semillaTexto, escala = 64) {
     // Semilla numérica fija de esta capa: la función de ruido es pura en
@@ -44,31 +55,43 @@ class CapaRuido {
     this.escala = escala;
   }
 
-  _valorEntero(ix, iy) {
+  // Hash entero por esquina de celda → ángulo de gradiente unitario.
+  _hashEsquina(ix, iy) {
     let x = ix * 374761393 + iy * 668265263 + this.semilla * 2246822519;
     x = Math.imul(x ^ (x >>> 15), 2654435761);
-    x = x ^ (x >>> 13);
-    const s = Math.sin(x * 0.0001) * 43758.5453;
-    return s - Math.floor(s);
+    return (x ^ (x >>> 13)) >>> 0;
   }
 
-  // Ruido de valor suavizado en (x, y), en unidades de mundo (se divide por escala dentro).
+  // Producto escalar entre el gradiente de la esquina (ix,iy) y el vector
+  // desde esa esquina hasta el punto muestreado (dx,dy).
+  _gradiente(ix, iy, dx, dy) {
+    const h = this._hashEsquina(ix, iy);
+    const angulo = (h / 4294967296) * Math.PI * 2;
+    return Math.cos(angulo) * dx + Math.sin(angulo) * dy;
+  }
+
+  // Ruido de gradiente en (x, y), en unidades de mundo (se divide por
+  // escala dentro). Salida normalizada a 0..1 como el ruido de valor de
+  // antes, para que ningún consumidor (rangos de bioma, umbrales) cambie.
   ruido2D(x, y) {
     const fx = x / this.escala;
     const fy = y / this.escala;
     const ix = Math.floor(fx);
     const iy = Math.floor(fy);
-    const tx = suavizado(fx - ix);
-    const ty = suavizado(fy - iy);
+    const dx = fx - ix;
+    const dy = fy - iy;
+    const tx = suavizadoQuintico(dx);
+    const ty = suavizadoQuintico(dy);
 
-    const v00 = this._valorEntero(ix, iy);
-    const v10 = this._valorEntero(ix + 1, iy);
-    const v01 = this._valorEntero(ix, iy + 1);
-    const v11 = this._valorEntero(ix + 1, iy + 1);
+    const g00 = this._gradiente(ix, iy, dx, dy);
+    const g10 = this._gradiente(ix + 1, iy, dx - 1, dy);
+    const g01 = this._gradiente(ix, iy + 1, dx, dy - 1);
+    const g11 = this._gradiente(ix + 1, iy + 1, dx - 1, dy - 1);
 
-    const a = interpolar(v00, v10, tx);
-    const b = interpolar(v01, v11, tx);
-    return interpolar(a, b, ty); // 0..1
+    const a = interpolar(g00, g10, tx);
+    const b = interpolar(g01, g11, tx);
+    const v = interpolar(a, b, ty); // ~[-0.71, 0.71] (máx = √2/2 con gradientes unitarios)
+    return Math.min(1, Math.max(0, v * 0.70710678 + 0.5)); // → 0..1
   }
 
   // Fractal Brownian motion: suma varias octavas para más detalle orgánico.

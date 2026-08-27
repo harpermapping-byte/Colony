@@ -105,6 +105,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     nivelMar: catalogoBiomas.mar_bajo?.elevacionMax ?? 0.22,
     maxRiosPrincipales: config.maxRiosPrincipales,
     maxLagos: config.maxLagos,
+    semilla: config.semilla,
   });
   onProgreso(`  ${hidro.numeroRiosPrincipales} río(s) principal(es), ${hidro.numeroLagos} lago(s).`);
 
@@ -363,6 +364,10 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
           banda: bandaLocalPorCasilla[idxLocal],
           esAgua: idT === "agua" || idT === "agua_profunda",
           cercaAgua: idT === "agua" || catalogoTerrenos[idT]?.esPlaya === true,
+          // camino/puente son transitables, pero nada debe brotar/aparecer
+          // ENCIMA de la calzada — sin este flag el decorador no tenía
+          // forma de saberlo y salían árboles en mitad de la carretera.
+          esCamino: idT === "camino" || idT === "puente",
         };
       });
 
