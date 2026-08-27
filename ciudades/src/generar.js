@@ -633,26 +633,112 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
     }
   }
 
-  // plaza: puestos de mercado, bancos y carga suelta
-  const nPuestos = Math.min(4, Math.max(1, Math.floor(radioPlaza / 2)));
+  const esRico = material !== "empalizada";
+  const idBanco = esRico ? "banco_piedra" : "banco_madera";
+
+  // HITO de la plaza según el tier (la referencia del usuario: pozo en la
+  // aldea, fuente en el pueblo, estatua presidiendo la capital)
+  const idHito = radio >= 80 ? "estatua_piedra" : radio >= 40 ? (rnd() < 0.5 ? "fuente_piedra" : "pozo_agua") : "pozo_agua";
+  ponerDeco(idHito, focal.x, focal.y);
+  if (idHito === "estatua_piedra") ponerDeco("fuente_piedra", focal.x + 3, focal.y + 2); // la gran capital tiene ambas
+  ponerDeco("cubo_madera", focal.x + 1, focal.y + 1); // el cubo del pozo/fuente
+  if (rnd() < 0.8) ponerDeco("charco_agua", focal.x - 1, focal.y + 2);
+
+  // plaza: puestos de mercado, tenderetes, bancos, macetas y carga suelta
+  const nPuestos = Math.min(5, Math.max(1, Math.floor(radioPlaza / 2)));
   for (let pIdx = 0; pIdx < nPuestos; pIdx++) {
     const ang = (pIdx / nPuestos) * Math.PI * 2 + 0.4 + rnd() * 0.3;
-    ponerDeco("puesto_mercado",
-      Math.round(focal.x + Math.cos(ang) * (radioPlaza - 1.2)),
-      Math.round(focal.y + Math.sin(ang) * (radioPlaza - 1.2)),
-      Math.round(((ang * 180) / Math.PI + 180) % 360));
-    if (rnd() < 0.7) ponerDeco(rnd() < 0.5 ? "caja_madera" : "cesta_pan",
+    const px2 = Math.round(focal.x + Math.cos(ang) * (radioPlaza - 1.2));
+    const py2 = Math.round(focal.y + Math.sin(ang) * (radioPlaza - 1.2));
+    ponerDeco(rnd() < 0.7 ? "puesto_mercado" : "tenderete_comida", px2, py2, Math.round(((ang * 180) / Math.PI + 180) % 360));
+    if (rnd() < 0.8) ponerDeco(elegirPonderado([["caja_madera", 3], ["cesta_pan", 2], ["jaula_vacia", 2], ["barril", 1]], rnd),
       Math.round(focal.x + Math.cos(ang + 0.35) * (radioPlaza - 1)),
       Math.round(focal.y + Math.sin(ang + 0.35) * (radioPlaza - 1)));
   }
-  for (const zv of zonasVerdes) if (zv.tipo === "parque" && rnd() < 0.8) ponerDeco("banco", zv.x + 1, zv.y, Math.floor(rnd() * 4) * 90);
+  for (let b = 0; b < Math.max(2, Math.floor(radioPlaza / 2)); b++) {
+    const ang = rnd() * Math.PI * 2;
+    ponerDeco(idBanco, Math.round(focal.x + Math.cos(ang) * (radioPlaza + 1.5)), Math.round(focal.y + Math.sin(ang) * (radioPlaza + 1.5)), Math.round((ang * 180) / Math.PI));
+    if (esRico && rnd() < 0.5) ponerDeco("maceta_grande", Math.round(focal.x + Math.cos(ang + 0.5) * (radioPlaza + 1.5)), Math.round(focal.y + Math.sin(ang + 0.5) * (radioPlaza + 1.5)));
+  }
+  // bancos y carros en los parques; gallinero y carretilla en los huertos
+  for (const zv of zonasVerdes) {
+    if (zv.tipo === "parque") {
+      if (rnd() < 0.85) ponerDeco(idBanco, zv.x + 1, zv.y, Math.floor(rnd() * 4) * 90);
+      if (rnd() < 0.4) ponerDeco("charco_agua", zv.x - 1, zv.y - zv.r + 1);
+    } else {
+      if (rnd() < 0.6) ponerDeco("gallinero_jaula", zv.x + zv.r, zv.y - 1);
+      if (rnd() < 0.5) ponerDeco("carro_mano", zv.x - zv.r, zv.y + 1, Math.floor(rnd() * 4) * 90);
+      if (rnd() < 0.5) ponerDeco("cubo_madera", zv.x, zv.y + zv.r);
+    }
+  }
 
-  // junto a las fachadas: cajas, barriles, sillas, sacos según el oficio
-  const DECO_FACHADA = [["barril", 3], ["caja_madera", 3], ["silla", 2], ["saco_harina", 1], ["banco", 1]];
+  // fachadas con OFICIO: cada edificio recibe 1-3 piezas acordes a lo que
+  // es (la herrería apila leña, la taberna saca mesa y barriles, la casa
+  // noble pone macetas...) + cartel de tienda en los comercios
+  const DECO_GENERICA = [["caja_madera", 3], ["barril", 3], ["cubo_madera", 2], ["silla", 2], ["lena_apilada", 2], ["escalera_mano", 1], ["tendedero", 1], [idBanco, 1], ["carro_mano", 1]];
+  const DECO_POR_TEMA = {
+    herreria: [["lena_apilada", 4], ["barril", 2], ["cubo_madera", 1]],
+    panaderia: [["saco_harina", 4], ["lena_apilada", 2], ["cesta_pan", 2]],
+    taberna: [["barril", 4], ["mesa_comedor", 2], ["silla", 2]],
+    posada: [["abrevadero", 3], ["amarradero", 3], ["barril", 2], ["carromato", 1]],
+    establo: [["abrevadero", 4], ["amarradero", 4], ["carreta", 2], ["saco_harina", 1]],
+    granero: [["carreta", 3], ["saco_harina", 3], ["carro_mano", 2]],
+    alfareria: [["tinaja_barro", 5], ["carro_mano", 1]],
+    curtiduria: [["tinaja_barro", 3], ["cubo_madera", 2], ["tendedero", 2]],
+    tienda: [["caja_madera", 3], ["jaula_vacia", 2], ["cesta_pan", 2]],
+    casa_noble: [["maceta_grande", 4], [idBanco, 2]],
+    mansion: [["maceta_grande", 4], [idBanco, 2]],
+    templo: [["maceta_grande", 2], [idBanco, 3]],
+  };
+  const COMERCIOS = new Set(["tienda", "taberna", "posada", "panaderia", "herreria", "botica", "joyeria", "taller_sastre", "curtiduria", "alfareria", "carpinteria", "destileria", "casa_de_cambio", "lonja_pescado"]);
   for (const ed of todos) {
-    if (rnd() > 0.65) continue;
-    const dx = Math.sign(ed.puerta.x - ed.cx) || 1;
-    ponerDeco(elegirPonderado(DECO_FACHADA, rnd), ed.puerta.x + (rnd() < 0.5 ? 2 : -2) * dx, ed.puerta.y, Math.floor(rnd() * 4) * 90);
+    const tabla = DECO_POR_TEMA[ed.tipoEdificioId] || DECO_GENERICA;
+    const nPiezas = 1 + Math.floor(rnd() * 3);
+    for (let d2 = 0; d2 < nPiezas; d2++) {
+      const lado = rnd() < 0.5 ? 1 : -1;
+      ponerDeco(elegirPonderado(tabla, rnd),
+        ed.puerta.x + lado * (2 + Math.floor(rnd() * 2)),
+        ed.puerta.y + Math.floor(rnd() * 3) - 1,
+        Math.floor(rnd() * 4) * 90);
+    }
+    // cartel del oficio junto a la puerta (los comercios anuncian)
+    if (COMERCIOS.has(ed.tipoEdificioId) || catalogos.tiposEdificio[ed.tipoEdificioId]?.temaTaller) {
+      ponerDeco("cartel_tienda", ed.puerta.x + (rnd() < 0.5 ? 1 : -1), ed.puerta.y);
+    }
+  }
+
+  // PUERTAS de muralla: abrevadero + amarradero para las monturas, algún
+  // carro aparcado y el poste indicador del cruce
+  for (const p of puertas) {
+    const hacia = Math.atan2(focal.y - p.y, focal.x - p.x);
+    const ix2 = Math.round(p.x + Math.cos(hacia) * (grosorRaster + 2));
+    const iy2 = Math.round(p.y + Math.sin(hacia) * (grosorRaster + 2));
+    ponerDeco("abrevadero", ix2 + 2, iy2, Math.round((hacia * 180) / Math.PI));
+    ponerDeco("amarradero", ix2 + 2, iy2 + 1, Math.round((hacia * 180) / Math.PI));
+    ponerDeco("cartel_poste", ix2 - 2, iy2 - 1);
+    if (rnd() < 0.6) ponerDeco(rnd() < 0.5 ? "carreta" : "carromato", ix2 - 2, iy2 + 2, Math.floor(rnd() * 4) * 90);
+    if (rnd() < 0.5) ponerDeco("charco_agua", ix2, iy2 + 1);
+  }
+
+  // tenderetes sueltos en la calle principal (mercadeo fuera de la plaza)
+  for (const ruta of caminos) {
+    for (let i = 6; i < ruta.length; i += 14) {
+      const p = ruta[i];
+      if (!dentroMuralla(p.x, p.y) || rnd() > 0.5) continue;
+      for (const [dx2, dy2] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const t = terreno.get(p.x + dx2, p.y + dy2);
+        if ((t === "cesped" || t === "tierra") && ponerDeco("tenderete_comida", p.x + dx2, p.y + dy2)) break;
+      }
+    }
+  }
+
+  // charcos por las calles (vida de barro; junto al arroyo, más)
+  const nCharcos = Math.round(radio / 2.2);
+  for (let c2 = 0; c2 < nCharcos; c2++) {
+    const cx2 = 2 + Math.floor(rnd() * (ancho - 4)), cy2 = 2 + Math.floor(rnd() * (alto - 4));
+    if (!dentroMuralla(cx2, cy2)) continue;
+    const t = terreno.get(cx2, cy2);
+    if (t === "camino" || t === "tierra" || t === "adoquin") ponerDeco("charco_agua", cx2, cy2, Math.floor(rnd() * 4) * 90);
   }
 
   // LUCES: junto a cada puerta de muralla, en la plaza y a lo largo de la
