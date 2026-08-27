@@ -12,7 +12,7 @@ El juego es 2.5D estilo Project Zomboid. En vez de dibujar sprites por direcció
 
 ## Cómo se generan los modelos
 
-Con el taller de vóxeles (generador de props vía IA, ver conversación — vive fuera de este repo) exportas un `.glb` por pieza. Lo guardas en el sitio que le toca según la convención de abajo y el motor lo recoge solo, sin tocar código.
+Con el taller de vóxeles (`taller-vox/` — generadores de muebles y personajes + exportadores `.glb`, ver su README) exportas un `.glb` por pieza. Lo guardas en el sitio que le toca según la convención de abajo y el motor lo recoge solo, sin tocar código.
 
 ## Convención de assets — SIN catálogo nuevo
 

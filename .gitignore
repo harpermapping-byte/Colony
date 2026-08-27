@@ -5,3 +5,6 @@ dist/
 *.log
 baker/output/
 interiores/output/
+# salidas del taller (regenerables)
+taller-vox/*.glb
+taller-vox/node_modules/

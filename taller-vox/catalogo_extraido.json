@@ -1,0 +1,1750 @@
+{
+ "cama_individual": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#c98a7b",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "cama_doble": {
+  "huella": [
+   2,
+   2
+  ],
+  "colorDebug": "#b57a6a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "litera": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#a06a55",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "mesa_comedor": {
+  "huella": [
+   2,
+   3
+  ],
+  "colorDebug": "#7a9b6f",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "centroSala"
+  ]
+ },
+ "silla": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a8a5a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "juntoAMesa"
+  ]
+ },
+ "banco": {
+  "huella": [
+   2,
+   1
+  ],
+  "colorDebug": "#5a7a4a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "juntoAMesa",
+   "pegadaAPared"
+  ]
+ },
+ "mesa_auxiliar": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a9b6f",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "taburete": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a6a4a",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "libre"
+  ]
+ },
+ "mecedora": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a5a3a",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "libre"
+  ]
+ },
+ "perchero": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a4a2a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "espejo": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#bcdff0",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "biombo": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a2a3a",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "libre"
+  ]
+ },
+ "cuna": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a860",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "tina_madera": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#8a6a3a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "reclinatorio": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a4a2a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared",
+   "simetrico"
+  ]
+ },
+ "telar": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#8a6a3a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "rueca": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a5a3a",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "libre"
+  ]
+ },
+ "fregadero": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a8a8a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "mesa_cocina": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#7a9b6f",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "centroSala"
+  ]
+ },
+ "especiero": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a6a3a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "instrumento_musical": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a020",
+  "capa": "decorMovible",
+  "anchorType": "CORNER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "esquina"
+  ]
+ },
+ "jaula_pajaro": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a6a70",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "colgadoEnPared",
+   "sobreSuperficie"
+  ]
+ },
+ "maceta": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#5a7a4a",
+  "capa": "decorMovible",
+  "anchorType": "CORNER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "esquina"
+  ]
+ },
+ "reloj_pie": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a4a2a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "baul_tesoro": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a020",
+  "capa": "decorMovible",
+  "anchorType": "CORNER",
+  "esContenedor": true,
+  "esSuperficie": false,
+  "colocacion": [
+   "esquina"
+  ]
+ },
+ "mesa_consejo": {
+  "huella": [
+   2,
+   4
+  ],
+  "colorDebug": "#7a9b6f",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "centroSala"
+  ]
+ },
+ "jergon": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#d4b84a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "tinaja": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a8a8a",
+  "capa": "decorMovible",
+  "anchorType": "CORNER",
+  "esContenedor": true,
+  "esSuperficie": false,
+  "colocacion": [
+   "esquina"
+  ]
+ },
+ "bala_heno": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#d4b84a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "esquina",
+   "pegadaAPared"
+  ]
+ },
+ "litera_marinero": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#8a6a3a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "baul_marinero": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a4a2a",
+  "capa": "decorMovible",
+  "anchorType": "CORNER",
+  "esContenedor": true,
+  "esSuperficie": false,
+  "colocacion": [
+   "esquina"
+  ]
+ },
+ "mesa_alquimia": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#7a9b6f",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "centroSala"
+  ]
+ },
+ "caldero": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#3a3a3a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared",
+   "sobreSuperficie"
+  ]
+ },
+ "estanteria_pociones": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#5a7a6a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "bancada_cultivo": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#5a7a4a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared",
+   "centroSala"
+  ]
+ },
+ "sarcofago": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#8a8a8a",
+  "capa": "decorFija",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "centroSala",
+   "simetrico"
+  ]
+ },
+ "escritorio": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#7a5a3a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "mesa_juegos": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#6a8a5a",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "centroSala"
+  ]
+ },
+ "encimera": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#8a8a8a",
+  "capa": "decorFija",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "balda": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a5a3a",
+  "capa": "decorFija",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "colgadoEnPared"
+  ]
+ },
+ "horno_pan": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a5a3a",
+  "capa": "decorFija",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "prensa_vino": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#7a5a3a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "rueda_afilar": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a6a6a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "plato": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e8e4dc",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "taza": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a860",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "cuenco": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#a89878",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "cuchillo_cocina": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c0c0c8",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "olla": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#5a5a5a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie",
+   "pegadaAPared"
+  ]
+ },
+ "sarten": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#4a4a4a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie",
+   "colgadoEnPared"
+  ]
+ },
+ "cesta_pan": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a860",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "jarra_agua": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#a89878",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "libro": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a2a3a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "tintero_pluma": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#2a2a3a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "pergamino": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e0d8b8",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "mapa_mesa": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9b888",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "frasco_pocion": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a5ac0",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "mortero_mano": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a8a8a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "hierbas_secas": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#5a7a3a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie",
+   "colgadoEnPared"
+  ]
+ },
+ "martillo": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a6a70",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie",
+   "colgadoEnPared"
+  ]
+ },
+ "tenazas": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a6a70",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie",
+   "colgadoEnPared"
+  ]
+ },
+ "clavos": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a6a70",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "herradura": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a6a70",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie",
+   "colgadoEnPared"
+  ]
+ },
+ "jarra_cerveza": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a050",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "moneda_suelta": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e0b820",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "dados": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e8e4dc",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "baraja_cartas": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a860",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "jabon": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e0d8c0",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "toalla": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#bcdff0",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "colgadoEnPared",
+   "sobreSuperficie"
+  ]
+ },
+ "joyero_pequeno": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a020",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": true,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "reliquia": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e0b820",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "arcon": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a5a3a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": true,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared",
+   "esquina"
+  ]
+ },
+ "cofre_pequeno": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a5a3a",
+  "capa": "decorMovible",
+  "anchorType": "CORNER",
+  "esContenedor": true,
+  "esSuperficie": false,
+  "colocacion": [
+   "esquina"
+  ]
+ },
+ "armario": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#6a4a2a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": true,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "estanteria": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#7a5a3a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "barril": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a6a3a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": true,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared",
+   "esquina"
+  ]
+ },
+ "mostrador": {
+  "huella": [
+   1,
+   3
+  ],
+  "colorDebug": "#6a5238",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "trono": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a020",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "centroSala",
+   "simetrico"
+  ]
+ },
+ "yunque": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#5a5a60",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "mesa_trabajo": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#7a6248",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "atril": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a6a4a",
+  "capa": "decorMovible",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "libre"
+  ]
+ },
+ "bañera": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#c0c0c8",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "asiento_letrina": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a8a8a",
+  "capa": "decorMovible",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "chimenea": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#5a5a5a",
+  "capa": "decorFija",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "columna": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#9a9a92",
+  "capa": "decorFija",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "simetrico"
+  ]
+ },
+ "estanteria_empotrada": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a5a3a",
+  "capa": "decorFija",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "tapiz": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a2a3a",
+  "capa": "decorFija",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "colgadoEnPared"
+  ]
+ },
+ "cuadro": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a6a4a",
+  "capa": "decorFija",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "colgadoEnPared"
+  ]
+ },
+ "reja_ventana": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#4a4a50",
+  "capa": "decorFija",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "escudo_pared": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a6a70",
+  "capa": "decorFija",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "colgadoEnPared"
+  ]
+ },
+ "trofeo_caza": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a6a4a",
+  "capa": "decorFija",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "colgadoEnPared"
+  ]
+ },
+ "altar": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e8e4dc",
+  "capa": "decorFija",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "centroSala",
+   "simetrico"
+  ]
+ },
+ "pesebre": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#8a6a3a",
+  "capa": "decorFija",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "fragua": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#5a5a5a",
+  "capa": "decorFija",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "armero": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a6a70",
+  "capa": "decorFija",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "viga_vista": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a5a3a",
+  "capa": "decorFija",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "techo"
+  ]
+ },
+ "boveda_piedra": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#9a9a92",
+  "capa": "decorFija",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "techo"
+  ]
+ },
+ "artesonado": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a5a3a",
+  "capa": "decorFija",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "techo"
+  ]
+ },
+ "candelabro_pared": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e0c060",
+  "capa": "iluminacion",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "colgadoEnPared"
+  ]
+ },
+ "antorcha_pared": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e08030",
+  "capa": "iluminacion",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "colgadoEnPared"
+  ]
+ },
+ "vela_mesa": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#f0d090",
+  "capa": "iluminacion",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "lampara_aceite": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a050",
+  "capa": "iluminacion",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "colgadoEnPared",
+   "sobreSuperficie"
+  ]
+ },
+ "lampara_arana": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e0c060",
+  "capa": "iluminacion",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "techo"
+  ]
+ },
+ "farol_colgante": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c9a050",
+  "capa": "iluminacion",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "colgadoEnPared",
+   "techo"
+  ]
+ },
+ "brasero": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e08030",
+  "capa": "iluminacion",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie",
+   "simetrico"
+  ]
+ },
+ "antorcha_pie": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#e08030",
+  "capa": "iluminacion",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "libre"
+  ]
+ },
+ "telaranas": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#c0c0c0",
+  "capa": "suciedad",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "esquina",
+   "techo"
+  ]
+ },
+ "grietas_pared": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#5a5a52",
+  "capa": "suciedad",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pared"
+  ]
+ },
+ "manchas_humedad": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#4a5a4a",
+  "capa": "suciedad",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pared",
+   "suelo"
+  ]
+ },
+ "polvo": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#a89878",
+  "capa": "suciedad",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "suelo",
+   "sobreSuperficie"
+  ]
+ },
+ "hojas_secas": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a7a3a",
+  "capa": "suciedad",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "suelo"
+  ]
+ },
+ "moho": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#3a5a3a",
+  "capa": "suciedad",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pared"
+  ]
+ },
+ "mueble_roto": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a4a30",
+  "capa": "suciedad",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "libre"
+  ]
+ },
+ "sangre_seca": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#5a2a2a",
+  "capa": "suciedad",
+  "anchorType": "WALL_HIGH_FLOATING",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "suelo",
+   "pared"
+  ]
+ },
+ "oxido": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a5a3a",
+  "capa": "suciedad",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie",
+   "pared"
+  ]
+ },
+ "ceniza": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a7a7a",
+  "capa": "suciedad",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "suelo"
+  ]
+ },
+ "nido_ratas": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a5a4a",
+  "capa": "suciedad",
+  "anchorType": "CORNER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "esquina"
+  ]
+ },
+ "escombros": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a8a80",
+  "capa": "suciedad",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "suelo"
+  ]
+ },
+ "cristales_rotos": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#bcdff0",
+  "capa": "suciedad",
+  "anchorType": "FREE_CENTER",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "suelo"
+  ]
+ },
+ "mesa_semillero": {
+  "huella": [
+   1,
+   2
+  ],
+  "colorDebug": "#7a9b6f",
+  "capa": "decorFija",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": true,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ },
+ "semillero_bandeja": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#6a8a4a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "regadera": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#7a8a8a",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "tijeras_podar": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#8a8a90",
+  "capa": "decorMovible",
+  "anchorType": "CHILD_SLOT",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "sobreSuperficie"
+  ]
+ },
+ "enrejado_trepador": {
+  "huella": [
+   1,
+   1
+  ],
+  "colorDebug": "#5a7a3a",
+  "capa": "decorFija",
+  "anchorType": "WALL_BACK",
+  "esContenedor": false,
+  "esSuperficie": false,
+  "colocacion": [
+   "pegadaAPared"
+  ]
+ }
+}

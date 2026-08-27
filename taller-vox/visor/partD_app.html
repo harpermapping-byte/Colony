@@ -1,0 +1,258 @@
+
+(function(){
+  const MODELOS = JSON.parse(document.getElementById('modelos-data').textContent);
+  let ESTADO = JSON.parse(document.getElementById('estado-data').textContent);
+  const IDS = Object.keys(MODELOS).sort((a,b)=>a.localeCompare(b));
+
+  const canvas = document.getElementById('stage');
+  const statusEl = document.getElementById('status');
+  const listaEl = document.getElementById('lista');
+  const buscarEl = document.getElementById('buscar');
+  const filtrosEl = document.getElementById('filtros');
+  const progresoEl = document.getElementById('progreso');
+  const nombreActualEl = document.getElementById('nombreActual');
+  const metaActualEl = document.getElementById('metaActual');
+  const autoBtn = document.getElementById('autoBtn');
+  const jsonBtn = document.getElementById('jsonBtn');
+  const aprobarBtn = document.getElementById('aprobarBtn');
+  const rehacerBtn = document.getElementById('rehacerBtn');
+  const siguienteBtn = document.getElementById('siguienteBtn');
+
+  const MAX_EXPANDED_VOXELS = 60000;
+  let renderer, scene, camera, group;
+  let radius = 9, theta = Math.PI*0.28, phi = Math.PI*0.36;
+  let autoRotate = false, dragging = false, lastX=0, lastY=0;
+  let actualId = IDS[0];
+
+  function estadoDe(id){
+    if(ESTADO.aprobado.includes(id)) return 'aprobado';
+    if(ESTADO.rehacer.includes(id)) return 'rehacer';
+    return 'pendiente';
+  }
+
+  function initScene(){
+    renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.9); dir.position.set(5,8,6); scene.add(dir);
+    const dir2 = new THREE.DirectionalLight(0xffffff, 0.35); dir2.position.set(-6,3,-4); scene.add(dir2);
+    group = new THREE.Group(); scene.add(group);
+    resize();
+    window.addEventListener('resize', resize);
+    animate();
+  }
+  function resize(){
+    const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+    renderer.setSize(w, 460, false);
+    camera.aspect = w/460; camera.updateProjectionMatrix();
+  }
+  function updateCamera(){
+    camera.position.x = radius*Math.sin(phi)*Math.cos(theta);
+    camera.position.z = radius*Math.sin(phi)*Math.sin(theta);
+    camera.position.y = radius*Math.cos(phi);
+    camera.lookAt(0,0,0);
+  }
+  function animate(){
+    requestAnimationFrame(animate);
+    if(autoRotate) theta += 0.006;
+    updateCamera();
+    renderer.render(scene, camera);
+  }
+  canvas.addEventListener('pointerdown', e=>{dragging=true; lastX=e.clientX; lastY=e.clientY; autoRotate=false; setAutoLabel();});
+  window.addEventListener('pointerup', ()=>dragging=false);
+  window.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY;
+    theta -= dx*0.006; phi = Math.min(Math.PI-0.05, Math.max(0.05, phi-dy*0.006));
+  });
+  canvas.addEventListener('wheel', e=>{ e.preventDefault(); radius = Math.min(24, Math.max(3, radius+e.deltaY*0.01)); }, {passive:false});
+  document.querySelectorAll('[data-view]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      autoRotate=false; setAutoLabel();
+      const v = btn.dataset.view;
+      if(v==='front'){ theta=Math.PI*0.5; phi=Math.PI*0.42; }
+      if(v==='side'){ theta=0; phi=Math.PI*0.42; }
+      if(v==='back'){ theta=-Math.PI*0.5; phi=Math.PI*0.42; }
+      if(v==='top'){ theta=Math.PI*0.5; phi=0.15; }
+    });
+  });
+  autoBtn.addEventListener('click', ()=>{ autoRotate=!autoRotate; setAutoLabel(); });
+  function setAutoLabel(){ autoBtn.classList.toggle('active', autoRotate); }
+
+  function clearGroup(){
+    while(group.children.length){
+      const c = group.children.pop();
+      c.geometry && c.geometry.dispose();
+      if(c.material){ Array.isArray(c.material)?c.material.forEach(m=>m.dispose()):c.material.dispose(); }
+    }
+  }
+  function expandCajas(cajas, cap){
+    const byColor = new Map(); let total=0, truncated=false;
+    outer: for(const [x0,y0,z0,x1,y1,z1,hex] of cajas){
+      for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++) for(let z=z0;z<=z1;z++){
+        if(total>=cap){ truncated=true; break outer; }
+        if(!byColor.has(hex)) byColor.set(hex, []);
+        byColor.get(hex).push([x,y,z]); total++;
+      }
+    }
+    return {byColor, total, truncated};
+  }
+  function buildVoxelModel(byColor, grid){
+    clearGroup();
+    const maxDim = Math.max(grid[0], grid[1], grid[2]);
+    const unit = 6/maxDim;
+    const cubeGeo = new THREE.BoxGeometry(unit*0.92, unit*0.92, unit*0.92);
+    const offX = (grid[0]-1)/2, offZ = (grid[2]-1)/2;
+    const halfH = (grid[1]*unit)/2; // centra verticalmente para que la cámara (lookAt 0,0,0) encuadre la pieza entera, altas o bajas
+    const dummy = new THREE.Object3D();
+    byColor.forEach((positions, hex)=>{
+      const mat = new THREE.MeshStandardMaterial({color: hex, roughness:0.78, metalness:0.05});
+      const mesh = new THREE.InstancedMesh(cubeGeo, mat, positions.length);
+      positions.forEach((p,i)=>{
+        dummy.position.set((p[0]-offX)*unit, p[1]*unit+unit*0.5-halfH, (p[2]-offZ)*unit);
+        dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      group.add(mesh);
+    });
+    const gridHelper = new THREE.GridHelper(8, 8, 0xC9BFA6, 0xDCD3BE);
+    gridHelper.position.y = -halfH;
+    group.add(gridHelper);
+  }
+
+  function resolveCajas(model){
+    const paleta = model.paleta || [];
+    return model.cajas.map(c=>{
+      let [x0,y0,z0,x1,y1,z1,p] = c;
+      if(x1<x0){const t=x0;x0=x1;x1=t;} if(y1<y0){const t=y0;y0=y1;y1=t;} if(z1<z0){const t=z0;z0=z1;z1=t;}
+      let hex = (typeof p==='number' && paleta[p]) ? paleta[p] : (typeof p==='string' ? p : '#B08D57');
+      return [x0,y0,z0,x1,y1,z1,hex];
+    });
+  }
+
+  function setStatus(msg, isErr){ statusEl.textContent = msg; statusEl.className = isErr?'err':''; }
+
+  function cargar(id){
+    actualId = id;
+    const model = MODELOS[id];
+    const cajas = resolveCajas(model);
+    const {byColor, total, truncated} = expandCajas(cajas, MAX_EXPANDED_VOXELS);
+    buildVoxelModel(byColor, model.grid);
+    nombreActualEl.textContent = model.nombre;
+    metaActualEl.textContent = model.arquetipo+' · capa '+(model.capa||'—')+' · grid '+model.grid.join('x')+' · resolución '+(model.resolucion||'—');
+    setStatus(total.toLocaleString('es')+' vóxeles a partir de '+cajas.length+' bloques'+(truncated?' (recortado)':''));
+    renderLista();
+  }
+
+  function progresoTxt(){
+    const ap = ESTADO.aprobado.length, re = ESTADO.rehacer.length, tot = IDS.length;
+    return `Revisados: ${ap+re}/${tot} · ✅ ${ap} aprobados · 🔁 ${re} para rehacer · pendientes ${tot-ap-re}`;
+  }
+
+  const ARQUETIPOS = [...new Set(IDS.map(id=>MODELOS[id].arquetipo))].sort();
+  let filtroArq = null;
+  filtrosEl.innerHTML = '';
+  const btnTodos = document.createElement('button');
+  btnTodos.textContent = 'todos'; btnTodos.className='active';
+  btnTodos.addEventListener('click', ()=>{ filtroArq=null; marcarFiltro(btnTodos); renderLista(); });
+  filtrosEl.appendChild(btnTodos);
+  function marcarFiltro(activo){ [...filtrosEl.children].forEach(b=>b.classList.toggle('active', b===activo)); }
+  ARQUETIPOS.forEach(arq=>{
+    const b = document.createElement('button');
+    b.textContent = arq.toLowerCase(); b.dataset.arq = arq;
+    b.addEventListener('click', ()=>{ filtroArq=arq; marcarFiltro(b); renderLista(); });
+    filtrosEl.appendChild(b);
+  });
+
+  function renderLista(){
+    progresoEl.textContent = progresoTxt();
+    const q = buscarEl.value.trim().toLowerCase();
+    listaEl.innerHTML = '';
+    const filtrados = IDS.filter(id=>{
+      if(filtroArq && MODELOS[id].arquetipo !== filtroArq) return false;
+      if(q && !id.includes(q) && !MODELOS[id].nombre.includes(q)) return false;
+      return true;
+    });
+    let grupoActual = null;
+    filtrados.forEach(id=>{
+      const arq = MODELOS[id].arquetipo;
+      if(arq !== grupoActual){
+        grupoActual = arq;
+        const h = document.createElement('div');
+        h.className = 'grupo-titulo'; h.textContent = arq.toLowerCase();
+        listaEl.appendChild(h);
+      }
+      const row = document.createElement('div');
+      row.className = 'item st-'+estadoDe(id) + (id===actualId?' selected':'');
+      row.innerHTML = '<span class="dot"></span><span class="nombre">'+MODELOS[id].nombre+'</span>';
+      row.addEventListener('click', ()=>cargar(id));
+      listaEl.appendChild(row);
+    });
+  }
+  buscarEl.addEventListener('input', renderLista);
+
+  // --- persistencia de estado vía la capacidad `artifact` -----------------
+  let artifactCap = null;
+  (async () => {
+    try { artifactCap = (window.claude && typeof window.claude.use === 'function') ? await window.claude.use('artifact') : null; }
+    catch(e){ artifactCap = null; }
+  })();
+
+  function serializarDocumentoActual(){
+    document.getElementById('estado-data').textContent = JSON.stringify(ESTADO);
+    return '<!doctype html>\n' + document.documentElement.outerHTML;
+  }
+
+  async function guardarEstado(mensajeOk){
+    if(!artifactCap){
+      setStatus('Marcado localmente, pero esta vista no puede guardar el estado (capacidad no disponible).', true);
+      return;
+    }
+    try{
+      await artifactCap.publish(serializarDocumentoActual());
+      setStatus(mensajeOk);
+    }catch(e){
+      setStatus('No se pudo guardar el estado (' + (e && e.code || e) + '). Se quedó marcado solo en esta pestaña.', true);
+    }
+  }
+
+  function quitarDeAmbos(id){
+    ESTADO.aprobado = ESTADO.aprobado.filter(x=>x!==id);
+    ESTADO.rehacer = ESTADO.rehacer.filter(x=>x!==id);
+  }
+
+  aprobarBtn.addEventListener('click', ()=>{
+    quitarDeAmbos(actualId); ESTADO.aprobado.push(actualId);
+    renderLista();
+    guardarEstado('✅ "'+MODELOS[actualId].nombre+'" aprobado y guardado.');
+  });
+  rehacerBtn.addEventListener('click', ()=>{
+    quitarDeAmbos(actualId); ESTADO.rehacer.push(actualId);
+    renderLista();
+    guardarEstado('🔁 "'+MODELOS[actualId].nombre+'" marcado para rehacer y guardado.');
+  });
+  siguienteBtn.addEventListener('click', ()=>{
+    const pendiente = IDS.find(id=>estadoDe(id)==='pendiente' && id!==actualId) || IDS.find(id=>estadoDe(id)==='pendiente');
+    if(pendiente) cargar(pendiente); else setStatus('No quedan piezas pendientes de revisar.');
+  });
+
+  function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'') || 'mueble'; }
+  let downloadsCap = null;
+  (async () => {
+    try { downloadsCap = (window.claude && typeof window.claude.use === 'function') ? await window.claude.use('downloads') : null; }
+    catch(e){ downloadsCap = null; }
+  })();
+  jsonBtn.addEventListener('click', async ()=>{
+    if(!downloadsCap){ setStatus('Las descargas no están disponibles en esta vista.', true); return; }
+    try{
+      await downloadsCap.save({filename: slug(actualId)+'.json', data: JSON.stringify(MODELOS[actualId], null, 2)});
+      setStatus('Guardado '+slug(actualId)+'.json');
+    }catch(e){ setStatus('No se pudo guardar ('+(e&&e.code||e)+').', true); }
+  });
+
+  initScene();
+  cargar(actualId);
+})();
+
