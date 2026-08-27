@@ -14,7 +14,17 @@ const { ORIENTACIONES, rotarHuella, rotarOffset } = require("./rotacion");
 const { calcularEstadisticas } = require("./estadisticas");
 const { crearPRNG, barajar } = require("./azar");
 const { construirCatalogoContenido } = require("./catalogoContenido");
-const { AnchorType, Priority } = require("./roomTags");
+const { AnchorType, Priority, RoomTags } = require("./roomTags");
+
+// RoomTags cuya sala fuerza a las piezas repetidas a formar una FILA a lo
+// largo de un mismo muro (mismo mecanismo, aplicable a cualquier tag que
+// tenga sentido como "escaparate/estantería alineada"): tienda de verdad
+// con estanterías en fila, biblioteca con pared de libros, armería con
+// expositores de armas en hilera — en vez de una pieza en cada muro.
+const TAGS_FILA_PARED = [RoomTags.COMUN_TIENDA, RoomTags.NOCOMUN_BIBLIOTECA, RoomTags.COMUN_MILITAR];
+// RoomTags cuya sala amontona las piezas de almacenaje repetidas en el
+// mismo rincón/zona en vez de repartirlas por sitios sueltos de la sala.
+const TAGS_RINCON_ALMACEN = [RoomTags.COMUN_ALMACEN];
 
 // Capas incluidas según el nivel de amueblado (GDD sección 1).
 const CAPAS_POR_AMUEBLADO = {
@@ -135,6 +145,17 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const superficies = []; // hosts con esSuperficie:true ya colocados, para apilar sobreSuperficie encima
   const bordesOcupados = new Set(); // "x_y" de segmentos de pared ya usados por colgadoEnPared
 
+  // Reglas por RoomTag (tipos_sala.json campo `tags`, ver roomTags.js):
+  // que una sala etiquetada COMUN_TIENDA/COMUN_ALMACEN se NOTE en el
+  // plano, no solo en qué piezas admite — mismas estanterías/vitrinas en
+  // fila a lo largo de un muro (tienda) o mismas cajas/cestos/barriles
+  // amontonados en un rincón (almacén), en vez de repartidos al azar por
+  // toda la sala. `ultimaPosicionPorId` es la memoria que usan
+  // `intentarPegadoAPared`/`intentarColocarEnSuelo` para saber dónde cayó
+  // la última instancia de cada `id` y intentar la siguiente pegada a esa.
+  const tagsSala = defSala.tags || [];
+  const ultimaPosicionPorId = new Map();
+
   // Ninguna pieza puede tapar la casilla de entrada justo delante de la
   // puerta (origenCirculacion): circulacionIntacta no lo detecta por sí
   // sola si esa casilla concreta queda ocupada (ver comentario en
@@ -178,9 +199,23 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   function intentarColocarEnSuelo(el) {
     const intentos = 25;
     const preferido = el.colocacion.find((c) => c === "esquina" || c === "pegadaAPared" || c === "centroSala" || c === "libre" || c === "juntoAMesa" || c === "simetrico");
+    // Mismo agrupamiento de COMUN_ALMACEN que intentarPegadoAPared, para
+    // contenedores "libre" (cajas, sacos...) que no van a esquina: la
+    // mayoría de intentos caen cerca de la última instancia de ESTA misma
+    // pieza (radio creciente si no encuentra hueco), no en cualquier punto
+    // suelto de la sala — así salen amontonados, no esparcidos.
+    const agruparAlmacen = tagsSala.some((t) => TAGS_RINCON_ALMACEN.includes(t)) && el.esContenedor && preferido === "libre";
+    const previa = agruparAlmacen ? ultimaPosicionPorId.get(el.id) : undefined;
     for (let i = 0; i < intentos; i++) {
-      const x = elegirEntero(0, ancho - 1);
-      const y = elegirEntero(0, largo - 1);
+      let x, y;
+      if (previa && i < intentos * 0.7) {
+        const radio = 1 + Math.floor(i / 5);
+        x = Math.max(0, Math.min(ancho - 1, previa.x + elegirEntero(-radio, radio)));
+        y = Math.max(0, Math.min(largo - 1, previa.y + elegirEntero(-radio, radio)));
+      } else {
+        x = elegirEntero(0, ancho - 1);
+        y = elegirEntero(0, largo - 1);
+      }
       if (esPuerta(x, y)) continue;
       // Orientación 0/90/180/270 (sección 7): rota la huella entera junto
       // con el tile de interacción, no solo el dibujo. `rotacionesPermitidas`
@@ -203,6 +238,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       }
       colocados.push(item);
       if (el.esSuperficie) superficies.push(item);
+      if (agruparAlmacen) ultimaPosicionPorId.set(el.id, { x, y });
       return true;
     }
     return false;
@@ -245,14 +281,37 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   // resto si están ocupados.
   function intentarPegadoAPared(el, priorizarEsquina) {
     const huellaBase = el.huella || [1, 1];
-    const lados = barajar(["norte", "sur", "este", "oeste"], rnd);
     const gradosPorLado = { norte: 0, sur: 180, oeste: 270, este: 90 };
+
+    // Agrupamiento por RoomTag (sección nueva: "que se note que es una
+    // tienda/almacén, no piezas sueltas repartidas al azar"). Dos casos:
+    // - COMUN_TIENDA + mueble de pared que NO es el ancla de la sala
+    //   (mostrador ya es esSuperficie:true y se queda único): estanterías,
+    //   vitrinas... repiten SIEMPRE en el mismo muro que la vez anterior,
+    //   pegadas a la anterior — así salen en fila, como una tienda de
+    //   verdad, en vez de una en cada pared.
+    // - COMUN_ALMACEN + colocación de esquina (cajas, cestos, barriles,
+    //   sacos son CORNER): repiten cerca del último sitio en vez de cada
+    //   una en una esquina distinta de la sala — un rincón de trastos
+    //   amontonados, no cuatro esquinas con una caja suelta cada una.
+    const agruparEnFila = tagsSala.some((t) => TAGS_FILA_PARED.includes(t)) && !priorizarEsquina && !el.esSuperficie;
+    const agruparEnRincon = tagsSala.some((t) => TAGS_RINCON_ALMACEN.includes(t)) && priorizarEsquina;
+    const previa = (agruparEnFila || agruparEnRincon) ? ultimaPosicionPorId.get(el.id) : undefined;
+
+    let lados = barajar(["norte", "sur", "este", "oeste"], rnd);
+    if (previa) lados = [previa.lado, ...lados.filter((l) => l !== previa.lado)];
+
     for (const lado of lados) {
       const grados = gradosPorLado[lado];
       const huellaRot = rotarHuella(huellaBase, grados);
       let candidatos = candidatosPegadoAPared(lado, huellaRot);
       if (candidatos.length === 0) continue;
-      if (priorizarEsquina) {
+      if (previa && lado === previa.lado) {
+        // Más cerca del último sitio de ESTA misma pieza primero (jitter
+        // pequeño para no ser 100% determinista entre semillas iguales).
+        const distAPrevia = ([x, y]) => Math.abs(x - previa.x) + Math.abs(y - previa.y);
+        candidatos = candidatos.map((c) => [c, distAPrevia(c) + rnd() * 0.5]).sort((a, b) => a[1] - b[1]).map(([c]) => c);
+      } else if (priorizarEsquina) {
         const maxX = ancho - huellaRot[0];
         const maxY = largo - huellaRot[1];
         const distAExtremo = ([x, y]) => (lado === "norte" || lado === "sur" ? Math.min(x, maxX - x) : Math.min(y, maxY - y));
@@ -277,6 +336,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         }
         colocados.push(item);
         if (el.esSuperficie) superficies.push(item);
+        if (agruparEnFila || agruparEnRincon) ultimaPosicionPorId.set(el.id, { x, y, lado });
         return true;
       }
     }
