@@ -22,6 +22,15 @@ Variedad exigida desde el primer momento: **pelos (estilo y color), alturas, com
   - **Todas las caras construidas, siempre** (regla del streamer, igual que en ropa — ver GDD_Ropa_Procedural punto 5): cada vóxel de pelo/barba y cada caja del cuerpo llevan sus 6 caras aunque queden tapadas; al fusionar en el cliente solo se pueden quitar caras interiores entre vóxeles adyacentes, nunca exteriores. Nada puede verse hueco desde ningún ángulo (buceo bajo agua translúcida incluido).
 - `personajes/src/prueba_render_pj.js` — galería SVG de 8 individuos (cuerpo morfado con su piel + pelo/barba/ojos, orden de pintado del pintor) + `prueba_render_png.js` (Playwright global). Salida en `personajes/output/` (gitignored).
 
+## Animales (v1.1) — el mismo creador para todo lo que tenga esqueleto
+
+Decisión del streamer: este creador vóxel no es solo de PJs — **todo lo que tenga esqueleto (animales, insectos, aves...) sale de aquí**, tirando del listado de fauna que ya existe (`baker/catalogo/animales.json`, ~100 especies).
+
+- `personajes/catalogo/animales_rig.json` — rig por especie: MISMOS ids que el catálogo del baker (el color base sale de su `colorDebug` — cero duplicados, el generador valida el cruce), `esqueleto` (plantilla), proporciones en casillas, `escala` por rango (variación individual por semilla) y rasgos (orejas/cuernos/cola/cresta/rayas/alas/antenas). HOY: 6 especies de prueba (conejo, lobo, vaca_salvaje, ciervo, gallina_salvaje, abeja) para validar las plantillas — cuando el streamer dé la orden, se etiqueta el listado entero y se genera todo del tirón.
+- `personajes/src/generarAnimal.js` — 3 plantillas de esqueleto implementadas: **cuadrupedo** (cuerpo+4 patas+cabeza con hocico/orejas/cuernos/cola por rasgo), **ave** (cuerpo+2 patas+alas plegadas+pico/cresta/cola abanico) e **insecto** (cabeza+tórax+abdomen con rayas opcionales+6 patas+antenas+alas). Salida por individuo: `ficha` (especie, esqueleto, escala, color con tono individual, sexo, rasgos) + `piezas` como cajas colgando de PIVOTES con nombre (`cuerpo`/`cabeza`/`pataDelIzq`/.../`cola`/`alaIzq`) — mismo contrato que el rig humanoide: el cliente creará un grupo por pivote y animar será rotar pivotes (andar = patas en contrafase, volar = alas). Rasgos por sexo funcionan (cuernos ramificados del ciervo solo en machos).
+- Plantillas pendientes (se añaden en `ESQUELETOS` + una entrada por especie, sin tocar nada más): pez, serpiente, crustáceo, anfibio.
+- `personajes/src/prueba_render_animales.js` — galería (8 individuos, con zoom de encuadre por especie) sobre el render compartido `renderIso.js` (cajas con las 6 caras, regla del streamer).
+
 ## Verificado (v1)
 
 - **Determinismo**: misma semilla+npcId → ficha idéntica (comprobado programáticamente).

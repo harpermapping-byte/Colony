@@ -1,0 +1,45 @@
+{
+  "_nota": "Rig/esqueleto de ANIMALES para el generador de personajes — las claves son los MISMOS ids de baker/catalogo/animales.json (el color base sale de su colorDebug: cero duplicados; el generador valida que el id exista). Cada entrada: esqueleto (plantilla de generarAnimal.js: cuadrupedo/ave/insecto — pez/serpiente/cangrejo pendientes de plantilla), proporciones en CASILLAS de la especie adulta media, escala con RANGO [min,max] (cada individuo cae en un punto por semilla, igual que la morfología de NPCs) y rasgos propios de la plantilla (orejas/cuernos/cola/cresta/rayas...). ESTO ES EL ARRANQUE DE PRUEBA (6 especies para validar las 3 plantillas): cuando el streamer dé la orden se etiqueta el listado entero de ~100 especies y se genera todo del tirón, sin tocar el generador.",
+
+  "conejo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [0.85, 1.15],
+    "proporciones": { "largoCuerpo": 0.5, "altoCuerpo": 0.28, "anchoCuerpo": 0.26, "altoPata": 0.12, "grosorPata": 0.07, "tamCabeza": 0.22 },
+    "rasgos": { "orejas": "largas", "cola": "pomo", "hocico": "corto" }
+  },
+
+  "lobo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [0.9, 1.15],
+    "proporciones": { "largoCuerpo": 1.0, "altoCuerpo": 0.42, "anchoCuerpo": 0.34, "altoPata": 0.42, "grosorPata": 0.1, "tamCabeza": 0.32 },
+    "rasgos": { "orejas": "puntiagudas", "cola": "larga", "hocico": "largo" }
+  },
+
+  "vaca_salvaje": {
+    "esqueleto": "cuadrupedo",
+    "escala": [0.95, 1.1],
+    "proporciones": { "largoCuerpo": 1.5, "altoCuerpo": 0.75, "anchoCuerpo": 0.6, "altoPata": 0.55, "grosorPata": 0.14, "tamCabeza": 0.42 },
+    "rasgos": { "orejas": "laterales", "cola": "larga", "hocico": "medio", "cuernos": "cortos" }
+  },
+
+  "ciervo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [0.9, 1.1],
+    "proporciones": { "largoCuerpo": 1.2, "altoCuerpo": 0.55, "anchoCuerpo": 0.4, "altoPata": 0.65, "grosorPata": 0.09, "tamCabeza": 0.32 },
+    "rasgos": { "orejas": "puntiagudas", "cola": "corta", "hocico": "medio", "cuernos": "ramificados", "_nota": "cuernos solo en machos (sexoPesos de la plantilla)" }
+  },
+
+  "gallina_salvaje": {
+    "esqueleto": "ave",
+    "escala": [0.85, 1.1],
+    "proporciones": { "largoCuerpo": 0.4, "altoCuerpo": 0.3, "anchoCuerpo": 0.28, "altoPata": 0.16, "tamCabeza": 0.16 },
+    "rasgos": { "cresta": true, "pico": "corto", "cola": "abanico", "vuela": false }
+  },
+
+  "abeja": {
+    "esqueleto": "insecto",
+    "escala": [0.8, 1.2],
+    "proporciones": { "largoCuerpo": 0.24, "altoCuerpo": 0.12, "anchoCuerpo": 0.12, "altoPata": 0.05, "tamCabeza": 0.08 },
+    "rasgos": { "alas": true, "antenas": true, "rayas": "#2a2013", "_nota": "rayas: color alterno del abdomen sobre el colorDebug base" }
+  }
+}
