@@ -143,8 +143,32 @@ Reglas derivadas (confirmadas por el usuario):
 
 ## 6. Estado actual
 
-Flujo completo acordado (sección 4) y REFERENCIAS RECIBIDAS (4.4): el
-diseño está listo para construir. Orden natural: primero el generador del
-recinto (muralla por tier + plaza + calle principal + calles + parcelas +
-edificios por tags, export en formato de sectores + overview PNG +
-placeholder exterior), después el cruce de portales en runtime.
+**Motor v1 CONSTRUIDO** (`ciudades/`, 2026-08-27), según el flujo de la
+sección 4:
+
+- `catalogo/asentamientos.json`: 5 tiers (aldea_pequena, aldea, pueblo,
+  capital, castillo) con recinto, muralla (material/grosor/nº puertas),
+  plaza y edificios (obligatorios + ponderados por id de
+  `tipos_edificio.json`, patrón `salasPorPlanta`).
+- `src/generar.js`: recinto "cubo sin techo" — muralla estanca con
+  puertas, calle de ronda, plaza central, calle principal puerta→plaza,
+  filas de parcelas con callejón-calle bajo cada fachada, y **bake
+  anidado**: el interior real de cada edificio (motor de interiores) se
+  genera primero y su planta baja + muros ES la huella colocada.
+  `validarCiudad()`: estanqueidad (flood-fill desde fuera con puertas
+  tapadas), conectividad de todas las puertas de edificio desde el spawn,
+  y no-solape.
+- `src/index.js` (CLI `node ciudades/src/index.js <tier> <semilla>`):
+  exporta sectores + indice EN EL FORMATO DEL BAKER (crearExportador
+  reutilizado; `indice.portales` y `tier` añadidos), los interiores del
+  bake anidado (`interiores/*.json`), y `overview.png`. Verificado que
+  `server/src/mundo/mapaColision.ts` carga una capital SIN CAMBIOS.
+- Terrenos urbanos nuevos en `baker/catalogo/terrenos.json`: `adoquin`,
+  `muralla_piedra`, `empalizada`, `solar_edificio` (con `uso`).
+- Tests: `node --test ciudades/test/ciudad.test.js` (6).
+
+Pendiente: layout BSP para ciudades grandes (§4.2 — hoy todos los tiers
+usan el orgánico), hito de plaza y puestos de mercado (props), el prop 3D
+exterior de la ciudad sobre el mapa principal (placeholder + programa del
+usuario), decoración ambiental, el bakeado especial de la ciudad
+principal, y el CRUCE DE PORTALES en runtime (rooms bajo demanda, §4.3).

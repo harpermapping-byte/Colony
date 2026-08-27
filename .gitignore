@@ -5,6 +5,7 @@ dist/
 *.log
 baker/output/
 interiores/output/
+ciudades/output/
 # salidas del taller (regenerables)
 taller-vox/*.glb
 taller-vox/vox/

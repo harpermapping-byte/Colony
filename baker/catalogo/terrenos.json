@@ -19,5 +19,10 @@
   "roca_inaccesible": { "transitable": false, "colorDebug": "#5c5c5c" },
   "ceniza": { "transitable": true, "modVelocidad": 0.7, "estratigrafia": "roca_volcanica", "colorDebug": "#4a4440" },
   "roca_volcanica": { "transitable": true, "modVelocidad": 0.6, "esBaseRocosa": true, "colorDebug": "#2e2825" },
-  "lava": { "transitable": false, "quema": true, "colorDebug": "#c9401f" }
+  "lava": { "transitable": false, "quema": true, "colorDebug": "#c9401f" },
+
+  "adoquin": { "uso": "suelo urbano de plazas y calles principales de los mapas de ciudad (bakeador de ciudades)", "transitable": true, "modVelocidad": 1.05, "colorDebug": "#9a938a" },
+  "muralla_piedra": { "uso": "muralla perimetral de asentamientos ricos/capitales/castillos — acota el mapa de ciudad como un interior sin techo", "transitable": false, "colorDebug": "#6e6a62" },
+  "empalizada": { "uso": "cerca de madera de aldeas pobres — misma función de muralla, material humilde", "transitable": false, "colorDebug": "#7a5a34" },
+  "solar_edificio": { "uso": "huella (footprint) de un edificio en el mapa de ciudad: bloquea el paso entero; la entrada real es su casilla portal", "transitable": false, "colorDebug": "#8a4e2e" }
 }
