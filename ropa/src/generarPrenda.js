@@ -12,6 +12,7 @@
 // tal y como pide el diseño (nunca una prenda con huesos propios).
 
 const { crearPRNG } = require("../../interiores/src/azar");
+const { aplicarMorfologia } = require("./morfologia");
 
 // La ropa se genera un pelín más ancha que el cuerpo desnudo para que se
 // vea como una capa sobre la piel sin fundirse con ella — no es físico
@@ -223,11 +224,16 @@ const GENERADORES_POR_TIPO = {
 /**
  * Genera una prenda concreta en vóxeles.
  * @param {string} prendaId - clave en ropa/catalogo/prendas.json
- * @param {object} opciones - { semilla, materialId, tintes, catalogos }
+ * @param {object} opciones - { semilla, materialId, tintes, catalogos, morfologia }
  *   tintes: { [zona]: "#rrggbb" } — override del jugador para zonas tintables.
+ *   morfologia: { altura?, corpulencia?, sexo? } — la MISMA morfología del
+ *     personaje que recibe el rig del cliente. La prenda no tiene medidas
+ *     propias: se genera sobre el cuerpo ya morfado + MARGEN_CAPA, por eso
+ *     acopla igual en un personaje alto, bajo, ancho o estrecho. Omitida =
+ *     talla base (factores neutros).
  */
 function generarPrenda(prendaId, opciones) {
-  const { catalogos, semilla, materialId, tintes } = opciones;
+  const { catalogos, semilla, materialId, tintes, morfologia } = opciones;
   const prenda = catalogos.prendas[prendaId];
   if (!prenda) throw new Error(`Prenda desconocida: ${prendaId}`);
   const material = catalogos.materiales[materialId];
@@ -241,7 +247,12 @@ function generarPrenda(prendaId, opciones) {
   const generador = GENERADORES_POR_TIPO[prenda.tipoPrenda];
   if (!generador) throw new Error(`Sin generador para tipoPrenda: ${prenda.tipoPrenda}`);
 
-  const voxeles = generador(prenda, material, colores, rnd, catalogos.proporcionesRig).map((v) => ({
+  // El cuerpo primero, la ropa después: mismas medidas morfadas que usa el
+  // rig para dibujar este personaje concreto — la prenda solo añade su
+  // margen de capa encima, nunca decide tamaños por su cuenta.
+  const cuerpo = aplicarMorfologia(catalogos.proporcionesRig, morfologia);
+
+  const voxeles = generador(prenda, material, colores, rnd, cuerpo).map((v) => ({
     ...v,
     // slotCuerpo por defecto si el generador no fijó un pivote propio
     // (mangas/piernas/cabeza sí lo fijan; el resto cuelga del slot base).

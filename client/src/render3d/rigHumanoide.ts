@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import proporciones from "./proporcionesRig.json";
+import proporcionesBase from "./proporcionesRig.json";
+import { aplicarMorfologia, type Morfologia } from "./morfologia";
 
 /**
  * Rig humanoide básico estilo Roblox/Minecraft: 6 piezas independientes
@@ -20,19 +21,20 @@ import proporciones from "./proporcionesRig.json";
  * cada pieza, no la animación ni la API.
  */
 
-// Alturas de referencia (unidades de mundo; 1 unidad = 1 casilla) —
-// leídas de proporcionesRig.json, que es la MISMA fuente que usa
-// ropa/src/generarPrenda.js para que la ropa procedural encaje sobre
-// este rig sin medidas duplicadas a mano.
-const ALTO_PIERNA = proporciones.altoPierna;
-const ALTO_TORSO = proporciones.altoTorso;
-const LADO_CABEZA = proporciones.ladoCabeza;
-export const ALTO_RIG = ALTO_PIERNA + ALTO_TORSO + LADO_CABEZA; // ≈ 1.57
+// Altura de referencia del personaje de talla base (unidades de mundo;
+// 1 unidad = 1 casilla). Las medidas viven en proporcionesRig.json — la
+// MISMA fuente que usa ropa/src/generarPrenda.js — y cada personaje las
+// recibe ya morfadas por altura/corpulencia/sexo (aplicarMorfologia), así
+// la ropa generada sobre esa misma morfología encaja sin ajuste ninguno.
+export const ALTO_RIG =
+  proporcionesBase.altoPierna + proporcionesBase.altoTorso + proporcionesBase.ladoCabeza; // ≈ 1.57 en talla base
 
 export interface OpcionesRig {
   colorTunica: string; // torso+brazos (la "ropa" del placeholder)
   colorPiel?: string;
   colorPelo?: string;
+  /** Altura/corpulencia/sexo del personaje — omitida = talla base. */
+  morfologia?: Morfologia;
 }
 
 export interface RigHumanoide {
@@ -56,6 +58,13 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   const colorPiel = opciones.colorPiel || "#c8956c";
   const colorPelo = opciones.colorPelo || "#4a3220";
   const colorTunica = opciones.colorTunica;
+
+  // Medidas de ESTE personaje: base + su morfología. Todo lo de abajo se
+  // construye sobre estas, nunca sobre proporcionesBase directamente.
+  const proporciones = aplicarMorfologia(opciones.morfologia);
+  const ALTO_PIERNA = proporciones.altoPierna;
+  const ALTO_TORSO = proporciones.altoTorso;
+  const LADO_CABEZA = proporciones.ladoCabeza;
 
   const raiz = new THREE.Group(); // anclada por los pies, como todo en el proyecto
 

@@ -10,6 +10,7 @@ const fs = require("fs");
 const path = require("path");
 const { cargarCatalogos } = require("./catalogo");
 const { generarPrenda, ajustarColor } = require("./generarPrenda");
+const { aplicarMorfologia } = require("./morfologia");
 
 const catalogos = cargarCatalogos();
 
@@ -17,6 +18,12 @@ const PRUEBAS = [
   { prendaId: "camisa_lino_campesina", materialId: "lino", semilla: "prueba-campesino-01", tintes: { cuerpo: "#c9a86a", cuello: "#8a6a3a" } },
   { prendaId: "pantalon_lana_campesino", materialId: "lana", semilla: "prueba-campesino-01", tintes: { cinturon: "#4a3220" } },
   { prendaId: "gorro_lino_campesino", materialId: "lino", semilla: "prueba-campesino-01" },
+  // Misma camisa, misma semilla, distinta morfología de personaje — la
+  // prenda debe salir con las medidas del cuerpo morfado (más ancha, más
+  // alta, hombros más estrechos...), nunca con una talla fija.
+  { prendaId: "camisa_lino_campesina", materialId: "lino", semilla: "prueba-campesino-01", tintes: { cuerpo: "#c9a86a", cuello: "#8a6a3a" }, morfologia: { altura: 0.88, corpulencia: 1.2, sexo: "hombre" }, sufijo: "bajo_ancho" },
+  { prendaId: "camisa_lino_campesina", materialId: "lino", semilla: "prueba-campesino-01", tintes: { cuerpo: "#c9a86a", cuello: "#8a6a3a" }, morfologia: { altura: 1.12, corpulencia: 0.85, sexo: "hombre" }, sufijo: "alto_delgado" },
+  { prendaId: "camisa_lino_campesina", materialId: "lino", semilla: "prueba-campesino-01", tintes: { cuerpo: "#c9a86a", cuello: "#8a6a3a" }, morfologia: { sexo: "mujer" }, sufijo: "mujer" },
 ];
 
 const U = 220; // px por unidad de mundo (las prendas son diminutas, ~0.3-0.7)
@@ -65,8 +72,8 @@ function desplazamientosPivote(rig) {
   };
 }
 
-function renderPrenda({ prendaId, materialId, semilla, tintes }) {
-  const resultado = generarPrenda(prendaId, { catalogos, materialId, semilla, tintes });
+function renderPrenda({ prendaId, materialId, semilla, tintes, morfologia, sufijo }) {
+  const resultado = generarPrenda(prendaId, { catalogos, materialId, semilla, tintes, morfologia });
   const prenda = catalogos.prendas[prendaId];
   const { x: nx, y: ny, z: nz } = prenda.voxelResolucion;
 
@@ -75,7 +82,9 @@ function renderPrenda({ prendaId, materialId, semilla, tintes }) {
   // de la resolución declarada y las proporciones del rig).
   const celdaAprox = [0.44 / nx, 0.55 / ny, 0.3 / nz];
 
-  const desplazamientos = desplazamientosPivote(catalogos.proporcionesRig);
+  // Los pivotes también se morfan (hombros más anchos = mangas más
+  // separadas) — mismas medidas de cuerpo que usó generarPrenda().
+  const desplazamientos = desplazamientosPivote(aplicarMorfologia(catalogos.proporcionesRig, morfologia));
   const voxelesDesplazados = resultado.voxeles.map((v) => {
     const d = desplazamientos[v.pivote] || { x: 0, y: 0, z: 0 };
     return { ...v, x: v.x + d.x, y: v.y + d.y, z: v.z + d.z };
@@ -83,17 +92,21 @@ function renderPrenda({ prendaId, materialId, semilla, tintes }) {
   const voxelesOrdenados = voxelesDesplazados.slice().sort((a, b) => (a.y - a.z) - (b.y - b.z) || (a.x + a.z) - (b.x + b.z));
   const cuerpo = voxelesOrdenados.map((v) => dibujarVoxel(v, celdaAprox)).join("\n");
 
+  const nombreSalida = sufijo ? `${prendaId}__${sufijo}` : prendaId;
+  const etiquetaMorfo = morfologia
+    ? ` [${["altura", "corpulencia"].map((k) => morfologia[k] ? `${k[0]}=${morfologia[k]}` : "").filter(Boolean).join(" ")}${morfologia.sexo ? " " + morfologia.sexo : ""}]`
+    : "";
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="-250 -420 500 500">
   <rect x="-250" y="-420" width="500" height="500" fill="#1b1b22"/>
-  <text x="-240" y="-395" fill="#eee" font-family="monospace" font-size="14">${prendaId} — ${materialId} (${resultado.voxeles.length} vóxeles)</text>
+  <text x="-240" y="-395" fill="#eee" font-family="monospace" font-size="14">${prendaId} — ${materialId}${etiquetaMorfo} (${resultado.voxeles.length} vóxeles)</text>
   ${cuerpo}
 </svg>`;
 
-  const salida = path.join(__dirname, "..", "output", `${prendaId}.svg`);
+  const salida = path.join(__dirname, "..", "output", `${nombreSalida}.svg`);
   fs.mkdirSync(path.dirname(salida), { recursive: true });
   fs.writeFileSync(salida, svg, "utf8");
-  console.log(`${prendaId}: ${resultado.voxeles.length} vóxeles -> ${salida}`);
-  return { prendaId, svg, total: resultado.voxeles.length };
+  console.log(`${nombreSalida}: ${resultado.voxeles.length} vóxeles -> ${salida}`);
+  return { prendaId: nombreSalida, svg, total: resultado.voxeles.length };
 }
 
 if (require.main === module) {

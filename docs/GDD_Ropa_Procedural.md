@@ -32,6 +32,21 @@ Antes de programar las 3 siluetas se buscó referencia real:
 - `ropa/src/generarPrenda.js` — generador procedural: cada prenda es una pila de capas horizontales por parte del cuerpo (torso, cada manga, cada pierna, cabeza), con una función de silueta propia por `tipoPrenda` (camisa/pantalón/gorro) que da el vuelo del bajo, el entallado del puño/tobillo, el cinturón, el borde del gorro. PRNG determinista (`interiores/src/azar.js`, reutilizado tal cual) para la variación natural de color y para los remiendos. Cada vóxel sale con `{x,y,z,color,zona,parte,pivote}` — `pivote` dice a qué hueso del rig cuelga esa parte.
 - `ropa/src/prueba_render_voxel.js` + `ropa/src/prueba_render_png.js` — vista de prueba isométrica (SVG, cero dependencias nuevas) + conversión a PNG con el Playwright global del entorno, para revisar las 3 prendas antes de tocar el cliente de verdad. Salida en `ropa/output/` (gitignored, igual que `baker/output/`/`interiores/output/`).
 
+## Morfología del personaje (alto/bajo/gordo/delgado/hombre/mujer) — v1.1
+
+Decisión confirmada con el streamer: la ropa debe acoplarse a la forma de CADA personaje desde el primer momento, no tener una talla fija.
+
+Cómo se resolvió — **la prenda no tiene medidas propias, nunca**: se genera a partir de las medidas del cuerpo YA morfado + su margen de capa (`MARGEN_CAPA`). Los mismos tres valores de morfología (`altura`, `corpulencia`, `sexo`) alimentan al rig y al generador de ropa, así el acople es automático por construcción — no hay "ajuste de talla" posterior porque no hay tallas.
+
+- `client/src/render3d/morfologia.json` — fuente única de las reglas: rangos de los sliders (`altura` 0.88–1.12, `corpulencia` 0.85–1.2), factores derivados por sexo (hombre: hombros 1.0/caderas 0.95; mujer: hombros 0.9/caderas 1.06) y el mapa `escalas` de qué factor multiplica qué medida de `proporcionesRig.json` (las alturas escalan con `altura`, los anchos/fondos con `corpulencia`, hombros/caderas además con el factor de sexo). **La cabeza no escala a propósito**: los gorros valen para cualquier morfología sin regenerar.
+- `client/src/render3d/morfologia.ts` y `ropa/src/morfologia.js` — los dos aplicadores gemelos (TS para el rig, CJS para el generador). Son genéricos y diminutos (leer ruta del JSON, multiplicar): los NÚMEROS viven solo en el JSON; si se cambia el CÓMO se aplica, hay que tocar los dos (avisado en comentario de ambos).
+- `rigHumanoide.ts` — `OpcionesRig.morfologia` opcional; el rig entero se construye sobre las proporciones morfadas de esa instancia (omitida = talla base, cero cambio para el código existente). `ALTO_RIG` sigue siendo la altura de talla base.
+- `generarPrenda()` — `opciones.morfologia` opcional con la misma forma exacta.
+
+Verificado con números (misma camisa, misma semilla, resolución de vóxeles constante — solo cambia el tamaño de celda): torso base 0.479 ancho × 0.508 alto; bajo+corpulento 0.575 × 0.447; alto+delgado 0.407 × 0.569; mujer 0.431 × 0.508 (hombros −10%, misma altura). Y visualmente con `prueba_render_voxel.js`, que genera las 3 morfologías extra de la camisa (`__bajo_ancho`, `__alto_delgado`, `__mujer`) desplazando también los PIVOTES morfados (hombros más anchos = mangas más separadas), igual que hará el rig real.
+
+Pendiente de decidir cuando llegue el creador de personajes: dónde vive la morfología elegida (savegame/servidor) y si `corpulencia` se separa en dos sliders (musculatura vs grasa). El contrato con este módulo no cambia: `{ altura, corpulencia, sexo }` entra, prenda acoplada sale.
+
 ## Resultado de la primera pasada (revisado visualmente)
 
 Las 3 siluetas ya leen como lo que son (túnica con mangas y bajo abierto, calza con cinturón marcado en la cadera y entallado al tobillo, cofia con borde vuelto y cordón) y la fusión con los pivotes del rig cuadra con `rigHumanoide.ts`. Pendiente de una segunda pasada guiada por el streamer una vez vea las imágenes — candidatos ya identificados para ajustar: el gorro sale más "de pico" (cono) que de cúpula por cómo se estrecha el radio hacia arriba, la manga larga queda muy tapada por el propio torso en la vista isométrica (habría que revisar el ángulo o el ancho de manga), y el vuelo del bajo de la camisa es de una sola fila — puede que necesite 2-3 filas para leerse bien a la escala real del juego.
