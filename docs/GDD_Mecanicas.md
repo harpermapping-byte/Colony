@@ -161,7 +161,117 @@ Aplicado a recursos:
 Al entrar a la room se aparece en la `ciudad` del índice del mapa,
 corregida a la casilla de TIERRA pisable más cercana (búsqueda en anillos).
 
-## 5. Cómo se prueba (obligatorio antes de tocar estas reglas)
+## 5. Sistemas RPG — guía maestra (VISIÓN acordada 2026-08-27; cada sistema se pule aquí antes de codificarse)
+
+El MMO RPG "al uso" que persigue el proyecto, apuntado para que cada
+mecánica nueva encaje en este esqueleto en vez de improvisarse. Regla de
+oro repetida: catálogo como fuente de verdad + servidor autoritativo
+(§3.5) en TODOS estos sistemas.
+
+### 5.1 EXP y habilidades (configurar DESDE EL INICIO)
+
+- Modelo por HABILIDADES que suben con el uso (estilo RuneScape/UO):
+  recolectar madera sube `lenador`, minar sube `mineria`, craftear sube la
+  profesión de la receta, y "casi todas las acciones" dan EXP a la
+  habilidad que les corresponde.
+- **`catalogo/habilidades.json`** (futuro): id, nombre, `uso`, curva de
+  EXP por nivel (una sola fórmula global parametrizada, no una tabla por
+  habilidad), y qué desbloquea cada tramo (blueprints, herramientas).
+- **Un único punto de otorgamiento en el servidor**: toda mecánica emite
+  un evento `accion(habilidad, exp)` a un módulo central de progresión —
+  así el "qué da EXP" vive en el catálogo de cada cosa (la especie dice la
+  EXP de recolectarla, la receta la de craftearla) y nunca desperdigado
+  por el código. Esto es lo que hay que dejar montado desde la primera
+  mecánica que dé EXP (recolección).
+- Habilidades del PJ = estado persistente del jugador (ver 5.7).
+
+### 5.2 Crafteo con blueprints y profesiones
+
+- **`catalogo/recetas.json`** (futuro): ingredientes (materiales +
+  cantidades), estación necesaria, habilidad + nivel mínimo, EXP que da,
+  resultado (+ cantidad). Los blueprints son conocimiento del PJ: una
+  receta se APRENDE (drop/compra/nivel) y pasa a su lista aprendida.
+- **Las estaciones de crafteo son los muebles de interiores**: la forja,
+  el banco de carpintero o el telar ya existen en el catálogo de
+  interiores con sus RoomTags — la receta referencia el tag del mueble
+  (`forja`), no un mueble concreto. Sinergia directa con lo ya construido.
+- Craftear = interacción validada en servidor: consume ingredientes,
+  produce resultado, da EXP. Atómico (nunca puede quedar a medias).
+
+### 5.3 Inventario: rejilla tipo Tetris + peso (decidido)
+
+- Cada objeto de `materiales.json` define **`tamano: [ancho, alto]`** en
+  celdas y **`peso`** por unidad. El inventario es una REJILLA en la que
+  los objetos ocupan su silueta (encajar como Tetris) Y a la vez suma un
+  PESO total contra la capacidad del PJ.
+- **Stack**: el mismo material apila en una celda hasta su pila máxima; el
+  peso del stack es peso unitario × cantidad (stackear no descuenta peso).
+- Capacidad de peso = base del PJ + atributos + equipo (5.4). Pasarse de
+  peso: penaliza velocidad (no bloquea coger — a afinar).
+- Servidor autoritativo también en la COLOCACIÓN: mover un objeto en la
+  rejilla es un mensaje validado (anti-duplicación); el inventario de cada
+  jugador solo se sincroniza a su dueño (filtrado por cliente de
+  Colyseus).
+
+### 5.4 Equipamiento y atributos (decidido en líneas generales)
+
+- Slots de equipo: **mano** (ya diseñado en §3.4 — herramienta/arma),
+  cabeza, torso, piernas, pies, espalda… La ropa/armadura da **defensa**,
+  puede dar **capacidad de peso** extra, y las bolsas/mochilas añaden
+  REJILLA extra de inventario (otro grid anidado).
+- Atributos del PJ: **vida**, defensa (derivada del equipo), capacidad de
+  peso, velocidad… — pocos y claros al principio; la lista exacta se
+  cierra cuando se diseñe combate.
+- Los equipables viven en el mismo catálogo de objetos con tag
+  `equipable` + su slot + sus stats (nada de catálogo aparte).
+
+### 5.5 Objetos por el suelo (persistencia visible, decidido)
+
+- Dropear un objeto lo saca del inventario y crea un **prop en su casilla
+  visible para TODOS**, durante MUCHO tiempo (orientativo: días de juego,
+  no minutos) — la sensación de mundo persistente que se busca.
+- Mismo patrón de estado que los nodos de recurso: diccionario compartido
+  `casilla → {material, cantidad, caducidad}` con expiración PEREZOSA, y
+  un tope de drops por chunk (el exceso caduca antes) para que el free
+  tier no acumule basura infinita.
+- Recoger un drop = misma interacción F validada en servidor (el primero
+  que llega se lo lleva).
+
+### 5.6 NPCs con IA conversacional y jugador-a-jugador (visión)
+
+- NPCs con ficha propia (personalidad, oficio) que **responden con IA y
+  tienen memoria interna** (resumen persistente de lo que han vivido/
+  hablado, no transcripciones enteras). La respuesta es asíncrona: el
+  juego nunca espera a la IA en el tick de simulación.
+- Restricción dura: **todo gratis** → capa de proveedor intercambiable con
+  presupuesto de llamadas (free tiers de APIs de LLM son limitados),
+  respuestas cacheadas para charla trivial, y la memoria en el mismo
+  almacén persistente que el resto (5.7). ⚠️ Decisión pendiente: qué
+  proveedor/es gratuitos y qué límites de uso por NPC/jugador.
+- Interacción jugador-jugador: comercio con intercambio ATÓMICO arbitrado
+  por servidor (ambos confirman → se ejecuta entero o nada), chat, y más
+  adelante grupos/gremios. Nada de tratos peer-to-peer sin árbitro.
+
+### 5.7 Persistencia (transversal, ⚠️ LA decisión pendiente más importante)
+
+Habilidades, inventario, equipo, drops en el suelo y nodos tocados deben
+sobrevivir a reinicios del servidor — y el free tier de Render DUERME el
+proceso y no tiene disco persistente. Hace falta un almacén externo
+gratuito (candidatos: Postgres free tier tipo Neon/Supabase, o similar)
+con escritura PEREZOSA (guardar al salir el jugador + snapshot periódico
+espaciado, nunca cada tick). Decidir esto ANTES de implementar EXP e
+inventario, porque son los primeros datos que duele perder.
+
+### 5.8 Orden de construcción propuesto
+
+1. Recursos v1 (§3) + inventario simple (contador) → 2. módulo central de
+EXP/habilidades + persistencia (5.7) → 3. inventario rejilla+peso (5.3) →
+4. equipo/slots (5.4) → 5. crafteo con recetas y estaciones (5.2) →
+6. drops en suelo (5.5) → 7. comercio jugador-jugador → 8. NPCs IA (5.6).
+Cada paso entra por su sección de este GDD, se pule, y solo entonces se
+codifica.
+
+## 6. Cómo se prueba (obligatorio antes de tocar estas reglas)
 
 - `cd server && npm test` — suite pura de colisiones (8 tests: bloqueo,
   slide, bordes, agua como medio, niveles, empuje PJ-PJ, mapa demo real).
