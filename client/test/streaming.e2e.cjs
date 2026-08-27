@@ -29,11 +29,28 @@ async function esperarPuerto(url, intentos = 60) {
 
 async function main() {
   const procesos = [];
+  // detached + kill del GRUPO: `npx` lanza tsx/vite como nietos y matar solo
+  // al wrapper deja zombis colgando de los puertos — un e2e posterior acaba
+  // hablando con un vite/servidor viejo y falla de forma incomprensible
+  // (nos pasó: join colgado para siempre contra un servidor muerto).
   const lanzar = (comando, args, cwd) => {
-    const p = spawn(comando, args, { cwd, stdio: "pipe", env: { ...process.env } });
+    const p = spawn(comando, args, { cwd, stdio: "pipe", env: { ...process.env }, detached: true });
     procesos.push(p);
     return p;
   };
+  const matarTodo = () => {
+    for (const p of procesos) {
+      try { process.kill(-p.pid, "SIGKILL"); } catch {}
+      try { p.kill("SIGKILL"); } catch {}
+    }
+  };
+
+  // Puertos libres ANTES de arrancar: si quedó un zombi de otra ronda, mejor
+  // fallar aquí con un mensaje claro que depurar un cliente colgado.
+  for (const puerto of [5199, 2567]) {
+    const ocupado = await fetch(`http://localhost:${puerto}/`).then(() => true).catch(() => false);
+    if (ocupado) throw new Error(`El puerto ${puerto} ya está ocupado (proceso zombi de otra ronda) — mátalo antes de correr el e2e`);
+  }
 
   let fallos = 0;
   const comprobar = (condicion, mensaje) => {
@@ -81,7 +98,7 @@ async function main() {
 
     await browser.close();
   } finally {
-    for (const p of procesos) p.kill("SIGKILL");
+    matarTodo();
   }
 
   console.log(fallos === 0 ? "E2E OK" : `E2E con ${fallos} fallo(s)`);
