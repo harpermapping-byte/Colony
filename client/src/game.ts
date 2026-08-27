@@ -1,7 +1,8 @@
 import { Client, getStateCallbacks } from "colyseus.js";
 import { SERVER_URL } from "./config";
 import { WorldScene } from "./render3d/worldScene";
-import { crearRigHumanoide, type RigHumanoide } from "./render3d/rigHumanoide";
+import { type RigHumanoide } from "./render3d/rigHumanoide";
+import { crearPersonajeVoxel } from "./render3d/personajeVoxel";
 import { cargarMapa } from "./mapa/cargarMapa";
 import { crearTerreno } from "./render3d/terreno";
 import { crearPropsBakeados } from "./render3d/propsBakeados";
@@ -14,7 +15,9 @@ const COLOR_JUGADOR_REMOTO = "#4fd1c5";
 
 // Mapa bakeado que carga el cliente (assets/mapas/<nombre>/ — el bakeador
 // escribió ahí sus sectores; el cliente solo materializa lo que dicen).
-const RUTA_MAPA = "/assets/mapas/demo";
+// Se puede elegir otro mapa commiteado sin tocar código: ?mapa=<nombre>
+const NOMBRE_MAPA = new URLSearchParams(location.search).get("mapa") || "demo";
+const RUTA_MAPA = `/assets/mapas/${NOMBRE_MAPA}`;
 
 const PIXELES_POR_UNIDAD = 32; // coords del servidor (px) -> unidades de mundo (1 = 1 casilla)
 
@@ -68,7 +71,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   $(room.state).players.onAdd((player: any, sessionId: string) => {
     const esYo = sessionId === room.sessionId;
-    const rig = crearRigHumanoide({ colorTunica: esYo ? COLOR_JUGADOR_LOCAL : COLOR_JUGADOR_REMOTO });
+    const rig = crearPersonajeVoxel({ colorTunica: esYo ? COLOR_JUGADOR_LOCAL : COLOR_JUGADOR_REMOTO });
     const estado: EstadoJugador = {
       rig,
       destinoX: player.x / PIXELES_POR_UNIDAD,
