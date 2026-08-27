@@ -20,21 +20,28 @@ const PUERTO_WS = 2599;
 const PUERTO_WEB = 5199;
 
 function lanzar(cmd, args, cwd, extraEnv = {}) {
-  // detached + kill del grupo: npx crea hijos (tsx/vite) que sobrevivirían
-  // si solo se matara al padre, dejando los puertos ocupados para siempre
+  // detached + kill del GRUPO entero al salir: npx lanza tsx/vite como
+  // nietos, y matar solo al wrapper deja zombis en los puertos que rompen
+  // la siguiente ronda de e2e de forma incomprensible.
   const p = spawn(cmd, args, { cwd, env: { ...process.env, ...extraEnv }, stdio: ["ignore", "pipe", "pipe"], detached: true });
   p.stdout.on("data", (d) => process.stdout.write(`[${cmd}] ${d}`));
   p.stderr.on("data", (d) => process.stderr.write(`[${cmd}] ${d}`));
   return p;
 }
 
-const servidor = lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO_WS) });
+// Este test depende de la GEOMETRÍA DEL DEMO (lago/roca en casillas
+// concretas): se fuerza el demo en servidor y cliente aunque el juego real
+// corra sobre el mapa principal por streaming.
+const rutaDemo = join(dirCliente, "..", "assets", "mapas", "demo");
+const servidor = lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO_WS), RUTA_MAPA: rutaDemo });
 const vite = lanzar("npx", ["vite", "--port", String(PUERTO_WEB), "--strictPort"], dirCliente, {
   VITE_COLYSEUS_URL: `ws://localhost:${PUERTO_WS}`,
+  VITE_RUTA_MAPA: "/assets/mapas/demo",
 });
 const matar = () => {
   for (const p of [servidor, vite]) {
-    try { process.kill(-p.pid, "SIGTERM"); } catch { /* ya muerto */ }
+    try { process.kill(-p.pid, "SIGKILL"); } catch {}
+    try { p.kill("SIGKILL"); } catch {}
   }
 };
 process.on("exit", matar);

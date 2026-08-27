@@ -2,9 +2,10 @@ import { Client, getStateCallbacks } from "colyseus.js";
 import { SERVER_URL } from "./config";
 import { WorldScene } from "./render3d/worldScene";
 import { crearRigHumanoide, type RigHumanoide } from "./render3d/rigHumanoide";
-import { cargarMapa } from "./mapa/cargarMapa";
-import { crearTerreno } from "./render3d/terreno";
-import { crearPropsBakeados } from "./render3d/propsBakeados";
+import { cargarIndice, cargarSector } from "./mapa/cargarMapa";
+import type { Group } from "three";
+import { StreamingSectores } from "./mapa/streamingSectores";
+import { crearSectorVisual, soltarSectorVisual } from "./render3d/sectorVisual";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -12,9 +13,13 @@ import { crearPropsBakeados } from "./render3d/propsBakeados";
 const COLOR_JUGADOR_LOCAL = "#f6ad55";
 const COLOR_JUGADOR_REMOTO = "#4fd1c5";
 
-// Mapa bakeado que carga el cliente (assets/mapas/<nombre>/ — el bakeador
-// escribió ahí sus sectores; el cliente solo materializa lo que dicen).
-const RUTA_MAPA = "/assets/mapas/demo";
+// Mapa bakeado que carga el cliente (assets/mapas/<nombre>/) — el MAPA
+// PRINCIPAL del juego, servido por sectores vía streaming (mecánica
+// principal pactada, ver GDD_Motor_3D_Props): nunca se carga entero.
+// Sobrescribible por entorno (VITE_RUTA_MAPA) para que los tests que
+// dependen de la geometría del demo (mecanicas.e2e.mjs) puedan pedirlo;
+// el juego real siempre va al principal.
+const RUTA_MAPA = (import.meta as any).env?.VITE_RUTA_MAPA || "/assets/mapas/principal";
 
 interface Direction {
   x: number;
@@ -53,11 +58,28 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     escena.resize(contenedor.clientWidth || 800, contenedor.clientHeight || 600);
   });
 
-  // --- Mundo bakeado: terreno + vegetación/rocas/fauna en sus casillas ---
+  // --- Mundo bakeado por STREAMING de sectores: solo se materializa el
+  // anillo alrededor del jugador local; el resto se pide al acercarse y se
+  // suelta (con histéresis) al alejarse. La lógica vive en
+  // streamingSectores.ts; aquí solo se le enchufan fetch y escena.
+  let streaming: StreamingSectores<Group> | null = null;
   try {
-    const mapa = await cargarMapa(RUTA_MAPA);
-    escena.añadirEstatico(crearTerreno(mapa));
-    escena.añadirEstatico(await crearPropsBakeados(mapa));
+    const indice = await cargarIndice(RUTA_MAPA);
+    streaming = new StreamingSectores({
+      indice,
+      obtenerSector: (sx, sy) => cargarSector(RUTA_MAPA, sx, sy),
+      materializar: async (sector) => {
+        const grupo = await crearSectorVisual(indice, sector);
+        escena.añadirEstatico(grupo);
+        return grupo;
+      },
+      soltar: (grupo) => {
+        escena.quitarEstatico(grupo);
+        soltarSectorVisual(grupo);
+      },
+    });
+    // Sonda de depuración/pruebas e2e: estado del streaming en vivo.
+    (window as any).__streaming = () => streaming!.estadisticas();
   } catch (err) {
     // Sin mapa no se corta el juego (los jugadores siguen sincronizando
     // sobre el suelo de emergencia), pero el fallo queda visible.
@@ -71,6 +93,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const $ = getStateCallbacks(room);
 
   const jugadores = new Map<string, EstadoJugador>();
+  let jugadorLocal: EstadoJugador | null = null;
 
   $(room.state).players.onAdd((player: any, sessionId: string) => {
     const esYo = sessionId === room.sessionId;
@@ -89,7 +112,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     };
     jugadores.set(sessionId, estado);
     escena.añadirEntidad(sessionId, rig.objeto, player.x, player.y, player.name);
-    if (esYo) escena.seguirPunto(player.x, player.y, true);
+    if (esYo) {
+      jugadorLocal = estado;
+      escena.seguirPunto(player.x, player.y, true);
+      // Primer anillo de sectores YA, sin esperar al primer frame.
+      streaming?.actualizar(estado.x, estado.z);
+    }
 
     $(player).onChange(() => {
       estado.destinoX = player.x;
@@ -153,6 +181,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       estado.rig.objeto.rotation.x += (inclinacionObjetivo - estado.rig.objeto.rotation.x) * factor;
       estado.rig.actualizar(dt, andando);
     }
+
+    // Streaming de sectores: seguir al jugador local (barato — solo
+    // reevalúa el anillo tras moverse un umbral de casillas).
+    if (jugadorLocal) streaming?.actualizar(jugadorLocal.x, jugadorLocal.z);
 
     escena.actualizar(dt);
     escena.render();

@@ -1,0 +1,29 @@
+{
+  "_nota": "Morfología del personaje — fuente única de verdad compartida por el rig (client/src/render3d/rigHumanoide.ts) y la ropa (ropa/src/morfologia.js). El cuerpo NUNCA se dibuja con las medidas base de proporcionesRig.json directamente: primero se le aplican los factores del personaje (altura/corpulencia/sexo) y la ropa se genera a partir de ESAS medidas ya morfadas + su margen de capa — por eso una prenda siempre acopla, sea el personaje alto, bajo, ancho o estrecho. 'escalas' dice qué factores multiplican cada medida (ruta plana de proporcionesRig.json); una medida sin entrada no se toca (ej. la cabeza: los gorros valen para todos). 'sexo' aporta factores derivados (hombros/caderas) que se multiplican junto a los elegidos por el jugador.",
+
+  "rangos": {
+    "altura": { "min": 0.88, "max": 1.12, "defecto": 1.0 },
+    "corpulencia": { "min": 0.85, "max": 1.2, "defecto": 1.0 }
+  },
+
+  "sexo": {
+    "hombre": { "hombros": 1.0, "caderas": 0.95 },
+    "mujer": { "hombros": 0.9, "caderas": 1.06 }
+  },
+
+  "escalas": {
+    "altoPierna": ["altura"],
+    "altoTorso": ["altura"],
+    "pierna.w": ["corpulencia", "caderas"],
+    "pierna.d": ["corpulencia"],
+    "pierna.offsetX": ["corpulencia", "caderas"],
+    "torso.w": ["corpulencia", "hombros"],
+    "torso.d": ["corpulencia"],
+    "brazo.mangaW": ["corpulencia"],
+    "brazo.mangaH": ["altura"],
+    "brazo.mangaD": ["corpulencia"],
+    "brazo.manoW": ["corpulencia"],
+    "brazo.manoD": ["corpulencia"],
+    "brazo.offsetX": ["corpulencia", "hombros"]
+  }
+}

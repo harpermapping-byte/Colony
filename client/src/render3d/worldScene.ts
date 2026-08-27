@@ -20,6 +20,8 @@ export class WorldScene {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.OrthographicCamera;
   private readonly entidades = new Map<string, THREE.Object3D>();
+  private sol!: THREE.DirectionalLight;
+  private sueloEmergencia!: THREE.Mesh;
 
   constructor(contenedor: HTMLElement, ancho: number, alto: number) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -43,33 +45,32 @@ export class WorldScene {
 
     this.scene.background = new THREE.Color(0x1a202c);
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const sol = new THREE.DirectionalLight(0xffffff, 0.9);
-    sol.position.set(40, 60, 25);
-    sol.target.position.set(24, 0, 24);
-    sol.castShadow = true;
-    // La cámara de sombra por defecto es una caja de ±5 unidades — se queda
-    // corta para un mapa de decenas de casillas y recorta las sombras. Se
-    // abre a todo el mapa demo; cuando haya mapas grandes, la luz deberá
-    // seguir a la cámara (pendiente junto con la carga perezosa de sectores).
-    sol.shadow.camera.left = -40;
-    sol.shadow.camera.right = 40;
-    sol.shadow.camera.top = 40;
-    sol.shadow.camera.bottom = -40;
-    sol.shadow.mapSize.set(2048, 2048);
-    this.scene.add(sol, sol.target);
+    this.sol = new THREE.DirectionalLight(0xffffff, 0.9);
+    this.sol.castShadow = true;
+    // La caja de sombra NO abarca el mapa (el principal mide 3200 casillas
+    // — imposible): es una caja de ±48 unidades que SIGUE al objetivo de la
+    // cámara (ver actualizar()), sobrando para todo lo visible en pantalla.
+    this.sol.shadow.camera.left = -48;
+    this.sol.shadow.camera.right = 48;
+    this.sol.shadow.camera.top = 48;
+    this.sol.shadow.camera.bottom = -48;
+    this.sol.shadow.camera.far = 300;
+    this.sol.shadow.mapSize.set(2048, 2048);
+    this.scene.add(this.sol, this.sol.target);
+    this.reposicionarSol();
 
     // Suelo de emergencia MUY por debajo del terreno real (que añade
     // `terreno.ts` como estático): solo se ve si el mapa no carga, para que
     // el fallo sea visible en vez de un vacío negro confuso.
-    const sueloEmergencia = new THREE.Mesh(
+    this.sueloEmergencia = new THREE.Mesh(
       new THREE.PlaneGeometry(400, 400),
       new THREE.MeshStandardMaterial({ color: 0x2d3748 }),
     );
-    sueloEmergencia.rotation.x = -Math.PI / 2;
-    // por debajo del lecho del agua (-1.5, ver terreno.ts): si estuviera a
-    // ras de suelo taparía el fondo translúcido y al PJ buceando
-    sueloEmergencia.position.y = -3;
-    this.scene.add(sueloEmergencia);
+    this.sueloEmergencia.rotation.x = -Math.PI / 2;
+    // por debajo del lecho del agua (-1.5, ver sectorVisual.ts): si
+    // estuviera a ras de suelo taparía el fondo translúcido y al PJ buceando
+    this.sueloEmergencia.position.y = -3;
+    this.scene.add(this.sueloEmergencia);
 
     this.resize(ancho, alto);
   }
@@ -77,6 +78,11 @@ export class WorldScene {
   /** Añade geometría estática del mundo (terreno, props bakeados) — no es una entidad con id. */
   añadirEstatico(objeto: THREE.Object3D) {
     this.scene.add(objeto);
+  }
+
+  /** Quita geometría estática (un sector soltado por el streaming) — liberar GPU es cosa del llamador. */
+  quitarEstatico(objeto: THREE.Object3D) {
+    this.scene.remove(objeto);
   }
 
   private objetivoCamara = new THREE.Vector3(0, 0, 0);
@@ -107,11 +113,28 @@ export class WorldScene {
     }
   }
 
-  /** Avanza el estado dependiente del tiempo (por ahora, la persecución de cámara). */
+  /** Avanza el estado dependiente del tiempo (persecución de cámara + luz/suelo que la siguen). */
   actualizar(dt: number) {
     const factor = 1 - Math.exp(-8 * dt);
     this.objetivoCamara.lerp(this.destinoCamara, factor);
     this.posicionarCamaraIsometrica();
+    this.reposicionarSol();
+  }
+
+  /**
+   * El sol (y su caja de sombra) y el suelo de emergencia acompañan al
+   * objetivo de la cámara — en un mapa de 3200 casillas ninguno puede ser
+   * global: las sombras solo existen alrededor de lo visible y el suelo de
+   * emergencia siempre queda debajo del jugador si el mapa fallara.
+   */
+  private reposicionarSol() {
+    if (!this.sol) return;
+    this.sol.position.set(this.objetivoCamara.x + 40, 60, this.objetivoCamara.z + 25);
+    this.sol.target.position.set(this.objetivoCamara.x, 0, this.objetivoCamara.z);
+    if (this.sueloEmergencia) {
+      this.sueloEmergencia.position.x = this.objetivoCamara.x;
+      this.sueloEmergencia.position.z = this.objetivoCamara.z;
+    }
   }
 
   resize(ancho: number, alto: number) {

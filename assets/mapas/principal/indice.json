@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "tamanoSectorChunks": 10,
+  "leyendaTerreno": [
+    "agua_profunda",
+    "agua",
+    "playa",
+    "playa_rocosa",
+    "arena",
+    "cesped",
+    "cesped_ralo",
+    "tierra",
+    "tierra_baldia",
+    "suelo_barbecho",
+    "camino",
+    "puente",
+    "tierra_labrada",
+    "barro",
+    "nieve",
+    "hielo",
+    "roca",
+    "roca_inaccesible",
+    "ceniza",
+    "roca_volcanica",
+    "lava"
+  ],
+  "nombre": "Mapa Inicial",
+  "semilla": "semilla-846109",
+  "anchoChunks": 100,
+  "altoChunks": 100,
+  "tamanoChunk": 32,
+  "biomasHabilitados": [
+    "pradera",
+    "bosque",
+    "montana_nevada",
+    "desierto",
+    "costa",
+    "pantano"
+  ],
+  "bordes": {
+    "norte": {
+      "tipo": "mar_abierto",
+      "nombre": null
+    },
+    "sur": {
+      "tipo": "mar_abierto",
+      "nombre": null
+    },
+    "este": {
+      "tipo": "mar_abierto",
+      "nombre": null
+    },
+    "oeste": {
+      "tipo": "mar_abierto",
+      "nombre": null
+    }
+  },
+  "ciudad": {
+    "x": 1600,
+    "y": 1600
+  }
+}

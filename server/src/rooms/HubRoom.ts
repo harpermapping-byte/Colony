@@ -1,4 +1,6 @@
 import { Room, Client } from "@colyseus/core";
+import * as fs from "fs";
+import * as path from "path";
 import { HubState, Player } from "./schema/HubState";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO_PJ } from "../mundo/colisiones";
@@ -8,6 +10,16 @@ const VEL_ANDAR = 3.75;
 const VEL_NADAR = 2.2;
 const VEL_BUCEAR = 1.7;
 const TICK_HZ = 30;
+
+// El hub juega sobre el MAPA PRINCIPAL (assets/mapas/principal/) — mismo
+// mapa que el cliente carga por streaming. Si no está en disco (repo
+// parcial, entorno raro), se cae al demo para no tumbar el servidor; los
+// tests unitarios siguen usando el demo a propósito (pequeño y rápido).
+function rutaMapaHub(): string | undefined {
+  if (process.env.RUTA_MAPA) return process.env.RUTA_MAPA;
+  const principal = path.resolve(__dirname, "..", "..", "..", "assets", "mapas", "principal");
+  return fs.existsSync(path.join(principal, "indice.json")) ? principal : undefined;
+}
 
 interface Direction {
   x: number;
@@ -31,7 +43,7 @@ export class HubRoom extends Room<HubState> {
   onCreate() {
     this.setState(new HubState());
     this.setPatchRate(1000 / 15);
-    this.mapa = cargarMapaColision();
+    this.mapa = cargarMapaColision(rutaMapaHub());
     console.log(
       `Hub con mapa "${this.mapa.nombre}" (${this.mapa.ancho}x${this.mapa.alto} casillas), ` +
       `spawn en ${this.mapa.spawnX.toFixed(1)},${this.mapa.spawnY.toFixed(1)}`,
