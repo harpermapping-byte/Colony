@@ -33,9 +33,29 @@ estuvo a punto de perderse — no volver a dejarlo fuera del repo).
   `downloads`+`artifact`); si hace falta el URL, pedírselo al usuario o
   mirar el historial de artifacts.
 
+## Generador paramétrico de PJ (hecho, 2026-08-27)
+
+- `generar_pj.js`: sexo/altura/peso/piel/pelo/barba sobre el MISMO esqueleto
+  de 15 huesos (los nombres de hueso no cambian entre PJ — las animaciones y
+  el cliente no distinguen un PJ de otro). Cuerpo desnudo con anatomía
+  estilizada (criterio "muñeco anatómico", acordado con el usuario: sirve
+  para distinguir siluetas; la ropa se generará aparte y se colgará de los
+  mismos huesos). Densidad fija 32 vóxeles/m.
+- Arreglado el bug de caras transparentes: el culling ahora respeta las
+  fronteras entre huesos (tapas de articulación).
+- El laboratorio embebe los 3 PJ del test con un selector; suite
+  `node --test test_pj.js` (9) + E2E `test.mjs` (Playwright) en verde.
+
 ## Siguiente paso natural
 
-1. Animaciones del personaje (caminar/correr/pegar) como animation clips
+1. **UI del generador de PJ** (lo pidió el usuario: "una vez hecho el test
+   de 3, generamos el generador con su UI"): panel en el laboratorio con
+   los parámetros de `generar_pj.js` (sexo, altura, peso, pelo, barba,
+   colores, semilla aleatoria) generando el PJ EN VIVO en el navegador.
+   Ojo: `generar_pj.js` + el mallador son JS puro sin dependencias — se
+   pueden empaquetar en el bundle del laboratorio y generar el GLB en
+   cliente, sin servidor.
+2. Animaciones del personaje (caminar/correr/pegar) como animation clips
    glTF encima del esqueleto ya validado — la malla y el skin no se tocan.
 2. Arquetipos cuadrúpedo e insecto reusando el mismo patrón (jerarquía de
    huesos + exportador con skin).

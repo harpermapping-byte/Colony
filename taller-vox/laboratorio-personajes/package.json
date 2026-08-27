@@ -1,0 +1,14 @@
+{
+  "name": "laboratorio-personajes",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Visor interactivo de los PJ vóxel del taller — three.js embebido en un único HTML",
+  "scripts": {
+    "build": "node ../generar_pj.js test && esbuild app.mjs --bundle --minify --format=iife --outfile=bundle.js && node build.js",
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.185.1"
+  }
+}

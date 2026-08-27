@@ -7,4 +7,7 @@ baker/output/
 interiores/output/
 # salidas del taller (regenerables)
 taller-vox/*.glb
+taller-vox/vox/
 taller-vox/node_modules/
+taller-vox/laboratorio-personajes/bundle.js
+taller-vox/laboratorio-personajes/capturas/

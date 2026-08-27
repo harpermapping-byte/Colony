@@ -15,6 +15,7 @@
   .tag{font-size:11px;text-transform:uppercase;letter-spacing:1.3px;color:var(--wood-dark);}
   #status{font-size:12px;color:var(--blue);min-height:16px;margin:0 0 10px;}
   #status.err{color:var(--redo);}
+  #personajes{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;}
   #layout{display:flex;gap:14px;align-items:flex-start;}
   #sidebar{width:250px;flex:0 0 250px;border:1.5px solid var(--ink);background:var(--panel);
     border-radius:2px;display:flex;flex-direction:column;max-height:640px;}
@@ -66,6 +67,7 @@
     <span class="tag">taller de vóxeles — colony</span>
   </header>
   <div id="status">Cargando personaje…</div>
+  <div id="personajes"></div>
   <div id="layout">
     <div id="sidebar">
       <div class="sidebar-titulo">Esqueleto — 15 huesos</div>
@@ -107,5 +109,5 @@
   </div>
 </div>
 
-<script id="glb-data" type="text/plain">{{GLB_B64}}</script>
+<script id="pjs-data" type="application/json">{{PJS_JSON}}</script>
 <script>{{BUNDLE}}</script>

@@ -60,7 +60,12 @@ function mallarConSkin(ocupado, unit) {
     const [x, y, z] = key.split(",").map(Number);
     for (let d = 0; d < 6; d++) {
       const [dx, dy, dz] = DIRS[d];
-      if (ocupado.has(`${x + dx},${y + dy},${z + dz}`)) continue;
+      // Solo se puede omitir la cara si el vecino es del MISMO hueso: dos
+      // huesos vecinos (codo, rodilla, hombro, cuello) se tocan en reposo
+      // pero se separan al animar, y sin estas "tapas" la articulación
+      // quedaba abierta y se veía el interior hueco (transparente).
+      const vecino = ocupado.get(`${x + dx},${y + dy},${z + dz}`);
+      if (vecino && vecino.boneIndex === boneIndex) continue;
       const { normal, verts } = CARAS[d];
       for (const [vx, vy, vz] of verts) {
         positions.push((x + vx) * unit, (y + vy) * unit, (z + vz) * unit);

@@ -304,13 +304,46 @@ renderer.setAnimationLoop(() => {
   renderer.render(scene, camera);
 });
 
-// ---- arranque: personaje embebido -----------------------------------------
-try {
-  const b64 = document.getElementById("glb-data").textContent.trim();
+// ---- arranque: los PJ de prueba embebidos ----------------------------------
+// El build embebe varios personajes generados con generar_pj.js (sexo,
+// altura, peso, pelo, barba distintos) para poder compararlos en el mismo
+// visor; el selector de arriba cambia entre ellos sin recargar la página.
+function decodificarB64(b64) {
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  cargarGLTF(bytes.buffer, "personaje.glb (34 vóxeles de alto)");
+  return bytes.buffer;
+}
+
+function descripcionPJ(pj) {
+  const partes = [
+    pj.sexo,
+    pj.alturaMetros.toFixed(2) + " m",
+    "peso " + Math.round(pj.peso * 100) + "%",
+    "pelo " + pj.pelo,
+  ];
+  if (pj.barba && pj.barba !== "ninguna") partes.push("barba " + pj.barba);
+  return partes.join(" · ");
+}
+
+function cargarPJ(pj, boton) {
+  pararAndar();
+  for (const el of selectorEl.children) el.classList.toggle("active", el === boton);
+  cargarGLTF(decodificarB64(pj.b64), `${pj.nombre} — ${descripcionPJ(pj)}`);
+}
+
+const selectorEl = document.getElementById("personajes");
+try {
+  const pjs = JSON.parse(document.getElementById("pjs-data").textContent);
+  pjs.forEach((pj, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = pj.nombre;
+    b.title = descripcionPJ(pj);
+    b.addEventListener("click", () => cargarPJ(pj, b));
+    selectorEl.appendChild(b);
+    if (i === 0) cargarPJ(pj, b);
+  });
 } catch (e) {
-  status("No se pudo decodificar el modelo embebido: " + (e.message || e), true);
+  status("No se pudieron decodificar los personajes embebidos: " + (e.message || e), true);
 }
