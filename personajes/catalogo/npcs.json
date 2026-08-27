@@ -1,0 +1,45 @@
+{
+  "_nota": "Catálogo de NPCs — la LISTA de la que tira el generador, igual que elementos.json es la lista de la que tira el bakeador de interiores. ESTO ES EL ARRANQUE DE PRUEBA (4 arquetipos), no la lista definitiva: cuando se haga la lista completa (pactada con el streamer) se amplía este archivo y se regenera todo del tirón, sin tocar el generador. Cada entrada: profesion (cruza con ropa/catalogo/profesiones.json), morfologia con RANGOS [min,max] (cada individuo cae en un punto del rango por semilla — dentro de los límites globales de client/src/render3d/morfologia.json), sexoPesos/rasgos para sobreescribir los pesos por defecto de rasgos.json (solo lo que cambie), y ropa: ids de ropa/catalogo/prendas.json que el generador anota en la ficha — cuando el catálogo de prendas esté completo, el cliente se la pondrá AUTO al materializar el NPC (misma morfología → acopla sola).",
+
+  "aldeano": {
+    "profesion": "campesino",
+    "morfologia": { "altura": [0.92, 1.08], "corpulencia": [0.9, 1.1] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "colorDebug": "#c9a86a"
+  },
+
+  "herrero": {
+    "profesion": "herrero",
+    "morfologia": { "altura": [0.98, 1.1], "corpulencia": [1.05, 1.2] },
+    "sexoPesos": [["hombre", 75], ["mujer", 25]],
+    "rasgos": {
+      "barbaEstilos": [["ninguna", 15], ["bigote", 15], ["perilla", 20], ["completa", 50]]
+    },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "_nota": "Falta el delantal de cuero en el catálogo de prendas — se añade a su ropa cuando exista.",
+    "colorDebug": "#6a6a70"
+  },
+
+  "guardia": {
+    "profesion": "militar",
+    "morfologia": { "altura": [1.0, 1.12], "corpulencia": [1.0, 1.15] },
+    "rasgos": {
+      "peloEstilos": [["calvo", 10], ["rapado", 45], ["corto", 40], ["melena", 5]]
+    },
+    "ropa": [],
+    "_nota": "Sin armadura hasta que el catálogo de prendas cubra armaduras.",
+    "colorDebug": "#8a3a3a"
+  },
+
+  "anciano_sabio": {
+    "profesion": "herbolista",
+    "morfologia": { "altura": [0.88, 0.98], "corpulencia": [0.85, 0.95] },
+    "rasgos": {
+      "coloresPelo": [["canoso", 55], ["blanco", 40], ["castano", 5]],
+      "peloEstilos": [["calvo", 25], ["monje", 30], ["melena", 30], ["corto", 15]],
+      "barbaEstilos": [["ninguna", 10], ["bigote", 10], ["perilla", 20], ["completa", 60]]
+    },
+    "ropa": [],
+    "colorDebug": "#7a6a8a"
+  }
+}

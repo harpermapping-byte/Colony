@@ -33,6 +33,7 @@ export interface OpcionesRig {
   colorTunica: string; // torso+brazos (la "ropa" del placeholder)
   colorPiel?: string;
   colorPelo?: string;
+  colorOjos?: string;
   /** Altura/corpulencia/sexo del personaje — omitida = talla base. */
   morfologia?: Morfologia;
 }
@@ -117,7 +118,7 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   const pelo = caja(LADO_CABEZA + 0.04, 0.1, LADO_CABEZA + 0.04, colorPelo);
   pelo.position.y = LADO_CABEZA - 0.03;
   const mitadCara = LADO_CABEZA / 2;
-  const ojoIzq = caja(0.05, 0.05, 0.02, "#1d2b1f");
+  const ojoIzq = caja(0.05, 0.05, 0.02, opciones.colorOjos || "#1d2b1f");
   ojoIzq.position.set(-0.07, LADO_CABEZA * 0.6, mitadCara + 0.005);
   const ojoDer = ojoIzq.clone();
   ojoDer.position.x = 0.07;
