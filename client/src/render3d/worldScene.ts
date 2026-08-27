@@ -44,26 +44,41 @@ export class WorldScene {
     this.scene.background = new THREE.Color(0x1a202c);
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const sol = new THREE.DirectionalLight(0xffffff, 0.9);
-    sol.position.set(6, 10, 4);
+    sol.position.set(40, 60, 25);
+    sol.target.position.set(24, 0, 24);
     sol.castShadow = true;
-    this.scene.add(sol);
+    // La cámara de sombra por defecto es una caja de ±5 unidades — se queda
+    // corta para un mapa de decenas de casillas y recorta las sombras. Se
+    // abre a todo el mapa demo; cuando haya mapas grandes, la luz deberá
+    // seguir a la cámara (pendiente junto con la carga perezosa de sectores).
+    sol.shadow.camera.left = -40;
+    sol.shadow.camera.right = 40;
+    sol.shadow.camera.top = 40;
+    sol.shadow.camera.bottom = -40;
+    sol.shadow.mapSize.set(2048, 2048);
+    this.scene.add(sol, sol.target);
 
-    // Suelo placeholder: se sustituye por el tileset real de
-    // `assets/terrenos/` cuando se conecte el consumo de sectores del
-    // bakeador — el terreno se queda 2D/textura plana a propósito, nunca
-    // pasa a vóxel como el resto de props.
-    const suelo = new THREE.Mesh(
-      new THREE.PlaneGeometry(200, 200),
+    // Suelo de emergencia MUY por debajo del terreno real (que añade
+    // `terreno.ts` como estático): solo se ve si el mapa no carga, para que
+    // el fallo sea visible en vez de un vacío negro confuso.
+    const sueloEmergencia = new THREE.Mesh(
+      new THREE.PlaneGeometry(400, 400),
       new THREE.MeshStandardMaterial({ color: 0x2d3748 }),
     );
-    suelo.rotation.x = -Math.PI / 2;
-    suelo.receiveShadow = true;
-    this.scene.add(suelo);
+    sueloEmergencia.rotation.x = -Math.PI / 2;
+    sueloEmergencia.position.y = -0.05;
+    this.scene.add(sueloEmergencia);
 
     this.resize(ancho, alto);
   }
 
+  /** Añade geometría estática del mundo (terreno, props bakeados) — no es una entidad con id. */
+  añadirEstatico(objeto: THREE.Object3D) {
+    this.scene.add(objeto);
+  }
+
   private objetivoCamara = new THREE.Vector3(0, 0, 0);
+  private destinoCamara = new THREE.Vector3(0, 0, 0);
 
   private posicionarCamaraIsometrica() {
     const distancia = 20;
@@ -75,10 +90,25 @@ export class WorldScene {
     this.camera.lookAt(this.objetivoCamara);
   }
 
-  /** Centra la cámara isométrica sobre un punto del mundo (normalmente el jugador local). */
-  seguirPunto(x: number, y: number) {
+  /**
+   * Centra la cámara isométrica sobre un punto del mundo (normalmente el
+   * jugador local). El movimiento real es suavizado en `actualizar()` — la
+   * cámara persigue el destino en vez de teletransportarse con cada patch
+   * de red (15/seg darían tirones visibles).
+   */
+  seguirPunto(x: number, y: number, inmediato = false) {
     const [wx, wz] = this.posicionMundo(x, y);
-    this.objetivoCamara.set(wx, 0, wz);
+    this.destinoCamara.set(wx, 0, wz);
+    if (inmediato) {
+      this.objetivoCamara.copy(this.destinoCamara);
+      this.posicionarCamaraIsometrica();
+    }
+  }
+
+  /** Avanza el estado dependiente del tiempo (por ahora, la persecución de cámara). */
+  actualizar(dt: number) {
+    const factor = 1 - Math.exp(-8 * dt);
+    this.objetivoCamara.lerp(this.destinoCamara, factor);
     this.posicionarCamaraIsometrica();
   }
 
@@ -113,7 +143,7 @@ export class WorldScene {
       div.style.fontFamily = "sans-serif";
       div.style.textShadow = "0 1px 2px rgba(0,0,0,0.8)";
       const label = new CSS2DObject(div);
-      label.position.set(0, 1.6, 0);
+      label.position.set(0, 1.85, 0);
       objeto.add(label);
     }
 

@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "tamanoSectorChunks": 10,
+  "leyendaTerreno": [
+    "agua_profunda",
+    "agua",
+    "playa",
+    "playa_rocosa",
+    "arena",
+    "cesped",
+    "cesped_ralo",
+    "tierra",
+    "tierra_baldia",
+    "suelo_barbecho",
+    "camino",
+    "tierra_labrada",
+    "barro",
+    "nieve",
+    "hielo",
+    "roca",
+    "roca_inaccesible",
+    "ceniza",
+    "roca_volcanica",
+    "lava"
+  ],
+  "nombre": "demo",
+  "semilla": "demo-cliente-01",
+  "anchoChunks": 2,
+  "altoChunks": 2,
+  "tamanoChunk": 24,
+  "biomasHabilitados": [
+    "pradera",
+    "bosque"
+  ],
+  "bordes": {
+    "norte": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "sur": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "este": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "oeste": {
+      "tipo": "cerrado",
+      "nombre": null
+    }
+  },
+  "ciudad": {
+    "x": 24,
+    "y": 24
+  }
+}

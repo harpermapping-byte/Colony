@@ -3,7 +3,10 @@ import { iniciarJuego } from "./game";
 const contenedor = document.getElementById("app");
 if (!contenedor) throw new Error("Falta el elemento #app en index.html");
 
-contenedor.style.width = "800px";
-contenedor.style.height = "600px";
+// El juego ocupa toda la ventana (el 800x600 fijo era herencia del canvas
+// de Phaser); la cámara ortográfica ajusta su encuadre en cada resize.
+contenedor.style.width = "100vw";
+contenedor.style.height = "100vh";
+contenedor.style.overflow = "hidden";
 
 iniciarJuego(contenedor);
