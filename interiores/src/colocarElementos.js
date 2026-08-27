@@ -22,6 +22,15 @@ const CAPAS_POR_AMUEBLADO = {
   completo: ["decorFija", "decorMovible", "iluminacion", "suciedad"],
 };
 
+// Pipeline de colocación por FASES (arquitectura FurnitureConfig — src/
+// roomTags.js): 1=Dominante, 2=Secundario, 3=Decoración, en ese orden.
+// `priority` en elementos.json ya está derivado 1:1 de `capa`
+// (decorFija=1, decorMovible=2, iluminacion/suciedad=3) — agrupar por fase
+// en vez de por capa suelta es solo una forma más explícita de expresar el
+// mismo orden que ya existía, cada capa conserva su propio límite
+// (LIMITE_POR_CAPA) para no cambiar cuánto sale de cada una.
+const CAPAS_POR_FASE = { 1: ["decorFija"], 2: ["decorMovible"], 3: ["iluminacion", "suciedad"] };
+
 function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado }) {
   const defSala = catalogos.tiposSala[tipoSalaId];
   if (!defSala) throw new Error(`tipoSala desconocido: ${tipoSalaId}`);
@@ -132,6 +141,32 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     return ox >= x && ox < x + hw && oy >= y && oy < y + hl;
   }
 
+  // clearanceFrontal (FurnitureConfig): casillas vacías obligatorias justo
+  // delante de la pieza — el "frente" es el mismo borde que ya usa
+  // tileInteraccion/la convención de mirar-hacia-la-sala (a 0° el frente
+  // cae en el borde sur de la huella, 90°→oeste, 180°→norte, 270°→este).
+  // Solo exige que estén libres EN ESE MOMENTO (no las reserva contra
+  // colocaciones futuras) — coherente con el resto del motor, que también
+  // resuelve todo por orden de llegada sin reservar de antemano.
+  function frenteLibre(x, y, huella, grados, distancia) {
+    if (!distancia) return true;
+    const [hw, hl] = huella;
+    for (let paso = 1; paso <= distancia; paso++) {
+      let fx, fy, ancho2, dxEje, dyEje;
+      if (grados === 0) { fx = x; fy = y + hl - 1 + paso; ancho2 = hw; dxEje = 1; dyEje = 0; }
+      else if (grados === 180) { fx = x; fy = y - paso; ancho2 = hw; dxEje = 1; dyEje = 0; }
+      else if (grados === 90) { fx = x - paso; fy = y; ancho2 = hl; dxEje = 0; dyEje = 1; }
+      else { fx = x + hw - 1 + paso; fy = y; ancho2 = hl; dxEje = 0; dyEje = 1; }
+      for (let i = 0; i < ancho2; i++) {
+        const cx = fx + dxEje * i;
+        const cy = fy + dyEje * i;
+        if (cx < 0 || cy < 0 || cx >= ancho || cy >= largo) return false;
+        if (!libreSuelo[cy][cx]) return false;
+      }
+    }
+    return true;
+  }
+
   // Fallback genérico (usado por "libre" y como último recurso si la
   // colocación sistemática de abajo no encuentra sitio en ningún muro/
   // centro): posición al azar entre 25 intentos, orientación al azar.
@@ -153,6 +188,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       if (!huecoLibre(x, y, huellaRot)) continue;
       if (cubreOrigen(x, y, huellaRot)) continue;
       if ((preferido === "pegadaAPared" || preferido === "esquina") && !tocaPared(x, y)) continue;
+      if (!frenteLibre(x, y, huellaRot, grados, el.clearanceFrontal)) continue;
       if (!ocuparSiCirculacionIntacta(x, y, huellaRot)) continue;
       const item = { id: el.id, x, y, ancho: huellaRot[0], largo: huellaRot[1], rotacion: grados, colorDebug: el.colorDebug, capa: el.capa };
       if (el.aportes) item.aportes = el.aportes;
@@ -226,6 +262,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         if (esPuerta(x, y)) continue;
         if (!huecoLibre(x, y, huellaRot)) continue;
         if (cubreOrigen(x, y, huellaRot)) continue;
+        if (!frenteLibre(x, y, huellaRot, grados, el.clearanceFrontal)) continue;
         if (!ocuparSiCirculacionIntacta(x, y, huellaRot)) continue;
         const item = { id: el.id, x, y, ancho: huellaRot[0], largo: huellaRot[1], rotacion: grados, colorDebug: el.colorDebug, capa: el.capa };
         if (el.aportes) item.aportes = el.aportes;
@@ -263,6 +300,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         const huellaRot = rotarHuella(huellaBase, grados);
         if (!huecoLibre(x, y, huellaRot)) continue;
         if (cubreOrigen(x, y, huellaRot)) continue;
+        if (!frenteLibre(x, y, huellaRot, grados, el.clearanceFrontal)) continue;
         if (!ocuparSiCirculacionIntacta(x, y, huellaRot)) continue;
         const item = { id: el.id, x, y, ancho: huellaRot[0], largo: huellaRot[1], rotacion: grados, colorDebug: el.colorDebug, capa: el.capa };
         if (el.aportes) item.aportes = el.aportes;
@@ -294,18 +332,32 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     return tiles.filter(({ x, y }) => x >= 0 && y >= 0 && x <= ancho - 1 && y <= largo - 1 && !esPuerta(x, y));
   }
 
-  // "juntoAMesa" de verdad: se sienta junto a un ancla (esSuperficie) ya
-  // colocada en esta sala, no en un punto aleatorio de la sala — así una
-  // silla siempre aparece pegada a una mesa real, nunca suelta por ahí. Si
-  // hay varias mesas, reparte entre las que menos sillas tengan todavía.
-  // La orientación no es al azar: según de qué lado del ancla venga el
-  // hueco, se fuerza el ángulo que hace que el satélite mire HACIA el
-  // ancla (misma convención de "0° mira al sur" que intentarPegadoAPared)
-  // — una silla al norte de la mesa mira al sur, una al sur mira al
-  // norte, etc., así las sillas quedan mirando a la mesa, no de espaldas.
+  // Un ancla admite este hijo si alguno de sus childSlots (FurnitureConfig
+  // — declarados en el catálogo, no en la instancia ya colocada) tiene a
+  // `elId` entre sus allowedItemTypes. Sin childSlots declarados en el
+  // catálogo para esa ancla, no admite satélites por esta vía — childSlots
+  // es la fuente de verdad de qué puede engancharse a qué, ya no "cualquier
+  // esSuperficie vale para cualquier juntoAMesa".
+  function anclaAdmite(anclaEl, elId) {
+    const def = catalogos.elementos[anclaEl.id];
+    return (def?.childSlots || []).some((slot) => (slot.allowedItemTypes || []).includes(elId));
+  }
+
+  // "juntoAMesa" de verdad: se sienta junto a un ancla ya colocada cuyo
+  // childSlot admite este tipo de pieza, no en un punto aleatorio de la
+  // sala ni junto a cualquier esSuperficie — así una silla siempre aparece
+  // pegada a una mesa real que de verdad la admite (childSlots), nunca
+  // suelta ni sentada en un mostrador. Si hay varias anclas válidas,
+  // reparte entre las que menos satélites tengan todavía. La orientación
+  // no es al azar cuando el slot pide autoRotateToParentCenter: según de
+  // qué lado del ancla venga el hueco, se fuerza el ángulo que hace que el
+  // satélite mire HACIA el ancla (misma convención de "0° mira al sur" que
+  // intentarPegadoAPared) — una silla al norte de la mesa mira al sur, una
+  // al sur mira al norte, etc., así las sillas quedan mirando a la mesa.
   function intentarJuntoAMesa(el) {
-    if (superficies.length === 0) return intentarColocarEnSuelo(el);
-    const anclasOrdenadas = superficies.slice().sort((a, b) => (a._satelites || 0) - (b._satelites || 0));
+    const anclasValidas = superficies.filter((a) => anclaAdmite(a, el.id));
+    if (anclasValidas.length === 0) return intentarColocarEnSuelo(el);
+    const anclasOrdenadas = anclasValidas.sort((a, b) => (a._satelites || 0) - (b._satelites || 0));
     const gradosParaMirarAncla = { norte: 0, sur: 180, oeste: 270, este: 90 };
     for (const anclaEl of anclasOrdenadas) {
       const anillo = barajar(tilesAlrededorDe(anclaEl), rnd);
@@ -381,41 +433,55 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     return false;
   }
 
+  // Dispatch por anchorType (FurnitureConfig) — CADA valor puede cubrir más
+  // de un `colocacion` de siempre (ej. CHILD_SLOT cubre tanto
+  // sobreSuperficie como juntoAMesa), así que dentro de cada caso se
+  // desambigua por colocacion exactamente con el mismo criterio que ya
+  // tenía este archivo — el reordenamiento no cambia qué función termina
+  // llamándose para ningún elemento existente, ver ORDEN_ANCHOR en el
+  // script de migración del catálogo para la prueba de que reproduce el
+  // orden de comprobación anterior tile a tile.
   function colocarUno(el) {
-    if (el.colocacion.includes("sobreSuperficie")) {
-      if (superficies.length === 0) return false;
-      const host = superficies[elegirEntero(0, superficies.length - 1)];
-      host.sobre = host.sobre || [];
-      const item = { id: el.id, colorDebug: el.colorDebug };
-      if (el.aportes) item.aportes = el.aportes;
-      host.sobre.push(item);
-      return true;
+    switch (el.anchorType) {
+      case "CHILD_SLOT":
+        if (el.colocacion.includes("sobreSuperficie")) {
+          if (superficies.length === 0) return false;
+          const host = superficies[elegirEntero(0, superficies.length - 1)];
+          host.sobre = host.sobre || [];
+          const item = { id: el.id, colorDebug: el.colorDebug };
+          if (el.aportes) item.aportes = el.aportes;
+          host.sobre.push(item);
+          return true;
+        }
+        return intentarJuntoAMesa(el);
+
+      case "WALL_HIGH_FLOATING":
+        if (el.colocacion.includes("techo")) {
+          const item = { id: el.id, colorDebug: el.colorDebug };
+          if (el.aportes) item.aportes = el.aportes;
+          techo.push(item);
+          return true;
+        }
+        return intentarColgarEnPared(el);
+
+      case "WALL_BACK":
+        // colocación sistemática (muro escaneado entero, orientación
+        // forzada) en vez del muestreo al azar de intentarColocarEnSuelo —
+        // esa función queda como último recurso si no encuentra sitio de
+        // verdad (p.ej. las 4 paredes ya llenas).
+        return intentarPegadoAPared(el, false) || intentarColocarEnSuelo(el);
+
+      case "CORNER":
+        return intentarPegadoAPared(el, true) || intentarColocarEnSuelo(el);
+
+      case "FREE_CENTER":
+      default:
+        if (defSala.simetrico && el.colocacion.length === 1 && el.colocacion[0] === "simetrico") {
+          return colocarSimetrico(el);
+        }
+        if (el.colocacion.includes("centroSala")) return intentarCentroSala(el) || intentarColocarEnSuelo(el);
+        return intentarColocarEnSuelo(el);
     }
-    if (el.colocacion.includes("techo")) {
-      const item = { id: el.id, colorDebug: el.colorDebug };
-      if (el.aportes) item.aportes = el.aportes;
-      techo.push(item);
-      return true;
-    }
-    if (el.colocacion.includes("colgadoEnPared")) {
-      return intentarColgarEnPared(el);
-    }
-    if (el.colocacion.includes("juntoAMesa")) {
-      return intentarJuntoAMesa(el);
-    }
-    if (defSala.simetrico && el.colocacion.length === 1 && el.colocacion[0] === "simetrico") {
-      return colocarSimetrico(el);
-    }
-    // pegadaAPared/esquina/centroSala usan ahora la colocación sistemática
-    // (muro escaneado entero con orientación forzada / centro real de la
-    // sala) en vez del muestreo al azar de intentarColocarEnSuelo — esa
-    // función queda como último recurso si no encuentran sitio de verdad
-    // (p.ej. las 4 paredes ya llenas), y sigue siendo la vía normal para
-    // "libre".
-    if (el.colocacion.includes("pegadaAPared")) return intentarPegadoAPared(el, false) || intentarColocarEnSuelo(el);
-    if (el.colocacion.includes("esquina")) return intentarPegadoAPared(el, true) || intentarColocarEnSuelo(el);
-    if (el.colocacion.includes("centroSala")) return intentarCentroSala(el) || intentarColocarEnSuelo(el);
-    return intentarColocarEnSuelo(el);
   }
 
   const capasIncluidas = CAPAS_POR_AMUEBLADO[amueblado];
@@ -423,41 +489,45 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
 
   const LIMITE_POR_CAPA = { decorFija: 4, decorMovible: 9, iluminacion: 3, suciedad: 3 };
 
-  for (const capa of capasIncluidas) {
-    const candidatos = Object.entries(catalogos.elementos)
-      .filter(([id]) => !id.startsWith("_"))
-      .map(([id, el]) => ({ id, ...el }))
-      .filter((el) => el.capa === capa)
-      .filter((el) => (el.tiposSalaValidos || []).includes(tipoSalaId))
-      .filter((el) => riquezaAlcanza(riqueza, el.riquezaMinima));
+  // Pipeline por FASES (1=Dominante, 2=Secundario, 3=Decoración — ver
+  // CAPAS_POR_FASE): cada fase agrupa una o más capas de siempre, cada
+  // capa conserva su propio límite. Dentro de cada capa, isMandatory
+  // primero — "la habitación intentará spawnearlo primero" — luego anclas
+  // (esSuperficie) antes que sus satélites, igual que antes.
+  for (const fase of [1, 2, 3]) {
+    for (const capa of CAPAS_POR_FASE[fase]) {
+      if (!capasIncluidas.includes(capa)) continue;
+      const candidatos = Object.entries(catalogos.elementos)
+        .filter(([id]) => !id.startsWith("_"))
+        .map(([id, el]) => ({ id, ...el }))
+        .filter((el) => el.capa === capa)
+        .filter((el) => (el.tiposSalaValidos || []).includes(tipoSalaId))
+        .filter((el) => riquezaAlcanza(riqueza, el.riquezaMinima));
 
-    // Anclas (esSuperficie, ej. mesa_comedor) primero, luego sus satélites
-    // (juntoAMesa, ej. silla) — si no, una silla puede intentar colocarse
-    // antes de que exista ninguna mesa en la sala y perder su hueco del
-    // límite de la capa con un mueble suelto sin relación con nada.
-    const rango = (el) => (el.esSuperficie ? 0 : el.colocacion.includes("juntoAMesa") ? 1 : 2);
-    const barajados = barajar(candidatos, rnd).sort((a, b) => rango(a) - rango(b));
-    let colocadosEnCapa = 0;
-    const idsYaUsados = new Set();
-    const MAX_SATELITES_POR_TIPO = 4; // ej. hasta 4 sillas repartidas entre las mesas de la sala
-    for (const el of barajados) {
-      if (colocadosEnCapa >= LIMITE_POR_CAPA[capa]) break;
-      if (idsYaUsados.has(el.id)) continue; // no repetir la misma pieza dos veces en una sala pequeña...
-      if (el.colocacion.includes("juntoAMesa")) {
-        // ...salvo los satélites de un ancla (silla/banco/taburete junto a
-        // una mesa): esos sí deben repetirse, es justo lo que da la imagen
-        // de "mesa con varias sillas alrededor" en vez de una silla suelta.
-        let colocadasDeEste = 0;
-        while (colocadasDeEste < MAX_SATELITES_POR_TIPO && colocadosEnCapa < LIMITE_POR_CAPA[capa] && colocarUno(el)) {
-          colocadasDeEste++;
-          colocadosEnCapa++;
+      const rango = (el) => (el.isMandatory ? -1 : el.esSuperficie ? 0 : el.colocacion.includes("juntoAMesa") ? 1 : 2);
+      const barajados = barajar(candidatos, rnd).sort((a, b) => rango(a) - rango(b));
+      let colocadosEnCapa = 0;
+      const idsYaUsados = new Set();
+      const MAX_SATELITES_POR_TIPO = 4; // ej. hasta 4 sillas repartidas entre las mesas de la sala
+      for (const el of barajados) {
+        if (colocadosEnCapa >= LIMITE_POR_CAPA[capa]) break;
+        if (idsYaUsados.has(el.id)) continue; // no repetir la misma pieza dos veces en una sala pequeña...
+        if (el.colocacion.includes("juntoAMesa")) {
+          // ...salvo los satélites de un ancla (silla/banco junto a una
+          // mesa): esos sí deben repetirse, es justo lo que da la imagen
+          // de "mesa con varias sillas alrededor" en vez de una silla suelta.
+          let colocadasDeEste = 0;
+          while (colocadasDeEste < MAX_SATELITES_POR_TIPO && colocadosEnCapa < LIMITE_POR_CAPA[capa] && colocarUno(el)) {
+            colocadasDeEste++;
+            colocadosEnCapa++;
+          }
+          if (colocadasDeEste > 0) idsYaUsados.add(el.id);
+          continue;
         }
-        if (colocadasDeEste > 0) idsYaUsados.add(el.id);
-        continue;
-      }
-      if (colocarUno(el)) {
-        colocadosEnCapa++;
-        idsYaUsados.add(el.id);
+        if (colocarUno(el)) {
+          colocadosEnCapa++;
+          idsYaUsados.add(el.id);
+        }
       }
     }
   }
