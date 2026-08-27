@@ -41,18 +41,23 @@ function cara(puntosMundo, color) {
   return `<polygon points="${pts}" fill="${color}" stroke="${color}" stroke-width="0.6"/>`;
 }
 
-// Dibuja un vóxel como caja 3D (top/derecha/frente) — el mismo cubo que
-// ya usa el resto del cliente para el placeholder de vóxel sin .glb.
+// Dibuja un vóxel como caja 3D con TODAS sus caras (regla pactada: nada se
+// ve hueco desde ningún ángulo, aunque una cara quede tapada normalmente).
+// Las lejanas a cámara (izquierda/trasera/inferior) primero, las visibles
+// de la isométrica (top/derecha/frente) encima.
 function dibujarVoxel(v, celda) {
   const { x, y, z } = v;
   const [cw, ch, cd] = celda;
   const x0 = x - cw / 2, x1 = x + cw / 2;
   const y0 = y, y1 = y + ch;
   const z0 = z - cd / 2, z1 = z + cd / 2;
+  const izquierda = cara([[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]], ajustarColor(v.color, -0.36));
+  const trasera = cara([[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]], ajustarColor(v.color, -0.32));
+  const inferior = cara([[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], ajustarColor(v.color, -0.4));
   const top = cara([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], v.color);
   const derecha = cara([[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]], ajustarColor(v.color, -0.16));
   const frente = cara([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], ajustarColor(v.color, -0.3));
-  return top + derecha + frente;
+  return izquierda + trasera + inferior + top + derecha + frente;
 }
 
 // Solo para ESTA vista de prueba: en el juego cada `pivote` (brazoIzq,

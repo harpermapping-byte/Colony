@@ -19,6 +19,7 @@ Variedad exigida desde el primer momento: **pelos (estilo y color), alturas, com
   - **`voxelesCabeza`**: pelo + barba en vóxeles colgando del pivote `cabeza`, mismo contrato `{x,y,z,color,zona,pivote}` que las prendas de `ropa/` — el cliente los fusiona en una geometría.
   - Los estilos de pelo/barba son **cajas normalizadas sobre la cabeza** (lado=1) voxelizadas a celdas de 1/6 — un estilo nuevo se da de alta en `rasgos.json` Y en `CAJAS_PELO`/`CAJAS_BARBA` del generador. El casquete superior nunca sobrevuela la cara (tope z=0.5): frente y ojos siempre visibles; el flequillo es una tira aparte.
   - Barba solo en hombres (decisión simple v1 — si un NPC necesita otra cosa, se pacta y parametriza).
+  - **Todas las caras construidas, siempre** (regla del streamer, igual que en ropa — ver GDD_Ropa_Procedural punto 5): cada vóxel de pelo/barba y cada caja del cuerpo llevan sus 6 caras aunque queden tapadas; al fusionar en el cliente solo se pueden quitar caras interiores entre vóxeles adyacentes, nunca exteriores. Nada puede verse hueco desde ningún ángulo (buceo bajo agua translúcida incluido).
 - `personajes/src/prueba_render_pj.js` — galería SVG de 8 individuos (cuerpo morfado con su piel + pelo/barba/ojos, orden de pintado del pintor) + `prueba_render_png.js` (Playwright global). Salida en `personajes/output/` (gitignored).
 
 ## Verificado (v1)
