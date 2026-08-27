@@ -59,9 +59,12 @@ El agua es un medio con niveles de profundidad, no un obstáculo:
   nadar **2.2** · bucear **1.7**. La diagonal va normalizada (no es más
   rápida).
 - Cliente: Q baja / E sube (pulsación; el servidor valida el medio).
-  Nadando el rig va medio hundido y tumbado; buceando desaparece bajo el
-  agua opaca (v1 asumido — cuando el agua tenga transparencia/burbujas se
-  verá al buzo).
+  Nadando el rig va medio hundido y tumbado; buceando se le ve a través
+  del agua TRANSLÚCIDA descendiendo hacia el lecho. El agua se pinta en
+  dos planos (`client/src/render3d/terreno.ts`): lecho a y=-1.5 sombreado
+  con la elevación bakeada (hondo = oscuro) + superficie translúcida con
+  el `colorDebug` del catálogo. No hizo falta tocar el bakeador: el mapa
+  ya traía terreno y elevación por casilla.
 - Pendiente (diseñado, no implementado): aire/ahogo al bucear, corrientes,
   y que los animales acuáticos solo colisionen bajo el agua.
 

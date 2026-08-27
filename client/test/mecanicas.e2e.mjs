@@ -20,7 +20,9 @@ const PUERTO_WS = 2599;
 const PUERTO_WEB = 5199;
 
 function lanzar(cmd, args, cwd, extraEnv = {}) {
-  const p = spawn(cmd, args, { cwd, env: { ...process.env, ...extraEnv }, stdio: ["ignore", "pipe", "pipe"] });
+  // detached + kill del grupo: npx crea hijos (tsx/vite) que sobrevivirían
+  // si solo se matara al padre, dejando los puertos ocupados para siempre
+  const p = spawn(cmd, args, { cwd, env: { ...process.env, ...extraEnv }, stdio: ["ignore", "pipe", "pipe"], detached: true });
   p.stdout.on("data", (d) => process.stdout.write(`[${cmd}] ${d}`));
   p.stderr.on("data", (d) => process.stderr.write(`[${cmd}] ${d}`));
   return p;
@@ -30,7 +32,11 @@ const servidor = lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: Str
 const vite = lanzar("npx", ["vite", "--port", String(PUERTO_WEB), "--strictPort"], dirCliente, {
   VITE_COLYSEUS_URL: `ws://localhost:${PUERTO_WS}`,
 });
-const matar = () => { servidor.kill(); vite.kill(); };
+const matar = () => {
+  for (const p of [servidor, vite]) {
+    try { process.kill(-p.pid, "SIGTERM"); } catch { /* ya muerto */ }
+  }
+};
 process.on("exit", matar);
 
 await new Promise((r) => setTimeout(r, 3500)); // arranque de ambos procesos
