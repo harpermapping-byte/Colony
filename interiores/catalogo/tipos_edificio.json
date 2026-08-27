@@ -62,7 +62,7 @@
     "poiVinculado": ["tienda_cazador", "oasis_mercader", "mercado_itinerante"]
   },
 
-  "castillo": {
+  "castillo": {"temaTaller":"herreria",
     "riqueza": "noble",
     "tieneBodega": true,
     "rangoPlantasAltas": [2, 3],
@@ -76,7 +76,7 @@
     "_nota": "planta_alta mezcla la alcoba señorial (enorme), habitaciones nobles (doble) y el dormitorio comunal de la guarnición/servidumbre."
   },
 
-  "torre_militar": {
+  "torre_militar": {"temaTaller":"herreria",
     "_nota": "Interior de una torre de vigía o barracón — sigue siendo arquitectura civil/militar con WFC normal, no el futuro bakeador de mazmorras orgánicas (ver GDD sección 11).",
     "riqueza": "modesta",
     "tieneBodega": false,
@@ -89,7 +89,7 @@
     "poiVinculado": ["torre_vigia_enemiga", "barracones_abandonados"]
   },
 
-  "aserradero": {
+  "aserradero": {"temaTaller":"aserradero",
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 0],
@@ -100,7 +100,7 @@
     "poiVinculado": ["aldea_maderera"]
   },
 
-  "choza_curandero": {
+  "choza_curandero": {"temaTaller":"herbolista",
     "riqueza": "humilde",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 0],
@@ -188,7 +188,7 @@
     "_nota": "Vivienda de clase media, entre casa_humilde y casa_noble — la que faltaba en el catálogo."
   },
 
-  "herreria": {
+  "herreria": {"temaTaller":"herreria",
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 0],
@@ -199,7 +199,7 @@
     "poiVinculado": ["aldea_agricola", "ciudad_poblada_menor", "aldea_maderera"]
   },
 
-  "molino": {
+  "molino": {"temaTaller":"molino",
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [1, 1],
@@ -317,7 +317,7 @@
     "_nota": "riqueza noble porque sala_banos ya exige riquezaMinima noble como tipo de sala — un baño público de este juego es un lujo cívico, no algo humilde."
   },
 
-  "cuartel_guardia": {
+  "cuartel_guardia": {"temaTaller":"herreria",
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 1],
@@ -330,7 +330,7 @@
     "_nota": "Distinto de torre_militar (que es la torre/atalaya en sí) — este es el cuartel de guardia dentro de un asentamiento poblado."
   },
 
-  "botica": {
+  "botica": {"temaTaller":"herbolista",
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 1],
@@ -343,7 +343,7 @@
     "_nota": "Versión urbana/tienda de choza_curandero (que es la cabaña rural del curandero) — aquí se compra, no se vive."
   },
 
-  "taller_sastre": {
+  "taller_sastre": {"temaTaller":"sastre",
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 1],
@@ -380,7 +380,7 @@
     "poiVinculado": []
   },
 
-  "curtiduria": {
+  "curtiduria": {"temaTaller":"curtiduria",
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 0],
@@ -391,7 +391,7 @@
     "poiVinculado": []
   },
 
-  "joyeria": {
+  "joyeria": {"temaTaller":"joyeria",
     "riqueza": "noble",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 1],
@@ -403,7 +403,7 @@
     "poiVinculado": []
   },
 
-  "destileria": {
+  "destileria": {"temaTaller":"destileria",
     "riqueza": "modesta",
     "tieneBodega": true,
     "rangoPlantasAltas": [0, 0],
@@ -415,7 +415,7 @@
     "poiVinculado": []
   },
 
-  "alfareria": {
+  "alfareria": {"temaTaller":"alfareria",
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 0],
@@ -426,7 +426,7 @@
     "poiVinculado": []
   },
 
-  "carpinteria": {
+  "carpinteria": {"temaTaller":"carpinteria",
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 0],
@@ -489,7 +489,7 @@
     "poiVinculado": []
   },
 
-  "arena_combate": {
+  "arena_combate": {"temaTaller":"herreria",
     "riqueza": "modesta",
     "tieneBodega": true,
     "rangoPlantasAltas": [0, 0],
@@ -540,7 +540,7 @@
     "_nota": "Escalón por encima de casa_noble — la vivienda noble más grande del catálogo, con salon_baile y guardarropa que casa_noble no lleva."
   },
 
-  "lonja_pescado": {
+  "lonja_pescado": {"temaTaller":"pescador",
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 0],

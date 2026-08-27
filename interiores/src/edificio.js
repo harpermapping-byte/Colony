@@ -128,7 +128,7 @@ function generarHabitacionCompuestaL({ tipoSalaId, catalogos, riqueza, amueblado
 // Genera y coloca todas las salas de UNA planta (rol: "bodega"/"planta_baja"/
 // "planta_alta"), devolviendo el plano de esa planta con cada sala ya
 // posicionada y las puertas de conexión reales entre salas contiguas.
-function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amueblado, semilla }) {
+function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amueblado, semilla, temaProfesion }) {
   const rnd = crearPRNG(`${semilla}:planta:${nivel}`);
   const n = elegirNumeroSalas(salasPonderadas.length, riqueza, rnd);
 
@@ -141,7 +141,7 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
   const idsFila = idxPasillo === -1 ? tipoSalaIds : tipoSalaIds.filter((_, i) => i !== idxPasillo);
 
   const salasFila = idsFila.map((tipoSalaId, i) =>
-    colocarSala({ tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:${nivel}:${i}` })
+    colocarSala({ tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:${nivel}:${i}`, temaProfesion })
   );
 
   // El muro ya no es una casilla propia de cada sala (colocarElementos.js:
@@ -253,6 +253,13 @@ function generarEdificio({ tipoEdificioId, catalogos, semilla = "edificio", riqu
     if (defEdificio.salasPorPlanta.planta_alta) plantasAGenerar.push({ nivel: i, rol: "planta_alta" });
   }
 
+  // `temaTaller` (opcional, tipos_edificio.json): qué oficio es este
+  // edificio de verdad (herrería, curtiduría, botica...) — todos comparten
+  // el mismo tipo de sala genérico "taller"/"lonja", así que sin esto el
+  // motor no tenía forma de saber que una curtiduría no debería llenarse
+  // con la fragua de un herrero. Se reparte a TODAS las plantas del
+  // edificio; colocarSala lo ignora sin problema en cualquier sala que no
+  // tenga mobiliario etiquetado por oficio (dormitorios, almacenes...).
   const plantas = plantasAGenerar.map(({ nivel, rol }) =>
     generarPlanta({
       nivel,
@@ -262,6 +269,7 @@ function generarEdificio({ tipoEdificioId, catalogos, semilla = "edificio", riqu
       riqueza: riquezaFinal,
       amueblado,
       semilla,
+      temaProfesion: defEdificio.temaTaller,
     })
   );
 

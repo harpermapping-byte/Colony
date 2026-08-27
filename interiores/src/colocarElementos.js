@@ -36,7 +36,7 @@ const CAPAS_POR_FASE = {
   [Priority.DECORACION]: ["iluminacion", "suciedad"],
 };
 
-function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado }) {
+function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado, temaProfesion }) {
   const defSala = catalogos.tiposSala[tipoSalaId];
   if (!defSala) throw new Error(`tipoSala desconocido: ${tipoSalaId}`);
 
@@ -552,7 +552,20 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     modesta: { decorFija: 4, decorMovible: 10, iluminacion: 3, suciedad: 2 },
     noble: { decorFija: 9, decorMovible: 20, iluminacion: 6, suciedad: 0 },
   };
-  const LIMITE_POR_CAPA = LIMITE_POR_CAPA_POR_RIQUEZA[riqueza] || LIMITE_POR_CAPA_POR_RIQUEZA.modesta;
+  // Además de la riqueza, el tamaño REAL de esta instancia de sala frente
+  // al tamaño típico de su tipo (defSala.anchoTiles/largoTiles) escala los
+  // topes otra vez — así un gran_salon que salió especialmente grande
+  // saca más partido a ese espacio de más (más piezas, o más repeticiones
+  // coherentes de las mismas, ver más abajo) en vez de quedarse con el
+  // mismo tope que una instancia típica del mismo tipo. Acotado a
+  // [0.6x, 2.5x] para no vaciar de golpe una sala pequeña ni disparar el
+  // conteo en una gigante.
+  const areaTipica = ((defSala.anchoTiles[0] + defSala.anchoTiles[1]) / 2) * ((defSala.largoTiles[0] + defSala.largoTiles[1]) / 2);
+  const factorTamano = areaTipica > 0 ? Math.min(1.8, Math.max(0.6, (ancho * largo) / areaTipica)) : 1;
+  const baseRiqueza = LIMITE_POR_CAPA_POR_RIQUEZA[riqueza] || LIMITE_POR_CAPA_POR_RIQUEZA.modesta;
+  const LIMITE_POR_CAPA = Object.fromEntries(
+    Object.entries(baseRiqueza).map(([capa, tope]) => [capa, tope > 0 ? Math.max(1, Math.round(tope * factorTamano)) : 0]),
+  );
 
   // Pipeline por FASES (1=Dominante, 2=Secundario, 3=Decoración — ver
   // CAPAS_POR_FASE): cada fase agrupa una o más capas de siempre, cada
@@ -567,7 +580,15 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         .map(([id, el]) => ({ id, ...el }))
         .filter((el) => el.capa === capa)
         .filter((el) => (el.tiposSalaValidos || []).includes(tipoSalaId))
-        .filter((el) => riquezaAlcanza(riqueza, el.riquezaMinima));
+        .filter((el) => riquezaAlcanza(riqueza, el.riquezaMinima))
+        // `temasProfesion` (opcional): si la pieza lo declara, solo sale
+        // cuando la sala pertenece a ESE oficio (ej. fragua/yunque solo en
+        // temaProfesion:"herreria", no en cualquier "taller" genérico). Sin
+        // el campo, la pieza sigue siendo universal — cero cambio para el
+        // resto del catálogo. Si la sala no tiene tema asignado, las
+        // piezas con `temasProfesion` simplemente no salen (evita mezclar
+        // fragua+telar+alambique en un taller sin oficio identificado).
+        .filter((el) => !el.temasProfesion || (temaProfesion && el.temasProfesion.includes(temaProfesion)));
 
       // Las piezas que van pegadas a un muro (WALL_BACK/CORNER) se colocan
       // justo después de las obligatorias y ANTES que cualquier decoración
@@ -599,6 +620,44 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         if (colocarUno(el)) {
           colocadosEnCapa++;
           idsYaUsados.add(el.id);
+        }
+      }
+
+      // Segunda pasada: repetición coherente. Si tras colocar una vez cada
+      // pieza distinta todavía sobra presupuesto de la capa (sala grande
+      // y/o noble, ver LIMITE_POR_CAPA de arriba), se repiten piezas ya
+      // vistas en vez de dejar la sala con hueco vacío — nunca anclas
+      // obligatorias (`isMandatory`) ni superficies (`esSuperficie`, cada
+      // mesa/mostrador sigue siendo única) ni satélites "juntoAMesa" (esos
+      // ya tienen su propio mecanismo de repetición arriba). Encaja con lo
+      // que ya pasa de forma natural con `variantesNombradas`: un segundo
+      // armario en la misma sala casi nunca sale idéntico al primero.
+      // Tope de 2 repeticiones POR PIEZA (además de la vez normal ya
+      // colocada arriba, así que 3 apariciones como máximo) — sin esto, en
+      // una sala grande/noble con pocos candidatos válidos (ej. un taller
+      // pequeño con un único mueble de decoración posible) el presupuesto
+      // sobrante se lo llevaba entero un solo tipo de pieza (8 vitrinas
+      // idénticas en una joyería, medido con un caso real), en vez de
+      // repartirse entre varias piezas distintas como cabría esperar.
+      const MAX_REPETICIONES_POR_ID = 2;
+      if (colocadosEnCapa < LIMITE_POR_CAPA[capa]) {
+        const repetibles = candidatos.filter((el) => !el.isMandatory && !el.esSuperficie && !el.colocacion.includes("juntoAMesa"));
+        const repeticionesPorId = new Map();
+        let intentosSinProgreso = 0;
+        while (colocadosEnCapa < LIMITE_POR_CAPA[capa] && repetibles.length > 0 && intentosSinProgreso < repetibles.length * 2) {
+          const el = repetibles[elegirEntero(0, repetibles.length - 1)];
+          const usadas = repeticionesPorId.get(el.id) || 0;
+          if (usadas >= MAX_REPETICIONES_POR_ID) {
+            intentosSinProgreso++;
+            continue;
+          }
+          if (colocarUno(el)) {
+            colocadosEnCapa++;
+            repeticionesPorId.set(el.id, usadas + 1);
+            intentosSinProgreso = 0;
+          } else {
+            intentosSinProgreso++;
+          }
         }
       }
     }
