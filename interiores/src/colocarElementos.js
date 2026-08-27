@@ -692,14 +692,17 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       // ya tienen su propio mecanismo de repetición arriba). Encaja con lo
       // que ya pasa de forma natural con `variantesNombradas`: un segundo
       // armario en la misma sala casi nunca sale idéntico al primero.
-      // Tope de 2 repeticiones POR PIEZA (además de la vez normal ya
-      // colocada arriba, así que 3 apariciones como máximo) — sin esto, en
+      // Tope de 1 repetición POR PIEZA (además de la vez normal ya
+      // colocada arriba, así que 2 apariciones como máximo) — sin esto, en
       // una sala grande/noble con pocos candidatos válidos (ej. un taller
-      // pequeño con un único mueble de decoración posible) el presupuesto
-      // sobrante se lo llevaba entero un solo tipo de pieza (8 vitrinas
-      // idénticas en una joyería, medido con un caso real), en vez de
-      // repartirse entre varias piezas distintas como cabría esperar.
-      const MAX_REPETICIONES_POR_ID = 2;
+      // pequeño con un único mueble de decoración posible, o una letrina
+      // con solo 3-4 objetos distintos) el presupuesto sobrante se lo
+      // llevaba entero un solo tipo de pieza (8 vitrinas idénticas en una
+      // joyería, o 3 cubos de basura en una letrina de 4x4, medido con
+      // casos reales), en vez de repartirse entre varias piezas distintas
+      // como cabría esperar — la variedad viene de tener MÁS piezas
+      // distintas en el catálogo, no de repetir la misma muchas veces.
+      const MAX_REPETICIONES_POR_ID = 1;
       if (colocadosEnCapa < LIMITE_POR_CAPA[capa]) {
         const repetibles = candidatos.filter((el) => !el.isMandatory && !el.esSuperficie && !el.colocacion.includes("juntoAMesa"));
         const repeticionesPorId = new Map();
