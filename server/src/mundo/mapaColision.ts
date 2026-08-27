@@ -36,6 +36,15 @@ function idsConColision(rutaCatalogo: string): Set<string> {
       if (!id.startsWith("_") && datos && datos.colision === true) ids.add(id);
     }
   }
+  // deco urbana de los mapas de ciudad (t:"m"): su catálogo declara qué
+  // piezas bloquean (vallas, farolas, puestos...) — misma regla de casilla
+  const rutaDeco = path.join(RAIZ_REPO, "ciudades", "catalogo", "decoracion.json");
+  if (fs.existsSync(rutaDeco)) {
+    const decoracion = leerJSON<Record<string, { colision?: boolean }>>(rutaDeco);
+    for (const [id, datos] of Object.entries(decoracion)) {
+      if (!id.startsWith("_") && datos && datos.colision === true) ids.add(id);
+    }
+  }
   return ids;
 }
 

@@ -36,22 +36,22 @@
     },
     {
       "tipo": "interior",
-      "x": 78,
-      "y": 85,
+      "x": 76,
+      "y": 76,
       "edificio": "cuartel_guardia_rio-3:cuartel_guardia:3",
       "tipoEdificioId": "cuartel_guardia"
     },
     {
       "tipo": "interior",
-      "x": 76,
+      "x": 87,
       "y": 76,
       "edificio": "posada_rio-3:posada:1",
       "tipoEdificioId": "posada"
     },
     {
       "tipo": "interior",
-      "x": 87,
-      "y": 76,
+      "x": 90,
+      "y": 89,
       "edificio": "templo_rio-3:templo:0",
       "tipoEdificioId": "templo"
     },
@@ -64,100 +64,79 @@
     },
     {
       "tipo": "interior",
-      "x": 92,
-      "y": 91,
+      "x": 61,
+      "y": 76,
+      "edificio": "casa_modesta_rio-3:casa_modesta:9",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 111,
+      "y": 80,
+      "edificio": "casa_modesta_rio-3:casa_modesta:7",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 70,
+      "y": 107,
       "edificio": "taberna_rio-3:taberna:18",
       "tipoEdificioId": "taberna"
     },
     {
       "tipo": "interior",
-      "x": 54,
-      "y": 93,
+      "x": 115,
+      "y": 87,
+      "edificio": "tienda_rio-3:tienda:17",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 52,
+      "y": 70,
+      "edificio": "casa_modesta_rio-3:casa_modesta:4",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 75,
+      "y": 49,
+      "edificio": "casa_modesta_rio-3:casa_modesta:16",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 102,
+      "y": 55,
+      "edificio": "panaderia_rio-3:panaderia:20",
+      "tipoEdificioId": "panaderia"
+    },
+    {
+      "tipo": "interior",
+      "x": 73,
+      "y": 83,
+      "edificio": "casa_modesta_rio-3:casa_modesta:11",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 95,
+      "y": 62,
+      "edificio": "alfareria_rio-3:alfareria:21",
+      "tipoEdificioId": "alfareria"
+    },
+    {
+      "tipo": "interior",
+      "x": 74,
+      "y": 48,
       "edificio": "botica_rio-3:botica:15",
       "tipoEdificioId": "botica"
     },
     {
       "tipo": "interior",
       "x": 112,
-      "y": 78,
-      "edificio": "casa_modesta_rio-3:casa_modesta:7",
-      "tipoEdificioId": "casa_modesta"
-    },
-    {
-      "tipo": "interior",
-      "x": 57,
-      "y": 59,
-      "edificio": "casa_modesta_rio-3:casa_modesta:9",
-      "tipoEdificioId": "casa_modesta"
-    },
-    {
-      "tipo": "interior",
-      "x": 109,
-      "y": 100,
-      "edificio": "casa_modesta_rio-3:casa_modesta:11",
-      "tipoEdificioId": "casa_modesta"
-    },
-    {
-      "tipo": "interior",
-      "x": 52,
-      "y": 74,
-      "edificio": "tienda_rio-3:tienda:19",
-      "tipoEdificioId": "tienda"
-    },
-    {
-      "tipo": "interior",
-      "x": 72,
-      "y": 57,
-      "edificio": "tienda_rio-3:tienda:8",
-      "tipoEdificioId": "tienda"
-    },
-    {
-      "tipo": "interior",
-      "x": 105,
-      "y": 58,
-      "edificio": "casa_modesta_rio-3:casa_modesta:4",
-      "tipoEdificioId": "casa_modesta"
-    },
-    {
-      "tipo": "interior",
-      "x": 72,
-      "y": 109,
-      "edificio": "casa_modesta_rio-3:casa_modesta:16",
-      "tipoEdificioId": "casa_modesta"
-    },
-    {
-      "tipo": "interior",
-      "x": 51,
-      "y": 71,
-      "edificio": "panaderia_rio-3:panaderia:20",
-      "tipoEdificioId": "panaderia"
-    },
-    {
-      "tipo": "interior",
-      "x": 92,
-      "y": 51,
-      "edificio": "alfareria_rio-3:alfareria:21",
-      "tipoEdificioId": "alfareria"
-    },
-    {
-      "tipo": "interior",
-      "x": 100,
-      "y": 106,
-      "edificio": "tienda_rio-3:tienda:17",
-      "tipoEdificioId": "tienda"
-    },
-    {
-      "tipo": "interior",
-      "x": 75,
-      "y": 108,
-      "edificio": "alfareria_rio-3:alfareria:6",
-      "tipoEdificioId": "alfareria"
-    },
-    {
-      "tipo": "interior",
-      "x": 110,
-      "y": 82,
-      "edificio": "curtiduria_rio-3:curtiduria:14",
+      "y": 75,
+      "edificio": "curtiduria_rio-3:curtiduria:10",
       "tipoEdificioId": "curtiduria"
     },
     {
@@ -171,20 +150,41 @@
       "tipo": "interior",
       "x": 93,
       "y": 88,
-      "edificio": "curtiduria_rio-3:curtiduria:10",
+      "edificio": "alfareria_rio-3:alfareria:6",
+      "tipoEdificioId": "alfareria"
+    },
+    {
+      "tipo": "interior",
+      "x": 70,
+      "y": 57,
+      "edificio": "tienda_rio-3:tienda:8",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 57,
+      "y": 59,
+      "edificio": "tienda_rio-3:tienda:19",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 57,
+      "y": 98,
+      "edificio": "curtiduria_rio-3:curtiduria:14",
       "tipoEdificioId": "curtiduria"
     },
     {
       "tipo": "interior",
-      "x": 55,
-      "y": 98,
+      "x": 102,
+      "y": 95,
       "edificio": "tienda_rio-3:tienda:13",
       "tipoEdificioId": "tienda"
     },
     {
       "tipo": "interior",
-      "x": 107,
-      "y": 71,
+      "x": 85,
+      "y": 109,
       "edificio": "casa_humilde_rio-3:casa_humilde:12",
       "tipoEdificioId": "casa_humilde"
     }
@@ -1362,21 +1362,15 @@
   ],
   "zonasVerdes": [
     {
-      "tipo": "huerto",
-      "x": 99,
-      "y": 63,
+      "tipo": "parque",
+      "x": 115,
+      "y": 62,
       "r": 4
     },
     {
       "tipo": "huerto",
-      "x": 100,
-      "y": 50,
-      "r": 3
-    },
-    {
-      "tipo": "parque",
-      "x": 89,
-      "y": 41,
+      "x": 85,
+      "y": 43,
       "r": 3
     },
     {
@@ -1384,6 +1378,42 @@
       "x": 103,
       "y": 89,
       "r": 3
+    },
+    {
+      "tipo": "huerto",
+      "x": 73,
+      "y": 115,
+      "r": 5
+    }
+  ],
+  "luces": [
+    {
+      "x": 114,
+      "y": 106,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    },
+    {
+      "x": 57,
+      "y": 46,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    },
+    {
+      "x": 85,
+      "y": 84,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
+    },
+    {
+      "x": 76,
+      "y": 83,
+      "id": "farola_calle",
+      "radio": 6,
+      "color": "#ffb75a"
     }
   ]
 }

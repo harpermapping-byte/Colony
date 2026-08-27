@@ -14,6 +14,7 @@ import terrenosJson from "../../../baker/catalogo/terrenos.json";
 import vegetacionJson from "../../../baker/catalogo/vegetacion.json";
 import rocasJson from "../../../baker/catalogo/rocas.json";
 import animalesJson from "../../../baker/catalogo/animales.json";
+import decoracionJson from "../../../ciudades/catalogo/decoracion.json";
 
 interface EntradaCatalogo {
   colorDebug?: string;
@@ -34,6 +35,9 @@ const terrenos = comoTabla(terrenosJson);
 const vegetacion = comoTabla(vegetacionJson);
 const rocas = comoTabla(rocasJson);
 const animales = comoTabla(animalesJson);
+// deco urbana de los mapas de ciudad (t:"m") — catálogo propio del bakeador
+// de ciudades con colorDebug/dimensiones/colision/luz por pieza
+const decoracion = comoTabla(decoracionJson);
 
 const COLOR_DESCONOCIDO = "#b05ad8"; // magenta apagado: canta a la vista = id sin entrada de catálogo
 
@@ -41,13 +45,14 @@ export function colorTerreno(id: string): string {
   return terrenos[id]?.colorDebug || COLOR_DESCONOCIDO;
 }
 
-const TABLA_POR_TIPO: Record<"v" | "r" | "a", Record<string, EntradaCatalogo>> = {
+const TABLA_POR_TIPO: Record<"v" | "r" | "a" | "m", Record<string, EntradaCatalogo>> = {
   v: vegetacion,
   r: rocas,
   a: animales,
+  m: decoracion,
 };
 
-export function colorObjeto(tipo: "v" | "r" | "a", id: string): string {
+export function colorObjeto(tipo: "v" | "r" | "a" | "m", id: string): string {
   return TABLA_POR_TIPO[tipo][id]?.colorDebug || COLOR_DESCONOCIDO;
 }
 
@@ -63,7 +68,13 @@ export interface DimensionesPlaceholder {
  * y ancho. Animales: caja media (marcador de spawn — la fauna viva es
  * mecánica futura, el bakeador solo deja dónde aparece).
  */
-export function dimensionesObjeto(tipo: "v" | "r" | "a", id: string): DimensionesPlaceholder {
+export function dimensionesObjeto(tipo: "v" | "r" | "a" | "m", id: string): DimensionesPlaceholder {
+  if (tipo === "m") {
+    // la deco urbana declara sus dimensiones reales en su catálogo
+    const dims = decoracion[id]?.dimensiones as [number, number, number] | undefined;
+    if (dims) return { ancho: dims[0], alto: dims[1], profundo: dims[2] };
+    return { ancho: 0.7, alto: 0.7, profundo: 0.7 };
+  }
   if (tipo === "v") {
     const cat = vegetacion[id]?.categoriaRecurso || "";
     if (cat.startsWith("madera")) return { ancho: 0.55, alto: 2.3, profundo: 0.55 };

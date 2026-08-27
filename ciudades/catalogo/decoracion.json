@@ -1,0 +1,14 @@
+{
+  "_nota": "Capa de DECORACIÓN URBANA del bakeador de ciudades (objetos t:'m' en los chunks). Fuente de verdad de la deco exterior: colorDebug+dimensiones para el placeholder del cliente, colision para la rejilla del servidor, y luz para el CANAL DE ILUMINACIÓN (se exporta como indice.luces; cuando exista el ciclo día/noche el cliente encenderá ahí sus luces). Los ids que coinciden con muebles de interiores/catalogo/elementos.json usarán su mismo .glb cuando exista (categoría de assets 'interiores'); los propios de exterior (valla, farola...) tendrán el suyo por la misma convención.",
+  "caja_madera": { "uso": "carga apilada junto a fachadas y muelles del mercado", "colorDebug": "#8a6a42", "dimensiones": [0.8, 0.7, 0.8], "colision": true },
+  "barril": { "uso": "tonel junto a tabernas, almacenes y esquinas de calle", "colorDebug": "#7a5230", "dimensiones": [0.8, 1.0, 0.8], "colision": true },
+  "silla": { "uso": "asiento suelto junto a puertas y terrazas", "colorDebug": "#8a6a42", "dimensiones": [0.6, 0.9, 0.6], "colision": false },
+  "mesa_comedor": { "uso": "mesa de terraza/mercadillo al aire libre", "colorDebug": "#96703c", "dimensiones": [1.6, 0.8, 0.9], "colision": true },
+  "banco": { "uso": "banco público en plaza y zonas verdes", "colorDebug": "#8a6a42", "dimensiones": [1.4, 0.5, 0.5], "colision": false },
+  "saco_harina": { "uso": "sacos apilados junto a graneros y panaderías", "colorDebug": "#c9b892", "dimensiones": [0.7, 0.6, 0.7], "colision": false },
+  "cesta_pan": { "uso": "cesta de mercado junto a puestos", "colorDebug": "#a98a56", "dimensiones": [0.5, 0.4, 0.5], "colision": false },
+  "valla_madera": { "uso": "cerca baja que delimita huertos y corrales", "colorDebug": "#7a5a34", "dimensiones": [1.0, 1.0, 0.25], "colision": true },
+  "puesto_mercado": { "uso": "puesto con toldo del mercado de la plaza", "colorDebug": "#a3762e", "dimensiones": [1.8, 2.0, 1.2], "colision": true },
+  "farola_calle": { "uso": "farola de forja de los asentamientos ricos — canal de iluminación nocturna", "colorDebug": "#3a3630", "dimensiones": [0.3, 2.4, 0.3], "colision": true, "luz": { "radio": 6, "color": "#ffb75a" } },
+  "antorcha_poste": { "uso": "antorcha en poste de los asentamientos pobres — canal de iluminación nocturna", "colorDebug": "#6a4a26", "dimensiones": [0.25, 1.8, 0.25], "colision": true, "luz": { "radio": 4.5, "color": "#ff9a3a" } }
+}

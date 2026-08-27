@@ -186,8 +186,34 @@ la huella; el bake anidado sigue generando y enlazando el interior
 completo de cada edificio. Es el estándar de los juegos con interiores
 instanciados.
 
+### 6.1 Capas añadidas (2026-08-27, pedido del usuario)
+
+- **Vegetación**: arbustos atravesables y árboles sueltos ("verde por aquí,
+  verde por allá") por el recinto + arbustos en los parques — especies del
+  catálogo del baker (t:"v"; la colisión la decide su catálogo).
+- **Decoración urbana** (t:"m", catálogo NUEVO
+  `ciudades/catalogo/decoracion.json` con colorDebug/dimensiones/colision/
+  luz por pieza): vallas cercando huertos, puestos de mercado y bancos en
+  la plaza, cajas/barriles/sillas/sacos junto a fachadas. Regla dura: la
+  deco que colisiona nunca pisa un camino ni tapona una puerta. El cliente
+  la instancia con categoría de assets "interiores" (mismo .glb que el
+  mueble cuando exista); el servidor lee su colisión del catálogo.
+- **CANAL DE ILUMINACIÓN**: farolas (ricos) / antorchas de poste (pobres)
+  en plaza, puertas de muralla y calle principal — como deco Y como canal
+  aparte `indice.luces` ({x, y, id, radio, color}) para que el ciclo
+  día/noche futuro encienda ahí sus luces.
+- **Tier `gran_capital`**: el DOBLE de radio que la capital (112 vs 56,
+  mapa 328×328), 4 puertas, 64-80 edificios, DOS calles de ronda (la
+  interior y otra pegada a la muralla) para que todos los anillos tengan
+  barrio. Escala completa: aldea_pequena → aldea → pueblo → capital →
+  gran_capital + castillo.
+- **Formas**: todas las plantas nacen de rectángulos/cuadrados compuestos
+  (decisión del usuario): rect, L (un ala), T (ala centrada) o U (dos
+  alas), por semilla en los tipos con "alas" de huellas.json.
+
 Pendiente: prop 3D exterior de la ciudad sobre el mapa principal, hito de
-plaza y puestos de mercado, bakeado especial de la ciudad principal, y el
-CRUCE DE PORTALES en runtime (rooms bajo demanda, §4.3). El export en
-formato de sectores está verificado contra `mapaColision` del servidor
-(carga una capital orgánica sin cambios).
+plaza, bakeado especial de la ciudad principal, ciclo día/noche que
+consuma `indice.luces`, y el CRUCE DE PORTALES en runtime (rooms bajo
+demanda, §4.3). El export en formato de sectores está verificado contra
+`mapaColision` del servidor y JUGADO de verdad (assets/mapas/ciudad_demo +
+paseo E2E con vídeo).

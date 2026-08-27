@@ -27,7 +27,7 @@ export interface IndiceMapa {
 /** Objeto colocado por el bakeador dentro de un chunk (claves cortas del export). */
 export interface ObjetoBakeado {
   i: string; // id de catálogo (especie/roca/animal)
-  t: "v" | "r" | "a"; // vegetacion | rocas | animales
+  t: "v" | "r" | "a" | "m" | "e"; // vegetacion | rocas | animales | deco urbana | edificio (ciudades)
   va: number; // índice de variante (0-based)
   ro: number; // rotación en grados
   es: number; // escala

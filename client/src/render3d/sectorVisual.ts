@@ -26,6 +26,7 @@ const CATEGORIA_POR_TIPO: Partial<Record<string, CategoriaAsset>> = {
   v: "vegetacion",
   r: "rocas",
   a: "animales",
+  m: "interiores", // deco urbana: mismo .glb que el mueble de interiores cuando exista
   // "e" (edificios de los mapas de ciudad) NO se instancia como prop: su
   // volumen ya sale de las casillas solar_edificio extruidas (abajo). El
   // .glb real de cada edificio entrará por aquí cuando exista.
@@ -187,7 +188,8 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
 }
 
 interface GrupoEspecie {
-  tipo: ObjetoBakeado["t"];
+  // "e" nunca llega aquí (se filtra al agrupar): solo tipos con categoría
+  tipo: "v" | "r" | "a" | "m";
   id: string;
   objetos: { globalX: number; globalY: number; obj: ObjetoBakeado }[];
 }
@@ -201,7 +203,7 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
       // instancian: su volumen ya lo ponen las casillas sólidas extruidas
       if (!CATEGORIA_POR_TIPO[obj.t]) continue;
       const claveGrupo = `${obj.t}:${obj.i}`;
-      if (!grupos.has(claveGrupo)) grupos.set(claveGrupo, { tipo: obj.t, id: obj.i, objetos: [] });
+      if (!grupos.has(claveGrupo)) grupos.set(claveGrupo, { tipo: obj.t as GrupoEspecie["tipo"], id: obj.i, objetos: [] });
       grupos.get(claveGrupo)!.objetos.push({
         globalX: cx * chunk.tamano + obj.x,
         globalY: cy * chunk.tamano + obj.y,

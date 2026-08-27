@@ -229,10 +229,13 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
     // calle de RONDA: el anillo interior clásico medieval — el polígono de
     // la muralla encogido hacia el focal. Solo en asentamientos grandes:
     // en una aldea pequeña el anillo se comería el único espacio.
-    if (radio >= 36 || def.muralla.torresEnTodos) {
+    // en las metrópolis (radio >= 80) hay DOS rondas: la interior y otra
+    // pegada a la muralla, para que el anillo exterior también tenga barrio
+    const factoresRonda = radio >= 80 ? [0.55, 0.82] : radio >= 36 || def.muralla.torresEnTodos ? [0.68] : [];
+    for (const factor of factoresRonda) {
       const ronda = poligono.map((p) => ({
-        x: focal.x + (p.x - focal.x) * 0.68,
-        y: focal.y + (p.y - focal.y) * 0.68,
+        x: focal.x + (p.x - focal.x) * factor,
+        y: focal.y + (p.y - focal.y) * factor,
       }));
       for (let i = 0; i < NV; i++) {
         rasterizarSegmento(ronda[i], ronda[(i + 1) % NV], 1.4, ancho, alto, (x, y) => {
@@ -297,12 +300,17 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
     const base = huellaDe(tipoEdificioId);
     const w = Math.max(5, base[0] + Math.floor(rnd() * 3) - 1);
     const h = Math.max(4, base[1] + Math.floor(rnd() * 3) - 1);
-    // piezas en coords LOCALES (la puerta cae en +Y del cuerpo principal)
+    // piezas en coords LOCALES (la puerta cae en +Y del cuerpo principal).
+    // Todas las formas nacen de rectángulos/cuadrados compuestos (decisión
+    // del usuario): rect solo, L (un ala), T (ala centrada) o U (dos alas).
     const piezas = [{ ox: 0, oy: 0, w, h }];
     const ala = huellas.alas?.[tipoEdificioId];
-    if (ala && rnd() < 0.75) {
-      const lado = rnd() < 0.5 ? 1 : -1;
-      piezas.push({ ox: lado * (w / 2 - ala[0] / 2), oy: -(h / 2 + ala[1] / 2), w: ala[0], h: ala[1] });
+    if (ala) {
+      const tirada = rnd();
+      const alaEn = (ox) => piezas.push({ ox, oy: -(h / 2 + ala[1] / 2), w: ala[0], h: ala[1] });
+      if (tirada < 0.4) alaEn((rnd() < 0.5 ? 1 : -1) * (w / 2 - ala[0] / 2)); // L
+      else if (tirada < 0.55) alaEn(0); // T
+      else if (tirada < 0.72 && w >= ala[0] * 2 + 2) { alaEn(w / 2 - ala[0] / 2); alaEn(-(w / 2 - ala[0] / 2)); } // U
     }
     return {
       tipoEdificioId, semillaInterior, interior, w, h, piezas,
@@ -550,6 +558,126 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
         for (let dx = -1; dx <= 1; dx++)
           if (terreno.get(x + dx, y + dy) === "cesped") terreno.set(x + dx, y + dy, "tierra");
 
+  // === CAPA DE VEGETACIÓN dispersa ==========================================
+  // "verde por aquí, verde por allá": arbustos (atravesables) y algún árbol
+  // suelto en rincones de césped alejados de las calles — sin saturar.
+  const ARBUSTOS = [["arbusto_comun", 4], ["espino_albar", 2], ["lavanda_silvestre", 2], ["romero", 1], ["helecho", 1]];
+  const ARBOLES_SUELTOS = [["roble", 2], ["tilo", 2], ["abedul", 1]];
+  const nVerdes = Math.round(radio * 1.4);
+  for (let v = 0; v < nVerdes; v++) {
+    const vx = 2 + Math.floor(rnd() * (ancho - 4)), vy = 2 + Math.floor(rnd() * (alto - 4));
+    const k = vy * ancho + vx;
+    if (!dentroMuralla(vx, vy) || terreno.get(vx, vy) !== "cesped" || ocupado[k] || esArbol.has(k)) continue;
+    if (distCalle[k] < 2) continue; // el verde no invade la calle
+    const esArbolGrande = rnd() < 0.3;
+    arboles.push({
+      i: elegirPonderado(esArbolGrande ? ARBOLES_SUELTOS : ARBUSTOS, rnd),
+      t: "v", va: Math.floor(rnd() * 5), ro: Math.floor(rnd() * 4) * 90, es: 1, x: vx, y: vy,
+      colisiona: esArbolGrande, // los arbustos se atraviesan; el árbol no
+    });
+    if (esArbolGrande) esArbol.add(k);
+  }
+  // arbustos también en los parques, entre los árboles
+  for (const zv of zonasVerdes) {
+    if (zv.tipo !== "parque") continue;
+    for (let a = 0; a < 2 + Math.floor(rnd() * 3); a++) {
+      const ax = zv.x + Math.round((rnd() - 0.5) * 2 * (zv.r - 1));
+      const ay = zv.y + Math.round((rnd() - 0.5) * 2 * (zv.r - 1));
+      if (terreno.get(ax, ay) !== "cesped" || esArbol.has(ay * ancho + ax)) continue;
+      arboles.push({ i: elegirPonderado(ARBUSTOS, rnd), t: "v", va: Math.floor(rnd() * 5), ro: 0, es: 1, x: ax, y: ay, colisiona: false });
+    }
+  }
+
+  // === CAPA DE DECORACIÓN + CANAL DE ILUMINACIÓN ===========================
+  // Muebles urbanos (ciudades/catalogo/decoracion.json): vallas en huertos,
+  // puestos y bancos en la plaza, cajas/barriles/sillas junto a fachadas, y
+  // las LUCES (farola rica / antorcha pobre) en plaza, puertas y calle
+  // principal — exportadas también como canal aparte (indice.luces).
+  const catalogoDeco = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogo", "decoracion.json"), "utf8"));
+  const deco = [];
+  const luces = [];
+  const decoSolida = new Set();
+  const ponerDeco = (id, x, y, ro = 0) => {
+    const def2 = catalogoDeco[id];
+    if (!def2 || !terreno.dentro(x, y)) return false;
+    const k = y * ancho + x;
+    const t = terreno.get(x, y);
+    if (esArbol.has(k) || decoSolida.has(k) || esAgua[k]) return false;
+    if (t === idTerrenoMuro || t === "solar_edificio") return false;
+    if (def2.colision) {
+      // lo que bloquea NUNCA pisa un camino/senda ni tapona una puerta:
+      // la deco decora, no encierra a nadie en su casa
+      if (t === "camino" || t === "puente") return false;
+      for (const ed of todos) if (Math.abs(ed.puerta.x - x) <= 2 && Math.abs(ed.puerta.y - y) <= 2) return false;
+    }
+    deco.push({ i: id, t: "m", va: 0, ro, es: 1, x, y });
+    if (def2.colision) decoSolida.add(k);
+    if (def2.luz) luces.push({ x, y, id, radio: def2.luz.radio, color: def2.luz.color });
+    return true;
+  };
+
+  // vallas alrededor de cada huerto (con hueco de entrada hacia la calle)
+  for (const zv of zonasVerdes) {
+    if (zv.tipo !== "huerto") continue;
+    const oEntrada = origenCalle[zv.y * ancho + zv.x];
+    const angEntrada = Math.atan2(Math.floor(oEntrada / ancho) - zv.y, (oEntrada % ancho) - zv.x);
+    for (let ang = 0; ang < Math.PI * 2; ang += 0.28) {
+      let dAng = Math.abs(ang - ((angEntrada + Math.PI * 2) % (Math.PI * 2)));
+      if (dAng > Math.PI) dAng = Math.PI * 2 - dAng;
+      if (dAng < 0.5) continue; // hueco de entrada
+      const fx = Math.round(zv.x + Math.cos(ang) * (zv.r + 1));
+      const fy = Math.round(zv.y + Math.sin(ang) * (zv.r + 1));
+      if (terreno.get(fx, fy) === "cesped" || terreno.get(fx, fy) === "tierra" || terreno.get(fx, fy) === "tierra_labrada") {
+        ponerDeco("valla_madera", fx, fy, Math.round(((ang * 180) / Math.PI + 90) % 360));
+      }
+    }
+  }
+
+  // plaza: puestos de mercado, bancos y carga suelta
+  const nPuestos = Math.min(4, Math.max(1, Math.floor(radioPlaza / 2)));
+  for (let pIdx = 0; pIdx < nPuestos; pIdx++) {
+    const ang = (pIdx / nPuestos) * Math.PI * 2 + 0.4 + rnd() * 0.3;
+    ponerDeco("puesto_mercado",
+      Math.round(focal.x + Math.cos(ang) * (radioPlaza - 1.2)),
+      Math.round(focal.y + Math.sin(ang) * (radioPlaza - 1.2)),
+      Math.round(((ang * 180) / Math.PI + 180) % 360));
+    if (rnd() < 0.7) ponerDeco(rnd() < 0.5 ? "caja_madera" : "cesta_pan",
+      Math.round(focal.x + Math.cos(ang + 0.35) * (radioPlaza - 1)),
+      Math.round(focal.y + Math.sin(ang + 0.35) * (radioPlaza - 1)));
+  }
+  for (const zv of zonasVerdes) if (zv.tipo === "parque" && rnd() < 0.8) ponerDeco("banco", zv.x + 1, zv.y, Math.floor(rnd() * 4) * 90);
+
+  // junto a las fachadas: cajas, barriles, sillas, sacos según el oficio
+  const DECO_FACHADA = [["barril", 3], ["caja_madera", 3], ["silla", 2], ["saco_harina", 1], ["banco", 1]];
+  for (const ed of todos) {
+    if (rnd() > 0.65) continue;
+    const dx = Math.sign(ed.puerta.x - ed.cx) || 1;
+    ponerDeco(elegirPonderado(DECO_FACHADA, rnd), ed.puerta.x + (rnd() < 0.5 ? 2 : -2) * dx, ed.puerta.y, Math.floor(rnd() * 4) * 90);
+  }
+
+  // LUCES: junto a cada puerta de muralla, en la plaza y a lo largo de la
+  // calle principal cada ~9 casillas, pegadas al borde de la calle
+  const idLuz = material === "empalizada" ? "antorcha_poste" : "farola_calle";
+  for (const p of puertas) {
+    const hacia = Math.atan2(focal.y - p.y, focal.x - p.x);
+    ponerDeco(idLuz, Math.round(p.x + Math.cos(hacia) * (grosorRaster + 1.5)) + 1, Math.round(p.y + Math.sin(hacia) * (grosorRaster + 1.5)));
+  }
+  for (let l = 0; l < 4; l++) {
+    const ang = (l / 4) * Math.PI * 2 + 0.9;
+    ponerDeco(idLuz, Math.round(focal.x + Math.cos(ang) * (radioPlaza + 1)), Math.round(focal.y + Math.sin(ang) * (radioPlaza + 1)));
+  }
+  for (const ruta of caminos) {
+    for (let i = 4; i < ruta.length; i += 9) {
+      const p = ruta[i];
+      if (!dentroMuralla(p.x, p.y)) continue;
+      // la farola va en la acera: la casilla vecina que no sea calle
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const t = terreno.get(p.x + dx, p.y + dy);
+        if ((t === "cesped" || t === "tierra") && ponerDeco(idLuz, p.x + dx, p.y + dy)) break;
+      }
+    }
+  }
+
   // reparación de conectividad: toda puerta de edificio DEBE alcanzarse
   // desde la puerta principal — si el río o un solar la dejó aislada, se
   // abre una senda A* (con puente si cruza agua). Garantiza por
@@ -563,8 +691,9 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
   const costeSenda = (x, y) => {
     const t = terreno.get(x, y);
     if (t === idTerrenoMuro || t === "solar_edificio") return Infinity;
-    if (esArbol.has(y * ancho + x)) return Infinity; // el árbol colisiona: la senda lo rodea
-    if (esAgua[y * ancho + x] && t !== "puente") return 14; // cruzar = construir puente
+    const k = y * ancho + x;
+    if (esArbol.has(k) || decoSolida.has(k)) return Infinity; // árbol/valla/farola: la senda los rodea
+    if (esAgua[k] && t !== "puente") return 14; // cruzar = construir puente
     if (t === "camino" || t === "adoquin" || t === "puente") return 0.5;
     return 1;
   };
@@ -595,7 +724,7 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
 
   return {
     tier, semilla, variante, ancho, alto, terreno, elevacion, radioHueco,
-    zonasVerdes, arboles,
+    zonasVerdes, arboles, deco, luces,
     focal, plazaRadio: radioPlaza, poligonoMuralla: poligono, modulosMuralla: modulos,
     caminos: caminos.map((r) => r.filter((_, i) => i % 3 === 0)), // polilíneas aligeradas
     puertas, portales, spawn,
@@ -676,7 +805,12 @@ function validarCiudad(ciudad) {
   // Los árboles de parque colisionan en juego (catálogo): se tapan para
   // que el flood no se cuele por una casilla que en realidad está ocupada.
   const taponesArbol = [];
-  for (const a of ciudad.arboles || []) {
+  const catDeco = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogo", "decoracion.json"), "utf8"));
+  const solidosDeco = [
+    ...(ciudad.arboles || []).filter((a) => a.colisiona !== false),
+    ...(ciudad.deco || []).filter((d) => catDeco[d.i]?.colision),
+  ];
+  for (const a of solidosDeco) {
     const t = terreno.get(a.x, a.y);
     if (t !== null) { taponesArbol.push([a.x, a.y, t]); terreno.set(a.x, a.y, "solar_edificio"); }
   }

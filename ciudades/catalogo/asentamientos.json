@@ -374,5 +374,131 @@
       ]
     },
     "zonasVerdes": 1
+  },
+  "gran_capital": {
+    "uso": "la mayor escala: metrópolis amurallada del DOBLE de radio que una capital — distritos, todas las instituciones y varios accesos",
+    "organico": {
+      "radio": 112,
+      "irregularidad": 0.14,
+      "geografias": [
+        [
+          "colina",
+          3
+        ],
+        [
+          "rio",
+          3
+        ],
+        [
+          "llano",
+          2
+        ]
+      ]
+    },
+    "muralla": {
+      "material": "piedra",
+      "grosor": 3,
+      "puertas": 4
+    },
+    "plaza": 9,
+    "zonasVerdes": 9,
+    "edificios": {
+      "cantidad": [
+        64,
+        80
+      ],
+      "obligatorios": [
+        "templo",
+        "ayuntamiento",
+        "posada",
+        "cuartel_guardia",
+        "casa_de_cambio",
+        "casa_gremio",
+        "biblioteca_publica",
+        "teatro",
+        "banos_publicos",
+        "museo",
+        "academia_magia",
+        "arena_combate"
+      ],
+      "ponderados": [
+        [
+          "casa_modesta",
+          7
+        ],
+        [
+          "casa_noble",
+          5
+        ],
+        [
+          "casa_humilde",
+          4
+        ],
+        [
+          "tienda",
+          4
+        ],
+        [
+          "taberna",
+          3
+        ],
+        [
+          "panaderia",
+          2
+        ],
+        [
+          "herreria",
+          2
+        ],
+        [
+          "taller_sastre",
+          2
+        ],
+        [
+          "botica",
+          2
+        ],
+        [
+          "joyeria",
+          2
+        ],
+        [
+          "escuela",
+          2
+        ],
+        [
+          "curtiduria",
+          1
+        ],
+        [
+          "alfareria",
+          1
+        ],
+        [
+          "carpinteria",
+          1
+        ],
+        [
+          "destileria",
+          1
+        ],
+        [
+          "mansion",
+          2
+        ],
+        [
+          "torre_mago",
+          1
+        ],
+        [
+          "establo",
+          1
+        ],
+        [
+          "granero",
+          1
+        ]
+      ]
+    }
   }
 }

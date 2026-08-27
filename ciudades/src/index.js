@@ -48,9 +48,11 @@ function exportarCiudad(ciudad, carpetaSalida) {
   for (const ed of ciudad.edificios) {
     meterObjeto(ed.cx, ed.cy, { i: ed.tipoEdificioId, t: "e", va: 0, ro: ed.rot, es: 1, w: ed.w, h: ed.h });
   }
-  // árboles de los parques: vegetación normal del catálogo del baker (el
-  // cliente ya los instancia y su colision:true los hace sólidos en juego)
+  // capa de vegetación: árboles/arbustos como vegetación normal del baker
+  // (el cliente ya los instancia; la colisión la decide su catálogo)
   for (const a of ciudad.arboles || []) meterObjeto(a.x, a.y, { i: a.i, t: "v", va: a.va, ro: a.ro, es: a.es });
+  // capa de decoración urbana (t:"m", catálogo ciudades/decoracion.json)
+  for (const d of ciudad.deco || []) meterObjeto(d.x, d.y, { i: d.i, t: "m", va: d.va, ro: d.ro, es: d.es });
 
   for (let cy = 0; cy < altoChunks; cy++) {
     for (let cx = 0; cx < anchoChunks; cx++) {
@@ -76,6 +78,9 @@ function exportarCiudad(ciudad, carpetaSalida) {
     muralla: { poligono: ciudad.poligonoMuralla.map((p) => [+p.x.toFixed(1), +p.y.toFixed(1)]), modulos: ciudad.modulosMuralla },
     caminos: ciudad.caminos.map((r) => r.map((p) => [p.x, p.y])),
     zonasVerdes: ciudad.zonasVerdes || [],
+    // CANAL DE ILUMINACIÓN: cuando exista el ciclo día/noche, el cliente
+    // enciende aquí sus luces (posición + radio + color por farola/antorcha)
+    luces: ciudad.luces || [],
   });
 }
 
@@ -114,7 +119,9 @@ function exportarOverview(ciudad, carpetaSalida, terrenos, tiposEdificio, escala
     for (const [x, y] of ed.casillas) pinta(x, y, color);
     pinta(ed.puerta.x, ed.puerta.y, [40, 24, 12]);
   }
-  for (const a of ciudad.arboles || []) pinta(a.x, a.y, [26, 82, 34]); // copas de los parques
+  for (const a of ciudad.arboles || []) pinta(a.x, a.y, a.colisiona === false ? [64, 120, 58] : [26, 82, 34]); // arbustos claros, árboles oscuros
+  for (const d of ciudad.deco || []) pinta(d.x, d.y, [96, 70, 44]); // muebles urbanos
+  for (const l of ciudad.luces || []) pinta(l.x, l.y, [255, 196, 92]); // canal de iluminación
   for (const p of ciudad.puertas) pinta(p.x, p.y, [235, 215, 150]);
   fs.writeFileSync(path.join(carpetaSalida, "overview.png"), codificarPNG(ancho * escala, alto * escala, rgba));
 }

@@ -94,6 +94,24 @@ test("el export completo cuadra con el formato de sectores + capa vectorial", ()
   fs.rmSync(carpeta, { recursive: true, force: true });
 });
 
+test("capas de vegetación, decoración e iluminación: presentes y con catálogo coherente", () => {
+  const catDeco = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogo", "decoracion.json"), "utf8"));
+  const ciudad = generarCiudad({ tier: "capital", semilla: "test-capas", catalogos });
+  assert.ok(ciudad.arboles.length > 0, "capa de vegetación vacía");
+  assert.ok(ciudad.deco.length > 0, "capa de decoración vacía");
+  assert.ok(ciudad.luces.length >= 4, `pocas luces: ${ciudad.luces.length}`);
+  for (const d of ciudad.deco) assert.ok(catDeco[d.i], `pieza de deco sin entrada de catálogo: ${d.i}`);
+  for (const l of ciudad.luces) assert.ok(catDeco[l.id]?.luz, `luz sin datos de luz en catálogo: ${l.id}`);
+  // la deco que colisiona nunca pisa un camino (no encierra a nadie)
+  for (const d of ciudad.deco) {
+    if (!catDeco[d.i].colision) continue;
+    const t = ciudad.terreno.get(d.x, d.y);
+    assert.ok(t !== "camino" && t !== "puente", `${d.i} bloquea un camino en ${d.x},${d.y}`);
+  }
+  // el tier más grande dobla el radio de la capital
+  assert.strictEqual(asentamientos.gran_capital.organico.radio, asentamientos.capital.organico.radio * 2);
+});
+
 test("los terrenos urbanos existen en el catálogo del baker con su transitabilidad", () => {
   const terrenos = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "baker", "catalogo", "terrenos.json"), "utf8"));
   assert.strictEqual(terrenos.adoquin.transitable, true);
