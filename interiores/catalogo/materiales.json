@@ -14,5 +14,9 @@
   "marmol": { "riquezaTipica": ["noble"], "colorDebug": "#e8e4dc" },
   "mimbre": { "riquezaTipica": ["humilde", "modesta"], "colorDebug": "#c9a860" },
   "paja": { "riquezaTipica": ["humilde"], "colorDebug": "#d4b84a", "_nota": "Techo/pared rústica, o jergones de celda." },
-  "cuero": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#7a4a2a" }
+  "cuero": { "riquezaTipica": ["modesta", "noble"], "colorDebug": "#7a4a2a", "usos": ["interior", "ropa"], "tintable": true, "_nota": "Tapizados en interiores; en ropa (ropa/catalogo/prendas.json) delantales, cinturones, botas, armadura ligera. Tiñe solo a tonos oscuros/tierra — nunca colores vivos." },
+
+  "lino": { "riquezaTipica": ["humilde", "modesta", "noble"], "colorDebug": "#e8dfc0", "usos": ["ropa"], "tintable": true, "_nota": "Fibra vegetal barata y universal — camisas, ropa interior, forros, gorros. Base del vestuario humilde de cualquier oficio. Sin especiesFuente propia todavía (no hay planta de lino en baker/catalogo/vegetacion.json); color de partida crudo/hueso, tiñe bien a tonos tierra." },
+  "lana": { "riquezaTipica": ["humilde", "modesta", "noble"], "colorDebug": "#8a7a5a", "usos": ["ropa"], "tintable": true, "_nota": "Abrigo — pantalones, capas, jerséis. Tiñe con mordientes naturales: tonos tierra/verdes/marrones, nunca colores saturados de tinte caro (eso es seda)." },
+  "seda": { "riquezaTipica": ["noble"], "colorDebug": "#c9a8d8", "usos": ["ropa"], "tintable": true, "_nota": "Solo nobleza/clero alto — importada y cara. Única fibra que admite colores vivos/saturados (rojo carmesí, púrpura, azul intenso) sin romper coherencia histórica." }
 }
