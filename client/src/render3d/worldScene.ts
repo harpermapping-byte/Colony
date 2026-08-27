@@ -1,0 +1,143 @@
+import * as THREE from "three";
+import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
+
+const TAMANO_MUNDO_VISIBLE = 16; // unidades de mundo visibles en el eje corto de la cámara
+
+/**
+ * Escena 3D del mundo — sustituye al render de Phaser (sprites planos) para
+ * todo lo que NO sea suelo/terreno: props, objetos y personajes. El suelo
+ * sigue siendo una textura plana (por ahora un plano placeholder gris; la
+ * textura real de `assets/terrenos/` se engancha aquí más adelante sin
+ * tocar el resto de esta clase).
+ *
+ * Cámara ortográfica en ángulo isométrico clásico: la geometría es 3D de
+ * verdad (gira, tiene volumen), pero el encuadre da el mismo aspecto
+ * 2.5D que ya se había validado en `interiores/src/prueba_render_iso.js`.
+ */
+export class WorldScene {
+  readonly renderer: THREE.WebGLRenderer;
+  private readonly labelRenderer: CSS2DRenderer;
+  readonly scene = new THREE.Scene();
+  readonly camera: THREE.OrthographicCamera;
+  private readonly entidades = new Map<string, THREE.Object3D>();
+
+  constructor(contenedor: HTMLElement, ancho: number, alto: number) {
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+    contenedor.appendChild(this.renderer.domElement);
+
+    // Etiquetas de nombre (jugadores) como overlay HTML sincronizado con la
+    // cámara 3D — mismo mecanismo que usan los ejemplos oficiales de Three
+    // para HUD/nametags sobre geometría real.
+    this.labelRenderer = new CSS2DRenderer();
+    this.labelRenderer.domElement.style.position = "absolute";
+    this.labelRenderer.domElement.style.top = "0";
+    this.labelRenderer.domElement.style.left = "0";
+    this.labelRenderer.domElement.style.pointerEvents = "none";
+    contenedor.style.position = "relative";
+    contenedor.appendChild(this.labelRenderer.domElement);
+
+    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+    this.posicionarCamaraIsometrica();
+
+    this.scene.background = new THREE.Color(0x1a202c);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const sol = new THREE.DirectionalLight(0xffffff, 0.9);
+    sol.position.set(6, 10, 4);
+    sol.castShadow = true;
+    this.scene.add(sol);
+
+    // Suelo placeholder: se sustituye por el tileset real de
+    // `assets/terrenos/` cuando se conecte el consumo de sectores del
+    // bakeador — el terreno se queda 2D/textura plana a propósito, nunca
+    // pasa a vóxel como el resto de props.
+    const suelo = new THREE.Mesh(
+      new THREE.PlaneGeometry(200, 200),
+      new THREE.MeshStandardMaterial({ color: 0x2d3748 }),
+    );
+    suelo.rotation.x = -Math.PI / 2;
+    suelo.receiveShadow = true;
+    this.scene.add(suelo);
+
+    this.resize(ancho, alto);
+  }
+
+  private objetivoCamara = new THREE.Vector3(0, 0, 0);
+
+  private posicionarCamaraIsometrica() {
+    const distancia = 20;
+    this.camera.position.set(
+      this.objetivoCamara.x + distancia,
+      this.objetivoCamara.y + distancia,
+      this.objetivoCamara.z + distancia,
+    );
+    this.camera.lookAt(this.objetivoCamara);
+  }
+
+  /** Centra la cámara isométrica sobre un punto del mundo (normalmente el jugador local). */
+  seguirPunto(x: number, y: number) {
+    const [wx, wz] = this.posicionMundo(x, y);
+    this.objetivoCamara.set(wx, 0, wz);
+    this.posicionarCamaraIsometrica();
+  }
+
+  resize(ancho: number, alto: number) {
+    this.renderer.setSize(ancho, alto, false);
+    this.labelRenderer.setSize(ancho, alto);
+    const aspecto = ancho / alto;
+    const mitad = TAMANO_MUNDO_VISIBLE / 2;
+    this.camera.left = -mitad * aspecto;
+    this.camera.right = mitad * aspecto;
+    this.camera.top = mitad;
+    this.camera.bottom = -mitad;
+    this.camera.updateProjectionMatrix();
+  }
+
+  /** Coordenadas del servidor (x,y en plano top-down) -> plano XZ de Three (Y es la altura). */
+  private posicionMundo(x: number, y: number): [number, number] {
+    return [x / 32, y / 32]; // 32px = 1 unidad de mundo, mismo orden de magnitud que un tile
+  }
+
+  añadirEntidad(idEntidad: string, objeto: THREE.Object3D, x: number, y: number, etiqueta?: string) {
+    this.quitarEntidad(idEntidad);
+    const [wx, wz] = this.posicionMundo(x, y);
+    objeto.position.x = wx;
+    objeto.position.z = wz;
+
+    if (etiqueta) {
+      const div = document.createElement("div");
+      div.textContent = etiqueta;
+      div.style.color = "#ffffff";
+      div.style.fontSize = "12px";
+      div.style.fontFamily = "sans-serif";
+      div.style.textShadow = "0 1px 2px rgba(0,0,0,0.8)";
+      const label = new CSS2DObject(div);
+      label.position.set(0, 1.6, 0);
+      objeto.add(label);
+    }
+
+    this.entidades.set(idEntidad, objeto);
+    this.scene.add(objeto);
+  }
+
+  moverEntidad(idEntidad: string, x: number, y: number) {
+    const objeto = this.entidades.get(idEntidad);
+    if (!objeto) return;
+    const [wx, wz] = this.posicionMundo(x, y);
+    objeto.position.x = wx;
+    objeto.position.z = wz;
+  }
+
+  quitarEntidad(idEntidad: string) {
+    const objeto = this.entidades.get(idEntidad);
+    if (!objeto) return;
+    this.scene.remove(objeto);
+    this.entidades.delete(idEntidad);
+  }
+
+  render() {
+    this.renderer.render(this.scene, this.camera);
+    this.labelRenderer.render(this.scene, this.camera);
+  }
+}

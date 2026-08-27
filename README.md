@@ -1,13 +1,13 @@
 # Streamer Colony — prototipo Fase 1
 
-Prototipo mínimo cliente-servidor: dos (o más) sprites placeholder moviéndose en pantalla, sincronizados en tiempo real entre pestañas/navegadores distintos.
+Prototipo mínimo cliente-servidor: dos (o más) jugadores moviéndose en pantalla, sincronizados en tiempo real entre pestañas/navegadores distintos. El mundo (props, objetos, personajes) se renderiza en 3D real (vóxeles) con cámara isométrica — ver `docs/GDD_Motor_3D_Props.md`, **léelo antes de tocar el render del cliente o crear una carpeta de assets nueva**.
 
 - **`server/`** — Node.js + [Colyseus](https://colyseus.io/) (sala `hub` autoritativa).
-- **`client/`** — [Phaser 3](https://phaser.io/) + Vite + TypeScript.
+- **`client/`** — [Three.js](https://threejs.org/) (cámara ortográfica isométrica) + Colyseus.js + Vite + TypeScript. Ver `docs/GDD_Motor_3D_Props.md` para la decisión de motor y la convención de assets `.glb`.
 - **`baker/`** — bakeador de mapas exteriores (genera el mundo una sola vez, offline, sin dependencias) + visor con cámara libre para revisarlo. Ver `baker/README.md` para instrucciones.
 - **`interiores/`** — catálogo del bakeador de interiores (casas, castillos, tabernas, herrerías, ayuntamientos... — instancias separadas del mapa exterior, a las que se entra por puerta). Motor de generación (WFC) todavía sin construir — ver `interiores/README.md`.
 - **Tres tipos de mapa en total**: exterior total (`baker/`) → mapa de POI (aldea/castillo, semi-exterior con varios edificios enterables — esqueleto de diseño en `docs/GDD_Bakeador_POIs.md`, sin construir) → interiores (`interiores/`). Ver `docs/GDD_Bakeador_POIs.md` sección 1.
-- **`docs/`** — documentos de diseño: `GDD_Bakeador_Exteriores.md`, `GDD_Bakeador_Interiores.md`, `GDD_Bakeador_POIs.md`, catálogo de especies (`Catalogo_Especies_Exterior.md`) y backlog de mecánicas futuras (`Backlog_Mecanicas_Futuras.md`).
+- **`docs/`** — documentos de diseño: `GDD_Bakeador_Exteriores.md`, `GDD_Bakeador_Interiores.md`, `GDD_Bakeador_POIs.md`, `GDD_Motor_3D_Props.md` (motor de render 3D y convención de assets), catálogo de especies (`Catalogo_Especies_Exterior.md`) y backlog de mecánicas futuras (`Backlog_Mecanicas_Futuras.md`).
 
 ## Cómo correrlo en local
 
@@ -19,7 +19,7 @@ npm run dev:server   # terminal 1 — arranca en ws://localhost:2567
 npm run dev:client   # terminal 2 — arranca en http://localhost:5173
 ```
 
-Abre `http://localhost:5173` en dos pestañas (o dos navegadores) distintas. Muévete con `WASD` o las flechas — deberías ver tu propio sprite (naranja) moverse en ambas pestañas, y el sprite del otro jugador (verde) aparecer y moverse también.
+Abre `http://localhost:5173` en dos pestañas (o dos navegadores) distintas. Muévete con `WASD` o las flechas — deberías ver tu propio cubo 3D (naranja, cámara isométrica siguiéndote) moverse en ambas pestañas, y el cubo del otro jugador (verde-azulado) aparecer y moverse también. Es un placeholder 3D, no el modelo final — ver `docs/GDD_Motor_3D_Props.md`.
 
 ## Diseño pensado para planes 100% gratuitos
 

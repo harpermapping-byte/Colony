@@ -1,11 +1,9 @@
-import Phaser from "phaser";
-import { MainScene } from "./scenes/MainScene";
+import { iniciarJuego } from "./game";
 
-new Phaser.Game({
-  type: Phaser.AUTO,
-  width: 800,
-  height: 600,
-  backgroundColor: "#1a202c",
-  parent: "app",
-  scene: [MainScene],
-});
+const contenedor = document.getElementById("app");
+if (!contenedor) throw new Error("Falta el elemento #app en index.html");
+
+contenedor.style.width = "800px";
+contenedor.style.height = "600px";
+
+iniciarJuego(contenedor);
