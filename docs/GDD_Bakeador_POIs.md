@@ -90,6 +90,46 @@ instantáneo) con caché LRU por si se recrea; solo el hub carga el mapa
 grande; estado compartido por instancia (nodos/drops/muebles) con clave
 de instancia en la persistencia (GDD_Mecanicas §5.7).
 
+## 4.4 Referencias visuales del usuario (recibidas 2026-08-27) y reglas derivadas
+
+El usuario aportó tres imágenes de referencia que fijan el objetivo:
+
+1. **Dentro de la ciudad** (vista isométrica del proyecto): plaza central
+   con hito (estatua/fuente) y puestos de mercado, calle principal, casas
+   de entramado con tejado, y la IGLESIA como edificio destacado. Los
+   PJ/NPCs se mueven por calles y plaza.
+2. **Mismo estilo a escala de aldea**: una fila de casas + iglesia +
+   mercadillo en la plaza — la misma lógica con menos piezas.
+3. **Desde el mapa exterior**: la ciudad entera se ve como UNA miniatura
+   3D amurallada (proporción algo mayor que el PJ). TODO su volumen
+   bloquea el paso; solo la puerta de la muralla es interactuable y al
+   acercarte entras a la instancia (vistas 1-2).
+
+Reglas derivadas (confirmadas por el usuario):
+
+- **La ciudad es un "cubo sin techo"**: siempre ACOTADA por su muralla
+  como un interior — dentro se colocan calles, plazas y edificios; no hay
+  techo. Fuera de la muralla no hay nada navegable en la instancia.
+- **Tiers de asentamiento**: pequeña, mediana, grande, capital y castillo
+  (castillo = más amurallado y más compacto). Cada tier define tamaño del
+  recinto, nº/tags de edificios y riqueza.
+- **La muralla cuenta la riqueza**: aldeas pobres = EMPALIZADA de madera;
+  asentamientos ricos = muralla de PIEDRA (con torres en
+  capital/castillo). Material y forma salen del tier, del catálogo.
+- **Lógica de ciudad medieval al generar el interior**: plaza CENTRAL con
+  hito según tier (pozo en aldea, estatua/fuente en ciudad) + puestos de
+  mercado, CALLE PRINCIPAL puerta→plaza, calles secundarias a las
+  parcelas, iglesia/templo con parcela destacada, resto de edificios por
+  tags según tier.
+- **Representación exterior = dos salidas del mismo bake**:
+  (a) la ciudad como PROP 3D sobre el mapa exterior — footprint de
+  casillas sólidas (todo bloquea) + casilla `portal` en la puerta; el
+  `.glb` real de la miniatura lo generará el programa de edificios del
+  usuario (patrón taller de vóxeles), mientras tanto placeholder de cajas
+  + muralla simplificada generado del propio layout;
+  (b) una vista cenital PNG del recinto (overview, como las del baker)
+  para GUI/depuración/minimapa.
+
 ## 5. Preguntas aún abiertas
 
 - ¿Cuántos edificios por asentamiento según tamaño/tipo? — cada tipo de
@@ -103,7 +143,8 @@ de instancia en la persistencia (GDD_Mecanicas §5.7).
 
 ## 6. Estado actual
 
-Flujo completo acordado con el usuario (sección 4). **Esperando sus
-imágenes de referencia para afinar el layout; no empezar el motor hasta
-entonces.** El sistema de placeholders de edificios-prop puede
-prepararse en paralelo sin riesgo.
+Flujo completo acordado (sección 4) y REFERENCIAS RECIBIDAS (4.4): el
+diseño está listo para construir. Orden natural: primero el generador del
+recinto (muralla por tier + plaza + calle principal + calles + parcelas +
+edificios por tags, export en formato de sectores + overview PNG +
+placeholder exterior), después el cruce de portales en runtime.
