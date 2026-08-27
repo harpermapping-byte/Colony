@@ -61,6 +61,11 @@ const AnchorType = Object.freeze({
   WALL_HIGH_FLOATING: "WALL_HIGH_FLOATING",
   FREE_CENTER: "FREE_CENTER",
   CHILD_SLOT: "CHILD_SLOT",
+  // Decoración de suelo sin volumen real (alfombras): a diferencia de
+  // FREE_CENTER, NUNCA ocupa suelo ni se comprueba contra circulación —
+  // el mobiliario real se puede colocar encima sin problema, igual que en
+  // la vida real una silla se apoya sobre la alfombra sin que estorbe.
+  FLOOR_DECAL: "FLOOR_DECAL",
 });
 
 // Fases del pipeline de colocación — 1 se coloca antes que 2, 2 antes que

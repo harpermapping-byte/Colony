@@ -85,6 +85,7 @@ function escaparXML(s) {
 // todavía (huella solo da ancho/largo), es solo para que la prueba se lea
 // bien; cuando el catálogo tenga altura propia por elemento, se sustituye.
 function alturaPara(item) {
+  if (item.id.includes("alfombra")) return 0.03;
   if (item.capa === "suciedad") return 0.05;
   if (item.capa === "iluminacion") return 0.3;
   if (["armario", "estanteria", "baul_tesoro"].some((k) => item.id.includes(k))) return 1.8;

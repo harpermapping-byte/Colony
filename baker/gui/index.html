@@ -91,6 +91,7 @@
     <fieldset>
       <legend>Biomas habilitados en este mapa</legend>
       <div class="biomas" id="listaBiomas">Cargando...</div>
+      <small class="ayuda">Esto decide qué biomas pueden salir POR DENTRO del mapa. Los 4 bordes de abajo son un ajuste aparte: si dejas algún borde en "Cerrado" o "Montaña", verás roca alrededor de todo el mapa aunque no hayas marcado ningún bioma de montaña — no es que el bioma elegido no se aplicara, es el borde tapando el canto. Por defecto los bordes están en "Tierra abierta" para que el bioma que marques llegue limpio hasta el borde.</small>
     </fieldset>
 
     <fieldset>
@@ -99,19 +100,19 @@
       <div class="fila">
         <div>
           <label>Norte</label>
-          <select id="bordeNorte"><option value="cerrado">Cerrado (muro rocoso)</option><option value="mar_abierto">Mar abierto</option><option value="montana">Montaña (bloquea el paso)</option><option value="tierra_abierta">Tierra abierta</option></select>
+          <select id="bordeNorte"><option value="cerrado">Cerrado (muro rocoso)</option><option value="mar_abierto">Mar abierto</option><option value="montana">Montaña (bloquea el paso)</option><option value="tierra_abierta" selected>Tierra abierta</option></select>
         </div>
         <div>
           <label>Sur</label>
-          <select id="bordeSur"><option value="cerrado">Cerrado (muro rocoso)</option><option value="mar_abierto">Mar abierto</option><option value="montana">Montaña (bloquea el paso)</option><option value="tierra_abierta">Tierra abierta</option></select>
+          <select id="bordeSur"><option value="cerrado">Cerrado (muro rocoso)</option><option value="mar_abierto">Mar abierto</option><option value="montana">Montaña (bloquea el paso)</option><option value="tierra_abierta" selected>Tierra abierta</option></select>
         </div>
         <div>
           <label>Este</label>
-          <select id="bordeEste"><option value="cerrado">Cerrado (muro rocoso)</option><option value="mar_abierto">Mar abierto</option><option value="montana">Montaña (bloquea el paso)</option><option value="tierra_abierta">Tierra abierta</option></select>
+          <select id="bordeEste"><option value="cerrado">Cerrado (muro rocoso)</option><option value="mar_abierto">Mar abierto</option><option value="montana">Montaña (bloquea el paso)</option><option value="tierra_abierta" selected>Tierra abierta</option></select>
         </div>
         <div>
           <label>Oeste</label>
-          <select id="bordeOeste"><option value="cerrado">Cerrado (muro rocoso)</option><option value="mar_abierto">Mar abierto</option><option value="montana">Montaña (bloquea el paso)</option><option value="tierra_abierta">Tierra abierta</option></select>
+          <select id="bordeOeste"><option value="cerrado">Cerrado (muro rocoso)</option><option value="mar_abierto">Mar abierto</option><option value="montana">Montaña (bloquea el paso)</option><option value="tierra_abierta" selected>Tierra abierta</option></select>
         </div>
       </div>
     </fieldset>

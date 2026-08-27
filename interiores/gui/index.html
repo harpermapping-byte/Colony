@@ -109,6 +109,7 @@ function sombrear(hex, factor) {
   return "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
 }
 function alturaPara(item) {
+  if (item.id.includes("alfombra")) return 0.03;
   if (item.capa === "suciedad") return 0.05;
   if (item.capa === "iluminacion") return 0.3;
   if (["armario", "estanteria", "baul"].some((k) => item.id.includes(k))) return 1.8;

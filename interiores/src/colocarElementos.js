@@ -431,6 +431,36 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     return false;
   }
 
+  // Decoración de suelo sin volumen (alfombras): NUNCA llama a `ocupar`/
+  // `ocuparSiCirculacionIntacta` — el mobiliario real que se coloque
+  // después puede caer encima sin problema, y una alfombra grande jamás
+  // "bloquea el paso" aunque cubra media sala. Solo se evita que dos
+  // alfombras queden exactamente superpuestas entre sí (registro propio
+  // `decalsSuelo`, independiente de `libreSuelo`).
+  const decalsSuelo = [];
+  function solapaOtroDecal(x, y, hw, hl) {
+    return decalsSuelo.some((d) => x < d.x + d.ancho && x + hw > d.x && y < d.y + d.largo && y + hl > d.y);
+  }
+  function intentarDecalSuelo(el) {
+    const huellaBase = el.huella || [1, 1];
+    const orientacionesDisponibles = el.rotacionesPermitidas || ORIENTACIONES;
+    const intentos = 20;
+    for (let i = 0; i < intentos; i++) {
+      const grados = orientacionesDisponibles[elegirEntero(0, orientacionesDisponibles.length - 1)];
+      const [hw, hl] = rotarHuella(huellaBase, grados);
+      if (hw > ancho || hl > largo) continue;
+      const x = elegirEntero(0, ancho - hw);
+      const y = elegirEntero(0, largo - hl);
+      if (solapaOtroDecal(x, y, hw, hl)) continue;
+      const item = { id: el.id, x, y, ancho: hw, largo: hl, rotacion: grados, colorDebug: el.colorDebug, capa: el.capa };
+      if (el.aportes) item.aportes = el.aportes;
+      decalsSuelo.push({ x, y, ancho: hw, largo: hl });
+      colocados.push(item);
+      return true;
+    }
+    return false;
+  }
+
   function intentarColgarEnPared(el) {
     const intentos = 25;
     for (let i = 0; i < intentos; i++) {
@@ -493,6 +523,9 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       case AnchorType.CORNER:
         return intentarPegadoAPared(el, true) || intentarColocarEnSuelo(el);
 
+      case AnchorType.FLOOR_DECAL:
+        return intentarDecalSuelo(el);
+
       case AnchorType.FREE_CENTER:
       default:
         if (defSala.simetrico && el.colocacion.length === 1 && el.colocacion[0] === "simetrico") {
@@ -506,7 +539,20 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const capasIncluidas = CAPAS_POR_AMUEBLADO[amueblado];
   if (!capasIncluidas) throw new Error(`amueblado desconocido: ${amueblado}`);
 
-  const LIMITE_POR_CAPA = { decorFija: 4, decorMovible: 9, iluminacion: 3, suciedad: 3 };
+  // Los topes escalan con la riqueza — antes eran un número fijo
+  // (4/9/3/3) para cualquier sala, así que una casa humilde y una noble
+  // salían igual de llenas, con solo la calidad de la variante cambiando.
+  // Ahora una sala humilde sale claramente más vacía Y más sucia (menos
+  // decorMovible/iluminacion, más suciedad), y una noble sale mucho más
+  // cargada de mobiliario y decoración (más del doble que antes) y sin
+  // suciedad — "una casa con 4 muebles" vs. "una sala noble a rebosar",
+  // en vez de la misma cantidad con distinto material.
+  const LIMITE_POR_CAPA_POR_RIQUEZA = {
+    humilde: { decorFija: 2, decorMovible: 5, iluminacion: 1, suciedad: 5 },
+    modesta: { decorFija: 4, decorMovible: 10, iluminacion: 3, suciedad: 2 },
+    noble: { decorFija: 9, decorMovible: 20, iluminacion: 6, suciedad: 0 },
+  };
+  const LIMITE_POR_CAPA = LIMITE_POR_CAPA_POR_RIQUEZA[riqueza] || LIMITE_POR_CAPA_POR_RIQUEZA.modesta;
 
   // Pipeline por FASES (1=Dominante, 2=Secundario, 3=Decoración — ver
   // CAPAS_POR_FASE): cada fase agrupa una o más capas de siempre, cada
