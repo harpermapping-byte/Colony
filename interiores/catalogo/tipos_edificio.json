@@ -3,6 +3,8 @@
 
   "casa_humilde": {
     "riqueza": "humilde",
+    "construible": true,
+    "huellaExterior": [7, 6],
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 0],
     "salasPorPlanta": {
@@ -14,6 +16,8 @@
 
   "choza_pescador": {
     "riqueza": "humilde",
+    "construible": true,
+    "huellaExterior": [6, 5],
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 0],
     "salasPorPlanta": {
@@ -25,6 +29,8 @@
 
   "casa_noble": {
     "riqueza": "noble",
+    "construible": true,
+    "huellaExterior": [10, 8],
     "tieneBodega": true,
     "rangoPlantasAltas": [1, 2],
     "salasPorPlanta": {
@@ -38,6 +44,8 @@
 
   "taberna": {
     "riqueza": "modesta",
+    "construible": true,
+    "huellaExterior": [9, 7],
     "tieneBodega": true,
     "rangoPlantasAltas": [1, 1],
     "salasPorPlanta": {
@@ -52,6 +60,8 @@
 
   "tienda": {
     "riqueza": "modesta",
+    "construible": true,
+    "huellaExterior": [7, 6],
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 1],
     "salasPorPlanta": {

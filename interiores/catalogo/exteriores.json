@@ -1,0 +1,14 @@
+{
+  "_nota": "Estructuras EXTERIORES construibles por jugadores en sus parcelas (sistema de construcción — docs/GDD_Construccion.md §3). Mismo espíritu de entrada que elementos.json: huella en casillas, colorDebug para el placeholder, variantes para los .glb futuros (assets/exteriores/<id>_<NN>.glb). colision:true = sus casillas se endurecen en la rejilla del servidor al colocarse; false = decorativo/pisable. receta se rellenará al definir la economía (sin receta = construcción gratis). energia queda RESERVADO para los molinos futuros ({produce, fuente} / {consume}).",
+
+  "empalizada_tramo": { "uso": "Muro perimetral de parcela — tramo recto de troncos afilados; el jugador cierra su terreno colocando tramos.", "huella": [1, 1], "colision": true, "variantes": 3, "colorDebug": "#7a5c34" },
+  "empalizada_puerta": { "uso": "Hueco de paso en la empalizada — no colisiona: es la entrada del recinto.", "huella": [2, 1], "colision": false, "variantes": 2, "colorDebug": "#8a6a3e" },
+  "valla_madera": { "uso": "Valla baja de listones para corrales y huertos — delimita sin tapar la vista.", "huella": [1, 1], "colision": true, "variantes": 3, "colorDebug": "#9a7a4a" },
+  "poste_antorcha": { "uso": "Iluminación exterior de parcela — poste con antorcha.", "huella": [1, 1], "colision": true, "variantes": 2, "colorDebug": "#6a4a26" },
+  "pozo": { "uso": "Pozo de agua de parcela — futuro punto de recurso de agua.", "huella": [2, 2], "colision": true, "variantes": 2, "colorDebug": "#8a8a8a" },
+  "gallinero": { "uso": "Caseta para aves de corral — futura mecánica de cría.", "huella": [3, 2], "colision": true, "variantes": 2, "colorDebug": "#a5814a" },
+  "bancal_cultivo": { "uso": "Bancal de tierra labrada para cultivar — PISABLE (el granjero camina sobre él para trabajar).", "huella": [3, 2], "colision": false, "variantes": 3, "colorDebug": "#6a4a2e" },
+  "carreta": { "uso": "Carreta de madera decorativa/almacén exterior.", "huella": [3, 2], "colision": true, "variantes": 2, "colorDebug": "#8a6a3a" },
+  "diana_entrenamiento": { "uso": "Diana de paja para práctica de tiro — futura mecánica de entrenamiento.", "huella": [1, 1], "colision": true, "variantes": 2, "colorDebug": "#c9b06a" },
+  "colmena": { "uso": "Colmena de tronco — futura producción de miel/cera.", "huella": [1, 1], "colision": true, "variantes": 2, "colorDebug": "#b08a3a" }
+}
