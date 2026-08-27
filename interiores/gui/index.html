@@ -61,6 +61,8 @@
   <select id="selAmueblado"><option value="completo">amueblado: completo</option><option value="fijo">amueblado: fijo</option><option value="vacio">amueblado: vacío</option></select>
   <button id="btnGenerar">⚡ Generar edificio</button>
   <div class="sep"></div>
+  <button id="btnVistaEdificio">🏢 Vista edificio</button>
+  <div class="sep"></div>
   <label class="chk"><input type="checkbox" id="chkForzar" /> forzar (sobrescribe lo modificado)</label>
   <button id="btnRegenMobiliario">↻ mobiliario de esta sala</button>
   <button id="btnRegenPlanta">↻ esta planta</button>
@@ -121,6 +123,7 @@ function poligonoEl(puntos, fill, extra) { const e = svgEl("polygon", { points: 
 let edificio = null;
 let nivelSel = null, indiceSalaSel = null;
 let instanceSel = null;
+let vistaModo = "sala"; // "sala" (isométrico de una habitación) | "edificio" (planos de todas las plantas)
 let elementoArmado = null; // id de catálogo listo para colocar al hacer clic en una casilla
 let catalogoElementos = []; // lista plana simple (id/capa/huella) — se mantiene para no romper nada que ya la use
 let catalogoContenidoItems = []; // catálogo normalizado (nombre/categoria/subcategoria/tags/dimensiones/reglas) — sección 10
@@ -163,7 +166,7 @@ function renderArbol() {
       el.className = "sala" + (planta.nivel === nivelSel && i === indiceSalaSel ? " activa" : "");
       const origenColor = s.resultado.origen === "modificado" ? "var(--modificado)" : "var(--generado)";
       el.innerHTML = `<span><span class="dot" style="background:${origenColor};display:inline-block;margin-right:6px"></span>${s.tipoSalaId}${s.esPasillo ? " (pasillo)" : ""}</span><span class="hint">${s.resultado.ancho}x${s.resultado.largo}</span>`;
-      el.onclick = () => { nivelSel = planta.nivel; indiceSalaSel = i; instanceSel = null; elementoArmado = null; renderTodo(); };
+      el.onclick = () => { nivelSel = planta.nivel; indiceSalaSel = i; instanceSel = null; elementoArmado = null; vistaModo = "sala"; renderTodo(); };
       div.appendChild(el);
     });
     raiz.appendChild(div);
@@ -346,6 +349,8 @@ function renderPaleta() {
 // ---- Lienzo isométrico interactivo ----
 function renderLienzo() {
   const cont = $("#lienzo");
+  cont.style.display = "";
+  cont.style.overflow = "";
   const s = salaActual();
   if (!s) { cont.innerHTML = '<div class="vacio">Genera un edificio y selecciona una sala</div>'; return; }
   const r = s.resultado;
@@ -399,6 +404,97 @@ function renderLienzo() {
   cont.appendChild(svg);
 }
 
+// ---- Vista de edificio completo: planos 2D de todas las plantas apiladas
+// (nivel más alto arriba), cada sala en su offsetX/offsetY real dentro de
+// la rejilla de planta, con las puertas compartidas entre salas vecinas
+// marcadas — reutiliza tal cual los datos que edificio.js/generarPlanta ya
+// calcula (salaPlanta.puertas = coordenadas globales de puerta detectadas
+// por detectarSalas; una coordenada que aparece en el `puertas` de DOS
+// salas es, por definición, la conexión entre ambas). No hace falta pedir
+// nada nuevo al servidor: todo esto ya viaja en /api/generar y /api/edificio.
+function colorParaTipoSala(id) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return `hsl(${h % 360}, 42%, 52%)`;
+}
+
+// El conector vertical (escalera/trampilla) de una planta apunta a uno de
+// sus `salas[]` por referencia de objeto en memoria del servidor, pero esa
+// referencia concreta no viaja serializada (sus Sets internos se pierden
+// en el JSON) — se re-localiza por offset, que sí es un valor plano.
+function salaConectorDe(planta) {
+  const sc = planta.salaConector;
+  if (!sc) return null;
+  return planta.salas.find((s) => s.offsetX === sc.offsetX && s.offsetY === sc.offsetY && s.tipoSalaId === sc.tipoSalaId) || null;
+}
+
+function renderVistaEdificio() {
+  const cont = $("#lienzo");
+  cont.style.display = "block";
+  cont.style.overflow = "auto";
+  if (!edificio) { cont.innerHTML = '<div class="vacio">Genera un edificio para empezar</div>'; return; }
+  const ESCALA = 15;
+  const plantasOrden = edificio.plantas.slice().sort((a, b) => b.nivel - a.nivel);
+
+  const wrap = document.createElement("div");
+  wrap.style.cssText = "display:flex;flex-direction:column;gap:10px;padding:22px;align-items:flex-start;";
+  const leyenda = document.createElement("div");
+  leyenda.className = "hint";
+  leyenda.style.marginBottom = "6px";
+  leyenda.innerHTML = "Plantas de arriba a abajo (nivel más alto primero). <span style=\"color:#e8d8a0\">■</span> puerta entre dos salas · <span style=\"color:#e8d8a066\">■</span> puerta hacia fuera de la planta · <span style=\"color:#ffe08a\">⬍</span> conector vertical con la planta contigua. Clic en una sala para abrir su vista de habitación.";
+  wrap.appendChild(leyenda);
+
+  for (const planta of plantasOrden) {
+    const anchoPx = Math.max(1, planta.ancho) * ESCALA, altoPx = Math.max(1, planta.alto) * ESCALA;
+    const svg = svgEl("svg", { width: anchoPx, height: altoPx, viewBox: `0 0 ${anchoPx} ${altoPx}`, style: "background:#14141a;border-radius:4px;box-shadow:0 0 0 1px var(--borde);" });
+
+    // puertas: coordenada global -> índices de sala que la tienen en su
+    // salaPlanta.puertas (2 dueños = conexión interna, 1 = hacia fuera).
+    const dueñosPuerta = new Map();
+    planta.salas.forEach((s, i) => {
+      for (const clave of (s.salaPlanta ? s.salaPlanta.puertas : [])) {
+        if (!dueñosPuerta.has(clave)) dueñosPuerta.set(clave, []);
+        dueñosPuerta.get(clave).push(i);
+      }
+    });
+
+    const conectorSala = salaConectorDe(planta);
+
+    planta.salas.forEach((s, i) => {
+      const r = s.resultado;
+      const x = s.offsetX * ESCALA, y = s.offsetY * ESCALA, w = r.ancho * ESCALA, h = r.largo * ESCALA;
+      const seleccionada = planta.nivel === nivelSel && i === indiceSalaSel;
+      const g = svgEl("g", { style: "cursor:pointer" });
+      g.appendChild(svgEl("rect", { x, y, width: w, height: h, fill: colorParaTipoSala(s.tipoSalaId), stroke: seleccionada ? "#fff" : "#00000070", "stroke-width": seleccionada ? 2.4 : 1 }));
+      if (s.esPasillo) g.appendChild(svgEl("rect", { x: x + 1.5, y: y + 1.5, width: Math.max(0, w - 3), height: Math.max(0, h - 3), fill: "none", stroke: "#ffffff70", "stroke-dasharray": "3 2" }));
+      const txt = svgEl("text", { x: x + w / 2, y: y + h / 2, "font-size": Math.min(10, ESCALA * 0.72), fill: "#000a", "text-anchor": "middle", "dominant-baseline": "middle", stroke: "#fffb", "stroke-width": 2.5, style: "paint-order:stroke" });
+      txt.textContent = s.tipoSalaId;
+      g.appendChild(txt);
+      if (conectorSala && conectorSala.offsetX === s.offsetX && conectorSala.offsetY === s.offsetY) {
+        g.appendChild(svgEl("text", { x: x + w / 2, y: y + h - 5, "font-size": 10, fill: "#ffe08a", "text-anchor": "middle" })).textContent = "⬍";
+      }
+      g.addEventListener("click", () => { nivelSel = planta.nivel; indiceSalaSel = i; instanceSel = null; elementoArmado = null; vistaModo = "sala"; renderTodo(); });
+      svg.appendChild(g);
+    });
+
+    for (const [clave, duenos] of dueñosPuerta) {
+      const [gx, gy] = clave.split("_").map(Number);
+      svg.appendChild(svgEl("rect", { x: gx * ESCALA, y: gy * ESCALA, width: ESCALA, height: ESCALA, fill: duenos.length > 1 ? "#e8d8a0" : "#e8d8a066" }));
+    }
+
+    const cab = document.createElement("div");
+    cab.style.cssText = "font-size:12px;color:var(--tenue);";
+    cab.textContent = `Planta ${planta.nivel} (${planta.rol}) — ${planta.salas.length} salas`;
+    const bloque = document.createElement("div");
+    bloque.appendChild(cab);
+    bloque.appendChild(svg);
+    wrap.appendChild(bloque);
+  }
+
+  cont.innerHTML = "";
+  cont.appendChild(wrap);
+}
+
 async function apiMoverA(x, y) {
   const s = salaActual();
   const res = await api("/api/editar/mover", "POST", { nivel: nivelSel, indiceSala: indiceSalaSel, instanceId: instanceSel, x, y });
@@ -446,7 +542,11 @@ document.addEventListener("keydown", (ev) => {
   ev.preventDefault();
 });
 
-function renderTodo() { renderArbol(); renderPanelSala(); renderPanelMueble(); renderPaleta(); renderLienzo(); }
+function renderTodo() {
+  renderArbol(); renderPanelSala(); renderPanelMueble(); renderPaleta();
+  if (vistaModo === "edificio") renderVistaEdificio(); else renderLienzo();
+  $("#btnVistaEdificio").textContent = vistaModo === "edificio" ? "🚪 Vista habitación" : "🏢 Vista edificio";
+}
 
 // ---- Arranque ----
 let catalogoTiposSala = [];
@@ -482,6 +582,11 @@ $("#btnGenerar").onclick = async () => {
   });
   estadoTxt.textContent = "";
   if (res.ok) { edificio = res.edificio; nivelSel = edificio.plantas[0].nivel; indiceSalaSel = 0; instanceSel = null; renderTodo(); }
+};
+
+$("#btnVistaEdificio").onclick = () => {
+  vistaModo = vistaModo === "edificio" ? "sala" : "edificio";
+  renderTodo();
 };
 
 $("#btnRegenMobiliario").onclick = async () => {
