@@ -142,7 +142,11 @@ test("selección de variante sin aleatoriedad no determinista (dos instancias de
 
 test("elegirVariante sobre un id sin variantesNombradas devuelve el propio id", () => {
   const c = construirCatalogoContenido(catalogos);
-  assert.strictEqual(c.elegirVariante("chimenea", "cualquier-semilla"), "chimenea");
+  // "plato" no tiene materialesCompatibles (objeto suelto sin material
+  // propio) — nunca recibe variantesNombradas generadas, a diferencia de
+  // "chimenea" (piedra/ladrillo), que desde el pase de variantes de
+  // material sí las tiene.
+  assert.strictEqual(c.elegirVariante("plato", "cualquier-semilla"), "plato");
 });
 
 test("resolverNecesidades es determinista por semilla", () => {

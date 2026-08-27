@@ -14,6 +14,7 @@ const { ORIENTACIONES, rotarHuella, rotarOffset } = require("./rotacion");
 const { calcularEstadisticas } = require("./estadisticas");
 const { crearPRNG, barajar } = require("./azar");
 const { construirCatalogoContenido } = require("./catalogoContenido");
+const { AnchorType, Priority } = require("./roomTags");
 
 // Capas incluidas según el nivel de amueblado (GDD sección 1).
 const CAPAS_POR_AMUEBLADO = {
@@ -23,13 +24,17 @@ const CAPAS_POR_AMUEBLADO = {
 };
 
 // Pipeline de colocación por FASES (arquitectura FurnitureConfig — src/
-// roomTags.js): 1=Dominante, 2=Secundario, 3=Decoración, en ese orden.
-// `priority` en elementos.json ya está derivado 1:1 de `capa`
+// roomTags.js): Priority.DOMINANTE(1) -> SECUNDARIO(2) -> DECORACION(3), en
+// ese orden. `priority` en elementos.json ya está derivado 1:1 de `capa`
 // (decorFija=1, decorMovible=2, iluminacion/suciedad=3) — agrupar por fase
 // en vez de por capa suelta es solo una forma más explícita de expresar el
 // mismo orden que ya existía, cada capa conserva su propio límite
 // (LIMITE_POR_CAPA) para no cambiar cuánto sale de cada una.
-const CAPAS_POR_FASE = { 1: ["decorFija"], 2: ["decorMovible"], 3: ["iluminacion", "suciedad"] };
+const CAPAS_POR_FASE = {
+  [Priority.DOMINANTE]: ["decorFija"],
+  [Priority.SECUNDARIO]: ["decorMovible"],
+  [Priority.DECORACION]: ["iluminacion", "suciedad"],
+};
 
 function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado }) {
   const defSala = catalogos.tiposSala[tipoSalaId];
@@ -443,7 +448,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   // orden de comprobación anterior tile a tile.
   function colocarUno(el) {
     switch (el.anchorType) {
-      case "CHILD_SLOT":
+      case AnchorType.CHILD_SLOT:
         if (el.colocacion.includes("sobreSuperficie")) {
           if (superficies.length === 0) return false;
           const host = superficies[elegirEntero(0, superficies.length - 1)];
@@ -455,7 +460,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         }
         return intentarJuntoAMesa(el);
 
-      case "WALL_HIGH_FLOATING":
+      case AnchorType.WALL_HIGH_FLOATING:
         if (el.colocacion.includes("techo")) {
           const item = { id: el.id, colorDebug: el.colorDebug };
           if (el.aportes) item.aportes = el.aportes;
@@ -464,17 +469,17 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         }
         return intentarColgarEnPared(el);
 
-      case "WALL_BACK":
+      case AnchorType.WALL_BACK:
         // colocación sistemática (muro escaneado entero, orientación
         // forzada) en vez del muestreo al azar de intentarColocarEnSuelo —
         // esa función queda como último recurso si no encuentra sitio de
         // verdad (p.ej. las 4 paredes ya llenas).
         return intentarPegadoAPared(el, false) || intentarColocarEnSuelo(el);
 
-      case "CORNER":
+      case AnchorType.CORNER:
         return intentarPegadoAPared(el, true) || intentarColocarEnSuelo(el);
 
-      case "FREE_CENTER":
+      case AnchorType.FREE_CENTER:
       default:
         if (defSala.simetrico && el.colocacion.length === 1 && el.colocacion[0] === "simetrico") {
           return colocarSimetrico(el);
@@ -494,7 +499,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   // capa conserva su propio límite. Dentro de cada capa, isMandatory
   // primero — "la habitación intentará spawnearlo primero" — luego anclas
   // (esSuperficie) antes que sus satélites, igual que antes.
-  for (const fase of [1, 2, 3]) {
+  for (const fase of [Priority.DOMINANTE, Priority.SECUNDARIO, Priority.DECORACION]) {
     for (const capa of CAPAS_POR_FASE[fase]) {
       if (!capasIncluidas.includes(capa)) continue;
       const candidatos = Object.entries(catalogos.elementos)

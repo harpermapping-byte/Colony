@@ -301,4 +301,4 @@ function pickConector(catalogos, riqueza) {
   return ids.includes("escalera_recta") ? "escalera_recta" : ids[0];
 }
 
-module.exports = { generarEdificio, generarPlanta, generarHabitacionCompuestaL, elegirPonderado, elegirNumeroSalas };
+module.exports = { generarEdificio, generarPlanta, generarHabitacionCompuestaL, elegirNumeroSalas };

@@ -19,6 +19,14 @@ const RoomTags = Object.freeze({
   COMUN_TIENDA: "COMUN_TIENDA",
   COMUN_MILITAR: "COMUN_MILITAR",
   COMUN_EXTERIOR_CUBIERTO: "COMUN_EXTERIOR_CUBIERTO",
+  // Añadidos para el mapeado medieval (huecos reales detectados al
+  // retaguear las 39 salas: pasillo/vestíbulo no tenían tag propio,
+  // taberna/salón de baile/sala de juegos quedaban forzados dentro de
+  // COMUN_VIVIENDA, invernadero solo llevaba ESPECIAL_NOBLEZA sin ningún
+  // tag funcional, y no había ningún tag para una futura sala de escuela).
+  COMUN_CIRCULACION: "COMUN_CIRCULACION",
+  COMUN_OCIO: "COMUN_OCIO",
+  COMUN_AGRICULTURA: "COMUN_AGRICULTURA",
   // Categorías no comunes / especializadas
   NOCOMUN_BIBLIOTECA: "NOCOMUN_BIBLIOTECA",
   NOCOMUN_IGLESIA_RELIGION: "NOCOMUN_IGLESIA_RELIGION",
@@ -30,6 +38,7 @@ const RoomTags = Object.freeze({
   NOCOMUN_CRIPTA_CEMENTERIO: "NOCOMUN_CRIPTA_CEMENTERIO",
   NOCOMUN_MINERIA: "NOCOMUN_MINERIA",
   NOCOMUN_PORTUARIO: "NOCOMUN_PORTUARIO",
+  NOCOMUN_EDUCACION: "NOCOMUN_EDUCACION",
 });
 
 // Modificadores especiales (calidad/ficción) — no son un tag de SALA, son
