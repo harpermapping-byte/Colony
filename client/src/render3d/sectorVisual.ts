@@ -28,7 +28,57 @@ const CATEGORIA_POR_TIPO: Record<ObjetoBakeado["t"], CategoriaAsset> = {
   a: "animales",
 };
 
-function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Mesh {
+// --- Agua translúcida con fondo visible (portado de la versión de mapa
+// entero de terreno.ts al ámbito de sector, mismos valores) ---
+// La superficie del agua va translúcida para ver el lecho y a quien bucea;
+// el lecho es un segundo plano a -PROFUNDIDAD_FONDO sombreado por la
+// elevación bakeada (más hondo = más oscuro).
+export const PROFUNDIDAD_FONDO = 1.5;
+const AGUAS: Record<string, { alfa: number; base: number }> = {
+  agua: { alfa: 0.45, base: 0.8 },
+  agua_profunda: { alfa: 0.55, base: 0.25 },
+};
+const LECHO_CLARO = { r: 0xc9, g: 0xb2, b: 0x7a };
+const LECHO_OSCURO = { r: 0x4f, g: 0x5c, b: 0x55 };
+const ACLARADO_SUPERFICIE = 0.12;
+// Rango de elevación del agua para normalizar el sombreado del lecho. La
+// versión de mapa entero lo calculaba recorriendo TODOS los sectores; en
+// streaming no están todos, y un rango por-sector haría costuras visibles
+// en la frontera de cada sector. Rango FIJO medido en el mapa principal
+// real (elevaciones de agua 0..4, ~2.3M casillas) — con clamp: otro mapa
+// que se salga solo satura el degradado, no rompe nada.
+const ELEV_AGUA_MIN = 0;
+const ELEV_AGUA_MAX = 4;
+
+function crearPlanoSector(
+  canvas: HTMLCanvasElement,
+  ancho: number,
+  alto: number,
+  transparente: boolean,
+): THREE.Mesh {
+  const textura = new THREE.CanvasTexture(canvas);
+  textura.magFilter = THREE.NearestFilter;
+  textura.minFilter = THREE.NearestFilter;
+  textura.colorSpace = THREE.SRGBColorSpace;
+  const malla = new THREE.Mesh(
+    new THREE.PlaneGeometry(ancho, alto),
+    new THREE.MeshStandardMaterial({
+      map: textura,
+      roughness: 1,
+      metalness: 0,
+      transparent: transparente,
+      // el agua translúcida no escribe depth: el buzo (opaco) se dibuja
+      // primero y se ve a través de ella sin artefactos de ordenación
+      depthWrite: !transparente,
+    }),
+  );
+  malla.rotation.x = -Math.PI / 2;
+  malla.receiveShadow = true;
+  malla.userData.propioDelSector = true;
+  return malla;
+}
+
+function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Group {
   const t = indice.tamanoChunk;
   const tilesSector = indice.tamanoSectorChunks * t;
   const origenTileX = sector.sectorX * tilesSector;
@@ -45,39 +95,57 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Me
   const ancho = Math.min(tilesSector, maxTileX);
   const alto = Math.min(tilesSector, maxTileY);
 
-  const canvas = document.createElement("canvas");
-  canvas.width = ancho;
-  canvas.height = alto;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(0, 0, ancho, alto);
+  const suelo = document.createElement("canvas");
+  suelo.width = ancho;
+  suelo.height = alto;
+  const ctxSuelo = suelo.getContext("2d")!;
+  ctxSuelo.clearRect(0, 0, ancho, alto);
+  const fondo = document.createElement("canvas");
+  fondo.width = ancho;
+  fondo.height = alto;
+  const ctxFondo = fondo.getContext("2d")!;
+  ctxFondo.fillStyle = "#000000";
+  ctxFondo.fillRect(0, 0, ancho, alto);
 
+  const rangoElev = Math.max(1, ELEV_AGUA_MAX - ELEV_AGUA_MIN);
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
     const baseX = cx * t - origenTileX;
     const baseY = cy * t - origenTileY;
     for (let y = 0; y < chunk.tamano; y++) {
       for (let x = 0; x < chunk.tamano; x++) {
-        ctx.fillStyle = colorTerreno(terrenoEn(chunk, indice.leyendaTerreno, x, y));
-        ctx.fillRect(baseX + x, baseY + y, 1, 1);
+        const id = terrenoEn(chunk, indice.leyendaTerreno, x, y);
+        const agua = AGUAS[id];
+        if (!agua) {
+          ctxSuelo.fillStyle = colorTerreno(id);
+          ctxSuelo.fillRect(baseX + x, baseY + y, 1, 1);
+          continue;
+        }
+        // superficie translúcida con el color de catálogo aclarado
+        const c = new THREE.Color(colorTerreno(id)).lerp(new THREE.Color(1, 1, 1), ACLARADO_SUPERFICIE);
+        ctxSuelo.fillStyle = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${agua.alfa})`;
+        ctxSuelo.fillRect(baseX + x, baseY + y, 1, 1);
+        // lecho: mitad por tipo de agua (somera clara, profunda oscura),
+        // mitad por la elevación bakeada (elevación baja = hondo = oscuro)
+        const e = parseInt(chunk.elevacion[y * chunk.tamano + x], 36);
+        const eNorm = Math.min(1, Math.max(0, (e - ELEV_AGUA_MIN) / rangoElev));
+        const tono = 0.5 * agua.base + 0.5 * eNorm;
+        const r = Math.round(LECHO_OSCURO.r + (LECHO_CLARO.r - LECHO_OSCURO.r) * tono);
+        const g = Math.round(LECHO_OSCURO.g + (LECHO_CLARO.g - LECHO_OSCURO.g) * tono);
+        const b = Math.round(LECHO_OSCURO.b + (LECHO_CLARO.b - LECHO_OSCURO.b) * tono);
+        ctxFondo.fillStyle = `rgb(${r},${g},${b})`;
+        ctxFondo.fillRect(baseX + x, baseY + y, 1, 1);
       }
     }
   }
 
-  const textura = new THREE.CanvasTexture(canvas);
-  textura.magFilter = THREE.NearestFilter;
-  textura.minFilter = THREE.NearestFilter;
-  textura.colorSpace = THREE.SRGBColorSpace;
-
-  const malla = new THREE.Mesh(
-    new THREE.PlaneGeometry(ancho, alto),
-    new THREE.MeshStandardMaterial({ map: textura, roughness: 1, metalness: 0 }),
-  );
-  malla.rotation.x = -Math.PI / 2;
-  malla.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
-  malla.receiveShadow = true;
-  malla.userData.propioDelSector = true;
-  return malla;
+  const grupo = new THREE.Group();
+  const planoFondo = crearPlanoSector(fondo, ancho, alto, false);
+  planoFondo.position.set(origenTileX + ancho / 2, -PROFUNDIDAD_FONDO, origenTileY + alto / 2);
+  const planoSuelo = crearPlanoSector(suelo, ancho, alto, true);
+  planoSuelo.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
+  grupo.add(planoFondo, planoSuelo);
+  return grupo;
 }
 
 interface GrupoEspecie {

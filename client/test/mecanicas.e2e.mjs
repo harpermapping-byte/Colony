@@ -20,9 +20,9 @@ const PUERTO_WS = 2599;
 const PUERTO_WEB = 5199;
 
 function lanzar(cmd, args, cwd, extraEnv = {}) {
-  // detached para poder matar el GRUPO entero al salir: npx lanza tsx/vite
-  // como nietos, y matar solo al wrapper deja zombis en los puertos que
-  // rompen la siguiente ronda de e2e de forma incomprensible.
+  // detached + kill del GRUPO entero al salir: npx lanza tsx/vite como
+  // nietos, y matar solo al wrapper deja zombis en los puertos que rompen
+  // la siguiente ronda de e2e de forma incomprensible.
   const p = spawn(cmd, args, { cwd, env: { ...process.env, ...extraEnv }, stdio: ["ignore", "pipe", "pipe"], detached: true });
   p.stdout.on("data", (d) => process.stdout.write(`[${cmd}] ${d}`));
   p.stderr.on("data", (d) => process.stderr.write(`[${cmd}] ${d}`));

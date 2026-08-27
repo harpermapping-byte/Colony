@@ -67,7 +67,9 @@ export class WorldScene {
       new THREE.MeshStandardMaterial({ color: 0x2d3748 }),
     );
     this.sueloEmergencia.rotation.x = -Math.PI / 2;
-    this.sueloEmergencia.position.y = -0.05;
+    // por debajo del lecho del agua (-1.5, ver sectorVisual.ts): si
+    // estuviera a ras de suelo taparía el fondo translúcido y al PJ buceando
+    this.sueloEmergencia.position.y = -3;
     this.scene.add(this.sueloEmergencia);
 
     this.resize(ancho, alto);
