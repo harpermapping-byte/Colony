@@ -1,9 +1,45 @@
 import { Room, Client } from "@colyseus/core";
+import * as fs from "fs";
+import * as path from "path";
 import { HubState, Player } from "./schema/HubState";
 
-const MAP_WIDTH = 800;
-const MAP_HEIGHT = 600;
 const SPEED = 4; // px por tick de simulacion
+const PX_POR_CASILLA = 32; // misma equivalencia que usa el cliente (PIXELES_POR_UNIDAD)
+
+// Limites del mundo y punto de spawn: salen del indice.json del mapa
+// principal bakeado (assets/mapas/principal/) — la unica fuente de verdad
+// del tamano del mapa y de donde esta la ciudad. El servidor NO carga los
+// sectores (70MB): solo el indice (1KB) una vez al arrancar. Si el indice
+// no esta (repo parcial, entorno raro), se cae a los limites antiguos del
+// hub de pruebas para no tumbar el servidor.
+function cargarConfigMapa() {
+  // __dirname en produccion es server/dist/rooms y en dev server/src/rooms
+  // — en ambos casos la raiz del repo queda tres niveles arriba.
+  const candidatos = [
+    path.resolve(__dirname, "../../../assets/mapas/principal/indice.json"),
+    path.resolve(process.cwd(), "../assets/mapas/principal/indice.json"),
+    path.resolve(process.cwd(), "assets/mapas/principal/indice.json"),
+  ];
+  for (const ruta of candidatos) {
+    try {
+      const indice = JSON.parse(fs.readFileSync(ruta, "utf8"));
+      const ancho = indice.anchoChunks * indice.tamanoChunk * PX_POR_CASILLA;
+      const alto = indice.altoChunks * indice.tamanoChunk * PX_POR_CASILLA;
+      // Spawn: la ciudad del mapa (casilla → centro de casilla en px);
+      // sin ciudad definida, el centro del mapa.
+      const spawnX = indice.ciudad ? (indice.ciudad.x + 0.5) * PX_POR_CASILLA : ancho / 2;
+      const spawnY = indice.ciudad ? (indice.ciudad.y + 0.5) * PX_POR_CASILLA : alto / 2;
+      console.log(`Mapa principal cargado de ${ruta}: ${ancho}x${alto}px, spawn (${spawnX}, ${spawnY})`);
+      return { ancho, alto, spawnX, spawnY };
+    } catch {
+      // probar el siguiente candidato
+    }
+  }
+  console.warn("indice.json del mapa principal no encontrado — limites de hub de pruebas");
+  return { ancho: 800, alto: 600, spawnX: 400, spawnY: 300 };
+}
+
+const MAPA = cargarConfigMapa();
 
 interface Direction {
   x: number;
@@ -35,8 +71,8 @@ export class HubRoom extends Room<HubState> {
 
   onJoin(client: Client, options: { name?: string }) {
     const player = new Player();
-    player.x = MAP_WIDTH / 2;
-    player.y = MAP_HEIGHT / 2;
+    player.x = MAPA.spawnX;
+    player.y = MAPA.spawnY;
     player.name = options?.name?.slice(0, 20) || `Guest-${client.sessionId.slice(0, 4)}`;
 
     this.state.players.set(client.sessionId, player);
@@ -54,8 +90,8 @@ export class HubRoom extends Room<HubState> {
       const player = this.state.players.get(sessionId);
       if (!player) return;
 
-      player.x = clamp(player.x + dir.x * SPEED, 0, MAP_WIDTH);
-      player.y = clamp(player.y + dir.y * SPEED, 0, MAP_HEIGHT);
+      player.x = clamp(player.x + dir.x * SPEED, 0, MAPA.ancho);
+      player.y = clamp(player.y + dir.y * SPEED, 0, MAPA.alto);
     });
   }
 }
