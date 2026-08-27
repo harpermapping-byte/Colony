@@ -26,9 +26,14 @@ function lanzar(cmd, args, cwd, extraEnv = {}) {
   return p;
 }
 
-const servidor = lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO_WS) });
+// Este test depende de la GEOMETRÍA DEL DEMO (lago/roca en casillas
+// concretas): se fuerza el demo en servidor y cliente aunque el juego real
+// corra sobre el mapa principal por streaming.
+const rutaDemo = join(dirCliente, "..", "assets", "mapas", "demo");
+const servidor = lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO_WS), RUTA_MAPA: rutaDemo });
 const vite = lanzar("npx", ["vite", "--port", String(PUERTO_WEB), "--strictPort"], dirCliente, {
   VITE_COLYSEUS_URL: `ws://localhost:${PUERTO_WS}`,
+  VITE_RUTA_MAPA: "/assets/mapas/demo",
 });
 const matar = () => { servidor.kill(); vite.kill(); };
 process.on("exit", matar);

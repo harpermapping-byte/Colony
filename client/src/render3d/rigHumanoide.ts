@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import proporcionesBase from "./proporcionesRig.json";
+import { aplicarMorfologia, type Morfologia } from "./morfologia";
 
 /**
  * Rig humanoide básico estilo Roblox/Minecraft: 6 piezas independientes
@@ -19,16 +21,21 @@ import * as THREE from "three";
  * cada pieza, no la animación ni la API.
  */
 
-// Alturas de referencia (unidades de mundo; 1 unidad = 1 casilla)
-const ALTO_PIERNA = 0.7;
-const ALTO_TORSO = 0.55;
-const LADO_CABEZA = 0.32;
-export const ALTO_RIG = ALTO_PIERNA + ALTO_TORSO + LADO_CABEZA; // ≈ 1.57
+// Altura de referencia del personaje de talla base (unidades de mundo;
+// 1 unidad = 1 casilla). Las medidas viven en proporcionesRig.json — la
+// MISMA fuente que usa ropa/src/generarPrenda.js — y cada personaje las
+// recibe ya morfadas por altura/corpulencia/sexo (aplicarMorfologia), así
+// la ropa generada sobre esa misma morfología encaja sin ajuste ninguno.
+export const ALTO_RIG =
+  proporcionesBase.altoPierna + proporcionesBase.altoTorso + proporcionesBase.ladoCabeza; // ≈ 1.57 en talla base
 
 export interface OpcionesRig {
   colorTunica: string; // torso+brazos (la "ropa" del placeholder)
   colorPiel?: string;
   colorPelo?: string;
+  colorOjos?: string;
+  /** Altura/corpulencia/sexo del personaje — omitida = talla base. */
+  morfologia?: Morfologia;
 }
 
 export interface RigHumanoide {
@@ -53,6 +60,13 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   const colorPelo = opciones.colorPelo || "#4a3220";
   const colorTunica = opciones.colorTunica;
 
+  // Medidas de ESTE personaje: base + su morfología. Todo lo de abajo se
+  // construye sobre estas, nunca sobre proporcionesBase directamente.
+  const proporciones = aplicarMorfologia(opciones.morfologia);
+  const ALTO_PIERNA = proporciones.altoPierna;
+  const ALTO_TORSO = proporciones.altoTorso;
+  const LADO_CABEZA = proporciones.ladoCabeza;
+
   const raiz = new THREE.Group(); // anclada por los pies, como todo en el proyecto
 
   // --- Piernas (pivote en la cadera) ---
@@ -60,20 +74,20 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
     const pivote = new THREE.Group();
     pivote.name = ladoX < 0 ? "piernaIzq" : "piernaDer";
     pivote.position.set(ladoX, ALTO_PIERNA, 0);
-    const carne = caja(0.16, ALTO_PIERNA, 0.2, colorPiel);
+    const carne = caja(proporciones.pierna.w, ALTO_PIERNA, proporciones.pierna.d, colorPiel);
     carne.position.y = -ALTO_PIERNA / 2;
     pivote.add(carne);
     return pivote;
   }
-  const piernaIzq = pierna(-0.11);
-  const piernaDer = pierna(0.11);
+  const piernaIzq = pierna(-proporciones.pierna.offsetX);
+  const piernaDer = pierna(proporciones.pierna.offsetX);
   raiz.add(piernaIzq, piernaDer);
 
   // --- Torso ---
   const torso = new THREE.Group();
   torso.name = "torso";
   torso.position.y = ALTO_PIERNA;
-  const cuerpoTorso = caja(0.44, ALTO_TORSO, 0.24, colorTunica);
+  const cuerpoTorso = caja(proporciones.torso.w, ALTO_TORSO, proporciones.torso.d, colorTunica);
   cuerpoTorso.position.y = ALTO_TORSO / 2;
   torso.add(cuerpoTorso);
   raiz.add(torso);
@@ -82,16 +96,17 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   function brazo(ladoX: number): THREE.Group {
     const pivote = new THREE.Group();
     pivote.name = ladoX < 0 ? "brazoIzq" : "brazoDer";
-    pivote.position.set(ladoX, ALTO_TORSO - 0.04, 0);
-    const manga = caja(0.13, 0.38, 0.18, colorTunica);
-    manga.position.y = -0.19;
-    const mano = caja(0.12, 0.16, 0.16, colorPiel);
-    mano.position.y = -0.46;
+    const b = proporciones.brazo;
+    pivote.position.set(ladoX, ALTO_TORSO + b.pivoteYOffset, 0);
+    const manga = caja(b.mangaW, b.mangaH, b.mangaD, colorTunica);
+    manga.position.y = -b.mangaH / 2;
+    const mano = caja(b.manoW, b.manoH, b.manoD, colorPiel);
+    mano.position.y = -b.mangaH - b.manoH / 2;
     pivote.add(manga, mano);
     return pivote;
   }
-  const brazoIzq = brazo(-0.29);
-  const brazoDer = brazo(0.29);
+  const brazoIzq = brazo(-proporciones.brazo.offsetX);
+  const brazoDer = brazo(proporciones.brazo.offsetX);
   torso.add(brazoIzq, brazoDer);
 
   // --- Cabeza (pivote en el cuello) + rasgos faciales como geometría ---
@@ -103,7 +118,7 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   const pelo = caja(LADO_CABEZA + 0.04, 0.1, LADO_CABEZA + 0.04, colorPelo);
   pelo.position.y = LADO_CABEZA - 0.03;
   const mitadCara = LADO_CABEZA / 2;
-  const ojoIzq = caja(0.05, 0.05, 0.02, "#1d2b1f");
+  const ojoIzq = caja(0.05, 0.05, 0.02, opciones.colorOjos || "#1d2b1f");
   ojoIzq.position.set(-0.07, LADO_CABEZA * 0.6, mitadCara + 0.005);
   const ojoDer = ojoIzq.clone();
   ojoDer.position.x = 0.07;

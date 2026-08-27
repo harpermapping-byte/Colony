@@ -1,0 +1,13 @@
+{
+  "_nota": "Medidas del rig humanoide (unidades de mundo, 1 = 1 casilla), extraídas de rigHumanoide.ts a un JSON aparte para que ropa/ (Node, sin bundler) pueda leer las MISMAS medidas sin duplicarlas a mano — filosofía 'catálogo como fuente de verdad' del CLAUDE.md. Si cambias una medida del cuerpo, cámbiala aquí: rigHumanoide.ts y ropa/src/generarPrenda.js la leen de aquí.",
+  "altoPierna": 0.7,
+  "altoTorso": 0.55,
+  "ladoCabeza": 0.32,
+  "pierna": { "w": 0.16, "d": 0.2, "offsetX": 0.11 },
+  "torso": { "w": 0.44, "d": 0.24 },
+  "brazo": {
+    "mangaW": 0.13, "mangaH": 0.38, "mangaD": 0.18,
+    "manoW": 0.12, "manoH": 0.16, "manoD": 0.16,
+    "offsetX": 0.29, "pivoteYOffset": -0.04
+  }
+}

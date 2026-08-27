@@ -1,0 +1,51 @@
+{
+  "_nota": "Rasgos físicos disponibles para el generador de personajes (personajes/src/generarPersonaje.js) — el diccionario global del que tira cada NPC de npcs.json. Cada lista es [id, peso] al estilo de salasPorPlanta de interiores: más peso, más frecuente; un NPC puede sobreescribir los pesos en su entrada (ej. un anciano sube canoso/blanco) sin tocar este catálogo. Los estilos de pelo/barba tienen su geometría en generarPersonaje.js (cajas normalizadas sobre la cabeza del rig, voxelizadas) — un estilo nuevo se añade aquí Y allí. Colores en hex como colorDebug del resto de catálogos.",
+
+  "peloEstilos": [
+    ["calvo", 8],
+    ["rapado", 15],
+    ["corto", 35],
+    ["melena", 25],
+    ["coleta", 12],
+    ["monje", 5]
+  ],
+
+  "barbaEstilos": [
+    ["ninguna", 40],
+    ["bigote", 15],
+    ["perilla", 20],
+    ["completa", 25]
+  ],
+
+  "coloresPelo": [
+    ["negro", 25, "#241a12"],
+    ["castano_oscuro", 25, "#3d2a17"],
+    ["castano", 20, "#5d4023"],
+    ["rubio", 12, "#a88a4a"],
+    ["pelirrojo", 8, "#8a4520"],
+    ["canoso", 7, "#8f8a82"],
+    ["blanco", 3, "#d8d4cc"]
+  ],
+
+  "coloresPiel": [
+    ["palida", 15, "#e8c49c"],
+    ["clara", 30, "#d8a97c"],
+    ["media", 30, "#c8956c"],
+    ["tostada", 15, "#a87850"],
+    ["morena", 7, "#8a5c3a"],
+    ["oscura", 3, "#5f3d26"]
+  ],
+
+  "coloresOjos": [
+    ["marron", 45, "#4a2e1a"],
+    ["avellana", 20, "#6a4a22"],
+    ["verde", 12, "#3a5a2e"],
+    ["azul", 15, "#3a5a7a"],
+    ["gris", 8, "#5a5f66"]
+  ],
+
+  "sexoPesos": [
+    ["hombre", 50],
+    ["mujer", 50]
+  ]
+}

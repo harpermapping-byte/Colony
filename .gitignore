@@ -11,3 +11,6 @@ taller-vox/vox/
 taller-vox/node_modules/
 taller-vox/laboratorio-personajes/bundle.js
 taller-vox/laboratorio-personajes/capturas/
+ropa/output/
+client/test/streaming_spawn.png
+personajes/output/
