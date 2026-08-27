@@ -118,6 +118,7 @@ function alturaPara(item) {
 }
 function svgEl(tag, attrs) { const e = document.createElementNS("http://www.w3.org/2000/svg", tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
 function poligonoEl(puntos, fill, extra) { const e = svgEl("polygon", { points: puntos.map((p) => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), fill, ...(extra || {}) }); return e; }
+function poliLineaEl(puntos, extra) { const e = svgEl("polyline", { points: puntos.map((p) => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), ...(extra || {}) }); return e; }
 
 // ---- Estado del cliente ----
 let edificio = null;
@@ -392,9 +393,45 @@ function renderLienzo() {
     svg.appendChild(poligonoEl([p0, p1, p2, p3], colorParedClaro, { stroke: "#0006", "stroke-width": 0.6 }));
   }
 
+  // Borde discontinuo en norte/oeste: esta cámara no dibuja esos dos muros
+  // como sólidos (para poder ver el interior), así que sin esta línea un
+  // mueble/colgado pegado a ellos parece "flotando" sin ninguna referencia
+  // — mismo criterio que prueba_render_iso.js.
+  svg.appendChild(poliLineaEl([proyectar(0, r.largo, 0), proyectar(0, 0, 0), proyectar(r.ancho, 0, 0)], { fill: "none", stroke: "#fff8", "stroke-width": 1.4, "stroke-dasharray": "3,3" }));
+
   // mobiliario, ordenado por profundidad
   const ordenados = r.colocados.slice().sort((a, b) => (a.x + a.y) - (b.x + b.y));
   for (const it of ordenados) dibujarCaja(svg, it, it.instanceId === instanceSel);
+
+  // Elementos colgados en pared (antorchas, candelabros, cuadros, trofeos,
+  // baldas...) — antes NO se dibujaban aquí (solo en el editor de texto de
+  // prueba_render_iso.js), así que aunque el motor ya los generaba de
+  // verdad, en este editor parecía que "no se genera nada en paredes".
+  // Los de sur/este caen en un muro que sí se dibuja como sólido: círculo
+  // a media altura sobre el propio muro. Los de norte/oeste caen en el
+  // muro que esta cámara deja abierto para ver el interior — se marcan
+  // igual mas tenues/punteados sobre la línea discontinua de ese borde,
+  // para que se sepa que existen aunque el muro real no se dibuje aquí.
+  for (const c of r.colgados) {
+    const visible = c.lado === "sur" || c.lado === "este";
+    const zc = visible ? ALTURA_PARED * 0.55 : 0;
+    const [px, py] =
+      c.lado === "sur" ? proyectar(c.x + 0.5, r.largo, zc)
+      : c.lado === "este" ? proyectar(r.ancho, c.y + 0.5, zc)
+      : c.lado === "norte" ? proyectar(c.x + 0.5, 0, 0)
+      : proyectar(0, c.y + 0.5, 0);
+    const seleccionado = c.instanceId === instanceSel;
+    const circ = svgEl("circle", {
+      cx: px.toFixed(1), cy: py.toFixed(1), r: seleccionado ? 6.5 : 5,
+      fill: c.colorDebug || "#ccc", "fill-opacity": visible ? 1 : 0.5,
+      stroke: seleccionado ? "#fff" : visible ? "#000" : "#fff",
+      "stroke-width": seleccionado ? 1.6 : 0.7,
+      "stroke-dasharray": visible ? "" : "2,2",
+      style: "cursor:pointer",
+    });
+    circ.addEventListener("click", (ev) => { ev.stopPropagation(); instanceSel = c.instanceId; elementoArmado = null; renderTodo(); });
+    svg.appendChild(circ);
+  }
 
   const puertaLbl = proyectar(r.puerta.x + 0.5, r.largo, 0);
   const txt = svgEl("text", { x: puertaLbl[0].toFixed(1), y: (puertaLbl[1] + 14).toFixed(1), "font-size": 8, fill: "#ccc", "text-anchor": "middle" });
@@ -402,6 +439,18 @@ function renderLienzo() {
 
   cont.innerHTML = "";
   cont.appendChild(svg);
+
+  // Elementos de techo (vigas, arañas de luz, artesonado...): no llevan
+  // posición propia dentro de la sala (son un rasgo del techo entero, no
+  // una pieza puntual), así que se listan como texto bajo el lienzo en
+  // vez de como una caja — igual que ya hacía prueba_render_iso.js. Va
+  // DENTRO de #lienzo (no como hermano en el grid de la página) para que
+  // fluya normal bajo el SVG en vez de saltar a otra zona del layout.
+  const piePie = document.createElement("div");
+  piePie.className = "pie-techo";
+  piePie.style.cssText = "font-size:11px;color:#999;padding:4px 8px;";
+  piePie.textContent = `techo: ${r.techo.map((t) => t.id).join(", ") || "—"}`;
+  cont.appendChild(piePie);
 }
 
 // ---- Vista de edificio completo: planos 2D de todas las plantas apiladas

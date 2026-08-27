@@ -342,10 +342,16 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   // `elId` entre sus allowedItemTypes. Sin childSlots declarados en el
   // catálogo para esa ancla, no admite satélites por esta vía — childSlots
   // es la fuente de verdad de qué puede engancharse a qué, ya no "cualquier
-  // esSuperficie vale para cualquier juntoAMesa".
+  // esSuperficie vale para cualquier juntoAMesa". `maxSatelites` (opcional,
+  // por defecto sin tope) es el límite del propio ANCLA, no del tipo de
+  // hijo: un escritorio de 1 sola plaza declara maxSatelites:1 y deja de
+  // admitir sillas en cuanto ya tiene la suya, aunque una mesa de comedor
+  // en la misma sala siga aceptando hasta 4 sin límite propio.
   function anclaAdmite(anclaEl, elId) {
     const def = catalogos.elementos[anclaEl.id];
-    return (def?.childSlots || []).some((slot) => (slot.allowedItemTypes || []).includes(elId));
+    if (!def) return false;
+    if ((anclaEl._satelites || 0) >= (def.maxSatelites ?? Infinity)) return false;
+    return (def.childSlots || []).some((slot) => (slot.allowedItemTypes || []).includes(elId));
   }
 
   // "juntoAMesa" de verdad: se sienta junto a un ancla ya colocada cuyo
@@ -361,7 +367,15 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   // al sur mira al norte, etc., así las sillas quedan mirando a la mesa.
   function intentarJuntoAMesa(el) {
     const anclasValidas = superficies.filter((a) => anclaAdmite(a, el.id));
-    if (anclasValidas.length === 0) return intentarColocarEnSuelo(el);
+    // Sin ningún ancla con hueco libre (ninguna en la sala, o todas ya en
+    // su `maxSatelites`) NO cae a suelo libre: un satélite "juntoAMesa" que
+    // no tiene mesa a la que sentarse no debe aparecer suelto en mitad de
+    // la sala — así un escritorio con maxSatelites:1 se queda con su única
+    // silla en vez de seguir intentando colocar las siguientes como bultos
+    // sueltos por el suelo (bug real: antes de este cambio, cada intento
+    // que no encontraba ancla libre degradaba a "silla flotante" en vez de
+    // simplemente parar).
+    if (anclasValidas.length === 0) return false;
     const anclasOrdenadas = anclasValidas.sort((a, b) => (a._satelites || 0) - (b._satelites || 0));
     const gradosParaMirarAncla = { norte: 0, sur: 180, oeste: 270, este: 90 };
     for (const anclaEl of anclasOrdenadas) {
@@ -509,11 +523,18 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         .filter((el) => (el.tiposSalaValidos || []).includes(tipoSalaId))
         .filter((el) => riquezaAlcanza(riqueza, el.riquezaMinima));
 
-      const rango = (el) => (el.isMandatory ? -1 : el.esSuperficie ? 0 : el.colocacion.includes("juntoAMesa") ? 1 : 2);
+      // Las piezas que van pegadas a un muro (WALL_BACK/CORNER) se colocan
+      // justo después de las obligatorias y ANTES que cualquier decoración
+      // suelta de centro — así el mobiliario se pega a los bordes primero
+      // y deja el centro de la sala libre para circular, en vez de que un
+      // elemento "libre" no obligatorio ocupe por casualidad una casilla
+      // pegada a un muro que un mueble de verdad habría aprovechado mejor.
+      const esPegadoAPared = (el) => el.anchorType === AnchorType.WALL_BACK || el.anchorType === AnchorType.CORNER;
+      const rango = (el) => (el.isMandatory ? -2 : esPegadoAPared(el) ? -1 : el.esSuperficie ? 0 : el.colocacion.includes("juntoAMesa") ? 1 : 2);
       const barajados = barajar(candidatos, rnd).sort((a, b) => rango(a) - rango(b));
       let colocadosEnCapa = 0;
       const idsYaUsados = new Set();
-      const MAX_SATELITES_POR_TIPO = 4; // ej. hasta 4 sillas repartidas entre las mesas de la sala
+      const MAX_SATELITES_POR_TIPO = 6; // tope global por sala para un mismo tipo de satélite (ej. "silla"), repartido entre todas las anclas válidas — el tope real de una mesa concreta lo pone su propio `maxSatelites` (ej. mesa_comedor_larga:6, escritorio:1)
       for (const el of barajados) {
         if (colocadosEnCapa >= LIMITE_POR_CAPA[capa]) break;
         if (idsYaUsados.has(el.id)) continue; // no repetir la misma pieza dos veces en una sala pequeña...
