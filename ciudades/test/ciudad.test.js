@@ -54,7 +54,9 @@ test("cada edificio va ROTADO hacia una calle y su huella sale de huellas.json",
   for (const ed of ciudad.edificios) {
     const esperada = huellas.porTipo[ed.tipoEdificioId] ||
       huellas.porRiqueza[catalogos.tiposEdificio[ed.tipoEdificioId]?.riqueza || "modesta"];
-    assert.deepStrictEqual([ed.w, ed.h], esperada, ed.tipoEdificioId);
+    // el jitter de variedad mueve la huella ±1 por instancia
+    assert.ok(Math.abs(ed.w - esperada[0]) <= 1 && Math.abs(ed.h - esperada[1]) <= 1,
+      `${ed.tipoEdificioId}: huella ${ed.w}x${ed.h} vs base ${esperada}`);
     assert.ok(ed.casillas.length > 0, "huella rasterizada");
     assert.ok(ed.interior.plantas.length > 0, "interior anidado generado");
     if (ed.rot % 90 !== 0) rotados++;
@@ -78,6 +80,7 @@ test("el export completo cuadra con el formato de sectores + capa vectorial", ()
   assert.strictEqual(indice.portales.filter((p) => p.tipo === "interior").length, ciudad.edificios.length);
   assert.ok(indice.muralla.modulos.length > 0, "módulos de muralla en la capa vectorial");
   assert.ok(indice.caminos.length >= 1, "polilíneas de caminos");
+  assert.ok(Array.isArray(indice.zonasVerdes), "zonas verdes en el índice");
   // el spawn cae en casilla transitable
   const cx = Math.floor(indice.ciudad.x / TAMANO_CHUNK), cy = Math.floor(indice.ciudad.y / TAMANO_CHUNK);
   const sx = Math.floor(cx / indice.tamanoSectorChunks), sy = Math.floor(cy / indice.tamanoSectorChunks);

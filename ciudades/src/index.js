@@ -39,17 +39,18 @@ function exportarCiudad(ciudad, carpetaSalida) {
   // cliente pintará una caja con la huella; el .glb real llegará por
   // convención edificios/<tipo>_NN.glb con la MISMA rotación `ro`
   const objetosPorChunk = new Map();
-  for (const ed of ciudad.edificios) {
-    const cxCh = Math.floor(ed.cx / TAMANO_CHUNK), cyCh = Math.floor(ed.cy / TAMANO_CHUNK);
+  const meterObjeto = (gx, gy, objeto) => {
+    const cxCh = Math.floor(gx / TAMANO_CHUNK), cyCh = Math.floor(gy / TAMANO_CHUNK);
     const clave = `${cxCh}_${cyCh}`;
     if (!objetosPorChunk.has(clave)) objetosPorChunk.set(clave, []);
-    objetosPorChunk.get(clave).push({
-      i: ed.tipoEdificioId, t: "e", va: 0, ro: ed.rot, es: 1,
-      x: Math.floor(ed.cx) - cxCh * TAMANO_CHUNK,
-      y: Math.floor(ed.cy) - cyCh * TAMANO_CHUNK,
-      w: ed.w, h: ed.h,
-    });
+    objetosPorChunk.get(clave).push({ ...objeto, x: Math.floor(gx) - cxCh * TAMANO_CHUNK, y: Math.floor(gy) - cyCh * TAMANO_CHUNK });
+  };
+  for (const ed of ciudad.edificios) {
+    meterObjeto(ed.cx, ed.cy, { i: ed.tipoEdificioId, t: "e", va: 0, ro: ed.rot, es: 1, w: ed.w, h: ed.h });
   }
+  // árboles de los parques: vegetación normal del catálogo del baker (el
+  // cliente ya los instancia y su colision:true los hace sólidos en juego)
+  for (const a of ciudad.arboles || []) meterObjeto(a.x, a.y, { i: a.i, t: "v", va: a.va, ro: a.ro, es: a.es });
 
   for (let cy = 0; cy < altoChunks; cy++) {
     for (let cx = 0; cx < anchoChunks; cx++) {
@@ -74,6 +75,7 @@ function exportarCiudad(ciudad, carpetaSalida) {
     portales: ciudad.portales,
     muralla: { poligono: ciudad.poligonoMuralla.map((p) => [+p.x.toFixed(1), +p.y.toFixed(1)]), modulos: ciudad.modulosMuralla },
     caminos: ciudad.caminos.map((r) => r.map((p) => [p.x, p.y])),
+    zonasVerdes: ciudad.zonasVerdes || [],
   });
 }
 
@@ -112,6 +114,7 @@ function exportarOverview(ciudad, carpetaSalida, terrenos, tiposEdificio, escala
     for (const [x, y] of ed.casillas) pinta(x, y, color);
     pinta(ed.puerta.x, ed.puerta.y, [40, 24, 12]);
   }
+  for (const a of ciudad.arboles || []) pinta(a.x, a.y, [26, 82, 34]); // copas de los parques
   for (const p of ciudad.puertas) pinta(p.x, p.y, [235, 215, 150]);
   fs.writeFileSync(path.join(carpetaSalida, "overview.png"), codificarPNG(ancho * escala, alto * escala, rgba));
 }
@@ -141,11 +144,11 @@ if (require.main === module) {
   }
   const carpeta = salida || path.join(RAIZ, "ciudades", "output", `${tier}-${semilla}`);
   const ciudad = hornearCiudad(tier, semilla, carpeta);
-  const granjas = ciudad.edificios.filter((e) => e.granja).length;
+  const enL = ciudad.edificios.filter((e) => e.piezas.length > 1).length;
   console.log(
     `${tier} "${semilla}" (${ciudad.variante}): ${ciudad.ancho}x${ciudad.alto} casillas, ` +
-    `${ciudad.edificios.length - granjas} edificios intramuros + ${granjas} granjas, ` +
-    `${ciudad.puertas.length} puertas, ${ciudad.modulosMuralla.length} módulos de muralla` +
+    `${ciudad.edificios.length} edificios (${enL} en L), ${ciudad.zonasVerdes.length} zonas verdes ` +
+    `(${ciudad.arboles.length} árboles), ${ciudad.puertas.length} puertas, ${ciudad.modulosMuralla.length} módulos de muralla` +
     (ciudad.descartados.length ? ` · sin sitio: ${ciudad.descartados.join(", ")}` : "")
   );
   console.log(`-> ${carpeta}`);

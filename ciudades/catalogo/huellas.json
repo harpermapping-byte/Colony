@@ -31,5 +31,19 @@
     "choza_pescador": [6, 5],
     "choza_curandero": [6, 5],
     "carromato_mercader": [5, 4]
+  },
+  "_nota_alas": "Los tipos listados en 'alas' pueden salir con planta en L: un ala [ancho, alto] pegada a la trasera del cuerpo principal (lado elegido por semilla). Variedad de formas sin tocar código: añadir/quitar tipos aquí.",
+  "alas": {
+    "castillo": [8, 6],
+    "ayuntamiento": [7, 5],
+    "posada": [6, 5],
+    "casa_gremio": [6, 5],
+    "mansion": [6, 5],
+    "cuartel_guardia": [6, 5],
+    "teatro": [6, 5],
+    "museo": [6, 4],
+    "academia_magia": [6, 5],
+    "casa_noble": [5, 4],
+    "taberna": [5, 4]
   }
 }
