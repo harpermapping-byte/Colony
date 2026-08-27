@@ -116,6 +116,9 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   const craneo = caja(LADO_CABEZA, LADO_CABEZA, LADO_CABEZA, colorPiel);
   craneo.position.y = LADO_CABEZA / 2;
   const pelo = caja(LADO_CABEZA + 0.04, 0.1, LADO_CABEZA + 0.04, colorPelo);
+  // con nombre para que personajeVoxel.ts pueda ocultarlo cuando el
+  // personaje trae pelo vóxel real del generador (si no, se duplicarían)
+  pelo.name = "peloPlaceholder";
   pelo.position.y = LADO_CABEZA - 0.03;
   const mitadCara = LADO_CABEZA / 2;
   const ojoIzq = caja(0.05, 0.05, 0.02, opciones.colorOjos || "#1d2b1f");

@@ -74,9 +74,12 @@ function voxelizarParte({ w, h, d, resolucion, formaFn, zonaBase, pivoteX = 0, p
       for (let iz = 0; iz < nzCapa; iz++) {
         const x = pivoteX - anchoCapa / 2 + (ix + 0.5) * (anchoCapa / nxCapa);
         const z = -fondoCapa / 2 + (iz + 0.5) * (fondoCapa / nzCapa);
-        const y = pivoteYBase + iy * ch;
+        // y es el CENTRO de la celda (media celda sobre la base de la capa)
+        // — mismo criterio que x/z, así el cliente construye cada vóxel
+        // como caja centrada en (x,y,z) con tamaño tam sin ambigüedad.
+        const y = pivoteYBase + iy * ch + ch / 2;
         const colorZona = colores[zona] || colores[zonaBase];
-        voxeles.push({ x, y, z, color: variarColor(colorZona, rnd), zona, parte: parteId });
+        voxeles.push({ x, y, z, tam: [anchoCapa / nxCapa, ch, fondoCapa / nzCapa], color: variarColor(colorZona, rnd), zona, parte: parteId });
       }
     }
   }
@@ -144,6 +147,7 @@ function generarCordon(bboxCabeza, colorCordon, rnd, parteId) {
         x: lado * bboxCabeza.w * 0.42,
         y: -0.02 - i * 0.03,
         z: bboxCabeza.d * 0.3,
+        tam: [0.025, 0.03, 0.025],
         color: colorCordon,
         zona: "cordon",
         parte: parteId,

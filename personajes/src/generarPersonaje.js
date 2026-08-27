@@ -91,7 +91,9 @@ function voxelizarCajas(cajas, ladoCabeza, color, zona, rnd) {
     for (let x = x0 + celda / 2; x < x1; x += celda) {
       for (let y = y0 + celda / 2; y < y1; y += celda) {
         for (let z = z0 + celda / 2; z < z1; z += celda) {
-          voxeles.push({ x, y, z, color: ajustarColor(color, (rnd() - 0.5) * 0.06), zona, pivote: "cabeza" });
+          // (x,y,z) es el CENTRO de la celda y tam su tamaño — el cliente
+          // construye la caja directamente, sin adivinar la resolución
+          voxeles.push({ x, y, z, tam: [celda, celda, celda], color: ajustarColor(color, (rnd() - 0.5) * 0.06), zona, pivote: "cabeza" });
         }
       }
     }

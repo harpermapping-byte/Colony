@@ -56,6 +56,6 @@ Las 3 siluetas ya leen como lo que son (túnica con mangas y bajo abierto, calza
 
 - Ampliar `ropa/catalogo/prendas.json` con el resto de oficios de `profesiones.json` una vez el algoritmo esté afinado (una prenda de torso/piernas/cabeza — y luego capas/calzado/manos — por cada combinación oficio×riqueza que haga falta), siguiendo el mismo criterio: nada de "dos prendas porque sí", cada una debe cuadrar con un oficio o tag real ya existente.
 - Slot de manos/pies/capa exterior todavía sin definir en `prendas.json` (solo torso/piernas/cabeza en esta v1).
-- Consumo real en el cliente: fusionar los vóxeles de una prenda en una única `BufferGeometry` y colgarla del pivote de `rigHumanoide.ts` — hoy la vista de prueba vive solo en `ropa/`, no hay integración con `client/`.
+- ~~Consumo real en el cliente~~ — **HECHO**: `client/src/render3d/voxelMalla.ts` + `personajeVoxel.ts` fusionan cada prenda en una malla por pivote (color por vértice, todas las caras) y la cuelgan del rig; validado en el juego real con la plaza demo de NPCs vestidos junto al spawn (ver GDD_Generador_Personajes v1.3). `generarPrenda()` emite ahora `tam` por vóxel con (x,y,z)=centro — contrato exacto con el cliente.
 - Catálogo de armaduras/armas/herramientas (mencionado por el streamer como siguiente ampliación de este mismo módulo, no una lista aparte) — mismo patrón, pendiente de las primeras 3 prendas quedando aprobadas.
 - Overrides de tinte por personaje (`tintes` en `generarPrenda()` ya existe como API, falta decidir dónde vive esa elección — savegame de personaje, servidor...).

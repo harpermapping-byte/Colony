@@ -6,6 +6,8 @@ import { cargarIndice, cargarSector } from "./mapa/cargarMapa";
 import type { Group } from "three";
 import { StreamingSectores } from "./mapa/streamingSectores";
 import { crearSectorVisual, soltarSectorVisual } from "./render3d/sectorVisual";
+import { crearPersonajeVoxel, type PersonajeExportado } from "./render3d/personajeVoxel";
+import { crearAnimalVoxel, type AnimalExportado } from "./render3d/animalVoxel";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -84,6 +86,36 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // Sin mapa no se corta el juego (los jugadores siguen sincronizando
     // sobre el suelo de emergencia), pero el fallo queda visible.
     console.error("No se pudo cargar el mapa bakeado:", err);
+  }
+
+  // --- Demo de personajes/animales del generador (assets/personajes/
+  // demo_personajes.json, escrito por personajes/src/exportar_demo.js):
+  // valida el circuito entero catálogo → generador → JSON → rig animado.
+  // Cuando el servidor pueble NPCs de verdad, consumirán este mismo
+  // formato y esta plaza fija desaparece. Si el JSON no está, no pasa nada.
+  const animables: { actualizar(dt: number, andando?: boolean): void }[] = [];
+  try {
+    const r = await fetch("/assets/personajes/demo_personajes.json");
+    if (r.ok) {
+      const demo = await r.json();
+      const indiceMapa = await cargarIndice(RUTA_MAPA).catch(() => null);
+      const base = indiceMapa?.ciudad || { x: 24, y: 24 };
+      (demo.npcs as PersonajeExportado[]).forEach((npc, i) => {
+        const rig = crearPersonajeVoxel(npc);
+        rig.orientar(1, 1); // encarados hacia la cámara isométrica
+        escena.añadirEntidad(`demo_npc_${i}`, rig.objeto, base.x + 3 + i * 1.6, base.y + 3, npc.ficha.npcId);
+        animables.push(rig);
+      });
+      (demo.animales as AnimalExportado[]).forEach((animal, i) => {
+        const criatura = crearAnimalVoxel(animal);
+        criatura.orientar(1, 1);
+        escena.añadirEntidad(`demo_animal_${i}`, criatura.objeto, base.x + 2 + i * 1.9, base.y + 5.5, animal.ficha.especieId);
+        animables.push(criatura);
+      });
+      (window as any).__demoPersonajes = { npcs: demo.npcs.length, animales: demo.animales.length };
+    }
+  } catch (err) {
+    console.error("Demo de personajes no disponible:", err);
   }
 
   const client = new Client(SERVER_URL);
@@ -185,6 +217,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // Streaming de sectores: seguir al jugador local (barato — solo
     // reevalúa el anillo tras moverse un umbral de casillas).
     if (jugadorLocal) streaming?.actualizar(jugadorLocal.x, jugadorLocal.z);
+
+    // Demo de personajes/animales: animación idle (respirar, colas, alas)
+    for (const animable of animables) animable.actualizar(dt);
 
     escena.actualizar(dt);
     escena.render();
