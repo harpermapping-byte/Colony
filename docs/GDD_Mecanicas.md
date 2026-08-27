@@ -29,7 +29,7 @@ por forma):
 
 | Cosa | Caja | Regla |
 |---|---|---|
-| PJ (y futuros NPC/animales móviles) | AABB de radio 0.35 casillas | choca con sólidos; con otros PJ se EMPUJA, no se bloquea |
+| PJ (y futuros NPC/animales móviles) | AABB de radio 0.35 casillas | choca con sólidos; con otros PJ se EMPUJA, no se bloquea. Acordado 2026-08-27: cuando la fauna/NPCs sean entidades, su radio NO será fijo — se deriva del catálogo (`personajes/catalogo/animales_rig.json`: `anchoCuerpo/2 × escala` del individuo; NPCs: del torso morfado), nunca a mano ni por malla/vóxel. La vaca empuja como grande, el conejo como chico, la abeja casi nada. |
 | Terreno `transitable: false` sin `requiereNadar` (roca_inaccesible, lava…) | su casilla entera | pared |
 | Pieza de catálogo con `colision: true` (árboles con madera, todas las rocas/vetas, animales grandes) | su casilla entera | pared; solo endurece casillas de tierra |
 | Terreno con `requiereNadar` (agua, agua_profunda) | — | NO es pared: es un MEDIO (ver §2) |
@@ -290,6 +290,35 @@ inventario, porque son los primeros datos que duele perder.
 - Vendedores NPC con inventario limitado que rota (cálculo perezoso, no
   timers), precios fijos al principio (nada de economía dinámica hasta
   que haya datos reales).
+
+### 5.9bis Fauna y NPCs como entidades vivas (acordado 2026-08-27)
+
+Los animales serán COMO los PJ: entidades del servidor con posición
+sincronizada, animación por pivotes y colisión propia — no props del bake.
+Reglas pactadas con el usuario:
+
+- **Visual**: cada individuo se materializa con el creador de personajes
+  (`personajes/generarAnimal.js` → `client/render3d/animalVoxel.ts`, YA
+  implementado y probado con la plaza demo de la ciudad) — determinista por
+  semilla, animación idle por esqueleto y ciclo de andar por contrafase ya
+  listos. El servidor solo sincroniza `especieId + semilla + x,y + estado`
+  (andando/parado/nadando...): el cliente genera el cuerpo localmente,
+  como con los PJ. Nada de mallas por la red.
+- **Colisión**: radio derivado del catálogo (ver tabla de §1) — jamás por
+  malla o vóxel; la física vive en casillas + radios, los vóxeles son SOLO
+  visuales (la optimización gorda del proyecto).
+- **IA solo para quien la necesita, y por presupuesto**: cada especie
+  declarará su comportamiento en catálogo (`pasivo_errante` — pasea y pace;
+  `huidizo` — conejo/ciervo huyen del PJ cercano; `agresivo` — lobo/oso
+  persiguen; `estatico` — abeja/mariposa solo deambulan visualmente). El
+  servidor simula SOLO la fauna con jugadores cerca (mismo principio que el
+  streaming de sectores: lo lejano no cuesta), con tope de entidades
+  activas por room — Render free manda. Las especies `estatico` pueden
+  incluso vivir solo en cliente (deambulan sin verdad de servidor: no
+  interactúan, no cuestan red).
+- **Animación**: solo entidades con esqueleto; pausar el idle fuera de
+  pantalla/lejos cuando haga falta (el bucle de animables ya está
+  centralizado en `game.ts` — es un `if` de distancia).
 
 ### 5.10 Combate PvE y PvP (pedido por el usuario)
 
