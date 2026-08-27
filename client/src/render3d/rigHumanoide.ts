@@ -38,10 +38,24 @@ export interface OpcionesRig {
   morfologia?: Morfologia;
 }
 
+/**
+ * Marchas embebidas en TODO esqueleto (regla del streamer): parado (0),
+ * andando (1) y corriendo (2) existen SIEMPRE, listas para que cualquier
+ * mecánica futura las dispare. `true`/`false` siguen valiendo como
+ * andando/parado (compatibilidad con el código existente).
+ */
+export type Marcha = 0 | 1 | 2 | boolean;
+
+export function normalizarMarcha(marcha: Marcha | undefined): number {
+  if (marcha === true) return 1;
+  if (!marcha) return 0;
+  return Math.min(2, Math.max(0, marcha));
+}
+
 export interface RigHumanoide {
   objeto: THREE.Group;
-  /** Avanza la animación. `andando` mueve piernas/brazos; parado, respiración sutil. */
-  actualizar(dt: number, andando: boolean): void;
+  /** Avanza la animación según la marcha (parado/andando/corriendo). */
+  actualizar(dt: number, marcha?: Marcha): void;
   /** Orienta el cuerpo entero hacia una dirección de mundo (dx, dz). */
   orientar(dx: number, dz: number): void;
 }
@@ -132,18 +146,24 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
 
   // --- Animación por pivotes ---
   let fase = 0;
-  let pesoAndar = 0; // 0=parado, 1=andando — con rampa para no cortar en seco
+  let pesoAndar = 0; // 0=parado, 1=en movimiento — con rampa para no cortar en seco
+  let pesoCorrer = 0; // 0=andando, 1=corriendo — segunda rampa sobre la primera
 
-  function actualizar(dt: number, andando: boolean) {
-    pesoAndar = THREE.MathUtils.clamp(pesoAndar + (andando ? dt : -dt) * 6, 0, 1);
-    fase += dt * 9 * Math.max(pesoAndar, 0.15);
-    const zancada = Math.sin(fase) * 0.65 * pesoAndar;
+  function actualizar(dt: number, marcha: Marcha = 0) {
+    const m = normalizarMarcha(marcha);
+    pesoAndar = THREE.MathUtils.clamp(pesoAndar + (m >= 1 ? dt : -dt) * 6, 0, 1);
+    pesoCorrer = THREE.MathUtils.clamp(pesoCorrer + (m >= 2 ? dt : -dt) * 6, 0, 1);
+    // correr = misma zancada, más rápida y más amplia, brazos más fuertes
+    // y el torso echado hacia delante
+    fase += dt * (9 + 5 * pesoCorrer) * Math.max(pesoAndar, 0.15);
+    const zancada = Math.sin(fase) * (0.65 + 0.35 * pesoCorrer) * pesoAndar;
     piernaIzq.rotation.x = zancada;
     piernaDer.rotation.x = -zancada;
-    brazoIzq.rotation.x = -zancada * 0.7;
-    brazoDer.rotation.x = zancada * 0.7;
-    // parado: respiración sutil del torso; andando: rebote de zancada
-    torso.position.y = ALTO_PIERNA + (pesoAndar > 0.01 ? Math.abs(Math.cos(fase)) * 0.03 * pesoAndar : Math.sin(fase * 0.35) * 0.008);
+    brazoIzq.rotation.x = -zancada * (0.7 + 0.25 * pesoCorrer);
+    brazoDer.rotation.x = zancada * (0.7 + 0.25 * pesoCorrer);
+    torso.rotation.x = 0.2 * pesoCorrer;
+    // parado: respiración sutil del torso; en movimiento: rebote de zancada
+    torso.position.y = ALTO_PIERNA + (pesoAndar > 0.01 ? Math.abs(Math.cos(fase)) * (0.03 + 0.025 * pesoCorrer) * pesoAndar : Math.sin(fase * 0.35) * 0.008);
   }
 
   function orientar(dx: number, dz: number) {

@@ -31,6 +31,12 @@ Decisión del streamer: este creador vóxel no es solo de PJs — **todo lo que 
 - **v1.2 — 7 plantillas**: a las 3 primeras se sumaron **pez** (cuerpo fusiforme + caudal/dorsal/pectorales; `dorsal:"alta"` para tiburones; anclado por el vientre, el cliente lo coloca a su altura de nado), **serpiente** (6 segmentos en S con pivote propio cada uno para ondular, anillos y cascabel opcionales), **crustáceo** (caparazón ancho + pinzas + 6 patas + ojos en pedúnculo) y **anfibio** (cuerpo agachado, ancas plegadas, ojos saltones). Especies de prueba: pez_mediano, tiburón, culebra_de_agua, serpiente_de_cascabel, cangrejo, rana — 13 en total en `animales_rig.json`. Sin plantilla quedan casos raros del listado (medusa, pulpo, moluscos con concha, estrella de mar...) que se pactarán al etiquetar el listado completo.
 - `personajes/src/prueba_render_animales.js` — galería (8 individuos, con zoom de encuadre por especie) sobre el render compartido `renderIso.js` (cajas con las 6 caras, regla del streamer).
 
+## Marchas embebidas (regla del streamer, acordada 2026-08-27)
+
+**Todo lo que tiene esqueleto lleva SIEMPRE tres marchas de serie: parado, andar y correr** — aunque hoy nadie corra. API única `actualizar(dt, marcha)` con marcha 0/1/2 (boolean sigue valiendo como andar/parado) tanto en `rigHumanoide.ts` como en `animalVoxel.ts`. Correr = mismo ciclo acelerado y ampliado (zancada más larga y rápida, torso inclinado en humanos; galope con rebote en cuadrúpedos/aves/anfibios; coleteo/ondulación más fuertes en peces/serpientes) — funciona en los 7 esqueletos sin código por especie, con rampas suaves entre marchas.
+
+**El disparo es automático por velocidad**: el cliente deduce la marcha del hueco hasta el destino de servidor en cada patch (andar deja ~0.25 casillas; más de 0.34 = corriendo). Cuando una mecánica futura haga correr a algo (sprint, huida de un ciervo, montura al galope), la animación se activa SOLA — cero cableado nuevo. Las acciones concretas (atacar, recolectar...) se triggearán más adelante sobre esta misma API.
+
 ## Verificado (v1)
 
 - **Determinismo**: misma semilla+npcId → ficha idéntica (comprobado programáticamente).

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { normalizarMarcha, type Marcha } from "./rigHumanoide";
 
 /**
  * Materializa un animal del generador (personajes/src/generarAnimal.js):
@@ -28,7 +29,8 @@ export interface AnimalExportado {
 
 export interface AnimalVoxel {
   objeto: THREE.Group;
-  actualizar(dt: number, andando?: boolean): void;
+  /** Marchas embebidas SIEMPRE (regla del streamer): 0 parado, 1 andando, 2 corriendo. */
+  actualizar(dt: number, marcha?: Marcha): void;
   orientar(dx: number, dz: number): void;
 }
 
@@ -88,10 +90,17 @@ export function crearAnimalVoxel(datos: AnimalExportado): AnimalVoxel {
   const esqueleto = datos.ficha.esqueleto;
   let fase = Math.random() * Math.PI * 2; // desfase entre individuos: que no respiren todos a la vez (solo visual, no afecta a nada determinista)
   let pesoAndar = 0;
+  let pesoCorrer = 0;
 
-  function actualizar(dt: number, andando = false) {
-    fase += dt * 3;
-    pesoAndar = THREE.MathUtils.clamp(pesoAndar + (andando ? dt : -dt) * 5, 0, 1);
+  function actualizar(dt: number, marcha: Marcha = 0) {
+    const m = normalizarMarcha(marcha);
+    pesoAndar = THREE.MathUtils.clamp(pesoAndar + (m >= 1 ? dt : -dt) * 5, 0, 1);
+    pesoCorrer = THREE.MathUtils.clamp(pesoCorrer + (m >= 2 ? dt : -dt) * 5, 0, 1);
+    // correr acelera TODO el ciclo (patas, cola, ondulación) y amplía la
+    // zancada — así el galope/carrera existe en los 7 esqueletos sin código
+    // extra por especie: los peces coletean más fuerte, las serpientes
+    // ondulan más rápido, los cuadrúpedos galopan con rebote.
+    fase += dt * 3 * (1 + 1.2 * pesoCorrer);
     const t = fase;
 
     // ciclo de andar genérico: patas en contrafase (vale para cuadrúpedo,
@@ -99,8 +108,12 @@ export function crearAnimalVoxel(datos: AnimalExportado): AnimalVoxel {
     let i = 0;
     for (const [nombre, grupo] of pivotes) {
       if (!nombre.startsWith("pata")) continue;
-      grupo.rotation.x = Math.sin(t * 3 + (i % 2 === 0 ? 0 : Math.PI)) * 0.5 * pesoAndar;
+      grupo.rotation.x = Math.sin(t * 3 + (i % 2 === 0 ? 0 : Math.PI)) * (0.5 + 0.3 * pesoCorrer) * pesoAndar;
       i++;
+    }
+    // rebote de carrera del cuerpo entero (galope) — solo en tierra
+    if (esqueleto === "cuadrupedo" || esqueleto === "ave" || esqueleto === "anfibio") {
+      raiz.position.y = Math.abs(Math.cos(t * 3)) * 0.06 * pesoCorrer;
     }
 
     switch (esqueleto) {

@@ -202,7 +202,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const dx = estado.destinoX - estado.x;
       const dz = estado.destinoZ - estado.z;
       const distancia = Math.hypot(dx, dz);
+      // La MARCHA se deduce del hueco hasta el destino de servidor (los
+      // patches llegan a 15/seg: andar deja ~0.25 casillas de hueco).
+      // Cuando el servidor haga correr a alguien (sprint, huida, montura),
+      // la animación de carrera embebida se dispara SOLA — sin cablear nada.
       const andando = distancia > 0.02;
+      const marcha = !andando ? 0 : distancia > 0.34 ? 2 : 1;
       if (andando) estado.rig.orientar(dx, dz);
       estado.x += dx * factor;
       estado.z += dz * factor;
@@ -211,7 +216,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // nadando el cuerpo se tumba hacia delante; en tierra vuelve a vertical
       const inclinacionObjetivo = estado.nadando ? -1.1 : 0;
       estado.rig.objeto.rotation.x += (inclinacionObjetivo - estado.rig.objeto.rotation.x) * factor;
-      estado.rig.actualizar(dt, andando);
+      estado.rig.actualizar(dt, marcha);
     }
 
     // Streaming de sectores: seguir al jugador local (barato — solo
