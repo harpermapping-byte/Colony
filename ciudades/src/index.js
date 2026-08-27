@@ -1,0 +1,151 @@
+"use strict";
+// CLI del bakeador de ciudades:
+//   node ciudades/src/index.js <tier> <semilla> [carpetaSalida]
+//
+// Salidas (todas del MISMO bake, GDD_Bakeador_POIs §4.4):
+// - sector_XXX_YYY.json + indice.json — EXACTAMENTE el formato del baker
+//   exterior (crearExportador reutilizado): el cliente y el servidor los
+//   consumen sin cambios. El indice añade `portales` (puertas de muralla y
+//   de edificio) y `tier`.
+// - interiores/<edificioId>.json — los interiores REALES de cada edificio
+//   (bake anidado con el motor de interiores; mismo JSON que guarda su
+//   editor web).
+// - overview.png — vista cenital del recinto para revisar/depurar.
+
+const fs = require("fs");
+const path = require("path");
+const { generarCiudad, validarCiudad } = require("./generar");
+const { cargarCatalogos } = require("../../interiores/src/catalogo");
+const { crearExportador } = require("../../baker/src/exportar");
+const { codificarPNG } = require("../../baker/src/png");
+
+const RAIZ = path.join(__dirname, "..", "..");
+const TAMANO_CHUNK = 8; // los recintos del catálogo son múltiplos de 8
+
+function hexRGB(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function exportarCiudad(ciudad, carpetaSalida) {
+  const { terreno, ancho, alto } = ciudad;
+  const anchoChunks = ancho / TAMANO_CHUNK;
+  const altoChunks = alto / TAMANO_CHUNK;
+  if (!Number.isInteger(anchoChunks) || !Number.isInteger(altoChunks)) {
+    throw new Error(`el recinto+margen (${ancho}x${alto}) debe ser múltiplo de ${TAMANO_CHUNK}`);
+  }
+
+  // leyenda mínima: los terrenos que este mapa usa de verdad
+  const leyenda = [...new Set(terreno.datos)].sort();
+  const exportador = crearExportador(carpetaSalida, leyenda, anchoChunks, altoChunks);
+
+  // ancla visual del edificio: un objeto por edificio en su chunk (t:"e" =
+  // estructura; el .glb real llegará por convención edificios/<tipo>_NN.glb,
+  // de momento el placeholder del cliente pintará una caja con la huella)
+  const objetosPorChunk = new Map();
+  for (const ed of ciudad.edificios) {
+    const cxCh = Math.floor(ed.x / TAMANO_CHUNK), cyCh = Math.floor(ed.y / TAMANO_CHUNK);
+    const clave = `${cxCh}_${cyCh}`;
+    if (!objetosPorChunk.has(clave)) objetosPorChunk.set(clave, []);
+    objetosPorChunk.get(clave).push({
+      i: ed.tipoEdificioId,
+      t: "e",
+      va: 0,
+      ro: 0,
+      es: 1,
+      x: ed.x - cxCh * TAMANO_CHUNK,
+      y: ed.y - cyCh * TAMANO_CHUNK,
+      w: ed.w,
+      h: ed.h,
+    });
+  }
+
+  const elevacionPlano = "a".repeat(TAMANO_CHUNK * TAMANO_CHUNK); // recinto llano
+  for (let cy = 0; cy < altoChunks; cy++) {
+    for (let cx = 0; cx < anchoChunks; cx++) {
+      const casillas = [];
+      for (let y = 0; y < TAMANO_CHUNK; y++)
+        for (let x = 0; x < TAMANO_CHUNK; x++)
+          casillas.push(terreno.get(cx * TAMANO_CHUNK + x, cy * TAMANO_CHUNK + y));
+      exportador.agregarChunk(cx, cy, TAMANO_CHUNK, casillas, objetosPorChunk.get(`${cx}_${cy}`) || [], [], elevacionPlano);
+    }
+  }
+
+  exportador.finalizar({
+    nombre: `${ciudad.tier}-${ciudad.semilla}`,
+    semilla: ciudad.semilla,
+    tier: ciudad.tier,
+    anchoChunks,
+    altoChunks,
+    tamanoChunk: TAMANO_CHUNK,
+    ciudad: { x: ciudad.spawn.x, y: ciudad.spawn.y },
+    portales: ciudad.portales,
+  });
+}
+
+function exportarInteriores(ciudad, carpetaSalida) {
+  const carpeta = path.join(carpetaSalida, "interiores");
+  fs.mkdirSync(carpeta, { recursive: true });
+  for (const ed of ciudad.edificios) {
+    fs.writeFileSync(path.join(carpeta, `${ed.interior.id}.json`), JSON.stringify(ed.interior));
+  }
+}
+
+// Vista cenital: colorDebug de cada terreno; los edificios se pintan por
+// riqueza (tejado) con su puerta marcada, y las puertas de muralla en claro.
+const COLOR_RIQUEZA = { humilde: "#8a6a4a", modesta: "#a3762e", noble: "#7a3e8a" };
+
+function exportarOverview(ciudad, carpetaSalida, terrenos, tiposEdificio, escala = 4) {
+  const { terreno, ancho, alto } = ciudad;
+  const rgba = Buffer.alloc(ancho * escala * alto * escala * 4); // Buffer: png.js usa .copy()
+  const pinta = (x, y, [r, g, b]) => {
+    for (let dy = 0; dy < escala; dy++)
+      for (let dx = 0; dx < escala; dx++) {
+        const i = ((y * escala + dy) * ancho * escala + x * escala + dx) * 4;
+        rgba[i] = r; rgba[i + 1] = g; rgba[i + 2] = b; rgba[i + 3] = 255;
+      }
+  };
+  for (let y = 0; y < alto; y++)
+    for (let x = 0; x < ancho; x++)
+      pinta(x, y, hexRGB(terrenos[terreno.get(x, y)]?.colorDebug || "#ff00ff"));
+  for (const ed of ciudad.edificios) {
+    const color = hexRGB(COLOR_RIQUEZA[tiposEdificio[ed.tipoEdificioId]?.riqueza] || "#a3762e");
+    for (let y = ed.y; y < ed.y + ed.h; y++) for (let x = ed.x; x < ed.x + ed.w; x++) pinta(x, y, color);
+    pinta(ed.puerta.x, ed.puerta.y - 1, [40, 24, 12]); // hueco de la puerta en la fachada
+  }
+  for (const p of ciudad.puertas) pinta(p.x, p.y, [230, 210, 150]);
+  fs.writeFileSync(path.join(carpetaSalida, "overview.png"), codificarPNG(ancho * escala, alto * escala, rgba));
+}
+
+function hornearCiudad(tier, semilla, carpetaSalida) {
+  const catalogos = cargarCatalogos();
+  const terrenos = JSON.parse(fs.readFileSync(path.join(RAIZ, "baker", "catalogo", "terrenos.json"), "utf8"));
+  const ciudad = generarCiudad({ tier, semilla, catalogos });
+  const errores = validarCiudad(ciudad);
+  if (errores.length) throw new Error("ciudad inválida:\n  - " + errores.join("\n  - "));
+
+  fs.mkdirSync(carpetaSalida, { recursive: true });
+  exportarCiudad(ciudad, carpetaSalida);
+  exportarInteriores(ciudad, carpetaSalida);
+  exportarOverview(ciudad, carpetaSalida, terrenos, catalogos.tiposEdificio);
+  return ciudad;
+}
+
+module.exports = { hornearCiudad, exportarCiudad, exportarOverview, TAMANO_CHUNK };
+
+if (require.main === module) {
+  const [tier, semilla, salida] = process.argv.slice(2);
+  if (!tier || !semilla) {
+    console.log("Uso: node ciudades/src/index.js <tier> <semilla> [carpetaSalida]");
+    console.log("Tiers: aldea_pequena, aldea, pueblo, capital, castillo");
+    process.exit(1);
+  }
+  const carpeta = salida || path.join(RAIZ, "ciudades", "output", `${tier}-${semilla}`);
+  const ciudad = hornearCiudad(tier, semilla, carpeta);
+  console.log(
+    `${tier} "${semilla}": ${ciudad.ancho}x${ciudad.alto} casillas, ${ciudad.edificios.length} edificios ` +
+    `(${ciudad.edificios.map((e) => e.tipoEdificioId).join(", ")})` +
+    (ciudad.descartados.length ? ` · sin sitio: ${ciudad.descartados.join(", ")}` : "")
+  );
+  console.log(`-> ${carpeta} (sectores + ${ciudad.edificios.length} interiores + overview.png)`);
+}
