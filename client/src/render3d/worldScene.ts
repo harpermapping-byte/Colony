@@ -126,7 +126,7 @@ export class WorldScene {
 
   /** Coordenadas del servidor (x,y en plano top-down) -> plano XZ de Three (Y es la altura). */
   private posicionMundo(x: number, y: number): [number, number] {
-    return [x / 32, y / 32]; // 32px = 1 unidad de mundo, mismo orden de magnitud que un tile
+    return [x, y]; // el servidor ya habla en casillas: 1 casilla = 1 unidad de mundo
   }
 
   añadirEntidad(idEntidad: string, objeto: THREE.Object3D, x: number, y: number, etiqueta?: string) {

@@ -16,22 +16,28 @@ const COLOR_JUGADOR_REMOTO = "#4fd1c5";
 // escribió ahí sus sectores; el cliente solo materializa lo que dicen).
 const RUTA_MAPA = "/assets/mapas/demo";
 
-const PIXELES_POR_UNIDAD = 32; // coords del servidor (px) -> unidades de mundo (1 = 1 casilla)
-
 interface Direction {
   x: number;
   y: number;
 }
 
+// Hundimiento visual del rig según el medio que dicta el servidor: nadando
+// va medio cuerpo dentro del agua; buceando baja además ~0.4 por nivel.
+const HUNDIMIENTO_NADANDO = 0.55;
+const HUNDIMIENTO_POR_NIVEL = 0.4;
+
 interface EstadoJugador {
   rig: RigHumanoide;
-  // posición REAL en unidades de mundo que dicta el servidor (destino)
+  // posición REAL en unidades de mundo (casillas) que dicta el servidor
   destinoX: number;
   destinoZ: number;
+  destinoY: number; // altura visual (0 en tierra, negativa nadando/buceando)
   // posición dibujada este frame (persigue al destino, para que los patches
   // de red a 15/seg no se vean como teletransportes)
   x: number;
   z: number;
+  y: number;
+  nadando: boolean;
 }
 
 /**
@@ -69,21 +75,32 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   $(room.state).players.onAdd((player: any, sessionId: string) => {
     const esYo = sessionId === room.sessionId;
     const rig = crearRigHumanoide({ colorTunica: esYo ? COLOR_JUGADOR_LOCAL : COLOR_JUGADOR_REMOTO });
+    // yaw primero y luego la inclinación de nado, en el eje que mira el PJ
+    rig.objeto.rotation.order = "YXZ";
     const estado: EstadoJugador = {
       rig,
-      destinoX: player.x / PIXELES_POR_UNIDAD,
-      destinoZ: player.y / PIXELES_POR_UNIDAD,
-      x: player.x / PIXELES_POR_UNIDAD,
-      z: player.y / PIXELES_POR_UNIDAD,
+      destinoX: player.x,
+      destinoZ: player.y,
+      destinoY: 0,
+      x: player.x,
+      z: player.y,
+      y: 0,
+      nadando: false,
     };
     jugadores.set(sessionId, estado);
     escena.añadirEntidad(sessionId, rig.objeto, player.x, player.y, player.name);
     if (esYo) escena.seguirPunto(player.x, player.y, true);
 
     $(player).onChange(() => {
-      estado.destinoX = player.x / PIXELES_POR_UNIDAD;
-      estado.destinoZ = player.y / PIXELES_POR_UNIDAD;
-      if (esYo) escena.seguirPunto(player.x, player.y);
+      estado.destinoX = player.x;
+      estado.destinoZ = player.y;
+      estado.nadando = player.estado !== "tierra";
+      estado.destinoY = estado.nadando ? -HUNDIMIENTO_NADANDO + player.nivel * HUNDIMIENTO_POR_NIVEL : 0;
+      if (esYo) {
+        escena.seguirPunto(player.x, player.y);
+        // gancho para los tests E2E (Playwright lee la verdad del servidor)
+        (window as any).__colonyDebug = { x: player.x, y: player.y, estado: player.estado, nivel: player.nivel };
+      }
     });
   });
 
@@ -93,7 +110,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   });
 
   const teclas = new Set<string>();
-  window.addEventListener("keydown", (e) => teclas.add(e.key.toLowerCase()));
+  window.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    // bucear/subir: pulsación, no mantenida (el servidor valida el medio)
+    if (k === "q" && !teclas.has("q")) room.send("nivel", -1);
+    if (k === "e" && !teclas.has("e")) room.send("nivel", 1);
+    teclas.add(k);
+  });
   window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));
 
   let ultimaDireccionEnviada: Direction = { x: 0, y: 0 };
@@ -123,7 +146,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (andando) estado.rig.orientar(dx, dz);
       estado.x += dx * factor;
       estado.z += dz * factor;
-      estado.rig.objeto.position.set(estado.x, 0, estado.z);
+      estado.y += (estado.destinoY - estado.y) * factor;
+      estado.rig.objeto.position.set(estado.x, estado.y, estado.z);
+      // nadando el cuerpo se tumba hacia delante; en tierra vuelve a vertical
+      const inclinacionObjetivo = estado.nadando ? -1.1 : 0;
+      estado.rig.objeto.rotation.x += (inclinacionObjetivo - estado.rig.objeto.rotation.x) * factor;
       estado.rig.actualizar(dt, andando);
     }
 
