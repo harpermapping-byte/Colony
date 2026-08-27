@@ -26,6 +26,11 @@ const PRUEBAS = [
   { especieId: "ciervo", semilla: "fauna-004", zoom: 0.6 },
   { especieId: "gallina_salvaje", semilla: "fauna-001", zoom: 1 },
   { especieId: "abeja", semilla: "fauna-001", zoom: 2.2 },
+  { especieId: "pez_mediano", semilla: "fauna-001", zoom: 1.4 },
+  { especieId: "tiburon", semilla: "fauna-001", zoom: 0.55 },
+  { especieId: "serpiente_de_cascabel", semilla: "fauna-001", zoom: 0.9 },
+  { especieId: "cangrejo", semilla: "fauna-001", zoom: 1.6 },
+  { especieId: "rana", semilla: "fauna-001", zoom: 1.8 },
 ];
 
 function dibujarAnimal({ piezas }) {
@@ -52,9 +57,10 @@ function renderGaleria() {
     return `<g transform="translate(${dx}, 330)"><g transform="scale(${prueba.zoom})">${dibujarAnimal(resultado)}</g>${textos}</g>`;
   });
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1650" height="460" viewBox="0 0 1650 460">
-  <rect width="1650" height="460" fill="#1b1b22"/>
-  <text x="16" y="28" fill="#eee" font-family="monospace" font-size="15">Generador de animales — 3 esqueletos (cuadrúpedo/ave/insecto), deterministas por semilla</text>
+  const ancho = 110 + PRUEBAS.length * 195;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="460" viewBox="0 0 ${ancho} 460">
+  <rect width="${ancho}" height="460" fill="#1b1b22"/>
+  <text x="16" y="28" fill="#eee" font-family="monospace" font-size="15">Generador de animales — 7 esqueletos (cuadrúpedo/ave/insecto/pez/serpiente/crustáceo/anfibio), deterministas por semilla</text>
   ${columnas.join("\n")}
 </svg>`;
 

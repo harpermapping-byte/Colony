@@ -12,7 +12,9 @@ El juego es 2.5D estilo Project Zomboid. En vez de dibujar sprites por direcció
 
 ## Cómo se generan los modelos
 
-Con el taller de vóxeles (`taller-vox/` — generadores de muebles y personajes + exportadores `.glb`, ver su README) exportas un `.glb` por pieza. Lo guardas en el sitio que le toca según la convención de abajo y el motor lo recoge solo, sin tocar código.
+Con el taller de vóxeles (`taller-vox/` — generadores de muebles, personajes y NATURALEZA + exportadores `.glb`, ver su README) exportas un `.glb` por pieza. Lo guardas en el sitio que le toca según la convención de abajo y el motor lo recoge solo, sin tocar código.
+
+Reparto pactado con el streamer: **lo que tiene esqueleto** (PJs, NPCs, fauna, insectos) sale del creador de personajes (`personajes/`, 7 plantillas de esqueleto — ver GDD_Generador_Personajes); **lo que NO tiene esqueleto** (árboles, plantas, setas, rocas, menas, cristales... además de los muebles de siempre) sale del taller (`taller-vox/generar_naturaleza.js`, 14 arquetipos leyendo los catálogos reales del baker).
 
 ## Convención de assets — SIN catálogo nuevo
 

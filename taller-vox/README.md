@@ -17,6 +17,23 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   `catalogo_extraido.json` (snapshot de los campos relevantes de
   `interiores/catalogo/elementos.json` — si el catálogo real cambia, hay que
   regenerar el snapshot) y escribe `modelos_generados.json`.
+- **`generar_naturaleza.js`** — la ampliación del taller para todo lo SIN
+  esqueleto (decisión del streamer; lo que tiene esqueleto sale de
+  `personajes/`): árboles, arbustos, hierbas, flores, setas, cactus, algas,
+  corales, rocas, menas y cristales. Lee DIRECTAMENTE
+  `baker/catalogo/{vegetacion,rocas}.json` (~147 especies: mismo id,
+  `colorDebug` como color base, su campo `variantes` como número de modelos
+  por especie — cero catálogos nuevos) y clasifica cada especie en uno de
+  14 arquetipos (ARBOL_CADUCO con frutos, CONIFERA con nieve, PALMERA,
+  SAUCE, ARBOL_SECO, ARBUSTO con bayas, HIERBA, FLOR, SETA, CACTUS, ALGA,
+  CORAL, ROCA con motas de mena, CRISTAL). Determinista por `id|NN`.
+  Escribe `naturaleza_generada.json` (mismo formato que los muebles: lo
+  consume `exportar_glb.js` tal cual).
+  ```bash
+  node generar_naturaleza.js        # subconjunto de prueba (19 especies)
+  node generar_naturaleza.js todo   # catálogo completo (producción: lo corre el usuario)
+  node prueba_render_naturaleza.js  # galería SVG en output/ para revisar formas
+  ```
 - **`exportar_glb.js`** — exporta un modelo de mueble a `.glb` real, vóxel a
   vóxel con face-culling (solo caras exteriores, estilo mesher de
   Minecraft). Construye el glTF binario a mano, sin three.js.

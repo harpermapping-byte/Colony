@@ -207,10 +207,138 @@ function esqueletoInsecto(p, rasgos, color, rnd) {
   return piezas;
 }
 
+function esqueletoPez(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // Los peces se anclan por el vientre a y=0 igual que el resto (el cliente
+  // los colocará a su altura de nado dentro del agua — misma convención
+  // que el hundimiento del PJ nadando).
+  const vientre = 0.02;
+
+  // cuerpo fusiforme: caja central + morro y arranque de cola más finos
+  pieza("cuerpo", 0, vientre, 0, p.anchoCuerpo, p.altoCuerpo, p.largoCuerpo * 0.55, color);
+  pieza("cuerpo", 0, vientre + p.altoCuerpo * 0.15, p.largoCuerpo * 0.36, p.anchoCuerpo * 0.7, p.altoCuerpo * 0.7, p.largoCuerpo * 0.25, ajustarColor(color, -0.04));
+  pieza("cola", 0, vientre + p.altoCuerpo * 0.2, -p.largoCuerpo * 0.36, p.anchoCuerpo * 0.5, p.altoCuerpo * 0.55, p.largoCuerpo * 0.22, ajustarColor(color, -0.06));
+
+  // aleta caudal (vertical, plana) — pivote cola para el coleteo
+  pieza("cola", 0, vientre + p.altoCuerpo * 0.05, -p.largoCuerpo * 0.55, 0.02, p.altoCuerpo * 1.1, p.largoCuerpo * 0.18, ajustarColor(color, -0.14));
+
+  // aleta dorsal (alta en tiburones)
+  const altoDorsal = (rasgos.dorsal === "alta" ? 0.9 : 0.4) * p.altoCuerpo;
+  pieza("cuerpo", 0, vientre + p.altoCuerpo, p.largoCuerpo * 0.02, 0.02, altoDorsal, p.largoCuerpo * 0.2, ajustarColor(color, -0.12));
+
+  // aletas pectorales
+  for (const lado of [-1, 1]) {
+    pieza(lado < 0 ? "aletaIzq" : "aletaDer", lado * (p.anchoCuerpo / 2 + 0.03), vientre + p.altoCuerpo * 0.25, p.largoCuerpo * 0.18, 0.06, 0.02, p.largoCuerpo * 0.15, ajustarColor(color, -0.1));
+  }
+
+  // ojos laterales cerca del morro
+  const ojo = p.altoCuerpo * 0.22;
+  for (const lado of [-1, 1]) {
+    pieza("cuerpo", lado * (p.anchoCuerpo * 0.36), vientre + p.altoCuerpo * 0.55, p.largoCuerpo * 0.4, 0.012, ojo, ojo, COLOR_OJO);
+  }
+  return piezas;
+}
+
+function esqueletoSerpiente(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // cuerpo en S sobre el suelo: segmentos con zigzag lateral, cada uno con
+  // su pivote (segmento0..n) para poder ondular al animar
+  const segmentos = 6;
+  const dSeg = p.largoCuerpo / segmentos;
+  for (let i = 0; i < segmentos; i++) {
+    const z = p.largoCuerpo / 2 - dSeg * (i + 0.5);
+    const x = Math.sin((i / (segmentos - 1)) * Math.PI * 1.5) * p.anchoCuerpo * 1.2;
+    // la cola va afinándose
+    const grosor = p.anchoCuerpo * (1 - (i / segmentos) * 0.55);
+    const c = rasgos.anillos && i % 2 === 1 ? ajustarColor(color, -0.18) : color;
+    pieza(`segmento${i}`, x, 0, z, grosor, p.altoCuerpo * (1 - (i / segmentos) * 0.4), dSeg * 1.05, c);
+  }
+  // cabeza algo más ancha al frente, con ojos arriba
+  const zCabeza = p.largoCuerpo / 2 + p.tamCabeza * 0.4;
+  pieza("cabeza", 0, 0, zCabeza, p.tamCabeza, p.altoCuerpo * 1.15, p.tamCabeza, ajustarColor(color, -0.05));
+  const ojo = p.tamCabeza * 0.22;
+  for (const lado of [-1, 1]) {
+    pieza("cabeza", lado * p.tamCabeza * 0.28, p.altoCuerpo * 1.15, zCabeza + p.tamCabeza * 0.2, ojo, 0.012, ojo, COLOR_OJO);
+  }
+  // cascabel/punta de cola destacada si la especie lo pide
+  if (rasgos.cascabel) {
+    pieza("cola", -p.anchoCuerpo * 0.5, 0, -p.largoCuerpo / 2 - 0.04, p.anchoCuerpo * 0.5, p.altoCuerpo * 0.7, 0.08, ajustarColor(color, 0.18));
+  }
+  return piezas;
+}
+
+function esqueletoCrustaceo(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  const suelo = p.altoPata;
+
+  // caparazón ancho y bajo (los cangrejos son más anchos que largos)
+  pieza("cuerpo", 0, suelo, 0, p.anchoCuerpo, p.altoCuerpo, p.largoCuerpo, color);
+  pieza("cuerpo", 0, suelo + p.altoCuerpo, 0, p.anchoCuerpo * 0.7, p.altoCuerpo * 0.35, p.largoCuerpo * 0.7, ajustarColor(color, -0.08));
+
+  // pinzas al frente: brazo + pinza más gorda
+  for (const lado of [-1, 1]) {
+    const pivote = lado < 0 ? "pinzaIzq" : "pinzaDer";
+    pieza(pivote, lado * (p.anchoCuerpo / 2 + p.anchoCuerpo * 0.15), suelo, p.largoCuerpo * 0.35, p.anchoCuerpo * 0.18, p.altoCuerpo * 0.5, p.largoCuerpo * 0.3, ajustarColor(color, -0.05));
+    pieza(pivote, lado * (p.anchoCuerpo / 2 + p.anchoCuerpo * 0.22), suelo, p.largoCuerpo * 0.62, p.anchoCuerpo * 0.3, p.altoCuerpo * 0.7, p.largoCuerpo * 0.28, ajustarColor(color, 0.06));
+  }
+
+  // 3 patas finas por lado
+  const grosor = 0.022;
+  for (let i = 0; i < 3; i++) {
+    const z = -p.largoCuerpo * 0.3 + (p.largoCuerpo * 0.5 / 3) * (i + 0.5);
+    for (const lado of [-1, 1]) {
+      pieza(`pata${i}${lado < 0 ? "Izq" : "Der"}`, lado * (p.anchoCuerpo / 2 + 0.04), 0, z, grosor, suelo, grosor, ajustarColor(color, -0.12));
+    }
+  }
+
+  // ojos sobre pedúnculos
+  for (const lado of [-1, 1]) {
+    pieza("cabeza", lado * p.anchoCuerpo * 0.18, suelo + p.altoCuerpo * 1.3, p.largoCuerpo * 0.35, 0.02, p.altoCuerpo * 0.45, 0.02, ajustarColor(color, -0.15));
+    pieza("cabeza", lado * p.anchoCuerpo * 0.18, suelo + p.altoCuerpo * 1.75, p.largoCuerpo * 0.35, 0.035, 0.035, 0.035, COLOR_OJO);
+  }
+  return piezas;
+}
+
+function esqueletoAnfibio(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // cuerpo agachado casi a ras de suelo, más alto atrás
+  pieza("cuerpo", 0, p.altoPata * 0.4, 0, p.anchoCuerpo, p.altoCuerpo, p.largoCuerpo, color);
+  pieza("cuerpo", 0, p.altoPata * 0.4 + p.altoCuerpo * 0.7, -p.largoCuerpo * 0.15, p.anchoCuerpo * 0.8, p.altoCuerpo * 0.4, p.largoCuerpo * 0.55, ajustarColor(color, -0.05));
+
+  // patas traseras grandes plegadas (el muslo sobresale por los lados)
+  for (const lado of [-1, 1]) {
+    const pivote = lado < 0 ? "pataTrasIzq" : "pataTrasDer";
+    pieza(pivote, lado * (p.anchoCuerpo / 2 + p.anchoCuerpo * 0.2), 0, -p.largoCuerpo * 0.25, p.anchoCuerpo * 0.4, p.altoCuerpo * 0.95, p.largoCuerpo * 0.45, ajustarColor(color, -0.08));
+    pieza(pivote, lado * (p.anchoCuerpo / 2 + p.anchoCuerpo * 0.25), 0, p.largoCuerpo * 0.0, p.anchoCuerpo * 0.3, p.altoPata * 0.4, p.largoCuerpo * 0.4, ajustarColor(color, -0.12));
+  }
+  // patas delanteras cortas
+  for (const lado of [-1, 1]) {
+    pieza(lado < 0 ? "pataDelIzq" : "pataDelDer", lado * p.anchoCuerpo * 0.32, 0, p.largoCuerpo * 0.32, p.anchoCuerpo * 0.16, p.altoPata * 0.4 + p.altoCuerpo * 0.3, p.anchoCuerpo * 0.16, ajustarColor(color, -0.06));
+  }
+
+  // ojos saltones ENCIMA de la cabeza (lo más reconocible de una rana)
+  const ojo = p.tamCabeza * 0.5;
+  for (const lado of [-1, 1]) {
+    pieza("cabeza", lado * p.anchoCuerpo * 0.25, p.altoPata * 0.4 + p.altoCuerpo, p.largoCuerpo * 0.32, ojo, ojo, ojo, ajustarColor(color, 0.12));
+    pieza("cabeza", lado * p.anchoCuerpo * 0.25, p.altoPata * 0.4 + p.altoCuerpo + ojo * 0.25, p.largoCuerpo * 0.32 + ojo * 0.3, ojo * 0.45, ojo * 0.45, ojo * 0.2, COLOR_OJO);
+  }
+  // papada clara
+  pieza("cabeza", 0, p.altoPata * 0.4, p.largoCuerpo * 0.42, p.anchoCuerpo * 0.6, p.altoCuerpo * 0.5, 0.04, ajustarColor(color, 0.16));
+  return piezas;
+}
+
 const ESQUELETOS = {
   cuadrupedo: esqueletoCuadrupedo,
   ave: esqueletoAve,
   insecto: esqueletoInsecto,
+  pez: esqueletoPez,
+  serpiente: esqueletoSerpiente,
+  crustaceo: esqueletoCrustaceo,
+  anfibio: esqueletoAnfibio,
 };
 
 /**

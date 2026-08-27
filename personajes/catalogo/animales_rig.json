@@ -41,5 +41,47 @@
     "escala": [0.8, 1.2],
     "proporciones": { "largoCuerpo": 0.24, "altoCuerpo": 0.12, "anchoCuerpo": 0.12, "altoPata": 0.05, "tamCabeza": 0.08 },
     "rasgos": { "alas": true, "antenas": true, "rayas": "#2a2013", "_nota": "rayas: color alterno del abdomen sobre el colorDebug base" }
+  },
+
+  "pez_mediano": {
+    "esqueleto": "pez",
+    "escala": [0.8, 1.2],
+    "proporciones": { "largoCuerpo": 0.45, "altoCuerpo": 0.16, "anchoCuerpo": 0.1 },
+    "rasgos": { "dorsal": "normal" }
+  },
+
+  "tiburon": {
+    "esqueleto": "pez",
+    "escala": [0.9, 1.15],
+    "proporciones": { "largoCuerpo": 1.8, "altoCuerpo": 0.45, "anchoCuerpo": 0.32 },
+    "rasgos": { "dorsal": "alta" }
+  },
+
+  "culebra_de_agua": {
+    "esqueleto": "serpiente",
+    "escala": [0.85, 1.2],
+    "proporciones": { "largoCuerpo": 0.9, "altoCuerpo": 0.07, "anchoCuerpo": 0.09, "tamCabeza": 0.11 },
+    "rasgos": { "anillos": true }
+  },
+
+  "serpiente_de_cascabel": {
+    "esqueleto": "serpiente",
+    "escala": [0.85, 1.15],
+    "proporciones": { "largoCuerpo": 0.8, "altoCuerpo": 0.08, "anchoCuerpo": 0.1, "tamCabeza": 0.13 },
+    "rasgos": { "anillos": true, "cascabel": true }
+  },
+
+  "cangrejo": {
+    "esqueleto": "crustaceo",
+    "escala": [0.8, 1.25],
+    "proporciones": { "largoCuerpo": 0.22, "altoCuerpo": 0.09, "anchoCuerpo": 0.3, "altoPata": 0.07 },
+    "rasgos": {}
+  },
+
+  "rana": {
+    "esqueleto": "anfibio",
+    "escala": [0.8, 1.2],
+    "proporciones": { "largoCuerpo": 0.22, "altoCuerpo": 0.12, "anchoCuerpo": 0.16, "altoPata": 0.1, "tamCabeza": 0.1 },
+    "rasgos": {}
   }
 }
