@@ -18,6 +18,9 @@ se actualiza aquí en el mismo commit.
   (`transitable`, `requiereNadar`, `modVelocidad`) y del campo `colision`
   de `vegetacion/rocas/animales.json`. El servidor construye su rejilla de
   colisión UNA vez al crear la room (`server/src/mundo/mapaColision.ts`).
+- **Toda mecánica nace servidor-autoritativa y sincronizada** (regla MMO,
+  detallada en §3.5): el cliente solo envía intención y pinta lo que el
+  servidor dicta.
 
 ## 1. Colisiones (v1 — vigente)
 
@@ -68,12 +71,97 @@ El agua es un medio con niveles de profundidad, no un obstáculo:
 - Pendiente (diseñado, no implementado): aire/ahogo al bucear, corrientes,
   y que los animales acuáticos solo colisionen bajo el agua.
 
-## 3. Aparición
+## 3. Recursos y recolección (DISEÑADO, no implementado — acordado 2026-08-27)
+
+La segunda mecánica, diseñada al detalle antes de codificar. El esqueleto
+sobre el que se cuelga todo lo futuro (crafteo, cocina, comercio, misiones)
+son los CATÁLOGOS, igual que interiores hizo con sus RoomTags.
+
+### 3.1 Tags y materiales en el catálogo
+
+- Cada especie de `vegetacion/rocas/animales.json` recibe **`tags`** (qué
+  ES: `arbol`, `comida`, `mineral`, `hierba`, `valioso`…). Las mecánicas
+  filtran por tag — "el pico pica `mineral`", "la misión pide 5 `hierba`" —
+  y añadir especies nuevas no obliga a tocar ninguna mecánica. Mismo
+  patrón que los RoomTags de interiores.
+- `categoriaRecurso` (ya existe) dice QUÉ material da. Todo su valor debe
+  existir en **`baker/catalogo/materiales.json`** (NUEVO): la lista de todo
+  lo que puede vivir en un inventario — id, nombre, `tags`, tamaño de pila,
+  `uso`. Fuente de verdad del inventario/crafteo/comercio para siempre.
+- Cada especie recolectable recibe un bloque **`recoleccion`**:
+  `herramienta` (obligatoria "en la mano" — ver 3.4), `da` (material +
+  cantidad mín/máx), `golpes` (interacciones hasta agotarse) y
+  `respawnSegundos`.
+
+### 3.2 Golpes y agotado (decisión del usuario)
+
+- **Plantas y cosas pequeñas** (hierbas, flores, setas, bayas): **1 golpe**
+  → material → el prop desaparece para todos.
+- **Árboles y menas**: aguantan **varios golpes** (3–5 por catálogo); cada
+  golpe da material, al último el nodo desaparece.
+- Los golpes restantes de un nodo son estado compartido igual que el
+  agotado (ver 3.5) — dos jugadores pueden turnarse los golpes.
+
+### 3.3 Respawn (decisión del usuario)
+
+- **v1: en el sitio**, con cálculo PEREZOSO (nada de timers): "¿vivo?" =
+  `ahora - agotadoEn > respawnSegundos`, evaluado al mirar el nodo.
+- Tiempos **de juego** desde el principio: orientativo hierbas ~5 min,
+  árboles ~15 min, menas ~30 min (afinable por catálogo).
+- **Excepción para testear**: UNA especie de cada tipo lleva tiempo corto
+  marcado con `_nota` de "tiempo de test, retirar tras testeo" (p. ej.
+  lavanda 30 s, arbol_joven 60 s, guijarros 45 s).
+- **v2 (diseñado, después)**: reaparición EN OTRO PUNTO del pool de spawn
+  regional que ya marca el bakeador, determinista (semilla + contador del
+  nodo). Pensado para bayas/setas/animales; árboles y menas se quedan en
+  respawn en sitio.
+
+### 3.4 Herramientas y equipamiento (decisión del usuario)
+
+- La estructura nace YA con herramienta obligatoria: cada `recoleccion`
+  declara la suya (`hacha` para tag `arbol`, `pico` para `mineral`, `hoz`/
+  `mano` para `hierba`…), y el jugador tiene un slot de EQUIPO **"mano"**
+  en su estado (el germen del equipamiento general: lo que llevas en la
+  mano es lo que usas — recolectar hoy, combate mañana).
+- **v1: la validación va desactivada** (la mano vale para todo) — pero el
+  campo, el slot y el chequeo existen desde el primer día para encenderlos
+  cuando existan herramientas que conseguir.
+
+### 3.5 Sincronización MMO (REGLA TRANSVERSAL para TODA mecánica)
+
+Prioridad número uno del proyecto, fijada aquí como principio:
+
+> **Toda mecánica nace servidor-autoritativa y sincronizada: el cliente
+> solo envía intención y pinta lo que el servidor dicta. Nada de estado de
+> juego decidido en cliente, nunca.**
+
+Aplicado a recursos:
+
+- **Identidad estable de nodo = su casilla** (clave numérica
+  `x + y*ancho`): derivada del mapa bakeado, idéntica para todos los
+  clientes y estable entre reinicios. Sin ids inventados.
+- **Flujo**: cliente envía `recolectar` (tecla **F**, casilla que tiene
+  delante) → el servidor valida (nodo existe y está vivo, jugador
+  adyacente, herramienta si aplica, hueco en inventario) → descuenta
+  golpe / marca agotado con timestamp → mete el material en el inventario
+  → el cambio llega a todos por el patch normal. Si dos recolectan a la
+  vez, el orden de llegada decide: el segundo recibe "agotado". Imposible
+  duplicar.
+- **Sincronización barata**: NO se replica el estado de miles de props —
+  solo el diccionario de **nodos tocados** (casilla → golpes restantes /
+  timestamp de agotado). Todo lo demás se deduce del mapa bakeado que
+  todos tienen. Cambios, no snapshots.
+- **Inventario**: en el estado del jugador (material → cantidad + slot
+  mano). v1 sin UI: contador simple en pantalla.
+- Cliente: el prop agotado se oculta en su `InstancedMesh` (el cliente ya
+  indexa por casilla al instanciar) y reaparece al revivir.
+
+## 4. Aparición
 
 Al entrar a la room se aparece en la `ciudad` del índice del mapa,
 corregida a la casilla de TIERRA pisable más cercana (búsqueda en anillos).
 
-## 4. Cómo se prueba (obligatorio antes de tocar estas reglas)
+## 5. Cómo se prueba (obligatorio antes de tocar estas reglas)
 
 - `cd server && npm test` — suite pura de colisiones (8 tests: bloqueo,
   slide, bordes, agua como medio, niveles, empuje PJ-PJ, mapa demo real).
