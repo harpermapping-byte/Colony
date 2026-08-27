@@ -1,65 +1,59 @@
 {
-  "_nota": "Tiers de asentamiento del bakeador de ciudades (GDD_Bakeador_POIs §4.4): el tier decide tamaño del recinto amurallado, material de la muralla (empalizada pobre / piedra rica), nº de puertas, plaza y qué edificios coloca — por id de interiores/catalogo/tipos_edificio.json con pesos, mismo patrón que salasPorPlanta. El recinto es un 'cubo sin techo': fuera de la muralla no hay nada navegable.",
-  "_nota_layout": "layout 'organico' = plaza central + calles a las puertas + parcelas pegadas a calle (aldeas). El layout 'bsp' de manzanas para ciudades grandes está pendiente (GDD §4.2); mientras, todos los tiers usan organico.",
-
+  "_nota": "Tiers de asentamiento del bakeador ORGÁNICO de ciudades (GDD_Bakeador_POIs §4): el tier decide el radio del recinto, la irregularidad del polígono de muralla (Perlin), material/grosor/puertas, la plaza (radio del disco focal), granjas extramuros y qué edificios coloca — por id de interiores/catalogo/tipos_edificio.json con pesos (patrón salasPorPlanta). geografias pondera la variante del terreno base: llano / colina central / río que cruza.",
   "aldea_pequena": {
-    "uso": "asentamiento mínimo: un puñado de casas pobres tras una empalizada, una sola puerta",
-    "recinto": [64, 48],
-    "muralla": { "material": "empalizada", "grosor": 1, "puertas": 1 },
-    "plaza": [8, 6],
-    "layout": "organico",
+    "uso": "asentamiento mínimo: un puñado de casas pobres tras una empalizada irregular, una sola puerta",
+    "organico": { "radio": 30, "irregularidad": 0.2, "geografias": [["llano", 3], ["colina", 2], ["rio", 2]] },
+    "muralla": { "material": "empalizada", "grosor": 1.4, "puertas": 1 },
+    "plaza": 4,
+    "granjasFuera": 2,
     "edificios": {
       "cantidad": [4, 6],
       "obligatorios": ["templo"],
       "ponderados": [["casa_humilde", 8], ["granero", 3], ["choza_curandero", 2], ["taberna", 2], ["establo", 1]]
     }
   },
-
   "aldea": {
     "uso": "aldea media: empalizada con dos puertas, artesanos básicos y templo",
-    "recinto": [88, 64],
-    "muralla": { "material": "empalizada", "grosor": 1, "puertas": 2 },
-    "plaza": [10, 8],
-    "layout": "organico",
+    "organico": { "radio": 38, "irregularidad": 0.22, "geografias": [["llano", 2], ["colina", 3], ["rio", 2]] },
+    "muralla": { "material": "empalizada", "grosor": 1.4, "puertas": 2 },
+    "plaza": 5,
+    "granjasFuera": 3,
     "edificios": {
       "cantidad": [7, 10],
       "obligatorios": ["templo", "taberna"],
       "ponderados": [["casa_humilde", 6], ["casa_modesta", 4], ["herreria", 2], ["panaderia", 2], ["carpinteria", 2], ["granero", 2], ["establo", 1], ["molino", 1]]
     }
   },
-
   "pueblo": {
     "uso": "asentamiento grande con muralla de piedra: comercio, posada y oficios completos",
-    "recinto": [112, 80],
-    "muralla": { "material": "muralla_piedra", "grosor": 2, "puertas": 2 },
-    "plaza": [12, 10],
-    "layout": "organico",
+    "organico": { "radio": 46, "irregularidad": 0.18, "geografias": [["llano", 2], ["colina", 3], ["rio", 3]] },
+    "muralla": { "material": "piedra", "grosor": 2, "puertas": 2 },
+    "plaza": 6,
+    "granjasFuera": 4,
     "edificios": {
       "cantidad": [12, 16],
       "obligatorios": ["templo", "posada", "herreria", "cuartel_guardia"],
       "ponderados": [["casa_modesta", 6], ["casa_humilde", 4], ["tienda", 3], ["panaderia", 2], ["taller_sastre", 2], ["curtiduria", 2], ["alfareria", 2], ["botica", 2], ["taberna", 2], ["granero", 1], ["establo", 1]]
     }
   },
-
   "capital": {
     "uso": "ciudad capital amurallada en piedra: instituciones nobles y todos los oficios",
-    "recinto": [136, 96],
-    "muralla": { "material": "muralla_piedra", "grosor": 2, "puertas": 3 },
-    "plaza": [14, 12],
-    "layout": "organico",
+    "organico": { "radio": 56, "irregularidad": 0.16, "geografias": [["colina", 3], ["rio", 3], ["llano", 1]] },
+    "muralla": { "material": "piedra", "grosor": 2.4, "puertas": 3 },
+    "plaza": 7,
+    "granjasFuera": 5,
     "edificios": {
       "cantidad": [18, 24],
       "obligatorios": ["templo", "ayuntamiento", "posada", "cuartel_guardia", "casa_de_cambio", "casa_gremio"],
       "ponderados": [["casa_modesta", 6], ["casa_noble", 4], ["tienda", 3], ["joyeria", 2], ["biblioteca_publica", 2], ["banos_publicos", 1], ["teatro", 1], ["escuela", 2], ["botica", 2], ["taller_sastre", 2], ["herreria", 2], ["panaderia", 2], ["taberna", 2], ["mansion", 1]]
     }
   },
-
   "castillo": {
-    "uso": "fortaleza: recinto compacto y muy amurallado, poca vivienda y mucha guarnición",
-    "recinto": [72, 56],
-    "muralla": { "material": "muralla_piedra", "grosor": 3, "puertas": 1 },
-    "plaza": [8, 6],
-    "layout": "organico",
+    "uso": "fortaleza: recinto compacto muy amurallado con torre en cada vértice, poca vivienda y mucha guarnición",
+    "organico": { "radio": 30, "irregularidad": 0.12, "geografias": [["colina", 4], ["llano", 1]] },
+    "muralla": { "material": "piedra", "grosor": 2.8, "puertas": 1, "torresEnTodos": true },
+    "plaza": 4,
+    "granjasFuera": 1,
     "edificios": {
       "cantidad": [5, 7],
       "obligatorios": ["castillo", "cuartel_guardia", "torre_militar"],

@@ -57,11 +57,11 @@ delante y solo entonces se codifica.
    nombre. Preparar aquí el SISTEMA (footprint + anclaje + convención);
    el arte llega por su lado.
 
-### 4.2 Layout por tipo de asentamiento (decidido)
+### 4.2 Layout por tipo de asentamiento (decidido; ACTUALIZADO)
 
-- **Aldeas**: orgánico — plaza central + caminos A* hacia las puertas +
-  parcelas pegadas a calle (reutiliza conceptos de `caminos.js`).
-- **Ciudades**: subdivisión BSP en manzanas (trazado urbano regular).
+- **Todo el layout es ORGÁNICO** (requisito posterior del usuario, §6:
+  "nada de grillas ortogonales/cuadradas rígidas") — el BSP en manzanas
+  que se barajó para ciudades grandes queda descartado.
 - **La CIUDAD PRINCIPAL es un bakeado ESPECIAL**: nace con lo mínimo
   construido y MUCHO espacio de parcelas vacías, pensadas para IR
   CONSTRUYENDO con el tiempo (enlaza con vivienda/decorador y zonas de
@@ -141,34 +141,53 @@ Reglas derivadas (confirmadas por el usuario):
 - Detalle del bakeado especial de la ciudad principal (parcelas,
   construcción progresiva) — pospuesto a propósito.
 
-## 6. Estado actual
+## 6. Motor v2 ORGÁNICO (construido 2026-08-27, requisitos del usuario)
 
-**Motor v1 CONSTRUIDO** (`ciudades/`, 2026-08-27), según el flujo de la
-sección 4:
+Sustituye al v1 de rejilla: nada de grillas ortogonales — la aldea crece
+adaptándose a la geografía. Pipeline (`ciudades/src/generar.js`):
 
-- `catalogo/asentamientos.json`: 5 tiers (aldea_pequena, aldea, pueblo,
-  capital, castillo) con recinto, muralla (material/grosor/nº puertas),
-  plaza y edificios (obligatorios + ponderados por id de
-  `tipos_edificio.json`, patrón `salasPorPlanta`).
-- `src/generar.js`: recinto "cubo sin techo" — muralla estanca con
-  puertas, calle de ronda, plaza central, calle principal puerta→plaza,
-  filas de parcelas con callejón-calle bajo cada fachada, y **bake
-  anidado**: el interior real de cada edificio (motor de interiores) se
-  genera primero y su planta baja + muros ES la huella colocada.
-  `validarCiudad()`: estanqueidad (flood-fill desde fuera con puertas
-  tapadas), conectividad de todas las puertas de edificio desde el spawn,
-  y no-solape.
-- `src/index.js` (CLI `node ciudades/src/index.js <tier> <semilla>`):
-  exporta sectores + indice EN EL FORMATO DEL BAKER (crearExportador
-  reutilizado; `indice.portales` y `tier` añadidos), los interiores del
-  bake anidado (`interiores/*.json`), y `overview.png`. Verificado que
-  `server/src/mundo/mapaColision.ts` carga una capital SIN CAMBIOS.
-- Terrenos urbanos nuevos en `baker/catalogo/terrenos.json`: `adoquin`,
-  `muralla_piedra`, `empalizada`, `solar_edificio` (con `uso`).
-- Tests: `node --test ciudades/test/ciudad.test.js` (6).
+1. **Terreno base**: heightmap Perlin (variante por tier: llano / colina
+   central / RÍO con meandro que cruza el mapa, elegida por semilla) —
+   exportado como elevación por casilla (el placeholder 2D la sombrea).
+2. **Punto focal** (plaza del mercado): terreno alto y seco cerca del
+   centro; disco de adoquín.
+3. **Caminos principales**: A* desde los bordes del mapa al focal con
+   coste por PENDIENTE y agua — bordean colinas y ríos; donde cruzan agua
+   nace un PUENTE.
+4. **Muralla orgánica**: polígono radial deformado con Perlin (muestreado
+   sobre el círculo = periódico sin costura), TORRES en vértices (todas en
+   castillo), y PUERTAS exactamente donde los caminos del paso 3 cruzan el
+   anillo. **Por MÓDULOS** (`catalogo/modulos_muralla.json`: recto/curvo/
+   torre/puerta, material empalizada/piedra) exportados como capa
+   VECTORIAL en el índice — el programa de edificios del usuario los
+   sustituirá por .glb por convención, igual que PJ/animales/árboles.
+5. **Calles menores DESPUÉS de los monumentales**: los obligatorios del
+   tier se asientan primero (con fallback: dando frente a la plaza, la
+   iglesia presidiendo el mercado); luego crecen la calle de RONDA (anillo
+   interior, solo tiers grandes/castillo) y los ramales A* estratificados
+   rodeando lo construido; después se coloca el resto.
+6. **Edificios por FRENTES de calle**: cada casilla de calle con su
+   tangente; el edificio se sienta pegado a la calle, ROTADO con la
+   fachada paralela y la puerta mirándola (rotación libre, no a 90°).
+   Denso cerca de la plaza, granjas extramuros con campos de labranza
+   junto a los caminos. Reparación de conectividad: toda puerta aislada
+   abre senda A* (con puente si toca).
+7. **Validación**: estanqueidad (flood con puertas tapadas), conectividad
+   de todas las puertas, no-solape. Tests 7/7 en
+   `ciudades/test/ciudad.test.js`.
 
-Pendiente: layout BSP para ciudades grandes (§4.2 — hoy todos los tiers
-usan el orgánico), hito de plaza y puestos de mercado (props), el prop 3D
-exterior de la ciudad sobre el mapa principal (placeholder + programa del
-usuario), decoración ambiental, el bakeado especial de la ciudad
-principal, y el CRUCE DE PORTALES en runtime (rooms bajo demanda, §4.3).
+**DECISIÓN nueva (a validar con el usuario): huella exterior COMPACTA de
+catálogo** (`catalogo/huellas.json`, por riqueza + por tipo). La planta
+1:1 del interior real resultó inviable: el motor de interiores genera
+plantas de 30+ casillas de ancho (escuela 34×17, joyería 36×12) — más
+anchas que media aldea, imposible el aspecto de las referencias. Como el
+interior es una INSTANCIA (otra room), no necesita caber físicamente en
+la huella; el bake anidado sigue generando y enlazando el interior
+completo de cada edificio. Es el estándar de los juegos con interiores
+instanciados.
+
+Pendiente: prop 3D exterior de la ciudad sobre el mapa principal, hito de
+plaza y puestos de mercado, bakeado especial de la ciudad principal, y el
+CRUCE DE PORTALES en runtime (rooms bajo demanda, §4.3). El export en
+formato de sectores está verificado contra `mapaColision` del servidor
+(carga una capital orgánica sin cambios).

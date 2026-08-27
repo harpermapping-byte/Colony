@@ -1,0 +1,35 @@
+{
+  "_nota": "Huella EXTERIOR (ancho x alto en casillas) de cada edificio sobre el mapa de ciudad. DECISIÓN: la huella es compacta y de catálogo, NO la planta 1:1 del interior — el interior instanciado es otra room y no necesita caber físicamente (los interiores reales generan plantas de 30+ casillas de ancho, más anchas que media aldea; con huella 1:1 el aspecto de ciudad medieval de las referencias es imposible). El bake anidado sigue igual: cada huella enlaza a su interior completo por portal. Si un tipo no está en porTipo, usa el tamaño de su riqueza.",
+  "porRiqueza": {
+    "humilde": [7, 6],
+    "modesta": [9, 7],
+    "noble": [12, 9]
+  },
+  "porTipo": {
+    "castillo": [16, 12],
+    "templo": [12, 9],
+    "ayuntamiento": [14, 10],
+    "torre_militar": [6, 6],
+    "torre_mago": [7, 7],
+    "faro": [6, 6],
+    "molino": [7, 7],
+    "granero": [8, 7],
+    "establo": [9, 7],
+    "mansion": [13, 10],
+    "teatro": [13, 10],
+    "banos_publicos": [11, 8],
+    "biblioteca_publica": [11, 9],
+    "museo": [12, 9],
+    "academia_magia": [13, 10],
+    "escuela": [11, 8],
+    "posada": [12, 9],
+    "taberna": [10, 8],
+    "casa_gremio": [12, 9],
+    "cuartel_guardia": [11, 9],
+    "casa_de_cambio": [10, 8],
+    "arena_combate": [14, 11],
+    "choza_pescador": [6, 5],
+    "choza_curandero": [6, 5],
+    "carromato_mercader": [5, 4]
+  }
+}

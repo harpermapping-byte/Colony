@@ -1,0 +1,7 @@
+{
+  "_nota": "Módulos constructivos de la muralla (GDD_Bakeador_POIs): el bakeador coloca INSTANCIAS de módulo (tipo + posición + rotación + material) y las exporta en la capa vectorial del índice. El placeholder 2D/3D se pinta con colorDebug; más adelante el programa de edificios del usuario genera el .glb de cada módulo (assets/murallas/<material>_<tipo>_NN.glb) y sustituye el placeholder por convención de nombre, igual que PJ/animales/árboles.",
+  "recto": { "uso": "tramo recto de muralla; se encadena a lo largo de cada arista del polígono", "largoCasillas": 3, "colorDebug": { "empalizada": "#7a5a34", "piedra": "#6e6a62" } },
+  "curvo": { "uso": "tramo de esquina suave para vértices poco pronunciados (reservado: el placeholder v1 usa recto+torre)", "largoCasillas": 3, "colorDebug": { "empalizada": "#6f5230", "piedra": "#64605a" } },
+  "torre": { "uso": "torre en vértice del polígono de muralla; sobresale del lienzo", "radioCasillas": 1, "colorDebug": { "empalizada": "#8a6a3e", "piedra": "#7d7972" } },
+  "puerta": { "uso": "puerta de ciudad: hueco transitable con portal donde un camino principal cruza la muralla", "largoCasillas": 3, "colorDebug": { "empalizada": "#a3762e", "piedra": "#9a8a5a" } }
+}

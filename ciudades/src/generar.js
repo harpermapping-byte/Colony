@@ -1,52 +1,49 @@
 "use strict";
-// Bakeador de CIUDADES/ALDEAS — el tercer tipo de mapa (GDD_Bakeador_POIs).
-// Genera el "cubo sin techo": un recinto SIEMPRE acotado por su muralla
-// (empalizada pobre / piedra rica según tier), con plaza central, calle
-// principal puerta→plaza, calle de ronda junto a la muralla, y parcelas de
-// edificios cuya huella sale del INTERIOR REAL generado (bake anidado con
-// el motor de interiores): el mismo tipoEdificio coloca fuera y genera
-// dentro — un solo vocabulario, cero catálogos paralelos.
+// Bakeador de CIUDADES/ALDEAS — generación ORGÁNICA (GDD_Bakeador_POIs §4).
+// Nada de grillas rígidas: la aldea crece adaptándose a la geografía.
 //
-// Determinismo total: mismo tier + misma semilla = misma ciudad, interiores
-// incluidos (PRNG mulberry32 compartido con interiores/azar.js).
+// Pipeline (el orden importa, cada paso usa lo anterior):
+//   1. Terreno base: heightmap Perlin (colina/desniveles) y río opcional.
+//   2. Punto FOCAL (plaza del mercado) en terreno favorable cerca del centro.
+//   3. Caminos principales: A* desde los bordes del mapa al focal, con coste
+//      por pendiente y agua — bordean colinas y ríos; si cruzan agua, puente.
+//   4. Muralla ORGÁNICA: polígono radial deformado con Perlin alrededor del
+//      focal, torres en vértices, y PUERTAS exactamente donde la cruzan los
+//      caminos del paso 3. Módulos (recto/torre/puerta) en capa vectorial.
+//   5. Edificios intramuros: Poisson + rechazo, densos cerca de la plaza,
+//      ROTADOS hacia su camino más cercano; huella del INTERIOR real (bake
+//      anidado). Fuera: granjas dispersas con campos de labranza.
+//   6. Rasterizado a casillas + validación (estanqueidad/conectividad).
+//
+// Determinismo total: mismo tier + semilla = misma ciudad e interiores.
 
 const path = require("path");
 const fs = require("fs");
 const { crearPRNG, elegirPonderado } = require("../../interiores/src/azar");
 const { cargarCatalogos } = require("../../interiores/src/catalogo");
 const { generarEdificio } = require("../../interiores/src/edificio");
+const { CapaRuido } = require("../../baker/src/ruido");
+const {
+  muestrearPoisson, aEstrella, puntoEnPoligono, distanciaASegmento,
+  rasterizarSegmento, rasterizarRectRotado,
+} = require("./geometria");
 
-const RAIZ = path.join(__dirname, "..", "..");
-const MARGEN_EXTERIOR = 4; // césped alrededor de la muralla, solo estético
-const ANCHO_PUERTA = 2;
+const MARGEN_EXTRAMUROS = 16; // cinturón de granjas/campos fuera de la muralla
 const ANCHO_CALLE = 2;
 
 function cargarAsentamientos() {
   return JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogo", "asentamientos.json"), "utf8"));
 }
 
-// ---------------------------------------------------------------------------
-// Rejilla de terreno: strings de id de terreno (la exportación los convierte
-// a índices de leyenda). Los mapas de ciudad son pequeños (<150x100), así
-// que la claridad gana a la micro-optimización aquí (el bake es offline).
 class Rejilla {
   constructor(ancho, alto, relleno) {
     this.ancho = ancho;
     this.alto = alto;
     this.datos = new Array(ancho * alto).fill(relleno);
   }
-  dentro(x, y) {
-    return x >= 0 && y >= 0 && x < this.ancho && y < this.alto;
-  }
-  get(x, y) {
-    return this.dentro(x, y) ? this.datos[y * this.ancho + x] : null;
-  }
-  set(x, y, v) {
-    if (this.dentro(x, y)) this.datos[y * this.ancho + x] = v;
-  }
-  rect(x0, y0, x1, y1, v) {
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) this.set(x, y, v);
-  }
+  dentro(x, y) { return x >= 0 && y >= 0 && x < this.ancho && y < this.alto; }
+  get(x, y) { return this.dentro(x, y) ? this.datos[y * this.ancho + x] : null; }
+  set(x, y, v) { if (this.dentro(x, y)) this.datos[y * this.ancho + x] = v; }
 }
 
 // ---------------------------------------------------------------------------
@@ -56,202 +53,524 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
   if (!def || tier.startsWith("_")) throw new Error(`tier de asentamiento desconocido: ${tier}`);
   catalogos = catalogos || cargarCatalogos();
   const rnd = crearPRNG(`ciudad:${tier}:${semilla}`);
+  const org = def.organico;
 
-  const [W, H] = def.recinto;
-  const M = MARGEN_EXTERIOR;
-  const ancho = W + M * 2;
-  const alto = H + M * 2;
-  const g = def.muralla.grosor;
+  // --- dimensiones: recinto ~radio + cinturón extramuros, múltiplo de 8 ----
+  const radio = org.radio;
+  const lado = Math.ceil((2 * (radio * 1.3 + MARGEN_EXTRAMUROS)) / 8) * 8;
+  const ancho = lado, alto = lado;
+  const centro = { x: ancho / 2, y: alto / 2 };
+
+  // --- 1. terreno base: heightmap + variante geográfica --------------------
+  const variante = elegirPonderado(org.geografias, rnd);
+  const relieve = new CapaRuido(`relieve:${tier}:${semilla}`, radio * 1.4);
+  const alturas = new Float32Array(ancho * alto);
+  for (let y = 0; y < alto; y++)
+    for (let x = 0; x < ancho; x++) {
+      let h = relieve.fbm(x, y, 4, 0.5); // 0..1
+      if (variante === "colina") {
+        // colina central suave: la aldea corona el alto, como en la realidad
+        const d = Math.hypot(x - centro.x, y - centro.y) / radio;
+        h += 0.5 * Math.exp(-d * d * 1.1);
+      }
+      alturas[y * ancho + x] = h;
+    }
+
   const terreno = new Rejilla(ancho, alto, "cesped");
-
-  // --- muralla: anillo perimetral del recinto -----------------------------
-  const rx0 = M, ry0 = M, rx1 = M + W - 1, ry1 = M + H - 1;
-  const mat = def.muralla.material;
-  for (let y = ry0; y <= ry1; y++)
-    for (let x = rx0; x <= rx1; x++) {
-      const d = Math.min(x - rx0, y - ry0, rx1 - x, ry1 - y);
-      if (d < g) terreno.set(x, y, mat);
+  const esAgua = new Uint8Array(ancho * alto);
+  if (variante === "rio") {
+    // río que cruza de norte a sur con meandro Perlin; el centro es profundo
+    const meandro = new CapaRuido(`rio:${tier}:${semilla}`, alto / 2.2);
+    const xRio = centro.x + (rnd() - 0.5) * radio; // desplazado del focal
+    for (let y = 0; y < alto; y++) {
+      const cx = xRio + (meandro.fbm(0, y, 3, 0.5) - 0.5) * radio * 0.9;
+      for (let dx = -2; dx <= 2; dx++) {
+        const x = Math.round(cx + dx);
+        if (!terreno.dentro(x, y)) continue;
+        terreno.set(x, y, Math.abs(dx) <= 1 ? "agua_profunda" : "agua");
+        esAgua[y * ancho + x] = 1;
+        alturas[y * ancho + x] = Math.min(alturas[y * ancho + x], 0.15);
+      }
     }
-
-  // --- puertas de muralla (sur siempre; norte y este si el tier tiene más)
-  const cx = Math.floor((rx0 + rx1) / 2);
-  const cy = Math.floor((ry0 + ry1) / 2);
-  const puertas = [];
-  const ladosPuerta = ["sur", "norte", "este"].slice(0, def.muralla.puertas);
-  for (const lado of ladosPuerta) {
-    for (let i = 0; i < ANCHO_PUERTA; i++) {
-      if (lado === "sur") for (let k = 0; k < g; k++) terreno.set(cx + i, ry1 - k, "adoquin");
-      if (lado === "norte") for (let k = 0; k < g; k++) terreno.set(cx + i, ry0 + k, "adoquin");
-      if (lado === "este") for (let k = 0; k < g; k++) terreno.set(rx1 - k, cy + i, "adoquin");
-    }
-    // la casilla portal (salida al exterior) es la del borde exterior del hueco
-    if (lado === "sur") puertas.push({ lado, x: cx, y: ry1 });
-    if (lado === "norte") puertas.push({ lado, x: cx, y: ry0 });
-    if (lado === "este") puertas.push({ lado, x: rx1, y: cy });
   }
 
-  // --- calle de ronda pegada a la muralla (conecta todo el perímetro) -----
-  const ix0 = rx0 + g, iy0 = ry0 + g, ix1 = rx1 - g, iy1 = ry1 - g; // interior útil
-  for (let y = iy0; y <= iy1; y++)
-    for (let x = ix0; x <= ix1; x++) {
-      const d = Math.min(x - ix0, y - iy0, ix1 - x, iy1 - y);
-      if (d < ANCHO_CALLE) terreno.set(x, y, "camino");
+  // --- 2. punto focal: terreno alto y seco cerca del centro ----------------
+  let focal = { x: Math.round(centro.x), y: Math.round(centro.y) };
+  let mejorPuntuacion = -Infinity;
+  for (let y = Math.round(centro.y - radio / 3); y <= centro.y + radio / 3; y++)
+    for (let x = Math.round(centro.x - radio / 3); x <= centro.x + radio / 3; x++) {
+      if (esAgua[y * ancho + x]) continue;
+      const p = alturas[y * ancho + x] - Math.hypot(x - centro.x, y - centro.y) / (radio * 4);
+      if (p > mejorPuntuacion) { mejorPuntuacion = p; focal = { x, y }; }
     }
 
-  // --- plaza central ------------------------------------------------------
-  const [pw, ph] = def.plaza;
-  const plaza = {
-    x0: cx - Math.floor(pw / 2),
-    y0: cy - Math.floor(ph / 2),
-    x1: cx - Math.floor(pw / 2) + pw - 1,
-    y1: cy - Math.floor(ph / 2) + ph - 1,
+  // --- 3. caminos principales: bordes del mapa → focal ---------------------
+  const costeDe = (x, y) => {
+    const i = y * ancho + x;
+    let c = 1 + Math.abs(alturas[i] - alturas[Math.max(0, i - 1)]) * 26; // la pendiente cuesta
+    if (esAgua[i]) c += 30; // cruzar agua cuesta MUCHO: solo si no hay rodeo (→ puente)
+    if (terreno.get(x, y) === "camino") c *= 0.4; // los caminos se atraen y se fusionan
+    return c;
   };
-  terreno.rect(plaza.x0, plaza.y0, plaza.x1, plaza.y1, "adoquin");
-
-  // --- calle principal: cada puerta → plaza (recta, ancho 2) --------------
-  for (const p of puertas) {
-    if (p.lado === "sur") terreno.rect(cx, plaza.y1 + 1, cx + ANCHO_CALLE - 1, ry1 - g, "adoquin");
-    if (p.lado === "norte") terreno.rect(cx, ry0 + g, cx + ANCHO_CALLE - 1, plaza.y0 - 1, "adoquin");
-    if (p.lado === "este") terreno.rect(plaza.x1 + 1, cy, rx1 - g, cy + ANCHO_CALLE - 1, "adoquin");
+  const nPuertas = def.muralla.puertas;
+  const anguloBase = rnd() * Math.PI * 2;
+  const caminos = [];
+  for (let i = 0; i < nPuertas; i++) {
+    const ang = anguloBase + (i * Math.PI * 2) / nPuertas + (rnd() - 0.5) * 0.5;
+    const borde = {
+      x: Math.min(ancho - 1, Math.max(0, Math.round(centro.x + Math.cos(ang) * lado))),
+      y: Math.min(alto - 1, Math.max(0, Math.round(centro.y + Math.sin(ang) * lado))),
+    };
+    const ruta = aEstrella(ancho, alto, borde, focal, costeDe);
+    if (!ruta) continue;
+    caminos.push(ruta);
+    for (const p of ruta) if (!esAgua[p.y * ancho + p.x]) terreno.set(p.x, p.y, "camino"); // atrae al siguiente A*
   }
 
-  // --- elegir edificios: obligatorios + ponderados hasta la cantidad ------
+  // --- 4. muralla orgánica: polígono radial deformado con Perlin -----------
+  const ruidoMuro = new CapaRuido(`muralla:${tier}:${semilla}`, 2.2);
+  const NV = 26; // vértices del polígono
+  const poligono = [];
+  for (let i = 0; i < NV; i++) {
+    const ang = (i / NV) * Math.PI * 2;
+    // muestrear el Perlin SOBRE el círculo unitario lo hace periódico: sin costura en 0
+    const n = ruidoMuro.fbm(Math.cos(ang) * 2 + 4, Math.sin(ang) * 2 + 4, 3, 0.5) - 0.5;
+    const r = radio * (1 + org.irregularidad * 2 * n);
+    poligono.push({ x: focal.x + Math.cos(ang) * r, y: focal.y + Math.sin(ang) * r });
+  }
+
+  // puertas: el punto donde cada camino principal cruza el anillo
+  const grosor = def.muralla.grosor;
+  const distAlMuro = (x, y) => {
+    let d = Infinity;
+    for (let i = 0; i < NV; i++) d = Math.min(d, distanciaASegmento(x, y, poligono[i], poligono[(i + 1) % NV]));
+    return d;
+  };
+  const puertas = [];
+  for (const ruta of caminos) {
+    for (const p of ruta) { // la ruta va de borde → focal: el primer cruce es LA puerta
+      if (distAlMuro(p.x + 0.5, p.y + 0.5) <= grosor / 2 + 0.5) {
+        puertas.push({ x: p.x, y: p.y });
+        break;
+      }
+    }
+  }
+
+  // rasterizar muralla (módulos vectoriales a la vez), saltando las puertas
+  const material = def.muralla.material;
+  const idTerrenoMuro = material === "empalizada" ? "empalizada" : "muralla_piedra";
+  // por debajo de ~1.8 de grosor el raster deja huecos en las diagonales:
+  // el lienzo se pinta siempre continuo, el grosor del tier es visual/vector
+  const grosorRaster = Math.max(grosor, 1.8);
+  // el hueco de la puerta debe atravesar TODO el grosor del lienzo (el
+  // punto de puerta puede caer en el borde exterior de la banda)
+  const radioHueco = grosorRaster / 2 + 2;
+  const esPuertaCerca = (x, y) => puertas.some((p) => Math.hypot(p.x - x, p.y - y) < radioHueco);
+  const modulos = [];
+  for (let i = 0; i < NV; i++) {
+    const a = poligono[i], b = poligono[(i + 1) % NV];
+    rasterizarSegmento(a, b, grosorRaster, ancho, alto, (x, y) => {
+      if (!esPuertaCerca(x, y)) terreno.set(x, y, idTerrenoMuro);
+    });
+    // capa vectorial: tramos rectos de ~3 casillas + puerta si toca
+    const largo = Math.hypot(b.x - a.x, b.y - a.y);
+    const tramos = Math.max(1, Math.round(largo / 3));
+    const rot = Math.atan2(b.y - a.y, b.x - a.x);
+    for (let t = 0; t < tramos; t++) {
+      const cx = a.x + ((t + 0.5) / tramos) * (b.x - a.x);
+      const cy = a.y + ((t + 0.5) / tramos) * (b.y - a.y);
+      modulos.push({
+        tipo: esPuertaCerca(Math.round(cx), Math.round(cy)) ? "puerta" : "recto",
+        x: +cx.toFixed(1), y: +cy.toFixed(1), rot: +((rot * 180) / Math.PI).toFixed(0), material,
+      });
+    }
+  }
+  // torres en los vértices (cada 2 para no saturar; castillos en todos) —
+  // nunca a menos de 4 casillas de una puerta: una torre no sella el hueco
+  const cadaCuantos = def.muralla.torresEnTodos ? 1 : 2;
+  for (let i = 0; i < NV; i += cadaCuantos) {
+    const v = poligono[i];
+    if (puertas.some((p) => Math.hypot(p.x - v.x, p.y - v.y) < 4.5)) continue;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const x = Math.round(v.x) + dx, y = Math.round(v.y) + dy;
+        if (terreno.dentro(x, y)) terreno.set(x, y, idTerrenoMuro);
+      }
+    modulos.push({ tipo: "torre", x: +v.x.toFixed(1), y: +v.y.toFixed(1), rot: 0, material });
+  }
+
+  const dentroMuralla = (x, y) => puntoEnPoligono(x + 0.5, y + 0.5, poligono);
+
+  // --- rasterizar caminos y plaza (encima del muro SOLO en las puertas) ----
+  for (const ruta of caminos) {
+    for (let i = 0; i + 1 < ruta.length; i++) {
+      rasterizarSegmento(ruta[i], ruta[i + 1], ANCHO_CALLE, ancho, alto, (x, y) => {
+        const t = terreno.get(x, y);
+        if ((t === idTerrenoMuro) && !esPuertaCerca(x, y)) return; // el muro gana salvo en la puerta
+        if (esAgua[y * ancho + x]) { terreno.set(x, y, "puente"); return; }
+        terreno.set(x, y, dentroMuralla(x, y) ? "adoquin" : "camino");
+      });
+    }
+  }
+  // plaza del mercado: disco de adoquín alrededor del focal
+  const radioPlaza = def.plaza;
+  for (let y = focal.y - radioPlaza; y <= focal.y + radioPlaza; y++)
+    for (let x = focal.x - radioPlaza; x <= focal.x + radioPlaza; x++)
+      if (terreno.dentro(x, y) && !esAgua[y * ancho + x] && Math.hypot(x - focal.x, y - focal.y) <= radioPlaza)
+        terreno.set(x, y, "adoquin");
+
+  // Las calles MENORES (ronda + ramales) se abren DESPUÉS de asentar los
+  // edificios monumentales: en una ciudad real el mercado y la iglesia se
+  // plantan primero y los callejones crecen rodeándolos, no al revés.
+  const carvarCallesMenores = () => {
+    // calle de RONDA: el anillo interior clásico medieval — el polígono de
+    // la muralla encogido hacia el focal. Solo en asentamientos grandes:
+    // en una aldea pequeña el anillo se comería el único espacio.
+    if (radio >= 36 || def.muralla.torresEnTodos) {
+      const ronda = poligono.map((p) => ({
+        x: focal.x + (p.x - focal.x) * 0.68,
+        y: focal.y + (p.y - focal.y) * 0.68,
+      }));
+      for (let i = 0; i < NV; i++) {
+        rasterizarSegmento(ronda[i], ronda[(i + 1) % NV], 1.4, ancho, alto, (x, y) => {
+          const t = terreno.get(x, y);
+          if (t === idTerrenoMuro || t === "puente" || t === "solar_edificio") return;
+          if (esAgua[y * ancho + x]) { terreno.set(x, y, "puente"); return; }
+          terreno.set(x, y, "adoquin");
+        });
+      }
+    }
+    // calles SECUNDARIAS: callejones A* que se ramifican hacia objetivos
+    // repartidos por el recinto, esquivando lo ya construido
+    const nRamales = Math.max(4, Math.round(radio / 6));
+    for (let rIdx = 0; rIdx < nRamales; rIdx++) {
+      const angR = ((rIdx + rnd() * 0.7) / nRamales) * Math.PI * 2; // estratificados
+      const dR = radio * (0.35 + rnd() * 0.5);
+      const objetivo = { x: Math.round(focal.x + Math.cos(angR) * dR), y: Math.round(focal.y + Math.sin(angR) * dR) };
+      if (!terreno.dentro(objetivo.x, objetivo.y) || !dentroMuralla(objetivo.x, objetivo.y)) continue;
+      const tObjetivo = terreno.get(objetivo.x, objetivo.y);
+      if (esAgua[objetivo.y * ancho + objetivo.x] || tObjetivo === idTerrenoMuro || tObjetivo === "solar_edificio") continue;
+      const costeRamal = (x, y) => {
+        const t = terreno.get(x, y);
+        if (t === idTerrenoMuro || t === "solar_edificio") return Infinity;
+        let c = 1 + Math.abs(alturas[y * ancho + x] - alturas[objetivo.y * ancho + objetivo.x]) * 8;
+        if (esAgua[y * ancho + x]) c += 30;
+        if (t === "camino" || t === "adoquin" || t === "puente") c *= 0.5;
+        return c;
+      };
+      const ramal = aEstrella(ancho, alto, objetivo, focal, costeRamal);
+      if (!ramal) continue;
+      for (const p of ramal) {
+        const t = terreno.get(p.x, p.y);
+        if (t === "adoquin" || t === "puente" || t === idTerrenoMuro || t === "solar_edificio") continue;
+        if (esAgua[p.y * ancho + p.x]) { terreno.set(p.x, p.y, "puente"); continue; }
+        terreno.set(p.x, p.y, dentroMuralla(p.x, p.y) ? "adoquin" : "camino");
+      }
+    }
+  };
+
+  // --- 5. edificios ---------------------------------------------------------
   const [minEd, maxEd] = def.edificios.cantidad;
   const cantidad = minEd + Math.floor(rnd() * (maxEd - minEd + 1));
   const tiposElegidos = [...(def.edificios.obligatorios || [])];
-  const ponderados = def.edificios.ponderados || [];
-  while (tiposElegidos.length < cantidad && ponderados.length > 0) {
-    tiposElegidos.push(elegirPonderado(ponderados, rnd));
-  }
+  while (tiposElegidos.length < cantidad) tiposElegidos.push(elegirPonderado(def.edificios.ponderados, rnd));
 
-  // --- bake anidado: el interior REAL decide la huella --------------------
-  // huella = planta baja + 1 casilla de muro perimetral por lado.
-  const edificios = [];
-  for (let n = 0; n < tiposElegidos.length; n++) {
-    const tipoEdificioId = tiposElegidos[n];
+  // huella EXTERIOR compacta de catálogo (huellas.json): el interior
+  // instanciado es otra room y no necesita caber en ella — los interiores
+  // reales generan plantas de 30+ casillas que harían imposible la escala
+  // de ciudad medieval de las referencias. El bake anidado no cambia.
+  const huellas = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogo", "huellas.json"), "utf8"));
+  const huellaDe = (tipoEdificioId) => {
+    if (huellas.porTipo[tipoEdificioId]) return huellas.porTipo[tipoEdificioId];
+    const riqueza = catalogos.tiposEdificio[tipoEdificioId]?.riqueza || "modesta";
+    return huellas.porRiqueza[riqueza] || huellas.porRiqueza.modesta;
+  };
+  const edificios = tiposElegidos.map((tipoEdificioId, n) => {
     const semillaInterior = `${semilla}:${tipoEdificioId}:${n}`;
     const interior = generarEdificio({ tipoEdificioId, catalogos, semilla: semillaInterior });
-    const baja = interior.plantas.find((p) => p.nivel === 0) || interior.plantas[0];
-    edificios.push({
-      tipoEdificioId,
-      semillaInterior,
-      interior,
-      w: baja.ancho + 2,
-      h: baja.alto + 2,
+    const [w, h] = huellaDe(tipoEdificioId);
+    return {
+      tipoEdificioId, semillaInterior, interior, w, h,
       obligatorio: n < (def.edificios.obligatorios || []).length,
-    });
-  }
-  // los grandes primero: si algo no cabe, que sea un opcional pequeño
-  edificios.sort((a, b) => b.w * b.h - a.w * a.h || a.tipoEdificioId.localeCompare(b.tipoEdificioId));
+    };
+  });
+  // los OBLIGATORIOS eligen sitio primero (con el recinto aún vacío); dentro
+  // de cada grupo, los grandes antes — lo pequeño siempre encuentra hueco
+  edificios.sort((a, b) =>
+    (b.obligatorio ? 1 : 0) - (a.obligatorio ? 1 : 0) ||
+    b.w * b.h - a.w * a.h ||
+    a.tipoEdificioId.localeCompare(b.tipoEdificioId));
 
-  // --- colocación por filas con callejón-calle bajo cada fila -------------
-  // ocupación: casillas donde NO se puede edificar (muralla+ronda, plaza con
-  // 1 de respiro, calles principales con 1 de respiro)
-  const libre = new Rejilla(ancho, alto, false);
-  for (let y = iy0 + ANCHO_CALLE; y <= iy1 - ANCHO_CALLE; y++)
-    for (let x = ix0 + ANCHO_CALLE; x <= ix1 - ANCHO_CALLE; x++) libre.set(x, y, true);
-  const vetar = (x0, y0, x1, y1) => {
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) libre.set(x, y, false);
+  const esCalle = (x, y) => { const t = terreno.get(x, y); return t === "camino" || t === "adoquin" || t === "puente"; };
+  // camino más cercano por barrido BFS multi-origen — recalculable, porque
+  // las calles menores se abren a mitad de la colocación
+  let distCalle, origenCalle;
+  const recalcularCalles = () => {
+    distCalle = new Int16Array(ancho * alto).fill(-1);
+    origenCalle = new Int32Array(ancho * alto).fill(-1);
+    const cola = [];
+    for (let y = 0; y < alto; y++)
+      for (let x = 0; x < ancho; x++)
+        if (esCalle(x, y)) { const i = y * ancho + x; distCalle[i] = 0; origenCalle[i] = i; cola.push(i); }
+    for (let q = 0; q < cola.length; q++) {
+      const i = cola[q], x = i % ancho, y = Math.floor(i / ancho);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto) continue;
+        const j = ny * ancho + nx;
+        if (distCalle[j] !== -1) continue;
+        distCalle[j] = distCalle[i] + 1;
+        origenCalle[j] = origenCalle[i];
+        cola.push(j);
+      }
+    }
   };
-  vetar(plaza.x0 - 1, plaza.y0 - 1, plaza.x1 + 1, plaza.y1 + 1);
-  for (let y = 0; y < alto; y++)
-    for (let x = 0; x < ancho; x++)
-      if (terreno.get(x, y) === "adoquin") vetar(x - 1, y - 1, x + 1, y + 1);
+  recalcularCalles();
 
-  const cabe = (x, y, w, h) => {
-    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (!libre.get(xx, yy)) return false;
+  const ocupado = new Uint8Array(ancho * alto); // solares ya puestos (con colchón)
+
+  // FRENTES de calle: cada 2ª casilla de calle con su tangente local — los
+  // edificios se sientan pegados a la calle con la puerta mirándola, como
+  // crece una ciudad medieval de verdad (nada de dardos al azar).
+  let frentes = [];
+  const construirFrentes = () => {
+    frentes = [];
+    for (let y = 2; y < alto - 2; y += 1)
+      for (let x = (y % 2) * 1 + 2; x < ancho - 2; x += 2) {
+        if (!esCalle(x, y)) continue;
+        // tangente: hacia la casilla de calle más lejana en la ventana 5x5
+        let mejor = null, mejorD = 0;
+        for (let dy = -2; dy <= 2; dy++)
+          for (let dx = -2; dx <= 2; dx++) {
+            if (!esCalle(x + dx, y + dy)) continue;
+            const d = dx * dx + dy * dy;
+            if (d > mejorD) { mejorD = d; mejor = [dx, dy]; }
+          }
+        if (!mejor) continue;
+        const norma = Math.hypot(mejor[0], mejor[1]);
+        frentes.push({ x, y, tx: mejor[0] / norma, ty: mejor[1] / norma, dentro: dentroMuralla(x, y) });
+      }
+    // orden determinista barajado: la variedad la pone la semilla
+    for (let i = frentes.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [frentes[i], frentes[j]] = [frentes[j], frentes[i]];
+    }
+  };
+  construirFrentes();
+
+  const probarCandidato = (ed, cx, cy, angulo, dentro) => {
+    let libre = true;
+    // el NÚCLEO no pisa adoquín/puente/muro/agua/otros solares. Un CAMINO de
+    // tierra intramuros sí puede quedar debajo (la casa lo interrumpe, como
+    // en un pueblo real; la pasada de reparación re-conecta lo que haga
+    // falta después) — extramuros no, que ahí el camino es la ruta comercial.
+    rasterizarRectRotado(cx, cy, ed.w / 2, ed.h / 2, angulo, ancho, alto, (x, y) => {
+      if (!libre) return;
+      const t = terreno.get(x, y);
+      if (t === null || ocupado[y * ancho + x] || esAgua[y * ancho + x] || t === idTerrenoMuro || t === "adoquin" || t === "puente") libre = false;
+      else if (t === "camino" && !dentro) libre = false;
+    });
+    if (!libre) return false;
+    // el colchón de +1 solo respeta a OTROS edificios (callejón mínimo);
+    // que roce la calle a la que da fachada es justo lo que se busca
+    rasterizarRectRotado(cx, cy, ed.w / 2 + 1, ed.h / 2 + 1, angulo, ancho, alto, (x, y) => {
+      if (ocupado[y * ancho + x]) libre = false;
+    });
+    return libre;
+  };
+
+  const colocarEdificio = (ed, esGranja) => {
+    let mejorCandidato = null, mejorPuntos = -Infinity, validos = 0;
+    for (const f of frentes) {
+      if (esGranja ? f.dentro : !f.dentro) continue;
+      // dos aceras: el edificio puede caer a cada lado de la calle
+      for (const lado of [1, -1]) {
+        const nx = -f.ty * lado, ny = f.tx * lado; // normal a la tangente
+        const cx = f.x + 0.5 + nx * (ed.h / 2 + 1.4);
+        const cy = f.y + 0.5 + ny * (ed.h / 2 + 1.4);
+        if (!esGranja && !dentroMuralla(cx, cy)) continue;
+        if (esGranja && dentroMuralla(cx, cy)) continue;
+        if (distAlMuro(cx, cy) < grosor / 2 + 1.5) continue;
+        // fachada paralela a la calle, puerta (local +Y) mirándola
+        const angulo = Math.atan2(f.y + 0.5 - cy, f.x + 0.5 - cx) - Math.PI / 2;
+        if (!probarCandidato(ed, cx, cy, angulo, !esGranja)) continue;
+        const puntos = esGranja ? rnd() : -Math.hypot(cx - focal.x, cy - focal.y) + rnd() * 5;
+        if (puntos > mejorPuntos) { mejorPuntos = puntos; mejorCandidato = { cx, cy, angulo }; }
+        validos++;
+      }
+      // los obligatorios rastrean TODAS las fachadas; para el relleno basta
+      if (!ed.obligatorio && validos >= 14) break;
+    }
+    // fallback monumental: un obligatorio sin fachada se planta DANDO FRENTE
+    // A LA PLAZA (la iglesia/castillo presidiendo el mercado, como en las
+    // referencias) — se prueba el reloj entero de ángulos alrededor
+    if (!mejorCandidato && ed.obligatorio && !esGranja) {
+      // anillos crecientes desde la plaza: los monumentales grandes (el
+      // torreón del castillo) necesitan alejarse un poco del cruce de calles
+      buscar: for (let k = 0; k < 5; k++) {
+        const distancia = radioPlaza + ed.h / 2 + 1.5 + k * 3;
+        for (let i = 0; i < 40; i++) {
+          const ang = (i / 40) * Math.PI * 2;
+          const cx = focal.x + Math.cos(ang) * distancia;
+          const cy = focal.y + Math.sin(ang) * distancia;
+          const angulo = Math.atan2(focal.y - cy, focal.x - cx) - Math.PI / 2; // puerta a la plaza
+          if (!dentroMuralla(cx, cy) || distAlMuro(cx, cy) < grosor / 2 + 1.5) continue;
+          if (!probarCandidato(ed, cx, cy, angulo, true)) continue;
+          mejorCandidato = { cx, cy, angulo };
+          break buscar;
+        }
+      }
+    }
+    if (!mejorCandidato) return false;
+    const { cx, cy, angulo } = mejorCandidato;
+    ed.cx = +cx.toFixed(1); ed.cy = +cy.toFixed(1);
+    ed.rot = +(((angulo * 180) / Math.PI) % 360).toFixed(0);
+    ed.casillas = [];
+    rasterizarRectRotado(cx, cy, ed.w / 2, ed.h / 2, angulo, ancho, alto, (x, y) => {
+      terreno.set(x, y, "solar_edificio");
+      ed.casillas.push([x, y]);
+    });
+    rasterizarRectRotado(cx, cy, ed.w / 2 + 1, ed.h / 2 + 1, angulo, ancho, alto, (x, y) => { ocupado[y * ancho + x] = 1; });
+    // puerta en la fachada (lado que mira al camino): se empuja hacia fuera
+    // hasta la primera casilla que NO sea del solar (el redondeo a rejilla
+    // puede dejar la teórica dentro del propio muro del edificio)
+    let px = 0, py = 0;
+    for (let salto = 0.6; salto < 4; salto += 0.5) {
+      px = Math.round(cx + Math.cos(angulo + Math.PI / 2) * (ed.h / 2 + salto));
+      py = Math.round(cy + Math.sin(angulo + Math.PI / 2) * (ed.h / 2 + salto));
+      if (terreno.get(px, py) !== "solar_edificio") break;
+    }
+    ed.puerta = { x: px, y: py };
+    for (let paso = 0; paso < 14 && terreno.dentro(px, py) && !esCalle(px, py); paso++) {
+      if (terreno.get(px, py) === "cesped" || terreno.get(px, py) === "tierra") terreno.set(px, py, "camino");
+      const o = origenCalle[py * ancho + px];
+      const ox = o % ancho, oy = Math.floor(o / ancho);
+      px += Math.sign(ox - px); py += Math.sign(oy - py);
+    }
     return true;
   };
 
-  const colocados = [];
-  const pendientes = [...edificios];
-  let cursorY = iy0 + ANCHO_CALLE;
-  while (cursorY <= iy1 - ANCHO_CALLE && pendientes.length) {
-    let alturaFila = 0;
-    let colocoAlguno = false;
-    for (let i = 0; i < pendientes.length; ) {
-      const ed = pendientes[i];
-      let puesto = false;
-      for (let x = ix0 + ANCHO_CALLE; x + ed.w - 1 <= ix1 - ANCHO_CALLE; x++) {
-        if (!cabe(x, cursorY, ed.w, ed.h)) continue;
-        ed.x = x;
-        ed.y = cursorY;
-        vetar(x - 1, cursorY - 1, x + ed.w, cursorY + ed.h); // +1 de callejón alrededor
-        colocados.push(ed);
-        pendientes.splice(i, 1);
-        alturaFila = Math.max(alturaFila, ed.h);
-        puesto = true;
-        colocoAlguno = true;
-        break;
-      }
-      if (!puesto) i++;
+  const colocados = [], descartados = [];
+  // fase A: los OBLIGATORIOS se asientan con solo la red principal trazada
+  for (const ed of edificios.filter((e) => e.obligatorio))
+    (colocarEdificio(ed, false) ? colocados : descartados).push(ed);
+  // fase B: crecen las calles menores rodeándolos, y el resto se coloca
+  // sobre la red completa
+  carvarCallesMenores();
+  recalcularCalles();
+  construirFrentes();
+  for (const ed of edificios.filter((e) => !e.obligatorio))
+    (colocarEdificio(ed, false) ? colocados : descartados).push(ed);
+
+  // granjas extramuros con su campo de labranza (baja densidad, junto a caminos)
+  const granjas = [];
+  for (let g = 0; g < (def.granjasFuera || 0); g++) {
+    const tipoEdificioId = elegirPonderado([["granero", 3], ["casa_humilde", 3], ["establo", 2], ["molino", 1]], rnd);
+    const interior = generarEdificio({ tipoEdificioId, catalogos, semilla: `${semilla}:granja:${g}` });
+    const [gw, gh] = huellaDe(tipoEdificioId);
+    const ed = { tipoEdificioId, semillaInterior: `${semilla}:granja:${g}`, interior, w: gw, h: gh, granja: true };
+    if (!colocarEdificio(ed, true)) continue;
+    granjas.push(ed);
+    // campo: mancha de tierra labrada junto a la granja
+    const rCampo = 4 + rnd() * 4;
+    for (let y = Math.round(ed.cy - rCampo * 1.6); y <= ed.cy + rCampo * 1.6; y++)
+      for (let x = Math.round(ed.cx - rCampo * 1.6); x <= ed.cx + rCampo * 1.6; x++)
+        if (terreno.get(x, y) === "cesped" && Math.hypot(x - ed.cx, y - ed.cy) <= rCampo + (rnd() - 0.5) * 2)
+          terreno.set(x, y, "tierra_labrada");
+  }
+  const todos = [...colocados, ...granjas];
+
+  // patios: la casilla de césped pegada a un solar pasa a tierra pisada
+  for (const ed of todos)
+    for (const [x, y] of ed.casillas)
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++)
+          if (terreno.get(x + dx, y + dy) === "cesped") terreno.set(x + dx, y + dy, "tierra");
+
+  // reparación de conectividad: toda puerta de edificio DEBE alcanzarse
+  // desde la puerta principal — si el río o un solar la dejó aislada, se
+  // abre una senda A* (con puente si cruza agua). Garantiza por
+  // construcción lo que el validador exige.
+  const p0 = puertas[0] || focal;
+  const spawn = {
+    x: Math.round(p0.x + Math.cos(Math.atan2(focal.y - p0.y, focal.x - p0.x)) * (grosorRaster + 2)),
+    y: Math.round(p0.y + Math.sin(Math.atan2(focal.y - p0.y, focal.x - p0.x)) * (grosorRaster + 2)),
+  };
+  const TRANSITABLE_LOCAL = new Set(["cesped", "camino", "adoquin", "tierra", "tierra_labrada", "puente"]);
+  const costeSenda = (x, y) => {
+    const t = terreno.get(x, y);
+    if (t === idTerrenoMuro || t === "solar_edificio") return Infinity;
+    if (esAgua[y * ancho + x] && t !== "puente") return 14; // cruzar = construir puente
+    if (t === "camino" || t === "adoquin" || t === "puente") return 0.5;
+    return 1;
+  };
+  for (const ed of todos) {
+    const alcanzable = floodDesde(terreno, spawn, TRANSITABLE_LOCAL);
+    if (alcanzable.has(ed.puerta.y * ancho + ed.puerta.x)) continue;
+    const senda = aEstrella(ancho, alto, ed.puerta, spawn, costeSenda);
+    if (!senda) continue; // el validador lo reportará
+    const tallar = (x, y) => {
+      const t = terreno.get(x, y);
+      if (esAgua[y * ancho + x]) terreno.set(x, y, "puente");
+      else if (t === "cesped" || t === "tierra" || t === "tierra_labrada") terreno.set(x, y, "camino");
+    };
+    for (let i = 0; i < senda.length; i++) {
+      tallar(senda[i].x, senda[i].y);
+      // el A* da pasos diagonales pero se camina a 4 vecinos: rellenar el codo
+      if (i > 0 && senda[i].x !== senda[i - 1].x && senda[i].y !== senda[i - 1].y) tallar(senda[i].x, senda[i - 1].y);
     }
-    if (!colocoAlguno) {
-      cursorY += 1; // fila imposible: probar una casilla más abajo
-      continue;
-    }
-    // calle bajo la fila (conecta las fachadas) — cruza toda la banda útil,
-    // así que corta con la calle principal/ronda sí o sí
-    const yCalle = cursorY + alturaFila;
-    terreno.rect(ix0, yCalle, ix1, Math.min(yCalle + ANCHO_CALLE - 1, iy1), "camino");
-    cursorY = yCalle + ANCHO_CALLE + 1;
   }
 
-  // --- pintar huellas + puerta de cada edificio ---------------------------
-  const portales = puertas.map((p) => ({ tipo: "exterior", x: p.x, y: p.y, lado: p.lado }));
-  for (const ed of colocados) {
-    terreno.rect(ed.x, ed.y, ed.x + ed.w - 1, ed.y + ed.h - 1, "solar_edificio");
-    // puerta al sur, centrada; camino de 1 de ancho hasta la primera calle
-    const px = ed.x + Math.floor(ed.w / 2);
-    let py = ed.y + ed.h;
-    ed.puerta = { x: px, y: py };
-    while (terreno.dentro(px, py) && terreno.get(px, py) !== "camino" && terreno.get(px, py) !== "adoquin") {
-      terreno.set(px, py, "camino");
-      py++;
-    }
-    portales.push({ tipo: "interior", x: ed.puerta.x, y: ed.puerta.y, edificio: ed.interior.id, tipoEdificioId: ed.tipoEdificioId });
-  }
+  // --- 6. salida ------------------------------------------------------------
+  const portales = puertas.map((p) => ({ tipo: "exterior", x: p.x, y: p.y }));
+  for (const ed of todos) portales.push({ tipo: "interior", x: ed.puerta.x, y: ed.puerta.y, edificio: ed.interior.id, tipoEdificioId: ed.tipoEdificioId });
 
-  // spawn: justo por dentro de la primera puerta (sur), sobre la calle
-  const spawn = { x: puertas[0].x, y: puertas[0].lado === "sur" ? ry1 - g - 1 : ry0 + g + 1 };
+  // elevación exportable 0..35 (base36); el agua queda hundida por su altura ya rebajada
+  const elevacion = new Uint8Array(ancho * alto);
+  for (let i = 0; i < elevacion.length; i++) elevacion[i] = Math.max(0, Math.min(35, Math.round(alturas[i] * 18 + 6)));
 
   return {
-    tier,
-    semilla,
-    ancho,
-    alto,
-    terreno,
-    plaza,
-    puertas,
-    portales,
-    spawn,
-    edificios: colocados,
-    descartados: pendientes.map((e) => e.tipoEdificioId),
+    tier, semilla, variante, ancho, alto, terreno, elevacion, radioHueco,
+    focal, plazaRadio: radioPlaza, poligonoMuralla: poligono, modulosMuralla: modulos,
+    caminos: caminos.map((r) => r.filter((_, i) => i % 3 === 0)), // polilíneas aligeradas
+    puertas, portales, spawn,
+    edificios: todos,
+    descartados: descartados.map((e) => e.tipoEdificioId),
   };
 }
 
 // ---------------------------------------------------------------------------
-// Validaciones de ciudad (las usan los tests y el CLI): la muralla es
-// estanca salvo por sus puertas, y todas las puertas de edificio se
-// alcanzan andando desde las puertas de muralla.
-const TRANSITABLES = new Set(["cesped", "camino", "adoquin", "tierra"]);
+const TRANSITABLES = new Set(["cesped", "camino", "adoquin", "tierra", "tierra_labrada", "puente"]);
+
+// flood 4-vecinos sobre una Rejilla de terreno con el conjunto transitable dado
+function floodDesde(terreno, inicio, transitables) {
+  const visitado = new Set([inicio.y * terreno.ancho + inicio.x]);
+  const cola = [[inicio.x, inicio.y]];
+  while (cola.length) {
+    const [x, y] = cola.pop();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy, k = ny * terreno.ancho + nx;
+      if (!terreno.dentro(nx, ny) || visitado.has(k)) continue;
+      if (!transitables.has(terreno.get(nx, ny))) continue;
+      visitado.add(k);
+      cola.push([nx, ny]);
+    }
+  }
+  return visitado;
+}
 
 function floodTransitable(ciudad, inicios) {
   const { terreno } = ciudad;
   const visitado = new Set();
   const cola = [];
-  for (const { x, y } of inicios) {
-    cola.push([x, y]);
-    visitado.add(y * terreno.ancho + x);
-  }
+  for (const { x, y } of inicios) { cola.push([x, y]); visitado.add(y * terreno.ancho + x); }
   while (cola.length) {
     const [x, y] = cola.pop();
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = x + dx, ny = y + dy;
-      const clave = ny * terreno.ancho + nx;
-      if (!terreno.dentro(nx, ny) || visitado.has(clave)) continue;
+      const nx = x + dx, ny = y + dy, k = ny * terreno.ancho + nx;
+      if (!terreno.dentro(nx, ny) || visitado.has(k)) continue;
       if (!TRANSITABLES.has(terreno.get(nx, ny))) continue;
-      visitado.add(clave);
+      visitado.add(k);
       cola.push([nx, ny]);
     }
   }
@@ -260,48 +579,51 @@ function floodTransitable(ciudad, inicios) {
 
 function validarCiudad(ciudad) {
   const errores = [];
-  const { terreno } = ciudad;
-  // 1) estanqueidad: desde fuera, tapando las puertas, no se entra
-  const tapado = ciudad.puertas.map((p) => {
-    const antes = [];
-    // tapa el hueco entero de la puerta (ANCHO_PUERTA x grosor)
-    for (let y = 0; y < terreno.alto; y++)
-      for (let x = 0; x < terreno.ancho; x++) {
-        if (Math.abs(x - p.x) <= ANCHO_PUERTA && Math.abs(y - p.y) <= ANCHO_PUERTA && terreno.get(x, y) === "adoquin") {
-          antes.push([x, y]);
-          terreno.set(x, y, "muralla_piedra");
+  const { terreno, poligonoMuralla } = ciudad;
+  const idMuro = terreno.datos.includes("empalizada") ? "empalizada" : "muralla_piedra";
+
+  // 1) estanqueidad: tapa las puertas y comprueba que desde fuera no se
+  //    alcanza NINGUNA casilla transitable de dentro del polígono
+  const tapadas = [];
+  const radioTapon = (ciudad.radioHueco || 3) + 1.6; // más ancho que el hueco: sin rendijas
+  for (const p of ciudad.puertas)
+    for (let y = Math.floor(p.y - radioTapon); y <= p.y + radioTapon; y++)
+      for (let x = Math.floor(p.x - radioTapon); x <= p.x + radioTapon; x++) {
+        const t = terreno.get(x, y);
+        if (t !== null && t !== idMuro && t !== "solar_edificio" && Math.hypot(x - p.x, y - p.y) <= radioTapon) {
+          tapadas.push([x, y, t]);
+          terreno.set(x, y, idMuro);
         }
       }
-    return antes;
-  });
   const desdeFuera = floodTransitable(ciudad, [{ x: 0, y: 0 }]);
-  const interiorAlcanzado = [...desdeFuera].some((clave) => {
-    const x = clave % terreno.ancho, y = Math.floor(clave / terreno.ancho);
-    return x > MARGEN_EXTERIOR + 2 && y > MARGEN_EXTERIOR + 2 &&
-      x < terreno.ancho - MARGEN_EXTERIOR - 3 && y < terreno.alto - MARGEN_EXTERIOR - 3 &&
-      terreno.get(x, y) !== "cesped";
-  });
-  if (interiorAlcanzado) errores.push("la muralla NO es estanca: se entra sin pasar por una puerta");
-  for (const lista of tapado) for (const [x, y] of lista) terreno.set(x, y, "adoquin");
+  let filtracion = null;
+  for (const k of desdeFuera) {
+    const x = k % terreno.ancho, y = Math.floor(k / terreno.ancho);
+    if (puntoEnPoligono(x + 0.5, y + 0.5, poligonoMuralla) && ciudad.puertas.every((p) => Math.hypot(p.x - x, p.y - y) > radioTapon + 1.5)) {
+      filtracion = `${x},${y}`;
+      break;
+    }
+  }
+  if (filtracion) errores.push(`la muralla NO es estanca: se entra sin puerta (p.ej. por ${filtracion})`);
+  for (const [x, y, t] of tapadas) terreno.set(x, y, t);
 
-  // 2) conectividad: desde el spawn se llega a la puerta de cada edificio
+  // 2) conectividad: desde el spawn se alcanza la puerta de todo edificio
   const alcanzable = floodTransitable(ciudad, [ciudad.spawn]);
   for (const ed of ciudad.edificios) {
     if (!alcanzable.has(ed.puerta.y * terreno.ancho + ed.puerta.x)) {
       errores.push(`puerta inalcanzable: ${ed.tipoEdificioId} en ${ed.puerta.x},${ed.puerta.y}`);
     }
   }
-  // 3) las huellas no se pisan (el vetado ya lo impide; se re-comprueba)
-  const ocupadas = new Set();
-  for (const ed of ciudad.edificios) {
-    for (let y = ed.y; y < ed.y + ed.h; y++)
-      for (let x = ed.x; x < ed.x + ed.w; x++) {
-        const clave = y * terreno.ancho + x;
-        if (ocupadas.has(clave)) errores.push(`solape de huellas en ${x},${y}`);
-        ocupadas.add(clave);
-      }
-  }
+
+  // 3) solares sin solaparse
+  const vistos = new Set();
+  for (const ed of ciudad.edificios)
+    for (const [x, y] of ed.casillas) {
+      const k = y * terreno.ancho + x;
+      if (vistos.has(k)) errores.push(`solape de huellas en ${x},${y} (${ed.tipoEdificioId})`);
+      vistos.add(k);
+    }
   return errores;
 }
 
-module.exports = { generarCiudad, validarCiudad, cargarAsentamientos, floodTransitable, TRANSITABLES, MARGEN_EXTERIOR };
+module.exports = { generarCiudad, validarCiudad, cargarAsentamientos, floodTransitable, TRANSITABLES, Rejilla };

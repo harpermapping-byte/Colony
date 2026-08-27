@@ -1,5 +1,5 @@
 "use strict";
-// Tests del bakeador de ciudades — node --test ciudades/test/ciudad.test.js
+// Tests del bakeador ORGÁNICO de ciudades — node --test ciudades/test/ciudad.test.js
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
@@ -13,22 +13,25 @@ const catalogos = cargarCatalogos();
 const asentamientos = cargarAsentamientos();
 const tiers = Object.keys(asentamientos).filter((k) => !k.startsWith("_"));
 
-test("todos los tiers generan una ciudad VÁLIDA (estanca, conectada, sin solapes)", () => {
+test("todos los tiers generan ciudades VÁLIDAS (estancas, conectadas, sin solapes) con 2 semillas", () => {
   for (const tier of tiers) {
-    const ciudad = generarCiudad({ tier, semilla: "test-1", catalogos });
-    const errores = validarCiudad(ciudad);
-    assert.deepStrictEqual(errores, [], `${tier}: ${errores.join(" | ")}`);
-    const [minEd] = asentamientos[tier].edificios.cantidad;
-    assert.ok(ciudad.edificios.length >= Math.min(minEd, 3), `${tier}: solo ${ciudad.edificios.length} edificios`);
+    for (const semilla of ["test-1", "test-2"]) {
+      const ciudad = generarCiudad({ tier, semilla, catalogos });
+      const errores = validarCiudad(ciudad);
+      assert.deepStrictEqual(errores, [], `${tier}/${semilla}: ${errores.join(" | ")}`);
+      assert.ok(ciudad.puertas.length >= 1, `${tier}: sin puertas de muralla`);
+      assert.ok(ciudad.modulosMuralla.some((m) => m.tipo === "torre"), `${tier}: sin torres`);
+      assert.ok(ciudad.modulosMuralla.some((m) => m.tipo === "puerta"), `${tier}: sin módulo puerta`);
+    }
   }
 });
 
-test("los edificios obligatorios del tier siempre encuentran sitio", () => {
+test("los edificios OBLIGATORIOS del tier siempre encuentran sitio", () => {
   for (const tier of tiers) {
-    const ciudad = generarCiudad({ tier, semilla: "test-obligatorios", catalogos });
+    const ciudad = generarCiudad({ tier, semilla: "test-1", catalogos });
     const puestos = new Set(ciudad.edificios.map((e) => e.tipoEdificioId));
     for (const ob of asentamientos[tier].edificios.obligatorios || []) {
-      assert.ok(puestos.has(ob), `${tier}: falta el obligatorio ${ob} (descartados: ${ciudad.descartados})`);
+      assert.ok(puestos.has(ob), `${tier}: falta el obligatorio ${ob}`);
     }
   }
 });
@@ -38,46 +41,53 @@ test("determinismo: mismo tier+semilla = misma ciudad; semillas distintas difier
   const b = generarCiudad({ tier: "aldea", semilla: "s1", catalogos });
   assert.deepStrictEqual(a.terreno.datos, b.terreno.datos);
   assert.deepStrictEqual(a.portales, b.portales);
+  assert.deepStrictEqual(a.modulosMuralla, b.modulosMuralla);
   const c = generarCiudad({ tier: "aldea", semilla: "s2", catalogos });
   assert.notDeepStrictEqual(a.terreno.datos, c.terreno.datos);
 });
 
-test("la huella de cada edificio es su interior real + muro (bake anidado)", () => {
-  const ciudad = generarCiudad({ tier: "aldea_pequena", semilla: "test-1", catalogos });
+test("cada edificio va ROTADO hacia una calle y su huella sale de huellas.json", () => {
+  const huellas = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogo", "huellas.json"), "utf8"));
+  const ciudad = generarCiudad({ tier: "pueblo", semilla: "test-1", catalogos });
+  assert.ok(ciudad.edificios.length >= 8, `pocos edificios: ${ciudad.edificios.length}`);
+  let rotados = 0;
   for (const ed of ciudad.edificios) {
-    const baja = ed.interior.plantas.find((p) => p.nivel === 0) || ed.interior.plantas[0];
-    assert.strictEqual(ed.w, baja.ancho + 2, ed.tipoEdificioId);
-    assert.strictEqual(ed.h, baja.alto + 2, ed.tipoEdificioId);
+    const esperada = huellas.porTipo[ed.tipoEdificioId] ||
+      huellas.porRiqueza[catalogos.tiposEdificio[ed.tipoEdificioId]?.riqueza || "modesta"];
+    assert.deepStrictEqual([ed.w, ed.h], esperada, ed.tipoEdificioId);
+    assert.ok(ed.casillas.length > 0, "huella rasterizada");
+    assert.ok(ed.interior.plantas.length > 0, "interior anidado generado");
+    if (ed.rot % 90 !== 0) rotados++;
   }
+  assert.ok(rotados > 0, "ningún edificio con rotación orgánica (todos alineados a los ejes)");
 });
 
-test("el export completo es legible y cuadra con el formato de sectores del baker", () => {
+test("la muralla es un polígono IRREGULAR (no un círculo perfecto ni un rectángulo)", () => {
+  const ciudad = generarCiudad({ tier: "capital", semilla: "test-1", catalogos });
+  const radios = ciudad.poligonoMuralla.map((p) => Math.hypot(p.x - ciudad.focal.x, p.y - ciudad.focal.y));
+  const min = Math.min(...radios), max = Math.max(...radios);
+  assert.ok(max / min > 1.08, `polígono demasiado regular (max/min=${(max / min).toFixed(3)})`);
+});
+
+test("el export completo cuadra con el formato de sectores + capa vectorial", () => {
   const carpeta = fs.mkdtempSync(path.join(os.tmpdir(), "ciudad-test-"));
   const ciudad = hornearCiudad("aldea_pequena", "test-export", carpeta);
   const indice = JSON.parse(fs.readFileSync(path.join(carpeta, "indice.json"), "utf8"));
   assert.strictEqual(indice.tamanoChunk, TAMANO_CHUNK);
-  assert.ok(indice.portales.some((p) => p.tipo === "exterior"), "portal de salida al exterior");
-  assert.strictEqual(
-    indice.portales.filter((p) => p.tipo === "interior").length,
-    ciudad.edificios.length,
-    "un portal interior por edificio",
-  );
-  // el spawn (indice.ciudad) cae en terreno transitable
-  const sector = JSON.parse(fs.readFileSync(path.join(carpeta, "sector_000_000.json"), "utf8"));
+  assert.ok(indice.portales.some((p) => p.tipo === "exterior"));
+  assert.strictEqual(indice.portales.filter((p) => p.tipo === "interior").length, ciudad.edificios.length);
+  assert.ok(indice.muralla.modulos.length > 0, "módulos de muralla en la capa vectorial");
+  assert.ok(indice.caminos.length >= 1, "polilíneas de caminos");
+  // el spawn cae en casilla transitable
   const cx = Math.floor(indice.ciudad.x / TAMANO_CHUNK), cy = Math.floor(indice.ciudad.y / TAMANO_CHUNK);
+  const sx = Math.floor(cx / indice.tamanoSectorChunks), sy = Math.floor(cy / indice.tamanoSectorChunks);
+  const sector = JSON.parse(fs.readFileSync(path.join(carpeta, `sector_${String(sx).padStart(3, "0")}_${String(sy).padStart(3, "0")}.json`), "utf8"));
   const chunk = sector.chunks[`${cx}_${cy}`];
-  assert.ok(chunk, "el chunk del spawn existe");
   const lx = indice.ciudad.x - cx * TAMANO_CHUNK, ly = indice.ciudad.y - cy * TAMANO_CHUNK;
   const id = indice.leyendaTerreno[parseInt(chunk.terreno[ly * TAMANO_CHUNK + lx], 36)];
-  assert.ok(["camino", "adoquin", "cesped"].includes(id), `spawn sobre ${id}`);
-  // cada chunk trae terreno y elevación del tamaño exacto
-  for (const ch of Object.values(sector.chunks)) {
-    assert.strictEqual(ch.terreno.length, TAMANO_CHUNK * TAMANO_CHUNK);
-    assert.strictEqual(ch.elevacion.length, TAMANO_CHUNK * TAMANO_CHUNK);
-  }
-  // los interiores del bake anidado existen como archivos
-  const interiores = fs.readdirSync(path.join(carpeta, "interiores"));
-  assert.strictEqual(interiores.length, ciudad.edificios.length);
+  assert.ok(["camino", "adoquin", "cesped", "tierra"].includes(id), `spawn sobre ${id}`);
+  assert.strictEqual(chunk.elevacion.length, TAMANO_CHUNK * TAMANO_CHUNK, "elevación por casilla");
+  assert.strictEqual(fs.readdirSync(path.join(carpeta, "interiores")).length, ciudad.edificios.length);
   fs.rmSync(carpeta, { recursive: true, force: true });
 });
 

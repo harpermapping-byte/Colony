@@ -1,16 +1,16 @@
 "use strict";
-// CLI del bakeador de ciudades:
+// CLI del bakeador de ciudades ORGÁNICO:
 //   node ciudades/src/index.js <tier> <semilla> [carpetaSalida]
 //
-// Salidas (todas del MISMO bake, GDD_Bakeador_POIs §4.4):
-// - sector_XXX_YYY.json + indice.json — EXACTAMENTE el formato del baker
-//   exterior (crearExportador reutilizado): el cliente y el servidor los
-//   consumen sin cambios. El indice añade `portales` (puertas de muralla y
-//   de edificio) y `tier`.
-// - interiores/<edificioId>.json — los interiores REALES de cada edificio
-//   (bake anidado con el motor de interiores; mismo JSON que guarda su
-//   editor web).
-// - overview.png — vista cenital del recinto para revisar/depurar.
+// Salidas del MISMO bake (GDD_Bakeador_POIs §4):
+// - sector_XXX_YYY.json + indice.json — formato del baker exterior
+//   (crearExportador reutilizado): cliente y servidor los consumen sin
+//   cambios. El indice añade la CAPA VECTORIAL: `portales`, `muralla`
+//   (módulos recto/torre/puerta con posición+rotación+material), `caminos`
+//   (polilíneas) y `tier`/`variante` — de ahí saldrán los .glb reales que
+//   sustituyan a los placeholders (programa del usuario).
+// - interiores/<edificioId>.json — bake anidado del motor de interiores.
+// - overview.png — placeholder 2D a color para revisar el layout.
 
 const fs = require("fs");
 const path = require("path");
@@ -20,7 +20,7 @@ const { crearExportador } = require("../../baker/src/exportar");
 const { codificarPNG } = require("../../baker/src/png");
 
 const RAIZ = path.join(__dirname, "..", "..");
-const TAMANO_CHUNK = 8; // los recintos del catálogo son múltiplos de 8
+const TAMANO_CHUNK = 8; // el generador redondea el lado del mapa a múltiplos de 8
 
 function hexRGB(hex) {
   const n = parseInt(hex.slice(1), 16);
@@ -28,46 +28,39 @@ function hexRGB(hex) {
 }
 
 function exportarCiudad(ciudad, carpetaSalida) {
-  const { terreno, ancho, alto } = ciudad;
+  const { terreno, elevacion, ancho, alto } = ciudad;
   const anchoChunks = ancho / TAMANO_CHUNK;
   const altoChunks = alto / TAMANO_CHUNK;
-  if (!Number.isInteger(anchoChunks) || !Number.isInteger(altoChunks)) {
-    throw new Error(`el recinto+margen (${ancho}x${alto}) debe ser múltiplo de ${TAMANO_CHUNK}`);
-  }
 
-  // leyenda mínima: los terrenos que este mapa usa de verdad
   const leyenda = [...new Set(terreno.datos)].sort();
   const exportador = crearExportador(carpetaSalida, leyenda, anchoChunks, altoChunks);
 
-  // ancla visual del edificio: un objeto por edificio en su chunk (t:"e" =
-  // estructura; el .glb real llegará por convención edificios/<tipo>_NN.glb,
-  // de momento el placeholder del cliente pintará una caja con la huella)
+  // ancla visual por edificio (t:"e" = estructura): el placeholder del
+  // cliente pintará una caja con la huella; el .glb real llegará por
+  // convención edificios/<tipo>_NN.glb con la MISMA rotación `ro`
   const objetosPorChunk = new Map();
   for (const ed of ciudad.edificios) {
-    const cxCh = Math.floor(ed.x / TAMANO_CHUNK), cyCh = Math.floor(ed.y / TAMANO_CHUNK);
+    const cxCh = Math.floor(ed.cx / TAMANO_CHUNK), cyCh = Math.floor(ed.cy / TAMANO_CHUNK);
     const clave = `${cxCh}_${cyCh}`;
     if (!objetosPorChunk.has(clave)) objetosPorChunk.set(clave, []);
     objetosPorChunk.get(clave).push({
-      i: ed.tipoEdificioId,
-      t: "e",
-      va: 0,
-      ro: 0,
-      es: 1,
-      x: ed.x - cxCh * TAMANO_CHUNK,
-      y: ed.y - cyCh * TAMANO_CHUNK,
-      w: ed.w,
-      h: ed.h,
+      i: ed.tipoEdificioId, t: "e", va: 0, ro: ed.rot, es: 1,
+      x: Math.floor(ed.cx) - cxCh * TAMANO_CHUNK,
+      y: Math.floor(ed.cy) - cyCh * TAMANO_CHUNK,
+      w: ed.w, h: ed.h,
     });
   }
 
-  const elevacionPlano = "a".repeat(TAMANO_CHUNK * TAMANO_CHUNK); // recinto llano
   for (let cy = 0; cy < altoChunks; cy++) {
     for (let cx = 0; cx < anchoChunks; cx++) {
-      const casillas = [];
+      const casillas = [], elev = [];
       for (let y = 0; y < TAMANO_CHUNK; y++)
-        for (let x = 0; x < TAMANO_CHUNK; x++)
-          casillas.push(terreno.get(cx * TAMANO_CHUNK + x, cy * TAMANO_CHUNK + y));
-      exportador.agregarChunk(cx, cy, TAMANO_CHUNK, casillas, objetosPorChunk.get(`${cx}_${cy}`) || [], [], elevacionPlano);
+        for (let x = 0; x < TAMANO_CHUNK; x++) {
+          const gx = cx * TAMANO_CHUNK + x, gy = cy * TAMANO_CHUNK + y;
+          casillas.push(terreno.get(gx, gy));
+          elev.push(elevacion[gy * ancho + gx].toString(36));
+        }
+      exportador.agregarChunk(cx, cy, TAMANO_CHUNK, casillas, objetosPorChunk.get(`${cx}_${cy}`) || [], [], elev.join(""));
     }
   }
 
@@ -75,11 +68,12 @@ function exportarCiudad(ciudad, carpetaSalida) {
     nombre: `${ciudad.tier}-${ciudad.semilla}`,
     semilla: ciudad.semilla,
     tier: ciudad.tier,
-    anchoChunks,
-    altoChunks,
-    tamanoChunk: TAMANO_CHUNK,
+    variante: ciudad.variante,
+    anchoChunks, altoChunks, tamanoChunk: TAMANO_CHUNK,
     ciudad: { x: ciudad.spawn.x, y: ciudad.spawn.y },
     portales: ciudad.portales,
+    muralla: { poligono: ciudad.poligonoMuralla.map((p) => [+p.x.toFixed(1), +p.y.toFixed(1)]), modulos: ciudad.modulosMuralla },
+    caminos: ciudad.caminos.map((r) => r.map((p) => [p.x, p.y])),
   });
 }
 
@@ -91,14 +85,15 @@ function exportarInteriores(ciudad, carpetaSalida) {
   }
 }
 
-// Vista cenital: colorDebug de cada terreno; los edificios se pintan por
-// riqueza (tejado) con su puerta marcada, y las puertas de muralla en claro.
+// Placeholder 2D: colorDebug de terrenos; edificios por riqueza (tejado) con
+// su puerta marcada; puertas de muralla en claro; sombreado sutil por altura.
 const COLOR_RIQUEZA = { humilde: "#8a6a4a", modesta: "#a3762e", noble: "#7a3e8a" };
 
 function exportarOverview(ciudad, carpetaSalida, terrenos, tiposEdificio, escala = 4) {
-  const { terreno, ancho, alto } = ciudad;
-  const rgba = Buffer.alloc(ancho * escala * alto * escala * 4); // Buffer: png.js usa .copy()
+  const { terreno, elevacion, ancho, alto } = ciudad;
+  const rgba = Buffer.alloc(ancho * escala * alto * escala * 4);
   const pinta = (x, y, [r, g, b]) => {
+    if (x < 0 || y < 0 || x >= ancho || y >= alto) return;
     for (let dy = 0; dy < escala; dy++)
       for (let dx = 0; dx < escala; dx++) {
         const i = ((y * escala + dy) * ancho * escala + x * escala + dx) * 4;
@@ -106,14 +101,18 @@ function exportarOverview(ciudad, carpetaSalida, terrenos, tiposEdificio, escala
       }
   };
   for (let y = 0; y < alto; y++)
-    for (let x = 0; x < ancho; x++)
-      pinta(x, y, hexRGB(terrenos[terreno.get(x, y)]?.colorDebug || "#ff00ff"));
+    for (let x = 0; x < ancho; x++) {
+      const [r, g, b] = hexRGB(terrenos[terreno.get(x, y)]?.colorDebug || "#ff00ff");
+      // luz por altura: el relieve se LEE en el placeholder (±14%)
+      const luz = 0.86 + (elevacion[y * ancho + x] / 35) * 0.28;
+      pinta(x, y, [Math.min(255, r * luz), Math.min(255, g * luz), Math.min(255, b * luz)]);
+    }
   for (const ed of ciudad.edificios) {
     const color = hexRGB(COLOR_RIQUEZA[tiposEdificio[ed.tipoEdificioId]?.riqueza] || "#a3762e");
-    for (let y = ed.y; y < ed.y + ed.h; y++) for (let x = ed.x; x < ed.x + ed.w; x++) pinta(x, y, color);
-    pinta(ed.puerta.x, ed.puerta.y - 1, [40, 24, 12]); // hueco de la puerta en la fachada
+    for (const [x, y] of ed.casillas) pinta(x, y, color);
+    pinta(ed.puerta.x, ed.puerta.y, [40, 24, 12]);
   }
-  for (const p of ciudad.puertas) pinta(p.x, p.y, [230, 210, 150]);
+  for (const p of ciudad.puertas) pinta(p.x, p.y, [235, 215, 150]);
   fs.writeFileSync(path.join(carpetaSalida, "overview.png"), codificarPNG(ancho * escala, alto * escala, rgba));
 }
 
@@ -142,10 +141,12 @@ if (require.main === module) {
   }
   const carpeta = salida || path.join(RAIZ, "ciudades", "output", `${tier}-${semilla}`);
   const ciudad = hornearCiudad(tier, semilla, carpeta);
+  const granjas = ciudad.edificios.filter((e) => e.granja).length;
   console.log(
-    `${tier} "${semilla}": ${ciudad.ancho}x${ciudad.alto} casillas, ${ciudad.edificios.length} edificios ` +
-    `(${ciudad.edificios.map((e) => e.tipoEdificioId).join(", ")})` +
+    `${tier} "${semilla}" (${ciudad.variante}): ${ciudad.ancho}x${ciudad.alto} casillas, ` +
+    `${ciudad.edificios.length - granjas} edificios intramuros + ${granjas} granjas, ` +
+    `${ciudad.puertas.length} puertas, ${ciudad.modulosMuralla.length} módulos de muralla` +
     (ciudad.descartados.length ? ` · sin sitio: ${ciudad.descartados.join(", ")}` : "")
   );
-  console.log(`-> ${carpeta} (sectores + ${ciudad.edificios.length} interiores + overview.png)`);
+  console.log(`-> ${carpeta}`);
 }
