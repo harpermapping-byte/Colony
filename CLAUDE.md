@@ -26,6 +26,7 @@ MMO RPG medieval **instanciado** (Hub persistente + instancias con tope de jugad
 4. **Optimizado para gratis**: typed arrays en bucles calientes, claves numéricas (no strings) en Sets consultados por casilla, instancing en cliente, solo cuesta lo cercano a jugadores activos.
 5. **Edición no destructiva** (interiores): `origen: "generado" | "modificado"` — regenerar NUNCA borra lo modificado a mano salvo `forzar: true`.
 6. **El muro no ocupa casilla** (interiores): `ancho x largo` de una sala es suelo caminable real; la puerta cae una fila más allá del rectángulo.
+7. **Las listas CRECEN, el código no** (pactado con el usuario): según avance el juego se meterán más props, NPCs, prendas, especies... y el camino normal para TODO contenido nuevo es añadir entradas de catálogo y regenerar — nunca tocar generadores ni cliente. Con esqueleto → `personajes/` (plantilla + entrada en `animales_rig.json`/`npcs.json`); sin esqueleto → `taller-vox/` (arquetipo si no existe + los catálogos del baker/interiores); ropa/armaduras/herramientas → `ropa/catalogo/`. Si un contenido nuevo no encaja en ningún arquetipo/plantilla, se añade UNA plantilla nueva y el resto sigue igual. Todo el arte actual es placeholder a sustituir más adelante (texturas de terreno incluidas) — la maquinaria no cambia al cambiar el arte.
 
 ## Reglas de trabajo con el usuario
 
