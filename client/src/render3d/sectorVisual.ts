@@ -22,10 +22,22 @@ import type { CategoriaAsset } from "./assetCatalog";
  * escena, que es gratis.
  */
 
-const CATEGORIA_POR_TIPO: Record<ObjetoBakeado["t"], CategoriaAsset> = {
+const CATEGORIA_POR_TIPO: Partial<Record<string, CategoriaAsset>> = {
   v: "vegetacion",
   r: "rocas",
   a: "animales",
+  // "e" (edificios de los mapas de ciudad) NO se instancia como prop: su
+  // volumen ya sale de las casillas solar_edificio extruidas (abajo). El
+  // .glb real de cada edificio entrará por aquí cuando exista.
+};
+
+// Terrenos urbanos SÓLIDOS de los mapas de ciudad (bakeador de ciudades):
+// se extruyen como cajas instanciadas — el "cubo sin techo" de verdad. La
+// altura es placeholder; los módulos .glb de muralla/edificio la traerán.
+const ALTURA_TERRENO_SOLIDO: Record<string, number> = {
+  empalizada: 1.7,
+  muralla_piedra: 2.6,
+  solar_edificio: 2.1,
 };
 
 // --- Agua translúcida con fondo visible (portado de la versión de mapa
@@ -108,6 +120,7 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
   ctxFondo.fillRect(0, 0, ancho, alto);
 
   const rangoElev = Math.max(1, ELEV_AGUA_MAX - ELEV_AGUA_MIN);
+  const solidosPorTipo = new Map<string, number[]>(); // terreno urbano -> [gx,gy,...]
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
     const baseX = cx * t - origenTileX;
@@ -115,6 +128,10 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
     for (let y = 0; y < chunk.tamano; y++) {
       for (let x = 0; x < chunk.tamano; x++) {
         const id = terrenoEn(chunk, indice.leyendaTerreno, x, y);
+        if (ALTURA_TERRENO_SOLIDO[id] !== undefined) {
+          if (!solidosPorTipo.has(id)) solidosPorTipo.set(id, []);
+          solidosPorTipo.get(id)!.push(origenTileX + baseX + x, origenTileY + baseY + y);
+        }
         const agua = AGUAS[id];
         if (!agua) {
           ctxSuelo.fillStyle = colorTerreno(id);
@@ -145,6 +162,27 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
   const planoSuelo = crearPlanoSector(suelo, ancho, alto, true);
   planoSuelo.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
   grupo.add(planoFondo, planoSuelo);
+
+  // extrusión de los sólidos urbanos: una InstancedMesh de cubos por tipo
+  // de terreno (muralla/empalizada/solar) — mismo coste que los props
+  const m = new THREE.Matrix4();
+  for (const [id, coords] of solidosPorTipo) {
+    const altura = ALTURA_TERRENO_SOLIDO[id];
+    const n = coords.length / 2;
+    const malla = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1, altura, 1),
+      new THREE.MeshStandardMaterial({ color: colorTerreno(id), roughness: 0.95, metalness: 0 }),
+      n,
+    );
+    for (let i = 0; i < n; i++) {
+      m.makeTranslation(coords[i * 2] + 0.5, altura / 2, coords[i * 2 + 1] + 0.5);
+      malla.setMatrixAt(i, m);
+    }
+    malla.castShadow = true;
+    malla.receiveShadow = true;
+    malla.userData.propioDelSector = true;
+    grupo.add(malla);
+  }
   return grupo;
 }
 
@@ -159,6 +197,9 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
     for (const obj of chunk.objetos) {
+      // tipos sin categoría de asset (p.ej. "e", edificios de ciudad) no se
+      // instancian: su volumen ya lo ponen las casillas sólidas extruidas
+      if (!CATEGORIA_POR_TIPO[obj.t]) continue;
       const claveGrupo = `${obj.t}:${obj.i}`;
       if (!grupos.has(claveGrupo)) grupos.set(claveGrupo, { tipo: obj.t, id: obj.i, objetos: [] });
       grupos.get(claveGrupo)!.objetos.push({
@@ -175,7 +216,7 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
     [...grupos.values()].map(async (grupo) => {
       // ¿.glb real de la especie? La sonda va cacheada por URL en
       // entityLoader, así que preguntarlo por cada sector es gratis.
-      const plantilla = await obtenerPlantilla(CATEGORIA_POR_TIPO[grupo.tipo], grupo.id, { tipo: "numerada", indice: 0 });
+      const plantilla = await obtenerPlantilla(CATEGORIA_POR_TIPO[grupo.tipo]!, grupo.id, { tipo: "numerada", indice: 0 });
 
       if (plantilla) {
         for (const { globalX, globalY, obj } of grupo.objetos) {
