@@ -311,6 +311,17 @@ todo funcionando de punta a punta sin ningún paso manual entre bakeadores.
 Regresión completa en verde (server 37/37, interiores 32/32, ciudades
 8/8, tsc limpio en server y cliente).
 
+Pendiente: los POI "decorativo" (ruinas medianas/grandes, altares, pozos,
+círculos de piedra, campos de dunas, campamentos de paso...) TODAVÍA no
+tienen ninguna estética propia — siguen siendo el marcador invisible de
+siempre, sin ningún prop en el mapa. No hay catálogo de "estructuras
+decorativas" en `baker/` (solo `rocas.json`/`vegetacion.json`, pensados
+para dispersión natural, no para un clúster con forma reconocible tipo
+"círculo de piedras" o "pozo"); habría que decidir con el usuario si esos
+props salen de un catálogo nuevo (`baker/catalogo/estructuras.json`) o de
+extender `ciudades/catalogo/decoracion.json` para reutilizarlo fuera de
+las murallas.
+
 Pendiente: estética distinta por FACCIÓN/tema dentro de una misma
 categoría (hoy un `campamento_hostil` "edificio" usa el mismo
 `tipoEdificioId` tanto para `guarida_bandidos` como para
