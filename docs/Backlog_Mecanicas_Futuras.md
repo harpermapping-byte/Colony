@@ -171,6 +171,20 @@ Ya está decidido que cuando el streamer está en directo, eventos de Twitch (su
 
 Ya está decidido que hay una ciudad neutral y una ciudad enemiga en el mapa. Falta diseñar reputación, conflicto entre ambas, y si el jugador puede elegir bando o interactuar con la facción enemiga de alguna forma.
 
+## Ideas propias para profundidad/diversión del MMO (propuestas, no decisiones)
+
+Ya no son mecánicas de personaje sueltas, sino cosas a nivel de servidor/comunidad que dan una razón para quedarse jugando — pensadas para enganchar con lo que ya está decidido (Modo Live, NPCs Gobernadores, facciones, construcción):
+
+- **Bosses de mundo abierto, no solo en mazmorra**: aparecen en el mapa exterior con aviso previo, necesitan varios jugadores a la vez, loot único — el momento "todo el chat corre hacia el mismo sitio".
+- **Eventos dinámicos si nadie interviene**: una mazmorra sin limpiar mucho tiempo "se derrama" (enemigos aparecen cerca de su entrada, o migran), una aldea sin defender puede acabar asediada por la hostil — el mundo reacciona a la inacción, no solo a la acción del jugador.
+- **Progresión visible de la propia aldea/parcela**: si el jugador prospera, su construcción sube de tier de verdad (más edificios, mercaderes que se instalan solos) — le da un objetivo a largo plazo a construcción, que hoy es solo "poner cosas".
+- **Rutas comerciales entre aldeas con riesgo real**: escoltar una caravana de mercancía de un pueblo a otro, con posibilidad de asalto de bandidos — mezcla economía + PvE + cooperación en una sola mecánica.
+- **Modo Live con efecto PERSISTENTE, no solo temporal**: además de los efectos temporales ya decididos (clima, spawns, hordas), que algunos eventos grandes de Twitch generen algo que se queda para siempre (una donación grande desbloquea una mazmorra nueva permanente en el mapa) en vez de solo un buff de 10 minutos — que el directo deje huella real en el mundo.
+- **Contratos dinámicos según la economía del pueblo**, no misiones fijas: si falta madera, un NPC pide leñadores con recompensa; si sobra, baja el precio solo — le da a los NPCs Gobernadores con IA (ya decididos) algo concreto que ofrecer.
+- **Niebla de guerra COMPARTIDA por servidor**: el mapa se revela según lo exploran entre todos, no cada jugador por separado — fomenta que alguien explore para el resto.
+- **Minijuego de oficio, no menú de crafteo**: herrería con timing (golpear en el momento justo), pesca con tensión de caña — el crafteo se vuelve una habilidad que se nota, no un clic.
+- **"Leyenda viva" del servidor**: quien mate un boss único o logre algo raro queda registrado (un NPC Gobernador lo menciona, una estatua/placa en la ciudad) — la comunidad se entera de las hazañas del resto sin salir del juego.
+
 ## Cono/campo de visión real en interiores — concepto para más adelante, no para el bakeador
 
 Al bocetar el bakeador de interiores salió la idea de un cono de visión calculado geométricamente (qué parte de una sala contigua ve el jugador a través de un hueco de puerta, recortado a la silueta real de la abertura en proyección isométrica). Confirmado explícitamente: **esto no es tarea del bakeador** — el bakeador solo genera la estructura estática (salas, paredes, huecos, mobiliario). El campo de visión es cálculo en vivo del cliente/servidor de juego, ligado a posición y orientación del jugador en cada instante, así que pertenece a la fase de "servidor en vivo" (como el clima o las sombras en exteriores). Apuntado aquí para no perder la idea ni el porqué (en proyección en paralelo/isométrica sin fuga de perspectiva, la silueta de lo visible a través de un hueco es idéntica a la silueta del propio hueco, sea cual sea la profundidad — más simple de calcular que en perspectiva real).
