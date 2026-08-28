@@ -70,6 +70,8 @@ Recetas combinando categorías de recurso ya existentes (carne, pescado, plantas
 
 Planos/blueprints, materiales requeridos, niveles de mejora de una construcción, quién puede construir dónde (ligado a permisos de parcela).
 
+**Nota 2026-08-28**: `taller-vox/generar_edificio.js` ya tiene el EJE DE VARIEDAD del nivel (`nivel` 1/2/3 en `generarEdificio`, escala plantas + densidad de decoración de una CASA) — pedido explícito del streamer ("casa1, casa mejora2, casa mejora3") para sacar más combinaciones visuales del generador. Sigue faltando aquí, sin diseñar: qué desbloquea la subida de nivel (tiempo/dinero/recursos), quién la paga, y el enganche real con el sistema de construcción/parcelas — hoy el nivel es solo un parámetro que alguien tendría que pasarle al generador, nada en el juego lo decide todavía.
+
 ## Sistema de personaje — esqueleto de estadísticas ya estructurado, valores/fórmulas sin cerrar
 
 Primer boceto de qué estadísticas tiene un jugador (el streamer las dio, aquí solo se ordenan). Recordar el principio ya fijado: inventario y equipo son autoritativos en servidor, el cliente solo predice/muestra (ver conversación de arquitectura general).

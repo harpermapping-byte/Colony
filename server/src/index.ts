@@ -42,7 +42,9 @@ httpServer.listen(port, () => {
 // (sin 3D, ver economiaAsentamientos.ts), corre exista o no un jugador
 // conectado — un asentamiento sigue produciendo/gastando aunque nadie lo
 // esté mirando, igual que el reloj de mundo.
-const INTERVALO_TICK_ECONOMIA_MS = 10 * 60 * 1000; // cada 10 min reales
+// TICK_ECONOMIA_MS: override SOLO para tests/depuración (un E2E real no
+// puede esperar 10 min reales por pulso) — mismo criterio que HORA_FORZADA.
+const INTERVALO_TICK_ECONOMIA_MS = Number(process.env.TICK_ECONOMIA_MS) || 10 * 60 * 1000; // cada 10 min reales
 crearAlmacenDatos().then((bd) => {
   setInterval(() => {
     ejecutarTickEconomia(bd).catch((err) => console.error("Tick de economía de la facción bandida falló:", err));

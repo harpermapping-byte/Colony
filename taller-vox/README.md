@@ -54,13 +54,49 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   el castillo). Siempre orientado con la puerta hacia -Z; la rotación real
   en el mapa la pone `ro` al colocar el prop, igual que el resto. Mismo
   formato `{grid,paleta,cajas}` — lo exporta `exportar_glb.js` tal cual.
-  Determinista por `tipoId|NN`; `node --test test_edificio.js` (21 tests).
+  Determinista por `tipoId|NN`; `node --test test_edificio.js` (26 tests).
   Acepta además un `plan` de suelo por instancia (tercera arg de
   `generarEdificio`): con plan no tira dados de forma — usa el w/h real y
   las alas L/T/U exactas que decidió `ciudades/`, con su semillaInterior.
+
+  **Pase de "que se parezcan a una casa Tudor de verdad" (2026-08-28,**
+  **referencias visuales del streamer)**: el entramado de madera
+  (`entramadoTudor`) ya no es un simple marco rectangular — lleva riostras
+  diagonales en las esquinas de cada paño (`riostrasDiagonales`, escalón de
+  1 vóxel) y ya no es exclusivo de la casa noble con voladizo: cualquier
+  planta alta de un edificio de madera no humilde lo enseña (`opciones.tudor`
+  decidido por el arquetipo), y posada/taberna SIEMPRE lo llevan sea cual
+  sea su riqueza. Nuevo: ménsulas/corbeles bajo cada voladizo
+  (`corbelesVoladizo`, antes solo una línea recta), jardineras de flores
+  bajo una parte de las ventanas de casas modesta/noble
+  (`jardineraBajoVentana`, `probJardinera`), y variedad real de color de
+  teja/pizarra por semilla (`TEJAS`/`PIZARRAS`, antes un único tono fijo
+  para todo el mapa). Densidad de ventanas bajada (antes una fachada ancha
+  salía casi toda de cristal, ahora se nota más la madera vista — más
+  fiel a la referencia). **Bug real arreglado**: un balcón podía dibujarse
+  encima de una ventana ya pintada en la misma (planta,cara) sin
+  comprobación alguna — `ventanasEnFachada` ahora devuelve sus huecos
+  ocupados y el balcón los consulta antes de colocarse (reintenta hasta 6
+  veces con otra combinación, se pierde ese balcón en vez de solaparse).
+
+  **Nuevo eje de variedad: `nivel` (1/2/3)** — cuarto argumento opcional de
+  `generarEdificio(tipoId, nn, plan, nivel)`, retrocompatible al 100% (sin
+  pasarlo, comportamiento idéntico a siempre). Escala nº de plantas
+  (nivel 1 = mínimo del rango, 3 = máximo) y densidad de decoración
+  (porche/balcón/chimenea/jardinera) en CASA — la riqueza sigue decidiendo
+  QUÉ es posible (tudor, balcón...), nivel solo cuánto sale. Pensado como
+  el eje "casa nivel 1 / mejora 2 / mejora 3" que el streamer quiere para
+  una futura progresión por tiempo/dinero — **el enganche de juego (qué
+  desbloquea el nivel, cuándo sube) no existe todavía, sin diseñar, ver
+  `docs/Backlog_Mecanicas_Futuras.md`**; esto solo construye el eje de
+  variedad del generador. `generarTodo(soloPrueba, conNiveles)` multiplica
+  por los 3 niveles cuando `conNiveles=true` sin tocar el modo de siempre.
+  `node prueba_render_niveles.js` — galería SVG de verificación específica
+  de este pase (casas en varios niveles + posada/taberna/molino).
   ```bash
   node generar_edificio.js          # 1 edificio de ejemplo por arquetipo (10)
   node generar_edificio.js todo     # los ~41 tipos del catálogo (producción: lo corre el usuario)
+  node generar_edificio.js niveles  # subconjunto de prueba × 3 niveles (90 modelos)
   node prueba_render_edificios.js   # galería SVG en output/ para revisar formas
   ```
 - **`generar_edificios_ciudad.js`** — puente con `ciudades/`: lee la clave

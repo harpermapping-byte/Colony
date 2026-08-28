@@ -177,6 +177,57 @@ test("plan de suelo: plantasAltas del plan manda sobre la tirada (encaje con el 
   assert.ok(altura(con2) > altura(con0), "más plantas en el plan debería dar un modelo más alto");
 });
 
+// --- nivel de mejora (1/2/3) --------------------------------------------
+
+test("nivel: sin pasar el argumento, el resultado es idéntico al de siempre (retrocompatible)", () => {
+  const a = generarEdificio("casa_noble", 5);
+  const b = generarEdificio("casa_noble", 5, null, null);
+  assert.deepStrictEqual(a.cajas, b.cajas);
+  assert.strictEqual(a.nivel, null);
+});
+
+test("nivel: nivel 3 da un edificio con más plantas (o igual) y nunca MENOS cajas que nivel 1", () => {
+  const alturaDe = (m) => Math.max(...m.cajas.map((c) => Math.max(c[1], c[4])));
+  for (let n = 1; n <= 10; n++) {
+    const n1 = generarEdificio("casa_noble", n, null, 1);
+    const n3 = generarEdificio("casa_noble", n, null, 3);
+    assert.ok(alturaDe(n3) >= alturaDe(n1), `semilla ${n}: nivel 3 más bajo que nivel 1`);
+    assert.ok(n3.cajas.length >= n1.cajas.length, `semilla ${n}: nivel 3 con menos cajas que nivel 1`);
+  }
+});
+
+test("nivel: no rompe ningún tipoEdificio del catálogo en ninguno de los 3 niveles", () => {
+  for (const tipoId of TODOS_LOS_TIPOS) {
+    for (const nivel of [1, 2, 3]) {
+      const m = generarEdificio(tipoId, 1, null, nivel);
+      assert.ok(m.cajas.length > 0, `${tipoId} nivel ${nivel} generó 0 cajas`);
+    }
+  }
+});
+
+test("generarTodo con conNiveles=true multiplica por 3 sin tocar el modo normal (30 sigue siendo 30)", () => {
+  const normal = generarTodo(true);
+  assert.strictEqual(Object.keys(normal.resultado).length, 30);
+  const conNiveles = generarTodo(true, true);
+  assert.strictEqual(Object.keys(conNiveles.resultado).length, 90);
+});
+
+test("entramado Tudor ya no es exclusivo de casa_noble con voladizo: aparece también en casas modestas de madera", () => {
+  let vistoEnModesta = false;
+  for (let n = 1; n <= 30 && !vistoEnModesta; n++) {
+    const m = generarEdificio("casa_modesta", n);
+    if (m.material === "madera") {
+      // el color de viga del entramado (MADERA_OSCURA) ya se usaba para el
+      // marco de puertas/ventanas, así que buscamos algo más específico:
+      // suficientes cajas del color de viga como para ser un entramado real,
+      // no solo el marco de una puerta/ventana suelta.
+      const nVigas = m.cajas.filter((c) => m.paleta[c[6]] === MADERA_CLARA || m.paleta[c[6]] === "#5a4326").length;
+      if (nVigas > 15) vistoEnModesta = true;
+    }
+  }
+  assert.ok(vistoEnModesta, "ninguna casa_modesta de madera en 30 semillas mostró entramado real");
+});
+
 test("greedy meshing: cada cara expuesta queda cubierta exactamente una vez (área fusionada = área original)", () => {
   const { expandirVoxeles, mallarVoxeles } = require("./exportar_glb");
   const m = generarEdificio("casa_humilde", 3);
