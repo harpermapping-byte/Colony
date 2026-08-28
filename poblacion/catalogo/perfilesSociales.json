@@ -1,0 +1,69 @@
+{
+  "_nota": "Fase 3 (GDD_Poblacion_NPCs.md): plantillas de rutina diaria — para que no todos los NPC hagan lo mismo ('ortopédico'). Cada perfil es una lista ORDENADA de tramos {lugar, accion, horaInicio, horaFin} en hora de juego 0-24 (puede cruzar medianoche, ver generarRutina.js). 'lugar': casa|trabajo|taberna|plaza|campo — se resuelve a coordenadas reales en generarRutina.js según dónde vive/trabaja CADA NPC y qué hay en SU asentamiento. 'requiereTrabajo':true solo se asigna a NPCs con .trabajo (Fase 2); 'soloHijos':true solo a rolFamiliar==='hijo'. 'peso' para el sorteo entre los perfiles compatibles. PLACEHOLDER: 'campo' no tiene ubicación propia todavía (ver 'Qué falta') — se resuelve a un punto junto a la puerta de casa.",
+  "trabajador": {
+    "peso": 4,
+    "requiereTrabajo": true,
+    "tramos": [
+      { "lugar": "casa", "accion": "dormir", "horaInicio": 22, "horaFin": 6 },
+      { "lugar": "trabajo", "accion": "trabajar", "horaInicio": 7, "horaFin": 18 },
+      { "lugar": "casa", "accion": "comer", "horaInicio": 18, "horaFin": 19 },
+      { "lugar": "casa", "accion": "socializar", "horaInicio": 19, "horaFin": 22 }
+    ]
+  },
+  "sociable": {
+    "peso": 3,
+    "requiereTrabajo": true,
+    "tramos": [
+      { "lugar": "casa", "accion": "dormir", "horaInicio": 23, "horaFin": 7 },
+      { "lugar": "trabajo", "accion": "trabajar", "horaInicio": 8, "horaFin": 17 },
+      { "lugar": "taberna", "accion": "socializar", "horaInicio": 17, "horaFin": 22 },
+      { "lugar": "casa", "accion": "comer", "horaInicio": 22, "horaFin": 23 }
+    ]
+  },
+  "aparenta_trabajar": {
+    "peso": 1,
+    "requiereTrabajo": true,
+    "tramos": [
+      { "lugar": "casa", "accion": "dormir", "horaInicio": 23, "horaFin": 8 },
+      { "lugar": "trabajo", "accion": "trabajar", "horaInicio": 9, "horaFin": 12 },
+      { "lugar": "plaza", "accion": "pasear", "horaInicio": 12, "horaFin": 15 },
+      { "lugar": "trabajo", "accion": "trabajar", "horaInicio": 15, "horaFin": 17 },
+      { "lugar": "casa", "accion": "comer", "horaInicio": 17, "horaFin": 18 },
+      { "lugar": "taberna", "accion": "socializar", "horaInicio": 18, "horaFin": 23 }
+    ]
+  },
+  "granjero": {
+    "peso": 3,
+    "requiereTrabajo": false,
+    "tramos": [
+      { "lugar": "casa", "accion": "dormir", "horaInicio": 21, "horaFin": 5 },
+      { "lugar": "campo", "accion": "trabajar", "horaInicio": 5, "horaFin": 13 },
+      { "lugar": "casa", "accion": "comer", "horaInicio": 13, "horaFin": 14 },
+      { "lugar": "campo", "accion": "trabajar", "horaInicio": 14, "horaFin": 18 },
+      { "lugar": "casa", "accion": "socializar", "horaInicio": 18, "horaFin": 21 }
+    ]
+  },
+  "ocioso": {
+    "peso": 1,
+    "requiereTrabajo": false,
+    "tramos": [
+      { "lugar": "casa", "accion": "dormir", "horaInicio": 23, "horaFin": 8 },
+      { "lugar": "plaza", "accion": "pasear", "horaInicio": 8, "horaFin": 12 },
+      { "lugar": "taberna", "accion": "socializar", "horaInicio": 12, "horaFin": 18 },
+      { "lugar": "casa", "accion": "comer", "horaInicio": 18, "horaFin": 19 },
+      { "lugar": "plaza", "accion": "pasear", "horaInicio": 19, "horaFin": 23 }
+    ]
+  },
+  "infantil": {
+    "peso": 1,
+    "requiereTrabajo": false,
+    "soloHijos": true,
+    "tramos": [
+      { "lugar": "casa", "accion": "dormir", "horaInicio": 21, "horaFin": 7 },
+      { "lugar": "plaza", "accion": "socializar", "horaInicio": 7, "horaFin": 13 },
+      { "lugar": "casa", "accion": "comer", "horaInicio": 13, "horaFin": 14 },
+      { "lugar": "plaza", "accion": "socializar", "horaInicio": 14, "horaFin": 20 },
+      { "lugar": "casa", "accion": "comer", "horaInicio": 20, "horaFin": 21 }
+    ]
+  }
+}
