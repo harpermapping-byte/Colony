@@ -56,6 +56,7 @@ const GROSOR_PARED = 0.12;
 const COLOR_PARED = "#b0a48c";
 const ALTO_CONECTOR = 0.9;
 const COLOR_CONECTOR = "#c9a227"; // distinto de cualquier mueble: es un portal, no decoración
+const COLOR_PASILLO = "#9c8f74"; // suelo del hueco de 1 casilla entre puertas — sin esto se veía un agujero sin suelo
 
 export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE.Group {
   const grupo = new THREE.Group();
@@ -100,6 +101,20 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE
       caja.position.set(offsetX + item.x + item.ancho / 2, ALTO_MUEBLE / 2, offsetY + item.y + item.largo / 2);
       grupo.add(caja);
     }
+  }
+
+  // Suelo de cada puerta de conexión: el hueco entre dos salas (o entre una
+  // sala y el pasillo) es de 1 casilla — colocarSala.puerta cae justo AHÍ,
+  // fuera del rectángulo de cualquier sala, así que ningún `suelo` de la
+  // sala lo pintaba: se veía un agujero sin piso entre las dos habitaciones
+  // en vez de un pasillito real (bug visual reportado). La colisión del
+  // servidor ya despejaba esa casilla y sus 4 vecinas (interiorColision.ts)
+  // — aquí solo falta el plano que se ve.
+  const matPasillo = new THREE.MeshStandardMaterial({ color: COLOR_PASILLO, roughness: 0.95, metalness: 0 });
+  for (const puerta of puertas) {
+    const suelo = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 1), matPasillo);
+    suelo.position.set(puerta.x + 0.5, -0.05, puerta.y + 0.5);
+    grupo.add(suelo);
   }
 
   // Escaleras/trampillas que tocan esta planta — mismo cálculo de "a qué

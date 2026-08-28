@@ -46,16 +46,28 @@ function exportarCiudad(ciudad, carpetaSalida) {
     objetosPorChunk.get(clave).push({ ...objeto, x: Math.floor(gx) - cxCh * TAMANO_CHUNK, y: Math.floor(gy) - cyCh * TAMANO_CHUNK });
   };
   for (const ed of ciudad.edificios) {
-    // dx/dy: parte fraccionaria del centro real (ed.cx/cy), que el redondeo
-    // a casilla entera de meterObjeto pierde — sin esto la caja 3D del
-    // cliente podía quedar hasta ~0.7 casillas desplazada de la huella
-    // "solar_edificio" real del terreno (bug visual reportado). Solo hace
-    // falta en edificios: el resto de props (árboles/deco) no necesitan
-    // precisión sub-casilla, un tronco medio metro desplazado no se nota.
-    meterObjeto(ed.cx, ed.cy, {
-      i: ed.tipoEdificioId, t: "e", va: 0, ro: ed.rot, es: 1, w: ed.w, h: ed.h,
-      dx: ed.cx - Math.floor(ed.cx), dy: ed.cy - Math.floor(ed.cy),
-    });
+    // UNA caja por PIEZA (cuerpo + cada ala en L/T/U), no una sola por
+    // edificio — con una sola caja del tamaño del cuerpo, un edificio en L
+    // dejaba el ala entera fuera de la caja: se veía el terreno
+    // "solar_edificio" (tierra sucia) asomando donde el ala ocupaba
+    // terreno pero no había caja encima (bug visual reportado). Misma
+    // rotación de pieza-a-mundo que generar.js:rasterizarPiezas, para que
+    // cada caja caiga EXACTO sobre el hueco que esa pieza rasterizó.
+    const angulo = (ed.rot * Math.PI) / 180;
+    const cosA = Math.cos(angulo), sinA = Math.sin(angulo);
+    for (const p of ed.piezas) {
+      const wx = ed.cx + p.ox * cosA - p.oy * sinA;
+      const wy = ed.cy + p.oy * cosA + p.ox * sinA;
+      // dx/dy: parte fraccionaria del centro real, que el redondeo a
+      // casilla entera de meterObjeto pierde — sin esto la caja 3D del
+      // cliente podía quedar hasta ~0.7 casillas desplazada de la huella
+      // real del terreno. Solo hace falta en edificios: el resto de props
+      // (árboles/deco) no necesitan precisión sub-casilla.
+      meterObjeto(wx, wy, {
+        i: ed.tipoEdificioId, t: "e", va: 0, ro: ed.rot, es: 1, w: p.w, h: p.h,
+        dx: wx - Math.floor(wx), dy: wy - Math.floor(wy),
+      });
+    }
   }
   // capa de vegetación: árboles/arbustos como vegetación normal del baker
   // (el cliente ya los instancia; la colisión la decide su catálogo)
