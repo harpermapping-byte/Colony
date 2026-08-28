@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const tiposEdificio = require("../interiores/catalogo/tipos_edificio.json");
-const { generarEdificio, clasificarEdificio, ARQUETIPO_FN, POR_ARQUETIPO, generarTodo, U, elegirTecho } = require("./generar_edificio");
+const { generarEdificio, clasificarEdificio, ARQUETIPO_FN, POR_ARQUETIPO, generarTodo, U, PAD, MADERA_CLARA, elegirTecho, ESTILOS_VENTANA } = require("./generar_edificio");
 
 const TODOS_LOS_TIPOS = Object.keys(tiposEdificio).filter((id) => !id.startsWith("_"));
 
@@ -99,4 +99,36 @@ test("el ala en L, cuando sale, se fusiona sin romper la geometría (más cajas,
 
 test("elegirTecho: adobe da un tejado propio, no paja ni pizarra", () => {
   assert.notStrictEqual(elegirTecho("adobe", "humilde"), undefined);
+});
+
+test("TODOS los edificios llevan puerta sí o sí (hoja en la fachada sur, planta baja)", () => {
+  // la hoja de la puerta siempre cae en z0=z1=PAD-1, y0=0 — invariante de
+  // puertaEnFachada(pisos[0]/planta0) en TODOS los arquetipos, con o sin ala/elongación
+  for (const tipoId of TODOS_LOS_TIPOS) {
+    const m = generarEdificio(tipoId, 1);
+    const idxHoja = m.paleta.indexOf(MADERA_CLARA);
+    assert.ok(idxHoja !== -1, `${tipoId}: ni siquiera aparece el color de la hoja de puerta`);
+    const tienePuerta = m.cajas.some(([x0, y0, z0, x1, y1, z1, p]) => p === idxHoja && y0 === 0 && z0 === PAD - 1 && z1 === PAD - 1);
+    assert.ok(tienePuerta, `${tipoId}: no se encontró la hoja de la puerta en la posición esperada`);
+  }
+});
+
+test("10 estilos de ventana reales: una muestra de semillas los toca casi todos", () => {
+  const vistos = new Set();
+  for (let n = 1; n <= 40; n++) vistos.add(generarEdificio("casa_noble", n).estiloVentana);
+  assert.ok(vistos.size >= 6, `solo ${vistos.size} estilos distintos de ${ESTILOS_VENTANA.length} en 40 semillas`);
+  for (const estilo of vistos) assert.ok(ESTILOS_VENTANA.includes(estilo));
+});
+
+test("variedad estructural en casas ricas: porche/balcón/retranqueo cambian el nº de cajas entre semillas", () => {
+  const conteos = new Set();
+  for (let n = 1; n <= 15; n++) conteos.add(generarEdificio("casa_noble", n).cajas.length);
+  assert.ok(conteos.size >= 5, `casa_noble apenas varía en cajas entre semillas (${conteos.size} valores distintos) — ¿balcón/porche/retranqueo no se están aplicando?`);
+});
+
+test("densidad de ventanas variable: no todas las variantes tienen la misma cantidad de huecos", () => {
+  const contarVentanas = (m) => m.cajas.filter(([, , , , , , p]) => m.paleta[p] === "#bcdff0").length; // CRISTAL
+  const conteos = new Set();
+  for (let n = 1; n <= 15; n++) conteos.add(contarVentanas(generarEdificio("taberna", n)));
+  assert.ok(conteos.size >= 3, `la densidad de ventanas casi no varía (${conteos.size} valores distintos)`);
 });
