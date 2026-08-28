@@ -271,11 +271,17 @@ SQLite local (`node:sqlite`) para desarrollo/tests, Postgres (Neon free
 tier) en producción, elegido automáticamente por `DATABASE_URL`, mismo
 contrato async en los dos. Usado hoy por el sistema de Construcción
 (`docs/GDD_Construccion.md`) con escritura al cambiar, nunca por tick.
-⚠️ Sin verificar en un proceso Node real desplegado: el servicio de Render
-lleva revisiones fallando porque su runtime está configurado como Docker
-en el panel en vez de Node (aunque `render.yaml` ya declara Node
-correctamente) — hay que arreglarlo desde el dashboard de Render, no es
-algo que se resuelva tocando el repo.
+✅ Desplegado y VIVO (2026-08-28): el servicio bueno es **`colony-server`**
+(runtime Node, Frankfurt, free) en `https://colony-server.onrender.com`,
+con auto-deploy en cada push a main — Render no permite cambiar el runtime
+de un servicio ya creado, así que el servicio viejo "Colony" (Docker, URL
+`secret-1-secz`) quedó obsoleto y hay que suspenderlo/borrarlo desde su
+dashboard para no quemar minutos de build. El cliente
+(`client/src/config.ts`) apunta solo: `VITE_COLYSEUS_URL` manda si existe;
+sin ella, localhost en desarrollo y `wss://colony-server.onrender.com` en
+producción (Vercel funciona sin configurar nada en su dashboard). Ojo free
+tier: el proceso DUERME tras ~15 min sin tráfico y la primera conexión
+tarda ~50 s en despertarlo — esperado, no es un fallo.
 
 ### 5.8 Vivienda: constructor/decorador de interiores para jugadores (pedido por el usuario)
 
