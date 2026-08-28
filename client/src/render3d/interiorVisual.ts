@@ -10,6 +10,7 @@
  */
 import * as THREE from "three";
 import { cargarInstanciaEntidad } from "./entityLoader";
+import { obtenerTextura } from "./texturaLoader";
 
 interface ElementoColocado {
   id: string;
@@ -35,6 +36,11 @@ interface SalaInterior {
     ancho: number;
     largo: number;
     colocados: ElementoColocado[];
+    // id de interiores/catalogo/materiales.json (madera/piedra/adobe...) que
+    // ya decide colocarElementos.js — docs/GDD_Bakeador_Texturas.md engancha
+    // aquí la textura real cuando exista; sin ella sigue el color plano.
+    materialSuelo?: string;
+    materialPared?: string;
   };
 }
 
@@ -82,19 +88,34 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE
   const puertas = planta?.puertasConexion ?? [];
   const esPuerta = (x: number, y: number) => puertas.some((p) => p.x === x && p.y === y);
 
-  const matPared = new THREE.MeshStandardMaterial({ color: COLOR_PARED, roughness: 0.95, metalness: 0 });
   const geoParedH = new THREE.BoxGeometry(1, ALTO_PARED, GROSOR_PARED);
   const geoParedV = new THREE.BoxGeometry(GROSOR_PARED, ALTO_PARED, 1);
+  // Un material de pared por id de interiores/catalogo/materiales.json (no
+  // uno global): antes TODA pared del edificio compartía el mismo color
+  // plano sin mirar qué material había decidido colocarElementos.js para
+  // esa sala en concreto. Cacheado por id — varias salas con el mismo
+  // material (típico: la mayoría de "madera") comparten instancia.
+  const matParedPorMaterial = new Map<string, THREE.MeshStandardMaterial>();
+  function materialParedDe(materialId: string | undefined): THREE.MeshStandardMaterial {
+    const clave = materialId ?? "_defecto";
+    let mat = matParedPorMaterial.get(clave);
+    if (!mat) {
+      mat = new THREE.MeshStandardMaterial({ color: COLOR_PARED, roughness: 0.95, metalness: 0 });
+      matParedPorMaterial.set(clave, mat);
+      if (materialId) aplicarTexturaCuandoExista("materiales", materialId, mat, 1, ALTO_PARED);
+    }
+    return mat;
+  }
 
   for (const sala of salas) {
     const { offsetX, offsetY, resultado } = sala;
-    const suelo = new THREE.Mesh(
-      new THREE.BoxGeometry(resultado.ancho, 0.1, resultado.largo),
-      new THREE.MeshStandardMaterial({ color: colorDeSala(sala.tipoSalaId), roughness: 0.95, metalness: 0 }),
-    );
+    const matSuelo = new THREE.MeshStandardMaterial({ color: colorDeSala(sala.tipoSalaId), roughness: 0.95, metalness: 0 });
+    if (resultado.materialSuelo) aplicarTexturaCuandoExista("materiales", resultado.materialSuelo, matSuelo, resultado.ancho, resultado.largo);
+    const suelo = new THREE.Mesh(new THREE.BoxGeometry(resultado.ancho, 0.1, resultado.largo), matSuelo);
     suelo.position.set(offsetX + resultado.ancho / 2, -0.05, offsetY + resultado.largo / 2);
     grupo.add(suelo);
 
+    const matPared = materialParedDe(resultado.materialPared);
     // Paredes casilla a casilla, con hueco donde haya una puerta de
     // conexión real (interiores/src/edificio.js) — norte nunca la tiene
     // (las salas de una fila se alinean por el muro sur, GDD_Sistema_Puertas).
@@ -167,6 +188,37 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE
   }
 
   return grupo;
+}
+
+// Píxeles de patrón por casilla de mundo (docs/GDD_Bakeador_Texturas.md,
+// resolución 128 por defecto) — determina cuántas veces se repite la
+// textura a lo ancho/alto de la superficie real, para que no salga
+// estirada ni demasiado apretada.
+const REPETICIONES_POR_CASILLA = 1;
+
+// Si assets/materiales/<id>_01.png existe, lo cuelga como `map` del
+// material YA CREADO (mutación in-place: el material puede llevar rato
+// pintado con su color plano de siempre, esto solo lo mejora cuando
+// resuelve) — nunca bloquea ni sustituye el fallback si el .png no existe
+// todavía (obtenerTextura ya cae a null sola). Clona SIEMPRE la textura
+// cacheada antes de tocar `repeat`: es la plantilla compartida de
+// texturaLoader, tocarla directamente rompería el repeat de cualquier
+// otra superficie que la esté usando con otro tamaño.
+function aplicarTexturaCuandoExista(
+  categoria: "materiales" | "terrenos",
+  id: string,
+  material: THREE.MeshStandardMaterial,
+  anchoMundo: number,
+  altoMundo: number,
+) {
+  obtenerTextura(categoria, id, { tipo: "numerada", indice: 0 }).then((textura) => {
+    if (!textura) return;
+    const propia = textura.clone();
+    propia.needsUpdate = true;
+    propia.repeat.set(anchoMundo * REPETICIONES_POR_CASILLA, altoMundo * REPETICIONES_POR_CASILLA);
+    material.map = propia;
+    material.needsUpdate = true;
+  });
 }
 
 function añadirSiNoEsPuerta(
