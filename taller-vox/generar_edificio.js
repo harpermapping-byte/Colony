@@ -37,15 +37,29 @@ const MADERA_OSCURA = "#5a4326"; // mismo tono que cartel_poste/valla_madera de 
 const MADERA_CLARA = "#6a4a26"; // mismo tono que amarradero/antorcha_poste
 const CRISTAL = materiales.cristal?.colorDebug || "#bcdff0";
 const PAJA = materiales.paja?.colorDebug || "#d4b84a";
-const TEJA = "#7a4228"; // teja de barro cocido — no hay campo "tejado" en materiales.json, constante local (como VERDE_FOLLAJE en generar_naturaleza)
-const PIZARRA = "#454f5c";
+// teja/pizarra: antes una constante fija cada una — toda una calle de casas
+// modestas salía con el MISMO tejado exacto. Ahora varios tonos naturales
+// (barro cocido más rojizo/más pardo, pizarra más azulada/más verdosa) y
+// `elegirTecho` sortea uno por semilla — sigue sin haber campo "tejado" en
+// materiales.json, constantes locales (mismo criterio que VERDE_FOLLAJE en
+// generar_naturaleza).
+const TEJAS = ["#7a4228", "#8a4a2a", "#6a3a20", "#8f5535"];
+const PIZARRAS = ["#454f5c", "#3c4550", "#4f5a5f", "#3a424a"];
+const TEJA = TEJAS[0]; // valor por defecto para quien no pase rnd (compatibilidad)
+const PIZARRA = PIZARRAS[0];
 const FUEGO = "#ff9a3a"; // brasas — mismo tono que antorcha_poste (coherencia visual con el canal de iluminación)
-const ROOF_POR_RIQUEZA = { humilde: PAJA, modesta: TEJA, noble: PIZARRA };
+const ROOF_POR_RIQUEZA = { humilde: PAJA, modesta: TEJAS, noble: PIZARRAS };
 // el material de MURO también puede decidir el tejado (adobe -> barro, no
 // paja ni pizarra) — si el material no pinta nada especial, manda la riqueza.
 const TEJADO_POR_MATERIAL = { adobe: "#b5723a" };
-function elegirTecho(material, riqueza) {
-  return TEJADO_POR_MATERIAL[material] || ROOF_POR_RIQUEZA[riqueza] || TEJA;
+// `rnd` opcional: con él, teja/pizarra sale en uno de varios tonos por
+// semilla en vez de siempre el mismo color plano; sin rnd (llamadas viejas
+// que no lo pasan) cae al primer tono, mismo aspecto que antes.
+function elegirTecho(material, riqueza, rnd) {
+  if (TEJADO_POR_MATERIAL[material]) return TEJADO_POR_MATERIAL[material];
+  const opciones = ROOF_POR_RIQUEZA[riqueza] || TEJAS;
+  if (!Array.isArray(opciones)) return opciones; // PAJA es un único color, no hay variedad real de tono de paja
+  return rnd ? opciones[Math.floor(rnd() * opciones.length)] : opciones[0];
 }
 
 // Variedad de material por variante: no siempre el materialesPreferidos[0]
@@ -176,6 +190,7 @@ function entramadoTudor(b, piso, colorViga) {
     if (vertical) { b.caja(desde, piso.y0, fijo, hasta, piso.y0, fijo, colorViga); b.caja(desde, piso.y1, fijo, hasta, piso.y1, fijo, colorViga); }
     else { b.caja(fijo, piso.y0, desde, fijo, piso.y0, hasta, colorViga); b.caja(fijo, piso.y1, desde, fijo, piso.y1, hasta, colorViga); }
     vetasMaderaConColor(b, piso, cara, colorViga);
+    riostrasDiagonales(b, piso, cara, colorViga);
   }
 }
 function vetasMaderaConColor(b, piso, cara, colorViga) {
@@ -187,6 +202,30 @@ function vetasMaderaConColor(b, piso, cara, colorViga) {
   }
 }
 
+// Riostras diagonales en las dos esquinas del paño — SIN esto entramadoTudor
+// solo dibujaba una rejilla ortogonal (raíles + montantes rectos), que en
+// las referencias del streamer se lee como "ventana con cuadrícula", no
+// como entramado de madera real. Una casa Tudor de verdad lleva contraviento
+// en diagonal en las esquinas de cada paño — esa diagonal (aproximada por
+// escalón de 1 vóxel, mismo criterio de "pocos escalones anchos" que ya usa
+// el tejado) es la pieza que de verdad distingue el estilo.
+function riostrasDiagonales(b, piso, cara, colorViga) {
+  const { vertical, desde, hasta, fijo } = limitesCara(piso, cara);
+  const alturaPaño = piso.y1 - piso.y0;
+  const tramo = Math.min(Math.round(alturaPaño * 0.75), Math.round((hasta - desde) * 0.22));
+  if (tramo < 3) return; // paño demasiado estrecho/bajo para que la diagonal se lea
+  const dibujar = (p0, signo) => {
+    for (let i = 0; i <= tramo; i++) {
+      const p = p0 + signo * i;
+      const y = piso.y0 + Math.round((i / tramo) * tramo);
+      if (vertical) b.caja(p, y, fijo, p, y, fijo, colorViga);
+      else b.caja(fijo, y, p, fijo, y, p, colorViga);
+    }
+  };
+  dibujar(desde, 1); // esquina "desde": sube hacia dentro
+  dibujar(hasta, -1); // esquina "hasta": sube hacia dentro (simétrica)
+}
+
 // materialesPreferidos[0] del catálogo -> qué textura de fachada le toca.
 // estuco/tela_tapiz/cristal se dejan lisos (los cubre el entramado Tudor si
 // hay voladizo, o quedan de color plano — un escaparate de cristal no lleva
@@ -195,6 +234,29 @@ function familiaTextura(material) {
   if (["madera", "mimbre", "cuero"].includes(material)) return "madera";
   if (["piedra", "marmol", "ladrillo", "adobe", "metal"].includes(material)) return "piedra";
   return null;
+}
+
+// Ménsulas/corbeles bajo el voladizo — sin esto la única señal de "aquí
+// vuela la planta" era una simple línea oscura recta; un jetty medieval de
+// verdad cuelga sobre ménsulas visibles a intervalos, no sobre una tabla
+// lisa. `x0,x1,z0,z1` son los límites de la planta de ABAJO (sin ajuste
+// todavía) — el corbel sube en diagonal corta desde ese borde hasta el
+// borde real del voladizo (a `ajuste` vóxeles hacia fuera).
+function corbelesVoladizo(b, x0, x1, z0, z1, ajuste, y, colorViga) {
+  const paso = Math.max(3, Math.round(U * 0.8));
+  const tramo = Math.min(ajuste, 2); // el ajuste típico es 1-2 vóxeles: no hay más "diagonal" que dar
+  for (let x = x0 + paso; x < x1; x += paso) {
+    for (let i = 1; i <= tramo; i++) {
+      b.caja(x, y - i + 1, z0 - i, x, y, z0 - i, colorViga);
+      b.caja(x, y - i + 1, z1 + i, x, y, z1 + i, colorViga);
+    }
+  }
+  for (let z = z0 + paso; z < z1; z += paso) {
+    for (let i = 1; i <= tramo; i++) {
+      b.caja(x0 - i, y - i + 1, z, x0 - i, y, z, colorViga);
+      b.caja(x1 + i, y - i + 1, z, x1 + i, y, z, colorViga);
+    }
+  }
 }
 
 // --- cuerpo compartido: pila de plantas con voladizo opcional -------------
@@ -228,9 +290,20 @@ function cuerpo(b, anchoVox, largoVox, alturaPlanta, nPlantas, colorMuro, opcion
     } else {
       b.caja(px0, y, pz0, px1, y + alturaPlanta - 1, pz1, tono);
     }
-    if (ajuste > 0) b.caja(px0, y, pz0, px1, y, pz1, MADERA_OSCURA); // viga de apoyo del voladizo, línea oscura visible
+    if (ajuste > 0) {
+      b.caja(px0, y, pz0, px1, y, pz1, MADERA_OSCURA); // viga de apoyo del voladizo, línea oscura visible
+      corbelesVoladizo(b, x0, x1, z0, z1, ajuste, y, MADERA_OSCURA);
+    }
     const piso = { y0: y, y1: y + alturaPlanta - 1, x0: px0, x1: px1, z0: pz0, z1: pz1, estiloVentana: opciones.estiloVentana, rnd: opciones.rnd };
-    const familia = esPlantaAltaEspecial && opciones.tudor ? "tudor" : familiaBase;
+    // Entramado Tudor: antes SOLO en la planta con voladizo de una casa
+    // noble (opciones.colorPlantaAlta) — se veía en casi ninguna casa de
+    // madera. Ahora, en cualquier planta ALTA (p>0) de un edificio de
+    // madera cuya riqueza lo pida (opciones.tudor, decidido por el
+    // arquetipo — ver edificioCasa), tenga o no voladizo: una casa modesta
+    // de madera con planta alta plana también enseña su entramado, no solo
+    // las nobles con jetty.
+    const esPisoTudor = p > 0 && opciones.tudor && familiaBase === "madera";
+    const familia = esPisoTudor ? "tudor" : familiaBase;
     if (familia === "madera") {
       const dibujar = opciones.estiloMadera === "horizontal" ? tablonesHorizontales : vetasMadera;
       for (const cara of CARAS) dibujar(b, piso, cara, tono, rustico);
@@ -246,7 +319,12 @@ function nVentanasBase(largoVox, riqueza) {
   const casillas = Math.max(1, Math.round(largoVox / U));
   const base = { humilde: 0, modesta: 1, noble: 2 }[riqueza] ?? 1;
   if (base === 0) return casillas >= 6 ? 1 : 0;
-  return Math.max(base, Math.round(casillas / 3));
+  // /5 en vez de /3 (bajado 2026-08-28 al comparar con las referencias del
+  // streamer): con el entramado Tudor ahora mucho más presente, una
+  // fachada ancha con ventana cada 3 casillas se veía "pared de cristal" —
+  // el timbre visual de una casa Tudor real es la madera vista, no un
+  // muro casi todo hueco.
+  return Math.max(base, Math.round(casillas / 5));
 }
 
 // Fachadas "casi ciegas" en algunas variantes y otras con ventana por todas
@@ -280,8 +358,13 @@ const DIM_VENTANA = {
 // iguales, sin caer en un mosaico de 10 estilos a la vez. piso.rnd también
 // da la desalineación: ni a la misma altura ni perfectamente repartidas —
 // una construcción medieval real no es tan regular.
-function ventanasEnFachada(b, { cara, piso, n, esFrenteConPuerta }) {
-  if (n <= 0) return;
+// Devuelve los rangos horizontales ocupados (`puestas`, [a,c] con marco
+// incluido) — quien llama los guarda por (planta,cara) para que OTRO
+// elemento de fachada distinto (un balcón, ver edificioCasa) pueda
+// comprobar contra ellos antes de colocarse encima; antes cada elemento se
+// colocaba a ciegas de los demás (bug real reportado: balcón sobre ventana).
+function ventanasEnFachada(b, { cara, piso, n, esFrenteConPuerta, probJardinera = 0 }) {
+  if (n <= 0) return [];
   const principal = piso.estiloVentana || "rect";
   const alterno = piso.estiloVentanaAlt || principal;
   const altoPiso = piso.y1 - piso.y0;
@@ -313,10 +396,19 @@ function ventanasEnFachada(b, { cara, piso, n, esFrenteConPuerta }) {
     if (rnd && jitterVMax > 0) vy += Math.round((rnd() - 0.5) * 2 * jitterVMax); // desalineación vertical
     if (esFrenteConPuerta && Math.abs(centro - centroFachada) < vw * 1.5) continue; // no pisar el hueco de la puerta
     const a = centro - Math.floor(vw / 2), c = a + vw - 1;
-    if (puestas.some(([pa, pc]) => a - 1 <= pc + 1 && c + 1 >= pa - 1)) continue; // pisaría otro hueco (marco incluido)
+    if (!rangoLibre(puestas, a, c)) continue; // pisaría otro hueco (marco incluido)
     puestas.push([a, c]);
     dibujarVentana(b, vertical, a, c, fijo, vy, vh, estilo);
+    if (rnd && rnd() < probJardinera) jardineraBajoVentana(b, vertical, a, c, fijo, vy);
   }
+  return puestas;
+}
+
+// ¿el rango [a,c] pisaría alguno de los `puestas` ya ocupados en esa
+// planta+cara (por cualquier elemento, ventana u otro)? Mismo margen de 1
+// vóxel que ya usaba ventanasEnFachada consigo misma.
+function rangoLibre(puestas, a, c) {
+  return !puestas.some(([pa, pc]) => a - 1 <= pc + 1 && c + 1 >= pa - 1);
 }
 
 function dibujarVentana(b, vertical, a, c, fijo, vy, vh, estilo) {
@@ -385,6 +477,25 @@ function dibujarVentana(b, vertical, a, c, fijo, vy, vh, estilo) {
       const t1 = a + Math.round((c - a) / 3), t2 = a + Math.round((c - a) * 2 / 3);
       marco(fijo, vy, t1, fijo, vy + vh - 1, t1); marco(fijo, vy, t2, fijo, vy + vh - 1, t2);
     }
+  }
+}
+
+// Jardinera de flores bajo el alféizar — el toque "casita de cuento" de las
+// referencias del streamer, ausente del todo hasta ahora. Caja de madera +
+// una fila de motas de color asomando; pegada 1 vóxel por fuera de la
+// fachada, igual que el resto de detalles pintados (el edificio es macizo).
+const JARDINERA_MADERA = "#6a4a2a";
+const FLORES = ["#c9453a", "#e0c060", "#c98aa0", "#e8ddc8"]; // rojo/amarillo/rosa/blanco — variedad simple, no un catálogo nuevo
+function jardineraBajoVentana(b, vertical, a, c, fijo, vy) {
+  const caja = (x0, y0, z0, x1, y1, z1, hex) => b.caja(x0, y0, z0, x1, y1, z1, hex);
+  const y0 = vy - 2, y1 = vy - 1;
+  const colorFlor = FLORES[(a + c) % FLORES.length]; // determinista por posición, sin pedir rnd aparte
+  if (vertical) {
+    caja(a, y0, fijo, c, y0, fijo, JARDINERA_MADERA);
+    for (let x = a; x <= c; x += 2) caja(x, y1, fijo, x, y1, fijo, colorFlor);
+  } else {
+    caja(fijo, y0, a, fijo, y0, c, JARDINERA_MADERA);
+    for (let z = a; z <= c; z += 2) caja(fijo, y1, z, fijo, y1, z, colorFlor);
   }
 }
 
@@ -543,17 +654,30 @@ function edificioChoza(ctx) {
   ventanasEnFachada(b, { cara: "E", piso: pisos[0], n: Math.min(1, nvLateral) });
   ventanasEnFachada(b, { cara: "O", piso: pisos[0], n: Math.min(1, nvLateral) });
   const ejeX = ancho >= largo;
-  const techoY = techoDosAguas(b, pisos[0].x0, pisos[0].x1, pisos[0].z0, pisos[0].z1, yTecho, elegirTecho(material, riqueza), ejeX);
+  const techoY = techoDosAguas(b, pisos[0].x0, pisos[0].x1, pisos[0].z0, pisos[0].z1, yTecho, elegirTecho(material, riqueza, rnd), ejeX);
   chimenea(b, pisos[0].x0 + Math.round(U * 0.7), pisos[0].z1 - Math.round(U * 0.7), yTecho - Math.round(U * 0.4), Math.round(U * 0.9), colorMuro, false);
   return { grid: [ancho * U + PAD * 2, techoY + 2, largo * U + PAD * 2], paleta: b.paleta, cajas: b.cajas };
 }
 
 function edificioCasa(ctx) {
-  const { ancho, largo, plantasAltas, colorMuro, riqueza, rnd, material, estiloMadera, estiloVentana, estiloVentanaAlt, nVentanas } = ctx;
+  const { ancho, largo, plantasAltas, colorMuro, riqueza, rnd, material, estiloMadera, estiloVentana, estiloVentanaAlt, nVentanas, nivel } = ctx;
   const b = Builder();
   const nPlantas = 1 + plantasAltas;
   const rica = riqueza !== "humilde";
-  const base = { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza, rnd };
+  // `nivel` (1/2/3, opcional — GDD_Motor_3D_Props.md "sistema de mejora"):
+  // sin nivel explícito el comportamiento es EXACTAMENTE el de siempre
+  // (decoMult=1). Con nivel, escala cuánta decoración sale (porche/balcón/
+  // chimenea/jardinera) — el RIESGO (qué es posible: tudor, balcón...) lo
+  // sigue decidiendo la riqueza del tipoEdificio, nivel solo mueve la
+  // densidad; así una "casa_humilde" en nivel 3 se ve más cuidada sin dejar
+  // de ser una choza (nunca saca lo que la riqueza no permite).
+  const decoMult = nivel === 1 ? 0.5 : nivel === 3 ? 1.7 : 1;
+  const prob = (p) => Math.min(1, p * decoMult);
+  // Entramado Tudor: cualquier planta ALTA de una casa de madera no humilde
+  // lo enseña (antes solo la noble con voladizo) — es lo que de verdad
+  // acerca el aspecto a las referencias del streamer, no un detalle
+  // exclusivo de la variante más rica.
+  const base = { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza, rnd, tudor: rica && familiaTextura(material) === "madera" };
   // 3 formas de planta alta bien distintas por semilla — "casas con
   // diferentes formas y pisos en una misma casa" en vez de repetir siempre
   // el mismo voladizo: jetty (vuela hacia fuera, entramado Tudor a la vista),
@@ -564,43 +688,66 @@ function edificioCasa(ctx) {
   if (estiloPlanta === "jetty") {
     opciones.jetty = Math.round(U * 0.16);
     opciones.colorPlantaAlta = riqueza === "noble" ? (materiales.estuco?.colorDebug || "#e8ddc8") : colorMuro;
-    opciones.tudor = riqueza === "noble";
   } else if (estiloPlanta === "retranqueo") {
     opciones.retranqueo = Math.round(U * 0.5);
   }
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro, opciones);
   // porche a la entrada: solo en ricas, no siempre — deja huecas sin él para que se note la diferencia
-  const conPorche = rica && rnd() < 0.4;
-  if (conPorche) porcheEnPuerta(b, pisos[0], materiales.madera.colorDebug, elegirTecho(material, riqueza));
+  const conPorche = rica && rnd() < prob(0.4);
+  if (conPorche) porcheEnPuerta(b, pisos[0], materiales.madera.colorDebug, elegirTecho(material, riqueza, rnd));
   puertaEnFachada(b, pisos[0], { ancho: riqueza === "noble" ? 1.0 : 0.85, alto: 1.9 });
+  // jardineras solo en fachadas con encanto (modesta/noble), más presentes cuanto más nivel
+  const probJardinera = rica ? prob(riqueza === "noble" ? 0.22 : 0.12) : 0;
+  // rangos ocupados por ventana en CADA (planta,cara) — los balcones de abajo
+  // consultan esto antes de colocarse, ya no a ciegas (bug real arreglado).
+  const ventanasPorPisoCara = new Map();
   for (const [i, piso] of pisos.entries()) {
     const nv = nVentanas(piso.x1 - piso.x0 + 1, riqueza);
-    ventanasEnFachada(b, { cara: "S", piso, n: i === 0 ? Math.min(2, nv) : nv, esFrenteConPuerta: i === 0 });
-    ventanasEnFachada(b, { cara: "N", piso, n: nv });
-    if (largo >= 6) { ventanasEnFachada(b, { cara: "E", piso, n: Math.max(0, nv - 1) }); ventanasEnFachada(b, { cara: "O", piso, n: Math.max(0, nv - 1) }); }
+    ventanasPorPisoCara.set(`${i}_S`, ventanasEnFachada(b, { cara: "S", piso, n: i === 0 ? Math.min(2, nv) : nv, esFrenteConPuerta: i === 0, probJardinera }));
+    ventanasPorPisoCara.set(`${i}_N`, ventanasEnFachada(b, { cara: "N", piso, n: nv, probJardinera }));
+    if (largo >= 6) {
+      ventanasPorPisoCara.set(`${i}_E`, ventanasEnFachada(b, { cara: "E", piso, n: Math.max(0, nv - 1), probJardinera }));
+      ventanasPorPisoCara.set(`${i}_O`, ventanasEnFachada(b, { cara: "O", piso, n: Math.max(0, nv - 1), probJardinera }));
+    }
   }
   // balcones: 0, 1 o varios por semilla, SOLO en plantas altas de casas ricas
   // — "casa con balcón, sin balcón, con más de uno" pedido explícitamente.
+  // Cada intento comprueba contra las ventanas YA pintadas en esa misma
+  // (planta,cara) y, si pisaría alguna, prueba otra combinación en vez de
+  // dibujar encima (hasta 6 intentos; si ninguno cabe, ese balcón se pierde
+  // en vez de solaparse — mismo criterio de "descartar, no reubicar a la
+  // fuerza" que ya usa ventanasEnFachada consigo misma).
   if (rica && pisos.length > 1) {
-    const nBalcones = rnd() < 0.35 ? 0 : rnd() < 0.75 ? 1 : 2;
+    const rBalcon = rnd();
+    const nBalcones = rBalcon < 1 - prob(0.65) ? 0 : rBalcon < 1 - prob(0.25) ? 1 : 2;
     const caras = ["S", "N", "E", "O"];
+    const anchoBalcon = Math.max(3, Math.round(U * 0.7));
     for (let k = 0; k < nBalcones; k++) {
-      const piso = pisos[1 + Math.floor(rnd() * (pisos.length - 1))];
-      const cara = caras[Math.floor(rnd() * caras.length)];
-      const vertical = cara === "S" || cara === "N";
-      const desde = vertical ? piso.x0 : piso.z0, hasta = vertical ? piso.x1 : piso.z1;
-      const centro = Math.round(desde + (hasta - desde) * (0.3 + rnd() * 0.4));
-      balconEnFachada(b, piso, cara, centro, Math.max(3, Math.round(U * 0.7)), materiales.madera.colorDebug);
+      let colocado = false;
+      for (let intento = 0; intento < 6 && !colocado; intento++) {
+        const idxPiso = 1 + Math.floor(rnd() * (pisos.length - 1));
+        const piso = pisos[idxPiso];
+        const cara = caras[Math.floor(rnd() * caras.length)];
+        const vertical = cara === "S" || cara === "N";
+        const desde = vertical ? piso.x0 : piso.z0, hasta = vertical ? piso.x1 : piso.z1;
+        const centro = Math.round(desde + (hasta - desde) * (0.3 + rnd() * 0.4));
+        const a = centro - Math.floor(anchoBalcon / 2), c = a + anchoBalcon - 1;
+        const ocupadas = ventanasPorPisoCara.get(`${idxPiso}_${cara}`) || [];
+        if (!rangoLibre(ocupadas, a, c)) continue;
+        balconEnFachada(b, piso, cara, centro, anchoBalcon, materiales.madera.colorDebug);
+        ocupadas.push([a, c]); // un segundo balcón en la misma (planta,cara) tampoco debe pisar a este
+        colocado = true;
+      }
     }
   }
   const ultimo = pisos[pisos.length - 1];
   const ejeX = ancho >= largo;
-  const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, elegirTecho(material, riqueza), ejeX, { pendiente: riqueza === "noble" ? 0.7 : 0.55 });
+  const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, elegirTecho(material, riqueza, rnd), ejeX, { pendiente: riqueza === "noble" ? 0.7 : 0.55 });
   // chimenea: casi segura en ricas (a veces 2, casas grandes con más de un
   // hogar), moderada en modestas — "chimeneas en casas ricas" pedido explícito.
   const pChimenea = riqueza === "noble" ? 0.92 : riqueza === "modesta" ? 0.6 : 0.3;
-  if (rnd() < pChimenea) chimenea(b, ultimo.x1 - Math.round(U * 0.7), ultimo.z1 - Math.round(U * 0.7), yTecho - Math.round(U * 0.4), Math.round(U * 1.0), colorMuro, false);
-  if (riqueza === "noble" && rnd() < 0.4) chimenea(b, ultimo.x0 + Math.round(U * 0.7), ultimo.z0 + Math.round(U * 0.7), yTecho - Math.round(U * 0.4), Math.round(U * 0.9), colorMuro, false);
+  if (rnd() < prob(pChimenea)) chimenea(b, ultimo.x1 - Math.round(U * 0.7), ultimo.z1 - Math.round(U * 0.7), yTecho - Math.round(U * 0.4), Math.round(U * 1.0), colorMuro, false);
+  if (riqueza === "noble" && rnd() < prob(0.4)) chimenea(b, ultimo.x0 + Math.round(U * 0.7), ultimo.z0 + Math.round(U * 0.7), yTecho - Math.round(U * 0.4), Math.round(U * 0.9), colorMuro, false);
   return { grid: [ancho * U + PAD * 2, techoY + 2, largo * U + PAD * 2], paleta: b.paleta, cajas: b.cajas };
 }
 
@@ -619,7 +766,7 @@ function edificioTaller(ctx) {
     ventanasEnFachada(b, { cara: "O", piso, n: Math.max(1, nVentanas(piso.z1 - piso.z0 + 1, riqueza)) });
   }
   const ultimo = pisos[pisos.length - 1];
-  const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, elegirTecho(material, riqueza), ancho >= largo, { pendiente: 0.45 });
+  const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, elegirTecho(material, riqueza, rnd), ancho >= largo, { pendiente: 0.45 });
   // fragua/horno del oficio: chimenea con brasas — herrería, panadería, destilería, alfarería, molino
   const conFuego = ["herreria", "panaderia", "destileria", "alfareria"].includes(tema);
   if (conFuego || rnd() < 0.5) chimenea(b, ultimo.x0 + Math.round(U * 0.8), ultimo.z1 - Math.round(U * 0.8), yTecho - Math.round(U * 0.3), Math.round(U * 1.1), colorMuro, conFuego);
@@ -630,7 +777,10 @@ function edificioPosada(ctx) {
   const { ancho, largo, plantasAltas, colorMuro, riqueza, rnd, material, estiloMadera, estiloVentana, estiloVentanaAlt, nVentanas } = ctx;
   const b = Builder();
   const nPlantas = 1 + Math.max(1, plantasAltas);
-  const opciones = { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza, rnd, jetty: Math.round(U * 0.14) };
+  // posadas/tabernas siempre con voladizo Y entramado a la vista, sea cual
+  // sea su riqueza — es la silueta que las hace reconocibles entre las
+  // casas de la calle, no un lujo exclusivo de las nobles.
+  const opciones = { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza, rnd, jetty: Math.round(U * 0.14), tudor: familiaTextura(material) === "madera" };
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro, opciones);
   puertaEnFachada(b, pisos[0], { ancho: 1.1, alto: 2.0 });
   for (const [i, piso] of pisos.entries()) {
@@ -643,7 +793,7 @@ function edificioPosada(ctx) {
     ventanasEnFachada(b, { cara: "O", piso, n: nvLateral });
   }
   const ultimo = pisos[pisos.length - 1];
-  const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, elegirTecho(material, riqueza), ancho >= largo, { pendiente: 0.6 });
+  const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, elegirTecho(material, riqueza, rnd), ancho >= largo, { pendiente: 0.6 });
   chimenea(b, ultimo.x0 + Math.round(U * 0.8), ultimo.z0 + Math.round(U * 0.8), yTecho - Math.round(U * 0.4), Math.round(U * 1.1), colorMuro, rnd() < 0.6);
   return { grid: [ancho * U + PAD * 2, techoY + 2, largo * U + PAD * 2], paleta: b.paleta, cajas: b.cajas };
 }
@@ -661,7 +811,7 @@ function edificioInstitucion(ctx) {
   const nCols = Math.max(2, Math.floor((planta0.x1 - planta0.x0) / (U * 1.6)));
   porticoColumnas(b, planta0.x0 + Math.round(U * 0.4), planta0.x1 - Math.round(U * 0.4), planta0.z0, planta0.y0, planta0.y1 - planta0.y0 + 1, nCols, materiales.marmol?.colorDebug || "#e8e4dc");
   const ultimo = pisos[pisos.length - 1];
-  const techoY = techoPiramidal(b, ultimo.x0 - Math.round(U * 0.3), ultimo.x1 + Math.round(U * 0.3), ultimo.z0 - Math.round(U * 0.3), ultimo.z1 + Math.round(U * 0.3), yTecho, ROOF_POR_RIQUEZA.noble, { pendiente: 0.5 });
+  const techoY = techoPiramidal(b, ultimo.x0 - Math.round(U * 0.3), ultimo.x1 + Math.round(U * 0.3), ultimo.z0 - Math.round(U * 0.3), ultimo.z1 + Math.round(U * 0.3), yTecho, elegirTecho(null, "noble", rnd), { pendiente: 0.5 });
   return { grid: [ancho * U + PAD * 2, techoY + 2, largo * U + PAD * 2], paleta: b.paleta, cajas: b.cajas };
 }
 
@@ -736,7 +886,7 @@ function edificioGranero(ctx) {
   const nv = nVentanas(planta0.x1 - planta0.x0 + 1, riqueza === "humilde" ? "humilde" : "modesta");
   if (pisos.length > 1) ventanasEnFachada(b, { cara: "S", piso: pisos[1], n: nv });
   const ultimo = pisos[pisos.length - 1];
-  const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, elegirTecho(material, riqueza), ancho >= largo, { pendiente: 0.4 });
+  const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, elegirTecho(material, riqueza, rnd), ancho >= largo, { pendiente: 0.4 });
   return { grid: [ancho * U + PAD * 2, techoY + 2, largo * U + PAD * 2], paleta: b.paleta, cajas: b.cajas };
 }
 
@@ -836,7 +986,7 @@ function generarAla(ala, { material, estiloMadera, estiloVentana, estiloVentanaA
   const nv = Math.max(1, nVentanas(p0.x1 - p0.x0 + 1, riqueza));
   ventanasEnFachada(b, { cara: "S", piso: p0, n: nv });
   ventanasEnFachada(b, { cara: "N", piso: p0, n: nv });
-  techoDosAguas(b, p0.x0, p0.x1, p0.z0, p0.z1, yTecho, elegirTecho(material, riqueza), ala.ancho >= ala.largo, { pendiente: 0.5 });
+  techoDosAguas(b, p0.x0, p0.x1, p0.z0, p0.z1, yTecho, elegirTecho(material, riqueza, rnd), ala.ancho >= ala.largo, { pendiente: 0.5 });
   return { cajas: b.cajas, paleta: b.paleta };
 }
 
@@ -890,18 +1040,32 @@ function elegirEstiloVentana(rnd) {
 // que se rasterizó en el terreno — {semilla, w, h, piezas, plantasAltas?}.
 // La semilla del plan es la del interior anidado: fachada, forma e interior
 // nacen del mismo tiro de dados y el .glb encaja casilla a casilla.
-function generarEdificio(tipoId, nn = 1, plan = null) {
+// `nivel` (opcional, 1/2/3): eje de MEJORA del edificio — casa nivel 1/2/3
+// con más pisos y decoración conforme sube, para que el mismo tipoEdificio
+// dé variantes claramente distintas (pedido del streamer: "casa1, casa
+// mejora2, casa mejora3", de cara a una futura progresión por tiempo/dinero
+// que hoy NO existe — ver docs/Backlog_Mecanicas_Futuras.md; aquí solo se
+// construye el EJE DE VARIEDAD del generador, sin enganche de juego
+// todavía). Sin `nivel` (como hasta ahora, ningún caller existente lo
+// pasa) el comportamiento es EXACTAMENTE el de antes — retrocompatible al
+// 100%, cero riesgo para lo que ya generaba `ciudades/`.
+function generarEdificio(tipoId, nn = 1, plan = null, nivel = null) {
   const info = tiposEdificio[tipoId];
   if (!info) throw new Error(`tipoEdificio desconocido: ${tipoId}`);
   const huella = huellas.porTipo[tipoId] || huellas.porRiqueza[info.riqueza];
   const [anchoBase, largoBase] = huella;
   const rnd = crearPRNG(plan?.semilla != null ? String(plan.semilla) : `${tipoId}|${nn}`);
   const [pMin, pMax] = info.rangoPlantasAltas;
-  // consumir SIEMPRE la tirada de plantas aunque el plan las imponga — así
-  // el resto de decisiones (material, ventanas...) no se desplazan y una
-  // misma semilla da la misma fachada con o sin plantasAltas en el plan
+  // consumir SIEMPRE la tirada de plantas aunque el plan o el nivel la
+  // sustituyan — así el resto de decisiones (material, ventanas...) no se
+  // desplazan y una misma semilla da la misma fachada pase lo que pase con
+  // plantasAltas después.
   const plantasTirada = pMin + Math.floor(rnd() * (pMax - pMin + 1));
-  const plantasAltas = plan?.plantasAltas ?? plantasTirada;
+  // el plan (instancia real de ciudades/) manda siempre que exista; si no,
+  // un nivel explícito fija el nº de plantas al extremo que le toque
+  // (nivel 2 = la tirada normal, ni el mínimo ni el máximo a propósito);
+  // sin plan ni nivel, la tirada de siempre.
+  const plantasAltas = plan?.plantasAltas ?? (nivel === 1 ? pMin : nivel === 3 ? pMax : plantasTirada);
   const material = elegirMaterial(rnd, info.materialesPreferidos);
   const colorMuro = materiales[material]?.colorDebug || materiales.madera.colorDebug;
   const estiloMadera = rnd() < 0.55 ? "vertical" : "horizontal";
@@ -924,7 +1088,7 @@ function generarEdificio(tipoId, nn = 1, plan = null) {
     : elegirForma(rnd, tipoId, anchoBase, largoBase, arquetipo);
   let modelo = ARQUETIPO_FN[arquetipo]({
     ancho: forma.ancho, largo: forma.largo, plantasAltas, colorMuro, material, estiloMadera, estiloVentana, estiloVentanaAlt, nVentanas,
-    riqueza: info.riqueza, rnd, tema: tipoId,
+    riqueza: info.riqueza, rnd, tema: tipoId, nivel,
   });
   // alas a fusionar: la aleatoria de elegirForma O las piezas reales del
   // plan (pieza 0 = cuerpo principal, ya construido; el resto son alas
@@ -945,8 +1109,8 @@ function generarEdificio(tipoId, nn = 1, plan = null) {
     };
   }
   return {
-    nombre: `${tipoId.replace(/_/g, " ")} (var ${String(nn).padStart(2, "0")})`,
-    arquetipo, tipoId, huella, material, estiloMadera, estiloVentana, estiloVentanaAlt,
+    nombre: `${tipoId.replace(/_/g, " ")} (var ${String(nn).padStart(2, "0")}${nivel ? `, nivel ${nivel}` : ""})`,
+    arquetipo, tipoId, huella, material, estiloMadera, estiloVentana, estiloVentanaAlt, nivel,
     forma: plan ? "plan" : forma.ancho !== anchoBase || forma.largo !== largoBase ? "alargado" : "base", enL: alas.length > 0,
     resolucion: U, ...modelo,
   };
@@ -959,19 +1123,29 @@ function generarEdificio(tipoId, nn = 1, plan = null) {
 // que hace falta más de 1 variante para verlo.
 const TIPOS_PRUEBA = ["casa_humilde", "casa_noble", "herreria", "taberna", "ayuntamiento", "templo", "cuartel_guardia", "torre_mago", "granero", "castillo"];
 
-function generarTodo(soloPrueba) {
+// `conNiveles` (opcional, default false: comportamiento EXACTO de siempre,
+// mismo conteo que antes) multiplica cada variante por los 3 niveles de
+// mejora — es el modo que de verdad saca las ~100 combinaciones pedidas
+// (10 arquetipos de prueba × 3 semillas × 3 niveles = 90; con el catálogo
+// completo, ~44 tipos × 4 semillas × 3 niveles ≈ 500 — ESE run grande lo
+// corre el streamer, CLAUDE.md: "los bakes grandes los corre el usuario").
+function generarTodo(soloPrueba, conNiveles = false) {
   const resultado = {};
   const conteo = {};
   const tipos = soloPrueba ? TIPOS_PRUEBA : Object.keys(tiposEdificio).filter((id) => !id.startsWith("_"));
+  const niveles = conNiveles ? [1, 2, 3] : [null];
   for (const tipoId of tipos) {
     // 4 variantes por tipo en modo "todo": con ~41 tipoEdificio reales, salen
     // bastantes más de 41 edificios distintos (forma/material/ventana varían
     // por semilla) sin inventar tipoEdificio que no pactó el usuario.
     const nVariantes = soloPrueba ? 3 : 4;
     for (let n = 1; n <= nVariantes; n++) {
-      const modelo = generarEdificio(tipoId, n);
-      conteo[modelo.arquetipo] = (conteo[modelo.arquetipo] || 0) + 1;
-      resultado[`${tipoId}_${String(n).padStart(2, "0")}`] = modelo;
+      for (const nivel of niveles) {
+        const modelo = generarEdificio(tipoId, n, null, nivel);
+        conteo[modelo.arquetipo] = (conteo[modelo.arquetipo] || 0) + 1;
+        const clave = conNiveles ? `${tipoId}_${String(n).padStart(2, "0")}_n${nivel}` : `${tipoId}_${String(n).padStart(2, "0")}`;
+        resultado[clave] = modelo;
+      }
     }
   }
   return { resultado, conteo };
@@ -979,9 +1153,10 @@ function generarTodo(soloPrueba) {
 
 if (require.main === module) {
   const todo = process.argv.includes("todo");
-  const { resultado, conteo } = generarTodo(!todo);
+  const conNiveles = process.argv.includes("niveles");
+  const { resultado, conteo } = generarTodo(!todo, conNiveles);
   fs.writeFileSync(path.join(__dirname, "edificios_generados.json"), JSON.stringify(resultado));
-  console.log(`Generados: ${Object.keys(resultado).length} modelos (${todo ? "catálogo completo" : "subconjunto de prueba: 10 arquetipos"})`);
+  console.log(`Generados: ${Object.keys(resultado).length} modelos (${todo ? "catálogo completo" : "subconjunto de prueba: 10 arquetipos"}${conNiveles ? " × 3 niveles" : ""})`);
   console.log("Por arquetipo:", conteo);
 }
 
