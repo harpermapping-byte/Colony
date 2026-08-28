@@ -33,6 +33,12 @@ function slugPOI(poi) {
   return `${poi.id}_${poi.x}_${poi.y}`;
 }
 
+// taller-vox/generar_edificio.js "todo" exporta 4 variantes por
+// tipoEdificioId (assets/edificios/<tipo>_01..04.glb) — misma cuenta aquí
+// para elegir una determinista por instancia (enganche rápido de arte,
+// decisión explícita del streamer: sin pasar por revisión pieza a pieza).
+const VARIANTES_EDIFICIO = 4;
+
 // Boca de cueva (docs/GDD_Bakeador_Dungeons.md): a diferencia de "edificio"
 // (caja 3D real) o "asentamiento" (ciudades/ entera), una mazmorra
 // estiloExterior:"cueva" no tenía NINGÚN rastro visual en el exterior — ni
@@ -185,7 +191,7 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
         x: poi.x,
         y: poi.y,
         huella: [hw, hl],
-        objeto: { i: def.tipoEdificioId, t: "e", va: 0, ro: 0, es: 1, w: hw, h: hl, dx: 0, dy: 0 },
+        objeto: { i: def.tipoEdificioId, t: "e", va: semillaDesdeTexto(semillaPOI) % VARIANTES_EDIFICIO, ro: 0, es: 1, w: hw, h: hl, dx: 0, dy: 0 },
       });
       portales.push({
         tipo: "interior",
@@ -234,7 +240,7 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
         puertaY = Math.round(poi.y) + Math.ceil(hl / 2) + 1;
         objetosPorPOI.set(slug, {
           x: poi.x, y: poi.y, huella: [hw, hl],
-          objeto: { i: dungeonDef.tipoEdificioIdExterior, t: "e", va: 0, ro: 0, es: 1, w: hw, h: hl, dx: 0, dy: 0 },
+          objeto: { i: dungeonDef.tipoEdificioIdExterior, t: "e", va: semillaDesdeTexto(semillaPOI) % VARIANTES_EDIFICIO, ro: 0, es: 1, w: hw, h: hl, dx: 0, dy: 0 },
         });
       }
       // "cueva": sin caja 3D (una boca de cueva no es una caja rectangular)
