@@ -208,3 +208,28 @@ test("cargarInterior: el spawn nunca cae en una casilla sólida", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("cargarInterior: salasPorTipo da una casilla pisable real por cada tipo de sala de la planta (vida en interiores)", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "colony-interior-salas-"));
+  try {
+    const edificio = generarEdificio({ tipoEdificioId: "casa_modesta", catalogos, semilla: "salas-a" });
+    const plantaBaja = edificio.plantas.find((p: any) => p.rol === "planta_baja");
+    assert.ok(plantaBaja.salas.length >= 2, "esta prueba necesita un edificio con varias salas");
+
+    const archivo = path.join(dir, "casa_modesta_salas-a.json");
+    fs.writeFileSync(archivo, JSON.stringify(edificio));
+    const interior = cargarInterior(archivo);
+
+    const tiposReales = new Set(plantaBaja.salas.map((s: any) => s.tipoSalaId));
+    assert.strictEqual(interior.salasPorTipo.size, tiposReales.size, "faltan o sobran tipos de sala");
+    for (const tipoSalaId of tiposReales) {
+      const puntos = interior.salasPorTipo.get(tipoSalaId as string);
+      assert.ok(puntos && puntos.length > 0, `sin punto para la sala ${tipoSalaId}`);
+      for (const p of puntos!) {
+        assert.notStrictEqual(interior.casillas[p.y * interior.ancho + p.x], TIPO.SOLIDO, `punto de ${tipoSalaId} cae en sólido`);
+      }
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

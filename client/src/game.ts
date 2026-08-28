@@ -147,19 +147,21 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // --- NPCs REALES del asentamiento (GDD_Agentes_Moviles.md): si el mapa
   // trae poblacion.json bakeado, sus vóxeles por slotId — la posición viva
   // la manda el servidor por el estado (state.npcs) y se consume más abajo.
+  // "Vida en interiores" (v1.2): un edificio del MISMO asentamiento comparte
+  // el mismo poblacion.json (por eso se pide con MAPA_ID, no RUTA_MAPA —
+  // esta última en un interior apunta al bake de la PLANTA, no al pueblo).
   const voxPorSlot = new Map<string, PersonajeExportado>();
-  if (!ES_INTERIOR) {
-    try {
-      const r = await fetch(`${RUTA_MAPA}/poblacion.json`);
-      if (r.ok) {
-        const poblacion = await r.json();
-        for (const npc of poblacion.npcs as { slotId: string; vox: PersonajeExportado }[]) {
-          voxPorSlot.set(npc.slotId, npc.vox);
-        }
+  try {
+    const rutaPoblacion = ES_INTERIOR ? `/assets/mapas/${MAPA_ID}/poblacion.json` : `${RUTA_MAPA}/poblacion.json`;
+    const r = await fetch(rutaPoblacion);
+    if (r.ok) {
+      const poblacion = await r.json();
+      for (const npc of poblacion.npcs as { slotId: string; vox: PersonajeExportado }[]) {
+        voxPorSlot.set(npc.slotId, npc.vox);
       }
-    } catch {
-      /* mapa sin población: sin NPCs, sin error */
     }
+  } catch {
+    /* mapa sin población: sin NPCs, sin error */
   }
 
   // --- Pool de aspecto de ENEMIGOS de mazmorra (docs/GDD_Bakeador_Dungeons.md
