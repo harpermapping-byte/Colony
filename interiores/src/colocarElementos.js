@@ -534,7 +534,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       const clave = `${x}_${y}`;
       if (bordesOcupados.has(clave)) continue;
       bordesOcupados.add(clave);
-      const item = { id: el.id, x, y, lado, colorDebug: el.colorDebug };
+      const item = { id: el.id, x, y, lado, colorDebug: el.colorDebug, capa: el.capa };
       if (el.aportes) item.aportes = el.aportes;
       colgados.push(item);
       return true;
@@ -566,7 +566,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
 
       case AnchorType.WALL_HIGH_FLOATING:
         if (el.colocacion.includes("techo")) {
-          const item = { id: el.id, colorDebug: el.colorDebug };
+          const item = { id: el.id, colorDebug: el.colorDebug, capa: el.capa };
           if (el.aportes) item.aportes = el.aportes;
           techo.push(item);
           return true;

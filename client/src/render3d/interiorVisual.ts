@@ -22,6 +22,27 @@ interface ElementoColocado {
   rotacion?: number;
 }
 
+// Objeto en el plano PARED (interiores/catalogo/elementos.json,
+// colocacion:"colgadoEnPared" — cuadros, tapices, candelabros de pared...).
+// Sin huella propia: siempre ocupa 1 casilla del borde de la sala, `lado`
+// dice a qué muro se pega (interiores/src/colocarElementos.js:intentarColgarEnPared).
+interface ElementoColgado {
+  id: string;
+  x: number;
+  y: number;
+  lado: "norte" | "sur" | "este" | "oeste";
+  colorDebug?: string;
+  capa?: string;
+}
+
+// Objeto en el plano TECHO (lámparas de araña, faroles colgantes) — sin
+// posición propia dentro de la sala, se cuelga del centro.
+interface ElementoTecho {
+  id: string;
+  colorDebug?: string;
+  capa?: string;
+}
+
 interface PuertaConexion {
   x: number;
   y: number;
@@ -35,6 +56,8 @@ interface SalaInterior {
     ancho: number;
     largo: number;
     colocados: ElementoColocado[];
+    colgados?: ElementoColgado[];
+    techo?: ElementoTecho[];
   };
 }
 
@@ -67,13 +90,34 @@ const COLOR_PASILLO = "#9c8f74"; // suelo del hueco de 1 casilla entre puertas �
 // mueve la luz ambiente/sol exterior, que no llega dentro de un edificio con
 // paredes). Siempre encendidas (una antorcha no se apaga de día): cada pieza
 // de esta capa suma además un THREE.PointLight cálido sobre su posición.
+// Intensidad BASE — el parpadeo de llama real (mismo criterio que la
+// antorcha del guardia en game.ts) lo anima quien llame a esta función,
+// usando la lista `luces` que se devuelve junto al grupo.
 const ALTO_LUZ = 1.6;
+const ALTO_LUZ_TECHO = 2.2;
 const COLOR_LUZ = 0xffb066;
-const INTENSIDAD_LUZ = 1.3;
+export const INTENSIDAD_LUZ = 1.3;
 const ALCANCE_LUZ = 6;
+const ALTO_COLGADO = 1.68; // ALTO_PARED * 0.7 (interiores/gui/vista3d.js, mismo criterio de altura)
+const BORDE_PARED = 0.08; // separación del muro para que no se confunda con él (mismo valor que vista3d.js)
 
-export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE.Group {
+/** Una luz de interior con su desfase de parpadeo propio (para que no titilen todas a la vez). */
+export interface LuzInterior {
+  luz: THREE.PointLight;
+  fase: number;
+}
+
+// Desfase determinista por id de instancia (no aleatorio: mismo bake, mismo
+// parpadeo, aunque no importa demasiado — es solo para desincronizar).
+function faseDe(clave: string): number {
+  let h = 0;
+  for (let i = 0; i < clave.length; i++) h = (h * 31 + clave.charCodeAt(i)) >>> 0;
+  return (h % 1000) / 1000;
+}
+
+export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): { grupo: THREE.Group; luces: LuzInterior[] } {
   const grupo = new THREE.Group();
+  const luces: LuzInterior[] = [];
   // plantas[0] NO es siempre la planta baja (edificios con bodega) — mismo
   // bug que se corrigió en el servidor, mismo criterio aquí. `nivel` decide
   // qué planta se pinta (0 = planta baja si no se especifica otra).
@@ -111,9 +155,24 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE
       const cx = offsetX + item.x + item.ancho / 2;
       const cz = offsetY + item.y + item.largo / 2;
 
+      // item.ancho/item.largo son la huella YA ROTADA (colocarElementos.js
+      // las calcula con rotarHuella antes de reservar hueco) — cx/cz de
+      // arriba está bien porque usa esa huella rotada tal cual. Pero el
+      // placeholder de abajo aplica DESPUÉS `rotation.y = item.rotacion`:
+      // si le diéramos las dimensiones ya rotadas, quedaría rotado dos
+      // veces y la caja sobresaldría del hueco reservado (bug reportado,
+      // visible en mobiliario no cuadrado pegado a un muro este/oeste con
+      // 90°/270°). rotarHuella es su propia inversa en 90/270, así que
+      // basta con deshacer el intercambio antes de construir la caja.
+      const rot = item.rotacion || 0;
+      const anchoBase = rot === 90 || rot === 270 ? item.largo : item.ancho;
+      const largoBase = rot === 90 || rot === 270 ? item.ancho : item.largo;
+
       // .glb real del mueble (assets/interiores/<id>_01.glb, taller-vox/
       // generar_modelos.js) si ya existe, si no el cubo de color de
-      // siempre — cargarInstanciaEntidad ya resuelve esa caída sola.
+      // siempre — cargarInstanciaEntidad ya resuelve esa caída sola. Un
+      // .glb real no usa `dimensiones` (trae su propia geometría ya
+      // orientada en base), así que esto solo corrige el placeholder.
       // `grupo` ya está en la escena cuando esto resuelve (crearInteriorVisual
       // devuelve el grupo síncrono, mismo patrón que sectorVisual.ts): el
       // mueble aparece un frame más tarde, no bloquea la carga del interior.
@@ -122,7 +181,7 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE
         id: item.id,
         variante: { tipo: "numerada", indice: 0 },
         colorPlaceholder: item.colorDebug ?? "#8a6a4a",
-        dimensiones: { ancho: item.ancho, alto: ALTO_MUEBLE, profundo: item.largo },
+        dimensiones: { ancho: anchoBase, alto: ALTO_MUEBLE, profundo: largoBase },
       }).then((instancia) => {
         instancia.position.set(cx, 0, cz);
         instancia.rotation.y = THREE.MathUtils.degToRad(item.rotacion || 0);
@@ -133,6 +192,66 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE
         const luz = new THREE.PointLight(COLOR_LUZ, INTENSIDAD_LUZ, ALCANCE_LUZ, 2);
         luz.position.set(cx, ALTO_LUZ, cz);
         grupo.add(luz);
+        luces.push({ luz, fase: faseDe(`${item.id}_${cx}_${cz}`) });
+      }
+    }
+
+    // Colgados en pared (cuadros, tapices, candelabros/antorchas de pared,
+    // faroles...) — hasta ahora `colocarSala()` ya los bakeaba en
+    // `resultado.colgados`, pero este render nunca los leía: la sala
+    // quedaba con las paredes desnudas aunque el editor de interiores/ sí
+    // los mostrara. Misma fórmula de posición por `lado` que el visor de
+    // interiores/gui/vista3d.js, para que el juego en vivo pinte lo mismo
+    // que ya se ve al editar.
+    for (const c of resultado.colgados ?? []) {
+      let cx: number, cz: number, rotY: number;
+      if (c.lado === "sur") { cx = offsetX + c.x + 0.5; cz = offsetY + resultado.largo - BORDE_PARED; rotY = Math.PI; }
+      else if (c.lado === "norte") { cx = offsetX + c.x + 0.5; cz = offsetY + BORDE_PARED; rotY = 0; }
+      else if (c.lado === "este") { cx = offsetX + resultado.ancho - BORDE_PARED; cz = offsetY + c.y + 0.5; rotY = Math.PI / 2; }
+      else { cx = offsetX + BORDE_PARED; cz = offsetY + c.y + 0.5; rotY = -Math.PI / 2; }
+
+      cargarInstanciaEntidad({
+        categoria: "interiores",
+        id: c.id,
+        variante: { tipo: "numerada", indice: 0 },
+        colorPlaceholder: c.colorDebug ?? "#c9b48a",
+        dimensiones: { ancho: 0.6, alto: 0.6, profundo: 0.12 },
+      }).then((instancia) => {
+        instancia.position.set(cx, ALTO_COLGADO, cz);
+        instancia.rotation.y = rotY;
+        grupo.add(instancia);
+      });
+
+      if (c.capa === "iluminacion") {
+        const luz = new THREE.PointLight(COLOR_LUZ, INTENSIDAD_LUZ, ALCANCE_LUZ, 2);
+        luz.position.set(cx, ALTO_COLGADO, cz);
+        grupo.add(luz);
+        luces.push({ luz, fase: faseDe(`${c.id}_${cx}_${cz}`) });
+      }
+    }
+
+    // Colgados de techo (lámparas de araña, faroles) — sin posición propia
+    // en el bake (`colocacion:"techo"` no reserva casilla, GDD): uno por
+    // sala, centrado.
+    for (const t of resultado.techo ?? []) {
+      const cx = offsetX + resultado.ancho / 2;
+      const cz = offsetY + resultado.largo / 2;
+      cargarInstanciaEntidad({
+        categoria: "interiores",
+        id: t.id,
+        variante: { tipo: "numerada", indice: 0 },
+        colorPlaceholder: t.colorDebug ?? "#c9b48a",
+        dimensiones: { ancho: 0.6, alto: 0.6, profundo: 0.6 },
+      }).then((instancia) => {
+        instancia.position.set(cx, ALTO_LUZ_TECHO, cz);
+        grupo.add(instancia);
+      });
+
+      if (t.capa === "iluminacion") {
+        const luz = new THREE.PointLight(COLOR_LUZ, INTENSIDAD_LUZ, ALCANCE_LUZ, 2);
+        luz.position.set(cx, ALTO_LUZ_TECHO, cz);
+        grupo.add(luz);
+        luces.push({ luz, fase: faseDe(`${t.id}_${cx}_${cz}`) });
       }
     }
   }
@@ -166,7 +285,7 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE
     grupo.add(caja);
   }
 
-  return grupo;
+  return { grupo, luces };
 }
 
 function añadirSiNoEsPuerta(

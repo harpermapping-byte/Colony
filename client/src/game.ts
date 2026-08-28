@@ -12,8 +12,8 @@ import type { IndiceMapa } from "./mapa/formatoMapa";
 import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelasCliente";
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
 import { ModoConstruccion } from "./construccion/constructor";
-import { crearInteriorVisual, type InteriorBakeado } from "./render3d/interiorVisual";
-import { PointLight } from "three";
+import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
+import { PointLight, Color } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
@@ -113,6 +113,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // sectores: se salta este bloque entero y se renderiza más abajo.
   let streaming: StreamingSectores<Group> | null = null;
   let indiceMapa: IndiceMapa | null = null; // lo reusa el constructor (ancho del mapa en casillas)
+  // Farolas/focos exteriores (ciudades/src/index.js, capa "luces" de
+  // indice.json) — hasta ahora el cliente nunca las leía (pendiente del
+  // GDD_Bakeador_POIs: "ciclo día/noche, consumir luces"). Pocas por
+  // asentamiento (unas pocas decenas como mucho en una gran_capital), así
+  // que se cargan TODAS de una vez al entrar en vez de por streaming de
+  // sector — mismo criterio que fauna.json/poblacion.json.
+  const farolasExterior: LuzInterior[] = [];
   if (!ES_INTERIOR) {
     try {
       const indice = await cargarIndice(RUTA_MAPA);
@@ -132,6 +139,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       });
       // Sonda de depuración/pruebas e2e: estado del streaming en vivo.
       (window as any).__streaming = () => streaming!.estadisticas();
+
+      for (const farola of indice.luces ?? []) {
+        const luz = new PointLight(new Color(farola.color).getHex(), 0, farola.radio, 2);
+        luz.position.set(farola.x, 3.2, farola.y);
+        escena.añadirEstatico(luz);
+        farolasExterior.push({ luz, fase: (farola.x * 31 + farola.y * 17) % 1000 / 1000 });
+      }
     } catch (err) {
       // Sin mapa no se corta el juego (los jugadores siguen sincronizando
       // sobre el suelo de emergencia), pero el fallo queda visible.
@@ -228,12 +242,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // Interior de edificio (docs/GDD_Sistema_Puertas.md): geometría
   // placeholder (cajas de color) del bake de interiores/, sin streaming ni
   // construcción — es una instancia pequeña y de un solo uso.
+  const lucesInterior: LuzInterior[] = [];
   if (ES_INTERIOR) {
     try {
       const r = await fetch(`/assets/mapas/${MAPA_ID}/interiores/${EDIFICIO_ID}.json`);
       if (r.ok) {
         const interior = (await r.json()) as InteriorBakeado;
-        escena.añadirEstatico(crearInteriorVisual(interior, NIVEL));
+        const { grupo, luces } = crearInteriorVisual(interior, NIVEL);
+        escena.añadirEstatico(grupo);
+        lucesInterior.push(...luces);
       } else {
         console.error(`No se pudo cargar el interior "${EDIFICIO_ID}" de "${MAPA_ID}"`);
       }
@@ -596,6 +613,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         const fase = (tSeg + slotId.length * 1.7) % 13;
         escena.textoEtiqueta(`npc_${slotId}`, fase < 4 ? meta.grito : meta.nombre, fase < 4);
       }
+    }
+
+    // Luces de interior (antorchas/candelabros/lámparas — capa "iluminacion"
+    // de interiores/catalogo/elementos.json): siempre encendidas, mismo
+    // parpadeo de llama que la antorcha del guardia, cada una desfasada.
+    for (const { luz, fase } of lucesInterior) {
+      luz.intensity = INTENSIDAD_LUZ_INTERIOR + Math.sin(tSeg * 9 + fase * 13) * 0.25;
+    }
+    // Farolas exteriores (ciudades/src/index.js, "luces"): solo de noche,
+    // mismo parpadeo.
+    for (const { luz, fase } of farolasExterior) {
+      luz.intensity = deNoche ? 1.6 + Math.sin(tSeg * 9 + fase * 13) * 0.3 : 0;
     }
 
     // Streaming de sectores: seguir al jugador local (barato — solo

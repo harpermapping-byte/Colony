@@ -78,6 +78,47 @@ Antes: `conectoresVerticales` era metadato puro ("esta planta y la de arriba se 
 - **Verificado visualmente**: bake real de un `castillo` (4 plantas: bodega + baja + 2 altas) vía `ciudades/`, servidor+cliente reales, Playwright caminando (con BFS sobre la MISMA rejilla que carga el servidor, la dirección diagonal simple se atasca en un laberinto de esta complejidad) hasta la escalera de planta baja, pulsando F: cambia de room, la URL pasa a `nivel=1`, el jugador aparece exactamente en la casilla centro del conector del piso de arriba (capturas en `client/test/capturas_escaleras/`, gitignored — script reutilizable en `client/test/prueba_visual_escaleras.cjs`).
 - Regresión completa en verde tras el cambio: server 37/37, interiores 32/32, tsc limpio en server y cliente.
 
+## Objetos de pared/techo y parpadeo de luces (RESUELTO, 2026-08-28)
+
+Dos bugs reportados por el usuario tras revisar capturas de una aldea bakeada:
+
+- **`interiorVisual.ts` nunca leía `resultado.colgados`/`resultado.techo`**:
+  `colocarSala()` (interiores/src/colocarElementos.js) ya bakeaba cuadros,
+  tapices, candelabros/antorchas de pared, faroles, etc. en esos dos arrays
+  (y el editor de interiores/gui/vista3d.js sí los pintaba), pero el render
+  del cliente en vivo solo iteraba `resultado.colocados` (mobiliario de
+  suelo) — las paredes quedaban desnudas en el juego real aunque el editor
+  las mostrara. Se añadió el bucle que faltaba, con la misma fórmula de
+  posición por `lado` (norte/sur/este/oeste) que ya usaba el visor del
+  editor, más un tercer bucle para `techo` (lámparas de araña, sin
+  posición propia — se centran en la sala).
+- **Mobiliario no cuadrado rotado 90°/270° sobresalía del hueco reservado**:
+  `item.ancho`/`item.largo` que llegan del bake ya son la huella ROTADA
+  (colocarElementos.js las calcula con `rotarHuella` antes de reservar
+  sitio), pero el placeholder del cliente construía la caja con esas
+  dimensiones YA rotadas y encima le aplicaba `rotation.y = item.rotacion`
+  — una segunda rotación que la hacía sobresalir del cuadrado de suelo
+  (visible sobre todo en estanterías/mesas de trabajo pegadas a un muro
+  este/oeste). Arreglado deshaciendo el intercambio ancho/largo antes de
+  construir la caja (rotarHuella es su propia inversa en 90/270), verificado
+  analíticamente para 5 huellas × 4 rotaciones (0 fallos) — un `.glb` real
+  no se ve afectado (no usa `dimensiones`, trae su propia geometría).
+- **Luces de interior estáticas → parpadeo de antorcha real**: las luces de
+  la capa "iluminacion" (suelo, pared o techo) ahora se devuelven desde
+  `crearInteriorVisual()` junto al grupo (`{ grupo, luces }`) y quien llama
+  las anima cada frame con el mismo `Math.sin(t*9+fase)` que ya usaba la
+  antorcha del guardia nocturno, cada una con su propio desfase. Las
+  farolas exteriores (`indice.luces`, antes sin consumir — ver
+  GDD_Bakeador_POIs.md §6) se sumaron con el mismo criterio, apagadas de
+  día.
+
+Verificado: server tsc+test 62/62, client tsc limpio, interiores/ciudades/
+poblacion 43/43 en verde tras el rebake de `assets/mapas/ciudad_demo/`.
+E2E con Playwright: sin errores de consola, capa `capa:"iluminacion"`
+confirmada en los `colgados` re-bakeados, y lectura en vivo de
+`luz.intensity` (6 muestras cada 300ms) confirmando la oscilación real
+tanto en interior (~1.05–1.53) como en farolas exteriores (~1.30–1.90).
+
 ## Qué falta (pendiente, no bloquea)
 
 - **Integración con el mapa principal de producción**: hoy NINGÚN portal "exterior" del mapa principal (`assets/mapas/principal/`) tiene `destino` configurado — los 120 POIs no están enlazados a instancias todavía. Esto es trabajo de `baker/` (decidir cómo un POI del mapa grande referencia su `mapaId` de región) y una decisión del streamer, no algo que tocar sin permiso (CLAUDE.md). Se probó con un mapa de prueba (`assets/mapas/hub_test/`, copia del demo con un portal añadido a mano) — gitignored, no es parte del juego real.
