@@ -132,3 +132,11 @@ test("densidad de ventanas variable: no todas las variantes tienen la misma cant
   for (let n = 1; n <= 15; n++) conteos.add(contarVentanas(generarEdificio("taberna", n)));
   assert.ok(conteos.size >= 3, `la densidad de ventanas casi no varía (${conteos.size} valores distintos)`);
 });
+
+test("estiloVentanaAlt siempre distinto del principal (variedad DENTRO de un mismo edificio)", () => {
+  for (let n = 1; n <= 20; n++) {
+    const m = generarEdificio("casa_noble", n);
+    assert.notStrictEqual(m.estiloVentanaAlt, m.estiloVentana, `semilla ${n}: alt igual al principal`);
+    assert.ok(ESTILOS_VENTANA.includes(m.estiloVentanaAlt));
+  }
+});
