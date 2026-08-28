@@ -40,6 +40,9 @@ assets/mapas/hub_test/
 assets/mapas/torre_test/
 assets/mapas/poi_test/
 assets/mapas/aldea_footprint_test/
+assets/mapas/playtest/
+client/test/capturas_playtest/
+output/
 taller-vox/output/
 # agent-skills instaladas por sesión (npx skills add) — tooling local del
 # agente, no del proyecto; cada sesión/agente las reinstala si las necesita
