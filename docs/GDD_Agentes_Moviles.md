@@ -91,6 +91,71 @@ La `RegionRoom` carga `poblacion.json` si existe junto a su mapa y
 arranca el gestor; si no existe, la región simplemente no tiene NPCs
 (mapas viejos siguen funcionando).
 
+## NPCs especiales, guardias y ocio (v1.1 — pedido del streamer 2026-08-28)
+
+### Especiales
+
+NPCs únicos con path más marcado y personalidad de calle. TODO entra por
+catálogo (`poblacion/catalogo/especiales.json` + arquetipo en
+`personajes/catalogo/npcs.json` + entrada de censo + perfil en
+`perfilesSociales.json` — cero código por especial nuevo). La probabilidad
+de que un asentamiento concreto los tenga es su `cantidad [0,1]` del censo.
+
+Implementados: **vagabundo** (sin casa ni trabajo: deambula pidiendo, se
+sienta en la plaza, duerme a la intemperie — visible SIEMPRE), **párroco**
+(vive EN el templo, misa por la mañana, pasea bendiciendo), **pregonero**
+(recorre la ciudad de día contando novedades — el texto real del pregón
+llegará del canal de historias del servidor), **melonero** (ronda las
+calles con su grito "¡Vendo melones!" y remata en la plaza; su burro y
+carreta son arte futuro).
+
+Los `grito` van en el estado (`Npc.grito`) y el cliente los enseña en
+burbuja periódica (~4 s cada ~13, desfasada por NPC).
+
+### Guardias (todo asentamiento con muralla)
+
+Uniforme por catálogo (tabardo+pantalón de cuero: misma prenda + mismo
+material = mismo look). Reparto por índice entre los censados
+(`asignarEspeciales.js`): primero 2 por puerta de muralla — turno de DÍA y
+turno de NOCHE en la MISMA puerta, 12 h cada uno, en el lado INTERIOR del
+anillo (a ~2.5 casillas hacia la plaza) — y el resto a rondas (bucle por
+todas las puertas pasando por la plaza) alternando día/noche. Fuera de
+turno hacen vida: dormir, comer, ocio y taberna. De noche el cliente les
+enciende una ANTORCHA (PointLight con parpadeo) mientras vigilan/patrullan.
+
+### Ocio aleatorio diario (todos los NPCs)
+
+Los perfiles normales cambian su tarde fija por un tramo `ocio` que se
+resuelve DISTINTO cada día por semilla (npc, día): taberna, plaza, sentarse
+en una zona verde, mirar una tienda o un paseo corto. Misma plantilla, días
+que no se repiten — la variación diaria de horarios (jitter) ya existía.
+
+### Dormir bajo techo y el déficit de camas
+
+Cadena de "casa" en `generarRutina`: vivienda → si no hay, DUERME DONDE
+TRABAJA (el guardia en el cuartel, el cura en el templo, el panadero en la
+trastienda — de época) → si tampoco, la posada como pensión. Antes el
+déficit de camas dejaba al NPC sin rutina (invisible); ahora todo el censo
+sale al mapa. La visibilidad es por tramo: bajo techo (en casa o durmiendo
+donde le tocó) no se pinta en el exterior; `dormir_calle` del vagabundo sí.
+
+### Ideas propuestas (pendientes del OK del streamer — no implementadas)
+
+1. **El borracho del pueblo** — sale de la taberna haciendo eses, duerme en cualquier banco.
+2. **La chismosa** — va de puerta en puerta y se para "a hablar" con cada NPC que cruza (ideal para IA).
+3. **El bardo malo** — canta en la plaza y los NPCs cercanos se apartan un paso.
+4. **El loco de las profecías** — señala al cielo y suelta profecías absurdas sobre "el fin del reino".
+5. **El recaudador de impuestos** — va de tienda en tienda con un guardia de escolta; todos lo miran mal.
+6. **El duelista jubilado** — viejo con espada de madera que entrena contra un poste.
+7. **La vendedora de amuletos** — "amuletos de dudosa eficacia", promesas exageradas a grito.
+8. **El niño perdido** — corretea por la ciudad; devolverlo a su madre puede ser micro-misión futura.
+9. **El pescador mentiroso** — junto al agua contando el pez gigante que casi pesca (crece cada día).
+10. **El sepulturero** — de noche pasea con pala y farol cerca del templo; de día duerme.
+11. **El mimo/estatua** — inmóvil en la plaza; si un jugador se acerca mucho, se mueve de golpe.
+12. **El coleccionista de gallinas** — persigue gallinas por la ciudad (cuando haya fauna urbana).
+13. **El "corredor"** — siempre va corriendo a todas partes como si llegara tarde a algo.
+14. **El gato/perro del pueblo** — fauna urbana especial que sigue a gente aleatoria (con la fauna).
+
 ## Verificado (v1)
 
 - Test de servidor del gestor: recolocación por hora al crear room,
@@ -101,12 +166,21 @@ arranca el gestor; si no existe, la región simplemente no tiene NPCs
 
 ## Qué falta (pendiente, no bloquea)
 
-- Cerebros de merodeo (fauna) y patrulla (bárbaros) — diseño cerrado
-  arriba, llegan con sus mecánicas.
-- NPCs dentro de interiores instanciados (hoy: visible=false al estar en
-  casa/trabajo bajo techo).
+- Cerebros de merodeo (fauna) y patrulla-con-agresión (bárbaros) — diseño
+  cerrado arriba, llegan con sus mecánicas.
+- NPCs dentro de interiores instanciados (hoy: visible=false bajo techo).
+  Diseño pendiente de detallar: cuando un jugador está en el interior de
+  un edificio, los NPCs cuyo tramo activo cae en ese edificio deberían
+  verse dentro (en su sala de la rutina) — y cruzar la puerta visiblemente
+  como hace el jugador. También la vida familiar dentro de casa
+  (socializar con la familia en el salón) — pedido del streamer, se
+  diseña con el hito de interiores.
 - Hablar (F) con el NPC que pasa por delante: `npc:hablar` ya existe en
   el Hub; conectar el id del agente al gestor de conversaciones cuando
   el diálogo IA salga de su pausa (decisión del streamer: aparcado).
 - Animación de andar del rig del NPC sincronizada con VIAJANDO (el rig ya
   anda para jugadores; pasar el flag).
+- Burro y carreta del melonero (composición agente+animal+prop) — arte y
+  mecánica futuros; de momento el melonero va a pie con su pregón.
+- Sentarse de verdad (pose del rig) para "pedir_sentado"/bancos — hoy el
+  NPC se queda de pie en el sitio; la pose llega con las animaciones.

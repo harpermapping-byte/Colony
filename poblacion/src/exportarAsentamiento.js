@@ -15,6 +15,7 @@ const { cargarCatalogos } = require("./catalogo");
 const { exportarPoblacion } = require("./exportarPoblacion");
 const { asignarUbicacion } = require("./asignarUbicacion");
 const { asignarPerfil } = require("./asignarPerfil");
+const { perfilEspecial } = require("./asignarEspeciales");
 const { generarRutina } = require("./generarRutina");
 const { bakearCaminosDeRutina } = require("./bakearCaminos");
 
@@ -29,11 +30,21 @@ async function exportarAsentamiento(tierId, semilla, opciones = {}) {
 
   const ciudad = generarCiudad({ tier: tierId, semilla, catalogos: catalogosInteriores });
   const poblacion = await exportarPoblacion(tierId, semilla, opciones);
+
+  // NPCs ESPECIALES antes de ubicar (GDD_Agentes_Moviles.md): el perfil
+  // forzado decide cosas que la ubicación necesita saber (el vagabundo no
+  // entra al reparto de viviendas) y reparte los turnos/puertas de la guardia
+  const ctxEspecial = { indiceGuardia: { n: 0 }, nPuertas: (ciudad.puertas ?? []).length };
+  for (const npc of poblacion.npcs) {
+    npc.perfilForzado = perfilEspecial(npc, ctxEspecial, catalogos.especiales);
+    if (npc.perfilForzado && catalogos.perfilesSociales[npc.perfilForzado]?.sinCasa) npc.sinCasa = true;
+  }
+
   const deficit = asignarUbicacion(ciudad, poblacion.npcs, catalogos.oficiosEdificios, catalogosInteriores.elementos);
 
   const cacheCaminos = new Map();
   for (const npc of poblacion.npcs) {
-    npc.perfilSocial = asignarPerfil(npc, catalogos.perfilesSociales);
+    npc.perfilSocial = npc.perfilForzado ?? asignarPerfil(npc, catalogos.perfilesSociales);
     npc.rutina = npc.perfilSocial ? generarRutina(npc, ciudad, catalogos, opciones.dia ?? 0) : [];
     if (npc.rutina.length) bakearCaminosDeRutina(ciudad, npc.rutina, cacheCaminos);
   }
@@ -60,6 +71,7 @@ function escribirPoblacionDeMapa(resultado, carpetaMapa) {
       slotId: n.slotId,
       nombre: n.apellido ? `${n.nombre} ${n.apellido}` : n.nombre,
       oficio: n.trabajo?.oficio ?? n.ficha?.profesion ?? null,
+      grito: n.grito, // frase de calle de los especiales (melonero, pregonero...) — el cliente la muestra en burbuja
       rutina: n.rutina,
       vox: {
         ficha: n.ficha,

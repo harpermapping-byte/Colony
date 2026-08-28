@@ -4,54 +4,180 @@
     "peso": 4,
     "requiereTrabajo": true,
     "tramos": [
-      { "lugar": "casa", "accion": "dormir", "horaInicio": 22, "horaFin": 6 },
-      { "lugar": "trabajo", "accion": "trabajar", "horaInicio": 7, "horaFin": 18 },
-      { "lugar": "casa", "accion": "comer", "horaInicio": 18, "horaFin": 19 },
-      { "lugar": "casa", "accion": "socializar", "horaInicio": 19, "horaFin": 22 }
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 22,
+        "horaFin": 6
+      },
+      {
+        "lugar": "trabajo",
+        "accion": "trabajar",
+        "horaInicio": 7,
+        "horaFin": 18
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 18,
+        "horaFin": 19
+      },
+      {
+        "lugar": "ocio",
+        "accion": "ocio",
+        "horaInicio": 19,
+        "horaFin": 21
+      },
+      {
+        "lugar": "casa",
+        "accion": "socializar",
+        "horaInicio": 21,
+        "horaFin": 22
+      }
     ]
   },
   "sociable": {
     "peso": 3,
     "requiereTrabajo": true,
     "tramos": [
-      { "lugar": "casa", "accion": "dormir", "horaInicio": 23, "horaFin": 7 },
-      { "lugar": "trabajo", "accion": "trabajar", "horaInicio": 8, "horaFin": 17 },
-      { "lugar": "taberna", "accion": "socializar", "horaInicio": 17, "horaFin": 22 },
-      { "lugar": "casa", "accion": "comer", "horaInicio": 22, "horaFin": 23 }
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 23,
+        "horaFin": 7
+      },
+      {
+        "lugar": "trabajo",
+        "accion": "trabajar",
+        "horaInicio": 8,
+        "horaFin": 17
+      },
+      {
+        "lugar": "ocio",
+        "accion": "ocio",
+        "horaInicio": 17,
+        "horaFin": 22
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 22,
+        "horaFin": 23
+      }
     ]
   },
   "aparenta_trabajar": {
     "peso": 1,
     "requiereTrabajo": true,
     "tramos": [
-      { "lugar": "casa", "accion": "dormir", "horaInicio": 23, "horaFin": 8 },
-      { "lugar": "trabajo", "accion": "trabajar", "horaInicio": 9, "horaFin": 12 },
-      { "lugar": "plaza", "accion": "pasear", "horaInicio": 12, "horaFin": 15 },
-      { "lugar": "trabajo", "accion": "trabajar", "horaInicio": 15, "horaFin": 17 },
-      { "lugar": "casa", "accion": "comer", "horaInicio": 17, "horaFin": 18 },
-      { "lugar": "taberna", "accion": "socializar", "horaInicio": 18, "horaFin": 23 }
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 23,
+        "horaFin": 8
+      },
+      {
+        "lugar": "trabajo",
+        "accion": "trabajar",
+        "horaInicio": 9,
+        "horaFin": 12
+      },
+      {
+        "lugar": "plaza",
+        "accion": "pasear",
+        "horaInicio": 12,
+        "horaFin": 15
+      },
+      {
+        "lugar": "trabajo",
+        "accion": "trabajar",
+        "horaInicio": 15,
+        "horaFin": 17
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 17,
+        "horaFin": 18
+      },
+      {
+        "lugar": "taberna",
+        "accion": "socializar",
+        "horaInicio": 18,
+        "horaFin": 23
+      }
     ]
   },
   "granjero": {
     "peso": 3,
     "requiereTrabajo": false,
     "tramos": [
-      { "lugar": "casa", "accion": "dormir", "horaInicio": 21, "horaFin": 5 },
-      { "lugar": "campo", "accion": "trabajar", "horaInicio": 5, "horaFin": 13 },
-      { "lugar": "casa", "accion": "comer", "horaInicio": 13, "horaFin": 14 },
-      { "lugar": "campo", "accion": "trabajar", "horaInicio": 14, "horaFin": 18 },
-      { "lugar": "casa", "accion": "socializar", "horaInicio": 18, "horaFin": 21 }
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 21,
+        "horaFin": 5
+      },
+      {
+        "lugar": "campo",
+        "accion": "trabajar",
+        "horaInicio": 5,
+        "horaFin": 13
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 13,
+        "horaFin": 14
+      },
+      {
+        "lugar": "campo",
+        "accion": "trabajar",
+        "horaInicio": 14,
+        "horaFin": 18
+      },
+      {
+        "lugar": "casa",
+        "accion": "socializar",
+        "horaInicio": 18,
+        "horaFin": 21
+      }
     ]
   },
   "ocioso": {
     "peso": 1,
     "requiereTrabajo": false,
     "tramos": [
-      { "lugar": "casa", "accion": "dormir", "horaInicio": 23, "horaFin": 8 },
-      { "lugar": "plaza", "accion": "pasear", "horaInicio": 8, "horaFin": 12 },
-      { "lugar": "taberna", "accion": "socializar", "horaInicio": 12, "horaFin": 18 },
-      { "lugar": "casa", "accion": "comer", "horaInicio": 18, "horaFin": 19 },
-      { "lugar": "plaza", "accion": "pasear", "horaInicio": 19, "horaFin": 23 }
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 23,
+        "horaFin": 8
+      },
+      {
+        "lugar": "plaza",
+        "accion": "pasear",
+        "horaInicio": 8,
+        "horaFin": 12
+      },
+      {
+        "lugar": "taberna",
+        "accion": "socializar",
+        "horaInicio": 12,
+        "horaFin": 18
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 18,
+        "horaFin": 19
+      },
+      {
+        "lugar": "plaza",
+        "accion": "pasear",
+        "horaInicio": 19,
+        "horaFin": 23
+      }
     ]
   },
   "infantil": {
@@ -59,11 +185,332 @@
     "requiereTrabajo": false,
     "soloHijos": true,
     "tramos": [
-      { "lugar": "casa", "accion": "dormir", "horaInicio": 21, "horaFin": 7 },
-      { "lugar": "plaza", "accion": "socializar", "horaInicio": 7, "horaFin": 13 },
-      { "lugar": "casa", "accion": "comer", "horaInicio": 13, "horaFin": 14 },
-      { "lugar": "plaza", "accion": "socializar", "horaInicio": 14, "horaFin": 20 },
-      { "lugar": "casa", "accion": "comer", "horaInicio": 20, "horaFin": 21 }
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 21,
+        "horaFin": 7
+      },
+      {
+        "lugar": "plaza",
+        "accion": "socializar",
+        "horaInicio": 7,
+        "horaFin": 13
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 13,
+        "horaFin": 14
+      },
+      {
+        "lugar": "plaza",
+        "accion": "socializar",
+        "horaInicio": 14,
+        "horaFin": 20
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 20,
+        "horaFin": 21
+      }
+    ]
+  },
+  "parroco": {
+    "soloEspecial": true,
+    "requiereTrabajo": true,
+    "_nota": "El cura (especial 2026-08-28): vive EN el templo (todos sus tramos de casa son 'trabajo'), da su misa y pasea bendiciendo por la ciudad.",
+    "tramos": [
+      {
+        "lugar": "trabajo",
+        "accion": "dormir",
+        "horaInicio": 22,
+        "horaFin": 6
+      },
+      {
+        "lugar": "trabajo",
+        "accion": "misa",
+        "horaInicio": 7,
+        "horaFin": 9
+      },
+      {
+        "lugar": "deambular",
+        "accion": "bendecir",
+        "horaInicio": 9,
+        "horaFin": 13
+      },
+      {
+        "lugar": "trabajo",
+        "accion": "orar",
+        "horaInicio": 13,
+        "horaFin": 18
+      },
+      {
+        "lugar": "plaza",
+        "accion": "socializar",
+        "horaInicio": 18,
+        "horaFin": 20
+      },
+      {
+        "lugar": "trabajo",
+        "accion": "orar",
+        "horaInicio": 20,
+        "horaFin": 22
+      }
+    ]
+  },
+  "vagabundo": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "sinCasa": true,
+    "_nota": "Sin casa ni trabajo: duerme a la intemperie (banco/zona verde) y pide por las calles — visible SIEMPRE, nunca 'bajo techo'.",
+    "tramos": [
+      {
+        "lugar": "banco",
+        "accion": "dormir_calle",
+        "horaInicio": 22,
+        "horaFin": 6
+      },
+      {
+        "lugar": "deambular",
+        "accion": "pedir",
+        "horaInicio": 6,
+        "horaFin": 11
+      },
+      {
+        "lugar": "plaza",
+        "accion": "pedir_sentado",
+        "horaInicio": 11,
+        "horaFin": 14
+      },
+      {
+        "lugar": "deambular",
+        "accion": "pedir",
+        "horaInicio": 14,
+        "horaFin": 19
+      },
+      {
+        "lugar": "taberna",
+        "accion": "pedir",
+        "horaInicio": 19,
+        "horaFin": 22
+      }
+    ]
+  },
+  "pregonero": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "_nota": "De día recorre la ciudad pregonando las novedades del servidor (el texto del pregón llegará del canal de historias/sucesos, GDD_IA_NPCs).",
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 22,
+        "horaFin": 6
+      },
+      {
+        "lugar": "deambular",
+        "accion": "pregonar",
+        "horaInicio": 7,
+        "horaFin": 12
+      },
+      {
+        "lugar": "plaza",
+        "accion": "pregonar",
+        "horaInicio": 12,
+        "horaFin": 14
+      },
+      {
+        "lugar": "deambular",
+        "accion": "pregonar",
+        "horaInicio": 14,
+        "horaFin": 19
+      },
+      {
+        "lugar": "taberna",
+        "accion": "socializar",
+        "horaInicio": 19,
+        "horaFin": 21
+      },
+      {
+        "lugar": "casa",
+        "accion": "socializar",
+        "horaInicio": 21,
+        "horaFin": 22
+      }
+    ]
+  },
+  "vendedor_ambulante": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "_nota": "El melonero (y futuros vendedores callejeros): ronda las calles de día gritando su mercancía y remata en la plaza.",
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 21,
+        "horaFin": 5
+      },
+      {
+        "lugar": "ronda",
+        "accion": "vender",
+        "horaInicio": 6,
+        "horaFin": 12
+      },
+      {
+        "lugar": "plaza",
+        "accion": "vender",
+        "horaInicio": 12,
+        "horaFin": 16
+      },
+      {
+        "lugar": "ronda",
+        "accion": "vender",
+        "horaInicio": 16,
+        "horaFin": 19
+      },
+      {
+        "lugar": "taberna",
+        "accion": "socializar",
+        "horaInicio": 19,
+        "horaFin": 21
+      }
+    ]
+  },
+  "guardia_puerta_dia": {
+    "soloEspecial": true,
+    "requiereTrabajo": true,
+    "_nota": "Turno de día en una puerta asignada (12 h). Su relevo es guardia_puerta_noche en la MISMA puerta — la pareja sale sola del reparto por índice en asignarEspeciales.",
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 21.5,
+        "horaFin": 6.5
+      },
+      {
+        "lugar": "puesto",
+        "accion": "vigilar",
+        "horaInicio": 7,
+        "horaFin": 19
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 19,
+        "horaFin": 20
+      },
+      {
+        "lugar": "taberna",
+        "accion": "beber",
+        "horaInicio": 20,
+        "horaFin": 21.5
+      }
+    ]
+  },
+  "guardia_puerta_noche": {
+    "soloEspecial": true,
+    "requiereTrabajo": true,
+    "tramos": [
+      {
+        "lugar": "puesto",
+        "accion": "vigilar",
+        "horaInicio": 19,
+        "horaFin": 7
+      },
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 7.5,
+        "horaFin": 14
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 14,
+        "horaFin": 15
+      },
+      {
+        "lugar": "ocio",
+        "accion": "ocio",
+        "horaInicio": 15,
+        "horaFin": 17.5
+      },
+      {
+        "lugar": "taberna",
+        "accion": "beber",
+        "horaInicio": 17.5,
+        "horaFin": 18.7
+      }
+    ]
+  },
+  "guardia_ronda_dia": {
+    "soloEspecial": true,
+    "requiereTrabajo": true,
+    "_nota": "Patrulla de día: recorre en bucle las puertas y la plaza (paradas de la ronda).",
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 21.5,
+        "horaFin": 6.5
+      },
+      {
+        "lugar": "ronda",
+        "accion": "patrullar",
+        "horaInicio": 7,
+        "horaFin": 19
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 19,
+        "horaFin": 20
+      },
+      {
+        "lugar": "taberna",
+        "accion": "beber",
+        "horaInicio": 20,
+        "horaFin": 21.5
+      }
+    ]
+  },
+  "guardia_ronda_noche": {
+    "soloEspecial": true,
+    "requiereTrabajo": true,
+    "_nota": "Patrulla nocturna: mismo bucle, con antorcha en la mano (la enciende el cliente al ser de noche).",
+    "tramos": [
+      {
+        "lugar": "ronda",
+        "accion": "patrullar",
+        "horaInicio": 19,
+        "horaFin": 7
+      },
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 7.5,
+        "horaFin": 14
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 14,
+        "horaFin": 15
+      },
+      {
+        "lugar": "ocio",
+        "accion": "ocio",
+        "horaInicio": 15,
+        "horaFin": 17.5
+      },
+      {
+        "lugar": "taberna",
+        "accion": "beber",
+        "horaInicio": 17.5,
+        "horaFin": 18.7
+      }
     ]
   }
 }

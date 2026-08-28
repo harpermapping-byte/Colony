@@ -63,7 +63,25 @@ function salaParaAccion(edificio, accion, accionesPorSala) {
   return null; // su casa no tiene esa sala: se queda junto a la puerta, no rompe nada
 }
 
-function resolverLugar(lugar, ctx) {
+// Punto de guardia de una puerta de muralla: un par de casillas hacia el
+// INTERIOR (pedido del streamer: el guardia hace guardia dentro del anillo,
+// no en el vano), acercándose al punto focal de la ciudad.
+function puestoDePuerta(puerta, focal) {
+  if (!focal) return { x: puerta.x, y: puerta.y };
+  const dx = focal.x - puerta.x;
+  const dy = focal.y - puerta.y;
+  const d = Math.hypot(dx, dy) || 1;
+  return { x: Math.round(puerta.x + (dx / d) * 2.5), y: Math.round(puerta.y + (dy / d) * 2.5) };
+}
+
+function muestrear(pool, n, rnd) {
+  const copia = pool.slice();
+  const sacados = [];
+  while (copia.length && sacados.length < n) sacados.push(copia.splice(Math.floor(rnd() * copia.length), 1)[0]);
+  return sacados;
+}
+
+function resolverLugar(lugar, ctx, rnd) {
   switch (lugar) {
     case "casa":
       return ctx.casaPunto;
@@ -78,6 +96,43 @@ function resolverLugar(lugar, ctx) {
       // este asentamiento no tiene ninguno, cae junto a su propia puerta
       // (placeholder v1, GDD "Qué falta" — no todo bake tiene huerto).
       return ctx.campoPunto ?? ctx.casaPunto;
+    case "banco":
+      // sitio para sentarse a la intemperie: una zona verde; sin ellas, la plaza
+      return ctx.bancoPunto ?? ctx.plazaPunto ?? ctx.casaPunto;
+    case "puesto":
+      // puesto de guardia asignado (npc.puestoPuerta) — parte interior de la puerta
+      return ctx.puestoPunto ?? ctx.plazaPunto ?? ctx.casaPunto;
+    case "ronda": {
+      // bucle de patrulla/venta: todas las puertas (por dentro) pasando por
+      // la plaza entre puerta y puerta — el orden lo baraja el día
+      if (!ctx.rondaParadas || ctx.rondaParadas.length < 2) return ctx.plazaPunto ?? ctx.casaPunto;
+      const puertas = muestrear(ctx.rondaParadas, ctx.rondaParadas.length, rnd);
+      const paradas = [];
+      for (const p of puertas) {
+        paradas.push(p);
+        if (ctx.plazaPunto) paradas.push(ctx.plazaPunto);
+      }
+      return { paradas };
+    }
+    case "deambular": {
+      // callejeo: 3-5 puntos distintos del pool urbano, DISTINTOS cada día
+      const pool = ctx.deambularPool ?? [];
+      if (pool.length < 2) return ctx.plazaPunto ?? ctx.casaPunto;
+      return { paradas: muestrear(pool, 3 + Math.floor(rnd() * 3), rnd) };
+    }
+    case "ocio": {
+      // tiempo libre ALEATORIO POR DÍA (pedido del streamer): cada día del
+      // mismo NPC sale distinto — taberna, plaza, banco, mirar tiendas o un
+      // paseo corto. Misma plantilla, días que no se repiten.
+      const opciones = [
+        () => ctx.tabernaPunto ?? ctx.plazaPunto,
+        () => ctx.plazaPunto,
+        () => ctx.bancoPunto ?? ctx.plazaPunto,
+        () => (ctx.tiendaPuntos?.length ? ctx.tiendaPuntos[Math.floor(rnd() * ctx.tiendaPuntos.length)] : null),
+        () => (ctx.deambularPool?.length >= 2 ? { paradas: muestrear(ctx.deambularPool, 2, rnd) } : null),
+      ];
+      return opciones[Math.floor(rnd() * opciones.length)]() ?? ctx.casaPunto;
+    }
     default:
       return ctx.casaPunto;
   }
@@ -98,27 +153,62 @@ function generarRutina(npc, ciudad, catalogos, dia = 0) {
   const perfil = catalogos.perfilesSociales[npc.perfilSocial];
   if (!perfil) return [];
 
-  const edificioCasa = npc.vivienda ? edificioDe(ciudad, npc.vivienda.edificioId) : null;
-  if (!edificioCasa) return []; // sin vivienda (déficit de Fase 2): sin desde-dónde partir, sin rutina
-
   const edificioTrabajo = npc.trabajo ? edificioDe(ciudad, npc.trabajo.edificioId) : null;
+  // "Casa" en cadena de respaldo (el censo puede pedir más gente que camas
+  // hay — déficit conocido de Fase 2, que antes dejaba al NPC SIN rutina,
+  // invisible): 1) su vivienda; 2) duerme donde trabaja (el guardia en el
+  // cuartel, el cura en el templo, el panadero en la trastienda — de época);
+  // 3) la posada/taberna como pensión. Los perfiles sinCasa (vagabundo)
+  // saltan la cadena: su intemperie es diseño, no déficit.
+  let edificioCasa = npc.vivienda ? edificioDe(ciudad, npc.vivienda.edificioId) : null;
+  if (!edificioCasa && !perfil.sinCasa) {
+    edificioCasa =
+      edificioTrabajo ??
+      ciudad.edificios.find((e) => e.tipoEdificioId === "posada" || e.tipoEdificioId === "taberna") ??
+      null;
+    if (!edificioCasa) return []; // ni casa, ni trabajo, ni posada: este bake no tiene dónde meterlo
+  }
+  const focal = ciudad.focal ?? null;
+  // sitio de "sentarse fuera": un parque si lo hay (un huerto es de labor,
+  // no de descanso — solo cae ahí si no hay parque)
+  const zonasVerdes = ciudad.zonasVerdes ?? [];
+  const zonaBanco = zonasVerdes.find((z) => z.tipo === "parque") ?? zonasVerdes[0];
+  const bancoPunto = zonaBanco ? { x: Math.round(zonaBanco.x), y: Math.round(zonaBanco.y) } : null;
+  const puertasInterior = (ciudad.puertas ?? []).map((p) => puestoDePuerta(p, focal));
+  const tiendaPuntos = ciudad.edificios
+    .filter((e) => ["tienda", "panaderia", "sastreria", "joyeria", "alfareria", "taberna", "posada"].includes(e.tipoEdificioId))
+    .map(centroPuerta);
+  const casaPunto = edificioCasa ? centroPuerta(edificioCasa) : (bancoPunto ?? focal ?? { x: 0, y: 0 });
   const ctx = {
-    casaPunto: centroPuerta(edificioCasa),
+    casaPunto,
     trabajoPunto: edificioTrabajo ? centroPuerta(edificioTrabajo) : null,
     tabernaPunto: buscarTaberna(ciudad),
-    plazaPunto: ciudad.focal ?? null,
-    campoPunto: puntoDeCampo(ciudad, centroPuerta(edificioCasa)),
+    plazaPunto: focal,
+    campoPunto: puntoDeCampo(ciudad, casaPunto),
+    bancoPunto,
+    // puesto asignado del guardia de puerta (asignarEspeciales reparte índices)
+    puestoPunto: npc.puestoPuerta != null ? puertasInterior[npc.puestoPuerta % Math.max(1, puertasInterior.length)] : null,
+    rondaParadas: puertasInterior,
+    deambularPool: [...puertasInterior, ...(focal ? [focal] : []), ...tiendaPuntos],
+    tiendaPuntos,
   };
 
   const rnd = crearPRNG(`${npc.slotId}|rutina|dia${dia}`);
-  return perfil.tramos.map((tramo) => ({
-    lugar: tramo.lugar,
-    accion: tramo.accion,
-    horaInicio: Number((tramo.horaInicio + jitter(rnd)).toFixed(2)),
-    horaFin: Number((tramo.horaFin + jitter(rnd)).toFixed(2)),
-    punto: resolverLugar(tramo.lugar, ctx),
-    sala: tramo.lugar === "casa" ? salaParaAccion(edificioCasa, tramo.accion, catalogos.accionesPorSala) : null,
-  }));
+  return perfil.tramos.map((tramo) => {
+    const resuelto = resolverLugar(tramo.lugar, ctx, rnd);
+    const paradas = resuelto?.paradas ?? null;
+    return {
+      lugar: tramo.lugar,
+      accion: tramo.accion,
+      horaInicio: Number((tramo.horaInicio + jitter(rnd)).toFixed(2)),
+      horaFin: Number((tramo.horaFin + jitter(rnd)).toFixed(2)),
+      // con paradas, el "punto" del tramo es la primera — es donde empieza
+      // el bucle y el origen que usa el tramo siguiente para su camino
+      punto: paradas ? { x: paradas[0].x, y: paradas[0].y } : resuelto,
+      paradas: paradas ? paradas.map((p) => ({ x: p.x, y: p.y })) : undefined,
+      sala: tramo.lugar === "casa" && edificioCasa ? salaParaAccion(edificioCasa, tramo.accion, catalogos.accionesPorSala) : null,
+    };
+  });
 }
 
 module.exports = { generarRutina };

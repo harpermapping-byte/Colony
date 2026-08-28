@@ -99,3 +99,39 @@ test("un NPC sin rutina no sale al mapa", () => {
   assert.strictEqual(salida.size, 0);
   assert.strictEqual(gestor.cantidad, 0);
 });
+
+test("turno de noche (19→7): el tramo que cruza la medianoche manda a las 23h y a las 3h", () => {
+  const rutina: TramoRutina[] = [
+    tramo({ lugar: "puesto", accion: "vigilar", horaInicio: 19, horaFin: 7, punto: { x: 5, y: 5 } }),
+    tramo({ lugar: "casa", accion: "dormir", horaInicio: 7.5, horaFin: 14, punto: { x: 1, y: 1 } }),
+    tramo({ lugar: "taberna", accion: "beber", horaInicio: 15, horaFin: 18.7, punto: { x: 8, y: 8 } }),
+  ];
+  assert.strictEqual(tramoActivoPorHora(rutina, 23), 0);
+  assert.strictEqual(tramoActivoPorHora(rutina, 3), 0);
+  assert.strictEqual(tramoActivoPorHora(rutina, 10), 1);
+  assert.strictEqual(tramoActivoPorHora(rutina, 16), 2);
+});
+
+test("ronda con paradas: el agente recorre el bucle parada a parada con pausas, sin quedarse clavado", () => {
+  const paradas = [
+    { x: 0, y: 0, camino: [{ x: 8, y: 0 }, { x: 0, y: 0 }] },
+    { x: 8, y: 0, camino: [{ x: 0, y: 0 }, { x: 8, y: 0 }] },
+  ];
+  const rutina: TramoRutina[] = [
+    tramo({ lugar: "ronda", accion: "patrullar", horaInicio: 0, horaFin: 24, punto: { x: 0, y: 0 }, paradas }),
+  ];
+  const salida = new MapSchema<Npc>();
+  const gestor = new GestorAgentes(salida);
+  gestor.iniciar([npcDe(rutina)], 12);
+  const npc = salida.get("npc_test")!;
+  assert.strictEqual(npc.x, 0.5);
+
+  // pasan la pausa (7s) y viaja hacia la parada 1 (x=8)
+  const posiciones = new Set<number>();
+  for (let i = 0; i < 60; i++) {
+    gestor.tick(0.5, 12);
+    posiciones.add(Math.round(npc.x));
+  }
+  assert.ok(posiciones.has(8) || posiciones.has(9), "debería haber llegado a la parada opuesta");
+  assert.ok(posiciones.size > 3, `debería haberse visto en varias posiciones del trayecto (${[...posiciones]})`);
+});

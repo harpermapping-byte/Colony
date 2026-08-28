@@ -24,6 +24,9 @@ export class Npc extends Schema {
   @type("string") accion = "";
   // false = bajo techo (en casa): el cliente no lo pinta en el exterior
   @type("boolean") visible = true;
+  // frase de calle de los NPCs especiales ("¡Vendo melones!") — el cliente
+  // la enseña en burbuja de vez en cuando; vacío = NPC sin pregón
+  @type("string") grito = "";
 }
 
 export class HubState extends Schema {
