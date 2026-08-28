@@ -23,6 +23,35 @@ function buscarTaberna(ciudad) {
   return t ? centroPuerta(t) : null;
 }
 
+// Huertos intramuros reales del bake (ciudades/src/generar.js: zonas verdes
+// con un 45% de salir como "tierra_labrada") — no todo asentamiento tiene
+// uno. Se cachea por ciudad: escanear la rejilla entera es barato UNA vez,
+// caro si se hiciera por cada NPC con perfil "granjero".
+const cacheHuertos = new WeakMap();
+function tilesDeHuerto(ciudad) {
+  if (cacheHuertos.has(ciudad)) return cacheHuertos.get(ciudad);
+  const tiles = [];
+  for (let y = 0; y < ciudad.alto; y++) {
+    for (let x = 0; x < ciudad.ancho; x++) {
+      if (ciudad.terreno.get(x, y) === "tierra_labrada") tiles.push({ x, y });
+    }
+  }
+  cacheHuertos.set(ciudad, tiles);
+  return tiles;
+}
+
+function puntoDeCampo(ciudad, casaPunto) {
+  const tiles = tilesDeHuerto(ciudad);
+  if (tiles.length === 0) return null; // este bake no tiene huerto: se resolverá al placeholder junto a la puerta
+  let mejor = tiles[0];
+  let mejorDist = Infinity;
+  for (const t of tiles) {
+    const d = Math.hypot(t.x - casaPunto.x, t.y - casaPunto.y);
+    if (d < mejorDist) { mejorDist = d; mejor = t; }
+  }
+  return mejor;
+}
+
 function salaParaAccion(edificio, accion, accionesPorSala) {
   const tipos = accionesPorSala[accion];
   if (!tipos || !edificio?.interior) return null;
@@ -45,9 +74,10 @@ function resolverLugar(lugar, ctx) {
     case "plaza":
       return ctx.plazaPunto ?? ctx.casaPunto;
     case "campo":
-      // PLACEHOLDER v1 (GDD "Qué falta"): sin parcelas agrícolas todavía,
-      // el campesino "trabaja el campo" junto a su propia puerta.
-      return ctx.casaPunto;
+      // Huerto real del bake (tierra_labrada) más cercano a su casa; si
+      // este asentamiento no tiene ninguno, cae junto a su propia puerta
+      // (placeholder v1, GDD "Qué falta" — no todo bake tiene huerto).
+      return ctx.campoPunto ?? ctx.casaPunto;
     default:
       return ctx.casaPunto;
   }
@@ -77,6 +107,7 @@ function generarRutina(npc, ciudad, catalogos, dia = 0) {
     trabajoPunto: edificioTrabajo ? centroPuerta(edificioTrabajo) : null,
     tabernaPunto: buscarTaberna(ciudad),
     plazaPunto: ciudad.focal ?? null,
+    campoPunto: puntoDeCampo(ciudad, centroPuerta(edificioCasa)),
   };
 
   const rnd = crearPRNG(`${npc.slotId}|rutina|dia${dia}`);

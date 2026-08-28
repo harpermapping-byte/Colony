@@ -27,10 +27,25 @@ function contarCamas(edificio) {
   return capacidad;
 }
 
-// Heurística v1 (documentada como pendiente en el GDD): la huella del
-// edificio decide cuántos puestos de trabajo tiene, no piezas de taller
-// concretas todavía (fragua/yunque...).
-function capacidadTrabajo(edificio) {
+// Piezas "de puesto de trabajo" reales (temasProfesion en elementos.json:
+// yunque/fragua de herrería, telar de sastre, torno de alfarero...) — un
+// taller con 2-4 de esas piezas da trabajo a 1-2 personas, no a una por
+// pieza (yunque+fragua+armero+fuelle de una MISMA herrería no son 4
+// herreros). Sin catálogo de elementos disponible, o si el edificio no
+// tiene ninguna pieza temática (taberna/templo/tienda/panadería: sus
+// oficios aún no tienen mobiliario propio etiquetado), cae a la huella.
+function capacidadTrabajo(edificio, elementosCatalogo) {
+  if (elementosCatalogo) {
+    let piezasTematicas = 0;
+    for (const planta of edificio.interior?.plantas ?? []) {
+      for (const sala of planta.salas ?? []) {
+        for (const item of sala.resultado?.colocados ?? []) {
+          if (elementosCatalogo[item.id]?.temasProfesion) piezasTematicas++;
+        }
+      }
+    }
+    if (piezasTematicas > 0) return Math.max(1, Math.min(4, Math.round(piezasTematicas / 3)));
+  }
   const area = (edificio.w ?? 1) * (edificio.h ?? 1);
   return Math.max(1, Math.min(4, Math.round(area / 20)));
 }
@@ -49,13 +64,13 @@ function construirViviendas(ciudad) {
     .filter((v) => v.capacidad > 0);
 }
 
-function construirTrabajos(ciudad, oficiosEdificios) {
+function construirTrabajos(ciudad, oficiosEdificios, elementosCatalogo) {
   const trabajos = [];
   for (const edificio of ciudad.edificios) {
     for (const [npcId, tipos] of Object.entries(oficiosEdificios)) {
       if (npcId.startsWith("_")) continue;
       if (tipos.includes(edificio.tipoEdificioId)) {
-        trabajos.push({ edificio, npcId, capacidad: capacidadTrabajo(edificio), ocupantes: [] });
+        trabajos.push({ edificio, npcId, capacidad: capacidadTrabajo(edificio, elementosCatalogo), ocupantes: [] });
       }
     }
   }
@@ -66,11 +81,12 @@ function construirTrabajos(ciudad, oficiosEdificios) {
  * @param {object} ciudad - de ciudades/src/generar.js generarCiudad()
  * @param {Array} npcs - de poblacion/src/exportarPoblacion.js (se MUTAN: gana .vivienda/.trabajo)
  * @param {object} oficiosEdificios - poblacion/catalogo/oficiosEdificios.json
+ * @param {object} [elementosCatalogo] - interiores/catalogo/elementos.json (cargarCatalogos().elementos) — capacidad de trabajo por piezas reales; sin esto, cae a la huella del edificio
  * @returns {{ sinVivienda: string[], sinTrabajo: string[] }} slotIds que no encontraron hueco (censo > capacidad real del bake)
  */
-function asignarUbicacion(ciudad, npcs, oficiosEdificios) {
+function asignarUbicacion(ciudad, npcs, oficiosEdificios, elementosCatalogo) {
   const viviendas = construirViviendas(ciudad);
-  const trabajos = construirTrabajos(ciudad, oficiosEdificios);
+  const trabajos = construirTrabajos(ciudad, oficiosEdificios, elementosCatalogo);
 
   const porFamilia = new Map();
   const unidades = [];
