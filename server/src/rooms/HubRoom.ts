@@ -15,6 +15,7 @@ import {
   esJarl,
 } from "../construccion/construccion";
 import { generarInteriorEdificio } from "../construccion/interiorGenerado";
+import { GestorConversacionesNpc } from "../ia/npcChat";
 
 // Velocidades en casillas/segundo (el terreno multiplica con su modVelocidad)
 const VEL_ANDAR = 3.75;
@@ -53,6 +54,7 @@ export class HubRoom extends Room<HubState> {
   private bd!: IAlmacenDatos;
   private ctx!: ContextoConstruccion;
   private catalogoConstruible!: Map<string, EntradaConstruible>;
+  private conversacionesNpc = new GestorConversacionesNpc();
 
   // Colyseus espera (y awaitea) el lifecycle de creación de la room: async
   // aquí es lo correcto, no un apaño — la matchmaker no da la room por lista
@@ -76,6 +78,19 @@ export class HubRoom extends Room<HubState> {
         x: clamp(dir?.x ?? 0, -1, 1),
         y: clamp(dir?.y ?? 0, -1, 1),
       });
+    });
+
+    // Diálogo con NPCs (docs/GDD_IA_NPCs.md): respuesta va SOLO al que
+    // preguntó (conversación privada), nunca en broadcast.
+    this.onMessage("npc:hablar", async (client, msg: { npcId?: string; mensaje?: string }) => {
+      const nombre = this.nombreDe(client);
+      if (!nombre || !msg?.npcId || !msg?.mensaje) return;
+      try {
+        const texto = await this.conversacionesNpc.hablar(msg.npcId, nombre, msg.mensaje.slice(0, 300));
+        client.send("npc:respuesta", { npcId: msg.npcId, texto });
+      } catch (err) {
+        client.send("npc:error", { npcId: msg.npcId, motivo: (err as Error).message });
+      }
     });
 
     // bucear/subir un nivel (solo tiene efecto dentro del agua; el medio

@@ -1,0 +1,32 @@
+# Diálogo de NPCs con IA — decisión y estado (v1)
+
+Cómo los NPCs conversan de verdad con los jugadores, con capa gratuita, sin salirse de personaje y sin repetirse. Léelo antes de tocar `server/src/ia/` o de dar la lista definitiva de NPCs.
+
+## Decisión (confirmada con el streamer, 2026-08-28)
+
+- **Dos proveedores gratuitos con fallback automático**, mismo patrón que `datos/bd.ts` (interfaz + motor intercambiable): **Gemini** (principal — chat y embeddings) y **Groq** (respaldo — solo chat, capa gratis más rápida pero sin embeddings). Si Gemini falla (cuota agotada, error de red...) se reintenta con Groq sin que el jugador note el cambio. Claves por env: `GEMINI_API_KEY`, `GROQ_API_KEY`.
+- **"Memoria cerrada" = RAG casero, sin BD vectorial de pago**: cada NPC declara en su catálogo (`personajes/catalogo/npcs.json`) un array `conocimiento` (frases sueltas de lo que sabe) y una `personalidad`. Si el array crece más allá de `MAX_FRAGMENTOS_PROMPT` (3), se buscan por similitud coseno contra el embedding de la pregunta del jugador (JS puro, sin dependencias) y solo se meten los 3 más relevantes en el prompt.
+- **Contexto general del mundo** (`personajes/catalogo/contexto_mundo.json`): un único texto de ambientación/tono compartido por TODO NPC, se inyecta primero en el prompt. Cambiarlo ahí afecta a todos los NPCs a la vez, sin tocar código.
+- **Anti-repetición**: se guardan en RAM (por room, `MemoriaConversaciones`) las últimas 4 respuestas que cada NPC le dio a cada jugador, y se le pide a la IA explícitamente no repetirlas literalmente. Junto a temperatura alta (0.9), evita la respuesta "de manual" siempre igual para la misma pregunta.
+- **Embeddings del conocimiento**: se calculan la primera vez que se habla con cada NPC en el proceso y se cachean en memoria (no hay bake offline aparte todavía — el catálogo es pequeño). Cuando la lista de NPCs sea grande de verdad, esto se puede mover a un script de bake como el resto del proyecto, sin tocar la interfaz de `GestorConversacionesNpc`.
+
+## Estructura
+
+- `server/src/ia/proveedor.ts` — `IProveedorIA` (`generarTexto`) e `IProveedorEmbeddings` (`generarEmbedding`). `GeminiProveedor` (REST, ambas interfaces) y `GroqProveedor` (REST, solo chat, API compatible con OpenAI). `ProveedorIAConRespaldo` envuelve dos `IProveedorIA` con reintento automático. `crearProveedorIA()`/`crearProveedorEmbeddings()` leen las claves de env — sin ninguna clave, el diálogo queda desactivado sin tumbar el servidor (`disponible === false`).
+- `server/src/ia/memoria.ts` — `similitudCoseno` (RAG) y `MemoriaConversaciones` (anti-repetición, en RAM, por `npcId|jugador`).
+- `server/src/ia/npcChat.ts` — `GestorConversacionesNpc.hablar(npcId, jugador, mensaje)`: junta contexto del mundo + personalidad + conocimiento relevante + "no repitas esto" y llama al proveedor. Lee `personajes/catalogo/npcs.json` y `contexto_mundo.json` directamente (mismo patrón que `construccion/catalogo.ts` leyendo catálogos hermanos).
+- `server/src/rooms/HubRoom.ts` — mensaje `"npc:hablar"` `{ npcId, mensaje }` → responde SOLO al cliente que preguntó con `"npc:respuesta"` `{ npcId, texto }` (o `"npc:error"` `{ npcId, motivo }`). Nunca en broadcast: es una conversación privada.
+- `personajes/catalogo/contexto_mundo.json` — el texto de ambientación compartido.
+- `personajes/catalogo/npcs.json` — cada NPC gana (opcionales) `personalidad` (string) y `conocimiento` (array de frases). Los 4 arquetipos de prueba ya llevan contenido real para validar el circuito completo.
+
+## Verificado (v1)
+
+- 8 tests nuevos en `server/test/ia.test.ts` (32/32 en total en el server), con proveedores FALSOS inyectados — sin red real: fallback ante fallo del principal, propagación de error si fallan los dos, anti-repetición recorta a 4 y es por (NPC, jugador), el prompt lleva contexto+personalidad+conocimiento, y la ruta RAG con embeddings simulados.
+- `tsc --noEmit` limpio.
+- **No verificado con la API real de Gemini/Groq desde este entorno de desarrollo**: el sandbox donde se ha escrito este código no tiene salida de red directa a `generativelanguage.googleapis.com` ni a `api.groq.com` (igual que pasó con Neon — ver GDD_Construccion.md). Las claves ya están puestas como `GEMINI_API_KEY`/`GROQ_API_KEY` en el servicio de Render (`colony-server`), que sí tiene red real: la primera vez que un jugador le hable a un NPC en producción es la primera prueba end-to-end de verdad. Revisar los logs de Render si algo falla (`npc:error` llega al cliente con el motivo exacto).
+
+## Qué falta (pendiente, no bloquea)
+
+- **La lista definitiva de NPCs y su `personalidad`/`conocimiento`** — la pacta el streamer más adelante; hoy solo los 4 arquetipos de prueba tienen contenido.
+- **Cómo el cliente abre la conversación** (UI de diálogo, elegir a qué NPC le hablas cuando aún no hay NPCs poblados en el mundo — misma pregunta abierta que "dónde vive la semilla de cada NPC" en GDD_Generador_Personajes).
+- Si el catálogo de conocimiento crece mucho, mover el cálculo de embeddings a un bake offline con archivo commiteado (mismo patrón que el resto del proyecto) en vez de calcularlo la primera vez que se habla con cada NPC.
