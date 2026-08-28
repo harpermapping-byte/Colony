@@ -7,6 +7,18 @@ import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { GestorAgentes, NpcBakeado } from "../mundo/agentes";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
+import { crearAlmacenDatos, IAlmacenDatos } from "../datos/bd";
+import { ejecutarTickEconomia } from "../mundo/economiaAsentamientos";
+
+// Un pulso de economía por hora DE JUEGO (docs/GDD_Faccion_Bandidos.md §6) —
+// mismo ritmo que ya rige turnos de guardia/rutinas de NPC, no un número de
+// balance inventado aparte. minutosRealesPorDia/24 = minutos reales por hora
+// de juego (assets/mundo/tiempo.json: 30 min/día → 1.25 min/hora ≈ 75 s).
+import * as tiempoJson from "../../../assets/mundo/tiempo.json";
+// TICK_ECONOMIA_MS: mismo criterio que HORA_FORZADA — override SOLO para
+// tests/depuración (un E2E real no puede esperar 75s por pulso); nunca en
+// producción.
+const MS_POR_TICK_ECONOMIA = Number(process.env.TICK_ECONOMIA_MS) || (tiempoJson.minutosRealesPorDia / 24) * 60_000;
 
 interface OpcionesRegion {
   name?: string;
@@ -28,6 +40,7 @@ interface OpcionesRegion {
 export class RegionRoom extends RoomExteriorBase {
   private mapa!: MapaCargado;
   mapaId!: string;
+  private bdFaccion: IAlmacenDatos | null = null;
 
   async onCreate(options: OpcionesRegion) {
     if (!options?.mapaId) throw new Error("RegionRoom necesita options.mapaId");
@@ -37,6 +50,29 @@ export class RegionRoom extends RoomExteriorBase {
     this.mundo = this.mapa;
     console.log(`Región "${this.mapa.nombre}" (${options.mapaId}): ${this.mapa.ancho}x${this.mapa.alto} casillas`);
     this.iniciarMovimiento();
+
+    // Facción bandida (docs/GDD_Faccion_Bandidos.md §6, fase 1 — pendiente
+    // dentro de la fase, ahora cerrado): un POI "asentamiento_hostil" (aldea
+    // de bandidos/orcos/piratas/cultistas/bárbaros, mazmorras/catalogo/
+    // tipos_dungeon.json) se banquea aquí la PRIMERA vez que alguien entra —
+    // obtenerOCrearAsentamiento es idempotente, no duplica si ya existía. El
+    // tick de economía (comida/madera/piedra/hierro, sube nivelMuralla/
+    // nivelEquipo) solo corre mientras esta room concreta esté viva, MISMO
+    // criterio de "perezoso" que GestorAgentes/GestorFauna — nadie paga por
+    // simular una aldea bandida que nadie está visitando. Sembrar tropas de
+    // verdad (cuántas, de qué rango) queda pendiente de una decisión de
+    // diseño aparte (ver "Fases siguientes" del GDD) — con 0 tropas el tick
+    // no hace nada dañino, solo no produce/consume todavía.
+    const indice = JSON.parse(fs.readFileSync(path.join(rutaMapa, "indice.json"), "utf8")) as { tier?: string };
+    if (indice.tier === "asentamiento_hostil") {
+      this.bdFaccion = await crearAlmacenDatos();
+      await this.bdFaccion.obtenerOCrearAsentamiento(this.mapaId);
+      const bd = this.bdFaccion;
+      this.clock.setInterval(() => {
+        ejecutarTickEconomia(bd).catch((err) => console.error(`Tick de economía (${this.mapaId}) falló:`, err));
+      }, MS_POR_TICK_ECONOMIA);
+      console.log(`  Asentamiento bandido "${this.mapaId}" con economía activa (tick cada ${Math.round(MS_POR_TICK_ECONOMIA / 1000)}s reales)`);
+    }
 
     // NPCs con rutina (GDD_Agentes_Moviles.md): si el bake trae población,
     // los agentes nacen recolocados según la hora del reloj de mundo y se
@@ -95,5 +131,9 @@ export class RegionRoom extends RoomExteriorBase {
     const x = options?.entradaX ?? this.mapa.spawnX;
     const y = options?.entradaY ?? this.mapa.spawnY;
     this.crearJugador(client, options, x, y);
+  }
+
+  async onDispose() {
+    await this.bdFaccion?.cerrar();
   }
 }
