@@ -5,7 +5,13 @@
     "profesion": "campesino",
     "morfologia": { "altura": [0.92, 1.08], "corpulencia": [0.9, 1.1] },
     "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
-    "colorDebug": "#c9a86a"
+    "colorDebug": "#c9a86a",
+    "personalidad": "Campesino cordial y algo chismoso, siempre con alguna queja sobre la cosecha o el tiempo.",
+    "conocimiento": [
+      "Trabaja un campo de cebada al norte del pueblo.",
+      "Conoce los cotilleos de todos los vecinos del asentamiento.",
+      "Le teme al bosque de noche por las historias de lobos que se cuentan en la taberna."
+    ]
   },
 
   "herrero": {
@@ -17,7 +23,13 @@
     },
     "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
     "_nota": "Falta el delantal de cuero en el catálogo de prendas — se añade a su ropa cuando exista.",
-    "colorDebug": "#6a6a70"
+    "colorDebug": "#6a6a70",
+    "personalidad": "Herrero brusco pero honesto, orgulloso de su oficio, poca paciencia para charlas vacías.",
+    "conocimiento": [
+      "Forja herramientas y armas sencillas con el mineral que le traen los mineros.",
+      "Necesita más carbón vegetal del que le llega cada semana.",
+      "Desconfía de las armas mal forjadas de otros herreros forasteros."
+    ]
   },
 
   "guardia": {
@@ -28,7 +40,13 @@
     },
     "ropa": [],
     "_nota": "Sin armadura hasta que el catálogo de prendas cubra armaduras.",
-    "colorDebug": "#8a3a3a"
+    "colorDebug": "#8a3a3a",
+    "personalidad": "Guardia serio y vigilante, cumple las normas del jarl al pie de la letra.",
+    "conocimiento": [
+      "Vigila las puertas y calles del asentamiento.",
+      "Reporta cualquier robo o pelea directamente al jarl.",
+      "No deja pasar armas grandes dentro de las murallas sin permiso."
+    ]
   },
 
   "anciano_sabio": {
@@ -40,6 +58,12 @@
       "barbaEstilos": [["ninguna", 10], ["bigote", 10], ["perilla", 20], ["completa", 60]]
     },
     "ropa": [],
-    "colorDebug": "#7a6a8a"
+    "colorDebug": "#7a6a8a",
+    "personalidad": "Anciano herbolista de hablar pausado y sabio, le gusta dar consejos a través de refranes.",
+    "conocimiento": [
+      "Conoce las hierbas medicinales de la zona y sus usos.",
+      "Ha vivido en el pueblo toda su vida y recuerda su historia.",
+      "Da consejos a quien se lo pide, aunque casi nadie le pregunta lo que de verdad hace falta."
+    ]
   }
 }
