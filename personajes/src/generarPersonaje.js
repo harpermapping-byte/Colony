@@ -121,7 +121,7 @@ function enRango([min, max], rnd) {
  * @param {object} opciones - { semilla, catalogos } (catálogos de personajes/src/catalogo.js)
  */
 function generarPersonaje(npcId, opciones) {
-  const { catalogos, semilla } = opciones;
+  const { catalogos, semilla, sexoForzado, factorEscala } = opciones;
   const npc = catalogos.npcs[npcId];
   if (!npc) throw new Error(`NPC desconocido: ${npcId}`);
   const rasgosBase = catalogos.rasgos;
@@ -130,11 +130,15 @@ function generarPersonaje(npcId, opciones) {
   // Pesos del NPC pisan a los globales SOLO en las listas que declare.
   const pesos = (nombre) => (npc.rasgos && npc.rasgos[nombre]) || npc[nombre] || rasgosBase[nombre];
 
-  const sexo = elegir(pesos("sexoPesos"), rnd);
+  // sexoForzado/factorEscala: para poblacion/ (cónyuge de sexo opuesto al
+  // cabeza de familia, hijos a escala reducida) — sin ellos el
+  // comportamiento es exactamente el de antes.
+  const sexo = sexoForzado || elegir(pesos("sexoPesos"), rnd);
+  const escala = factorEscala ?? 1;
   const morfologia = {
     sexo,
-    altura: Number(enRango(npc.morfologia.altura, rnd).toFixed(3)),
-    corpulencia: Number(enRango(npc.morfologia.corpulencia, rnd).toFixed(3)),
+    altura: Number((enRango(npc.morfologia.altura, rnd) * escala).toFixed(3)),
+    corpulencia: Number((enRango(npc.morfologia.corpulencia, rnd) * escala).toFixed(3)),
   };
 
   const peloEstilo = elegir(pesos("peloEstilos"), rnd);

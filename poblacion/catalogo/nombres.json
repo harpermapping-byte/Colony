@@ -1,0 +1,21 @@
+{
+  "_nota": "Catálogo de nombres para poblacion/src/generarIdentidad.js — listas ponderadas [nombre, peso], estilo nórdico/medieval acorde a la ambientación (mismo registro que los NPCs de prueba de los tests: Ragnar, Bjorn, Floki, Lagertha). Una sola 'cultura' por ahora; si el streamer pacta asentamientos de otra ambientación, se añaden más listas sin tocar el generador.",
+  "masculinos": [
+    ["Ragnar", 5], ["Bjorn", 5], ["Floki", 4], ["Ivar", 4], ["Ubbe", 4],
+    ["Halfdan", 3], ["Rollo", 3], ["Sigurd", 4], ["Leif", 4], ["Erik", 5],
+    ["Torvald", 3], ["Gunnar", 4], ["Harald", 4], ["Knut", 3], ["Aslak", 2],
+    ["Bard", 3], ["Einar", 4], ["Osvald", 2], ["Steinar", 2], ["Vidar", 3]
+  ],
+  "femeninos": [
+    ["Lagertha", 4], ["Freydis", 4], ["Astrid", 5], ["Helga", 4], ["Gudrun", 4],
+    ["Ingrid", 5], ["Sigrid", 4], ["Thora", 3], ["Yrsa", 3], ["Solveig", 3],
+    ["Ragnhild", 3], ["Bergljot", 2], ["Signe", 3], ["Alva", 3], ["Runa", 3],
+    ["Disa", 2], ["Frida", 4], ["Katla", 2], ["Vigdis", 2], ["Saga", 3]
+  ],
+  "apellidos": [
+    ["Sturlusson", 3], ["Ragnarsson", 3], ["Eriksdottir", 3], ["Bjornsson", 3],
+    ["Halvardsen", 2], ["Ulfsson", 3], ["Sigurdsdottir", 2], ["Haraldsen", 2],
+    ["Torvaldsson", 2], ["Gunnarsdottir", 2], ["Steinarsson", 2], ["Vidarsen", 2],
+    ["Alvsson", 2], ["Rurikson", 1], ["Ormsdottir", 1]
+  ]
+}
