@@ -12,6 +12,21 @@ export class Player extends Schema {
   @type("int8") nivel = 0;
 }
 
+// Agente móvil publicado (NPC de asentamiento; mañana bárbaros/fauna con el
+// mismo esquema — GDD_Agentes_Moviles.md). La clave del map es su slotId
+// del bake de poblacion/: el cliente busca ahí sus vóxeles (poblacion.json).
+export class Npc extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") nombre = "";
+  // acción del tramo de rutina activo ("trabajar", "dormir"...) — el
+  // cliente puede animar/mostrar según esto sin lógica propia
+  @type("string") accion = "";
+  // false = bajo techo (en casa): el cliente no lo pinta en el exterior
+  @type("boolean") visible = true;
+}
+
 export class HubState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
+  @type({ map: Npc }) npcs = new MapSchema<Npc>();
 }

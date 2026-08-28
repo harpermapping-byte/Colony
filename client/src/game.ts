@@ -135,9 +135,29 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // valida el circuito entero catálogo → generador → JSON → rig animado.
   // Cuando el servidor pueble NPCs de verdad, consumirán este mismo
   // formato y esta plaza fija desaparece. Si el JSON no está, no pasa nada.
-  // Solo en el Hub/regiones (un interior no tiene "plaza" donde ponerlos).
-  const animables: { actualizar(dt: number, andando?: boolean): void }[] = [];
+  // --- NPCs REALES del asentamiento (GDD_Agentes_Moviles.md): si el mapa
+  // trae poblacion.json bakeado, sus vóxeles por slotId — la posición viva
+  // la manda el servidor por el estado (state.npcs) y se consume más abajo.
+  const voxPorSlot = new Map<string, PersonajeExportado>();
   if (SALA !== "interior") {
+    try {
+      const r = await fetch(`${RUTA_MAPA}/poblacion.json`);
+      if (r.ok) {
+        const poblacion = await r.json();
+        for (const npc of poblacion.npcs as { slotId: string; vox: PersonajeExportado }[]) {
+          voxPorSlot.set(npc.slotId, npc.vox);
+        }
+      }
+    } catch {
+      /* mapa sin población: sin NPCs, sin error */
+    }
+  }
+
+  // Solo en el Hub/regiones (un interior no tiene "plaza" donde ponerlos), y
+  // solo si el mapa NO tiene población real (la demo era el circuito de
+  // prueba de personajes; con NPCs de verdad estorba).
+  const animables: { actualizar(dt: number, andando?: boolean): void }[] = [];
+  if (SALA !== "interior" && voxPorSlot.size === 0) {
     try {
       const r = await fetch("/assets/personajes/demo_personajes.json");
       if (r.ok) {
@@ -352,6 +372,45 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     escena.quitarEntidad(sessionId);
   });
 
+  // --- NPCs del servidor (GDD_Agentes_Moviles.md): mismo circuito que los
+  // jugadores (rig + interpolación de patches a 15/seg); los vóxeles reales
+  // salen de poblacion.json por slotId, con rig plano de repuesto si el
+  // bake y el estado no cuadraran (mapa re-bakeado sin re-poblar).
+  const npcsVisual = new Map<string, EstadoJugador>();
+  $(room.state).npcs.onAdd((npc: any, slotId: string) => {
+    const vox = voxPorSlot.get(slotId);
+    const rig = vox ? crearPersonajeVoxel(vox) : crearRigHumanoide({ colorTunica: "#7a6248" });
+    rig.objeto.rotation.order = "YXZ";
+    rig.objeto.visible = npc.visible;
+    const estado: EstadoJugador = {
+      rig,
+      destinoX: npc.x,
+      destinoZ: npc.y,
+      destinoY: 0,
+      x: npc.x,
+      z: npc.y,
+      y: 0,
+      nadando: false,
+    };
+    npcsVisual.set(slotId, estado);
+    escena.añadirEntidad(`npc_${slotId}`, rig.objeto, npc.x, npc.y, npc.nombre);
+    $(npc).onChange(() => {
+      estado.destinoX = npc.x;
+      estado.destinoZ = npc.y;
+      rig.objeto.visible = npc.visible;
+    });
+  });
+  $(room.state).npcs.onRemove((_npc: any, slotId: string) => {
+    npcsVisual.delete(slotId);
+    escena.quitarEntidad(`npc_${slotId}`);
+  });
+  // sonda para los tests E2E: cuántos NPCs llegaron del servidor y dónde están
+  (window as any).__npcs = () => ({
+    total: npcsVisual.size,
+    visibles: [...npcsVisual.values()].filter((n) => n.rig.objeto.visible).length,
+    muestra: [...npcsVisual.values()].slice(0, 3).map((n) => ({ x: +n.destinoX.toFixed(1), y: +n.destinoZ.toFixed(1) })),
+  });
+
   const teclas = new Set<string>();
   window.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
@@ -385,7 +444,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // Interpolación + animación: cada rig persigue su destino de servidor;
     // si se está moviendo de verdad, anima la zancada y encara la dirección.
     const factor = 1 - Math.exp(-12 * dt);
-    for (const estado of jugadores.values()) {
+    // Jugadores y NPCs comparten interpolación y animación de marcha: un
+    // NPC es "otro que se mueve por patches del servidor", nada más.
+    for (const estado of [...jugadores.values(), ...npcsVisual.values()]) {
       const dx = estado.destinoX - estado.x;
       const dz = estado.destinoZ - estado.z;
       const distancia = Math.hypot(dx, dz);

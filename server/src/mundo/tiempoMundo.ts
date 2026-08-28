@@ -21,10 +21,18 @@ export interface TiempoMundo {
   anio: number;
 }
 
+// Forzado de hora para tests/depuración (espejo del ?hora= del cliente):
+// HORA_FORZADA=13.5 congela la hora de juego del proceso entero. Nunca en
+// producción — es la palanca para probar rutinas sin esperar al reloj.
+const horaForzada = (() => {
+  const n = Number(process.env.HORA_FORZADA);
+  return Number.isFinite(n) ? ((n % 24) + 24) % 24 : null;
+})();
+
 export function tiempoMundo(ahoraMs = Date.now()): TiempoMundo {
   const diasFloat = Math.max(0, ahoraMs - tiempoJson.epocaUnixMs) / MS_POR_DIA;
   const dia = Math.floor(diasFloat);
-  const hora = (diasFloat - dia) * 24;
+  const hora = horaForzada ?? (diasFloat - dia) * 24;
   const estaciones = tiempoJson.estaciones;
   return {
     dia,

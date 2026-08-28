@@ -1,7 +1,11 @@
 import { Client } from "@colyseus/core";
+import * as fs from "fs";
+import * as path from "path";
 import { RoomExteriorBase } from "./base/RoomExteriorBase";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
+import { GestorAgentes, NpcBakeado } from "../mundo/agentes";
+import { tiempoMundo } from "../mundo/tiempoMundo";
 
 interface OpcionesRegion {
   name?: string;
@@ -27,10 +31,24 @@ export class RegionRoom extends RoomExteriorBase {
   async onCreate(options: OpcionesRegion) {
     if (!options?.mapaId) throw new Error("RegionRoom necesita options.mapaId");
     this.mapaId = options.mapaId;
-    this.mapa = cargarMapaColision(rutaDeMapaId(options.mapaId));
+    const rutaMapa = rutaDeMapaId(options.mapaId);
+    this.mapa = cargarMapaColision(rutaMapa);
     this.mundo = this.mapa;
     console.log(`Región "${this.mapa.nombre}" (${options.mapaId}): ${this.mapa.ancho}x${this.mapa.alto} casillas`);
     this.iniciarMovimiento();
+
+    // NPCs con rutina (GDD_Agentes_Moviles.md): si el bake trae población,
+    // los agentes nacen recolocados según la hora del reloj de mundo y se
+    // simulan a 10 hz (paseo, no combate) SOLO mientras la room viva — la
+    // room autodispone al vaciarse, así una aldea sin jugadores cuesta cero.
+    const rutaPoblacion = path.join(rutaMapa, "poblacion.json");
+    if (fs.existsSync(rutaPoblacion)) {
+      const poblacion = JSON.parse(fs.readFileSync(rutaPoblacion, "utf8")) as { npcs: NpcBakeado[] };
+      const gestor = new GestorAgentes(this.state.npcs);
+      gestor.iniciar(poblacion.npcs, tiempoMundo().hora);
+      this.clock.setInterval(() => gestor.tick(0.1, tiempoMundo().hora), 100);
+      console.log(`  ${gestor.cantidad} NPCs con rutina en el mapa`);
+    }
 
     // Puertas del asentamiento (docs/GDD_Sistema_Puertas.md): "interior" ->
     // entra al edificio; "exterior" con destino -> otra región/hub; sin

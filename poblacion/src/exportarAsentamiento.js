@@ -41,15 +41,58 @@ async function exportarAsentamiento(tierId, semilla, opciones = {}) {
   return { tierId, semilla, ciudad, npcs: poblacion.npcs, deficit };
 }
 
-module.exports = { exportarAsentamiento };
+/**
+ * Escribe el `poblacion.json` que consume el JUEGO junto al mapa bakeado
+ * (GDD_Agentes_Moviles.md): por NPC, lo que el servidor necesita para
+ * moverlo (rutina con puntos y caminos bakeados) y lo que el cliente
+ * necesita para pintarlo (vox = mismo formato PersonajeExportado de
+ * demo_personajes.json: ficha + voxelesCabeza + ropa). El resto de la
+ * ficha de población (familia, historia...) se queda en el export de
+ * estudio de output/ — el runtime no lo necesita todavía.
+ */
+function escribirPoblacionDeMapa(resultado, carpetaMapa) {
+  // el cliente (VoxelExportado en voxelMalla.ts) solo lee x/y/z/tam/color/
+  // pivote — el resto de metadatos del generador (zona, etc.) se queda fuera
+  const soloCampoCliente = ({ x, y, z, tam, color, pivote }) => ({ x, y, z, tam, color, pivote });
+  const npcs = resultado.npcs
+    .filter((n) => n.rutina.length > 0)
+    .map((n) => ({
+      slotId: n.slotId,
+      nombre: n.apellido ? `${n.nombre} ${n.apellido}` : n.nombre,
+      oficio: n.trabajo?.oficio ?? n.ficha?.profesion ?? null,
+      rutina: n.rutina,
+      vox: {
+        ficha: n.ficha,
+        voxelesCabeza: n.voxelesCabeza.map(soloCampoCliente),
+        ropa: n.ropa.map((p) => ({ ...p, voxeles: p.voxeles.map(soloCampoCliente) })),
+      },
+    }));
+  const ruta = path.join(carpetaMapa, "poblacion.json");
+  // los generadores trabajan en float completo y cada vóxel salía como
+  // "0.16533333333333333" (19 caracteres por número): 4 decimales sobran de
+  // largo (la resolución del vóxel es ~0.053) y el archivo pesa 3x menos
+  const redondear = (clave, v) => (typeof v === "number" ? Math.round(v * 10000) / 10000 : v);
+  fs.writeFileSync(ruta, JSON.stringify({ tierId: resultado.tierId, semilla: resultado.semilla, npcs }, redondear), "utf8");
+  return { ruta, npcs: npcs.length };
+}
+
+module.exports = { exportarAsentamiento, escribirPoblacionDeMapa };
 
 if (require.main === module) {
   const [tierId, semilla, salida] = process.argv.slice(2);
   if (!tierId || !semilla) {
-    console.error("uso: node poblacion/src/exportarAsentamiento.js <tier> <semilla> [salida.json]");
+    console.error("uso: node poblacion/src/exportarAsentamiento.js <tier> <semilla> [salida.json | carpetaMapaBakeado]");
+    console.error("  con carpeta de mapa: escribe ahí el poblacion.json que consume el juego");
     process.exit(1);
   }
   exportarAsentamiento(tierId, semilla).then((resultado) => {
+    // si la salida es la CARPETA de un mapa ya bakeado, se escribe el
+    // poblacion.json de juego dentro; si no, el export de estudio de siempre
+    if (salida && fs.existsSync(salida) && fs.statSync(salida).isDirectory()) {
+      const { ruta, npcs } = escribirPoblacionDeMapa(resultado, salida);
+      console.log(`${npcs} NPCs con rutina y vóxeles -> ${ruta}`);
+      return;
+    }
     const ruta = salida ?? path.join(__dirname, "..", "output", `asentamiento_${tierId}_${semilla}.json`);
     fs.mkdirSync(path.dirname(ruta), { recursive: true });
     // ciudad completa (interiores anidados de cada edificio) ya la exporta
