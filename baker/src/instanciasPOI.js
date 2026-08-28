@@ -27,9 +27,60 @@
 
 const fs = require("fs");
 const path = require("path");
+const { crearPRNG, semillaDesdeTexto } = require("./ruido");
 
 function slugPOI(poi) {
   return `${poi.id}_${poi.x}_${poi.y}`;
+}
+
+// Boca de cueva (docs/GDD_Bakeador_Dungeons.md): a diferencia de "edificio"
+// (caja 3D real) o "asentamiento" (ciudades/ entera), una mazmorra
+// estiloExterior:"cueva" no tenía NINGÚN rastro visual en el exterior — ni
+// siquiera la decoración normal del bioma, que generar.js despeja en un
+// radio alrededor de todo POI (`poisCercanos`, para dejar hueco a su caja).
+// El resultado era un claro de hierba vacío sin ninguna pista de que ahí
+// hay una entrada — "cualquier POI mazmorra, al final, tiene que tener un
+// bakeo exterior [visible]". Sin arte nuevo: reutiliza el catálogo de rocas
+// del propio bioma (mismas piezas placeholder que ya decoran el mapa) en un
+// arco cerrado alrededor del portal, con el hueco de la puerta despejado —
+// mismo espíritu que "solar_edificio" (bloquea el resto, la puerta es la
+// única entrada real), pero con forma orgánica en vez de una caja.
+function generarBocaCueva(poi, semillaPOI, catalogoRocas) {
+  const idsBioma = Object.entries(catalogoRocas)
+    .filter(([id, datos]) => !id.startsWith("_") && (datos.biomas || []).includes(poi.bioma))
+    .map(([id]) => id);
+  const ids = idsBioma.length ? idsBioma : Object.keys(catalogoRocas).filter((id) => !id.startsWith("_"));
+  if (!ids.length) return [];
+
+  const rnd = crearPRNG(semillaDesdeTexto(`${semillaPOI}:boca_cueva`));
+  const radio = (poi.radio || 3) + 1;
+  const cantidad = Math.max(8, Math.round(radio * 2.5));
+  // Arco de ~260° dejando libre el sur (por donde cae la puerta, ver más
+  // abajo `puertaY = poi.y + radio`): de 200° a 340° pasando por el norte.
+  const anguloIni = (200 * Math.PI) / 180;
+  const anguloFin = (340 * Math.PI) / 180;
+  const rocas = [];
+  for (let i = 0; i < cantidad; i++) {
+    const t = cantidad === 1 ? 0.5 : i / (cantidad - 1);
+    const angulo = anguloIni + (anguloFin - anguloIni) * t + (rnd() - 0.5) * 0.25;
+    const r = radio + rnd() * 1.5;
+    const x = Math.round(poi.x + Math.cos(angulo) * r);
+    const y = Math.round(poi.y + Math.sin(angulo) * r);
+    const id = ids[Math.floor(rnd() * ids.length)];
+    const datos = catalogoRocas[id] || {};
+    rocas.push({
+      x,
+      y,
+      objeto: {
+        i: id,
+        t: "r",
+        va: Math.floor(rnd() * (datos.variantes || 1)),
+        ro: Math.floor(rnd() * 360),
+        es: Math.round((1.1 + rnd() * 0.5) * 100) / 100, // más grandes que la decoración normal: marcan la entrada
+      },
+    });
+  }
+  return rocas;
 }
 
 // Busca la plantilla de catálogo (con categoria/tier/tipoEdificioId) que le
@@ -52,10 +103,11 @@ function buscarDefinicion(poi, catalogoPOIs) {
  * @param {string} opciones.carpetaSalida - carpeta de salida del mapa padre (misma que crearExportador)
  * @param {string} opciones.semillaMundo - semilla del mapa padre, para derivar sub-semillas deterministas
  * @param {object} opciones.catalogoPOIs - catálogo pois.json ya cargado
+ * @param {object} [opciones.catalogoRocas] - catálogo rocas.json ya cargado (boca de cueva de mazmorras estiloExterior:"cueva")
  * @param {(msg:string)=>void} [opciones.onProgreso]
- * @returns {{ portales: Array, objetosPorPOI: Map<string,{x:number,y:number,objeto:object,huella:[number,number]}> }}
+ * @returns {{ portales: Array, objetosPorPOI: Map<string,{x:number,y:number,objeto:object,huella:[number,number]}>, decoracionPorPOI: Map<string,Array<{x:number,y:number,objeto:object}>> }}
  */
-function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catalogoPOIs, onProgreso = () => {} }) {
+function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catalogoPOIs, catalogoRocas = {}, onProgreso = () => {} }) {
   // Requires perezosos: ciudades/interiores son módulos "pesados" (cargan
   // catálogos propios) que la mayoría de bakes de mapa exterior ni tocan
   // (mapas de prueba sin POIs de asentamiento/edificio) — cargarlos solo
@@ -86,6 +138,7 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
 
   const portales = [];
   const objetosPorPOI = new Map();
+  const decoracionPorPOI = new Map();
 
   for (const poi of pois) {
     const def = buscarDefinicion(poi, catalogoPOIs);
@@ -185,7 +238,11 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
         });
       }
       // "cueva": sin caja 3D (una boca de cueva no es una caja rectangular)
-      // — solo el disparador del portal, en la propia casilla del POI.
+      // — un arco de rocas del propio bioma alrededor del portal en vez de
+      // una caja (generarBocaCueva), con el hueco de la puerta despejado.
+      if (dungeonDef.estiloExterior === "cueva") {
+        decoracionPorPOI.set(slug, generarBocaCueva(poi, semillaPOI, catalogoRocas));
+      }
 
       portales.push({
         tipo: "interior", x: puertaX, y: puertaY,
@@ -194,7 +251,7 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
     }
   }
 
-  return { portales, objetosPorPOI };
+  return { portales, objetosPorPOI, decoracionPorPOI };
 }
 
 module.exports = { generarInstanciasPOI, slugPOI };

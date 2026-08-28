@@ -64,7 +64,7 @@ function colocarMobiliarioOrganico({ ancho, largo, mascara, tipoSalaId, catalogo
       }
       if (!cabe) continue;
       for (let dy = 0; dy < hl; dy++) for (let dx = 0; dx < hw; dx++) ocupado.add(`${x0 + dx}_${y0 + dy}`);
-      colocados.push({ id, x: x0, y: y0, ancho: hw, largo: hl, colorDebug: def.colorDebug });
+      colocados.push({ id, x: x0, y: y0, ancho: hw, largo: hl, colorDebug: def.colorDebug, capa: def.capa });
       return true;
     }
     return false;
