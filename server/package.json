@@ -12,10 +12,12 @@
   "dependencies": {
     "@colyseus/core": "0.16.24",
     "@colyseus/schema": "^3.0.0",
-    "@colyseus/ws-transport": "^0.16.5"
+    "@colyseus/ws-transport": "^0.16.5",
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.7.0",
     "typescript": "^5.4.0"
   },

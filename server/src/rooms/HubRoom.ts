@@ -4,7 +4,7 @@ import * as path from "path";
 import { HubState, Player } from "./schema/HubState";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO_PJ } from "../mundo/colisiones";
-import { AlmacenDatos } from "../datos/bd";
+import { crearAlmacenDatos, IAlmacenDatos } from "../datos/bd";
 import { cargarParcelas, runsDe } from "../construccion/parcelas";
 import { cargarCatalogoConstruible, EntradaConstruible } from "../construccion/catalogo";
 import {
@@ -50,11 +50,15 @@ export class HubRoom extends Room<HubState> {
   maxClients = 40;
   private inputs = new Map<string, Direction>();
   private mapa!: MapaCargado;
-  private bd!: AlmacenDatos;
+  private bd!: IAlmacenDatos;
   private ctx!: ContextoConstruccion;
   private catalogoConstruible!: Map<string, EntradaConstruible>;
 
-  onCreate() {
+  // Colyseus espera (y awaitea) el lifecycle de creación de la room: async
+  // aquí es lo correcto, no un apaño — la matchmaker no da la room por lista
+  // hasta que esta promesa resuelve, así que abrir la BD (posible red real
+  // contra Neon) antes de aceptar jugadores es seguro.
+  async onCreate() {
     this.setState(new HubState());
     this.setPatchRate(1000 / 15);
     const rutaMapa =
@@ -65,7 +69,7 @@ export class HubRoom extends Room<HubState> {
       `spawn en ${this.mapa.spawnX.toFixed(1)},${this.mapa.spawnY.toFixed(1)}`,
     );
 
-    this.iniciarConstruccion(rutaMapa);
+    await this.iniciarConstruccion(rutaMapa);
 
     this.onMessage("input", (client, dir: Direction) => {
       this.inputs.set(client.sessionId, {
@@ -96,8 +100,8 @@ export class HubRoom extends Room<HubState> {
    * server/datos.sqlite), carga las parcelas del MISMO mapa que juega el hub
    * y aplica a la rejilla la colisión de todo lo ya construido.
    */
-  private iniciarConstruccion(rutaMapa: string) {
-    this.bd = new AlmacenDatos();
+  private async iniciarConstruccion(rutaMapa: string) {
+    this.bd = await crearAlmacenDatos();
     this.catalogoConstruible = cargarCatalogoConstruible();
     // Jarl v1 por env: JARL_NOMBRES="Nombre1,Nombre2" (trim + lowercase)
     const jarls = new Set(
@@ -113,14 +117,14 @@ export class HubRoom extends Room<HubState> {
       // restaura al recoger (una casilla vuelve a ser lo que era)
       casillasBase: this.mapa.casillas.slice(),
       parcelas: cargarParcelas(rutaMapa, this.mapa.ancho),
-      propiedades: this.bd.cargarPropiedades(),
+      propiedades: await this.bd.cargarPropiedades(),
       ocupacion: new Map(),
       vivas: new Map(),
       conteoPorPropiedad: new Map(),
       jarls,
     };
 
-    const guardadas = this.bd.listarConstrucciones();
+    const guardadas = await this.bd.listarConstrucciones();
     for (const c of guardadas) {
       const entrada = this.catalogoConstruible.get(c.objeto);
       if (!entrada) {
@@ -145,31 +149,31 @@ export class HubRoom extends Room<HubState> {
       `${guardadas.length} construcciones cargadas, ${jarls.size} jarl(s)`,
     );
 
-    this.onMessage("parcela:asignar", (client, msg: { parcelaId?: string; nombreJugador?: string }) => {
+    this.onMessage("parcela:asignar", async (client, msg: { parcelaId?: string; nombreJugador?: string }) => {
       const nombre = this.nombreDe(client);
       if (!nombre || !esJarl(this.ctx, nombre)) return this.errorConstruir(client, "solo el jarl asigna parcelas");
       const parcela = msg?.parcelaId ? this.ctx.parcelas.parcelas.get(msg.parcelaId) : undefined;
       if (!parcela || !msg.parcelaId || !msg.nombreJugador) return this.errorConstruir(client, "parcela o jugador inválidos");
-      this.bd.asignarPropiedad(msg.parcelaId, "parcela", parcela.asentamiento, msg.nombreJugador);
-      this.ctx.propiedades = this.bd.cargarPropiedades();
+      await this.bd.asignarPropiedad(msg.parcelaId, "parcela", parcela.asentamiento, msg.nombreJugador);
+      this.ctx.propiedades = await this.bd.cargarPropiedades();
       this.broadcast("parcelas:estado", this.estadoParcelas());
     });
 
-    this.onMessage("parcela:revocar", (client, msg: { parcelaId?: string }) => {
+    this.onMessage("parcela:revocar", async (client, msg: { parcelaId?: string }) => {
       const nombre = this.nombreDe(client);
       if (!nombre || !esJarl(this.ctx, nombre)) return this.errorConstruir(client, "solo el jarl revoca parcelas");
       if (!msg?.parcelaId || !this.ctx.parcelas.parcelas.has(msg.parcelaId)) {
         return this.errorConstruir(client, "parcela inválida");
       }
       // las construcciones QUEDAN (pasan con la parcela al jarl — decisión v1, GDD §4)
-      this.bd.revocarPropiedad(msg.parcelaId);
-      this.ctx.propiedades = this.bd.cargarPropiedades();
+      await this.bd.revocarPropiedad(msg.parcelaId);
+      this.ctx.propiedades = await this.bd.cargarPropiedades();
       this.broadcast("parcelas:estado", this.estadoParcelas());
     });
 
     this.onMessage(
       "construir",
-      (client, msg: { objeto?: string; categoria?: string; x?: number; y?: number; rot?: number; variante?: number }) => {
+      async (client, msg: { objeto?: string; categoria?: string; x?: number; y?: number; rot?: number; variante?: number }) => {
         const nombre = this.nombreDe(client);
         if (!nombre) return;
         const entrada = msg?.objeto ? this.catalogoConstruible.get(msg.objeto) : undefined;
@@ -188,7 +192,7 @@ export class HubRoom extends Room<HubState> {
         // dueño para que la FK de construcciones apunte a algo real
         if (!this.ctx.propiedades.has(propiedadId)) {
           const parcela = this.ctx.parcelas.parcelas.get(propiedadId)!;
-          this.bd.asignarPropiedad(propiedadId, "parcela", parcela.asentamiento, null);
+          await this.bd.asignarPropiedad(propiedadId, "parcela", parcela.asentamiento, null);
           this.ctx.propiedades.set(propiedadId, { dueno: null });
         }
 
@@ -198,7 +202,7 @@ export class HubRoom extends Room<HubState> {
           extra = { interior: generarInteriorEdificio(entrada.id, propiedadId, x, y) };
         }
 
-        const id = this.bd.insertarConstruccion({
+        const id = await this.bd.insertarConstruccion({
           propiedad: propiedadId,
           objeto: entrada.id,
           categoria: entrada.categoria,
@@ -216,7 +220,7 @@ export class HubRoom extends Room<HubState> {
       },
     );
 
-    this.onMessage("recoger", (client, msg: { construccionId?: number }) => {
+    this.onMessage("recoger", async (client, msg: { construccionId?: number }) => {
       const nombre = this.nombreDe(client);
       if (!nombre) return;
       const viva = typeof msg?.construccionId === "number" ? this.ctx.vivas.get(msg.construccionId) : undefined;
@@ -225,7 +229,7 @@ export class HubRoom extends Room<HubState> {
       if (dueno !== nombre && !esJarl(this.ctx, nombre)) {
         return this.errorConstruir(client, "no eres el dueño de esta construcción");
       }
-      this.bd.borrarConstruccion(viva.id);
+      await this.bd.borrarConstruccion(viva.id);
       quitarConstruccion(this.ctx, viva.id); // restaura la colisión del bake
       this.broadcast("construccion:quitada", { id: viva.id });
     });
@@ -273,8 +277,8 @@ export class HubRoom extends Room<HubState> {
     );
   }
 
-  onDispose() {
-    this.bd?.cerrar();
+  async onDispose() {
+    await this.bd?.cerrar();
   }
 
   onLeave(client: Client) {

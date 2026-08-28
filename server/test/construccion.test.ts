@@ -263,17 +263,17 @@ test("edificio: interior determinista por semilla del GDD §5 y serializable", (
   assert.deepStrictEqual(ida, a);
 });
 
-test("ciclo con BD ':memory:': insertar → recargar → recoger (lo que hace HubRoom)", () => {
+test("ciclo con BD ':memory:': insertar → recargar → recoger (lo que hace HubRoom)", async () => {
   const { ctx } = crearContexto();
   const bd = new AlmacenDatos(":memory:");
-  bd.asignarPropiedad("p_0001", "parcela", "demo", "Ragnar");
+  await bd.asignarPropiedad("p_0001", "parcela", "demo", "Ragnar");
   const interior = generarInteriorEdificio("choza_pescador", "p_0001", bloqueA.x, bloqueA.y);
-  const id = bd.insertarConstruccion({
+  const id = await bd.insertarConstruccion({
     propiedad: "p_0001", objeto: "choza_pescador", categoria: "edificio",
     x: bloqueA.x, y: bloqueA.y, rot: 0, variante: 0, extra: { interior },
   });
   // recargar de BD y aplicar, como onCreate
-  const cargadas = bd.listarConstrucciones();
+  const cargadas = await bd.listarConstrucciones();
   assert.strictEqual(cargadas.length, 1);
   assert.deepStrictEqual((cargadas[0].extra as { interior: unknown }).interior, interior);
   const entrada = catalogo.get("choza_pescador")!;
@@ -283,9 +283,9 @@ test("ciclo con BD ':memory:': insertar → recargar → recoger (lo que hace Hu
   });
   assert.strictEqual(ctx.mapa.casillas[bloqueA.y * ctx.mapa.ancho + bloqueA.x], TIPO.SOLIDO);
   // recoger: borrar de BD + restaurar rejilla
-  assert.strictEqual(bd.borrarConstruccion(id), true);
+  assert.strictEqual(await bd.borrarConstruccion(id), true);
   quitarConstruccion(ctx, id);
   assert.strictEqual(ctx.mapa.casillas[bloqueA.y * ctx.mapa.ancho + bloqueA.x], TIPO.TIERRA);
-  assert.strictEqual(bd.listarConstrucciones().length, 0);
-  bd.cerrar();
+  assert.strictEqual((await bd.listarConstrucciones()).length, 0);
+  await bd.cerrar();
 });
