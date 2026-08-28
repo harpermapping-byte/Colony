@@ -732,15 +732,15 @@
       "planta_baja": [
         [
           "sala_comercio",
-          6
+          7
         ],
         [
           "cocina",
-          6
+          8
         ],
         [
           "despensa",
-          3
+          1
         ]
       ],
       "planta_alta": [

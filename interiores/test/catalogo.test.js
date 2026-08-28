@@ -335,6 +335,42 @@ test("dormitorio_comunal coloca varias literas según el área (GDD_Poblacion_NP
   assert.strictEqual(camasIndividual.length, 1, "dormitorio_individual debería seguir con exactamente 1 cama");
 });
 
+test("panadería: nunca se queda sin sala_comercio Y sin cocina a la vez (bug real: con solo 3 tipos de sala compitiendo por 2-4 huecos, una semilla mala podía omitir las dos que importan — vendedor sin tienda donde trabajar)", () => {
+  let sinAmbas = 0;
+  const total = 40;
+  for (let i = 0; i < total; i++) {
+    const ed = generarEdificio({ tipoEdificioId: "panaderia", catalogos, semilla: `test-panaderia-comercio-cocina-${i}`, riqueza: "modesta", amueblado: "completo" });
+    let tieneComercio = false;
+    let tieneCocina = false;
+    for (const planta of ed.plantas) {
+      for (const sala of planta.salas) {
+        if (sala.tipoSalaId === "sala_comercio") tieneComercio = true;
+        if (sala.tipoSalaId === "cocina") tieneCocina = true;
+      }
+    }
+    if (!tieneComercio && !tieneCocina) sinAmbas++;
+  }
+  assert.strictEqual(sinAmbas, 0, `${sinAmbas}/${total} panaderías sin sala_comercio NI cocina — el vendedor se queda sin sitio real donde trabajar`);
+});
+
+test("panadería: horno_pan (isMandatory) sale en casi toda cocina real — no es un decorFija más que pueda quedarse fuera por presupuesto", () => {
+  let conCocinaSinHorno = 0;
+  let conCocina = 0;
+  const total = 60;
+  for (let i = 0; i < total; i++) {
+    const ed = generarEdificio({ tipoEdificioId: "panaderia", catalogos, semilla: `test-panaderia-horno-${i}`, riqueza: "modesta", amueblado: "completo" });
+    for (const planta of ed.plantas) {
+      for (const sala of planta.salas) {
+        if (sala.tipoSalaId !== "cocina") continue;
+        conCocina++;
+        if (!sala.resultado.colocados.some((it) => it.id === "horno_pan")) conCocinaSinHorno++;
+      }
+    }
+  }
+  assert.ok(conCocina > 0, "ninguna semilla de prueba generó una cocina — ajustar la muestra");
+  assert.ok(conCocinaSinHorno / conCocina < 0.2, `${conCocinaSinHorno}/${conCocina} cocinas de panadería sin horno_pan — demasiado alto para isMandatory`);
+});
+
 console.log("\n=== Resumen ===");
 console.log(`${pasados} ok, ${fallados} fallo(s) de ${pasados + fallados} tests.`);
 if (fallados > 0) {
