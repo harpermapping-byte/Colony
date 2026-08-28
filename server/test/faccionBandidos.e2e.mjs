@@ -1,14 +1,18 @@
-// E2E de la facción bandida (docs/GDD_Faccion_Bandidos.md fase 1) contra el
+// E2E de la facción bandida (docs/GDD_Faccion_Bandidos.md §6) contra el
 // juego REAL: banquea un asentamiento_hostil pequeño de prueba, arranca el
 // servidor Colyseus con una BD sqlite temporal, se une por WebSocket (sin
 // navegador — Colyseus puro) y comprueba en la BD, desde FUERA de la room:
-//   1. Al entrar, RegionRoom siembra la fila de `asentamientos` (idempotente).
-//   2. El tick periódico real (`clock.setInterval`) llama a
-//      ejecutarTickEconomia y persiste — no solo lo hace `calcularTick` en
-//      aislado (eso ya lo cubre economiaAsentamientos.test.ts).
-// TICK_ECONOMIA_MS acelera el pulso para que el test no tarde los 75s
+//   1. Al entrar, RegionRoom llama a asegurarAsentamientoBandido: se siembra
+//      la fila de `asentamientos` + la guarnición inicial fija (1 líder + 2
+//      guardias + 4 reclutas = 7 tropas vivas), idempotente en visitas
+//      siguientes.
+//   2. El tick GLOBAL de economía (server/src/index.ts, UNA vez por
+//      proceso — no por room) llama de verdad a `ejecutarTickEconomia` y
+//      persiste — no solo lo hace `calcularTick` en aislado (eso ya lo
+//      cubre economiaAsentamientos.test.ts).
+// TICK_ECONOMIA_MS acelera el pulso para que el test no tarde los 10 min
 // reales de producción (mismo criterio que HORA_FORZADA).
-//   node --experimental-sqlite server/test/faccionBandidos.e2e.mjs
+//   node server/test/faccionBandidos.e2e.mjs
 import { spawn, execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -56,7 +60,7 @@ async function esperarPuerto(url, ms = 30000) {
 
 let fallo = null;
 try {
-  console.log("2) arrancando servidor con BD temporal y tick acelerado (2s)...");
+  console.log("2) arrancando servidor con BD temporal y tick global acelerado (2s)...");
   lanzar("npx", ["tsx", "src/index.ts"], dirServidor, {
     PORT: String(PUERTO),
     BD_RUTA: rutaBd,
@@ -67,7 +71,7 @@ try {
   const { Client } = await import(join(raiz, "node_modules/colyseus.js/build/esm/index.mjs"));
   const client = new Client(`ws://localhost:${PUERTO}`);
 
-  console.log("3) uniéndose a la región bandida...");
+  console.log("3) uniéndose a la región bandida (descubrimiento)...");
   const room = await client.joinOrCreate("region", { name: "E2E", mapaId });
   await new Promise((r) => setTimeout(r, 800));
 
@@ -77,17 +81,33 @@ try {
   if (sembrada.bando !== "bandido") throw new Error(`FALLO: bando inesperado "${sembrada.bando}"`);
   console.log("   OK: asentamiento sembrado", JSON.stringify(sembrada));
 
-  console.log("4) insertando una tropa de prueba y esperando 2 pulsos reales del tick...");
-  bd.prepare("INSERT INTO tropas_asentamiento (id, asentamiento_id, rango, estado) VALUES (?, ?, 'guardia', 'vivo')")
-    .run(`${mapaId}:e2e0`, mapaId);
+  const tropas = bd.prepare("SELECT rango, estado FROM tropas_asentamiento WHERE asentamiento_id = ?").all(mapaId);
+  const vivas = tropas.filter((t) => t.estado === "vivo");
+  if (vivas.length !== 7) throw new Error(`FALLO: guarnición inicial inesperada (${vivas.length} tropas vivas, se esperaban 7: 1 líder + 2 guardias + 4 reclutas)`);
+  const porRango = Object.fromEntries(["lider", "guardia", "recluta"].map((r) => [r, vivas.filter((t) => t.rango === r).length]));
+  if (porRango.lider !== 1 || porRango.guardia !== 2 || porRango.recluta !== 4) {
+    throw new Error(`FALLO: composición de guarnición inesperada: ${JSON.stringify(porRango)}`);
+  }
+  console.log("   OK: guarnición inicial sembrada", JSON.stringify(porRango));
+
+  console.log("4) esperando 2 pulsos reales del tick GLOBAL (index.ts, no por room)...");
   await new Promise((r) => setTimeout(r, 4500)); // >2 pulsos de 2s
 
   const trasTick = bd.prepare("SELECT * FROM asentamientos WHERE id = ?").get(mapaId);
   console.log("   estado tras el tick:", JSON.stringify(trasTick));
-  if (!(Number(trasTick.madera) >= 3)) {
-    throw new Error(`FALLO: el tick periódico real no produjo madera (madera=${trasTick.madera}) — el clock.setInterval no está corriendo o no persiste`);
+  // 7 tropas vivas * 3 madera/tropa/tick = 21 madera mínimo tras 1 pulso.
+  if (!(Number(trasTick.madera) >= 21)) {
+    throw new Error(`FALLO: el tick global real no produjo madera (madera=${trasTick.madera}, se esperaban >=21 con 7 tropas) — el setInterval de index.ts no está corriendo o no persiste`);
   }
-  console.log(`   OK: el tick real corrió y persistió en SQLite (madera=${trasTick.madera}, piedra=${trasTick.piedra}, hierro=${trasTick.hierro})`);
+  console.log(`   OK: el tick global real corrió y persistió en SQLite (madera=${trasTick.madera}, piedra=${trasTick.piedra}, hierro=${trasTick.hierro})`);
+
+  console.log("5) segunda entrada a la MISMA región: la guarnición NO se duplica...");
+  const room2 = await client.joinOrCreate("region", { name: "E2E-2", mapaId });
+  await new Promise((r) => setTimeout(r, 500));
+  const tropasTras2a = bd.prepare("SELECT COUNT(*) AS n FROM tropas_asentamiento WHERE asentamiento_id = ?").get(mapaId);
+  if (Number(tropasTras2a.n) !== 7) throw new Error(`FALLO: idempotencia rota — la segunda entrada duplicó tropas (${tropasTras2a.n} filas, se esperaban 7)`);
+  console.log("   OK: sigue habiendo exactamente 7 filas de tropa — asegurarAsentamientoBandido es idempotente");
+  await room2.leave();
 
   bd.close();
   await room.leave();

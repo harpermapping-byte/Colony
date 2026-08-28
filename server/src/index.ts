@@ -5,6 +5,8 @@ import { HubRoom } from "./rooms/HubRoom";
 import { RegionRoom } from "./rooms/RegionRoom";
 import { InteriorRoom } from "./rooms/InteriorRoom";
 import { DungeonRoom } from "./rooms/DungeonRoom";
+import { crearAlmacenDatos } from "./datos/bd";
+import { ejecutarTickEconomia } from "./mundo/economiaAsentamientos";
 
 const port = Number(process.env.PORT) || 2567;
 
@@ -31,4 +33,20 @@ gameServer.define("mazmorra", DungeonRoom).filterBy(["mapaId", "edificio", "nive
 
 httpServer.listen(port, () => {
   console.log(`Colony server escuchando en el puerto ${port}`);
+});
+
+// Tick de economía de la facción bandida (docs/GDD_Faccion_Bandidos.md §6):
+// UNA sola vez por proceso, no por room — si se pusiera dentro de
+// RegionRoom se repetiría una vez por cada aldea hostil cargada a la vez,
+// recalculando TODOS los asentamientos en cada una. Cálculo perezoso puro
+// (sin 3D, ver economiaAsentamientos.ts), corre exista o no un jugador
+// conectado — un asentamiento sigue produciendo/gastando aunque nadie lo
+// esté mirando, igual que el reloj de mundo.
+// TICK_ECONOMIA_MS: override SOLO para tests/depuración (un E2E real no
+// puede esperar 10 min reales por pulso) — mismo criterio que HORA_FORZADA.
+const INTERVALO_TICK_ECONOMIA_MS = Number(process.env.TICK_ECONOMIA_MS) || 10 * 60 * 1000; // cada 10 min reales
+crearAlmacenDatos().then((bd) => {
+  setInterval(() => {
+    ejecutarTickEconomia(bd).catch((err) => console.error("Tick de economía de la facción bandida falló:", err));
+  }, INTERVALO_TICK_ECONOMIA_MS);
 });
