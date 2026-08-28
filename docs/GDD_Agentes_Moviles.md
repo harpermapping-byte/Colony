@@ -160,6 +160,55 @@ Solo el nº14 queda fuera porque es fauna, no un NPC:
 13. **Corredor** (`corredor`) — NO fuerza perfil (reparto normal de `asignarPerfil`, cualquier rutina le vale): solo se le marca `velocidad: 1.8` en `especiales.json`, que `agentes.ts` aplica como multiplicador de `VEL_NPC` — mecanismo genérico reutilizable para huir/perseguir en el futuro.
 14. **Gato/perro del pueblo** — sigue APARCADO: es fauna urbana viva (un animal, no un personaje), necesita su propio tipo de agente sobre `animales/` en vez de `personajes/` — no es un simple catálogo nuevo, es una pieza de motor distinta.
 
+## Vida en interiores (v1.2, pedido del streamer 2026-08-28)
+
+"La familia también socializa si tienen familia en interior de sus casas,
+también salen y entran de instancias como PJ, entre aldea y los
+interiores": implementado a nivel de ESTADO — un NPC está en la región
+(exterior, visible=false si está en casa) o dentro de su interior
+(InteriorRoom), nunca en los dos a la vez, y cuál le toca lo decide la
+MISMA hora del reloj de mundo en los dos sitios. No hay una animación de
+"cruzar la puerta" en tiempo real (eso sigue pendiente, ver abajo) — el
+salto es de estado, coherente con la regla dura de "nunca A* en vivo".
+
+- `poblacion/src/generarRutina.js` ya calculaba `tramo.sala` (qué sala de
+  la casa toca en cada tramo, GDD_Poblacion_NPCs); ahora ADEMÁS anota
+  `npc.casaEdificioId` — qué interior es "su casa" (vivienda real, o el
+  edificio donde duerme por la cadena de respaldo del déficit de camas).
+  Se exporta en `poblacion.json` (`escribirPoblacionDeMapa`).
+- `server/src/mundo/interiorColision.ts`: `cargarInterior()` calcula
+  `salasPorTipo` — una casilla pisable real por tipo de sala de la planta
+  (mismo criterio que el spawn: el centro geométrico corregido al hueco
+  libre más cercano, por si un mueble cae justo en el centro).
+- `server/src/mundo/agentesInterior.ts` (`poblarInterior`): al crear una
+  `InteriorRoom`, si el asentamiento tiene `poblacion.json`, coloca ahí a
+  todo NPC cuyo tramo activo (por la hora) sea "casa" en ESTE edificio y
+  ESTA planta — en la sala que le toca. Se recalcula cada 20s mientras la
+  room vive (un jugador puede quedarse dentro cuando cambia el tramo: la
+  familia se va a dormir, alguien llega de trabajar). La familia entera
+  aparece junta SOLA, sin enlazar NPCs a propósito: viven en el mismo
+  edificio y sus rutinas caen en franjas horarias parecidas (dormir de
+  noche, cenar a la misma hora).
+- Jitter determinista pequeño por NPC (hash de su `slotId`) para que
+  varios compañeros de piso no queden exactamente apilados en el mismo
+  punto — visible sobre todo en asentamientos con déficit de vivienda
+  (varios NPCs duermen en el mismo dormitorio comunal de la posada).
+- Cliente: el fetch de `poblacion.json` (vóxeles por slotId) ahora también
+  se hace en un interior, usando `mapaId` (el asentamiento) en vez de la
+  ruta del propio interior — comparten un único `poblacion.json` por
+  pueblo/ciudad.
+
+### Verificado (v1.2)
+
+Tests: `server/test/interiorColision.test.ts` (salasPorTipo da un punto
+pisable real por sala) y `server/test/agentesInterior.test.ts` (6 casos:
+familia junta a la hora correcta, nadie dentro en horas de trabajo, solo
+entra quien vive AHÍ, un cambio de tramo saca al NPC, sala inexistente cae
+al spawn sin romper, planta equivocada no entra). E2E real: entrando de
+noche (23h forzada) en la planta con dormitorio comunal de una posada de
+`ciudad_demo` aparecen los residentes reales (nombres distintos, vóxeles
+reales) en la sala correcta con los muebles bakeados alrededor.
+
 ## Verificado (v1)
 
 - Test de servidor del gestor: recolocación por hora al crear room,
@@ -172,13 +221,14 @@ Solo el nº14 queda fuera porque es fauna, no un NPC:
 
 - Cerebros de merodeo (fauna) y patrulla-con-agresión (bárbaros) — diseño
   cerrado arriba, llegan con sus mecánicas.
-- NPCs dentro de interiores instanciados (hoy: visible=false bajo techo).
-  Diseño pendiente de detallar: cuando un jugador está en el interior de
-  un edificio, los NPCs cuyo tramo activo cae en ese edificio deberían
-  verse dentro (en su sala de la rutina) — y cruzar la puerta visiblemente
-  como hace el jugador. También la vida familiar dentro de casa
-  (socializar con la familia en el salón) — pedido del streamer, se
-  diseña con el hito de interiores.
+- ~~NPCs dentro de interiores instanciados~~ **RESUELTO (v1.2)**: ver
+  "Vida en interiores" arriba. Sigue pendiente el PULIDO visual: no hay
+  animación real de cruzar la puerta (el salto exterior↔interior es de
+  estado, no un paseo hasta el umbral) y dentro de casa el NPC no camina
+  entre salas — aparece QUIETO en la que le toca. También falta poner al
+  NPC dentro de su LUGAR DE TRABAJO (taberna, tienda...) durante su
+  horario laboral — hoy solo se ve en la puerta exterior; la infraestructura
+  (`casaEdificioId`) generaliza fácil a un futuro `trabajoEdificioId`.
 - Hablar (F) con el NPC que pasa por delante: `npc:hablar` ya existe en
   el Hub; conectar el id del agente al gestor de conversaciones cuando
   el diálogo IA salga de su pausa (decisión del streamer: aparcado).

@@ -73,6 +73,7 @@ function escribirPoblacionDeMapa(resultado, carpetaMapa) {
       oficio: n.trabajo?.oficio ?? n.ficha?.profesion ?? null,
       grito: n.grito, // frase de calle de los especiales (melonero, pregonero...) — el cliente la muestra en burbuja
       velocidad: n.velocidad, // multiplicador de velocidad de andar (el "corredor") — undefined = normal
+      casaEdificioId: n.casaEdificioId, // interior donde "vive" — InteriorRoom pone aquí a la familia cuando entra un jugador
       rutina: n.rutina,
       vox: {
         ficha: n.ficha,

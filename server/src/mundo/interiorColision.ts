@@ -132,6 +132,11 @@ export interface InteriorCargado extends MundoColision {
   /** Puntos candidatos de spawn de enemigo de ESTA planta (mazmorras) — [] en
    * un interior normal (edificios/interiores/ no llevan este campo). */
   spawnsEnemigos: SpawnEnemigo[];
+  /** Casilla pisable por tipoSalaId de ESTA planta (GDD_Agentes_Moviles.md
+   * "vida en interiores"): dónde colocar a un NPC cuya rutina dice "casa,
+   * sala X" — varias salas del mismo tipo (dos dormitorios) dan varios
+   * puntos. Vacío en interiores sin `sala` real por tramo (mazmorras). */
+  salasPorTipo: Map<string, { x: number; y: number }[]>;
 }
 
 export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado {
@@ -242,6 +247,21 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
     });
   }
 
+  // Casilla pisable por tipoSalaId (vida en interiores): el centro real de
+  // cada sala, corregido a la casilla libre más cercana igual que el spawn
+  // — el centro geométrico puede caer encima de una mesa/hogar colocado ahí.
+  const salasPorTipo = new Map<string, { x: number; y: number }[]>();
+  for (const sala of salas) {
+    const tipoSalaId = (sala as unknown as { tipoSalaId?: string }).tipoSalaId;
+    if (!tipoSalaId) continue;
+    const cx = Math.round(sala.offsetX + sala.resultado.ancho / 2);
+    const cy = Math.round(sala.offsetY + sala.resultado.largo / 2);
+    const punto = casillaPisableMasCercana(casillas, ancho, alto, cx, cy);
+    const lista = salasPorTipo.get(tipoSalaId) ?? [];
+    lista.push(punto);
+    salasPorTipo.set(tipoSalaId, lista);
+  }
+
   return {
     id: interior.id,
     nivel,
@@ -250,6 +270,7 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
     spawnX: spawn.x + 0.5, spawnY: spawn.y + 0.5,
     conectores,
     spawnsEnemigos: planta.spawnsEnemigos ?? [],
+    salasPorTipo,
   };
 }
 

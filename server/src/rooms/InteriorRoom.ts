@@ -1,8 +1,11 @@
 import { Client } from "@colyseus/core";
+import * as fs from "fs";
 import * as path from "path";
 import { RoomExteriorBase } from "./base/RoomExteriorBase";
 import { cargarInterior, InteriorCargado } from "../mundo/interiorColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
+import { poblarInterior, NpcConCasa } from "../mundo/agentesInterior";
+import { tiempoMundo } from "../mundo/tiempoMundo";
 
 export interface OpcionesInterior {
   name?: string;
@@ -42,6 +45,22 @@ export class InteriorRoom extends RoomExteriorBase {
       `${this.interior.ancho}x${this.interior.alto} casillas, ${this.interior.conectores.length} conector(es)`,
     );
     this.iniciarMovimiento();
+
+    // Vida en interiores (GDD_Agentes_Moviles.md v1.2): si el asentamiento
+    // tiene poblacion.json, los NPCs cuya rutina dice "estoy en ESTA casa
+    // ahora" aparecen dentro — la familia coincide sola porque comparten
+    // edificio y horarios parecidos. Se recalcula cada 20s (no hace falta
+    // más: la hora de juego avanza despacio) para que un cambio de tramo
+    // mientras el jugador sigue dentro se note (alguien se va a dormir,
+    // llega de trabajar...). Sin coste si el bake no trae población.
+    const rutaPoblacion = path.join(rutaDeMapaId(options.mapaId), "poblacion.json");
+    if (fs.existsSync(rutaPoblacion)) {
+      const poblacion = JSON.parse(fs.readFileSync(rutaPoblacion, "utf8")) as { npcs: NpcConCasa[] };
+      const repoblar = () =>
+        poblarInterior(this.state.npcs, poblacion.npcs, options.edificio, options.nivel ?? 0, this.interior, tiempoMundo().hora);
+      repoblar();
+      this.clock.setInterval(repoblar, 20_000);
+    }
 
     // Interacción con la escalera/trampilla más cercana -> cambia de
     // planta (otra InteriorRoom, mismo edificio, distinto `nivel`); si no

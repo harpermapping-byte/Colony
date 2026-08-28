@@ -211,6 +211,11 @@ function generarRutina(npc, ciudad, catalogos, dia = 0) {
       null;
     if (!edificioCasa) return []; // ni casa, ni trabajo, ni posada: este bake no tiene dónde meterlo
   }
+  // qué edificio es "casa" para este NPC (GDD_Agentes_Moviles.md "vida en
+  // interiores"): InteriorRoom lo usa para saber a quién poner dentro de
+  // qué instancia — npc ya viene por referencia, se muta como el resto de
+  // campos derivados de la rutina (perfilSocial, etc.)
+  npc.casaEdificioId = edificioCasa?.interior?.id ?? null;
   const focal = ciudad.focal ?? null;
   // sitio de "sentarse fuera": un parque si lo hay (un huerto es de labor,
   // no de descanso — solo cae ahí si no hay parque)

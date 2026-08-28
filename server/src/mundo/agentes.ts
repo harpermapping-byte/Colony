@@ -34,6 +34,11 @@ export interface TramoRutina {
   // rondas/deambular (GDD_Agentes_Moviles.md): el agente recorre estas
   // paradas EN BUCLE durante todo el tramo, con una pausa corta en cada una
   paradas?: ParadaRuta[];
+  // solo lugar==="casa": a qué sala de la vivienda va (poblacion/src/
+  // generarRutina.js salaParaAccion) — "vida en interiores" lo usa para
+  // saber DÓNDE dentro de la casa colocar al NPC; null si su casa no
+  // tiene esa sala (se queda junto a la puerta, no rompe nada).
+  sala?: { tipoSalaId: string; planta: number } | null;
 }
 
 export interface NpcBakeado {
