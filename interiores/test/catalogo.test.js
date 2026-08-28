@@ -310,6 +310,31 @@ test("regeneración completa de un edificio no rompe su estructura", () => {
   assert.strictEqual(e.plantas.length, nPlantasAntes);
 });
 
+test("dormitorio_comunal coloca varias literas según el área (GDD_Poblacion_NPCs.md); un dormitorio normal sigue con 1 sola", () => {
+  const comunalGrande = colocarSala({
+    tipoSalaId: "dormitorio_comunal",
+    catalogos,
+    riqueza: "humilde",
+    amueblado: "completo",
+    semilla: "test-literas-1",
+    anchoForzado: 6,
+    largoForzado: 6,
+  });
+  const literasComunal = comunalGrande.colocados.filter((c) => c.id === "litera");
+  assert.ok(literasComunal.length > 1, `dormitorio_comunal 6x6 debería tener varias literas, salieron ${literasComunal.length}`);
+  assert.ok(literasComunal.length <= 6, "no debería pasarse del tope (maximo:6 en el catálogo)");
+
+  const individual = colocarSala({
+    tipoSalaId: "dormitorio_individual",
+    catalogos,
+    riqueza: "humilde",
+    amueblado: "completo",
+    semilla: "test-literas-2",
+  });
+  const camasIndividual = individual.colocados.filter((c) => c.id.startsWith("cama") || c.id === "litera");
+  assert.strictEqual(camasIndividual.length, 1, "dormitorio_individual debería seguir con exactamente 1 cama");
+});
+
 console.log("\n=== Resumen ===");
 console.log(`${pasados} ok, ${fallados} fallo(s) de ${pasados + fallados} tests.`);
 if (fallados > 0) {

@@ -683,6 +683,25 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         }
       }
 
+      // Camas/literas de dormitorio comunal ("varias literas" en el propio
+      // catálogo, GDD_Poblacion_NPCs.md): la pasada normal de arriba coloca
+      // isMandatory UNA vez y ya lo marca en idsYaUsados, así que sin esto
+      // un dormitorio_comunal grande salía con 1 litera igual que uno
+      // pequeño. `repetirPorArea` (opcional, en elementos.json) manda a
+      // colocar varias más según el área de ESTA sala, acotado a su tope —
+      // fuera del presupuesto LIMITE_POR_CAPA (una cama no es decoración
+      // negociable, es la capacidad real de la sala).
+      for (const el of candidatos) {
+        if (!el.isMandatory || !el.repetirPorArea || !idsYaUsados.has(el.id)) continue;
+        if (!(el.repetirPorArea.salas || []).includes(tipoSalaId)) continue;
+        const objetivo = Math.max(
+          1,
+          Math.min(el.repetirPorArea.maximo ?? 99, Math.floor((ancho * largo) / el.repetirPorArea.tilesPorInstancia)),
+        );
+        let colocadas = 1; // la que ya puso la pasada normal de arriba
+        while (colocadas < objetivo && colocarUno(el)) colocadas++;
+      }
+
       // Segunda pasada: repetición coherente. Si tras colocar una vez cada
       // pieza distinta todavía sobra presupuesto de la capa (sala grande
       // y/o noble, ver LIMITE_POR_CAPA de arriba), se repiten piezas ya
