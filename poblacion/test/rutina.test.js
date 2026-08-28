@@ -148,6 +148,27 @@ test("contadorZonas: dos NPCs cuya rutina cae en la plaza a la vez reciben casil
   assert.ok(puntosPlaza.size > 1, `todos los tramos de plaza cayeron en la MISMA casilla (${[...puntosPlaza]})`);
 });
 
+test("contadorZonas: varios campesinos del MISMO huerto reciben casillas DISTINTAS (mismo bug de apelotonamiento que plaza, sin arreglar en el huerto hasta ahora)", async () => {
+  const { ciudad, npcs } = await asentamientoDePrueba("aldea", "test-campo-0");
+  const huertos = (ciudad.zonasVerdes ?? []).filter((z) => z.tipo === "huerto");
+  assert.ok(huertos.length > 0, "esta semilla debería tener al menos un huerto — revisar si cambió el bake");
+  const contadorZonas = {};
+  const puntosCampo = new Set();
+  let vistos = 0;
+  for (const npc of npcs.filter((n) => n.rolFamiliar !== "hijo")) {
+    npc.perfilSocial = asignarPerfil(npc, catalogos.perfilesSociales) ?? "trabajador";
+    const rutina = generarRutina(npc, ciudad, catalogos, 0, contadorZonas);
+    for (const tramo of rutina) {
+      if (tramo.lugar === "campo" && tramo.punto) {
+        puntosCampo.add(`${tramo.punto.x},${tramo.punto.y}`);
+        vistos++;
+      }
+    }
+  }
+  assert.ok(vistos >= 3, `muy pocos tramos de campo para probar el reparto (${vistos})`);
+  assert.ok(puntosCampo.size > 1, `todos los tramos de campo cayeron en la MISMA casilla (${[...puntosCampo]}) — el reparto por pool no se está aplicando`);
+});
+
 test("vendedores especializados: tendero/panadero/sastre salen SIEMPRE en un pueblo (censo con suelo garantizado)", async () => {
   const { npcs } = await asentamientoDePrueba("aldea_pequena", "test-vendedores-1");
   const oficios = new Set(npcs.map((n) => n.ficha.npcId));

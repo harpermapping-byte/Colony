@@ -30,8 +30,7 @@ function buscarTemplo(ciudad) {
 }
 
 // Orilla más cercana a la casa (pescador_mentiroso, GDD_Agentes_Moviles.md
-// v1.1) — mismo patrón de caché que tilesDeHuerto: escanea la rejilla UNA
-// vez por ciudad, no por NPC.
+// v1.1) — cacheada por ciudad: escanea la rejilla UNA vez, no por NPC.
 const cacheOrillas = new WeakMap();
 function tilesDeAgua(ciudad) {
   if (cacheOrillas.has(ciudad)) return cacheOrillas.get(ciudad);
@@ -94,31 +93,28 @@ function puntoDeAgua(ciudad, casaPunto) {
 
 // Huertos intramuros reales del bake (ciudades/src/generar.js: zonas verdes
 // con un 45% de salir como "tierra_labrada") — no todo asentamiento tiene
-// uno. Se cachea por ciudad: escanear la rejilla entera es barato UNA vez,
-// caro si se hiciera por cada NPC con perfil "granjero".
-const cacheHuertos = new WeakMap();
-function tilesDeHuerto(ciudad) {
-  if (cacheHuertos.has(ciudad)) return cacheHuertos.get(ciudad);
-  const tiles = [];
-  for (let y = 0; y < ciudad.alto; y++) {
-    for (let x = 0; x < ciudad.ancho; x++) {
-      if (ciudad.terreno.get(x, y) === "tierra_labrada") tiles.push({ x, y });
-    }
-  }
-  cacheHuertos.set(ciudad, tiles);
-  return tiles;
-}
-
-function puntoDeCampo(ciudad, casaPunto) {
-  const tiles = tilesDeHuerto(ciudad);
-  if (tiles.length === 0) return null; // este bake no tiene huerto: se resolverá al placeholder junto a la puerta
-  let mejor = tiles[0];
+// uno. `ciudad.zonasVerdes` ya trae el centro/radio de cada uno, así que no
+// hace falta escanear la rejilla entera como antes.
+//
+// Antes: el punto de campo era la casilla tierra_labrada literalmente más
+// cercana a la casa — con varios campesinos en el mismo huerto (normal en
+// una aldea pequeña, un único huerto para todos), todos convergían en la
+// MISMA casilla exacta (mismo bug de apelotonamiento que plaza/taberna/
+// banco, sección "no se apelotonen" de GDD_Agentes_Moviles.md — este caso
+// se quedó sin arreglar en aquella pasada). Ahora se busca la ZONA de
+// huerto más cercana (no la casilla) y el reparto de casilla dentro de
+// ella pasa por el mismo `elegirDePool` que ya usan plaza/taberna/banco —
+// varios agricultores en el mismo huerto, cada uno en su propia casilla.
+function zonaCampoMasCercana(ciudad, casaPunto) {
+  const huertos = (ciudad.zonasVerdes ?? []).filter((z) => z.tipo === "huerto");
+  if (huertos.length === 0) return null; // este bake no tiene huerto: se resolverá al placeholder junto a la puerta
+  let mejor = huertos[0];
   let mejorDist = Infinity;
-  for (const t of tiles) {
-    const d = Math.hypot(t.x - casaPunto.x, t.y - casaPunto.y);
-    if (d < mejorDist) { mejorDist = d; mejor = t; }
+  for (const z of huertos) {
+    const d = Math.hypot(z.x - casaPunto.x, z.y - casaPunto.y);
+    if (d < mejorDist) { mejorDist = d; mejor = z; }
   }
-  return mejor;
+  return { x: Math.round(mejor.x), y: Math.round(mejor.y) };
 }
 
 function salaParaAccion(edificio, accion, accionesPorSala) {
@@ -175,10 +171,12 @@ function resolverLugar(lugar, ctx, rnd) {
     case "plaza":
       return elegirDePool(ctx, "plaza", ctx.plazaPunto) ?? ctx.casaPunto;
     case "campo":
-      // Huerto real del bake (tierra_labrada) más cercano a su casa; si
-      // este asentamiento no tiene ninguno, cae junto a su propia puerta
-      // (placeholder v1, GDD "Qué falta" — no todo bake tiene huerto).
-      return ctx.campoPunto ?? ctx.casaPunto;
+      // Huerto real del bake (tierra_labrada) más cercano a su casa,
+      // repartido por casilla igual que plaza/taberna/banco (varios
+      // agricultores del mismo huerto no comparten literalmente la misma
+      // casilla). Si este asentamiento no tiene ninguno, cae junto a su
+      // propia puerta (placeholder v1 — no todo bake tiene huerto).
+      return (ctx.campoZona && elegirDePool(ctx, `campo_${ctx.campoZona.x}_${ctx.campoZona.y}`, ctx.campoZona)) ?? ctx.casaPunto;
     case "banco":
       // sitio para sentarse a la intemperie: una zona verde; sin ellas, la plaza
       return elegirDePool(ctx, "banco", ctx.bancoPunto) ?? ctx.plazaPunto ?? ctx.casaPunto;
@@ -305,7 +303,7 @@ function generarRutina(npc, ciudad, catalogos, dia = 0, contadorZonas = {}) {
         : null,
     tabernaPunto: buscarTaberna(ciudad),
     plazaPunto: focal,
-    campoPunto: puntoDeCampo(ciudad, casaPunto),
+    campoZona: zonaCampoMasCercana(ciudad, casaPunto),
     bancoPunto,
     // puesto asignado del guardia de puerta (asignarEspeciales reparte índices)
     puestoPunto: npc.puestoPuerta != null ? puertasInterior[npc.puestoPuerta % Math.max(1, puertasInterior.length)] : null,
