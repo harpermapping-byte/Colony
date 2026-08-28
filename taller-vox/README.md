@@ -34,6 +34,32 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   node generar_naturaleza.js todo   # catálogo completo (producción: lo corre el usuario)
   node prueba_render_naturaleza.js  # galería SVG en output/ para revisar formas
   ```
+- **`generar_edificio.js`** — la pieza para el bakeador de ciudades: sustituye
+  la caja de color por riqueza que hoy pinta `ciudades/` por un edificio de
+  vóxeles de verdad (masa EXTERIOR — el interior real sigue siendo la room
+  instanciada aparte a la que se entra por la puerta, esto no la reemplaza).
+  Cero catálogos nuevos: lee `interiores/catalogo/tipos_edificio.json`
+  (riqueza, rango de plantas altas, material preferido) para los ~41 tipos,
+  `ciudades/catalogo/huellas.json` para el ancho×largo real que ya coloca el
+  bakeador de ciudades, e `interiores/catalogo/materiales.json` para el
+  `colorDebug` del muro (madera/piedra/marmol/adobe/ladrillo/estuco...).
+  Clasifica cada tipoEdificio en 1 de 10 arquetipos (CHOZA, CASA, TALLER,
+  POSADA, INSTITUCION, TEMPLO, MILITAR, TORRE, GRANERO, CASTILLO) construidos
+  sobre piezas compartidas (cuerpo por plantas con voladizo/jetty opcional,
+  puerta y ventanas "pintadas" en la fachada, tejado a dos aguas o piramidal
+  por ESCALONES DE TAMAÑO FIJO — así la altura sale siempre proporcional al
+  ancho real en vez de comprimirse en muchos pasos finos en un edificio
+  grande —, almenas, chimenea con brasas en talleres con fuego, pórtico de
+  columnas en edificios cívicos, torres de esquina con su propio tejado en
+  el castillo). Siempre orientado con la puerta hacia -Z; la rotación real
+  en el mapa la pone `ro` al colocar el prop, igual que el resto. Mismo
+  formato `{grid,paleta,cajas}` — lo exporta `exportar_glb.js` tal cual.
+  Determinista por `tipoId|NN`; `node --test test_edificio.js` (8 tests).
+  ```bash
+  node generar_edificio.js          # 1 edificio de ejemplo por arquetipo (10)
+  node generar_edificio.js todo     # los ~41 tipos del catálogo (producción: lo corre el usuario)
+  node prueba_render_edificios.js   # galería SVG en output/ para revisar formas
+  ```
 - **`exportar_glb.js`** — exporta un modelo de mueble a `.glb` real, vóxel a
   vóxel con face-culling (solo caras exteriores, estilo mesher de
   Minecraft). Construye el glTF binario a mano, sin three.js.
