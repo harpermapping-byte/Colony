@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Editor de parcelas</title>
+<style>
+  /* Misma estética sobria oscura que las GUIs de interiores/baker. */
+  :root { --fondo:#15151a; --panel:#20202a; --panel2:#262632; --borde:#3a3a48; --texto:#e8e8ec; --tenue:#9a9aa8; --acento:#6aa0d8; --aviso:#d8a04a; --peligro:#d86a6a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--fondo); color:var(--texto); font-family: system-ui, sans-serif; font-size:13px; overflow:hidden; }
+  header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--borde); }
+  header h1 { font-size:15px; margin:0 10px 0 0; white-space:nowrap; }
+  header select, header input, header button { background:var(--panel2); color:var(--texto); border:1px solid var(--borde); border-radius:4px; padding:5px 8px; font-size:12px; }
+  header button { cursor:pointer; }
+  header button:hover { border-color:var(--acento); }
+  header button.activa { border-color:var(--acento); background:#2c3a4c; }
+  header .sep { width:1px; align-self:stretch; background:var(--borde); margin:0 4px; }
+  header label { color:var(--tenue); font-size:12px; display:flex; align-items:center; gap:4px; }
+  .layout { display:grid; grid-template-columns: 1fr 290px; height: calc(100vh - 44px); }
+  main { position:relative; overflow:hidden; background:#101014; }
+  canvas { display:block; cursor:crosshair; }
+  #estado { position:absolute; left:8px; bottom:8px; background:rgba(20,20,26,.85); border:1px solid var(--borde); border-radius:4px; padding:4px 8px; font-size:11px; color:var(--tenue); pointer-events:none; }
+  #previewBarra { position:absolute; left:50%; transform:translateX(-50%); top:10px; display:none; gap:8px; background:rgba(20,20,26,.92); border:1px solid var(--acento); border-radius:6px; padding:8px 10px; align-items:center; }
+  #previewBarra button { background:var(--panel2); color:var(--texto); border:1px solid var(--borde); border-radius:4px; padding:4px 10px; cursor:pointer; }
+  aside { background:var(--panel); border-left:1px solid var(--borde); overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:10px; }
+  aside h2 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--tenue); margin:0; }
+  #listaParcelas { display:flex; flex-direction:column; gap:6px; }
+  .parcela { background:var(--panel2); border:1px solid var(--borde); border-radius:6px; padding:8px; cursor:pointer; display:flex; flex-direction:column; gap:4px; }
+  .parcela:hover { border-color:var(--acento); }
+  .parcela.activa { border-color:var(--acento); box-shadow:0 0 0 1px var(--acento); }
+  .parcela .fila { display:flex; justify-content:space-between; align-items:center; gap:6px; }
+  .parcela .nombre { font-weight:600; display:flex; align-items:center; gap:6px; }
+  .parcela .dato { color:var(--tenue); font-size:11px; }
+  .parcela input.tope { width:56px; background:#2c2c38; color:var(--texto); border:1px solid var(--borde); border-radius:4px; padding:2px 5px; font-size:11px; }
+  .swatch { width:10px; height:10px; border-radius:2px; flex:none; }
+  .botonera { display:flex; gap:6px; flex-wrap:wrap; }
+  .botonera button { background:var(--panel2); color:var(--texto); border:1px solid var(--borde); border-radius:4px; padding:5px 8px; font-size:12px; cursor:pointer; }
+  .botonera button:hover { border-color:var(--acento); }
+  .botonera button.peligro:hover { border-color:var(--peligro); }
+  .hint { color:var(--tenue); font-size:11px; line-height:1.5; }
+  #aviso { color:var(--aviso); font-size:11px; min-height:14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🗺️ Parcelas</h1>
+  <button id="btnPincel" class="activa" title="Pintar casillas de la parcela activa">✏️ Pincel</button>
+  <button id="btnGoma" title="Borrar casillas de la parcela activa">🧽 Goma</button>
+  <label>tamaño <select id="selTamano"><option>1</option><option>3</option><option>7</option></select></label>
+  <span class="sep"></span>
+  <button id="btnVarita" title="Crecimiento orgánico desde la casilla pulsada">✨ Varita</button>
+  <label>objetivo <input id="inObjetivo" type="number" value="300" min="1" style="width:70px"></label>
+  <span class="sep"></span>
+  <button id="btnIrCiudad">🏰 Ir a ciudad</button>
+  <span class="sep"></span>
+  <button id="btnGuardar">💾 Guardar</button>
+</header>
+<div class="layout">
+  <main id="contenedor">
+    <canvas id="lienzo"></canvas>
+    <div id="estado"></div>
+    <div id="previewBarra">
+      <span id="previewTexto"></span>
+      <button id="btnAceptar">Aceptar</button>
+      <button id="btnDescartar">Descartar</button>
+    </div>
+  </main>
+  <aside>
+    <h2>Parcelas</h2>
+    <div class="botonera"><button id="btnCrear">➕ Crear</button><button id="btnRenombrar">✏️ Renombrar</button><button id="btnBorrar" class="peligro">🗑️ Borrar</button></div>
+    <div id="listaParcelas"></div>
+    <div id="aviso"></div>
+    <div class="hint">
+      Pan: arrastrar con botón secundario o con espacio pulsado. Zoom: rueda.<br>
+      Pincel/goma: clic o arrastrar sobre el mapa (las casillas vetadas — camino, puente, agua, no transitable, otra parcela — no se pintan y se marcan en rojo).<br>
+      Varita: clic en una casilla → vista previa del crecimiento hasta el objetivo; aceptar o descartar.
+    </div>
+  </aside>
+</div>
+<script src="/src/mascara.js"></script>
+<script src="/src/varita.js"></script>
+<script src="editor.js"></script>
+</body>
+</html>

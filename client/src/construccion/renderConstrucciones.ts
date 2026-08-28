@@ -1,0 +1,115 @@
+/**
+ * Render de lo CONSTRUIDO por los jugadores (GDD_Construccion §6): mantiene
+ * el espejo local de construcciones a partir de los mensajes del protocolo
+ * (§4) y una caja placeholder por construcción — `colorDebug` del catálogo,
+ * huella rotada, cara superior un punto más clara para que la silueta se
+ * lea desde la cámara isométrica. El `.glb` real entrará por `entityLoader`
+ * (misma convención de assets) sin tocar este flujo.
+ *
+ * También sirve de ESPEJO de ocupación para el fantasma del constructor:
+ * casillas ocupadas (clave numérica y*anchoMapa+x) y conteo por propiedad
+ * para el topeProps — feedback instantáneo; la verdad final es del servidor.
+ */
+import * as THREE from "three";
+import type { WorldScene } from "../render3d/worldScene";
+import { obtenerConstruible, huellaRotada, ALTURA_CATEGORIA, type CategoriaConstruible } from "./catalogoConstruccion";
+
+/** Mensaje "construccion:nueva" / entrada de "construcciones:lista" (contrato §4). */
+export interface ConstruccionRed {
+  id: number;
+  propiedad: string;
+  objeto: string;
+  categoria: CategoriaConstruible;
+  x: number; // casilla global de la esquina noroeste de la huella YA rotada
+  y: number;
+  rot: number;
+  variante: number;
+}
+
+// Id llegado del servidor que no está en los catálogos del bundle (cliente
+// desfasado): caja magenta 1x1 para que cante, nunca un crash.
+const COLOR_DESCONOCIDO = "#b05ad8";
+
+export class RenderConstrucciones {
+  private readonly piezas = new Map<number, { datos: ConstruccionRed; malla: THREE.Mesh }>();
+  private readonly ocupadas = new Set<number>();
+
+  constructor(
+    private readonly escena: WorldScene,
+    private readonly anchoMapa: number,
+  ) {}
+
+  /** "construcciones:lista" al entrar: estado completo (sustituye lo que hubiera). */
+  aplicarLista(lista: ConstruccionRed[]): void {
+    for (const id of [...this.piezas.keys()]) this.aplicarQuitada(id);
+    for (const c of lista) this.aplicarNueva(c);
+  }
+
+  /** "construccion:nueva": alguien (quizá yo) colocó algo — el broadcast es la confirmación. */
+  aplicarNueva(c: ConstruccionRed): void {
+    if (this.piezas.has(c.id)) this.aplicarQuitada(c.id); // reenvío defensivo: no duplicar mallas
+    const malla = this.crearMalla(c);
+    this.piezas.set(c.id, { datos: c, malla });
+    this.escena.añadirEstatico(malla);
+    for (const clave of this.clavesHuella(c)) this.ocupadas.add(clave);
+  }
+
+  /** "construccion:quitada": recogida por su dueño — fuera de escena con dispose real. */
+  aplicarQuitada(id: number): void {
+    const pieza = this.piezas.get(id);
+    if (!pieza) return;
+    this.piezas.delete(id);
+    for (const clave of this.clavesHuella(pieza.datos)) this.ocupadas.delete(clave);
+    this.escena.quitarEstatico(pieza.malla);
+    pieza.malla.geometry.dispose();
+    const materiales = Array.isArray(pieza.malla.material) ? pieza.malla.material : [pieza.malla.material];
+    // el material de lados se repite en el array: dispose es idempotente
+    for (const m of materiales) m.dispose();
+  }
+
+  /** ¿Hay ya una construcción pisando esta casilla? (para el fantasma). */
+  ocupada(x: number, y: number): boolean {
+    return this.ocupadas.has(y * this.anchoMapa + x);
+  }
+
+  /** Construcciones vivas en una propiedad (para el espejo del topeProps). */
+  contarPorPropiedad(propiedadId: string): number {
+    let n = 0;
+    for (const { datos } of this.piezas.values()) if (datos.propiedad === propiedadId) n++;
+    return n;
+  }
+
+  cantidad(): number {
+    return this.piezas.size;
+  }
+
+  private clavesHuella(c: ConstruccionRed): number[] {
+    const construible = obtenerConstruible(c.objeto);
+    const [w, h] = construible ? huellaRotada(construible.huella, c.rot) : [1, 1];
+    const claves: number[] = [];
+    for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) claves.push((c.y + dy) * this.anchoMapa + (c.x + dx));
+    return claves;
+  }
+
+  private crearMalla(c: ConstruccionRed): THREE.Mesh {
+    const construible = obtenerConstruible(c.objeto);
+    const [w, h] = construible ? huellaRotada(construible.huella, c.rot) : [1, 1];
+    const altura = ALTURA_CATEGORIA[c.categoria] ?? 0.8;
+    const color = new THREE.Color(construible?.colorDebug || COLOR_DESCONOCIDO);
+
+    const lados = new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0 });
+    const tapa = new THREE.MeshStandardMaterial({
+      color: color.clone().lerp(new THREE.Color(1, 1, 1), 0.22),
+      roughness: 0.9,
+      metalness: 0,
+    });
+    // BoxGeometry agrupa caras en orden +x,-x,+y,-y,+z,-z: la tapa es el índice 2
+    const malla = new THREE.Mesh(new THREE.BoxGeometry(w, altura, h), [lados, lados, tapa, lados, lados, lados]);
+    // anclada por su esquina noroeste en (x, y) casillas — el centro de la
+    // caja queda a media huella (mismo convenio que valida el servidor)
+    malla.position.set(c.x + w / 2, altura / 2, c.y + h / 2);
+    malla.castShadow = true;
+    malla.receiveShadow = true;
+    return malla;
+  }
+}

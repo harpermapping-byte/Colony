@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# base de datos local del servidor (GDD_Construccion §2) — en Render es efímera
+server/datos.sqlite
+server/*.sqlite
 .env
 .env.local
 *.log
@@ -13,7 +16,9 @@ taller-vox/node_modules/
 taller-vox/laboratorio-personajes/bundle.js
 taller-vox/laboratorio-personajes/capturas/
 ropa/output/
+parcelas/output/
 client/test/streaming_spawn.png
+client/test/construccion_e2e.png
 personajes/output/
 client/test/capturas/
 taller-vox/output/

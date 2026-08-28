@@ -1,5 +1,7 @@
 # GDD — Sistema de Construcción, Parcelas y Propiedad
 
+**ESTADO: v1 IMPLEMENTADA Y VERIFICADA (2026-08-28).** Piezas: `parcelas/` (herramienta admin, puerto 4200, pincel+varita, demo real de 3 parcelas junto a la ciudad), `server/src/datos/` (persistencia SQLite/`node:sqlite`, Postgres pendiente de cuenta Neon), `server/src/construccion/` + HubRoom (validaciones §5, colisión viva con restauración, interior de edificio generado y persistido en `extra`), `client/src/construccion/` (modo B, fantasma verde/rojo, panel de 198 construibles, bordes de parcela, render de construcciones). Probado: server 23/23, parcelas 10/10, e2e `client/test/construccion.e2e.cjs` (jarl asigna → construye 5 piezas incl. casa con interior de 2 salas → otro jugador las ve → reinicio de servidor y TODO persiste desde la BD) y los e2e previos (streaming, mecánicas) siguen verdes.
+
 Diseño acordado con el streamer (2026-08-28) e implementación v1. **Este documento es el CONTRATO entre las piezas** (herramienta de parcelas, base de datos, servidor, cliente): los formatos y protocolos de aquí son la única fuente de verdad — si algo cambia, se cambia aquí en el mismo commit.
 
 ## 0. Visión pactada
