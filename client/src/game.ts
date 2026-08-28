@@ -272,6 +272,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // — MISMA URL/lógica de abajo salvo esa sala Colyseus.
       const esCambioDePlanta = ES_INTERIOR && info.edificio === EDIFICIO_ID;
       navegarA({
+        nombre: nombreJugador,
         sala: info.esMazmorra ? "mazmorra" : "interior",
         mapaId: info.mapaId,
         edificio: info.edificio,
@@ -283,16 +284,16 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         puertaY: esCambioDePlanta ? PUERTA_Y : info.y,
       });
     } else if (info.tipo === "region") {
-      navegarA({ sala: "region", mapaId: info.mapaId });
+      navegarA({ nombre: nombreJugador, sala: "region", mapaId: info.mapaId });
     } else if (info.tipo === "hub") {
-      navegarA({});
+      navegarA({ nombre: nombreJugador });
     } else {
       // "volver": desde un interior a su región (a la puerta exacta) o al
       // hub si se entró directo desde ahí; desde una región, siempre al hub.
       if (ES_INTERIOR && ORIGEN_SALA === "region") {
-        navegarA({ sala: "region", mapaId: MAPA_ID, entradaX: PUERTA_X, entradaY: PUERTA_Y });
+        navegarA({ nombre: nombreJugador, sala: "region", mapaId: MAPA_ID, entradaX: PUERTA_X, entradaY: PUERTA_Y });
       } else {
-        navegarA({});
+        navegarA({ nombre: nombreJugador });
       }
     }
     },
