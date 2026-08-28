@@ -43,9 +43,13 @@ async function exportarAsentamiento(tierId, semilla, opciones = {}) {
   const deficit = asignarUbicacion(ciudad, poblacion.npcs, catalogos.oficiosEdificios, catalogosInteriores.elementos);
 
   const cacheCaminos = new Map();
+  // compartido entre TODOS los npcs de este asentamiento (GDD_Agentes_
+  // Moviles.md "no se apelotonen"): reparte plaza/taberna/banco por turno
+  // rotatorio para que dos NPCs nunca acaben en la misma casilla.
+  const contadorZonas = {};
   for (const npc of poblacion.npcs) {
     npc.perfilSocial = npc.perfilForzado ?? asignarPerfil(npc, catalogos.perfilesSociales);
-    npc.rutina = npc.perfilSocial ? generarRutina(npc, ciudad, catalogos, opciones.dia ?? 0) : [];
+    npc.rutina = npc.perfilSocial ? generarRutina(npc, ciudad, catalogos, opciones.dia ?? 0, contadorZonas) : [];
     if (npc.rutina.length) bakearCaminosDeRutina(ciudad, npc.rutina, cacheCaminos);
   }
 
@@ -74,6 +78,7 @@ function escribirPoblacionDeMapa(resultado, carpetaMapa) {
       grito: n.grito, // frase de calle de los especiales (melonero, pregonero...) — el cliente la muestra en burbuja
       velocidad: n.velocidad, // multiplicador de velocidad de andar (el "corredor") — undefined = normal
       casaEdificioId: n.casaEdificioId, // interior donde "vive" — InteriorRoom pone aquí a la familia cuando entra un jugador
+      trabajoEdificioId: n.trabajoEdificioId, // interior donde "trabaja" — ídem, para verlo vendiendo dentro de su tienda
       rutina: n.rutina,
       vox: {
         ficha: n.ficha,

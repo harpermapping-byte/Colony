@@ -7,6 +7,7 @@
 // variación diaria es un jitter pequeño en los horarios, nunca cambia la
 // plantilla — "dentro de lo habitual".
 const { crearPRNG } = require("../../interiores/src/azar");
+const { TRANSITABLES } = require("../../ciudades/src/generar");
 
 const JITTER_MAX_HORAS = 0.75;
 
@@ -42,6 +43,42 @@ function tilesDeAgua(ciudad) {
   }
   cacheOrillas.set(ciudad, tiles);
   return tiles;
+}
+
+// Pool de casillas pisables distintas alrededor de un centro (zonas
+// comunes — plaza/taberna/banco, GDD_Agentes_Moviles.md "no se
+// apelotonen"): en vez de un único punto que todo el mundo comparte, un
+// anillo de hasta `k` casillas transitables reales, para repartir a los
+// NPCs que coinciden ahí SIN que dos acaben en la misma casilla (reparto
+// por turno rotatorio, ver `contadorZonas` en resolverLugar). Cacheado por
+// (ciudad, centro) — es barato de recalcular pero no hace falta.
+const cachePools = new WeakMap();
+function poolAlrededorDe(ciudad, centro, k = 10, radioMax = 4) {
+  if (!centro) return [];
+  let porCentro = cachePools.get(ciudad);
+  if (!porCentro) { porCentro = new Map(); cachePools.set(ciudad, porCentro); }
+  const clave = `${centro.x},${centro.y}`;
+  if (porCentro.has(clave)) return porCentro.get(clave);
+
+  const puntos = [];
+  const vistos = new Set();
+  for (let r = 0; r <= radioMax && puntos.length < k; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dy = -r; dy <= r; dy++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = Math.round(centro.x) + dx, y = Math.round(centro.y) + dy;
+        const clavePunto = `${x},${y}`;
+        if (vistos.has(clavePunto)) continue;
+        vistos.add(clavePunto);
+        if (ciudad.terreno.dentro(x, y) && TRANSITABLES.has(ciudad.terreno.get(x, y))) puntos.push({ x, y });
+        if (puntos.length >= k) break;
+      }
+      if (puntos.length >= k) break;
+    }
+  }
+  if (puntos.length === 0) puntos.push({ x: Math.round(centro.x), y: Math.round(centro.y) });
+  porCentro.set(clave, puntos);
+  return puntos;
 }
 
 function puntoDeAgua(ciudad, casaPunto) {
@@ -113,6 +150,20 @@ function muestrear(pool, n, rnd) {
   return sacados;
 }
 
+// Reparto rotatorio por zona (plaza/taberna/banco de TODO el asentamiento,
+// no por NPC): cada vez que un tramo cae en esa zona, se le da la
+// SIGUIENTE casilla del anillo — así dos NPCs que coincidan ahí (a
+// cualquier hora, en cualquier día) nunca comparten literalmente la misma
+// casilla. `ctx.contadorZonas` es un objeto MUTABLE compartido por todos
+// los NPCs del asentamiento (exportarAsentamiento.js lo crea una vez).
+function elegirDePool(ctx, clave, centro) {
+  if (!centro) return null;
+  const pool = poolAlrededorDe(ctx.ciudad, centro, 10, 4);
+  const i = ctx.contadorZonas[clave] ?? 0;
+  ctx.contadorZonas[clave] = i + 1;
+  return pool[i % pool.length];
+}
+
 function resolverLugar(lugar, ctx, rnd) {
   switch (lugar) {
     case "casa":
@@ -120,9 +171,9 @@ function resolverLugar(lugar, ctx, rnd) {
     case "trabajo":
       return ctx.trabajoPunto ?? ctx.casaPunto;
     case "taberna":
-      return ctx.tabernaPunto ?? ctx.plazaPunto ?? ctx.casaPunto;
+      return elegirDePool(ctx, "taberna", ctx.tabernaPunto) ?? ctx.plazaPunto ?? ctx.casaPunto;
     case "plaza":
-      return ctx.plazaPunto ?? ctx.casaPunto;
+      return elegirDePool(ctx, "plaza", ctx.plazaPunto) ?? ctx.casaPunto;
     case "campo":
       // Huerto real del bake (tierra_labrada) más cercano a su casa; si
       // este asentamiento no tiene ninguno, cae junto a su propia puerta
@@ -130,7 +181,7 @@ function resolverLugar(lugar, ctx, rnd) {
       return ctx.campoPunto ?? ctx.casaPunto;
     case "banco":
       // sitio para sentarse a la intemperie: una zona verde; sin ellas, la plaza
-      return ctx.bancoPunto ?? ctx.plazaPunto ?? ctx.casaPunto;
+      return elegirDePool(ctx, "banco", ctx.bancoPunto) ?? ctx.plazaPunto ?? ctx.casaPunto;
     case "puesto":
       // puesto de guardia asignado (npc.puestoPuerta) — parte interior de la puerta
       return ctx.puestoPunto ?? ctx.plazaPunto ?? ctx.casaPunto;
@@ -168,9 +219,9 @@ function resolverLugar(lugar, ctx, rnd) {
       // mismo NPC sale distinto — taberna, plaza, banco, mirar tiendas o un
       // paseo corto. Misma plantilla, días que no se repiten.
       const opciones = [
-        () => ctx.tabernaPunto ?? ctx.plazaPunto,
-        () => ctx.plazaPunto,
-        () => ctx.bancoPunto ?? ctx.plazaPunto,
+        () => elegirDePool(ctx, "taberna", ctx.tabernaPunto) ?? ctx.plazaPunto,
+        () => elegirDePool(ctx, "plaza", ctx.plazaPunto),
+        () => elegirDePool(ctx, "banco", ctx.bancoPunto) ?? ctx.plazaPunto,
         () => (ctx.tiendaPuntos?.length ? ctx.tiendaPuntos[Math.floor(rnd() * ctx.tiendaPuntos.length)] : null),
         () => (ctx.deambularPool?.length >= 2 ? { paradas: muestrear(ctx.deambularPool, 2, rnd) } : null),
       ];
@@ -192,7 +243,13 @@ function jitter(rnd) {
  * @param {number} dia - día de juego, para la variación determinista dentro de lo habitual
  * @returns {Array<{lugar, accion, horaInicio, horaFin, punto: {x,y}, sala: {tipoSalaId,planta}|null}>}
  */
-function generarRutina(npc, ciudad, catalogos, dia = 0) {
+// `contadorZonas` (opcional): objeto MUTABLE compartido entre TODOS los
+// NPCs del asentamiento (exportarAsentamiento.js lo crea una vez y lo pasa
+// en cada llamada) — reparte las zonas comunes sin que dos coincidan en la
+// misma casilla (ver elegirDePool). Sin él (llamada suelta, tests), cada
+// NPC actúa como si fuera el único de su asentamiento — sigue siendo
+// determinista, solo pierde el reparto colectivo.
+function generarRutina(npc, ciudad, catalogos, dia = 0, contadorZonas = {}) {
   const perfil = catalogos.perfilesSociales[npc.perfilSocial];
   if (!perfil) return [];
 
@@ -216,6 +273,11 @@ function generarRutina(npc, ciudad, catalogos, dia = 0) {
   // qué instancia — npc ya viene por referencia, se muta como el resto de
   // campos derivados de la rutina (perfilSocial, etc.)
   npc.casaEdificioId = edificioCasa?.interior?.id ?? null;
+  // qué edificio es "trabajo" (vendedores especializados, GDD_Agentes_
+  // Moviles.md v1.3: "estar en su tienda interior vendiendo") — igual que
+  // casaEdificioId, InteriorRoom lo usa para poner al tendero DENTRO de su
+  // tienda durante su horario, no solo en la puerta.
+  npc.trabajoEdificioId = edificioTrabajo?.interior?.id ?? null;
   const focal = ciudad.focal ?? null;
   // sitio de "sentarse fuera": un parque si lo hay (un huerto es de labor,
   // no de descanso — solo cae ahí si no hay parque)
@@ -228,8 +290,19 @@ function generarRutina(npc, ciudad, catalogos, dia = 0) {
     .map(centroPuerta);
   const casaPunto = edificioCasa ? centroPuerta(edificioCasa) : (bancoPunto ?? focal ?? { x: 0, y: 0 });
   const ctx = {
+    ciudad,
+    contadorZonas,
     casaPunto,
-    trabajoPunto: edificioTrabajo ? centroPuerta(edificioTrabajo) : null,
+    // sin edificio propio (déficit, o un oficio con más gente que huecos
+    // reales — asignarUbicacion.js lo marca con npc.puestoExterior): un
+    // puesto de mercado fijo cerca de la plaza en vez de dejarlo sin
+    // trabajo visible — así no hace falta un edificio-tienda por cada
+    // vendedor (pedido del streamer 2026-08-28).
+    trabajoPunto: edificioTrabajo
+      ? centroPuerta(edificioTrabajo)
+      : npc.puestoExterior
+        ? elegirDePool({ ciudad, contadorZonas }, "puestoMercado", focal)
+        : null,
     tabernaPunto: buscarTaberna(ciudad),
     plazaPunto: focal,
     campoPunto: puntoDeCampo(ciudad, casaPunto),
@@ -256,7 +329,12 @@ function generarRutina(npc, ciudad, catalogos, dia = 0) {
       // el bucle y el origen que usa el tramo siguiente para su camino
       punto: paradas ? { x: paradas[0].x, y: paradas[0].y } : resuelto,
       paradas: paradas ? paradas.map((p) => ({ x: p.x, y: p.y })) : undefined,
-      sala: tramo.lugar === "casa" && edificioCasa ? salaParaAccion(edificioCasa, tramo.accion, catalogos.accionesPorSala) : null,
+      sala:
+        tramo.lugar === "casa" && edificioCasa
+          ? salaParaAccion(edificioCasa, tramo.accion, catalogos.accionesPorSala)
+          : tramo.lugar === "trabajo" && edificioTrabajo
+            ? salaParaAccion(edificioTrabajo, "trabajar", catalogos.accionesPorSala)
+            : null,
     };
   });
 }

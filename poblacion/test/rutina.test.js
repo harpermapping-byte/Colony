@@ -125,3 +125,45 @@ test("bakearCaminosDeRutina: comparte caché entre NPCs con el mismo trayecto (m
   }
   assert.ok(cache.size > 0, "la caché debería tener al menos una entrada");
 });
+
+test("contadorZonas: dos NPCs cuya rutina cae en la plaza a la vez reciben casillas DISTINTAS (no se apelotonan)", async () => {
+  const { ciudad, npcs } = await asentamientoDePrueba("pueblo", "test-zonas-1");
+  const contadorZonas = {};
+  const puntosPlaza = new Set();
+  let vistos = 0;
+  for (const npc of npcs.filter((n) => n.rolFamiliar !== "hijo")) {
+    npc.perfilSocial = asignarPerfil(npc, catalogos.perfilesSociales) ?? "trabajador";
+    const rutina = generarRutina(npc, ciudad, catalogos, 0, contadorZonas);
+    for (const tramo of rutina) {
+      if (tramo.lugar === "plaza" && tramo.punto) {
+        puntosPlaza.add(`${tramo.punto.x},${tramo.punto.y}`);
+        vistos++;
+      }
+    }
+  }
+  assert.ok(vistos >= 3, `muy pocos tramos de plaza para probar el reparto (${vistos})`);
+  // con el pool de hasta 10 casillas por zona, varios NPCs en la plaza
+  // deberían caer en más de una casilla distinta (round-robin real, no
+  // todos en el mismo punto)
+  assert.ok(puntosPlaza.size > 1, `todos los tramos de plaza cayeron en la MISMA casilla (${[...puntosPlaza]})`);
+});
+
+test("vendedores especializados: tendero/panadero/sastre salen SIEMPRE en un pueblo (censo con suelo garantizado)", async () => {
+  const { npcs } = await asentamientoDePrueba("aldea_pequena", "test-vendedores-1");
+  const oficios = new Set(npcs.map((n) => n.ficha.npcId));
+  for (const esperado of ["tendero", "panadero", "sastre", "alfarero"]) {
+    assert.ok(oficios.has(esperado), `aldea_pequena sin ningún ${esperado} (censo con suelo garantizado)`);
+  }
+});
+
+test("vendedores sin edificio: asignarUbicacion los marca con puestoExterior en vez de dejarlos sin trabajo visible", async () => {
+  // aldea_pequena: 4 vendedores garantizados por censo, pero el asentamiento
+  // no siempre tiene las 4 tiendas correspondientes bakeadas
+  const { npcs } = await asentamientoDePrueba("aldea_pequena", "test-vendedores-2");
+  const vendedoresSinTrabajo = npcs.filter(
+    (n) => ["tendero", "panadero", "sastre", "alfarero"].includes(n.ficha.npcId) && !n.trabajo,
+  );
+  for (const v of vendedoresSinTrabajo) {
+    assert.strictEqual(v.puestoExterior, true, `${v.nombre} (${v.ficha.npcId}) sin trabajo y sin puestoExterior`);
+  }
+});

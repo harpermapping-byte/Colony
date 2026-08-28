@@ -97,3 +97,43 @@ test("poblarInterior: una planta distinta a la del tramo no entra (dormitorio en
   poblarInterior(salida, [arriba], "casa-prueba", 0, interior, 23);
   assert.strictEqual(salida.size, 0);
 });
+
+test("poblarInterior: varios NPCs de la MISMA sala reciben puntos distintos (round-robin, no se apelotonan)", () => {
+  const interior = interiorDe({
+    salon: [{ x: 4, y: 4 }, { x: 5, y: 4 }, { x: 6, y: 4 }, { x: 4, y: 5 }],
+  });
+  const salida = new MapSchema<Npc>();
+  const grupo = [npcCasa("a"), npcCasa("b"), npcCasa("c"), npcCasa("d")];
+  poblarInterior(salida, grupo, "casa-prueba", 0, interior, 20);
+  const posiciones = new Set<string>();
+  for (const slot of ["a", "b", "c", "d"]) {
+    const npc = salida.get(slot)!;
+    posiciones.add(`${Math.round(npc.x)},${Math.round(npc.y)}`);
+  }
+  assert.strictEqual(posiciones.size, 4, `deberían caer en 4 casillas distintas, hubo ${posiciones.size}`);
+});
+
+test("poblarInterior: un trabajador aparece DENTRO de su tienda durante el tramo de trabajo (trabajoEdificioId)", () => {
+  const interior = interiorDe({ sala_comercio: [{ x: 3, y: 3 }] });
+  const salida = new MapSchema<Npc>();
+  const tendero: NpcConCasa = {
+    slotId: "tendero_0",
+    nombre: "Tendero",
+    casaEdificioId: "otra-casa",
+    trabajoEdificioId: "casa-prueba",
+    rutina: [
+      { lugar: "casa", accion: "dormir", horaInicio: 22, horaFin: 7, punto: { x: 1, y: 1 } },
+      { lugar: "trabajo", accion: "vender", horaInicio: 8, horaFin: 20, punto: { x: 3, y: 3 }, sala: { tipoSalaId: "sala_comercio", planta: 0 } },
+    ],
+  };
+  poblarInterior(salida, [tendero], "casa-prueba", 0, interior, 12);
+  const npc = salida.get("tendero_0")!;
+  assert.ok(Math.abs(npc.x - 3.5) < 0.4, `x fuera de rango: ${npc.x}`);
+  assert.ok(Math.abs(npc.y - 3.5) < 0.4, `y fuera de rango: ${npc.y}`);
+  assert.strictEqual(npc.accion, "vender");
+
+  // fuera de horario (durmiendo en SU casa, no en la tienda): no aparece aquí
+  const salida2 = new MapSchema<Npc>();
+  poblarInterior(salida2, [tendero], "casa-prueba", 0, interior, 2);
+  assert.strictEqual(salida2.size, 0);
+});

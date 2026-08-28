@@ -1,569 +1,1781 @@
 {
   "_nota": "Cada tipoEdificio declara el patrón típico de plantas y qué salas le tocan por rol de planta (bodega/planta_baja/planta_alta — no por número concreto, eso lo decide el config al pedir el edificio, ver GDD_Bakeador_Interiores sección 1 y 6). salasPorPlanta: lista de [tipoSala, peso] — más peso, más frecuente en esa planta. poiVinculado: qué POIs del exterior TOTAL (baker/catalogo/pois.json) pueden disparar este tipoEdificio directamente — opcional; muchos edificios de pueblo/ciudad (herrería, ayuntamiento, gremio...) no tienen un POI 1:1 en el exterior total y en vez de eso los coloca el futuro bakeador de mapas de POI (ver GDD_Bakeador_POIs.md) dentro de la instancia semi-exterior de la aldea/castillo — no hace falta forzar un enganche artificial para esos, poiVinculado se deja vacío/omitido y ya está.",
-
   "casa_humilde": {
     "riqueza": "humilde",
     "construible": true,
-    "huellaExterior": [7, 6],
+    "huellaExterior": [
+      7,
+      6
+    ],
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["sala_comun", 8], ["cocina_comedor", 5], ["dormitorio_individual", 6], ["almacen", 3]]
+      "planta_baja": [
+        [
+          "sala_comun",
+          8
+        ],
+        [
+          "cocina_comedor",
+          5
+        ],
+        [
+          "dormitorio_individual",
+          6
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "piedra"],
-    "poiVinculado": ["granja_abandonada", "cabana_cazador"]
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
+    "poiVinculado": [
+      "granja_abandonada",
+      "cabana_cazador"
+    ]
   },
-
   "choza_pescador": {
     "riqueza": "humilde",
     "construible": true,
-    "huellaExterior": [6, 5],
+    "huellaExterior": [
+      6,
+      5
+    ],
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["sala_comun", 8], ["dormitorio_individual", 4], ["almacen", 3]]
+      "planta_baja": [
+        [
+          "sala_comun",
+          8
+        ],
+        [
+          "dormitorio_individual",
+          4
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera"],
-    "poiVinculado": ["cabana_pesca", "aldea_pescadores"]
+    "materialesPreferidos": [
+      "madera"
+    ],
+    "poiVinculado": [
+      "cabana_pesca",
+      "aldea_pescadores"
+    ]
   },
-
   "casa_noble": {
     "riqueza": "noble",
     "construible": true,
-    "huellaExterior": [10, 8],
+    "huellaExterior": [
+      10,
+      8
+    ],
     "tieneBodega": true,
-    "rangoPlantasAltas": [1, 2],
+    "rangoPlantasAltas": [
+      1,
+      2
+    ],
     "salasPorPlanta": {
-      "bodega": [["almacen", 10]],
-      "planta_baja": [["gran_salon", 6], ["comedor_grande", 5], ["biblioteca", 4], ["sala_comun", 4], ["pasillo", 8]],
-      "planta_alta": [["dormitorio_doble", 6], ["dormitorio_con_bano", 3], ["pasillo", 6]]
+      "bodega": [
+        [
+          "almacen",
+          10
+        ]
+      ],
+      "planta_baja": [
+        [
+          "gran_salon",
+          6
+        ],
+        [
+          "comedor_grande",
+          5
+        ],
+        [
+          "biblioteca",
+          4
+        ],
+        [
+          "sala_comun",
+          4
+        ],
+        [
+          "pasillo",
+          8
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_doble",
+          6
+        ],
+        [
+          "dormitorio_con_bano",
+          3
+        ],
+        [
+          "pasillo",
+          6
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "madera", "tela_tapiz"],
-    "poiVinculado": ["aldea_agricola"]
+    "materialesPreferidos": [
+      "piedra",
+      "madera",
+      "tela_tapiz"
+    ],
+    "poiVinculado": [
+      "aldea_agricola"
+    ]
   },
-
   "taberna": {
     "riqueza": "modesta",
     "construible": true,
-    "huellaExterior": [9, 7],
+    "huellaExterior": [
+      9,
+      7
+    ],
     "tieneBodega": true,
-    "rangoPlantasAltas": [1, 1],
+    "rangoPlantasAltas": [
+      1,
+      1
+    ],
     "temaTaller": "taberna",
     "salasPorPlanta": {
-      "bodega": [["almacen", 10]],
-      "planta_baja": [["sala_comun", 10], ["cocina", 5], ["almacen", 3]],
-      "planta_alta": [["dormitorio_individual", 5], ["dormitorio_comunal", 3], ["pasillo", 5]]
+      "bodega": [
+        [
+          "almacen",
+          10
+        ]
+      ],
+      "planta_baja": [
+        [
+          "sala_comun",
+          10
+        ],
+        [
+          "cocina",
+          5
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_individual",
+          5
+        ],
+        [
+          "dormitorio_comunal",
+          3
+        ],
+        [
+          "pasillo",
+          5
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "piedra"],
-    "poiVinculado": ["mercado_itinerante", "aldea_agricola"],
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
+    "poiVinculado": [
+      "mercado_itinerante",
+      "aldea_agricola"
+    ],
     "_nota": "planta_alta mezcla habitaciones individuales de pago con un dormitorio comunal barato — típico de posada de aldea."
   },
-
   "tienda": {
     "riqueza": "modesta",
     "construible": true,
-    "huellaExterior": [7, 6],
+    "huellaExterior": [
+      7,
+      6
+    ],
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "temaTaller": "tienda",
     "salasPorPlanta": {
-      "planta_baja": [["sala_comercio", 10], ["almacen", 5]],
-      "planta_alta": [["dormitorio_individual", 4], ["almacen", 3]]
+      "planta_baja": [
+        [
+          "sala_comercio",
+          10
+        ],
+        [
+          "almacen",
+          5
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_individual",
+          4
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera"],
-    "poiVinculado": ["tienda_cazador", "oasis_mercader", "mercado_itinerante"]
+    "materialesPreferidos": [
+      "madera"
+    ],
+    "poiVinculado": [
+      "tienda_cazador",
+      "oasis_mercader",
+      "mercado_itinerante"
+    ]
   },
-
-  "castillo": {"temaTaller":"herreria",
+  "castillo": {
+    "temaTaller": "herreria",
     "riqueza": "noble",
     "tieneBodega": true,
-    "rangoPlantasAltas": [2, 3],
+    "rangoPlantasAltas": [
+      2,
+      3
+    ],
     "salasPorPlanta": {
-      "bodega": [["almacen", 8], ["taller", 3]],
-      "planta_baja": [["gran_salon", 8], ["comedor_grande", 5], ["cocina", 4], ["pasillo", 8]],
-      "planta_alta": [["dormitorio_doble", 5], ["dormitorio_enorme", 2], ["dormitorio_comunal", 3], ["biblioteca", 3], ["pasillo", 6]]
+      "bodega": [
+        [
+          "almacen",
+          8
+        ],
+        [
+          "taller",
+          3
+        ]
+      ],
+      "planta_baja": [
+        [
+          "gran_salon",
+          8
+        ],
+        [
+          "comedor_grande",
+          5
+        ],
+        [
+          "cocina",
+          4
+        ],
+        [
+          "pasillo",
+          8
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_doble",
+          5
+        ],
+        [
+          "dormitorio_enorme",
+          2
+        ],
+        [
+          "dormitorio_comunal",
+          3
+        ],
+        [
+          "biblioteca",
+          3
+        ],
+        [
+          "pasillo",
+          6
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "tela_tapiz", "metal"],
-    "poiVinculado": ["castillo_en_ruinas", "fuerte_barbaro"],
+    "materialesPreferidos": [
+      "piedra",
+      "tela_tapiz",
+      "metal"
+    ],
+    "poiVinculado": [
+      "castillo_en_ruinas",
+      "fuerte_barbaro"
+    ],
     "_nota": "planta_alta mezcla la alcoba señorial (enorme), habitaciones nobles (doble) y el dormitorio comunal de la guarnición/servidumbre."
   },
-
-  "torre_militar": {"temaTaller":"herreria",
+  "torre_militar": {
+    "temaTaller": "herreria",
     "_nota": "Interior de una torre de vigía o barracón — sigue siendo arquitectura civil/militar con WFC normal, no el futuro bakeador de mazmorras orgánicas (ver GDD sección 11).",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [1, 2],
+    "rangoPlantasAltas": [
+      1,
+      2
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["almacen", 6], ["taller", 4]],
-      "planta_alta": [["dormitorio_comunal", 6], ["pasillo", 4]]
+      "planta_baja": [
+        [
+          "almacen",
+          6
+        ],
+        [
+          "taller",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_comunal",
+          6
+        ],
+        [
+          "pasillo",
+          4
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "metal"],
-    "poiVinculado": ["torre_vigia_enemiga", "barracones_abandonados"]
+    "materialesPreferidos": [
+      "piedra",
+      "metal"
+    ],
+    "poiVinculado": [
+      "torre_vigia_enemiga",
+      "barracones_abandonados"
+    ]
   },
-
-  "aserradero": {"temaTaller":"aserradero",
+  "aserradero": {
+    "temaTaller": "aserradero",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["taller", 8], ["almacen", 6], ["despensa", 2]]
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          6
+        ],
+        [
+          "despensa",
+          2
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera"],
-    "poiVinculado": ["aldea_maderera"]
+    "materialesPreferidos": [
+      "madera"
+    ],
+    "poiVinculado": [
+      "aldea_maderera"
+    ]
   },
-
-  "choza_curandero": {"temaTaller":"herbolista",
+  "choza_curandero": {
+    "temaTaller": "herbolista",
     "riqueza": "humilde",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["sala_comun", 6], ["taller", 6], ["dormitorio_individual", 4]]
+      "planta_baja": [
+        [
+          "sala_comun",
+          6
+        ],
+        [
+          "taller",
+          6
+        ],
+        [
+          "dormitorio_individual",
+          4
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "mimbre"],
-    "poiVinculado": ["choza_curandero"]
+    "materialesPreferidos": [
+      "madera",
+      "mimbre"
+    ],
+    "poiVinculado": [
+      "choza_curandero"
+    ]
   },
-
   "faro": {
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [2, 4],
+    "rangoPlantasAltas": [
+      2,
+      4
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["almacen", 8], ["vestibulo", 4]],
-      "planta_alta": [["pasillo", 10], ["dormitorio_individual", 3]]
+      "planta_baja": [
+        [
+          "almacen",
+          8
+        ],
+        [
+          "vestibulo",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "pasillo",
+          10
+        ],
+        [
+          "dormitorio_individual",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "metal"],
-    "poiVinculado": ["faro_abandonado"],
+    "materialesPreferidos": [
+      "piedra",
+      "metal"
+    ],
+    "poiVinculado": [
+      "faro_abandonado"
+    ],
     "_nota": "Torre estrecha — cada planta_alta es sobre todo el hueco de la escalera de caracol con poco más alrededor."
   },
-
   "barco_encallado": {
     "riqueza": "humilde",
     "tieneBodega": true,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "bodega": [["almacen", 10]],
-      "planta_baja": [["camarote", 8], ["almacen", 4]],
-      "planta_alta": [["camarote", 6]]
+      "bodega": [
+        [
+          "almacen",
+          10
+        ]
+      ],
+      "planta_baja": [
+        [
+          "camarote",
+          8
+        ],
+        [
+          "almacen",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "camarote",
+          6
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera"],
-    "poiVinculado": ["barco_encallado"],
+    "materialesPreferidos": [
+      "madera"
+    ],
+    "poiVinculado": [
+      "barco_encallado"
+    ],
     "_nota": "La 'bodega' aquí es la panza del casco, no un sótano bajo tierra — mismo concepto de nivel sin ventanas."
   },
-
   "carromato_mercader": {
     "riqueza": "humilde",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["sala_comercio", 10]]
+      "planta_baja": [
+        [
+          "sala_comercio",
+          10
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "tela_tapiz"],
-    "poiVinculado": ["caravana_ambulante"],
+    "materialesPreferidos": [
+      "madera",
+      "tela_tapiz"
+    ],
+    "poiVinculado": [
+      "caravana_ambulante"
+    ],
     "_nota": "Interior minúsculo de una sola sala — el carromato entero cabe en el hueco de una sala pequeña."
   },
-
   "campamento_hostil": {
     "riqueza": "humilde",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["sala_comun", 6], ["almacen", 5], ["celda", 3], ["dormitorio_comunal", 4]]
+      "planta_baja": [
+        [
+          "sala_comun",
+          6
+        ],
+        [
+          "almacen",
+          5
+        ],
+        [
+          "celda",
+          3
+        ],
+        [
+          "dormitorio_comunal",
+          4
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "piedra"],
-    "poiVinculado": ["campamento_barbaros_pequeno", "campamento_barbaros_grande", "guarida_bandidos", "campamento_cazadores_furtivos"]
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
+    "poiVinculado": [
+      "campamento_barbaros_pequeno",
+      "campamento_barbaros_grande",
+      "guarida_bandidos",
+      "campamento_cazadores_furtivos"
+    ]
   },
-
   "ruina": {
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["gran_salon", 5], ["sala_comun", 6], ["almacen", 5]],
-      "planta_alta": [["dormitorio_individual", 3], ["dormitorio_doble", 2]]
+      "planta_baja": [
+        [
+          "gran_salon",
+          5
+        ],
+        [
+          "sala_comun",
+          6
+        ],
+        [
+          "almacen",
+          5
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_individual",
+          3
+        ],
+        [
+          "dormitorio_doble",
+          2
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra"],
-    "poiVinculado": ["ruinas_pequenas", "ruinas_medianas", "ruinas_grandes", "ruinas_semienterradas"],
+    "materialesPreferidos": [
+      "piedra"
+    ],
+    "poiVinculado": [
+      "ruinas_pequenas",
+      "ruinas_medianas",
+      "ruinas_grandes",
+      "ruinas_semienterradas"
+    ],
     "estadoConservacion": "ruina_parcial",
     "_nota": "La forma base sigue siendo WFC normal — el deterioro (daño estructural, suciedad elevada, sección 4/9 del GDD) es una pasada encima, no un motivo de sala distinto."
   },
-
   "casa_modesta": {
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["sala_comun", 6], ["cocina_comedor", 6], ["almacen", 3]],
-      "planta_alta": [["dormitorio_doble", 5], ["dormitorio_individual", 4]]
+      "planta_baja": [
+        [
+          "sala_comun",
+          6
+        ],
+        [
+          "cocina_comedor",
+          6
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_doble",
+          5
+        ],
+        [
+          "dormitorio_individual",
+          4
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "ladrillo", "estuco"],
-    "poiVinculado": ["aldea_agricola", "ciudad_poblada_menor"],
+    "materialesPreferidos": [
+      "madera",
+      "ladrillo",
+      "estuco"
+    ],
+    "poiVinculado": [
+      "aldea_agricola",
+      "ciudad_poblada_menor"
+    ],
     "_nota": "Vivienda de clase media, entre casa_humilde y casa_noble — la que faltaba en el catálogo."
   },
-
-  "herreria": {"temaTaller":"herreria",
+  "herreria": {
+    "temaTaller": "herreria",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["taller", 8], ["sala_comercio", 3], ["almacen", 3]]
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "sala_comercio",
+          3
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "metal"],
-    "poiVinculado": ["aldea_agricola", "ciudad_poblada_menor", "aldea_maderera"]
+    "materialesPreferidos": [
+      "piedra",
+      "metal"
+    ],
+    "poiVinculado": [
+      "aldea_agricola",
+      "ciudad_poblada_menor",
+      "aldea_maderera"
+    ]
   },
-
-  "molino": {"temaTaller":"molino",
+  "molino": {
+    "temaTaller": "molino",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [1, 1],
+    "rangoPlantasAltas": [
+      1,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["taller", 6], ["almacen", 6]],
-      "planta_alta": [["almacen", 4], ["pasillo", 3]]
+      "planta_baja": [
+        [
+          "taller",
+          6
+        ],
+        [
+          "almacen",
+          6
+        ]
+      ],
+      "planta_alta": [
+        [
+          "almacen",
+          4
+        ],
+        [
+          "pasillo",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "piedra"],
-    "poiVinculado": ["aldea_agricola"],
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
+    "poiVinculado": [
+      "aldea_agricola"
+    ],
     "_nota": "El mecanismo de moler ocupa la planta alta encima del grano almacenado abajo."
   },
-
   "panaderia": {
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "temaTaller": "panaderia",
     "salasPorPlanta": {
-      "planta_baja": [["sala_comercio", 6], ["cocina", 6], ["despensa", 3]],
-      "planta_alta": [["dormitorio_individual", 3]]
+      "planta_baja": [
+        [
+          "sala_comercio",
+          6
+        ],
+        [
+          "cocina",
+          6
+        ],
+        [
+          "despensa",
+          3
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_individual",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "ladrillo"],
-    "poiVinculado": ["aldea_agricola", "ciudad_poblada_menor"]
+    "materialesPreferidos": [
+      "madera",
+      "ladrillo"
+    ],
+    "poiVinculado": [
+      "aldea_agricola",
+      "ciudad_poblada_menor"
+    ]
   },
-
   "posada": {
     "riqueza": "modesta",
     "tieneBodega": true,
-    "rangoPlantasAltas": [1, 2],
+    "rangoPlantasAltas": [
+      1,
+      2
+    ],
     "temaTaller": "taberna",
     "salasPorPlanta": {
-      "bodega": [["almacen", 10]],
-      "planta_baja": [["sala_comun", 6], ["cocina", 4], ["vestibulo", 4]],
-      "planta_alta": [["dormitorio_individual", 6], ["dormitorio_comunal", 4], ["pasillo", 6]]
+      "bodega": [
+        [
+          "almacen",
+          10
+        ]
+      ],
+      "planta_baja": [
+        [
+          "sala_comun",
+          6
+        ],
+        [
+          "cocina",
+          4
+        ],
+        [
+          "vestibulo",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_individual",
+          6
+        ],
+        [
+          "dormitorio_comunal",
+          4
+        ],
+        [
+          "pasillo",
+          6
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "piedra"],
-    "poiVinculado": ["ciudad_poblada_menor", "mercado_itinerante"],
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
+    "poiVinculado": [
+      "ciudad_poblada_menor",
+      "mercado_itinerante"
+    ],
     "_nota": "Distinta de taberna: aquí el foco es el hospedaje (más habitaciones, sala_comun más pequeña), no el punto de encuentro social."
   },
-
   "casa_gremio": {
     "riqueza": "modesta",
     "tieneBodega": true,
-    "rangoPlantasAltas": [1, 1],
+    "rangoPlantasAltas": [
+      1,
+      1
+    ],
     "salasPorPlanta": {
-      "bodega": [["almacen", 10]],
-      "planta_baja": [["sala_consejo", 6], ["gran_salon", 4], ["vestibulo", 4]],
-      "planta_alta": [["dormitorio_individual", 4], ["biblioteca", 3], ["pasillo", 4]]
+      "bodega": [
+        [
+          "almacen",
+          10
+        ]
+      ],
+      "planta_baja": [
+        [
+          "sala_consejo",
+          6
+        ],
+        [
+          "gran_salon",
+          4
+        ],
+        [
+          "vestibulo",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_individual",
+          4
+        ],
+        [
+          "biblioteca",
+          3
+        ],
+        [
+          "pasillo",
+          4
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "madera", "tela_tapiz"],
-    "poiVinculado": ["ciudad_poblada_menor"],
+    "materialesPreferidos": [
+      "piedra",
+      "madera",
+      "tela_tapiz"
+    ],
+    "poiVinculado": [
+      "ciudad_poblada_menor"
+    ],
     "_nota": "Sede de un gremio de jugadores — ver 'Gremios / equipos' en Backlog_Mecanicas_Futuras.md."
   },
-
   "ayuntamiento": {
     "riqueza": "noble",
     "tieneBodega": true,
-    "rangoPlantasAltas": [1, 1],
+    "rangoPlantasAltas": [
+      1,
+      1
+    ],
     "salasPorPlanta": {
-      "bodega": [["almacen", 8]],
-      "planta_baja": [["sala_consejo", 8], ["vestibulo", 4], ["pasillo", 6]],
-      "planta_alta": [["biblioteca", 3], ["dormitorio_individual", 2], ["pasillo", 4]]
+      "bodega": [
+        [
+          "almacen",
+          8
+        ]
+      ],
+      "planta_baja": [
+        [
+          "sala_consejo",
+          8
+        ],
+        [
+          "vestibulo",
+          4
+        ],
+        [
+          "pasillo",
+          6
+        ]
+      ],
+      "planta_alta": [
+        [
+          "biblioteca",
+          3
+        ],
+        [
+          "dormitorio_individual",
+          2
+        ],
+        [
+          "pasillo",
+          4
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "marmol", "tela_tapiz"],
-    "poiVinculado": ["ciudad_poblada_menor"],
+    "materialesPreferidos": [
+      "piedra",
+      "marmol",
+      "tela_tapiz"
+    ],
+    "poiVinculado": [
+      "ciudad_poblada_menor"
+    ],
     "_nota": "Sede de gobierno del asentamiento — donde 'vive' el NPC Gobernador con IA (ver 'NPCs Gobernadores con IA' en Backlog_Mecanicas_Futuras.md). sala_consejo es la sala del trono cívico, no militar."
   },
-
   "templo": {
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "temaTaller": "templo",
     "salasPorPlanta": {
-      "planta_baja": [["capilla", 10], ["vestibulo", 4]],
-      "planta_alta": [["dormitorio_individual", 3]]
+      "planta_baja": [
+        [
+          "capilla",
+          10
+        ],
+        [
+          "vestibulo",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_individual",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "marmol", "tela_tapiz"],
-    "poiVinculado": ["aldea_agricola", "ciudad_poblada_menor", "altar_hundido"],
+    "materialesPreferidos": [
+      "piedra",
+      "marmol",
+      "tela_tapiz"
+    ],
+    "poiVinculado": [
+      "aldea_agricola",
+      "ciudad_poblada_menor",
+      "altar_hundido"
+    ],
     "_nota": "altar_hundido (pantano) da la variante en ruinas/semihundida del mismo tipoEdificio, con estadoConservacion distinto puesto por config, no por un tipoEdificio aparte."
   },
-
   "biblioteca_publica": {
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["biblioteca", 10], ["vestibulo", 3]],
-      "planta_alta": [["biblioteca", 6], ["pasillo", 3]]
+      "planta_baja": [
+        [
+          "biblioteca",
+          10
+        ],
+        [
+          "vestibulo",
+          3
+        ]
+      ],
+      "planta_alta": [
+        [
+          "biblioteca",
+          6
+        ],
+        [
+          "pasillo",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "piedra"],
-    "poiVinculado": ["ciudad_poblada_menor"]
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
+    "poiVinculado": [
+      "ciudad_poblada_menor"
+    ]
   },
-
   "museo": {
     "riqueza": "noble",
     "tieneBodega": true,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "bodega": [["almacen", 10]],
-      "planta_baja": [["gran_salon", 8], ["vestibulo", 4]],
-      "planta_alta": [["gran_salon", 5], ["biblioteca", 3]]
+      "bodega": [
+        [
+          "almacen",
+          10
+        ]
+      ],
+      "planta_baja": [
+        [
+          "gran_salon",
+          8
+        ],
+        [
+          "vestibulo",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "gran_salon",
+          5
+        ],
+        [
+          "biblioteca",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "marmol", "madera"],
-    "poiVinculado": ["ciudad_poblada_menor", "ruinas_grandes"],
+    "materialesPreferidos": [
+      "piedra",
+      "marmol",
+      "madera"
+    ],
+    "poiVinculado": [
+      "ciudad_poblada_menor",
+      "ruinas_grandes"
+    ],
     "_nota": "trofeo_caza/cuadro/escudo_pared/columna de elementos.json dan la sensación de piezas expuestas, sin necesitar un elemento 'vitrina' nuevo todavía."
   },
-
   "banos_publicos": {
     "riqueza": "noble",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["sala_banos", 10], ["vestibulo", 3]]
+      "planta_baja": [
+        [
+          "sala_banos",
+          10
+        ],
+        [
+          "vestibulo",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "marmol"],
-    "poiVinculado": ["ciudad_poblada_menor", "oasis_mercader"],
+    "materialesPreferidos": [
+      "piedra",
+      "marmol"
+    ],
+    "poiVinculado": [
+      "ciudad_poblada_menor",
+      "oasis_mercader"
+    ],
     "_nota": "riqueza noble porque sala_banos ya exige riquezaMinima noble como tipo de sala — un baño público de este juego es un lujo cívico, no algo humilde."
   },
-
-  "cuartel_guardia": {"temaTaller":"herreria",
+  "cuartel_guardia": {
+    "temaTaller": "herreria",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      1,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["arsenal", 6], ["celda", 4], ["sala_comun", 4]],
-      "planta_alta": [["dormitorio_comunal", 6], ["pasillo", 4]]
+      "planta_baja": [
+        [
+          "arsenal",
+          6
+        ],
+        [
+          "celda",
+          4
+        ],
+        [
+          "sala_comun",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_comunal",
+          9
+        ],
+        [
+          "pasillo",
+          1
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "metal"],
-    "poiVinculado": ["ciudad_poblada_menor", "barracones_abandonados"],
-    "_nota": "Distinto de torre_militar (que es la torre/atalaya en sí) — este es el cuartel de guardia dentro de un asentamiento poblado."
+    "materialesPreferidos": [
+      "piedra",
+      "metal"
+    ],
+    "poiVinculado": [
+      "ciudad_poblada_menor",
+      "barracones_abandonados"
+    ],
+    "_nota": "Distinto de torre_militar (que es la torre/atalaya en sí) — este es el cuartel de guardia dentro de un asentamiento poblado. Corregido 2026-08-28 (barraca de guardia, pedido del streamer): rangoPlantasAltas era [0,1] y podía no generar NINGUNA planta alta — el cuartel se quedaba sin dormitorio_comunal (bug real, encontrado bakeando varias semillas: capacidad de camas 0 en 2 de 5). Fijo a [1,1] como posada, que sí garantiza planta con dormitorios. El peso de 'pasillo' bajó de 4 a 1: con pesos parecidos, una planta de 1 sala podía salir pasillo puro (0 camas) — encontrado bakeando semillas de prueba."
   },
-
-  "botica": {"temaTaller":"herbolista",
+  "botica": {
+    "temaTaller": "herbolista",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["sala_comercio", 6], ["taller", 4], ["despensa", 3]],
-      "planta_alta": [["dormitorio_individual", 3]]
+      "planta_baja": [
+        [
+          "sala_comercio",
+          6
+        ],
+        [
+          "taller",
+          4
+        ],
+        [
+          "despensa",
+          3
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_individual",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "cristal"],
-    "poiVinculado": ["aldea_agricola", "ciudad_poblada_menor", "oasis_mercader"],
+    "materialesPreferidos": [
+      "madera",
+      "cristal"
+    ],
+    "poiVinculado": [
+      "aldea_agricola",
+      "ciudad_poblada_menor",
+      "oasis_mercader"
+    ],
     "_nota": "Versión urbana/tienda de choza_curandero (que es la cabaña rural del curandero) — aquí se compra, no se vive."
   },
-
-  "taller_sastre": {"temaTaller":"sastre",
+  "taller_sastre": {
+    "temaTaller": "sastre",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["sala_comercio", 5], ["taller", 6]],
-      "planta_alta": [["dormitorio_individual", 3]]
+      "planta_baja": [
+        [
+          "sala_comercio",
+          5
+        ],
+        [
+          "taller",
+          6
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_individual",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["tela_tapiz", "cuero", "madera"],
-    "poiVinculado": ["aldea_agricola", "ciudad_poblada_menor"],
+    "materialesPreferidos": [
+      "tela_tapiz",
+      "cuero",
+      "madera"
+    ],
+    "poiVinculado": [
+      "aldea_agricola",
+      "ciudad_poblada_menor"
+    ],
     "_nota": "telar/rueca de elementos.json (tiposSalaValidos: taller) ya encajan aquí sin tocar el catálogo de mobiliario."
   },
-
   "establo": {
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["cuadra", 10], ["despensa", 3]]
+      "planta_baja": [
+        [
+          "cuadra",
+          10
+        ],
+        [
+          "despensa",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "piedra"],
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
     "poiVinculado": [],
     "_nota": "Ties de futuro con la mecánica de Monturas (Backlog_Mecanicas_Futuras.md) — colocación de bakeador de mapas de POI."
   },
-
   "granero": {
     "riqueza": "humilde",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["almacen", 10]],
-      "planta_alta": [["almacen", 8]]
+      "planta_baja": [
+        [
+          "almacen",
+          10
+        ]
+      ],
+      "planta_alta": [
+        [
+          "almacen",
+          8
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera"],
+    "materialesPreferidos": [
+      "madera"
+    ],
     "poiVinculado": []
   },
-
-  "curtiduria": {"temaTaller":"curtiduria",
+  "curtiduria": {
+    "temaTaller": "curtiduria",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["taller", 8], ["almacen", 5]]
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          5
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "cuero"],
+    "materialesPreferidos": [
+      "madera",
+      "cuero"
+    ],
     "poiVinculado": []
   },
-
-  "joyeria": {"temaTaller":"joyeria",
+  "joyeria": {
+    "temaTaller": "joyeria",
     "riqueza": "noble",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["sala_comercio", 8], ["taller", 4]],
-      "planta_alta": [["dormitorio_individual", 3]]
+      "planta_baja": [
+        [
+          "sala_comercio",
+          8
+        ],
+        [
+          "taller",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_individual",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "metal", "cristal"],
+    "materialesPreferidos": [
+      "madera",
+      "metal",
+      "cristal"
+    ],
     "poiVinculado": []
   },
-
-  "destileria": {"temaTaller":"destileria",
+  "destileria": {
+    "temaTaller": "destileria",
     "riqueza": "modesta",
     "tieneBodega": true,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "bodega": [["almacen", 10]],
-      "planta_baja": [["taller", 8], ["sala_comercio", 3]]
+      "bodega": [
+        [
+          "almacen",
+          10
+        ]
+      ],
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "sala_comercio",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "metal"],
+    "materialesPreferidos": [
+      "madera",
+      "metal"
+    ],
     "poiVinculado": []
   },
-
-  "alfareria": {"temaTaller":"alfareria",
+  "alfareria": {
+    "temaTaller": "alfareria",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["taller", 8], ["sala_comercio", 4]]
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "sala_comercio",
+          4
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "piedra", "adobe"],
+    "materialesPreferidos": [
+      "madera",
+      "piedra",
+      "adobe"
+    ],
     "poiVinculado": []
   },
-
-  "carpinteria": {"temaTaller":"carpinteria",
+  "carpinteria": {
+    "temaTaller": "carpinteria",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["taller", 8], ["sala_comercio", 4], ["almacen", 3]]
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "sala_comercio",
+          4
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera"],
+    "materialesPreferidos": [
+      "madera"
+    ],
     "poiVinculado": [],
     "_nota": "A diferencia de aserradero (madera en bruto), aquí se fabrica mobiliario/piezas terminadas."
   },
-
   "torre_mago": {
     "riqueza": "noble",
     "tieneBodega": true,
-    "rangoPlantasAltas": [2, 4],
+    "rangoPlantasAltas": [
+      2,
+      4
+    ],
     "salasPorPlanta": {
-      "bodega": [["sala_alquimia", 6], ["almacen", 4]],
-      "planta_baja": [["vestibulo", 4], ["biblioteca", 4]],
-      "planta_alta": [["sala_alquimia", 5], ["biblioteca", 4], ["dormitorio_individual", 3], ["pasillo", 4]]
+      "bodega": [
+        [
+          "sala_alquimia",
+          6
+        ],
+        [
+          "almacen",
+          4
+        ]
+      ],
+      "planta_baja": [
+        [
+          "vestibulo",
+          4
+        ],
+        [
+          "biblioteca",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "sala_alquimia",
+          5
+        ],
+        [
+          "biblioteca",
+          4
+        ],
+        [
+          "dormitorio_individual",
+          3
+        ],
+        [
+          "pasillo",
+          4
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "cristal", "metal"],
+    "materialesPreferidos": [
+      "piedra",
+      "cristal",
+      "metal"
+    ],
     "poiVinculado": [],
     "_nota": "Torre estrecha como faro, pero con sala_alquimia/biblioteca en vez de almacenes — WFC civil normal, nada de mazmorra."
   },
-
   "academia_magia": {
     "riqueza": "noble",
     "tieneBodega": true,
-    "rangoPlantasAltas": [1, 2],
+    "rangoPlantasAltas": [
+      1,
+      2
+    ],
     "salasPorPlanta": {
-      "bodega": [["sala_alquimia", 6], ["almacen", 4]],
-      "planta_baja": [["gran_salon", 5], ["biblioteca", 6], ["sala_alquimia", 4], ["pasillo", 8]],
-      "planta_alta": [["dormitorio_comunal", 6], ["biblioteca", 4], ["pasillo", 6]]
+      "bodega": [
+        [
+          "sala_alquimia",
+          6
+        ],
+        [
+          "almacen",
+          4
+        ]
+      ],
+      "planta_baja": [
+        [
+          "gran_salon",
+          5
+        ],
+        [
+          "biblioteca",
+          6
+        ],
+        [
+          "sala_alquimia",
+          4
+        ],
+        [
+          "pasillo",
+          8
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_comunal",
+          6
+        ],
+        [
+          "biblioteca",
+          4
+        ],
+        [
+          "pasillo",
+          6
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "cristal", "tela_tapiz"],
+    "materialesPreferidos": [
+      "piedra",
+      "cristal",
+      "tela_tapiz"
+    ],
     "poiVinculado": []
   },
-
   "escuela": {
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["gran_salon", 8], ["biblioteca", 4]],
-      "planta_alta": [["biblioteca", 5], ["dormitorio_individual", 3]]
+      "planta_baja": [
+        [
+          "gran_salon",
+          8
+        ],
+        [
+          "biblioteca",
+          4
+        ]
+      ],
+      "planta_alta": [
+        [
+          "biblioteca",
+          5
+        ],
+        [
+          "dormitorio_individual",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "piedra"],
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
     "poiVinculado": []
   },
-
   "teatro": {
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["gran_salon", 10], ["vestibulo", 4], ["almacen", 3]],
-      "planta_alta": [["pasillo", 5]]
+      "planta_baja": [
+        [
+          "gran_salon",
+          10
+        ],
+        [
+          "vestibulo",
+          4
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ],
+      "planta_alta": [
+        [
+          "pasillo",
+          5
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "tela_tapiz"],
+    "materialesPreferidos": [
+      "madera",
+      "tela_tapiz"
+    ],
     "poiVinculado": []
   },
-
-  "arena_combate": {"temaTaller":"herreria",
+  "arena_combate": {
+    "temaTaller": "herreria",
     "riqueza": "modesta",
     "tieneBodega": true,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "bodega": [["arsenal", 6], ["celda", 4]],
-      "planta_baja": [["gran_salon", 10], ["vestibulo", 4]]
+      "bodega": [
+        [
+          "arsenal",
+          6
+        ],
+        [
+          "celda",
+          4
+        ]
+      ],
+      "planta_baja": [
+        [
+          "gran_salon",
+          10
+        ],
+        [
+          "vestibulo",
+          4
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "metal"],
+    "materialesPreferidos": [
+      "piedra",
+      "metal"
+    ],
     "poiVinculado": []
   },
-
   "casa_de_cambio": {
     "riqueza": "noble",
     "tieneBodega": true,
-    "rangoPlantasAltas": [0, 1],
+    "rangoPlantasAltas": [
+      0,
+      1
+    ],
     "salasPorPlanta": {
-      "bodega": [["almacen", 10]],
-      "planta_baja": [["sala_comercio", 6], ["estudio", 5], ["vestibulo", 3]],
-      "planta_alta": [["estudio", 4], ["dormitorio_individual", 3]]
+      "bodega": [
+        [
+          "almacen",
+          10
+        ]
+      ],
+      "planta_baja": [
+        [
+          "sala_comercio",
+          6
+        ],
+        [
+          "estudio",
+          5
+        ],
+        [
+          "vestibulo",
+          3
+        ]
+      ],
+      "planta_alta": [
+        [
+          "estudio",
+          4
+        ],
+        [
+          "dormitorio_individual",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "marmol", "metal"],
+    "materialesPreferidos": [
+      "piedra",
+      "marmol",
+      "metal"
+    ],
     "poiVinculado": []
   },
-
   "mausoleo": {
     "riqueza": "noble",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["cripta", 10], ["vestibulo", 3]]
+      "planta_baja": [
+        [
+          "cripta",
+          10
+        ],
+        [
+          "vestibulo",
+          3
+        ]
+      ]
     },
-    "materialesPreferidos": ["piedra", "marmol"],
+    "materialesPreferidos": [
+      "piedra",
+      "marmol"
+    ],
     "poiVinculado": [],
     "_nota": "Sin bodega propia — la 'cripta' de planta_baja ya no lleva ventana por regla de sitio del tipo de sala, no hace falta bajarla más."
   },
-
   "mansion": {
     "riqueza": "noble",
     "tieneBodega": true,
-    "rangoPlantasAltas": [1, 2],
+    "rangoPlantasAltas": [
+      1,
+      2
+    ],
     "salasPorPlanta": {
-      "bodega": [["almacen", 8], ["cripta", 2]],
-      "planta_baja": [["gran_salon", 6], ["comedor_grande", 5], ["salon_baile", 3], ["biblioteca", 4], ["pasillo", 8]],
-      "planta_alta": [["dormitorio_enorme", 3], ["dormitorio_con_bano", 4], ["guardarropa", 3], ["pasillo", 6]]
+      "bodega": [
+        [
+          "almacen",
+          8
+        ],
+        [
+          "cripta",
+          2
+        ]
+      ],
+      "planta_baja": [
+        [
+          "gran_salon",
+          6
+        ],
+        [
+          "comedor_grande",
+          5
+        ],
+        [
+          "salon_baile",
+          3
+        ],
+        [
+          "biblioteca",
+          4
+        ],
+        [
+          "pasillo",
+          8
+        ]
+      ],
+      "planta_alta": [
+        [
+          "dormitorio_enorme",
+          3
+        ],
+        [
+          "dormitorio_con_bano",
+          4
+        ],
+        [
+          "guardarropa",
+          3
+        ],
+        [
+          "pasillo",
+          6
+        ]
+      ]
     },
-    "materialesPreferidos": ["marmol", "tela_tapiz", "madera"],
+    "materialesPreferidos": [
+      "marmol",
+      "tela_tapiz",
+      "madera"
+    ],
     "poiVinculado": [],
     "_nota": "Escalón por encima de casa_noble — la vivienda noble más grande del catálogo, con salon_baile y guardarropa que casa_noble no lleva."
   },
-
-  "lonja_pescado": {"temaTaller":"pescador",
+  "lonja_pescado": {
+    "temaTaller": "pescador",
     "riqueza": "modesta",
     "tieneBodega": false,
-    "rangoPlantasAltas": [0, 0],
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
     "salasPorPlanta": {
-      "planta_baja": [["lonja", 10], ["despensa", 4]]
+      "planta_baja": [
+        [
+          "lonja",
+          10
+        ],
+        [
+          "despensa",
+          4
+        ]
+      ]
     },
-    "materialesPreferidos": ["madera", "piedra"],
-    "poiVinculado": ["aldea_pescadores"],
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
+    "poiVinculado": [
+      "aldea_pescadores"
+    ],
     "_nota": "El único de este bloque con poiVinculado real — aldea_pescadores (costa) ya existe en el exterior total."
   }
 }

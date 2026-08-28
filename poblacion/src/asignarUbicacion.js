@@ -137,6 +137,11 @@ function asignarUbicacion(ciudad, npcs, oficiosEdificios, elementosCatalogo) {
     const candidatos = trabajos.filter((t) => t.npcId === npc.ficha.npcId && t.capacidad > t.ocupantes.length);
     if (candidatos.length === 0) {
       sinTrabajo.push(npc.slotId); // su oficio existe pero este asentamiento no tiene hueco/edificio
+      // en vez de dejarlo sin trabajo visible: un puesto de mercado fijo
+      // cerca de la plaza (GDD_Agentes_Moviles.md v1.3, "vendedores
+      // especializados... o puesto exterior si no hace falta obligar a
+      // tener tantos edificios tienda") — generarRutina.js lo resuelve.
+      npc.puestoExterior = true;
       continue;
     }
     const origen = npc.vivienda?.centro ?? { x: 0, y: 0 };

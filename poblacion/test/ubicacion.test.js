@@ -112,3 +112,16 @@ test("asignarUbicacion: los hijos nunca reciben trabajo", async () => {
     assert.strictEqual(npc.trabajo, undefined, `${npc.nombre}: hijo con trabajo asignado`);
   }
 });
+
+test("contarCamas: cuartel_guardia SIEMPRE tiene dormitorio real — nunca 0 camas (bug real: rangoPlantasAltas [0,1] podía omitir la planta con dormitorio, o un pasillo-solo dejaba la planta sin ninguna sala de dormitorio)", () => {
+  let vistos = 0;
+  for (let i = 0; i < 25; i++) {
+    const ciudad = generarCiudad({ tier: "gran_capital", semilla: `barraca-${i}`, catalogos: catalogosInteriores });
+    for (const ed of ciudad.edificios) {
+      if (ed.tipoEdificioId !== "cuartel_guardia") continue;
+      vistos++;
+      assert.ok(contarCamas(ed) > 0, `cuartel_guardia (semilla barraca-${i}) sin ninguna cama`);
+    }
+  }
+  assert.ok(vistos >= 10, `solo se vieron ${vistos} cuarteles en 25 semillas de gran_capital`);
+});

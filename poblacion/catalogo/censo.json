@@ -60,6 +60,34 @@
         0,
         1
       ]
+    },
+    {
+      "npc": "tendero",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "panadero",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "sastre",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "alfarero",
+      "cantidad": [
+        1,
+        1
+      ]
     }
   ],
   "aldea": [
@@ -114,8 +142,8 @@
     {
       "npc": "panadero",
       "cantidad": [
-        0,
-        1
+        1,
+        2
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -179,6 +207,34 @@
         0,
         1
       ]
+    },
+    {
+      "npc": "tendero",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "sastre",
+      "cantidad": [
+        0,
+        2
+      ]
+    },
+    {
+      "npc": "alfarero",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "curtidor",
+      "cantidad": [
+        0,
+        1
+      ]
     }
   ],
   "pueblo": [
@@ -233,8 +289,8 @@
     {
       "npc": "tendero",
       "cantidad": [
-        0,
-        1
+        1,
+        2
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -242,8 +298,8 @@
     {
       "npc": "panadero",
       "cantidad": [
-        0,
-        1
+        1,
+        2
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -251,8 +307,8 @@
     {
       "npc": "sastre",
       "cantidad": [
-        0,
-        1
+        1,
+        2
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -260,8 +316,8 @@
     {
       "npc": "curtidor",
       "cantidad": [
-        0,
-        1
+        1,
+        2
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -269,8 +325,8 @@
     {
       "npc": "alfarero",
       "cantidad": [
-        0,
-        1
+        1,
+        2
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -426,8 +482,8 @@
     {
       "npc": "tendero",
       "cantidad": [
-        0,
-        2
+        2,
+        4
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -435,8 +491,8 @@
     {
       "npc": "panadero",
       "cantidad": [
-        0,
-        1
+        1,
+        3
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -444,8 +500,8 @@
     {
       "npc": "sastre",
       "cantidad": [
-        0,
-        1
+        1,
+        3
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -453,8 +509,8 @@
     {
       "npc": "joyero",
       "cantidad": [
-        0,
-        1
+        1,
+        2
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -570,6 +626,20 @@
         0,
         2
       ]
+    },
+    {
+      "npc": "curtidor",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "alfarero",
+      "cantidad": [
+        1,
+        2
+      ]
     }
   ],
   "castillo": [
@@ -630,6 +700,20 @@
         0,
         1
       ]
+    },
+    {
+      "npc": "tendero",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "panadero",
+      "cantidad": [
+        1,
+        1
+      ]
     }
   ],
   "gran_capital": [
@@ -684,8 +768,8 @@
     {
       "npc": "tendero",
       "cantidad": [
-        1,
-        3
+        2,
+        4
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -693,8 +777,8 @@
     {
       "npc": "panadero",
       "cantidad": [
-        1,
-        2
+        2,
+        3
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -702,8 +786,8 @@
     {
       "npc": "sastre",
       "cantidad": [
-        0,
-        2
+        2,
+        3
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -711,8 +795,8 @@
     {
       "npc": "joyero",
       "cantidad": [
-        0,
-        1
+        1,
+        3
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -720,8 +804,8 @@
     {
       "npc": "curtidor",
       "cantidad": [
-        0,
-        1
+        1,
+        3
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -729,8 +813,8 @@
     {
       "npc": "alfarero",
       "cantidad": [
-        0,
-        1
+        1,
+        3
       ],
       "familia": true,
       "probFamilia": 0.5
