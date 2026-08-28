@@ -6,6 +6,7 @@ import { Asentamiento, AlmacenDatos } from "../src/datos/bd";
 import {
   calcularTick,
   ejecutarTickEconomia,
+  asegurarAsentamientoBandido,
   COMIDA_CONSUMO_POR_TROPA,
   MADERA_GENERADA_POR_TROPA,
   COSTE_MURALLA_NIVEL2_MADERA,
@@ -88,5 +89,23 @@ test("ejecutarTickEconomia: tick real contra SQLite, con tropas muertas que NO c
   const [actualizado] = await bd.listarAsentamientos();
   assert.strictEqual(actualizado.comida, 100 - 1 * COMIDA_CONSUMO_POR_TROPA);
   assert.strictEqual(actualizado.madera, 1 * MADERA_GENERADA_POR_TROPA);
+  await bd.cerrar();
+});
+
+test("asegurarAsentamientoBandido: crea la fila + guarnición inicial la primera vez, es idempotente después", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const a = await asegurarAsentamientoBandido(bd, "aldea_bandidos_1");
+  assert.strictEqual(a.bando, "bandido");
+
+  const tropas = await bd.listarTropas("aldea_bandidos_1");
+  assert.strictEqual(tropas.length, 7); // 1 lider + 2 guardia + 4 recluta (GUARNICION_INICIAL)
+  assert.strictEqual(tropas.filter((t) => t.rango === "lider").length, 1);
+  assert.strictEqual(tropas.filter((t) => t.rango === "guardia").length, 2);
+  assert.strictEqual(tropas.filter((t) => t.rango === "recluta").length, 4);
+
+  // Segunda llamada (ej. dos jugadores entrando a la misma región, o un
+  // reinicio del proceso): NO duplica la guarnición.
+  await asegurarAsentamientoBandido(bd, "aldea_bandidos_1");
+  assert.strictEqual((await bd.listarTropas("aldea_bandidos_1")).length, 7);
   await bd.cerrar();
 });

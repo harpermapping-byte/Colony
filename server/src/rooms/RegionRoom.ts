@@ -7,6 +7,8 @@ import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { GestorAgentes, NpcBakeado } from "../mundo/agentes";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
+import { asegurarAsentamientoBandido } from "../mundo/economiaAsentamientos";
+import { crearAlmacenDatos } from "../datos/bd";
 
 interface OpcionesRegion {
   name?: string;
@@ -60,6 +62,23 @@ export class RegionRoom extends RoomExteriorBase {
       gestorFauna.iniciar(datos.fauna);
       this.clock.setInterval(() => gestorFauna.tick(0.2), 200);
       console.log(`  ${gestorFauna.cantidad} animales sueltos en el mapa`);
+    }
+
+    // Facción bandida (docs/GDD_Faccion_Bandidos.md §6): una región cuyo
+    // indice.json trae tier "asentamiento_hostil" (bakeada por mazmorras/
+    // vía ciudades/, ver GDD_Bakeador_Dungeons.md) es una base de la
+    // facción — se asegura su fila en SQLite (+ guarnición inicial la
+    // primera vez que se descubre) al cargar la región. El tick de
+    // economía en sí corre aparte, en index.ts, una sola vez por proceso
+    // — no aquí, para no repetirlo una vez por cada región cargada.
+    const rutaIndice = path.join(rutaMapa, "indice.json");
+    if (fs.existsSync(rutaIndice)) {
+      const indice = JSON.parse(fs.readFileSync(rutaIndice, "utf8")) as { tier?: string };
+      if (indice.tier === "asentamiento_hostil") {
+        const bd = await crearAlmacenDatos();
+        await asegurarAsentamientoBandido(bd, options.mapaId);
+        await bd.cerrar();
+      }
     }
 
     // Puertas del asentamiento (docs/GDD_Sistema_Puertas.md): "interior" ->

@@ -11,6 +11,33 @@
  */
 import { Asentamiento, IAlmacenDatos } from "../datos/bd";
 
+// Guarnición inicial de un asentamiento bandido la primera vez que se
+// descubre (RegionRoom lo llama al cargar una región cuyo indice.json trae
+// tier "asentamiento_hostil") — un puñado fijo, no aleatorio: la variedad
+// real la da la economía viva a partir de aquí, no el reparto inicial.
+const GUARNICION_INICIAL: { rango: "lider" | "guardia" | "recluta"; cantidad: number }[] = [
+  { rango: "lider", cantidad: 1 },
+  { rango: "guardia", cantidad: 2 },
+  { rango: "recluta", cantidad: 4 },
+];
+
+/**
+ * Idempotente: crea la fila de asentamiento y su guarnición inicial la
+ * PRIMERA vez que se referencia un id (ya sea porque RegionRoom cargó esa
+ * región, o porque un test/script lo pide) — llamadas siguientes con el
+ * mismo id no tocan nada si ya hay tropas.
+ */
+export async function asegurarAsentamientoBandido(bd: IAlmacenDatos, id: string): Promise<Asentamiento> {
+  const asentamiento = await bd.obtenerOCrearAsentamiento(id, "bandido");
+  const tropas = await bd.listarTropas(id);
+  if (tropas.length === 0) {
+    for (const { rango, cantidad } of GUARNICION_INICIAL) {
+      for (let i = 0; i < cantidad; i++) await bd.crearTropa(id, rango);
+    }
+  }
+  return asentamiento;
+}
+
 // Por tropa viva del asentamiento (recluta/guardia/lider cuentan igual en
 // esta primera pasada — matizar por rango cuando haga falta).
 export const COMIDA_CONSUMO_POR_TROPA = 2;
