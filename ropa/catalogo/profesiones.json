@@ -11,13 +11,12 @@
   "joyero": { "tagsPrenda": ["comun", "joyeria"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "seda"] },
   "sastre": { "tagsPrenda": ["comun", "sastre"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "seda"] },
   "herbolista": { "tagsPrenda": ["comun", "herbolista"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"] },
-  "destilador": { "tagsPrenda": ["comun", "destileria"], "riquezaTipica": "modesta", "materialesPreferidos": ["cuero", "lino"], "_nota": "temaTaller 'destileria' de tipos_edificio.json — faltaba en el vocabulario pese a estar en la propia nota de este archivo." },
-  "panadero": { "tagsPrenda": ["comun", "panaderia"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"], "_nota": "panaderia no tiene temaTaller propio en tipos_edificio.json, pero taller-vox/generar_edificio.js ya la trata como taller de oficio (fragua/horno con brasas) — le falta oficio aquí." },
+  "destilador": { "tagsPrenda": ["comun", "destileria"], "riquezaTipica": "modesta", "materialesPreferidos": ["cuero", "lino"] },
+  "panadero": { "tagsPrenda": ["comun", "panaderia"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"] },
   "militar": { "tagsPrenda": ["comun", "militar"], "riquezaTipica": "modesta", "materialesPreferidos": ["cuero", "lana"] },
   "noble": { "tagsPrenda": ["comun", "noble"], "riquezaTipica": "noble", "materialesPreferidos": ["seda", "lana"] },
 
-  "panadero": { "tagsPrenda": ["comun"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"], "_nota": "Sin tagsProfesion propio en tipos_edificio.json (panaderia no declara temaTaller) — usa solo 'comun' hasta que se etiquete." },
-  "tabernero": { "tagsPrenda": ["comun"], "riquezaTipica": "modesta", "materialesPreferidos": ["lana", "cuero"], "_nota": "taberna/posada tampoco declaran temaTaller todavía — mismo caso que panadero." },
-  "sacerdote": { "tagsPrenda": ["comun"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"], "_nota": "templo tampoco declara temaTaller todavía." },
-  "tendero": { "tagsPrenda": ["comun"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"], "_nota": "tienda tampoco declara temaTaller todavía." }
+  "tabernero": { "tagsPrenda": ["comun", "taberna"], "riquezaTipica": "modesta", "materialesPreferidos": ["lana", "cuero"] },
+  "sacerdote": { "tagsPrenda": ["comun", "templo"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"] },
+  "tendero": { "tagsPrenda": ["comun", "tienda"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"] }
 }
