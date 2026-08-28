@@ -12,6 +12,7 @@ import type { IndiceMapa } from "./mapa/formatoMapa";
 import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelasCliente";
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
 import { ModoConstruccion } from "./construccion/constructor";
+import { crearInteriorVisual, type InteriorBakeado } from "./render3d/interiorVisual";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -19,13 +20,41 @@ import { ModoConstruccion } from "./construccion/constructor";
 const COLOR_JUGADOR_LOCAL = "#f6ad55";
 const COLOR_JUGADOR_REMOTO = "#4fd1c5";
 
+// Sistema de puertas (docs/GDD_Sistema_Puertas.md): qué sala Colyseus tocar
+// y qué mapa cargar viene de la URL — un cambio de sala/instancia es una
+// RECARGA de página con otros parámetros (más simple y robusto que
+// reconstruir la escena de Three.js en caliente; el pulido de transición
+// sin recarga queda como mejora futura). Sin `sala` en la URL = Hub, el
+// comportamiento de siempre.
+const parametros = new URLSearchParams(location.search);
+type TipoSala = "hub" | "region" | "interior";
+const SALA: TipoSala = (parametros.get("sala") as TipoSala) || "hub";
+const MAPA_ID = parametros.get("mapaId") || "";
+const EDIFICIO_ID = parametros.get("edificio") || "";
+const ENTRADA_X = parametros.has("entradaX") ? Number(parametros.get("entradaX")) : undefined;
+const ENTRADA_Y = parametros.has("entradaY") ? Number(parametros.get("entradaY")) : undefined;
+// A qué volver al salir de un interior: la región de la que colgaba (con
+// la puerta exacta por la que se entró) o directamente el hub.
+const ORIGEN_SALA: TipoSala = (parametros.get("origenSala") as TipoSala) || "hub";
+const PUERTA_X = parametros.has("puertaX") ? Number(parametros.get("puertaX")) : undefined;
+const PUERTA_Y = parametros.has("puertaY") ? Number(parametros.get("puertaY")) : undefined;
+
+function navegarA(params: Record<string, string | number | undefined>) {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== undefined) q.set(k, String(v));
+  location.search = q.toString();
+}
+
 // Mapa bakeado que carga el cliente (assets/mapas/<nombre>/) — el MAPA
-// PRINCIPAL del juego, servido por sectores vía streaming (mecánica
-// principal pactada, ver GDD_Motor_3D_Props): nunca se carga entero.
-// Sobrescribible por entorno (VITE_RUTA_MAPA) para que los tests que
-// dependen de la geometría del demo (mecanicas.e2e.mjs) puedan pedirlo;
-// el juego real siempre va al principal.
-const RUTA_MAPA = (import.meta as any).env?.VITE_RUTA_MAPA || "/assets/mapas/principal";
+// PRINCIPAL del juego si estamos en el Hub, servido por sectores vía
+// streaming (mecánica principal pactada, ver GDD_Motor_3D_Props): nunca se
+// carga entero. Sobrescribible por entorno (VITE_RUTA_MAPA) para que los
+// tests que dependen de la geometría del demo (mecanicas.e2e.mjs) puedan
+// pedirlo. Una REGIÓN usa el MISMO formato de sectores, solo cambia la ruta.
+const RUTA_MAPA =
+  SALA === "region"
+    ? `/assets/mapas/${MAPA_ID}`
+    : (import.meta as any).env?.VITE_RUTA_MAPA || "/assets/mapas/principal";
 
 interface Direction {
   x: number;
@@ -67,31 +96,35 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // --- Mundo bakeado por STREAMING de sectores: solo se materializa el
   // anillo alrededor del jugador local; el resto se pide al acercarse y se
   // suelta (con histéresis) al alejarse. La lógica vive en
-  // streamingSectores.ts; aquí solo se le enchufan fetch y escena.
+  // streamingSectores.ts; aquí solo se le enchufan fetch y escena. Un
+  // INTERIOR (docs/GDD_Sistema_Puertas.md) no es terreno bakeado por
+  // sectores: se salta este bloque entero y se renderiza más abajo.
   let streaming: StreamingSectores<Group> | null = null;
   let indiceMapa: IndiceMapa | null = null; // lo reusa el constructor (ancho del mapa en casillas)
-  try {
-    const indice = await cargarIndice(RUTA_MAPA);
-    indiceMapa = indice;
-    streaming = new StreamingSectores({
-      indice,
-      obtenerSector: (sx, sy) => cargarSector(RUTA_MAPA, sx, sy),
-      materializar: async (sector) => {
-        const grupo = await crearSectorVisual(indice, sector);
-        escena.añadirEstatico(grupo);
-        return grupo;
-      },
-      soltar: (grupo) => {
-        escena.quitarEstatico(grupo);
-        soltarSectorVisual(grupo);
-      },
-    });
-    // Sonda de depuración/pruebas e2e: estado del streaming en vivo.
-    (window as any).__streaming = () => streaming!.estadisticas();
-  } catch (err) {
-    // Sin mapa no se corta el juego (los jugadores siguen sincronizando
-    // sobre el suelo de emergencia), pero el fallo queda visible.
-    console.error("No se pudo cargar el mapa bakeado:", err);
+  if (SALA !== "interior") {
+    try {
+      const indice = await cargarIndice(RUTA_MAPA);
+      indiceMapa = indice;
+      streaming = new StreamingSectores({
+        indice,
+        obtenerSector: (sx, sy) => cargarSector(RUTA_MAPA, sx, sy),
+        materializar: async (sector) => {
+          const grupo = await crearSectorVisual(indice, sector);
+          escena.añadirEstatico(grupo);
+          return grupo;
+        },
+        soltar: (grupo) => {
+          escena.quitarEstatico(grupo);
+          soltarSectorVisual(grupo);
+        },
+      });
+      // Sonda de depuración/pruebas e2e: estado del streaming en vivo.
+      (window as any).__streaming = () => streaming!.estadisticas();
+    } catch (err) {
+      // Sin mapa no se corta el juego (los jugadores siguen sincronizando
+      // sobre el suelo de emergencia), pero el fallo queda visible.
+      console.error("No se pudo cargar el mapa bakeado:", err);
+    }
   }
 
   // --- Demo de personajes/animales del generador (assets/personajes/
@@ -99,35 +132,57 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // valida el circuito entero catálogo → generador → JSON → rig animado.
   // Cuando el servidor pueble NPCs de verdad, consumirán este mismo
   // formato y esta plaza fija desaparece. Si el JSON no está, no pasa nada.
+  // Solo en el Hub/regiones (un interior no tiene "plaza" donde ponerlos).
   const animables: { actualizar(dt: number, andando?: boolean): void }[] = [];
-  try {
-    const r = await fetch("/assets/personajes/demo_personajes.json");
-    if (r.ok) {
-      const demo = await r.json();
-      const indiceMapa = await cargarIndice(RUTA_MAPA).catch(() => null);
-      const base = indiceMapa?.ciudad || { x: 24, y: 24 };
-      (demo.npcs as PersonajeExportado[]).forEach((npc, i) => {
-        const rig = crearPersonajeVoxel(npc);
-        rig.orientar(1, 1); // encarados hacia la cámara isométrica
-        escena.añadirEntidad(`demo_npc_${i}`, rig.objeto, base.x + 3 + i * 1.6, base.y + 3, npc.ficha.npcId);
-        animables.push(rig);
-      });
-      (demo.animales as AnimalExportado[]).forEach((animal, i) => {
-        const criatura = crearAnimalVoxel(animal);
-        criatura.orientar(1, 1);
-        escena.añadirEntidad(`demo_animal_${i}`, criatura.objeto, base.x + 2 + i * 1.9, base.y + 5.5, animal.ficha.especieId);
-        animables.push(criatura);
-      });
-      (window as any).__demoPersonajes = { npcs: demo.npcs.length, animales: demo.animales.length };
+  if (SALA !== "interior") {
+    try {
+      const r = await fetch("/assets/personajes/demo_personajes.json");
+      if (r.ok) {
+        const demo = await r.json();
+        const indiceMapaDemo = await cargarIndice(RUTA_MAPA).catch(() => null);
+        const base = indiceMapaDemo?.ciudad || { x: 24, y: 24 };
+        (demo.npcs as PersonajeExportado[]).forEach((npc, i) => {
+          const rig = crearPersonajeVoxel(npc);
+          rig.orientar(1, 1); // encarados hacia la cámara isométrica
+          escena.añadirEntidad(`demo_npc_${i}`, rig.objeto, base.x + 3 + i * 1.6, base.y + 3, npc.ficha.npcId);
+          animables.push(rig);
+        });
+        (demo.animales as AnimalExportado[]).forEach((animal, i) => {
+          const criatura = crearAnimalVoxel(animal);
+          criatura.orientar(1, 1);
+          escena.añadirEntidad(`demo_animal_${i}`, criatura.objeto, base.x + 2 + i * 1.9, base.y + 5.5, animal.ficha.especieId);
+          animables.push(criatura);
+        });
+        (window as any).__demoPersonajes = { npcs: demo.npcs.length, animales: demo.animales.length };
+      }
+    } catch (err) {
+      console.error("Demo de personajes no disponible:", err);
     }
-  } catch (err) {
-    console.error("Demo de personajes no disponible:", err);
+  }
+
+  // Interior de edificio (docs/GDD_Sistema_Puertas.md): geometría
+  // placeholder (cajas de color) del bake de interiores/, sin streaming ni
+  // construcción — es una instancia pequeña y de un solo uso.
+  if (SALA === "interior") {
+    try {
+      const r = await fetch(`/assets/mapas/${MAPA_ID}/interiores/${EDIFICIO_ID}.json`);
+      if (r.ok) {
+        const interior = (await r.json()) as InteriorBakeado;
+        escena.añadirEstatico(crearInteriorVisual(interior));
+      } else {
+        console.error(`No se pudo cargar el interior "${EDIFICIO_ID}" de "${MAPA_ID}"`);
+      }
+    } catch (err) {
+      console.error("Interior no disponible:", err);
+    }
   }
 
   // Parcelas del mapa (dato estático de la herramienta admin) ANTES del
   // join: así el constructor nace completo y los onMessage se registran nada
   // más entrar, sin ventana en la que se pierdan mensajes del servidor.
-  const parcelasArchivo = await cargarParcelas(RUTA_MAPA);
+  // Solo el Hub tiene parcelas/construcción (GDD_Construccion) — una
+  // región/interior de ciudades/ no es terreno de jugadores todavía.
+  const parcelasArchivo = SALA === "hub" ? await cargarParcelas(RUTA_MAPA) : null;
 
   // Nombre del jugador local: ?nombre=... en la URL si viene (tests e2e y
   // futuro login), si no el Viewer-aleatorio de siempre. Math.random vale:
@@ -136,60 +191,100 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     new URLSearchParams(location.search).get("nombre") || `Viewer-${Math.floor(Math.random() * 1000)}`;
 
   const client = new Client(SERVER_URL);
-  const room = await client.joinOrCreate("hub", { name: nombreJugador });
+  // Sistema de puertas: qué sala Colyseus y con qué opciones (docs/
+  // GDD_Sistema_Puertas.md) — region/interior usan filterBy(mapaId[,edificio])
+  // en el servidor, así que dos jugadores en el MISMO sitio comparten room.
+  const room =
+    SALA === "region"
+      ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y })
+      : SALA === "interior"
+        ? await client.joinOrCreate("interior", { name: nombreJugador, mapaId: MAPA_ID, edificio: EDIFICIO_ID })
+        : await client.joinOrCreate("hub", { name: nombreJugador });
   const $ = getStateCallbacks(room);
 
-  // --- Constructor y render de construcciones (GDD_Construccion §4 y §6) ---
-  // El ancho del mapa en casillas es la base de las claves numéricas
-  // casilla→parcela/ocupación; sin índice de mapa no hay parcelas útiles.
-  const anchoMapa = indiceMapa ? indiceMapa.anchoChunks * indiceMapa.tamanoChunk : 0;
-  const indiceParcelas =
-    parcelasArchivo && anchoMapa > 0 ? construirIndiceParcelas(parcelasArchivo, anchoMapa) : new Map<number, string>();
-  const renderConstrucciones = new RenderConstrucciones(escena, anchoMapa || 1 << 16);
-  const modoConstruccion = new ModoConstruccion({
-    contenedor,
-    escena,
-    nombreJugador,
-    anchoMapa: anchoMapa || 1 << 16,
-    parcelas: parcelasArchivo,
-    indiceParcelas,
-    render: renderConstrucciones,
-    enviarConstruir: (mensaje) => room.send("construir", mensaje),
+  // Puertas: tecla de interacción (F) — pisar cerca de una y pulsar F pide
+  // al servidor cruzarla; la respuesta decide la siguiente URL (recarga).
+  room.onMessage("portal:ir", (info: { tipo: TipoSala; mapaId?: string; edificio?: string; x?: number; y?: number }) => {
+    if (info.tipo === "interior") {
+      navegarA({
+        sala: "interior",
+        mapaId: info.mapaId,
+        edificio: info.edificio,
+        origenSala: SALA, // hub o region: adónde volver al salir
+        puertaX: info.x,
+        puertaY: info.y,
+      });
+    } else if (info.tipo === "region") {
+      navegarA({ sala: "region", mapaId: info.mapaId });
+    } else if (info.tipo === "hub") {
+      navegarA({});
+    } else {
+      // "volver": desde un interior a su región (a la puerta exacta) o al
+      // hub si se entró directo desde ahí; desde una región, siempre al hub.
+      if (SALA === "interior" && ORIGEN_SALA === "region") {
+        navegarA({ sala: "region", mapaId: MAPA_ID, entradaX: PUERTA_X, entradaY: PUERTA_Y });
+      } else {
+        navegarA({});
+      }
+    }
   });
-  // Los onMessage se registran SIEMPRE (aunque el servidor desplegado aún no
-  // emita estos mensajes): un mensaje sin handler registrado es un error de
-  // consola en colyseus.js — tolerar la ausencia es gratis, la presencia no.
-  room.onMessage("parcelas:estado", (estado: Record<string, { dueno: string | null }>) =>
-    modoConstruccion.actualizarDuenos(estado),
-  );
-  room.onMessage("construcciones:lista", (lista: ConstruccionRed[]) => renderConstrucciones.aplicarLista(lista || []));
-  room.onMessage("construccion:nueva", (c: ConstruccionRed) => renderConstrucciones.aplicarNueva(c));
-  room.onMessage("construccion:quitada", (m: { id: number }) => renderConstrucciones.aplicarQuitada(m.id));
-  // Contador de rechazos para la sonda: el e2e distingue "el servidor aceptó"
-  // (sube construcciones) de "el servidor rechazó" (sube este contador) sin
-  // rascar el DOM del panel.
-  let erroresConstruir = { n: 0, motivo: "" };
-  room.onMessage("construir:error", (m: { motivo: string }) => {
-    erroresConstruir = { n: erroresConstruir.n + 1, motivo: m?.motivo || "" };
-    modoConstruccion.mostrarError(m?.motivo || "");
-  });
+  room.onMessage("portal:error", (m: { motivo: string }) => console.log("[puerta]", m?.motivo));
 
-  // Sonda SOLO-PARA-TESTS (e2e con Playwright): manejar el modo construcción
-  // sin simular ratón sobre el canvas. No usar desde código de juego.
-  (window as any).__construccion = {
-    activo: () => modoConstruccion.activo(),
-    activar: () => modoConstruccion.activar(),
-    seleccionar: (id: string) => modoConstruccion.seleccionar(id),
-    rotar: () => modoConstruccion.rotar(),
-    colocarEn: (x: number, y: number) => modoConstruccion.colocarEn(x, y),
-    construcciones: () => renderConstrucciones.cantidad(),
-    parcelas: () => modoConstruccion.estadoParcelas(),
-    // el cliente no expone la room: la sonda cubre el único send que el e2e
-    // necesita fuera del colocador (asignación de parcela por el jarl, §4)
-    asignarParcela: (parcelaId: string, nombreJugador: string) =>
-      room.send("parcela:asignar", { parcelaId, nombreJugador }),
-    errores: () => erroresConstruir,
-  };
+  // --- Constructor y render de construcciones (GDD_Construccion §4 y §6) ---
+  // Solo en el Hub: una región/interior de ciudades/ no es propiedad de
+  // ningún jugador todavía (docs/GDD_Sistema_Puertas.md "Qué falta").
+  const anchoMapa = indiceMapa ? indiceMapa.anchoChunks * indiceMapa.tamanoChunk : 0;
+  let modoConstruccion: ModoConstruccion | null = null;
+  if (SALA === "hub") {
+    const indiceParcelas =
+      parcelasArchivo && anchoMapa > 0 ? construirIndiceParcelas(parcelasArchivo, anchoMapa) : new Map<number, string>();
+    const renderConstrucciones = new RenderConstrucciones(escena, anchoMapa || 1 << 16);
+    modoConstruccion = new ModoConstruccion({
+      contenedor,
+      escena,
+      nombreJugador,
+      anchoMapa: anchoMapa || 1 << 16,
+      parcelas: parcelasArchivo,
+      indiceParcelas,
+      render: renderConstrucciones,
+      enviarConstruir: (mensaje) => room.send("construir", mensaje),
+    });
+    const modo = modoConstruccion;
+    // Los onMessage se registran SIEMPRE (aunque el servidor desplegado aún no
+    // emita estos mensajes): un mensaje sin handler registrado es un error de
+    // consola en colyseus.js — tolerar la ausencia es gratis, la presencia no.
+    room.onMessage("parcelas:estado", (estado: Record<string, { dueno: string | null }>) =>
+      modo.actualizarDuenos(estado),
+    );
+    room.onMessage("construcciones:lista", (lista: ConstruccionRed[]) => renderConstrucciones.aplicarLista(lista || []));
+    room.onMessage("construccion:nueva", (c: ConstruccionRed) => renderConstrucciones.aplicarNueva(c));
+    room.onMessage("construccion:quitada", (m: { id: number }) => renderConstrucciones.aplicarQuitada(m.id));
+    // Contador de rechazos para la sonda: el e2e distingue "el servidor aceptó"
+    // (sube construcciones) de "el servidor rechazó" (sube este contador) sin
+    // rascar el DOM del panel.
+    let erroresConstruir = { n: 0, motivo: "" };
+    room.onMessage("construir:error", (m: { motivo: string }) => {
+      erroresConstruir = { n: erroresConstruir.n + 1, motivo: m?.motivo || "" };
+      modo.mostrarError(m?.motivo || "");
+    });
+
+    // Sonda SOLO-PARA-TESTS (e2e con Playwright): manejar el modo construcción
+    // sin simular ratón sobre el canvas. No usar desde código de juego.
+    (window as any).__construccion = {
+      activo: () => modo.activo(),
+      activar: () => modo.activar(),
+      seleccionar: (id: string) => modo.seleccionar(id),
+      rotar: () => modo.rotar(),
+      colocarEn: (x: number, y: number) => modo.colocarEn(x, y),
+      construcciones: () => renderConstrucciones.cantidad(),
+      parcelas: () => modo.estadoParcelas(),
+      // el cliente no expone la room: la sonda cubre el único send que el e2e
+      // necesita fuera del colocador (asignación de parcela por el jarl, §4)
+      asignarParcela: (parcelaId: string, nombreJugador: string) =>
+        room.send("parcela:asignar", { parcelaId, nombreJugador }),
+      errores: () => erroresConstruir,
+    };
+  }
 
   const jugadores = new Map<string, EstadoJugador>();
   let jugadorLocal: EstadoJugador | null = null;
@@ -243,7 +338,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "q" && !teclas.has("q")) room.send("nivel", -1);
     if (k === "e" && !teclas.has("e")) room.send("nivel", 1);
     // modo construcción: B entra/sale (ESC y R los gestiona el propio modo)
-    if (k === "b" && !teclas.has("b")) modoConstruccion.alternar();
+    if (k === "b" && !teclas.has("b")) modoConstruccion?.alternar();
+    // puertas (docs/GDD_Sistema_Puertas.md): F cerca de una la cruza
+    if (k === "f" && !teclas.has("f")) room.send("portal:usar");
     teclas.add(k);
   });
   window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));
