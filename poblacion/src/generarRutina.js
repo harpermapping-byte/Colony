@@ -23,6 +23,38 @@ function buscarTaberna(ciudad) {
   return t ? centroPuerta(t) : null;
 }
 
+function buscarTemplo(ciudad) {
+  const t = ciudad.edificios.find((e) => e.tipoEdificioId === "templo");
+  return t ? centroPuerta(t) : null;
+}
+
+// Orilla más cercana a la casa (pescador_mentiroso, GDD_Agentes_Moviles.md
+// v1.1) — mismo patrón de caché que tilesDeHuerto: escanea la rejilla UNA
+// vez por ciudad, no por NPC.
+const cacheOrillas = new WeakMap();
+function tilesDeAgua(ciudad) {
+  if (cacheOrillas.has(ciudad)) return cacheOrillas.get(ciudad);
+  const tiles = [];
+  for (let y = 0; y < ciudad.alto; y++) {
+    for (let x = 0; x < ciudad.ancho; x++) {
+      if (ciudad.terreno.get(x, y) === "agua") tiles.push({ x, y });
+    }
+  }
+  cacheOrillas.set(ciudad, tiles);
+  return tiles;
+}
+
+function puntoDeAgua(ciudad, casaPunto) {
+  const tiles = tilesDeAgua(ciudad);
+  if (tiles.length === 0) return null; // asentamiento sin río/lago intramuros
+  let mejor = tiles[0], mejorDist = Infinity;
+  for (const t of tiles) {
+    const d = Math.hypot(t.x - casaPunto.x, t.y - casaPunto.y);
+    if (d < mejorDist) { mejorDist = d; mejor = t; }
+  }
+  return mejor;
+}
+
 // Huertos intramuros reales del bake (ciudades/src/generar.js: zonas verdes
 // con un 45% de salir como "tierra_labrada") — no todo asentamiento tiene
 // uno. Se cachea por ciudad: escanear la rejilla entera es barato UNA vez,
@@ -114,6 +146,17 @@ function resolverLugar(lugar, ctx, rnd) {
       }
       return { paradas };
     }
+    case "ronda_tiendas": {
+      // el recaudador: bucle por las tiendas del asentamiento (mismo
+      // mecanismo que "ronda" pero con el pool de comercios, no de puertas)
+      if (!ctx.tiendaPuntos || ctx.tiendaPuntos.length < 2) return ctx.plazaPunto ?? ctx.casaPunto;
+      return { paradas: muestrear(ctx.tiendaPuntos, ctx.tiendaPuntos.length, rnd) };
+    }
+    case "rio":
+      // orilla real del bake más cercana a su casa; sin río/lago intramuros, la plaza
+      return ctx.rioPunto ?? ctx.plazaPunto ?? ctx.casaPunto;
+    case "templo":
+      return ctx.temploPunto ?? ctx.plazaPunto ?? ctx.casaPunto;
     case "deambular": {
       // callejeo: 3-5 puntos distintos del pool urbano, DISTINTOS cada día
       const pool = ctx.deambularPool ?? [];
@@ -191,6 +234,8 @@ function generarRutina(npc, ciudad, catalogos, dia = 0) {
     rondaParadas: puertasInterior,
     deambularPool: [...puertasInterior, ...(focal ? [focal] : []), ...tiendaPuntos],
     tiendaPuntos,
+    temploPunto: buscarTemplo(ciudad),
+    rioPunto: puntoDeAgua(ciudad, casaPunto),
   };
 
   const rnd = crearPRNG(`${npc.slotId}|rutina|dia${dia}`);

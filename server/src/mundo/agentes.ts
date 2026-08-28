@@ -40,6 +40,7 @@ export interface NpcBakeado {
   slotId: string;
   nombre: string;
   grito?: string; // frase de calle de los especiales (poblacion/catalogo/especiales.json)
+  velocidad?: number; // multiplicador de VEL_NPC (el "corredor" especial) — undefined = 1
   rutina: TramoRutina[];
 }
 
@@ -181,7 +182,7 @@ export class GestorAgentes {
   }
 
   private avanzar(a: EstadoAgente, dt: number) {
-    let restante = VEL_NPC * dt;
+    let restante = VEL_NPC * (a.npc.velocidad ?? 1) * dt;
     const camino = a.camino!;
     while (restante > 0 && a.segmento < camino.length) {
       const objetivo = camino[a.segmento];

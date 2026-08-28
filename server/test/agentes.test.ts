@@ -135,3 +135,23 @@ test("ronda con paradas: el agente recorre el bucle parada a parada con pausas, 
   assert.ok(posiciones.has(8) || posiciones.has(9), "debería haber llegado a la parada opuesta");
   assert.ok(posiciones.size > 3, `debería haberse visto en varias posiciones del trayecto (${[...posiciones]})`);
 });
+
+test("el multiplicador de velocidad (npc.velocidad) acelera el avance sin romper la llegada", () => {
+  const rutinaRapida = () => [
+    tramo({ lugar: "casa", accion: "dormir", horaInicio: 0, horaFin: 7, punto: { x: 2, y: 2 } }),
+    tramo({
+      lugar: "trabajo", accion: "correr", horaInicio: 7, horaFin: 20, punto: { x: 20, y: 2 },
+      camino: [{ x: 2, y: 2 }, { x: 20, y: 2 }],
+    }),
+  ];
+  const salida = new MapSchema<Npc>();
+  const gestor = new GestorAgentes(salida);
+  const rapido: NpcBakeado = { slotId: "rapido", nombre: "Corredor", velocidad: 3, rutina: rutinaRapida() };
+  const normal: NpcBakeado = { slotId: "normal", nombre: "Normal", rutina: rutinaRapida() };
+  gestor.iniciar([rapido, normal], 6.9);
+  gestor.tick(0.1, 7.01);
+  gestor.tick(2, 7.02); // 2s de viaje: normal ≈3.8 casillas, rápido ≈11.4
+  const xRapido = salida.get("rapido")!.x;
+  const xNormal = salida.get("normal")!.x;
+  assert.ok(xRapido > xNormal, `el corredor (${xRapido}) debería ir más lejos que el normal (${xNormal}) en el mismo tiempo`);
+});

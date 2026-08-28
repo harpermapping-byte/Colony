@@ -560,5 +560,322 @@
       "Su burro se llama Anselmo y tiene opiniones.",
       "Recorre las calles de día y remata la venta en la plaza."
     ]
+  },
+  "borracho": {
+    "profesion": "vagabundo",
+    "morfologia": {
+      "altura": [
+        0.95,
+        1.1
+      ],
+      "corpulencia": [
+        1.0,
+        1.2
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#a68a5a",
+    "personalidad": "El borracho del pueblo: alegre, sentimental y con la lengua suelta tras la tercera jarra; abraza a desconocidos y jura amistad eterna.",
+    "conocimiento": [
+      "Sabe qué NPC tiene un romance secreto (aunque lo cuenta distinto cada vez).",
+      "Nunca recuerda cómo llegó a casa la noche anterior.",
+      "Cree que canta muy bien; no es así."
+    ]
+  },
+  "chismosa": {
+    "profesion": "campesino",
+    "morfologia": {
+      "altura": [
+        0.9,
+        1.02
+      ],
+      "corpulencia": [
+        0.85,
+        1.0
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
+    "colorDebug": "#c98fae",
+    "personalidad": "La chismosa del pueblo: conoce la vida de todos y no se calla ni una, va de puerta en puerta 'a saludar' que dura media hora.",
+    "conocimiento": [
+      "Sabe todo lo que pasa en cada casa del pueblo.",
+      "Exagera cada historia un poco más en cada repetición.",
+      "Jura guardar el secreto justo antes de contarlo a otro."
+    ]
+  },
+  "bardo_malo": {
+    "profesion": "campesino",
+    "morfologia": {
+      "altura": [
+        0.95,
+        1.08
+      ],
+      "corpulencia": [
+        0.9,
+        1.05
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
+    "colorDebug": "#8a5ac9",
+    "personalidad": "Bardo errante convencido de su talento; canta en la plaza con más entusiasmo que oído, y los vecinos se apartan educadamente.",
+    "conocimiento": [
+      "Compone baladas sobre sucesos locales, casi siempre inventadas.",
+      "Cree que algún día lo llamarán a la corte real.",
+      "No entiende por qué la gente se aleja cuando empieza a cantar."
+    ]
+  },
+  "profeta": {
+    "profesion": "vagabundo",
+    "morfologia": {
+      "altura": [
+        0.92,
+        1.05
+      ],
+      "corpulencia": [
+        0.75,
+        0.9
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#5a6ea6",
+    "personalidad": "Profeta callejero de mirada perdida y gesto grandilocuente: anuncia el fin del reino cada semana, sin que el reino se entere de acabarse.",
+    "conocimiento": [
+      "Predice desgracias que rara vez ocurren.",
+      "Habla con los cuervos y asegura que le responden.",
+      "Cambia la fecha del apocalipsis cuando la anterior pasa sin novedad."
+    ]
+  },
+  "recaudador": {
+    "profesion": "noble",
+    "morfologia": {
+      "altura": [
+        0.95,
+        1.05
+      ],
+      "corpulencia": [
+        1.0,
+        1.15
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#4a4a52",
+    "personalidad": "Recaudador de impuestos frío y meticuloso, con un libro de cuentas bajo el brazo; nadie se alegra de verlo llegar a la tienda.",
+    "conocimiento": [
+      "Lleva la cuenta exacta de lo que debe cada comercio.",
+      "No perdona un impago ni conoce la palabra 'después'.",
+      "Sospecha, con razón, que le esconden mercancía."
+    ]
+  },
+  "duelista_jubilado": {
+    "profesion": "militar",
+    "morfologia": {
+      "altura": [
+        1.0,
+        1.1
+      ],
+      "corpulencia": [
+        0.95,
+        1.1
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#a67a3a",
+    "personalidad": "Viejo espadachín retirado que entrena cada día contra un poste de madera, contando batallas que crecen con los años.",
+    "conocimiento": [
+      "Ganó (según él) más duelos de los que la memoria del pueblo recuerda.",
+      "Ofrece lecciones de esgrima que nadie pidió.",
+      "El poste de entrenamiento ya tiene más cicatrices que él."
+    ]
+  },
+  "vendedora_amuletos": {
+    "profesion": "destilador",
+    "morfologia": {
+      "altura": [
+        0.92,
+        1.05
+      ],
+      "corpulencia": [
+        0.85,
+        1.0
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
+    "colorDebug": "#c9a03a",
+    "personalidad": "Vendedora ambulante de amuletos 'de eficacia garantizada' que nadie ha podido demostrar ni desmentir; labia inagotable.",
+    "conocimiento": [
+      "Cada amuleto cura, protege o da suerte — según convenga en el momento.",
+      "Cambia el precio según lo desesperado que parezca el comprador.",
+      "Jura que uno de sus amuletos ya salvó una cosecha."
+    ]
+  },
+  "nino_perdido": {
+    "profesion": "campesino",
+    "morfologia": {
+      "altura": [
+        0.55,
+        0.65
+      ],
+      "corpulencia": [
+        0.7,
+        0.85
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#e0c080",
+    "personalidad": "Niño que parece perdido pero conoce el pueblo mejor que nadie; pregunta por su familia a quien se cruce, entre juegos y carreras.",
+    "conocimiento": [
+      "Conoce todos los escondites del pueblo.",
+      "Busca a su familia, aunque nunca parece muy preocupado.",
+      "Sabe cosas que ha oído sin que nadie se diera cuenta de que escuchaba."
+    ]
+  },
+  "pescador_mentiroso": {
+    "profesion": "pescador",
+    "morfologia": {
+      "altura": [
+        0.95,
+        1.1
+      ],
+      "corpulencia": [
+        0.95,
+        1.15
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
+    "colorDebug": "#3a7a8a",
+    "personalidad": "Pescador de anécdotas más grandes que sus capturas; el pez que 'casi' pescó crece un poco más cada vez que lo cuenta.",
+    "conocimiento": [
+      "El pez que se le escapó ya mide 'como un hombre', según la última versión.",
+      "Conoce cada recodo del río o la costa del asentamiento.",
+      "Nunca ha pescado ese pez legendario. Nunca lo hará."
+    ]
+  },
+  "sepulturero": {
+    "profesion": "campesino",
+    "morfologia": {
+      "altura": [
+        1.0,
+        1.12
+      ],
+      "corpulencia": [
+        0.9,
+        1.05
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#3a3a3a",
+    "personalidad": "Sepulturero nocturno de pocas palabras y humor negro; ronda cerca del templo con su pala y su farol mientras el pueblo duerme.",
+    "conocimiento": [
+      "Conoce la historia de cada tumba del cementerio.",
+      "No le teme a la oscuridad; dice que los muertos son mejor compañía que los vivos.",
+      "Guarda secretos que solo confía a quien ya no puede repetirlos."
+    ]
+  },
+  "mimo": {
+    "profesion": "campesino",
+    "morfologia": {
+      "altura": [
+        0.95,
+        1.05
+      ],
+      "corpulencia": [
+        0.85,
+        0.98
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#d8d8d8",
+    "personalidad": "Artista callejero inmóvil como una estatua en la plaza; solo el parpadeo delata que sigue vivo.",
+    "conocimiento": [
+      "Ha visto pasar el día entero sin moverse del sitio.",
+      "Escucha todas las conversaciones de la plaza sin que nadie lo note.",
+      "Se ofende si alguien duda de que sea una estatua de verdad."
+    ]
+  },
+  "coleccionista_gallinas": {
+    "profesion": "campesino",
+    "morfologia": {
+      "altura": [
+        0.9,
+        1.02
+      ],
+      "corpulencia": [
+        0.9,
+        1.1
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
+    "colorDebug": "#c96a3a",
+    "personalidad": "Vecino obsesionado con coleccionar gallinas ajenas 'por accidente'; siempre tiene una excusa preparada.",
+    "conocimiento": [
+      "Sabe exactamente cuántas gallinas tiene cada corral del pueblo.",
+      "Jura que cada gallina en su saco 'se le coló sola'.",
+      "Tiene nombre propio para cada gallina que ha 'coleccionado'."
+    ]
+  },
+  "corredor": {
+    "profesion": "campesino",
+    "morfologia": {
+      "altura": [
+        0.92,
+        1.05
+      ],
+      "corpulencia": [
+        0.85,
+        0.98
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#6ac97a",
+    "personalidad": "Vecino que siempre va con prisa a todas partes, como si llegara tarde a algo importante que nadie más conoce.",
+    "conocimiento": [
+      "Nunca llega tarde a nada, pero corre igual.",
+      "Conoce el atajo más rápido entre cualquier par de puntos del pueblo.",
+      "Nadie sabe adónde va con tanta prisa. Puede que ni él lo sepa."
+    ]
   }
 }

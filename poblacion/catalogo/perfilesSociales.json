@@ -512,5 +512,370 @@
         "horaFin": 18.7
       }
     ]
+  },
+  "borracho": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "sinCasa": true,
+    "_nota": "El borracho del pueblo (especial): duerme la mona en cualquier banco, se pasa el día en la taberna.",
+    "tramos": [
+      {
+        "lugar": "banco",
+        "accion": "dormir_calle",
+        "horaInicio": 5,
+        "horaFin": 11
+      },
+      {
+        "lugar": "taberna",
+        "accion": "beber",
+        "horaInicio": 11,
+        "horaFin": 19
+      },
+      {
+        "lugar": "deambular",
+        "accion": "tambalear",
+        "horaInicio": 19,
+        "horaFin": 22
+      },
+      {
+        "lugar": "banco",
+        "accion": "dormir_calle",
+        "horaInicio": 22,
+        "horaFin": 5
+      }
+    ]
+  },
+  "chismosa": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 22,
+        "horaFin": 7
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 7,
+        "horaFin": 8
+      },
+      {
+        "lugar": "deambular",
+        "accion": "cotillear",
+        "horaInicio": 8,
+        "horaFin": 19
+      },
+      {
+        "lugar": "taberna",
+        "accion": "socializar",
+        "horaInicio": 19,
+        "horaFin": 21
+      },
+      {
+        "lugar": "casa",
+        "accion": "socializar",
+        "horaInicio": 21,
+        "horaFin": 22
+      }
+    ]
+  },
+  "bardo_malo": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 22,
+        "horaFin": 9
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 9,
+        "horaFin": 10
+      },
+      {
+        "lugar": "plaza",
+        "accion": "cantar",
+        "horaInicio": 10,
+        "horaFin": 20
+      },
+      {
+        "lugar": "taberna",
+        "accion": "socializar",
+        "horaInicio": 20,
+        "horaFin": 22
+      }
+    ]
+  },
+  "profeta": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 21,
+        "horaFin": 7
+      },
+      {
+        "lugar": "deambular",
+        "accion": "profetizar",
+        "horaInicio": 7,
+        "horaFin": 19
+      },
+      {
+        "lugar": "plaza",
+        "accion": "profetizar",
+        "horaInicio": 19,
+        "horaFin": 21
+      }
+    ]
+  },
+  "recaudador": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "_nota": "Ronda de tiendas (poolRonda:'tiendas') — su escolta de guardia es simplificación v1 (sin enlazar dos NPCs todavía).",
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 22,
+        "horaFin": 7
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 7,
+        "horaFin": 8
+      },
+      {
+        "lugar": "ronda_tiendas",
+        "accion": "recaudar",
+        "horaInicio": 8,
+        "horaFin": 18
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 18,
+        "horaFin": 19
+      },
+      {
+        "lugar": "taberna",
+        "accion": "beber",
+        "horaInicio": 19,
+        "horaFin": 21
+      },
+      {
+        "lugar": "casa",
+        "accion": "socializar",
+        "horaInicio": 21,
+        "horaFin": 22
+      }
+    ]
+  },
+  "duelista_jubilado": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 21,
+        "horaFin": 7
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 7,
+        "horaFin": 8
+      },
+      {
+        "lugar": "plaza",
+        "accion": "entrenar",
+        "horaInicio": 8,
+        "horaFin": 12
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 12,
+        "horaFin": 13
+      },
+      {
+        "lugar": "plaza",
+        "accion": "entrenar",
+        "horaInicio": 13,
+        "horaFin": 18
+      },
+      {
+        "lugar": "taberna",
+        "accion": "beber",
+        "horaInicio": 18,
+        "horaFin": 20
+      },
+      {
+        "lugar": "casa",
+        "accion": "socializar",
+        "horaInicio": 20,
+        "horaFin": 21
+      }
+    ]
+  },
+  "nino_perdido": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 20,
+        "horaFin": 7
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 7,
+        "horaFin": 8
+      },
+      {
+        "lugar": "deambular",
+        "accion": "buscar_familia",
+        "horaInicio": 8,
+        "horaFin": 19
+      },
+      {
+        "lugar": "casa",
+        "accion": "socializar",
+        "horaInicio": 19,
+        "horaFin": 20
+      }
+    ]
+  },
+  "pescador_mentiroso": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 21,
+        "horaFin": 6
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 6,
+        "horaFin": 7
+      },
+      {
+        "lugar": "rio",
+        "accion": "contar_historias",
+        "horaInicio": 7,
+        "horaFin": 19
+      },
+      {
+        "lugar": "taberna",
+        "accion": "socializar",
+        "horaInicio": 19,
+        "horaFin": 21
+      }
+    ]
+  },
+  "sepulturero": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "_nota": "Trabajador nocturno: duerme de día, ronda cerca del templo de noche con farol.",
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 7,
+        "horaFin": 19
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 19,
+        "horaFin": 20
+      },
+      {
+        "lugar": "templo",
+        "accion": "vigilar_difuntos",
+        "horaInicio": 20,
+        "horaFin": 7
+      }
+    ]
+  },
+  "mimo": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 22,
+        "horaFin": 9
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 9,
+        "horaFin": 10
+      },
+      {
+        "lugar": "plaza",
+        "accion": "estatua",
+        "horaInicio": 10,
+        "horaFin": 20
+      },
+      {
+        "lugar": "casa",
+        "accion": "socializar",
+        "horaInicio": 20,
+        "horaFin": 22
+      }
+    ]
+  },
+  "coleccionista_gallinas": {
+    "soloEspecial": true,
+    "requiereTrabajo": false,
+    "_nota": "La interacción real con gallinas queda aparcada (fauna urbana viva no existe todavía) — de momento es sabor puro.",
+    "tramos": [
+      {
+        "lugar": "casa",
+        "accion": "dormir",
+        "horaInicio": 22,
+        "horaFin": 7
+      },
+      {
+        "lugar": "casa",
+        "accion": "comer",
+        "horaInicio": 7,
+        "horaFin": 8
+      },
+      {
+        "lugar": "deambular",
+        "accion": "buscar_gallinas",
+        "horaInicio": 8,
+        "horaFin": 19
+      },
+      {
+        "lugar": "taberna",
+        "accion": "socializar",
+        "horaInicio": 19,
+        "horaFin": 21
+      },
+      {
+        "lugar": "casa",
+        "accion": "socializar",
+        "horaInicio": 21,
+        "horaFin": 22
+      }
+    ]
   }
 }
