@@ -17,6 +17,7 @@ interface ElementoColocado {
   ancho: number;
   largo: number;
   colorDebug?: string;
+  capa?: string;
 }
 
 interface PuertaConexion {
@@ -58,6 +59,17 @@ const ALTO_CONECTOR = 0.9;
 const COLOR_CONECTOR = "#c9a227"; // distinto de cualquier mueble: es un portal, no decoración
 const COLOR_PASILLO = "#9c8f74"; // suelo del hueco de 1 casilla entre puertas — sin esto se veía un agujero sin suelo
 
+// Antorchas/candelabros (capa "iluminacion" de interiores/catalogo/elementos.json)
+// ya se colocaban en el bake, pero se pintaban como un mueble más — sin luz
+// de verdad, un interior quedaba a oscuras de noche (el ciclo día/noche solo
+// mueve la luz ambiente/sol exterior, que no llega dentro de un edificio con
+// paredes). Siempre encendidas (una antorcha no se apaga de día): cada pieza
+// de esta capa suma además un THREE.PointLight cálido sobre su posición.
+const ALTO_LUZ = 1.6;
+const COLOR_LUZ = 0xffb066;
+const INTENSIDAD_LUZ = 1.3;
+const ALCANCE_LUZ = 6;
+
 export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE.Group {
   const grupo = new THREE.Group();
   // plantas[0] NO es siempre la planta baja (edificios con bodega) — mismo
@@ -98,8 +110,16 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE
         new THREE.BoxGeometry(item.ancho, ALTO_MUEBLE, item.largo),
         new THREE.MeshStandardMaterial({ color: item.colorDebug ?? "#8a6a4a", roughness: 0.9, metalness: 0 }),
       );
-      caja.position.set(offsetX + item.x + item.ancho / 2, ALTO_MUEBLE / 2, offsetY + item.y + item.largo / 2);
+      const cx = offsetX + item.x + item.ancho / 2;
+      const cz = offsetY + item.y + item.largo / 2;
+      caja.position.set(cx, ALTO_MUEBLE / 2, cz);
       grupo.add(caja);
+
+      if (item.capa === "iluminacion") {
+        const luz = new THREE.PointLight(COLOR_LUZ, INTENSIDAD_LUZ, ALCANCE_LUZ, 2);
+        luz.position.set(cx, ALTO_LUZ, cz);
+        grupo.add(luz);
+      }
     }
   }
 

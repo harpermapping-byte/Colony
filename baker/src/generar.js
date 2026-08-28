@@ -147,15 +147,17 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   // ciudad/portales a mano en hub_test).
   const carpetaSalidaResuelta = path.resolve(config.carpetaSalida || "output");
   const mapaIdPropio = path.basename(carpetaSalidaResuelta);
-  const { portales: portalesPOI, objetosPorPOI } = generarInstanciasPOI({
+  const { portales: portalesPOI, objetosPorPOI, decoracionPorPOI } = generarInstanciasPOI({
     pois,
     mapaId: mapaIdPropio,
     carpetaSalida: carpetaSalidaResuelta,
     semillaMundo: config.semilla,
     catalogoPOIs,
+    catalogoRocas,
     onProgreso,
   });
   if (objetosPorPOI.size) onProgreso(`  ${objetosPorPOI.size} POI(s) de tipo "edificio" con caja 3D+interior generados.`);
+  if (decoracionPorPOI.size) onProgreso(`  ${decoracionPorPOI.size} boca(s) de cueva decoradas con rocas del bioma.`);
 
   // --- 6. Caminos (GDD sección 7) ---
   // La ciudad capital es opcional y configurable por bake: no todos los
@@ -348,6 +350,25 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     const x0 = Math.round(info.x - hw / 2), y0 = Math.round(info.y - hl / 2);
     for (let dy = 0; dy < hl; dy++) {
       for (let dx = 0; dx < hw; dx++) footprintEdificiosPOI.add(`${x0 + dx}_${y0 + dy}`);
+    }
+  }
+
+  // Rocas de "boca de cueva" (generarBocaCueva, instanciasPOI.js) — mismo
+  // reparto por chunk que las cajas de arriba, pero son piezas sueltas de
+  // rocas.json (ya en `solidosCatalogo` del servidor si llevan `colision`),
+  // no un footprint reservado: la propia densidad del arco ya deja pasar
+  // por la puerta sin necesitar terreno especial.
+  for (const rocas of decoracionPorPOI.values()) {
+    for (const roca of rocas) {
+      const cx = Math.floor(roca.x / tamanoChunk);
+      const cy = Math.floor(roca.y / tamanoChunk);
+      const clave = `${cx}_${cy}`;
+      if (!edificiosPOIPorChunk.has(clave)) edificiosPOIPorChunk.set(clave, []);
+      edificiosPOIPorChunk.get(clave).push({
+        ...roca.objeto,
+        x: Math.floor(roca.x) - cx * tamanoChunk,
+        y: Math.floor(roca.y) - cy * tamanoChunk,
+      });
     }
   }
 
