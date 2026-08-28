@@ -122,6 +122,14 @@ Pensando en qué encaja con lo que ya existe en el proyecto (rig con pivotes por
 - **Liderazgo con efecto de grupo real**: bonus a mercenarios/mascotas domesticadas o a jugadores cercanos en el mismo grupo/gremio — le da un uso concreto a un atributo que si no queda decorativo comparado con Fuerza/Destreza.
 - **Roles de Twitch como modificador de estas mismas estadísticas**: ya está decidido que sub/mod/VIP dan ventajas (ver "Roles de Twitch" abajo) — encaja aquí como espacio extra de inventario, regen de Estamina/Sueño más rápida, o similar, en vez de un sistema de ventajas totalmente aparte.
 - **Muerte**: qué pasa con el inventario en rejilla al morir — ¿bolsa de loot en el sitio exacto donde cayó (coherente con "objetos en el mundo" de arriba), recuperable solo por quien la encuentre? Conecta directo con "Muerte y respawn" ya anotado abajo.
+- **Sobrepeso escalonado, no un corte binario**: ligero/normal/cargado/sobrecargado, cada tramo penaliza más velocidad y gasto de Estamina — más natural que "puedes cargar / no puedes cargar" a secas.
+- **Curación pasiva vs activa distintas**: la Vida se regenera sola muy despacio (o nada) solo con Comida/Bebida/Sueño cubiertos; curación de verdad requiere vendaje/poción/curandero — evita que la vida se cure sola sin más, que suele romper el sentido del combate.
+- **Muerte con margen, no game over instantáneo**: Comida/Bebida/Sueño a 0 hacen daño progresivo a Vida en vez de matar directo — da tiempo a reaccionar (volver a la aldea, comer) en vez de un cero brusco.
+- **Borrachera/estados por consumible con efecto mixto**: alcohol (ya hay `taberna`) sube Carisma/regen social un rato pero baja Destreza/precisión — primer consumible con efecto doble, no solo "sube un número".
+- **Vínculo con montura/mascota domesticada**: sube junto con el jugador (confianza/nivel propio), no un objeto estático — le da peso real a domesticar en vez de ser solo transporte.
+- **Objetos con nombre propio generado por semilla**: un arma/armadura "especial" (de jefe de mazmorra, por ejemplo) sale con nombre + pequeño lore generado, igual que ya generamos NPCs/animales por semilla — encaja con "todo lo procedural tiene ficha" sin escribir historias a mano.
+- **Aprendizaje de recetas por relación con NPC**, no solo comprando el plano — un curandero/herrero con buena reputación te enseña algo que no vende a cualquiera; conecta reputación + profesiones + los NPCs con IA que ya están en el backlog.
+- **Clima afectando mecánicas, no solo estética**: lluvia moja (apaga antorchas al aire libre, ropa mojada = más frío), nieve en `montana_nevada` con daño por frío sin abrigo adecuado — todo esto ya tiene datos base (biomas, ropa por fibra) para engancharse sin catálogos nuevos.
 
 ## Muerte y respawn — sin diseñar
 
