@@ -1,0 +1,7 @@
+{
+  "_nota": "Fase 2 (GDD_Poblacion_NPCs.md): qué tipos de edificio de interiores/catalogo/tipos_edificio.json dan trabajo a cada NPC de personajes/catalogo/npcs.json (clave = npcId, NO 'profesion' — varios NPC pueden compartir profesion). Se probó reusar el cruce temaTaller/tagsPrenda de ropa/catalogo/profesiones.json (pensado para materiales de ropa) pero no generaliza limpio para esto: p.ej. cuartel_guardia tiene temaTaller:'herreria' (por las armas que amuebla), no 'militar'. Por eso este catálogo es explícito. PLACEHOLDER: cuando el streamer amplíe la lista de NPCs, se amplía este cruce igual, sin tocar el generador. 'aldeano' (campesino) no tiene edificio de trabajo: trabaja el campo exterior, no un interior — pendiente de diseñar en una fase futura.",
+  "herrero": ["herreria"],
+  "guardia": ["cuartel_guardia", "torre_militar"],
+  "anciano_sabio": ["choza_curandero", "botica"],
+  "aldeano": []
+}

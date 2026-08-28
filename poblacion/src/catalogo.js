@@ -13,6 +13,7 @@ function cargarCatalogos() {
   return {
     nombres: cargarJSON(path.join(CARPETA_CATALOGO, "nombres.json")),
     censo: cargarJSON(path.join(CARPETA_CATALOGO, "censo.json")),
+    oficiosEdificios: cargarJSON(path.join(CARPETA_CATALOGO, "oficiosEdificios.json")),
   };
 }
 
