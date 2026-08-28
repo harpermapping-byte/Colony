@@ -4,9 +4,14 @@
  * en la rejilla de colisión que usa la simulación — mismo patrón que
  * mundo/mapaColision.ts para el exterior, pero a escala de habitación.
  *
- * v1 (docs/GDD_Sistema_Puertas.md): solo la planta con rol "planta_baja"
- * (NUNCA plantas[0] a fuego: con bodega, el índice 0 es el sótano) — subir
- * de piso queda pendiente, ver conectoresVerticales en el JSON.
+ * v2 (docs/GDD_Sistema_Puertas.md): rejilla de la planta que se pida por
+ * `nivel` (NUNCA plantas[0] a fuego: con bodega, el índice 0 es el sótano).
+ * Las escaleras/trampillas (conectoresVerticales) de ESA planta se exponen
+ * como `conectores`, cada uno con su casilla real — InteriorRoom los trata
+ * como un portal más: pisarlos/interactuar cambia de planta (mismo mensaje
+ * portal:usar/portal:ir que el resto del sistema de puertas). Las puertas
+ * ENTRE salas de la MISMA planta (puertasConexion) siguen sin ser TP: son
+ * solo un hueco físico en la pared, como pactó el usuario.
  */
 
 import * as fs from "fs";
@@ -66,30 +71,62 @@ interface PuertaConexion {
   y: number;
 }
 
+interface PosicionConector {
+  x: number;
+  y: number;
+}
+
+interface ConectorVertical {
+  tipoConectorId: string;
+  entreNiveles: [number, number];
+  salaAbajo: string;
+  salaArriba: string;
+  posicionAbajo: PosicionConector;
+  posicionArriba: PosicionConector;
+  huella: [number, number];
+}
+
 interface InteriorBakeado {
   id: string;
   tipoEdificioId: string;
   plantas: { nivel: number; rol: string; salas: SalaInterior[]; puertasConexion?: PuertaConexion[] }[];
+  conectoresVerticales?: ConectorVertical[];
+}
+
+/** Escalera/trampilla de ESTA planta, ya resuelta a "aquí está, a este nivel lleva". */
+export interface ConectorInteractivo {
+  x: number;
+  y: number;
+  huella: [number, number];
+  tipoConectorId: string;
+  destinoNivel: number;
+  /** casilla del OTRO lado (en la rejilla de `destinoNivel`) donde aparece
+   * quien lo cruza — las plantas no comparten XY (GDD_Bakeador_Interiores
+   * sección 7), así que la posición de aquí NO sirve para el otro piso. */
+  entradaDestino: { x: number; y: number };
 }
 
 export interface InteriorCargado extends MundoColision {
   id: string;
-  /** casilla de aparición al entrar (dentro de la primera sala de la planta baja) */
+  nivel: number;
+  rol: string;
+  /** casilla de aparición al entrar (dentro de la primera sala de la planta) */
   spawnX: number;
   spawnY: number;
+  conectores: ConectorInteractivo[];
 }
 
-export function cargarInterior(rutaArchivo: string): InteriorCargado {
+export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado {
   const interior = JSON.parse(fs.readFileSync(rutaArchivo, "utf8")) as InteriorBakeado;
   // plantas[0] NO es siempre la planta baja: un edificio con bodega
   // (tieneBodega:true en tipos_edificio.json — casa_noble, taberna,
   // posada, casa_gremio, ayuntamiento...) trae la bodega en el índice 0
   // (bug real: cargaba el sótano como si fuera la entrada, con su propio
   // tamaño de rejilla — dejaba el resto del edificio fuera de la rejilla
-  // de colisión entera). Buscar por `rol` explícito, nunca por posición.
-  const planta = interior.plantas.find((p) => p.rol === "planta_baja") ?? interior.plantas[0];
+  // de colisión entera). Buscar por `nivel` explícito, nunca por posición.
+  const planta = interior.plantas.find((p) => p.nivel === nivel) ?? interior.plantas.find((p) => p.rol === "planta_baja") ?? interior.plantas[0];
   const salas = planta?.salas ?? [];
-  if (salas.length === 0) throw new Error(`interior sin salas en planta baja: ${rutaArchivo}`);
+  if (salas.length === 0) throw new Error(`interior sin salas en la planta nivel=${nivel}: ${rutaArchivo}`);
 
   const puertas = planta.puertasConexion ?? [];
   const ancho = Math.max(...salas.map((s) => s.offsetX + s.resultado.ancho), ...puertas.map((p) => p.x + 1)) + 1;
@@ -152,7 +189,45 @@ export function cargarInterior(rutaArchivo: string): InteriorCargado {
   // vale un mueble desaparecido en un caso raro que un jugador atascado.
   garantizarConectividad(casillas, ancho, alto, spawn, salas);
 
-  return { id: interior.id, ancho, alto, casillas, velocidad, spawnX: spawn.x + 0.5, spawnY: spawn.y + 0.5 };
+  // Conectores verticales (escaleras/trampillas) que tocan ESTA planta —
+  // se despeja su huella como TIERRA (por si algún mueble cercano invadió
+  // la casilla) y se exponen con el nivel al que llevan, para que
+  // InteriorRoom los trate como un portal más.
+  const conectores: ConectorInteractivo[] = [];
+  for (const c of interior.conectoresVerticales ?? []) {
+    const [nivelAbajo, nivelArriba] = c.entreNiveles;
+    let posicion: PosicionConector | null = null;
+    let entradaDestino: PosicionConector | null = null;
+    let destinoNivel: number | null = null;
+    if (nivelAbajo === nivel) { posicion = c.posicionAbajo; entradaDestino = c.posicionArriba; destinoNivel = nivelArriba; }
+    else if (nivelArriba === nivel) { posicion = c.posicionArriba; entradaDestino = c.posicionAbajo; destinoNivel = nivelAbajo; }
+    if (!posicion || !entradaDestino || destinoNivel === null) continue;
+
+    const [hw, hl] = c.huella;
+    for (let y = 0; y < hl; y++) {
+      for (let x = 0; x < hw; x++) {
+        const idx = (posicion.y + y) * ancho + (posicion.x + x);
+        if (idx >= 0 && idx < casillas.length) casillas[idx] = TIPO.TIERRA;
+      }
+    }
+    conectores.push({
+      x: posicion.x, y: posicion.y, huella: c.huella, tipoConectorId: c.tipoConectorId,
+      destinoNivel,
+      // centro de la huella, no la esquina: aparecer en la esquina exacta
+      // de un conector 1x3 deja al jugador pegado al borde en vez de en
+      // medio del hueco (misma huella a ambos lados del conector).
+      entradaDestino: { x: entradaDestino.x + hw / 2, y: entradaDestino.y + hl / 2 },
+    });
+  }
+
+  return {
+    id: interior.id,
+    nivel,
+    rol: planta.rol,
+    ancho, alto, casillas, velocidad,
+    spawnX: spawn.x + 0.5, spawnY: spawn.y + 0.5,
+    conectores,
+  };
 }
 
 function floodFill(casillas: Uint8Array, ancho: number, alto: number, inicio: { x: number; y: number }): Uint8Array {

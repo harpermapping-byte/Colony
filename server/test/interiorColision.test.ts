@@ -81,6 +81,118 @@ test("cargarInterior: TODAS las salas de la planta baja son alcanzables desde el
   }
 });
 
+// Tipos con planta(s) alta(s)/bodega GARANTIZADAS (rangoPlantasAltas mínimo
+// >= 1, o tieneBodega:true) — a diferencia de TIPOS_MULTISALA (que a veces
+// sacan 0 plantas altas por azar), aquí SIEMPRE hay más de una planta que
+// probar, así el test de escaleras=TP no depende de qué semilla le toque.
+const TIPOS_MULTIPLANTA = ["castillo", "torre_mago", "faro", "torre_militar", "posada"];
+
+test("cargarInterior: en un edificio multi-planta, TODAS las salas de CADA planta (no solo la baja) son alcanzables desde su propio spawn", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "colony-interior-plantas-"));
+  try {
+    let plantasProbadas = 0;
+    for (const tipoEdificioId of TIPOS_MULTIPLANTA) {
+      for (const semilla of ["semilla-a", "semilla-b", "semilla-c"]) {
+        const edificio = generarEdificio({ tipoEdificioId, catalogos, semilla });
+        const archivo = path.join(dir, `${tipoEdificioId}_${semilla}.json`);
+        fs.writeFileSync(archivo, JSON.stringify(edificio));
+
+        for (const planta of edificio.plantas) {
+          if (planta.salas.length < 2) continue; // nada que probar si solo hay 1 sala
+          const interior = cargarInterior(archivo, planta.nivel);
+          const alcanzadas = floodFillCuentaSalas(interior, planta.salas);
+          plantasProbadas++;
+          assert.strictEqual(
+            alcanzadas,
+            planta.salas.length,
+            `${tipoEdificioId}/${semilla} nivel ${planta.nivel} (${planta.rol}): solo ${alcanzadas}/${planta.salas.length} salas alcanzables`,
+          );
+        }
+      }
+    }
+    assert.ok(plantasProbadas >= 10, `esperaba varias plantas multi-sala para probar, hubo ${plantasProbadas}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cargarInterior: cada conector vertical tiene una casilla real, dentro de la rejilla, no sólida y con hueco a ambos lados", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "colony-interior-conectores-"));
+  try {
+    let conectoresProbados = 0;
+    for (const tipoEdificioId of TIPOS_MULTIPLANTA) {
+      for (const semilla of ["semilla-a", "semilla-b", "semilla-c"]) {
+        const edificio = generarEdificio({ tipoEdificioId, catalogos, semilla });
+        assert.ok(
+          edificio.plantas.length >= 2,
+          `${tipoEdificioId}/${semilla}: se esperaban >=2 plantas, hubo ${edificio.plantas.length}`,
+        );
+        assert.ok(
+          edificio.conectoresVerticales.length >= edificio.plantas.length - 1,
+          `${tipoEdificioId}/${semilla}: faltan conectores entre plantas (${edificio.conectoresVerticales.length} para ${edificio.plantas.length} plantas)`,
+        );
+
+        const archivo = path.join(dir, `${tipoEdificioId}_${semilla}.json`);
+        fs.writeFileSync(archivo, JSON.stringify(edificio));
+
+        for (const c of edificio.conectoresVerticales) {
+          const [nivelAbajo, nivelArriba] = c.entreNiveles;
+          for (const [nivel, posicion] of [
+            [nivelAbajo, c.posicionAbajo],
+            [nivelArriba, c.posicionArriba],
+          ] as const) {
+            const interior = cargarInterior(archivo, nivel);
+            const [hw, hl] = c.huella;
+            for (let y = 0; y < hl; y++) {
+              for (let x = 0; x < hw; x++) {
+                const idx = (posicion.y + y) * interior.ancho + (posicion.x + x);
+                assert.ok(idx >= 0 && idx < interior.casillas.length, `${tipoEdificioId}/${semilla}: conector fuera de rejilla`);
+                assert.notStrictEqual(
+                  interior.casillas[idx],
+                  TIPO.SOLIDO,
+                  `${tipoEdificioId}/${semilla} nivel ${nivel}: conector cae en casilla sólida`,
+                );
+              }
+            }
+            conectoresProbados++;
+          }
+        }
+      }
+    }
+    assert.ok(conectoresProbados >= 10, `esperaba varios conectores para probar, hubo ${conectoresProbados}`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("cargarInterior: cada planta de un edificio multi-planta expone sus conectores con el nivel destino correcto", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "colony-interior-nivel-destino-"));
+  try {
+    for (const tipoEdificioId of TIPOS_MULTIPLANTA) {
+      const edificio = generarEdificio({ tipoEdificioId, catalogos, semilla: "semilla-destino" });
+      const archivo = path.join(dir, `${tipoEdificioId}.json`);
+      fs.writeFileSync(archivo, JSON.stringify(edificio));
+
+      for (const planta of edificio.plantas) {
+        const interior = cargarInterior(archivo, planta.nivel);
+        assert.strictEqual(interior.rol, planta.rol);
+        const nivelesEsperados = edificio.conectoresVerticales
+          .filter((c: any) => c.entreNiveles.includes(planta.nivel))
+          .map((c: any) => (c.entreNiveles[0] === planta.nivel ? c.entreNiveles[1] : c.entreNiveles[0]))
+          .sort();
+        const nivelesObtenidos = interior.conectores.map((c) => c.destinoNivel).sort();
+        assert.deepStrictEqual(
+          nivelesObtenidos,
+          nivelesEsperados,
+          `${tipoEdificioId} nivel ${planta.nivel}: conectores expuestos no coinciden con conectoresVerticales`,
+        );
+      }
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("cargarInterior: el spawn nunca cae en una casilla sólida", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "colony-interior-spawn-"));
   try {

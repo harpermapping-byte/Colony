@@ -1,10 +1,12 @@
 /**
  * Render placeholder de un interior de edificio (docs/GDD_Sistema_Puertas.md)
  * — cajas de color por sala/mueble/pared, mismo criterio "todo el arte es
- * placeholder" que el resto del proyecto (colorDebug del catálogo). v1:
- * solo planta baja, paredes SIEMPRE visibles (sin oclusión dinámica estilo
- * Project Zomboid todavía — pendiente, ver GDD), con hueco en cada puerta
- * de conexión real entre salas.
+ * placeholder" que el resto del proyecto (colorDebug del catálogo). v2:
+ * la planta a pintar la elige `nivel` (por defecto planta baja); paredes
+ * SIEMPRE visibles (sin oclusión dinámica estilo Project Zomboid todavía
+ * — pendiente, ver GDD), con hueco en cada puerta de conexión real entre
+ * salas de la MISMA planta, y un marcador propio (distinto de un mueble)
+ * en cada escalera/trampilla que suba o baje de planta.
  */
 import * as THREE from "three";
 
@@ -33,22 +35,34 @@ interface SalaInterior {
   };
 }
 
+interface ConectorVertical {
+  tipoConectorId: string;
+  entreNiveles: [number, number];
+  posicionAbajo: { x: number; y: number };
+  posicionArriba: { x: number; y: number };
+  huella: [number, number];
+}
+
 export interface InteriorBakeado {
   id: string;
   tipoEdificioId: string;
   plantas: { nivel: number; rol: string; salas: SalaInterior[]; puertasConexion?: PuertaConexion[] }[];
+  conectoresVerticales?: ConectorVertical[];
 }
 
 const ALTO_MUEBLE = 0.6;
 const ALTO_PARED = 2.4;
 const GROSOR_PARED = 0.12;
 const COLOR_PARED = "#b0a48c";
+const ALTO_CONECTOR = 0.9;
+const COLOR_CONECTOR = "#c9a227"; // distinto de cualquier mueble: es un portal, no decoración
 
-export function crearInteriorVisual(interior: InteriorBakeado): THREE.Group {
+export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE.Group {
   const grupo = new THREE.Group();
   // plantas[0] NO es siempre la planta baja (edificios con bodega) — mismo
-  // bug que se corrigió en el servidor, mismo criterio aquí.
-  const planta = interior.plantas.find((p) => p.rol === "planta_baja") ?? interior.plantas[0];
+  // bug que se corrigió en el servidor, mismo criterio aquí. `nivel` decide
+  // qué planta se pinta (0 = planta baja si no se especifica otra).
+  const planta = interior.plantas.find((p) => p.nivel === nivel) ?? interior.plantas.find((p) => p.rol === "planta_baja") ?? interior.plantas[0];
   const salas = planta?.salas ?? [];
   const puertas = planta?.puertasConexion ?? [];
   const esPuerta = (x: number, y: number) => puertas.some((p) => p.x === x && p.y === y);
@@ -87,6 +101,22 @@ export function crearInteriorVisual(interior: InteriorBakeado): THREE.Group {
       grupo.add(caja);
     }
   }
+
+  // Escaleras/trampillas que tocan esta planta — mismo cálculo de "a qué
+  // lado del conector le toca esta planta" que interiorColision.ts en el
+  // servidor: color/altura propios para que se note que es un TP, no
+  // decoración normal.
+  const matConector = new THREE.MeshStandardMaterial({ color: COLOR_CONECTOR, roughness: 0.7, metalness: 0.1 });
+  for (const c of interior.conectoresVerticales ?? []) {
+    const [nivelAbajo, nivelArriba] = c.entreNiveles;
+    const posicion = nivelAbajo === nivel ? c.posicionAbajo : nivelArriba === nivel ? c.posicionArriba : null;
+    if (!posicion) continue;
+    const [hw, hl] = c.huella;
+    const caja = new THREE.Mesh(new THREE.BoxGeometry(hw, ALTO_CONECTOR, hl), matConector);
+    caja.position.set(posicion.x + hw / 2, ALTO_CONECTOR / 2, posicion.y + hl / 2);
+    grupo.add(caja);
+  }
+
   return grupo;
 }
 
