@@ -12,6 +12,16 @@
  *   por el bakeador con posición/variante/rotación/escala resueltas.
  */
 
+/** Puerta/portón bakeado — espejo de server/src/mundo/mapaColision.ts
+ * `Portal` (docs/GDD_Sistema_Puertas.md). */
+export interface PortalMapa {
+  tipo: "exterior" | "interior";
+  x: number;
+  y: number;
+  edificio?: string;
+  tipoEdificioId?: string;
+}
+
 export interface IndiceMapa {
   version: number;
   nombre: string;
@@ -22,6 +32,7 @@ export interface IndiceMapa {
   tamanoSectorChunks: number;
   leyendaTerreno: string[];
   ciudad?: { x: number; y: number };
+  portales?: PortalMapa[];
 }
 
 /** Objeto colocado por el bakeador dentro de un chunk (claves cortas del export). */

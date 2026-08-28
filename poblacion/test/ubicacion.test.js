@@ -13,6 +13,26 @@ const { asignarUbicacion, contarCamas, capacidadTrabajo } = require("../src/asig
 const catalogosInteriores = cargarCatalogosInteriores();
 const catalogos = cargarCatalogos();
 
+test("capacidadTrabajo: taberna/posada/templo/tienda/panaderia usan piezas reales (mostrador/altar/horno_pan), no solo la huella", () => {
+  const objetivo = new Set(["taberna", "posada", "templo", "tienda", "panaderia"]);
+  const vistos = new Set();
+  for (const semilla of ["cap-1", "cap-2", "cap-3", "cap-4", "cap-5", "cap-6", "cap-7", "cap-8"]) {
+    const ciudad = generarCiudad({ tier: "gran_capital", semilla, catalogos: catalogosInteriores });
+    for (const ed of ciudad.edificios) {
+      if (!objetivo.has(ed.tipoEdificioId) || vistos.has(ed.tipoEdificioId)) continue;
+      const piezasReales = (ed.interior?.plantas ?? []).some((p) =>
+        (p.salas ?? []).some((s) => (s.resultado?.colocados ?? []).some((c) => catalogosInteriores.elementos[c.id]?.temasProfesion)),
+      );
+      // mostrador/altar son isMandatory: si el edificio tiene la sala temática, siempre hay pieza real.
+      if (["taberna", "posada", "templo", "tienda"].includes(ed.tipoEdificioId)) {
+        assert.ok(piezasReales, `${ed.tipoEdificioId}: sin pieza temática (mostrador/altar) — revisar temaTaller/temasProfesion`);
+      }
+      vistos.add(ed.tipoEdificioId);
+    }
+  }
+  assert.ok(vistos.size >= 4, `solo se encontraron ${vistos.size}/5 tipos de edificio en 8 semillas de gran_capital`);
+});
+
 test("contarCamas: suma plazas de todas las salas/plantas de un edificio real", () => {
   const ciudad = generarCiudad({ tier: "aldea", semilla: "test-ubicacion-1", catalogos: catalogosInteriores });
   const casas = ciudad.edificios.filter((e) => e.tipoEdificioId.startsWith("casa_"));

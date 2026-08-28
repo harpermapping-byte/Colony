@@ -48,11 +48,31 @@ function idsConColision(rutaCatalogo: string): Set<string> {
   return ids;
 }
 
+/** Puerta/portón bakeado (ciudades/src/generar.js): "exterior" = puerta de
+ * la muralla hacia fuera del asentamiento; "interior" = puerta de un
+ * edificio concreto hacia su interior anidado (mismo `edificio` que el
+ * nombre de archivo en `<rutaMapa>/interiores/`). `destino` (opcional,
+ * solo en portales "exterior" de un mapa PADRE — hub o región — que
+ * enlazan a otro mapa; ver docs/GDD_Sistema_Puertas.md) dice adónde va:
+ * sin `destino`, un portal "exterior" es la salida propia del mapa hacia
+ * quien lo abrió (comportamiento "volver"). */
+export interface Portal {
+  tipo: "exterior" | "interior";
+  x: number;
+  y: number;
+  edificio?: string;
+  tipoEdificioId?: string;
+  destino?: { tipo: "region" | "hub"; mapaId?: string };
+}
+
 export interface MapaCargado extends MundoColision {
   nombre: string;
   /** casilla de aparición (la ciudad del índice, corregida a suelo pisable) */
   spawnX: number;
   spawnY: number;
+  /** ruta absoluta de donde se cargó — para resolver `interiores/<edificio>.json` */
+  rutaMapa: string;
+  portales: Portal[];
 }
 
 export function cargarMapaColision(
@@ -67,6 +87,7 @@ export function cargarMapaColision(
     tamanoSectorChunks: number;
     leyendaTerreno: string[];
     ciudad?: { x: number; y: number };
+    portales?: Portal[];
   }>(path.join(rutaMapa, "indice.json"));
 
   const terrenos = leerJSON<Record<string, EntradaTerreno>>(path.join(rutaCatalogo, "terrenos.json"));
@@ -125,7 +146,17 @@ export function cargarMapaColision(
   const objetivo = indice.ciudad ?? { x: Math.floor(ancho / 2), y: Math.floor(alto / 2) };
   const spawn = casillaPisableMasCercana(casillas, ancho, alto, objetivo.x, objetivo.y);
 
-  return { nombre: indice.nombre, ancho, alto, casillas, velocidad, spawnX: spawn.x + 0.5, spawnY: spawn.y + 0.5 };
+  return {
+    nombre: indice.nombre,
+    ancho,
+    alto,
+    casillas,
+    velocidad,
+    spawnX: spawn.x + 0.5,
+    spawnY: spawn.y + 0.5,
+    rutaMapa,
+    portales: indice.portales ?? [],
+  };
 }
 
 function casillaPisableMasCercana(

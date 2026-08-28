@@ -2,6 +2,8 @@ import { createServer } from "http";
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { HubRoom } from "./rooms/HubRoom";
+import { RegionRoom } from "./rooms/RegionRoom";
+import { InteriorRoom } from "./rooms/InteriorRoom";
 
 const port = Number(process.env.PORT) || 2567;
 
@@ -17,6 +19,11 @@ const gameServer = new Server({
 });
 
 gameServer.define("hub", HubRoom);
+// Instancias con tope de jugadores (docs/GDD_Sistema_Puertas.md): filterBy
+// hace que dos joins con el MISMO mapaId/edificio caigan en la MISMA room
+// (comparten la aldea/el edificio) y uno distinto cree una room aparte.
+gameServer.define("region", RegionRoom).filterBy(["mapaId"]);
+gameServer.define("interior", InteriorRoom).filterBy(["mapaId", "edificio"]);
 
 httpServer.listen(port, () => {
   console.log(`Colony server escuchando en el puerto ${port}`);
