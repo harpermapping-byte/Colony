@@ -72,6 +72,7 @@ function escribirPoblacionDeMapa(resultado, carpetaMapa) {
       nombre: n.apellido ? `${n.nombre} ${n.apellido}` : n.nombre,
       oficio: n.trabajo?.oficio ?? n.ficha?.profesion ?? null,
       grito: n.grito, // frase de calle de los especiales (melonero, pregonero...) — el cliente la muestra en burbuja
+      velocidad: n.velocidad, // multiplicador de velocidad de andar (el "corredor") — undefined = normal
       rutina: n.rutina,
       vox: {
         ficha: n.ficha,

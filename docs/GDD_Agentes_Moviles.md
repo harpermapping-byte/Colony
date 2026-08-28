@@ -139,22 +139,26 @@ déficit de camas dejaba al NPC sin rutina (invisible); ahora todo el censo
 sale al mapa. La visibilidad es por tramo: bajo techo (en casa o durmiendo
 donde le tocó) no se pinta en el exterior; `dormir_calle` del vagabundo sí.
 
-### Ideas propuestas (pendientes del OK del streamer — no implementadas)
+### Segunda tanda de especiales (v1.2, 2026-08-28 — OK del streamer: "las 14 idea me valen")
 
-1. **El borracho del pueblo** — sale de la taberna haciendo eses, duerme en cualquier banco.
-2. **La chismosa** — va de puerta en puerta y se para "a hablar" con cada NPC que cruza (ideal para IA).
-3. **El bardo malo** — canta en la plaza y los NPCs cercanos se apartan un paso.
-4. **El loco de las profecías** — señala al cielo y suelta profecías absurdas sobre "el fin del reino".
-5. **El recaudador de impuestos** — va de tienda en tienda con un guardia de escolta; todos lo miran mal.
-6. **El duelista jubilado** — viejo con espada de madera que entrena contra un poste.
-7. **La vendedora de amuletos** — "amuletos de dudosa eficacia", promesas exageradas a grito.
-8. **El niño perdido** — corretea por la ciudad; devolverlo a su madre puede ser micro-misión futura.
-9. **El pescador mentiroso** — junto al agua contando el pez gigante que casi pesca (crece cada día).
-10. **El sepulturero** — de noche pasea con pala y farol cerca del templo; de día duerme.
-11. **El mimo/estatua** — inmóvil en la plaza; si un jugador se acerca mucho, se mueve de golpe.
-12. **El coleccionista de gallinas** — persigue gallinas por la ciudad (cuando haya fauna urbana).
-13. **El "corredor"** — siempre va corriendo a todas partes como si llegara tarde a algo.
-14. **El gato/perro del pueblo** — fauna urbana especial que sigue a gente aleatoria (con la fauna).
+Los 13 con esqueleto humanoide, IMPLEMENTADOS con el mismo mecanismo de
+catálogo (arquetipo + censo por tier + perfil social + `especiales.json`).
+Solo el nº14 queda fuera porque es fauna, no un NPC:
+
+1. **Borracho** (`borracho`) — duerme la mona en cualquier banco (`sinCasa`), tarde entera en la taberna, tambaleo por la calle de noche.
+2. **Chismosa** (`chismosa`) — deambula de puerta en puerta "cotilleando" todo el día — el lugar `deambular` ya reutiliza las puertas de edificios/tiendas como paradas, es justo el efecto buscado.
+3. **Bardo malo** (`bardo_malo`) — canta en la plaza toda la tarde; el efecto "la gente se aparta" queda como reacción visual futura (animación), no mecánica todavía.
+4. **Profeta/loco de las profecías** (`profeta`) — deambula de día "profetizando" y remata en la plaza al anochecer.
+5. **Recaudador** (`recaudador`) — ronda las TIENDAS del asentamiento (`ronda_tiendas`, pool nuevo de paradas); la escolta de guardia queda como simplificación v1 (dos NPCs enlazados es mecánica futura).
+6. **Duelista jubilado** (`duelista_jubilado`) — entrena en la plaza mañana y tarde.
+7. **Vendedora de amuletos** (`vendedora_amuletos`) — reusa el perfil `vendedor_ambulante` (ronda+plaza) con su propio grito: "¡Amuletos de eficacia garantizada!".
+8. **Niño perdido** (`nino_perdido`) — morfología pequeña, deambula "buscando a su familia"; devolverlo es micro-misión futura.
+9. **Pescador mentiroso** (`pescador_mentiroso`) — nuevo lugar `rio`: orilla real más cercana a su casa (`tilesDeAgua`/`puntoDeAgua`, mismo patrón de caché que los huertos); sin agua intramuros cae a la plaza.
+10. **Sepulturero** (`sepulturero`) — nuevo lugar `templo`; turno NOCTURNO 20→7 (cruza medianoche) cerca del templo, duerme de día.
+11. **Mimo/estatua** (`mimo`) — tramo largo e inmóvil en la plaza; la reacción "se mueve si te acercas" queda pendiente (necesita detección de proximidad a jugador).
+12. **Coleccionista de gallinas** (`coleccionista_gallinas`) — deambula "buscando gallinas"; la interacción real con fauna queda aparcada (no hay fauna urbana viva todavía).
+13. **Corredor** (`corredor`) — NO fuerza perfil (reparto normal de `asignarPerfil`, cualquier rutina le vale): solo se le marca `velocidad: 1.8` en `especiales.json`, que `agentes.ts` aplica como multiplicador de `VEL_NPC` — mecanismo genérico reutilizable para huir/perseguir en el futuro.
+14. **Gato/perro del pueblo** — sigue APARCADO: es fauna urbana viva (un animal, no un personaje), necesita su propio tipo de agente sobre `animales/` en vez de `personajes/` — no es un simple catálogo nuevo, es una pieza de motor distinta.
 
 ## Verificado (v1)
 

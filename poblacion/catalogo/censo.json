@@ -46,6 +46,20 @@
         0,
         1
       ]
+    },
+    {
+      "npc": "chismosa",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "nino_perdido",
+      "cantidad": [
+        0,
+        1
+      ]
     }
   ],
   "aldea": [
@@ -133,6 +147,34 @@
     },
     {
       "npc": "vendedor_melones",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "borracho",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "chismosa",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "nino_perdido",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "corredor",
       "cantidad": [
         0,
         1
@@ -253,6 +295,83 @@
         0,
         1
       ]
+    },
+    {
+      "npc": "borracho",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "chismosa",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "bardo_malo",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "profeta",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "vendedora_amuletos",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "nino_perdido",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "pescador_mentiroso",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "sepulturero",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "mimo",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "coleccionista_gallinas",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "corredor",
+      "cantidad": [
+        0,
+        1
+      ]
     }
   ],
   "capital": [
@@ -360,6 +479,97 @@
         1,
         1
       ]
+    },
+    {
+      "npc": "borracho",
+      "cantidad": [
+        0,
+        2
+      ]
+    },
+    {
+      "npc": "chismosa",
+      "cantidad": [
+        0,
+        2
+      ]
+    },
+    {
+      "npc": "bardo_malo",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "profeta",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "recaudador",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "duelista_jubilado",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "vendedora_amuletos",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "nino_perdido",
+      "cantidad": [
+        0,
+        2
+      ]
+    },
+    {
+      "npc": "pescador_mentiroso",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "sepulturero",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "mimo",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "coleccionista_gallinas",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "corredor",
+      "cantidad": [
+        0,
+        2
+      ]
     }
   ],
   "castillo": [
@@ -395,6 +605,27 @@
     },
     {
       "npc": "vagabundo",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "duelista_jubilado",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "recaudador",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "sepulturero",
       "cantidad": [
         0,
         1
@@ -532,6 +763,97 @@
       "cantidad": [
         1,
         2
+      ]
+    },
+    {
+      "npc": "borracho",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "chismosa",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "bardo_malo",
+      "cantidad": [
+        0,
+        2
+      ]
+    },
+    {
+      "npc": "profeta",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "recaudador",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "duelista_jubilado",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "vendedora_amuletos",
+      "cantidad": [
+        0,
+        2
+      ]
+    },
+    {
+      "npc": "nino_perdido",
+      "cantidad": [
+        1,
+        3
+      ]
+    },
+    {
+      "npc": "pescador_mentiroso",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "sepulturero",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "mimo",
+      "cantidad": [
+        0,
+        2
+      ]
+    },
+    {
+      "npc": "coleccionista_gallinas",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "corredor",
+      "cantidad": [
+        1,
+        3
       ]
     }
   ]

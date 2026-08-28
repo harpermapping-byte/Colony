@@ -1,15 +1,75 @@
 {
   "_uso": "NPCs ESPECIALES por arquetipo (pedido del streamer 2026-08-28, GDD_Agentes_Moviles.md): a qué perfil social FORZADO va cada arquetipo especial (asignarEspeciales.js lo aplica ANTES del reparto aleatorio de asignarPerfil), su grito de calle si tiene, y el reparto de turnos de la guardia. Añadir un especial nuevo = arquetipo en personajes/catalogo/npcs.json + entrada de censo + perfil en perfilesSociales.json + una línea aquí — cero código nuevo.",
   "porArquetipo": {
-    "sacerdote": { "perfil": "parroco" },
-    "vagabundo": { "perfil": "vagabundo", "grito": "¿Una monedita, buen alma?" },
-    "pregonero": { "perfil": "pregonero", "grito": "¡Oíd, oíd! ¡Noticias del reino!" },
-    "vendedor_melones": { "perfil": "vendedor_ambulante", "grito": "¡Vendo melones! ¡Melones frescos!" }
+    "sacerdote": {
+      "perfil": "parroco"
+    },
+    "vagabundo": {
+      "perfil": "vagabundo",
+      "grito": "¿Una monedita, buen alma?"
+    },
+    "pregonero": {
+      "perfil": "pregonero",
+      "grito": "¡Oíd, oíd! ¡Noticias del reino!"
+    },
+    "vendedor_melones": {
+      "perfil": "vendedor_ambulante",
+      "grito": "¡Vendo melones! ¡Melones frescos!"
+    },
+    "borracho": {
+      "perfil": "borracho",
+      "grito": "¡Un brindis por... por... esto!"
+    },
+    "chismosa": {
+      "perfil": "chismosa"
+    },
+    "bardo_malo": {
+      "perfil": "bardo_malo",
+      "grito": "♪ Escuchad mi historia... ♪"
+    },
+    "profeta": {
+      "perfil": "profeta",
+      "grito": "¡El fin del reino se acerca!"
+    },
+    "recaudador": {
+      "perfil": "recaudador"
+    },
+    "duelista_jubilado": {
+      "perfil": "duelista_jubilado"
+    },
+    "vendedora_amuletos": {
+      "perfil": "vendedor_ambulante",
+      "grito": "¡Amuletos de eficacia garantizada!"
+    },
+    "nino_perdido": {
+      "perfil": "nino_perdido"
+    },
+    "pescador_mentiroso": {
+      "perfil": "pescador_mentiroso"
+    },
+    "sepulturero": {
+      "perfil": "sepulturero"
+    },
+    "mimo": {
+      "perfil": "mimo"
+    },
+    "coleccionista_gallinas": {
+      "perfil": "coleccionista_gallinas"
+    },
+    "corredor": {
+      "velocidad": 1.8
+    }
   },
   "guardia": {
     "_nota": "La guardia se reparte por ÍNDICE entre los censados: primero 2 por puerta de muralla (turno de día + turno de noche en la MISMA puerta, 12 h cada uno), y el resto a rondas alternando día/noche. Así toda puerta tiene guardia estática 24 h y siempre hay patrulla.",
     "arquetipo": "guardia",
-    "turnosPuerta": ["guardia_puerta_dia", "guardia_puerta_noche"],
-    "turnosRonda": ["guardia_ronda_dia", "guardia_ronda_noche"]
+    "turnosPuerta": [
+      "guardia_puerta_dia",
+      "guardia_puerta_noche"
+    ],
+    "turnosRonda": [
+      "guardia_ronda_dia",
+      "guardia_ronda_noche"
+    ]
   }
 }

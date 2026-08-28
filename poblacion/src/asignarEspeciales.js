@@ -9,10 +9,12 @@
 
 /**
  * @param {object} npc - de exportarPoblacion (con .ficha) — se le puede
- *   escribir .puestoPuerta (índice de puerta de muralla) y .grito
+ *   escribir .puestoPuerta (índice de puerta de muralla), .grito y .velocidad
  * @param {object} ctx - { indiceGuardia: contador mutable {n}, nPuertas }
  * @param {object} especiales - poblacion/catalogo/especiales.json
- * @returns {string|null} id de perfil forzado, o null (reparto normal)
+ * @returns {string|null} id de perfil FORZADO, o null (reparto normal de
+ *   asignarPerfil — el "corredor" pasa por aquí sin perfil forzado: solo
+ *   se le marca la velocidad, su rutina sigue siendo una normal cualquiera)
  */
 function perfilEspecial(npc, ctx, especiales) {
   const arquetipo = npc.npcId;
@@ -31,7 +33,8 @@ function perfilEspecial(npc, ctx, especiales) {
   const entrada = especiales.porArquetipo?.[arquetipo];
   if (!entrada) return null;
   if (entrada.grito) npc.grito = entrada.grito;
-  return entrada.perfil;
+  if (entrada.velocidad) npc.velocidad = entrada.velocidad;
+  return entrada.perfil ?? null;
 }
 
 module.exports = { perfilEspecial };
