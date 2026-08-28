@@ -1,103 +1,321 @@
 {
   "_nota": "Rig/esqueleto de ANIMALES para el generador de personajes — las claves son los MISMOS ids de baker/catalogo/animales.json (el color base sale de su colorDebug: cero duplicados; el generador valida que el id exista). Cada entrada: esqueleto (plantilla de generarAnimal.js: cuadrupedo/ave/insecto — pez/serpiente/cangrejo pendientes de plantilla), proporciones en CASILLAS de la especie adulta media, escala con RANGO [min,max] (cada individuo cae en un punto por semilla, igual que la morfología de NPCs) y rasgos propios de la plantilla (orejas/cuernos/cola/cresta/rayas...). ESTO ES EL ARRANQUE DE PRUEBA (6 especies para validar las 3 plantillas): cuando el streamer dé la orden se etiqueta el listado entero de ~100 especies y se genera todo del tirón, sin tocar el generador.",
-
   "conejo": {
     "esqueleto": "cuadrupedo",
-    "escala": [0.85, 1.15],
-    "proporciones": { "largoCuerpo": 0.5, "altoCuerpo": 0.28, "anchoCuerpo": 0.26, "altoPata": 0.12, "grosorPata": 0.07, "tamCabeza": 0.22 },
-    "rasgos": { "orejas": "largas", "cola": "pomo", "hocico": "corto" }
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.5,
+      "altoCuerpo": 0.28,
+      "anchoCuerpo": 0.26,
+      "altoPata": 0.12,
+      "grosorPata": 0.07,
+      "tamCabeza": 0.22
+    },
+    "rasgos": {
+      "orejas": "largas",
+      "cola": "pomo",
+      "hocico": "corto"
+    }
   },
-
   "lobo": {
     "esqueleto": "cuadrupedo",
-    "escala": [0.9, 1.15],
-    "proporciones": { "largoCuerpo": 1.0, "altoCuerpo": 0.42, "anchoCuerpo": 0.34, "altoPata": 0.42, "grosorPata": 0.1, "tamCabeza": 0.32 },
-    "rasgos": { "orejas": "puntiagudas", "cola": "larga", "hocico": "largo" }
+    "escala": [
+      0.9,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.0,
+      "altoCuerpo": 0.42,
+      "anchoCuerpo": 0.34,
+      "altoPata": 0.42,
+      "grosorPata": 0.1,
+      "tamCabeza": 0.32
+    },
+    "rasgos": {
+      "orejas": "puntiagudas",
+      "cola": "larga",
+      "hocico": "largo"
+    }
   },
-
   "vaca_salvaje": {
     "esqueleto": "cuadrupedo",
-    "escala": [0.95, 1.1],
-    "proporciones": { "largoCuerpo": 1.5, "altoCuerpo": 0.75, "anchoCuerpo": 0.6, "altoPata": 0.55, "grosorPata": 0.14, "tamCabeza": 0.42 },
-    "rasgos": { "orejas": "laterales", "cola": "larga", "hocico": "medio", "cuernos": "cortos" }
+    "escala": [
+      0.95,
+      1.1
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.5,
+      "altoCuerpo": 0.75,
+      "anchoCuerpo": 0.6,
+      "altoPata": 0.55,
+      "grosorPata": 0.14,
+      "tamCabeza": 0.42
+    },
+    "rasgos": {
+      "orejas": "laterales",
+      "cola": "larga",
+      "hocico": "medio",
+      "cuernos": "cortos"
+    }
   },
-
   "ciervo": {
     "esqueleto": "cuadrupedo",
-    "escala": [0.9, 1.1],
-    "proporciones": { "largoCuerpo": 1.2, "altoCuerpo": 0.55, "anchoCuerpo": 0.4, "altoPata": 0.65, "grosorPata": 0.09, "tamCabeza": 0.32 },
-    "rasgos": { "orejas": "puntiagudas", "cola": "corta", "hocico": "medio", "cuernos": "ramificados", "_nota": "cuernos solo en machos (sexoPesos de la plantilla)" }
+    "escala": [
+      0.9,
+      1.1
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.2,
+      "altoCuerpo": 0.55,
+      "anchoCuerpo": 0.4,
+      "altoPata": 0.65,
+      "grosorPata": 0.09,
+      "tamCabeza": 0.32
+    },
+    "rasgos": {
+      "orejas": "puntiagudas",
+      "cola": "corta",
+      "hocico": "medio",
+      "cuernos": "ramificados",
+      "_nota": "cuernos solo en machos (sexoPesos de la plantilla)"
+    }
   },
-
   "gallina_salvaje": {
     "esqueleto": "ave",
-    "escala": [0.85, 1.1],
-    "proporciones": { "largoCuerpo": 0.4, "altoCuerpo": 0.3, "anchoCuerpo": 0.28, "altoPata": 0.16, "tamCabeza": 0.16 },
-    "rasgos": { "cresta": true, "pico": "corto", "cola": "abanico", "vuela": false }
+    "escala": [
+      0.85,
+      1.1
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.3,
+      "anchoCuerpo": 0.28,
+      "altoPata": 0.16,
+      "tamCabeza": 0.16
+    },
+    "rasgos": {
+      "cresta": true,
+      "pico": "corto",
+      "cola": "abanico",
+      "vuela": false
+    }
   },
-
   "abeja": {
     "esqueleto": "insecto",
-    "escala": [0.8, 1.2],
-    "proporciones": { "largoCuerpo": 0.24, "altoCuerpo": 0.12, "anchoCuerpo": 0.12, "altoPata": 0.05, "tamCabeza": 0.08 },
-    "rasgos": { "alas": true, "antenas": true, "rayas": "#2a2013", "_nota": "rayas: color alterno del abdomen sobre el colorDebug base" }
+    "escala": [
+      0.8,
+      1.2
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.24,
+      "altoCuerpo": 0.12,
+      "anchoCuerpo": 0.12,
+      "altoPata": 0.05,
+      "tamCabeza": 0.08
+    },
+    "rasgos": {
+      "alas": true,
+      "antenas": true,
+      "rayas": "#2a2013",
+      "_nota": "rayas: color alterno del abdomen sobre el colorDebug base"
+    }
   },
-
   "pez_mediano": {
     "esqueleto": "pez",
-    "escala": [0.8, 1.2],
-    "proporciones": { "largoCuerpo": 0.45, "altoCuerpo": 0.16, "anchoCuerpo": 0.1 },
-    "rasgos": { "dorsal": "normal" }
+    "escala": [
+      0.8,
+      1.2
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.45,
+      "altoCuerpo": 0.16,
+      "anchoCuerpo": 0.1
+    },
+    "rasgos": {
+      "dorsal": "normal"
+    }
   },
-
   "tiburon": {
     "esqueleto": "pez",
-    "escala": [0.9, 1.15],
-    "proporciones": { "largoCuerpo": 1.8, "altoCuerpo": 0.45, "anchoCuerpo": 0.32 },
-    "rasgos": { "dorsal": "alta" }
+    "escala": [
+      0.9,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.8,
+      "altoCuerpo": 0.45,
+      "anchoCuerpo": 0.32
+    },
+    "rasgos": {
+      "dorsal": "alta"
+    }
   },
-
   "culebra_de_agua": {
     "esqueleto": "serpiente",
-    "escala": [0.85, 1.2],
-    "proporciones": { "largoCuerpo": 0.9, "altoCuerpo": 0.07, "anchoCuerpo": 0.09, "tamCabeza": 0.11 },
-    "rasgos": { "anillos": true }
+    "escala": [
+      0.85,
+      1.2
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.9,
+      "altoCuerpo": 0.07,
+      "anchoCuerpo": 0.09,
+      "tamCabeza": 0.11
+    },
+    "rasgos": {
+      "anillos": true
+    }
   },
-
   "serpiente_de_cascabel": {
     "esqueleto": "serpiente",
-    "escala": [0.85, 1.15],
-    "proporciones": { "largoCuerpo": 0.8, "altoCuerpo": 0.08, "anchoCuerpo": 0.1, "tamCabeza": 0.13 },
-    "rasgos": { "anillos": true, "cascabel": true }
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.8,
+      "altoCuerpo": 0.08,
+      "anchoCuerpo": 0.1,
+      "tamCabeza": 0.13
+    },
+    "rasgos": {
+      "anillos": true,
+      "cascabel": true
+    }
   },
-
   "cangrejo": {
     "esqueleto": "crustaceo",
-    "escala": [0.8, 1.25],
-    "proporciones": { "largoCuerpo": 0.22, "altoCuerpo": 0.09, "anchoCuerpo": 0.3, "altoPata": 0.07 },
+    "escala": [
+      0.8,
+      1.25
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.22,
+      "altoCuerpo": 0.09,
+      "anchoCuerpo": 0.3,
+      "altoPata": 0.07
+    },
     "rasgos": {}
   },
-
   "rana": {
     "esqueleto": "anfibio",
-    "escala": [0.8, 1.2],
-    "proporciones": { "largoCuerpo": 0.22, "altoCuerpo": 0.12, "anchoCuerpo": 0.16, "altoPata": 0.1, "tamCabeza": 0.1 },
+    "escala": [
+      0.8,
+      1.2
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.22,
+      "altoCuerpo": 0.12,
+      "anchoCuerpo": 0.16,
+      "altoPata": 0.1,
+      "tamCabeza": 0.1
+    },
     "rasgos": {}
   },
-
   "murcielago": {
     "_nota": "Enemigo de mazmorra (docs/GDD_Bakeador_Dungeons.md) — mismo id que baker/catalogo/animales.json.",
     "esqueleto": "ave",
-    "escala": [0.7, 1.0],
-    "proporciones": { "largoCuerpo": 0.3, "altoCuerpo": 0.18, "anchoCuerpo": 0.22, "altoPata": 0.08, "tamCabeza": 0.14 },
-    "rasgos": { "cresta": false, "pico": "corto", "cola": "corta", "vuela": true }
+    "escala": [
+      0.7,
+      1.0
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.3,
+      "altoCuerpo": 0.18,
+      "anchoCuerpo": 0.22,
+      "altoPata": 0.08,
+      "tamCabeza": 0.14
+    },
+    "rasgos": {
+      "cresta": false,
+      "pico": "corto",
+      "cola": "corta",
+      "vuela": true
+    }
   },
-
   "arana_gigante": {
     "_nota": "Enemigo de mazmorra (docs/GDD_Bakeador_Dungeons.md) — mismo id que baker/catalogo/animales.json (biomas:[] ahí, no sale en el mapa salvaje).",
     "esqueleto": "insecto",
-    "escala": [1.6, 2.4],
-    "proporciones": { "largoCuerpo": 0.6, "altoCuerpo": 0.34, "anchoCuerpo": 0.34, "altoPata": 0.32, "tamCabeza": 0.2 },
-    "rasgos": { "alas": false, "antenas": true, "rayas": "#1a0a1a" }
+    "escala": [
+      1.6,
+      2.4
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.6,
+      "altoCuerpo": 0.34,
+      "anchoCuerpo": 0.34,
+      "altoPata": 0.32,
+      "tamCabeza": 0.2
+    },
+    "rasgos": {
+      "alas": false,
+      "antenas": true,
+      "rayas": "#1a0a1a"
+    }
+  },
+  "perro": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.55,
+      0.85
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.75,
+      "altoCuerpo": 0.4,
+      "anchoCuerpo": 0.3,
+      "altoPata": 0.32,
+      "grosorPata": 0.09,
+      "tamCabeza": 0.28
+    },
+    "rasgos": {
+      "orejas": "caidas",
+      "cola": "media",
+      "hocico": "medio",
+      "cuernos": "ninguno"
+    }
+  },
+  "gato": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.4,
+      0.6
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.5,
+      "altoCuerpo": 0.26,
+      "anchoCuerpo": 0.2,
+      "altoPata": 0.2,
+      "grosorPata": 0.06,
+      "tamCabeza": 0.2
+    },
+    "rasgos": {
+      "orejas": "puntiagudas",
+      "cola": "larga",
+      "hocico": "corto",
+      "cuernos": "ninguno"
+    }
+  },
+  "gallo": {
+    "esqueleto": "ave",
+    "escala": [
+      0.9,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.42,
+      "altoCuerpo": 0.32,
+      "anchoCuerpo": 0.28,
+      "altoPata": 0.2,
+      "tamCabeza": 0.17
+    },
+    "rasgos": {
+      "cresta": true,
+      "pico": "corto",
+      "cola": "abanico",
+      "vuela": false
+    }
   }
 }

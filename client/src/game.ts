@@ -164,6 +164,22 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     /* mapa sin población: sin NPCs, sin error */
   }
 
+  // Fauna doméstica urbana (v1.3) — solo exterior (state.fauna no existe
+  // en un interior, y no hace falta): mismo criterio que poblacion.json,
+  // vox por id en fauna.json.
+  const voxFaunaPorId = new Map<string, AnimalExportado>();
+  if (!ES_INTERIOR) {
+    try {
+      const r = await fetch(`${RUTA_MAPA}/fauna.json`);
+      if (r.ok) {
+        const datos = await r.json();
+        for (const a of datos.fauna as { id: string; vox: AnimalExportado }[]) voxFaunaPorId.set(a.id, a.vox);
+      }
+    } catch {
+      /* mapa sin fauna: sin animales, sin error */
+    }
+  }
+
   // --- Pool de aspecto de ENEMIGOS de mazmorra (docs/GDD_Bakeador_Dungeons.md
   // §4.1): assets/enemigos/pool.json trae varias variantes YA generadas
   // (vóxeles resueltos) por cada enemigoId — el servidor solo manda qué
@@ -447,6 +463,32 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     muestra: [...npcsVisual.values()].slice(0, 3).map((n) => ({ x: +n.destinoX.toFixed(1), y: +n.destinoZ.toFixed(1) })),
   });
 
+  // --- Fauna doméstica (GDD_Agentes_Moviles.md v1.3): mismo circuito que
+  // los NPCs (rig + interpolación + marcha automática al moverse), vóxel
+  // real de fauna.json por id.
+  const faunaVisual = new Map<string, EstadoJugador>();
+  $(room.state).fauna.onAdd((animal: any, id: string) => {
+    const vox = voxFaunaPorId.get(id);
+    const criatura = vox ? crearAnimalVoxel(vox) : crearAnimalVoxel({ ficha: { especieId: animal.especieId, esqueleto: "cuadrupedo", escala: 1 }, piezas: [] });
+    criatura.orientar(1, 1);
+    const estado: EstadoJugador = {
+      rig: criatura,
+      destinoX: animal.x, destinoZ: animal.y, destinoY: 0,
+      x: animal.x, z: animal.y, y: 0,
+      nadando: false,
+    };
+    faunaVisual.set(id, estado);
+    escena.añadirEntidad(`fauna_${id}`, criatura.objeto, animal.x, animal.y);
+    $(animal).onChange(() => {
+      estado.destinoX = animal.x;
+      estado.destinoZ = animal.y;
+    });
+  });
+  $(room.state).fauna.onRemove((_animal: any, id: string) => {
+    faunaVisual.delete(id);
+    escena.quitarEntidad(`fauna_${id}`);
+  });
+
   // --- Enemigos de mazmorra (docs/GDD_Bakeador_Dungeons.md §4): sin
   // movimiento/combate todavía (el streamer lo explicará aparte) — aparecen
   // QUIETOS en su punto, con animación de reposo (mismo circuito que la
@@ -512,7 +554,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const factor = 1 - Math.exp(-12 * dt);
     // Jugadores y NPCs comparten interpolación y animación de marcha: un
     // NPC es "otro que se mueve por patches del servidor", nada más.
-    for (const estado of [...jugadores.values(), ...npcsVisual.values()]) {
+    for (const estado of [...jugadores.values(), ...npcsVisual.values(), ...faunaVisual.values()]) {
       const dx = estado.destinoX - estado.x;
       const dz = estado.destinoZ - estado.z;
       const distancia = Math.hypot(dx, dz);

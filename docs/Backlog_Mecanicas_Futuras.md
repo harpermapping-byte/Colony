@@ -146,3 +146,23 @@ Al preparar las reglas de colocación del bakeador de interiores (`GDD_Bakeador_
 - **Insectos/fauna menor**: capturar (decoración, comida, cebo de pesca, u otros usos).
 
 Todo esto refuerza la regla ya fijada de "todo lo que existe tiene un uso" — se van completando los usos concretos según se construya cada mecánica, no hace falta cerrarlos todos ahora.
+
+## Ecología de ratas y gatos — concepto decidido, mecánica sin diseñar
+
+Pedido del streamer 2026-08-28, explícitamente aparcado ("esto ahondaremos
+más adelante") al implementar la fauna doméstica urbana v1.3
+(`docs/GDD_Agentes_Moviles.md`, que sí trae gallinas/vaca/perros/gatos con
+merodeo simple, sin esta parte).
+
+- Las ratas comen basura/plantitas que se spawneen por el asentamiento —
+  su propio spawn/consumo, aparte de la fauna doméstica.
+- Si hay gatos sueltos, cazan ratas: la población de gatos REGULA la de
+  ratas de forma natural (más gatos → menos ratas).
+- Sin gatos (se los ha llevado un jugador, o han muerto), las ratas se
+  reproducen sin control → plaga: entran en casas, roban comida de los
+  inventarios de los jugadores.
+- Implica: un sistema de población viva con reproducción/depredación (algo
+  más que el merodeo de la fauna doméstica actual, que no tiene ciclo de
+  vida ni interacción entre especies), spawn de basura/comida como recurso
+  consumible, y el gato ganando una función real más allá de decoración
+  (hoy es puro ambiente, ver GDD_Agentes_Moviles.md "Qué falta").
