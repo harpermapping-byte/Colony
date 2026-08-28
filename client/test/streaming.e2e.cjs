@@ -34,7 +34,12 @@ async function main() {
   // hablando con un vite/servidor viejo y falla de forma incomprensible
   // (nos pasó: join colgado para siempre contra un servidor muerto).
   const lanzar = (comando, args, cwd) => {
-    const p = spawn(comando, args, { cwd, stdio: "pipe", env: { ...process.env }, detached: true });
+    const p = spawn(comando, args, { cwd, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env }, detached: true });
+    // drenar stdout/stderr: sin esto el buffer de pipe del SO (64KB) se
+    // llena en una sesión larga y el hijo se bloquea escribiendo — mismo
+    // riesgo detectado y arreglado en construccion.e2e.cjs
+    p.stdout.on("data", (d) => process.stdout.write(`[${comando}] ${d}`));
+    p.stderr.on("data", (d) => process.stderr.write(`[${comando}] ${d}`));
     procesos.push(p);
     return p;
   };

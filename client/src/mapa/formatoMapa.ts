@@ -26,13 +26,15 @@ export interface IndiceMapa {
 
 /** Objeto colocado por el bakeador dentro de un chunk (claves cortas del export). */
 export interface ObjetoBakeado {
-  i: string; // id de catálogo (especie/roca/animal)
+  i: string; // id de catálogo (especie/roca/animal/tipoEdificio)
   t: "v" | "r" | "a" | "m" | "e"; // vegetacion | rocas | animales | deco urbana | edificio (ciudades)
   va: number; // índice de variante (0-based)
   ro: number; // rotación en grados
   es: number; // escala
   x: number; // casilla local del chunk
   y: number;
+  w?: number; // solo t:"e" — ancho real de la huella en casillas (con el jitter de ciudades/)
+  h?: number; // solo t:"e" — largo real de la huella en casillas
 }
 
 export interface ChunkBakeado {

@@ -15,6 +15,8 @@ import vegetacionJson from "../../../baker/catalogo/vegetacion.json";
 import rocasJson from "../../../baker/catalogo/rocas.json";
 import animalesJson from "../../../baker/catalogo/animales.json";
 import decoracionJson from "../../../ciudades/catalogo/decoracion.json";
+import tiposEdificioJson from "../../../interiores/catalogo/tipos_edificio.json";
+import huellasJson from "../../../ciudades/catalogo/huellas.json";
 
 interface EntradaCatalogo {
   colorDebug?: string;
@@ -38,6 +40,11 @@ const animales = comoTabla(animalesJson);
 // deco urbana de los mapas de ciudad (t:"m") — catálogo propio del bakeador
 // de ciudades con colorDebug/dimensiones/colision/luz por pieza
 const decoracion = comoTabla(decoracionJson);
+// edificios de ciudad (t:"e"): el catálogo no trae colorDebug propio (es de
+// interiores/, pensado para el editor 2D) — el placeholder de fachada usa el
+// mismo color por riqueza que ya pinta ciudades/src/index.js en su overview.png
+const tiposEdificio = comoTabla(tiposEdificioJson);
+const COLOR_RIQUEZA: Record<string, string> = { humilde: "#8a6a4a", modesta: "#a3762e", noble: "#7a3e8a" };
 
 const COLOR_DESCONOCIDO = "#b05ad8"; // magenta apagado: canta a la vista = id sin entrada de catálogo
 
@@ -52,7 +59,11 @@ const TABLA_POR_TIPO: Record<"v" | "r" | "a" | "m", Record<string, EntradaCatalo
   m: decoracion,
 };
 
-export function colorObjeto(tipo: "v" | "r" | "a" | "m", id: string): string {
+export function colorObjeto(tipo: "v" | "r" | "a" | "m" | "e", id: string): string {
+  if (tipo === "e") {
+    const riqueza = tiposEdificio[id]?.riqueza as string | undefined;
+    return (riqueza && COLOR_RIQUEZA[riqueza]) || COLOR_DESCONOCIDO;
+  }
   return TABLA_POR_TIPO[tipo][id]?.colorDebug || COLOR_DESCONOCIDO;
 }
 
@@ -66,9 +77,20 @@ export interface DimensionesPlaceholder {
  * Tamaño de placeholder por tipo+id. Vegetación: los árboles (madera_*) son
  * altos y estrechos; el resto de flora es matorral bajo. Rocas: bloque bajo
  * y ancho. Animales: caja media (marcador de spawn — la fauna viva es
- * mecánica futura, el bakeador solo deja dónde aparece).
+ * mecánica futura, el bakeador solo deja dónde aparece). Edificios ("e"):
+ * la huella del CATÁLOGO (huellas.json) — el ancho×largo REAL de la
+ * instancia (con el jitter de ciudades/) llega en `obj.w`/`obj.h` y
+ * `crearPropsSector` lo usa en vez de esto cuando está disponible; esta
+ * función solo cubre el caso sin datos de instancia (fallback defensivo).
  */
-export function dimensionesObjeto(tipo: "v" | "r" | "a" | "m", id: string): DimensionesPlaceholder {
+export function dimensionesObjeto(tipo: "v" | "r" | "a" | "m" | "e", id: string): DimensionesPlaceholder {
+  if (tipo === "e") {
+    const huellas = huellasJson as unknown as { porTipo: Record<string, [number, number]>; porRiqueza: Record<string, [number, number]> };
+    const info = tiposEdificio[id];
+    const [ancho, largo] = huellas.porTipo[id] || huellas.porRiqueza[(info?.riqueza as string) || "humilde"] || [7, 6];
+    const plantasAltas = (info?.rangoPlantasAltas as [number, number] | undefined)?.[0] ?? 0;
+    return { ancho, alto: 2.7 * (1 + plantasAltas), profundo: largo };
+  }
   if (tipo === "m") {
     // la deco urbana declara sus dimensiones reales en su catálogo
     const dims = decoracion[id]?.dimensiones as [number, number, number] | undefined;

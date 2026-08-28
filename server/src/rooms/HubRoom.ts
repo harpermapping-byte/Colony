@@ -55,6 +55,7 @@ export class HubRoom extends Room<HubState> {
   private ctx!: ContextoConstruccion;
   private catalogoConstruible!: Map<string, EntradaConstruible>;
   private conversacionesNpc = new GestorConversacionesNpc();
+  private ultimoMensajeNpc = new Map<string, number>();
 
   // Colyseus espera (y awaitea) el lifecycle de creación de la room: async
   // aquí es lo correcto, no un apaño — la matchmaker no da la room por lista
@@ -85,6 +86,17 @@ export class HubRoom extends Room<HubState> {
     this.onMessage("npc:hablar", async (client, msg: { npcId?: string; mensaje?: string }) => {
       const nombre = this.nombreDe(client);
       if (!nombre || !msg?.npcId || !msg?.mensaje) return;
+      // rate-limit por jugador (GDD_Mecanicas §5.12, "rate-limit por
+      // mensaje" pendiente): sin esto un cliente puede spamear el handler y
+      // agotar la cuota gratuita de Gemini/Groq para todos los jugadores.
+      const ahora = Date.now();
+      const anterior = this.ultimoMensajeNpc.get(client.sessionId) ?? 0;
+      const COOLDOWN_MS = 3000;
+      if (ahora - anterior < COOLDOWN_MS) {
+        client.send("npc:error", { npcId: msg.npcId, motivo: "espera un momento antes de volver a hablar" });
+        return;
+      }
+      this.ultimoMensajeNpc.set(client.sessionId, ahora);
       try {
         const texto = await this.conversacionesNpc.hablar(msg.npcId, nombre, msg.mensaje.slice(0, 300));
         client.send("npc:respuesta", { npcId: msg.npcId, texto });
@@ -299,6 +311,7 @@ export class HubRoom extends Room<HubState> {
   onLeave(client: Client) {
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
+    this.ultimoMensajeNpc.delete(client.sessionId);
   }
 
   private update() {

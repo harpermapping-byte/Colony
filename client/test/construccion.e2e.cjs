@@ -157,7 +157,13 @@ function elegirCasillas(parcela, esTierraLibre) {
 async function main() {
   const procesos = [];
   const lanzar = (comando, args, cwd, env) => {
-    const p = spawn(comando, args, { cwd, stdio: "pipe", env: { ...process.env, ...env }, detached: true });
+    const p = spawn(comando, args, { cwd, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, ...env }, detached: true });
+    // drenar stdout/stderr SIEMPRE (mismo patrón que mecanicas.e2e.mjs): si
+    // nadie lee el pipe, el buffer del SO (64KB) se llena y el proceso hijo
+    // se bloquea escribiendo — en un e2e largo con servidor+vite esto se
+    // vio como ERR_CONNECTION_REFUSED/timeouts tardíos que no eran del motor
+    p.stdout.on("data", (d) => process.stdout.write(`[${comando}] ${d}`));
+    p.stderr.on("data", (d) => process.stderr.write(`[${comando}] ${d}`));
     procesos.push(p);
     return p;
   };
@@ -198,10 +204,13 @@ async function main() {
     const erroresConsola = [];
     const vigilar = (page, etiqueta) => {
       page.on("console", (msg) => {
-        // 404 de sondas .glb esperado; el corte del WebSocket al matar el
-        // servidor (fase de persistencia) también es parte del guion
+        // 404 de sondas .glb esperado; el corte de conexión al matar el
+        // servidor (fase de persistencia, paso 5) también es parte del
+        // guion — tanto el WebSocket como cualquier fetch/XHR normal
+        // (streaming de sectores, etc.) dan ERR_CONNECTION_REFUSED durante
+        // esa ventana, no solo el mensaje que menciona "WebSocket"/"ws://"
         const t = msg.text();
-        if (msg.type() === "error" && !t.includes("404") && !/WebSocket|ws:\/\//i.test(t)) erroresConsola.push(`${etiqueta}: ${t}`);
+        if (msg.type() === "error" && !t.includes("404") && !/WebSocket|ws:\/\/|ERR_CONNECTION_REFUSED/i.test(t)) erroresConsola.push(`${etiqueta}: ${t}`);
       });
       page.on("pageerror", (err) => erroresConsola.push(`${etiqueta}: ${err}`));
     };
