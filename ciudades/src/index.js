@@ -90,6 +90,20 @@ function exportarCiudad(ciudad, carpetaSalida) {
     // CANAL DE ILUMINACIÓN: cuando exista el ciclo día/noche, el cliente
     // enciende aquí sus luces (posición + radio + color por farola/antorcha)
     luces: ciudad.luces || [],
+    // PLAN DE SUELO por edificio: la forma REAL que decidió este bakeador
+    // (jitter ±1 + alas L/T/U en coords locales, puerta en +Y). De aquí lee
+    // taller-vox/generar_edificios_ciudad.js para que el .glb de cada casa
+    // salga con exactamente la huella que se rasterizó en el terreno — la
+    // semilla es la misma del interior anidado, así fachada e interior
+    // siempre nacen del mismo tiro de dados.
+    edificios: ciudad.edificios.map((ed) => ({
+      id: ed.interior.id,
+      tipo: ed.tipoEdificioId,
+      semilla: ed.semillaInterior,
+      cx: ed.cx, cy: ed.cy, rot: ed.rot,
+      w: ed.w, h: ed.h, piezas: ed.piezas,
+      puerta: ed.puerta,
+    })),
   });
 }
 

@@ -294,6 +294,11 @@ function ventanasEnFachada(b, { cara, piso, n, esFrenteConPuerta }) {
   const margen = Math.max(Math.round(U * fw0), Math.round(largo * 0.14));
   const centroFachada = desde + largo / 2;
   const rnd = piso.rnd;
+  // huecos ya pintados en ESTA fachada (rango horizontal con su marco): el
+  // jitter de posición podía montar dos marcos uno encima de otro en
+  // fachadas densas — un hueco que pisa otro se descarta, no se desplaza
+  // (desplazarlo re-encadenaría solapes)
+  const puestas = [];
   for (let i = 0; i < n; i++) {
     const estilo = rnd && alterno !== principal && rnd() < 0.3 ? alterno : principal;
     const [fw, fh] = DIM_VENTANA[estilo] || DIM_VENTANA.rect;
@@ -308,6 +313,8 @@ function ventanasEnFachada(b, { cara, piso, n, esFrenteConPuerta }) {
     if (rnd && jitterVMax > 0) vy += Math.round((rnd() - 0.5) * 2 * jitterVMax); // desalineación vertical
     if (esFrenteConPuerta && Math.abs(centro - centroFachada) < vw * 1.5) continue; // no pisar el hueco de la puerta
     const a = centro - Math.floor(vw / 2), c = a + vw - 1;
+    if (puestas.some(([pa, pc]) => a - 1 <= pc + 1 && c + 1 >= pa - 1)) continue; // pisaría otro hueco (marco incluido)
+    puestas.push([a, c]);
     dibujarVentana(b, vertical, a, c, fijo, vy, vh, estilo);
   }
 }
@@ -843,6 +850,17 @@ function offsetAla(anchoPrincipal, largoPrincipal, ala) {
   return { dx: 0, dz: largoPrincipal * U - solape }; // "N", trasera
 }
 
+// Offset de una pieza de PLAN (formato de ciudades/: coords locales con el
+// cuerpo centrado en 0,0 y la puerta en +Y). El modelo vóxel nace con la
+// puerta en z bajo (z=PAD-1), así que el eje local Y se invierte a Z:
+// oy negativo (ala trasera) cae detrás del cuerpo, como en el plano.
+function offsetPiezaPlan(anchoPrincipal, largoPrincipal, pieza) {
+  const solape = Math.round(U * 0.4);
+  const dx = Math.round((pieza.ox - pieza.w / 2 + anchoPrincipal / 2) * U);
+  const dz = Math.round((largoPrincipal / 2 - (pieza.oy + pieza.h / 2)) * U) - solape;
+  return { dx, dz };
+}
+
 function fusionarModelo(principal, secundario, dx, dz) {
   const offsetPaleta = principal.paleta.length;
   const paleta = principal.paleta.concat(secundario.paleta);
@@ -866,14 +884,24 @@ function elegirEstiloVentana(rnd) {
   return "rect";
 }
 
-function generarEdificio(tipoId, nn = 1) {
+// `plan` (opcional) = plan de suelo REAL de una instancia concreta, tal y
+// como lo exporta ciudades/ en su indice.json (clave `edificios`): en vez
+// de tirar dados de forma, el modelo se construye con exactamente la huella
+// que se rasterizó en el terreno — {semilla, w, h, piezas, plantasAltas?}.
+// La semilla del plan es la del interior anidado: fachada, forma e interior
+// nacen del mismo tiro de dados y el .glb encaja casilla a casilla.
+function generarEdificio(tipoId, nn = 1, plan = null) {
   const info = tiposEdificio[tipoId];
   if (!info) throw new Error(`tipoEdificio desconocido: ${tipoId}`);
   const huella = huellas.porTipo[tipoId] || huellas.porRiqueza[info.riqueza];
   const [anchoBase, largoBase] = huella;
-  const rnd = crearPRNG(`${tipoId}|${nn}`);
+  const rnd = crearPRNG(plan?.semilla != null ? String(plan.semilla) : `${tipoId}|${nn}`);
   const [pMin, pMax] = info.rangoPlantasAltas;
-  const plantasAltas = pMin + Math.floor(rnd() * (pMax - pMin + 1));
+  // consumir SIEMPRE la tirada de plantas aunque el plan las imponga — así
+  // el resto de decisiones (material, ventanas...) no se desplazan y una
+  // misma semilla da la misma fachada con o sin plantasAltas en el plan
+  const plantasTirada = pMin + Math.floor(rnd() * (pMax - pMin + 1));
+  const plantasAltas = plan?.plantasAltas ?? plantasTirada;
   const material = elegirMaterial(rnd, info.materialesPreferidos);
   const colorMuro = materiales[material]?.colorDebug || materiales.madera.colorDebug;
   const estiloMadera = rnd() < 0.55 ? "vertical" : "horizontal";
@@ -891,27 +919,35 @@ function generarEdificio(tipoId, nn = 1) {
   const densidadVentanas = 0.4 + rnd() * 0.6;
   const nVentanas = crearNVentanas(densidadVentanas);
   const arquetipo = clasificarEdificio(tipoId, info);
-  const forma = elegirForma(rnd, tipoId, anchoBase, largoBase, arquetipo);
+  const forma = plan
+    ? { ancho: plan.w, largo: plan.h, ala: null }
+    : elegirForma(rnd, tipoId, anchoBase, largoBase, arquetipo);
   let modelo = ARQUETIPO_FN[arquetipo]({
     ancho: forma.ancho, largo: forma.largo, plantasAltas, colorMuro, material, estiloMadera, estiloVentana, estiloVentanaAlt, nVentanas,
     riqueza: info.riqueza, rnd, tema: tipoId,
   });
-  if (forma.ala) {
-    const alaModelo = generarAla(forma.ala, { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza: info.riqueza, rnd, nVentanas });
-    const { dx, dz } = offsetAla(forma.ancho, forma.largo, forma.ala);
-    const fusion = fusionarModelo(modelo, alaModelo, dx, dz);
+  // alas a fusionar: la aleatoria de elegirForma O las piezas reales del
+  // plan (pieza 0 = cuerpo principal, ya construido; el resto son alas
+  // L/T/U con su posición exacta en el plano)
+  const alas = [];
+  if (forma.ala) alas.push({ ancho: forma.ala.ancho, largo: forma.ala.largo, ...offsetAla(forma.ancho, forma.largo, forma.ala) });
+  if (plan) for (const p of (plan.piezas || []).slice(1)) alas.push({ ancho: p.w, largo: p.h, ...offsetPiezaPlan(forma.ancho, forma.largo, p) });
+  for (const ala of alas) {
+    const alaModelo = generarAla(ala, { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza: info.riqueza, rnd, nVentanas });
+    const fusion = fusionarModelo(modelo, alaModelo, ala.dx, ala.dz);
     modelo = {
       grid: [
-        Math.max(modelo.grid[0], dx + forma.ala.ancho * U + PAD),
+        Math.max(modelo.grid[0], ala.dx + ala.ancho * U + PAD),
         modelo.grid[1],
-        Math.max(modelo.grid[2], dz + forma.ala.largo * U + PAD),
+        Math.max(modelo.grid[2], ala.dz + ala.largo * U + PAD),
       ],
       paleta: fusion.paleta, cajas: fusion.cajas,
     };
   }
   return {
     nombre: `${tipoId.replace(/_/g, " ")} (var ${String(nn).padStart(2, "0")})`,
-    arquetipo, tipoId, huella, material, estiloMadera, estiloVentana, estiloVentanaAlt, forma: forma.ancho !== anchoBase || forma.largo !== largoBase ? "alargado" : "base", enL: !!forma.ala,
+    arquetipo, tipoId, huella, material, estiloMadera, estiloVentana, estiloVentanaAlt,
+    forma: plan ? "plan" : forma.ancho !== anchoBase || forma.largo !== largoBase ? "alargado" : "base", enL: alas.length > 0,
     resolucion: U, ...modelo,
   };
 }

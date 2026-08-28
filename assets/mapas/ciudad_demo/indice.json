@@ -1415,5 +1415,503 @@
       "radio": 6,
       "color": "#ffb75a"
     }
+  ],
+  "edificios": [
+    {
+      "id": "cuartel_guardia_rio-3:cuartel_guardia:3",
+      "tipo": "cuartel_guardia",
+      "semilla": "rio-3:cuartel_guardia:3",
+      "cx": 72,
+      "cy": 72,
+      "rot": -45,
+      "w": 12,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 10
+        }
+      ],
+      "puerta": {
+        "x": 76,
+        "y": 76
+      }
+    },
+    {
+      "id": "posada_rio-3:posada:1",
+      "tipo": "posada",
+      "semilla": "rio-3:posada:1",
+      "cx": 91,
+      "cy": 72,
+      "rot": 45,
+      "w": 12,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 10
+        },
+        {
+          "ox": 3,
+          "oy": -7.5,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 87,
+        "y": 76
+      }
+    },
+    {
+      "id": "templo_rio-3:templo:0",
+      "tipo": "templo",
+      "semilla": "rio-3:templo:0",
+      "cx": 86.7,
+      "cy": 92.3,
+      "rot": -135,
+      "w": 13,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 90,
+        "y": 89
+      }
+    },
+    {
+      "id": "herreria_rio-3:herreria:2",
+      "tipo": "herreria",
+      "semilla": "rio-3:herreria:2",
+      "cx": 83,
+      "cy": 62,
+      "rot": 45,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 80,
+        "y": 65
+      }
+    },
+    {
+      "id": "casa_modesta_rio-3:casa_modesta:9",
+      "tipo": "casa_modesta",
+      "semilla": "rio-3:casa_modesta:9",
+      "cx": 56.7,
+      "cy": 77.9,
+      "rot": -117,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 61,
+        "y": 76
+      }
+    },
+    {
+      "id": "casa_modesta_rio-3:casa_modesta:7",
+      "tipo": "casa_modesta",
+      "semilla": "rio-3:casa_modesta:7",
+      "cx": 106.1,
+      "cy": 79.5,
+      "rot": -90,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 111,
+        "y": 80
+      }
+    },
+    {
+      "id": "taberna_rio-3:taberna:18",
+      "tipo": "taberna",
+      "semilla": "rio-3:taberna:18",
+      "cx": 71.9,
+      "cy": 102.7,
+      "rot": 27,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        },
+        {
+          "ox": 0,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 70,
+        "y": 107
+      }
+    },
+    {
+      "id": "tienda_rio-3:tienda:17",
+      "tipo": "tienda",
+      "semilla": "rio-3:tienda:17",
+      "cx": 114.5,
+      "cy": 91.9,
+      "rot": -180,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 115,
+        "y": 87
+      }
+    },
+    {
+      "id": "casa_modesta_rio-3:casa_modesta:4",
+      "tipo": "casa_modesta",
+      "semilla": "rio-3:casa_modesta:4",
+      "cx": 48.1,
+      "cy": 68.3,
+      "rot": -63,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 52,
+        "y": 70
+      }
+    },
+    {
+      "id": "casa_modesta_rio-3:casa_modesta:16",
+      "tipo": "casa_modesta",
+      "semilla": "rio-3:casa_modesta:16",
+      "cx": 76.7,
+      "cy": 52.9,
+      "rot": -207,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 75,
+        "y": 49
+      }
+    },
+    {
+      "id": "panaderia_rio-3:panaderia:20",
+      "tipo": "panaderia",
+      "semilla": "rio-3:panaderia:20",
+      "cx": 105,
+      "cy": 52,
+      "rot": 45,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 102,
+        "y": 55
+      }
+    },
+    {
+      "id": "casa_modesta_rio-3:casa_modesta:11",
+      "tipo": "casa_modesta",
+      "semilla": "rio-3:casa_modesta:11",
+      "cx": 72.5,
+      "cy": 87.9,
+      "rot": -180,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 73,
+        "y": 83
+      }
+    },
+    {
+      "id": "alfareria_rio-3:alfareria:21",
+      "tipo": "alfareria",
+      "semilla": "rio-3:alfareria:21",
+      "cx": 94.5,
+      "cy": 57.6,
+      "rot": 0,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 95,
+        "y": 62
+      }
+    },
+    {
+      "id": "botica_rio-3:botica:15",
+      "tipo": "botica",
+      "semilla": "rio-3:botica:15",
+      "cx": 72.3,
+      "cy": 44.1,
+      "rot": -27,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 74,
+        "y": 48
+      }
+    },
+    {
+      "id": "curtiduria_rio-3:curtiduria:10",
+      "tipo": "curtiduria",
+      "semilla": "rio-3:curtiduria:10",
+      "cx": 115.9,
+      "cy": 73.3,
+      "rot": 63,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 112,
+        "y": 75
+      }
+    },
+    {
+      "id": "granero_rio-3:granero:5",
+      "tipo": "granero",
+      "semilla": "rio-3:granero:5",
+      "cx": 46.1,
+      "cy": 88.7,
+      "rot": -117,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 50,
+        "y": 87
+      }
+    },
+    {
+      "id": "alfareria_rio-3:alfareria:6",
+      "tipo": "alfareria",
+      "semilla": "rio-3:alfareria:6",
+      "cx": 95.6,
+      "cy": 85.4,
+      "rot": 45,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 93,
+        "y": 88
+      }
+    },
+    {
+      "id": "tienda_rio-3:tienda:8",
+      "tipo": "tienda",
+      "semilla": "rio-3:tienda:8",
+      "cx": 67.4,
+      "cy": 59.6,
+      "rot": -135,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 70,
+        "y": 57
+      }
+    },
+    {
+      "id": "tienda_rio-3:tienda:19",
+      "tipo": "tienda",
+      "semilla": "rio-3:tienda:19",
+      "cx": 55.5,
+      "cy": 55.6,
+      "rot": -27,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 57,
+        "y": 59
+      }
+    },
+    {
+      "id": "curtiduria_rio-3:curtiduria:14",
+      "tipo": "curtiduria",
+      "semilla": "rio-3:curtiduria:14",
+      "cx": 59.6,
+      "cy": 95.4,
+      "rot": 45,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 57,
+        "y": 98
+      }
+    },
+    {
+      "id": "tienda_rio-3:tienda:13",
+      "tipo": "tienda",
+      "semilla": "rio-3:tienda:13",
+      "cx": 99.4,
+      "cy": 97.6,
+      "rot": -135,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 102,
+        "y": 95
+      }
+    },
+    {
+      "id": "casa_humilde_rio-3:casa_humilde:12",
+      "tipo": "casa_humilde",
+      "semilla": "rio-3:casa_humilde:12",
+      "cx": 83.5,
+      "cy": 105.6,
+      "rot": -27,
+      "w": 7,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 85,
+        "y": 109
+      }
+    }
   ]
 }

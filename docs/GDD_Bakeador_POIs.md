@@ -210,10 +210,23 @@ instanciados.
 - **Formas**: todas las plantas nacen de rectángulos/cuadrados compuestos
   (decisión del usuario): rect, L (un ala), T (ala centrada) o U (dos
   alas), por semilla en los tipos con "alas" de huellas.json.
+- **PLAN DE SUELO exportado + .glb por instancia** (vinculación con
+  taller-vox, decidida por el usuario 2026-08-28): el indice.json exporta
+  `edificios` — la forma REAL de cada instancia ({id, tipo, semilla, cx,
+  cy, rot, w, h, piezas, puerta}, coords locales con la puerta en +Y). De
+  ahí lee `taller-vox/generar_edificios_ciudad.js` para generar el .glb de
+  CADA edificio siguiendo exactamente ese plan (mismo w/h con jitter,
+  mismas alas L/T/U en su sitio, plantas del interior anidado y la MISMA
+  semillaInterior: fachada, forma e interior nacen del mismo tiro de
+  dados). El modelo vóxel nace con la puerta en z bajo; la `rot` del mapa
+  hace el resto. Salida a `<carpetaCiudad>/edificios_glb/` (preview): los
+  .glb NO se suben a assets/ sin el flujo de aprobación del taller.
 
-Pendiente: prop 3D exterior de la ciudad sobre el mapa principal, hito de
-plaza, bakeado especial de la ciudad principal, ciclo día/noche que
-consuma `indice.luces`, y el CRUCE DE PORTALES en runtime (rooms bajo
-demanda, §4.3). El export en formato de sectores está verificado contra
-`mapaColision` del servidor y JUGADO de verdad (assets/mapas/ciudad_demo +
-paseo E2E con vídeo).
+Pendiente: que el CLIENTE cargue esos .glb por instancia (hoy pinta una
+caja por riqueza con la huella w/h real de cada edificio — el paso al .glb
+espera a que el usuario apruebe el arte), prop 3D exterior de la ciudad
+sobre el mapa principal, hito de plaza, bakeado especial de la ciudad
+principal, ciclo día/noche que consuma `indice.luces`, y el CRUCE DE
+PORTALES en runtime (rooms bajo demanda, §4.3). El export en formato de
+sectores está verificado contra `mapaColision` del servidor y JUGADO de
+verdad (assets/mapas/ciudad_demo + paseo E2E con vídeo).

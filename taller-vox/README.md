@@ -54,15 +54,30 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   el castillo). Siempre orientado con la puerta hacia -Z; la rotación real
   en el mapa la pone `ro` al colocar el prop, igual que el resto. Mismo
   formato `{grid,paleta,cajas}` — lo exporta `exportar_glb.js` tal cual.
-  Determinista por `tipoId|NN`; `node --test test_edificio.js` (17 tests).
+  Determinista por `tipoId|NN`; `node --test test_edificio.js` (21 tests).
+  Acepta además un `plan` de suelo por instancia (tercera arg de
+  `generarEdificio`): con plan no tira dados de forma — usa el w/h real y
+  las alas L/T/U exactas que decidió `ciudades/`, con su semillaInterior.
   ```bash
   node generar_edificio.js          # 1 edificio de ejemplo por arquetipo (10)
   node generar_edificio.js todo     # los ~41 tipos del catálogo (producción: lo corre el usuario)
   node prueba_render_edificios.js   # galería SVG en output/ para revisar formas
   ```
-- **`exportar_glb.js`** — exporta un modelo de mueble a `.glb` real, vóxel a
-  vóxel con face-culling (solo caras exteriores, estilo mesher de
-  Minecraft). Construye el glTF binario a mano, sin three.js.
+- **`generar_edificios_ciudad.js`** — puente con `ciudades/`: lee la clave
+  `edificios` (plan de suelo por instancia) del indice.json de una ciudad
+  YA bakeada y genera el `.glb` de cada edificio siguiendo exactamente ese
+  plan (forma, alas, plantas del interior anidado, misma semilla). Salida a
+  `<carpetaCiudad>/edificios_glb/` — carpeta de PREVIEW: nada se sube a
+  assets/ sin pasar el flujo de aprobación con el usuario.
+  ```bash
+  node generar_edificios_ciudad.js ciudades/output/pueblo-rio-3
+  ```
+- **`exportar_glb.js`** — exporta un modelo de mueble a `.glb` real con
+  face-culling + GREEDY MESHING (las caras coplanarias del mismo color se
+  fusionan en un rectángulo — se ve idéntico, porque los cambios de color
+  siguen cortando rectángulo, pero un edificio entero baja de ~100k a ~3k
+  triángulos y de ~6MB a ~200KB). Construye el glTF binario a mano, sin
+  three.js.
   ```bash
   node exportar_glb.js modelos_generados.json armario armario.glb
   ```
