@@ -32,6 +32,7 @@ client/test/capturas_escaleras/
 client/test/capturas_poi/
 client/test/capturas_fixes/
 client/test/capturas_pois_variados/
+client/test/capturas_aldea_amurallada/
 assets/mapas/aldea_test/
 assets/mapas/hub_test/
 assets/mapas/torre_test/
