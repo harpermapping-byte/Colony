@@ -1,0 +1,11 @@
+{
+  "_uso": "Reloj de mundo COMPARTIDO (servidor, cliente y futuros sistemas de tiempo): constantes del calendario pactadas en GDD_Bakeador_Exteriores §8.1 y formalizadas en GDD_Tiempo_Mundo.md. Cambiar un número aquí acelera/ralentiza el mundo entero — nadie más define duraciones.",
+  "epocaUnixMs": 1767225600000,
+  "_epoca": "2026-01-01T00:00:00Z — el 'día 0' del mundo. Fija y compartida: la hora de juego se DERIVA del reloj real con esta época, así servidor y todos los clientes calculan la misma hora sin sincronizar nada por red.",
+  "minutosRealesPorDia": 30,
+  "horaAmanecer": 4,
+  "horaAnochecer": 20,
+  "_diaNoche": "20 min reales de día + 10 de noche = 16 h de sol (04:00-20:00) y 8 de noche, sobre un día de 24 h de juego.",
+  "diasPorEstacion": 7,
+  "estaciones": ["primavera", "verano", "otono", "invierno"]
+}
