@@ -136,6 +136,26 @@ function exportarInteriores(ciudad, carpetaSalida) {
   }
 }
 
+// Fauna doméstica urbana (GDD_Agentes_Moviles.md v1.3): mismo criterio que
+// poblacion.json — el vox se genera UNA vez aquí (offline), el cliente
+// solo lo carga; server/src/mundo/fauna.ts mueve cada animal en vivo por
+// su radio de merodeo, sin rutina horaria ni censo.
+function exportarFauna(ciudad, carpetaSalida) {
+  const { generarFauna } = require("./fauna");
+  const { generarAnimal } = require("../../personajes/src/generarAnimal");
+  const { cargarCatalogos: cargarCatalogosPersonajes } = require("../../personajes/src/catalogo");
+  const catalogosPersonajes = cargarCatalogosPersonajes();
+
+  const spawns = generarFauna(ciudad);
+  const fauna = spawns.map((s, i) => {
+    const semilla = `${ciudad.semilla}:fauna:${i}`;
+    const { ficha, piezas } = generarAnimal(s.especieId, { catalogos: catalogosPersonajes, semilla });
+    return { id: `${ciudad.semilla}|fauna_${i}`, especieId: s.especieId, x: s.x, y: s.y, radio: s.radio, vox: { ficha, piezas } };
+  });
+  fs.writeFileSync(path.join(carpetaSalida, "fauna.json"), JSON.stringify({ fauna }));
+  return fauna.length;
+}
+
 // Placeholder 2D: colorDebug de terrenos; edificios por riqueza (tejado) con
 // su puerta marcada; puertas de muralla en claro; sombreado sutil por altura.
 const COLOR_RIQUEZA = { humilde: "#8a6a4a", modesta: "#a3762e", noble: "#7a3e8a" };
@@ -180,6 +200,7 @@ function hornearCiudad(tier, semilla, carpetaSalida) {
   fs.mkdirSync(carpetaSalida, { recursive: true });
   exportarCiudad(ciudad, carpetaSalida);
   exportarInteriores(ciudad, carpetaSalida);
+  exportarFauna(ciudad, carpetaSalida);
   exportarOverview(ciudad, carpetaSalida, terrenos, catalogos.tiposEdificio);
   return ciudad;
 }

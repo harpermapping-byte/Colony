@@ -266,6 +266,62 @@ en horario de trabajo, no fuera de horario). E2E real: panadería de
 sala_comercio junto al mostrador (captura); plaza con NPCs ya en casillas
 distintas, no apilados.
 
+## Fauna doméstica urbana (v1.3, pedido del streamer 2026-08-28)
+
+Gallinas, alguna vaca suelta, perros, gatos y algún gallo (solo si hay
+gallinas) sueltos por el asentamiento — el cerebro de MERODEO que había
+quedado pendiente en el diseño original. A diferencia de los NPC de
+`poblacion/`: **sin censo, sin vivienda/trabajo, sin rutina horaria** — solo
+un punto de aparición y un radio de merodeo, decidido UNA vez al hornear.
+
+- Especies: `gallina_salvaje`/`vaca_salvaje` reutilizan las plantillas de
+  rig que ya existían; `perro`/`gato`/`gallo` son plantillas NUEVAS pero
+  sobre los esqueletos `cuadrupedo`/`ave` ya construidos — pura entrada de
+  catálogo en `baker/catalogo/animales.json` +
+  `personajes/catalogo/animales_rig.json`, cero código nuevo de generación
+  (confirma "las listas crecen, el código no").
+- `ciudades/src/fauna.js` (`generarFauna`): cuántos y dónde, determinista
+  por semilla — escala por tier igual que el censo de NPCs (aldea_pequena
+  3-5, gran_capital 12-22...), repartidos junto a casas/granero o la plaza.
+  `ciudades/src/index.js` hornea su vox (`personajes/generarAnimal`) UNA
+  vez y lo exporta a `fauna.json` junto al mapa.
+- `server/src/mundo/fauna.ts` (`GestorFauna`): el cerebro en vivo — QUIETO
+  (comer/sentarse/jugar/dormir, pausa al azar) o CAMINANDO en línea recta a
+  un punto al azar dentro de su radio; si el punto no es transitable,
+  prueba otro (nunca A*). A diferencia de los NPC, esto SÍ usa
+  `Math.random()` a propósito: es comportamiento ambiental en vivo, no
+  datos que deban reproducirse por semilla — lo único determinista es
+  DÓNDE aparece cada animal, decidido al hornear.
+- `RegionRoom` la arranca igual que a los NPC (si el bake trae
+  `fauna.json`), tickeada a 5 hz — de sobra para un paseo, más barata que
+  los NPC (sin recalcular tramo por hora).
+- Cliente: mismo circuito que los NPC (rig + interpolación + marcha
+  automática), vóxel real de `fauna.json` por id — `crearAnimalVoxel`, ya
+  existente del circuito de la demo de animales.
+
+### Verificado
+
+Tests: `ciudades/test/fauna.test.js` (4: cantidad dentro de rango del
+tier + spawns transitables, determinismo por semilla, gallo solo si hay
+gallina, caso límite sin edificios no rompe), `server/test/fauna.test.ts`
+(4: spawns aparecen con su especie, spawn en sólido se descarta, pausa→
+camina→llega, nunca sale de la rejilla transitable). E2E real: región de
+`ciudad_demo` con 7 animales sueltos (4 perros, 1 vaca, 1 gallina, 1 gato)
+— el gato aparece con su vóxel real y, entre dos capturas separadas 4s, se
+había movido de sitio por su cuenta (merodeo confirmado), sin errores de
+consola.
+
+### Qué falta (no bloquea)
+
+- Ecología de ratas/gatos (comida de inventarios, plaga si no hay gatos,
+  gatos cazando ratas para regular la población) — **explícitamente
+  aparcada** por el streamer: "esto ahondaremos más adelante". Anotada en
+  `docs/Backlog_Mecanicas_Futuras.md` para no perderla.
+- Sonido/animación de ataque cuando un gato "caza" algo — sin mecánica de
+  caza todavía, es solo ambiente.
+- El "jugar" entre dos animales cercanos (perseguirse) es una acción en
+  solitario por ahora, no una interacción real entre dos fauna.
+
 ## Verificado (v1)
 
 - Test de servidor del gestor: recolocación por hora al crear room,

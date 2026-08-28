@@ -44,8 +44,20 @@ export class Enemigo extends Schema {
   @type("boolean") esBoss = false;
 }
 
+// Fauna doméstica urbana (GDD_Agentes_Moviles.md v1.3): sin nombre, sin
+// rutina — solo especie y qué está haciendo (server/src/mundo/fauna.ts la
+// mueve por su radio de merodeo). El cliente busca su vox en fauna.json
+// (assets/mapas/<asentamiento>/fauna.json) por esta misma clave del map.
+export class Fauna extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") especieId = "";
+  @type("string") accion = ""; // comer | sentarse | jugar | dormir | caminar
+}
+
 export class HubState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: Npc }) npcs = new MapSchema<Npc>();
   @type({ map: Enemigo }) enemigos = new MapSchema<Enemigo>();
+  @type({ map: Fauna }) fauna = new MapSchema<Fauna>();
 }

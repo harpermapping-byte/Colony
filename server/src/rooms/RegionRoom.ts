@@ -6,6 +6,7 @@ import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { GestorAgentes, NpcBakeado } from "../mundo/agentes";
 import { tiempoMundo } from "../mundo/tiempoMundo";
+import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
 
 interface OpcionesRegion {
   name?: string;
@@ -48,6 +49,17 @@ export class RegionRoom extends RoomExteriorBase {
       gestor.iniciar(poblacion.npcs, tiempoMundo().hora);
       this.clock.setInterval(() => gestor.tick(0.1, tiempoMundo().hora), 100);
       console.log(`  ${gestor.cantidad} NPCs con rutina en el mapa`);
+    }
+
+    // Fauna doméstica (GDD_Agentes_Moviles.md v1.3): sin rutina horaria,
+    // solo merodeo — se tickea más despacio (5 hz de sobra para un paseo).
+    const rutaFauna = path.join(rutaMapa, "fauna.json");
+    if (fs.existsSync(rutaFauna)) {
+      const datos = JSON.parse(fs.readFileSync(rutaFauna, "utf8")) as { fauna: FaunaSpawn[] };
+      const gestorFauna = new GestorFauna(this.state.fauna, this.mundo);
+      gestorFauna.iniciar(datos.fauna);
+      this.clock.setInterval(() => gestorFauna.tick(0.2), 200);
+      console.log(`  ${gestorFauna.cantidad} animales sueltos en el mapa`);
     }
 
     // Puertas del asentamiento (docs/GDD_Sistema_Puertas.md): "interior" ->
