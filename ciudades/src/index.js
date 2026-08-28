@@ -46,7 +46,16 @@ function exportarCiudad(ciudad, carpetaSalida) {
     objetosPorChunk.get(clave).push({ ...objeto, x: Math.floor(gx) - cxCh * TAMANO_CHUNK, y: Math.floor(gy) - cyCh * TAMANO_CHUNK });
   };
   for (const ed of ciudad.edificios) {
-    meterObjeto(ed.cx, ed.cy, { i: ed.tipoEdificioId, t: "e", va: 0, ro: ed.rot, es: 1, w: ed.w, h: ed.h });
+    // dx/dy: parte fraccionaria del centro real (ed.cx/cy), que el redondeo
+    // a casilla entera de meterObjeto pierde — sin esto la caja 3D del
+    // cliente podía quedar hasta ~0.7 casillas desplazada de la huella
+    // "solar_edificio" real del terreno (bug visual reportado). Solo hace
+    // falta en edificios: el resto de props (árboles/deco) no necesitan
+    // precisión sub-casilla, un tronco medio metro desplazado no se nota.
+    meterObjeto(ed.cx, ed.cy, {
+      i: ed.tipoEdificioId, t: "e", va: 0, ro: ed.rot, es: 1, w: ed.w, h: ed.h,
+      dx: ed.cx - Math.floor(ed.cx), dy: ed.cy - Math.floor(ed.cy),
+    });
   }
   // capa de vegetación: árboles/arbustos como vegetación normal del baker
   // (el cliente ya los instancia; la colisión la decide su catálogo)

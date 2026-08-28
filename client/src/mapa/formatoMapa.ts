@@ -46,6 +46,8 @@ export interface ObjetoBakeado {
   y: number;
   w?: number; // solo t:"e" — ancho real de la huella en casillas (con el jitter de ciudades/)
   h?: number; // solo t:"e" — largo real de la huella en casillas
+  dx?: number; // solo t:"e" — parte fraccionaria [0,1) del centro real (x,y son la casilla entera)
+  dy?: number;
 }
 
 export interface ChunkBakeado {

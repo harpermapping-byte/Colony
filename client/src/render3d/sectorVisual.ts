@@ -264,7 +264,12 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
         // tamaño de prop, edificios incluidos; solo la ESCALA usa el
         // ancho/largo real de la instancia (obj.w/obj.h) en vez del
         // tamaño de catálogo cuando está disponible.
-        posicion.set(globalX + 0.5, 0, globalY + 0.5);
+        // edificios: centro REAL sub-casilla (dx/dy), no el centro genérico
+        // de la casilla — así la caja coincide con la huella "solar_edificio"
+        // real del terreno en vez de quedar hasta ~0.7 casillas desplazada.
+        const centroX = grupo.tipo === "e" && obj.dx !== undefined ? obj.dx : 0.5;
+        const centroZ = grupo.tipo === "e" && obj.dy !== undefined ? obj.dy : 0.5;
+        posicion.set(globalX + centroX, 0, globalY + centroZ);
         rotacion.setFromAxisAngle(ejeY, THREE.MathUtils.degToRad(obj.ro || 0));
         const es = obj.es || 1;
         const anchoReal = grupo.tipo === "e" && obj.w ? obj.w : dims.ancho;

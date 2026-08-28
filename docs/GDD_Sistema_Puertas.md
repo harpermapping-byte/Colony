@@ -35,10 +35,44 @@ Cómo un jugador cruza de una instancia a otra: del Hub a una aldea/POI, de esa 
 - Regresión de lo existente, ambos en verde tras el refactor de `HubRoom`: `client/test/streaming.e2e.cjs` (5/5, mapa principal real) y `client/test/construccion.e2e.cjs` (15/15 — construir, reiniciar servidor con la misma BD, interior de construcción de jugador intacto).
 - `server` 32/32 tests, `tsc --noEmit` limpio en server y cliente.
 
+## Ampliación (2026-08-28) — coherencia bakeador↔render y salas de verdad conectadas
+
+Feedback del streamer tras ver las primeras capturas: la caja 3D del edificio no coincidía con su huella pintada en el suelo, dentro de los edificios no se podía pasar de una sala a otra, no había paredes, y las paredes se veían vacías de decoración. Encontrado y arreglado, de raíz en cada caso (no parches):
+
+### 1. La caja 3D del edificio no coincidía con el suelo
+`ciudades/src/index.js` exportaba la posición de cada edificio REDONDEADA a la casilla entera (`Math.floor`), pero el terreno bakeado marca "solar_edificio" con el centro EXACTO (con decimales, tras rotar la huella) — desviación de hasta ~0.7 casillas. Arreglado con dos campos nuevos `dx`/`dy` (parte fraccionaria del centro) SOLO en los objetos `t:"e"` (edificios) — vegetación/decoración no los necesitan, un árbol medio metro desplazado no se nota. `client/src/render3d/sectorVisual.ts` los usa para centrar la caja en el punto real en vez del centro genérico de la casilla.
+
+### 2. No se podía cruzar de una sala a otra (bug real, no solo falta de código)
+Encontramos y arreglamos CUATRO bugs encadenados, cada uno confirmado con un flood-fill de verdad sobre bakes reales antes de darlo por bueno:
+
+1. **La puerta de conexión entre salas nunca se guardaba.** `interiores/src/edificio.js` calculaba las puertas reales (la propia de cada sala hacia el pasillo, y la punzada a mano entre dos salas en fila sin pasillo) pero esa información se perdía en memoria — el JSON exportado no la traía. Ahora cada planta serializa `puertasConexion: [{x,y}, ...]`.
+2. **La colisión de interiores reusaba la regla del sistema de CONSTRUCCIÓN** ("todo bloquea salvo FLOOR_DECAL" — pensada para lo poco que coloca un jugador), pero un interior bakeado por `interiores/` viene lleno de clutter decorativo ("suciedad": hojas secas, escombros, nidos de rata; "iluminacion": antorchas) que nunca debería bloquear — una sala de 20 casillas con 9 piezas de este tipo salía casi intransitable. `interiorColision.ts` ahora tiene su PROPIA regla: esas dos capas nunca bloquean.
+3. **El mobiliario se coloca sin saber dónde caerá la puerta de conexión** (eso se decide después, entre salas, no dentro de `colocarSala`) — a veces un mueble terminaba justo encima. Se despeja la puerta y su umbral tras colocar todo.
+4. **`plantas[0]` NO es siempre la planta baja**: un edificio con bodega (`tieneBodega:true` — casa_noble, taberna, posada, casa_gremio, ayuntamiento...) trae el SÓTANO en el índice 0. `cargarInterior` cargaba el sótano por error, con su propio tamaño de rejilla, dejando el resto del edificio fuera de la colisión entera. Ahora busca por `rol === "planta_baja"` explícito, nunca por posición — mismo arreglo en el cliente (`interiorVisual.ts`).
+
+Además, una **garantía final de conectividad**: tras montar todo, se comprueba con flood-fill real desde el spawn qué sala queda fuera y, si alguna lo está (clutter conspirando para sellar un hueco, caso raro pero posible), se abre un pasillo recto de una casilla hasta ella — más vale un mueble desaparecido en un caso raro que un jugador atascado en su cuarto.
+
+### 3. Paredes: ahora se ven
+`interiorVisual.ts` dibuja las 4 paredes de cada sala casilla a casilla, con hueco exacto en cada `puertaConexion` real. **Sin oclusión dinámica todavía** (estilo Project Zomboid: la pared que da a cámara desaparece, la de fondo se ve) — se ven TODAS las paredes siempre, así que desde fuera/arriba el edificio se ve como una casa de muñecas. Pendiente, ver abajo.
+
+### 4. Paredes vacías de decoración
+`interiores/catalogo/elementos.json` tenía solo ~11 piezas puramente decorativas de pared frente a 40+ de suelo. +12 nuevas (estante_especias, sarten_colgada, ristra_ajos, reloj_pared, mapa_pared, guirnalda_flores, banderin_gremio, panoplia_armas, campana_servicio, herradura_suerte, estandarte_capilla), repartidas por tipos de sala antes desatendidos (cocina, taller, tienda, capilla, cuadra).
+
+### 5. Vegetación/decoración urbana en aldeas — verificado, YA funcionaba
+Comprobado contra un bake real: los árboles/arbustos de las zonas verdes SÍ se exportan y aparecen en el mapa (25 objetos de vegetación en la aldea de prueba). La decoración urbana (`ciudades/catalogo/decoracion.json`) ya tiene 26 piezas variadas (puestos de mercado, pozo, fuente, farolas, bancos...). No hizo falta tocar nada aquí.
+
+### Verificado
+- Nuevo test de regresión permanente (`server/test/interiorColision.test.ts`, 2 tests): TODAS las salas de la planta baja alcanzables desde el spawn, en 6 tipos de edificio × 3 semillas (con y sin bodega, con y sin pasillo); el spawn nunca cae en una casilla sólida. Cazó los 4 bugs de arriba antes de darlos por arreglados.
+- Prueba manual con Playwright repetida de punta a punta tras los arreglos: capturas nuevas muestran las salas conectadas con huecos reales en las puertas y paredes visibles (antes: plano de suelo desnudo sin muros).
+- Regresión completa en verde: server 34/34, interiores 32/32 (JSON del catálogo validado, sin referencias rotas), poblacion 26/26, ciudades 8/8, `construccion.e2e.cjs` 15/15 (el sistema de construcción de jugador usa el MISMO `edificio.js` — confirmado que sigue intacto), tsc limpio en server y cliente.
+
 ## Qué falta (pendiente, no bloquea)
 
 - **Integración con el mapa principal de producción**: hoy NINGÚN portal "exterior" del mapa principal (`assets/mapas/principal/`) tiene `destino` configurado — los 120 POIs no están enlazados a instancias todavía. Esto es trabajo de `baker/` (decidir cómo un POI del mapa grande referencia su `mapaId` de región) y una decisión del streamer, no algo que tocar sin permiso (CLAUDE.md). Se probó con un mapa de prueba (`assets/mapas/hub_test/`, copia del demo con un portal añadido a mano) — gitignored, no es parte del juego real.
 - **Transición sin recarga de página**: la recarga es simple y robusta pero corta la música/el estado de UI. Un loading screen propio que reconstruya la escena en caliente es una mejora futura.
-- **Interiores: solo planta baja**, sin paredes/techo (se ve la planta desde arriba), sin conectar `conectoresVerticales` (subir de piso). El punto de aparición es el centro de la PRIMERA sala del JSON, no necesariamente la que conecta con la puerta exterior real (no hay ese dato explícito en el bake todavía).
+- **Interiores: solo planta baja**, sin techo, sin conectar `conectoresVerticales` (subir de piso — hay metadato de qué sala de cada planta lo hospeda, pero ninguna posición de casilla concreta, y ninguna pieza de escalera existe todavía en `elementos.json`: es dato puro sin nada que lo consuma). El punto de aparición es el centro de la PRIMERA sala del JSON, no necesariamente la que conecta con la puerta exterior real (no hay ese dato explícito en el bake todavía).
+- **Paredes sin oclusión dinámica**: hoy se ven TODAS siempre (casa de muñecas desde fuera). Un render estilo Project Zomboid (la pared que da a cámara desaparece, la de fondo se ve) es trabajo de cámara/raycasting en el cliente, pendiente aparte.
+- **Escaleras — sin visual ni mecánica**: `conectoresVerticales` es metadato puro (`interiores/catalogo/conectores.json` tiene 6 tipos: escalera_recta, escalera_caracol, escalera_vertical, trampilla, escalera_doble, rampa) sin pieza en `elementos.json` que las dibuje, y sin coordenada de casilla — haría falta decidir dónde cae la escalera dentro de su sala anfitriona (mismo problema que las puertas de conexión antes de este commit) y que `InteriorRoom` sepa cambiar de planta al pisarla, igual que un portal.
+- **Huella exterior vs. render**: la caja 3D ya coincide en POSICIÓN con "solar_edificio" (arreglado arriba); queda pendiente confirmar si el margen de tierra roja visible alrededor de algunas casas en las capturas es un "patio"/solar deliberadamente más grande que la caja, o un resto de desalineación de tamaño — a revisar con más capturas si sigue pareciendo raro.
 - **"Volver" es de un solo nivel**: interior→región→hub funciona porque el cliente guarda `origenSala`/`puertaX/Y` en la URL, pero no hay una pila general (hub→región A→región B→interior→... siempre vuelve al nivel inmediato conocido, nunca más atrás). Suficiente para el caso de uso actual (Hub → aldea → edificio), pero a revisar si se encadenan más niveles.
 - **El nombre del jugador no sobrevive la recarga** salvo que se pase por `?nombre=`: cada cruce de puerta genera un `Viewer-NNN` nuevo si no se preserva el parámetro. Menor, pendiente de que exista login/sesión real.

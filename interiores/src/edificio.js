@@ -180,6 +180,14 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
   const rejillaPiso = crearRejilla(Math.max(anchoPlanta, 4), Math.max(altoPlanta, 4) + 1, TIPO_TILE.VACIO);
 
   const salasColocadas = [];
+  // Casillas de puerta REALES de esta planta, en coordenadas de planta —
+  // sección añadida porque ni el hueco entre dos salas en fila (sin
+  // pasillo) ni la puerta propia de cada sala hacia el pasillo quedaban
+  // guardados en ningún sitio: colocarSala.puerta cae SIEMPRE una fila
+  // más allá del rectángulo de la sala (server/mundo/interiorColision.js
+  // y el render del cliente necesitan esto para que las salas queden
+  // conectadas de verdad, no solo dibujadas una junto a otra).
+  const puertasConexion = [];
   let cursorX = 0;
 
   for (let i = 0; i < salasFila.length; i++) {
@@ -187,6 +195,10 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
     const offsetY = altoFila - r.largo; // alineadas por el muro sur, igual que la fila entera toca el pasillo
     if (i > 0) cursorX += 1; // columna de separación con la sala anterior, siempre
     pintarSalaEnPlanta(rejillaPiso, r, cursorX, offsetY);
+    // la puerta propia de la sala (colocarSala.js) cae siempre en
+    // offsetY+largo, una fila más allá de su rectángulo — hacia el
+    // pasillo si lo hay, o hacia la fila de margen si no
+    puertasConexion.push({ x: cursorX + r.puerta.x, y: offsetY + r.puerta.y });
     if (i > 0 && !pasillo) {
       // Sin pasillo: la única conexión entre esta sala y la anterior es
       // esta puerta punzada a mano en la columna de separación — el único
@@ -194,6 +206,7 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
       // colocarSala no trajera ya (con pasillo, cada sala se conecta a
       // ÉL por su cuenta, no directamente con la de al lado).
       rejillaPiso.set(cursorX - 1, altoFila - 1, TIPO_TILE.PUERTA);
+      puertasConexion.push({ x: cursorX - 1, y: altoFila - 1 });
     }
     salasColocadas.push({ resultado: r, offsetX: cursorX, offsetY, tipoSalaId: r.tipoSalaId, nivel, rol, origen: "generado" });
     cursorX += r.ancho;
@@ -226,7 +239,7 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
     salasColocadas[0] ||
     null;
 
-  return { nivel, rol, ancho: rejillaPiso.ancho, alto: rejillaPiso.alto, salas: salasColocadas, salaConector };
+  return { nivel, rol, ancho: rejillaPiso.ancho, alto: rejillaPiso.alto, salas: salasColocadas, salaConector, puertasConexion };
 }
 
 // Punto de entrada: genera un edificio completo (todas sus plantas) a

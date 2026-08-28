@@ -1,9 +1,10 @@
 /**
  * Render placeholder de un interior de edificio (docs/GDD_Sistema_Puertas.md)
- * — cajas de color por sala/mueble, mismo criterio "todo el arte es
+ * — cajas de color por sala/mueble/pared, mismo criterio "todo el arte es
  * placeholder" que el resto del proyecto (colorDebug del catálogo). v1:
- * solo planta baja, sin paredes ni techo (se ve la planta desde arriba,
- * suficiente para demostrar "estás dentro" — el pulido es un hito aparte).
+ * solo planta baja, paredes SIEMPRE visibles (sin oclusión dinámica estilo
+ * Project Zomboid todavía — pendiente, ver GDD), con hueco en cada puerta
+ * de conexión real entre salas.
  */
 import * as THREE from "three";
 
@@ -14,6 +15,11 @@ interface ElementoColocado {
   ancho: number;
   largo: number;
   colorDebug?: string;
+}
+
+interface PuertaConexion {
+  x: number;
+  y: number;
 }
 
 interface SalaInterior {
@@ -30,14 +36,26 @@ interface SalaInterior {
 export interface InteriorBakeado {
   id: string;
   tipoEdificioId: string;
-  plantas: { nivel: number; salas: SalaInterior[] }[];
+  plantas: { nivel: number; rol: string; salas: SalaInterior[]; puertasConexion?: PuertaConexion[] }[];
 }
 
 const ALTO_MUEBLE = 0.6;
+const ALTO_PARED = 2.4;
+const GROSOR_PARED = 0.12;
+const COLOR_PARED = "#b0a48c";
 
 export function crearInteriorVisual(interior: InteriorBakeado): THREE.Group {
   const grupo = new THREE.Group();
-  const salas = interior.plantas[0]?.salas ?? [];
+  // plantas[0] NO es siempre la planta baja (edificios con bodega) — mismo
+  // bug que se corrigió en el servidor, mismo criterio aquí.
+  const planta = interior.plantas.find((p) => p.rol === "planta_baja") ?? interior.plantas[0];
+  const salas = planta?.salas ?? [];
+  const puertas = planta?.puertasConexion ?? [];
+  const esPuerta = (x: number, y: number) => puertas.some((p) => p.x === x && p.y === y);
+
+  const matPared = new THREE.MeshStandardMaterial({ color: COLOR_PARED, roughness: 0.95, metalness: 0 });
+  const geoParedH = new THREE.BoxGeometry(1, ALTO_PARED, GROSOR_PARED);
+  const geoParedV = new THREE.BoxGeometry(GROSOR_PARED, ALTO_PARED, 1);
 
   for (const sala of salas) {
     const { offsetX, offsetY, resultado } = sala;
@@ -47,6 +65,18 @@ export function crearInteriorVisual(interior: InteriorBakeado): THREE.Group {
     );
     suelo.position.set(offsetX + resultado.ancho / 2, -0.05, offsetY + resultado.largo / 2);
     grupo.add(suelo);
+
+    // Paredes casilla a casilla, con hueco donde haya una puerta de
+    // conexión real (interiores/src/edificio.js) — norte nunca la tiene
+    // (las salas de una fila se alinean por el muro sur, GDD_Sistema_Puertas).
+    for (let x = offsetX; x < offsetX + resultado.ancho; x++) {
+      añadirSiNoEsPuerta(grupo, geoParedH, matPared, x + 0.5, offsetY, esPuerta(x, offsetY - 1));
+      añadirSiNoEsPuerta(grupo, geoParedH, matPared, x + 0.5, offsetY + resultado.largo, esPuerta(x, offsetY + resultado.largo));
+    }
+    for (let y = offsetY; y < offsetY + resultado.largo; y++) {
+      añadirSiNoEsPuerta(grupo, geoParedV, matPared, offsetX, y + 0.5, esPuerta(offsetX - 1, y));
+      añadirSiNoEsPuerta(grupo, geoParedV, matPared, offsetX + resultado.ancho, y + 0.5, esPuerta(offsetX + resultado.ancho, y));
+    }
 
     for (const item of resultado.colocados) {
       const caja = new THREE.Mesh(
@@ -58,6 +88,20 @@ export function crearInteriorVisual(interior: InteriorBakeado): THREE.Group {
     }
   }
   return grupo;
+}
+
+function añadirSiNoEsPuerta(
+  grupo: THREE.Group,
+  geometria: THREE.BoxGeometry,
+  material: THREE.Material,
+  x: number,
+  z: number,
+  esHueco: boolean,
+) {
+  if (esHueco) return;
+  const caja = new THREE.Mesh(geometria, material);
+  caja.position.set(x, ALTO_PARED / 2, z);
+  grupo.add(caja);
 }
 
 // Color de suelo estable por tipo de sala (hash simple → tono), para
