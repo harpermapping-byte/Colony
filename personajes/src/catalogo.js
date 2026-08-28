@@ -20,6 +20,10 @@ const ANIMALES_BAKER = path.join(__dirname, "..", "..", "baker", "catalogo", "an
 function cargarCatalogos() {
   return {
     npcs: cargarJSON(path.join(CARPETA_CATALOGO, "npcs.json")),
+    // enemigos.json: hermano de npcs.json para mazmorras (docs/GDD_Bakeador_Dungeons.md)
+    // — mismo generador por debajo (generarEnemigo.js), catálogo aparte para no
+    // mezclar población de aldea con población hostil.
+    enemigos: cargarJSON(path.join(CARPETA_CATALOGO, "enemigos.json")),
     rasgos: cargarJSON(path.join(CARPETA_CATALOGO, "rasgos.json")),
     animalesRig: cargarJSON(path.join(CARPETA_CATALOGO, "animales_rig.json")),
     animalesBaker: cargarJSON(ANIMALES_BAKER),

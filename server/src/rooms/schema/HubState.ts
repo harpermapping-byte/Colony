@@ -26,7 +26,23 @@ export class Npc extends Schema {
   @type("boolean") visible = true;
 }
 
+// Enemigo activo de una mazmorra (docs/GDD_Bakeador_Dungeons.md §4) — el bake
+// coloca MUCHOS puntos de spawn candidatos; DungeonRoom elige en runtime un
+// subconjunto acotado y lo publica aquí. `enemigoId` cruza con
+// personajes/catalogo/enemigos.json, `variante` con el índice dentro de
+// assets/enemigos/pool.json (el aspecto se generó offline, una vez —
+// "generar una vez, nunca en directo"). Sin movimiento/combate todavía
+// (el streamer lo explicará aparte): un enemigo aparece quieto en su punto.
+export class Enemigo extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") enemigoId = "";
+  @type("number") variante = 0;
+  @type("boolean") esBoss = false;
+}
+
 export class HubState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: Npc }) npcs = new MapSchema<Npc>();
+  @type({ map: Enemigo }) enemigos = new MapSchema<Enemigo>();
 }

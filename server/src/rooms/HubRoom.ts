@@ -78,6 +78,7 @@ export class HubRoom extends RoomExteriorBase {
           mapaId: path.basename(rutaMapa),
           edificio: portal.edificio,
           tipoEdificioId: portal.tipoEdificioId,
+          esMazmorra: portal.esMazmorra ?? false,
           x: portal.x,
           y: portal.y,
         });

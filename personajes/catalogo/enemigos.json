@@ -1,0 +1,45 @@
+{
+  "_nota": "Catálogo de ENEMIGOS de mazmorra (docs/GDD_Bakeador_Dungeons.md) — hermano de npcs.json/animales_rig.json, mismo generador de personajes/animales por debajo (cero motor de vóxeles nuevo). `tipoRig`: 'npc' (humanoide, usa generarPersonaje.js con los mismos campos que npcs.json — morfologia/ropa/rasgos) o 'animal' (usa generarAnimal.js, `especieId` referencia baker/catalogo/animales.json + personajes/catalogo/animales_rig.json). `temasEnemigo`: etiquetas que cruzan con `temasEnemigo`/`bossPool` de mazmorras/catalogo/tipos_dungeon.json — varias entradas COMPARTEN tema a propósito (un lobo sirve tanto en 'guarida_lobos' como en cualquier cueva con tema 'lobo') mientras que los jefes normalmente llevan un tema único. `esBoss`: recompensa mejor (lootTier 'jefe'), tamaño/escala mayor. `lootTier`: humilde/modesta/rica/jefe — mismo concepto que el `lootTier` de los contenedores de interiores/catalogo/elementos.json, sin resolver a ítems reales todavía (no hay sistema de inventario). ARRANQUE DE PRUEBA amplio (más tipos que el mínimo, a petición del streamer) — la ropa de los enemigos 'npc' reusa las 3 prendas genéricas que YA existen en ropa/catalogo/prendas.json (todavía no hay vestuario de combate específico, mismo hueco que ya tienen los NPCs de aldea).",
+
+  "goblin_explorador": {"tipoRig":"npc","temasEnemigo":["goblin"],"morfologia":{"altura":[0.68,0.78],"corpulencia":[0.75,0.9]},"ropa":["camisa_lino_campesina"],"colorDebug":"#6a8a4a","esBoss":false,"pesoSpawn":10,"lootTier":"humilde"},
+  "goblin_guerrero": {"tipoRig":"npc","temasEnemigo":["goblin"],"morfologia":{"altura":[0.72,0.85],"corpulencia":[0.9,1.05]},"rasgos":{"barbaEstilos":[["ninguna",100]]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#4a6a2a","esBoss":false,"pesoSpawn":8,"lootTier":"humilde"},
+  "goblin_chaman": {"tipoRig":"npc","temasEnemigo":["goblin"],"morfologia":{"altura":[0.7,0.8],"corpulencia":[0.7,0.85]},"ropa":["camisa_lino_campesina"],"colorDebug":"#5a4a7a","esBoss":false,"pesoSpawn":4,"lootTier":"modesta"},
+  "jefe_goblin_grande": {"tipoRig":"npc","temasEnemigo":["goblin"],"morfologia":{"altura":[1.1,1.25],"corpulencia":[1.3,1.5]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#3a5a1a","esBoss":true,"lootTier":"jefe"},
+
+  "arana_cavernaria": {"tipoRig":"animal","especieId":"arana_gigante","temasEnemigo":["arana","insecto"],"esBoss":false,"pesoSpawn":9,"lootTier":"humilde"},
+  "reina_arana": {"tipoRig":"animal","especieId":"arana_gigante","temasEnemigo":["arana"],"escalaBoss":1.6,"esBoss":true,"lootTier":"jefe"},
+
+  "enjambre_murcielagos": {"tipoRig":"animal","especieId":"murcielago","temasEnemigo":["murcielago"],"esBoss":false,"pesoSpawn":10,"lootTier":"humilde"},
+  "murcielago_alfa": {"tipoRig":"animal","especieId":"murcielago","temasEnemigo":["murcielago"],"escalaBoss":1.8,"esBoss":true,"lootTier":"jefe"},
+
+  "trasgo_merodeador": {"tipoRig":"npc","temasEnemigo":["trasgo"],"morfologia":{"altura":[0.75,0.88],"corpulencia":[0.8,0.95]},"ropa":["camisa_lino_campesina"],"colorDebug":"#7a6a3a","esBoss":false,"pesoSpawn":9,"lootTier":"humilde"},
+  "trasgo_arquero": {"tipoRig":"npc","temasEnemigo":["trasgo"],"morfologia":{"altura":[0.75,0.88],"corpulencia":[0.75,0.9]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#8a7a4a","esBoss":false,"pesoSpawn":7,"lootTier":"humilde"},
+  "jefe_trasgos": {"tipoRig":"npc","temasEnemigo":["trasgo"],"morfologia":{"altura":[1.05,1.18],"corpulencia":[1.15,1.35]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#6a5a2a","esBoss":true,"lootTier":"jefe"},
+
+  "esqueleto_guerrero": {"tipoRig":"npc","temasEnemigo":["no_muerto"],"morfologia":{"altura":[0.95,1.08],"corpulencia":[0.75,0.9]},"rasgos":{"peloEstilos":[["calvo",100]],"barbaEstilos":[["ninguna",100]],"coloresPiel":[["hueso",100]]},"ropa":["pantalon_lana_campesino"],"colorDebug":"#d8d0b8","esBoss":false,"pesoSpawn":10,"lootTier":"humilde"},
+  "esqueleto_arquero": {"tipoRig":"npc","temasEnemigo":["no_muerto"],"morfologia":{"altura":[0.92,1.05],"corpulencia":[0.7,0.85]},"rasgos":{"peloEstilos":[["calvo",100]],"barbaEstilos":[["ninguna",100]],"coloresPiel":[["hueso",100]]},"ropa":["pantalon_lana_campesino"],"colorDebug":"#c8c0a8","esBoss":false,"pesoSpawn":8,"lootTier":"humilde"},
+  "espectro_errante": {"tipoRig":"npc","temasEnemigo":["no_muerto"],"morfologia":{"altura":[0.98,1.15],"corpulencia":[0.6,0.75]},"rasgos":{"peloEstilos":[["calvo",100]],"barbaEstilos":[["ninguna",100]],"coloresPiel":[["ceniciento",100]]},"ropa":[],"colorDebug":"#7a8a9a","esBoss":false,"pesoSpawn":5,"lootTier":"modesta"},
+  "liche_menor": {"tipoRig":"npc","temasEnemigo":["no_muerto"],"morfologia":{"altura":[1.0,1.1],"corpulencia":[0.7,0.85]},"rasgos":{"peloEstilos":[["calvo",100]],"barbaEstilos":[["ninguna",100]],"coloresPiel":[["hueso",100]]},"ropa":["camisa_lino_campesina"],"colorDebug":"#3a1a4a","esBoss":true,"lootTier":"jefe"},
+
+  "bandido_novato": {"tipoRig":"npc","temasEnemigo":["bandido"],"morfologia":{"altura":[0.95,1.08],"corpulencia":[0.9,1.05]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#8a6a4a","esBoss":false,"pesoSpawn":10,"lootTier":"humilde"},
+  "bandido_veterano": {"tipoRig":"npc","temasEnemigo":["bandido"],"morfologia":{"altura":[1.0,1.12],"corpulencia":[1.0,1.15]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino","gorro_lino_campesino"],"colorDebug":"#6a4a34","esBoss":false,"pesoSpawn":7,"lootTier":"modesta"},
+  "arquero_bandido": {"tipoRig":"npc","temasEnemigo":["bandido"],"morfologia":{"altura":[0.92,1.05],"corpulencia":[0.85,1.0]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#7a5a3a","esBoss":false,"pesoSpawn":8,"lootTier":"humilde"},
+  "capitan_bandidos": {"tipoRig":"npc","temasEnemigo":["bandido"],"morfologia":{"altura":[1.05,1.18],"corpulencia":[1.1,1.3]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino","gorro_lino_campesino"],"colorDebug":"#5a3a24","esBoss":true,"lootTier":"jefe"},
+
+  "orco_recluta": {"tipoRig":"npc","temasEnemigo":["orco"],"morfologia":{"altura":[1.05,1.18],"corpulencia":[1.1,1.3]},"ropa":["camisa_lino_campesina"],"colorDebug":"#5a7a4a","esBoss":false,"pesoSpawn":10,"lootTier":"humilde"},
+  "orco_veterano": {"tipoRig":"npc","temasEnemigo":["orco"],"morfologia":{"altura":[1.1,1.25],"corpulencia":[1.25,1.45]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#4a6a3a","esBoss":false,"pesoSpawn":7,"lootTier":"modesta"},
+  "chaman_orco": {"tipoRig":"npc","temasEnemigo":["orco"],"morfologia":{"altura":[1.0,1.15],"corpulencia":[1.0,1.2]},"ropa":["camisa_lino_campesina"],"colorDebug":"#6a5a3a","esBoss":false,"pesoSpawn":4,"lootTier":"modesta"},
+  "jefe_orco_guerra": {"tipoRig":"npc","temasEnemigo":["orco"],"morfologia":{"altura":[1.3,1.45],"corpulencia":[1.5,1.75]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#3a5a2a","esBoss":true,"lootTier":"jefe"},
+
+  "cultista_iniciado": {"tipoRig":"npc","temasEnemigo":["cultista"],"morfologia":{"altura":[0.95,1.08],"corpulencia":[0.85,1.0]},"ropa":["camisa_lino_campesina"],"colorDebug":"#4a2a4a","esBoss":false,"pesoSpawn":10,"lootTier":"humilde"},
+  "cultista_sacerdote": {"tipoRig":"npc","temasEnemigo":["cultista"],"morfologia":{"altura":[0.98,1.1],"corpulencia":[0.85,1.0]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#3a1a3a","esBoss":false,"pesoSpawn":6,"lootTier":"modesta"},
+  "guardian_arcano": {"tipoRig":"npc","temasEnemigo":["cultista","no_muerto"],"morfologia":{"altura":[1.1,1.25],"corpulencia":[1.1,1.3]},"rasgos":{"peloEstilos":[["calvo",100]],"barbaEstilos":[["ninguna",100]],"coloresPiel":[["piedra",100]]},"ropa":[],"colorDebug":"#5a5a6a","esBoss":false,"pesoSpawn":4,"lootTier":"modesta"},
+  "sumo_sacerdote_oscuro": {"tipoRig":"npc","temasEnemigo":["cultista"],"morfologia":{"altura":[1.05,1.18],"corpulencia":[0.95,1.15]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#2a0a2a","esBoss":true,"lootTier":"jefe"},
+
+  "pirata_marinero": {"tipoRig":"npc","temasEnemigo":["pirata"],"morfologia":{"altura":[0.95,1.1],"corpulencia":[0.9,1.1]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino"],"colorDebug":"#3a5a6a","esBoss":false,"pesoSpawn":10,"lootTier":"humilde"},
+  "pirata_artillero": {"tipoRig":"npc","temasEnemigo":["pirata"],"morfologia":{"altura":[1.0,1.15],"corpulencia":[1.05,1.25]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino","gorro_lino_campesino"],"colorDebug":"#2a4a5a","esBoss":false,"pesoSpawn":6,"lootTier":"modesta"},
+  "capitan_pirata": {"tipoRig":"npc","temasEnemigo":["pirata"],"morfologia":{"altura":[1.08,1.22],"corpulencia":[1.05,1.25]},"ropa":["camisa_lino_campesina","pantalon_lana_campesino","gorro_lino_campesino"],"colorDebug":"#1a3a4a","esBoss":true,"lootTier":"jefe"},
+
+  "lobo_salvaje": {"tipoRig":"animal","especieId":"lobo","temasEnemigo":["lobo"],"esBoss":false,"pesoSpawn":10,"lootTier":"humilde"},
+  "lobo_alfa": {"tipoRig":"animal","especieId":"lobo","temasEnemigo":["lobo"],"escalaBoss":1.5,"esBoss":true,"lootTier":"jefe"}
+}

@@ -1,6 +1,6 @@
 {
   "_nota": "Plantillas de POI por bioma (GDD sección 6). tipo: integrado (vive en el propio mapa) o portal (enlaza a instancia aparte, este bakeador solo coloca el disparador). peso: probabilidad relativa dentro de su pool (por defecto 10) — bajarlo hace un POI más raro/\"TOP\" sin tener que sacarlo del pool. faccion: \"hostil\" marca POIs enemigos (campamentos, fuertes...) para que la mecánica de peligro/combate los reconozca más adelante. \"_cualquiera\" es un pool extra que se suma siempre al pool del bioma, para tipos que pueden salir en cualquier sitio (cuevas, ruinas, POIs enemigos) sin duplicarlos en cada bioma.",
-  "_nota_categoria": "categoria decide qué INSTANCIA REAL genera baker/src/instanciasPOI.js al hornear el mapa (vincula baker/ con ciudades/ e interiores/, GDD_Bakeador_Exteriores 'POIs vinculados'): 'asentamiento' hornea una región ciudades/ completa (campo `tier`, uno de ciudades/catalogo/asentamientos.json) con su propia puerta/muralla; 'edificio' genera UN edificio suelto con interiores/generarEdificio (campo `tipoEdificioId`, de interiores/catalogo/tipos_edificio.json) directamente sobre el mapa padre, con su caja 3D y su puerta de interior; 'decorativo' (o sin categoria) no genera nada nuevo — sigue siendo solo el marcador de siempre (ruinas sin entrar, altares, campamentos de paso, cuevas/mazmorras — estas últimas deliberadamente sin instancia todavía: el bakeador de mazmorras no existe aún, ver docs/GDD_Sistema_Puertas.md).",
+  "_nota_categoria": "categoria decide qué INSTANCIA REAL genera baker/src/instanciasPOI.js al hornear el mapa (vincula baker/ con ciudades/, interiores/ y mazmorras/): 'asentamiento' hornea una región ciudades/ completa (campo `tier`) con su propia puerta/muralla; 'edificio' genera UN edificio suelto con interiores/generarEdificio (campo `tipoEdificioId`) directamente sobre el mapa padre; 'mazmorra' (docs/GDD_Bakeador_Dungeons.md, campo `dungeonTipoId` de mazmorras/catalogo/tipos_dungeon.json) genera una mazmorra con enemigos — aldea/ciudad hostil, edificio o cueva, según el `estiloExterior` del tipo; 'decorativo' (o sin categoria) no genera nada nuevo — sigue siendo solo el marcador de siempre.",
   "pradera": [
     { "id": "granja_abandonada", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "ruina", "reglasSitio": ["terrenoLlano"], "radio": 6 },
     { "id": "circulo_piedras", "tipo": "integrado", "categoria": "decorativo", "reglasSitio": ["terrenoLlano"], "radio": 3 },
@@ -12,14 +12,14 @@
   "bosque": [
     { "id": "claro_altar_antiguo", "tipo": "integrado", "categoria": "decorativo", "reglasSitio": [], "radio": 4 },
     { "id": "campamento_cazador", "tipo": "integrado", "categoria": "decorativo", "reglasSitio": [], "radio": 4 },
-    { "id": "guarida_lobo", "tipo": "portal", "categoria": "decorativo", "reglasSitio": [], "radio": 3 },
+    { "id": "guarida_lobo", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "guarida_lobos", "reglasSitio": [], "radio": 3, "faccion": "hostil" },
     { "id": "aldea_maderera", "tipo": "integrado", "categoria": "asentamiento", "tier": "aldea_pequena", "reglasSitio": ["terrenoLlano"], "radio": 9, "peso": 4 },
     { "id": "tienda_cazador", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "tienda", "reglasSitio": [], "radio": 3, "peso": 8 },
     { "id": "cabana_cazador", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "casa_humilde", "reglasSitio": [], "radio": 3, "peso": 6 }
   ],
   "montana_nevada": [
     { "id": "cabana_cazador", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "casa_humilde", "reglasSitio": ["bandaElevacionMin:4"], "radio": 3 },
-    { "id": "mina_abandonada", "tipo": "portal", "categoria": "decorativo", "reglasSitio": ["bandaElevacionMin:4"], "radio": 3 },
+    { "id": "mina_abandonada", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "mina_abandonada", "reglasSitio": ["bandaElevacionMin:4"], "radio": 3, "faccion": "hostil" },
     { "id": "tienda_cazador", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "tienda", "reglasSitio": ["bandaElevacionMin:4"], "radio": 3, "peso": 6 }
   ],
   "desierto": [
@@ -41,23 +41,40 @@
     { "id": "cabana_pesca", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "choza_pescador", "reglasSitio": ["cercaAgua"], "radio": 3, "peso": 6 }
   ],
   "_cualquiera": [
-    { "id": "cueva_pequena", "tipo": "portal", "categoria": "decorativo", "reglasSitio": ["bandaElevacionMin:3"], "radio": 3, "peso": 10 },
-    { "id": "cueva_profunda", "tipo": "portal", "categoria": "decorativo", "reglasSitio": ["bandaElevacionMin:3"], "radio": 4, "peso": 4 },
-    { "id": "mazmorra_olvidada", "tipo": "portal", "categoria": "decorativo", "reglasSitio": [], "radio": 5, "peso": 3 },
-    { "id": "mazmorra_antigua", "tipo": "portal", "categoria": "decorativo", "reglasSitio": [], "radio": 6, "peso": 1 },
+    { "id": "cueva_pequena", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "cueva_goblins", "reglasSitio": ["bandaElevacionMin:3"], "radio": 3, "peso": 10 },
+    { "id": "cueva_profunda", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "cueva_trasgos", "reglasSitio": ["bandaElevacionMin:3"], "radio": 4, "peso": 4 },
+    { "id": "mazmorra_olvidada", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "ruinas_torre_caida", "reglasSitio": [], "radio": 5, "peso": 3 },
+    { "id": "mazmorra_antigua", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "cripta_ancestral", "reglasSitio": [], "radio": 6, "peso": 1 },
     { "id": "ruinas_pequenas", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "ruina", "reglasSitio": [], "radio": 4, "peso": 10 },
-    { "id": "ruinas_medianas", "tipo": "integrado", "categoria": "decorativo", "reglasSitio": [], "radio": 7, "peso": 4 },
-    { "id": "ruinas_grandes", "tipo": "integrado", "categoria": "decorativo", "reglasSitio": [], "radio": 11, "peso": 1.2 },
+    { "id": "ruinas_medianas", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "ruinas_anfiteatro", "reglasSitio": [], "radio": 7, "peso": 4 },
+    { "id": "ruinas_grandes", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "ruinas_templo_olvidado", "reglasSitio": [], "radio": 11, "peso": 1.2 },
     { "id": "mercado_itinerante", "tipo": "integrado", "categoria": "decorativo", "reglasSitio": ["terrenoLlano"], "radio": 5, "peso": 5 },
     { "id": "circo_ambulante", "tipo": "integrado", "categoria": "decorativo", "reglasSitio": ["terrenoLlano"], "radio": 6, "peso": 1.5 },
     { "id": "campamento_barbaros_pequeno", "tipo": "integrado", "categoria": "decorativo", "reglasSitio": [], "radio": 5, "peso": 8, "faccion": "hostil" },
-    { "id": "campamento_barbaros_grande", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "campamento_hostil", "reglasSitio": [], "radio": 9, "peso": 2.5, "faccion": "hostil" },
-    { "id": "guarida_bandidos", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "campamento_hostil", "reglasSitio": [], "radio": 6, "peso": 5, "faccion": "hostil" },
+    { "id": "campamento_barbaros_grande", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "campamento_barbaros_grande", "reglasSitio": [], "radio": 9, "peso": 2.5, "faccion": "hostil" },
+    { "id": "guarida_bandidos", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "aldea_bandidos", "reglasSitio": [], "radio": 9, "peso": 5, "faccion": "hostil" },
     { "id": "campamento_cazadores_furtivos", "tipo": "integrado", "categoria": "decorativo", "reglasSitio": [], "radio": 5, "peso": 5, "faccion": "hostil" },
-    { "id": "torre_vigia_enemiga", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "torre_militar", "reglasSitio": [], "radio": 3, "peso": 6, "faccion": "hostil" },
-    { "id": "barracones_abandonados", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "cuartel_guardia", "reglasSitio": [], "radio": 8, "peso": 3, "faccion": "hostil" },
-    { "id": "fuerte_barbaro", "tipo": "integrado", "categoria": "asentamiento", "tier": "castillo", "reglasSitio": [], "radio": 12, "peso": 1, "faccion": "hostil" },
-    { "id": "castillo_en_ruinas", "tipo": "integrado", "categoria": "asentamiento", "tier": "castillo", "reglasSitio": [], "radio": 14, "peso": 0.8, "faccion": "hostil" }
+    { "id": "torre_vigia_enemiga", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "torre_nigromante", "reglasSitio": [], "radio": 4, "peso": 6, "faccion": "hostil" },
+    { "id": "barracones_abandonados", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "mazmorra_real", "reglasSitio": [], "radio": 8, "peso": 3, "faccion": "hostil" },
+    { "id": "fuerte_barbaro", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "fortaleza_orca", "reglasSitio": [], "radio": 12, "peso": 1, "faccion": "hostil" },
+    { "id": "castillo_en_ruinas", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "castillo_usurpado", "reglasSitio": [], "radio": 14, "peso": 0.8, "faccion": "hostil" },
+
+    { "id": "cueva_nido_aranas", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "cueva_aranas", "reglasSitio": ["bandaElevacionMin:3"], "radio": 4, "peso": 6, "faccion": "hostil" },
+    { "id": "cueva_colonia_murcielagos", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "cueva_murcielagos", "reglasSitio": ["bandaElevacionMin:3"], "radio": 3, "peso": 6, "faccion": "hostil" },
+    { "id": "cueva_de_cristal", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "cueva_cristal", "reglasSitio": ["bandaElevacionMin:4"], "radio": 4, "peso": 0.5 },
+    { "id": "ruinas_biblioteca_arcana_poi", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "ruinas_biblioteca_arcana", "reglasSitio": [], "radio": 8, "peso": 1.5 },
+    { "id": "ruinas_necropolis_poi", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "ruinas_necropolis", "reglasSitio": [], "radio": 10, "peso": 1, "faccion": "hostil" },
+    { "id": "bastion_no_muerto_poi", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "bastion_no_muerto", "reglasSitio": [], "radio": 13, "peso": 0.6, "faccion": "hostil" },
+    { "id": "ciudadela_caida_poi", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "ciudadela_caida", "reglasSitio": [], "radio": 13, "peso": 0.6, "faccion": "hostil" },
+    { "id": "poblado_orco_poi", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "poblado_orco", "reglasSitio": ["terrenoLlano"], "radio": 9, "peso": 3, "faccion": "hostil" },
+    { "id": "guarida_piratas_poi", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "guarida_piratas", "reglasSitio": ["cercaAgua"], "radio": 9, "peso": 3, "faccion": "hostil" },
+    { "id": "asentamiento_cultistas_poi", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "asentamiento_cultistas", "reglasSitio": [], "radio": 9, "peso": 2, "faccion": "hostil" },
+    { "id": "mina_maldita_poi", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "mina_maldita", "reglasSitio": ["bandaElevacionMin:4"], "radio": 4, "peso": 2, "faccion": "hostil" },
+    { "id": "catacumbas_poi", "tipo": "integrado", "categoria": "mazmorra", "dungeonTipoId": "catacumbas", "reglasSitio": [], "radio": 6, "peso": 3, "faccion": "hostil" },
+    { "id": "nido_aranas_gigante_poi", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "nido_aranas_gigante", "reglasSitio": [], "radio": 5, "peso": 3, "faccion": "hostil" },
+    { "id": "pantano_maldito_poi", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "pantano_maldito", "reglasSitio": ["cercaAgua"], "radio": 5, "peso": 2, "faccion": "hostil" },
+    { "id": "arboleda_corrupta_poi", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "arboleda_corrupta", "reglasSitio": [], "radio": 5, "peso": 3, "faccion": "hostil" },
+    { "id": "colmena_insectos_poi", "tipo": "portal", "categoria": "mazmorra", "dungeonTipoId": "colmena_insectos", "reglasSitio": [], "radio": 5, "peso": 2.5, "faccion": "hostil" }
   ],
   "_legendarias": {
     "probabilidad": 0.02,

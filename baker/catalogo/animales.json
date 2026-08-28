@@ -112,5 +112,7 @@
   "escorpion_de_lava": { "biomas": ["tierras_quemadas"], "densidadBase": 0.008, "capacidadMaximaPorChunk": 2, "variantes": 3, "peligroso": true, "domesticable": false, "colorDebug": "#c9401f" },
   "salamandra_ignea": { "biomas": ["tierras_quemadas"], "densidadBase": 0.006, "capacidadMaximaPorChunk": 1, "variantes": 3, "peligroso": false, "domesticable": false, "colorDebug": "#e0602a" },
   "buitre_carronero": { "biomas": ["tierras_quemadas"], "densidadBase": 0.005, "capacidadMaximaPorChunk": 1, "variantes": 3, "peligroso": false, "domesticable": false, "colorDebug": "#5a4a3a" },
-  "cuervo_de_ceniza": { "biomas": ["tierras_quemadas"], "densidadBase": 0.01, "capacidadMaximaPorChunk": 2, "variantes": 3, "peligroso": false, "domesticable": false, "colorDebug": "#2a2422" }
+  "cuervo_de_ceniza": { "biomas": ["tierras_quemadas"], "densidadBase": 0.01, "capacidadMaximaPorChunk": 2, "variantes": 3, "peligroso": false, "domesticable": false, "colorDebug": "#2a2422" },
+
+  "arana_gigante": { "colision": true, "biomas": [], "densidadBase": 0, "capacidadMaximaPorChunk": 0, "variantes": 2, "peligroso": true, "domesticable": false, "colorDebug": "#2a1a2a", "_nota": "Solo aparece como enemigo de mazmorra (docs/GDD_Bakeador_Dungeons.md, personajes/catalogo/enemigos.json) — biomas vacío para que el decorador de exteriores nunca la elija sola en el mapa salvaje." }
 }
