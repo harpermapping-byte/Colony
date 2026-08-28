@@ -34,6 +34,15 @@ export interface ModuloMuralla {
   material: string;
 }
 
+/** Farola/foco fijo del bake de ciudades (ciudades/src/index.js, capa "luces"). */
+export interface LuzMapa {
+  x: number;
+  y: number;
+  id: string;
+  radio: number;
+  color: string;
+}
+
 export interface IndiceMapa {
   version: number;
   nombre: string;
@@ -46,6 +55,7 @@ export interface IndiceMapa {
   ciudad?: { x: number; y: number };
   portales?: PortalMapa[];
   muralla?: { poligono: [number, number][]; modulos: ModuloMuralla[] };
+  luces?: LuzMapa[];
 }
 
 /** Objeto colocado por el bakeador dentro de un chunk (claves cortas del export). */

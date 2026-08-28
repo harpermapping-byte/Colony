@@ -225,10 +225,20 @@ instanciados.
 Pendiente: que el CLIENTE cargue esos .glb por instancia (hoy pinta una
 caja por riqueza con la huella w/h real de cada edificio — el paso al .glb
 espera a que el usuario apruebe el arte), hito de plaza, bakeado especial
-de la ciudad principal, ciclo día/noche que consuma `indice.luces`. El
-export en formato de sectores está verificado contra `mapaColision` del
-servidor y JUGADO de verdad (assets/mapas/ciudad_demo + paseo E2E con
-vídeo).
+de la ciudad principal. El export en formato de sectores está verificado
+contra `mapaColision` del servidor y JUGADO de verdad
+(assets/mapas/ciudad_demo + paseo E2E con vídeo).
+
+**`indice.luces` consumido en el cliente (RESUELTO)**: `client/src/game.ts`
+lee `indice.luces` al entrar en una región (no por streaming de sector —
+son pocas decenas como mucho, se cargan todas de golpe igual que
+fauna.json/poblacion.json) y crea un `THREE.PointLight` cálido por farola,
+apagada de día y encendida de noche con el mismo parpadeo de llama que la
+antorcha del guardia (`Math.sin` desfasado por posición, ver
+GDD_Agentes_Moviles.md). Sigue pendiente el `.glb` real del poste (hoy solo
+la luz, sin geometría propia — la farola/antorcha de poste como pieza de
+`ciudades/catalogo/decoracion.json` ya se pinta con su placeholder de
+siempre, esto solo añade la luz encima).
 
 ## 7. Vinculación con `baker/` (mapa exterior principal) — 2026-08-28
 

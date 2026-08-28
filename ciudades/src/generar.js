@@ -560,10 +560,14 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
 
   // === CAPA DE VEGETACIÓN dispersa ==========================================
   // "verde por aquí, verde por allá": arbustos (atravesables) y algún árbol
-  // suelto en rincones de césped alejados de las calles — sin saturar.
+  // suelto en rincones de césped alejados de las calles. Densidad DOBLADA
+  // (pedido del usuario 2026-08-28: la aldea se veía demasiado pelada) —
+  // sigue siendo dispersión aleatoria sobre césped libre, así que en un
+  // recinto pequeño con poco césped sobrante el tope real lo pone el
+  // espacio disponible, no este multiplicador.
   const ARBUSTOS = [["arbusto_comun", 4], ["espino_albar", 2], ["lavanda_silvestre", 2], ["romero", 1], ["helecho", 1]];
   const ARBOLES_SUELTOS = [["roble", 2], ["tilo", 2], ["abedul", 1]];
-  const nVerdes = Math.round(radio * 1.4);
+  const nVerdes = Math.round(radio * 2.8);
   for (let v = 0; v < nVerdes; v++) {
     const vx = 2 + Math.floor(rnd() * (ancho - 4)), vy = 2 + Math.floor(rnd() * (alto - 4));
     const k = vy * ancho + vx;
