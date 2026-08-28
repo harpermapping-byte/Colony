@@ -48,6 +48,7 @@
     "huellaExterior": [9, 7],
     "tieneBodega": true,
     "rangoPlantasAltas": [1, 1],
+    "temaTaller": "taberna",
     "salasPorPlanta": {
       "bodega": [["almacen", 10]],
       "planta_baja": [["sala_comun", 10], ["cocina", 5], ["almacen", 3]],
@@ -64,6 +65,7 @@
     "huellaExterior": [7, 6],
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 1],
+    "temaTaller": "tienda",
     "salasPorPlanta": {
       "planta_baja": [["sala_comercio", 10], ["almacen", 5]],
       "planta_alta": [["dormitorio_individual", 4], ["almacen", 3]]
@@ -226,6 +228,7 @@
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 1],
+    "temaTaller": "panaderia",
     "salasPorPlanta": {
       "planta_baja": [["sala_comercio", 6], ["cocina", 6], ["despensa", 3]],
       "planta_alta": [["dormitorio_individual", 3]]
@@ -238,6 +241,7 @@
     "riqueza": "modesta",
     "tieneBodega": true,
     "rangoPlantasAltas": [1, 2],
+    "temaTaller": "taberna",
     "salasPorPlanta": {
       "bodega": [["almacen", 10]],
       "planta_baja": [["sala_comun", 6], ["cocina", 4], ["vestibulo", 4]],
@@ -280,6 +284,7 @@
     "riqueza": "modesta",
     "tieneBodega": false,
     "rangoPlantasAltas": [0, 1],
+    "temaTaller": "templo",
     "salasPorPlanta": {
       "planta_baja": [["capilla", 10], ["vestibulo", 4]],
       "planta_alta": [["dormitorio_individual", 3]]
