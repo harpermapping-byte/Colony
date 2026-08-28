@@ -199,6 +199,7 @@ interface GrupoEspecie {
   // solo tipos con categoría de asset llegan aquí (se filtra al agrupar)
   tipo: "v" | "r" | "a" | "m" | "e";
   id: string;
+  variante: number;
   objetos: { globalX: number; globalY: number; obj: ObjetoBakeado }[];
 }
 
@@ -209,8 +210,13 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
     for (const obj of chunk.objetos) {
       // tipos sin categoría de asset conocida no se instancian
       if (!CATEGORIA_POR_TIPO[obj.t]) continue;
-      const claveGrupo = `${obj.t}:${obj.i}`;
-      if (!grupos.has(claveGrupo)) grupos.set(claveGrupo, { tipo: obj.t as GrupoEspecie["tipo"], id: obj.i, objetos: [] });
+      // La variante (obj.va) entra en la clave de grupo: cada plantilla .glb
+      // cargada es UNA variante concreta (edificios/<tipo>_NN.glb) — sin
+      // esto, dos edificios del mismo tipo con distinta variante bakeada
+      // compartirían igualmente la plantilla de la variante 0.
+      const variante = obj.va || 0;
+      const claveGrupo = `${obj.t}:${obj.i}:${variante}`;
+      if (!grupos.has(claveGrupo)) grupos.set(claveGrupo, { tipo: obj.t as GrupoEspecie["tipo"], id: obj.i, variante, objetos: [] });
       grupos.get(claveGrupo)!.objetos.push({
         globalX: cx * chunk.tamano + obj.x,
         globalY: cy * chunk.tamano + obj.y,
@@ -225,7 +231,7 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
     [...grupos.values()].map(async (grupo) => {
       // ¿.glb real de la especie? La sonda va cacheada por URL en
       // entityLoader, así que preguntarlo por cada sector es gratis.
-      const plantilla = await obtenerPlantilla(CATEGORIA_POR_TIPO[grupo.tipo]!, grupo.id, { tipo: "numerada", indice: 0 });
+      const plantilla = await obtenerPlantilla(CATEGORIA_POR_TIPO[grupo.tipo]!, grupo.id, { tipo: "numerada", indice: grupo.variante });
 
       if (plantilla) {
         for (const { globalX, globalY, obj } of grupo.objetos) {

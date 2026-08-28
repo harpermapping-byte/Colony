@@ -18,9 +18,14 @@ const { generarCiudad, validarCiudad } = require("./generar");
 const { cargarCatalogos } = require("../../interiores/src/catalogo");
 const { crearExportador } = require("../../baker/src/exportar");
 const { codificarPNG } = require("../../baker/src/png");
+const { semillaDesdeTexto } = require("../../baker/src/ruido");
 
 const RAIZ = path.join(__dirname, "..", "..");
 const TAMANO_CHUNK = 8; // el generador redondea el lado del mapa a múltiplos de 8
+// taller-vox/generar_edificio.js "todo" exporta 4 variantes por tipoEdificioId
+// (assets/edificios/<tipo>_01..04.glb) — mismo número aquí para elegir una
+// determinista por edificio (GDD_Motor_3D_Props, enganche rápido de arte).
+const VARIANTES_EDIFICIO = 4;
 
 function hexRGB(hex) {
   const n = parseInt(hex.slice(1), 16);
@@ -55,6 +60,10 @@ function exportarCiudad(ciudad, carpetaSalida) {
     // cada caja caiga EXACTO sobre el hueco que esa pieza rasterizó.
     const angulo = (ed.rot * Math.PI) / 180;
     const cosA = Math.cos(angulo), sinA = Math.sin(angulo);
+    // Determinista por edificio (mismo criterio que el resto del bakeador:
+    // misma semilla = mismo resultado siempre), no por pieza — todas las
+    // alas de un mismo edificio en L/T/U comparten fachada/material.
+    const va = semillaDesdeTexto(ed.semillaInterior) % VARIANTES_EDIFICIO;
     for (const p of ed.piezas) {
       const wx = ed.cx + p.ox * cosA - p.oy * sinA;
       const wy = ed.cy + p.oy * cosA + p.ox * sinA;
@@ -64,7 +73,7 @@ function exportarCiudad(ciudad, carpetaSalida) {
       // real del terreno. Solo hace falta en edificios: el resto de props
       // (árboles/deco) no necesitan precisión sub-casilla.
       meterObjeto(wx, wy, {
-        i: ed.tipoEdificioId, t: "e", va: 0, ro: ed.rot, es: 1, w: p.w, h: p.h,
+        i: ed.tipoEdificioId, t: "e", va, ro: ed.rot, es: 1, w: p.w, h: p.h,
         dx: wx - Math.floor(wx), dy: wy - Math.floor(wy),
       });
     }

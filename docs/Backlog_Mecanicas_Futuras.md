@@ -70,9 +70,58 @@ Recetas combinando categorías de recurso ya existentes (carne, pescado, plantas
 
 Planos/blueprints, materiales requeridos, niveles de mejora de una construcción, quién puede construir dónde (ligado a permisos de parcela).
 
-## Sistema de personaje — sin diseñar
+## Sistema de personaje — esqueleto de estadísticas ya estructurado, valores/fórmulas sin cerrar
 
-Estadísticas, progresión/experiencia, slots de equipo, apariencia personalizable, límites de inventario. Recordar el principio ya fijado: inventario y equipo son autoritativos en servidor, el cliente solo predice/muestra (ver conversación de arquitectura general).
+Primer boceto de qué estadísticas tiene un jugador (el streamer las dio, aquí solo se ordenan). Recordar el principio ya fijado: inventario y equipo son autoritativos en servidor, el cliente solo predice/muestra (ver conversación de arquitectura general).
+
+**Vitales** (se degradan/regeneran con el tiempo y las acciones, base de la "simulación de vida"):
+- Vida, Comida, Bebida, Sueño, Estamina.
+- Defensa física, Defensa mágica, Ataque físico, Ataque mágico — estas dos últimas parejas son más "de combate" que "vitales", pero el streamer las agrupó con el mismo mecanismo: **todas modificables por consumibles, objetos, armaduras y armas** (un vital como Comida sube al comer; un vital como Defensa física sube al llevar una armadura puesta — mismo tipo de modificador aplicado a cosas distintas).
+
+**Atributos** (fuerza, inteligencia, destreza, sigilo, carisma, liderazgo):
+- Cada uno con sus propias especificaciones y bonus (qué desbloquea/mejora cada uno — pendiente).
+- Valor de partida: unos base, con matiz para cuando exista el creador de personaje del jugador (`personajes/` ya genera la ficha física/morfología por semilla — la generación de ATRIBUTOS de un PJ elegido por un jugador de verdad es otra cosa, distinta de un NPC aleatorio; falta decidir si el jugador reparte puntos, si nacen fijos según algo que elige, o una mezcla).
+- Mejoran (o empeoran) **según uso/experiencia**, no un nivel global — encaja con el patrón ya usado en oficios (ver abajo) y evita un "sube de nivel y repartes puntos" genérico. Sin cerrar: la fórmula de progreso, si hay deterioro real por desuso prolongado, y el tope máximo de cada atributo.
+
+**Peso transportable e inventario** (el punto que más detalle trajo el streamer, ver sección propia más abajo).
+
+**Pendiente de definir cuando toque**: fórmulas concretas (cómo pasa Fuerza a Peso transportable, cómo pasan Destreza/Inteligencia a bonus de ataque/defensa), slots de equipo (¿cabeza/torso/piernas/brazos, mismos pivotes que ya usa `rigHumanoide.ts` y cuelga `ropa/`?), curva de progresión, y penalizaciones por vitales a 0 (¿morir de hambre de verdad, o solo penalización dura?).
+
+## Inventario, contenedores y objetos en el mundo — esqueleto ya estructurado, sin diseñar la interfaz
+
+Concepto decidido por el streamer, estilo Project Zomboid:
+
+- **Peso y espacio son EJES DISTINTOS**: todo objeto pesa (cuenta contra el "peso transportable" del personaje, ligado a Fuerza) Y ocupa espacio en el inventario (independiente del peso). Un objeto pesado y pequeño (un lingote de oro) y uno ligero y grande (una escalera) estresan ejes distintos del inventario.
+- **Inventario en rejilla estilo "tetris"**: cada objeto tiene una huella 2D (su representación plana, o una vista fija del modelo 3D) que hay que encajar en la cuadrícula — no una lista con cantidad, hueco físico real.
+- **Contenedores**: además de los fijos del mundo (cajas, cofres — ya existen como mobiliario de saqueo en `interiores/catalogo/elementos.json`, con `lootTier` en las piezas de mazmorra), el personaje puede llevar mochilas/bolsos/bolsillos que AMPLÍAN su cuadrícula de inventario — cada contenedor con su propia rejilla (¿anidada dentro de la del cuerpo, o independiente?, pendiente).
+- **Objetos sueltos en el mapa**: se pueden dejar en el suelo y se ven en su sitio real en 3D (no un icono) — ya hay precedente exacto de esto en el propio bakeador: los "objetos sueltos de superficie estilo Project Zomboid" que coloca `interiores/catalogo/elementos.json` (`colocacion: sobreSuperficie`, ver más abajo en este mismo backlog, sección "Menú de construcción/decoración") son la misma idea aplicada a contenido bakeado en vez de soltado por el jugador — coherente reusar el mismo concepto de anclaje/colisión.
+- **Zonas prohibidas para soltar objetos**: alguna zona del mapa no dejará colocar nada (a marcar más adelante — ¿parcelas ajenas? ¿interior de mazmorra? pendiente).
+- **Sistema de carga** (llevar/arrastrar algo pesado, o cargar un objeto en brazos bloqueando otras acciones) — mencionado, sin diseñar cómo se implementa.
+
+**Pendiente de definir cuando toque**: tamaño de la rejilla base del personaje, cómo escala el tamaño de la rejilla de cada contenedor (mochila pequeña vs baúl), si rotar un objeto en la rejilla es una mecánica (como el Tetris real) o los objetos tienen forma fija, cómo se sincroniza servidor-autoritativo sin lag perceptible al arrastrar objetos, y si coger un objeto del suelo tiene un radio de interacción o hay que "abrirlo" como un contenedor.
+
+## Roles/profesiones y crafteo por planos — concepto decidido, árbol y recetas sin diseñar
+
+- Cada profesión permite ciertos crafteos, desbloqueados por **planos** ("blueprint") — no todo el mundo craftea todo desde el principio.
+- Progresión por **rama/experiencia de la propia profesión** (mejora de herrero, mejora de carpintero...) — mismo patrón "se mejora con el uso" que los atributos de arriba, no un nivel de personaje genérico compartido.
+- Encaja directo con "Oficios de crafteo" y "Comercio y economía" ya anotados más abajo en este backlog — mismo tema, ahora con el mecanismo (planos + XP por rama) más claro.
+
+**Pendiente de definir cuando toque**: catálogo de profesiones (¿una lista cerrada, o abierta como el resto de catálogos del proyecto?), cómo se consigue un plano nuevo (comprado/encontrado/enseñado por NPC), estaciones de trabajo requeridas por receta (ya apuntado en "Oficios de crafteo"), y si un personaje puede tener varias profesiones a la vez o hay que especializarse.
+
+## Ideas propias a valorar (propuestas, no decisiones — para que el streamer las filtre)
+
+Pensando en qué encaja con lo que ya existe en el proyecto (rig con pivotes por zona, ropa con fibras textiles, ciclo día/noche recién construido, ciudad neutral/hostil, roles de Twitch ya decididos):
+
+- **Heridas/enfermedad como estado, no solo daño plano**: sangrado (dot), fractura (penaliza velocidad/Estamina hasta curar), infección de una herida sin tratar, envenenamiento — le da un uso mecánico real a `choza_curandero` (ya existe como tipo de edificio) y a una futura profesión de medicina/alquimia (`sala_alquimia` también ya existe en mazmorras).
+- **Temperatura personal**: frío en `montana_nevada`, calor en `desierto` (ambos biomas ya generados por el bakeador) — la ropa (`ropa/`, que YA sabe qué fibra es cada prenda: lino/lana/seda) protege según el material, no solo por defensa física. Conecta ropa, clima y vitales en un solo sistema sin inventar catálogos nuevos.
+- **Zonas de golpe por parte del cuerpo**: el rig humanoide YA cuelga piezas de cabeza/torso/brazos/piernas por separado (mismos pivotes que usa `ropa/`) — un golpe a la cabeza sin casco pesa distinto que uno al torso con armadura. Encaja con el sistema de ataque/defensa sin inventar un esqueleto nuevo.
+- **Sigilo real, no solo un número**: ligarlo al cono de visión de NPCs (ya anotado más abajo, "Cono/campo de visión real en interiores") y al ciclo día/noche (ya construido, `cicloDia.ts`) — de noche o agachado entre sombras, el atributo Sigilo pesa más. Mismo principio en exteriores con la vegetación densa como cobertura.
+- **Deterioro por desuso, no solo mejora por uso**: si un atributo/habilidad de profesión baja un poco tras mucho tiempo sin practicarse, la simulación de vida pesa más y hay más razones para variar lo que hace el personaje (coherente con lo que ya insinuó el streamer: "mejorados O EMPEORADOS según sus acciones").
+- **Durabilidad de equipo**: armas/armaduras/herramientas se desgastan con el uso y necesitan reparación — le da trabajo constante a los oficios de crafteo en vez de craftear una vez y listo, y una razón económica más para el comercio.
+- **Reputación por facción/asentamiento**: con ciudad neutral y ciudad hostil ya decididas (ver "Facciones y la ciudad enemiga" abajo), Carisma/Liderazgo podrían mover precios de mercader, si un guardia te deja pasar, o si un asentamiento hostil te ataca a la vista o no.
+- **Liderazgo con efecto de grupo real**: bonus a mercenarios/mascotas domesticadas o a jugadores cercanos en el mismo grupo/gremio — le da un uso concreto a un atributo que si no queda decorativo comparado con Fuerza/Destreza.
+- **Roles de Twitch como modificador de estas mismas estadísticas**: ya está decidido que sub/mod/VIP dan ventajas (ver "Roles de Twitch" abajo) — encaja aquí como espacio extra de inventario, regen de Estamina/Sueño más rápida, o similar, en vez de un sistema de ventajas totalmente aparte.
+- **Muerte**: qué pasa con el inventario en rejilla al morir — ¿bolsa de loot en el sitio exacto donde cayó (coherente con "objetos en el mundo" de arriba), recuperable solo por quien la encuentre? Conecta directo con "Muerte y respawn" ya anotado abajo.
 
 ## Muerte y respawn — sin diseñar
 

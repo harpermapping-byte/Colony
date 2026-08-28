@@ -9,6 +9,7 @@
  * en cada escalera/trampilla que suba o baje de planta.
  */
 import * as THREE from "three";
+import { cargarInstanciaEntidad } from "./entityLoader";
 
 interface ElementoColocado {
   id: string;
@@ -18,6 +19,7 @@ interface ElementoColocado {
   largo: number;
   colorDebug?: string;
   capa?: string;
+  rotacion?: number;
 }
 
 interface PuertaConexion {
@@ -106,14 +108,26 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): THREE
     }
 
     for (const item of resultado.colocados) {
-      const caja = new THREE.Mesh(
-        new THREE.BoxGeometry(item.ancho, ALTO_MUEBLE, item.largo),
-        new THREE.MeshStandardMaterial({ color: item.colorDebug ?? "#8a6a4a", roughness: 0.9, metalness: 0 }),
-      );
       const cx = offsetX + item.x + item.ancho / 2;
       const cz = offsetY + item.y + item.largo / 2;
-      caja.position.set(cx, ALTO_MUEBLE / 2, cz);
-      grupo.add(caja);
+
+      // .glb real del mueble (assets/interiores/<id>_01.glb, taller-vox/
+      // generar_modelos.js) si ya existe, si no el cubo de color de
+      // siempre — cargarInstanciaEntidad ya resuelve esa caída sola.
+      // `grupo` ya está en la escena cuando esto resuelve (crearInteriorVisual
+      // devuelve el grupo síncrono, mismo patrón que sectorVisual.ts): el
+      // mueble aparece un frame más tarde, no bloquea la carga del interior.
+      cargarInstanciaEntidad({
+        categoria: "interiores",
+        id: item.id,
+        variante: { tipo: "numerada", indice: 0 },
+        colorPlaceholder: item.colorDebug ?? "#8a6a4a",
+        dimensiones: { ancho: item.ancho, alto: ALTO_MUEBLE, profundo: item.largo },
+      }).then((instancia) => {
+        instancia.position.set(cx, 0, cz);
+        instancia.rotation.y = THREE.MathUtils.degToRad(item.rotacion || 0);
+        grupo.add(instancia);
+      });
 
       if (item.capa === "iluminacion") {
         const luz = new THREE.PointLight(COLOR_LUZ, INTENSIDAD_LUZ, ALCANCE_LUZ, 2);
