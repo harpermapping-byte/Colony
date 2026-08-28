@@ -1,5 +1,5 @@
 {
-  "_nota": "Catálogo de NPCs — la LISTA de la que tira el generador, igual que elementos.json es la lista de la que tira el bakeador de interiores. ESTO ES EL ARRANQUE DE PRUEBA (4 arquetipos), no la lista definitiva: cuando se haga la lista completa (pactada con el streamer) se amplía este archivo y se regenera todo del tirón, sin tocar el generador. Cada entrada: profesion (cruza con ropa/catalogo/profesiones.json), morfologia con RANGOS [min,max] (cada individuo cae en un punto del rango por semilla — dentro de los límites globales de client/src/render3d/morfologia.json), sexoPesos/rasgos para sobreescribir los pesos por defecto de rasgos.json (solo lo que cambie), y ropa: ids de ropa/catalogo/prendas.json que el generador anota en la ficha — cuando el catálogo de prendas esté completo, el cliente se la pondrá AUTO al materializar el NPC (misma morfología → acopla sola).",
+  "_nota": "Catálogo de NPCs — la LISTA de la que tira el generador, igual que elementos.json es la lista de la que tira el bakeador de interiores. Arrancó con 4 arquetipos de prueba; se amplió (2026-08-28) con los oficios de tienda/taller que ya existen en interiores/catalogo/tipos_edificio.json pero que ningún NPC ocupaba todavía (poblacion/catalogo/oficiosEdificios.json) — sigue sin ser la lista DEFINITIVA (la pacta el streamer), pero ya no deja media ciudad de edificios sin trabajador. Cada entrada: profesion (cruza con ropa/catalogo/profesiones.json), morfologia con RANGOS [min,max] (cada individuo cae en un punto del rango por semilla — dentro de los límites globales de client/src/render3d/morfologia.json), sexoPesos/rasgos para sobreescribir los pesos por defecto de rasgos.json (solo lo que cambie), y ropa: ids de ropa/catalogo/prendas.json que el generador anota en la ficha — HOY el catálogo de prendas solo tiene 3 prendas de prueba genéricas (comunes a cualquier oficio), así que todos los arquetipos comparten esas mismas hasta que se amplíe ropa/catalogo/prendas.json con vestuario específico por oficio.",
 
   "aldeano": {
     "profesion": "campesino",
@@ -64,6 +64,152 @@
       "Conoce las hierbas medicinales de la zona y sus usos.",
       "Ha vivido en el pueblo toda su vida y recuerda su historia.",
       "Da consejos a quien se lo pide, aunque casi nadie le pregunta lo que de verdad hace falta."
+    ]
+  },
+
+  "pescador": {
+    "profesion": "pescador",
+    "morfologia": { "altura": [0.94, 1.08], "corpulencia": [0.92, 1.08] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "colorDebug": "#4a7a8a",
+    "personalidad": "Pescador madrugador y de pocas palabras, más cómodo con las redes que con la gente.",
+    "conocimiento": [
+      "Sale a pescar antes del amanecer, cuando el agua está en calma.",
+      "Conoce las corrientes y los bancos de peces mejor que nadie del pueblo.",
+      "Guarda la sal y los barriles de salazón para que el pescado aguante el invierno."
+    ]
+  },
+
+  "carpintero": {
+    "profesion": "carpintero",
+    "morfologia": { "altura": [0.96, 1.1], "corpulencia": [1.0, 1.15] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "colorDebug": "#8a6a45",
+    "personalidad": "Carpintero paciente y meticuloso, orgulloso de que sus muebles duren generaciones.",
+    "conocimiento": [
+      "Talla muebles y vigas para media aldea con madera del aserradero.",
+      "Tiene un encargo atrasado que le quita el sueño.",
+      "Sabe distinguir buena madera de mala solo con olerla."
+    ]
+  },
+
+  "molinero": {
+    "profesion": "molinero",
+    "morfologia": { "altura": [0.94, 1.06], "corpulencia": [0.95, 1.15] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "colorDebug": "#c9b87a",
+    "personalidad": "Molinero jovial siempre cubierto de harina, lleva las cuentas del grano de todo el pueblo.",
+    "conocimiento": [
+      "Muele el grano de los campesinos a cambio de una parte de la harina.",
+      "Depende de que el viento o el agua no le fallen para trabajar.",
+      "Sabe quién ha tenido buena cosecha y quién no, solo por lo que trae a moler."
+    ]
+  },
+
+  "curtidor": {
+    "profesion": "curtidor",
+    "morfologia": { "altura": [0.94, 1.08], "corpulencia": [0.95, 1.1] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "colorDebug": "#6a4a3a",
+    "personalidad": "Curtidor curtido él mismo por el oficio, resignado a que su taller huela mal y nadie quiera visitarlo.",
+    "conocimiento": [
+      "Trata las pieles que le traen los cazadores hasta convertirlas en cuero.",
+      "Su taller apesta y lo sabe — por eso vive un poco apartado.",
+      "Vende cuero al herrero, al zapatero y a quien lo necesite."
+    ]
+  },
+
+  "alfarero": {
+    "profesion": "alfarero",
+    "morfologia": { "altura": [0.92, 1.05], "corpulencia": [0.9, 1.05] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "colorDebug": "#a5673f",
+    "personalidad": "Alfarera tranquila y algo soñadora, siempre con las manos manchadas de arcilla.",
+    "conocimiento": [
+      "Hace vasijas, platos y tinajas en su torno, cocidas en su propio horno.",
+      "Conoce el mejor barro de la zona, junto al río.",
+      "Cada pieza que sale rota del horno la disgusta un poco más de lo que admite."
+    ]
+  },
+
+  "joyero": {
+    "profesion": "joyero",
+    "morfologia": { "altura": [0.9, 1.02], "corpulencia": [0.85, 0.98] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "colorDebug": "#c9a227",
+    "personalidad": "Joyero pulcro y desconfiado, mide cada palabra igual que mide el oro.",
+    "conocimiento": [
+      "Engarza piedras y funde metales preciosos para la gente con posibles.",
+      "Guarda su mercancía mejor bajo llave que su propia casa.",
+      "Sabe distinguir una piedra falsa a simple vista, y no se corta en decirlo."
+    ]
+  },
+
+  "sastre": {
+    "profesion": "sastre",
+    "morfologia": { "altura": [0.9, 1.02], "corpulencia": [0.85, 0.98] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "colorDebug": "#7a4a8a",
+    "personalidad": "Sastre presumido con buen ojo para las telas, opina de la ropa de todo el que entra por su puerta.",
+    "conocimiento": [
+      "Cose y remienda ropa para todo el que se lo pueda pagar.",
+      "Sueña con conseguir seda de verdad algún día.",
+      "Sabe el tamaño de medio pueblo de memoria, de tanto tomar medidas."
+    ]
+  },
+
+  "panadero": {
+    "profesion": "panadero",
+    "morfologia": { "altura": [0.94, 1.08], "corpulencia": [1.0, 1.18] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "colorDebug": "#d9a35c",
+    "personalidad": "Panadero madrugador y campechano, el primero en enterarse de todo porque todos pasan por su puerta.",
+    "conocimiento": [
+      "Amasa el pan antes del alba para tenerlo listo al amanecer.",
+      "Compra la harina al molinero, y se queja si viene floja.",
+      "Conoce el olor de un horno bien cebado sin necesidad de mirarlo."
+    ]
+  },
+
+  "tabernero": {
+    "profesion": "tabernero",
+    "morfologia": { "altura": [0.96, 1.1], "corpulencia": [1.0, 1.2] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "colorDebug": "#8a5a3a",
+    "personalidad": "Tabernero hablador y sociable, se entera de todos los chismes y rumores del asentamiento antes que nadie.",
+    "conocimiento": [
+      "Sirve cerveza y comida caliente a quien tenga con qué pagar.",
+      "Escucha más secretos que el propio sacerdote, aunque nunca lo admitiría.",
+      "Guarda una barrica especial para los clientes de confianza."
+    ]
+  },
+
+  "sacerdote": {
+    "profesion": "sacerdote",
+    "morfologia": { "altura": [0.92, 1.05], "corpulencia": [0.88, 1.0] },
+    "rasgos": {
+      "peloEstilos": [["calvo", 30], ["monje", 40], ["corto", 20], ["melena", 10]]
+    },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "colorDebug": "#4a4a6a",
+    "personalidad": "Sacerdote sereno y de trato amable, siempre dispuesto a escuchar, aunque no siempre a dar la razón.",
+    "conocimiento": [
+      "Oficia los ritos del templo y escucha a quien busca consuelo.",
+      "Conoce los nombres de todos los nacidos y enterrados del asentamiento.",
+      "Cree que el jarl debería pisar el templo más a menudo de lo que lo hace."
+    ]
+  },
+
+  "tendero": {
+    "profesion": "tendero",
+    "morfologia": { "altura": [0.92, 1.05], "corpulencia": [0.9, 1.05] },
+    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "colorDebug": "#3a8a5a",
+    "personalidad": "Tendero regateador nato, siempre intentando sacarle una moneda más al trato.",
+    "conocimiento": [
+      "Vende de todo un poco, lo que le llega de mercaderes y artesanos del pueblo.",
+      "Lleva la cuenta de quién le debe y quién paga siempre puntual.",
+      "Sabe qué se vende y qué no, así que sabe cómo le va a cada vecino."
     ]
   }
 }

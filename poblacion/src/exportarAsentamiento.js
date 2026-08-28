@@ -29,7 +29,7 @@ async function exportarAsentamiento(tierId, semilla, opciones = {}) {
 
   const ciudad = generarCiudad({ tier: tierId, semilla, catalogos: catalogosInteriores });
   const poblacion = await exportarPoblacion(tierId, semilla, opciones);
-  const deficit = asignarUbicacion(ciudad, poblacion.npcs, catalogos.oficiosEdificios);
+  const deficit = asignarUbicacion(ciudad, poblacion.npcs, catalogos.oficiosEdificios, catalogosInteriores.elementos);
 
   const cacheCaminos = new Map();
   for (const npc of poblacion.npcs) {
