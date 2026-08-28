@@ -14,6 +14,8 @@ function cargarCatalogos() {
     nombres: cargarJSON(path.join(CARPETA_CATALOGO, "nombres.json")),
     censo: cargarJSON(path.join(CARPETA_CATALOGO, "censo.json")),
     oficiosEdificios: cargarJSON(path.join(CARPETA_CATALOGO, "oficiosEdificios.json")),
+    perfilesSociales: cargarJSON(path.join(CARPETA_CATALOGO, "perfilesSociales.json")),
+    accionesPorSala: cargarJSON(path.join(CARPETA_CATALOGO, "accionesPorSala.json")),
   };
 }
 
