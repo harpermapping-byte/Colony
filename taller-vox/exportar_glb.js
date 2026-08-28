@@ -38,22 +38,68 @@ const CARAS = [
 ];
 const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 
+// Greedy meshing: las caras expuestas COPLANARIAS y del MISMO color se
+// fusionan en un solo rectángulo. El resultado se ve idéntico (solo se
+// fusiona lo indistinguible: mismo plano, misma normal, mismo color — el
+// "a cuadraditos" lo ponen los cambios de color, que siguen cortando
+// rectángulo), pero los edificios enteros pasaban de ~100k triángulos y
+// ~6MB por .glb a algo servible en el plan gratuito.
 function mallarVoxeles(ocupado, unit) {
   const positions = [], normals = [], colors = [], indices = [];
   let vi = 0;
-  for (const [key, rgb] of ocupado) {
-    const [x, y, z] = key.split(",").map(Number);
-    for (let d = 0; d < 6; d++) {
-      const [dx, dy, dz] = DIRS[d];
-      if (ocupado.has(`${x + dx},${y + dy},${z + dz}`)) continue; // cara interior tapada — no se genera
-      const { normal, verts } = CARAS[d];
-      for (const [vx, vy, vz] of verts) {
-        positions.push((x + vx) * unit, (y + vy) * unit, (z + vz) * unit);
-        normals.push(...normal);
-        colors.push(...rgb, 1);
+  for (let d = 0; d < 6; d++) {
+    const [dx, dy, dz] = DIRS[d];
+    const n = dx !== 0 ? 0 : dy !== 0 ? 1 : 2; // eje de la normal
+    const [u, v] = n === 0 ? [1, 2] : n === 1 ? [0, 2] : [0, 1]; // ejes del plano
+    // caras expuestas de esta dirección, agrupadas por rebanada (coord normal)
+    const rebanadas = new Map(); // s -> Map("a,b" -> rgb)
+    for (const [key, rgb] of ocupado) {
+      const p = key.split(",").map(Number);
+      if (ocupado.has(`${p[0] + dx},${p[1] + dy},${p[2] + dz}`)) continue; // tapada
+      const s = p[n];
+      if (!rebanadas.has(s)) rebanadas.set(s, new Map());
+      rebanadas.get(s).set(`${p[u]},${p[v]}`, rgb);
+    }
+    const { normal, verts } = CARAS[d];
+    for (const [s, caras] of rebanadas) {
+      const visitada = new Set();
+      // orden estable (b mayor, a menor) para que el barrido greedy sea determinista
+      const claves = [...caras.keys()].map((k) => k.split(",").map(Number)).sort((p1, p2) => p1[1] - p2[1] || p1[0] - p2[0]);
+      for (const [a0, b0] of claves) {
+        const k0 = `${a0},${b0}`;
+        if (visitada.has(k0)) continue;
+        const rgb = caras.get(k0);
+        const igual = (a, b) => {
+          const c = caras.get(`${a},${b}`);
+          return c && !visitada.has(`${a},${b}`) && c[0] === rgb[0] && c[1] === rgb[1] && c[2] === rgb[2];
+        };
+        // crecer en anchura (eje u) y luego en altura (eje v) fila completa a fila completa
+        let ancho = 1;
+        while (igual(a0 + ancho, b0)) ancho++;
+        let alto = 1;
+        crecer: while (true) {
+          for (let a = a0; a < a0 + ancho; a++) if (!igual(a, b0 + alto)) break crecer;
+          alto++;
+        }
+        for (let b = b0; b < b0 + alto; b++)
+          for (let a = a0; a < a0 + ancho; a++) visitada.add(`${a},${b}`);
+        // el rectángulo fusionado reutiliza los vértices unitarios de CARAS
+        // escalados por eje — mismo orden, mismo winding
+        const min = [0, 0, 0], escala = [1, 1, 1];
+        min[n] = s; min[u] = a0; min[v] = b0;
+        escala[u] = ancho; escala[v] = alto;
+        for (const [vx, vy, vz] of verts) {
+          positions.push(
+            (min[0] + vx * escala[0]) * unit,
+            (min[1] + vy * escala[1]) * unit,
+            (min[2] + vz * escala[2]) * unit
+          );
+          normals.push(...normal);
+          colors.push(...rgb, 1);
+        }
+        indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+        vi += 4;
       }
-      indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
-      vi += 4;
     }
   }
   return { positions, normals, colors, indices };
@@ -148,7 +194,7 @@ function exportarModelo(model, id, outPath, unit = 0.1) {
   return { voxeles: ocupado.size, triangulos: mesh.indices.length / 3, bytes: glb.length };
 }
 
-module.exports = { exportarModelo };
+module.exports = { exportarModelo, expandirVoxeles, mallarVoxeles };
 
 if (require.main === module) {
   const [, , archivoModelos, id, outPath] = process.argv;

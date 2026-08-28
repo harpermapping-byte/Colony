@@ -140,3 +140,65 @@ test("estiloVentanaAlt siempre distinto del principal (variedad DENTRO de un mis
     assert.ok(ESTILOS_VENTANA.includes(m.estiloVentanaAlt));
   }
 });
+
+// --- plan de suelo (vinculación con ciudades/) -------------------------------
+
+test("plan de suelo: el modelo respeta w/h y las alas exactas del plan (formato ciudades/)", () => {
+  const plan = {
+    semilla: "rio-3:taberna:18",
+    w: 9, h: 8,
+    piezas: [
+      { ox: 0, oy: 0, w: 9, h: 8 },
+      { ox: 2, oy: -(8 / 2 + 4 / 2), w: 5, h: 4 }, // ala trasera tipo L
+    ],
+  };
+  const m = generarEdificio("taberna", 1, plan);
+  assert.strictEqual(m.forma, "plan");
+  assert.strictEqual(m.enL, true);
+  // el cuerpo manda en anchura (el ala cabe dentro); el ala alarga el fondo
+  assert.strictEqual(m.grid[0], plan.w * U + 2 * PAD, "anchura ≠ plan");
+  const fondoMinimo = (plan.h + 4) * U; // cuerpo + ala (con solape, algo menos que la suma exacta)
+  assert.ok(m.grid[2] > plan.h * U + PAD && m.grid[2] <= fondoMinimo + 2 * PAD, `fondo ${m.grid[2]} no refleja el ala del plan`);
+});
+
+test("plan de suelo: misma semilla de plan = modelo idéntico (determinismo por instancia)", () => {
+  const plan = { semilla: "rio-3:botica:15", w: 9, h: 7, piezas: [{ ox: 0, oy: 0, w: 9, h: 7 }], plantasAltas: 1 };
+  const a = generarEdificio("botica", 1, plan);
+  const b = generarEdificio("botica", 99, plan); // nn distinto NO debe influir si hay plan
+  assert.deepStrictEqual(a.cajas, b.cajas);
+  assert.deepStrictEqual(a.paleta, b.paleta);
+});
+
+test("plan de suelo: plantasAltas del plan manda sobre la tirada (encaje con el interior anidado)", () => {
+  const base = { semilla: "x", w: 9, h: 7, piezas: [{ ox: 0, oy: 0, w: 9, h: 7 }] };
+  const con2 = generarEdificio("posada", 1, { ...base, plantasAltas: 2 });
+  const con0 = generarEdificio("posada", 1, { ...base, plantasAltas: 0 });
+  const altura = (m) => Math.max(...m.cajas.map((c) => Math.max(c[1], c[4])));
+  assert.ok(altura(con2) > altura(con0), "más plantas en el plan debería dar un modelo más alto");
+});
+
+test("greedy meshing: cada cara expuesta queda cubierta exactamente una vez (área fusionada = área original)", () => {
+  const { expandirVoxeles, mallarVoxeles } = require("./exportar_glb");
+  const m = generarEdificio("casa_humilde", 3);
+  const ocupado = expandirVoxeles(m);
+  // caras expuestas contadas a mano (el criterio de siempre: sin vecino en esa dirección)
+  const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  let expuestas = 0;
+  for (const key of ocupado.keys()) {
+    const [x, y, z] = key.split(",").map(Number);
+    for (const [dx, dy, dz] of DIRS) if (!ocupado.has(`${x + dx},${y + dy},${z + dz}`)) expuestas++;
+  }
+  const mesh = mallarVoxeles(ocupado, 1);
+  // área de cada quad = producto de sus dos lados no degenerados (los vértices
+  // van en el orden de CARAS: 0→1 y 0→3 son las aristas del rectángulo)
+  let area = 0;
+  for (let q = 0; q < mesh.positions.length / 12; q++) {
+    const v = (i) => mesh.positions.slice(q * 12 + i * 3, q * 12 + i * 3 + 3);
+    const [a, b, d] = [v(0), v(1), v(3)];
+    const lado1 = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    const lado2 = Math.hypot(d[0] - a[0], d[1] - a[1], d[2] - a[2]);
+    area += lado1 * lado2;
+  }
+  assert.strictEqual(area, expuestas, "el mesher greedy pierde o duplica superficie");
+  assert.ok(mesh.indices.length / 3 < expuestas, "greedy no está fusionando nada");
+});
