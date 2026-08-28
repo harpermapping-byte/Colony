@@ -17,6 +17,11 @@
 
 export type CategoriaAsset = "vegetacion" | "animales" | "rocas" | "interiores" | "personajes" | "edificios";
 
+// "terrenos"/"materiales": texturas 2D tileables (docs/GDD_Bakeador_Texturas.md),
+// no modelos — mismo árbol assets/<categoria>/<id>_<NN>.png, pero resueltas
+// con resolverUrlTextura (abajo), no resolverUrlModelo (busca .glb).
+export type CategoriaTextura = "terrenos" | "materiales";
+
 export interface VarianteNumerada {
   tipo: "numerada";
   indice: number; // 0-based; el archivo usa 1-based con cero a la izquierda
@@ -37,4 +42,14 @@ function nombreArchivo(id: string, variante: Variante): string {
 
 export function resolverUrlModelo(categoria: CategoriaAsset, id: string, variante: Variante): string {
   return `/assets/${categoria}/${nombreArchivo(id, variante)}`;
+}
+
+function nombreArchivoPNG(id: string, variante: Variante): string {
+  if (variante.tipo === "nombrada") return `${variante.id}.png`;
+  const numero = String(variante.indice + 1).padStart(2, "0");
+  return `${id}_${numero}.png`;
+}
+
+export function resolverUrlTextura(categoria: CategoriaTextura, id: string, variante: Variante): string {
+  return `/assets/${categoria}/${nombreArchivoPNG(id, variante)}`;
 }
