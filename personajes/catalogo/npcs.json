@@ -1,10 +1,22 @@
 {
   "_nota": "Catálogo de NPCs — la LISTA de la que tira el generador, igual que elementos.json es la lista de la que tira el bakeador de interiores. Arrancó con 4 arquetipos de prueba; se amplió (2026-08-28) con los oficios de tienda/taller que ya existen en interiores/catalogo/tipos_edificio.json pero que ningún NPC ocupaba todavía (poblacion/catalogo/oficiosEdificios.json) — sigue sin ser la lista DEFINITIVA (la pacta el streamer), pero ya no deja media ciudad de edificios sin trabajador. Cada entrada: profesion (cruza con ropa/catalogo/profesiones.json), morfologia con RANGOS [min,max] (cada individuo cae en un punto del rango por semilla — dentro de los límites globales de client/src/render3d/morfologia.json), sexoPesos/rasgos para sobreescribir los pesos por defecto de rasgos.json (solo lo que cambie), y ropa: ids de ropa/catalogo/prendas.json que el generador anota en la ficha — HOY el catálogo de prendas solo tiene 3 prendas de prueba genéricas (comunes a cualquier oficio), así que todos los arquetipos comparten esas mismas hasta que se amplíe ropa/catalogo/prendas.json con vestuario específico por oficio.",
-
   "aldeano": {
     "profesion": "campesino",
-    "morfologia": { "altura": [0.92, 1.08], "corpulencia": [0.9, 1.1] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "morfologia": {
+      "altura": [
+        0.92,
+        1.08
+      ],
+      "corpulencia": [
+        0.9,
+        1.1
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
     "colorDebug": "#c9a86a",
     "personalidad": "Campesino cordial y algo chismoso, siempre con alguna queja sobre la cosecha o el tiempo.",
     "conocimiento": [
@@ -13,15 +25,52 @@
       "Le teme al bosque de noche por las historias de lobos que se cuentan en la taberna."
     ]
   },
-
   "herrero": {
     "profesion": "herrero",
-    "morfologia": { "altura": [0.98, 1.1], "corpulencia": [1.05, 1.2] },
-    "sexoPesos": [["hombre", 75], ["mujer", 25]],
-    "rasgos": {
-      "barbaEstilos": [["ninguna", 15], ["bigote", 15], ["perilla", 20], ["completa", 50]]
+    "morfologia": {
+      "altura": [
+        0.98,
+        1.1
+      ],
+      "corpulencia": [
+        1.05,
+        1.2
+      ]
     },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "sexoPesos": [
+      [
+        "hombre",
+        75
+      ],
+      [
+        "mujer",
+        25
+      ]
+    ],
+    "rasgos": {
+      "barbaEstilos": [
+        [
+          "ninguna",
+          15
+        ],
+        [
+          "bigote",
+          15
+        ],
+        [
+          "perilla",
+          20
+        ],
+        [
+          "completa",
+          50
+        ]
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
     "_nota": "Falta el delantal de cuero en el catálogo de prendas — se añade a su ropa cuando exista.",
     "colorDebug": "#6a6a70",
     "personalidad": "Herrero brusco pero honesto, orgulloso de su oficio, poca paciencia para charlas vacías.",
@@ -31,14 +80,42 @@
       "Desconfía de las armas mal forjadas de otros herreros forasteros."
     ]
   },
-
   "guardia": {
     "profesion": "militar",
-    "morfologia": { "altura": [1.0, 1.12], "corpulencia": [1.0, 1.15] },
-    "rasgos": {
-      "peloEstilos": [["calvo", 10], ["rapado", 45], ["corto", 40], ["melena", 5]]
+    "morfologia": {
+      "altura": [
+        1.0,
+        1.12
+      ],
+      "corpulencia": [
+        1.0,
+        1.15
+      ]
     },
-    "ropa": [],
+    "rasgos": {
+      "peloEstilos": [
+        [
+          "calvo",
+          10
+        ],
+        [
+          "rapado",
+          45
+        ],
+        [
+          "corto",
+          40
+        ],
+        [
+          "melena",
+          5
+        ]
+      ]
+    },
+    "ropa": [
+      "tabardo_guardia",
+      "pantalon_guardia"
+    ],
     "_nota": "Sin armadura hasta que el catálogo de prendas cubra armaduras.",
     "colorDebug": "#8a3a3a",
     "personalidad": "Guardia serio y vigilante, cumple las normas del jarl al pie de la letra.",
@@ -48,14 +125,69 @@
       "No deja pasar armas grandes dentro de las murallas sin permiso."
     ]
   },
-
   "anciano_sabio": {
     "profesion": "herbolista",
-    "morfologia": { "altura": [0.88, 0.98], "corpulencia": [0.85, 0.95] },
+    "morfologia": {
+      "altura": [
+        0.88,
+        0.98
+      ],
+      "corpulencia": [
+        0.85,
+        0.95
+      ]
+    },
     "rasgos": {
-      "coloresPelo": [["canoso", 55], ["blanco", 40], ["castano", 5]],
-      "peloEstilos": [["calvo", 25], ["monje", 30], ["melena", 30], ["corto", 15]],
-      "barbaEstilos": [["ninguna", 10], ["bigote", 10], ["perilla", 20], ["completa", 60]]
+      "coloresPelo": [
+        [
+          "canoso",
+          55
+        ],
+        [
+          "blanco",
+          40
+        ],
+        [
+          "castano",
+          5
+        ]
+      ],
+      "peloEstilos": [
+        [
+          "calvo",
+          25
+        ],
+        [
+          "monje",
+          30
+        ],
+        [
+          "melena",
+          30
+        ],
+        [
+          "corto",
+          15
+        ]
+      ],
+      "barbaEstilos": [
+        [
+          "ninguna",
+          10
+        ],
+        [
+          "bigote",
+          10
+        ],
+        [
+          "perilla",
+          20
+        ],
+        [
+          "completa",
+          60
+        ]
+      ]
     },
     "ropa": [],
     "colorDebug": "#7a6a8a",
@@ -66,11 +198,23 @@
       "Da consejos a quien se lo pide, aunque casi nadie le pregunta lo que de verdad hace falta."
     ]
   },
-
   "pescador": {
     "profesion": "pescador",
-    "morfologia": { "altura": [0.94, 1.08], "corpulencia": [0.92, 1.08] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "morfologia": {
+      "altura": [
+        0.94,
+        1.08
+      ],
+      "corpulencia": [
+        0.92,
+        1.08
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
     "colorDebug": "#4a7a8a",
     "personalidad": "Pescador madrugador y de pocas palabras, más cómodo con las redes que con la gente.",
     "conocimiento": [
@@ -79,11 +223,22 @@
       "Guarda la sal y los barriles de salazón para que el pescado aguante el invierno."
     ]
   },
-
   "carpintero": {
     "profesion": "carpintero",
-    "morfologia": { "altura": [0.96, 1.1], "corpulencia": [1.0, 1.15] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "morfologia": {
+      "altura": [
+        0.96,
+        1.1
+      ],
+      "corpulencia": [
+        1.0,
+        1.15
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
     "colorDebug": "#8a6a45",
     "personalidad": "Carpintero paciente y meticuloso, orgulloso de que sus muebles duren generaciones.",
     "conocimiento": [
@@ -92,11 +247,23 @@
       "Sabe distinguir buena madera de mala solo con olerla."
     ]
   },
-
   "molinero": {
     "profesion": "molinero",
-    "morfologia": { "altura": [0.94, 1.06], "corpulencia": [0.95, 1.15] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "morfologia": {
+      "altura": [
+        0.94,
+        1.06
+      ],
+      "corpulencia": [
+        0.95,
+        1.15
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
     "colorDebug": "#c9b87a",
     "personalidad": "Molinero jovial siempre cubierto de harina, lleva las cuentas del grano de todo el pueblo.",
     "conocimiento": [
@@ -105,11 +272,22 @@
       "Sabe quién ha tenido buena cosecha y quién no, solo por lo que trae a moler."
     ]
   },
-
   "curtidor": {
     "profesion": "curtidor",
-    "morfologia": { "altura": [0.94, 1.08], "corpulencia": [0.95, 1.1] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "morfologia": {
+      "altura": [
+        0.94,
+        1.08
+      ],
+      "corpulencia": [
+        0.95,
+        1.1
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
     "colorDebug": "#6a4a3a",
     "personalidad": "Curtidor curtido él mismo por el oficio, resignado a que su taller huela mal y nadie quiera visitarlo.",
     "conocimiento": [
@@ -118,11 +296,23 @@
       "Vende cuero al herrero, al zapatero y a quien lo necesite."
     ]
   },
-
   "alfarero": {
     "profesion": "alfarero",
-    "morfologia": { "altura": [0.92, 1.05], "corpulencia": [0.9, 1.05] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "morfologia": {
+      "altura": [
+        0.92,
+        1.05
+      ],
+      "corpulencia": [
+        0.9,
+        1.05
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
     "colorDebug": "#a5673f",
     "personalidad": "Alfarera tranquila y algo soñadora, siempre con las manos manchadas de arcilla.",
     "conocimiento": [
@@ -131,11 +321,22 @@
       "Cada pieza que sale rota del horno la disgusta un poco más de lo que admite."
     ]
   },
-
   "joyero": {
     "profesion": "joyero",
-    "morfologia": { "altura": [0.9, 1.02], "corpulencia": [0.85, 0.98] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "morfologia": {
+      "altura": [
+        0.9,
+        1.02
+      ],
+      "corpulencia": [
+        0.85,
+        0.98
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
     "colorDebug": "#c9a227",
     "personalidad": "Joyero pulcro y desconfiado, mide cada palabra igual que mide el oro.",
     "conocimiento": [
@@ -144,11 +345,22 @@
       "Sabe distinguir una piedra falsa a simple vista, y no se corta en decirlo."
     ]
   },
-
   "sastre": {
     "profesion": "sastre",
-    "morfologia": { "altura": [0.9, 1.02], "corpulencia": [0.85, 0.98] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "morfologia": {
+      "altura": [
+        0.9,
+        1.02
+      ],
+      "corpulencia": [
+        0.85,
+        0.98
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
     "colorDebug": "#7a4a8a",
     "personalidad": "Sastre presumido con buen ojo para las telas, opina de la ropa de todo el que entra por su puerta.",
     "conocimiento": [
@@ -157,11 +369,23 @@
       "Sabe el tamaño de medio pueblo de memoria, de tanto tomar medidas."
     ]
   },
-
   "panadero": {
     "profesion": "panadero",
-    "morfologia": { "altura": [0.94, 1.08], "corpulencia": [1.0, 1.18] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "morfologia": {
+      "altura": [
+        0.94,
+        1.08
+      ],
+      "corpulencia": [
+        1.0,
+        1.18
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
     "colorDebug": "#d9a35c",
     "personalidad": "Panadero madrugador y campechano, el primero en enterarse de todo porque todos pasan por su puerta.",
     "conocimiento": [
@@ -170,11 +394,22 @@
       "Conoce el olor de un horno bien cebado sin necesidad de mirarlo."
     ]
   },
-
   "tabernero": {
     "profesion": "tabernero",
-    "morfologia": { "altura": [0.96, 1.1], "corpulencia": [1.0, 1.2] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "morfologia": {
+      "altura": [
+        0.96,
+        1.1
+      ],
+      "corpulencia": [
+        1.0,
+        1.2
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
     "colorDebug": "#8a5a3a",
     "personalidad": "Tabernero hablador y sociable, se entera de todos los chismes y rumores del asentamiento antes que nadie.",
     "conocimiento": [
@@ -183,14 +418,42 @@
       "Guarda una barrica especial para los clientes de confianza."
     ]
   },
-
   "sacerdote": {
     "profesion": "sacerdote",
-    "morfologia": { "altura": [0.92, 1.05], "corpulencia": [0.88, 1.0] },
-    "rasgos": {
-      "peloEstilos": [["calvo", 30], ["monje", 40], ["corto", 20], ["melena", 10]]
+    "morfologia": {
+      "altura": [
+        0.92,
+        1.05
+      ],
+      "corpulencia": [
+        0.88,
+        1.0
+      ]
     },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino"],
+    "rasgos": {
+      "peloEstilos": [
+        [
+          "calvo",
+          30
+        ],
+        [
+          "monje",
+          40
+        ],
+        [
+          "corto",
+          20
+        ],
+        [
+          "melena",
+          10
+        ]
+      ]
+    },
+    "ropa": [
+      "habito_sacerdote",
+      "pantalon_lana_campesino"
+    ],
     "colorDebug": "#4a4a6a",
     "personalidad": "Sacerdote sereno y de trato amable, siempre dispuesto a escuchar, aunque no siempre a dar la razón.",
     "conocimiento": [
@@ -199,17 +462,103 @@
       "Cree que el jarl debería pisar el templo más a menudo de lo que lo hace."
     ]
   },
-
   "tendero": {
     "profesion": "tendero",
-    "morfologia": { "altura": [0.92, 1.05], "corpulencia": [0.9, 1.05] },
-    "ropa": ["camisa_lino_campesina", "pantalon_lana_campesino", "gorro_lino_campesino"],
+    "morfologia": {
+      "altura": [
+        0.92,
+        1.05
+      ],
+      "corpulencia": [
+        0.9,
+        1.05
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
     "colorDebug": "#3a8a5a",
     "personalidad": "Tendero regateador nato, siempre intentando sacarle una moneda más al trato.",
     "conocimiento": [
       "Vende de todo un poco, lo que le llega de mercaderes y artesanos del pueblo.",
       "Lleva la cuenta de quién le debe y quién paga siempre puntual.",
       "Sabe qué se vende y qué no, así que sabe cómo le va a cada vecino."
+    ]
+  },
+  "vagabundo": {
+    "profesion": "vagabundo",
+    "morfologia": {
+      "altura": [
+        0.9,
+        1.02
+      ],
+      "corpulencia": [
+        0.8,
+        0.95
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#8a8072",
+    "personalidad": "Vagabundo socarrón y filósofo de taberna: pide monedas o comida con labia, conoce cada rincón y a cada perro del pueblo, y jura que antes fue alguien importante (cada día alguien distinto).",
+    "conocimiento": [
+      "Sabe quién entra y sale de la ciudad a cualquier hora.",
+      "Conoce los mejores rincones para dormir sin que la guardia moleste.",
+      "Asegura haber sido soldado, mercader o noble, según el día."
+    ]
+  },
+  "pregonero": {
+    "profesion": "pregonero",
+    "morfologia": {
+      "altura": [
+        0.98,
+        1.1
+      ],
+      "corpulencia": [
+        0.95,
+        1.15
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
+    "colorDebug": "#b08d3f",
+    "personalidad": "Pregonero de voz atronadora y memoria prodigiosa para el cotilleo: convierte cualquier suceso del reino en noticia de plaza, con más teatro que rigor.",
+    "conocimiento": [
+      "Recita las novedades y sucesos recientes del reino (las historias del servidor).",
+      "Sabe qué se cuece en el ayuntamiento antes que el propio alcalde.",
+      "Cobra alguna moneda por 'adelantar la noticia de mañana'."
+    ]
+  },
+  "vendedor_melones": {
+    "profesion": "vendedor_ambulante",
+    "morfologia": {
+      "altura": [
+        0.95,
+        1.08
+      ],
+      "corpulencia": [
+        1.0,
+        1.25
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
+    "colorDebug": "#7fae4c",
+    "personalidad": "Vendedor ambulante de melones, alegre y escandaloso: jura por su burro que sus melones son los mejores del reino y no acepta discusión al respecto.",
+    "conocimiento": [
+      "Sus melones vienen 'de la mejor vega del reino' (nadie sabe cuál).",
+      "Su burro se llama Anselmo y tiene opiniones.",
+      "Recorre las calles de día y remata la venta en la plaza."
     ]
   }
 }

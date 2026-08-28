@@ -192,10 +192,26 @@ export class WorldScene {
       const label = new CSS2DObject(div);
       label.position.set(0, 1.85, 0);
       objeto.add(label);
+      this.etiquetas.set(idEntidad, div);
     }
 
     this.entidades.set(idEntidad, objeto);
     this.scene.add(objeto);
+  }
+
+  private etiquetas = new Map<string, HTMLDivElement>();
+
+  /**
+   * Cambia el texto de la etiqueta de una entidad — lo usan las burbujas de
+   * pregón de los NPCs especiales ("¡Vendo melones!") alternando con el
+   * nombre; en cursiva para que se distinga hablar de llamarse.
+   */
+  textoEtiqueta(idEntidad: string, texto: string, esGrito = false) {
+    const div = this.etiquetas.get(idEntidad);
+    if (!div) return;
+    if (div.textContent !== texto) div.textContent = texto;
+    div.style.fontStyle = esGrito ? "italic" : "normal";
+    div.style.color = esGrito ? "#ffe9a8" : "#ffffff";
   }
 
   moverEntidad(idEntidad: string, x: number, y: number) {
@@ -211,6 +227,7 @@ export class WorldScene {
     if (!objeto) return;
     this.scene.remove(objeto);
     this.entidades.delete(idEntidad);
+    this.etiquetas.delete(idEntidad);
   }
 
   render() {

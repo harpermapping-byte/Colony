@@ -1,22 +1,235 @@
 {
   "_nota": "Cruce oficio -> ropa: profesion.tagsPrenda debe solapar con prenda.tagsProfesion (ropa/catalogo/prendas.json) para que la prenda sea candidata a ese oficio. Vocabulario de oficios reutilizado tal cual de interiores/catalogo/tipos_edificio.json (campo temaTaller: herreria, carpinteria, sastre, curtiduria, alfareria, joyeria, herbolista, destileria, molino, pescador, aserradero) más 'comun'/'agricultura' de interiores/src/roomTags.js (COMUN_AGRICULTURA) y 'noble'/'militar' de ESPECIAL_NOBLEZA/COMUN_MILITAR — mismos tags que ya organizan el mobiliario, no una taxonomía nueva.",
-
-  "campesino": { "tagsPrenda": ["comun", "agricultura"], "riquezaTipica": "humilde", "materialesPreferidos": ["lino", "lana"] },
-  "pescador": { "tagsPrenda": ["comun", "pescador"], "riquezaTipica": "humilde", "materialesPreferidos": ["lana", "cuero"] },
-  "herrero": { "tagsPrenda": ["comun", "herreria"], "riquezaTipica": "modesta", "materialesPreferidos": ["cuero", "lana"], "_nota": "Delantal de cuero por el yunque/fragua." },
-  "carpintero": { "tagsPrenda": ["comun", "carpinteria", "aserradero"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "cuero"] },
-  "molinero": { "tagsPrenda": ["comun", "molino"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"] },
-  "curtidor": { "tagsPrenda": ["comun", "curtiduria"], "riquezaTipica": "humilde", "materialesPreferidos": ["cuero", "lino"] },
-  "alfarero": { "tagsPrenda": ["comun", "alfareria"], "riquezaTipica": "humilde", "materialesPreferidos": ["lino", "lana"] },
-  "joyero": { "tagsPrenda": ["comun", "joyeria"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "seda"] },
-  "sastre": { "tagsPrenda": ["comun", "sastre"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "seda"] },
-  "herbolista": { "tagsPrenda": ["comun", "herbolista"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"] },
-  "destilador": { "tagsPrenda": ["comun", "destileria"], "riquezaTipica": "modesta", "materialesPreferidos": ["cuero", "lino"] },
-  "panadero": { "tagsPrenda": ["comun", "panaderia"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"] },
-  "militar": { "tagsPrenda": ["comun", "militar"], "riquezaTipica": "modesta", "materialesPreferidos": ["cuero", "lana"] },
-  "noble": { "tagsPrenda": ["comun", "noble"], "riquezaTipica": "noble", "materialesPreferidos": ["seda", "lana"] },
-
-  "tabernero": { "tagsPrenda": ["comun", "taberna"], "riquezaTipica": "modesta", "materialesPreferidos": ["lana", "cuero"] },
-  "sacerdote": { "tagsPrenda": ["comun", "templo"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"] },
-  "tendero": { "tagsPrenda": ["comun", "tienda"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"] }
+  "campesino": {
+    "tagsPrenda": [
+      "comun",
+      "agricultura"
+    ],
+    "riquezaTipica": "humilde",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ]
+  },
+  "pescador": {
+    "tagsPrenda": [
+      "comun",
+      "pescador"
+    ],
+    "riquezaTipica": "humilde",
+    "materialesPreferidos": [
+      "lana",
+      "cuero"
+    ]
+  },
+  "herrero": {
+    "tagsPrenda": [
+      "comun",
+      "herreria"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "cuero",
+      "lana"
+    ],
+    "_nota": "Delantal de cuero por el yunque/fragua."
+  },
+  "carpintero": {
+    "tagsPrenda": [
+      "comun",
+      "carpinteria",
+      "aserradero"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "cuero"
+    ]
+  },
+  "molinero": {
+    "tagsPrenda": [
+      "comun",
+      "molino"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ]
+  },
+  "curtidor": {
+    "tagsPrenda": [
+      "comun",
+      "curtiduria"
+    ],
+    "riquezaTipica": "humilde",
+    "materialesPreferidos": [
+      "cuero",
+      "lino"
+    ]
+  },
+  "alfarero": {
+    "tagsPrenda": [
+      "comun",
+      "alfareria"
+    ],
+    "riquezaTipica": "humilde",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ]
+  },
+  "joyero": {
+    "tagsPrenda": [
+      "comun",
+      "joyeria"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "seda"
+    ]
+  },
+  "sastre": {
+    "tagsPrenda": [
+      "comun",
+      "sastre"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "seda"
+    ]
+  },
+  "herbolista": {
+    "tagsPrenda": [
+      "comun",
+      "herbolista"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ]
+  },
+  "destilador": {
+    "tagsPrenda": [
+      "comun",
+      "destileria"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "cuero",
+      "lino"
+    ]
+  },
+  "panadero": {
+    "tagsPrenda": [
+      "comun",
+      "panaderia"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ]
+  },
+  "militar": {
+    "tagsPrenda": [
+      "comun",
+      "militar"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "cuero",
+      "lana"
+    ]
+  },
+  "noble": {
+    "tagsPrenda": [
+      "comun",
+      "noble"
+    ],
+    "riquezaTipica": "noble",
+    "materialesPreferidos": [
+      "seda",
+      "lana"
+    ]
+  },
+  "tabernero": {
+    "tagsPrenda": [
+      "comun",
+      "taberna"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lana",
+      "cuero"
+    ]
+  },
+  "sacerdote": {
+    "tagsPrenda": [
+      "comun",
+      "templo"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ]
+  },
+  "tendero": {
+    "tagsPrenda": [
+      "comun",
+      "tienda"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ]
+  },
+  "guardia": {
+    "tagsPrenda": [
+      "guardia",
+      "militar"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "cuero"
+    ],
+    "_nota": "Guardia de asentamiento (NPCs especiales 2026-08-28): uniforme de cuero igual para todos."
+  },
+  "vagabundo": {
+    "tagsPrenda": [
+      "comun"
+    ],
+    "riquezaTipica": "humilde",
+    "materialesPreferidos": [
+      "lino"
+    ],
+    "_nota": "NPC especial sin oficio ni casa — viste harapos (ropa común de lino, sin gorro)."
+  },
+  "pregonero": {
+    "tagsPrenda": [
+      "comun"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lana",
+      "lino"
+    ],
+    "_nota": "NPC especial: da vueltas de día contando las novedades del servidor."
+  },
+  "vendedor_ambulante": {
+    "tagsPrenda": [
+      "comun"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ],
+    "_nota": "NPC especial: vendedor callejero con grito propio (el melonero es el primero)."
+  }
 }

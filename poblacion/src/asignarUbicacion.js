@@ -91,6 +91,9 @@ function asignarUbicacion(ciudad, npcs, oficiosEdificios, elementosCatalogo) {
   const porFamilia = new Map();
   const unidades = [];
   for (const npc of npcs) {
+    // un especial sin techo (vagabundo) no entra al reparto de viviendas:
+    // duerme a la intemperie por diseño, no por déficit
+    if (npc.sinCasa) continue;
     if (!npc.familiaId) {
       unidades.push([npc]);
       continue;

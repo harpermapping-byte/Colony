@@ -65,6 +65,19 @@ function bakearCaminosDeRutina(ciudad, rutina, cache) {
       origen && rutina[i].punto && (origen.x !== rutina[i].punto.x || origen.y !== rutina[i].punto.y)
         ? caminoEntre(ciudad, cache, origen, rutina[i].punto)
         : null; // mismo sitio que el tramo anterior (p.ej. comer y socializar los dos en casa): no hace falta caminar
+
+    // tramos con PARADAS (ronda/deambular, GDD_Agentes_Moviles.md): cada
+    // parada lleva bakeado el camino DESDE la anterior; la parada 0 cierra
+    // el bucle desde la última — así el agente puede dar vueltas todo el
+    // tramo sin calcular nada en vivo.
+    const paradas = rutina[i].paradas;
+    if (paradas && paradas.length >= 2) {
+      for (let p = 0; p < paradas.length; p++) {
+        const desde = paradas[(p - 1 + paradas.length) % paradas.length];
+        paradas[p].camino =
+          desde.x !== paradas[p].x || desde.y !== paradas[p].y ? caminoEntre(ciudad, cache, desde, paradas[p]) : null;
+      }
+    }
   }
   return rutina;
 }

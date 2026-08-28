@@ -15,6 +15,9 @@ function asignarPerfil(npc, perfilesSociales) {
 
   const candidatos = Object.entries(perfilesSociales)
     .filter(([id]) => !id.startsWith("_"))
+    // los perfiles de NPC especial (párroco, guardia por turnos, vagabundo...)
+    // solo se asignan FORZADOS desde asignarEspeciales — nunca en el sorteo
+    .filter(([, p]) => !p.soloEspecial)
     .filter(([, p]) => Boolean(p.soloHijos) === esHijo)
     // Coincidencia EXACTA, no solo "vale si tiene trabajo": un perfil
     // requiereTrabajo:false (granjero/ocioso) usa 'campo'/'plaza' como su

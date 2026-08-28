@@ -13,6 +13,8 @@ import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelas
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
 import { ModoConstruccion } from "./construccion/constructor";
 import { crearInteriorVisual, type InteriorBakeado } from "./render3d/interiorVisual";
+import { PointLight } from "three";
+import { tiempoMundo } from "./mundo/tiempoMundo";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -401,6 +403,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // salen de poblacion.json por slotId, con rig plano de repuesto si el
   // bake y el estado no cuadraran (mapa re-bakeado sin re-poblar).
   const npcsVisual = new Map<string, EstadoJugador>();
+  // metadatos por NPC que no son interpolación: pregón para la burbuja y
+  // antorcha de los turnos de vigilancia (se enciende sola de noche)
+  const npcsMeta = new Map<string, { nombre: string; grito: string; accion: string; antorcha: PointLight | null }>();
   $(room.state).npcs.onAdd((npc: any, slotId: string) => {
     const vox = voxPorSlot.get(slotId);
     const rig = vox ? crearPersonajeVoxel(vox) : crearRigHumanoide({ colorTunica: "#7a6248" });
@@ -417,15 +422,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       nadando: false,
     };
     npcsVisual.set(slotId, estado);
+    const meta = { nombre: npc.nombre, grito: npc.grito || "", accion: npc.accion, antorcha: null as PointLight | null };
+    npcsMeta.set(slotId, meta);
     escena.añadirEntidad(`npc_${slotId}`, rig.objeto, npc.x, npc.y, npc.nombre);
     $(npc).onChange(() => {
       estado.destinoX = npc.x;
       estado.destinoZ = npc.y;
       rig.objeto.visible = npc.visible;
+      meta.accion = npc.accion;
     });
   });
   $(room.state).npcs.onRemove((_npc: any, slotId: string) => {
     npcsVisual.delete(slotId);
+    npcsMeta.delete(slotId);
     escena.quitarEntidad(`npc_${slotId}`);
   });
   // sonda para los tests E2E: cuántos NPCs llegaron del servidor y dónde están
@@ -519,6 +528,29 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const inclinacionObjetivo = estado.nadando ? -1.1 : 0;
       estado.rig.objeto.rotation.x += (inclinacionObjetivo - estado.rig.objeto.rotation.x) * factor;
       estado.rig.actualizar(dt, marcha);
+    }
+
+    // NPCs: antorcha de los turnos de vigilancia (se enciende de noche,
+    // con un parpadeo de llama) y burbuja de pregón de los especiales
+    // (~4 s de grito cada ~13, desfasado por NPC para que no coreen).
+    const deNoche = !tiempoMundo().esDeDia;
+    const tSeg = tAhora / 1000;
+    for (const [slotId, meta] of npcsMeta) {
+      const estadoNpc = npcsVisual.get(slotId);
+      if (!estadoNpc) continue;
+      const vigila = meta.accion === "vigilar" || meta.accion === "patrullar";
+      if (vigila && deNoche && !meta.antorcha) {
+        meta.antorcha = new PointLight(0xffa24d, 0, 7, 1.6);
+        meta.antorcha.position.set(0.45, 1.6, 0.2);
+        estadoNpc.rig.objeto.add(meta.antorcha);
+      }
+      if (meta.antorcha) {
+        meta.antorcha.intensity = vigila && deNoche ? 1.5 + Math.sin(tSeg * 9 + slotId.length) * 0.25 : 0;
+      }
+      if (meta.grito) {
+        const fase = (tSeg + slotId.length * 1.7) % 13;
+        escena.textoEtiqueta(`npc_${slotId}`, fase < 4 ? meta.grito : meta.nombre, fase < 4);
+      }
     }
 
     // Streaming de sectores: seguir al jugador local (barato — solo

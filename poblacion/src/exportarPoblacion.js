@@ -101,6 +101,7 @@ async function exportarPoblacion(tierId, semilla, opciones = {}) {
 
     npcs.push({
       slotId: slot.slotId,
+      npcId: slot.npcId, // arquetipo de personajes/catalogo/npcs.json — lo usan los NPCs especiales
       nombre,
       apellido,
       familiaId: slot.familiaId,

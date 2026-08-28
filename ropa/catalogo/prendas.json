@@ -1,48 +1,216 @@
 {
   "_nota": "Catálogo de prendas — mismo patrón que interiores/catalogo/elementos.json pero para vestuario del rig (client/src/render3d/rigHumanoide.ts). slotCuerpo es el pivote del rig del que cuelga la prenda entera (torso/piernas/cabeza; una prenda de torso arrastra también sus mangas, ancladas a brazoIzq/brazoDer). zonasColor son las partes que el creador de personaje puede tintar por separado; zonasFijas usan siempre el color del material (o un acento fijo, ej. remiendos) y NO se tiñen nunca. tagsProfesion cruza con ropa/catalogo/profesiones.json. Arrancamos con 3 prendas de prueba (torso/piernas/cabeza) a propósito — no una lista completa — para afinar el algoritmo de generarPrenda.js antes de ampliar el catálogo real.",
-
   "camisa_lino_campesina": {
     "slotCuerpo": "torso",
     "tipoPrenda": "camisa",
-    "riquezaTipica": ["humilde", "modesta"],
-    "tagsProfesion": ["comun", "agricultura", "pescador", "aserradero", "molino"],
-    "materialesCompatibles": ["lino", "lana"],
-    "zonasColor": ["cuerpo", "puños", "cuello"],
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "tagsProfesion": [
+      "comun",
+      "agricultura",
+      "pescador",
+      "aserradero",
+      "molino"
+    ],
+    "materialesCompatibles": [
+      "lino",
+      "lana"
+    ],
+    "zonasColor": [
+      "cuerpo",
+      "puños",
+      "cuello"
+    ],
     "zonasFijas": [],
-    "voxelResolucion": { "x": 9, "y": 13, "z": 6 },
-    "detalle": { "cuello": "redondo", "mangas": "largas", "bajo": "recto" },
+    "voxelResolucion": {
+      "x": 9,
+      "y": 13,
+      "z": 6
+    },
+    "detalle": {
+      "cuello": "redondo",
+      "mangas": "largas",
+      "bajo": "recto"
+    },
     "colorDebug": "#d8cfa0",
     "variantes": 2,
     "_nota": "Túnica/camisa suelta de labriego — cuello en V/redondo poco marcado, manga hasta la muñeca, bajo recto (referencia: túnicas altomedievales, corte suelto pero no bombacho — ver docs/GDD_Ropa_Procedural.md)."
   },
-
   "pantalon_lana_campesino": {
     "slotCuerpo": "piernas",
     "tipoPrenda": "pantalon",
-    "riquezaTipica": ["humilde", "modesta"],
-    "tagsProfesion": ["comun", "agricultura", "herreria", "carpinteria", "curtiduria"],
-    "materialesCompatibles": ["lana", "lino", "cuero"],
-    "zonasColor": ["cuerpo", "cinturon"],
-    "zonasFijas": ["remiendos"],
-    "voxelResolucion": { "x": 8, "y": 15, "z": 5 },
-    "detalle": { "corte": "holgado", "cinturon": true, "bajo": "estrecho" },
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "tagsProfesion": [
+      "comun",
+      "agricultura",
+      "herreria",
+      "carpinteria",
+      "curtiduria"
+    ],
+    "materialesCompatibles": [
+      "lana",
+      "lino",
+      "cuero"
+    ],
+    "zonasColor": [
+      "cuerpo",
+      "cinturon"
+    ],
+    "zonasFijas": [
+      "remiendos"
+    ],
+    "voxelResolucion": {
+      "x": 8,
+      "y": 15,
+      "z": 5
+    },
+    "detalle": {
+      "corte": "holgado",
+      "cinturon": true,
+      "bajo": "estrecho"
+    },
     "colorDebug": "#6b5a42",
     "variantes": 2,
     "_nota": "Calza/pantalón holgado de cadera, entallado en el tobillo, con cinturón de cuerda/cuero y algún remiendo — ropa de trabajo, no de gala."
   },
-
   "gorro_lino_campesino": {
     "slotCuerpo": "cabeza",
     "tipoPrenda": "gorro",
-    "riquezaTipica": ["humilde", "modesta"],
-    "tagsProfesion": ["comun", "agricultura", "pescador", "molino", "curtiduria"],
-    "materialesCompatibles": ["lino", "lana"],
-    "zonasColor": ["cuerpo"],
-    "zonasFijas": ["cordon"],
-    "voxelResolucion": { "x": 8, "y": 7, "z": 8 },
-    "detalle": { "forma": "coif_ajustado", "borde": "vuelto" },
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "tagsProfesion": [
+      "comun",
+      "agricultura",
+      "pescador",
+      "molino",
+      "curtiduria"
+    ],
+    "materialesCompatibles": [
+      "lino",
+      "lana"
+    ],
+    "zonasColor": [
+      "cuerpo"
+    ],
+    "zonasFijas": [
+      "cordon"
+    ],
+    "voxelResolucion": {
+      "x": 8,
+      "y": 7,
+      "z": 8
+    },
+    "detalle": {
+      "forma": "coif_ajustado",
+      "borde": "vuelto"
+    },
     "colorDebug": "#e8dfc0",
     "variantes": 1,
     "_nota": "Coif/gorro de lino ajustado al cráneo con el borde inferior vuelto hacia fuera y cordón de atado bajo la barbilla — cofia medieval de campesino, no un gorro moderno."
+  },
+  "tabardo_guardia": {
+    "slotCuerpo": "torso",
+    "tipoPrenda": "camisa",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "tagsProfesion": [
+      "guardia",
+      "militar"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ],
+    "zonasColor": [
+      "cuerpo"
+    ],
+    "zonasFijas": [
+      "puños",
+      "cuello"
+    ],
+    "voxelResolucion": {
+      "x": 9,
+      "y": 13,
+      "z": 6
+    },
+    "detalle": {
+      "cuello": "redondo",
+      "mangas": "cortas",
+      "bajo": "recto"
+    },
+    "colorDebug": "#6d7681",
+    "variantes": 1,
+    "_nota": "Uniforme de la guardia (pedido del streamer 2026-08-28): tabardo de cuero IGUAL para todos — misma prenda + mismo material = mismo look, la uniformidad sale sola del catálogo. La armadura de verdad (metal, casco) es arte futuro; esto es el placeholder vestible."
+  },
+  "pantalon_guardia": {
+    "slotCuerpo": "piernas",
+    "tipoPrenda": "pantalon",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "tagsProfesion": [
+      "guardia",
+      "militar"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ],
+    "zonasColor": [
+      "cuerpo",
+      "cinturon"
+    ],
+    "zonasFijas": [],
+    "voxelResolucion": {
+      "x": 9,
+      "y": 10,
+      "z": 6
+    },
+    "detalle": {
+      "corte": "recto"
+    },
+    "colorDebug": "#57504a",
+    "variantes": 1,
+    "_nota": "Pareja del tabardo_guardia — mismo criterio de uniformidad."
+  },
+  "habito_sacerdote": {
+    "slotCuerpo": "torso",
+    "tipoPrenda": "camisa",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "tagsProfesion": [
+      "templo"
+    ],
+    "materialesCompatibles": [
+      "lana"
+    ],
+    "zonasColor": [
+      "cuerpo",
+      "puños"
+    ],
+    "zonasFijas": [
+      "cuello"
+    ],
+    "voxelResolucion": {
+      "x": 9,
+      "y": 13,
+      "z": 6
+    },
+    "detalle": {
+      "cuello": "redondo",
+      "mangas": "largas",
+      "bajo": "recto"
+    },
+    "colorDebug": "#4a3c30",
+    "variantes": 1,
+    "_nota": "Hábito del cura (pedido del streamer 2026-08-28): túnica de lana oscura para que se le reconozca por la calle. Sotana larga de verdad = forma nueva de prenda, arte futuro."
   }
 }

@@ -1,67 +1,538 @@
 {
   "_nota": "Censo de NPCs por tier de asentamiento (mismos ids que ciudades/catalogo/asentamientos.json) — cuántos de cada NPC de personajes/catalogo/npcs.json viven ahí. 'familia' + 'probFamilia' (0-1, por defecto 0.5): probabilidad de que ESE individuo forme unidad familiar (cónyuge + 0-2 hijos, generados como 'aldeano' — ver GDD_Poblacion_NPCs.md, es una simplificación v1 documentada). Ampliado 2026-08-28 con los oficios de tienda/taller (poblacion/catalogo/oficiosEdificios.json) para que los edificios que YA salen en el bake de ciudades/ tengan trabajador — las cantidades siguen el patrón de ese edificio en ciudades/catalogo/asentamientos.json: [1,1] si es 'obligatorios' del tier (siempre sale, así que siempre hace falta su trabajador), [0,1] si solo está en 'ponderados' (puede no salir en un bake concreto — Fase 2 ya reporta el déficit si no hay edificio para ese oficio). 'pescador' existe en el catálogo pero NINGÚN tier coloca 'lonja_pescado' todavía, así que no se censa hasta que algún tier lo incluya (evitaría generar pescadores sin lonja donde trabajar). PLACEHOLDER: la lista definitiva de oficios la pacta el streamer; esto amplía sin tocar el generador.",
   "aldea_pequena": [
-    { "npc": "aldeano", "cantidad": [3, 5], "familia": true, "probFamilia": 0.6 },
-    { "npc": "guardia", "cantidad": [1, 2] },
-    { "npc": "anciano_sabio", "cantidad": [0, 1] },
-    { "npc": "sacerdote", "cantidad": [1, 1] },
-    { "npc": "tabernero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.4 }
+    {
+      "npc": "aldeano",
+      "cantidad": [
+        3,
+        5
+      ],
+      "familia": true,
+      "probFamilia": 0.6
+    },
+    {
+      "npc": "guardia",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "anciano_sabio",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "sacerdote",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "tabernero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.4
+    },
+    {
+      "npc": "vagabundo",
+      "cantidad": [
+        0,
+        1
+      ]
+    }
   ],
   "aldea": [
-    { "npc": "aldeano", "cantidad": [4, 7], "familia": true, "probFamilia": 0.6 },
-    { "npc": "herrero", "cantidad": [1, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "guardia", "cantidad": [1, 3] },
-    { "npc": "anciano_sabio", "cantidad": [0, 1] },
-    { "npc": "sacerdote", "cantidad": [1, 1] },
-    { "npc": "tabernero", "cantidad": [1, 1], "familia": true, "probFamilia": 0.4 },
-    { "npc": "panadero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "carpintero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "molinero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 }
+    {
+      "npc": "aldeano",
+      "cantidad": [
+        4,
+        7
+      ],
+      "familia": true,
+      "probFamilia": 0.6
+    },
+    {
+      "npc": "herrero",
+      "cantidad": [
+        1,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "guardia",
+      "cantidad": [
+        1,
+        3
+      ]
+    },
+    {
+      "npc": "anciano_sabio",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "sacerdote",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "tabernero",
+      "cantidad": [
+        1,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.4
+    },
+    {
+      "npc": "panadero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "carpintero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "molinero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "vagabundo",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "vendedor_melones",
+      "cantidad": [
+        0,
+        1
+      ]
+    }
   ],
   "pueblo": [
-    { "npc": "aldeano", "cantidad": [6, 10], "familia": true, "probFamilia": 0.6 },
-    { "npc": "herrero", "cantidad": [1, 2], "familia": true, "probFamilia": 0.5 },
-    { "npc": "guardia", "cantidad": [3, 5] },
-    { "npc": "anciano_sabio", "cantidad": [1, 1] },
-    { "npc": "sacerdote", "cantidad": [1, 1] },
-    { "npc": "tabernero", "cantidad": [1, 2], "familia": true, "probFamilia": 0.4 },
-    { "npc": "tendero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "panadero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "sastre", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "curtidor", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "alfarero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 }
+    {
+      "npc": "aldeano",
+      "cantidad": [
+        6,
+        10
+      ],
+      "familia": true,
+      "probFamilia": 0.6
+    },
+    {
+      "npc": "herrero",
+      "cantidad": [
+        1,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "guardia",
+      "cantidad": [
+        3,
+        5
+      ]
+    },
+    {
+      "npc": "anciano_sabio",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "sacerdote",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "tabernero",
+      "cantidad": [
+        1,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.4
+    },
+    {
+      "npc": "tendero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "panadero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "sastre",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "curtidor",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "alfarero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "vagabundo",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "pregonero",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "vendedor_melones",
+      "cantidad": [
+        0,
+        1
+      ]
+    }
   ],
   "capital": [
-    { "npc": "aldeano", "cantidad": [8, 14], "familia": true, "probFamilia": 0.6 },
-    { "npc": "herrero", "cantidad": [2, 3], "familia": true, "probFamilia": 0.5 },
-    { "npc": "guardia", "cantidad": [5, 8] },
-    { "npc": "anciano_sabio", "cantidad": [1, 2] },
-    { "npc": "sacerdote", "cantidad": [1, 2] },
-    { "npc": "tabernero", "cantidad": [1, 2], "familia": true, "probFamilia": 0.4 },
-    { "npc": "tendero", "cantidad": [0, 2], "familia": true, "probFamilia": 0.5 },
-    { "npc": "panadero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "sastre", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "joyero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 }
+    {
+      "npc": "aldeano",
+      "cantidad": [
+        8,
+        14
+      ],
+      "familia": true,
+      "probFamilia": 0.6
+    },
+    {
+      "npc": "herrero",
+      "cantidad": [
+        2,
+        3
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "guardia",
+      "cantidad": [
+        5,
+        8
+      ]
+    },
+    {
+      "npc": "anciano_sabio",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "sacerdote",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "tabernero",
+      "cantidad": [
+        1,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.4
+    },
+    {
+      "npc": "tendero",
+      "cantidad": [
+        0,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "panadero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "sastre",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "joyero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "vagabundo",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "pregonero",
+      "cantidad": [
+        1,
+        1
+      ]
+    },
+    {
+      "npc": "vendedor_melones",
+      "cantidad": [
+        1,
+        1
+      ]
+    }
   ],
   "castillo": [
-    { "npc": "guardia", "cantidad": [4, 7] },
-    { "npc": "herrero", "cantidad": [1, 1], "familia": true, "probFamilia": 0.3 },
-    { "npc": "anciano_sabio", "cantidad": [0, 1] },
-    { "npc": "sacerdote", "cantidad": [0, 1] }
+    {
+      "npc": "guardia",
+      "cantidad": [
+        4,
+        7
+      ]
+    },
+    {
+      "npc": "herrero",
+      "cantidad": [
+        1,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.3
+    },
+    {
+      "npc": "anciano_sabio",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "sacerdote",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "vagabundo",
+      "cantidad": [
+        0,
+        1
+      ]
+    }
   ],
   "gran_capital": [
-    { "npc": "aldeano", "cantidad": [16, 26], "familia": true, "probFamilia": 0.6 },
-    { "npc": "herrero", "cantidad": [3, 5], "familia": true, "probFamilia": 0.5 },
-    { "npc": "guardia", "cantidad": [10, 16] },
-    { "npc": "anciano_sabio", "cantidad": [2, 3] },
-    { "npc": "sacerdote", "cantidad": [1, 2] },
-    { "npc": "tabernero", "cantidad": [2, 3], "familia": true, "probFamilia": 0.4 },
-    { "npc": "tendero", "cantidad": [1, 3], "familia": true, "probFamilia": 0.5 },
-    { "npc": "panadero", "cantidad": [1, 2], "familia": true, "probFamilia": 0.5 },
-    { "npc": "sastre", "cantidad": [0, 2], "familia": true, "probFamilia": 0.5 },
-    { "npc": "joyero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "curtidor", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "alfarero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
-    { "npc": "carpintero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 }
+    {
+      "npc": "aldeano",
+      "cantidad": [
+        16,
+        26
+      ],
+      "familia": true,
+      "probFamilia": 0.6
+    },
+    {
+      "npc": "herrero",
+      "cantidad": [
+        3,
+        5
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "guardia",
+      "cantidad": [
+        10,
+        16
+      ]
+    },
+    {
+      "npc": "anciano_sabio",
+      "cantidad": [
+        2,
+        3
+      ]
+    },
+    {
+      "npc": "sacerdote",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "tabernero",
+      "cantidad": [
+        2,
+        3
+      ],
+      "familia": true,
+      "probFamilia": 0.4
+    },
+    {
+      "npc": "tendero",
+      "cantidad": [
+        1,
+        3
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "panadero",
+      "cantidad": [
+        1,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "sastre",
+      "cantidad": [
+        0,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "joyero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "curtidor",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "alfarero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "carpintero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "vagabundo",
+      "cantidad": [
+        1,
+        3
+      ]
+    },
+    {
+      "npc": "pregonero",
+      "cantidad": [
+        1,
+        2
+      ]
+    },
+    {
+      "npc": "vendedor_melones",
+      "cantidad": [
+        1,
+        2
+      ]
+    }
   ]
 }
