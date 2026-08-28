@@ -63,6 +63,76 @@ function Builder() {
   return { caja, paleta, cajas };
 }
 
+// --- textura de material: LAS 4 CARAS, nunca solo la de delante -----------
+// El edificio se ve desde cualquier ángulo al caminar alrededor en el mapa
+// (no es mobiliario de interior visto siempre desde el mismo lado): las 4
+// fachadas llevan la MISMA textura de material, no solo la que mira "a
+// cámara". Vetas de madera = pobre; sillares de piedra = rico; entramado
+// Tudor (vigas vistas sobre estuco) = casa noble con volaydizo.
+const CARAS = ["S", "N", "E", "O"];
+
+function limitesCara(piso, cara) {
+  const vertical = cara === "S" || cara === "N";
+  const desde = vertical ? piso.x0 : piso.z0, hasta = vertical ? piso.x1 : piso.z1;
+  const fijo = cara === "S" ? piso.z0 : cara === "N" ? piso.z1 : cara === "O" ? piso.x0 : piso.x1;
+  return { vertical, desde, hasta, fijo };
+}
+
+function vetasMadera(b, piso, cara, colorBase) {
+  const oscuro = sombrear(colorBase, 0.8);
+  const { vertical, desde, hasta, fijo } = limitesCara(piso, cara);
+  const paso = Math.max(2, Math.round(U * 0.42));
+  for (let p = desde + paso; p < hasta; p += paso) {
+    if (vertical) b.caja(p, piso.y0, fijo, p, piso.y1, fijo, oscuro);
+    else b.caja(fijo, piso.y0, p, fijo, piso.y1, p, oscuro);
+  }
+}
+
+function sillarPiedra(b, piso, cara, colorBase) {
+  const oscuro = sombrear(colorBase, 0.82);
+  const claro = sombrear(colorBase, 1.08);
+  const { vertical, desde, hasta, fijo } = limitesCara(piso, cara);
+  const paso = Math.max(2, Math.round(U * 0.5));
+  let fila = 0;
+  for (let y = piso.y0 + paso; y < piso.y1; y += paso, fila++) {
+    if (vertical) b.caja(desde, y, fijo, hasta, y, fijo, oscuro);
+    else b.caja(fijo, y, desde, fijo, y, hasta, oscuro);
+    // juntas verticales entre sillares, alternadas a hiladas (aparejo real, no rejilla)
+    for (let p = desde + (fila % 2 === 0 ? paso / 2 : paso); p < hasta; p += paso) {
+      const y0 = Math.max(piso.y0, y - paso + 1), y1 = y;
+      if (vertical) b.caja(Math.round(p), y0, fijo, Math.round(p), y1, fijo, claro);
+      else b.caja(fijo, y0, Math.round(p), fijo, y1, Math.round(p), claro);
+    }
+  }
+}
+
+function entramadoTudor(b, piso, colorViga) {
+  for (const cara of CARAS) {
+    const { vertical, desde, hasta, fijo } = limitesCara(piso, cara);
+    if (vertical) { b.caja(desde, piso.y0, fijo, hasta, piso.y0, fijo, colorViga); b.caja(desde, piso.y1, fijo, hasta, piso.y1, fijo, colorViga); }
+    else { b.caja(fijo, piso.y0, desde, fijo, piso.y0, hasta, colorViga); b.caja(fijo, piso.y1, desde, fijo, piso.y1, hasta, colorViga); }
+    vetasMaderaConColor(b, piso, cara, colorViga);
+  }
+}
+function vetasMaderaConColor(b, piso, cara, colorViga) {
+  const { vertical, desde, hasta, fijo } = limitesCara(piso, cara);
+  const paso = Math.max(2, Math.round(U * 0.55));
+  for (let p = desde + paso; p < hasta; p += paso) {
+    if (vertical) b.caja(p, piso.y0, fijo, p, piso.y1, fijo, colorViga);
+    else b.caja(fijo, piso.y0, p, fijo, piso.y1, p, colorViga);
+  }
+}
+
+// materialesPreferidos[0] del catálogo -> qué textura de fachada le toca.
+// estuco/tela_tapiz/cristal se dejan lisos (los cubre el entramado Tudor si
+// hay voladizo, o quedan de color plano — un escaparate de cristal no lleva
+// sillar ni veta).
+function familiaTextura(material) {
+  if (["madera", "mimbre", "cuero"].includes(material)) return "madera";
+  if (["piedra", "marmol", "ladrillo", "adobe", "metal"].includes(material)) return "piedra";
+  return null;
+}
+
 // --- cuerpo compartido: pila de plantas con voladizo opcional -------------
 // Cada archetipo parte de este "macizo" y le añade tejado + detalles. Las
 // plantas altas con `jetty` sobresalen del piso de abajo (voladizo tipo casa
@@ -72,10 +142,12 @@ function cuerpo(b, anchoVox, largoVox, alturaPlanta, nPlantas, colorMuro, opcion
   const pisos = [];
   let y = 0;
   const x0 = PAD, x1 = PAD + anchoVox - 1, z0 = PAD, z1 = PAD + largoVox - 1;
+  const familiaBase = familiaTextura(opciones.material);
   for (let p = 0; p < nPlantas; p++) {
     const voladizo = opciones.jetty && p > 0 ? opciones.jetty : 0;
     const px0 = x0 - voladizo, px1 = x1 + voladizo, pz0 = z0 - voladizo, pz1 = z1 + voladizo;
-    const tono = p === 0 ? colorMuro : (opciones.colorPlantaAlta || colorMuro);
+    const esPlantaAltaEspecial = p > 0 && opciones.colorPlantaAlta;
+    const tono = esPlantaAltaEspecial ? opciones.colorPlantaAlta : colorMuro;
     // zócalo de piedra en la base (planta baja): las casas medievales asientan sobre un basamento más oscuro
     if (p === 0) {
       const zocalo = Math.min(2, alturaPlanta - 1);
@@ -85,7 +157,12 @@ function cuerpo(b, anchoVox, largoVox, alturaPlanta, nPlantas, colorMuro, opcion
       b.caja(px0, y, pz0, px1, y + alturaPlanta - 1, pz1, tono);
     }
     if (voladizo > 0) b.caja(px0, y, pz0, px1, y, pz1, MADERA_OSCURA); // viga de apoyo del voladizo, línea oscura visible
-    pisos.push({ y0: y, y1: y + alturaPlanta - 1, x0: px0, x1: px1, z0: pz0, z1: pz1 });
+    const piso = { y0: y, y1: y + alturaPlanta - 1, x0: px0, x1: px1, z0: pz0, z1: pz1 };
+    const familia = esPlantaAltaEspecial && opciones.tudor ? "tudor" : familiaBase;
+    if (familia === "madera") for (const cara of CARAS) vetasMadera(b, piso, cara, tono);
+    else if (familia === "piedra") for (const cara of CARAS) sillarPiedra(b, piso, cara, tono);
+    else if (familia === "tudor") entramadoTudor(b, piso, MADERA_OSCURA);
+    pisos.push(piso);
     y += alturaPlanta;
   }
   return { pisos, yTecho: y, x0, x1, z0, z1 };
@@ -235,13 +312,16 @@ function porticoColumnas(b, x0, x1, z, yBase, altura, n, color) {
 function alturaPlantaVox() { return Math.round(U * 2.7); }
 
 function edificioChoza(ctx) {
-  const { ancho, largo, colorMuro, riqueza } = ctx;
+  const { ancho, largo, colorMuro, riqueza, material } = ctx;
   const b = Builder();
-  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), 1, colorMuro);
+  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), 1, colorMuro, { material });
   puertaEnFachada(b, pisos[0]);
   const nv = nVentanas(pisos[0].x1 - pisos[0].x0 + 1, riqueza);
   ventanasEnFachada(b, { cara: "S", piso: pisos[0], n: Math.min(1, nv), esFrenteConPuerta: true });
   ventanasEnFachada(b, { cara: "N", piso: pisos[0], n: nv });
+  const nvLateral = nVentanas(pisos[0].z1 - pisos[0].z0 + 1, riqueza);
+  ventanasEnFachada(b, { cara: "E", piso: pisos[0], n: Math.min(1, nvLateral) });
+  ventanasEnFachada(b, { cara: "O", piso: pisos[0], n: Math.min(1, nvLateral) });
   const ejeX = ancho >= largo;
   const techoY = techoDosAguas(b, pisos[0].x0, pisos[0].x1, pisos[0].z0, pisos[0].z1, yTecho, ROOF_POR_RIQUEZA[riqueza] || PAJA, ejeX);
   chimenea(b, pisos[0].x0 + Math.round(U * 0.7), pisos[0].z1 - Math.round(U * 0.7), yTecho - Math.round(U * 0.4), Math.round(U * 0.9), colorMuro, false);
@@ -249,11 +329,13 @@ function edificioChoza(ctx) {
 }
 
 function edificioCasa(ctx) {
-  const { ancho, largo, plantasAltas, colorMuro, riqueza, rnd } = ctx;
+  const { ancho, largo, plantasAltas, colorMuro, riqueza, rnd, material } = ctx;
   const b = Builder();
   const nPlantas = 1 + plantasAltas;
   const conVoladizo = riqueza !== "humilde" && plantasAltas > 0;
-  const opciones = conVoladizo ? { jetty: Math.round(U * 0.16), colorPlantaAlta: riqueza === "noble" ? (materiales.estuco?.colorDebug || "#e8ddc8") : colorMuro } : {};
+  const opciones = conVoladizo
+    ? { material, jetty: Math.round(U * 0.16), colorPlantaAlta: riqueza === "noble" ? (materiales.estuco?.colorDebug || "#e8ddc8") : colorMuro, tudor: riqueza === "noble" }
+    : { material };
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro, opciones);
   puertaEnFachada(b, pisos[0], { ancho: riqueza === "noble" ? 1.0 : 0.85, alto: 1.9 });
   for (const [i, piso] of pisos.entries()) {
@@ -270,14 +352,19 @@ function edificioCasa(ctx) {
 }
 
 function edificioTaller(ctx) {
-  const { ancho, largo, plantasAltas, colorMuro, riqueza, rnd, tema } = ctx;
+  const { ancho, largo, plantasAltas, colorMuro, riqueza, rnd, tema, material } = ctx;
   const b = Builder();
   const nPlantas = 1 + plantasAltas;
-  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro);
+  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro, { material });
   // escaparate: puerta ancha en vez de puerta estrecha — el comercio se anuncia con el hueco, cartel_tienda ya lo cuelga ciudades/
   puertaEnFachada(b, pisos[0], { ancho: 1.3, alto: 1.9 });
   ventanasEnFachada(b, { cara: "S", piso: pisos[0], n: nVentanas(pisos[0].x1 - pisos[0].x0 + 1, "noble"), esFrenteConPuerta: true });
-  for (const piso of pisos.slice(1)) ventanasEnFachada(b, { cara: "S", piso, n: nVentanas(piso.x1 - piso.x0 + 1, riqueza) });
+  for (const [i, piso] of pisos.entries()) {
+    if (i > 0) ventanasEnFachada(b, { cara: "S", piso, n: nVentanas(piso.x1 - piso.x0 + 1, riqueza) });
+    ventanasEnFachada(b, { cara: "N", piso, n: nVentanas(piso.x1 - piso.x0 + 1, riqueza) });
+    ventanasEnFachada(b, { cara: "E", piso, n: Math.max(1, nVentanas(piso.z1 - piso.z0 + 1, riqueza)) });
+    ventanasEnFachada(b, { cara: "O", piso, n: Math.max(1, nVentanas(piso.z1 - piso.z0 + 1, riqueza)) });
+  }
   const ultimo = pisos[pisos.length - 1];
   const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, ROOF_POR_RIQUEZA[riqueza] || TEJA, ancho >= largo, { pendiente: 0.45 });
   // fragua/horno del oficio: chimenea con brasas — herrería, panadería, destilería, alfarería, molino
@@ -287,17 +374,20 @@ function edificioTaller(ctx) {
 }
 
 function edificioPosada(ctx) {
-  const { ancho, largo, plantasAltas, colorMuro, riqueza, rnd } = ctx;
+  const { ancho, largo, plantasAltas, colorMuro, riqueza, rnd, material } = ctx;
   const b = Builder();
   const nPlantas = 1 + Math.max(1, plantasAltas);
-  const opciones = { jetty: Math.round(U * 0.14) };
+  const opciones = { material, jetty: Math.round(U * 0.14) };
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro, opciones);
   puertaEnFachada(b, pisos[0], { ancho: 1.1, alto: 2.0 });
   for (const [i, piso] of pisos.entries()) {
     // muchas ventanas pequeñas en las plantas altas — habitaciones de huéspedes, una tras otra
     const nv = i === 0 ? nVentanas(piso.x1 - piso.x0 + 1, "modesta") : Math.max(3, Math.round((piso.x1 - piso.x0) / U / 1.5));
+    const nvLateral = i === 0 ? nVentanas(piso.z1 - piso.z0 + 1, "modesta") : Math.max(1, Math.round((piso.z1 - piso.z0) / U / 1.5));
     ventanasEnFachada(b, { cara: "S", piso, n: nv, esFrenteConPuerta: i === 0 });
     ventanasEnFachada(b, { cara: "N", piso, n: nv });
+    ventanasEnFachada(b, { cara: "E", piso, n: nvLateral });
+    ventanasEnFachada(b, { cara: "O", piso, n: nvLateral });
   }
   const ultimo = pisos[pisos.length - 1];
   const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, ROOF_POR_RIQUEZA[riqueza] || TEJA, ancho >= largo, { pendiente: 0.6 });
@@ -306,10 +396,10 @@ function edificioPosada(ctx) {
 }
 
 function edificioInstitucion(ctx) {
-  const { ancho, largo, plantasAltas, colorMuro, riqueza } = ctx;
+  const { ancho, largo, plantasAltas, colorMuro, riqueza, material } = ctx;
   const b = Builder();
   const nPlantas = 1 + plantasAltas;
-  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro);
+  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro, { material });
   const planta0 = pisos[0];
   puertaEnFachada(b, planta0, { ancho: 1.4, alto: 2.1 });
   for (const piso of pisos) ventanasEnFachada(b, { cara: "S", piso, n: nVentanas(piso.x1 - piso.x0 + 1, "noble"), esFrenteConPuerta: piso === planta0 });
@@ -323,14 +413,19 @@ function edificioInstitucion(ctx) {
 }
 
 function edificioTemplo(ctx) {
-  const { ancho, largo, plantasAltas, colorMuro } = ctx;
+  const { ancho, largo, plantasAltas, colorMuro, material } = ctx;
   const b = Builder();
   const nPlantas = 1 + plantasAltas;
-  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 1.15), nPlantas, colorMuro);
+  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 1.15), nPlantas, colorMuro, { material });
   const planta0 = pisos[0];
   puertaEnFachada(b, planta0, { ancho: 1.3, alto: 2.3 });
-  // vidrieras: ventanas altas y estrechas en vez de las cuadradas normales
-  for (const piso of pisos) { ventanasEnFachada(b, { cara: "E", piso, n: Math.max(2, Math.round((piso.z1 - piso.z0) / U / 2)) }); ventanasEnFachada(b, { cara: "O", piso, n: Math.max(2, Math.round((piso.z1 - piso.z0) / U / 2)) }); }
+  // vidrieras: ventanas altas y estrechas en vez de las cuadradas normales, en las 4 caras
+  for (const piso of pisos) {
+    ventanasEnFachada(b, { cara: "E", piso, n: Math.max(2, Math.round((piso.z1 - piso.z0) / U / 2)) });
+    ventanasEnFachada(b, { cara: "O", piso, n: Math.max(2, Math.round((piso.z1 - piso.z0) / U / 2)) });
+    ventanasEnFachada(b, { cara: "S", piso, n: 1, esFrenteConPuerta: piso === planta0 });
+    ventanasEnFachada(b, { cara: "N", piso, n: Math.max(1, Math.round((piso.x1 - piso.x0) / U / 3)) });
+  }
   const ultimo = pisos[pisos.length - 1];
   const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, PIZARRA, ancho >= largo, { pendiente: 0.75 });
   // aguja/campanario centrado sobre la cumbrera
@@ -342,28 +437,34 @@ function edificioTemplo(ctx) {
 function edificioMilitar(ctx) {
   const { ancho, largo, plantasAltas, colorMuro } = ctx;
   const b = Builder();
-  const colorPiedra = sombrear(colorMuro, 0.95);
+  // militar siempre en piedra de verdad, sea cual sea el materialesPreferidos del catálogo — un cuartel de madera no lee como fortificación
+  const colorPiedra = sombrear(materiales.piedra.colorDebug, 0.95);
   const nPlantas = 1 + plantasAltas;
-  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorPiedra);
+  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorPiedra, { material: "piedra" });
   const planta0 = pisos[0];
   puertaEnFachada(b, planta0, { ancho: 1.2, alto: 2.0 });
-  // aspilleras: ventanas escasas y estrechas, nada de lujo
-  for (const piso of pisos) { ventanasEnFachada(b, { cara: "S", piso, n: 2, esFrenteConPuerta: piso === planta0 }); ventanasEnFachada(b, { cara: "N", piso, n: 2 }); }
+  // aspilleras: ventanas escasas y estrechas en las 4 caras, nada de lujo
+  for (const piso of pisos) {
+    ventanasEnFachada(b, { cara: "S", piso, n: 2, esFrenteConPuerta: piso === planta0 });
+    ventanasEnFachada(b, { cara: "N", piso, n: 2 });
+    ventanasEnFachada(b, { cara: "E", piso, n: 1 });
+    ventanasEnFachada(b, { cara: "O", piso, n: 1 });
+  }
   const ultimo = pisos[pisos.length - 1];
   const techoY = techoAlmenado(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, ultimo.y1 + 1, colorPiedra);
   return { grid: [ancho * U + PAD * 2, techoY + 2, largo * U + PAD * 2], paleta: b.paleta, cajas: b.cajas };
 }
 
 function edificioTorre(ctx) {
-  const { ancho, largo, plantasAltas, colorMuro, tema } = ctx;
+  const { ancho, largo, plantasAltas, colorMuro, tema, material } = ctx;
   const b = Builder();
   const nPlantas = 2 + plantasAltas; // las torres siempre altas aunque el catálogo pida pocas plantas
-  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 0.85), nPlantas, colorMuro);
+  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 0.85), nPlantas, colorMuro, { material });
   const planta0 = pisos[0];
   puertaEnFachada(b, planta0, { ancho: 0.9, alto: 1.9 });
   // ventanas en espiral: una por planta, girando de cara — sugiere la escalera de caracol interior
-  const CARAS = ["S", "E", "N", "O"];
-  pisos.forEach((piso, i) => { if (i === 0) return; ventanasEnFachada(b, { cara: CARAS[i % 4], piso, n: 1 }); });
+  const ORDEN_ESPIRAL = ["S", "E", "N", "O"];
+  pisos.forEach((piso, i) => { if (i === 0) return; ventanasEnFachada(b, { cara: ORDEN_ESPIRAL[i % 4], piso, n: 1 }); });
   const ultimo = pisos[pisos.length - 1];
   const colorTejado = tema === "faro" ? "#c9453a" : PIZARRA;
   const techoY = techoPiramidal(b, ultimo.x0 - Math.round(U * 0.25), ultimo.x1 + Math.round(U * 0.25), ultimo.z0 - Math.round(U * 0.25), ultimo.z1 + Math.round(U * 0.25), yTecho, colorTejado, { pendiente: 1.3, escalon: 2 });
@@ -372,10 +473,10 @@ function edificioTorre(ctx) {
 }
 
 function edificioGranero(ctx) {
-  const { ancho, largo, plantasAltas, colorMuro, riqueza } = ctx;
+  const { ancho, largo, plantasAltas, colorMuro, riqueza, material } = ctx;
   const b = Builder();
   const nPlantas = 1 + plantasAltas;
-  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 1.1), nPlantas, colorMuro);
+  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 1.1), nPlantas, colorMuro, { material });
   const planta0 = pisos[0];
   // portalón doble ancho — carros entran a descargar, no una puerta de casa
   puertaEnFachada(b, planta0, { ancho: 1.8, alto: 2.0 });
@@ -394,9 +495,12 @@ function edificioCastillo(ctx) {
   const x0 = PAD, x1 = PAD + ancho * U - 1, z0 = PAD, z1 = PAD + largo * U - 1;
   b.caja(x0, 0, z0, x1, alturaCuerpo - 1, z1, colorPiedra);
   const planta0 = { x0, x1, y0: 0, y1: alturaCuerpo - 1, z0, z1 };
+  for (const cara of CARAS) sillarPiedra(b, planta0, cara, colorPiedra); // las 4 caras del lienzo, no solo la de la puerta
   puertaEnFachada(b, planta0, { ancho: 1.6, alto: 2.6 });
   ventanasEnFachada(b, { cara: "S", piso: planta0, n: 2, esFrenteConPuerta: true });
   ventanasEnFachada(b, { cara: "N", piso: planta0, n: 3 });
+  ventanasEnFachada(b, { cara: "E", piso: planta0, n: 2 });
+  ventanasEnFachada(b, { cara: "O", piso: planta0, n: 2 });
   techoAlmenado(b, x0, x1, z0, z1, alturaCuerpo, colorPiedra);
   // torre en cada esquina — lo que hace inconfundible un castillo entre los edificios de la ciudad
   const radioTorre = Math.round(U * 0.9);
@@ -459,7 +563,7 @@ function generarEdificio(tipoId, nn = 1) {
   const material = (info.materialesPreferidos || ["madera"])[0];
   const colorMuro = materiales[material]?.colorDebug || materiales.madera.colorDebug;
   const arquetipo = clasificarEdificio(tipoId, info);
-  const modelo = ARQUETIPO_FN[arquetipo]({ ancho, largo, plantasAltas, colorMuro, riqueza: info.riqueza, rnd, tema: tipoId });
+  const modelo = ARQUETIPO_FN[arquetipo]({ ancho, largo, plantasAltas, colorMuro, material, riqueza: info.riqueza, rnd, tema: tipoId });
   return { nombre: `${tipoId.replace(/_/g, " ")} (var ${String(nn).padStart(2, "0")})`, arquetipo, tipoId, huella, resolucion: U, ...modelo };
 }
 
