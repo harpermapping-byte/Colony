@@ -128,3 +128,56 @@ test("migraciones idempotentes: abrir dos veces el mismo archivo conserva los da
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// Facción bandida (docs/GDD_Faccion_Bandidos.md §6, fase 1) -----------------
+
+test("asentamientos: obtenerOCrear es idempotente y guardarAsentamiento persiste los cambios", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const a = await bd.obtenerOCrearAsentamiento("aldea_bandidos_1");
+  assert.strictEqual(a.bando, "bandido");
+  assert.strictEqual(a.nivelMuralla, 1);
+  assert.strictEqual(a.nivelEquipo, 1);
+  assert.strictEqual(a.comida, 0);
+
+  // Idempotente: no crea una segunda fila ni resetea la que ya había
+  const otra = await bd.obtenerOCrearAsentamiento("aldea_bandidos_1");
+  assert.deepStrictEqual(otra, a);
+
+  await bd.guardarAsentamiento({ ...a, comida: 40, nivelMuralla: 2 });
+  const listados = await bd.listarAsentamientos();
+  assert.strictEqual(listados.length, 1);
+  assert.strictEqual(listados[0].comida, 40);
+  assert.strictEqual(listados[0].nivelMuralla, 2);
+  await bd.cerrar();
+});
+
+test("tropas: crearTropa da ids únicos, marcarTropaMuerta NUNCA revierte (no hay respawn mágico)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.obtenerOCrearAsentamiento("aldea_bandidos_1");
+  const t1 = await bd.crearTropa("aldea_bandidos_1", "recluta");
+  const t2 = await bd.crearTropa("aldea_bandidos_1", "guardia");
+  assert.notStrictEqual(t1.id, t2.id);
+
+  let tropas = await bd.listarTropas("aldea_bandidos_1");
+  assert.strictEqual(tropas.length, 2);
+  assert.ok(tropas.every((t) => t.estado === "vivo"));
+
+  await bd.marcarTropaMuerta(t1.id);
+  tropas = await bd.listarTropas("aldea_bandidos_1");
+  assert.strictEqual(tropas.find((t) => t.id === t1.id)!.estado, "muerto");
+  assert.strictEqual(tropas.find((t) => t.id === t2.id)!.estado, "vivo");
+  await bd.cerrar();
+});
+
+test("memoria del líder: registrarMemoriaLider + memoriaLiderReciente devuelve lo último primero", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.registrarMemoriaLider(1, "Fundación de la aldea");
+  await bd.registrarMemoriaLider(3, "Jugadores mataron 5 bandidos en el sector B2");
+  await bd.registrarMemoriaLider(5, "Muralla subida a nivel piedra");
+
+  const recientes = await bd.memoriaLiderReciente(2);
+  assert.strictEqual(recientes.length, 2);
+  assert.strictEqual(recientes[0].evento, "Muralla subida a nivel piedra");
+  assert.strictEqual(recientes[1].evento, "Jugadores mataron 5 bandidos en el sector B2");
+  await bd.cerrar();
+});

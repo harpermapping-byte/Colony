@@ -69,6 +69,41 @@ export interface NuevaConstruccion {
   extra?: Record<string, unknown> | null;
 }
 
+// Facción bandida (docs/GDD_Faccion_Bandidos.md) — enganchada a los
+// asentamientos "asentamiento_hostil" que ya bakea el sistema de mazmorras
+// (mismo id/slug de POI, ver mazmorras/catalogo/tipos_dungeon.json). `bando`
+// se deja abierto ("bandido" hoy) para una futura progresión de
+// asentamientos neutrales por donaciones/misiones — GDD §4, fuera de
+// alcance de esta fase.
+export interface Asentamiento {
+  id: string;
+  bando: string;
+  nivelMuralla: number; // 1 = empalizada, 2 = muralla_piedra (los 2 materiales reales que ya existen)
+  nivelEquipo: number; // 1 = garrote/túnica, 2 = cota/espada, 3 = placas/hacha
+  comida: number;
+  madera: number;
+  piedra: number;
+  hierro: number;
+}
+
+export type RangoTropa = "recluta" | "guardia" | "lider";
+export type EstadoTropa = "vivo" | "muerto";
+
+export interface Tropa {
+  id: string;
+  asentamientoId: string;
+  rango: RangoTropa;
+  estado: EstadoTropa;
+}
+
+// Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
+// asentamiento — el registro de eventos que alimenta su contexto de IA.
+export interface MemoriaLider {
+  id: number;
+  diaIngame: number;
+  evento: string;
+}
+
 /**
  * Contrato único de persistencia — GDD_Construccion §2. Ambos motores lo
  * implementan tal cual; HubRoom solo conoce esta interfaz, nunca la clase
@@ -87,6 +122,19 @@ export interface IAlmacenDatos {
   // "farmear a saco". `clave` = mapaId:edificio:nivel.
   obtenerLimpiezaMazmorra(clave: string): Promise<string | null>;
   marcarMazmorraLimpiada(clave: string): Promise<void>;
+  // Facción bandida (docs/GDD_Faccion_Bandidos.md §6, fase 1: datos + tick,
+  // sin IA ni patrullas en vivo todavía).
+  obtenerOCrearAsentamiento(id: string, bando?: string): Promise<Asentamiento>;
+  listarAsentamientos(): Promise<Asentamiento[]>;
+  guardarAsentamiento(a: Asentamiento): Promise<void>;
+  listarTropas(asentamientoId: string): Promise<Tropa[]>;
+  crearTropa(asentamientoId: string, rango: RangoTropa): Promise<Tropa>;
+  // Costura para el sistema de combate (todavía sin diseñar, GDD §2.4): hoy
+  // nada la llama en producción — la persistencia ya está lista para cuando
+  // combate exista, mismo patrón que marcarMazmorraLimpiada en su día.
+  marcarTropaMuerta(tropaId: string): Promise<void>;
+  registrarMemoriaLider(diaIngame: number, evento: string): Promise<void>;
+  memoriaLiderReciente(limite: number): Promise<MemoriaLider[]>;
   cerrar(): Promise<void>;
 }
 
@@ -124,6 +172,29 @@ CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,               -- "mapaId:edificio:nivel"
   limpiada_en TEXT                      -- timestamp ISO de la última vez que se limpió (null = nunca)
 );
+CREATE TABLE IF NOT EXISTS asentamientos (
+  id TEXT PRIMARY KEY,                  -- slug del POI "asentamiento_hostil" ya bakeado por mazmorras/
+  bando TEXT NOT NULL DEFAULT 'bandido',
+  nivel_muralla INTEGER NOT NULL DEFAULT 1,
+  nivel_equipo INTEGER NOT NULL DEFAULT 1,
+  comida INTEGER NOT NULL DEFAULT 0,
+  madera INTEGER NOT NULL DEFAULT 0,
+  piedra INTEGER NOT NULL DEFAULT 0,
+  hierro INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS tropas_asentamiento (
+  id TEXT PRIMARY KEY,                  -- "<asentamientoId>:<n>"
+  asentamiento_id TEXT NOT NULL,        -- FK asentamientos.id
+  rango TEXT NOT NULL,                  -- 'recluta' | 'guardia' | 'lider'
+  estado TEXT NOT NULL DEFAULT 'vivo'   -- 'vivo' | 'muerto' — una baja real NUNCA vuelve a 'vivo' (GDD §1)
+);
+CREATE INDEX IF NOT EXISTS idx_tropas_asentamiento ON tropas_asentamiento(asentamiento_id);
+CREATE TABLE IF NOT EXISTS memoria_lider (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  dia_ingame INTEGER NOT NULL,
+  evento TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
 `;
 
 const MIGRACIONES_POSTGRES = `
@@ -154,6 +225,29 @@ CREATE INDEX IF NOT EXISTS idx_construcciones_prop ON construcciones(propiedad);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,
   limpiada_en TEXT
+);
+CREATE TABLE IF NOT EXISTS asentamientos (
+  id TEXT PRIMARY KEY,
+  bando TEXT NOT NULL DEFAULT 'bandido',
+  nivel_muralla INTEGER NOT NULL DEFAULT 1,
+  nivel_equipo INTEGER NOT NULL DEFAULT 1,
+  comida INTEGER NOT NULL DEFAULT 0,
+  madera INTEGER NOT NULL DEFAULT 0,
+  piedra INTEGER NOT NULL DEFAULT 0,
+  hierro INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS tropas_asentamiento (
+  id TEXT PRIMARY KEY,
+  asentamiento_id TEXT NOT NULL,
+  rango TEXT NOT NULL,
+  estado TEXT NOT NULL DEFAULT 'vivo'
+);
+CREATE INDEX IF NOT EXISTS idx_tropas_asentamiento ON tropas_asentamiento(asentamiento_id);
+CREATE TABLE IF NOT EXISTS memoria_lider (
+  id SERIAL PRIMARY KEY,
+  dia_ingame INTEGER NOT NULL,
+  evento TEXT NOT NULL,
+  creado_en TEXT NOT NULL
 );
 `;
 
@@ -278,6 +372,85 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     }
   }
 
+  private filaAAsentamiento(f: Record<string, unknown>): Asentamiento {
+    return {
+      id: String(f.id),
+      bando: String(f.bando),
+      nivelMuralla: Number(f.nivel_muralla),
+      nivelEquipo: Number(f.nivel_equipo),
+      comida: Number(f.comida),
+      madera: Number(f.madera),
+      piedra: Number(f.piedra),
+      hierro: Number(f.hierro),
+    };
+  }
+
+  async obtenerOCrearAsentamiento(id: string, bando = "bandido"): Promise<Asentamiento> {
+    const existente = this.bd.prepare("SELECT * FROM asentamientos WHERE id = ?").get(id);
+    if (existente) return this.filaAAsentamiento(existente);
+    this.bd.prepare("INSERT INTO asentamientos (id, bando) VALUES (?, ?)").run(id, bando);
+    return { id, bando, nivelMuralla: 1, nivelEquipo: 1, comida: 0, madera: 0, piedra: 0, hierro: 0 };
+  }
+
+  async listarAsentamientos(): Promise<Asentamiento[]> {
+    return this.bd.prepare("SELECT * FROM asentamientos").all().map((f) => this.filaAAsentamiento(f));
+  }
+
+  async guardarAsentamiento(a: Asentamiento): Promise<void> {
+    const r = this.bd
+      .prepare(
+        `UPDATE asentamientos SET bando = ?, nivel_muralla = ?, nivel_equipo = ?, comida = ?, madera = ?, piedra = ?, hierro = ? WHERE id = ?`
+      )
+      .run(a.bando, a.nivelMuralla, a.nivelEquipo, a.comida, a.madera, a.piedra, a.hierro, a.id);
+    if (Number(r.changes) === 0) {
+      this.bd
+        .prepare(
+          `INSERT INTO asentamientos (id, bando, nivel_muralla, nivel_equipo, comida, madera, piedra, hierro) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(a.id, a.bando, a.nivelMuralla, a.nivelEquipo, a.comida, a.madera, a.piedra, a.hierro);
+    }
+  }
+
+  async listarTropas(asentamientoId: string): Promise<Tropa[]> {
+    const filas = this.bd
+      .prepare("SELECT id, asentamiento_id, rango, estado FROM tropas_asentamiento WHERE asentamiento_id = ?")
+      .all(asentamientoId);
+    return filas.map((f) => ({
+      id: String(f.id),
+      asentamientoId: String(f.asentamiento_id),
+      rango: String(f.rango) as RangoTropa,
+      estado: String(f.estado) as EstadoTropa,
+    }));
+  }
+
+  async crearTropa(asentamientoId: string, rango: RangoTropa): Promise<Tropa> {
+    const n = this.bd
+      .prepare("SELECT COUNT(*) AS n FROM tropas_asentamiento WHERE asentamiento_id = ?")
+      .get(asentamientoId);
+    const id = `${asentamientoId}:${Number(n?.n ?? 0)}`;
+    this.bd
+      .prepare("INSERT INTO tropas_asentamiento (id, asentamiento_id, rango, estado) VALUES (?, ?, ?, 'vivo')")
+      .run(id, asentamientoId, rango);
+    return { id, asentamientoId, rango, estado: "vivo" };
+  }
+
+  async marcarTropaMuerta(tropaId: string): Promise<void> {
+    this.bd.prepare("UPDATE tropas_asentamiento SET estado = 'muerto' WHERE id = ?").run(tropaId);
+  }
+
+  async registrarMemoriaLider(diaIngame: number, evento: string): Promise<void> {
+    this.bd
+      .prepare("INSERT INTO memoria_lider (dia_ingame, evento, creado_en) VALUES (?, ?, ?)")
+      .run(diaIngame, evento, new Date().toISOString());
+  }
+
+  async memoriaLiderReciente(limite: number): Promise<MemoriaLider[]> {
+    const filas = this.bd
+      .prepare("SELECT id, dia_ingame, evento FROM memoria_lider ORDER BY id DESC LIMIT ?")
+      .all(limite);
+    return filas.map((f) => ({ id: Number(f.id), diaIngame: Number(f.dia_ingame), evento: String(f.evento) }));
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -398,6 +571,82 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
        ON CONFLICT (clave) DO UPDATE SET limpiada_en = EXCLUDED.limpiada_en`,
       [clave, new Date().toISOString()],
     );
+  }
+
+  async obtenerOCrearAsentamiento(id: string, bando = "bandido"): Promise<Asentamiento> {
+    const r = await this.pool.query(
+      `INSERT INTO asentamientos (id, bando) VALUES ($1, $2)
+       ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id
+       RETURNING id, bando, nivel_muralla, nivel_equipo, comida, madera, piedra, hierro`,
+      [id, bando],
+    );
+    const f = r.rows[0];
+    return {
+      id: f.id, bando: f.bando, nivelMuralla: f.nivel_muralla, nivelEquipo: f.nivel_equipo,
+      comida: f.comida, madera: f.madera, piedra: f.piedra, hierro: f.hierro,
+    };
+  }
+
+  async listarAsentamientos(): Promise<Asentamiento[]> {
+    const r = await this.pool.query(
+      "SELECT id, bando, nivel_muralla, nivel_equipo, comida, madera, piedra, hierro FROM asentamientos",
+    );
+    return r.rows.map((f) => ({
+      id: f.id, bando: f.bando, nivelMuralla: f.nivel_muralla, nivelEquipo: f.nivel_equipo,
+      comida: f.comida, madera: f.madera, piedra: f.piedra, hierro: f.hierro,
+    }));
+  }
+
+  async guardarAsentamiento(a: Asentamiento): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO asentamientos (id, bando, nivel_muralla, nivel_equipo, comida, madera, piedra, hierro)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (id) DO UPDATE SET
+         bando = EXCLUDED.bando, nivel_muralla = EXCLUDED.nivel_muralla, nivel_equipo = EXCLUDED.nivel_equipo,
+         comida = EXCLUDED.comida, madera = EXCLUDED.madera, piedra = EXCLUDED.piedra, hierro = EXCLUDED.hierro`,
+      [a.id, a.bando, a.nivelMuralla, a.nivelEquipo, a.comida, a.madera, a.piedra, a.hierro],
+    );
+  }
+
+  async listarTropas(asentamientoId: string): Promise<Tropa[]> {
+    const r = await this.pool.query(
+      "SELECT id, asentamiento_id, rango, estado FROM tropas_asentamiento WHERE asentamiento_id = $1",
+      [asentamientoId],
+    );
+    return r.rows.map((f) => ({ id: f.id, asentamientoId: f.asentamiento_id, rango: f.rango, estado: f.estado }));
+  }
+
+  async crearTropa(asentamientoId: string, rango: RangoTropa): Promise<Tropa> {
+    const n = await this.pool.query<{ n: string }>(
+      "SELECT COUNT(*) AS n FROM tropas_asentamiento WHERE asentamiento_id = $1",
+      [asentamientoId],
+    );
+    const id = `${asentamientoId}:${Number(n.rows[0].n)}`;
+    await this.pool.query(
+      "INSERT INTO tropas_asentamiento (id, asentamiento_id, rango, estado) VALUES ($1, $2, $3, 'vivo')",
+      [id, asentamientoId, rango],
+    );
+    return { id, asentamientoId, rango, estado: "vivo" };
+  }
+
+  async marcarTropaMuerta(tropaId: string): Promise<void> {
+    await this.pool.query("UPDATE tropas_asentamiento SET estado = 'muerto' WHERE id = $1", [tropaId]);
+  }
+
+  async registrarMemoriaLider(diaIngame: number, evento: string): Promise<void> {
+    await this.pool.query("INSERT INTO memoria_lider (dia_ingame, evento, creado_en) VALUES ($1, $2, $3)", [
+      diaIngame,
+      evento,
+      new Date().toISOString(),
+    ]);
+  }
+
+  async memoriaLiderReciente(limite: number): Promise<MemoriaLider[]> {
+    const r = await this.pool.query<{ id: number; dia_ingame: number; evento: string }>(
+      "SELECT id, dia_ingame, evento FROM memoria_lider ORDER BY id DESC LIMIT $1",
+      [limite],
+    );
+    return r.rows.map((f) => ({ id: f.id, diaIngame: f.dia_ingame, evento: f.evento }));
   }
 
   async cerrar(): Promise<void> {
