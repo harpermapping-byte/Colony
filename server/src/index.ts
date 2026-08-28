@@ -23,7 +23,7 @@ gameServer.define("hub", HubRoom);
 // hace que dos joins con el MISMO mapaId/edificio caigan en la MISMA room
 // (comparten la aldea/el edificio) y uno distinto cree una room aparte.
 gameServer.define("region", RegionRoom).filterBy(["mapaId"]);
-gameServer.define("interior", InteriorRoom).filterBy(["mapaId", "edificio"]);
+gameServer.define("interior", InteriorRoom).filterBy(["mapaId", "edificio", "nivel"]);
 
 httpServer.listen(port, () => {
   console.log(`Colony server escuchando en el puerto ${port}`);

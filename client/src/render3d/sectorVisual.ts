@@ -264,7 +264,12 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
         // tamaño de prop, edificios incluidos; solo la ESCALA usa el
         // ancho/largo real de la instancia (obj.w/obj.h) en vez del
         // tamaño de catálogo cuando está disponible.
-        posicion.set(globalX + 0.5, 0, globalY + 0.5);
+        // edificios: centro REAL sub-casilla (dx/dy), no el centro genérico
+        // de la casilla — así la caja coincide con la huella "solar_edificio"
+        // real del terreno en vez de quedar hasta ~0.7 casillas desplazada.
+        const centroX = grupo.tipo === "e" && obj.dx !== undefined ? obj.dx : 0.5;
+        const centroZ = grupo.tipo === "e" && obj.dy !== undefined ? obj.dy : 0.5;
+        posicion.set(globalX + centroX, 0, globalY + centroZ);
         rotacion.setFromAxisAngle(ejeY, THREE.MathUtils.degToRad(obj.ro || 0));
         const es = obj.es || 1;
         const anchoReal = grupo.tipo === "e" && obj.w ? obj.w : dims.ancho;
@@ -281,11 +286,77 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
   return raiz;
 }
 
-/** Terreno + props de un sector, listos para añadir a escena como un único grupo. */
+const ALTURA_MURALLA: Record<string, number> = { empalizada: 1.7, muralla_piedra: 2.6 };
+
+/**
+ * Torres y puertas de la muralla, distintas de un tramo recto — el terreno
+ * ya extruye CADA casilla de muro como una caja uniforme (crearTerrenoSector,
+ * ALTURA_TERRENO_SOLIDO), así que un tramo "recto" no necesita nada más
+ * aquí. Lo que faltaba (pedido del streamer): que una torre se note como
+ * torre y que una puerta de piedra se vea como una entrada de fortaleza de
+ * verdad (dos torreones flanqueando el hueco) en vez de un simple corte en
+ * el muro — mientras que una empalizada humilde se queda con dos palos
+ * simples, sin sillería. Puramente decorativo: la colisión real del hueco
+ * ya la resuelve el terreno (el raster de la muralla salta las puertas),
+ * esto no la toca.
+ */
+function crearMurallaSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Group {
+  const grupo = new THREE.Group();
+  const modulos = indice.muralla?.modulos;
+  if (!modulos || modulos.length === 0) return grupo;
+
+  const t = indice.tamanoChunk;
+  const tilesSector = indice.tamanoSectorChunks * t;
+  const origenTileX = sector.sectorX * tilesSector;
+  const origenTileY = sector.sectorY * tilesSector;
+  const dentroDeEsteSector = (x: number, y: number) =>
+    x >= origenTileX && x < origenTileX + tilesSector && y >= origenTileY && y < origenTileY + tilesSector;
+
+  for (const mod of modulos) {
+    if (mod.tipo === "recto" || !dentroDeEsteSector(mod.x, mod.y)) continue;
+
+    const altoBase = ALTURA_MURALLA[mod.material] ?? 2;
+    const color = colorTerreno(mod.material === "empalizada" ? "empalizada" : "muralla_piedra");
+    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0 });
+    const rotRad = THREE.MathUtils.degToRad(mod.rot);
+
+    if (mod.tipo === "torre") {
+      const alto = altoBase + 1.4;
+      const caja = new THREE.Mesh(new THREE.BoxGeometry(2.2, alto, 2.2), mat);
+      caja.position.set(mod.x + 0.5, alto / 2, mod.y + 0.5);
+      caja.castShadow = true;
+      caja.userData.propioDelSector = true;
+      grupo.add(caja);
+      continue;
+    }
+
+    // "puerta": piedra = dos torreones (fortaleza de verdad), empalizada =
+    // dos palos simples — flanqueando el hueco real que ya deja el terreno.
+    const esPiedra = mod.material !== "empalizada";
+    const perpendicular = rotRad + Math.PI / 2;
+    const offset = esPiedra ? 2.6 : 1.8;
+    for (const lado of [-1, 1]) {
+      const px = mod.x + 0.5 + Math.cos(perpendicular) * offset * lado;
+      const py = mod.y + 0.5 + Math.sin(perpendicular) * offset * lado;
+      const alto = esPiedra ? altoBase + 1.8 : altoBase + 0.6;
+      const ancho = esPiedra ? 1.8 : 0.35;
+      const caja = new THREE.Mesh(new THREE.BoxGeometry(ancho, alto, ancho), mat);
+      caja.position.set(px, alto / 2, py);
+      caja.castShadow = true;
+      caja.userData.propioDelSector = true;
+      grupo.add(caja);
+    }
+  }
+
+  return grupo;
+}
+
+/** Terreno + muralla + props de un sector, listos para añadir a escena como un único grupo. */
 export async function crearSectorVisual(indice: IndiceMapa, sector: SectorBakeado): Promise<THREE.Group> {
   const grupo = new THREE.Group();
   grupo.name = `sector_${sector.sectorX}_${sector.sectorY}`;
   grupo.add(crearTerrenoSector(indice, sector));
+  grupo.add(crearMurallaSector(indice, sector));
   grupo.add(await crearPropsSector(indice, sector));
   return grupo;
 }

@@ -224,9 +224,172 @@ instanciados.
 
 Pendiente: que el CLIENTE cargue esos .glb por instancia (hoy pinta una
 caja por riqueza con la huella w/h real de cada edificio — el paso al .glb
-espera a que el usuario apruebe el arte), prop 3D exterior de la ciudad
-sobre el mapa principal, hito de plaza, bakeado especial de la ciudad
-principal, ciclo día/noche que consuma `indice.luces`, y el CRUCE DE
-PORTALES en runtime (rooms bajo demanda, §4.3). El export en formato de
-sectores está verificado contra `mapaColision` del servidor y JUGADO de
-verdad (assets/mapas/ciudad_demo + paseo E2E con vídeo).
+espera a que el usuario apruebe el arte), hito de plaza, bakeado especial
+de la ciudad principal, ciclo día/noche que consuma `indice.luces`. El
+export en formato de sectores está verificado contra `mapaColision` del
+servidor y JUGADO de verdad (assets/mapas/ciudad_demo + paseo E2E con
+vídeo).
+
+## 7. Vinculación con `baker/` (mapa exterior principal) — 2026-08-28
+
+Antes: `baker/` colocaba los ~40 tipos de POI de `baker/catalogo/pois.json`
+como simples MARCADORES (`{id, tipo, bioma, x, y, radio, faccion,
+legendario}`) — sin geometría, sin interior, sin puerta; el campo `pois`
+de cada sector llegaba al cliente pero no lo consumía nadie
+(`formatoMapa.ts: pois: unknown[]`). Pedido del usuario: "vincular todos
+los baker para el día que creemos el mapa se cree todo a la vez y
+vinculado" — un POI es de un tipo (aldea con su puerta, un edificio
+exterior 3D suelto, o algo puramente decorativo) y su estética/mecánica
+debe generarse SOLA al hornear el mapa grande, sin paso manual.
+
+**Tres categorías por plantilla de catálogo** (`categoria` en
+`pois.json`, documentado ahí mismo en `_nota_categoria`):
+
+- **`asentamiento`** (`tier`, uno de `ciudades/catalogo/asentamientos.json`:
+  aldea_pequena/aldea/pueblo/capital/castillo/gran_capital): hornea una
+  región `ciudades/` COMPLETA y anidada — misma pieza que ya existía, ahora
+  disparada automáticamente. `aldea_agricola`, `aldea_maderera`,
+  `aldea_pescadores`, `ciudad_poblada_menor`, `fuerte_barbaro`,
+  `castillo_en_ruinas`.
+- **`edificio`** (`tipoEdificioId`, uno de
+  `interiores/catalogo/tipos_edificio.json`): UN edificio suelto
+  directamente sobre el mapa padre — su interior sale de
+  `interiores/generarEdificio` igual que cualquier otro, sin muralla ni
+  calle alrededor. `granja_abandonada`/`ruinas_pequenas` → `ruina`,
+  `cabana_cazador` → `casa_humilde`, `tienda_cazador`/`oasis_mercader` →
+  `tienda`, `caravana_ambulante` → `carromato_mercader`, `barco_encallado`
+  → `barco_encallado`, `faro_abandonado` → `faro`, `cabana_pesca` →
+  `choza_pescador`, `choza_curandero` → `choza_curandero`,
+  `guarida_bandidos`/`campamento_barbaros_grande` → `campamento_hostil`,
+  `torre_vigia_enemiga` → `torre_militar`, `barracones_abandonados` →
+  `cuartel_guardia`.
+- **`decorativo`** (o sin `categoria`, valor por defecto): sin cambios —
+  el marcador de siempre, sin instancia. Incluye deliberadamente
+  `cueva_pequena/profunda`, `mazmorra_olvidada/antigua`, `mina_abandonada`
+  y `guarida_lobo` (todas `tipo:"portal"` en el catálogo, es decir
+  candidatas a instancia): el bakeador de mazmorras NO existe todavía
+  (pedido explícito del usuario: "menos crear el generador de dungeon
+  aun"), así que se dejan sin vincular hasta que exista — vincularlas será
+  cuestión de darles `categoria` cuando llegue ese bakeador, sin tocar
+  nada de esta pieza.
+
+**`baker/src/instanciasPOI.js`** (nuevo): recorre los POIs ya colocados
+por `pois.js`, y por cada uno con categoria "asentamiento"/"edificio":
+
+- *asentamiento*: `hornearCiudad(tier, semillaPOI, <carpetaMapa>/pois/<slug>/)`
+  y un portal `{tipo:"exterior", x, y, destino:{tipo:"region", mapaId:
+  "<mapaId>/pois/<slug>"}}` — MISMO formato de `Portal` que ya consumía
+  `RegionRoom`/`HubRoom`, cero cambios de servidor.
+- *edificio*: `generarEdificio(...)` + su interior a
+  `<carpetaMapa>/interiores/<id>.json` (misma carpeta/convención que ya
+  usa `ciudades/`), un objeto `{i, t:"e", ro:0, w, h, dx:0, dy:0}` para la
+  caja 3D (MISMO shape que ya pinta `sectorVisual.ts` para los edificios
+  de `ciudades/`, cero cambios de cliente) y un portal
+  `{tipo:"interior", x, y, edificio, tipoEdificioId}` con la puerta en +Y
+  (fila justo debajo de la huella, mismo criterio que `ciudades/`).
+
+**`baker/src/generar.js`**: llama a `generarInstanciasPOI` justo después
+de `colocarPOIs`; la huella de cada "edificio" se marca como terreno
+`solar_edificio` (bloquea el paso, misma convención que `ciudades/`) ANTES
+de decorar esa zona (así ni el flag `transitable:false` ni el radio del
+POI dejan brotar vegetación encima); su caja 3D se añade a los `objetos`
+del chunk que le toca; `portales` (uno por POI asentamiento/edificio, más
+los que ya hubiera) se escribe en `indice.json` junto al resto de
+metadatos del mapa (mismo campo que ya leía `cargarMapaColision`).
+`mapaId` se deriva del nombre de la carpeta de salida — solo tiene sentido
+cuando el bake vive de verdad bajo `assets/mapas/`.
+
+**Verificado con un bake real** (`baker/config/ejemplo-rapido.json`,
+384×384 casillas, 24 POIs): 7 POIs "edificio" (ruinas, campamento hostil)
+con caja 3D + interior real generados, 4 POIs "asentamiento" (incluido un
+`fuerte_barbaro` tier castillo con NPCs poblados) horneados como región
+anidada — ambos cargados y jugados de verdad con servidor+cliente reales
+(Playwright, capturas en `client/test/capturas_poi/`, gitignored, script
+en `client/test/prueba_visual_poi.cjs`): la caja de la ruina, su interior
+con muebles reales, y la plaza del fuerte con NPCs y fauna del poblador
+todo funcionando de punta a punta sin ningún paso manual entre bakeadores.
+Regresión completa en verde (server 37/37, interiores 32/32, ciudades
+8/8, tsc limpio en server y cliente).
+
+Pendiente: los POI "decorativo" (ruinas medianas/grandes, altares, pozos,
+círculos de piedra, campos de dunas, campamentos de paso...) TODAVÍA no
+tienen ninguna estética propia — siguen siendo el marcador invisible de
+siempre, sin ningún prop en el mapa. No hay catálogo de "estructuras
+decorativas" en `baker/` (solo `rocas.json`/`vegetacion.json`, pensados
+para dispersión natural, no para un clúster con forma reconocible tipo
+"círculo de piedras" o "pozo"); habría que decidir con el usuario si esos
+props salen de un catálogo nuevo (`baker/catalogo/estructuras.json`) o de
+extender `ciudades/catalogo/decoracion.json` para reutilizarlo fuera de
+las murallas.
+
+Pendiente: estética distinta por FACCIÓN/tema dentro de una misma
+categoría (hoy un `campamento_hostil` "edificio" usa el mismo
+`tipoEdificioId` tanto para `guarida_bandidos` como para
+`campamento_barbaros_grande` — mismo edificio, distinto id de catálogo,
+sin variación visual propia todavía); orientación/rotación de los POI
+"edificio" (hoy siempre `ro:0`, no busca el lado más despejado del
+terreno); vincular las cuevas/mazmorras en cuanto exista el bakeador de
+mazmorras.
+
+## 8. Confinamiento del recinto amurallado + muralla diferenciada — 2026-08-28
+
+Dos bugs/huecos reportados por el streamer tras jugar de verdad un
+asentamiento amurallado:
+
+**1. Se podía salir caminando de la aldea sin usar la puerta.** El bake de
+`ciudades/` cubre un lienzo (`ancho x alto`) bastante más grande que el
+propio anillo de muralla, para tener sitio donde trazar el camino de
+acceso y la hidrología — pero ese lienzo entero era terreno transitable
+normal. Resultado: un jugador podía cruzar el hueco físico de la puerta
+(nunca fue una pared sólida, es un hueco real en el rasterizado) y
+seguir caminando por ese "anillo verde" sin fin, sin haber cruzado nunca
+el portal real (la interacción con tecla F en la puerta, que es la que de
+verdad te manda de vuelta al mapa padre). Arreglado en
+`ciudades/src/generar.js`: toda casilla FUERA del polígono de la muralla
+(salvo un despejado corto alrededor de cada puerta, sitio para el
+abrevadero/carreta que ya se colocaban ahí y para el radio de
+interacción del portal) se convierte a un terreno nuevo, `extramuros`
+(`baker/catalogo/terrenos.json`, MISMO `colorDebug` que césped —
+visualmente idéntico, pero `transitable:false`). El hueco físico de la
+puerta sigue existiendo tal cual (no se tocó el rasterizado de la
+muralla ni la detección de puertas): la única forma de verdad de salir
+sigue siendo el portal de interacción. Verificado con flood-fill real
+desde el spawn contra un bake real: antes del arreglo el área alcanzable
+cubría prácticamente el lienzo entero (112×112); después, ~2200 casillas
+contenidas en el recinto + el despejado de la puerta.
+
+**2. La muralla no distinguía torres ni puertas — todo era un bloque
+uniforme.** `ciudades/src/generar.js` ya calculaba `modulosMuralla`
+(recto/torre/puerta, con material y rotación) desde el principio, pero el
+cliente lo ignoraba por completo: `sectorVisual.ts` solo extruía cada
+CASILLA de terreno `muralla_piedra`/`empalizada` como una caja uniforme,
+así que un tramo recto, una torre y una puerta se veían exactamente
+igual (un corte sin nada más). Ahora `crearMurallaSector` (nuevo, en
+`sectorVisual.ts`, usando el campo `muralla.modulos` ya exportado a
+`indice.json` — se añadió su tipo a `IndiceMapa`) añade, SOLO para
+torre/puerta (el tramo recto ya está resuelto por la extrusión de
+terreno):
+  - **torre**: una caja más ancha y alta en el vértice.
+  - **puerta de piedra** (`muralla_piedra`): dos torreones flanqueando el
+    hueco — una entrada de fortaleza de verdad, pedido explícito
+    ("torreones de piedra con el portón, como las de antes").
+  - **puerta de empalizada**: dos palos simples y finos, sin sillería —
+    una aldea humilde no tiene torreones de piedra (pedido explícito:
+    "las empalizadas deberían ser más sencillas con palos y tal").
+Puramente decorativo (no toca colisión: el hueco real ya lo resuelve el
+terreno). Verificado con capturas reales de una aldea_pequena
+(empalizada) y un pueblo (piedra) — `client/test/prueba_render_murallas.cjs`.
+
+Regresión completa en verde tras ambos cambios (ciudades 8/8, interiores
+32/32, server 37/37, tsc limpio en cliente y servidor).
+
+**Sigue pendiente** (no se tocó en esta tanda): el tramo recto y las
+torres siguen siendo geometría placeholder simple (cajas), no un modelo
+`.glb` de muralla de verdad — mismo criterio de "todo el arte es
+placeholder" que el resto del proyecto. La visión de largo plazo,
+confirmada por el streamer: cuando exista el pipeline de arte real
+(`.glb` aprobados), "bakea mundo" debería encadenar TODOS los
+bakeadores automáticamente (mapa → POIs → aldeas → edificios/interiores,
+ya vinculado por la sección 7) sin ningún placeholder de por medio — la
+maquinaria de encadenado ya existe (`baker/src/instanciasPOI.js`), solo
+falta el arte que sustituya a las cajas de color.

@@ -9,6 +9,7 @@ const { generarHidrologia } = require("./hidrologia");
 const { decidirTerreno } = require("./terreno");
 const { crearColocadorDecoracion } = require("./decoracion");
 const { colocarPOIs } = require("./pois");
+const { generarInstanciasPOI } = require("./instanciasPOI");
 const { crearBuscadorCaminos } = require("./caminos");
 const { normalizarBordes } = require("./bordes");
 const { crearExportador } = require("./exportar");
@@ -133,6 +134,28 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     probabilidadLegendaria: config.probabilidadLegendaria ?? 0.02,
   });
   onProgreso(`  ${pois.length} POIs colocados.`);
+
+  // Vinculación con ciudades/ e interiores/ (GDD_Sistema_Puertas.md): cada
+  // POI con categoria "asentamiento"/"edificio" en el catálogo genera AQUÍ
+  // su instancia real (región anidada o edificio suelto+interior) — el
+  // mapaId es el nombre de la carpeta de salida (misma convención que usa
+  // el cliente vía VITE_RUTA_MAPA=/assets/mapas/<mapaId> y el servidor vía
+  // resolverMapa.ts), así que solo tiene sentido cuando el bake vive de
+  // verdad bajo assets/mapas/ — un mapa de prueba fuera de ahí sigue
+  // funcionando (los portales resultantes simplemente no resuelven en el
+  // servidor hasta que se copie a su sitio, igual que ya pasaba con
+  // ciudad/portales a mano en hub_test).
+  const carpetaSalidaResuelta = path.resolve(config.carpetaSalida || "output");
+  const mapaIdPropio = path.basename(carpetaSalidaResuelta);
+  const { portales: portalesPOI, objetosPorPOI } = generarInstanciasPOI({
+    pois,
+    mapaId: mapaIdPropio,
+    carpetaSalida: carpetaSalidaResuelta,
+    semillaMundo: config.semilla,
+    catalogoPOIs,
+    onProgreso,
+  });
+  if (objetosPorPOI.size) onProgreso(`  ${objetosPorPOI.size} POI(s) de tipo "edificio" con caja 3D+interior generados.`);
 
   // --- 6. Caminos (GDD sección 7) ---
   // La ciudad capital es opcional y configurable por bake: no todos los
@@ -278,7 +301,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   // --- 8-9. Terreno final + decoración + exportado por sectores ---
   onProgreso("Generando terreno, decoración y exportando por sectores...");
   const listaIdsTerreno = Object.keys(catalogoTerrenos);
-  const exportador = crearExportador(path.resolve(config.carpetaSalida || "output"), listaIdsTerreno, anchoChunks, altoChunks);
+  const exportador = crearExportador(carpetaSalidaResuelta, listaIdsTerreno, anchoChunks, altoChunks);
   const decorador = crearColocadorDecoracion(config.semilla, catalogoVegetacion, catalogoAnimales, catalogoRocas, {
     multiplicadorPool: config.multiplicadorPool,
   });
@@ -299,6 +322,33 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       x: poi.x % tamanoChunk,
       y: poi.y % tamanoChunk,
     });
+  }
+
+  // Cajas 3D de los POI "edificio" (generarInstanciasPOI, arriba) — mismo
+  // objeto `t:"e"` que ya pinta sectorVisual.ts para los edificios de
+  // ciudades/, así que el cliente no necesita ningún caso nuevo. También se
+  // reserva su huella entera como terreno "solar_edificio" (bloquea el
+  // paso, misma convención que ciudades/) para que nadie atraviese la caja.
+  const edificiosPOIPorChunk = new Map();
+  const footprintEdificiosPOI = new Set();
+  for (const info of objetosPorPOI.values()) {
+    const cx = Math.floor(info.x / tamanoChunk);
+    const cy = Math.floor(info.y / tamanoChunk);
+    const clave = `${cx}_${cy}`;
+    if (!edificiosPOIPorChunk.has(clave)) edificiosPOIPorChunk.set(clave, []);
+    edificiosPOIPorChunk.get(clave).push({
+      ...info.objeto,
+      x: Math.floor(info.x) - cx * tamanoChunk,
+      y: Math.floor(info.y) - cy * tamanoChunk,
+      dx: info.x - Math.floor(info.x),
+      dy: info.y - Math.floor(info.y),
+    });
+
+    const [hw, hl] = info.huella;
+    const x0 = Math.round(info.x - hw / 2), y0 = Math.round(info.y - hl / 2);
+    for (let dy = 0; dy < hl; dy++) {
+      for (let dx = 0; dx < hw; dx++) footprintEdificiosPOI.add(`${x0 + dx}_${y0 + dy}`);
+    }
   }
 
   if (ciudad) {
@@ -350,7 +400,10 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
           const { idTerreno, banda } = calcularTerrenoTile(x, y);
 
           const idxLocal = ly * tamanoChunk + lx;
-          terrenoPorCasilla[idxLocal] = idTerreno;
+          // Huella de un edificio POI: bloquea el paso entero, igual que
+          // "solar_edificio" en ciudades/ — su puerta (portal "interior")
+          // es la única entrada real, no la casilla en sí.
+          terrenoPorCasilla[idxLocal] = footprintEdificiosPOI.has(`${x}_${y}`) ? "solar_edificio" : idTerreno;
           bandaLocalPorCasilla[idxLocal] = banda;
         }
       }
@@ -391,6 +444,9 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
         return true;
       });
 
+      const edificiosPOI = edificiosPOIPorChunk.get(`${cx}_${cy}`);
+      if (edificiosPOI) objetos = objetos.concat(edificiosPOI);
+
       let cadenaElevacion = "";
       for (let k = 0; k < bandaLocalPorCasilla.length; k++) {
         cadenaElevacion += bandaLocalPorCasilla[k].toString(36);
@@ -412,6 +468,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     biomasHabilitados,
     bordes,
     ciudad,
+    portales: portalesPOI,
   });
 
   // --- 10. Imagen de resumen ---

@@ -24,5 +24,6 @@
   "adoquin": { "uso": "suelo urbano de plazas y calles principales de los mapas de ciudad (bakeador de ciudades)", "transitable": true, "modVelocidad": 1.05, "colorDebug": "#9a938a" },
   "muralla_piedra": { "uso": "muralla perimetral de asentamientos ricos/capitales/castillos — acota el mapa de ciudad como un interior sin techo", "transitable": false, "colorDebug": "#6e6a62" },
   "empalizada": { "uso": "cerca de madera de aldeas pobres — misma función de muralla, material humilde", "transitable": false, "colorDebug": "#7a5a34" },
-  "solar_edificio": { "uso": "huella (footprint) de un edificio en el mapa de ciudad: bloquea el paso entero; la entrada real es su casilla portal", "transitable": false, "colorDebug": "#8a4e2e" }
+  "solar_edificio": { "uso": "huella (footprint) de un edificio en el mapa de ciudad: bloquea el paso entero; la entrada real es su casilla portal", "transitable": false, "colorDebug": "#8a4e2e" },
+  "extramuros": { "uso": "fuera del polígono de la muralla en un mapa de ciudad: MISMO colorDebug que césped (puramente decorativo, para que el bake no corte en seco justo en el muro) pero bloquea el paso — la única salida real de un asentamiento amurallado es la puerta como PORTAL (tecla de interacción), nunca caminando fuera del anillo", "transitable": false, "colorDebug": "#5a9c4c" }
 }

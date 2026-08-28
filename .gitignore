@@ -28,8 +28,17 @@ poblacion/output/
 client/test/capturas/
 client/test/capturas_aldea/
 client/test/capturas_puertas/
+client/test/capturas_escaleras/
+client/test/capturas_poi/
+client/test/capturas_fixes/
+client/test/capturas_pois_variados/
+client/test/capturas_aldea_amurallada/
+client/test/capturas_murallas/
 assets/mapas/aldea_test/
 assets/mapas/hub_test/
+assets/mapas/torre_test/
+assets/mapas/poi_test/
+assets/mapas/aldea_footprint_test/
 taller-vox/output/
 # agent-skills instaladas por sesión (npx skills add) — tooling local del
 # agente, no del proyecto; cada sesión/agente las reinstala si las necesita

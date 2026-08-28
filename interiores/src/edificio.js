@@ -180,6 +180,14 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
   const rejillaPiso = crearRejilla(Math.max(anchoPlanta, 4), Math.max(altoPlanta, 4) + 1, TIPO_TILE.VACIO);
 
   const salasColocadas = [];
+  // Casillas de puerta REALES de esta planta, en coordenadas de planta —
+  // sección añadida porque ni el hueco entre dos salas en fila (sin
+  // pasillo) ni la puerta propia de cada sala hacia el pasillo quedaban
+  // guardados en ningún sitio: colocarSala.puerta cae SIEMPRE una fila
+  // más allá del rectángulo de la sala (server/mundo/interiorColision.js
+  // y el render del cliente necesitan esto para que las salas queden
+  // conectadas de verdad, no solo dibujadas una junto a otra).
+  const puertasConexion = [];
   let cursorX = 0;
 
   for (let i = 0; i < salasFila.length; i++) {
@@ -187,6 +195,10 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
     const offsetY = altoFila - r.largo; // alineadas por el muro sur, igual que la fila entera toca el pasillo
     if (i > 0) cursorX += 1; // columna de separación con la sala anterior, siempre
     pintarSalaEnPlanta(rejillaPiso, r, cursorX, offsetY);
+    // la puerta propia de la sala (colocarSala.js) cae siempre en
+    // offsetY+largo, una fila más allá de su rectángulo — hacia el
+    // pasillo si lo hay, o hacia la fila de margen si no
+    puertasConexion.push({ x: cursorX + r.puerta.x, y: offsetY + r.puerta.y });
     if (i > 0 && !pasillo) {
       // Sin pasillo: la única conexión entre esta sala y la anterior es
       // esta puerta punzada a mano en la columna de separación — el único
@@ -194,6 +206,7 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
       // colocarSala no trajera ya (con pasillo, cada sala se conecta a
       // ÉL por su cuenta, no directamente con la de al lado).
       rejillaPiso.set(cursorX - 1, altoFila - 1, TIPO_TILE.PUERTA);
+      puertasConexion.push({ x: cursorX - 1, y: altoFila - 1 });
     }
     salasColocadas.push({ resultado: r, offsetX: cursorX, offsetY, tipoSalaId: r.tipoSalaId, nivel, rol, origen: "generado" });
     cursorX += r.ancho;
@@ -226,7 +239,7 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
     salasColocadas[0] ||
     null;
 
-  return { nivel, rol, ancho: rejillaPiso.ancho, alto: rejillaPiso.alto, salas: salasColocadas, salaConector };
+  return { nivel, rol, ancho: rejillaPiso.ancho, alto: rejillaPiso.alto, salas: salasColocadas, salaConector, puertasConexion };
 }
 
 // Punto de entrada: genera un edificio completo (todas sus plantas) a
@@ -273,19 +286,62 @@ function generarEdificio({ tipoEdificioId, catalogos, semilla = "edificio", riqu
     })
   );
 
-  // Conector vertical entre cada par de plantas consecutivas — solo
-  // metadato de a qué sala/tile de cada planta se engancha (sección 7 del
-  // GDD: plantas independientes, sin continuidad XY real).
+  // Conector vertical entre cada par de plantas consecutivas — además del
+  // metadato de qué sala de cada planta lo aloja (sección 7 del GDD:
+  // plantas independientes, sin continuidad XY real), aquí se le busca una
+  // CASILLA REAL dentro de esa sala (posicionAbajo/posicionArriba, en
+  // coordenadas de la rejilla de esa planta) para que el servidor pueda
+  // tratarlo como un portal más (pisar/interactuar cambia de planta) y el
+  // cliente pinte un marcador en el sitio correcto — antes solo se sabía
+  // "en qué sala", no "en qué tile", así que no había dónde enganchar ni
+  // la colisión ni el render.
   const conectoresVerticales = [];
-  const conector = pickConector(catalogos, riquezaFinal);
+  const conectorPreferido = pickConector(catalogos, riquezaFinal);
+  // Candidatos por orden de preferencia: el conector "de catálogo" primero
+  // (más vistoso, según riqueza) y, si su huella no cabe en la sala que le
+  // toca (habitación pequeña, ya llena de muebles), caer a huellas cada vez
+  // más pequeñas — SIN esto, una planta sin hueco para la escalera se
+  // quedaba sin conector y por tanto sin forma de subir/bajar a ella (bug
+  // real: un castillo de 4 plantas sacó solo 2 de los 3 conectores que
+  // necesitaba). trampilla/escalera_vertical (huella 1x1) son el último
+  // recurso: casi cualquier sala tiene una casilla suelta.
+  const candidatosConector = [...new Set([conectorPreferido, "escalera_vertical", "trampilla"])].filter(
+    (id) => catalogos.conectores?.[id],
+  );
+  const rndConector = crearPRNG(`${semilla}:conectorPos`);
+  // Una sala "pasillo"/vestíbulo compartida entre dos tramos consecutivos
+  // (p.ej. planta baja→alta y alta→más alta) puede necesitar alojar DOS
+  // conectores distintos — sin llevar la cuenta de lo ya ocupado, el
+  // segundo podía caer encima del primero o de un mueble ya reservado.
+  const reservasPorSala = new Map();
   for (let i = 0; i < plantas.length - 1; i++) {
     const abajo = plantas[i], arriba = plantas[i + 1];
     if (!abajo.salaConector || !arriba.salaConector) continue;
+
+    let elegido = null;
+    for (const tipoConectorId of candidatosConector) {
+      const huella = catalogos.conectores[tipoConectorId].huella;
+      const localAbajo = buscarHuecoConector(abajo.salaConector, huella, rndConector, reservasPorSala);
+      const localArriba = buscarHuecoConector(arriba.salaConector, huella, rndConector, reservasPorSala);
+      if (!localAbajo || !localArriba) continue; // no hay hueco en alguna de las dos salas con esta huella: probar una más pequeña
+      elegido = {
+        tipoConectorId,
+        huella,
+        posicionAbajo: reservarConector(abajo.salaConector, localAbajo, huella, reservasPorSala),
+        posicionArriba: reservarConector(arriba.salaConector, localArriba, huella, reservasPorSala),
+      };
+      break;
+    }
+    if (!elegido) continue; // ni con la huella mínima hay sitio: sin TP entre estas dos plantas (caso extremo, no debería pasar)
+
     conectoresVerticales.push({
-      tipoConectorId: conector,
+      tipoConectorId: elegido.tipoConectorId,
       entreNiveles: [abajo.nivel, arriba.nivel],
       salaAbajo: abajo.salaConector.tipoSalaId,
       salaArriba: arriba.salaConector.tipoSalaId,
+      posicionAbajo: elegido.posicionAbajo,
+      posicionArriba: elegido.posicionArriba,
+      huella: elegido.huella,
     });
   }
 
@@ -300,6 +356,57 @@ function generarEdificio({ tipoEdificioId, catalogos, semilla = "edificio", riqu
     conectoresVerticales,
     origen: "generado",
   };
+}
+
+// Busca una casilla libre (sin muebles, sin la puerta propia de la sala,
+// sin otro conector ya reservado en esta misma sala) del tamaño de la
+// huella dada, dentro del rectángulo de `sala`. Devuelve coordenadas
+// LOCALES (relativas a la sala) o null si no cabe — de solo lectura, no
+// reserva nada: el llamador puede probar varias huellas candidatas antes
+// de comprometerse con una (reservarConector). Determinista por `rnd`
+// (mismo PRNG del edificio) para no romper "misma semilla = mismo resultado".
+function buscarHuecoConector(sala, huella, rnd, reservasPorSala) {
+  const { ancho, largo, puerta, colocados } = sala.resultado;
+  const [hw, hl] = huella;
+  if (hw > ancho || hl > largo) return null;
+  const reservas = reservasPorSala.get(sala) || [];
+
+  const libre = (x0, y0) => {
+    for (let dy = 0; dy < hl; dy++) {
+      for (let dx = 0; dx < hw; dx++) {
+        const cx = x0 + dx, cy = y0 + dy;
+        if (cx === puerta.x && cy === puerta.y) return false;
+        for (const item of colocados) {
+          if (cx >= item.x && cx < item.x + item.ancho && cy >= item.y && cy < item.y + item.largo) return false;
+        }
+        for (const r of reservas) {
+          if (cx >= r.x && cx < r.x + r.ancho && cy >= r.y && cy < r.y + r.largo) return false;
+        }
+      }
+    }
+    return true;
+  };
+
+  const candidatos = [];
+  for (let y = 0; y <= largo - hl; y++) {
+    for (let x = 0; x <= ancho - hw; x++) {
+      if (libre(x, y)) candidatos.push({ x, y });
+    }
+  }
+  if (candidatos.length === 0) return null;
+  return candidatos[Math.floor(rnd() * candidatos.length)];
+}
+
+// Compromete un hueco ya encontrado por buscarHuecoConector: lo marca
+// reservado (para que otro conector en la misma sala no lo pise) y
+// devuelve su posición GLOBAL en la rejilla de la planta (offsetX/offsetY
+// + local).
+function reservarConector(sala, local, huella, reservasPorSala) {
+  const [hw, hl] = huella;
+  const reservas = reservasPorSala.get(sala) || [];
+  reservas.push({ x: local.x, y: local.y, ancho: hw, largo: hl });
+  reservasPorSala.set(sala, reservas);
+  return { x: sala.offsetX + local.x, y: sala.offsetY + local.y };
 }
 
 function pickConector(catalogos, riqueza) {

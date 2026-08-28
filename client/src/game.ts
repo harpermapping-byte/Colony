@@ -31,6 +31,9 @@ type TipoSala = "hub" | "region" | "interior";
 const SALA: TipoSala = (parametros.get("sala") as TipoSala) || "hub";
 const MAPA_ID = parametros.get("mapaId") || "";
 const EDIFICIO_ID = parametros.get("edificio") || "";
+// Planta del interior (0 = planta baja); subir/bajar por una escalera
+// cambia esto y recarga, como cualquier otro portal.
+const NIVEL = parametros.has("nivel") ? Number(parametros.get("nivel")) : 0;
 const ENTRADA_X = parametros.has("entradaX") ? Number(parametros.get("entradaX")) : undefined;
 const ENTRADA_Y = parametros.has("entradaY") ? Number(parametros.get("entradaY")) : undefined;
 // A qué volver al salir de un interior: la región de la que colgaba (con
@@ -168,7 +171,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const r = await fetch(`/assets/mapas/${MAPA_ID}/interiores/${EDIFICIO_ID}.json`);
       if (r.ok) {
         const interior = (await r.json()) as InteriorBakeado;
-        escena.añadirEstatico(crearInteriorVisual(interior));
+        escena.añadirEstatico(crearInteriorVisual(interior, NIVEL));
       } else {
         console.error(`No se pudo cargar el interior "${EDIFICIO_ID}" de "${MAPA_ID}"`);
       }
@@ -198,21 +201,38 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     SALA === "region"
       ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y })
       : SALA === "interior"
-        ? await client.joinOrCreate("interior", { name: nombreJugador, mapaId: MAPA_ID, edificio: EDIFICIO_ID })
+        ? await client.joinOrCreate("interior", {
+            name: nombreJugador,
+            mapaId: MAPA_ID,
+            edificio: EDIFICIO_ID,
+            nivel: NIVEL,
+            entradaX: ENTRADA_X,
+            entradaY: ENTRADA_Y,
+          })
         : await client.joinOrCreate("hub", { name: nombreJugador });
   const $ = getStateCallbacks(room);
 
   // Puertas: tecla de interacción (F) — pisar cerca de una y pulsar F pide
   // al servidor cruzarla; la respuesta decide la siguiente URL (recarga).
-  room.onMessage("portal:ir", (info: { tipo: TipoSala; mapaId?: string; edificio?: string; x?: number; y?: number }) => {
+  room.onMessage(
+    "portal:ir",
+    (info: { tipo: TipoSala; mapaId?: string; edificio?: string; nivel?: number; x?: number; y?: number }) => {
     if (info.tipo === "interior") {
+      // Una escalera manda dentro del MISMO edificio en el que ya estamos
+      // (solo cambia `nivel`) — se conserva a qué región/puerta volver al
+      // salir del edificio entero; aparecer en la planta destino cae justo
+      // sobre la casilla del conector (info.x/y), no en el spawn genérico.
+      const esCambioDePlanta = SALA === "interior" && info.edificio === EDIFICIO_ID;
       navegarA({
         sala: "interior",
         mapaId: info.mapaId,
         edificio: info.edificio,
-        origenSala: SALA, // hub o region: adónde volver al salir
-        puertaX: info.x,
-        puertaY: info.y,
+        nivel: info.nivel ?? 0,
+        origenSala: esCambioDePlanta ? ORIGEN_SALA : SALA,
+        entradaX: esCambioDePlanta ? info.x : undefined,
+        entradaY: esCambioDePlanta ? info.y : undefined,
+        puertaX: esCambioDePlanta ? PUERTA_X : info.x,
+        puertaY: esCambioDePlanta ? PUERTA_Y : info.y,
       });
     } else if (info.tipo === "region") {
       navegarA({ sala: "region", mapaId: info.mapaId });
@@ -227,7 +247,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         navegarA({});
       }
     }
-  });
+    },
+  );
   room.onMessage("portal:error", (m: { motivo: string }) => console.log("[puerta]", m?.motivo));
 
   // --- Constructor y render de construcciones (GDD_Construccion §4 y §6) ---
