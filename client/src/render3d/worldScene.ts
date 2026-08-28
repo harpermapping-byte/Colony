@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
+import { estadoCiclo } from "./cicloDia";
 
 const TAMANO_MUNDO_VISIBLE = 16; // unidades de mundo visibles en el eje corto de la cámara
 
@@ -21,7 +22,11 @@ export class WorldScene {
   readonly camera: THREE.OrthographicCamera;
   private readonly entidades = new Map<string, THREE.Object3D>();
   private sol!: THREE.DirectionalLight;
+  private ambiente!: THREE.AmbientLight;
   private sueloEmergencia!: THREE.Mesh;
+  // dirección actual de la luz (la escribe el ciclo día/noche cada frame);
+  // arranca en el ángulo fijo que tenía la escena antes del ciclo
+  private direccionLuz = new THREE.Vector3(40, 60, 25).normalize();
 
   constructor(contenedor: HTMLElement, ancho: number, alto: number) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -44,7 +49,8 @@ export class WorldScene {
     this.posicionarCamaraIsometrica();
 
     this.scene.background = new THREE.Color(0x1a202c);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    this.ambiente = new THREE.AmbientLight(0xffffff, 0.7);
+    this.scene.add(this.ambiente);
     this.sol = new THREE.DirectionalLight(0xffffff, 0.9);
     this.sol.castShadow = true;
     // La caja de sombra NO abarca el mapa (el principal mide 3200 casillas
@@ -113,11 +119,20 @@ export class WorldScene {
     }
   }
 
-  /** Avanza el estado dependiente del tiempo (persecución de cámara + luz/suelo que la siguen). */
+  /** Avanza el estado dependiente del tiempo (persecución de cámara + ciclo día/noche + luz/suelo que siguen a la cámara). */
   actualizar(dt: number) {
     const factor = 1 - Math.exp(-8 * dt);
     this.objetivoCamara.lerp(this.destinoCamara, factor);
     this.posicionarCamaraIsometrica();
+    // ciclo día/noche: el sol/la luna recorren el cielo con la hora de
+    // juego (reloj de mundo determinista — GDD_Tiempo_Mundo.md). Son solo
+    // asignaciones de números por frame: coste despreciable.
+    const ciclo = estadoCiclo();
+    this.direccionLuz.copy(ciclo.direccionLuz);
+    this.sol.color.copy(ciclo.colorLuz);
+    this.sol.intensity = ciclo.intensidadLuz;
+    this.ambiente.intensity = ciclo.intensidadAmbiente;
+    (this.scene.background as THREE.Color).copy(ciclo.colorCielo);
     this.reposicionarSol();
   }
 
@@ -129,7 +144,14 @@ export class WorldScene {
    */
   private reposicionarSol() {
     if (!this.sol) return;
-    this.sol.position.set(this.objetivoCamara.x + 40, 60, this.objetivoCamara.z + 25);
+    // a lo largo de la dirección que marca el ciclo, a distancia fija del
+    // objetivo — las sombras giran solas al moverse el astro
+    const DISTANCIA_SOL = 75;
+    this.sol.position.set(
+      this.objetivoCamara.x + this.direccionLuz.x * DISTANCIA_SOL,
+      this.direccionLuz.y * DISTANCIA_SOL,
+      this.objetivoCamara.z + this.direccionLuz.z * DISTANCIA_SOL,
+    );
     this.sol.target.position.set(this.objetivoCamara.x, 0, this.objetivoCamara.z);
     if (this.sueloEmergencia) {
       this.sueloEmergencia.position.x = this.objetivoCamara.x;
