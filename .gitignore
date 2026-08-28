@@ -22,3 +22,8 @@ client/test/construccion_e2e.png
 personajes/output/
 client/test/capturas/
 taller-vox/output/
+# agent-skills instaladas por sesión (npx skills add) — tooling local del
+# agente, no del proyecto; cada sesión/agente las reinstala si las necesita
+.agents/
+.claude/skills/
+skills-lock.json
