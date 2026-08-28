@@ -97,13 +97,111 @@ export function calcularTick(actual: Asentamiento, tropasVivas: number): Asentam
   return siguiente;
 }
 
-/** Un pulso real: lee todos los asentamientos, aplica calcularTick, persiste. */
+/**
+ * Un pulso real: lee todos los asentamientos, aplica calcularTick, persiste.
+ * Solo los que siguen en manos de la facción ("bandido") — un asentamiento
+ * ya conquistado (§ conquista, abajo) pasa a "neutral" y esta economía de
+ * guerra (recursos → muralla/equipo) deja de aplicarle; su propia
+ * progresión (donaciones/misiones) es otro sistema, fuera de alcance aquí.
+ */
 export async function ejecutarTickEconomia(bd: IAlmacenDatos): Promise<void> {
   const asentamientos = await bd.listarAsentamientos();
   for (const a of asentamientos) {
+    if (a.bando !== "bandido") continue;
     const tropas = await bd.listarTropas(a.id);
     const vivas = tropas.filter((t) => t.estado === "vivo").length;
     const siguiente = calcularTick(a, vivas);
     await bd.guardarAsentamiento(siguiente);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Conquista (docs/GDD_Faccion_Bandidos.md §7): si un jugador mata a la
+// ÚLTIMA tropa viva de un asentamiento bandido, la facción lo pierde — pasa
+// a "neutral" y su población civil se regenera con las MISMAS normas que
+// cualquier otra aldea (poblacion/, mismo generador, mismo catálogo de
+// oficios). Estructura/decoración NO se tocan: es la misma ciudad ya
+// bakeada (mismo tier+semilla = mismo layout de edificios, determinista),
+// solo cambia quién la habita.
+//
+// Nada llama a esto en producción todavía — el trigger real (un jugador
+// matando tropas en combate) depende de un sistema de combate que sigue
+// sin diseñar (GDD §2.4). Esta es la costura: en cuanto algo llame a
+// marcarTropaMuertaYVerificarConquista en vez del bd.marcarTropaMuerta
+// crudo, la conquista se dispara sola sin que ese futuro código sepa nada
+// de repoblación.
+// ---------------------------------------------------------------------------
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { tiempoMundo } from "./tiempoMundo";
+
+const RAIZ_REPO = path.resolve(__dirname, "..", "..", "..");
+const RUTA_EXPORTAR_ASENTAMIENTO = path.join(RAIZ_REPO, "poblacion", "src", "exportarAsentamiento.js");
+
+interface ModuloExportarAsentamiento {
+  exportarAsentamiento(tierId: string, semilla: string, opciones?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  escribirPoblacionDeMapa(resultado: Record<string, unknown>, carpetaMapa: string): { ruta: string; npcs: number };
+}
+
+/**
+ * Regenera `poblacion.json` de un asentamiento ya bakeado, con la MISMA
+ * ciudad (mismo tier+semilla, leídos de su propio indice.json — nunca se
+ * inventan aquí) pero población civil nueva — mismo generador y mismas
+ * normas que cualquier aldea neutral (GDD_Poblacion_NPCs.md), sin tocar
+ * terreno/edificios/decoración. `rutaMapa` es la carpeta del asentamiento
+ * (donde ya viven indice.json y los sectores bakeados).
+ */
+export async function repoblarAsentamientoConquistado(rutaMapa: string): Promise<{ ruta: string; npcs: number }> {
+  const indice = JSON.parse(fs.readFileSync(path.join(rutaMapa, "indice.json"), "utf8")) as {
+    tier?: string;
+    semilla?: string;
+  };
+  if (!indice.tier || !indice.semilla) {
+    throw new Error(`repoblarAsentamientoConquistado: "${rutaMapa}"/indice.json no trae tier/semilla`);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { exportarAsentamiento, escribirPoblacionDeMapa } = require(RUTA_EXPORTAR_ASENTAMIENTO) as ModuloExportarAsentamiento;
+  const resultado = await exportarAsentamiento(indice.tier, indice.semilla);
+  return escribirPoblacionDeMapa(resultado, rutaMapa);
+}
+
+/**
+ * Transición bandido -> neutral: guarda el cambio de bando, dos líneas de
+ * memoria para el líder (una futura IA la leerá como contexto — GDD §6
+ * "fases siguientes") y dispara la repoblación. Idempotente: si el
+ * asentamiento YA es neutral, no hace nada (nunca reconquista dos veces ni
+ * regenera población sobre población ya conquistada).
+ */
+export async function conquistarAsentamiento(bd: IAlmacenDatos, asentamiento: Asentamiento, rutaMapa: string): Promise<void> {
+  if (asentamiento.bando !== "bandido") return;
+  await bd.guardarAsentamiento({ ...asentamiento, bando: "neutral" });
+  await bd.registrarMemoriaLider(
+    tiempoMundo().dia,
+    `La aldea "${asentamiento.id}" ha caído: su última tropa ha muerto y los jugadores la han conquistado.`,
+  );
+  await repoblarAsentamientoConquistado(rutaMapa);
+}
+
+/**
+ * El punto de entrada real para cuando exista combate: en vez de llamar a
+ * `bd.marcarTropaMuerta` a secas, se llama a esto — marca la baja Y
+ * comprueba sola si esa era la última tropa viva, disparando la conquista
+ * si toca. `asentamientoId`/`rutaMapa` los conoce quien mata a la tropa
+ * (la room del combate sabe en qué mapa/asentamiento está pasando).
+ */
+export async function marcarTropaMuertaYVerificarConquista(
+  bd: IAlmacenDatos,
+  tropaId: string,
+  asentamientoId: string,
+  rutaMapa: string,
+): Promise<{ conquistada: boolean }> {
+  await bd.marcarTropaMuerta(tropaId);
+  const tropas = await bd.listarTropas(asentamientoId);
+  if (tropas.some((t) => t.estado === "vivo")) return { conquistada: false };
+
+  const asentamiento = await bd.obtenerOCrearAsentamiento(asentamientoId);
+  if (asentamiento.bando !== "bandido") return { conquistada: false }; // ya conquistada antes
+
+  await conquistarAsentamiento(bd, asentamiento, rutaMapa);
+  return { conquistada: true };
 }

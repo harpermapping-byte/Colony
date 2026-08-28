@@ -1,7 +1,7 @@
 {
   "_nota": "Fase 2 (GDD_Poblacion_NPCs.md): qué tipos de edificio de interiores/catalogo/tipos_edificio.json dan trabajo a cada NPC de personajes/catalogo/npcs.json (clave = npcId, NO 'profesion' — varios NPC pueden compartir profesion). Se probó reusar el cruce temaTaller/tagsPrenda de ropa/catalogo/profesiones.json (pensado para materiales de ropa) pero no generaliza limpio para esto: p.ej. cuartel_guardia tiene temaTaller:'herreria' (por las armas que amuebla), no 'militar'. Por eso este catálogo es explícito. Ampliado 2026-08-28 con los oficios de tienda/taller que ya existen en tipos_edificio.json pero ningún NPC ocupaba. 'aldeano' (campesino) sigue sin edificio: trabaja el campo exterior (huertos 'tierra_labrada' del bake, ver generarRutina.js), no un interior.",
   "herrero": ["herreria"],
-  "guardia": ["cuartel_guardia", "torre_militar"],
+  "guardia": ["cuartel_guardia", "torre_militar", "campamento_hostil"],
   "anciano_sabio": ["choza_curandero", "botica"],
   "pescador": ["lonja_pescado"],
   "carpintero": ["carpinteria"],
