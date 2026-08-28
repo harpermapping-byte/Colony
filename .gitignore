@@ -9,6 +9,9 @@ ciudades/output/
 # salidas del taller (regenerables)
 taller-vox/*.glb
 taller-vox/vox/
+taller-vox/vox_edificios/
+taller-vox/naturaleza_generada.json
+taller-vox/edificios_generados.json
 taller-vox/node_modules/
 taller-vox/laboratorio-personajes/bundle.js
 taller-vox/laboratorio-personajes/capturas/

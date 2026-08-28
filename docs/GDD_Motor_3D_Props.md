@@ -12,7 +12,7 @@ El juego es 2.5D estilo Project Zomboid. En vez de dibujar sprites por direcció
 
 ## Cómo se generan los modelos
 
-Con el taller de vóxeles (`taller-vox/` — generadores de muebles, personajes y NATURALEZA + exportadores `.glb`, ver su README) exportas un `.glb` por pieza. Lo guardas en el sitio que le toca según la convención de abajo y el motor lo recoge solo, sin tocar código.
+Con el taller de vóxeles (`taller-vox/` — generadores de muebles, personajes, NATURALEZA y EDIFICIOS + exportadores `.glb`, ver su README) exportas un `.glb` por pieza. Lo guardas en el sitio que le toca según la convención de abajo y el motor lo recoge solo, sin tocar código.
 
 Reparto pactado con el streamer: **lo que tiene esqueleto** (PJs, NPCs, fauna, insectos) sale del creador de personajes (`personajes/`, 7 plantillas de esqueleto — ver GDD_Generador_Personajes); **lo que NO tiene esqueleto** (árboles, plantas, setas, rocas, menas, cristales... además de los muebles de siempre) sale del taller (`taller-vox/generar_naturaleza.js`, 14 arquetipos leyendo los catálogos reales del baker).
 
@@ -25,7 +25,7 @@ assets/<categoria>/<id>_<NN>.glb        variante numerada (NN = 01, 02... según
 assets/<categoria>/<variantId>.glb      variante con nombre propio (ej. variantesNombradas: "mesa_comedor_roble")
 ```
 
-Mismo árbol de carpetas que ya documentaba `assets/README.md` para los PNG (`vegetacion/`, `animales/`, `rocas/`) — la única categoría nueva es `personajes/` (jugadores/NPCs, sin catálogo de datos propio todavía, ver pendientes) e `interiores/` (mobiliario/objetos de `interiores/catalogo/elementos.json`, que hasta ahora no tenía ninguna carpeta de assets).
+Mismo árbol de carpetas que ya documentaba `assets/README.md` para los PNG (`vegetacion/`, `animales/`, `rocas/`) — la única categoría nueva es `personajes/` (jugadores/NPCs, sin catálogo de datos propio todavía, ver pendientes) e `interiores/` (mobiliario/objetos de `interiores/catalogo/elementos.json`, que hasta ahora no tenía ninguna carpeta de assets). `edificios/` (la masa exterior de cada `tipoEdificio` que coloca `ciudades/`, `taller-vox/generar_edificio.js`) es otra categoría nueva más: `assets/edificios/<tipoEdificioId>_<NN>.glb`.
 
 **Placeholder mientras no existe el `.glb`**: un cubo de color usando el `colorDebug` que ya trae cada entrada del catálogo — no un campo nuevo, no una imagen nueva. Ver `client/src/render3d/placeholder.ts`.
 
