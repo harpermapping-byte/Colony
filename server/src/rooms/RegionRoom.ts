@@ -67,6 +67,7 @@ export class RegionRoom extends RoomExteriorBase {
           mapaId: this.mapaId,
           edificio: portal.edificio,
           tipoEdificioId: portal.tipoEdificioId,
+          esMazmorra: portal.esMazmorra ?? false,
           x: portal.x,
           y: portal.y,
         });

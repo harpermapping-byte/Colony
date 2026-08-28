@@ -61,9 +61,23 @@ interface SalaInterior {
   resultado: {
     ancho: number;
     largo: number;
-    puerta: { lado: string; x: number; y: number };
+    puerta: { lado: string; x: number; y: number } | null;
     colocados: ElementoColocado[];
+    /** Sala ORGÁNICA (mazmorras/src/celular.js, docs/GDD_Bakeador_Dungeons.md):
+     * string ancho*largo de '1'/'0' — solo esas casillas son suelo real. Ausente
+     * = comportamiento de siempre, el rectángulo entero es suelo. */
+    mascara?: string;
   };
+}
+
+/** Punto candidato de spawn de enemigo (docs/GDD_Bakeador_Dungeons.md §4.2) —
+ * el bake coloca MUCHOS puntos por planta; qué subconjunto se activa lo
+ * decide el servidor (DungeonRoom) en runtime, no este loader. */
+export interface SpawnEnemigo {
+  x: number;
+  y: number;
+  temasEnemigo: string[];
+  esBossSlot: boolean;
 }
 
 interface PuertaConexion {
@@ -88,8 +102,9 @@ interface ConectorVertical {
 
 interface InteriorBakeado {
   id: string;
-  tipoEdificioId: string;
-  plantas: { nivel: number; rol: string; salas: SalaInterior[]; puertasConexion?: PuertaConexion[] }[];
+  tipoEdificioId?: string;
+  tipoDungeonId?: string;
+  plantas: { nivel: number; rol: string; salas: SalaInterior[]; puertasConexion?: PuertaConexion[]; spawnsEnemigos?: SpawnEnemigo[] }[];
   conectoresVerticales?: ConectorVertical[];
 }
 
@@ -114,6 +129,9 @@ export interface InteriorCargado extends MundoColision {
   spawnX: number;
   spawnY: number;
   conectores: ConectorInteractivo[];
+  /** Puntos candidatos de spawn de enemigo de ESTA planta (mazmorras) — [] en
+   * un interior normal (edificios/interiores/ no llevan este campo). */
+  spawnsEnemigos: SpawnEnemigo[];
 }
 
 export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado {
@@ -138,6 +156,10 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
     const { offsetX, offsetY, resultado } = sala;
     for (let y = 0; y < resultado.largo; y++) {
       for (let x = 0; x < resultado.ancho; x++) {
+        // sala orgánica (mazmorras): solo la máscara es suelo, el resto del
+        // rectángulo se queda SOLIDO (ya lo está por el fill inicial) — sin
+        // esto una cueva se habría pintado como un rectángulo perfecto.
+        if (resultado.mascara && resultado.mascara[y * resultado.ancho + x] !== "1") continue;
         casillas[(offsetY + y) * ancho + (offsetX + x)] = TIPO.TIERRA;
       }
     }
@@ -227,6 +249,7 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
     ancho, alto, casillas, velocidad,
     spawnX: spawn.x + 0.5, spawnY: spawn.y + 0.5,
     conectores,
+    spawnsEnemigos: planta.spawnsEnemigos ?? [],
   };
 }
 

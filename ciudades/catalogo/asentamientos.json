@@ -375,6 +375,41 @@
     },
     "zonasVerdes": 1
   },
+  "asentamiento_hostil": {
+    "uso": "poblado/campamento tomado por una facción hostil (docs/GDD_Bakeador_Dungeons.md, mazmorra familia 'asentamiento hostil') — muralla más tosca e irregular que una aldea normal, sin plaza de mercado real ni comercio: solo vivienda ocupada por la facción y defensas. Mismo motor de ciudades/ que un asentamiento normal, no un tier de POI que se coloque solo — lo dispara baker/src/instanciasPOI.js para las mazmorras 'aldea_bandidos'/'poblado_orco'/'guarida_piratas'/'asentamiento_cultistas'.",
+    "organico": {
+      "radio": 34,
+      "irregularidad": 0.38,
+      "geografias": [
+        ["llano", 2],
+        ["colina", 3],
+        ["rio", 1]
+      ]
+    },
+    "muralla": {
+      "material": "empalizada",
+      "grosor": 1.6,
+      "puertas": 1
+    },
+    "plaza": 2,
+    "edificios": {
+      "cantidad": [
+        7,
+        11
+      ],
+      "obligatorios": [
+        "campamento_hostil"
+      ],
+      "ponderados": [
+        ["casa_humilde", 5],
+        ["establo", 2],
+        ["granero", 2],
+        ["arena_combate", 1],
+        ["torre_militar", 1]
+      ]
+    },
+    "zonasVerdes": 0
+  },
   "gran_capital": {
     "uso": "la mayor escala: metrópolis amurallada del DOBLE de radio que una capital — distritos, todas las instituciones y varios accesos",
     "organico": {

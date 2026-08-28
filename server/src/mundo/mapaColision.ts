@@ -63,6 +63,9 @@ export interface Portal {
   edificio?: string;
   tipoEdificioId?: string;
   destino?: { tipo: "region" | "hub"; mapaId?: string };
+  /** true = el interior es una mazmorra (DungeonRoom, con enemigos) en vez
+   * de un edificio normal (InteriorRoom) — docs/GDD_Bakeador_Dungeons.md. */
+  esMazmorra?: boolean;
 }
 
 export interface MapaCargado extends MundoColision {

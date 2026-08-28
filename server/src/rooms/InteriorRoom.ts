@@ -4,7 +4,7 @@ import { RoomExteriorBase } from "./base/RoomExteriorBase";
 import { cargarInterior, InteriorCargado } from "../mundo/interiorColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 
-interface OpcionesInterior {
+export interface OpcionesInterior {
   name?: string;
   mapaId: string; // asentamiento del que cuelga este edificio
   edificio: string; // id único del interior (nombre de archivo sin .json)
@@ -23,8 +23,11 @@ interface OpcionesInterior {
  * jugador.
  */
 export class InteriorRoom extends RoomExteriorBase {
-  private interior!: InteriorCargado;
-  private opciones!: OpcionesInterior;
+  // protected (no private): DungeonRoom hereda de esta clase y reutiliza
+  // TAL CUAL la carga + el portal:usar de escaleras/salida (docs/GDD_Bakeador_Dungeons.md) —
+  // solo añade la población de enemigos encima, sin duplicar nada de esto.
+  protected interior!: InteriorCargado;
+  protected opciones!: OpcionesInterior;
 
   async onCreate(options: OpcionesInterior) {
     if (!options?.mapaId || !options?.edificio) {

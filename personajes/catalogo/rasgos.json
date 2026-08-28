@@ -33,7 +33,10 @@
     ["media", 30, "#c8956c"],
     ["tostada", 15, "#a87850"],
     ["morena", 7, "#8a5c3a"],
-    ["oscura", 3, "#5f3d26"]
+    ["oscura", 3, "#5f3d26"],
+    ["hueso", 0, "#d8d0b8"],
+    ["ceniciento", 0, "#7a8a9a"],
+    ["piedra", 0, "#8a8a92"]
   ],
 
   "coloresOjos": [

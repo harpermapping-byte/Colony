@@ -83,5 +83,21 @@
     "escala": [0.8, 1.2],
     "proporciones": { "largoCuerpo": 0.22, "altoCuerpo": 0.12, "anchoCuerpo": 0.16, "altoPata": 0.1, "tamCabeza": 0.1 },
     "rasgos": {}
+  },
+
+  "murcielago": {
+    "_nota": "Enemigo de mazmorra (docs/GDD_Bakeador_Dungeons.md) — mismo id que baker/catalogo/animales.json.",
+    "esqueleto": "ave",
+    "escala": [0.7, 1.0],
+    "proporciones": { "largoCuerpo": 0.3, "altoCuerpo": 0.18, "anchoCuerpo": 0.22, "altoPata": 0.08, "tamCabeza": 0.14 },
+    "rasgos": { "cresta": false, "pico": "corto", "cola": "corta", "vuela": true }
+  },
+
+  "arana_gigante": {
+    "_nota": "Enemigo de mazmorra (docs/GDD_Bakeador_Dungeons.md) — mismo id que baker/catalogo/animales.json (biomas:[] ahí, no sale en el mapa salvaje).",
+    "esqueleto": "insecto",
+    "escala": [1.6, 2.4],
+    "proporciones": { "largoCuerpo": 0.6, "altoCuerpo": 0.34, "anchoCuerpo": 0.34, "altoPata": 0.32, "tamCabeza": 0.2 },
+    "rasgos": { "alas": false, "antenas": true, "rayas": "#1a0a1a" }
   }
 }

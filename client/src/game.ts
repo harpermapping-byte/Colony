@@ -29,7 +29,10 @@ const COLOR_JUGADOR_REMOTO = "#4fd1c5";
 // sin recarga queda como mejora futura). Sin `sala` en la URL = Hub, el
 // comportamiento de siempre.
 const parametros = new URLSearchParams(location.search);
-type TipoSala = "hub" | "region" | "interior";
+// "mazmorra" (docs/GDD_Bakeador_Dungeons.md): MISMA sala Colyseus que un
+// interior normal (misma carga/escaleras/salida), solo que además trae
+// enemigos activos — se distingue aquí para unirse a la room correcta.
+type TipoSala = "hub" | "region" | "interior" | "mazmorra";
 const SALA: TipoSala = (parametros.get("sala") as TipoSala) || "hub";
 const MAPA_ID = parametros.get("mapaId") || "";
 const EDIFICIO_ID = parametros.get("edificio") || "";
@@ -43,6 +46,10 @@ const ENTRADA_Y = parametros.has("entradaY") ? Number(parametros.get("entradaY")
 const ORIGEN_SALA: TipoSala = (parametros.get("origenSala") as TipoSala) || "hub";
 const PUERTA_X = parametros.has("puertaX") ? Number(parametros.get("puertaX")) : undefined;
 const PUERTA_Y = parametros.has("puertaY") ? Number(parametros.get("puertaY")) : undefined;
+// "interior" y "mazmorra" comparten TODA la lógica de carga/streaming/escaleras
+// de abajo (docs/GDD_Bakeador_Dungeons.md) — solo cambia a qué room de
+// Colyseus se conecta y que además pinta enemigos.
+const ES_INTERIOR = SALA === "interior" || SALA === "mazmorra";
 
 function navegarA(params: Record<string, string | number | undefined>) {
   const q = new URLSearchParams();
@@ -106,7 +113,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // sectores: se salta este bloque entero y se renderiza más abajo.
   let streaming: StreamingSectores<Group> | null = null;
   let indiceMapa: IndiceMapa | null = null; // lo reusa el constructor (ancho del mapa en casillas)
-  if (SALA !== "interior") {
+  if (!ES_INTERIOR) {
     try {
       const indice = await cargarIndice(RUTA_MAPA);
       indiceMapa = indice;
@@ -141,7 +148,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // trae poblacion.json bakeado, sus vóxeles por slotId — la posición viva
   // la manda el servidor por el estado (state.npcs) y se consume más abajo.
   const voxPorSlot = new Map<string, PersonajeExportado>();
-  if (SALA !== "interior") {
+  if (!ES_INTERIOR) {
     try {
       const r = await fetch(`${RUTA_MAPA}/poblacion.json`);
       if (r.ok) {
@@ -155,11 +162,26 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     }
   }
 
+  // --- Pool de aspecto de ENEMIGOS de mazmorra (docs/GDD_Bakeador_Dungeons.md
+  // §4.1): assets/enemigos/pool.json trae varias variantes YA generadas
+  // (vóxeles resueltos) por cada enemigoId — el servidor solo manda qué
+  // enemigoId+variante le tocó a cada uno, nunca la geometría en directo.
+  // Fetch SOLO en mazmorra: son ~15MB, no tiene sentido pedirlo si no hace falta.
+  let poolEnemigos: Record<string, ({ tipoRig: "npc" } & PersonajeExportado | { tipoRig: "animal" } & AnimalExportado)[]> = {};
+  if (SALA === "mazmorra") {
+    try {
+      const r = await fetch("/assets/enemigos/pool.json");
+      if (r.ok) poolEnemigos = (await r.json()).pool;
+    } catch (err) {
+      console.error("Pool de enemigos no disponible:", err);
+    }
+  }
+
   // Solo en el Hub/regiones (un interior no tiene "plaza" donde ponerlos), y
   // solo si el mapa NO tiene población real (la demo era el circuito de
   // prueba de personajes; con NPCs de verdad estorba).
   const animables: { actualizar(dt: number, andando?: boolean): void }[] = [];
-  if (SALA !== "interior" && voxPorSlot.size === 0) {
+  if (!ES_INTERIOR && voxPorSlot.size === 0) {
     try {
       const r = await fetch("/assets/personajes/demo_personajes.json");
       if (r.ok) {
@@ -188,7 +210,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // Interior de edificio (docs/GDD_Sistema_Puertas.md): geometría
   // placeholder (cajas de color) del bake de interiores/, sin streaming ni
   // construcción — es una instancia pequeña y de un solo uso.
-  if (SALA === "interior") {
+  if (ES_INTERIOR) {
     try {
       const r = await fetch(`/assets/mapas/${MAPA_ID}/interiores/${EDIFICIO_ID}.json`);
       if (r.ok) {
@@ -222,8 +244,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const room =
     SALA === "region"
       ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y })
-      : SALA === "interior"
-        ? await client.joinOrCreate("interior", {
+      : ES_INTERIOR
+        ? await client.joinOrCreate(SALA === "mazmorra" ? "mazmorra" : "interior", {
             name: nombreJugador,
             mapaId: MAPA_ID,
             edificio: EDIFICIO_ID,
@@ -238,15 +260,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // al servidor cruzarla; la respuesta decide la siguiente URL (recarga).
   room.onMessage(
     "portal:ir",
-    (info: { tipo: TipoSala; mapaId?: string; edificio?: string; nivel?: number; x?: number; y?: number }) => {
+    (info: { tipo: TipoSala; mapaId?: string; edificio?: string; nivel?: number; esMazmorra?: boolean; x?: number; y?: number }) => {
     if (info.tipo === "interior") {
       // Una escalera manda dentro del MISMO edificio en el que ya estamos
       // (solo cambia `nivel`) — se conserva a qué región/puerta volver al
       // salir del edificio entero; aparecer en la planta destino cae justo
       // sobre la casilla del conector (info.x/y), no en el spawn genérico.
-      const esCambioDePlanta = SALA === "interior" && info.edificio === EDIFICIO_ID;
+      // esMazmorra decide "interior" vs "mazmorra" (docs/GDD_Bakeador_Dungeons.md)
+      // — MISMA URL/lógica de abajo salvo esa sala Colyseus.
+      const esCambioDePlanta = ES_INTERIOR && info.edificio === EDIFICIO_ID;
       navegarA({
-        sala: "interior",
+        sala: info.esMazmorra ? "mazmorra" : "interior",
         mapaId: info.mapaId,
         edificio: info.edificio,
         nivel: info.nivel ?? 0,
@@ -263,7 +287,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     } else {
       // "volver": desde un interior a su región (a la puerta exacta) o al
       // hub si se entró directo desde ahí; desde una región, siempre al hub.
-      if (SALA === "interior" && ORIGEN_SALA === "region") {
+      if (ES_INTERIOR && ORIGEN_SALA === "region") {
         navegarA({ sala: "region", mapaId: MAPA_ID, entradaX: PUERTA_X, entradaY: PUERTA_Y });
       } else {
         navegarA({});
@@ -418,6 +442,36 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     total: npcsVisual.size,
     visibles: [...npcsVisual.values()].filter((n) => n.rig.objeto.visible).length,
     muestra: [...npcsVisual.values()].slice(0, 3).map((n) => ({ x: +n.destinoX.toFixed(1), y: +n.destinoZ.toFixed(1) })),
+  });
+
+  // --- Enemigos de mazmorra (docs/GDD_Bakeador_Dungeons.md §4): sin
+  // movimiento/combate todavía (el streamer lo explicará aparte) — aparecen
+  // QUIETOS en su punto, con animación de reposo (mismo circuito que la
+  // demo de personajes/animales: se cuelgan de `animables` en vez de la
+  // interpolación de jugadores/NPCs, que aquí no hace falta).
+  const enemigosVisual = new Map<string, { actualizar(dt: number): void }>();
+  $(room.state).enemigos.onAdd((enemigo: any, id: string) => {
+    const variantes = poolEnemigos[enemigo.enemigoId];
+    const variante = variantes?.[enemigo.variante];
+    if (!variante) {
+      console.error(`Enemigo "${enemigo.enemigoId}" variante ${enemigo.variante}: sin aspecto en el pool`);
+      return;
+    }
+    const figura = variante.tipoRig === "animal" ? crearAnimalVoxel(variante) : crearPersonajeVoxel(variante);
+    figura.objeto.rotation.order = "YXZ";
+    figura.orientar(1, 1);
+    const etiqueta = enemigo.esBoss ? `☠ ${enemigo.enemigoId}` : enemigo.enemigoId;
+    escena.añadirEntidad(`enemigo_${id}`, figura.objeto, enemigo.x, enemigo.y, etiqueta);
+    enemigosVisual.set(id, figura);
+    animables.push(figura);
+  });
+  $(room.state).enemigos.onRemove((_enemigo: any, id: string) => {
+    enemigosVisual.delete(id);
+    escena.quitarEntidad(`enemigo_${id}`);
+  });
+  (window as any).__enemigos = () => ({
+    total: enemigosVisual.size,
+    bosses: [...room.state.enemigos.values()].filter((e: any) => e.esBoss).length,
   });
 
   const teclas = new Set<string>();

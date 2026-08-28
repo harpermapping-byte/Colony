@@ -4,6 +4,7 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import { HubRoom } from "./rooms/HubRoom";
 import { RegionRoom } from "./rooms/RegionRoom";
 import { InteriorRoom } from "./rooms/InteriorRoom";
+import { DungeonRoom } from "./rooms/DungeonRoom";
 
 const port = Number(process.env.PORT) || 2567;
 
@@ -24,6 +25,9 @@ gameServer.define("hub", HubRoom);
 // (comparten la aldea/el edificio) y uno distinto cree una room aparte.
 gameServer.define("region", RegionRoom).filterBy(["mapaId"]);
 gameServer.define("interior", InteriorRoom).filterBy(["mapaId", "edificio", "nivel"]);
+// Mazmorra (docs/GDD_Bakeador_Dungeons.md): MISMA instancia por planta que
+// un interior normal — hereda de InteriorRoom, solo añade enemigos.
+gameServer.define("mazmorra", DungeonRoom).filterBy(["mapaId", "edificio", "nivel"]);
 
 httpServer.listen(port, () => {
   console.log(`Colony server escuchando en el puerto ${port}`);

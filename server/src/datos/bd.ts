@@ -82,6 +82,11 @@ export interface IAlmacenDatos {
   listarConstrucciones(): Promise<Construccion[]>;
   insertarConstruccion(c: NuevaConstruccion): Promise<number>;
   borrarConstruccion(id: number): Promise<boolean>;
+  // Mazmorras (docs/GDD_Bakeador_Dungeons.md §4.2): cooldown de 1h tras
+  // limpiar una planta, para que no se repueble al instante y se pueda
+  // "farmear a saco". `clave` = mapaId:edificio:nivel.
+  obtenerLimpiezaMazmorra(clave: string): Promise<string | null>;
+  marcarMazmorraLimpiada(clave: string): Promise<void>;
   cerrar(): Promise<void>;
 }
 
@@ -115,6 +120,10 @@ CREATE TABLE IF NOT EXISTS construcciones (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_construcciones_prop ON construcciones(propiedad);
+CREATE TABLE IF NOT EXISTS mazmorras_estado (
+  clave TEXT PRIMARY KEY,               -- "mapaId:edificio:nivel"
+  limpiada_en TEXT                      -- timestamp ISO de la última vez que se limpió (null = nunca)
+);
 `;
 
 const MIGRACIONES_POSTGRES = `
@@ -142,6 +151,10 @@ CREATE TABLE IF NOT EXISTS construcciones (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_construcciones_prop ON construcciones(propiedad);
+CREATE TABLE IF NOT EXISTS mazmorras_estado (
+  clave TEXT PRIMARY KEY,
+  limpiada_en TEXT
+);
 `;
 
 // ---------------------------------------------------------------------------
@@ -252,6 +265,19 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return Number(r.changes) > 0;
   }
 
+  async obtenerLimpiezaMazmorra(clave: string): Promise<string | null> {
+    const fila = this.bd.prepare("SELECT limpiada_en FROM mazmorras_estado WHERE clave = ?").get(clave);
+    return fila?.limpiada_en == null ? null : String(fila.limpiada_en);
+  }
+
+  async marcarMazmorraLimpiada(clave: string): Promise<void> {
+    const ahora = new Date().toISOString();
+    const r = this.bd.prepare("UPDATE mazmorras_estado SET limpiada_en = ? WHERE clave = ?").run(ahora, clave);
+    if (Number(r.changes) === 0) {
+      this.bd.prepare("INSERT INTO mazmorras_estado (clave, limpiada_en) VALUES (?, ?)").run(clave, ahora);
+    }
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -356,6 +382,22 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async borrarConstruccion(id: number): Promise<boolean> {
     const r = await this.pool.query("DELETE FROM construcciones WHERE id = $1", [id]);
     return (r.rowCount ?? 0) > 0;
+  }
+
+  async obtenerLimpiezaMazmorra(clave: string): Promise<string | null> {
+    const r = await this.pool.query<{ limpiada_en: string | null }>(
+      "SELECT limpiada_en FROM mazmorras_estado WHERE clave = $1",
+      [clave],
+    );
+    return r.rows[0]?.limpiada_en ?? null;
+  }
+
+  async marcarMazmorraLimpiada(clave: string): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO mazmorras_estado (clave, limpiada_en) VALUES ($1, $2)
+       ON CONFLICT (clave) DO UPDATE SET limpiada_en = EXCLUDED.limpiada_en`,
+      [clave, new Date().toISOString()],
+    );
   }
 
   async cerrar(): Promise<void> {

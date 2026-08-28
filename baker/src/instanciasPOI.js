@@ -11,9 +11,16 @@
 //     (misma carpeta/convención que usa ciudades/), su caja 3D es un objeto
 //     más del sector (mismo `t:"e"` que ya pinta sectorVisual.ts, cero
 //     cambios de cliente) y su puerta es un portal "interior" normal.
+//   - "mazmorra" -> docs/GDD_Bakeador_Dungeons.md. `dungeonTipoId` (en
+//     mazmorras/catalogo/tipos_dungeon.json) decide el `estiloExterior`:
+//     "asentamiento" reusa el camino de arriba (ciudades/, con el tier
+//     hostil del tipo — sin enemigos dentro de las casas todavía, pendiente
+//     real); "edificio"/"cueva" generan el interior con
+//     mazmorras/src/generarMazmorra.js (salas grandes, spawns de enemigos)
+//     en vez de interiores/generarEdificio, con portal `esMazmorra:true`
+//     para que el cliente/servidor lo abran como DungeonRoom, no InteriorRoom.
 //   - "decorativo" (o sin categoria) -> sin cambios: el marcador de
-//     siempre, sin instancia (incluye cuevas/mazmorras: el bakeador de
-//     mazmorras no existe todavía, ver docs/GDD_Sistema_Puertas.md).
+//     siempre, sin instancia.
 // "Generar una vez, nunca en directo" (CLAUDE.md): esto corre en el mismo
 // proceso de horneado offline que el resto del pipeline, nunca en el
 // servidor en vivo.
@@ -66,6 +73,15 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
   function hornearCiudadPerezoso() {
     if (!hornearCiudad) ({ hornearCiudad } = require("../../ciudades/src/index"));
     return hornearCiudad;
+  }
+  let generarMazmorra = null;
+  let catalogosMazmorra = null;
+  function mazmorraPerezosa() {
+    if (!generarMazmorra) {
+      ({ generarMazmorra } = require("../../mazmorras/src/generarMazmorra"));
+      catalogosMazmorra = { tiposDungeon: require("../../mazmorras/catalogo/tipos_dungeon.json") };
+    }
+    return { generarMazmorra, catalogosMazmorra };
   }
 
   const portales = [];
@@ -124,6 +140,56 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
         y: puertaY,
         edificio: edificio.id,
         tipoEdificioId: def.tipoEdificioId,
+      });
+      continue;
+    }
+
+    if (categoria === "mazmorra") {
+      const { generarMazmorra, catalogosMazmorra } = mazmorraPerezosa();
+      const dungeonDef = catalogosMazmorra.tiposDungeon[def.dungeonTipoId];
+      if (!dungeonDef) continue; // catálogo mal referenciado: se omite el POI, no rompe el bake
+
+      if (dungeonDef.estiloExterior === "asentamiento") {
+        // Idéntico al camino "asentamiento" de arriba, pero con el tier
+        // hostil del tipo de mazmorra — sin enemigos dentro de las casas
+        // todavía (pendiente real, ver docs/GDD_Bakeador_Dungeons.md).
+        if (!dungeonDef.tierAsentamiento) continue;
+        const carpetaPOI = path.join(carpetaSalida, "pois", slug);
+        onProgreso(`  POI "${poi.id}" (mazmorra-asentamiento, ${dungeonDef.tierAsentamiento}) en (${poi.x},${poi.y})...`);
+        hornearCiudadPerezoso()(dungeonDef.tierAsentamiento, semillaPOI, carpetaPOI);
+        portales.push({
+          tipo: "exterior", x: poi.x, y: poi.y,
+          destino: { tipo: "region", mapaId: `${mapaId}/pois/${slug}` },
+        });
+        continue;
+      }
+
+      // "edificio" o "cueva": interior generado por mazmorras/, no interiores/.
+      const catalogos = catalogosInterioresPerezosos();
+      onProgreso(`  POI "${poi.id}" (mazmorra-${dungeonDef.estiloExterior}, ${def.dungeonTipoId}) en (${poi.x},${poi.y})...`);
+      const mazmorra = generarMazmorra({
+        tipoDungeonId: def.dungeonTipoId, catalogosMazmorra, catalogosInteriores: catalogos, semilla: semillaPOI,
+      });
+      const carpetaInteriores = path.join(carpetaSalida, "interiores");
+      fs.mkdirSync(carpetaInteriores, { recursive: true });
+      fs.writeFileSync(path.join(carpetaInteriores, `${mazmorra.id}.json`), JSON.stringify(mazmorra));
+
+      let puertaX = Math.round(poi.x), puertaY = Math.round(poi.y);
+      if (dungeonDef.estiloExterior === "edificio") {
+        const defEd = catalogos.tiposEdificio[dungeonDef.tipoEdificioIdExterior];
+        const [hw, hl] = defEd?.huellaExterior || [7, 6];
+        puertaY = Math.round(poi.y) + Math.ceil(hl / 2) + 1;
+        objetosPorPOI.set(slug, {
+          x: poi.x, y: poi.y, huella: [hw, hl],
+          objeto: { i: dungeonDef.tipoEdificioIdExterior, t: "e", va: 0, ro: 0, es: 1, w: hw, h: hl, dx: 0, dy: 0 },
+        });
+      }
+      // "cueva": sin caja 3D (una boca de cueva no es una caja rectangular)
+      // — solo el disparador del portal, en la propia casilla del POI.
+
+      portales.push({
+        tipo: "interior", x: puertaX, y: puertaY,
+        edificio: mazmorra.id, tipoEdificioId: def.dungeonTipoId, esMazmorra: true,
       });
     }
   }
