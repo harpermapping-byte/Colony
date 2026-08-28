@@ -15,7 +15,7 @@
  * generen sus equivalentes en 3D.
  */
 
-export type CategoriaAsset = "vegetacion" | "animales" | "rocas" | "interiores" | "personajes";
+export type CategoriaAsset = "vegetacion" | "animales" | "rocas" | "interiores" | "personajes" | "edificios";
 
 export interface VarianteNumerada {
   tipo: "numerada";

@@ -18,7 +18,7 @@ Al ampliar `interiores/catalogo/tipos_edificio.json` con edificios de pueblo (he
 - **Catálogo de edificios**: cada estructura colocada en el mapa de POI es un `tipoEdificio` de `interiores/catalogo/tipos_edificio.json` — el mismo catálogo que ya existe, sin inventar uno paralelo. Colocar un edificio aquí = decidir su posición/footprint en el mapa de POI + generar su interior real con el motor de interiores (todavía sin construir tampoco) usando ese `tipoEdificio`.
 - **`poiVinculado`** dejado vacío/omitido en muchos `tipoEdificio` (ver nota en `tipos_edificio.json`) es exactamente para estos — el mapa de POI decide qué `tipoEdificio` coloca dentro de sí mismo, no hace falta que cada uno tenga un id de POI del exterior total esperándolo.
 
-## 4. FLUJO ACORDADO (2026-08-27) — ⚠️ NO programar hasta recibir las imágenes de referencia del usuario
+## 4. FLUJO ACORDADO (2026-08-27) — imágenes de referencia ya recibidas y aplicadas (§4.4)
 
 El usuario confirmó el flujo completo pero va a adjuntar IMÁGENES de
 referencia de cómo debe construirse una aldea/ciudad; se afina con ellas

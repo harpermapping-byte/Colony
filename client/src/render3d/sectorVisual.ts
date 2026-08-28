@@ -27,18 +27,26 @@ const CATEGORIA_POR_TIPO: Partial<Record<string, CategoriaAsset>> = {
   r: "rocas",
   a: "animales",
   m: "interiores", // deco urbana: mismo .glb que el mueble de interiores cuando exista
-  // "e" (edificios de los mapas de ciudad) NO se instancia como prop: su
-  // volumen ya sale de las casillas solar_edificio extruidas (abajo). El
-  // .glb real de cada edificio entrará por aquí cuando exista.
+  // "e" (edificios de ciudad): prop real por instancia, con su ancho/largo
+  // (obj.w/obj.h) y color por riqueza — ya NO sale de solar_edificio
+  // extruida (ver ALTURA_TERRENO_SOLIDO abajo, que ahora no lo incluye).
+  // taller-vox/generar_edificio.js ya genera el .glb; falta aprobarlo y
+  // subirlo a assets/edificios/ para que esto deje de caer al placeholder.
+  e: "edificios",
 };
 
 // Terrenos urbanos SÓLIDOS de los mapas de ciudad (bakeador de ciudades):
 // se extruyen como cajas instanciadas — el "cubo sin techo" de verdad. La
-// altura es placeholder; los módulos .glb de muralla/edificio la traerán.
+// altura es placeholder; los módulos .glb de muralla la traerán. Los
+// edificios ("e") NO van aquí: solar_edificio se quedó como marca de suelo
+// plana (transitable:false, sigue bloqueando en el servidor) pero su
+// VOLUMEN ahora lo pone el prop "e" de crearPropsSector, con el
+// ancho/largo real de cada instancia — antes esto dibujaba una caja
+// genérica de 2.1 por CADA CASILLA de solar, sin distinguir edificio ni
+// riqueza; con las dos cosas activas a la vez habría dos cajas solapadas.
 const ALTURA_TERRENO_SOLIDO: Record<string, number> = {
   empalizada: 1.7,
   muralla_piedra: 2.6,
-  solar_edificio: 2.1,
 };
 
 // --- Agua translúcida con fondo visible (portado de la versión de mapa
@@ -188,8 +196,8 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
 }
 
 interface GrupoEspecie {
-  // "e" nunca llega aquí (se filtra al agrupar): solo tipos con categoría
-  tipo: "v" | "r" | "a" | "m";
+  // solo tipos con categoría de asset llegan aquí (se filtra al agrupar)
+  tipo: "v" | "r" | "a" | "m" | "e";
   id: string;
   objetos: { globalX: number; globalY: number; obj: ObjetoBakeado }[];
 }
@@ -199,8 +207,7 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
     for (const obj of chunk.objetos) {
-      // tipos sin categoría de asset (p.ej. "e", edificios de ciudad) no se
-      // instancian: su volumen ya lo ponen las casillas sólidas extruidas
+      // tipos sin categoría de asset conocida no se instancian
       if (!CATEGORIA_POR_TIPO[obj.t]) continue;
       const claveGrupo = `${obj.t}:${obj.i}`;
       if (!grupos.has(claveGrupo)) grupos.set(claveGrupo, { tipo: obj.t as GrupoEspecie["tipo"], id: obj.i, objetos: [] });
@@ -251,10 +258,18 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
       const ejeY = new THREE.Vector3(0, 1, 0);
 
       grupo.objetos.forEach(({ globalX, globalY, obj }, indice2) => {
+        // obj.x/obj.y ya es Math.floor(centro real) hecho por ciudades/ al
+        // exportar (ed.cx/ed.cy son el centro continuo de la huella) —
+        // +0.5 sigue siendo la mejor aproximación al centro para CUALQUIER
+        // tamaño de prop, edificios incluidos; solo la ESCALA usa el
+        // ancho/largo real de la instancia (obj.w/obj.h) en vez del
+        // tamaño de catálogo cuando está disponible.
         posicion.set(globalX + 0.5, 0, globalY + 0.5);
         rotacion.setFromAxisAngle(ejeY, THREE.MathUtils.degToRad(obj.ro || 0));
         const es = obj.es || 1;
-        escala.set(dims.ancho * es, dims.alto * es, dims.profundo * es);
+        const anchoReal = grupo.tipo === "e" && obj.w ? obj.w : dims.ancho;
+        const largoReal = grupo.tipo === "e" && obj.h ? obj.h : dims.profundo;
+        escala.set(anchoReal * es, dims.alto * es, largoReal * es);
         matriz.compose(posicion, rotacion, escala);
         malla.setMatrixAt(indice2, matriz);
       });

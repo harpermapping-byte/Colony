@@ -11,6 +11,8 @@
   "joyero": { "tagsPrenda": ["comun", "joyeria"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "seda"] },
   "sastre": { "tagsPrenda": ["comun", "sastre"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "seda"] },
   "herbolista": { "tagsPrenda": ["comun", "herbolista"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"] },
+  "destilador": { "tagsPrenda": ["comun", "destileria"], "riquezaTipica": "modesta", "materialesPreferidos": ["cuero", "lino"], "_nota": "temaTaller 'destileria' de tipos_edificio.json — faltaba en el vocabulario pese a estar en la propia nota de este archivo." },
+  "panadero": { "tagsPrenda": ["comun", "panaderia"], "riquezaTipica": "modesta", "materialesPreferidos": ["lino", "lana"], "_nota": "panaderia no tiene temaTaller propio en tipos_edificio.json, pero taller-vox/generar_edificio.js ya la trata como taller de oficio (fragua/horno con brasas) — le falta oficio aquí." },
   "militar": { "tagsPrenda": ["comun", "militar"], "riquezaTipica": "modesta", "materialesPreferidos": ["cuero", "lana"] },
   "noble": { "tagsPrenda": ["comun", "noble"], "riquezaTipica": "noble", "materialesPreferidos": ["seda", "lana"] }
 }

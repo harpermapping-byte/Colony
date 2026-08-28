@@ -247,21 +247,35 @@ oro repetida: catálogo como fuente de verdad + servidor autoritativo
 - Restricción dura: **todo gratis** → capa de proveedor intercambiable con
   presupuesto de llamadas (free tiers de APIs de LLM son limitados),
   respuestas cacheadas para charla trivial, y la memoria en el mismo
-  almacén persistente que el resto (5.7). ⚠️ Decisión pendiente: qué
-  proveedor/es gratuitos y qué límites de uso por NPC/jugador.
+  almacén persistente que el resto (5.7). **✅ Resuelto e implementado**
+  (`server/src/ia/`, ver `docs/GDD_IA_NPCs.md`): Gemini como proveedor
+  principal con Groq de respaldo automático si falla, memoria por
+  (NPC, jugador) recortada + búsqueda por similitud (RAG) para no repetir
+  respuestas, rate-limit de 3s por jugador en `HubRoom.ts` (mensaje
+  `npc:hablar`). Pendiente real: el contexto de mundo que recibe el
+  proveedor sigue siendo un placeholder genérico, no la biografía
+  individual que ya genera `poblacion/generarHistoria.js` — falta cablear
+  eso, y no se ha probado contra las API reales desde este entorno (sin
+  salida de red aquí; sí cubierto por tests con proveedores falsos).
 - Interacción jugador-jugador: comercio con intercambio ATÓMICO arbitrado
   por servidor (ambos confirman → se ejecuta entero o nada), chat, y más
   adelante grupos/gremios. Nada de tratos peer-to-peer sin árbitro.
 
-### 5.7 Persistencia (transversal, ⚠️ LA decisión pendiente más importante)
+### 5.7 Persistencia (transversal)
 
 Habilidades, inventario, equipo, drops en el suelo y nodos tocados deben
 sobrevivir a reinicios del servidor — y el free tier de Render DUERME el
-proceso y no tiene disco persistente. Hace falta un almacén externo
-gratuito (candidatos: Postgres free tier tipo Neon/Supabase, o similar)
-con escritura PEREZOSA (guardar al salir el jugador + snapshot periódico
-espaciado, nunca cada tick). Decidir esto ANTES de implementar EXP e
-inventario, porque son los primeros datos que duele perder.
+proceso y no tiene disco persistente. **✅ Resuelto e implementado**
+(`server/src/datos/bd.ts`): interfaz `IAlmacenDatos` con dos motores —
+SQLite local (`node:sqlite`) para desarrollo/tests, Postgres (Neon free
+tier) en producción, elegido automáticamente por `DATABASE_URL`, mismo
+contrato async en los dos. Usado hoy por el sistema de Construcción
+(`docs/GDD_Construccion.md`) con escritura al cambiar, nunca por tick.
+⚠️ Sin verificar en un proceso Node real desplegado: el servicio de Render
+lleva revisiones fallando porque su runtime está configurado como Docker
+en el panel en vez de Node (aunque `render.yaml` ya declara Node
+correctamente) — hay que arreglarlo desde el dashboard de Render, no es
+algo que se resuelva tocando el repo.
 
 ### 5.8 Vivienda: constructor/decorador de interiores para jugadores (pedido por el usuario)
 

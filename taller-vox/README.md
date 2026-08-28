@@ -54,7 +54,7 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   el castillo). Siempre orientado con la puerta hacia -Z; la rotación real
   en el mapa la pone `ro` al colocar el prop, igual que el resto. Mismo
   formato `{grid,paleta,cajas}` — lo exporta `exportar_glb.js` tal cual.
-  Determinista por `tipoId|NN`; `node --test test_edificio.js` (8 tests).
+  Determinista por `tipoId|NN`; `node --test test_edificio.js` (17 tests).
   ```bash
   node generar_edificio.js          # 1 edificio de ejemplo por arquetipo (10)
   node generar_edificio.js todo     # los ~41 tipos del catálogo (producción: lo corre el usuario)
