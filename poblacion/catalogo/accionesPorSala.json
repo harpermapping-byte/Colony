@@ -2,5 +2,6 @@
   "_nota": "Fase 3: qué tipoSalaId (interiores/catalogo/tiposSala.json) sirve para cada acción DENTRO de una vivienda. generarRutina.js busca, en el interior YA bakeado de la casa del NPC, la primera sala cuyo tipoSalaId esté en la lista de su acción — si no hay ninguna coincidencia, el NPC se queda junto a la puerta (sin sala concreta, no rompe nada).",
   "dormir": ["dormitorio", "dormitorio_individual", "dormitorio_doble", "dormitorio_comunal", "dormitorio_con_bano", "dormitorio_enorme", "camarote"],
   "comer": ["cocina_comedor", "comedor_pequeno", "comedor_mediano", "comedor_grande", "cocina", "cocina_industrial"],
-  "socializar": ["sala_comun", "gran_salon", "salon_baile", "sala_juegos"]
+  "socializar": ["sala_comun", "gran_salon", "salon_baile", "sala_juegos"],
+  "trabajar": ["sala_comercio", "taller", "capilla", "arsenal", "cocina_comedor", "cocina", "sala_comun"]
 }

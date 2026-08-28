@@ -247,18 +247,31 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
     });
   }
 
-  // Casilla pisable por tipoSalaId (vida en interiores): el centro real de
-  // cada sala, corregido a la casilla libre más cercana igual que el spawn
-  // — el centro geométrico puede caer encima de una mesa/hogar colocado ahí.
+  // Casillas pisables por tipoSalaId (vida en interiores, "no se
+  // apelotonen"): VARIAS por sala (no solo el centro) — hasta 6 casillas
+  // pisables reales dentro del rectángulo de la sala, para que varios NPCs
+  // que coincidan ahí (varios inquilinos de un dormitorio comunal, la
+  // familia entera en el salón) no queden todos en el mismo punto.
+  // poblarInterior las reparte por turno rotatorio, así nunca se repiten.
   const salasPorTipo = new Map<string, { x: number; y: number }[]>();
   for (const sala of salas) {
     const tipoSalaId = (sala as unknown as { tipoSalaId?: string }).tipoSalaId;
     if (!tipoSalaId) continue;
+    const puntos: { x: number; y: number }[] = [];
+    const vistos = new Set<number>();
     const cx = Math.round(sala.offsetX + sala.resultado.ancho / 2);
     const cy = Math.round(sala.offsetY + sala.resultado.largo / 2);
-    const punto = casillaPisableMasCercana(casillas, ancho, alto, cx, cy);
+    for (let y = sala.offsetY; y < sala.offsetY + sala.resultado.largo && puntos.length < 6; y++) {
+      for (let x = sala.offsetX; x < sala.offsetX + sala.resultado.ancho && puntos.length < 6; x++) {
+        const idx = y * ancho + x;
+        if (casillas[idx] === TIPO.SOLIDO || vistos.has(idx)) continue;
+        vistos.add(idx);
+        puntos.push({ x, y });
+      }
+    }
+    if (puntos.length === 0) puntos.push(casillaPisableMasCercana(casillas, ancho, alto, cx, cy));
     const lista = salasPorTipo.get(tipoSalaId) ?? [];
-    lista.push(punto);
+    lista.push(...puntos);
     salasPorTipo.set(tipoSalaId, lista);
   }
 

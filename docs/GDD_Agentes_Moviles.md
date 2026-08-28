@@ -209,6 +209,63 @@ noche (23h forzada) en la planta con dormitorio comunal de una posada de
 `ciudad_demo` aparecen los residentes reales (nombres distintos, vóxeles
 reales) en la sala correcta con los muebles bakeados alrededor.
 
+## Zonas comunes sin apelotonarse + vendedores especializados fijos (v1.3, pedido del streamer 2026-08-28)
+
+### No se apelotonan
+
+Plaza, taberna, banco (zona verde) y cada sala de interior ya no son un
+único punto que todo el mundo comparte: `poolAlrededorDe()`
+(`poblacion/src/generarRutina.js`) genera un anillo de hasta 10 casillas
+transitables reales alrededor del centro, y `elegirDePool()` reparte por
+turno rotatorio (`contadorZonas`, un contador MUTABLE compartido por TODO
+el asentamiento, creado una vez en `exportarAsentamiento.js`) — dos NPCs
+que coincidan en la misma zona, a cualquier hora, nunca reciben la misma
+casilla. Lo mismo dentro de una sala de interior: `salasPorTipo` ahora da
+hasta 6 casillas pisables por sala (no solo el centro) y
+`agentesInterior.ts` las reparte igual, por turno, dentro de cada pasada
+de `poblarInterior`. Un jitter mínimo de desempate solo entra si hay más
+NPCs que puntos disponibles (el ciclo se repite).
+
+Alcance deliberado: esto resuelve el caso que se pidió arreglar —
+NPCs QUIETOS en una zona común no comparten casilla. No es colisión física
+en movimiento (dos NPCs VIAJANDO no se esquivan a mitad de camino) — eso
+sigue siendo un desarrollo aparte si hiciera falta, coherente con "nunca
+A* en vivo": no se quiso meter una física de separación por tick para
+agentes que ya van sobre raíles bakeados.
+
+### Vendedores especializados fijos por asentamiento
+
+Los oficios de tienda/taller (tendero, panadero, sastre, joyero, alfarero,
+curtidor — `poblacion/catalogo/oficiosEdificios.json`, ya existían) ahora
+tienen un SUELO garantizado por tier en el censo
+(`poblacion/catalogo/censo.json`): aldea_pequena 4 fijos, pueblo 5-10,
+capital 7-16, gran_capital 9-19, castillo 2-3 — "cada aldea/ciudad/castillo
+tiene SIEMPRE varios vendedores", como se pidió. Si el asentamiento no
+tiene edificio-tienda de sobra para todos (`asignarUbicacion.js`), el
+vendedor sin hueco recibe un **puesto de mercado exterior** (mismo pool
+rotatorio que la plaza) en vez de quedarse sin trabajo visible — así no
+hace falta forzar un edificio-tienda por cada vendedor.
+
+**Trabajando de verdad dentro de la tienda**: se generaliza "vida en
+interiores" (antes solo `casa`) a `trabajo` — `npc.trabajoEdificioId`
+(espejo de `casaEdificioId`) + `tramo.sala` calculado también para el
+tramo de trabajo (`accionesPorSala.json` ganó la clave `"trabajar"`:
+`sala_comercio`/`taller`/`capilla`/`arsenal`/cocinas). `InteriorRoom` ya
+no distingue "casa" de "trabajo": pone dentro a quien encaje por CUALQUIERA
+de los dos motivos. Entrar a una tienda en horario laboral enseña al
+tendero de verdad, junto al mostrador.
+
+### Verificado (v1.3)
+
+Tests: `poblacion/test/rutina.test.js` (reparto de plaza en casillas
+distintas; suelo garantizado de vendedores en aldea_pequena; puestoExterior
+cuando no hay tienda), `server/test/agentesInterior.test.ts` (4 NPCs de la
+misma sala en 4 casillas distintas; un tendero aparece dentro de SU tienda
+en horario de trabajo, no fuera de horario). E2E real: panadería de
+`ciudad_demo` a mediodía — los 2 panaderos reales aparecen juntos en la
+sala_comercio junto al mostrador (captura); plaza con NPCs ya en casillas
+distintas, no apilados.
+
 ## Verificado (v1)
 
 - Test de servidor del gestor: recolocación por hora al crear room,
@@ -221,14 +278,16 @@ reales) en la sala correcta con los muebles bakeados alrededor.
 
 - Cerebros de merodeo (fauna) y patrulla-con-agresión (bárbaros) — diseño
   cerrado arriba, llegan con sus mecánicas.
-- ~~NPCs dentro de interiores instanciados~~ **RESUELTO (v1.2)**: ver
-  "Vida en interiores" arriba. Sigue pendiente el PULIDO visual: no hay
-  animación real de cruzar la puerta (el salto exterior↔interior es de
-  estado, no un paseo hasta el umbral) y dentro de casa el NPC no camina
-  entre salas — aparece QUIETO en la que le toca. También falta poner al
-  NPC dentro de su LUGAR DE TRABAJO (taberna, tienda...) durante su
-  horario laboral — hoy solo se ve en la puerta exterior; la infraestructura
-  (`casaEdificioId`) generaliza fácil a un futuro `trabajoEdificioId`.
+- ~~NPCs dentro de interiores instanciados~~ **RESUELTO (v1.2)**, ~~NPC
+  dentro de su lugar de trabajo~~ **RESUELTO (v1.3)**: ver "Vida en
+  interiores" y "Vendedores especializados" arriba. Sigue pendiente el
+  PULIDO visual: no hay animación real de cruzar la puerta (el salto
+  exterior↔interior es de estado, no un paseo hasta el umbral) y dentro de
+  casa/tienda el NPC no camina entre salas — aparece QUIETO en la que le
+  toca. `taberna`/`posada` siguen sin un `tipoSalaId` de trabajo claro en
+  `accionesPorSala.json` (cayeron a `cocina`/`sala_comun`, compartido con
+  otras acciones) — el tabernero puede no encontrar sala y quedarse junto
+  a la puerta; no rompe nada, pero es menos preciso que tienda/taller.
 - Hablar (F) con el NPC que pasa por delante: `npc:hablar` ya existe en
   el Hub; conectar el id del agente al gestor de conversaciones cuando
   el diálogo IA salga de su pausa (decisión del streamer: aparcado).
