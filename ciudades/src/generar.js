@@ -764,6 +764,31 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
     }
   }
 
+  // CONFINAMIENTO: fuera de la muralla es solo decorado de fondo, nunca
+  // terreno explorable — pedido del streamer tras ver que se podía salir
+  // caminando por el hueco de la puerta y perderse por el anillo exterior
+  // (el camino de acceso incluido) sin usar nunca el portal. La única
+  // salida real de un asentamiento amurallado es LA PUERTA como portal
+  // (tecla de interacción, ya cableado en RegionRoom) — el hueco físico en
+  // el muro sigue estando ahí (así no hace falta tocar el rasterizado ni
+  // la detección de "puertas"), pero más allá de un despejado corto
+  // alrededor de cada puerta (sitio para el abrevadero/amarradero/carreta
+  // que ya se colocan ahí y para el radio de interacción del portal) todo
+  // se vuelve intransitable. `extramuros` tiene el MISMO colorDebug que
+  // césped (baker/catalogo/terrenos.json) — se ve exactamente igual, solo
+  // que bloquea, así el corte no se nota a la vista.
+  const RADIO_DESPEJADO_PUERTA = grosorRaster + 4;
+  const TERRENO_CONVERTIBLE_EXTRAMUROS = new Set([
+    "cesped", "cesped_ralo", "tierra", "tierra_baldia", "camino", "adoquin", "roca", "arena", "nieve", "hielo",
+  ]);
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < ancho; x++) {
+      if (dentroMuralla(x, y)) continue;
+      if (puertas.some((p) => Math.hypot(p.x - x, p.y - y) < RADIO_DESPEJADO_PUERTA)) continue;
+      if (TERRENO_CONVERTIBLE_EXTRAMUROS.has(terreno.get(x, y))) terreno.set(x, y, "extramuros");
+    }
+  }
+
   // reparación de conectividad: toda puerta de edificio DEBE alcanzarse
   // desde la puerta principal — si el río o un solar la dejó aislada, se
   // abre una senda A* (con puente si cruza agua). Garantiza por

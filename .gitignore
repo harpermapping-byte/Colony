@@ -33,6 +33,7 @@ client/test/capturas_poi/
 client/test/capturas_fixes/
 client/test/capturas_pois_variados/
 client/test/capturas_aldea_amurallada/
+client/test/capturas_murallas/
 assets/mapas/aldea_test/
 assets/mapas/hub_test/
 assets/mapas/torre_test/

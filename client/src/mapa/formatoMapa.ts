@@ -22,6 +22,18 @@ export interface PortalMapa {
   tipoEdificioId?: string;
 }
 
+/** Módulo vectorial de la muralla de un mapa de ciudad (ciudades/src/generar.js
+ * `modulosMuralla`) — recto/torre/puerta con material (piedra/empalizada).
+ * El terreno ya extruye la muralla casilla a casilla (sectorVisual.ts); este
+ * dato solo hace falta para diferenciar torres y puertas de un tramo recto. */
+export interface ModuloMuralla {
+  tipo: "recto" | "torre" | "puerta";
+  x: number;
+  y: number;
+  rot: number;
+  material: string;
+}
+
 export interface IndiceMapa {
   version: number;
   nombre: string;
@@ -33,6 +45,7 @@ export interface IndiceMapa {
   leyendaTerreno: string[];
   ciudad?: { x: number; y: number };
   portales?: PortalMapa[];
+  muralla?: { poligono: [number, number][]; modulos: ModuloMuralla[] };
 }
 
 /** Objeto colocado por el bakeador dentro de un chunk (claves cortas del export). */

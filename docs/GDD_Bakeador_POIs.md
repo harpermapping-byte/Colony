@@ -330,3 +330,66 @@ sin variación visual propia todavía); orientación/rotación de los POI
 "edificio" (hoy siempre `ro:0`, no busca el lado más despejado del
 terreno); vincular las cuevas/mazmorras en cuanto exista el bakeador de
 mazmorras.
+
+## 8. Confinamiento del recinto amurallado + muralla diferenciada — 2026-08-28
+
+Dos bugs/huecos reportados por el streamer tras jugar de verdad un
+asentamiento amurallado:
+
+**1. Se podía salir caminando de la aldea sin usar la puerta.** El bake de
+`ciudades/` cubre un lienzo (`ancho x alto`) bastante más grande que el
+propio anillo de muralla, para tener sitio donde trazar el camino de
+acceso y la hidrología — pero ese lienzo entero era terreno transitable
+normal. Resultado: un jugador podía cruzar el hueco físico de la puerta
+(nunca fue una pared sólida, es un hueco real en el rasterizado) y
+seguir caminando por ese "anillo verde" sin fin, sin haber cruzado nunca
+el portal real (la interacción con tecla F en la puerta, que es la que de
+verdad te manda de vuelta al mapa padre). Arreglado en
+`ciudades/src/generar.js`: toda casilla FUERA del polígono de la muralla
+(salvo un despejado corto alrededor de cada puerta, sitio para el
+abrevadero/carreta que ya se colocaban ahí y para el radio de
+interacción del portal) se convierte a un terreno nuevo, `extramuros`
+(`baker/catalogo/terrenos.json`, MISMO `colorDebug` que césped —
+visualmente idéntico, pero `transitable:false`). El hueco físico de la
+puerta sigue existiendo tal cual (no se tocó el rasterizado de la
+muralla ni la detección de puertas): la única forma de verdad de salir
+sigue siendo el portal de interacción. Verificado con flood-fill real
+desde el spawn contra un bake real: antes del arreglo el área alcanzable
+cubría prácticamente el lienzo entero (112×112); después, ~2200 casillas
+contenidas en el recinto + el despejado de la puerta.
+
+**2. La muralla no distinguía torres ni puertas — todo era un bloque
+uniforme.** `ciudades/src/generar.js` ya calculaba `modulosMuralla`
+(recto/torre/puerta, con material y rotación) desde el principio, pero el
+cliente lo ignoraba por completo: `sectorVisual.ts` solo extruía cada
+CASILLA de terreno `muralla_piedra`/`empalizada` como una caja uniforme,
+así que un tramo recto, una torre y una puerta se veían exactamente
+igual (un corte sin nada más). Ahora `crearMurallaSector` (nuevo, en
+`sectorVisual.ts`, usando el campo `muralla.modulos` ya exportado a
+`indice.json` — se añadió su tipo a `IndiceMapa`) añade, SOLO para
+torre/puerta (el tramo recto ya está resuelto por la extrusión de
+terreno):
+  - **torre**: una caja más ancha y alta en el vértice.
+  - **puerta de piedra** (`muralla_piedra`): dos torreones flanqueando el
+    hueco — una entrada de fortaleza de verdad, pedido explícito
+    ("torreones de piedra con el portón, como las de antes").
+  - **puerta de empalizada**: dos palos simples y finos, sin sillería —
+    una aldea humilde no tiene torreones de piedra (pedido explícito:
+    "las empalizadas deberían ser más sencillas con palos y tal").
+Puramente decorativo (no toca colisión: el hueco real ya lo resuelve el
+terreno). Verificado con capturas reales de una aldea_pequena
+(empalizada) y un pueblo (piedra) — `client/test/prueba_render_murallas.cjs`.
+
+Regresión completa en verde tras ambos cambios (ciudades 8/8, interiores
+32/32, server 37/37, tsc limpio en cliente y servidor).
+
+**Sigue pendiente** (no se tocó en esta tanda): el tramo recto y las
+torres siguen siendo geometría placeholder simple (cajas), no un modelo
+`.glb` de muralla de verdad — mismo criterio de "todo el arte es
+placeholder" que el resto del proyecto. La visión de largo plazo,
+confirmada por el streamer: cuando exista el pipeline de arte real
+(`.glb` aprobados), "bakea mundo" debería encadenar TODOS los
+bakeadores automáticamente (mapa → POIs → aldeas → edificios/interiores,
+ya vinculado por la sección 7) sin ningún placeholder de por medio — la
+maquinaria de encadenado ya existe (`baker/src/instanciasPOI.js`), solo
+falta el arte que sustituya a las cajas de color.
