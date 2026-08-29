@@ -74,6 +74,33 @@ function objetivoMasCercano(u: UnidadCombate, unidades: UnidadCombate[]): Unidad
   );
 }
 
+/**
+ * Juega el turno de UNA unidad con la IA simple ya descrita en el GDD
+ * ("acercarse al enemigo vivo más cercano y atacar si está en alcance") —
+ * extraído aparte para que lo use tanto `simularCombateAutomatico` como la
+ * cascada de turnos de enemigo/fauna del combate INTERACTIVO
+ * (`combate:pasarTurno`, cuando le toca a un `Enemigo`/`Fauna` sin cliente
+ * que envíe mensajes). No muta `unidades`: devuelve la lista actualizada.
+ */
+export function jugarTurnoIA(idUnidad: string, unidades: UnidadCombate[], arena: Arena): UnidadCombate[] {
+  const u = unidades.find((x) => x.id === idUnidad);
+  if (!u || u.estado !== "activo") return unidades;
+  const objetivo = objetivoMasCercano(u, unidades);
+  if (!objetivo) return unidades; // el otro bando ya cayó entero
+
+  if (enAlcance(u, objetivo)) {
+    const actualizado = resolverAtaque(u, objetivo);
+    return unidades.map((x) => (x.id === actualizado.id ? actualizado : x));
+  }
+  let pos: Casilla = { gx: u.gx, gy: u.gy };
+  for (let paso = 0; paso < u.mp; paso++) {
+    const siguiente = pasoHacia(arena, pos, { gx: objetivo.gx, gy: objetivo.gy });
+    if (siguiente.gx === pos.gx && siguiente.gy === pos.gy) break; // atrapado
+    pos = siguiente;
+  }
+  return unidades.map((x) => (x.id === u.id ? { ...x, gx: pos.gx, gy: pos.gy } : x));
+}
+
 export interface ResultadoCombateAutomatico {
   unidades: UnidadCombate[];
   /** null = se alcanzó el tope de turnos sin que ningún bando cayera entero (raro: unidades que nunca se alcanzan). */
@@ -112,23 +139,7 @@ export function simularCombateAutomatico(
 
     const orden = ordenarTurnos(unidades.filter((u) => u.estado === "activo"));
     for (const id of orden) {
-      const u = unidades.find((x) => x.id === id)!;
-      if (u.estado !== "activo") continue;
-      const objetivo = objetivoMasCercano(u, unidades);
-      if (!objetivo) break; // el otro bando ya cayó entero a mitad de ronda
-
-      if (enAlcance(u, objetivo)) {
-        const actualizado = resolverAtaque(u, objetivo);
-        unidades = unidades.map((x) => (x.id === actualizado.id ? actualizado : x));
-      } else {
-        let pos: Casilla = { gx: u.gx, gy: u.gy };
-        for (let paso = 0; paso < u.mp; paso++) {
-          const siguiente = pasoHacia(arena, pos, { gx: objetivo.gx, gy: objetivo.gy });
-          if (siguiente.gx === pos.gx && siguiente.gy === pos.gy) break; // atrapado
-          pos = siguiente;
-        }
-        unidades = unidades.map((x) => (x.id === u.id ? { ...x, gx: pos.gx, gy: pos.gy } : x));
-      }
+      unidades = jugarTurnoIA(id, unidades, arena);
     }
   }
   return { unidades, bandoGanador: null, turnos: TOPE_TURNOS_AUTOSIMULACION };

@@ -2,7 +2,7 @@
 // confirmado 2026-08-30). Ejecutar: npm test desde server/.
 import { test } from "node:test";
 import * as assert from "node:assert";
-import { Arena, casillasAlcanzables, distanciaChebyshev, esObstaculo, pasoHacia } from "../src/combate/pathfindingArena";
+import { Arena, casillasAlcanzables, costeCasilla, distanciaChebyshev, esObstaculo, pasoHacia } from "../src/combate/pathfindingArena";
 
 function arenaAbierta(ancho = 8, alto = 8): Arena {
   return { ancho, alto, obstaculos: new Uint8Array(ancho * alto) };
@@ -48,6 +48,19 @@ test("casillasAlcanzables: una casilla ocupada por otra unidad no es alcanzable"
   const alcanzables = casillasAlcanzables(arena, { gx: 0, gy: 0 }, 1, ocupadas);
   assert.ok(!alcanzables.has("1,0"));
   assert.ok(alcanzables.has("0,1"));
+});
+
+test("costeCasilla: distancia real en pasos (diagonal cuenta 1), null si no alcanza con el mp dado", () => {
+  const arena = arenaAbierta();
+  assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 0, gy: 0 }, 5), 0);
+  assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 3, gy: 3 }, 5), 3);
+  assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 3, gy: 3 }, 2), null);
+});
+
+test("costeCasilla: una casilla ocupada nunca es un destino válido, aunque esté dentro del mp", () => {
+  const arena = arenaAbierta();
+  const ocupadas = new Set(["1,1"]);
+  assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 1, gy: 1 }, 3, ocupadas), null);
 });
 
 test("pasoHacia: avanza en diagonal directa hacia el objetivo cuando no hay obstáculo", () => {

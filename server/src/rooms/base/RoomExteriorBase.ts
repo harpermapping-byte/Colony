@@ -1,6 +1,17 @@
 import { Room, Client } from "@colyseus/core";
 import { HubState, Player, ObjetoMundoSchema } from "../schema/HubState";
-import { MundoColision, moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO_PJ } from "../../mundo/colisiones";
+import { CombateSchema, CombateUnidad } from "../schema/CombateState";
+import { MundoColision, moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO_PJ, tipoEn } from "../../mundo/colisiones";
+import {
+  UnidadCombate,
+  Bando,
+  calcularIniciativa,
+  enAlcance,
+  jugarTurnoIA,
+  ordenarTurnos,
+  resolverAtaque,
+} from "../../combate/arenaCombate";
+import { Arena, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado } from "../../mundo/mapaColision";
 import { recolectableCercano } from "../../mundo/recolectables";
 import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, cargarCatalogoRecetas } from "../../inventario/inventario";
@@ -42,6 +53,17 @@ export const RADIO_INTERACCION = 2.2;
 
 const ANCHO_CUERPO = 8;
 const ALTO_CUERPO = 6;
+
+// --- Combate táctico (docs/GDD_Combate.md, ✅ confirmado 2026-08-30) ---
+// AP/MP fijos para toda unidad — placeholder de balance (mismo criterio que
+// el resto de números de referencia del proyecto): el árbol de
+// habilidades/clases que los variaría por unidad queda fuera de esta
+// pasada (GDD §6, "trabajo posterior, como las recetas de Crafteo").
+const AP_MAX_COMBATE = 3;
+const MP_MAX_COMBATE = 4;
+const LADO_ARENA_NORMAL = 8;
+const LADO_ARENA_BOSS = 10;
+const TOPE_RONDAS_CASCADA_IA = 60; // guarda-raíl: nunca debe hacer falta, pero evita un bucle infinito si algo queda mal configurado
 
 // --- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ---
 // Placeholders de balance — mismo criterio que pesoMaximoTransportable
@@ -194,6 +216,15 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.onMessage("refinamiento:depositar", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarRefinamientoDepositar(client, msg));
     this.onMessage("crafteo:iniciar", (client, msg: { recetaId?: string; construccionId?: number }) => this.manejarCrafteoIniciar(client, msg));
     this.onMessage("crafteo:recolectar", (client) => this.manejarCrafteoRecolectar(client));
+
+    // Combate táctico por turnos (docs/GDD_Combate.md, ✅ CONFIRMADO
+    // 2026-08-30 — sustituye al daño directo simple de GDD_Mecanicas.md
+    // §5.4, que queda interino hasta que este camino esté completo).
+    this.onMessage("combate:iniciar", (client, msg: { objetivoId?: string }) => this.manejarCombateIniciar(client, msg));
+    this.onMessage("combate:mover", (client, msg: { combateId?: string; gx?: number; gy?: number }) => this.manejarCombateMover(client, msg));
+    this.onMessage("combate:accion", (client, msg: { combateId?: string; objetivoId?: string }) => this.manejarCombateAccion(client, msg));
+    this.onMessage("combate:pasarTurno", (client, msg: { combateId?: string }) => this.manejarCombatePasarTurno(client, msg));
+    this.onMessage("combate:huir", (client, msg: { combateId?: string }) => this.manejarCombateHuir(client, msg));
 
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
   }
@@ -1563,6 +1594,338 @@ export abstract class RoomExteriorBase extends Room<HubState> {
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad,
       oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
     });
+  }
+
+  // ============================================================
+  // Combate táctico por turnos (docs/GDD_Combate.md, ✅ CONFIRMADO
+  // 2026-08-30). Los handlers son deliberadamente delgados: TODA la
+  // lógica de turnos/daño vive en server/src/combate/{combate,
+  // arenaCombate,pathfindingArena}.ts (puro, testeado) — aquí solo se
+  // valida el mensaje, se traduce Schema<->UnidadCombate y se aplica el
+  // resultado. Mismo criterio que crafteo/motriz: el cliente pide, el
+  // servidor resuelve entero y publica el nuevo estado.
+  // ============================================================
+
+  private tipoCombatiente(id: string): "jugador" | "fauna" | "enemigo" | "npc" | null {
+    if (this.state.players.has(id)) return "jugador";
+    if (this.state.fauna.has(id)) return "fauna";
+    if (this.state.enemigos.has(id)) return "enemigo";
+    if (this.state.npcs.has(id)) return "npc";
+    return null;
+  }
+
+  private statsCombatiente(id: string): { x: number; y: number; hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean } | null {
+    const tipo = this.tipoCombatiente(id);
+    if (tipo === "jugador") {
+      const p = this.state.players.get(id)!;
+      return { x: p.x, y: p.y, hp: p.vida, hpMax: p.vidaMax, ataque: p.ataque, defensa: p.defensa, esJugador: true };
+    }
+    if (tipo === "fauna") {
+      const f = this.state.fauna.get(id)!;
+      return { x: f.x, y: f.y, hp: f.vida, hpMax: f.vidaMax, ataque: f.ataque, defensa: 0, esJugador: false };
+    }
+    if (tipo === "enemigo") {
+      const e = this.state.enemigos.get(id)!;
+      return { x: e.x, y: e.y, hp: e.vida, hpMax: e.vidaMax, ataque: e.ataque, defensa: e.defensa, esJugador: false };
+    }
+    if (tipo === "npc") {
+      const n = this.state.npcs.get(id)!;
+      return { x: n.x, y: n.y, hp: n.vida, hpMax: n.vidaMax, ataque: n.ataque, defensa: n.defensa, esJugador: false };
+    }
+    return null;
+  }
+
+  private aplicarVida(id: string, hp: number) {
+    const tipo = this.tipoCombatiente(id);
+    if (tipo === "jugador") this.state.players.get(id)!.vida = hp;
+    else if (tipo === "fauna") this.state.fauna.get(id)!.vida = hp;
+    else if (tipo === "enemigo") this.state.enemigos.get(id)!.vida = hp;
+    else if (tipo === "npc") this.state.npcs.get(id)!.vida = hp;
+  }
+
+  /** Quita a un combatiente muerto de su lista real y hace lo que corresponda a su tipo. */
+  protected async finalizarMuerte(id: string) {
+    const tipo = this.tipoCombatiente(id);
+    if (tipo === "fauna") {
+      const manejado = await this.onFaunaMuerta(id);
+      if (!manejado) this.state.fauna.delete(id); // sin GestorFaunaSalvaje en esta room: solo se quita del estado
+    } else if (tipo === "enemigo") {
+      this.state.enemigos.delete(id);
+    } else if (tipo === "npc") {
+      this.state.npcs.delete(id);
+    } else if (tipo === "jugador") {
+      // Sin diseño de muerte "de verdad" de jugador todavía (mismo hueco
+      // que el sistema interino, GDD_Mecanicas.md §5.4): rellena a vidaMax
+      // en el sitio en vez de un jugador "muerto" andante.
+      const p = this.state.players.get(id);
+      if (p) p.vida = p.vidaMax;
+    }
+  }
+
+  /**
+   * Punto de enganche (patrón "mecanismo listo" ya usado por
+   * matarIndividuo/cadáveres): una fauna salvaje muerta en combate debe
+   * pasar por GestorFaunaSalvaje.matarIndividuo (persiste, quita del
+   * estado Y crea su cadáver) — pero ese gestor solo vive en HubRoom.
+   * Devuelve `true` si ya se encargó de quitarla del estado (para que
+   * `finalizarMuerte` no lo intente otra vez); `false` = no hay gestor
+   * aquí, que la quite el camino genérico (sin cadáver).
+   */
+  protected async onFaunaMuerta(_id: string): Promise<boolean> {
+    return false;
+  }
+
+  private combatePorUnidad(id: string): [string, CombateSchema] | null {
+    for (const [combateId, combate] of this.state.combates.entries()) {
+      if (combate.unidades.has(id)) return [combateId, combate];
+    }
+    return null;
+  }
+
+  private unidadDesdeSchema(cu: CombateUnidad): UnidadCombate {
+    return {
+      id: cu.id, esJugador: cu.esJugador, bando: cu.bando as Bando,
+      gx: cu.gx, gy: cu.gy, hp: cu.hp, hpMax: cu.hpMax,
+      ap: cu.ap, apMax: cu.apMax, mp: cu.mp, mpMax: cu.mpMax,
+      iniciativa: cu.iniciativa, estado: cu.estado as UnidadCombate["estado"],
+      ataqueFisico: cu.ataqueFisico, defensaFisica: cu.defensaFisica, alcance: cu.alcance,
+    };
+  }
+
+  /** Aplica una lista de UnidadCombate (salida del motor puro) sobre el CombateSchema real. */
+  private aplicarUnidadesASchema(combate: CombateSchema, unidades: UnidadCombate[]) {
+    for (const u of unidades) {
+      const cu = combate.unidades.get(u.id);
+      if (!cu) continue;
+      cu.gx = u.gx; cu.gy = u.gy; cu.hp = u.hp; cu.ap = u.ap; cu.mp = u.mp; cu.estado = u.estado;
+      this.aplicarVida(u.id, u.hp); // el estado "real" (Player/Fauna/Npc/Enemigo) es la fuente de verdad fuera del combate
+    }
+  }
+
+  private arenaDeCombate(combate: CombateSchema): Arena {
+    return { ancho: combate.ancho, alto: combate.alto, obstaculos: Uint8Array.from(combate.obstaculos) };
+  }
+
+  /** Recorta un NxN de `this.mundo` centrado en (cx,cy) — se desplaza para caber entero si choca con el borde del mapa. */
+  private construirArenaDeCombate(cx: number, cy: number, lado: number): { gx0: number; gy0: number; arena: Arena } {
+    let gx0 = Math.round(cx - lado / 2);
+    let gy0 = Math.round(cy - lado / 2);
+    gx0 = Math.max(0, Math.min(gx0, this.mundo.ancho - lado));
+    gy0 = Math.max(0, Math.min(gy0, this.mundo.alto - lado));
+    const obstaculos = new Uint8Array(lado * lado);
+    for (let gy = 0; gy < lado; gy++) {
+      for (let gx = 0; gx < lado; gx++) {
+        if (tipoEn(this.mundo, gx0 + gx, gy0 + gy) === TIPO.SOLIDO) obstaculos[gy * lado + gx] = 1;
+      }
+    }
+    return { gx0, gy0, arena: { ancho: lado, alto: lado, obstaculos } };
+  }
+
+  private crearUnidadCombate(
+    id: string,
+    bando: Bando,
+    gx: number,
+    gy: number,
+    stats: { hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean },
+  ): CombateUnidad {
+    const cu = new CombateUnidad();
+    cu.id = id;
+    cu.esJugador = stats.esJugador;
+    cu.bando = bando;
+    cu.gx = Math.max(0, Math.round(gx));
+    cu.gy = Math.max(0, Math.round(gy));
+    cu.hp = stats.hp;
+    cu.hpMax = stats.hpMax;
+    cu.ap = AP_MAX_COMBATE; cu.apMax = AP_MAX_COMBATE;
+    cu.mp = MP_MAX_COMBATE; cu.mpMax = MP_MAX_COMBATE;
+    cu.iniciativa = calcularIniciativa(10, Math.random);
+    cu.estado = "activo";
+    cu.ataqueFisico = stats.ataque;
+    cu.defensaFisica = stats.defensa;
+    cu.alcance = 1; // cuerpo a cuerpo por defecto — sin cálculo de arma equipada todavía (GDD_Mecanicas §5.4)
+    return cu;
+  }
+
+  private manejarCombateIniciar(client: Client, msg: { objetivoId?: string }) {
+    const atacanteId = client.sessionId;
+    const atacante = this.state.players.get(atacanteId);
+    if (!atacante || !msg?.objetivoId || msg.objetivoId === atacanteId) return;
+    if (this.combatePorUnidad(atacanteId)) return client.send("combate:error", { motivo: "ya estás en combate" });
+
+    // Si el objetivo ya está en un combate activo, únete a ese bando contrario (co-op, GDD §1).
+    const existente = this.combatePorUnidad(msg.objetivoId);
+    if (existente) {
+      const [combateId, combate] = existente;
+      const objetivoUnidad = combate.unidades.get(msg.objetivoId)!;
+      const bandoPropio: Bando = objetivoUnidad.bando === "A" ? "B" : "A";
+      const cu = this.crearUnidadCombate(atacanteId, bandoPropio, atacante.x - combate.gx0, atacante.y - combate.gy0, {
+        hp: atacante.vida, hpMax: atacante.vidaMax, ataque: atacante.ataque, defensa: atacante.defensa, esJugador: true,
+      });
+      combate.unidades.set(atacanteId, cu);
+      combate.ordenTurnos.push(atacanteId);
+      return;
+    }
+
+    const objetivoStats = this.statsCombatiente(msg.objetivoId);
+    if (!objetivoStats) return client.send("combate:error", { motivo: "objetivo no encontrado" });
+    if (Math.hypot(objetivoStats.x - atacante.x, objetivoStats.y - atacante.y) > RADIO_INTERACCION) {
+      return client.send("combate:error", { motivo: "demasiado lejos" });
+    }
+
+    const esBoss = this.state.enemigos.get(msg.objetivoId)?.esBoss ?? false;
+    const lado = esBoss ? LADO_ARENA_BOSS : LADO_ARENA_NORMAL;
+    const cx = Math.floor((atacante.x + objetivoStats.x) / 2);
+    const cy = Math.floor((atacante.y + objetivoStats.y) / 2);
+    const { gx0, gy0, arena } = this.construirArenaDeCombate(cx, cy, lado);
+
+    const combate = new CombateSchema();
+    combate.gx0 = gx0; combate.gy0 = gy0; combate.ancho = arena.ancho; combate.alto = arena.alto;
+    for (const casilla of arena.obstaculos) combate.obstaculos.push(casilla);
+
+    const uAtacante = this.crearUnidadCombate(atacanteId, "A", atacante.x - gx0, atacante.y - gy0, {
+      hp: atacante.vida, hpMax: atacante.vidaMax, ataque: atacante.ataque, defensa: atacante.defensa, esJugador: true,
+    });
+    const uObjetivo = this.crearUnidadCombate(msg.objetivoId, "B", objetivoStats.x - gx0, objetivoStats.y - gy0, objetivoStats);
+    combate.unidades.set(atacanteId, uAtacante);
+    combate.unidades.set(msg.objetivoId, uObjetivo);
+
+    for (const id of ordenarTurnos([this.unidadDesdeSchema(uAtacante), this.unidadDesdeSchema(uObjetivo)])) {
+      combate.ordenTurnos.push(id);
+    }
+    combate.turnoActual = 0;
+
+    const combateId = `combate:${atacanteId}:${Date.now()}`;
+    this.state.combates.set(combateId, combate);
+
+    void this.avanzarTurnosIA(combateId); // por si el objetivo tiene más iniciativa y le toca a él primero
+  }
+
+  private manejarCombateMover(client: Client, msg: { combateId?: string; gx?: number; gy?: number }) {
+    if (!msg?.combateId || typeof msg.gx !== "number" || typeof msg.gy !== "number") return;
+    const combate = this.state.combates.get(msg.combateId);
+    if (!combate) return;
+    const idActual = combate.ordenTurnos[combate.turnoActual];
+    if (idActual !== client.sessionId) return client.send("combate:error", { motivo: "no es tu turno" });
+    const cu = combate.unidades.get(client.sessionId);
+    if (!cu || cu.estado !== "activo") return;
+
+    const arena = this.arenaDeCombate(combate);
+    const ocupadas = new Set<string>();
+    for (const otra of combate.unidades.values()) {
+      if (otra.id !== cu.id && otra.estado === "activo") ocupadas.add(`${otra.gx},${otra.gy}`);
+    }
+    const coste = costeCasilla(arena, { gx: cu.gx, gy: cu.gy }, { gx: msg.gx, gy: msg.gy }, cu.mp, ocupadas);
+    if (coste === null) return client.send("combate:error", { motivo: "casilla no alcanzable con tu MP" });
+
+    cu.gx = msg.gx; cu.gy = msg.gy; cu.mp -= coste;
+  }
+
+  private async manejarCombateAccion(client: Client, msg: { combateId?: string; objetivoId?: string }) {
+    if (!msg?.combateId || !msg?.objetivoId) return;
+    const combate = this.state.combates.get(msg.combateId);
+    if (!combate) return;
+    const idActual = combate.ordenTurnos[combate.turnoActual];
+    if (idActual !== client.sessionId) return client.send("combate:error", { motivo: "no es tu turno" });
+    const atacante = combate.unidades.get(client.sessionId);
+    const objetivo = combate.unidades.get(msg.objetivoId);
+    if (!atacante || atacante.estado !== "activo" || !objetivo || objetivo.estado !== "activo") return;
+    if (atacante.ap < 1) return client.send("combate:error", { motivo: "sin AP suficiente" });
+    if (!enAlcance(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo))) {
+      return client.send("combate:error", { motivo: "fuera de alcance" });
+    }
+
+    const actualizado = resolverAtaque(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo));
+    this.aplicarUnidadesASchema(combate, [actualizado]);
+    atacante.ap -= 1;
+
+    if (await this.comprobarFinDeCombate(msg.combateId)) return;
+    void this.avanzarTurnosIA(msg.combateId);
+  }
+
+  private async manejarCombatePasarTurno(client: Client, msg: { combateId?: string }) {
+    if (!msg?.combateId) return;
+    const combate = this.state.combates.get(msg.combateId);
+    if (!combate) return;
+    const idActual = combate.ordenTurnos[combate.turnoActual];
+    if (idActual !== client.sessionId) return;
+    this.avanzarTurno(combate);
+    if (await this.comprobarFinDeCombate(msg.combateId)) return;
+    void this.avanzarTurnosIA(msg.combateId);
+  }
+
+  private async manejarCombateHuir(client: Client, msg: { combateId?: string }) {
+    if (!msg?.combateId) return;
+    const combate = this.state.combates.get(msg.combateId);
+    if (!combate) return;
+    const idActual = combate.ordenTurnos[combate.turnoActual];
+    if (idActual !== client.sessionId) return;
+    const cu = combate.unidades.get(client.sessionId);
+    if (!cu) return;
+    cu.estado = "huido";
+    this.avanzarTurno(combate);
+    if (await this.comprobarFinDeCombate(msg.combateId)) return;
+    void this.avanzarTurnosIA(msg.combateId);
+  }
+
+  /** Avanza turnoActual (con vuelta); al dar la vuelta completa regenera AP/MP de las unidades activas. */
+  private avanzarTurno(combate: CombateSchema) {
+    if (combate.ordenTurnos.length === 0) return;
+    const anterior = combate.turnoActual;
+    combate.turnoActual = (combate.turnoActual + 1) % combate.ordenTurnos.length;
+    if (combate.turnoActual <= anterior) {
+      for (const cu of combate.unidades.values()) {
+        if (cu.estado === "activo") { cu.ap = cu.apMax; cu.mp = cu.mpMax; }
+      }
+    }
+  }
+
+  /** Resuelve automáticamente los turnos de fauna/enemigo/npc en cascada hasta que le toque a un jugador o el combate termine. */
+  private async avanzarTurnosIA(combateId: string) {
+    for (let ronda = 0; ronda < TOPE_RONDAS_CASCADA_IA; ronda++) {
+      const combate = this.state.combates.get(combateId);
+      if (!combate || combate.ordenTurnos.length === 0) return;
+      const idActual = combate.ordenTurnos[combate.turnoActual];
+      const cu = combate.unidades.get(idActual);
+      if (!cu || cu.estado !== "activo") {
+        this.avanzarTurno(combate);
+        if (await this.comprobarFinDeCombate(combateId)) return;
+        continue;
+      }
+      if (cu.esJugador) return; // le toca a un jugador: esperar su mensaje
+
+      const arena = this.arenaDeCombate(combate);
+      const unidadesPuras = [...combate.unidades.values()].map((u) => this.unidadDesdeSchema(u));
+      const resultado = jugarTurnoIA(idActual, unidadesPuras, arena);
+      this.aplicarUnidadesASchema(combate, resultado);
+      if (await this.comprobarFinDeCombate(combateId)) return;
+      const combateVivo = this.state.combates.get(combateId);
+      if (!combateVivo) return;
+      this.avanzarTurno(combateVivo);
+    }
+  }
+
+  private bandoTerminado(combate: CombateSchema, bando: Bando): boolean {
+    let hayAlguno = false;
+    for (const cu of combate.unidades.values()) {
+      if (cu.bando !== bando) continue;
+      hayAlguno = true;
+      if (cu.estado === "activo") return false;
+    }
+    return hayAlguno;
+  }
+
+  /** Aplica bajas reales (finalizarMuerte por cada "caido") y termina el combate si algún bando cayó entero. Devuelve true si terminó. */
+  private async comprobarFinDeCombate(combateId: string): Promise<boolean> {
+    const combate = this.state.combates.get(combateId);
+    if (!combate) return true;
+    for (const cu of [...combate.unidades.values()]) {
+      if (cu.estado === "caido") await this.finalizarMuerte(cu.id);
+    }
+    if (this.bandoTerminado(combate, "A") || this.bandoTerminado(combate, "B")) {
+      this.state.combates.delete(combateId);
+      return true;
+    }
+    return false;
   }
 
   private actualizarMovimiento() {

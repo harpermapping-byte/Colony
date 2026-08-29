@@ -312,18 +312,19 @@ sigue siendo un único `ataque` plano en `Player`); armaduras (solo hay
 armas esta pasada, el pedido fue explícito: "de momento... mele y
 arcos/ballestas/hondas").
 
-**⚠️ SUSTITUIDO (decisión del streamer, 2026-08-30):** este sistema de
-daño DIRECTO simple (radio de interacción, sin turnos) queda como
-**INTERINO**. El streamer confirmó que `docs/GDD_Combate.md` (combate
-táctico por turnos en rejilla, arena, AP/MP) es el sistema definitivo —
-sustituye a este en cuanto su camino interactivo esté cableado. Hasta
-entonces, este sigue funcionando (mensaje `combate:atacar`,
-`server/src/combate/combate.ts`) para no dejar el juego sin ningún
-combate mientras se construye el táctico — NO se ha borrado nada
-todavía. Excepción también confirmada: cuando NINGÚN combatiente es un
-jugador (NPC vs animal, NPC vs NPC) el sistema definitivo tampoco usa
-turnos interactivos — se autosimula de golpe (ver
-`docs/GDD_Combate.md` §7). Los campos/Schema de vida que sí quedan
+**⚠️ SUSTITUIDO (decisión del streamer, 2026-08-30) — ✅ el táctico ya
+está en pie.** Este sistema de daño DIRECTO simple (radio de
+interacción, sin turnos) queda **INTERINO**: `docs/GDD_Combate.md`
+(combate táctico por turnos en rejilla) es ahora el sistema definitivo,
+YA implementado y probado contra el servidor real (`CombateSchema`,
+mensajes `combate:iniciar/mover/accion/pasarTurno/huir`, panel de
+cliente placeholder, autosimulación NPC-vs-fauna) — ver ese documento
+para el detalle completo. Este `combate:atacar` sigue funcionando sin
+tocar (no se ha borrado nada) hasta que se decida retirarlo. Excepción
+confirmada: cuando NINGÚN combatiente es un jugador (NPC vs animal, NPC
+vs NPC) el sistema definitivo tampoco usa turnos interactivos — se
+autosimula de golpe (ver `docs/GDD_Combate.md` §7). Los campos/Schema
+de vida que sí quedan
 (`Player.vida/vidaMax`, `Fauna.vida/vidaMax/ataque`, persistencia en
 BD, catálogo de vida de fauna, cadáveres) no se tiran — el sistema
 táctico los reutiliza como su fuente de HP, no inventa unos nuevos.

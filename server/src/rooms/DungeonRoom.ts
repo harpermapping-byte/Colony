@@ -17,6 +17,17 @@ const VARIANTES_POR_ENEMIGO = 3;
 // visita puebla zonas distintas de las mismas ~200 posibles.
 const LIMITE_ENEMIGOS_NORMALES = 30;
 const LIMITE_BOSSES = 2;
+
+// Vida/ataque/defensa por defecto (docs/GDD_Mecanicas.md §5.4, docs/GDD_Combate.md)
+// — placeholder de balance, mismo criterio que otros números de referencia del
+// proyecto (pesoMaximoTransportable, etc.): sin catálogo de stats por
+// enemigoId todavía, un boss simplemente vale mucho más que uno normal.
+const VIDA_ENEMIGO_NORMAL = 40;
+const ATAQUE_ENEMIGO_NORMAL = 8;
+const DEFENSA_ENEMIGO_NORMAL = 4;
+const VIDA_ENEMIGO_BOSS = 150;
+const ATAQUE_ENEMIGO_BOSS = 20;
+const DEFENSA_ENEMIGO_BOSS = 10;
 const COOLDOWN_MS = 60 * 60 * 1000; // 1h tras limpiarla (§4.2 del GDD)
 
 function elegirEnemigoDeTema(temas: string[], soloBosses: boolean): string | null {
@@ -77,6 +88,10 @@ export class DungeonRoom extends InteriorRoom {
       e.enemigoId = enemigoId;
       e.variante = Math.floor(Math.random() * VARIANTES_POR_ENEMIGO);
       e.esBoss = spawn.esBossSlot;
+      e.vida = e.esBoss ? VIDA_ENEMIGO_BOSS : VIDA_ENEMIGO_NORMAL;
+      e.vidaMax = e.vida;
+      e.ataque = e.esBoss ? ATAQUE_ENEMIGO_BOSS : ATAQUE_ENEMIGO_NORMAL;
+      e.defensa = e.esBoss ? DEFENSA_ENEMIGO_BOSS : DEFENSA_ENEMIGO_NORMAL;
       this.state.enemigos.set(`e_${n++}`, e);
     }
     console.log(`  Mazmorra "${clave}": ${n} enemigo(s) activo(s) (de ${this.interior.spawnsEnemigos.length} puntos candidatos).`);

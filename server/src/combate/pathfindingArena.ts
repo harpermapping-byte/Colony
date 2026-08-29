@@ -68,6 +68,36 @@ export function casillasAlcanzables(arena: Arena, origen: Casilla, mp: number, o
   return alcanzables;
 }
 
+/**
+ * Coste real (en pasos, BFS) de ir de `origen` a `destino`, o `null` si no
+ * es alcanzable con `mp` pasos como mucho — usa el MISMO BFS que
+ * `casillasAlcanzables` (coherentes entre sí), pero devuelve la distancia
+ * en vez del conjunto entero. Lo usa `combate:mover` para descontar el MP
+ * gastado de verdad, no una aproximación en línea recta.
+ */
+export function costeCasilla(arena: Arena, origen: Casilla, destino: Casilla, mp: number, ocupadas: Set<string> = new Set()): number | null {
+  if (origen.gx === destino.gx && origen.gy === destino.gy) return 0;
+  let frontera: Casilla[] = [origen];
+  const visitado = new Set<string>([clave(origen)]);
+  const destinoClave = clave(destino);
+  for (let paso = 1; paso <= mp; paso++) {
+    const siguiente: Casilla[] = [];
+    for (const c of frontera) {
+      for (const [dx, dy] of VECINOS_8) {
+        const vec: Casilla = { gx: c.gx + dx, gy: c.gy + dy };
+        const k = clave(vec);
+        if (visitado.has(k) || esObstaculo(arena, vec.gx, vec.gy) || ocupadas.has(k)) continue;
+        if (k === destinoClave) return paso;
+        visitado.add(k);
+        siguiente.push(vec);
+      }
+    }
+    frontera = siguiente;
+    if (frontera.length === 0) break;
+  }
+  return null;
+}
+
 /** Un paso codicioso hacia `objetivo` (8 direcciones), evitando obstáculos — usado por la IA automática (§7), no por el `combate:mover` interactivo (ese usa `casillasAlcanzables` + el punto exacto que pide el jugador). */
 export function pasoHacia(arena: Arena, desde: Casilla, objetivo: Casilla): Casilla {
   const dx = Math.sign(objetivo.gx - desde.gx);

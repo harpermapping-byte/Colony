@@ -6,6 +6,7 @@ import {
   UnidadCombate,
   calcularIniciativa,
   enAlcance,
+  jugarTurnoIA,
   ordenarTurnos,
   resolverAtaque,
   simularCombateAutomatico,
@@ -57,6 +58,33 @@ test("resolverAtaque: marca 'caido' al llegar a 0, nunca por debajo", () => {
   const actualizado = resolverAtaque(atacante, unidad({ hp: 10, hpMax: 50 }));
   assert.strictEqual(actualizado.hp, 0);
   assert.strictEqual(actualizado.estado, "caido");
+});
+
+test("jugarTurnoIA: ataca si el objetivo ya está en alcance", () => {
+  const a = unidad({ id: "a", bando: "A", gx: 0, gy: 0, alcance: 1, ataqueFisico: 10 });
+  const b = unidad({ id: "b", bando: "B", gx: 1, gy: 0, hp: 50, hpMax: 50 });
+  const resultado = jugarTurnoIA("a", [a, b], arenaAbierta());
+  assert.strictEqual(resultado.find((u) => u.id === "b")!.hp, 40);
+  assert.strictEqual(resultado.find((u) => u.id === "a")!.gx, 0, "atacar no mueve al atacante");
+});
+
+test("jugarTurnoIA: se acerca si el objetivo está fuera de alcance", () => {
+  const a = unidad({ id: "a", bando: "A", gx: 0, gy: 0, alcance: 1, mp: 2 });
+  const b = unidad({ id: "b", bando: "B", gx: 5, gy: 0 });
+  const resultado = jugarTurnoIA("a", [a, b], arenaAbierta());
+  const actualizado = resultado.find((u) => u.id === "a")!;
+  assert.strictEqual(actualizado.gx, 2, "se movió 2 casillas (su mp) hacia el objetivo");
+  assert.strictEqual(actualizado.hp, a.hp, "moverse no cambia su propia vida");
+});
+
+test("jugarTurnoIA: no hace nada si la unidad ya cayó, o si no queda enemigo vivo", () => {
+  const caida = unidad({ id: "a", bando: "A", estado: "caido" });
+  const b = unidad({ id: "b", bando: "B", gx: 1, gy: 0 });
+  assert.deepStrictEqual(jugarTurnoIA("a", [caida, b], arenaAbierta()), [caida, b]);
+
+  const vivo = unidad({ id: "a", bando: "A" });
+  const bCaido = unidad({ id: "b", bando: "B", gx: 1, gy: 0, estado: "caido" });
+  assert.deepStrictEqual(jugarTurnoIA("a", [vivo, bCaido], arenaAbierta()), [vivo, bCaido]);
 });
 
 test("simularCombateAutomatico: dos animales sin defensa, uno mucho más fuerte gana siempre igual (determinista)", () => {
