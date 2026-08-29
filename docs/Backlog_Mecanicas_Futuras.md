@@ -114,7 +114,7 @@ Primer boceto de qué estadísticas tiene un jugador (el streamer las dio, aquí
 - Vida, Comida, Bebida, Sueño, Estamina.
 - Defensa física, Defensa mágica, Ataque físico, Ataque mágico — estas dos últimas parejas son más "de combate" que "vitales", pero el streamer las agrupó con el mismo mecanismo: **todas modificables por consumibles, objetos, armaduras y armas** (un vital como Comida sube al comer; un vital como Defensa física sube al llevar una armadura puesta — mismo tipo de modificador aplicado a cosas distintas).
 
-**Atributos** (fuerza, inteligencia, destreza, sigilo, carisma, liderazgo):
+**Atributos** (lista original del streamer: fuerza, inteligencia, destreza, sigilo, carisma, liderazgo — **revisada 2026-08-30, ver `docs/GDD_Personaje.md` §3**: `liderazgo` sale, entran `resistencia` y `comercio`; lista final de 7: fuerza, destreza, inteligencia, resistencia, sigilo, carisma, comercio):
 - Cada uno con sus propias especificaciones y bonus (qué desbloquea/mejora cada uno — pendiente).
 - Valor de partida: unos base, con matiz para cuando exista el creador de personaje del jugador (`personajes/` ya genera la ficha física/morfología por semilla — la generación de ATRIBUTOS de un PJ elegido por un jugador de verdad es otra cosa, distinta de un NPC aleatorio; falta decidir si el jugador reparte puntos, si nacen fijos según algo que elige, o una mezcla).
 - Mejoran (o empeoran) **según uso/experiencia**, no un nivel global — encaja con el patrón ya usado en oficios (ver abajo) y evita un "sube de nivel y repartes puntos" genérico. Sin cerrar: la fórmula de progreso, si hay deterioro real por desuso prolongado, y el tope máximo de cada atributo.

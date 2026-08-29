@@ -54,18 +54,26 @@ Pedido explícito: "cotar cada atributo de 1 a 10 niveles, con más XP por nivel
 
 Es la MISMA fórmula que oficios ya usaba hasta nivel 6 (`generarUmbrales(6,100)` reproduce EXACTO `[0,100,300,600,1000,1500]`, sin cambiar su balance) — `UMBRALES_NIVEL_ATRIBUTO = generarUmbrales(10, 100)` solo extiende la misma progresión 4 niveles más. Llegar al 10 (4500 XP) cuesta 3x lo que costaba llegar al antiguo tope (1500 XP en nivel 6) — deliberado, para que el máximo se sienta lejano.
 
-### 3.2 Disparadores de XP — **5 de 6 atributos ya conectados** (✅ 2026-08-30, antes eran 2)
+### 3.2 Disparadores de XP — **6 de 7 atributos, con varias formas cada uno** (✅ 2026-08-30)
 
-Mismo criterio que Crafteo arrancó con una receta representativa por familia en vez del árbol entero — cada disparador cuelga de una acción REAL que ya existía en el servidor, ninguno inventado para la ocasión:
+Lista de atributos revisada (pedido explícito, ver §0-bis): `liderazgo` sale (un único disparador no lo justificaba) y entran `resistencia`/`comercio`. Pedido explícito sobre los disparadores: "que cada atributo tenga varias formas de sacar exp... todas las que tengan crafteo también crafteando o recolectando". Mismo criterio que Crafteo arrancó con una receta representativa por familia — cada disparador cuelga de una acción REAL que ya existía en el servidor, ninguno inventado para la ocasión:
 
-- **Liderazgo** ← `gremio:fundar` (30 XP) — fundar un gremio.
-- **Carisma** ← `npc:hablar` (5 XP, solo en respuesta con éxito) — ya limitado por el cooldown de 3s existente (cuota de Gemini/Groq).
-- **Fuerza** ← `coger` un objeto "pesado" (`peso >= 2` en el catálogo, +2 XP) — `manejarCoger` es 100% SÍNCRONO a propósito (atomicidad del pickup, ver su comentario); la XP se otorga con `otorgarXpAtributoPorSesion` SIN awaitear, un efecto secundario en segundo plano que no reabre esa ventana. El consumidor que YA tenía Fuerza (`pesoMaximoTransportable(fuerza)`, `docs/GDD_Inventario.md`) por fin recibe un valor real detrás — aunque esa fórmula en sí SIGUE sin estar conectada a ningún límite real de peso transportable (ver Backlog).
-- **Destreza** ← un golpe conectado en combate interactivo (`combate:accion`, +3 XP) — el atacante siempre es un jugador ahí (el propio handler ya lo garantiza).
-- **Inteligencia** ← completar un crafteo (`crafteo:recolectar`, +4 XP) — entrena el atributo general A LA VEZ que el oficio concreto.
-- **Sigilo**: se queda en nivel 1 por defecto, SIN disparador todavía — no existe ningún sistema de sigilo en el servidor que lo justifique (sería inventar un disparador falso).
+| Atributo | Disparador 1 | Disparador 2 |
+|---|---|---|
+| **Fuerza** | `coger` un objeto "pesado" (`peso≥2`, +2 XP) — talar/minar | Golpe conectado en combate (`combate:accion`, +1 XP) — "dando golpes" |
+| **Destreza** | Golpe conectado en combate (`combate:accion`, +3 XP) | Moverse en combate (`combate:mover`, +1 XP) — reflejos/agilidad |
+| **Inteligencia** | Completar un crafteo (`crafteo:recolectar`, +4 XP) | `coger` CUALQUIER recurso del mundo (`+1 XP`, sin importar el peso) — "crafteando o recolectando" |
+| **Resistencia** | Recibir un golpe en combate (+2 XP) — jugador atacado por otro jugador O por la IA de fauna/enemigo, mismo punto de aplicación | *(sin segundo disparador — "hacer ejercicio" no tiene ningún sistema de esfuerzo sostenido/sprint todavía; no se fabrica uno)* |
+| **Sigilo** | *(sin disparador — no existe ningún sistema de sigilo en el servidor)* | |
+| **Carisma** | `npc:hablar` con éxito (5 XP) | Fundar un gremio (`gremio:fundar`, 30 XP) — HEREDADO de Liderazgo, mismo valor |
+| **Comercio** | Comprar en un tenderete (`tenderete:comprar`, +2 XP) | Reponer/vender en tu propio tenderete (`tenderete:reponer`, +3 XP) |
 
-Los números son placeholder de balance (mismo criterio que el resto del proyecto) — pensados para la curva de 10 niveles: a +2/+3/+4 XP por acción, el máximo pide cientos de repeticiones, no un puñado.
+Detalles de implementación que importan:
+- `manejarCoger` es 100% SÍNCRONO a propósito (atomicidad del pickup, ver su comentario en `RoomExteriorBase.ts`) — Fuerza/Inteligencia se otorgan con `otorgarXpAtributoPorSesion` SIN awaitear, un efecto secundario en segundo plano que no reabre esa ventana.
+- **Resistencia** es el caso más delicado: el golpe puede venir de `manejarCombateAccion` (jugador ataca) o de `avanzarTurnosIA` (la IA de un enemigo/fauna ataca, sin ningún `Client` a mano ese instante) — se detecta en el ÚNICO punto donde ambos caminos convergen (`aplicarUnidadesASchema`, comparando hp antes/después) y se otorga por `sessionId` directo (`otorgarXpAtributoPorSessionId`, variante nueva de `otorgarXpAtributoPorSesion` para cuando no hay `Client`).
+- El consumidor que YA tenía Fuerza (`pesoMaximoTransportable(fuerza)`, `docs/GDD_Inventario.md`) por fin recibe un valor real detrás — aunque esa fórmula en sí SIGUE sin estar conectada a ningún límite real de peso transportable (ver Backlog).
+
+Los números son placeholder de balance (mismo criterio que el resto del proyecto) — pensados para la curva de 10 niveles: a +1/+2/+3/+4 XP por acción, el máximo (4500 XP) pide cientos de repeticiones, no un puñado.
 
 ## 4. Consumir — primer uso real de `tipo:"consumible"`
 
@@ -75,17 +83,18 @@ Dos consumibles reales de partida (aditivo en `items/catalogo/items.json`): `rac
 
 ## 5. Verificación
 
-- `server/test/vitales.test.ts` (5) y `server/test/atributos.test.ts` (3): decaimiento por hora real, clamp en 0 y en el máximo, `dt<=0` no muta nada, curva de nivel compartida. No cubre `vida` (vive en `server/test/combate.test.ts`, ajeno a este documento).
-- `server/test/nivel.test.ts` (5, añadido 2026-08-30 con la curva de 10 niveles): `generarUmbrales` reproduce EXACTO la tabla de oficios antigua, la curva de 10 niveles crece de forma no lineal, tope duro en nivel 10 por mucha XP que se le dé, `nivelDeXp` sin segundo argumento sigue dando el comportamiento de oficios (compatibilidad).
-- Suite completa de servidor: 356/356 tras añadir la curva de 10 niveles + los 3 disparadores nuevos (fuerza/destreza/inteligencia). `tsc` limpio en server y client.
-- E2E manual (`server` real, Colyseus + SQLite, dos fases con reinicio de servidor, repetido tras la reconciliación de §1): `player.vitales`/`player.atributos` replican al cliente desde el primer tick (vitales YA decayendo fracciones de segundo reales, prueba de que el enganche al loop de movimiento está vivo); `personaje:consumir` rechaza una instancia inexistente; `gremio:fundar` otorga 30 XP de liderazgo que sobrevive en `jugador_atributos` tras reabrir la conexión — 7/7 comprobaciones OK.
-- No se verificó en vivo el disparador de carisma (`npc:hablar`) porque requiere `GEMINI_API_KEY`/`GROQ_API_KEY` configuradas (no disponibles en este entorno) — el camino de éxito que otorga la XP está revisado por código y usa el mismo helper (`otorgarXpAtributo`) ya probado end-to-end por el disparador de liderazgo.
-- Los 3 disparadores nuevos (fuerza/destreza/inteligencia, §3.2) están revisados por código y usan el MISMO `otorgarXpAtributo` ya probado end-to-end por liderazgo — no se repitió el E2E manual completo para cada uno, salvo `combate.e2e.mjs` (ver `docs/GDD_Combate.md`), que sí corrió de nuevo tras añadir la llamada de Destreza dentro de `combate:accion` y confirmó que el fire-and-forget no rompe ni cuelga el combate.
+- `server/test/vitales.test.ts` (5) y `server/test/atributos.test.ts` (3): decaimiento por hora real, clamp en 0 y en el máximo, `dt<=0` no muta nada, curva de nivel compartida, lista de 7 atributos correcta (`liderazgo` explícitamente rechazado). No cubre `vida` (vive en `server/test/combate.test.ts`, ajeno a este documento).
+- `server/test/nivel.test.ts` (5): `generarUmbrales` reproduce EXACTO la tabla de oficios antigua, la curva de 10 niveles crece de forma no lineal, tope duro en nivel 10 por mucha XP que se le dé, `nivelDeXp` sin segundo argumento sigue dando el comportamiento de oficios (compatibilidad).
+- Suite completa de servidor: 356/356 tras añadir la curva de 10 niveles + 7 disparadores nuevos/movidos (fuerza×2, destreza×2, inteligencia×2, resistencia×1, carisma reubicado desde liderazgo, comercio×2). `tsc` limpio en server y client.
+- E2E manual (`server` real, Colyseus + SQLite, dos fases con reinicio de servidor, repetido tras la reconciliación de §1): `player.vitales`/`player.atributos` replican al cliente desde el primer tick; `personaje:consumir` rechaza una instancia inexistente; fundar gremio otorga XP persistida de verdad — 7/7 comprobaciones OK (con `liderazgo`, previa a la revisión de §3.2; el mismo `otorgarXpAtributo` sigue siendo el que aplica la XP de Carisma ahora).
+- No se verificó en vivo el disparador de carisma vía `npc:hablar` (requiere `GEMINI_API_KEY`/`GROQ_API_KEY`, no disponibles en este entorno) — revisado por código, mismo helper ya probado end-to-end.
+- Los disparadores de la revisión 2026-08-30 (§3.2) están revisados por código, todos usan el MISMO `otorgarXpAtributo`/`otorgarXpAtributoPorSesion`/`otorgarXpAtributoPorSessionId` ya probados — no se repitió el E2E manual completo para cada uno, salvo `combate.e2e.mjs` (ver `docs/GDD_Combate.md`), que sí corrió de nuevo tras añadir las llamadas de Fuerza/Destreza/Resistencia dentro de `combate:accion`/`combate:mover`/`aplicarUnidadesASchema` y confirmó que el fire-and-forget no rompe ni cuelga el combate (el jugador terminó con menos vida, prueba de que la IA enemiga golpeó y el camino de Resistencia se ejecutó sin lanzar error).
 
 ## 6. Fuera de alcance de este esqueleto (pendiente, se afina después)
 
 - **`pesoMaximoTransportable(fuerza)` sigue sin conectar a ningún límite real**: la fórmula existe y ahora recibe un `fuerza` de verdad, pero ningún handler compara el peso cargado contra ese máximo — hoy se puede cargar peso infinito. Fuerza sí sube de nivel (§3.2), pero ese nivel todavía no LIMITA nada en el juego.
-- Fórmulas de bonus de Destreza/Inteligencia/Sigilo/Carisma — a definir cuando exista quien las consuma más allá de dar XP (p.ej. destreza subiendo el `alcance`/daño real en combate, no solo acumulando XP por golpear).
+- **Resistencia solo tiene 1 disparador** ("recibir golpes") — "hacer ejercicio" se dejó fuera a propósito: no existe ningún sistema de esfuerzo físico sostenido (sprint, nado de resistencia) en el servidor todavía; cuando exista, es el segundo disparador natural.
+- Fórmulas de bonus de Destreza/Inteligencia/Sigilo/Carisma/Comercio — a definir cuando exista quien las consuma más allá de dar XP (p.ej. destreza subiendo el `alcance`/daño real en combate, comercio bajando precios en tenderetes, no solo acumulando XP por la acción).
 - Slots de equipo de armadura (cabeza/torso/piernas/brazos sobre los pivotes de `rigHumanoide.ts`) — hoy `slotEquipo` solo tiene `cinturon`/`espalda`/`manoPrincipal`/`manoSecundaria` declarados; añadir armadura es catálogo puro cuando toque, el mecanismo (`puedeEquiparEnSlot`) ya es genérico y no necesita cambios de código.
 - Morir de verdad, respawn, qué se pierde — `docs/Backlog_Mecanicas_Futuras.md` "Muerte y respawn", explícitamente aparte.
 - Persistencia de vitales entre sesiones — ligada a que exista login real (ver §2).

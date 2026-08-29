@@ -5,12 +5,13 @@ import * as assert from "node:assert";
 import { ATRIBUTOS, esAtributoValido } from "../src/personaje/atributos";
 import { nivelDeXp } from "../src/progresion/nivel";
 
-test("ATRIBUTOS: son los 6 que pidió el streamer, en este orden", () => {
-  assert.deepStrictEqual(ATRIBUTOS, ["fuerza", "destreza", "inteligencia", "sigilo", "carisma", "liderazgo"]);
+test("ATRIBUTOS: los 7 revisados 2026-08-30 (liderazgo fuera, resistencia y comercio dentro), en este orden", () => {
+  assert.deepStrictEqual(ATRIBUTOS, ["fuerza", "destreza", "inteligencia", "resistencia", "sigilo", "carisma", "comercio"]);
 });
 
-test("esAtributoValido: reconoce los 6 válidos y rechaza cualquier otra cosa", () => {
+test("esAtributoValido: reconoce los 7 válidos y rechaza cualquier otra cosa", () => {
   for (const a of ATRIBUTOS) assert.strictEqual(esAtributoValido(a), true);
+  assert.strictEqual(esAtributoValido("liderazgo"), false, "liderazgo se retiró de la lista de atributos");
   assert.strictEqual(esAtributoValido("oficio_inventado"), false);
   assert.strictEqual(esAtributoValido(""), false);
 });

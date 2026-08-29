@@ -80,16 +80,25 @@ const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar u
 // --- Crafteo (docs/GDD_Crafteo.md) — placeholder de balance, mismo criterio que el resto ---
 const XP_POR_CRAFTEO = 20;
 
-// --- Atributos (docs/GDD_Personaje.md, pedido 2026-08-30): disparadores
-// reales para fuerza/destreza/inteligencia — sigilo se queda sin disparador
-// todavía (no existe ningún sistema de sigilo que lo justifique). Números
-// de referencia, mismo criterio "placeholder de balance" que el resto —
-// pensados para la curva de 10 niveles (UMBRALES_NIVEL_ATRIBUTO, tope 4500
-// XP): a este ritmo, el máximo pide cientos de acciones, no un puñado.
-const XP_FUERZA_POR_RECOLECTA_PESADA = 2;
+// --- Atributos (docs/GDD_Personaje.md §3.2, pedido 2026-08-30: "que cada
+// atributo tenga varias formas de sacar exp") — cada atributo con sistema
+// real detrás tiene AL MENOS 2 disparadores independientes; sigilo se
+// queda sin ninguno (no existe ningún sistema de sigilo que lo
+// justifique — no se fabrica uno falso). Números de referencia, mismo
+// criterio "placeholder de balance" que el resto — pensados para la curva
+// de 10 niveles (UMBRALES_NIVEL_ATRIBUTO, tope 4500 XP): a este ritmo, el
+// máximo pide cientos de acciones, no un puñado.
+const XP_FUERZA_POR_RECOLECTA_PESADA = 2; // "talando/minando cosas con herramientas" — coger algo pesado del mundo
 const PESO_MINIMO_FUERZA = 2; // solo objetos "pesados" (piedra, madera...) cuentan — coger una pluma no entrena fuerza
+const XP_FUERZA_POR_GOLPE_CONECTADO = 1; // "dando golpes" — un golpe cuerpo a cuerpo también entrena fuerza, además de destreza
 const XP_DESTREZA_POR_GOLPE_CONECTADO = 3;
+const XP_DESTREZA_POR_MOVER_EN_COMBATE = 1; // moverse por la arena entrena reflejos/agilidad
 const XP_INTELIGENCIA_POR_CRAFTEO = 4;
+const XP_INTELIGENCIA_POR_RECOLECTAR = 1; // "todas las que tengan crafteo también crafteando o recolectando" — identificar y extraer un recurso también enseña
+const XP_RESISTENCIA_POR_GOLPE_RECIBIDO = 2; // "recibir golpes" entrena aguante — encajar daño en combate
+const XP_CARISMA_POR_FUNDAR_GREMIO = 30; // mismo valor que antes tenía Liderazgo — fundar un gremio sigue siendo un acto social mayor
+const XP_COMERCIO_POR_COMPRAR = 2;
+const XP_COMERCIO_POR_REPONER = 3; // reponer/vender en tu propio tenderete entrena algo más que comprar
 
 /** Lo que hay para coger en un punto: cuánto entra al inventario y qué hacer con la FUENTE si entró. */
 export interface ObjetoCogible extends Cogible {
@@ -304,14 +313,17 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     candidato.confirmar();
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
-    // Fuerza (docs/GDD_Personaje.md): solo objetos "pesados" entrenan —
-    // SIN awaitear, a propósito (ver el comentario de esta función: coger
-    // es 100% síncrono, esto es un efecto secundario en segundo plano que
-    // no puede reabrir esa ventana de atomicidad).
+    // Fuerza/Inteligencia (docs/GDD_Personaje.md §3.2) — SIN awaitear, a
+    // propósito (ver el comentario de esta función: coger es 100%
+    // síncrono, esto es un efecto secundario en segundo plano que no
+    // puede reabrir esa ventana de atomicidad). Fuerza solo con objetos
+    // "pesados" (talar/minar); Inteligencia con CUALQUIER recolecta —
+    // identificar y extraer un recurso enseña algo, sea cual sea su peso.
     const pesoItem = this.catalogoItems[candidato.itemId]?.peso ?? 0;
     if (pesoItem >= PESO_MINIMO_FUERZA) {
       void this.otorgarXpAtributoPorSesion(client, "fuerza", XP_FUERZA_POR_RECOLECTA_PESADA);
     }
+    void this.otorgarXpAtributoPorSesion(client, "inteligencia", XP_INTELIGENCIA_POR_RECOLECTAR);
   }
 
   /** Objeto soltado por CUALQUIER jugador (HubState.objetosMundo, compartido por las 4 rooms) más cercano dentro del radio. Universal: no requiere que la subclase sepa nada. */
@@ -714,10 +726,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
 
     const player = this.state.players.get(client.sessionId);
     if (player) this.aplicarEtiquetaGremio(player, vivo);
-    // Liderazgo (docs/GDD_Personaje.md): fundar un gremio es la acción de
-    // liderazgo más clara que ya existe — mismo bd/jugador de esta función,
-    // sin lookup extra.
-    if (player) await this.otorgarXpAtributo(bd, jugador.id, "liderazgo", player, 30);
+    // Carisma (docs/GDD_Personaje.md §3.2): fundar un gremio es un acto de
+    // liderazgo social — con `liderazgo` retirado de la lista de atributos
+    // (2026-08-30, un único disparador no lo justificaba), esta XP pasa a
+    // Carisma, que ya tenía otro disparador real (`npc:hablar`).
+    if (player) await this.otorgarXpAtributo(bd, jugador.id, "carisma", player, XP_CARISMA_POR_FUNDAR_GREMIO);
     client.send("gremio:estado", await this.detalleGremio(bd, vivo));
   }
 
@@ -743,10 +756,20 @@ export abstract class RoomExteriorBase extends Room<HubState> {
    * principal ya se resolvió antes de que esto termine.
    */
   protected async otorgarXpAtributoPorSesion(client: Client, atributo: Atributo, delta: number) {
-    const nombre = this.nombreDe(client);
-    if (!nombre) return;
-    const player = this.state.players.get(client.sessionId);
+    await this.otorgarXpAtributoPorSessionId(client.sessionId, atributo, delta);
+  }
+
+  /**
+   * Igual que `otorgarXpAtributoPorSesion` pero por `sessionId` directo —
+   * para sitios que NO tienen un `Client` a mano (p.ej. la cascada de
+   * turnos de combate, `avanzarTurnosIA`, que se dispara sola sin que
+   * ningún cliente envíe un mensaje ese instante concreto).
+   */
+  protected async otorgarXpAtributoPorSessionId(sessionId: string, atributo: Atributo, delta: number) {
+    const player = this.state.players.get(sessionId);
     if (!player) return;
+    const nombre = player.name;
+    if (!nombre) return;
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     await this.otorgarXpAtributo(bd, jugador.id, atributo, player, delta);
@@ -1075,6 +1098,8 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     }
     const player = this.state.players.get(client.sessionId);
     if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    // Comercio (docs/GDD_Personaje.md §3.2): reponer/vender en tu propio tenderete.
+    void this.otorgarXpAtributoPorSesion(client, "comercio", XP_COMERCIO_POR_REPONER);
     client.send("tenderete:gestion", { tenderoteId: msg.tenderoteId, items: await bd.listarStockTenderete(msg.tenderoteId) });
   }
 
@@ -1129,6 +1154,8 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     }
     const player = this.state.players.get(client.sessionId);
     if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor!);
+    // Comercio (docs/GDD_Personaje.md §3.2): comprar en un tenderete entrena regateo/mercado.
+    void this.otorgarXpAtributoPorSesion(client, "comercio", XP_COMERCIO_POR_COMPRAR);
     client.send("tenderete:compraResultado", {
       ok: true, tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad,
       precioTotal: r.precioTotal, saldoRestante: r.saldoRestante,
@@ -1798,8 +1825,18 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     for (const u of unidades) {
       const cu = combate.unidades.get(u.id);
       if (!cu) continue;
+      const hpAntes = cu.hp;
       cu.gx = u.gx; cu.gy = u.gy; cu.hp = u.hp; cu.ap = u.ap; cu.mp = u.mp; cu.estado = u.estado;
       this.aplicarVida(u.id, u.hp); // el estado "real" (Player/Fauna/Npc/Enemigo) es la fuente de verdad fuera del combate
+
+      // Resistencia (docs/GDD_Personaje.md §3.2, "recibir golpes"): el
+      // objetivo puede haber sido golpeado por otro jugador (manejarCombateAccion)
+      // o por la IA de un enemigo/fauna (avanzarTurnosIA) — este es el
+      // único punto donde ambos caminos convergen, así que es el sitio
+      // correcto para detectar "un jugador encajó daño" sea quien sea el atacante.
+      if (cu.esJugador && u.hp < hpAntes) {
+        void this.otorgarXpAtributoPorSessionId(u.id, "resistencia", XP_RESISTENCIA_POR_GOLPE_RECIBIDO);
+      }
     }
   }
 
@@ -1919,6 +1956,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     if (coste === null) return client.send("combate:error", { motivo: "casilla no alcanzable con tu MP" });
 
     cu.gx = msg.gx; cu.gy = msg.gy; cu.mp -= coste;
+
+    // Destreza (docs/GDD_Personaje.md §3.2): moverse por la arena entrena
+    // reflejos/agilidad — cu.esJugador ya lo garantiza (solo un jugador
+    // envía este mensaje, ver la comprobación de turno de arriba).
+    void this.otorgarXpAtributoPorSesion(client, "destreza", XP_DESTREZA_POR_MOVER_EN_COMBATE);
   }
 
   private async manejarCombateAccion(client: Client, msg: { combateId?: string; objetivoId?: string }) {
@@ -1939,10 +1981,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.aplicarUnidadesASchema(combate, [actualizado]);
     atacante.ap -= 1;
 
-    // Destreza (docs/GDD_Personaje.md): un golpe conectado en combate
-    // interactivo entrena destreza — atacante SIEMPRE es un jugador aquí
+    // Destreza Y Fuerza (docs/GDD_Personaje.md §3.2, "dando golpes"): un
+    // golpe conectado entrena ambas — atacante SIEMPRE es un jugador aquí
     // (idActual===client.sessionId ya lo garantiza más arriba).
     void this.otorgarXpAtributoPorSesion(client, "destreza", XP_DESTREZA_POR_GOLPE_CONECTADO);
+    void this.otorgarXpAtributoPorSesion(client, "fuerza", XP_FUERZA_POR_GOLPE_CONECTADO);
 
     if (await this.comprobarFinDeCombate(msg.combateId)) return;
     void this.avanzarTurnosIA(msg.combateId);
