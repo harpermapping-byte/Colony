@@ -70,6 +70,27 @@ function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas, opcion
   const warpX = new CapaRuido(semilla + ":warpx", escalaClima(0.10));
   const warpY = new CapaRuido(semilla + ":warpy", escalaClima(0.10));
   const nVulcanismo = new CapaRuido(semilla + ":vulcanismo", escalaClima(0.15));
+  // Cadenas montañosas con dirección (pedido 2026-08-29, "mejor que
+  // montaña porque sí"): la elevación base es ruido suave normal — dos
+  // picos cercanos por pura coincidencia no forman una CADENA, solo dos
+  // bultos redondeados. Una segunda capa de ruido en "cresta" (transforma
+  // cada octava con 1-|2n-1|, que dibuja líneas afiladas en vez de bultos,
+  // técnica estándar de terreno procedural) se SUMA solo donde la
+  // elevación base ya tiende a montaña — así refuerza picos cercanos en
+  // una única cresta conectada en vez de crear picos nuevos en el llano.
+  const nCadenaMontana = new CapaRuido(semilla + ":cadenamontana", escalaClima(0.11));
+  function ruidoCresta(capa, x, y, octavas = 4) {
+    let total = 0, amplitud = 1, amplitudMax = 0, frecuencia = 1;
+    for (let i = 0; i < octavas; i++) {
+      const n = capa.ruido2D(x * frecuencia, y * frecuencia);
+      const r = 1 - Math.abs(2 * n - 1); // 0 en valle/cresta opuesta, 1 en la cresta
+      total += r * r * amplitud; // al cuadrado: crestas más afiladas, valles más planos
+      amplitudMax += amplitud;
+      amplitud *= 0.5;
+      frecuencia *= 2;
+    }
+    return total / amplitudMax;
+  }
   // Modula localmente cuánto empuja un borde de mar/montaña: en vez de un
   // muro/costa perfectamente uniforme, unos tramos reciben más empuje
   // (acantilados que caen o suben de golpe) y otros menos (playas suaves,
@@ -132,7 +153,14 @@ function crearGeneradorBiomas(semilla, biomasHabilitados, catalogoBiomas, opcion
     // sigue rompiendo el borde con la misma fuerza relativa sea cual sea
     // el tamaño del mapa, en vez de volverse invisible al crecer la base.
     const elevacionBase = conDomainWarp(nElevacion, warpX, warpY, x, y, nElevacion.escala / 3);
-    const elevacion = Math.min(1, Math.max(0, elevacionBase + sesgoElevacionBorde(x, y)));
+    // Refuerzo de cresta (cadenas montañosas): solo actúa a partir de
+    // elevación ~0.45 (colinas altas para arriba, 0 por debajo de eso) y
+    // crece hasta plena fuerza hacia 0.75 — así una pradera nunca gana
+    // una cresta de la nada, pero un grupo de colinas cercano SÍ se
+    // conecta en una cadena real en vez de quedar en bultos sueltos.
+    const factorCadena = Math.max(0, Math.min(1, (elevacionBase - 0.45) / 0.3));
+    const elevacionConCadena = elevacionBase + ruidoCresta(nCadenaMontana, x, y) * factorCadena * 0.35;
+    const elevacion = Math.min(1, Math.max(0, elevacionConCadena + sesgoElevacionBorde(x, y)));
 
     // Temperatura con física básica de mapa (no solo ruido): gradiente
     // latitudinal norte (frío) → sur (cálido) + ruido, menos el

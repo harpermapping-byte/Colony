@@ -20,6 +20,46 @@ function cargarJSON(ruta) {
   return JSON.parse(fs.readFileSync(ruta, "utf8"));
 }
 
+// Erosión térmica barata (pedido 2026-08-29, "erosión sí"): técnica clásica
+// de terreno procedural — donde el desnivel entre una casilla y su vecino
+// MÁS BAJO supera el "ángulo de talud", una fracción del exceso se mueve
+// hacia ese vecino, como arena/tierra que resbala hasta reposar en una
+// pendiente estable. Sustituye picos de una sola casilla y escalones
+// bruscos por laderas orgánicas SIN tocar la forma general del relieve
+// (montañas siguen siendo montañas, solo con bordes desgastados de
+// verdad). Coste O(iteraciones × ancho × alto), barato: un buffer delta
+// por iteración, nunca escribe encima de la rejilla que está leyendo (así
+// el orden de recorrido no sesga hacia una esquina).
+function erosionarElevacion(grid, ancho, alto, iteraciones = 6, umbralTalud = 0.05, tasa = 0.5) {
+  const VECINOS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const delta = new Float32Array(grid.length);
+  for (let it = 0; it < iteraciones; it++) {
+    delta.fill(0);
+    for (let y = 0; y < alto; y++) {
+      for (let x = 0; x < ancho; x++) {
+        const idx = y * ancho + x;
+        const h = grid[idx];
+        let idxMin = -1;
+        let hMin = h;
+        for (const [dx, dy] of VECINOS) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto) continue;
+          const nidx = ny * ancho + nx;
+          if (grid[nidx] < hMin) { hMin = grid[nidx]; idxMin = nidx; }
+        }
+        if (idxMin === -1) continue;
+        const diff = h - hMin;
+        if (diff > umbralTalud) {
+          const mover = (diff - umbralTalud) * tasa;
+          delta[idx] -= mover;
+          delta[idxMin] += mover;
+        }
+      }
+    }
+    for (let i = 0; i < grid.length; i++) grid[i] = Math.min(1, Math.max(0, grid[i] + delta[i]));
+  }
+}
+
 function cargarCatalogos() {
   const carpetaCatalogo = path.join(__dirname, "..", "catalogo");
   return {
@@ -103,6 +143,20 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       onProgreso(`  fila ${y}/${altoTiles}`);
     }
   }
+
+  // Erosión térmica (pedido 2026-08-29) — sobre `elevacionGrid` (la misma
+  // que usan después hidrología y el coste de pendiente de caminos, así
+  // los ríos ya fluyen sobre el terreno YA erosionado) ANTES de que nada
+  // más dependa de la elevación. `bandaGrid` se recalcula desde los
+  // valores erosionados con la misma `bandaDeElevacion` de siempre — el
+  // bioma en sí (`biomaGrid`) NO se retoca: ya se decidió con la banda
+  // pre-erosión al puntuar cada candidato (peso 0.3 sobre 4 factores, la
+  // erosión mueve como mucho un par de bandas en casos extremos, no vale
+  // la pena reclasificar bioma entero por esto).
+  onProgreso("Erosionando relieve...");
+  erosionarElevacion(elevacionGrid, anchoTiles, altoTiles);
+  for (let i = 0; i < elevacionGrid.length; i++) bandaGrid[i] = generadorBiomas.bandaDeElevacion(elevacionGrid[i]);
+
   onProgreso("Suavizando fronteras de bioma...");
   const biomaGridSuave = suavizarBiomas(biomaGrid, anchoTiles, altoTiles, 3);
 
