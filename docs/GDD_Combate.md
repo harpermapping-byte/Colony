@@ -136,3 +136,39 @@ Pedido explícito: "en combates de NPC contra animales o NPC vs NPC se autosimul
 - **AP/MP fijos para todo el mundo** (`AP_MAX_COMBATE`/`MP_MAX_COMBATE` en `RoomExteriorBase.ts`): no varían por unidad/clase/equipo.
 - **Sin recompensas** (loot/XP) al ganar un combate interactivo.
 - **Probado de verdad solo en HubRoom** (`client/test/combate.e2e.mjs`, mapa demo, jugador vs fauna salvaje) — el mismo código de `RoomExteriorBase` corre en `RegionRoom`/`InteriorRoom`/`DungeonRoom` (jugador vs `Enemigo` de mazmorra, co-op multi-jugador contra el mismo objetivo) pero esos caminos NO tienen un e2e propio todavía, solo revisión de código.
+
+## 9. PRÓXIMA ITERACIÓN — combate INSTANCIADO en arena aparte + PA único (pedido 2026-08-30, PENDIENTE de implementar)
+
+Con el v1 de arriba (§0-8) ya construido, probado y jugable tal cual (misma room, AP+MP, UI placeholder), el streamer pidió la siguiente vuelta: que el combate se INSTANCIE en un mapa de arena aparte en vez de resolverse en el sitio, con una ventana de tiempo para que se sumen más combatientes antes de empezar. Esto es un cambio real de arquitectura sobre código YA verificado con E2E — se documenta aquí ANTES de tocar nada, mismo criterio que el resto de sistemas grandes de este proyecto (proponer, confirmar, entonces implementar).
+
+### 9.1 Ventana de unión — combate PENDIENTE antes de instanciar nada
+
+`combate:iniciar {objetivoId}` (mismo trigger de §1) deja de crear la arena al instante — crea un `CombateSchema` con una fase `"pendiente"` en la room ACTUAL (exterior/interior donde se cruzaron), visible a todos ahí, con `cierraEn = Date.now() + 60_000`:
+
+- **Jugadores** dentro de `RADIO_INTERACCION` del punto de origen ven un prompt "Unirse al combate" → `combate:unirse {combateId}`.
+- **NPCs/fauna** dentro de ese MISMO `RADIO_INTERACCION` (2.2 — `RoomExteriorBase.ts:44`, la única constante de "cerca" que ya usa todo el proyecto, no se inventa un radio nuevo) se unen AUTOMÁTICAMENTE sin turno del jugador: extensión directa del agro que ya existe (`HubRoom.ts` — un animal ataca si el objetivo está a `< RADIO_INTERACCION`).
+- Cualquier participante ya apuntado puede pulsar "Comenzar ya" (`combate:comenzarYa {combateId}`) para saltarse lo que quede de los 60s.
+
+### 9.2 Al cerrar la ventana — teleport a una room de arena nueva, placeholder en el origen, vuelta al terminar
+
+- El servidor elige una arena (§9.4) y crea una room de arena NUEVA, una por combate (`filterBy(["combateId"])`, mismo patrón de instancia por clave que ya usan `interior`/`mazmorra`, `server/src/index.ts:28-32`) — manda a cada participante el MISMO mensaje que ya existe para cambiar de room, `client.send("portal:ir", {tipo:"combate", combateId, x, y})` (el cliente ya reacciona a esto y reconecta, `client/src/game.ts`) — cero mecanismo de teleport nuevo, el portal de siempre apuntando a otro sitio.
+- **Placeholder en el mapa de origen**: al abrirse la arena, la room de origen deja un marcador (`MarcadorCombateSchema`: x, y, participantes) en un `MapSchema` nuevo de `HubState` (`combatesEnCurso`) mientras dure la pelea — visible a cualquiera que pase por ahí. Se borra al terminar.
+- **Vuelta**: la room de arena guarda por participante `{tipoOrigen, mapaId, x, y}` capturado al entrar — al acabar el combate manda el `portal:ir` inverso a esas coordenadas exactas. Mismo patrón que `InteriorRoom.ts` ya usa para "salir por la puerta".
+- Combate SIN jugadores (§7) sigue exactamente igual — la autosimulación NUNCA instancia nada.
+
+### 9.3 Un único recurso de turno: PA (sustituye AP+MP del v1)
+
+Colapsa `ap`/`apMax`/`mp`/`mpMax` de `CombateUnidad` en un solo `pa`/`paMax`, del que salen las cuatro acciones del turno:
+
+- **Mover**: `pa` por casilla (Chebyshev, mismo cálculo de `casillasAlcanzables` en `pathfindingArena.ts`, solo cambia qué contador se resta).
+- **Combate**: `pa` fijo por golpe (placeholder de balance).
+- **Objetos**: mismo `personaje:consumir` (`docs/GDD_Personaje.md §4`), solo en el turno propio dentro de un combate activo, cuesta `pa`.
+- **Magia**: sin catálogo de hechizos todavía (§8) — mismo hueco "habilidad con coste en `pa`" que una acción de combate normal.
+
+### 9.4 Mapas de arena — bakeados por bioma/interior, uno elegido por combate
+
+Arenas NxN pequeñas, mismo formato de sectores que el resto de bakeadores (compatible con `MundoColision`/`tipoEn()`, cero parser nuevo) — `assets/mapas/arenas/<bioma>/<variante>.json` (+ `interior/<variante>.json`). Catálogo nuevo (`mazmorras/catalogo/arenas.json` o similar) lista variantes por bioma; al cerrar la ventana de unión el servidor elige una determinista por semilla del combate (mismo `elegirPonderado`/PRNG mulberry32 de siempre) entre las del bioma/interior de origen. Bake tool nuevo y pequeño (reusa `mazmorras/src/celular.js` para el contorno — sin salas ni mobiliario, una arena es solo suelo+obstáculos). Esta pasada bakearía solo 1-2 arenas de PRUEBA — la producción real ("varias por bioma") la corre el streamer.
+
+### 9.5 IA de NPC en la arena — ya cubierta por el motor existente, sin cambios
+
+El patrón pedido ("a distancia atacan cuando pueden al más cercano, cuerpo a cuerpo se acercan a combatir") es EXACTAMENTE lo que `arenaCombate.ts:simularCombateAutomatico`/`objetivoMasCercano` ya hace: busca el enemigo vivo más cercano y, si `enAlcance()` (que depende del `alcance` propio — 1 melee, 4-9 a distancia), ataca; si no, se acerca con `pasoHacia`. La distinción melee/distancia es consecuencia del `alcance` de cada unidad, no un caso especial — el motor puro ya construido sirve tal cual para un turno interactivo, no solo para la autosimulación.
