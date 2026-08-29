@@ -17,6 +17,8 @@ export interface EstadisticasCombateAnimal {
   ataque: number;
   /** docs/GDD_Combate.md §7 (autosimulación NPC-vs-animal): si esta especie puede iniciar un encuentro hostil con un NPC. */
   peligroso: boolean;
+  /** docs/GDD_Mascotas.md — perro/gato (fauna urbana) pueden convertirse en mascota a base de comida; el resto de fauna, no. */
+  domesticable: boolean;
 }
 
 export type CatalogoCombateFauna = Record<string, EstadisticasCombateAnimal>;
@@ -26,12 +28,13 @@ interface EntradaCatalogoBaker {
   vidaMaxima?: number;
   ataque?: number;
   peligroso?: boolean;
+  domesticable?: boolean;
 }
 
 // Relleno si una especie llegara a faltar en el catálogo (no debería pasar
 // con el bake actual, pero un animal sin estadísticas no debe romper el
-// combate): vida/ataque de un animal pequeño normal, no peligroso.
-const RELLENO: EstadisticasCombateAnimal = { categoriaVida: "pequeno", vidaMaxima: 15, ataque: 2, peligroso: false };
+// combate): vida/ataque de un animal pequeño normal, no peligroso, no domesticable.
+const RELLENO: EstadisticasCombateAnimal = { categoriaVida: "pequeno", vidaMaxima: 15, ataque: 2, peligroso: false, domesticable: false };
 
 export function estadisticasCombatePorDefecto(): EstadisticasCombateAnimal {
   return { ...RELLENO };
@@ -43,7 +46,13 @@ export function cargarCatalogoCombateFauna(rutaAnimalesJson: string): CatalogoCo
   for (const [id, datos] of Object.entries(raw)) {
     if (id.startsWith("_nota") || !datos || typeof datos !== "object") continue;
     if (!datos.categoriaVida || datos.vidaMaxima == null || datos.ataque == null) continue;
-    catalogo[id] = { categoriaVida: datos.categoriaVida, vidaMaxima: datos.vidaMaxima, ataque: datos.ataque, peligroso: !!datos.peligroso };
+    catalogo[id] = {
+      categoriaVida: datos.categoriaVida,
+      vidaMaxima: datos.vidaMaxima,
+      ataque: datos.ataque,
+      peligroso: !!datos.peligroso,
+      domesticable: !!datos.domesticable,
+    };
   }
   return catalogo;
 }

@@ -29,6 +29,7 @@ const VEL_FAUNA = 1.1; // más lenta que un NPC — los animales pasean, no van 
 const ACCIONES_IDLE = ["comer", "sentarse", "jugar", "dormir"];
 
 interface EstadoFauna {
+  id: string;
   spawn: { x: number; y: number };
   radio: number;
   esquema: Fauna;
@@ -77,6 +78,7 @@ export class GestorFauna {
       esquema.ataque = combate.ataque;
       this.salida.set(s.id, esquema);
       this.animales.push({
+        id: s.id,
         spawn: { x: s.x, y: s.y },
         radio: s.radio,
         esquema,
@@ -84,6 +86,21 @@ export class GestorFauna {
         pausaRestante: 1 + Math.random() * 3,
       });
     }
+  }
+
+  /**
+   * Saca un individuo del merodeo (docs/GDD_Mascotas.md — domesticado tras
+   * 5x "dar de comer"): deja de tickearse Y desaparece del Schema, quien
+   * llama es responsable de darle su nueva vida (mascota siguiendo al
+   * jugador, otro Schema aparte). `false` si el id no existe (ya se quitó,
+   * o nunca fue un spawn de esta room).
+   */
+  quitar(id: string): boolean {
+    const idx = this.animales.findIndex((a) => a.id === id);
+    if (idx === -1) return false;
+    this.animales.splice(idx, 1);
+    this.salida.delete(id);
+    return true;
   }
 
   tick(dt: number) {

@@ -183,6 +183,21 @@ export class Fauna extends Schema {
   @type("number") ataque = 0;
 }
 
+// Mascota (docs/GDD_Mascotas.md, pedido 2026-08-30): perro/gato urbano ya
+// domesticado (5x "dar de comer" — server/src/rooms/base/RoomExteriorBase.ts).
+// Solo existe en el Schema mientras está "siguiendo" a su dueño Y su dueño
+// está en ESTA room — RoomExteriorBase la spawnea al entrar y la borra al
+// salir (nunca se persiste su x/y, solo su fila en BD vía datos/bd.ts). Sin
+// acción propia todavía, solo sigue — mismo criterio "mecanismo listo,
+// sin más disparadores todavía" que el resto del proyecto.
+export class Mascota extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") especieId = "";
+  /** Nombre del jugador dueño — SOLO para la etiqueta del cliente, la lógica de "a quién sigue" vive en memoria del servidor (nunca en el Schema). */
+  @type("string") duenoNombre = "";
+}
+
 // Objeto soltado al mundo por un jugador (fase 2 de inventario, "soltar" —
 // docs/GDD_Inventario.md §7). Sin persistencia esta fase: vive y muere con
 // la room (memoria pura, igual que Enemigo/Fauna) — un reinicio de Render
@@ -210,6 +225,7 @@ export class HubState extends Schema {
   @type({ map: Npc }) npcs = new MapSchema<Npc>();
   @type({ map: Enemigo }) enemigos = new MapSchema<Enemigo>();
   @type({ map: Fauna }) fauna = new MapSchema<Fauna>();
+  @type({ map: Mascota }) mascotas = new MapSchema<Mascota>();
   @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
   // Combates activos (docs/GDD_Combate.md) — un Map, no un singleton: varios
   // grupos pueden pelear a la vez en la misma room sin bloquearse entre sí

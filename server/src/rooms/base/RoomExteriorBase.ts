@@ -1,5 +1,5 @@
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota } from "../schema/HubState";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
 import { cargarCatalogoArenas, elegirArena } from "../../combate/seleccionArena";
@@ -19,7 +19,7 @@ import { recolectableCercano } from "../../mundo/recolectables";
 import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, cargarCatalogoRecetas, excedePesoMaximo } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../../inventario/sincronizarSchema";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -134,6 +134,13 @@ const DURACION_DORMIR_MS = 20_000;
 /** Inanición (comida o bebida a 0): daño paulatino a `vida` por hora REAL — EXCEPCIÓN deliberada a "nadie se hace daño solo con el tiempo" (combate.ts), pedida por el streamer, ver aplicarInanicion(). */
 const DANO_INANICION_POR_HORA = 8;
 
+// --- Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30) — el seguimiento
+// vive aquí (cualquier room); "dar de comer"/domesticar vive en RegionRoom
+// (única room con fauna urbana). Placeholder de balance. ---
+const VEL_MASCOTA = 3.4; // ligeramente más lenta que VEL_ANDAR — sigue, no adelanta
+const DIST_SEGUIMIENTO_MASCOTA = 1.3; // separación objetivo respecto al dueño
+const DIST_TELEPORT_MASCOTA = 15; // el dueño cambió de sitio de golpe (portal/spawn) — no perseguir media room a pie
+
 /** Lo que hay para coger en un punto: cuánto entra al inventario y qué hacer con la FUENTE si entró. */
 export interface ObjetoCogible extends Cogible {
   confirmar: () => void;
@@ -177,6 +184,15 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   // tick nuevo (el cliente pide `dormir:completar` cuando cree que ya toca).
   private durmiendo = new Map<string, { terminaEn: number }>();
   protected mundo!: MundoColision;
+
+  // --- Mascotas (docs/GDD_Mascotas.md) — solo lo que "siguiendo" necesita
+  // en ESTA room: qué sessionId es el dueño de cada mascotaId (nunca en el
+  // Schema, ver comentario de Mascota en HubState.ts), y qué mascotaIds
+  // spawneó cada sesión (limpieza O(1) en onLeave). El offset de seguimiento
+  // es puramente cosmético — no hace falta persistirlo ni sincronizarlo.
+  private mascotaDuenoSesion = new Map<number, string>();
+  private mascotasPorSesion = new Map<string, Set<number>>();
+  private offsetMascota = new Map<number, { ang: number; dist: number }>();
 
   // --- inventario, fase 2 "coger/soltar" (docs/GDD_Inventario.md §7) ---
   // Contenedor PURO por sesión — fuente de verdad para agregarItem/quitarItem
@@ -328,7 +344,16 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.onMessage("combate:pasarTurno", (client, msg: { combateId?: string }) => this.manejarCombatePasarTurno(client, msg));
     this.onMessage("combate:huir", (client, msg: { combateId?: string }) => this.manejarCombateHuir(client, msg));
 
+    // --- Mascotas (docs/GDD_Mascotas.md) — disponibles en cualquier room
+    // con movimiento (Hub/Region/Interior): "dar de comer" es lo único
+    // atado a fauna urbana concreta (solo RegionRoom, registrado ahí).
+    this.onMessage("mascota:listar", (client) => this.manejarMascotaListar(client));
+    this.onMessage("mascota:llamar", (client, msg: { mascotaId?: number }) => this.manejarMascotaLlamar(client, msg));
+    this.onMessage("mascota:dejarEnPropiedad", (client, msg: { mascotaId?: number; propiedadId?: string }) => this.manejarMascotaDejarEnPropiedad(client, msg));
+
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
+    // Seguimiento de mascotas — cosmético, no necesita 30hz (mismo criterio que GestorFauna, 5hz de sobra para un paseo).
+    this.clock.setInterval(() => this.moverMascotas(0.2), 200);
   }
 
   protected nombreDe(client: Client): string | undefined {
@@ -347,6 +372,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.inventarios.set(client.sessionId, contenedor);
     sincronizarContenedor(player.inventario.cuerpo, contenedor); // sin esto el Schema se queda en ancho=0/alto=0 (bug real, ver crítica del diseño)
 
+    // Mascotas "siguiendo" (docs/GDD_Mascotas.md) — sin awaitear a propósito
+    // (mismo criterio que otorgarXpAtributoPorSesion): el jugador entra ya,
+    // sus mascotas aparecen un instante después vía BD, nunca bloquean el join.
+    void this.cargarMascotasSiguiendoDe(client, player.name);
+
     return player;
   }
 
@@ -355,6 +385,19 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.inputs.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
+
+    // Mascotas: desaparecen de ESTA room (no se persiste x/y, ver Mascota en
+    // HubState.ts) — su fila en BD sigue "siguiendo", vuelven a aparecer en
+    // la próxima room a la que entre el dueño.
+    const mascotaIds = this.mascotasPorSesion.get(client.sessionId);
+    if (mascotaIds) {
+      for (const id of mascotaIds) {
+        this.state.mascotas.delete(String(id));
+        this.mascotaDuenoSesion.delete(id);
+        this.offsetMascota.delete(id);
+      }
+      this.mascotasPorSesion.delete(client.sessionId);
+    }
   }
 
   /**
@@ -971,6 +1014,112 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     await this.otorgarXpAtributo(bd, jugador.id, atributo, player, delta);
+  }
+
+  // --- Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30) ---
+
+  /** Al entrar a CUALQUIER room, reaparecen aquí las mascotas que el jugador tiene puestas a "siguiendo". */
+  private async cargarMascotasSiguiendoDe(client: Client, nombre: string) {
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const mascotas = await bd.listarMascotas(jugador.id);
+    for (const m of mascotas) {
+      if (m.ubicacion !== "siguiendo") continue;
+      this.spawnearMascota(client, m, nombre);
+    }
+  }
+
+  /** Crea la fila en BD (nace "siguiendo") y la spawnea en ESTA room — usado por RegionRoom al completar la domesticación (5x comida). */
+  protected async crearMascota(client: Client, especieId: string): Promise<MascotaFila> {
+    const nombre = this.nombreDe(client)!;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const mascota = await bd.crearMascota(jugador.id, especieId);
+    this.spawnearMascota(client, mascota, nombre);
+    return mascota;
+  }
+
+  /** Mete la entrada en el Schema de ESTA room + registra a quién sigue — offset de seguimiento nuevo cada vez que aparece (cosmético). */
+  private spawnearMascota(client: Client, mascota: MascotaFila, duenoNombre: string) {
+    const dueno = this.state.players.get(client.sessionId);
+    if (!dueno) return;
+    const esquema = new Mascota();
+    esquema.especieId = mascota.especieId;
+    esquema.duenoNombre = duenoNombre;
+    esquema.x = dueno.x;
+    esquema.y = dueno.y;
+    this.state.mascotas.set(String(mascota.id), esquema);
+    this.mascotaDuenoSesion.set(mascota.id, client.sessionId);
+    this.offsetMascota.set(mascota.id, { ang: Math.random() * Math.PI * 2, dist: DIST_SEGUIMIENTO_MASCOTA });
+    let set = this.mascotasPorSesion.get(client.sessionId);
+    if (!set) { set = new Set(); this.mascotasPorSesion.set(client.sessionId, set); }
+    set.add(mascota.id);
+  }
+
+  /** La quita de ESTA room (deja de seguir/renderizarse) sin tocar su fila en BD — usado por "dejar en propiedad" y por domesticar (por si acaso ya existiera, no debería). */
+  private quitarMascotaDeSchemaLocal(mascotaId: number) {
+    this.state.mascotas.delete(String(mascotaId));
+    const sessionId = this.mascotaDuenoSesion.get(mascotaId);
+    this.mascotaDuenoSesion.delete(mascotaId);
+    this.offsetMascota.delete(mascotaId);
+    if (sessionId) this.mascotasPorSesion.get(sessionId)?.delete(mascotaId);
+  }
+
+  /** Seguimiento simple: cada mascota persigue un punto fijo (ángulo+distancia) alrededor de su dueño — sin pathing, sin colisión, sin acción (pedido explícito: "no hace ninguna acción de momento, solo te sigue"). */
+  private moverMascotas(dt: number) {
+    this.state.mascotas.forEach((m, clave) => {
+      const mascotaId = Number(clave);
+      const sessionId = this.mascotaDuenoSesion.get(mascotaId);
+      const dueno = sessionId ? this.state.players.get(sessionId) : undefined;
+      if (!dueno) return; // no debería pasar (se limpia en onLeave) — por si acaso, no mover a ningún sitio
+      const off = this.offsetMascota.get(mascotaId) ?? { ang: 0, dist: DIST_SEGUIMIENTO_MASCOTA };
+      const tx = dueno.x + Math.cos(off.ang) * off.dist;
+      const ty = dueno.y + Math.sin(off.ang) * off.dist;
+      const dx = tx - m.x;
+      const dy = ty - m.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 0.05) return;
+      if (dist > DIST_TELEPORT_MASCOTA) { m.x = tx; m.y = ty; return; }
+      const paso = VEL_MASCOTA * dt;
+      if (dist <= paso) { m.x = tx; m.y = ty; }
+      else { m.x += (dx / dist) * paso; m.y += (dy / dist) * paso; }
+    });
+  }
+
+  private async manejarMascotaListar(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const mascotas = await bd.listarMascotas(jugador.id);
+    client.send("mascota:lista", mascotas.map((m) => ({ id: m.id, especieId: m.especieId, ubicacion: m.ubicacion, propiedadId: m.propiedadId })));
+  }
+
+  private async manejarMascotaLlamar(client: Client, msg: { mascotaId?: number }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || typeof msg?.mascotaId !== "number") return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const mascotas = await bd.listarMascotas(jugador.id);
+    const fila = mascotas.find((m) => m.id === msg.mascotaId);
+    if (!fila) return client.send("mascota:error", { motivo: "no_es_tuya" });
+    const ok = await bd.actualizarUbicacionMascota(msg.mascotaId, jugador.id, "siguiendo", null);
+    if (!ok) return client.send("mascota:error", { motivo: "no_es_tuya" });
+    this.spawnearMascota(client, { ...fila, ubicacion: "siguiendo", propiedadId: null }, nombre);
+    client.send("mascota:actualizada", { mascotaId: msg.mascotaId, ubicacion: "siguiendo" as UbicacionMascota });
+  }
+
+  private async manejarMascotaDejarEnPropiedad(client: Client, msg: { mascotaId?: number; propiedadId?: string }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || typeof msg?.mascotaId !== "number" || !msg?.propiedadId) return;
+    const bd = await obtenerBdCompartida();
+    const propiedad = await bd.obtenerPropiedad(msg.propiedadId);
+    if (!propiedad || propiedad.dueno !== nombre) return client.send("mascota:error", { motivo: "no_es_tu_propiedad" });
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const ok = await bd.actualizarUbicacionMascota(msg.mascotaId, jugador.id, "propiedad", msg.propiedadId);
+    if (!ok) return client.send("mascota:error", { motivo: "no_es_tuya" });
+    this.quitarMascotaDeSchemaLocal(msg.mascotaId);
+    client.send("mascota:actualizada", { mascotaId: msg.mascotaId, ubicacion: "propiedad" as UbicacionMascota, propiedadId: msg.propiedadId });
   }
 
   private async manejarGremioInvitar(client: Client, msg: { jugadorNombre?: string }) {

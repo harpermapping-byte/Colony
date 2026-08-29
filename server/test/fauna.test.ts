@@ -61,6 +61,36 @@ test("GestorFauna.tick: un animal en pausa no se mueve; tras agotarla, arranca a
   assert.ok(distancia < 3 + 1.5, `se alejó demasiado de su spawn (${distancia} casillas, radio 3)`);
 });
 
+test("GestorFauna.quitar: saca al animal del estado Y deja de tickearlo (docs/GDD_Mascotas.md, domesticación)", () => {
+  const mundo = mundoAbierto();
+  const salida = new MapSchema<Fauna>();
+  const gestor = new GestorFauna(salida, mundo);
+  gestor.iniciar([
+    { id: "a", especieId: "perro", x: 5, y: 5, radio: 3 },
+    { id: "b", especieId: "gato", x: 6, y: 6, radio: 3 },
+  ]);
+  assert.strictEqual(gestor.cantidad, 2);
+
+  const ok = gestor.quitar("a");
+  assert.strictEqual(ok, true);
+  assert.strictEqual(salida.has("a"), false, "desaparece del Schema");
+  assert.strictEqual(salida.has("b"), true, "el otro animal no se toca");
+  assert.strictEqual(gestor.cantidad, 1);
+
+  // tras quitarlo, seguir tickeando no debe revivirlo ni lanzar error
+  for (let i = 0; i < 20; i++) gestor.tick(0.1);
+  assert.strictEqual(salida.has("a"), false);
+});
+
+test("GestorFauna.quitar: false si el id no existe (ya se quitó, o nunca fue un spawn de esta room)", () => {
+  const mundo = mundoAbierto();
+  const salida = new MapSchema<Fauna>();
+  const gestor = new GestorFauna(salida, mundo);
+  gestor.iniciar([{ id: "a", especieId: "perro", x: 5, y: 5, radio: 3 }]);
+  assert.strictEqual(gestor.quitar("no_existe"), false);
+  assert.strictEqual(gestor.cantidad, 1);
+});
+
 test("GestorFauna: nunca sale de la rejilla transitable (respeta los bordes sólidos)", () => {
   const mundo = mundoAbierto();
   const salida = new MapSchema<Fauna>();
