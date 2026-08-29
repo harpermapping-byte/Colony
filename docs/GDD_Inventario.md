@@ -30,7 +30,7 @@ Campos de cada entrada: `tipo`, `categoriaRecurso?` (solo recursos), `slotEquipo
 - `agregarItem`: si el ítem es apilable, primero rellena pilas YA existentes con hueco (hasta `stackMax`) antes de abrir una pila nueva; si no cabe todo, aplica lo que SÍ entró y devuelve `sin_hueco` — nunca falla en silencio ni a medias sin decirlo.
 - `moverItem`: mismo contenedor (reposicionar/rotar, ignora la propia instancia al comprobar hueco) o entre DOS contenedores distintos (cuerpo → mochila) — todo o nada, si no cabe en destino el origen no se toca.
 - `pesoContenedor`: suma `peso × cantidad` de cada pila — independiente de cuántas casillas ocupe.
-- `pesoMaximoTransportable(fuerza)`: **fórmula PLACEHOLDER** (`20 + fuerza×4`) — el backlog "Sistema de personaje" deja la fórmula real sin cerrar; este es el primer valor de referencia a afinar, no una decisión cerrada.
+- `pesoMaximoTransportable(nivelFuerza)`: **✅ CONECTADA (2026-08-30)** — vive en `server/src/personaje/bonusAtributos.ts` (`20 + (nivel-1)×4`, nivel 1 = base sin bonus, nivel 10 = 56), sigue siendo un placeholder de balance (número de referencia, no cerrado) pero YA limita de verdad: `excedePesoMaximo` (`inventario.ts`) se comprueba antes de `coger`, recoger un crafteo y comprar en un tenderete — ver `docs/GDD_Personaje.md` §3.3.
 
 ## 3. Contenedores anidados — decisión de esta fase
 
@@ -97,4 +97,4 @@ Verificado además con un E2E manual contra un servidor Colyseus real (mapa sint
 - **`rocas.json`/`animales.json` sin ninguna entrada `desaparaceAlRecolectar`**: minado de minerales y caza de fauna quedan fuera de "coger" esta fase — decisión pendiente (¿una veta se agota igual que una planta, o necesita un sistema de golpes/durabilidad aparte?).
 - **Casas de jugador** (`interiorGenerado.ts`, `amueblado:"vacio"`): no tienen nada que coger — decidir si esta fase debe amueblarlas también.
 - **Integración con `HubRoom`**: cargar el inventario de un jugador al entrar y guardarlo al salir — ligado a resolver `jugador_id` real, ver persistencia arriba.
-- **Sistema de personaje** (Fuerza real, no la fórmula placeholder de peso transportable) y **zonas prohibidas para soltar objetos** — ambos siguen "sin diseñar" en el backlog, este documento no los cierra.
+- **Sistema de personaje**: ✅ Fuerza real conectada al peso transportable, ver arriba y `docs/GDD_Personaje.md` §3.3. **Zonas prohibidas para soltar objetos** sigue "sin diseñar" en el backlog, este documento no lo cierra.

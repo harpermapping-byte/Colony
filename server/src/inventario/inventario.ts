@@ -306,13 +306,21 @@ export function pesoContenedor(contenedor: Contenedor, catalogo: CatalogoItems):
 }
 
 /**
- * Fórmula PLACEHOLDER de peso transportable a partir de Fuerza (backlog
- * "Sistema de personaje": la fórmula real está sin cerrar) — lineal simple,
- * documentado como el primer valor de referencia a afinar, no una decisión
- * cerrada. 20kg base + 4kg por punto de Fuerza.
+ * ¿Cargar `cantidad` más de `itemId` dejaría el contenedor por encima de lo
+ * que puede transportar ese nivel de Fuerza? (`pesoMaximoTransportable`,
+ * `server/src/personaje/bonusAtributos.ts` — docs/GDD_Personaje.md §3.3).
+ * `true` = NO cabe por peso (aunque hubiera hueco físico en la rejilla).
  */
-export function pesoMaximoTransportable(fuerza: number): number {
-  return 20 + fuerza * 4;
+export function excedePesoMaximo(
+  contenedor: Contenedor,
+  catalogo: CatalogoItems,
+  itemId: string,
+  cantidad: number,
+  pesoMaximo: number,
+): boolean {
+  const entrada = catalogo[itemId];
+  if (!entrada) return false; // ítem desconocido: que lo rechace intentarCoger, no esto
+  return pesoContenedor(contenedor, catalogo) + entrada.peso * cantidad > pesoMaximo;
 }
 
 export interface SlotsEquipo {

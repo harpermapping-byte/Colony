@@ -14,7 +14,7 @@ import {
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado } from "../../mundo/mapaColision";
 import { recolectableCercano } from "../../mundo/recolectables";
-import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, cargarCatalogoRecetas } from "../../inventario/inventario";
+import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, cargarCatalogoRecetas, excedePesoMaximo } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../../inventario/sincronizarSchema";
 import { IAlmacenDatos, ModoTenencia, ContratoTransporte } from "../../datos/bd";
@@ -43,6 +43,13 @@ import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo }
 import { tickVitales, restaurarVital } from "../../personaje/vitales";
 import { Atributo } from "../../personaje/atributos";
 import { UMBRALES_NIVEL_ATRIBUTO } from "../../progresion/nivel";
+import {
+  pesoMaximoTransportable,
+  vidaMaximaPorResistencia,
+  apMaxPorDestreza,
+  factorVelocidadCrafteo,
+  descuentoComercio,
+} from "../../personaje/bonusAtributos";
 import { curar } from "../../combate/combate";
 
 const VEL_ANDAR = 3.75;
@@ -302,6 +309,16 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const candidato = this.buscarObjetoSoltadoCercano(player.x, player.y) ?? this.buscarCogibleEnMundo(player.x, player.y);
     if (!candidato) {
       client.send("coger:error", { motivo: "nada_cerca" });
+      return;
+    }
+
+    // Fuerza (docs/GDD_Personaje.md §3.3): el peso máximo transportable
+    // ahora SÍ limita de verdad — antes la fórmula existía pero nada la
+    // llamaba (ver Backlog). Se comprueba ANTES de intentarCoger, la
+    // propia fuente (bake/objetosMundo) no se toca si esto rechaza.
+    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    if (excedePesoMaximo(contenedor, this.catalogoItems, candidato.itemId, candidato.cantidad, pesoMaximo)) {
+      client.send("coger:error", { motivo: "demasiado_peso" });
       return;
     }
 
@@ -743,7 +760,12 @@ export abstract class RoomExteriorBase extends Room<HubState> {
    */
   protected async otorgarXpAtributo(bd: IAlmacenDatos, jugadorId: number, atributo: Atributo, player: Player, delta: number) {
     const nuevaXp = await bd.sumarXpAtributo(jugadorId, atributo, delta);
-    player.atributos[atributo] = nivelDeXp(nuevaXp, UMBRALES_NIVEL_ATRIBUTO);
+    const nivel = nivelDeXp(nuevaXp, UMBRALES_NIVEL_ATRIBUTO);
+    player.atributos[atributo] = nivel;
+    // Bonus por nivel (docs/GDD_Personaje.md §3.3) — Resistencia es el
+    // único que toca OTRO campo de Player además de su propio nivel: sube
+    // vidaMax al instante (nunca baja `vida` de golpe, solo el techo).
+    if (atributo === "resistencia") player.vidaMax = vidaMaximaPorResistencia(nivel);
   }
 
   /**
@@ -1138,7 +1160,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     if (dueno.toLowerCase() === nombre.toLowerCase()) return this.errorTenderete(client, "no puedes comprarte a ti mismo");
 
     const bd = await obtenerBdCompartida();
-    const r = await bd.comprarDeTenderete({ tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: dueno });
+    // Comercio (docs/GDD_Personaje.md §3.3): descuento por nivel, sin awaitear una segunda vuelta a BD para leerlo —
+    // player.atributos.comercio ya está replicado y actualizado.
+    const comprador = this.state.players.get(client.sessionId);
+    const descuento = descuentoComercio(comprador?.atributos.comercio ?? 1);
+    const r = await bd.comprarDeTenderete({ tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: dueno, descuento });
     if (!r.ok) return this.errorTenderete(client, r.motivo);
 
     const contenedor = this.inventarios.get(client.sessionId);
@@ -1685,7 +1711,9 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
     if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
-    const factor = factorVelocidadPorEnergia(ctx, this.catalogoConstruible, { objeto: viva.objeto, claves: viva.claves });
+    const factorEnergia = factorVelocidadPorEnergia(ctx, this.catalogoConstruible, { objeto: viva.objeto, claves: viva.claves });
+    // Inteligencia (docs/GDD_Personaje.md §3.3): "craftea más rápido" — multiplica el factor de energía, nunca lo sustituye.
+    const factor = factorEnergia * factorVelocidadCrafteo(player?.atributos.inteligencia ?? 1);
     const duracionMs = (receta.tiempoBaseSeg / Math.max(0.01, factor)) * 1000;
     const terminaEn = Date.now() + duracionMs;
     this.craftesEnCurso.set(client.sessionId, { recetaId: receta.id, terminaEn });
@@ -1707,6 +1735,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
+    const jugadorParaPeso = this.state.players.get(client.sessionId);
+    const pesoMaximo = pesoMaximoTransportable(jugadorParaPeso?.atributos.fuerza ?? 1);
+    if (excedePesoMaximo(contenedor, this.catalogoItems, receta.resultado.itemId, receta.resultado.cantidad, pesoMaximo)) {
+      return this.errorCrafteo(client, "demasiado peso para cargar el resultado — descarga algo primero");
+    }
     const resultado = intentarCoger(contenedor, this.catalogoItems, { itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad });
     if (!resultado.ok) return this.errorCrafteo(client, "no tienes hueco en tu inventario");
 
@@ -1874,7 +1907,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     cu.gy = Math.max(0, Math.round(gy));
     cu.hp = stats.hp;
     cu.hpMax = stats.hpMax;
-    cu.ap = AP_MAX_COMBATE; cu.apMax = AP_MAX_COMBATE;
+    // Destreza (docs/GDD_Personaje.md §3.3): un jugador con más nivel tiene
+    // más AP (más acciones por turno) — solo aplica a jugadores, fauna/
+    // enemigos/NPCs se quedan en el tope fijo de siempre.
+    const apMax = stats.esJugador ? apMaxPorDestreza(this.state.players.get(id)?.atributos.destreza ?? 1) : AP_MAX_COMBATE;
+    cu.ap = apMax; cu.apMax = apMax;
     cu.mp = MP_MAX_COMBATE; cu.mpMax = MP_MAX_COMBATE;
     cu.iniciativa = calcularIniciativa(10, Math.random);
     cu.estado = "activo";
