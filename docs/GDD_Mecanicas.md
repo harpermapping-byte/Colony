@@ -274,12 +274,43 @@ viva en red todavía (confirmado: sin disparador de combate real, ver
 GDD_Faccion_Bandidos.md §2.4) así que no reciben daño; los NPCs civiles
 de asentamiento SÍ tienen stats de combate en su Schema pero nadie los
 ataca (no hay id estable ni ataque cuerpo a cuerpo de NPC hacia jugador);
-sin cálculo de equipo (armas/armaduras no suben `ataque`/`defensa`
-todavía, aunque el campo existe); sin muerte "de verdad" de jugador —
-morir en PvP hoy simplemente rellena la vida al máximo en el sitio, sin
-respawn ni penalización (no había diseño de eso pactado); sin
-cooldown/animación/rango de arma más allá del radio de interacción
-genérico.
+sin muerte "de verdad" de jugador — morir en PvP hoy simplemente rellena
+la vida al máximo en el sitio, sin respawn ni penalización (no había
+diseño de eso pactado); sin cooldown/animación/rango de arma más allá
+del radio de interacción genérico; sin armaduras todavía (solo armas,
+ver abajo).
+
+#### Catálogo de armas (✅ items del catálogo, pedido 2026-08-30)
+
+13 entradas nuevas en `items/catalogo/items.json`, `tipo:"arma"` (ya
+declarado en el union `TipoItem` por la propuesta de `GDD_Combate.md`,
+reutilizado tal cual — mismos campos `ataqueFisico`/`alcance`/
+`cooldownMs`/`durabilidadMax`/`desgastePorUso`, sin inventar un segundo
+esquema de stats):
+
+- **Cuerpo a cuerpo** (alcance 1-3 casillas): `daga`, `espada_corta`,
+  `espada_larga`, `hacha_combate` (distinta de `hacha_talar`, que sigue
+  siendo herramienta de tala sin stats de combate), `maza_guerra`,
+  `lanza`.
+- **A distancia** (alcance 4-9 casillas, más lentas — `cooldownMs`
+  mayor): `honda`, `arco_corto`, `arco_largo`, `ballesta`. Cada una
+  declara `municionId` (campo nuevo en `EntradaCatalogoItem`) apuntando
+  a su munición compatible.
+- **Munición** (`tipo:"municion"`, nuevo valor del union `TipoItem`,
+  apilable, sin `slotEquipo` — se consume, no se equipa): `piedra_honda`,
+  `flecha`, `virote_ballesta`.
+
+Todas con `familiaMaterial`/`tier` (encajan en cadenas de refinamiento
+futuras de `docs/GDD_Crafteo.md`) y desgaste (`durabilidadMax`/
+`desgastePorUso`, mismo `server/src/inventario/desgaste.ts` ya probado).
+
+**Fuera de esta pasada**: recetas de crafteo para fabricarlas (hoy solo
+existen como ítems, sin receta en `items/catalogo/recetas.json`); nadie
+CONSUME `municionId` todavía (ni se resta munición del inventario al
+disparar, ni el mensaje `combate:atacar` distingue melee de distancia —
+sigue siendo un único `ataque` plano en `Player`); armaduras (solo hay
+armas esta pasada, el pedido fue explícito: "de momento... mele y
+arcos/ballestas/hondas").
 
 **Nota de coordinación (dos propuestas en paralelo, pedido 2026-08-30):**
 esto es un sistema de daño DIRECTO simple (radio de interacción, sin

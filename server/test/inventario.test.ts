@@ -21,10 +21,41 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 104); // 90 anteriores + 14 materiales refinados tier1/tier2 (docs/GDD_Crafteo.md: 7 lingotes, piedra_tallada, cristal_pulido, cuero_curtido, tela_hilada, gema_tallada, acero, bronce)
+  assert.strictEqual(ids.length, 117); // 104 anteriores + 13 armas/munición (docs/GDD_Mecanicas.md §5.4: 6 cuerpo a cuerpo, 4 a distancia, 3 tipos de munición)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");
+});
+
+test("armas (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): cuerpo a cuerpo y a distancia con sus stats de combate", () => {
+  const CUERPO_A_CUERPO = ["daga", "espada_corta", "espada_larga", "hacha_combate", "maza_guerra", "lanza"];
+  const A_DISTANCIA = ["honda", "arco_corto", "arco_largo", "ballesta"];
+  for (const id of [...CUERPO_A_CUERPO, ...A_DISTANCIA]) {
+    const e = catalogo[id];
+    assert.ok(e, `falta el arma ${id}`);
+    assert.strictEqual(e.tipo, "arma");
+    assert.strictEqual(e.slotEquipo, "manoPrincipal");
+    assert.ok((e.ataqueFisico ?? 0) > 0, `${id}: sin ataqueFisico`);
+    assert.ok((e.alcance ?? 0) > 0, `${id}: sin alcance`);
+    assert.ok((e.cooldownMs ?? 0) > 0, `${id}: sin cooldownMs`);
+    assert.ok((e.durabilidadMax ?? 0) > 0, `${id}: sin durabilidadMax`);
+  }
+  for (const id of A_DISTANCIA) {
+    assert.ok(catalogo[id].municionId, `${id}: arma a distancia sin municionId`);
+    assert.ok(catalogo[catalogo[id].municionId!], `${id}: municionId no existe en el catálogo`);
+  }
+  for (const id of ["piedra_honda", "flecha", "virote_ballesta"]) {
+    assert.strictEqual(catalogo[id]?.tipo, "municion", `${id}: falta o tipo incorrecto`);
+    assert.strictEqual(catalogo[id].slotEquipo, undefined, `${id}: la munición no se equipa`);
+    assert.ok(catalogo[id].apilable, `${id}: la munición debe apilar`);
+  }
+});
+
+test("armas cuerpo a cuerpo: alcance corto (1-2), las de distancia llegan mucho más lejos", () => {
+  assert.ok(catalogo["daga"].alcance! <= 2);
+  assert.ok(catalogo["espada_larga"].alcance! <= 2);
+  assert.ok(catalogo["arco_largo"].alcance! > catalogo["daga"].alcance!);
+  assert.ok(catalogo["ballesta"].alcance! > catalogo["honda"].alcance!);
 });
 
 test("todo ítem del catálogo tiene huella/peso/colorDebug válidos", () => {

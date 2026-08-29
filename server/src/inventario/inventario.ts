@@ -23,7 +23,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { RecetaCrafteo } from "../construccion/crafteo";
 
-export type TipoItem = "recurso" | "equipable" | "herramienta" | "consumible" | "arma" | "objeto";
+export type TipoItem = "recurso" | "equipable" | "herramienta" | "consumible" | "arma" | "municion" | "objeto";
 
 export interface EntradaCatalogoItem {
   tipo: TipoItem;
@@ -54,6 +54,8 @@ export interface EntradaCatalogoItem {
   cooldownMs?: number;
   defensaFisica?: number;
   defensaMagica?: number;
+  /** id de items/catalogo/items.json (tipo "municion") que consume esta arma a distancia — ausente en armas cuerpo a cuerpo. */
+  municionId?: string;
 
   // --- desgaste (server/src/inventario/desgaste.ts) — ausente = el ítem nunca se desgasta ---
   durabilidadMax?: number;
