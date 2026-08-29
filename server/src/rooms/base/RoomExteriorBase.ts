@@ -42,6 +42,7 @@ import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../c
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
 import { tickVitales, restaurarVital } from "../../personaje/vitales";
 import { Atributo } from "../../personaje/atributos";
+import { UMBRALES_NIVEL_ATRIBUTO } from "../../progresion/nivel";
 import { curar } from "../../combate/combate";
 
 const VEL_ANDAR = 3.75;
@@ -78,6 +79,17 @@ const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar u
 
 // --- Crafteo (docs/GDD_Crafteo.md) — placeholder de balance, mismo criterio que el resto ---
 const XP_POR_CRAFTEO = 20;
+
+// --- Atributos (docs/GDD_Personaje.md, pedido 2026-08-30): disparadores
+// reales para fuerza/destreza/inteligencia — sigilo se queda sin disparador
+// todavía (no existe ningún sistema de sigilo que lo justifique). Números
+// de referencia, mismo criterio "placeholder de balance" que el resto —
+// pensados para la curva de 10 niveles (UMBRALES_NIVEL_ATRIBUTO, tope 4500
+// XP): a este ritmo, el máximo pide cientos de acciones, no un puñado.
+const XP_FUERZA_POR_RECOLECTA_PESADA = 2;
+const PESO_MINIMO_FUERZA = 2; // solo objetos "pesados" (piedra, madera...) cuentan — coger una pluma no entrena fuerza
+const XP_DESTREZA_POR_GOLPE_CONECTADO = 3;
+const XP_INTELIGENCIA_POR_CRAFTEO = 4;
 
 /** Lo que hay para coger en un punto: cuánto entra al inventario y qué hacer con la FUENTE si entró. */
 export interface ObjetoCogible extends Cogible {
@@ -291,6 +303,15 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     }
     candidato.confirmar();
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    // Fuerza (docs/GDD_Personaje.md): solo objetos "pesados" entrenan —
+    // SIN awaitear, a propósito (ver el comentario de esta función: coger
+    // es 100% síncrono, esto es un efecto secundario en segundo plano que
+    // no puede reabrir esa ventana de atomicidad).
+    const pesoItem = this.catalogoItems[candidato.itemId]?.peso ?? 0;
+    if (pesoItem >= PESO_MINIMO_FUERZA) {
+      void this.otorgarXpAtributoPorSesion(client, "fuerza", XP_FUERZA_POR_RECOLECTA_PESADA);
+    }
   }
 
   /** Objeto soltado por CUALQUIER jugador (HubState.objetosMundo, compartido por las 4 rooms) más cercano dentro del radio. Universal: no requiere que la subclase sepa nada. */
@@ -709,7 +730,26 @@ export abstract class RoomExteriorBase extends Room<HubState> {
    */
   protected async otorgarXpAtributo(bd: IAlmacenDatos, jugadorId: number, atributo: Atributo, player: Player, delta: number) {
     const nuevaXp = await bd.sumarXpAtributo(jugadorId, atributo, delta);
-    player.atributos[atributo] = nivelDeXp(nuevaXp);
+    player.atributos[atributo] = nivelDeXp(nuevaXp, UMBRALES_NIVEL_ATRIBUTO);
+  }
+
+  /**
+   * Conveniencia para disparadores que NO tienen ya `bd`/`jugador` a mano
+   * (a diferencia de `gremio:fundar`/`crafteo:recolectar`, que sí) —
+   * resuelve el jugador por nombre y llama a `otorgarXpAtributo`. Pensada
+   * para invocarse SIN awaitear desde un handler síncrono (p.ej.
+   * `manejarCoger`, deliberadamente 100% síncrono — ver su comentario) sin
+   * romper esa garantía: la XP se persiste en segundo plano, la acción
+   * principal ya se resolvió antes de que esto termine.
+   */
+  protected async otorgarXpAtributoPorSesion(client: Client, atributo: Atributo, delta: number) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    await this.otorgarXpAtributo(bd, jugador.id, atributo, player, delta);
   }
 
   private async manejarGremioInvitar(client: Client, msg: { jugadorNombre?: string }) {
@@ -1649,6 +1689,8 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const nuevaXp = await bd.sumarXpOficio(jugador.id, receta.oficio, XP_POR_CRAFTEO);
+    // Inteligencia (docs/GDD_Personaje.md): completar un crafteo entrena tanto el oficio como el atributo general.
+    if (player) await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
     client.send("crafteo:completado", {
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad,
       oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
@@ -1896,6 +1938,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const actualizado = resolverAtaque(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo));
     this.aplicarUnidadesASchema(combate, [actualizado]);
     atacante.ap -= 1;
+
+    // Destreza (docs/GDD_Personaje.md): un golpe conectado en combate
+    // interactivo entrena destreza — atacante SIEMPRE es un jugador aquí
+    // (idActual===client.sessionId ya lo garantiza más arriba).
+    void this.otorgarXpAtributoPorSesion(client, "destreza", XP_DESTREZA_POR_GOLPE_CONECTADO);
 
     if (await this.comprobarFinDeCombate(msg.combateId)) return;
     void this.avanzarTurnosIA(msg.combateId);

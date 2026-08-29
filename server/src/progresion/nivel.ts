@@ -7,14 +7,48 @@
  * único sitio (nunca dupliques una fuente de verdad).
  */
 
-/** PLACEHOLDER de balance (mismo criterio que pesoMaximoTransportable, tiempoBaseSeg...): números de referencia a afinar, no una decisión cerrada. Nivel 1 = sin XP. */
-export const UMBRALES_NIVEL = [0, 100, 300, 600, 1000, 1500];
+/**
+ * Genera una curva de niveles por números triangulares: el umbral de cada
+ * nivel crece un `incrementoBase` MÁS que el salto anterior —
+ * `umbral(n) = incrementoBase * (n-1) * n / 2` — así cada nivel exige más
+ * XP que el anterior (nunca lineal) sin necesitar una tabla escrita a
+ * mano. Con `incrementoBase=100` genera EXACTAMENTE los mismos 6 umbrales
+ * que ya usaba oficios (`[0,100,300,600,1000,1500]`) — la fórmula no es
+ * nueva, es la que ya estaba ahí puesta en limpio para poder reusarla con
+ * otro `nivelMax` (los atributos, pedido 2026-08-30: "que tenga de 1 a 10
+ * niveles con más exp por nivel, no sea que se levee muy rápido").
+ */
+export function generarUmbrales(nivelMax: number, incrementoBase: number): number[] {
+  const umbrales: number[] = [];
+  for (let n = 1; n <= nivelMax; n++) {
+    umbrales.push((incrementoBase * (n - 1) * n) / 2);
+  }
+  return umbrales;
+}
 
-/** Nivel derivado de XP — nunca se persiste el nivel en sí, siempre se calcula de la XP guardada. */
-export function nivelDeXp(xp: number): number {
+/** PLACEHOLDER de balance (mismo criterio que pesoMaximoTransportable, tiempoBaseSeg...): números de referencia a afinar, no una decisión cerrada. Nivel 1 = sin XP. Oficios: máximo nivel 6. */
+export const UMBRALES_NIVEL = generarUmbrales(6, 100);
+
+/**
+ * Atributos del personaje (docs/GDD_Personaje.md, pedido 2026-08-30):
+ * máximo nivel 10, MISMO incremento base que oficios (100) pero con más
+ * niveles — el umbral del nivel 10 (4500 XP) es 3x el antiguo tope de
+ * oficios (1500 XP en nivel 6), así que llegar al máximo de un atributo
+ * cuesta deliberadamente más que subir de oficio.
+ */
+export const UMBRALES_NIVEL_ATRIBUTO = generarUmbrales(10, 100);
+
+/**
+ * Nivel derivado de XP — nunca se persiste el nivel en sí, siempre se
+ * calcula de la XP guardada. `umbrales` por defecto es la curva de
+ * oficios (compatibilidad con el resto del código que ya llamaba
+ * `nivelDeXp(xp)` sin segundo argumento); los atributos pasan
+ * `UMBRALES_NIVEL_ATRIBUTO` explícitamente.
+ */
+export function nivelDeXp(xp: number, umbrales: number[] = UMBRALES_NIVEL): number {
   let nivel = 1;
-  for (let i = 1; i < UMBRALES_NIVEL.length; i++) {
-    if (xp >= UMBRALES_NIVEL[i]) nivel = i + 1;
+  for (let i = 1; i < umbrales.length; i++) {
+    if (xp >= umbrales[i]) nivel = i + 1;
   }
   return nivel;
 }
