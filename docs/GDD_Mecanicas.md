@@ -312,20 +312,21 @@ sigue siendo un único `ataque` plano en `Player`); armaduras (solo hay
 armas esta pasada, el pedido fue explícito: "de momento... mele y
 arcos/ballestas/hondas").
 
-**Nota de coordinación (dos propuestas en paralelo, pedido 2026-08-30):**
-esto es un sistema de daño DIRECTO simple (radio de interacción, sin
-turnos), pedido y confirmado explícitamente por el streamer en esta
-misma fecha. En paralelo, otro agente dejó `docs/GDD_Combate.md` — una
-PROPUESTA de combate táctico por turnos en rejilla (arena, AP/MP,
-`CombateSchema` propio), marcada expresamente "pendiente de confirmación
-del streamer", sin código implementado todavía (solo añadió campos
-`ataqueFisico`/`defensaFisica`/etc. de relleno, sin consumidor, en
-`items/catalogo/items.json`). Los dos sistemas NO chocan en código (esa
-propuesta define su propio `CombateSchema`/`CombateUnidad` aparte de
-`Player`/`Npc`/`Fauna`) pero SÍ compiten en visión de producto — el
-streamer decide si conviven (este sistema para bichos sueltos/PvP
-casual, el táctico por turnos para mazmorras/bosses) o si uno sustituye
-al otro cuando se confirme el diseño de `GDD_Combate.md`.
+**⚠️ SUSTITUIDO (decisión del streamer, 2026-08-30):** este sistema de
+daño DIRECTO simple (radio de interacción, sin turnos) queda como
+**INTERINO**. El streamer confirmó que `docs/GDD_Combate.md` (combate
+táctico por turnos en rejilla, arena, AP/MP) es el sistema definitivo —
+sustituye a este en cuanto su camino interactivo esté cableado. Hasta
+entonces, este sigue funcionando (mensaje `combate:atacar`,
+`server/src/combate/combate.ts`) para no dejar el juego sin ningún
+combate mientras se construye el táctico — NO se ha borrado nada
+todavía. Excepción también confirmada: cuando NINGÚN combatiente es un
+jugador (NPC vs animal, NPC vs NPC) el sistema definitivo tampoco usa
+turnos interactivos — se autosimula de golpe (ver
+`docs/GDD_Combate.md` §7). Los campos/Schema de vida que sí quedan
+(`Player.vida/vidaMax`, `Fauna.vida/vidaMax/ataque`, persistencia en
+BD, catálogo de vida de fauna, cadáveres) no se tiran — el sistema
+táctico los reutiliza como su fuente de HP, no inventa unos nuevos.
 
 ### 5.5 Objetos por el suelo (persistencia visible, decidido)
 
