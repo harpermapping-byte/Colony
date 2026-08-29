@@ -844,9 +844,7 @@
     "colorDebug": "#a08a4a",
     "disposicion": "neutral",
     "radioAgro": 2,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "vibora_del_desierto": {
     "biomas": [
@@ -861,9 +859,7 @@
     "colorDebug": "#c9b060",
     "disposicion": "neutral",
     "radioAgro": 2,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "lagarto_ocelado": {
     "biomas": [
@@ -876,9 +872,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#5a8a4a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "buitre_leonado": {
     "biomas": [
@@ -1414,9 +1408,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#4a8a3a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "sapo": {
     "biomas": [
@@ -1428,9 +1420,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#7a7a4a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "culebra_de_agua": {
     "biomas": [
@@ -1443,9 +1433,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#3a5a3a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "galapago": {
     "biomas": [
@@ -1559,9 +1547,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#e0602a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "buitre_carronero": {
     "biomas": [
@@ -2400,9 +2386,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#8a5a48",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "castor": {
     "colision": true,
@@ -2442,9 +2426,7 @@
     ],
     "disposicion": "neutral",
     "radioAgro": 2,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "cerdo": {
     "colision": true,

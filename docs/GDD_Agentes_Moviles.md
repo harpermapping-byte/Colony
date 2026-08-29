@@ -593,6 +593,33 @@ pájaros, paths precocidos".
   es el ejemplo de ave infinita, `gallo` (doméstico) sigue siendo el
   ejemplo de especie con `criaId` normal.
 
+### Hecho en la fase 6 (reptiles/anfibios PEQUEÑOS también = población infinita)
+
+Pedido: "los reptiles pequeños tampoco están metidos en reproducción —
+digamos que mamíferos, animales de granja, cosas así sí, para que no
+pese el resto tanto".
+
+- **9 especies** (`serpiente_de_cascabel`, `vibora_del_desierto`,
+  `lagarto_ocelado`, `culebra_de_agua`, `lagarto_de_ceniza`,
+  `vibora_europea`, `salamandra_ignea`, `rana`, `sapo` — reptiles y
+  anfibios pequeños, mismo cajón informal) pasan a
+  `poblacionInfinita: true`. Total población infinita:
+  27 insectos + 31 acuáticos + 38 aves + 9 reptiles/anfibios pequeños =
+  **105 de 187 especies**.
+- **NO tocados, a propósito — "pequeños" es literal**: `galapago`
+  (mediano) y `cocodrilo_del_pantano` (grande) se quedan con
+  reproducción normal — el pedido decía específicamente reptiles
+  pequeños, no todos.
+- El sistema de reproducción real queda acotado a **67 especies**
+  (15 pequeñas — mamíferos pequeños + `gallo` doméstico —, 30 medianas,
+  22 grandes) + 15 crías: sobre todo mamíferos (salvajes y de granja) y
+  los dos reptiles/anfibios grandes/medianos que sí se quedaron. Menos
+  de la mitad del catálogo original (187) simula reproducción de verdad;
+  el resto son props decorativos de población fija/infinita, mucho más
+  baratos.
+- Verificado: 265 tests siguen en verde (ningún test referenciaba estas
+  9 especies concretas).
+
 ### Pendiente (fuera de esta pasada)
 
 - **Caza de depredadores con combate y cadáver**: aparcado a propósito —
