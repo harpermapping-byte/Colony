@@ -42,7 +42,7 @@ import { tiempoMundo } from "../../mundo/tiempoMundo";
 import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
 import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../construccion/energia";
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
-import { tickVitales, restaurarVital } from "../../personaje/vitales";
+import { tickVitales, restaurarVital, aplicarInanicion, VITAL_MAX } from "../../personaje/vitales";
 import { Atributo, esAtributoValido } from "../../personaje/atributos";
 import { UMBRALES_NIVEL_ATRIBUTO } from "../../progresion/nivel";
 import {
@@ -127,6 +127,13 @@ const XP_CARISMA_POR_FUNDAR_GREMIO = 30; // mismo valor que antes tenía Lideraz
 const XP_CARISMA_POR_COMPRAR = 2;
 const XP_CARISMA_POR_REPONER = 3; // reponer/vender en tu propio tenderete entrena algo más que comprar
 
+// --- Higiene y sueño en cama (docs/GDD_Personaje.md §3.6, pedido explícito
+// 2026-08-30) — placeholders de balance, mismo criterio que el resto ---
+/** "un tiempo limitado, no estarse horas" — dormir en cama recupera Estamina entera al cabo de esto (tiempo REAL, mismo criterio que el sprint). */
+const DURACION_DORMIR_MS = 20_000;
+/** Inanición (comida o bebida a 0): daño paulatino a `vida` por hora REAL — EXCEPCIÓN deliberada a "nadie se hace daño solo con el tiempo" (combate.ts), pedida por el streamer, ver aplicarInanicion(). */
+const DANO_INANICION_POR_HORA = 8;
+
 /** Lo que hay para coger en un punto: cuánto entra al inventario y qué hacer con la FUENTE si entró. */
 export interface ObjetoCogible extends Cogible {
   confirmar: () => void;
@@ -165,6 +172,10 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   // muere con la sesión, igual que `inputs` (nunca se persiste, solo se
   // usa para saber cuándo tocar `otorgarXpAtributoPorSessionId`).
   private tiempoMovimiento = new Map<string, { correr: number; andar: number }>();
+  // Sueño en cama (docs/GDD_Personaje.md §3.6): vive y muere con la sesión,
+  // igual que `craftesEnCurso` — mismo patrón "terminaEn" que crafteo, sin
+  // tick nuevo (el cliente pide `dormir:completar` cuando cree que ya toca).
+  private durmiendo = new Map<string, { terminaEn: number }>();
   protected mundo!: MundoColision;
 
   // --- inventario, fase 2 "coger/soltar" (docs/GDD_Inventario.md §7) ---
@@ -215,6 +226,16 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.setPatchRate(1000 / 15);
 
     this.onMessage("input", (client, dir: Direccion) => {
+      // Moverse de verdad cancela el sueño en cama (docs/GDD_Personaje.md
+      // §3.6) — un simple "soltar teclas" (x=0,y=0) NO cuenta, para no
+      // despertar al jugador con el propio paquete que confirma que se ha
+      // quedado quieto al tumbarse.
+      if (((dir?.x ?? 0) !== 0 || (dir?.y ?? 0) !== 0) && this.durmiendo.has(client.sessionId)) {
+        this.durmiendo.delete(client.sessionId);
+        const durmiente = this.state.players.get(client.sessionId);
+        if (durmiente) durmiente.durmiendo = false;
+        client.send("dormir:cancelado", {});
+      }
       this.inputs.set(client.sessionId, {
         x: clamp(dir?.x ?? 0, -1, 1),
         y: clamp(dir?.y ?? 0, -1, 1),
@@ -234,6 +255,12 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.onMessage("coger", (client) => this.manejarCoger(client));
     this.onMessage("soltar", (client, msg: { instanciaId?: number; cantidad?: number }) => this.manejarSoltar(client, msg));
     this.onMessage("personaje:consumir", (client, msg: { instanciaId?: number }) => this.manejarPersonajeConsumir(client, msg));
+
+    // Higiene y sueño en cama (docs/GDD_Personaje.md §3.6, pedido explícito 2026-08-30)
+    this.onMessage("higiene:cagar", (client, msg: { instanciaId?: number }) => this.manejarHigieneCagar(client, msg));
+    this.onMessage("higiene:lavar", (client) => this.manejarHigieneLavar(client));
+    this.onMessage("dormir:iniciar", (client, msg: { construccionId?: number }) => this.manejarDormirIniciar(client, msg));
+    this.onMessage("dormir:completar", (client) => this.manejarDormirCompletar(client));
 
     // --- gremios (docs/GDD_Gremios.md) — disponibles en las 4 rooms, no
     // dependen de ContextoConstruccion/parcelas (a diferencia de "construir"),
@@ -516,8 +543,98 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     } else {
       restaurarVital(player.vitales, entrada.restaura.vital, entrada.restaura.cantidad);
       valor = player.vitales[entrada.restaura.vital];
+      // Higiene (docs/GDD_Personaje.md §3.6, pedido explícito): "cada vez
+      // que comes esa comida aumenta la barrita [de cagar]" — misma
+      // cantidad que sube `comida`, al tope se ensucia solo.
+      if (entrada.restaura.vital === "comida") {
+        restaurarVital(player.vitales, "caca", entrada.restaura.cantidad);
+        if (player.vitales.caca >= VITAL_MAX) player.sucio = true;
+      }
     }
     client.send("personaje:consumido", { itemId: it.itemId, vital: entrada.restaura.vital, valor });
+  }
+
+  /**
+   * Higiene (docs/GDD_Personaje.md §3.6, pedido explícito 2026-08-30): usar
+   * una hoja (cogida de `mata_de_hojas_anchas`, baker/catalogo/vegetacion.json)
+   * vacía `caca` a 0 ANTES de llegar al tope — evita ensuciarse. No limpia
+   * `sucio` si ya estaba puesto (eso solo se quita lavándose, ver abajo).
+   */
+  private manejarHigieneCagar(client: Client, msg: { instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor || typeof msg?.instanciaId !== "number") return;
+
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it || it.itemId !== "hoja") return client.send("higiene:error", { motivo: "necesitas una hoja" });
+
+    const resultado = quitarItem(contenedor, msg.instanciaId, 1);
+    if (!resultado.ok) return client.send("higiene:error", { motivo: resultado.motivo ?? "no_encontrado" });
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    player.vitales.caca = 0;
+    // "animación incluida" (pedido) — sin sistema de animaciones por acción
+    // todavía (UI/anim es "lo último", pedido explícito del streamer para
+    // todo el proyecto): el cliente puede reaccionar a este mensaje cuando
+    // exista esa pasada, sin que el servidor cambie.
+    client.send("higiene:cagado", {});
+  }
+
+  /**
+   * Higiene: quita `sucio` — solo dentro del agua (mismo `player.estado` que
+   * ya distingue nadar/bucear de tierra, cero mecanismo nuevo de detección).
+   */
+  private manejarHigieneLavar(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (player.estado === "tierra") return client.send("higiene:error", { motivo: "necesitas estar en el agua" });
+    if (!player.sucio) return client.send("higiene:error", { motivo: "no estás sucio" });
+    player.sucio = false;
+    client.send("higiene:lavado", {});
+  }
+
+  /**
+   * Sueño en cama (docs/GDD_Personaje.md §3.6): reusa el sistema de
+   * construcción del jugador (mismo `ctx.vivas`/`RADIO_INTERACCION` que las
+   * actividades diarias de atributo, §3.5) — la cama tiene que ser una
+   * CONSTRUCCIÓN real colocada por un jugador, `entradaDe(...).esCama`.
+   * Mismo patrón "terminaEn" que `crafteo:iniciar`, sin tick nuevo.
+   */
+  private manejarDormirIniciar(client: Client, msg: { construccionId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    if (this.durmiendo.has(client.sessionId)) return client.send("dormir:error", { motivo: "ya estás durmiendo" });
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return client.send("dormir:error", { motivo: "construcción inexistente" });
+    if (!this.entradaDe(viva.objeto)?.esCama) return client.send("dormir:error", { motivo: "eso no es una cama" });
+
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) {
+      return client.send("dormir:error", { motivo: "demasiado lejos de la cama" });
+    }
+
+    const terminaEn = Date.now() + DURACION_DORMIR_MS;
+    this.durmiendo.set(client.sessionId, { terminaEn });
+    player.durmiendo = true;
+    client.send("dormir:iniciado", { terminaEn });
+  }
+
+  /** Recoge el resultado de dormir — no-op amable si todavía no ha pasado el tiempo mínimo (mismo patrón que crafteo:recolectar). */
+  private manejarDormirCompletar(client: Client) {
+    const estado = this.durmiendo.get(client.sessionId);
+    if (!estado) return client.send("dormir:error", { motivo: "no estás durmiendo" });
+    if (Date.now() < estado.terminaEn) return client.send("dormir:error", { motivo: "todavía no" });
+
+    this.durmiendo.delete(client.sessionId);
+    const player = this.state.players.get(client.sessionId);
+    if (player) {
+      player.durmiendo = false;
+      player.vitales.estamina = VITAL_MAX;
+    }
+    client.send("dormir:completado", {});
   }
 
   /**
@@ -2420,6 +2537,21 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     // tienen input activo: el hambre corre aunque el jugador esté quieto).
     // Integrador simple, sin checkpoint/timestamp — ver server/src/personaje/vitales.ts.
     const horasPorTick = dt / 3600;
-    this.state.players.forEach((player) => tickVitales(player.vitales, horasPorTick));
+    this.state.players.forEach((player) => {
+      tickVitales(player.vitales, horasPorTick);
+      this.aplicarInanicionA(player, horasPorTick);
+    });
+  }
+
+  /** Aplica la inanición pura de vitales.ts (docs/GDD_Personaje.md §3.6) sobre este Player concreto — resuelve sus dos vidaMax (normal vs. inanición) a partir de su Resistencia real. */
+  private aplicarInanicionA(player: Player, horasTranscurridas: number) {
+    aplicarInanicion(
+      player.vitales,
+      player,
+      vidaMaximaPorResistencia(player.atributos.resistencia),
+      vidaMaximaPorResistencia(1),
+      DANO_INANICION_POR_HORA,
+      horasTranscurridas,
+    );
   }
 }

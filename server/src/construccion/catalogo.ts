@@ -66,6 +66,8 @@ export interface EntradaConstruible {
   energia?: EntradaEnergia;
   /** Actividad diaria de atributo (docs/GDD_Personaje.md §3.5) — presente en pesas/diana/atril: acercarse y mandar `actividad:realizar` otorga `xp` de `atributo`, una vez por día de mundo. */
   actividadAtributo?: EntradaActividadAtributo;
+  /** Cama (docs/GDD_Personaje.md §3.6) — presente en cama_individual/cama_doble/litera_marinero: acercarse y mandar `dormir:iniciar` empieza un sueño con tope de tiempo que recupera Estamina entera al completarse. */
+  esCama?: boolean;
 }
 
 export interface EntradaActividadAtributo {
@@ -81,6 +83,7 @@ interface EntradaElemento {
   variantes?: number;
   energia?: EntradaEnergia;
   actividadAtributo?: EntradaActividadAtributo;
+  esCama?: boolean;
 }
 
 interface EntradaExterior {
@@ -127,6 +130,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       variantes: d.variantes ?? 1,
       energia: d.energia,
       actividadAtributo: d.actividadAtributo,
+      esCama: d.esCama,
     });
   }
 

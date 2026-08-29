@@ -21,7 +21,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 117); // 104 anteriores + 13 armas/munición (docs/GDD_Mecanicas.md §5.4: 6 cuerpo a cuerpo, 4 a distancia, 3 tipos de munición)
+  assert.strictEqual(ids.length, 119); // 117 anteriores + 2 de higiene (docs/GDD_Personaje.md §3.6: infusion_energia, hoja)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

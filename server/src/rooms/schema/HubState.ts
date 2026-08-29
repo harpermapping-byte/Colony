@@ -45,6 +45,10 @@ export class VitalesSchema extends Schema {
   @type("number") bebida = 100;
   @type("number") sueno = 100;
   @type("number") estamina = 100;
+  // Higiene (docs/GDD_Personaje.md §3.6, pedido explícito 2026-08-30): sube
+  // con cada comida, al tope ensucia al jugador (`Player.sucio`); baja a 0
+  // al usar una hoja (`higiene:cagar`). No decae sola, no tiene tick propio.
+  @type("number") caca = 0;
 }
 
 // Nivel de cada atributo (docs/GDD_Personaje.md) — YA derivado de la XP
@@ -89,6 +93,16 @@ export class Player extends Schema {
   @type("string") gremioNombre = "";
   @type("string") gremioColor = "";
   @type("string") gremioEmblemaId = "";
+  // Higiene (docs/GDD_Personaje.md §3.6, pedido explícito 2026-08-30):
+  // true cuando `vitales.caca` llegó a 100 sin usar una hoja a tiempo — solo
+  // se quita lavándose en agua (`higiene:lavar`). Estado del jugador, no de
+  // una prenda concreta: todavía no existe un slot de equipo de pantalón
+  // (ver §6) al que colgar este estado.
+  @type("boolean") sucio = false;
+  // Sueño en cama (docs/GDD_Personaje.md §3.6) — replicado solo para que el
+  // cliente pueda mostrar una pose/animación de "durmiendo" más adelante; la
+  // duración real vive server-only en `RoomExteriorBase.durmiendo`.
+  @type("boolean") durmiendo = false;
   // Vida/Ataque/Defensa (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30):
   // todo jugador arranca con 100/100 — vidaMax/ataque/defensa varían en
   // vivo según equipo, atributos y magia (server/src/combate/combate.ts).

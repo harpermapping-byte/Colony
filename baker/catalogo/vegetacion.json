@@ -125,5 +125,7 @@
   "seta_luminosa": { "bandaElevacionMax": 4, "biomas": ["pantano"], "categoriaRecurso": "hongo_medicinal", "densidadBase": 0.006, "escalaRuido": 10, "variantes": 3, "colorDebug": "#5ae0c0", "desaparaceAlRecolectar": true },
 
   "arbol_carbonizado": { "bandaElevacionMax": 4, "colision": true, "biomas": ["tierras_quemadas"], "categoriaRecurso": "madera_carbonizada", "densidadBase": 0.02, "escalaRuido": 25, "variantes": 5, "colorDebug": "#1a1512" },
-  "liquen_de_ceniza": { "bandaElevacionMax": 4, "biomas": ["tierras_quemadas"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.015, "escalaRuido": 12, "variantes": 3, "colorDebug": "#5a5045" }
+  "liquen_de_ceniza": { "bandaElevacionMax": 4, "biomas": ["tierras_quemadas"], "categoriaRecurso": "fibra_vegetal", "densidadBase": 0.015, "escalaRuido": 12, "variantes": 3, "colorDebug": "#5a5045" },
+
+  "mata_de_hojas_anchas": { "bandaElevacionMax": 4, "biomas": ["pradera", "bosque"], "categoriaRecurso": "hoja", "densidadBase": 0.03, "escalaRuido": 12, "variantes": 4, "colorDebug": "#2f8a3a", "desaparaceAlRecolectar": true, "_nota": "Higiene (docs/GDD_Personaje.md §3.6): coger de aquí da 'hoja', que higiene:cagar consume para vaciar caca sin ensuciarse. Requiere REBAKE del mapa que se quiera jugar — los agentes no rebakean el mapa principal (CLAUDE.md), lo corre el streamer." }
 }

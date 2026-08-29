@@ -924,6 +924,36 @@
     "variantes": 1,
     "colorDebug": "#a89878"
   },
+  "infusion_energia": {
+    "tipo": "consumible",
+    "restaura": {
+      "vital": "estamina",
+      "cantidad": 50
+    },
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": true,
+    "stackMax": 6,
+    "variantes": 1,
+    "colorDebug": "#c96a2a",
+    "_nota": "docs/GDD_Personaje.md §3.6: primer consumible real que restaura Estamina (bebida caliente de hierbas), alternativa rápida a dormir en cama."
+  },
+  "hoja": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.05,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 3,
+    "colorDebug": "#3a8a3a",
+    "_nota": "docs/GDD_Personaje.md §3.6 (higiene): se coge de 'mata_de_hojas_anchas' (baker/catalogo/vegetacion.json) y la consume higiene:cagar — NO usa `restaura` (no repone ningún vital por sí sola, personaje:consumir la rechazaría)."
+  },
   "libro": {
     "tipo": "objeto",
     "huella": [

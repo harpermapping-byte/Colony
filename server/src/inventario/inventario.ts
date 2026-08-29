@@ -62,8 +62,8 @@ export interface EntradaCatalogoItem {
   /** durabilidad perdida por cada USO directo (golpe dado, tala, minado...) */
   desgastePorUso?: number;
 
-  /** docs/GDD_Personaje.md — solo en tipo:"consumible". Ausente en un consumible = sin efecto todavía (placeholder de contenido, no error). */
-  restaura?: { vital: "comida" | "bebida" | "sueno" | "estamina" | "vida"; cantidad: number };
+  /** docs/GDD_Personaje.md — solo en tipo:"consumible". Ausente en un consumible = sin efecto todavía (placeholder de contenido, no error). "caca" nunca se declara aquí — sube sola al comer, ver manejarPersonajeConsumir. */
+  restaura?: { vital: "comida" | "bebida" | "sueno" | "estamina" | "vida" | "caca"; cantidad: number };
 }
 
 export type CatalogoItems = Record<string, EntradaCatalogoItem>;
