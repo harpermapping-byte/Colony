@@ -79,12 +79,35 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   const idxBiomaDe = new Map(listaIdsBiomas.map((id, i) => [id, i]));
   const biomaDeIdx = (i) => listaIdsBiomas[i];
 
+  // Aspereza de montaña (pedido del streamer, 2026-08-29): `banda` sale de
+  // discretizar ruido CONTINUO y suave en 7 niveles — por construcción casi
+  // nunca salta más de 1 nivel entre casillas vecinas, así que el corte de
+  // roca_inaccesible por salto>=2 que ya detecta calcularTerrenoTile (más
+  // abajo) casi nunca se disparaba: no había acantilados de verdad, solo
+  // rampas suaves de montaña. Una capa de ruido de ALTA frecuencia (escala
+  // pequeña = varía mucho de una casilla a la siguiente) se SUMA solo en la
+  // franja de montaña (banda>=4: colinas/montaña/cumbre, GDD_Bakeador_
+  // Exteriores sección 2) para producir saltos reales de 2+ niveles ahí,
+  // con roca de verdad en el corte — llanuras/playas/agua no se tocan.
+  // Actúa solo sobre `bandaGrid` (decide terreno/acantilado): `elevacionGrid`
+  // (usada por hidrología y por el coste de pendiente de caminos) queda
+  // intacta a propósito, para no alterar ríos ni el trazado de caminos.
+  const nAsperezaMontana = new CapaRuido(config.semilla + ":aspereza-montana", 2.2);
+  const UMBRAL_BANDA_MONTANA = 4 / 7; // umbral de bandaDeElevacion para banda 4
+  const AMPLITUD_ASPEREZA_MONTANA = 0.9; // suficiente para saltar 2-3 bandas de golpe
+
   for (let y = 0; y < altoTiles; y++) {
     for (let x = 0; x < anchoTiles; x++) {
       const r = generadorBiomas.clasificar(x, y);
       const i = y * anchoTiles + x;
       biomaGrid[i] = idxBiomaDe.get(r.bioma) ?? 0;
-      bandaGrid[i] = r.banda;
+      let banda = r.banda;
+      if (r.elevacionContinua >= UMBRAL_BANDA_MONTANA) {
+        const aspereza = nAsperezaMontana.fbm(x, y, 3);
+        const elevacionAspera = Math.min(1, Math.max(UMBRAL_BANDA_MONTANA, r.elevacionContinua + (aspereza - 0.5) * AMPLITUD_ASPEREZA_MONTANA));
+        banda = generadorBiomas.bandaDeElevacion(elevacionAspera);
+      }
+      bandaGrid[i] = banda;
       elevacionGrid[i] = r.elevacionContinua;
     }
     if (y % Math.max(1, Math.floor(altoTiles / 10)) === 0) {
