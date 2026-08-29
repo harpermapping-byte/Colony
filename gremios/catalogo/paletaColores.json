@@ -1,0 +1,9 @@
+{
+  "_nota": "Paleta CERRADA de colores de gremio (pedido 2026-08-29) — no un color-picker RGB libre, mismo criterio que emblemas.json: evita colores ilegibles en el nametag (blanco sobre blanco) o confundibles con el rojo de enemigo/hostil ya usado en el HUD. Ampliar es cambio de catálogo puro.",
+  "colores": [
+    "#c0392b", "#e67e22", "#f1c40f", "#27ae60", "#16a085",
+    "#2980b9", "#2c3e50", "#8e44ad", "#c2185b", "#795548",
+    "#607d8b", "#455a64", "#5d4037", "#33691e", "#0d47a1",
+    "#4a148c", "#bf360c", "#3e2723"
+  ]
+}

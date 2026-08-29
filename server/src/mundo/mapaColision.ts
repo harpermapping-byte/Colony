@@ -69,6 +69,21 @@ export interface Portal {
   esMazmorra?: boolean;
 }
 
+/** Hueco reservado por el bakeador de ciudades/ (SOLO tiers con `edificios.parcelasReservadas`,
+ * hoy únicamente `capital_jarl`) para el futuro sistema de construcción-en-regiones —
+ * ciudades/src/generar.js, docs/GDD_Ciudad_Capital.md §3bis. `x,y` = CENTRO del
+ * rectángulo (no esquina), `rot` en radianes: mismo formato que usa
+ * `rasterizarRectRotado` (ciudades/src/geometria.js) para pintarlo, así que se
+ * rasteriza igual al convertirlo en parcela (server/src/construccion/parcelas.ts). */
+export interface ParcelaReservada {
+  tipo: "normal" | "especial";
+  x: number;
+  y: number;
+  rot: number;
+  ancho: number;
+  largo: number;
+}
+
 export interface MapaCargado extends MundoColision {
   nombre: string;
   /** casilla de aparición (la ciudad del índice, corregida a suelo pisable) */
@@ -79,6 +94,8 @@ export interface MapaCargado extends MundoColision {
   portales: Portal[];
   /** recolectables EXTERIORES vivos (fase 2 de inventario, "coger" — mundo/recolectables.ts): clave y*ancho+x, mutable, sin persistencia. */
   recolectables: Map<number, RecolectableVivo>;
+  /** [] en cualquier mapa que no sea la ciudad capital (o un futuro tier con el mismo campo) — ver ParcelaReservada. */
+  parcelasReservadas: ParcelaReservada[];
 }
 
 export function cargarMapaColision(
@@ -94,6 +111,7 @@ export function cargarMapaColision(
     leyendaTerreno: string[];
     ciudad?: { x: number; y: number };
     portales?: Portal[];
+    parcelasReservadas?: ParcelaReservada[];
   }>(path.join(rutaMapa, "indice.json"));
 
   const terrenos = leerJSON<Record<string, EntradaTerreno>>(path.join(rutaCatalogo, "terrenos.json"));
@@ -187,6 +205,7 @@ export function cargarMapaColision(
     rutaMapa,
     portales: indice.portales ?? [],
     recolectables,
+    parcelasReservadas: indice.parcelasReservadas ?? [],
   };
 }
 

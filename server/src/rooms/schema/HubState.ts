@@ -43,6 +43,18 @@ export class Player extends Schema {
   // nivel de profundidad al bucear: 0 superficie, -1, -2 (solo en agua)
   @type("int8") nivel = 0;
   @type(InventarioSchema) inventario = new InventarioSchema();
+  // Gremio (pedido 2026-08-29) — visible a cualquiera en la room, como una
+  // etiqueta de nametag más (nombre/color/emblema); el detalle completo
+  // (banco, roster) SOLO viaja por mensaje privado "gremio:estado", nunca
+  // por aquí. gremioId="" = sin gremio. Se rellena OPORTUNISTAMENTE: la
+  // primera vez que el jugador toca algo de gremios en ESTA sesión (mismo
+  // límite ya aceptado por jugador_id en fase 2 de inventario — no hay
+  // onJoin async todavía) — el cliente debe pedir "gremio:estado" al
+  // conectar para sincronizar su propia etiqueta si ya pertenece a uno.
+  @type("string") gremioId = "";
+  @type("string") gremioNombre = "";
+  @type("string") gremioColor = "";
+  @type("string") gremioEmblemaId = "";
 }
 
 // Agente móvil publicado (NPC de asentamiento; mañana bárbaros/fauna con el

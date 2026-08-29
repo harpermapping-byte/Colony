@@ -8,7 +8,8 @@ import { GestorAgentes, NpcBakeado } from "../mundo/agentes";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
 import { asegurarAsentamientoBandido } from "../mundo/economiaAsentamientos";
-import { crearAlmacenDatos } from "../datos/bd";
+import { obtenerBdCompartida } from "../datos/bdCompartida";
+import { cargarParcelasDeReservas } from "../construccion/parcelas";
 
 interface OpcionesRegion {
   name?: string;
@@ -17,12 +18,21 @@ interface OpcionesRegion {
   entradaY?: number;
 }
 
+// Placeholder de balance (docs/GDD_Ciudad_Capital.md §3bis no fija un tope
+// por parcela reservada) — mismo criterio "número de referencia a afinar,
+// no una decisión cerrada" que ya documenta pesoMaximoTransportable en
+// inventario.ts. Aplica por igual a parcelas "normal" y "especial" en v1.
+const TOPE_PROPS_PARCELA_REGION = 30;
+
 /**
  * Instancia de una región exterior (aldea, POI...) fuera del Hub —
  * docs/GDD_Sistema_Puertas.md. Mismo formato de mapa que el Hub (sectores
- * bakeados, mismo motor de colisión), pero SIN el sistema de
- * construcción/parcelas/jarl: eso es propio del Hub (ver GDD_Construccion,
- * las regiones de ciudades/ no son terreno de jugadores todavía).
+ * bakeados, mismo motor de colisión). Construcción-en-regiones (docs/
+ * GDD_Ciudad_Capital.md §3bis, pedido 2026-08-29 "la capital es un sitio
+ * como las aldeas y POIs... pero con reglas especiales"): si el bake trae
+ * `parcelasReservadas` (hoy solo el tier `capital_jarl`), esta MISMA room
+ * habilita construcción/parcelas/jarl igual que el Hub — cualquier otra
+ * aldea/POI sin esas parcelas se queda exactamente como antes.
  *
  * Una instancia por `mapaId` (filterBy en index.ts): dos jugadores que
  * entran a la MISMA aldea caen en la MISMA room; otra aldea es otra room.
@@ -40,6 +50,21 @@ export class RegionRoom extends RoomExteriorBase {
     this.mapaExterior = this.mapa; // habilita "coger" de recolectables del bake (fase 2 de inventario)
     console.log(`Región "${this.mapa.nombre}" (${options.mapaId}): ${this.mapa.ancho}x${this.mapa.alto} casillas`);
     this.iniciarMovimiento();
+
+    // Construcción-en-regiones: SOLO si el bake de esta región reservó
+    // hueco para ello (hoy únicamente la ciudad capital, tier capital_jarl)
+    // — cualquier aldea/POI normal no tiene parcelasReservadas y este
+    // bloque no hace nada, cero cambio de comportamiento para ellas.
+    if (this.mapa.parcelasReservadas.length > 0) {
+      const parcelas = cargarParcelasDeReservas(
+        this.mapa.parcelasReservadas,
+        options.mapaId,
+        this.mapa.ancho,
+        this.mapa.alto,
+        TOPE_PROPS_PARCELA_REGION,
+      );
+      await this.iniciarConstruccion(parcelas, options.mapaId);
+    }
 
     // NPCs con rutina (GDD_Agentes_Moviles.md): si el bake trae población,
     // los agentes nacen recolocados según la hora del reloj de mundo y se
@@ -76,9 +101,8 @@ export class RegionRoom extends RoomExteriorBase {
     if (fs.existsSync(rutaIndice)) {
       const indice = JSON.parse(fs.readFileSync(rutaIndice, "utf8")) as { tier?: string };
       if (indice.tier === "asentamiento_hostil") {
-        const bd = await crearAlmacenDatos();
+        const bd = await obtenerBdCompartida();
         await asegurarAsentamientoBandido(bd, options.mapaId);
-        await bd.cerrar();
       }
     }
 
@@ -115,5 +139,6 @@ export class RegionRoom extends RoomExteriorBase {
     const x = options?.entradaX ?? this.mapa.spawnX;
     const y = options?.entradaY ?? this.mapa.spawnY;
     this.crearJugador(client, options, x, y);
+    this.enviarEstadoConstruccion(client); // no-op si esta región no tiene parcelasReservadas
   }
 }

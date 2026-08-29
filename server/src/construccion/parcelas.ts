@@ -13,6 +13,10 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { ParcelaReservada } from "../mundo/mapaColision";
+
+const RAIZ_REPO = path.resolve(__dirname, "..", "..", "..");
+const RUTA_GEOMETRIA_CIUDADES = path.join(RAIZ_REPO, "ciudades", "src", "geometria.js");
 
 export interface Parcela {
   asentamiento: string;
@@ -68,4 +72,66 @@ export function runsDe(parcelas: IndiceParcelas, parcelaId: string): [number, nu
 /** Tope de construcciones de la parcela (0 si no existe: nadie construye en la nada). */
 export function topeDe(parcelas: IndiceParcelas, parcelaId: string): number {
   return parcelas.parcelas.get(parcelaId)?.topeProps ?? 0;
+}
+
+/**
+ * Construcción-en-regiones (docs/GDD_Ciudad_Capital.md §3bis): convierte los
+ * huecos `parcelasReservadas` que YA exporta el bake de `ciudades/` (hoy solo
+ * el tier `capital_jarl`) en un `IndiceParcelas` con la MISMA forma que
+ * `cargarParcelas` — así `construccion.ts` (validarColocacion/aplicarColocacion)
+ * no necesita saber que esta parcela viene de un rectángulo rotado en vez de
+ * runs pintados a mano en `parcelas/gui/servidor.js`.
+ *
+ * Cada reserva es un rectángulo con rotación LIBRE (no solo 0/90°, a
+ * diferencia de la huella de un mueble) — se rasteriza con la MISMA función
+ * `rasterizarRectRotado` que ya usa `ciudades/src/generar.js` para colocarla
+ * en el bake (require() en runtime de un módulo offline, mismo patrón que
+ * `economiaAsentamientos.ts` con `exportarAsentamiento.js`), así la parcela
+ * cubre EXACTAMENTE las mismas casillas que el bakeador dejó libres — nunca
+ * una aproximación axis-aligned que pudiera invadir la calle de al lado.
+ */
+export function cargarParcelasDeReservas(
+  reservas: ParcelaReservada[],
+  asentamiento: string,
+  anchoMapa: number,
+  altoMapa: number,
+  topeProps: number,
+): IndiceParcelas {
+  const resultado: IndiceParcelas = { anchoMapa, parcelas: new Map(), indice: new Map() };
+  if (!reservas?.length) return resultado;
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { rasterizarRectRotado } = require(RUTA_GEOMETRIA_CIUDADES) as {
+    rasterizarRectRotado: (
+      cx: number, cy: number, semiAncho: number, semiAlto: number, angulo: number,
+      ancho: number, alto: number, pintar: (x: number, y: number) => void,
+    ) => void;
+  };
+
+  reservas.forEach((r, i) => {
+    const id = `${asentamiento}:${r.tipo}_${String(i).padStart(3, "0")}`;
+    // min/max por fila en vez de asumir un único run: rasterizarRectRotado
+    // pinta casilla a casilla, y aunque un rectángulo convexo a cualquier
+    // ángulo SIEMPRE corta una fila en un único tramo contiguo, acumular
+    // min/max es tan barato como asumirlo y no depende de ese razonamiento.
+    const filas = new Map<number, { x0: number; x1: number }>();
+    rasterizarRectRotado(r.x, r.y, r.ancho / 2, r.largo / 2, r.rot, anchoMapa, altoMapa, (x, y) => {
+      const fila = filas.get(y);
+      if (!fila) filas.set(y, { x0: x, x1: x });
+      else { fila.x0 = Math.min(fila.x0, x); fila.x1 = Math.max(fila.x1, x); }
+    });
+    if (filas.size === 0) return; // reserva degenerada (fuera de rango): se ignora, no bloquea el resto
+
+    const runs: [number, number, number][] = [...filas.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([y, { x0, x1 }]) => [y, x0, x1]);
+    const casillas = runs.reduce((suma, [, x0, x1]) => suma + (x1 - x0 + 1), 0);
+
+    resultado.parcelas.set(id, { asentamiento, nombre: id, runs, casillas, topeProps });
+    for (const [y, x0, x1] of runs) {
+      for (let x = x0; x <= x1; x++) resultado.indice.set(y * anchoMapa + x, id);
+    }
+  });
+
+  return resultado;
 }

@@ -1,0 +1,18 @@
+{
+  "_nota": "Catálogo CERRADO de emblemas de gremio (pedido 2026-08-29: 'generador de emblemas o mejor catálogo cerrado' — se eligió catálogo cerrado, coherente con la regla de CLAUDE.md 'catálogo como fuente de verdad' y con que el proyecto solo usa generación procedural donde el espacio combinatorio es enorme (personajes/ropa/edificios), nunca para un elemento de identidad visual de pocas decenas de variantes. Arte real pendiente: colorDebug es placeholder, igual que el resto del proyecto — assets/emblemas/<id>_01.png se genera con baker/src/generar_placeholders.js. Ampliar esta lista es un cambio de catálogo puro, cero código (regla 6 CLAUDE.md).",
+  "emblema_generico": { "uso": "Emblema por defecto de un gremio recién fundado, antes de elegir uno propio.", "colorDebug": "#8a8a8a" },
+  "emblema_lobo": { "uso": "Temática guerrera/caza.", "colorDebug": "#5a5a5a" },
+  "emblema_oso": { "uso": "Temática guerrera/fuerza bruta.", "colorDebug": "#6a4a2a" },
+  "emblema_aguila": { "uso": "Temática de vigilancia/exploración.", "colorDebug": "#8a6a3a" },
+  "emblema_cuervo": { "uso": "Temática de guerra/mal augurio.", "colorDebug": "#2a2a2a" },
+  "emblema_yunque": { "uso": "Temática artesana/forja.", "colorDebug": "#7a5230" },
+  "emblema_espiga": { "uso": "Temática agrícola/comercio.", "colorDebug": "#c9a850" },
+  "emblema_ancla": { "uso": "Temática marinera/pesca.", "colorDebug": "#3a5a7a" },
+  "emblema_hacha_cruzada": { "uso": "Temática de guerra/leñadores.", "colorDebug": "#8a8a90" },
+  "emblema_escudo_rayado": { "uso": "Temática defensiva/guardia.", "colorDebug": "#6a3a3a" },
+  "emblema_llama": { "uso": "Temática destructiva/pasión.", "colorDebug": "#c9581a" },
+  "emblema_estrella": { "uso": "Temática noble/prestigio.", "colorDebug": "#c9a020" },
+  "emblema_calavera": { "uso": "Temática de mercenarios/bandidos.", "colorDebug": "#e8e4dc" },
+  "emblema_arbol": { "uso": "Temática de naturaleza/druida.", "colorDebug": "#3a6a2a" },
+  "emblema_luna": { "uso": "Temática mística/nocturna.", "colorDebug": "#8a8ac0" }
+}
