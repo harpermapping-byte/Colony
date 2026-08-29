@@ -559,6 +559,40 @@ no hubo que inventarla, ya estaba bien puesta.
   campo en sí), `catalogoFaunaSalvaje.test.ts` confirma que las 58
   especies infinitas y las 129 reproductoras cuadran.
 
+### Hecho en la fase 5 (aves salvajes = población infinita, mismo criterio que peces/insectos)
+
+Pedido: "los pájaros/aves también, como insectos y peces, no se
+reproducen, comen, beben — simplemente siguen rutinas propias de
+pájaros, paths precocidos".
+
+- **38 aves SALVAJES** (todas las que tienen biomas reales — de
+  `codorniz` a `avestruz`, rapaces, carroñeras, acuáticas incluidas)
+  pierden `tamanoReproduccion`/`poneHuevos`/`dieta` y pasan a
+  `poblacionInfinita: true`, mismo campo exacto que insectos y fauna
+  100% acuática. Total población infinita: 27 insectos + 31 acuáticos +
+  38 aves = **96 de 187 especies**; quedan 76 reproductoras (antes
+  peces/aves incluidos) + 15 crías.
+- **NO tocadas, a propósito**: `gallo`, `ganso_domestico`, `oca` —
+  las 3 únicas aves DOMÉSTICAS del catálogo (`biomas: []`, nunca
+  aparecen en el mapa exterior salvaje) se quedan con reproducción
+  normal, reservadas para cuando se diseñe la mecánica de cría doméstica
+  ("más fácil", todavía sin acotar — no es este sistema).
+- **"Paths precocidos propios de pájaros"**: pedido de COMPORTAMIENTO
+  visual, no de reproducción — y NO se ha construido en esta pasada. Hoy
+  estas 38 especies, al ser `poblacionInfinita`, ni siquiera entran en
+  `resolverSector`/`GestorFaunaSalvaje` (se descartan desde la fase 1,
+  igual que insectos y peces) — siguen siendo props decorativos
+  estáticos del bake (`InstancedMesh`), sin ningún movimiento propio
+  todavía. Un sistema de rutas de vuelo bakeadas (client-side,
+  puramente visual) es una pieza nueva de verdad, no una consecuencia
+  automática de este cambio de catálogo — queda pendiente, hay que
+  diseñarla aparte cuando toque.
+- Verificado: 265 tests siguen en verde (misma razón que en la fase 4:
+  la lógica es genérica sobre qué especies son `poblacionInfinita`),
+  `catalogoFaunaSalvaje.test.ts` actualizado — `gallina_salvaje` ahora
+  es el ejemplo de ave infinita, `gallo` (doméstico) sigue siendo el
+  ejemplo de especie con `criaId` normal.
+
 ### Pendiente (fuera de esta pasada)
 
 - **Caza de depredadores con combate y cadáver**: aparcado a propósito —
