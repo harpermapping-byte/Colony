@@ -650,3 +650,121 @@ test("Propiedades: revocarPropiedad libera dueño Y tenencia comercial (jarl pue
   assert.strictEqual(prop?.expiraEn, null);
   await bd.cerrar();
 });
+
+// --- Mercado (docs/GDD_Mercado.md, pedido 2026-08-29) ---
+
+test("Mercado: reponerStockTenderete SUMA a la cantidad existente y actualiza el precio", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.reponerStockTenderete("p_0001", "madera", 10, 5);
+  await bd.reponerStockTenderete("p_0001", "madera", 5, 8); // repone más, sube el precio
+  const stock = await bd.listarStockTenderete("p_0001");
+  assert.deepStrictEqual(stock, [{ itemId: "madera", cantidad: 15, precioFarycoins: 8 }]);
+  await bd.cerrar();
+});
+
+test("Mercado: fijarPrecioTenderete solo funciona sobre un ítem YA repuesto", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const sinReponer = await bd.fijarPrecioTenderete("p_0001", "madera", 3);
+  assert.strictEqual(sinReponer, false, "no se puede fijar precio de algo que nunca se repuso");
+
+  await bd.reponerStockTenderete("p_0001", "madera", 10, 5);
+  const conReponer = await bd.fijarPrecioTenderete("p_0001", "madera", 3);
+  assert.strictEqual(conReponer, true);
+  assert.strictEqual((await bd.listarStockTenderete("p_0001"))[0].precioFarycoins, 3);
+  await bd.cerrar();
+});
+
+test("Mercado: comprarDeTenderete cobra al comprador, decrementa stock, acredita al vendedor", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const comprador = await bd.obtenerOCrearJugador("Bjorn");
+  await bd.ajustarFarycoins(comprador.id, 100);
+  const vendedor = await bd.obtenerOCrearJugador("Ragnar");
+  await bd.reponerStockTenderete("p_0001", "madera", 10, 5);
+
+  const r = await bd.comprarDeTenderete({
+    tenderoteId: "p_0001", itemId: "madera", cantidad: 3,
+    compradorNombre: "Bjorn", duenoNombre: "Ragnar",
+  });
+  assert.strictEqual(r.ok, true);
+  if (!r.ok) return;
+  assert.strictEqual(r.precioTotal, 15);
+  assert.strictEqual(r.saldoRestante, 85);
+  assert.strictEqual(r.cantidadRestante, 7);
+  assert.strictEqual(await bd.obtenerFarycoins(comprador.id), 85);
+  assert.strictEqual(await bd.obtenerFarycoins(vendedor.id), 15, "el vendedor cobra aunque nunca haya tocado la BD directamente");
+  await bd.cerrar();
+});
+
+test("Mercado: comprarDeTenderete sin Farycoins suficientes falla sin tocar el stock", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.obtenerOCrearJugador("Bjorn"); // nace a 0
+  await bd.reponerStockTenderete("p_0001", "madera", 10, 5);
+
+  const r = await bd.comprarDeTenderete({
+    tenderoteId: "p_0001", itemId: "madera", cantidad: 3,
+    compradorNombre: "Bjorn", duenoNombre: "Ragnar",
+  });
+  assert.strictEqual(r.ok, false);
+  if (r.ok) return;
+  assert.strictEqual(r.motivo, "no tienes suficientes Farycoins");
+  assert.strictEqual((await bd.listarStockTenderete("p_0001"))[0].cantidad, 10, "el stock no se tocó");
+  await bd.cerrar();
+});
+
+test("Mercado: comprarDeTenderete sin stock suficiente reembolsa al comprador (todo o nada)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const comprador = await bd.obtenerOCrearJugador("Bjorn");
+  await bd.ajustarFarycoins(comprador.id, 100);
+  await bd.reponerStockTenderete("p_0001", "madera", 2, 5);
+
+  const r = await bd.comprarDeTenderete({
+    tenderoteId: "p_0001", itemId: "madera", cantidad: 5,
+    compradorNombre: "Bjorn", duenoNombre: "Ragnar",
+  });
+  assert.strictEqual(r.ok, false);
+  if (r.ok) return;
+  assert.strictEqual(r.motivo, "no queda stock suficiente");
+  assert.strictEqual(await bd.obtenerFarycoins(comprador.id), 100, "reembolso completo, nada perdido");
+  assert.strictEqual((await bd.listarStockTenderete("p_0001"))[0].cantidad, 2, "el stock no bajó de 0");
+  await bd.cerrar();
+});
+
+test("Mercado: comprarDeTenderete sobre un ítem que nunca se puso en venta falla limpio", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.obtenerOCrearJugador("Bjorn");
+  const r = await bd.comprarDeTenderete({
+    tenderoteId: "p_0001", itemId: "espada_hierro", cantidad: 1,
+    compradorNombre: "Bjorn", duenoNombre: "Ragnar",
+  });
+  assert.strictEqual(r.ok, false);
+  if (r.ok) return;
+  assert.strictEqual(r.motivo, "ese ítem no está en venta aquí");
+  await bd.cerrar();
+});
+
+test("Mercado: agotado (cantidad:0) sigue visible, la fila NUNCA se borra", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const comprador = await bd.obtenerOCrearJugador("Bjorn");
+  await bd.ajustarFarycoins(comprador.id, 100);
+  await bd.reponerStockTenderete("p_0001", "madera", 3, 5);
+  const r = await bd.comprarDeTenderete({
+    tenderoteId: "p_0001", itemId: "madera", cantidad: 3,
+    compradorNombre: "Bjorn", duenoNombre: "Ragnar",
+  });
+  assert.strictEqual(r.ok, true);
+  const stock = await bd.listarStockTenderete("p_0001");
+  assert.strictEqual(stock.length, 1, "la fila sigue ahí, no desaparece");
+  assert.strictEqual(stock[0].cantidad, 0);
+  await bd.cerrar();
+});
+
+test("Mercado: revocarPropiedad vacía el tenderete de esa propiedad", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.asignarPropiedad("p_0001", "parcela", "hub", "Ragnar");
+  await bd.reponerStockTenderete("p_0001", "madera", 10, 5);
+  assert.strictEqual((await bd.listarStockTenderete("p_0001")).length, 1);
+
+  await bd.revocarPropiedad("p_0001");
+  assert.strictEqual((await bd.listarStockTenderete("p_0001")).length, 0, "revocar la propiedad vacía su tenderete");
+  await bd.cerrar();
+});

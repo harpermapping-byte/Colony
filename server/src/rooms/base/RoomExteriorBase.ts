@@ -16,6 +16,7 @@ import {
   aplicarColocacion,
   quitarConstruccion,
   esJarl,
+  esJarlGlobal,
 } from "../../construccion/construccion";
 import { generarInteriorEdificio } from "../../construccion/interiorGenerado";
 import { ContextoGremios, GremioVivo, obtenerContextoGremios } from "../../gremios/contextoGremios";
@@ -109,9 +110,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
 
     // --- gremios (docs/GDD_Gremios.md) — disponibles en las 4 rooms, no
     // dependen de ContextoConstruccion/parcelas (a diferencia de "construir"),
-    // solo de la BD compartida — mismo criterio ya usado para que fundar un
-    // gremio no quede bloqueado por el mismo hueco que sí bloquea a mercado/
-    // producción (construcción-en-regiones limitada a la capital).
+    // solo de la BD compartida.
     this.onMessage("gremio:fundar", (client, msg: { nombre?: string }) => this.manejarGremioFundar(client, msg));
     this.onMessage("gremio:invitar", (client, msg: { jugadorNombre?: string }) => this.manejarGremioInvitar(client, msg));
     this.onMessage("gremio:aceptarInvitacion", (client, msg: { gremioId?: number }) => this.manejarGremioAceptarInvitacion(client, msg));
@@ -123,6 +122,19 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.onMessage("gremio:depositar", (client, msg: { cantidad?: number }) => this.manejarGremioDepositar(client, msg));
     this.onMessage("gremio:retirar", (client, msg: { cantidad?: number }) => this.manejarGremioRetirar(client, msg));
     this.onMessage("gremio:estado", (client) => this.manejarGremioEstado(client));
+
+    // --- mercado (docs/GDD_Mercado.md) — un tenderete vive SOBRE una
+    // propiedad que el emisor YA posee (parcela asignada por el jarl, vía
+    // ContextoConstruccion si esta room lo tiene — Hub o capital —, o
+    // inmueble/habitación comprado vía GDD_Propiedades.md, vía BD). Mismos
+    // 5 mensajes disponibles en cualquier room: RegionRoom/HubRoom para
+    // tenderetes sobre parcela, InteriorRoom para tenderetes dentro de un
+    // inmueble propio.
+    this.onMessage("tenderete:escaparate", (client, msg: { tenderoteId?: string }) => this.manejarTenderoteEscaparate(client, msg));
+    this.onMessage("tenderete:gestion", (client, msg: { tenderoteId?: string }) => this.manejarTenderoteGestion(client, msg));
+    this.onMessage("tenderete:reponer", (client, msg: { tenderoteId?: string; instanciaId?: number; cantidad?: number; precioFarycoins?: number }) => this.manejarTenderoteReponer(client, msg));
+    this.onMessage("tenderete:fijarPrecio", (client, msg: { tenderoteId?: string; itemId?: string; precioFarycoins?: number }) => this.manejarTenderoteFijarPrecio(client, msg));
+    this.onMessage("tenderete:comprar", (client, msg: { tenderoteId?: string; itemId?: string; cantidad?: number }) => this.manejarTenderoteComprar(client, msg));
 
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
   }
@@ -765,6 +777,151 @@ export abstract class RoomExteriorBase extends Room<HubState> {
       return null;
     }
     return r;
+  }
+
+  // ---- Mercado (docs/GDD_Mercado.md) ----
+  // Un tenderete NO es una entidad propia: vive SOBRE una propiedad que su
+  // dueño ya tiene (parcela asignada por el jarl, o inmueble/habitación
+  // comprado — GDD_Propiedades.md). `duenoDeTenderete` resuelve "quién puede
+  // gestionar esto" mirando PRIMERO el ContextoConstruccion de esta room (si
+  // lo tiene — Hub o capital, parcelas) y si no cae a la BD (inmuebles,
+  // habitaciones, o parcelas de OTRA room sin ctx propio) — misma propiedad,
+  // dos caminos de lectura porque una vive en caché de room y la otra no.
+
+  private errorTenderete(client: Client, motivo: string) {
+    client.send("tenderete:error", { motivo });
+  }
+
+  protected async duenoDeTenderete(tenderoteId: string): Promise<string | null> {
+    if (this.ctxConstruccion?.propiedades.has(tenderoteId)) {
+      return this.ctxConstruccion.propiedades.get(tenderoteId)!.dueno;
+    }
+    const bd = await obtenerBdCompartida();
+    const prop = await bd.obtenerPropiedad(tenderoteId);
+    return prop?.dueno ?? null;
+  }
+
+  /** Público — cualquiera puede pedirlo. Cantidad exacta NUNCA viaja aquí (solo disponible:bool) — lo detallado es privado (gestion). */
+  private async manejarTenderoteEscaparate(client: Client, msg: { tenderoteId?: string }) {
+    if (!msg?.tenderoteId) return;
+    const bd = await obtenerBdCompartida();
+    const stock = await bd.listarStockTenderete(msg.tenderoteId);
+    client.send("tenderete:escaparate", {
+      tenderoteId: msg.tenderoteId,
+      items: stock.map((s) => ({ itemId: s.itemId, precioFarycoins: s.precioFarycoins, disponible: s.cantidad > 0 })),
+    });
+  }
+
+  /** Privado — solo dueño o jarl: cantidades EXACTAS ("solo lo ve el dueño y el admin", pedido explícito). */
+  private async manejarTenderoteGestion(client: Client, msg: { tenderoteId?: string }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !msg?.tenderoteId) return;
+    const dueno = await this.duenoDeTenderete(msg.tenderoteId);
+    if (!dueno || (dueno.toLowerCase() !== nombre.toLowerCase() && !esJarlGlobal(nombre))) {
+      return this.errorTenderete(client, "no tienes permiso para gestionar este tenderete");
+    }
+    const bd = await obtenerBdCompartida();
+    client.send("tenderete:gestion", { tenderoteId: msg.tenderoteId, items: await bd.listarStockTenderete(msg.tenderoteId) });
+  }
+
+  /**
+   * Reponer: solo el dueño, saca del CUERPO (en memoria, misma fuente que
+   * "soltar") por instancia — snapshot+restaura si algo falla a medias,
+   * mismo mecanismo que intentarCoger/manejarSoltar.
+   */
+  private async manejarTenderoteReponer(
+    client: Client,
+    msg: { tenderoteId?: string; instanciaId?: number; cantidad?: number; precioFarycoins?: number },
+  ) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !msg?.tenderoteId || typeof msg.instanciaId !== "number") return;
+    const precio = Math.floor(msg.precioFarycoins ?? 0);
+    if (!(precio > 0)) return this.errorTenderete(client, "precio inválido");
+
+    const dueno = await this.duenoDeTenderete(msg.tenderoteId);
+    if (!dueno || dueno.toLowerCase() !== nombre.toLowerCase()) {
+      return this.errorTenderete(client, "no eres el dueño de este tenderete");
+    }
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return this.errorTenderete(client, "no tienes ese objeto");
+    const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
+    const itemId = it.itemId;
+
+    const itemsAntes = contenedor.items.map((i) => ({ ...i }));
+    const siguienteIdAntes = contenedor.siguienteId;
+    const resultado = quitarItem(contenedor, msg.instanciaId, cantidad);
+    if (!resultado.ok) return this.errorTenderete(client, resultado.motivo ?? "no se pudo reponer");
+
+    const bd = await obtenerBdCompartida();
+    try {
+      await bd.reponerStockTenderete(msg.tenderoteId, itemId, cantidad, precio);
+    } catch (e) {
+      contenedor.items = itemsAntes;
+      contenedor.siguienteId = siguienteIdAntes;
+      throw e;
+    }
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("tenderete:gestion", { tenderoteId: msg.tenderoteId, items: await bd.listarStockTenderete(msg.tenderoteId) });
+  }
+
+  /** Solo cambia el precio de un ítem YA repuesto — no toca cantidad. */
+  private async manejarTenderoteFijarPrecio(client: Client, msg: { tenderoteId?: string; itemId?: string; precioFarycoins?: number }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !msg?.tenderoteId || !msg.itemId) return;
+    const precio = Math.floor(msg.precioFarycoins ?? 0);
+    if (!(precio > 0)) return this.errorTenderete(client, "precio inválido");
+
+    const dueno = await this.duenoDeTenderete(msg.tenderoteId);
+    if (!dueno || dueno.toLowerCase() !== nombre.toLowerCase()) {
+      return this.errorTenderete(client, "no eres el dueño de este tenderete");
+    }
+    const bd = await obtenerBdCompartida();
+    const ok = await bd.fijarPrecioTenderete(msg.tenderoteId, msg.itemId, precio);
+    if (!ok) return this.errorTenderete(client, "ese ítem no está en venta aquí — repón stock primero");
+    client.send("tenderete:gestion", { tenderoteId: msg.tenderoteId, items: await bd.listarStockTenderete(msg.tenderoteId) });
+  }
+
+  /**
+   * Comprar: cualquiera salvo el propio dueño. La compra en BD (cobro +
+   * stock + abono al vendedor) es todo-o-nada por sí sola; si DESPUÉS de
+   * cobrar el cuerpo del comprador no tiene hueco (raro, pero el cuerpo es
+   * independiente de la BD), se compensa devolviendo Farycoins Y stock —
+   * mismo espíritu que el resto de compensaciones del proyecto.
+   */
+  private async manejarTenderoteComprar(client: Client, msg: { tenderoteId?: string; itemId?: string; cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !msg?.tenderoteId || !msg.itemId) return;
+    const cantidad = Math.max(1, Math.floor(msg.cantidad ?? 1));
+
+    const dueno = await this.duenoDeTenderete(msg.tenderoteId);
+    if (!dueno) return this.errorTenderete(client, "este tenderete no tiene dueño");
+    if (dueno.toLowerCase() === nombre.toLowerCase()) return this.errorTenderete(client, "no puedes comprarte a ti mismo");
+
+    const bd = await obtenerBdCompartida();
+    const r = await bd.comprarDeTenderete({ tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: dueno });
+    if (!r.ok) return this.errorTenderete(client, r.motivo);
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const resultado = contenedor ? intentarCoger(contenedor, this.catalogoItems, { itemId: msg.itemId, cantidad }) : { ok: false as const };
+    if (!resultado.ok) {
+      // compensar: el cuerpo no tenía hueco — devolver Farycoins Y stock (al MISMO precio que ya tenía)
+      const comprador = await bd.obtenerOCrearJugador(nombre);
+      await bd.ajustarFarycoins(comprador.id, r.precioTotal);
+      const stockActual = await bd.listarStockTenderete(msg.tenderoteId);
+      const precioActual = stockActual.find((s) => s.itemId === msg.itemId)?.precioFarycoins ?? 0;
+      await bd.reponerStockTenderete(msg.tenderoteId, msg.itemId, cantidad, precioActual);
+      return this.errorTenderete(client, "no tienes hueco en tu inventario");
+    }
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor!);
+    client.send("tenderete:compraResultado", {
+      ok: true, tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad,
+      precioTotal: r.precioTotal, saldoRestante: r.saldoRestante,
+    });
   }
 
   private actualizarMovimiento() {

@@ -95,6 +95,19 @@ export interface Propiedad {
   expiraEn: string | null; // ISO, horas REALES (Date.now()) — NULL si es compra o si nunca fue tenencia comercial
 }
 
+// Mercado (pedido 2026-08-29, docs/GDD_Mercado.md): un tenderete NO es una
+// entidad propia — vive SOBRE una propiedad que el jugador YA posee (una
+// parcela asignada por el jarl, o un inmueble comprado/alquilado vía
+// GDD_Propiedades.md). `tenderete_items` es solo la lista de venta de esa
+// propiedad; la fila NUNCA se borra al agotarse (cantidad:0 = "agotado",
+// visible pero no comprable) — evita el patrón "borrar antes de confirmar"
+// que ya causó un bug real en cogerSoltar.ts.
+export interface ItemEnVentaTenderete {
+  itemId: string;
+  cantidad: number;
+  precioFarycoins: number;
+}
+
 export interface Construccion {
   id: number;
   propiedad: string;
@@ -214,6 +227,26 @@ export interface IAlmacenDatos {
     periodoHoras: number,
     precioFarycoins: number,
   ): Promise<{ ok: true; expiraEn: string } | { ok: false; motivo: string }>;
+  // Mercado (docs/GDD_Mercado.md) — `tenderoteId` es el id de una propiedad
+  // YA existente (parcela/inmueble/habitación) que su dueño abre como
+  // escaparate; sin tabla de "tenderetes" propia, reusa `propiedades` para
+  // saber quién puede gestionarlo (ver duenoDeTenderete en RoomExteriorBase).
+  listarStockTenderete(tenderoteId: string): Promise<ItemEnVentaTenderete[]>;
+  /** Upsert: SUMA a la cantidad existente (repone, no reemplaza) y actualiza el precio al último valor puesto. */
+  reponerStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioFarycoins: number): Promise<void>;
+  /** Solo cambia el precio de un ítem YA en venta — `false` si ese ítem nunca se repuso ahí. */
+  fijarPrecioTenderete(tenderoteId: string, itemId: string, precioFarycoins: number): Promise<boolean>;
+  /** Todo o nada: cobra al comprador, decrementa stock atómicamente (nunca por debajo de 0), acredita al vendedor — sin transacción SQL explícita, mismo patrón compare-and-swap por WHERE que el resto de mutaciones económicas. */
+  comprarDeTenderete(params: {
+    tenderoteId: string;
+    itemId: string;
+    cantidad: number;
+    compradorNombre: string;
+    duenoNombre: string;
+  }): Promise<
+    | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
+    | { ok: false; motivo: string }
+  >;
   listarConstrucciones(): Promise<Construccion[]>;
   insertarConstruccion(c: NuevaConstruccion): Promise<number>;
   borrarConstruccion(id: number): Promise<boolean>;
@@ -310,6 +343,17 @@ CREATE TABLE IF NOT EXISTS construcciones (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_construcciones_prop ON construcciones(propiedad);
+-- Mercado (docs/GDD_Mercado.md, pedido 2026-08-29): tenderete_id = id de una
+-- fila YA existente en "propiedades" (parcela/inmueble/habitación) — sin
+-- tabla "tenderetes" propia, la propiedad YA modela quién puede vender ahí.
+CREATE TABLE IF NOT EXISTS tenderete_items (
+  tenderete_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  cantidad INTEGER NOT NULL DEFAULT 0,
+  precio_farycoins INTEGER NOT NULL,
+  PRIMARY KEY (tenderete_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,               -- "mapaId:edificio:nivel"
   limpiada_en TEXT                      -- timestamp ISO de la última vez que se limpió (null = nunca)
@@ -424,6 +468,14 @@ CREATE TABLE IF NOT EXISTS construcciones (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_construcciones_prop ON construcciones(propiedad);
+CREATE TABLE IF NOT EXISTS tenderete_items (
+  tenderete_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  cantidad INTEGER NOT NULL DEFAULT 0,
+  precio_farycoins INTEGER NOT NULL,
+  PRIMARY KEY (tenderete_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,
   limpiada_en TEXT
@@ -715,6 +767,10 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
         `UPDATE propiedades SET dueno = NULL, asignada_en = ?, modo_tenencia = NULL, precio_farycoins = NULL, periodo_horas = NULL, expira_en = NULL WHERE id = ?`,
       )
       .run(new Date().toISOString(), id);
+    // Mercado (docs/GDD_Mercado.md): revocar la propiedad subyacente vacía
+    // también cualquier tenderete que hubiera sobre ella — sin esto, un
+    // tenderete "huérfano" seguiría vendiendo sin dueño reconocible.
+    this.bd.prepare("DELETE FROM tenderete_items WHERE tenderete_id = ?").run(id);
   }
 
   /** Compare-and-swap: libera la fila SOLO si es un alquiler vencido — no toca compras ni alquileres vigentes. */
@@ -803,6 +859,71 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const nuevaExpira = new Date(new Date(prop.expiraEn).getTime() + periodoHoras * 3600_000).toISOString();
     this.bd.prepare("UPDATE propiedades SET expira_en = ? WHERE id = ? AND dueno = ?").run(nuevaExpira, id, jugador.id);
     return { ok: true, expiraEn: nuevaExpira };
+  }
+
+  async listarStockTenderete(tenderoteId: string): Promise<ItemEnVentaTenderete[]> {
+    const filas = this.bd
+      .prepare("SELECT item_id, cantidad, precio_farycoins FROM tenderete_items WHERE tenderete_id = ?")
+      .all(tenderoteId);
+    return filas.map((f) => ({
+      itemId: String(f.item_id),
+      cantidad: Number(f.cantidad),
+      precioFarycoins: Number(f.precio_farycoins),
+    }));
+  }
+
+  async reponerStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioFarycoins: number): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO tenderete_items (tenderete_id, item_id, cantidad, precio_farycoins) VALUES (?, ?, ?, ?)
+         ON CONFLICT(tenderete_id, item_id) DO UPDATE SET
+           cantidad = tenderete_items.cantidad + excluded.cantidad, precio_farycoins = excluded.precio_farycoins`,
+      )
+      .run(tenderoteId, itemId, cantidad, precioFarycoins);
+  }
+
+  async fijarPrecioTenderete(tenderoteId: string, itemId: string, precioFarycoins: number): Promise<boolean> {
+    const r = this.bd
+      .prepare("UPDATE tenderete_items SET precio_farycoins = ? WHERE tenderete_id = ? AND item_id = ?")
+      .run(precioFarycoins, tenderoteId, itemId);
+    return Number(r.changes) > 0;
+  }
+
+  async comprarDeTenderete(params: {
+    tenderoteId: string;
+    itemId: string;
+    cantidad: number;
+    compradorNombre: string;
+    duenoNombre: string;
+  }): Promise<
+    | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
+    | { ok: false; motivo: string }
+  > {
+    const fila = this.bd
+      .prepare("SELECT precio_farycoins FROM tenderete_items WHERE tenderete_id = ? AND item_id = ?")
+      .get(params.tenderoteId, params.itemId);
+    if (!fila) return { ok: false, motivo: "ese ítem no está en venta aquí" };
+    const precioTotal = Number(fila.precio_farycoins) * params.cantidad;
+
+    const comprador = await this.obtenerOCrearJugador(params.compradorNombre);
+    const debito = await this.ajustarFarycoins(comprador.id, -precioTotal);
+    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+
+    // Compare-and-swap: decrementa SOLO si queda stock suficiente — nunca por debajo de 0.
+    const stock = this.bd
+      .prepare(
+        `UPDATE tenderete_items SET cantidad = cantidad - ? WHERE tenderete_id = ? AND item_id = ? AND cantidad >= ?
+         RETURNING cantidad`,
+      )
+      .get(params.cantidad, params.tenderoteId, params.itemId, params.cantidad);
+    if (!stock) {
+      await this.ajustarFarycoins(comprador.id, precioTotal); // reembolso: se agotó justo antes
+      return { ok: false, motivo: "no queda stock suficiente" };
+    }
+
+    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre);
+    await this.ajustarFarycoins(vendedor.id, precioTotal);
+    return { ok: true, saldoRestante: debito.saldo, cantidadRestante: Number(stock.cantidad), precioTotal };
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {
@@ -1231,6 +1352,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       `UPDATE propiedades SET dueno = NULL, asignada_en = $1, modo_tenencia = NULL, precio_farycoins = NULL, periodo_horas = NULL, expira_en = NULL WHERE id = $2`,
       [new Date().toISOString(), id],
     );
+    await this.pool.query("DELETE FROM tenderete_items WHERE tenderete_id = $1", [id]);
   }
 
   /** Compare-and-swap: libera la fila SOLO si es un alquiler vencido. */
@@ -1315,6 +1437,67 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       nuevaExpira, id, jugador.id,
     ]);
     return { ok: true, expiraEn: nuevaExpira };
+  }
+
+  async listarStockTenderete(tenderoteId: string): Promise<ItemEnVentaTenderete[]> {
+    const r = await this.pool.query<{ item_id: string; cantidad: number; precio_farycoins: number }>(
+      "SELECT item_id, cantidad, precio_farycoins FROM tenderete_items WHERE tenderete_id = $1",
+      [tenderoteId],
+    );
+    return r.rows.map((f) => ({ itemId: f.item_id, cantidad: f.cantidad, precioFarycoins: f.precio_farycoins }));
+  }
+
+  async reponerStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioFarycoins: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO tenderete_items (tenderete_id, item_id, cantidad, precio_farycoins) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (tenderete_id, item_id) DO UPDATE SET
+         cantidad = tenderete_items.cantidad + EXCLUDED.cantidad, precio_farycoins = EXCLUDED.precio_farycoins`,
+      [tenderoteId, itemId, cantidad, precioFarycoins],
+    );
+  }
+
+  async fijarPrecioTenderete(tenderoteId: string, itemId: string, precioFarycoins: number): Promise<boolean> {
+    const r = await this.pool.query(
+      "UPDATE tenderete_items SET precio_farycoins = $1 WHERE tenderete_id = $2 AND item_id = $3",
+      [precioFarycoins, tenderoteId, itemId],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async comprarDeTenderete(params: {
+    tenderoteId: string;
+    itemId: string;
+    cantidad: number;
+    compradorNombre: string;
+    duenoNombre: string;
+  }): Promise<
+    | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
+    | { ok: false; motivo: string }
+  > {
+    const filaPrecio = await this.pool.query<{ precio_farycoins: number }>(
+      "SELECT precio_farycoins FROM tenderete_items WHERE tenderete_id = $1 AND item_id = $2",
+      [params.tenderoteId, params.itemId],
+    );
+    if (filaPrecio.rows.length === 0) return { ok: false, motivo: "ese ítem no está en venta aquí" };
+    const precioTotal = filaPrecio.rows[0].precio_farycoins * params.cantidad;
+
+    const comprador = await this.obtenerOCrearJugador(params.compradorNombre);
+    const debito = await this.ajustarFarycoins(comprador.id, -precioTotal);
+    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+
+    const stock = await this.pool.query<{ cantidad: number }>(
+      `UPDATE tenderete_items SET cantidad = cantidad - $1 WHERE tenderete_id = $2 AND item_id = $3 AND cantidad >= $1
+       RETURNING cantidad`,
+      [params.cantidad, params.tenderoteId, params.itemId],
+    );
+    if (stock.rows.length === 0) {
+      await this.ajustarFarycoins(comprador.id, precioTotal); // reembolso: se agotó justo antes
+      return { ok: false, motivo: "no queda stock suficiente" };
+    }
+
+    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre);
+    await this.ajustarFarycoins(vendedor.id, precioTotal);
+    return { ok: true, saldoRestante: debito.saldo, cantidadRestante: stock.rows[0].cantidad, precioTotal };
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {
