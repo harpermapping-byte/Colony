@@ -12,15 +12,17 @@ const { TRANSITABLES } = require("./generar");
 
 // Especies domésticas: reusan las plantillas ya existentes de
 // personajes/catalogo/animales_rig.json (gallina_salvaje/vaca_salvaje) o
-// las nuevas domésticas puras (perro/gato/gallo/caballo/mulo/buey) — cero
+// las nuevas domésticas puras (perro/gato/gallo/caballo/burro/buey) — cero
 // catálogo nuevo, "las listas crecen, el código no". IMPORTANTE: solo puede
 // entrar aquí una especie que YA tenga rig/esqueleto en animales_rig.json —
 // generarAnimal() revienta si no lo tiene. oveja/carnero/cerdo/
-// ganso_domestico ya existen en baker/catalogo/animales.json (ampliación
-// 2026-08-29) pero deliberadamente NO se añaden aquí todavía: sin rig.
-// caballo/mulo/buey (pedido 2026-08-29, "animales de trabajo") SÍ tienen
-// rig ya, así que entran directos — pesos bajos porque son animales caros
-// de mantener, no todas las casas tienen uno.
+// ganso_domestico/perra/gata/yegua/toro/vaca/... (trío macho-hembra-cría,
+// ampliación 2026-08-29) ya existen en baker/catalogo/animales.json pero
+// deliberadamente NO se añaden aquí todavía: sin rig. caballo/burro/buey
+// (pedido 2026-08-29, "animales de trabajo") SÍ tienen rig ya, así que
+// entran directos — pesos bajos porque son animales caros de mantener, no
+// todas las casas tienen uno. 'burro' sustituye a 'mulo' (híbrido estéril,
+// no encajaba con el sistema de cría que se está montando).
 const ESPECIES = [
   { especieId: "gallina_salvaje", peso: 8, radio: 3 },
   { especieId: "gallo", peso: 1, peroSoloSiHay: "gallina_salvaje", radio: 3 }, // "algún gallo si hay gallinas"
@@ -28,7 +30,7 @@ const ESPECIES = [
   { especieId: "perro", peso: 4, radio: 5 },
   { especieId: "gato", peso: 4, radio: 4 },
   { especieId: "caballo", peso: 2, radio: 5 },
-  { especieId: "mulo", peso: 1, radio: 4 },
+  { especieId: "burro", peso: 1, radio: 4 },
   { especieId: "buey", peso: 1, radio: 3 },
 ];
 
