@@ -5,6 +5,35 @@ import { RoomExteriorBase, RADIO_INTERACCION } from "./base/RoomExteriorBase";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { cargarParcelas } from "../construccion/parcelas";
 import { GestorConversacionesNpc } from "../ia/npcChat";
+import { obtenerBdCompartida } from "../datos/bdCompartida";
+import { cargarCatalogoFaunaSalvaje } from "../mundo/catalogoFaunaSalvaje";
+import { DependenciasFaunaSalvaje, GestorFaunaSalvaje } from "../mundo/faunaSalvajeViva";
+import { ObjetoFaunaBakeado } from "../mundo/faunaSalvajeSector";
+import { diaFraccional } from "../mundo/reproduccionFauna";
+import { tiempoMundo } from "../mundo/tiempoMundo";
+
+// Lee un `sector_XXX_YYY.json` bakeado y devuelve solo sus objetos de
+// fauna (t==="a") con coordenadas GLOBALAS de casilla — mismo formato de
+// nombre de archivo que usa `mundo/mapaColision.ts`. `[]` si el sector no
+// existe (fuera del mapa, o hueco sin bakear).
+function leerObjetosFaunaDeSector(rutaMapa: string, tamanoChunk: number, sectorX: number, sectorY: number): ObjetoFaunaBakeado[] {
+  const pad3 = (n: number) => String(n).padStart(3, "0");
+  const ruta = path.join(rutaMapa, `sector_${pad3(sectorX)}_${pad3(sectorY)}.json`);
+  if (!fs.existsSync(ruta)) return [];
+  const sector = JSON.parse(fs.readFileSync(ruta, "utf8")) as {
+    chunks: Record<string, { objetos: { i: string; t: string; x: number; y: number }[] }>;
+  };
+  const salida: ObjetoFaunaBakeado[] = [];
+  for (const [clave, chunk] of Object.entries(sector.chunks)) {
+    const [cx, cy] = clave.split("_").map(Number);
+    const baseX = cx * tamanoChunk;
+    const baseY = cy * tamanoChunk;
+    for (const obj of chunk.objetos) {
+      if (obj.t === "a") salida.push({ i: obj.i, x: baseX + obj.x, y: baseY + obj.y });
+    }
+  }
+  return salida;
+}
 
 // El hub juega sobre el MAPA PRINCIPAL (assets/mapas/principal/) — mismo
 // mapa que el cliente carga por streaming. Si no está en disco (repo
@@ -51,6 +80,61 @@ export class HubRoom extends RoomExteriorBase {
     // lógica compartida (RoomExteriorBase.iniciarConstruccion) pero con
     // parcelas rasterizadas del bake, ver RegionRoom.ts.
     await this.iniciarConstruccion(cargarParcelas(rutaMapa, this.mapa.ancho), path.basename(rutaMapa));
+
+    // Fauna salvaje EN VIVO (docs/GDD_Agentes_Moviles.md, pedido
+    // 2026-08-30): activa/desactiva sectores según se acercan o alejan
+    // jugadores — el resto del mapa (miles de sectores) no cuesta nada
+    // mientras nadie esté cerca. Reusa el mismo algoritmo de merodeo que
+    // la fauna doméstica (mundo/fauna.ts). Envuelto entero en try/catch:
+    // esto es una capa nueva sobre un Hub que ya funcionaba — si algo
+    // falla (mapa sin indice.json completo, BD no disponible...) se
+    // registra y la partida sigue exactamente igual que antes, sin fauna
+    // salvaje viva, en vez de tumbar la room para todos los jugadores.
+    try {
+      const indice = JSON.parse(fs.readFileSync(path.join(rutaMapa, "indice.json"), "utf8")) as {
+        tamanoChunk: number;
+        tamanoSectorChunks: number;
+      };
+      if (indice.tamanoSectorChunks) {
+        const bd = await obtenerBdCompartida();
+        const catalogo = cargarCatalogoFaunaSalvaje(
+          path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "animales.json"),
+        );
+        const mapaId = path.basename(rutaMapa);
+        const deps: DependenciasFaunaSalvaje = {
+          mapaId,
+          catalogo,
+          mundo: this.mapa,
+          ahora: () => {
+            const t = tiempoMundo();
+            return diaFraccional(t.dia, t.hora);
+          },
+          cargarBakeSector: (s) => leerObjetosFaunaDeSector(rutaMapa, indice.tamanoChunk, s.sectorX, s.sectorY),
+          cargarPersistido: async (s) => ({
+            filas: await bd.listarFaunaSector(mapaId, s.sectorX, s.sectorY),
+            huevos: await bd.listarHuevosSector(mapaId, s.sectorX, s.sectorY),
+            ultimaResolucion: await bd.obtenerUltimaResolucionSector(mapaId, s.sectorX, s.sectorY),
+          }),
+          guardarIndividuo: (f) => bd.guardarFaunaIndividuo(f),
+          guardarHuevo: (h) => bd.guardarHuevo(h),
+          marcarSectorResuelto: (s, momento) => bd.marcarSectorResuelto(mapaId, s.sectorX, s.sectorY, momento),
+        };
+        const gestorFaunaSalvaje = new GestorFaunaSalvaje(this.state.fauna, deps);
+        // Merodeo a 5hz (igual que la fauna doméstica); activar/desactivar
+        // sectores es mucho más caro (E/S a BD) así que va aparte y más
+        // despacio — de sobra para notar que un jugador cambió de sector.
+        this.clock.setInterval(() => gestorFaunaSalvaje.tick(0.2), 200);
+        this.clock.setInterval(() => {
+          const posiciones = [...this.state.players.values()].map((p) => ({ x: p.x, y: p.y }));
+          gestorFaunaSalvaje
+            .actualizarPorJugadores(posiciones, indice.tamanoChunk, indice.tamanoSectorChunks, 1)
+            .catch((err) => console.error("Fauna salvaje: fallo actualizando sectores activos:", err));
+        }, 8000);
+        console.log("  Fauna salvaje en vivo activada (sectores bajo demanda)");
+      }
+    } catch (err) {
+      console.error("Fauna salvaje: no se pudo iniciar, el Hub sigue sin ella:", err);
+    }
 
     // Puertas del Hub (docs/GDD_Sistema_Puertas.md): al ser la raíz, sus
     // portales "exterior" DEBEN traer `destino` (a una región) — no hay

@@ -322,7 +322,7 @@ consola.
 - El "jugar" entre dos animales cercanos (perseguirse) es una acción en
   solitario por ahora, no una interacción real entre dos fauna.
 
-## Reproducción de fauna (v1.4, pedido del streamer 2026-08-30 — EN CURSO, fase 1 de 2)
+## Reproducción de fauna (v1.4, pedido del streamer 2026-08-30 — fases 1 y 2 hechas)
 
 Pedido: que la fauna SALVAJE del mapa exterior tenga población real y
 persistente (si la matan toda, no vuelve sola) y se reproduzca —
@@ -393,26 +393,77 @@ de "día de mundo" contra el momento en que se consulta un animal.
     ovíparo vs. mamífero, roedor con 2 crías, huevo eclosiona justo al
     cumplirse la duración...).
 
-### Pendiente (fase 2, siguiente pasada)
+### Hecho en la fase 2 (persistencia + integración en vivo en el Hub)
 
-- **Persistencia real** (tabla nueva en `server/src/datos/bd.ts`, SQLite
-  + Postgres, mismo patrón que `tropas_asentamiento`: población por
-  región con bajas permanentes) — todavía no hecha.
-- **Integración en vivo**: hacer que la fauna salvaje del Hub (mapa
-  principal) exista de verdad como entidades — spawn inicial determinista
-  igual que hace hoy el baker, reutilizando el bucle de merodeo de
-  `GestorFauna` (confirmado con el streamer: si vale para lo doméstico
-  vale para lo salvaje) pero SOLO para los animales cerca de jugadores
-  conectados (acotado, nunca los 25-40k a la vez) — el resto de la
-  población queda como fila de BD sin tick hasta que alguien se acerque a
-  su sector. Es la pieza más grande que queda y toca justo el límite de
-  "no polling, Render free", así que se hace aparte con cuidado.
+- **Persistencia** (`server/src/datos/bd.ts`, SQLite + Postgres, mismo
+  patrón que `tropas_asentamiento`): 3 tablas nuevas —
+  `fauna_salvaje` (un individuo por fila: especie, sexo, etapa,
+  estado vivo/muerto que nunca vuelve a vivo, posición, timestamps de
+  comida/bebida/gestación — todo en "día de mundo" fraccional, nunca un
+  contador que corra solo), `fauna_huevo` (huevo en el mundo de una
+  especie ovípara, con su propio temporizador de eclosión) y
+  `fauna_sector_resuelto` (última vez que se resolvió cada sector, para
+  saber si hay que generar la población base desde el bake o avanzar un
+  hueco de tiempo). Todo indexado y consultado por `(mapaId, sectorX,
+  sectorY)` — nunca se lee/escribe el mapa entero de golpe. 4 tests
+  (`server/test/faunaSalvajeBd.test.ts`).
+- **`server/src/mundo/faunaSalvajeSector.ts`** (nuevo, resuelve UN sector):
+  primera activación = población 1:1 desde lo que ya bakeó
+  `decoracion.js` (mismas posiciones/especies de siempre, densidad
+  intacta); reactivación = avanza el hueco de tiempo transcurrido con
+  **una sola tirada por pareja elegible más cercana** (nunca una por
+  cada día pasado) — así un hueco de 30 días de mundo sin que nadie
+  pasara por ahí cuesta exactamente lo mismo que uno de 1 día, y nunca
+  puede disparar la población por dejar el sector solo mucho tiempo
+  (pedido explícito: "no sea que... de repente tengamos x1000"). 9 tests.
+- **`server/src/mundo/faunaSalvajeViva.ts`** (nuevo, `GestorFaunaSalvaje`):
+  activa/desactiva sectores según se acercan o alejan los jugadores
+  (`actualizarPorJugadores`, radio configurable en sectores) y tickea el
+  merodeo de los activos con el **mismo algoritmo** que la fauna
+  doméstica (`mundo/fauna.ts`, `GestorFauna` — confirmado con el
+  streamer: "por qué no usamos la inteligencia de los domésticos en lo
+  salvaje", pues sí, se reutiliza el bucle de pausa-idle/caminar a un
+  punto al azar), adaptado para poder QUITAR animales del estado y
+  persistir su posición final al desactivarse (cosa que la fauna
+  doméstica nunca necesita, no se quita nunca). Todas las dependencias
+  (leer el bake, leer/guardar BD, "ahora" del reloj de mundo) se
+  inyectan — cero fs/BD reales en el propio módulo — así que se testea
+  entero con datos falsos, sin tocar disco ni base de datos. 10 tests.
+- **`server/src/mundo/catalogoFaunaSalvaje.ts`**: reduce el catálogo
+  completo del baker a lo que necesita el sistema (tamaño/huevos/cría/
+  camada), probado contra el catálogo REAL de 187 especies (2 tests).
+- **`HubRoom.ts`** (el mapa principal — las aldeas/POIs de `RegionRoom`
+  NO tienen fauna salvaje en su bake, solo doméstica): engancha todo
+  esto tras `iniciarConstruccion`, envuelto ENTERO en `try/catch` — si
+  algo falla (mapa sin `tamanoSectorChunks`, BD no disponible...) se
+  registra en consola y el Hub sigue funcionando exactamente igual que
+  antes, sin fauna salvaje viva, en vez de tumbar la room para todos los
+  jugadores. Merodeo tickeado a 5hz (igual que doméstica); activar/
+  desactivar sectores (E/S a BD) va aparte a 1 vez cada 8s, de sobra
+  para notar que un jugador cambió de sector sin recargar BD en cada
+  frame. Verificado con un smoke test manual contra datos reales del
+  mapa demo (sector de verdad parseado, 2 animales reales activados —
+  arrendajo y erizo —, movimiento confirmado tras varios `tick()`).
+- Solo faltan estas piezas para que TODO el catálogo reproductor
+  funcione en vivo: nada — las 145 especies con `tamanoReproduccion`
+  ya pasan por este sistema en cuanto su sector se activa, con o sin
+  cría catalogada (fallback genérico, ver arriba).
+
+### Pendiente (fuera de esta pasada)
+
 - **Caza de depredadores con combate y cadáver**: aparcado a propósito —
   depende de un sistema de combate (vida/daño/ataque) que no existe en
   ningún sitio del servidor todavía. No es parte de "reproducción", es un
   prerrequisito mayor aparte.
 - **Domésticos**: persistencia + mecánica de cría "más fácil" —
   explícitamente dejada para acotar más adelante, no diseñada todavía.
+- **Probar con jugadores reales moviéndose por el mapa principal de
+  producción** (esto se verificó con datos reales del mapa demo y con
+  dependencias falsas para los caminos de activación/desactivación —
+  falta el follow-up con el mapa `principal` de verdad y el streamer
+  jugando, para confirmar el ritmo de activación/desactivación se siente
+  bien y que no hay sorpresas de rendimiento a la escala real de
+  25-40k animales).
 
 ## Verificado (v1)
 

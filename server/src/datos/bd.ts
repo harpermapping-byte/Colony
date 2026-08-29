@@ -190,6 +190,52 @@ export interface Tropa {
   estado: EstadoTropa;
 }
 
+// Reproducción de fauna salvaje (docs/GDD_Agentes_Moviles.md, pedido
+// 2026-08-30): un individuo por fila, agrupado por sector (mismo
+// TAMANO_SECTOR_CHUNKS que usa el bakeador para exportar el mapa) — la
+// integración en vivo carga/guarda SOLO el sector que se activa, nunca
+// todo el mapa de golpe. `estado` nunca vuelve de 'muerto' a 'vivo',
+// mismo criterio que tropas_asentamiento. Los timestamps (`ultimaComida`,
+// `ultimaBebida`, `gestandoDesde`) son "día de mundo" fraccional
+// (día entero + hora/24, ver tiempoMundo()/diaFraccional en
+// reproduccionFauna.ts) — nunca un contador que corra solo.
+export type SexoFauna = "macho" | "hembra";
+export type EtapaFauna = "cria" | "adulto";
+export type EstadoFaunaSalvaje = "vivo" | "muerto";
+
+export interface FaunaSalvajeFila {
+  id: string;
+  mapaId: string;
+  sectorX: number;
+  sectorY: number;
+  especieId: string;
+  sexo: SexoFauna;
+  etapa: EtapaFauna;
+  estado: EstadoFaunaSalvaje;
+  x: number;
+  y: number;
+  ultimaComida: number;
+  ultimaBebida: number;
+  gestandoDesde: number | null;
+  gestacionDuracionDias: number | null;
+}
+
+// Huevo puesto en el mundo (especies ovíparas, ver intentarAparearse en
+// reproduccionFauna.ts) — objeto aparte de la madre, que queda libre al
+// instante; el huevo eclosiona por su cuenta al consultarse pasada su
+// `duracionDias` desde `puestoEn`.
+export interface FaunaHuevoFila {
+  id: string;
+  mapaId: string;
+  sectorX: number;
+  sectorY: number;
+  especieMadreId: string;
+  x: number;
+  y: number;
+  puestoEn: number;
+  duracionDias: number;
+}
+
 // Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
 // asentamiento — el registro de eventos que alimenta su contexto de IA.
 export interface MemoriaLider {
@@ -310,6 +356,18 @@ export interface IAlmacenDatos {
   // nada la llama en producción — la persistencia ya está lista para cuando
   // combate exista, mismo patrón que marcarMazmorraLimpiada en su día.
   marcarTropaMuerta(tropaId: string): Promise<void>;
+  // Reproducción de fauna salvaje (docs/GDD_Agentes_Moviles.md, pedido
+  // 2026-08-30) — todo por sector, para que la integración en vivo cargue
+  // y guarde SOLO el sector que se activa. `guardarFaunaIndividuo` es
+  // upsert (inserta si no existe, si no actualiza todos los campos).
+  listarFaunaSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaSalvajeFila[]>;
+  guardarFaunaIndividuo(f: FaunaSalvajeFila): Promise<void>;
+  listarHuevosSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaHuevoFila[]>;
+  guardarHuevo(h: FaunaHuevoFila): Promise<void>;
+  borrarHuevo(id: string): Promise<void>;
+  /** `null` = este sector nunca se resolvió — el primer spawn se genera determinista, no se "resuelve" un hueco. */
+  obtenerUltimaResolucionSector(mapaId: string, sectorX: number, sectorY: number): Promise<number | null>;
+  marcarSectorResuelto(mapaId: string, sectorX: number, sectorY: number, momento: number): Promise<void>;
   registrarMemoriaLider(diaIngame: number, evento: string): Promise<void>;
   memoriaLiderReciente(limite: number): Promise<MemoriaLider[]>;
   // Inventario (pedido 2026-08-29, fase 1: catálogo + servidor + persistencia
@@ -438,6 +496,42 @@ CREATE TABLE IF NOT EXISTS tropas_asentamiento (
   estado TEXT NOT NULL DEFAULT 'vivo'   -- 'vivo' | 'muerto' — una baja real NUNCA vuelve a 'vivo' (GDD §1)
 );
 CREATE INDEX IF NOT EXISTS idx_tropas_asentamiento ON tropas_asentamiento(asentamiento_id);
+CREATE TABLE IF NOT EXISTS fauna_salvaje (
+  id TEXT PRIMARY KEY,                  -- "<mapaId>:<sectorX>:<sectorY>:<n>"
+  mapa_id TEXT NOT NULL,
+  sector_x INTEGER NOT NULL,
+  sector_y INTEGER NOT NULL,
+  especie_id TEXT NOT NULL,
+  sexo TEXT NOT NULL,                   -- 'macho' | 'hembra'
+  etapa TEXT NOT NULL DEFAULT 'adulto', -- 'cria' | 'adulto'
+  estado TEXT NOT NULL DEFAULT 'vivo',  -- 'vivo' | 'muerto' — nunca vuelve a 'vivo'
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  ultima_comida REAL NOT NULL,
+  ultima_bebida REAL NOT NULL,
+  gestando_desde REAL,
+  gestacion_duracion_dias REAL
+);
+CREATE INDEX IF NOT EXISTS idx_fauna_salvaje_sector ON fauna_salvaje(mapa_id, sector_x, sector_y);
+CREATE TABLE IF NOT EXISTS fauna_huevo (
+  id TEXT PRIMARY KEY,
+  mapa_id TEXT NOT NULL,
+  sector_x INTEGER NOT NULL,
+  sector_y INTEGER NOT NULL,
+  especie_madre_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  puesto_en REAL NOT NULL,
+  duracion_dias REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_fauna_huevo_sector ON fauna_huevo(mapa_id, sector_x, sector_y);
+CREATE TABLE IF NOT EXISTS fauna_sector_resuelto (
+  mapa_id TEXT NOT NULL,
+  sector_x INTEGER NOT NULL,
+  sector_y INTEGER NOT NULL,
+  ultima_resolucion REAL NOT NULL,
+  PRIMARY KEY (mapa_id, sector_x, sector_y)
+);
 CREATE TABLE IF NOT EXISTS memoria_lider (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   dia_ingame INTEGER NOT NULL,
@@ -576,6 +670,42 @@ CREATE TABLE IF NOT EXISTS tropas_asentamiento (
   estado TEXT NOT NULL DEFAULT 'vivo'
 );
 CREATE INDEX IF NOT EXISTS idx_tropas_asentamiento ON tropas_asentamiento(asentamiento_id);
+CREATE TABLE IF NOT EXISTS fauna_salvaje (
+  id TEXT PRIMARY KEY,
+  mapa_id TEXT NOT NULL,
+  sector_x INTEGER NOT NULL,
+  sector_y INTEGER NOT NULL,
+  especie_id TEXT NOT NULL,
+  sexo TEXT NOT NULL,
+  etapa TEXT NOT NULL DEFAULT 'adulto',
+  estado TEXT NOT NULL DEFAULT 'vivo',
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  ultima_comida REAL NOT NULL,
+  ultima_bebida REAL NOT NULL,
+  gestando_desde REAL,
+  gestacion_duracion_dias REAL
+);
+CREATE INDEX IF NOT EXISTS idx_fauna_salvaje_sector ON fauna_salvaje(mapa_id, sector_x, sector_y);
+CREATE TABLE IF NOT EXISTS fauna_huevo (
+  id TEXT PRIMARY KEY,
+  mapa_id TEXT NOT NULL,
+  sector_x INTEGER NOT NULL,
+  sector_y INTEGER NOT NULL,
+  especie_madre_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  puesto_en REAL NOT NULL,
+  duracion_dias REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_fauna_huevo_sector ON fauna_huevo(mapa_id, sector_x, sector_y);
+CREATE TABLE IF NOT EXISTS fauna_sector_resuelto (
+  mapa_id TEXT NOT NULL,
+  sector_x INTEGER NOT NULL,
+  sector_y INTEGER NOT NULL,
+  ultima_resolucion REAL NOT NULL,
+  PRIMARY KEY (mapa_id, sector_x, sector_y)
+);
 CREATE TABLE IF NOT EXISTS memoria_lider (
   id SERIAL PRIMARY KEY,
   dia_ingame INTEGER NOT NULL,
@@ -598,6 +728,47 @@ CREATE TABLE IF NOT EXISTS equipo (
   PRIMARY KEY (jugador_id, slot)
 );
 `;
+
+// Mapeo de fila cruda (SQLite o Postgres, misma forma de columnas) a los
+// tipos de reproduccionFauna.ts — compartido por los dos motores para no
+// duplicar el mapeo de cada campo dos veces.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaFaunaSalvajeDesdeSql(f: any): FaunaSalvajeFila {
+  return {
+    id: String(f.id),
+    mapaId: String(f.mapa_id),
+    sectorX: Number(f.sector_x),
+    sectorY: Number(f.sector_y),
+    especieId: String(f.especie_id),
+    sexo: String(f.sexo) as SexoFauna,
+    etapa: String(f.etapa) as EtapaFauna,
+    estado: String(f.estado) as EstadoFaunaSalvaje,
+    x: Number(f.x),
+    y: Number(f.y),
+    ultimaComida: Number(f.ultima_comida),
+    ultimaBebida: Number(f.ultima_bebida),
+    gestandoDesde: f.gestando_desde === null || f.gestando_desde === undefined ? null : Number(f.gestando_desde),
+    gestacionDuracionDias:
+      f.gestacion_duracion_dias === null || f.gestacion_duracion_dias === undefined
+        ? null
+        : Number(f.gestacion_duracion_dias),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaFaunaHuevoDesdeSql(f: any): FaunaHuevoFila {
+  return {
+    id: String(f.id),
+    mapaId: String(f.mapa_id),
+    sectorX: Number(f.sector_x),
+    sectorY: Number(f.sector_y),
+    especieMadreId: String(f.especie_madre_id),
+    x: Number(f.x),
+    y: Number(f.y),
+    puestoEn: Number(f.puesto_en),
+    duracionDias: Number(f.duracion_dias),
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Motor SQLite — desarrollo/pruebas. Constructor síncrono (como siempre);
@@ -1192,6 +1363,77 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async marcarTropaMuerta(tropaId: string): Promise<void> {
     this.bd.prepare("UPDATE tropas_asentamiento SET estado = 'muerto' WHERE id = ?").run(tropaId);
+  }
+
+  async listarFaunaSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaSalvajeFila[]> {
+    const filas = this.bd
+      .prepare(
+        `SELECT id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
+                ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias
+         FROM fauna_salvaje WHERE mapa_id = ? AND sector_x = ? AND sector_y = ?`,
+      )
+      .all(mapaId, sectorX, sectorY);
+    return filas.map(filaFaunaSalvajeDesdeSql);
+  }
+
+  async guardarFaunaIndividuo(f: FaunaSalvajeFila): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO fauna_salvaje
+           (id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
+            ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           sexo = excluded.sexo, etapa = excluded.etapa, estado = excluded.estado,
+           x = excluded.x, y = excluded.y, ultima_comida = excluded.ultima_comida,
+           ultima_bebida = excluded.ultima_bebida, gestando_desde = excluded.gestando_desde,
+           gestacion_duracion_dias = excluded.gestacion_duracion_dias`,
+      )
+      .run(
+        f.id, f.mapaId, f.sectorX, f.sectorY, f.especieId, f.sexo, f.etapa, f.estado, f.x, f.y,
+        f.ultimaComida, f.ultimaBebida, f.gestandoDesde, f.gestacionDuracionDias,
+      );
+  }
+
+  async listarHuevosSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaHuevoFila[]> {
+    const filas = this.bd
+      .prepare(
+        `SELECT id, mapa_id, sector_x, sector_y, especie_madre_id, x, y, puesto_en, duracion_dias
+         FROM fauna_huevo WHERE mapa_id = ? AND sector_x = ? AND sector_y = ?`,
+      )
+      .all(mapaId, sectorX, sectorY);
+    return filas.map(filaFaunaHuevoDesdeSql);
+  }
+
+  async guardarHuevo(h: FaunaHuevoFila): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO fauna_huevo (id, mapa_id, sector_x, sector_y, especie_madre_id, x, y, puesto_en, duracion_dias)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET x = excluded.x, y = excluded.y`,
+      )
+      .run(h.id, h.mapaId, h.sectorX, h.sectorY, h.especieMadreId, h.x, h.y, h.puestoEn, h.duracionDias);
+  }
+
+  async borrarHuevo(id: string): Promise<void> {
+    this.bd.prepare("DELETE FROM fauna_huevo WHERE id = ?").run(id);
+  }
+
+  async obtenerUltimaResolucionSector(mapaId: string, sectorX: number, sectorY: number): Promise<number | null> {
+    const fila = this.bd
+      .prepare("SELECT ultima_resolucion FROM fauna_sector_resuelto WHERE mapa_id = ? AND sector_x = ? AND sector_y = ?")
+      .get(mapaId, sectorX, sectorY);
+    return fila ? Number(fila.ultima_resolucion) : null;
+  }
+
+  async marcarSectorResuelto(mapaId: string, sectorX: number, sectorY: number, momento: number): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO fauna_sector_resuelto (mapa_id, sector_x, sector_y, ultima_resolucion)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(mapa_id, sector_x, sector_y) DO UPDATE SET ultima_resolucion = excluded.ultima_resolucion`,
+      )
+      .run(mapaId, sectorX, sectorY, momento);
   }
 
   async registrarMemoriaLider(diaIngame: number, evento: string): Promise<void> {
@@ -1828,6 +2070,73 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async marcarTropaMuerta(tropaId: string): Promise<void> {
     await this.pool.query("UPDATE tropas_asentamiento SET estado = 'muerto' WHERE id = $1", [tropaId]);
+  }
+
+  async listarFaunaSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaSalvajeFila[]> {
+    const r = await this.pool.query(
+      `SELECT id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
+              ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias
+       FROM fauna_salvaje WHERE mapa_id = $1 AND sector_x = $2 AND sector_y = $3`,
+      [mapaId, sectorX, sectorY],
+    );
+    return r.rows.map(filaFaunaSalvajeDesdeSql);
+  }
+
+  async guardarFaunaIndividuo(f: FaunaSalvajeFila): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO fauna_salvaje
+         (id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
+          ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       ON CONFLICT (id) DO UPDATE SET
+         sexo = EXCLUDED.sexo, etapa = EXCLUDED.etapa, estado = EXCLUDED.estado,
+         x = EXCLUDED.x, y = EXCLUDED.y, ultima_comida = EXCLUDED.ultima_comida,
+         ultima_bebida = EXCLUDED.ultima_bebida, gestando_desde = EXCLUDED.gestando_desde,
+         gestacion_duracion_dias = EXCLUDED.gestacion_duracion_dias`,
+      [
+        f.id, f.mapaId, f.sectorX, f.sectorY, f.especieId, f.sexo, f.etapa, f.estado, f.x, f.y,
+        f.ultimaComida, f.ultimaBebida, f.gestandoDesde, f.gestacionDuracionDias,
+      ],
+    );
+  }
+
+  async listarHuevosSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaHuevoFila[]> {
+    const r = await this.pool.query(
+      `SELECT id, mapa_id, sector_x, sector_y, especie_madre_id, x, y, puesto_en, duracion_dias
+       FROM fauna_huevo WHERE mapa_id = $1 AND sector_x = $2 AND sector_y = $3`,
+      [mapaId, sectorX, sectorY],
+    );
+    return r.rows.map(filaFaunaHuevoDesdeSql);
+  }
+
+  async guardarHuevo(h: FaunaHuevoFila): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO fauna_huevo (id, mapa_id, sector_x, sector_y, especie_madre_id, x, y, puesto_en, duracion_dias)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (id) DO UPDATE SET x = EXCLUDED.x, y = EXCLUDED.y`,
+      [h.id, h.mapaId, h.sectorX, h.sectorY, h.especieMadreId, h.x, h.y, h.puestoEn, h.duracionDias],
+    );
+  }
+
+  async borrarHuevo(id: string): Promise<void> {
+    await this.pool.query("DELETE FROM fauna_huevo WHERE id = $1", [id]);
+  }
+
+  async obtenerUltimaResolucionSector(mapaId: string, sectorX: number, sectorY: number): Promise<number | null> {
+    const r = await this.pool.query<{ ultima_resolucion: string }>(
+      "SELECT ultima_resolucion FROM fauna_sector_resuelto WHERE mapa_id = $1 AND sector_x = $2 AND sector_y = $3",
+      [mapaId, sectorX, sectorY],
+    );
+    return r.rows.length > 0 ? Number(r.rows[0].ultima_resolucion) : null;
+  }
+
+  async marcarSectorResuelto(mapaId: string, sectorX: number, sectorY: number, momento: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO fauna_sector_resuelto (mapa_id, sector_x, sector_y, ultima_resolucion)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (mapa_id, sector_x, sector_y) DO UPDATE SET ultima_resolucion = EXCLUDED.ultima_resolucion`,
+      [mapaId, sectorX, sectorY, momento],
+    );
   }
 
   async registrarMemoriaLider(diaIngame: number, evento: string): Promise<void> {
