@@ -213,6 +213,15 @@ export class HubRoom extends RoomExteriorBase {
       try {
         const texto = await this.conversacionesNpc.hablar(msg.npcId, nombre, msg.mensaje.slice(0, 300));
         client.send("npc:respuesta", { npcId: msg.npcId, texto });
+        // Carisma (docs/GDD_Personaje.md): hablar con un NPC ya está
+        // limitado por el cooldown de arriba (3s), así que reusarlo también
+        // acota la ganancia de XP sin necesidad de un límite propio.
+        const player = this.state.players.get(client.sessionId);
+        if (player) {
+          const bd = await obtenerBdCompartida();
+          const jugador = await bd.obtenerOCrearJugador(nombre);
+          await this.otorgarXpAtributo(bd, jugador.id, "carisma", player, 5);
+        }
       } catch (err) {
         client.send("npc:error", { npcId: msg.npcId, motivo: (err as Error).message });
       }
