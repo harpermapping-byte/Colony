@@ -43,7 +43,7 @@ import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
 import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../construccion/energia";
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
 import { tickVitales, restaurarVital } from "../../personaje/vitales";
-import { Atributo } from "../../personaje/atributos";
+import { Atributo, esAtributoValido } from "../../personaje/atributos";
 import { UMBRALES_NIVEL_ATRIBUTO } from "../../progresion/nivel";
 import {
   pesoMaximoTransportable,
@@ -299,6 +299,12 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.onMessage("refinamiento:depositar", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarRefinamientoDepositar(client, msg));
     this.onMessage("crafteo:iniciar", (client, msg: { recetaId?: string; construccionId?: number }) => this.manejarCrafteoIniciar(client, msg));
     this.onMessage("crafteo:recolectar", (client) => this.manejarCrafteoRecolectar(client));
+
+    // Actividades diarias de entrenamiento (docs/GDD_Personaje.md §3.5,
+    // pedido 2026-08-30): un único mensaje genérico para pesas/diana/atril
+    // — qué atributo y cuánta XP salen del propio catálogo construible
+    // (`actividadAtributo`), no de un handler por atributo.
+    this.onMessage("actividad:realizar", (client, msg: { construccionId?: number }) => this.manejarActividadRealizar(client, msg));
 
     // Combate táctico por turnos (docs/GDD_Combate.md, ✅ CONFIRMADO
     // 2026-08-30 — sustituye al daño directo simple de GDD_Mecanicas.md
@@ -1958,6 +1964,47 @@ export abstract class RoomExteriorBase extends Room<HubState> {
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad,
       oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
     });
+  }
+
+  /**
+   * Actividad diaria de entrenamiento (docs/GDD_Personaje.md §3.5, pedido
+   * 2026-08-30): acercarse a una construcción con `actividadAtributo` en su
+   * catálogo (pesas, diana, atril...) y otorga esa XP a ESE atributo, una
+   * vez por día de MUNDO (`tiempoMundo().dia`, no horas reales — así un
+   * jugador offline durante el día in-game no pierde el turno). El
+   * atributo/XP salen del catálogo, no de un handler por actividad — añadir
+   * una nueva (p.ej. un yunque para Fuerza) es solo una entrada de catálogo
+   * más, cero código nuevo aquí.
+   */
+  private async manejarActividadRealizar(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorActividad(client, "construcción inexistente");
+    const cfg = this.entradaDe(viva.objeto)?.actividadAtributo;
+    if (!cfg || !esAtributoValido(cfg.atributo)) return this.errorActividad(client, "esta construcción no tiene ninguna actividad de entrenamiento");
+
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) {
+      return this.errorActividad(client, "demasiado lejos de la construcción");
+    }
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const dia = tiempoMundo().dia;
+    const ultimoDia = await bd.obtenerUltimoDiaActividadAtributo(jugador.id, cfg.atributo);
+    if (ultimoDia === dia) return this.errorActividad(client, "ya hiciste esta actividad hoy — vuelve mañana");
+
+    await bd.marcarActividadAtributoHoy(jugador.id, cfg.atributo, dia);
+    await this.otorgarXpAtributo(bd, jugador.id, cfg.atributo, player, cfg.xp);
+    client.send("actividad:hecha", { construccionId: msg.construccionId, atributo: cfg.atributo, xp: cfg.xp });
+  }
+
+  private errorActividad(client: Client, motivo: string) {
+    client.send("actividad:error", { motivo });
   }
 
   // ============================================================
