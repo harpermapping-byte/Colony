@@ -1,5 +1,5 @@
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna } from "../schema/HubState";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
 import { cargarCatalogoArenas, elegirArena } from "../../combate/seleccionArena";
@@ -53,6 +53,9 @@ import {
   descuentoComercio,
 } from "../../personaje/bonusAtributos";
 import { curar } from "../../combate/combate";
+import { RoomConectable, registrarRoom, quitarRoom, registrarJugador, quitarJugador } from "../../twitch/registro";
+import { obtenerGestorTwitch } from "../../twitch/gestorTwitch";
+import { TipoEvento } from "../../twitch/catalogoEventos";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -127,6 +130,20 @@ const XP_CARISMA_POR_FUNDAR_GREMIO = 30; // mismo valor que antes tenía Lideraz
 const XP_CARISMA_POR_COMPRAR = 2;
 const XP_CARISMA_POR_REPONER = 3; // reponer/vender en tu propio tenderete entrena algo más que comprar
 
+// --- Twitch: eventos de puntos de canal (docs/GDD_Twitch.md, catálogo real
+// en twitch/catalogoEventos.ts) — placeholders de balance, mismo criterio
+// "número de referencia" que el resto del proyecto. ---
+const MODIFICADOR_CORRALITO = 0.3; // sube el precio de compra un 30% mientras dure
+const MODIFICADOR_MERCADO_OFERTA = 0.2; // baja el precio de compra un 20% mientras dure
+const PROB_RAYO_POR_SEG = 0.03; // ~1 impacto cada ~33s por jugador expuesto, de sobra en una tormenta de varios minutos
+const DANO_RAYO = 25;
+const PROB_TERREMOTO_POR_SEG = 0.04;
+const DANO_TERREMOTO = 12; // más frecuente que el rayo pero más flojo — un temblor sacude, no fulmina
+const VIDA_RATA = 8;
+const ATAQUE_RATA = 1; // "poca vida poco daño" — molestan, no matan (pedido literal)
+const RATAS_POR_JUGADOR = 10;
+const DURACION_PLAGA_RATAS_MS = 120_000;
+
 // --- Higiene y sueño en cama (docs/GDD_Personaje.md §3.6, pedido explícito
 // 2026-08-30) — placeholders de balance, mismo criterio que el resto ---
 /** "un tiempo limitado, no estarse horas" — dormir en cama recupera Estamina entera al cabo de esto (tiempo REAL, mismo criterio que el sprint). */
@@ -171,7 +188,7 @@ function sumarPorItemId(items: { itemId: string; cantidad: number }[]): { itemId
  * Cada subclase carga SU rejilla (exterior bakeada o interior de un
  * edificio) y llama a `iniciarMovimiento()` desde `onCreate`.
  */
-export abstract class RoomExteriorBase extends Room<HubState> {
+export abstract class RoomExteriorBase extends Room<HubState> implements RoomConectable {
   maxClients = 40;
   protected inputs = new Map<string, Direccion>();
   // Resistencia por movimiento (docs/GDD_Personaje.md §3.4): tiempo REAL
@@ -193,6 +210,21 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   private mascotaDuenoSesion = new Map<number, string>();
   private mascotasPorSesion = new Map<string, Set<number>>();
   private offsetMascota = new Map<number, { ang: number; dist: number }>();
+
+  // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) ---
+  // Solo InteriorRoom/DungeonRoom lo ponen a true (onCreate) — decide si
+  // "Tormenta de rayos" puede alcanzar a los jugadores de esta room ("si se
+  // mete en interior se salva", pedido literal); Terremoto sí afecta a
+  // interiores (un temblor no distingue techo).
+  protected esInterior = false;
+  private eventoRayoActivo = false;
+  private eventoTerremotoActivo = false;
+  private eventoFarmeoDobleActivo = false;
+  /** -1..1, sumado al descuento de Carisma en tenderete:comprar — negativo = sube el precio (El Corralito), positivo = lo baja (Mercado en oferta). */
+  private modificadorPrecioEventoTwitch = 0;
+  private ratasEvento = new Set<string>();
+  private timerPlagaRatas?: Delayed;
+  private siguienteRataId = 1;
 
   // --- inventario, fase 2 "coger/soltar" (docs/GDD_Inventario.md §7) ---
   // Contenedor PURO por sesión — fuente de verdad para agregarItem/quitarItem
@@ -240,6 +272,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   protected iniciarMovimiento() {
     this.setState(new HubState());
     this.setPatchRate(1000 / 15);
+    registrarRoom(this); // Twitch (docs/GDD_Twitch.md) — eventos globales necesitan poder llegar a esta room
 
     this.onMessage("input", (client, dir: Direccion) => {
       // Moverse de verdad cancela el sueño en cama (docs/GDD_Personaje.md
@@ -351,9 +384,27 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.onMessage("mascota:llamar", (client, msg: { mascotaId?: number }) => this.manejarMascotaLlamar(client, msg));
     this.onMessage("mascota:dejarEnPropiedad", (client, msg: { mascotaId?: number; propiedadId?: string }) => this.manejarMascotaDejarEnPropiedad(client, msg));
 
+    // --- Twitch: disparadores de PRUEBA (docs/GDD_Twitch.md) — jarl-only,
+    // mismo criterio que "inmueble:revocar"/el resto de herramientas admin
+    // ya existentes. En producción, el conector real (chatBot.ts/EventSub
+    // pendiente) llama a las MISMAS funciones de gestorTwitch.ts — esto
+    // solo es la puerta de entrada para poder probar todo el mecanismo sin
+    // depender de credenciales reales de Twitch.
+    this.onMessage("twitch:simularCanje", (client, msg: { tipo?: TipoEvento }) => this.manejarTwitchSimularCanje(client, msg));
+    this.onMessage("twitch:simularComando", (client, msg: { comando?: string }) => this.manejarTwitchSimularComando(client, msg));
+    this.onMessage("twitch:forzarDirecto", (client, msg: { on?: boolean }) => this.manejarTwitchForzarDirecto(client, msg));
+
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
     // Seguimiento de mascotas — cosmético, no necesita 30hz (mismo criterio que GestorFauna, 5hz de sobra para un paseo).
     this.clock.setInterval(() => this.moverMascotas(0.2), 200);
+    // Daño ambiental de eventos Twitch (rayo/terremoto) — igual de barato que
+    // el resto de ticks lentos de esta base, ver aplicarDanoEventosAmbientales.
+    this.clock.setInterval(() => this.aplicarDanoEventosAmbientales(1), 1000);
+  }
+
+  onDispose() {
+    quitarRoom(this); // Twitch (docs/GDD_Twitch.md) — esta room ya no debe recibir eventos globales
+    this.timerPlagaRatas?.clear();
   }
 
   protected nombreDe(client: Client): string | undefined {
@@ -367,6 +418,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     player.name = options?.name?.slice(0, 20) || `Guest-${client.sessionId.slice(0, 4)}`;
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { x: 0, y: 0 });
+    registrarJugador(player.name, this, client.sessionId); // Twitch (docs/GDD_Twitch.md) — para comandos de chat y títulos
 
     const contenedor = crearContenedor(ANCHO_CUERPO, ALTO_CUERPO);
     this.inventarios.set(client.sessionId, contenedor);
@@ -381,6 +433,8 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   }
 
   onLeave(client: Client) {
+    const nombreSaliente = this.state.players.get(client.sessionId)?.name;
+    if (nombreSaliente) quitarJugador(nombreSaliente); // Twitch (docs/GDD_Twitch.md)
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);
@@ -425,6 +479,10 @@ export abstract class RoomExteriorBase extends Room<HubState> {
       client.send("coger:error", { motivo: "nada_cerca" });
       return;
     }
+    // "Hay que trabajar" (docs/GDD_Twitch.md, evento de puntos de canal):
+    // x2 materiales mientras dure — se dobla ANTES del chequeo de peso, a
+    // propósito (cargar el doble también pesa el doble).
+    if (this.eventoFarmeoDobleActivo) candidato.cantidad *= 2;
 
     // Fuerza (docs/GDD_Personaje.md §3.3): el peso máximo transportable
     // ahora SÍ limita de verdad — antes la fórmula existía pero nada la
@@ -451,10 +509,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     // "pesados" (talar/minar); Inteligencia con CUALQUIER recolecta —
     // identificar y extraer un recurso enseña algo, sea cual sea su peso.
     const pesoItem = this.catalogoItems[candidato.itemId]?.peso ?? 0;
+    const factorXp = this.eventoFarmeoDobleActivo ? 2 : 1; // "Hay que trabajar" también dobla la XP, no solo los materiales
     if (pesoItem >= PESO_MINIMO_FUERZA) {
-      void this.otorgarXpAtributoPorSesion(client, "fuerza", XP_FUERZA_POR_RECOLECTA_PESADA);
+      void this.otorgarXpAtributoPorSesion(client, "fuerza", XP_FUERZA_POR_RECOLECTA_PESADA * factorXp);
     }
-    void this.otorgarXpAtributoPorSesion(client, "inteligencia", XP_INTELIGENCIA_POR_RECOLECTAR);
+    void this.otorgarXpAtributoPorSesion(client, "inteligencia", XP_INTELIGENCIA_POR_RECOLECTAR * factorXp);
   }
 
   /** Objeto soltado por CUALQUIER jugador (HubState.objetosMundo, compartido por las 4 rooms) más cercano dentro del radio. Universal: no requiere que la subclase sepa nada. */
@@ -1122,6 +1181,146 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     client.send("mascota:actualizada", { mascotaId: msg.mascotaId, ubicacion: "propiedad" as UbicacionMascota, propiedadId: msg.propiedadId });
   }
 
+  // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) — implementa
+  // RoomConectable: gestorTwitch.ts llama a estos métodos por `sessionId`
+  // (comandos de chat) o los dispara en TODAS las rooms activas a la vez
+  // (eventos de puntos de canal), sin que esta clase sepa nada de Twitch en
+  // sí — solo "qué le pasa al mundo cuando toca".
+
+  /** `!curar` — cura entero, evento explícito disparado por el chat (respeta la regla "nadie se cura solo con el tiempo"). */
+  curarCompleto(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    if (player) player.vida = player.vidaMax;
+  }
+
+  /** `!comer` / `!beber` — llena del todo el vital pedido. */
+  llenarVital(sessionId: string, vital: "comida" | "bebida"): void {
+    const player = this.state.players.get(sessionId);
+    if (player) restaurarVital(player.vitales, vital, VITAL_MAX);
+  }
+
+  /** `!cagar` — vacía `caca` a 0, mismo efecto que usar una hoja de verdad (docs/GDD_Personaje.md §3.6) pero sin gastar inventario ni limpiar `sucio`. */
+  vaciarCaca(sessionId: string): void {
+    const player = this.state.players.get(sessionId);
+    if (player) player.vitales.caca = 0;
+  }
+
+  /** Refresca el título social sobre el PJ (docs/GDD_Mecanicas.md §5.11) — puramente cosmético. */
+  fijarTituloTwitch(sessionId: string, titulo: string): void {
+    const player = this.state.players.get(sessionId);
+    if (player) player.tituloTwitch = titulo;
+  }
+
+  /** Activa/desactiva un evento de puntos de canal en ESTA room — gestorTwitch.ts lo llama en cada room activa a la vez. */
+  aplicarEventoTwitch(eventoId: string, activar: boolean): void {
+    switch (eventoId) {
+      case "eclipse":
+        this.state.oscuridadAbsoluta = activar;
+        break;
+      case "tormenta_rayos":
+        this.eventoRayoActivo = activar;
+        break;
+      case "terremoto":
+        this.eventoTerremotoActivo = activar;
+        break;
+      case "corralito":
+        this.modificadorPrecioEventoTwitch = activar ? -MODIFICADOR_CORRALITO : 0;
+        break;
+      case "mercado_oferta":
+        this.modificadorPrecioEventoTwitch = activar ? MODIFICADOR_MERCADO_OFERTA : 0;
+        break;
+      case "hay_que_trabajar":
+        this.eventoFarmeoDobleActivo = activar;
+        break;
+      case "plaga_ratas":
+        if (activar) this.iniciarPlagaRatas();
+        else this.limpiarPlagaRatas();
+        break;
+    }
+  }
+
+  /**
+   * Daño ambiental de "Tormenta de rayos"/"Terremoto" — chequeo barato una
+   * vez por segundo (no hace falta más resolución que esa para un % por
+   * jugador), reutiliza el mismo patrón "vida se toca directo" que ya
+   * aceptó `aplicarInanicion` (vitales.ts) como excepción explícita a
+   * "nadie se hace daño solo con el tiempo". El rayo respeta estar en
+   * interior ("si se mete en interior se salva", pedido literal); el
+   * terremoto no distingue techo.
+   */
+  private aplicarDanoEventosAmbientales(_dt: number): void {
+    if (!this.eventoRayoActivo && !this.eventoTerremotoActivo) return;
+    this.state.players.forEach((player) => {
+      if (this.eventoRayoActivo && !this.esInterior && Math.random() < PROB_RAYO_POR_SEG) {
+        player.vida = Math.max(0, player.vida - DANO_RAYO);
+      }
+      if (this.eventoTerremotoActivo && Math.random() < PROB_TERREMOTO_POR_SEG) {
+        player.vida = Math.max(0, player.vida - DANO_TERREMOTO);
+      }
+    });
+  }
+
+  /**
+   * "Plaga de ratas" — van apareciendo alrededor de cada jugador presente
+   * (también en interior), ~10 en total por jugador repartidas a lo largo
+   * de los 2 minutos del evento. Reusa el Schema `Fauna` (mismo circuito de
+   * render que la fauna doméstica/mascotas, cero cliente nuevo) pero SIN
+   * pasar por `GestorFauna` — no merodean, no tienen IA, son un incordio
+   * ambiental barato que desaparece solo al terminar el evento (vivo o no:
+   * "molestan, no matan" — no hace falta cazarlas todas).
+   */
+  private iniciarPlagaRatas(): void {
+    const intervaloMs = DURACION_PLAGA_RATAS_MS / RATAS_POR_JUGADOR;
+    this.timerPlagaRatas = this.clock.setInterval(() => {
+      this.state.players.forEach((player) => {
+        const id = `rata_evento:${this.siguienteRataId++}`;
+        const rata = new Fauna();
+        rata.especieId = "rata";
+        rata.x = player.x + (Math.random() - 0.5) * 2;
+        rata.y = player.y + (Math.random() - 0.5) * 2;
+        rata.accion = "caminar";
+        rata.vida = VIDA_RATA;
+        rata.vidaMax = VIDA_RATA;
+        rata.ataque = ATAQUE_RATA;
+        this.state.fauna.set(id, rata);
+        this.ratasEvento.add(id);
+      });
+    }, intervaloMs);
+  }
+
+  private limpiarPlagaRatas(): void {
+    this.timerPlagaRatas?.clear();
+    this.timerPlagaRatas = undefined;
+    for (const id of this.ratasEvento) this.state.fauna.delete(id);
+    this.ratasEvento.clear();
+  }
+
+  /** Jarl-only: canjea un punto de canal de PRUEBA (mismo entry point que usará el conector real). */
+  private manejarTwitchSimularCanje(client: Client, msg: { tipo?: TipoEvento }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !esJarlGlobal(nombre)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
+    if (msg?.tipo !== "bueno" && msg?.tipo !== "malo") return client.send("twitch:error", { motivo: "tipo debe ser 'bueno' o 'malo'" });
+    const r = obtenerGestorTwitch().intentarCanje(msg.tipo);
+    if (!r.ok) return client.send("twitch:error", { motivo: r.motivo });
+    client.send("twitch:canjeado", { tipo: msg.tipo, eventoId: r.evento.id, nombre: r.evento.nombre });
+  }
+
+  /** Jarl-only: simula `!curar`/`!comer`/`!beber`/`!cagar` sobre SÍ MISMO (docs/GDD_Twitch.md). */
+  private manejarTwitchSimularComando(client: Client, msg: { comando?: string }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !esJarlGlobal(nombre)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
+    if (!msg?.comando) return;
+    obtenerGestorTwitch().manejarComandoChat(nombre, msg.comando);
+  }
+
+  /** Jarl-only: fuerza el flag "en directo" — para probar sin depender de la detección real de Twitch (docs/GDD_Twitch.md). */
+  private manejarTwitchForzarDirecto(client: Client, msg: { on?: boolean }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !esJarlGlobal(nombre)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
+    obtenerGestorTwitch().fijarEnDirecto(!!msg?.on);
+    client.send("twitch:directoForzado", { on: !!msg?.on });
+  }
+
   private async manejarGremioInvitar(client: Client, msg: { jugadorNombre?: string }) {
     const nombre = this.nombreDe(client);
     if (!nombre || !msg?.jugadorNombre) return;
@@ -1489,7 +1688,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     // descuento por nivel, sin awaitear una segunda vuelta a BD para
     // leerlo — player.atributos.carisma ya está replicado y actualizado.
     const compradorPlayer = this.state.players.get(client.sessionId);
-    const descuento = descuentoComercio(compradorPlayer?.atributos.carisma ?? 1);
+    // El Corralito/Mercado en oferta (docs/GDD_Twitch.md): modifica el precio
+    // GLOBAL de mercado por encima del descuento de Carisma — negativo sube
+    // el precio (corralito), positivo lo baja más (oferta). Mismo parámetro
+    // `descuento` de comprarDeTenderete, ahora también admite negativos.
+    const descuento = descuentoComercio(compradorPlayer?.atributos.carisma ?? 1) + this.modificadorPrecioEventoTwitch;
     const r = await bd.comprarDeTenderete({ tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: dueno, descuento });
     if (!r.ok) return this.errorTenderete(client, r.motivo);
 

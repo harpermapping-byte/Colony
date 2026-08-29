@@ -40,6 +40,7 @@ export class InteriorRoom extends RoomExteriorBase {
       throw new Error("InteriorRoom necesita options.mapaId y options.edificio");
     }
     this.opciones = options;
+    this.esInterior = true; // Twitch (docs/GDD_Twitch.md): "Tormenta de rayos" no alcanza aquí dentro
     const rutaArchivo = path.join(rutaDeMapaId(options.mapaId), "interiores", `${options.edificio}.json`);
     this.interior = cargarInterior(rutaArchivo, options.nivel ?? 0);
     this.mundo = this.interior;

@@ -112,6 +112,12 @@ export class Player extends Schema {
   @type("number") vidaMax = 100;
   @type("number") ataque = 3;
   @type("number") defensa = 0;
+  // Twitch (docs/GDD_Twitch.md, pedido 2026-08-30): título social sobre el
+  // PJ según rol de chat (seguidor/sub/mod) o el nombre del streamer si es
+  // jarl/admin — "" = sin título (ni seguidor de Twitch, ni nada puesto).
+  // Puramente cosmético (docs/GDD_Mecanicas.md §5.11, "nunca ventaja de
+  // poder") — se refresca solo, cada vez que ese jugador habla en el chat.
+  @type("string") tituloTwitch = "";
 }
 
 // Agente móvil publicado (NPC de asentamiento; mañana bárbaros/fauna con el
@@ -227,6 +233,11 @@ export class HubState extends Schema {
   @type({ map: Fauna }) fauna = new MapSchema<Fauna>();
   @type({ map: Mascota }) mascotas = new MapSchema<Mascota>();
   @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
+  // Evento Twitch "Eclipse" (docs/GDD_Twitch.md): oscuridad casi total
+  // mientras esté activo, sin importar la hora del reloj de mundo — el
+  // cliente decide cómo pintarlo (mucho más oscuro que la noche normal),
+  // el servidor solo dice si toca o no.
+  @type("boolean") oscuridadAbsoluta = false;
   // Combates activos (docs/GDD_Combate.md) — un Map, no un singleton: varios
   // grupos pueden pelear a la vez en la misma room sin bloquearse entre sí
   // (mismo criterio que construcciones/plantillas). En una room de ARENA

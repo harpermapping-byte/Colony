@@ -8,6 +8,9 @@ import { DungeonRoom } from "./rooms/DungeonRoom";
 import { ArenaCombateRoom } from "./rooms/ArenaCombateRoom";
 import { obtenerBdCompartida } from "./datos/bdCompartida";
 import { ejecutarTickEconomia } from "./mundo/economiaAsentamientos";
+import { iniciarChatBot } from "./twitch/chatBot";
+import { iniciarDeteccionDirecto } from "./twitch/estadoDirecto";
+import { obtenerGestorTwitch } from "./twitch/gestorTwitch";
 
 const port = Number(process.env.PORT) || 2567;
 
@@ -39,6 +42,13 @@ gameServer.define("arena", ArenaCombateRoom).filterBy(["combateId"]);
 httpServer.listen(port, () => {
   console.log(`Colony server escuchando en el puerto ${port}`);
 });
+
+// Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) — UNA sola vez por proceso
+// (mismo criterio que el tick de economía, abajo): un único bot de chat, un
+// único sondeo de "en directo", nunca uno por room. Ambos son no-op si
+// faltan las variables de entorno correspondientes (ver cada módulo).
+iniciarChatBot();
+iniciarDeteccionDirecto((valor) => obtenerGestorTwitch().fijarEnDirecto(valor));
 
 // Tick de economía de la facción bandida (docs/GDD_Faccion_Bandidos.md §6):
 // UNA sola vez por proceso, no por room — si se pusiera dentro de
