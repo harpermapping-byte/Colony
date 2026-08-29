@@ -39,7 +39,8 @@
     "poiVinculado": [
       "granja_abandonada",
       "cabana_cazador"
-    ]
+    ],
+    "ventaJugador": true
   },
   "choza_pescador": {
     "riqueza": "humilde",
@@ -75,7 +76,8 @@
     "poiVinculado": [
       "cabana_pesca",
       "aldea_pescadores"
-    ]
+    ],
+    "ventaJugador": true
   },
   "casa_noble": {
     "riqueza": "noble",
@@ -140,7 +142,8 @@
     ],
     "poiVinculado": [
       "aldea_agricola"
-    ]
+    ],
+    "ventaJugador": true
   },
   "taberna": {
     "riqueza": "modesta",
@@ -199,7 +202,9 @@
       "mercado_itinerante",
       "aldea_agricola"
     ],
-    "_nota": "planta_alta mezcla habitaciones individuales de pago con un dormitorio comunal barato — típico de posada de aldea."
+    "_nota": "planta_alta mezcla habitaciones individuales de pago con un dormitorio comunal barato — típico de posada de aldea.",
+    "ventaJugador": true,
+    "salasAlquilables": true
   },
   "tienda": {
     "riqueza": "modesta",
@@ -243,7 +248,8 @@
       "tienda_cazador",
       "oasis_mercader",
       "mercado_itinerante"
-    ]
+    ],
+    "ventaJugador": true
   },
   "castillo": {
     "temaTaller": "herreria",
@@ -811,7 +817,8 @@
       "ciudad_poblada_menor",
       "mercado_itinerante"
     ],
-    "_nota": "Distinta de taberna: aquí el foco es el hospedaje (más habitaciones, sala_comun más pequeña), no el punto de encuentro social."
+    "_nota": "Distinta de taberna: aquí el foco es el hospedaje (más habitaciones, sala_comun más pequeña), no el punto de encuentro social.",
+    "salasAlquilables": true
   },
   "casa_gremio": {
     "riqueza": "modesta",

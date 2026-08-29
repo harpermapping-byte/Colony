@@ -318,6 +318,22 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
     };
   });
 
+  // PROPIEDADES COMPRABLES/ALQUILABLES (docs/GDD_Propiedades.md, pedido
+  // 2026-08-29): una fracción determinista de los edificios "vendibles"
+  // (tipos_edificio.json: ventaJugador===true — vivienda/tienda/casa noble/
+  // taberna) se marca `reservadoJugador` en el BAKE, no colocando edificios
+  // DE MÁS — más simple que sobreprovisionar, y sin riesgo de chocar con la
+  // vivienda de un NPC ya censado SIEMPRE que `poblacion/` (que lee este
+  // mismo indice.json en un paso offline posterior) respete el flag y
+  // excluya estos edificios de su censo (poblacion/src/asignarUbicacion.js).
+  // Nunca los obligatorios (mercado/ayuntamiento/templo...: no son vivienda).
+  const FRACCION_RESERVADO_JUGADOR = 0.2; // placeholder de balance, como pesoMaximoTransportable
+  for (const ed of edificios) {
+    if (ed.obligatorio) continue;
+    if (!catalogos.tiposEdificio[ed.tipoEdificioId]?.ventaJugador) continue;
+    if (rnd() < FRACCION_RESERVADO_JUGADOR) ed.reservadoJugador = true;
+  }
+
   // PARCELAS RESERVADAS (docs/GDD_Ciudad_Capital.md): huecos SIN construir,
   // candidatos de más — reusan el MISMO fitting Poisson+rechazo que un
   // edificio real (misma lista, mismo orden por tamaño, misma competencia

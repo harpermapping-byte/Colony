@@ -59,7 +59,11 @@ function distancia(a, b) {
 }
 
 function construirViviendas(ciudad) {
+  // `reservadoJugador` (docs/GDD_Propiedades.md, generar.js): edificio
+  // apartado para que un jugador lo compre/alquile — NUNCA se censa ahí una
+  // familia NPC, o "comprar" una vivienda podría desalojar a alguien vivo.
   return ciudad.edificios
+    .filter((edificio) => !edificio.reservadoJugador)
     .map((edificio) => ({ edificio, capacidad: contarCamas(edificio), ocupantes: [] }))
     .filter((v) => v.capacidad > 0);
 }
@@ -67,6 +71,7 @@ function construirViviendas(ciudad) {
 function construirTrabajos(ciudad, oficiosEdificios, elementosCatalogo) {
   const trabajos = [];
   for (const edificio of ciudad.edificios) {
+    if (edificio.reservadoJugador) continue; // mismo criterio: sin NPC trabajando en lo reservado para venta
     for (const [npcId, tipos] of Object.entries(oficiosEdificios)) {
       if (npcId.startsWith("_")) continue;
       if (tipos.includes(edificio.tipoEdificioId)) {

@@ -1,0 +1,12 @@
+{
+  "_nota": "Precios de compra/alquiler de propiedades comerciales (docs/GDD_Propiedades.md, pedido 2026-08-29). Números PLACEHOLDER puro — el balance económico real es decisión del streamer; lo cerrado aquí es la FORMA (por riqueza del edificio, no un precio suelto por cada tipo_edificio) para no duplicar 40+ números cuando la riqueza ya es la señal real de coste. periodoHoras son horas REALES (Date.now()), no tiempoMundo().",
+  "porRiqueza": {
+    "humilde": { "compra": 200, "alquilerPeriodo": 20, "periodoHoras": 24 },
+    "modesta": { "compra": 500, "alquilerPeriodo": 50, "periodoHoras": 24 },
+    "noble": { "compra": 2000, "alquilerPeriodo": 150, "periodoHoras": 24 }
+  },
+  "habitacion": {
+    "dormitorio_comunal": { "compra": null, "alquilerPeriodo": 5, "periodoHoras": 24 },
+    "dormitorio_individual": { "compra": 300, "alquilerPeriodo": 15, "periodoHoras": 24 }
+  }
+}

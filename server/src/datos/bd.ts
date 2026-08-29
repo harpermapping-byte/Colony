@@ -76,10 +76,23 @@ export type ResultadoCrearGremio =
   | { ok: true; gremio: Gremio }
   | { ok: false; motivo: "nombre_en_uso" | "ya_tienes_gremio" };
 
+// Propiedades comerciales (pedido 2026-08-29, junto con gremios/mercado/
+// producción/motriz): inmuebles enteros (vivienda/tienda) y habitaciones de
+// taberna/posada comprables o alquilables con Farycoins — docs/GDD_Propiedades.md.
+// Reusa la MISMA tabla `propiedades` que ya modelan las parcelas del jarl
+// (mismo `dueno`, mismo "quién es dueño de qué") en vez de una tabla aparte:
+// `modoTenencia===null` = asignación de jarl v1 (parcela), sin cambio de
+// comportamiento; `"compra"`/`"alquiler"` = tenencia comercial nueva.
+export type ModoTenencia = "compra" | "alquiler";
+
 export interface Propiedad {
   tipo: string;
   asentamiento: string;
-  dueno: string | null; // resuelto a NOMBRE (identidad v1) — NULL = del jarl/asentamiento
+  dueno: string | null; // resuelto a NOMBRE (identidad v1) — NULL = del jarl/asentamiento (o libre, si es comercial)
+  modoTenencia: ModoTenencia | null;
+  precioFarycoins: number | null;
+  periodoHoras: number | null;
+  expiraEn: string | null; // ISO, horas REALES (Date.now()) — NULL si es compra o si nunca fue tenencia comercial
 }
 
 export interface Construccion {
@@ -175,7 +188,32 @@ export interface IAlmacenDatos {
   ajustarBancoGremio(gremioId: number, delta: number): Promise<{ ok: boolean; saldo: number }>;
   cargarPropiedades(): Promise<Map<string, Propiedad>>;
   asignarPropiedad(id: string, tipo: string, asentamiento: string, duenoNombre: string | null): Promise<void>;
+  /** Libera dueño Y cualquier tenencia comercial (modo/precio/periodo/expira) — el jarl revoca cualquier propiedad, compra o alquiler (docs/GDD_Propiedades.md). */
   revocarPropiedad(id: string): Promise<void>;
+  // Propiedades comerciales (docs/GDD_Propiedades.md) — point-query, NUNCA
+  // cacheadas en memoria de room (a diferencia de ContextoConstruccion): el
+  // volumen por asentamiento es pequeño (decenas) y esto GARANTIZA que la
+  // expiración de un alquiler se re-evalúa en cada toque real, sin caché que
+  // pueda quedarse desfasada mientras la room sigue viva.
+  /** Point-query — resuelve la expiración perezosa (alquiler vencido → libera la fila) ANTES de devolver. `null` = nunca se tocó (disponible, libre). */
+  obtenerPropiedad(id: string): Promise<(Propiedad & { id: string }) | null>;
+  /** Todo o nada: cobra el precio, y solo si la propiedad sigue libre (o su alquiler venció) se la queda — si no, reembolsa. */
+  comprarOAlquilar(params: {
+    id: string;
+    tipo: "inmueble" | "habitacion";
+    asentamiento: string;
+    jugadorNombre: string;
+    modo: ModoTenencia;
+    precioFarycoins: number;
+    periodoHoras: number | null;
+  }): Promise<{ ok: true; saldoRestante: number; expiraEn: string | null } | { ok: false; motivo: string }>;
+  /** Extiende (no resetea) `expiraEn` del alquiler ACTIVO de `jugadorNombre`, cobrando de nuevo el precio. */
+  renovarTenencia(
+    id: string,
+    jugadorNombre: string,
+    periodoHoras: number,
+    precioFarycoins: number,
+  ): Promise<{ ok: true; expiraEn: string } | { ok: false; motivo: string }>;
   listarConstrucciones(): Promise<Construccion[]>;
   insertarConstruccion(c: NuevaConstruccion): Promise<number>;
   borrarConstruccion(id: number): Promise<boolean>;
@@ -247,11 +285,18 @@ CREATE TABLE IF NOT EXISTS gremio_invitaciones (
   PRIMARY KEY (gremio_id, jugador_id)
 );
 CREATE TABLE IF NOT EXISTS propiedades (
-  id TEXT PRIMARY KEY,                  -- "p_0001" (parcela) o "i_<edificioId>_<sala>" (inmueble interior, futuro)
-  tipo TEXT NOT NULL,                   -- 'parcela' | 'inmueble'
+  id TEXT PRIMARY KEY,                  -- "p_0001" (parcela), "i_<mapaId>:<edificioId>" (inmueble) o "h_<mapaId>:<edificioId>:<nivel>:<salaIndex>" (habitación)
+  tipo TEXT NOT NULL,                   -- 'parcela' | 'inmueble' | 'habitacion'
   asentamiento TEXT NOT NULL,
-  dueno INTEGER,                        -- FK jugadores.id; NULL = del jarl/asentamiento
-  asignada_en TEXT
+  dueno INTEGER,                        -- FK jugadores.id; NULL = del jarl/asentamiento (o libre, si es comercial)
+  asignada_en TEXT,
+  -- Tenencia comercial (docs/GDD_Propiedades.md, pedido 2026-08-29) — las 4
+  -- columnas quedan NULL para las parcelas de siempre (asignación de jarl,
+  -- cero cambio de comportamiento). modo_tenencia: NULL | 'compra' | 'alquiler'.
+  modo_tenencia TEXT,
+  precio_farycoins INTEGER,
+  periodo_horas INTEGER,
+  expira_en TEXT
 );
 CREATE TABLE IF NOT EXISTS construcciones (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -355,8 +400,18 @@ CREATE TABLE IF NOT EXISTS propiedades (
   tipo TEXT NOT NULL,
   asentamiento TEXT NOT NULL,
   dueno INTEGER,
-  asignada_en TEXT
+  asignada_en TEXT,
+  modo_tenencia TEXT,
+  precio_farycoins INTEGER,
+  periodo_horas INTEGER,
+  expira_en TEXT
 );
+-- ALTER ... IF NOT EXISTS: mismo patrón que farycoins arriba — "propiedades"
+-- ya existe desplegada en Neon desde v1 de construcción (docs/GDD_Construccion.md).
+ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS modo_tenencia TEXT;
+ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS precio_farycoins INTEGER;
+ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS periodo_horas INTEGER;
+ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS expira_en TEXT;
 CREATE TABLE IF NOT EXISTS construcciones (
   id SERIAL PRIMARY KEY,
   propiedad TEXT NOT NULL,
@@ -435,6 +490,19 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const columnas = this.bd.prepare("PRAGMA table_info(jugadores)").all();
     if (!columnas.some((c) => String(c.name) === "farycoins")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN farycoins INTEGER NOT NULL DEFAULT 0");
+    }
+    // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
+    // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
+    // cambio no las tendría; CREATE TABLE IF NOT EXISTS no amplía una tabla ya existente.
+    const columnasPropiedades = this.bd.prepare("PRAGMA table_info(propiedades)").all();
+    const nombresPropiedades = new Set(columnasPropiedades.map((c) => String(c.name)));
+    for (const [col, tipo] of [
+      ["modo_tenencia", "TEXT"],
+      ["precio_farycoins", "INTEGER"],
+      ["periodo_horas", "INTEGER"],
+      ["expira_en", "TEXT"],
+    ] as const) {
+      if (!nombresPropiedades.has(col)) this.bd.exec(`ALTER TABLE propiedades ADD COLUMN ${col} ${tipo}`);
     }
   }
 
@@ -594,19 +662,31 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const filas = this.bd
       .prepare(
         // LEFT JOIN: una propiedad sin dueño (dueno NULL) debe salir igualmente, con dueno=null
-        `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno
+        `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en
          FROM propiedades p LEFT JOIN jugadores j ON j.id = p.dueno`
       )
       .all();
     const mapa = new Map<string, Propiedad>();
+    // Sin `id` en el valor (sería redundante — ya es la clave del Map, mismo
+    // shape que devolvía esta función antes de la tenencia comercial).
     for (const f of filas) {
-      mapa.set(String(f.id), {
-        tipo: String(f.tipo),
-        asentamiento: String(f.asentamiento),
-        dueno: f.dueno == null ? null : String(f.dueno),
-      });
+      const { id, ...propiedad } = this.filaAPropiedad(f);
+      mapa.set(id, propiedad);
     }
     return mapa;
+  }
+
+  private filaAPropiedad(f: Record<string, unknown>): Propiedad & { id: string } {
+    return {
+      id: String(f.id),
+      tipo: String(f.tipo),
+      asentamiento: String(f.asentamiento),
+      dueno: f.dueno == null ? null : String(f.dueno),
+      modoTenencia: f.modo_tenencia == null ? null : (String(f.modo_tenencia) as ModoTenencia),
+      precioFarycoins: f.precio_farycoins == null ? null : Number(f.precio_farycoins),
+      periodoHoras: f.periodo_horas == null ? null : Number(f.periodo_horas),
+      expiraEn: f.expira_en == null ? null : String(f.expira_en),
+    };
   }
 
   async asignarPropiedad(id: string, tipo: string, asentamiento: string, duenoNombre: string | null): Promise<void> {
@@ -625,9 +705,104 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     }
   }
 
-  // Revocar deja la fila (las construcciones QUEDAN y pasan al jarl — decisión v1, GDD §4).
+  // Revoca dueño Y cualquier tenencia comercial — el jarl puede revocar tanto
+  // un alquiler como una COMPRA (decisión 2026-08-29: el jarl mantiene
+  // autoridad total). Las construcciones de una parcela QUEDAN (GDD §4);
+  // aquí no aplica (inmuebles/habitaciones no llevan construcciones propias).
   async revocarPropiedad(id: string): Promise<void> {
-    this.bd.prepare("UPDATE propiedades SET dueno = NULL, asignada_en = ? WHERE id = ?").run(new Date().toISOString(), id);
+    this.bd
+      .prepare(
+        `UPDATE propiedades SET dueno = NULL, asignada_en = ?, modo_tenencia = NULL, precio_farycoins = NULL, periodo_horas = NULL, expira_en = NULL WHERE id = ?`,
+      )
+      .run(new Date().toISOString(), id);
+  }
+
+  /** Compare-and-swap: libera la fila SOLO si es un alquiler vencido — no toca compras ni alquileres vigentes. */
+  private liberarSiVencida(id: string): void {
+    this.bd
+      .prepare(
+        `UPDATE propiedades SET dueno = NULL, modo_tenencia = NULL, precio_farycoins = NULL, periodo_horas = NULL, expira_en = NULL
+         WHERE id = ? AND modo_tenencia = 'alquiler' AND expira_en IS NOT NULL AND expira_en < ?`,
+      )
+      .run(id, new Date().toISOString());
+  }
+
+  async obtenerPropiedad(id: string): Promise<(Propiedad & { id: string }) | null> {
+    this.liberarSiVencida(id);
+    const fila = this.bd
+      .prepare(
+        `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en
+         FROM propiedades p LEFT JOIN jugadores j ON j.id = p.dueno WHERE p.id = ?`,
+      )
+      .get(id);
+    return fila ? this.filaAPropiedad(fila) : null;
+  }
+
+  async comprarOAlquilar(params: {
+    id: string;
+    tipo: "inmueble" | "habitacion";
+    asentamiento: string;
+    jugadorNombre: string;
+    modo: ModoTenencia;
+    precioFarycoins: number;
+    periodoHoras: number | null;
+  }): Promise<{ ok: true; saldoRestante: number; expiraEn: string | null } | { ok: false; motivo: string }> {
+    this.liberarSiVencida(params.id);
+    const jugador = await this.obtenerOCrearJugador(params.jugadorNombre);
+    const debito = await this.ajustarFarycoins(jugador.id, -params.precioFarycoins);
+    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+
+    const ahora = new Date().toISOString();
+    const expiraEn =
+      params.modo === "alquiler" && params.periodoHoras
+        ? new Date(Date.now() + params.periodoHoras * 3600_000).toISOString()
+        : null;
+
+    // Upsert atómico: si la fila no existe (nunca se tocó) se inserta; si
+    // existe y sigue LIBRE (dueno IS NULL — liberarSiVencida ya limpió
+    // cualquier alquiler vencido) se actualiza; si existe y tiene dueño
+    // vigente, la cláusula WHERE del DO UPDATE la deja intacta y RETURNING
+    // no da fila — mismo compare-and-swap por sentencia única que el resto
+    // de mutaciones económicas del proyecto, sin necesitar una transacción.
+    const fila = this.bd
+      .prepare(
+        `INSERT INTO propiedades (id, tipo, asentamiento, dueno, asignada_en, modo_tenencia, precio_farycoins, periodo_horas, expira_en)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           tipo=excluded.tipo, asentamiento=excluded.asentamiento, dueno=excluded.dueno, asignada_en=excluded.asignada_en,
+           modo_tenencia=excluded.modo_tenencia, precio_farycoins=excluded.precio_farycoins, periodo_horas=excluded.periodo_horas, expira_en=excluded.expira_en
+         WHERE propiedades.dueno IS NULL
+         RETURNING id`,
+      )
+      .get(params.id, params.tipo, params.asentamiento, jugador.id, ahora, params.modo, params.precioFarycoins, params.periodoHoras, expiraEn);
+
+    if (!fila) {
+      await this.ajustarFarycoins(jugador.id, params.precioFarycoins); // reembolso: alguien se adelantó
+      return { ok: false, motivo: "ya no está disponible" };
+    }
+    return { ok: true, saldoRestante: debito.saldo, expiraEn };
+  }
+
+  async renovarTenencia(
+    id: string,
+    jugadorNombre: string,
+    periodoHoras: number,
+    precioFarycoins: number,
+  ): Promise<{ ok: true; expiraEn: string } | { ok: false; motivo: string }> {
+    const prop = await this.obtenerPropiedad(id); // resuelve expiración perezosa primero
+    if (!prop || prop.dueno?.toLowerCase() !== jugadorNombre.trim().toLowerCase()) {
+      return { ok: false, motivo: "no eres el dueño de esta propiedad" };
+    }
+    if (prop.modoTenencia !== "alquiler" || prop.expiraEn == null) {
+      return { ok: false, motivo: "esta propiedad no es de alquiler" };
+    }
+    const jugador = await this.obtenerOCrearJugador(jugadorNombre);
+    const debito = await this.ajustarFarycoins(jugador.id, -precioFarycoins);
+    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+
+    const nuevaExpira = new Date(new Date(prop.expiraEn).getTime() + periodoHoras * 3600_000).toISOString();
+    this.bd.prepare("UPDATE propiedades SET expira_en = ? WHERE id = ? AND dueno = ?").run(nuevaExpira, id, jugador.id);
+    return { ok: true, expiraEn: nuevaExpira };
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {
@@ -1002,14 +1177,40 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     await this.pool.query("DELETE FROM gremio_invitaciones WHERE gremio_id = $1 AND jugador_id = $2", [gremioId, jugadorId]);
   }
 
+  private filaAPropiedad(f: {
+    id: string;
+    tipo: string;
+    asentamiento: string;
+    dueno: string | null;
+    modo_tenencia: string | null;
+    precio_farycoins: number | null;
+    periodo_horas: number | null;
+    expira_en: string | null;
+  }): Propiedad & { id: string } {
+    return {
+      id: f.id,
+      tipo: f.tipo,
+      asentamiento: f.asentamiento,
+      dueno: f.dueno,
+      modoTenencia: f.modo_tenencia as ModoTenencia | null,
+      precioFarycoins: f.precio_farycoins,
+      periodoHoras: f.periodo_horas,
+      expiraEn: f.expira_en,
+    };
+  }
+
   async cargarPropiedades(): Promise<Map<string, Propiedad>> {
-    const r = await this.pool.query<{ id: string; tipo: string; asentamiento: string; dueno: string | null }>(
-      `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno
+    const r = await this.pool.query<{
+      id: string; tipo: string; asentamiento: string; dueno: string | null;
+      modo_tenencia: string | null; precio_farycoins: number | null; periodo_horas: number | null; expira_en: string | null;
+    }>(
+      `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en
        FROM propiedades p LEFT JOIN jugadores j ON j.id = p.dueno`
     );
     const mapa = new Map<string, Propiedad>();
     for (const f of r.rows) {
-      mapa.set(f.id, { tipo: f.tipo, asentamiento: f.asentamiento, dueno: f.dueno });
+      const { id, ...propiedad } = this.filaAPropiedad(f);
+      mapa.set(id, propiedad);
     }
     return mapa;
   }
@@ -1026,10 +1227,94 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   }
 
   async revocarPropiedad(id: string): Promise<void> {
-    await this.pool.query("UPDATE propiedades SET dueno = NULL, asignada_en = $1 WHERE id = $2", [
-      new Date().toISOString(),
-      id,
+    await this.pool.query(
+      `UPDATE propiedades SET dueno = NULL, asignada_en = $1, modo_tenencia = NULL, precio_farycoins = NULL, periodo_horas = NULL, expira_en = NULL WHERE id = $2`,
+      [new Date().toISOString(), id],
+    );
+  }
+
+  /** Compare-and-swap: libera la fila SOLO si es un alquiler vencido. */
+  private async liberarSiVencida(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE propiedades SET dueno = NULL, modo_tenencia = NULL, precio_farycoins = NULL, periodo_horas = NULL, expira_en = NULL
+       WHERE id = $1 AND modo_tenencia = 'alquiler' AND expira_en IS NOT NULL AND expira_en < $2`,
+      [id, new Date().toISOString()],
+    );
+  }
+
+  async obtenerPropiedad(id: string): Promise<(Propiedad & { id: string }) | null> {
+    await this.liberarSiVencida(id);
+    const r = await this.pool.query<{
+      id: string; tipo: string; asentamiento: string; dueno: string | null;
+      modo_tenencia: string | null; precio_farycoins: number | null; periodo_horas: number | null; expira_en: string | null;
+    }>(
+      `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en
+       FROM propiedades p LEFT JOIN jugadores j ON j.id = p.dueno WHERE p.id = $1`,
+      [id],
+    );
+    return r.rows.length > 0 ? this.filaAPropiedad(r.rows[0]) : null;
+  }
+
+  async comprarOAlquilar(params: {
+    id: string;
+    tipo: "inmueble" | "habitacion";
+    asentamiento: string;
+    jugadorNombre: string;
+    modo: ModoTenencia;
+    precioFarycoins: number;
+    periodoHoras: number | null;
+  }): Promise<{ ok: true; saldoRestante: number; expiraEn: string | null } | { ok: false; motivo: string }> {
+    await this.liberarSiVencida(params.id);
+    const jugador = await this.obtenerOCrearJugador(params.jugadorNombre);
+    const debito = await this.ajustarFarycoins(jugador.id, -params.precioFarycoins);
+    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+
+    const ahora = new Date().toISOString();
+    const expiraEn =
+      params.modo === "alquiler" && params.periodoHoras
+        ? new Date(Date.now() + params.periodoHoras * 3600_000).toISOString()
+        : null;
+
+    const r = await this.pool.query<{ id: string }>(
+      `INSERT INTO propiedades (id, tipo, asentamiento, dueno, asignada_en, modo_tenencia, precio_farycoins, periodo_horas, expira_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (id) DO UPDATE SET
+         tipo = EXCLUDED.tipo, asentamiento = EXCLUDED.asentamiento, dueno = EXCLUDED.dueno, asignada_en = EXCLUDED.asignada_en,
+         modo_tenencia = EXCLUDED.modo_tenencia, precio_farycoins = EXCLUDED.precio_farycoins, periodo_horas = EXCLUDED.periodo_horas, expira_en = EXCLUDED.expira_en
+       WHERE propiedades.dueno IS NULL
+       RETURNING id`,
+      [params.id, params.tipo, params.asentamiento, jugador.id, ahora, params.modo, params.precioFarycoins, params.periodoHoras, expiraEn],
+    );
+
+    if (r.rows.length === 0) {
+      await this.ajustarFarycoins(jugador.id, params.precioFarycoins); // reembolso: alguien se adelantó
+      return { ok: false, motivo: "ya no está disponible" };
+    }
+    return { ok: true, saldoRestante: debito.saldo, expiraEn };
+  }
+
+  async renovarTenencia(
+    id: string,
+    jugadorNombre: string,
+    periodoHoras: number,
+    precioFarycoins: number,
+  ): Promise<{ ok: true; expiraEn: string } | { ok: false; motivo: string }> {
+    const prop = await this.obtenerPropiedad(id);
+    if (!prop || prop.dueno?.toLowerCase() !== jugadorNombre.trim().toLowerCase()) {
+      return { ok: false, motivo: "no eres el dueño de esta propiedad" };
+    }
+    if (prop.modoTenencia !== "alquiler" || prop.expiraEn == null) {
+      return { ok: false, motivo: "esta propiedad no es de alquiler" };
+    }
+    const jugador = await this.obtenerOCrearJugador(jugadorNombre);
+    const debito = await this.ajustarFarycoins(jugador.id, -precioFarycoins);
+    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+
+    const nuevaExpira = new Date(new Date(prop.expiraEn).getTime() + periodoHoras * 3600_000).toISOString();
+    await this.pool.query("UPDATE propiedades SET expira_en = $1 WHERE id = $2 AND dueno = $3", [
+      nuevaExpira, id, jugador.id,
     ]);
+    return { ok: true, expiraEn: nuevaExpira };
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {

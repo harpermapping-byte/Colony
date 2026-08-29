@@ -1,4 +1,4 @@
-import { Client } from "@colyseus/core";
+import { Client, ServerError } from "@colyseus/core";
 import * as fs from "fs";
 import * as path from "path";
 import { RoomExteriorBase, RADIO_INTERACCION, ObjetoCogible } from "./base/RoomExteriorBase";
@@ -6,6 +6,9 @@ import { cargarInterior, InteriorCargado } from "../mundo/interiorColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { poblarInterior, NpcConCasa } from "../mundo/agentesInterior";
 import { tiempoMundo } from "../mundo/tiempoMundo";
+import { obtenerBdCompartida } from "../datos/bdCompartida";
+import { esJarlGlobal } from "../construccion/construccion";
+import { salasAlquilablesPermitidas, precioHabitacion } from "../propiedades/propiedades";
 
 export interface OpcionesInterior {
   name?: string;
@@ -96,9 +99,101 @@ export class InteriorRoom extends RoomExteriorBase {
         client.send("portal:error", { motivo: "hay que usar la escalera" });
       }
     });
+
+    this.registrarMensajesHabitacion();
   }
 
-  onJoin(client: Client, options: OpcionesInterior) {
+  /** id de propiedad del inmueble ENTERO al que pertenece este interior (independiente del nivel/planta). */
+  private idInmuebleContenedor(): string {
+    return `i_${this.opciones.mapaId}:${this.opciones.edificio}`;
+  }
+
+  private idHabitacion(salaIndex: number): string {
+    return `h_${this.opciones.mapaId}:${this.opciones.edificio}:${this.interior.nivel}:${salaIndex}`;
+  }
+
+  /**
+   * Habitaciones SUELTAS de taberna/posada (docs/GDD_Propiedades.md) — no-op
+   * si este tipo de edificio no tiene `salasAlquilables` en el catálogo
+   * (la inmensa mayoría: viviendas privadas no venden habitaciones sueltas,
+   * se venden ENTERAS vía RegionRoom "inmueble:*").
+   */
+  private registrarMensajesHabitacion() {
+    if (!salasAlquilablesPermitidas(this.interior.tipoEdificioId)) return;
+
+    this.onMessage("habitacion:listar", async (client) => {
+      const bd = await obtenerBdCompartida();
+      const lista = [];
+      for (const sala of this.interior.salasIndexadas) {
+        const prop = await bd.obtenerPropiedad(this.idHabitacion(sala.salaIndex));
+        lista.push({
+          salaIndex: sala.salaIndex, tipoSalaId: sala.tipoSalaId,
+          dueno: prop?.dueno ?? null,
+          modoTenencia: prop?.modoTenencia ?? null,
+          precioFarycoins: prop?.precioFarycoins ?? null,
+          expiraEn: prop?.expiraEn ?? null,
+        });
+      }
+      client.send("habitacion:lista", lista);
+    });
+
+    this.onMessage("habitacion:comprar", (client, msg: { salaIndex?: number }) => this.manejarHabitacionAdquirir(client, msg?.salaIndex, "compra"));
+    this.onMessage("habitacion:alquilar", (client, msg: { salaIndex?: number }) => this.manejarHabitacionAdquirir(client, msg?.salaIndex, "alquiler"));
+
+    this.onMessage("habitacion:renovar", async (client, msg: { salaIndex?: number }) => {
+      const nombre = this.nombreDe(client);
+      const sala = this.salaIndexadaDe(msg?.salaIndex);
+      if (!nombre || !sala) return client.send("habitacion:error", { motivo: "habitación desconocida" });
+      const precio = precioHabitacion(sala.tipoSalaId, "alquiler");
+      if (!precio || precio.periodoHoras == null) return client.send("habitacion:error", { motivo: "esta habitación no se alquila" });
+      const bd = await obtenerBdCompartida();
+      const r = await bd.renovarTenencia(this.idHabitacion(sala.salaIndex), nombre, precio.periodoHoras, precio.precio);
+      if (!r.ok) return client.send("habitacion:error", { motivo: r.motivo });
+      this.broadcast("habitacion:actualizada", { salaIndex: sala.salaIndex, dueno: nombre, modoTenencia: "alquiler", expiraEn: r.expiraEn });
+    });
+  }
+
+  private salaIndexadaDe(salaIndex: number | undefined) {
+    return typeof salaIndex === "number" ? this.interior.salasIndexadas.find((s) => s.salaIndex === salaIndex) : undefined;
+  }
+
+  private async manejarHabitacionAdquirir(client: Client, salaIndex: number | undefined, modo: "compra" | "alquiler") {
+    const sala = this.salaIndexadaDe(salaIndex);
+    if (!sala) return client.send("habitacion:error", { motivo: "habitación desconocida" });
+    const precio = precioHabitacion(sala.tipoSalaId, modo);
+    if (!precio) return client.send("habitacion:error", { motivo: modo === "compra" ? "esta habitación no está en venta" : "esta habitación no se alquila" });
+
+    const r = await this.comprarOAlquilarPropiedad(client, "habitacion:error", {
+      id: this.idHabitacion(sala.salaIndex),
+      tipo: "habitacion",
+      asentamiento: this.opciones.mapaId,
+      modo,
+      precioFarycoins: precio.precio,
+      periodoHoras: precio.periodoHoras,
+    });
+    if (!r) return;
+    const nombre = this.nombreDe(client)!;
+    this.broadcast("habitacion:actualizada", { salaIndex: sala.salaIndex, dueno: nombre, modoTenencia: modo, expiraEn: r.expiraEn });
+  }
+
+  /**
+   * Acceso a viviendas/tiendas COMPRADAS o ALQUILADAS (docs/GDD_Propiedades.md,
+   * pedido 2026-08-29: "restringido a dueño + jarl"): solo se gatea si la
+   * propiedad TIENE dueño ahora mismo (point-query fresca — resuelve
+   * expiración perezosa) — un inmueble nunca tocado, o cuya tenencia venció,
+   * sigue abierto a cualquiera como cualquier interior normal.
+   */
+  async onJoin(client: Client, options: OpcionesInterior) {
+    const nombre = options?.name?.slice(0, 20)?.trim();
+    const bd = await obtenerBdCompartida();
+    const prop = await bd.obtenerPropiedad(this.idInmuebleContenedor());
+    if (prop?.dueno) {
+      const esDueno = !!nombre && prop.dueno.toLowerCase() === nombre.toLowerCase();
+      if (!esDueno && !(nombre && esJarlGlobal(nombre))) {
+        throw new ServerError(403, "esta vivienda es privada");
+      }
+    }
+
     const x = options?.entradaX ?? this.interior.spawnX;
     const y = options?.entradaY ?? this.interior.spawnY;
     this.crearJugador(client, options, x, y);

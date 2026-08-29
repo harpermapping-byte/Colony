@@ -74,6 +74,21 @@ export function esJarl(ctx: ContextoConstruccion, nombre: string): boolean {
 }
 
 /**
+ * Mismo chequeo que `esJarl`, pero SIN necesitar un ContextoConstruccion —
+ * para sitios donde el jarl actúa fuera de construcción/parcelas (docs/
+ * GDD_Propiedades.md: revocar un inmueble/habitación, entrar a una vivienda
+ * ajena) y que por tanto pueden ejecutarse en CUALQUIER aldea/POI, no solo
+ * en las que tienen `parcelasReservadas` habilitado (ctx puede no existir ahí).
+ */
+export function esJarlGlobal(nombre: string): boolean {
+  const jarls = (process.env.JARL_NOMBRES ?? "")
+    .split(",")
+    .map((n) => n.trim().toLowerCase())
+    .filter((n) => n.length > 0);
+  return jarls.includes(nombre.trim().toLowerCase());
+}
+
+/**
  * Huella [ancho, largo] tras rotar rot cuartos de vuelta horarios: la caja
  * es simétrica, así que solo importa la paridad — rot impar intercambia ejes
  * ([h, w], como documenta el esquema SQL del GDD §2).

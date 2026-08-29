@@ -30,6 +30,10 @@ test("asignar/revocar propiedad: dueño por nombre, revocar deja la fila con due
     tipo: "parcela",
     asentamiento: "ciudad",
     dueno: "Bjorn",
+    modoTenencia: null,
+    precioFarycoins: null,
+    periodoHoras: null,
+    expiraEn: null,
   });
 
   // Reasignar (upsert sobre la misma id) cambia el dueño sin duplicar fila
@@ -45,6 +49,10 @@ test("asignar/revocar propiedad: dueño por nombre, revocar deja la fila con due
     tipo: "parcela",
     asentamiento: "ciudad",
     dueno: null,
+    modoTenencia: null,
+    precioFarycoins: null,
+    periodoHoras: null,
+    expiraEn: null,
   });
 
   // Asignar directamente sin dueño también es válido (parcela del jarl/asentamiento)
@@ -493,5 +501,152 @@ test("Gremios: un jugador no puede pertenecer a dos gremios a la vez (UNIQUE en 
   await bd.agregarMiembro(segundo.gremio.id, a.id, "miembro");
   const miembros = await bd.listarMiembros(segundo.gremio.id);
   assert.strictEqual(miembros.length, 1, "Ragnar NO debe haberse colado en un segundo gremio");
+  await bd.cerrar();
+});
+
+// --- Propiedades comerciales (docs/GDD_Propiedades.md, pedido 2026-08-29) ---
+
+test("Propiedades: obtenerPropiedad devuelve null para una propiedad nunca tocada (disponible)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  assert.strictEqual(await bd.obtenerPropiedad("i_aldea_pastoral_02:casa_humilde_014"), null);
+  await bd.cerrar();
+});
+
+test("Propiedades: comprarOAlquilar cobra el precio y da la propiedad (compra = expiraEn null)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const comprador = await bd.obtenerOCrearJugador("Ragnar");
+  await bd.ajustarFarycoins(comprador.id, 500);
+
+  const r = await bd.comprarOAlquilar({
+    id: "i_aldea:casa_humilde_01", tipo: "inmueble", asentamiento: "aldea",
+    jugadorNombre: "Ragnar", modo: "compra", precioFarycoins: 200, periodoHoras: null,
+  });
+  assert.strictEqual(r.ok, true);
+  if (!r.ok) return;
+  assert.strictEqual(r.saldoRestante, 300);
+  assert.strictEqual(r.expiraEn, null);
+
+  const prop = await bd.obtenerPropiedad("i_aldea:casa_humilde_01");
+  assert.strictEqual(prop?.dueno, "Ragnar");
+  assert.strictEqual(prop?.modoTenencia, "compra");
+  assert.strictEqual(prop?.precioFarycoins, 200);
+  await bd.cerrar();
+});
+
+test("Propiedades: comprarOAlquilar sin Farycoins suficientes falla sin tocar nada (todo o nada)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.obtenerOCrearJugador("Bjorn");
+  const r = await bd.comprarOAlquilar({
+    id: "i_aldea:tienda_01", tipo: "inmueble", asentamiento: "aldea",
+    jugadorNombre: "Bjorn", modo: "compra", precioFarycoins: 500, periodoHoras: null,
+  });
+  assert.strictEqual(r.ok, false);
+  if (r.ok) return;
+  assert.strictEqual(r.motivo, "no tienes suficientes Farycoins");
+  assert.strictEqual(await bd.obtenerFarycoins((await bd.obtenerOCrearJugador("Bjorn")).id), 0, "no se descontó nada");
+  assert.strictEqual(await bd.obtenerPropiedad("i_aldea:tienda_01"), null, "la propiedad sigue libre");
+  await bd.cerrar();
+});
+
+test("Propiedades: comprarOAlquilar sobre una propiedad YA ocupada reembolsa y falla", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const primero = await bd.obtenerOCrearJugador("Ragnar");
+  await bd.ajustarFarycoins(primero.id, 1000);
+  await bd.comprarOAlquilar({
+    id: "i_aldea:casa_humilde_02", tipo: "inmueble", asentamiento: "aldea",
+    jugadorNombre: "Ragnar", modo: "compra", precioFarycoins: 200, periodoHoras: null,
+  });
+
+  const segundo = await bd.obtenerOCrearJugador("Bjorn");
+  await bd.ajustarFarycoins(segundo.id, 1000);
+  const r = await bd.comprarOAlquilar({
+    id: "i_aldea:casa_humilde_02", tipo: "inmueble", asentamiento: "aldea",
+    jugadorNombre: "Bjorn", modo: "compra", precioFarycoins: 200, periodoHoras: null,
+  });
+  assert.strictEqual(r.ok, false);
+  if (r.ok) return;
+  assert.strictEqual(r.motivo, "ya no está disponible");
+  assert.strictEqual(await bd.obtenerFarycoins(segundo.id), 1000, "el reembolso deja el saldo intacto");
+  assert.strictEqual((await bd.obtenerPropiedad("i_aldea:casa_humilde_02"))?.dueno, "Ragnar", "el primer comprador sigue siendo el dueño");
+  await bd.cerrar();
+});
+
+test("Propiedades: un alquiler vencido se libera solo (perezoso) al siguiente obtenerPropiedad/comprarOAlquilar", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const inquilino = await bd.obtenerOCrearJugador("Floki");
+  await bd.ajustarFarycoins(inquilino.id, 1000);
+  await bd.comprarOAlquilar({
+    id: "h_aldea:taberna_01:0:2", tipo: "habitacion", asentamiento: "aldea",
+    jugadorNombre: "Floki", modo: "alquiler", precioFarycoins: 15, periodoHoras: 24,
+  });
+  let prop = await bd.obtenerPropiedad("h_aldea:taberna_01:0:2");
+  assert.strictEqual(prop?.dueno, "Floki");
+  assert.ok(prop?.expiraEn);
+
+  // Simula que el alquiler venció: retrocede expira_en a mano (no hay reloj
+  // mockeable en esta capa — comprobamos el efecto observable, no el reloj).
+  const bdInterna = bd as unknown as { bd: { prepare(sql: string): { run(...p: unknown[]): unknown } } };
+  bdInterna.bd.prepare("UPDATE propiedades SET expira_en = ? WHERE id = ?").run(
+    new Date(Date.now() - 1000).toISOString(),
+    "h_aldea:taberna_01:0:2",
+  );
+
+  prop = await bd.obtenerPropiedad("h_aldea:taberna_01:0:2");
+  // la fila SIGUE existiendo (igual que una parcela revocada, GDD_Construccion
+  // §4) — "disponible" es dueno=null, no ausencia de fila.
+  assert.strictEqual(prop?.dueno, null, "vencido = liberado, se ve como disponible de nuevo");
+  assert.strictEqual(prop?.modoTenencia, null);
+
+  // Otro jugador ya puede alquilarla
+  const nuevoInquilino = await bd.obtenerOCrearJugador("Lagertha");
+  await bd.ajustarFarycoins(nuevoInquilino.id, 1000);
+  const r = await bd.comprarOAlquilar({
+    id: "h_aldea:taberna_01:0:2", tipo: "habitacion", asentamiento: "aldea",
+    jugadorNombre: "Lagertha", modo: "alquiler", precioFarycoins: 15, periodoHoras: 24,
+  });
+  assert.strictEqual(r.ok, true);
+  await bd.cerrar();
+});
+
+test("Propiedades: renovarTenencia extiende expiraEn (no resetea) y cobra de nuevo; falla si no eres el dueño", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const inquilino = await bd.obtenerOCrearJugador("Floki");
+  await bd.ajustarFarycoins(inquilino.id, 1000);
+  const primero = await bd.comprarOAlquilar({
+    id: "h_aldea:taberna_02:0:1", tipo: "habitacion", asentamiento: "aldea",
+    jugadorNombre: "Floki", modo: "alquiler", precioFarycoins: 15, periodoHoras: 24,
+  });
+  assert.strictEqual(primero.ok, true);
+  if (!primero.ok) return;
+
+  const r = await bd.renovarTenencia("h_aldea:taberna_02:0:1", "Floki", 24, 15);
+  assert.strictEqual(r.ok, true);
+  if (!r.ok) return;
+  const expiraOriginal = new Date(primero.expiraEn!).getTime();
+  const expiraNueva = new Date(r.expiraEn).getTime();
+  assert.strictEqual(expiraNueva - expiraOriginal, 24 * 3600_000, "extiende +24h desde la expiración ANTERIOR, no desde ahora");
+  assert.strictEqual(await bd.obtenerFarycoins(inquilino.id), 1000 - 15 - 15, "cobra el precio de nuevo");
+
+  const intento = await bd.renovarTenencia("h_aldea:taberna_02:0:1", "OtroJugador", 24, 15);
+  assert.strictEqual(intento.ok, false);
+  if (intento.ok) return;
+  assert.strictEqual(intento.motivo, "no eres el dueño de esta propiedad");
+  await bd.cerrar();
+});
+
+test("Propiedades: revocarPropiedad libera dueño Y tenencia comercial (jarl puede revocar compra o alquiler)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const comprador = await bd.obtenerOCrearJugador("Ragnar");
+  await bd.ajustarFarycoins(comprador.id, 1000);
+  await bd.comprarOAlquilar({
+    id: "i_aldea:casa_noble_01", tipo: "inmueble", asentamiento: "aldea",
+    jugadorNombre: "Ragnar", modo: "compra", precioFarycoins: 1000, periodoHoras: null,
+  });
+  await bd.revocarPropiedad("i_aldea:casa_noble_01");
+  const prop = await bd.obtenerPropiedad("i_aldea:casa_noble_01");
+  assert.strictEqual(prop?.dueno, null);
+  assert.strictEqual(prop?.modoTenencia, null);
+  assert.strictEqual(prop?.precioFarycoins, null);
+  assert.strictEqual(prop?.expiraEn, null);
   await bd.cerrar();
 });
