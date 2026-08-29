@@ -59,6 +59,9 @@ export interface EntradaCatalogoItem {
   durabilidadMax?: number;
   /** durabilidad perdida por cada USO directo (golpe dado, tala, minado...) */
   desgastePorUso?: number;
+
+  /** docs/GDD_Personaje.md — solo en tipo:"consumible". Ausente en un consumible = sin efecto todavía (placeholder de contenido, no error). */
+  restaura?: { vital: "comida" | "bebida" | "sueno" | "estamina" | "vida"; cantidad: number };
 }
 
 export type CatalogoItems = Record<string, EntradaCatalogoItem>;

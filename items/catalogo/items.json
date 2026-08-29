@@ -1,7 +1,8 @@
 {
   "_nota": "Catálogo de ÍTEMS de inventario (pedido 2026-08-29, fase 1 'catálogo + servidor + persistencia'). huella=[ancho,alto] en casillas de la rejilla tipo tetris (server/src/inventario/inventario.ts), peso=eje INDEPENDIENTE del espacio (afecta al peso transportable, no a cuántas casillas ocupa). Los 49 tipo:'recurso' salen 1 a 1 de categoriaRecurso* ya real en baker/catalogo/{vegetacion,animales,rocas}.json — NO duplican esos catálogos, son el mismo id de categoría convertido en ítem de inventario cuando se recolecta. tipo:'equipable'/'herramienta'/'consumible' son ejemplos ilustrativos de esas ramas del schema, no un catálogo de armas/armaduras cerrado — eso crece después con el mismo patrón.",
   "_camposConsumidores": {
-    "tipo": "SIN CONSUMIDOR — declarado en EntradaCatalogoItem (server/src/inventario/inventario.ts) pero ninguna rama de código lee `.tipo` todavía",
+    "tipo": "server/src/rooms/base/RoomExteriorBase.ts:manejarPersonajeConsumir() — exige tipo==='consumible' para poder consumir el ítem (docs/GDD_Personaje.md); el resto de valores de tipo siguen sin consumidor propio",
+    "restaura": "server/src/rooms/base/RoomExteriorBase.ts:manejarPersonajeConsumir() — qué vital sube y cuánto al consumir (server/src/personaje/vitales.ts:restaurarVital); solo en tipo:'consumible', su ausencia rechaza el consumo",
     "categoriaRecurso": "SIN CONSUMIDOR desde este catálogo — el campo homónimo que sí se lee en runtime (server/src/mundo/recolectables.ts:catalogosPorCapa, mapaColision.ts:cargarMapaColision) viene de baker/catalogo/{vegetacion,rocas,animales}.json, no de items.json",
     "slotEquipo": "server/src/inventario/inventario.ts:puedeEquiparEnSlot() — comprueba si el ítem puede equiparse en un slot concreto",
     "huella": "server/src/inventario/inventario.ts:huellaRotada()/hayHueco()/buscarHueco() — casillas ocupadas en la rejilla tipo tetris y búsqueda de hueco libre",
@@ -790,6 +791,10 @@
   },
   "racion_viaje": {
     "tipo": "consumible",
+    "restaura": {
+      "vital": "comida",
+      "cantidad": 40
+    },
     "huella": [
       1,
       1
@@ -904,7 +909,11 @@
     "colorDebug": "#c9a860"
   },
   "jarra_agua": {
-    "tipo": "objeto",
+    "tipo": "consumible",
+    "restaura": {
+      "vital": "bebida",
+      "cantidad": 40
+    },
     "huella": [
       1,
       1

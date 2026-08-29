@@ -32,6 +32,33 @@ export class InventarioSchema extends Schema {
   @type({ map: "string" }) equipo = new MapSchema<string>();
 }
 
+// Vitales (docs/GDD_Personaje.md) — comida/bebida/sueño decaen en horas
+// REALES, vida drena si alguno llega a 0, estamina se regenera sola (nada
+// la gasta todavía). Sin persistencia entre sesiones, mismo criterio ya
+// aceptado para el inventario ("vive y muere con la sesión").
+export class VitalesSchema extends Schema {
+  @type("number") vida = 100;
+  @type("number") vidaMax = 100;
+  @type("number") comida = 100;
+  @type("number") bebida = 100;
+  @type("number") sueno = 100;
+  @type("number") estamina = 100;
+}
+
+// Nivel de cada atributo (docs/GDD_Personaje.md) — YA derivado de la XP
+// persistida en `jugador_atributos` (server/src/datos/bd.ts), nunca la XP en
+// sí; se rellena OPORTUNISTAMENTE según se toque cada atributo en la sesión
+// (mismo límite ya aceptado para gremioId/gremioNombre más abajo) — el que
+// no se haya tocado aún se queda en 1 (nivel base, sin XP).
+export class AtributosSchema extends Schema {
+  @type("int8") fuerza = 1;
+  @type("int8") destreza = 1;
+  @type("int8") inteligencia = 1;
+  @type("int8") sigilo = 1;
+  @type("int8") carisma = 1;
+  @type("int8") liderazgo = 1;
+}
+
 export class Player extends Schema {
   // posición en CASILLAS del mapa bakeado (float; 1 casilla = 1 unidad de
   // mundo en el cliente) — el servidor es la autoridad, el cliente interpola
@@ -43,6 +70,8 @@ export class Player extends Schema {
   // nivel de profundidad al bucear: 0 superficie, -1, -2 (solo en agua)
   @type("int8") nivel = 0;
   @type(InventarioSchema) inventario = new InventarioSchema();
+  @type(VitalesSchema) vitales = new VitalesSchema();
+  @type(AtributosSchema) atributos = new AtributosSchema();
   // Gremio (pedido 2026-08-29) — visible a cualquiera en la room, como una
   // etiqueta de nametag más (nombre/color/emblema); el detalle completo
   // (banco, roster) SOLO viaja por mensaje privado "gremio:estado", nunca

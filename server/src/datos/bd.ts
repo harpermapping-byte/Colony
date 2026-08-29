@@ -286,6 +286,10 @@ export interface IAlmacenDatos {
   obtenerXpOficio(jugadorId: number, oficio: string): Promise<number>;
   /** Suma (nunca resta) XP a un oficio — crea la fila si no existía. Devuelve el nuevo total. */
   sumarXpOficio(jugadorId: number, oficio: string, delta: number): Promise<number>;
+  /** docs/GDD_Personaje.md: XP de atributo — mismo mecanismo EXACTO que oficios (nivel derivado en server/src/progresion/nivel.ts, nunca persistido en sí). */
+  obtenerXpAtributo(jugadorId: number, atributo: string): Promise<number>;
+  /** Suma (nunca resta) XP a un atributo — crea la fila si no existía. Devuelve el nuevo total. */
+  sumarXpAtributo(jugadorId: number, atributo: string, delta: number): Promise<number>;
   // Gremios (pedido 2026-08-29) — un jugador pertenece a UN gremio como
   // mucho (UNIQUE en gremio_miembros.jugador_id, defensa en profundidad
   // además del chequeo en memoria de ContextoGremios antes de escribir).
@@ -519,6 +523,16 @@ CREATE TABLE IF NOT EXISTS jugador_oficios (
   xp INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (jugador_id, oficio)
 );
+-- Personaje (docs/GDD_Personaje.md, pedido 2026-08-29): XP por atributo,
+-- MISMO mecanismo que jugador_oficios (nivel derivado, nunca persistido en
+-- sí) — vitales (vida/comida/bebida/sueño/estamina) NO se persisten, viven y
+-- mueren con la sesión (ver server/src/personaje/vitales.ts).
+CREATE TABLE IF NOT EXISTS jugador_atributos (
+  jugador_id INTEGER NOT NULL,
+  atributo TEXT NOT NULL,
+  xp INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (jugador_id, atributo)
+);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,               -- "mapaId:edificio:nivel"
   limpiada_en TEXT                      -- timestamp ISO de la última vez que se limpió (null = nunca)
@@ -710,6 +724,12 @@ CREATE TABLE IF NOT EXISTS jugador_oficios (
   oficio TEXT NOT NULL,
   xp INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (jugador_id, oficio)
+);
+CREATE TABLE IF NOT EXISTS jugador_atributos (
+  jugador_id INTEGER NOT NULL,
+  atributo TEXT NOT NULL,
+  xp INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (jugador_id, atributo)
 );
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,
@@ -934,6 +954,22 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
          RETURNING xp`,
       )
       .get(jugadorId, oficio, delta);
+    return Number(fila!.xp);
+  }
+
+  async obtenerXpAtributo(jugadorId: number, atributo: string): Promise<number> {
+    const fila = this.bd.prepare("SELECT xp FROM jugador_atributos WHERE jugador_id = ? AND atributo = ?").get(jugadorId, atributo);
+    return fila ? Number(fila.xp) : 0;
+  }
+
+  async sumarXpAtributo(jugadorId: number, atributo: string, delta: number): Promise<number> {
+    const fila = this.bd
+      .prepare(
+        `INSERT INTO jugador_atributos (jugador_id, atributo, xp) VALUES (?, ?, ?)
+         ON CONFLICT(jugador_id, atributo) DO UPDATE SET xp = jugador_atributos.xp + excluded.xp
+         RETURNING xp`,
+      )
+      .get(jugadorId, atributo, delta);
     return Number(fila!.xp);
   }
 
@@ -1709,6 +1745,24 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
        ON CONFLICT (jugador_id, oficio) DO UPDATE SET xp = jugador_oficios.xp + EXCLUDED.xp
        RETURNING xp`,
       [jugadorId, oficio, delta],
+    );
+    return r.rows[0].xp;
+  }
+
+  async obtenerXpAtributo(jugadorId: number, atributo: string): Promise<number> {
+    const r = await this.pool.query<{ xp: number }>(
+      "SELECT xp FROM jugador_atributos WHERE jugador_id = $1 AND atributo = $2",
+      [jugadorId, atributo],
+    );
+    return r.rows.length > 0 ? r.rows[0].xp : 0;
+  }
+
+  async sumarXpAtributo(jugadorId: number, atributo: string, delta: number): Promise<number> {
+    const r = await this.pool.query<{ xp: number }>(
+      `INSERT INTO jugador_atributos (jugador_id, atributo, xp) VALUES ($1, $2, $3)
+       ON CONFLICT (jugador_id, atributo) DO UPDATE SET xp = jugador_atributos.xp + EXCLUDED.xp
+       RETURNING xp`,
+      [jugadorId, atributo, delta],
     );
     return r.rows[0].xp;
   }

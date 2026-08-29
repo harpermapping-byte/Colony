@@ -29,6 +29,8 @@ import { tiempoMundo } from "../../mundo/tiempoMundo";
 import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
 import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../construccion/energia";
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
+import { tickVitales, restaurarVital } from "../../personaje/vitales";
+import { Atributo } from "../../personaje/atributos";
 
 const VEL_ANDAR = 3.75;
 const VEL_NADAR = 2.2;
@@ -145,6 +147,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
 
     this.onMessage("coger", (client) => this.manejarCoger(client));
     this.onMessage("soltar", (client, msg: { instanciaId?: number; cantidad?: number }) => this.manejarSoltar(client, msg));
+    this.onMessage("personaje:consumir", (client, msg: { instanciaId?: number }) => this.manejarPersonajeConsumir(client, msg));
 
     // --- gremios (docs/GDD_Gremios.md) — disponibles en las 4 rooms, no
     // dependen de ContextoConstruccion/parcelas (a diferencia de "construir"),
@@ -335,6 +338,32 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o); // MapSchema: se replica solo, incluida la foto inicial a quien se una después
 
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
+  }
+
+  /**
+   * Consumir un ítem del cuerpo (docs/GDD_Personaje.md) — solo tipo
+   * "consumible" con `restaura` en el catálogo; sin `restaura` = consumible
+   * de contenido futuro, se rechaza en vez de desaparecer sin efecto.
+   */
+  private manejarPersonajeConsumir(client: Client, msg: { instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor || typeof msg?.instanciaId !== "number") return;
+
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return client.send("personaje:error", { motivo: "no_encontrado" });
+    const entrada = this.catalogoItems[it.itemId];
+    if (!entrada || entrada.tipo !== "consumible" || !entrada.restaura) {
+      return client.send("personaje:error", { motivo: "no_se_puede_consumir" });
+    }
+
+    const resultado = quitarItem(contenedor, msg.instanciaId, 1);
+    if (!resultado.ok) return client.send("personaje:error", { motivo: resultado.motivo ?? "no_encontrado" });
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    restaurarVital(player.vitales, entrada.restaura.vital, entrada.restaura.cantidad);
+    client.send("personaje:consumido", { itemId: it.itemId, vital: entrada.restaura.vital, valor: player.vitales[entrada.restaura.vital] });
   }
 
   /**
@@ -619,7 +648,23 @@ export abstract class RoomExteriorBase extends Room<HubState> {
 
     const player = this.state.players.get(client.sessionId);
     if (player) this.aplicarEtiquetaGremio(player, vivo);
+    // Liderazgo (docs/GDD_Personaje.md): fundar un gremio es la acción de
+    // liderazgo más clara que ya existe — mismo bd/jugador de esta función,
+    // sin lookup extra.
+    if (player) await this.otorgarXpAtributo(bd, jugador.id, "liderazgo", player, 30);
     client.send("gremio:estado", await this.detalleGremio(bd, vivo));
+  }
+
+  /**
+   * Otorga XP de un atributo (docs/GDD_Personaje.md, mismo mecanismo que
+   * `sumarXpOficio`) y refresca el nivel replicado en `player.atributos` —
+   * SOLO el atributo tocado (los demás siguen "oportunistamente" desfasados
+   * hasta que su propio disparador los toque, mismo criterio ya aceptado
+   * para gremioId/gremioNombre).
+   */
+  protected async otorgarXpAtributo(bd: IAlmacenDatos, jugadorId: number, atributo: Atributo, player: Player, delta: number) {
+    const nuevaXp = await bd.sumarXpAtributo(jugadorId, atributo, delta);
+    player.atributos[atributo] = nivelDeXp(nuevaXp);
   }
 
   private async manejarGremioInvitar(client: Client, msg: { jugadorNombre?: string }) {
@@ -1600,5 +1645,12 @@ export abstract class RoomExteriorBase extends Room<HubState> {
 
     const cuerpos = [...this.state.players.values()];
     separarPJs(this.mundo, cuerpos, RADIO_PJ);
+
+    // Vitales (docs/GDD_Personaje.md) — mismo tick que YA existe para
+    // movimiento/colisión, TODOS los jugadores conectados (no solo los que
+    // tienen input activo: el hambre corre aunque el jugador esté quieto).
+    // Integrador simple, sin checkpoint/timestamp — ver server/src/personaje/vitales.ts.
+    const horasPorTick = dt / 3600;
+    this.state.players.forEach((player) => tickVitales(player.vitales, horasPorTick));
   }
 }

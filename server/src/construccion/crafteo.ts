@@ -8,6 +8,13 @@
  * decide qué recetas puede intentar.
  */
 
+// La curva de nivel por XP se comparte con docs/GDD_Personaje.md (nivel de
+// atributo, mismo mecanismo) — vive en server/src/progresion/nivel.ts;
+// re-exportada aquí TAL CUAL para no romper los imports/tests existentes de
+// `nivelDeXp` desde este módulo.
+export { nivelDeXp } from "../progresion/nivel";
+import { nivelDeXp } from "../progresion/nivel";
+
 export interface RecetaCrafteo {
   id: string;
   oficio: string;
@@ -23,18 +30,6 @@ export interface RecetaCrafteo {
   insumos: { itemId: string; cantidad: number }[];
   resultado: { itemId: string; cantidad: number };
   tiempoBaseSeg: number;
-}
-
-/** Umbrales de XP por nivel — PLACEHOLDER de balance (mismo criterio que pesoMaximoTransportable, RADIO_PLANTILLAS_JARL_CASILLAS...): números de referencia a afinar, no una decisión cerrada. Nivel 1 = sin XP. */
-const UMBRALES_NIVEL = [0, 100, 300, 600, 1000, 1500];
-
-/** Nivel de oficio derivado de XP — nunca se persiste el nivel en sí, siempre se calcula de la XP guardada (docs/GDD_Crafteo.md §6). */
-export function nivelDeXp(xp: number): number {
-  let nivel = 1;
-  for (let i = 1; i < UMBRALES_NIVEL.length; i++) {
-    if (xp >= UMBRALES_NIVEL[i]) nivel = i + 1;
-  }
-  return nivel;
 }
 
 export type ResultadoValidacionCrafteo = { ok: true } | { ok: false; motivo: string };
