@@ -69,7 +69,7 @@ function esqueletoCuadrupedo(p, rasgos, color, rnd) {
 
   // orejas por rasgo
   const orejas = rasgos.orejas || "puntiagudas";
-  const altoOreja = { largas: 0.9, puntiagudas: 0.45, laterales: 0.2 }[orejas] * p.tamCabeza;
+  const altoOreja = { largas: 0.9, puntiagudas: 0.45, laterales: 0.2, caidas: 0.65 }[orejas] * p.tamCabeza;
   const anchoOreja = orejas === "laterales" ? p.tamCabeza * 0.45 : p.tamCabeza * 0.22;
   for (const lado of [-1, 1]) {
     const ox = orejas === "laterales" ? lado * (p.tamCabeza / 2 + anchoOreja / 2) : lado * p.tamCabeza * 0.28;
@@ -356,16 +356,29 @@ function generarAnimal(especieId, opciones) {
   if (!plantilla) throw new Error(`Esqueleto sin plantilla: ${rig.esqueleto}`);
 
   const rnd = crearPRNG(`${semilla}|animal|${especieId}`);
-  const escala = Number(enRango(rig.escala, rnd).toFixed(3));
-  // Razas por color (pedido 2026-08-29, "vacas negras/marrones/blanco y
-  // negro, mismo criterio para ovejas/perros — como razas cambiando el
-  // color"): si la especie declara `coloresPosibles` en animales_rig.json
-  // (mismo formato [id-color, peso] que ya usa rasgos.json para pelo/piel
-  // humanos, vía el mismo `elegirPonderado`), se sortea UNA raza entera —
-  // no un tono sutil sobre un único color. Especies sin el campo siguen
-  // igual que antes (colorDebug del baker + jitter pequeño) — no hace
-  // falta tocar las que aún no tienen razas definidas.
-  const colorBase = rig.coloresPosibles ? elegirPonderado(rig.coloresPosibles, rnd) : baker.colorDebug;
+
+  // Razas de verdad — tamaño Y forma, no solo color (pedido 2026-08-29,
+  // "perros y gatos con razas diferentes, tamaños diferentes colores y
+  // forma, estilo doberman/caniche/labrador"): si la especie declara
+  // `razas` en animales_rig.json (lista de {id, peso, escala?,
+  // proporciones?, rasgos?, coloresPosibles?}), se sortea UNA raza entera
+  // con `elegirPonderado` — igual que rasgos.json para pelo/piel humanos —
+  // y sus campos SUSTITUYEN a los de la especie base solo para lo que la
+  // raza declare (patrón "solo lo que cambie", igual que los overrides de
+  // NPC por profesión en npcs.json); lo que la raza no toque sigue
+  // saliendo de la base. Especies sin `razas` funcionan exactamente igual
+  // que antes.
+  const raza = rig.razas ? elegirPonderado(rig.razas.map((r) => [r, r.peso]), rnd) : null;
+  const escalaRango = raza?.escala ?? rig.escala;
+  const proporcionesBase = { ...rig.proporciones, ...(raza?.proporciones ?? {}) };
+  const rasgosBase = { ...rig.rasgos, ...(raza?.rasgos ?? {}) };
+  // Razas por color (pedido 2026-08-29 anterior, "vacas negras/marrones..."):
+  // si la raza no trae su propia paleta, cae a la de la especie base — así
+  // una especie sin sistema de razas de forma sigue teniendo razas de color.
+  const coloresPosibles = raza?.coloresPosibles ?? rig.coloresPosibles;
+
+  const escala = Number(enRango(escalaRango, rnd).toFixed(3));
+  const colorBase = coloresPosibles ? elegirPonderado(coloresPosibles, rnd) : baker.colorDebug;
   // tono individual sutil sobre la raza (o el colorDebug) elegida — variedad
   // dentro de la misma raza, no sustituye a la raza en sí.
   const color = ajustarColor(colorBase, (rnd() - 0.5) * 0.12);
@@ -374,15 +387,15 @@ function generarAnimal(especieId, opciones) {
   const sexo = rnd() < 0.5 ? "macho" : "hembra";
 
   const proporciones = {};
-  for (const [k, v] of Object.entries(rig.proporciones)) proporciones[k] = v * escala;
+  for (const [k, v] of Object.entries(proporcionesBase)) proporciones[k] = v * escala;
 
-  const rasgos = { ...rig.rasgos };
+  const rasgos = { ...rasgosBase };
   if (rasgos.cuernos === "ramificados" && sexo === "hembra") delete rasgos.cuernos;
 
   const piezas = plantilla(proporciones, rasgos, color, rnd);
 
   return {
-    ficha: { especieId, semilla, esqueleto: rig.esqueleto, escala, color, sexo, rasgos },
+    ficha: { especieId, semilla, esqueleto: rig.esqueleto, escala, color, sexo, rasgos, raza: raza?.id ?? null },
     piezas,
   };
 }

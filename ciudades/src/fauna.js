@@ -12,14 +12,24 @@ const { TRANSITABLES } = require("./generar");
 
 // Especies domésticas: reusan las plantillas ya existentes de
 // personajes/catalogo/animales_rig.json (gallina_salvaje/vaca_salvaje) o
-// las nuevas domésticas puras (perro/gato/gallo) — cero catálogo nuevo,
-// "las listas crecen, el código no".
+// las nuevas domésticas puras (perro/gato/gallo/caballo/mulo/buey) — cero
+// catálogo nuevo, "las listas crecen, el código no". IMPORTANTE: solo puede
+// entrar aquí una especie que YA tenga rig/esqueleto en animales_rig.json —
+// generarAnimal() revienta si no lo tiene. oveja/carnero/cerdo/
+// ganso_domestico ya existen en baker/catalogo/animales.json (ampliación
+// 2026-08-29) pero deliberadamente NO se añaden aquí todavía: sin rig.
+// caballo/mulo/buey (pedido 2026-08-29, "animales de trabajo") SÍ tienen
+// rig ya, así que entran directos — pesos bajos porque son animales caros
+// de mantener, no todas las casas tienen uno.
 const ESPECIES = [
   { especieId: "gallina_salvaje", peso: 8, radio: 3 },
   { especieId: "gallo", peso: 1, peroSoloSiHay: "gallina_salvaje", radio: 3 }, // "algún gallo si hay gallinas"
   { especieId: "vaca_salvaje", peso: 2, radio: 4 },
   { especieId: "perro", peso: 4, radio: 5 },
   { especieId: "gato", peso: 4, radio: 4 },
+  { especieId: "caballo", peso: 2, radio: 5 },
+  { especieId: "mulo", peso: 1, radio: 4 },
+  { especieId: "buey", peso: 1, radio: 3 },
 ];
 
 // Cuántos animales por tier — mismo criterio de escala que el censo de
@@ -59,8 +69,8 @@ function generarFauna(ciudad) {
   const [min, max] = CANTIDAD_POR_TIER[ciudad.tier] ?? [4, 8];
   const cantidad = enteroEnRango([min, max], rnd);
 
-  const hayGallinas = ciudad.edificios.length > 0; // se decide junto con la primera tirada de especie
-  const pesos = ESPECIES.filter((e) => !e.peroSoloSiHay); // el gallo se añade aparte, ver abajo
+  const hayEdificios = ciudad.edificios.length > 0; // se decide junto con la primera tirada de especie
+  const pesos = ESPECIES.filter((e) => !e.peroSoloSiHay); // las parejas condicionadas (gallo, carnero...) se añaden aparte, ver abajo
   const totalPeso = pesos.reduce((s, e) => s + e.peso, 0);
 
   const casas = ciudad.edificios.filter((e) => e.tipoEdificioId?.startsWith("casa_") || e.tipoEdificioId === "granero");
@@ -68,7 +78,7 @@ function generarFauna(ciudad) {
   if (centrosDeSpawn.length === 0) return [];
 
   const fauna = [];
-  let salieronGallinas = false;
+  const especiesSalidas = new Set();
   for (let i = 0; i < cantidad; i++) {
     let r = rnd() * totalPeso;
     let especie = pesos[0];
@@ -77,17 +87,20 @@ function generarFauna(ciudad) {
     const punto = puntoCercaTransitable(ciudad, centro.x, centro.y, especie.radio + 2, rnd);
     if (!punto) continue;
     fauna.push({ especieId: especie.especieId, x: punto.x, y: punto.y, radio: especie.radio });
-    if (especie.especieId === "gallina_salvaje") salieronGallinas = true;
+    especiesSalidas.add(especie.especieId);
   }
 
-  // "algún gallo si hay gallinas": 0-2 gallos extra, solo si el sorteo dio
-  // al menos una gallina — nunca un gallo suelto sin corral.
-  if (salieronGallinas && hayGallinas) {
-    const nGallos = Math.floor(rnd() * 2) + (rnd() < 0.7 ? 1 : 0); // casi siempre 1, a veces 2, a veces 0
-    for (let i = 0; i < nGallos; i++) {
+  // Parejas macho/hembra condicionadas ("algún gallo si hay gallinas",
+  // "algún carnero si hay ovejas"...): 0-2 extra, solo si el sorteo
+  // principal dio al menos un individuo de la especie de la que dependen —
+  // nunca un macho suelto sin su rebaño/corral.
+  for (const pareja of ESPECIES) {
+    if (!pareja.peroSoloSiHay || !hayEdificios || !especiesSalidas.has(pareja.peroSoloSiHay)) continue;
+    const nExtra = Math.floor(rnd() * 2) + (rnd() < 0.7 ? 1 : 0); // casi siempre 1, a veces 2, a veces 0
+    for (let i = 0; i < nExtra; i++) {
       const centro = centrosDeSpawn[Math.floor(rnd() * centrosDeSpawn.length)];
-      const punto = puntoCercaTransitable(ciudad, centro.x, centro.y, 5, rnd);
-      if (punto) fauna.push({ especieId: "gallo", x: punto.x, y: punto.y, radio: 3 });
+      const punto = puntoCercaTransitable(ciudad, centro.x, centro.y, pareja.radio + 2, rnd);
+      if (punto) fauna.push({ especieId: pareja.especieId, x: punto.x, y: punto.y, radio: pareja.radio });
     }
   }
 

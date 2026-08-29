@@ -272,6 +272,7 @@
     }
   },
   "perro": {
+    "_nota": "Razas por tamaño+forma (pedido 2026-08-29, 'estilo doberman/caniche/labrador' — no solo color): cada raza en `razas` sustituye escala/proporciones/rasgos/coloresPosibles SOLO en lo que declare, el resto sale de la base de abajo (ver generarAnimal.js). 'callejero' es el mestizo genérico, sin overrides.",
     "esqueleto": "cuadrupedo",
     "escala": [
       0.55,
@@ -291,15 +292,69 @@
       "hocico": "medio",
       "cuernos": "ninguno"
     },
-    "coloresPosibles": [
-      ["#8a6a45", 30],
-      ["#2a2420", 22],
-      ["#e8e0d0", 20],
-      ["#5a4a30", 18],
-      ["#c9b090", 10]
+    "razas": [
+      {
+        "id": "labrador",
+        "peso": 28,
+        "escala": [0.7, 0.85],
+        "proporciones": { "anchoCuerpo": 0.34, "altoCuerpo": 0.42, "altoPata": 0.34, "tamCabeza": 0.3 },
+        "coloresPosibles": [
+          ["#c9a05a", 40],
+          ["#2a2420", 30],
+          ["#6a4530", 30]
+        ]
+      },
+      {
+        "id": "doberman",
+        "peso": 20,
+        "escala": [0.75, 0.9],
+        "proporciones": { "largoCuerpo": 0.78, "altoCuerpo": 0.44, "anchoCuerpo": 0.24, "altoPata": 0.42, "grosorPata": 0.075, "tamCabeza": 0.24 },
+        "rasgos": { "orejas": "puntiagudas", "cola": "corta" },
+        "coloresPosibles": [
+          ["#141210", 55],
+          ["#3a2418", 45]
+        ]
+      },
+      {
+        "id": "caniche",
+        "peso": 18,
+        "escala": [0.35, 0.55],
+        "proporciones": { "largoCuerpo": 0.55, "altoCuerpo": 0.38, "anchoCuerpo": 0.26, "altoPata": 0.24, "grosorPata": 0.06, "tamCabeza": 0.3 },
+        "rasgos": { "cola": "pomo" },
+        "coloresPosibles": [
+          ["#f0ece0", 35],
+          ["#2a2420", 30],
+          ["#d8a060", 35]
+        ]
+      },
+      {
+        "id": "pastor",
+        "peso": 22,
+        "escala": [0.65, 0.85],
+        "proporciones": { "largoCuerpo": 0.8, "altoCuerpo": 0.42, "altoPata": 0.36, "tamCabeza": 0.3 },
+        "rasgos": { "orejas": "puntiagudas", "cola": "larga" },
+        "coloresPosibles": [
+          ["#241f1a", 35],
+          ["#7a6a55", 30],
+          ["#8a5a30", 35]
+        ]
+      },
+      {
+        "id": "callejero",
+        "peso": 12,
+        "escala": [0.55, 0.75],
+        "coloresPosibles": [
+          ["#8a6a45", 30],
+          ["#2a2420", 22],
+          ["#e8e0d0", 20],
+          ["#5a4a30", 18],
+          ["#c9b090", 10]
+        ]
+      }
     ]
   },
   "gato": {
+    "_nota": "Razas por tamaño+forma, mismo mecanismo que 'perro'.",
     "esqueleto": "cuadrupedo",
     "escala": [
       0.4,
@@ -319,12 +374,143 @@
       "hocico": "corto",
       "cuernos": "ninguno"
     },
+    "razas": [
+      {
+        "id": "comun_europeo",
+        "peso": 40,
+        "coloresPosibles": [
+          ["#2a2420", 28],
+          ["#e8e0d0", 24],
+          ["#8a6a45", 22],
+          ["#c9773a", 16],
+          ["#5a5450", 10]
+        ]
+      },
+      {
+        "id": "siames",
+        "peso": 18,
+        "escala": [0.4, 0.55],
+        "proporciones": { "largoCuerpo": 0.52, "anchoCuerpo": 0.16, "altoPata": 0.24, "tamCabeza": 0.17 },
+        "coloresPosibles": [
+          ["#e8ddc0", 60],
+          ["#5a4a3a", 40]
+        ]
+      },
+      {
+        "id": "persa",
+        "peso": 16,
+        "escala": [0.35, 0.5],
+        "proporciones": { "largoCuerpo": 0.42, "anchoCuerpo": 0.24, "altoPata": 0.15, "tamCabeza": 0.24 },
+        "rasgos": { "cola": "pomo" },
+        "coloresPosibles": [
+          ["#f0ece0", 40],
+          ["#8a8580", 30],
+          ["#d8c8a0", 30]
+        ]
+      },
+      {
+        "id": "maine_coon",
+        "peso": 16,
+        "escala": [0.55, 0.7],
+        "proporciones": { "largoCuerpo": 0.58, "anchoCuerpo": 0.24, "altoPata": 0.24, "tamCabeza": 0.22 },
+        "coloresPosibles": [
+          ["#7a5a35", 40],
+          ["#2a2420", 30],
+          ["#6a655f", 30]
+        ]
+      },
+      {
+        "id": "angora",
+        "peso": 10,
+        "escala": [0.4, 0.55],
+        "proporciones": { "largoCuerpo": 0.52, "anchoCuerpo": 0.17, "tamCabeza": 0.19 },
+        "coloresPosibles": [
+          ["#f5f2ea", 70],
+          ["#c9a878", 30]
+        ]
+      }
+    ]
+  },
+  "caballo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.95,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.35,
+      "altoCuerpo": 0.62,
+      "anchoCuerpo": 0.38,
+      "altoPata": 0.75,
+      "grosorPata": 0.12,
+      "tamCabeza": 0.34
+    },
+    "rasgos": {
+      "orejas": "puntiagudas",
+      "cola": "larga",
+      "hocico": "largo",
+      "cuernos": "ninguno"
+    },
     "coloresPosibles": [
-      ["#2a2420", 28],
-      ["#e8e0d0", 24],
-      ["#8a6a45", 22],
-      ["#c9773a", 16],
-      ["#5a5450", 10]
+      ["#5a3a20", 30],
+      ["#1c1815", 20],
+      ["#d8d0c0", 18],
+      ["#c9973a", 17],
+      ["#8a7050", 15]
+    ]
+  },
+  "mulo": {
+    "_nota": "Cruce caballo/burro — orejas largas de burro, capas más apagadas (hereda menos variedad de color que un caballo de raza).",
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.8,
+      1.0
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.15,
+      "altoCuerpo": 0.58,
+      "anchoCuerpo": 0.36,
+      "altoPata": 0.62,
+      "grosorPata": 0.12,
+      "tamCabeza": 0.34
+    },
+    "rasgos": {
+      "orejas": "largas",
+      "cola": "media",
+      "hocico": "largo",
+      "cuernos": "ninguno"
+    },
+    "coloresPosibles": [
+      ["#8a7a68", 40],
+      ["#5a4a38", 35],
+      ["#4a4038", 25]
+    ]
+  },
+  "buey": {
+    "_nota": "Bovino de labranza (par de 'vaca_salvaje', más corpulento y con cuernos) — animal de tiro, no de monta.",
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      1.0,
+      1.2
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.6,
+      "altoCuerpo": 0.8,
+      "anchoCuerpo": 0.65,
+      "altoPata": 0.5,
+      "grosorPata": 0.16,
+      "tamCabeza": 0.45
+    },
+    "rasgos": {
+      "orejas": "laterales",
+      "cola": "larga",
+      "hocico": "medio",
+      "cuernos": "cortos"
+    },
+    "coloresPosibles": [
+      ["#4a3020", 40],
+      ["#221a14", 30],
+      ["#6a3a20", 30]
     ]
   },
   "gallo": {

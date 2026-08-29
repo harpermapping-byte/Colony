@@ -1679,5 +1679,699 @@
     "domesticable": false,
     "colorDebug": "#8a8a80",
     "_nota": "Único mamífero marino además de orca/ballena — costera (mar_bajo), no forma banco."
+  },
+  "_nota_ampliacion_aerea_2026_08_29": "Ampliación de fauna aérea (pedido del streamer, auditoría de huecos ecológicos 2026-08-29): rapaces de talla media, aves de granja/lago, refuerzo de costa (bioma más flojo en aéreas) y un insecto volador peligroso — sin duplicar lo ya existente (gallina_salvaje/gallo, abeja, murcielago, azor, aguila_real...).",
+  "pato_azulon": {
+    "biomas": [
+      "pradera",
+      "pantano",
+      "costa"
+    ],
+    "categoriaRecursoCarne": "carne_blanca",
+    "densidadBase": 0.02,
+    "capacidadMaximaPorChunk": 4,
+    "variantes": 5,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#4a6a48"
+  },
+  "ganso_salvaje": {
+    "biomas": [
+      "pradera",
+      "pantano",
+      "costa"
+    ],
+    "categoriaRecursoCarne": "carne_blanca",
+    "densidadBase": 0.012,
+    "capacidadMaximaPorChunk": 4,
+    "variantes": 4,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#8a8262"
+  },
+  "ganso_domestico": {
+    "biomas": [],
+    "categoriaRecursoCarne": "carne_blanca",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 5,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#e8e0d0",
+    "_nota": "Fauna urbana — ver nota de 'perro'."
+  },
+  "cernicalo_vulgar": {
+    "biomas": [
+      "pradera",
+      "desierto",
+      "bosque"
+    ],
+    "densidadBase": 0.004,
+    "capacidadMaximaPorChunk": 1,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#a5854a",
+    "presasDe": [
+      "raton_de_campo",
+      "jerbo",
+      "grillo"
+    ]
+  },
+  "avispa_comun": {
+    "biomas": [
+      "pradera",
+      "bosque",
+      "costa"
+    ],
+    "densidadBase": 0.025,
+    "capacidadMaximaPorChunk": 5,
+    "variantes": 3,
+    "peligroso": true,
+    "domesticable": false,
+    "colorDebug": "#e0b420",
+    "disposicion": "neutral",
+    "radioAgro": 1
+  },
+  "gavilan_comun": {
+    "biomas": [
+      "bosque"
+    ],
+    "densidadBase": 0.006,
+    "capacidadMaximaPorChunk": 1,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#7a6a52",
+    "presasDe": [
+      "petirrojo"
+    ]
+  },
+  "petirrojo": {
+    "biomas": [
+      "bosque",
+      "pradera"
+    ],
+    "densidadBase": 0.018,
+    "capacidadMaximaPorChunk": 3,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#c9502a"
+  },
+  "cuervo_comun": {
+    "biomas": [
+      "bosque",
+      "pradera",
+      "montana_nevada"
+    ],
+    "densidadBase": 0.008,
+    "capacidadMaximaPorChunk": 2,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#1c1c1c"
+  },
+  "milano_negro": {
+    "biomas": [
+      "bosque",
+      "pradera",
+      "tierras_quemadas"
+    ],
+    "densidadBase": 0.005,
+    "capacidadMaximaPorChunk": 1,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#4a3a2a"
+  },
+  "buho_nival": {
+    "biomas": [
+      "montana_nevada"
+    ],
+    "densidadBase": 0.004,
+    "capacidadMaximaPorChunk": 1,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#e8ecef"
+  },
+  "frailecillo_atlantico": {
+    "biomas": [
+      "costa"
+    ],
+    "densidadBase": 0.015,
+    "capacidadMaximaPorChunk": 3,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#241f1a"
+  },
+  "alcatraz_atlantico": {
+    "biomas": [
+      "costa",
+      "mar_bajo"
+    ],
+    "densidadBase": 0.01,
+    "capacidadMaximaPorChunk": 2,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#f0f0e8"
+  },
+  "aguila_pescadora": {
+    "biomas": [
+      "costa",
+      "pantano",
+      "pradera"
+    ],
+    "densidadBase": 0.004,
+    "capacidadMaximaPorChunk": 1,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#8a7a6a",
+    "presasDe": [
+      "pez_pequeno",
+      "trucha_rio"
+    ]
+  },
+  "cisne_vulgar": {
+    "biomas": [
+      "pantano",
+      "pradera",
+      "costa"
+    ],
+    "densidadBase": 0.006,
+    "capacidadMaximaPorChunk": 2,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#f5f5f0"
+  },
+  "_nota_ampliacion_maritima_2026_08_29": "Ampliación de fauna marítima (mismo pedido 2026-08-29): invertebrados de zona intermareal, un mamífero marino grande de costa fría, peces de banco de mar_bajo y variedad de río/lago — prioriza 'costa', el bioma más flojo del dominio marítimo junto a tierras_quemadas.",
+  "percebe": {
+    "biomas": [
+      "costa"
+    ],
+    "categoriaRecursoCarne": "marisco",
+    "densidadBase": 0.02,
+    "capacidadMaximaPorChunk": 5,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#4a4a48"
+  },
+  "ostra": {
+    "biomas": [
+      "costa"
+    ],
+    "categoriaRecursoCarne": "marisco",
+    "densidadBase": 0.018,
+    "capacidadMaximaPorChunk": 4,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#8a7a68"
+  },
+  "erizo_de_mar": {
+    "biomas": [
+      "costa"
+    ],
+    "categoriaRecursoCarne": "marisco",
+    "densidadBase": 0.015,
+    "capacidadMaximaPorChunk": 3,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#3a2a48"
+  },
+  "morsa": {
+    "colision": true,
+    "biomas": [
+      "costa"
+    ],
+    "categoriaRecursoCarne": "carne_exotica",
+    "categoriaRecursoPiel": "piel_exotica",
+    "densidadBase": 0.002,
+    "capacidadMaximaPorChunk": 1,
+    "variantes": 3,
+    "peligroso": true,
+    "domesticable": false,
+    "colorDebug": "#c9a888",
+    "presasDe": [
+      "mejillon",
+      "almeja"
+    ],
+    "disposicion": "neutral",
+    "radioAgro": 5
+  },
+  "ballena_franca": {
+    "colision": true,
+    "biomas": [
+      "costa",
+      "mar_bajo"
+    ],
+    "requiereAgua": true,
+    "categoriaRecursoCarne": "carne_exotica",
+    "densidadBase": 0.001,
+    "capacidadMaximaPorChunk": 1,
+    "variantes": 3,
+    "escalaBase": 6,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#1a1a1a"
+  },
+  "sardina": {
+    "biomas": [
+      "mar_bajo"
+    ],
+    "requiereAgua": true,
+    "categoriaRecursoCarne": "pescado_mar",
+    "densidadBase": 0.055,
+    "capacidadMaximaPorChunk": 9,
+    "variantes": 3,
+    "escalaBase": 0.3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#8aa8c8"
+  },
+  "caballa": {
+    "biomas": [
+      "mar_bajo"
+    ],
+    "requiereAgua": true,
+    "categoriaRecursoCarne": "pescado_mar",
+    "densidadBase": 0.03,
+    "capacidadMaximaPorChunk": 5,
+    "variantes": 3,
+    "escalaBase": 0.5,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#3a5a78",
+    "prefiereAguaProfunda": false
+  },
+  "rodaballo": {
+    "biomas": [
+      "mar_bajo"
+    ],
+    "requiereAgua": true,
+    "categoriaRecursoCarne": "pescado_mar",
+    "densidadBase": 0.015,
+    "capacidadMaximaPorChunk": 3,
+    "variantes": 3,
+    "escalaBase": 0.6,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#a89878",
+    "presasDe": [
+      "pez_pequeno"
+    ],
+    "prefiereAguaProfunda": false
+  },
+  "calamar_gigante": {
+    "colision": true,
+    "biomas": [
+      "mar_profundo"
+    ],
+    "requiereAgua": true,
+    "categoriaRecursoCarne": "marisco",
+    "densidadBase": 0.0008,
+    "capacidadMaximaPorChunk": 1,
+    "variantes": 2,
+    "escalaBase": 4,
+    "peligroso": true,
+    "domesticable": false,
+    "colorDebug": "#8a3a3a",
+    "presasDe": [
+      "pez_grande"
+    ],
+    "disposicion": "neutral",
+    "radioAgro": 6
+  },
+  "cangrejo_de_rio": {
+    "biomas": [
+      "bosque",
+      "montana_nevada"
+    ],
+    "requiereAgua": true,
+    "requiereAguaDulce": true,
+    "categoriaRecursoCarne": "marisco",
+    "densidadBase": 0.015,
+    "capacidadMaximaPorChunk": 3,
+    "variantes": 3,
+    "escalaBase": 0.3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#6a5a40"
+  },
+  "tenca": {
+    "biomas": [
+      "pantano",
+      "pradera"
+    ],
+    "requiereAgua": true,
+    "requiereAguaDulce": true,
+    "categoriaRecursoCarne": "pescado_lago",
+    "densidadBase": 0.02,
+    "capacidadMaximaPorChunk": 5,
+    "variantes": 3,
+    "escalaBase": 0.5,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#4a6a3a"
+  },
+  "esturion": {
+    "biomas": [
+      "bosque",
+      "pradera"
+    ],
+    "requiereAgua": true,
+    "requiereAguaDulce": true,
+    "categoriaRecursoCarne": "pescado_rio",
+    "densidadBase": 0.006,
+    "capacidadMaximaPorChunk": 1,
+    "variantes": 2,
+    "escalaBase": 1.8,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#5a5850",
+    "prefiereAguaProfunda": true
+  },
+  "_nota_ampliacion_terrestre_2026_08_29": "Ampliación de fauna terrestre (mismo pedido 2026-08-29): base de cadena trófica para tierras_quemadas (el bioma más pobre del catálogo), un mamífero de ribera y un reptil venenoso templado que faltaba en bosque/pradera/montaña. Añade también el par doméstico 'oveja'/'carnero' (pedido explícito del streamer: cada especie con nombre real distinto por sexo, como gallina_salvaje/gallo — oveja_salvaje se mantiene igual, es la población salvaje de pradera) y 'cerdo' doméstico (jabali ya cubre el ancestro salvaje).",
+  "_nota_animales_trabajo_2026_08_29": "Animales de trabajo/monta (pedido 2026-08-29, 'caballos mulos bueyes animales de trabajo'): caballo_salvaje/burro_salvaje ya cubrían la población salvaje domesticable, pero faltaba el par doméstico urbano (mismo patrón que perro/gato/gallo) — caballo, mulo (sin versión salvaje real, siempre es un híbrido criado) y buey (bovino de labranza, par de vaca_salvaje). A diferencia de oveja/carnero/cerdo/ganso_domestico, ESTOS SÍ tienen rig ya (personajes/catalogo/animales_rig.json) y están enganchados al spawn de ciudades/src/fauna.js.",
+  "caballo": {
+    "colision": true,
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 8,
+    "peligroso": false,
+    "domesticable": true,
+    "nota": "montura",
+    "colorDebug": "#5a3a20",
+    "_nota": "Fauna urbana — ver nota de 'perro'. Par doméstico de caballo_salvaje (que se mantiene igual, población salvaje del mapa exterior)."
+  },
+  "mulo": {
+    "colision": true,
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 5,
+    "peligroso": false,
+    "domesticable": true,
+    "nota": "animal de tiro/carga",
+    "colorDebug": "#8a7a68",
+    "_nota": "Fauna urbana — ver nota de 'perro'. Sin versión salvaje real (siempre es un híbrido criado de caballo+burro)."
+  },
+  "buey": {
+    "colision": true,
+    "biomas": [],
+    "categoriaRecursoCarne": "carne_roja",
+    "categoriaRecursoPiel": "cuero_grueso",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 6,
+    "peligroso": false,
+    "domesticable": true,
+    "nota": "animal de tiro/labranza",
+    "colorDebug": "#4a3020",
+    "_nota": "Fauna urbana — ver nota de 'perro'. Bovino de labranza, par de vaca_salvaje."
+  },
+  "raton_de_ceniza": {
+    "biomas": [
+      "tierras_quemadas"
+    ],
+    "densidadBase": 0.02,
+    "capacidadMaximaPorChunk": 4,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#6a6058"
+  },
+  "lagarto_de_ceniza": {
+    "biomas": [
+      "tierras_quemadas"
+    ],
+    "categoriaRecursoPiel": "cuero_reptil",
+    "densidadBase": 0.01,
+    "capacidadMaximaPorChunk": 2,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#8a5a48"
+  },
+  "castor": {
+    "colision": true,
+    "biomas": [
+      "bosque",
+      "pradera",
+      "pantano"
+    ],
+    "categoriaRecursoCarne": "carne_roja",
+    "categoriaRecursoPiel": "piel_fina",
+    "densidadBase": 0.006,
+    "capacidadMaximaPorChunk": 2,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#4a3020"
+  },
+  "vibora_europea": {
+    "biomas": [
+      "bosque",
+      "pradera",
+      "montana_nevada"
+    ],
+    "categoriaRecursoPiel": "cuero_reptil",
+    "densidadBase": 0.006,
+    "capacidadMaximaPorChunk": 1,
+    "variantes": 3,
+    "peligroso": true,
+    "domesticable": false,
+    "colorDebug": "#7a6a4a",
+    "presasDe": [
+      "raton_de_campo",
+      "musarana"
+    ],
+    "disposicion": "neutral",
+    "radioAgro": 2
+  },
+  "cerdo": {
+    "colision": true,
+    "biomas": [],
+    "categoriaRecursoCarne": "carne_roja",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 6,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#e8b8a0",
+    "_nota": "Fauna urbana — ver nota de 'perro'. jabali ya cubre el ancestro salvaje."
+  },
+  "oveja": {
+    "colision": true,
+    "biomas": [],
+    "categoriaRecursoCarne": "carne_roja",
+    "categoriaRecursoPiel": "piel_invierno",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 6,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#e8e0d0",
+    "_nota": "Fauna urbana, hembra — ver nota de 'perro'. Distinta de oveja_salvaje (población salvaje de pradera)."
+  },
+  "carnero": {
+    "colision": true,
+    "biomas": [],
+    "categoriaRecursoCarne": "carne_roja",
+    "categoriaRecursoPiel": "piel_invierno",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 5,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#c9b8a0",
+    "_nota": "Fauna urbana, macho de 'oveja' — mismo patrón que gallina_salvaje/gallo: nombre propio por sexo, no una variante de color."
+  },
+  "_nota_convencion_macho_hembra_cria_2026_08_29": "Convención PERMANENTE desde ahora para fauna DOMÉSTICA/urbana (pedido del streamer: 'necesitamos que todos tengan macho y hembra... que se vayan añadiendo SIEMPRE tengan las crias y el macho o hembra'): toda especie doméstica nueva se da de alta como TRÍO — macho, hembra (nombre real distinto cuando existe en español: cerdo/cerda, toro/vaca, caballo/yegua, gallo/gallina; si no hay nombre distinto de verdad, como perro/perra o gato/gata, se usa la flexión de género normal) + UNA sola cría común a ambos sexos (cachorro/gatito/potro/ternero/cerdito/cordero/pollito/ansarino — nunca 'cría macho'/'cría hembra', el sexo se decide al llegar a adulto). Pensado como base para un futuro sistema de cría entre animales de la misma especie y sexo distinto (con sus condiciones) — de momento esto es solo el LISTADO, sin esqueleto todavía en ninguno de los 16 nuevos de aquí abajo ('ya haremos los esqueletos cuando toque'). 'mulo'/'mula' son la única pareja SIN cría propia: es un híbrido estéril (caballo+burro), no se reproduce entre sí — macho/hembra ahí son solo nombre.",
+  "perra": {
+    "biomas": [],
+    "categoriaRecursoCarne": null,
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 6,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#8a6a45",
+    "_nota": "Fauna urbana, hembra de 'perro'. Sin rig propio todavía — cuando 'perro' tenga razas con esqueleto de verdad, 'perra' hereda el mismo tratamiento."
+  },
+  "cachorro": {
+    "biomas": [],
+    "categoriaRecursoCarne": null,
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 4,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#c9b090",
+    "_nota": "Cría de perro/perra — un solo tipo de cría, sin sexo propio todavía (se decide al llegar a adulto)."
+  },
+  "gata": {
+    "biomas": [],
+    "categoriaRecursoCarne": null,
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 6,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#5a5450",
+    "_nota": "Fauna urbana, hembra de 'gato' — ver nota de 'perra'."
+  },
+  "gatito": {
+    "biomas": [],
+    "categoriaRecursoCarne": null,
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 4,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#c9773a",
+    "_nota": "Cría de gato/gata — ver nota de 'cachorro'."
+  },
+  "pollito": {
+    "biomas": [],
+    "categoriaRecursoCarne": null,
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#f0e8c8",
+    "_nota": "Cría de gallina_salvaje/gallo — ver nota de 'cachorro'."
+  },
+  "yegua": {
+    "colision": true,
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 8,
+    "peligroso": false,
+    "domesticable": true,
+    "nota": "montura",
+    "colorDebug": "#5a3a20",
+    "_nota": "Fauna urbana, hembra de 'caballo' — ver nota de 'perra'."
+  },
+  "potro": {
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 4,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#8a7050",
+    "_nota": "Cría de caballo/yegua — ver nota de 'cachorro'."
+  },
+  "mula": {
+    "colision": true,
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 5,
+    "peligroso": false,
+    "domesticable": true,
+    "nota": "animal de tiro/carga",
+    "colorDebug": "#8a7a68",
+    "_nota": "Fauna urbana, hembra de 'mulo'. SIN cría propia — ver nota de convención de arriba."
+  },
+  "toro": {
+    "colision": true,
+    "biomas": [],
+    "categoriaRecursoCarne": "carne_roja",
+    "categoriaRecursoPiel": "cuero_grueso",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 6,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#3a2a1c",
+    "_nota": "Fauna urbana, macho reproductor bovino — completa el trío con 'vaca' (hembra) y 'buey' (macho castrado de labranza, ya existente)."
+  },
+  "vaca": {
+    "colision": true,
+    "biomas": [],
+    "categoriaRecursoCarne": "carne_roja",
+    "categoriaRecursoPiel": "cuero_grueso",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 6,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#6a4a2a",
+    "_nota": "Fauna urbana, hembra bovina doméstica — distinta de 'vaca_salvaje' (población salvaje del mapa exterior, que se mantiene igual). Par de 'toro'."
+  },
+  "ternero": {
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 4,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#8a6a45",
+    "_nota": "Cría de toro/vaca — ver nota de 'cachorro'."
+  },
+  "cerda": {
+    "colision": true,
+    "biomas": [],
+    "categoriaRecursoCarne": "carne_roja",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 6,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#e8b8a0",
+    "_nota": "Fauna urbana, hembra de 'cerdo' — ver nota de 'perra'."
+  },
+  "cerdito": {
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 4,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#f0c8b0",
+    "_nota": "Cría de cerdo/cerda — ver nota de 'cachorro'."
+  },
+  "oca": {
+    "biomas": [],
+    "categoriaRecursoCarne": "carne_blanca",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 5,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#e8e0d0",
+    "_nota": "Fauna urbana, hembra de 'ganso_domestico' — ver nota de 'perra'."
+  },
+  "ansarino": {
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#e0d8a0",
+    "_nota": "Cría de ganso_domestico/oca — ver nota de 'cachorro'."
+  },
+  "cordero": {
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 4,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#f0e8d8",
+    "_nota": "Cría de oveja/carnero — ver nota de 'cachorro'."
   }
 }

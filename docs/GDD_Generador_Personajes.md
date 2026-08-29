@@ -40,6 +40,27 @@ Antes de esto cada especie tenía un único `colorDebug` con un jitter sutil de 
 - **Rebaños con razas mezcladas ya funciona**: `ciudades/src/fauna.js` (fauna doméstica urbana v1.3 — gallinas/vaca suelta/perros/gatos/algún gallo por poblado, ver `GDD_Agentes_Moviles.md`) genera una `semilla` distinta por individuo (`${ciudad.semilla}:fauna:${i}`), así que cada animal del mismo asentamiento tira su propia raza de forma independiente — un pueblo puede tener gallinas blancas, marrones y negras a la vez, o perros de razas distintas sueltos.
 - **Pendiente honesto**: `oveja` NO tiene entrada en `animales_rig.json` todavía (solo existe `oveja_salvaje` en `baker/catalogo/animales.json`, sin rig/esqueleto) — cuando se le dé plantilla, añadir `coloresPosibles` ahí también es trivial. La fauna SALVAJE del mapa exterior (la que coloca `baker/decoracion.js` fuera de ciudades — lobos, ciervos, vacas_salvajes sueltas, jabalíes...) todavía se pinta como prop de color plano (`InstancedMesh`/`colorDebug`), no pasa por `generarAnimal`/rig — las razas por color de esta sección solo aplican, hoy, a la fauna doméstica urbana y a la galería de prueba de `personajes/`.
 
+## Razas por tamaño y forma, no solo color (v1.4, pedido del streamer 2026-08-29)
+
+Pedido explícito: "perros y gatos con razas diferentes (tamaños diferentes, colores y forma), estilo doberman/caniche/labrador" — un paso más allá de las razas por color de la sección anterior, que solo cambiaban el tono. Perro y gato son "lo más principal de compañero", así que llevan el tratamiento completo.
+
+- `personajes/catalogo/animales_rig.json` — campo opcional `razas: [{id, peso, escala?, proporciones?, rasgos?, coloresPosibles?}, ...]` por especie. Cada raza SUSTITUYE los campos de la especie base SOLO en lo que declare (patrón "solo lo que cambie", igual que los overrides de NPC por profesión en `npcs.json`) — lo que no toque sale de la base. Se sortea una raza entera con `elegirPonderado`, igual que las razas por color.
+  - **perro** (5 razas): `labrador` (grande, corpulento, dorado/negro/chocolate), `doberman` (alto, esbelto, orejas puntiagudas, negro/marrón oscuro), `caniche` (pequeño, patas cortas, cola en pomo, blanco/negro/albaricoque), `pastor` (mediano-grande, cuerpo alargado, negro y fuego/gris lobo/marrón), `callejero` (mestizo genérico, la base de siempre — sin sobreescribir nada).
+  - **gato** (5 razas): `comun_europeo` (base, la de siempre), `siames` (esbelto, patas largas, cabeza fina, crema con puntas oscuras), `persa` (pequeño, rechoncho, patas cortas, cola en pomo, blanco/gris humo/crema), `maine_coon` (el más grande, cuerpo largo, atigrado/negro/gris), `angora` (esbelto, mayormente blanco).
+- `personajes/src/generarAnimal.js` — `escalaRango`/`proporcionesBase`/`rasgosBase`/`coloresPosibles` se resuelven fusionando base+raza ANTES de aplicar el rango de escala y el jitter de color de siempre; `ficha.raza` expone el id de la raza elegida (`null` en especies sin `razas`). Especies sin el campo funcionan exactamente igual que antes — no hace falta tocar el resto del catálogo.
+- **Bug real encontrado y corregido de paso**: la plantilla `cuadrupedo` no tenía entrada para `orejas: "caidas"` (la que usa `perro` desde siempre) en su tabla de alturas — la caja de la oreja salía con altura `NaN`. Añadido `caidas: 0.65` (entre `puntiagudas` y `largas`).
+- **Verificado**: 200 individuos de muestra por especie reparten razas cerca de los pesos del catálogo; un pueblo real de prueba sacó perros labrador/doberman/caniche/callejero con escalas visiblemente distintas (0.45 a 0.89) en el mismo bake; cero piezas con `NaN` tras el fix.
+
+## Animales de trabajo/monta: caballo, mulo, buey (mismo pedido 2026-08-29)
+
+`caballo_salvaje`/`burro_salvaje` (mapa exterior, población salvaje domesticable) ya existían, pero faltaba el **par doméstico urbano** — mismo hueco que ya se había resuelto para `oveja`/`carnero`. A diferencia de esos dos (y de `cerdo`/`ganso_domestico`), estos SÍ llevan rig completo desde ya:
+
+- `caballo` — plantilla cuadrúpedo, patas largas, hocico largo, 5 capas de color (castaño/negro/blanco/palomino/pardo). Par doméstico de `caballo_salvaje`, que se mantiene igual.
+- `mulo` — mismo esqueleto, orejas largas de burro (rasgo distintivo), capas más apagadas (menos variedad de color que un caballo de raza — no tiene versión salvaje real, siempre es un híbrido criado).
+- `buey` — el más corpulento, con cuernos cortos (par de labranza de `vaca_salvaje`) — a diferencia de caballo/mulo sí lleva `categoriaRecursoCarne`/`categoriaRecursoPiel` (un buey retirado se aprovechaba de verdad).
+
+Añadidos a `baker/catalogo/animales.json` (patrón urbano `biomas: []`, como perro/gato/gallo) y enganchados ya a `ciudades/src/fauna.js` (pesos bajos: son animales caros de mantener, no todas las casas tienen uno). Verificado con un bake real de pueblo: aparecen sin `NaN` y con vóxeles completos.
+
 ## Marchas embebidas (regla del streamer, acordada 2026-08-27)
 
 **Todo lo que tiene esqueleto lleva SIEMPRE tres marchas de serie: parado, andar y correr** — aunque hoy nadie corra. API única `actualizar(dt, marcha)` con marcha 0/1/2 (boolean sigue valiendo como andar/parado) tanto en `rigHumanoide.ts` como en `animalVoxel.ts`. Correr = mismo ciclo acelerado y ampliado (zancada más larga y rápida, torso inclinado en humanos; galope con rebote en cuadrúpedos/aves/anfibios; coleteo/ondulación más fuertes en peces/serpientes) — funciona en los 7 esqueletos sin código por especie, con rampas suaves entre marchas.
