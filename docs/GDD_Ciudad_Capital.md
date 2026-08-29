@@ -12,18 +12,18 @@ Nuevo tier en `ciudades/catalogo/asentamientos.json`, **distinto** de `capital` 
 
 | campo | `capital_jarl` | `capital` (regional) | `gran_capital` (regional) |
 |---|---|---|---|
-| `organico.radio` | **108** | 56 | 112 |
+| `organico.radio` | **140** | 56 | 112 |
 | `muralla.material` | **empalizada** (madera) | piedra | piedra |
-| `muralla.puertas` | 5 | 3 | 4 |
-| `plaza` | 10 | 7 | 9 |
-| `zonasVerdes` | **11** | 5 | 9 |
-| `camposCultivo` (nuevo) | **10** | — | — |
-| `edificios.cantidad` | **[84, 100]** | [26, 34] | [64, 80] |
+| `muralla.puertas` | 6 | 3 | 4 |
+| `plaza` | 12 | 7 | 9 |
+| `zonasVerdes` | **15** | 5 | 9 |
+| `camposCultivo` (nuevo) | **14** | — | — |
+| `edificios.cantidad` | **[110, 130]** | [26, 34] | [64, 80] |
 | `edificios.colchonMinimo` (nuevo) | **0.5** | 1 (default) | 1 (default) |
 | `parcelasReservadas` (nuevo) | **{normales: 20, especiales: 16}** | — | — |
 
 Por qué estos números:
-- **Radio 108** (subido de 96 el 2026-08-29, pedido del streamer tras ver una imagen de prueba con edificios sin sitio): casi al límite de `gran_capital` (112) — es la ciudad más importante del mapa, tenía que notarse, y el primer bake de prueba a 96 descartaba ~6 edificios de un objetivo de 84 por falta de sitio. A 108 + la red de seguridad de §3bis, un barrido de 4 semillas a tamaño real salió con CERO descartes.
+- **Radio 140** (2026-08-29, dos subidas seguidas pedidas por el streamer: 96→108→140): a propósito **por ENCIMA** de `gran_capital` (112), no solo cerca — a diferencia de los tiers regionales (`capital`/`gran_capital`), esta capital es una entidad ÚNICA en todo el mapa, así que no hay coste de "repetirla" por el mundo; puede permitirse ser sin más la más grande de todas. `edificios.cantidad` sube a [110,130] y `zonasVerdes`/`camposCultivo`/`plaza`/`puertas` escalan con ella para que no quede vacía. Barrido de 3 semillas a este tamaño: CERO descartes (con la red de seguridad de §3bis de red adicional).
 - **`edificios.cantidad` [84,100] > `gran_capital` [64,80]** con MENOS radio (96 < 112): a propósito, es donde vive/trabaja más gente que en cualquier otro sitio (muchos NPCs con sus rutinas, ya enganchados vía `poblacion/`).
 - **Muralla de empalizada** (no piedra): pedido explícito del streamer — "muralla inicial de madera que se podrá ir mejorando como proyecto del jarl". Usa el mismo valor de `material` que ya usan `aldea_pequena`/`aldea`/`campamento_barbaros` — no se inventó un material nuevo. El **mejorable a piedra más adelante** sigue el mismo patrón que `GDD_Faccion_Bandidos.md` §8.2 ya documentó para el asedio: swap de muralla por nivel aplicado solo al (re)cargar el sector, nunca reactivo en caliente. **No implementado aquí** — solo la muralla inicial.
 - **`zonasVerdes: 11`, la mayor de cualquier tier** (antes el máximo era `gran_capital` con 9) y `plaza: 10` (la mayor plaza) — "más plazas, más parques, más vegetación... mucha más decoración también" del pedido. La capa de decoración/iluminación ya escala con `radio`/`plaza` sin campo propio (ver `generar.js`), así que no hizo falta un campo nuevo para "más decoración": sale sola de un radio y plaza mayores.
