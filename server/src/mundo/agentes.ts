@@ -50,7 +50,10 @@ export interface NpcBakeado {
 }
 
 // Más lento que el jugador (VEL_ANDAR 3.75): los NPC pasean, no compiten.
-const VEL_NPC = 1.9;
+// Exportada: server/src/rooms/base/RoomExteriorBase.ts la reusa para
+// calcular la duración de un viaje de transporte a partir de la longitud
+// del camino (docs/GDD_Produccion.md) — misma velocidad, no una constante duplicada.
+export const VEL_NPC = 1.9;
 
 // Un agente se ve salvo cuando está BAJO TECHO: en su casa, o durmiendo en
 // el edificio donde le tocó (el guardia en el cuartel, el cura en el templo
@@ -215,5 +218,48 @@ export class GestorAgentes {
 
   get cantidad() {
     return this.agentes.length;
+  }
+
+  /**
+   * NPC transportista (docs/GDD_Produccion.md, pedido 2026-08-29): cero
+   * cerebro/movimiento nuevo — reusa TAL CUAL el mecanismo de "paradas en
+   * bucle" ya construido para vendedores fijos (tramo único de 0 a 24h, dos
+   * paradas — origen/destino — cada una con su camino YA calculado UNA VEZ
+   * al firmar el contrato). Insertado en CALIENTE: no espera a `iniciar()`,
+   * puede añadirse en cualquier momento de la vida de la room.
+   */
+  agregarAgenteTransportista(slotId: string, nombre: string, origen: Punto, destino: Punto, caminoIda: Punto[], caminoVuelta: Punto[]) {
+    const npc: NpcBakeado = {
+      slotId,
+      nombre,
+      rutina: [
+        {
+          lugar: "transporte",
+          accion: "transportar",
+          horaInicio: 0,
+          horaFin: 24,
+          punto: origen,
+          paradas: [
+            { x: origen.x, y: origen.y, camino: caminoVuelta },
+            { x: destino.x, y: destino.y, camino: caminoIda },
+          ],
+        },
+      ],
+    };
+    const esquema = new Npc();
+    esquema.x = origen.x + 0.5;
+    esquema.y = origen.y + 0.5;
+    esquema.nombre = nombre;
+    esquema.accion = "transportar";
+    esquema.visible = true;
+    this.salida.set(slotId, esquema);
+    this.agentes.push({ npc, esquema, tramoActivo: 0, camino: null, segmento: 0, paradaActual: 0, pausaRestante: PAUSA_PARADA_SEG });
+  }
+
+  /** Retira un agente (p.ej. al cancelar un contrato de transporte) — de la simulación Y del Schema replicado. */
+  quitarAgente(slotId: string) {
+    const i = this.agentes.findIndex((a) => a.npc.slotId === slotId);
+    if (i >= 0) this.agentes.splice(i, 1);
+    this.salida.delete(slotId);
   }
 }

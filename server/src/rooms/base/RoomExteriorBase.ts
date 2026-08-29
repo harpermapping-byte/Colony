@@ -6,21 +6,27 @@ import { recolectableCercano } from "../../mundo/recolectables";
 import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../../inventario/sincronizarSchema";
-import { IAlmacenDatos, ModoTenencia } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
-import { cargarCatalogoConstruible, EntradaConstruible } from "../../construccion/catalogo";
+import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
 import {
   ContextoConstruccion,
   validarColocacion,
   aplicarColocacion,
   quitarConstruccion,
+  validarColocacionPlantilla,
   esJarl,
   esJarlGlobal,
 } from "../../construccion/construccion";
 import { generarInteriorEdificio } from "../../construccion/interiorGenerado";
+import { resolverProduccion, resolverTransporte, EstadoProduccion } from "../../construccion/produccion";
 import { ContextoGremios, GremioVivo, obtenerContextoGremios } from "../../gremios/contextoGremios";
 import { EMBLEMA_POR_DEFECTO, colorGremioValido, colorPorDefecto, emblemaGremioValido, nombreGremioValido } from "../../gremios/gremios";
+import { precioInmueble } from "../../propiedades/propiedades";
+import { GestorAgentes, VEL_NPC } from "../../mundo/agentes";
+import { tiempoMundo } from "../../mundo/tiempoMundo";
+import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
 
 const VEL_ANDAR = 3.75;
 const VEL_NADAR = 2.2;
@@ -34,6 +40,14 @@ export const RADIO_INTERACCION = 2.2;
 
 const ANCHO_CUERPO = 8;
 const ALTO_CUERPO = 6;
+
+// --- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ---
+// Placeholders de balance — mismo criterio que pesoMaximoTransportable
+// (inventario.ts): números de referencia a afinar, no decisiones cerradas.
+const RADIO_PLANTILLAS_JARL_CASILLAS = Number(process.env.RADIO_PLANTILLAS_JARL_CASILLAS ?? 80);
+const COSTE_TRABAJADOR_FARYCOINS = 50;
+const CARGA_POR_VIAJE_TRANSPORTE = 10;
+const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar un ítem nunca antes vendido ahí — el dueño lo ajusta con tenderete:fijarPrecio
 
 /** Lo que hay para coger en un punto: cuánto entra al inventario y qué hacer con la FUENTE si entró. */
 export interface ObjetoCogible extends Cogible {
@@ -84,6 +98,13 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   protected ctxConstruccion?: ContextoConstruccion;
   protected catalogoConstruible?: Map<string, EntradaConstruible>;
   protected bdConstruccion?: IAlmacenDatos;
+  /** Nombre del asentamiento pasado a iniciarConstruccion — reusado por plantillas (id "pt_<asentamiento>_<x>_<y>"). */
+  protected asentamientoConstruccion?: string;
+
+  // --- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ---
+  protected catalogoPlantillas?: Map<string, EntradaConstruible>;
+  /** Compartido con los NPC de rutina de poblacion/ (RegionRoom) cuando existen — un único gestor por room, un único tick. */
+  protected gestorAgentes?: GestorAgentes;
 
   protected iniciarMovimiento() {
     this.setState(new HubState());
@@ -135,6 +156,17 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.onMessage("tenderete:reponer", (client, msg: { tenderoteId?: string; instanciaId?: number; cantidad?: number; precioFarycoins?: number }) => this.manejarTenderoteReponer(client, msg));
     this.onMessage("tenderete:fijarPrecio", (client, msg: { tenderoteId?: string; itemId?: string; precioFarycoins?: number }) => this.manejarTenderoteFijarPrecio(client, msg));
     this.onMessage("tenderete:comprar", (client, msg: { tenderoteId?: string; itemId?: string; cantidad?: number }) => this.manejarTenderoteComprar(client, msg));
+
+    // --- producción/plantillas del jarl/transporte (docs/GDD_Produccion.md)
+    // — mismo criterio que mercado: disponibles en cualquier room, no-op si
+    // esta room no tiene ContextoConstruccion (comprobado dentro de cada handler).
+    this.onMessage("produccion:recolectar", (client, msg: { construccionId?: number }) => this.manejarProduccionRecolectar(client, msg));
+    this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
+    this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
+    this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
+    this.onMessage("transporte:contratar", (client, msg: { origenConstruccionId?: number; destinoTenderoteId?: string }) => this.manejarTransporteContratar(client, msg));
+    this.onMessage("transporte:cancelar", (client, msg: { contratoId?: number }) => this.manejarTransporteCancelar(client, msg));
+    this.onMessage("transporte:estado", (client) => this.manejarTransporteEstado(client));
 
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
   }
@@ -295,6 +327,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   protected async iniciarConstruccion(parcelas: IndiceParcelas, asentamiento: string) {
     const bd = await obtenerBdCompartida();
     this.bdConstruccion = bd;
+    // Producción/plantillas del jarl (docs/GDD_Produccion.md) necesitan el
+    // nombre de asentamiento fuera de esta función (para el id de una
+    // plantilla nueva, "pt_<asentamiento>_<x>_<y>") — se guarda tal cual,
+    // sin tocar el resto de esta función ya probada.
+    this.asentamientoConstruccion = asentamiento;
     if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
     const catalogoConstruible = this.catalogoConstruible;
 
@@ -330,9 +367,18 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.ctxConstruccion = ctx;
 
     const todasConstrucciones = await bd.listarConstrucciones();
-    const guardadas = todasConstrucciones.filter((c) => parcelas.parcelas.has(c.propiedad));
+    // Una construcción pertenece a ESTA región si su propiedad es una
+    // parcela conocida (caso normal) O una plantilla del jarl de ESTE
+    // asentamiento (docs/GDD_Produccion.md: "pt_<asentamiento>_x_y" nunca
+    // vive en `parcelas.parcelas` — es un mecanismo paralelo, no una
+    // parcela) — sin esto, un aserradero desaparecía de `ctx.vivas` (y por
+    // tanto de producción/transporte) en cuanto la room se recreaba.
+    const prefijoPlantilla = `pt_${asentamiento}_`;
+    const guardadas = todasConstrucciones.filter(
+      (c) => parcelas.parcelas.has(c.propiedad) || c.propiedad.startsWith(prefijoPlantilla),
+    );
     for (const c of guardadas) {
-      const entrada = catalogoConstruible.get(c.objeto);
+      const entrada = catalogoConstruible.get(c.objeto) ?? cargarCatalogoPlantillas().get(c.objeto);
       if (!entrada) {
         console.warn(`Construcción ${c.id} ("${c.objeto}") ya no está en el catálogo — sin colisión`);
       }
@@ -347,6 +393,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
         variante: c.variante,
         colision: entrada?.colision ?? false,
         huella: entrada?.huella ?? [1, 1],
+        // Producción (docs/GDD_Produccion.md): el acumulador vive AQUÍ, en
+        // memoria de la room — sin propagarlo al recargar, un reinicio de
+        // Render (disco efímero, pero la BD no lo es) "olvidaría" toda la
+        // producción acumulada aunque siguiera persistida en `extra`.
+        extra: c.extra,
       });
     }
     console.log(
@@ -804,6 +855,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   /** Público — cualquiera puede pedirlo. Cantidad exacta NUNCA viaja aquí (solo disponible:bool) — lo detallado es privado (gestion). */
   private async manejarTenderoteEscaparate(client: Client, msg: { tenderoteId?: string }) {
     if (!msg?.tenderoteId) return;
+    await this.resolverContratosDeDestino(msg.tenderoteId);
     const bd = await obtenerBdCompartida();
     const stock = await bd.listarStockTenderete(msg.tenderoteId);
     client.send("tenderete:escaparate", {
@@ -816,6 +868,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   private async manejarTenderoteGestion(client: Client, msg: { tenderoteId?: string }) {
     const nombre = this.nombreDe(client);
     if (!nombre || !msg?.tenderoteId) return;
+    await this.resolverContratosDeDestino(msg.tenderoteId);
     const dueno = await this.duenoDeTenderete(msg.tenderoteId);
     if (!dueno || (dueno.toLowerCase() !== nombre.toLowerCase() && !esJarlGlobal(nombre))) {
       return this.errorTenderete(client, "no tienes permiso para gestionar este tenderete");
@@ -896,6 +949,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const nombre = this.nombreDe(client);
     if (!nombre || !msg?.tenderoteId || !msg.itemId) return;
     const cantidad = Math.max(1, Math.floor(msg.cantidad ?? 1));
+    await this.resolverContratosDeDestino(msg.tenderoteId);
 
     const dueno = await this.duenoDeTenderete(msg.tenderoteId);
     if (!dueno) return this.errorTenderete(client, "este tenderete no tiene dueño");
@@ -922,6 +976,337 @@ export abstract class RoomExteriorBase extends Room<HubState> {
       ok: true, tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad,
       precioTotal: r.precioTotal, saldoRestante: r.saldoRestante,
     });
+  }
+
+  // ---- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ----
+  // Todo gira sobre `ctxConstruccion.vivas` (construcciones ya existentes:
+  // colmenas del "construir" normal, plantillas del jarl) y reusa
+  // `duenoDeTenderete` (Mercado) para "quién puede tocar esto", porque una
+  // plantilla es una propiedad más en la MISMA tabla `propiedades` — cero
+  // concepto nuevo de propiedad, solo de PRODUCCIÓN encima de lo que ya existía.
+
+  private errorProduccion(client: Client, motivo: string) {
+    client.send("produccion:error", { motivo });
+  }
+
+  private errorPlantilla(client: Client, motivo: string) {
+    client.send("plantilla:error", { motivo });
+  }
+
+  private errorTransporte(client: Client, motivo: string) {
+    client.send("transporte:error", { motivo });
+  }
+
+  /** Un único GestorAgentes por room, compartido entre los NPC de rutina de poblacion/ (si los hay) y los transportistas — un solo tick, nunca dos. */
+  protected obtenerOCrearGestorAgentes(): GestorAgentes {
+    if (!this.gestorAgentes) {
+      this.gestorAgentes = new GestorAgentes(this.state.npcs);
+      this.clock.setInterval(() => this.gestorAgentes!.tick(0.1, tiempoMundo().hora), 100);
+    }
+    return this.gestorAgentes;
+  }
+
+  /** Busca la entrada de catálogo (construible normal O plantilla) de un objeto ya colocado — una colmena vive en el primero, un aserradero en el segundo. */
+  private entradaDe(objeto: string): EntradaConstruible | undefined {
+    if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
+    if (!this.catalogoPlantillas) this.catalogoPlantillas = cargarCatalogoPlantillas();
+    return this.catalogoConstruible.get(objeto) ?? this.catalogoPlantillas.get(objeto);
+  }
+
+  /** Posición física de una propiedad (para calcular el camino de un transporte): el punto medio de una parcela, o la casilla de una construcción cuya propiedad coincide (una tienda, p.ej.). `null` si esta room no la conoce. */
+  private puntoDePropiedad(propiedadId: string): { x: number; y: number } | null {
+    const ctx = this.ctxConstruccion;
+    if (!ctx) return null;
+    const parcela = ctx.parcelas.parcelas.get(propiedadId);
+    if (parcela && parcela.runs.length > 0) {
+      const [y, x0, x1] = parcela.runs[0];
+      return { x: Math.floor((x0 + x1) / 2), y };
+    }
+    for (const viva of ctx.vivas.values()) {
+      if (viva.propiedad === propiedadId) return { x: viva.x, y: viva.y };
+    }
+    return null;
+  }
+
+  /** Resuelve TODOS los contratos activos que SALEN de esta construcción — llamar antes de leer/mutar su extra.produccion. */
+  private async resolverContratosDeOrigen(construccionId: number) {
+    if (!this.ctxConstruccion) return;
+    const bd = await obtenerBdCompartida();
+    const contratos = await bd.listarContratosTransporte();
+    for (const contrato of contratos) {
+      if (contrato.origenConstruccionId === construccionId) await this.resolverUnContrato(contrato);
+    }
+  }
+
+  /** Resuelve TODOS los contratos activos que ENTREGAN en este tenderete — llamar antes de leer su stock. */
+  private async resolverContratosDeDestino(tenderoteId: string) {
+    if (!this.ctxConstruccion) return;
+    const bd = await obtenerBdCompartida();
+    const contratos = await bd.listarContratosTransporte();
+    for (const contrato of contratos) {
+      if (contrato.destinoTenderoteId === tenderoteId) await this.resolverUnContrato(contrato);
+    }
+  }
+
+  /**
+   * El corazón del cálculo perezoso de transporte: cuánto se ha producido
+   * en el origen desde la última vez (resolverProduccion) + cuántos viajes
+   * completos ha hecho el contrato desde entonces (resolverTransporte) — y
+   * mueve esa cantidad, entera, de un lado a otro. Nunca se llama por
+   * temporizador, solo cuando alguien toca el origen o el destino de verdad.
+   */
+  private async resolverUnContrato(contrato: ContratoTransporte) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx) return;
+    const origenViva = ctx.vivas.get(contrato.origenConstruccionId);
+    if (!origenViva) return; // la construcción de origen ya no existe en ESTA room (recogida, u otra room)
+
+    const datosProduccion = this.entradaDe(origenViva.objeto)?.produccion;
+    if (!datosProduccion) return;
+
+    const bd = await obtenerBdCompartida();
+    const ahora = Date.now();
+    const extraActual = (origenViva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
+    const estadoPrevio: EstadoProduccion = extraActual.produccion ?? { stock: 0, ultimoCalculo: ahora };
+    const producidoActualizado = resolverProduccion(estadoPrevio, datosProduccion, ahora);
+
+    const { transportado, nuevoUltimoResuelto } = resolverTransporte(
+      new Date(contrato.ultimoViajeResuelto).getTime(),
+      ahora,
+      { duracionViajeSeg: contrato.duracionViajeSeg, cargaPorViaje: contrato.cargaPorViaje },
+      producidoActualizado.stock,
+      Infinity, // el tenderete destino no tiene tope propio (docs/GDD_Mercado.md: la lista de venta no limita cantidad)
+    );
+    const transportadoEntero = Math.floor(transportado);
+
+    if (transportadoEntero <= 0) {
+      // igual persiste lo producido hasta ahora, aunque no haya viaje completo todavía
+      origenViva.extra = { ...extraActual, produccion: producidoActualizado };
+      await bd.actualizarExtraConstruccion(origenViva.id, origenViva.extra);
+      return;
+    }
+
+    origenViva.extra = { ...extraActual, produccion: { ...producidoActualizado, stock: producidoActualizado.stock - transportadoEntero } };
+    await bd.actualizarExtraConstruccion(origenViva.id, origenViva.extra);
+    await bd.sumarStockTenderete(contrato.destinoTenderoteId, contrato.itemId, transportadoEntero, PRECIO_INICIAL_TRANSPORTE_FARYCOINS);
+    await bd.actualizarUltimoViajeContrato(contrato.id, new Date(nuevoUltimoResuelto).toISOString());
+  }
+
+  /** Recoger lo acumulado: dueño o jarl, entra al CUERPO del jugador (mismo mecanismo que "coger"). */
+  private async manejarProduccionRecolectar(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorProduccion(client, "construcción inexistente");
+    const dueno = ctx.propiedades.get(viva.propiedad)?.dueno ?? (await this.duenoDeTenderete(viva.propiedad));
+    if (dueno !== nombre && !esJarl(ctx, nombre)) return this.errorProduccion(client, "no eres el dueño de esta construcción");
+
+    const datos = this.entradaDe(viva.objeto)?.produccion;
+    if (!datos) return this.errorProduccion(client, "esta construcción no produce nada");
+
+    // lo ya enviado a un tenderete por transporte no debe contarse dos veces
+    await this.resolverContratosDeOrigen(viva.id);
+
+    const bd = await obtenerBdCompartida();
+    const extraActual = (viva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
+    const estadoPrevio: EstadoProduccion = extraActual.produccion ?? { stock: 0, ultimoCalculo: Date.now() };
+    const resuelto = resolverProduccion(estadoPrevio, datos, Date.now());
+    const cantidadEntera = Math.floor(resuelto.stock);
+
+    if (cantidadEntera <= 0) {
+      viva.extra = { ...extraActual, produccion: resuelto };
+      await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+      return this.errorProduccion(client, "todavía no hay nada que recolectar");
+    }
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const resultado = intentarCoger(contenedor, this.catalogoItems, { itemId: datos.itemId, cantidad: cantidadEntera });
+    if (!resultado.ok) return this.errorProduccion(client, "no tienes hueco en tu inventario");
+
+    const nuevoEstado: EstadoProduccion = { ...resuelto, stock: resuelto.stock - cantidadEntera };
+    viva.extra = { ...extraActual, produccion: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("produccion:estado", {
+      construccionId: viva.id, itemId: datos.itemId, cantidad: cantidadEntera,
+      stockRestante: nuevoEstado.stock, capacidadMax: datos.capacidadMax,
+      trabajadorAsignado: nuevoEstado.trabajadorAsignado ?? null,
+    });
+  }
+
+  /** Coloca una plantilla — SOLO jarl, dentro del radio a la capital, fuera de cualquier parcela. */
+  private async manejarPlantillaColocar(client: Client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx) return;
+    if (!this.catalogoPlantillas) this.catalogoPlantillas = cargarCatalogoPlantillas();
+    const entrada = msg?.tipoEdificioId ? this.catalogoPlantillas.get(msg.tipoEdificioId) : undefined;
+    if (!entrada) return this.errorPlantilla(client, "plantilla desconocida");
+
+    const x = Math.floor(msg.x ?? -1);
+    const y = Math.floor(msg.y ?? -1);
+    const rot = ((Math.floor(msg.rot ?? 0) % 4) + 4) % 4;
+    if (!this.mapaExterior) return this.errorPlantilla(client, "esta región no tiene un punto de referencia de capital");
+    const capital = { x: Math.floor(this.mapaExterior.spawnX), y: Math.floor(this.mapaExterior.spawnY) };
+    const veredicto = validarColocacionPlantilla(ctx, { nombre, entrada, x, y, rot }, capital, RADIO_PLANTILLAS_JARL_CASILLAS);
+    if (!veredicto.ok) return this.errorPlantilla(client, veredicto.motivo);
+
+    const bd = await obtenerBdCompartida();
+    const asentamiento = this.asentamientoConstruccion ?? "hub";
+    const plantillaId = `pt_${asentamiento}_${x}_${y}`;
+    await bd.asignarPropiedad(plantillaId, "plantilla", asentamiento, null);
+
+    const extra: Record<string, unknown> = { interior: generarInteriorEdificio(entrada.id, plantillaId, x, y) };
+    if (entrada.produccion) {
+      extra.produccion = {
+        stock: 0, ultimoCalculo: Date.now(),
+        trabajadorAsignado: entrada.produccion.requiereTrabajador ? false : undefined,
+      };
+    }
+
+    const id = await bd.insertarConstruccion({ propiedad: plantillaId, objeto: entrada.id, categoria: entrada.categoria, x, y, rot, variante: 0, extra });
+    aplicarColocacion(ctx, { id, propiedad: plantillaId, objeto: entrada.id, categoria: entrada.categoria, x, y, rot, variante: 0, colision: entrada.colision, huella: entrada.huella, extra });
+    this.broadcast("construccion:nueva", { id, propiedad: plantillaId, objeto: entrada.id, categoria: entrada.categoria, x, y, rot, variante: 0 });
+    client.send("plantilla:colocada", { construccionId: id, plantillaId });
+  }
+
+  /** Compra una plantilla libre — cualquier jugador, mismo mecanismo atómico que Propiedades (comprarOAlquilar). */
+  private async manejarPlantillaComprar(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorPlantilla(client, "plantilla inexistente");
+    const entrada = this.entradaDe(viva.objeto);
+    if (!entrada?.plantillaJarl) return this.errorPlantilla(client, "eso no es una plantilla");
+
+    const precio = precioInmueble(entrada.id, "compra");
+    if (!precio) return this.errorPlantilla(client, "esta plantilla no está en venta");
+
+    const bd = await obtenerBdCompartida();
+    const asentamiento = this.asentamientoConstruccion ?? "hub";
+    const r = await bd.comprarOAlquilar({
+      id: viva.propiedad, tipo: "plantilla", asentamiento, jugadorNombre: nombre,
+      modo: "compra", precioFarycoins: precio.precio, periodoHoras: null,
+    });
+    if (!r.ok) return this.errorPlantilla(client, r.motivo);
+    this.broadcast("plantilla:actualizada", { construccionId: viva.id, dueno: nombre });
+  }
+
+  /** Activa/desactiva el trabajador de una plantilla — dueño o jarl, pago único al activar. */
+  private async manejarPlantillaAsignarTrabajador(client: Client, msg: { construccionId?: number; activo?: boolean }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorPlantilla(client, "plantilla inexistente");
+    const dueno = await this.duenoDeTenderete(viva.propiedad);
+    if (!dueno || (dueno.toLowerCase() !== nombre.toLowerCase() && !esJarl(ctx, nombre))) {
+      return this.errorPlantilla(client, "no eres el dueño de esta plantilla");
+    }
+    const datos = this.entradaDe(viva.objeto)?.produccion;
+    if (!datos?.requiereTrabajador) return this.errorPlantilla(client, "esta plantilla no necesita trabajador");
+
+    const activo = msg.activo === true;
+    const bd = await obtenerBdCompartida();
+    const extraActual = (viva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
+    const estadoPrevio: EstadoProduccion = extraActual.produccion ?? { stock: 0, ultimoCalculo: Date.now() };
+
+    if (activo && !estadoPrevio.trabajadorAsignado) {
+      const jugador = await bd.obtenerOCrearJugador(nombre);
+      const debito = await bd.ajustarFarycoins(jugador.id, -COSTE_TRABAJADOR_FARYCOINS);
+      if (!debito.ok) return this.errorPlantilla(client, "no tienes suficientes Farycoins para el trabajador");
+    }
+    const nuevoEstado: EstadoProduccion = { ...estadoPrevio, trabajadorAsignado: activo, ultimoCalculo: Date.now() };
+    viva.extra = { ...extraActual, produccion: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    client.send("plantilla:actualizada", { construccionId: viva.id, trabajadorAsignado: activo });
+  }
+
+  private async listadoTransporte(nombre: string) {
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const contratos = await bd.listarContratosTransporte();
+    return contratos
+      .filter((c) => c.dueno === jugador.id)
+      .map((c) => ({
+        id: c.id, origenConstruccionId: c.origenConstruccionId, destinoTenderoteId: c.destinoTenderoteId,
+        itemId: c.itemId, cargaPorViaje: c.cargaPorViaje, duracionViajeSeg: c.duracionViajeSeg, activo: c.activo,
+      }));
+  }
+
+  /**
+   * Firma un contrato de transporte: origen y destino deben pertenecer AL
+   * MISMO jugador (dueño) y a ESTA MISMA room (el A* solo conoce su propia
+   * rejilla — transportar entre dos regiones distintas no está soportado
+   * en v1). El camino se calcula UNA VEZ aquí y se cachea para siempre.
+   */
+  private async manejarTransporteContratar(client: Client, msg: { origenConstruccionId?: number; destinoTenderoteId?: string }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.origenConstruccionId !== "number" || !msg.destinoTenderoteId) return;
+
+    const origenViva = ctx.vivas.get(msg.origenConstruccionId);
+    if (!origenViva) return this.errorTransporte(client, "construcción de origen inexistente");
+    const duenoOrigen = ctx.propiedades.get(origenViva.propiedad)?.dueno ?? (await this.duenoDeTenderete(origenViva.propiedad));
+    if (!duenoOrigen || duenoOrigen.toLowerCase() !== nombre.toLowerCase()) return this.errorTransporte(client, "no eres el dueño del origen");
+
+    const duenoDestino = await this.duenoDeTenderete(msg.destinoTenderoteId);
+    if (!duenoDestino || duenoDestino.toLowerCase() !== nombre.toLowerCase()) return this.errorTransporte(client, "no eres el dueño del destino");
+
+    const datos = this.entradaDe(origenViva.objeto)?.produccion;
+    if (!datos) return this.errorTransporte(client, "el origen no produce nada transportable");
+
+    const origenPunto = { x: origenViva.x, y: origenViva.y };
+    const destinoPunto = this.puntoDePropiedad(msg.destinoTenderoteId);
+    if (!destinoPunto) return this.errorTransporte(client, "destino desconocido en esta región");
+
+    const caminoIda = calcularCaminoRuntime(this.mundo, origenPunto, destinoPunto);
+    if (!caminoIda || caminoIda.length < 2) return this.errorTransporte(client, "no hay camino posible hasta el destino");
+    const caminoVuelta = [...caminoIda].reverse();
+    const duracionViajeSeg = Math.max(5, caminoIda.length / VEL_NPC);
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const contrato = await bd.crearContratoTransporte({
+      origenConstruccionId: origenViva.id, destinoTenderoteId: msg.destinoTenderoteId, dueno: jugador.id,
+      itemId: datos.itemId, caminoIda, caminoVuelta, duracionViajeSeg, cargaPorViaje: CARGA_POR_VIAJE_TRANSPORTE,
+    });
+
+    // paseo visual: NPC dedicado en bucle origen↔destino (cosmético, el
+    // cálculo económico de arriba no depende de que "llegue" de verdad)
+    this.obtenerOCrearGestorAgentes().agregarAgenteTransportista(
+      `contrato:${contrato.id}`, `Carretero de ${nombre}`, origenPunto, destinoPunto, caminoIda, caminoVuelta,
+    );
+
+    client.send("transporte:estado", await this.listadoTransporte(nombre));
+  }
+
+  private async manejarTransporteCancelar(client: Client, msg: { contratoId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || typeof msg?.contratoId !== "number") return;
+    const bd = await obtenerBdCompartida();
+    const contratos = await bd.listarContratosTransporte();
+    const contrato = contratos.find((c) => c.id === msg.contratoId);
+    if (!contrato) return this.errorTransporte(client, "contrato inexistente");
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    if (contrato.dueno !== jugador.id && !(ctx && esJarl(ctx, nombre))) {
+      return this.errorTransporte(client, "no eres el dueño de este contrato");
+    }
+    await bd.desactivarContratoTransporte(contrato.id);
+    this.gestorAgentes?.quitarAgente(`contrato:${contrato.id}`);
+    client.send("transporte:estado", await this.listadoTransporte(nombre));
+  }
+
+  private async manejarTransporteEstado(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    client.send("transporte:estado", await this.listadoTransporte(nombre));
   }
 
   private actualizarMovimiento() {

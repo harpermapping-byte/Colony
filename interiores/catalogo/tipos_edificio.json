@@ -391,7 +391,19 @@
     ],
     "poiVinculado": [
       "aldea_maderera"
-    ]
+    ],
+    "plantillaJarl": true,
+    "huellaExterior": [
+      8,
+      6
+    ],
+    "produccion": {
+      "itemId": "madera_dura",
+      "cantidadPorIntervalo": 3,
+      "intervaloHoras": 2,
+      "capacidadMax": 60,
+      "requiereTrabajador": true
+    }
   },
   "choza_curandero": {
     "temaTaller": "herbolista",

@@ -108,6 +108,38 @@ export interface ItemEnVentaTenderete {
   precioFarycoins: number;
 }
 
+// Transporte (docs/GDD_Produccion.md, pedido 2026-08-29): contrato entre
+// una construcción productora y un tenderete destino. `caminoIda`/
+// `caminoVuelta` son Punto[] calculados UNA VEZ al firmar (nunca en vivo
+// después) — el paseo visual del NPC transportista los recorre en bucle
+// (server/src/mundo/agentes.ts), pero el resultado ECONÓMICO se resuelve
+// perezoso por comparación de timestamps (ultimoViajeResuelto), 100%
+// independiente de si el agente visual ha "llegado" de verdad.
+export interface ContratoTransporte {
+  id: number;
+  origenConstruccionId: number;
+  destinoTenderoteId: string;
+  dueno: number;
+  itemId: string;
+  caminoIda: { x: number; y: number }[];
+  caminoVuelta: { x: number; y: number }[];
+  duracionViajeSeg: number;
+  cargaPorViaje: number;
+  ultimoViajeResuelto: string;
+  activo: boolean;
+}
+
+export interface NuevoContratoTransporte {
+  origenConstruccionId: number;
+  destinoTenderoteId: string;
+  dueno: number;
+  itemId: string;
+  caminoIda: { x: number; y: number }[];
+  caminoVuelta: { x: number; y: number }[];
+  duracionViajeSeg: number;
+  cargaPorViaje: number;
+}
+
 export interface Construccion {
   id: number;
   propiedad: string;
@@ -213,7 +245,7 @@ export interface IAlmacenDatos {
   /** Todo o nada: cobra el precio, y solo si la propiedad sigue libre (o su alquiler venció) se la queda — si no, reembolsa. */
   comprarOAlquilar(params: {
     id: string;
-    tipo: "inmueble" | "habitacion";
+    tipo: "inmueble" | "habitacion" | "plantilla";
     asentamiento: string;
     jugadorNombre: string;
     modo: ModoTenencia;
@@ -247,9 +279,21 @@ export interface IAlmacenDatos {
     | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
     | { ok: false; motivo: string }
   >;
+  /** Como reponerStockTenderete, pero SIN tocar el precio — usado por el transporte (docs/GDD_Produccion.md) para no pisar el precio que el dueño ya puso. `precioInicial` solo se usa si la fila no existía todavía. */
+  sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void>;
   listarConstrucciones(): Promise<Construccion[]>;
   insertarConstruccion(c: NuevaConstruccion): Promise<number>;
   borrarConstruccion(id: number): Promise<boolean>;
+  /** Producción pasiva (docs/GDD_Produccion.md): persiste el JSON de estado (interior generado, acumulador de producción) de una construcción ya existente — columna `extra` que YA existe, sin migración. */
+  actualizarExtraConstruccion(id: number, extra: Record<string, unknown> | null): Promise<void>;
+  // Transporte (docs/GDD_Produccion.md): contrato entre una construcción
+  // productora (origen) y un tenderete (destino, propiedad — docs/
+  // GDD_Mercado.md) donde entrega lo transportado. La ruta se calcula UNA
+  // VEZ al firmar (server/src/mundo/pathfindingRuntime.ts) y se cachea aquí.
+  crearContratoTransporte(c: NuevoContratoTransporte): Promise<ContratoTransporte>;
+  listarContratosTransporte(): Promise<ContratoTransporte[]>;
+  actualizarUltimoViajeContrato(id: number, ultimoViajeResuelto: string): Promise<void>;
+  desactivarContratoTransporte(id: number): Promise<void>;
   // Mazmorras (docs/GDD_Bakeador_Dungeons.md §4.2): cooldown de 1h tras
   // limpiar una planta, para que no se repueble al instante y se pueda
   // "farmear a saco". `clave` = mapaId:edificio:nivel.
@@ -354,6 +398,25 @@ CREATE TABLE IF NOT EXISTS tenderete_items (
   PRIMARY KEY (tenderete_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
+-- Producción/transporte (docs/GDD_Produccion.md, pedido 2026-08-29): un
+-- contrato entre una construcción productora y un tenderete destino. La
+-- ruta se calcula UNA VEZ al firmar (nunca en vivo después) y se cachea aquí.
+CREATE TABLE IF NOT EXISTS contratos_transporte (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  origen_construccion_id INTEGER NOT NULL,
+  destino_tenderete_id TEXT NOT NULL,
+  dueno INTEGER NOT NULL,
+  item_id TEXT NOT NULL,
+  camino_ida TEXT NOT NULL,             -- JSON Punto[]
+  camino_vuelta TEXT NOT NULL,          -- JSON Punto[]
+  duracion_viaje_seg REAL NOT NULL,
+  carga_por_viaje INTEGER NOT NULL DEFAULT 10,
+  ultimo_viaje_resuelto TEXT NOT NULL,  -- ISO, cálculo perezoso (igual que expira_en de Propiedades)
+  activo INTEGER NOT NULL DEFAULT 1,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_contratos_origen ON contratos_transporte(origen_construccion_id);
+CREATE INDEX IF NOT EXISTS idx_contratos_destino ON contratos_transporte(destino_tenderete_id);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,               -- "mapaId:edificio:nivel"
   limpiada_en TEXT                      -- timestamp ISO de la última vez que se limpió (null = nunca)
@@ -476,6 +539,22 @@ CREATE TABLE IF NOT EXISTS tenderete_items (
   PRIMARY KEY (tenderete_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
+CREATE TABLE IF NOT EXISTS contratos_transporte (
+  id SERIAL PRIMARY KEY,
+  origen_construccion_id INTEGER NOT NULL,
+  destino_tenderete_id TEXT NOT NULL,
+  dueno INTEGER NOT NULL,
+  item_id TEXT NOT NULL,
+  camino_ida TEXT NOT NULL,
+  camino_vuelta TEXT NOT NULL,
+  duracion_viaje_seg REAL NOT NULL,
+  carga_por_viaje INTEGER NOT NULL DEFAULT 10,
+  ultimo_viaje_resuelto TEXT NOT NULL,
+  activo INTEGER NOT NULL DEFAULT 1,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_contratos_origen ON contratos_transporte(origen_construccion_id);
+CREATE INDEX IF NOT EXISTS idx_contratos_destino ON contratos_transporte(destino_tenderete_id);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,
   limpiada_en TEXT
@@ -796,7 +875,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async comprarOAlquilar(params: {
     id: string;
-    tipo: "inmueble" | "habitacion";
+    tipo: "inmueble" | "habitacion" | "plantilla";
     asentamiento: string;
     jugadorNombre: string;
     modo: ModoTenencia;
@@ -926,6 +1005,17 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return { ok: true, saldoRestante: debito.saldo, cantidadRestante: Number(stock.cantidad), precioTotal };
   }
 
+  async sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void> {
+    // igual que reponerStockTenderete pero el DO UPDATE NUNCA toca precio_farycoins —
+    // el transporte no debe pisar el precio que el dueño ya puso a mano.
+    this.bd
+      .prepare(
+        `INSERT INTO tenderete_items (tenderete_id, item_id, cantidad, precio_farycoins) VALUES (?, ?, ?, ?)
+         ON CONFLICT(tenderete_id, item_id) DO UPDATE SET cantidad = tenderete_items.cantidad + excluded.cantidad`,
+      )
+      .run(tenderoteId, itemId, cantidad, precioInicial);
+  }
+
   async listarConstrucciones(): Promise<Construccion[]> {
     const filas = this.bd
       .prepare("SELECT id, propiedad, objeto, categoria, x, y, rot, variante, extra FROM construcciones")
@@ -966,6 +1056,63 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
   async borrarConstruccion(id: number): Promise<boolean> {
     const r = this.bd.prepare("DELETE FROM construcciones WHERE id = ?").run(id);
     return Number(r.changes) > 0;
+  }
+
+  async actualizarExtraConstruccion(id: number, extra: Record<string, unknown> | null): Promise<void> {
+    this.bd.prepare("UPDATE construcciones SET extra = ? WHERE id = ?").run(extra == null ? null : JSON.stringify(extra), id);
+  }
+
+  private filaAContrato(f: Record<string, unknown>): ContratoTransporte {
+    return {
+      id: Number(f.id),
+      origenConstruccionId: Number(f.origen_construccion_id),
+      destinoTenderoteId: String(f.destino_tenderete_id),
+      dueno: Number(f.dueno),
+      itemId: String(f.item_id),
+      caminoIda: JSON.parse(String(f.camino_ida)),
+      caminoVuelta: JSON.parse(String(f.camino_vuelta)),
+      duracionViajeSeg: Number(f.duracion_viaje_seg),
+      cargaPorViaje: Number(f.carga_por_viaje),
+      ultimoViajeResuelto: String(f.ultimo_viaje_resuelto),
+      activo: Number(f.activo) === 1,
+    };
+  }
+
+  async crearContratoTransporte(c: NuevoContratoTransporte): Promise<ContratoTransporte> {
+    const ahora = new Date().toISOString();
+    const r = this.bd
+      .prepare(
+        `INSERT INTO contratos_transporte
+           (origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo, creado_en)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+      )
+      .run(
+        c.origenConstruccionId, c.destinoTenderoteId, c.dueno, c.itemId,
+        JSON.stringify(c.caminoIda), JSON.stringify(c.caminoVuelta),
+        c.duracionViajeSeg, c.cargaPorViaje, ahora, ahora,
+      );
+    return {
+      id: Number(r.lastInsertRowid), origenConstruccionId: c.origenConstruccionId, destinoTenderoteId: c.destinoTenderoteId,
+      dueno: c.dueno, itemId: c.itemId, caminoIda: c.caminoIda, caminoVuelta: c.caminoVuelta,
+      duracionViajeSeg: c.duracionViajeSeg, cargaPorViaje: c.cargaPorViaje, ultimoViajeResuelto: ahora, activo: true,
+    };
+  }
+
+  async listarContratosTransporte(): Promise<ContratoTransporte[]> {
+    const filas = this.bd
+      .prepare(
+        "SELECT id, origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo FROM contratos_transporte WHERE activo = 1",
+      )
+      .all();
+    return filas.map((f) => this.filaAContrato(f));
+  }
+
+  async actualizarUltimoViajeContrato(id: number, ultimoViajeResuelto: string): Promise<void> {
+    this.bd.prepare("UPDATE contratos_transporte SET ultimo_viaje_resuelto = ? WHERE id = ?").run(ultimoViajeResuelto, id);
+  }
+
+  async desactivarContratoTransporte(id: number): Promise<void> {
+    this.bd.prepare("UPDATE contratos_transporte SET activo = 0 WHERE id = ?").run(id);
   }
 
   async obtenerLimpiezaMazmorra(clave: string): Promise<string | null> {
@@ -1379,7 +1526,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async comprarOAlquilar(params: {
     id: string;
-    tipo: "inmueble" | "habitacion";
+    tipo: "inmueble" | "habitacion" | "plantilla";
     asentamiento: string;
     jugadorNombre: string;
     modo: ModoTenencia;
@@ -1500,6 +1647,14 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return { ok: true, saldoRestante: debito.saldo, cantidadRestante: stock.rows[0].cantidad, precioTotal };
   }
 
+  async sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO tenderete_items (tenderete_id, item_id, cantidad, precio_farycoins) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (tenderete_id, item_id) DO UPDATE SET cantidad = tenderete_items.cantidad + EXCLUDED.cantidad`,
+      [tenderoteId, itemId, cantidad, precioInicial],
+    );
+  }
+
   async listarConstrucciones(): Promise<Construccion[]> {
     const r = await this.pool.query<{
       id: number;
@@ -1540,6 +1695,63 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async borrarConstruccion(id: number): Promise<boolean> {
     const r = await this.pool.query("DELETE FROM construcciones WHERE id = $1", [id]);
     return (r.rowCount ?? 0) > 0;
+  }
+
+  async actualizarExtraConstruccion(id: number, extra: Record<string, unknown> | null): Promise<void> {
+    await this.pool.query("UPDATE construcciones SET extra = $1 WHERE id = $2", [
+      extra == null ? null : JSON.stringify(extra), id,
+    ]);
+  }
+
+  private filaAContrato(f: {
+    id: number; origen_construccion_id: number; destino_tenderete_id: string; dueno: number; item_id: string;
+    camino_ida: string; camino_vuelta: string; duracion_viaje_seg: number; carga_por_viaje: number;
+    ultimo_viaje_resuelto: string; activo: number;
+  }): ContratoTransporte {
+    return {
+      id: f.id, origenConstruccionId: f.origen_construccion_id, destinoTenderoteId: f.destino_tenderete_id,
+      dueno: f.dueno, itemId: f.item_id, caminoIda: JSON.parse(f.camino_ida), caminoVuelta: JSON.parse(f.camino_vuelta),
+      duracionViajeSeg: f.duracion_viaje_seg, cargaPorViaje: f.carga_por_viaje,
+      ultimoViajeResuelto: f.ultimo_viaje_resuelto, activo: f.activo === 1,
+    };
+  }
+
+  async crearContratoTransporte(c: NuevoContratoTransporte): Promise<ContratoTransporte> {
+    const ahora = new Date().toISOString();
+    const r = await this.pool.query<{ id: number }>(
+      `INSERT INTO contratos_transporte
+         (origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo, creado_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $9) RETURNING id`,
+      [
+        c.origenConstruccionId, c.destinoTenderoteId, c.dueno, c.itemId,
+        JSON.stringify(c.caminoIda), JSON.stringify(c.caminoVuelta),
+        c.duracionViajeSeg, c.cargaPorViaje, ahora,
+      ],
+    );
+    return {
+      id: r.rows[0].id, origenConstruccionId: c.origenConstruccionId, destinoTenderoteId: c.destinoTenderoteId,
+      dueno: c.dueno, itemId: c.itemId, caminoIda: c.caminoIda, caminoVuelta: c.caminoVuelta,
+      duracionViajeSeg: c.duracionViajeSeg, cargaPorViaje: c.cargaPorViaje, ultimoViajeResuelto: ahora, activo: true,
+    };
+  }
+
+  async listarContratosTransporte(): Promise<ContratoTransporte[]> {
+    const r = await this.pool.query<{
+      id: number; origen_construccion_id: number; destino_tenderete_id: string; dueno: number; item_id: string;
+      camino_ida: string; camino_vuelta: string; duracion_viaje_seg: number; carga_por_viaje: number;
+      ultimo_viaje_resuelto: string; activo: number;
+    }>(
+      "SELECT id, origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo FROM contratos_transporte WHERE activo = 1",
+    );
+    return r.rows.map((f) => this.filaAContrato(f));
+  }
+
+  async actualizarUltimoViajeContrato(id: number, ultimoViajeResuelto: string): Promise<void> {
+    await this.pool.query("UPDATE contratos_transporte SET ultimo_viaje_resuelto = $1 WHERE id = $2", [ultimoViajeResuelto, id]);
+  }
+
+  async desactivarContratoTransporte(id: number): Promise<void> {
+    await this.pool.query("UPDATE contratos_transporte SET activo = 0 WHERE id = $1", [id]);
   }
 
   async obtenerLimpiezaMazmorra(clave: string): Promise<string | null> {

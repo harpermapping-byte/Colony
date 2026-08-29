@@ -768,3 +768,89 @@ test("Mercado: revocarPropiedad vacía el tenderete de esa propiedad", async () 
   assert.strictEqual((await bd.listarStockTenderete("p_0001")).length, 0, "revocar la propiedad vacía su tenderete");
   await bd.cerrar();
 });
+
+// --- Producción y transporte (docs/GDD_Produccion.md, pedido 2026-08-29) ---
+
+test("Produccion: actualizarExtraConstruccion persiste el JSON de estado sin migración (columna extra ya existente)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const id = await bd.insertarConstruccion({
+    propiedad: "p_0001", objeto: "colmena", categoria: "exterior", x: 5, y: 5, rot: 0, variante: 0,
+    extra: { produccion: { stock: 0, ultimoCalculo: 0 } },
+  });
+  await bd.actualizarExtraConstruccion(id, { produccion: { stock: 3.5, ultimoCalculo: 12345 } });
+  const construcciones = await bd.listarConstrucciones();
+  const viva = construcciones.find((c) => c.id === id);
+  assert.deepStrictEqual(viva?.extra, { produccion: { stock: 3.5, ultimoCalculo: 12345 } });
+  await bd.cerrar();
+});
+
+test("Produccion: sumarStockTenderete SUMA cantidad y NUNCA toca el precio en conflictos (a diferencia de reponerStockTenderete)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  // primera vez: usa precioInicial porque la fila no existía
+  await bd.sumarStockTenderete("i_aldea:tienda_01", "madera_dura", 10, 7);
+  let stock = await bd.listarStockTenderete("i_aldea:tienda_01");
+  assert.deepStrictEqual(stock, [{ itemId: "madera_dura", cantidad: 10, precioFarycoins: 7 }]);
+
+  // el dueño cambia el precio a mano
+  await bd.fijarPrecioTenderete("i_aldea:tienda_01", "madera_dura", 20);
+
+  // el transporte suma más stock — el precio NO debe volver a 7, debe seguir en 20
+  await bd.sumarStockTenderete("i_aldea:tienda_01", "madera_dura", 5, 7);
+  stock = await bd.listarStockTenderete("i_aldea:tienda_01");
+  assert.deepStrictEqual(stock, [{ itemId: "madera_dura", cantidad: 15, precioFarycoins: 20 }]);
+  await bd.cerrar();
+});
+
+test("Transporte: crearContratoTransporte + listarContratosTransporte hacen un round-trip completo", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const dueno = await bd.obtenerOCrearJugador("Ragnar");
+  const origenId = await bd.insertarConstruccion({
+    propiedad: "p_0001", objeto: "aserradero", categoria: "edificio", x: 5, y: 5, rot: 0, variante: 0, extra: null,
+  });
+  const contrato = await bd.crearContratoTransporte({
+    origenConstruccionId: origenId, destinoTenderoteId: "p_0002", dueno: dueno.id, itemId: "madera_dura",
+    caminoIda: [{ x: 5, y: 5 }, { x: 6, y: 6 }], caminoVuelta: [{ x: 6, y: 6 }, { x: 5, y: 5 }],
+    duracionViajeSeg: 30, cargaPorViaje: 10,
+  });
+  assert.strictEqual(contrato.activo, true);
+  assert.ok(contrato.id > 0);
+
+  const activos = await bd.listarContratosTransporte();
+  assert.strictEqual(activos.length, 1);
+  assert.deepStrictEqual(activos[0].caminoIda, [{ x: 5, y: 5 }, { x: 6, y: 6 }]);
+  assert.strictEqual(activos[0].origenConstruccionId, origenId);
+  assert.strictEqual(activos[0].destinoTenderoteId, "p_0002");
+  await bd.cerrar();
+});
+
+test("Transporte: actualizarUltimoViajeContrato persiste el nuevo timestamp", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const dueno = await bd.obtenerOCrearJugador("Ragnar");
+  const origenId = await bd.insertarConstruccion({
+    propiedad: "p_0001", objeto: "aserradero", categoria: "edificio", x: 5, y: 5, rot: 0, variante: 0, extra: null,
+  });
+  const contrato = await bd.crearContratoTransporte({
+    origenConstruccionId: origenId, destinoTenderoteId: "p_0002", dueno: dueno.id, itemId: "madera_dura",
+    caminoIda: [], caminoVuelta: [], duracionViajeSeg: 30, cargaPorViaje: 10,
+  });
+  const nuevoTs = new Date(Date.now() + 60_000).toISOString();
+  await bd.actualizarUltimoViajeContrato(contrato.id, nuevoTs);
+  const activos = await bd.listarContratosTransporte();
+  assert.strictEqual(activos[0].ultimoViajeResuelto, nuevoTs);
+  await bd.cerrar();
+});
+
+test("Transporte: desactivarContratoTransporte lo saca de listarContratosTransporte (que solo trae activos)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const dueno = await bd.obtenerOCrearJugador("Ragnar");
+  const origenId = await bd.insertarConstruccion({
+    propiedad: "p_0001", objeto: "aserradero", categoria: "edificio", x: 5, y: 5, rot: 0, variante: 0, extra: null,
+  });
+  const contrato = await bd.crearContratoTransporte({
+    origenConstruccionId: origenId, destinoTenderoteId: "p_0002", dueno: dueno.id, itemId: "madera_dura",
+    caminoIda: [], caminoVuelta: [], duracionViajeSeg: 30, cargaPorViaje: 10,
+  });
+  await bd.desactivarContratoTransporte(contrato.id);
+  assert.strictEqual((await bd.listarContratosTransporte()).length, 0);
+  await bd.cerrar();
+});

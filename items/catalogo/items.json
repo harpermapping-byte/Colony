@@ -1,93 +1,1125 @@
 {
   "_nota": "Catálogo de ÍTEMS de inventario (pedido 2026-08-29, fase 1 'catálogo + servidor + persistencia'). huella=[ancho,alto] en casillas de la rejilla tipo tetris (server/src/inventario/inventario.ts), peso=eje INDEPENDIENTE del espacio (afecta al peso transportable, no a cuántas casillas ocupa). Los 49 tipo:'recurso' salen 1 a 1 de categoriaRecurso* ya real en baker/catalogo/{vegetacion,animales,rocas}.json — NO duplican esos catálogos, son el mismo id de categoría convertido en ítem de inventario cuando se recolecta. tipo:'equipable'/'herramienta'/'consumible' son ejemplos ilustrativos de esas ramas del schema, no un catálogo de armas/armaduras cerrado — eso crece después con el mismo patrón.",
-  "hierro": {"tipo":"recurso","categoriaRecurso":"hierro","huella":[1,1],"peso":3,"apilable":true,"stackMax":20,"variantes":2,"colorDebug":"#8a8a90"},
-  "cobre": {"tipo":"recurso","categoriaRecurso":"cobre","huella":[1,1],"peso":3,"apilable":true,"stackMax":20,"variantes":2,"colorDebug":"#b87333"},
-  "oro": {"tipo":"recurso","categoriaRecurso":"oro","huella":[1,1],"peso":3,"apilable":true,"stackMax":20,"variantes":2,"colorDebug":"#d4af37"},
-  "plata": {"tipo":"recurso","categoriaRecurso":"plata","huella":[1,1],"peso":3,"apilable":true,"stackMax":20,"variantes":2,"colorDebug":"#c0c0c8"},
-  "platino": {"tipo":"recurso","categoriaRecurso":"platino","huella":[1,1],"peso":3,"apilable":true,"stackMax":20,"variantes":2,"colorDebug":"#9aa0a8"},
-  "plomo": {"tipo":"recurso","categoriaRecurso":"plomo","huella":[1,1],"peso":3,"apilable":true,"stackMax":20,"variantes":2,"colorDebug":"#5a5a62"},
-  "estano": {"tipo":"recurso","categoriaRecurso":"estano","huella":[1,1],"peso":3,"apilable":true,"stackMax":20,"variantes":2,"colorDebug":"#a8a8a0"},
-  "cuarzo": {"tipo":"recurso","categoriaRecurso":"cuarzo","huella":[1,1],"peso":0.6,"apilable":true,"stackMax":30,"variantes":2,"colorDebug":"#e8e4e0"},
-  "gema": {"tipo":"recurso","categoriaRecurso":"gema","huella":[1,1],"peso":0.6,"apilable":true,"stackMax":30,"variantes":2,"colorDebug":"#a03aa0"},
-  "azufre": {"tipo":"recurso","categoriaRecurso":"azufre","huella":[1,1],"peso":0.6,"apilable":true,"stackMax":30,"variantes":2,"colorDebug":"#d4c020"},
-  "sal": {"tipo":"recurso","categoriaRecurso":"sal","huella":[1,1],"peso":0.6,"apilable":true,"stackMax":30,"variantes":2,"colorDebug":"#f0ece0"},
-  "carbon": {"tipo":"recurso","categoriaRecurso":"carbon","huella":[1,1],"peso":0.6,"apilable":true,"stackMax":30,"variantes":2,"colorDebug":"#2a2622"},
-  "coral": {"tipo":"recurso","categoriaRecurso":"coral","huella":[1,1],"peso":0.6,"apilable":true,"stackMax":30,"variantes":2,"colorDebug":"#e08a70"},
-  "piedra_comun": {"tipo":"recurso","categoriaRecurso":"piedra_comun","huella":[1,1],"peso":2.5,"apilable":true,"stackMax":15,"variantes":2,"colorDebug":"#8a8a8a"},
-  "turba": {"tipo":"recurso","categoriaRecurso":"turba","huella":[1,1],"peso":2.5,"apilable":true,"stackMax":15,"variantes":2,"colorDebug":"#4a3a28"},
-  "arcilla": {"tipo":"recurso","categoriaRecurso":"arcilla","huella":[1,1],"peso":2.5,"apilable":true,"stackMax":15,"variantes":2,"colorDebug":"#8a5a3a"},
-  "madera_dura": {"tipo":"recurso","categoriaRecurso":"madera_dura","huella":[1,1],"peso":2,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#6a4a2a"},
-  "madera_blanda": {"tipo":"recurso","categoriaRecurso":"madera_blanda","huella":[1,1],"peso":2,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#8a6a42"},
-  "madera_abedul": {"tipo":"recurso","categoriaRecurso":"madera_abedul","huella":[1,1],"peso":2,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#c9c0a8"},
-  "madera_sauce": {"tipo":"recurso","categoriaRecurso":"madera_sauce","huella":[1,1],"peso":2,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#9a9a6a"},
-  "madera_palmera": {"tipo":"recurso","categoriaRecurso":"madera_palmera","huella":[1,1],"peso":2,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#a08050"},
-  "madera_carbonizada": {"tipo":"recurso","categoriaRecurso":"madera_carbonizada","huella":[1,1],"peso":2,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#2a2420"},
-  "baya": {"tipo":"recurso","categoriaRecurso":"baya","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#8a2a5a"},
-  "fruta": {"tipo":"recurso","categoriaRecurso":"fruta","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#c94a3a"},
-  "fruto_seco": {"tipo":"recurso","categoriaRecurso":"fruto_seco","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#a07840"},
-  "cereal_silvestre": {"tipo":"recurso","categoriaRecurso":"cereal_silvestre","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#c9a850"},
-  "hierba_comestible": {"tipo":"recurso","categoriaRecurso":"hierba_comestible","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#5a9c4c"},
-  "hierba_curativa": {"tipo":"recurso","categoriaRecurso":"hierba_curativa","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#4a9a6a"},
-  "hierba_venenosa": {"tipo":"recurso","categoriaRecurso":"hierba_venenosa","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#6a9a2a"},
-  "hierba_aromatica": {"tipo":"recurso","categoriaRecurso":"hierba_aromatica","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#7a9c5a"},
-  "flor_medicinal": {"tipo":"recurso","categoriaRecurso":"flor_medicinal","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#c98ac0"},
-  "hongo_comestible": {"tipo":"recurso","categoriaRecurso":"hongo_comestible","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#c9a878"},
-  "hongo_medicinal": {"tipo":"recurso","categoriaRecurso":"hongo_medicinal","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#a878c9"},
-  "raiz_comestible": {"tipo":"recurso","categoriaRecurso":"raiz_comestible","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#b89060"},
-  "fibra_vegetal": {"tipo":"recurso","categoriaRecurso":"fibra_vegetal","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#c9c078"},
-  "alga": {"tipo":"recurso","categoriaRecurso":"alga","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":25,"variantes":2,"colorDebug":"#3a8a5a"},
-  "carne_roja": {"tipo":"recurso","categoriaRecurso":"carne_roja","huella":[1,1],"peso":0.8,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#8a2a2a"},
-  "carne_blanca": {"tipo":"recurso","categoriaRecurso":"carne_blanca","huella":[1,1],"peso":0.8,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#c9a898"},
-  "carne_caza_mayor": {"tipo":"recurso","categoriaRecurso":"carne_caza_mayor","huella":[1,1],"peso":0.8,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#7a2a20"},
-  "carne_exotica": {"tipo":"recurso","categoriaRecurso":"carne_exotica","huella":[1,1],"peso":0.8,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#9a3a5a"},
-  "pescado_rio": {"tipo":"recurso","categoriaRecurso":"pescado_rio","huella":[1,1],"peso":0.8,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#8aa870"},
-  "pescado_lago": {"tipo":"recurso","categoriaRecurso":"pescado_lago","huella":[1,1],"peso":0.8,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#7a9868"},
-  "pescado_mar": {"tipo":"recurso","categoriaRecurso":"pescado_mar","huella":[1,1],"peso":0.8,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#5a7a9a"},
-  "marisco": {"tipo":"recurso","categoriaRecurso":"marisco","huella":[1,1],"peso":0.8,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#c98a78"},
-  "cuero_grueso": {"tipo":"recurso","categoriaRecurso":"cuero_grueso","huella":[1,1],"peso":1.2,"apilable":true,"stackMax":8,"variantes":2,"colorDebug":"#6a4a30"},
-  "cuero_reptil": {"tipo":"recurso","categoriaRecurso":"cuero_reptil","huella":[1,1],"peso":1.2,"apilable":true,"stackMax":8,"variantes":2,"colorDebug":"#5a7a4a"},
-  "piel_basta": {"tipo":"recurso","categoriaRecurso":"piel_basta","huella":[1,1],"peso":1.2,"apilable":true,"stackMax":8,"variantes":2,"colorDebug":"#8a7050"},
-  "piel_exotica": {"tipo":"recurso","categoriaRecurso":"piel_exotica","huella":[1,1],"peso":1.2,"apilable":true,"stackMax":8,"variantes":2,"colorDebug":"#c9a020"},
-  "piel_fina": {"tipo":"recurso","categoriaRecurso":"piel_fina","huella":[1,1],"peso":1.2,"apilable":true,"stackMax":8,"variantes":2,"colorDebug":"#a89878"},
-  "piel_invierno": {"tipo":"recurso","categoriaRecurso":"piel_invierno","huella":[1,1],"peso":1.2,"apilable":true,"stackMax":8,"variantes":2,"colorDebug":"#e0e0e8"},
-  "mochila_cuero": {"tipo":"equipable","slotEquipo":"espalda","huella":[2,2],"peso":1.5,"apilable":false,"esContenedor":{"ancho":4,"alto":4},"variantes":2,"colorDebug":"#7a5a3a","_nota":"Contenedor anidado: al equiparse en 'espalda' añade una rejilla PROPIA de 4x4, independiente de la del cuerpo (decisión de diseño de esta fase — ver inventario.ts)."},
-  "bolsa_cinturon": {"tipo":"equipable","slotEquipo":"cinturon","huella":[1,1],"peso":0.3,"apilable":false,"esContenedor":{"ancho":2,"alto":2},"variantes":2,"colorDebug":"#8a6a4a"},
-  "hacha_talar": {"tipo":"herramienta","slotEquipo":"manoPrincipal","huella":[1,2],"peso":3.2,"apilable":false,"variantes":3,"colorDebug":"#8a8a90"},
-  "pico_minero": {"tipo":"herramienta","slotEquipo":"manoPrincipal","huella":[1,2],"peso":3.8,"apilable":false,"variantes":3,"colorDebug":"#6a6a70"},
-  "antorcha_portatil": {"tipo":"herramienta","slotEquipo":"manoSecundaria","huella":[1,1],"peso":0.5,"apilable":false,"variantes":2,"colorDebug":"#c9a050"},
-  "racion_viaje": {"tipo":"consumible","huella":[1,1],"peso":0.3,"apilable":true,"stackMax":12,"variantes":2,"colorDebug":"#c9a878"},
-
+  "hierro": {
+    "tipo": "recurso",
+    "categoriaRecurso": "hierro",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#8a8a90"
+  },
+  "cobre": {
+    "tipo": "recurso",
+    "categoriaRecurso": "cobre",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#b87333"
+  },
+  "oro": {
+    "tipo": "recurso",
+    "categoriaRecurso": "oro",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#d4af37"
+  },
+  "plata": {
+    "tipo": "recurso",
+    "categoriaRecurso": "plata",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#c0c0c8"
+  },
+  "platino": {
+    "tipo": "recurso",
+    "categoriaRecurso": "platino",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#9aa0a8"
+  },
+  "plomo": {
+    "tipo": "recurso",
+    "categoriaRecurso": "plomo",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#5a5a62"
+  },
+  "estano": {
+    "tipo": "recurso",
+    "categoriaRecurso": "estano",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#a8a8a0"
+  },
+  "cuarzo": {
+    "tipo": "recurso",
+    "categoriaRecurso": "cuarzo",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 2,
+    "colorDebug": "#e8e4e0"
+  },
+  "gema": {
+    "tipo": "recurso",
+    "categoriaRecurso": "gema",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 2,
+    "colorDebug": "#a03aa0"
+  },
+  "azufre": {
+    "tipo": "recurso",
+    "categoriaRecurso": "azufre",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 2,
+    "colorDebug": "#d4c020"
+  },
+  "sal": {
+    "tipo": "recurso",
+    "categoriaRecurso": "sal",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 2,
+    "colorDebug": "#f0ece0"
+  },
+  "carbon": {
+    "tipo": "recurso",
+    "categoriaRecurso": "carbon",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 2,
+    "colorDebug": "#2a2622"
+  },
+  "coral": {
+    "tipo": "recurso",
+    "categoriaRecurso": "coral",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 2,
+    "colorDebug": "#e08a70"
+  },
+  "piedra_comun": {
+    "tipo": "recurso",
+    "categoriaRecurso": "piedra_comun",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": true,
+    "stackMax": 15,
+    "variantes": 2,
+    "colorDebug": "#8a8a8a"
+  },
+  "turba": {
+    "tipo": "recurso",
+    "categoriaRecurso": "turba",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": true,
+    "stackMax": 15,
+    "variantes": 2,
+    "colorDebug": "#4a3a28"
+  },
+  "arcilla": {
+    "tipo": "recurso",
+    "categoriaRecurso": "arcilla",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": true,
+    "stackMax": 15,
+    "variantes": 2,
+    "colorDebug": "#8a5a3a"
+  },
+  "madera_dura": {
+    "tipo": "recurso",
+    "categoriaRecurso": "madera_dura",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#6a4a2a"
+  },
+  "madera_blanda": {
+    "tipo": "recurso",
+    "categoriaRecurso": "madera_blanda",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#8a6a42"
+  },
+  "madera_abedul": {
+    "tipo": "recurso",
+    "categoriaRecurso": "madera_abedul",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#c9c0a8"
+  },
+  "madera_sauce": {
+    "tipo": "recurso",
+    "categoriaRecurso": "madera_sauce",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#9a9a6a"
+  },
+  "madera_palmera": {
+    "tipo": "recurso",
+    "categoriaRecurso": "madera_palmera",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#a08050"
+  },
+  "madera_carbonizada": {
+    "tipo": "recurso",
+    "categoriaRecurso": "madera_carbonizada",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#2a2420"
+  },
+  "baya": {
+    "tipo": "recurso",
+    "categoriaRecurso": "baya",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#8a2a5a"
+  },
+  "fruta": {
+    "tipo": "recurso",
+    "categoriaRecurso": "fruta",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#c94a3a"
+  },
+  "fruto_seco": {
+    "tipo": "recurso",
+    "categoriaRecurso": "fruto_seco",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#a07840"
+  },
+  "cereal_silvestre": {
+    "tipo": "recurso",
+    "categoriaRecurso": "cereal_silvestre",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#c9a850"
+  },
+  "hierba_comestible": {
+    "tipo": "recurso",
+    "categoriaRecurso": "hierba_comestible",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#5a9c4c"
+  },
+  "hierba_curativa": {
+    "tipo": "recurso",
+    "categoriaRecurso": "hierba_curativa",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#4a9a6a"
+  },
+  "hierba_venenosa": {
+    "tipo": "recurso",
+    "categoriaRecurso": "hierba_venenosa",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#6a9a2a"
+  },
+  "hierba_aromatica": {
+    "tipo": "recurso",
+    "categoriaRecurso": "hierba_aromatica",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#7a9c5a"
+  },
+  "flor_medicinal": {
+    "tipo": "recurso",
+    "categoriaRecurso": "flor_medicinal",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#c98ac0"
+  },
+  "hongo_comestible": {
+    "tipo": "recurso",
+    "categoriaRecurso": "hongo_comestible",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#c9a878"
+  },
+  "hongo_medicinal": {
+    "tipo": "recurso",
+    "categoriaRecurso": "hongo_medicinal",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#a878c9"
+  },
+  "raiz_comestible": {
+    "tipo": "recurso",
+    "categoriaRecurso": "raiz_comestible",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#b89060"
+  },
+  "fibra_vegetal": {
+    "tipo": "recurso",
+    "categoriaRecurso": "fibra_vegetal",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#c9c078"
+  },
+  "alga": {
+    "tipo": "recurso",
+    "categoriaRecurso": "alga",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#3a8a5a"
+  },
+  "carne_roja": {
+    "tipo": "recurso",
+    "categoriaRecurso": "carne_roja",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#8a2a2a"
+  },
+  "carne_blanca": {
+    "tipo": "recurso",
+    "categoriaRecurso": "carne_blanca",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#c9a898"
+  },
+  "carne_caza_mayor": {
+    "tipo": "recurso",
+    "categoriaRecurso": "carne_caza_mayor",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#7a2a20"
+  },
+  "carne_exotica": {
+    "tipo": "recurso",
+    "categoriaRecurso": "carne_exotica",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#9a3a5a"
+  },
+  "pescado_rio": {
+    "tipo": "recurso",
+    "categoriaRecurso": "pescado_rio",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#8aa870"
+  },
+  "pescado_lago": {
+    "tipo": "recurso",
+    "categoriaRecurso": "pescado_lago",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#7a9868"
+  },
+  "pescado_mar": {
+    "tipo": "recurso",
+    "categoriaRecurso": "pescado_mar",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#5a7a9a"
+  },
+  "marisco": {
+    "tipo": "recurso",
+    "categoriaRecurso": "marisco",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 2,
+    "colorDebug": "#c98a78"
+  },
+  "cuero_grueso": {
+    "tipo": "recurso",
+    "categoriaRecurso": "cuero_grueso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.2,
+    "apilable": true,
+    "stackMax": 8,
+    "variantes": 2,
+    "colorDebug": "#6a4a30"
+  },
+  "cuero_reptil": {
+    "tipo": "recurso",
+    "categoriaRecurso": "cuero_reptil",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.2,
+    "apilable": true,
+    "stackMax": 8,
+    "variantes": 2,
+    "colorDebug": "#5a7a4a"
+  },
+  "piel_basta": {
+    "tipo": "recurso",
+    "categoriaRecurso": "piel_basta",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.2,
+    "apilable": true,
+    "stackMax": 8,
+    "variantes": 2,
+    "colorDebug": "#8a7050"
+  },
+  "piel_exotica": {
+    "tipo": "recurso",
+    "categoriaRecurso": "piel_exotica",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.2,
+    "apilable": true,
+    "stackMax": 8,
+    "variantes": 2,
+    "colorDebug": "#c9a020"
+  },
+  "piel_fina": {
+    "tipo": "recurso",
+    "categoriaRecurso": "piel_fina",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.2,
+    "apilable": true,
+    "stackMax": 8,
+    "variantes": 2,
+    "colorDebug": "#a89878"
+  },
+  "piel_invierno": {
+    "tipo": "recurso",
+    "categoriaRecurso": "piel_invierno",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.2,
+    "apilable": true,
+    "stackMax": 8,
+    "variantes": 2,
+    "colorDebug": "#e0e0e8"
+  },
+  "mochila_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "espalda",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 1.5,
+    "apilable": false,
+    "esContenedor": {
+      "ancho": 4,
+      "alto": 4
+    },
+    "variantes": 2,
+    "colorDebug": "#7a5a3a",
+    "_nota": "Contenedor anidado: al equiparse en 'espalda' añade una rejilla PROPIA de 4x4, independiente de la del cuerpo (decisión de diseño de esta fase — ver inventario.ts)."
+  },
+  "bolsa_cinturon": {
+    "tipo": "equipable",
+    "slotEquipo": "cinturon",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "esContenedor": {
+      "ancho": 2,
+      "alto": 2
+    },
+    "variantes": 2,
+    "colorDebug": "#8a6a4a"
+  },
+  "hacha_talar": {
+    "tipo": "herramienta",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.2,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#8a8a90"
+  },
+  "pico_minero": {
+    "tipo": "herramienta",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.8,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#6a6a70"
+  },
+  "antorcha_portatil": {
+    "tipo": "herramienta",
+    "slotEquipo": "manoSecundaria",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#c9a050"
+  },
+  "racion_viaje": {
+    "tipo": "consumible",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 12,
+    "variantes": 2,
+    "colorDebug": "#c9a878"
+  },
   "_notaObjetosInterior": "tipo:'objeto' (fase 2 de inventario, 'coger del mundo' — docs/GDD_Inventario.md §7): mismo id que interiores/catalogo/elementos.json (colocacion incluye 'sobreSuperficie') — id de catálogo = id de ítem, igual criterio que los recursos del baker. Subconjunto CURADO de ~32 de los 83 ids con esa colocación (objetos genéricos de casa/taller, no props narrativos únicos como 'sello_jarl_mesa' o 'reliquia_expuesta_catedral') — ampliar esta lista es una decisión de contenido del streamer, no de código: el mecanismo de 'coger' ya funciona para CUALQUIER id que se dé de alta aquí, sin tocar interiorColision.ts ni las rooms.",
-  "jaula_pajaro": {"tipo":"objeto","huella":[1,1],"peso":1.0,"apilable":false,"variantes":1,"colorDebug":"#6a6a70"},
-  "caldero": {"tipo":"objeto","huella":[1,1],"peso":2.5,"apilable":false,"variantes":1,"colorDebug":"#3a3a3a"},
-  "plato": {"tipo":"objeto","huella":[1,1],"peso":0.3,"apilable":true,"stackMax":6,"variantes":1,"colorDebug":"#e8e4dc"},
-  "taza": {"tipo":"objeto","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":6,"variantes":1,"colorDebug":"#c9a860"},
-  "cuenco": {"tipo":"objeto","huella":[1,1],"peso":0.2,"apilable":true,"stackMax":6,"variantes":1,"colorDebug":"#a89878"},
-  "cuchillo_cocina": {"tipo":"objeto","huella":[1,1],"peso":0.2,"apilable":false,"variantes":1,"colorDebug":"#c0c0c8"},
-  "olla": {"tipo":"objeto","huella":[1,1],"peso":1.5,"apilable":false,"variantes":1,"colorDebug":"#5a5a5a"},
-  "sarten": {"tipo":"objeto","huella":[1,1],"peso":1.3,"apilable":false,"variantes":1,"colorDebug":"#4a4a4a"},
-  "cesta_pan": {"tipo":"objeto","huella":[1,1],"peso":0.4,"apilable":false,"variantes":1,"colorDebug":"#c9a860"},
-  "jarra_agua": {"tipo":"objeto","huella":[1,1],"peso":0.8,"apilable":false,"variantes":1,"colorDebug":"#a89878"},
-  "libro": {"tipo":"objeto","huella":[1,1],"peso":0.5,"apilable":false,"variantes":1,"colorDebug":"#7a2a3a"},
-  "tintero_pluma": {"tipo":"objeto","huella":[1,1],"peso":0.2,"apilable":false,"variantes":1,"colorDebug":"#2a2a3a"},
-  "pergamino": {"tipo":"objeto","huella":[1,1],"peso":0.1,"apilable":true,"stackMax":10,"variantes":1,"colorDebug":"#e0d8b8"},
-  "mapa_mesa": {"tipo":"objeto","huella":[1,1],"peso":0.2,"apilable":false,"variantes":1,"colorDebug":"#c9b888"},
-  "frasco_pocion": {"tipo":"objeto","huella":[1,1],"peso":0.3,"apilable":true,"stackMax":5,"variantes":1,"colorDebug":"#8a5ac0"},
-  "mortero_mano": {"tipo":"objeto","huella":[1,1],"peso":1.0,"apilable":false,"variantes":1,"colorDebug":"#8a8a8a"},
-  "hierbas_secas": {"tipo":"objeto","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":15,"variantes":1,"colorDebug":"#5a7a3a"},
-  "martillo": {"tipo":"objeto","huella":[1,1],"peso":1.2,"apilable":false,"variantes":1,"colorDebug":"#6a6a70"},
-  "tenazas": {"tipo":"objeto","huella":[1,1],"peso":0.8,"apilable":false,"variantes":1,"colorDebug":"#6a6a70"},
-  "clavos": {"tipo":"objeto","huella":[1,1],"peso":0.05,"apilable":true,"stackMax":40,"variantes":1,"colorDebug":"#6a6a70"},
-  "herradura": {"tipo":"objeto","huella":[1,1],"peso":0.5,"apilable":true,"stackMax":10,"variantes":1,"colorDebug":"#6a6a70"},
-  "jarra_cerveza": {"tipo":"objeto","huella":[1,1],"peso":0.6,"apilable":false,"variantes":1,"colorDebug":"#c9a050"},
-  "moneda_suelta": {"tipo":"objeto","huella":[1,1],"peso":0.02,"apilable":true,"stackMax":99,"variantes":1,"colorDebug":"#e0b820"},
-  "dados": {"tipo":"objeto","huella":[1,1],"peso":0.05,"apilable":true,"stackMax":10,"variantes":1,"colorDebug":"#e8e4dc"},
-  "baraja_cartas": {"tipo":"objeto","huella":[1,1],"peso":0.1,"apilable":false,"variantes":1,"colorDebug":"#c9a860"},
-  "jabon": {"tipo":"objeto","huella":[1,1],"peso":0.1,"apilable":true,"stackMax":10,"variantes":1,"colorDebug":"#e0d8c0"},
-  "toalla": {"tipo":"objeto","huella":[1,1],"peso":0.2,"apilable":true,"stackMax":5,"variantes":1,"colorDebug":"#bcdff0"},
-  "joyero_pequeno": {"tipo":"objeto","huella":[1,1],"peso":0.4,"apilable":false,"variantes":1,"colorDebug":"#c9a020"},
-  "reliquia": {"tipo":"objeto","huella":[1,1],"peso":0.5,"apilable":false,"variantes":1,"colorDebug":"#e0b820"},
-  "vela_mesa": {"tipo":"objeto","huella":[1,1],"peso":0.1,"apilable":true,"stackMax":10,"variantes":1,"colorDebug":"#f0d090"},
-  "lampara_aceite": {"tipo":"objeto","huella":[1,1],"peso":0.6,"apilable":false,"variantes":1,"colorDebug":"#c9a050"},
-  "brasero": {"tipo":"objeto","huella":[1,1],"peso":2.0,"apilable":false,"variantes":1,"colorDebug":"#e08030"}
+  "jaula_pajaro": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.0,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70"
+  },
+  "caldero": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#3a3a3a"
+  },
+  "plato": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 6,
+    "variantes": 1,
+    "colorDebug": "#e8e4dc"
+  },
+  "taza": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 6,
+    "variantes": 1,
+    "colorDebug": "#c9a860"
+  },
+  "cuenco": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": true,
+    "stackMax": 6,
+    "variantes": 1,
+    "colorDebug": "#a89878"
+  },
+  "cuchillo_cocina": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c0c0c8"
+  },
+  "olla": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#5a5a5a"
+  },
+  "sarten": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.3,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#4a4a4a"
+  },
+  "cesta_pan": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c9a860"
+  },
+  "jarra_agua": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#a89878"
+  },
+  "libro": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a2a3a"
+  },
+  "tintero_pluma": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#2a2a3a"
+  },
+  "pergamino": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.1,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 1,
+    "colorDebug": "#e0d8b8"
+  },
+  "mapa_mesa": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c9b888"
+  },
+  "frasco_pocion": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 5,
+    "variantes": 1,
+    "colorDebug": "#8a5ac0"
+  },
+  "mortero_mano": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.0,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a8a8a"
+  },
+  "hierbas_secas": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 15,
+    "variantes": 1,
+    "colorDebug": "#5a7a3a"
+  },
+  "martillo": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.2,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70"
+  },
+  "tenazas": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70"
+  },
+  "clavos": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.05,
+    "apilable": true,
+    "stackMax": 40,
+    "variantes": 1,
+    "colorDebug": "#6a6a70"
+  },
+  "herradura": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 1,
+    "colorDebug": "#6a6a70"
+  },
+  "jarra_cerveza": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c9a050"
+  },
+  "moneda_suelta": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.02,
+    "apilable": true,
+    "stackMax": 99,
+    "variantes": 1,
+    "colorDebug": "#e0b820"
+  },
+  "dados": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.05,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 1,
+    "colorDebug": "#e8e4dc"
+  },
+  "baraja_cartas": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.1,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c9a860"
+  },
+  "jabon": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.1,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 1,
+    "colorDebug": "#e0d8c0"
+  },
+  "toalla": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": true,
+    "stackMax": 5,
+    "variantes": 1,
+    "colorDebug": "#bcdff0"
+  },
+  "joyero_pequeno": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c9a020"
+  },
+  "reliquia": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#e0b820"
+  },
+  "vela_mesa": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.1,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 1,
+    "colorDebug": "#f0d090"
+  },
+  "lampara_aceite": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c9a050"
+  },
+  "brasero": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.0,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#e08030"
+  },
+  "miel": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 1,
+    "colorDebug": "#e0a020",
+    "_nota": "Recurso FABRICADO por una colmena (docs/GDD_Produccion.md) — a diferencia de los recursos recolectados del bake exterior, este no lleva categoriaRecurso (no viene de vegetacion/rocas/animales.json)."
+  },
+  "cera": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 1,
+    "colorDebug": "#c9a850"
+  }
 }

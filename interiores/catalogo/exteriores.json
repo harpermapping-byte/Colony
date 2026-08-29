@@ -10,7 +10,7 @@
   "bancal_cultivo": { "uso": "Bancal de tierra labrada para cultivar — PISABLE (el granjero camina sobre él para trabajar).", "huella": [3, 2], "colision": false, "variantes": 3, "colorDebug": "#6a4a2e" },
   "carreta": { "uso": "Carreta de madera decorativa/almacén exterior.", "huella": [3, 2], "colision": true, "variantes": 2, "colorDebug": "#8a6a3a" },
   "diana_entrenamiento": { "uso": "Diana de paja para práctica de tiro — futura mecánica de entrenamiento.", "huella": [1, 1], "colision": true, "variantes": 2, "colorDebug": "#c9b06a" },
-  "colmena": { "uso": "Colmena de tronco — futura producción de miel/cera.", "huella": [1, 1], "colision": true, "variantes": 2, "colorDebug": "#b08a3a" },
+  "colmena": { "uso": "Colmena de tronco — produce miel sola, cálculo perezoso (docs/GDD_Produccion.md).", "huella": [1, 1], "colision": true, "variantes": 2, "colorDebug": "#b08a3a", "produccion": { "itemId": "miel", "cantidadPorIntervalo": 1, "intervaloHoras": 4, "capacidadMax": 10 } },
   "estatua_lider_bronce": {"uso":"La estatua del jarl/streamer en sí, de bronce — arte único a generar por la semilla propia del jarl.","huella":[2,2],"colision":true,"variantes":2,"colorDebug":"#8a6a3a"},
   "pedestal_estatua_lider": {"uso":"Pedestal de piedra tallada que eleva la estatua del líder sobre la plaza.","huella":[2,2],"colision":true,"variantes":2,"colorDebug":"#8a8a8a"},
   "placa_conmemorativa_lider": {"uso":"Placa de bronce con el nombre y gesta del líder homenajeado.","huella":[1,1],"colision":false,"variantes":2,"colorDebug":"#c9a020"},
