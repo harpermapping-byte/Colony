@@ -51,15 +51,26 @@ Pedido explícito: "perros y gatos con razas diferentes (tamaños diferentes, co
 - **Bug real encontrado y corregido de paso**: la plantilla `cuadrupedo` no tenía entrada para `orejas: "caidas"` (la que usa `perro` desde siempre) en su tabla de alturas — la caja de la oreja salía con altura `NaN`. Añadido `caidas: 0.65` (entre `puntiagudas` y `largas`).
 - **Verificado**: 200 individuos de muestra por especie reparten razas cerca de los pesos del catálogo; un pueblo real de prueba sacó perros labrador/doberman/caniche/callejero con escalas visiblemente distintas (0.45 a 0.89) en el mismo bake; cero piezas con `NaN` tras el fix.
 
-## Animales de trabajo/monta: caballo, mulo, buey (mismo pedido 2026-08-29)
+## Animales de trabajo/monta: caballo, burro, buey (mismo pedido 2026-08-29)
 
 `caballo_salvaje`/`burro_salvaje` (mapa exterior, población salvaje domesticable) ya existían, pero faltaba el **par doméstico urbano** — mismo hueco que ya se había resuelto para `oveja`/`carnero`. A diferencia de esos dos (y de `cerdo`/`ganso_domestico`), estos SÍ llevan rig completo desde ya:
 
 - `caballo` — plantilla cuadrúpedo, patas largas, hocico largo, 5 capas de color (castaño/negro/blanco/palomino/pardo). Par doméstico de `caballo_salvaje`, que se mantiene igual.
-- `mulo` — mismo esqueleto, orejas largas de burro (rasgo distintivo), capas más apagadas (menos variedad de color que un caballo de raza — no tiene versión salvaje real, siempre es un híbrido criado).
-- `buey` — el más corpulento, con cuernos cortos (par de labranza de `vaca_salvaje`) — a diferencia de caballo/mulo sí lleva `categoriaRecursoCarne`/`categoriaRecursoPiel` (un buey retirado se aprovechaba de verdad).
+- `burro` — mismo esqueleto, orejas largas (rasgo distintivo), capas más apagadas. Par doméstico de `burro_salvaje`, que se mantiene igual. **Sustituye a `mulo`** (ver nota abajo).
+- `buey` — el más corpulento, con cuernos cortos (par de labranza de `vaca_salvaje`) — a diferencia de caballo/burro sí lleva `categoriaRecursoCarne`/`categoriaRecursoPiel` (un buey retirado se aprovechaba de verdad).
 
 Añadidos a `baker/catalogo/animales.json` (patrón urbano `biomas: []`, como perro/gato/gallo) y enganchados ya a `ciudades/src/fauna.js` (pesos bajos: son animales caros de mantener, no todas las casas tienen uno). Verificado con un bake real de pueblo: aparecen sin `NaN` y con vóxeles completos.
+
+**Por qué `mulo` se retiró**: se añadió primero (mismo pedido de "animales de trabajo"), pero justo después el streamer pidió un sistema de trío macho/hembra/cría de cara a una futura mecánica de reproducción — y el mulo es un híbrido de caballo+burro biológicamente estéril, no encaja ahí. Se quitó `mulo`/`mula` de `baker/catalogo/animales.json`, `personajes/catalogo/animales_rig.json` y `ciudades/src/fauna.js`, y `burro` (que sí se reproduce de verdad, y ya tenía `burro_salvaje` esperando su par) ocupa su sitio con el mismo rig adaptado.
+
+## Convención de trío macho/hembra/cría, y su extensión a fauna salvaje (mismo pedido 2026-08-29)
+
+Pedido explícito, con ejemplo: "si más adelante digo añadimos el cerdo, pues cerdo, cerda, cerdito se debe crear" — y después extendido: "también los animales salvajes deben tener esta regla... macho hembra y cachorro". Es una convención de **catálogo**, no de generación: cada trío es tres entradas nuevas en `baker/catalogo/animales.json` (nombre real cuando existe en español — toro/vaca, caballo/yegua, cerdo/cerda —, o flexión de género normal si no — perro/perra, gato/gata) más UNA sola cría común a ambos sexos (el sexo se decide al llegar a adulto, nunca "cría macho"/"cría hembra").
+
+- **Doméstico** (+16, completando los pares que ya existían): `perra`/`cachorro`, `gata`/`gatito`, `pollito` (de gallina_salvaje/gallo), `yegua`/`potro`, `toro`/`vaca`/`ternero` (bovina doméstica completa junto a `buey`), `cerda`/`cerdito`, `oca`/`ansarino`, `cordero`, `burra`/`burrito`.
+- **Salvaje** (+12, solo la fauna de caza/campo pedida explícitamente, NO todo el catálogo): `jabalina`/`jabato`, `cierva`/`cervatillo`, `corza`/`corcino`, `macho_cabrio`/`cabrito` (`cabra` YA era el nombre real de la hembra, así que aquí se añadió el macho), `oca_salvaje`/`ansarino_salvaje`, `ratona_de_campo`/`ratoncillo_de_campo`. Llevan `densidadBase`/`capacidadMaximaPorChunk` en 0 a propósito — repartir la densidad real de spawn entre macho/hembra/cría sin triplicar la población de cada especie es una decisión de diseño que no se ha tomado todavía; hoy jabalí/ciervo/corzo/cabra/ganso_salvaje/raton_de_campo siguen spawneando exactamente igual que antes.
+
+Regla anotada como PERMANENTE dentro del propio `baker/catalogo/animales.json` (`_nota_convencion_macho_hembra_cria_2026_08_29` y `_nota_convencion_salvaje_macho_hembra_cria_2026_08_29`) para que cualquier especie doméstica o de caza/campo que se añada de aquí en adelante lleve su trío sin que haga falta volver a pedirlo. Ninguna de las 28 entradas nuevas tiene esqueleto todavía — es la base para un futuro sistema de cría entre animales de la misma especie y sexo distinto, no la mecánica en sí.
 
 ## Marchas embebidas (regla del streamer, acordada 2026-08-27)
 

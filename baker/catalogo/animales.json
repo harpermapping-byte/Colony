@@ -2072,7 +2072,7 @@
     "colorDebug": "#5a3a20",
     "_nota": "Fauna urbana — ver nota de 'perro'. Par doméstico de caballo_salvaje (que se mantiene igual, población salvaje del mapa exterior)."
   },
-  "mulo": {
+  "burro": {
     "colision": true,
     "biomas": [],
     "densidadBase": 0,
@@ -2082,7 +2082,7 @@
     "domesticable": true,
     "nota": "animal de tiro/carga",
     "colorDebug": "#8a7a68",
-    "_nota": "Fauna urbana — ver nota de 'perro'. Sin versión salvaje real (siempre es un híbrido criado de caballo+burro)."
+    "_nota": "Fauna urbana — ver nota de 'perro'. Sustituye a 'mulo' como animal de tiro con rig (pedido 2026-08-29): par doméstico de 'burro_salvaje', que se mantiene igual."
   },
   "buey": {
     "colision": true,
@@ -2195,7 +2195,8 @@
     "colorDebug": "#c9b8a0",
     "_nota": "Fauna urbana, macho de 'oveja' — mismo patrón que gallina_salvaje/gallo: nombre propio por sexo, no una variante de color."
   },
-  "_nota_convencion_macho_hembra_cria_2026_08_29": "Convención PERMANENTE desde ahora para fauna DOMÉSTICA/urbana (pedido del streamer: 'necesitamos que todos tengan macho y hembra... que se vayan añadiendo SIEMPRE tengan las crias y el macho o hembra'): toda especie doméstica nueva se da de alta como TRÍO — macho, hembra (nombre real distinto cuando existe en español: cerdo/cerda, toro/vaca, caballo/yegua, gallo/gallina; si no hay nombre distinto de verdad, como perro/perra o gato/gata, se usa la flexión de género normal) + UNA sola cría común a ambos sexos (cachorro/gatito/potro/ternero/cerdito/cordero/pollito/ansarino — nunca 'cría macho'/'cría hembra', el sexo se decide al llegar a adulto). Pensado como base para un futuro sistema de cría entre animales de la misma especie y sexo distinto (con sus condiciones) — de momento esto es solo el LISTADO, sin esqueleto todavía en ninguno de los 16 nuevos de aquí abajo ('ya haremos los esqueletos cuando toque'). 'mulo'/'mula' son la única pareja SIN cría propia: es un híbrido estéril (caballo+burro), no se reproduce entre sí — macho/hembra ahí son solo nombre.",
+  "_nota_convencion_macho_hembra_cria_2026_08_29": "Convención PERMANENTE para fauna DOMÉSTICA/urbana (pedido del streamer: 'necesitamos que todos tengan macho y hembra... que se vayan añadiendo SIEMPRE tengan las crias y el macho o hembra'): toda especie doméstica nueva se da de alta como TRÍO — macho, hembra (nombre real distinto cuando existe en español: cerdo/cerda, toro/vaca, caballo/yegua, gallo/gallina; si no hay nombre distinto de verdad, como perro/perra o gato/gata, se usa la flexión de género normal) + UNA sola cría común a ambos sexos (cachorro/gatito/potro/ternero/cerdito/cordero/pollito/ansarino/burrito — nunca 'cría macho'/'cría hembra', el sexo se decide al llegar a adulto). 'mulo' se sustituyó por 'burro' (ver más abajo): el mulo es un híbrido estéril y no encaja con un sistema pensado para cría.",
+  "_nota_convencion_salvaje_macho_hembra_cria_2026_08_29": "Misma convención, extendida a fauna SALVAJE del mapa exterior (pedido del streamer: 'los animales salvajes también tienen esta regla... macho hembra y cachorro'): por cada especie salvaje que la tenga, se añaden sus parejas hembra/cría con nombre real (jabalí/jabalina/jabato, ciervo/cierva/cervatillo, corzo/corza/corcino, cabra/macho_cabrio/cabrito — 'cabra' YA es el nombre de la hembra, así que la que se añade es el macho —, ganso_salvaje/oca_salvaje/ansarino_salvaje, raton_de_campo/ratona_de_campo/ratoncillo_de_campo). A propósito con `densidadBase:0`/`capacidadMaximaPorChunk:0` (mismos biomas que su pareja, para cuando se diseñe cómo repartir la densidad total entre las tres sin triplicar la población real) — spawnear de verdad necesita decidir cómo decoracion.js reparte el `densidadBase` original entre macho/hembra/cría, que es trabajo aparte de este listado. Igual que con lo doméstico: catálogo primero, mecánica y esqueletos después. No se ha tocado TODO el catálogo salvaje (peces/insectos/aves sin nombre de sexo distinto en español no llevan esto) — solo las especies de caza/campo que se pidieron explícitamente; el resto sigue como un único registro por especie hasta que se pida ampliar más.",
   "perra": {
     "biomas": [],
     "categoriaRecursoCarne": null,
@@ -2273,7 +2274,7 @@
     "colorDebug": "#8a7050",
     "_nota": "Cría de caballo/yegua — ver nota de 'cachorro'."
   },
-  "mula": {
+  "burra": {
     "colision": true,
     "biomas": [],
     "densidadBase": 0,
@@ -2283,7 +2284,17 @@
     "domesticable": true,
     "nota": "animal de tiro/carga",
     "colorDebug": "#8a7a68",
-    "_nota": "Fauna urbana, hembra de 'mulo'. SIN cría propia — ver nota de convención de arriba."
+    "_nota": "Fauna urbana, hembra de 'burro' — ver nota de 'perra'."
+  },
+  "burrito": {
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 4,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#8a7a68",
+    "_nota": "Cría de burro/burra — ver nota de 'cachorro'."
   },
   "toro": {
     "colision": true,
@@ -2373,5 +2384,172 @@
     "domesticable": true,
     "colorDebug": "#f0e8d8",
     "_nota": "Cría de oveja/carnero — ver nota de 'cachorro'."
+  },
+  "jabalina": {
+    "colision": true,
+    "biomas": [
+      "bosque"
+    ],
+    "categoriaRecursoCarne": "carne_caza_mayor",
+    "categoriaRecursoPiel": "cuero_grueso",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 5,
+    "peligroso": true,
+    "domesticable": false,
+    "colorDebug": "#4a3a2a",
+    "disposicion": "neutral",
+    "radioAgro": 4,
+    "_nota": "Hembra de 'jabali' — ver nota de convención salvaje. densidadBase/capacidadMaximaPorChunk en 0 a propósito: repartir la densidad real entre jabali/jabalina/jabato es trabajo aparte de este listado."
+  },
+  "jabato": {
+    "biomas": [
+      "bosque"
+    ],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#8a6a4a",
+    "_nota": "Cría de jabali/jabalina — ver nota de convención salvaje. No peligroso (a diferencia de sus padres)."
+  },
+  "cierva": {
+    "colision": true,
+    "biomas": [
+      "bosque"
+    ],
+    "categoriaRecursoCarne": "carne_roja",
+    "categoriaRecursoPiel": "piel_fina",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 5,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#8a6a3a",
+    "_nota": "Hembra de 'ciervo' — ver nota de convención salvaje."
+  },
+  "cervatillo": {
+    "biomas": [
+      "bosque"
+    ],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#c9a878",
+    "_nota": "Cría de ciervo/cierva — ver nota de convención salvaje."
+  },
+  "corza": {
+    "colision": true,
+    "biomas": [
+      "pradera",
+      "bosque"
+    ],
+    "categoriaRecursoCarne": "carne_roja",
+    "categoriaRecursoPiel": "piel_fina",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 5,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#a07850",
+    "_nota": "Hembra de 'corzo' — ver nota de convención salvaje."
+  },
+  "corcino": {
+    "biomas": [
+      "pradera",
+      "bosque"
+    ],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#c9a878",
+    "_nota": "Cría de corzo/corza — ver nota de convención salvaje."
+  },
+  "macho_cabrio": {
+    "colision": true,
+    "biomas": [
+      "pradera",
+      "montana_nevada"
+    ],
+    "categoriaRecursoCarne": "carne_roja",
+    "categoriaRecursoPiel": "piel_basta",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 8,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#8a7a5a",
+    "_nota": "Macho de 'cabra' — 'cabra' YA es el nombre real de la hembra, así que aquí se añade el macho (no al revés). Ver nota de convención salvaje."
+  },
+  "cabrito": {
+    "biomas": [
+      "pradera",
+      "montana_nevada"
+    ],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 4,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#d8c8a0",
+    "_nota": "Cría de cabra/macho_cabrio — ver nota de convención salvaje."
+  },
+  "oca_salvaje": {
+    "biomas": [
+      "pradera",
+      "pantano",
+      "costa"
+    ],
+    "categoriaRecursoCarne": "carne_blanca",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 4,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#8a8262",
+    "_nota": "Hembra de 'ganso_salvaje' — distinta de 'oca' (la doméstica urbana, par de 'ganso_domestico'). Ver nota de convención salvaje."
+  },
+  "ansarino_salvaje": {
+    "biomas": [
+      "pradera",
+      "pantano",
+      "costa"
+    ],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": true,
+    "colorDebug": "#e0d8a0",
+    "_nota": "Cría de ganso_salvaje/oca_salvaje — distinta de 'ansarino' (la doméstica urbana). Ver nota de convención salvaje."
+  },
+  "ratona_de_campo": {
+    "biomas": [
+      "pradera"
+    ],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 3,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#8a7a6a",
+    "_nota": "Hembra de 'raton_de_campo' — ver nota de convención salvaje."
+  },
+  "ratoncillo_de_campo": {
+    "biomas": [
+      "pradera"
+    ],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 2,
+    "peligroso": false,
+    "domesticable": false,
+    "colorDebug": "#a89888",
+    "_nota": "Cría de raton_de_campo/ratona_de_campo — ver nota de convención salvaje."
   }
 }

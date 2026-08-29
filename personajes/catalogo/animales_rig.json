@@ -459,20 +459,20 @@
       ["#8a7050", 15]
     ]
   },
-  "mulo": {
-    "_nota": "Cruce caballo/burro — orejas largas de burro, capas más apagadas (hereda menos variedad de color que un caballo de raza).",
+  "burro": {
+    "_nota": "Pedido 2026-08-29: se sustituye 'mulo' por 'burro' como animal de tiro con rig — el mulo es un híbrido estéril y no encaja con el sistema de cría (macho/hembra/cría) que se está montando; el burro sí se reproduce de verdad. Par doméstico de 'burro_salvaje' (que se mantiene igual). Orejas largas características.",
     "esqueleto": "cuadrupedo",
     "escala": [
-      0.8,
-      1.0
+      0.75,
+      0.95
     ],
     "proporciones": {
-      "largoCuerpo": 1.15,
-      "altoCuerpo": 0.58,
-      "anchoCuerpo": 0.36,
-      "altoPata": 0.62,
+      "largoCuerpo": 1.1,
+      "altoCuerpo": 0.55,
+      "anchoCuerpo": 0.35,
+      "altoPata": 0.58,
       "grosorPata": 0.12,
-      "tamCabeza": 0.34
+      "tamCabeza": 0.33
     },
     "rasgos": {
       "orejas": "largas",
