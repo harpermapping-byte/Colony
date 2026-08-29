@@ -1190,9 +1190,7 @@
     "domesticable": false,
     "colorDebug": "#7aa8c0",
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "pez_mediano": {
     "biomas": [
@@ -1207,9 +1205,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#4a7a9a",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "pez_grande": {
     "biomas": [
@@ -1226,9 +1222,7 @@
     "domesticable": false,
     "colorDebug": "#2a5a7a",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "tiburon": {
     "colision": true,
@@ -1250,9 +1244,7 @@
     "prefiereAguaProfunda": true,
     "disposicion": "neutral",
     "radioAgro": 7,
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "orca": {
     "colision": true,
@@ -1271,9 +1263,7 @@
     "distanciaMinima": 80,
     "disposicion": "neutral",
     "radioAgro": 10,
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "ballena_azul": {
     "colision": true,
@@ -1289,9 +1279,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#4a5a68",
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "pulpo": {
     "biomas": [
@@ -1397,9 +1385,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#8a8a7a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "caballito_de_mar": {
     "biomas": [
@@ -1413,9 +1399,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#e0a040",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "anemona_de_mar": {
     "biomas": [
@@ -1446,9 +1430,7 @@
     "colorDebug": "#1a2a2a",
     "disposicion": "neutral",
     "radioAgro": 3,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "pez_linterna": {
     "biomas": [
@@ -1462,9 +1444,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#2a3a50",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "rana": {
     "biomas": [
@@ -1735,9 +1715,7 @@
     "domesticable": false,
     "colorDebug": "#8aa870",
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "salmon_rio": {
     "biomas": [
@@ -1755,9 +1733,7 @@
     "domesticable": false,
     "colorDebug": "#c97a68",
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "carpa_rio": {
     "biomas": [
@@ -1775,9 +1751,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#a89858",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "omnivoro"
+    "poblacionInfinita": true
   },
   "lucio_rio": {
     "biomas": [
@@ -1796,9 +1770,7 @@
     "colorDebug": "#5a7a4a",
     "_nota": "Depredador solitario de agua dulce — casi nunca en banco, a diferencia de trucha/carpa.",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "siluro": {
     "biomas": [
@@ -1817,9 +1789,7 @@
     "colorDebug": "#4a4038",
     "_nota": "El pez de agua dulce más grande y raro — casi siempre solo (capacidadMaximaPorChunk 1), como el tiburón en el mar.",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "pez_gato_desierto": {
     "biomas": [
@@ -1836,9 +1806,7 @@
     "domesticable": false,
     "colorDebug": "#c9a870",
     "_nota": "Único pez de oasis del desierto — densidad baja, el agua dulce ahí ya es escasa de por sí.",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "perca_lago": {
     "biomas": [
@@ -1855,9 +1823,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#7a9868",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "carpa_lago": {
     "biomas": [
@@ -1875,9 +1841,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#98a058",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true,
-    "dieta": "omnivoro"
+    "poblacionInfinita": true
   },
   "trucha_alpina": {
     "biomas": [
@@ -1895,9 +1859,7 @@
     "colorDebug": "#9ab8c0",
     "_nota": "Lago/río de alta montaña — agua fría, único pez propio de montana_nevada además de la trucha_rio genérica.",
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "_nota_peces_mar_ampliacion": "Ampliación de variedad de mar (pedido 2026-08-29) — se mantienen pez_pequeno/mediano/grande/tiburon/orca/ballena_azul tal cual, esto añade especies con nombre propio para más variedad visual/de recurso, mismo patrón grande-solitario / pequeño-banco de siempre.",
   "arenque": {
@@ -1914,9 +1876,7 @@
     "domesticable": false,
     "colorDebug": "#8aa8c0",
     "_nota": "El pez más pequeño y en banco más grande de todo el catálogo — presa base de tiburón/orca.",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "bacalao": {
     "biomas": [
@@ -1933,9 +1893,7 @@
     "domesticable": false,
     "colorDebug": "#5a6a5a",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "atun": {
     "biomas": [
@@ -1953,9 +1911,7 @@
     "colorDebug": "#2a4a68",
     "_nota": "Grande y veloz — densidad baja/disperso, no forma banco cerrado como arenque.",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "pez_espada": {
     "biomas": [
@@ -1973,9 +1929,7 @@
     "_nota": "Grande, solitario y raro — el pico afilado lo hace peligroso de cerca, a diferencia del resto de peces.",
     "disposicion": "neutral",
     "radioAgro": 6,
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "anguila_marina": {
     "biomas": [
@@ -1991,9 +1945,7 @@
     "domesticable": false,
     "colorDebug": "#4a5a48",
     "_nota": "Costera, distinta de anguila_abisal (mar_profundo) ya existente.",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "foca": {
     "colision": true,
@@ -2011,9 +1963,7 @@
     "domesticable": false,
     "colorDebug": "#8a8a80",
     "_nota": "Único mamífero marino además de orca/ballena — costera (mar_bajo), no forma banco.",
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "_nota_ampliacion_aerea_2026_08_29": "Ampliación de fauna aérea (pedido del streamer, auditoría de huecos ecológicos 2026-08-29): rapaces de talla media, aves de granja/lago, refuerzo de costa (bioma más flojo en aéreas) y un insecto volador peligroso — sin duplicar lo ya existente (gallina_salvaje/gallo, abeja, murcielago, azor, aguila_real...).",
   "pato_azulon": {
@@ -2324,9 +2274,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#1a1a1a",
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "sardina": {
     "biomas": [
@@ -2341,9 +2289,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#8aa8c8",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "caballa": {
     "biomas": [
@@ -2359,9 +2305,7 @@
     "domesticable": false,
     "colorDebug": "#3a5a78",
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "rodaballo": {
     "biomas": [
@@ -2380,9 +2324,7 @@
       "pez_pequeno"
     ],
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "calamar_gigante": {
     "colision": true,
@@ -2437,9 +2379,7 @@
     "peligroso": false,
     "domesticable": true,
     "colorDebug": "#4a6a3a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "dieta": "omnivoro"
+    "poblacionInfinita": true
   },
   "esturion": {
     "biomas": [
@@ -2457,9 +2397,7 @@
     "domesticable": false,
     "colorDebug": "#5a5850",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true,
-    "dieta": "carnivoro"
+    "poblacionInfinita": true
   },
   "_nota_ampliacion_terrestre_2026_08_29": "Ampliación de fauna terrestre (mismo pedido 2026-08-29): base de cadena trófica para tierras_quemadas (el bioma más pobre del catálogo), un mamífero de ribera y un reptil venenoso templado que faltaba en bosque/pradera/montaña. Añade también el par doméstico 'oveja'/'carnero' (pedido explícito del streamer: cada especie con nombre real distinto por sexo, como gallina_salvaje/gallo — oveja_salvaje se mantiene igual, es la población salvaje de pradera) y 'cerdo' doméstico (jabali ya cubre el ancestro salvaje).",
   "_nota_animales_trabajo_2026_08_29": "Animales de trabajo/monta (pedido 2026-08-29, 'caballos mulos bueyes animales de trabajo'): caballo_salvaje/burro_salvaje ya cubrían la población salvaje domesticable, pero faltaba el par doméstico urbano (mismo patrón que perro/gato/gallo) — caballo, mulo (sin versión salvaje real, siempre es un híbrido criado) y buey (bovino de labranza, par de vaca_salvaje). A diferencia de oveja/carnero/cerdo/ganso_domestico, ESTOS SÍ tienen rig ya (personajes/catalogo/animales_rig.json) y están enganchados al spawn de ciudades/src/fauna.js.",

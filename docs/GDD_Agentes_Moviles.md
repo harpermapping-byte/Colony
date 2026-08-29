@@ -509,6 +509,56 @@ adelante) — las crías comen de sus padres hasta crecer".
   Encontrado por un test que comprobaba el valor tras un ciclo
   guardar→leer, antes de que llegara a producción.
 
+### Hecho en la fase 4 (fauna 100% acuática = población infinita, como los insectos)
+
+Pedido: "los peces obviamente no tienen sed, esos no hace falta que
+crezcan ni se reproduzcan ni coman, simplemente vagan por zonas en
+bancos de peces, o sea son como insectos: X cantidad y si muere o
+desaparece alguno se repone en otro lado. Las orcas o tiburones igual,
+pero realmente solo sirven para ser enemigos de los usuarios al nadar
+— orcas que salgan solo en mar profundo".
+
+Tenía razón: un pez está SIEMPRE en el agua, pedirle que "vaya a beber"
+no tiene sentido — a diferencia de una foca o un delfín, que salen a
+tierra/rocas de verdad. El catálogo YA distinguía esto con el campo
+`requiereAgua` (fauna 100% acuática vs. costera), así que la frontera
+no hubo que inventarla, ya estaba bien puesta.
+
+- **31 especies** (las que llevan `requiereAgua: true`: todos los peces
+  con nombre propio, `orca`, `tiburon`, `ballena_azul`, `ballena_franca`,
+  `foca`) pierden `tamanoReproduccion`/`poneHuevos`/`dieta` y pasan a
+  `poblacionInfinita: true` — EXACTAMENTE el mismo campo y el mismo
+  tratamiento que ya tenían los insectos (abeja, mariposa...): no gestan,
+  no maduran, no buscan pareja, no necesitan agua ni comida. Total
+  población infinita del catálogo: 27 insectos + 31 acuáticos = 58 de
+  187 especies.
+- **NO tocadas** (mismo criterio, se quedan con reproducción normal):
+  especies marinas/costeras SIN `requiereAgua` — `foca_comun`,
+  `delfin_mular`, `morsa` (salen a rocas/costa de verdad, no viven
+  encerradas en el agua) y las aves acuáticas (`gaviota`, `cormoran`,
+  `pelicano`, `pato_azulon`, `cisne_vulgar`, `ganso_salvaje`/
+  `oca_salvaje`, `alcatraz_atlantico`, `frailecillo_atlantico`,
+  `aguila_pescadora`) — vuelan y anidan en tierra, sí tiene sentido que
+  necesiten beber.
+- **Orca solo en `mar_profundo`**: ya era así en el catálogo desde antes
+  de este pedido (`biomas: ["mar_profundo"]`) — no hizo falta tocar
+  nada, solo confirmarlo.
+- **Consecuencia práctica**: estas 31 especies nunca entran en
+  `resolverSector`/`GestorFaunaSalvaje` (el bucle de primera activación
+  ya descarta `poblacionInfinita` desde la fase 1) — siguen exactamente
+  igual que hoy, pintadas como props decorativos del bake
+  (`InstancedMesh`, banco de peces vía el `capacidadMaximaPorChunk`/
+  agrupación ya existente de `decoracion.js`). El "si muere alguno se
+  repone en otro lado" que pide el streamer necesita saber CUÁNDO muere
+  un pez, y eso depende de la caza/combate — mismo hueco ya documentado
+  para los insectos, no es nuevo de esta fase: cuando el combate exista,
+  "reponer" es una operación mecánica sencilla, no una decisión de
+  diseño pendiente.
+- Verificado: 265 tests siguen en verde (los tests de fase 1-3 no
+  dependían de qué especies concretas son `poblacionInfinita`, solo del
+  campo en sí), `catalogoFaunaSalvaje.test.ts` confirma que las 58
+  especies infinitas y las 129 reproductoras cuadran.
+
 ### Pendiente (fuera de esta pasada)
 
 - **Caza de depredadores con combate y cadáver**: aparcado a propósito —
