@@ -12,7 +12,7 @@ Nuevo tier en `ciudades/catalogo/asentamientos.json`, **distinto** de `capital` 
 
 | campo | `capital_jarl` | `capital` (regional) | `gran_capital` (regional) |
 |---|---|---|---|
-| `organico.radio` | **96** | 56 | 112 |
+| `organico.radio` | **108** | 56 | 112 |
 | `muralla.material` | **empalizada** (madera) | piedra | piedra |
 | `muralla.puertas` | 5 | 3 | 4 |
 | `plaza` | 10 | 7 | 9 |
@@ -23,7 +23,7 @@ Nuevo tier en `ciudades/catalogo/asentamientos.json`, **distinto** de `capital` 
 | `parcelasReservadas` (nuevo) | **{normales: 20, especiales: 16}** | — | — |
 
 Por qué estos números:
-- **Radio 96**: entre `capital` y `gran_capital`, más cerca de esta última — es la ciudad más importante del mapa, tenía que notarse, pero no hacía falta llegar al límite de `gran_capital` (esa sigue siendo "la mayor escala" conceptual, ver su `uso` en el catálogo).
+- **Radio 108** (subido de 96 el 2026-08-29, pedido del streamer tras ver una imagen de prueba con edificios sin sitio): casi al límite de `gran_capital` (112) — es la ciudad más importante del mapa, tenía que notarse, y el primer bake de prueba a 96 descartaba ~6 edificios de un objetivo de 84 por falta de sitio. A 108 + la red de seguridad de §3bis, un barrido de 4 semillas a tamaño real salió con CERO descartes.
 - **`edificios.cantidad` [84,100] > `gran_capital` [64,80]** con MENOS radio (96 < 112): a propósito, es donde vive/trabaja más gente que en cualquier otro sitio (muchos NPCs con sus rutinas, ya enganchados vía `poblacion/`).
 - **Muralla de empalizada** (no piedra): pedido explícito del streamer — "muralla inicial de madera que se podrá ir mejorando como proyecto del jarl". Usa el mismo valor de `material` que ya usan `aldea_pequena`/`aldea`/`campamento_barbaros` — no se inventó un material nuevo. El **mejorable a piedra más adelante** sigue el mismo patrón que `GDD_Faccion_Bandidos.md` §8.2 ya documentó para el asedio: swap de muralla por nivel aplicado solo al (re)cargar el sector, nunca reactivo en caliente. **No implementado aquí** — solo la muralla inicial.
 - **`zonasVerdes: 11`, la mayor de cualquier tier** (antes el máximo era `gran_capital` con 9) y `plaza: 10` (la mayor plaza) — "más plazas, más parques, más vegetación... mucha más decoración también" del pedido. La capa de decoración/iluminación ya escala con `radio`/`plaza` sin campo propio (ver `generar.js`), así que no hizo falta un campo nuevo para "más decoración": sale sola de un radio y plaza mayores.
@@ -50,6 +50,14 @@ Estas entradas se **mezclan** en la misma lista que los edificios reales y pasan
 Resultado: un hueco real, caminable, con césped/tierra alrededor — no un "descampado marcado como obra". Export: campo nuevo `parcelasReservadas` en `indice.json` (`[{tipo: "especial"|"normal", x, y, rot, ancho, largo}]`), listo para cuando exista construcción-en-regiones (§6).
 
 **Mejor esfuerzo, no garantizado**: igual que con los edificios normales (`descartados`), si no hay sitio la parcela simplemente no se reserva — no bloquea el bake. Medido en el barrido de 11 semillas: `especiales` encontró sitio para las 16 completas siempre (van primero, por tamaño); `normales` varió entre 0 y 20 según la semilla (compite en igualdad con el resto de edificios pequeños del tier, que además son ~90). Documentado como comportamiento esperado, no un bug — un test cubre que NUNCA se reserva de más de lo pedido y que ninguna reservada se solapa con calle/agua/otro solar/edificio real (`ciudades/test/ciudad.test.js`).
+
+## 3bis. Red de seguridad: un edificio sin sitio no se pierde (2026-08-29)
+
+Pedido del streamer al ver la primera imagen de prueba: la ciudad "debería tener de todo, o al menos parcelas para construcciones futuras de esas" — que un edificio del listado se quede fuera por falta de sitio no debería significar perder su contenido sin más.
+
+`colocarEdificio` seguía dejando en `ciudad.descartados` (solo un log, `"sin sitio: casa_modesta, herreria..."`) cualquier edificio no obligatorio que no encontraba hueco a SU tamaño real. Ahora, tras la pasada normal de colocación, cada descarte no-obligatorio se reintenta una vez más con la huella PEQUEÑA de una parcela reservada normal (`wResNormal`×`hResNormal`, la misma que usa §3) — un hueco más pequeño tiene más posibilidades de encontrar sitio donde el edificio original no cabía. Si encuentra sitio, se añade a `parcelasReservadas` como una `normal` más (con `origenDescarte: "<tipoEdificioId>"` para trazabilidad, no afecta a la cuenta configurada en el tier — es un extra, no sustituye a `resDef.normales`). Si tampoco encuentra sitio ni siquiera a ese tamaño, se queda en `descartados` de verdad (caso límite, no observado en las 4 semillas probadas tras subir el radio a 108).
+
+Resultado: la ciudad "tiene de todo, o al menos deja reservado el hueco para construirlo más adelante" — nunca pierde contenido en silencio sin dejar ni rastro.
 
 ## 4. Campos de cultivo (`camposCultivo`)
 

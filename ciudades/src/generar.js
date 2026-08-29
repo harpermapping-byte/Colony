@@ -623,12 +623,29 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
   for (const ed of edificios.filter((e) => !e.obligatorio))
     (colocarEdificio(ed, !!ed.reservado) ? colocados : descartados).push(ed);
 
+  // red de seguridad (pedido del streamer, GDD_Ciudad_Capital.md): un
+  // edificio real que no encontró sitio a su tamaño NO se pierde sin más —
+  // se reintenta con la huella más pequeña de una parcela reservada normal.
+  // Si cabe ahí, la ciudad "tiene de todo, o al menos deja reservado el
+  // hueco para construirlo más adelante" en vez de descartar contenido en
+  // silencio (antes: `ciudad.descartados` solo lo dejaba en un log).
+  for (let i = descartados.length - 1; i >= 0; i--) {
+    const ed = descartados[i];
+    if (ed.obligatorio || ed.reservado) continue;
+    const retry = reservaEntrada("normal", wResNormal, hResNormal);
+    retry.origenDescarte = ed.tipoEdificioId;
+    if (colocarEdificio(retry, true)) {
+      colocados.push(retry);
+      descartados.splice(i, 1);
+    }
+  }
+
   // las parcelas reservadas se separan del resto de edificios: no llevan
   // interior ni puerta, no son "ciudad.edificios" — solo posición/tamaño
   // para el futuro sistema de construcción en regiones (ver GDD_Ciudad_Capital.md)
   const parcelasReservadas = colocados
     .filter((e) => e.reservado)
-    .map((e) => ({ tipo: e.tipoReserva, x: e.cx, y: e.cy, rot: e.rot, ancho: e.w, largo: e.h }));
+    .map((e) => ({ tipo: e.tipoReserva, x: e.cx, y: e.cy, rot: e.rot, ancho: e.w, largo: e.h, ...(e.origenDescarte ? { origenDescarte: e.origenDescarte } : {}) }));
 
   // la muralla es el LÍMITE habitable (decisión del usuario): fuera solo
   // quedan los caminos de llegada — nada de granjas ni casas extramuros

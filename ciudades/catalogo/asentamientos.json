@@ -320,10 +320,10 @@
   "capital_jarl": {
     "uso": "LA capital del jarl/admin — entidad ÚNICA en el mapa (no una capital regional genérica como 'capital'/'gran_capital', que pueden repetirse en distintas regiones). Sede del jarl principal: casco viejo denso, mucha vegetación/decoración, campos de cultivo propios en el anillo interior y parcelas reservadas sin construir para viviendas de jugador y proyectos especiales del jarl (docs/GDD_Ciudad_Capital.md). Muralla inicial de EMPALIZADA (madera) a propósito — mejorable como proyecto del jarl más adelante (mismo patrón de swap por nivel que docs/GDD_Faccion_Bandidos.md §8: nunca reactivo en caliente, solo al recargar el sector).",
     "organico": {
-      "radio": 96,
+      "radio": 108,
       "irregularidad": 0.15,
       "geografias": [
-        [
+ [
           "colina",
           3
         ],
