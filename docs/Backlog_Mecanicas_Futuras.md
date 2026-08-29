@@ -136,7 +136,16 @@ Concepto decidido por el streamer, estilo Project Zomboid:
 - Progresión por **rama/experiencia de la propia profesión** (mejora de herrero, mejora de carpintero...) — mismo patrón "se mejora con el uso" que los atributos de arriba, no un nivel de personaje genérico compartido.
 - Encaja directo con "Oficios de crafteo" y "Comercio y economía" ya anotados más abajo en este backlog — mismo tema, ahora con el mecanismo (planos + XP por rama) más claro.
 
-**Pendiente de definir cuando toque**: catálogo de profesiones (¿una lista cerrada, o abierta como el resto de catálogos del proyecto?), cómo se consigue un plano nuevo (comprado/encontrado/enseñado por NPC), estaciones de trabajo requeridas por receta (ya apuntado en "Oficios de crafteo"), y si un personaje puede tener varias profesiones a la vez o hay que especializarse.
+**Catálogo de profesiones — primera lista (pedido del streamer 2026-08-29, decidido que es una lista ABIERTA, crece como el resto de catálogos del proyecto — filosofía §7 de CLAUDE.md, "las listas CRECEN"). Solo el LISTADO, el árbol de planos/recetas/estaciones de cada una sigue sin diseñar:**
+
+- **Recolección primaria**: pesca, caza, leñador, agricultura, cría de animales, montar a caballo (y otras monturas), minero (vetas de mineral/piedra — alimenta a herrero y picapedrero), trampero (caza menor/pieles para peletero), apicultor (miel/cera).
+- **Artesanía/transformación**: herrería (general), herrero de armas, herrero de armaduras, carpintería, tallador de piedra/picapedrero, curtidor (piel → cuero), peletero (cuero/piel → prenda), herbolista, vidriero, arquero/ballestero (fletcher), guarnicionero (sillas de montar y arreos — crafteo detrás de "montar a caballo").
+- **Ya tienen building/`temaTaller` en el catálogo pero cero mecánica jugable encima**: alfarero, joyero, sastre/tejedor, destilador/cervecero, molinero, panadero.
+- **Comercio/servicios**: tendero, carnicero, constructor, cocinero, curandero/médico (`choza_curandero` ya existe; distinto de herbolista — trata heridas, conecta con "heridas como estado" en "Ideas propias a valorar"), mercader ambulante (`carromato_mercader` ya existe como building).
+- **Mar**: navegante, capitán de barco, constructor naval/carpintero de ribera (distinto del constructor general; conecta con "Puerto/Muelle Comunal" en "Proyectos especiales del jarl").
+- **Combate/exploración**: guardia/mercenario (`cuartel_guardia`/`arena_combate` ya existen sin profesión encima), explorador/cartógrafo (`mapa_mesa` ya en catálogo de interiores).
+
+**Pendiente de definir cuando toque**: cómo se consigue un plano nuevo (comprado/encontrado/enseñado por NPC), estaciones de trabajo requeridas por receta (ya apuntado en "Oficios de crafteo"), y si un personaje puede tener varias profesiones a la vez o hay que especializarse.
 
 ## NPCs contratables para automatizar producción (trabajar, transportar, vender) — concepto del streamer, reconciliado con la arquitectura real, sin diseñar del todo
 
