@@ -474,8 +474,11 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       // de uno nuevo por tile (coste). No todo tile de borde recibe roca
       // (ROCA_ACANTILADO_PROB) para no amontonar miles de piezas en un
       // acantilado largo — sigue leyéndose como muro porque los huecos ya
-      // quedan tapados por roca_inaccesible plana debajo.
-      const ROCA_ACANTILADO_PROB = 0.45;
+      // quedan tapados por roca_inaccesible plana debajo. Subido de 0.45 a
+      // 0.65 (2026-08-29, pedido del streamer: "que se vean más a menudo al
+      // pasear") — solo sube la densidad de la roca DECORATIVA, no toca
+      // `idTerreno`/transitabilidad ni el ruido de elevación compartido.
+      const ROCA_ACANTILADO_PROB = 0.65;
       const objetosAcantilado = [];
       if (tilesAcantilado.length) {
         const prngAcantilado = crearPRNG(semillaDesdeTexto(`${config.semilla}:acantilado:${cx}:${cy}`));
