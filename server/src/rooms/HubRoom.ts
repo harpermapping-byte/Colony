@@ -15,6 +15,7 @@ import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catal
 import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
 import { UnidadCombate, calcularIniciativa, simularCombateAutomatico } from "../combate/arenaCombate";
 import { TIPO, tipoEn } from "../mundo/colisiones";
+import { cooldownNpcHablarMs } from "../personaje/bonusAtributos";
 
 // Lee un `sector_XXX_YYY.json` bakeado y devuelve solo sus objetos de
 // fauna (t==="a") con coordenadas GLOBALAS de casilla — mismo formato de
@@ -204,7 +205,11 @@ export class HubRoom extends RoomExteriorBase {
       // agotar la cuota gratuita de Gemini/Groq para todos los jugadores.
       const ahora = Date.now();
       const anterior = this.ultimoMensajeNpc.get(client.sessionId) ?? 0;
-      const COOLDOWN_MS = 3000;
+      // Carisma (docs/GDD_Personaje.md §3.3): "más interacciones o
+      // conversaciones" — más nivel de carisma acorta este cooldown, nunca
+      // por debajo de 1000ms (la cuota de Gemini/Groq sigue mandando).
+      const nivelCarisma = this.state.players.get(client.sessionId)?.atributos.carisma ?? 1;
+      const COOLDOWN_MS = cooldownNpcHablarMs(nivelCarisma);
       if (ahora - anterior < COOLDOWN_MS) {
         client.send("npc:error", { npcId: msg.npcId, motivo: "espera un momento antes de volver a hablar" });
         return;

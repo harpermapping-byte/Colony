@@ -11,7 +11,7 @@ import {
   hayHueco,
   buscarHueco,
   pesoContenedor,
-  pesoMaximoTransportable,
+  excedePesoMaximo,
   puedeEquiparEnSlot,
   CatalogoItems,
 } from "../src/inventario/inventario";
@@ -173,9 +173,16 @@ test("pesoContenedor: suma peso unitario * cantidad de cada pila, no por casilla
   assert.strictEqual(pesoContenedor(c, catalogo), esperado);
 });
 
-test("pesoMaximoTransportable: fórmula placeholder documentada, monótona con Fuerza", () => {
-  assert.strictEqual(pesoMaximoTransportable(0), 20);
-  assert.ok(pesoMaximoTransportable(10) > pesoMaximoTransportable(0));
+test("excedePesoMaximo: false con hueco de sobra, true al pasarse del máximo dado", () => {
+  const c = crearContenedor(10, 10);
+  agregarItem(c, catalogo, "hierro", 3); // 9 kg
+  assert.strictEqual(excedePesoMaximo(c, catalogo, "hierro", 1, 20), false, "9+3=12, cabe en 20");
+  assert.strictEqual(excedePesoMaximo(c, catalogo, "hierro", 10, 20), true, "9+30=39, no cabe en 20");
+});
+
+test("excedePesoMaximo: un ítem desconocido no revienta — lo rechaza intentarCoger, no esto", () => {
+  const c = crearContenedor(10, 10);
+  assert.strictEqual(excedePesoMaximo(c, catalogo, "no_existe", 1, 20), false);
 });
 
 test("puedeEquiparEnSlot: solo el slot declarado por el catálogo vale", () => {

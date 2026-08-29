@@ -36,33 +36,39 @@ Al iniciarse: el servidor recorta un área NxN (8x8 encuentro normal, 10x10 cont
 ## 2. Estado replicado — nuevas Schema, mismo patrón que `HubState.ts`
 
 ```ts
-// server/src/rooms/schema/CombateState.ts
+// server/src/rooms/schema/CombateState.ts (código real, actualizado tras §9.1/§9.3)
 export class CombateUnidad extends Schema {
-  @type("string") id = "";           // sessionId del jugador o clave del Enemigo (misma clave que state.enemigos/players)
+  @type("string") id = "";           // sessionId del jugador o clave del Enemigo/Fauna/Npc (misma clave que state.enemigos/fauna/npcs/players)
   @type("boolean") esJugador = false;
+  @type("string") bando = "A";       // "A" | "B"
   @type("int8") gx = 0;              // coordenada DENTRO de la arena (0..ancho-1), no del mundo
   @type("int8") gy = 0;
   @type("number") hp = 0;
   @type("number") hpMax = 0;
-  @type("int8") ap = 0;              // puntos de acción del turno actual
-  @type("int8") apMax = 0;
-  @type("int8") mp = 0;              // puntos de movimiento del turno actual
-  @type("int8") mpMax = 0;
+  @type("int8") pa = 0;              // recurso ÚNICO de turno (§9.3) — mover/atacar/objeto/magia salen del mismo pool
+  @type("int8") paMax = 0;
   @type("number") iniciativa = 0;    // fija el orden, calculada una vez al empezar
   @type("string") estado = "activo"; // "activo" | "caido" | "huido"
+  // Campos SOLO servidor (sin @type, snapshot tomado al entrar en combate):
+  ataqueFisico = 0;
+  defensaFisica = 0;
+  alcance = 1;
 }
 
 export class CombateSchema extends Schema {
-  @type("boolean") activo = false;
   @type("number") gx0 = 0;           // origen de la arena en coordenadas de mundo (para pintar el overlay)
   @type("number") gy0 = 0;
   @type("int8") ancho = 8;
   @type("int8") alto = 8;
-  @type(["int8"]) obstaculos = new ArraySchema<number>(); // 1 bit por casilla ya resuelto server-side, walkable/no
+  @type(["int8"]) obstaculos = new ArraySchema<number>(); // 1 = obstáculo, índice gy*ancho+gx
   @type(["string"]) ordenTurnos = new ArraySchema<string>(); // ids de CombateUnidad, por iniciativa desc
   @type("int8") turnoActual = 0;     // índice sobre ordenTurnos
-  @type("string") fase = "movimiento"; // "movimiento" | "accion" | "resolviendo"
   @type({ map: CombateUnidad }) unidades = new MapSchema<CombateUnidad>();
+  // Ventana de unión (§9.1): "pendiente" = todavía se puede sumar gente
+  // (ordenTurnos vacío, nadie juega turno), "activo" = ventana cerrada,
+  // combate jugable de verdad. cierraEn: epoch ms, 0 si ya no aplica.
+  @type("string") fase = "activo";
+  @type("number") cierraEn = 0;
 }
 ```
 

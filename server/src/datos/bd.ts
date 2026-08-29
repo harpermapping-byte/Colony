@@ -359,13 +359,14 @@ export interface IAlmacenDatos {
   reponerStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioFarycoins: number): Promise<void>;
   /** Solo cambia el precio de un ítem YA en venta — `false` si ese ítem nunca se repuso ahí. */
   fijarPrecioTenderete(tenderoteId: string, itemId: string, precioFarycoins: number): Promise<boolean>;
-  /** Todo o nada: cobra al comprador, decrementa stock atómicamente (nunca por debajo de 0), acredita al vendedor — sin transacción SQL explícita, mismo patrón compare-and-swap por WHERE que el resto de mutaciones económicas. */
+  /** Todo o nada: cobra al comprador, decrementa stock atómicamente (nunca por debajo de 0), acredita al vendedor — sin transacción SQL explícita, mismo patrón compare-and-swap por WHERE que el resto de mutaciones económicas. `descuento` (0-1, docs/GDD_Personaje.md §3.3, bonus de Comercio) reduce el precio TOTAL que paga el comprador Y el que recibe el vendedor por igual (negociación, no regalo — no crea Farycoins de la nada). */
   comprarDeTenderete(params: {
     tenderoteId: string;
     itemId: string;
     cantidad: number;
     compradorNombre: string;
     duenoNombre: string;
+    descuento?: number;
   }): Promise<
     | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
     | { ok: false; motivo: string }
@@ -1338,6 +1339,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     cantidad: number;
     compradorNombre: string;
     duenoNombre: string;
+    descuento?: number;
   }): Promise<
     | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
     | { ok: false; motivo: string }
@@ -1346,7 +1348,8 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       .prepare("SELECT precio_farycoins FROM tenderete_items WHERE tenderete_id = ? AND item_id = ?")
       .get(params.tenderoteId, params.itemId);
     if (!fila) return { ok: false, motivo: "ese ítem no está en venta aquí" };
-    const precioTotal = Number(fila.precio_farycoins) * params.cantidad;
+    const descuento = Math.max(0, Math.min(1, params.descuento ?? 0));
+    const precioTotal = Math.round(Number(fila.precio_farycoins) * params.cantidad * (1 - descuento));
 
     const comprador = await this.obtenerOCrearJugador(params.compradorNombre);
     const debito = await this.ajustarFarycoins(comprador.id, -precioTotal);
@@ -2138,6 +2141,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     cantidad: number;
     compradorNombre: string;
     duenoNombre: string;
+    descuento?: number;
   }): Promise<
     | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
     | { ok: false; motivo: string }
@@ -2147,7 +2151,8 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       [params.tenderoteId, params.itemId],
     );
     if (filaPrecio.rows.length === 0) return { ok: false, motivo: "ese ítem no está en venta aquí" };
-    const precioTotal = filaPrecio.rows[0].precio_farycoins * params.cantidad;
+    const descuento = Math.max(0, Math.min(1, params.descuento ?? 0));
+    const precioTotal = Math.round(filaPrecio.rows[0].precio_farycoins * params.cantidad * (1 - descuento));
 
     const comprador = await this.obtenerOCrearJugador(params.compradorNombre);
     const debito = await this.ajustarFarycoins(comprador.id, -precioTotal);

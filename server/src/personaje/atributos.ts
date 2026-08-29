@@ -1,21 +1,23 @@
 /**
- * Atributos del jugador — docs/GDD_Personaje.md, lista dada por el streamer
- * (Backlog "Sistema de personaje"): "mejoran según uso/experiencia, no un
- * nivel global — encaja con el patrón ya usado en oficios". Mismo mecanismo
- * exacto que `jugador_oficios`/crafteo.ts: XP por atributo, persistida;
- * nivel SIEMPRE derivado (server/src/progresion/nivel.ts), nunca en sí.
+ * Atributos del jugador — docs/GDD_Personaje.md. Mismo mecanismo exacto que
+ * `jugador_oficios`/crafteo.ts: XP por atributo, persistida; nivel SIEMPRE
+ * derivado (server/src/progresion/nivel.ts), nunca en sí.
  *
- * v1 solo conecta el disparador de XP donde YA existe una acción real que
- * lo justifique (fundar/hacer crecer un gremio -> liderazgo, hablar con un
- * NPC -> carisma) — fuerza/destreza/inteligencia/sigilo se quedan con nivel
- * 1 por defecto y SIN disparador todavía: dependen de sistemas que no están
- * construidos (combate, sigilo, crafteo con fallos...). Mismo criterio que
- * Crafteo arrancó con una receta representativa por familia, no el árbol
- * entero — aquí se prueba el mecanismo con dos ejemplos reales en vez de
- * inventar un disparador para los cuatro restantes.
+ * Lista revisada 2026-08-30 (pedido explícito): `liderazgo` sale (un único
+ * disparador real, `gremio:fundar`, sin más acciones que lo justifiquen) y
+ * entran `resistencia` y `comercio` — ambos con al menos 2 disparadores
+ * reales ya conectados (ver §3.2 de docs/GDD_Personaje.md), más útiles que
+ * un atributo que solo podía subir fundando un gremio una vez.
+ *
+ * Cada atributo tiene VARIAS formas reales de subir (pedido explícito:
+ * "que cada atributo tenga varias formas de sacar exp") — nunca un
+ * disparador inventado para rellenar hueco: si un atributo no tiene
+ * ninguna acción real que lo justifique todavía (sigilo — no existe ningún
+ * sistema de sigilo en el servidor), se queda sin disparador en vez de
+ * fabricar uno falso.
  */
 
-export const ATRIBUTOS = ["fuerza", "destreza", "inteligencia", "sigilo", "carisma", "liderazgo"] as const;
+export const ATRIBUTOS = ["fuerza", "destreza", "inteligencia", "resistencia", "sigilo", "carisma", "comercio"] as const;
 export type Atributo = (typeof ATRIBUTOS)[number];
 
 export function esAtributoValido(valor: string): valor is Atributo {
