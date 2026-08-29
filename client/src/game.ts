@@ -79,6 +79,8 @@ const RUTA_MAPA =
 interface Direction {
   x: number;
   y: number;
+  /** Sprint (docs/GDD_Personaje.md §3.4) — Shift mientras se mueve, sin efecto sin estamina. */
+  correr?: boolean;
 }
 
 // Hundimiento visual del rig según el medio que dicta el servidor: nadando
@@ -670,9 +672,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const x =
       (teclas.has("d") || teclas.has("arrowright") ? 1 : 0) - (teclas.has("a") || teclas.has("arrowleft") ? 1 : 0);
     const y = (teclas.has("s") || teclas.has("arrowdown") ? 1 : 0) - (teclas.has("w") || teclas.has("arrowup") ? 1 : 0);
+    const correr = teclas.has("shift");
 
-    if (x !== ultimaDireccionEnviada.x || y !== ultimaDireccionEnviada.y) {
-      ultimaDireccionEnviada = { x, y };
+    if (
+      x !== ultimaDireccionEnviada.x ||
+      y !== ultimaDireccionEnviada.y ||
+      correr !== !!ultimaDireccionEnviada.correr
+    ) {
+      ultimaDireccionEnviada = { x, y, correr };
       room.send("input", ultimaDireccionEnviada);
     }
 

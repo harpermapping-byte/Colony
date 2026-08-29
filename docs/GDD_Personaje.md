@@ -65,7 +65,7 @@ Pedido explícito sobre los disparadores: "que cada atributo tenga varias formas
 | **Fuerza** | `coger` un objeto "pesado" (`peso≥2`, +2 XP) — talar/minar · Golpe conectado en combate (`combate:accion`, +1 XP) — "dando golpes" |
 | **Destreza** | Golpe conectado en combate (`combate:accion`, +3 XP) · Moverse en combate (`combate:mover`, +1 XP) — reflejos/agilidad |
 | **Inteligencia** | Completar un crafteo (`crafteo:recolectar`, +4 XP) · `coger` CUALQUIER recurso del mundo (+1 XP, sin importar el peso) — "crafteando o recolectando" |
-| **Resistencia** | Recibir un golpe en combate (+2 XP) — jugador atacado por otro jugador O por la IA de fauna/enemigo, mismo punto de aplicación |
+| **Resistencia** | Recibir un golpe en combate (+2 XP) — jugador atacado por otro jugador O por la IA de fauna/enemigo, mismo punto de aplicación · Correr 10s reales seguidos (+3 XP) · Andar 30s reales seguidos (+1 XP) — ver §3.4 |
 | **Carisma** | `npc:hablar` con éxito (5 XP) · Fundar un gremio (`gremio:fundar`, 30 XP, heredado de Liderazgo) · Comprar en un tenderete (`tenderete:comprar`, +2 XP, heredado de Comercio) · Reponer/vender en tu propio tenderete (`tenderete:reponer`, +3 XP, heredado de Comercio) |
 
 Carisma es ahora el atributo con MÁS disparadores (4) — consecuencia directa de fusionar dos atributos sociales en uno.
@@ -90,6 +90,19 @@ Pedido explícito: "si tengo nivel 1 no me da bonus de nada, si tengo nivel 10 s
 | **Carisma** | cooldown de `npc:hablar` 3000ms + 0% descuento en tenderetes (los de siempre) | cooldown 1200ms + 18% de descuento | Handler `npc:hablar` (`HubRoom.ts`, "más interacciones/conversaciones") Y `comprarDeTenderete` (`bd.ts`, ambos motores, heredado de Comercio) — DOS bonus a la vez, uno por cada atributo que se fusionó aquí. El descuento reduce el precio TOTAL que paga el comprador Y el que recibe el vendedor por igual (negociación real, no crea Farycoins de la nada); el cooldown nunca baja de 1000ms (cuota de Gemini/Groq). |
 
 Todas las fórmulas son lineales simples (o por tramos, Destreza) — mismo criterio "placeholder de balance, número de referencia" que el resto del proyecto. Carisma es el único atributo con DOS bonus simultáneos — consecuencia directa de la fusión con Comercio, ambos bonus se mantuvieron tal cual en vez de promediarlos o elegir uno.
+
+### 3.4 Sprint (correr) — primer consumidor real de la estamina, y Resistencia por tiempo de movimiento (✅ 2026-08-30)
+
+Pedido literal: "resistencia sube si corres durante x tiempo y andas x cantidad de tiempo también... ya daremos actividades o acciones que den exp específicamente a estas habilidades más adelante" — o sea, de partida solo hacen falta estos dos disparadores por movimiento; el resto de atributos se deja tal cual quedó en §3.2 hasta que el streamer pida disparadores concretos para ellos.
+
+`vitales.ts:tickVitales` solo REGENERABA estamina hasta ahora (comentario propio: "nada la gasta todavía") — no había ningún sistema que la consumiera. Este pedido obliga a construir el primer: **sprint**.
+
+- Cliente (`game.ts`): `Direction.correr` — Shift mientras se mueve, viaja en cada `room.send("input", ...)` (se re-envía también si solo cambia Shift, no solo al cambiar x/y).
+- Servidor (`RoomExteriorBase.actualizarMovimiento`, autoritativo): `corriendoDeVerdad = medio TIERRA && seMueve && dir.correr && estamina > 0`. Sin esa condición, correr no hace nada distinto de andar — no hay penalización dura si se pide sprint sin estamina, simplemente no se concede la ventaja hasta que se regenere sola (mismo criterio de degradación suave que el resto del movimiento).
+- Con sprint activo: velocidad `VEL_CORRER = 6` (vs `VEL_ANDAR = 3.75`) y la estamina se gasta directamente en el tick (`ESTAMINA_GASTO_POR_SEG_CORRIENDO = 15` — un sprint continuo vacía los 100 puntos en ~6.7s). El drenaje vive en `RoomExteriorBase`, no dentro de `tickVitales`, para no tocar el contrato de ese módulo puro (solo horas transcurridas, sin inputs del jugador).
+- Resistencia por tiempo: tiempo REAL acumulado (no de mundo) en un mapa en memoria por sesión (`tiempoMovimiento`, vive y muere con la conexión igual que `inputs` — nunca se persiste). Solo se llama a `otorgarXpAtributoPorSessionId` (que sí toca BD) al CRUZAR el umbral, nunca cada tick a 30hz — el sobrante de segundos se conserva restando el umbral en vez de poner el contador a cero. Correr entrena más rápido que andar (umbral más corto, más XP por intervalo) porque es el esfuerzo que de verdad gasta estamina: cada 10s corriendo, +3 XP; cada 30s andando, +1 XP.
+
+Verificación: `tsc --noEmit` limpio en `server/` y `client/`; suite completa de `server` (366/366, sin regresión — no se añadieron tests unitarios nuevos para este disparador, es lógica inline de Room del mismo tipo que ya cubría `combate.e2e.mjs` para Resistencia-por-golpe).
 
 ## 4. Consumir — primer uso real de `tipo:"consumible"`
 

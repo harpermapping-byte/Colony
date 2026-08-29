@@ -55,8 +55,10 @@ import {
 import { curar } from "../../combate/combate";
 
 const VEL_ANDAR = 3.75;
+const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
 const VEL_NADAR = 2.2;
 const VEL_BUCEAR = 1.7;
+const ESTAMINA_GASTO_POR_SEG_CORRIENDO = 15; // vacía los 100 de estamina en ~6.7s de sprint continuo
 export const TICK_HZ = 30;
 
 /** Radio de interacción para portales Y para "coger" (fase 2 de inventario) —
@@ -112,6 +114,14 @@ const XP_DESTREZA_POR_MOVER_EN_COMBATE = 1; // moverse por la arena entrena refl
 const XP_INTELIGENCIA_POR_CRAFTEO = 4;
 const XP_INTELIGENCIA_POR_RECOLECTAR = 1; // "todas las que tengan crafteo también crafteando o recolectando" — identificar y extraer un recurso también enseña
 const XP_RESISTENCIA_POR_GOLPE_RECIBIDO = 2; // "recibir golpes" entrena aguante — encajar daño en combate
+// "corres X tiempo y andas X cantidad de tiempo también" (pedido 2026-08-30)
+// — tiempo REAL acumulado, no de mundo (mismo criterio que vitales.ts).
+// Correr entrena más rápido que andar (umbral más corto, más XP): es el
+// esfuerzo que de verdad gasta estamina.
+const SEGUNDOS_CORRER_POR_XP_RESISTENCIA = 10;
+const XP_RESISTENCIA_POR_INTERVALO_CORRIENDO = 3;
+const SEGUNDOS_ANDAR_POR_XP_RESISTENCIA = 30;
+const XP_RESISTENCIA_POR_INTERVALO_ANDANDO = 1;
 const XP_CARISMA_POR_FUNDAR_GREMIO = 30; // mismo valor que antes tenía Liderazgo — fundar un gremio sigue siendo un acto social mayor
 // Comercio fusionado dentro de Carisma (pedido 2026-08-30) — comprar/vender es tan "social" como hablar o fundar un gremio.
 const XP_CARISMA_POR_COMPRAR = 2;
@@ -125,6 +135,8 @@ export interface ObjetoCogible extends Cogible {
 export interface Direccion {
   x: number;
   y: number;
+  /** Pedido de sprint del cliente — solo tiene efecto con estamina > 0 y en tierra (docs/GDD_Personaje.md §3.4). */
+  correr?: boolean;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -148,6 +160,11 @@ function sumarPorItemId(items: { itemId: string; cantidad: number }[]): { itemId
 export abstract class RoomExteriorBase extends Room<HubState> {
   maxClients = 40;
   protected inputs = new Map<string, Direccion>();
+  // Resistencia por movimiento (docs/GDD_Personaje.md §3.4): tiempo REAL
+  // acumulado corriendo/andando desde el último umbral cruzado — vive y
+  // muere con la sesión, igual que `inputs` (nunca se persiste, solo se
+  // usa para saber cuándo tocar `otorgarXpAtributoPorSessionId`).
+  private tiempoMovimiento = new Map<string, { correr: number; andar: number }>();
   protected mundo!: MundoColision;
 
   // --- inventario, fase 2 "coger/soltar" (docs/GDD_Inventario.md §7) ---
@@ -201,6 +218,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
       this.inputs.set(client.sessionId, {
         x: clamp(dir?.x ?? 0, -1, 1),
         y: clamp(dir?.y ?? 0, -1, 1),
+        correr: !!dir?.correr,
       });
     });
 
@@ -303,6 +321,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);
+    this.tiempoMovimiento.delete(client.sessionId);
   }
 
   /**
@@ -2290,19 +2309,50 @@ export abstract class RoomExteriorBase extends Room<HubState> {
 
       const idx = Math.floor(player.y) * this.mundo.ancho + Math.floor(player.x);
       const medio = medioEn(this.mundo, player.x, player.y);
+      const seMueve = dir.x !== 0 || dir.y !== 0;
+      // Sprint (docs/GDD_Personaje.md §3.4): solo en tierra, solo con
+      // estamina de sobra — sin ella, corre igual que andar aunque el
+      // cliente siga pidiendo `correr` (no hay penalización dura, solo se
+      // pierde la ventaja de velocidad hasta que la estamina se regenere).
+      const corriendoDeVerdad = medio === TIPO.TIERRA && seMueve && !!dir.correr && player.vitales.estamina > 0;
       let vel: number;
       if (medio === TIPO.AGUA || medio === TIPO.AGUA_PROFUNDA) {
         vel = player.nivel < 0 ? VEL_BUCEAR : VEL_NADAR;
+      } else if (corriendoDeVerdad) {
+        vel = VEL_CORRER * (this.mundo.velocidad[idx] ?? 1);
+        player.vitales.estamina = Math.max(0, player.vitales.estamina - ESTAMINA_GASTO_POR_SEG_CORRIENDO * dt);
       } else {
         vel = VEL_ANDAR * (this.mundo.velocidad[idx] ?? 1);
       }
 
-      if (dir.x !== 0 || dir.y !== 0) {
+      if (seMueve) {
         const norma = Math.hypot(dir.x, dir.y);
         const paso = (vel * dt) / norma;
         const destino = moverAABB(this.mundo, player.x, player.y, dir.x * paso, dir.y * paso);
         player.x = destino.x;
         player.y = destino.y;
+      }
+
+      // Resistencia por movimiento (docs/GDD_Personaje.md §3.4, pedido
+      // 2026-08-30): tiempo REAL acumulado corriendo/andando en tierra —
+      // solo se toca BD al cruzar el umbral, nunca cada tick (30hz sería
+      // reventar la BD por nada).
+      if (medio === TIPO.TIERRA && seMueve) {
+        const acumulado = this.tiempoMovimiento.get(sessionId) ?? { correr: 0, andar: 0 };
+        if (corriendoDeVerdad) {
+          acumulado.correr += dt;
+          if (acumulado.correr >= SEGUNDOS_CORRER_POR_XP_RESISTENCIA) {
+            acumulado.correr -= SEGUNDOS_CORRER_POR_XP_RESISTENCIA;
+            void this.otorgarXpAtributoPorSessionId(sessionId, "resistencia", XP_RESISTENCIA_POR_INTERVALO_CORRIENDO);
+          }
+        } else {
+          acumulado.andar += dt;
+          if (acumulado.andar >= SEGUNDOS_ANDAR_POR_XP_RESISTENCIA) {
+            acumulado.andar -= SEGUNDOS_ANDAR_POR_XP_RESISTENCIA;
+            void this.otorgarXpAtributoPorSessionId(sessionId, "resistencia", XP_RESISTENCIA_POR_INTERVALO_ANDANDO);
+          }
+        }
+        this.tiempoMovimiento.set(sessionId, acumulado);
       }
 
       const medioAhora = medioEn(this.mundo, player.x, player.y);
