@@ -18,6 +18,8 @@ import {
   esJarl,
 } from "../../construccion/construccion";
 import { generarInteriorEdificio } from "../../construccion/interiorGenerado";
+import { ContextoGremios, GremioVivo, obtenerContextoGremios } from "../../gremios/contextoGremios";
+import { EMBLEMA_POR_DEFECTO, colorGremioValido, colorPorDefecto, emblemaGremioValido, nombreGremioValido } from "../../gremios/gremios";
 
 const VEL_ANDAR = 3.75;
 const VEL_NADAR = 2.2;
@@ -104,6 +106,23 @@ export abstract class RoomExteriorBase extends Room<HubState> {
 
     this.onMessage("coger", (client) => this.manejarCoger(client));
     this.onMessage("soltar", (client, msg: { instanciaId?: number; cantidad?: number }) => this.manejarSoltar(client, msg));
+
+    // --- gremios (docs/GDD_Gremios.md) — disponibles en las 4 rooms, no
+    // dependen de ContextoConstruccion/parcelas (a diferencia de "construir"),
+    // solo de la BD compartida — mismo criterio ya usado para que fundar un
+    // gremio no quede bloqueado por el mismo hueco que sí bloquea a mercado/
+    // producción (construcción-en-regiones limitada a la capital).
+    this.onMessage("gremio:fundar", (client, msg: { nombre?: string }) => this.manejarGremioFundar(client, msg));
+    this.onMessage("gremio:invitar", (client, msg: { jugadorNombre?: string }) => this.manejarGremioInvitar(client, msg));
+    this.onMessage("gremio:aceptarInvitacion", (client, msg: { gremioId?: number }) => this.manejarGremioAceptarInvitacion(client, msg));
+    this.onMessage("gremio:rechazarInvitacion", (client, msg: { gremioId?: number }) => this.manejarGremioRechazarInvitacion(client, msg));
+    this.onMessage("gremio:expulsar", (client, msg: { jugadorNombre?: string }) => this.manejarGremioExpulsar(client, msg));
+    this.onMessage("gremio:abandonar", (client) => this.manejarGremioAbandonar(client));
+    this.onMessage("gremio:disolver", (client) => this.manejarGremioDisolver(client));
+    this.onMessage("gremio:actualizar", (client, msg: { color?: string; emblemaId?: string }) => this.manejarGremioActualizar(client, msg));
+    this.onMessage("gremio:depositar", (client, msg: { cantidad?: number }) => this.manejarGremioDepositar(client, msg));
+    this.onMessage("gremio:retirar", (client, msg: { cantidad?: number }) => this.manejarGremioRetirar(client, msg));
+    this.onMessage("gremio:estado", (client) => this.manejarGremioEstado(client));
 
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
   }
@@ -438,6 +457,290 @@ export abstract class RoomExteriorBase extends Room<HubState> {
         x: c.x, y: c.y, rot: c.rot, variante: c.variante,
       })),
     );
+  }
+
+  // ---- Gremios (docs/GDD_Gremios.md) ----
+
+  private errorGremio(client: Client, motivo: string) {
+    client.send("gremio:error", { motivo });
+  }
+
+  private gremioDeJugador(ctx: ContextoGremios, jugadorId: number): GremioVivo | undefined {
+    const id = ctx.porJugador.get(jugadorId);
+    return id !== undefined ? ctx.porId.get(id) : undefined;
+  }
+
+  /** Etiqueta pública (Player Schema) — visible a cualquiera en la room, como un nametag. */
+  private aplicarEtiquetaGremio(player: Player, gremio: GremioVivo | null) {
+    player.gremioId = gremio ? String(gremio.id) : "";
+    player.gremioNombre = gremio ? gremio.nombre : "";
+    player.gremioColor = gremio ? gremio.color : "";
+    player.gremioEmblemaId = gremio ? gremio.emblemaId : "";
+  }
+
+  /** El Client de un jugador por NOMBRE si está conectado a ESTA room ahora mismo (undefined si no). */
+  private clientDeJugador(nombre: string): Client | undefined {
+    return this.clients.find((c) => this.state.players.get(c.sessionId)?.name === nombre);
+  }
+
+  /** Detalle completo (roster con nombres, banco) — SOLO por mensaje privado, nunca por Schema pública. */
+  private async detalleGremio(bd: IAlmacenDatos, gremio: GremioVivo) {
+    const miembros = await bd.listarMiembros(gremio.id);
+    return {
+      id: gremio.id,
+      nombre: gremio.nombre,
+      color: gremio.color,
+      emblemaId: gremio.emblemaId,
+      saldoBanco: gremio.saldoBanco,
+      liderJugadorId: gremio.liderJugadorId,
+      miembros: miembros.map((m) => ({ jugadorNombre: m.jugadorNombre, rol: m.rol, ingresoEn: m.ingresoEn })),
+    };
+  }
+
+  private async manejarGremioFundar(client: Client, msg: { nombre?: string }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !msg?.nombre) return;
+    const validacion = nombreGremioValido(msg.nombre);
+    if (!validacion.ok) return this.errorGremio(client, validacion.motivo!);
+
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    if (ctx.porJugador.has(jugador.id)) return this.errorGremio(client, "ya perteneces a un gremio");
+
+    const nombreLimpio = msg.nombre.trim();
+    if (ctx.porNombreLower.has(nombreLimpio.toLowerCase())) return this.errorGremio(client, "ese nombre de gremio ya existe");
+
+    const resultado = await bd.crearGremio(nombreLimpio, jugador.id, colorPorDefecto(), EMBLEMA_POR_DEFECTO);
+    if (!resultado.ok) return this.errorGremio(client, resultado.motivo);
+
+    const vivo: GremioVivo = {
+      id: resultado.gremio.id,
+      nombre: resultado.gremio.nombre,
+      liderJugadorId: jugador.id,
+      color: resultado.gremio.color,
+      emblemaId: resultado.gremio.emblemaId,
+      saldoBanco: 0,
+      miembros: new Map([[jugador.id, "lider"]]),
+    };
+    ctx.porId.set(vivo.id, vivo);
+    ctx.porNombreLower.set(vivo.nombre.toLowerCase(), vivo.id);
+    ctx.porJugador.set(jugador.id, vivo.id);
+
+    const player = this.state.players.get(client.sessionId);
+    if (player) this.aplicarEtiquetaGremio(player, vivo);
+    client.send("gremio:estado", await this.detalleGremio(bd, vivo));
+  }
+
+  private async manejarGremioInvitar(client: Client, msg: { jugadorNombre?: string }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !msg?.jugadorNombre) return;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const gremio = this.gremioDeJugador(ctx, jugador.id);
+    if (!gremio || gremio.liderJugadorId !== jugador.id) return this.errorGremio(client, "solo el líder invita");
+
+    const objetivoNombre = msg.jugadorNombre.trim();
+    if (!objetivoNombre || objetivoNombre.toLowerCase() === nombre.toLowerCase()) {
+      return this.errorGremio(client, "no puedes invitarte a ti mismo");
+    }
+    const objetivo = await bd.obtenerOCrearJugador(objetivoNombre);
+    if (ctx.porJugador.has(objetivo.id)) return this.errorGremio(client, "ese jugador ya está en un gremio");
+
+    await bd.crearInvitacion(gremio.id, objetivo.id, jugador.id);
+    const clienteObjetivo = this.clientDeJugador(objetivoNombre);
+    if (clienteObjetivo) {
+      clienteObjetivo.send("gremio:invitacionRecibida", { gremioId: gremio.id, gremioNombre: gremio.nombre, invitadoPor: nombre });
+    }
+    client.send("gremio:estado", await this.detalleGremio(bd, gremio));
+  }
+
+  private async manejarGremioAceptarInvitacion(client: Client, msg: { gremioId?: number }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || typeof msg?.gremioId !== "number") return;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    if (ctx.porJugador.has(jugador.id)) return this.errorGremio(client, "ya perteneces a un gremio");
+
+    const invitacion = await bd.obtenerInvitacion(msg.gremioId, jugador.id);
+    if (!invitacion) return this.errorGremio(client, "no tienes ninguna invitación de ese gremio");
+    const gremio = ctx.porId.get(msg.gremioId);
+    if (!gremio) return this.errorGremio(client, "ese gremio ya no existe");
+
+    await bd.agregarMiembro(gremio.id, jugador.id, "miembro");
+    await bd.eliminarInvitacion(gremio.id, jugador.id);
+    gremio.miembros.set(jugador.id, "miembro");
+    ctx.porJugador.set(jugador.id, gremio.id);
+
+    const player = this.state.players.get(client.sessionId);
+    if (player) this.aplicarEtiquetaGremio(player, gremio);
+    client.send("gremio:estado", await this.detalleGremio(bd, gremio));
+  }
+
+  private async manejarGremioRechazarInvitacion(client: Client, msg: { gremioId?: number }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || typeof msg?.gremioId !== "number") return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    await bd.eliminarInvitacion(msg.gremioId, jugador.id);
+  }
+
+  private async manejarGremioExpulsar(client: Client, msg: { jugadorNombre?: string }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !msg?.jugadorNombre) return;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const gremio = this.gremioDeJugador(ctx, jugador.id);
+    if (!gremio || gremio.liderJugadorId !== jugador.id) return this.errorGremio(client, "solo el líder expulsa");
+
+    const objetivoNombre = msg.jugadorNombre.trim();
+    if (objetivoNombre.toLowerCase() === nombre.toLowerCase()) {
+      return this.errorGremio(client, "no puedes expulsarte a ti mismo (usa disolver)");
+    }
+    const objetivo = await bd.obtenerOCrearJugador(objetivoNombre);
+    if (ctx.porJugador.get(objetivo.id) !== gremio.id) return this.errorGremio(client, "ese jugador no es miembro de tu gremio");
+
+    await bd.quitarMiembro(gremio.id, objetivo.id);
+    gremio.miembros.delete(objetivo.id);
+    ctx.porJugador.delete(objetivo.id);
+
+    const clienteObjetivo = this.clientDeJugador(objetivoNombre);
+    if (clienteObjetivo) {
+      const playerObjetivo = this.state.players.get(clienteObjetivo.sessionId);
+      if (playerObjetivo) this.aplicarEtiquetaGremio(playerObjetivo, null);
+    }
+    client.send("gremio:estado", await this.detalleGremio(bd, gremio));
+  }
+
+  private async manejarGremioAbandonar(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const gremio = this.gremioDeJugador(ctx, jugador.id);
+    if (!gremio) return this.errorGremio(client, "no perteneces a ningún gremio");
+    if (gremio.liderJugadorId === jugador.id) return this.errorGremio(client, "el líder no puede abandonar, usa disolver");
+
+    await bd.quitarMiembro(gremio.id, jugador.id);
+    gremio.miembros.delete(jugador.id);
+    ctx.porJugador.delete(jugador.id);
+
+    const player = this.state.players.get(client.sessionId);
+    if (player) this.aplicarEtiquetaGremio(player, null);
+  }
+
+  private async manejarGremioDisolver(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const gremio = this.gremioDeJugador(ctx, jugador.id);
+    if (!gremio || gremio.liderJugadorId !== jugador.id) return this.errorGremio(client, "solo el líder disuelve el gremio");
+
+    await bd.disolverGremio(gremio.id);
+    ctx.porId.delete(gremio.id);
+    ctx.porNombreLower.delete(gremio.nombre.toLowerCase());
+    for (const jugadorId of gremio.miembros.keys()) ctx.porJugador.delete(jugadorId);
+
+    // limpiar la etiqueta de cualquier miembro conectado a ESTA room ahora mismo
+    const idTexto = String(gremio.id);
+    for (const c of this.clients) {
+      const p = this.state.players.get(c.sessionId);
+      if (p && p.gremioId === idTexto) this.aplicarEtiquetaGremio(p, null);
+    }
+  }
+
+  private async manejarGremioActualizar(client: Client, msg: { color?: string; emblemaId?: string }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const gremio = this.gremioDeJugador(ctx, jugador.id);
+    if (!gremio || gremio.liderJugadorId !== jugador.id) return this.errorGremio(client, "solo el líder cambia color/emblema");
+
+    const cambios: { color?: string; emblemaId?: string } = {};
+    if (msg?.color !== undefined) {
+      if (!colorGremioValido(msg.color)) return this.errorGremio(client, "color fuera de la paleta");
+      cambios.color = msg.color;
+    }
+    if (msg?.emblemaId !== undefined) {
+      if (!emblemaGremioValido(msg.emblemaId)) return this.errorGremio(client, "emblema desconocido");
+      cambios.emblemaId = msg.emblemaId;
+    }
+    if (Object.keys(cambios).length === 0) return;
+
+    await bd.actualizarGremio(gremio.id, cambios);
+    if (cambios.color !== undefined) gremio.color = cambios.color;
+    if (cambios.emblemaId !== undefined) gremio.emblemaId = cambios.emblemaId;
+
+    const idTexto = String(gremio.id);
+    for (const c of this.clients) {
+      const p = this.state.players.get(c.sessionId);
+      if (p && p.gremioId === idTexto) this.aplicarEtiquetaGremio(p, gremio);
+    }
+    client.send("gremio:estado", await this.detalleGremio(bd, gremio));
+  }
+
+  private async manejarGremioDepositar(client: Client, msg: { cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    const cantidad = Math.floor(msg?.cantidad ?? 0);
+    if (!nombre || !(cantidad > 0)) return;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const gremio = this.gremioDeJugador(ctx, jugador.id);
+    if (!gremio) return this.errorGremio(client, "no perteneces a ningún gremio");
+
+    const debito = await bd.ajustarFarycoins(jugador.id, -cantidad);
+    if (!debito.ok) return this.errorGremio(client, "no tienes suficientes Farycoins");
+    const credito = await bd.ajustarBancoGremio(gremio.id, cantidad);
+    if (!credito.ok) {
+      // no debería ocurrir (el banco solo crece aquí) — deshace el débito si pasa
+      await bd.ajustarFarycoins(jugador.id, cantidad);
+      return this.errorGremio(client, "no se pudo depositar");
+    }
+    gremio.saldoBanco = credito.saldo;
+    client.send("gremio:estado", await this.detalleGremio(bd, gremio));
+  }
+
+  private async manejarGremioRetirar(client: Client, msg: { cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    const cantidad = Math.floor(msg?.cantidad ?? 0);
+    if (!nombre || !(cantidad > 0)) return;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const gremio = this.gremioDeJugador(ctx, jugador.id);
+    if (!gremio || gremio.liderJugadorId !== jugador.id) return this.errorGremio(client, "solo el líder retira del banco (v1)");
+
+    const debito = await bd.ajustarBancoGremio(gremio.id, -cantidad);
+    if (!debito.ok) return this.errorGremio(client, "el banco no tiene suficiente saldo");
+    gremio.saldoBanco = debito.saldo;
+    await bd.ajustarFarycoins(jugador.id, cantidad);
+    client.send("gremio:estado", await this.detalleGremio(bd, gremio));
+  }
+
+  private async manejarGremioEstado(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const gremio = this.gremioDeJugador(ctx, jugador.id);
+
+    // sincroniza la etiqueta pública al pedir estado — cubre el caso de un
+    // jugador que YA pertenecía a un gremio de una sesión anterior y esta
+    // room/sesión todavía no lo sabía (ver nota en HubState.ts).
+    const player = this.state.players.get(client.sessionId);
+    if (player) this.aplicarEtiquetaGremio(player, gremio ?? null);
+
+    client.send("gremio:estado", gremio ? await this.detalleGremio(bd, gremio) : null);
   }
 
   private actualizarMovimiento() {

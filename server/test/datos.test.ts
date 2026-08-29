@@ -271,3 +271,227 @@ test("inventario: guardarEquipo reemplaza el set completo (quitar un ítem lo bo
   assert.deepStrictEqual(cargado, { espalda: "mochila_cuero" });
   await bd.cerrar();
 });
+
+// Farycoins (pedido 2026-08-29, decisión compartida por los 5 clusters de
+// gremios/mercado/propiedades/producción/motriz: saldo numérico en `jugadores`,
+// no un ítem de inventario) --------------------------------------------------
+
+test("Farycoins: un jugador nuevo nace a 0, obtenerOCrearJugador lo devuelve", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Ivar");
+  assert.strictEqual(j.farycoins, 0);
+  assert.strictEqual(await bd.obtenerFarycoins(j.id), 0);
+  await bd.cerrar();
+});
+
+test("Farycoins: ajustarFarycoins suma y resta dentro de saldo, devuelve el saldo actualizado", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Ivar");
+
+  const r1 = await bd.ajustarFarycoins(j.id, 100);
+  assert.deepStrictEqual(r1, { ok: true, saldo: 100 });
+
+  const r2 = await bd.ajustarFarycoins(j.id, -30);
+  assert.deepStrictEqual(r2, { ok: true, saldo: 70 });
+
+  assert.strictEqual(await bd.obtenerFarycoins(j.id), 70);
+  await bd.cerrar();
+});
+
+test("Farycoins: ajustarFarycoins es TODO O NADA — restar más de lo que hay no toca el saldo", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Ivar");
+  await bd.ajustarFarycoins(j.id, 50);
+
+  const r = await bd.ajustarFarycoins(j.id, -100); // se iría a -50, debe rechazarse entero
+  assert.deepStrictEqual(r, { ok: false, saldo: 50 });
+  assert.strictEqual(await bd.obtenerFarycoins(j.id), 50, "el saldo no debe haberse movido ni un poco");
+  await bd.cerrar();
+});
+
+test("Farycoins: dos jugadores distintos no comparten saldo", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const a = await bd.obtenerOCrearJugador("Ivar");
+  const b = await bd.obtenerOCrearJugador("Ubbe");
+  await bd.ajustarFarycoins(a.id, 200);
+  assert.strictEqual(await bd.obtenerFarycoins(a.id), 200);
+  assert.strictEqual(await bd.obtenerFarycoins(b.id), 0);
+  await bd.cerrar();
+});
+
+test("Farycoins: ALTER TABLE añade la columna a un datos.sqlite creado ANTES de este cambio (sin farycoins)", async () => {
+  // Simula un dev.sqlite real ya en disco con el esquema viejo (jugadores
+  // sin columna farycoins) — el mismo escenario que un despliegue existente
+  // en Neon antes de esta migración. Primera vez que bd.ts amplía una tabla
+  // ya desplegada en vez de crearla de cero (ver docs/GDD_Construccion.md);
+  // este test es la garantía de que el ALTER TABLE manual (PRAGMA table_info
+  // + ADD COLUMN) no revienta ni pierde datos ya existentes.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { DatabaseSync } = require("node:sqlite") as { DatabaseSync: new (ruta: string) => { exec(sql: string): void; close(): void } };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "colony-bd-farycoins-"));
+  const ruta = path.join(dir, "datos.sqlite");
+  try {
+    const crudo = new DatabaseSync(ruta);
+    crudo.exec(`
+      CREATE TABLE jugadores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT UNIQUE NOT NULL,
+        creado_en TEXT NOT NULL
+      );
+      INSERT INTO jugadores (nombre, creado_en) VALUES ('Ragnar', '2020-01-01');
+    `);
+    crudo.close();
+
+    // Abrir con el AlmacenDatos real debe: (a) no reventar, (b) añadir la
+    // columna, (c) conservar la fila ya insertada con farycoins=0 por defecto.
+    const bd = new AlmacenDatos(ruta);
+    const j = await bd.obtenerOCrearJugador("Ragnar");
+    assert.strictEqual(j.id, 1, "la fila preexistente no debe haberse recreado");
+    assert.strictEqual(j.farycoins, 0, "columna nueva, DEFAULT 0 aplicado retroactivamente");
+
+    const r = await bd.ajustarFarycoins(j.id, 25);
+    assert.deepStrictEqual(r, { ok: true, saldo: 25 });
+    await bd.cerrar();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Gremios (pedido 2026-08-29) ------------------------------------------------
+
+test("Gremios: crearGremio funda con el líder como único miembro, rol 'lider'", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const lider = await bd.obtenerOCrearJugador("Ragnar");
+  const r = await bd.crearGremio("Cuervos de Hierro", lider.id, "#c0392b", "emblema_lobo");
+  assert.strictEqual(r.ok, true);
+  if (!r.ok) return;
+  assert.strictEqual(r.gremio.nombre, "Cuervos de Hierro");
+  assert.strictEqual(r.gremio.liderJugadorId, lider.id);
+  assert.strictEqual(r.gremio.saldoBanco, 0);
+
+  const miembros = await bd.listarMiembros(r.gremio.id);
+  assert.strictEqual(miembros.length, 1);
+  assert.strictEqual(miembros[0].jugadorId, lider.id);
+  assert.strictEqual(miembros[0].rol, "lider");
+  await bd.cerrar();
+});
+
+test("Gremios: crearGremio rechaza nombre duplicado sin dejar basura (nombre_en_uso)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const a = await bd.obtenerOCrearJugador("Ragnar");
+  const b = await bd.obtenerOCrearJugador("Lagertha");
+  const primero = await bd.crearGremio("Cuervos de Hierro", a.id, "#c0392b", "emblema_lobo");
+  assert.strictEqual(primero.ok, true);
+
+  const segundo = await bd.crearGremio("Cuervos de Hierro", b.id, "#c0392b", "emblema_lobo");
+  assert.deepStrictEqual(segundo, { ok: false, motivo: "nombre_en_uso" });
+
+  // Lagertha NO debe haber quedado con ningún gremio a medias
+  const gremios = await bd.listarGremios();
+  assert.strictEqual(gremios.length, 1, "el intento fallido no debe dejar una fila huérfana");
+  await bd.cerrar();
+});
+
+test("Gremios: crearGremio rechaza a alguien que YA lidera otro gremio (ya_tienes_gremio) y limpia el gremio a medias", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const a = await bd.obtenerOCrearJugador("Ragnar");
+  await bd.crearGremio("Cuervos de Hierro", a.id, "#c0392b", "emblema_lobo");
+
+  const segundo = await bd.crearGremio("Lobos del Norte", a.id, "#2980b9", "emblema_oso");
+  assert.deepStrictEqual(segundo, { ok: false, motivo: "ya_tienes_gremio" });
+
+  // "Lobos del Norte" no debe haber quedado en la tabla (se compensó el insert a medias)
+  const gremios = await bd.listarGremios();
+  assert.strictEqual(gremios.length, 1);
+  assert.strictEqual(gremios[0].nombre, "Cuervos de Hierro");
+  await bd.cerrar();
+});
+
+test("Gremios: invitación -> agregarMiembro -> eliminarInvitacion, roster crece", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const lider = await bd.obtenerOCrearJugador("Ragnar");
+  const invitado = await bd.obtenerOCrearJugador("Bjorn");
+  const { gremio } = (await bd.crearGremio("Cuervos de Hierro", lider.id, "#c0392b", "emblema_lobo")) as { gremio: { id: number } };
+
+  await bd.crearInvitacion(gremio.id, invitado.id, lider.id);
+  const invitacion = await bd.obtenerInvitacion(gremio.id, invitado.id);
+  assert.deepStrictEqual(invitacion, { invitadoPorId: lider.id });
+
+  await bd.agregarMiembro(gremio.id, invitado.id, "miembro");
+  await bd.eliminarInvitacion(gremio.id, invitado.id);
+  assert.strictEqual(await bd.obtenerInvitacion(gremio.id, invitado.id), null, "la invitación se consume al aceptar");
+
+  const miembros = await bd.listarMiembros(gremio.id);
+  assert.strictEqual(miembros.length, 2);
+  assert.ok(miembros.some((m) => m.jugadorId === invitado.id && m.rol === "miembro"));
+  await bd.cerrar();
+});
+
+test("Gremios: quitarMiembro (expulsar/abandonar) borra la fila, actualizarGremio cambia color/emblema", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const lider = await bd.obtenerOCrearJugador("Ragnar");
+  const miembro = await bd.obtenerOCrearJugador("Bjorn");
+  const { gremio } = (await bd.crearGremio("Cuervos de Hierro", lider.id, "#c0392b", "emblema_lobo")) as { gremio: { id: number } };
+  await bd.agregarMiembro(gremio.id, miembro.id, "miembro");
+
+  await bd.quitarMiembro(gremio.id, miembro.id);
+  assert.strictEqual((await bd.listarMiembros(gremio.id)).length, 1, "solo queda el líder");
+
+  await bd.actualizarGremio(gremio.id, { color: "#2980b9", emblemaId: "emblema_oso" });
+  const actualizado = await bd.obtenerGremio(gremio.id);
+  assert.strictEqual(actualizado?.color, "#2980b9");
+  assert.strictEqual(actualizado?.emblemaId, "emblema_oso");
+  await bd.cerrar();
+});
+
+test("Gremios: ajustarBancoGremio es TODO O NADA (mismo patrón que ajustarFarycoins)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const lider = await bd.obtenerOCrearJugador("Ragnar");
+  const { gremio } = (await bd.crearGremio("Cuervos de Hierro", lider.id, "#c0392b", "emblema_lobo")) as { gremio: { id: number } };
+
+  const r1 = await bd.ajustarBancoGremio(gremio.id, 100);
+  assert.deepStrictEqual(r1, { ok: true, saldo: 100 });
+
+  const r2 = await bd.ajustarBancoGremio(gremio.id, -150); // se iría a -50
+  assert.deepStrictEqual(r2, { ok: false, saldo: 100 }, "rechazado entero, saldo intacto");
+  await bd.cerrar();
+});
+
+test("Gremios: disolverGremio refunda el banco íntegro al líder y borra gremio+miembros+invitaciones", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const lider = await bd.obtenerOCrearJugador("Ragnar");
+  const miembro = await bd.obtenerOCrearJugador("Bjorn");
+  const invitado = await bd.obtenerOCrearJugador("Floki");
+  const { gremio } = (await bd.crearGremio("Cuervos de Hierro", lider.id, "#c0392b", "emblema_lobo")) as { gremio: { id: number } };
+  await bd.agregarMiembro(gremio.id, miembro.id, "miembro");
+  await bd.crearInvitacion(gremio.id, invitado.id, lider.id);
+  await bd.ajustarBancoGremio(gremio.id, 300);
+
+  const saldoAntes = await bd.obtenerFarycoins(lider.id);
+  await bd.disolverGremio(gremio.id);
+  const saldoDespues = await bd.obtenerFarycoins(lider.id);
+  assert.strictEqual(saldoDespues, saldoAntes + 300, "el banco se refunda íntegro al líder");
+
+  assert.strictEqual(await bd.obtenerGremio(gremio.id), null);
+  assert.strictEqual((await bd.listarMiembros(gremio.id)).length, 0);
+  assert.strictEqual(await bd.obtenerInvitacion(gremio.id, invitado.id), null, "las invitaciones pendientes también se limpian");
+  await bd.cerrar();
+});
+
+test("Gremios: un jugador no puede pertenecer a dos gremios a la vez (UNIQUE en BD, defensa en profundidad)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const a = await bd.obtenerOCrearJugador("Ragnar");
+  const b = await bd.obtenerOCrearJugador("Lagertha");
+  await bd.crearGremio("Cuervos de Hierro", a.id, "#c0392b", "emblema_lobo");
+  const segundo = await bd.crearGremio("Lobos del Norte", b.id, "#2980b9", "emblema_oso");
+  assert.strictEqual(segundo.ok, true);
+  if (!segundo.ok) return;
+
+  // agregarMiembro NO debe reventar si el jugador ya está en otro gremio —
+  // se traga el error (defensa en profundidad; el chequeo real vive en
+  // ContextoGremios antes de llamar aquí) y no añade la fila.
+  await bd.agregarMiembro(segundo.gremio.id, a.id, "miembro");
+  const miembros = await bd.listarMiembros(segundo.gremio.id);
+  assert.strictEqual(miembros.length, 1, "Ragnar NO debe haberse colado en un segundo gremio");
+  await bd.cerrar();
+});

@@ -39,7 +39,42 @@ const { DatabaseSync } = require("node:sqlite") as {
 export interface Jugador {
   id: number;
   nombre: string;
+  /** Saldo de Farycoins (pedido 2026-08-29, moneda del mundo) — saldo NUMÉRICO
+   * en la fila del jugador, NO un ItemInstancia de inventario.ts: el
+   * Contenedor exige huella física por diseño (hayHueco/buscarHueco),
+   * modelar dinero como ítem forzaría una excepción al sistema de rejilla.
+   * Decisión compartida por los 5 clusters investigados (gremios, mercado,
+   * propiedades, producción, motriz) — se implementa UNA vez aquí. */
+  farycoins: number;
 }
+
+// Gremios/clanes (pedido 2026-08-29): banco común (Farycoins), roster de
+// miembros, color+emblema de un catálogo cerrado. `id` es un entero
+// autoincrementado (mismo criterio que jugadores/construcciones — no un id
+// de texto fabricado como las parcelas, que sí vienen del bake/GUI admin).
+export type RolGremio = "lider" | "miembro";
+
+export interface Gremio {
+  id: number;
+  nombre: string;
+  liderJugadorId: number;
+  color: string;
+  emblemaId: string;
+  saldoBanco: number;
+  creadoEn: string;
+}
+
+export interface GremioMiembro {
+  gremioId: number;
+  jugadorId: number;
+  jugadorNombre: string;
+  rol: RolGremio;
+  ingresoEn: string;
+}
+
+export type ResultadoCrearGremio =
+  | { ok: true; gremio: Gremio }
+  | { ok: false; motivo: "nombre_en_uso" | "ya_tienes_gremio" };
 
 export interface Propiedad {
   tipo: string;
@@ -112,6 +147,32 @@ export interface MemoriaLider {
  */
 export interface IAlmacenDatos {
   obtenerOCrearJugador(nombre: string): Promise<Jugador>;
+  obtenerFarycoins(jugadorId: number): Promise<number>;
+  /** Suma (delta>0) o resta (delta<0) Farycoins de un jugador, TODO O NADA:
+   * si restar dejaría el saldo negativo, no toca nada y `ok:false` — mismo
+   * patrón compare-and-swap por WHERE que el resto de mutaciones económicas
+   * del proyecto (una sola fila, no hace falta una transacción explícita).
+   * Primitiva única reusada por gremios (depositar/retirar del banco),
+   * mercado (pagar/cobrar) y propiedades (comprar/alquilar) — se decide UNA
+   * vez, no en cada sistema por separado. */
+  ajustarFarycoins(jugadorId: number, delta: number): Promise<{ ok: boolean; saldo: number }>;
+  // Gremios (pedido 2026-08-29) — un jugador pertenece a UN gremio como
+  // mucho (UNIQUE en gremio_miembros.jugador_id, defensa en profundidad
+  // además del chequeo en memoria de ContextoGremios antes de escribir).
+  crearGremio(nombre: string, liderJugadorId: number, color: string, emblemaId: string): Promise<ResultadoCrearGremio>;
+  listarGremios(): Promise<Gremio[]>;
+  obtenerGremio(id: number): Promise<Gremio | null>;
+  listarMiembros(gremioId: number): Promise<GremioMiembro[]>;
+  agregarMiembro(gremioId: number, jugadorId: number, rol: RolGremio): Promise<void>;
+  quitarMiembro(gremioId: number, jugadorId: number): Promise<void>;
+  actualizarGremio(id: number, cambios: { color?: string; emblemaId?: string }): Promise<void>;
+  /** Refunda saldo_banco íntegro a saldo_farycoins del líder (vía ajustarFarycoins) y borra gremio+miembros+invitaciones. */
+  disolverGremio(id: number): Promise<void>;
+  crearInvitacion(gremioId: number, jugadorId: number, invitadoPorId: number): Promise<void>;
+  obtenerInvitacion(gremioId: number, jugadorId: number): Promise<{ invitadoPorId: number } | null>;
+  eliminarInvitacion(gremioId: number, jugadorId: number): Promise<void>;
+  /** Mismo primitivo compare-and-swap que ajustarFarycoins, pero sobre gremios.saldo_banco. */
+  ajustarBancoGremio(gremioId: number, delta: number): Promise<{ ok: boolean; saldo: number }>;
   cargarPropiedades(): Promise<Map<string, Propiedad>>;
   asignarPropiedad(id: string, tipo: string, asentamiento: string, duenoNombre: string | null): Promise<void>;
   revocarPropiedad(id: string): Promise<void>;
@@ -158,7 +219,32 @@ const MIGRACIONES_SQLITE = `
 CREATE TABLE IF NOT EXISTS jugadores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre TEXT UNIQUE NOT NULL,          -- identidad v1 = nombre (hasta que haya login real; documentado)
+  creado_en TEXT NOT NULL,
+  farycoins INTEGER NOT NULL DEFAULT 0  -- moneda del mundo, saldo numérico (no ítem de inventario)
+);
+CREATE TABLE IF NOT EXISTS gremios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nombre TEXT UNIQUE NOT NULL,
+  lider_jugador_id INTEGER NOT NULL,     -- FK jugadores.id
+  color TEXT NOT NULL DEFAULT '#8a8a8a',
+  emblema_id TEXT NOT NULL DEFAULT 'emblema_generico',
+  saldo_banco INTEGER NOT NULL DEFAULT 0,
   creado_en TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gremio_miembros (
+  gremio_id INTEGER NOT NULL,            -- FK gremios.id
+  jugador_id INTEGER NOT NULL,           -- FK jugadores.id
+  rol TEXT NOT NULL DEFAULT 'miembro',   -- 'lider' | 'miembro'
+  ingreso_en TEXT NOT NULL,
+  PRIMARY KEY (gremio_id, jugador_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gremio_miembros_jugador ON gremio_miembros(jugador_id);
+CREATE TABLE IF NOT EXISTS gremio_invitaciones (
+  gremio_id INTEGER NOT NULL,
+  jugador_id INTEGER NOT NULL,           -- invitado
+  invitado_por INTEGER NOT NULL,         -- FK jugadores.id del líder que invitó
+  creado_en TEXT NOT NULL,
+  PRIMARY KEY (gremio_id, jugador_id)
 );
 CREATE TABLE IF NOT EXISTS propiedades (
   id TEXT PRIMARY KEY,                  -- "p_0001" (parcela) o "i_<edificioId>_<sala>" (inmueble interior, futuro)
@@ -233,7 +319,36 @@ const MIGRACIONES_POSTGRES = `
 CREATE TABLE IF NOT EXISTS jugadores (
   id SERIAL PRIMARY KEY,
   nombre TEXT UNIQUE NOT NULL,
+  creado_en TEXT NOT NULL,
+  farycoins INTEGER NOT NULL DEFAULT 0
+);
+-- ALTER ... IF NOT EXISTS: primera vez que se amplía una tabla YA
+-- desplegada en Neon (hasta ahora todo era CREATE TABLE de cero) — Postgres
+-- lo soporta nativo, no rompe nada si la columna ya existe.
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS farycoins INTEGER NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS gremios (
+  id SERIAL PRIMARY KEY,
+  nombre TEXT UNIQUE NOT NULL,
+  lider_jugador_id INTEGER NOT NULL,
+  color TEXT NOT NULL DEFAULT '#8a8a8a',
+  emblema_id TEXT NOT NULL DEFAULT 'emblema_generico',
+  saldo_banco INTEGER NOT NULL DEFAULT 0,
   creado_en TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gremio_miembros (
+  gremio_id INTEGER NOT NULL,
+  jugador_id INTEGER NOT NULL,
+  rol TEXT NOT NULL DEFAULT 'miembro',
+  ingreso_en TEXT NOT NULL,
+  PRIMARY KEY (gremio_id, jugador_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_gremio_miembros_jugador ON gremio_miembros(jugador_id);
+CREATE TABLE IF NOT EXISTS gremio_invitaciones (
+  gremio_id INTEGER NOT NULL,
+  jugador_id INTEGER NOT NULL,
+  invitado_por INTEGER NOT NULL,
+  creado_en TEXT NOT NULL,
+  PRIMARY KEY (gremio_id, jugador_id)
 );
 CREATE TABLE IF NOT EXISTS propiedades (
   id TEXT PRIMARY KEY,
@@ -312,15 +427,166 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     this.bd = new DatabaseSync(rutaFinal);
     // CREATE ... IF NOT EXISTS en todo: abrir dos veces el mismo archivo es inocuo.
     this.bd.exec(MIGRACIONES_SQLITE);
+    // SQLite no tiene "ADD COLUMN IF NOT EXISTS" portable entre versiones —
+    // CREATE TABLE IF NOT EXISTS no amplía una tabla que YA existía sin la
+    // columna nueva (un datos.sqlite de dev creado antes de este cambio).
+    // PRAGMA table_info + ALTER manual es el mismo patrón que ya usa Postgres
+    // (columna nueva sobre tabla desplegada), aplicado a mano aquí.
+    const columnas = this.bd.prepare("PRAGMA table_info(jugadores)").all();
+    if (!columnas.some((c) => String(c.name) === "farycoins")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN farycoins INTEGER NOT NULL DEFAULT 0");
+    }
   }
 
   async obtenerOCrearJugador(nombre: string): Promise<Jugador> {
-    const existente = this.bd.prepare("SELECT id, nombre FROM jugadores WHERE nombre = ?").get(nombre);
-    if (existente) return { id: Number(existente.id), nombre: String(existente.nombre) };
+    const existente = this.bd.prepare("SELECT id, nombre, farycoins FROM jugadores WHERE nombre = ?").get(nombre);
+    if (existente) {
+      return { id: Number(existente.id), nombre: String(existente.nombre), farycoins: Number(existente.farycoins) };
+    }
     const r = this.bd
       .prepare("INSERT INTO jugadores (nombre, creado_en) VALUES (?, ?)")
       .run(nombre, new Date().toISOString());
-    return { id: Number(r.lastInsertRowid), nombre };
+    return { id: Number(r.lastInsertRowid), nombre, farycoins: 0 };
+  }
+
+  async obtenerFarycoins(jugadorId: number): Promise<number> {
+    const fila = this.bd.prepare("SELECT farycoins FROM jugadores WHERE id = ?").get(jugadorId);
+    return fila ? Number(fila.farycoins) : 0;
+  }
+
+  async ajustarFarycoins(jugadorId: number, delta: number): Promise<{ ok: boolean; saldo: number }> {
+    const r = this.bd
+      .prepare("UPDATE jugadores SET farycoins = farycoins + ? WHERE id = ? AND farycoins + ? >= 0")
+      .run(delta, jugadorId, delta);
+    const saldo = await this.obtenerFarycoins(jugadorId);
+    return { ok: Number(r.changes) > 0, saldo };
+  }
+
+  private filaAGremio(f: Record<string, unknown>): Gremio {
+    return {
+      id: Number(f.id),
+      nombre: String(f.nombre),
+      liderJugadorId: Number(f.lider_jugador_id),
+      color: String(f.color),
+      emblemaId: String(f.emblema_id),
+      saldoBanco: Number(f.saldo_banco),
+      creadoEn: String(f.creado_en),
+    };
+  }
+
+  async crearGremio(nombre: string, liderJugadorId: number, color: string, emblemaId: string): Promise<ResultadoCrearGremio> {
+    const ahora = new Date().toISOString();
+    let gremioId: number;
+    try {
+      const r = this.bd
+        .prepare("INSERT INTO gremios (nombre, lider_jugador_id, color, emblema_id, saldo_banco, creado_en) VALUES (?, ?, ?, ?, 0, ?)")
+        .run(nombre, liderJugadorId, color, emblemaId, ahora);
+      gremioId = Number(r.lastInsertRowid);
+    } catch (e) {
+      if (String((e as Error).message).includes("gremios.nombre")) return { ok: false, motivo: "nombre_en_uso" };
+      throw e;
+    }
+    try {
+      this.bd
+        .prepare("INSERT INTO gremio_miembros (gremio_id, jugador_id, rol, ingreso_en) VALUES (?, ?, 'lider', ?)")
+        .run(gremioId, liderJugadorId, ahora);
+    } catch (e) {
+      // compensar: el jugador ya estaba en otro gremio (UNIQUE jugador_id) — deshacer el gremio recién creado
+      this.bd.prepare("DELETE FROM gremios WHERE id = ?").run(gremioId);
+      if (String((e as Error).message).includes("gremio_miembros")) return { ok: false, motivo: "ya_tienes_gremio" };
+      throw e;
+    }
+    return { ok: true, gremio: (await this.obtenerGremio(gremioId))! };
+  }
+
+  async listarGremios(): Promise<Gremio[]> {
+    const filas = this.bd
+      .prepare("SELECT id, nombre, lider_jugador_id, color, emblema_id, saldo_banco, creado_en FROM gremios")
+      .all();
+    return filas.map((f) => this.filaAGremio(f));
+  }
+
+  async obtenerGremio(id: number): Promise<Gremio | null> {
+    const fila = this.bd
+      .prepare("SELECT id, nombre, lider_jugador_id, color, emblema_id, saldo_banco, creado_en FROM gremios WHERE id = ?")
+      .get(id);
+    return fila ? this.filaAGremio(fila) : null;
+  }
+
+  async listarMiembros(gremioId: number): Promise<GremioMiembro[]> {
+    const filas = this.bd
+      .prepare(
+        `SELECT m.gremio_id, m.jugador_id, j.nombre AS jugador_nombre, m.rol, m.ingreso_en
+         FROM gremio_miembros m JOIN jugadores j ON j.id = m.jugador_id WHERE m.gremio_id = ?`
+      )
+      .all(gremioId);
+    return filas.map((f) => ({
+      gremioId: Number(f.gremio_id),
+      jugadorId: Number(f.jugador_id),
+      jugadorNombre: String(f.jugador_nombre),
+      rol: String(f.rol) as RolGremio,
+      ingresoEn: String(f.ingreso_en),
+    }));
+  }
+
+  async agregarMiembro(gremioId: number, jugadorId: number, rol: RolGremio): Promise<void> {
+    try {
+      this.bd
+        .prepare("INSERT INTO gremio_miembros (gremio_id, jugador_id, rol, ingreso_en) VALUES (?, ?, ?, ?)")
+        .run(gremioId, jugadorId, rol, new Date().toISOString());
+    } catch (e) {
+      // UNIQUE(jugador_id): ya está en otro gremio — el chequeo real vive en
+      // ContextoGremios (memoria) antes de llamar aquí; esto es defensa en
+      // profundidad, no el punto de decisión.
+      console.warn(`agregarMiembro: jugador ${jugadorId} ya pertenece a un gremio, no se añadió a ${gremioId}`);
+    }
+  }
+
+  async quitarMiembro(gremioId: number, jugadorId: number): Promise<void> {
+    this.bd.prepare("DELETE FROM gremio_miembros WHERE gremio_id = ? AND jugador_id = ?").run(gremioId, jugadorId);
+  }
+
+  async actualizarGremio(id: number, cambios: { color?: string; emblemaId?: string }): Promise<void> {
+    if (cambios.color !== undefined) this.bd.prepare("UPDATE gremios SET color = ? WHERE id = ?").run(cambios.color, id);
+    if (cambios.emblemaId !== undefined) {
+      this.bd.prepare("UPDATE gremios SET emblema_id = ? WHERE id = ?").run(cambios.emblemaId, id);
+    }
+  }
+
+  async disolverGremio(id: number): Promise<void> {
+    const gremio = await this.obtenerGremio(id);
+    if (gremio && gremio.saldoBanco > 0) await this.ajustarFarycoins(gremio.liderJugadorId, gremio.saldoBanco);
+    this.bd.prepare("DELETE FROM gremio_miembros WHERE gremio_id = ?").run(id);
+    this.bd.prepare("DELETE FROM gremio_invitaciones WHERE gremio_id = ?").run(id);
+    this.bd.prepare("DELETE FROM gremios WHERE id = ?").run(id);
+  }
+
+  async ajustarBancoGremio(gremioId: number, delta: number): Promise<{ ok: boolean; saldo: number }> {
+    const r = this.bd
+      .prepare("UPDATE gremios SET saldo_banco = saldo_banco + ? WHERE id = ? AND saldo_banco + ? >= 0")
+      .run(delta, gremioId, delta);
+    const gremio = await this.obtenerGremio(gremioId);
+    return { ok: Number(r.changes) > 0, saldo: gremio?.saldoBanco ?? 0 };
+  }
+
+  async crearInvitacion(gremioId: number, jugadorId: number, invitadoPorId: number): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO gremio_invitaciones (gremio_id, jugador_id, invitado_por, creado_en) VALUES (?, ?, ?, ?)
+         ON CONFLICT(gremio_id, jugador_id) DO UPDATE SET invitado_por = excluded.invitado_por, creado_en = excluded.creado_en`
+      )
+      .run(gremioId, jugadorId, invitadoPorId, new Date().toISOString());
+  }
+
+  async obtenerInvitacion(gremioId: number, jugadorId: number): Promise<{ invitadoPorId: number } | null> {
+    const fila = this.bd
+      .prepare("SELECT invitado_por FROM gremio_invitaciones WHERE gremio_id = ? AND jugador_id = ?")
+      .get(gremioId, jugadorId);
+    return fila ? { invitadoPorId: Number(fila.invitado_por) } : null;
+  }
+
+  async eliminarInvitacion(gremioId: number, jugadorId: number): Promise<void> {
+    this.bd.prepare("DELETE FROM gremio_invitaciones WHERE gremio_id = ? AND jugador_id = ?").run(gremioId, jugadorId);
   }
 
   // Se llama UNA vez al arrancar la room (regla GDD §2: leer al arrancar, nunca polling).
@@ -580,13 +846,160 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async obtenerOCrearJugador(nombre: string): Promise<Jugador> {
     // INSERT ... ON CONFLICT DO UPDATE + RETURNING: upsert real de Postgres,
     // devuelve la fila exista ya o se acabe de crear, en una sola ida y vuelta.
-    const r = await this.pool.query<{ id: number; nombre: string }>(
+    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number }>(
       `INSERT INTO jugadores (nombre, creado_en) VALUES ($1, $2)
        ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
-       RETURNING id, nombre`,
+       RETURNING id, nombre, farycoins`,
       [nombre, new Date().toISOString()]
     );
-    return { id: r.rows[0].id, nombre: r.rows[0].nombre };
+    return { id: r.rows[0].id, nombre: r.rows[0].nombre, farycoins: r.rows[0].farycoins };
+  }
+
+  async obtenerFarycoins(jugadorId: number): Promise<number> {
+    const r = await this.pool.query<{ farycoins: number }>("SELECT farycoins FROM jugadores WHERE id = $1", [jugadorId]);
+    return r.rows[0]?.farycoins ?? 0;
+  }
+
+  async ajustarFarycoins(jugadorId: number, delta: number): Promise<{ ok: boolean; saldo: number }> {
+    const r = await this.pool.query<{ farycoins: number }>(
+      `UPDATE jugadores SET farycoins = farycoins + $1 WHERE id = $2 AND farycoins + $1 >= 0 RETURNING farycoins`,
+      [delta, jugadorId]
+    );
+    if (r.rows.length > 0) return { ok: true, saldo: r.rows[0].farycoins };
+    return { ok: false, saldo: await this.obtenerFarycoins(jugadorId) };
+  }
+
+  private filaAGremio(f: { id: number; nombre: string; lider_jugador_id: number; color: string; emblema_id: string; saldo_banco: number; creado_en: string }): Gremio {
+    return {
+      id: f.id,
+      nombre: f.nombre,
+      liderJugadorId: f.lider_jugador_id,
+      color: f.color,
+      emblemaId: f.emblema_id,
+      saldoBanco: f.saldo_banco,
+      creadoEn: f.creado_en,
+    };
+  }
+
+  async crearGremio(nombre: string, liderJugadorId: number, color: string, emblemaId: string): Promise<ResultadoCrearGremio> {
+    const ahora = new Date().toISOString();
+    let gremioId: number;
+    try {
+      const r = await this.pool.query<{ id: number }>(
+        "INSERT INTO gremios (nombre, lider_jugador_id, color, emblema_id, saldo_banco, creado_en) VALUES ($1, $2, $3, $4, 0, $5) RETURNING id",
+        [nombre, liderJugadorId, color, emblemaId, ahora]
+      );
+      gremioId = r.rows[0].id;
+    } catch (e) {
+      if ((e as { code?: string }).code === "23505") return { ok: false, motivo: "nombre_en_uso" };
+      throw e;
+    }
+    try {
+      await this.pool.query(
+        "INSERT INTO gremio_miembros (gremio_id, jugador_id, rol, ingreso_en) VALUES ($1, $2, 'lider', $3)",
+        [gremioId, liderJugadorId, ahora]
+      );
+    } catch (e) {
+      // compensar: el jugador ya estaba en otro gremio (UNIQUE jugador_id) — deshacer el gremio recién creado
+      await this.pool.query("DELETE FROM gremios WHERE id = $1", [gremioId]);
+      if ((e as { code?: string }).code === "23505") return { ok: false, motivo: "ya_tienes_gremio" };
+      throw e;
+    }
+    return { ok: true, gremio: (await this.obtenerGremio(gremioId))! };
+  }
+
+  async listarGremios(): Promise<Gremio[]> {
+    const r = await this.pool.query<{ id: number; nombre: string; lider_jugador_id: number; color: string; emblema_id: string; saldo_banco: number; creado_en: string }>(
+      "SELECT id, nombre, lider_jugador_id, color, emblema_id, saldo_banco, creado_en FROM gremios"
+    );
+    return r.rows.map((f) => this.filaAGremio(f));
+  }
+
+  async obtenerGremio(id: number): Promise<Gremio | null> {
+    const r = await this.pool.query<{ id: number; nombre: string; lider_jugador_id: number; color: string; emblema_id: string; saldo_banco: number; creado_en: string }>(
+      "SELECT id, nombre, lider_jugador_id, color, emblema_id, saldo_banco, creado_en FROM gremios WHERE id = $1",
+      [id]
+    );
+    return r.rows.length > 0 ? this.filaAGremio(r.rows[0]) : null;
+  }
+
+  async listarMiembros(gremioId: number): Promise<GremioMiembro[]> {
+    const r = await this.pool.query<{ gremio_id: number; jugador_id: number; jugador_nombre: string; rol: string; ingreso_en: string }>(
+      `SELECT m.gremio_id, m.jugador_id, j.nombre AS jugador_nombre, m.rol, m.ingreso_en
+       FROM gremio_miembros m JOIN jugadores j ON j.id = m.jugador_id WHERE m.gremio_id = $1`,
+      [gremioId]
+    );
+    return r.rows.map((f) => ({
+      gremioId: f.gremio_id,
+      jugadorId: f.jugador_id,
+      jugadorNombre: f.jugador_nombre,
+      rol: f.rol as RolGremio,
+      ingresoEn: f.ingreso_en,
+    }));
+  }
+
+  async agregarMiembro(gremioId: number, jugadorId: number, rol: RolGremio): Promise<void> {
+    try {
+      await this.pool.query(
+        "INSERT INTO gremio_miembros (gremio_id, jugador_id, rol, ingreso_en) VALUES ($1, $2, $3, $4)",
+        [gremioId, jugadorId, rol, new Date().toISOString()]
+      );
+    } catch (e) {
+      if ((e as { code?: string }).code === "23505") {
+        console.warn(`agregarMiembro: jugador ${jugadorId} ya pertenece a un gremio, no se añadió a ${gremioId}`);
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async quitarMiembro(gremioId: number, jugadorId: number): Promise<void> {
+    await this.pool.query("DELETE FROM gremio_miembros WHERE gremio_id = $1 AND jugador_id = $2", [gremioId, jugadorId]);
+  }
+
+  async actualizarGremio(id: number, cambios: { color?: string; emblemaId?: string }): Promise<void> {
+    if (cambios.color !== undefined) await this.pool.query("UPDATE gremios SET color = $1 WHERE id = $2", [cambios.color, id]);
+    if (cambios.emblemaId !== undefined) {
+      await this.pool.query("UPDATE gremios SET emblema_id = $1 WHERE id = $2", [cambios.emblemaId, id]);
+    }
+  }
+
+  async disolverGremio(id: number): Promise<void> {
+    const gremio = await this.obtenerGremio(id);
+    if (gremio && gremio.saldoBanco > 0) await this.ajustarFarycoins(gremio.liderJugadorId, gremio.saldoBanco);
+    await this.pool.query("DELETE FROM gremio_miembros WHERE gremio_id = $1", [id]);
+    await this.pool.query("DELETE FROM gremio_invitaciones WHERE gremio_id = $1", [id]);
+    await this.pool.query("DELETE FROM gremios WHERE id = $1", [id]);
+  }
+
+  async ajustarBancoGremio(gremioId: number, delta: number): Promise<{ ok: boolean; saldo: number }> {
+    const r = await this.pool.query<{ saldo_banco: number }>(
+      "UPDATE gremios SET saldo_banco = saldo_banco + $1 WHERE id = $2 AND saldo_banco + $1 >= 0 RETURNING saldo_banco",
+      [delta, gremioId]
+    );
+    if (r.rows.length > 0) return { ok: true, saldo: r.rows[0].saldo_banco };
+    const gremio = await this.obtenerGremio(gremioId);
+    return { ok: false, saldo: gremio?.saldoBanco ?? 0 };
+  }
+
+  async crearInvitacion(gremioId: number, jugadorId: number, invitadoPorId: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO gremio_invitaciones (gremio_id, jugador_id, invitado_por, creado_en) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (gremio_id, jugador_id) DO UPDATE SET invitado_por = EXCLUDED.invitado_por, creado_en = EXCLUDED.creado_en`,
+      [gremioId, jugadorId, invitadoPorId, new Date().toISOString()]
+    );
+  }
+
+  async obtenerInvitacion(gremioId: number, jugadorId: number): Promise<{ invitadoPorId: number } | null> {
+    const r = await this.pool.query<{ invitado_por: number }>(
+      "SELECT invitado_por FROM gremio_invitaciones WHERE gremio_id = $1 AND jugador_id = $2",
+      [gremioId, jugadorId]
+    );
+    return r.rows.length > 0 ? { invitadoPorId: r.rows[0].invitado_por } : null;
+  }
+
+  async eliminarInvitacion(gremioId: number, jugadorId: number): Promise<void> {
+    await this.pool.query("DELETE FROM gremio_invitaciones WHERE gremio_id = $1 AND jugador_id = $2", [gremioId, jugadorId]);
   }
 
   async cargarPropiedades(): Promise<Map<string, Propiedad>> {
