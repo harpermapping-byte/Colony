@@ -18,12 +18,13 @@ import {
 
 const catalogo: CatalogoItems = cargarCatalogoItems();
 
-test("cargarCatalogoItems: filtra claves _nota* y trae los 56 ítems reales", () => {
+test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 56); // 55 + "arcilla" (baker/catalogo/rocas.json, pedido 2026-08-29 orillas de barro)
+  assert.strictEqual(ids.length, 88); // 55 de fase 1 + "arcilla" (rocas.json, orillas de barro) + 32 tipo:"objeto" (docs/GDD_Inventario.md §7)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
+  assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");
 });
 
 test("todo ítem del catálogo tiene huella/peso/colorDebug válidos", () => {

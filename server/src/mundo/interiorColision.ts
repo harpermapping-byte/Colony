@@ -53,6 +53,11 @@ interface ElementoColocado {
   y: number;
   ancho: number;
   largo: number;
+  /** Objetos SIN casilla propia sobre este mueble (interiores/src/colocarElementos.js,
+   * AnchorType.CHILD_SLOT) — instanceId único y determinista del bake, se
+   * interactúa por la posición del HOST. Fase 2 de inventario ("coger",
+   * docs/GDD_Inventario.md §7): antes se descartaba al cargar. */
+  sobre?: { id: string; instanceId: string }[];
 }
 
 interface SalaInterior {
@@ -137,6 +142,13 @@ export interface InteriorCargado extends MundoColision {
    * sala X" — varias salas del mismo tipo (dos dormitorios) dan varios
    * puntos. Vacío en interiores sin `sala` real por tramo (mazmorras). */
   salasPorTipo: Map<string, { x: number; y: number }[]>;
+  /** Objetos "sobre" (sin casilla propia) de ESTA planta, vivos en memoria —
+   * fase 2 de inventario ("coger", docs/GDD_Inventario.md §7). Clave =
+   * instanceId (ya único y determinista, generado por el bake). Se filtra
+   * si el id de catálogo cabe o no en items/catalogo/items.json en el
+   * momento de "coger", NO aquí — así ampliar items.json amplía qué es
+   * cogible sin tocar este loader (CLAUDE.md: "las listas crecen"). */
+  objetosSueltos: Map<string, { itemId: string; x: number; y: number }>;
 }
 
 export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado {
@@ -157,6 +169,7 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
   const casillas = new Uint8Array(ancho * alto).fill(TIPO.SOLIDO); // fuera de toda sala = pared
   const velocidad = new Float32Array(ancho * alto).fill(1);
 
+  const objetosSueltos = new Map<string, { itemId: string; x: number; y: number }>();
   for (const sala of salas) {
     const { offsetX, offsetY, resultado } = sala;
     for (let y = 0; y < resultado.largo; y++) {
@@ -169,6 +182,11 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
       }
     }
     for (const item of resultado.colocados) {
+      // objetos "sobre" (plato, libro, frasco_pocion...) NO tienen casilla
+      // propia — se interactúa por la posición del mueble que los sostiene.
+      for (const sub of item.sobre ?? []) {
+        objetosSueltos.set(sub.instanceId, { itemId: sub.id, x: offsetX + item.x, y: offsetY + item.y });
+      }
       if (!elementoEsSolido(item.id)) continue; // decorativo/clutter: no bloquea
       for (let y = 0; y < item.largo; y++) {
         for (let x = 0; x < item.ancho; x++) {
@@ -284,6 +302,7 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
     conectores,
     spawnsEnemigos: planta.spawnsEnemigos ?? [],
     salasPorTipo,
+    objetosSueltos,
   };
 }
 

@@ -1,7 +1,7 @@
 import { Client } from "@colyseus/core";
 import * as fs from "fs";
 import * as path from "path";
-import { RoomExteriorBase } from "./base/RoomExteriorBase";
+import { RoomExteriorBase, RADIO_INTERACCION } from "./base/RoomExteriorBase";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { GestorAgentes, NpcBakeado } from "../mundo/agentes";
@@ -37,6 +37,7 @@ export class RegionRoom extends RoomExteriorBase {
     const rutaMapa = rutaDeMapaId(options.mapaId);
     this.mapa = cargarMapaColision(rutaMapa);
     this.mundo = this.mapa;
+    this.mapaExterior = this.mapa; // habilita "coger" de recolectables del bake (fase 2 de inventario)
     console.log(`Región "${this.mapa.nombre}" (${options.mapaId}): ${this.mapa.ancho}x${this.mapa.alto} casillas`);
     this.iniciarMovimiento();
 
@@ -88,7 +89,7 @@ export class RegionRoom extends RoomExteriorBase {
       const player = this.state.players.get(client.sessionId);
       if (!player) return;
       const portal = this.mapa.portales.find(
-        (p) => Math.hypot(p.x + 0.5 - player.x, p.y + 0.5 - player.y) < 2.2,
+        (p) => Math.hypot(p.x + 0.5 - player.x, p.y + 0.5 - player.y) < RADIO_INTERACCION,
       );
       if (!portal) return client.send("portal:error", { motivo: "no hay puerta cerca" });
 

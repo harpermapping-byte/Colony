@@ -22,7 +22,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-export type TipoItem = "recurso" | "equipable" | "herramienta" | "consumible";
+export type TipoItem = "recurso" | "equipable" | "herramienta" | "consumible" | "arma" | "objeto";
 
 export interface EntradaCatalogoItem {
   tipo: TipoItem;
@@ -35,6 +35,23 @@ export interface EntradaCatalogoItem {
   esContenedor?: { ancho: number; alto: number };
   variantes: number;
   colorDebug: string;
+  /** id de ropa/catalogo/prendas.json cuando esta entrada tiene representación visual real (armadura vestible) — ausente = placeholder sin voxel propio, mismo criterio que el resto del arte del proyecto. */
+  prendaId?: string;
+
+  // --- combate (pedido 2026-08-29, docs/GDD_Combate.md) — todo opcional/aditivo, cero cambio para lo que ya existe ---
+  ataqueFisico?: number;
+  ataqueMagico?: number;
+  /** alcance en casillas — solo armas */
+  alcance?: number;
+  /** cooldown entre golpes con esta arma, en ms */
+  cooldownMs?: number;
+  defensaFisica?: number;
+  defensaMagica?: number;
+
+  // --- desgaste (server/src/inventario/desgaste.ts) — ausente = el ítem nunca se desgasta ---
+  durabilidadMax?: number;
+  /** durabilidad perdida por cada USO directo (golpe dado, tala, minado...) */
+  desgastePorUso?: number;
 }
 
 export type CatalogoItems = Record<string, EntradaCatalogoItem>;
@@ -49,6 +66,10 @@ export interface ItemInstancia {
   x: number;
   y: number;
   rot: Rotacion;
+  /** ausente si el ítem de catálogo no tiene durabilidadMax (nunca se desgasta) — ver desgaste.ts */
+  durabilidad?: number;
+  /** epoch ms de la última vez que se tocó (para el desgaste por inactividad, cálculo perezoso) */
+  ultimoUso?: number;
 }
 
 export interface Contenedor {
@@ -182,6 +203,9 @@ export function agregarItem(contenedor: Contenedor, catalogo: CatalogoItems, ite
       x: hueco.x,
       y: hueco.y,
       rot: 0,
+      // nace a durabilidad máxima si el catálogo declara durabilidadMax;
+      // si no, se queda sin el campo (nunca se desgasta) — ver desgaste.ts
+      ...(entrada.durabilidadMax != null ? { durabilidad: entrada.durabilidadMax } : {}),
     };
     contenedor.items.push(instancia);
     restante -= enEstaPila;
