@@ -15,12 +15,14 @@
 import { MapSchema } from "@colyseus/schema";
 import { Fauna } from "../rooms/schema/HubState";
 import { MundoColision, TIPO } from "./colisiones";
-import { CatalogoEspecies, ObjetoFaunaBakeado, resolverSector } from "./faunaSalvajeSector";
+import { CatalogoEspecies, ObjetoFaunaBakeado, convertirFilaAAnimal, resolverSector } from "./faunaSalvajeSector";
+import { necesitaAgua, necesitaComida } from "./reproduccionFauna";
 import { FaunaHuevoFila, FaunaSalvajeFila } from "../datos/bd";
 
 const RADIO_MERODEO = 3; // casillas — paseo corto alrededor de donde se resolvió cada individuo
 const VEL = 1.0;
-const ACCIONES_IDLE = ["comer", "sentarse", "jugar", "dormir", "alerta"];
+const ACCIONES_IDLE = ["sentarse", "jugar", "dormir", "alerta"];
+const RADIO_BUSQUEDA_AGUA = 15; // casillas — hasta dónde busca agua antes de rendirse por este intento
 
 function accionIdleAlAzar(): string {
   return ACCIONES_IDLE[Math.floor(Math.random() * ACCIONES_IDLE.length)];
@@ -73,6 +75,8 @@ interface IndividuoVivo {
   fila: FaunaSalvajeFila;
   esquema: Fauna;
   destino: { x: number; y: number } | null;
+  /** por qué va hacia `destino`: "agua" = al llegar bebe (marca ultimaBebida); null = paseo normal, no hace nada especial al llegar. */
+  objetivoDestino: "agua" | null;
   pausaRestante: number;
 }
 
@@ -138,7 +142,7 @@ export class GestorFaunaSalvaje {
       esquema.especieId = fila.especieId;
       esquema.accion = accionIdleAlAzar();
       this.salida.set(fila.id, esquema);
-      vivos.push({ fila, esquema, destino: null, pausaRestante: 1 + Math.random() * 3 });
+      vivos.push({ fila, esquema, destino: null, objetivoDestino: null, pausaRestante: 1 + Math.random() * 3 });
     }
 
     for (const fila of resultado.individuos) await this.deps.guardarIndividuo(fila);
@@ -192,19 +196,59 @@ export class GestorFaunaSalvaje {
     }
   }
 
-  /** Mismo algoritmo de paseo que `GestorFauna` (mundo/fauna.ts): pausa idle, o caminar en línea recta a un punto al azar dentro de un radio pequeño. */
+  /**
+   * Mismo algoritmo de paseo que `GestorFauna` (mundo/fauna.ts), con
+   * hambre/sed por encima (pedido 2026-08-30, "1 vez al día beber agua...
+   * herbívoros [comen] algo del suelo, carnívoros cada más días"): antes
+   * de decidir un paseo al azar, cada individuo (adulto — las crías nunca
+   * necesitan nada, comen de sus padres) comprueba si necesita agua o
+   * comida y, si toca, eso manda sobre el merodeo normal:
+   * - Sed: SIEMPRE (granja o salvaje, cualquier dieta) — busca la casilla
+   *   de agua transitable más cercana y camina hasta ella; al llegar,
+   *   bebe (marca `ultimaBebida`). Si no encuentra agua cerca, no se
+   *   bloquea: sigue paseando y lo reintenta el próximo ciclo idle.
+   * - Comida herbívoro/omnívoro: "algo del suelo" — como no necesita
+   *   desplazarse a ningún sitio especial, come donde está (marca
+   *   `ultimaComida` de inmediato) con una pausa de "comer".
+   * - Comida carnívoro: sin comportamiento activo todavía — depende de
+   *   cazar, y cazar depende de un sistema de combate que no existe
+   *   (pedido explícito: "ahora resolveremos combate, no te preocupes").
+   *   Sigue paseando con normalidad; su ventana de 6 días le da margen de
+   *   sobra hasta que ese sistema exista.
+   */
   tick(dt: number): void {
+    const ahora = this.deps.ahora();
     for (const vivos of this.sectoresActivos.values()) {
       for (const v of vivos) {
         if (v.destino) {
-          this.avanzarHaciaDestino(v, dt);
+          this.avanzarHaciaDestino(v, dt, ahora);
           continue;
         }
         v.pausaRestante -= dt;
         if (v.pausaRestante > 0) continue;
+
+        const especie = this.deps.catalogo[v.fila.especieId];
+        const animal = convertirFilaAAnimal(v.fila);
+        if (especie && necesitaAgua(animal, ahora)) {
+          const destinoAgua = this.buscarAguaCercana(v.esquema.x, v.esquema.y);
+          if (destinoAgua) {
+            v.destino = destinoAgua;
+            v.objetivoDestino = "agua";
+            v.esquema.accion = "caminar";
+            continue;
+          }
+        }
+        if (especie && especie.dieta !== "carnivoro" && necesitaComida(animal, especie, ahora)) {
+          v.fila.ultimaComida = ahora;
+          v.esquema.accion = "comer";
+          v.pausaRestante = 2 + Math.random() * 2;
+          continue;
+        }
+
         const destino = this.elegirDestino(v);
         if (destino) {
           v.destino = destino;
+          v.objetivoDestino = null;
           v.esquema.accion = "caminar";
         } else {
           v.pausaRestante = 2;
@@ -225,7 +269,27 @@ export class GestorFaunaSalvaje {
     return null;
   }
 
-  private avanzarHaciaDestino(v: IndividuoVivo, dt: number): void {
+  /** Busca la casilla de agua más cercana en anillos crecientes — sin A*, solo para decidir un punto al que caminar en línea recta (mismo criterio que el resto del merodeo). `null` si no hay agua dentro del radio de búsqueda. */
+  private buscarAguaCercana(cx: number, cy: number): { x: number; y: number } | null {
+    const m = this.deps.mundo;
+    const x0 = Math.round(cx);
+    const y0 = Math.round(cy);
+    for (let r = 1; r <= RADIO_BUSQUEDA_AGUA; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // solo el anillo de este radio, el interior ya se miró
+          const x = x0 + dx;
+          const y = y0 + dy;
+          if (x < 0 || y < 0 || x >= m.ancho || y >= m.alto) continue;
+          const t = m.casillas[y * m.ancho + x];
+          if (t === TIPO.AGUA || t === TIPO.AGUA_PROFUNDA) return { x: x + 0.5, y: y + 0.5 };
+        }
+      }
+    }
+    return null;
+  }
+
+  private avanzarHaciaDestino(v: IndividuoVivo, dt: number, ahora: number): void {
     const dx = v.destino!.x - v.esquema.x;
     const dy = v.destino!.y - v.esquema.y;
     const dist = Math.hypot(dx, dy);
@@ -233,7 +297,9 @@ export class GestorFaunaSalvaje {
     if (dist <= paso) {
       v.esquema.x = v.destino!.x;
       v.esquema.y = v.destino!.y;
+      if (v.objetivoDestino === "agua") v.fila.ultimaBebida = ahora;
       v.destino = null;
+      v.objetivoDestino = null;
       v.pausaRestante = 2 + Math.random() * 4;
       v.esquema.accion = accionIdleAlAzar();
     } else {

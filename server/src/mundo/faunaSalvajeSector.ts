@@ -27,6 +27,7 @@ import {
   intentarAparearse,
   resolverParto,
   tocaDarALuz,
+  tocaMadurar,
 } from "./reproduccionFauna";
 import { FaunaSalvajeFila, FaunaHuevoFila, SexoFauna } from "../datos/bd";
 
@@ -45,7 +46,7 @@ export type CatalogoEspecies = Record<string, EspecieCatalogo>;
 // casillas, así que esto mantiene el apareamiento "local" a la manada.
 const RADIO_APAREAMIENTO = 6;
 
-function convertirFilaAAnimal(f: FaunaSalvajeFila): AnimalReproductor {
+export function convertirFilaAAnimal(f: FaunaSalvajeFila): AnimalReproductor {
   return {
     id: f.id,
     especieId: f.especieId,
@@ -58,6 +59,7 @@ function convertirFilaAAnimal(f: FaunaSalvajeFila): AnimalReproductor {
     ultimaBebida: f.ultimaBebida,
     gestandoDesde: f.gestandoDesde,
     gestacionDuracionDias: f.gestacionDuracionDias,
+    nacioEn: f.nacioEn,
   };
 }
 
@@ -77,6 +79,7 @@ function convertirAnimalAFila(a: AnimalReproductor, mapaId: string, sectorX: num
     ultimaBebida: a.ultimaBebida,
     gestandoDesde: a.gestandoDesde,
     gestacionDuracionDias: a.gestacionDuracionDias,
+    nacioEn: a.nacioEn,
   };
 }
 
@@ -137,6 +140,7 @@ export function resolverSector(params: {
           ultimaBebida: ahora,
           gestandoDesde: null,
           gestacionDuracionDias: null,
+          nacioEn: null, // población base del bake: ya nace adulta, no "creció" en el sistema
         };
         return animal;
       })
@@ -180,6 +184,7 @@ export function resolverSector(params: {
             ultimaBebida: ahora,
             gestandoDesde: null,
             gestacionDuracionDias: null,
+            nacioEn: ahora,
           });
         }
       }
@@ -209,6 +214,7 @@ export function resolverSector(params: {
             ultimaBebida: ahora,
             gestandoDesde: null,
             gestacionDuracionDias: null,
+            nacioEn: ahora,
           });
         }
       }
@@ -217,7 +223,21 @@ export function resolverSector(params: {
     }
   }
 
-  // 3) Nuevos apareamientos: mientras el sector estuvo inactivo se asume
+  // 3) Crías que ya maduraron en el hueco pasan a adulto (pedido
+  // 2026-08-30, "las crías comen de sus padres hasta crecer" — implica
+  // que en algún momento crecen). Recién adultas, cuentan como saciadas
+  // (no tiene sentido que se conviertan en adulto ya "hambrientas").
+  for (const a of individuos) {
+    if (!a.vivo || a.etapa !== "cria") continue;
+    const especie = catalogo[a.especieId];
+    if (especie && tocaMadurar(a, especie.tamanoReproduccion, ahora)) {
+      a.etapa = "adulto";
+      a.ultimaComida = ahora;
+      a.ultimaBebida = ahora;
+    }
+  }
+
+  // 4) Nuevos apareamientos: mientras el sector estuvo inactivo se asume
   // que todos comieron/bebieron con normalidad (no se rastrea hambre sin
   // jugadores cerca) — UNA tirada por pareja elegible más cercana, nunca
   // una por cada día transcurrido (evita la explosión de población).
@@ -235,7 +255,7 @@ export function resolverSector(params: {
     const especie = catalogo[a.especieId];
     if (!especie) continue;
     const candidatas = vivosAhora.filter((c) => c.id !== a.id && !yaIntentado.has(c.id));
-    const pareja = buscarPareja(a, candidatas, RADIO_APAREAMIENTO, ahora);
+    const pareja = buscarPareja(a, especie, candidatas, RADIO_APAREAMIENTO, ahora);
     if (!pareja) continue;
     yaIntentado.add(a.id);
     yaIntentado.add(pareja.id);

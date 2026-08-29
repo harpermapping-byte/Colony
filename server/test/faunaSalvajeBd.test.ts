@@ -20,6 +20,7 @@ function individuo(overrides: Partial<FaunaSalvajeFila> = {}): FaunaSalvajeFila 
     ultimaBebida: 10,
     gestandoDesde: null,
     gestacionDuracionDias: null,
+    nacioEn: null,
     ...overrides,
   };
 }
@@ -60,6 +61,16 @@ test("guardarFaunaIndividuo: conserva gestandoDesde/gestacionDuracionDias null y
   assert.strictEqual(sinGestar.gestacionDuracionDias, null);
   assert.strictEqual(gestando.gestandoDesde, 12.5);
   assert.strictEqual(gestando.gestacionDuracionDias, 17.3);
+  await bd.cerrar();
+});
+
+test("guardarFaunaIndividuo: conserva nacioEn (null en la población base, con valor en una cría)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.guardarFaunaIndividuo(individuo({ id: "base" }));
+  await bd.guardarFaunaIndividuo(individuo({ id: "cria", etapa: "cria", nacioEn: 8.25 }));
+  const filas = await bd.listarFaunaSector("principal", 0, 0);
+  assert.strictEqual(filas.find((f) => f.id === "base")!.nacioEn, null);
+  assert.strictEqual(filas.find((f) => f.id === "cria")!.nacioEn, 8.25);
   await bd.cerrar();
 });
 

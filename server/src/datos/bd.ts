@@ -218,6 +218,8 @@ export interface FaunaSalvajeFila {
   ultimaBebida: number;
   gestandoDesde: number | null;
   gestacionDuracionDias: number | null;
+  /** día de mundo en que nació (para saber cuándo madura de cría a adulto); null en la población base del bake, que ya nace adulta. */
+  nacioEn: number | null;
 }
 
 // Huevo puesto en el mundo (especies ovíparas, ver intentarAparearse en
@@ -510,7 +512,8 @@ CREATE TABLE IF NOT EXISTS fauna_salvaje (
   ultima_comida REAL NOT NULL,
   ultima_bebida REAL NOT NULL,
   gestando_desde REAL,
-  gestacion_duracion_dias REAL
+  gestacion_duracion_dias REAL,
+  nacio_en REAL
 );
 CREATE INDEX IF NOT EXISTS idx_fauna_salvaje_sector ON fauna_salvaje(mapa_id, sector_x, sector_y);
 CREATE TABLE IF NOT EXISTS fauna_huevo (
@@ -684,7 +687,8 @@ CREATE TABLE IF NOT EXISTS fauna_salvaje (
   ultima_comida REAL NOT NULL,
   ultima_bebida REAL NOT NULL,
   gestando_desde REAL,
-  gestacion_duracion_dias REAL
+  gestacion_duracion_dias REAL,
+  nacio_en REAL
 );
 CREATE INDEX IF NOT EXISTS idx_fauna_salvaje_sector ON fauna_salvaje(mapa_id, sector_x, sector_y);
 CREATE TABLE IF NOT EXISTS fauna_huevo (
@@ -752,6 +756,7 @@ function filaFaunaSalvajeDesdeSql(f: any): FaunaSalvajeFila {
       f.gestacion_duracion_dias === null || f.gestacion_duracion_dias === undefined
         ? null
         : Number(f.gestacion_duracion_dias),
+    nacioEn: f.nacio_en === null || f.nacio_en === undefined ? null : Number(f.nacio_en),
   };
 }
 
@@ -1369,7 +1374,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const filas = this.bd
       .prepare(
         `SELECT id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
-                ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias
+                ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en
          FROM fauna_salvaje WHERE mapa_id = ? AND sector_x = ? AND sector_y = ?`,
       )
       .all(mapaId, sectorX, sectorY);
@@ -1381,17 +1386,17 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       .prepare(
         `INSERT INTO fauna_salvaje
            (id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
-            ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            sexo = excluded.sexo, etapa = excluded.etapa, estado = excluded.estado,
            x = excluded.x, y = excluded.y, ultima_comida = excluded.ultima_comida,
            ultima_bebida = excluded.ultima_bebida, gestando_desde = excluded.gestando_desde,
-           gestacion_duracion_dias = excluded.gestacion_duracion_dias`,
+           gestacion_duracion_dias = excluded.gestacion_duracion_dias, nacio_en = excluded.nacio_en`,
       )
       .run(
         f.id, f.mapaId, f.sectorX, f.sectorY, f.especieId, f.sexo, f.etapa, f.estado, f.x, f.y,
-        f.ultimaComida, f.ultimaBebida, f.gestandoDesde, f.gestacionDuracionDias,
+        f.ultimaComida, f.ultimaBebida, f.gestandoDesde, f.gestacionDuracionDias, f.nacioEn,
       );
   }
 
@@ -2075,7 +2080,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async listarFaunaSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaSalvajeFila[]> {
     const r = await this.pool.query(
       `SELECT id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
-              ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias
+              ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en
        FROM fauna_salvaje WHERE mapa_id = $1 AND sector_x = $2 AND sector_y = $3`,
       [mapaId, sectorX, sectorY],
     );
@@ -2086,16 +2091,16 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     await this.pool.query(
       `INSERT INTO fauna_salvaje
          (id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
-          ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        ON CONFLICT (id) DO UPDATE SET
          sexo = EXCLUDED.sexo, etapa = EXCLUDED.etapa, estado = EXCLUDED.estado,
          x = EXCLUDED.x, y = EXCLUDED.y, ultima_comida = EXCLUDED.ultima_comida,
          ultima_bebida = EXCLUDED.ultima_bebida, gestando_desde = EXCLUDED.gestando_desde,
-         gestacion_duracion_dias = EXCLUDED.gestacion_duracion_dias`,
+         gestacion_duracion_dias = EXCLUDED.gestacion_duracion_dias, nacio_en = EXCLUDED.nacio_en`,
       [
         f.id, f.mapaId, f.sectorX, f.sectorY, f.especieId, f.sexo, f.etapa, f.estado, f.x, f.y,
-        f.ultimaComida, f.ultimaBebida, f.gestandoDesde, f.gestacionDuracionDias,
+        f.ultimaComida, f.ultimaBebida, f.gestandoDesde, f.gestacionDuracionDias, f.nacioEn,
       ],
     );
   }

@@ -7,9 +7,9 @@ import { CatalogoEspecies, resolverSector } from "../src/mundo/faunaSalvajeSecto
 import { FaunaSalvajeFila, FaunaHuevoFila } from "../src/datos/bd";
 
 const CATALOGO: CatalogoEspecies = {
-  lobo: { tamanoReproduccion: "grande", poneHuevos: false, criaId: "lobo" },
-  gallina_salvaje: { tamanoReproduccion: "pequeno", poneHuevos: true, criaId: "pollito" },
-  abeja: { tamanoReproduccion: "pequeno", poneHuevos: false, poblacionInfinita: true },
+  lobo: { tamanoReproduccion: "grande", poneHuevos: false, dieta: "carnivoro", criaId: "lobo" },
+  gallina_salvaje: { tamanoReproduccion: "pequeno", poneHuevos: true, dieta: "omnivoro", criaId: "pollito" },
+  abeja: { tamanoReproduccion: "pequeno", poneHuevos: false, dieta: "omnivoro", poblacionInfinita: true },
 };
 
 const RND_APAREA = () => 0.1; // < 0.5: siempre cuaja el apareamiento
@@ -92,6 +92,7 @@ function fila(overrides: Partial<FaunaSalvajeFila> = {}): FaunaSalvajeFila {
     ultimaBebida: 0,
     gestandoDesde: null,
     gestacionDuracionDias: null,
+    nacioEn: null,
     ...overrides,
   };
 }
