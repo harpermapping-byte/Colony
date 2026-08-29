@@ -877,5 +877,199 @@
       "Conoce el atajo más rápido entre cualquier par de puntos del pueblo.",
       "Nadie sabe adónde va con tanta prisa. Puede que ni él lo sepa."
     ]
+  },
+  "apicultor": {
+    "profesion": "apicultor",
+    "morfologia": {
+      "altura": [
+        0.92,
+        1.05
+      ],
+      "corpulencia": [
+        0.9,
+        1.05
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
+    "colorDebug": "#d8a020",
+    "personalidad": "Apicultor tranquilo y paciente, habla en voz baja para no alterar a sus colmenas.",
+    "conocimiento": [
+      "Extrae miel y cera de las colmenas del asentamiento, temporada tras temporada.",
+      "Conoce cada colmena por su carácter — hay unas más tranquilas que otras.",
+      "Nunca sale sin su ahumador, aunque solo vaya a dar un paseo."
+    ]
+  },
+  "picapedrero": {
+    "profesion": "picapedrero",
+    "morfologia": {
+      "altura": [
+        1.0,
+        1.15
+      ],
+      "corpulencia": [
+        1.05,
+        1.25
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#8a8a8a",
+    "personalidad": "Picapedrero fuerte y de pocas palabras, con las manos cubiertas de polvo de piedra.",
+    "conocimiento": [
+      "Talla piedra para los edificios y monumentos del asentamiento.",
+      "Sabe qué cantera da la mejor piedra según lo que vayas a construir.",
+      "Se queja de que nadie valora el trabajo hasta que un muro se cae."
+    ]
+  },
+  "peletero": {
+    "profesion": "peletero",
+    "morfologia": {
+      "altura": [
+        0.92,
+        1.05
+      ],
+      "corpulencia": [
+        0.9,
+        1.08
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#8a6040",
+    "personalidad": "Peletera meticulosa, cose cada prenda como si fuera para su propia familia.",
+    "conocimiento": [
+      "Transforma las pieles curtidas en abrigos, guantes y botas.",
+      "Distingue el pelaje de una docena de animales solo al tacto.",
+      "Guarda las mejores pieles para los encargos de los nobles."
+    ]
+  },
+  "vidriero": {
+    "profesion": "vidriero",
+    "morfologia": {
+      "altura": [
+        0.94,
+        1.06
+      ],
+      "corpulencia": [
+        0.9,
+        1.05
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#4a7a8a",
+    "personalidad": "Vidriero cuidadoso, sabe que un segundo de más junto al horno arruina la pieza.",
+    "conocimiento": [
+      "Sopla y talla cristal para ventanas, copas y adornos.",
+      "El horno no se apaga nunca del todo, ni de noche.",
+      "Tiene cicatrices de quemaduras que enseña con más orgullo que vergüenza."
+    ]
+  },
+  "fletcher": {
+    "profesion": "fletcher",
+    "morfologia": {
+      "altura": [
+        0.94,
+        1.08
+      ],
+      "corpulencia": [
+        0.9,
+        1.05
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#8a7040",
+    "personalidad": "Arquero y artesano a partes iguales, prueba cada arco antes de darlo por bueno.",
+    "conocimiento": [
+      "Talla arcos y encuerda flechas para cazadores y guardias.",
+      "Elige la madera de tejo con la misma calma que un joyero elige una gema.",
+      "Presume de no fallar un tiro desde que tenía diez años."
+    ]
+  },
+  "cocinero": {
+    "profesion": "cocinero",
+    "morfologia": {
+      "altura": [
+        0.95,
+        1.1
+      ],
+      "corpulencia": [
+        1.0,
+        1.2
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
+    ],
+    "colorDebug": "#c9622a",
+    "personalidad": "Cocinero orgulloso y ruidoso, cree que su guiso es el mejor del asentamiento.",
+    "conocimiento": [
+      "Prepara la comida para quien pase por la cocina comunal.",
+      "Guarda sus mejores especias bajo llave, lejos de manos curiosas.",
+      "Discute con el panadero sobre quién hace mejor el pan."
+    ]
+  },
+  "carnicero": {
+    "profesion": "carnicero",
+    "morfologia": {
+      "altura": [
+        1.0,
+        1.15
+      ],
+      "corpulencia": [
+        1.05,
+        1.25
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#a85a5a",
+    "personalidad": "Carnicero directo y práctico, no se anda con rodeos ni al hablar ni al trabajar.",
+    "conocimiento": [
+      "Despieza y ahúma la carne que traen cazadores y ganaderos.",
+      "Sabe qué corte pedir para cada plato, aunque tú no lo sepas.",
+      "El olor a humo de su ahumadero se nota desde la otra punta de la calle."
+    ]
+  },
+  "carpintero_ribera": {
+    "profesion": "carpintero_ribera",
+    "morfologia": {
+      "altura": [
+        0.98,
+        1.12
+      ],
+      "corpulencia": [
+        1.0,
+        1.18
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino"
+    ],
+    "colorDebug": "#5a7a8a",
+    "personalidad": "Carpintero de ribera curtido por la sal, más cómodo entre cascos de barco que en tierra firme.",
+    "conocimiento": [
+      "Repara y calafatea los cascos de los barcos que amarran en el astillero.",
+      "Sabe reconocer una vía de agua antes de que el capitán se dé cuenta.",
+      "Cuenta historias de naufragios que probablemente se ha inventado él mismo."
+    ]
   }
 }

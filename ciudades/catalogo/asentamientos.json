@@ -54,6 +54,10 @@
         [
           "establo",
           1
+        ],
+        [
+          "cabana_apicultor",
+          2
         ]
       ]
     },
@@ -125,6 +129,22 @@
         ],
         [
           "molino",
+          1
+        ],
+        [
+          "cabana_apicultor",
+          1
+        ],
+        [
+          "lonja_pescado",
+          1
+        ],
+        [
+          "cocina_comunal",
+          1
+        ],
+        [
+          "carniceria",
           1
         ]
       ]
@@ -211,6 +231,34 @@
         ],
         [
           "establo",
+          1
+        ],
+        [
+          "peleteria",
+          1
+        ],
+        [
+          "taller_picapedrero",
+          1
+        ],
+        [
+          "taller_arquero",
+          1
+        ],
+        [
+          "cocina_comunal",
+          1
+        ],
+        [
+          "carniceria",
+          2
+        ],
+        [
+          "lonja_pescado",
+          2
+        ],
+        [
+          "astillero",
           1
         ]
       ]
@@ -311,6 +359,34 @@
         ],
         [
           "mansion",
+          1
+        ],
+        [
+          "vidrieria",
+          1
+        ],
+        [
+          "taller_picapedrero",
+          1
+        ],
+        [
+          "peleteria",
+          1
+        ],
+        [
+          "taller_arquero",
+          1
+        ],
+        [
+          "carniceria",
+          1
+        ],
+        [
+          "lonja_pescado",
+          1
+        ],
+        [
+          "astillero",
           1
         ]
       ]
@@ -663,6 +739,34 @@
         ],
         [
           "granero",
+          1
+        ],
+        [
+          "vidrieria",
+          1
+        ],
+        [
+          "taller_picapedrero",
+          1
+        ],
+        [
+          "peleteria",
+          1
+        ],
+        [
+          "taller_arquero",
+          1
+        ],
+        [
+          "carniceria",
+          1
+        ],
+        [
+          "lonja_pescado",
+          1
+        ],
+        [
+          "astillero",
           1
         ]
       ]
