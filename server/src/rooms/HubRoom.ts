@@ -11,8 +11,10 @@ import { DependenciasFaunaSalvaje, GestorFaunaSalvaje } from "../mundo/faunaSalv
 import { ObjetoFaunaBakeado } from "../mundo/faunaSalvajeSector";
 import { diaFraccional } from "../mundo/reproduccionFauna";
 import { tiempoMundo } from "../mundo/tiempoMundo";
-import { cargarCatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
+import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
 import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
+import { UnidadCombate, calcularIniciativa, simularCombateAutomatico } from "../combate/arenaCombate";
+import { TIPO, tipoEn } from "../mundo/colisiones";
 
 // Lee un `sector_XXX_YYY.json` bakeado y devuelve solo sus objetos de
 // fauna (t==="a") con coordenadas GLOBALAS de casilla — mismo formato de
@@ -63,6 +65,9 @@ export class HubRoom extends RoomExteriorBase {
   // (ver el try/catch de onCreate). `matarIndividuo` es el punto de
   // enganche para un futuro sistema de combate.
   private gestorFaunaSalvaje?: GestorFaunaSalvaje;
+  // Guardado aparte (además de dentro de deps.catalogoCombate) para que lo
+  // use también la autosimulación NPC-vs-fauna (docs/GDD_Combate.md §7).
+  private catalogoCombate?: CatalogoCombateFauna;
   private conversacionesNpc = new GestorConversacionesNpc();
   private ultimoMensajeNpc = new Map<string, number>();
 
@@ -108,6 +113,9 @@ export class HubRoom extends RoomExteriorBase {
           path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "animales.json"),
         );
         const mapaId = path.basename(rutaMapa);
+        this.catalogoCombate = cargarCatalogoCombateFauna(
+          path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "animales.json"),
+        );
         const deps: DependenciasFaunaSalvaje = {
           mapaId,
           catalogo,
@@ -126,9 +134,7 @@ export class HubRoom extends RoomExteriorBase {
           guardarHuevo: (h) => bd.guardarHuevo(h),
           marcarSectorResuelto: (s, momento) => bd.marcarSectorResuelto(mapaId, s.sectorX, s.sectorY, momento),
           crearCadaver: (c) => bd.crearCadaverBd(c),
-          catalogoCombate: cargarCatalogoCombateFauna(
-            path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "animales.json"),
-          ),
+          catalogoCombate: this.catalogoCombate,
         };
         // Guardado como campo (no variable local): el punto de enganche
         // `matarIndividuo` lo llamará un futuro sistema de combate desde
@@ -144,6 +150,15 @@ export class HubRoom extends RoomExteriorBase {
             .actualizarPorJugadores(posiciones, indice.tamanoChunk, indice.tamanoSectorChunks, 1)
             .catch((err) => console.error("Fauna salvaje: fallo actualizando sectores activos:", err));
         }, 8000);
+        // Autosimulación de encuentros NPC-vs-fauna peligrosa (docs/GDD_Combate.md
+        // §7, confirmado 2026-08-30: "en combates de NPC contra animales... se
+        // autosimule"). Baja frecuencia — es un rastreo O(npcs*fauna_activa),
+        // barato porque solo hay fauna activa cerca de jugadores (mismo criterio
+        // de "cálculo perezoso" que el resto del proyecto).
+        this.clock.setInterval(
+          () => this.comprobarEncuentrosAutomaticos().catch((err) => console.error("Autosimulación NPC-vs-fauna: fallo:", err)),
+          5000,
+        );
         console.log("  Fauna salvaje en vivo activada (sectores bajo demanda)");
       }
     } catch (err) {
@@ -300,5 +315,76 @@ export class HubRoom extends RoomExteriorBase {
   onLeave(client: Client) {
     super.onLeave(client);
     this.ultimoMensajeNpc.delete(client.sessionId);
+  }
+
+  // Combate táctico (docs/GDD_Combate.md): una fauna salvaje muerta en
+  // combate pasa por matarIndividuo (persiste, quita del estado Y crea su
+  // cadáver — cierra el círculo con el sistema de cadáveres) en vez del
+  // borrado genérico de RoomExteriorBase.finalizarMuerte.
+  protected async onFaunaMuerta(id: string): Promise<boolean> {
+    if (!this.gestorFaunaSalvaje) return false;
+    const cadaver = await this.gestorFaunaSalvaje.matarIndividuo(id);
+    return cadaver !== null;
+  }
+
+  /**
+   * Disparador real de autosimulación (docs/GDD_Combate.md §7): un NPC
+   * cerca de fauna `peligroso` combate contra ella de una sentada, sin
+   * turnos interactivos ni UI (nadie la está mirando). Un solo encuentro
+   * por pasada — es un guarda-raíl simple, no una simulación masiva; si
+   * hay varios candidatos a la vez, los siguientes se resuelven en la
+   * próxima pasada (5s después).
+   */
+  private async comprobarEncuentrosAutomaticos() {
+    if (!this.catalogoCombate) return;
+    const RADIO_ENCUENTRO = 4;
+    for (const [npcId, npc] of this.state.npcs.entries()) {
+      for (const [faunaId, fauna] of this.state.fauna.entries()) {
+        const datos = this.catalogoCombate[fauna.especieId];
+        if (!datos?.peligroso) continue;
+        if (Math.hypot(npc.x - fauna.x, npc.y - fauna.y) > RADIO_ENCUENTRO) continue;
+
+        const lado = 8;
+        const cx = Math.floor((npc.x + fauna.x) / 2);
+        const cy = Math.floor((npc.y + fauna.y) / 2);
+        let gx0 = Math.round(cx - lado / 2);
+        let gy0 = Math.round(cy - lado / 2);
+        gx0 = Math.max(0, Math.min(gx0, this.mapa.ancho - lado));
+        gy0 = Math.max(0, Math.min(gy0, this.mapa.alto - lado));
+        const obstaculos = new Uint8Array(lado * lado);
+        for (let gy = 0; gy < lado; gy++) {
+          for (let gx = 0; gx < lado; gx++) {
+            if (tipoEn(this.mapa, gx0 + gx, gy0 + gy) === TIPO.SOLIDO) obstaculos[gy * lado + gx] = 1;
+          }
+        }
+
+        const uNpc: UnidadCombate = {
+          id: npcId, esJugador: false, bando: "A",
+          gx: Math.round(npc.x - gx0), gy: Math.round(npc.y - gy0),
+          hp: npc.vida, hpMax: npc.vidaMax, ap: 3, apMax: 3, mp: 4, mpMax: 4,
+          iniciativa: calcularIniciativa(10, Math.random), estado: "activo",
+          ataqueFisico: npc.ataque, defensaFisica: npc.defensa, alcance: 1,
+        };
+        const uFauna: UnidadCombate = {
+          id: faunaId, esJugador: false, bando: "B",
+          gx: Math.round(fauna.x - gx0), gy: Math.round(fauna.y - gy0),
+          hp: fauna.vida, hpMax: fauna.vidaMax, ap: 3, apMax: 3, mp: 4, mpMax: 4,
+          iniciativa: calcularIniciativa(10, Math.random), estado: "activo",
+          ataqueFisico: fauna.ataque, defensaFisica: 0, alcance: 1,
+        };
+
+        const resultado = simularCombateAutomatico([uNpc], [uFauna], { ancho: lado, alto: lado, obstaculos }, Math.random);
+        for (const u of resultado.unidades) {
+          if (u.id === npcId) {
+            if (u.estado === "caido") this.state.npcs.delete(npcId);
+            else npc.vida = u.hp;
+          } else if (u.id === faunaId) {
+            if (u.estado === "caido") await this.onFaunaMuerta(faunaId);
+            else fauna.vida = u.hp;
+          }
+        }
+        return; // un encuentro por pasada — de sobra para un mecanismo recién estrenado
+      }
+    }
   }
 }

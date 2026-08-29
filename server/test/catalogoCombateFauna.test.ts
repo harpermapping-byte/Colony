@@ -36,4 +36,11 @@ test("estadisticasCombatePorDefecto: relleno seguro para una especie sin catalog
   assert.strictEqual(relleno.categoriaVida, "pequeno");
   assert.ok(relleno.vidaMaxima > 0);
   assert.ok(relleno.ataque > 0);
+  assert.strictEqual(relleno.peligroso, false);
+});
+
+test("cargarCatalogoCombateFauna: peligroso viaja tal cual del catálogo (docs/GDD_Combate.md §7)", () => {
+  const catalogo = cargarCatalogoCombateFauna(RUTA_ANIMALES);
+  assert.strictEqual(catalogo["oso_pardo"].peligroso, true);
+  assert.strictEqual(catalogo["conejo"].peligroso, false);
 });

@@ -15,6 +15,7 @@ import { ModoConstruccion } from "./construccion/constructor";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
 import { PointLight, Color } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
+import { PanelCombate } from "./combate/panelCombate";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -530,8 +531,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     figura.orientar(1, 1);
     const etiqueta = enemigo.esBoss ? `☠ ${enemigo.enemigoId}` : enemigo.enemigoId;
     escena.añadirEntidad(`enemigo_${id}`, figura.objeto, enemigo.x, enemigo.y, etiqueta);
+    escena.actualizarVida(`enemigo_${id}`, enemigo.vida, enemigo.vidaMax);
     enemigosVisual.set(id, figura);
     animables.push(figura);
+    $(enemigo).onChange(() => escena.actualizarVida(`enemigo_${id}`, enemigo.vida, enemigo.vidaMax));
   });
   $(room.state).enemigos.onRemove((_enemigo: any, id: string) => {
     enemigosVisual.delete(id);
@@ -541,6 +544,38 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     total: enemigosVisual.size,
     bosses: [...room.state.enemigos.values()].filter((e: any) => e.esBoss).length,
   });
+
+  // --- Combate táctico (docs/GDD_Combate.md, ✅ confirmado 2026-08-30) ---
+  // Panel PLACEHOLDER de testeo (sin arena/grid dibujado, ver panelCombate.ts).
+  // Tecla C: ataca al objetivo hostil más cercano dentro de RADIO_COMBATE —
+  // mismo criterio de "sin UI de targeting" que ya usa "coger"/"portal:usar".
+  const RADIO_COMBATE_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor (server/src/rooms/base/RoomExteriorBase.ts)
+  const panelCombate = new PanelCombate({
+    contenedor,
+    sessionIdPropio: room.sessionId,
+    enviarAccion: (combateId, objetivoId) => room.send("combate:accion", { combateId, objetivoId }),
+    enviarPasarTurno: (combateId) => room.send("combate:pasarTurno", { combateId }),
+    enviarHuir: (combateId) => room.send("combate:huir", { combateId }),
+  });
+  const actualizarPanelCombate = () => panelCombate.actualizar(room.state.combates as any);
+  $(room.state).combates.onAdd(() => actualizarPanelCombate());
+  $(room.state).combates.onRemove(() => actualizarPanelCombate());
+  room.onStateChange(() => actualizarPanelCombate());
+
+  function objetivoHostilMasCercano(): string | null {
+    if (!jugadorLocal) return null;
+    let mejorId: string | null = null;
+    let mejorDist = RADIO_COMBATE_CLIENTE;
+    for (const [id, f] of room.state.fauna.entries()) {
+      const d = Math.hypot(f.x - jugadorLocal.x, f.y - jugadorLocal.z);
+      if (d < mejorDist) { mejorDist = d; mejorId = id; }
+    }
+    for (const [id, e] of room.state.enemigos.entries()) {
+      const d = Math.hypot(e.x - jugadorLocal.x, e.y - jugadorLocal.z);
+      if (d < mejorDist) { mejorDist = d; mejorId = id; }
+    }
+    return mejorId;
+  }
 
   const teclas = new Set<string>();
   window.addEventListener("keydown", (e) => {
@@ -552,6 +587,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "b" && !teclas.has("b")) modoConstruccion?.alternar();
     // puertas (docs/GDD_Sistema_Puertas.md): F cerca de una la cruza
     if (k === "f" && !teclas.has("f")) room.send("portal:usar");
+    // combate (docs/GDD_Combate.md): C ataca al hostil más cercano — sin UI
+    // de targeting, mismo criterio que "coger"/"portal:usar".
+    if (k === "c" && !teclas.has("c")) {
+      const objetivoId = objetivoHostilMasCercano();
+      if (objetivoId) room.send("combate:iniciar", { objetivoId });
+    }
     teclas.add(k);
   });
   window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));

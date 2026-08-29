@@ -1,4 +1,5 @@
 import { Schema, MapSchema, ArraySchema, type } from "@colyseus/schema";
+import { CombateSchema } from "./CombateState";
 
 // Inventario (docs/Backlog_Mecanicas_Futuras.md "Inventario, contenedores y
 // objetos en el mundo", pedido 2026-08-29 fase 1: catálogo + servidor +
@@ -137,6 +138,16 @@ export class Enemigo extends Schema {
   @type("string") enemigoId = "";
   @type("number") variante = 0;
   @type("boolean") esBoss = false;
+  // Vida/Ataque/Defensa (docs/GDD_Mecanicas.md §5.4 + docs/GDD_Combate.md,
+  // pedido 2026-08-30): enemigo humanoide, igual que Npc, con defensa
+  // propia. Poblado por DungeonRoom.poblarEnemigos con un placeholder de
+  // balance (base/boss) — personajes/catalogo/enemigos.json todavía no
+  // declara stats de combate por id, mismo hueco "SIN CONSUMIDOR" que el
+  // resto de catálogos de combate.
+  @type("number") vida = 40;
+  @type("number") vidaMax = 40;
+  @type("number") ataque = 8;
+  @type("number") defensa = 4;
 }
 
 // Fauna doméstica urbana (GDD_Agentes_Moviles.md v1.3): sin nombre, sin
@@ -173,4 +184,8 @@ export class HubState extends Schema {
   @type({ map: Enemigo }) enemigos = new MapSchema<Enemigo>();
   @type({ map: Fauna }) fauna = new MapSchema<Fauna>();
   @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
+  // Combates activos (docs/GDD_Combate.md) — un Map, no un singleton: varios
+  // grupos pueden pelear a la vez en la misma room sin bloquearse entre sí
+  // (mismo criterio que construcciones/plantillas).
+  @type({ map: CombateSchema }) combates = new MapSchema<CombateSchema>();
 }
