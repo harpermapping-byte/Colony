@@ -19,6 +19,7 @@
  */
 
 export type TamanoReproduccion = "pequeno" | "mediano" | "grande";
+export type Dieta = "herbivoro" | "carnivoro" | "omnivoro";
 
 // Días in-game de gestación por tamaño (pedido del streamer: pequeños 3
 // días, medianos 5-8, grandes 15-20 — dejado como constante única para
@@ -30,11 +31,29 @@ export const GESTACION_DIAS: Record<TamanoReproduccion, { min: number; max: numb
   grande: { min: 15, max: 20 },
 };
 
-// "Que hayan comido y bebido antes" (pedido explícito): si comió/bebió
-// dentro de esta ventana de días de mundo, cuenta como saciado para poder
-// aparearse. Un solo número para las tres especies de tamaño — se puede
-// separar por tamaño más adelante si hace falta.
-export const VENTANA_SACIADO_DIAS = 1;
+// Cuántos días in-game puede pasar un adulto sin renovar el "ya comí/ya
+// bebí" antes de dejar de estar disponible para aparearse (pedido
+// 2026-08-30, "1 vez al día beber agua... herbívoros [comen] algo del
+// suelo, carnívoros cada más días, con comer una vez se pueden tirar 6
+// días sin comer"): el agua es igual para todos — de granja o salvajes,
+// da igual la dieta —, la comida depende de la dieta de la especie.
+export const VENTANA_AGUA_DIAS = 1;
+export const VENTANA_COMIDA_HERBIVORO_DIAS = 1;
+export const VENTANA_COMIDA_CARNIVORO_DIAS = 6;
+
+export function ventanaComidaDias(dieta: Dieta): number {
+  return dieta === "carnivoro" ? VENTANA_COMIDA_CARNIVORO_DIAS : VENTANA_COMIDA_HERBIVORO_DIAS;
+}
+
+// Tiempo in-game hasta que una cría se convierte en adulto (pedido
+// 2026-08-30, "las crías comen de sus padres hasta crecer" — implica que
+// en algún momento crecen; cifra de referencia por tamaño, a ajustar
+// igual que la gestación).
+export const MADURACION_DIAS: Record<TamanoReproduccion, number> = {
+  pequeno: 10,
+  mediano: 20,
+  grande: 40,
+};
 
 export type Sexo = "macho" | "hembra";
 export type Etapa = "cria" | "adulto";
@@ -43,6 +62,7 @@ export type Etapa = "cria" | "adulto";
 export interface EspecieReproductiva {
   tamanoReproduccion: TamanoReproduccion;
   poneHuevos: boolean;
+  dieta: Dieta;
   /** id de catálogo de la cría, si existe una entrada propia (no todas la tienen todavía). */
   criaId?: string;
   /** crías por camada — por defecto 1; roedores (ratas/ratones...) van a 2. */
@@ -66,21 +86,36 @@ export interface AnimalReproductor {
   gestandoDesde: number | null;
   /** duración concreta (ya sorteada dentro del rango de la especie) del embarazo en curso. */
   gestacionDuracionDias: number | null;
+  /** día de mundo en que nació esta cría; null en la población base (nunca "nació" en el sistema, ya es adulta). Solo se usa para decidir cuándo madura. */
+  nacioEn: number | null;
 }
 
 export function diaFraccional(dia: number, hora: number): number {
   return dia + hora / 24;
 }
 
+/** ¿Necesita beber? Las crías NUNCA (comen/beben de sus padres hasta crecer). */
+export function necesitaAgua(a: AnimalReproductor, ahora: number): boolean {
+  if (a.etapa === "cria") return false;
+  return ahora - a.ultimaBebida > VENTANA_AGUA_DIAS;
+}
+
+/** ¿Necesita comer? Las crías NUNCA — ver `necesitaAgua`. La ventana depende de la dieta de la especie. */
+export function necesitaComida(a: AnimalReproductor, especie: EspecieReproductiva, ahora: number): boolean {
+  if (a.etapa === "cria") return false;
+  return ahora - a.ultimaComida > ventanaComidaDias(especie.dieta);
+}
+
 /** ¿Puede este animal participar en un intento de apareamiento ahora mismo? */
-export function elegibleParaAparearse(a: AnimalReproductor, ahora: number): boolean {
+export function elegibleParaAparearse(a: AnimalReproductor, especie: EspecieReproductiva, ahora: number): boolean {
   if (!a.vivo || a.etapa !== "adulto" || a.gestandoDesde !== null) return false;
-  return ahora - a.ultimaComida <= VENTANA_SACIADO_DIAS && ahora - a.ultimaBebida <= VENTANA_SACIADO_DIAS;
+  return !necesitaAgua(a, ahora) && !necesitaComida(a, especie, ahora);
 }
 
 /** Busca la pareja elegible más cercana de la misma especie y sexo opuesto dentro de un radio. */
 export function buscarPareja(
   animal: AnimalReproductor,
+  especie: EspecieReproductiva,
   candidatos: AnimalReproductor[],
   radio: number,
   ahora: number,
@@ -89,7 +124,7 @@ export function buscarPareja(
   let mejorDist = Infinity;
   for (const c of candidatos) {
     if (c.id === animal.id || c.especieId !== animal.especieId || c.sexo === animal.sexo) continue;
-    if (!elegibleParaAparearse(c, ahora)) continue;
+    if (!elegibleParaAparearse(c, especie, ahora)) continue;
     const d = Math.hypot(c.x - animal.x, c.y - animal.y);
     if (d <= radio && d < mejorDist) {
       mejorDist = d;
@@ -97,6 +132,11 @@ export function buscarPareja(
     }
   }
   return mejor;
+}
+
+/** ¿Ya maduró esta cría lo bastante como para pasar a adulto? */
+export function tocaMadurar(a: AnimalReproductor, tamano: TamanoReproduccion, ahora: number): boolean {
+  return a.etapa === "cria" && a.nacioEn !== null && ahora - a.nacioEn >= MADURACION_DIAS[tamano];
 }
 
 export function sortearDuracionGestacion(tamano: TamanoReproduccion, rnd: () => number = Math.random): number {
@@ -133,7 +173,7 @@ export function intentarAparearse(
   if (macho.sexo !== "macho" || hembra.sexo !== "hembra") {
     throw new Error("intentarAparearse espera (macho, hembra) en ese orden");
   }
-  if (!elegibleParaAparearse(macho, ahora) || !elegibleParaAparearse(hembra, ahora)) return { exito: false };
+  if (!elegibleParaAparearse(macho, especie, ahora) || !elegibleParaAparearse(hembra, especie, ahora)) return { exito: false };
   if (rnd() >= 0.5) return { exito: false };
 
   const duracion = sortearDuracionGestacion(especie.tamanoReproduccion, rnd);

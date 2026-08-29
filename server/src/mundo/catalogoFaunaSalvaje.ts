@@ -13,6 +13,7 @@ interface EntradaCatalogoBaker {
   tamanoReproduccion?: "pequeno" | "mediano" | "grande";
   poneHuevos?: boolean;
   poblacionInfinita?: boolean;
+  dieta?: "herbivoro" | "carnivoro" | "omnivoro";
   criaId?: string;
   criasPorCamada?: number;
 }
@@ -23,13 +24,15 @@ export function cargarCatalogoFaunaSalvaje(rutaAnimalesJson: string): CatalogoEs
   for (const [id, datos] of Object.entries(raw)) {
     if (id.startsWith("_nota") || !datos || typeof datos !== "object") continue;
     if (datos.poblacionInfinita) {
-      catalogo[id] = { tamanoReproduccion: "pequeno", poneHuevos: false, poblacionInfinita: true };
+      // dieta no se usa nunca en población infinita (no pasan por hambre/sed) — valor de relleno.
+      catalogo[id] = { tamanoReproduccion: "pequeno", poneHuevos: false, dieta: "omnivoro", poblacionInfinita: true };
       continue;
     }
     if (!datos.tamanoReproduccion) continue; // cría, o especie sin catalogar todavía: no reproduce
     catalogo[id] = {
       tamanoReproduccion: datos.tamanoReproduccion,
       poneHuevos: !!datos.poneHuevos,
+      dieta: datos.dieta ?? "omnivoro",
       criaId: datos.criaId,
       criasPorCamada: datos.criasPorCamada,
     };

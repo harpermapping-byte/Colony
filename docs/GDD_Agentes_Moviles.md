@@ -449,14 +449,190 @@ de "día de mundo" contra el momento en que se consulta un animal.
   ya pasan por este sistema en cuanto su sector se activa, con o sin
   cría catalogada (fallback genérico, ver arriba).
 
+### Hecho en la fase 3 (hambre/sed diaria por dieta + maduración de crías)
+
+Pedido: "los animales, tanto de granja como salvajes, 1 vez al día deben
+beber agua (ir a zona de agua cercana) y comer, herbívoros algo del
+suelo, carnívoros cada más días — con comer una vez se pueden tirar 6
+días sin comer, comen cazando (eso lo resolveremos con el combate más
+adelante) — las crías comen de sus padres hasta crecer".
+
+- **Catálogo**: campo `dieta` (`"herbivoro"|"carnivoro"|"omnivoro"`) en
+  las 145 especies reproductoras (83 carnívoras, 47 herbívoras, 15
+  omnívoras) — clasificación razonable, no cirugía biológica de
+  precisión, mismo criterio que el resto del etiquetado de esta serie de
+  pedidos.
+- **`reproduccionFauna.ts`**: `VENTANA_AGUA_DIAS = 1` (igual para
+  cualquier dieta, doméstica o salvaje) y `ventanaComidaDias(dieta)` —
+  herbívoro/omnívoro 1 día, carnívoro 6 (constantes ajustables si en
+  pruebas se ve mucho o poco). `necesitaAgua`/`necesitaComida`: nuevas
+  funciones de propósito general (no solo para decidir si puede
+  aparearse) que devuelven `false` SIEMPRE si `etapa === "cria"` — las
+  crías nunca buscan agua ni comida por su cuenta, "comen de sus padres"
+  se modela como una exención total, no como una simulación del padre
+  alimentándolas. `elegibleParaAparearse`/`buscarPareja` ahora reciben la
+  especie (antes solo miraban un umbral fijo de 1 día para todo).
+  Añadido también `tocaMadurar` + `MADURACION_DIAS` por tamaño (10/20/40
+  días pequeño/mediano/grande, cifra de referencia propia — "hasta
+  crecer" implica que en algún momento crecen, no había cifra pedida) y
+  el campo `nacioEn` en `AnimalReproductor` (y su columna `nacio_en` en
+  `fauna_salvaje`) para saber cuándo nació cada cría.
+- **`faunaSalvajeSector.ts`**: al resolver un hueco de tiempo, las crías
+  que ya maduraron pasan a adulto (recién adultas, saciadas) antes de la
+  ronda de apareamientos — así una cría que maduró mientras nadie miraba
+  puede emparejarse en la misma resolución si le toca.
+- **`faunaSalvajeViva.ts`** (comportamiento EN VIVO, lo interesante):
+  cada individuo activo, antes de decidir un paseo al azar, comprueba si
+  necesita agua o comida y eso manda sobre el merodeo normal:
+  - **Sed** (todos, cualquier dieta): busca la casilla de agua
+    transitable más cercana en anillos crecientes (hasta 15 casillas,
+    sin A* — mismo criterio "solo línea recta" que el resto del
+    merodeo) y camina hasta ella; al llegar, bebe. Si no hay agua cerca,
+    no se bloquea — sigue paseando y lo reintenta el próximo ciclo.
+  - **Comida herbívoro/omnívoro**: "algo del suelo" — no necesita
+    desplazarse, come donde está (acción `comer`, marca `ultimaComida`
+    al instante).
+  - **Comida carnívoro**: SIN comportamiento activo — depende de cazar,
+    que depende de combate, que no existe. Un carnívoro sin comer sigue
+    paseando con normalidad; su ventana de 6 días da margen de sobra
+    hasta que ese sistema exista. Ninguna consecuencia de "muerte por
+    hambre" añadida en esta pasada — no se pidió y sin caza real seria
+    injusto para los carnívoros.
+- Verificado: 265 tests en verde en total (14 nuevos solo en
+  `faunaSalvajeViva.test.ts` cubriendo sed con y sin agua cerca, comida
+  de herbívoro vs. carnívoro, persistencia de `ultimaComida` al
+  desactivar el sector), más un smoke test manual contra el mapa demo
+  real avanzando el reloj de mundo entre ticks.
+- **Bug real encontrado y corregido de paso**: el `SELECT` de
+  `listarFaunaSector` (tanto SQLite como Postgres) no incluía la columna
+  `nacio_en` — se guardaba bien pero se leía siempre como `null`.
+  Encontrado por un test que comprobaba el valor tras un ciclo
+  guardar→leer, antes de que llegara a producción.
+
+### Hecho en la fase 4 (fauna 100% acuática = población infinita, como los insectos)
+
+Pedido: "los peces obviamente no tienen sed, esos no hace falta que
+crezcan ni se reproduzcan ni coman, simplemente vagan por zonas en
+bancos de peces, o sea son como insectos: X cantidad y si muere o
+desaparece alguno se repone en otro lado. Las orcas o tiburones igual,
+pero realmente solo sirven para ser enemigos de los usuarios al nadar
+— orcas que salgan solo en mar profundo".
+
+Tenía razón: un pez está SIEMPRE en el agua, pedirle que "vaya a beber"
+no tiene sentido — a diferencia de una foca o un delfín, que salen a
+tierra/rocas de verdad. El catálogo YA distinguía esto con el campo
+`requiereAgua` (fauna 100% acuática vs. costera), así que la frontera
+no hubo que inventarla, ya estaba bien puesta.
+
+- **31 especies** (las que llevan `requiereAgua: true`: todos los peces
+  con nombre propio, `orca`, `tiburon`, `ballena_azul`, `ballena_franca`,
+  `foca`) pierden `tamanoReproduccion`/`poneHuevos`/`dieta` y pasan a
+  `poblacionInfinita: true` — EXACTAMENTE el mismo campo y el mismo
+  tratamiento que ya tenían los insectos (abeja, mariposa...): no gestan,
+  no maduran, no buscan pareja, no necesitan agua ni comida. Total
+  población infinita del catálogo: 27 insectos + 31 acuáticos = 58 de
+  187 especies.
+- **NO tocadas** (mismo criterio, se quedan con reproducción normal):
+  especies marinas/costeras SIN `requiereAgua` — `foca_comun`,
+  `delfin_mular`, `morsa` (salen a rocas/costa de verdad, no viven
+  encerradas en el agua) y las aves acuáticas (`gaviota`, `cormoran`,
+  `pelicano`, `pato_azulon`, `cisne_vulgar`, `ganso_salvaje`/
+  `oca_salvaje`, `alcatraz_atlantico`, `frailecillo_atlantico`,
+  `aguila_pescadora`) — vuelan y anidan en tierra, sí tiene sentido que
+  necesiten beber.
+- **Orca solo en `mar_profundo`**: ya era así en el catálogo desde antes
+  de este pedido (`biomas: ["mar_profundo"]`) — no hizo falta tocar
+  nada, solo confirmarlo.
+- **Consecuencia práctica**: estas 31 especies nunca entran en
+  `resolverSector`/`GestorFaunaSalvaje` (el bucle de primera activación
+  ya descarta `poblacionInfinita` desde la fase 1) — siguen exactamente
+  igual que hoy, pintadas como props decorativos del bake
+  (`InstancedMesh`, banco de peces vía el `capacidadMaximaPorChunk`/
+  agrupación ya existente de `decoracion.js`). El "si muere alguno se
+  repone en otro lado" que pide el streamer necesita saber CUÁNDO muere
+  un pez, y eso depende de la caza/combate — mismo hueco ya documentado
+  para los insectos, no es nuevo de esta fase: cuando el combate exista,
+  "reponer" es una operación mecánica sencilla, no una decisión de
+  diseño pendiente.
+- Verificado: 265 tests siguen en verde (los tests de fase 1-3 no
+  dependían de qué especies concretas son `poblacionInfinita`, solo del
+  campo en sí), `catalogoFaunaSalvaje.test.ts` confirma que las 58
+  especies infinitas y las 129 reproductoras cuadran.
+
+### Hecho en la fase 5 (aves salvajes = población infinita, mismo criterio que peces/insectos)
+
+Pedido: "los pájaros/aves también, como insectos y peces, no se
+reproducen, comen, beben — simplemente siguen rutinas propias de
+pájaros, paths precocidos".
+
+- **38 aves SALVAJES** (todas las que tienen biomas reales — de
+  `codorniz` a `avestruz`, rapaces, carroñeras, acuáticas incluidas)
+  pierden `tamanoReproduccion`/`poneHuevos`/`dieta` y pasan a
+  `poblacionInfinita: true`, mismo campo exacto que insectos y fauna
+  100% acuática. Total población infinita: 27 insectos + 31 acuáticos +
+  38 aves = **96 de 187 especies**; quedan 76 reproductoras (antes
+  peces/aves incluidos) + 15 crías.
+- **NO tocadas, a propósito**: `gallo`, `ganso_domestico`, `oca` —
+  las 3 únicas aves DOMÉSTICAS del catálogo (`biomas: []`, nunca
+  aparecen en el mapa exterior salvaje) se quedan con reproducción
+  normal, reservadas para cuando se diseñe la mecánica de cría doméstica
+  ("más fácil", todavía sin acotar — no es este sistema).
+- **"Paths precocidos propios de pájaros"**: pedido de COMPORTAMIENTO
+  visual, no de reproducción — y NO se ha construido en esta pasada. Hoy
+  estas 38 especies, al ser `poblacionInfinita`, ni siquiera entran en
+  `resolverSector`/`GestorFaunaSalvaje` (se descartan desde la fase 1,
+  igual que insectos y peces) — siguen siendo props decorativos
+  estáticos del bake (`InstancedMesh`), sin ningún movimiento propio
+  todavía. Un sistema de rutas de vuelo bakeadas (client-side,
+  puramente visual) es una pieza nueva de verdad, no una consecuencia
+  automática de este cambio de catálogo — queda pendiente, hay que
+  diseñarla aparte cuando toque.
+- Verificado: 265 tests siguen en verde (misma razón que en la fase 4:
+  la lógica es genérica sobre qué especies son `poblacionInfinita`),
+  `catalogoFaunaSalvaje.test.ts` actualizado — `gallina_salvaje` ahora
+  es el ejemplo de ave infinita, `gallo` (doméstico) sigue siendo el
+  ejemplo de especie con `criaId` normal.
+
+### Hecho en la fase 6 (reptiles/anfibios PEQUEÑOS también = población infinita)
+
+Pedido: "los reptiles pequeños tampoco están metidos en reproducción —
+digamos que mamíferos, animales de granja, cosas así sí, para que no
+pese el resto tanto".
+
+- **9 especies** (`serpiente_de_cascabel`, `vibora_del_desierto`,
+  `lagarto_ocelado`, `culebra_de_agua`, `lagarto_de_ceniza`,
+  `vibora_europea`, `salamandra_ignea`, `rana`, `sapo` — reptiles y
+  anfibios pequeños, mismo cajón informal) pasan a
+  `poblacionInfinita: true`. Total población infinita:
+  27 insectos + 31 acuáticos + 38 aves + 9 reptiles/anfibios pequeños =
+  **105 de 187 especies**.
+- **NO tocados, a propósito — "pequeños" es literal**: `galapago`
+  (mediano) y `cocodrilo_del_pantano` (grande) se quedan con
+  reproducción normal — el pedido decía específicamente reptiles
+  pequeños, no todos.
+- El sistema de reproducción real queda acotado a **67 especies**
+  (15 pequeñas — mamíferos pequeños + `gallo` doméstico —, 30 medianas,
+  22 grandes) + 15 crías: sobre todo mamíferos (salvajes y de granja) y
+  los dos reptiles/anfibios grandes/medianos que sí se quedaron. Menos
+  de la mitad del catálogo original (187) simula reproducción de verdad;
+  el resto son props decorativos de población fija/infinita, mucho más
+  baratos.
+- Verificado: 265 tests siguen en verde (ningún test referenciaba estas
+  9 especies concretas).
+
 ### Pendiente (fuera de esta pasada)
 
 - **Caza de depredadores con combate y cadáver**: aparcado a propósito —
   depende de un sistema de combate (vida/daño/ataque) que no existe en
   ningún sitio del servidor todavía. No es parte de "reproducción", es un
-  prerrequisito mayor aparte.
+  prerrequisito mayor aparte. Cuando exista, los carnívoros pasarán a
+  cazar de verdad (hoy solo tienen la ventana de 6 días modelada, sin
+  comportamiento activo).
 - **Domésticos**: persistencia + mecánica de cría "más fácil" —
   explícitamente dejada para acotar más adelante, no diseñada todavía.
+  La hambre/sed diaria de esta fase 3 tampoco se aplicó a la fauna
+  doméstica urbana (`GestorFauna`/`mundo/fauna.ts`) — solo a la salvaje,
+  que es lo que se pidió esta vez.
 - **Probar con jugadores reales moviéndose por el mapa principal de
   producción** (esto se verificó con datos reales del mapa demo y con
   dependencias falsas para los caminos de activación/desactivación —

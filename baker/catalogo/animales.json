@@ -14,7 +14,8 @@
     "domesticable": false,
     "colorDebug": "#c9a878",
     "tamanoReproduccion": "pequeno",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "liebre": {
     "biomas": [
@@ -29,7 +30,8 @@
     "domesticable": false,
     "colorDebug": "#a89060",
     "tamanoReproduccion": "pequeno",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "oveja_salvaje": {
     "colision": true,
@@ -45,7 +47,8 @@
     "domesticable": true,
     "colorDebug": "#e8e0d0",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "cabra": {
     "colision": true,
@@ -63,7 +66,8 @@
     "colorDebug": "#c9b090",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "cabrito"
+    "criaId": "cabrito",
+    "dieta": "herbivoro"
   },
   "vaca_salvaje": {
     "colision": true,
@@ -79,7 +83,8 @@
     "domesticable": true,
     "colorDebug": "#6a4a2a",
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "caballo_salvaje": {
     "colision": true,
@@ -94,7 +99,8 @@
     "nota": "montura",
     "colorDebug": "#5a3a20",
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "burro_salvaje": {
     "colision": true,
@@ -109,7 +115,8 @@
     "nota": "montura de carga",
     "colorDebug": "#8a8070",
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "corzo": {
     "colision": true,
@@ -127,7 +134,8 @@
     "colorDebug": "#a07850",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "corcino"
+    "criaId": "corcino",
+    "dieta": "herbivoro"
   },
   "gallina_salvaje": {
     "biomas": [
@@ -140,9 +148,7 @@
     "peligroso": false,
     "domesticable": true,
     "colorDebug": "#e8dcc0",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true,
-    "criaId": "pollito"
+    "poblacionInfinita": true
   },
   "codorniz": {
     "biomas": [
@@ -155,8 +161,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#8a7a50",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "perdiz": {
     "biomas": [
@@ -169,8 +174,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#a08a5a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "alondra": {
     "biomas": [
@@ -182,8 +186,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#c0a870",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "ciguena": {
     "biomas": [
@@ -195,8 +198,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#f0f0f0",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "urraca": {
     "biomas": [
@@ -208,8 +210,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#1a1a2a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "zorro": {
     "colision": true,
@@ -226,7 +227,8 @@
     "domesticable": false,
     "colorDebug": "#d4600f",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "raton_de_campo": {
     "biomas": [
@@ -241,7 +243,8 @@
     "tamanoReproduccion": "pequeno",
     "poneHuevos": false,
     "criaId": "ratoncillo_de_campo",
-    "criasPorCamada": 2
+    "criasPorCamada": 2,
+    "dieta": "herbivoro"
   },
   "topo": {
     "biomas": [
@@ -254,7 +257,8 @@
     "domesticable": false,
     "colorDebug": "#4a3a3a",
     "tamanoReproduccion": "pequeno",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "comadreja": {
     "biomas": [
@@ -268,7 +272,8 @@
     "domesticable": false,
     "colorDebug": "#b09060",
     "tamanoReproduccion": "pequeno",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "erizo": {
     "biomas": [
@@ -282,7 +287,8 @@
     "domesticable": false,
     "colorDebug": "#7a6a5a",
     "tamanoReproduccion": "pequeno",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "tejon": {
     "biomas": [
@@ -297,7 +303,8 @@
     "domesticable": false,
     "colorDebug": "#3a3a3a",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "omnivoro"
   },
   "abeja": {
     "biomas": [
@@ -364,7 +371,8 @@
     "colorDebug": "#8a6a3a",
     "tamanoReproduccion": "grande",
     "poneHuevos": false,
-    "criaId": "cervatillo"
+    "criaId": "cervatillo",
+    "dieta": "herbivoro"
   },
   "jabali": {
     "colision": true,
@@ -383,7 +391,8 @@
     "radioAgro": 4,
     "tamanoReproduccion": "grande",
     "poneHuevos": false,
-    "criaId": "jabato"
+    "criaId": "jabato",
+    "dieta": "omnivoro"
   },
   "liebre_de_bosque": {
     "biomas": [
@@ -398,7 +407,8 @@
     "domesticable": false,
     "colorDebug": "#7a6a4a",
     "tamanoReproduccion": "pequeno",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "ardilla": {
     "biomas": [
@@ -411,7 +421,8 @@
     "domesticable": false,
     "colorDebug": "#c9773a",
     "tamanoReproduccion": "pequeno",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "lobo": {
     "colision": true,
@@ -435,7 +446,8 @@
     "disposicion": "neutral",
     "radioAgro": 6,
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "lince": {
     "colision": true,
@@ -459,7 +471,8 @@
     "disposicion": "neutral",
     "radioAgro": 4,
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "marta": {
     "biomas": [
@@ -473,7 +486,8 @@
     "domesticable": false,
     "colorDebug": "#5a3a2a",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "buho": {
     "biomas": [
@@ -485,8 +499,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#8a6a4a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "lechuza": {
     "biomas": [
@@ -498,8 +511,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#c9b880",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "pajaro_carpintero": {
     "biomas": [
@@ -511,8 +523,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#c92f2f",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "arrendajo": {
     "biomas": [
@@ -524,8 +535,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#4a6ac0",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "paloma_torcaz": {
     "biomas": [
@@ -538,8 +548,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#a0a0a0",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "azor": {
     "biomas": [
@@ -551,8 +560,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#6a5a4a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "musarana": {
     "biomas": [
@@ -565,7 +573,8 @@
     "domesticable": false,
     "colorDebug": "#5a5a5a",
     "tamanoReproduccion": "pequeno",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "murcielago": {
     "biomas": [
@@ -578,7 +587,8 @@
     "domesticable": false,
     "colorDebug": "#2a2a2a",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "oso_pardo": {
     "colision": true,
@@ -601,7 +611,8 @@
     "disposicion": "neutral",
     "radioAgro": 8,
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "omnivoro"
   },
   "cabra_montesa": {
     "colision": true,
@@ -617,7 +628,8 @@
     "domesticable": false,
     "colorDebug": "#c9c0b0",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "rebeco": {
     "colision": true,
@@ -633,7 +645,8 @@
     "domesticable": false,
     "colorDebug": "#a09070",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "muflon": {
     "colision": true,
@@ -649,7 +662,8 @@
     "domesticable": true,
     "colorDebug": "#b0a080",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "marmota": {
     "biomas": [
@@ -664,7 +678,8 @@
     "domesticable": false,
     "colorDebug": "#8a7050",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "lobo_de_las_nieves": {
     "colision": true,
@@ -689,7 +704,8 @@
     "disposicion": "neutral",
     "radioAgro": 6,
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "lince_boreal": {
     "colision": true,
@@ -712,7 +728,8 @@
     "disposicion": "neutral",
     "radioAgro": 4,
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "aguila_real": {
     "biomas": [
@@ -724,8 +741,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#5a4a3a",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "quebrantahuesos": {
     "biomas": [
@@ -737,8 +753,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#8a7a6a",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "perdiz_nival": {
     "biomas": [
@@ -751,8 +766,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#e8ecef",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "armino": {
     "biomas": [
@@ -766,7 +780,8 @@
     "domesticable": false,
     "colorDebug": "#f0f0f0",
     "tamanoReproduccion": "pequeno",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "camello": {
     "colision": true,
@@ -782,7 +797,8 @@
     "domesticable": true,
     "colorDebug": "#c9a878",
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "gacela": {
     "colision": true,
@@ -798,7 +814,8 @@
     "domesticable": false,
     "colorDebug": "#c9a860",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "escorpion": {
     "biomas": [
@@ -827,8 +844,7 @@
     "colorDebug": "#a08a4a",
     "disposicion": "neutral",
     "radioAgro": 2,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "vibora_del_desierto": {
     "biomas": [
@@ -843,8 +859,7 @@
     "colorDebug": "#c9b060",
     "disposicion": "neutral",
     "radioAgro": 2,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "lagarto_ocelado": {
     "biomas": [
@@ -857,8 +872,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#5a8a4a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "buitre_leonado": {
     "biomas": [
@@ -870,8 +884,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#a08a6a",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "halcon_peregrino": {
     "biomas": [
@@ -883,8 +896,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#6a5a4a",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "chacal_dorado": {
     "colision": true,
@@ -908,7 +920,8 @@
     "disposicion": "neutral",
     "radioAgro": 4,
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "fenec": {
     "biomas": [
@@ -922,7 +935,8 @@
     "domesticable": false,
     "colorDebug": "#e8d0a0",
     "tamanoReproduccion": "pequeno",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "jerbo": {
     "biomas": [
@@ -936,7 +950,8 @@
     "colorDebug": "#c9b080",
     "tamanoReproduccion": "pequeno",
     "poneHuevos": false,
-    "criasPorCamada": 2
+    "criasPorCamada": 2,
+    "dieta": "herbivoro"
   },
   "avestruz": {
     "colision": true,
@@ -951,8 +966,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#3a3a3a",
-    "tamanoReproduccion": "grande",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "gaviota": {
     "biomas": [
@@ -964,8 +978,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#e8e8e8",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "cormoran": {
     "biomas": [
@@ -977,8 +990,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#1a1a1a",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "pelicano": {
     "biomas": [
@@ -990,8 +1002,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#c9c0a0",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "cangrejo": {
     "biomas": [
@@ -1036,7 +1047,8 @@
     "domesticable": false,
     "colorDebug": "#8a8a8a",
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "delfin_mular": {
     "colision": true,
@@ -1051,7 +1063,8 @@
     "domesticable": false,
     "colorDebug": "#5a7a8a",
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "medusa": {
     "biomas": [
@@ -1128,8 +1141,7 @@
     "domesticable": false,
     "colorDebug": "#7aa8c0",
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "pez_mediano": {
     "biomas": [
@@ -1144,8 +1156,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#4a7a9a",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "pez_grande": {
     "biomas": [
@@ -1162,8 +1173,7 @@
     "domesticable": false,
     "colorDebug": "#2a5a7a",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poblacionInfinita": true
   },
   "tiburon": {
     "colision": true,
@@ -1185,8 +1195,7 @@
     "prefiereAguaProfunda": true,
     "disposicion": "neutral",
     "radioAgro": 7,
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poblacionInfinita": true
   },
   "orca": {
     "colision": true,
@@ -1205,8 +1214,7 @@
     "distanciaMinima": 80,
     "disposicion": "neutral",
     "radioAgro": 10,
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poblacionInfinita": true
   },
   "ballena_azul": {
     "colision": true,
@@ -1222,8 +1230,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#4a5a68",
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poblacionInfinita": true
   },
   "pulpo": {
     "biomas": [
@@ -1329,8 +1336,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#8a8a7a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "caballito_de_mar": {
     "biomas": [
@@ -1344,8 +1350,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#e0a040",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "anemona_de_mar": {
     "biomas": [
@@ -1376,8 +1381,7 @@
     "colorDebug": "#1a2a2a",
     "disposicion": "neutral",
     "radioAgro": 3,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "pez_linterna": {
     "biomas": [
@@ -1391,8 +1395,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#2a3a50",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "rana": {
     "biomas": [
@@ -1405,8 +1408,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#4a8a3a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "sapo": {
     "biomas": [
@@ -1418,8 +1420,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#7a7a4a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "culebra_de_agua": {
     "biomas": [
@@ -1432,8 +1433,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#3a5a3a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "galapago": {
     "biomas": [
@@ -1448,7 +1448,8 @@
     "domesticable": false,
     "colorDebug": "#4a5a2a",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poneHuevos": true,
+    "dieta": "omnivoro"
   },
   "garza_real": {
     "biomas": [
@@ -1460,8 +1461,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#8a9aa0",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "ciguena_negra": {
     "biomas": [
@@ -1473,8 +1473,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#1a1a1a",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "libelula": {
     "biomas": [
@@ -1502,7 +1501,8 @@
     "domesticable": false,
     "colorDebug": "#6a4a3a",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "cocodrilo_del_pantano": {
     "colision": true,
@@ -1520,7 +1520,8 @@
     "disposicion": "neutral",
     "radioAgro": 5,
     "tamanoReproduccion": "grande",
-    "poneHuevos": true
+    "poneHuevos": true,
+    "dieta": "carnivoro"
   },
   "escorpion_de_lava": {
     "biomas": [
@@ -1546,8 +1547,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#e0602a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "buitre_carronero": {
     "biomas": [
@@ -1559,8 +1559,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#5a4a3a",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "cuervo_de_ceniza": {
     "biomas": [
@@ -1572,8 +1571,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#2a2422",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "arana_gigante": {
     "colision": true,
@@ -1601,7 +1599,8 @@
     "_nota": "Fauna URBANA (poblacion/ciudades, no el bakeador exterior): no tiene densidad de spawn silvestre — biomas/densidadBase en 0/[] a propósito.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "cachorro"
+    "criaId": "cachorro",
+    "dieta": "carnivoro"
   },
   "gato": {
     "biomas": [],
@@ -1615,7 +1614,8 @@
     "_nota": "Fauna urbana — ver nota de 'perro'.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "gatito"
+    "criaId": "gatito",
+    "dieta": "carnivoro"
   },
   "gallo": {
     "biomas": [],
@@ -1629,7 +1629,8 @@
     "_nota": "Fauna urbana — mismo esqueleto 'ave' que gallina_salvaje, plumaje más vistoso. Ver nota de 'perro'.",
     "tamanoReproduccion": "pequeno",
     "poneHuevos": true,
-    "criaId": "pollito"
+    "criaId": "pollito",
+    "dieta": "omnivoro"
   },
   "_nota_peces_agua_dulce": "Peces de río/lago (pedido 2026-08-29): requiereAguaDulce (baker/src/decoracion.js + generar.js celda.aguaDulce, calculado de hidro.esRio/esLago) los separa de los peces de mar de más abajo — nunca salen en el mismo agua. El sistema NO distingue mecánicamente río de lago (ambos son 'agua'/'agua_profunda' con la misma hidrología, sin dato propio que los diferencie casilla a casilla), así que río/lago comparten el mismo agua dulce de cada bioma — la variedad de nombre (categoriaRecursoCarne pescado_rio/pescado_lago) es temática, no una restricción de sitio real.",
   "trucha_rio": {
@@ -1649,8 +1650,7 @@
     "domesticable": false,
     "colorDebug": "#8aa870",
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "salmon_rio": {
     "biomas": [
@@ -1668,8 +1668,7 @@
     "domesticable": false,
     "colorDebug": "#c97a68",
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "carpa_rio": {
     "biomas": [
@@ -1687,8 +1686,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#a89858",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "lucio_rio": {
     "biomas": [
@@ -1707,8 +1705,7 @@
     "colorDebug": "#5a7a4a",
     "_nota": "Depredador solitario de agua dulce — casi nunca en banco, a diferencia de trucha/carpa.",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "siluro": {
     "biomas": [
@@ -1727,8 +1724,7 @@
     "colorDebug": "#4a4038",
     "_nota": "El pez de agua dulce más grande y raro — casi siempre solo (capacidadMaximaPorChunk 1), como el tiburón en el mar.",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poblacionInfinita": true
   },
   "pez_gato_desierto": {
     "biomas": [
@@ -1745,8 +1741,7 @@
     "domesticable": false,
     "colorDebug": "#c9a870",
     "_nota": "Único pez de oasis del desierto — densidad baja, el agua dulce ahí ya es escasa de por sí.",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "perca_lago": {
     "biomas": [
@@ -1763,8 +1758,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#7a9868",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "carpa_lago": {
     "biomas": [
@@ -1782,8 +1776,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#98a058",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "trucha_alpina": {
     "biomas": [
@@ -1801,8 +1794,7 @@
     "colorDebug": "#9ab8c0",
     "_nota": "Lago/río de alta montaña — agua fría, único pez propio de montana_nevada además de la trucha_rio genérica.",
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "_nota_peces_mar_ampliacion": "Ampliación de variedad de mar (pedido 2026-08-29) — se mantienen pez_pequeno/mediano/grande/tiburon/orca/ballena_azul tal cual, esto añade especies con nombre propio para más variedad visual/de recurso, mismo patrón grande-solitario / pequeño-banco de siempre.",
   "arenque": {
@@ -1819,8 +1811,7 @@
     "domesticable": false,
     "colorDebug": "#8aa8c0",
     "_nota": "El pez más pequeño y en banco más grande de todo el catálogo — presa base de tiburón/orca.",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "bacalao": {
     "biomas": [
@@ -1837,8 +1828,7 @@
     "domesticable": false,
     "colorDebug": "#5a6a5a",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "atun": {
     "biomas": [
@@ -1856,8 +1846,7 @@
     "colorDebug": "#2a4a68",
     "_nota": "Grande y veloz — densidad baja/disperso, no forma banco cerrado como arenque.",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "pez_espada": {
     "biomas": [
@@ -1875,8 +1864,7 @@
     "_nota": "Grande, solitario y raro — el pico afilado lo hace peligroso de cerca, a diferencia del resto de peces.",
     "disposicion": "neutral",
     "radioAgro": 6,
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poblacionInfinita": true
   },
   "anguila_marina": {
     "biomas": [
@@ -1892,8 +1880,7 @@
     "domesticable": false,
     "colorDebug": "#4a5a48",
     "_nota": "Costera, distinta de anguila_abisal (mar_profundo) ya existente.",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "foca": {
     "colision": true,
@@ -1911,8 +1898,7 @@
     "domesticable": false,
     "colorDebug": "#8a8a80",
     "_nota": "Único mamífero marino además de orca/ballena — costera (mar_bajo), no forma banco.",
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poblacionInfinita": true
   },
   "_nota_ampliacion_aerea_2026_08_29": "Ampliación de fauna aérea (pedido del streamer, auditoría de huecos ecológicos 2026-08-29): rapaces de talla media, aves de granja/lago, refuerzo de costa (bioma más flojo en aéreas) y un insecto volador peligroso — sin duplicar lo ya existente (gallina_salvaje/gallo, abeja, murcielago, azor, aguila_real...).",
   "pato_azulon": {
@@ -1928,8 +1914,7 @@
     "peligroso": false,
     "domesticable": true,
     "colorDebug": "#4a6a48",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "ganso_salvaje": {
     "biomas": [
@@ -1944,9 +1929,7 @@
     "peligroso": false,
     "domesticable": true,
     "colorDebug": "#8a8262",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true,
-    "criaId": "ansarino_salvaje"
+    "poblacionInfinita": true
   },
   "ganso_domestico": {
     "biomas": [],
@@ -1960,7 +1943,8 @@
     "_nota": "Fauna urbana — ver nota de 'perro'.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": true,
-    "criaId": "ansarino"
+    "criaId": "ansarino",
+    "dieta": "herbivoro"
   },
   "cernicalo_vulgar": {
     "biomas": [
@@ -1979,8 +1963,7 @@
       "jerbo",
       "grillo"
     ],
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "avispa_comun": {
     "biomas": [
@@ -2011,8 +1994,7 @@
     "presasDe": [
       "petirrojo"
     ],
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "petirrojo": {
     "biomas": [
@@ -2025,8 +2007,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#c9502a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "cuervo_comun": {
     "biomas": [
@@ -2040,8 +2021,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#1c1c1c",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "milano_negro": {
     "biomas": [
@@ -2055,8 +2035,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#4a3a2a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "buho_nival": {
     "biomas": [
@@ -2068,8 +2047,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#e8ecef",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "frailecillo_atlantico": {
     "biomas": [
@@ -2081,8 +2059,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#241f1a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "alcatraz_atlantico": {
     "biomas": [
@@ -2095,8 +2072,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#f0f0e8",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "aguila_pescadora": {
     "biomas": [
@@ -2114,8 +2090,7 @@
       "pez_pequeno",
       "trucha_rio"
     ],
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "cisne_vulgar": {
     "biomas": [
@@ -2129,8 +2104,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#f5f5f0",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "_nota_ampliacion_maritima_2026_08_29": "Ampliación de fauna marítima (mismo pedido 2026-08-29): invertebrados de zona intermareal, un mamífero marino grande de costa fría, peces de banco de mar_bajo y variedad de río/lago — prioriza 'costa', el bioma más flojo del dominio marítimo junto a tierras_quemadas.",
   "percebe": {
@@ -2192,7 +2166,8 @@
     "disposicion": "neutral",
     "radioAgro": 5,
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "carnivoro"
   },
   "ballena_franca": {
     "colision": true,
@@ -2209,8 +2184,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#1a1a1a",
-    "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poblacionInfinita": true
   },
   "sardina": {
     "biomas": [
@@ -2225,8 +2199,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#8aa8c8",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "caballa": {
     "biomas": [
@@ -2242,8 +2215,7 @@
     "domesticable": false,
     "colorDebug": "#3a5a78",
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "rodaballo": {
     "biomas": [
@@ -2262,8 +2234,7 @@
       "pez_pequeno"
     ],
     "prefiereAguaProfunda": false,
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "calamar_gigante": {
     "colision": true,
@@ -2318,8 +2289,7 @@
     "peligroso": false,
     "domesticable": true,
     "colorDebug": "#4a6a3a",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "esturion": {
     "biomas": [
@@ -2337,8 +2307,7 @@
     "domesticable": false,
     "colorDebug": "#5a5850",
     "prefiereAguaProfunda": true,
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "_nota_ampliacion_terrestre_2026_08_29": "Ampliación de fauna terrestre (mismo pedido 2026-08-29): base de cadena trófica para tierras_quemadas (el bioma más pobre del catálogo), un mamífero de ribera y un reptil venenoso templado que faltaba en bosque/pradera/montaña. Añade también el par doméstico 'oveja'/'carnero' (pedido explícito del streamer: cada especie con nombre real distinto por sexo, como gallina_salvaje/gallo — oveja_salvaje se mantiene igual, es la población salvaje de pradera) y 'cerdo' doméstico (jabali ya cubre el ancestro salvaje).",
   "_nota_animales_trabajo_2026_08_29": "Animales de trabajo/monta (pedido 2026-08-29, 'caballos mulos bueyes animales de trabajo'): caballo_salvaje/burro_salvaje ya cubrían la población salvaje domesticable, pero faltaba el par doméstico urbano (mismo patrón que perro/gato/gallo) — caballo, mulo (sin versión salvaje real, siempre es un híbrido criado) y buey (bovino de labranza, par de vaca_salvaje). A diferencia de oveja/carnero/cerdo/ganso_domestico, ESTOS SÍ tienen rig ya (personajes/catalogo/animales_rig.json) y están enganchados al spawn de ciudades/src/fauna.js.",
@@ -2355,7 +2324,8 @@
     "_nota": "Fauna urbana — ver nota de 'perro'. Par doméstico de caballo_salvaje (que se mantiene igual, población salvaje del mapa exterior).",
     "tamanoReproduccion": "grande",
     "poneHuevos": false,
-    "criaId": "potro"
+    "criaId": "potro",
+    "dieta": "herbivoro"
   },
   "burro": {
     "colision": true,
@@ -2370,7 +2340,8 @@
     "_nota": "Fauna urbana — ver nota de 'perro'. Sustituye a 'mulo' como animal de tiro con rig (pedido 2026-08-29): par doméstico de 'burro_salvaje', que se mantiene igual.",
     "tamanoReproduccion": "grande",
     "poneHuevos": false,
-    "criaId": "burrito"
+    "criaId": "burrito",
+    "dieta": "herbivoro"
   },
   "buey": {
     "colision": true,
@@ -2386,7 +2357,8 @@
     "colorDebug": "#4a3020",
     "_nota": "Fauna urbana — ver nota de 'perro'. Bovino de labranza, par de vaca_salvaje.",
     "tamanoReproduccion": "grande",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "raton_de_ceniza": {
     "biomas": [
@@ -2400,7 +2372,8 @@
     "colorDebug": "#6a6058",
     "tamanoReproduccion": "pequeno",
     "poneHuevos": false,
-    "criasPorCamada": 2
+    "criasPorCamada": 2,
+    "dieta": "herbivoro"
   },
   "lagarto_de_ceniza": {
     "biomas": [
@@ -2413,8 +2386,7 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#8a5a48",
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "castor": {
     "colision": true,
@@ -2432,7 +2404,8 @@
     "domesticable": false,
     "colorDebug": "#4a3020",
     "tamanoReproduccion": "mediano",
-    "poneHuevos": false
+    "poneHuevos": false,
+    "dieta": "herbivoro"
   },
   "vibora_europea": {
     "biomas": [
@@ -2453,8 +2426,7 @@
     ],
     "disposicion": "neutral",
     "radioAgro": 2,
-    "tamanoReproduccion": "pequeno",
-    "poneHuevos": true
+    "poblacionInfinita": true
   },
   "cerdo": {
     "colision": true,
@@ -2469,7 +2441,8 @@
     "_nota": "Fauna urbana — ver nota de 'perro'. jabali ya cubre el ancestro salvaje.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "cerdito"
+    "criaId": "cerdito",
+    "dieta": "omnivoro"
   },
   "oveja": {
     "colision": true,
@@ -2485,7 +2458,8 @@
     "_nota": "Fauna urbana, hembra — ver nota de 'perro'. Distinta de oveja_salvaje (población salvaje de pradera).",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "cordero"
+    "criaId": "cordero",
+    "dieta": "herbivoro"
   },
   "carnero": {
     "colision": true,
@@ -2501,7 +2475,8 @@
     "_nota": "Fauna urbana, macho de 'oveja' — mismo patrón que gallina_salvaje/gallo: nombre propio por sexo, no una variante de color.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "cordero"
+    "criaId": "cordero",
+    "dieta": "herbivoro"
   },
   "_nota_convencion_macho_hembra_cria_2026_08_29": "Convención PERMANENTE para fauna DOMÉSTICA/urbana (pedido del streamer: 'necesitamos que todos tengan macho y hembra... que se vayan añadiendo SIEMPRE tengan las crias y el macho o hembra'): toda especie doméstica nueva se da de alta como TRÍO — macho, hembra (nombre real distinto cuando existe en español: cerdo/cerda, toro/vaca, caballo/yegua, gallo/gallina; si no hay nombre distinto de verdad, como perro/perra o gato/gata, se usa la flexión de género normal) + UNA sola cría común a ambos sexos (cachorro/gatito/potro/ternero/cerdito/cordero/pollito/ansarino/burrito — nunca 'cría macho'/'cría hembra', el sexo se decide al llegar a adulto). 'mulo' se sustituyó por 'burro' (ver más abajo): el mulo es un híbrido estéril y no encaja con un sistema pensado para cría.",
   "_nota_convencion_salvaje_macho_hembra_cria_2026_08_29": "Misma convención, extendida a fauna SALVAJE del mapa exterior (pedido del streamer: 'los animales salvajes también tienen esta regla... macho hembra y cachorro'): por cada especie salvaje que la tenga, se añaden sus parejas hembra/cría con nombre real (jabalí/jabalina/jabato, ciervo/cierva/cervatillo, corzo/corza/corcino, cabra/macho_cabrio/cabrito — 'cabra' YA es el nombre de la hembra, así que la que se añade es el macho —, ganso_salvaje/oca_salvaje/ansarino_salvaje, raton_de_campo/ratona_de_campo/ratoncillo_de_campo). A propósito con `densidadBase:0`/`capacidadMaximaPorChunk:0` (mismos biomas que su pareja, para cuando se diseñe cómo repartir la densidad total entre las tres sin triplicar la población real) — spawnear de verdad necesita decidir cómo decoracion.js reparte el `densidadBase` original entre macho/hembra/cría, que es trabajo aparte de este listado. Igual que con lo doméstico: catálogo primero, mecánica y esqueletos después. No se ha tocado TODO el catálogo salvaje (peces/insectos/aves sin nombre de sexo distinto en español no llevan esto) — solo las especies de caza/campo que se pidieron explícitamente; el resto sigue como un único registro por especie hasta que se pida ampliar más.",
@@ -2517,7 +2492,8 @@
     "_nota": "Fauna urbana, hembra de 'perro'. Sin rig propio todavía — cuando 'perro' tenga razas con esqueleto de verdad, 'perra' hereda el mismo tratamiento.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "cachorro"
+    "criaId": "cachorro",
+    "dieta": "carnivoro"
   },
   "cachorro": {
     "biomas": [],
@@ -2542,7 +2518,8 @@
     "_nota": "Fauna urbana, hembra de 'gato' — ver nota de 'perra'.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "gatito"
+    "criaId": "gatito",
+    "dieta": "carnivoro"
   },
   "gatito": {
     "biomas": [],
@@ -2579,7 +2556,8 @@
     "_nota": "Fauna urbana, hembra de 'caballo' — ver nota de 'perra'.",
     "tamanoReproduccion": "grande",
     "poneHuevos": false,
-    "criaId": "potro"
+    "criaId": "potro",
+    "dieta": "herbivoro"
   },
   "potro": {
     "biomas": [],
@@ -2604,7 +2582,8 @@
     "_nota": "Fauna urbana, hembra de 'burro' — ver nota de 'perra'.",
     "tamanoReproduccion": "grande",
     "poneHuevos": false,
-    "criaId": "burrito"
+    "criaId": "burrito",
+    "dieta": "herbivoro"
   },
   "burrito": {
     "biomas": [],
@@ -2630,7 +2609,8 @@
     "_nota": "Fauna urbana, macho reproductor bovino — completa el trío con 'vaca' (hembra) y 'buey' (macho castrado de labranza, ya existente).",
     "tamanoReproduccion": "grande",
     "poneHuevos": false,
-    "criaId": "ternero"
+    "criaId": "ternero",
+    "dieta": "herbivoro"
   },
   "vaca": {
     "colision": true,
@@ -2646,7 +2626,8 @@
     "_nota": "Fauna urbana, hembra bovina doméstica — distinta de 'vaca_salvaje' (población salvaje del mapa exterior, que se mantiene igual). Par de 'toro'.",
     "tamanoReproduccion": "grande",
     "poneHuevos": false,
-    "criaId": "ternero"
+    "criaId": "ternero",
+    "dieta": "herbivoro"
   },
   "ternero": {
     "biomas": [],
@@ -2671,7 +2652,8 @@
     "_nota": "Fauna urbana, hembra de 'cerdo' — ver nota de 'perra'.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "cerdito"
+    "criaId": "cerdito",
+    "dieta": "omnivoro"
   },
   "cerdito": {
     "biomas": [],
@@ -2695,7 +2677,8 @@
     "_nota": "Fauna urbana, hembra de 'ganso_domestico' — ver nota de 'perra'.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": true,
-    "criaId": "ansarino"
+    "criaId": "ansarino",
+    "dieta": "herbivoro"
   },
   "ansarino": {
     "biomas": [],
@@ -2735,7 +2718,8 @@
     "_nota": "Hembra de 'jabali' — ver nota de convención salvaje. densidadBase/capacidadMaximaPorChunk en 0 a propósito: repartir la densidad real entre jabali/jabalina/jabato es trabajo aparte de este listado.",
     "tamanoReproduccion": "grande",
     "poneHuevos": false,
-    "criaId": "jabato"
+    "criaId": "jabato",
+    "dieta": "omnivoro"
   },
   "jabato": {
     "biomas": [
@@ -2765,7 +2749,8 @@
     "_nota": "Hembra de 'ciervo' — ver nota de convención salvaje.",
     "tamanoReproduccion": "grande",
     "poneHuevos": false,
-    "criaId": "cervatillo"
+    "criaId": "cervatillo",
+    "dieta": "herbivoro"
   },
   "cervatillo": {
     "biomas": [
@@ -2796,7 +2781,8 @@
     "_nota": "Hembra de 'corzo' — ver nota de convención salvaje.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "corcino"
+    "criaId": "corcino",
+    "dieta": "herbivoro"
   },
   "corcino": {
     "biomas": [
@@ -2828,7 +2814,8 @@
     "_nota": "Macho de 'cabra' — 'cabra' YA es el nombre real de la hembra, así que aquí se añade el macho (no al revés). Ver nota de convención salvaje.",
     "tamanoReproduccion": "mediano",
     "poneHuevos": false,
-    "criaId": "cabrito"
+    "criaId": "cabrito",
+    "dieta": "herbivoro"
   },
   "cabrito": {
     "biomas": [
@@ -2857,9 +2844,7 @@
     "domesticable": true,
     "colorDebug": "#8a8262",
     "_nota": "Hembra de 'ganso_salvaje' — distinta de 'oca' (la doméstica urbana, par de 'ganso_domestico'). Ver nota de convención salvaje.",
-    "tamanoReproduccion": "mediano",
-    "poneHuevos": true,
-    "criaId": "ansarino_salvaje"
+    "poblacionInfinita": true
   },
   "ansarino_salvaje": {
     "biomas": [
@@ -2889,7 +2874,8 @@
     "tamanoReproduccion": "pequeno",
     "poneHuevos": false,
     "criaId": "ratoncillo_de_campo",
-    "criasPorCamada": 2
+    "criasPorCamada": 2,
+    "dieta": "herbivoro"
   },
   "ratoncillo_de_campo": {
     "biomas": [

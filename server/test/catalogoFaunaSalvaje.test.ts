@@ -18,9 +18,15 @@ test("carga el catálogo real: mamíferos reproductores, insectos infinitos y cr
   assert.strictEqual(lobo.poneHuevos, false);
   assert.strictEqual(lobo.poblacionInfinita, undefined);
 
+  // aves salvajes: población infinita (pedido 2026-08-30, "los pájaros
+  // también, como insectos y peces") — gallo/ganso_domestico/oca son la
+  // EXCEPCIÓN (biomas:[], domésticas, se quedan con reproducción normal
+  // para cuando se diseñe la cría doméstica más adelante)
   const gallinaSalvaje = catalogo["gallina_salvaje"];
-  assert.strictEqual(gallinaSalvaje.poneHuevos, true);
-  assert.strictEqual(gallinaSalvaje.criaId, "pollito");
+  assert.strictEqual(gallinaSalvaje.poblacionInfinita, true);
+  const gallo = catalogo["gallo"];
+  assert.strictEqual(gallo.poblacionInfinita, undefined);
+  assert.strictEqual(gallo.criaId, "pollito");
 
   const jabali = catalogo["jabali"];
   assert.strictEqual(jabali.criaId, "jabato");

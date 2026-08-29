@@ -21,7 +21,8 @@ function mundoAbierto(lado = 40) {
 }
 
 const CATALOGO: CatalogoEspecies = {
-  lobo: { tamanoReproduccion: "grande", poneHuevos: false, criaId: "lobo" },
+  lobo: { tamanoReproduccion: "grande", poneHuevos: false, dieta: "carnivoro", criaId: "lobo" },
+  conejo: { tamanoReproduccion: "pequeno", poneHuevos: false, dieta: "herbivoro" },
 };
 
 class BdFalsa {
@@ -182,4 +183,74 @@ test("una especie sin rig transitable (spawn en sólido) simplemente no aparece 
   const { gestor, salida } = crearGestor({ mundo });
   await gestor.activarSector({ sectorX: 0, sectorY: 0 });
   assert.strictEqual(salida.size, 0);
+});
+
+test("sed: un adulto con más de 1 día sin beber camina hasta el agua más cercana y, al llegar, se marca como bebido", async () => {
+  const mundo = mundoAbierto();
+  mundo.casillas[5 * 40 + 8] = TIPO.AGUA; // agua a 3 casillas a la derecha del spawn (5,5)
+  let reloj = 10;
+  const { gestor, salida } = crearGestor({ mundo, ahora: () => reloj });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 }); // nace "bebido" en reloj=10
+  reloj = 11.5; // más de 1 día después: ahora sí tiene sed
+  const id = [...salida.keys()][0];
+  const animal = salida.get(id)!;
+  let llegoAlAgua = false;
+  for (let i = 0; i < 400 && !llegoAlAgua; i++) {
+    gestor.tick(0.1);
+    if (Math.hypot(animal.x - 8.5, animal.y - 5.5) < 0.05) llegoAlAgua = true;
+  }
+  assert.ok(llegoAlAgua, "debería haber llegado a la casilla de agua en algún momento");
+});
+
+test("sed: si no hay agua dentro del radio de búsqueda, no se bloquea — sigue paseando con normalidad", async () => {
+  let reloj = 10;
+  const { gestor, salida } = crearGestor({ ahora: () => reloj }); // mundoAbierto por defecto no tiene NADA de agua
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  reloj = 11.5;
+  const id = [...salida.keys()][0];
+  const animal = salida.get(id)!;
+  let vioCaminar = false;
+  for (let i = 0; i < 100; i++) {
+    gestor.tick(0.1);
+    if (animal.accion === "caminar") vioCaminar = true;
+  }
+  assert.ok(vioCaminar, "sigue paseando aunque no encuentre agua, no se queda congelado");
+});
+
+test("comida: un herbívoro con hambre come 'del suelo' sin desplazarse — se marca la acción y ultimaComida al instante", async () => {
+  let reloj = 10;
+  const { gestor, salida, bd } = crearGestor({
+    ahora: () => reloj,
+    cargarBakeSector: () => [{ i: "conejo", x: 5, y: 5 }],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 }); // nace "saciado" en reloj=10
+  reloj = 11.5; // más de 1 día después: un herbívoro ya tiene hambre
+  const id = [...salida.keys()][0];
+  const animal = salida.get(id)!;
+  const x0 = animal.x, y0 = animal.y;
+  gestor.tick(4); // agota la pausa inicial (1-4s) de golpe, fuerza la decisión
+  assert.strictEqual(animal.accion, "comer");
+  assert.strictEqual(animal.x, x0, "comer del suelo no desplaza al animal");
+  assert.strictEqual(animal.y, y0);
+  await gestor.desactivarSector({ sectorX: 0, sectorY: 0 });
+  const filaGuardada = bd.filas.get("0,0")!.find((f) => f.id === id)!;
+  assert.strictEqual(filaGuardada.ultimaComida, 11.5, "se guarda la comida al desactivar el sector");
+});
+
+test("comida: un carnívoro con hambre NO tiene comportamiento activo todavía (depende de cazar/combate) — sigue paseando", async () => {
+  let reloj = 10;
+  const { gestor, salida } = crearGestor({ ahora: () => reloj }); // lobo, carnívoro, catálogo por defecto
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  reloj = 17; // 7 días después: más de la ventana de 6 días de un carnívoro
+  const id = [...salida.keys()][0];
+  const animal = salida.get(id)!;
+  let vioComer = false;
+  let vioCaminar = false;
+  for (let i = 0; i < 100; i++) {
+    gestor.tick(0.1);
+    if (animal.accion === "comer") vioComer = true;
+    if (animal.accion === "caminar") vioCaminar = true;
+  }
+  assert.strictEqual(vioComer, false, "sin sistema de caza, un carnívoro no se autoalimenta");
+  assert.ok(vioCaminar, "pero sigue paseando con normalidad");
 });
