@@ -11,6 +11,7 @@ import {
   sectoresEnRadio,
 } from "../src/mundo/faunaSalvajeViva";
 import { CatalogoEspecies } from "../src/mundo/faunaSalvajeSector";
+import { Cadaver } from "../src/mundo/cadaveres";
 import { Fauna } from "../src/rooms/schema/HubState";
 import { TIPO } from "../src/mundo/colisiones";
 import { FaunaHuevoFila, FaunaSalvajeFila } from "../src/datos/bd";
@@ -29,6 +30,7 @@ class BdFalsa {
   filas = new Map<string, FaunaSalvajeFila[]>();
   huevos = new Map<string, FaunaHuevoFila[]>();
   resueltos = new Map<string, number>();
+  cadaveres: Cadaver[] = [];
   guardados: string[] = [];
 
   private k(s: { sectorX: number; sectorY: number }) {
@@ -61,6 +63,10 @@ class BdFalsa {
   marcarSectorResuelto = async (s: { sectorX: number; sectorY: number }, momento: number) => {
     this.resueltos.set(this.k(s), momento);
   };
+
+  crearCadaver = async (c: Cadaver) => {
+    this.cadaveres.push(c);
+  };
 }
 
 function crearGestor(overrides: Partial<DependenciasFaunaSalvaje> = {}) {
@@ -76,6 +82,7 @@ function crearGestor(overrides: Partial<DependenciasFaunaSalvaje> = {}) {
     guardarIndividuo: bd.guardarIndividuo,
     guardarHuevo: bd.guardarHuevo,
     marcarSectorResuelto: bd.marcarSectorResuelto,
+    crearCadaver: bd.crearCadaver,
     ...overrides,
   };
   return { gestor: new GestorFaunaSalvaje(salida, deps), salida, bd };
@@ -235,6 +242,49 @@ test("comida: un herbívoro con hambre come 'del suelo' sin desplazarse — se m
   await gestor.desactivarSector({ sectorX: 0, sectorY: 0 });
   const filaGuardada = bd.filas.get("0,0")!.find((f) => f.id === id)!;
   assert.strictEqual(filaGuardada.ultimaComida, 11.5, "se guarda la comida al desactivar el sector");
+});
+
+test("matarIndividuo: quita al individuo del estado de Colyseus, lo marca muerto en BD y crea su cadáver en su última posición", async () => {
+  const { gestor, salida, bd } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const id = [...salida.keys()][0];
+  const animal = salida.get(id)!;
+  animal.x = 12.3; // simula que se movió antes de morir
+  animal.y = 7.7;
+
+  const cadaver = await gestor.matarIndividuo(id);
+
+  assert.strictEqual(salida.size, 0, "desaparece del estado de Colyseus");
+  assert.strictEqual(gestor.cantidadViva(), 0);
+  assert.ok(cadaver);
+  assert.strictEqual(cadaver!.id, `cadaver:${id}`);
+  assert.strictEqual(cadaver!.tipoOrigen, "animal");
+  assert.strictEqual(cadaver!.especieOrigenId, "lobo");
+  assert.strictEqual(cadaver!.x, 12.3);
+  assert.strictEqual(cadaver!.y, 7.7);
+  assert.strictEqual(bd.cadaveres.length, 1);
+  assert.strictEqual(bd.cadaveres[0].id, cadaver!.id);
+
+  const filaGuardada = bd.filas.get("0,0")!.find((f) => f.id === id)!;
+  assert.strictEqual(filaGuardada.estado, "muerto", "se persiste como muerto, nunca se resucita");
+});
+
+test("matarIndividuo: null si el id no está activo (ya muerto o inexistente)", async () => {
+  const { gestor } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const resultado = await gestor.matarIndividuo("no-existe");
+  assert.strictEqual(resultado, null);
+});
+
+test("matarIndividuo: tras matar, desactivarSector no vuelve a guardar ni resucita al individuo muerto", async () => {
+  const { gestor, salida, bd } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const id = [...salida.keys()][0];
+  await gestor.matarIndividuo(id);
+  const guardadosTrasMorir = bd.guardados.length;
+  await gestor.desactivarSector({ sectorX: 0, sectorY: 0 });
+  assert.strictEqual(bd.guardados.length, guardadosTrasMorir, "ya no está vivo, desactivar no lo vuelve a tocar");
+  assert.strictEqual(salida.size, 0);
 });
 
 test("comida: un carnívoro con hambre NO tiene comportamiento activo todavía (depende de cazar/combate) — sigue paseando", async () => {

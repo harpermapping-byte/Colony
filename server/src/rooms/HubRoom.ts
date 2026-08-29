@@ -56,6 +56,11 @@ function rutaMapaHub(): string | undefined {
 // empuje suave entre PJ. Las reglas viven en docs/GDD_Mecanicas.md.
 export class HubRoom extends RoomExteriorBase {
   private mapa!: MapaCargado;
+  // Fauna salvaje en vivo (docs/GDD_Agentes_Moviles.md) — undefined si el
+  // mapa no tiene sectores bakeados de verdad o si algo falló al iniciar
+  // (ver el try/catch de onCreate). `matarIndividuo` es el punto de
+  // enganche para un futuro sistema de combate.
+  private gestorFaunaSalvaje?: GestorFaunaSalvaje;
   private conversacionesNpc = new GestorConversacionesNpc();
   private ultimoMensajeNpc = new Map<string, number>();
 
@@ -118,15 +123,19 @@ export class HubRoom extends RoomExteriorBase {
           guardarIndividuo: (f) => bd.guardarFaunaIndividuo(f),
           guardarHuevo: (h) => bd.guardarHuevo(h),
           marcarSectorResuelto: (s, momento) => bd.marcarSectorResuelto(mapaId, s.sectorX, s.sectorY, momento),
+          crearCadaver: (c) => bd.crearCadaverBd(c),
         };
-        const gestorFaunaSalvaje = new GestorFaunaSalvaje(this.state.fauna, deps);
+        // Guardado como campo (no variable local): el punto de enganche
+        // `matarIndividuo` lo llamará un futuro sistema de combate desde
+        // otro método de esta misma room — hoy nada lo invoca todavía.
+        this.gestorFaunaSalvaje = new GestorFaunaSalvaje(this.state.fauna, deps);
         // Merodeo a 5hz (igual que la fauna doméstica); activar/desactivar
         // sectores es mucho más caro (E/S a BD) así que va aparte y más
         // despacio — de sobra para notar que un jugador cambió de sector.
-        this.clock.setInterval(() => gestorFaunaSalvaje.tick(0.2), 200);
+        this.clock.setInterval(() => this.gestorFaunaSalvaje!.tick(0.2), 200);
         this.clock.setInterval(() => {
           const posiciones = [...this.state.players.values()].map((p) => ({ x: p.x, y: p.y }));
-          gestorFaunaSalvaje
+          this.gestorFaunaSalvaje!
             .actualizarPorJugadores(posiciones, indice.tamanoChunk, indice.tamanoSectorChunks, 1)
             .catch((err) => console.error("Fauna salvaje: fallo actualizando sectores activos:", err));
         }, 8000);

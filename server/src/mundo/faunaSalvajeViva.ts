@@ -17,6 +17,7 @@ import { Fauna } from "../rooms/schema/HubState";
 import { MundoColision, TIPO } from "./colisiones";
 import { CatalogoEspecies, ObjetoFaunaBakeado, convertirFilaAAnimal, resolverSector } from "./faunaSalvajeSector";
 import { necesitaAgua, necesitaComida } from "./reproduccionFauna";
+import { Cadaver, crearCadaver } from "./cadaveres";
 import { FaunaHuevoFila, FaunaSalvajeFila } from "../datos/bd";
 
 const RADIO_MERODEO = 3; // casillas — paseo corto alrededor de donde se resolvió cada individuo
@@ -69,6 +70,8 @@ export interface DependenciasFaunaSalvaje {
   guardarIndividuo: (f: FaunaSalvajeFila) => Promise<void>;
   guardarHuevo: (h: FaunaHuevoFila) => Promise<void>;
   marcarSectorResuelto: (s: CoordenadaSector, momento: number) => Promise<void>;
+  /** Persiste un cadáver recién creado (docs/GDD_Agentes_Moviles.md, pedido 2026-08-30) — ver `matarIndividuo`. */
+  crearCadaver: (c: Cadaver) => Promise<void>;
 }
 
 interface IndividuoVivo {
@@ -164,6 +167,46 @@ export class GestorFaunaSalvaje {
       this.salida.delete(v.fila.id);
     }
     this.sectoresActivos.delete(k);
+  }
+
+  /**
+   * Mata a un individuo activo por su id: lo marca `estado: "muerto"`
+   * (nunca vuelve a "vivo"), lo persiste así, lo quita del estado de
+   * Colyseus (deja de contar como animal vivo) y crea+persiste su
+   * cadáver en su sitio (pedido 2026-08-30: "al morir... aparece el
+   * cadáver looteable en el suelo"). `null` si ese id no está activo
+   * ahora mismo (ya murió, se desactivó su sector, o nunca existió).
+   *
+   * PUNTO DE ENGANCHE para cuando exista un sistema de combate: hoy
+   * nada llama a este método en producción — igual que
+   * `marcarTropaMuerta` en su día, la mecánica ya está lista, falta
+   * quien decida CUÁNDO invocarla.
+   */
+  async matarIndividuo(id: string): Promise<Cadaver | null> {
+    for (const vivos of this.sectoresActivos.values()) {
+      const idx = vivos.findIndex((v) => v.fila.id === id);
+      if (idx === -1) continue;
+      const v = vivos[idx];
+      v.fila.x = v.esquema.x;
+      v.fila.y = v.esquema.y;
+      v.fila.estado = "muerto";
+      await this.deps.guardarIndividuo(v.fila);
+      this.salida.delete(v.fila.id);
+      vivos.splice(idx, 1);
+
+      const cadaver = crearCadaver({
+        id: `cadaver:${v.fila.id}`,
+        mapaId: this.deps.mapaId,
+        tipoOrigen: "animal",
+        especieOrigenId: v.fila.especieId,
+        x: v.fila.x,
+        y: v.fila.y,
+        ahora: this.deps.ahora(),
+      });
+      await this.deps.crearCadaver(cadaver);
+      return cadaver;
+    }
+    return null;
   }
 
   /**

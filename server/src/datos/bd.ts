@@ -238,6 +238,26 @@ export interface FaunaHuevoFila {
   duracionDias: number;
 }
 
+// Cadáveres (docs/GDD_Agentes_Moviles.md, pedido 2026-08-30): al morir
+// un animal/NPC/jugador, deja de contar como esa entidad viva y aparece
+// esta fila — un cadáver lootable con SU PROPIO contenedor (reusa
+// Contenedor de inventario.ts tal cual, mismo tamaño para cualquier
+// origen). No va por sector como fauna_salvaje/fauna_huevo: las muertes
+// son mucho menos frecuentes que la población base, así que basta con
+// filtrar por mapa entero al listar.
+export type TipoOrigenCadaver = "animal" | "npc" | "jugador";
+
+export interface CadaverFila {
+  id: string;
+  mapaId: string;
+  tipoOrigen: TipoOrigenCadaver;
+  especieOrigenId: string;
+  x: number;
+  y: number;
+  muertoEn: number;
+  contenedor: Contenedor;
+}
+
 // Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
 // asentamiento — el registro de eventos que alimenta su contexto de IA.
 export interface MemoriaLider {
@@ -370,6 +390,14 @@ export interface IAlmacenDatos {
   /** `null` = este sector nunca se resolvió — el primer spawn se genera determinista, no se "resuelve" un hueco. */
   obtenerUltimaResolucionSector(mapaId: string, sectorX: number, sectorY: number): Promise<number | null>;
   marcarSectorResuelto(mapaId: string, sectorX: number, sectorY: number, momento: number): Promise<void>;
+  // Cadáveres (docs/GDD_Agentes_Moviles.md, pedido 2026-08-30) — sin
+  // sector, por mapa entero (las muertes son mucho menos frecuentes que
+  // la población base de fauna).
+  listarCadaveresMapa(mapaId: string): Promise<CadaverFila[]>;
+  crearCadaverBd(c: CadaverFila): Promise<void>;
+  /** Actualiza SOLO el contenedor (tras lootear) — el resto de campos de un cadáver no cambian nunca. */
+  actualizarContenedorCadaver(id: string, contenedor: Contenedor): Promise<void>;
+  borrarCadaver(id: string): Promise<void>;
   registrarMemoriaLider(diaIngame: number, evento: string): Promise<void>;
   memoriaLiderReciente(limite: number): Promise<MemoriaLider[]>;
   // Inventario (pedido 2026-08-29, fase 1: catálogo + servidor + persistencia
@@ -535,6 +563,17 @@ CREATE TABLE IF NOT EXISTS fauna_sector_resuelto (
   ultima_resolucion REAL NOT NULL,
   PRIMARY KEY (mapa_id, sector_x, sector_y)
 );
+CREATE TABLE IF NOT EXISTS cadaveres (
+  id TEXT PRIMARY KEY,
+  mapa_id TEXT NOT NULL,
+  tipo_origen TEXT NOT NULL,        -- 'animal' | 'npc' | 'jugador'
+  especie_origen_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  muerto_en REAL NOT NULL,
+  contenedor TEXT NOT NULL          -- JSON del Contenedor (loot), mismo patrón que construcciones.extra
+);
+CREATE INDEX IF NOT EXISTS idx_cadaveres_mapa ON cadaveres(mapa_id);
 CREATE TABLE IF NOT EXISTS memoria_lider (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   dia_ingame INTEGER NOT NULL,
@@ -710,6 +749,17 @@ CREATE TABLE IF NOT EXISTS fauna_sector_resuelto (
   ultima_resolucion REAL NOT NULL,
   PRIMARY KEY (mapa_id, sector_x, sector_y)
 );
+CREATE TABLE IF NOT EXISTS cadaveres (
+  id TEXT PRIMARY KEY,
+  mapa_id TEXT NOT NULL,
+  tipo_origen TEXT NOT NULL,
+  especie_origen_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  muerto_en REAL NOT NULL,
+  contenedor TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cadaveres_mapa ON cadaveres(mapa_id);
 CREATE TABLE IF NOT EXISTS memoria_lider (
   id SERIAL PRIMARY KEY,
   dia_ingame INTEGER NOT NULL,
@@ -772,6 +822,20 @@ function filaFaunaHuevoDesdeSql(f: any): FaunaHuevoFila {
     y: Number(f.y),
     puestoEn: Number(f.puesto_en),
     duracionDias: Number(f.duracion_dias),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaCadaverDesdeSql(f: any): CadaverFila {
+  return {
+    id: String(f.id),
+    mapaId: String(f.mapa_id),
+    tipoOrigen: String(f.tipo_origen) as TipoOrigenCadaver,
+    especieOrigenId: String(f.especie_origen_id),
+    x: Number(f.x),
+    y: Number(f.y),
+    muertoEn: Number(f.muerto_en),
+    contenedor: JSON.parse(f.contenedor) as Contenedor,
   };
 }
 
@@ -1439,6 +1503,32 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
          ON CONFLICT(mapa_id, sector_x, sector_y) DO UPDATE SET ultima_resolucion = excluded.ultima_resolucion`,
       )
       .run(mapaId, sectorX, sectorY, momento);
+  }
+
+  async listarCadaveresMapa(mapaId: string): Promise<CadaverFila[]> {
+    const filas = this.bd
+      .prepare(
+        "SELECT id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor FROM cadaveres WHERE mapa_id = ?",
+      )
+      .all(mapaId);
+    return filas.map(filaCadaverDesdeSql);
+  }
+
+  async crearCadaverBd(c: CadaverFila): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO cadaveres (id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(c.id, c.mapaId, c.tipoOrigen, c.especieOrigenId, c.x, c.y, c.muertoEn, JSON.stringify(c.contenedor));
+  }
+
+  async actualizarContenedorCadaver(id: string, contenedor: Contenedor): Promise<void> {
+    this.bd.prepare("UPDATE cadaveres SET contenedor = ? WHERE id = ?").run(JSON.stringify(contenedor), id);
+  }
+
+  async borrarCadaver(id: string): Promise<void> {
+    this.bd.prepare("DELETE FROM cadaveres WHERE id = ?").run(id);
   }
 
   async registrarMemoriaLider(diaIngame: number, evento: string): Promise<void> {
@@ -2142,6 +2232,30 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
        ON CONFLICT (mapa_id, sector_x, sector_y) DO UPDATE SET ultima_resolucion = EXCLUDED.ultima_resolucion`,
       [mapaId, sectorX, sectorY, momento],
     );
+  }
+
+  async listarCadaveresMapa(mapaId: string): Promise<CadaverFila[]> {
+    const r = await this.pool.query(
+      "SELECT id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor FROM cadaveres WHERE mapa_id = $1",
+      [mapaId],
+    );
+    return r.rows.map(filaCadaverDesdeSql);
+  }
+
+  async crearCadaverBd(c: CadaverFila): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO cadaveres (id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [c.id, c.mapaId, c.tipoOrigen, c.especieOrigenId, c.x, c.y, c.muertoEn, JSON.stringify(c.contenedor)],
+    );
+  }
+
+  async actualizarContenedorCadaver(id: string, contenedor: Contenedor): Promise<void> {
+    await this.pool.query("UPDATE cadaveres SET contenedor = $1 WHERE id = $2", [JSON.stringify(contenedor), id]);
+  }
+
+  async borrarCadaver(id: string): Promise<void> {
+    await this.pool.query("DELETE FROM cadaveres WHERE id = $1", [id]);
   }
 
   async registrarMemoriaLider(diaIngame: number, evento: string): Promise<void> {

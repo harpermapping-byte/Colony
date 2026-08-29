@@ -620,6 +620,61 @@ pese el resto tanto".
 - Verificado: 265 tests siguen en verde (ningún test referenciaba estas
   9 especies concretas).
 
+### Hecho en la fase 7 (cadáveres lootables)
+
+Pedido: "cuando un animal, npc o persona muere, deja un sprite de su
+cuerpo (por ejemplo npc:muerto) que generaremos como el resto de cosas,
+partimos de un placeholder para luego bakearlo y sustituirlo... entonces
+al morir, por que pierda su vida entera, deja de contar como animal/npc
+y aparece el cadáver looteable en el suelo, ese cadáver tiene
+inventario... mismo tamaño de inventario todos los cadáveres... al
+lootearlo entero o no y pasar 1 día ingame desaparece ese prop de
+cadáver."
+
+- **`server/src/mundo/cadaveres.ts`** (módulo puro, nuevo): `Cadaver`
+  (id, mapaId, tipoOrigen "animal"|"npc"|"jugador", especieOrigenId,
+  x/y, muertoEn, contenedor), `crearCadaver(...)` y
+  `cadaverDesaparecio(c, ahora)`. El inventario reutiliza el sistema de
+  contenedores YA existente (`inventario/inventario.ts`,
+  `crearContenedor`) en vez de inventar uno nuevo — mismo tamaño fijo
+  (4x3) para TODOS los cadáveres, sea cual sea su origen, tal y como se
+  pidió. Contenido del inventario: sin decidir todavía ("ya veremos").
+  Desaparece a `DIAS_HASTA_DESAPARECER_CADAVER = 1` día ingame, se haya
+  lootado entero o no.
+- **`server/src/datos/bd.ts`**: tabla `cadaveres` (mirror en SQLite y
+  Postgres) + 4 métodos en `IAlmacenDatos`
+  (`crearCadaverBd`/`listarCadaveresMapa`/`actualizarContenedorCadaver`/
+  `borrarCadaver`), mismo patrón que el resto del módulo — el contenedor
+  se guarda como JSON en una columna TEXT (precedente:
+  `construcciones.extra`).
+- **`GestorFaunaSalvaje.matarIndividuo(id)`** (`faunaSalvajeViva.ts`):
+  punto de enganche único — marca al individuo `estado: "muerto"` (nunca
+  vuelve a vivo, mismo criterio que `tropas_asentamiento.estado`), lo
+  saca del estado de Colyseus y de la lista en memoria, y crea+persiste
+  su cadáver en su última posición conocida. Cableado en
+  `HubRoom.onCreate` (`deps.crearCadaver`).
+- **NO se ha construido en esta pasada, a propósito**:
+  - El **disparador real de muerte**: hoy nada llama a
+    `matarIndividuo` en producción — depende del sistema de combate
+    (vida/daño), que no existe todavía. Mismo patrón "mecanismo listo,
+    disparador pendiente" que la caza de depredadores.
+  - **NPCs y jugadores**: el hook solo está cableado para fauna
+    salvaje (`GestorFaunaSalvaje`). Los NPCs (`mundo/agentes.ts`) y los
+    jugadores no tienen ninguna lógica de muerte/cadáver todavía — la
+    tabla `cadaveres` ya soporta `tipoOrigen: "npc"|"jugador"`, pero
+    nadie los crea aún.
+  - **El sprite/placeholder visual** ("npc:muerto" como ejemplo del
+    pedido): esto es trabajo de catálogo + arte (baker/taller-vox), no
+    de este módulo de datos — sigue el patrón "generar → placeholder →
+    bakear/sustituir" del resto del proyecto, pero no se ha tocado
+    ningún catálogo de props ni el cliente en esta pasada.
+  - **Contenido del inventario del cadáver**: qué items concretos
+    aparecen al morir cada especie/NPC — explícitamente sin decidir
+    ("ya veremos").
+- Verificado: 276 tests en verde (11 nuevos sobre los 265 previos: 3 de
+  `cadaveres.ts`, 5 de su persistencia en BD, y 3 de `matarIndividuo`
+  sobre el gestor de fauna en vivo), `tsc --noEmit` limpio.
+
 ### Pendiente (fuera de esta pasada)
 
 - **Caza de depredadores con combate y cadáver**: aparcado a propósito —
