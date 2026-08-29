@@ -108,6 +108,13 @@ function exportarCiudad(ciudad, carpetaSalida) {
     muralla: { poligono: ciudad.poligonoMuralla.map((p) => [+p.x.toFixed(1), +p.y.toFixed(1)]), modulos: ciudad.modulosMuralla },
     caminos: ciudad.caminos.map((r) => r.map((p) => [p.x, p.y])),
     zonasVerdes: ciudad.zonasVerdes || [],
+    // PARCELAS RESERVADAS (docs/GDD_Ciudad_Capital.md): huecos SIN construir
+    // dentro del recinto — terreno base intacto, ya encajados sin solaparse
+    // con calles/agua/otros solares. Dato listo para cuando el sistema de
+    // construcción se extienda a regiones de `ciudades/` (bloqueante ya
+    // documentado en GDD_Construccion.md/GDD_Faccion_Bandidos.md §8) — hoy
+    // solo lo pide `capital_jarl`, el resto de tiers exporta [].
+    parcelasReservadas: ciudad.parcelasReservadas || [],
     // CANAL DE ILUMINACIÓN: cuando exista el ciclo día/noche, el cliente
     // enciende aquí sus luces (posición + radio + color por farola/antorcha)
     luces: ciudad.luces || [],

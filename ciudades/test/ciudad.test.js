@@ -7,6 +7,7 @@ const path = require("path");
 const os = require("os");
 const { generarCiudad, validarCiudad, cargarAsentamientos } = require("../src/generar");
 const { hornearCiudad, TAMANO_CHUNK } = require("../src/index");
+const { rasterizarRectRotado } = require("../src/geometria");
 const { cargarCatalogos } = require("../../interiores/src/catalogo");
 
 const catalogos = cargarCatalogos();
@@ -159,4 +160,112 @@ test("los terrenos urbanos existen en el catálogo del baker con su transitabili
   assert.strictEqual(terrenos.muralla_piedra.transitable, false);
   assert.strictEqual(terrenos.empalizada.transitable, false);
   assert.strictEqual(terrenos.solar_edificio.transitable, false);
+});
+
+// === Ciudad capital del jarl (docs/GDD_Ciudad_Capital.md) ===================
+// La capital final de PRODUCCIÓN (radio 96, ~90 edificios) la hornea el
+// streamer — aquí solo se valida el MOTOR con una variante de PRUEBA
+// reducida (mismo patrón que el resto de este archivo: radio/cantidad
+// pequeños para que el test sea rápido, catalogoAsentamientos inyectado en
+// vez de tocar el fichero real).
+function variantePruebaCapitalJarl() {
+  const asentamientos = cargarAsentamientos();
+  const variante = JSON.parse(JSON.stringify(asentamientos));
+  Object.assign(variante.capital_jarl.organico, { radio: 42 });
+  variante.capital_jarl.plaza = 5;
+  variante.capital_jarl.zonasVerdes = 4;
+  variante.capital_jarl.camposCultivo = 5;
+  variante.capital_jarl.edificios.cantidad = [26, 32];
+  variante.capital_jarl.parcelasReservadas = { normales: 8, especiales: 6 };
+  return variante;
+}
+
+test("capital_jarl: muralla de empalizada, casco apretado (colchón bajo) y determinismo", () => {
+  const variante = variantePruebaCapitalJarl();
+  const a = generarCiudad({ tier: "capital_jarl", semilla: "cap-1", catalogos, catalogoAsentamientos: variante });
+  const errores = validarCiudad(a);
+  assert.deepStrictEqual(errores, [], `capital_jarl inválida: ${errores.join(" | ")}`);
+  assert.strictEqual(asentamientos.capital_jarl.muralla.material, "empalizada", "la capital del jarl empieza con muralla de MADERA (mejorable luego)");
+  assert.ok(asentamientos.capital_jarl.edificios.colchonMinimo < 1, "colchón por defecto (1) sin apretar para el casco viejo");
+
+  const b = generarCiudad({ tier: "capital_jarl", semilla: "cap-1", catalogos, catalogoAsentamientos: variante });
+  assert.deepStrictEqual(a.terreno.datos, b.terreno.datos, "determinismo: misma semilla = mismo resultado");
+  assert.deepStrictEqual(a.parcelasReservadas, b.parcelasReservadas, "determinismo de las parcelas reservadas");
+
+  const c = generarCiudad({ tier: "capital_jarl", semilla: "cap-2", catalogos, catalogoAsentamientos: variante });
+  assert.notDeepStrictEqual(a.terreno.datos, c.terreno.datos, "semillas distintas dan ciudades distintas");
+});
+
+test("capital_jarl: las parcelas reservadas (normales + especiales) salen sin edificio real ni solape", () => {
+  // Tamaño REAL del tier aquí (no una variante encogida): a radio/densidad
+  // reducidos el ratio 12 obligatorios/radio se dispara y deja de haber
+  // hueco para reservar nada (probado). El tamaño real, en cambio, se
+  // demostró robusto en un barrido de 11 semillas (0 errores de validación)
+  // — "s2" en concreto encuentra hueco para las 20 normales + 16 especiales
+  // completas, así que sirve para comprobar también el recuento exacto.
+  const ciudad = generarCiudad({ tier: "capital_jarl", semilla: "s2", catalogos });
+  const errores = validarCiudad(ciudad);
+  assert.deepStrictEqual(errores, [], `capital_jarl inválida: ${errores.join(" | ")}`);
+
+  const { parcelasReservadas } = ciudad;
+  const normales = parcelasReservadas.filter((p) => p.tipo === "normal");
+  const especiales = parcelasReservadas.filter((p) => p.tipo === "especial");
+  assert.strictEqual(especiales.length, asentamientos.capital_jarl.parcelasReservadas.especiales, "parcelas ESPECIALES reservadas (proyectos del jarl)");
+  assert.strictEqual(normales.length, asentamientos.capital_jarl.parcelasReservadas.normales, "parcelas NORMALES reservadas (vivienda futura)");
+
+  // las especiales llevan huella mayor que las normales (proyectos del jarl)
+  for (const p of especiales) assert.ok(p.ancho * p.largo > normales[0].ancho * normales[0].largo, "una parcela especial debe ser mayor que una normal");
+
+  // ninguna reservada quedó marcada como "solar_edificio" (terreno intacto,
+  // hueco caminable real) ni se solapa con un edificio real
+  const idsEdificio = new Set();
+  for (const ed of ciudad.edificios) for (const [x, y] of ed.casillas) idsEdificio.add(`${x},${y}`);
+  // mismo rasterizado EXACTO que usa el generador para pintar cada pieza
+  // (rasterizarRectRotado con extra=0) — reimplementar la rotación a mano
+  // daba falsos positivos por redondeo en los bordes.
+  for (const p of parcelasReservadas) {
+    const angulo = (p.rot * Math.PI) / 180;
+    rasterizarRectRotado(p.x, p.y, p.ancho / 2, p.largo / 2, angulo, ciudad.ancho, ciudad.alto, (x, y) => {
+      const t = ciudad.terreno.get(x, y);
+      assert.notStrictEqual(t, "solar_edificio", `parcela reservada ${p.tipo} en ${p.x},${p.y} pisa un solar de edificio en ${x},${y}`);
+      assert.ok(!idsEdificio.has(`${x},${y}`), `parcela reservada ${p.tipo} se solapa con un edificio real en ${x},${y}`);
+    });
+  }
+});
+
+test("capital_jarl: las parcelas reservadas nunca exceden lo pedido en el tier, sea cual sea la semilla (mejor esfuerzo)", () => {
+  // El hueco disponible varía con la semilla (geografía/caminos distintos):
+  // no siempre caben las 20+16 completas, es "mejor esfuerzo" documentado
+  // (GDD_Ciudad_Capital.md) — pero JAMÁS debe reservarse de más, ni salir
+  // inválida.
+  for (const semilla of ["s1", "s3", "cap-x"]) {
+    const ciudad = generarCiudad({ tier: "capital_jarl", semilla, catalogos });
+    assert.deepStrictEqual(validarCiudad(ciudad), [], `${semilla}: ciudad inválida`);
+    const normales = ciudad.parcelasReservadas.filter((p) => p.tipo === "normal").length;
+    const especiales = ciudad.parcelasReservadas.filter((p) => p.tipo === "especial").length;
+    assert.ok(normales <= asentamientos.capital_jarl.parcelasReservadas.normales, `${semilla}: más normales de las pedidas`);
+    assert.ok(especiales <= asentamientos.capital_jarl.parcelasReservadas.especiales, `${semilla}: más especiales de las pedidas`);
+  }
+});
+
+test("capital_jarl: los campos de cultivo caen en zona PISABLE, pegados a la cara interior de la muralla", () => {
+  const ciudad = generarCiudad({ tier: "capital_jarl", semilla: "s1", catalogos });
+  const errores = validarCiudad(ciudad);
+  assert.deepStrictEqual(errores, []);
+
+  const campos = ciudad.zonasVerdes.filter((z) => z.tipo === "campo_cultivo");
+  assert.ok(campos.length > 0, "no se generó ningún campo de cultivo");
+  assert.ok(campos.length <= asentamientos.capital_jarl.camposCultivo, "no puede haber más campos que los pedidos por el tier");
+
+  const grosor = asentamientos.capital_jarl.muralla.grosor;
+  const radioBanda = asentamientos.capital_jarl.organico.radio - grosor;
+  for (const campo of campos) {
+    // pisable de verdad: nunca "extramuros" (el anillo de fuera nunca se pisa)
+    assert.strictEqual(
+      ciudad.terreno.get(campo.x, campo.y), "tierra_labrada",
+      `campo de cultivo en ${campo.x},${campo.y} no quedó como tierra_labrada pisable`,
+    );
+    const d = Math.hypot(campo.x - ciudad.focal.x, campo.y - ciudad.focal.y);
+    assert.ok(d <= radioBanda + 1, `campo de cultivo demasiado lejos de la muralla (d=${d.toFixed(1)}, radio útil ${radioBanda.toFixed(1)})`);
+  }
 });

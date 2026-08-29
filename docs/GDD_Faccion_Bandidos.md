@@ -98,7 +98,7 @@ Esto es la pieza que falta ANTES de §7: hoy `marcarTropaMuertaYVerificarConquis
 
 ### 8.1 Por qué esto NO se implementa todavía (dependencias duras, no elección de alcance)
 
-- **La ciudad capital no existe bakeada todavía.** El tier `capital` YA está en `ciudades/catalogo/asentamientos.json` (ciudad amurallada en piedra, todos los oficios) y el motor de `ciudades/` la puede hornear hoy mismo — pero el streamer pide explícitamente un **generador de capital con reglas nuevas** (propio de ser LA capital: presumiblemente sede del jarl principal, parcelas reservadas para edificios especiales como el Taller de Asedio, etc.), que es trabajo de diseño+bakeador aparte, todavía sin hacer.
+- ~~**La ciudad capital no existe bakeada todavía.**~~ **HECHO (2026-08-29), ver `docs/GDD_Ciudad_Capital.md`.** Nuevo tier `capital_jarl` (distinto del `capital` regional genérico que ya existía): radio 96, muralla de empalizada inicial, casco viejo apretado, y **parcelas reservadas** de verdad (20 normales + 16 especiales, sin edificio real encima, terreno intacto) — ahí es donde iría el Taller de Máquinas de Asedio en cuanto exista construcción-en-regiones (punto siguiente, que SIGUE sin resolver).
 - **El sistema de construcción/parcelas hoy solo vive en el Hub.** Investigado: `server/src/rooms/RegionRoom.ts` documenta explícitamente "SIN construcción/parcelas/jarl (v1: las regiones de `ciudades/` no son terreno de jugadores todavía)" (`docs/GDD_Sistema_Puertas.md`). Que el jarl construya el Taller de Asedio "en las parcelas libres de su ciudad capital" exige que la capital (una región de `ciudades/`) tenga construcción habilitada — hoy solo la tiene el Hub. Esto hay que resolverlo cuando se diseñe el generador de capital (¿la capital ES el Hub del mapa, o es una `RegionRoom` normal a la que se le activa construcción?) — no se decide aquí, se deja anotado como bloqueante real.
 - **Las máquinas de asedio rompen la muralla/puerta de la aldea bandida y permiten matar a la guarnición dentro — eso es combate**, que sigue "sin diseñar" (§2.4, §4). El asedio en sí (construir Taller → construir máquina → romper entrada) es mecánica de construcción/recursos, pero el "atacar la puerta hasta romperla" y "entrar a matar" son combate de verdad.
 
@@ -111,8 +111,8 @@ Esto es la pieza que falta ANTES de §7: hoy `marcarTropaMuertaYVerificarConquis
 
 ### 8.3 Orden de dependencias para retomar esto
 
-1. Generador de capital (reglas nuevas, bakeador) — bloqueante de raíz.
-2. Construcción/parcelas habilitado en la capital (extensión de `server/src/construccion/`+`client/src/construccion/` más allá del Hub).
-3. Sistema de crafteo por planos (backlog, sin diseñar) — para el Taller y las máquinas de asedio.
-4. Sistema de combate (backlog, sin diseñar) — para romper la puerta y matar a la guarnición.
+1. ~~Generador de capital (reglas nuevas, bakeador) — bloqueante de raíz.~~ **HECHO**, ver `docs/GDD_Ciudad_Capital.md`.
+2. Construcción/parcelas habilitado en la capital (extensión de `server/src/construccion/`+`client/src/construccion/` más allá del Hub) — **sigue sin resolver**.
+3. Sistema de crafteo por planos (backlog, sin diseñar) — para el Taller y las máquinas de asedio — **sigue sin resolver**.
+4. Sistema de combate (backlog, sin diseñar) — para romper la puerta y matar a la guarnición — **sigue sin resolver**.
 5. Con 1-4 en pie: estado `asediada` en `asentamientos` + guardia de entrada + disparo de §7 al matar a la última tropa CON la aldea asediada (no solo "sin más").

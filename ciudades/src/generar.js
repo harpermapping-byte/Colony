@@ -317,13 +317,38 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
       obligatorio: n < (def.edificios.obligatorios || []).length,
     };
   });
+
+  // PARCELAS RESERVADAS (docs/GDD_Ciudad_Capital.md): huecos SIN construir,
+  // candidatos de más — reusan el MISMO fitting Poisson+rechazo que un
+  // edificio real (misma lista, mismo orden por tamaño, misma competencia
+  // por sitio junto al resto de solares), pero sin tipoEdificioId/interior;
+  // al colocarse (colocarEdificio con reservado=true, ver más abajo) el
+  // terreno base queda intacto — un hueco real caminable, no un descampado.
+  // Solo tiers con `edificios.parcelasReservadas` en el catálogo (hoy solo
+  // `capital_jarl`) generan esto; el resto de tiers no cambia.
+  const resDef = def.parcelasReservadas || {};
+  const [wResNormal, hResNormal] = huellas.porRiqueza.modesta; // igual que un solar de vivienda/tienda normal
+  const wResGrande = Math.round(wResNormal * 1.6), hResGrande = Math.round(hResNormal * 1.6); // huella similar a los obligatorios más grandes (ayuntamiento 14x10, arena_combate 14x11)
+  const reservaEntrada = (tipoReserva, w, h) => ({
+    tipoEdificioId: `parcela_reservada_${tipoReserva}`, tipoReserva, semillaInterior: null, interior: null,
+    w, h, piezas: [{ ox: 0, oy: 0, w, h }], obligatorio: false, reservado: true,
+  });
+  for (let i = 0; i < (resDef.especiales || 0); i++) edificios.push(reservaEntrada("especial", wResGrande, hResGrande));
+  for (let i = 0; i < (resDef.normales || 0); i++) edificios.push(reservaEntrada("normal", wResNormal, hResNormal));
+
   // los OBLIGATORIOS eligen sitio primero (con el recinto aún vacío); dentro
   // de cada grupo, los grandes antes — lo pequeño siempre encuentra hueco
+  // (las parcelas reservadas compiten en igualdad con los edificios reales
+  // de su mismo tamaño, nunca van "sobradas" al final)
   edificios.sort((a, b) =>
     (b.obligatorio ? 1 : 0) - (a.obligatorio ? 1 : 0) ||
     b.w * b.h - a.w * a.h ||
     a.tipoEdificioId.localeCompare(b.tipoEdificioId));
 
+  // colchón mínimo entre solares (callejón): configurable por tier, default
+  // 1 = comportamiento histórico. La capital del jarl usa un valor bajo
+  // para el casco viejo apretado (edificios pegados, callejuelas estrechas).
+  const colchon = def.edificios.colchonMinimo ?? 1;
   const esCalle = (x, y) => { const t = terreno.get(x, y); return t === "camino" || t === "adoquin" || t === "puente"; };
   // camino más cercano por barrido BFS multi-origen — recalculable, porque
   // las calles menores se abren a mitad de la colocación
@@ -403,15 +428,22 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
       if (t === null || ocupado[y * ancho + x] || esAgua[y * ancho + x] || t === idTerrenoMuro || t === "adoquin" || t === "puente") libre = false;
     });
     if (!libre) return false;
-    // el colchón de +1 solo respeta a OTROS edificios (callejón mínimo);
-    // que roce la calle a la que da fachada es justo lo que se busca
-    rasterizarPiezas(ed, cx, cy, angulo, 1, (x, y) => {
+    // el colchón (callejón mínimo entre solares) es CONFIGURABLE por tier
+    // (edificios.colchonMinimo, default 1 = comportamiento de siempre) —
+    // la capital del jarl pide un casco viejo apretado con un valor bajo.
+    // Que el edificio roce la calle a la que da fachada es justo lo que
+    // se busca, el colchón solo respeta a OTROS edificios.
+    rasterizarPiezas(ed, cx, cy, angulo, colchon, (x, y) => {
       if (ocupado[y * ancho + x]) libre = false;
     });
     return libre;
   };
 
-  const colocarEdificio = (ed) => {
+  // `reservado`: usado por las parcelas reservadas (huecos sin construir,
+  // ver más abajo) — reusa TODO el fitting (frentes, colchón, fallback de
+  // plaza) pero no pinta "solar_edificio" ni abre puerta/senda: el hueco
+  // queda con el terreno base intacto, listo para construcción futura.
+  const colocarEdificio = (ed, reservado = false) => {
     let mejorCandidato = null, mejorPuntos = -Infinity, validos = 0;
     for (const f of frentes) {
       if (!f.dentro) continue; // la muralla es el LÍMITE habitable: fuera no se edifica
@@ -460,10 +492,11 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
       const k = y * ancho + x;
       if (yaPintada.has(k)) return;
       yaPintada.add(k);
-      terreno.set(x, y, "solar_edificio");
+      if (!reservado) terreno.set(x, y, "solar_edificio"); // reservada: terreno base intacto (hueco caminable)
       ed.casillas.push([x, y]);
     });
-    rasterizarPiezas(ed, cx, cy, angulo, 1, (x, y) => { ocupado[y * ancho + x] = 1; });
+    rasterizarPiezas(ed, cx, cy, angulo, colchon, (x, y) => { ocupado[y * ancho + x] = 1; });
+    if (reservado) return true; // un hueco vacío no tiene puerta ni senda que abrir
     // puerta en la fachada (lado que mira al camino): se empuja hacia fuera
     // hasta la primera casilla que NO sea del solar (el redondeo a rejilla
     // puede dejar la teórica dentro del propio muro del edificio)
@@ -543,13 +576,63 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
     zonasVerdes.push({ tipo: esHuerto ? "huerto" : "parque", x: puesto.x, y: puesto.y, r: puesto.r });
   }
 
-  // el resto se coloca sobre la red completa, respetando las zonas verdes
+  // CAMPOS DE CULTIVO (docs/GDD_Ciudad_Capital.md): decisión de menor
+  // fricción — reusan el MISMO tratamiento que un huerto de zonasVerdes
+  // (tierra_labrada + valla con hueco de entrada, capa `zonasVerdes` del
+  // export, sin canal nuevo) pero forzados al anillo MÁS CERCANO a la
+  // muralla, del lado PISABLE — nunca en el anillo puramente decorativo de
+  // fuera, que la norma del proyecto dice que jamás se pisa. Solo los tiers
+  // con `camposCultivo` en el catálogo (hoy solo capital_jarl) generan
+  // esto; cantidad inicial fija (ampliable a futuro por un proyecto del
+  // jarl que todavía no existe — ver GDD, no implementado aquí).
+  for (let c = 0; c < (def.camposCultivo || 0); c++) {
+    let puesto = null;
+    for (let intento = 0; intento < 160 && !puesto; intento++) {
+      const ang = rnd() * Math.PI * 2;
+      const r = 3 + Math.floor(rnd() * 2);
+      // banda pegada a la cara interior de la muralla: entre su grosor y
+      // ~9 casillas más adentro — el anillo pisable más próximo al lienzo
+      const d = radio - grosor - r - 1 - rnd() * 8;
+      const zx = Math.round(focal.x + Math.cos(ang) * d), zy = Math.round(focal.y + Math.sin(ang) * d);
+      if (!terreno.dentro(zx, zy) || !dentroMuralla(zx, zy) || distAlMuro(zx, zy) < r + 1.5) continue;
+      let libre = true;
+      for (let dy = -r; dy <= r && libre; dy++)
+        for (let dx = -r; dx <= r && libre; dx++) {
+          if (dx * dx + dy * dy > r * r) continue;
+          const t = terreno.get(zx + dx, zy + dy);
+          if (t !== "cesped" && t !== "tierra") libre = false;
+          if (ocupado[(zy + dy) * ancho + zx + dx]) libre = false;
+        }
+      if (!libre) continue;
+      puesto = { x: zx, y: zy, r };
+    }
+    if (!puesto) continue;
+    for (let dy = -puesto.r; dy <= puesto.r; dy++)
+      for (let dx = -puesto.r; dx <= puesto.r; dx++) {
+        if (dx * dx + dy * dy > puesto.r * puesto.r) continue;
+        ocupado[(puesto.y + dy) * ancho + puesto.x + dx] = 1; // las casas lo respetan
+        terreno.set(puesto.x + dx, puesto.y + dy, "tierra_labrada");
+      }
+    zonasVerdes.push({ tipo: "campo_cultivo", x: puesto.x, y: puesto.y, r: puesto.r });
+  }
+
+  // el resto se coloca sobre la red completa, respetando las zonas verdes —
+  // incluye tanto edificios reales como parcelas reservadas (mismo pool,
+  // misma competencia por sitio: `colocarEdificio` con reservado=true deja
+  // el terreno base intacto en vez de pintar "solar_edificio")
   for (const ed of edificios.filter((e) => !e.obligatorio))
-    (colocarEdificio(ed) ? colocados : descartados).push(ed);
+    (colocarEdificio(ed, !!ed.reservado) ? colocados : descartados).push(ed);
+
+  // las parcelas reservadas se separan del resto de edificios: no llevan
+  // interior ni puerta, no son "ciudad.edificios" — solo posición/tamaño
+  // para el futuro sistema de construcción en regiones (ver GDD_Ciudad_Capital.md)
+  const parcelasReservadas = colocados
+    .filter((e) => e.reservado)
+    .map((e) => ({ tipo: e.tipoReserva, x: e.cx, y: e.cy, rot: e.rot, ancho: e.w, largo: e.h }));
 
   // la muralla es el LÍMITE habitable (decisión del usuario): fuera solo
   // quedan los caminos de llegada — nada de granjas ni casas extramuros
-  const todos = colocados;
+  const todos = colocados.filter((e) => !e.reservado);
 
   // patios: la casilla de césped pegada a un solar pasa a tierra pisada
   for (const ed of todos)
@@ -620,9 +703,10 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
     return true;
   };
 
-  // vallas alrededor de cada huerto (con hueco de entrada hacia la calle)
+  // vallas alrededor de cada huerto o campo de cultivo (con hueco de entrada
+  // hacia la calle) — mismo tratamiento visual, ver GDD_Ciudad_Capital.md
   for (const zv of zonasVerdes) {
-    if (zv.tipo !== "huerto") continue;
+    if (zv.tipo !== "huerto" && zv.tipo !== "campo_cultivo") continue;
     const oEntrada = origenCalle[zv.y * ancho + zv.x];
     const angEntrada = Math.atan2(Math.floor(oEntrada / ancho) - zv.y, (oEntrada % ancho) - zv.x);
     for (let ang = 0; ang < Math.PI * 2; ang += 0.28) {
@@ -839,7 +923,7 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
 
   return {
     tier, semilla, variante, ancho, alto, terreno, elevacion, radioHueco,
-    zonasVerdes, arboles, deco, luces,
+    zonasVerdes, arboles, deco, luces, parcelasReservadas,
     focal, plazaRadio: radioPlaza, poligonoMuralla: poligono, modulosMuralla: modulos,
     caminos: caminos.map((r) => r.filter((_, i) => i % 3 === 0)), // polilíneas aligeradas
     puertas, portales, spawn,

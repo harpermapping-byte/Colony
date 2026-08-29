@@ -76,6 +76,8 @@ Planos/blueprints, materiales requeridos, niveles de mejora de una construcción
 
 Además de las parcelas normales de cada jugador, el **jarl/admin** de un asentamiento puede levantar "proyectos especiales": edificios ÚNICOS de beneficio comunitario (no de un jugador concreto), en parcela libre del asentamiento. Mismo mecanismo que "Taller de Máquinas de Asedio" (`GDD_Faccion_Bandidos.md` §8: un tipo de edificio más en `tipos_edificio.json`, restringido a `esJarl()` en la validación del servidor — ya existe ese check, se reusa tal cual) — la novedad es que hay VARIOS, no solo el de asedio, y cada uno da un servicio comunal distinto en vez de "fabricar máquinas".
 
+**Cuenta de esta lista (2026-08-29): 14 proyectos** (8 en "Lista del streamer" + 6 en "Propuestas con utilidad concreta" de abajo) — es el número usado para dimensionar las "parcelas especiales reservadas" (14+2 de margen = 16) del nuevo tier `capital_jarl` en `docs/GDD_Ciudad_Capital.md`. Si esta lista crece o se filtra, ese `+2` de `ciudades/catalogo/asentamientos.json` (`capital_jarl.parcelasReservadas.especiales`) NO se actualiza solo — hay que revisarlo a mano.
+
 **Lista del streamer**:
 - **Taller de Asedio** — fabrica máquinas de asedio (catapulta/torre/ariete). Ya documentado en `GDD_Faccion_Bandidos.md` §8, con sus dependencias reales (generador de capital, construcción fuera del Hub, combate).
 - **Baños Públicos** — servicio gratis de Comida/Bebida/Sueño/Salud para cualquiera del asentamiento. Encaje: consume directamente del "Sistema de personaje" (vitales ya listados por el streamer) en cuanto existan; es el primer uso concreto de un edificio que RELLENA vitales en vez de solo alojar mobiliario decorativo.

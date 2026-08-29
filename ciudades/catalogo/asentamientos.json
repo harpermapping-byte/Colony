@@ -317,6 +317,138 @@
     },
     "zonasVerdes": 5
   },
+  "capital_jarl": {
+    "uso": "LA capital del jarl/admin — entidad ÚNICA en el mapa (no una capital regional genérica como 'capital'/'gran_capital', que pueden repetirse en distintas regiones). Sede del jarl principal: casco viejo denso, mucha vegetación/decoración, campos de cultivo propios en el anillo interior y parcelas reservadas sin construir para viviendas de jugador y proyectos especiales del jarl (docs/GDD_Ciudad_Capital.md). Muralla inicial de EMPALIZADA (madera) a propósito — mejorable como proyecto del jarl más adelante (mismo patrón de swap por nivel que docs/GDD_Faccion_Bandidos.md §8: nunca reactivo en caliente, solo al recargar el sector).",
+    "organico": {
+      "radio": 96,
+      "irregularidad": 0.15,
+      "geografias": [
+        [
+          "colina",
+          3
+        ],
+        [
+          "rio",
+          3
+        ],
+        [
+          "llano",
+          1
+        ]
+      ]
+    },
+    "muralla": {
+      "material": "empalizada",
+      "grosor": 2.2,
+      "puertas": 5
+    },
+    "plaza": 10,
+    "zonasVerdes": 11,
+    "camposCultivo": 10,
+    "edificios": {
+      "cantidad": [
+        84,
+        100
+      ],
+      "colchonMinimo": 0.5,
+      "obligatorios": [
+        "templo",
+        "ayuntamiento",
+        "posada",
+        "cuartel_guardia",
+        "casa_de_cambio",
+        "casa_gremio",
+        "biblioteca_publica",
+        "teatro",
+        "banos_publicos",
+        "museo",
+        "academia_magia",
+        "arena_combate"
+      ],
+      "ponderados": [
+        [
+          "casa_modesta",
+          7
+        ],
+        [
+          "casa_noble",
+          5
+        ],
+        [
+          "casa_humilde",
+          4
+        ],
+        [
+          "tienda",
+          5
+        ],
+        [
+          "taberna",
+          3
+        ],
+        [
+          "panaderia",
+          2
+        ],
+        [
+          "herreria",
+          2
+        ],
+        [
+          "taller_sastre",
+          2
+        ],
+        [
+          "botica",
+          2
+        ],
+        [
+          "joyeria",
+          2
+        ],
+        [
+          "escuela",
+          2
+        ],
+        [
+          "curtiduria",
+          1
+        ],
+        [
+          "alfareria",
+          1
+        ],
+        [
+          "carpinteria",
+          1
+        ],
+        [
+          "destileria",
+          1
+        ],
+        [
+          "mansion",
+          2
+        ],
+        [
+          "torre_mago",
+          1
+        ],
+        [
+          "establo",
+          1
+        ],
+        [
+          "granero",
+          1
+        ]
+      ]
+    },
+    "parcelasReservadas": {
+      "normales": 20,
+      "especiales": 16
+    }
+  },
   "castillo": {
     "uso": "fortaleza: recinto compacto muy amurallado con torre en cada vértice, poca vivienda y mucha guarnición",
     "organico": {
