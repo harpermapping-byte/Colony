@@ -1,5 +1,14 @@
 {
   "_nota": "docs/GDD_Crafteo.md §5 — crafteo ACTIVO (distinto del refinamiento pasivo de las plantillas de tipos_edificio.json): el jugador dispara la acción en la mesa correcta, consume de SU inventario. Set de arranque, UNA receta representativa por familia de material (varias transversales, mezclando familias a propósito) — el árbol completo de cada oficio es trabajo posterior, oficio a oficio (ver Backlog). `mesas` son ids de objeto de interiores/catalogo/elementos.json; `planoRequerido` no se comprueba todavía (mecanismo de desbloqueo sin diseñar).",
+  "_camposConsumidores": {
+    "oficio": "server/src/rooms/base/RoomExteriorBase.ts:manejarCrafteoIniciar()/manejarCrafteoRecolectar() — consulta y suma la XP de oficio del jugador (bd.obtenerXpOficio/sumarXpOficio)",
+    "mesas": "server/src/construccion/crafteo.ts:validarCrafteo() — comprueba que el objeto donde se craftea es una mesa válida para la receta",
+    "nivelMinimo": "server/src/construccion/crafteo.ts:validarCrafteo() — exige nivel de oficio mínimo (nivelDeXp(xpOficio))",
+    "planoRequerido": "SIN CONSUMIDOR — v1 no lo comprueba (mecanismo de desbloqueo por plano sin diseñar, ver GDD_Crafteo.md §7)",
+    "insumos": "server/src/construccion/crafteo.ts:validarCrafteo() (comprueba inventario suficiente) + RoomExteriorBase.ts:manejarCrafteoIniciar() (descuenta cada insumo al iniciar, vía quitarItem)",
+    "resultado": "server/src/rooms/base/RoomExteriorBase.ts:manejarCrafteoRecolectar() — entrega el ítem resultante al inventario al recoger",
+    "tiempoBaseSeg": "server/src/rooms/base/RoomExteriorBase.ts:manejarCrafteoIniciar() — calcula terminaEn, modulado por factorVelocidadPorEnergia de la mesa"
+  },
 
   "clavos_hierro": {
     "oficio": "herrero",

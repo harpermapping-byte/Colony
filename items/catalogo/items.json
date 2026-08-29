@@ -1,5 +1,28 @@
 {
   "_nota": "Catálogo de ÍTEMS de inventario (pedido 2026-08-29, fase 1 'catálogo + servidor + persistencia'). huella=[ancho,alto] en casillas de la rejilla tipo tetris (server/src/inventario/inventario.ts), peso=eje INDEPENDIENTE del espacio (afecta al peso transportable, no a cuántas casillas ocupa). Los 49 tipo:'recurso' salen 1 a 1 de categoriaRecurso* ya real en baker/catalogo/{vegetacion,animales,rocas}.json — NO duplican esos catálogos, son el mismo id de categoría convertido en ítem de inventario cuando se recolecta. tipo:'equipable'/'herramienta'/'consumible' son ejemplos ilustrativos de esas ramas del schema, no un catálogo de armas/armaduras cerrado — eso crece después con el mismo patrón.",
+  "_camposConsumidores": {
+    "tipo": "SIN CONSUMIDOR — declarado en EntradaCatalogoItem (server/src/inventario/inventario.ts) pero ninguna rama de código lee `.tipo` todavía",
+    "categoriaRecurso": "SIN CONSUMIDOR desde este catálogo — el campo homónimo que sí se lee en runtime (server/src/mundo/recolectables.ts:catalogosPorCapa, mapaColision.ts:cargarMapaColision) viene de baker/catalogo/{vegetacion,rocas,animales}.json, no de items.json",
+    "slotEquipo": "server/src/inventario/inventario.ts:puedeEquiparEnSlot() — comprueba si el ítem puede equiparse en un slot concreto",
+    "huella": "server/src/inventario/inventario.ts:huellaRotada()/hayHueco()/buscarHueco() — casillas ocupadas en la rejilla tipo tetris y búsqueda de hueco libre",
+    "peso": "server/src/inventario/inventario.ts:pesoContenedor() — suma peso*cantidad de cada instancia",
+    "apilable": "server/src/inventario/inventario.ts:agregarItem() — decide si suma a una pila existente antes de abrir hueco nuevo",
+    "stackMax": "server/src/inventario/inventario.ts:agregarItem() — tope de unidades por pila (Infinity si ausente)",
+    "esContenedor": "SIN CONSUMIDOR — reservado para mochila anidada (HubState.ts ya tiene extras:MapSchema<ContenedorSchema> preparado), ningún handler lo puebla todavía",
+    "variantes": "SIN CONSUMIDOR — pensado para variación visual futura; client/src no importa items.json en absoluto todavía",
+    "colorDebug": "SIN CONSUMIDOR — placeholder documentado para cuando exista render de cliente de ítems",
+    "prendaId": "SIN CONSUMIDOR — pensado para enlazar armadura equipable con ropa/catalogo/prendas.json; ninguna entrada real lo declara aún",
+    "familiaMaterial": "SIN CONSUMIDOR — informativo, reservado para cadenas de refinamiento (docs/GDD_Crafteo.md)",
+    "tier": "SIN CONSUMIDOR — mismo caso que familiaMaterial, docs/GDD_Crafteo.md",
+    "ataqueFisico": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md (propuesta 2026-08-29)",
+    "ataqueMagico": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md",
+    "alcance": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md (alcance de armas)",
+    "cooldownMs": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md",
+    "defensaFisica": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md",
+    "defensaMagica": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md",
+    "durabilidadMax": "server/src/inventario/inventario.ts:agregarItem() (fija durabilidad inicial) + server/src/inventario/desgaste.ts:tieneDurabilidad()/durabilidadInicial()/aplicarDesgasteInactividad()/registrarUso()/aplicarDanoArmadura()/aplicarPenalizacionMuerte()/estaRoto()/factorDurabilidad() — inicializar y calcular desgaste; ninguna Room llama a desgaste.ts todavía (solo cubierto por test)",
+    "desgastePorUso": "server/src/inventario/desgaste.ts:registrarUso() — resta durabilidad por uso directo; sin Room que lo invoque todavía"
+  },
   "hierro": {
     "tipo": "recurso",
     "categoriaRecurso": "hierro",

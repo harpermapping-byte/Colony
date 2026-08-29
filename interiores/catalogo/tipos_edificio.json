@@ -1,5 +1,21 @@
 {
   "_nota": "Cada tipoEdificio declara el patrón típico de plantas y qué salas le tocan por rol de planta (bodega/planta_baja/planta_alta — no por número concreto, eso lo decide el config al pedir el edificio, ver GDD_Bakeador_Interiores sección 1 y 6). salasPorPlanta: lista de [tipoSala, peso] — más peso, más frecuente en esa planta. poiVinculado: qué POIs del exterior TOTAL (baker/catalogo/pois.json) pueden disparar este tipoEdificio directamente — opcional; muchos edificios de pueblo/ciudad (herrería, ayuntamiento, gremio...) no tienen un POI 1:1 en el exterior total y en vez de eso los coloca el futuro bakeador de mapas de POI (ver GDD_Bakeador_POIs.md) dentro de la instancia semi-exterior de la aldea/castillo — no hace falta forzar un enganche artificial para esos, poiVinculado se deja vacío/omitido y ya está.",
+  "_camposConsumidores": {
+    "riqueza": "interiores/src/edificio.js:generarEdificio (riquezaFinal) + server/src/propiedades/propiedades.ts:riquezaDe()/precioInmueble() + ciudades/src/generar.js (huellaDe, fallback de huella por riqueza) + taller-vox/generar_edificio.js (estilo rústico/umbral INSTITUCION/textura) + client/src/render3d/catalogoVisual.ts:colorObjeto/dimensionesObjeto — riqueza real, precio, huella de fallback, estilo visual",
+    "construible": "server/src/construccion/catalogo.ts:cargarCatalogoConstruible + client/src/construccion/catalogoConstruccion.ts:construirLista — filtra qué tipos salen en el menú de construcción normal",
+    "huellaExterior": "server/src/construccion/catalogo.ts + client/src/construccion/catalogoConstruccion.ts + baker/src/instanciasPOI.js — tamaño de huella para colisión/colocación en el mundo",
+    "tieneBodega": "interiores/src/edificio.js:generarEdificio — decide si se genera la planta bodega (nivel -1)",
+    "rangoPlantasAltas": "interiores/src/edificio.js:generarEdificio (numPlantasAltas) + taller-vox/generar_edificio.js (umbral INSTITUCION, altura) + client/src/render3d/catalogoVisual.ts:dimensionesObjeto (altura placeholder) — cuántas plantas altas y su altura visual",
+    "salasPorPlanta": "interiores/src/edificio.js:generarEdificio/generarPlanta — composición ponderada de salas por rol de planta",
+    "materialesPreferidos": "taller-vox/generar_edificio.js:elegirMaterial — selección real de textura de fachada (interiores/edificio.js solo lo copia al resultado, sin filtrar nada)",
+    "poiVinculado": "SIN CONSUMIDOR REAL — el flujo real va al revés (baker/src/instanciasPOI.js recibe tipoEdificioId directo del POI); documentado para un futuro bakeador de mapas de POI que aún no existe",
+    "temaTaller": "interiores/src/edificio.js:generarEdificio (temaProfesion pasado a todas las plantas) + ciudades/src/generar.js (decide cartel_tienda junto a la puerta) — restringe mobiliario de oficio y decide cartel comercial",
+    "plantillaJarl": "server/src/construccion/catalogo.ts:cargarCatalogoPlantillas + server/src/rooms/base/RoomExteriorBase.ts — restringe la colocación a un mecanismo de plantilla exclusivo del jarl",
+    "produccion": "server/src/construccion/catalogo.ts (EntradaConstruible.produccion) + server/src/rooms/base/RoomExteriorBase.ts:manejarProduccionRecolectar + server/src/construccion/produccion.ts:resolverProduccion (con insumos, GDD_Crafteo.md) — producción pasiva acumulable, con consumo opcional de insumos para refinamiento",
+    "energia": "server/src/construccion/catalogo.ts + server/src/construccion/energia.ts + server/src/construccion/construccion.ts:validarColocacion (agua adyacente si fuente==='agua') — red motriz a nivel de edificio",
+    "ventaJugador": "server/src/propiedades/propiedades.ts:ventaJugadorPermitida + ciudades/src/generar.js (marca reservadoJugador en el bake) — qué edificios pueden venderse/alquilarse enteros",
+    "salasAlquilables": "server/src/propiedades/propiedades.ts:salasAlquilablesPermitidas — si el edificio alquila habitaciones sueltas (taberna/posada)"
+  },
   "casa_humilde": {
     "riqueza": "humilde",
     "construible": true,

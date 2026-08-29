@@ -1,5 +1,16 @@
 {
   "_nota": "Catálogo de NPCs — la LISTA de la que tira el generador, igual que elementos.json es la lista de la que tira el bakeador de interiores. Arrancó con 4 arquetipos de prueba; se amplió (2026-08-28) con los oficios de tienda/taller que ya existen en interiores/catalogo/tipos_edificio.json pero que ningún NPC ocupaba todavía (poblacion/catalogo/oficiosEdificios.json) — sigue sin ser la lista DEFINITIVA (la pacta el streamer), pero ya no deja media ciudad de edificios sin trabajador. Cada entrada: profesion (cruza con ropa/catalogo/profesiones.json), morfologia con RANGOS [min,max] (cada individuo cae en un punto del rango por semilla — dentro de los límites globales de client/src/render3d/morfologia.json), sexoPesos/rasgos para sobreescribir los pesos por defecto de rasgos.json (solo lo que cambie), y ropa: ids de ropa/catalogo/prendas.json que el generador anota en la ficha — HOY el catálogo de prendas solo tiene 3 prendas de prueba genéricas (comunes a cualquier oficio), así que todos los arquetipos comparten esas mismas hasta que se amplíe ropa/catalogo/prendas.json con vestuario específico por oficio.",
+  "_camposConsumidores": {
+    "profesion": "personajes/src/generarPersonaje.js:generarPersonaje() (copia a ficha.profesion) + poblacion/src/exportarPoblacion.js (resolverMaterial/vestir, cruza con ropa/catalogo/profesiones.json y prompt de biografía IA) + server/src/ia/npcChat.ts:GestorConversacionesNpc.hablar() (vía leerNpc, se inserta en el system prompt del chat IA)",
+    "morfologia.altura": "personajes/src/generarPersonaje.js:generarPersonaje() (enRango) — sortea la altura concreta del individuo dentro del rango del arquetipo",
+    "morfologia.corpulencia": "personajes/src/generarPersonaje.js:generarPersonaje() (enRango) — sortea la corpulencia concreta dentro del rango",
+    "sexoPesos": "personajes/src/generarPersonaje.js:generarPersonaje() (pesos('sexoPesos')) — pisa los pesos globales de rasgos.json para sortear el sexo, solo si el arquetipo lo declara",
+    "rasgos": "personajes/src/generarPersonaje.js:generarPersonaje() (función interna pesos(nombre)) — sobreescribe SOLO las listas que el arquetipo declare (barbaEstilos/peloEstilos/coloresPelo/coloresPiel/coloresOjos); el resto cae a rasgos.json global",
+    "ropa": "personajes/src/generarPersonaje.js:generarPersonaje() (ficha.ropa) + poblacion/src/exportarPoblacion.js:vestir() (genera de verdad cada prenda física vía ropa/src/generarPrenda.js)",
+    "colorDebug": "SIN CONSUMIDOR — búsqueda exhaustiva confirma que ningún generador/renderer lee el colorDebug de ESTE catálogo (hay colorDebug de mismo nombre en otros catálogos, no confundir)",
+    "personalidad": "server/src/ia/npcChat.ts:GestorConversacionesNpc.hablar() (vía leerNpc) — fallback en el system prompt del chat IA cuando el NPC no tiene biografía individual generada por Gemini",
+    "conocimiento": "server/src/ia/npcChat.ts:GestorConversacionesNpc.hablar() (vía leerNpc→saberRelevante→conocimientoEmbebido) — RAG: fragmentos embebidos elegidos por relevancia a la pregunta del jugador"
+  },
   "aldeano": {
     "profesion": "campesino",
     "morfologia": {
