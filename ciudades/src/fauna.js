@@ -12,22 +12,24 @@ const { TRANSITABLES } = require("./generar");
 
 // Especies domésticas: reusan las plantillas ya existentes de
 // personajes/catalogo/animales_rig.json (gallina_salvaje/vaca_salvaje) o
-// las nuevas domésticas puras (perro/gato/gallo) — cero catálogo nuevo,
-// "las listas crecen, el código no". IMPORTANTE: solo puede entrar aquí una
-// especie que YA tenga rig/esqueleto en animales_rig.json — generarAnimal()
-// revienta si no lo tiene. oveja/carnero/cerdo/ganso_domestico ya existen en
-// baker/catalogo/animales.json (ampliación 2026-08-29, con el patrón
-// condicionado macho/hembra igual que gallina_salvaje/gallo vía
-// peroSoloSiHay) pero deliberadamente NO se añaden aquí todavía: el
-// streamer pidió ampliar antes el catálogo de nombres y hacer los
-// esqueletos/formas después — añadirlos a esta lista es el último paso de
-// esa segunda fase, en cuanto tengan rig.
+// las nuevas domésticas puras (perro/gato/gallo/caballo/mulo/buey) — cero
+// catálogo nuevo, "las listas crecen, el código no". IMPORTANTE: solo puede
+// entrar aquí una especie que YA tenga rig/esqueleto en animales_rig.json —
+// generarAnimal() revienta si no lo tiene. oveja/carnero/cerdo/
+// ganso_domestico ya existen en baker/catalogo/animales.json (ampliación
+// 2026-08-29) pero deliberadamente NO se añaden aquí todavía: sin rig.
+// caballo/mulo/buey (pedido 2026-08-29, "animales de trabajo") SÍ tienen
+// rig ya, así que entran directos — pesos bajos porque son animales caros
+// de mantener, no todas las casas tienen uno.
 const ESPECIES = [
   { especieId: "gallina_salvaje", peso: 8, radio: 3 },
   { especieId: "gallo", peso: 1, peroSoloSiHay: "gallina_salvaje", radio: 3 }, // "algún gallo si hay gallinas"
   { especieId: "vaca_salvaje", peso: 2, radio: 4 },
   { especieId: "perro", peso: 4, radio: 5 },
   { especieId: "gato", peso: 4, radio: 4 },
+  { especieId: "caballo", peso: 2, radio: 5 },
+  { especieId: "mulo", peso: 1, radio: 4 },
+  { especieId: "buey", peso: 1, radio: 3 },
 ];
 
 // Cuántos animales por tier — mismo criterio de escala que el censo de

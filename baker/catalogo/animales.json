@@ -2059,6 +2059,45 @@
     "prefiereAguaProfunda": true
   },
   "_nota_ampliacion_terrestre_2026_08_29": "Ampliación de fauna terrestre (mismo pedido 2026-08-29): base de cadena trófica para tierras_quemadas (el bioma más pobre del catálogo), un mamífero de ribera y un reptil venenoso templado que faltaba en bosque/pradera/montaña. Añade también el par doméstico 'oveja'/'carnero' (pedido explícito del streamer: cada especie con nombre real distinto por sexo, como gallina_salvaje/gallo — oveja_salvaje se mantiene igual, es la población salvaje de pradera) y 'cerdo' doméstico (jabali ya cubre el ancestro salvaje).",
+  "_nota_animales_trabajo_2026_08_29": "Animales de trabajo/monta (pedido 2026-08-29, 'caballos mulos bueyes animales de trabajo'): caballo_salvaje/burro_salvaje ya cubrían la población salvaje domesticable, pero faltaba el par doméstico urbano (mismo patrón que perro/gato/gallo) — caballo, mulo (sin versión salvaje real, siempre es un híbrido criado) y buey (bovino de labranza, par de vaca_salvaje). A diferencia de oveja/carnero/cerdo/ganso_domestico, ESTOS SÍ tienen rig ya (personajes/catalogo/animales_rig.json) y están enganchados al spawn de ciudades/src/fauna.js.",
+  "caballo": {
+    "colision": true,
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 8,
+    "peligroso": false,
+    "domesticable": true,
+    "nota": "montura",
+    "colorDebug": "#5a3a20",
+    "_nota": "Fauna urbana — ver nota de 'perro'. Par doméstico de caballo_salvaje (que se mantiene igual, población salvaje del mapa exterior)."
+  },
+  "mulo": {
+    "colision": true,
+    "biomas": [],
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 5,
+    "peligroso": false,
+    "domesticable": true,
+    "nota": "animal de tiro/carga",
+    "colorDebug": "#8a7a68",
+    "_nota": "Fauna urbana — ver nota de 'perro'. Sin versión salvaje real (siempre es un híbrido criado de caballo+burro)."
+  },
+  "buey": {
+    "colision": true,
+    "biomas": [],
+    "categoriaRecursoCarne": "carne_roja",
+    "categoriaRecursoPiel": "cuero_grueso",
+    "densidadBase": 0,
+    "capacidadMaximaPorChunk": 0,
+    "variantes": 6,
+    "peligroso": false,
+    "domesticable": true,
+    "nota": "animal de tiro/labranza",
+    "colorDebug": "#4a3020",
+    "_nota": "Fauna urbana — ver nota de 'perro'. Bovino de labranza, par de vaca_salvaje."
+  },
   "raton_de_ceniza": {
     "biomas": [
       "tierras_quemadas"
