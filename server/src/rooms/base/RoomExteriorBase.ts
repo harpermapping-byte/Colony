@@ -6,7 +6,7 @@ import { recolectableCercano } from "../../mundo/recolectables";
 import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../../inventario/sincronizarSchema";
-import { IAlmacenDatos } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, EntradaConstruible } from "../../construccion/catalogo";
@@ -741,6 +741,30 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     if (player) this.aplicarEtiquetaGremio(player, gremio ?? null);
 
     client.send("gremio:estado", gremio ? await this.detalleGremio(bd, gremio) : null);
+  }
+
+  // ---- Propiedades comerciales (docs/GDD_Propiedades.md) ----
+  // Compartido entre RegionRoom (inmuebles enteros) e InteriorRoom
+  // (habitaciones de taberna/posada) — la única diferencia entre ambas es el
+  // esquema de id y de dónde sale el precio; el flujo de cobro/cesión es el
+  // MISMO (bd.comprarOAlquilar ya es todo-o-nada). `canalError` porque cada
+  // room usa su propio namespace de mensajes ("inmueble:error"/"habitacion:error").
+
+  /** `null` si falló (ya se le mandó el error al cliente) o si no hay jugador identificado. */
+  protected async comprarOAlquilarPropiedad(
+    client: Client,
+    canalError: string,
+    params: { id: string; tipo: "inmueble" | "habitacion"; asentamiento: string; modo: ModoTenencia; precioFarycoins: number; periodoHoras: number | null },
+  ): Promise<{ ok: true; saldoRestante: number; expiraEn: string | null } | null> {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return null;
+    const bd = await obtenerBdCompartida();
+    const r = await bd.comprarOAlquilar({ ...params, jugadorNombre: nombre });
+    if (!r.ok) {
+      client.send(canalError, { motivo: r.motivo });
+      return null;
+    }
+    return r;
   }
 
   private actualizarMovimiento() {

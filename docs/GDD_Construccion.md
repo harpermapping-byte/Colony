@@ -16,7 +16,7 @@ Diseño acordado con el streamer (2026-08-28) e implementación v1. **Este docum
 - El **jarl** (líder del asentamiento) es el admin de tierras: asigna parcelas a jugadores y las revoca. Parcela sin dueño = del jarl/asentamiento.
 - El dueño de una parcela **construye dentro de sus límites**: coloca muebles, empalizadas y edificios de los catálogos (todo lo generado SIN esqueleto; ropa/animales no). Estilo Project Zomboid: fantasma verde/rojo, snap a casilla, rotación en 4 orientaciones.
 - **Colocar un edificio genera su interior** con el generador de interiores (determinista por semilla), en modo `amueblado: "vacio"`: salas vacías listas para amueblar.
-- Un jugador puede tener **varias parcelas** (cultivo, animales, casa...) y también **inmuebles interiores** (habitación/local/casa en ciudad) — amueblar solo lo propio.
+- Un jugador puede tener **varias parcelas** (cultivo, animales, casa...) y también **inmuebles interiores** (habitación/local/casa en ciudad) — amueblar solo lo propio. **Implementado en `docs/GDD_Propiedades.md`** (compra/alquiler comercial, distinto de la asignación gratuita del jarl que describe este documento).
 - Todo lo construido lo **ve cualquier jugador** (sincronizado) y **persiste** en base de datos.
 - La **economía** (renta, compra/venta) y la **energía** (molinos) vienen después — pero el diseño ya les deja el hueco.
 - Los catálogos mandan (regla 7 del CLAUDE.md): cuando crezcan las listas de muebles/edificios, el constructor los ofrece solo.
@@ -152,7 +152,7 @@ Si pasa: inserta en DB, endurece casillas (colisión viva — se guarda una copi
 
 - Driver Postgres (Neon) cuando el streamer abra cuenta — solo el adaptador.
 - Entrar a interiores construidos (bloqueado por el render de interiores en cliente, pendiente global).
-- Inmuebles interiores en ciudad (`tipo: "inmueble"` ya existe en el esquema; se activará con los portales de ciudades).
+- ~~Inmuebles interiores en ciudad~~ — **implementado, ver `docs/GDD_Propiedades.md`** (compra/alquiler comercial de inmuebles enteros y habitaciones sueltas de taberna/posada, 2026-08-29).
 - Receta/materiales reales, permisos, renta, plantillas, planos, energía.
 - Login real (Twitch) → sustituye la identidad por nombre.
 - Jarl en juego pintando parcelas (misma máscara/formato; hoy solo la herramienta admin).

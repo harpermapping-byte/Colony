@@ -131,6 +131,12 @@ function exportarCiudad(ciudad, carpetaSalida) {
       cx: ed.cx, cy: ed.cy, rot: ed.rot,
       w: ed.w, h: ed.h, piezas: ed.piezas,
       puerta: ed.puerta,
+      // PROPIEDADES (docs/GDD_Propiedades.md, pedido 2026-08-29): edificio
+      // comprable/alquilable ENTERO por un jugador — false en el resto (los
+      // que ya viven/trabajan NPCs censados por poblacion/, que EXCLUYE
+      // estos de su asignación). Solo tipos con `ventaJugador` en el
+      // catálogo pueden llevar este flag a true (ver generar.js).
+      reservadoJugador: ed.reservadoJugador === true,
     })),
   });
 }

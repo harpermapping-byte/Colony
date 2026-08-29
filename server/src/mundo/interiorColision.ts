@@ -126,8 +126,21 @@ export interface ConectorInteractivo {
   entradaDestino: { x: number; y: number };
 }
 
+/** Sala alquilable/comprable con id ESTABLE (docs/GDD_Propiedades.md) — su
+ * índice dentro de `salas` de ESTA planta, ya determinista por semilla
+ * (colocarSala se siembra con `${semilla}:${nivel}:${i}`, interiores/src/
+ * edificio.js:143): un campo derivado en este loader, sin tocar el bake. */
+export interface SalaIndexada {
+  salaIndex: number;
+  tipoSalaId: string;
+  x: number;
+  y: number;
+}
+
 export interface InteriorCargado extends MundoColision {
   id: string;
+  /** tipoEdificioId (edificios normales) o tipoDungeonId (mazmorras) — "" si ninguno. Gatea qué acciones de propiedad aplican (docs/GDD_Propiedades.md: ventaJugador/salasAlquilables). */
+  tipoEdificioId: string;
   nivel: number;
   rol: string;
   /** casilla de aparición al entrar (dentro de la primera sala de la planta) */
@@ -142,6 +155,10 @@ export interface InteriorCargado extends MundoColision {
    * sala X" — varias salas del mismo tipo (dos dormitorios) dan varios
    * puntos. Vacío en interiores sin `sala` real por tramo (mazmorras). */
   salasPorTipo: Map<string, { x: number; y: number }[]>;
+  /** Solo las salas ALQUILABLES (dormitorio_individual/dormitorio_comunal) de
+   * ESTA planta, con su id estable — docs/GDD_Propiedades.md. Vacío si el
+   * edificio no tiene salas de ese tipo en esta planta (la inmensa mayoría). */
+  salasIndexadas: SalaIndexada[];
   /** Objetos "sobre" (sin casilla propia) de ESTA planta, vivos en memoria —
    * fase 2 de inventario ("coger", docs/GDD_Inventario.md §7). Clave =
    * instanceId (ya único y determinista, generado por el bake). Se filtra
@@ -271,8 +288,15 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
   // que coincidan ahí (varios inquilinos de un dormitorio comunal, la
   // familia entera en el salón) no queden todos en el mismo punto.
   // poblarInterior las reparte por turno rotatorio, así nunca se repiten.
+  // Habitaciones alquilables/comprables (docs/GDD_Propiedades.md): solo los
+  // 2 tipos de dormitorio de taberna/posada — dormitorios de vivienda
+  // privada (casa_humilde/casa_noble) NO son propiedad independiente, son
+  // parte del inmueble entero.
+  const TIPOS_SALA_ALQUILABLE = new Set(["dormitorio_individual", "dormitorio_comunal"]);
   const salasPorTipo = new Map<string, { x: number; y: number }[]>();
-  for (const sala of salas) {
+  const salasIndexadas: SalaIndexada[] = [];
+  for (let salaIndex = 0; salaIndex < salas.length; salaIndex++) {
+    const sala = salas[salaIndex];
     const tipoSalaId = (sala as unknown as { tipoSalaId?: string }).tipoSalaId;
     if (!tipoSalaId) continue;
     const puntos: { x: number; y: number }[] = [];
@@ -291,10 +315,15 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
     const lista = salasPorTipo.get(tipoSalaId) ?? [];
     lista.push(...puntos);
     salasPorTipo.set(tipoSalaId, lista);
+
+    if (TIPOS_SALA_ALQUILABLE.has(tipoSalaId)) {
+      salasIndexadas.push({ salaIndex, tipoSalaId, x: puntos[0].x, y: puntos[0].y });
+    }
   }
 
   return {
     id: interior.id,
+    tipoEdificioId: interior.tipoEdificioId ?? interior.tipoDungeonId ?? "",
     nivel,
     rol: planta.rol,
     ancho, alto, casillas, velocidad,
@@ -302,6 +331,7 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
     conectores,
     spawnsEnemigos: planta.spawnsEnemigos ?? [],
     salasPorTipo,
+    salasIndexadas,
     objetosSueltos,
   };
 }

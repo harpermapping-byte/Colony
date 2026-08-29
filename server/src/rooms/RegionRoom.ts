@@ -10,6 +10,8 @@ import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
 import { asegurarAsentamientoBandido } from "../mundo/economiaAsentamientos";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
 import { cargarParcelasDeReservas } from "../construccion/parcelas";
+import { esJarlGlobal } from "../construccion/construccion";
+import { ventaJugadorPermitida, precioInmueble } from "../propiedades/propiedades";
 
 interface OpcionesRegion {
   name?: string;
@@ -40,6 +42,11 @@ const TOPE_PROPS_PARCELA_REGION = 30;
 export class RegionRoom extends RoomExteriorBase {
   private mapa!: MapaCargado;
   mapaId!: string;
+  // Propiedades comerciales (docs/GDD_Propiedades.md) — inmuebleId → tipo de
+  // edificio, SOLO los que el bake reservó para venta/alquiler. Catálogo de
+  // "qué existe", no de tenencia — el dueño/precio vive en la BD, se
+  // consulta bajo demanda (point-query, nunca cacheado aquí).
+  private inmueblesVendibles = new Map<string, { tipoEdificioId: string }>();
 
   async onCreate(options: OpcionesRegion) {
     if (!options?.mapaId) throw new Error("RegionRoom necesita options.mapaId");
@@ -99,10 +106,29 @@ export class RegionRoom extends RoomExteriorBase {
     // — no aquí, para no repetirlo una vez por cada región cargada.
     const rutaIndice = path.join(rutaMapa, "indice.json");
     if (fs.existsSync(rutaIndice)) {
-      const indice = JSON.parse(fs.readFileSync(rutaIndice, "utf8")) as { tier?: string };
+      const indice = JSON.parse(fs.readFileSync(rutaIndice, "utf8")) as {
+        tier?: string;
+        edificios?: { id: string; tipo: string; reservadoJugador?: boolean }[];
+      };
       if (indice.tier === "asentamiento_hostil") {
         const bd = await obtenerBdCompartida();
         await asegurarAsentamientoBandido(bd, options.mapaId);
+      }
+
+      // Propiedades comerciales (docs/GDD_Propiedades.md, pedido 2026-08-29):
+      // edificios ENTEROS comprables/alquilables — solo los que el bake
+      // marcó `reservadoJugador` Y cuyo tipo está en el catálogo cerrado
+      // (ventaJugador, interiores/catalogo/tipos_edificio.json). Disponible
+      // en CUALQUIER aldea/POI con edificios así marcados, no solo la
+      // capital — a diferencia de construcción-en-regiones, esto no
+      // necesita `parcelasReservadas`.
+      for (const ed of indice.edificios ?? []) {
+        if (ed.reservadoJugador && ventaJugadorPermitida(ed.tipo)) {
+          this.inmueblesVendibles.set(ed.id, { tipoEdificioId: ed.tipo });
+        }
+      }
+      if (this.inmueblesVendibles.size > 0) {
+        console.log(`  ${this.inmueblesVendibles.size} inmueble(s) reservados para venta/alquiler a jugadores`);
       }
     }
 
@@ -133,6 +159,75 @@ export class RegionRoom extends RoomExteriorBase {
         client.send("portal:ir", { tipo: "volver" });
       }
     });
+
+    this.registrarMensajesInmueble(options.mapaId);
+  }
+
+  /** Propiedades comerciales (docs/GDD_Propiedades.md) — inmuebles ENTEROS de esta región. No-op si el bake no reservó ninguno. */
+  private registrarMensajesInmueble(mapaId: string) {
+    this.onMessage("inmueble:listar", async (client) => {
+      const bd = await obtenerBdCompartida();
+      const lista = [];
+      for (const [id, { tipoEdificioId }] of this.inmueblesVendibles) {
+        const prop = await bd.obtenerPropiedad(this.idInmueble(mapaId, id));
+        lista.push({
+          id, tipoEdificioId,
+          dueno: prop?.dueno ?? null,
+          modoTenencia: prop?.modoTenencia ?? null,
+          precioFarycoins: prop?.precioFarycoins ?? null,
+          expiraEn: prop?.expiraEn ?? null,
+        });
+      }
+      client.send("inmueble:lista", lista);
+    });
+
+    this.onMessage("inmueble:comprar", (client, msg: { inmuebleId?: string }) => this.manejarInmuebleAdquirir(client, mapaId, msg?.inmuebleId, "compra"));
+    this.onMessage("inmueble:alquilar", (client, msg: { inmuebleId?: string }) => this.manejarInmuebleAdquirir(client, mapaId, msg?.inmuebleId, "alquiler"));
+
+    this.onMessage("inmueble:renovar", async (client, msg: { inmuebleId?: string }) => {
+      const nombre = this.nombreDe(client);
+      const entrada = msg?.inmuebleId ? this.inmueblesVendibles.get(msg.inmuebleId) : undefined;
+      if (!nombre || !entrada) return client.send("inmueble:error", { motivo: "inmueble desconocido" });
+      const precio = precioInmueble(entrada.tipoEdificioId, "alquiler");
+      if (!precio || precio.periodoHoras == null) return client.send("inmueble:error", { motivo: "este inmueble no se alquila" });
+      const bd = await obtenerBdCompartida();
+      const r = await bd.renovarTenencia(this.idInmueble(mapaId, msg!.inmuebleId!), nombre, precio.periodoHoras, precio.precio);
+      if (!r.ok) return client.send("inmueble:error", { motivo: r.motivo });
+      this.broadcast("inmueble:actualizado", { id: msg!.inmuebleId, dueno: nombre, modoTenencia: "alquiler", expiraEn: r.expiraEn });
+    });
+
+    this.onMessage("inmueble:revocar", async (client, msg: { inmuebleId?: string }) => {
+      const nombre = this.nombreDe(client);
+      if (!nombre || !esJarlGlobal(nombre)) return client.send("inmueble:error", { motivo: "solo el jarl revoca propiedades" });
+      const entrada = msg?.inmuebleId ? this.inmueblesVendibles.get(msg.inmuebleId) : undefined;
+      if (!entrada) return client.send("inmueble:error", { motivo: "inmueble desconocido" });
+      const bd = await obtenerBdCompartida();
+      await bd.revocarPropiedad(this.idInmueble(mapaId, msg!.inmuebleId!));
+      this.broadcast("inmueble:actualizado", { id: msg!.inmuebleId, dueno: null, modoTenencia: null, expiraEn: null });
+    });
+  }
+
+  private idInmueble(mapaId: string, inmuebleId: string): string {
+    return `i_${mapaId}:${inmuebleId}`;
+  }
+
+  private async manejarInmuebleAdquirir(client: Client, mapaId: string, inmuebleId: string | undefined, modo: "compra" | "alquiler") {
+    const entrada = inmuebleId ? this.inmueblesVendibles.get(inmuebleId) : undefined;
+    if (!entrada) return client.send("inmueble:error", { motivo: "inmueble desconocido" });
+    const precio = precioInmueble(entrada.tipoEdificioId, modo);
+    if (!precio) return client.send("inmueble:error", { motivo: modo === "compra" ? "este inmueble no está en venta" : "este inmueble no se alquila" });
+
+    const r = await this.comprarOAlquilarPropiedad(client, "inmueble:error", {
+      id: this.idInmueble(mapaId, inmuebleId!),
+      tipo: "inmueble",
+      asentamiento: mapaId,
+      modo,
+      precioFarycoins: precio.precio,
+      periodoHoras: precio.periodoHoras,
+    });
+    if (!r) return;
+    const nombre = this.nombreDe(client)!;
+    this.broadcast("inmueble:actualizado", { id: inmuebleId, dueno: nombre, modoTenencia: modo, expiraEn: r.expiraEn });
   }
 
   onJoin(client: Client, options: OpcionesRegion) {
