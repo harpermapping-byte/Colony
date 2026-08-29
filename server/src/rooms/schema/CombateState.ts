@@ -19,10 +19,11 @@ export class CombateUnidad extends Schema {
   @type("int8") gy = 0;
   @type("number") hp = 0;
   @type("number") hpMax = 0;
-  @type("int8") ap = 0;
-  @type("int8") apMax = 0;
-  @type("int8") mp = 0;
-  @type("int8") mpMax = 0;
+  // Recurso ÚNICO de turno (docs/GDD_Combate.md §9.3, pedido 2026-08-30):
+  // mover, atacar, usar objeto y (cuando exista) magia salen del MISMO pool
+  // — sustituye al AP+MP separados de la primera pasada.
+  @type("int8") pa = 0;
+  @type("int8") paMax = 0;
   @type("number") iniciativa = 0;
   @type("string") estado = "activo"; // "activo" | "caido" | "huido"
 
@@ -47,4 +48,10 @@ export class CombateSchema extends Schema {
   @type(["string"]) ordenTurnos = new ArraySchema<string>(); // ids de CombateUnidad, por iniciativa desc
   @type("int8") turnoActual = 0; // índice sobre ordenTurnos
   @type({ map: CombateUnidad }) unidades = new MapSchema<CombateUnidad>();
+  // Ventana de unión (docs/GDD_Combate.md §9.1, pedido 2026-08-30): "pendiente"
+  // = todavía se puede sumar gente (combate:unirse/comenzarYa), ordenTurnos
+  // vacío, nadie juega turno todavía; "activo" = ventana cerrada, se juega
+  // de verdad. `cierraEn` epoch ms — 0 cuando ya no aplica (fase "activo").
+  @type("string") fase = "activo";
+  @type("number") cierraEn = 0;
 }

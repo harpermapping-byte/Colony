@@ -22,6 +22,8 @@ interface UnidadCombateVista {
 }
 
 interface CombateVista {
+  fase: string; // "pendiente" | "activo" (docs/GDD_Combate.md §9.1)
+  cierraEn: number;
   turnoActual: number;
   ordenTurnos: { length: number; [i: number]: string; map<T>(fn: (id: string) => T): T[] };
   unidades: { get(id: string): UnidadCombateVista | undefined; values(): IterableIterator<UnidadCombateVista> };
@@ -33,6 +35,7 @@ export interface OpcionesPanelCombate {
   enviarAccion(combateId: string, objetivoId: string): void;
   enviarPasarTurno(combateId: string): void;
   enviarHuir(combateId: string): void;
+  enviarComenzarYa(combateId: string): void;
 }
 
 export class PanelCombate {
@@ -74,11 +77,27 @@ export class PanelCombate {
   }
 
   private renderizar(combateId: string, combate: CombateVista) {
+    this.raiz.innerHTML = "";
+
+    // Ventana de unión todavía abierta (docs/GDD_Combate.md §9.1) — sin
+    // turnos que jugar todavía, solo la cuenta atrás y "comenzar ya".
+    if (combate.fase === "pendiente") {
+      const restante = Math.max(0, Math.round((combate.cierraEn - Date.now()) / 1000));
+      const titulo = document.createElement("div");
+      titulo.style.fontWeight = "bold";
+      titulo.style.marginBottom = "6px";
+      titulo.textContent = `⏳ Esperando refuerzos... (${restante}s) — ${[...combate.unidades.values()].length} combatientes`;
+      this.raiz.appendChild(titulo);
+      const comenzar = document.createElement("button");
+      comenzar.textContent = "Comenzar ya";
+      comenzar.onclick = () => this.opciones.enviarComenzarYa(combateId);
+      this.raiz.appendChild(comenzar);
+      return;
+    }
+
     const propia = combate.unidades.get(this.opciones.sessionIdPropio)!;
     const idTurno = combate.ordenTurnos[combate.turnoActual];
     const esMiTurno = idTurno === this.opciones.sessionIdPropio;
-
-    this.raiz.innerHTML = "";
 
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";

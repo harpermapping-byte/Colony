@@ -20,7 +20,7 @@ function arenaAbierta(ancho = 8, alto = 8): Arena {
 function unidad(overrides: Partial<UnidadCombate> = {}): UnidadCombate {
   return {
     id: "u1", esJugador: false, bando: "A",
-    gx: 0, gy: 0, hp: 50, hpMax: 50, ap: 3, apMax: 3, mp: 3, mpMax: 3,
+    gx: 0, gy: 0, hp: 50, hpMax: 50, pa: 3, paMax: 3,
     iniciativa: 10, estado: "activo",
     ataqueFisico: 10, defensaFisica: 0, alcance: 1,
     ...overrides,
@@ -69,11 +69,11 @@ test("jugarTurnoIA: ataca si el objetivo ya está en alcance", () => {
 });
 
 test("jugarTurnoIA: se acerca si el objetivo está fuera de alcance", () => {
-  const a = unidad({ id: "a", bando: "A", gx: 0, gy: 0, alcance: 1, mp: 2 });
+  const a = unidad({ id: "a", bando: "A", gx: 0, gy: 0, alcance: 1, pa: 2 });
   const b = unidad({ id: "b", bando: "B", gx: 5, gy: 0 });
   const resultado = jugarTurnoIA("a", [a, b], arenaAbierta());
   const actualizado = resultado.find((u) => u.id === "a")!;
-  assert.strictEqual(actualizado.gx, 2, "se movió 2 casillas (su mp) hacia el objetivo");
+  assert.strictEqual(actualizado.gx, 2, "se movió 2 casillas (su pa) hacia el objetivo");
   assert.strictEqual(actualizado.hp, a.hp, "moverse no cambia su propia vida");
 });
 
@@ -88,8 +88,8 @@ test("jugarTurnoIA: no hace nada si la unidad ya cayó, o si no queda enemigo vi
 });
 
 test("simularCombateAutomatico: dos animales sin defensa, uno mucho más fuerte gana siempre igual (determinista)", () => {
-  const fuerte = unidad({ id: "lobo", bando: "A", gx: 0, gy: 0, hp: 50, hpMax: 50, ataqueFisico: 20, alcance: 1, mp: 3, iniciativa: 10 });
-  const debil = unidad({ id: "conejo", bando: "B", gx: 1, gy: 0, hp: 15, hpMax: 15, ataqueFisico: 2, alcance: 1, mp: 3, iniciativa: 5 });
+  const fuerte = unidad({ id: "lobo", bando: "A", gx: 0, gy: 0, hp: 50, hpMax: 50, ataqueFisico: 20, alcance: 1, pa: 3, iniciativa: 10 });
+  const debil = unidad({ id: "conejo", bando: "B", gx: 1, gy: 0, hp: 15, hpMax: 15, ataqueFisico: 2, alcance: 1, pa: 3, iniciativa: 5 });
   const resultado = simularCombateAutomatico([fuerte], [debil], arenaAbierta(), () => 0);
   assert.strictEqual(resultado.bandoGanador, "A");
   const lobo = resultado.unidades.find((u) => u.id === "lobo")!;
@@ -100,8 +100,8 @@ test("simularCombateAutomatico: dos animales sin defensa, uno mucho más fuerte 
 });
 
 test("simularCombateAutomatico: si empiezan lejos, se acercan antes de poder golpear", () => {
-  const a = unidad({ id: "a", bando: "A", gx: 0, gy: 0, ataqueFisico: 30, alcance: 1, mp: 2, hp: 100, hpMax: 100, iniciativa: 20 });
-  const b = unidad({ id: "b", bando: "B", gx: 7, gy: 7, ataqueFisico: 30, alcance: 1, mp: 2, hp: 100, hpMax: 100, iniciativa: 1 });
+  const a = unidad({ id: "a", bando: "A", gx: 0, gy: 0, ataqueFisico: 30, alcance: 1, pa: 2, hp: 100, hpMax: 100, iniciativa: 20 });
+  const b = unidad({ id: "b", bando: "B", gx: 7, gy: 7, ataqueFisico: 30, alcance: 1, pa: 2, hp: 100, hpMax: 100, iniciativa: 1 });
   const resultado = simularCombateAutomatico([a], [b], arenaAbierta(), () => 0);
   assert.ok(resultado.bandoGanador === "A" || resultado.bandoGanador === "B");
   assert.ok(resultado.turnos > 0, "no gana en el turno 0 — tuvieron que acercarse primero");

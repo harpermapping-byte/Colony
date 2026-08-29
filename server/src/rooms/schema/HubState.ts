@@ -178,6 +178,16 @@ export class ObjetoMundoSchema extends Schema {
   @type("number") cantidad = 1;
 }
 
+// Marcador de "aquí hay un combate" (docs/GDD_Combate.md §9.2) — mientras un
+// combate vive instanciado en su propia room de arena, la room de ORIGEN
+// deja esto en el sitio exacto donde se cruzaron los combatientes; se borra
+// al terminar el combate y volver todos. Puramente informativo (el cliente
+// puede pintar un icono), sin datos de juego reales.
+export class MarcadorCombateSchema extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+}
+
 export class HubState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: Npc }) npcs = new MapSchema<Npc>();
@@ -186,6 +196,12 @@ export class HubState extends Schema {
   @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
   // Combates activos (docs/GDD_Combate.md) — un Map, no un singleton: varios
   // grupos pueden pelear a la vez en la misma room sin bloquearse entre sí
-  // (mismo criterio que construcciones/plantillas).
+  // (mismo criterio que construcciones/plantillas). En una room de ARENA
+  // (docs/GDD_Combate.md §9.2) tiene como mucho UNA entrada, la del combate
+  // que se instanció ahí; en el resto de rooms puede tener varias "pendiente"
+  // en ventana de unión a la vez.
   @type({ map: CombateSchema }) combates = new MapSchema<CombateSchema>();
+  // Combates instanciados en una arena aparte, vistos desde la room de
+  // ORIGEN mientras duran (docs/GDD_Combate.md §9.2) — clave = combateId.
+  @type({ map: MarcadorCombateSchema }) combatesEnCurso = new MapSchema<MarcadorCombateSchema>();
 }

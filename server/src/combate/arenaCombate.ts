@@ -28,10 +28,9 @@ export interface UnidadCombate {
   gy: number;
   hp: number;
   hpMax: number;
-  ap: number;
-  apMax: number;
-  mp: number;
-  mpMax: number;
+  /** Recurso ÚNICO de turno: mover, atacar, usar objeto y magia salen todos de aquí (docs/GDD_Combate.md §9.3). */
+  pa: number;
+  paMax: number;
   iniciativa: number;
   estado: EstadoUnidad;
   ataqueFisico: number;
@@ -92,8 +91,10 @@ export function jugarTurnoIA(idUnidad: string, unidades: UnidadCombate[], arena:
     const actualizado = resolverAtaque(u, objetivo);
     return unidades.map((x) => (x.id === actualizado.id ? actualizado : x));
   }
+  // La IA usa TODO su PA restante en moverse cuando no puede atacar todavía
+  // — sin reparto inteligente move-vs-ataque (v1, ver GDD_Combate §6).
   let pos: Casilla = { gx: u.gx, gy: u.gy };
-  for (let paso = 0; paso < u.mp; paso++) {
+  for (let paso = 0; paso < u.pa; paso++) {
     const siguiente = pasoHacia(arena, pos, { gx: objetivo.gx, gy: objetivo.gy });
     if (siguiente.gx === pos.gx && siguiente.gy === pos.gy) break; // atrapado
     pos = siguiente;

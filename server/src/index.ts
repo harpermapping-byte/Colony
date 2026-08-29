@@ -5,6 +5,7 @@ import { HubRoom } from "./rooms/HubRoom";
 import { RegionRoom } from "./rooms/RegionRoom";
 import { InteriorRoom } from "./rooms/InteriorRoom";
 import { DungeonRoom } from "./rooms/DungeonRoom";
+import { ArenaCombateRoom } from "./rooms/ArenaCombateRoom";
 import { obtenerBdCompartida } from "./datos/bdCompartida";
 import { ejecutarTickEconomia } from "./mundo/economiaAsentamientos";
 
@@ -30,6 +31,10 @@ gameServer.define("interior", InteriorRoom).filterBy(["mapaId", "edificio", "niv
 // Mazmorra (docs/GDD_Bakeador_Dungeons.md): MISMA instancia por planta que
 // un interior normal — hereda de InteriorRoom, solo añade enemigos.
 gameServer.define("mazmorra", DungeonRoom).filterBy(["mapaId", "edificio", "nivel"]);
+// Arena de combate instanciada (docs/GDD_Combate.md §9.2): una room POR
+// combate — todos los que reciben el mismo combateId (vía portal:ir) caen
+// en la MISMA instancia, el roster ya lo dejó preparado la room de origen.
+gameServer.define("arena", ArenaCombateRoom).filterBy(["combateId"]);
 
 httpServer.listen(port, () => {
   console.log(`Colony server escuchando en el puerto ${port}`);

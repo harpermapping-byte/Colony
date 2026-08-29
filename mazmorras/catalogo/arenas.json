@@ -1,0 +1,4 @@
+{
+  "_nota": "Catálogo de arenas de combate bakeadas (docs/GDD_Combate.md §9.4, mazmorras/src/generarArena.js) — assets/mapas/arenas/<id>/. Al cerrar la ventana de unión se elige una determinista por semilla del combate entre las que haya aquí. Esta pasada solo trae 2 de PRUEBA (agentes solo bakean pequeño); ampliar la lista y bakear más variantes por bioma es trabajo del streamer cuando apruebe la producción real.",
+  "arenas": ["pradera_01", "bosque_01"]
+}

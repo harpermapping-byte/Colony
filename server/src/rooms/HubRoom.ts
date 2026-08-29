@@ -1,7 +1,7 @@
 import { Client } from "@colyseus/core";
 import * as fs from "fs";
 import * as path from "path";
-import { RoomExteriorBase, RADIO_INTERACCION } from "./base/RoomExteriorBase";
+import { RoomExteriorBase, RADIO_INTERACCION, PA_MAX_COMBATE } from "./base/RoomExteriorBase";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { cargarParcelas } from "../construccion/parcelas";
 import { GestorConversacionesNpc } from "../ia/npcChat";
@@ -327,6 +327,11 @@ export class HubRoom extends RoomExteriorBase {
     return cadaver !== null;
   }
 
+  /** docs/GDD_Combate.md §9.1 — solo el Hub sabe qué fauna es peligrosa (catalogoCombate real), así que solo aquí auto-se-une a una ventana de combate cercana. */
+  protected faunaEsPeligrosa(especieId: string): boolean {
+    return this.catalogoCombate?.[especieId]?.peligroso ?? false;
+  }
+
   /**
    * Disparador real de autosimulación (docs/GDD_Combate.md §7): un NPC
    * cerca de fauna `peligroso` combate contra ella de una sentada, sin
@@ -361,14 +366,14 @@ export class HubRoom extends RoomExteriorBase {
         const uNpc: UnidadCombate = {
           id: npcId, esJugador: false, bando: "A",
           gx: Math.round(npc.x - gx0), gy: Math.round(npc.y - gy0),
-          hp: npc.vida, hpMax: npc.vidaMax, ap: 3, apMax: 3, mp: 4, mpMax: 4,
+          hp: npc.vida, hpMax: npc.vidaMax, pa: PA_MAX_COMBATE, paMax: PA_MAX_COMBATE,
           iniciativa: calcularIniciativa(10, Math.random), estado: "activo",
           ataqueFisico: npc.ataque, defensaFisica: npc.defensa, alcance: 1,
         };
         const uFauna: UnidadCombate = {
           id: faunaId, esJugador: false, bando: "B",
           gx: Math.round(fauna.x - gx0), gy: Math.round(fauna.y - gy0),
-          hp: fauna.vida, hpMax: fauna.vidaMax, ap: 3, apMax: 3, mp: 4, mpMax: 4,
+          hp: fauna.vida, hpMax: fauna.vidaMax, pa: PA_MAX_COMBATE, paMax: PA_MAX_COMBATE,
           iniciativa: calcularIniciativa(10, Math.random), estado: "activo",
           ataqueFisico: fauna.ataque, defensaFisica: 0, alcance: 1,
         };

@@ -1,6 +1,8 @@
-import { Room, Client } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema } from "../schema/HubState";
+import { Room, Client, Delayed } from "@colyseus/core";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema } from "../schema/HubState";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
+import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
+import { cargarCatalogoArenas, elegirArena } from "../../combate/seleccionArena";
 import { MundoColision, moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO_PJ, tipoEn } from "../../mundo/colisiones";
 import {
   UnidadCombate,
@@ -58,15 +60,23 @@ const ANCHO_CUERPO = 8;
 const ALTO_CUERPO = 6;
 
 // --- Combate táctico (docs/GDD_Combate.md, ✅ confirmado 2026-08-30) ---
-// AP/MP fijos para toda unidad — placeholder de balance (mismo criterio que
-// el resto de números de referencia del proyecto): el árbol de
-// habilidades/clases que los variaría por unidad queda fuera de esta
-// pasada (GDD §6, "trabajo posterior, como las recetas de Crafteo").
-const AP_MAX_COMBATE = 3;
-const MP_MAX_COMBATE = 4;
+// PA fijo para toda unidad — placeholder de balance (mismo criterio que el
+// resto de números de referencia del proyecto): el árbol de
+// habilidades/clases que lo variaría por unidad queda fuera de esta
+// pasada (GDD §6, "trabajo posterior, como las recetas de Crafteo"). Un
+// solo pool (§9.3) del que salen mover/atacar/objeto/magia — sustituye al
+// AP+MP separado de la primera pasada.
+export const PA_MAX_COMBATE = 6;
+/** Coste fijo de un golpe con lo que se lleve equipado — placeholder, a afinar cuando exista árbol de habilidades. */
+const COSTE_PA_ATAQUE = 2;
+/** Coste fijo de usar un objeto (personaje:consumir) en el turno propio — mismo criterio que un golpe. */
+const COSTE_PA_OBJETO = 2;
 const LADO_ARENA_NORMAL = 8;
 const LADO_ARENA_BOSS = 10;
 const TOPE_RONDAS_CASCADA_IA = 60; // guarda-raíl: nunca debe hacer falta, pero evita un bucle infinito si algo queda mal configurado
+// Ventana de unión antes de instanciar la arena (docs/GDD_Combate.md §9.1,
+// pedido 2026-08-30) — placeholder de balance, mismo criterio que el resto.
+const VENTANA_UNION_COMBATE_MS = 60_000;
 
 // --- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ---
 // Placeholders de balance — mismo criterio que pesoMaximoTransportable
@@ -148,6 +158,13 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   /** Crafteo en curso por sesión — vive y muere con la sesión (mismo criterio que `inventarios`, fase 2 de Inventario): si el jugador se desconecta a medias, se pierde, aceptable en v1. */
   protected craftesEnCurso = new Map<string, EstadoCrafteo>();
 
+  // --- Combate instanciado (docs/GDD_Combate.md §9.1-9.2) ---
+  /** Timer de cierre de la ventana de unión, por combate — se cancela si "comenzar ya" cierra antes. */
+  private timeoutsVentanaCombate = new Map<string, Delayed>();
+  /** Lo que mandó cada jugador en combate:iniciar/unirse para poder volver EXACTAMENTE de donde salió — vive y muere con el combate, nunca se persiste. */
+  private retornosPendientes = new Map<string, RetornoJugador>();
+  private catalogoArenas?: string[];
+
   protected iniciarMovimiento() {
     this.setState(new HubState());
     this.setPatchRate(1000 / 15);
@@ -224,7 +241,9 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     // Combate táctico por turnos (docs/GDD_Combate.md, ✅ CONFIRMADO
     // 2026-08-30 — sustituye al daño directo simple de GDD_Mecanicas.md
     // §5.4, que queda interino hasta que este camino esté completo).
-    this.onMessage("combate:iniciar", (client, msg: { objetivoId?: string }) => this.manejarCombateIniciar(client, msg));
+    this.onMessage("combate:iniciar", (client, msg: { objetivoId?: string; retorno?: RetornoJugador }) => this.manejarCombateIniciar(client, msg));
+    this.onMessage("combate:unirse", (client, msg: { combateId?: string; retorno?: RetornoJugador }) => this.manejarCombateUnirse(client, msg));
+    this.onMessage("combate:comenzarYa", (client, msg: { combateId?: string }) => this.manejarCombateComenzarYa(client, msg));
     this.onMessage("combate:mover", (client, msg: { combateId?: string; gx?: number; gy?: number }) => this.manejarCombateMover(client, msg));
     this.onMessage("combate:accion", (client, msg: { combateId?: string; objetivoId?: string }) => this.manejarCombateAccion(client, msg));
     this.onMessage("combate:pasarTurno", (client, msg: { combateId?: string }) => this.manejarCombatePasarTurno(client, msg));
@@ -383,6 +402,20 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor || typeof msg?.instanciaId !== "number") return;
 
+    // Dentro de un combate activo, "objetos" es una acción de turno más
+    // (docs/GDD_Combate.md §9.3): solo en el turno propio, cuesta PA como
+    // cualquier otra. Fuera de combate, sin cambios (como siempre).
+    const enCombate = this.combatePorUnidad(client.sessionId);
+    let unidadCombate: CombateUnidad | null = null;
+    if (enCombate) {
+      const [, combate] = enCombate;
+      if (combate.ordenTurnos[combate.turnoActual] !== client.sessionId) {
+        return client.send("personaje:error", { motivo: "no es tu turno" });
+      }
+      unidadCombate = combate.unidades.get(client.sessionId)!;
+      if (unidadCombate.pa < COSTE_PA_OBJETO) return client.send("personaje:error", { motivo: "sin PA suficiente" });
+    }
+
     const it = contenedor.items.find((i) => i.id === msg.instanciaId);
     if (!it) return client.send("personaje:error", { motivo: "no_encontrado" });
     const entrada = this.catalogoItems[it.itemId];
@@ -393,6 +426,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const resultado = quitarItem(contenedor, msg.instanciaId, 1);
     if (!resultado.ok) return client.send("personaje:error", { motivo: resultado.motivo ?? "no_encontrado" });
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (unidadCombate) unidadCombate.pa -= COSTE_PA_OBJETO;
 
     // "vida" NO vive en player.vitales (docs/GDD_Mecanicas.md §5.4:
     // Player.vida/vidaMax es la única fuente de HP) — se cura con la MISMA
@@ -1745,7 +1779,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     return {
       id: cu.id, esJugador: cu.esJugador, bando: cu.bando as Bando,
       gx: cu.gx, gy: cu.gy, hp: cu.hp, hpMax: cu.hpMax,
-      ap: cu.ap, apMax: cu.apMax, mp: cu.mp, mpMax: cu.mpMax,
+      pa: cu.pa, paMax: cu.paMax,
       iniciativa: cu.iniciativa, estado: cu.estado as UnidadCombate["estado"],
       ataqueFisico: cu.ataqueFisico, defensaFisica: cu.defensaFisica, alcance: cu.alcance,
     };
@@ -1756,7 +1790,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     for (const u of unidades) {
       const cu = combate.unidades.get(u.id);
       if (!cu) continue;
-      cu.gx = u.gx; cu.gy = u.gy; cu.hp = u.hp; cu.ap = u.ap; cu.mp = u.mp; cu.estado = u.estado;
+      cu.gx = u.gx; cu.gy = u.gy; cu.hp = u.hp; cu.pa = u.pa; cu.estado = u.estado;
       this.aplicarVida(u.id, u.hp); // el estado "real" (Player/Fauna/Npc/Enemigo) es la fuente de verdad fuera del combate
     }
   }
@@ -1780,7 +1814,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     return { gx0, gy0, arena: { ancho: lado, alto: lado, obstaculos } };
   }
 
-  private crearUnidadCombate(
+  protected crearUnidadCombate(
     id: string,
     bando: Bando,
     gx: number,
@@ -1795,8 +1829,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     cu.gy = Math.max(0, Math.round(gy));
     cu.hp = stats.hp;
     cu.hpMax = stats.hpMax;
-    cu.ap = AP_MAX_COMBATE; cu.apMax = AP_MAX_COMBATE;
-    cu.mp = MP_MAX_COMBATE; cu.mpMax = MP_MAX_COMBATE;
+    cu.pa = PA_MAX_COMBATE; cu.paMax = PA_MAX_COMBATE;
     cu.iniciativa = calcularIniciativa(10, Math.random);
     cu.estado = "activo";
     cu.ataqueFisico = stats.ataque;
@@ -1805,23 +1838,50 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     return cu;
   }
 
-  private manejarCombateIniciar(client: Client, msg: { objetivoId?: string }) {
+  /**
+   * Especie es "peligrosa" para efectos de auto-unión a un combate cercano
+   * (docs/GDD_Combate.md §9.1) — por defecto nadie (una room sin catálogo de
+   * fauna salvaje cargado, p.ej. un interior, no auto-une nada); HubRoom lo
+   * sobreescribe con su `catalogoCombate` real.
+   */
+  protected faunaEsPeligrosa(_especieId: string): boolean {
+    return false;
+  }
+
+  /** Hook para cuando un combate de ESTA room se resuelve (bando entero caído/huido) — no-op por defecto; ArenaCombateRoom lo usa para teleportar de vuelta y propagar resultados. */
+  protected onCombateResuelto(_combateId: string, _combate: CombateSchema): void {}
+
+  /** Quita el marcador de "combate en curso" de esta room — lo llama la room de arena, vía matchMaker, cuando el combate termina (docs/GDD_Combate.md §9.2). */
+  public quitarMarcadorCombate(combateId: string) {
+    this.state.combatesEnCurso.delete(combateId);
+  }
+
+  /** Aplica el resultado final de un combatiente NO-jugador que peleó en una arena aparte, sobre SU entidad real en esta room (docs/GDD_Combate.md §9.2) — mismo efecto que si hubiera muerto/sobrevivido aquí mismo. */
+  public async aplicarResultadoRemoto(id: string, hp: number, estadoFinal: "activo" | "caido" | "huido") {
+    this.aplicarVida(id, hp);
+    if (estadoFinal === "caido") await this.finalizarMuerte(id);
+  }
+
+  private manejarCombateIniciar(client: Client, msg: { objetivoId?: string; retorno?: RetornoJugador }) {
     const atacanteId = client.sessionId;
     const atacante = this.state.players.get(atacanteId);
     if (!atacante || !msg?.objetivoId || msg.objetivoId === atacanteId) return;
     if (this.combatePorUnidad(atacanteId)) return client.send("combate:error", { motivo: "ya estás en combate" });
+    if (msg.retorno) this.retornosPendientes.set(atacanteId, msg.retorno);
 
-    // Si el objetivo ya está en un combate activo, únete a ese bando contrario (co-op, GDD §1).
+    // Si el objetivo ya está en un combate (co-op, GDD §1) — únete a ese
+    // bando contrario. Si sigue "pendiente" (ventana de unión abierta,
+    // §9.1) no hace falta tocar ordenTurnos: se recalcula entero al cerrar.
     const existente = this.combatePorUnidad(msg.objetivoId);
     if (existente) {
-      const [combateId, combate] = existente;
+      const [, combate] = existente;
       const objetivoUnidad = combate.unidades.get(msg.objetivoId)!;
       const bandoPropio: Bando = objetivoUnidad.bando === "A" ? "B" : "A";
       const cu = this.crearUnidadCombate(atacanteId, bandoPropio, atacante.x - combate.gx0, atacante.y - combate.gy0, {
         hp: atacante.vida, hpMax: atacante.vidaMax, ataque: atacante.ataque, defensa: atacante.defensa, esJugador: true,
       });
       combate.unidades.set(atacanteId, cu);
-      combate.ordenTurnos.push(atacanteId);
+      if (combate.fase === "activo") combate.ordenTurnos.push(atacanteId);
       return;
     }
 
@@ -1848,15 +1908,120 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     combate.unidades.set(atacanteId, uAtacante);
     combate.unidades.set(msg.objetivoId, uObjetivo);
 
-    for (const id of ordenarTurnos([this.unidadDesdeSchema(uAtacante), this.unidadDesdeSchema(uObjetivo)])) {
-      combate.ordenTurnos.push(id);
-    }
-    combate.turnoActual = 0;
+    // Ventana de unión (docs/GDD_Combate.md §9.1) — NO se resuelve nada
+    // todavía: ordenTurnos se queda vacío hasta cerrarVentanaCombate.
+    combate.fase = "pendiente";
+    combate.cierraEn = Date.now() + VENTANA_UNION_COMBATE_MS;
 
     const combateId = `combate:${atacanteId}:${Date.now()}`;
     this.state.combates.set(combateId, combate);
+    this.timeoutsVentanaCombate.set(combateId, this.clock.setTimeout(() => this.cerrarVentanaCombate(combateId), VENTANA_UNION_COMBATE_MS));
+  }
 
-    void this.avanzarTurnosIA(combateId); // por si el objetivo tiene más iniciativa y le toca a él primero
+  /** Unirse al bando del jugador que empezó el combate, mientras la ventana de unión sigue abierta (docs/GDD_Combate.md §9.1). */
+  private manejarCombateUnirse(client: Client, msg: { combateId?: string; retorno?: RetornoJugador }) {
+    const jugadorId = client.sessionId;
+    const jugador = this.state.players.get(jugadorId);
+    if (!jugador || !msg?.combateId) return;
+    if (this.combatePorUnidad(jugadorId)) return client.send("combate:error", { motivo: "ya estás en combate" });
+
+    const combate = this.state.combates.get(msg.combateId);
+    if (!combate || combate.fase !== "pendiente") return client.send("combate:error", { motivo: "no se puede unir ahora" });
+
+    const origenX = combate.gx0 + combate.ancho / 2, origenY = combate.gy0 + combate.alto / 2;
+    if (Math.hypot(jugador.x - origenX, jugador.y - origenY) > RADIO_INTERACCION) {
+      return client.send("combate:error", { motivo: "demasiado lejos" });
+    }
+
+    if (msg.retorno) this.retornosPendientes.set(jugadorId, msg.retorno);
+    const cu = this.crearUnidadCombate(jugadorId, "A", jugador.x - combate.gx0, jugador.y - combate.gy0, {
+      hp: jugador.vida, hpMax: jugador.vidaMax, ataque: jugador.ataque, defensa: jugador.defensa, esJugador: true,
+    });
+    combate.unidades.set(jugadorId, cu);
+  }
+
+  /** Cualquier participante ya apuntado puede saltarse lo que quede de la ventana de unión (docs/GDD_Combate.md §9.1). */
+  private manejarCombateComenzarYa(client: Client, msg: { combateId?: string }) {
+    if (!msg?.combateId) return;
+    const combate = this.state.combates.get(msg.combateId);
+    if (!combate || combate.fase !== "pendiente") return;
+    if (!combate.unidades.has(client.sessionId)) return client.send("combate:error", { motivo: "no eres participante" });
+
+    this.timeoutsVentanaCombate.get(msg.combateId)?.clear();
+    this.timeoutsVentanaCombate.delete(msg.combateId);
+    this.cerrarVentanaCombate(msg.combateId);
+  }
+
+  /**
+   * Cierra la ventana de unión (por timeout o "comenzar ya"): auto-une
+   * fauna/enemigos cercanos hostiles, calcula el roster final y lo pasa a
+   * la arena instanciada (docs/GDD_Combate.md §9.1-9.2) — NUNCA resuelve
+   * turnos aquí mismo, eso ya es trabajo de la room de arena.
+   */
+  private cerrarVentanaCombate(combateId: string) {
+    const combate = this.state.combates.get(combateId);
+    if (!combate || combate.fase !== "pendiente") return;
+    this.timeoutsVentanaCombate.delete(combateId);
+
+    const origenX = combate.gx0 + combate.ancho / 2, origenY = combate.gy0 + combate.alto / 2;
+
+    // Auto-unión: Enemigo de mazmorra SIEMPRE (son hostiles por definición),
+    // Fauna solo si la room sabe que es peligrosa (HubRoom, catalogoCombate).
+    for (const [id, e] of this.state.enemigos.entries()) {
+      if (combate.unidades.has(id)) continue;
+      if (Math.hypot(e.x - origenX, e.y - origenY) > RADIO_INTERACCION) continue;
+      const stats = this.statsCombatiente(id)!;
+      combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
+    }
+    for (const [id, f] of this.state.fauna.entries()) {
+      if (combate.unidades.has(id) || !this.faunaEsPeligrosa(f.especieId)) continue;
+      if (Math.hypot(f.x - origenX, f.y - origenY) > RADIO_INTERACCION) continue;
+      const stats = this.statsCombatiente(id)!;
+      combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
+    }
+
+    // Roster para la room de arena — la fuente de verdad de este combate
+    // deja de ser esta room a partir de aquí.
+    const participantes: RosterArena["participantes"] = [];
+    for (const u of combate.unidades.values()) {
+      if (u.esJugador) {
+        participantes.push({
+          id: u.id, bando: u.bando as Bando, esJugador: true,
+          hp: u.hp, hpMax: u.hpMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
+          nombreJugador: this.state.players.get(u.id)?.name,
+          retorno: this.retornosPendientes.get(u.id),
+        });
+        this.retornosPendientes.delete(u.id);
+      } else {
+        const esEnemigo = this.state.enemigos.has(u.id);
+        const base = {
+          id: u.id, bando: u.bando as Bando, esJugador: false,
+          hp: u.hp, hpMax: u.hpMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
+        };
+        if (esEnemigo) {
+          const e = this.state.enemigos.get(u.id)!;
+          participantes.push({ ...base, tipoEntidad: "enemigo", enemigoId: e.enemigoId, variante: e.variante, esBoss: e.esBoss });
+        } else {
+          const f = this.state.fauna.get(u.id);
+          participantes.push({ ...base, tipoEntidad: "fauna", especieId: f?.especieId ?? "" });
+        }
+      }
+    }
+
+    if (!this.catalogoArenas) this.catalogoArenas = cargarCatalogoArenas();
+    const mapaArenaId = elegirArena(combateId, this.catalogoArenas);
+    registrarRosterArena(combateId, { mapaArenaId, participantes, origenRoomId: this.roomId });
+
+    const marcador = new MarcadorCombateSchema();
+    marcador.x = origenX; marcador.y = origenY;
+    this.state.combatesEnCurso.set(combateId, marcador);
+    this.state.combates.delete(combateId); // el combate se va a la room de arena — esta room ya no lo resuelve
+
+    for (const p of participantes) {
+      if (!p.esJugador) continue;
+      const c = this.clients.find((cl) => cl.sessionId === p.id);
+      c?.send("portal:ir", { tipo: "combate", combateId, mapaArenaId });
+    }
   }
 
   private manejarCombateMover(client: Client, msg: { combateId?: string; gx?: number; gy?: number }) {
@@ -1873,10 +2038,10 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     for (const otra of combate.unidades.values()) {
       if (otra.id !== cu.id && otra.estado === "activo") ocupadas.add(`${otra.gx},${otra.gy}`);
     }
-    const coste = costeCasilla(arena, { gx: cu.gx, gy: cu.gy }, { gx: msg.gx, gy: msg.gy }, cu.mp, ocupadas);
-    if (coste === null) return client.send("combate:error", { motivo: "casilla no alcanzable con tu MP" });
+    const coste = costeCasilla(arena, { gx: cu.gx, gy: cu.gy }, { gx: msg.gx, gy: msg.gy }, cu.pa, ocupadas);
+    if (coste === null) return client.send("combate:error", { motivo: "casilla no alcanzable con tu PA" });
 
-    cu.gx = msg.gx; cu.gy = msg.gy; cu.mp -= coste;
+    cu.gx = msg.gx; cu.gy = msg.gy; cu.pa -= coste;
   }
 
   private async manejarCombateAccion(client: Client, msg: { combateId?: string; objetivoId?: string }) {
@@ -1888,14 +2053,14 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const atacante = combate.unidades.get(client.sessionId);
     const objetivo = combate.unidades.get(msg.objetivoId);
     if (!atacante || atacante.estado !== "activo" || !objetivo || objetivo.estado !== "activo") return;
-    if (atacante.ap < 1) return client.send("combate:error", { motivo: "sin AP suficiente" });
+    if (atacante.pa < COSTE_PA_ATAQUE) return client.send("combate:error", { motivo: "sin PA suficiente" });
     if (!enAlcance(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo))) {
       return client.send("combate:error", { motivo: "fuera de alcance" });
     }
 
     const actualizado = resolverAtaque(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo));
     this.aplicarUnidadesASchema(combate, [actualizado]);
-    atacante.ap -= 1;
+    atacante.pa -= COSTE_PA_ATAQUE;
 
     if (await this.comprobarFinDeCombate(msg.combateId)) return;
     void this.avanzarTurnosIA(msg.combateId);
@@ -1926,20 +2091,20 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     void this.avanzarTurnosIA(msg.combateId);
   }
 
-  /** Avanza turnoActual (con vuelta); al dar la vuelta completa regenera AP/MP de las unidades activas. */
+  /** Avanza turnoActual (con vuelta); al dar la vuelta completa regenera PA de las unidades activas. */
   private avanzarTurno(combate: CombateSchema) {
     if (combate.ordenTurnos.length === 0) return;
     const anterior = combate.turnoActual;
     combate.turnoActual = (combate.turnoActual + 1) % combate.ordenTurnos.length;
     if (combate.turnoActual <= anterior) {
       for (const cu of combate.unidades.values()) {
-        if (cu.estado === "activo") { cu.ap = cu.apMax; cu.mp = cu.mpMax; }
+        if (cu.estado === "activo") cu.pa = cu.paMax;
       }
     }
   }
 
   /** Resuelve automáticamente los turnos de fauna/enemigo/npc en cascada hasta que le toque a un jugador o el combate termine. */
-  private async avanzarTurnosIA(combateId: string) {
+  protected async avanzarTurnosIA(combateId: string) {
     for (let ronda = 0; ronda < TOPE_RONDAS_CASCADA_IA; ronda++) {
       const combate = this.state.combates.get(combateId);
       if (!combate || combate.ordenTurnos.length === 0) return;
@@ -1981,6 +2146,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
       if (cu.estado === "caido") await this.finalizarMuerte(cu.id);
     }
     if (this.bandoTerminado(combate, "A") || this.bandoTerminado(combate, "B")) {
+      this.onCombateResuelto(combateId, combate);
       this.state.combates.delete(combateId);
       return true;
     }

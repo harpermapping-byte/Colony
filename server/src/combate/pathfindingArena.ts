@@ -38,19 +38,20 @@ const VECINOS_8 = [
 ];
 
 /**
- * BFS acotado por `mp` (puntos de movimiento restantes, coste 1 por paso
- * incluida diagonal — mismo criterio Chebyshev que el alcance) — devuelve
- * el conjunto de casillas alcanzables (sin contar la de origen), evitando
- * obstáculos y casillas ocupadas por otra unidad. 64/100 casillas máximo:
- * trivial en coste, se recalcula en cada `combate:mover`/cambio de turno,
- * nunca cacheado (la ocupación cambia cada turno).
+ * BFS acotado por `pa` (Puntos de Acción restantes — recurso ÚNICO de turno,
+ * docs/GDD_Combate.md §9.3 — coste 1 por paso incluida diagonal, mismo
+ * criterio Chebyshev que el alcance) — devuelve el conjunto de casillas
+ * alcanzables (sin contar la de origen), evitando obstáculos y casillas
+ * ocupadas por otra unidad. 64/100 casillas máximo: trivial en coste, se
+ * recalcula en cada `combate:mover`/cambio de turno, nunca cacheado (la
+ * ocupación cambia cada turno).
  */
-export function casillasAlcanzables(arena: Arena, origen: Casilla, mp: number, ocupadas: Set<string> = new Set()): Set<string> {
+export function casillasAlcanzables(arena: Arena, origen: Casilla, pa: number, ocupadas: Set<string> = new Set()): Set<string> {
   const alcanzables = new Set<string>();
-  if (mp <= 0) return alcanzables;
+  if (pa <= 0) return alcanzables;
   let frontera: Casilla[] = [origen];
   const visitado = new Set<string>([clave(origen)]);
-  for (let paso = 0; paso < mp; paso++) {
+  for (let paso = 0; paso < pa; paso++) {
     const siguiente: Casilla[] = [];
     for (const c of frontera) {
       for (const [dx, dy] of VECINOS_8) {
@@ -70,17 +71,17 @@ export function casillasAlcanzables(arena: Arena, origen: Casilla, mp: number, o
 
 /**
  * Coste real (en pasos, BFS) de ir de `origen` a `destino`, o `null` si no
- * es alcanzable con `mp` pasos como mucho — usa el MISMO BFS que
+ * es alcanzable con `pa` pasos como mucho — usa el MISMO BFS que
  * `casillasAlcanzables` (coherentes entre sí), pero devuelve la distancia
- * en vez del conjunto entero. Lo usa `combate:mover` para descontar el MP
+ * en vez del conjunto entero. Lo usa `combate:mover` para descontar el PA
  * gastado de verdad, no una aproximación en línea recta.
  */
-export function costeCasilla(arena: Arena, origen: Casilla, destino: Casilla, mp: number, ocupadas: Set<string> = new Set()): number | null {
+export function costeCasilla(arena: Arena, origen: Casilla, destino: Casilla, pa: number, ocupadas: Set<string> = new Set()): number | null {
   if (origen.gx === destino.gx && origen.gy === destino.gy) return 0;
   let frontera: Casilla[] = [origen];
   const visitado = new Set<string>([clave(origen)]);
   const destinoClave = clave(destino);
-  for (let paso = 1; paso <= mp; paso++) {
+  for (let paso = 1; paso <= pa; paso++) {
     const siguiente: Casilla[] = [];
     for (const c of frontera) {
       for (const [dx, dy] of VECINOS_8) {
