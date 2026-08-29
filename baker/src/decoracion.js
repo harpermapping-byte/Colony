@@ -120,6 +120,12 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
       // procesaba decoración: nada de vida marina podía existir nunca.
       if (opciones.esAgua) {
         if (!datos.requiereAgua) continue;
+        // Peces de río/lago (requiereAguaDulce) solo en agua dulce de
+        // verdad, nunca en mar — y viceversa, peces de mar (sin el flag)
+        // nunca en un río/lago (pedido 2026-08-29: "peces de rio peces de
+        // mar salada de lagos" como pools distintos, no todo mezclado).
+        if (datos.requiereAguaDulce && !opciones.aguaDulce) continue;
+        if (!datos.requiereAguaDulce && opciones.aguaDulce) continue;
       } else {
         if (datos.requiereAgua) continue;
         if (datos.requiereCercaAgua && !opciones.cercaAgua) continue;
@@ -190,7 +196,7 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         // un bug (la gente PISA por aquí a diario, nada crece ni anida).
         if (celda.esCamino) continue;
 
-        const opciones = { esAgua: !!celda.esAgua, cercaAgua: celda.cercaAgua };
+        const opciones = { esAgua: !!celda.esAgua, aguaDulce: !!celda.aguaDulce, cercaAgua: celda.cercaAgua };
         const veg = objetosEnCasilla(catalogoVegetacion, celda.bioma, celda.banda, x, y, prng, opciones);
         const roc = objetosEnCasilla(catalogoRocas, celda.bioma, celda.banda, x, y, prng, opciones);
         const fauna = objetosEnCasilla(catalogoAnimales, celda.bioma, celda.banda, x, y, prng, opciones);

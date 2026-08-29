@@ -117,7 +117,9 @@ Primer boceto de qué estadísticas tiene un jugador (el streamer las dio, aquí
 
 **Pendiente de definir cuando toque**: fórmulas concretas (cómo pasa Fuerza a Peso transportable, cómo pasan Destreza/Inteligencia a bonus de ataque/defensa), slots de equipo (¿cabeza/torso/piernas/brazos, mismos pivotes que ya usa `rigHumanoide.ts` y cuelga `ropa/`?), curva de progresión, y penalizaciones por vitales a 0 (¿morir de hambre de verdad, o solo penalización dura?).
 
-## Inventario, contenedores y objetos en el mundo — esqueleto ya estructurado, sin diseñar la interfaz
+## Inventario, contenedores y objetos en el mundo — fase 1 CONSTRUIDA (catálogo + servidor + persistencia), interfaz y "coger del mundo" sin diseñar
+
+**Actualización 2026-08-29**: catálogo (`items/catalogo/items.json`, 55 ítems), lógica de rejilla pura (`server/src/inventario/inventario.ts`, 15 tests), persistencia dual SQLite/Postgres (`inventarios`/`equipo` en `server/src/datos/bd.ts`, 13 tests) y Schema de Colyseus (`Player.inventario` en `HubState.ts`) ya construidos y verificados — contrato completo en `docs/GDD_Inventario.md`. Varias de las preguntas "pendiente" de abajo ya se resolvieron ahí (rejilla independiente por contenedor, no anidada; rotación 0/1, no 0/90/180/270). Lo que sigue abierto: la interfaz de cliente (fase 3) y "coger del mundo"/soltar (fase 2) — ver GDD §7 para el desglose exacto.
 
 Concepto decidido por el streamer, estilo Project Zomboid:
 

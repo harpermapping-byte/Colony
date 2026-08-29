@@ -1,0 +1,274 @@
+/**
+ * Lógica de inventario — PURA (sin Colyseus ni fs, salvo cargarCatalogoItems)
+ * para testearla sola, mismo patrón que construccion.ts/mundo/colisiones.ts.
+ * Implementa el concepto ya cerrado en docs/Backlog_Mecanicas_Futuras.md
+ * ("Inventario, contenedores y objetos en el mundo"):
+ *
+ *   - Rejilla tipo "tetris": cada ítem tiene una huella 2D real que hay que
+ *     encajar, no una lista con cantidad.
+ *   - Peso y espacio son EJES DISTINTOS: el peso cuenta contra el "peso
+ *     transportable" (ligado a Fuerza); la huella cuenta contra el hueco
+ *     físico de la rejilla — independientes entre sí.
+ *   - Contenedores anidados: un ítem puede declarar `esContenedor` en el
+ *     catálogo (items/catalogo/items.json) — al equiparse, su rejilla se
+ *     suma como un Contenedor MÁS, independiente del cuerpo (decisión de
+ *     esta fase, ver GDD_Inventario.md — el backlog lo dejaba abierto).
+ *
+ * Rotación: solo 0/1 (no 0/90/180/270) — una rejilla cuadrada de casillas no
+ * gana nada con 180°/270° sobre 0°/90° (misma huella resultante), así que
+ * dos estados bastan y simplifican la ocupación.
+ */
+
+import * as fs from "node:fs";
+import * as path from "node:path";
+
+export type TipoItem = "recurso" | "equipable" | "herramienta" | "consumible";
+
+export interface EntradaCatalogoItem {
+  tipo: TipoItem;
+  categoriaRecurso?: string;
+  slotEquipo?: string;
+  huella: [number, number];
+  peso: number;
+  apilable: boolean;
+  stackMax?: number;
+  esContenedor?: { ancho: number; alto: number };
+  variantes: number;
+  colorDebug: string;
+}
+
+export type CatalogoItems = Record<string, EntradaCatalogoItem>;
+
+export type Rotacion = 0 | 1;
+
+export interface ItemInstancia {
+  /** id de instancia ÚNICO dentro del contenedor (no de catálogo) — se reasigna al mover entre contenedores. */
+  id: number;
+  itemId: string;
+  cantidad: number;
+  x: number;
+  y: number;
+  rot: Rotacion;
+}
+
+export interface Contenedor {
+  ancho: number;
+  alto: number;
+  items: ItemInstancia[];
+  /** siguiente id de instancia a repartir dentro de ESTE contenedor — nunca se reutiliza tras borrar. */
+  siguienteId: number;
+}
+
+const RUTA_CATALOGO_DEFECTO = path.join(__dirname, "..", "..", "..", "items", "catalogo", "items.json");
+
+/** Carga items/catalogo/items.json (filtra claves "_nota*", igual que el resto de catálogos del proyecto). */
+export function cargarCatalogoItems(ruta: string = RUTA_CATALOGO_DEFECTO): CatalogoItems {
+  const bruto = JSON.parse(fs.readFileSync(ruta, "utf8")) as Record<string, unknown>;
+  const catalogo: CatalogoItems = {};
+  for (const [id, datos] of Object.entries(bruto)) {
+    if (id.startsWith("_")) continue;
+    catalogo[id] = datos as EntradaCatalogoItem;
+  }
+  return catalogo;
+}
+
+export function crearContenedor(ancho: number, alto: number): Contenedor {
+  return { ancho, alto, items: [], siguienteId: 1 };
+}
+
+/** Huella ya rotada: rot=1 intercambia ancho/alto (giro de 90°). */
+export function huellaRotada(huella: [number, number], rot: Rotacion): [number, number] {
+  return rot === 1 ? [huella[1], huella[0]] : [huella[0], huella[1]];
+}
+
+/** Casillas [x,y] que ocupa un ítem con esa huella ya rotada, ancladas en (x0,y0) = esquina superior izquierda. */
+function casillasDe(x0: number, y0: number, huella: [number, number]): Array<[number, number]> {
+  const [w, h] = huella;
+  const casillas: Array<[number, number]> = [];
+  for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) casillas.push([x0 + dx, y0 + dy]);
+  return casillas;
+}
+
+/**
+ * ¿Cabe un ítem con esta huella/rot en (x,y) del contenedor? Comprueba
+ * límites de la rejilla Y solapamiento con instancias YA colocadas.
+ * `ignorarId` excluye una instancia del chequeo (para mover/rotar la MISMA
+ * pieza sin que choque consigo misma).
+ */
+export function hayHueco(
+  contenedor: Contenedor,
+  catalogo: CatalogoItems,
+  itemId: string,
+  x: number,
+  y: number,
+  rot: Rotacion,
+  ignorarId?: number
+): boolean {
+  const entrada = catalogo[itemId];
+  if (!entrada) return false;
+  const [w, h] = huellaRotada(entrada.huella, rot);
+  if (x < 0 || y < 0 || x + w > contenedor.ancho || y + h > contenedor.alto) return false;
+
+  const ocupadas = new Set<string>();
+  for (const it of contenedor.items) {
+    if (it.id === ignorarId) continue;
+    const datosIt = catalogo[it.itemId];
+    if (!datosIt) continue;
+    for (const [cx, cy] of casillasDe(it.x, it.y, huellaRotada(datosIt.huella, it.rot))) ocupadas.add(`${cx}_${cy}`);
+  }
+  for (const [cx, cy] of casillasDe(x, y, [w, h])) {
+    if (ocupadas.has(`${cx}_${cy}`)) return false;
+  }
+  return true;
+}
+
+/** Primer hueco libre escaneando fila a fila (izquierda→derecha, arriba→abajo) — determinista, no aleatorio. */
+export function buscarHueco(
+  contenedor: Contenedor,
+  catalogo: CatalogoItems,
+  itemId: string,
+  rot: Rotacion = 0
+): { x: number; y: number } | null {
+  for (let y = 0; y < contenedor.alto; y++) {
+    for (let x = 0; x < contenedor.ancho; x++) {
+      if (hayHueco(contenedor, catalogo, itemId, x, y, rot)) return { x, y };
+    }
+  }
+  return null;
+}
+
+export interface ResultadoAgregar {
+  ok: boolean;
+  motivo?: "sin_hueco" | "item_desconocido";
+  instancia?: ItemInstancia;
+}
+
+/**
+ * Añade `cantidad` unidades de itemId al contenedor. Si es apilable, intenta
+ * primero sumarse a una pila YA existente con hueco (hasta stackMax) antes
+ * de abrir una casilla nueva — mismo criterio "encajar antes que expandir"
+ * de cualquier inventario en rejilla real. Si sobra cantidad tras llenar una
+ * pila, abre pilas nuevas hasta que quepa o se quede sin hueco (entonces
+ * devuelve ok:false con lo que SÍ entró ya aplicado — nunca a medias sin
+ * decírselo a quien llama).
+ */
+export function agregarItem(contenedor: Contenedor, catalogo: CatalogoItems, itemId: string, cantidad: number): ResultadoAgregar {
+  const entrada = catalogo[itemId];
+  if (!entrada) return { ok: false, motivo: "item_desconocido" };
+
+  let restante = cantidad;
+  let ultimaInstancia: ItemInstancia | undefined;
+
+  if (entrada.apilable) {
+    const tope = entrada.stackMax ?? Infinity;
+    for (const it of contenedor.items) {
+      if (restante <= 0) break;
+      if (it.itemId !== itemId || it.cantidad >= tope) continue;
+      const suma = Math.min(tope - it.cantidad, restante);
+      it.cantidad += suma;
+      restante -= suma;
+      ultimaInstancia = it;
+    }
+  }
+
+  while (restante > 0) {
+    const hueco = buscarHueco(contenedor, catalogo, itemId);
+    if (!hueco) return { ok: false, motivo: "sin_hueco", instancia: ultimaInstancia };
+    const enEstaPila = entrada.apilable ? Math.min(entrada.stackMax ?? Infinity, restante) : 1;
+    const instancia: ItemInstancia = {
+      id: contenedor.siguienteId++,
+      itemId,
+      cantidad: enEstaPila,
+      x: hueco.x,
+      y: hueco.y,
+      rot: 0,
+    };
+    contenedor.items.push(instancia);
+    restante -= enEstaPila;
+    ultimaInstancia = instancia;
+  }
+  return { ok: true, instancia: ultimaInstancia };
+}
+
+export interface ResultadoQuitar {
+  ok: boolean;
+  motivo?: "no_encontrado" | "cantidad_insuficiente";
+}
+
+/** Quita `cantidad` de una instancia concreta (por id de INSTANCIA, no de catálogo) — la borra si llega a 0. */
+export function quitarItem(contenedor: Contenedor, instanciaId: number, cantidad: number): ResultadoQuitar {
+  const idx = contenedor.items.findIndex((it) => it.id === instanciaId);
+  if (idx === -1) return { ok: false, motivo: "no_encontrado" };
+  const it = contenedor.items[idx];
+  if (it.cantidad < cantidad) return { ok: false, motivo: "cantidad_insuficiente" };
+  it.cantidad -= cantidad;
+  if (it.cantidad === 0) contenedor.items.splice(idx, 1);
+  return { ok: true };
+}
+
+export interface ResultadoMover {
+  ok: boolean;
+  motivo?: "no_encontrado" | "sin_hueco";
+}
+
+/**
+ * Mueve una instancia dentro del MISMO contenedor (reposicionar/rotar) o a
+ * OTRO contenedor (cuerpo -> mochila, por ejemplo) — mismo caso, destino
+ * puede ser el mismo objeto que origen. Todo o nada: si no cabe, no toca
+ * nada (ni borra del origen).
+ */
+export function moverItem(
+  origen: Contenedor,
+  destino: Contenedor,
+  catalogo: CatalogoItems,
+  instanciaId: number,
+  xDestino: number,
+  yDestino: number,
+  rotDestino: Rotacion
+): ResultadoMover {
+  const it = origen.items.find((i) => i.id === instanciaId);
+  if (!it) return { ok: false, motivo: "no_encontrado" };
+  // ignorarId solo tiene sentido si origen === destino (misma instancia ya colocada ahí)
+  const ignorar = origen === destino ? instanciaId : undefined;
+  if (!hayHueco(destino, catalogo, it.itemId, xDestino, yDestino, rotDestino, ignorar)) {
+    return { ok: false, motivo: "sin_hueco" };
+  }
+  if (origen !== destino) {
+    origen.items.splice(origen.items.indexOf(it), 1);
+    it.id = destino.siguienteId++;
+    destino.items.push(it);
+  }
+  it.x = xDestino;
+  it.y = yDestino;
+  it.rot = rotDestino;
+  return { ok: true };
+}
+
+/** Peso total de lo que hay dentro de un contenedor (suma peso_unitario * cantidad de cada instancia). */
+export function pesoContenedor(contenedor: Contenedor, catalogo: CatalogoItems): number {
+  let total = 0;
+  for (const it of contenedor.items) {
+    const entrada = catalogo[it.itemId];
+    if (entrada) total += entrada.peso * it.cantidad;
+  }
+  return Math.round(total * 100) / 100;
+}
+
+/**
+ * Fórmula PLACEHOLDER de peso transportable a partir de Fuerza (backlog
+ * "Sistema de personaje": la fórmula real está sin cerrar) — lineal simple,
+ * documentado como el primer valor de referencia a afinar, no una decisión
+ * cerrada. 20kg base + 4kg por punto de Fuerza.
+ */
+export function pesoMaximoTransportable(fuerza: number): number {
+  return 20 + fuerza * 4;
+}
+
+export interface SlotsEquipo {
+  [slot: string]: string | undefined; // slot -> itemId equipado (undefined = vacío)
+}
+
+/** ¿Puede equiparse este ítem en este slot? Solo comprueba que el catálogo declare ESE slot para ese ítem. */
+export function puedeEquiparEnSlot(catalogo: CatalogoItems, itemId: string, slot: string): boolean {
+  return catalogo[itemId]?.slotEquipo === slot;
+}

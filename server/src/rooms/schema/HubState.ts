@@ -1,4 +1,36 @@
-import { Schema, MapSchema, type } from "@colyseus/schema";
+import { Schema, MapSchema, ArraySchema, type } from "@colyseus/schema";
+
+// Inventario (docs/Backlog_Mecanicas_Futuras.md "Inventario, contenedores y
+// objetos en el mundo", pedido 2026-08-29 fase 1: catálogo + servidor +
+// persistencia). Espejo de red de server/src/inventario/inventario.ts
+// (Contenedor/ItemInstancia) — esa lógica es la fuente de verdad PURA
+// (testeada sola, sin Colyseus); este Schema es solo cómo viaja al cliente.
+// Servidor autoritativo, cliente solo predice/muestra (ya decidido).
+export class ItemInstanciaSchema extends Schema {
+  @type("number") id = 0; // id de INSTANCIA dentro de su contenedor, no de catálogo
+  @type("string") itemId = ""; // id de items/catalogo/items.json
+  @type("number") cantidad = 1;
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("int8") rot: 0 | 1 = 0; // 0 o 1 (90°) — rejilla cuadrada, 180/270 no aportan nada nuevo
+}
+
+export class ContenedorSchema extends Schema {
+  @type("number") ancho = 0;
+  @type("number") alto = 0;
+  @type([ItemInstanciaSchema]) items = new ArraySchema<ItemInstanciaSchema>();
+}
+
+// Un jugador SIEMPRE tiene `cuerpo` (rejilla base). `extras` son contenedores
+// adicionales de ítems equipados que declaran `esContenedor` en el catálogo
+// (mochila, bolsa de cinturón...) — cada uno con su PROPIA rejilla,
+// independiente de la del cuerpo (decisión de esta fase, no anidada).
+// `equipo` es slot con nombre -> itemId equipado, no una rejilla.
+export class InventarioSchema extends Schema {
+  @type(ContenedorSchema) cuerpo = new ContenedorSchema();
+  @type({ map: ContenedorSchema }) extras = new MapSchema<ContenedorSchema>();
+  @type({ map: "string" }) equipo = new MapSchema<string>();
+}
 
 export class Player extends Schema {
   // posición en CASILLAS del mapa bakeado (float; 1 casilla = 1 unidad de
@@ -10,6 +42,7 @@ export class Player extends Schema {
   @type("string") estado = "tierra";
   // nivel de profundidad al bucear: 0 superficie, -1, -2 (solo en agua)
   @type("int8") nivel = 0;
+  @type(InventarioSchema) inventario = new InventarioSchema();
 }
 
 // Agente móvil publicado (NPC de asentamiento; mañana bárbaros/fauna con el

@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const { CapaRuido } = require("./ruido");
+const { CapaRuido, crearPRNG, semillaDesdeTexto } = require("./ruido");
 const { crearGeneradorBiomas, suavizarBiomas } = require("./biomas");
 const { generarHidrologia } = require("./hidrologia");
 const { decidirTerreno } = require("./terreno");
@@ -70,6 +70,11 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   // decidirTerreno en terreno.js.
   const nVarianteTerreno = new CapaRuido(config.semilla + ":varianteterreno", 22);
   const varianteTerrenoEn = (x, y) => nVarianteTerreno.fbm(x, y, 2);
+  // Ruido INDEPENDIENTE (escala distinta, misma semilla base) para el
+  // subbioma puramente cosmético (colorDebug/textura, nunca mecánica) —
+  // pedido 2026-08-29, ver decidirTerreno/SUBVARIANTES en terreno.js.
+  const nSubvarianteTerreno = new CapaRuido(config.semilla + ":subvarianteterreno", 17);
+  const subvarianteTerrenoEn = (x, y) => nSubvarianteTerreno.fbm(x, y, 2);
 
   onProgreso("Clasificando biomas...");
   const biomaGrid = new Uint8Array(anchoTiles * altoTiles);
@@ -79,35 +84,12 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   const idxBiomaDe = new Map(listaIdsBiomas.map((id, i) => [id, i]));
   const biomaDeIdx = (i) => listaIdsBiomas[i];
 
-  // Aspereza de montaña (pedido del streamer, 2026-08-29): `banda` sale de
-  // discretizar ruido CONTINUO y suave en 7 niveles — por construcción casi
-  // nunca salta más de 1 nivel entre casillas vecinas, así que el corte de
-  // roca_inaccesible por salto>=2 que ya detecta calcularTerrenoTile (más
-  // abajo) casi nunca se disparaba: no había acantilados de verdad, solo
-  // rampas suaves de montaña. Una capa de ruido de ALTA frecuencia (escala
-  // pequeña = varía mucho de una casilla a la siguiente) se SUMA solo en la
-  // franja de montaña (banda>=4: colinas/montaña/cumbre, GDD_Bakeador_
-  // Exteriores sección 2) para producir saltos reales de 2+ niveles ahí,
-  // con roca de verdad en el corte — llanuras/playas/agua no se tocan.
-  // Actúa solo sobre `bandaGrid` (decide terreno/acantilado): `elevacionGrid`
-  // (usada por hidrología y por el coste de pendiente de caminos) queda
-  // intacta a propósito, para no alterar ríos ni el trazado de caminos.
-  const nAsperezaMontana = new CapaRuido(config.semilla + ":aspereza-montana", 2.2);
-  const UMBRAL_BANDA_MONTANA = 4 / 7; // umbral de bandaDeElevacion para banda 4
-  const AMPLITUD_ASPEREZA_MONTANA = 0.9; // suficiente para saltar 2-3 bandas de golpe
-
   for (let y = 0; y < altoTiles; y++) {
     for (let x = 0; x < anchoTiles; x++) {
       const r = generadorBiomas.clasificar(x, y);
       const i = y * anchoTiles + x;
       biomaGrid[i] = idxBiomaDe.get(r.bioma) ?? 0;
-      let banda = r.banda;
-      if (r.elevacionContinua >= UMBRAL_BANDA_MONTANA) {
-        const aspereza = nAsperezaMontana.fbm(x, y, 3);
-        const elevacionAspera = Math.min(1, Math.max(UMBRAL_BANDA_MONTANA, r.elevacionContinua + (aspereza - 0.5) * AMPLITUD_ASPEREZA_MONTANA));
-        banda = generadorBiomas.bandaDeElevacion(elevacionAspera);
-      }
-      bandaGrid[i] = banda;
+      bandaGrid[i] = r.banda;
       elevacionGrid[i] = r.elevacionContinua;
     }
     if (y % Math.max(1, Math.floor(altoTiles / 10)) === 0) {
@@ -141,7 +123,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     const b = biomaEnTile(x, y);
     const banda = bandaEnTile(x, y);
     const h = hidro.consultar(x, y);
-    const id = decidirTerreno({ biomaId: b, catalogoBiomas, banda, hidro: h, esCamino: false, variante: varianteTerrenoEn(x, y) });
+    const id = decidirTerreno({ biomaId: b, catalogoBiomas, banda, hidro: h, esCamino: false, variante: varianteTerrenoEn(x, y), subvariante: subvarianteTerrenoEn(x, y) });
     return catalogoTerrenos[id];
   };
 
@@ -325,7 +307,11 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
 
   // --- 8-9. Terreno final + decoración + exportado por sectores ---
   onProgreso("Generando terreno, decoración y exportando por sectores...");
-  const listaIdsTerreno = Object.keys(catalogoTerrenos);
+  // Filtra claves "_nota*" (documentación embebida en el JSON, GDD sección
+  // 2 / _nota_limite_36 en terrenos.json): no son tipos de terreno de
+  // verdad y no deben gastar un índice de la leyenda base-36 (36 símbolos
+  // como mucho — cada slot cuenta).
+  const listaIdsTerreno = Object.keys(catalogoTerrenos).filter((id) => !id.startsWith("_"));
   const exportador = crearExportador(carpetaSalidaResuelta, listaIdsTerreno, anchoChunks, altoChunks);
   const decorador = crearColocadorDecoracion(config.semilla, catalogoVegetacion, catalogoAnimales, catalogoRocas, {
     multiplicadorPool: config.multiplicadorPool,
@@ -420,8 +406,12 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     const banda = bandaGrid[i];
     const h = hidro.consultar(x, y);
     const esCamino = tilesCaminoRoad.has(claveTile(x, y));
-    let idTerreno = decidirTerreno({ biomaId, catalogoBiomas, banda, hidro: h, esCamino, variante: varianteTerrenoEn(x, y) });
+    let idTerreno = decidirTerreno({ biomaId, catalogoBiomas, banda, hidro: h, esCamino, variante: varianteTerrenoEn(x, y), subvariante: subvarianteTerrenoEn(x, y) });
 
+    // Acantilado INFRANQUEABLE: salto de ≥2 bandas con el vecino INMEDIATO
+    // (GDD sección 2, comportamiento de siempre, sin tocar) — no es la
+    // cumbre en sí (banda 6, ya roca_inaccesible por su cuenta), es el
+    // corte entre dos zonas de altura muy distinta.
     if (!esCamino && idTerreno !== "agua" && idTerreno !== "agua_profunda") {
       const bandaDer = x + 1 < anchoTiles ? bandaGrid[i + 1] : banda;
       const bandaAbajo = y + 1 < altoTiles ? bandaGrid[i + anchoTiles] : banda;
@@ -429,19 +419,43 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
         idTerreno = "roca_inaccesible";
       }
     }
-    return { idTerreno, biomaId, banda, esCamino };
+
+    // Pendiente DECORATIVA (pedido 2026-08-29, "que se vea el desnivel"):
+    // el ruido de elevación es deliberadamente suave a 1 casilla de
+    // distancia (medido: el salto máximo entre vecinos INMEDIATOS en un
+    // mapa real nunca pasa de 1 banda, así que el chequeo de arriba casi
+    // nunca dispara — coherente con un mundo caminable, no un laberinto de
+    // muros). Para plantar rocas de acantilado en cuestas donde SÍ hay
+    // subida real, se mira la banda a 5 casillas en cada dirección (cruz),
+    // no solo el vecino pegado — así se detectan laderas de verdad (varias
+    // casillas subiendo banda a banda) sin tocar el ruido de elevación
+    // compartido con ríos/biomas. Roca decorativa, NO redefine idTerreno:
+    // el terreno de suelo sigue siendo el que tocaba por bioma/banda.
+    const RADIO_PENDIENTE = 5;
+    let saltoPendiente = 0;
+    if (!esCamino && idTerreno !== "agua" && idTerreno !== "agua_profunda" && idTerreno !== "roca_inaccesible") {
+      for (const [dx, dy] of [[RADIO_PENDIENTE, 0], [-RADIO_PENDIENTE, 0], [0, RADIO_PENDIENTE], [0, -RADIO_PENDIENTE]]) {
+        const vx = x + dx, vy = y + dy;
+        if (vx < 0 || vy < 0 || vx >= anchoTiles || vy >= altoTiles) continue;
+        const d = Math.abs(banda - bandaGrid[vy * anchoTiles + vx]);
+        if (d > saltoPendiente) saltoPendiente = d;
+      }
+    }
+    const esAcantilado = saltoPendiente >= 2;
+    return { idTerreno, biomaId, banda, esCamino, esAcantilado };
   }
 
   for (let cy = 0; cy < altoChunks; cy++) {
     for (let cx = 0; cx < anchoChunks; cx++) {
       const terrenoPorCasilla = new Array(tamanoChunk * tamanoChunk);
       const bandaLocalPorCasilla = new Array(tamanoChunk * tamanoChunk);
+      const tilesAcantilado = [];
 
       for (let ly = 0; ly < tamanoChunk; ly++) {
         for (let lx = 0; lx < tamanoChunk; lx++) {
           const x = cx * tamanoChunk + lx;
           const y = cy * tamanoChunk + ly;
-          const { idTerreno, banda } = calcularTerrenoTile(x, y);
+          const { idTerreno, banda, esAcantilado } = calcularTerrenoTile(x, y);
 
           const idxLocal = ly * tamanoChunk + lx;
           // Huella de un edificio POI: bloquea el paso entero, igual que
@@ -449,6 +463,36 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
           // es la única entrada real, no la casilla en sí.
           terrenoPorCasilla[idxLocal] = footprintEdificiosPOI.has(`${x}_${y}`) ? "solar_edificio" : idTerreno;
           bandaLocalPorCasilla[idxLocal] = banda;
+          if (esAcantilado) tilesAcantilado.push([lx, ly]);
+        }
+      }
+
+      // Rocas de acantilado (pedido 2026-08-29, "que se vea el desnivel"):
+      // colocación DETERMINISTA en el borde donde el terreno salta ≥2
+      // bandas, no por el decorador de densidad normal — mismo espíritu que
+      // generarBocaCueva (instanciasPOI.js), un PRNG propio por chunk en vez
+      // de uno nuevo por tile (coste). No todo tile de borde recibe roca
+      // (ROCA_ACANTILADO_PROB) para no amontonar miles de piezas en un
+      // acantilado largo — sigue leyéndose como muro porque los huecos ya
+      // quedan tapados por roca_inaccesible plana debajo.
+      const ROCA_ACANTILADO_PROB = 0.45;
+      const objetosAcantilado = [];
+      if (tilesAcantilado.length) {
+        const prngAcantilado = crearPRNG(semillaDesdeTexto(`${config.semilla}:acantilado:${cx}:${cy}`));
+        for (const [lx, ly] of tilesAcantilado) {
+          if (prngAcantilado() >= ROCA_ACANTILADO_PROB) continue;
+          const esGrande = prngAcantilado() < 0.7;
+          const id = esGrande ? "roca_acantilado_grande" : "roca_acantilado_pequena";
+          const datosRoca = catalogoRocas[id] || {};
+          objetosAcantilado.push({
+            i: id,
+            t: "r",
+            va: Math.floor(prngAcantilado() * (datosRoca.variantes || 1)),
+            ro: Math.floor(prngAcantilado() * 360),
+            es: Math.round((datosRoca.escalaBase || 1) * (0.85 + prngAcantilado() * 0.3) * 100) / 100,
+            x: lx,
+            y: ly,
+          });
         }
       }
 
@@ -460,6 +504,14 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
           bioma: biomaDeIdx(biomaGridSuave[(cy * tamanoChunk + ly) * anchoTiles + (cx * tamanoChunk + lx)]),
           banda: bandaLocalPorCasilla[idxLocal],
           esAgua: idT === "agua" || idT === "agua_profunda",
+          // Agua dulce (río/lago) vs. mar: la fauna acuática de agua dulce
+          // (biomas["pradera"/"bosque"/...], nunca mar_bajo/mar_profundo)
+          // solo debe salir donde la hidrología dice río/lago de verdad —
+          // sin esto, "es agua" a secas no distinguía un lago de un mar.
+          aguaDulce: (idT === "agua" || idT === "agua_profunda") && (() => {
+            const h = hidro.consultar(cx * tamanoChunk + lx, cy * tamanoChunk + ly);
+            return h.esRio || h.esLago;
+          })(),
           cercaAgua: idT === "agua" || catalogoTerrenos[idT]?.esPlaya === true,
           // camino/puente son transitables, pero nada debe brotar/aparecer
           // ENCIMA de la calzada — sin este flag el decorador no tenía
@@ -490,6 +542,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
 
       const edificiosPOI = edificiosPOIPorChunk.get(`${cx}_${cy}`);
       if (edificiosPOI) objetos = objetos.concat(edificiosPOI);
+      if (objetosAcantilado.length) objetos = objetos.concat(objetosAcantilado);
 
       let cadenaElevacion = "";
       for (let k = 0; k < bandaLocalPorCasilla.length; k++) {
