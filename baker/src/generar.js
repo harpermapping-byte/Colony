@@ -179,6 +179,11 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   // partir). ciudadCapital por defecto true para no romper bakes previos.
   const ciudadCapital = config.ciudadCapital !== false;
   const ciudad = ciudadCapital ? config.ciudad || { x: Math.floor(anchoTiles / 2), y: Math.floor(altoTiles / 2) } : null;
+  // Caminos más anchos/gastados y con más decoración cerca de la ciudad,
+  // más estrechos/pelados hacia el final de una rama lejana (pedido
+  // 2026-08-29) — usado tanto al trazar el camino (más abajo) como en la
+  // celda de decoración de cada casilla (mucho más abajo, otro ámbito).
+  const RADIO_CAMINO_ANCHO = 130;
   const pasoCaminos = config.pasoCaminos || 32;
 
   // Claves numéricas (y*anchoTiles+x), no strings `${x}_${y}` — este Set se
@@ -245,7 +250,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       if (camino) {
         for (const nodo of camino) nodosDeRed.add(buscador.idxDeTile(nodo.x, nodo.y));
         for (let i = 0; i < camino.length - 1; i++) {
-          marcarSegmentoComoCamino(camino[i], camino[i + 1], tilesCaminoRoad, 1);
+          marcarSegmentoComoCamino(camino[i], camino[i + 1], tilesCaminoRoad);
         }
       }
     }
@@ -254,7 +259,12 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     onProgreso("Sin ciudad capital configurada (ciudadCapital: false): se omite la red de caminos.");
   }
 
-  function marcarSegmentoComoCamino(a, b, set, radio) {
+  function radioCaminoEn(x, y) {
+    const dist = Math.hypot(x - ciudad.x, y - ciudad.y);
+    return dist < RADIO_CAMINO_ANCHO ? 1 : 0;
+  }
+
+  function marcarSegmentoComoCamino(a, b, set) {
     const largo = Math.hypot(b.x - a.x, b.y - a.y);
     const pasos = Math.max(1, Math.ceil(largo));
     const dx = b.x - a.x;
@@ -302,6 +312,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       const ondulacion = Math.sin(t * Math.PI * 2 * ciclos + a.x * 0.13 + a.y * 0.07) * amplitud;
       const px = Math.round(a.x + dx * t + perpX * ondulacion);
       const py = Math.round(a.y + dy * t + perpY * ondulacion);
+      const radio = radioCaminoEn(px, py);
       for (let ddy = -radio; ddy <= radio; ddy++) {
         for (let ddx = -radio; ddx <= radio; ddx++) {
           const x = px + ddx;
@@ -427,19 +438,31 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       }
     }
 
-    // Orillas de barro (pedido 2026-08-29): tierra pegada a un río/lago
-    // (nunca la propia agua, ni camino/puente, ni el acantilado de arriba)
-    // que a veces se pinta de barro en vez del terreno normal del bioma.
-    // "juntoAAgua" mira los 4 vecinos inmediatos (barato: 4 consultas más a
-    // la hidrología, ya calculada) — el umbral de ruido decide qué TRAMOS
-    // de la orilla son barrosos, no el perímetro entero.
+    // Orillas de barro + playa húmeda (pedido 2026-08-29): tierra pegada a
+    // agua de verdad (río/lago aunque esté en banda alta — un arroyo de
+    // montaña sigue siendo agua — o mar/agua baja por elevación, banda<=1)
+    // que nunca es la propia agua, ni camino/puente, ni el acantilado de
+    // arriba. "esAguaEnTile" unifica ambos casos con las mismas 4 consultas
+    // baratas que ya hacían falta (hidrología + bandaGrid, ambos ya
+    // calculados).
     if (!esCamino && idTerreno !== "agua" && idTerreno !== "agua_profunda" && idTerreno !== "roca_inaccesible") {
-      const juntoAAgua =
-        (x > 0 && (hidro.consultar(x - 1, y).esRio || hidro.consultar(x - 1, y).esLago)) ||
-        (x + 1 < anchoTiles && (hidro.consultar(x + 1, y).esRio || hidro.consultar(x + 1, y).esLago)) ||
-        (y > 0 && (hidro.consultar(x, y - 1).esRio || hidro.consultar(x, y - 1).esLago)) ||
-        (y + 1 < altoTiles && (hidro.consultar(x, y + 1).esRio || hidro.consultar(x, y + 1).esLago));
-      if (juntoAAgua && nOrillaBarro.fbm(x, y, 2) > UMBRAL_ORILLA_BARRO) {
+      const esAguaEnTile = (nx, ny) => {
+        if (nx < 0 || ny < 0 || nx >= anchoTiles || ny >= altoTiles) return false;
+        if (bandaGrid[ny * anchoTiles + nx] <= 1) return true;
+        const hv = hidro.consultar(nx, ny);
+        return hv.esRio || hv.esLago;
+      };
+      const juntoAAgua = esAguaEnTile(x - 1, y) || esAguaEnTile(x + 1, y) || esAguaEnTile(x, y - 1) || esAguaEnTile(x, y + 1);
+      if (juntoAAgua && idTerreno === "playa") {
+        // Playa húmeda gradual: la franja que TOCA agua de verdad sale
+        // siempre oscura/húmeda (reusa el slot playa_b ya existente en el
+        // catálogo — límite de 36 terrenos, sección de arriba — con un
+        // sentido fijo en vez de puramente cosmético al azar); el resto de
+        // la playa sigue con su subvariante normal (playa/playa_b al azar,
+        // arena seca). Deterministic, no el ruido de barro: toda orilla de
+        // mar tiene un borde húmedo, no en parches como el barro.
+        idTerreno = "playa_b";
+      } else if (juntoAAgua && idTerreno !== "playa_rocosa" && nOrillaBarro.fbm(x, y, 2) > UMBRAL_ORILLA_BARRO) {
         idTerreno = conSubvariante("barro", subvarianteTerrenoEn(x, y));
       }
     }
@@ -527,17 +550,36 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       let objetos = decorador.generarParaChunk(cx, cy, tamanoChunk, (lx, ly) => {
         const idxLocal = ly * tamanoChunk + lx;
         const idT = terrenoPorCasilla[idxLocal];
+        const x = cx * tamanoChunk + lx;
+        const y = cy * tamanoChunk + ly;
+        const miIdxBioma = biomaGridSuave[y * anchoTiles + x];
         return {
           transitable: catalogoTerrenos[idT]?.transitable ?? false,
-          bioma: biomaDeIdx(biomaGridSuave[(cy * tamanoChunk + ly) * anchoTiles + (cx * tamanoChunk + lx)]),
+          bioma: biomaDeIdx(miIdxBioma),
           banda: bandaLocalPorCasilla[idxLocal],
+          // Gradiente de vegetación en el borde del bosque/pradera (pedido
+          // 2026-08-29, "densidad gradiente"): 4 muestras a 4 casillas de
+          // distancia (barato, biomaGridSuave ya calculado) — cuántas caen
+          // en un bioma DISTINTO al de esta casilla decide cuánto se apaga
+          // la densidad de vegetación. 1 = rodeado del mismo bioma
+          // (densidad normal), hacia 0.15 = justo en la costura de dos
+          // biomas (menos denso, nunca cero de golpe). Solo vegetación —
+          // rocas/fauna no se apagan igual cerca de un borde.
+          factorBordeBioma: (() => {
+            let iguales = 0;
+            for (const [dx, dy] of [[4, 0], [-4, 0], [0, 4], [0, -4]]) {
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= anchoTiles || ny >= altoTiles || biomaGridSuave[ny * anchoTiles + nx] === miIdxBioma) iguales++;
+            }
+            return Math.max(0.15, iguales / 4);
+          })(),
           esAgua: idT === "agua" || idT === "agua_profunda",
           // Agua dulce (río/lago) vs. mar: la fauna acuática de agua dulce
           // (biomas["pradera"/"bosque"/...], nunca mar_bajo/mar_profundo)
           // solo debe salir donde la hidrología dice río/lago de verdad —
           // sin esto, "es agua" a secas no distinguía un lago de un mar.
           aguaDulce: (idT === "agua" || idT === "agua_profunda") && (() => {
-            const h = hidro.consultar(cx * tamanoChunk + lx, cy * tamanoChunk + ly);
+            const h = hidro.consultar(x, y);
             return h.esRio || h.esLago;
           })(),
           cercaAgua: idT === "agua" || catalogoTerrenos[idT]?.esPlaya === true,
@@ -555,6 +597,17 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
           // para que escombros/piedra suelta salgan por el decorador de
           // densidad de siempre, como un arbusto o árbol más.
           esAcantilado: !!esAcantiladoPorCasilla[ly * tamanoChunk + lx],
+          // Decoración de camino (pedido 2026-08-29, "más deco cerca de la
+          // ciudad"): pegado a una casilla de camino/puente de verdad
+          // (tilesCaminoRoad ya es un Set global, sin problema de borde de
+          // chunk como tendría terrenoPorCasilla local) y dentro del mismo
+          // radio que ensancha el propio camino junto a la ciudad.
+          juntoCamino:
+            tilesCaminoRoad.has(claveTile(x - 1, y)) ||
+            tilesCaminoRoad.has(claveTile(x + 1, y)) ||
+            tilesCaminoRoad.has(claveTile(x, y - 1)) ||
+            tilesCaminoRoad.has(claveTile(x, y + 1)),
+          cercaDeCiudad: ciudadCapital ? Math.hypot(x - ciudad.x, y - ciudad.y) < RADIO_CAMINO_ANCHO : false,
         };
       });
 

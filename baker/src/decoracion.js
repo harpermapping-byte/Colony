@@ -139,6 +139,11 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         // de pendiente que ya detecta calcularTerrenoTile (mismo flag que
         // usan las rocas de acantilado deterministas).
         if (datos.requiereAcantilado && !opciones.esAcantilado) continue;
+        // Decoración de camino (pedido 2026-08-29): mojones/postes solo
+        // pegados a un camino de verdad Y dentro del radio cercano a la
+        // ciudad — más allá, el camino se estrecha y deja de "cuidarse".
+        if (datos.requiereJuntoCamino && !opciones.juntoCamino) continue;
+        if (datos.requiereCercaCiudad && !opciones.cercaDeCiudad) continue;
       }
       const ruido = capaPara(id, datos.escalaRuido || 20).fbm(x, y, 3);
       const peso = (datos.densidadBase || 0.01) * ruido * 2; // peso RELATIVO entre especies (para elegir cuál gana), no una probabilidad por sí sola
@@ -149,7 +154,11 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
     }
     if (supervivientes.length === 0) return [];
 
-    const densidadEfectiva = Math.min(techoPara(catalogo), pesoTotal) * factorDensidadRegional(catalogo, x, y);
+    // Gradiente de borde de bioma (pedido 2026-08-29, "densidad gradiente"):
+    // solo apaga vegetación, nunca rocas/fauna — un árbol se rarifica según
+    // te acercas a otro bioma, una piedra no tiene ese motivo real.
+    const factorBorde = catalogo === catalogoVegetacion ? opciones.factorBordeBioma ?? 1 : 1;
+    const densidadEfectiva = Math.min(techoPara(catalogo), pesoTotal) * factorDensidadRegional(catalogo, x, y) * factorBorde;
     if (prngLocal() >= densidadEfectiva * multiplicadorPool) return [];
 
     // Elegido ponderado por su peso relativo, no siempre el primero del
@@ -206,7 +215,16 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         // un bug (la gente PISA por aquí a diario, nada crece ni anida).
         if (celda.esCamino) continue;
 
-        const opciones = { esAgua: !!celda.esAgua, aguaDulce: !!celda.aguaDulce, cercaAgua: celda.cercaAgua, esBarro: !!celda.esBarro, esAcantilado: !!celda.esAcantilado };
+        const opciones = {
+          esAgua: !!celda.esAgua,
+          aguaDulce: !!celda.aguaDulce,
+          cercaAgua: celda.cercaAgua,
+          esBarro: !!celda.esBarro,
+          esAcantilado: !!celda.esAcantilado,
+          factorBordeBioma: celda.factorBordeBioma ?? 1,
+          juntoCamino: !!celda.juntoCamino,
+          cercaDeCiudad: !!celda.cercaDeCiudad,
+        };
         const veg = objetosEnCasilla(catalogoVegetacion, celda.bioma, celda.banda, x, y, prng, opciones);
         const roc = objetosEnCasilla(catalogoRocas, celda.bioma, celda.banda, x, y, prng, opciones);
         const fauna = objetosEnCasilla(catalogoAnimales, celda.bioma, celda.banda, x, y, prng, opciones);
