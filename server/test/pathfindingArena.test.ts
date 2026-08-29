@@ -20,7 +20,7 @@ test("distanciaChebyshev: diagonal cuenta 1, no 1.41", () => {
   assert.strictEqual(distanciaChebyshev({ gx: 0, gy: 0 }, { gx: 3, gy: 0 }), 3);
 });
 
-test("casillasAlcanzables: con mp=2 en rejilla abierta llega a las 24 casillas del anillo de radio 2", () => {
+test("casillasAlcanzables: con pa=2 en rejilla abierta llega a las 24 casillas del anillo de radio 2", () => {
   const arena = arenaAbierta();
   const alcanzables = casillasAlcanzables(arena, { gx: 4, gy: 4 }, 2);
   // radio 2 en Chebyshev = (2*2+1)^2 - 1 (sin contar el origen) = 24
@@ -30,7 +30,7 @@ test("casillasAlcanzables: con mp=2 en rejilla abierta llega a las 24 casillas d
   assert.ok(!alcanzables.has("7,7")); // fuera del radio 2
 });
 
-test("casillasAlcanzables: mp=0 no alcanza nada", () => {
+test("casillasAlcanzables: pa=0 no alcanza nada", () => {
   const arena = arenaAbierta();
   assert.strictEqual(casillasAlcanzables(arena, { gx: 0, gy: 0 }, 0).size, 0);
 });
@@ -50,14 +50,14 @@ test("casillasAlcanzables: una casilla ocupada por otra unidad no es alcanzable"
   assert.ok(alcanzables.has("0,1"));
 });
 
-test("costeCasilla: distancia real en pasos (diagonal cuenta 1), null si no alcanza con el mp dado", () => {
+test("costeCasilla: distancia real en pasos (diagonal cuenta 1), null si no alcanza con el pa dado", () => {
   const arena = arenaAbierta();
   assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 0, gy: 0 }, 5), 0);
   assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 3, gy: 3 }, 5), 3);
   assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 3, gy: 3 }, 2), null);
 });
 
-test("costeCasilla: una casilla ocupada nunca es un destino válido, aunque esté dentro del mp", () => {
+test("costeCasilla: una casilla ocupada nunca es un destino válido, aunque esté dentro del pa", () => {
   const arena = arenaAbierta();
   const ocupadas = new Set(["1,1"]);
   assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 1, gy: 1 }, 3, ocupadas), null);

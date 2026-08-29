@@ -111,6 +111,32 @@ try {
   comprobar("combate:iniciar crea un CombateSchema con las dos unidades", !!combateId, errorRecibido ? JSON.stringify(errorRecibido) : "sin combateId");
   if (!combateId) throw new Error("no se pudo iniciar combate (probablemente demasiado lejos del animal en el spawn de prueba)");
 
+  // 3bis) ventana de unión (docs/GDD_Combate.md §9.1) — arranca "pendiente"
+  // (nadie tiene turno todavía); "comenzar ya" la salta, no hay nadie más
+  // que se vaya a unir a pelear contra un animal salvaje solo. Cerrar la
+  // ventana INSTANCIA el combate en una arena aparte (§9.2) — portal:ir
+  // avisa a dónde ir.
+  comprobar("el combate arranca en fase 'pendiente' (ventana de unión)", room.state.combates.get(combateId)?.fase === "pendiente");
+  let portalArena = null;
+  room.onMessage("portal:ir", (m) => (portalArena = m));
+  room.send("combate:comenzarYa", { combateId });
+  const llegoPortal = await esperarCondicion(() => portalArena?.tipo === "combate" && portalArena?.combateId === combateId, 2000, 100);
+  comprobar("comenzarYa cierra la ventana e instancia la arena (portal:ir)", !!llegoPortal, JSON.stringify(portalArena));
+  comprobar("el combate desaparece del Hub (se fue a la arena)", !room.state.combates.has(combateId));
+
+  room.leave();
+  await esperar(300);
+  const arena = await client.joinOrCreate("arena", { name: "ComTester", combateId });
+  await esperarCondicion(() => arena.state?.combates?.get(combateId)?.fase === "activo", 3000, 100);
+  const combateArena = arena.state.combates.get(combateId);
+  comprobar("la arena monta el combate ya activo (fase, no pendiente)", combateArena?.fase === "activo");
+  comprobar("Fauna sintética recreada en la arena con el MISMO id que en el Hub", arena.state.fauna.has(objetivoId), JSON.stringify([...arena.state.fauna.keys()]));
+
+  let errorArena = null;
+  arena.onMessage("combate:error", (msg) => { errorArena = msg; });
+  let portalVuelta = null;
+  arena.onMessage("portal:ir", (m) => (portalVuelta = m));
+
   // 4) jugar hasta que el objetivo muera o se agote el tope de rondas —
   // en cada turno propio: si el objetivo está en alcance, atacar; si no,
   // moverse un paso hacia él; si no es su turno, pasar turno y esperar.
@@ -118,14 +144,14 @@ try {
   let objetivoMuerto = false;
   while (rondas < 80) {
     rondas++;
-    const combate = room.state.combates.get(combateId);
+    const combate = arena.state.combates.get(combateId);
     if (!combate) { objetivoMuerto = true; break; } // el combate ya se resolvió y se borró del Map
     const idActual = combate.ordenTurnos[combate.turnoActual];
-    if (idActual !== room.sessionId) {
+    if (idActual !== arena.sessionId) {
       await esperar(150); // le toca a la IA (fauna) o el estado aún no llegó — el servidor la resuelve solo
       continue;
     }
-    const propia = combate.unidades.get(room.sessionId);
+    const propia = combate.unidades.get(arena.sessionId);
     const objetivo = combate.unidades.get(objetivoId);
     if (!objetivo) { objetivoMuerto = true; break; }
     // El cliente NO conoce `alcance` (campo solo-servidor, deliberado — el
@@ -133,26 +159,34 @@ try {
     // atacar directamente y, si el servidor dice "fuera de alcance", se
     // acerca un paso — mismo patrón "pide y el servidor decide" del resto
     // del proyecto, ninguna lógica de alcance duplicada en el cliente.
-    errorRecibido = null;
-    room.send("combate:accion", { combateId, objetivoId });
+    errorArena = null;
+    arena.send("combate:accion", { combateId, objetivoId });
     await esperar(150);
-    if (errorRecibido?.motivo === "fuera de alcance") {
+    if (errorArena?.motivo === "fuera de alcance") {
       const dx = Math.sign(objetivo.gx - propia.gx);
       const dy = Math.sign(objetivo.gy - propia.gy);
-      room.send("combate:mover", { combateId, gx: propia.gx + dx, gy: propia.gy + dy });
+      arena.send("combate:mover", { combateId, gx: propia.gx + dx, gy: propia.gy + dy });
       await esperar(150);
     }
-    if (propia.ap <= 0 || propia.mp <= 0) {
-      room.send("combate:pasarTurno", { combateId });
+    if (propia.pa <= 0) {
+      arena.send("combate:pasarTurno", { combateId });
       await esperar(150);
     }
   }
   comprobar("el combate termina (el objetivo muere o el combate se borra del Map)", objetivoMuerto, `rondas jugadas=${rondas}`);
-  const propioFinal = room.state.players.get(room.sessionId);
-  console.log(`  vida del jugador al terminar: ${propioFinal.vida}/${propioFinal.vidaMax} (si bajó de 100, la IA de la fauna llegó a atacar)`);
-  comprobar("el objetivo desaparece de state.fauna al morir (cadáver creado por matarIndividuo)", !room.state.fauna.has(objetivoId));
 
-  room.leave();
+  await esperar(400);
+  comprobar("el jugador recibe portal:ir de vuelta al Hub tras ganar", portalVuelta?.tipo === "volverDeCombate" && portalVuelta?.sala === "hub", JSON.stringify(portalVuelta));
+
+  arena.leave();
+  await esperar(300);
+
+  // 5) volver al Hub y comprobar que el resultado se propagó a la fauna REAL
+  // (no la sintética de la arena, que ya se tiró con la room) — mismo id.
+  const roomVuelta = await client.joinOrCreate("hub", { name: "ComTester" });
+  await esperar(300);
+  comprobar("el objetivo desaparece de state.fauna del Hub al morir (resultado propagado desde la arena, cadáver creado por matarIndividuo)", !roomVuelta.state.fauna.has(objetivoId));
+  roomVuelta.leave();
 } catch (err) {
   console.error("ERROR en el smoke test:", err);
   fallos++;

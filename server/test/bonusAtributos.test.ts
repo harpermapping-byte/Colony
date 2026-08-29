@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import * as assert from "node:assert";
 import {
-  apMaxPorDestreza,
+  paMaxPorDestreza,
   cooldownNpcHablarMs,
   descuentoComercio,
   factorVelocidadCrafteo,
@@ -24,13 +24,13 @@ test("vidaMaximaPorResistencia: nivel 1 es la vida base del jugador (100), nivel
   for (let n = 2; n <= 10; n++) assert.ok(vidaMaximaPorResistencia(n) > vidaMaximaPorResistencia(n - 1));
 });
 
-test("apMaxPorDestreza: nivel 1 sin bonus (3 AP, el mismo tope fijo de antes), sube por tramos de 3 niveles", () => {
-  assert.strictEqual(apMaxPorDestreza(1), 3);
-  assert.strictEqual(apMaxPorDestreza(3), 3);
-  assert.strictEqual(apMaxPorDestreza(4), 4);
-  assert.strictEqual(apMaxPorDestreza(6), 4);
-  assert.strictEqual(apMaxPorDestreza(7), 5);
-  assert.strictEqual(apMaxPorDestreza(10), 6);
+test("paMaxPorDestreza: nivel 1 sin bonus (6 PA, el mismo tope fijo PA_MAX_COMBATE de antes), sube por tramos de 3 niveles", () => {
+  assert.strictEqual(paMaxPorDestreza(1), 6);
+  assert.strictEqual(paMaxPorDestreza(3), 6);
+  assert.strictEqual(paMaxPorDestreza(4), 7);
+  assert.strictEqual(paMaxPorDestreza(6), 7);
+  assert.strictEqual(paMaxPorDestreza(7), 8);
+  assert.strictEqual(paMaxPorDestreza(10), 9);
 });
 
 test("factorVelocidadCrafteo: nivel 1 = 1.0 (sin bonus), sube monótono hasta nivel 10", () => {

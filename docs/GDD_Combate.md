@@ -36,33 +36,39 @@ Al iniciarse: el servidor recorta un área NxN (8x8 encuentro normal, 10x10 cont
 ## 2. Estado replicado — nuevas Schema, mismo patrón que `HubState.ts`
 
 ```ts
-// server/src/rooms/schema/CombateState.ts
+// server/src/rooms/schema/CombateState.ts (código real, actualizado tras §9.1/§9.3)
 export class CombateUnidad extends Schema {
-  @type("string") id = "";           // sessionId del jugador o clave del Enemigo (misma clave que state.enemigos/players)
+  @type("string") id = "";           // sessionId del jugador o clave del Enemigo/Fauna/Npc (misma clave que state.enemigos/fauna/npcs/players)
   @type("boolean") esJugador = false;
+  @type("string") bando = "A";       // "A" | "B"
   @type("int8") gx = 0;              // coordenada DENTRO de la arena (0..ancho-1), no del mundo
   @type("int8") gy = 0;
   @type("number") hp = 0;
   @type("number") hpMax = 0;
-  @type("int8") ap = 0;              // puntos de acción del turno actual
-  @type("int8") apMax = 0;
-  @type("int8") mp = 0;              // puntos de movimiento del turno actual
-  @type("int8") mpMax = 0;
+  @type("int8") pa = 0;              // recurso ÚNICO de turno (§9.3) — mover/atacar/objeto/magia salen del mismo pool
+  @type("int8") paMax = 0;
   @type("number") iniciativa = 0;    // fija el orden, calculada una vez al empezar
   @type("string") estado = "activo"; // "activo" | "caido" | "huido"
+  // Campos SOLO servidor (sin @type, snapshot tomado al entrar en combate):
+  ataqueFisico = 0;
+  defensaFisica = 0;
+  alcance = 1;
 }
 
 export class CombateSchema extends Schema {
-  @type("boolean") activo = false;
   @type("number") gx0 = 0;           // origen de la arena en coordenadas de mundo (para pintar el overlay)
   @type("number") gy0 = 0;
   @type("int8") ancho = 8;
   @type("int8") alto = 8;
-  @type(["int8"]) obstaculos = new ArraySchema<number>(); // 1 bit por casilla ya resuelto server-side, walkable/no
+  @type(["int8"]) obstaculos = new ArraySchema<number>(); // 1 = obstáculo, índice gy*ancho+gx
   @type(["string"]) ordenTurnos = new ArraySchema<string>(); // ids de CombateUnidad, por iniciativa desc
   @type("int8") turnoActual = 0;     // índice sobre ordenTurnos
-  @type("string") fase = "movimiento"; // "movimiento" | "accion" | "resolviendo"
   @type({ map: CombateUnidad }) unidades = new MapSchema<CombateUnidad>();
+  // Ventana de unión (§9.1): "pendiente" = todavía se puede sumar gente
+  // (ordenTurnos vacío, nadie juega turno), "activo" = ventana cerrada,
+  // combate jugable de verdad. cierraEn: epoch ms, 0 si ya no aplica.
+  @type("string") fase = "activo";
+  @type("number") cierraEn = 0;
 }
 ```
 
@@ -128,18 +134,21 @@ Pedido explícito: "en combates de NPC contra animales o NPC vs NPC se autosimul
 ## 8. Qué queda fuera TODAVÍA de esta implementación (honesto, no diseño — código real pendiente)
 
 - **UI de verdad**: el panel actual (`panelCombate.ts`) es texto+botones, sin overlay de rejilla, sin retratos, sin iconos de habilidad, sin franja de turnos con retratos — pedido explícito del streamer de dejarlo así hasta la pasada final de UI del proyecto entero.
-- **Una sola "habilidad"**: no hay árbol de habilidades ni `habilidadId` real — `combate:accion` siempre es "golpear con lo que tengas" (1 AP, alcance fijo 1 = cuerpo a cuerpo). El campo `habilidadId` del protocolo (§4) está aceptado en el mensaje pero ignorado.
+- **Una sola "habilidad"**: no hay árbol de habilidades ni `habilidadId` real — `combate:accion` siempre es "golpear con lo que tengas" (coste fijo de PA, alcance fijo 1 = cuerpo a cuerpo). El campo `habilidadId` del protocolo (§4) está aceptado en el mensaje pero ignorado.
 - **Sin línea de visión (Bresenham)**: el alcance es solo distancia Chebyshev, sin comprobar que no haya un obstáculo entre atacante y objetivo.
 - **Sin cálculo de equipo**: `ataqueFisico`/`defensaFisica` de cada unidad salen de `Player.ataque`/`Player.defensa` (base fija, sin armas/armaduras — mismo hueco de GDD_Mecanicas.md §5.4), NO de `items.json` todavía, aunque las armas del catálogo (`daga`, `arco_largo`...) ya tienen esos stats declarados.
 - **Sin `desgaste.ts` conectado**: ni `registrarUso` al arma ni `aplicarDanoArmadura` al objetivo se llaman desde `combate:accion` todavía.
 - **`combate:huir` no valida "casilla de borde alcanzable"**: cualquier jugador puede huir en su turno sin comprobar posición — simplificación deliberada de esta pasada.
-- **AP/MP fijos para todo el mundo** (`AP_MAX_COMBATE`/`MP_MAX_COMBATE` en `RoomExteriorBase.ts`): no varían por unidad/clase/equipo.
+- **PA fijo para todo el mundo** (`PA_MAX_COMBATE` en `RoomExteriorBase.ts`, §9.3): no varía por unidad/clase/equipo.
 - **Sin recompensas** (loot/XP) al ganar un combate interactivo.
-- **Probado de verdad solo en HubRoom** (`client/test/combate.e2e.mjs`, mapa demo, jugador vs fauna salvaje) — el mismo código de `RoomExteriorBase` corre en `RegionRoom`/`InteriorRoom`/`DungeonRoom` (jugador vs `Enemigo` de mazmorra, co-op multi-jugador contra el mismo objetivo) pero esos caminos NO tienen un e2e propio todavía, solo revisión de código.
+- **Probado de verdad en HubRoom + arena instanciada** (`client/test/combate.e2e.mjs`, mapa demo, jugador vs fauna salvaje, flujo completo con ventana de unión + arena) y un E2E manual PvP en `RegionRoom` (§9) — el mismo código de `RoomExteriorBase` corre en `InteriorRoom`/`DungeonRoom` (jugador vs `Enemigo` de mazmorra, co-op multi-jugador contra el mismo objetivo) pero esos caminos NO tienen un e2e propio todavía, solo revisión de código.
+- **El inventario NO viaja a la arena** (§9.2): el jugador entra a la room de arena con un inventario nuevo/vacío (`crearJugador` de base) — objetos consumibles del turno (§9.3) funcionan porque `personaje:consumir` no depende de qué room es, pero cualquier ítem que llevara encima antes de entrar no está disponible dentro del combate. Gap conocido, no bloquea el mecanismo de turnos.
 
-## 9. PRÓXIMA ITERACIÓN — combate INSTANCIADO en arena aparte + PA único (pedido 2026-08-30, PENDIENTE de implementar)
+## 9. Combate INSTANCIADO en arena aparte + PA único (pedido 2026-08-30, ✅ IMPLEMENTADO y verificado 2026-08-29)
 
-Con el v1 de arriba (§0-8) ya construido, probado y jugable tal cual (misma room, AP+MP, UI placeholder), el streamer pidió la siguiente vuelta: que el combate se INSTANCIE en un mapa de arena aparte en vez de resolverse en el sitio, con una ventana de tiempo para que se sumen más combatientes antes de empezar. Esto es un cambio real de arquitectura sobre código YA verificado con E2E — se documenta aquí ANTES de tocar nada, mismo criterio que el resto de sistemas grandes de este proyecto (proponer, confirmar, entonces implementar).
+Con el v1 de arriba (§0-8) ya construido, probado y jugable tal cual (misma room, AP+MP, UI placeholder), el streamer pidió la siguiente vuelta: que el combate se INSTANCIE en un mapa de arena aparte en vez de resolverse en el sitio, con una ventana de tiempo para que se sumen más combatientes antes de empezar. Es un cambio real de arquitectura sobre código YA verificado con E2E, así que se documentó primero (esta sección) y se implementó tras el OK explícito del streamer — mismo criterio que el resto de sistemas grandes del proyecto.
+
+**Verificación realizada**: 354/354 tests de `server` en verde, `tsc --noEmit` limpio en `client` y `server`, `client/test/combate.e2e.mjs` (jugador vs fauna salvaje del mapa demo, HubRoom → ventana pendiente → `comenzarYa` → arena instanciada → combate jugado hasta la muerte → `portal:ir` de vuelta al Hub → la fauna REAL del Hub, no la sintética de la arena, desaparece tras rejoin) y un E2E manual adicional en PvP (dos jugadores en una `region`, ventana de unión con ambos ya apuntados, `comenzarYa`, misma room de arena para los dos, `ordenTurnos` remapeado a `sessionId` real, combate jugado hasta el final, retorno exacto para el iniciador y fallback a Hub para el objetivo sin retorno propio, marcador de "combate en curso" visible a un tercer cliente espectador y borrado al terminar) — ambos en verde.
 
 ### 9.1 Ventana de unión — combate PENDIENTE antes de instanciar nada
 

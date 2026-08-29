@@ -26,9 +26,9 @@ export function vidaMaximaPorResistencia(nivelResistencia: number): number {
   return 100 + (nivelResistencia - 1) * 10;
 }
 
-/** Destreza -> AP máximos en combate táctico (más acciones por turno). Nivel 1-3 = 3 AP (base), sube +1 cada 3 niveles, nivel 10 = 6 AP. */
-export function apMaxPorDestreza(nivelDestreza: number): number {
-  return 3 + Math.floor((nivelDestreza - 1) / 3);
+/** Destreza -> PA máximos en combate táctico (más acciones por turno — mover/atacar/objeto/magia, docs/GDD_Combate.md §9.3). Nivel 1-3 = 6 PA (base, PA_MAX_COMBATE en RoomExteriorBase.ts), sube +1 cada 3 niveles, nivel 10 = 9 PA. */
+export function paMaxPorDestreza(nivelDestreza: number): number {
+  return 6 + Math.floor((nivelDestreza - 1) / 3);
 }
 
 /** Inteligencia -> factor de velocidad de crafteo (multiplica, nunca divide — duracionMs = tiempoBaseSeg/factor). Nivel 1 = 1.0 (sin bonus), nivel 10 = 1.45 (45% más rápido). */

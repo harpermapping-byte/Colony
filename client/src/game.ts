@@ -13,7 +13,7 @@ import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelas
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
 import { ModoConstruccion } from "./construccion/constructor";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
-import { PointLight, Color } from "three";
+import { PointLight, Color, Mesh, ConeGeometry, MeshBasicMaterial } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
 
@@ -33,7 +33,10 @@ const parametros = new URLSearchParams(location.search);
 // "mazmorra" (docs/GDD_Bakeador_Dungeons.md): MISMA sala Colyseus que un
 // interior normal (misma carga/escaleras/salida), solo que además trae
 // enemigos activos — se distingue aquí para unirse a la room correcta.
-type TipoSala = "hub" | "region" | "interior" | "mazmorra";
+// "arena" (docs/GDD_Combate.md §9.2): room instanciada de un combate — se
+// entra vía portal:ir tipo:"combate" (nunca por elección directa del
+// jugador, como cualquier otro portal).
+type TipoSala = "hub" | "region" | "interior" | "mazmorra" | "arena";
 const SALA: TipoSala = (parametros.get("sala") as TipoSala) || "hub";
 const MAPA_ID = parametros.get("mapaId") || "";
 const EDIFICIO_ID = parametros.get("edificio") || "";
@@ -47,6 +50,8 @@ const ENTRADA_Y = parametros.has("entradaY") ? Number(parametros.get("entradaY")
 const ORIGEN_SALA: TipoSala = (parametros.get("origenSala") as TipoSala) || "hub";
 const PUERTA_X = parametros.has("puertaX") ? Number(parametros.get("puertaX")) : undefined;
 const PUERTA_Y = parametros.has("puertaY") ? Number(parametros.get("puertaY")) : undefined;
+// Solo con sala=arena (docs/GDD_Combate.md §9.2) — id del combate al que unirse.
+const COMBATE_ID = parametros.get("combateId") || "";
 // "interior" y "mazmorra" comparten TODA la lógica de carga/streaming/escaleras
 // de abajo (docs/GDD_Bakeador_Dungeons.md) — solo cambia a qué room de
 // Colyseus se conecta y que además pinta enemigos.
@@ -67,6 +72,8 @@ function navegarA(params: Record<string, string | number | undefined>) {
 const RUTA_MAPA =
   SALA === "region"
     ? `/assets/mapas/${MAPA_ID}`
+    : SALA === "arena"
+    ? `/assets/mapas/arenas/${MAPA_ID}` // aquí MAPA_ID es el id de la arena bakeada (§9.4), no un asentamiento
     : (import.meta as any).env?.VITE_RUTA_MAPA || "/assets/mapas/principal";
 
 interface Direction {
@@ -280,24 +287,46 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const room =
     SALA === "region"
       ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y })
-      : ES_INTERIOR
-        ? await client.joinOrCreate(SALA === "mazmorra" ? "mazmorra" : "interior", {
-            name: nombreJugador,
-            mapaId: MAPA_ID,
-            edificio: EDIFICIO_ID,
-            nivel: NIVEL,
-            entradaX: ENTRADA_X,
-            entradaY: ENTRADA_Y,
-          })
-        : await client.joinOrCreate("hub", { name: nombreJugador });
+      : SALA === "arena"
+        ? await client.joinOrCreate("arena", { name: nombreJugador, combateId: COMBATE_ID })
+        : ES_INTERIOR
+          ? await client.joinOrCreate(SALA === "mazmorra" ? "mazmorra" : "interior", {
+              name: nombreJugador,
+              mapaId: MAPA_ID,
+              edificio: EDIFICIO_ID,
+              nivel: NIVEL,
+              entradaX: ENTRADA_X,
+              entradaY: ENTRADA_Y,
+            })
+          : await client.joinOrCreate("hub", { name: nombreJugador });
   const $ = getStateCallbacks(room);
 
   // Puertas: tecla de interacción (F) — pisar cerca de una y pulsar F pide
   // al servidor cruzarla; la respuesta decide la siguiente URL (recarga).
+  // Lo que hay que mandarle al servidor en combate:iniciar/unirse (docs/
+  // GDD_Combate.md §9.2) para poder volver EXACTAMENTE de donde salió al
+  // terminar el combate — opaco para el servidor, se lo queda tal cual y lo
+  // reenvía en el portal:ir de vuelta ("volverDeCombate" más abajo).
+  function retornoDeCombate() {
+    return {
+      nombre: nombreJugador, sala: SALA, mapaId: MAPA_ID, edificio: EDIFICIO_ID, nivel: NIVEL,
+      origenSala: ORIGEN_SALA, puertaX: PUERTA_X, puertaY: PUERTA_Y,
+    };
+  }
+
   room.onMessage(
     "portal:ir",
-    (info: { tipo: TipoSala; mapaId?: string; edificio?: string; nivel?: number; esMazmorra?: boolean; x?: number; y?: number }) => {
-    if (info.tipo === "interior") {
+    (info: { tipo: TipoSala | "combate" | "volverDeCombate"; mapaId?: string; mapaArenaId?: string; combateId?: string; edificio?: string; nivel?: number; esMazmorra?: boolean; x?: number; y?: number; [clave: string]: unknown }) => {
+    if (info.tipo === "combate") {
+      // Se va a pelear a una arena instanciada (§9.2) — reload directo, sin
+      // más lógica: qué mapa cargar/room usar lo dice el propio mensaje.
+      navegarA({ nombre: nombreJugador, sala: "arena", mapaId: info.mapaArenaId, combateId: info.combateId });
+    } else if (info.tipo === "volverDeCombate") {
+      // El servidor reenvía TAL CUAL lo que se mandó en retornoDeCombate() —
+      // el cliente no interpreta nada, solo navega a donde le dicen.
+      const { tipo: _tipo, ...resto } = info;
+      navegarA(resto as Record<string, string | number | undefined>);
+    } else if (info.tipo === "interior") {
       // Una escalera manda dentro del MISMO edificio en el que ya estamos
       // (solo cambia `nivel`) — se conserva a qué región/puerta volver al
       // salir del edificio entero; aparecer en la planta destino cae justo
@@ -556,11 +585,24 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     enviarAccion: (combateId, objetivoId) => room.send("combate:accion", { combateId, objetivoId }),
     enviarPasarTurno: (combateId) => room.send("combate:pasarTurno", { combateId }),
     enviarHuir: (combateId) => room.send("combate:huir", { combateId }),
+    enviarComenzarYa: (combateId) => room.send("combate:comenzarYa", { combateId }),
   });
   const actualizarPanelCombate = () => panelCombate.actualizar(room.state.combates as any);
   $(room.state).combates.onAdd(() => actualizarPanelCombate());
   $(room.state).combates.onRemove(() => actualizarPanelCombate());
   room.onStateChange(() => actualizarPanelCombate());
+
+  // Marcador de "combate en curso" en el mapa de origen mientras la pelea
+  // vive instanciada en su propia arena (docs/GDD_Combate.md §9.2) — cono
+  // rojo placeholder girando despacio, sin arte todavía (misma UI de
+  // testeo que el resto de esta pasada).
+  $(room.state).combatesEnCurso.onAdd((marcador: any, id: string) => {
+    const cono = new Mesh(new ConeGeometry(0.35, 1, 6), new MeshBasicMaterial({ color: 0xd94040 }));
+    cono.position.y = 1.4;
+    escena.añadirEntidad(`combate_${id}`, cono, marcador.x, marcador.y, "⚔ combate en curso");
+    animables.push({ actualizar: (dt: number) => { cono.rotation.y += dt; } });
+  });
+  $(room.state).combatesEnCurso.onRemove((_marcador: any, id: string) => escena.quitarEntidad(`combate_${id}`));
 
   function objetivoHostilMasCercano(): string | null {
     if (!jugadorLocal) return null;
@@ -577,6 +619,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     return mejorId;
   }
 
+  /** Combate en ventana de unión (fase "pendiente", §9.1) más cercano al que el jugador todavía no pertenece. */
+  function combatePendienteMasCercano(): string | null {
+    if (!jugadorLocal) return null;
+    let mejorId: string | null = null;
+    let mejorDist = RADIO_COMBATE_CLIENTE;
+    for (const [id, c] of room.state.combates.entries()) {
+      if ((c as any).fase !== "pendiente" || (c as any).unidades.get(room.sessionId)) continue;
+      const ox = (c as any).gx0 + (c as any).ancho / 2, oy = (c as any).gy0 + (c as any).alto / 2;
+      const d = Math.hypot(ox - jugadorLocal.x, oy - jugadorLocal.z);
+      if (d < mejorDist) { mejorDist = d; mejorId = id; }
+    }
+    return mejorId;
+  }
+
   const teclas = new Set<string>();
   window.addEventListener("keydown", (e) => {
     const k = e.key.toLowerCase();
@@ -588,10 +644,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // puertas (docs/GDD_Sistema_Puertas.md): F cerca de una la cruza
     if (k === "f" && !teclas.has("f")) room.send("portal:usar");
     // combate (docs/GDD_Combate.md): C ataca al hostil más cercano — sin UI
-    // de targeting, mismo criterio que "coger"/"portal:usar".
+    // de targeting, mismo criterio que "coger"/"portal:usar". `retorno`
+    // (§9.2) es lo que hace falta para volver aquí exacto al terminar.
     if (k === "c" && !teclas.has("c")) {
       const objetivoId = objetivoHostilMasCercano();
-      if (objetivoId) room.send("combate:iniciar", { objetivoId });
+      if (objetivoId) room.send("combate:iniciar", { objetivoId, retorno: retornoDeCombate() });
+    }
+    // V: unirse a un combate cercano que todavía esté en ventana de unión
+    // (§9.1) — mismo criterio sin targeting que el resto de teclas de acción.
+    if (k === "v" && !teclas.has("v")) {
+      const combateId = combatePendienteMasCercano();
+      if (combateId) room.send("combate:unirse", { combateId, retorno: retornoDeCombate() });
     }
     teclas.add(k);
   });
