@@ -58,6 +58,8 @@ Sed, enfermedades, nutrientes del suelo, transplante, muerte, curación — menc
 
 Armas cuerpo a cuerpo y a distancia, salud/aguante, PvE contra fauna peligrosa y monstruos de mazmorra. PvP probablemente limitado o desactivado por defecto dado el enfoque comunitario del proyecto — a decidir cuando toque.
 
+**Costura 2026-08-29 (pedido del streamer, "los depredadores también son enemigos del jugador, y neutral — como un bandido pero animal")**: sin combate todavía no hay nada que dispare, pero se dejó marcado en el catálogo para cuando le toque el turno. `baker/catalogo/animales.json` ya tenía `peligroso: true` en 18 especies (jabalí, lobo, lince, oso pardo, lobo de las nieves, lince boreal, escorpión, serpiente de cascabel, víbora del desierto, chacal dorado, medusa, tiburón, orca, anguila abisal, cocodrilo del pantano, escorpión de lava, araña gigante, pez espada) — ahora todas ganan además `disposicion: "neutral"`. La distinción real, para cuando exista el sistema de IA/combate: **neutral** (esta fauna) no ataca al jugador porque sí, solo si se le provoca o se acerca demasiado (radio de agro) — a diferencia de **hostil** (la facción bandida, `faccion: "hostil"` ya usado en `baker/catalogo/pois.json` para POIs enemigos), que sí ataca por iniciativa propia. Mismo concepto de "enemigo" que un bandido, disposición distinta — nada más que el dato, sin mecánica todavía.
+
 ## Oficios de crafteo (herrería, talla, y los que falten) — sin diseñar
 
 Recetas, estaciones de trabajo (yunque, mesa de talla...), progresión de habilidad por oficio, qué herramienta/nivel hace falta para cada receta.

@@ -326,7 +326,8 @@
     "variantes": 5,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#4a3a2a"
+    "colorDebug": "#4a3a2a",
+    "disposicion": "neutral"
   },
   "liebre_de_bosque": {
     "biomas": [
@@ -370,7 +371,8 @@
       "corzo",
       "ciervo",
       "liebre_de_bosque"
-    ]
+    ],
+    "disposicion": "neutral"
   },
   "lince": {
     "colision": true,
@@ -390,7 +392,8 @@
       "liebre_de_bosque",
       "ardilla",
       "corzo"
-    ]
+    ],
+    "disposicion": "neutral"
   },
   "marta": {
     "biomas": [
@@ -510,7 +513,8 @@
     "presasDe": [
       "corzo",
       "ciervo"
-    ]
+    ],
+    "disposicion": "neutral"
   },
   "cabra_montesa": {
     "colision": true,
@@ -586,7 +590,8 @@
       "rebeco",
       "muflon",
       "marmota"
-    ]
+    ],
+    "disposicion": "neutral"
   },
   "lince_boreal": {
     "colision": true,
@@ -605,7 +610,8 @@
     "presasDe": [
       "marmota",
       "perdiz_nival"
-    ]
+    ],
+    "disposicion": "neutral"
   },
   "aguila_real": {
     "biomas": [
@@ -690,7 +696,8 @@
     "variantes": 5,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#3a2a1a"
+    "colorDebug": "#3a2a1a",
+    "disposicion": "neutral"
   },
   "serpiente_de_cascabel": {
     "biomas": [
@@ -702,7 +709,8 @@
     "variantes": 3,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#a08a4a"
+    "colorDebug": "#a08a4a",
+    "disposicion": "neutral"
   },
   "vibora_del_desierto": {
     "biomas": [
@@ -714,7 +722,8 @@
     "variantes": 3,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#c9b060"
+    "colorDebug": "#c9b060",
+    "disposicion": "neutral"
   },
   "lagarto_ocelado": {
     "biomas": [
@@ -768,7 +777,8 @@
       "gacela",
       "jerbo",
       "fenec"
-    ]
+    ],
+    "disposicion": "neutral"
   },
   "fenec": {
     "biomas": [
@@ -907,7 +917,8 @@
     "peligroso": true,
     "domesticable": false,
     "colorDebug": "#c9a8d0",
-    "_nota": "Deriva en grupos sueltos, no un banco cerrado — picadura urticante (peligroso: true)."
+    "_nota": "Deriva en grupos sueltos, no un banco cerrado — picadura urticante (peligroso: true).",
+    "disposicion": "neutral"
   },
   "estrella_de_mar": {
     "biomas": [
@@ -1011,7 +1022,8 @@
     "domesticable": false,
     "colorDebug": "#5a6a70",
     "distanciaMinima": 50,
-    "prefiereAguaProfunda": true
+    "prefiereAguaProfunda": true,
+    "disposicion": "neutral"
   },
   "orca": {
     "colision": true,
@@ -1027,7 +1039,8 @@
     "peligroso": true,
     "domesticable": false,
     "colorDebug": "#101820",
-    "distanciaMinima": 80
+    "distanciaMinima": 80,
+    "disposicion": "neutral"
   },
   "ballena_azul": {
     "colision": true,
@@ -1181,7 +1194,8 @@
     "escalaBase": 1.2,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#1a2a2a"
+    "colorDebug": "#1a2a2a",
+    "disposicion": "neutral"
   },
   "pez_linterna": {
     "biomas": [
@@ -1303,7 +1317,8 @@
     "variantes": 5,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#3a4a2a"
+    "colorDebug": "#3a4a2a",
+    "disposicion": "neutral"
   },
   "escorpion_de_lava": {
     "biomas": [
@@ -1314,7 +1329,8 @@
     "variantes": 3,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#c9401f"
+    "colorDebug": "#c9401f",
+    "disposicion": "neutral"
   },
   "salamandra_ignea": {
     "biomas": [
@@ -1358,7 +1374,8 @@
     "peligroso": true,
     "domesticable": false,
     "colorDebug": "#2a1a2a",
-    "_nota": "Solo aparece como enemigo de mazmorra (docs/GDD_Bakeador_Dungeons.md, personajes/catalogo/enemigos.json) — biomas vacío para que el decorador de exteriores nunca la elija sola en el mapa salvaje."
+    "_nota": "Solo aparece como enemigo de mazmorra (docs/GDD_Bakeador_Dungeons.md, personajes/catalogo/enemigos.json) — biomas vacío para que el decorador de exteriores nunca la elija sola en el mapa salvaje.",
+    "disposicion": "neutral"
   },
   "perro": {
     "biomas": [],
@@ -1610,7 +1627,8 @@
     "peligroso": true,
     "domesticable": false,
     "colorDebug": "#3a4a58",
-    "_nota": "Grande, solitario y raro — el pico afilado lo hace peligroso de cerca, a diferencia del resto de peces."
+    "_nota": "Grande, solitario y raro — el pico afilado lo hace peligroso de cerca, a diferencia del resto de peces.",
+    "disposicion": "neutral"
   },
   "anguila_marina": {
     "biomas": [
