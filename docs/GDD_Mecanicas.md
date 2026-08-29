@@ -235,11 +235,13 @@ Reglas pedidas explícitamente, diferenciadas por tipo de entidad:
   100-200, alfa 300+ (hoy solo tiburón/orca/araña gigante/calamar
   gigante caen en "alfa", por ser `colision + peligroso` a la vez).
 - **Jugadores y NPCs humanoides**: SÍ tienen ataque y defensa. Todo
-  jugador arranca con **100/100 HP** obligatorio (`vidaMax` sube luego
-  por equipo/atributos/magia — mecanismo listo, pero hoy no hay ningún
-  arma/armadura en `items/catalogo/items.json` con stats `dano`/
-  `defensa`, así que en la práctica un jugador pelea a puño limpio
-  (`ATAQUE_BASE_JUGADOR=3`) contra objetivos sin armadura).
+  jugador arranca con **100/100 HP** obligatorio. `ataque`/`defensa` son
+  campos numéricos en el Schema de red (`Player.ataque`/`Player.defensa`,
+  base 3/0 — a puño limpio, sin armadura) pensados para subir con
+  equipo/atributos/magia MÁS ADELANTE: esta pasada NO conecta ningún
+  cálculo de equipo todavía (nadie lee del inventario ni de catálogo de
+  items al golpear) — es la base numérica sobre la que enganchará
+  cualquier sistema de equipo/combate futuro, esta pasada u otra.
 - **Fórmula de daño** (`server/src/combate/combate.ts`, módulo puro):
   `daño = max(1, ataque - defensa)` — nunca menos de 1. Para un animal,
   quien llama pasa `defensa: 0` siempre (no tienen esa estadística), así
@@ -272,12 +274,27 @@ viva en red todavía (confirmado: sin disparador de combate real, ver
 GDD_Faccion_Bandidos.md §2.4) así que no reciben daño; los NPCs civiles
 de asentamiento SÍ tienen stats de combate en su Schema pero nadie los
 ataca (no hay id estable ni ataque cuerpo a cuerpo de NPC hacia jugador);
-sin armas/armaduras reales en el catálogo de items (el mecanismo lee
-`dano`/`defensa` del item equipado si existen, hoy siempre 0); sin
-muerte "de verdad" de jugador — morir en PvP hoy simplemente rellena la
-vida al máximo en el sitio, sin respawn ni penalización (no había diseño
-de eso pactado); sin cooldown/animación/rango de arma más allá del radio
-de interacción genérico.
+sin cálculo de equipo (armas/armaduras no suben `ataque`/`defensa`
+todavía, aunque el campo existe); sin muerte "de verdad" de jugador —
+morir en PvP hoy simplemente rellena la vida al máximo en el sitio, sin
+respawn ni penalización (no había diseño de eso pactado); sin
+cooldown/animación/rango de arma más allá del radio de interacción
+genérico.
+
+**Nota de coordinación (dos propuestas en paralelo, pedido 2026-08-30):**
+esto es un sistema de daño DIRECTO simple (radio de interacción, sin
+turnos), pedido y confirmado explícitamente por el streamer en esta
+misma fecha. En paralelo, otro agente dejó `docs/GDD_Combate.md` — una
+PROPUESTA de combate táctico por turnos en rejilla (arena, AP/MP,
+`CombateSchema` propio), marcada expresamente "pendiente de confirmación
+del streamer", sin código implementado todavía (solo añadió campos
+`ataqueFisico`/`defensaFisica`/etc. de relleno, sin consumidor, en
+`items/catalogo/items.json`). Los dos sistemas NO chocan en código (esa
+propuesta define su propio `CombateSchema`/`CombateUnidad` aparte de
+`Player`/`Npc`/`Fauna`) pero SÍ compiten en visión de producto — el
+streamer decide si conviven (este sistema para bichos sueltos/PvP
+casual, el táctico por turnos para mazmorras/bosses) o si uno sustituye
+al otro cuando se confirme el diseño de `GDD_Combate.md`.
 
 ### 5.5 Objetos por el suelo (persistencia visible, decidido)
 

@@ -207,10 +207,11 @@ export class HubRoom extends RoomExteriorBase {
     // Combate (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): un jugador
     // ataca a un animal salvaje activo o a otro jugador dentro de
     // RADIO_INTERACCION. Los animales NO tienen defensa (calcularDanio
-    // recibe 0); un jugador SÍ, según su `defensa` de red (equipo —
-    // todavía sin armaduras en el catálogo, así que hoy siempre es 0, ver
-    // items/catalogo/items.json). Servidor autoritativo: el cliente solo
-    // pide, nunca decide cuánta vida queda.
+    // recibe 0); un jugador SÍ, según su `defensa` de red (Player.defensa
+    // — base 0, sin cálculo de equipo todavía: ese enganche queda para
+    // cuando se decida qué sistema de combate lo conecta, ver la nota de
+    // coordinación con docs/GDD_Combate.md en el GDD de mecánicas).
+    // Servidor autoritativo: el cliente solo pide, nunca decide vida.
     this.onMessage("combate:atacar", async (client, msg: { objetivoTipo?: "fauna" | "jugador"; objetivoId?: string }) => {
       const atacante = this.state.players.get(client.sessionId);
       if (!atacante || !msg?.objetivoTipo || !msg?.objetivoId) return;
