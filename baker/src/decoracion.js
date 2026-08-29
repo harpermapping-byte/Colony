@@ -107,6 +107,35 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
     return catalogo === catalogoAnimales ? TECHO_POR_CAPA.fauna : catalogo === catalogoRocas ? TECHO_POR_CAPA.rocas : TECHO_POR_CAPA.vegetacion;
   }
 
+  // Posiciones ya usadas por especies con `distanciaMinima` (territorio de
+  // depredadores grandes/raros, pedido 2026-08-29) — vive en el cierre de
+  // `crearColocadorDecoracion`, así que persiste entre TODOS los chunks del
+  // bake (no solo dentro de uno), como una guarida de oso de verdad no
+  // debería repetirse cada pocas casillas cruzando un borde de chunk. Solo
+  // se usa/actualiza para las pocas especies que declaran el campo — coste
+  // cero para el resto del catálogo.
+  const posicionesPorEspecie = new Map();
+
+  // Afinidad de presa (pedido 2026-08-29, "depredador cerca de presa"): en
+  // vez de depender del ORDEN en que se procesan las casillas (frágil, y
+  // cruza fronteras de chunk mal), se mide la densidad de cada presa DE
+  // VERDAD en este mismo punto con su propia fórmula de siempre — es un
+  // proxy de "esto es buen territorio de caza para esta presa", sin
+  // consumir su tirada real ni depender de si ya se colocó una instancia
+  // concreta cerca. Barato: mismas capas de ruido ya cacheadas por especie.
+  function afinidadPresa(presasDe, x, y) {
+    if (!presasDe || !presasDe.length) return 0;
+    let mejor = 0;
+    for (const presaId of presasDe) {
+      const datosPresa = catalogoAnimales[presaId];
+      if (!datosPresa) continue;
+      const ruido = capaPara(presaId, datosPresa.escalaRuido || 20).fbm(x, y, 3);
+      const peso = (datosPresa.densidadBase || 0.01) * ruido * 2;
+      if (peso > mejor) mejor = peso;
+    }
+    return mejor;
+  }
+
   // Para una casilla concreta, decide qué objetos de una capa (vegetación,
   // fauna o roca) le corresponden, si le corresponde alguno.
   function objetosEnCasilla(catalogo, bioma, banda, x, y, prngLocal, opciones = {}) {
@@ -126,6 +155,14 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         // mar salada de lagos" como pools distintos, no todo mezclado).
         if (datos.requiereAguaDulce && !opciones.aguaDulce) continue;
         if (!datos.requiereAguaDulce && opciones.aguaDulce) continue;
+        // Profundidad (pedido 2026-08-29, "2 alturas de agua — pocos
+        // profunda ríos/orilla, profunda mar o centro de lago"): mismo
+        // terreno `agua` (banda<=1, orilla/río) vs `agua_profunda` (mar
+        // adentro o el centro de un lago si el fondo baja lo bastante) que
+        // ya distingue el bakeador — undefined = sin preferencia, en
+        // cualquiera de las dos.
+        if (datos.prefiereAguaProfunda === true && !opciones.profundoAgua) continue;
+        if (datos.prefiereAguaProfunda === false && opciones.profundoAgua) continue;
       } else {
         if (datos.requiereAgua) continue;
         if (datos.requiereCercaAgua && !opciones.cercaAgua) continue;
@@ -146,7 +183,16 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         if (datos.requiereCercaCiudad && !opciones.cercaDeCiudad) continue;
       }
       const ruido = capaPara(id, datos.escalaRuido || 20).fbm(x, y, 3);
-      const peso = (datos.densidadBase || 0.01) * ruido * 2; // peso RELATIVO entre especies (para elegir cuál gana), no una probabilidad por sí sola
+      let peso = (datos.densidadBase || 0.01) * ruido * 2; // peso RELATIVO entre especies (para elegir cuál gana), no una probabilidad por sí sola
+      // Depredador cerca de presa (pedido 2026-08-29): un lobo/lince/etc.
+      // con `presasDe` sube de peso donde su presa tendría buena densidad
+      // — más probable en zonas con caza real, no repartido uniforme por
+      // todo el bioma. FACTOR_AFINIDAD_PRESA moderado: refuerza, no
+      // sustituye la densidad propia del depredador.
+      if (catalogo === catalogoAnimales && datos.presasDe) {
+        const FACTOR_AFINIDAD_PRESA = 6;
+        peso *= 1 + afinidadPresa(datos.presasDe, x, y) * FACTOR_AFINIDAD_PRESA;
+      }
       if (peso > 0) {
         supervivientes.push([id, datos, peso]);
         pesoTotal += peso;
@@ -176,25 +222,67 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
       }
     }
     const [id, datos] = elegido;
+
+    // Espaciado territorial (pedido 2026-08-29, "depredadores grandes/raros
+    // sin dos guaridas a 5 casillas"): solo para especies con
+    // `distanciaMinima` — coste cero para el resto del catálogo. Si cae
+    // demasiado cerca de una instancia YA colocada de la MISMA especie (en
+    // cualquier chunk anterior del bake, no solo este), se descarta la
+    // tirada entera — la casilla se queda sin nada, no reintenta con otra
+    // especie (mismo criterio simple que "sin sitio" en otros sistemas del
+    // proyecto: mejor esfuerzo, no garantizado).
+    if (datos.distanciaMinima) {
+      const previas = posicionesPorEspecie.get(id);
+      if (previas) {
+        for (const [px, py] of previas) {
+          if (Math.hypot(x - px, y - py) < datos.distanciaMinima) return [];
+        }
+      }
+      if (!previas) posicionesPorEspecie.set(id, []);
+      posicionesPorEspecie.get(id).push([x, y]);
+    }
+
     const variantes = datos.variantes || 1;
     const escalaBase = datos.escalaBase || 1;
-    // Tirada de activación independiente de cuál especie ganó la casilla —
-    // así la proporción activo/reserva es la misma para todas las especies,
-    // no depende de si una es más rara que otra. `ac` se omite cuando está
-    // activo (el caso normal) y solo se guarda `ac:0` para los inactivos —
-    // más barato en el JSON exportado que guardar el campo siempre.
-    const activo = prngLocal() < fraccionActivaInicial;
-    // Claves cortas y escala redondeada a 2 decimales — con miles de
-    // objetos por chunk, el peso de cada campo cuenta de verdad (GDD
-    // sección 14, optimización). t: v=vegetación, a=animal, r=roca.
-    return [{
-      i: id,
-      t: catalogo === catalogoAnimales ? "a" : catalogo === catalogoRocas ? "r" : "v",
-      va: Math.floor(prngLocal() * variantes),
-      ro: Math.floor(prngLocal() * 360),
-      es: Math.round(escalaBase * (0.85 + prngLocal() * 0.3) * 100) / 100,
-      ...(activo ? {} : { ac: 0 }),
-    }];
+    // Manadas/bandadas (pedido 2026-08-29, "adelante con todas"): reusa
+    // `capacidadMaximaPorChunk` — campo que YA vivía en el catálogo sin que
+    // nada lo leyera — como tamaño de grupo. >1 = social: al acertar la
+    // tirada de la casilla, sale un grupo de 1..capacidadMaximaPorChunk
+    // individuos (no siempre el máximo, variedad de manada pequeña/grande),
+    // dispersos en un jitter corto alrededor del punto — el resto de
+    // especies (la inmensa mayoría, valor 1) no cambian de comportamiento.
+    const tamanoGrupo =
+      catalogo === catalogoAnimales && (datos.capacidadMaximaPorChunk || 1) > 1
+        ? 1 + Math.floor(prngLocal() * datos.capacidadMaximaPorChunk)
+        : 1;
+
+    const salida = [];
+    for (let g = 0; g < tamanoGrupo; g++) {
+      // Tirada de activación independiente de cuál especie ganó la casilla
+      // — así la proporción activo/reserva es la misma para todas las
+      // especies, no depende de si una es más rara que otra. `ac` se omite
+      // cuando está activo (el caso normal) y solo se guarda `ac:0` para
+      // los inactivos — más barato en el JSON exportado que guardar el
+      // campo siempre.
+      const activo = prngLocal() < fraccionActivaInicial;
+      // Claves cortas y escala redondeada a 2 decimales — con miles de
+      // objetos por chunk, el peso de cada campo cuenta de verdad (GDD
+      // sección 14, optimización). t: v=vegetación, a=animal, r=roca.
+      salida.push({
+        i: id,
+        t: catalogo === catalogoAnimales ? "a" : catalogo === catalogoRocas ? "r" : "v",
+        va: Math.floor(prngLocal() * variantes),
+        ro: Math.floor(prngLocal() * 360),
+        es: Math.round(escalaBase * (0.85 + prngLocal() * 0.3) * 100) / 100,
+        // El primero del grupo (g=0) va exacto en la casilla que ganó la
+        // tirada; el resto se dispersa ±2 casillas (jitter, sin validar
+        // terreno individual — mismo criterio que roca_acantilado_*: barato
+        // y suficientemente bueno para fauna, que no bloquea el paso).
+        ...(g > 0 ? { dgx: Math.round((prngLocal() - 0.5) * 4), dgy: Math.round((prngLocal() - 0.5) * 4) } : {}),
+        ...(activo ? {} : { ac: 0 }),
+      });
+    }
+    return salida;
   }
 
   function generarParaChunk(chunkX, chunkY, tamanoChunk, obtenerCelda) {
@@ -218,6 +306,7 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         const opciones = {
           esAgua: !!celda.esAgua,
           aguaDulce: !!celda.aguaDulce,
+          profundoAgua: !!celda.profundoAgua,
           cercaAgua: celda.cercaAgua,
           esBarro: !!celda.esBarro,
           esAcantilado: !!celda.esAcantilado,
@@ -230,7 +319,15 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         const fauna = objetosEnCasilla(catalogoAnimales, celda.bioma, celda.banda, x, y, prng, opciones);
 
         for (const obj of [...veg, ...roc, ...fauna]) {
-          objetos.push({ ...obj, x: lx, y: ly });
+          // Jitter de grupo (manadas/bandadas) — dgx/dgy solo existen en
+          // individuos g>0 de un grupo (ver objetosEnCasilla); se aplican
+          // aquí y se recortan a los límites del propio chunk (mismo
+          // criterio barato que roca_acantilado_*: no busca la casilla
+          // válida más cercana, solo evita salirse del chunk).
+          const { dgx, dgy, ...resto } = obj;
+          const fx = dgx ? Math.min(tamanoChunk - 1, Math.max(0, lx + dgx)) : lx;
+          const fy = dgy ? Math.min(tamanoChunk - 1, Math.max(0, ly + dgy)) : ly;
+          objetos.push({ ...resto, x: fx, y: fy });
         }
       }
     }
