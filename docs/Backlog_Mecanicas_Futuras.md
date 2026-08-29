@@ -110,6 +110,28 @@ Concepto decidido por el streamer, estilo Project Zomboid:
 
 **Pendiente de definir cuando toque**: catálogo de profesiones (¿una lista cerrada, o abierta como el resto de catálogos del proyecto?), cómo se consigue un plano nuevo (comprado/encontrado/enseñado por NPC), estaciones de trabajo requeridas por receta (ya apuntado en "Oficios de crafteo"), y si un personaje puede tener varias profesiones a la vez o hay que especializarse.
 
+## NPCs contratables para automatizar producción (trabajar, transportar, vender) — concepto del streamer, reconciliado con la arquitectura real, sin diseñar del todo
+
+Pedido del streamer (2026-08-29): el menú de construcción no es solo bloques/muebles/decoración sin interior + edificios pequeños con interior (ver `GDD_Construccion.md` §8) — la otra mitad es aprovechar el pathfinding ya construido para AUTOMATIZAR trabajo contratando NPCs con dinero: un NPC que trabaje una granja/mesa y guarde el material en las cajas de la parcela, otro que transporte materiales de un punto A a un punto B (venderlos, o llevarlos a otra parcela propia donde se transforman en otro material vía crafteo — ej. harina→pan en una panadería), contratado desde una mesa/edificio específico hablando con un NPC "reclutador" (tipo oficina de empleo).
+
+**Encaje con lo que ya existe**:
+- `server/src/mundo/agentes.ts` YA separa el "cuerpo" del agente móvil (autómata QUIETO/VIAJANDO por polilíneas bakeadas) del "cerebro" (hoy: rutina horaria de `poblacion/`; el propio comentario de cabecera anticipa "merodeo y patrulla llegarán como cerebros nuevos sobre este mismo cuerpo"). Un "trabajador contratado" es un TERCER cerebro sobre el mismo cuerpo: en vez de rutina o patrulla, sigue un contrato (ir a A, trabajar/recolectar, ir a B, dejar/vender, repetir).
+- El "reclutador" es un rol de NPC más (como `vagabundo`/`chismosa` en `poblacion/catalogo/especiales.json`), con un modo de diálogo NO libre (menú de contratación) sobre el sistema de IA de NPCs que YA existe (`server/src/ia/`, mensaje `npc:hablar`) — mismo patrón que tendrá el líder bandido con su propio prompt (`GDD_Faccion_Bandidos.md` §1), no una tubería de diálogo nueva.
+- Recolectar/almacenar reutiliza directo "Recolectables con pool de puntos de spawn" (bakeador ya cerrado) para lo silvestre y "Injertos y cruces de cultivos" (diseño ya cerrado) para granjas — un NPC contratado "trabajando la granja" es mecánicamente el mismo recolector que ya usaría un jugador, solo que automatizado. Las cajas de almacén son contenedores de "Inventario, contenedores y objetos en el mundo" (esqueleto ya estructurado, más abajo).
+
+**La fricción real: el pathfinding en vivo nunca hace A\* en el tick.** Regla ya fijada en `agentes.ts` (motivo: coste en un server gratuito de Render) — solo se anda por rutas BAKEADAS offline entre puntos que el bakeador ya conocía; si falta, TELEPORT. Una parcela construida por un jugador hoy no existe en ese momento del bake, así que no hay ruta pre-calculada entre "mi granja" y "mi panadería" en otra parcela.
+
+Cómo encaja SIN romper la regla: lo que está prohibido es A\* REPETIDO en el tick, no A\* alguna vez. Mismo patrón que ya usa `interiorGenerado.ts` (genera el interior de un edificio construido UNA VEZ, al construirlo, no cada tick): calcular la ruta del contrato UNA VEZ, al firmarlo (o al construir el segundo punto si faltaba), contra la rejilla ya construida del mapa+parcelas, y cachearla (mismo campo tipo `camino` que ya usan los `TramoRutina`, o el `extra` de `construcciones`). Si el jugador mueve algo de en medio después, se recalcula UNA VEZ en ese momento — coherente con "generar una vez, nunca en directo", no una excepción.
+
+**Qué falta antes de poder implementarlo (dependencias reales, en orden)**:
+1. Dinero/economía — pagar al NPC (backlog "Comercio y economía — sin diseñar").
+2. Inventario/objetos en el mundo — contenido real de las cajas, no solo el mueble placeholder de hoy (backlog "Inventario, contenedores y objetos en el mundo").
+3. Oficios de crafteo con recetas+estación reales (backlog "Oficios de crafteo" y "Roles/profesiones y crafteo por planos").
+4. Edificios pequeños de construcción propios (mesa/oficina de reclutamiento — ver `GDD_Construccion.md` §8).
+5. Un A\* de caminos reusable EN RUNTIME — hoy ese algoritmo solo existe como bakeador offline dentro de `baker/src/`, nunca se ha llamado desde el servidor vivo; hay que extraerlo/exponerlo como función reusable primero.
+
+**Pendiente de decidir cuando toque**: si el NPC contratado sale de un pool de "desempleados" (ej. `vagabundo` reconvertido) o cualquier NPC del asentamiento puede aceptar; si el contrato se paga una vez o es sueldo periódico (mismo patrón de tick que `ejecutarTickEconomia` de la facción bandida); qué pasa si el punto B no tiene hueco/capacidad; y a quién se vende (no hay mercado bakeado hoy fuera de `tienda`).
+
 ## Ideas propias a valorar (propuestas, no decisiones — para que el streamer las filtre)
 
 Pensando en qué encaja con lo que ya existe en el proyecto (rig con pivotes por zona, ropa con fibras textiles, ciclo día/noche recién construido, ciudad neutral/hostil, roles de Twitch ya decididos):
