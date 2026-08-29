@@ -21,6 +21,24 @@ test("obtenerOCrearJugador es idempotente: mismo nombre = mismo id", async () =>
   await bd.cerrar();
 });
 
+test("vida (docs/GDD_Mecanicas.md §5.4): un jugador nuevo nace a 100/100", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Ragnar");
+  assert.strictEqual(j.vida, 100);
+  assert.strictEqual(j.vidaMax, 100);
+  await bd.cerrar();
+});
+
+test("actualizarVidaJugador: persiste y se lee de vuelta con obtenerOCrearJugador", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Ragnar");
+  await bd.actualizarVidaJugador(j.id, 42, 120);
+  const releido = await bd.obtenerOCrearJugador("Ragnar");
+  assert.strictEqual(releido.vida, 42);
+  assert.strictEqual(releido.vidaMax, 120);
+  await bd.cerrar();
+});
+
 test("asignar/revocar propiedad: dueño por nombre, revocar deja la fila con dueno=null", async () => {
   const bd = new AlmacenDatos(":memory:");
   // Asignar crea al jugador si no existe (mismo camino que "parcela:asignar")

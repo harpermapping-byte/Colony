@@ -195,11 +195,46 @@ export class WorldScene {
       this.etiquetas.set(idEntidad, div);
     }
 
+    // Barra de vida (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): oculta
+    // hasta la primera llamada a `actualizarVida` (evita un rectángulo gris
+    // vacío en entidades que aún no reportaron vida/vidaMax). Fondo oscuro
+    // fijo + relleno de color que encoge/cambia de color con la vida.
+    const fondo = document.createElement("div");
+    fondo.style.width = "28px";
+    fondo.style.height = "4px";
+    fondo.style.background = "rgba(0,0,0,0.6)";
+    fondo.style.border = "1px solid rgba(0,0,0,0.8)";
+    fondo.style.display = "none";
+    const relleno = document.createElement("div");
+    relleno.style.height = "100%";
+    relleno.style.width = "100%";
+    relleno.style.background = "#4caf50";
+    fondo.appendChild(relleno);
+    const barra = new CSS2DObject(fondo);
+    barra.position.set(0, 1.65, 0);
+    objeto.add(barra);
+    this.barrasVida.set(idEntidad, { fondo, relleno });
+
     this.entidades.set(idEntidad, objeto);
     this.scene.add(objeto);
   }
 
   private etiquetas = new Map<string, HTMLDivElement>();
+  private barrasVida = new Map<string, { fondo: HTMLDivElement; relleno: HTMLDivElement }>();
+
+  /** Actualiza la barra de vida flotante de una entidad — vidaMax<=0 la oculta (sin datos de combate todavía). */
+  actualizarVida(idEntidad: string, vida: number, vidaMax: number) {
+    const barra = this.barrasVida.get(idEntidad);
+    if (!barra) return;
+    if (vidaMax <= 0) {
+      barra.fondo.style.display = "none";
+      return;
+    }
+    barra.fondo.style.display = "block";
+    const proporcion = Math.max(0, Math.min(1, vida / vidaMax));
+    barra.relleno.style.width = `${proporcion * 100}%`;
+    barra.relleno.style.background = proporcion > 0.5 ? "#4caf50" : proporcion > 0.25 ? "#e0b040" : "#d9453f";
+  }
 
   /**
    * Cambia el texto de la etiqueta de una entidad — lo usan las burbujas de
@@ -228,6 +263,7 @@ export class WorldScene {
     this.scene.remove(objeto);
     this.entidades.delete(idEntidad);
     this.etiquetas.delete(idEntidad);
+    this.barrasVida.delete(idEntidad);
   }
 
   render() {

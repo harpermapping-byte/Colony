@@ -7,6 +7,7 @@ import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { NpcBakeado } from "../mundo/agentes";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
+import { cargarCatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
 import { asegurarAsentamientoBandido } from "../mundo/economiaAsentamientos";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
 import { cargarParcelasDeReservas } from "../construccion/parcelas";
@@ -93,7 +94,10 @@ export class RegionRoom extends RoomExteriorBase {
     const rutaFauna = path.join(rutaMapa, "fauna.json");
     if (fs.existsSync(rutaFauna)) {
       const datos = JSON.parse(fs.readFileSync(rutaFauna, "utf8")) as { fauna: FaunaSpawn[] };
-      const gestorFauna = new GestorFauna(this.state.fauna, this.mundo);
+      const catalogoCombate = cargarCatalogoCombateFauna(
+        path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "animales.json"),
+      );
+      const gestorFauna = new GestorFauna(this.state.fauna, this.mundo, catalogoCombate);
       gestorFauna.iniciar(datos.fauna);
       this.clock.setInterval(() => gestorFauna.tick(0.2), 200);
       console.log(`  ${gestorFauna.cantidad} animales sueltos en el mapa`);

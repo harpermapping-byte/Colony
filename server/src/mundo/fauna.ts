@@ -15,6 +15,7 @@
 import { MapSchema } from "@colyseus/schema";
 import { Fauna } from "../rooms/schema/HubState";
 import { MundoColision, TIPO } from "./colisiones";
+import { CatalogoCombateFauna, estadisticasCombatePorDefecto } from "./catalogoCombateFauna";
 
 export interface FaunaSpawn {
   id: string;
@@ -52,6 +53,12 @@ export class GestorFauna {
   constructor(
     private salida: MapSchema<Fauna>,
     private mundo: MundoColision,
+    // Vida/ataque (docs/GDD_Mecanicas.md §5.4) — opcional, con relleno
+    // seguro si no se pasa (no rompe a quien instanciaba esto antes de
+    // que existiera combate). Esta fauna doméstica no persiste vida
+    // individual: mismo criterio ya decidido de que solo la salvaje
+    // persiste (docs/GDD_Agentes_Moviles.md, "Domésticos... pendiente").
+    private catalogoCombate: CatalogoCombateFauna = {},
   ) {}
 
   iniciar(spawns: FaunaSpawn[]) {
@@ -64,6 +71,10 @@ export class GestorFauna {
       esquema.y = s.y + 0.5;
       esquema.especieId = s.especieId;
       esquema.accion = accionIdleAlAzar();
+      const combate = this.catalogoCombate[s.especieId] ?? estadisticasCombatePorDefecto();
+      esquema.vida = combate.vidaMaxima;
+      esquema.vidaMax = combate.vidaMaxima;
+      esquema.ataque = combate.ataque;
       this.salida.set(s.id, esquema);
       this.animales.push({
         spawn: { x: s.x, y: s.y },

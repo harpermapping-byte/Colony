@@ -18,6 +18,8 @@ import { MundoColision, TIPO } from "./colisiones";
 import { CatalogoEspecies, ObjetoFaunaBakeado, convertirFilaAAnimal, resolverSector } from "./faunaSalvajeSector";
 import { necesitaAgua, necesitaComida } from "./reproduccionFauna";
 import { Cadaver, crearCadaver } from "./cadaveres";
+import { CatalogoCombateFauna } from "./catalogoCombateFauna";
+import { aplicarDanio, curar, estaMuerto } from "../combate/combate";
 import { FaunaHuevoFila, FaunaSalvajeFila } from "../datos/bd";
 
 const RADIO_MERODEO = 3; // casillas — paseo corto alrededor de donde se resolvió cada individuo
@@ -57,6 +59,8 @@ function clave(s: CoordenadaSector): string {
 export interface DependenciasFaunaSalvaje {
   mapaId: string;
   catalogo: CatalogoEspecies;
+  /** Vida/ataque por especie (docs/GDD_Mecanicas.md §5.4) — relleno seguro si se omite, ver `estadisticasCombatePorDefecto`. */
+  catalogoCombate?: CatalogoCombateFauna;
   mundo: MundoColision;
   /** Día de mundo fraccional actual — inyectado (no Date.now() aquí) para poder testear con un reloj fijo. */
   ahora: () => number;
@@ -134,6 +138,7 @@ export class GestorFaunaSalvaje {
       ultimaResolucion: persistido.ultimaResolucion,
       ahora: this.deps.ahora(),
       catalogo: this.deps.catalogo,
+      catalogoCombate: this.deps.catalogoCombate,
     });
 
     const vivos: IndividuoVivo[] = [];
@@ -144,6 +149,9 @@ export class GestorFaunaSalvaje {
       esquema.y = fila.y + 0.5;
       esquema.especieId = fila.especieId;
       esquema.accion = accionIdleAlAzar();
+      esquema.vida = fila.vida;
+      esquema.vidaMax = fila.vidaMax;
+      esquema.ataque = fila.ataque;
       this.salida.set(fila.id, esquema);
       vivos.push({ fila, esquema, destino: null, objetivoDestino: null, pausaRestante: 1 + Math.random() * 3 });
     }
@@ -205,6 +213,52 @@ export class GestorFaunaSalvaje {
       });
       await this.deps.crearCadaver(cadaver);
       return cadaver;
+    }
+    return null;
+  }
+
+  /**
+   * Aplica daño a un individuo activo (docs/GDD_Mecanicas.md §5.4, pedido
+   * 2026-08-30) — los animales NO tienen defensa, así que `danio` se resta
+   * directo de su vida. Si la vida llega a 0, mata al individuo por el
+   * mismo camino que `matarIndividuo` (marca muerto, persiste, quita del
+   * estado, crea cadáver). `null` si el id no está activo ahora mismo.
+   *
+   * PUNTO DE ENGANCHE, igual que `matarIndividuo`: hoy solo la llama el
+   * mensaje `combate:atacar` de HubRoom — el resto de disparadores (fauna
+   * cazando, magia de daño en área...) quedan para cuando existan.
+   */
+  async recibirDanio(id: string, danio: number): Promise<{ vida: number; vidaMax: number; muerto: boolean; cadaver: Cadaver | null } | null> {
+    for (const vivos of this.sectoresActivos.values()) {
+      const v = vivos.find((x) => x.fila.id === id);
+      if (!v) continue;
+      const stats = aplicarDanio({ vida: v.esquema.vida, vidaMax: v.esquema.vidaMax, ataque: v.esquema.ataque, defensa: 0 }, danio);
+      v.esquema.vida = stats.vida;
+      v.fila.vida = stats.vida;
+      if (estaMuerto(stats)) {
+        const cadaver = await this.matarIndividuo(id);
+        return { vida: 0, vidaMax: v.fila.vidaMax, muerto: true, cadaver };
+      }
+      await this.deps.guardarIndividuo(v.fila);
+      return { vida: stats.vida, vidaMax: v.fila.vidaMax, muerto: false, cadaver: null };
+    }
+    return null;
+  }
+
+  /**
+   * Curación explícita — un jugador cura A PROPÓSITO con un objeto/magia
+   * (regla de diseño: los animales NUNCA se regeneran solos con el
+   * tiempo). `null` si el id no está activo ahora mismo.
+   */
+  async curarIndividuo(id: string, cantidad: number): Promise<{ vida: number; vidaMax: number } | null> {
+    for (const vivos of this.sectoresActivos.values()) {
+      const v = vivos.find((x) => x.fila.id === id);
+      if (!v) continue;
+      const stats = curar({ vida: v.esquema.vida, vidaMax: v.esquema.vidaMax, ataque: v.esquema.ataque, defensa: 0 }, cantidad);
+      v.esquema.vida = stats.vida;
+      v.fila.vida = stats.vida;
+      await this.deps.guardarIndividuo(v.fila);
+      return { vida: stats.vida, vidaMax: v.fila.vidaMax };
     }
     return null;
   }

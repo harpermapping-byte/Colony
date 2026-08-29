@@ -220,11 +220,64 @@ oro repetida: catálogo como fuente de verdad + servidor autoritativo
   cabeza, torso, piernas, pies, espalda… La ropa/armadura da **defensa**,
   puede dar **capacidad de peso** extra, y las bolsas/mochilas añaden
   REJILLA extra de inventario (otro grid anidado).
-- Atributos del PJ: **vida**, defensa (derivada del equipo), capacidad de
-  peso, velocidad… — pocos y claros al principio; la lista exacta se
-  cierra cuando se diseñe combate.
 - Los equipables viven en el mismo catálogo de objetos con tag
   `equipable` + su slot + sus stats (nada de catálogo aparte).
+
+#### Vida / Ataque / Defensa (✅ implementado, pedido 2026-08-30)
+
+Reglas pedidas explícitamente, diferenciadas por tipo de entidad:
+
+- **Animales**: NUNCA tienen defensa — su única resistencia es la vida
+  máxima. Sí tienen ataque. La vida máxima escala por categoría
+  (`categoriaVida` en `baker/catalogo/animales.json`, derivada del
+  `tamanoReproduccion`/`peligroso`/`colision` ya existentes, un valor por
+  especie — no aleatorio): cría ~8, pequeño 15-25, mediano 50-65, grande
+  100-200, alfa 300+ (hoy solo tiburón/orca/araña gigante/calamar
+  gigante caen en "alfa", por ser `colision + peligroso` a la vez).
+- **Jugadores y NPCs humanoides**: SÍ tienen ataque y defensa. Todo
+  jugador arranca con **100/100 HP** obligatorio (`vidaMax` sube luego
+  por equipo/atributos/magia — mecanismo listo, pero hoy no hay ningún
+  arma/armadura en `items/catalogo/items.json` con stats `dano`/
+  `defensa`, así que en la práctica un jugador pelea a puño limpio
+  (`ATAQUE_BASE_JUGADOR=3`) contra objetivos sin armadura).
+- **Fórmula de daño** (`server/src/combate/combate.ts`, módulo puro):
+  `daño = max(1, ataque - defensa)` — nunca menos de 1. Para un animal,
+  quien llama pasa `defensa: 0` siempre (no tienen esa estadística), así
+  que reciben el ataque tal cual.
+- **Regeneración/curación**: NADIE se cura solo con el tiempo — ni
+  jugadores, ni animales, ni NPCs. Un jugador solo sube vida comiendo
+  (fuera de combate) o con pociones/magia; animales y NPCs solo si un
+  jugador los cura A PROPÓSITO con un objeto o magia. Por eso
+  `combate.ts` no tiene ninguna función de "tick" de vida — `curar()` es
+  siempre un evento explícito.
+
+Piezas: catálogo de vida de fauna (`server/src/mundo/catalogoCombateFauna.ts`,
+separado del catálogo de reproducción porque cubre TAMBIÉN crías y
+población infinita, que no reproducen pero sí pueden recibir daño);
+persistencia (`fauna_salvaje.vida/vida_max/ataque` — el daño sufrido
+sobrevive a desactivar/reactivar un sector; `jugadores.vida/vida_max`);
+Schema de red (`Player`/`Npc`/`Fauna` en `HubState.ts`, con barra de
+vida flotante en el cliente, `client/src/render3d/worldScene.ts`);
+`GestorFaunaSalvaje.recibirDanio`/`curarIndividuo` (mismo patrón
+"mecanismo listo, punto de enganche" que `matarIndividuo`/cadáveres); y
+UN disparador real ya cableado: el mensaje `combate:atacar` de
+`HubRoom.ts` (jugador ataca fauna salvaje activa o a otro jugador,
+dentro de `RADIO_INTERACCION`, servidor autoritativo) — un animal salvaje
+muerto en combate crea su cadáver automáticamente (cierra el círculo con
+el sistema de cadáveres de la fase anterior).
+
+**Deliberadamente fuera de esta pasada**: NPCs humanoides con id
+persistente (bandidos/`tropas_asentamiento`) no tienen ninguna entidad
+viva en red todavía (confirmado: sin disparador de combate real, ver
+GDD_Faccion_Bandidos.md §2.4) así que no reciben daño; los NPCs civiles
+de asentamiento SÍ tienen stats de combate en su Schema pero nadie los
+ataca (no hay id estable ni ataque cuerpo a cuerpo de NPC hacia jugador);
+sin armas/armaduras reales en el catálogo de items (el mecanismo lee
+`dano`/`defensa` del item equipado si existen, hoy siempre 0); sin
+muerte "de verdad" de jugador — morir en PvP hoy simplemente rellena la
+vida al máximo en el sitio, sin respawn ni penalización (no había diseño
+de eso pactado); sin cooldown/animación/rango de arma más allá del radio
+de interacción genérico.
 
 ### 5.5 Objetos por el suelo (persistencia visible, decidido)
 

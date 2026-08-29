@@ -21,6 +21,9 @@ function individuo(overrides: Partial<FaunaSalvajeFila> = {}): FaunaSalvajeFila 
     gestandoDesde: null,
     gestacionDuracionDias: null,
     nacioEn: null,
+    vida: 50,
+    vidaMax: 50,
+    ataque: 12,
     ...overrides,
   };
 }

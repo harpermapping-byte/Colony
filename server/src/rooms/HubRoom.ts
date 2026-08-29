@@ -11,6 +11,8 @@ import { DependenciasFaunaSalvaje, GestorFaunaSalvaje } from "../mundo/faunaSalv
 import { ObjetoFaunaBakeado } from "../mundo/faunaSalvajeSector";
 import { diaFraccional } from "../mundo/reproduccionFauna";
 import { tiempoMundo } from "../mundo/tiempoMundo";
+import { cargarCatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
+import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
 
 // Lee un `sector_XXX_YYY.json` bakeado y devuelve solo sus objetos de
 // fauna (t==="a") con coordenadas GLOBALAS de casilla — mismo formato de
@@ -124,6 +126,9 @@ export class HubRoom extends RoomExteriorBase {
           guardarHuevo: (h) => bd.guardarHuevo(h),
           marcarSectorResuelto: (s, momento) => bd.marcarSectorResuelto(mapaId, s.sectorX, s.sectorY, momento),
           crearCadaver: (c) => bd.crearCadaverBd(c),
+          catalogoCombate: cargarCatalogoCombateFauna(
+            path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "animales.json"),
+          ),
         };
         // Guardado como campo (no variable local): el punto de enganche
         // `matarIndividuo` lo llamará un futuro sistema de combate desde
@@ -198,10 +203,83 @@ export class HubRoom extends RoomExteriorBase {
       }
     });
 
+
+    // Combate (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): un jugador
+    // ataca a un animal salvaje activo o a otro jugador dentro de
+    // RADIO_INTERACCION. Los animales NO tienen defensa (calcularDanio
+    // recibe 0); un jugador SÍ, según su `defensa` de red (equipo —
+    // todavía sin armaduras en el catálogo, así que hoy siempre es 0, ver
+    // items/catalogo/items.json). Servidor autoritativo: el cliente solo
+    // pide, nunca decide cuánta vida queda.
+    this.onMessage("combate:atacar", async (client, msg: { objetivoTipo?: "fauna" | "jugador"; objetivoId?: string }) => {
+      const atacante = this.state.players.get(client.sessionId);
+      if (!atacante || !msg?.objetivoTipo || !msg?.objetivoId) return;
+
+      if (msg.objetivoTipo === "fauna") {
+        if (!this.gestorFaunaSalvaje) return client.send("combate:error", { motivo: "sin fauna salvaje en este mapa" });
+        const animal = this.state.fauna.get(msg.objetivoId);
+        if (!animal) return client.send("combate:error", { motivo: "objetivo no encontrado" });
+        if (Math.hypot(animal.x - atacante.x, animal.y - atacante.y) > RADIO_INTERACCION) {
+          return client.send("combate:error", { motivo: "demasiado lejos" });
+        }
+        const danio = calcularDanio(atacante.ataque, 0); // los animales no tienen defensa
+        const resultado = await this.gestorFaunaSalvaje.recibirDanio(msg.objetivoId, danio);
+        if (!resultado) return client.send("combate:error", { motivo: "objetivo ya no está activo" });
+        this.broadcast("combate:golpe", {
+          objetivoTipo: "fauna", objetivoId: msg.objetivoId, danio,
+          vida: resultado.vida, vidaMax: resultado.vidaMax, muerto: resultado.muerto,
+        });
+        return;
+      }
+
+      // objetivoTipo === "jugador" (PvP)
+      const objetivo = this.state.players.get(msg.objetivoId);
+      if (!objetivo || msg.objetivoId === client.sessionId) return client.send("combate:error", { motivo: "objetivo no válido" });
+      if (Math.hypot(objetivo.x - atacante.x, objetivo.y - atacante.y) > RADIO_INTERACCION) {
+        return client.send("combate:error", { motivo: "demasiado lejos" });
+      }
+      const danio = calcularDanio(atacante.ataque, objetivo.defensa);
+      const stats = aplicarDanio(
+        { vida: objetivo.vida, vidaMax: objetivo.vidaMax, ataque: objetivo.ataque, defensa: objetivo.defensa },
+        danio,
+      );
+      const muerto = estaMuerto(stats);
+      // Sin diseño de muerte/respawn todavía (fuera de esta pasada): por
+      // ahora, morir simplemente rellena la vida al máximo en el sitio —
+      // mejor que un jugador "muerto" andante, sin inventar penalización.
+      objetivo.vida = muerto ? objetivo.vidaMax : stats.vida;
+      if (objetivo.name) {
+        const bd = await obtenerBdCompartida();
+        const jugador = await bd.obtenerOCrearJugador(objetivo.name);
+        await bd.actualizarVidaJugador(jugador.id, objetivo.vida, objetivo.vidaMax);
+      }
+      this.broadcast("combate:golpe", {
+        objetivoTipo: "jugador", objetivoId: msg.objetivoId, danio,
+        vida: objetivo.vida, vidaMax: objetivo.vidaMax, muerto,
+      });
+    });
   }
 
   onJoin(client: Client, options: { name?: string }) {
     this.crearJugador(client, options, this.mapa.spawnX, this.mapa.spawnY);
+
+    // Vida persistida (docs/GDD_Mecanicas.md §5.4): carga best-effort, no
+    // bloquea el join — mismo criterio que el resto de datos "oportunistas"
+    // (gremio, etc.) que no viajan síncronos en onJoin. Si falla, el
+    // jugador se queda con la base 100/100 del Schema — no rompe nada.
+    const nombre = this.nombreDe(client);
+    if (nombre) {
+      obtenerBdCompartida()
+        .then((bd) => bd.obtenerOCrearJugador(nombre))
+        .then((jugador) => {
+          const player = this.state.players.get(client.sessionId);
+          if (player) {
+            player.vida = jugador.vida;
+            player.vidaMax = jugador.vidaMax;
+          }
+        })
+        .catch((err) => console.error("No se pudo cargar la vida persistida del jugador:", err));
+    }
 
     // estado de construcción al entrar (GDD §4); el interior de los
     // edificios de CONSTRUCCIÓN (player-placed) no viaja aquí — solo los
