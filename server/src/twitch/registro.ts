@@ -46,8 +46,17 @@ export function registrarJugador(nombre: string, room: RoomConectable, sessionId
   conexionPorNombre.set(nombre.trim().toLowerCase(), { room, sessionId });
 }
 
-export function quitarJugador(nombre: string): void {
-  conexionPorNombre.delete(nombre.trim().toLowerCase());
+/**
+ * `sessionId` es OBLIGATORIO para evitar un bug real con nombres duplicados
+ * (identidad v1 no los impide, ver comentario de `conexionPorNombre`): si A
+ * y B entran con el mismo nombre, B "gana" el registro; si A se desconecta
+ * DESPUÉS, un `quitarJugador(nombre)` sin comprobar de quién es borraría el
+ * registro de B (que sigue conectado) — solo se borra si la entrada actual
+ * sigue siendo la de ESTA sesión.
+ */
+export function quitarJugador(nombre: string, sessionId: string): void {
+  const clave = nombre.trim().toLowerCase();
+  if (conexionPorNombre.get(clave)?.sessionId === sessionId) conexionPorNombre.delete(clave);
 }
 
 export function buscarConexion(nombre: string): Conexion | undefined {

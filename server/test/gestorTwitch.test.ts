@@ -105,3 +105,18 @@ test("intentarCanje: fuera de directo, se rechaza sin tocar cooldown", () => {
   const r = gestor.intentarCanje("malo");
   assert.strictEqual(r.ok, false);
 });
+
+test("aplicarEventosActivosA: una room que nace A MEDIO evento de mundo también lo recibe (bug real encontrado en revisión multi-jugador — antes solo llegaba a las rooms que ya existían en el instante del canje)", async () => {
+  _resetRegistroParaTests();
+  const gestor = prepararGestorEnDirecto();
+  const r = gestor.intentarCanje("malo"); // uno de los 5 "malos" cae en el branch por defecto (sin BD) siempre
+  assert.strictEqual(r.ok, true);
+  if (!r.ok) return;
+
+  // una room que se crea DESPUÉS del canje (p.ej. el jugador viaja a una
+  // aldea nueva a mitad de la tormenta/corralito/etc.) — sin la llamada a
+  // aplicarEventosActivosA, esta room nunca se enteraría del evento en curso.
+  const { room, llamadas } = roomEspia();
+  gestor.aplicarEventosActivosA(room);
+  assert.deepStrictEqual(llamadas, [{ metodo: "aplicarEventoTwitch", args: [r.evento.id, true] }]);
+});

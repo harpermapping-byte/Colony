@@ -25,6 +25,12 @@ const NOMBRE_STREAMER = process.env.TWITCH_CANAL ?? "el streamer";
 export class GestorTwitch {
   private enDirecto: boolean;
   private ultimoCanje: Record<TipoEvento, number | null> = { malo: null, bueno: null };
+  // Eventos de MUNDO (sin BD) activos ahora mismo — necesario para que una
+  // room que se crea A MEDIO evento (un jugador viaja a una aldea nueva
+  // mientras "Hay que trabajar" sigue activo) también lo reciba: sin esto,
+  // `aplicarEvento` solo tocaba las rooms que YA existían en el instante del
+  // canje, dejando fuera cualquier room futura hasta que el evento terminara.
+  private eventosMundoActivos = new Set<string>();
 
   constructor() {
     const detectorConfigurado = !!(process.env.TWITCH_CLIENT_ID && process.env.TWITCH_CLIENT_SECRET);
@@ -114,17 +120,32 @@ export class GestorTwitch {
       default:
         // El resto son efectos de mundo puros (sin BD) — cada Room activa
         // se encarga de los suyos (jugadores presentes, mapa, tenderetes).
+        this.eventosMundoActivos.add(evento.id);
         for (const room of roomsActivas()) room.aplicarEventoTwitch(evento.id, true);
         if (evento.duracionMs > 0) {
           // .unref(): un timer de hasta 5 min no debe mantener vivo el
           // proceso ni bloquear el test runner (Node espera a que todos los
           // timers referenciados terminen antes de salir).
           setTimeout(() => {
+            this.eventosMundoActivos.delete(evento.id);
             for (const room of roomsActivas()) room.aplicarEventoTwitch(evento.id, false);
           }, evento.duracionMs).unref();
+        } else {
+          this.eventosMundoActivos.delete(evento.id); // instantáneo (no debería llegar aquí, por si acaso)
         }
         return;
     }
+  }
+
+  /**
+   * Una room recién creada (`RoomExteriorBase.iniciarMovimiento`, justo tras
+   * `registrarRoom`) llama a esto para ponerse al día con cualquier evento
+   * de mundo YA activo — sin esto, viajar a una aldea nueva a mitad de
+   * "Hay que trabajar"/"El Corralito" etc. dejaría esa room sin el efecto
+   * hasta que el evento terminara solo en las rooms que ya existían.
+   */
+  aplicarEventosActivosA(room: { aplicarEventoTwitch(eventoId: string, activar: boolean): void }): void {
+    for (const eventoId of this.eventosMundoActivos) room.aplicarEventoTwitch(eventoId, true);
   }
 
   private async aplicarLluviaDinero(): Promise<void> {

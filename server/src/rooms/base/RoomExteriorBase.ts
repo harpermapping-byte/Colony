@@ -220,8 +220,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private eventoRayoActivo = false;
   private eventoTerremotoActivo = false;
   private eventoFarmeoDobleActivo = false;
-  /** -1..1, sumado al descuento de Carisma en tenderete:comprar — negativo = sube el precio (El Corralito), positivo = lo baja (Mercado en oferta). */
-  private modificadorPrecioEventoTwitch = 0;
+  // El Corralito (pool "malo") y Mercado en oferta (pool "bueno") pueden
+  // estar activos A LA VEZ (cooldowns independientes, docs/GDD_Twitch.md) —
+  // dos flags propios en vez de un único número compartido: con un solo
+  // campo, terminar el evento que empezó primero (poniéndolo a 0 sin más)
+  // borraría el efecto del segundo, que todavía debería seguir activo. El
+  // modificador final se deriva siempre de los dos flags, nunca se asigna suelto.
+  private eventoCorralitoActivo = false;
+  private eventoMercadoOfertaActivo = false;
+  private get modificadorPrecioEventoTwitch(): number {
+    return (this.eventoMercadoOfertaActivo ? MODIFICADOR_MERCADO_OFERTA : 0) - (this.eventoCorralitoActivo ? MODIFICADOR_CORRALITO : 0);
+  }
   private ratasEvento = new Set<string>();
   private timerPlagaRatas?: Delayed;
   private siguienteRataId = 1;
@@ -273,6 +282,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.setState(new HubState());
     this.setPatchRate(1000 / 15);
     registrarRoom(this); // Twitch (docs/GDD_Twitch.md) — eventos globales necesitan poder llegar a esta room
+    obtenerGestorTwitch().aplicarEventosActivosA(this); // por si esta room nace a mitad de un evento de mundo ya en curso
 
     this.onMessage("input", (client, dir: Direccion) => {
       // Moverse de verdad cancela el sueño en cama (docs/GDD_Personaje.md
@@ -434,7 +444,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   onLeave(client: Client) {
     const nombreSaliente = this.state.players.get(client.sessionId)?.name;
-    if (nombreSaliente) quitarJugador(nombreSaliente); // Twitch (docs/GDD_Twitch.md)
+    if (nombreSaliente) quitarJugador(nombreSaliente, client.sessionId); // Twitch (docs/GDD_Twitch.md) — solo si el registro sigue siendo el de ESTA sesión (nombres duplicados, ver registro.ts)
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);
@@ -1224,10 +1234,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         this.eventoTerremotoActivo = activar;
         break;
       case "corralito":
-        this.modificadorPrecioEventoTwitch = activar ? -MODIFICADOR_CORRALITO : 0;
+        this.eventoCorralitoActivo = activar;
         break;
       case "mercado_oferta":
-        this.modificadorPrecioEventoTwitch = activar ? MODIFICADOR_MERCADO_OFERTA : 0;
+        this.eventoMercadoOfertaActivo = activar;
         break;
       case "hay_que_trabajar":
         this.eventoFarmeoDobleActivo = activar;

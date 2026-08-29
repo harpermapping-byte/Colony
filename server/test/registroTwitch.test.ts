@@ -28,7 +28,28 @@ test("registrarJugador + buscarConexion: encuentra por nombre, insensible a may�
 test("quitarJugador: ya no se encuentra tras salir", () => {
   _resetRegistroParaTests();
   registrarJugador("Ragnar", roomFalsa(), "sess1");
-  quitarJugador("Ragnar");
+  quitarJugador("Ragnar", "sess1");
+  assert.strictEqual(buscarConexion("Ragnar"), undefined);
+});
+
+test("quitarJugador: nombres duplicados — la sesión que se desconecta NO se lleva por delante al que se queda (bug real encontrado en revisión multi-jugador)", () => {
+  _resetRegistroParaTests();
+  const roomA = roomFalsa();
+  const roomB = roomFalsa();
+  registrarJugador("Ragnar", roomA, "sessA"); // jugador A entra primero
+  registrarJugador("Ragnar", roomB, "sessB"); // jugador B entra con el MISMO nombre — B "gana" el registro
+  quitarJugador("Ragnar", "sessA"); // A se desconecta — su quitarJugador NO debe tocar el registro de B
+  assert.strictEqual(buscarConexion("Ragnar")?.sessionId, "sessB", "B sigue registrado, A ya no estaba registrado de todas formas");
+  assert.strictEqual(buscarConexion("Ragnar")?.room, roomB);
+});
+
+test("quitarJugador: la sesión que SÍ tiene el registro actual se quita con normalidad", () => {
+  _resetRegistroParaTests();
+  const roomA = roomFalsa();
+  const roomB = roomFalsa();
+  registrarJugador("Ragnar", roomA, "sessA");
+  registrarJugador("Ragnar", roomB, "sessB");
+  quitarJugador("Ragnar", "sessB"); // B (el registro actual) se desconecta
   assert.strictEqual(buscarConexion("Ragnar"), undefined);
 });
 
