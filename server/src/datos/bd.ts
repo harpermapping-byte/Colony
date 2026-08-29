@@ -282,6 +282,10 @@ export interface IAlmacenDatos {
    * mercado (pagar/cobrar) y propiedades (comprar/alquilar) — se decide UNA
    * vez, no en cada sistema por separado. */
   ajustarFarycoins(jugadorId: number, delta: number): Promise<{ ok: boolean; saldo: number }>;
+  /** docs/GDD_Crafteo.md §6: XP de oficio (nivel se DERIVA de esto, nunca se persiste el nivel en sí). */
+  obtenerXpOficio(jugadorId: number, oficio: string): Promise<number>;
+  /** Suma (nunca resta) XP a un oficio — crea la fila si no existía. Devuelve el nuevo total. */
+  sumarXpOficio(jugadorId: number, oficio: string, delta: number): Promise<number>;
   // Gremios (pedido 2026-08-29) — un jugador pertenece a UN gremio como
   // mucho (UNIQUE en gremio_miembros.jugador_id, defensa en profundidad
   // además del chequeo en memoria de ContextoGremios antes de escribir).
@@ -349,6 +353,8 @@ export interface IAlmacenDatos {
   >;
   /** Como reponerStockTenderete, pero SIN tocar el precio — usado por el transporte (docs/GDD_Produccion.md) para no pisar el precio que el dueño ya puso. `precioInicial` solo se usa si la fila no existía todavía. */
   sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void>;
+  /** docs/GDD_Crafteo.md §4: descuenta insumo del almacén de una construcción (misma tabla `tenderete_items`, reusada como "qué hay guardado aquí" — sin cobro, sin precio). Compare-and-swap: `false` si no quedaba suficiente, nunca deja cantidad negativa. */
+  consumirStockTenderete(tenderoteId: string, itemId: string, cantidad: number): Promise<boolean>;
   listarConstrucciones(): Promise<Construccion[]>;
   insertarConstruccion(c: NuevaConstruccion): Promise<number>;
   borrarConstruccion(id: number): Promise<boolean>;
@@ -505,6 +511,14 @@ CREATE TABLE IF NOT EXISTS contratos_transporte (
 );
 CREATE INDEX IF NOT EXISTS idx_contratos_origen ON contratos_transporte(origen_construccion_id);
 CREATE INDEX IF NOT EXISTS idx_contratos_destino ON contratos_transporte(destino_tenderete_id);
+-- Crafteo (docs/GDD_Crafteo.md, pedido 2026-08-29): XP por oficio — el nivel
+-- se DERIVA de esto en código puro, nunca se persiste el nivel en sí.
+CREATE TABLE IF NOT EXISTS jugador_oficios (
+  jugador_id INTEGER NOT NULL,
+  oficio TEXT NOT NULL,
+  xp INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (jugador_id, oficio)
+);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,               -- "mapaId:edificio:nivel"
   limpiada_en TEXT                      -- timestamp ISO de la última vez que se limpió (null = nunca)
@@ -691,6 +705,12 @@ CREATE TABLE IF NOT EXISTS contratos_transporte (
 );
 CREATE INDEX IF NOT EXISTS idx_contratos_origen ON contratos_transporte(origen_construccion_id);
 CREATE INDEX IF NOT EXISTS idx_contratos_destino ON contratos_transporte(destino_tenderete_id);
+CREATE TABLE IF NOT EXISTS jugador_oficios (
+  jugador_id INTEGER NOT NULL,
+  oficio TEXT NOT NULL,
+  xp INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (jugador_id, oficio)
+);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,
   limpiada_en TEXT
@@ -899,6 +919,22 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       .run(delta, jugadorId, delta);
     const saldo = await this.obtenerFarycoins(jugadorId);
     return { ok: Number(r.changes) > 0, saldo };
+  }
+
+  async obtenerXpOficio(jugadorId: number, oficio: string): Promise<number> {
+    const fila = this.bd.prepare("SELECT xp FROM jugador_oficios WHERE jugador_id = ? AND oficio = ?").get(jugadorId, oficio);
+    return fila ? Number(fila.xp) : 0;
+  }
+
+  async sumarXpOficio(jugadorId: number, oficio: string, delta: number): Promise<number> {
+    const fila = this.bd
+      .prepare(
+        `INSERT INTO jugador_oficios (jugador_id, oficio, xp) VALUES (?, ?, ?)
+         ON CONFLICT(jugador_id, oficio) DO UPDATE SET xp = jugador_oficios.xp + excluded.xp
+         RETURNING xp`,
+      )
+      .get(jugadorId, oficio, delta);
+    return Number(fila!.xp);
   }
 
   private filaAGremio(f: Record<string, unknown>): Gremio {
@@ -1254,6 +1290,16 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
          ON CONFLICT(tenderete_id, item_id) DO UPDATE SET cantidad = tenderete_items.cantidad + excluded.cantidad`,
       )
       .run(tenderoteId, itemId, cantidad, precioInicial);
+  }
+
+  async consumirStockTenderete(tenderoteId: string, itemId: string, cantidad: number): Promise<boolean> {
+    // Compare-and-swap, mismo patrón que comprarDeTenderete pero SIN cobro —
+    // docs/GDD_Crafteo.md: aquí `tenderete_items` guarda el insumo de una
+    // construcción de refinamiento, no mercancía en venta.
+    const r = this.bd
+      .prepare("UPDATE tenderete_items SET cantidad = cantidad - ? WHERE tenderete_id = ? AND item_id = ? AND cantidad >= ?")
+      .run(cantidad, tenderoteId, itemId, cantidad);
+    return Number(r.changes) > 0;
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {
@@ -1649,6 +1695,24 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return { ok: false, saldo: await this.obtenerFarycoins(jugadorId) };
   }
 
+  async obtenerXpOficio(jugadorId: number, oficio: string): Promise<number> {
+    const r = await this.pool.query<{ xp: number }>(
+      "SELECT xp FROM jugador_oficios WHERE jugador_id = $1 AND oficio = $2",
+      [jugadorId, oficio],
+    );
+    return r.rows.length > 0 ? r.rows[0].xp : 0;
+  }
+
+  async sumarXpOficio(jugadorId: number, oficio: string, delta: number): Promise<number> {
+    const r = await this.pool.query<{ xp: number }>(
+      `INSERT INTO jugador_oficios (jugador_id, oficio, xp) VALUES ($1, $2, $3)
+       ON CONFLICT (jugador_id, oficio) DO UPDATE SET xp = jugador_oficios.xp + EXCLUDED.xp
+       RETURNING xp`,
+      [jugadorId, oficio, delta],
+    );
+    return r.rows[0].xp;
+  }
+
   private filaAGremio(f: { id: number; nombre: string; lider_jugador_id: number; color: string; emblema_id: string; saldo_banco: number; creado_en: string }): Gremio {
     return {
       id: f.id,
@@ -1990,6 +2054,14 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
        ON CONFLICT (tenderete_id, item_id) DO UPDATE SET cantidad = tenderete_items.cantidad + EXCLUDED.cantidad`,
       [tenderoteId, itemId, cantidad, precioInicial],
     );
+  }
+
+  async consumirStockTenderete(tenderoteId: string, itemId: string, cantidad: number): Promise<boolean> {
+    const r = await this.pool.query(
+      "UPDATE tenderete_items SET cantidad = cantidad - $1 WHERE tenderete_id = $2 AND item_id = $3 AND cantidad >= $1",
+      [cantidad, tenderoteId, itemId],
+    );
+    return (r.rowCount ?? 0) > 0;
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {

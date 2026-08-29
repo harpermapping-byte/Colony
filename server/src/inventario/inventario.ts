@@ -21,6 +21,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { RecetaCrafteo } from "../construccion/crafteo";
 
 export type TipoItem = "recurso" | "equipable" | "herramienta" | "consumible" | "arma" | "objeto";
 
@@ -37,6 +38,12 @@ export interface EntradaCatalogoItem {
   colorDebug: string;
   /** id de ropa/catalogo/prendas.json cuando esta entrada tiene representación visual real (armadura vestible) — ausente = placeholder sin voxel propio, mismo criterio que el resto del arte del proyecto. */
   prendaId?: string;
+
+  // --- crafteo (docs/GDD_Crafteo.md) — informativo, cero código lo consume todavía salvo el catálogo en sí ---
+  /** familia de material (metal/madera/piedra/cuero/tela/precioso...) — ausente = no forma parte de una cadena de refinamiento. */
+  familiaMaterial?: string;
+  /** tier dentro de su familia: 0 = crudo, 1 = refinado, 2 = avanzado... */
+  tier?: number;
 
   // --- combate (pedido 2026-08-29, docs/GDD_Combate.md) — todo opcional/aditivo, cero cambio para lo que ya existe ---
   ataqueFisico?: number;
@@ -95,6 +102,21 @@ export function cargarCatalogoItems(ruta: string = RUTA_CATALOGO_DEFECTO): Catal
 
 export function crearContenedor(ancho: number, alto: number): Contenedor {
   return { ancho, alto, items: [], siguienteId: 1 };
+}
+
+const RUTA_RECETAS_DEFECTO = path.join(__dirname, "..", "..", "..", "items", "catalogo", "recetas.json");
+
+/** Carga items/catalogo/recetas.json (docs/GDD_Crafteo.md §5) — mismo criterio que cargarCatalogoItems: filtra "_nota*". */
+export function cargarCatalogoRecetas(ruta: string = RUTA_RECETAS_DEFECTO): Map<string, RecetaCrafteo> {
+  const bruto = JSON.parse(fs.readFileSync(ruta, "utf8")) as Record<string, unknown>;
+  const catalogo = new Map<string, RecetaCrafteo>();
+  for (const [id, datos] of Object.entries(bruto)) {
+    if (id.startsWith("_")) continue;
+    // el JSON no repite el id dentro de cada entrada (sería redundante con
+    // la clave) — se inyecta aquí, mismo criterio que cargarCatalogoConstruible.
+    catalogo.set(id, { ...(datos as Omit<RecetaCrafteo, "id">), id });
+  }
+  return catalogo;
 }
 
 /** Huella ya rotada: rot=1 intercambia ancho/alto (giro de 90°). */

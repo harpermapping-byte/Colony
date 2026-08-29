@@ -41,6 +41,51 @@ test("resolverProduccion: requiereTrabajador sin trabajador asignado congela el 
   assert.strictEqual(tras2hMas.stock, (2 / conTrabajador.intervaloHoras) * conTrabajador.cantidadPorIntervalo);
 });
 
+// --- docs/GDD_Crafteo.md: refinamiento con insumos reales ---
+
+const FUNDICION: DatosProduccion = {
+  itemId: "lingote_hierro", cantidadPorIntervalo: 4, intervaloHoras: 1, capacidadMax: 20,
+  insumos: [{ itemId: "hierro", cantidadPorUnidad: 2 }],
+};
+
+test("resolverProduccion: sin insumos definidos, comportamiento IDÉNTICO a antes (colmena/aserradero sin cambios)", () => {
+  const inicio = { stock: 0, ultimoCalculo: 0 };
+  const tras2h = resolverProduccion(inicio, COLMENA, 2 * 3_600_000);
+  assert.strictEqual(tras2h.stock, 0.5);
+});
+
+test("resolverProduccion: con insumo disponible de sobra, produce el ritmo normal", () => {
+  const inicio = { stock: 0, ultimoCalculo: 0 };
+  const insumos = new Map([["hierro", 1000]]);
+  const tras1h = resolverProduccion(inicio, FUNDICION, 1 * 3_600_000, insumos);
+  assert.strictEqual(tras1h.stock, 4); // 1h de 1h = intervalo completo = 4 lingotes
+});
+
+test("resolverProduccion: sin insumo en el almacén, no produce nada aunque haya pasado tiempo de sobra", () => {
+  const inicio = { stock: 0, ultimoCalculo: 0 };
+  const tras10h = resolverProduccion(inicio, FUNDICION, 10 * 3_600_000, new Map());
+  assert.strictEqual(tras10h.stock, 0);
+  assert.strictEqual(tras10h.ultimoCalculo, 10 * 3_600_000, "el reloj avanza igual, sin acumular deuda retroactiva");
+});
+
+test("resolverProduccion: insumo escaso capa la producción por debajo del ritmo ideal", () => {
+  const inicio = { stock: 0, ultimoCalculo: 0 };
+  // 1h de tiempo permitiría 4 lingotes (8 de hierro), pero solo hay 5 de hierro = 2.5 lingotes
+  const insumos = new Map([["hierro", 5]]);
+  const tras1h = resolverProduccion(inicio, FUNDICION, 1 * 3_600_000, insumos);
+  assert.strictEqual(tras1h.stock, 2.5);
+});
+
+test("resolverProduccion: el llamador puede derivar cuánto insumo se consumió como diff de stock", () => {
+  const inicio = { stock: 0, ultimoCalculo: 0 };
+  const insumos = new Map([["hierro", 1000]]);
+  const resuelto = resolverProduccion(inicio, FUNDICION, 1 * 3_600_000, insumos);
+  const producido = resuelto.stock - inicio.stock;
+  const consumido = producido * FUNDICION.insumos![0].cantidadPorUnidad;
+  assert.strictEqual(producido, 4);
+  assert.strictEqual(consumido, 8);
+});
+
 test("resolverTransporte: sin tiempo suficiente para un viaje completo, no transporta nada", () => {
   const datos = { duracionViajeSeg: 60, cargaPorViaje: 10 };
   const r = resolverTransporte(0, 30_000, datos, 100, 100); // solo 30s, hace falta 60s

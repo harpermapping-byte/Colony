@@ -21,7 +21,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 90); // 55 de fase 1 + "arcilla" (rocas.json, orillas de barro) + 32 tipo:"objeto" (docs/GDD_Inventario.md §7) + "miel"/"cera" (docs/GDD_Produccion.md, recursos FABRICADOS por una colmena, no recolectados)
+  assert.strictEqual(ids.length, 104); // 90 anteriores + 14 materiales refinados tier1/tier2 (docs/GDD_Crafteo.md: 7 lingotes, piedra_tallada, cristal_pulido, cuero_curtido, tela_hilada, gema_tallada, acero, bronce)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

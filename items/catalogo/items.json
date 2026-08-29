@@ -11,7 +11,9 @@
     "apilable": true,
     "stackMax": 20,
     "variantes": 2,
-    "colorDebug": "#8a8a90"
+    "colorDebug": "#8a8a90",
+    "familiaMaterial": "metal",
+    "tier": 0
   },
   "cobre": {
     "tipo": "recurso",
@@ -24,7 +26,9 @@
     "apilable": true,
     "stackMax": 20,
     "variantes": 2,
-    "colorDebug": "#b87333"
+    "colorDebug": "#b87333",
+    "familiaMaterial": "metal",
+    "tier": 0
   },
   "oro": {
     "tipo": "recurso",
@@ -37,7 +41,9 @@
     "apilable": true,
     "stackMax": 20,
     "variantes": 2,
-    "colorDebug": "#d4af37"
+    "colorDebug": "#d4af37",
+    "familiaMaterial": "metal",
+    "tier": 0
   },
   "plata": {
     "tipo": "recurso",
@@ -50,7 +56,9 @@
     "apilable": true,
     "stackMax": 20,
     "variantes": 2,
-    "colorDebug": "#c0c0c8"
+    "colorDebug": "#c0c0c8",
+    "familiaMaterial": "metal",
+    "tier": 0
   },
   "platino": {
     "tipo": "recurso",
@@ -63,7 +71,9 @@
     "apilable": true,
     "stackMax": 20,
     "variantes": 2,
-    "colorDebug": "#9aa0a8"
+    "colorDebug": "#9aa0a8",
+    "familiaMaterial": "metal",
+    "tier": 0
   },
   "plomo": {
     "tipo": "recurso",
@@ -76,7 +86,9 @@
     "apilable": true,
     "stackMax": 20,
     "variantes": 2,
-    "colorDebug": "#5a5a62"
+    "colorDebug": "#5a5a62",
+    "familiaMaterial": "metal",
+    "tier": 0
   },
   "estano": {
     "tipo": "recurso",
@@ -89,7 +101,9 @@
     "apilable": true,
     "stackMax": 20,
     "variantes": 2,
-    "colorDebug": "#a8a8a0"
+    "colorDebug": "#a8a8a0",
+    "familiaMaterial": "metal",
+    "tier": 0
   },
   "cuarzo": {
     "tipo": "recurso",
@@ -102,7 +116,9 @@
     "apilable": true,
     "stackMax": 30,
     "variantes": 2,
-    "colorDebug": "#e8e4e0"
+    "colorDebug": "#e8e4e0",
+    "familiaMaterial": "piedra",
+    "tier": 0
   },
   "gema": {
     "tipo": "recurso",
@@ -115,7 +131,9 @@
     "apilable": true,
     "stackMax": 30,
     "variantes": 2,
-    "colorDebug": "#a03aa0"
+    "colorDebug": "#a03aa0",
+    "familiaMaterial": "precioso",
+    "tier": 0
   },
   "azufre": {
     "tipo": "recurso",
@@ -180,7 +198,9 @@
     "apilable": true,
     "stackMax": 15,
     "variantes": 2,
-    "colorDebug": "#8a8a8a"
+    "colorDebug": "#8a8a8a",
+    "familiaMaterial": "piedra",
+    "tier": 0
   },
   "turba": {
     "tipo": "recurso",
@@ -219,7 +239,9 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#6a4a2a"
+    "colorDebug": "#6a4a2a",
+    "familiaMaterial": "madera",
+    "tier": 1
   },
   "madera_blanda": {
     "tipo": "recurso",
@@ -232,7 +254,9 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#8a6a42"
+    "colorDebug": "#8a6a42",
+    "familiaMaterial": "madera",
+    "tier": 0
   },
   "madera_abedul": {
     "tipo": "recurso",
@@ -245,7 +269,9 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#c9c0a8"
+    "colorDebug": "#c9c0a8",
+    "familiaMaterial": "madera",
+    "tier": 0
   },
   "madera_sauce": {
     "tipo": "recurso",
@@ -258,7 +284,9 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#9a9a6a"
+    "colorDebug": "#9a9a6a",
+    "familiaMaterial": "madera",
+    "tier": 0
   },
   "madera_palmera": {
     "tipo": "recurso",
@@ -271,7 +299,9 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#a08050"
+    "colorDebug": "#a08050",
+    "familiaMaterial": "madera",
+    "tier": 0
   },
   "madera_carbonizada": {
     "tipo": "recurso",
@@ -284,7 +314,9 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#2a2420"
+    "colorDebug": "#2a2420",
+    "familiaMaterial": "madera",
+    "tier": 0
   },
   "baya": {
     "tipo": "recurso",
@@ -453,7 +485,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#c9c078"
+    "colorDebug": "#c9c078",
+    "familiaMaterial": "tela",
+    "tier": 0
   },
   "alga": {
     "tipo": "recurso",
@@ -583,7 +617,9 @@
     "apilable": true,
     "stackMax": 8,
     "variantes": 2,
-    "colorDebug": "#6a4a30"
+    "colorDebug": "#6a4a30",
+    "familiaMaterial": "cuero",
+    "tier": 0
   },
   "cuero_reptil": {
     "tipo": "recurso",
@@ -596,7 +632,9 @@
     "apilable": true,
     "stackMax": 8,
     "variantes": 2,
-    "colorDebug": "#5a7a4a"
+    "colorDebug": "#5a7a4a",
+    "familiaMaterial": "cuero",
+    "tier": 0
   },
   "piel_basta": {
     "tipo": "recurso",
@@ -609,7 +647,9 @@
     "apilable": true,
     "stackMax": 8,
     "variantes": 2,
-    "colorDebug": "#8a7050"
+    "colorDebug": "#8a7050",
+    "familiaMaterial": "cuero",
+    "tier": 0
   },
   "piel_exotica": {
     "tipo": "recurso",
@@ -622,7 +662,9 @@
     "apilable": true,
     "stackMax": 8,
     "variantes": 2,
-    "colorDebug": "#c9a020"
+    "colorDebug": "#c9a020",
+    "familiaMaterial": "cuero",
+    "tier": 0
   },
   "piel_fina": {
     "tipo": "recurso",
@@ -635,7 +677,9 @@
     "apilable": true,
     "stackMax": 8,
     "variantes": 2,
-    "colorDebug": "#a89878"
+    "colorDebug": "#a89878",
+    "familiaMaterial": "cuero",
+    "tier": 0
   },
   "piel_invierno": {
     "tipo": "recurso",
@@ -648,7 +692,9 @@
     "apilable": true,
     "stackMax": 8,
     "variantes": 2,
-    "colorDebug": "#e0e0e8"
+    "colorDebug": "#e0e0e8",
+    "familiaMaterial": "cuero",
+    "tier": 0
   },
   "mochila_cuero": {
     "tipo": "equipable",
@@ -1121,5 +1167,201 @@
     "stackMax": 20,
     "variantes": 1,
     "colorDebug": "#c9a850"
+  },
+  "lingote_hierro": {
+    "tipo": "recurso",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#a0a0a8"
+  },
+  "lingote_cobre": {
+    "tipo": "recurso",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#d08050"
+  },
+  "lingote_estano": {
+    "tipo": "recurso",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#c0c0b8"
+  },
+  "lingote_oro": {
+    "tipo": "recurso",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#e8c848"
+  },
+  "lingote_plata": {
+    "tipo": "recurso",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#d8d8e0"
+  },
+  "lingote_platino": {
+    "tipo": "recurso",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#b8bcc0"
+  },
+  "lingote_plomo": {
+    "tipo": "recurso",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#70707a"
+  },
+  "piedra_tallada": {
+    "tipo": "recurso",
+    "familiaMaterial": "piedra",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 15,
+    "variantes": 2,
+    "colorDebug": "#9a9a9a"
+  },
+  "cristal_pulido": {
+    "tipo": "recurso",
+    "familiaMaterial": "piedra",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#cde8f0"
+  },
+  "cuero_curtido": {
+    "tipo": "recurso",
+    "familiaMaterial": "cuero",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1,
+    "apilable": true,
+    "stackMax": 15,
+    "variantes": 2,
+    "colorDebug": "#8a5a30"
+  },
+  "tela_hilada": {
+    "tipo": "recurso",
+    "familiaMaterial": "tela",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 25,
+    "variantes": 2,
+    "colorDebug": "#e0d8b0"
+  },
+  "gema_tallada": {
+    "tipo": "recurso",
+    "familiaMaterial": "precioso",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#c040c0"
+  },
+  "acero": {
+    "tipo": "recurso",
+    "familiaMaterial": "metal",
+    "tier": 2,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#606870"
+  },
+  "bronce": {
+    "tipo": "recurso",
+    "familiaMaterial": "metal",
+    "tier": 2,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#a07030"
   }
 }
