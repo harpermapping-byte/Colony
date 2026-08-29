@@ -263,9 +263,12 @@ test("elementos con variantesNombradas resuelven variante en la generación real
 
 console.log("\n=== Regresión: composición de edificios (sección 11 del pedido) ===");
 
-test("las 44 tipologías de edificio generan sin error, con varias semillas", () => {
+test("las 54 tipologías de edificio generan sin error, con varias semillas", () => {
+  // 44 originales + molino_agua/molino_viento (docs/GDD_Motriz.md) + 8 nuevos
+  // de profesiones (docs/GDD_Profesiones.md: cabana_apicultor, taller_picapedrero,
+  // peleteria, vidrieria, taller_arquero, cocina_comunal, carniceria, astillero).
   const tipos = Object.keys(catalogos.tiposEdificio).filter((k) => !k.startsWith("_"));
-  assert.strictEqual(tipos.length, 44, `se esperaban 44 tipos de edificio, hay ${tipos.length}`);
+  assert.strictEqual(tipos.length, 54, `se esperaban 54 tipos de edificio, hay ${tipos.length}`);
   for (const t of tipos) {
     for (const semilla of ["a", "b", "c"]) {
       const e = generarEdificio({ tipoEdificioId: t, catalogos, semilla: `${t}-${semilla}` });

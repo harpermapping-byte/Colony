@@ -14,5 +14,13 @@
   "tabernero": ["taberna", "posada"],
   "sacerdote": ["templo"],
   "tendero": ["tienda"],
+  "apicultor": ["cabana_apicultor"],
+  "picapedrero": ["taller_picapedrero"],
+  "peletero": ["peleteria"],
+  "vidriero": ["vidrieria"],
+  "fletcher": ["taller_arquero"],
+  "cocinero": ["cocina_comunal"],
+  "carnicero": ["carniceria"],
+  "carpintero_ribera": ["astillero"],
   "aldeano": []
 }

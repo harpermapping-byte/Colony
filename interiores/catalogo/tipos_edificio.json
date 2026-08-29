@@ -741,6 +741,7 @@
   "molino_agua": {
     "riqueza": "modesta",
     "construible": true,
+    "temaTaller": "molino",
     "huellaExterior": [
       9,
       10
@@ -771,6 +772,7 @@
   "molino_viento": {
     "riqueza": "modesta",
     "construible": true,
+    "temaTaller": "molino",
     "huellaExterior": [
       6,
       6
@@ -1855,5 +1857,216 @@
       "aldea_pescadores"
     ],
     "_nota": "El único de este bloque con poiVinculado real — aldea_pescadores (costa) ya existe en el exterior total."
+  },
+  "cabana_apicultor": {
+    "riqueza": "humilde",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera"
+    ],
+    "temaTaller": "apicultor",
+    "_nota": "docs/GDD_Profesiones.md — pequeña, junto a las colmenas de Producción (docs/GDD_Produccion.md)."
+  },
+  "taller_picapedrero": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          4
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "piedra",
+      "madera"
+    ],
+    "temaTaller": "picapedrero"
+  },
+  "peleteria": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "sala_comercio",
+          4
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera",
+      "cuero"
+    ],
+    "temaTaller": "peletero"
+  },
+  "vidrieria": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "sala_comercio",
+          3
+        ],
+        [
+          "almacen",
+          2
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "piedra",
+      "cristal"
+    ],
+    "temaTaller": "vidriero"
+  },
+  "taller_arquero": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera"
+    ],
+    "temaTaller": "fletcher"
+  },
+  "cocina_comunal": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "cocina",
+          8
+        ],
+        [
+          "despensa",
+          3
+        ],
+        [
+          "sala_comun",
+          3
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
+    "temaTaller": "cocinero"
+  },
+  "carniceria": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          6
+        ],
+        [
+          "almacen",
+          4
+        ],
+        [
+          "despensa",
+          3
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
+    "temaTaller": "carnicero"
+  },
+  "astillero": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          10
+        ],
+        [
+          "almacen",
+          4
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera"
+    ],
+    "temaTaller": "carpintero_ribera",
+    "_nota": "docs/GDD_Profesiones.md — conecta con 'Puerto/Muelle Comunal' del backlog (aún sin diseñar); el edificio en sí no depende de ese diseño."
   }
 }

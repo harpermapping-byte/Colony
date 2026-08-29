@@ -156,7 +156,7 @@ Orden de prioridad, de más a menos infraestructura ya construida detrás:
 
 **Pendiente de definir cuando toque, oficio a oficio**: cómo se consigue un plano nuevo (comprado/encontrado/enseñado por NPC), recetas/objetos/herramientas concretos, y si un personaje puede tener varias profesiones a la vez o hay que especializarse. Recomendación (no decidida): empezar por el Tier 1+2 completo (7 oficios) antes de tocar Tier 4/5 — cierra Producción→Motriz→crafteo→Mercado con lo ya construido, sin abrir combate/heridas/minería todavía.
 
-**Edificio/mesas/mobiliario por oficio — propuesta de diseño ya escrita (2026-08-29)**: `docs/GDD_Profesiones.md` fija, para los 38 oficios, el edificio (existente o nuevo a dar de alta), 2-4 mesas especiales y únicas por oficio (básica→avanzada, marcando cuáles deben conectar a la red motriz), mobiliario funcional/decorativo, y el NPC de oficio — sin recetas todavía. Pendiente de OK antes de volcarlo al catálogo (~300 entradas nuevas).
+**Edificio/mesas/mobiliario por oficio — aplicado al catálogo (2026-08-29)**: `docs/GDD_Profesiones.md` fija, para los 38 oficios, el edificio, 2-4 mesas especiales y únicas por oficio (básica→avanzada, marcando cuáles conectan a la red motriz), mobiliario funcional/decorativo, y el NPC de oficio — sin recetas todavía (eso sigue pendiente, oficio a oficio). Ya en `main`: 50 mesas/mobiliario + 8 edificios nuevos + 8 NPCs de oficio + su enganche a `poblacion/` y a los bakes de `ciudades/` — verificado con bakes de prueba reales.
 
 ## NPCs contratables para automatizar producción (trabajar, transportar, vender) — concepto del streamer, reconciliado con la arquitectura real, sin diseñar del todo
 
