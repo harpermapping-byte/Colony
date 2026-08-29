@@ -94,6 +94,47 @@ test("el export completo cuadra con el formato de sectores + capa vectorial", ()
   fs.rmSync(carpeta, { recursive: true, force: true });
 });
 
+test("determinismo del export completo: dos bakes de la misma semilla dan los MISMOS sector_*.json byte a byte (incluida `va` de cada edificio)", () => {
+  // Regresión de un bug reportado por el usuario: al rebakear dos veces la
+  // misma ciudad, la `va` (variante de placeholder) de algunos edificios
+  // cambiaba entre bake y bake pese a que el resto de campos (w,h,dx,dy,x,y,ro)
+  // eran idénticos. La causa real resultó ser dos bakes corridos a caballo de
+  // un commit que cambió cómo se calcula `va` (de fijo 0 a hash de semilla),
+  // no una fuente de aleatoriedad no determinista en el código actual — pero
+  // el caso merece guardia permanente: mismo tier+semilla SIEMPRE debe
+  // exportar los mismos ficheros, sin importar cuántas veces se hornee.
+  const carpetaA = fs.mkdtempSync(path.join(os.tmpdir(), "ciudad-det-a-"));
+  const carpetaB = fs.mkdtempSync(path.join(os.tmpdir(), "ciudad-det-b-"));
+  hornearCiudad("pueblo", "det-repro", carpetaA);
+  hornearCiudad("pueblo", "det-repro", carpetaB);
+
+  const archivosSector = fs.readdirSync(carpetaA).filter((f) => f.startsWith("sector_") && f.endsWith(".json"));
+  assert.ok(archivosSector.length > 0, "el bake no exportó ningún sector");
+
+  const vasDe = (carpeta) => {
+    const vas = [];
+    for (const archivo of archivosSector.sort()) {
+      const sector = JSON.parse(fs.readFileSync(path.join(carpeta, archivo), "utf8"));
+      for (const clave of Object.keys(sector.chunks).sort()) {
+        for (const obj of sector.chunks[clave].objetos || [])
+          if (obj.t === "e") vas.push(`${archivo}:${clave}:${obj.i}@${obj.x},${obj.y} -> va:${obj.va}`);
+      }
+    }
+    return vas;
+  };
+  assert.deepStrictEqual(vasDe(carpetaA), vasDe(carpetaB), "la variante `va` de algún edificio cambió entre dos bakes idénticos");
+
+  // guardia más amplia: el export entero (sectores + indice) es idéntico byte a byte
+  for (const archivo of [...archivosSector, "indice.json"]) {
+    const a = fs.readFileSync(path.join(carpetaA, archivo), "utf8");
+    const b = fs.readFileSync(path.join(carpetaB, archivo), "utf8");
+    assert.strictEqual(a, b, `${archivo} difiere entre dos bakes de la misma semilla`);
+  }
+
+  fs.rmSync(carpetaA, { recursive: true, force: true });
+  fs.rmSync(carpetaB, { recursive: true, force: true });
+});
+
 test("capas de vegetación, decoración e iluminación: presentes y con catálogo coherente", () => {
   const catDeco = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogo", "decoracion.json"), "utf8"));
   const ciudad = generarCiudad({ tier: "capital", semilla: "test-capas", catalogos });
