@@ -305,6 +305,10 @@ export interface IAlmacenDatos {
   obtenerXpAtributo(jugadorId: number, atributo: string): Promise<number>;
   /** Suma (nunca resta) XP a un atributo — crea la fila si no existía. Devuelve el nuevo total. */
   sumarXpAtributo(jugadorId: number, atributo: string, delta: number): Promise<number>;
+  /** docs/GDD_Personaje.md §3.5: día de mundo (tiempoMundo().dia) de la última actividad diaria de entrenamiento que otorgó XP de este atributo — null si nunca. */
+  obtenerUltimoDiaActividadAtributo(jugadorId: number, atributo: string): Promise<number | null>;
+  /** Marca hoy (día de mundo `dia`) como ya usado para la actividad diaria de este atributo — crea la fila si no existía. */
+  marcarActividadAtributoHoy(jugadorId: number, atributo: string, dia: number): Promise<void>;
   // Gremios (pedido 2026-08-29) — un jugador pertenece a UN gremio como
   // mucho (UNIQUE en gremio_miembros.jugador_id, defensa en profundidad
   // además del chequeo en memoria de ContextoGremios antes de escribir).
@@ -549,6 +553,7 @@ CREATE TABLE IF NOT EXISTS jugador_atributos (
   jugador_id INTEGER NOT NULL,
   atributo TEXT NOT NULL,
   xp INTEGER NOT NULL DEFAULT 0,
+  ultimo_dia_actividad INTEGER, -- docs/GDD_Personaje.md §3.5: día de mundo (tiempoMundo().dia) de la última actividad diaria de entrenamiento que otorgó XP de este atributo
   PRIMARY KEY (jugador_id, atributo)
 );
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
@@ -752,8 +757,10 @@ CREATE TABLE IF NOT EXISTS jugador_atributos (
   jugador_id INTEGER NOT NULL,
   atributo TEXT NOT NULL,
   xp INTEGER NOT NULL DEFAULT 0,
+  ultimo_dia_actividad INTEGER,
   PRIMARY KEY (jugador_id, atributo)
 );
+ALTER TABLE jugador_atributos ADD COLUMN IF NOT EXISTS ultimo_dia_actividad INTEGER;
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,
   limpiada_en TEXT
@@ -956,6 +963,13 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     ] as const) {
       if (!nombresPropiedades.has(col)) this.bd.exec(`ALTER TABLE propiedades ADD COLUMN ${col} ${tipo}`);
     }
+    // Mismo patrón para `ultimo_dia_actividad` de `jugador_atributos`
+    // (docs/GDD_Personaje.md §3.5, actividades diarias de entrenamiento) —
+    // un datos.sqlite de dev creado antes de este cambio no la tendría.
+    const columnasAtributos = this.bd.prepare("PRAGMA table_info(jugador_atributos)").all();
+    if (!columnasAtributos.some((c) => String(c.name) === "ultimo_dia_actividad")) {
+      this.bd.exec("ALTER TABLE jugador_atributos ADD COLUMN ultimo_dia_actividad INTEGER");
+    }
   }
 
   async obtenerOCrearJugador(nombre: string): Promise<Jugador> {
@@ -1024,6 +1038,23 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       )
       .get(jugadorId, atributo, delta);
     return Number(fila!.xp);
+  }
+
+  async obtenerUltimoDiaActividadAtributo(jugadorId: number, atributo: string): Promise<number | null> {
+    const fila = this.bd
+      .prepare("SELECT ultimo_dia_actividad FROM jugador_atributos WHERE jugador_id = ? AND atributo = ?")
+      .get(jugadorId, atributo);
+    if (!fila || fila.ultimo_dia_actividad === null || fila.ultimo_dia_actividad === undefined) return null;
+    return Number(fila.ultimo_dia_actividad);
+  }
+
+  async marcarActividadAtributoHoy(jugadorId: number, atributo: string, dia: number): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO jugador_atributos (jugador_id, atributo, xp, ultimo_dia_actividad) VALUES (?, ?, 0, ?)
+         ON CONFLICT(jugador_id, atributo) DO UPDATE SET ultimo_dia_actividad = excluded.ultimo_dia_actividad`,
+      )
+      .run(jugadorId, atributo, dia);
   }
 
   private filaAGremio(f: Record<string, unknown>): Gremio {
@@ -1834,6 +1865,22 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       [jugadorId, atributo, delta],
     );
     return r.rows[0].xp;
+  }
+
+  async obtenerUltimoDiaActividadAtributo(jugadorId: number, atributo: string): Promise<number | null> {
+    const r = await this.pool.query<{ ultimo_dia_actividad: number | null }>(
+      "SELECT ultimo_dia_actividad FROM jugador_atributos WHERE jugador_id = $1 AND atributo = $2",
+      [jugadorId, atributo],
+    );
+    return r.rows.length > 0 ? r.rows[0].ultimo_dia_actividad : null;
+  }
+
+  async marcarActividadAtributoHoy(jugadorId: number, atributo: string, dia: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO jugador_atributos (jugador_id, atributo, xp, ultimo_dia_actividad) VALUES ($1, $2, 0, $3)
+       ON CONFLICT (jugador_id, atributo) DO UPDATE SET ultimo_dia_actividad = EXCLUDED.ultimo_dia_actividad`,
+      [jugadorId, atributo, dia],
+    );
   }
 
   private filaAGremio(f: { id: number; nombre: string; lider_jugador_id: number; color: string; emblema_id: string; saldo_banco: number; creado_en: string }): Gremio {

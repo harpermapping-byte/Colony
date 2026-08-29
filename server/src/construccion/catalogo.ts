@@ -64,6 +64,13 @@ export interface EntradaConstruible {
   plantillaJarl?: boolean;
   /** Red motriz (docs/GDD_Motriz.md) — presente en molino/eje/palancas/mesas de profesión conectables. */
   energia?: EntradaEnergia;
+  /** Actividad diaria de atributo (docs/GDD_Personaje.md §3.5) — presente en pesas/diana/atril: acercarse y mandar `actividad:realizar` otorga `xp` de `atributo`, una vez por día de mundo. */
+  actividadAtributo?: EntradaActividadAtributo;
+}
+
+export interface EntradaActividadAtributo {
+  atributo: string;
+  xp: number;
 }
 
 interface EntradaElemento {
@@ -73,6 +80,7 @@ interface EntradaElemento {
   huella?: [number, number];
   variantes?: number;
   energia?: EntradaEnergia;
+  actividadAtributo?: EntradaActividadAtributo;
 }
 
 interface EntradaExterior {
@@ -81,6 +89,7 @@ interface EntradaExterior {
   variantes?: number;
   produccion?: DatosProduccion;
   energia?: EntradaEnergia;
+  actividadAtributo?: EntradaActividadAtributo;
 }
 
 interface EntradaTipoEdificio {
@@ -117,6 +126,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       colision: d.anchorType !== "FLOOR_DECAL",
       variantes: d.variantes ?? 1,
       energia: d.energia,
+      actividadAtributo: d.actividadAtributo,
     });
   }
 
@@ -132,6 +142,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       variantes: d.variantes ?? 1,
       produccion: d.produccion,
       energia: d.energia,
+      actividadAtributo: d.actividadAtributo,
     });
   }
 
