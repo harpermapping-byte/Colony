@@ -364,7 +364,13 @@
     "variantes": 8,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#5a5a5a"
+    "colorDebug": "#5a5a5a",
+    "distanciaMinima": 35,
+    "presasDe": [
+      "corzo",
+      "ciervo",
+      "liebre_de_bosque"
+    ]
   },
   "lince": {
     "colision": true,
@@ -378,7 +384,13 @@
     "variantes": 3,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#c9a060"
+    "colorDebug": "#c9a060",
+    "distanciaMinima": 45,
+    "presasDe": [
+      "liebre_de_bosque",
+      "ardilla",
+      "corzo"
+    ]
   },
   "marta": {
     "biomas": [
@@ -493,7 +505,12 @@
     "variantes": 3,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#5a3a20"
+    "colorDebug": "#5a3a20",
+    "distanciaMinima": 60,
+    "presasDe": [
+      "corzo",
+      "ciervo"
+    ]
   },
   "cabra_montesa": {
     "colision": true,
@@ -562,7 +579,14 @@
     "variantes": 5,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#e8ecef"
+    "colorDebug": "#e8ecef",
+    "distanciaMinima": 60,
+    "presasDe": [
+      "cabra_montesa",
+      "rebeco",
+      "muflon",
+      "marmota"
+    ]
   },
   "lince_boreal": {
     "colision": true,
@@ -576,7 +600,12 @@
     "variantes": 3,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#d0d0d0"
+    "colorDebug": "#d0d0d0",
+    "distanciaMinima": 45,
+    "presasDe": [
+      "marmota",
+      "perdiz_nival"
+    ]
   },
   "aguila_real": {
     "biomas": [
@@ -733,7 +762,13 @@
     "variantes": 3,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#c9a050"
+    "colorDebug": "#c9a050",
+    "distanciaMinima": 30,
+    "presasDe": [
+      "gacela",
+      "jerbo",
+      "fenec"
+    ]
   },
   "fenec": {
     "biomas": [
@@ -861,16 +896,18 @@
   },
   "medusa": {
     "biomas": [
-      "costa",
-      "mar_bajo",
-      "mar_profundo"
+      "mar_bajo"
     ],
-    "densidadBase": 0.01,
-    "capacidadMaximaPorChunk": 3,
+    "requiereAgua": true,
+    "categoriaRecursoCarne": "pescado_mar",
+    "densidadBase": 0.02,
+    "capacidadMaximaPorChunk": 4,
     "variantes": 3,
+    "escalaBase": 0.5,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#c0a0e0"
+    "colorDebug": "#c9a8d0",
+    "_nota": "Deriva en grupos sueltos, no un banco cerrado — picadura urticante (peligroso: true)."
   },
   "estrella_de_mar": {
     "biomas": [
@@ -924,7 +961,8 @@
     "escalaBase": 0.5,
     "peligroso": false,
     "domesticable": false,
-    "colorDebug": "#7aa8c0"
+    "colorDebug": "#7aa8c0",
+    "prefiereAguaProfunda": false
   },
   "pez_mediano": {
     "biomas": [
@@ -953,7 +991,8 @@
     "escalaBase": 1.8,
     "peligroso": false,
     "domesticable": false,
-    "colorDebug": "#2a5a7a"
+    "colorDebug": "#2a5a7a",
+    "prefiereAguaProfunda": true
   },
   "tiburon": {
     "colision": true,
@@ -970,7 +1009,9 @@
     "escalaBase": 3.2,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#5a6a70"
+    "colorDebug": "#5a6a70",
+    "distanciaMinima": 50,
+    "prefiereAguaProfunda": true
   },
   "orca": {
     "colision": true,
@@ -985,7 +1026,8 @@
     "escalaBase": 5,
     "peligroso": true,
     "domesticable": false,
-    "colorDebug": "#101820"
+    "colorDebug": "#101820",
+    "distanciaMinima": 80
   },
   "ballena_azul": {
     "colision": true,
@@ -1351,10 +1393,13 @@
     "colorDebug": "#a83a2e",
     "_nota": "Fauna urbana — mismo esqueleto 'ave' que gallina_salvaje, plumaje más vistoso. Ver nota de 'perro'."
   },
-
   "_nota_peces_agua_dulce": "Peces de río/lago (pedido 2026-08-29): requiereAguaDulce (baker/src/decoracion.js + generar.js celda.aguaDulce, calculado de hidro.esRio/esLago) los separa de los peces de mar de más abajo — nunca salen en el mismo agua. El sistema NO distingue mecánicamente río de lago (ambos son 'agua'/'agua_profunda' con la misma hidrología, sin dato propio que los diferencie casilla a casilla), así que río/lago comparten el mismo agua dulce de cada bioma — la variedad de nombre (categoriaRecursoCarne pescado_rio/pescado_lago) es temática, no una restricción de sitio real.",
   "trucha_rio": {
-    "biomas": ["pradera", "bosque", "montana_nevada"],
+    "biomas": [
+      "pradera",
+      "bosque",
+      "montana_nevada"
+    ],
     "requiereAgua": true,
     "requiereAguaDulce": true,
     "categoriaRecursoCarne": "pescado_rio",
@@ -1364,10 +1409,14 @@
     "escalaBase": 0.45,
     "peligroso": false,
     "domesticable": false,
-    "colorDebug": "#8aa870"
+    "colorDebug": "#8aa870",
+    "prefiereAguaProfunda": false
   },
   "salmon_rio": {
-    "biomas": ["bosque", "montana_nevada"],
+    "biomas": [
+      "bosque",
+      "montana_nevada"
+    ],
     "requiereAgua": true,
     "requiereAguaDulce": true,
     "categoriaRecursoCarne": "pescado_rio",
@@ -1377,10 +1426,15 @@
     "escalaBase": 0.9,
     "peligroso": false,
     "domesticable": false,
-    "colorDebug": "#c97a68"
+    "colorDebug": "#c97a68",
+    "prefiereAguaProfunda": false
   },
   "carpa_rio": {
-    "biomas": ["pradera", "bosque", "pantano"],
+    "biomas": [
+      "pradera",
+      "bosque",
+      "pantano"
+    ],
     "requiereAgua": true,
     "requiereAguaDulce": true,
     "categoriaRecursoCarne": "pescado_rio",
@@ -1393,7 +1447,10 @@
     "colorDebug": "#a89858"
   },
   "lucio_rio": {
-    "biomas": ["bosque", "pantano"],
+    "biomas": [
+      "bosque",
+      "pantano"
+    ],
     "requiereAgua": true,
     "requiereAguaDulce": true,
     "categoriaRecursoCarne": "pescado_rio",
@@ -1404,10 +1461,14 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#5a7a4a",
-    "_nota": "Depredador solitario de agua dulce — casi nunca en banco, a diferencia de trucha/carpa."
+    "_nota": "Depredador solitario de agua dulce — casi nunca en banco, a diferencia de trucha/carpa.",
+    "prefiereAguaProfunda": true
   },
   "siluro": {
-    "biomas": ["pantano", "bosque"],
+    "biomas": [
+      "pantano",
+      "bosque"
+    ],
     "requiereAgua": true,
     "requiereAguaDulce": true,
     "categoriaRecursoCarne": "pescado_rio",
@@ -1418,10 +1479,13 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#4a4038",
-    "_nota": "El pez de agua dulce más grande y raro — casi siempre solo (capacidadMaximaPorChunk 1), como el tiburón en el mar."
+    "_nota": "El pez de agua dulce más grande y raro — casi siempre solo (capacidadMaximaPorChunk 1), como el tiburón en el mar.",
+    "prefiereAguaProfunda": true
   },
   "pez_gato_desierto": {
-    "biomas": ["desierto"],
+    "biomas": [
+      "desierto"
+    ],
     "requiereAgua": true,
     "requiereAguaDulce": true,
     "categoriaRecursoCarne": "pescado_rio",
@@ -1435,7 +1499,10 @@
     "_nota": "Único pez de oasis del desierto — densidad baja, el agua dulce ahí ya es escasa de por sí."
   },
   "perca_lago": {
-    "biomas": ["pradera", "bosque"],
+    "biomas": [
+      "pradera",
+      "bosque"
+    ],
     "requiereAgua": true,
     "requiereAguaDulce": true,
     "categoriaRecursoCarne": "pescado_lago",
@@ -1448,7 +1515,11 @@
     "colorDebug": "#7a9868"
   },
   "carpa_lago": {
-    "biomas": ["pradera", "bosque", "pantano"],
+    "biomas": [
+      "pradera",
+      "bosque",
+      "pantano"
+    ],
     "requiereAgua": true,
     "requiereAguaDulce": true,
     "categoriaRecursoCarne": "pescado_lago",
@@ -1461,7 +1532,9 @@
     "colorDebug": "#98a058"
   },
   "trucha_alpina": {
-    "biomas": ["montana_nevada"],
+    "biomas": [
+      "montana_nevada"
+    ],
     "requiereAgua": true,
     "requiereAguaDulce": true,
     "categoriaRecursoCarne": "pescado_lago",
@@ -1472,12 +1545,14 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#9ab8c0",
-    "_nota": "Lago/río de alta montaña — agua fría, único pez propio de montana_nevada además de la trucha_rio genérica."
+    "_nota": "Lago/río de alta montaña — agua fría, único pez propio de montana_nevada además de la trucha_rio genérica.",
+    "prefiereAguaProfunda": false
   },
-
   "_nota_peces_mar_ampliacion": "Ampliación de variedad de mar (pedido 2026-08-29) — se mantienen pez_pequeno/mediano/grande/tiburon/orca/ballena_azul tal cual, esto añade especies con nombre propio para más variedad visual/de recurso, mismo patrón grande-solitario / pequeño-banco de siempre.",
   "arenque": {
-    "biomas": ["mar_bajo"],
+    "biomas": [
+      "mar_bajo"
+    ],
     "requiereAgua": true,
     "categoriaRecursoCarne": "pescado_mar",
     "densidadBase": 0.06,
@@ -1490,7 +1565,10 @@
     "_nota": "El pez más pequeño y en banco más grande de todo el catálogo — presa base de tiburón/orca."
   },
   "bacalao": {
-    "biomas": ["mar_bajo", "mar_profundo"],
+    "biomas": [
+      "mar_bajo",
+      "mar_profundo"
+    ],
     "requiereAgua": true,
     "categoriaRecursoCarne": "pescado_mar",
     "densidadBase": 0.028,
@@ -1499,10 +1577,14 @@
     "escalaBase": 1.0,
     "peligroso": false,
     "domesticable": false,
-    "colorDebug": "#5a6a5a"
+    "colorDebug": "#5a6a5a",
+    "prefiereAguaProfunda": true
   },
   "atun": {
-    "biomas": ["mar_bajo", "mar_profundo"],
+    "biomas": [
+      "mar_bajo",
+      "mar_profundo"
+    ],
     "requiereAgua": true,
     "categoriaRecursoCarne": "pescado_mar",
     "densidadBase": 0.008,
@@ -1512,10 +1594,13 @@
     "peligroso": false,
     "domesticable": false,
     "colorDebug": "#2a4a68",
-    "_nota": "Grande y veloz — densidad baja/disperso, no forma banco cerrado como arenque."
+    "_nota": "Grande y veloz — densidad baja/disperso, no forma banco cerrado como arenque.",
+    "prefiereAguaProfunda": true
   },
   "pez_espada": {
-    "biomas": ["mar_profundo"],
+    "biomas": [
+      "mar_profundo"
+    ],
     "requiereAgua": true,
     "categoriaRecursoCarne": "pescado_mar",
     "densidadBase": 0.003,
@@ -1528,7 +1613,9 @@
     "_nota": "Grande, solitario y raro — el pico afilado lo hace peligroso de cerca, a diferencia del resto de peces."
   },
   "anguila_marina": {
-    "biomas": ["mar_bajo"],
+    "biomas": [
+      "mar_bajo"
+    ],
     "requiereAgua": true,
     "categoriaRecursoCarne": "pescado_mar",
     "densidadBase": 0.01,
@@ -1540,22 +1627,11 @@
     "colorDebug": "#4a5a48",
     "_nota": "Costera, distinta de anguila_abisal (mar_profundo) ya existente."
   },
-  "medusa": {
-    "biomas": ["mar_bajo"],
-    "requiereAgua": true,
-    "categoriaRecursoCarne": "pescado_mar",
-    "densidadBase": 0.02,
-    "capacidadMaximaPorChunk": 4,
-    "variantes": 3,
-    "escalaBase": 0.5,
-    "peligroso": true,
-    "domesticable": false,
-    "colorDebug": "#c9a8d0",
-    "_nota": "Deriva en grupos sueltos, no un banco cerrado — picadura urticante (peligroso: true)."
-  },
   "foca": {
     "colision": true,
-    "biomas": ["mar_bajo"],
+    "biomas": [
+      "mar_bajo"
+    ],
     "requiereAgua": true,
     "categoriaRecursoCarne": "carne_caza_mayor",
     "categoriaRecursoPiel": "piel_fina",

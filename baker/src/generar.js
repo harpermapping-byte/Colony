@@ -628,6 +628,12 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
             return Math.max(0.15, iguales / 4);
           })(),
           esAgua: idT === "agua" || idT === "agua_profunda",
+          // Profundidad (pedido 2026-08-29, "2 alturas de agua"): agua =
+          // orilla/poco profunda (río, borde de lago/mar), agua_profunda =
+          // mar adentro o centro de un lago si el fondo baja lo bastante —
+          // mismo dato que ya decide el terreno, solo expuesto al
+          // decorador de fauna para preferencia de profundidad.
+          profundoAgua: idT === "agua_profunda",
           // Agua dulce (río/lago) vs. mar: la fauna acuática de agua dulce
           // (biomas["pradera"/"bosque"/...], nunca mar_bajo/mar_profundo)
           // solo debe salir donde la hidrología dice río/lago de verdad —
