@@ -72,6 +72,30 @@ Planos/blueprints, materiales requeridos, niveles de mejora de una construcción
 
 **Nota 2026-08-28**: `taller-vox/generar_edificio.js` ya tiene el EJE DE VARIEDAD del nivel (`nivel` 1/2/3 en `generarEdificio`, escala plantas + densidad de decoración de una CASA) — pedido explícito del streamer ("casa1, casa mejora2, casa mejora3") para sacar más combinaciones visuales del generador. Sigue faltando aquí, sin diseñar: qué desbloquea la subida de nivel (tiempo/dinero/recursos), quién la paga, y el enganche real con el sistema de construcción/parcelas — hoy el nivel es solo un parámetro que alguien tendría que pasarle al generador, nada en el juego lo decide todavía.
 
+## Proyectos especiales del jarl (edificios comunales) — listado inicial del streamer + propuestas, sin implementar
+
+Además de las parcelas normales de cada jugador, el **jarl/admin** de un asentamiento puede levantar "proyectos especiales": edificios ÚNICOS de beneficio comunitario (no de un jugador concreto), en parcela libre del asentamiento. Mismo mecanismo que "Taller de Máquinas de Asedio" (`GDD_Faccion_Bandidos.md` §8: un tipo de edificio más en `tipos_edificio.json`, restringido a `esJarl()` en la validación del servidor — ya existe ese check, se reusa tal cual) — la novedad es que hay VARIOS, no solo el de asedio, y cada uno da un servicio comunal distinto en vez de "fabricar máquinas".
+
+**Lista del streamer**:
+- **Taller de Asedio** — fabrica máquinas de asedio (catapulta/torre/ariete). Ya documentado en `GDD_Faccion_Bandidos.md` §8, con sus dependencias reales (generador de capital, construcción fuera del Hub, combate).
+- **Baños Públicos** — servicio gratis de Comida/Bebida/Sueño/Salud para cualquiera del asentamiento. Encaje: consume directamente del "Sistema de personaje" (vitales ya listados por el streamer) en cuanto existan; es el primer uso concreto de un edificio que RELLENA vitales en vez de solo alojar mobiliario decorativo.
+- **Casino** — minijuegos de apuestas. Encaje: sumidero de dinero real para "Comercio y economía" (todo gold sink necesita un sitio) — con Twitch integrado más adelante, encaja de más con apuestas en vivo de los viewers (backlog "Modo Live").
+- **Gran Catedral** — hito religioso/social del asentamiento. Sin mecánica cerrada; candidato natural a curación pasiva mejorada o bono de moral cuando exista ese sistema (ver "Curación pasiva vs activa distintas" en ideas propias, más abajo).
+- **Estatua del Líder** — estatua del jarl/streamer. Puramente de hito/identidad visual — buen candidato a arte único generado por semilla del propio jarl en vez de placeholder genérico (mismo principio que "Objetos con nombre propio generado por semilla", ideas propias).
+- **Establos Comunales** — almacenar monturas propias + comprar/vender nuevas. Encaje directo con "Monturas — sin diseñar" (más abajo) y con comercio.
+- **Gran Herrería** — comunal: los herreros del asentamiento pueden forjar armas/armaduras ÚNICAS. Encaje: "Roles/profesiones y crafteo por planos" (arriba) + "Objetos con nombre propio generado por semilla" (ideas propias) para que lo forjado ahí salga con nombre/lore propio, no un ítem de catálogo genérico más.
+- **Molino** — moler cosecha/flores. Encaje YA ANTICIPADO en el propio contrato de construcción: `GDD_Construccion.md` §3 reserva desde v1 un campo `energia: {consume}` / `{produce, fuente: "viento"|"agua"|"movimiento"}` en cualquier entrada de catálogo diciendo literalmente "los molinos del futuro serán entradas de catálogo, no reformas" — este es exactamente ese momento. Conecta además con "Injertos y cruces de cultivos" (grano→harina) y "Cocina" (harina→pan).
+
+**Propuestas con utilidad concreta (a filtrar por el streamer)**:
+- **Gran Mercado / Lonja** — plaza de comercio central del asentamiento con precios base propios, en vez de depender solo de la `tienda` individual de cada dueño de parcela. Ata directo a "Comercio y economía — sin diseñar".
+- **Ayuntamiento / Salón del Jarl** — sede de gestión: ver impuestos/renta (ya diseñado como v2 en `GDD_Construccion.md` §7) y asignar/revocar parcelas desde dentro del juego en vez de solo la herramienta admin — cierra directamente el pendiente "Jarl en juego pintando parcelas" de `GDD_Construccion.md` §8.
+- **Cuartel de la Guardia Comunal** — entrena/aloja guardias del asentamiento para su propia defensa. Simétrico exacto al `campamento_hostil` de la facción bandida pero del lado del jugador — ata a "Facciones y la ciudad enemiga" y al futuro sistema de combate.
+- **Academia Arcana / Torre de Magos** — comunal, magos del asentamiento crean objetos/hechizos únicos. Mismo patrón que Gran Herrería pero para Ataque/Defensa mágica (ya en los atributos de personaje que definió el streamer) — hoy no hay ninguna estructura que use esa parte de las estadísticas; esta la cubriría.
+- **Puerto/Muelle Comunal** — construir/reparar barcos y pesca a mayor escala que la individual. Ata a "Barcos y navegación marítima" y "Pesca" (ambos "sin diseñar" más abajo).
+- **Gran Biblioteca/Archivo** — enseña planos/recetas raras que no se consiguen comprando. Ata directo a la pregunta abierta de "Roles/profesiones y crafteo por planos" (¿cómo se consigue un plano nuevo?) y a "Aprendizaje de recetas por relación con NPC" (ideas propias).
+
+**Pendiente de decidir cuando toque**: si cada proyecto especial tiene tope de 1 por asentamiento (parece lo lógico — no tiene sentido una segunda Gran Catedral), el coste de material/tiempo de cada uno (probablemente escalonado, el Taller de Asedio y la Gran Catedral no cuestan lo mismo que un Molino), y si dan beneficio a CUALQUIERA del asentamiento (vecino de cualquier parcela) o solo a quien tenga parcela propia asignada por el jarl.
+
 ## Sistema de personaje — esqueleto de estadísticas ya estructurado, valores/fórmulas sin cerrar
 
 Primer boceto de qué estadísticas tiene un jugador (el streamer las dio, aquí solo se ordenan). Recordar el principio ya fijado: inventario y equipo son autoritativos en servidor, el cliente solo predice/muestra (ver conversación de arquitectura general).
