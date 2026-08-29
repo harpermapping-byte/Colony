@@ -5,7 +5,7 @@ import { HubRoom } from "./rooms/HubRoom";
 import { RegionRoom } from "./rooms/RegionRoom";
 import { InteriorRoom } from "./rooms/InteriorRoom";
 import { DungeonRoom } from "./rooms/DungeonRoom";
-import { crearAlmacenDatos } from "./datos/bd";
+import { obtenerBdCompartida } from "./datos/bdCompartida";
 import { ejecutarTickEconomia } from "./mundo/economiaAsentamientos";
 
 const port = Number(process.env.PORT) || 2567;
@@ -45,7 +45,7 @@ httpServer.listen(port, () => {
 // TICK_ECONOMIA_MS: override SOLO para tests/depuración (un E2E real no
 // puede esperar 10 min reales por pulso) — mismo criterio que HORA_FORZADA.
 const INTERVALO_TICK_ECONOMIA_MS = Number(process.env.TICK_ECONOMIA_MS) || 10 * 60 * 1000; // cada 10 min reales
-crearAlmacenDatos().then((bd) => {
+obtenerBdCompartida().then((bd) => {
   setInterval(() => {
     ejecutarTickEconomia(bd).catch((err) => console.error("Tick de economía de la facción bandida falló:", err));
   }, INTERVALO_TICK_ECONOMIA_MS);

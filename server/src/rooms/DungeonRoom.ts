@@ -1,6 +1,7 @@
 import { InteriorRoom, OpcionesInterior } from "./InteriorRoom";
 import { Enemigo } from "./schema/HubState";
-import { crearAlmacenDatos, IAlmacenDatos } from "../datos/bd";
+import { IAlmacenDatos } from "../datos/bd";
+import { obtenerBdCompartida } from "../datos/bdCompartida";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const enemigos: Record<string, { temasEnemigo: string[]; pesoSpawn?: number; esBoss?: boolean }> = require("../../../personajes/catalogo/enemigos.json");
@@ -49,7 +50,7 @@ export class DungeonRoom extends InteriorRoom {
 
   async onCreate(options: OpcionesInterior) {
     await super.onCreate(options);
-    this.bd = await crearAlmacenDatos();
+    this.bd = await obtenerBdCompartida();
     await this.poblarEnemigos(options);
   }
 
