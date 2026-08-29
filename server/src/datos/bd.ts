@@ -16,6 +16,7 @@
 
 import * as path from "node:path";
 import { Pool } from "pg";
+import { Contenedor, ItemInstancia, SlotsEquipo } from "../inventario/inventario";
 
 // @types/node del monorepo es v20 y no conoce "node:sqlite" (los tipos llegaron en v22.5),
 // así que declaramos a mano lo mínimo que usamos y cargamos con require (estamos en CommonJS).
@@ -135,6 +136,16 @@ export interface IAlmacenDatos {
   marcarTropaMuerta(tropaId: string): Promise<void>;
   registrarMemoriaLider(diaIngame: number, evento: string): Promise<void>;
   memoriaLiderReciente(limite: number): Promise<MemoriaLider[]>;
+  // Inventario (pedido 2026-08-29, fase 1: catálogo + servidor + persistencia
+  // — server/src/inventario/inventario.ts es el contrato de la lógica pura,
+  // esto solo guarda/recupera su estado tal cual). `null` en cargarContenedor
+  // = ese contenedor nunca se guardó (jugador nuevo); quien llama decide el
+  // tamaño por defecto con crearContenedor().
+  guardarContenedor(jugadorId: number, contenedorId: string, contenedor: Contenedor): Promise<void>;
+  cargarContenedor(jugadorId: number, contenedorId: string): Promise<Contenedor | null>;
+  listarContenedores(jugadorId: number): Promise<Map<string, Contenedor>>;
+  guardarEquipo(jugadorId: number, slots: SlotsEquipo): Promise<void>;
+  cargarEquipo(jugadorId: number): Promise<SlotsEquipo>;
   cerrar(): Promise<void>;
 }
 
@@ -195,6 +206,27 @@ CREATE TABLE IF NOT EXISTS memoria_lider (
   evento TEXT NOT NULL,
   creado_en TEXT NOT NULL
 );
+-- Inventario (docs/Backlog_Mecanicas_Futuras.md "Inventario, contenedores y
+-- objetos en el mundo" + server/src/inventario/inventario.ts, pedido
+-- 2026-08-29 fase 1). Un contenedor = una rejilla ("cuerpo", "mochila_1"...);
+-- items es el array de ItemInstancia serializado, igual que construcciones.extra.
+CREATE TABLE IF NOT EXISTS inventarios (
+  jugador_id INTEGER NOT NULL,
+  contenedor_id TEXT NOT NULL,
+  ancho INTEGER NOT NULL,
+  alto INTEGER NOT NULL,
+  siguiente_id INTEGER NOT NULL DEFAULT 1,
+  items TEXT NOT NULL,
+  PRIMARY KEY (jugador_id, contenedor_id)
+);
+-- Equipo: slots con nombre (no rejilla) — un ítem por slot, mismos ids que
+-- items/catalogo/items.json (campo slotEquipo).
+CREATE TABLE IF NOT EXISTS equipo (
+  jugador_id INTEGER NOT NULL,
+  slot TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  PRIMARY KEY (jugador_id, slot)
+);
 `;
 
 const MIGRACIONES_POSTGRES = `
@@ -248,6 +280,21 @@ CREATE TABLE IF NOT EXISTS memoria_lider (
   dia_ingame INTEGER NOT NULL,
   evento TEXT NOT NULL,
   creado_en TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS inventarios (
+  jugador_id INTEGER NOT NULL,
+  contenedor_id TEXT NOT NULL,
+  ancho INTEGER NOT NULL,
+  alto INTEGER NOT NULL,
+  siguiente_id INTEGER NOT NULL DEFAULT 1,
+  items TEXT NOT NULL,
+  PRIMARY KEY (jugador_id, contenedor_id)
+);
+CREATE TABLE IF NOT EXISTS equipo (
+  jugador_id INTEGER NOT NULL,
+  slot TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  PRIMARY KEY (jugador_id, slot)
 );
 `;
 
@@ -451,6 +498,63 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return filas.map((f) => ({ id: Number(f.id), diaIngame: Number(f.dia_ingame), evento: String(f.evento) }));
   }
 
+  async guardarContenedor(jugadorId: number, contenedorId: string, contenedor: Contenedor): Promise<void> {
+    const r = this.bd
+      .prepare("UPDATE inventarios SET ancho = ?, alto = ?, siguiente_id = ?, items = ? WHERE jugador_id = ? AND contenedor_id = ?")
+      .run(contenedor.ancho, contenedor.alto, contenedor.siguienteId, JSON.stringify(contenedor.items), jugadorId, contenedorId);
+    if (Number(r.changes) === 0) {
+      this.bd
+        .prepare("INSERT INTO inventarios (jugador_id, contenedor_id, ancho, alto, siguiente_id, items) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(jugadorId, contenedorId, contenedor.ancho, contenedor.alto, contenedor.siguienteId, JSON.stringify(contenedor.items));
+    }
+  }
+
+  async cargarContenedor(jugadorId: number, contenedorId: string): Promise<Contenedor | null> {
+    const f = this.bd
+      .prepare("SELECT ancho, alto, siguiente_id, items FROM inventarios WHERE jugador_id = ? AND contenedor_id = ?")
+      .get(jugadorId, contenedorId);
+    if (!f) return null;
+    return {
+      ancho: Number(f.ancho),
+      alto: Number(f.alto),
+      siguienteId: Number(f.siguiente_id),
+      items: JSON.parse(String(f.items)) as ItemInstancia[],
+    };
+  }
+
+  async listarContenedores(jugadorId: number): Promise<Map<string, Contenedor>> {
+    const filas = this.bd
+      .prepare("SELECT contenedor_id, ancho, alto, siguiente_id, items FROM inventarios WHERE jugador_id = ?")
+      .all(jugadorId);
+    const mapa = new Map<string, Contenedor>();
+    for (const f of filas) {
+      mapa.set(String(f.contenedor_id), {
+        ancho: Number(f.ancho),
+        alto: Number(f.alto),
+        siguienteId: Number(f.siguiente_id),
+        items: JSON.parse(String(f.items)) as ItemInstancia[],
+      });
+    }
+    return mapa;
+  }
+
+  async guardarEquipo(jugadorId: number, slots: SlotsEquipo): Promise<void> {
+    // Reemplazo completo (borrar+reinsertar): más simple que upsert slot a
+    // slot y el equipo de un jugador siempre cabe entero en memoria.
+    this.bd.prepare("DELETE FROM equipo WHERE jugador_id = ?").run(jugadorId);
+    const insertar = this.bd.prepare("INSERT INTO equipo (jugador_id, slot, item_id) VALUES (?, ?, ?)");
+    for (const [slot, itemId] of Object.entries(slots)) {
+      if (itemId) insertar.run(jugadorId, slot, itemId);
+    }
+  }
+
+  async cargarEquipo(jugadorId: number): Promise<SlotsEquipo> {
+    const filas = this.bd.prepare("SELECT slot, item_id FROM equipo WHERE jugador_id = ?").all(jugadorId);
+    const slots: SlotsEquipo = {};
+    for (const f of filas) slots[String(f.slot)] = String(f.item_id);
+    return slots;
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -647,6 +751,54 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       [limite],
     );
     return r.rows.map((f) => ({ id: f.id, diaIngame: f.dia_ingame, evento: f.evento }));
+  }
+
+  async guardarContenedor(jugadorId: number, contenedorId: string, contenedor: Contenedor): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO inventarios (jugador_id, contenedor_id, ancho, alto, siguiente_id, items)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (jugador_id, contenedor_id) DO UPDATE SET
+         ancho = EXCLUDED.ancho, alto = EXCLUDED.alto, siguiente_id = EXCLUDED.siguiente_id, items = EXCLUDED.items`,
+      [jugadorId, contenedorId, contenedor.ancho, contenedor.alto, contenedor.siguienteId, JSON.stringify(contenedor.items)],
+    );
+  }
+
+  async cargarContenedor(jugadorId: number, contenedorId: string): Promise<Contenedor | null> {
+    const r = await this.pool.query<{ ancho: number; alto: number; siguiente_id: number; items: string }>(
+      "SELECT ancho, alto, siguiente_id, items FROM inventarios WHERE jugador_id = $1 AND contenedor_id = $2",
+      [jugadorId, contenedorId],
+    );
+    const f = r.rows[0];
+    if (!f) return null;
+    return { ancho: f.ancho, alto: f.alto, siguienteId: f.siguiente_id, items: JSON.parse(f.items) as ItemInstancia[] };
+  }
+
+  async listarContenedores(jugadorId: number): Promise<Map<string, Contenedor>> {
+    const r = await this.pool.query<{ contenedor_id: string; ancho: number; alto: number; siguiente_id: number; items: string }>(
+      "SELECT contenedor_id, ancho, alto, siguiente_id, items FROM inventarios WHERE jugador_id = $1",
+      [jugadorId],
+    );
+    const mapa = new Map<string, Contenedor>();
+    for (const f of r.rows) {
+      mapa.set(f.contenedor_id, { ancho: f.ancho, alto: f.alto, siguienteId: f.siguiente_id, items: JSON.parse(f.items) as ItemInstancia[] });
+    }
+    return mapa;
+  }
+
+  async guardarEquipo(jugadorId: number, slots: SlotsEquipo): Promise<void> {
+    await this.pool.query("DELETE FROM equipo WHERE jugador_id = $1", [jugadorId]);
+    for (const [slot, itemId] of Object.entries(slots)) {
+      if (itemId) await this.pool.query("INSERT INTO equipo (jugador_id, slot, item_id) VALUES ($1, $2, $3)", [jugadorId, slot, itemId]);
+    }
+  }
+
+  async cargarEquipo(jugadorId: number): Promise<SlotsEquipo> {
+    const r = await this.pool.query<{ slot: string; item_id: string }>("SELECT slot, item_id FROM equipo WHERE jugador_id = $1", [
+      jugadorId,
+    ]);
+    const slots: SlotsEquipo = {};
+    for (const f of r.rows) slots[f.slot] = f.item_id;
+    return slots;
   }
 
   async cerrar(): Promise<void> {

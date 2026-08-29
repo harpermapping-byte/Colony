@@ -7,6 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { AlmacenDatos } from "../src/datos/bd";
+import { crearContenedor, agregarItem, cargarCatalogoItems } from "../src/inventario/inventario";
 
 test("obtenerOCrearJugador es idempotente: mismo nombre = mismo id", async () => {
   const bd = new AlmacenDatos(":memory:");
@@ -179,5 +180,94 @@ test("memoria del líder: registrarMemoriaLider + memoriaLiderReciente devuelve 
   assert.strictEqual(recientes.length, 2);
   assert.strictEqual(recientes[0].evento, "Muralla subida a nivel piedra");
   assert.strictEqual(recientes[1].evento, "Jugadores mataron 5 bandidos en el sector B2");
+  await bd.cerrar();
+});
+
+// Inventario (pedido 2026-08-29, fase 1) -------------------------------------
+
+test("inventario: guardar/cargar contenedor hace roundtrip exacto (huecos, cantidades, siguienteId)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const catalogo = cargarCatalogoItems();
+  const j = await bd.obtenerOCrearJugador("Ragnar");
+
+  const cuerpo = crearContenedor(8, 6);
+  agregarItem(cuerpo, catalogo, "hierro", 5);
+  agregarItem(cuerpo, catalogo, "hacha_talar", 1);
+  await bd.guardarContenedor(j.id, "cuerpo", cuerpo);
+
+  const recuperado = await bd.cargarContenedor(j.id, "cuerpo");
+  assert.deepStrictEqual(recuperado, cuerpo);
+  await bd.cerrar();
+});
+
+test("inventario: cargarContenedor de uno nunca guardado da null (jugador nuevo, no revienta)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Lagertha");
+  assert.strictEqual(await bd.cargarContenedor(j.id, "cuerpo"), null);
+  await bd.cerrar();
+});
+
+test("inventario: guardarContenedor es upsert — sobrescribe sin duplicar fila", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const catalogo = cargarCatalogoItems();
+  const j = await bd.obtenerOCrearJugador("Bjorn");
+
+  const c1 = crearContenedor(8, 6);
+  agregarItem(c1, catalogo, "hierro", 1);
+  await bd.guardarContenedor(j.id, "cuerpo", c1);
+
+  const c2 = crearContenedor(8, 6);
+  agregarItem(c2, catalogo, "baya", 3);
+  await bd.guardarContenedor(j.id, "cuerpo", c2);
+
+  const recuperado = await bd.cargarContenedor(j.id, "cuerpo");
+  assert.deepStrictEqual(recuperado, c2, "el último guardado gana, sin restos del primero");
+  const todos = await bd.listarContenedores(j.id);
+  assert.strictEqual(todos.size, 1, "una sola fila para 'cuerpo', no dos");
+  await bd.cerrar();
+});
+
+test("inventario: listarContenedores devuelve TODOS los de un jugador (cuerpo + mochila), aislados por jugador", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const catalogo = cargarCatalogoItems();
+  const j1 = await bd.obtenerOCrearJugador("Floki");
+  const j2 = await bd.obtenerOCrearJugador("Astrid");
+
+  const cuerpo = crearContenedor(8, 6);
+  agregarItem(cuerpo, catalogo, "hierro", 1);
+  const mochila = crearContenedor(4, 4);
+  agregarItem(mochila, catalogo, "madera_dura", 2);
+  await bd.guardarContenedor(j1.id, "cuerpo", cuerpo);
+  await bd.guardarContenedor(j1.id, "mochila_1", mochila);
+  await bd.guardarContenedor(j2.id, "cuerpo", crearContenedor(8, 6));
+
+  const deJ1 = await bd.listarContenedores(j1.id);
+  assert.strictEqual(deJ1.size, 2);
+  assert.deepStrictEqual(deJ1.get("cuerpo"), cuerpo);
+  assert.deepStrictEqual(deJ1.get("mochila_1"), mochila);
+
+  const deJ2 = await bd.listarContenedores(j2.id);
+  assert.strictEqual(deJ2.size, 1, "el inventario de j1 no se filtra al de j2");
+  await bd.cerrar();
+});
+
+test("inventario: equipo — guardar/cargar roundtrip, slot vacío (undefined) no se guarda como fila", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Ivar");
+
+  await bd.guardarEquipo(j.id, { espalda: "mochila_cuero", manoPrincipal: "hacha_talar", cinturon: undefined });
+  const cargado = await bd.cargarEquipo(j.id);
+  assert.deepStrictEqual(cargado, { espalda: "mochila_cuero", manoPrincipal: "hacha_talar" });
+  await bd.cerrar();
+});
+
+test("inventario: guardarEquipo reemplaza el set completo (quitar un ítem lo borra de verdad)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Ubbe");
+
+  await bd.guardarEquipo(j.id, { espalda: "mochila_cuero", manoPrincipal: "hacha_talar" });
+  await bd.guardarEquipo(j.id, { espalda: "mochila_cuero" }); // se quitó el hacha
+  const cargado = await bd.cargarEquipo(j.id);
+  assert.deepStrictEqual(cargado, { espalda: "mochila_cuero" });
   await bd.cerrar();
 });
