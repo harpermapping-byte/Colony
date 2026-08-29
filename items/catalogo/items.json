@@ -22,7 +22,8 @@
     "defensaFisica": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md",
     "defensaMagica": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md",
     "durabilidadMax": "server/src/inventario/inventario.ts:agregarItem() (fija durabilidad inicial) + server/src/inventario/desgaste.ts:tieneDurabilidad()/durabilidadInicial()/aplicarDesgasteInactividad()/registrarUso()/aplicarDanoArmadura()/aplicarPenalizacionMuerte()/estaRoto()/factorDurabilidad() — inicializar y calcular desgaste; ninguna Room llama a desgaste.ts todavía (solo cubierto por test)",
-    "desgastePorUso": "server/src/inventario/desgaste.ts:registrarUso() — resta durabilidad por uso directo; sin Room que lo invoque todavía"
+    "desgastePorUso": "server/src/inventario/desgaste.ts:registrarUso() — resta durabilidad por uso directo; sin Room que lo invoque todavía",
+    "municionId": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md: liga un arma a distancia (arco/ballesta/honda) con el id de items/catalogo/items.json (tipo 'municion') que consume al disparar."
   },
   "hierro": {
     "tipo": "recurso",
@@ -1395,5 +1396,242 @@
     "stackMax": 20,
     "variantes": 2,
     "colorDebug": "#a07030"
+  },
+  "daga": {
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#9a9aa0",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "ataqueFisico": 6,
+    "alcance": 1,
+    "cooldownMs": 400,
+    "durabilidadMax": 60,
+    "desgastePorUso": 1
+  },
+  "espada_corta": {
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.8,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#a8a8b0",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "ataqueFisico": 10,
+    "alcance": 1,
+    "cooldownMs": 600,
+    "durabilidadMax": 100,
+    "desgastePorUso": 1
+  },
+  "espada_larga": {
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 2.6,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#b0b0b8",
+    "familiaMaterial": "metal",
+    "tier": 2,
+    "ataqueFisico": 14,
+    "alcance": 2,
+    "cooldownMs": 750,
+    "durabilidadMax": 120,
+    "desgastePorUso": 2
+  },
+  "hacha_combate": {
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.0,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#8a7a60",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "ataqueFisico": 16,
+    "alcance": 1,
+    "cooldownMs": 850,
+    "durabilidadMax": 110,
+    "desgastePorUso": 2,
+    "_nota": "Distinta de 'hacha_talar' (herramienta de tala, sin stats de combate) — misma silueta, catálogo separado a propósito."
+  },
+  "maza_guerra": {
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.6,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#70685a",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "ataqueFisico": 18,
+    "alcance": 1,
+    "cooldownMs": 900,
+    "durabilidadMax": 130,
+    "desgastePorUso": 2
+  },
+  "lanza": {
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      3
+    ],
+    "peso": 2.4,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a6a45",
+    "familiaMaterial": "madera",
+    "tier": 1,
+    "ataqueFisico": 12,
+    "alcance": 2,
+    "cooldownMs": 700,
+    "durabilidadMax": 100,
+    "desgastePorUso": 1
+  },
+  "honda": {
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a6a4a",
+    "familiaMaterial": "cuero",
+    "tier": 0,
+    "ataqueFisico": 5,
+    "alcance": 4,
+    "cooldownMs": 700,
+    "durabilidadMax": 50,
+    "desgastePorUso": 1,
+    "municionId": "piedra_honda"
+  },
+  "arco_corto": {
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.6,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#8a6a45",
+    "familiaMaterial": "madera",
+    "tier": 1,
+    "ataqueFisico": 9,
+    "alcance": 6,
+    "cooldownMs": 800,
+    "durabilidadMax": 90,
+    "desgastePorUso": 1,
+    "municionId": "flecha"
+  },
+  "arco_largo": {
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      3
+    ],
+    "peso": 2.2,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#7a5a38",
+    "familiaMaterial": "madera",
+    "tier": 2,
+    "ataqueFisico": 13,
+    "alcance": 9,
+    "cooldownMs": 950,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "municionId": "flecha"
+  },
+  "ballesta": {
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.2,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#5a4a3a",
+    "familiaMaterial": "madera",
+    "tier": 2,
+    "ataqueFisico": 17,
+    "alcance": 7,
+    "cooldownMs": 1300,
+    "durabilidadMax": 120,
+    "desgastePorUso": 2,
+    "municionId": "virote_ballesta"
+  },
+  "piedra_honda": {
+    "tipo": "municion",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.05,
+    "apilable": true,
+    "stackMax": 60,
+    "variantes": 1,
+    "colorDebug": "#8a8a8a",
+    "familiaMaterial": "piedra",
+    "tier": 0
+  },
+  "flecha": {
+    "tipo": "municion",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.1,
+    "apilable": true,
+    "stackMax": 40,
+    "variantes": 2,
+    "colorDebug": "#c9a878",
+    "familiaMaterial": "madera",
+    "tier": 0
+  },
+  "virote_ballesta": {
+    "tipo": "municion",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 1,
+    "colorDebug": "#7a7a80",
+    "familiaMaterial": "metal",
+    "tier": 0
   }
 }

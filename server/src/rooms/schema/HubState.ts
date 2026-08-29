@@ -84,6 +84,15 @@ export class Player extends Schema {
   @type("string") gremioNombre = "";
   @type("string") gremioColor = "";
   @type("string") gremioEmblemaId = "";
+  // Vida/Ataque/Defensa (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30):
+  // todo jugador arranca con 100/100 — vidaMax/ataque/defensa varían en
+  // vivo según equipo, atributos y magia (server/src/combate/combate.ts).
+  // Sin regeneración automática: solo comida fuera de combate, pociones o
+  // magia suben `vida` — nunca pasa el tiempo por sí solo.
+  @type("number") vida = 100;
+  @type("number") vidaMax = 100;
+  @type("number") ataque = 3;
+  @type("number") defensa = 0;
 }
 
 // Agente móvil publicado (NPC de asentamiento; mañana bárbaros/fauna con el
@@ -101,6 +110,17 @@ export class Npc extends Schema {
   // frase de calle de los NPCs especiales ("¡Vendo melones!") — el cliente
   // la enseña en burbuja de vez en cuando; vacío = NPC sin pregón
   @type("string") grito = "";
+  // Vida/Ataque/Defensa (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30):
+  // NPCs humanoides SÍ tienen defensa (a diferencia de los animales). Estos
+  // NPCs civiles de asentamiento no persisten individualmente (viven por
+  // slotId del bake, ver mundo/agentes.ts) así que su vida no sobrevive a
+  // un reinicio — coherente con el resto de su estado, ya efímero. Nadie
+  // los ataca todavía (sin disparador de combate real, mismo hueco que el
+  // resto de humanoides — ver docs/GDD_Agentes_Moviles.md).
+  @type("number") vida = 30;
+  @type("number") vidaMax = 30;
+  @type("number") ataque = 5;
+  @type("number") defensa = 2;
 }
 
 // Enemigo activo de una mazmorra (docs/GDD_Bakeador_Dungeons.md §4) — el bake
@@ -127,6 +147,11 @@ export class Fauna extends Schema {
   @type("number") y = 0;
   @type("string") especieId = "";
   @type("string") accion = ""; // comer | sentarse | jugar | dormir | caminar
+  // Vida/Ataque (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): los
+  // animales NUNCA tienen defensa, solo vida — ver mundo/catalogoCombateFauna.ts.
+  @type("number") vida = 0;
+  @type("number") vidaMax = 0;
+  @type("number") ataque = 0;
 }
 
 // Objeto soltado al mundo por un jugador (fase 2 de inventario, "soltar" —

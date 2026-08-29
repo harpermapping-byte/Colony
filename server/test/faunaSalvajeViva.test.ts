@@ -11,6 +11,7 @@ import {
   sectoresEnRadio,
 } from "../src/mundo/faunaSalvajeViva";
 import { CatalogoEspecies } from "../src/mundo/faunaSalvajeSector";
+import { CatalogoCombateFauna } from "../src/mundo/catalogoCombateFauna";
 import { Cadaver } from "../src/mundo/cadaveres";
 import { Fauna } from "../src/rooms/schema/HubState";
 import { TIPO } from "../src/mundo/colisiones";
@@ -24,6 +25,11 @@ function mundoAbierto(lado = 40) {
 const CATALOGO: CatalogoEspecies = {
   lobo: { tamanoReproduccion: "grande", poneHuevos: false, dieta: "carnivoro", criaId: "lobo" },
   conejo: { tamanoReproduccion: "pequeno", poneHuevos: false, dieta: "herbivoro" },
+};
+
+const CATALOGO_COMBATE: CatalogoCombateFauna = {
+  lobo: { categoriaVida: "grande", vidaMaxima: 50, ataque: 12 },
+  conejo: { categoriaVida: "pequeno", vidaMaxima: 15, ataque: 2 },
 };
 
 class BdFalsa {
@@ -75,6 +81,7 @@ function crearGestor(overrides: Partial<DependenciasFaunaSalvaje> = {}) {
   const deps: DependenciasFaunaSalvaje = {
     mapaId: "principal",
     catalogo: CATALOGO,
+    catalogoCombate: CATALOGO_COMBATE,
     mundo: mundoAbierto(),
     ahora: () => 10,
     cargarBakeSector: () => [{ i: "lobo", x: 5, y: 5 }],
@@ -285,6 +292,61 @@ test("matarIndividuo: tras matar, desactivarSector no vuelve a guardar ni resuci
   await gestor.desactivarSector({ sectorX: 0, sectorY: 0 });
   assert.strictEqual(bd.guardados.length, guardadosTrasMorir, "ya no está vivo, desactivar no lo vuelve a tocar");
   assert.strictEqual(salida.size, 0);
+});
+
+test("activarSector: la vida/vidaMax/ataque del esquema salen del catálogo de combate de la especie", async () => {
+  const { gestor, salida } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const animal = [...salida.values()][0];
+  assert.strictEqual(animal.vida, 50);
+  assert.strictEqual(animal.vidaMax, 50);
+  assert.strictEqual(animal.ataque, 12);
+});
+
+test("recibirDanio: resta de la vida (sin defensa — los animales no la tienen) y persiste", async () => {
+  const { gestor, salida, bd } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const id = [...salida.keys()][0];
+  const resultado = await gestor.recibirDanio(id, 20);
+  assert.deepStrictEqual(resultado, { vida: 30, vidaMax: 50, muerto: false, cadaver: null });
+  assert.strictEqual(salida.get(id)!.vida, 30);
+  const filaGuardada = bd.filas.get("0,0")!.find((f) => f.id === id)!;
+  assert.strictEqual(filaGuardada.vida, 30);
+});
+
+test("recibirDanio: si la vida llega a 0, mata al individuo y crea su cadáver (mismo camino que matarIndividuo)", async () => {
+  const { gestor, salida, bd } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const id = [...salida.keys()][0];
+  const resultado = await gestor.recibirDanio(id, 999);
+  assert.strictEqual(resultado!.muerto, true);
+  assert.strictEqual(resultado!.vida, 0);
+  assert.ok(resultado!.cadaver);
+  assert.strictEqual(salida.size, 0, "desaparece del estado de Colyseus, igual que matarIndividuo");
+  assert.strictEqual(bd.cadaveres.length, 1);
+});
+
+test("recibirDanio: null si el id no está activo", async () => {
+  const { gestor } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  assert.strictEqual(await gestor.recibirDanio("no-existe", 10), null);
+});
+
+test("curarIndividuo: suma vida sin pasar de vidaMax, y persiste", async () => {
+  const { gestor, salida, bd } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const id = [...salida.keys()][0];
+  await gestor.recibirDanio(id, 45); // vida 5/50
+  const resultado = await gestor.curarIndividuo(id, 1000);
+  assert.deepStrictEqual(resultado, { vida: 50, vidaMax: 50 });
+  assert.strictEqual(salida.get(id)!.vida, 50);
+  const filaGuardada = bd.filas.get("0,0")!.find((f) => f.id === id)!;
+  assert.strictEqual(filaGuardada.vida, 50);
+});
+
+test("curarIndividuo: null si el id no está activo", async () => {
+  const { gestor } = crearGestor();
+  assert.strictEqual(await gestor.curarIndividuo("no-existe", 10), null);
 });
 
 test("comida: un carnívoro con hambre NO tiene comportamiento activo todavía (depende de cazar/combate) — sigue paseando", async () => {

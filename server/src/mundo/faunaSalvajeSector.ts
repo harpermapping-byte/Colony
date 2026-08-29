@@ -30,6 +30,7 @@ import {
   tocaMadurar,
 } from "./reproduccionFauna";
 import { FaunaSalvajeFila, FaunaHuevoFila, SexoFauna } from "../datos/bd";
+import { CatalogoCombateFauna, estadisticasCombatePorDefecto } from "./catalogoCombateFauna";
 
 /** Objeto de fauna tal cual sale de un `sector_XXX_YYY.json` bakeado (t==="a"). */
 export interface ObjetoFaunaBakeado {
@@ -63,7 +64,18 @@ export function convertirFilaAAnimal(f: FaunaSalvajeFila): AnimalReproductor {
   };
 }
 
-function convertirAnimalAFila(a: AnimalReproductor, mapaId: string, sectorX: number, sectorY: number): FaunaSalvajeFila {
+// Vida/vidaMax/ataque (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30) viven
+// FUERA de `AnimalReproductor` a propósito: son datos de combate, no de
+// reproducción — `reproduccionFauna.ts` no necesita saber de ellos. Se
+// acarrean aparte por id (`vidaPorId`, ver `resolverSector`) y se pegan a
+// la fila aquí, en el único punto donde AnimalReproductor vuelve a Fila.
+function convertirAnimalAFila(
+  a: AnimalReproductor,
+  mapaId: string,
+  sectorX: number,
+  sectorY: number,
+  combate: { vida: number; vidaMax: number; ataque: number },
+): FaunaSalvajeFila {
   return {
     id: a.id,
     mapaId,
@@ -80,6 +92,9 @@ function convertirAnimalAFila(a: AnimalReproductor, mapaId: string, sectorX: num
     gestandoDesde: a.gestandoDesde,
     gestacionDuracionDias: a.gestacionDuracionDias,
     nacioEn: a.nacioEn,
+    vida: combate.vida,
+    vidaMax: combate.vidaMax,
+    ataque: combate.ataque,
   };
 }
 
@@ -114,10 +129,21 @@ export function resolverSector(params: {
   ultimaResolucion: number | null;
   ahora: number;
   catalogo: CatalogoEspecies;
+  /** Vida/ataque por especie (docs/GDD_Mecanicas.md §5.4) — opcional para no
+   * romper caller/tests antiguos; sin catálogo, toda especie usa el relleno
+   * de `estadisticasCombatePorDefecto`. */
+  catalogoCombate?: CatalogoCombateFauna;
   rnd?: () => number;
 }): ResultadoResolucionSector {
   const { mapaId, sectorX, sectorY, objetosBakeados, filasPersistidas, huevosPersistidos, ultimaResolucion, ahora, catalogo } = params;
   const rnd = params.rnd ?? Math.random;
+  const catalogoCombate = params.catalogoCombate ?? {};
+  const combateDe = (especieId: string) => catalogoCombate[especieId] ?? estadisticasCombatePorDefecto();
+  // Vida/vidaMax/ataque de los individuos YA existentes (persistidos): se
+  // acarrean tal cual, NUNCA se recalculan desde catálogo — así el daño
+  // sufrido en combate sobrevive a que el sector se desactive/reactive
+  // (regla explícita: "mantienen su vida actual fija tras un combate").
+  const combatePorId = new Map(filasPersistidas.map((f) => [f.id, { vida: f.vida, vidaMax: f.vidaMax, ataque: f.ataque }]));
 
   // Primera activación: población base 1:1 desde lo bakeado, sexo al azar,
   // recién "comida/bebida" (justo aparece, no tiene sentido que nazca con hambre).
@@ -146,7 +172,10 @@ export function resolverSector(params: {
       })
       .filter((a): a is AnimalReproductor => a !== null);
     return {
-      individuos: individuos.map((a) => convertirAnimalAFila(a, mapaId, sectorX, sectorY)),
+      individuos: individuos.map((a) => {
+        const c = combateDe(a.especieId);
+        return convertirAnimalAFila(a, mapaId, sectorX, sectorY, { vida: c.vidaMaxima, vidaMax: c.vidaMaxima, ataque: c.ataque });
+      }),
       huevos: [],
     };
   }
@@ -172,8 +201,11 @@ export function resolverSector(params: {
         const parto = resolverParto(h.especieMadreId, especie);
         for (const especieCriaId of parto.criasEspecieId) {
           contadorCrias++;
+          const id = idNuevaCria(mapaId, sectorX, sectorY, ahora, contadorCrias);
+          const c = combateDe(especieCriaId);
+          combatePorId.set(id, { vida: c.vidaMaxima, vidaMax: c.vidaMaxima, ataque: c.ataque });
           nuevos.push({
-            id: idNuevaCria(mapaId, sectorX, sectorY, ahora, contadorCrias),
+            id,
             especieId: especieCriaId,
             sexo: rnd() < 0.5 ? "macho" : "hembra",
             etapa: "cria",
@@ -202,8 +234,11 @@ export function resolverSector(params: {
         const parto = resolverParto(a.especieId, especie);
         for (const especieCriaId of parto.criasEspecieId) {
           contadorCrias++;
+          const id = idNuevaCria(mapaId, sectorX, sectorY, ahora, contadorCrias);
+          const c = combateDe(especieCriaId);
+          combatePorId.set(id, { vida: c.vidaMaxima, vidaMax: c.vidaMaxima, ataque: c.ataque });
           nuevos.push({
-            id: idNuevaCria(mapaId, sectorX, sectorY, ahora, contadorCrias),
+            id,
             especieId: especieCriaId,
             sexo: rnd() < 0.5 ? "macho" : "hembra",
             etapa: "cria",
@@ -265,7 +300,13 @@ export function resolverSector(params: {
 
   const todos = [...individuos, ...nuevos];
   return {
-    individuos: todos.map((a) => convertirAnimalAFila(a, mapaId, sectorX, sectorY)),
+    individuos: todos.map((a) => {
+      const combate = combatePorId.get(a.id) ?? (() => {
+        const c = combateDe(a.especieId);
+        return { vida: c.vidaMaxima, vidaMax: c.vidaMaxima, ataque: c.ataque };
+      })();
+      return convertirAnimalAFila(a, mapaId, sectorX, sectorY, combate);
+    }),
     huevos: huevos.map((h) => ({
       id: h.id,
       mapaId,

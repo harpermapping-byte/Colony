@@ -46,6 +46,12 @@ export interface Jugador {
    * Decisión compartida por los 5 clusters investigados (gremios, mercado,
    * propiedades, producción, motriz) — se implementa UNA vez aquí. */
   farycoins: number;
+  // Vida (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): base obligatoria
+  // 100/100 en jugadores nuevos, modificable en vivo por equipo/atributos/
+  // magia (vidaMax) y por combate/comida/pociones (vida). Sin regeneración
+  // automática — solo comida fuera de combate o pociones/magia la suben.
+  vida: number;
+  vidaMax: number;
 }
 
 // Gremios/clanes (pedido 2026-08-29): banco común (Farycoins), roster de
@@ -220,6 +226,13 @@ export interface FaunaSalvajeFila {
   gestacionDuracionDias: number | null;
   /** día de mundo en que nació (para saber cuándo madura de cría a adulto); null en la población base del bake, que ya nace adulta. */
   nacioEn: number | null;
+  // Vida/ataque (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): los
+  // animales NO tienen defensa, solo vida — se acarrean tal cual entre
+  // resoluciones de sector para que el daño sufrido sobreviva a
+  // desactivar/reactivar (nunca se regeneran solos).
+  vida: number;
+  vidaMax: number;
+  ataque: number;
 }
 
 // Huevo puesto en el mundo (especies ovíparas, ver intentarAparearse en
@@ -273,6 +286,8 @@ export interface MemoriaLider {
  */
 export interface IAlmacenDatos {
   obtenerOCrearJugador(nombre: string): Promise<Jugador>;
+  /** Vida/vidaMax tras combate/comida/pociones (docs/GDD_Mecanicas.md §5.4) — sin regeneración automática, solo se llama en un evento explícito. */
+  actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void>;
   obtenerFarycoins(jugadorId: number): Promise<number>;
   /** Suma (delta>0) o resta (delta<0) Farycoins de un jugador, TODO O NADA:
    * si restar dejaría el saldo negativo, no toca nada y `ok:false` — mismo
@@ -433,7 +448,9 @@ CREATE TABLE IF NOT EXISTS jugadores (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   nombre TEXT UNIQUE NOT NULL,          -- identidad v1 = nombre (hasta que haya login real; documentado)
   creado_en TEXT NOT NULL,
-  farycoins INTEGER NOT NULL DEFAULT 0  -- moneda del mundo, saldo numérico (no ítem de inventario)
+  farycoins INTEGER NOT NULL DEFAULT 0, -- moneda del mundo, saldo numérico (no ítem de inventario)
+  vida INTEGER NOT NULL DEFAULT 100,    -- docs/GDD_Mecanicas.md §5.4: base 100/100, modificable por equipo/combate
+  vida_max INTEGER NOT NULL DEFAULT 100
 );
 CREATE TABLE IF NOT EXISTS gremios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -569,7 +586,10 @@ CREATE TABLE IF NOT EXISTS fauna_salvaje (
   ultima_bebida REAL NOT NULL,
   gestando_desde REAL,
   gestacion_duracion_dias REAL,
-  nacio_en REAL
+  nacio_en REAL,
+  vida REAL NOT NULL DEFAULT 0,         -- docs/GDD_Mecanicas.md §5.4: los animales no tienen defensa, solo vida
+  vida_max REAL NOT NULL DEFAULT 0,
+  ataque REAL NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_fauna_salvaje_sector ON fauna_salvaje(mapa_id, sector_x, sector_y);
 CREATE TABLE IF NOT EXISTS fauna_huevo (
@@ -642,6 +662,8 @@ CREATE TABLE IF NOT EXISTS jugadores (
 -- desplegada en Neon (hasta ahora todo era CREATE TABLE de cero) — Postgres
 -- lo soporta nativo, no rompe nada si la columna ya existe.
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS farycoins INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS vida INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS vida_max INTEGER NOT NULL DEFAULT 100;
 CREATE TABLE IF NOT EXISTS gremios (
   id SERIAL PRIMARY KEY,
   nombre TEXT UNIQUE NOT NULL,
@@ -767,8 +789,16 @@ CREATE TABLE IF NOT EXISTS fauna_salvaje (
   ultima_bebida REAL NOT NULL,
   gestando_desde REAL,
   gestacion_duracion_dias REAL,
-  nacio_en REAL
+  nacio_en REAL,
+  vida REAL NOT NULL DEFAULT 0,         -- docs/GDD_Mecanicas.md §5.4: los animales no tienen defensa, solo vida
+  vida_max REAL NOT NULL DEFAULT 0,
+  ataque REAL NOT NULL DEFAULT 0
 );
+-- ALTER ... IF NOT EXISTS: mismo patrón que farycoins arriba — fauna_salvaje
+-- puede ya estar desplegada en Neon desde la fase 2 de fauna salvaje.
+ALTER TABLE fauna_salvaje ADD COLUMN IF NOT EXISTS vida REAL NOT NULL DEFAULT 0;
+ALTER TABLE fauna_salvaje ADD COLUMN IF NOT EXISTS vida_max REAL NOT NULL DEFAULT 0;
+ALTER TABLE fauna_salvaje ADD COLUMN IF NOT EXISTS ataque REAL NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_fauna_salvaje_sector ON fauna_salvaje(mapa_id, sector_x, sector_y);
 CREATE TABLE IF NOT EXISTS fauna_huevo (
   id TEXT PRIMARY KEY,
@@ -847,6 +877,9 @@ function filaFaunaSalvajeDesdeSql(f: any): FaunaSalvajeFila {
         ? null
         : Number(f.gestacion_duracion_dias),
     nacioEn: f.nacio_en === null || f.nacio_en === undefined ? null : Number(f.nacio_en),
+    vida: Number(f.vida),
+    vidaMax: Number(f.vida_max),
+    ataque: Number(f.ataque),
   };
 }
 
@@ -899,8 +932,15 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     // PRAGMA table_info + ALTER manual es el mismo patrón que ya usa Postgres
     // (columna nueva sobre tabla desplegada), aplicado a mano aquí.
     const columnas = this.bd.prepare("PRAGMA table_info(jugadores)").all();
-    if (!columnas.some((c) => String(c.name) === "farycoins")) {
+    const nombresJugadores = new Set(columnas.map((c) => String(c.name)));
+    if (!nombresJugadores.has("farycoins")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN farycoins INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!nombresJugadores.has("vida")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN vida INTEGER NOT NULL DEFAULT 100");
+    }
+    if (!nombresJugadores.has("vida_max")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN vida_max INTEGER NOT NULL DEFAULT 100");
     }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
@@ -918,19 +958,31 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
   }
 
   async obtenerOCrearJugador(nombre: string): Promise<Jugador> {
-    const existente = this.bd.prepare("SELECT id, nombre, farycoins FROM jugadores WHERE nombre = ?").get(nombre);
+    const existente = this.bd
+      .prepare("SELECT id, nombre, farycoins, vida, vida_max FROM jugadores WHERE nombre = ?")
+      .get(nombre);
     if (existente) {
-      return { id: Number(existente.id), nombre: String(existente.nombre), farycoins: Number(existente.farycoins) };
+      return {
+        id: Number(existente.id),
+        nombre: String(existente.nombre),
+        farycoins: Number(existente.farycoins),
+        vida: Number(existente.vida),
+        vidaMax: Number(existente.vida_max),
+      };
     }
     const r = this.bd
       .prepare("INSERT INTO jugadores (nombre, creado_en) VALUES (?, ?)")
       .run(nombre, new Date().toISOString());
-    return { id: Number(r.lastInsertRowid), nombre, farycoins: 0 };
+    return { id: Number(r.lastInsertRowid), nombre, farycoins: 0, vida: 100, vidaMax: 100 };
   }
 
   async obtenerFarycoins(jugadorId: number): Promise<number> {
     const fila = this.bd.prepare("SELECT farycoins FROM jugadores WHERE id = ?").get(jugadorId);
     return fila ? Number(fila.farycoins) : 0;
+  }
+
+  async actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void> {
+    this.bd.prepare("UPDATE jugadores SET vida = ?, vida_max = ? WHERE id = ?").run(vida, vidaMax, jugadorId);
   }
 
   async ajustarFarycoins(jugadorId: number, delta: number): Promise<{ ok: boolean; saldo: number }> {
@@ -1520,7 +1572,8 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const filas = this.bd
       .prepare(
         `SELECT id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
-                ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en
+                ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en,
+                vida, vida_max, ataque
          FROM fauna_salvaje WHERE mapa_id = ? AND sector_x = ? AND sector_y = ?`,
       )
       .all(mapaId, sectorX, sectorY);
@@ -1532,17 +1585,20 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       .prepare(
         `INSERT INTO fauna_salvaje
            (id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
-            ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en,
+            vida, vida_max, ataque)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            sexo = excluded.sexo, etapa = excluded.etapa, estado = excluded.estado,
            x = excluded.x, y = excluded.y, ultima_comida = excluded.ultima_comida,
            ultima_bebida = excluded.ultima_bebida, gestando_desde = excluded.gestando_desde,
-           gestacion_duracion_dias = excluded.gestacion_duracion_dias, nacio_en = excluded.nacio_en`,
+           gestacion_duracion_dias = excluded.gestacion_duracion_dias, nacio_en = excluded.nacio_en,
+           vida = excluded.vida, vida_max = excluded.vida_max, ataque = excluded.ataque`,
       )
       .run(
         f.id, f.mapaId, f.sectorX, f.sectorY, f.especieId, f.sexo, f.etapa, f.estado, f.x, f.y,
         f.ultimaComida, f.ultimaBebida, f.gestandoDesde, f.gestacionDuracionDias, f.nacioEn,
+        f.vida, f.vidaMax, f.ataque,
       );
   }
 
@@ -1708,13 +1764,23 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async obtenerOCrearJugador(nombre: string): Promise<Jugador> {
     // INSERT ... ON CONFLICT DO UPDATE + RETURNING: upsert real de Postgres,
     // devuelve la fila exista ya o se acabe de crear, en una sola ida y vuelta.
-    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number }>(
+    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number }>(
       `INSERT INTO jugadores (nombre, creado_en) VALUES ($1, $2)
        ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
-       RETURNING id, nombre, farycoins`,
+       RETURNING id, nombre, farycoins, vida, vida_max`,
       [nombre, new Date().toISOString()]
     );
-    return { id: r.rows[0].id, nombre: r.rows[0].nombre, farycoins: r.rows[0].farycoins };
+    return {
+      id: r.rows[0].id,
+      nombre: r.rows[0].nombre,
+      farycoins: r.rows[0].farycoins,
+      vida: r.rows[0].vida,
+      vidaMax: r.rows[0].vida_max,
+    };
+  }
+
+  async actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void> {
+    await this.pool.query("UPDATE jugadores SET vida = $1, vida_max = $2 WHERE id = $3", [vida, vidaMax, jugadorId]);
   }
 
   async obtenerFarycoins(jugadorId: number): Promise<number> {
@@ -2296,7 +2362,8 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async listarFaunaSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaSalvajeFila[]> {
     const r = await this.pool.query(
       `SELECT id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
-              ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en
+              ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en,
+              vida, vida_max, ataque
        FROM fauna_salvaje WHERE mapa_id = $1 AND sector_x = $2 AND sector_y = $3`,
       [mapaId, sectorX, sectorY],
     );
@@ -2307,16 +2374,19 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     await this.pool.query(
       `INSERT INTO fauna_salvaje
          (id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
-          ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en,
+          vida, vida_max, ataque)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
        ON CONFLICT (id) DO UPDATE SET
          sexo = EXCLUDED.sexo, etapa = EXCLUDED.etapa, estado = EXCLUDED.estado,
          x = EXCLUDED.x, y = EXCLUDED.y, ultima_comida = EXCLUDED.ultima_comida,
          ultima_bebida = EXCLUDED.ultima_bebida, gestando_desde = EXCLUDED.gestando_desde,
-         gestacion_duracion_dias = EXCLUDED.gestacion_duracion_dias, nacio_en = EXCLUDED.nacio_en`,
+         gestacion_duracion_dias = EXCLUDED.gestacion_duracion_dias, nacio_en = EXCLUDED.nacio_en,
+         vida = EXCLUDED.vida, vida_max = EXCLUDED.vida_max, ataque = EXCLUDED.ataque`,
       [
         f.id, f.mapaId, f.sectorX, f.sectorY, f.especieId, f.sexo, f.etapa, f.estado, f.x, f.y,
         f.ultimaComida, f.ultimaBebida, f.gestandoDesde, f.gestacionDuracionDias, f.nacioEn,
+        f.vida, f.vidaMax, f.ataque,
       ],
     );
   }

@@ -220,11 +220,113 @@ oro repetida: catálogo como fuente de verdad + servidor autoritativo
   cabeza, torso, piernas, pies, espalda… La ropa/armadura da **defensa**,
   puede dar **capacidad de peso** extra, y las bolsas/mochilas añaden
   REJILLA extra de inventario (otro grid anidado).
-- Atributos del PJ: **vida**, defensa (derivada del equipo), capacidad de
-  peso, velocidad… — pocos y claros al principio; la lista exacta se
-  cierra cuando se diseñe combate.
 - Los equipables viven en el mismo catálogo de objetos con tag
   `equipable` + su slot + sus stats (nada de catálogo aparte).
+
+#### Vida / Ataque / Defensa (✅ implementado, pedido 2026-08-30)
+
+Reglas pedidas explícitamente, diferenciadas por tipo de entidad:
+
+- **Animales**: NUNCA tienen defensa — su única resistencia es la vida
+  máxima. Sí tienen ataque. La vida máxima escala por categoría
+  (`categoriaVida` en `baker/catalogo/animales.json`, derivada del
+  `tamanoReproduccion`/`peligroso`/`colision` ya existentes, un valor por
+  especie — no aleatorio): cría ~8, pequeño 15-25, mediano 50-65, grande
+  100-200, alfa 300+ (hoy solo tiburón/orca/araña gigante/calamar
+  gigante caen en "alfa", por ser `colision + peligroso` a la vez).
+- **Jugadores y NPCs humanoides**: SÍ tienen ataque y defensa. Todo
+  jugador arranca con **100/100 HP** obligatorio. `ataque`/`defensa` son
+  campos numéricos en el Schema de red (`Player.ataque`/`Player.defensa`,
+  base 3/0 — a puño limpio, sin armadura) pensados para subir con
+  equipo/atributos/magia MÁS ADELANTE: esta pasada NO conecta ningún
+  cálculo de equipo todavía (nadie lee del inventario ni de catálogo de
+  items al golpear) — es la base numérica sobre la que enganchará
+  cualquier sistema de equipo/combate futuro, esta pasada u otra.
+- **Fórmula de daño** (`server/src/combate/combate.ts`, módulo puro):
+  `daño = max(1, ataque - defensa)` — nunca menos de 1. Para un animal,
+  quien llama pasa `defensa: 0` siempre (no tienen esa estadística), así
+  que reciben el ataque tal cual.
+- **Regeneración/curación**: NADIE se cura solo con el tiempo — ni
+  jugadores, ni animales, ni NPCs. Un jugador solo sube vida comiendo
+  (fuera de combate) o con pociones/magia; animales y NPCs solo si un
+  jugador los cura A PROPÓSITO con un objeto o magia. Por eso
+  `combate.ts` no tiene ninguna función de "tick" de vida — `curar()` es
+  siempre un evento explícito.
+
+Piezas: catálogo de vida de fauna (`server/src/mundo/catalogoCombateFauna.ts`,
+separado del catálogo de reproducción porque cubre TAMBIÉN crías y
+población infinita, que no reproducen pero sí pueden recibir daño);
+persistencia (`fauna_salvaje.vida/vida_max/ataque` — el daño sufrido
+sobrevive a desactivar/reactivar un sector; `jugadores.vida/vida_max`);
+Schema de red (`Player`/`Npc`/`Fauna` en `HubState.ts`, con barra de
+vida flotante en el cliente, `client/src/render3d/worldScene.ts`);
+`GestorFaunaSalvaje.recibirDanio`/`curarIndividuo` (mismo patrón
+"mecanismo listo, punto de enganche" que `matarIndividuo`/cadáveres); y
+UN disparador real ya cableado: el mensaje `combate:atacar` de
+`HubRoom.ts` (jugador ataca fauna salvaje activa o a otro jugador,
+dentro de `RADIO_INTERACCION`, servidor autoritativo) — un animal salvaje
+muerto en combate crea su cadáver automáticamente (cierra el círculo con
+el sistema de cadáveres de la fase anterior).
+
+**Deliberadamente fuera de esta pasada**: NPCs humanoides con id
+persistente (bandidos/`tropas_asentamiento`) no tienen ninguna entidad
+viva en red todavía (confirmado: sin disparador de combate real, ver
+GDD_Faccion_Bandidos.md §2.4) así que no reciben daño; los NPCs civiles
+de asentamiento SÍ tienen stats de combate en su Schema pero nadie los
+ataca (no hay id estable ni ataque cuerpo a cuerpo de NPC hacia jugador);
+sin muerte "de verdad" de jugador — morir en PvP hoy simplemente rellena
+la vida al máximo en el sitio, sin respawn ni penalización (no había
+diseño de eso pactado); sin cooldown/animación/rango de arma más allá
+del radio de interacción genérico; sin armaduras todavía (solo armas,
+ver abajo).
+
+#### Catálogo de armas (✅ items del catálogo, pedido 2026-08-30)
+
+13 entradas nuevas en `items/catalogo/items.json`, `tipo:"arma"` (ya
+declarado en el union `TipoItem` por la propuesta de `GDD_Combate.md`,
+reutilizado tal cual — mismos campos `ataqueFisico`/`alcance`/
+`cooldownMs`/`durabilidadMax`/`desgastePorUso`, sin inventar un segundo
+esquema de stats):
+
+- **Cuerpo a cuerpo** (alcance 1-3 casillas): `daga`, `espada_corta`,
+  `espada_larga`, `hacha_combate` (distinta de `hacha_talar`, que sigue
+  siendo herramienta de tala sin stats de combate), `maza_guerra`,
+  `lanza`.
+- **A distancia** (alcance 4-9 casillas, más lentas — `cooldownMs`
+  mayor): `honda`, `arco_corto`, `arco_largo`, `ballesta`. Cada una
+  declara `municionId` (campo nuevo en `EntradaCatalogoItem`) apuntando
+  a su munición compatible.
+- **Munición** (`tipo:"municion"`, nuevo valor del union `TipoItem`,
+  apilable, sin `slotEquipo` — se consume, no se equipa): `piedra_honda`,
+  `flecha`, `virote_ballesta`.
+
+Todas con `familiaMaterial`/`tier` (encajan en cadenas de refinamiento
+futuras de `docs/GDD_Crafteo.md`) y desgaste (`durabilidadMax`/
+`desgastePorUso`, mismo `server/src/inventario/desgaste.ts` ya probado).
+
+**Fuera de esta pasada**: recetas de crafteo para fabricarlas (hoy solo
+existen como ítems, sin receta en `items/catalogo/recetas.json`); nadie
+CONSUME `municionId` todavía (ni se resta munición del inventario al
+disparar, ni el mensaje `combate:atacar` distingue melee de distancia —
+sigue siendo un único `ataque` plano en `Player`); armaduras (solo hay
+armas esta pasada, el pedido fue explícito: "de momento... mele y
+arcos/ballestas/hondas").
+
+**⚠️ SUSTITUIDO (decisión del streamer, 2026-08-30):** este sistema de
+daño DIRECTO simple (radio de interacción, sin turnos) queda como
+**INTERINO**. El streamer confirmó que `docs/GDD_Combate.md` (combate
+táctico por turnos en rejilla, arena, AP/MP) es el sistema definitivo —
+sustituye a este en cuanto su camino interactivo esté cableado. Hasta
+entonces, este sigue funcionando (mensaje `combate:atacar`,
+`server/src/combate/combate.ts`) para no dejar el juego sin ningún
+combate mientras se construye el táctico — NO se ha borrado nada
+todavía. Excepción también confirmada: cuando NINGÚN combatiente es un
+jugador (NPC vs animal, NPC vs NPC) el sistema definitivo tampoco usa
+turnos interactivos — se autosimula de golpe (ver
+`docs/GDD_Combate.md` §7). Los campos/Schema de vida que sí quedan
+(`Player.vida/vidaMax`, `Fauna.vida/vidaMax/ataque`, persistencia en
+BD, catálogo de vida de fauna, cadáveres) no se tiran — el sistema
+táctico los reutiliza como su fuente de HP, no inventa unos nuevos.
 
 ### 5.5 Objetos por el suelo (persistencia visible, decidido)
 

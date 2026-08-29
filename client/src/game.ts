@@ -409,6 +409,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     };
     jugadores.set(sessionId, estado);
     escena.añadirEntidad(sessionId, rig.objeto, player.x, player.y, player.name);
+    escena.actualizarVida(sessionId, player.vida, player.vidaMax);
     if (esYo) {
       jugadorLocal = estado;
       escena.seguirPunto(player.x, player.y, true);
@@ -421,6 +422,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       estado.destinoZ = player.y;
       estado.nadando = player.estado !== "tierra";
       estado.destinoY = estado.nadando ? -HUNDIMIENTO_NADANDO + player.nivel * HUNDIMIENTO_POR_NIVEL : 0;
+      escena.actualizarVida(sessionId, player.vida, player.vidaMax);
       if (esYo) {
         escena.seguirPunto(player.x, player.y);
         // gancho para los tests E2E (Playwright lee la verdad del servidor)
@@ -461,11 +463,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const meta = { nombre: npc.nombre, grito: npc.grito || "", accion: npc.accion, antorcha: null as PointLight | null };
     npcsMeta.set(slotId, meta);
     escena.añadirEntidad(`npc_${slotId}`, rig.objeto, npc.x, npc.y, npc.nombre);
+    escena.actualizarVida(`npc_${slotId}`, npc.vida, npc.vidaMax);
     $(npc).onChange(() => {
       estado.destinoX = npc.x;
       estado.destinoZ = npc.y;
       rig.objeto.visible = npc.visible;
       meta.accion = npc.accion;
+      escena.actualizarVida(`npc_${slotId}`, npc.vida, npc.vidaMax);
     });
   });
   $(room.state).npcs.onRemove((_npc: any, slotId: string) => {
@@ -496,9 +500,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     };
     faunaVisual.set(id, estado);
     escena.añadirEntidad(`fauna_${id}`, criatura.objeto, animal.x, animal.y);
+    escena.actualizarVida(`fauna_${id}`, animal.vida, animal.vidaMax);
     $(animal).onChange(() => {
       estado.destinoX = animal.x;
       estado.destinoZ = animal.y;
+      escena.actualizarVida(`fauna_${id}`, animal.vida, animal.vidaMax);
     });
   });
   $(room.state).fauna.onRemove((_animal: any, id: string) => {
