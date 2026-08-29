@@ -37,6 +37,8 @@ export interface ConstruccionViva {
   colision: boolean;
   /** claves numéricas y*ancho+x de las casillas que ocupa (huella ya rotada) */
   claves: number[];
+  /** JSON libre (interior generado, estado de producción — docs/GDD_Produccion.md) — mismo campo que ya guarda `construcciones.extra` en BD, mantenido en memoria para leer/mutar sin round-trip por cada toque. */
+  extra?: Record<string, unknown> | null;
 }
 
 export interface ContextoConstruccion {
@@ -159,6 +161,66 @@ export function validarColocacion(
   return { ok: true, parcelaId, claves };
 }
 
+export interface PeticionColocacionPlantilla {
+  nombre: string;
+  entrada: EntradaConstruible;
+  x: number;
+  y: number;
+  rot: number;
+}
+
+export type ResultadoValidacionPlantilla = { ok: true; claves: number[] } | { ok: false; motivo: string };
+
+/**
+ * Plantillas del jarl (docs/GDD_Produccion.md): mecanismo PARALELO a
+ * validarColocacion, no una variante — nunca exige estar dentro de una
+ * parcela (al contrario: EXIGE estar fuera de cualquier parcela existente,
+ * "el jarl asigna parcelas... aparte tendrá un sistema de plantillas de
+ * edificios en exterior, en un radio grande alrededor de la capital, fuera
+ * no podrá" — pedido literal del streamer). `capital`/`radioMax` los
+ * resuelve el llamador (el punto de spawn/ciudad de ESTA región, sea el Hub
+ * o la ciudad capital real vía RegionRoom — agnóstico de cuál es cuál).
+ */
+export function validarColocacionPlantilla(
+  ctx: ContextoConstruccion,
+  peticion: PeticionColocacionPlantilla,
+  capital: { x: number; y: number },
+  radioMax: number,
+): ResultadoValidacionPlantilla {
+  const { nombre, entrada, x, y, rot } = peticion;
+
+  // 1. solo el jarl coloca plantillas
+  if (!esJarl(ctx, nombre)) return { ok: false, motivo: "solo el jarl coloca plantillas" };
+
+  // 2. dentro del radio a la capital (centro de la huella, no la esquina)
+  const [ancho, largo] = huellaRotada(entrada.huella, rot);
+  const centroX = x + ancho / 2;
+  const centroY = y + largo / 2;
+  if (Math.hypot(centroX - capital.x, centroY - capital.y) > radioMax) {
+    return { ok: false, motivo: "fuera del radio de plantillas de la capital" };
+  }
+
+  // 3. huella rotada entera: tierra transitable, libre, y FUERA de cualquier
+  //    parcela ya pintada (una plantilla nunca pisa terreno de jugador)
+  const casillas = casillasDe(x, y, entrada.huella, rot);
+  const claves: number[] = [];
+  for (const c of casillas) {
+    if (parcelaEn(ctx.parcelas, c.x, c.y) !== undefined) {
+      return { ok: false, motivo: "hay una parcela ahí — las plantillas van fuera de las parcelas" };
+    }
+    const clave = c.y * ctx.mapa.ancho + c.x;
+    if (ctx.mapa.casillas[clave] !== TIPO.TIERRA) {
+      return { ok: false, motivo: "casilla no construible (agua u obstáculo)" };
+    }
+    if (ctx.ocupacion.has(clave)) {
+      return { ok: false, motivo: "casilla ocupada por otra construcción" };
+    }
+    claves.push(clave);
+  }
+
+  return { ok: true, claves };
+}
+
 /**
  * Aplica una construcción YA validada (o cargada de la BD al arrancar) a la
  * rejilla viva: reserva sus casillas y las endurece si tiene colisión.
@@ -176,6 +238,7 @@ export function aplicarColocacion(
     variante: number;
     colision: boolean;
     huella: [number, number];
+    extra?: Record<string, unknown> | null;
   }
 ): ConstruccionViva {
   const claves = casillasDe(datos.x, datos.y, datos.huella, datos.rot).map(
@@ -192,6 +255,7 @@ export function aplicarColocacion(
     variante: datos.variante,
     colision: datos.colision,
     claves,
+    extra: datos.extra ?? null,
   };
   for (const clave of claves) {
     ctx.ocupacion.set(clave, datos.id);

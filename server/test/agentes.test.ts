@@ -155,3 +155,59 @@ test("el multiplicador de velocidad (npc.velocidad) acelera el avance sin romper
   const xNormal = salida.get("normal")!.x;
   assert.ok(xRapido > xNormal, `el corredor (${xRapido}) debería ir más lejos que el normal (${xNormal}) en el mismo tiempo`);
 });
+
+// --- NPC transportista (docs/GDD_Produccion.md, pedido 2026-08-29) ---
+
+test("agregarAgenteTransportista: nace en el origen, visible, y aparece en el Schema replicado", () => {
+  const salida = new MapSchema<Npc>();
+  const gestor = new GestorAgentes(salida);
+  gestor.agregarAgenteTransportista(
+    "contrato:1", "Carretero",
+    { x: 2, y: 2 }, { x: 8, y: 2 },
+    [{ x: 2, y: 2 }, { x: 8, y: 2 }], [{ x: 8, y: 2 }, { x: 2, y: 2 }],
+  );
+  const esquema = salida.get("contrato:1");
+  assert.ok(esquema, "debe aparecer en el Schema replicado igual que cualquier otro NPC");
+  assert.strictEqual(esquema!.x, 2.5);
+  assert.strictEqual(esquema!.y, 2.5);
+  assert.strictEqual(esquema!.visible, true);
+  assert.strictEqual(gestor.cantidad, 1);
+});
+
+test("agregarAgenteTransportista: recorre el bucle origen↔destino con el MISMO mecanismo de paradas que un vendedor fijo", () => {
+  const salida = new MapSchema<Npc>();
+  const gestor = new GestorAgentes(salida);
+  gestor.agregarAgenteTransportista(
+    "contrato:1", "Carretero",
+    { x: 2, y: 2 }, { x: 8, y: 2 },
+    [{ x: 2, y: 2 }, { x: 8, y: 2 }], [{ x: 8, y: 2 }, { x: 2, y: 2 }],
+  );
+  const npc = salida.get("contrato:1")!;
+  const posiciones = new Set<number>();
+  for (let i = 0; i < 60; i++) {
+    gestor.tick(0.5, 12);
+    posiciones.add(Math.round(npc.x));
+  }
+  assert.ok(posiciones.has(8) || posiciones.has(7), "debería haber llegado al destino en algún momento del bucle");
+  assert.ok(posiciones.size > 3, `debería haberse visto en varias posiciones del trayecto (${[...posiciones]})`);
+});
+
+test("agregarAgenteTransportista: insertado en CALIENTE (no espera a iniciar()) — coexiste con NPCs de rutina ya en marcha", () => {
+  const salida = new MapSchema<Npc>();
+  const gestor = new GestorAgentes(salida);
+  gestor.iniciar([{ slotId: "vecino", nombre: "Vecino", rutina: rutinaTipo() }], 8);
+  assert.strictEqual(gestor.cantidad, 1);
+  gestor.agregarAgenteTransportista("contrato:1", "Carretero", { x: 0, y: 0 }, { x: 5, y: 0 }, [{ x: 0, y: 0 }, { x: 5, y: 0 }], [{ x: 5, y: 0 }, { x: 0, y: 0 }]);
+  assert.strictEqual(gestor.cantidad, 2, "el transportista se suma sin tocar a los NPCs ya activos");
+  gestor.tick(0.1, 8); // no debe reventar mezclando ambos tipos de agente en el mismo tick
+});
+
+test("quitarAgente: retira al transportista de la simulación Y del Schema replicado (al cancelar un contrato)", () => {
+  const salida = new MapSchema<Npc>();
+  const gestor = new GestorAgentes(salida);
+  gestor.agregarAgenteTransportista("contrato:1", "Carretero", { x: 0, y: 0 }, { x: 5, y: 0 }, [{ x: 0, y: 0 }, { x: 5, y: 0 }], [{ x: 5, y: 0 }, { x: 0, y: 0 }]);
+  assert.strictEqual(gestor.cantidad, 1);
+  gestor.quitarAgente("contrato:1");
+  assert.strictEqual(gestor.cantidad, 0);
+  assert.strictEqual(salida.get("contrato:1"), undefined, "también desaparece del Schema — no se queda un NPC fantasma visible");
+});

@@ -4,7 +4,7 @@ import * as path from "path";
 import { RoomExteriorBase, RADIO_INTERACCION } from "./base/RoomExteriorBase";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
-import { GestorAgentes, NpcBakeado } from "../mundo/agentes";
+import { NpcBakeado } from "../mundo/agentes";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
 import { asegurarAsentamientoBandido } from "../mundo/economiaAsentamientos";
@@ -80,9 +80,11 @@ export class RegionRoom extends RoomExteriorBase {
     const rutaPoblacion = path.join(rutaMapa, "poblacion.json");
     if (fs.existsSync(rutaPoblacion)) {
       const poblacion = JSON.parse(fs.readFileSync(rutaPoblacion, "utf8")) as { npcs: NpcBakeado[] };
-      const gestor = new GestorAgentes(this.state.npcs);
+      // obtenerOCrearGestorAgentes (docs/GDD_Produccion.md): mismo gestor
+      // que usará un futuro NPC transportista en esta región — un único
+      // GestorAgentes por room, un único tick, nunca dos relojes distintos.
+      const gestor = this.obtenerOCrearGestorAgentes();
       gestor.iniciar(poblacion.npcs, tiempoMundo().hora);
-      this.clock.setInterval(() => gestor.tick(0.1, tiempoMundo().hora), 100);
       console.log(`  ${gestor.cantidad} NPCs con rutina en el mapa`);
     }
 

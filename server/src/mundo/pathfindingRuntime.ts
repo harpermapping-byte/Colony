@@ -1,0 +1,55 @@
+/**
+ * A* EN VIVO para el NPC transportista (docs/GDD_Produccion.md, pedido
+ * 2026-08-29) — llamado UNA VEZ al firmar un contrato de transporte, nunca
+ * en el tick (regla dura de agentes.ts: "nada de A* en vivo" se refiere a
+ * A* REPETIDO por tick, no a A* en absoluto — mismo criterio ya aplicado a
+ * "generar el interior de un edificio una vez al colocarse").
+ *
+ * `aEstrella` (ciudades/src/geometria.js) es agnóstica de la rejilla: solo
+ * pide ancho/alto + una función de coste por casilla — mismo patrón
+ * require()-en-runtime que ya usa server/src/construccion/parcelas.ts para
+ * `rasterizarRectRotado` del mismo módulo.
+ */
+
+import * as path from "node:path";
+import { MundoColision, TIPO } from "./colisiones";
+
+const RAIZ_REPO = path.resolve(__dirname, "..", "..", "..");
+const RUTA_GEOMETRIA_CIUDADES = path.join(RAIZ_REPO, "ciudades", "src", "geometria.js");
+
+export interface Punto {
+  x: number;
+  y: number;
+}
+
+/**
+ * Camino entre dos puntos sobre la rejilla de colisión EN VIVO de la room
+ * (mundo/mapaColision.ts) — tierra transitable = coste 1, agua/sólido =
+ * bloqueado. `null` si no hay camino (islas separadas por agua, por ejemplo).
+ */
+export function calcularCaminoRuntime(mundo: MundoColision, origen: Punto, destino: Punto): Punto[] | null {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { aEstrella } = require(RUTA_GEOMETRIA_CIUDADES) as {
+    aEstrella: (
+      ancho: number, alto: number, inicio: Punto, fin: Punto,
+      costeDe: (x: number, y: number) => number,
+    ) => Punto[] | null;
+  };
+
+  const costeDe = (x: number, y: number): number => {
+    const idx = y * mundo.ancho + x;
+    if (mundo.casillas[idx] === TIPO.SOLIDO) return Infinity;
+    // agua transitable a pie (nadando) cuesta más que tierra — el
+    // transportista PREFIERE rodear, no bloqueado del todo (mismo espíritu
+    // que el coste de pendiente del A* offline de baker/, "rodea lo caro").
+    if (mundo.casillas[idx] === TIPO.AGUA || mundo.casillas[idx] === TIPO.AGUA_PROFUNDA) return 6;
+    return 1 / (mundo.velocidad[idx] || 1); // camino/adoquín (modVelocidad>1) sale más barato: lo prefiere
+  };
+
+  const ox = Math.floor(origen.x), oy = Math.floor(origen.y);
+  const dx = Math.floor(destino.x), dy = Math.floor(destino.y);
+  if (ox < 0 || oy < 0 || ox >= mundo.ancho || oy >= mundo.alto) return null;
+  if (dx < 0 || dy < 0 || dx >= mundo.ancho || dy >= mundo.alto) return null;
+
+  return aEstrella(mundo.ancho, mundo.alto, { x: ox, y: oy }, { x: dx, y: dy }, costeDe);
+}
