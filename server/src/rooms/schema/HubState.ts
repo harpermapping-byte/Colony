@@ -88,9 +88,22 @@ export class Fauna extends Schema {
   @type("string") accion = ""; // comer | sentarse | jugar | dormir | caminar
 }
 
+// Objeto soltado al mundo por un jugador (fase 2 de inventario, "soltar" —
+// docs/GDD_Inventario.md §7). Sin persistencia esta fase: vive y muere con
+// la room (memoria pura, igual que Enemigo/Fauna) — un reinicio de Render
+// borra lo soltado sin recoger, decisión explícita documentada en el GDD.
+// Aparece quieto, sin rot ni movimiento (mismo criterio que Enemigo).
+export class ObjetoMundoSchema extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") itemId = ""; // id de items/catalogo/items.json
+  @type("number") cantidad = 1;
+}
+
 export class HubState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: Npc }) npcs = new MapSchema<Npc>();
   @type({ map: Enemigo }) enemigos = new MapSchema<Enemigo>();
   @type({ map: Fauna }) fauna = new MapSchema<Fauna>();
+  @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
 }

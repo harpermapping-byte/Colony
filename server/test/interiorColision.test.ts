@@ -233,3 +233,39 @@ test("cargarInterior: salasPorTipo da una casilla pisable real por cada tipo de 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("cargarInterior: objetosSueltos expone los ítems 'sobre' del bake (fase 2 de inventario, 'coger') con posición real del mueble host", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "colony-interior-sueltos-"));
+  try {
+    // herreria/taberna colocan mesas de trabajo/encimeras con clutter "sobre"
+    // real (clavos, jarra_agua, plato...) — mismo id que ya cruzamos con
+    // items/catalogo/items.json en docs/GDD_Inventario.md §7.
+    const edificio = generarEdificio({ tipoEdificioId: "herreria", catalogos, semilla: "sueltos-a" });
+    const archivo = path.join(dir, "herreria_sueltos-a.json");
+    fs.writeFileSync(archivo, JSON.stringify(edificio));
+    const interior = cargarInterior(archivo);
+
+    // recuento esperado directamente del JSON bakeado, sin pasar por cargarInterior:
+    const plantaBaja = edificio.plantas.find((p: any) => p.rol === "planta_baja");
+    let esperados = 0;
+    for (const sala of plantaBaja.salas) {
+      for (const item of sala.resultado.colocados) esperados += (item.sobre ?? []).length;
+    }
+    assert.ok(esperados > 0, "esta prueba necesita un edificio con clutter 'sobre' real");
+    assert.strictEqual(interior.objetosSueltos.size, esperados);
+
+    // cada entrada tiene instanceId único e itemId real; la posición es la
+    // del MUEBLE host (puede ser sólido — no tiene casilla propia, se
+    // interactúa por proximidad al host, no parado encima), pero debe caer
+    // dentro de la rejilla de la planta.
+    const vistos = new Set<string>();
+    for (const [instanceId, o] of interior.objetosSueltos) {
+      assert.ok(!vistos.has(instanceId), `instanceId repetido: ${instanceId}`);
+      vistos.add(instanceId);
+      assert.ok(o.itemId.length > 0);
+      assert.ok(o.x >= 0 && o.x < interior.ancho && o.y >= 0 && o.y < interior.alto, `objeto suelto ${instanceId} fuera de la rejilla`);
+    }
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

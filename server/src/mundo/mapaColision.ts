@@ -14,6 +14,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { MundoColision, TIPO } from "./colisiones";
+import { RecolectableVivo, catalogosPorCapa, recolectablesDeMapa } from "./recolectables";
 
 // server/{src|dist}/mundo -> raíz del repo (assets/ y baker/ son hermanos de server/)
 const RAIZ_REPO = path.resolve(__dirname, "..", "..", "..");
@@ -76,6 +77,8 @@ export interface MapaCargado extends MundoColision {
   /** ruta absoluta de donde se cargó — para resolver `interiores/<edificio>.json` */
   rutaMapa: string;
   portales: Portal[];
+  /** recolectables EXTERIORES vivos (fase 2 de inventario, "coger" — mundo/recolectables.ts): clave y*ancho+x, mutable, sin persistencia. */
+  recolectables: Map<number, RecolectableVivo>;
 }
 
 export function cargarMapaColision(
@@ -95,6 +98,12 @@ export function cargarMapaColision(
 
   const terrenos = leerJSON<Record<string, EntradaTerreno>>(path.join(rutaCatalogo, "terrenos.json"));
   const solidosCatalogo = idsConColision(rutaCatalogo);
+  const catalogosCapa = catalogosPorCapa(rutaCatalogo);
+  // recolectables: el MISMO Map vive mientras dure el proceso (ver
+  // mundo/recolectables.ts) — `poblar` es true solo la primera vez que se
+  // carga ESTE rutaMapa, así una room que se recrea (RegionRoom autoDispose)
+  // no resetea lo ya cogido.
+  const { mapa: recolectables, esNuevo: poblarRecolectables } = recolectablesDeMapa(rutaMapa);
 
   const T = indice.tamanoChunk;
   const ancho = indice.anchoChunks * T;
@@ -120,7 +129,10 @@ export function cargarMapaColision(
       const ruta = path.join(rutaMapa, `sector_${pad3(sx)}_${pad3(sy)}.json`);
       if (!fs.existsSync(ruta)) continue;
       const sector = leerJSON<{
-        chunks: Record<string, { terreno: string; tamano: number; objetos: { i: string; x: number; y: number }[] }>;
+        chunks: Record<
+          string,
+          { terreno: string; tamano: number; objetos: { i: string; t: string; x: number; y: number; ac?: number }[] }
+        >;
       }>(ruta);
       for (const [clave, chunk] of Object.entries(sector.chunks)) {
         const [cx, cy] = clave.split("_").map(Number); // coordenada GLOBAL de chunk
@@ -134,11 +146,26 @@ export function cargarMapaColision(
           }
         }
         for (const obj of chunk.objetos) {
-          if (!solidosCatalogo.has(obj.i)) continue;
-          const idx = (baseY + obj.y) * ancho + (baseX + obj.x);
-          // una pieza sólida solo endurece suelo firme: un árbol no convierte
-          // agua en pared (y el agua nunca debería traer piezas sólidas)
-          if (casillas[idx] === TIPO.TIERRA) casillas[idx] = TIPO.SOLIDO;
+          if (solidosCatalogo.has(obj.i)) {
+            const idx = (baseY + obj.y) * ancho + (baseX + obj.x);
+            // una pieza sólida solo endurece suelo firme: un árbol no convierte
+            // agua en pared (y el agua nunca debería traer piezas sólidas)
+            if (casillas[idx] === TIPO.TIERRA) casillas[idx] = TIPO.SOLIDO;
+          }
+          // `ac` se OMITE cuando el candidato nace activo (caso normal) y solo
+          // se guarda `ac:0` para los inactivos/reserva del pool (baker/src/
+          // decoracion.js) — así que "activo" es `obj.ac !== 0`, NUNCA
+          // `!obj.ac` (bug real: `!undefined` y `!0` son ambos `true` en JS,
+          // esa condición habría marcado como recolectable el 100% del pool,
+          // no solo la fracción activa — encontrado en la crítica adversarial
+          // del diseño de esta fase antes de escribir una sola línea).
+          if (poblarRecolectables && obj.ac !== 0) {
+            const def = catalogosCapa[obj.t]?.[obj.i];
+            if (def?.desaparaceAlRecolectar && def.categoriaRecurso) {
+              const idx = (baseY + obj.y) * ancho + (baseX + obj.x);
+              recolectables.set(idx, { itemId: def.categoriaRecurso, x: baseX + obj.x, y: baseY + obj.y });
+            }
+          }
         }
       }
     }
@@ -159,6 +186,7 @@ export function cargarMapaColision(
     spawnY: spawn.y + 0.5,
     rutaMapa,
     portales: indice.portales ?? [],
+    recolectables,
   };
 }
 

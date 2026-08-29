@@ -1,7 +1,7 @@
 import { Client } from "@colyseus/core";
 import * as fs from "fs";
 import * as path from "path";
-import { RoomExteriorBase } from "./base/RoomExteriorBase";
+import { RoomExteriorBase, RADIO_INTERACCION, ObjetoCogible } from "./base/RoomExteriorBase";
 import { cargarInterior, InteriorCargado } from "../mundo/interiorColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { poblarInterior, NpcConCasa } from "../mundo/agentesInterior";
@@ -72,7 +72,7 @@ export class InteriorRoom extends RoomExteriorBase {
       const player = this.state.players.get(client.sessionId);
       if (!player) return;
       const conector = this.interior.conectores.find(
-        (c) => Math.hypot(c.x + c.huella[0] / 2 - player.x, c.y + c.huella[1] / 2 - player.y) < 2.2,
+        (c) => Math.hypot(c.x + c.huella[0] / 2 - player.x, c.y + c.huella[1] / 2 - player.y) < RADIO_INTERACCION,
       );
       if (conector) {
         client.send("portal:ir", {
@@ -102,5 +102,38 @@ export class InteriorRoom extends RoomExteriorBase {
     const x = options?.entradaX ?? this.interior.spawnX;
     const y = options?.entradaY ?? this.interior.spawnY;
     this.crearJugador(client, options, x, y);
+  }
+
+  /**
+   * "Coger" de interior — sobreescribe el comportamiento de mapaExterior
+   * (aquí no hay bake exterior): los objetos "sobre" no tienen casilla
+   * propia, se interactúa por la posición del MUEBLE que los sostiene
+   * (this.interior.objetosSueltos ya trae esa posición resuelta).
+   * Recorrer todo el Map es aceptable aquí — a diferencia del pool
+   * exterior (potencialmente decenas de miles de entradas en el mapa
+   * principal), el clutter "sobre" de UN edificio es un puñado de objetos.
+   */
+  protected buscarCogibleEnMundo(x: number, y: number): ObjetoCogible | null {
+    let mejorId: string | null = null;
+    let mejorDist = Infinity;
+    for (const [instanceId, o] of this.interior.objetosSueltos) {
+      const d = Math.hypot(o.x + 0.5 - x, o.y + 0.5 - y);
+      if (d < RADIO_INTERACCION && d < mejorDist) {
+        mejorDist = d;
+        mejorId = instanceId;
+      }
+    }
+    if (!mejorId) return null;
+    const objetosSueltos = this.interior.objetosSueltos;
+    const idElegido = mejorId;
+    const o = objetosSueltos.get(idElegido)!;
+    return {
+      itemId: o.itemId,
+      cantidad: 1,
+      confirmar: () => {
+        objetosSueltos.delete(idElegido);
+        this.broadcast("mundo:objetoQuitado", { origen: "interior", instanceId: idElegido });
+      },
+    };
   }
 }
