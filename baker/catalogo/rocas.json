@@ -34,5 +34,8 @@
   "diamante": { "colision": true, "biomas": ["montana_nevada"], "categoriaRecurso": "gema", "densidadBase": 0.0002, "escalaRuido": 15, "variantes": 2, "colorDebug": "#d0f0f8", "_nota": "El mineral más raro del catálogo." },
   "obsidiana": { "colision": true, "biomas": ["montana_nevada", "desierto"], "categoriaRecurso": "piedra_comun", "densidadBase": 0.002, "escalaRuido": 16, "variantes": 4, "colorDebug": "#181820" },
   "pedernal": { "colision": true, "biomas": ["pradera", "bosque"], "categoriaRecurso": "piedra_comun", "densidadBase": 0.007, "escalaRuido": 14, "variantes": 5, "colorDebug": "#4a4a4a" },
-  "veta_marmol": { "colision": true, "biomas": ["montana_nevada", "pradera"], "categoriaRecurso": "piedra_comun", "densidadBase": 0.004, "escalaRuido": 18, "variantes": 4, "colorDebug": "#e8e4dc" }
+  "veta_marmol": { "colision": true, "biomas": ["montana_nevada", "pradera"], "categoriaRecurso": "piedra_comun", "densidadBase": 0.004, "escalaRuido": 18, "variantes": 4, "colorDebug": "#e8e4dc" },
+
+  "roca_acantilado_grande": { "uso": "PLACEHOLDER de acantilado (pedido 2026-08-29): pieza grande colocada de forma DETERMINISTA por generar.js justo en el borde donde el terreno salta ≥2 bandas de elevación — no sale por el decorador de densidad normal como el resto de este catálogo, así que 'biomas'/'densidadBase' no aplican (puede salir en cualquier bioma con desnivel). La forma/detalle real se bakeará más adelante con el arquetipo 'roca' ya existente de taller-vox/generar_naturaleza.js — esto solo fija el hueco de catálogo y la escala.", "colision": true, "variantes": 4, "escalaBase": 2.6, "colorDebug": "#7a7a76" },
+  "roca_acantilado_pequena": { "uso": "compañera pequeña de roca_acantilado_grande en la misma línea de acantilado, para que no se vea como el mismo bloque copiado — mismo mecanismo de colocación determinista.", "colision": true, "variantes": 4, "escalaBase": 1.3, "colorDebug": "#84847e" }
 }
