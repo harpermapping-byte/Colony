@@ -1,5 +1,15 @@
 {
   "_nota": "Propiedades intrínsecas de cada tipo de sala (GDD_Bakeador_Interiores sección 5). Qué elementos puede llevar NO se declara aquí — lo declara cada elemento en elementos.json vía tiposSalaValidos, mismo patrón bioma/especie que en exteriores (biomas.json no lista especies, vegetacion.json/animales.json listan biomas). `tags`: RoomTags nuevos (src/roomTags.js) — capa de categorización aditiva, no sustituye a tiposSalaValidos ni a categoria; un mueble puede admitirse por CUALQUIERA de las dos vías (allowedRoomTags en elementos.json, o el tiposSalaValidos de siempre). Salas sin tag claro en la taxonomía dada (pasillo, invernadero...) llevan el más cercano o array vacío — no se ha forzado un encaje malo.",
+  "_camposConsumidores": {
+    "categoria": "interiores/src/catalogoContenido.js:derivarTags (añadida como tag de mobiliario) + interiores/src/prueba_render_iso.js (mostrada en el render de prueba)",
+    "nombre": "interiores/src/prueba_render_iso.js — solo la herramienta de prueba/demo, no el motor de generación",
+    "anchoTiles": "interiores/src/colocarElementos.js:colocarSala — rango aleatorio de ancho + factor de escala de mobiliario (areaTipica/factorTamano)",
+    "largoTiles": "interiores/src/colocarElementos.js:colocarSala — igual que anchoTiles, para el largo",
+    "materialSuelo": "interiores/src/colocarElementos.js:colocarSala (copiado al resultado) + edicion.js:cambiarTipoSala + client/src/render3d/interiorVisual.ts — material de suelo por defecto hasta el render 3D",
+    "materialPared": "interiores/src/colocarElementos.js:colocarSala + edicion.js:cambiarTipoSala + client/src/render3d/interiorVisual.ts:materialParedDe — material de pared por defecto hasta el render 3D",
+    "simetrico": "interiores/src/colocarElementos.js:colocarUno — activa el colocador de pares en espejo para decoración simétrica",
+    "tags": "interiores/src/colocarElementos.js (TAGS_FILA_PARED/TAGS_RINCON_ALMACEN) — agrupa mobiliario repetido en fila/rincón según el rol de la sala"
+  },
   "dormitorio": {"categoria":"residencial","nombre":"Dormitorio","anchoTiles":[4,7],"largoTiles":[4,7],"materialSuelo":"madera","materialPared":"estuco","simetrico":false,"tags":["COMUN_VIVIENDA"]},
   "cocina": {"categoria":"utilidad","nombre":"Cocina","anchoTiles":[4,7],"largoTiles":[4,8],"materialSuelo":"piedra","materialPared":"estuco","simetrico":false,"tags":["COMUN_COCINA"]},
   "sala_comun": {"categoria":"residencial","nombre":"Sala común","anchoTiles":[6,10],"largoTiles":[6,12],"materialSuelo":"madera","materialPared":"estuco","simetrico":false,"tags":["COMUN_VIVIENDA"]},

@@ -1,5 +1,13 @@
 {
   "_nota": "Precios de compra/alquiler de propiedades comerciales (docs/GDD_Propiedades.md, pedido 2026-08-29). Números PLACEHOLDER puro — el balance económico real es decisión del streamer; lo cerrado aquí es la FORMA (por riqueza del edificio, no un precio suelto por cada tipo_edificio) para no duplicar 40+ números cuando la riqueza ya es la señal real de coste. periodoHoras son horas REALES (Date.now()), no tiempoMundo().",
+  "_camposConsumidores": {
+    "porRiqueza.*.compra": "server/src/propiedades/propiedades.ts:precioInmueble() — precio de compra de un inmueble entero, según la riqueza del tipoEdificioId; null = no comprable. Llamado desde server/src/rooms/RegionRoom.ts y server/src/rooms/base/RoomExteriorBase.ts al vender/alquilar un edificio exterior reservadoJugador",
+    "porRiqueza.*.alquilerPeriodo": "server/src/propiedades/propiedades.ts:precioInmueble() — precio del alquiler por periodo de un inmueble entero",
+    "porRiqueza.*.periodoHoras": "server/src/propiedades/propiedades.ts:precioInmueble() — duración en horas REALES (no tiempoMundo()) de cada periodo",
+    "habitacion.*.compra": "server/src/propiedades/propiedades.ts:precioHabitacion() — precio de compra de una habitación suelta por tipoSalaId; null para dormitorio_comunal (solo alquilable). Llamado desde server/src/rooms/InteriorRoom.ts al vender/alquilar habitaciones de taberna/posada",
+    "habitacion.*.alquilerPeriodo": "server/src/propiedades/propiedades.ts:precioHabitacion() — precio del alquiler por periodo de la habitación suelta",
+    "habitacion.*.periodoHoras": "server/src/propiedades/propiedades.ts:precioHabitacion() — duración en horas reales del periodo de alquiler de la habitación"
+  },
   "porRiqueza": {
     "humilde": { "compra": 200, "alquilerPeriodo": 20, "periodoHoras": 24 },
     "modesta": { "compra": 500, "alquilerPeriodo": 50, "periodoHoras": 24 },

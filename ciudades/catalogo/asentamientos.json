@@ -1,5 +1,24 @@
 {
   "_nota": "Tiers de asentamiento del bakeador ORGÁNICO de ciudades (GDD_Bakeador_POIs §4): el tier decide el radio del recinto, la irregularidad del polígono de muralla (Perlin), material/grosor/puertas, la plaza (radio del disco focal), zonas verdes intramuros y qué edificios coloca — por id de interiores/catalogo/tipos_edificio.json con pesos (patrón salasPorPlanta). geografias pondera la variante del terreno base: llano / colina central / río que cruza.",
+  "_camposConsumidores": {
+    "_general": "único consumidor real de TODOS los campos: ciudades/src/generar.js:generarCiudad() (cargado por cargarAsentamientos()). Las menciones en poblacion/src/generarCenso.js/exportarPoblacion.js son solo comentarios/JSDoc — usan un tierId de cadena que coincide por convención con poblacion/catalogo/censo.json, no leen este catálogo",
+    "uso": "SIN CONSUMIDOR — texto descriptivo puro",
+    "organico.radio": "ciudades/src/generar.js:generarCiudad() — radio base del recinto (dimensiones del lienzo, radio de muralla, densidad de vegetación, ramales de calles secundarias)",
+    "organico.irregularidad": "ciudades/src/generar.js:generarCiudad() — amplitud del ruido Perlin que deforma el polígono de la muralla",
+    "organico.geografias": "ciudades/src/generar.js:generarCiudad() (elegirPonderado) — sortea la variante de terreno base (llano/colina central/río)",
+    "muralla.material": "ciudades/src/generar.js:generarCiudad() — id de terreno de la muralla (empalizada vs muralla_piedra) y material de módulos vectoriales",
+    "muralla.grosor": "ciudades/src/generar.js:generarCiudad() — grosor de rasterizado, radio de hueco de puertas, distancia mínima de edificios al muro",
+    "muralla.puertas": "ciudades/src/generar.js:generarCiudad() — número de caminos A* principales trazados hasta el punto focal (cada uno genera una puerta)",
+    "muralla.torresEnTodos": "ciudades/src/generar.js:generarCiudad() + carvarCallesMenores() — torre en cada vértice (vs cada 2) y fuerza calle de ronda interior aunque el radio sea pequeño",
+    "plaza": "ciudades/src/generar.js:generarCiudad() — radio del disco de la plaza, dimensiona puestos de mercado/bancos/hito central",
+    "zonasVerdes": "ciudades/src/generar.js:generarCiudad() — número de parques/huertos intramuros a intentar antes del relleno de edificios",
+    "edificios.cantidad": "ciudades/src/generar.js:generarCiudad() — rango del que se sortea el número total de edificios",
+    "edificios.obligatorios": "ciudades/src/generar.js:generarCiudad() — tipoEdificioId que SIEMPRE se colocan primero, con prioridad de sitio",
+    "edificios.ponderados": "ciudades/src/generar.js:generarCiudad() (elegirPonderado) — rellena el resto sorteando ponderadamente entre tipos de relleno",
+    "edificios.colchonMinimo": "ciudades/src/generar.js:generarCiudad() — callejón mínimo entre solares (solo capital_jarl lo declara)",
+    "parcelasReservadas": "ciudades/src/generar.js:generarCiudad() — huecos sin construir reservados para el futuro (solo capital_jarl)",
+    "camposCultivo": "ciudades/src/generar.js:generarCiudad() — número de campos de cultivo pegados a la cara interior de la muralla (solo capital_jarl)"
+  },
   "aldea_pequena": {
     "uso": "asentamiento mínimo: un puñado de casas pobres tras una empalizada irregular, una sola puerta",
     "organico": {
