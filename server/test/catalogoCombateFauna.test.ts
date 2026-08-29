@@ -44,3 +44,10 @@ test("cargarCatalogoCombateFauna: peligroso viaja tal cual del catálogo (docs/G
   assert.strictEqual(catalogo["oso_pardo"].peligroso, true);
   assert.strictEqual(catalogo["conejo"].peligroso, false);
 });
+
+test("cargarCatalogoCombateFauna: domesticable viaja tal cual del catálogo (docs/GDD_Mascotas.md) — perro/gato sí, un oso no", () => {
+  const catalogo = cargarCatalogoCombateFauna(RUTA_ANIMALES);
+  assert.strictEqual(catalogo["perro"].domesticable, true);
+  assert.strictEqual(catalogo["gato"].domesticable, true);
+  assert.strictEqual(catalogo["oso_pardo"].domesticable, false);
+});

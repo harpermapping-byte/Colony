@@ -7,12 +7,20 @@ import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { NpcBakeado } from "../mundo/agentes";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
-import { cargarCatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
+import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
 import { asegurarAsentamientoBandido } from "../mundo/economiaAsentamientos";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
 import { cargarParcelasDeReservas } from "../construccion/parcelas";
 import { esJarlGlobal } from "../construccion/construccion";
 import { ventaJugadorPermitida, precioInmueble } from "../propiedades/propiedades";
+import { quitarItem } from "../inventario/inventario";
+import { sincronizarContenedor } from "../inventario/sincronizarSchema";
+
+// Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): "si se les da de comer
+// unas 5 veces, podrás convertirlo en tu mascota" — SOLO fauna urbana
+// domesticable (perro/gato, catalogoCombate.domesticable), y solo aquí:
+// RegionRoom es la única room con fauna urbana viva (GestorFauna).
+const VECES_COMIDA_PARA_DOMESTICAR = 5;
 
 interface OpcionesRegion {
   name?: string;
@@ -48,6 +56,17 @@ export class RegionRoom extends RoomExteriorBase {
   // "qué existe", no de tenencia — el dueño/precio vive en la BD, se
   // consulta bajo demanda (point-query, nunca cacheado aquí).
   private inmueblesVendibles = new Map<string, { tipoEdificioId: string }>();
+  // Fauna doméstica urbana (perro/gato...) y catálogo de combate/domesticable
+  // ya resuelto — undefined si el bake de esta región no trae fauna.json.
+  private gestorFauna?: GestorFauna;
+  private catalogoCombateFauna: CatalogoCombateFauna = {};
+  // Progreso de domesticación (docs/GDD_Mascotas.md) — EN MEMORIA, vive y
+  // muere con la room (mismo criterio que craftesEnCurso/inputs): si se
+  // reinicia el servidor a medias, se pierde el progreso, aceptable en v1.
+  // Solo cuenta quien esté alimentando ACTUALMENTE: si otro jugador le da de
+  // comer al mismo animal, el progreso se reinicia a su nombre (evita que
+  // dos desconocidos se "repartan" la misma mascota sin querer).
+  private progresoDomesticar = new Map<string, { sessionId: string; veces: number }>();
 
   async onCreate(options: OpcionesRegion) {
     if (!options?.mapaId) throw new Error("RegionRoom necesita options.mapaId");
@@ -94,13 +113,13 @@ export class RegionRoom extends RoomExteriorBase {
     const rutaFauna = path.join(rutaMapa, "fauna.json");
     if (fs.existsSync(rutaFauna)) {
       const datos = JSON.parse(fs.readFileSync(rutaFauna, "utf8")) as { fauna: FaunaSpawn[] };
-      const catalogoCombate = cargarCatalogoCombateFauna(
+      this.catalogoCombateFauna = cargarCatalogoCombateFauna(
         path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "animales.json"),
       );
-      const gestorFauna = new GestorFauna(this.state.fauna, this.mundo, catalogoCombate);
-      gestorFauna.iniciar(datos.fauna);
-      this.clock.setInterval(() => gestorFauna.tick(0.2), 200);
-      console.log(`  ${gestorFauna.cantidad} animales sueltos en el mapa`);
+      this.gestorFauna = new GestorFauna(this.state.fauna, this.mundo, this.catalogoCombateFauna);
+      this.gestorFauna.iniciar(datos.fauna);
+      this.clock.setInterval(() => this.gestorFauna!.tick(0.2), 200);
+      console.log(`  ${this.gestorFauna.cantidad} animales sueltos en el mapa`);
     }
 
     // Facción bandida (docs/GDD_Faccion_Bandidos.md §6): una región cuyo
@@ -167,6 +186,50 @@ export class RegionRoom extends RoomExteriorBase {
     });
 
     this.registrarMensajesInmueble(options.mapaId);
+
+    // Mascotas (docs/GDD_Mascotas.md) — "dar de comer" auto-apunta al animal
+    // domesticable más cercano dentro de RADIO_INTERACCION, mismo criterio
+    // "sin UI de targeting" que "coger"/"portal:usar". No-op si esta región
+    // no tiene fauna urbana (this.gestorFauna undefined).
+    this.onMessage("mascota:darComida", (client) => this.manejarMascotaDarComida(client));
+  }
+
+  private manejarMascotaDarComida(client: Client) {
+    if (!this.gestorFauna) return client.send("mascota:error", { motivo: "sin_fauna_aqui" });
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!player || !contenedor) return;
+
+    let faunaId: string | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    this.state.fauna.forEach((f, id) => {
+      if (!this.catalogoCombateFauna[f.especieId]?.domesticable) return;
+      const d = Math.hypot(f.x - player.x, f.y - player.y);
+      if (d < mejorDist) { mejorDist = d; faunaId = id; }
+    });
+    if (!faunaId) return client.send("mascota:error", { motivo: "nada_cerca" });
+
+    const it = contenedor.items.find((i) => this.catalogoItems[i.itemId]?.comidaMascota === true);
+    if (!it) return client.send("mascota:error", { motivo: "sin_comida" });
+    const resultado = quitarItem(contenedor, it.id, 1);
+    if (!resultado.ok) return client.send("mascota:error", { motivo: resultado.motivo ?? "sin_comida" });
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    let progreso = this.progresoDomesticar.get(faunaId);
+    if (!progreso || progreso.sessionId !== client.sessionId) progreso = { sessionId: client.sessionId, veces: 0 };
+    progreso.veces++;
+
+    if (progreso.veces >= VECES_COMIDA_PARA_DOMESTICAR) {
+      this.progresoDomesticar.delete(faunaId);
+      const especieId = this.state.fauna.get(faunaId)!.especieId;
+      this.gestorFauna.quitar(faunaId);
+      void this.crearMascota(client, especieId).then((mascota) => {
+        client.send("mascota:domesticada", { mascotaId: mascota.id, especieId });
+      });
+    } else {
+      this.progresoDomesticar.set(faunaId, progreso);
+      client.send("mascota:progreso", { faunaId, veces: progreso.veces, faltan: VECES_COMIDA_PARA_DOMESTICAR - progreso.veces });
+    }
   }
 
   /** Propiedades comerciales (docs/GDD_Propiedades.md) — inmuebles ENTEROS de esta región. No-op si el bake no reservó ninguno. */

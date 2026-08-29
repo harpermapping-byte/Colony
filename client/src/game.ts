@@ -16,6 +16,7 @@ import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD
 import { PointLight, Color, Mesh, ConeGeometry, MeshBasicMaterial } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
+import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -544,6 +545,31 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     escena.quitarEntidad(`fauna_${id}`);
   });
 
+  // Mascotas (docs/GDD_Mascotas.md) — mismo circuito visual que fauna
+  // doméstica (sin vox propio por id: nace de un spawn de fauna.json que ya
+  // no existe, así que siempre usa el fallback genérico por especie).
+  const mascotasVisual = new Map<string, EstadoJugador>();
+  $(room.state).mascotas.onAdd((mascota: any, id: string) => {
+    const criatura = crearAnimalVoxel({ ficha: { especieId: mascota.especieId, esqueleto: "cuadrupedo", escala: 1 }, piezas: [] });
+    criatura.orientar(1, 1);
+    const estado: EstadoJugador = {
+      rig: criatura,
+      destinoX: mascota.x, destinoZ: mascota.y, destinoY: 0,
+      x: mascota.x, z: mascota.y, y: 0,
+      nadando: false,
+    };
+    mascotasVisual.set(id, estado);
+    escena.añadirEntidad(`mascota_${id}`, criatura.objeto, mascota.x, mascota.y, `🐾 ${mascota.especieId} de ${mascota.duenoNombre}`);
+    $(mascota).onChange(() => {
+      estado.destinoX = mascota.x;
+      estado.destinoZ = mascota.y;
+    });
+  });
+  $(room.state).mascotas.onRemove((_mascota: any, id: string) => {
+    mascotasVisual.delete(id);
+    escena.quitarEntidad(`mascota_${id}`);
+  });
+
   // --- Enemigos de mazmorra (docs/GDD_Bakeador_Dungeons.md §4): sin
   // movimiento/combate todavía (el streamer lo explicará aparte) — aparecen
   // QUIETOS en su punto, con animación de reposo (mismo circuito que la
@@ -593,6 +619,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   $(room.state).combates.onAdd(() => actualizarPanelCombate());
   $(room.state).combates.onRemove(() => actualizarPanelCombate());
   room.onStateChange(() => actualizarPanelCombate());
+
+  // --- Mascotas (docs/GDD_Mascotas.md) — panel PLACEHOLDER de testeo (ver panelMascotas.ts). Tecla G: dar de comer al animal domesticable más cercano. ---
+  const panelMascotas = new PanelMascotas({
+    contenedor,
+    llamar: (mascotaId) => room.send("mascota:llamar", { mascotaId }),
+    dejarEnPropiedad: (mascotaId, propiedadId) => room.send("mascota:dejarEnPropiedad", { mascotaId, propiedadId }),
+  });
+  room.onMessage("mascota:lista", (lista: MascotaVista[]) => panelMascotas.actualizarListado(lista));
+  room.onMessage("mascota:progreso", (m: ProgresoDomesticar) => panelMascotas.actualizarProgreso(m));
+  room.onMessage("mascota:domesticada", () => { panelMascotas.actualizarProgreso(null); room.send("mascota:listar"); });
+  room.onMessage("mascota:actualizada", () => room.send("mascota:listar"));
+  room.onMessage("mascota:error", (m: { motivo: string }) => console.log("[mascota]", m?.motivo));
+  room.send("mascota:listar");
 
   // Marcador de "combate en curso" en el mapa de origen mientras la pelea
   // vive instanciada en su propia arena (docs/GDD_Combate.md §9.2) — cono
@@ -658,6 +697,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const combateId = combatePendienteMasCercano();
       if (combateId) room.send("combate:unirse", { combateId, retorno: retornoDeCombate() });
     }
+    // Mascotas (docs/GDD_Mascotas.md): G da de comer al animal domesticable
+    // más cercano (perro/gato urbano) — sin UI de targeting, el servidor
+    // decide si hay algo cerca y si se puede (no-op fuera de una región con
+    // fauna urbana). Cinco veces lo convierte en mascota.
+    if (k === "g" && !teclas.has("g")) room.send("mascota:darComida");
     teclas.add(k);
   });
   window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));
@@ -688,7 +732,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const factor = 1 - Math.exp(-12 * dt);
     // Jugadores y NPCs comparten interpolación y animación de marcha: un
     // NPC es "otro que se mueve por patches del servidor", nada más.
-    for (const estado of [...jugadores.values(), ...npcsVisual.values(), ...faunaVisual.values()]) {
+    for (const estado of [...jugadores.values(), ...npcsVisual.values(), ...faunaVisual.values(), ...mascotasVisual.values()]) {
       const dx = estado.destinoX - estado.x;
       const dz = estado.destinoZ - estado.z;
       const distancia = Math.hypot(dx, dz);

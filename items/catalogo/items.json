@@ -23,7 +23,8 @@
     "defensaMagica": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md",
     "durabilidadMax": "server/src/inventario/inventario.ts:agregarItem() (fija durabilidad inicial) + server/src/inventario/desgaste.ts:tieneDurabilidad()/durabilidadInicial()/aplicarDesgasteInactividad()/registrarUso()/aplicarDanoArmadura()/aplicarPenalizacionMuerte()/estaRoto()/factorDurabilidad() — inicializar y calcular desgaste; ninguna Room llama a desgaste.ts todavía (solo cubierto por test)",
     "desgastePorUso": "server/src/inventario/desgaste.ts:registrarUso() — resta durabilidad por uso directo; sin Room que lo invoque todavía",
-    "municionId": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md: liga un arma a distancia (arco/ballesta/honda) con el id de items/catalogo/items.json (tipo 'municion') que consume al disparar."
+    "municionId": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md: liga un arma a distancia (arco/ballesta/honda) con el id de items/catalogo/items.json (tipo 'municion') que consume al disparar.",
+    "comidaMascota": "server/src/rooms/base/RoomExteriorBase.ts:manejarDarDeComerMascota() — marca qué ítems sirven para alimentar un animal domesticable (docs/GDD_Mascotas.md); las 4 carnes + los 3 pescados + racion_viaje lo llevan, ninguno más de partida"
   },
   "hierro": {
     "tipo": "recurso",
@@ -538,7 +539,8 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#8a2a2a"
+    "colorDebug": "#8a2a2a",
+    "comidaMascota": true
   },
   "carne_blanca": {
     "tipo": "recurso",
@@ -551,7 +553,8 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#c9a898"
+    "colorDebug": "#c9a898",
+    "comidaMascota": true
   },
   "carne_caza_mayor": {
     "tipo": "recurso",
@@ -564,7 +567,8 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#7a2a20"
+    "colorDebug": "#7a2a20",
+    "comidaMascota": true
   },
   "carne_exotica": {
     "tipo": "recurso",
@@ -577,7 +581,8 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#9a3a5a"
+    "colorDebug": "#9a3a5a",
+    "comidaMascota": true
   },
   "pescado_rio": {
     "tipo": "recurso",
@@ -590,7 +595,8 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#8aa870"
+    "colorDebug": "#8aa870",
+    "comidaMascota": true
   },
   "pescado_lago": {
     "tipo": "recurso",
@@ -603,7 +609,8 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#7a9868"
+    "colorDebug": "#7a9868",
+    "comidaMascota": true
   },
   "pescado_mar": {
     "tipo": "recurso",
@@ -616,7 +623,8 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#5a7a9a"
+    "colorDebug": "#5a7a9a",
+    "comidaMascota": true
   },
   "marisco": {
     "tipo": "recurso",
@@ -804,7 +812,8 @@
     "apilable": true,
     "stackMax": 12,
     "variantes": 2,
-    "colorDebug": "#c9a878"
+    "colorDebug": "#c9a878",
+    "comidaMascota": true
   },
   "_notaObjetosInterior": "tipo:'objeto' (fase 2 de inventario, 'coger del mundo' — docs/GDD_Inventario.md §7): mismo id que interiores/catalogo/elementos.json (colocacion incluye 'sobreSuperficie') — id de catálogo = id de ítem, igual criterio que los recursos del baker. Subconjunto CURADO de ~32 de los 83 ids con esa colocación (objetos genéricos de casa/taller, no props narrativos únicos como 'sello_jarl_mesa' o 'reliquia_expuesta_catedral') — ampliar esta lista es una decisión de contenido del streamer, no de código: el mecanismo de 'coger' ya funciona para CUALQUIER id que se dé de alta aquí, sin tocar interiorColision.ts ni las rooms.",
   "jaula_pajaro": {

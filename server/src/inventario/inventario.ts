@@ -64,6 +64,9 @@ export interface EntradaCatalogoItem {
 
   /** docs/GDD_Personaje.md — solo en tipo:"consumible". Ausente en un consumible = sin efecto todavía (placeholder de contenido, no error). */
   restaura?: { vital: "comida" | "bebida" | "sueno" | "estamina" | "vida"; cantidad: number };
+
+  /** docs/GDD_Mascotas.md — sirve para "dar de comer" a un animal domesticable (perro/gato) y avanzar su domesticación. Ausente/false = no sirve como comida de mascota. */
+  comidaMascota?: boolean;
 }
 
 export type CatalogoItems = Record<string, EntradaCatalogoItem>;

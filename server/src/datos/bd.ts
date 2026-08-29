@@ -271,6 +271,24 @@ export interface CadaverFila {
   contenedor: Contenedor;
 }
 
+// Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): un animal urbano
+// domesticable (perro/gato) se convierte en mascota tras 5 veces de darle
+// de comer — server/src/rooms/base/RoomExteriorBase.ts es el mecanismo en
+// vivo, esto solo persiste "quién tiene qué" para que sobreviva a
+// desconexiones y cambios de room. Sin acción propia todavía (solo sigue o
+// se queda en una propiedad) — ver GDD.
+export type UbicacionMascota = "siguiendo" | "propiedad";
+
+export interface Mascota {
+  id: number;
+  jugadorId: number;
+  especieId: string;
+  ubicacion: UbicacionMascota;
+  /** id de la propiedad donde se dejó (docs/GDD_Propiedades.md) — solo con ubicacion==="propiedad". */
+  propiedadId: string | null;
+  creadoEn: string;
+}
+
 // Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
 // asentamiento — el registro de eventos que alimenta su contexto de IA.
 export interface MemoriaLider {
@@ -436,6 +454,11 @@ export interface IAlmacenDatos {
   listarContenedores(jugadorId: number): Promise<Map<string, Contenedor>>;
   guardarEquipo(jugadorId: number, slots: SlotsEquipo): Promise<void>;
   cargarEquipo(jugadorId: number): Promise<SlotsEquipo>;
+  // Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30) — nace "siguiendo" (RoomExteriorBase la spawnea de inmediato).
+  crearMascota(jugadorId: number, especieId: string): Promise<Mascota>;
+  listarMascotas(jugadorId: number): Promise<Mascota[]>;
+  /** Todo o nada: solo cambia si `id` pertenece de verdad a `jugadorId` — `false` si no existe o es de otro jugador. */
+  actualizarUbicacionMascota(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean>;
   cerrar(): Promise<void>;
 }
 
@@ -550,6 +573,17 @@ CREATE TABLE IF NOT EXISTS jugador_atributos (
   atributo TEXT NOT NULL,
   xp INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (jugador_id, atributo)
+);
+-- Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): perro/gato urbanos
+-- domesticados a base de comida. "siguiendo" = viva en la room del dueño
+-- (RoomExteriorBase la spawnea/mueve); "propiedad" = guardada, sin room.
+CREATE TABLE IF NOT EXISTS mascotas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  jugador_id INTEGER NOT NULL,
+  especie_id TEXT NOT NULL,
+  ubicacion TEXT NOT NULL DEFAULT 'siguiendo',
+  propiedad_id TEXT,
+  creado_en TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,               -- "mapaId:edificio:nivel"
@@ -754,6 +788,14 @@ CREATE TABLE IF NOT EXISTS jugador_atributos (
   xp INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (jugador_id, atributo)
 );
+CREATE TABLE IF NOT EXISTS mascotas (
+  id SERIAL PRIMARY KEY,
+  jugador_id INTEGER NOT NULL,
+  especie_id TEXT NOT NULL,
+  ubicacion TEXT NOT NULL DEFAULT 'siguiendo',
+  propiedad_id TEXT,
+  creado_en TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,
   limpiada_en TEXT
@@ -910,6 +952,18 @@ function filaCadaverDesdeSql(f: any): CadaverFila {
     y: Number(f.y),
     muertoEn: Number(f.muerto_en),
     contenedor: JSON.parse(f.contenedor) as Contenedor,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaAMascota(f: any): Mascota {
+  return {
+    id: Number(f.id),
+    jugadorId: Number(f.jugador_id),
+    especieId: String(f.especie_id),
+    ubicacion: String(f.ubicacion) as UbicacionMascota,
+    propiedadId: f.propiedad_id === null || f.propiedad_id === undefined ? null : String(f.propiedad_id),
+    creadoEn: String(f.creado_en),
   };
 }
 
@@ -1742,6 +1796,26 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return slots;
   }
 
+  async crearMascota(jugadorId: number, especieId: string): Promise<Mascota> {
+    const ahora = new Date().toISOString();
+    const r = this.bd
+      .prepare("INSERT INTO mascotas (jugador_id, especie_id, ubicacion, propiedad_id, creado_en) VALUES (?, ?, 'siguiendo', NULL, ?)")
+      .run(jugadorId, especieId, ahora);
+    return { id: Number(r.lastInsertRowid), jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora };
+  }
+
+  async listarMascotas(jugadorId: number): Promise<Mascota[]> {
+    const filas = this.bd.prepare("SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en FROM mascotas WHERE jugador_id = ?").all(jugadorId);
+    return filas.map(filaAMascota);
+  }
+
+  async actualizarUbicacionMascota(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean> {
+    const r = this.bd
+      .prepare("UPDATE mascotas SET ubicacion = ?, propiedad_id = ? WHERE id = ? AND jugador_id = ?")
+      .run(ubicacion, propiedadId, id, jugadorId);
+    return Number(r.changes) > 0;
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -2521,6 +2595,31 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     const slots: SlotsEquipo = {};
     for (const f of r.rows) slots[f.slot] = f.item_id;
     return slots;
+  }
+
+  async crearMascota(jugadorId: number, especieId: string): Promise<Mascota> {
+    const ahora = new Date().toISOString();
+    const r = await this.pool.query<{ id: number }>(
+      "INSERT INTO mascotas (jugador_id, especie_id, ubicacion, propiedad_id, creado_en) VALUES ($1, $2, 'siguiendo', NULL, $3) RETURNING id",
+      [jugadorId, especieId, ahora],
+    );
+    return { id: r.rows[0].id, jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora };
+  }
+
+  async listarMascotas(jugadorId: number): Promise<Mascota[]> {
+    const r = await this.pool.query(
+      "SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en FROM mascotas WHERE jugador_id = $1",
+      [jugadorId],
+    );
+    return r.rows.map(filaAMascota);
+  }
+
+  async actualizarUbicacionMascota(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean> {
+    const r = await this.pool.query(
+      "UPDATE mascotas SET ubicacion = $1, propiedad_id = $2 WHERE id = $3 AND jugador_id = $4",
+      [ubicacion, propiedadId, id, jugadorId],
+    );
+    return (r.rowCount ?? 0) > 0;
   }
 
   async cerrar(): Promise<void> {
