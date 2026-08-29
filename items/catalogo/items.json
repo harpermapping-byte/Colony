@@ -15,6 +15,7 @@
   "coral": {"tipo":"recurso","categoriaRecurso":"coral","huella":[1,1],"peso":0.6,"apilable":true,"stackMax":30,"variantes":2,"colorDebug":"#e08a70"},
   "piedra_comun": {"tipo":"recurso","categoriaRecurso":"piedra_comun","huella":[1,1],"peso":2.5,"apilable":true,"stackMax":15,"variantes":2,"colorDebug":"#8a8a8a"},
   "turba": {"tipo":"recurso","categoriaRecurso":"turba","huella":[1,1],"peso":2.5,"apilable":true,"stackMax":15,"variantes":2,"colorDebug":"#4a3a28"},
+  "arcilla": {"tipo":"recurso","categoriaRecurso":"arcilla","huella":[1,1],"peso":2.5,"apilable":true,"stackMax":15,"variantes":2,"colorDebug":"#8a5a3a"},
   "madera_dura": {"tipo":"recurso","categoriaRecurso":"madera_dura","huella":[1,1],"peso":2,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#6a4a2a"},
   "madera_blanda": {"tipo":"recurso","categoriaRecurso":"madera_blanda","huella":[1,1],"peso":2,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#8a6a42"},
   "madera_abedul": {"tipo":"recurso","categoriaRecurso":"madera_abedul","huella":[1,1],"peso":2,"apilable":true,"stackMax":10,"variantes":2,"colorDebug":"#c9c0a8"},

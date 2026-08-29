@@ -54,4 +54,4 @@ function decidirTerreno({ biomaId, catalogoBiomas, banda, hidro, esCamino, varia
   return bioma ? conSubvariante(bioma.terrenoBase, subvariante) : "tierra";
 }
 
-module.exports = { decidirTerreno };
+module.exports = { decidirTerreno, conSubvariante };

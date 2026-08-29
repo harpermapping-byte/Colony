@@ -6,7 +6,7 @@ const path = require("path");
 const { CapaRuido, crearPRNG, semillaDesdeTexto } = require("./ruido");
 const { crearGeneradorBiomas, suavizarBiomas } = require("./biomas");
 const { generarHidrologia } = require("./hidrologia");
-const { decidirTerreno } = require("./terreno");
+const { decidirTerreno, conSubvariante } = require("./terreno");
 const { crearColocadorDecoracion } = require("./decoracion");
 const { colocarPOIs } = require("./pois");
 const { generarInstanciasPOI } = require("./instanciasPOI");
@@ -75,6 +75,13 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   // pedido 2026-08-29, ver decidirTerreno/SUBVARIANTES en terreno.js.
   const nSubvarianteTerreno = new CapaRuido(config.semilla + ":subvarianteterreno", 17);
   const subvarianteTerrenoEn = (x, y) => nSubvarianteTerreno.fbm(x, y, 2);
+  // Orillas de barro (pedido 2026-08-29, "no toda la orilla, solo algunas
+  // zonas, aleatorio"): capa de ruido de baja frecuencia decide qué TRAMOS
+  // de orilla (no el perímetro entero de cada río/lago) se pintan de barro
+  // en vez del terreno normal del bioma — ver el override en
+  // calcularTerrenoTile, más abajo.
+  const nOrillaBarro = new CapaRuido(config.semilla + ":orillabarro", 14);
+  const UMBRAL_ORILLA_BARRO = 0.58; // ~35-40% de la orilla, en parches, no todo
 
   onProgreso("Clasificando biomas...");
   const biomaGrid = new Uint8Array(anchoTiles * altoTiles);
@@ -420,6 +427,23 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
       }
     }
 
+    // Orillas de barro (pedido 2026-08-29): tierra pegada a un río/lago
+    // (nunca la propia agua, ni camino/puente, ni el acantilado de arriba)
+    // que a veces se pinta de barro en vez del terreno normal del bioma.
+    // "juntoAAgua" mira los 4 vecinos inmediatos (barato: 4 consultas más a
+    // la hidrología, ya calculada) — el umbral de ruido decide qué TRAMOS
+    // de la orilla son barrosos, no el perímetro entero.
+    if (!esCamino && idTerreno !== "agua" && idTerreno !== "agua_profunda" && idTerreno !== "roca_inaccesible") {
+      const juntoAAgua =
+        (x > 0 && (hidro.consultar(x - 1, y).esRio || hidro.consultar(x - 1, y).esLago)) ||
+        (x + 1 < anchoTiles && (hidro.consultar(x + 1, y).esRio || hidro.consultar(x + 1, y).esLago)) ||
+        (y > 0 && (hidro.consultar(x, y - 1).esRio || hidro.consultar(x, y - 1).esLago)) ||
+        (y + 1 < altoTiles && (hidro.consultar(x, y + 1).esRio || hidro.consultar(x, y + 1).esLago));
+      if (juntoAAgua && nOrillaBarro.fbm(x, y, 2) > UMBRAL_ORILLA_BARRO) {
+        idTerreno = conSubvariante("barro", subvarianteTerrenoEn(x, y));
+      }
+    }
+
     // Pendiente DECORATIVA (pedido 2026-08-29, "que se vea el desnivel"):
     // el ruido de elevación es deliberadamente suave a 1 casilla de
     // distancia (medido: el salto máximo entre vecinos INMEDIATOS en un
@@ -449,6 +473,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
     for (let cx = 0; cx < anchoChunks; cx++) {
       const terrenoPorCasilla = new Array(tamanoChunk * tamanoChunk);
       const bandaLocalPorCasilla = new Array(tamanoChunk * tamanoChunk);
+      const esAcantiladoPorCasilla = new Uint8Array(tamanoChunk * tamanoChunk);
       const tilesAcantilado = [];
 
       for (let ly = 0; ly < tamanoChunk; ly++) {
@@ -463,7 +488,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
           // es la única entrada real, no la casilla en sí.
           terrenoPorCasilla[idxLocal] = footprintEdificiosPOI.has(`${x}_${y}`) ? "solar_edificio" : idTerreno;
           bandaLocalPorCasilla[idxLocal] = banda;
-          if (esAcantilado) tilesAcantilado.push([lx, ly]);
+          if (esAcantilado) { tilesAcantilado.push([lx, ly]); esAcantiladoPorCasilla[idxLocal] = 1; }
         }
       }
 
@@ -520,6 +545,16 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
           // ENCIMA de la calzada — sin este flag el decorador no tenía
           // forma de saberlo y salían árboles en mitad de la carretera.
           esCamino: idT === "camino" || idT === "puente",
+          // Orilla de barro (pedido 2026-08-29): gate para recursos tipo
+          // "yacimiento de arcilla" (requiereBarro en el catálogo) — solo
+          // en las casillas que el override de arriba pintó de barro/barro_b.
+          esBarro: idT === "barro" || idT === "barro_b",
+          // Borde de acantilado (pedido 2026-08-29, "escombros al pie"):
+          // mismo flag que ya usan las rocas de acantilado deterministas,
+          // reusado aquí como gate normal de catálogo (requiereAcantilado)
+          // para que escombros/piedra suelta salgan por el decorador de
+          // densidad de siempre, como un arbusto o árbol más.
+          esAcantilado: !!esAcantiladoPorCasilla[ly * tamanoChunk + lx],
         };
       });
 

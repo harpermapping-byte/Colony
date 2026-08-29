@@ -129,6 +129,16 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
       } else {
         if (datos.requiereAgua) continue;
         if (datos.requiereCercaAgua && !opciones.cercaAgua) continue;
+        // Yacimientos de arcilla (pedido 2026-08-29): solo en las casillas
+        // de orilla que ya salieron pintadas de barro (ver override en
+        // generar.js) — no en cualquier "cerca de agua" (playa/orilla dura
+        // también cuentan como cercaAgua, pero no son barro).
+        if (datos.requiereBarro && !opciones.esBarro) continue;
+        // Escombros de acantilado (pedido 2026-08-29, "spawns como los
+        // arbustos/árboles, que den piedra al picarse"): solo en el borde
+        // de pendiente que ya detecta calcularTerrenoTile (mismo flag que
+        // usan las rocas de acantilado deterministas).
+        if (datos.requiereAcantilado && !opciones.esAcantilado) continue;
       }
       const ruido = capaPara(id, datos.escalaRuido || 20).fbm(x, y, 3);
       const peso = (datos.densidadBase || 0.01) * ruido * 2; // peso RELATIVO entre especies (para elegir cuál gana), no una probabilidad por sí sola
@@ -196,7 +206,7 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
         // un bug (la gente PISA por aquí a diario, nada crece ni anida).
         if (celda.esCamino) continue;
 
-        const opciones = { esAgua: !!celda.esAgua, aguaDulce: !!celda.aguaDulce, cercaAgua: celda.cercaAgua };
+        const opciones = { esAgua: !!celda.esAgua, aguaDulce: !!celda.aguaDulce, cercaAgua: celda.cercaAgua, esBarro: !!celda.esBarro, esAcantilado: !!celda.esAcantilado };
         const veg = objetosEnCasilla(catalogoVegetacion, celda.bioma, celda.banda, x, y, prng, opciones);
         const roc = objetosEnCasilla(catalogoRocas, celda.bioma, celda.banda, x, y, prng, opciones);
         const fauna = objetosEnCasilla(catalogoAnimales, celda.bioma, celda.banda, x, y, prng, opciones);
