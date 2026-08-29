@@ -1,5 +1,6 @@
 {
-  "_nota": "Catálogo de prendas — mismo patrón que interiores/catalogo/elementos.json pero para vestuario del rig (client/src/render3d/rigHumanoide.ts). slotCuerpo es el pivote del rig del que cuelga la prenda entera (torso/piernas/cabeza; una prenda de torso arrastra también sus mangas, ancladas a brazoIzq/brazoDer). zonasColor son las partes que el creador de personaje puede tintar por separado; zonasFijas usan siempre el color del material (o un acento fijo, ej. remiendos) y NO se tiñen nunca. tagsProfesion cruza con ropa/catalogo/profesiones.json. Arrancamos con 3 prendas de prueba (torso/piernas/cabeza) a propósito — no una lista completa — para afinar el algoritmo de generarPrenda.js antes de ampliar el catálogo real.",
+  "_nota": "Catálogo de prendas — mismo patrón que interiores/catalogo/elementos.json pero para vestuario del rig (client/src/render3d/rigHumanoide.ts). slotCuerpo es el pivote del rig del que cuelga la prenda entera (torso/piernas/cabeza; una prenda de torso arrastra también sus mangas, ancladas a brazoIzq/brazoDer). zonasColor son las partes que el creador de personaje puede tintar por separado; zonasFijas usan siempre el color del material (o un acento fijo, ej. remiendos) y NO se tiñen nunca. tagsProfesion cruza con ropa/catalogo/profesiones.json.",
+  "_notaClima": "quitaFrio/quitaCalor (docs/GDD_Clima.md, pedido 2026-08-30 'cada ropa tiene atributo de quitar calor o quitar frio'): puntos de aislamiento que la prenda aportaría a server/src/personaje/vitales.ts (aplicarTemperaturaCorporal) al equipar — más quitaFrio para lana/cuero abrigado, más quitaCalor para lino suelto/ligero. Escala 0-100, orientativa. SOLO DATO DE CATÁLOGO por ahora: el sistema de equipo del servidor todavía no lee/aplica ropa vestida (gap real, documentado en el GDD, no en esta sesión).",
   "camisa_lino_campesina": {
     "slotCuerpo": "torso",
     "tipoPrenda": "camisa",
@@ -36,6 +37,8 @@
     },
     "colorDebug": "#d8cfa0",
     "variantes": 2,
+    "quitaFrio": 5,
+    "quitaCalor": 15,
     "_nota": "Túnica/camisa suelta de labriego — cuello en V/redondo poco marcado, manga hasta la muñeca, bajo recto (referencia: túnicas altomedievales, corte suelto pero no bombacho — ver docs/GDD_Ropa_Procedural.md)."
   },
   "pantalon_lana_campesino": {
@@ -76,6 +79,8 @@
     },
     "colorDebug": "#6b5a42",
     "variantes": 2,
+    "quitaFrio": 15,
+    "quitaCalor": 5,
     "_nota": "Calza/pantalón holgado de cadera, entallado en el tobillo, con cinturón de cuerda/cuero y algún remiendo — ropa de trabajo, no de gala."
   },
   "gorro_lino_campesino": {
@@ -113,6 +118,8 @@
     },
     "colorDebug": "#e8dfc0",
     "variantes": 1,
+    "quitaFrio": 3,
+    "quitaCalor": 5,
     "_nota": "Coif/gorro de lino ajustado al cráneo con el borde inferior vuelto hacia fuera y cordón de atado bajo la barbilla — cofia medieval de campesino, no un gorro moderno."
   },
   "tabardo_guardia": {
@@ -147,6 +154,8 @@
     },
     "colorDebug": "#6d7681",
     "variantes": 1,
+    "quitaFrio": 10,
+    "quitaCalor": 5,
     "_nota": "Uniforme de la guardia (pedido del streamer 2026-08-28): tabardo de cuero IGUAL para todos — misma prenda + mismo material = mismo look, la uniformidad sale sola del catálogo. La armadura de verdad (metal, casco) es arte futuro; esto es el placeholder vestible."
   },
   "pantalon_guardia": {
@@ -177,6 +186,8 @@
     },
     "colorDebug": "#57504a",
     "variantes": 1,
+    "quitaFrio": 10,
+    "quitaCalor": 5,
     "_nota": "Pareja del tabardo_guardia — mismo criterio de uniformidad."
   },
   "habito_sacerdote": {
@@ -211,6 +222,8 @@
     },
     "colorDebug": "#4a3c30",
     "variantes": 1,
+    "quitaFrio": 18,
+    "quitaCalor": 3,
     "_nota": "Hábito del cura (pedido del streamer 2026-08-28): túnica de lana oscura para que se le reconozca por la calle. Sotana larga de verdad = forma nueva de prenda, arte futuro."
   }
 }

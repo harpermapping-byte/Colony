@@ -12,9 +12,17 @@
  * - Amanecer/atardecer tiñen el sol de cálido; el mediodía es neutro.
  * - La noche NO es negra (injugable): luna direccional fría y tenue que
  *   recorre el cielo igual que el sol, ambiente bajo y cielo azul oscuro.
+ *
+ * Estación y clima (docs/GDD_Clima.md, pedido 2026-08-30, "que sea muy
+ * sutil"): un filtro de color por ESTACIÓN se multiplica sobre el cielo/luz
+ * ya calculados por la hora (nunca los sustituye) y un factor de intensidad
+ * por CLIMA los atenúa un poco en días nublados/de lluvia. Sin partículas
+ * de lluvia/nieve ni nieve acumulable todavía — pedido explícitamente
+ * aparte por el streamer, esto es solo el tinte de ambiente.
  */
 import * as THREE from "three";
 import { tiempoMundo, HORA_AMANECER, HORA_ANOCHECER } from "../mundo/tiempoMundo";
+import { climaDelDia, type Estacion } from "../mundo/clima";
 
 export interface EstadoCiclo {
   /** dirección DESDE la que llega la luz, normalizada (se multiplica por la distancia del sol al objetivo) */
@@ -24,6 +32,8 @@ export interface EstadoCiclo {
   intensidadAmbiente: number;
   colorCielo: THREE.Color;
   hora: number;
+  /** clima del día — expuesto para que WorldScene (o UI futura) reaccione sin recalcular nada. */
+  clima: string;
 }
 
 const SOL_MEDIODIA = new THREE.Color("#fff6e8");
@@ -33,9 +43,32 @@ const CIELO_DIA = new THREE.Color("#6f9ec4");
 const CIELO_HORIZONTE = new THREE.Color("#3d4a63");
 const CIELO_NOCHE = new THREE.Color("#11151f");
 
+// Filtro estacional (pedido: "verano más luminoso, otoño beige, invierno
+// blanco, primavera azulado/verde, MUY sutil") — multiplicadores cercanos a
+// (1,1,1): un desplazamiento de tono, nunca un filtro plano que se note.
+const FILTRO_ESTACION: Record<Estacion, THREE.Color> = {
+  primavera: new THREE.Color(0.97, 1.01, 1.04),
+  verano: new THREE.Color(1.04, 1.02, 0.97),
+  otono: new THREE.Color(1.04, 0.99, 0.89),
+  invierno: new THREE.Color(1.0, 1.02, 1.07),
+};
+const BLANCO = new THREE.Color(1, 1, 1);
+
+// Intensidad por clima (estados posibles del día, docs/GDD_Clima.md) — solo
+// atenúa luz/ambiente; "viento" casi no se nota en la luz (es un estado de
+// ambiente, no de cielo cubierto). Sin nieve acumulable, solo el filtro.
+const FACTOR_LUZ_CLIMA: Record<string, number> = {
+  soleado: 1.0,
+  nublado: 0.82,
+  lluvia: 0.7,
+  nieve: 0.88,
+  viento: 0.95,
+};
+
 const _dir = new THREE.Vector3();
 const _color = new THREE.Color();
 const _cielo = new THREE.Color();
+const _filtroLuz = new THREE.Color();
 
 /** t: progreso 0..1 del astro por el cielo → dirección de la luz (este→oeste, arco por el sur del encuadre). */
 function arcoAstro(t: number, elevacionMax: number): THREE.Vector3 {
@@ -46,9 +79,10 @@ function arcoAstro(t: number, elevacionMax: number): THREE.Vector3 {
 }
 
 export function estadoCiclo(ahoraMs = Date.now()): EstadoCiclo {
-  const { hora } = tiempoMundo(ahoraMs);
+  const { hora, dia, estacion } = tiempoMundo(ahoraMs);
   const duracionDia = HORA_ANOCHECER - HORA_AMANECER;
 
+  let resultado: EstadoCiclo;
   if (hora >= HORA_AMANECER && hora < HORA_ANOCHECER) {
     const t = (hora - HORA_AMANECER) / duracionDia;
     const altura = Math.sin(t * Math.PI); // 0 en los bordes, 1 al mediodía
@@ -58,27 +92,47 @@ export function estadoCiclo(ahoraMs = Date.now()): EstadoCiclo {
     // ventana no depende de la duración del día)
     const bordeHoras = Math.min(hora - HORA_AMANECER, HORA_ANOCHECER - hora);
     const neutro = THREE.MathUtils.clamp(bordeHoras / 2.5, 0, 1);
-    return {
+    resultado = {
       direccionLuz: arcoAstro(t, 62),
       colorLuz: _color.copy(SOL_HORIZONTE).lerp(SOL_MEDIODIA, neutro),
       intensidadLuz: 0.5 + 0.5 * altura,
       intensidadAmbiente: 0.4 + 0.35 * altura,
       colorCielo: _cielo.copy(CIELO_HORIZONTE).lerp(CIELO_DIA, neutro),
       hora,
+      clima: "",
+    };
+  } else {
+    // noche: la luna recorre el mismo arco durante las horas sin sol
+    const duracionNoche = 24 - duracionDia;
+    const horaNoche = hora >= HORA_ANOCHECER ? hora - HORA_ANOCHECER : hora + (24 - HORA_ANOCHECER);
+    const t = horaNoche / duracionNoche;
+    const profundidad = Math.sin(t * Math.PI); // 1 en plena madrugada
+    resultado = {
+      direccionLuz: arcoAstro(t, 55),
+      colorLuz: _color.copy(LUNA),
+      intensidadLuz: 0.16,
+      intensidadAmbiente: 0.3 - 0.08 * profundidad,
+      colorCielo: _cielo.copy(CIELO_HORIZONTE).lerp(CIELO_NOCHE, THREE.MathUtils.clamp(profundidad * 2.5, 0, 1)),
+      hora,
+      clima: "",
     };
   }
 
-  // noche: la luna recorre el mismo arco durante las horas sin sol
-  const duracionNoche = 24 - duracionDia;
-  const horaNoche = hora >= HORA_ANOCHECER ? hora - HORA_ANOCHECER : hora + (24 - HORA_ANOCHECER);
-  const t = horaNoche / duracionNoche;
-  const profundidad = Math.sin(t * Math.PI); // 1 en plena madrugada
-  return {
-    direccionLuz: arcoAstro(t, 55),
-    colorLuz: _color.copy(LUNA),
-    intensidadLuz: 0.16,
-    intensidadAmbiente: 0.3 - 0.08 * profundidad,
-    colorCielo: _cielo.copy(CIELO_HORIZONTE).lerp(CIELO_NOCHE, THREE.MathUtils.clamp(profundidad * 2.5, 0, 1)),
-    hora,
-  };
+  aplicarEstacionYClima(resultado, dia, estacion as Estacion);
+  return resultado;
+}
+
+/** Multiplica el filtro de estación sobre cielo/luz ya calculados por la hora, y atenúa intensidad según el clima del día — mutación en sitio sobre el resultado ya construido, nunca lo sustituye. */
+function aplicarEstacionYClima(estado: EstadoCiclo, dia: number, estacion: Estacion): void {
+  const filtro = FILTRO_ESTACION[estacion] ?? FILTRO_ESTACION.primavera;
+  estado.colorCielo.multiply(filtro);
+  // la luz se tiñe a la mitad de fuerza que el cielo — el sol/la luna ya
+  // tienen su propio color calculado, esto solo lo desplaza un poco
+  _filtroLuz.copy(BLANCO).lerp(filtro, 0.5);
+  estado.colorLuz.multiply(_filtroLuz);
+
+  estado.clima = climaDelDia(dia, estacion);
+  const factor = FACTOR_LUZ_CLIMA[estado.clima] ?? 1;
+  estado.intensidadLuz *= factor;
+  estado.intensidadAmbiente *= factor;
 }

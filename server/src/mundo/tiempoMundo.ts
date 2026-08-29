@@ -12,12 +12,19 @@
 import * as tiempoJson from "../../../assets/mundo/tiempo.json";
 
 const MS_POR_DIA = tiempoJson.minutosRealesPorDia * 60_000;
+// Calendario (docs/GDD_Clima.md, pedido 2026-08-30): 12 meses de
+// `diasPorMes` días = 1 estación son 3 meses — derivado aquí, nunca
+// duplicado como número suelto en tiempo.json.
+const DIAS_POR_ESTACION = tiempoJson.diasPorMes * 3;
+const DIAS_POR_ANIO = DIAS_POR_ESTACION * tiempoJson.estaciones.length;
 
 export interface TiempoMundo {
   dia: number;
   hora: number; // 0..24 fraccional
   esDeDia: boolean;
   estacion: string;
+  /** mes del año, 1..12 (docs/GDD_Clima.md) — 3 meses por estación. */
+  mes: number;
   anio: number;
 }
 
@@ -29,16 +36,26 @@ const horaForzada = (() => {
   return Number.isFinite(n) ? ((n % 24) + 24) % 24 : null;
 })();
 
+// Forzado de día para tests/depuración (espejo del ?dia= del cliente,
+// docs/GDD_Clima.md): DIA_FORZADO=95 congela estación/mes/clima del
+// proceso entero. Nunca en producción.
+const diaForzado = (() => {
+  const n = Number(process.env.DIA_FORZADO);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+})();
+
 export function tiempoMundo(ahoraMs = Date.now()): TiempoMundo {
   const diasFloat = Math.max(0, ahoraMs - tiempoJson.epocaUnixMs) / MS_POR_DIA;
-  const dia = Math.floor(diasFloat);
-  const hora = horaForzada ?? (diasFloat - dia) * 24;
+  const dia = diaForzado ?? Math.floor(diasFloat);
+  const hora = horaForzada ?? (diasFloat - Math.floor(diasFloat)) * 24;
   const estaciones = tiempoJson.estaciones;
+  const diaDelAnio = dia % DIAS_POR_ANIO;
   return {
     dia,
     hora,
     esDeDia: hora >= tiempoJson.horaAmanecer && hora < tiempoJson.horaAnochecer,
-    estacion: estaciones[Math.floor(dia / tiempoJson.diasPorEstacion) % estaciones.length],
-    anio: Math.floor(dia / (tiempoJson.diasPorEstacion * estaciones.length)),
+    estacion: estaciones[Math.floor(diaDelAnio / DIAS_POR_ESTACION) % estaciones.length],
+    mes: Math.floor(diaDelAnio / tiempoJson.diasPorMes) + 1,
+    anio: Math.floor(dia / DIAS_POR_ANIO),
   };
 }

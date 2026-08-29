@@ -39,10 +39,11 @@ import { EMBLEMA_POR_DEFECTO, colorGremioValido, colorPorDefecto, emblemaGremioV
 import { precioInmueble } from "../../propiedades/propiedades";
 import { GestorAgentes, VEL_NPC } from "../../mundo/agentes";
 import { tiempoMundo } from "../../mundo/tiempoMundo";
+import { temperaturaMundo, Estacion } from "../../mundo/clima";
 import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
 import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../construccion/energia";
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
-import { tickVitales, restaurarVital, aplicarInanicion, VITAL_MAX } from "../../personaje/vitales";
+import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, VITAL_MAX } from "../../personaje/vitales";
 import { Atributo, esAtributoValido } from "../../personaje/atributos";
 import { UMBRALES_NIVEL_ATRIBUTO } from "../../progresion/nivel";
 import {
@@ -2686,14 +2687,19 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     // tienen input activo: el hambre corre aunque el jugador esté quieto).
     // Integrador simple, sin checkpoint/timestamp — ver server/src/personaje/vitales.ts.
     const horasPorTick = dt / 3600;
+    // Temperatura del mundo (docs/GDD_Clima.md): UNA vez por tick, no por
+    // jugador — estación/hora son las mismas para todos en este instante.
+    const { estacion, hora } = tiempoMundo();
+    const tempMundoC = temperaturaMundo(estacion as Estacion, hora);
     this.state.players.forEach((player) => {
       tickVitales(player.vitales, horasPorTick);
-      this.aplicarInanicionA(player, horasPorTick);
+      const extremo = aplicarTemperaturaCorporal(player.vitales, tempMundoC, horasPorTick);
+      this.aplicarInanicionA(player, horasPorTick, extremo !== null);
     });
   }
 
-  /** Aplica la inanición pura de vitales.ts (docs/GDD_Personaje.md §3.6) sobre este Player concreto — resuelve sus dos vidaMax (normal vs. inanición) a partir de su Resistencia real. */
-  private aplicarInanicionA(player: Player, horasTranscurridas: number) {
+  /** Aplica la inanición pura de vitales.ts (docs/GDD_Personaje.md §3.6, §GDD_Clima.md) sobre este Player concreto — resuelve sus dos vidaMax (normal vs. reducido) a partir de su Resistencia real; `temperaturaExtrema` añade el mismo debilitamiento que la inanición sin dañar `vida` por sí solo. */
+  private aplicarInanicionA(player: Player, horasTranscurridas: number, temperaturaExtrema: boolean) {
     aplicarInanicion(
       player.vitales,
       player,
@@ -2701,6 +2707,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
       vidaMaximaPorResistencia(1),
       DANO_INANICION_POR_HORA,
       horasTranscurridas,
+      temperaturaExtrema,
     );
   }
 }

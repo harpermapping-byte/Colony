@@ -35,13 +35,19 @@ export interface Vitales {
   // tope el jugador se ensucia (`Player.sucio`, ver HubState.ts). No decae
   // sola: solo baja al usar una hoja (`higiene:cagar`) o llega a 100.
   caca: number;
+  // Temperatura corporal (docs/GDD_Clima.md, pedido 2026-08-30): 0-100,
+  // `TEMPERATURA_NEUTRA`=50 es cómodo — deriva sola hacia la temperatura del
+  // mundo (`aplicarTemperaturaCorporal`, mismo integrador que tickVitales,
+  // por eso vive AQUÍ y no en tickVitales: necesita un dato externo —la
+  // temperatura del mundo— que tickVitales no recibe).
+  temperatura: number;
 }
 
 export const VITAL_MAX = 100;
 
-/** Nuevo jugador: todo lleno, `caca` vacía — mismo criterio que "nivel 1 = sin XP", empezar sin penalización. */
+/** Nuevo jugador: todo lleno, `caca` vacía, temperatura corporal neutra — mismo criterio que "nivel 1 = sin XP", empezar sin penalización. */
 export function vitalesIniciales(): Vitales {
-  return { comida: VITAL_MAX, bebida: VITAL_MAX, sueno: VITAL_MAX, estamina: VITAL_MAX, caca: 0 };
+  return { comida: VITAL_MAX, bebida: VITAL_MAX, sueno: VITAL_MAX, estamina: VITAL_MAX, caca: 0, temperatura: TEMPERATURA_NEUTRA };
 }
 
 /**
@@ -57,6 +63,14 @@ export const TASA_DECAY_POR_HORA = {
 };
 /** Estamina no decae sola (nada la gasta todavía — sprint/combate sin construir): se regenera pasivamente hasta el máximo. */
 export const TASA_REGEN_ESTAMINA_POR_HORA = VITAL_MAX / 1;
+
+// --- Temperatura corporal (docs/GDD_Clima.md, pedido 2026-08-30) — placeholders de balance, mismo criterio que el resto ---
+export const TEMPERATURA_NEUTRA = 50;
+/** Fuera de este rango (25-75) se considera "extremo": gasta comida/bebida más rápido y resta al vidaMax efectivo (ver aplicarInanicion). */
+export const UMBRAL_FRIO_EXTREMO = 25;
+export const UMBRAL_CALOR_EXTREMO = 75;
+const TASA_DERIVA_TEMPERATURA_POR_HORA = 15; // cuánto se acerca la temperatura corporal a la del mundo cada hora real
+const DRENAJE_EXTRA_POR_HORA_TEMPERATURA = 6; // extra sobre TASA_DECAY_POR_HORA cuando hace demasiado calor/frío
 
 function clamp(v: number, max: number): number {
   return v < 0 ? 0 : v > max ? max : v;
@@ -96,21 +110,68 @@ export function restaurarVital(v: Vitales, vital: "comida" | "bebida" | "sueno" 
  * quedarte sin comer sería demasiado punitivo, y encima irrecuperable si el
  * jugador se desconecta hambriento). En cuanto vuelve a comer/beber,
  * `vidaMax` se restaura a `vidaMaxNormal` en la siguiente llamada.
+ *
+ * `tambienReducirVidaMax` (docs/GDD_Clima.md, pedido 2026-08-30) — el
+ * mismo efecto de vidaMax reducido, pero disparado por temperatura corporal
+ * extrema (`aplicarTemperaturaCorporal`) en vez de/además de por hambre.
+ * Reduce vidaMax igual que la inanición, pero NO daña `vida` por sí solo —
+ * pasar frío o calor te debilita mientras dura, no te hace sangrar; el daño
+ * paulatino sigue siendo EXCLUSIVO de comida/bebida a 0 de verdad.
  */
 export function aplicarInanicion(
   vitalesActuales: { comida: number; bebida: number },
   estado: { vida: number; vidaMax: number },
   vidaMaxNormal: number,
-  vidaMaxInanicion: number,
+  vidaMaxReducido: number,
   danoPorHora: number,
   horasTranscurridas: number,
+  tambienReducirVidaMax = false,
 ): void {
   if (horasTranscurridas <= 0) return;
-  const inanicion = vitalesActuales.comida <= 0 || vitalesActuales.bebida <= 0;
-  if (inanicion) {
-    if (estado.vidaMax !== vidaMaxInanicion) estado.vidaMax = vidaMaxInanicion;
-    estado.vida = Math.max(0, Math.min(estado.vida, estado.vidaMax) - danoPorHora * horasTranscurridas);
+  const hambriento = vitalesActuales.comida <= 0 || vitalesActuales.bebida <= 0;
+  if (hambriento || tambienReducirVidaMax) {
+    if (estado.vidaMax !== vidaMaxReducido) estado.vidaMax = vidaMaxReducido;
+    if (hambriento) {
+      estado.vida = Math.max(0, Math.min(estado.vida, estado.vidaMax) - danoPorHora * horasTranscurridas);
+    } else {
+      estado.vida = Math.min(estado.vida, estado.vidaMax); // solo recorta si hacía falta, sin dañar
+    }
   } else if (estado.vidaMax !== vidaMaxNormal) {
     estado.vidaMax = vidaMaxNormal;
   }
+}
+
+/** Mapea la temperatura del mundo (grados aprox., docs/GDD_Clima.md, `server/src/mundo/clima.ts`) al rango 0-100 de `Vitales.temperatura` — 15°C ~= neutro (50). Placeholder de balance, mismo criterio que el resto. */
+export function objetivoTemperaturaCorporal(temperaturaMundoC: number): number {
+  return clamp(TEMPERATURA_NEUTRA + (temperaturaMundoC - 15) * 2.5, VITAL_MAX);
+}
+
+/**
+ * Temperatura corporal (docs/GDD_Clima.md, pedido LITERAL del streamer:
+ * "regula la temperatura de cada jugador... si pasa un rango tanto para
+ * arriba como para abajo, a más calor resistencia baja antes y debes beber
+ * más, si es hacia abajo resistencia también baja y necesitas comer más").
+ * Deriva hacia `objetivoTemperaturaCorporal(temperaturaMundoC)` cada hora
+ * real (integrador simple, mismo criterio que `tickVitales` — vive fuera de
+ * ahí porque necesita un dato externo, la temperatura del mundo, que
+ * `tickVitales` no recibe). Fuera del rango cómodo, gasta el vital que
+ * corresponda MÁS RÁPIDO (calor -> bebida, frío -> comida) — el llamador
+ * (`RoomExteriorBase`) decide qué hacer con el "extremo" devuelto (pasarlo
+ * a `aplicarInanicion` como `tambienReducirVidaMax`).
+ */
+export function aplicarTemperaturaCorporal(v: Vitales, temperaturaMundoC: number, horasTranscurridas: number): "calor" | "frio" | null {
+  if (horasTranscurridas <= 0) return null;
+  const objetivo = objetivoTemperaturaCorporal(temperaturaMundoC);
+  const pasoMax = TASA_DERIVA_TEMPERATURA_POR_HORA * horasTranscurridas;
+  const delta = Math.max(-pasoMax, Math.min(pasoMax, objetivo - v.temperatura));
+  v.temperatura = clamp(v.temperatura + delta, VITAL_MAX);
+  if (v.temperatura >= UMBRAL_CALOR_EXTREMO) {
+    v.bebida = clamp(v.bebida - DRENAJE_EXTRA_POR_HORA_TEMPERATURA * horasTranscurridas, VITAL_MAX);
+    return "calor";
+  }
+  if (v.temperatura <= UMBRAL_FRIO_EXTREMO) {
+    v.comida = clamp(v.comida - DRENAJE_EXTRA_POR_HORA_TEMPERATURA * horasTranscurridas, VITAL_MAX);
+    return "frio";
+  }
+  return null;
 }
