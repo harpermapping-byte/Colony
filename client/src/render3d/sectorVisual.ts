@@ -44,9 +44,17 @@ const CATEGORIA_POR_TIPO: Partial<Record<string, CategoriaAsset>> = {
 // ancho/largo real de cada instancia — antes esto dibujaba una caja
 // genérica de 2.1 por CADA CASILLA de solar, sin distinguir edificio ni
 // riqueza; con las dos cosas activas a la vez habría dos cajas solapadas.
+// `roca_inaccesible` (bakeador exterior, GDD_Bakeador_Exteriores sección 2:
+// cumbre/salto de banda ≥2) se sumó aquí 2026-08-29 — pedido del streamer
+// al ver que el terreno exterior se pintaba SIEMPRE plano, la elevación
+// bakeada solo cambiaba de color (nunca de altura de malla), así que ni
+// las rocas de acantilado ni la montaña se notaban de verdad al pasear.
+// Altura placeholder (como el resto de esta tabla): un .glb de roca real
+// la sustituirá más adelante.
 const ALTURA_TERRENO_SOLIDO: Record<string, number> = {
   empalizada: 1.7,
   muralla_piedra: 2.6,
+  roca_inaccesible: 3,
 };
 
 // --- Agua translúcida con fondo visible (portado de la versión de mapa
