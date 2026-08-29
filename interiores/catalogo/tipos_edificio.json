@@ -402,7 +402,13 @@
       "cantidadPorIntervalo": 3,
       "intervaloHoras": 2,
       "capacidadMax": 60,
-      "requiereTrabajador": true
+      "requiereTrabajador": true,
+      "insumos": [
+        {
+          "itemId": "madera_blanda",
+          "cantidadPorUnidad": 2
+        }
+      ]
     }
   },
   "choza_curandero": {
@@ -2068,5 +2074,279 @@
     ],
     "temaTaller": "carpintero_ribera",
     "_nota": "docs/GDD_Profesiones.md — conecta con 'Puerto/Muelle Comunal' del backlog (aún sin diseñar); el edificio en sí no depende de ese diseño."
+  },
+  "fundicion": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          6
+        ],
+        [
+          "despensa",
+          2
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "piedra",
+      "metal"
+    ],
+    "plantillaJarl": true,
+    "huellaExterior": [
+      7,
+      6
+    ],
+    "produccion": {
+      "itemId": "lingote_hierro",
+      "cantidadPorIntervalo": 3,
+      "intervaloHoras": 2,
+      "capacidadMax": 40,
+      "requiereTrabajador": true,
+      "insumos": [
+        {
+          "itemId": "hierro",
+          "cantidadPorUnidad": 2
+        }
+      ]
+    },
+    "_nota": "docs/GDD_Crafteo.md — refina mineral crudo (hierro) a lingote (tier1). Mismo patrón que aserradero, ahora con insumo real."
+  },
+  "forja_aleaciones": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          6
+        ],
+        [
+          "despensa",
+          2
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "piedra",
+      "metal"
+    ],
+    "plantillaJarl": true,
+    "huellaExterior": [
+      7,
+      6
+    ],
+    "produccion": {
+      "itemId": "acero",
+      "cantidadPorIntervalo": 2,
+      "intervaloHoras": 2,
+      "capacidadMax": 30,
+      "requiereTrabajador": true,
+      "insumos": [
+        {
+          "itemId": "lingote_hierro",
+          "cantidadPorUnidad": 2
+        },
+        {
+          "itemId": "carbon",
+          "cantidadPorUnidad": 1
+        }
+      ]
+    },
+    "_nota": "docs/GDD_Crafteo.md — tier1→tier2: mezcla DOS insumos (lingote_hierro + carbon) para probar el encadenado entre tiers, no solo dentro de una familia."
+  },
+  "cantera": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          6
+        ],
+        [
+          "despensa",
+          2
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "piedra"
+    ],
+    "plantillaJarl": true,
+    "huellaExterior": [
+      7,
+      6
+    ],
+    "produccion": {
+      "itemId": "piedra_tallada",
+      "cantidadPorIntervalo": 4,
+      "intervaloHoras": 1,
+      "capacidadMax": 50,
+      "requiereTrabajador": true,
+      "insumos": [
+        {
+          "itemId": "piedra_comun",
+          "cantidadPorUnidad": 2
+        }
+      ]
+    }
+  },
+  "planta_curtido": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          5
+        ],
+        [
+          "despensa",
+          2
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera",
+      "cuero"
+    ],
+    "plantillaJarl": true,
+    "huellaExterior": [
+      6,
+      6
+    ],
+    "produccion": {
+      "itemId": "cuero_curtido",
+      "cantidadPorIntervalo": 3,
+      "intervaloHoras": 2,
+      "capacidadMax": 30,
+      "requiereTrabajador": true,
+      "insumos": [
+        {
+          "itemId": "cuero_grueso",
+          "cantidadPorUnidad": 2
+        }
+      ]
+    },
+    "_nota": "docs/GDD_Crafteo.md — refinamiento automatizado, distinto de la `curtiduria` de docs/GDD_Profesiones.md (esa es el taller del curtidor, con mesas, NPC-trabajada, sin dueño jugador)."
+  },
+  "hilanderia": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          4
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera",
+      "tela_tapiz"
+    ],
+    "plantillaJarl": true,
+    "huellaExterior": [
+      6,
+      5
+    ],
+    "produccion": {
+      "itemId": "tela_hilada",
+      "cantidadPorIntervalo": 5,
+      "intervaloHoras": 1,
+      "capacidadMax": 40,
+      "requiereTrabajador": true,
+      "insumos": [
+        {
+          "itemId": "fibra_vegetal",
+          "cantidadPorUnidad": 3
+        }
+      ]
+    }
+  },
+  "taller_lapidario": {
+    "riqueza": "modesta",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "piedra",
+      "cristal"
+    ],
+    "plantillaJarl": true,
+    "huellaExterior": [
+      5,
+      5
+    ],
+    "produccion": {
+      "itemId": "gema_tallada",
+      "cantidadPorIntervalo": 1,
+      "intervaloHoras": 3,
+      "capacidadMax": 20,
+      "requiereTrabajador": true,
+      "insumos": [
+        {
+          "itemId": "gema",
+          "cantidadPorUnidad": 2
+        }
+      ]
+    }
   }
 }

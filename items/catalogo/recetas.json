@@ -1,0 +1,73 @@
+{
+  "_nota": "docs/GDD_Crafteo.md §5 — crafteo ACTIVO (distinto del refinamiento pasivo de las plantillas de tipos_edificio.json): el jugador dispara la acción en la mesa correcta, consume de SU inventario. Set de arranque, UNA receta representativa por familia de material (varias transversales, mezclando familias a propósito) — el árbol completo de cada oficio es trabajo posterior, oficio a oficio (ver Backlog). `mesas` son ids de objeto de interiores/catalogo/elementos.json; `planoRequerido` no se comprueba todavía (mecanismo de desbloqueo sin diseñar).",
+
+  "clavos_hierro": {
+    "oficio": "herrero",
+    "mesas": ["yunque"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "clavos", "cantidad": 10 },
+    "tiempoBaseSeg": 8
+  },
+  "martillo_acero": {
+    "oficio": "herrero",
+    "mesas": ["martillo_pilon"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "acero", "cantidad": 1 },
+      { "itemId": "madera_dura", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "martillo", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "tier2 (acero) + otra familia (madera_dura) en la misma receta — mismo caso que una espada real pediría metal+empuñadura."
+  },
+  "hacha_talar_reforzada": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 2 },
+      { "itemId": "lingote_hierro", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "hacha_talar", "cantidad": 1 },
+    "tiempoBaseSeg": 20
+  },
+  "pico_minero_tallado": {
+    "oficio": "picapedrero",
+    "mesas": ["mesa_talla_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "piedra_tallada", "cantidad": 2 },
+      { "itemId": "madera_dura", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "pico_minero", "cantidad": 1 },
+    "tiempoBaseSeg": 20
+  },
+  "mochila_cuero_curtido": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_tenido_cuero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "mochila_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 20
+  },
+  "toalla_tela_hilada": {
+    "oficio": "sastre",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "toalla", "cantidad": 2 },
+    "tiempoBaseSeg": 10
+  },
+  "joyero_engarzado": {
+    "oficio": "joyero",
+    "mesas": ["mesa_engarce"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "gema_tallada", "cantidad": 1 },
+      { "itemId": "lingote_plata", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "joyero_pequeno", "cantidad": 1 },
+    "tiempoBaseSeg": 15
+  }
+}

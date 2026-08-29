@@ -3,7 +3,7 @@ import { HubState, Player, ObjetoMundoSchema } from "../schema/HubState";
 import { MundoColision, moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO_PJ } from "../../mundo/colisiones";
 import { MapaCargado } from "../../mundo/mapaColision";
 import { recolectableCercano } from "../../mundo/recolectables";
-import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem } from "../../inventario/inventario";
+import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, cargarCatalogoRecetas } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../../inventario/sincronizarSchema";
 import { IAlmacenDatos, ModoTenencia, ContratoTransporte } from "../../datos/bd";
@@ -20,14 +20,15 @@ import {
   esJarlGlobal,
 } from "../../construccion/construccion";
 import { generarInteriorEdificio } from "../../construccion/interiorGenerado";
-import { resolverProduccion, resolverTransporte, EstadoProduccion } from "../../construccion/produccion";
+import { resolverProduccion, resolverTransporte, EstadoProduccion, DatosProduccion } from "../../construccion/produccion";
 import { ContextoGremios, GremioVivo, obtenerContextoGremios } from "../../gremios/contextoGremios";
 import { EMBLEMA_POR_DEFECTO, colorGremioValido, colorPorDefecto, emblemaGremioValido, nombreGremioValido } from "../../gremios/gremios";
 import { precioInmueble } from "../../propiedades/propiedades";
 import { GestorAgentes, VEL_NPC } from "../../mundo/agentes";
 import { tiempoMundo } from "../../mundo/tiempoMundo";
 import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
-import { potenciaDisponibleEnCasillas } from "../../construccion/energia";
+import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../construccion/energia";
+import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
 
 const VEL_ANDAR = 3.75;
 const VEL_NADAR = 2.2;
@@ -50,6 +51,9 @@ const COSTE_TRABAJADOR_FARYCOINS = 50;
 const CARGA_POR_VIAJE_TRANSPORTE = 10;
 const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar un ítem nunca antes vendido ahí — el dueño lo ajusta con tenderete:fijarPrecio
 
+// --- Crafteo (docs/GDD_Crafteo.md) — placeholder de balance, mismo criterio que el resto ---
+const XP_POR_CRAFTEO = 20;
+
 /** Lo que hay para coger en un punto: cuánto entra al inventario y qué hacer con la FUENTE si entró. */
 export interface ObjetoCogible extends Cogible {
   confirmar: () => void;
@@ -62,6 +66,13 @@ export interface Direccion {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+/** Agrega las instancias de un contenedor por itemId — docs/GDD_Crafteo.md: validarCrafteo mira "cuánto tienes en total", no en qué pila concreta está. */
+function sumarPorItemId(items: { itemId: string; cantidad: number }[]): { itemId: string; cantidad: number }[] {
+  const totales = new Map<string, number>();
+  for (const it of items) totales.set(it.itemId, (totales.get(it.itemId) ?? 0) + it.cantidad);
+  return [...totales.entries()].map(([itemId, cantidad]) => ({ itemId, cantidad }));
 }
 
 /**
@@ -106,6 +117,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
   protected catalogoPlantillas?: Map<string, EntradaConstruible>;
   /** Compartido con los NPC de rutina de poblacion/ (RegionRoom) cuando existen — un único gestor por room, un único tick. */
   protected gestorAgentes?: GestorAgentes;
+
+  // --- Crafteo (docs/GDD_Crafteo.md) ---
+  protected catalogoRecetas?: Map<string, RecetaCrafteo>;
+  /** Crafteo en curso por sesión — vive y muere con la sesión (mismo criterio que `inventarios`, fase 2 de Inventario): si el jugador se desconecta a medias, se pierde, aceptable en v1. */
+  protected craftesEnCurso = new Map<string, EstadoCrafteo>();
 
   protected iniciarMovimiento() {
     this.setState(new HubState());
@@ -173,6 +189,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     // cualquier room con ContextoConstruccion, no-op si no lo hay.
     this.onMessage("motriz:accionar", (client, msg: { construccionId?: number; accion?: string; canal?: number }) => this.manejarMotrizAccionar(client, msg));
     this.onMessage("motriz:consultar", (client, msg: { construccionId?: number }) => this.manejarMotrizConsultar(client, msg));
+
+    // --- crafteo (docs/GDD_Crafteo.md) ---
+    this.onMessage("refinamiento:depositar", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarRefinamientoDepositar(client, msg));
+    this.onMessage("crafteo:iniciar", (client, msg: { recetaId?: string; construccionId?: number }) => this.manejarCrafteoIniciar(client, msg));
+    this.onMessage("crafteo:recolectar", (client) => this.manejarCrafteoRecolectar(client));
 
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
   }
@@ -1074,7 +1095,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const ahora = Date.now();
     const extraActual = (origenViva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
     const estadoPrevio: EstadoProduccion = extraActual.produccion ?? { stock: 0, ultimoCalculo: ahora };
-    const producidoActualizado = resolverProduccion(estadoPrevio, datosProduccion, ahora);
+    const producidoActualizado = await this.resolverProduccionConInsumos(origenViva.propiedad, estadoPrevio, datosProduccion, ahora);
 
     const { transportado, nuevoUltimoResuelto } = resolverTransporte(
       new Date(contrato.ultimoViajeResuelto).getTime(),
@@ -1117,7 +1138,7 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const bd = await obtenerBdCompartida();
     const extraActual = (viva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
     const estadoPrevio: EstadoProduccion = extraActual.produccion ?? { stock: 0, ultimoCalculo: Date.now() };
-    const resuelto = resolverProduccion(estadoPrevio, datos, Date.now());
+    const resuelto = await this.resolverProduccionConInsumos(viva.propiedad, estadoPrevio, datos, Date.now());
     const cantidadEntera = Math.floor(resuelto.stock);
 
     if (cantidadEntera <= 0) {
@@ -1373,6 +1394,175 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
     const resultado = potenciaDisponibleEnCasillas(ctx, this.catalogoConstruible, viva.claves);
     client.send("motriz:respuesta", { construccionId: viva.id, disponible: resultado.disponible, fuentes: resultado.fuentes });
+  }
+
+  // ---- Crafteo (docs/GDD_Crafteo.md) ----
+  // Dos capas: refinamiento PASIVO (una plantilla con `produccion.insumos`
+  // consume lo que el jugador deposita, igual que Producción pero con
+  // insumo real) y crafteo ACTIVO (el jugador dispara la acción en su mesa,
+  // consume de SU inventario, tarda un tiempo). Ninguna de las dos usa tick.
+
+  private errorRefinamiento(client: Client, motivo: string) {
+    client.send("refinamiento:error", { motivo });
+  }
+
+  private errorCrafteo(client: Client, motivo: string) {
+    client.send("crafteo:error", { motivo });
+  }
+
+  /**
+   * Envoltorio async de resolverProduccion: si `datos.insumos` existe, lee
+   * el stock actual del almacén de la construcción (misma tabla
+   * `tenderete_items`, tenderoteId = su propia propiedad — el jugador la
+   * llena con "refinamiento:depositar") y descuenta lo consumido tras
+   * resolver. Sin insumos, delega directo — comportamiento IDÉNTICO a antes
+   * (colmena, y cualquier plantilla que no declare insumos).
+   */
+  private async resolverProduccionConInsumos(
+    propiedadId: string,
+    estadoPrevio: EstadoProduccion,
+    datos: DatosProduccion,
+    ahoraMs: number,
+  ): Promise<EstadoProduccion> {
+    if (!datos.insumos || datos.insumos.length === 0) {
+      return resolverProduccion(estadoPrevio, datos, ahoraMs);
+    }
+    const bd = await obtenerBdCompartida();
+    const stockActual = await bd.listarStockTenderete(propiedadId);
+    const disponibles = new Map(stockActual.map((s) => [s.itemId, s.cantidad]));
+    const resuelto = resolverProduccion(estadoPrevio, datos, ahoraMs, disponibles);
+    const producido = resuelto.stock - estadoPrevio.stock;
+    if (producido > 0) {
+      for (const insumo of datos.insumos) {
+        const consumir = producido * insumo.cantidadPorUnidad;
+        if (consumir > 0) await bd.consumirStockTenderete(propiedadId, insumo.itemId, consumir);
+      }
+    }
+    return resuelto;
+  }
+
+  /** Deposita insumo crudo del CUERPO del jugador al almacén de una plantilla de refinamiento — dueño o jarl, mismo mecanismo que "tenderete:reponer" pero sin precio. */
+  private async manejarRefinamientoDepositar(client: Client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number" || typeof msg.instanciaId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorRefinamiento(client, "construcción inexistente");
+    const dueno = ctx.propiedades.get(viva.propiedad)?.dueno ?? (await this.duenoDeTenderete(viva.propiedad));
+    if (dueno !== nombre && !esJarl(ctx, nombre)) return this.errorRefinamiento(client, "no eres el dueño de esta construcción");
+
+    const datos = this.entradaDe(viva.objeto)?.produccion;
+    if (!datos?.insumos) return this.errorRefinamiento(client, "esta construcción no admite insumos");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return this.errorRefinamiento(client, "no tienes ese objeto");
+    if (!datos.insumos.some((i) => i.itemId === it.itemId)) return this.errorRefinamiento(client, "esta construcción no acepta ese insumo");
+    const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
+    const itemId = it.itemId;
+
+    const itemsAntes = contenedor.items.map((i) => ({ ...i }));
+    const siguienteIdAntes = contenedor.siguienteId;
+    const resultado = quitarItem(contenedor, msg.instanciaId, cantidad);
+    if (!resultado.ok) return this.errorRefinamiento(client, resultado.motivo ?? "no se pudo depositar");
+
+    const bd = await obtenerBdCompartida();
+    try {
+      await bd.sumarStockTenderete(viva.propiedad, itemId, cantidad, 0);
+    } catch (e) {
+      contenedor.items = itemsAntes;
+      contenedor.siguienteId = siguienteIdAntes;
+      throw e;
+    }
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("refinamiento:estado", { construccionId: viva.id, insumos: await bd.listarStockTenderete(viva.propiedad) });
+  }
+
+  /**
+   * Inicia un crafteo activo: valida mesa+nivel+insumos (validarCrafteo,
+   * pura), descuenta los insumos del inventario YA (no al final — mismo
+   * criterio que reservar el coste de una acción antes de tardar en
+   * completarla, evita que el jugador gaste el material en otra cosa
+   * mientras espera), y calcula `terminaEn` UNA VEZ con el multiplicador de
+   * energía de la mesa en ese instante — nunca se recalcula mientras está
+   * en curso, ni siquiera si la red motriz cambia entretanto.
+   */
+  private async manejarCrafteoIniciar(client: Client, msg: { recetaId?: string; construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || !msg?.recetaId || typeof msg.construccionId !== "number") return;
+    if (this.craftesEnCurso.has(client.sessionId)) return this.errorCrafteo(client, "ya tienes un crafteo en curso");
+
+    if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
+    const receta = this.catalogoRecetas.get(msg.recetaId);
+    if (!receta) return this.errorCrafteo(client, "receta desconocida");
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorCrafteo(client, "mesa inexistente");
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const xp = await bd.obtenerXpOficio(jugador.id, receta.oficio);
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const inventario = sumarPorItemId(contenedor.items);
+    const veredicto = validarCrafteo(receta, viva.objeto, xp, inventario);
+    if (!veredicto.ok) return this.errorCrafteo(client, veredicto.motivo);
+
+    // descuenta los insumos AHORA — instanciaId a instanciaId, por si el
+    // mismo itemId está repartido en varias pilas del inventario
+    for (const insumo of receta.insumos) {
+      let restante = insumo.cantidad;
+      for (const it of [...contenedor.items]) {
+        if (restante <= 0) break;
+        if (it.itemId !== insumo.itemId) continue;
+        const quitar = Math.min(restante, it.cantidad);
+        quitarItem(contenedor, it.id, quitar);
+        restante -= quitar;
+      }
+    }
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
+    const factor = factorVelocidadPorEnergia(ctx, this.catalogoConstruible, { objeto: viva.objeto, claves: viva.claves });
+    const duracionMs = (receta.tiempoBaseSeg / Math.max(0.01, factor)) * 1000;
+    const terminaEn = Date.now() + duracionMs;
+    this.craftesEnCurso.set(client.sessionId, { recetaId: receta.id, terminaEn });
+    client.send("crafteo:iniciado", { recetaId: receta.id, terminaEn });
+  }
+
+  /** Recoge el resultado de un crafteo en curso — no-op amable si todavía no ha terminado. */
+  private async manejarCrafteoRecolectar(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const estado = this.craftesEnCurso.get(client.sessionId);
+    if (!estado) return this.errorCrafteo(client, "no tienes ningún crafteo en curso");
+    if (!crafteoListo(estado, Date.now())) return this.errorCrafteo(client, "todavía no está listo");
+
+    if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
+    const receta = this.catalogoRecetas.get(estado.recetaId);
+    this.craftesEnCurso.delete(client.sessionId);
+    if (!receta) return; // la receta se quitó del catálogo entre medias — nada que entregar, insumos ya se perdieron (mismo riesgo que cualquier estado en memoria de sesión)
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const resultado = intentarCoger(contenedor, this.catalogoItems, { itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad });
+    if (!resultado.ok) return this.errorCrafteo(client, "no tienes hueco en tu inventario");
+
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, receta.oficio, XP_POR_CRAFTEO);
+    client.send("crafteo:completado", {
+      recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad,
+      oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
+    });
   }
 
   private actualizarMovimiento() {

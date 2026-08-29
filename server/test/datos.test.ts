@@ -854,3 +854,60 @@ test("Transporte: desactivarContratoTransporte lo saca de listarContratosTranspo
   assert.strictEqual((await bd.listarContratosTransporte()).length, 0);
   await bd.cerrar();
 });
+
+// --- docs/GDD_Crafteo.md: consumirStockTenderete + XP de oficio ---
+
+test("consumirStockTenderete: decrementa el insumo guardado en una construcción, compare-and-swap", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.sumarStockTenderete("pt_hub_5_5", "hierro", 10, 0);
+  const ok = await bd.consumirStockTenderete("pt_hub_5_5", "hierro", 6);
+  assert.strictEqual(ok, true);
+  const stock = await bd.listarStockTenderete("pt_hub_5_5");
+  assert.strictEqual(stock.find((s) => s.itemId === "hierro")?.cantidad, 4);
+  await bd.cerrar();
+});
+
+test("consumirStockTenderete: false si no hay suficiente, nunca deja cantidad negativa", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.sumarStockTenderete("pt_hub_5_5", "hierro", 3, 0);
+  const ok = await bd.consumirStockTenderete("pt_hub_5_5", "hierro", 10);
+  assert.strictEqual(ok, false);
+  const stock = await bd.listarStockTenderete("pt_hub_5_5");
+  assert.strictEqual(stock.find((s) => s.itemId === "hierro")?.cantidad, 3, "el stock no cambia si falla");
+  await bd.cerrar();
+});
+
+test("consumirStockTenderete: false si el insumo nunca se depositó ahí", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const ok = await bd.consumirStockTenderete("pt_hub_5_5", "hierro", 1);
+  assert.strictEqual(ok, false);
+  await bd.cerrar();
+});
+
+test("XP de oficio: obtenerXpOficio empieza en 0 sin fila previa", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const jugador = await bd.obtenerOCrearJugador("Ragnar");
+  assert.strictEqual(await bd.obtenerXpOficio(jugador.id, "herrero"), 0);
+  await bd.cerrar();
+});
+
+test("XP de oficio: sumarXpOficio acumula y devuelve el nuevo total", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const jugador = await bd.obtenerOCrearJugador("Ragnar");
+  const r1 = await bd.sumarXpOficio(jugador.id, "herrero", 50);
+  assert.strictEqual(r1, 50);
+  const r2 = await bd.sumarXpOficio(jugador.id, "herrero", 30);
+  assert.strictEqual(r2, 80);
+  assert.strictEqual(await bd.obtenerXpOficio(jugador.id, "herrero"), 80);
+  await bd.cerrar();
+});
+
+test("XP de oficio: cada oficio lleva su propio contador, independiente entre sí", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const jugador = await bd.obtenerOCrearJugador("Ragnar");
+  await bd.sumarXpOficio(jugador.id, "herrero", 100);
+  await bd.sumarXpOficio(jugador.id, "alfarero", 20);
+  assert.strictEqual(await bd.obtenerXpOficio(jugador.id, "herrero"), 100);
+  assert.strictEqual(await bd.obtenerXpOficio(jugador.id, "alfarero"), 20);
+  await bd.cerrar();
+});
