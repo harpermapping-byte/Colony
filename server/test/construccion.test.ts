@@ -134,8 +134,10 @@ test("catálogo construible: fusiona las tres fuentes con las reglas del GDD §3
   assert.strictEqual(catalogo.get("bancal_cultivo")?.colision, false);
   assert.strictEqual(catalogo.get("empalizada_tramo")?.colision, true);
   // edificio: solo construible:true, con huellaExterior
+  // (energia:undefined queda como propiedad propia porque el fusionador la
+  // copia siempre — docs/GDD_Motriz.md — casa_humilde simplemente no la usa)
   assert.deepStrictEqual(catalogo.get("casa_humilde"), {
-    id: "casa_humilde", categoria: "edificio", huella: [7, 6], colision: true, variantes: 1,
+    id: "casa_humilde", categoria: "edificio", huella: [7, 6], colision: true, variantes: 1, energia: undefined,
   });
   assert.strictEqual(catalogo.get("mansion"), undefined); // sin construible:true
 });

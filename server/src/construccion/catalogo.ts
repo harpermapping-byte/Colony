@@ -25,6 +25,31 @@ const CARPETA_CATALOGO = path.join(RAIZ_REPO, "interiores", "catalogo");
 
 export type CategoriaConstruible = "mueble" | "exterior" | "edificio";
 
+/**
+ * Red motriz (docs/GDD_Motriz.md): campo opcional aditivo, mismo molde que
+ * `produccion` — un nodo puede PRODUCIR (molino), TRANSMITIR (eje,
+ * engranaje, palancas) o CONSUMIR (mesa de profesión que se beneficia).
+ * Definido aquí (no en un módulo propio de energia.ts) para que ese módulo
+ * — que SÍ necesita importar `EntradaConstruible` y `ContextoConstruccion`
+ * para recorrer la rejilla — no cierre un ciclo de imports con catalogo.ts.
+ */
+export interface EntradaEnergia {
+  /** Nodo FUENTE: unidades de potencia que aporta a la red al conectarse (constante, sin fluctuación en v1). */
+  produce?: number;
+  /** Solo si produce>0: de dónde la saca — "agua" exige un cauce adyacente a la huella (ver validarColocacion). */
+  fuente?: "agua" | "viento" | "movimiento";
+  /** Nodo de PASO (eje, engranaje, palancas): deja pasar la conexión a través de sí mismo hacia sus vecinos. */
+  transmite?: boolean;
+  /** Solo palanca de freno: aunque transmite=true, `extra.frenado` puede cortar el paso en caliente. */
+  interrumpible?: boolean;
+  /** Solo palanca de cambios: nº de direcciones cardinales entre las que `extra.canalActivo` elige la única salida abierta. */
+  canales?: number;
+  /** Nodo de CONSUMO (mesa de profesión): potencia mínima alcanzable en la red para que el bonus se aplique. */
+  consume?: number;
+  /** Solo nodos de consumo: factor que multiplica la velocidad de la acción cuando la red alcanza `consume`. */
+  multiplicador?: number;
+}
+
 export interface EntradaConstruible {
   id: string;
   categoria: CategoriaConstruible;
@@ -37,6 +62,8 @@ export interface EntradaConstruible {
   produccion?: DatosProduccion;
   /** Solo tipos_edificio.json: colocable SOLO por el jarl vía plantilla:colocar (radio a la capital), NUNCA por "construir" normal — mecanismo paralelo a `construible`, no una variante suya. */
   plantillaJarl?: boolean;
+  /** Red motriz (docs/GDD_Motriz.md) — presente en molino/eje/palancas/mesas de profesión conectables. */
+  energia?: EntradaEnergia;
 }
 
 interface EntradaElemento {
@@ -45,6 +72,7 @@ interface EntradaElemento {
   anchorType?: string;
   huella?: [number, number];
   variantes?: number;
+  energia?: EntradaEnergia;
 }
 
 interface EntradaExterior {
@@ -52,6 +80,7 @@ interface EntradaExterior {
   colision?: boolean;
   variantes?: number;
   produccion?: DatosProduccion;
+  energia?: EntradaEnergia;
 }
 
 interface EntradaTipoEdificio {
@@ -60,6 +89,7 @@ interface EntradaTipoEdificio {
   variantes?: number;
   produccion?: DatosProduccion;
   plantillaJarl?: boolean;
+  energia?: EntradaEnergia;
 }
 
 function leerCatalogo<T>(nombre: string): Record<string, T> {
@@ -86,6 +116,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       // FLOOR_DECAL = alfombra/marca en el suelo: pisable, no endurece
       colision: d.anchorType !== "FLOOR_DECAL",
       variantes: d.variantes ?? 1,
+      energia: d.energia,
     });
   }
 
@@ -100,6 +131,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       colision: d.colision === true, // su campo manda; sin campo = decorativo
       variantes: d.variantes ?? 1,
       produccion: d.produccion,
+      energia: d.energia,
     });
   }
 
@@ -117,6 +149,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       huella: d.huellaExterior,
       colision: true, // un edificio siempre bloquea su solar (se entra por portal, futuro)
       variantes: d.variantes ?? 1,
+      energia: d.energia,
     });
   }
 
@@ -144,6 +177,7 @@ export function cargarCatalogoPlantillas(): Map<string, EntradaConstruible> {
       variantes: d.variantes ?? 1,
       produccion: d.produccion,
       plantillaJarl: true,
+      energia: d.energia,
     });
   }
   return resultado;

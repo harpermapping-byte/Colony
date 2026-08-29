@@ -158,7 +158,40 @@ export function validarColocacion(
     return { ok: false, motivo: "tope de construcciones de la parcela alcanzado" };
   }
 
+  // 5. red motriz (docs/GDD_Motriz.md): una fuente "agua" (molino de agua)
+  // exige un cauce ORTOGONALMENTE ADYACENTE a la huella — único caso donde
+  // esta validación mira más allá de la propia huella, así que se hace al
+  // final, sobre las `claves` ya confirmadas válidas.
+  if (entrada.energia?.fuente === "agua" && !hayAguaAdyacente(ctx, casillas, claves)) {
+    return { ok: false, motivo: "el molino de agua necesita un cauce junto a su huella" };
+  }
+
   return { ok: true, parcelaId, claves };
+}
+
+/** ¿Alguna casilla ORTOGONALMENTE adyacente (fuera de la propia huella) es agua? */
+function hayAguaAdyacente(
+  ctx: ContextoConstruccion,
+  casillas: { x: number; y: number }[],
+  claves: number[],
+): boolean {
+  const dentro = new Set(claves);
+  for (const c of casillas) {
+    const vecinos = [
+      { x: c.x, y: c.y - 1 },
+      { x: c.x, y: c.y + 1 },
+      { x: c.x - 1, y: c.y },
+      { x: c.x + 1, y: c.y },
+    ];
+    for (const v of vecinos) {
+      if (v.x < 0 || v.y < 0 || v.x >= ctx.mapa.ancho || v.y >= ctx.mapa.alto) continue;
+      const clave = v.y * ctx.mapa.ancho + v.x;
+      if (dentro.has(clave)) continue; // dentro de la propia huella, no cuenta como "adyacente"
+      const tipo = ctx.mapa.casillas[clave];
+      if (tipo === TIPO.AGUA || tipo === TIPO.AGUA_PROFUNDA) return true;
+    }
+  }
+  return false;
 }
 
 export interface PeticionColocacionPlantilla {
