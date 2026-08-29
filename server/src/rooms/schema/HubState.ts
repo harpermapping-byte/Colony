@@ -53,16 +53,15 @@ export class VitalesSchema extends Schema {
 // (mismo límite ya aceptado para gremioId/gremioNombre más abajo) — el que
 // no se haya tocado aún se queda en 1 (nivel base, sin XP).
 // Lista revisada 2026-08-30 (docs/GDD_Personaje.md §3): `liderazgo` sale
-// (un único disparador real), entran `resistencia`/`comercio` — cada uno
-// con varios disparadores reales conectados (ver RoomExteriorBase.ts).
+// (un único disparador real), entra `resistencia`; `sigilo` se retira
+// entero (sin sistema al que engancharlo) y `comercio` se fusiona dentro
+// de `carisma` (mismo atributo social: hablar, gremios Y mercado).
 export class AtributosSchema extends Schema {
   @type("int8") fuerza = 1;
   @type("int8") destreza = 1;
   @type("int8") inteligencia = 1;
   @type("int8") resistencia = 1;
-  @type("int8") sigilo = 1;
   @type("int8") carisma = 1;
-  @type("int8") comercio = 1;
 }
 
 export class Player extends Schema {

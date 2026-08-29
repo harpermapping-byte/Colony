@@ -9,9 +9,11 @@
  * resultado sobre el Schema/handler que corresponda.
  *
  * Solo hay función para los atributos que YA tienen un sistema real al que
- * enganchar el bonus — `sigilo` no tiene ninguna (no existe sistema de
- * sigilo en el servidor): inventar un bonus sin nada que module sería
- * inventar el sistema entero, no un número.
+ * enganchar el bonus. `sigilo` se retiró ENTERO de la lista de atributos
+ * (2026-08-30) — no existía sistema de sigilo que lo justificara, ni
+ * disparador de XP ni bonus, así que no tenía sentido mantenerlo. `carisma`
+ * cubre AHORA lo que antes era Comercio (mismo pedido, fusión de
+ * atributos) — de ahí que `descuentoComercio` tome un nivel de Carisma.
  */
 
 /** Fuerza -> peso máximo transportable (kg, unidad ya usada por items/catalogo/items.json). Nivel 1 = 20 (base ya existente), nivel 10 = 56. */
@@ -39,7 +41,7 @@ export function cooldownNpcHablarMs(nivelCarisma: number): number {
   return Math.max(1000, 3000 - (nivelCarisma - 1) * 200);
 }
 
-/** Comercio -> descuento al comprar en un tenderete (0 a 1). Nivel 1 = 0 (precio de lista, sin bonus), nivel 10 = 0.18 (18% de descuento). */
-export function descuentoComercio(nivelComercio: number): number {
-  return Math.min(0.18, (nivelComercio - 1) * 0.02);
+/** Carisma (Comercio fusionado dentro) -> descuento al comprar en un tenderete (0 a 1). Nivel 1 = 0 (precio de lista, sin bonus), nivel 10 = 0.18 (18% de descuento). */
+export function descuentoComercio(nivelCarisma: number): number {
+  return Math.min(0.18, (nivelCarisma - 1) * 0.02);
 }

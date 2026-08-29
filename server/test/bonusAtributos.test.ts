@@ -45,7 +45,7 @@ test("cooldownNpcHablarMs: nivel 1 es el cooldown ya existente (3000ms), nunca b
   assert.ok(cooldownNpcHablarMs(10) < cooldownNpcHablarMs(1));
 });
 
-test("descuentoComercio: nivel 1 = 0 (precio de lista), tope duro en 18% aunque se le dé más nivel del máximo", () => {
+test("descuentoComercio: (Comercio fusionado dentro de Carisma) nivel 1 = 0 (precio de lista), tope duro en 18% aunque se le dé más nivel del máximo", () => {
   assert.strictEqual(descuentoComercio(1), 0);
   assert.strictEqual(descuentoComercio(10), 0.18);
   assert.strictEqual(descuentoComercio(999), 0.18, "nunca supera el tope, aunque se llame con un nivel fuera de rango");

@@ -88,13 +88,12 @@ const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar u
 const XP_POR_CRAFTEO = 20;
 
 // --- Atributos (docs/GDD_Personaje.md §3.2, pedido 2026-08-30: "que cada
-// atributo tenga varias formas de sacar exp") — cada atributo con sistema
-// real detrás tiene AL MENOS 2 disparadores independientes; sigilo se
-// queda sin ninguno (no existe ningún sistema de sigilo que lo
-// justifique — no se fabrica uno falso). Números de referencia, mismo
-// criterio "placeholder de balance" que el resto — pensados para la curva
-// de 10 niveles (UMBRALES_NIVEL_ATRIBUTO, tope 4500 XP): a este ritmo, el
-// máximo pide cientos de acciones, no un puñado.
+// atributo tenga varias formas de sacar exp") — cada atributo tiene AL
+// MENOS 2 disparadores independientes (Carisma, tras fusionar Comercio
+// dentro, tiene 4). Números de referencia, mismo criterio "placeholder de
+// balance" que el resto — pensados para la curva de 10 niveles
+// (UMBRALES_NIVEL_ATRIBUTO, tope 4500 XP): a este ritmo, el máximo pide
+// cientos de acciones, no un puñado.
 const XP_FUERZA_POR_RECOLECTA_PESADA = 2; // "talando/minando cosas con herramientas" — coger algo pesado del mundo
 const PESO_MINIMO_FUERZA = 2; // solo objetos "pesados" (piedra, madera...) cuentan — coger una pluma no entrena fuerza
 const XP_FUERZA_POR_GOLPE_CONECTADO = 1; // "dando golpes" — un golpe cuerpo a cuerpo también entrena fuerza, además de destreza
@@ -104,8 +103,9 @@ const XP_INTELIGENCIA_POR_CRAFTEO = 4;
 const XP_INTELIGENCIA_POR_RECOLECTAR = 1; // "todas las que tengan crafteo también crafteando o recolectando" — identificar y extraer un recurso también enseña
 const XP_RESISTENCIA_POR_GOLPE_RECIBIDO = 2; // "recibir golpes" entrena aguante — encajar daño en combate
 const XP_CARISMA_POR_FUNDAR_GREMIO = 30; // mismo valor que antes tenía Liderazgo — fundar un gremio sigue siendo un acto social mayor
-const XP_COMERCIO_POR_COMPRAR = 2;
-const XP_COMERCIO_POR_REPONER = 3; // reponer/vender en tu propio tenderete entrena algo más que comprar
+// Comercio fusionado dentro de Carisma (pedido 2026-08-30) — comprar/vender es tan "social" como hablar o fundar un gremio.
+const XP_CARISMA_POR_COMPRAR = 2;
+const XP_CARISMA_POR_REPONER = 3; // reponer/vender en tu propio tenderete entrena algo más que comprar
 
 /** Lo que hay para coger en un punto: cuánto entra al inventario y qué hacer con la FUENTE si entró. */
 export interface ObjetoCogible extends Cogible {
@@ -1120,8 +1120,8 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     }
     const player = this.state.players.get(client.sessionId);
     if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
-    // Comercio (docs/GDD_Personaje.md §3.2): reponer/vender en tu propio tenderete.
-    void this.otorgarXpAtributoPorSesion(client, "comercio", XP_COMERCIO_POR_REPONER);
+    // Carisma (docs/GDD_Personaje.md §3.2, Comercio fusionado dentro): reponer/vender en tu propio tenderete.
+    void this.otorgarXpAtributoPorSesion(client, "carisma", XP_CARISMA_POR_REPONER);
     client.send("tenderete:gestion", { tenderoteId: msg.tenderoteId, items: await bd.listarStockTenderete(msg.tenderoteId) });
   }
 
@@ -1160,10 +1160,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     if (dueno.toLowerCase() === nombre.toLowerCase()) return this.errorTenderete(client, "no puedes comprarte a ti mismo");
 
     const bd = await obtenerBdCompartida();
-    // Comercio (docs/GDD_Personaje.md §3.3): descuento por nivel, sin awaitear una segunda vuelta a BD para leerlo —
-    // player.atributos.comercio ya está replicado y actualizado.
-    const comprador = this.state.players.get(client.sessionId);
-    const descuento = descuentoComercio(comprador?.atributos.comercio ?? 1);
+    // Carisma (docs/GDD_Personaje.md §3.3, Comercio fusionado dentro):
+    // descuento por nivel, sin awaitear una segunda vuelta a BD para
+    // leerlo — player.atributos.carisma ya está replicado y actualizado.
+    const compradorPlayer = this.state.players.get(client.sessionId);
+    const descuento = descuentoComercio(compradorPlayer?.atributos.carisma ?? 1);
     const r = await bd.comprarDeTenderete({ tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: dueno, descuento });
     if (!r.ok) return this.errorTenderete(client, r.motivo);
 
@@ -1180,8 +1181,8 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     }
     const player = this.state.players.get(client.sessionId);
     if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor!);
-    // Comercio (docs/GDD_Personaje.md §3.2): comprar en un tenderete entrena regateo/mercado.
-    void this.otorgarXpAtributoPorSesion(client, "comercio", XP_COMERCIO_POR_COMPRAR);
+    // Carisma (docs/GDD_Personaje.md §3.2, Comercio fusionado dentro): comprar en un tenderete entrena regateo/mercado.
+    void this.otorgarXpAtributoPorSesion(client, "carisma", XP_CARISMA_POR_COMPRAR);
     client.send("tenderete:compraResultado", {
       ok: true, tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad,
       precioTotal: r.precioTotal, saldoRestante: r.saldoRestante,
