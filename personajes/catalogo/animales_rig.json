@@ -59,7 +59,14 @@
       "cola": "larga",
       "hocico": "medio",
       "cuernos": "cortos"
-    }
+    },
+    "coloresPosibles": [
+      ["#3a2a1c", 30],
+      ["#8a6a45", 28],
+      ["#e8e0d0", 18],
+      ["#221a14", 14],
+      ["#c9c0a8", 10]
+    ]
   },
   "ciervo": {
     "esqueleto": "cuadrupedo",
@@ -101,7 +108,15 @@
       "pico": "corto",
       "cola": "abanico",
       "vuela": false
-    }
+    },
+    "coloresPosibles": [
+      ["#e8dcc0", 24],
+      ["#8a5a3a", 20],
+      ["#2a2420", 18],
+      ["#d8d0c0", 14],
+      ["#7a3018", 14],
+      ["#8f8578", 10]
+    ]
   },
   "abeja": {
     "esqueleto": "insecto",
@@ -275,7 +290,14 @@
       "cola": "media",
       "hocico": "medio",
       "cuernos": "ninguno"
-    }
+    },
+    "coloresPosibles": [
+      ["#8a6a45", 30],
+      ["#2a2420", 22],
+      ["#e8e0d0", 20],
+      ["#5a4a30", 18],
+      ["#c9b090", 10]
+    ]
   },
   "gato": {
     "esqueleto": "cuadrupedo",
@@ -296,7 +318,14 @@
       "cola": "larga",
       "hocico": "corto",
       "cuernos": "ninguno"
-    }
+    },
+    "coloresPosibles": [
+      ["#2a2420", 28],
+      ["#e8e0d0", 24],
+      ["#8a6a45", 22],
+      ["#c9773a", 16],
+      ["#5a5450", 10]
+    ]
   },
   "gallo": {
     "esqueleto": "ave",
@@ -316,6 +345,13 @@
       "pico": "corto",
       "cola": "abanico",
       "vuela": false
-    }
+    },
+    "coloresPosibles": [
+      ["#8a3a28", 32],
+      ["#2a2420", 26],
+      ["#e8dcc0", 18],
+      ["#c9922a", 14],
+      ["#4a5a3a", 10]
+    ]
   }
 }

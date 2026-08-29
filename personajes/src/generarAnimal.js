@@ -15,7 +15,7 @@
 // faltan (pez, serpiente, crustaceo...) se añaden aquí + una entrada por
 // especie en animales_rig.json — el resto no se toca.
 
-const { crearPRNG } = require("../../interiores/src/azar");
+const { crearPRNG, elegirPonderado } = require("../../interiores/src/azar");
 
 function ajustarColor(hex, factor) {
   const n = parseInt(hex.replace("#", ""), 16);
@@ -357,8 +357,18 @@ function generarAnimal(especieId, opciones) {
 
   const rnd = crearPRNG(`${semilla}|animal|${especieId}`);
   const escala = Number(enRango(rig.escala, rnd).toFixed(3));
-  // tono individual sutil sobre el colorDebug del catálogo del baker
-  const color = ajustarColor(baker.colorDebug, (rnd() - 0.5) * 0.12);
+  // Razas por color (pedido 2026-08-29, "vacas negras/marrones/blanco y
+  // negro, mismo criterio para ovejas/perros — como razas cambiando el
+  // color"): si la especie declara `coloresPosibles` en animales_rig.json
+  // (mismo formato [id-color, peso] que ya usa rasgos.json para pelo/piel
+  // humanos, vía el mismo `elegirPonderado`), se sortea UNA raza entera —
+  // no un tono sutil sobre un único color. Especies sin el campo siguen
+  // igual que antes (colorDebug del baker + jitter pequeño) — no hace
+  // falta tocar las que aún no tienen razas definidas.
+  const colorBase = rig.coloresPosibles ? elegirPonderado(rig.coloresPosibles, rnd) : baker.colorDebug;
+  // tono individual sutil sobre la raza (o el colorDebug) elegida — variedad
+  // dentro de la misma raza, no sustituye a la raza en sí.
+  const color = ajustarColor(colorBase, (rnd() - 0.5) * 0.12);
   // sexo: de momento solo decide rasgos marcados como "solo machos"
   // (cuernos ramificados del ciervo) — 50/50 salvo que la especie diga otra cosa
   const sexo = rnd() < 0.5 ? "macho" : "hembra";
