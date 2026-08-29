@@ -27,6 +27,7 @@ import { precioInmueble } from "../../propiedades/propiedades";
 import { GestorAgentes, VEL_NPC } from "../../mundo/agentes";
 import { tiempoMundo } from "../../mundo/tiempoMundo";
 import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
+import { potenciaDisponibleEnCasillas } from "../../construccion/energia";
 
 const VEL_ANDAR = 3.75;
 const VEL_NADAR = 2.2;
@@ -167,6 +168,11 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     this.onMessage("transporte:contratar", (client, msg: { origenConstruccionId?: number; destinoTenderoteId?: string }) => this.manejarTransporteContratar(client, msg));
     this.onMessage("transporte:cancelar", (client, msg: { contratoId?: number }) => this.manejarTransporteCancelar(client, msg));
     this.onMessage("transporte:estado", (client) => this.manejarTransporteEstado(client));
+
+    // --- red motriz (docs/GDD_Motriz.md) — mismo criterio: disponible en
+    // cualquier room con ContextoConstruccion, no-op si no lo hay.
+    this.onMessage("motriz:accionar", (client, msg: { construccionId?: number; accion?: string; canal?: number }) => this.manejarMotrizAccionar(client, msg));
+    this.onMessage("motriz:consultar", (client, msg: { construccionId?: number }) => this.manejarMotrizConsultar(client, msg));
 
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
   }
@@ -1307,6 +1313,66 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     const nombre = this.nombreDe(client);
     if (!nombre) return;
     client.send("transporte:estado", await this.listadoTransporte(nombre));
+  }
+
+  // ---- Red motriz (docs/GDD_Motriz.md) ----
+  // Sin tabla ni tick nuevos: el BFS de potencia (potenciaDisponibleEnCasillas,
+  // construccion/energia.ts) recorre `ctxConstruccion.ocupacion`, que ya
+  // existe. Lo único mutable aquí es `ConstruccionViva.extra` (frenado/
+  // canalActivo de una palanca) — se persiste solo al accionar, nunca poleado.
+
+  private errorMotriz(client: Client, motivo: string) {
+    client.send("motriz:error", { motivo });
+  }
+
+  /** Frena/desfrena o cambia el canal de una palanca — dueño de la propiedad (parcela) o jarl. */
+  private async manejarMotrizAccionar(client: Client, msg: { construccionId?: number; accion?: string; canal?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorMotriz(client, "pieza inexistente");
+    const dueno = ctx.propiedades.get(viva.propiedad)?.dueno ?? null;
+    if (dueno !== nombre && !esJarl(ctx, nombre)) {
+      return this.errorMotriz(client, "no eres el dueño de esta propiedad");
+    }
+
+    const en = this.entradaDe(viva.objeto)?.energia;
+    const extraActual = (viva.extra ?? {}) as { frenado?: boolean; canalActivo?: number; [k: string]: unknown };
+
+    let nuevoExtra: Record<string, unknown>;
+    if (msg.accion === "frenar" || msg.accion === "desfrenar") {
+      if (!en?.interrumpible) return this.errorMotriz(client, "esta pieza no tiene palanca de freno");
+      nuevoExtra = { ...extraActual, frenado: msg.accion === "frenar" };
+    } else if (msg.accion === "seleccionarCanal") {
+      if (en?.canales === undefined) return this.errorMotriz(client, "esta pieza no tiene palanca de cambios");
+      const canal = Math.floor(msg.canal ?? -1);
+      if (canal < 0 || canal >= en.canales) return this.errorMotriz(client, "canal inválido");
+      nuevoExtra = { ...extraActual, canalActivo: canal };
+    } else {
+      return this.errorMotriz(client, "acción desconocida");
+    }
+
+    const bd = await obtenerBdCompartida();
+    viva.extra = nuevoExtra;
+    await bd.actualizarExtraConstruccion(viva.id, nuevoExtra);
+    this.broadcast("motriz:estado", { construccionId: viva.id, extra: nuevoExtra });
+  }
+
+  /**
+   * Lectura opcional (docs/GDD_Motriz.md §mensajesColyseus): sin sistema de
+   * crafteo aún que consuma `factorVelocidadPorEnergia` de verdad, esto deja
+   * al jugador VER si su red está bien montada — puro round-trip, sin
+   * estado ni coste de fondo, solo al cliente que preguntó.
+   */
+  private async manejarMotrizConsultar(client: Client, msg: { construccionId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorMotriz(client, "pieza inexistente");
+    if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
+    const resultado = potenciaDisponibleEnCasillas(ctx, this.catalogoConstruible, viva.claves);
+    client.send("motriz:respuesta", { construccionId: viva.id, disponible: resultado.disponible, fuentes: resultado.fuentes });
   }
 
   private actualizarMovimiento() {

@@ -738,6 +738,65 @@
     ],
     "_nota": "El mecanismo de moler ocupa la planta alta encima del grano almacenado abajo."
   },
+  "molino_agua": {
+    "riqueza": "modesta",
+    "construible": true,
+    "huellaExterior": [
+      9,
+      10
+    ],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "sala_molino",
+          10
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera",
+      "piedra"
+    ],
+    "energia": {
+      "produce": 100,
+      "fuente": "agua"
+    },
+    "_nota": "docs/GDD_Motriz.md: id NUEVO, no reutiliza 'molino' (ese sigue siendo el POI cosmético que bakea ciudades/) — construible por cualquier jugador con parcela, exige un cauce adyacente a la huella (validarColocacion). Engancha por primera vez la sala_molino ya catalogada."
+  },
+  "molino_viento": {
+    "riqueza": "modesta",
+    "construible": true,
+    "huellaExterior": [
+      6,
+      6
+    ],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          10
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera"
+    ],
+    "energia": {
+      "produce": 80,
+      "fuente": "viento"
+    },
+    "_nota": "docs/GDD_Motriz.md: sin sala especializada de viento — la mecánica vive en el campo energia del edificio, no en su mobiliario. Reusa la sala 'taller' genérica."
+  },
   "panaderia": {
     "riqueza": "modesta",
     "tieneBodega": false,
