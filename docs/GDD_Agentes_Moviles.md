@@ -322,6 +322,149 @@ consola.
 - El "jugar" entre dos animales cercanos (perseguirse) es una acción en
   solitario por ahora, no una interacción real entre dos fauna.
 
+## Reproducción de fauna (v1.4, pedido del streamer 2026-08-30 — fases 1 y 2 hechas)
+
+Pedido: que la fauna SALVAJE del mapa exterior tenga población real y
+persistente (si la matan toda, no vuelve sola) y se reproduzca —
+gestación en días in-game, condiciones de apareamiento, camadas o huevos,
+insectos con población infinita, y más adelante caza de depredadores con
+combate (aparcado, ver abajo). Domésticos: persistencia también, pero con
+una mecánica de cría "más fácil" todavía sin acotar — no tocado en esta
+fase.
+
+**Punto de partida real** (investigado antes de tocar nada): la fauna
+salvaje de `baker/src/decoracion.js` HOY es puramente decorativa — se
+bakea una vez al sector JSON (`t:"a"`) y solo el cliente la instancia
+(`InstancedMesh`). El servidor no tiene ni idea de que existe un lobo en
+tal casilla: sin posición mutable, sin vida, sin id. Es un sistema
+DISTINTO de la fauna doméstica urbana de arriba (`GestorFauna`), que sí
+rastrea individuos pero tick a tick sin hambre/sed y sin persistencia de
+población — no vale para 25.000-40.000 animales salvajes en el mapa
+principal (estimado, no medido: `TECHO_POR_CAPA.fauna` × mapa 3200×3200).
+Simular eso tick a tick reventaría el Render free — hace falta el mismo
+**cálculo perezoso** que ya usan `tiempoMundo()` y las rutinas de NPC:
+nada se recalcula solo, todo se resuelve al vuelo comparando un timestamp
+de "día de mundo" contra el momento en que se consulta un animal.
+
+### Hecho en esta pasada (catálogo + lógica pura, sin BD ni servidor todavía)
+
+- **`baker/catalogo/animales.json`**: +2 campos nuevos por especie
+  reproductora — `tamanoReproduccion` (`"pequeno"|"mediano"|"grande"`,
+  145 de las 187 especies: 59 pequeñas / 55 medianas / 31 grandes) y
+  `poneHuevos` (bool — mamíferos `false`, aves/reptiles/anfibios/peces
+  `true`). 27 insectos/invertebrados pequeños (abejas, cangrejos,
+  medusas, moluscos...) llevan `poblacionInfinita:true` en vez de esto —
+  no gestan, población infinita con tope constante (pedido explícito). 15
+  entradas de cría se dejan sin tocar (no reproducen siendo crías).
+  Además, `criaId` en ambos adultos de las 15 parejas macho/hembra que ya
+  tenían cría con nombre propio (jabalí→jabato, ciervo→cervatillo...) y
+  `criasPorCamada:2` en los 4 roedores (ratón de campo, ratona de campo,
+  ratón de ceniza, jerbo — pedido explícito "ratas ratones etc" con 2 por
+  camada). El resto de especies reproductoras SIN cría catalogada
+  todavía usan un fallback genérico (ver siguiente punto) — el sistema no
+  depende de que las 145 tengan cría con nombre propio.
+- **`server/src/mundo/reproduccionFauna.ts`** (nuevo, módulo PURO — sin
+  Colyseus, sin BD, sin tick propio, para poder testear determinismo):
+  - Gestación por tamaño: pequeño 3 días, mediano 5-8, grande 15-20
+    (cifras del streamer, dejadas como única constante para ajustar si en
+    pruebas se disparan).
+  - `elegibleParaAparearse`: vivo, adulto, no gestando ya, y comió/bebió
+    dentro de 1 día de mundo (pedido: "que hayan comido y bebido antes").
+  - `buscarPareja`: la más cercana de la misma especie y sexo opuesto,
+    elegible, dentro de un radio — aprovecha que ya salen en manada
+    (spawn de fauna del baker, sesión anterior).
+  - `intentarAparearse`: 50% de posibilidades de cuajar (pedido
+    explícito). Mamíferos → la hembra queda GESTANDO (bloqueada hasta el
+    parto). Ovíparos → la hembra queda LIBRE al instante y se devuelve un
+    `Huevo` (objeto en el mundo, con su propio temporizador de eclosión =
+    misma duración de gestación de la especie) — la madre no se bloquea,
+    biológicamente no hace falta.
+  - `resolverParto`: crías con el `criaId` del catálogo si existe, o el
+    MISMO `especieId` del progenitor marcado etapa "cria" si esa especie
+    concreta aún no tiene cría con nombre propio — así el sistema
+    funciona para las 145 especies reproductoras desde ya, no solo las 15
+    con cría catalogada. 1 cría por camada salvo `criasPorCamada`
+    (roedores → 2).
+  - `faltanParaCompletarPoblacion`: los insectos/invertebrados de
+    población infinita no pasan por nada de lo anterior, solo rellenan
+    hasta un tope constante.
+  - Tests: `server/test/reproduccionFauna.test.ts` (17) — cubren cada
+    función más los bordes (no saciado no gasta la tirada de 50%,
+    ovíparo vs. mamífero, roedor con 2 crías, huevo eclosiona justo al
+    cumplirse la duración...).
+
+### Hecho en la fase 2 (persistencia + integración en vivo en el Hub)
+
+- **Persistencia** (`server/src/datos/bd.ts`, SQLite + Postgres, mismo
+  patrón que `tropas_asentamiento`): 3 tablas nuevas —
+  `fauna_salvaje` (un individuo por fila: especie, sexo, etapa,
+  estado vivo/muerto que nunca vuelve a vivo, posición, timestamps de
+  comida/bebida/gestación — todo en "día de mundo" fraccional, nunca un
+  contador que corra solo), `fauna_huevo` (huevo en el mundo de una
+  especie ovípara, con su propio temporizador de eclosión) y
+  `fauna_sector_resuelto` (última vez que se resolvió cada sector, para
+  saber si hay que generar la población base desde el bake o avanzar un
+  hueco de tiempo). Todo indexado y consultado por `(mapaId, sectorX,
+  sectorY)` — nunca se lee/escribe el mapa entero de golpe. 4 tests
+  (`server/test/faunaSalvajeBd.test.ts`).
+- **`server/src/mundo/faunaSalvajeSector.ts`** (nuevo, resuelve UN sector):
+  primera activación = población 1:1 desde lo que ya bakeó
+  `decoracion.js` (mismas posiciones/especies de siempre, densidad
+  intacta); reactivación = avanza el hueco de tiempo transcurrido con
+  **una sola tirada por pareja elegible más cercana** (nunca una por
+  cada día pasado) — así un hueco de 30 días de mundo sin que nadie
+  pasara por ahí cuesta exactamente lo mismo que uno de 1 día, y nunca
+  puede disparar la población por dejar el sector solo mucho tiempo
+  (pedido explícito: "no sea que... de repente tengamos x1000"). 9 tests.
+- **`server/src/mundo/faunaSalvajeViva.ts`** (nuevo, `GestorFaunaSalvaje`):
+  activa/desactiva sectores según se acercan o alejan los jugadores
+  (`actualizarPorJugadores`, radio configurable en sectores) y tickea el
+  merodeo de los activos con el **mismo algoritmo** que la fauna
+  doméstica (`mundo/fauna.ts`, `GestorFauna` — confirmado con el
+  streamer: "por qué no usamos la inteligencia de los domésticos en lo
+  salvaje", pues sí, se reutiliza el bucle de pausa-idle/caminar a un
+  punto al azar), adaptado para poder QUITAR animales del estado y
+  persistir su posición final al desactivarse (cosa que la fauna
+  doméstica nunca necesita, no se quita nunca). Todas las dependencias
+  (leer el bake, leer/guardar BD, "ahora" del reloj de mundo) se
+  inyectan — cero fs/BD reales en el propio módulo — así que se testea
+  entero con datos falsos, sin tocar disco ni base de datos. 10 tests.
+- **`server/src/mundo/catalogoFaunaSalvaje.ts`**: reduce el catálogo
+  completo del baker a lo que necesita el sistema (tamaño/huevos/cría/
+  camada), probado contra el catálogo REAL de 187 especies (2 tests).
+- **`HubRoom.ts`** (el mapa principal — las aldeas/POIs de `RegionRoom`
+  NO tienen fauna salvaje en su bake, solo doméstica): engancha todo
+  esto tras `iniciarConstruccion`, envuelto ENTERO en `try/catch` — si
+  algo falla (mapa sin `tamanoSectorChunks`, BD no disponible...) se
+  registra en consola y el Hub sigue funcionando exactamente igual que
+  antes, sin fauna salvaje viva, en vez de tumbar la room para todos los
+  jugadores. Merodeo tickeado a 5hz (igual que doméstica); activar/
+  desactivar sectores (E/S a BD) va aparte a 1 vez cada 8s, de sobra
+  para notar que un jugador cambió de sector sin recargar BD en cada
+  frame. Verificado con un smoke test manual contra datos reales del
+  mapa demo (sector de verdad parseado, 2 animales reales activados —
+  arrendajo y erizo —, movimiento confirmado tras varios `tick()`).
+- Solo faltan estas piezas para que TODO el catálogo reproductor
+  funcione en vivo: nada — las 145 especies con `tamanoReproduccion`
+  ya pasan por este sistema en cuanto su sector se activa, con o sin
+  cría catalogada (fallback genérico, ver arriba).
+
+### Pendiente (fuera de esta pasada)
+
+- **Caza de depredadores con combate y cadáver**: aparcado a propósito —
+  depende de un sistema de combate (vida/daño/ataque) que no existe en
+  ningún sitio del servidor todavía. No es parte de "reproducción", es un
+  prerrequisito mayor aparte.
+- **Domésticos**: persistencia + mecánica de cría "más fácil" —
+  explícitamente dejada para acotar más adelante, no diseñada todavía.
+- **Probar con jugadores reales moviéndose por el mapa principal de
+  producción** (esto se verificó con datos reales del mapa demo y con
+  dependencias falsas para los caminos de activación/desactivación —
+  falta el follow-up con el mapa `principal` de verdad y el streamer
+  jugando, para confirmar el ritmo de activación/desactivación se siente
+  bien y que no hay sorpresas de rendimiento a la escala real de
+  25-40k animales).
+
 ## Verificado (v1)
 
 - Test de servidor del gestor: recolocación por hora al crear room,
