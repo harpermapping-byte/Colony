@@ -1,12 +1,13 @@
 // Tests de la lógica PURA de vitales (server/src/personaje/vitales.ts,
 // docs/GDD_Personaje.md). Ejecutar: npm test (tsx --test) desde server/.
+// NO cubre "vida" — vive en Player.vida/vidaMax (docs/GDD_Mecanicas.md §5.4,
+// server/src/combate/combate.ts), ver server/test/combate.test.ts.
 import { test } from "node:test";
 import * as assert from "node:assert";
 import { vitalesIniciales, tickVitales, restaurarVital, VITAL_MAX } from "../src/personaje/vitales";
 
 test("vitalesIniciales: un jugador nuevo empieza lleno", () => {
   const v = vitalesIniciales();
-  assert.strictEqual(v.vida, VITAL_MAX);
   assert.strictEqual(v.comida, VITAL_MAX);
   assert.strictEqual(v.bebida, VITAL_MAX);
   assert.strictEqual(v.sueno, VITAL_MAX);
@@ -32,36 +33,10 @@ test("tickVitales: estamina se regenera sola hasta el máximo (nada la gasta tod
   assert.strictEqual(v.estamina, VITAL_MAX);
 });
 
-test("tickVitales: vida NO drena mientras ningún vital básico esté en 0", () => {
+test("tickVitales: horasTranscurridas<=0 no hace nada (sin efectos raros con dt=0)", () => {
   const v = vitalesIniciales();
-  tickVitales(v, 5); // ninguno llega a 0 todavía
-  assert.strictEqual(v.vida, VITAL_MAX);
-});
-
-test("tickVitales: vida drena cuando un vital básico llega a 0, se detiene en el propio 0 de vida", () => {
-  const v = vitalesIniciales();
-  tickVitales(v, 10000); // todos los básicos a 0 de sobra
-  assert.ok(v.vida < VITAL_MAX, "la vida debe haber empezado a drenar");
-  const vidaTrasMucho = v.vida;
-  tickVitales(v, 100000); // muchísimo más — debe clampar en 0, no ir a negativo
-  assert.strictEqual(v.vida, 0);
-  assert.ok(vidaTrasMucho >= 0);
-});
-
-test("tickVitales: tres vitales en 0 a la vez drenan el TRIPLE de vida por hora que uno solo", () => {
-  const soloUno = vitalesIniciales();
-  soloUno.comida = 0;
-  tickVitales(soloUno, 1);
-  const perdidaUno = VITAL_MAX - soloUno.vida;
-
-  const tresACero = vitalesIniciales();
-  tresACero.comida = 0;
-  tresACero.bebida = 0;
-  tresACero.sueno = 0;
-  tickVitales(tresACero, 1);
-  const perdidaTres = VITAL_MAX - tresACero.vida;
-
-  assert.ok(Math.abs(perdidaTres - perdidaUno * 3) < 1e-9, `esperaba ${perdidaUno * 3}, fue ${perdidaTres}`);
+  tickVitales(v, 0);
+  assert.deepStrictEqual(v, vitalesIniciales());
 });
 
 test("restaurarVital: sube el vital indicado sin pasarse del tope", () => {
@@ -71,12 +46,4 @@ test("restaurarVital: sube el vital indicado sin pasarse del tope", () => {
   assert.strictEqual(v.comida, 70);
   restaurarVital(v, "comida", 1000);
   assert.strictEqual(v.comida, VITAL_MAX);
-});
-
-test("restaurarVital: vida respeta vidaMax, no VITAL_MAX, si difieren", () => {
-  const v = vitalesIniciales();
-  v.vida = 10;
-  v.vidaMax = 50; // hipotético vidaMax distinto de VITAL_MAX
-  restaurarVital(v, "vida", 1000);
-  assert.strictEqual(v.vida, 50);
 });

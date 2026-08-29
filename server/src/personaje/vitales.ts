@@ -7,11 +7,19 @@
  * login todavía siendo un nombre libre (sin cuenta real), guardar un reloj
  * de hambre/sed entre reconexiones no aporta nada que no resuelva mejor el
  * login real cuando exista — se revisita entonces.
+ *
+ * NO incluye `vida` — docs/GDD_Mecanicas.md §5.4 (combate.ts) ya fijó
+ * `Player.vida/vidaMax` como la ÚNICA fuente de HP, con una regla explícita
+ * "no negociable sin volver a preguntar al streamer": nadie se cura ni se
+ * hace daño solo con el paso del tiempo, curar/dañar es SIEMPRE un evento
+ * explícito. Un `tickVitales` que drenara vida por hambre violaría esa
+ * regla de raíz (fue un diseño de esta misma pasada que colisionó con
+ * Combate al fusionar — ver docs/GDD_Personaje.md §2 para el detalle). Los
+ * vitales de aquí solo se restauran por acción explícita del jugador
+ * (`personaje:consumir`), igual de "evento, no tick" que `curar()`.
  */
 
 export interface Vitales {
-  vida: number;
-  vidaMax: number;
   comida: number;
   bebida: number;
   sueno: number;
@@ -22,7 +30,7 @@ export const VITAL_MAX = 100;
 
 /** Nuevo jugador: todo lleno — mismo criterio que "nivel 1 = sin XP", empezar sin penalización. */
 export function vitalesIniciales(): Vitales {
-  return { vida: VITAL_MAX, vidaMax: VITAL_MAX, comida: VITAL_MAX, bebida: VITAL_MAX, sueno: VITAL_MAX, estamina: VITAL_MAX };
+  return { comida: VITAL_MAX, bebida: VITAL_MAX, sueno: VITAL_MAX, estamina: VITAL_MAX };
 }
 
 /**
@@ -38,8 +46,6 @@ export const TASA_DECAY_POR_HORA = {
 };
 /** Estamina no decae sola (nada la gasta todavía — sprint/combate sin construir): se regenera pasivamente hasta el máximo. */
 export const TASA_REGEN_ESTAMINA_POR_HORA = VITAL_MAX / 1;
-/** Vida drenada por hora, por CADA vital básico que esté en 0 simultáneamente (se suman) — el límite real con "morir de hambre de verdad" lo cierra el futuro GDD de Muerte/Respawn; aquí solo se clampa en 0, sin más consecuencia todavía. */
-export const TASA_VIDA_POR_VITAL_EN_CERO = 2;
 
 function clamp(v: number, max: number): number {
   return v < 0 ? 0 : v > max ? max : v;
@@ -50,7 +56,9 @@ function clamp(v: number, max: number): number {
  * (muta `v`). Se llama cada tick del loop de movimiento con el delta de ese
  * tick — igual de barato que la separación PJ-PJ que ya corre ahí, sin
  * checkpoint ni timestamp: es un integrador simple, no un recálculo lazy
- * contra un guardado (no hay guardado, ver nota de arriba).
+ * contra un guardado (no hay guardado, ver nota de arriba). Qué pasa cuando
+ * comida/bebida/sueño llegan a 0 (penalización, si la hay) es del futuro
+ * GDD de Muerte/Respawn — aquí solo se clampa en 0, sin más consecuencia.
  */
 export function tickVitales(v: Vitales, horasTranscurridas: number): void {
   if (horasTranscurridas <= 0) return;
@@ -58,15 +66,9 @@ export function tickVitales(v: Vitales, horasTranscurridas: number): void {
   v.bebida = clamp(v.bebida - TASA_DECAY_POR_HORA.bebida * horasTranscurridas, VITAL_MAX);
   v.sueno = clamp(v.sueno - TASA_DECAY_POR_HORA.sueno * horasTranscurridas, VITAL_MAX);
   v.estamina = clamp(v.estamina + TASA_REGEN_ESTAMINA_POR_HORA * horasTranscurridas, VITAL_MAX);
-
-  const vitalesEnCero = (v.comida <= 0 ? 1 : 0) + (v.bebida <= 0 ? 1 : 0) + (v.sueno <= 0 ? 1 : 0);
-  if (vitalesEnCero > 0) {
-    v.vida = clamp(v.vida - TASA_VIDA_POR_VITAL_EN_CERO * vitalesEnCero * horasTranscurridas, v.vidaMax);
-  }
 }
 
-/** Restaura un vital concreto (comer/beber) hasta su tope — usado por `personaje:consumir`. */
-export function restaurarVital(v: Vitales, vital: "comida" | "bebida" | "sueno" | "estamina" | "vida", cantidad: number): void {
-  const tope = vital === "vida" ? v.vidaMax : VITAL_MAX;
-  v[vital] = clamp(v[vital] + cantidad, tope);
+/** Restaura un vital concreto (comer/beber) hasta el tope — usado por `personaje:consumir`. Curar `vida` NO pasa por aquí (ver combate.ts:curar sobre Player directamente). */
+export function restaurarVital(v: Vitales, vital: "comida" | "bebida" | "sueno" | "estamina", cantidad: number): void {
+  v[vital] = clamp(v[vital] + cantidad, VITAL_MAX);
 }

@@ -33,12 +33,13 @@ export class InventarioSchema extends Schema {
 }
 
 // Vitales (docs/GDD_Personaje.md) — comida/bebida/sueño decaen en horas
-// REALES, vida drena si alguno llega a 0, estamina se regenera sola (nada
-// la gasta todavía). Sin persistencia entre sesiones, mismo criterio ya
-// aceptado para el inventario ("vive y muere con la sesión").
+// REALES, estamina se regenera sola (nada la gasta todavía). SIN vida aquí
+// a propósito: docs/GDD_Mecanicas.md §5.4 ya fijó Player.vida/vidaMax como
+// la única fuente de HP ("nadie se cura solo con el tiempo", no negociable)
+// — duplicarla aquí con un drenaje por tick la violaría de raíz. Sin
+// persistencia entre sesiones, mismo criterio ya aceptado para el
+// inventario ("vive y muere con la sesión").
 export class VitalesSchema extends Schema {
-  @type("number") vida = 100;
-  @type("number") vidaMax = 100;
   @type("number") comida = 100;
   @type("number") bebida = 100;
   @type("number") sueno = 100;

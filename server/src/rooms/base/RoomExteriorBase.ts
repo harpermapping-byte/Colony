@@ -31,6 +31,7 @@ import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../c
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
 import { tickVitales, restaurarVital } from "../../personaje/vitales";
 import { Atributo } from "../../personaje/atributos";
+import { curar } from "../../combate/combate";
 
 const VEL_ANDAR = 3.75;
 const VEL_NADAR = 2.2;
@@ -362,8 +363,21 @@ export abstract class RoomExteriorBase extends Room<HubState> {
     if (!resultado.ok) return client.send("personaje:error", { motivo: resultado.motivo ?? "no_encontrado" });
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
-    restaurarVital(player.vitales, entrada.restaura.vital, entrada.restaura.cantidad);
-    client.send("personaje:consumido", { itemId: it.itemId, vital: entrada.restaura.vital, valor: player.vitales[entrada.restaura.vital] });
+    // "vida" NO vive en player.vitales (docs/GDD_Mecanicas.md §5.4:
+    // Player.vida/vidaMax es la única fuente de HP) — se cura con la MISMA
+    // función pura que usa combate.ts, aquí disparada por una acción
+    // explícita del jugador (consumir), no por un tick: respeta la regla
+    // "nadie se cura solo con el tiempo" tal cual, curar sigue siendo evento.
+    let valor: number;
+    if (entrada.restaura.vital === "vida") {
+      const curado = curar({ vida: player.vida, vidaMax: player.vidaMax, ataque: player.ataque, defensa: player.defensa }, entrada.restaura.cantidad);
+      player.vida = curado.vida;
+      valor = player.vida;
+    } else {
+      restaurarVital(player.vitales, entrada.restaura.vital, entrada.restaura.cantidad);
+      valor = player.vitales[entrada.restaura.vital];
+    }
+    client.send("personaje:consumido", { itemId: it.itemId, vital: entrada.restaura.vital, valor });
   }
 
   /**
