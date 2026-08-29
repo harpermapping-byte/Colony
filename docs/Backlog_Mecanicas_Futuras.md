@@ -173,6 +173,8 @@ Ya está decidido que cuando el streamer está en directo, eventos de Twitch (su
 
 Ya está decidido que hay una ciudad neutral y una ciudad enemiga en el mapa. Falta diseñar reputación, conflicto entre ambas, y si el jugador puede elegir bando o interactuar con la facción enemiga de alguna forma.
 
+**Nota 2026-08-29**: la parte de "aldea/castillo bandido con economía viva + líder IA + conquista al matar a la última tropa" YA está diseñada y en buena parte construida — ver `docs/GDD_Faccion_Bandidos.md`. Lo que falta y sigue en este backlog es el paso ANTES de poder atacar: **asedio** (la entrada está bloqueada hasta romperla con máquinas de asedio construidas por el jarl en un Taller de Máquinas de Asedio, en la ciudad capital del jugador) — diseño reconciliado en `GDD_Faccion_Bandidos.md` §8, bloqueado de raíz por tres piezas que aún no existen: el generador de la ciudad capital (reglas nuevas, pendiente), construcción/parcelas habilitado fuera del Hub, y el sistema de combate.
+
 ## Ideas propias para profundidad/diversión del MMO (propuestas, no decisiones)
 
 Ya no son mecánicas de personaje sueltas, sino cosas a nivel de servidor/comunidad que dan una razón para quedarse jugando — pensadas para enganchar con lo que ya está decidido (Modo Live, NPCs Gobernadores, facciones, construcción):
