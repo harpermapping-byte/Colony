@@ -44,7 +44,9 @@ Tres tamaños, mismo criterio que las macetas de agricultura — más capacidad 
 
 ### 3.1 Llenar de agua y esperar a que hierva (`cocina:llenarAgua`)
 
-Confirmado por el streamer (2026-08-30): "para hacer guisos y sopas necesitas llenar la olla de agua y ponerla al fuego hasta que se caliente, un tiempo determinado". `cocina:llenarAgua {construccionId}` — agua "libre" (no consume ningún ítem del inventario, mismo criterio que el agua de la pesca) — marca la vasija `conAgua:true` y arranca el cronómetro (`calentandoDesde`). El hervor se **deriva** de ese timestamp, nunca se guarda un booleano aparte (mismo patrón perezoso que agua/fertilizante de agricultura): `estaHirviendo = conAgua && (ahora - calentandoDesde) >= TIEMPO_HERVIR_MS` (20 segundos REALES, no días de mundo — esto es un fogón encendido ahora mismo, `cocina/cocina.ts::TIEMPO_HERVIR_MS`).
+Confirmado por el streamer (2026-08-30): "para hacer guisos y sopas necesitas llenar la olla de agua y ponerla al fuego hasta que se caliente, un tiempo determinado". `cocina:llenarAgua {construccionId}` — marca la vasija `conAgua:true` y arranca el cronómetro (`calentandoDesde`). El hervor se **deriva** de ese timestamp, nunca se guarda un booleano aparte (mismo patrón perezoso que agua/fertilizante de agricultura): `estaHirviendo = conAgua && (ahora - calentandoDesde) >= TIEMPO_HERVIR_MS` (20 segundos REALES, no días de mundo — esto es un fogón encendido ahora mismo, `cocina/cocina.ts::TIEMPO_HERVIR_MS`).
+
+**Cambio de contrato (pedido 2026-08-30, `docs/GDD_Inventario.md` §9):** el agua dejó de ser "libre". El streamer: *"para cocinar necesitas un ingrediente que sea agua, en este caso necesitarás meter un cubo con agua a la olla como ingrediente"*. `cocina:llenarAgua` ahora exige `{construccionId, instanciaId}` — `instanciaId` es un recipiente PROPIO (cantimplora/`cubo_madera`, llenado antes con `recipiente:llenar` junto al agua) que debe tener agua encima; se vacía ENTERO como ingrediente (todo-o-nada, no volumen parcial) y el resto del flujo (`conAgua`, cronómetro, `estaHirviendo`) sigue exactamente igual que antes. Sin recipiente con agua a mano, error "necesitas un recipiente (cantimplora/cubo) con agua para meter en la olla".
 
 `cocina:anadir` ahora EXIGE `estaHirviendo` — error "primero llena la vasija de agua y ponla al fuego" si nunca se llenó, "el agua todavía no ha hervido" si está en ello. `cocina:preparar` vacía la vasija Y apaga el fuego (`conAgua` vuelve a `false`) — hay que volver a llenar y esperar para la siguiente tanda, no queda "precalentada" entre platos.
 
@@ -72,7 +74,7 @@ El sistema de consumo ya existente (`personaje:consumir`) solo sabía subir UN v
 
 ## 7. Decisiones a confirmar con el streamer
 
-- **✅ Confirmado (2026-08-30): "sí, para hacer guisos y sopas necesitas llenar la olla de agua y ponerla al fuego hasta que se caliente"** — implementado tal cual (§3.1): `cocina:llenarAgua` + 20s reales de hervor antes de poder añadir ingredientes. El agua es "libre" (no gasta ningún ítem) — a confirmar si eso debería costar algo (un cubo, cerca de una fuente de agua) o queda gratis como está.
+- **✅ Confirmado (2026-08-30): "sí, para hacer guisos y sopas necesitas llenar la olla de agua y ponerla al fuego hasta que se caliente"** — implementado tal cual (§3.1): `cocina:llenarAgua` + 20s reales de hervor antes de poder añadir ingredientes. ~~El agua es "libre"~~ **resuelto (2026-08-30, ver §3.1): ya cuesta un recipiente con agua** (cantimplora/`cubo_madera`, `docs/GDD_Inventario.md` §9) — deja de ser gratis.
 - La calidad del plato depende del TIPO de ingrediente, no de la cantidad de cada uno (§4) — decisión de diseño para que "misma receta = mismo plato" tenga sentido con identidad cacheada.
 - Sin caducidad ni deterioro de los platos cocinados — se comportan como cualquier otro consumible del inventario.
 - Los 20 segundos de hervor (`TIEMPO_HERVIR_MS`) son un valor de partida — fácil de ajustar en `cocina/cocina.ts` sin tocar el resto.
@@ -172,3 +174,10 @@ Pedido explícito: "leche + algún ingrediente en un recipiente específico, al 
 - **Cliente**: el panel de cocina (`panelCocina.ts`) sigue siendo el mismo PLACEHOLDER de testeo de v1 (inputs numéricos con el id del ítem a mano) — se generalizó lo mínimo para no mostrar mal las vasijas nuevas (título genérico, salta el paso de agua si `hierveAgua:false`), pero NO tiene botones/UI dedicada para ensalada, bocadillo, cortar pan ni la quesera — esos verbos están completos y probados en servidor, sin interfaz de cliente todavía. Mismo criterio que el resto del proyecto: toda la UI de este juego es placeholder a día de hoy.
 - Sin distinción de tipo de leche por especie (vaca/cabra/oveja) — sigue siendo un único ítem genérico `leche`, mismo criterio que ya tenía Ganadería antes de esta pasada.
 - `recipiente_queso` es un mueble único en el catálogo (sin variantes de capacidad tipo cuenco/cazuela/olla) — si hiciera falta una versión grande, se añade después, mismo patrón de catálogo.
+
+## 17. Ampliación 2026-08-30: fallback al suelo y desgaste de `cuchillo_cocina`
+
+Ver `docs/GDD_Crafteo.md` (sección de la misma ampliación) para el detalle técnico — se aplicó a la vez a los dos sistemas por ser el mismo mecanismo:
+
+- **`cocina:preparar`, ensalada y bocadillo** ya no dan error "no tienes hueco" perdiendo el plato ya cocinado — usan `entregarOSoltar` (`RoomExteriorBase.ts`), que lo deja en el suelo a los pies del jugador si la mochila no tiene hueco o peso. `cocina:preparado` manda `enSuelo:boolean`.
+- **`cuchillo_cocina`** (exigido para ensalada y cortar pan) ahora tiene `durabilidadMax:40, desgastePorUso:1` en `items.json` y pierde durabilidad real con cada corte — antes solo se comprobaba que estuviera en el inventario, nunca se desgastaba. Un cuchillo roto bloquea la acción.

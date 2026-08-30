@@ -8,6 +8,7 @@ import { pielDeDesollado, rellenarLootCaza } from "../../mundo/lootCaza";
 import { estaEncerrado, tiroEscape } from "../../mundo/ganaderia";
 import { cargarCatalogoReproduccionGranja, resolverReproduccionPropiedad } from "../../mundo/reproduccionGranja";
 import { NPC_TENDERO_VENTA, NPC_TENDERO_COMPRA, REPOSICION_STOCK_NPC } from "../../mercado/catalogoNpcComercio";
+import { esRecipienteLiquido, llenar, vaciar, tieneLiquido, consumirVolumen } from "../../inventario/liquidos";
 import { diaFraccional } from "../../mundo/reproduccionFauna";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
@@ -36,6 +37,9 @@ import {
   excedePesoMaximo,
   moverItem,
   buscarHueco,
+  buscarInstanciaJugador,
+  contenedorDe,
+  Rotacion,
   SlotsEquipo,
   InventarioJugador,
   equiparItem,
@@ -159,6 +163,12 @@ export const PA_MAX_COMBATE = 6;
 const COSTE_PA_ATAQUE = 2;
 /** Coste fijo de usar un objeto (personaje:consumir) en el turno propio — mismo criterio que un golpe. */
 const COSTE_PA_OBJETO = 2;
+// Líquidos portables (docs/GDD_Inventario.md §9, pedido 2026-08-30) — un
+// "trago" de recipiente:beber, y cuánta sed quita a razón completa
+// (proporcional si el recipiente tenía menos que un trago entero). Valor de
+// arranque, igual de ajustable que el resto de números de balance del proyecto.
+const VOLUMEN_TRAGO_ML = 250;
+const BEBIDA_POR_TRAGO = 15;
 const LADO_ARENA_NORMAL = 8;
 const LADO_ARENA_BOSS = 10;
 const TOPE_RONDAS_CASCADA_IA = 60; // guarda-raíl: nunca debe hacer falta, pero evita un bucle infinito si algo queda mal configurado
@@ -570,6 +580,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("equipo:equipar", (client, msg: { instanciaId?: number; slot?: string }) => this.manejarEquiparItem(client, msg));
     this.onMessage("equipo:desequipar", (client, msg: { slot?: string }) => this.manejarDesequiparItem(client, msg));
     this.onMessage("personaje:consumir", (client, msg: { instanciaId?: number }) => this.manejarPersonajeConsumir(client, msg));
+    // Grid drag&drop (docs/GDD_Inventario.md §10, pedido 2026-08-30): mover una
+    // instancia dentro de un contenedor propio o entre dos (cuerpo <-> mochila
+    // puesta) — un único mensaje para ambos casos, igual que moverItem.
+    this.onMessage("inventario:mover", (client, msg: { instanciaId?: number; contenedorDestino?: string; x?: number; y?: number; rot?: number }) => this.manejarInventarioMover(client, msg));
     // Desempaquetar una "bolsa de N" (docs/GDD_Agricultura.md, pedido
     // 2026-08-30: "compras bolsa en tienda de 10 unidades, al abrir bolsa
     // salen 10u") — genérico, reusable para cualquier futuro paquete, no
@@ -673,7 +687,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // en un plato — cuenco/cazuela/olla/cuenco_barro_grande/olla_grande/
     // tinaja_batidos, todas por el mismo protocolo genérico).
     this.onMessage("cocina:simple", (client, msg: { construccionId?: number; instanciaId?: number }) => this.manejarCocinaSimple(client, msg));
-    this.onMessage("cocina:llenarAgua", (client, msg: { construccionId?: number }) => this.manejarCocinaLlenarAgua(client, msg));
+    this.onMessage("cocina:llenarAgua", (client, msg: { construccionId?: number; instanciaId?: number }) => this.manejarCocinaLlenarAgua(client, msg));
+    // --- líquidos portables (docs/GDD_Inventario.md §9, pedido 2026-08-30) ---
+    this.onMessage("recipiente:llenar", (client, msg: { instanciaId?: number }) => this.manejarRecipienteLlenar(client, msg));
+    this.onMessage("recipiente:beber", (client, msg: { instanciaId?: number }) => this.manejarRecipienteBeber(client, msg));
     this.onMessage("cocina:anadir", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarCocinaAnadir(client, msg));
     this.onMessage("cocina:preparar", (client, msg: { construccionId?: number }) => this.manejarCocinaPreparar(client, msg));
     this.onMessage("cocina:consultar", (client, msg: { construccionId?: number }) => this.manejarCocinaConsultar(client, msg));
@@ -1194,6 +1211,38 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
+   * Grid drag&drop (docs/GDD_Inventario.md §10, pedido 2026-08-30): mover una
+   * instancia propia a una celda (x,y,rot) concreta — dentro del MISMO
+   * contenedor (reordenar/rotar) o de uno a otro de los que el jugador lleva
+   * encima (cuerpo <-> mochila/bolsa/bandolera puesta). Server-authoritative
+   * de punta a punta: el cliente solo arrastra y pide, `moverItem` (puro, ya
+   * probado) decide si cabe — "todo o nada", nunca deja el origen a medias
+   * si el destino no tiene hueco. `contenedorDestino` ausente = mismo
+   * contenedor donde ya estaba (reordenar sin tener que saber en cuál está).
+   */
+  private manejarInventarioMover(client: Client, msg: { instanciaId?: number; contenedorDestino?: string; x?: number; y?: number; rot?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!player || !inv) return;
+    if (typeof msg?.instanciaId !== "number" || typeof msg?.x !== "number" || typeof msg?.y !== "number") return;
+    const rot: Rotacion = msg.rot === 1 ? 1 : 0;
+
+    const encontrado = buscarInstanciaJugador(inv, msg.instanciaId);
+    if (!encontrado) return client.send("inventario:error", { motivo: "no_encontrado" });
+
+    const claveDestino = msg.contenedorDestino ?? encontrado.contenedorId;
+    const destino = contenedorDe(inv, claveDestino);
+    if (!destino) return client.send("inventario:error", { motivo: "contenedor_destino_invalido" });
+
+    const resultado = moverItem(encontrado.contenedor, destino, this.catalogoItems, msg.instanciaId, msg.x, msg.y, rot);
+    if (!resultado.ok) return client.send("inventario:error", { motivo: resultado.motivo ?? "sin_hueco" });
+
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    sincronizarEquipo(player.inventario, inv.equipo, inv.extras);
+    this.persistirInventarioPorSesion(client);
+  }
+
+  /**
    * Consumir un ítem del cuerpo (docs/GDD_Personaje.md) — solo tipo
    * "consumible" con `restaura` en el catálogo; sin `restaura` = consumible
    * de contenido futuro, se rechaza en vez de desaparecer sin efecto.
@@ -1448,6 +1497,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
       return client.send("cadaver:error", { motivo: "necesitas un cuchillo de desollar" });
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_desollar");
+    if (!herramienta.ok) return client.send("cadaver:error", { motivo: herramienta.motivo });
     const cadaverId = msg.cadaverId ?? "";
     const cadaver = this.cadaveresPuros.get(cadaverId);
     if (!cadaver || !this.state.cadaveres.has(cadaverId)) {
@@ -1495,6 +1546,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
       return client.send("piel:error", { motivo: "necesitas un cuchillo de desollar" });
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_desollar");
+    if (!herramienta.ok) return client.send("piel:error", { motivo: herramienta.motivo });
     const it = contenedor.items.find((i) => i.id === msg.instanciaId);
     if (!it || it.itemId !== "piel_salada") return client.send("piel:error", { motivo: "eso no es una piel salada" });
     const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
@@ -4022,14 +4075,56 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("cocina:cocinado", { itemId: cocinadoId });
   }
 
+  private errorRecipiente(client: Client, motivo: string) {
+    client.send("recipiente:error", { motivo });
+  }
+
+  /**
+   * Llena un recipiente portable (cantimplora/cubo_madera) desde la fuente
+   * de agua más cercana — reusa `casillaAguaCercana`, mismo criterio que
+   * barcos/pesca. docs/GDD_Inventario.md §9, pedido 2026-08-30.
+   */
+  private manejarRecipienteLlenar(client: Client, msg: { instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!player || !contenedor || typeof msg?.instanciaId !== "number") return;
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return this.errorRecipiente(client, "no tienes ese objeto");
+    const entrada = this.catalogoItems[it.itemId];
+    if (!entrada || !esRecipienteLiquido(entrada)) return this.errorRecipiente(client, "eso no es un recipiente de líquido");
+    if (!casillaAguaCercana(this.mundo, player.x, player.y, RADIO_INTERACCION)) {
+      return this.errorRecipiente(client, "necesitas estar junto al agua");
+    }
+    llenar(it, entrada, "agua");
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("recipiente:llenado", { instanciaId: it.id, tipo: "agua", volumenMl: it.liquido!.volumenMl });
+  }
+
+  /** Bebe un trago de un recipiente con agua — restaura sed, mismo `aplicarUnVital` que cualquier consumible. docs/GDD_Inventario.md §9. */
+  private manejarRecipienteBeber(client: Client, msg: { instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!player || !contenedor || typeof msg?.instanciaId !== "number") return;
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it || !tieneLiquido(it, "agua")) return this.errorRecipiente(client, "ese recipiente no tiene agua");
+
+    const bebido = consumirVolumen(it, VOLUMEN_TRAGO_ML);
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    const bebida = this.aplicarUnVital(player, "bebida", Math.round((bebido / VOLUMEN_TRAGO_ML) * BEBIDA_POR_TRAGO));
+    client.send("recipiente:bebido", { instanciaId: it.id, volumenMl: bebido, bebida });
+  }
+
   /**
    * Llena la vasija de agua y la pone al fuego — pedido explícito
    * (2026-08-30): "para hacer guisos y sopas necesitas llenar la olla de
    * agua y ponerla al fuego hasta que se caliente, un tiempo determinado".
-   * Agua "libre" (no consume ningún ítem, como en la pesca) — arranca el
+   * AMPLIACIÓN 2026-08-30: ya NO es agua libre — hay que meter un recipiente
+   * (cantimplora/cubo) CON agua como si fuera un ingrediente más; se vacía
+   * entero en la olla (docs/GDD_Inventario.md §9, pedido literal: "meter un
+   * cubo con agua a la olla como ingrediente si pide agua"). Arranca el
    * cronómetro de hervor; `cocina:anadir` la exige ya hirviendo.
    */
-  private async manejarCocinaLlenarAgua(client: Client, msg: { construccionId?: number }) {
+  private async manejarCocinaLlenarAgua(client: Client, msg: { construccionId?: number; instanciaId?: number }) {
     const ctx = this.ctxConstruccion;
     if (!ctx || typeof msg?.construccionId !== "number") return;
     const viva = ctx.vivas.get(msg.construccionId);
@@ -4038,6 +4133,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (entrada.cocina.hierveAgua === false) return this.errorCocina(client, "esta vasija no necesita agua ni fuego, se usa directamente");
     const estado = this.extraCocinaDe(viva);
     if (estado.conAgua) return this.errorCocina(client, "esta vasija ya tiene agua puesta");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const it = typeof msg?.instanciaId === "number" ? contenedor?.items.find((i) => i.id === msg.instanciaId) : undefined;
+    if (!contenedor || !it || !tieneLiquido(it, "agua")) {
+      return this.errorCocina(client, "necesitas un recipiente (cantimplora/cubo) con agua para meter en la olla");
+    }
+    vaciar(it);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
     const nuevoEstado: EstadoCocina = { ...estado, conAgua: true, calentandoDesde: Date.now() };
     const bd = await obtenerBdCompartida();
@@ -4134,18 +4238,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       this.registrarPlatoEnCatalogo(plato);
     }
 
-    const contenedor = this.inventarios.get(client.sessionId);
-    if (!contenedor) return;
-    const cogido = agregarItem(contenedor, this.catalogoItems, plato.itemId, resultado.platos);
-    if (!cogido.ok) return this.errorCocina(client, "no tienes hueco para los platos");
-
     const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (!player) return;
+    const entrega = this.entregarOSoltar(client, player, plato.itemId, resultado.platos);
 
     const nuevoEstado: EstadoCocina = { ingredientes: [] };
     viva.extra = { ...(viva.extra ?? {}), cocina: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
-    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: resultado.platos, mezclaBonus: resultado.mezclaBonus });
+    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: resultado.platos, mezclaBonus: resultado.mezclaBonus, enSuelo: !entrega.enInventario });
   }
 
   /** Contenido actual de la vasija — sin mutar nada, solo consulta (mismo criterio que motriz:consultar/cultivo:consultar). */
@@ -4206,14 +4306,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return false;
-    const cogido = agregarItem(contenedor, this.catalogoItems, plato.itemId, cantidadEntregar);
-    if (!cogido.ok) {
-      this.errorCocina(client, "no tienes hueco para el resultado");
-      return false;
-    }
     const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
-    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: cantidadEntregar, mezclaBonus: resultado.mezclaBonus });
+    if (!player) return false;
+    const entrega = this.entregarOSoltar(client, player, plato.itemId, cantidadEntregar);
+    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: cantidadEntregar, mezclaBonus: resultado.mezclaBonus, enSuelo: !entrega.enInventario });
     return true;
   }
 
@@ -4234,6 +4330,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_cocina")) {
       return this.errorCocina(client, "necesitas un cuchillo_cocina para cortar la ensalada");
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_cocina");
+    if (!herramienta.ok) return this.errorCocina(client, herramienta.motivo);
 
     const picks: { instanciaId: number; itemId: string; cantidad: number }[] = [];
     const totalesPorItem = new Map<string, number>();
@@ -4314,6 +4412,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_cocina")) {
       return this.errorCocina(client, "necesitas un cuchillo_cocina");
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_cocina");
+    if (!herramienta.ok) return this.errorCocina(client, herramienta.motivo);
     const item = typeof msg?.instanciaId === "number" ? contenedor.items.find((it) => it.id === msg.instanciaId) : undefined;
     if (!item || item.itemId !== "pan") return this.errorCocina(client, "eso no es pan");
 
@@ -4847,26 +4947,62 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
-    const jugadorParaPeso = this.state.players.get(client.sessionId);
-    const pesoMaximo = pesoMaximoTransportable(jugadorParaPeso?.atributos.fuerza ?? 1);
-    if (excedePesoMaximo(contenedor, this.catalogoItems, receta.resultado.itemId, receta.resultado.cantidad, pesoMaximo)) {
-      return this.errorCrafteo(client, "demasiado peso para cargar el resultado — descarga algo primero");
-    }
-    const resultado = intentarCoger(contenedor, this.catalogoItems, { itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad });
-    if (!resultado.ok) return this.errorCrafteo(client, "no tienes hueco en tu inventario");
-
     const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (!player) return;
+    const entrega = this.entregarOSoltar(client, player, receta.resultado.itemId, receta.resultado.cantidad);
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const nuevaXp = await bd.sumarXpOficio(jugador.id, receta.oficio, XP_POR_CRAFTEO);
     // Inteligencia (docs/GDD_Personaje.md): completar un crafteo entrena tanto el oficio como el atributo general.
-    if (player) await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
+    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
     client.send("crafteo:completado", {
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad,
-      oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
+      oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
     });
+  }
+
+  /**
+   * Entrega un ítem al inventario del jugador; si no cabe (hueco O peso),
+   * lo suelta a sus pies en vez de perderse — mismo mecanismo que "soltar"
+   * manual (`ObjetoMundoSchema`/`objetosMundo`). docs/GDD_Crafteo.md,
+   * pedido 2026-08-30: "si no caben, que caigan al suelo" — antes crafteo/
+   * cocina simplemente daban error y el jugador se quedaba sin el material
+   * ya gastado en el crafteo.
+   */
+  private entregarOSoltar(client: Client, player: Player, itemId: string, cantidad: number): { enInventario: boolean } {
+    const contenedor = this.inventarios.get(client.sessionId);
+    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo);
+    const resultado = contenedor && cabePeso ? intentarCoger(contenedor, this.catalogoItems, { itemId, cantidad }) : { ok: false as const };
+    if (resultado.ok) {
+      sincronizarContenedor(player.inventario.cuerpo, contenedor!);
+      return { enInventario: true };
+    }
+    const o = new ObjetoMundoSchema();
+    o.x = Math.floor(player.x) + 0.5;
+    o.y = Math.floor(player.y) + 0.5;
+    o.itemId = itemId;
+    o.cantidad = cantidad;
+    this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o);
+    return { enInventario: false };
+  }
+
+  /**
+   * Registra un uso de una herramienta "de gate" (cuchillo_desollar,
+   * cuchillo_cocina...) — items validados hoy solo por tenencia, nunca
+   * por durabilidad. Llamar SIEMPRE justo después del `.some(itemId===...)`
+   * que ya exige tenerla, así la instancia real existe seguro. Si está
+   * rota, bloquea la acción (nunca se repara sola). docs/GDD_Crafteo.md,
+   * pedido 2026-08-30: "desgaste en herramientas de crafteo/cocina".
+   */
+  private usarHerramientaDeGate(contenedor: Contenedor, itemId: string): { ok: true } | { ok: false; motivo: string } {
+    const it = contenedor.items.find((i) => i.itemId === itemId);
+    const entrada = this.catalogoItems[itemId];
+    if (!it || !entrada) return { ok: true }; // no debería pasar (tenencia ya comprobada) — no bloquea por si acaso
+    if (estaRoto(it, entrada)) return { ok: false, motivo: `tu ${itemId.replace(/_/g, " ")} está roto — necesitas otro` };
+    registrarUso(it, entrada, Date.now());
+    return { ok: true };
   }
 
   // ---- Encurtido de pieles (docs/GDD_Caza.md, cubo_sal/barril_curtido) ----
@@ -5345,6 +5481,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
       return this.errorAnimal(client, "necesitas un cuchillo de desollar");
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_desollar");
+    if (!herramienta.ok) return this.errorAnimal(client, herramienta.motivo);
     const especie = this.estadisticasFaunaDe(fila.especieId);
     if (!especie) return this.errorAnimal(client, "no se puede sacrificar esto");
 

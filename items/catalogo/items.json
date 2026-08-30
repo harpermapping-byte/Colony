@@ -982,7 +982,9 @@
     "apilable": false,
     "variantes": 2,
     "colorDebug": "#a0a0a8",
-    "_nota": "Herramienta de docs/GDD_Caza.md — sin ella (equipada o en el inventario) no se puede desollar un cadáver ni raspar una piel salada, además de tener el oficio curtidor/peletero (Player.oficio). También sirve para animal:sacrificar (docs/GDD_Ganaderia.md), sin exigir oficio para ese verbo."
+    "durabilidadMax": 40,
+    "desgastePorUso": 1,
+    "_nota": "Herramienta de docs/GDD_Caza.md — sin ella (equipada o en el inventario) no se puede desollar un cadáver ni raspar una piel salada, además de tener el oficio curtidor/peletero (Player.oficio). También sirve para animal:sacrificar (docs/GDD_Ganaderia.md), sin exigir oficio para ese verbo. Se desgasta 1 punto por uso (docs/GDD_Crafteo.md, pedido 2026-08-30)."
   },
   "cubo_ordeno": {
     "tipo": "herramienta",
@@ -1009,19 +1011,6 @@
     "variantes": 2,
     "colorDebug": "#8a8a90",
     "_nota": "Herramienta de docs/GDD_Ganaderia.md — sin ella (equipada o en el inventario) no se puede esquilar (animal:recolectarProducto, producto \"lana\"), además de tener el oficio ganadero (Player.oficio)."
-  },
-  "cuchillo_desollar": {
-    "tipo": "herramienta",
-    "slotEquipo": "manoPrincipal",
-    "huella": [
-      1,
-      1
-    ],
-    "peso": 0.4,
-    "apilable": false,
-    "variantes": 2,
-    "colorDebug": "#a0a0a8",
-    "_nota": "Herramienta de docs/GDD_Caza.md — sin ella (equipada o en el inventario) no se puede desollar un cadáver ni raspar una piel salada, además de tener el oficio curtidor/peletero (Player.oficio)."
   },
   "antorcha_portatil": {
     "tipo": "herramienta",
@@ -1139,6 +1128,32 @@
     "variantes": 1,
     "colorDebug": "#a89878"
   },
+  "cantimplora": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a9aa0",
+    "volumenMaxMl": 500,
+    "_nota": "Recipiente de líquido portable (docs/GDD_Inventario.md §9, pedido 2026-08-30) — pequeño, para llevar agua encima y beber. Se llena con recipiente:llenar junto a una fuente de agua, se bebe con recipiente:beber."
+  },
+  "cubo_madera": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#7a5a3a",
+    "volumenMaxMl": 2000,
+    "_nota": "Recipiente de líquido portable, grande (docs/GDD_Inventario.md §9) — cuatro veces la cantimplora. Es el que se mete en la olla como ingrediente de agua (cocina:llenarAgua ahora exige uno lleno, ya no es gratis)."
+  },
   "cuchillo_cocina": {
     "tipo": "objeto",
     "huella": [
@@ -1148,7 +1163,10 @@
     "peso": 0.2,
     "apilable": false,
     "variantes": 1,
-    "colorDebug": "#c0c0c8"
+    "colorDebug": "#c0c0c8",
+    "durabilidadMax": 40,
+    "desgastePorUso": 1,
+    "_nota": "Herramienta de docs/GDD_Cocina.md — sin ella no se puede cortar ensalada/pan. Se desgasta 1 punto por uso (docs/GDD_Crafteo.md, pedido 2026-08-30)."
   },
   "olla": {
     "tipo": "objeto",

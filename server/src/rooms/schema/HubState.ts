@@ -14,6 +14,13 @@ export class ItemInstanciaSchema extends Schema {
   @type("number") x = 0;
   @type("number") y = 0;
   @type("int8") rot: 0 | 1 = 0; // 0 o 1 (90°) — rejilla cuadrada, 180/270 no aportan nada nuevo
+  // Líquidos (docs/GDD_Inventario.md §9, pedido 2026-08-30) — "" = recipiente
+  // vacío o ni siquiera es un recipiente (mismo criterio que durabilidad: el
+  // catálogo decide si el campo aplica). Sin Schema anidado para no complicar
+  // el diff de red por un campo tan pequeño.
+  @type("string") liquidoTipo = "";
+  @type("number") liquidoVolumenMl = 0;
+  @type("boolean") liquidoContaminada = false;
 }
 
 export class ContenedorSchema extends Schema {
