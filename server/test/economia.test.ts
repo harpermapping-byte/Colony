@@ -166,3 +166,100 @@ test("resolverIngresoDiarioNpc: tras acreditar, el mismo día no vuelve a dar de
   assert.strictEqual(r.saldo, SALDO_INICIAL_NPC_COMERCIANTE + 2 * INGRESO_DIARIO_NPC);
   await bd.cerrar();
 });
+
+// Impuesto del jarl (docs/GDD_Economia.md §6, pedido 2026-08-30: "es una
+// decisión que toma el jarl, puede ponerlo o no y poner qué cantidad y cada
+// cuánto tiempo") — activar/desactivar por propiedad, y cobro perezoso
+// (mismo patrón que resolverIngresoDiarioNpc: se resuelve dentro de
+// obtenerPropiedad, nunca en un tick).
+
+test("configurarImpuestoPropiedad: activar fija cantidad/periodo y arranca el reloj en AHORA", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.obtenerOCrearJugador("Bjorn");
+  await bd.asignarPropiedad("p_imp_01", "parcela", "ciudad", "Bjorn");
+  await bd.configurarImpuestoPropiedad("p_imp_01", true, 5, 24);
+  const prop = await bd.obtenerPropiedad("p_imp_01");
+  assert.strictEqual(prop?.impuestoActivo, true);
+  assert.strictEqual(prop?.impuestoFarycoins, 5);
+  assert.strictEqual(prop?.impuestoPeriodoHoras, 24);
+  assert.ok(prop?.impuestoUltimoCobro, "el reloj arranca al activar");
+  await bd.cerrar();
+});
+
+test("configurarImpuestoPropiedad: desactivar limpia cantidad/periodo/reloj", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.obtenerOCrearJugador("Bjorn");
+  await bd.asignarPropiedad("p_imp_02", "parcela", "ciudad", "Bjorn");
+  await bd.configurarImpuestoPropiedad("p_imp_02", true, 5, 24);
+  await bd.configurarImpuestoPropiedad("p_imp_02", false, null, null);
+  const prop = await bd.obtenerPropiedad("p_imp_02");
+  assert.strictEqual(prop?.impuestoActivo, false);
+  assert.strictEqual(prop?.impuestoFarycoins, null);
+  assert.strictEqual(prop?.impuestoPeriodoHoras, null);
+  assert.strictEqual(prop?.impuestoUltimoCobro, null);
+  await bd.cerrar();
+});
+
+test("impuesto: cobro perezoso — un periodo entero transcurrido se cobra de golpe al siguiente obtenerPropiedad", () =>
+  conJarl("Streamer", async () => {
+    const bd = new AlmacenDatos(":memory:");
+    const dueno = await bd.obtenerOCrearJugador("Bjorn");
+    await bd.ajustarFarycoins(dueno.id, 100);
+    await bd.asignarPropiedad("p_imp_03", "parcela", "ciudad", "Bjorn");
+    await bd.configurarImpuestoPropiedad("p_imp_03", true, 5, 24);
+
+    // Simula que ya pasó más de un periodo (mismo truco que el test de
+    // alquiler vencido: no hay reloj mockeable en esta capa).
+    const bdInterna = bd as unknown as { bd: { prepare(sql: string): { run(...p: unknown[]): unknown } } };
+    bdInterna.bd.prepare("UPDATE propiedades SET impuesto_ultimo_cobro = ? WHERE id = ?").run(
+      new Date(Date.now() - 30 * 3600_000).toISOString(), // 30h atrás, periodo=24h -> 1 periodo cobrable
+      "p_imp_03",
+    );
+
+    const saldoAntes = await bd.obtenerFarycoins(dueno.id);
+    await bd.obtenerPropiedad("p_imp_03");
+    const saldoDespues = await bd.obtenerFarycoins(dueno.id);
+    assert.strictEqual(saldoAntes - saldoDespues, 5, "se cobró exactamente un periodo");
+
+    const jarl = await bd.obtenerOCrearJugador("Streamer");
+    assert.strictEqual(jarl.farycoins, 20 + 5, "el jarl recibe el impuesto cobrado");
+
+    // Un segundo obtenerPropiedad inmediato NO vuelve a cobrar (idempotente, ya se puso al día).
+    const saldoTrasSegundaLectura = await bd.obtenerFarycoins(dueno.id);
+    await bd.obtenerPropiedad("p_imp_03");
+    assert.strictEqual(await bd.obtenerFarycoins(dueno.id), saldoTrasSegundaLectura);
+    await bd.cerrar();
+  }));
+
+test("impuesto: si el dueño no puede pagar el lote completo, no se cobra nada y la deuda se acumula", () =>
+  conJarl("Streamer", async () => {
+    const bd = new AlmacenDatos(":memory:");
+    const dueno = await bd.obtenerOCrearJugador("Bjorn");
+    // Saldo inicial (20) menor que el impuesto (50) — no puede pagar.
+    await bd.asignarPropiedad("p_imp_04", "parcela", "ciudad", "Bjorn");
+    await bd.configurarImpuestoPropiedad("p_imp_04", true, 50, 24);
+    const bdInterna = bd as unknown as { bd: { prepare(sql: string): { run(...p: unknown[]): unknown } } };
+    bdInterna.bd.prepare("UPDATE propiedades SET impuesto_ultimo_cobro = ? WHERE id = ?").run(
+      new Date(Date.now() - 30 * 3600_000).toISOString(),
+      "p_imp_04",
+    );
+    const saldoAntes = await bd.obtenerFarycoins(dueno.id);
+    const prop = await bd.obtenerPropiedad("p_imp_04");
+    assert.strictEqual(await bd.obtenerFarycoins(dueno.id), saldoAntes, "no se cobra nada si no llega para el lote completo");
+    assert.ok(prop?.impuestoUltimoCobro, "el reloj NO avanzó — la deuda queda pendiente para cuando pueda pagar");
+    await bd.cerrar();
+  }));
+
+test("impuesto: propiedad sin dueño (jarl/asentamiento) nunca cobra aunque esté activo", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.asignarPropiedad("p_imp_05", "parcela", "ciudad", null);
+  await bd.configurarImpuestoPropiedad("p_imp_05", true, 5, 24);
+  const bdInterna = bd as unknown as { bd: { prepare(sql: string): { run(...p: unknown[]): unknown } } };
+  bdInterna.bd.prepare("UPDATE propiedades SET impuesto_ultimo_cobro = ? WHERE id = ?").run(
+    new Date(Date.now() - 100 * 3600_000).toISOString(),
+    "p_imp_05",
+  );
+  const prop = await bd.obtenerPropiedad("p_imp_05");
+  assert.strictEqual(prop?.dueno, null);
+  await bd.cerrar(); // si esto no lanza, no intentó cobrar a un dueño inexistente
+});

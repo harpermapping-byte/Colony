@@ -1798,6 +1798,29 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       this.broadcast("parcelas:estado", this.estadoParcelas());
     });
 
+    // Impuesto del jarl (docs/GDD_Economia.md §6, pedido 2026-08-30: "es una
+    // decisión que toma el jarl, puede ponerlo o no y poner qué cantidad y
+    // cada cuánto tiempo") — aplica a CUALQUIER propiedad (parcela, inmueble
+    // o habitación, todas viven en la misma tabla `propiedades`), mismo
+    // guard de jarl que asignar/revocar. El cobro EN SÍ se resuelve
+    // perezosamente (nunca aquí) — ver `resolverImpuestoPropiedad` en bd.ts.
+    this.onMessage(
+      "jarl:configurarImpuesto",
+      async (client, msg: { propiedadId?: string; activo?: boolean; farycoins?: number; periodoHoras?: number }) => {
+        const nombre = this.nombreDe(client);
+        if (!nombre || !esJarl(ctx, nombre)) return this.errorConstruir(client, "solo el jarl configura impuestos");
+        if (!msg?.propiedadId) return this.errorConstruir(client, "propiedad inválida");
+        const activo = Boolean(msg.activo);
+        const farycoins = activo ? Math.max(0, Math.floor(msg.farycoins ?? 0)) : null;
+        const periodoHoras = activo ? Math.max(1, Math.floor(msg.periodoHoras ?? 0)) : null;
+        if (activo && (!farycoins || !periodoHoras)) {
+          return this.errorConstruir(client, "impuesto activo necesita cantidad y periodo válidos");
+        }
+        await bd.configurarImpuestoPropiedad(msg.propiedadId, activo, farycoins, periodoHoras);
+        client.send("jarl:impuestoConfigurado", { propiedadId: msg.propiedadId, activo, farycoins, periodoHoras });
+      },
+    );
+
     this.onMessage(
       "construir",
       async (client, msg: { objeto?: string; categoria?: string; x?: number; y?: number; rot?: number; variante?: number }) => {
@@ -1838,6 +1861,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           const parcela = ctx.parcelas.parcelas.get(propiedadId)!;
           await bd.asignarPropiedad(propiedadId, "parcela", parcela.asentamiento, null);
           ctx.propiedades.set(propiedadId, { dueno: null });
+        } else {
+          // Impuesto del jarl (docs/GDD_Economia.md §6) — el dueño "tocando"
+          // su parcela (construir en ella) es el evento real que dispara el
+          // cobro perezoso pendiente, mismo criterio que el resto del
+          // proyecto ("nunca un tick, se resuelve en la próxima interacción").
+          await bd.obtenerPropiedad(propiedadId);
         }
 
         // edificio: su interior se genera UNA VEZ aquí y viaja en extra (§5)
@@ -1873,6 +1902,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (dueno !== nombre && !esJarl(ctx, nombre)) {
         return this.errorConstruir(client, "no eres el dueño de esta construcción");
       }
+      await bd.obtenerPropiedad(viva.propiedad); // Impuesto del jarl (docs/GDD_Economia.md §6) — mismo criterio que en "construir".
       await bd.borrarConstruccion(viva.id);
       quitarConstruccion(ctx, viva.id); // restaura la colisión del bake
       this.broadcast("construccion:quitada", { id: viva.id });
@@ -5703,9 +5733,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * pedido 2026-08-30: "al matar npc pueden lotear de 1 a 20 farycoins
    * aleatoriamente") — SOLO `enemigos` (bandidos/mazmorra, que sí tienen
    * combate y muerte reales); fauna y NPCs civiles quedan fuera a
-   * propósito (civiles ni siquiera son atacables hoy). Cada jugador del
-   * bando ganador de ESE combate concreto tira su PROPIA moneda 1-20 —
-   * decisión simple y ajustable si en grupo grande se ve desbalanceado.
+   * propósito (civiles ni siquiera son atacables hoy).
+   *
+   * **Compartido/sincronizado (pedido 2026-08-30, confirmado tras GDD_Economia.md
+   * §7-8)**: UNA sola tirada 1-20 por muerte, repartida entre TODOS los
+   * ganadores del bando — ya no una tirada independiente por cabeza. División
+   * entera; el resto se pierde (mismo criterio que `creditarJarl`: nunca se
+   * crea dinero de la nada). Con más ganadores que Farycoins en la tirada,
+   * `porCabeza` puede caer a 0 — no se reparte nada esa vez, aceptable.
    */
   private async repartirLootFarycoinsPorMuerte(enemigoId: string) {
     const existente = this.combatePorUnidad(enemigoId);
@@ -5718,14 +5753,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (cu.esJugador && cu.bando !== cuEnemigo.bando && cu.estado === "activo") ganadores.push(cu.id);
     }
     if (ganadores.length === 0) return;
+    const total = 1 + Math.floor(Math.random() * 20); // 1..20, UNA sola tirada por combate
+    const porCabeza = Math.floor(total / ganadores.length);
+    if (porCabeza <= 0) return;
     const bd = await obtenerBdCompartida();
     for (const sessionId of ganadores) {
       const nombre = this.state.players.get(sessionId)?.name;
       if (!nombre) continue;
-      const cantidad = 1 + Math.floor(Math.random() * 20); // 1..20, pedido explícito
       const jugador = await bd.obtenerOCrearJugador(nombre);
-      const r = await bd.ajustarFarycoins(jugador.id, cantidad);
-      this.clients.find((c) => c.sessionId === sessionId)?.send("economia:loot", { motivo: "enemigo", farycoins: cantidad, saldo: r.saldo });
+      const r = await bd.ajustarFarycoins(jugador.id, porCabeza);
+      this.clients.find((c) => c.sessionId === sessionId)?.send("economia:loot", { motivo: "enemigo", farycoins: porCabeza, saldo: r.saldo });
     }
   }
 
