@@ -118,6 +118,11 @@ export class RegionRoom extends RoomExteriorBase {
       this.gestorFauna = new GestorFauna(this.state.fauna, this.mundo, this.catalogoCombateFauna);
       this.gestorFauna.iniciar(datos.fauna);
       this.clock.setInterval(() => this.gestorFauna!.tick(0.2), 200);
+      // Agro por distancia (docs/GDD_Combate.md §7bis, pedido 2026-08-30) —
+      // mismo mecanismo que HubRoom, por si una región tuviera fauna urbana
+      // `peligroso` (hoy no la tiene, pero el mecanismo no debe vivir solo
+      // en un tipo de room).
+      this.clock.setInterval(() => this.verificarAgroFauna(), 200);
       console.log(`  ${this.gestorFauna.cantidad} animales sueltos en el mapa`);
     }
 

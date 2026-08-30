@@ -259,6 +259,11 @@ export class HubRoom extends RoomExteriorBase {
         // sectores es mucho más caro (E/S a BD) así que va aparte y más
         // despacio — de sobra para notar que un jugador cambió de sector.
         this.clock.setInterval(() => this.gestorFaunaSalvaje!.tick(0.2), 200);
+        // Agro por distancia (docs/GDD_Combate.md §7bis, pedido 2026-08-30) —
+        // MISMO intervalo que el merodeo, cubre tanto depredadores de tierra
+        // como orca/tiburón (agua): un jugador dentro del radioAgro de
+        // cualquier fauna `peligroso` entra en combate solo.
+        this.clock.setInterval(() => this.verificarAgroFauna(), 200);
         this.clock.setInterval(() => {
           const posiciones = [...this.state.players.values()].map((p) => ({ x: p.x, y: p.y }));
           this.gestorFaunaSalvaje!

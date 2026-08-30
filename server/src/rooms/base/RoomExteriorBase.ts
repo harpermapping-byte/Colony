@@ -158,6 +158,10 @@ const TOPE_RONDAS_CASCADA_IA = 60; // guarda-raíl: nunca debe hacer falta, pero
 // Ventana de unión antes de instanciar la arena (docs/GDD_Combate.md §9.1,
 // pedido 2026-08-30) — placeholder de balance, mismo criterio que el resto.
 const VENTANA_UNION_COMBATE_MS = 60_000;
+// Agro por distancia (docs/GDD_Combate.md §7bis, pedido 2026-08-30: "el
+// depredador de tierra [y de agua] con triggers por distancia") — radio de
+// una especie `peligroso` sin `radioAgro` propio en el catálogo.
+const RADIO_AGRO_DEFECTO = 5;
 
 // --- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ---
 // Placeholders de balance — mismo criterio que pesoMaximoTransportable
@@ -466,6 +470,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private catalogoArenas?: EntradaArena[];
   /** docs/GDD_Caza.md — combates de "modo caza": sin ventana de unión, `cerrarVentanaCombate` se llama al instante y sus bucles de auto-unión (Enemigo/Fauna hostiles cercanos) se saltan. Se consume (borra) al usarse. */
   private combatesSinAutoUnion = new Set<string>();
+  /**
+   * docs/GDD_Combate.md §7bis (pedido 2026-08-30) — ids de fauna/enemigo que
+   * se fueron a pelear a una room de arena aparte: su entidad SIGUE viva en
+   * `state.fauna` de esta room (nadie la borra hasta que muera o vuelva),
+   * así que sin esto `verificarAgroFauna`/`manejarCombateIniciar` la
+   * verían "libre" y podrían meterla en un SEGUNDO combate simultáneo
+   * mientras la primera pelea sigue en curso en otro sitio. Se añade al
+   * cerrar la ventana de unión (cerrarVentanaCombate) y se quita cuando el
+   * resultado vuelve (aplicarResultadoRemoto) — vive y muere con la room.
+   */
+  protected enOtraArena = new Set<string>();
 
   protected iniciarMovimiento() {
     this.setState(new HubState());
@@ -5691,6 +5706,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   /** Aplica el resultado final de un combatiente NO-jugador que peleó en una arena aparte, sobre SU entidad real en esta room (docs/GDD_Combate.md §9.2) — mismo efecto que si hubiera muerto/sobrevivido aquí mismo. */
   public async aplicarResultadoRemoto(id: string, hp: number, estadoFinal: "activo" | "caido" | "huido") {
+    this.enOtraArena.delete(id); // docs/GDD_Combate.md §7bis — la pelea remota ya terminó, vuelve a estar disponible (no-op si `id` es un jugador, nunca estuvo aquí)
     this.aplicarVida(id, hp);
     if (estadoFinal === "caido") await this.finalizarMuerte(id);
   }
@@ -5718,6 +5734,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return;
     }
 
+    // docs/GDD_Combate.md §7bis — ya se fue a pelear a otra arena (nadie lo
+    // borra de aquí hasta que esa pelea termine): no se puede iniciar OTRO
+    // combate contra el mismo bicho mientras tanto.
+    if (this.enOtraArena.has(msg.objetivoId)) return client.send("combate:error", { motivo: "ya está en otro combate" });
     const objetivoStats = this.statsCombatiente(msg.objetivoId);
     if (!objetivoStats) return client.send("combate:error", { motivo: "objetivo no encontrado" });
     // PvP (docs/GDD_PvP.md, pedido 2026-08-30): atacar a OTRO jugador solo
@@ -5772,6 +5792,70 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     } else {
       this.timeoutsVentanaCombate.set(combateId, this.clock.setTimeout(() => this.cerrarVentanaCombate(combateId), VENTANA_UNION_COMBATE_MS));
     }
+  }
+
+  /**
+   * Agro por distancia (docs/GDD_Combate.md §7bis, pedido 2026-08-30: "la
+   * orca/tiburón/depredador en agua debe funcionar como el depredador de
+   * tierra con triggers por distancia") — a diferencia de
+   * `comprobarEncuentrosAutomaticos` (HubRoom, solo NPC-vs-fauna, resuelve
+   * la pelea entera de golpe con `simularCombateAutomatico`), esto abre un
+   * combate INTERACTIVO real contra el jugador (ventana de unión, arena,
+   * turnos) — mismo camino que `manejarCombateIniciar`, solo que lo dispara
+   * la fauna, no una tecla. Cualquier especie `peligroso` con un jugador
+   * (que no esté ya en combate) dentro de su `radioAgro` ataca por su
+   * cuenta. Un encuentro por pasada, mismo criterio de sencillez que
+   * `comprobarEncuentrosAutomaticos` — de sobra para un mecanismo recién
+   * estrenado; llamar a este método a baja frecuencia (200ms-1s) desde el
+   * mismo intervalo que ya tickea el merodeo de fauna (HubRoom/RegionRoom).
+   */
+  protected verificarAgroFauna() {
+    for (const [faunaId, fauna] of this.state.fauna.entries()) {
+      if (this.combatePorUnidad(faunaId) || this.enOtraArena.has(faunaId)) continue;
+      const datos = this.estadisticasFaunaDe(fauna.especieId);
+      if (!datos?.peligroso) continue;
+      const radio = datos.radioAgro ?? RADIO_AGRO_DEFECTO;
+
+      let masCercano: { id: string; d: number } | null = null;
+      for (const [jugadorId, jugador] of this.state.players.entries()) {
+        if (this.combatePorUnidad(jugadorId)) continue;
+        const d = Math.hypot(jugador.x - fauna.x, jugador.y - fauna.y);
+        if (d <= radio && (!masCercano || d < masCercano.d)) masCercano = { id: jugadorId, d };
+      }
+      if (masCercano) {
+        this.iniciarCombateFaunaVsJugador(faunaId, masCercano.id);
+        return;
+      }
+    }
+  }
+
+  /** Abre el combate interactivo real fauna-vs-jugador (bando B=fauna, A=jugador) — mismo montaje de arena/CombateSchema/ventana que manejarCombateIniciar, sin `esModoCaza` (la fauna peligrosa nunca es presa pasiva) ni `client`/`retorno` (dispara la propia fauna: el jugador vuelve al Hub por defecto al terminar, mismo fallback que ya usa ArenaCombateRoom para un PvP sin retorno capturado). */
+  protected iniciarCombateFaunaVsJugador(faunaId: string, jugadorId: string) {
+    const jugador = this.state.players.get(jugadorId);
+    const faunaStats = this.statsCombatiente(faunaId);
+    if (!jugador || !faunaStats) return;
+
+    const cx = Math.floor((jugador.x + faunaStats.x) / 2);
+    const cy = Math.floor((jugador.y + faunaStats.y) / 2);
+    const { gx0, gy0, arena } = this.construirArenaDeCombate(cx, cy, LADO_ARENA_NORMAL);
+
+    const combate = new CombateSchema();
+    combate.gx0 = gx0; combate.gy0 = gy0; combate.ancho = arena.ancho; combate.alto = arena.alto;
+    for (const casilla of arena.obstaculos) combate.obstaculos.push(casilla);
+
+    const uJugador = this.crearUnidadCombate(jugadorId, "A", jugador.x - gx0, jugador.y - gy0, {
+      hp: jugador.vida, hpMax: jugador.vidaMax, ataque: jugador.ataque, defensa: jugador.defensa, esJugador: true,
+    });
+    const uFauna = this.crearUnidadCombate(faunaId, "B", faunaStats.x - gx0, faunaStats.y - gy0, faunaStats);
+    combate.unidades.set(jugadorId, uJugador);
+    combate.unidades.set(faunaId, uFauna);
+
+    combate.fase = "pendiente";
+    combate.cierraEn = Date.now() + VENTANA_UNION_COMBATE_MS;
+
+    const combateId = `combate:agro:${faunaId}:${Date.now()}`;
+    this.state.combates.set(combateId, combate);
+    this.timeoutsVentanaCombate.set(combateId, this.clock.setTimeout(() => this.cerrarVentanaCombate(combateId), VENTANA_UNION_COMBATE_MS));
   }
 
   /** Unirse al bando del jugador que empezó el combate, mientras la ventana de unión sigue abierta (docs/GDD_Combate.md §9.1). */
@@ -5872,6 +5956,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         });
         this.retornosPendientes.delete(u.id);
       } else {
+        // docs/GDD_Combate.md §7bis — su entidad sigue viva aquí (nadie la
+        // borra hasta que la pelea termine): márcala "ocupada" para que
+        // verificarAgroFauna/manejarCombateIniciar no la metan en un
+        // segundo combate simultáneo mientras esta sigue en curso.
+        this.enOtraArena.add(u.id);
         const esEnemigo = this.state.enemigos.has(u.id);
         const base = {
           id: u.id, bando: u.bando as Bando, esJugador: false,
