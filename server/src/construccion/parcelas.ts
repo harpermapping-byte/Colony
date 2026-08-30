@@ -25,6 +25,9 @@ export interface Parcela {
   runs: [number, number, number][];
   casillas: number;
   topeProps: number;
+  /** "especial" = reservada para un proyecto especial del jarl (docs/GDD_Ciudad_Capital.md §3);
+   * ausente en las parcelas pintadas a mano de `cargarParcelas` (siempre "normal" en la práctica). */
+  tipo?: "normal" | "especial";
 }
 
 export interface IndiceParcelas {
@@ -72,6 +75,11 @@ export function runsDe(parcelas: IndiceParcelas, parcelaId: string): [number, nu
 /** Tope de construcciones de la parcela (0 si no existe: nadie construye en la nada). */
 export function topeDe(parcelas: IndiceParcelas, parcelaId: string): number {
   return parcelas.parcelas.get(parcelaId)?.topeProps ?? 0;
+}
+
+/** Tipo de la parcela — "normal" si no existe o no está marcada "especial" (docs/GDD_Ciudad_Capital.md §3). */
+export function tipoDe(parcelas: IndiceParcelas, parcelaId: string): "normal" | "especial" {
+  return parcelas.parcelas.get(parcelaId)?.tipo ?? "normal";
 }
 
 /**
@@ -127,7 +135,7 @@ export function cargarParcelasDeReservas(
       .map(([y, { x0, x1 }]) => [y, x0, x1]);
     const casillas = runs.reduce((suma, [, x0, x1]) => suma + (x1 - x0 + 1), 0);
 
-    resultado.parcelas.set(id, { asentamiento, nombre: id, runs, casillas, topeProps });
+    resultado.parcelas.set(id, { asentamiento, nombre: id, tipo: r.tipo, runs, casillas, topeProps });
     for (const [y, x0, x1] of runs) {
       for (let x = x0; x <= x1; x++) resultado.indice.set(y * anchoMapa + x, id);
     }

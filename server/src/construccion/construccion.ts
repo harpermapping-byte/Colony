@@ -4,6 +4,8 @@
  * GDD_Construccion §5 TAL CUAL (el GDD es el contrato):
  *
  *   1. El emisor es dueño de la parcela que contiene (x,y) — o jarl.
+ *   1bis. Si el tipo es `proyectoJarl` (proyecto especial del jarl): solo el
+ *      jarl, solo en parcela `tipo:"especial"`, tope 1 por asentamiento.
  *   2. La huella ROTADA entera cae dentro de ESA misma parcela.
  *   3. Todas sus casillas son TIERRA transitable (ni agua, ni sólido del
  *      bake, ni otra construcción).
@@ -16,7 +18,7 @@
  */
 
 import { MundoColision, TIPO } from "../mundo/colisiones";
-import { IndiceParcelas, parcelaEn, topeDe } from "./parcelas";
+import { IndiceParcelas, parcelaEn, topeDe, tipoDe } from "./parcelas";
 import { EntradaConstruible } from "./catalogo";
 
 /** Lo mínimo que la validación necesita saber de una propiedad (bd.Propiedad encaja). */
@@ -128,6 +130,33 @@ export function validarColocacion(
   const dueno = ctx.propiedades.get(parcelaId)?.dueno ?? null; // sin fila = del jarl
   if (dueno !== nombre && !esJarl(ctx, nombre)) {
     return { ok: false, motivo: "no eres el dueño de esta parcela" };
+  }
+
+  // 1bis. proyectos especiales del jarl (docs/Backlog_Mecanicas_Futuras.md,
+  // "Proyectos especiales del jarl"): solo el jarl los levanta (nunca un
+  // dueño normal, aunque la parcela especial no tenga dueño asignado), y
+  // solo en una parcela `tipo:"especial"` reservada para esto (docs/
+  // GDD_Ciudad_Capital.md §3) — nunca una parcela normal de jugador.
+  if (entrada.proyectoJarl === true) {
+    if (!esJarl(ctx, nombre)) {
+      return { ok: false, motivo: "solo el jarl puede levantar un proyecto especial" };
+    }
+    if (tipoDe(ctx.parcelas, parcelaId) !== "especial") {
+      return { ok: false, motivo: "los proyectos especiales solo van en una parcela especial reservada" };
+    }
+    // tope de 1 por asentamiento SOLO para el edificio en sí (`ctx` ya viene
+    // scoped a la room/asentamiento) — las piezas sueltas categoria:"exterior"
+    // del mismo proyecto (estatua+pedestal+leones..., postes de muelle...)
+    // son decoración que legítimamente necesita varias copias (un par de
+    // leones, varios postes de amarre); las limita el topeProps normal de la
+    // parcela, no este tope de "uno por asentamiento".
+    if (entrada.categoria === "edificio") {
+      for (const viva of ctx.vivas.values()) {
+        if (viva.objeto === entrada.id) {
+          return { ok: false, motivo: "ya existe un proyecto especial de este tipo en el asentamiento" };
+        }
+      }
+    }
   }
 
   // 2. huella rotada entera dentro de ESA MISMA parcela
