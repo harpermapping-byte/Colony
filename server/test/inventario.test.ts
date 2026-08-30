@@ -58,6 +58,15 @@ test("armas (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): cuerpo a cuerpo y 
   }
 });
 
+test("herramientas de gate (cuchillo_desollar/cuchillo_cocina) se desgastan con el uso (docs/GDD_Crafteo.md, pedido 2026-08-30)", () => {
+  for (const id of ["cuchillo_desollar", "cuchillo_cocina"]) {
+    const e = catalogo[id];
+    assert.ok(e, `falta ${id}`);
+    assert.ok((e.durabilidadMax ?? 0) > 0, `${id}: sin durabilidadMax`);
+    assert.ok((e.desgastePorUso ?? 0) > 0, `${id}: sin desgastePorUso`);
+  }
+});
+
 test("armas cuerpo a cuerpo: alcance corto (1-2), las de distancia llegan mucho más lejos", () => {
   assert.ok(catalogo["daga"].alcance! <= 2);
   assert.ok(catalogo["espada_larga"].alcance! <= 2);

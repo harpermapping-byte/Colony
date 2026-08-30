@@ -1401,6 +1401,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
       return client.send("cadaver:error", { motivo: "necesitas un cuchillo de desollar" });
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_desollar");
+    if (!herramienta.ok) return client.send("cadaver:error", { motivo: herramienta.motivo });
     const cadaverId = msg.cadaverId ?? "";
     const cadaver = this.cadaveresPuros.get(cadaverId);
     if (!cadaver || !this.state.cadaveres.has(cadaverId)) {
@@ -1448,6 +1450,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
       return client.send("piel:error", { motivo: "necesitas un cuchillo de desollar" });
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_desollar");
+    if (!herramienta.ok) return client.send("piel:error", { motivo: herramienta.motivo });
     const it = contenedor.items.find((i) => i.id === msg.instanciaId);
     if (!it || it.itemId !== "piel_salada") return client.send("piel:error", { motivo: "eso no es una piel salada" });
     const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
@@ -4087,18 +4091,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       this.registrarPlatoEnCatalogo(plato);
     }
 
-    const contenedor = this.inventarios.get(client.sessionId);
-    if (!contenedor) return;
-    const cogido = agregarItem(contenedor, this.catalogoItems, plato.itemId, resultado.platos);
-    if (!cogido.ok) return this.errorCocina(client, "no tienes hueco para los platos");
-
     const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (!player) return;
+    const entrega = this.entregarOSoltar(client, player, plato.itemId, resultado.platos);
 
     const nuevoEstado: EstadoCocina = { ingredientes: [] };
     viva.extra = { ...(viva.extra ?? {}), cocina: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
-    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: resultado.platos, mezclaBonus: resultado.mezclaBonus });
+    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: resultado.platos, mezclaBonus: resultado.mezclaBonus, enSuelo: !entrega.enInventario });
   }
 
   /** Contenido actual de la vasija — sin mutar nada, solo consulta (mismo criterio que motriz:consultar/cultivo:consultar). */
@@ -4159,14 +4159,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return false;
-    const cogido = agregarItem(contenedor, this.catalogoItems, plato.itemId, cantidadEntregar);
-    if (!cogido.ok) {
-      this.errorCocina(client, "no tienes hueco para el resultado");
-      return false;
-    }
     const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
-    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: cantidadEntregar, mezclaBonus: resultado.mezclaBonus });
+    if (!player) return false;
+    const entrega = this.entregarOSoltar(client, player, plato.itemId, cantidadEntregar);
+    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: cantidadEntregar, mezclaBonus: resultado.mezclaBonus, enSuelo: !entrega.enInventario });
     return true;
   }
 
@@ -4187,6 +4183,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_cocina")) {
       return this.errorCocina(client, "necesitas un cuchillo_cocina para cortar la ensalada");
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_cocina");
+    if (!herramienta.ok) return this.errorCocina(client, herramienta.motivo);
 
     const picks: { instanciaId: number; itemId: string; cantidad: number }[] = [];
     const totalesPorItem = new Map<string, number>();
@@ -4267,6 +4265,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_cocina")) {
       return this.errorCocina(client, "necesitas un cuchillo_cocina");
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_cocina");
+    if (!herramienta.ok) return this.errorCocina(client, herramienta.motivo);
     const item = typeof msg?.instanciaId === "number" ? contenedor.items.find((it) => it.id === msg.instanciaId) : undefined;
     if (!item || item.itemId !== "pan") return this.errorCocina(client, "eso no es pan");
 
@@ -4799,26 +4799,62 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
-    const jugadorParaPeso = this.state.players.get(client.sessionId);
-    const pesoMaximo = pesoMaximoTransportable(jugadorParaPeso?.atributos.fuerza ?? 1);
-    if (excedePesoMaximo(contenedor, this.catalogoItems, receta.resultado.itemId, receta.resultado.cantidad, pesoMaximo)) {
-      return this.errorCrafteo(client, "demasiado peso para cargar el resultado — descarga algo primero");
-    }
-    const resultado = intentarCoger(contenedor, this.catalogoItems, { itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad });
-    if (!resultado.ok) return this.errorCrafteo(client, "no tienes hueco en tu inventario");
-
     const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (!player) return;
+    const entrega = this.entregarOSoltar(client, player, receta.resultado.itemId, receta.resultado.cantidad);
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const nuevaXp = await bd.sumarXpOficio(jugador.id, receta.oficio, XP_POR_CRAFTEO);
     // Inteligencia (docs/GDD_Personaje.md): completar un crafteo entrena tanto el oficio como el atributo general.
-    if (player) await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
+    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
     client.send("crafteo:completado", {
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad,
-      oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
+      oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
     });
+  }
+
+  /**
+   * Entrega un ítem al inventario del jugador; si no cabe (hueco O peso),
+   * lo suelta a sus pies en vez de perderse — mismo mecanismo que "soltar"
+   * manual (`ObjetoMundoSchema`/`objetosMundo`). docs/GDD_Crafteo.md,
+   * pedido 2026-08-30: "si no caben, que caigan al suelo" — antes crafteo/
+   * cocina simplemente daban error y el jugador se quedaba sin el material
+   * ya gastado en el crafteo.
+   */
+  private entregarOSoltar(client: Client, player: Player, itemId: string, cantidad: number): { enInventario: boolean } {
+    const contenedor = this.inventarios.get(client.sessionId);
+    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo);
+    const resultado = contenedor && cabePeso ? intentarCoger(contenedor, this.catalogoItems, { itemId, cantidad }) : { ok: false as const };
+    if (resultado.ok) {
+      sincronizarContenedor(player.inventario.cuerpo, contenedor!);
+      return { enInventario: true };
+    }
+    const o = new ObjetoMundoSchema();
+    o.x = Math.floor(player.x) + 0.5;
+    o.y = Math.floor(player.y) + 0.5;
+    o.itemId = itemId;
+    o.cantidad = cantidad;
+    this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o);
+    return { enInventario: false };
+  }
+
+  /**
+   * Registra un uso de una herramienta "de gate" (cuchillo_desollar,
+   * cuchillo_cocina...) — items validados hoy solo por tenencia, nunca
+   * por durabilidad. Llamar SIEMPRE justo después del `.some(itemId===...)`
+   * que ya exige tenerla, así la instancia real existe seguro. Si está
+   * rota, bloquea la acción (nunca se repara sola). docs/GDD_Crafteo.md,
+   * pedido 2026-08-30: "desgaste en herramientas de crafteo/cocina".
+   */
+  private usarHerramientaDeGate(contenedor: Contenedor, itemId: string): { ok: true } | { ok: false; motivo: string } {
+    const it = contenedor.items.find((i) => i.itemId === itemId);
+    const entrada = this.catalogoItems[itemId];
+    if (!it || !entrada) return { ok: true }; // no debería pasar (tenencia ya comprobada) — no bloquea por si acaso
+    if (estaRoto(it, entrada)) return { ok: false, motivo: `tu ${itemId.replace(/_/g, " ")} está roto — necesitas otro` };
+    registrarUso(it, entrada, Date.now());
+    return { ok: true };
   }
 
   // ---- Encurtido de pieles (docs/GDD_Caza.md, cubo_sal/barril_curtido) ----
@@ -5297,6 +5333,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
       return this.errorAnimal(client, "necesitas un cuchillo de desollar");
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_desollar");
+    if (!herramienta.ok) return this.errorAnimal(client, herramienta.motivo);
     const especie = this.estadisticasFaunaDe(fila.especieId);
     if (!especie) return this.errorAnimal(client, "no se puede sacrificar esto");
 
