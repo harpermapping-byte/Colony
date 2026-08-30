@@ -61,11 +61,26 @@
       "cuernos": "cortos"
     },
     "coloresPosibles": [
-      ["#3a2a1c", 30],
-      ["#8a6a45", 28],
-      ["#e8e0d0", 18],
-      ["#221a14", 14],
-      ["#c9c0a8", 10]
+      [
+        "#3a2a1c",
+        30
+      ],
+      [
+        "#8a6a45",
+        28
+      ],
+      [
+        "#e8e0d0",
+        18
+      ],
+      [
+        "#221a14",
+        14
+      ],
+      [
+        "#c9c0a8",
+        10
+      ]
     ],
     "montable": true,
     "velocidadMontura": 5
@@ -116,9 +131,18 @@
       "cuernos": "ninguno"
     },
     "coloresPosibles": [
-      ["#4a3a2a", 40],
-      ["#332619", 35],
-      ["#5a4632", 25]
+      [
+        "#4a3a2a",
+        40
+      ],
+      [
+        "#332619",
+        35
+      ],
+      [
+        "#5a4632",
+        25
+      ]
     ],
     "montable": true,
     "velocidadMontura": 6.5
@@ -143,12 +167,30 @@
       "vuela": false
     },
     "coloresPosibles": [
-      ["#e8dcc0", 24],
-      ["#8a5a3a", 20],
-      ["#2a2420", 18],
-      ["#d8d0c0", 14],
-      ["#7a3018", 14],
-      ["#8f8578", 10]
+      [
+        "#e8dcc0",
+        24
+      ],
+      [
+        "#8a5a3a",
+        20
+      ],
+      [
+        "#2a2420",
+        18
+      ],
+      [
+        "#d8d0c0",
+        14
+      ],
+      [
+        "#7a3018",
+        14
+      ],
+      [
+        "#8f8578",
+        10
+      ]
     ]
   },
   "abeja": {
@@ -329,59 +371,154 @@
       {
         "id": "labrador",
         "peso": 28,
-        "escala": [0.7, 0.85],
-        "proporciones": { "anchoCuerpo": 0.34, "altoCuerpo": 0.42, "altoPata": 0.34, "tamCabeza": 0.3 },
+        "escala": [
+          0.7,
+          0.85
+        ],
+        "proporciones": {
+          "anchoCuerpo": 0.34,
+          "altoCuerpo": 0.42,
+          "altoPata": 0.34,
+          "tamCabeza": 0.3
+        },
         "coloresPosibles": [
-          ["#c9a05a", 40],
-          ["#2a2420", 30],
-          ["#6a4530", 30]
+          [
+            "#c9a05a",
+            40
+          ],
+          [
+            "#2a2420",
+            30
+          ],
+          [
+            "#6a4530",
+            30
+          ]
         ]
       },
       {
         "id": "doberman",
         "peso": 20,
-        "escala": [0.75, 0.9],
-        "proporciones": { "largoCuerpo": 0.78, "altoCuerpo": 0.44, "anchoCuerpo": 0.24, "altoPata": 0.42, "grosorPata": 0.075, "tamCabeza": 0.24 },
-        "rasgos": { "orejas": "puntiagudas", "cola": "corta" },
+        "escala": [
+          0.75,
+          0.9
+        ],
+        "proporciones": {
+          "largoCuerpo": 0.78,
+          "altoCuerpo": 0.44,
+          "anchoCuerpo": 0.24,
+          "altoPata": 0.42,
+          "grosorPata": 0.075,
+          "tamCabeza": 0.24
+        },
+        "rasgos": {
+          "orejas": "puntiagudas",
+          "cola": "corta"
+        },
         "coloresPosibles": [
-          ["#141210", 55],
-          ["#3a2418", 45]
+          [
+            "#141210",
+            55
+          ],
+          [
+            "#3a2418",
+            45
+          ]
         ]
       },
       {
         "id": "caniche",
         "peso": 18,
-        "escala": [0.35, 0.55],
-        "proporciones": { "largoCuerpo": 0.55, "altoCuerpo": 0.38, "anchoCuerpo": 0.26, "altoPata": 0.24, "grosorPata": 0.06, "tamCabeza": 0.3 },
-        "rasgos": { "cola": "pomo" },
+        "escala": [
+          0.35,
+          0.55
+        ],
+        "proporciones": {
+          "largoCuerpo": 0.55,
+          "altoCuerpo": 0.38,
+          "anchoCuerpo": 0.26,
+          "altoPata": 0.24,
+          "grosorPata": 0.06,
+          "tamCabeza": 0.3
+        },
+        "rasgos": {
+          "cola": "pomo"
+        },
         "coloresPosibles": [
-          ["#f0ece0", 35],
-          ["#2a2420", 30],
-          ["#d8a060", 35]
+          [
+            "#f0ece0",
+            35
+          ],
+          [
+            "#2a2420",
+            30
+          ],
+          [
+            "#d8a060",
+            35
+          ]
         ]
       },
       {
         "id": "pastor",
         "peso": 22,
-        "escala": [0.65, 0.85],
-        "proporciones": { "largoCuerpo": 0.8, "altoCuerpo": 0.42, "altoPata": 0.36, "tamCabeza": 0.3 },
-        "rasgos": { "orejas": "puntiagudas", "cola": "larga" },
+        "escala": [
+          0.65,
+          0.85
+        ],
+        "proporciones": {
+          "largoCuerpo": 0.8,
+          "altoCuerpo": 0.42,
+          "altoPata": 0.36,
+          "tamCabeza": 0.3
+        },
+        "rasgos": {
+          "orejas": "puntiagudas",
+          "cola": "larga"
+        },
         "coloresPosibles": [
-          ["#241f1a", 35],
-          ["#7a6a55", 30],
-          ["#8a5a30", 35]
+          [
+            "#241f1a",
+            35
+          ],
+          [
+            "#7a6a55",
+            30
+          ],
+          [
+            "#8a5a30",
+            35
+          ]
         ]
       },
       {
         "id": "callejero",
         "peso": 12,
-        "escala": [0.55, 0.75],
+        "escala": [
+          0.55,
+          0.75
+        ],
         "coloresPosibles": [
-          ["#8a6a45", 30],
-          ["#2a2420", 22],
-          ["#e8e0d0", 20],
-          ["#5a4a30", 18],
-          ["#c9b090", 10]
+          [
+            "#8a6a45",
+            30
+          ],
+          [
+            "#2a2420",
+            22
+          ],
+          [
+            "#e8e0d0",
+            20
+          ],
+          [
+            "#5a4a30",
+            18
+          ],
+          [
+            "#c9b090",
+            10
+          ]
         ]
       }
     ]
@@ -412,54 +549,132 @@
         "id": "comun_europeo",
         "peso": 40,
         "coloresPosibles": [
-          ["#2a2420", 28],
-          ["#e8e0d0", 24],
-          ["#8a6a45", 22],
-          ["#c9773a", 16],
-          ["#5a5450", 10]
+          [
+            "#2a2420",
+            28
+          ],
+          [
+            "#e8e0d0",
+            24
+          ],
+          [
+            "#8a6a45",
+            22
+          ],
+          [
+            "#c9773a",
+            16
+          ],
+          [
+            "#5a5450",
+            10
+          ]
         ]
       },
       {
         "id": "siames",
         "peso": 18,
-        "escala": [0.4, 0.55],
-        "proporciones": { "largoCuerpo": 0.52, "anchoCuerpo": 0.16, "altoPata": 0.24, "tamCabeza": 0.17 },
+        "escala": [
+          0.4,
+          0.55
+        ],
+        "proporciones": {
+          "largoCuerpo": 0.52,
+          "anchoCuerpo": 0.16,
+          "altoPata": 0.24,
+          "tamCabeza": 0.17
+        },
         "coloresPosibles": [
-          ["#e8ddc0", 60],
-          ["#5a4a3a", 40]
+          [
+            "#e8ddc0",
+            60
+          ],
+          [
+            "#5a4a3a",
+            40
+          ]
         ]
       },
       {
         "id": "persa",
         "peso": 16,
-        "escala": [0.35, 0.5],
-        "proporciones": { "largoCuerpo": 0.42, "anchoCuerpo": 0.24, "altoPata": 0.15, "tamCabeza": 0.24 },
-        "rasgos": { "cola": "pomo" },
+        "escala": [
+          0.35,
+          0.5
+        ],
+        "proporciones": {
+          "largoCuerpo": 0.42,
+          "anchoCuerpo": 0.24,
+          "altoPata": 0.15,
+          "tamCabeza": 0.24
+        },
+        "rasgos": {
+          "cola": "pomo"
+        },
         "coloresPosibles": [
-          ["#f0ece0", 40],
-          ["#8a8580", 30],
-          ["#d8c8a0", 30]
+          [
+            "#f0ece0",
+            40
+          ],
+          [
+            "#8a8580",
+            30
+          ],
+          [
+            "#d8c8a0",
+            30
+          ]
         ]
       },
       {
         "id": "maine_coon",
         "peso": 16,
-        "escala": [0.55, 0.7],
-        "proporciones": { "largoCuerpo": 0.58, "anchoCuerpo": 0.24, "altoPata": 0.24, "tamCabeza": 0.22 },
+        "escala": [
+          0.55,
+          0.7
+        ],
+        "proporciones": {
+          "largoCuerpo": 0.58,
+          "anchoCuerpo": 0.24,
+          "altoPata": 0.24,
+          "tamCabeza": 0.22
+        },
         "coloresPosibles": [
-          ["#7a5a35", 40],
-          ["#2a2420", 30],
-          ["#6a655f", 30]
+          [
+            "#7a5a35",
+            40
+          ],
+          [
+            "#2a2420",
+            30
+          ],
+          [
+            "#6a655f",
+            30
+          ]
         ]
       },
       {
         "id": "angora",
         "peso": 10,
-        "escala": [0.4, 0.55],
-        "proporciones": { "largoCuerpo": 0.52, "anchoCuerpo": 0.17, "tamCabeza": 0.19 },
+        "escala": [
+          0.4,
+          0.55
+        ],
+        "proporciones": {
+          "largoCuerpo": 0.52,
+          "anchoCuerpo": 0.17,
+          "tamCabeza": 0.19
+        },
         "coloresPosibles": [
-          ["#f5f2ea", 70],
-          ["#c9a878", 30]
+          [
+            "#f5f2ea",
+            70
+          ],
+          [
+            "#c9a878",
+            30
+          ]
         ]
       }
     ]
@@ -485,14 +700,144 @@
       "cuernos": "ninguno"
     },
     "coloresPosibles": [
-      ["#5a3a20", 30],
-      ["#1c1815", 20],
-      ["#d8d0c0", 18],
-      ["#c9973a", 17],
-      ["#8a7050", 15]
+      [
+        "#5a3a20",
+        30
+      ],
+      [
+        "#1c1815",
+        20
+      ],
+      [
+        "#d8d0c0",
+        18
+      ],
+      [
+        "#c9973a",
+        17
+      ],
+      [
+        "#8a7050",
+        15
+      ]
     ],
     "montable": true,
-    "velocidadMontura": 8.5
+    "velocidadMontura": 8.5,
+    "razas": [
+      {
+        "id": "percheron",
+        "peso": 20,
+        "escala": [
+          1.15,
+          1.35
+        ],
+        "proporciones": {
+          "anchoCuerpo": 0.5,
+          "altoCuerpo": 0.72,
+          "grosorPata": 0.16,
+          "tamCabeza": 0.4
+        },
+        "coloresPosibles": [
+          [
+            "#1c1815",
+            50
+          ],
+          [
+            "#2a2018",
+            30
+          ],
+          [
+            "#3a2a1c",
+            20
+          ]
+        ]
+      },
+      {
+        "id": "arabe",
+        "peso": 20,
+        "escala": [
+          0.85,
+          1.0
+        ],
+        "proporciones": {
+          "largoCuerpo": 1.25,
+          "altoCuerpo": 0.58,
+          "anchoCuerpo": 0.32,
+          "altoPata": 0.78,
+          "grosorPata": 0.1,
+          "tamCabeza": 0.3
+        },
+        "coloresPosibles": [
+          [
+            "#c9973a",
+            35
+          ],
+          [
+            "#8a7050",
+            30
+          ],
+          [
+            "#d8d0c0",
+            20
+          ],
+          [
+            "#5a3a20",
+            15
+          ]
+        ]
+      },
+      {
+        "id": "poni",
+        "peso": 20,
+        "escala": [
+          0.5,
+          0.65
+        ],
+        "proporciones": {
+          "largoCuerpo": 1.0,
+          "altoCuerpo": 0.45,
+          "altoPata": 0.5,
+          "tamCabeza": 0.36
+        },
+        "coloresPosibles": [
+          [
+            "#5a3a20",
+            30
+          ],
+          [
+            "#c9973a",
+            25
+          ],
+          [
+            "#1c1815",
+            20
+          ],
+          [
+            "#8a7050",
+            25
+          ]
+        ]
+      },
+      {
+        "id": "pinto",
+        "peso": 15,
+        "coloresPosibles": [
+          [
+            "#e8e0d0",
+            50
+          ],
+          [
+            "#3a2a1c",
+            50
+          ]
+        ]
+      },
+      {
+        "id": "criollo",
+        "peso": 25
+      }
+    ],
+    "_notaRazas": "Razas (pedido 2026-08-30, mismo mecanismo ya probado en perro/gato): percherón grande y oscuro, árabe esbelto y veloz, poni pequeño, pinto bicolor, criollo = base sin override."
   },
   "caballo_salvaje": {
     "_nota": "Montura (pedido 2026-08-30, docs/GDD_Monturas.md) — mismas proporciones que 'caballo', domesticar uno salvaje da un caballo montable igual de rápido; no se renombra a 'caballo' al domesticarse, se queda con su propia entrada de rig.",
@@ -516,10 +861,22 @@
       "cuernos": "ninguno"
     },
     "coloresPosibles": [
-      ["#5a3a20", 35],
-      ["#3a2a1c", 30],
-      ["#8a7050", 20],
-      ["#1c1815", 15]
+      [
+        "#5a3a20",
+        35
+      ],
+      [
+        "#3a2a1c",
+        30
+      ],
+      [
+        "#8a7050",
+        20
+      ],
+      [
+        "#1c1815",
+        15
+      ]
     ],
     "montable": true,
     "velocidadMontura": 8.5
@@ -546,9 +903,18 @@
       "cuernos": "ninguno"
     },
     "coloresPosibles": [
-      ["#8a7a68", 40],
-      ["#5a4a38", 35],
-      ["#4a4038", 25]
+      [
+        "#8a7a68",
+        40
+      ],
+      [
+        "#5a4a38",
+        35
+      ],
+      [
+        "#4a4038",
+        25
+      ]
     ],
     "montable": true,
     "velocidadMontura": 6
@@ -575,12 +941,88 @@
       "cuernos": "ninguno"
     },
     "coloresPosibles": [
-      ["#e8b8a0", 55],
-      ["#c98a68", 25],
-      ["#3a2a24", 20]
+      [
+        "#e8b8a0",
+        55
+      ],
+      [
+        "#c98a68",
+        25
+      ],
+      [
+        "#3a2a24",
+        20
+      ]
     ],
     "montable": true,
-    "velocidadMontura": 4.5
+    "velocidadMontura": 4.5,
+    "razas": [
+      {
+        "id": "iberico",
+        "peso": 30,
+        "coloresPosibles": [
+          [
+            "#2a2420",
+            60
+          ],
+          [
+            "#4a3a30",
+            40
+          ]
+        ]
+      },
+      {
+        "id": "duroc",
+        "peso": 25,
+        "coloresPosibles": [
+          [
+            "#a85a30",
+            70
+          ],
+          [
+            "#8a4a24",
+            30
+          ]
+        ]
+      },
+      {
+        "id": "yorkshire",
+        "peso": 30,
+        "coloresPosibles": [
+          [
+            "#e8b8a0",
+            60
+          ],
+          [
+            "#f0d0c0",
+            40
+          ]
+        ]
+      },
+      {
+        "id": "vietnamita",
+        "peso": 15,
+        "escala": [
+          0.5,
+          0.65
+        ],
+        "proporciones": {
+          "anchoCuerpo": 0.46,
+          "altoPata": 0.16
+        },
+        "coloresPosibles": [
+          [
+            "#2a2420",
+            70
+          ],
+          [
+            "#3a2a24",
+            30
+          ]
+        ]
+      }
+    ],
+    "_notaRazas": "Razas (pedido 2026-08-30): ibérico y duroc oscuros/rojizos, yorkshire rosado (= color base de siempre), vietnamita pequeño y panzudo."
   },
   "buey": {
     "_nota": "Bovino de labranza (par de 'vaca_salvaje', más corpulento y con cuernos) — animal de tiro, no de monta.",
@@ -604,9 +1046,18 @@
       "cuernos": "cortos"
     },
     "coloresPosibles": [
-      ["#4a3020", 40],
-      ["#221a14", 30],
-      ["#6a3a20", 30]
+      [
+        "#4a3020",
+        40
+      ],
+      [
+        "#221a14",
+        30
+      ],
+      [
+        "#6a3a20",
+        30
+      ]
     ]
   },
   "gallo": {
@@ -629,11 +1080,26 @@
       "vuela": false
     },
     "coloresPosibles": [
-      ["#8a3a28", 32],
-      ["#2a2420", 26],
-      ["#e8dcc0", 18],
-      ["#c9922a", 14],
-      ["#4a5a3a", 10]
+      [
+        "#8a3a28",
+        32
+      ],
+      [
+        "#2a2420",
+        26
+      ],
+      [
+        "#e8dcc0",
+        18
+      ],
+      [
+        "#c9922a",
+        14
+      ],
+      [
+        "#4a5a3a",
+        10
+      ]
     ]
   }
 }

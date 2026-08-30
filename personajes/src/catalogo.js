@@ -16,6 +16,10 @@ function cargarJSON(ruta) {
 // especies del mundo, con su colorDebug) y el de rig de aquí (esqueleto y
 // proporciones por especie) — mismo id en ambos, cero duplicados.
 const ANIMALES_BAKER = path.join(__dirname, "..", "..", "baker", "catalogo", "animales.json");
+// Cruce profesión->ropa (pedido 2026-08-30, docs/GDD_Ropa_Procedural.md):
+// mismos catálogos que ya usa ropa/, cero duplicado (CLAUDE.md punto 2).
+const ROPA_PRENDAS = path.join(__dirname, "..", "..", "ropa", "catalogo", "prendas.json");
+const ROPA_PROFESIONES = path.join(__dirname, "..", "..", "ropa", "catalogo", "profesiones.json");
 
 function cargarCatalogos() {
   return {
@@ -28,6 +32,8 @@ function cargarCatalogos() {
     animalesRig: cargarJSON(path.join(CARPETA_CATALOGO, "animales_rig.json")),
     animalesBaker: cargarJSON(ANIMALES_BAKER),
     proporcionesRig: cargarJSON(PROPORCIONES_RIG),
+    ropaPrendas: cargarJSON(ROPA_PRENDAS),
+    ropaProfesiones: cargarJSON(ROPA_PROFESIONES),
   };
 }
 

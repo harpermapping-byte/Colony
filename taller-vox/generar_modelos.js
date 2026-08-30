@@ -30,6 +30,105 @@ function sombrear(hex, factor) {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
+// --- variantes nombradas (pedido 2026-08-30) --------------------------------
+// `interiores/catalogo/elementos.json` ya define 4 `variantesNombradas` por
+// mueble típicamente (p.ej. "cama_individual_pino"/"_haya"/"_desgastada"/
+// "_roble_tallado") pero hasta ahora el generador de vóxeles las ignoraba —
+// todas salían con el MISMO colorDebug y la MISMA geometría que el id base.
+// Esto lee el sufijo del id de la variante como vocabulario libre (no un
+// campo de catálogo estructurado — así no hace falta tocar las 560 entradas
+// a mano) y deriva un tono real + un estilo (tallado/desgaste) de él.
+const TONOS = {
+  // maderas
+  roble: "#5a3d20", nogal: "#3d2814", pino: "#d9be82", tejo: "#8a6a3a",
+  sauce: "#c9b57a", avellano: "#a67c4a", castano: "#7a5230", arce: "#c9a86a",
+  chopo: "#d9c090", abedul: "#e8d9b0", encina: "#4a3016", haya: "#c9a878",
+  tilo: "#dcc79a", abeto: "#c9b088", caoba: "#5a2a1a", olmo: "#a58358",
+  fresno: "#c9b48a",
+  // metales
+  hierro: METAL, oxidado: "#8a4a2a", oxidada: "#8a4a2a", bronce: "#8a6a3a",
+  cobre: "#b5651d", acero: "#8a8a90", oro: "#d4af37", plata: "#c0c0c0",
+  laton: "#b5a642", obsidiana: "#1a1a1a", pedernal: "#6a6a6a", marfil: "#f0e6d3",
+  // piedra
+  granito: "#7a7a7a", arenisca: "#c9a86a", roca_caliza: "#d9d4c4",
+  // tela/fibra
+  lana: "#8a7a5a", lino: "#e8dfc0", seda: "#c9a8d8",
+};
+const TALLA_KEYWORDS = ["tallado", "tallada"];
+const DESGASTE_KEYWORDS = ["desgastada", "desgastado", "agrietada", "agrietado", "raida", "raido", "rota", "roto", "deslustrado", "oxidado", "oxidada", "vieja", "viejo"];
+
+/** Deriva {color, tallado, desgaste} del sufijo del id de una variante nombrada — vocabulario libre, sin match = queda el colorDebug original y sin estilo (comportamiento de siempre). */
+function resolverVariante(idVariante, idBase, colorBase) {
+  const sufijo = idVariante.startsWith(idBase + "_") ? idVariante.slice(idBase.length + 1) : idVariante;
+  let color = colorBase;
+  for (const [clave, hex] of Object.entries(TONOS)) {
+    if (sufijo.includes(clave)) { color = hex; break; }
+  }
+  return {
+    color,
+    tallado: TALLA_KEYWORDS.some((k) => sufijo.includes(k)),
+    desgaste: DESGASTE_KEYWORDS.some((k) => sufijo.includes(k)),
+  };
+}
+
+// PRNG determinista (mulberry32) sembrado por hash del id de variante — misma
+// variante = mismo desgaste siempre, regla 3 del CLAUDE.md (nada de Math.random).
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function crearRnd(semilla) {
+  let a = hashStr(semilla) || 1;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Tallado (pedido 2026-08-30): ranuras verticales oscuras cada 2 vóxeles en
+ * la cara frontal de la caja más alta/ancha del modelo — genérico por diseño
+ * (funciona sobre cualquier arquetipo, no requiere tocar cada generador). */
+function aplicarTallado(modelo) {
+  let candidata = null;
+  for (const c of modelo.cajas) {
+    const ancho = c[3] - c[0], alto = c[4] - c[1];
+    if (ancho >= 3 && (!candidata || alto > candidata[4] - candidata[1])) candidata = c;
+  }
+  if (!candidata) return modelo;
+  const [x0, y0, z0, x1, y1, , pIdx] = candidata;
+  const paleta = modelo.paleta.slice();
+  const oscuro = sombrear(paleta[pIdx], 0.55);
+  let iOscuro = paleta.indexOf(oscuro);
+  if (iOscuro === -1) { iOscuro = paleta.length; paleta.push(oscuro); }
+  const extra = [];
+  for (let x = x0 + 1; x < x1; x += 2) extra.push([x, y0, z0, x, y1, z0, iOscuro]);
+  return { ...modelo, paleta, cajas: [...modelo.cajas, ...extra] };
+}
+
+/** Desgaste (pedido 2026-08-30): oscurece aleatoriamente ~1 de cada 3 cajas
+ * (mismo criterio de "variación por vóxel" que ya usaba `sombrear`, aquí
+ * amplificado y por caja entera) — genérico, no toca geometría, solo color. */
+function aplicarDesgaste(modelo, rnd) {
+  const paleta = modelo.paleta.slice();
+  function colorOscuro(idx, factor) {
+    const hex = sombrear(modelo.paleta[idx], factor);
+    let i = paleta.indexOf(hex);
+    if (i === -1) { i = paleta.length; paleta.push(hex); }
+    return i;
+  }
+  const cajas = modelo.cajas.map((c) => {
+    if (rnd() < 0.35) {
+      const factor = 0.82 + rnd() * 0.15;
+      return [c[0], c[1], c[2], c[3], c[4], c[5], colorOscuro(c[6], factor)];
+    }
+    return c;
+  });
+  return { ...modelo, paleta, cajas };
+}
+
 // --- pequeño constructor de piezas ---------------------------------------
 // Cada generador es una función(v) -> {paleta:[...], piezas:[{c:[x0,y0,z0,x1,y1,z1], p:idx}]}
 // convertido al final a {grid, paleta, cajas} con grid=[gx,gy,gz] explícito
@@ -961,16 +1060,33 @@ function resolverU(id, arq) {
 
 const resultado = {};
 const conteoArquetipos = {};
+let variantesGeneradas = 0;
 for (const [id, v] of Object.entries(catalogo)) {
   const arq = clasificar(id, v);
   conteoArquetipos[arq] = (conteoArquetipos[arq] || 0) + 1;
   U = resolverU(id, arq);
   const modelo = ARQUETIPO_FN[arq](v, id);
   resultado[id] = { nombre: id.replace(/_/g, " "), arquetipo: arq, capa: v.capa, resolucion: U, ...modelo };
+
+  // Variantes nombradas (pedido 2026-08-30, ver resolverVariante arriba):
+  // MISMA huella/arquetipo que el id base, pero con el tono + estilo que su
+  // propio nombre sugiere — nunca antes generaban un modelo propio.
+  for (const variante of v.variantesNombradas || []) {
+    const { color, tallado, desgaste } = resolverVariante(variante.id, id, v.colorDebug);
+    U = resolverU(id, arq); // resolverU vuelve a fijar U (aplicarTallado/Desgaste no lo necesitan, pero el arquetipo sí)
+    let modeloVariante = ARQUETIPO_FN[arq]({ ...v, colorDebug: color }, id);
+    if (tallado) modeloVariante = aplicarTallado(modeloVariante);
+    if (desgaste) modeloVariante = aplicarDesgaste(modeloVariante, crearRnd(variante.id));
+    resultado[variante.id] = {
+      nombre: variante.id.replace(/_/g, " "), arquetipo: arq, capa: v.capa, resolucion: U,
+      basadoEn: id, peso: variante.peso, ...modeloVariante,
+    };
+    variantesGeneradas++;
+  }
 }
 
 fs.writeFileSync(__dirname + "/modelos_generados.json", JSON.stringify(resultado));
-console.log("Generados:", Object.keys(resultado).length, "piezas");
+console.log("Generados:", Object.keys(resultado).length, "piezas (", variantesGeneradas, "variantes nombradas incluidas )");
 console.log("Por arquetipo:", conteoArquetipos);
 let totalVoxeles = 0, maxVoxeles = 0;
 for (const m of Object.values(resultado)) {

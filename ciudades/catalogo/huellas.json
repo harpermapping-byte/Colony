@@ -44,6 +44,12 @@
     "museo": [6, 4],
     "academia_magia": [6, 5],
     "casa_noble": [5, 4],
-    "taberna": [5, 4]
+    "taberna": [5, 4],
+    "templo": [7, 5],
+    "granero": [5, 4],
+    "establo": [5, 4],
+    "banos_publicos": [6, 5],
+    "biblioteca_publica": [6, 5],
+    "escuela": [6, 4]
   }
 }

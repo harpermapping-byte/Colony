@@ -237,9 +237,18 @@ const GENERADORES_POR_TIPO = {
  *     talla base (factores neutros).
  */
 function generarPrenda(prendaId, opciones) {
-  const { catalogos, semilla, materialId, tintes, morfologia } = opciones;
-  const prenda = catalogos.prendas[prendaId];
-  if (!prenda) throw new Error(`Prenda desconocida: ${prendaId}`);
+  const { catalogos, semilla, materialId, tintes, morfologia, detalle: detalleOverride } = opciones;
+  const prendaCatalogo = catalogos.prendas[prendaId];
+  if (!prendaCatalogo) throw new Error(`Prenda desconocida: ${prendaId}`);
+  // `detalle` (pedido 2026-08-30): antes era SIEMPRE el valor fijo del
+  // catálogo (una sola camisa = un único cuello/manga/bajo posible) — con
+  // esto se puede pedir, p.ej., mangas cortas en una prenda que por defecto
+  // las trae largas, SIN tocar el catálogo ni crear una prenda nueva. Los
+  // generadores ya soportaban ambas ramas de cada detalle, solo nadie las
+  // pedía nunca con un valor distinto al de catálogo.
+  const prenda = detalleOverride
+    ? { ...prendaCatalogo, detalle: { ...prendaCatalogo.detalle, ...detalleOverride } }
+    : prendaCatalogo;
   const material = catalogos.materiales[materialId];
   if (!material) throw new Error(`Material desconocido: ${materialId}`);
   if (!prenda.materialesCompatibles.includes(materialId)) {

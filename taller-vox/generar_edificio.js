@@ -1049,7 +1049,7 @@ function elegirEstiloVentana(rnd) {
 // todavía). Sin `nivel` (como hasta ahora, ningún caller existente lo
 // pasa) el comportamiento es EXACTAMENTE el de antes — retrocompatible al
 // 100%, cero riesgo para lo que ya generaba `ciudades/`.
-function generarEdificio(tipoId, nn = 1, plan = null, nivel = null) {
+function generarEdificio(tipoId, nn = 1, plan = null, nivel = null, opciones = {}) {
   const info = tiposEdificio[tipoId];
   if (!info) throw new Error(`tipoEdificio desconocido: ${tipoId}`);
   const huella = huellas.porTipo[tipoId] || huellas.porRiqueza[info.riqueza];
@@ -1074,8 +1074,17 @@ function generarEdificio(tipoId, nn = 1, plan = null, nivel = null) {
   // casa una parte de las ventanas (piso.rnd en ventanasEnFachada) sale con
   // este segundo estilo en vez del principal. Antes toda la fachada de un
   // edificio compartía un único estilo y se veía demasiado uniforme.
+  // estiloVentanaUnico (pedido 2026-08-30): para un prompt tipo "casa muy
+  // austera y uniforme" — todas las ventanas del mismo estilo, en vez de
+  // forzar siempre 2 estilos mezclados. Sigue consumiendo la misma tirada de
+  // rnd() que antes (elegirEstiloVentana se llama igual) para no desplazar
+  // el resto de decisiones que dependen de la semilla.
   let estiloVentanaAlt = elegirEstiloVentana(rnd);
-  if (estiloVentanaAlt === estiloVentana) estiloVentanaAlt = ESTILOS_VENTANA[(ESTILOS_VENTANA.indexOf(estiloVentana) + 1) % ESTILOS_VENTANA.length];
+  if (opciones.estiloVentanaUnico) {
+    estiloVentanaAlt = estiloVentana;
+  } else if (estiloVentanaAlt === estiloVentana) {
+    estiloVentanaAlt = ESTILOS_VENTANA[(ESTILOS_VENTANA.indexOf(estiloVentana) + 1) % ESTILOS_VENTANA.length];
+  }
   // densidad de ventanas por semilla: fachadas casi ciegas en unas variantes,
   // llenas de huecos en otras — no todas las casas del mismo tipo se ven
   // igual, y en general MENOS ventanas y más grandes que antes (una casa de

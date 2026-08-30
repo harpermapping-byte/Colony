@@ -15,8 +15,21 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   arquetipo (silla, mesa, cama, armario, cofre, cesta, colgado de pared,
   objeto pequeño, estructural), con resolución variable por pieza. Lee
   `catalogo_extraido.json` (snapshot de los campos relevantes de
-  `interiores/catalogo/elementos.json` — si el catálogo real cambia, hay que
-  regenerar el snapshot) y escribe `modelos_generados.json`.
+  `interiores/catalogo/elementos.json` — regenerar con `node extraer_catalogo.js`
+  si el catálogo real cambia) y escribe `modelos_generados.json`.
+  **Variantes nombradas (pedido 2026-08-30)**: cada `variantesNombradas` del
+  diseño (p.ej. `cama_individual_pino`/`_roble_tallado`/`_desgastada`) ahora
+  genera SU PROPIO modelo — antes todas salían idénticas al id base. El
+  sufijo del id se lee como vocabulario libre (`resolverVariante`): un
+  tono real si menciona una madera/metal/piedra/fibra conocida (roble,
+  nogal, hierro, oxidado, granito, lana...), más `aplicarTallado`
+  (ranurado ornamental genérico en la caja más alta) si menciona
+  "tallado"/"tallada", más `aplicarDesgaste` (oscurecido aleatorio
+  determinista por caja) si menciona "desgastada"/"agrietada"/"oxidado"/etc.
+  Sin match = queda el aspecto de siempre. `node extraer_catalogo.js`
+  regeneró el snapshot de 123→559 piezas base (cobertura completa de
+  `elementos.json`, antes 437 piezas diseñadas no generaban nada); con
+  variantes, 1187 modelos totales.
 - **`generar_naturaleza.js`** — la ampliación del taller para todo lo SIN
   esqueleto (decisión del streamer; lo que tiene esqueleto sale de
   `personajes/`): árboles, arbustos, hierbas, flores, setas, cactus, algas,
@@ -93,6 +106,17 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   por los 3 niveles cuando `conNiveles=true` sin tocar el modo de siempre.
   `node prueba_render_niveles.js` — galería SVG de verificación específica
   de este pase (casas en varios niveles + posada/taberna/molino).
+
+  **Ampliación de variedad (pedido 2026-08-30)**: `ciudades/catalogo/huellas.json:alas`
+  suma 6 tipos nuevos con ala en L (templo, granero, establo, banos_publicos,
+  biblioteca_publica, escuela — antes solo 11 tipos podían salir en L, pese
+  a que el mecanismo de fusión ya era genérico). Quinto argumento opcional
+  `opciones = {estiloVentanaUnico: true}` en `generarEdificio(tipoId, nn,
+  plan, nivel, opciones)`: fuerza que TODAS las ventanas del edificio
+  compartan un solo estilo en vez de los 2 que siempre se mezclaban antes —
+  retrocompatible (sin `opciones`, comportamiento idéntico a siempre, misma
+  tirada de semilla). `node prueba_render_ejemplos_2026_08_30.js` — galería
+  de verificación de este pase + de las variantes de mueble.
   ```bash
   node generar_edificio.js          # 1 edificio de ejemplo por arquetipo (10)
   node generar_edificio.js todo     # los ~41 tipos del catálogo (producción: lo corre el usuario)
