@@ -1137,19 +1137,40 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (estadoPesca === "picando") { estadoPesca = "esperando"; panelPesca.actualizar(estadoPesca); }
   });
 
-  // --- Cadáveres/caza (docs/GDD_Caza.md) — placeholder de testeo, mismo
-  // criterio que el resto de esta pasada (sin arte, sin panel propio):
-  // caja tumbada en el sitio, tecla L lootea (carne/tendones/tripas) el
-  // cadáver más cercano, tecla K lo desuella (piel + trofeo, exige oficio
-  // + cuchillo_desollar — el servidor rechaza con "cadaver:error" si no).
+  // --- Cadáveres/caza (docs/GDD_Caza.md; procesado rediseñado 2026-08-30
+  // octava pasada) — placeholder de testeo, mismo criterio que el resto de
+  // esta pasada (sin arte, sin panel propio): caja tumbada en el sitio,
+  // tecla L lootea (da el ítem "cadáver entero" al inventario del jugador,
+  // ya no carne/tendones/tripas sueltos). El cadáver YA NO se desuella en el
+  // mundo — K/O procesan el que el jugador lleva ENCIMA (el primero que
+  // encuentre): K desuella, O despieza, cada uno en dos pasos (iniciar/
+  // recolectar, como crafteo) — más rápido/rinde más si `construccionId`
+  // apunta a una mesa_despiece/mesa_corte propia cercana (sin UI de
+  // targeting todavía, se manda sin construccionId = "en el sitio").
   $(room.state).cadaveres.onAdd((cadaver: any, id: string) => {
     const caja = crearPlaceholder("#5a3a2a", 1.1, 0.3, 0.6);
     escena.añadirEntidad(`cadaver_${id}`, caja, cadaver.x, cadaver.y, `💀 ${cadaver.especieOrigenId}`);
   });
   $(room.state).cadaveres.onRemove((_cadaver: any, id: string) => escena.quitarEntidad(`cadaver_${id}`));
-  room.onMessage("cadaver:error", (m: { motivo: string }) => console.log("[cadáver]", m?.motivo));
+  // true entre "procesarIniciado" y "procesado"/error — mismo criterio que
+  // "sin cola" del resto del crafteo: como mucho un procesado a la vez, K/O
+  // recolectan en vez de arrancar otro mientras esté en curso.
+  let procesandoCadaver = false;
+  room.onMessage("cadaver:error", (m: { motivo: string }) => { procesandoCadaver = false; console.log("[cadáver]", m?.motivo); });
   room.onMessage("cadaver:lootado", (m: { movidos: number }) => console.log("[cadáver] lootados", m?.movidos, "objeto(s)"));
-  room.onMessage("cadaver:desollado", (m: { entregados: string[] }) => console.log("[cadáver] desollado, entregado:", m?.entregados));
+  room.onMessage("cadaver:procesarIniciado", (m: { verbo: string; enMesa: boolean; terminaEn: number }) =>
+    console.log("[cadáver] procesando", m?.verbo, m?.enMesa ? "(en mesa, rápido)" : "(en el sitio, lento)"));
+  room.onMessage("cadaver:procesado", (m: { entregados: string[] }) => { procesandoCadaver = false; console.log("[cadáver] procesado, entregado:", m?.entregados); });
+
+  /** El primer ítem "cadáver entero" que lleve encima el jugador — sin UI de targeting, mismo criterio que el resto de teclas de acción. */
+  function cadaverEnInventario(): number | null {
+    const yo = room.state.players.get(room.sessionId);
+    if (!yo) return null;
+    for (const it of yo.inventario.cuerpo.items as Iterable<{ id: number; itemId: string }>) {
+      if (it.itemId.startsWith("cadaver_")) return it.id;
+    }
+    return null;
+  }
 
   // --- Crecimiento de bosques (docs/GDD_Bosques.md) — placeholder de
   // testeo, mismo criterio que cadáveres: sin arte propio todavía. SOLO
@@ -1279,15 +1300,25 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const combateId = combatePendienteMasCercano();
       if (combateId) room.send("combate:unirse", { combateId, retorno: retornoDeCombate() });
     }
-    // Cadáveres/caza (docs/GDD_Caza.md): L lootea, K desuella — mismo
-    // criterio sin targeting que el resto de teclas de acción.
+    // Cadáveres/caza (docs/GDD_Caza.md, rediseño 2026-08-30 octava pasada):
+    // L lootea el cadáver del MUNDO más cercano (da el ítem "cadáver
+    // entero"). K desuella / O despieza el cadáver que el jugador lleva
+    // ENCIMA — sin UI de targeting: si ya hay un procesado en curso, la
+    // misma tecla lo recolecta (si está listo); si no, arranca uno nuevo con
+    // el primer cadáver del inventario.
     if (k === "l" && !teclas.has("l")) {
       const cadaverId = cadaverMasCercano();
       if (cadaverId) room.send("cadaver:lootear", { cadaverId });
     }
-    if (k === "k" && !teclas.has("k")) {
-      const cadaverId = cadaverMasCercano();
-      if (cadaverId) room.send("cadaver:desollar", { cadaverId });
+    if ((k === "k" || k === "o") && !teclas.has(k)) {
+      if (procesandoCadaver) room.send("cadaver:procesarRecolectar");
+      else {
+        const instanciaId = cadaverEnInventario();
+        if (instanciaId != null) {
+          room.send("cadaver:procesarIniciar", { instanciaId, verbo: k === "k" ? "desollar" : "despiezar" });
+          procesandoCadaver = true;
+        }
+      }
     }
     // Bosques (docs/GDD_Bosques.md): H tala el árbol más cercano (Hacha) —
     // sin targeting, el servidor busca el más cercano él mismo.
