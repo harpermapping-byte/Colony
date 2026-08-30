@@ -152,6 +152,16 @@ export function estaCritico(vida: number, vidaMax: number): boolean {
   return vidaMax > 0 && vida / vidaMax < UMBRAL_CRITICO;
 }
 
+/** Al menos una zona infectada — la condición GLOBAL de "catarro" (docs/GDD_Enfermedades.md) se deriva de esto, no vive aquí como campo propio. */
+export function tieneAlgunaInfeccion(anatomia: Anatomia): boolean {
+  return ZONAS.some((z) => anatomia[z].infectado);
+}
+
+/** Limpia `infectado` en las 6 zonas — llamado al curar el catarro (4 ungüentos o 1 semana ingame), NUNCA toca sangrado/fractura/cicatrización (eso sigue siendo cosa de vendar/entablillar/cirugía). */
+export function curarInfecciones(anatomia: Anatomia): void {
+  for (const z of ZONAS) anatomia[z].infectado = false;
+}
+
 // --- Penalizaciones ---
 
 /** Una pierna cuenta como "comprometida" si está fracturada, o amputada sin prótesis. */

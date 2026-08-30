@@ -38,7 +38,7 @@ Solo las 4 extremidades son `ZONAS_AMPUTABLES` — cabeza/torso no se amputan (n
 ## 4. Drenaje y curación — perezosos, mismo integrador que `tickVitales`
 
 - **Sangrado activo**: 3 vida/hora por CADA zona sangrando.
-- **Infección activa**: 1.5 vida/hora por CADA zona infectada — no se detiene vendando, solo la cirugía la cura.
+- **Infección activa**: 1.5 vida/hora por CADA zona infectada — no se detiene vendando, solo la cirugía la cura. Desde `docs/GDD_Enfermedades.md` (2026-08-30), una infección activa en CUALQUIER zona también arranca "catarro" (condición global: tos, tope de vida al 50%, se cura con 4 ungüentos o solo tras 1 semana ingame) — y hay una tirada ADICIONAL de infección (10%) en el propio golpe sangrante, no solo al vendar sin ungüento.
 - **Crítico**: por debajo del 10% de `vidaMax`. Bloquea que comida/pociones normales curen `vida` (`manejarPersonajeConsumir`/`aplicarUnVital`) y reduce la velocidad de movimiento (×0.5) — la única salida es la cirugía.
 - **Penalización de movimiento/combate**: pierna comprometida (fractura activa, o amputada sin prótesis) → ×0.25 de velocidad. Brazo comprometido → bloquea atacar (arena táctica y PvP simple), equipar en `manoPrincipal`, y `crafteo:iniciar` — solo permite consumir objetos sobre uno mismo, pedido literal ("solo permite usar consumibles/curas"). **Alcance consciente**: NO se tocó cada verbo de herramienta del juego uno a uno (cocina, pesca, agricultura...) — sería decenas de sitios; se gateó en los 3 puntos de mayor impacto (combate, equipar arma, crafteo).
 

@@ -106,6 +106,18 @@ export class AnatomiaSchema extends Schema {
   @type(ZonaAnatomicaSchema) piernaDer = new ZonaAnatomicaSchema();
 }
 
+// Enfermedades (docs/GDD_Enfermedades.md, pedido 2026-08-30): catarro
+// (condición GLOBAL derivada de "¿alguna zona de anatomia está infectada?",
+// ver server/src/personaje/enfermedades.ts) y gripe (frío de invierno) — solo
+// las banderas que el cliente necesita para pintar/tose/tiritar; el reloj de
+// curación (catarroDesde/gripeDesde) es server-only, mismo criterio que
+// vendadoDesde/entablilladoDesde de AnatomiaSchema.
+export class EnfermedadesSchema extends Schema {
+  @type("boolean") catarro = false;
+  @type("number") unguentosTomados = 0; // progreso 0..3 mientras sigue enfermo, para pintar "2/4" en el panel
+  @type("boolean") gripe = false;
+}
+
 export class Player extends Schema {
   // posición en CASILLAS del mapa bakeado (float; 1 casilla = 1 unidad de
   // mundo en el cliente) — el servidor es la autoridad, el cliente interpola
@@ -165,6 +177,9 @@ export class Player extends Schema {
   // Anatomía por zona (docs/GDD_Anatomia.md, pedido 2026-08-30): sangrado/
   // fractura/infección/amputación por zona, ver AnatomiaSchema arriba.
   @type(AnatomiaSchema) anatomia = new AnatomiaSchema();
+  // Enfermedades (docs/GDD_Enfermedades.md, pedido 2026-08-30): catarro
+  // (por herida infectada) y gripe (por frío en invierno), ver EnfermedadesSchema arriba.
+  @type(EnfermedadesSchema) enfermedades = new EnfermedadesSchema();
   // Twitch (docs/GDD_Twitch.md, pedido 2026-08-30): título social sobre el
   // PJ según rol de chat (seguidor/sub/mod) o el nombre del streamer si es
   // jarl/admin — "" = sin título (ni seguidor de Twitch, ni nada puesto).

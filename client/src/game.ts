@@ -28,7 +28,7 @@ import { animalPlaceholder } from "./render3d/animalPlaceholder";
 import { aplicarMonturaAlAnimal } from "./render3d/monturaVisual";
 import { crearBarcoVisual } from "./render3d/barcoVisual";
 import { aplicarAnatomiaCompleta } from "./render3d/anatomiaVisual";
-import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista } from "./personaje/panelMedico";
+import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista, type EstadoEnfermedadesVista } from "./personaje/panelMedico";
 import { PanelLoginAdmin } from "./admin/panelLoginAdmin";
 import { PanelJarl } from "./admin/panelJarl";
 
@@ -115,6 +115,13 @@ interface EstadoJugador {
   z: number;
   y: number;
   nadando: boolean;
+  // Enfermedades (docs/GDD_Enfermedades.md, pedido 2026-08-30): SOLO
+  // jugadores reales (nunca NPCs/fauna/mascotas, que comparten esta misma
+  // interfaz de interpolación) — nombre para poder revertir la etiqueta tras
+  // la burbuja de tos/tiritona periódica.
+  name?: string;
+  catarro?: boolean;
+  gripe?: boolean;
 }
 
 /**
@@ -615,6 +622,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     entablillar: (zona) => room.send("medico:entablillar", { targetSessionId: room.sessionId, zona }),
     cirugia: (targetSessionId) => room.send("medico:cirugia", { targetSessionId }),
     protesis: (targetSessionId, zona) => room.send("medico:protesis", { targetSessionId, zona }),
+    tomarUnguento: () => room.send("medico:tomarUnguento"),
+    tomarJarabe: () => room.send("medico:tomarJarabe"),
   });
   const leerAnatomiaVista = (schema: any): Record<Zona, EstadoZonaVista> => {
     const vista = {} as Record<Zona, EstadoZonaVista>;
@@ -631,6 +640,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("medico:entablillado", (m: { zona: string }) => console.log(`[médico] entablillado: ${m?.zona}`));
   room.onMessage("medico:operado", () => console.log("[médico] cirugía completada"));
   room.onMessage("medico:protesisInstalada", (m: { zona: string }) => console.log(`[médico] prótesis instalada: ${m?.zona}`));
+  room.onMessage("medico:unguentoTomado", (m: { unguentosTomados: number; curado: boolean }) =>
+    console.log(`[enfermedades] ungüento tomado (${m?.unguentosTomados}/4)${m?.curado ? " — ¡catarro curado!" : ""}`));
+  room.onMessage("medico:jarabeTomado", () => console.log("[enfermedades] jarabe tomado — ¡gripe curada!"));
+  const leerEnfermedadesVista = (schema: any): EstadoEnfermedadesVista => ({
+    catarro: !!schema?.catarro, unguentosTomados: schema?.unguentosTomados ?? 0, gripe: !!schema?.gripe,
+  });
 
   const jugadores = new Map<string, EstadoJugador>();
   let jugadorLocal: EstadoJugador | null = null;
@@ -649,6 +664,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       z: player.y,
       y: 0,
       nadando: false,
+      name: player.name,
+      catarro: false,
+      gripe: false,
     };
     jugadores.set(sessionId, estado);
     escena.añadirEntidad(sessionId, rig.objeto, player.x, player.y, player.name);
@@ -697,6 +715,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // mismo) — se aplica igual para jugador local y remoto.
       aplicarAnatomiaCompleta(rig.objeto, player.anatomia);
       if (esYo) panelMedico.actualizarEstado(leerAnatomiaVista(player.anatomia));
+      // Enfermedades (docs/GDD_Enfermedades.md): catarro/gripe son
+      // condición GLOBAL, no del rig — el panel solo se refresca para el
+      // jugador local, pero la burbuja de tos/tiritona (bucle()) es de
+      // cualquier jugador visible, remoto incluido.
+      estado.catarro = !!player.enfermedades?.catarro;
+      estado.gripe = !!player.enfermedades?.gripe;
+      if (esYo) panelMedico.actualizarEnfermedades(leerEnfermedadesVista(player.enfermedades));
       if (player.monturaEspecieId !== monturaActual) {
         monturaActual = player.monturaEspecieId;
         if (monturaActual) {
@@ -1445,6 +1470,23 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         const fase = (tSeg + slotId.length * 1.7) % 13;
         escena.textoEtiqueta(`npc_${slotId}`, fase < 4 ? meta.grito : meta.nombre, fase < 4);
       }
+    }
+
+    // Enfermedades (docs/GDD_Enfermedades.md, pedido 2026-08-30): burbuja
+    // periódica de síntoma sobre CUALQUIER jugador visible (local o remoto)
+    // reusando la misma etiqueta de nombre que ya tienen — mismo criterio de
+    // desfase por entidad que el pregón de NPCs, para que no coincidan todos
+    // a la vez. Solo el síntoma (avisar de que estás enfermo aparte de esto
+    // queda para más adelante, pedido explícito del streamer).
+    for (const [sessionId, estadoJ] of jugadores) {
+      const nombreJ = estadoJ.name ?? "";
+      if (!estadoJ.catarro && !estadoJ.gripe) {
+        escena.textoEtiqueta(sessionId, nombreJ, false);
+        continue;
+      }
+      const fase = (tSeg + sessionId.length * 1.7) % 10;
+      const sintoma = estadoJ.catarro ? "Cough cough..." : "*tiritando*";
+      escena.textoEtiqueta(sessionId, fase < 3 ? sintoma : nombreJ, fase < 3);
     }
 
     // Luces de interior (antorchas/candelabros/lámparas — capa "iluminacion"

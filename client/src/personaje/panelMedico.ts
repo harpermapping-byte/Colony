@@ -19,12 +19,21 @@ export interface EstadoZonaVista {
   curando: boolean;
 }
 
+/** docs/GDD_Enfermedades.md (pedido 2026-08-30) — catarro/gripe, condición GLOBAL del jugador, no por zona. */
+export interface EstadoEnfermedadesVista {
+  catarro: boolean;
+  unguentosTomados: number;
+  gripe: boolean;
+}
+
 export interface OpcionesPanelMedico {
   contenedor: HTMLElement;
   vendar(zona: Zona, conUnguento: boolean): void;
   entablillar(zona: Zona): void;
   cirugia(targetSessionId: string): void;
   protesis(targetSessionId: string, zona: Zona): void;
+  tomarUnguento(): void;
+  tomarJarabe(): void;
 }
 
 const NOMBRE_ZONA: Record<Zona, string> = {
@@ -35,6 +44,7 @@ const NOMBRE_ZONA: Record<Zona, string> = {
 export class PanelMedico {
   private raiz: HTMLDivElement;
   private estado: Record<Zona, EstadoZonaVista> | null = null;
+  private enfermedades: EstadoEnfermedadesVista | null = null;
 
   constructor(private opciones: OpcionesPanelMedico) {
     this.raiz = document.createElement("div");
@@ -54,6 +64,11 @@ export class PanelMedico {
 
   actualizarEstado(estado: Record<Zona, EstadoZonaVista>) {
     this.estado = estado;
+    this.render();
+  }
+
+  actualizarEnfermedades(enfermedades: EstadoEnfermedadesVista) {
+    this.enfermedades = enfermedades;
     this.render();
   }
 
@@ -107,6 +122,38 @@ export class PanelMedico {
         sano.style.opacity = "0.7";
         sano.textContent = "(sin heridas)";
         this.raiz.appendChild(sano);
+      }
+    }
+
+    // Enfermedades (docs/GDD_Enfermedades.md, pedido 2026-08-30) — catarro
+    // (por herida infectada, tose) y gripe (por frío en invierno, tirita y
+    // va un 50% más lento), self-service igual que vendar/entablillar.
+    if (this.enfermedades && (this.enfermedades.catarro || this.enfermedades.gripe)) {
+      const separadorEnf = document.createElement("div");
+      separadorEnf.style.marginTop = "8px";
+      separadorEnf.style.paddingTop = "6px";
+      separadorEnf.style.borderTop = "1px solid #6a3a3a";
+      this.raiz.appendChild(separadorEnf);
+
+      if (this.enfermedades.catarro) {
+        const filaCatarro = document.createElement("div");
+        filaCatarro.style.marginBottom = "4px";
+        filaCatarro.textContent = `🤧 Catarro (ungüentos: ${this.enfermedades.unguentosTomados}/4) `;
+        const btnUnguento = document.createElement("button");
+        btnUnguento.textContent = "Tomar ungüento";
+        btnUnguento.onclick = () => this.opciones.tomarUnguento();
+        filaCatarro.appendChild(btnUnguento);
+        this.raiz.appendChild(filaCatarro);
+      }
+      if (this.enfermedades.gripe) {
+        const filaGripe = document.createElement("div");
+        filaGripe.style.marginBottom = "4px";
+        filaGripe.textContent = "🥶 Gripe (-50% velocidad) ";
+        const btnJarabe = document.createElement("button");
+        btnJarabe.textContent = "Tomar jarabe";
+        btnJarabe.onclick = () => this.opciones.tomarJarabe();
+        filaGripe.appendChild(btnJarabe);
+        this.raiz.appendChild(filaGripe);
       }
     }
 

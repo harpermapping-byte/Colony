@@ -244,6 +244,18 @@
     "resultado": { "itemId": "unguento", "cantidad": 2 },
     "tiempoBaseSeg": 10
   },
+  "jarabe_catarro": {
+    "oficio": "curandero",
+    "mesas": ["mortero_grande_boticario"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "hierba_aromatica", "cantidad": 2 },
+      { "itemId": "miel", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "jarabe_catarro", "cantidad": 2 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Enfermedades.md (pedido 2026-08-30) — cura la gripe al instante (medico:tomarJarabe)."
+  },
   "tablilla": {
     "oficio": "carpintero",
     "mesas": ["banco_carpintero"],

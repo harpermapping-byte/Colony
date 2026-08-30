@@ -17,6 +17,7 @@ import { ObjetoArbolBakeado } from "../mundo/bosqueSector";
 import { EspecieArbol } from "../mundo/crecimientoBosques";
 import { quitarItem, excedePesoMaximo } from "../inventario/inventario";
 import { Anatomia, anatomiaInicial } from "../personaje/anatomia";
+import { EstadoEnfermedades, enfermedadesInicial } from "../personaje/enfermedades";
 import { intentarCoger } from "../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../inventario/sincronizarSchema";
 import { pesoMaximoTransportable } from "../personaje/bonusAtributos";
@@ -585,6 +586,11 @@ export class HubRoom extends RoomExteriorBase {
           const anatomia: Anatomia = jugador.anatomia ? JSON.parse(jugador.anatomia) : anatomiaInicial();
           this.anatomiaPorSesion.set(client.sessionId, anatomia);
           if (player) this.mirrorAnatomiaASchema(player.anatomia, anatomia);
+          // Enfermedades persistidas (docs/GDD_Enfermedades.md) — mismo
+          // criterio best-effort que anatomía: si falla, arranca sano.
+          const enfermedades: EstadoEnfermedades = jugador.enfermedades ? JSON.parse(jugador.enfermedades) : enfermedadesInicial();
+          this.enfermedadesPorSesion.set(client.sessionId, enfermedades);
+          if (player) this.mirrorEnfermedadesASchema(player.enfermedades, enfermedades);
         })
         .catch((err) => console.error("No se pudo cargar la vida persistida del jugador:", err));
     }

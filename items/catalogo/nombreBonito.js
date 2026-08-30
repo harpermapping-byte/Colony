@@ -59,6 +59,7 @@ const EXCEPCIONES_FRASE = {
   artesa_completa_amasado: "Artesa Completa de Amasado",
   // Herramientas de doble función (docs/GDD_Profesiones.md, herramientas por
   // tier) — el id encadena DOS piezas/usos distintos ("y", no "de...de").
+  jarabe_catarro: "Jarabe para el Catarro",
   hacha_mano_cobre_hierro: "Hacha de Mano de Cobre y Hierro",
   kit_ordeno_cepillo: "Kit de Ordeño y Cepillo",
   cuchillo_fileteado_filtro_cobre: "Cuchillo de Fileteado y Filtro de Cobre",

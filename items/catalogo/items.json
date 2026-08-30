@@ -2168,7 +2168,18 @@
     "stackMax": 15,
     "variantes": 1,
     "colorDebug": "#a8c878",
-    "_nota": "Anatomía — aplicado junto a la venda (medico:vendar {conUnguento:true}) evita el riesgo de infección durante la cicatrización. Receta: herbolista, mortero_grande_boticario, miel+fruta."
+    "_nota": "Anatomía — aplicado junto a la venda (medico:vendar {conUnguento:true}) evita el riesgo de infección durante la cicatrización. También cura el CATARRO ya declarado (docs/GDD_Enfermedades.md, pedido 2026-08-30): 4 tomados uno a uno con medico:tomarUnguento, self-service, sin oficio. Receta: curandero, mortero_grande_boticario, miel+fruta."
+  },
+  "jarabe_catarro": {
+    "nombre": "Jarabe para el Catarro",
+    "tipo": "consumible",
+    "huella": [1, 1],
+    "peso": 0.2,
+    "apilable": true,
+    "stackMax": 15,
+    "variantes": 1,
+    "colorDebug": "#7a9a5a",
+    "_nota": "docs/GDD_Enfermedades.md (pedido 2026-08-30) — cura la GRIPE (por frío en invierno) al instante, un solo jarabe basta (medico:tomarJarabe, self-service, sin oficio). El nombre coloquial ('para el catarro') es el que usó el streamer; lo que cura mecánicamente es la gripe, no el catarro (ese lo cura el ungüento). Receta: curandero, mortero_grande_boticario, hierba_aromatica+miel."
   },
   "tablilla": {
     "nombre": "Tablilla",

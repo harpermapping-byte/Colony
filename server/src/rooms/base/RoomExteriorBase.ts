@@ -110,8 +110,14 @@ import {
   aplicarDrenajeAnatomico, resolverCuracionesEnCurso, estaCritico,
   multiplicadorVelocidadPorFractura, multiplicadorVelocidadPorCuracion, MULTIPLICADOR_VELOCIDAD_CRITICO,
   brazoInutilizado, usarVenda, usarTablilla, operarCirugia, instalarProtesis,
+  tieneAlgunaInfeccion, curarInfecciones,
 } from "../../personaje/anatomia";
-import { AnatomiaSchema } from "../schema/HubState";
+import {
+  EstadoEnfermedades, enfermedadesInicial, rodarInfeccionPorHerida, iniciarCatarroSiCorresponde,
+  rodarGripePorFrio, resolverAutocuracionEnfermedades, tomarUnguentoCatarro, tomarJarabeGripe,
+  aplicarTopeVidaPorCatarro, multiplicadorVelocidadPorGripe,
+} from "../../personaje/enfermedades";
+import { AnatomiaSchema, EnfermedadesSchema } from "../schema/HubState";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -375,6 +381,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // que el cliente necesita pintar (ZonaAnatomicaSchema, sin timestamps crudos
   // — mismo criterio que calentandoDesde de cocina.ts nunca viaja al cliente).
   protected anatomiaPorSesion = new Map<string, Anatomia>();
+  // Enfermedades (docs/GDD_Enfermedades.md, pedido 2026-08-30) — mismo
+  // criterio que anatomiaPorSesion: estado PURO completo (con timestamps)
+  // server-only, EnfermedadesSchema solo replica lo que el cliente pinta.
+  protected enfermedadesPorSesion = new Map<string, EstadoEnfermedades>();
   private cooldownSaltoMontura = new Map<string, number>(); // sessionId -> epoch ms del próximo salto permitido
 
   // --- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — a diferencia de una
@@ -753,6 +763,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("medico:entablillar", (client, msg: { targetSessionId?: string; zona?: Zona }) => void this.manejarMedicoEntablillar(client, msg));
     this.onMessage("medico:cirugia", (client, msg: { targetSessionId?: string }) => void this.manejarMedicoCirugia(client, msg));
     this.onMessage("medico:protesis", (client, msg: { targetSessionId?: string; zona?: Zona }) => void this.manejarMedicoProtesis(client, msg));
+    // Enfermedades (docs/GDD_Enfermedades.md, pedido 2026-08-30): self-service
+    // sobre uno mismo, sin oficio (el ungüento/jarabe ya los prepara el
+    // curandero — tomárselos no exige nada más, igual que vendar/entablillar).
+    this.onMessage("medico:tomarUnguento", (client) => this.manejarTomarUnguento(client));
+    this.onMessage("medico:tomarJarabe", (client) => this.manejarTomarJarabe(client));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -6622,6 +6637,33 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     await bd.actualizarAnatomiaJugador(jugador.id, JSON.stringify(anatomia));
   }
 
+  // --- Enfermedades (docs/GDD_Enfermedades.md, pedido 2026-08-30) ---
+
+  /** Estado PURO completo (con timestamps) de la sesión — se crea vacío la primera vez que se toca, mismo criterio que anatomiaDe. */
+  protected enfermedadesDe(sessionId: string): EstadoEnfermedades {
+    let e = this.enfermedadesPorSesion.get(sessionId);
+    if (!e) {
+      e = enfermedadesInicial();
+      this.enfermedadesPorSesion.set(sessionId, e);
+    }
+    return e;
+  }
+
+  /** Copia las banderas que el cliente necesita pintar — nunca los timestamps. */
+  protected mirrorEnfermedadesASchema(schema: EnfermedadesSchema, estado: EstadoEnfermedades): void {
+    schema.catarro = estado.catarroDesde != null;
+    schema.unguentosTomados = estado.unguentosTomados;
+    schema.gripe = estado.gripeDesde != null;
+  }
+
+  /** Persiste el estado completo — misma cadencia discreta que persistirAnatomia (cura/autocuración), nunca cada tick salvo el propio inicio/fin de una enfermedad. */
+  protected async persistirEnfermedades(nombreJugador: string, estado: EstadoEnfermedades): Promise<void> {
+    if (!nombreJugador) return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    await bd.actualizarEnfermedadesJugador(jugador.id, JSON.stringify(estado));
+  }
+
   /**
    * Tira el golpe anatómico si corresponde: el objetivo tiene que ser un
    * jugador CONECTADO en esta room (fauna/NPC nunca llevan anatomía) — el
@@ -6642,6 +6684,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!resultado.sangrado && !resultado.fractura && !resultado.amputacion) return; // nada que aplicar ni persistir
     const anatomia = this.anatomiaDe(objetivoSessionId);
     aplicarGolpe(anatomia[resultado.zona], resultado);
+    // Catarro por herida (docs/GDD_Enfermedades.md, pedido 2026-08-30): 10%
+    // ADICIONAL al 25% ya existente al vendar sin ungüento (usarVenda) — una
+    // herida sangrante puede infectarse aunque nunca llegues a vendarla.
+    if (resultado.sangrado && rodarInfeccionPorHerida()) anatomia[resultado.zona].infectado = true;
     this.mirrorAnatomiaASchema(objetivo.anatomia, anatomia);
     if (objetivo.name) void this.persistirAnatomia(objetivo.name, anatomia);
     this.clients.find((c) => c.sessionId === objetivoSessionId)?.send("anatomia:golpe", {
@@ -6785,6 +6831,58 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.mirrorAnatomiaASchema(target.anatomia, anatomia);
     if (target.name) void this.persistirAnatomia(target.name, anatomia);
     client.send("medico:protesisInstalada", { targetSessionId: msg.targetSessionId, zona: msg.zona });
+  }
+
+  /**
+   * Tomar un ungüento para curar el catarro (docs/GDD_Enfermedades.md):
+   * self-service sobre uno mismo, sin oficio — el ungüento ya lo prepara el
+   * curandero (receta), tomárselo no exige mesa ni instrumental. Hacen falta
+   * 4 (UNGUENTOS_PARA_CURAR_CATARRO) tomados uno a uno para curarse del todo;
+   * si con este se cura, limpia `infectado` en las 6 zonas de anatomía.
+   */
+  private manejarTomarUnguento(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const enfermedades = this.enfermedadesDe(client.sessionId);
+    if (enfermedades.catarroDesde == null) return this.errorMedico(client, "no tienes catarro");
+    const contenedor = this.inventarios.get(client.sessionId);
+    const unguento = contenedor?.items.find((it) => it.itemId === "unguento");
+    if (!contenedor || !unguento) return this.errorMedico(client, "necesitas un ungüento");
+
+    quitarItem(contenedor, unguento.id, 1);
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    const curado = tomarUnguentoCatarro(enfermedades);
+    if (curado) {
+      const anatomia = this.anatomiaDe(client.sessionId);
+      curarInfecciones(anatomia);
+      this.mirrorAnatomiaASchema(player.anatomia, anatomia);
+      if (player.name) void this.persistirAnatomia(player.name, anatomia);
+    }
+    this.mirrorEnfermedadesASchema(player.enfermedades, enfermedades);
+    if (player.name) void this.persistirEnfermedades(player.name, enfermedades);
+    client.send("medico:unguentoTomado", { unguentosTomados: enfermedades.unguentosTomados, curado });
+  }
+
+  /**
+   * Tomar un jarabe para curar la gripe al instante (docs/GDD_Enfermedades.md):
+   * self-service, sin oficio, un solo jarabe basta (a diferencia de las 4
+   * dosis del catarro).
+   */
+  private manejarTomarJarabe(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const enfermedades = this.enfermedadesDe(client.sessionId);
+    if (enfermedades.gripeDesde == null) return this.errorMedico(client, "no tienes gripe");
+    const contenedor = this.inventarios.get(client.sessionId);
+    const jarabe = contenedor?.items.find((it) => it.itemId === "jarabe_catarro");
+    if (!contenedor || !jarabe) return this.errorMedico(client, "necesitas un jarabe para el catarro");
+
+    quitarItem(contenedor, jarabe.id, 1);
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    tomarJarabeGripe(enfermedades);
+    this.mirrorEnfermedadesASchema(player.enfermedades, enfermedades);
+    if (player.name) void this.persistirEnfermedades(player.name, enfermedades);
+    client.send("medico:jarabeTomado", { curado: true });
   }
 
   private async manejarCombateAccion(client: Client, msg: { combateId?: string; objetivoId?: string }) {
@@ -6958,6 +7056,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         const anatomia = this.anatomiaDe(sessionId);
         vel *= multiplicadorVelocidadPorFractura(anatomia) * multiplicadorVelocidadPorCuracion(anatomia);
         if (estaCritico(player.vida, player.vidaMax)) vel *= MULTIPLICADOR_VELOCIDAD_CRITICO;
+        // Gripe (docs/GDD_Enfermedades.md): tiritar de frío, -50% de velocidad hasta curarse.
+        vel *= multiplicadorVelocidadPorGripe(this.enfermedadesDe(sessionId));
       }
 
       if (seMueve) {
@@ -7075,7 +7175,22 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const anatomiaTick = this.anatomiaDe(sessionId);
       resolverCuracionesEnCurso(anatomiaTick, Date.now());
       aplicarDrenajeAnatomico(anatomiaTick, player, horasPorTick);
+      // Enfermedades (docs/GDD_Enfermedades.md, pedido 2026-08-30): arranca
+      // el reloj de catarro en cuanto haya alguna zona infectada, tira gripe
+      // de flanco si acaba de empezar a hacer frío en invierno, cierra
+      // ambas si ya pasó 1 semana ingame sin curarse, y aplica el tope de
+      // vida del catarro DESPUÉS de cualquier otro cambio de vida de este
+      // tick (comer/beber/curar no lo esquivan).
+      const ahoraMs = Date.now();
+      const enfermedadesTick = this.enfermedadesDe(sessionId);
+      iniciarCatarroSiCorresponde(enfermedadesTick, tieneAlgunaInfeccion(anatomiaTick), ahoraMs);
+      rodarGripePorFrio(enfermedadesTick, extremo === "frio", estacion === "invierno", ahoraMs);
+      const { catarroCurado, gripeCurada } = resolverAutocuracionEnfermedades(enfermedadesTick, ahoraMs);
+      if (catarroCurado) curarInfecciones(anatomiaTick);
+      aplicarTopeVidaPorCatarro(enfermedadesTick, player);
       this.mirrorAnatomiaASchema(player.anatomia, anatomiaTick);
+      this.mirrorEnfermedadesASchema(player.enfermedades, enfermedadesTick);
+      if ((catarroCurado || gripeCurada) && player.name) void this.persistirEnfermedades(player.name, enfermedadesTick);
       // Muerte por inanición (docs/GDD_Muerte_Respawn.md) — mismo criterio
       // "fire and forget" que el resto de efectos async en un tick síncrono.
       // El sangrado/infección puede matar igual que la inanición.
