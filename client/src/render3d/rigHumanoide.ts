@@ -107,6 +107,15 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   raiz.add(torso);
 
   // --- Brazos (pivote en el hombro, cuelgan del torso) ---
+  // La mano es su PROPIO pivote nombrado (manoIzq/manoDer, colgado del
+  // pivote del brazo) — antes era solo una caja suelta dentro de brazoIzq/
+  // brazoDer, sin nombre propio. Necesario para que anillos/brazaletes/
+  // guantes/armas (docs/GDD_Equipo.md) puedan colgarse con el mismo patrón
+  // "buscar el pivote por nombre" (mallasPorPivote/personajeVoxel.ts) que
+  // ya usa el resto del equipo/ropa, heredando la animación del brazo
+  // entero gratis. y=0 del pivote de mano es la MUÑECA (donde termina la
+  // manga) — mismo sitio exacto donde ya se dibujaba la caja de la mano,
+  // así que esto no cambia nada visualmente, solo le pone nombre.
   function brazo(ladoX: number): THREE.Group {
     const pivote = new THREE.Group();
     pivote.name = ladoX < 0 ? "brazoIzq" : "brazoDer";
@@ -114,9 +123,16 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
     pivote.position.set(ladoX, ALTO_TORSO + b.pivoteYOffset, 0);
     const manga = caja(b.mangaW, b.mangaH, b.mangaD, colorTunica);
     manga.position.y = -b.mangaH / 2;
+    pivote.add(manga);
+
+    const manoPivote = new THREE.Group();
+    manoPivote.name = ladoX < 0 ? "manoIzq" : "manoDer";
+    manoPivote.position.y = -b.mangaH;
     const mano = caja(b.manoW, b.manoH, b.manoD, colorPiel);
-    mano.position.y = -b.mangaH - b.manoH / 2;
-    pivote.add(manga, mano);
+    mano.position.y = -b.manoH / 2;
+    manoPivote.add(mano);
+    pivote.add(manoPivote);
+
     return pivote;
   }
   const brazoIzq = brazo(-proporciones.brazo.offsetX);

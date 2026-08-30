@@ -16,9 +16,22 @@ import {
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado } from "../../mundo/mapaColision";
 import { recolectableCercano } from "../../mundo/recolectables";
-import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, cargarCatalogoRecetas, excedePesoMaximo } from "../../inventario/inventario";
+import {
+  CatalogoItems,
+  Contenedor,
+  crearContenedor,
+  cargarCatalogoItems,
+  quitarItem,
+  cargarCatalogoRecetas,
+  excedePesoMaximo,
+  SlotsEquipo,
+  InventarioJugador,
+  equiparItem,
+  desequiparItem,
+  calcularStatsEquipo,
+} from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
-import { sincronizarContenedor } from "../../inventario/sincronizarSchema";
+import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
 import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
@@ -53,7 +66,7 @@ import {
   factorVelocidadCrafteo,
   descuentoComercio,
 } from "../../personaje/bonusAtributos";
-import { curar } from "../../combate/combate";
+import { curar, ATAQUE_BASE_JUGADOR, DEFENSA_BASE_JUGADOR } from "../../combate/combate";
 import { RoomConectable, registrarRoom, quitarRoom, registrarJugador, quitarJugador } from "../../twitch/registro";
 import { obtenerGestorTwitch } from "../../twitch/gestorTwitch";
 import { TipoEvento } from "../../twitch/catalogoEventos";
@@ -249,6 +262,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // Sin persistencia ni jugador_id esta fase (alcance explícito del GDD):
   // vive y muere con la sesión, igual que `inputs`.
   protected inventarios = new Map<string, Contenedor>();
+  // Equipo (docs/GDD_Equipo.md, 2026-08-30) — mismo criterio que `inventarios`
+  // arriba: PURO por sesión, sin persistencia esta fase, `player.inventario.
+  // equipo`/`extras` (Schema) son solo el espejo de red (sincronizarEquipo).
+  // `extrasInventario`: slot contenedor (espalda/cinturon/bandolera) -> su
+  // Contenedor propio — los 3 pueden convivir a la vez por diseño.
+  protected extrasInventario = new Map<string, Map<string, Contenedor>>();
+  protected equipoInventario = new Map<string, SlotsEquipo>();
   protected catalogoItems: CatalogoItems = cargarCatalogoItems();
   private siguienteObjetoMundoId = 1;
   // Asignado por HubRoom/RegionRoom tras cargar su mapa — habilita "coger" de
@@ -320,6 +340,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     this.onMessage("coger", (client) => this.manejarCoger(client));
     this.onMessage("soltar", (client, msg: { instanciaId?: number; cantidad?: number }) => this.manejarSoltar(client, msg));
+    this.onMessage("equipo:equipar", (client, msg: { instanciaId?: number; slot?: string }) => this.manejarEquiparItem(client, msg));
+    this.onMessage("equipo:desequipar", (client, msg: { slot?: string }) => this.manejarDesequiparItem(client, msg));
     this.onMessage("personaje:consumir", (client, msg: { instanciaId?: number }) => this.manejarPersonajeConsumir(client, msg));
 
     // Higiene y sueño en cama (docs/GDD_Personaje.md §3.6, pedido explícito 2026-08-30)
@@ -453,6 +475,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const contenedor = crearContenedor(ANCHO_CUERPO, ALTO_CUERPO);
     this.inventarios.set(client.sessionId, contenedor);
     sincronizarContenedor(player.inventario.cuerpo, contenedor); // sin esto el Schema se queda en ancho=0/alto=0 (bug real, ver crítica del diseño)
+    this.extrasInventario.set(client.sessionId, new Map());
+    this.equipoInventario.set(client.sessionId, {});
 
     // Mascotas "siguiendo" (docs/GDD_Mascotas.md) — sin awaitear a propósito
     // (mismo criterio que otorgarXpAtributoPorSesion): el jugador entra ya,
@@ -470,6 +494,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);
+    this.extrasInventario.delete(client.sessionId);
+    this.equipoInventario.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
 
     // Mascotas: desaparecen de ESTA room (no se persiste x/y, ver Mascota en
@@ -625,6 +651,82 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o); // MapSchema: se replica solo, incluida la foto inicial a quien se una después
 
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
+  }
+
+  /** Vista unificada (cuerpo+extras+equipo) del inventario de UNA sesión — construida sobre los 3 Map puros, nunca guardada aparte (evita que se desincronicen entre sí). */
+  private inventarioJugador(sessionId: string): InventarioJugador | null {
+    const cuerpo = this.inventarios.get(sessionId);
+    const extras = this.extrasInventario.get(sessionId);
+    const equipo = this.equipoInventario.get(sessionId);
+    if (!cuerpo || !extras || !equipo) return null;
+    return { cuerpo, extras, equipo };
+  }
+
+  /**
+   * Recalcula ataque/defensa (físico y mágico) del jugador a partir de la
+   * base de combate (docs/GDD_Mecanicas.md §5.4) + lo que sume TODO lo
+   * equipado (docs/GDD_Equipo.md) — se llama tras CUALQUIER cambio de
+   * equipo, nunca en un tick; nunca toca vida/vidaMax (esos dependen de
+   * Resistencia, docs/GDD_Personaje.md §3.3, no de equipo).
+   */
+  private recalcularStatsJugador(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    const equipo = this.equipoInventario.get(client.sessionId);
+    if (!player || !equipo) return;
+    const stats = calcularStatsEquipo(this.catalogoItems, equipo);
+    player.ataque = ATAQUE_BASE_JUGADOR + stats.ataqueFisico;
+    player.defensa = DEFENSA_BASE_JUGADOR + stats.defensaFisica;
+    player.ataqueMagico = stats.ataqueMagico;
+    player.defensaMagica = stats.defensaMagica;
+  }
+
+  /**
+   * Equipar (docs/GDD_Equipo.md): la instancia puede venir de CUALQUIER
+   * contenedor propio (cuerpo o una mochila/bolsa ya puesta) — mismo
+   * criterio "servidor autoritativo" que coger/soltar, el cliente solo pide
+   * y muestra el resultado. Tras un cambio real: sincroniza cuerpo (la
+   * instancia salió de ahí O de un extra) + equipo/extras + recalcula stats.
+   */
+  private manejarEquiparItem(client: Client, msg: { instanciaId?: number; slot?: string }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!player || !inv) return;
+    if (typeof msg?.instanciaId !== "number" || typeof msg?.slot !== "string") return;
+
+    const resultado = equiparItem(inv, this.catalogoItems, msg.instanciaId, msg.slot);
+    if (!resultado.ok) {
+      client.send("equipo:error", { motivo: resultado.motivo ?? "no_equipable_en_ese_slot" });
+      return;
+    }
+
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    sincronizarEquipo(player.inventario, inv.equipo, inv.extras);
+    this.recalcularStatsJugador(client);
+  }
+
+  /**
+   * Desequipar (docs/GDD_Equipo.md): la pieza vuelve SIEMPRE al `cuerpo`
+   * (nunca a una mochila, para no tener que decidir a cuál) — comprueba el
+   * peso transportable real (Fuerza, docs/GDD_Personaje.md §3.3): mientras
+   * algo está puesto no pesa en la mochila, pero vuelve a contar en cuanto
+   * se quita.
+   */
+  private manejarDesequiparItem(client: Client, msg: { slot?: string }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!player || !inv) return;
+    if (typeof msg?.slot !== "string") return;
+
+    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const resultado = desequiparItem(inv, this.catalogoItems, msg.slot, pesoMaximo);
+    if (!resultado.ok) {
+      client.send("equipo:error", { motivo: resultado.motivo ?? "slot_vacio" });
+      return;
+    }
+
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    sincronizarEquipo(player.inventario, inv.equipo, inv.extras);
+    this.recalcularStatsJugador(client);
   }
 
   /**

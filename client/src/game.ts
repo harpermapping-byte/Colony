@@ -17,6 +17,8 @@ import { PointLight, Color, Mesh, ConeGeometry, MeshBasicMaterial } from "three"
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
+import { aplicarEquipoAlRig } from "./render3d/equipoVisual";
+import { PanelJugador } from "./personaje/panelJugador";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -463,6 +465,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       streaming?.actualizar(estado.x, estado.z);
     }
 
+    // Equipo (docs/GDD_Equipo.md): armadura/accesorios/mochilas puestos —
+    // se regenera entero (mismo criterio "reconstruye, no diferencies, en
+    // eventos discretos" que ya usa el servidor) cada vez que CUALQUIER
+    // slot cambia, para jugador local Y remoto por igual (cualquiera debe
+    // ver el equipo de los demás). `sessionId` como semilla: determinista
+    // por jugador, así dos piezas iguales no salen idénticas letra a letra
+    // entre jugadores distintos (variación de color por vóxel).
+    const actualizarEquipoVisual = () => aplicarEquipoAlRig(rig.objeto, player.inventario.equipo, sessionId);
+    actualizarEquipoVisual();
+    $(player.inventario.equipo).onAdd(actualizarEquipoVisual);
+    $(player.inventario.equipo).onRemove(actualizarEquipoVisual);
+
     $(player).onChange(() => {
       estado.destinoX = player.x;
       estado.destinoZ = player.y;
@@ -471,10 +485,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       escena.actualizarVida(sessionId, player.vida, player.vidaMax);
       if (esYo) {
         escena.seguirPunto(player.x, player.y);
+        panelJugador?.actualizar(player);
         // gancho para los tests E2E (Playwright lee la verdad del servidor)
         (window as any).__colonyDebug = { x: player.x, y: player.y, estado: player.estado, nivel: player.nivel };
       }
     });
+    if (esYo) panelJugador?.actualizar(player);
   });
 
   $(room.state).players.onRemove((_player: any, sessionId: string) => {
@@ -646,6 +662,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("mascota:error", (m: { motivo: string }) => console.log("[mascota]", m?.motivo));
   room.send("mascota:listar");
 
+  // --- Equipo (docs/GDD_Equipo.md) — panel PLACEHOLDER de testeo (ver
+  // panelJugador.ts), oculto hasta pulsar I (mismo criterio "condicional"
+  // que panelCombate.ts). `equipo:error` es la única respuesta del
+  // servidor — el propio cambio de Schema (inventario.equipo/cuerpo/extras)
+  // ya dispara el refresco vía el onChange de player, sin mensaje aparte.
+  const panelJugador = new PanelJugador({
+    contenedor,
+    equipar: (instanciaId, slot) => room.send("equipo:equipar", { instanciaId, slot }),
+    desequipar: (slot) => room.send("equipo:desequipar", { slot }),
+  });
+  room.onMessage("equipo:error", (m: { motivo: string }) => console.log("[equipo]", m?.motivo));
+
   // --- Login con Twitch (docs/GDD_Twitch.md §7) — PLACEHOLDER de testeo,
   // mismo criterio que el resto de paneles de esta pasada: un enlace suelto
   // si no has iniciado sesión, un texto si ya lo hiciste. Sin esto, el chat
@@ -722,6 +750,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "e" && !teclas.has("e")) room.send("nivel", 1);
     // modo construcción: B entra/sale (ESC y R los gestiona el propio modo)
     if (k === "b" && !teclas.has("b")) modoConstruccion?.alternar();
+    // Jugador (docs/GDD_Equipo.md): I abre/cierra el panel de equipo/inventario
+    if (k === "i" && !teclas.has("i")) {
+      panelJugador.alternar();
+      if (panelJugador.estaVisible()) panelJugador.actualizar(room.state.players.get(room.sessionId));
+    }
     // puertas (docs/GDD_Sistema_Puertas.md): F cerca de una la cruza
     if (k === "f" && !teclas.has("f")) room.send("portal:usar");
     // combate (docs/GDD_Combate.md): C ataca al hostil más cercano — sin UI

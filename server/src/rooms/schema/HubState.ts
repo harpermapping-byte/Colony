@@ -115,8 +115,20 @@ export class Player extends Schema {
   // magia suben `vida` — nunca pasa el tiempo por sí solo.
   @type("number") vida = 100;
   @type("number") vidaMax = 100;
+  // ataque/defensa: base + lo que sume el equipo físico (docs/GDD_Equipo.md,
+  // recalculado en cada equipar/desequipar por `recalcularStatsJugador` en
+  // RoomExteriorBase — nunca aquí, este Schema solo replica el resultado).
   @type("number") ataque = 3;
   @type("number") defensa = 0;
+  // ataqueMagico/defensaMagica (docs/GDD_Personaje.md §0 — pedido original
+  // del streamer, aplazado hasta que existiera equipo real): mismos ejes
+  // que ataque/defensa pero para daño/resistencia mágicos. Se rellenan ya
+  // desde el equipo (armadura/anillos con `defensaMagica`/`ataqueMagico`
+  // en items/catalogo/items.json), aunque todavía no hay Combate mágico que
+  // los consuma — mismo criterio "reservado, sin consumidor todavía" que ya
+  // se usó para ataqueFisico/defensaFisica antes de que existiera Combate.
+  @type("number") ataqueMagico = 0;
+  @type("number") defensaMagica = 0;
   // Twitch (docs/GDD_Twitch.md, pedido 2026-08-30): título social sobre el
   // PJ según rol de chat (seguidor/sub/mod) o el nombre del streamer si es
   // jarl/admin — "" = sin título (ni seguidor de Twitch, ni nada puesto).

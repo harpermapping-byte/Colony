@@ -13,8 +13,8 @@
  * en un tick — barato de sobra a esa frecuencia.
  */
 
-import { Contenedor } from "./inventario";
-import { ContenedorSchema, ItemInstanciaSchema } from "../rooms/schema/HubState";
+import { Contenedor, SlotsEquipo } from "./inventario";
+import { ContenedorSchema, ItemInstanciaSchema, InventarioSchema } from "../rooms/schema/HubState";
 
 export function sincronizarContenedor(schema: ContenedorSchema, puro: Contenedor): void {
   schema.ancho = puro.ancho;
@@ -29,5 +29,26 @@ export function sincronizarContenedor(schema: ContenedorSchema, puro: Contenedor
     s.y = it.y;
     s.rot = it.rot;
     schema.items.push(s);
+  }
+}
+
+/**
+ * Puente equipo/extras puros (docs/GDD_Equipo.md) -> InventarioSchema.equipo
+ * (MapSchema<string>) / InventarioSchema.extras (MapSchema<ContenedorSchema>)
+ * — mismo criterio "reconstruye entero, solo en eventos discretos" que
+ * `sincronizarContenedor`: se llama tras equipar/desequipar, nunca en un
+ * tick. `schema.cuerpo` se sincroniza aparte con `sincronizarContenedor`
+ * (quien llama ya lo hacía para "coger"/"soltar", esto no lo duplica).
+ */
+export function sincronizarEquipo(schema: InventarioSchema, equipo: SlotsEquipo, extras: Map<string, Contenedor>): void {
+  schema.equipo.clear();
+  for (const [slot, itemId] of Object.entries(equipo)) {
+    if (itemId) schema.equipo.set(slot, itemId);
+  }
+  schema.extras.clear();
+  for (const [slot, contenedor] of extras) {
+    const contSchema = new ContenedorSchema();
+    sincronizarContenedor(contSchema, contenedor);
+    schema.extras.set(slot, contSchema);
   }
 }

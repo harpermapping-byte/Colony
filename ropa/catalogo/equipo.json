@@ -1,0 +1,685 @@
+{
+  "_nota": "Catálogo de EQUIPO vestible con stats (armadura/accesorios/mochilas/armas) — hermano de ropa/catalogo/prendas.json pero para piezas SIMPLES (bloques, no siluetas ajustadas): geometría real por slot vive en ropa/src/generarEquipo.js (POSICION_POR_SLOT), aquí solo tamaño/material/variantes por PIEZA. slotEquipo cruza con items/catalogo/items.json (mismo id, ese catálogo lleva los NÚMEROS de gameplay: peso/huella/defensaFisica/defensaMagica/ataqueFisico/ataqueMagico — fuente única, sin duplicar). docs/GDD_Equipo.md documenta el diseño completo.",
+  "casco_cuero": {
+    "slotEquipo": "casco",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "casco_hierro": {
+    "slotEquipo": "casco",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.06
+  },
+  "casco_acero": {
+    "slotEquipo": "casco",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "mascara_cuero": {
+    "slotEquipo": "mascara",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "mascara_hierro": {
+    "slotEquipo": "mascara",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.06
+  },
+  "mascara_acero": {
+    "slotEquipo": "mascara",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "gafas_cuero": {
+    "slotEquipo": "gafas",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "gafas_hierro": {
+    "slotEquipo": "gafas",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.06
+  },
+  "gafas_acero": {
+    "slotEquipo": "gafas",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "brazos_cuero": {
+    "slotEquipo": "brazos",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "brazos_hierro": {
+    "slotEquipo": "brazos",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.06
+  },
+  "brazos_acero": {
+    "slotEquipo": "brazos",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "manos_cuero": {
+    "slotEquipo": "manos",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "manos_hierro": {
+    "slotEquipo": "manos",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.06
+  },
+  "manos_acero": {
+    "slotEquipo": "manos",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "piernas_cuero": {
+    "slotEquipo": "piernas",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "piernas_hierro": {
+    "slotEquipo": "piernas",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.06
+  },
+  "piernas_acero": {
+    "slotEquipo": "piernas",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "zapatos_cuero": {
+    "slotEquipo": "zapatos",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "zapatos_hierro": {
+    "slotEquipo": "zapatos",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.06
+  },
+  "zapatos_acero": {
+    "slotEquipo": "zapatos",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "hombreras_cuero": {
+    "slotEquipo": "hombreras",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "hombreras_hierro": {
+    "slotEquipo": "hombreras",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.06
+  },
+  "hombreras_acero": {
+    "slotEquipo": "hombreras",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "rodilleras_cuero": {
+    "slotEquipo": "rodilleras",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "rodilleras_hierro": {
+    "slotEquipo": "rodilleras",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.06
+  },
+  "rodilleras_acero": {
+    "slotEquipo": "rodilleras",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "coderas_cuero": {
+    "slotEquipo": "coderas",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "coderas_hierro": {
+    "slotEquipo": "coderas",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.06
+  },
+  "coderas_acero": {
+    "slotEquipo": "coderas",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "pechera_cuero": {
+    "slotEquipo": "pechera",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "pechera_cuero_tachonado": {
+    "slotEquipo": "pechera",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ],
+    "tamano": 1.05
+  },
+  "pechera_cota_malla": {
+    "slotEquipo": "pechera",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.05
+  },
+  "pechera_placas_acero": {
+    "slotEquipo": "pechera",
+    "categoria": "armadura",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.12
+  },
+  "anillo_cobre": {
+    "slotEquipo": "anillo",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 0.9
+  },
+  "anillo_plata": {
+    "slotEquipo": "anillo",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ]
+  },
+  "anillo_oro": {
+    "slotEquipo": "anillo",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.05
+  },
+  "anillo_rubi": {
+    "slotEquipo": "anillo",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "cristal"
+    ],
+    "tamano": 1.1
+  },
+  "brazalete_cuero": {
+    "slotEquipo": "brazalete",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "brazalete_plata": {
+    "slotEquipo": "brazalete",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ]
+  },
+  "brazalete_oro_grabado": {
+    "slotEquipo": "brazalete",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.1
+  },
+  "mochila_pequena": {
+    "slotEquipo": "espalda",
+    "categoria": "contenedor",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero",
+      "lino"
+    ],
+    "tamano": 0.85
+  },
+  "mochila_grande": {
+    "slotEquipo": "espalda",
+    "categoria": "contenedor",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "mochila_expedicion": {
+    "slotEquipo": "espalda",
+    "categoria": "contenedor",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "cuero",
+      "metal"
+    ],
+    "tamano": 1.15,
+    "_nota": "Refuerzos metálicos en las hebillas — más capacidad (ver items.json esContenedor), mismo criterio de tamano visual creciente por tier."
+  },
+  "bolsa_cinturon_simple": {
+    "slotEquipo": "cinturon",
+    "categoria": "contenedor",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "lino",
+      "cuero"
+    ],
+    "tamano": 0.8
+  },
+  "bolsa_cinturon_reforzada": {
+    "slotEquipo": "cinturon",
+    "categoria": "contenedor",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "rinonera_viajero": {
+    "slotEquipo": "cinturon",
+    "categoria": "contenedor",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ],
+    "tamano": 1.1
+  },
+  "bandolera_tela": {
+    "slotEquipo": "bandolera",
+    "categoria": "contenedor",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "lino",
+      "lana"
+    ],
+    "tamano": 0.85
+  },
+  "bandolera_cuero": {
+    "slotEquipo": "bandolera",
+    "categoria": "contenedor",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ]
+  },
+  "bandolera_gremio": {
+    "slotEquipo": "bandolera",
+    "categoria": "contenedor",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "cuero",
+      "tela_tapiz"
+    ],
+    "tamano": 1.1,
+    "_nota": "Bandolera con el emblema del gremio bordado — puramente cosmético, mismo contenedor que bandolera_cuero."
+  },
+  "arma_daga": {
+    "slotEquipo": "manoPrincipal",
+    "categoria": "arma",
+    "riquezaTipica": [
+      "humilde",
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 0.7,
+    "_nota": "Visual compartido por varias entradas de items.json vía prendaId — ver docs/GDD_Equipo.md."
+  },
+  "arma_espada": {
+    "slotEquipo": "manoPrincipal",
+    "categoria": "arma",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "_nota": "Visual compartido por varias entradas de items.json vía prendaId — ver docs/GDD_Equipo.md."
+  },
+  "arma_hacha": {
+    "slotEquipo": "manoPrincipal",
+    "categoria": "arma",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "madera"
+    ],
+    "_nota": "Visual compartido por varias entradas de items.json vía prendaId — ver docs/GDD_Equipo.md."
+  },
+  "arma_maza": {
+    "slotEquipo": "manoPrincipal",
+    "categoria": "arma",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "madera"
+    ],
+    "tamano": 1.05,
+    "_nota": "Visual compartido por varias entradas de items.json vía prendaId — ver docs/GDD_Equipo.md."
+  },
+  "arma_lanza": {
+    "slotEquipo": "manoPrincipal",
+    "categoria": "arma",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "madera",
+      "metal"
+    ],
+    "tamano": 1.3,
+    "_nota": "Visual compartido por varias entradas de items.json vía prendaId — ver docs/GDD_Equipo.md."
+  },
+  "arma_pico": {
+    "slotEquipo": "manoPrincipal",
+    "categoria": "arma",
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "madera"
+    ],
+    "_nota": "Visual compartido por varias entradas de items.json vía prendaId — ver docs/GDD_Equipo.md."
+  },
+  "arma_antorcha": {
+    "slotEquipo": "manoPrincipal",
+    "categoria": "arma",
+    "riquezaTipica": [
+      "humilde",
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "madera",
+      "metal"
+    ],
+    "tamano": 0.9,
+    "_nota": "Visual compartido por varias entradas de items.json vía prendaId — ver docs/GDD_Equipo.md."
+  },
+  "arma_espada_larga": {
+    "slotEquipo": "manoPrincipal",
+    "categoria": "arma",
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
+    "tamano": 1.3,
+    "_nota": "Visual compartido por espada_larga en items.json (arma_espada sirve a espada_corta) — ver docs/GDD_Equipo.md."
+  }
+}

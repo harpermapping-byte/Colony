@@ -744,7 +744,8 @@
     },
     "variantes": 2,
     "colorDebug": "#7a5a3a",
-    "_nota": "Contenedor anidado: al equiparse en 'espalda' añade una rejilla PROPIA de 4x4, independiente de la del cuerpo (decisión de diseño de esta fase — ver inventario.ts)."
+    "_nota": "Contenedor anidado: al equiparse en 'espalda' añade una rejilla PROPIA de 4x4, independiente de la del cuerpo (decisión de diseño de esta fase — ver inventario.ts).",
+    "prendaId": "mochila_grande"
   },
   "bolsa_cinturon": {
     "tipo": "equipable",
@@ -760,7 +761,8 @@
       "alto": 2
     },
     "variantes": 2,
-    "colorDebug": "#8a6a4a"
+    "colorDebug": "#8a6a4a",
+    "prendaId": "bolsa_cinturon_reforzada"
   },
   "hacha_talar": {
     "tipo": "herramienta",
@@ -772,7 +774,8 @@
     "peso": 3.2,
     "apilable": false,
     "variantes": 3,
-    "colorDebug": "#8a8a90"
+    "colorDebug": "#8a8a90",
+    "prendaId": "arma_hacha"
   },
   "pico_minero": {
     "tipo": "herramienta",
@@ -784,7 +787,8 @@
     "peso": 3.8,
     "apilable": false,
     "variantes": 3,
-    "colorDebug": "#6a6a70"
+    "colorDebug": "#6a6a70",
+    "prendaId": "arma_pico"
   },
   "antorcha_portatil": {
     "tipo": "herramienta",
@@ -796,7 +800,8 @@
     "peso": 0.5,
     "apilable": false,
     "variantes": 2,
-    "colorDebug": "#c9a050"
+    "colorDebug": "#c9a050",
+    "prendaId": "arma_antorcha"
   },
   "racion_viaje": {
     "tipo": "consumible",
@@ -1453,7 +1458,8 @@
     "alcance": 1,
     "cooldownMs": 400,
     "durabilidadMax": 60,
-    "desgastePorUso": 1
+    "desgastePorUso": 1,
+    "prendaId": "arma_daga"
   },
   "espada_corta": {
     "tipo": "arma",
@@ -1472,7 +1478,8 @@
     "alcance": 1,
     "cooldownMs": 600,
     "durabilidadMax": 100,
-    "desgastePorUso": 1
+    "desgastePorUso": 1,
+    "prendaId": "arma_espada"
   },
   "espada_larga": {
     "tipo": "arma",
@@ -1491,7 +1498,8 @@
     "alcance": 2,
     "cooldownMs": 750,
     "durabilidadMax": 120,
-    "desgastePorUso": 2
+    "desgastePorUso": 2,
+    "prendaId": "arma_espada_larga"
   },
   "hacha_combate": {
     "tipo": "arma",
@@ -1511,7 +1519,8 @@
     "cooldownMs": 850,
     "durabilidadMax": 110,
     "desgastePorUso": 2,
-    "_nota": "Distinta de 'hacha_talar' (herramienta de tala, sin stats de combate) — misma silueta, catálogo separado a propósito."
+    "_nota": "Distinta de 'hacha_talar' (herramienta de tala, sin stats de combate) — misma silueta, catálogo separado a propósito.",
+    "prendaId": "arma_hacha"
   },
   "maza_guerra": {
     "tipo": "arma",
@@ -1530,7 +1539,8 @@
     "alcance": 1,
     "cooldownMs": 900,
     "durabilidadMax": 130,
-    "desgastePorUso": 2
+    "desgastePorUso": 2,
+    "prendaId": "arma_maza"
   },
   "lanza": {
     "tipo": "arma",
@@ -1549,7 +1559,8 @@
     "alcance": 2,
     "cooldownMs": 700,
     "durabilidadMax": 100,
-    "desgastePorUso": 1
+    "desgastePorUso": 1,
+    "prendaId": "arma_lanza"
   },
   "honda": {
     "tipo": "arma",
@@ -1672,5 +1683,774 @@
     "colorDebug": "#7a7a80",
     "familiaMaterial": "metal",
     "tier": 0
+  },
+  "casco_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "casco",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 0.9,
+    "durabilidadMax": 70,
+    "desgastePorUso": 1,
+    "prendaId": "casco_cuero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#casco_cuero. Tier 0 de casco (docs/GDD_Equipo.md)."
+  },
+  "casco_hierro": {
+    "tipo": "equipable",
+    "slotEquipo": "casco",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.9,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.4,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "casco_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#casco_hierro. Tier 1 de casco (docs/GDD_Equipo.md)."
+  },
+  "casco_acero": {
+    "tipo": "equipable",
+    "slotEquipo": "casco",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.1,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.9,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "casco_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#casco_acero. Tier 2 de casco (docs/GDD_Equipo.md)."
+  },
+  "mascara_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "mascara",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 0.4,
+    "durabilidadMax": 70,
+    "desgastePorUso": 1,
+    "prendaId": "mascara_cuero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#mascara_cuero. Tier 0 de mascara (docs/GDD_Equipo.md)."
+  },
+  "mascara_hierro": {
+    "tipo": "equipable",
+    "slotEquipo": "mascara",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 0.7,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "mascara_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#mascara_hierro. Tier 1 de mascara (docs/GDD_Equipo.md)."
+  },
+  "gafas_hierro": {
+    "tipo": "equipable",
+    "slotEquipo": "gafas",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 0.3,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "gafas_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#gafas_hierro. Tier 1 de gafas (docs/GDD_Equipo.md)."
+  },
+  "gafas_acero": {
+    "tipo": "equipable",
+    "slotEquipo": "gafas",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 0.5,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "gafas_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#gafas_acero. Tier 2 de gafas (docs/GDD_Equipo.md)."
+  },
+  "brazos_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "brazos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 0.7,
+    "durabilidadMax": 70,
+    "desgastePorUso": 1,
+    "prendaId": "brazos_cuero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#brazos_cuero. Tier 0 de brazos (docs/GDD_Equipo.md)."
+  },
+  "brazos_hierro": {
+    "tipo": "equipable",
+    "slotEquipo": "brazos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.1,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "brazos_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#brazos_hierro. Tier 1 de brazos (docs/GDD_Equipo.md)."
+  },
+  "brazos_acero": {
+    "tipo": "equipable",
+    "slotEquipo": "brazos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.0,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.5,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "brazos_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#brazos_acero. Tier 2 de brazos (docs/GDD_Equipo.md)."
+  },
+  "manos_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "manos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 0.5,
+    "durabilidadMax": 70,
+    "desgastePorUso": 1,
+    "prendaId": "manos_cuero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#manos_cuero. Tier 0 de manos (docs/GDD_Equipo.md)."
+  },
+  "manos_hierro": {
+    "tipo": "equipable",
+    "slotEquipo": "manos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 0.9,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "manos_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#manos_hierro. Tier 1 de manos (docs/GDD_Equipo.md)."
+  },
+  "manos_acero": {
+    "tipo": "equipable",
+    "slotEquipo": "manos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.3,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "manos_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#manos_acero. Tier 2 de manos (docs/GDD_Equipo.md)."
+  },
+  "piernas_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "piernas",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 0.7,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 1.0,
+    "durabilidadMax": 70,
+    "desgastePorUso": 1,
+    "prendaId": "piernas_cuero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#piernas_cuero. Tier 0 de piernas (docs/GDD_Equipo.md)."
+  },
+  "piernas_hierro": {
+    "tipo": "equipable",
+    "slotEquipo": "piernas",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.1,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.6,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "piernas_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#piernas_hierro. Tier 1 de piernas (docs/GDD_Equipo.md)."
+  },
+  "piernas_acero": {
+    "tipo": "equipable",
+    "slotEquipo": "piernas",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 2.2,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "piernas_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#piernas_acero. Tier 2 de piernas (docs/GDD_Equipo.md)."
+  },
+  "zapatos_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "zapatos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 0.6,
+    "durabilidadMax": 70,
+    "desgastePorUso": 1,
+    "prendaId": "zapatos_cuero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#zapatos_cuero. Tier 0 de zapatos (docs/GDD_Equipo.md)."
+  },
+  "zapatos_hierro": {
+    "tipo": "equipable",
+    "slotEquipo": "zapatos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.0,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "zapatos_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#zapatos_hierro. Tier 1 de zapatos (docs/GDD_Equipo.md)."
+  },
+  "zapatos_acero": {
+    "tipo": "equipable",
+    "slotEquipo": "zapatos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.4,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "zapatos_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#zapatos_acero. Tier 2 de zapatos (docs/GDD_Equipo.md)."
+  },
+  "hombreras_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "hombreras",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 0.6,
+    "durabilidadMax": 70,
+    "desgastePorUso": 1,
+    "prendaId": "hombreras_cuero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#hombreras_cuero. Tier 0 de hombreras (docs/GDD_Equipo.md)."
+  },
+  "hombreras_hierro": {
+    "tipo": "equipable",
+    "slotEquipo": "hombreras",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.0,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "hombreras_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#hombreras_hierro. Tier 1 de hombreras (docs/GDD_Equipo.md)."
+  },
+  "hombreras_acero": {
+    "tipo": "equipable",
+    "slotEquipo": "hombreras",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.4,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "hombreras_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#hombreras_acero. Tier 2 de hombreras (docs/GDD_Equipo.md)."
+  },
+  "rodilleras_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "rodilleras",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 0.5,
+    "durabilidadMax": 70,
+    "desgastePorUso": 1,
+    "prendaId": "rodilleras_cuero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#rodilleras_cuero. Tier 0 de rodilleras (docs/GDD_Equipo.md)."
+  },
+  "rodilleras_hierro": {
+    "tipo": "equipable",
+    "slotEquipo": "rodilleras",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 0.9,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "rodilleras_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#rodilleras_hierro. Tier 1 de rodilleras (docs/GDD_Equipo.md)."
+  },
+  "rodilleras_acero": {
+    "tipo": "equipable",
+    "slotEquipo": "rodilleras",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.3,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "rodilleras_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#rodilleras_acero. Tier 2 de rodilleras (docs/GDD_Equipo.md)."
+  },
+  "coderas_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "coderas",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 0.4,
+    "durabilidadMax": 70,
+    "desgastePorUso": 1,
+    "prendaId": "coderas_cuero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#coderas_cuero. Tier 0 de coderas (docs/GDD_Equipo.md)."
+  },
+  "coderas_hierro": {
+    "tipo": "equipable",
+    "slotEquipo": "coderas",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 0.8,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "coderas_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#coderas_hierro. Tier 1 de coderas (docs/GDD_Equipo.md)."
+  },
+  "coderas_acero": {
+    "tipo": "equipable",
+    "slotEquipo": "coderas",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.7,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.2,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "coderas_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#coderas_acero. Tier 2 de coderas (docs/GDD_Equipo.md)."
+  },
+  "pechera_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "pechera",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 2.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 2.5,
+    "durabilidadMax": 90,
+    "desgastePorUso": 1,
+    "prendaId": "pechera_cuero"
+  },
+  "pechera_cuero_tachonado": {
+    "tipo": "equipable",
+    "slotEquipo": "pechera",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 3.2,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a4020",
+    "defensaFisica": 3.5,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "pechera_cuero_tachonado"
+  },
+  "pechera_cota_malla": {
+    "tipo": "equipable",
+    "slotEquipo": "pechera",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 5.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a8a90",
+    "defensaFisica": 5.5,
+    "defensaMagica": 1,
+    "durabilidadMax": 150,
+    "desgastePorUso": 2,
+    "prendaId": "pechera_cota_malla"
+  },
+  "pechera_placas_acero": {
+    "tipo": "equipable",
+    "slotEquipo": "pechera",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 7.0,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b8b8c0",
+    "defensaFisica": 8.5,
+    "defensaMagica": 2,
+    "durabilidadMax": 200,
+    "desgastePorUso": 2,
+    "prendaId": "pechera_placas_acero"
+  },
+  "anillo_cobre": {
+    "tipo": "equipable",
+    "slotEquipo": "anillo",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.05,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c9773a",
+    "defensaFisica": 0.3,
+    "prendaId": "anillo_cobre"
+  },
+  "anillo_plata": {
+    "tipo": "equipable",
+    "slotEquipo": "anillo",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.06,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c8c8d0",
+    "defensaFisica": 0.6,
+    "defensaMagica": 1,
+    "prendaId": "anillo_plata"
+  },
+  "anillo_oro": {
+    "tipo": "equipable",
+    "slotEquipo": "anillo",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.08,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#d8b23a",
+    "defensaFisica": 0.8,
+    "defensaMagica": 1.5,
+    "ataqueMagico": 1,
+    "prendaId": "anillo_oro"
+  },
+  "anillo_rubi": {
+    "tipo": "equipable",
+    "slotEquipo": "anillo",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.08,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#a02030",
+    "defensaMagica": 4,
+    "ataqueMagico": 4,
+    "prendaId": "anillo_rubi",
+    "_nota": "Puramente mágico — sin combate mágico todavía (docs/GDD_Combate.md), mismo criterio 'reservado, sin consumidor' que ataqueFisico/defensaFisica antes de que existiera Combate."
+  },
+  "brazalete_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "brazalete",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 0.5,
+    "prendaId": "brazalete_cuero"
+  },
+  "brazalete_plata": {
+    "tipo": "equipable",
+    "slotEquipo": "brazalete",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c8c8d0",
+    "defensaFisica": 0.8,
+    "defensaMagica": 1,
+    "prendaId": "brazalete_plata"
+  },
+  "brazalete_oro_grabado": {
+    "tipo": "equipable",
+    "slotEquipo": "brazalete",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.22,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#d8b23a",
+    "defensaFisica": 0.6,
+    "defensaMagica": 2,
+    "ataqueMagico": 1,
+    "prendaId": "brazalete_oro_grabado"
+  },
+  "mochila_pequena": {
+    "tipo": "equipable",
+    "slotEquipo": "espalda",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 1.0,
+    "apilable": false,
+    "esContenedor": {
+      "ancho": 3,
+      "alto": 3
+    },
+    "variantes": 1,
+    "colorDebug": "#8a6a4a",
+    "prendaId": "mochila_pequena",
+    "_nota": "Complementa mochila_cuero/mochila_expedicion — 3 tiers de la misma familia, docs/GDD_Equipo.md."
+  },
+  "mochila_expedicion": {
+    "tipo": "equipable",
+    "slotEquipo": "espalda",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 2.2,
+    "apilable": false,
+    "esContenedor": {
+      "ancho": 5,
+      "alto": 5
+    },
+    "variantes": 1,
+    "colorDebug": "#6a4a2a",
+    "prendaId": "mochila_expedicion"
+  },
+  "bolsa_cinturon_simple": {
+    "tipo": "equipable",
+    "slotEquipo": "cinturon",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": false,
+    "esContenedor": {
+      "ancho": 2,
+      "alto": 2
+    },
+    "variantes": 1,
+    "colorDebug": "#c9b888",
+    "prendaId": "bolsa_cinturon_simple"
+  },
+  "rinonera_viajero": {
+    "tipo": "equipable",
+    "slotEquipo": "cinturon",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "esContenedor": {
+      "ancho": 3,
+      "alto": 2
+    },
+    "variantes": 1,
+    "colorDebug": "#7a5a3a",
+    "prendaId": "rinonera_viajero"
+  },
+  "bandolera_tela": {
+    "tipo": "equipable",
+    "slotEquipo": "bandolera",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "esContenedor": {
+      "ancho": 2,
+      "alto": 3
+    },
+    "variantes": 1,
+    "colorDebug": "#c9c090",
+    "prendaId": "bandolera_tela"
+  },
+  "bandolera_cuero": {
+    "tipo": "equipable",
+    "slotEquipo": "bandolera",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 0.7,
+    "apilable": false,
+    "esContenedor": {
+      "ancho": 3,
+      "alto": 3
+    },
+    "variantes": 1,
+    "colorDebug": "#7a4a2a",
+    "prendaId": "bandolera_cuero"
+  },
+  "bandolera_gremio": {
+    "tipo": "equipable",
+    "slotEquipo": "bandolera",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "esContenedor": {
+      "ancho": 3,
+      "alto": 3
+    },
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "prendaId": "bandolera_gremio",
+    "_nota": "Cosmético de gremio — mismo contenedor 3x3 que bandolera_cuero, sin bonus de gremio real todavía."
   }
 }
