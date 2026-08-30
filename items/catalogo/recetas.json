@@ -90,5 +90,82 @@
     ],
     "resultado": { "itemId": "joyero_pequeno", "cantidad": 1 },
     "tiempoBaseSeg": 15
+  },
+
+  "harina": {
+    "oficio": "molinero",
+    "mesas": ["muela_piedra"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "trigo", "cantidad": 3 }],
+    "resultado": { "itemId": "harina", "cantidad": 4 },
+    "tiempoBaseSeg": 10,
+    "_nota": "Cocina v2 (docs/GDD_Cocina.md) — cierra el hueco del molinero (Backlog, tier 2 de 'Roles/profesiones y crafteo por planos'): primera receta real que muele grano de verdad."
+  },
+  "masa_pan": {
+    "oficio": "panadero",
+    "mesas": ["amasadora"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "harina", "cantidad": 2 }],
+    "resultado": { "itemId": "masa_pan", "cantidad": 1 },
+    "tiempoBaseSeg": 8,
+    "_nota": "Agua libre (mismo criterio que cocina:llenarAgua) — no consume ningún ítem de agua, no existe como tal en el inventario."
+  },
+  "pan": {
+    "oficio": "panadero",
+    "mesas": ["horno_pan"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "masa_pan", "cantidad": 1 }],
+    "resultado": { "itemId": "pan", "cantidad": 1 },
+    "tiempoBaseSeg": 15
+  },
+  "olla_barro": {
+    "oficio": "alfarero",
+    "mesas": ["torno_alfarero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "arcilla", "cantidad": 3 }],
+    "resultado": { "itemId": "olla_barro", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "'la olla se hace de barro o de metal' — alternativa a olla_metal. No consume nada al colocar olla_cocina (construcción sigue gratis, ver GDD_Cocina.md) — objeto de progresión de oficio/comercio."
+  },
+  "olla_metal": {
+    "oficio": "herrero",
+    "mesas": ["yunque"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "olla_metal", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "Alternativa a olla_barro. Ésta SÍ se consume al colocar olla_grande (requiereItemColocar) — un caldero de 20 raciones va reforzado, no de barro."
+  },
+  "cuenco_barro_grande": {
+    "oficio": "alfarero",
+    "mesas": ["torno_alfarero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "arcilla", "cantidad": 3 }],
+    "resultado": { "itemId": "cuenco_barro_grande", "cantidad": 1 },
+    "tiempoBaseSeg": 16
+  },
+  "tinaja_batidos": {
+    "oficio": "alfarero",
+    "mesas": ["horno_ceramica"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "arcilla", "cantidad": 5 }],
+    "resultado": { "itemId": "tinaja_batidos", "cantidad": 1 },
+    "tiempoBaseSeg": 22
+  },
+  "recipiente_queso": {
+    "oficio": "alfarero",
+    "mesas": ["torno_alfarero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "arcilla", "cantidad": 2 }],
+    "resultado": { "itemId": "recipiente_queso", "cantidad": 1 },
+    "tiempoBaseSeg": 14
+  },
+  "estructura_palos": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 4 }],
+    "resultado": { "itemId": "estructura_palos", "cantidad": 1 },
+    "tiempoBaseSeg": 12
   }
 }

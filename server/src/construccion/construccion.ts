@@ -203,7 +203,48 @@ export function validarColocacion(
     return { ok: false, motivo: "esto necesita agua junto a su huella" };
   }
 
+  // Cocina v2 (docs/GDD_Cocina.md, olla_grande/estructura_palos): variante
+  // de "algo concreto adyacente a la huella" pero mirando CONSTRUCCIONES en
+  // vez de terreno — mismo criterio que hayAguaAdyacente.
+  if (entrada.requiereConstruibleAdyacente) {
+    const tipos = Array.isArray(entrada.requiereConstruibleAdyacente)
+      ? entrada.requiereConstruibleAdyacente
+      : [entrada.requiereConstruibleAdyacente];
+    if (!hayConstruibleAdyacente(ctx, casillas, claves, tipos)) {
+      return { ok: false, motivo: `esto necesita ${tipos.join(" o ")} junto a su huella` };
+    }
+  }
+
   return { ok: true, parcelaId, claves };
+}
+
+/** ¿Alguna casilla ORTOGONALMENTE adyacente (fuera de la propia huella) tiene una construcción cuyo `objeto` está en `tipos`? */
+function hayConstruibleAdyacente(
+  ctx: ContextoConstruccion,
+  casillas: { x: number; y: number }[],
+  claves: number[],
+  tipos: string[],
+): boolean {
+  const dentro = new Set(claves);
+  const buscados = new Set(tipos);
+  for (const c of casillas) {
+    const vecinos = [
+      { x: c.x, y: c.y - 1 },
+      { x: c.x, y: c.y + 1 },
+      { x: c.x - 1, y: c.y },
+      { x: c.x + 1, y: c.y },
+    ];
+    for (const v of vecinos) {
+      if (v.x < 0 || v.y < 0 || v.x >= ctx.mapa.ancho || v.y >= ctx.mapa.alto) continue;
+      const clave = v.y * ctx.mapa.ancho + v.x;
+      if (dentro.has(clave)) continue;
+      const idConstruccion = ctx.ocupacion.get(clave);
+      if (idConstruccion == null) continue;
+      const viva = ctx.vivas.get(idConstruccion);
+      if (viva && buscados.has(viva.objeto)) return true;
+    }
+  }
+  return false;
 }
 
 /** ¿Alguna casilla ORTOGONALMENTE adyacente (fuera de la propia huella) es agua? */

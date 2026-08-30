@@ -13,12 +13,20 @@ export interface IngredienteVista {
 
 export interface EstadoCocinaVista {
   esVasija: boolean;
-  vasija?: "cuenco" | "cazuela" | "olla";
+  /** id libre desde cocina v2 (docs/GDD_Cocina.md) — cuenco/cazuela/olla/cuenco_grande/olla_grande/tinaja. */
+  vasija?: string;
   capacidad?: number;
+  hierveAgua?: boolean;
   ingredientes: IngredienteVista[];
   conAgua: boolean;
   hirviendo: boolean;
   segundosParaHervir: number;
+}
+
+/** Nombre legible del tipo de vasija para el título del panel — placeholder de testeo, sin traducción curada por id (cocina v2 puede añadir vasijas nuevas sin tocar este panel). */
+function nombreVasija(vasija: string | undefined): string {
+  if (!vasija) return "Vasija";
+  return vasija.replace(/_/g, " ").replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 }
 
 export interface OpcionesPanelCocina {
@@ -54,9 +62,9 @@ export class PanelCocina {
   }
 
   /** construccionId=null cuando el jugador ya no está junto a ninguna estación de cocina. */
-  actualizarCercania(construccionId: number | null, esVasija: boolean, vasija?: "cuenco" | "cazuela" | "olla", capacidad?: number) {
+  actualizarCercania(construccionId: number | null, esVasija: boolean, vasija?: string, capacidad?: number, hierveAgua?: boolean) {
     this.construccionId = construccionId;
-    this.estado = construccionId == null ? null : { esVasija, vasija, capacidad, ingredientes: [], conAgua: false, hirviendo: false, segundosParaHervir: 0 };
+    this.estado = construccionId == null ? null : { esVasija, vasija, capacidad, hierveAgua, ingredientes: [], conAgua: false, hirviendo: false, segundosParaHervir: 0 };
     this.pararTemporizador();
     this.render();
   }
@@ -99,7 +107,7 @@ export class PanelCocina {
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "6px";
-    titulo.textContent = e.esVasija ? `🍲 ${e.vasija === "cuenco" ? "Cuenco" : e.vasija === "cazuela" ? "Cazuela" : "Olla"}` : "🔥 Hoguera";
+    titulo.textContent = e.esVasija ? `🍲 ${nombreVasija(e.vasija)}` : "🔥 Fuego";
     this.raiz.appendChild(titulo);
 
     if (!e.esVasija) {
@@ -137,19 +145,23 @@ export class PanelCocina {
     ayuda.textContent = `Hasta ${e.capacidad} ingredientes distintos — mezclar planta y carne da bonus.`;
     this.raiz.appendChild(ayuda);
 
-    if (!e.conAgua) {
-      const llenar = document.createElement("button");
-      llenar.textContent = "💧 Llenar de agua y poner al fuego";
-      llenar.onclick = () => this.opciones.llenarAgua(id);
-      this.raiz.appendChild(llenar);
-      return;
-    }
-    if (!e.hirviendo) {
-      const esperando = document.createElement("div");
-      esperando.style.marginBottom = "6px";
-      esperando.textContent = `🔥 Calentando... ${e.segundosParaHervir}s`;
-      this.raiz.appendChild(esperando);
-      return;
+    // Cocina v2 (docs/GDD_Cocina.md): cuenco_barro_grande (sartén) y
+    // tinaja_batidos no necesitan agua ni hervor — directo a añadir.
+    if (e.hierveAgua !== false) {
+      if (!e.conAgua) {
+        const llenar = document.createElement("button");
+        llenar.textContent = "💧 Llenar de agua y poner al fuego";
+        llenar.onclick = () => this.opciones.llenarAgua(id);
+        this.raiz.appendChild(llenar);
+        return;
+      }
+      if (!e.hirviendo) {
+        const esperando = document.createElement("div");
+        esperando.style.marginBottom = "6px";
+        esperando.textContent = `🔥 Calentando... ${e.segundosParaHervir}s`;
+        this.raiz.appendChild(esperando);
+        return;
+      }
     }
 
     if (e.ingredientes.length === 0) {

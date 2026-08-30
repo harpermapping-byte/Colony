@@ -90,7 +90,8 @@ import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
-import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, IngredienteCocina } from "../../cocina/cocina";
+import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, IngredienteCocina, familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura, FamiliaPlato, ResultadoCoccion, OrigenCocina } from "../../cocina/cocina";
+import { EstadoQuesera, estadoQueseraInicial, iniciarLoteQueso, loteQuesoListo, recolectarLoteQueso } from "../../construccion/cuajado";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -604,13 +605,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // backlog): mesa_injertos + dos semillas cualesquiera -> especie nueva.
     this.onMessage("injerto:crear", (client, msg: { construccionId?: number; instanciaIdA?: number; instanciaIdB?: number }) => this.manejarInjertoCrear(client, msg));
 
-    // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30): hoguera (sencillo) o
-    // vasija (cuenco/cazuela/olla, combina varios ingredientes en un plato).
+    // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30, ampliado 2026-08-30
+    // "cocina v2"): hoguera (sencillo) o vasija (combina varios ingredientes
+    // en un plato — cuenco/cazuela/olla/cuenco_barro_grande/olla_grande/
+    // tinaja_batidos, todas por el mismo protocolo genérico).
     this.onMessage("cocina:simple", (client, msg: { construccionId?: number; instanciaId?: number }) => this.manejarCocinaSimple(client, msg));
     this.onMessage("cocina:llenarAgua", (client, msg: { construccionId?: number }) => this.manejarCocinaLlenarAgua(client, msg));
     this.onMessage("cocina:anadir", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarCocinaAnadir(client, msg));
     this.onMessage("cocina:preparar", (client, msg: { construccionId?: number }) => this.manejarCocinaPreparar(client, msg));
     this.onMessage("cocina:consultar", (client, msg: { construccionId?: number }) => this.manejarCocinaConsultar(client, msg));
+    // Cocina v2: combinaciones abiertas SIN vasija persistida (instantáneas,
+    // mismo motor de identidad/caché que un plato de vasija) + cortar pan.
+    this.onMessage("cocina:ensalada", (client, msg: { construccionId?: number; ingredientes?: { instanciaId: number; cantidad?: number }[] }) => void this.manejarCocinaEnsalada(client, msg));
+    this.onMessage("cocina:bocadillo", (client, msg: { rellenos?: { instanciaId: number; cantidad?: number }[] }) => void this.manejarCocinaBocadillo(client, msg));
+    this.onMessage("cocina:cortarPan", (client, msg: { instanciaId?: number }) => this.manejarCocinaCortarPan(client, msg));
+    // Cocina v2: quesera (recipiente_queso) — mismo espíritu que curtidor,
+    // módulo aparte (server/src/construccion/cuajado.ts) por no encajar
+    // igual de bien en el modelo de curtido.ts (ver cabecera de cuajado.ts).
+    this.onMessage("quesera:cargarLeche", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarQueseraCargarLeche(client, msg));
+    this.onMessage("quesera:iniciarLote", (client, msg: { construccionId?: number; conSal?: boolean }) => void this.manejarQueseraIniciarLote(client, msg));
+    this.onMessage("quesera:recolectar", (client, msg: { construccionId?: number }) => void this.manejarQueseraRecolectar(client, msg));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -1590,6 +1604,23 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         const veredicto = validarColocacion(ctx, { nombre, entrada, x, y, rot });
         if (!veredicto.ok) return this.errorConstruir(client, veredicto.motivo);
         const propiedadId = veredicto.parcelaId;
+
+        // Cocina v2 (docs/GDD_Cocina.md): algunas piezas nuevas (olla_grande,
+        // cuenco_barro_grande, tinaja_batidos, recipiente_queso,
+        // estructura_palos) exigen tener el ítem craftado correspondiente en
+        // el inventario y lo consumen al colocarse — el resto de construibles
+        // del juego sigue gratis, sin excepción, esto es deliberadamente
+        // acotado a estas piezas (ver `requiereItemColocar` en catalogo.ts).
+        if (entrada.requiereItemColocar) {
+          const contenedorColocar = this.inventarios.get(client.sessionId);
+          const itemColocar = contenedorColocar?.items.find((it) => it.itemId === entrada.requiereItemColocar);
+          if (!contenedorColocar || !itemColocar) {
+            return this.errorConstruir(client, `necesitas ${entrada.requiereItemColocar} en el inventario para colocar esto`);
+          }
+          quitarItem(contenedorColocar, itemColocar.id, 1);
+          const jugadorColocar = this.state.players.get(client.sessionId);
+          if (jugadorColocar) sincronizarContenedor(jugadorColocar.inventario.cuerpo, contenedorColocar);
+        }
 
         // la parcela puede no tener fila aún (nunca asignada): se crea sin
         // dueño para que la FK de construcciones apunte a algo real
@@ -3575,7 +3606,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const entradaItem = this.catalogoItems[item.itemId];
     if (!entradaItem?.aportesCocina || entradaItem.tipo !== "recurso") return this.errorCocina(client, "eso no se puede cocinar así");
 
-    const cocinadoId = `${item.itemId}_cocinado`;
+    // Cocina v2: carne/pescado/huevo directo al fuego pasan a "Asado"
+    // (pedido explícito) en vez del genérico "_cocinado" que sigue usando
+    // el resto (fruta, baya, trigo...).
+    const cocinadoId = entradaItem.origenCocina === "animal" ? `asado_${item.itemId}` : `${item.itemId}_cocinado`;
     if (!this.catalogoItems[cocinadoId]) return this.errorCocina(client, "esto todavía no tiene versión cocinada");
 
     quitarItem(contenedor, item.id, 1);
@@ -3602,6 +3636,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const viva = ctx.vivas.get(msg.construccionId);
     const entrada = viva && this.entradaDe(viva.objeto);
     if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a una vasija");
+    if (entrada.cocina.hierveAgua === false) return this.errorCocina(client, "esta vasija no necesita agua ni fuego, se usa directamente");
     const estado = this.extraCocinaDe(viva);
     if (estado.conAgua) return this.errorCocina(client, "esta vasija ya tiene agua puesta");
 
@@ -3621,7 +3656,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a una vasija");
 
     const estadoPrevio = this.extraCocinaDe(viva);
-    if (!estaHirviendo(estadoPrevio, Date.now())) {
+    if (entrada.cocina.hierveAgua !== false && !estaHirviendo(estadoPrevio, Date.now())) {
       return this.errorCocina(client, estadoPrevio.conAgua ? "el agua todavía no ha hervido" : "primero llena la vasija de agua y ponla al fuego");
     }
 
@@ -3630,6 +3665,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor || !item) return this.errorCocina(client, "eso ya no está en tu inventario");
     const entradaItem = this.catalogoItems[item.itemId];
     if (!entradaItem?.aportesCocina || entradaItem.tipo !== "recurso") return this.errorCocina(client, "eso no es un ingrediente");
+    if (!aceptaEnVasija(entrada.cocina.vasija ?? "", item.itemId, entradaItem.categoriaRecurso)) {
+      return this.errorCocina(client, "eso no sirve para un batido");
+    }
 
     const estado = estadoPrevio;
     const yaDentro = estado.ingredientes.find((i) => i.itemId === item.itemId);
@@ -3672,18 +3710,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const e = this.catalogoItems[i.itemId]!;
       return { itemId: i.itemId, cantidad: i.cantidad, aportes: e.aportesCocina!, origen: e.origenCocina! };
     });
-    const resultado = cocinarPlato(ingredientesCocina);
+    const resultado = cocinarPlato(ingredientesCocina, entrada.cocina.capacidad);
 
+    const familia = familiaDePlato(entrada.cocina.vasija ?? "", ingredientesCocina);
     const bd = await obtenerBdCompartida();
     await this.asegurarPlatosCargados(bd);
-    const clave = clavePlato(estado.ingredientes.map((i) => i.itemId));
+    const clave = clavePlato(familia, estado.ingredientes.map((i) => i.itemId));
     let plato = await bd.buscarPlatoPorClave(clave);
     if (!plato) {
       const sufijo = Math.random().toString(36).slice(2, 8);
       plato = {
         clave,
         itemId: `plato_${sufijo}`,
-        nombre: nombrePlato(entrada.cocina.vasija!, estado.ingredientes.map((i) => i.itemId)),
+        nombre: nombrePlato(prefijoDe(familia), estado.ingredientes.map((i) => i.itemId)),
         ingredientes: estado.ingredientes.map((i) => i.itemId),
         vida: resultado.vida ?? 0,
         estamina: resultado.estamina ?? 0,
@@ -3728,6 +3767,268 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       hirviendo: estaHirviendo(estado, ahora),
       segundosParaHervir: segundosParaHervir(estado, ahora),
     });
+  }
+
+  /**
+   * Registra el plato (o lo reusa si ya existe) y lo entrega al inventario
+   * — misma lógica de identidad/caché de `manejarCocinaPreparar`, extraída
+   * para que ensalada/bocadillo (combinaciones SIN vasija persistida) la
+   * reusen tal cual en vez de duplicarla.
+   */
+  private async entregarPlatoDinamico(
+    client: Client,
+    familia: FamiliaPlato,
+    itemIdsIngredientes: string[],
+    resultado: ResultadoCoccion,
+    cantidadEntregar: number,
+    colorDebug: string,
+  ): Promise<boolean> {
+    const bd = await obtenerBdCompartida();
+    await this.asegurarPlatosCargados(bd);
+    const clave = clavePlato(familia, itemIdsIngredientes);
+    let plato = await bd.buscarPlatoPorClave(clave);
+    if (!plato) {
+      const sufijo = Math.random().toString(36).slice(2, 8);
+      plato = {
+        clave,
+        itemId: `plato_${sufijo}`,
+        nombre: nombrePlato(prefijoDe(familia), itemIdsIngredientes),
+        ingredientes: itemIdsIngredientes,
+        vida: resultado.vida ?? 0,
+        estamina: resultado.estamina ?? 0,
+        comida: resultado.comida,
+        bebida: resultado.bebida ?? 0,
+        colorDebug,
+        creadoEn: new Date().toISOString(),
+      };
+      await bd.crearPlatoCreado(plato);
+      this.registrarPlatoEnCatalogo(plato);
+    }
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return false;
+    const cogido = agregarItem(contenedor, this.catalogoItems, plato.itemId, cantidadEntregar);
+    if (!cogido.ok) {
+      this.errorCocina(client, "no tienes hueco para el resultado");
+      return false;
+    }
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: cantidadEntregar, mezclaBonus: resultado.mezclaBonus });
+    return true;
+  }
+
+  /**
+   * Ensalada (docs/GDD_Cocina.md, cocina v2): cortar verduras/frutas crudas
+   * EN un cuenco (cualquier vasija sirve, sin fuego ni hervor) con un
+   * cuchillo_cocina en el inventario — instantáneo, sin estado persistido.
+   */
+  private async manejarCocinaEnsalada(client: Client, msg: { construccionId?: number; ingredientes?: { instanciaId: number; cantidad?: number }[] }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number" || !Array.isArray(msg.ingredientes)) return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a un cuenco");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    if (!contenedor.items.some((it) => it.itemId === "cuchillo_cocina")) {
+      return this.errorCocina(client, "necesitas un cuchillo_cocina para cortar la ensalada");
+    }
+
+    const picks: { instanciaId: number; itemId: string; cantidad: number }[] = [];
+    const totalesPorItem = new Map<string, number>();
+    for (const p of msg.ingredientes) {
+      const item = contenedor.items.find((it) => it.id === p.instanciaId);
+      if (!item) return this.errorCocina(client, "eso ya no está en tu inventario");
+      const e = this.catalogoItems[item.itemId];
+      if (!e?.aportesCocina || !e.origenCocina || !aptoParaEnsalada(e.categoriaRecurso)) {
+        return this.errorCocina(client, "eso no se puede cortar en ensalada");
+      }
+      const cantidad = Math.max(1, Math.min(Math.floor(p.cantidad ?? 1), item.cantidad));
+      picks.push({ instanciaId: item.id, itemId: item.itemId, cantidad });
+      totalesPorItem.set(item.itemId, (totalesPorItem.get(item.itemId) ?? 0) + cantidad);
+    }
+    if (totalesPorItem.size < 2) return this.errorCocina(client, "una ensalada necesita al menos 2 ingredientes distintos");
+
+    const ingredientesCocina: IngredienteCocina[] = [...totalesPorItem.entries()].map(([itemId, cantidad]) => {
+      const e = this.catalogoItems[itemId]!;
+      return { itemId, cantidad, aportes: e.aportesCocina!, origen: e.origenCocina! };
+    });
+    const resultado = cocinarPlato(ingredientesCocina);
+
+    for (const p of picks) {
+      const r = quitarItem(contenedor, p.instanciaId, p.cantidad);
+      if (!r.ok) return; // ya validado arriba que había cantidad suficiente
+    }
+    await this.entregarPlatoDinamico(client, "ensalada", [...totalesPorItem.keys()], resultado, resultado.platos, "#6a9a3a");
+  }
+
+  /**
+   * Bocadillo (docs/GDD_Cocina.md, cocina v2): 2 rebanada_pan + 1+ rellenos
+   * (cualquier consumible ya cocinado) — "sin cuenco ni olla ni nada",
+   * pedido explícito, así que no exige estar junto a ninguna construcción.
+   */
+  private async manejarCocinaBocadillo(client: Client, msg: { rellenos?: { instanciaId: number; cantidad?: number }[] }) {
+    if (!Array.isArray(msg?.rellenos) || msg.rellenos.length === 0) return this.errorCocina(client, "el bocadillo necesita al menos un relleno");
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const rebanadas = contenedor.items.find((it) => it.itemId === "rebanada_pan" && it.cantidad >= 2);
+    if (!rebanadas) return this.errorCocina(client, "necesitas 2 rebanadas de pan");
+
+    const picks: { instanciaId: number; itemId: string; cantidad: number }[] = [];
+    const totalesPorItem = new Map<string, number>();
+    for (const p of msg.rellenos) {
+      const item = contenedor.items.find((it) => it.id === p.instanciaId);
+      if (!item) return this.errorCocina(client, "eso ya no está en tu inventario");
+      const e = this.catalogoItems[item.itemId];
+      if (!e || e.tipo !== "consumible" || !e.restauraMultiple) return this.errorCocina(client, "eso no sirve de relleno");
+      const cantidad = Math.max(1, Math.min(Math.floor(p.cantidad ?? 1), item.cantidad));
+      picks.push({ instanciaId: item.id, itemId: item.itemId, cantidad });
+      totalesPorItem.set(item.itemId, (totalesPorItem.get(item.itemId) ?? 0) + cantidad);
+    }
+
+    // La propia rebanada cuenta como un "ingrediente" más en la media (el
+    // pan también aporta), mismo motor que una vasija.
+    const rebanadaAportes = aportesDesdeRestaura(this.catalogoItems["rebanada_pan"]!.restauraMultiple!);
+    const ingredientesCocina: IngredienteCocina[] = [
+      { itemId: "rebanada_pan", cantidad: 2, aportes: rebanadaAportes, origen: "vegetal" },
+      ...[...totalesPorItem.entries()].map(([itemId, cantidad]) => {
+        const e = this.catalogoItems[itemId]!;
+        return { itemId, cantidad, aportes: aportesDesdeRestaura(e.restauraMultiple!), origen: (e.origenCocina ?? "vegetal") as OrigenCocina };
+      }),
+    ];
+    const resultado = cocinarPlato(ingredientesCocina);
+
+    quitarItem(contenedor, rebanadas.id, 2);
+    for (const p of picks) {
+      const r = quitarItem(contenedor, p.instanciaId, p.cantidad);
+      if (!r.ok) return;
+    }
+    await this.entregarPlatoDinamico(client, "bocadillo", ["rebanada_pan", ...totalesPorItem.keys()], resultado, 1, "#d9a850");
+  }
+
+  /** Corta 1 pan con cuchillo_cocina -> 6 rebanada_pan, sin vasija ni fuego. */
+  private manejarCocinaCortarPan(client: Client, msg: { instanciaId?: number }) {
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    if (!contenedor.items.some((it) => it.itemId === "cuchillo_cocina")) {
+      return this.errorCocina(client, "necesitas un cuchillo_cocina");
+    }
+    const item = typeof msg?.instanciaId === "number" ? contenedor.items.find((it) => it.id === msg.instanciaId) : undefined;
+    if (!item || item.itemId !== "pan") return this.errorCocina(client, "eso no es pan");
+
+    quitarItem(contenedor, item.id, 1);
+    const resultado = agregarItem(contenedor, this.catalogoItems, "rebanada_pan", 6);
+    if (!resultado.ok) {
+      agregarItem(contenedor, this.catalogoItems, "pan", 1); // deshace: el pan no debe perderse si no cabe el resultado
+      return this.errorCocina(client, "no tienes hueco para las rebanadas");
+    }
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("cocina:cocinado", { itemId: "rebanada_pan", cantidad: 6 });
+  }
+
+  // --- Quesera (recipiente_queso, docs/GDD_Cocina.md): leche a granel +
+  // lote con/sin sal + tiempo real -> mantequilla/queso. Mismo espíritu que
+  // curtidor pero módulo aparte (cuajado.ts) — ver su cabecera. ---
+
+  private errorQuesera(client: Client, motivo: string) {
+    client.send("quesera:error", { motivo });
+  }
+
+  private extraQueseraDe(viva: { extra?: Record<string, unknown> | null }): EstadoQuesera {
+    return ((viva.extra as { quesera?: EstadoQuesera } | null)?.quesera ?? estadoQueseraInicial()) as EstadoQuesera;
+  }
+
+  private enviarEstadoQuesera(client: Client, construccionId: number, estado: EstadoQuesera) {
+    const ahora = Date.now();
+    client.send("quesera:estado", {
+      construccionId,
+      stockLeche: estado.stockLeche,
+      lote: estado.lote ? { conSal: estado.lote.conSal, listo: loteQuesoListo(estado, ahora) } : null,
+    });
+  }
+
+  private async manejarQueseraCargarLeche(client: Client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number" || typeof msg?.instanciaId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.quesera) return this.errorQuesera(client, "necesitas estar junto a una quesera");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const item = contenedor?.items.find((it) => it.id === msg.instanciaId);
+    if (!contenedor || !item || item.itemId !== "leche") return this.errorQuesera(client, "eso no es leche");
+
+    const cantidad = Math.max(1, Math.min(Math.floor(msg.cantidad ?? 1), item.cantidad));
+    const resultadoQuitar = quitarItem(contenedor, item.id, cantidad);
+    if (!resultadoQuitar.ok) return;
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const estado = this.extraQueseraDe(viva);
+    const nuevoEstado: EstadoQuesera = { ...estado, stockLeche: estado.stockLeche + cantidad };
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), quesera: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.enviarEstadoQuesera(client, viva.id, nuevoEstado);
+  }
+
+  /** Arranca el lote — `conSal:true` (queso) exige y consume 1 "sal" del inventario del jugador AHORA (no es stock a granel del mueble, ver cuajado.ts). */
+  private async manejarQueseraIniciarLote(client: Client, msg: { construccionId?: number; conSal?: boolean }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.quesera) return this.errorQuesera(client, "necesitas estar junto a una quesera");
+
+    const conSal = msg.conSal === true;
+    const contenedor = this.inventarios.get(client.sessionId);
+    let salItem: { id: number } | undefined;
+    if (conSal) {
+      salItem = contenedor?.items.find((it) => it.itemId === "sal");
+      if (!contenedor || !salItem) return this.errorQuesera(client, "necesitas sal para hacer queso");
+    }
+
+    const estado = this.extraQueseraDe(viva);
+    const nuevoEstado = iniciarLoteQueso(estado, conSal, Date.now());
+    if (!nuevoEstado) return this.errorQuesera(client, estado.lote ? "ya hay un lote en curso" : "necesitas más leche");
+
+    if (conSal && contenedor && salItem) {
+      quitarItem(contenedor, salItem.id, 1);
+      const player = this.state.players.get(client.sessionId);
+      if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    }
+
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), quesera: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.enviarEstadoQuesera(client, viva.id, nuevoEstado);
+  }
+
+  private async manejarQueseraRecolectar(client: Client, msg: { construccionId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.quesera) return this.errorQuesera(client, "necesitas estar junto a una quesera");
+
+    const estado = this.extraQueseraDe(viva);
+    const resultado = recolectarLoteQueso(estado, Date.now());
+    if (!resultado) return this.errorQuesera(client, estado.lote ? "todavía no está listo" : "no hay ningún lote en curso");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const cogido = agregarItem(contenedor, this.catalogoItems, resultado.itemId, 1);
+    if (!cogido.ok) return this.errorQuesera(client, "no tienes hueco para el resultado");
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), quesera: resultado.estado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    client.send("quesera:recolectado", { itemId: resultado.itemId });
   }
 
   /** "Bolsa de N" (docs/GDD_Agricultura.md) — la abre en `abreEn.cantidad` unidades sueltas de `abreEn.itemId`, sin gastar la bolsa si no hay hueco. */

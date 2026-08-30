@@ -78,14 +78,48 @@ export interface EntradaConstruible {
   requiereAgua?: boolean;
   /** Agricultura (docs/GDD_Agricultura.md) — presente en bancal_cultivo/maceta_*: superficie donde plantar UNA semilla a la vez (mensajes `cultivo:*`, RoomExteriorBase.ts). `multiplicadorCosecha` escala la cantidad de cada cosecha (macetas grandes rinden más). */
   plantable?: { multiplicadorCosecha: number };
-  /** Cocina (docs/GDD_Cocina.md) — presente en hoguera_campamento/cuenco_cocina/cazuela_cocina/olla_cocina. `esVasija:false` = solo "cocinar tal cual" un ingrediente (hoguera); `esVasija:true` = además combina varios ingredientes en un plato nuevo, con capacidad de tipos distintos y el nombre que da su tamaño ("cuenco"/"cazuela"/"olla"). */
-  cocina?: { esVasija: boolean; capacidad?: number; vasija?: "cuenco" | "cazuela" | "olla" };
+  /**
+   * Cocina (docs/GDD_Cocina.md) — presente en hoguera_campamento/chimenea_cocina
+   * (esVasija:false, solo "cocinar tal cual") y en toda vasija (esVasija:true):
+   * cuenco_cocina/cazuela_cocina/olla_cocina/cuenco_barro_grande/olla_grande/
+   * tinaja_batidos. `vasija` es un id libre (no un enum cerrado — cocina v2
+   * 2026-08-30 añadió tipos nuevos) que decide la familia/nombre del plato
+   * (`cocina/cocina.ts::familiaDePlato`). `hierveAgua` (default true si
+   * esVasija) marca si hace falta `cocina:llenarAgua` + esperar el hervor
+   * antes de añadir ingredientes — false en cuenco_barro_grande (sartén,
+   * fuego directo) y tinaja_batidos (sin fuego).
+   */
+  cocina?: { esVasija: boolean; capacidad?: number; vasija?: string; hierveAgua?: boolean };
   /** Encurtido de pieles (docs/GDD_Caza.md) — presente en cubo_sal/barril_curtido. */
   curtidor?: EntradaCurtidor;
+  /** Cocina v2 (docs/GDD_Cocina.md) — presente en recipiente_queso: leche a granel [+sal] + tiempo real -> mantequilla/queso (server/src/construccion/cuajado.ts). true = el mueble existe, sin más parámetros (las constantes de tiempo/cantidad viven en cuajado.ts, un único mueble en el juego). */
+  quesera?: boolean;
   /** Ganadería (docs/GDD_Ganaderia.md) — presente en comedero: mueble-cubo cargable a granel, mismo mecanismo de "hueco/stock" que curtidor pero sin lote ni transformación, solo un contador de disponibilidad diaria. */
   alimentador?: EntradaAlimentador;
   /** Ganadería (docs/GDD_Ganaderia.md) — presente en gallinero/nido/cobertizo_ganado: refugio que hace falta tener en la propiedad destino para poder traer un animal de esas categoriasVida (domesticar o comprar). */
   refugioGranja?: EntradaRefugioGranja;
+  /**
+   * Cocina v2 (docs/GDD_Cocina.md) — presente en estructura_palos/olla_grande:
+   * al colocarse, exige que al menos una casilla ORTOGONALMENTE ADYACENTE a
+   * la huella tenga una construcción cuyo `objeto` esté en esta lista (o sea
+   * exactamente esta cadena) — `construccion.ts::hayConstruibleAdyacente`,
+   * mismo espíritu que `requiereAgua` pero mirando construcciones en vez de
+   * terreno. olla_grande exige estructura_palos; estructura_palos exige
+   * hoguera_campamento o chimenea_cocina — así "la olla grande se pone
+   * exclusivamente sobre una hoguera con estructura de palos" (pedido
+   * explícito) queda en dos pasos encadenados, no una comprobación multi-tipo.
+   */
+  requiereConstruibleAdyacente?: string | string[];
+  /**
+   * Cocina v2 (docs/GDD_Cocina.md) — presente en cuenco_barro_grande/olla_grande/
+   * tinaja_batidos/recipiente_queso/estructura_palos: itemId que el jugador
+   * debe tener en el inventario para colocar esta construible — se consume
+   * al colocarse ("construir", RoomExteriorBase.ts). Da sentido real a
+   * craftear la olla/vasija en herrería/alfarería/carpintería sin abrir la
+   * pregunta más grande de "construir cuesta materiales" para TODO el resto
+   * del juego (que hoy sigue gratis, sin excepción, fuera de estas piezas).
+   */
+  requiereItemColocar?: string;
 }
 
 export interface EntradaActividadAtributo {
@@ -149,10 +183,13 @@ interface EntradaExterior {
   proyectoJarl?: boolean;
   requiereAgua?: boolean;
   plantable?: { multiplicadorCosecha: number };
-  cocina?: { esVasija: boolean; capacidad?: number; vasija?: "cuenco" | "cazuela" | "olla" };
+  cocina?: { esVasija: boolean; capacidad?: number; vasija?: string; hierveAgua?: boolean };
   curtidor?: EntradaCurtidor;
+  quesera?: boolean;
   alimentador?: EntradaAlimentador;
   refugioGranja?: EntradaRefugioGranja;
+  requiereConstruibleAdyacente?: string | string[];
+  requiereItemColocar?: string;
 }
 
 interface EntradaTipoEdificio {
@@ -213,8 +250,11 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       plantable: d.plantable,
       cocina: d.cocina,
       curtidor: d.curtidor,
+      quesera: d.quesera,
       alimentador: d.alimentador,
       refugioGranja: d.refugioGranja,
+      requiereConstruibleAdyacente: d.requiereConstruibleAdyacente,
+      requiereItemColocar: d.requiereItemColocar,
     });
   }
 
