@@ -50,6 +50,8 @@ export const PREFIJO_NPC_COMERCIANTE = "npc:";
 export function saldoInicialPara(nombre: string): number {
   return nombre.startsWith(PREFIJO_NPC_COMERCIANTE) ? SALDO_INICIAL_NPC_COMERCIANTE : SALDO_INICIAL_JUGADOR;
 }
+/** Ingreso diario de un NPC comerciante (pedido 2026-08-30: "los npc cada día reciben 20 Farycoins también, así aumentan su dinero") — mismo importe que el saldo inicial de jugador, cálculo perezoso vía `resolverIngresoDiarioNpc`. */
+export const INGRESO_DIARIO_NPC = 20;
 
 export interface Jugador {
   id: number;
@@ -531,6 +533,8 @@ export interface IAlmacenDatos {
     precioUnitario: number;
     vendedorNombre: string;
   }): Promise<{ ok: true; saldoRestante: number; precioTotal: number } | { ok: false; motivo: string }>;
+  /** docs/GDD_Economia.md (pedido 2026-08-30, "los npc cada día reciben 20 Farycoins también"): acredita `INGRESO_DIARIO_NPC` por cada día de mundo transcurrido desde la última resolución — cálculo perezoso, SOLO se llama cuando un jugador de verdad se acerca al NPC (nunca un tick de fondo). La primera vez que se ve a un NPC no le da nada retroactivo (solo fija el día de partida). */
+  resolverIngresoDiarioNpc(npcNombre: string, diaActual: number): Promise<{ diasAcreditados: number; saldo: number }>;
   listarConstrucciones(): Promise<Construccion[]>;
   insertarConstruccion(c: NuevaConstruccion): Promise<number>;
   borrarConstruccion(id: number): Promise<boolean>;
@@ -728,6 +732,14 @@ CREATE TABLE IF NOT EXISTS tenderete_items (
   PRIMARY KEY (tenderete_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
+-- Economía (docs/GDD_Economia.md, pedido 2026-08-30): ingreso diario de un
+-- NPC comerciante ("npc:<slotId>" en jugadores.nombre) — cálculo perezoso,
+-- SOLO cuando alguien se acerca de verdad (nunca un tick de fondo): guarda
+-- el último día de mundo ya acreditado para saber cuántos días atrasados tocan.
+CREATE TABLE IF NOT EXISTS npc_comerciantes (
+  nombre TEXT PRIMARY KEY,
+  ultimo_dia_ingreso INTEGER NOT NULL
+);
 -- Producción/transporte (docs/GDD_Produccion.md, pedido 2026-08-29): un
 -- contrato entre una construcción productora y un tenderete destino. La
 -- ruta se calcula UNA VEZ al firmar (nunca en vivo después) y se cachea aquí.
@@ -1046,6 +1058,10 @@ CREATE TABLE IF NOT EXISTS tenderete_items (
   PRIMARY KEY (tenderete_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
+CREATE TABLE IF NOT EXISTS npc_comerciantes (
+  nombre TEXT PRIMARY KEY,
+  ultimo_dia_ingreso INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS contratos_transporte (
   id SERIAL PRIMARY KEY,
   origen_construccion_id INTEGER NOT NULL,
@@ -1950,6 +1966,24 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const vendedor = await this.obtenerOCrearJugador(params.vendedorNombre);
     const abono = await this.ajustarFarycoins(vendedor.id, precioTotal);
     return { ok: true, saldoRestante: abono.saldo, precioTotal };
+  }
+
+
+  async resolverIngresoDiarioNpc(npcNombre: string, diaActual: number): Promise<{ diasAcreditados: number; saldo: number }> {
+    const fila = this.bd.prepare("SELECT ultimo_dia_ingreso FROM npc_comerciantes WHERE nombre = ?").get(npcNombre);
+    if (!fila) {
+      // primera vez que se ve a este NPC: fija el día de partida, sin retroactivo.
+      this.bd.prepare("INSERT INTO npc_comerciantes (nombre, ultimo_dia_ingreso) VALUES (?, ?)").run(npcNombre, diaActual);
+      const npc = await this.obtenerOCrearJugador(npcNombre, saldoInicialPara(npcNombre));
+      return { diasAcreditados: 0, saldo: npc.farycoins };
+    }
+    const ultimoDia = Number(fila.ultimo_dia_ingreso);
+    const diasAcreditados = Math.max(0, diaActual - ultimoDia);
+    const npc = await this.obtenerOCrearJugador(npcNombre, saldoInicialPara(npcNombre));
+    if (diasAcreditados === 0) return { diasAcreditados: 0, saldo: npc.farycoins };
+    const r = await this.ajustarFarycoins(npc.id, diasAcreditados * INGRESO_DIARIO_NPC);
+    this.bd.prepare("UPDATE npc_comerciantes SET ultimo_dia_ingreso = ? WHERE nombre = ?").run(diaActual, npcNombre);
+    return { diasAcreditados, saldo: r.saldo };
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {
@@ -3013,6 +3047,24 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     const vendedor = await this.obtenerOCrearJugador(params.vendedorNombre);
     const abono = await this.ajustarFarycoins(vendedor.id, precioTotal);
     return { ok: true, saldoRestante: abono.saldo, precioTotal };
+  }
+
+
+  async resolverIngresoDiarioNpc(npcNombre: string, diaActual: number): Promise<{ diasAcreditados: number; saldo: number }> {
+    const fila = await this.pool.query<{ ultimo_dia_ingreso: number }>("SELECT ultimo_dia_ingreso FROM npc_comerciantes WHERE nombre = $1", [npcNombre]);
+    if (fila.rows.length === 0) {
+      // primera vez que se ve a este NPC: fija el día de partida, sin retroactivo.
+      await this.pool.query("INSERT INTO npc_comerciantes (nombre, ultimo_dia_ingreso) VALUES ($1, $2)", [npcNombre, diaActual]);
+      const npc = await this.obtenerOCrearJugador(npcNombre, saldoInicialPara(npcNombre));
+      return { diasAcreditados: 0, saldo: npc.farycoins };
+    }
+    const ultimoDia = fila.rows[0].ultimo_dia_ingreso;
+    const diasAcreditados = Math.max(0, diaActual - ultimoDia);
+    const npc = await this.obtenerOCrearJugador(npcNombre, saldoInicialPara(npcNombre));
+    if (diasAcreditados === 0) return { diasAcreditados: 0, saldo: npc.farycoins };
+    const r = await this.ajustarFarycoins(npc.id, diasAcreditados * INGRESO_DIARIO_NPC);
+    await this.pool.query("UPDATE npc_comerciantes SET ultimo_dia_ingreso = $1 WHERE nombre = $2", [diaActual, npcNombre]);
+    return { diasAcreditados, saldo: r.saldo };
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {

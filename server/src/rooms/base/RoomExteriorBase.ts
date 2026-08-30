@@ -3371,12 +3371,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return `${PREFIJO_NPC_COMERCIANTE}${npcId}`;
   }
 
+  /**
+   * Ingreso diario del NPC (docs/GDD_Economia.md, pedido 2026-08-30: "los
+   * npc cada día reciben 20 Farycoins también, así aumentan su dinero,
+   * solo si están cargados o se acerca alguien") — cálculo perezoso, se
+   * llama SIEMPRE que un jugador se acerca a este NPC de verdad (escaparate/
+   * comprar/vender), nunca con un tick de fondo: si nadie lo visita en
+   * días, se pone al día de golpe la próxima vez que alguien llegue.
+   */
+  private async resolverIngresoDiarioNpc(npcId: string): Promise<void> {
+    const bd = await obtenerBdCompartida();
+    await bd.resolverIngresoDiarioNpc(this.tenderoteIdDeNpc(npcId), tiempoMundo().dia);
+  }
+
   /** Público: catálogo de venta/compra del NPC más cercano — sin gating de dueño (no hay dueño, es un comerciante del mundo). */
   private async manejarNpcComercioEscaparate(client: Client) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     const cercano = this.npcTenderoMasCercano(player.x, player.y);
     if (!cercano) return this.errorNpc(client, "no hay ningún comerciante cerca");
+    await this.resolverIngresoDiarioNpc(cercano.id);
     client.send("npc:comercioEscaparate", {
       npcId: cercano.id,
       nombre: cercano.npc.nombre,
@@ -3396,6 +3410,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const precioUnitario = NPC_TENDERO_VENTA[msg.itemId];
     if (!precioUnitario) return this.errorNpc(client, "este comerciante no vende eso");
     const cantidad = Math.max(1, Math.floor(msg.cantidad ?? 1));
+    await this.resolverIngresoDiarioNpc(msg.npcId);
 
     const tenderoteId = this.tenderoteIdDeNpc(msg.npcId);
     const npcNombre = tenderoteId;
@@ -3439,6 +3454,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const precioUnitario = NPC_TENDERO_COMPRA[it.itemId];
     if (!precioUnitario) return this.errorNpc(client, "este comerciante no compra eso");
     const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
+    await this.resolverIngresoDiarioNpc(msg.npcId); // antes de cobrar: que el ingreso de hoy ya cuente para lo que puede pagar
 
     const bd = await obtenerBdCompartida();
     const r = await bd.venderANpc({ npcNombre: this.tenderoteIdDeNpc(msg.npcId), itemId: it.itemId, cantidad, precioUnitario, vendedorNombre: nombre });
