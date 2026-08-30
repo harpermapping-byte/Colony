@@ -169,12 +169,14 @@ export function intentarAparearse(
   especie: EspecieReproductiva,
   ahora: number,
   rnd: () => number = Math.random,
+  /** Probabilidad de que cuaje — 0.5 por defecto (salvaje). Ganadería (docs/GDD_Ganaderia.md, ampliación 2026-08-30) pasa un valor mayor: "más fácil al tenerlos acotados y bien alimentados", pedido explícito. */
+  probabilidadExito = 0.5,
 ): { exito: false } | { exito: true; huevo: Huevo | null } {
   if (macho.sexo !== "macho" || hembra.sexo !== "hembra") {
     throw new Error("intentarAparearse espera (macho, hembra) en ese orden");
   }
   if (!elegibleParaAparearse(macho, especie, ahora) || !elegibleParaAparearse(hembra, especie, ahora)) return { exito: false };
-  if (rnd() >= 0.5) return { exito: false };
+  if (rnd() >= probabilidadExito) return { exito: false };
 
   const duracion = sortearDuracionGestacion(especie.tamanoReproduccion, rnd);
   if (especie.poneHuevos) {

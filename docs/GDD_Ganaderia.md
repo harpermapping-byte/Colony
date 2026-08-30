@@ -1,8 +1,10 @@
 # GDD — Ganadería (cría de animales domésticos)
 
-**ESTADO: v1 IMPLEMENTADA Y VERIFICADA (2026-08-30).** Piezas: `server/src/mundo/ganaderia.ts` (vallado por flood-fill + escape diario), `server/src/mundo/catalogoCombateFauna.ts` (`categoriaProductoGranja`), `baker/catalogo/animales.json` (6 especies etiquetadas), `server/src/construccion/catalogo.ts` (`EntradaAlimentador`/`EntradaRefugioGranja`), `interiores/catalogo/exteriores.json` (`comedero`/`bebedero`/`nido`/`cobertizo_ganado` nuevos, `gallinero` activado), `items/catalogo/items.json` (6 ítems nuevos), `server/src/rooms/schema/HubState.ts` (`AnimalGranjaSchema`, `ComercioSchema.ofertaAnimales*`), `server/src/datos/bd.ts` (tabla `animales_granja`, 9 funciones), `server/src/rooms/base/RoomExteriorBase.ts` (protocolo `animal:*` + extensión de `tenderete:*`/`comercio:*`), `server/src/mundo/faunaSalvajeViva.ts` (`GestorFaunaSalvaje.domesticar`), `server/src/rooms/HubRoom.ts`/`RegionRoom.ts` (`onFaunaDomesticada`, `RegionRoom.estadisticasFaunaDe` nuevo). Probado: `ganaderia.test.ts` (10), `animalesGranja.test.ts` (8, persistencia BD), `catalogoCombateFauna.test.ts`/`construccion.test.ts` (ampliados), suite completa 535/535, `interiores` 34/34, `tsc --noEmit` limpio en server y client.
+**ESTADO: v1 IMPLEMENTADA Y VERIFICADA (2026-08-30), AMPLIADA el mismo día con cría de descendencia real (§11).** Piezas v1: `server/src/mundo/ganaderia.ts` (vallado por flood-fill + escape diario), `server/src/mundo/catalogoCombateFauna.ts` (`categoriaProductoGranja`), `baker/catalogo/animales.json` (6 especies etiquetadas), `server/src/construccion/catalogo.ts` (`EntradaAlimentador`/`EntradaRefugioGranja`), `interiores/catalogo/exteriores.json` (`comedero`/`bebedero`/`nido`/`cobertizo_ganado` nuevos, `gallinero` activado), `items/catalogo/items.json` (6 ítems nuevos), `server/src/rooms/schema/HubState.ts` (`AnimalGranjaSchema`, `ComercioSchema.ofertaAnimales*`), `server/src/datos/bd.ts` (tabla `animales_granja`, 9 funciones), `server/src/rooms/base/RoomExteriorBase.ts` (protocolo `animal:*` + extensión de `tenderete:*`/`comercio:*`), `server/src/mundo/faunaSalvajeViva.ts` (`GestorFaunaSalvaje.domesticar`), `server/src/rooms/HubRoom.ts`/`RegionRoom.ts` (`onFaunaDomesticada`, `RegionRoom.estadisticasFaunaDe` nuevo). Piezas de la ampliación (§11): `server/src/mundo/reproduccionGranja.ts` (nuevo, puro), `server/src/mundo/reproduccionFauna.ts` (+parámetro `probabilidadExito` en `intentarAparearse`, retrocompatible), `baker/catalogo/animales.json` (+`coneja`/`gazapo`, `conejo` domesticable, `criasPorCamada` en cerdo/cerda/conejo/coneja, campos de reproducción reales en `gallina_salvaje`), `server/src/rooms/base/RoomExteriorBase.ts` (`resolverReproduccionAnimalesPropiedad`, huevos físicos, `PRODUCTOS_GRANJA` sin "huevos"). Probado: `ganaderia.test.ts` (10), `animalesGranja.test.ts` (8), `reproduccionGranja.test.ts` (15, nuevo), suite completa de servidor 587/587, `tsc --noEmit` limpio en server.
 
-Pedido del streamer (2026-08-30): cría de animales domésticos ligada al oficio de granjero/ganadero — comprar o domesticar animales en el exterior y llevarlos a tu propiedad (sin propiedad, no se puede criar); comedero+bebedero con acceso diario; vallado real comprobado por código, 20% de posibilidad de escape si no está vallado (si lo está, nunca escapa); si escapan dejan de ser tuyos y vuelven a ser libres; productos: leche (vaca/cabra/oveja), lana (oveja), huevos (gallina/ganso), carne de todos incluido el cerdo; herramientas/mobiliario para extraer cada producto (comederos, nidos, gallineros, establos); los animales, como propiedad, se pueden vender/traspasar/comerciar/matar/perder.
+Pedido del streamer v1 (2026-08-30): cría de animales domésticos ligada al oficio de granjero/ganadero — comprar o domesticar animales en el exterior y llevarlos a tu propiedad (sin propiedad, no se puede criar); comedero+bebedero con acceso diario; vallado real comprobado por código, 20% de posibilidad de escape si no está vallado (si lo está, nunca escapa); si escapan dejan de ser tuyos y vuelven a ser libres; productos: leche (vaca/cabra/oveja), lana (oveja), huevos (gallina/ganso), carne de todos incluido el cerdo; herramientas/mobiliario para extraer cada producto (comederos, nidos, gallineros, establos); los animales, como propiedad, se pueden vender/traspasar/comerciar/matar/perder.
+
+Pedido del streamer de la ampliación, verbatim (2026-08-30): "vamos a completar Cría de descendencia en animales de granja (ganadería produce leche/huevos/lana pero no se reproducen): los animales como los salvajes tienen esa probabilidad si tienen uno de su especioe y otro sesxo de reproducirse usane l mismo sistema de los salvajes pero estos tienen mas % de que se reproduszcan por que es mas facil al tenerlos acotados bien alimentados etc. las gallinas y aquellos que sea por huevo, necesitaran almenos 1 macho cerca, las gallinas o gansos o patos que sean y cada dia dejaran de 1 a 3 huevos en suelo o en un nido si tienen, si no tienen nido ponen 1 en suelo si tienen nido de 1 a 3 cada dia. (el huevo tiene prop sprite y se puede ver en el suelo o en elnido) aparece la cria del resto de animales la mayoriua 1 menos cerdos conejos y si se te ocurre algun animal que salgan mas cachorros por camada / embarazo." **Nota**: la premisa de que "ganadería produce leche/huevos/lana" ya estaba implementada por otro agente en paralelo (§0-§10) — esta ampliación (§11) es SOLO la cría de descendencia, que en efecto faltaba entera.
 
 ## 0. Especies y productos — reusa el catálogo ya existente
 
@@ -67,7 +69,8 @@ Sin refugio de la categoría adecuada en la propiedad destino, NO se puede domes
 |---|---|---|---|---|---|
 | leche | `leche` | `cubo_ordeno` | ganadero | 2 | 6 |
 | lana | `lana` | `tijeras_esquilar` | ganadero | 1 | 3 |
-| huevos | `huevo` | — | — | 1 | 4 |
+
+**⚠️ "huevos" ya NO está en `PRODUCTOS_GRANJA`** (cambio de la ampliación §11, 2026-08-30): el acumulador abstracto se sustituyó por la puesta de huevos FÍSICA en el mundo, pedido explícito del streamer — ver §11.3.
 
 ## 7. Vallado real y escape — `server/src/mundo/ganaderia.ts`
 
@@ -87,7 +90,36 @@ Sin refugio de la categoría adecuada en la propiedad destino, NO se puede domes
 
 ## 10. Pendiente (no bloquea v1)
 
-- **Sin wiring de cliente**: ningún key/UI manda `animal:*`/`tenderete:*Animal*`/`comercio:*Animal` todavía — mismo hueco que producción/crafteo/refinamiento/curtidor, ninguno tiene tecla hoy tampoco.
+- **Sin wiring de cliente**: ningún key/UI manda `animal:*`/`tenderete:*Animal*`/`comercio:*Animal` todavía — mismo hueco que producción/crafteo/refinamiento/curtidor, ninguno tiene tecla hoy tampoco. La cría de descendencia (§11) hereda el mismo hueco: se resuelve sola en el servidor, sin ningún mensaje ni UI dedicados.
 - **Comercio de animales solo dentro de la misma región** (§2.2) — cruzar regiones exigiría consultar `animalesGranjaPuros` de otra room, fuera de alcance v1.
 - **Escape no repuebla la fauna salvaje persistente** (§7) — reaparece como `Fauna` simple, sin reproducción ni sector.
 - **Sin cadena de procesado** de leche/lana (queso, hilado) — productos RAW únicamente (§0), pedido explícito no incluía transformarlos.
+
+## 11. Cría de descendencia (ampliación 2026-08-30, pedido explícito)
+
+Reusa el motor de reproducción de la fauna salvaje (`server/src/mundo/reproduccionFauna.ts`, ya existente y sin tocar en su lógica) TAL CUAL sobre los `AnimalGranjaFila` de una propiedad — nuevo módulo puro `server/src/mundo/reproduccionGranja.ts`, sin fs/BD/Colyseus, mismo patrón que `ganaderia.ts`.
+
+### 11.1 Reuso, no reimplementación
+
+`intentarAparearse` ganó un 6º parámetro opcional `probabilidadExito` (por defecto 0.5, los 5 usos existentes de fauna salvaje no cambian). Ganadería pasa `PROBABILIDAD_EXITO_GRANJA = 0.85` — "más fácil al tenerlos acotados y bien alimentados", pedido explícito de más % que lo salvaje (0.5). El resto del pipeline (`elegibleParaAparearse`, `tocaDarALuz`, `tocaMadurar`, `resolverParto`) se reusa sin cambios — el catálogo YA traía `tamanoReproduccion`/`poneHuevos`/`dieta`/`criaId`/`criasPorCamada` para casi todas las especies de granja (heredado del trabajo de fauna salvaje), así que la ampliación fue sobre todo enganchar piezas ya construidas, no inventar nuevas.
+
+**Catálogo, lo que sí faltaba**: `gallina_salvaje` (reutilizada como hembra doméstica desde v1) no tenía `tamanoReproduccion`/`poneHuevos`/`criaId`/`dieta` reales — se añadieron (`poneHuevos:true`, `criaId:"pollito"`). No existía pareja de conejos domesticable (`conejo` era `domesticable:false`, sin hembra) — se añadió `coneja` + cría `gazapo`, y `conejo` pasó a `domesticable:true`. `criasPorCamada:4` en cerdo/cerda y `criasPorCamada:3` en conejo/coneja — pedido explícito ("la mayoría 1 menos cerdos y conejos"); el resto de mamíferos (vaca/oveja/cabra) sigue pariendo 1.
+
+**Por qué un catálogo de reproducción propio y no `catalogoFaunaSalvaje.ts`**: ese loader trata `poblacionInfinita:true` (como `gallina_salvaje`, para el spawn EXTERIOR) como "no reproduce, solo se rellena" — correcto para el mapa exterior, incorrecto para una gallina individual ya domesticada y guardada en BD. `cargarCatalogoReproduccionGranja` lee el MISMO `animales.json` pero ignora ese atajo.
+
+### 11.2 Emparejamiento y maduración
+
+`PAREJAS_GRANJA` (macho/hembra por clave) — reusa la convención YA establecida del catálogo (nombre real distinto por sexo: toro/vaca, carnero/oveja, macho_cabrio/cabra, cerdo/cerda, conejo/coneja, gallo/gallina_salvaje, ganso_domestico/oca). Resuelto perezosamente para la PROPIEDAD ENTERA de golpe (`resolverReproduccionAnimalesPropiedad`, a diferencia del escape que es por individuo — hace falta ver a todos los animales de la propiedad a la vez para emparejar), disparado en CUALQUIER interacción con un animal suyo (`animal:recolectarProducto`, `animal:consultar`), nunca en un tick de fondo.
+
+Una cría que ya maduró (`tocaMadurar`, mismos días por tamaño que la fauna salvaje) se reemplaza por un adulto macho o hembra (50/50, `Math.random()`) de su pareja — al no existir un campo "sexo" propio en la convención de catálogo doméstico (macho/hembra son ids DISTINTOS, p.ej. "cerdito" madura a "cerdo" o "cerda"), la fila BD vieja se borra y nace una fila nueva con el especieId de adulto en el mismo sitio.
+
+### 11.3 Huevos físicos en el mundo
+
+Pedido explícito: "el huevo tiene prop sprite y se puede ver en el suelo o en el nido" — sustituye el acumulador abstracto de "huevos" que tenía v1 (§6, `animal:recolectarProducto`) por objetos reales (`ObjetoMundoSchema`, mismo mecanismo que soltar/cadáveres/pesca) en el sitio del ave. Requiere un macho ADULTO de su misma pareja en la propiedad — sin él, no pone. Una vez por día de mundo por hembra elegible (gatea igual que leche/lana: `tieneComidaYAguaHoy`). Cantidad: **1 en el suelo si la propiedad no tiene un `nido`** (o `gallinero`, mismo refugio de v1 §4) **construido, 1 a 3 si lo tiene** — pedido literal. El "nido" reusa la construible YA existente de v1, sin inventar un concepto nuevo.
+
+### 11.4 Decisiones a confirmar con el streamer
+
+- **"huevos" desaparece de `PRODUCTOS_GRANJA`** (§6) — antes daba un acumulador invisible por `animal:recolectarProducto`, ahora son objetos físicos recogibles por cualquiera. A confirmar si eso es lo que se quería o si se prefiere mantener ambos caminos.
+- **`PROBABILIDAD_EXITO_GRANJA = 0.85`** — valor de partida "más alto que lo salvaje (0.5)", ajustable en `reproduccionGranja.ts` sin tocar nada más.
+- Sin wiring de cliente (§10) — la cría/puesta de huevos ocurre solo en el servidor; el jugador la descubre al ver aparecer animales/huevos nuevos en su propiedad, sin ningún panel dedicado.
+- Gestación/maduración usan las MISMAS duraciones que la fauna salvaje por tamaño (`GESTACION_DIAS`/`MADURACION_DIAS` de `reproduccionFauna.ts`) — no se pidió que fueran distintas para granja, así que no se duplicaron constantes.
