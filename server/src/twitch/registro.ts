@@ -28,10 +28,14 @@ interface Conexion {
 }
 
 const rooms = new Set<RoomConectable>();
-// nombreLower -> conexión ACTIVA más reciente (si el mismo nombre entra en
-// dos rooms a la vez —no debería, pero identidad v1 es solo texto libre—
-// gana la última: mismo criterio "sin garantías fuertes" ya aceptado en
-// todo el sistema de nombre-como-identidad).
+// Clave del registro: el LOGIN REAL de Twitch si el jugador entró con login
+// (docs/GDD_Twitch.md §7, pedido 2026-08-30 "que se conecte con su cuenta
+// de Twitch aunque su PJ tenga otro nombre") — únicos de verdad, sin el
+// problema de abajo. Si no hizo login, cae al nombre de su PJ (comportamiento
+// de antes, sin cambios): si el mismo nombre de PJ entra en dos rooms a la
+// vez —no debería, pero identidad v1 sin login es solo texto libre— gana el
+// último, mismo criterio "sin garantías fuertes" ya aceptado en todo el
+// sistema de nombre-como-identidad.
 const conexionPorNombre = new Map<string, Conexion>();
 
 export function registrarRoom(room: RoomConectable): void {
@@ -42,20 +46,23 @@ export function quitarRoom(room: RoomConectable): void {
   rooms.delete(room);
 }
 
-export function registrarJugador(nombre: string, room: RoomConectable, sessionId: string): void {
-  conexionPorNombre.set(nombre.trim().toLowerCase(), { room, sessionId });
+/** `twitchLogin` (si el jugador hizo login con Twitch) manda como clave sobre `nombrePj` — ver comentario de `conexionPorNombre`. */
+export function registrarJugador(nombrePj: string, room: RoomConectable, sessionId: string, twitchLogin?: string): void {
+  conexionPorNombre.set((twitchLogin ?? nombrePj).trim().toLowerCase(), { room, sessionId });
 }
 
 /**
- * `sessionId` es OBLIGATORIO para evitar un bug real con nombres duplicados
- * (identidad v1 no los impide, ver comentario de `conexionPorNombre`): si A
- * y B entran con el mismo nombre, B "gana" el registro; si A se desconecta
- * DESPUÉS, un `quitarJugador(nombre)` sin comprobar de quién es borraría el
- * registro de B (que sigue conectado) — solo se borra si la entrada actual
- * sigue siendo la de ESTA sesión.
+ * `sessionId` es OBLIGATORIO para evitar un bug real con nombres de PJ
+ * duplicados (identidad v1 sin login no los impide, ver comentario de
+ * `conexionPorNombre`): si A y B entran con el mismo nombre, B "gana" el
+ * registro; si A se desconecta DESPUÉS, un `quitarJugador(nombre)` sin
+ * comprobar de quién es borraría el registro de B (que sigue conectado) —
+ * solo se borra si la entrada actual sigue siendo la de ESTA sesión. Mismo
+ * `twitchLogin` que en `registrarJugador` — hay que dar la MISMA clave con
+ * la que se registró, o no encontrará nada que borrar.
  */
-export function quitarJugador(nombre: string, sessionId: string): void {
-  const clave = nombre.trim().toLowerCase();
+export function quitarJugador(nombrePj: string, sessionId: string, twitchLogin?: string): void {
+  const clave = (twitchLogin ?? nombrePj).trim().toLowerCase();
   if (conexionPorNombre.get(clave)?.sessionId === sessionId) conexionPorNombre.delete(clave);
 }
 

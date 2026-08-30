@@ -1,6 +1,6 @@
-# GDD — Integración con Twitch (chat, roles, eventos de puntos de canal)
+# GDD — Integración con Twitch (chat, roles, eventos de puntos de canal, login)
 
-**ESTADO: v1 IMPLEMENTADA Y VERIFICADA (2026-08-30) — solo la parte que no necesita autorización del streamer.** Piezas: `server/src/twitch/` (tipos.ts, titulos.ts, catalogoEventos.ts, registro.ts, gestorTwitch.ts, chatBot.ts, estadoDirecto.ts), `server/src/rooms/base/RoomExteriorBase.ts` (implementa `RoomConectable`: comandos de chat, eventos de mundo, título social), `server/src/rooms/schema/HubState.ts` (`Player.tituloTwitch`, `HubState.oscuridadAbsoluta`), `server/src/index.ts` (bootstrap del bot de chat + detección de directo, una vez por proceso). Probado: `server/test/titulosTwitch.test.ts`, `catalogoEventosTwitch.test.ts`, `registroTwitch.test.ts`, `gestorTwitch.test.ts` (26 tests, puros — sin BD real), suite completa de servidor 409/409, `tsc --noEmit` limpio en `server/`, y `client/test/twitch.e2e.mjs` contra un servidor Colyseus real.
+**ESTADO: v1 IMPLEMENTADA Y VERIFICADA (2026-08-30) — solo la parte que no necesita autorización del streamer, más login de JUGADOR con Twitch (§7, mismo día).** Piezas: `server/src/twitch/` (tipos.ts, titulos.ts, catalogoEventos.ts, registro.ts, gestorTwitch.ts, chatBot.ts, estadoDirecto.ts, oauthLogin.ts, rutasOauth.ts), `server/src/rooms/base/RoomExteriorBase.ts` (implementa `RoomConectable`: comandos de chat, eventos de mundo, título social, login), `server/src/rooms/schema/HubState.ts` (`Player.tituloTwitch`, `HubState.oscuridadAbsoluta`), `server/src/index.ts` (bootstrap del bot de chat + detección de directo + rutas HTTP de login, una vez por proceso), `client/src/game.ts` (enlace "Conectar con Twitch", `twitchSession` persistido en `sessionStorage` a través de portales). Probado: `server/test/titulosTwitch.test.ts`, `catalogoEventosTwitch.test.ts`, `registroTwitch.test.ts`, `gestorTwitch.test.ts`, `oauthLoginTwitch.test.ts` (36 tests, puros — sin BD real, sin llamar a Twitch de verdad), suite completa de servidor 418/418, `tsc --noEmit` limpio en `server/` y `client/`, y los tres E2E (`combate.e2e.mjs`, `twitch.e2e.mjs`, `multijugador.e2e.mjs`) contra servidores Colyseus reales.
 
 **Revisión multi-jugador (2026-08-30, pedido "testea varios players etc"):** `client/test/multijugador.e2e.mjs` (nuevo — el primer E2E del proyecto con DOS clientes reales a la vez) encontró y confirmó dos bugs reales, ambos corregidos en la misma pasada:
 1. **`registro.ts:quitarJugador` borraba el registro de OTRO jugador con nombres duplicados** — identidad v1 no impide que dos jugadores usen el mismo nombre (`docs/GDD_Construccion.md`); si A y B entraban con el mismo nombre y A se desconectaba, el `onLeave` de A borraba el registro compartido y B (que seguía jugando) dejaba de recibir comandos de chat/títulos hasta reconectar. Fix: `quitarJugador(nombre, sessionId)` ahora solo borra si el registro actual sigue siendo el de ESA sesión. Verificado reintroduciendo el bug a propósito y confirmando que `multijugador.e2e.mjs` lo detecta (falla sin el fix, pasa con él).
@@ -21,7 +21,9 @@ Tres piezas, tres niveles de acceso distintos — **esta pasada construye las do
 
 ## 1. Comandos de chat (`!curar` `!comer` `!beber` `!cagar`)
 
-Solo si `estaEnDirecto()` (Modo Live) y el nombre de quien escribe en el chat coincide (sin distinguir mayúsculas) con un jugador conectado AHORA MISMO — identidad v1 sigue siendo "nombre libre" (`docs/GDD_Construccion.md`, pendiente de login real de Twitch), así que el enlace chat↔partida es "mismo nombre", sin passphrase ni handshake: limitación conocida y documentada, no un descuido.
+Solo si `estaEnDirecto()` (Modo Live) y el nombre de quien escribe en el chat coincide con un jugador conectado AHORA MISMO. Dos formas de "coincidir" (§7 añade la primera, mismo día):
+- **Con login de Twitch** (recomendado): el jugador se conectó con su cuenta real (`Conectar con Twitch` en el cliente) — el chat lo reconoce por su LOGIN de Twitch de verdad, sin importar cómo se llame su PJ.
+- **Sin login**: identidad v1 sigue siendo "nombre libre" (`docs/GDD_Construccion.md`) — el enlace chat↔partida es "el nombre del PJ coincide con quien escribe", sin passphrase ni handshake. Limitación conocida y documentada, no un descuido — sigue siendo el comportamiento por defecto para quien no inicia sesión.
 
 | Comando | Efecto |
 |---|---|
@@ -87,14 +89,34 @@ TWITCH_BOT_TOKEN      — token OAuth de esa cuenta de bot (oauth:xxxxx)
 TWITCH_CANAL          — tu nombre de usuario de Twitch (canal a escuchar/consultar)
 TWITCH_CLIENT_ID      — Client ID de la app de Twitch (developer console, gratis, no necesita revisión)
 TWITCH_CLIENT_SECRET  — Client Secret de esa misma app
+TWITCH_REDIRECT_URI   — URL pública de /auth/twitch/callback (§7) — debe coincidir EXACTO con lo registrado en la app de Twitch
+CLIENT_URL            — a dónde rebota el servidor tras el login (la URL del cliente, p.ej. https://tu-juego.vercel.app)
 ```
 
-Con `TWITCH_BOT_USERNAME`/`TWITCH_BOT_TOKEN`/`TWITCH_CANAL` puestos: chat real, comandos y roles funcionan de punta a punta. Con `TWITCH_CLIENT_ID`/`TWITCH_CLIENT_SECRET` además: Modo Live deja de asumirse siempre activo, se sondea de verdad. Ninguna de las dos requiere tocar tu cuenta personal de Twitch — la de bits/canjes/seguidor sí (§0.3, pendiente).
+Con `TWITCH_BOT_USERNAME`/`TWITCH_BOT_TOKEN`/`TWITCH_CANAL` puestos: chat real, comandos y roles funcionan de punta a punta. Con `TWITCH_CLIENT_ID`/`TWITCH_CLIENT_SECRET` además: Modo Live deja de asumirse siempre activo, se sondea de verdad. Con `TWITCH_REDIRECT_URI`/`CLIENT_URL` además: el login de jugador (§7) queda activo. Ninguna de estas requiere tocar tu cuenta personal de Twitch como streamer — la de bits/canjes/seguidor sí (§0.3, pendiente); el login de §7 es cada JUGADOR autorizando la SUYA propia.
 
 ## 6. Fuera de alcance de esta pasada (pendiente, se afina después)
 
-- **EventSub real de bits/canjes de puntos de canal/seguidor** — necesita que autorices un token de tu canal (flujo OAuth, una vez) y un listener de EventSub por WebSocket. El mapeo `reward_id → tipo` es una entrada de catálogo más cuando llegue.
+- **EventSub real de bits/canjes de puntos de canal/seguidor** — necesita que autorices un token de TU canal (flujo OAuth, una vez) y un listener de EventSub por WebSocket. El mapeo `reward_id → tipo` es una entrada de catálogo más cuando llegue.
 - **Cliente sin render de "Eclipse"** — `state.oscuridadAbsoluta` ya está replicado, pero `client/src` todavía no lo lee para forzar oscuridad casi total ni para atenuar cerca de una fuente de luz — trabajo de render pendiente.
 - **"Plaga de ratas" sin combate verificado** — las ratas usan el mismo Schema `Fauna` que la fauna doméstica y aparecen atacables por el mismo camino genérico que ya usa el cliente (`objetivoHostilMasCercano`), pero no se verificó si el combate instanciado en arena las acepta como objetivo válido de punta a punta — si no funcionara, siguen cumpliendo su función de incordio ambiental (desaparecen solas a los 2 min).
 - **Tier real de sub (1/2/3) y estado de seguidor** — no llegan por chat de forma fiable (§0.3), el catálogo de títulos ya tiene el hueco (`titulos.ts`) para cuando se cablee Helix.
-- **Enlace chat↔partida por passphrase o Twitch OAuth real** — hoy es "mismo nombre", limitación conocida heredada de identidad v1 (`docs/GDD_Construccion.md`).
+- **Login de jugador (§7) sigue siendo OPCIONAL** — sin él, el enlace chat↔partida cae a "mismo nombre" (identidad v1, `docs/GDD_Construccion.md`), como antes.
+
+## 7. Login de JUGADOR con Twitch (opcional, solo para el chat — pedido 2026-08-30)
+
+Pedido literal: *"el tema es no podemos hacer que el jugador se conecte con su cuenta twitch (nombre) aunque luego su pj tenga otro?"* — sí, y con alcance DELIBERADAMENTE PEQUEÑO (decidido explícitamente con el streamer): esto identifica al jugador de cara al chat/títulos de Twitch, **nada más** — el nombre del PJ sigue siendo libre e independiente, y el resto del juego (gremios, propiedades, mascotas, economía) sigue funcionando por nombre de PJ exactamente igual que hasta ahora. La identidad REAL en toda la BD (sustituir `nombre` como clave en `jugadores`) es "login real", ya anotado como una de las últimas piezas del proyecto (`docs/GDD_Construccion.md`) — un cambio mucho más grande, descartado a propósito para esta pasada.
+
+**Flujo** (Authorization Code de OAuth2, cada jugador autoriza SU PROPIA cuenta):
+1. El cliente muestra un enlace "Conectar con Twitch" → `GET /auth/twitch/login` en el servidor.
+2. El servidor redirige a Twitch con un `state` de un solo uso (CSRF).
+3. El jugador acepta en Twitch → Twitch llama a `GET /auth/twitch/callback?code=...&state=...`.
+4. El servidor intercambia el `code` por un token de USUARIO, pide su identidad real (`id`+`login`) a Helix `/users`, y la guarda tras un token de sesión propio (`oauthLogin.ts:crearSesionTwitch`) — nunca expone el token de Twitch al cliente.
+5. Redirige al cliente (`CLIENT_URL`) con `?twitchSession=<token>&twitchLogin=<login>`. El cliente guarda el token en `sessionStorage` (sobrevive a `navegarA`, que recarga la página con otros query params al cruzar un portal) y lo manda en **cada** `joinOrCreate` — cruzar un portal/entrar a una mazmorra/arena es una conexión de Colyseus nueva, con su propio `crearJugador`.
+6. `RoomExteriorBase.crearJugador` resuelve el token (`resolverSesionTwitch`, NO se borra al leer — dura 6h, se renueva en cada resolución) y registra al jugador en `twitch/registro.ts` bajo su LOGIN de Twitch real en vez de su nombre de PJ.
+
+**Por qué esto arregla el bug de nombres duplicados de raíz**: antes del login, `registro.ts` solo podía usar el nombre del PJ como clave — con dos PJ del mismo nombre, uno "ganaba" el registro y el chat del otro se perdía (bug real encontrado y parcheado en la revisión multi-jugador, ver arriba). Con login, la clave es el login de Twitch, que es único de verdad — el parche por `sessionId` (arriba) sigue protegiendo a quien NO hace login.
+
+Sin `TWITCH_REDIRECT_URI`/`CLIENT_URL` configurados, `/auth/twitch/login` responde `503` y todo sigue funcionando exactamente igual que sin esta pasada (identidad por nombre de PJ, como siempre).
+
+Verificación: `server/test/oauthLoginTwitch.test.ts` (6, puros — genera/valida `state`, crea/resuelve sesión, credenciales incompletas) + `server/test/registroTwitch.test.ts` (+3, prioridad de `twitchLogin` sobre nombre de PJ) + `twitch.e2e.mjs` (+2: `/auth/twitch/login` sin credenciales responde 503, un `twitchSession` inventado no rompe el join). El intercambio real `code → identidad` (`intercambiarCodigoPorIdentidad`) necesita credenciales de Twitch de verdad — sin cubrir por test automático, mismo criterio que el resto de piezas que hablan con la API real de Twitch en este documento.

@@ -53,6 +53,34 @@ test("quitarJugador: la sesión que SÍ tiene el registro actual se quita con no
   assert.strictEqual(buscarConexion("Ragnar"), undefined);
 });
 
+test("registrarJugador: con login de Twitch, la clave es el LOGIN real, no el nombre del PJ (docs/GDD_Twitch.md §7)", () => {
+  _resetRegistroParaTests();
+  const room = roomFalsa();
+  registrarJugador("ElJarlDelPueblo", room, "sess1", "ragnarok_tv"); // PJ con un nombre, cuenta de Twitch con otro
+  assert.strictEqual(buscarConexion("ragnarok_tv")?.sessionId, "sess1", "se encuentra por el LOGIN de Twitch");
+  assert.strictEqual(buscarConexion("ElJarlDelPueblo"), undefined, "NO por el nombre del PJ — esa es la clave sin login");
+});
+
+test("registrarJugador + quitarJugador: dos PJ con el MISMO nombre pero login de Twitch distinto no se pisan (el problema que login real resuelve de raíz)", () => {
+  _resetRegistroParaTests();
+  const roomA = roomFalsa();
+  const roomB = roomFalsa();
+  registrarJugador("Guerrero", roomA, "sessA", "usuarioA");
+  registrarJugador("Guerrero", roomB, "sessB", "usuarioB"); // mismo nombre de PJ, login de Twitch distinto
+  assert.strictEqual(buscarConexion("usuarioA")?.sessionId, "sessA");
+  assert.strictEqual(buscarConexion("usuarioB")?.sessionId, "sessB");
+  quitarJugador("Guerrero", "sessA", "usuarioA");
+  assert.strictEqual(buscarConexion("usuarioA"), undefined);
+  assert.strictEqual(buscarConexion("usuarioB")?.sessionId, "sessB", "B no se ve afectado por la salida de A");
+});
+
+test("quitarJugador: sin twitchLogin en ninguna de las dos llamadas, sigue por nombre de PJ (compatibilidad con jugadores sin login)", () => {
+  _resetRegistroParaTests();
+  registrarJugador("Ragnar", roomFalsa(), "sess1"); // sin login
+  quitarJugador("Ragnar", "sess1"); // sin login
+  assert.strictEqual(buscarConexion("Ragnar"), undefined);
+});
+
 test("jugadoresConectados: lista todos los nombres registrados", () => {
   _resetRegistroParaTests();
   registrarJugador("Ragnar", roomFalsa(), "s1");

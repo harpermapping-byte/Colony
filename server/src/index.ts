@@ -11,12 +11,16 @@ import { ejecutarTickEconomia } from "./mundo/economiaAsentamientos";
 import { iniciarChatBot } from "./twitch/chatBot";
 import { iniciarDeteccionDirecto } from "./twitch/estadoDirecto";
 import { obtenerGestorTwitch } from "./twitch/gestorTwitch";
+import { manejarPeticionLoginTwitch } from "./twitch/rutasOauth";
 
 const port = Number(process.env.PORT) || 2567;
 
-// Servidor HTTP plano: responde 200 a cualquier ruta, sirve como health
-// check para que Render/Fly.io no maten el proceso pensando que esta caido.
-const httpServer = createServer((_req, res) => {
+// Servidor HTTP plano: responde 200 a cualquier ruta que no sea de login de
+// Twitch, sirve como health check para que Render/Fly.io no maten el
+// proceso pensando que esta caido. Las dos rutas de /auth/twitch/* (docs/
+// GDD_Twitch.md §7) son no-op si faltan las credenciales — ver rutasOauth.ts.
+const httpServer = createServer((req, res) => {
+  if (manejarPeticionLoginTwitch(req, res)) return;
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Streamer Colony server OK");
 });

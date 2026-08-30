@@ -56,6 +56,7 @@ import { curar } from "../../combate/combate";
 import { RoomConectable, registrarRoom, quitarRoom, registrarJugador, quitarJugador } from "../../twitch/registro";
 import { obtenerGestorTwitch } from "../../twitch/gestorTwitch";
 import { TipoEvento } from "../../twitch/catalogoEventos";
+import { resolverSesionTwitch } from "../../twitch/oauthLogin";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -201,6 +202,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // tick nuevo (el cliente pide `dormir:completar` cuando cree que ya toca).
   private durmiendo = new Map<string, { terminaEn: number }>();
   protected mundo!: MundoColision;
+
+  // Login con Twitch (docs/GDD_Twitch.md §7) — solo se guarda para poder dar
+  // la MISMA clave a quitarJugador() en onLeave (ver registro.ts); vive y
+  // muere con la sesión, igual que `inputs`.
+  private twitchLoginPorSesion = new Map<string, string>();
 
   // --- Mascotas (docs/GDD_Mascotas.md) — solo lo que "siguiendo" necesita
   // en ESTA room: qué sessionId es el dueño de cada mascotaId (nunca en el
@@ -421,14 +427,27 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return this.state.players.get(client.sessionId)?.name;
   }
 
-  protected crearJugador(client: Client, options: { name?: string }, x: number, y: number): Player {
+  protected crearJugador(client: Client, options: { name?: string; twitchSession?: string }, x: number, y: number): Player {
     const player = new Player();
     player.x = x;
     player.y = y;
     player.name = options?.name?.slice(0, 20) || `Guest-${client.sessionId.slice(0, 4)}`;
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { x: 0, y: 0 });
-    registrarJugador(player.name, this, client.sessionId); // Twitch (docs/GDD_Twitch.md) — para comandos de chat y títulos
+
+    // Login con Twitch (docs/GDD_Twitch.md §7, pedido 2026-08-30): resuelve
+    // el token que el cliente trae desde el redirect de OAuth (lo reusa en
+    // CADA join — cruzar un portal es una conexión Colyseus nueva) — si es
+    // válido, el registro de Twitch usa el login REAL (único de verdad) en
+    // vez del nombre del PJ, así que el chat te reconoce aunque tu PJ se
+    // llame otra cosa. Sin `twitchSession` (nadie hizo login), todo sigue
+    // exactamente igual que antes.
+    const identidadTwitch = options?.twitchSession ? resolverSesionTwitch(options.twitchSession) : null;
+    if (identidadTwitch) {
+      this.twitchLoginPorSesion.set(client.sessionId, identidadTwitch.twitchLogin);
+      client.send("twitch:loginConfirmado", { twitchLogin: identidadTwitch.twitchLogin });
+    }
+    registrarJugador(player.name, this, client.sessionId, identidadTwitch?.twitchLogin); // Twitch (docs/GDD_Twitch.md) — para comandos de chat y títulos
 
     const contenedor = crearContenedor(ANCHO_CUERPO, ALTO_CUERPO);
     this.inventarios.set(client.sessionId, contenedor);
@@ -444,7 +463,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   onLeave(client: Client) {
     const nombreSaliente = this.state.players.get(client.sessionId)?.name;
-    if (nombreSaliente) quitarJugador(nombreSaliente, client.sessionId); // Twitch (docs/GDD_Twitch.md) — solo si el registro sigue siendo el de ESTA sesión (nombres duplicados, ver registro.ts)
+    const twitchLoginSaliente = this.twitchLoginPorSesion.get(client.sessionId);
+    this.twitchLoginPorSesion.delete(client.sessionId);
+    if (nombreSaliente) quitarJugador(nombreSaliente, client.sessionId, twitchLoginSaliente); // Twitch (docs/GDD_Twitch.md) — solo si el registro sigue siendo el de ESTA sesión (nombres duplicados, ver registro.ts)
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);

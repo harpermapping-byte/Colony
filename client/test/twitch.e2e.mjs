@@ -109,6 +109,20 @@ try {
   comprobar("canje 'bueno' no bloqueado por el cooldown de 'malo'", !!canjeBueno, JSON.stringify(canjeBueno));
   if (canjeBueno) console.log(`  evento elegido: ${canjeBueno.eventoId} (${canjeBueno.nombre})`);
 
+  // 7) Login con Twitch (docs/GDD_Twitch.md §7) — sin credenciales
+  // configuradas en este smoke test, /auth/twitch/login debe responder algo
+  // sensato (503, "no configurado") en vez de un 404 perdido entre las
+  // rutas de Colyseus o tumbar el servidor.
+  const rLogin = await fetch(`http://localhost:${PUERTO_WS}/auth/twitch/login`);
+  comprobar("GET /auth/twitch/login sin credenciales responde 503", rLogin.status === 503, `status=${rLogin.status}`);
+
+  // 8) unirse con un twitchSession INVENTADO no debe romper el join — cae
+  // de vuelta a identidad por nombre de PJ, exactamente igual que sin login.
+  const clienteConSesionFalsa = new Client(`ws://localhost:${PUERTO_WS}`);
+  const roomConSesionFalsa = await clienteConSesionFalsa.joinOrCreate("hub", { name: "SesionFalsa", twitchSession: "token_inventado_que_no_existe" });
+  await esperar(300); // primer patch de estado
+  comprobar("join con twitchSession inválido no rompe (cae a nombre de PJ)", !!roomConSesionFalsa.state?.players?.get(roomConSesionFalsa.sessionId));
+
   console.log(fallos === 0 ? "\n✅ twitch.e2e: todo OK" : `\n❌ twitch.e2e: ${fallos} fallo(s)`);
   process.exit(fallos === 0 ? 0 : 1);
 } catch (err) {

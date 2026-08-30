@@ -283,15 +283,27 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const nombreJugador =
     new URLSearchParams(location.search).get("nombre") || `Viewer-${Math.floor(Math.random() * 1000)}`;
 
+  // Login con Twitch (docs/GDD_Twitch.md §7, pedido 2026-08-30): el token
+  // llega en la URL solo la primera vez (redirect de vuelta de /auth/twitch/
+  // callback) — se guarda en sessionStorage porque `navegarA` (más abajo)
+  // recarga la página entera con OTROS query params al cruzar un portal, y
+  // el login debe sobrevivir a eso mientras dure la pestaña. El nombre del
+  // PJ (`nombreJugador`, arriba) sigue siendo libre e independiente — el
+  // login de Twitch NUNCA lo sustituye, solo identifica al jugador de cara
+  // al chat/títulos (docs/GDD_Twitch.md §0).
+  const twitchSessionDeUrl = new URLSearchParams(location.search).get("twitchSession");
+  if (twitchSessionDeUrl) sessionStorage.setItem("twitchSession", twitchSessionDeUrl);
+  const twitchSession = twitchSessionDeUrl || sessionStorage.getItem("twitchSession") || undefined;
+
   const client = new Client(SERVER_URL);
   // Sistema de puertas: qué sala Colyseus y con qué opciones (docs/
   // GDD_Sistema_Puertas.md) — region/interior usan filterBy(mapaId[,edificio])
   // en el servidor, así que dos jugadores en el MISMO sitio comparten room.
   const room =
     SALA === "region"
-      ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y })
+      ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y, twitchSession })
       : SALA === "arena"
-        ? await client.joinOrCreate("arena", { name: nombreJugador, combateId: COMBATE_ID })
+        ? await client.joinOrCreate("arena", { name: nombreJugador, combateId: COMBATE_ID, twitchSession })
         : ES_INTERIOR
           ? await client.joinOrCreate(SALA === "mazmorra" ? "mazmorra" : "interior", {
               name: nombreJugador,
@@ -300,8 +312,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
               nivel: NIVEL,
               entradaX: ENTRADA_X,
               entradaY: ENTRADA_Y,
+              twitchSession,
             })
-          : await client.joinOrCreate("hub", { name: nombreJugador });
+          : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession });
   const $ = getStateCallbacks(room);
 
   // Puertas: tecla de interacción (F) — pisar cerca de una y pulsar F pide
@@ -632,6 +645,33 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("mascota:actualizada", () => room.send("mascota:listar"));
   room.onMessage("mascota:error", (m: { motivo: string }) => console.log("[mascota]", m?.motivo));
   room.send("mascota:listar");
+
+  // --- Login con Twitch (docs/GDD_Twitch.md §7) — PLACEHOLDER de testeo,
+  // mismo criterio que el resto de paneles de esta pasada: un enlace suelto
+  // si no has iniciado sesión, un texto si ya lo hiciste. Sin esto, el chat
+  // solo te reconoce cuando tu PJ se llama igual que tu usuario de Twitch
+  // (identidad v1, ver GDD_Construccion.md) — el login soluciona ESO
+  // concretamente, no sustituye el nombre del PJ en el resto del juego.
+  const cajaTwitch = document.createElement("div");
+  cajaTwitch.style.position = "absolute";
+  cajaTwitch.style.left = "16px";
+  cajaTwitch.style.top = "16px";
+  cajaTwitch.style.background = "rgba(20,16,10,0.88)";
+  cajaTwitch.style.color = "#f0e8d8";
+  cajaTwitch.style.font = "13px sans-serif";
+  cajaTwitch.style.padding = "6px 10px";
+  cajaTwitch.style.borderRadius = "6px";
+  cajaTwitch.style.border = "1px solid #6a5a3a";
+  if (twitchSession) {
+    cajaTwitch.textContent = "🎮 Twitch: conectando...";
+  } else {
+    const urlLogin = `${SERVER_URL.replace(/^ws/, "http")}/auth/twitch/login`;
+    cajaTwitch.innerHTML = `<a href="${urlLogin}" style="color:#a970ff">Conectar con Twitch</a> (para que el chat te reconozca)`;
+  }
+  contenedor.appendChild(cajaTwitch);
+  room.onMessage("twitch:loginConfirmado", (m: { twitchLogin: string }) => {
+    cajaTwitch.textContent = `🎮 Twitch: conectado como ${m.twitchLogin}`;
+  });
 
   // Marcador de "combate en curso" en el mapa de origen mientras la pelea
   // vive instanciada en su propia arena (docs/GDD_Combate.md §9.2) — cono
