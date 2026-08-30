@@ -74,6 +74,31 @@ export class AtributosSchema extends Schema {
   @type("int8") carisma = 1;
 }
 
+// Anatomía por zona (server/src/personaje/anatomia.ts, pedido 2026-08-30):
+// SOLO las banderas booleanas que el cliente necesita para pintar (ocultar
+// malla amputada, mostrar prótesis de madera, iconos de estado) — los
+// timestamps de "cicatrizando" (vendadoDesde/entablilladoDesde) son
+// server-only (RoomExteriorBase.anatomiaTiemposPorSesion), mismo criterio
+// que `calentandoDesde` de cocina.ts nunca viaja crudo al cliente: aquí solo
+// llega `curando` ya derivado.
+export class ZonaAnatomicaSchema extends Schema {
+  @type("boolean") sangrado = false;
+  @type("boolean") fractura = false;
+  @type("boolean") infectado = false;
+  @type("boolean") amputado = false;
+  @type("boolean") protesis = false;
+  @type("boolean") curando = false; // vendándose o entablillándose, fase de cicatrización en curso
+}
+
+export class AnatomiaSchema extends Schema {
+  @type(ZonaAnatomicaSchema) cabeza = new ZonaAnatomicaSchema();
+  @type(ZonaAnatomicaSchema) torso = new ZonaAnatomicaSchema();
+  @type(ZonaAnatomicaSchema) brazoIzq = new ZonaAnatomicaSchema();
+  @type(ZonaAnatomicaSchema) brazoDer = new ZonaAnatomicaSchema();
+  @type(ZonaAnatomicaSchema) piernaIzq = new ZonaAnatomicaSchema();
+  @type(ZonaAnatomicaSchema) piernaDer = new ZonaAnatomicaSchema();
+}
+
 export class Player extends Schema {
   // posición en CASILLAS del mapa bakeado (float; 1 casilla = 1 unidad de
   // mundo en el cliente) — el servidor es la autoridad, el cliente interpola
@@ -130,6 +155,9 @@ export class Player extends Schema {
   // se usó para ataqueFisico/defensaFisica antes de que existiera Combate.
   @type("number") ataqueMagico = 0;
   @type("number") defensaMagica = 0;
+  // Anatomía por zona (docs/GDD_Anatomia.md, pedido 2026-08-30): sangrado/
+  // fractura/infección/amputación por zona, ver AnatomiaSchema arriba.
+  @type(AnatomiaSchema) anatomia = new AnatomiaSchema();
   // Twitch (docs/GDD_Twitch.md, pedido 2026-08-30): título social sobre el
   // PJ según rol de chat (seguidor/sub/mod) o el nombre del streamer si es
   // jarl/admin — "" = sin título (ni seguidor de Twitch, ni nada puesto).

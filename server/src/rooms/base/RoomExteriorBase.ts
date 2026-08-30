@@ -94,6 +94,13 @@ import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOV
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
 import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, IngredienteCocina, familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura, FamiliaPlato, ResultadoCoccion, OrigenCocina } from "../../cocina/cocina";
 import { EstadoQuesera, estadoQueseraInicial, iniciarLoteQueso, loteQuesoListo, recolectarLoteQueso } from "../../construccion/cuajado";
+import {
+  Anatomia, Zona, ZONAS, anatomiaInicial, resolverGolpeAnatomico, aplicarGolpe,
+  aplicarDrenajeAnatomico, resolverCuracionesEnCurso, estaCritico,
+  multiplicadorVelocidadPorFractura, multiplicadorVelocidadPorCuracion, MULTIPLICADOR_VELOCIDAD_CRITICO,
+  brazoInutilizado, usarVenda, usarTablilla, operarCirugia, instalarProtesis,
+} from "../../personaje/anatomia";
+import { AnatomiaSchema } from "../schema/HubState";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -330,6 +337,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // velocidad real y el cooldown de salto viven aquí, server-only, mismo
   // criterio que pescaPorSesion/tiempoMovimiento.
   protected montadoPorSesion = new Map<string, { mascotaId: number; especieId: string; velocidad: number }>();
+  // Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30) — estado PURO completo
+  // por sesión (con timestamps de curación en curso, ver anatomia.ts), server
+  // -only: el Player.anatomia Schema solo replica el subconjunto de booleanas
+  // que el cliente necesita pintar (ZonaAnatomicaSchema, sin timestamps crudos
+  // — mismo criterio que calentandoDesde de cocina.ts nunca viaja al cliente).
+  protected anatomiaPorSesion = new Map<string, Anatomia>();
   private cooldownSaltoMontura = new Map<string, number>(); // sessionId -> epoch ms del próximo salto permitido
 
   // --- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — a diferencia de una
@@ -647,6 +660,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("quesera:cargarLeche", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarQueseraCargarLeche(client, msg));
     this.onMessage("quesera:iniciarLote", (client, msg: { construccionId?: number; conSal?: boolean }) => void this.manejarQueseraIniciarLote(client, msg));
     this.onMessage("quesera:recolectar", (client, msg: { construccionId?: number }) => void this.manejarQueseraRecolectar(client, msg));
+
+    // Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30): vendar/entablillar
+    // son primeros auxilios de campo (cualquiera, sin oficio); cirugía y
+    // prótesis exigen oficio curandero + mesa correspondiente.
+    this.onMessage("medico:vendar", (client, msg: { targetSessionId?: string; zona?: Zona; conUnguento?: boolean }) => void this.manejarMedicoVendar(client, msg));
+    this.onMessage("medico:entablillar", (client, msg: { targetSessionId?: string; zona?: Zona }) => void this.manejarMedicoEntablillar(client, msg));
+    this.onMessage("medico:cirugia", (client, msg: { targetSessionId?: string }) => void this.manejarMedicoCirugia(client, msg));
+    this.onMessage("medico:protesis", (client, msg: { targetSessionId?: string; zona?: Zona }) => void this.manejarMedicoProtesis(client, msg));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -1099,6 +1120,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const inv = this.inventarioJugador(client.sessionId);
     if (!player || !inv) return;
     if (typeof msg?.instanciaId !== "number" || typeof msg?.slot !== "string") return;
+    // Anatomía (docs/GDD_Anatomia.md): brazo roto o amputado sin prótesis
+    // bloquea empuñar un arma — el resto de slots (cabeza/torso/piernas...)
+    // no exige brazos sanos, se sigue pudiendo equipar armadura.
+    if (msg.slot === "manoPrincipal" && this.brazoInutilizadoDe(client.sessionId)) {
+      return client.send("equipo:error", { motivo: "brazo roto o amputado, no puedes empuñar nada" });
+    }
 
     const resultado = equiparItem(inv, this.catalogoItems, msg.instanciaId, msg.slot);
     if (!resultado.ok) {
@@ -1201,6 +1228,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   private aplicarUnVital(player: Player, vital: "vida" | "estamina" | "comida" | "bebida" | "sueno" | "caca", cantidad: number): number {
     if (vital === "vida") {
+      // Anatomía (docs/GDD_Anatomia.md): en estado crítico (<10% vidaMax),
+      // comida/pociones normales NO curan vida — solo la cirugía saca de
+      // ahí (pedido literal). El resto de vitales del mismo consumo (comida/
+      // estamina/bebida) siguen aplicándose con normalidad, ver el bucle que llama a esto.
+      if (estaCritico(player.vida, player.vidaMax)) return player.vida;
       const curado = curar({ vida: player.vida, vidaMax: player.vidaMax, ataque: player.ataque, defensa: player.defensa }, cantidad);
       player.vida = curado.vida;
       return player.vida;
@@ -4591,6 +4623,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const ctx = this.ctxConstruccion;
     if (!nombre || !ctx || !msg?.recetaId || typeof msg.construccionId !== "number") return;
     if (this.craftesEnCurso.has(client.sessionId)) return this.errorCrafteo(client, "ya tienes un crafteo en curso");
+    if (this.brazoInutilizadoDe(client.sessionId)) return this.errorCrafteo(client, "brazo roto o amputado, no puedes usar herramientas");
 
     if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
     const receta = this.catalogoRecetas.get(msg.recetaId);
@@ -5390,6 +5423,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // de "respawneas sano", esto es lo que corta el bucle de daño ambiental/
     // inanición (que solo comprueba vida<=0, ver el guardia de arriba).
     player.vida = player.vidaMax;
+    // Anatomía (docs/GDD_Anatomia.md): "respawneas sano" también limpia
+    // sangrado/fractura/infección — pero NO amputaciones/prótesis, eso es
+    // permanente hasta que un curandero instale una prótesis de verdad.
+    const anatomiaRespawn = this.anatomiaDe(sessionId);
+    operarCirugia(anatomiaRespawn);
+    this.mirrorAnatomiaASchema(player.anatomia, anatomiaRespawn);
+    if (nombre) void this.persistirAnatomia(nombre, anatomiaRespawn);
 
     const bd = await obtenerBdCompartida();
     if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
@@ -5761,6 +5801,206 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     void this.otorgarXpAtributoPorSesion(client, "destreza", XP_DESTREZA_POR_MOVER_EN_COMBATE);
   }
 
+  // --- Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30) ---
+
+  /** Estado PURO completo (con timestamps) de la sesión — se crea vacío la primera vez que se toca (p.ej. si onJoin todavía no ha resuelto la carga async de BD). */
+  protected anatomiaDe(sessionId: string): Anatomia {
+    let a = this.anatomiaPorSesion.get(sessionId);
+    if (!a) {
+      a = anatomiaInicial();
+      this.anatomiaPorSesion.set(sessionId, a);
+    }
+    return a;
+  }
+
+  /** Copia el subconjunto de booleanas que el cliente necesita pintar — nunca los timestamps de curación en curso. */
+  protected mirrorAnatomiaASchema(schema: AnatomiaSchema, anatomia: Anatomia): void {
+    for (const z of ZONAS) {
+      const zonaEstado = anatomia[z];
+      const zonaSchema = schema[z];
+      zonaSchema.sangrado = zonaEstado.sangrado;
+      zonaSchema.fractura = zonaEstado.fractura;
+      zonaSchema.infectado = zonaEstado.infectado;
+      zonaSchema.amputado = zonaEstado.amputado;
+      zonaSchema.protesis = zonaEstado.protesis;
+      zonaSchema.curando = zonaEstado.vendadoDesde != null || zonaEstado.entablilladoDesde != null;
+    }
+  }
+
+  protected brazoInutilizadoDe(sessionId: string): boolean {
+    return brazoInutilizado(this.anatomiaDe(sessionId));
+  }
+
+  /** Persiste el estado completo (con timestamps) — misma cadencia que actualizarVidaJugador: eventos discretos (golpe, acción médica), nunca cada tick. */
+  protected async persistirAnatomia(nombreJugador: string, anatomia: Anatomia): Promise<void> {
+    if (!nombreJugador) return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    await bd.actualizarAnatomiaJugador(jugador.id, JSON.stringify(anatomia));
+  }
+
+  /**
+   * Tira el golpe anatómico si corresponde: el objetivo tiene que ser un
+   * jugador CONECTADO en esta room (fauna/NPC nunca llevan anatomía) — el
+   * atacante puede ser jugador (usa el `tipoDano` de su arma equipada en
+   * `manoPrincipal`, o "contundente" a puño limpio) o no (fauna/NPC
+   * atacando a un jugador de vuelta se trata igual, sin arma -> contundente).
+   */
+  protected async aplicarEfectoAnatomicoSiCorresponde(atacanteSessionId: string | null, objetivoSessionId: string): Promise<void> {
+    const objetivo = this.state.players.get(objetivoSessionId);
+    if (!objetivo || objetivo.vida <= 0) return;
+    let tipoDano: "cortante" | "contundente" | "perforante" | "magico" | "fuego" = "contundente";
+    const atacante = atacanteSessionId ? this.state.players.get(atacanteSessionId) : undefined;
+    if (atacante) {
+      const armaId = atacante.inventario.equipo.get("manoPrincipal");
+      tipoDano = (armaId ? this.catalogoItems[armaId]?.tipoDano : undefined) ?? "contundente";
+    }
+    const resultado = resolverGolpeAnatomico(tipoDano);
+    if (!resultado.sangrado && !resultado.fractura && !resultado.amputacion) return; // nada que aplicar ni persistir
+    const anatomia = this.anatomiaDe(objetivoSessionId);
+    aplicarGolpe(anatomia[resultado.zona], resultado);
+    this.mirrorAnatomiaASchema(objetivo.anatomia, anatomia);
+    if (objetivo.name) void this.persistirAnatomia(objetivo.name, anatomia);
+    this.clients.find((c) => c.sessionId === objetivoSessionId)?.send("anatomia:golpe", {
+      zona: resultado.zona, sangrado: resultado.sangrado, fractura: resultado.fractura, amputacion: resultado.amputacion,
+    });
+  }
+
+  /** La construcción viva más cercana de tipo `objetoId` dentro de `radio` casillas, o null. */
+  protected construccionCercana(x: number, y: number, objetoId: string, radio: number): { id: number } | null {
+    const ctx = this.ctxConstruccion;
+    if (!ctx) return null;
+    let mejor: { id: number; dist: number } | null = null;
+    for (const viva of ctx.vivas.values()) {
+      if (viva.objeto !== objetoId) continue;
+      const dist = Math.hypot(viva.x - x, viva.y - y);
+      if (dist > radio) continue;
+      if (!mejor || dist < mejor.dist) mejor = { id: viva.id, dist };
+    }
+    return mejor ? { id: mejor.id } : null;
+  }
+
+  private errorMedico(client: Client, motivo: string) {
+    client.send("medico:error", { motivo });
+  }
+
+  /** Jugador objetivo válido para una acción médica: uno mismo o cualquiera dentro de RADIO_INTERACCION. */
+  private jugadorObjetivoMedico(client: Client, targetSessionId: string | undefined): Player | null {
+    if (!targetSessionId) return null;
+    const medico = this.state.players.get(client.sessionId);
+    const target = this.state.players.get(targetSessionId);
+    if (!medico || !target) return null;
+    if (targetSessionId !== client.sessionId && Math.hypot(target.x - medico.x, target.y - medico.y) > RADIO_INTERACCION) return null;
+    return target;
+  }
+
+  /** Vendar (docs/GDD_Anatomia.md): cualquier jugador, sobre sí mismo u otro, sin oficio — consume 1 venda [+1 ungüento]. */
+  private async manejarMedicoVendar(client: Client, msg: { targetSessionId?: string; zona?: Zona; conUnguento?: boolean }) {
+    const target = this.jugadorObjetivoMedico(client, msg?.targetSessionId);
+    if (!target || !msg?.zona || !ZONAS.includes(msg.zona)) return this.errorMedico(client, "objetivo o zona inválidos");
+    const contenedor = this.inventarios.get(client.sessionId);
+    const venda = contenedor?.items.find((it) => it.itemId === "venda");
+    if (!contenedor || !venda) return this.errorMedico(client, "necesitas una venda");
+    const conUnguento = msg.conUnguento === true;
+    const unguento = conUnguento ? contenedor.items.find((it) => it.itemId === "unguento") : undefined;
+    if (conUnguento && !unguento) return this.errorMedico(client, "no tienes ungüento");
+
+    const anatomia = this.anatomiaDe(msg.targetSessionId!);
+    if (!usarVenda(anatomia[msg.zona], conUnguento, Date.now())) return this.errorMedico(client, "esa zona no está sangrando");
+
+    quitarItem(contenedor, venda.id, 1);
+    if (unguento) quitarItem(contenedor, unguento.id, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    this.mirrorAnatomiaASchema(target.anatomia, anatomia);
+    if (target.name) void this.persistirAnatomia(target.name, anatomia);
+    client.send("medico:vendado", { targetSessionId: msg.targetSessionId, zona: msg.zona });
+  }
+
+  /** Entablillar (docs/GDD_Anatomia.md): igual que vendar, sin oficio, consume 1 tablilla. */
+  private async manejarMedicoEntablillar(client: Client, msg: { targetSessionId?: string; zona?: Zona }) {
+    const target = this.jugadorObjetivoMedico(client, msg?.targetSessionId);
+    if (!target || !msg?.zona || !ZONAS.includes(msg.zona)) return this.errorMedico(client, "objetivo o zona inválidos");
+    const contenedor = this.inventarios.get(client.sessionId);
+    const tablilla = contenedor?.items.find((it) => it.itemId === "tablilla");
+    if (!contenedor || !tablilla) return this.errorMedico(client, "necesitas una tablilla");
+
+    const anatomia = this.anatomiaDe(msg.targetSessionId!);
+    if (!usarTablilla(anatomia[msg.zona], Date.now())) return this.errorMedico(client, "esa zona no tiene fractura activa");
+
+    quitarItem(contenedor, tablilla.id, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    this.mirrorAnatomiaASchema(target.anatomia, anatomia);
+    if (target.name) void this.persistirAnatomia(target.name, anatomia);
+    client.send("medico:entablillado", { targetSessionId: msg.targetSessionId, zona: msg.zona });
+  }
+
+  /**
+   * Cirugía (docs/GDD_Anatomia.md): exige oficio curandero, instrumental_cirugia
+   * en el inventario (herramienta reusable, no se consume), estar junto a
+   * mesa_cirugia, Y el paciente junto a una cama/camilla (esCama, cualquier
+   * cama ya existente sirve — "que te tumbes en camilla o cama", pedido
+   * literal). Cura TODO al instante y saca de crítico.
+   */
+  private async manejarMedicoCirugia(client: Client, msg: { targetSessionId?: string }) {
+    const medico = this.state.players.get(client.sessionId);
+    const target = this.jugadorObjetivoMedico(client, msg?.targetSessionId);
+    if (!medico || !target) return this.errorMedico(client, "objetivo inválido");
+    if (medico.oficio !== "curandero") return this.errorMedico(client, "necesitas el oficio de curandero");
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor?.items.some((it) => it.itemId === "instrumental_cirugia")) {
+      return this.errorMedico(client, "necesitas el instrumental de cirugía");
+    }
+    if (!this.construccionCercana(medico.x, medico.y, "mesa_cirugia", RADIO_INTERACCION)) {
+      return this.errorMedico(client, "necesitas estar junto a una mesa de cirugía");
+    }
+    const camaCerca = ["cama_individual", "cama_doble", "litera_marinero"].some((id) =>
+      this.construccionCercana(target.x, target.y, id, RADIO_INTERACCION),
+    );
+    if (!camaCerca) return this.errorMedico(client, "el paciente tiene que estar en una cama o camilla");
+
+    const anatomia = this.anatomiaDe(msg.targetSessionId!);
+    operarCirugia(anatomia);
+    if (estaCritico(target.vida, target.vidaMax)) {
+      target.vida = Math.max(target.vida, Math.ceil(target.vidaMax * 0.1));
+    }
+    this.mirrorAnatomiaASchema(target.anatomia, anatomia);
+    if (target.name) {
+      void this.persistirAnatomia(target.name, anatomia);
+      void (async () => {
+        const bd = await obtenerBdCompartida();
+        const jugador = await bd.obtenerOCrearJugador(target.name);
+        await bd.actualizarVidaJugador(jugador.id, target.vida, target.vidaMax);
+      })();
+    }
+    client.send("medico:operado", { targetSessionId: msg.targetSessionId });
+  }
+
+  /** Prótesis (docs/GDD_Anatomia.md): oficio curandero, junto a mesa_diagnostico, consume 1 protesis_madera. */
+  private async manejarMedicoProtesis(client: Client, msg: { targetSessionId?: string; zona?: Zona }) {
+    const medico = this.state.players.get(client.sessionId);
+    const target = this.jugadorObjetivoMedico(client, msg?.targetSessionId);
+    if (!medico || !target || !msg?.zona || !ZONAS.includes(msg.zona)) return this.errorMedico(client, "objetivo o zona inválidos");
+    if (medico.oficio !== "curandero") return this.errorMedico(client, "necesitas el oficio de curandero");
+    if (!this.construccionCercana(medico.x, medico.y, "mesa_diagnostico", RADIO_INTERACCION)) {
+      return this.errorMedico(client, "necesitas estar junto a una mesa de diagnóstico");
+    }
+    const contenedor = this.inventarios.get(client.sessionId);
+    const protesis = contenedor?.items.find((it) => it.itemId === "protesis_madera");
+    if (!contenedor || !protesis) return this.errorMedico(client, "necesitas una prótesis de madera");
+
+    const anatomia = this.anatomiaDe(msg.targetSessionId!);
+    if (!instalarProtesis(anatomia[msg.zona])) return this.errorMedico(client, "esa zona no está amputada, o ya tiene prótesis");
+
+    quitarItem(contenedor, protesis.id, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    this.mirrorAnatomiaASchema(target.anatomia, anatomia);
+    if (target.name) void this.persistirAnatomia(target.name, anatomia);
+    client.send("medico:protesisInstalada", { targetSessionId: msg.targetSessionId, zona: msg.zona });
+  }
+
   private async manejarCombateAccion(client: Client, msg: { combateId?: string; objetivoId?: string }) {
     if (!msg?.combateId || !msg?.objetivoId) return;
     const combate = this.state.combates.get(msg.combateId);
@@ -5771,6 +6011,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const objetivo = combate.unidades.get(msg.objetivoId);
     if (!atacante || atacante.estado !== "activo" || !objetivo || objetivo.estado !== "activo") return;
     if (atacante.pa < COSTE_PA_ATAQUE) return client.send("combate:error", { motivo: "sin PA suficiente" });
+    if (this.brazoInutilizadoDe(client.sessionId)) return client.send("combate:error", { motivo: "brazo roto o amputado, no puedes atacar" });
     if (!enAlcance(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo))) {
       return client.send("combate:error", { motivo: "fuera de alcance" });
     }
@@ -5778,6 +6019,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const actualizado = resolverAtaque(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo));
     this.aplicarUnidadesASchema(combate, [actualizado]);
     atacante.pa -= COSTE_PA_ATAQUE;
+    // Anatomía (docs/GDD_Anatomia.md): solo si el objetivo es un jugador y sigue en pie tras el golpe.
+    if (objetivo.esJugador && actualizado.estado === "activo") {
+      void this.aplicarEfectoAnatomicoSiCorresponde(client.sessionId, msg.objetivoId);
+    }
 
     // Destreza Y Fuerza (docs/GDD_Personaje.md §3.2, "dando golpes"): un
     // golpe conectado entrena ambas — atacante SIEMPRE es un jugador aquí
@@ -5920,6 +6165,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         vel = VEL_ANDAR * (this.mundo.velocidad[idx] ?? 1);
       }
 
+      // Anatomía (docs/GDD_Anatomia.md): pierna rota/amputada, cicatrizando,
+      // o estado crítico penalizan la velocidad — igual que el terreno, no
+      // aplica si algo más (montura/barco) mueve al jugador por él.
+      if (!montura && !esCapitanBarco) {
+        const anatomia = this.anatomiaDe(sessionId);
+        vel *= multiplicadorVelocidadPorFractura(anatomia) * multiplicadorVelocidadPorCuracion(anatomia);
+        if (estaCritico(player.vida, player.vidaMax)) vel *= MULTIPLICADOR_VELOCIDAD_CRITICO;
+      }
+
       if (seMueve) {
         const norma = Math.hypot(dir.x, dir.y);
         const paso = (vel * dt) / norma;
@@ -6027,8 +6281,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       tickVitales(player.vitales, horasPorTick);
       const extremo = aplicarTemperaturaCorporal(player.vitales, tempMundoC, horasPorTick);
       this.aplicarInanicionA(player, horasPorTick, extremo !== null);
+      // Anatomía (docs/GDD_Anatomia.md): drenaje de sangrado/infección PEREZOSO,
+      // mismo integrador horasPorTick que tickVitales — y cierre perezoso de la
+      // fase "cicatrizando" (venda/tablilla) cuando ya pasó su tiempo. Solo se
+      // mirror-ea al Schema (barato); persistir a BD queda para eventos discretos
+      // (golpe/acción médica), no cada tick.
+      const anatomiaTick = this.anatomiaDe(sessionId);
+      resolverCuracionesEnCurso(anatomiaTick, Date.now());
+      aplicarDrenajeAnatomico(anatomiaTick, player, horasPorTick);
+      this.mirrorAnatomiaASchema(player.anatomia, anatomiaTick);
       // Muerte por inanición (docs/GDD_Muerte_Respawn.md) — mismo criterio
       // "fire and forget" que el resto de efectos async en un tick síncrono.
+      // El sangrado/infección puede matar igual que la inanición.
       if (player.vida <= 0) void this.manejarMuerteJugador(sessionId);
     });
 
