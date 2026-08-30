@@ -49,8 +49,8 @@ Reusa el mecanismo de producción pasiva YA existente (`docs/GDD_Produccion.md`,
 
 Los tres llevan `requiereAgua: true` — nuevo campo en `EntradaConstruible`, comprobado en `validarColocacion` (`construccion.ts`) con la MISMA función `hayAguaAdyacente` que ya usaba el molino de agua (`energia.fuente === "agua"`): la construcción sigue siempre sobre tierra (ninguna casilla de su huella puede ser agua, regla general de construcción), pero exige agua ortogonalmente adyacente a la huella. Se recolectan con el mensaje genérico ya existente `produccion:recolectar` — sin mensaje nuevo, "las listas crecen, el código no" (CLAUDE.md regla 7).
 
-## 3. Decisiones a confirmar con el streamer
+## 3. Decisiones confirmadas/pendientes con el streamer
 
+- **✅ Confirmado (2026-08-30): "que sea cualquier masa de agua"** — la tabla de capturas genérica (§1.3) es el comportamiento definitivo, no un placeholder a reemplazar cuando el runtime lea bioma por casilla. Cualquier masa de agua (río, lago, mar) da acceso a los 4 recursos de pesca por igual.
 - Ventana de reacción de 3.6s (3 × 1.2s) y probabilidad de picada 50%/5s son valores de partida — fáciles de ajustar en `personaje/pesca.ts` sin tocar el resto.
-- Sin distinción de bioma de agua (río/lago/mar) en el servidor — la tabla de capturas es la misma en cualquier masa de agua hasta que el runtime lea bioma por casilla.
 - La boya de la pesca activa no se replica a otros jugadores (puramente local) — decisión de scope, no un olvido.
