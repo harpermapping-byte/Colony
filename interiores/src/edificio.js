@@ -15,10 +15,13 @@
 //   trae de fábrica cae literalmente sobre el muro norte del pasillo: se
 //   reutiliza la puerta que colocarSala ya coloca, no se inventa una
 //   segunda. El pasillo actúa de columna vertebral de la planta.
-// - Si no hay pasillo, las habitaciones se ponen en fila compartiendo un
-//   muro vertical (solapando una columna), y se abre una puerta nueva en
-//   esa columna compartida — el único caso donde de verdad hace falta una
-//   puerta que colocarSala no traía ya.
+// - Si no hay pasillo, las habitaciones se empaquetan en 2D tipo BSP
+//   (interiores/src/bsp.js) en vez de una fila 1D — con 3-5 salas y sin
+//   columna vertebral, una fila sola dejaba a cada sala como mucho 2
+//   vecinas reales y siempre la misma silueta alargada. Cada par que queda
+//   realmente pegado (hueco de 1 casilla + solape real) recibe una puerta
+//   real de verdad — puertas múltiples por sala, no solo la que colocarSala
+//   ya trae de fábrica.
 // - Entre plantas no hay continuidad XY real — mismo modelo que ya declara
 //   el GDD ("pila de plantas independientes conectadas por huecos de
 //   escalera/trampilla"): cada planta solo guarda en qué sala y tile cae
@@ -26,7 +29,8 @@
 
 const { colocarSala } = require("./colocarElementos");
 const { crearRejilla, detectarSalas, TIPO_TILE } = require("./salas");
-const { crearPRNG, elegirPonderado } = require("./azar");
+const { crearPRNG, elegirPonderado, barajar } = require("./azar");
+const { empaquetarBSP, paresAdyacentes } = require("./bsp");
 
 // Cuántas salas le tocan a una planta — variación real (sección 12): la
 // misma semilla siempre da el mismo edificio, otra semilla da otra mezcla
@@ -60,6 +64,21 @@ function pintarSalaEnPlanta(rejillaPiso, resultadoSala, offsetX, offsetY) {
     }
   }
   rejillaPiso.set(offsetX + puerta.x, offsetY + puerta.y, TIPO_TILE.PUERTA);
+}
+
+// Casillas de PUERTA reales para un par ya adyacente de `bsp.js`
+// (paresAdyacentes) — misma técnica de "abertura ancha" que ya usa
+// generarHabitacionCompuestaL: recorta 1 casilla de margen en cada extremo
+// del solape si da para ello (>= 3 casillas), para que no sea una abertura
+// muro a muro.
+function tilesDePuerta({ eje, limite, inicio, fin }) {
+  const finInclusive = fin - 1;
+  const margen = fin - inicio >= 3 ? 1 : 0;
+  const tiles = [];
+  for (let coord = inicio + margen; coord <= finInclusive - margen; coord++) {
+    tiles.push(eje === "h" ? { x: limite, y: coord } : { x: coord, y: limite });
+  }
+  return tiles;
 }
 
 // Habitación NO rectangular (sección 3 del pedido): un "brazo" en L hecho
@@ -125,10 +144,58 @@ function generarHabitacionCompuestaL({ tipoSalaId, catalogos, riqueza, amueblado
   };
 }
 
+// Nunca llevan ventana (tipos_sala.json ya lo documenta): bodega/cripta
+// cuentan como bajo tierra aunque la cripta no sea el sótano principal del
+// edificio.
+const SALAS_SIN_VENTANA = new Set(["bodega", "cripta"]);
+
+// Ventanas (GDD_Bakeador_Interiores sección 7): post-pasada sobre la
+// rejilla YA compuesta de la planta — colocarSala, por diseño, no sabe qué
+// pared de SU sala da al exterior del edificio y cuál a otra sala/pasillo;
+// esa información solo existe una vez compuesta la planta entera, así que
+// esto tiene que ir aquí y no dentro de colocarSala. Densidad moderada
+// (aprox 1 de cada 3 casillas elegibles por muro), no una pared entera de
+// cristal — determinista por semilla, PRNG propio (no perturba el `rnd` de
+// ninguna sala). Estructural únicamente (marca TIPO_TILE.VENTANA en la
+// rejilla, así sala.ventanas deja de estar siempre vacío) — la ventana
+// combinatoria completa (forma×tamaño×marco×cristal con aporteLuz, sección
+// 7bis) sigue siendo trabajo futuro del bakeador de estructura, sin
+// consumidor todavía en cliente/servidor.
+function anadirVentanas(rejillaPiso, salasColocadas, nivel, semilla) {
+  if (nivel < 0) return; // sótano/bodega: nunca ventana
+  const rndVentanas = crearPRNG(`${semilla}:${nivel}:ventanas`);
+  for (const s of salasColocadas) {
+    if (SALAS_SIN_VENTANA.has(s.tipoSalaId) || s.esPasillo) continue;
+    const { offsetX, offsetY, resultado } = s;
+    const { ancho, largo, puerta, bordesOcupados: bo } = resultado;
+    const bordesOcupados = new Set(bo || []);
+    const esPuertaPropia = (x, y) => x === puerta.x && y === puerta.y;
+    const lados = {
+      norte: Array.from({ length: ancho }, (_, x) => ({ x, y: 0, gx: offsetX + x, gy: offsetY - 1 })),
+      sur: Array.from({ length: ancho }, (_, x) => ({ x, y: largo - 1, gx: offsetX + x, gy: offsetY + largo })),
+      oeste: Array.from({ length: largo }, (_, y) => ({ x: 0, y, gx: offsetX - 1, gy: offsetY + y })),
+      este: Array.from({ length: largo }, (_, y) => ({ x: ancho - 1, y, gx: offsetX + ancho, gy: offsetY + y })),
+    };
+    for (const tiles of Object.values(lados)) {
+      const elegibles = tiles.filter(
+        (c) =>
+          !esPuertaPropia(c.x, c.y) &&
+          !bordesOcupados.has(`${c.x}_${c.y}`) &&
+          rejillaPiso.get(c.gx, c.gy) === TIPO_TILE.VACIO && // el otro lado tiene que ser exterior de verdad, nunca otra sala
+          rejillaPiso.get(offsetX + c.x, offsetY + c.y) === TIPO_TILE.SUELO, // no pisar una puerta de conexión ya punzada ahí
+      );
+      if (elegibles.length === 0) continue;
+      const objetivo = Math.min(elegibles.length, Math.max(1, Math.floor(elegibles.length / 3)));
+      const elegidos = barajar(elegibles, rndVentanas).slice(0, objetivo);
+      for (const c of elegidos) rejillaPiso.set(offsetX + c.x, offsetY + c.y, TIPO_TILE.VENTANA);
+    }
+  }
+}
+
 // Genera y coloca todas las salas de UNA planta (rol: "bodega"/"planta_baja"/
 // "planta_alta"), devolviendo el plano de esa planta con cada sala ya
 // posicionada y las puertas de conexión reales entre salas contiguas.
-function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amueblado, semilla, temaProfesion }) {
+function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amueblado, semilla, temaProfesion, materialesPreferidos }) {
   const rnd = crearPRNG(`${semilla}:planta:${nivel}`);
   const n = elegirNumeroSalas(salasPonderadas.length, riqueza, rnd);
 
@@ -140,26 +207,39 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
   const idxPasillo = tipoSalaIds.findIndex((id) => catalogos.tiposSala[id]?.esPasillo);
   const idsFila = idxPasillo === -1 ? tipoSalaIds : tipoSalaIds.filter((_, i) => i !== idxPasillo);
 
-  // Ventanas (GDD_Bakeador_Interiores §7bis): nunca en bodega (sin fachada
-  // real, bajo tierra) — el resto de la fila sí, es el layout normal.
+  // Ventanas reales por catálogo (GDD_Bakeador_Interiores §7bis, dentro de
+  // colocarSala — forma/tamaño/marco/cristal con aporteLuz, consumido por
+  // interiorVisual.ts para la luz ambiente): nunca en bodega (sin fachada
+  // real, bajo tierra) — el resto de la fila sí. Distinto de anadirVentanas
+  // más abajo, que es la post-pasada ESTRUCTURAL sobre la planta ya
+  // compuesta (sin catálogo todavía, sección 7) — ambas conviven: esta
+  // reserva sus segmentos de pared en bordesOcupados, la post-pasada los
+  // respeta y no vuelve a marcarlos.
   const permiteVentanas = rol !== "bodega";
   const salasFila = idsFila.map((tipoSalaId, i) =>
-    colocarSala({ tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:${nivel}:${i}`, temaProfesion, permiteVentanas })
+    colocarSala({ tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:${nivel}:${i}`, temaProfesion, permiteVentanas, materialesPreferidos, nivel })
   );
 
-  // El muro ya no es una casilla propia de cada sala (colocarElementos.js:
-  // ancho x largo es suelo real de borde a borde), así que dos salas
-  // contiguas en la fila necesitan una columna de separación de verdad
-  // entre ellas — de ahí el "+1" por cada hueco entre salas, tanto si hay
-  // pasillo (esa columna se queda como muro, cada sala se conecta al
-  // pasillo por su cuenta) como si no (ahí se punza la puerta que las une
-  // directamente).
-  const numHuecosFila = Math.max(0, salasFila.length - 1);
-  const anchoTotal = salasFila.reduce((s, r) => s + r.ancho, 0) + numHuecosFila;
-  const altoFila = Math.max(...salasFila.map((r) => r.largo), 4);
-
+  const salasColocadas = [];
+  // Casillas de puerta REALES de esta planta, en coordenadas de planta —
+  // sección añadida porque ni el hueco entre dos salas en fila (sin
+  // pasillo) ni la puerta propia de cada sala hacia el pasillo quedaban
+  // guardados en ningún sitio: colocarSala.puerta cae SIEMPRE una fila
+  // más allá del rectángulo de la sala (server/mundo/interiorColision.js
+  // y el render del cliente necesitan esto para que las salas queden
+  // conectadas de verdad, no solo dibujadas una junto a otra).
+  const puertasConexion = [];
+  let rejillaPiso;
   let pasillo = null;
+
   if (idxPasillo !== -1) {
+    // Con pasillo: columna vertebral de siempre, sin tocar — fila 1D
+    // alineada por el muro sur, cada sala conecta con el pasillo de debajo
+    // por su propia puerta (ya la trae de fábrica), nunca directamente con
+    // la de al lado.
+    const numHuecosFila = Math.max(0, salasFila.length - 1);
+    const anchoTotal = salasFila.reduce((s, r) => s + r.ancho, 0) + numHuecosFila;
+    const altoFila = Math.max(...salasFila.map((r) => r.largo), 4);
     pasillo = colocarSala({
       tipoSalaId: tipoSalaIds[idxPasillo],
       catalogos,
@@ -171,60 +251,107 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
       // su muro norte da a la fila de salas de encima (por donde entra cada
       // puerta), no a fuera — sin ventana aquí, a diferencia de una sala normal.
       permiteVentanas: false,
+      materialesPreferidos,
+      nivel,
     });
-  }
 
-  // Con pasillo, se deja una fila de separación de verdad entre la fila de
-  // salas y el pasillo (ya no hay muro compartido que fusionar): la puerta
-  // propia de cada sala (que cae justo en esa fila, un paso más allá de su
-  // propio rectángulo) es la que conecta con el suelo del pasillo justo
-  // debajo — no hace falta punzar ninguna puerta nueva ahí.
-  const anchoPlanta = pasillo ? Math.max(anchoTotal, pasillo.ancho) : anchoTotal;
-  const altoPlanta = pasillo ? altoFila + 1 + pasillo.largo : altoFila;
-  // +1 de margen: la puerta de la última sala/el pasillo cae una fila más
-  // allá de su propio rectángulo, hace falta sitio en la rejilla para eso.
-  const rejillaPiso = crearRejilla(Math.max(anchoPlanta, 4), Math.max(altoPlanta, 4) + 1, TIPO_TILE.VACIO);
+    const anchoPlanta = Math.max(anchoTotal, pasillo.ancho);
+    const altoPlanta = altoFila + 1 + pasillo.largo;
+    // +1 de margen: la puerta de la última sala/el pasillo cae una fila más
+    // allá de su propio rectángulo, hace falta sitio en la rejilla para eso.
+    rejillaPiso = crearRejilla(Math.max(anchoPlanta, 4), Math.max(altoPlanta, 4) + 1, TIPO_TILE.VACIO);
 
-  const salasColocadas = [];
-  // Casillas de puerta REALES de esta planta, en coordenadas de planta —
-  // sección añadida porque ni el hueco entre dos salas en fila (sin
-  // pasillo) ni la puerta propia de cada sala hacia el pasillo quedaban
-  // guardados en ningún sitio: colocarSala.puerta cae SIEMPRE una fila
-  // más allá del rectángulo de la sala (server/mundo/interiorColision.js
-  // y el render del cliente necesitan esto para que las salas queden
-  // conectadas de verdad, no solo dibujadas una junto a otra).
-  const puertasConexion = [];
-  let cursorX = 0;
-
-  for (let i = 0; i < salasFila.length; i++) {
-    const r = salasFila[i];
-    const offsetY = altoFila - r.largo; // alineadas por el muro sur, igual que la fila entera toca el pasillo
-    if (i > 0) cursorX += 1; // columna de separación con la sala anterior, siempre
-    pintarSalaEnPlanta(rejillaPiso, r, cursorX, offsetY);
-    // la puerta propia de la sala (colocarSala.js) cae siempre en
-    // offsetY+largo, una fila más allá de su rectángulo — hacia el
-    // pasillo si lo hay, o hacia la fila de margen si no
-    puertasConexion.push({ x: cursorX + r.puerta.x, y: offsetY + r.puerta.y });
-    if (i > 0 && !pasillo) {
-      // Sin pasillo: la única conexión entre esta sala y la anterior es
-      // esta puerta punzada a mano en la columna de separación — el único
-      // caso donde de verdad hace falta inventar una puerta que
-      // colocarSala no trajera ya (con pasillo, cada sala se conecta a
-      // ÉL por su cuenta, no directamente con la de al lado).
-      rejillaPiso.set(cursorX - 1, altoFila - 1, TIPO_TILE.PUERTA);
-      puertasConexion.push({ x: cursorX - 1, y: altoFila - 1 });
+    let cursorX = 0;
+    for (let i = 0; i < salasFila.length; i++) {
+      const r = salasFila[i];
+      const offsetY = altoFila - r.largo; // alineadas por el muro sur, igual que la fila entera toca el pasillo
+      if (i > 0) cursorX += 1; // columna de separación con la sala anterior, siempre
+      pintarSalaEnPlanta(rejillaPiso, r, cursorX, offsetY);
+      // la puerta propia de la sala (colocarSala.js) cae siempre en
+      // offsetY+largo, una fila más allá de su rectángulo — hacia el
+      // pasillo justo debajo.
+      puertasConexion.push({ x: cursorX + r.puerta.x, y: offsetY + r.puerta.y });
+      salasColocadas.push({ resultado: r, offsetX: cursorX, offsetY, tipoSalaId: r.tipoSalaId, nivel, rol, origen: "generado" });
+      cursorX += r.ancho;
     }
-    salasColocadas.push({ resultado: r, offsetX: cursorX, offsetY, tipoSalaId: r.tipoSalaId, nivel, rol, origen: "generado" });
-    cursorX += r.ancho;
-  }
 
-  let conectorPasillo = null;
-  if (pasillo) {
     const offsetYPasillo = altoFila + 1;
     pintarSalaEnPlanta(rejillaPiso, pasillo, 0, offsetYPasillo);
     salasColocadas.push({ resultado: pasillo, offsetX: 0, offsetY: offsetYPasillo, tipoSalaId: pasillo.tipoSalaId, nivel, rol, esPasillo: true, origen: "generado" });
-    conectorPasillo = salasColocadas[salasColocadas.length - 1];
+  } else {
+    // Sin pasillo: empaquetado 2D tipo BSP (interiores/src/bsp.js) en vez
+    // de una fila 1D — con 3-5 salas y sin columna vertebral, una fila sola
+    // dejaba a cada sala como mucho 2 vecinas reales y SIEMPRE la misma
+    // silueta alargada. Cada sala ya trae su ancho/largo fijado por
+    // colocarSala; el empaquetado solo decide dónde cae cada una.
+    const items = salasFila.map((r) => ({ ancho: r.ancho, largo: r.largo, r }));
+    const tam = empaquetarBSP(items);
+    rejillaPiso = crearRejilla(Math.max(tam.ancho, 4), Math.max(tam.largo, 4) + 1, TIPO_TILE.VACIO);
+
+    for (const it of items) {
+      pintarSalaEnPlanta(rejillaPiso, it.r, it.offsetX, it.offsetY);
+      salasColocadas.push({ resultado: it.r, offsetX: it.offsetX, offsetY: it.offsetY, tipoSalaId: it.r.tipoSalaId, nivel, rol, origen: "generado" });
+    }
+
+    // Puertas múltiples reales entre cada par de salas que quedaron
+    // realmente pegadas (abertura ancha, misma técnica que
+    // generarHabitacionCompuestaL) — antes, con solo 1 puerta por sala y
+    // fila 1D, una sala intermedia sin pasillo llegaba a tener DOS
+    // aberturas en su rejilla (su propia puerta sur, apuntando al margen
+    // vacío sin uso real, más la punzada a mano con la vecina) sin que la
+    // fase de amueblado supiera nunca de la segunda — bug latente real,
+    // ya cerrado: cada conexión de aquí es la única fuente de verdad.
+    const items2 = items;
+    const pares = paresAdyacentes(items2);
+    const padre = items2.map((_, i) => i);
+    const raiz = (i) => (padre[i] === i ? i : (padre[i] = raiz(padre[i])));
+    const unir = (i, j) => { padre[raiz(i)] = raiz(j); };
+    for (const par of pares) {
+      unir(items2.indexOf(par.a), items2.indexOf(par.b));
+      for (const { x, y } of tilesDePuerta(par)) {
+        rejillaPiso.set(x, y, TIPO_TILE.PUERTA);
+        puertasConexion.push({ x, y });
+      }
+    }
+    // Salvaguarda (rara, pero posible con tamaños de sala muy dispares):
+    // alguna sala quedó sin ningún par realmente pegado tras el
+    // empaquetado — cada sala mide como mínimo 4x4 (colocarSala,
+    // Math.max(4,...)), así que tallar un pasillo recto de 1 casilla entre
+    // centros nunca puede partir en dos ninguna de las dos habitaciones
+    // (mismo recurso de última instancia que ya usa en vivo
+    // server/src/mundo/interiorColision.ts:garantizarConectividad para la
+    // colisión — aquí es al nivel del propio bake, no un parche runtime).
+    for (let i = 1; i < items2.length; i++) {
+      if (raiz(i) === raiz(0)) continue;
+      let mejor = -1, mejorDist = Infinity;
+      for (let j = 0; j < items2.length; j++) {
+        if (raiz(j) !== raiz(0)) continue;
+        const A = items2[i], B = items2[j];
+        const d = Math.hypot((A.offsetX + A.ancho / 2) - (B.offsetX + B.ancho / 2), (A.offsetY + A.largo / 2) - (B.offsetY + B.largo / 2));
+        if (d < mejorDist) { mejorDist = d; mejor = j; }
+      }
+      if (mejor === -1) continue;
+      const A = items2[i], B = items2[mejor];
+      const px = Math.round(A.offsetX + A.ancho / 2), py = Math.round(A.offsetY + A.largo / 2);
+      const qx = Math.round(B.offsetX + B.ancho / 2), qy = Math.round(B.offsetY + B.largo / 2);
+      let x = px, y = py;
+      rejillaPiso.set(x, y, TIPO_TILE.PUERTA);
+      puertasConexion.push({ x, y });
+      while (x !== qx) { x += x < qx ? 1 : -1; if (rejillaPiso.get(x, y) === TIPO_TILE.VACIO) rejillaPiso.set(x, y, TIPO_TILE.SUELO); }
+      while (y !== qy) { y += y < qy ? 1 : -1; if (rejillaPiso.get(x, y) === TIPO_TILE.VACIO) rejillaPiso.set(x, y, TIPO_TILE.SUELO); }
+      rejillaPiso.set(x, y, TIPO_TILE.PUERTA);
+      puertasConexion.push({ x, y });
+      unir(i, mejor);
+    }
   }
+
+  // Ventanas (GDD_Bakeador_Interiores sección 7): post-pasada, no dentro de
+  // colocarSala — cada sala individual no sabe qué pared da al exterior
+  // del edificio hasta que la planta entera está compuesta. Nunca en
+  // sótano/bodega ni en cripta (tipos_sala.json ya lo documenta como
+  // "bajo tierra"), nunca sobre la puerta propia ni sobre un
+  // colgadoEnPared ya puesto (bordesOcupados, expuesto por colocarSala).
+  anadirVentanas(rejillaPiso, salasColocadas, nivel, semilla);
 
   // Sala-planta real por flood-fill (reutiliza salas.js sin tocarlo): cada
   // habitación pintada queda como su propia región de suelo conectada;
@@ -232,7 +359,12 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
   // salas vecinas — eso ya es, por definición, la conexión entre ambas.
   const salasDetectadas = detectarSalas(rejillaPiso);
   for (const s of salasColocadas) {
-    const puntoInterior = `${s.offsetX}_${s.offsetY}`;
+    // (offsetX+1, offsetY+1), no la esquina (offsetX,offsetY): la esquina
+    // puede haber quedado marcada TIPO_TILE.VENTANA por anadirVentanas (el
+    // anillo entero x∈{0,ancho-1}/y∈{0,largo-1} es elegible para ventana,
+    // la esquina incluida) — un punto un paso hacia dentro es siempre suelo
+    // real en cualquier sala (todas miden como mínimo 4x4, colocarSala).
+    const puntoInterior = `${s.offsetX + 1}_${s.offsetY + 1}`;
     s.salaPlanta = salasDetectadas.find((sd) => sd.tiles.has(puntoInterior)) || null;
   }
 
@@ -240,7 +372,7 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
   // (escalera/trampilla) — preferir el pasillo, si no el vestíbulo/sala
   // común, si no la primera sala generada.
   const salaConector =
-    conectorPasillo ||
+    salasColocadas.find((s) => s.esPasillo) ||
     salasColocadas.find((s) => ["vestibulo", "sala_comun", "gran_salon"].includes(s.tipoSalaId)) ||
     salasColocadas[0] ||
     null;
@@ -257,6 +389,7 @@ function generarEdificio({ tipoEdificioId, catalogos, semilla = "edificio", riqu
   if (!defEdificio) throw new Error(`tipoEdificio desconocido: ${tipoEdificioId}`);
 
   const riquezaFinal = riqueza || defEdificio.riqueza || "modesta";
+  const materialesPreferidos = defEdificio.materialesPreferidos || [];
   const rnd = crearPRNG(`${semilla}:plantasAltas`);
   const [minAltas, maxAltas] = defEdificio.rangoPlantasAltas || [0, 0];
   const numPlantasAltas = minAltas + Math.floor(rnd() * (maxAltas - minAltas + 1));
@@ -289,6 +422,7 @@ function generarEdificio({ tipoEdificioId, catalogos, semilla = "edificio", riqu
       amueblado,
       semilla,
       temaProfesion: defEdificio.temaTaller,
+      materialesPreferidos,
     })
   );
 
@@ -357,7 +491,7 @@ function generarEdificio({ tipoEdificioId, catalogos, semilla = "edificio", riqu
     semilla,
     riqueza: riquezaFinal,
     amueblado,
-    materialesPreferidos: defEdificio.materialesPreferidos || [],
+    materialesPreferidos,
     plantas,
     conectoresVerticales,
     origen: "generado",

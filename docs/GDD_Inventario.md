@@ -60,9 +60,9 @@ Player.inventario: InventarioSchema
 
 Verificado con `toJSON()` sobre una instancia real de `Player` — anidación Schema→Schema→ArraySchema construida y serializada sin errores.
 
-## 6. Slots de equipo (nombres, sin mecánica de efecto todavía)
+## 6. Slots de equipo — **mecanismo real desde `docs/GDD_Equipo.md` (2026-08-30)**
 
-`espalda` (mochila), `cinturon` (bolsa pequeña), `manoPrincipal`/`manoSecundaria` (herramienta/arma/antorcha). Pendiente de cuando exista el sistema de personaje real: `cabeza`/`torso`/`piernas` para armadura, colgando de los mismos pivotes de `rigHumanoide.ts` que ya usa `ropa/` — incluidos a propósito FUERA de esta fase (armadura con efecto en Defensa física necesita el sistema de estadísticas, que tampoco existe todavía).
+`espalda` (mochila), `cinturon` (bolsa pequeña), `manoPrincipal`/`manoSecundaria` (herramienta/arma/antorcha) ya existían aquí como nombres reservados, sin mecanismo. Ahora hay 19 slots reales (armadura cabeza/torso/piernas/brazos/manos incluida, accesorios, y un tercer contenedor `bandolera` — los 3 de mochila/cinturón/bandolera simultáneos) con `equiparItem`/`desequiparItem` de verdad, mensajes `equipo:equipar`/`equipo:desequipar`, y `Player.defensa`/`ataque` (más los nuevos `defensaMagica`/`ataqueMagico`) recalculados desde el equipo puesto — ver `docs/GDD_Equipo.md` para el diseño completo. Este documento sigue siendo la fuente de verdad de la rejilla/contenedores/peso; GDD_Equipo.md es la capa de equipo sobre ella, sin reescribir nada de esto.
 
 ## 7. Fase 2 — coger del mundo / soltar al suelo (implementada, 2026-08-29)
 

@@ -13,6 +13,12 @@ import {
   pesoContenedor,
   excedePesoMaximo,
   puedeEquiparEnSlot,
+  equiparItem,
+  desequiparItem,
+  calcularStatsEquipo,
+  pesoTotalJugador,
+  buscarInstanciaJugador,
+  InventarioJugador,
   CatalogoItems,
 } from "../src/inventario/inventario";
 
@@ -21,7 +27,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 150); // 134 anteriores + 16 versiones "_cocinado" de ingredientes (docs/GDD_Cocina.md — aportesCocina/origenCocina se añadieron a ítems YA existentes, sin sumar claves nuevas)
+  assert.strictEqual(ids.length, 196); // 150 (agricultura/pesca/cocina) + 46 de equipo/armadura (docs/GDD_Equipo.md, 2026-08-30)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");
@@ -194,4 +200,173 @@ test("puedeEquiparEnSlot: solo el slot declarado por el catálogo vale", () => {
 test("determinismo: mismo catálogo cargado dos veces da el mismo contenido (sin aleatoriedad)", () => {
   const otra = cargarCatalogoItems();
   assert.deepStrictEqual(otra, catalogo);
+});
+
+// --- Equipo (docs/GDD_Equipo.md, 2026-08-30) ---
+
+function jugadorVacio(): InventarioJugador {
+  return { cuerpo: crearContenedor(8, 6), extras: new Map(), equipo: {} };
+}
+
+test("puedeEquiparEnSlot: un anillo vale para CUALQUIERA de las dos manos (GRUPOS_SLOT)", () => {
+  assert.strictEqual(puedeEquiparEnSlot(catalogo, "anillo_oro", "anilloIzquierdo"), true);
+  assert.strictEqual(puedeEquiparEnSlot(catalogo, "anillo_oro", "anilloDerecho"), true);
+  assert.strictEqual(puedeEquiparEnSlot(catalogo, "anillo_oro", "cinturon"), false);
+});
+
+test("equiparItem: mueve la instancia del cuerpo al slot y la quita del contenedor", () => {
+  const inv = jugadorVacio();
+  const { instancia } = agregarItem(inv.cuerpo, catalogo, "casco_hierro", 1);
+  const res = equiparItem(inv, catalogo, instancia!.id, "casco");
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(inv.equipo["casco"], "casco_hierro");
+  assert.strictEqual(inv.cuerpo.items.length, 0, "la pieza equipada ya no debe estar en el cuerpo");
+});
+
+test("equiparItem: rechaza un ítem que no declara ese slot", () => {
+  const inv = jugadorVacio();
+  const { instancia } = agregarItem(inv.cuerpo, catalogo, "hierro", 1);
+  const res = equiparItem(inv, catalogo, instancia!.id, "casco");
+  assert.strictEqual(res.ok, false);
+  assert.strictEqual(res.motivo, "no_equipable_en_ese_slot");
+  assert.strictEqual(inv.cuerpo.items.length, 1, "un intento fallido no debe tocar el cuerpo");
+});
+
+test("equiparItem: rechaza un slot ya ocupado (desequipar es un paso explícito aparte)", () => {
+  const inv = jugadorVacio();
+  agregarItem(inv.cuerpo, catalogo, "casco_hierro", 1);
+  equiparItem(inv, catalogo, inv.cuerpo.items[0].id, "casco");
+  const { instancia: segundo } = agregarItem(inv.cuerpo, catalogo, "casco_acero", 1);
+  const res = equiparItem(inv, catalogo, segundo!.id, "casco");
+  assert.strictEqual(res.ok, false);
+  assert.strictEqual(res.motivo, "slot_ocupado");
+});
+
+test("equiparItem con esContenedor: crea una rejilla PROPIA en extras, independiente del cuerpo", () => {
+  const inv = jugadorVacio();
+  agregarItem(inv.cuerpo, catalogo, "mochila_cuero", 1);
+  const res = equiparItem(inv, catalogo, inv.cuerpo.items[0].id, "espalda");
+  assert.strictEqual(res.ok, true);
+  const extra = inv.extras.get("espalda");
+  assert.ok(extra, "debería existir un Contenedor nuevo para 'espalda'");
+  assert.strictEqual(extra!.ancho, catalogo["mochila_cuero"].esContenedor!.ancho);
+  assert.strictEqual(extra!.alto, catalogo["mochila_cuero"].esContenedor!.alto);
+});
+
+test("3 contenedores SIMULTÁNEOS (espalda+cinturon+bandolera) — cada uno con su propia rejilla independiente", () => {
+  const inv = jugadorVacio();
+  for (const [itemId, slot] of [["mochila_cuero", "espalda"], ["bolsa_cinturon", "cinturon"], ["bandolera_cuero", "bandolera"]] as const) {
+    agregarItem(inv.cuerpo, catalogo, itemId, 1);
+    const instancia = inv.cuerpo.items.find((it) => it.itemId === itemId)!;
+    const res = equiparItem(inv, catalogo, instancia.id, slot);
+    assert.strictEqual(res.ok, true, `equipar ${itemId} en ${slot} debería funcionar`);
+  }
+  assert.strictEqual(inv.extras.size, 3, "las 3 mochilas/bolsas deben convivir a la vez, cada una con su Contenedor");
+  assert.strictEqual(inv.equipo["espalda"], "mochila_cuero");
+  assert.strictEqual(inv.equipo["cinturon"], "bolsa_cinturon");
+  assert.strictEqual(inv.equipo["bandolera"], "bandolera_cuero");
+});
+
+test("desequiparItem: la pieza vuelve al cuerpo, al primer hueco libre", () => {
+  const inv = jugadorVacio();
+  agregarItem(inv.cuerpo, catalogo, "casco_hierro", 1);
+  equiparItem(inv, catalogo, inv.cuerpo.items[0].id, "casco");
+  const res = desequiparItem(inv, catalogo, "casco");
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(inv.equipo["casco"], undefined);
+  assert.strictEqual(inv.cuerpo.items.length, 1);
+  assert.strictEqual(inv.cuerpo.items[0].itemId, "casco_hierro");
+});
+
+test("desequiparItem: rechaza un slot vacío", () => {
+  const inv = jugadorVacio();
+  const res = desequiparItem(inv, catalogo, "casco");
+  assert.strictEqual(res.ok, false);
+  assert.strictEqual(res.motivo, "slot_vacio");
+});
+
+test("desequiparItem: rechaza una mochila que TODAVÍA tiene cosas dentro", () => {
+  const inv = jugadorVacio();
+  agregarItem(inv.cuerpo, catalogo, "mochila_cuero", 1);
+  equiparItem(inv, catalogo, inv.cuerpo.items[0].id, "espalda");
+  agregarItem(inv.extras.get("espalda")!, catalogo, "hierro", 1);
+  const res = desequiparItem(inv, catalogo, "espalda");
+  assert.strictEqual(res.ok, false);
+  assert.strictEqual(res.motivo, "contenedor_no_vacio");
+  assert.ok(inv.extras.has("espalda"), "la mochila NO debe desaparecer si el rechazo es por no estar vacía");
+});
+
+test("desequiparItem: una mochila VACÍA sí se puede quitar, y su Contenedor extra se borra", () => {
+  const inv = jugadorVacio();
+  agregarItem(inv.cuerpo, catalogo, "mochila_cuero", 1);
+  equiparItem(inv, catalogo, inv.cuerpo.items[0].id, "espalda");
+  const res = desequiparItem(inv, catalogo, "espalda");
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(inv.extras.has("espalda"), false);
+});
+
+test("desequiparItem: rechaza sin destruir nada si el cuerpo no tiene hueco libre", () => {
+  const inv: InventarioJugador = { cuerpo: crearContenedor(1, 1), extras: new Map(), equipo: {} };
+  // la única casilla del cuerpo ya está ocupada por otra cosa
+  agregarItem(inv.cuerpo, catalogo, "hierro", 1);
+  inv.equipo["casco"] = "casco_hierro"; // equipado "a mano" para el test, sin pasar por equiparItem
+  const res = desequiparItem(inv, catalogo, "casco");
+  assert.strictEqual(res.ok, false);
+  assert.strictEqual(res.motivo, "sin_hueco");
+  assert.strictEqual(inv.equipo["casco"], "casco_hierro", "no debe desequiparse si no cabe de vuelta");
+});
+
+test("desequiparItem: con pesoMaximo, rechaza si al volver al cuerpo se pasaría del límite (pero SÍ permite si no se pasa)", () => {
+  const inv = jugadorVacio();
+  agregarItem(inv.cuerpo, catalogo, "pechera_placas_acero", 1);
+  equiparItem(inv, catalogo, inv.cuerpo.items[0].id, "pechera");
+  const pesoPechera = catalogo["pechera_placas_acero"].peso;
+  const rechazo = desequiparItem(inv, catalogo, "pechera", pesoPechera - 0.1);
+  assert.strictEqual(rechazo.ok, false);
+  assert.strictEqual(rechazo.motivo, "excede_peso");
+  assert.strictEqual(inv.equipo["pechera"], "pechera_placas_acero", "no debe desequiparse si excede el peso");
+
+  const permitido = desequiparItem(inv, catalogo, "pechera", pesoPechera + 5);
+  assert.strictEqual(permitido.ok, true);
+});
+
+test("calcularStatsEquipo: suma defensa/ataque físico y mágico de TODO lo equipado", () => {
+  const inv = jugadorVacio();
+  for (const [itemId, slot] of [["pechera_cota_malla", "pechera"], ["casco_acero", "casco"], ["daga", "manoPrincipal"]] as const) {
+    agregarItem(inv.cuerpo, catalogo, itemId, 1);
+    equiparItem(inv, catalogo, inv.cuerpo.items.find((it) => it.itemId === itemId)!.id, slot);
+  }
+  const stats = calcularStatsEquipo(catalogo, inv.equipo);
+  const esperadoDefensa = catalogo["pechera_cota_malla"].defensaFisica! + catalogo["casco_acero"].defensaFisica!;
+  assert.strictEqual(stats.defensaFisica, esperadoDefensa);
+  assert.strictEqual(stats.defensaMagica, catalogo["pechera_cota_malla"].defensaMagica ?? 0);
+  assert.strictEqual(stats.ataqueFisico, catalogo["daga"].ataqueFisico);
+});
+
+test("calcularStatsEquipo: sin nada equipado, todo a 0", () => {
+  const stats = calcularStatsEquipo(catalogo, {});
+  assert.deepStrictEqual(stats, { defensaFisica: 0, defensaMagica: 0, ataqueFisico: 0, ataqueMagico: 0 });
+});
+
+test("pesoTotalJugador: suma el cuerpo Y cada mochila/bolsa equipada, no solo el cuerpo", () => {
+  const inv = jugadorVacio();
+  agregarItem(inv.cuerpo, catalogo, "hierro", 2); // peso en el cuerpo
+  agregarItem(inv.cuerpo, catalogo, "mochila_cuero", 1);
+  equiparItem(inv, catalogo, inv.cuerpo.items.find((it) => it.itemId === "mochila_cuero")!.id, "espalda");
+  agregarItem(inv.extras.get("espalda")!, catalogo, "hierro", 3); // peso DENTRO de la mochila
+  const total = pesoTotalJugador(inv, catalogo);
+  const esperado = pesoContenedor(inv.cuerpo, catalogo) + pesoContenedor(inv.extras.get("espalda")!, catalogo);
+  assert.strictEqual(total, esperado);
+  assert.ok(total > pesoContenedor(inv.cuerpo, catalogo), "el peso total debe ser mayor que solo el del cuerpo");
+});
+
+test("buscarInstanciaJugador: encuentra una instancia tanto en el cuerpo como dentro de una mochila equipada", () => {
+  const inv = jugadorVacio();
+  agregarItem(inv.cuerpo, catalogo, "mochila_cuero", 1);
+  equiparItem(inv, catalogo, inv.cuerpo.items[0].id, "espalda");
+  const { instancia } = agregarItem(inv.extras.get("espalda")!, catalogo, "hierro", 1);
+  const encontrado = buscarInstanciaJugador(inv, instancia!.id);
+  assert.ok(encontrado);
+  assert.strictEqual(encontrado!.contenedorId, "espalda");
+  assert.strictEqual(buscarInstanciaJugador(inv, 999999), null);
 });

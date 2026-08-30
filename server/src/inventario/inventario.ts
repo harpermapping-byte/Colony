@@ -399,7 +399,164 @@ export interface SlotsEquipo {
   [slot: string]: string | undefined; // slot -> itemId equipado (undefined = vacío)
 }
 
-/** ¿Puede equiparse este ítem en este slot? Solo comprueba que el catálogo declare ESE slot para ese ítem. */
+// docs/GDD_Equipo.md — los 19 huecos de equipo del jugador. Los de anillo
+// son un caso especial: el catálogo declara `slotEquipo:"anillo"` (UN solo
+// valor, un anillo vale para cualquier mano) pero hay DOS huecos físicos
+// donde puede caer (anilloIzquierdo/anilloDerecho) — GRUPOS_SLOT resuelve
+// esa equivalencia sin tener que duplicar cada anillo del catálogo con un
+// id distinto por mano.
+const GRUPOS_SLOT: Record<string, string[]> = {
+  anillo: ["anilloIzquierdo", "anilloDerecho"],
+};
+
+/** ¿Puede equiparse este ítem en este slot? El catálogo declara UN slotEquipo; GRUPOS_SLOT amplía los casos "vale para varios huecos físicos" (hoy solo anillo). */
 export function puedeEquiparEnSlot(catalogo: CatalogoItems, itemId: string, slot: string): boolean {
-  return catalogo[itemId]?.slotEquipo === slot;
+  const declarado = catalogo[itemId]?.slotEquipo;
+  if (!declarado) return false;
+  if (declarado === slot) return true;
+  return (GRUPOS_SLOT[declarado] ?? []).includes(slot);
+}
+
+// Slots que, al equiparse con un ítem `esContenedor`, aportan una rejilla
+// PROPIA (docs/GDD_Inventario.md §3: "independientes, nunca fusionada con
+// la del cuerpo") — espalda (mochila), cinturon (bolsa/riñonera) y
+// bandolera (bolso cruzado): los 3 SIMULTÁNEOS, cada uno con su propio
+// Contenedor en `extras` (decisión de diseño de docs/GDD_Equipo.md, pedida
+// explícitamente: "varios tipos DIFERENTES colocados en su cuerpo a la vez").
+export const SLOTS_CONTENEDOR = new Set(["espalda", "cinturon", "bandolera"]);
+
+/** Vista unificada de TODOS los contenedores de un jugador (cuerpo + cada mochila/bolsa equipada) — para operaciones que recorren "todo lo que lleva encima" (buscar una instancia, sumar peso). */
+export interface InventarioJugador {
+  cuerpo: Contenedor;
+  extras: Map<string, Contenedor>; // slot contenedor -> su rejilla propia
+  equipo: SlotsEquipo;
+}
+
+function *contenedoresDe(inv: InventarioJugador): Generator<[string, Contenedor]> {
+  yield ["cuerpo", inv.cuerpo];
+  for (const [slot, cont] of inv.extras) yield [slot, cont];
+}
+
+/** Busca una instancia por id en CUALQUIER contenedor del jugador (cuerpo o cualquier mochila/bolsa equipada) — para equipar/consumir/mover sin que quien llame tenga que saber de antemano en cuál está. */
+export function buscarInstanciaJugador(
+  inv: InventarioJugador,
+  instanciaId: number,
+): { contenedorId: string; contenedor: Contenedor; item: ItemInstancia } | null {
+  for (const [contenedorId, contenedor] of contenedoresDe(inv)) {
+    const item = contenedor.items.find((it) => it.id === instanciaId);
+    if (item) return { contenedorId, contenedor, item };
+  }
+  return null;
+}
+
+/** Peso total de TODO lo que lleva el jugador — cuerpo + cada mochila/bolsa equipada. El peso máximo transportable (Fuerza, docs/GDD_Personaje.md §3.3) se compara contra ESTA suma, nunca solo contra el cuerpo — mochilas dan más HUECO, nunca más peso permitido (ejes independientes, GDD_Inventario.md §0). */
+export function pesoTotalJugador(inv: InventarioJugador, catalogo: CatalogoItems): number {
+  let total = 0;
+  for (const [, contenedor] of contenedoresDe(inv)) total += pesoContenedor(contenedor, catalogo);
+  return Math.round(total * 100) / 100;
+}
+
+export interface ResultadoEquipar {
+  ok: boolean;
+  motivo?: "instancia_no_encontrada" | "no_equipable_en_ese_slot" | "slot_ocupado" | "item_desconocido";
+}
+
+/**
+ * Equipa una instancia (de CUALQUIER contenedor del jugador — cuerpo o una
+ * mochila/bolsa ya puesta) en `slot`. La pieza sale de su contenedor de
+ * origen y su itemId pasa a `equipo[slot]`; si además declara
+ * `esContenedor` (mochila/bolsa) Y el slot es uno de SLOTS_CONTENEDOR, se
+ * crea su rejilla propia en `extras[slot]` — vacía, lista para usar.
+ * Un slot ya ocupado se rechaza (`slot_ocupado`): desequipar primero es un
+ * paso explícito, mismo criterio "eventos explícitos, nunca automágicos"
+ * que ya usa el resto del proyecto (docs/GDD_Personaje.md §1).
+ */
+export function equiparItem(inv: InventarioJugador, catalogo: CatalogoItems, instanciaId: number, slot: string): ResultadoEquipar {
+  const encontrado = buscarInstanciaJugador(inv, instanciaId);
+  if (!encontrado) return { ok: false, motivo: "instancia_no_encontrada" };
+  const { contenedor, item } = encontrado;
+  const entrada = catalogo[item.itemId];
+  if (!entrada) return { ok: false, motivo: "item_desconocido" };
+  if (!puedeEquiparEnSlot(catalogo, item.itemId, slot)) return { ok: false, motivo: "no_equipable_en_ese_slot" };
+  if (inv.equipo[slot]) return { ok: false, motivo: "slot_ocupado" };
+
+  quitarItem(contenedor, instanciaId, item.cantidad);
+  inv.equipo[slot] = item.itemId;
+  if (entrada.esContenedor && SLOTS_CONTENEDOR.has(slot)) {
+    inv.extras.set(slot, crearContenedor(entrada.esContenedor.ancho, entrada.esContenedor.alto));
+  }
+  return { ok: true };
+}
+
+export interface ResultadoDesequipar {
+  ok: boolean;
+  motivo?: "slot_vacio" | "item_desconocido" | "contenedor_no_vacio" | "sin_hueco" | "excede_peso";
+}
+
+/**
+ * Desequipa `slot`: la pieza vuelve al `cuerpo` (primer hueco libre, mismo
+ * criterio determinista que `buscarHueco`) — falla con `sin_hueco` en vez
+ * de perder el objeto si no cabe. Un slot contenedor con la mochila/bolsa
+ * TODAVÍA con cosas dentro se rechaza (`contenedor_no_vacio`): hay que
+ * vaciarla primero, igual que en la vida real no te puedes quitar una
+ * mochila puesta y que el contenido desaparezca solo.
+ *
+ * `pesoMaximo` (opcional): mientras algo está EQUIPADO no cuenta contra el
+ * peso transportable (`pesoTotalJugador` solo suma cuerpo+extras, nunca
+ * `equipo` — llevarlo puesto no pesa en la mochila, mismo criterio que
+ * "peso y espacio son ejes distintos" de docs/GDD_Inventario.md §0); pero
+ * SÍ vuelve a contar en cuanto se quita, así que hay que comprobarlo aquí
+ * o un jugador ya al límite podría desequipar algo pesado y quedarse por
+ * encima sin que nada lo impidiera. Sin este argumento, no se comprueba
+ * (uso en tests/herramientas que no necesitan la regla de peso).
+ */
+export function desequiparItem(inv: InventarioJugador, catalogo: CatalogoItems, slot: string, pesoMaximo?: number): ResultadoDesequipar {
+  const itemId = inv.equipo[slot];
+  if (!itemId) return { ok: false, motivo: "slot_vacio" };
+  const entrada = catalogo[itemId];
+  if (!entrada) return { ok: false, motivo: "item_desconocido" };
+
+  if (SLOTS_CONTENEDOR.has(slot)) {
+    const extra = inv.extras.get(slot);
+    if (extra && extra.items.length > 0) return { ok: false, motivo: "contenedor_no_vacio" };
+  }
+
+  if (pesoMaximo != null && excedePesoMaximo(inv.cuerpo, catalogo, itemId, 1, pesoMaximo)) {
+    return { ok: false, motivo: "excede_peso" };
+  }
+
+  const resultado = agregarItem(inv.cuerpo, catalogo, itemId, 1);
+  if (!resultado.ok) return { ok: false, motivo: "sin_hueco" };
+
+  delete inv.equipo[slot];
+  if (SLOTS_CONTENEDOR.has(slot)) inv.extras.delete(slot);
+  return { ok: true };
+}
+
+export interface StatsEquipo {
+  defensaFisica: number;
+  defensaMagica: number;
+  ataqueFisico: number;
+  ataqueMagico: number;
+}
+
+/**
+ * Suma los stats de TODO lo equipado (docs/GDD_Equipo.md) — nunca se
+ * persiste un total aparte, se recalcula desde `equipo` cada vez que algo
+ * cambia (equipar/desequipar), mismo criterio que ya fijó
+ * docs/GDD_Personaje.md §1 para ataque/defensa: "combinar atributos +
+ * equipo en el momento de resolver, sin nada que sincronizar de más".
+ */
+export function calcularStatsEquipo(catalogo: CatalogoItems, equipo: SlotsEquipo): StatsEquipo {
+  const total: StatsEquipo = { defensaFisica: 0, defensaMagica: 0, ataqueFisico: 0, ataqueMagico: 0 };
+  for (const itemId of Object.values(equipo)) {
+    if (!itemId) continue;
+    const entrada = catalogo[itemId];
+    if (!entrada) continue;
+    total.defensaFisica += entrada.defensaFisica ?? 0;
+    total.defensaMagica += entrada.defensaMagica ?? 0;
+    total.ataqueFisico += entrada.ataqueFisico ?? 0;
+    total.ataqueMagico += entrada.ataqueMagico ?? 0;
+  }
+  return total;
 }

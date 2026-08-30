@@ -213,13 +213,16 @@ test("persistencia de 'modificado' tras mover/rotar/sustituir/cambiarEstado", ()
 test("regeneración de mobiliario respeta lo modificado a mano", () => {
   const r = colocarSala({ tipoSalaId: "dormitorio_doble", catalogos, riqueza: "modesta", amueblado: "completo", semilla: "regen-test-1" });
   const item = r.colocados[0];
+  const estadoOriginal = { ...item.estado }; // calcularEstadoDesgaste es determinista por instanceId+riqueza, no siempre false — no se hardcodea aquí
   edicion.cambiarEstado(r, item.instanceId, { roto: true });
   assert.strictEqual(item.origen, "modificado");
   const antes = r.colocados.filter((it) => it.origen === "modificado").length;
   edicion.regenerarMobiliario(r, catalogos);
   const despues = r.colocados.find((it) => it.instanceId === item.instanceId);
   assert.ok(despues, "el item modificado no debería desaparecer al regenerar");
-  assert.deepStrictEqual(despues.estado, { desgastado: false, roto: true, sucio: false }, "el estado editado a mano debería sobrevivir a la regeneración");
+  assert.strictEqual(despues.estado.roto, true, "el estado editado a mano (roto:true) debería sobrevivir a la regeneración");
+  assert.strictEqual(despues.estado.desgastado, estadoOriginal.desgastado, "desgastado no se tocó a mano — debe seguir como salió del bake original");
+  assert.strictEqual(despues.estado.sucio, estadoOriginal.sucio, "sucio no se tocó a mano — debe seguir como salió del bake original");
   assert.strictEqual(r.colocados.filter((it) => it.origen === "modificado").length, antes);
 });
 
@@ -375,6 +378,129 @@ test("panadería: horno_pan (isMandatory) sale en casi toda cocina real — no e
   }
   assert.ok(conCocina > 0, "ninguna semilla de prueba generó una cocina — ajustar la muestra");
   assert.ok(conCocinaSinHorno / conCocina < 0.2, `${conCocinaSinHorno}/${conCocina} cocinas de panadería sin horno_pan — demasiado alto para isMandatory`);
+});
+
+console.log("\n=== Generación procedural v2: materiales, estado, BSP, ventanas (docs/GDD_Bakeador_Interiores.md sección 12) ===");
+
+test("materialesPreferidos sesga materialPared cuando el material preferido ya es válido para esa categoría de sala", () => {
+  // "cocina" (categoria utilidad, materialPared base "estuco") — "piedra" ya
+  // se usa como materialPared en otras salas "utilidad" (cocina_industrial,
+  // sala_molino, letrina) y su riquezaTipica admite "modesta", así que es un
+  // candidato válido de sesgo (nunca un filtro duro: sigue pudiendo salir
+  // "estuco" el resto de las veces).
+  let piedra = 0;
+  const total = 150;
+  for (let i = 0; i < total; i++) {
+    const r = colocarSala({ tipoSalaId: "cocina", catalogos, riqueza: "modesta", amueblado: "vacio", semilla: `sesgo-material-${i}`, materialesPreferidos: ["piedra"] });
+    if (r.materialPared === "piedra") piedra++;
+  }
+  assert.ok(piedra > total * 0.3, `esperaba bastante sesgo hacia piedra, solo salió ${piedra}/${total}`);
+  assert.ok(piedra < total, "el sesgo nunca debería ser un filtro duro — 'estuco' base tiene que seguir pudiendo salir");
+
+  let sinSesgo = 0;
+  for (let i = 0; i < 50; i++) {
+    const r = colocarSala({ tipoSalaId: "cocina", catalogos, riqueza: "modesta", amueblado: "vacio", semilla: `sin-sesgo-material-${i}` });
+    if (r.materialPared !== "estuco") sinSesgo++;
+  }
+  assert.strictEqual(sinSesgo, 0, "sin materialesPreferidos, materialPared debe seguir siendo siempre el de defSala (estuco)");
+});
+
+test("materialesPreferidos con material inválido para la categoría/riqueza de la sala no cambia nada (nunca ignora riquezaTipica)", () => {
+  // "papel_pintado" es riquezaTipica:["noble"] — nunca debe colarse en una
+  // sala humilde aunque el edificio "prefiera" ese material.
+  for (let i = 0; i < 30; i++) {
+    const r = colocarSala({ tipoSalaId: "dormitorio", catalogos, riqueza: "humilde", amueblado: "vacio", semilla: `sesgo-invalido-${i}`, materialesPreferidos: ["papel_pintado"] });
+    assert.notStrictEqual(r.materialPared, "papel_pintado");
+  }
+});
+
+test("estado (desgastado/roto/sucio) ya no es siempre false — determinista por instancia+riqueza", () => {
+  let conAlgo = 0;
+  let total = 0;
+  for (let i = 0; i < 40; i++) {
+    const r = colocarSala({ tipoSalaId: "dormitorio_doble", catalogos, riqueza: "humilde", amueblado: "completo", semilla: `estado-agregado-${i}` });
+    for (const it of r.colocados) {
+      total++;
+      if (it.estado.desgastado || it.estado.roto || it.estado.sucio) conAlgo++;
+    }
+  }
+  assert.ok(conAlgo > 0, "en 40 salas humildes debería haber salido AL MENOS una pieza desgastada/rota/sucia");
+  assert.ok(conAlgo < total, "no debería ser sistemáticamente todo desgastado/roto/sucio tampoco");
+
+  // Determinismo: misma instancia (mismo instanceId, mismo tipoSalaId+semilla) -> mismo estado siempre.
+  const a = colocarSala({ tipoSalaId: "dormitorio_doble", catalogos, riqueza: "humilde", amueblado: "completo", semilla: "estado-determinista" });
+  const b = colocarSala({ tipoSalaId: "dormitorio_doble", catalogos, riqueza: "humilde", amueblado: "completo", semilla: "estado-determinista" });
+  assert.deepStrictEqual(a.colocados.map((it) => it.estado), b.colocados.map((it) => it.estado));
+});
+
+test("una pieza roja (roto:true) siempre está también desgastada", () => {
+  let vistoRoto = 0;
+  for (let i = 0; i < 300; i++) {
+    const r = colocarSala({ tipoSalaId: "dormitorio_doble", catalogos, riqueza: "humilde", amueblado: "completo", semilla: `roto-implica-desgastado-${i}` });
+    for (const it of r.colocados) {
+      if (it.estado.roto) {
+        vistoRoto++;
+        assert.strictEqual(it.estado.desgastado, true, `${it.instanceId}: roto:true sin desgastado:true`);
+      }
+    }
+  }
+  assert.ok(vistoRoto > 0, "en 300 salas debería haber salido al menos una pieza rota — ajustar la muestra si no");
+});
+
+test("BSP 2D: una planta sin pasillo con varias salas produce un layout real en 2D, no solo una fila", () => {
+  // Barrido de varias combinaciones tipoEdificio×semilla hasta encontrar
+  // una planta sin pasillo con 3+ salas — no toda semilla saca ese caso
+  // (puede tocar pasillo, o solo 2 salas), así que se busca en varias.
+  let encontrado = false;
+  for (let i = 0; i < 60 && !encontrado; i++) {
+    const e = generarEdificio({ tipoEdificioId: "casa_noble", catalogos, semilla: `bsp-2d-test-${i}` });
+    for (const p of e.plantas) {
+      const conPasillo = p.salas.some((s) => s.esPasillo);
+      if (conPasillo || p.salas.length < 3) continue;
+      const offsetsY = new Set(p.salas.map((s) => s.offsetY));
+      if (offsetsY.size > 1) { encontrado = true; break; }
+    }
+  }
+  assert.ok(encontrado, "en 60 semillas de casa_noble debería haber salido al menos una planta sin pasillo con layout 2D real (offsetY variado)");
+});
+
+test("puertas múltiples reales: una planta sin pasillo con 3+ salas tiene más conexiones que una simple cadena 1-a-1", () => {
+  let encontrado = false;
+  for (let i = 0; i < 60 && !encontrado; i++) {
+    const e = generarEdificio({ tipoEdificioId: "casa_noble", catalogos, semilla: `puertas-multiples-test-${i}` });
+    for (const p of e.plantas) {
+      const conPasillo = p.salas.some((s) => s.esPasillo);
+      if (conPasillo || p.salas.length < 3) continue;
+      // pares de salas que comparten AL MENOS una casilla de puerta real
+      let paresConectados = 0;
+      for (let a = 0; a < p.salas.length; a++) {
+        for (let b = a + 1; b < p.salas.length; b++) {
+          const puertasA = p.salas[a].salaPlanta.puertas;
+          const puertasB = p.salas[b].salaPlanta.puertas;
+          if ([...puertasA].some((t) => puertasB.has(t))) paresConectados++;
+        }
+      }
+      if (paresConectados > p.salas.length - 1) { encontrado = true; break; } // más que una cadena simple = alguna sala con 2+ vecinas reales
+    }
+  }
+  assert.ok(encontrado, "en 60 semillas de casa_noble debería haber salido al menos una planta con una sala conectada a más de una vecina");
+});
+
+test("ventanas: nunca en bodega/cripta; sí aparecen en planta_baja/alta con fachada real", () => {
+  let conVentanaEnPlantaBaja = 0;
+  for (let i = 0; i < 20; i++) {
+    const e = generarEdificio({ tipoEdificioId: "casa_noble", catalogos, semilla: `ventanas-test-${i}` });
+    for (const p of e.plantas) {
+      for (const s of p.salas) {
+        if (p.nivel < 0) {
+          assert.strictEqual(s.salaPlanta.ventanas.size, 0, `sala ${s.tipoSalaId} en bodega (nivel ${p.nivel}) no debería tener ventanas`);
+        } else if (p.rol === "planta_baja" && s.salaPlanta.ventanas.size > 0) {
+          conVentanaEnPlantaBaja++;
+        }
+      }
+    }
+  }
+  assert.ok(conVentanaEnPlantaBaja > 0, "en 20 casas nobles debería haber salido al menos una sala de planta baja con ventana real");
 });
 
 console.log("\n=== Resumen ===");

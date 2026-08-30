@@ -20,6 +20,11 @@ function cargarCatalogos() {
     materiales: cargarJSON(MATERIALES_COMPARTIDOS),
     prendas: cargarJSON(path.join(CARPETA_CATALOGO, "prendas.json")),
     profesiones: cargarJSON(path.join(CARPETA_CATALOGO, "profesiones.json")),
+    // Equipo (docs/GDD_Equipo.md): armadura/accesorios/mochilas/armas
+    // vestibles con stats — catálogo hermano de prendas.json, mismo criterio
+    // "una sola fuente de verdad" (nunca se duplica en items/catalogo/items.json,
+    // que solo referencia el id vía prendaId).
+    equipo: cargarJSON(path.join(CARPETA_CATALOGO, "equipo.json")),
     proporcionesRig: cargarJSON(PROPORCIONES_RIG),
   };
 }
