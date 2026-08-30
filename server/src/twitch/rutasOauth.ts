@@ -12,6 +12,8 @@ import {
   generarUrlAutorizacion,
   intercambiarCodigoPorIdentidad,
 } from "./oauthLogin";
+import { obtenerBdCompartida } from "../datos/bdCompartida";
+import { crearSesionAdmin } from "../admin/adminAuth";
 
 const CLIENT_URL = process.env.CLIENT_URL ?? "http://localhost:5173"; // puerto por defecto de Vite en dev
 
@@ -47,11 +49,24 @@ export function manejarPeticionLoginTwitch(req: IncomingMessage, res: ServerResp
       return true;
     }
     intercambiarCodigoPorIdentidad(code)
-      .then((identidad) => {
+      .then(async (identidad) => {
         const token = crearSesionTwitch(identidad);
         const destino = new URL(CLIENT_URL);
         destino.searchParams.set("twitchSession", token);
         destino.searchParams.set("twitchLogin", identidad.twitchLogin);
+
+        // Pedido 2026-08-30: login de admin "también con Twitch" — si este
+        // twitch_login está vinculado en admin_cuentas (lo vincula un
+        // admin ya logueado, no aquí), de paso entra como jarl/superadmin.
+        // Silencioso si no lo está: el login de Twitch normal del jugador
+        // sigue funcionando exactamente igual.
+        const bd = await obtenerBdCompartida();
+        const cuentaAdmin = await bd.obtenerCuentaAdminPorTwitchLogin(identidad.twitchLogin);
+        if (cuentaAdmin) {
+          const tokenAdmin = crearSesionAdmin({ usuario: cuentaAdmin.usuario, rol: cuentaAdmin.rol, mapaId: cuentaAdmin.mapaId });
+          destino.searchParams.set("adminSession", tokenAdmin);
+        }
+
         redirigir(res, destino.toString());
       })
       .catch((err) => {

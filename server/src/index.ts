@@ -12,6 +12,7 @@ import { iniciarChatBot } from "./twitch/chatBot";
 import { iniciarDeteccionDirecto } from "./twitch/estadoDirecto";
 import { obtenerGestorTwitch } from "./twitch/gestorTwitch";
 import { manejarPeticionLoginTwitch } from "./twitch/rutasOauth";
+import { manejarPeticionAdmin } from "./admin/rutasAdmin";
 import { cargarPvpDesdeBd } from "./mundo/pvp";
 
 const port = Number(process.env.PORT) || 2567;
@@ -22,6 +23,7 @@ const port = Number(process.env.PORT) || 2567;
 // GDD_Twitch.md §7) son no-op si faltan las credenciales — ver rutasOauth.ts.
 const httpServer = createServer((req, res) => {
   if (manejarPeticionLoginTwitch(req, res)) return;
+  if (manejarPeticionAdmin(req, res)) return;
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Streamer Colony server OK");
 });
