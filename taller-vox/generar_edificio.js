@@ -277,11 +277,23 @@ function cuerpo(b, anchoVox, largoVox, alturaPlanta, nPlantas, colorMuro, opcion
     // última: "casas con distintas formas y pisos en una misma casa").
     const esUltima = p === nPlantas - 1;
     let ajuste = 0;
+    // Escalonado (pedido 2026-08-30: "que no sea todo cubos rectos") — el
+    // retranqueo deja de ser solo de la ÚLTIMA planta (ático) y se acumula
+    // planta a planta: cada piso por encima de la baja encoge un poco más
+    // que el anterior, silueta de pagoda/ziggurat en vez de un prisma recto.
+    // Reusa el MISMO campo `retranqueo` (ajuste en vóxeles) que ya existía,
+    // solo cambia cómo se acumula — jetty/retranqueo plano siguen igual.
     if (opciones.jetty && p > 0) ajuste = opciones.jetty;
+    else if (opciones.escalonado && p > 0) ajuste = -opciones.retranqueo * p;
     else if (opciones.retranqueo && p > 0 && esUltima) ajuste = -opciones.retranqueo;
     const px0 = x0 - ajuste, px1 = x1 + ajuste, pz0 = z0 - ajuste, pz1 = z1 + ajuste;
     const esPlantaAltaEspecial = p > 0 && opciones.colorPlantaAlta;
-    const tono = esPlantaAltaEspecial ? opciones.colorPlantaAlta : colorMuro;
+    // Textura/tono por piso (pedido 2026-08-30: "más textura por pisos") —
+    // variación sutil de tono planta a planta (cada una un pelín más clara
+    // que la de abajo), aparte del zócalo oscuro de la base que ya existía;
+    // se nota como "capas" reales del edificio, no un único bloque de color.
+    const tonoBase = esPlantaAltaEspecial ? opciones.colorPlantaAlta : colorMuro;
+    const tono = p > 0 ? sombrear(tonoBase, 1 + Math.min(p, 3) * 0.035) : tonoBase;
     // zócalo de piedra en la base (planta baja): las casas medievales asientan sobre un basamento más oscuro
     if (p === 0) {
       const zocalo = Math.min(2, alturaPlanta - 1);
@@ -683,13 +695,21 @@ function edificioCasa(ctx) {
   // el mismo voladizo: jetty (vuela hacia fuera, entramado Tudor a la vista),
   // retranqueo (encoge, planta de ático) o plana (sin gracia, la humilde
   // nunca saca ninguna de las dos — una choza no tiene ático con clase).
-  const estiloPlanta = rica && plantasAltas > 0 ? (rnd() < 0.45 ? "jetty" : rnd() < 0.6 ? "retranqueo" : "plano") : "plano";
+  // "escalonado" (pedido 2026-08-30, silueta de pagoda) solo con 2+ plantas
+  // altas — con una sola no se distingue de un retranqueo normal.
+  const puedeEscalonar = plantasAltas >= 2;
+  const estiloPlanta = rica && plantasAltas > 0
+    ? (rnd() < 0.4 ? "jetty" : rnd() < 0.55 ? "retranqueo" : puedeEscalonar && rnd() < 0.6 ? "escalonado" : "plano")
+    : "plano";
   const opciones = { ...base };
   if (estiloPlanta === "jetty") {
     opciones.jetty = Math.round(U * 0.16);
     opciones.colorPlantaAlta = riqueza === "noble" ? (materiales.estuco?.colorDebug || "#e8ddc8") : colorMuro;
   } else if (estiloPlanta === "retranqueo") {
     opciones.retranqueo = Math.round(U * 0.5);
+  } else if (estiloPlanta === "escalonado") {
+    opciones.escalonado = true;
+    opciones.retranqueo = Math.round(U * 0.28); // acumulativo por planta — más suave que el retranqueo plano de un solo golpe
   }
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro, opciones);
   // porche a la entrada: solo en ricas, no siempre — deja huecas sin él para que se note la diferencia
@@ -862,7 +882,13 @@ function edificioTorre(ctx) {
   const { ancho, largo, plantasAltas, colorMuro, tema, material, estiloMadera, estiloVentana, estiloVentanaAlt, rnd } = ctx;
   const b = Builder();
   const nPlantas = 2 + plantasAltas; // las torres siempre altas aunque el catálogo pida pocas plantas
-  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 0.85), nPlantas, colorMuro, { material, estiloMadera, estiloVentana, estiloVentanaAlt, rnd });
+  // Escalonado (pedido 2026-08-30): una torre que se afina hacia arriba,
+  // silueta real de torreón medieval — 35% de las veces, nunca en el faro
+  // (su linterna necesita la plataforma superior entera).
+  const escalonado = tema !== "faro" && rnd() < 0.35;
+  const opcionesTorre = { material, estiloMadera, estiloVentana, estiloVentanaAlt, rnd };
+  if (escalonado) { opcionesTorre.escalonado = true; opcionesTorre.retranqueo = Math.round(U * 0.12); }
+  const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 0.85), nPlantas, colorMuro, opcionesTorre);
   const planta0 = pisos[0];
   puertaEnFachada(b, planta0, { ancho: 0.9, alto: 1.9 });
   // ventanas en espiral: una por planta, girando de cara — sugiere la escalera de caracol interior
@@ -1160,6 +1186,27 @@ function generarTodo(soloPrueba, conNiveles = false) {
   return { resultado, conteo };
 }
 
+/**
+ * Los 3 niveles de UN edificio concreto, generados y devueltos JUNTOS
+ * (pedido 2026-08-30: "si creo casa nivel 1 creo también esa en nivel 2 y
+ * nivel 3... se guardan para cuando la casa se amplíe") — mismo `tipoId|nn`
+ * de semilla en los 3 (`generarEdificio` ya lo garantiza: `nivel` solo se
+ * lee DESPUÉS de fijar material/forma/estilo de ventana, así que las 3
+ * versiones comparten aspecto y solo difieren en plantas/decoración). Nota
+ * honesta: la coherencia NO es perfecta hasta el último detalle — algunas
+ * decisiones posteriores (porche, jardineras) sí dependen de si hubo
+ * plantas altas o no en CADA nivel, así que pueden divergir un poco entre
+ * niveles cuando nivel 1 tiene 0 plantas altas y nivel 3 tiene 2; el
+ * aspecto principal (material/forma/ventanas) es idéntico siempre.
+ */
+function generarEdificioConNiveles(tipoId, nn = 1, plan = null, opciones = {}) {
+  return {
+    nivel1: generarEdificio(tipoId, nn, plan, 1, opciones),
+    nivel2: generarEdificio(tipoId, nn, plan, 2, opciones),
+    nivel3: generarEdificio(tipoId, nn, plan, 3, opciones),
+  };
+}
+
 if (require.main === module) {
   const todo = process.argv.includes("todo");
   const conNiveles = process.argv.includes("niveles");
@@ -1169,4 +1216,4 @@ if (require.main === module) {
   console.log("Por arquetipo:", conteo);
 }
 
-module.exports = { generarTodo, generarEdificio, ARQUETIPO_FN, clasificarEdificio, TIPOS_PRUEBA, POR_ARQUETIPO, U, PAD, MADERA_CLARA, elegirTecho, elegirMaterial, ESTILOS_VENTANA };
+module.exports = { generarTodo, generarEdificio, generarEdificioConNiveles, ARQUETIPO_FN, clasificarEdificio, TIPOS_PRUEBA, POR_ARQUETIPO, U, PAD, MADERA_CLARA, elegirTecho, elegirMaterial, ESTILOS_VENTANA };

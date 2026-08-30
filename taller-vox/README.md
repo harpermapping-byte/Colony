@@ -27,9 +27,17 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   "tallado"/"tallada", más `aplicarDesgaste` (oscurecido aleatorio
   determinista por caja) si menciona "desgastada"/"agrietada"/"oxidado"/etc.
   Sin match = queda el aspecto de siempre. `node extraer_catalogo.js`
-  regeneró el snapshot de 123→559 piezas base (cobertura completa de
-  `elementos.json`, antes 437 piezas diseñadas no generaban nada); con
-  variantes, 1187 modelos totales.
+  regeneró el snapshot de 123→703 piezas base (cobertura completa de
+  `elementos.json`); con variantes, 1315 modelos totales.
+  **Alfombras con patrón (pedido 2026-08-30, "MUY variados")**: nuevo
+  arquetipo `ALFOMBRA` (antes cualquier alfombra/círculo ritual caía a
+  GENERICO, una caja de color plano) — una losa fina pintada por vóxel con
+  uno de 6 patrones (`liso`/`rayas`/`damero`/`medallon`/`concentrico`/`cruz`),
+  elegido por palabra clave de la variante (bordada→medallón, ritual→cruz,
+  redonda→concéntrico...) o, sin match, determinista por hash del propio id
+  — hasta la alfombra sin variante nombrada sale con un patrón, no siempre
+  lisa. `node -e "..."` con `personajes/src/renderIso` para verificación
+  visual rápida (sin script de galería dedicado todavía).
 - **`generar_naturaleza.js`** — la ampliación del taller para todo lo SIN
   esqueleto (decisión del streamer; lo que tiene esqueleto sale de
   `personajes/`): árboles, arbustos, hierbas, flores, setas, cactus, algas,
@@ -117,6 +125,35 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   retrocompatible (sin `opciones`, comportamiento idéntico a siempre, misma
   tirada de semilla). `node prueba_render_ejemplos_2026_08_30.js` — galería
   de verificación de este pase + de las variantes de mueble.
+
+  **Formas menos cúbicas + textura por piso (pedido 2026-08-30, "no sea
+  todo cubos rectos")**: `cuerpo()` ahora soporta `opciones.escalonado`
+  (bool) — el `retranqueo` deja de aplicarse SOLO a la última planta (ático)
+  y se acumula planta a planta (`ajuste = -retranqueo * p`), dando una
+  silueta de pagoda/ziggurat real en vez de un prisma recto; probabilidad
+  nueva en `edificioCasa` (junto a jetty/retranqueo/plano) y en
+  `edificioTorre` (35%, torre que se afina hacia arriba, nunca en el faro).
+  Cada planta por encima de la baja además lleva un tono ligeramente
+  distinto de la de abajo (`sombrear` con factor creciente por `p`) — se
+  nota como capas reales del edificio, no un bloque de color único; el
+  zócalo oscuro de la planta baja seguía como antes.
+
+  **Niveles 1/2/3 generados juntos (pedido 2026-08-30, "si creo casa nivel
+  1 creo también nivel 2 y nivel 3... se guardan para cuando la casa se
+  amplíe")**: `generarEdificioConNiveles(tipoId, nn, plan, opciones)` (nueva,
+  exportada) devuelve `{nivel1, nivel2, nivel3}` de la MISMA semilla
+  `tipoId|nn` — ya eran coherentes entre sí (material/forma/estilo de
+  ventana se deciden ANTES de que `nivel` entre en juego), esto solo lo
+  empaqueta como un conjunto explícito listo para guardar/servir junto en
+  vez de tres llamadas sueltas. `generarTodo(soloPrueba, conNiveles=true)`
+  ya generaba y guardaba los 3 niveles con la MISMA clave de variante desde
+  el pase anterior (`node generar_edificio.js niveles`) — sigue siendo el
+  camino de "todo el catálogo × 3 niveles" para producción. Nota honesta:
+  la coherencia entre niveles no es perfecta hasta el último detalle
+  (porche/jardineras dependen de si hubo plantas altas en CADA nivel
+  concreto, así que pueden divergir si nivel 1 no tiene plantas altas y
+  nivel 3 sí) — el aspecto principal (material/forma/estilo) es siempre
+  idéntico.
   ```bash
   node generar_edificio.js          # 1 edificio de ejemplo por arquetipo (10)
   node generar_edificio.js todo     # los ~41 tipos del catálogo (producción: lo corre el usuario)
