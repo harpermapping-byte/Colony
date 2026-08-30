@@ -16,11 +16,15 @@ export interface EstadoCocinaVista {
   vasija?: "cuenco" | "cazuela" | "olla";
   capacidad?: number;
   ingredientes: IngredienteVista[];
+  conAgua: boolean;
+  hirviendo: boolean;
+  segundosParaHervir: number;
 }
 
 export interface OpcionesPanelCocina {
   contenedor: HTMLElement;
   cocinarSimple(construccionId: number, instanciaId: number): void;
+  llenarAgua(construccionId: number): void;
   anadir(construccionId: number, instanciaId: number, cantidad: number): void;
   preparar(construccionId: number): void;
 }
@@ -29,6 +33,8 @@ export class PanelCocina {
   private raiz: HTMLDivElement;
   private construccionId: number | null = null;
   private estado: EstadoCocinaVista | null = null;
+  /** Cuenta atrás LOCAL mientras hierve el agua — evita tener que preguntarle al servidor cada segundo solo para refrescar un número (docs/GDD_Cocina.md). */
+  private temporizadorHervor: ReturnType<typeof setInterval> | null = null;
 
   constructor(private opciones: OpcionesPanelCocina) {
     this.raiz = document.createElement("div");
@@ -50,15 +56,34 @@ export class PanelCocina {
   /** construccionId=null cuando el jugador ya no está junto a ninguna estación de cocina. */
   actualizarCercania(construccionId: number | null, esVasija: boolean, vasija?: "cuenco" | "cazuela" | "olla", capacidad?: number) {
     this.construccionId = construccionId;
-    this.estado = construccionId == null ? null : { esVasija, vasija, capacidad, ingredientes: this.estado?.ingredientes ?? [] };
+    this.estado = construccionId == null ? null : { esVasija, vasija, capacidad, ingredientes: [], conAgua: false, hirviendo: false, segundosParaHervir: 0 };
+    this.pararTemporizador();
     this.render();
   }
 
-  /** Llamar al recibir "cocina:estado" (contenido actual de la vasija). */
-  actualizarIngredientes(ingredientes: IngredienteVista[]) {
+  /** Llamar al recibir "cocina:estado" (agua/hervor/ingredientes actuales de la vasija). */
+  actualizarEstado(parcial: { ingredientes: IngredienteVista[]; conAgua: boolean; hirviendo: boolean; segundosParaHervir: number }) {
     if (!this.estado) return;
-    this.estado = { ...this.estado, ingredientes };
+    this.estado = { ...this.estado, ...parcial };
+    this.pararTemporizador();
+    if (this.estado.conAgua && !this.estado.hirviendo && this.estado.segundosParaHervir > 0) {
+      this.temporizadorHervor = setInterval(() => {
+        if (!this.estado) return this.pararTemporizador();
+        if (this.estado.segundosParaHervir <= 1) {
+          this.estado = { ...this.estado, hirviendo: true, segundosParaHervir: 0 };
+          this.pararTemporizador();
+        } else {
+          this.estado = { ...this.estado, segundosParaHervir: this.estado.segundosParaHervir - 1 };
+        }
+        this.render();
+      }, 1000);
+    }
     this.render();
+  }
+
+  private pararTemporizador() {
+    if (this.temporizadorHervor != null) clearInterval(this.temporizadorHervor);
+    this.temporizadorHervor = null;
   }
 
   private render() {
@@ -111,6 +136,21 @@ export class PanelCocina {
     ayuda.style.marginBottom = "6px";
     ayuda.textContent = `Hasta ${e.capacidad} ingredientes distintos — mezclar planta y carne da bonus.`;
     this.raiz.appendChild(ayuda);
+
+    if (!e.conAgua) {
+      const llenar = document.createElement("button");
+      llenar.textContent = "💧 Llenar de agua y poner al fuego";
+      llenar.onclick = () => this.opciones.llenarAgua(id);
+      this.raiz.appendChild(llenar);
+      return;
+    }
+    if (!e.hirviendo) {
+      const esperando = document.createElement("div");
+      esperando.style.marginBottom = "6px";
+      esperando.textContent = `🔥 Calentando... ${e.segundosParaHervir}s`;
+      this.raiz.appendChild(esperando);
+      return;
+    }
 
     if (e.ingredientes.length === 0) {
       const vacio = document.createElement("div");

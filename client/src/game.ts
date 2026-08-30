@@ -506,12 +506,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const panelCocina = new PanelCocina({
       contenedor,
       cocinarSimple: (construccionId, instanciaId) => room.send("cocina:simple", { construccionId, instanciaId }),
+      llenarAgua: (construccionId) => room.send("cocina:llenarAgua", { construccionId }),
       anadir: (construccionId, instanciaId, cantidad) => room.send("cocina:anadir", { construccionId, instanciaId, cantidad }),
       preparar: (construccionId) => room.send("cocina:preparar", { construccionId }),
     });
     let cocinaCercanaId: number | null = null;
-    room.onMessage("cocina:estado", (m: { construccionId: number; ingredientes: IngredienteVista[] }) => {
-      if (m.construccionId === cocinaCercanaId) panelCocina.actualizarIngredientes(m.ingredientes);
+    room.onMessage("cocina:estado", (m: { construccionId: number; ingredientes: IngredienteVista[]; conAgua: boolean; hirviendo: boolean; segundosParaHervir: number }) => {
+      if (m.construccionId === cocinaCercanaId) {
+        panelCocina.actualizarEstado({ ingredientes: m.ingredientes, conAgua: m.conAgua, hirviendo: m.hirviendo, segundosParaHervir: m.segundosParaHervir });
+      }
     });
     room.onMessage("cocina:cocinado", (m: { itemId: string }) => console.log(`[cocina] cocinado: ${m?.itemId}`));
     room.onMessage("cocina:preparado", (m: { nombre: string; cantidad: number; mezclaBonus: boolean }) =>
