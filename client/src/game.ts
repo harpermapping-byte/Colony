@@ -3,9 +3,8 @@ import { SERVER_URL } from "./config";
 import { WorldScene } from "./render3d/worldScene";
 import { crearRigHumanoide, type RigHumanoide } from "./render3d/rigHumanoide";
 import { cargarIndice, cargarSector } from "./mapa/cargarMapa";
-import type { Group } from "three";
 import { StreamingSectores } from "./mapa/streamingSectores";
-import { crearSectorVisual, soltarSectorVisual } from "./render3d/sectorVisual";
+import { crearSectorVisual, soltarSectorVisual, type HandleSector } from "./render3d/sectorVisual";
 import { crearPersonajeVoxel, type PersonajeExportado } from "./render3d/personajeVoxel";
 import { crearAnimalVoxel, type AnimalExportado } from "./render3d/animalVoxel";
 import type { IndiceMapa } from "./mapa/formatoMapa";
@@ -130,8 +129,42 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // streamingSectores.ts; aquí solo se le enchufan fetch y escena. Un
   // INTERIOR (docs/GDD_Sistema_Puertas.md) no es terreno bakeado por
   // sectores: se salta este bloque entero y se renderiza más abajo.
-  let streaming: StreamingSectores<Group> | null = null;
+  let streaming: StreamingSectores<HandleSector> | null = null;
   let indiceMapa: IndiceMapa | null = null; // lo reusa el constructor (ancho del mapa en casillas)
+
+  // Exclusiones de sector (docs/GDD_Bosques.md §7, pedido 2026-08-30: "si se
+  // puede recolectar/talar/matar y se hace, acaba desapareciendo" — también
+  // visualmente, no solo en el inventario). Antes de materializar un sector
+  // se pregunta al servidor qué posiciones bakeadas de ESE sector ya no
+  // existen (recogidas/taladas) para no dibujarlas — request/response
+  // correlado por sector, con timeout de seguridad (si el servidor no
+  // responde, el sector carga igual sin exclusiones, igual que antes de
+  // este arreglo, nunca se queda colgado). Definido aquí, antes de que
+  // `room` exista más abajo: solo se INVOCA desde `materializar`, que
+  // streaming.actualizar() no dispara hasta bastante después del connect
+  // (cuando el jugador local ya está sincronizado) — para cuando corre,
+  // `room` ya está asignado.
+  const pendientesExclusiones = new Map<string, (posiciones: string[]) => void>();
+  function pedirExclusiones(sectorX: number, sectorY: number, tilesPorSector: number): Promise<Set<string>> {
+    return new Promise((resolve) => {
+      const k = `${sectorX}_${sectorY}`;
+      let resuelto = false;
+      const terminar = (posiciones: string[]) => {
+        if (resuelto) return;
+        resuelto = true;
+        pendientesExclusiones.delete(k);
+        resolve(new Set(posiciones));
+      };
+      pendientesExclusiones.set(k, terminar);
+      room.send("sector:exclusiones", {
+        sectorX, sectorY,
+        tileX0: sectorX * tilesPorSector, tileY0: sectorY * tilesPorSector,
+        tileX1: (sectorX + 1) * tilesPorSector, tileY1: (sectorY + 1) * tilesPorSector,
+      });
+      setTimeout(() => terminar([]), 3000);
+    });
+  }
+
   // Farolas/focos exteriores (ciudades/src/index.js, capa "luces" de
   // indice.json) — hasta ahora el cliente nunca las leía (pendiente del
   // GDD_Bakeador_POIs: "ciclo día/noche, consumir luces"). Pocas por
@@ -143,17 +176,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     try {
       const indice = await cargarIndice(RUTA_MAPA);
       indiceMapa = indice;
+      const tilesPorSector = indice.tamanoSectorChunks * indice.tamanoChunk;
       streaming = new StreamingSectores({
         indice,
         obtenerSector: (sx, sy) => cargarSector(RUTA_MAPA, sx, sy),
         materializar: async (sector) => {
-          const grupo = await crearSectorVisual(indice, sector);
-          escena.añadirEstatico(grupo);
-          return grupo;
+          const excluidos = await pedirExclusiones(sector.sectorX, sector.sectorY, tilesPorSector);
+          const handle = await crearSectorVisual(indice, sector, excluidos);
+          escena.añadirEstatico(handle.grupo);
+          return handle;
         },
-        soltar: (grupo) => {
-          escena.quitarEstatico(grupo);
-          soltarSectorVisual(grupo);
+        soltar: (handle) => {
+          escena.quitarEstatico(handle.grupo);
+          soltarSectorVisual(handle);
         },
       });
       // Sonda de depuración/pruebas e2e: estado del streaming en vivo.
@@ -929,6 +964,33 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("arbol:talado", (m: { especieId: string; etapa: string; entregados: string[] }) =>
     console.log("[árbol] talado", m?.especieId, m?.etapa, "— entregado:", m?.entregados));
   room.onMessage("arbol:plantado", (m: { especieId: string }) => console.log("[árbol] plantado", m?.especieId));
+
+  // Respuesta a pedirExclusiones (docs/GDD_Bosques.md §7) — correlada por sector.
+  room.onMessage("sector:exclusiones", (m: { sectorX: number; sectorY: number; posiciones: string[] }) => {
+    const k = `${m?.sectorX}_${m?.sectorY}`;
+    pendientesExclusiones.get(k)?.(m?.posiciones ?? []);
+  });
+
+  // Ocultado EN VIVO (docs/GDD_Bosques.md §7): algo del bake (recolectable
+  // o árbol) desaparece del servidor mientras su sector ya está
+  // materializado delante del jugador — se apaga esa instancia concreta
+  // sin reconstruir el sector entero. No-op si ese sector no está cargado
+  // ahora mismo (nadie mirando) o esa posición no tenía nada instanciado.
+  function ocultarPropBakeadoEnVivo(x: number, y: number) {
+    if (!streaming || !indiceMapa) return;
+    const tilesPorSector = indiceMapa.tamanoSectorChunks * indiceMapa.tamanoChunk;
+    const sx = Math.floor(x / tilesPorSector);
+    const sy = Math.floor(y / tilesPorSector);
+    streaming.obtenerHandle(sx, sy)?.ocultarPosicion(Math.floor(x), Math.floor(y));
+  }
+  // Recolectables (docs/GDD_Inventario.md §7 — el servidor YA emitía esto,
+  // nadie lo escuchaba todavía): bayas/setas/arbustos cogidos por CUALQUIER
+  // jugador, no solo el que los cogió (broadcast).
+  room.onMessage("mundo:objetoQuitado", (m: { origen?: string; x: number; y: number }) => {
+    if (m?.origen === "exterior") ocultarPropBakeadoEnVivo(m.x, m.y);
+  });
+  // Árboles de origen bake talados por CUALQUIER jugador (docs/GDD_Bosques.md §7).
+  room.onMessage("arbol:baketalado", (m: { x: number; y: number }) => ocultarPropBakeadoEnVivo(m.x, m.y));
 
   function cadaverMasCercano(): string | null {
     if (!jugadorLocal) return null;

@@ -67,6 +67,25 @@ export function recolectablesDeMapa(rutaMapa: string): { mapa: Map<number, Recol
   return { mapa, esNuevo };
 }
 
+// Posiciones YA recogidas (docs/GDD_Bosques.md §7, pedido 2026-08-30: "si se
+// puede recolectar... y se hace, acaba desapareciendo" — también del lado
+// visual, no solo del inventario). Mismo ciclo de vida que el pool activo:
+// vive en memoria del proceso, SIN persistencia (un reinicio del servidor
+// resetea recolectables Y quitados juntos, coherentes entre sí) — el cliente
+// consulta esto vía `sector:exclusiones` (RoomExteriorBase.ts) para no
+// dibujar el modelo bakeado de algo que ya no está.
+const cacheQuitadosPorMapa = new Map<string, Set<number>>();
+
+/** Mismo criterio de caché por proceso que `recolectablesDeMapa` — el MISMO Set en cada llamada mientras el proceso viva. */
+export function recolectablesQuitadosDeMapa(rutaMapa: string): Set<number> {
+  let quitados = cacheQuitadosPorMapa.get(rutaMapa);
+  if (!quitados) {
+    quitados = new Set();
+    cacheQuitadosPorMapa.set(rutaMapa, quitados);
+  }
+  return quitados;
+}
+
 /**
  * Busca el recolectable más cercano dentro de `radio` casillas de (x,y).
  * Recorre solo la VECINDAD por clave (y*ancho+x) — nunca el Map entero, que

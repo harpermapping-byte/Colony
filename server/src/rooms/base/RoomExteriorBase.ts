@@ -19,7 +19,7 @@ import {
 } from "../../combate/arenaCombate";
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado } from "../../mundo/mapaColision";
-import { recolectableCercano } from "../../mundo/recolectables";
+import { recolectableCercano, recolectablesQuitadosDeMapa } from "../../mundo/recolectables";
 import {
   CatalogoItems,
   Contenedor,
@@ -442,6 +442,37 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     });
 
     this.onMessage("coger", (client) => this.manejarCoger(client));
+    // Exclusiones del bake por sector (docs/GDD_Bosques.md §7, pedido
+    // 2026-08-30: "si se puede recolectar/talar/matar y se hace, acaba
+    // desapareciendo" — también visualmente): el cliente lo pide justo
+    // antes de materializar un sector (para no dibujar lo que ya no está)
+    // Y también sirve para el caso "en vivo" si vuelve a preguntar. El
+    // rectángulo de casillas (tileX0..tileY1, semiabierto) lo calcula el
+    // cliente con su propio `indice` — esta base no necesita saber de
+    // tamanoChunk/tamanoSectorChunks para los recolectables (posición
+    // pura); solo el hook de árboles, ya sector-indexado en BD, necesita
+    // sectorX/sectorY.
+    this.onMessage("sector:exclusiones", async (client, msg: { sectorX?: number; sectorY?: number; tileX0?: number; tileY0?: number; tileX1?: number; tileY1?: number }) => {
+      if (
+        typeof msg?.sectorX !== "number" || typeof msg?.sectorY !== "number" ||
+        typeof msg?.tileX0 !== "number" || typeof msg?.tileY0 !== "number" ||
+        typeof msg?.tileX1 !== "number" || typeof msg?.tileY1 !== "number"
+      ) return;
+      const posiciones: string[] = [];
+      const mapa = this.mapaExterior;
+      if (mapa) {
+        const quitados = recolectablesQuitadosDeMapa(mapa.rutaMapa);
+        for (const idx of quitados) {
+          const x = idx % mapa.ancho;
+          const y = Math.floor(idx / mapa.ancho);
+          if (x >= msg.tileX0 && x < msg.tileX1 && y >= msg.tileY0 && y < msg.tileY1) posiciones.push(`${x},${y}`);
+        }
+      }
+      for (const { x, y } of await this.arbolesTaladosEnSector(msg.sectorX, msg.sectorY)) {
+        posiciones.push(`${x},${y}`);
+      }
+      client.send("sector:exclusiones", { sectorX: msg.sectorX, sectorY: msg.sectorY, posiciones });
+    });
     this.onMessage("soltar", (client, msg: { instanciaId?: number; cantidad?: number }) => this.manejarSoltar(client, msg));
     this.onMessage("equipo:equipar", (client, msg: { instanciaId?: number; slot?: string }) => this.manejarEquiparItem(client, msg));
     this.onMessage("equipo:desequipar", (client, msg: { slot?: string }) => this.manejarDesequiparItem(client, msg));
@@ -885,6 +916,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       cantidad: 1,
       confirmar: () => {
         mapa.recolectables.delete(encontrado.idx);
+        recolectablesQuitadosDeMapa(mapa.rutaMapa).add(encontrado.idx);
         this.broadcast("mundo:objetoQuitado", { origen: "exterior", x: encontrado.item.x, y: encontrado.item.y });
       },
     };
@@ -1182,6 +1214,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   /** Estadísticas de loot/combate de una especie — sobreescrito por HubRoom (única room con catalogoCombate real hoy); null en cualquier otra. */
   protected estadisticasFaunaDe(_especieId: string): EstadisticasCombateAnimal | null {
     return null;
+  }
+
+  /** Árboles de origen bake talados en un sector de bosque (docs/GDD_Bosques.md) — sobreescrito por HubRoom (único con GestorBosques hoy); `[]` en cualquier otra room. `sectorX/sectorY` en la MISMA numeración que el cliente (mismo `indice.tamanoSectorChunks`). */
+  protected async arbolesTaladosEnSector(_sectorX: number, _sectorY: number): Promise<{ x: number; y: number }[]> {
+    return [];
   }
 
   /** Barrido de expiración (docs/GDD_Caza.md, mismo `DIAS_HASTA_DESAPARECER_CADAVER` de cadaveres.ts) — llamarlo periódicamente desde onCreate de la subclase que publique cadáveres. */
