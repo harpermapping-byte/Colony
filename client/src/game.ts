@@ -19,6 +19,7 @@ import { PanelCombate } from "./combate/panelCombate";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
 import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
+import { PanelCultivo, type EstadoCultivoVista } from "./agricultura/panelCultivo";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -441,6 +442,40 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         room.send("parcela:asignar", { parcelaId, nombreJugador }),
       errores: () => erroresConstruir,
     };
+
+    // --- Agricultura (docs/GDD_Agricultura.md, pedido 2026-08-30) — panel
+    // PLACEHOLDER de testeo (ver panelCultivo.ts). Sin tecla dedicada: el
+    // panel aparece solo al acercarse a un bancal/maceta (mismo criterio
+    // "sin UI de targeting" que el resto — auto-apuntado por proximidad,
+    // RenderConstrucciones.plantableMasCercana) y sus botones ya mandan
+    // los mensajes cultivo:*.
+    const panelCultivo = new PanelCultivo({
+      contenedor,
+      plantar: (construccionId, instanciaId) => room.send("cultivo:plantar", { construccionId, instanciaId }),
+      regar: (construccionId) => room.send("cultivo:regar", { construccionId }),
+      abonar: (construccionId) => room.send("cultivo:abonar", { construccionId }),
+      cosechar: (construccionId) => room.send("cultivo:cosechar", { construccionId }),
+    });
+    let cultivoCercanoId: number | null = null;
+    room.onMessage("cultivo:estado", (m: EstadoCultivoVista) => {
+      renderConstrucciones.tintarSuelo(m.construccionId, m.agua, m.fertilizante);
+      if (m.construccionId === cultivoCercanoId) panelCultivo.actualizar(m);
+    });
+    room.onMessage("cultivo:cosechado", (m: { itemId: string; cantidad: number }) => console.log(`[cultivo] cosechado: ${m?.cantidad}x ${m?.itemId}`));
+    room.onMessage("cultivo:error", (m: { motivo: string }) => console.log("[cultivo]", m?.motivo));
+    room.onMessage("objeto:abierto", (m: { itemId: string; cantidad: number }) => console.log(`[objeto] abierto: ${m?.cantidad}x ${m?.itemId}`));
+    // RADIO_INTERACCION del servidor (2.2, mismo valor que el resto de
+    // auto-apuntados del cliente) — chequeo cada 500ms, no cada frame: la
+    // proximidad a un bancal no necesita 60hz.
+    setInterval(() => {
+      if (!jugadorLocal) return;
+      const id = renderConstrucciones.plantableMasCercana(jugadorLocal.x, jugadorLocal.z, 2.2);
+      if (id !== cultivoCercanoId) {
+        cultivoCercanoId = id;
+        if (id == null) panelCultivo.actualizar(null);
+        else room.send("cultivo:consultar", { construccionId: id });
+      }
+    }, 500);
   }
 
   const jugadores = new Map<string, EstadoJugador>();

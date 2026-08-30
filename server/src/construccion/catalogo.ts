@@ -75,6 +75,8 @@ export interface EntradaConstruible {
   esCama?: boolean;
   /** Pesca pasiva (docs/GDD_Pesca.md) — presente en trampa_pesca/cangrejera/batea_almejas: exige agua ORTOGONALMENTE ADYACENTE a la huella al colocarse (mismo `hayAguaAdyacente` que el molino de agua), nunca dentro de la huella (construcción siempre en tierra). */
   requiereAgua?: boolean;
+  /** Agricultura (docs/GDD_Agricultura.md) — presente en bancal_cultivo/maceta_*: superficie donde plantar UNA semilla a la vez (mensajes `cultivo:*`, RoomExteriorBase.ts). `multiplicadorCosecha` escala la cantidad de cada cosecha (macetas grandes rinden más). */
+  plantable?: { multiplicadorCosecha: number };
 }
 
 export interface EntradaActividadAtributo {
@@ -102,6 +104,7 @@ interface EntradaExterior {
   actividadAtributo?: EntradaActividadAtributo;
   proyectoJarl?: boolean;
   requiereAgua?: boolean;
+  plantable?: { multiplicadorCosecha: number };
 }
 
 interface EntradaTipoEdificio {
@@ -159,6 +162,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       actividadAtributo: d.actividadAtributo,
       proyectoJarl: d.proyectoJarl,
       requiereAgua: d.requiereAgua,
+      plantable: d.plantable,
     });
   }
 

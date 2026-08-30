@@ -33,6 +33,8 @@ export interface Construible {
    * normal (pendiente de que el cliente sepa si el jugador local es jarl,
    * ver docs/GDD_Construccion.md §1bis). */
   proyectoJarl?: boolean;
+  /** Agricultura (docs/GDD_Agricultura.md) — presente en bancal_cultivo/maceta_*: se le puede plantar una semilla (mensajes `cultivo:*`). */
+  plantable?: boolean;
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -54,6 +56,7 @@ interface EntradaBruta {
   anchorType?: string;
   construible?: boolean;
   proyectoJarl?: boolean;
+  plantable?: { multiplicadorCosecha: number };
   [k: string]: unknown;
 }
 
@@ -101,6 +104,7 @@ function construirLista(): Construible[] {
       colorDebug: e.colorDebug || COLOR_DESCONOCIDO,
       colision: esColisionable(e),
       proyectoJarl: e.proyectoJarl,
+      plantable: !!e.plantable,
     });
   }
 

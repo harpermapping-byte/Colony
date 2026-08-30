@@ -1699,5 +1699,95 @@
     "colorDebug": "#7a7a80",
     "familiaMaterial": "metal",
     "tier": 0
-  }
+  },
+
+  "fertilizante": {
+    "tipo": "recurso",
+    "categoriaRecurso": "fertilizante",
+    "huella": [1, 1],
+    "peso": 0.4,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 1,
+    "colorDebug": "#4a3a20"
+  },
+
+  "trigo": { "tipo": "recurso", "categoriaRecurso": "cereal", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#d4b83a" },
+  "zanahoria": { "tipo": "recurso", "categoriaRecurso": "hortaliza", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#e08a30" },
+  "tomate": { "tipo": "recurso", "categoriaRecurso": "fruta_cultivada", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#c9402a" },
+  "fresa": { "tipo": "recurso", "categoriaRecurso": "fruta_cultivada", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 2, "colorDebug": "#d9304a" },
+  "fruto_hibrido_tomate_fresa": { "tipo": "recurso", "categoriaRecurso": "fruta_cultivada", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 15, "variantes": 1, "colorDebug": "#c95a5a" },
+  "fruto_hibrido_trigo_zanahoria": { "tipo": "recurso", "categoriaRecurso": "hortaliza", "huella": [1, 1], "peso": 0.25, "apilable": true, "stackMax": 15, "variantes": 1, "colorDebug": "#d4a03a" },
+
+  "semilla_trigo": {
+    "tipo": "semilla",
+    "categoriaRecurso": "semilla",
+    "huella": [1, 1],
+    "peso": 0.02,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 1,
+    "colorDebug": "#c9b060",
+    "cultivo": { "itemIdCosecha": "trigo", "diasCrecimiento": 3, "mesesSiembra": [3, 4, 5], "cosechaRecurrente": false, "cantidadPorCosecha": 3 }
+  },
+  "semilla_zanahoria": {
+    "tipo": "semilla",
+    "categoriaRecurso": "semilla",
+    "huella": [1, 1],
+    "peso": 0.02,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 1,
+    "colorDebug": "#e0a860",
+    "cultivo": { "itemIdCosecha": "zanahoria", "diasCrecimiento": 4, "mesesSiembra": [2, 3, 4, 9, 10], "cosechaRecurrente": false, "cantidadPorCosecha": 2 }
+  },
+  "semilla_tomate": {
+    "tipo": "semilla",
+    "categoriaRecurso": "semilla",
+    "huella": [1, 1],
+    "peso": 0.02,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 1,
+    "colorDebug": "#c97a60",
+    "cultivo": { "itemIdCosecha": "tomate", "diasCrecimiento": 5, "mesesSiembra": [4, 5, 6], "cosechaRecurrente": true, "cantidadPorCosecha": 2 }
+  },
+  "semilla_fresa": {
+    "tipo": "semilla",
+    "categoriaRecurso": "semilla",
+    "huella": [1, 1],
+    "peso": 0.02,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 1,
+    "colorDebug": "#d97a90",
+    "cultivo": { "itemIdCosecha": "fresa", "diasCrecimiento": 4, "mesesSiembra": [3, 4, 5, 9], "cosechaRecurrente": true, "cantidadPorCosecha": 3 }
+  },
+  "semilla_hibrida_tomate_fresa": {
+    "tipo": "semilla",
+    "categoriaRecurso": "semilla",
+    "huella": [1, 1],
+    "peso": 0.02,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 1,
+    "colorDebug": "#c9506a",
+    "cultivo": { "itemIdCosecha": "fruto_hibrido_tomate_fresa", "diasCrecimiento": 6, "mesesSiembra": [4, 5, 6], "cosechaRecurrente": true, "cantidadPorCosecha": 3 }
+  },
+  "semilla_hibrida_trigo_zanahoria": {
+    "tipo": "semilla",
+    "categoriaRecurso": "semilla",
+    "huella": [1, 1],
+    "peso": 0.02,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 1,
+    "colorDebug": "#d4a850",
+    "cultivo": { "itemIdCosecha": "fruto_hibrido_trigo_zanahoria", "diasCrecimiento": 6, "mesesSiembra": [3, 4, 5], "cosechaRecurrente": false, "cantidadPorCosecha": 4 }
+  },
+
+  "bolsa_semillas_trigo": { "tipo": "objeto", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 5, "variantes": 1, "colorDebug": "#a8874a", "abreEn": { "itemId": "semilla_trigo", "cantidad": 10 } },
+  "bolsa_semillas_zanahoria": { "tipo": "objeto", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 5, "variantes": 1, "colorDebug": "#a8874a", "abreEn": { "itemId": "semilla_zanahoria", "cantidad": 10 } },
+  "bolsa_semillas_tomate": { "tipo": "objeto", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 5, "variantes": 1, "colorDebug": "#a8874a", "abreEn": { "itemId": "semilla_tomate", "cantidad": 10 } },
+  "bolsa_semillas_fresa": { "tipo": "objeto", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 5, "variantes": 1, "colorDebug": "#a8874a", "abreEn": { "itemId": "semilla_fresa", "cantidad": 10 } }
 }

@@ -83,6 +83,30 @@ export class RenderConstrucciones {
     return this.piezas.size;
   }
 
+  /** Agricultura (docs/GDD_Agricultura.md): tiñe la tapa de un bancal/maceta según agua/fertilizante 0-100 — oscuro = buen suelo, marrón clarito = seco/pobre. No-op si la pieza no existe (ya se quitó, o el jugador está en otro mapa). */
+  tintarSuelo(construccionId: number, agua: number, fertilizante: number): void {
+    const pieza = this.piezas.get(construccionId);
+    if (!pieza) return;
+    const nivel = Math.max(0, Math.min(1, (agua + fertilizante) / 200));
+    const oscuro = new THREE.Color("#241a10");
+    const claro = new THREE.Color("#c9b48a");
+    const color = claro.clone().lerp(oscuro, nivel);
+    const materiales = pieza.malla.material as THREE.MeshStandardMaterial[];
+    materiales[2].color.copy(color); // índice 2 = tapa (mismo orden que crearMalla)
+  }
+
+  /** Construcción PLANTABLE más cercana a (x,y) dentro de `radio` — mismo criterio "sin UI de targeting" que coger/portal:usar. */
+  plantableMasCercana(x: number, y: number, radio: number): number | null {
+    let mejorId: number | null = null;
+    let mejorDist = radio;
+    for (const { datos, malla } of this.piezas.values()) {
+      if (!obtenerConstruible(datos.objeto)?.plantable) continue;
+      const d = Math.hypot(malla.position.x - x, malla.position.z - y);
+      if (d < mejorDist) { mejorDist = d; mejorId = datos.id; }
+    }
+    return mejorId;
+  }
+
   private clavesHuella(c: ConstruccionRed): number[] {
     const construible = obtenerConstruible(c.objeto);
     const [w, h] = construible ? huellaRotada(construible.huella, c.rot) : [1, 1];

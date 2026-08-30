@@ -62,6 +62,7 @@ import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto } from
 import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
+import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha } from "../../cultivo/cultivo";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -359,6 +360,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("coger", (client) => this.manejarCoger(client));
     this.onMessage("soltar", (client, msg: { instanciaId?: number; cantidad?: number }) => this.manejarSoltar(client, msg));
     this.onMessage("personaje:consumir", (client, msg: { instanciaId?: number }) => this.manejarPersonajeConsumir(client, msg));
+    // Desempaquetar una "bolsa de N" (docs/GDD_Agricultura.md, pedido
+    // 2026-08-30: "compras bolsa en tienda de 10 unidades, al abrir bolsa
+    // salen 10u") — genérico, reusable para cualquier futuro paquete, no
+    // solo bolsas de semillas.
+    this.onMessage("objeto:abrir", (client, msg: { instanciaId?: number }) => this.manejarObjetoAbrir(client, msg));
 
     // Pesca (docs/GDD_Pesca.md, pedido 2026-08-30): caña + cebo, orilla, boya.
     this.onMessage("pesca:lanzar", (client) => this.manejarPescaLanzar(client));
@@ -403,6 +409,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // — mismo criterio que mercado: disponibles en cualquier room, no-op si
     // esta room no tiene ContextoConstruccion (comprobado dentro de cada handler).
     this.onMessage("produccion:recolectar", (client, msg: { construccionId?: number }) => this.manejarProduccionRecolectar(client, msg));
+
+    // Agricultura (docs/GDD_Agricultura.md, pedido 2026-08-30): bancal/maceta.
+    this.onMessage("cultivo:plantar", (client, msg: { construccionId?: number; instanciaId?: number }) => this.manejarCultivoPlantar(client, msg));
+    this.onMessage("cultivo:regar", (client, msg: { construccionId?: number }) => this.manejarCultivoRegar(client, msg));
+    this.onMessage("cultivo:abonar", (client, msg: { construccionId?: number }) => this.manejarCultivoAbonar(client, msg));
+    this.onMessage("cultivo:cosechar", (client, msg: { construccionId?: number }) => this.manejarCultivoCosechar(client, msg));
+    this.onMessage("cultivo:consultar", (client, msg: { construccionId?: number }) => this.manejarCultivoConsultar(client, msg));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -2236,6 +2249,193 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       stockRestante: nuevoEstado.stock, capacidadMax: datos.capacidadMax,
       trabajadorAsignado: nuevoEstado.trabajadorAsignado ?? null,
     });
+  }
+
+  private errorCultivo(client: Client, motivo: string) {
+    client.send("cultivo:error", { motivo });
+  }
+
+  /** Dueño de la construcción o jarl — mismo criterio que produccion:recolectar, sin el fallback de tenderete (un bancal/maceta nunca es un tenderete). */
+  private async duenoOJarlDe(viva: { propiedad: string }, nombre: string): Promise<boolean> {
+    const ctx = this.ctxConstruccion!;
+    const dueno = ctx.propiedades.get(viva.propiedad)?.dueno ?? null;
+    return dueno === nombre || esJarl(ctx, nombre);
+  }
+
+  private extraCultivoDe(viva: { extra?: Record<string, unknown> | null }): EstadoCultivo {
+    return ((viva.extra as { cultivo?: EstadoCultivo } | null)?.cultivo ?? {}) as EstadoCultivo;
+  }
+
+  /**
+   * Agricultura (docs/GDD_Agricultura.md, pedido 2026-08-30): sembrar una
+   * semilla de la mochila en un bancal/maceta vacío. El mes de mundo actual
+   * debe estar entre los `mesesSiembra` de la semilla — fuera de temporada
+   * se rechaza, como en la vida real.
+   */
+  private async manejarCultivoPlantar(client: Client, msg: { construccionId?: number; instanciaId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number" || typeof msg?.instanciaId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorCultivo(client, "construcción inexistente");
+    if (!(await this.duenoOJarlDe(viva, nombre))) return this.errorCultivo(client, "no eres el dueño de esta construcción");
+
+    const entrada = this.entradaDe(viva.objeto);
+    if (!entrada?.plantable) return this.errorCultivo(client, "aquí no se puede plantar");
+    const estado = this.extraCultivoDe(viva);
+    if (estado.semillaId) return this.errorCultivo(client, "ya hay algo plantado — cosecha primero");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const semilla = contenedor?.items.find((it) => it.id === msg.instanciaId);
+    if (!contenedor || !semilla) return this.errorCultivo(client, "esa semilla ya no está en tu inventario");
+    const entradaSemilla = this.catalogoItems[semilla.itemId];
+    if (!entradaSemilla?.cultivo) return this.errorCultivo(client, "eso no es una semilla");
+
+    const { mes, dia } = tiempoMundo();
+    if (!puedeSembrarEnMes(entradaSemilla.cultivo.mesesSiembra, mes)) {
+      return this.errorCultivo(client, "esta semilla no se siembra en este mes");
+    }
+
+    quitarItem(contenedor, semilla.id, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    // Sembrar riega de golpe (la tierra recién trabajada queda húmeda) pero
+    // NO abona — el fertilizante es opcional/bonus, requiere el ítem aparte
+    // (docs/GDD_Agricultura.md §3).
+    const nuevoEstado: EstadoCultivo = { semillaId: semilla.itemId, diaPlantado: dia, diaUltimoRiego: dia };
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), cultivo: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.enviarEstadoCultivo(client, viva.id, nuevoEstado);
+  }
+
+  /** Riega el bancal/maceta — refresca el agua a 100 ahora mismo (decae sola con los días, ver cultivo.ts). */
+  private async manejarCultivoRegar(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorCultivo(client, "construcción inexistente");
+    if (!(await this.duenoOJarlDe(viva, nombre))) return this.errorCultivo(client, "no eres el dueño de esta construcción");
+    const estado = this.extraCultivoDe(viva);
+    if (!estado.semillaId) return this.errorCultivo(client, "no hay nada plantado aquí");
+
+    const dia = tiempoMundo().dia;
+    const nuevoEstado: EstadoCultivo = { ...estado, diaUltimoRiego: dia };
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), cultivo: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.enviarEstadoCultivo(client, viva.id, nuevoEstado);
+  }
+
+  /** Abona el bancal/maceta — consume 1 `fertilizante` del inventario, auto-apuntado (sin instanciaId, mismo criterio que "coger"). */
+  private async manejarCultivoAbonar(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorCultivo(client, "construcción inexistente");
+    if (!(await this.duenoOJarlDe(viva, nombre))) return this.errorCultivo(client, "no eres el dueño de esta construcción");
+    const estado = this.extraCultivoDe(viva);
+    if (!estado.semillaId) return this.errorCultivo(client, "no hay nada plantado aquí");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const fertilizante = contenedor?.items.find((it) => it.itemId === "fertilizante");
+    if (!contenedor || !fertilizante) return this.errorCultivo(client, "necesitas fertilizante");
+    quitarItem(contenedor, fertilizante.id, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const dia = tiempoMundo().dia;
+    const nuevoEstado: EstadoCultivo = { ...estado, diaUltimoAbono: dia };
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), cultivo: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.enviarEstadoCultivo(client, viva.id, nuevoEstado);
+  }
+
+  /**
+   * Cosecha lo plantado — solo si ya cumplió `diasCrecimiento` Y hay algo
+   * de agua ahora mismo (`listaParaCosechar`, cultivo.ts). Especies con
+   * `cosechaRecurrente` siguen plantadas (reinician el contador de días);
+   * el resto deja la parcela vacía, lista para volver a sembrar.
+   */
+  private async manejarCultivoCosechar(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorCultivo(client, "construcción inexistente");
+    if (!(await this.duenoOJarlDe(viva, nombre))) return this.errorCultivo(client, "no eres el dueño de esta construcción");
+
+    const entrada = this.entradaDe(viva.objeto);
+    const estado = this.extraCultivoDe(viva);
+    if (!entrada?.plantable || !estado.semillaId) return this.errorCultivo(client, "no hay nada plantado aquí");
+    const datosCultivo = this.catalogoItems[estado.semillaId]?.cultivo;
+    if (!datosCultivo) return this.errorCultivo(client, "semilla desconocida");
+
+    const dia = tiempoMundo().dia;
+    if (!listaParaCosechar(estado, datosCultivo.diasCrecimiento, dia)) {
+      return this.errorCultivo(client, nivelAgua(estado, dia) <= 0 ? "le falta agua" : "todavía no está lista para cosechar");
+    }
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const resultado = resolverCosecha(estado, datosCultivo.cantidadPorCosecha, datosCultivo.cosechaRecurrente, entrada.plantable.multiplicadorCosecha, dia);
+    const cogido = agregarItem(contenedor, this.catalogoItems, datosCultivo.itemIdCosecha, resultado.cantidad);
+    if (!cogido.ok) return this.errorCultivo(client, "no tienes hueco en tu inventario");
+
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const nuevoEstado: EstadoCultivo = resultado.siguePlantada ? { ...estado, diaPlantado: dia } : {};
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), cultivo: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+
+    client.send("cultivo:cosechado", { construccionId: viva.id, itemId: datosCultivo.itemIdCosecha, cantidad: resultado.cantidad });
+    this.enviarEstadoCultivo(client, viva.id, nuevoEstado);
+  }
+
+  /** Estado resuelto AHORA MISMO (agua/fertilizante/días restantes) — sin mutar nada, solo consulta (mismo criterio que motriz:consultar). */
+  private manejarCultivoConsultar(client: Client, msg: { construccionId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return;
+    this.enviarEstadoCultivo(client, viva.id, this.extraCultivoDe(viva));
+  }
+
+  private enviarEstadoCultivo(client: Client, construccionId: number, estado: EstadoCultivo) {
+    const dia = tiempoMundo().dia;
+    const datosCultivo = estado.semillaId ? this.catalogoItems[estado.semillaId]?.cultivo : undefined;
+    client.send("cultivo:estado", {
+      construccionId,
+      semillaId: estado.semillaId ?? null,
+      itemIdCosecha: datosCultivo?.itemIdCosecha ?? null,
+      agua: nivelAgua(estado, dia),
+      fertilizante: nivelFertilizante(estado, dia),
+      diasParaCosecha: datosCultivo && estado.diaPlantado != null ? Math.max(0, datosCultivo.diasCrecimiento - (dia - estado.diaPlantado)) : null,
+      listo: datosCultivo ? listaParaCosechar(estado, datosCultivo.diasCrecimiento, dia) : false,
+    });
+  }
+
+  /** "Bolsa de N" (docs/GDD_Agricultura.md) — la abre en `abreEn.cantidad` unidades sueltas de `abreEn.itemId`, sin gastar la bolsa si no hay hueco. */
+  private manejarObjetoAbrir(client: Client, msg: { instanciaId?: number }) {
+    const contenedor = this.inventarios.get(client.sessionId);
+    const bolsa = typeof msg?.instanciaId === "number" ? contenedor?.items.find((it) => it.id === msg.instanciaId) : undefined;
+    if (!contenedor || !bolsa) return;
+    const entrada = this.catalogoItems[bolsa.itemId];
+    if (!entrada?.abreEn) return this.errorCultivo(client, "eso no se puede abrir");
+
+    const resultado = agregarItem(contenedor, this.catalogoItems, entrada.abreEn.itemId, entrada.abreEn.cantidad);
+    if (!resultado.ok) return this.errorCultivo(client, "no tienes hueco para lo que hay dentro");
+    quitarItem(contenedor, bolsa.id, 1);
+
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("objeto:abierto", { itemId: entrada.abreEn.itemId, cantidad: entrada.abreEn.cantidad });
   }
 
   /** Coloca una plantilla — SOLO jarl, dentro del radio a la capital, fuera de cualquier parcela. */

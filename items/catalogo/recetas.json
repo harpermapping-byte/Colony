@@ -78,5 +78,27 @@
     ],
     "resultado": { "itemId": "joyero_pequeno", "cantidad": 1 },
     "tiempoBaseSeg": 15
+  },
+  "injerto_tomate_fresa": {
+    "oficio": "botanica",
+    "mesas": ["mesa_injertos"],
+    "nivelMinimo": 1,
+    "insumos": [
+      { "itemId": "semilla_tomate", "cantidad": 1 },
+      { "itemId": "semilla_fresa", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "semilla_hibrida_tomate_fresa", "cantidad": 1 },
+    "tiempoBaseSeg": 20
+  },
+  "injerto_trigo_zanahoria": {
+    "oficio": "botanica",
+    "mesas": ["mesa_injertos"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "semilla_trigo", "cantidad": 1 },
+      { "itemId": "semilla_zanahoria", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "semilla_hibrida_trigo_zanahoria", "cantidad": 1 },
+    "tiempoBaseSeg": 20
   }
 }

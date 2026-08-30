@@ -23,7 +23,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { RecetaCrafteo } from "../construccion/crafteo";
 
-export type TipoItem = "recurso" | "equipable" | "herramienta" | "consumible" | "arma" | "municion" | "objeto";
+export type TipoItem = "recurso" | "equipable" | "herramienta" | "consumible" | "arma" | "municion" | "objeto" | "semilla";
 
 export interface EntradaCatalogoItem {
   tipo: TipoItem;
@@ -67,6 +67,31 @@ export interface EntradaCatalogoItem {
 
   /** docs/GDD_Mascotas.md — sirve para "dar de comer" a un animal domesticable (perro/gato) y avanzar su domesticación. Ausente/false = no sirve como comida de mascota. */
   comidaMascota?: boolean;
+
+  /** docs/GDD_Agricultura.md — SOLO en tipo:"semilla": qué cultivo produce y cómo se comporta al plantarla. Ausente en cualquier otro tipo. */
+  cultivo?: DatosCultivo;
+
+  /** docs/GDD_Agricultura.md — "bolsa de semillas" comprada en tienda: `objeto:abrir` la desempaqueta en `cantidad` unidades sueltas de `itemId` (una semilla apilable). Mecanismo genérico, reusable para cualquier futuro "paquete de N" — no solo semillas. */
+  abreEn?: { itemId: string; cantidad: number };
+}
+
+/**
+ * Datos de cultivo de una semilla (docs/GDD_Agricultura.md, pedido
+ * 2026-08-30) — informativos, consumidos por `server/src/cultivo/cultivo.ts`
+ * y `RoomExteriorBase.ts` (mensajes `cultivo:*`), nunca por el motor de
+ * inventario en sí (mismo criterio que `restaura`/`energia`).
+ */
+export interface DatosCultivo {
+  /** itemId (tipo "recurso") que se cosecha — YA debe existir en items.json. */
+  itemIdCosecha: string;
+  /** días de MUNDO (tiempoMundo().dia, no horas reales) desde que se planta hasta la primera cosecha. */
+  diasCrecimiento: number;
+  /** meses del año de mundo (1-12, tiempoMundo().mes) en los que esta semilla puede PLANTARSE — fuera de estos meses, `cultivo:plantar` se rechaza. */
+  mesesSiembra: number[];
+  /** true = tras cosechar, la planta sigue viva y vuelve a fructificar (mismo diasCrecimiento otra vez, mismo plantón); false = la cosecha se lleva la planta entera, la parcela queda vacía para volver a plantar. Asignado a mano por especie, como en la vida real (docs/GDD_Agricultura.md). */
+  cosechaRecurrente: boolean;
+  /** unidades de itemIdCosecha por cosecha, ANTES del multiplicador de la maceta/bancal. */
+  cantidadPorCosecha: number;
 }
 
 export type CatalogoItems = Record<string, EntradaCatalogoItem>;
