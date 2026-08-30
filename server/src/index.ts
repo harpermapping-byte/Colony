@@ -13,6 +13,7 @@ import { iniciarDeteccionDirecto } from "./twitch/estadoDirecto";
 import { obtenerGestorTwitch } from "./twitch/gestorTwitch";
 import { manejarPeticionLoginTwitch } from "./twitch/rutasOauth";
 import { manejarPeticionAdmin } from "./admin/rutasAdmin";
+import { sembrarCuentasAdminIniciales } from "./admin/seedAdmin";
 import { cargarPvpDesdeBd } from "./mundo/pvp";
 
 const port = Number(process.env.PORT) || 2567;
@@ -83,3 +84,8 @@ obtenerBdCompartida().then((bd) => {
 // PvP (docs/GDD_PvP.md, pedido 2026-08-30): recupera el último valor que
 // dejó el jarl — arranca en `false` (seguro) hasta que esto resuelve.
 obtenerBdCompartida().then((bd) => cargarPvpDesdeBd(bd));
+
+// Admin (docs/GDD_Admin.md, pedido 2026-08-30): siembra las cuentas de
+// test la PRIMERA vez que arranca con `admin_cuentas` vacía — no hace nada
+// en arranques siguientes ni si el streamer ya las cambió a mano.
+obtenerBdCompartida().then(sembrarCuentasAdminIniciales);

@@ -7,7 +7,6 @@ import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { poblarInterior, NpcConCasa } from "../mundo/agentesInterior";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
-import { esJarlGlobal } from "../construccion/construccion";
 import { salasAlquilablesPermitidas, precioHabitacion } from "../propiedades/propiedades";
 
 export interface OpcionesInterior {
@@ -17,6 +16,7 @@ export interface OpcionesInterior {
   nivel?: number; // planta en la que se entra (0 = planta baja, por defecto)
   entradaX?: number; // llegando por una escalera: casilla donde aparece en ESTA planta
   entradaY?: number;
+  adminSession?: string; // docs/GDD_Admin.md — se lee ANTES de crearJugador (ver onJoin), gatea "esta vivienda es privada"
 }
 
 /**
@@ -190,7 +190,7 @@ export class InteriorRoom extends RoomExteriorBase {
     const prop = await bd.obtenerPropiedad(this.idInmuebleContenedor());
     if (prop?.dueno) {
       const esDueno = !!nombre && prop.dueno.toLowerCase() === nombre.toLowerCase();
-      if (!esDueno && !(nombre && esJarlGlobal(nombre))) {
+      if (!esDueno && !this.puedeActuarComoJarlEnJoin(nombre, options)) {
         throw new ServerError(403, "esta vivienda es privada");
       }
     }
