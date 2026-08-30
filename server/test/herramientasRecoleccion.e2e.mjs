@@ -23,7 +23,9 @@ const rutaBd = join(dirServidor, "test", "herramientas_recoleccion_e2e.sqlite");
 const PUERTO = 2601;
 const NOMBRE_A = "E2E-SinHerramienta";
 const NOMBRE_B = "E2E-ConHerramienta";
+const NOMBRE_C = "E2E-Picapedrero";
 const FLOR = { x: 14, y: 20 }; // flor_medicinal, curandero tier 3 (ver mapaColision.ts)
+const ROCA = { x: 33, y: 17 }; // piedra_comun, picapedrero tier 1 — recolectable REAL desde que rocas.json ganó desaparaceAlRecolectar (2026-08-30, "igual que tala un árbol"); la más cercana al spawn (30.5,18.5) de las 3 del demo — sin pathfinding real en este E2E (mismo criterio naive que faccionBandidosPatrulla.e2e.mjs), así que se evitan las que quedan más lejos por si hay obstáculos de por medio
 
 for (const f of [rutaBd]) { try { unlinkSync(f); } catch {} }
 
@@ -51,8 +53,11 @@ console.log("1) sembrando BD sqlite temporal (2 jugadores; B ya lleva tijera_her
   `);
   bd.prepare("INSERT INTO jugadores (id, nombre, creado_en) VALUES (1, ?, ?)").run(NOMBRE_A, new Date().toISOString());
   bd.prepare("INSERT INTO jugadores (id, nombre, creado_en) VALUES (2, ?, ?)").run(NOMBRE_B, new Date().toISOString());
+  bd.prepare("INSERT INTO jugadores (id, nombre, creado_en) VALUES (3, ?, ?)").run(NOMBRE_C, new Date().toISOString());
   const itemsB = JSON.stringify([{ id: 1, itemId: "tijera_herbolario_fina", cantidad: 1, x: 0, y: 0, rot: 0 }]);
   bd.prepare("INSERT INTO inventarios (jugador_id, contenedor_id, ancho, alto, siguiente_id, items) VALUES (2, 'cuerpo', 8, 6, 2, ?)").run(itemsB);
+  const itemsC = JSON.stringify([{ id: 1, itemId: "pico_minero_hierro", cantidad: 1, x: 0, y: 0, rot: 0 }]);
+  bd.prepare("INSERT INTO inventarios (jugador_id, contenedor_id, ancho, alto, siguiente_id, items) VALUES (3, 'cuerpo', 8, 6, 2, ?)").run(itemsC);
   bd.close();
 }
 
@@ -149,7 +154,30 @@ try {
   console.log("   OK: con la herramienta de tier suficiente, coger funciona de verdad y el nodo desaparece del mundo");
   await roomB.leave();
 
-  console.log("\n✅ TODO OK: gating de herramienta por tier verificado contra el servidor real.");
+  console.log("5) jugador C (picapedrero, pico_minero_hierro tier 1) mina un piedra_comun real del bake demo...");
+  const clienteC = new Client(`ws://localhost:${PUERTO}`);
+  const roomC = await clienteC.joinOrCreate("hub", { name: NOMBRE_C });
+  await esperar(500);
+  const jugadorC = roomC.state.players.get(roomC.sessionId);
+  const distC = await andarHasta(roomC, jugadorC, ROCA);
+  if (distC > 2.2) throw new Error(`FALLO: C no llegó cerca de la roca (dist=${distC.toFixed(2)})`);
+
+  const erroresC = [];
+  roomC.onMessage("coger:error", (m) => erroresC.push(m));
+  let rocaQuitada = false;
+  roomC.onMessage("mundo:objetoQuitado", () => { rocaQuitada = true; });
+  roomC.send("coger");
+  await esperar(500);
+  if (erroresC.length !== 0) throw new Error(`FALLO: minar piedra_comun con pico_minero_hierro no debería fallar, llegó ${JSON.stringify(erroresC)}`);
+  if (!rocaQuitada) throw new Error("FALLO: la roca debería haber desaparecido del mundo (mundo:objetoQuitado)");
+  const itemsFinalesC = [...jugadorC.inventario.cuerpo.items];
+  if (!itemsFinalesC.some((it) => it.itemId === "piedra_comun")) {
+    throw new Error(`FALLO: piedra_comun debería estar en el inventario de C, llegó ${JSON.stringify(itemsFinalesC)}`);
+  }
+  console.log("   OK: minería real activada — igual que talar/recolectar, ahora con su propio gating de tier");
+  await roomC.leave();
+
+  console.log("\n✅ TODO OK: gating de herramienta por tier verificado contra el servidor real (incluida la roca, nueva).");
 } catch (e) {
   fallo = e;
 } finally {
