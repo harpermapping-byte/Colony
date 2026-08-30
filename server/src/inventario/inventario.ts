@@ -74,6 +74,9 @@ export interface EntradaCatalogoItem {
   /** docs/GDD_Agricultura.md — "bolsa de semillas" comprada en tienda: `objeto:abrir` la desempaqueta en `cantidad` unidades sueltas de `itemId` (una semilla apilable). Mecanismo genérico, reusable para cualquier futuro "paquete de N" — no solo semillas. */
   abreEn?: { itemId: string; cantidad: number };
 
+  /** docs/GDD_Bosques.md — SOLO en tipo:"semilla" de árbol (semilla_<especieId>): qué especie de vegetacion.json nace al plantarla y cuántos días de mundo tarda en madurar (mismo valor que EspecieArbol.diasMaduracion, duplicado aquí para no acoplar el catálogo de ítems al de vegetación). NO usa el campo `cultivo` — eso es solo agricultura de parcela. */
+  crecimientoArbol?: { especieArbolId: string; diasMaduracion: number };
+
   /** docs/GDD_Cocina.md, pedido 2026-08-30 — SOLO en ingredientes crudos (tipo "recurso"): cuánto aportaría cocinado. Obligatorio `comida` ("todos quitan hambre", pedido explícito); vida/estamina/bebida opcionales, "cada uno lo marca el diseño". Consumido por `server/src/cocina/cocina.ts`. */
   aportesCocina?: AportesCocina;
   /** docs/GDD_Cocina.md — solo junto a `aportesCocina`: para el bonus de "combinar planta y carne". */

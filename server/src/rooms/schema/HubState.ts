@@ -303,6 +303,18 @@ export class AnimalGranjaSchema extends Schema {
   @type("string") duenoNombre = "";
 }
 
+// Árbol vivo NUEVO (docs/GDD_Bosques.md, pedido 2026-08-30) — brote de
+// propagación silvestre o plantado por un jugador; clave del map es
+// `ArbolVivoFila.id`. Los árboles del bake original NUNCA aparecen aquí
+// (siguen siendo decoración estática del cliente, ver GDD_Bosques.md
+// "límite conocido") — solo lo que ha nacido en vivo desde este sistema.
+export class ArbolVivoSchema extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") especieId = "";
+  @type("string") etapa = "joven"; // "joven" | "adulto"
+}
+
 export class HubState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: Npc }) npcs = new MapSchema<Npc>();
@@ -312,6 +324,7 @@ export class HubState extends Schema {
   @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
   @type({ map: CadaverSchema }) cadaveres = new MapSchema<CadaverSchema>();
   @type({ map: AnimalGranjaSchema }) animalesGranja = new MapSchema<AnimalGranjaSchema>();
+  @type({ map: ArbolVivoSchema }) arbolesVivos = new MapSchema<ArbolVivoSchema>();
   // Evento Twitch "Eclipse" (docs/GDD_Twitch.md): oscuridad casi total
   // mientras esté activo, sin importar la hora del reloj de mundo — el
   // cliente decide cómo pintarlo (mucho más oscuro que la noche normal),

@@ -911,6 +911,25 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("cadaver:lootado", (m: { movidos: number }) => console.log("[cadáver] lootados", m?.movidos, "objeto(s)"));
   room.onMessage("cadaver:desollado", (m: { entregados: string[] }) => console.log("[cadáver] desollado, entregado:", m?.entregados));
 
+  // --- Crecimiento de bosques (docs/GDD_Bosques.md) — placeholder de
+  // testeo, mismo criterio que cadáveres: sin arte propio todavía. SOLO
+  // los árboles NUEVOS (brote de propagación silvestre o plantado por un
+  // jugador) viven aquí — los árboles del bake original siguen siendo la
+  // decoración estática de siempre, ver "límite conocido" del GDD: talar
+  // uno de esos no hace desaparecer su modelo todavía, aunque el servidor
+  // ya deja pasar por su casilla de verdad. Tecla H tala el árbol más
+  // cercano (exige hacha_talar en el inventario, el servidor lo valida).
+  $(room.state).arbolesVivos.onAdd((arbol: any, id: string) => {
+    const joven = arbol.etapa === "joven";
+    const caja = crearPlaceholder(joven ? "#4a7a3a" : "#2f5a24", joven ? 0.3 : 0.7, joven ? 0.5 : 1.6, joven ? 0.3 : 0.7);
+    escena.añadirEntidad(`arbol_${id}`, caja, arbol.x, arbol.y, `${joven ? "🌱" : "🌳"} ${arbol.especieId}`);
+  });
+  $(room.state).arbolesVivos.onRemove((_arbol: any, id: string) => escena.quitarEntidad(`arbol_${id}`));
+  room.onMessage("arbol:error", (m: { motivo: string }) => console.log("[árbol]", m?.motivo));
+  room.onMessage("arbol:talado", (m: { especieId: string; etapa: string; entregados: string[] }) =>
+    console.log("[árbol] talado", m?.especieId, m?.etapa, "— entregado:", m?.entregados));
+  room.onMessage("arbol:plantado", (m: { especieId: string }) => console.log("[árbol] plantado", m?.especieId));
+
   function cadaverMasCercano(): string | null {
     if (!jugadorLocal) return null;
     let mejorId: string | null = null;
@@ -997,6 +1016,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const cadaverId = cadaverMasCercano();
       if (cadaverId) room.send("cadaver:desollar", { cadaverId });
     }
+    // Bosques (docs/GDD_Bosques.md): H tala el árbol más cercano (Hacha) —
+    // sin targeting, el servidor busca el más cercano él mismo.
+    if (k === "h" && !teclas.has("h")) room.send("arbol:talar");
     // Mascotas (docs/GDD_Mascotas.md): G da de comer al animal domesticable
     // más cercano (perro/gato urbano) — sin UI de targeting, el servidor
     // decide si hay algo cerca y si se puede (no-op fuera de una región con
