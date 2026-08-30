@@ -19,7 +19,7 @@ import { recolectableCercano } from "../../mundo/recolectables";
 import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, agregarItem, cargarCatalogoRecetas, excedePesoMaximo, moverItem, buscarHueco } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../../inventario/sincronizarSchema";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -62,7 +62,7 @@ import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto } from
 import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
-import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha } from "../../cultivo/cultivo";
+import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -311,6 +311,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   /** Crafteo en curso por sesión — vive y muere con la sesión (mismo criterio que `inventarios`, fase 2 de Inventario): si el jugador se desconecta a medias, se pierde, aceptable en v1. */
   protected craftesEnCurso = new Map<string, EstadoCrafteo>();
 
+  // --- Injertos (docs/GDD_Agricultura.md §4) — especies híbridas creadas
+  // por OTRAS rooms/sesiones pasadas viven en BD, no en items.json en
+  // disco; se funden en `catalogoItems` UNA vez por vida de esta room
+  // (`asegurarHibridosCargados`, awaited al principio de cada mensaje
+  // cultivo:*/injerto:* — barato tras la primera vez gracias a este flag).
+  private hibridosCargados = false;
+
   // --- Combate instanciado (docs/GDD_Combate.md §9.1-9.2) ---
   /** Timer de cierre de la ventana de unión, por combate — se cancela si "comenzar ya" cierra antes. */
   private timeoutsVentanaCombate = new Map<string, Delayed>();
@@ -416,6 +423,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("cultivo:abonar", (client, msg: { construccionId?: number }) => this.manejarCultivoAbonar(client, msg));
     this.onMessage("cultivo:cosechar", (client, msg: { construccionId?: number }) => this.manejarCultivoCosechar(client, msg));
     this.onMessage("cultivo:consultar", (client, msg: { construccionId?: number }) => this.manejarCultivoConsultar(client, msg));
+    // Injertos (docs/GDD_Agricultura.md §4, diseño ya cerrado en el
+    // backlog): mesa_injertos + dos semillas cualesquiera -> especie nueva.
+    this.onMessage("injerto:crear", (client, msg: { construccionId?: number; instanciaIdA?: number; instanciaIdB?: number }) => this.manejarInjertoCrear(client, msg));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -2285,6 +2295,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const estado = this.extraCultivoDe(viva);
     if (estado.semillaId) return this.errorCultivo(client, "ya hay algo plantado — cosecha primero");
 
+    const bd = await obtenerBdCompartida();
+    await this.asegurarHibridosCargados(bd); // una semilla híbrida creada en OTRA room debe reconocerse aquí también
+
     const contenedor = this.inventarios.get(client.sessionId);
     const semilla = contenedor?.items.find((it) => it.id === msg.instanciaId);
     if (!contenedor || !semilla) return this.errorCultivo(client, "esa semilla ya no está en tu inventario");
@@ -2304,7 +2317,6 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // NO abona — el fertilizante es opcional/bonus, requiere el ítem aparte
     // (docs/GDD_Agricultura.md §3).
     const nuevoEstado: EstadoCultivo = { semillaId: semilla.itemId, diaPlantado: dia, diaUltimoRiego: dia };
-    const bd = await obtenerBdCompartida();
     viva.extra = { ...(viva.extra ?? {}), cultivo: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
     this.enviarEstadoCultivo(client, viva.id, nuevoEstado);
@@ -2372,6 +2384,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const entrada = this.entradaDe(viva.objeto);
     const estado = this.extraCultivoDe(viva);
     if (!entrada?.plantable || !estado.semillaId) return this.errorCultivo(client, "no hay nada plantado aquí");
+
+    const bd = await obtenerBdCompartida();
+    await this.asegurarHibridosCargados(bd);
     const datosCultivo = this.catalogoItems[estado.semillaId]?.cultivo;
     if (!datosCultivo) return this.errorCultivo(client, "semilla desconocida");
 
@@ -2390,7 +2405,6 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
     const nuevoEstado: EstadoCultivo = resultado.siguePlantada ? { ...estado, diaPlantado: dia } : {};
-    const bd = await obtenerBdCompartida();
     viva.extra = { ...(viva.extra ?? {}), cultivo: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
 
@@ -2399,12 +2413,62 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /** Estado resuelto AHORA MISMO (agua/fertilizante/días restantes) — sin mutar nada, solo consulta (mismo criterio que motriz:consultar). */
-  private manejarCultivoConsultar(client: Client, msg: { construccionId?: number }) {
+  private async manejarCultivoConsultar(client: Client, msg: { construccionId?: number }) {
     const ctx = this.ctxConstruccion;
     if (!ctx || typeof msg?.construccionId !== "number") return;
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return;
-    this.enviarEstadoCultivo(client, viva.id, this.extraCultivoDe(viva));
+    const estado = this.extraCultivoDe(viva);
+    if (estado.semillaId && !this.catalogoItems[estado.semillaId]) {
+      await this.asegurarHibridosCargados(await obtenerBdCompartida()); // puede ser un híbrido creado en otra room
+    }
+    this.enviarEstadoCultivo(client, viva.id, estado);
+  }
+
+  /**
+   * Funde en `this.catalogoItems` (memoria de ESTA room) toda especie
+   * híbrida creada por injerto que viva en BD — UNA vez por vida de la
+   * room (flag `hibridosCargados`); barato en llamadas siguientes. Cada
+   * fila genera DOS entradas sintéticas: la semilla híbrida (tipo
+   * "semilla", con su `cultivo`) y el fruto que da (tipo "recurso") —
+   * ninguna existe en items.json en disco, nacen aquí en memoria.
+   */
+  private async asegurarHibridosCargados(bd: IAlmacenDatos): Promise<void> {
+    if (this.hibridosCargados) return;
+    this.hibridosCargados = true;
+    const hibridos = await bd.listarCultivosHibridos();
+    for (const h of hibridos) this.registrarHibridoEnCatalogo(h);
+  }
+
+  private registrarHibridoEnCatalogo(h: CultivoHibrido): void {
+    this.catalogoItems[h.semillaId] = {
+      tipo: "semilla",
+      categoriaRecurso: "semilla",
+      huella: [1, 1],
+      peso: 0.02,
+      apilable: true,
+      stackMax: 30,
+      variantes: 1,
+      colorDebug: h.colorDebug,
+      cultivo: {
+        itemIdCosecha: h.cosechaId,
+        diasCrecimiento: h.diasCrecimiento,
+        mesesSiembra: h.mesesSiembra,
+        cosechaRecurrente: h.cosechaRecurrente,
+        cantidadPorCosecha: h.cantidadPorCosecha,
+        rasgos: h.rasgos,
+      },
+    };
+    this.catalogoItems[h.cosechaId] = {
+      tipo: "recurso",
+      categoriaRecurso: "fruta_cultivada",
+      huella: [1, 1],
+      peso: 0.2,
+      apilable: true,
+      stackMax: 15,
+      variantes: 1,
+      colorDebug: h.colorDebug,
+    };
   }
 
   private enviarEstadoCultivo(client: Client, construccionId: number, estado: EstadoCultivo) {
@@ -2418,6 +2482,71 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       fertilizante: nivelFertilizante(estado, dia),
       diasParaCosecha: datosCultivo && estado.diaPlantado != null ? Math.max(0, datosCultivo.diasCrecimiento - (dia - estado.diaPlantado)) : null,
       listo: datosCultivo ? listaParaCosechar(estado, datosCultivo.diasCrecimiento, dia) : false,
+    });
+  }
+
+  private static readonly NIVEL_MINIMO_INJERTO = 1;
+
+  /**
+   * Injerto (docs/GDD_Agricultura.md §4, diseño ya cerrado en el backlog):
+   * combina dos semillas CUALESQUIERA en `mesa_injertos` — combinación
+   * abierta, sin receta fija. Rasgos del resultado = media de los dos
+   * padres + variación aleatoria; la especie nace PERMANENTE (BD) y se
+   * funde de inmediato en `catalogoItems` de esta room. Mismo criterio de
+   * permiso que crafteo: cualquiera con nivel de oficio suficiente, sin
+   * comprobar dueño de la mesa (es un taller compartido).
+   */
+  private async manejarInjertoCrear(client: Client, msg: { construccionId?: number; instanciaIdA?: number; instanciaIdB?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number" || typeof msg?.instanciaIdA !== "number" || typeof msg?.instanciaIdB !== "number") return;
+    if (msg.instanciaIdA === msg.instanciaIdB) return this.errorCultivo(client, "elige dos semillas distintas");
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva || viva.objeto !== "mesa_injertos") return this.errorCultivo(client, "necesitas estar en una mesa de injertos");
+
+    const bd = await obtenerBdCompartida();
+    await this.asegurarHibridosCargados(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const xp = await bd.obtenerXpOficio(jugador.id, "botanica");
+    if (nivelDeXp(xp) < RoomExteriorBase.NIVEL_MINIMO_INJERTO) return this.errorCultivo(client, "nivel de botánica insuficiente");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const semillaA = contenedor?.items.find((it) => it.id === msg.instanciaIdA);
+    const semillaB = contenedor?.items.find((it) => it.id === msg.instanciaIdB);
+    if (!contenedor || !semillaA || !semillaB) return this.errorCultivo(client, "esas semillas ya no están en tu inventario");
+    const entradaA = this.catalogoItems[semillaA.itemId];
+    const entradaB = this.catalogoItems[semillaB.itemId];
+    if (!entradaA?.cultivo || !entradaB?.cultivo) return this.errorCultivo(client, "ambas deben ser semillas");
+
+    quitarItem(contenedor, semillaA.id, 1);
+    quitarItem(contenedor, semillaB.id, 1);
+
+    const rasgos = mezclarRasgos(entradaA.cultivo.rasgos, entradaB.cultivo.rasgos);
+    const crecimiento = derivarCrecimientoHibrido(entradaA.cultivo, entradaB.cultivo, rasgos);
+    const sufijo = Math.random().toString(36).slice(2, 8);
+    const hibrido: CultivoHibrido = {
+      semillaId: `semilla_hibrida_${sufijo}`,
+      cosechaId: `fruto_hibrido_${sufijo}`,
+      nombre: nombreHibrido(nombreLegible(semillaA.itemId), nombreLegible(semillaB.itemId)),
+      padreA: semillaA.itemId,
+      padreB: semillaB.itemId,
+      rasgos,
+      ...crecimiento,
+      colorDebug: mezclarColor(entradaA.colorDebug, entradaB.colorDebug),
+      creadoEn: new Date().toISOString(),
+    };
+    await bd.crearCultivoHibrido(hibrido);
+    this.registrarHibridoEnCatalogo(hibrido);
+
+    // El jugador se lleva un par de semillas de su propia creación para plantarla.
+    agregarItem(contenedor, this.catalogoItems, hibrido.semillaId, 2);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, "botanica", XP_POR_CRAFTEO);
+    client.send("injerto:creado", {
+      semillaId: hibrido.semillaId, cosechaId: hibrido.cosechaId, nombre: hibrido.nombre,
+      rasgos: hibrido.rasgos, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
     });
   }
 

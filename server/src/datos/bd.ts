@@ -16,7 +16,7 @@
 
 import * as path from "node:path";
 import { Pool } from "pg";
-import { Contenedor, ItemInstancia, SlotsEquipo } from "../inventario/inventario";
+import { Contenedor, ItemInstancia, SlotsEquipo, RasgosCultivo } from "../inventario/inventario";
 
 // @types/node del monorepo es v20 y no conoce "node:sqlite" (los tipos llegaron en v22.5),
 // así que declaramos a mano lo mínimo que usamos y cargamos con require (estamos en CommonJS).
@@ -289,6 +289,28 @@ export interface Mascota {
   creadoEn: string;
 }
 
+/**
+ * Especie híbrida creada por injerto (docs/GDD_Agricultura.md §4, diseño
+ * ya cerrado en Backlog_Mecanicas_Futuras.md) — permanente, sobrevive a un
+ * reinicio del servidor. `semillaId`/`cosechaId` son los itemId sintéticos
+ * (nunca en items.json en disco) que cada room funde en su copia en
+ * memoria de `catalogoItems` al arrancar.
+ */
+export interface CultivoHibrido {
+  semillaId: string;
+  cosechaId: string;
+  nombre: string;
+  padreA: string;
+  padreB: string;
+  rasgos: RasgosCultivo;
+  diasCrecimiento: number;
+  mesesSiembra: number[];
+  cosechaRecurrente: boolean;
+  cantidadPorCosecha: number;
+  colorDebug: string;
+  creadoEn: string;
+}
+
 // Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
 // asentamiento — el registro de eventos que alimenta su contexto de IA.
 export interface MemoriaLider {
@@ -466,6 +488,11 @@ export interface IAlmacenDatos {
   // Flags globales (docs/GDD_PvP.md, pedido 2026-08-30) — tabla genérica de un solo valor por clave.
   obtenerConfigMundo(clave: string): Promise<string | null>;
   fijarConfigMundo(clave: string, valor: string): Promise<void>;
+  // Injertos (docs/GDD_Agricultura.md §4, pedido 2026-08-30) — especies híbridas permanentes.
+  crearCultivoHibrido(c: CultivoHibrido): Promise<void>;
+  listarCultivosHibridos(): Promise<CultivoHibrido[]>;
+  /** "Renombrar a mano" (diseño ya cerrado) — no-op silencioso si el id no existe. */
+  renombrarCultivoHibrido(semillaId: string, nombre: string): Promise<void>;
   cerrar(): Promise<void>;
 }
 
@@ -600,6 +627,27 @@ CREATE TABLE IF NOT EXISTS mascotas (
 CREATE TABLE IF NOT EXISTS configuracion_mundo (
   clave TEXT PRIMARY KEY,
   valor TEXT NOT NULL
+);
+-- Injertos (docs/GDD_Agricultura.md §4, diseño ya cerrado en
+-- Backlog_Mecanicas_Futuras.md "Injertos y cruces de cultivos", construido
+-- 2026-08-30): cada especie híbrida creada en una mesa_injertos se
+-- registra aquí como PERMANENTE — sobrevive a un reinicio del servidor y
+-- se funde en el catálogo de ítems en memoria de cada room al arrancar
+-- (RoomExteriorBase.asegurarHibridosCargados). rasgos/meses_siembra viajan
+-- como JSON de texto (mismo criterio que "extra" de construcciones).
+CREATE TABLE IF NOT EXISTS cultivos_hibridos (
+  semilla_id TEXT PRIMARY KEY,          -- itemId de la semilla híbrida generada
+  cosecha_id TEXT NOT NULL,             -- itemId del fruto/cosecha que da
+  nombre TEXT NOT NULL,                 -- nombre automático, renombrable a mano
+  padre_a TEXT NOT NULL,
+  padre_b TEXT NOT NULL,
+  rasgos TEXT NOT NULL,                 -- JSON de RasgosCultivo
+  dias_crecimiento INTEGER NOT NULL,
+  meses_siembra TEXT NOT NULL,          -- JSON de number[]
+  cosecha_recurrente INTEGER NOT NULL,  -- 0/1 (SQLite no tiene boolean nativo)
+  cantidad_por_cosecha INTEGER NOT NULL,
+  color_debug TEXT NOT NULL,
+  creado_en TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,               -- "mapaId:edificio:nivel"
@@ -818,6 +866,20 @@ CREATE TABLE IF NOT EXISTS configuracion_mundo (
   clave TEXT PRIMARY KEY,
   valor TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS cultivos_hibridos (
+  semilla_id TEXT PRIMARY KEY,
+  cosecha_id TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  padre_a TEXT NOT NULL,
+  padre_b TEXT NOT NULL,
+  rasgos TEXT NOT NULL,
+  dias_crecimiento INTEGER NOT NULL,
+  meses_siembra TEXT NOT NULL,
+  cosecha_recurrente INTEGER NOT NULL,
+  cantidad_por_cosecha INTEGER NOT NULL,
+  color_debug TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,
   limpiada_en TEXT
@@ -985,6 +1047,23 @@ function filaAMascota(f: any): Mascota {
     especieId: String(f.especie_id),
     ubicacion: String(f.ubicacion) as UbicacionMascota,
     propiedadId: f.propiedad_id === null || f.propiedad_id === undefined ? null : String(f.propiedad_id),
+    creadoEn: String(f.creado_en),
+  };
+}
+
+function filaACultivoHibrido(f: any): CultivoHibrido {
+  return {
+    semillaId: String(f.semilla_id),
+    cosechaId: String(f.cosecha_id),
+    nombre: String(f.nombre),
+    padreA: String(f.padre_a),
+    padreB: String(f.padre_b),
+    rasgos: JSON.parse(f.rasgos),
+    diasCrecimiento: Number(f.dias_crecimiento),
+    mesesSiembra: JSON.parse(f.meses_siembra),
+    cosechaRecurrente: Number(f.cosecha_recurrente) === 1,
+    cantidadPorCosecha: Number(f.cantidad_por_cosecha),
+    colorDebug: String(f.color_debug),
     creadoEn: String(f.creado_en),
   };
 }
@@ -1876,6 +1955,27 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       .run(clave, valor);
   }
 
+  async crearCultivoHibrido(c: CultivoHibrido): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO cultivos_hibridos (semilla_id, cosecha_id, nombre, padre_a, padre_b, rasgos, dias_crecimiento, meses_siembra, cosecha_recurrente, cantidad_por_cosecha, color_debug, creado_en)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        c.semillaId, c.cosechaId, c.nombre, c.padreA, c.padreB, JSON.stringify(c.rasgos),
+        c.diasCrecimiento, JSON.stringify(c.mesesSiembra), c.cosechaRecurrente ? 1 : 0, c.cantidadPorCosecha, c.colorDebug, c.creadoEn,
+      );
+  }
+
+  async listarCultivosHibridos(): Promise<CultivoHibrido[]> {
+    const filas = this.bd.prepare("SELECT * FROM cultivos_hibridos").all() as any[];
+    return filas.map(filaACultivoHibrido);
+  }
+
+  async renombrarCultivoHibrido(semillaId: string, nombre: string): Promise<void> {
+    this.bd.prepare("UPDATE cultivos_hibridos SET nombre = ? WHERE semilla_id = ?").run(nombre, semillaId);
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -2709,6 +2809,26 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
        ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor`,
       [clave, valor],
     );
+  }
+
+  async crearCultivoHibrido(c: CultivoHibrido): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO cultivos_hibridos (semilla_id, cosecha_id, nombre, padre_a, padre_b, rasgos, dias_crecimiento, meses_siembra, cosecha_recurrente, cantidad_por_cosecha, color_debug, creado_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [
+        c.semillaId, c.cosechaId, c.nombre, c.padreA, c.padreB, JSON.stringify(c.rasgos),
+        c.diasCrecimiento, JSON.stringify(c.mesesSiembra), c.cosechaRecurrente ? 1 : 0, c.cantidadPorCosecha, c.colorDebug, c.creadoEn,
+      ],
+    );
+  }
+
+  async listarCultivosHibridos(): Promise<CultivoHibrido[]> {
+    const r = await this.pool.query("SELECT * FROM cultivos_hibridos");
+    return r.rows.map(filaACultivoHibrido);
+  }
+
+  async renombrarCultivoHibrido(semillaId: string, nombre: string): Promise<void> {
+    await this.pool.query("UPDATE cultivos_hibridos SET nombre = $1 WHERE semilla_id = $2", [nombre, semillaId]);
   }
 
   async cerrar(): Promise<void> {

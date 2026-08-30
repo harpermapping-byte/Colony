@@ -92,6 +92,29 @@ export interface DatosCultivo {
   cosechaRecurrente: boolean;
   /** unidades de itemIdCosecha por cosecha, ANTES del multiplicador de la maceta/bancal. */
   cantidadPorCosecha: number;
+  /** Injertos (docs/GDD_Agricultura.md §4, diseño cerrado en Backlog_Mecanicas_Futuras.md): "genética" de esta especie — obligatorios en TODA semilla, base o híbrida, porque `mesa_injertos` puede cruzar cualquier par. */
+  rasgos: RasgosCultivo;
+}
+
+/**
+ * Los 6 rasgos numéricos (0-1) de un cultivo (docs/Backlog_Mecanicas_Futuras.md
+ * "Injertos y cruces de cultivos", diseño ya cerrado) — al injertar dos
+ * semillas, cada rasgo del resultado = media de los dos padres + variación
+ * aleatoria (ver `cultivo/cultivo.ts::mezclarRasgos`). Puramente
+ * informativos por ahora salvo `rendimiento` (escala `cantidadPorCosecha`)
+ * y `velocidadCrecimiento` (escala `diasCrecimiento`) en el híbrido
+ * resultante — el resto (calidad/resistenciaEnfermedad/tamañoFruto/
+ * necesidadAgua) queda como dato de sabor/futuro consumidor (precio de
+ * venta, enfermedades...), mismo criterio "SIN CONSUMIDOR" ya aceptado en
+ * otros catálogos del proyecto.
+ */
+export interface RasgosCultivo {
+  rendimiento: number;
+  calidad: number;
+  resistenciaEnfermedad: number;
+  velocidadCrecimiento: number;
+  necesidadAgua: number;
+  tamanoFruto: number;
 }
 
 export type CatalogoItems = Record<string, EntradaCatalogoItem>;

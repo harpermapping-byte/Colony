@@ -97,10 +97,19 @@ export class RenderConstrucciones {
 
   /** Construcción PLANTABLE más cercana a (x,y) dentro de `radio` — mismo criterio "sin UI de targeting" que coger/portal:usar. */
   plantableMasCercana(x: number, y: number, radio: number): number | null {
+    return this.masCercanaDeObjeto((datos) => !!obtenerConstruible(datos.objeto)?.plantable, x, y, radio);
+  }
+
+  /** Construcción con este `objeto` de catálogo exacto más cercana a (x,y) dentro de `radio` (p.ej. "mesa_injertos") — mismo criterio de auto-apuntado por proximidad. */
+  deObjetoMasCercana(objeto: string, x: number, y: number, radio: number): number | null {
+    return this.masCercanaDeObjeto((datos) => datos.objeto === objeto, x, y, radio);
+  }
+
+  private masCercanaDeObjeto(filtro: (datos: ConstruccionRed) => boolean, x: number, y: number, radio: number): number | null {
     let mejorId: number | null = null;
     let mejorDist = radio;
     for (const { datos, malla } of this.piezas.values()) {
-      if (!obtenerConstruible(datos.objeto)?.plantable) continue;
+      if (!filtro(datos)) continue;
       const d = Math.hypot(malla.position.x - x, malla.position.z - y);
       if (d < mejorDist) { mejorDist = d; mejorId = datos.id; }
     }

@@ -20,6 +20,7 @@ import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mas
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
 import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
 import { PanelCultivo, type EstadoCultivoVista } from "./agricultura/panelCultivo";
+import { PanelInjerto } from "./agricultura/panelInjerto";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -474,6 +475,24 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         cultivoCercanoId = id;
         if (id == null) panelCultivo.actualizar(null);
         else room.send("cultivo:consultar", { construccionId: id });
+      }
+    }, 500);
+
+    // --- Injertos (docs/GDD_Agricultura.md §4) — mismo criterio de panel
+    // placeholder por proximidad, ahora apuntando a "mesa_injertos" en vez
+    // de a cualquier plantable.
+    const panelInjerto = new PanelInjerto({
+      contenedor,
+      crear: (construccionId, instanciaIdA, instanciaIdB) => room.send("injerto:crear", { construccionId, instanciaIdA, instanciaIdB }),
+    });
+    let injertoCercanoId: number | null = null;
+    room.onMessage("injerto:creado", (m: { nombre: string }) => console.log(`[injerto] nueva especie: ${m?.nombre}`));
+    setInterval(() => {
+      if (!jugadorLocal) return;
+      const id = renderConstrucciones.deObjetoMasCercana("mesa_injertos", jugadorLocal.x, jugadorLocal.z, 2.2);
+      if (id !== injertoCercanoId) {
+        injertoCercanoId = id;
+        panelInjerto.actualizar(id);
       }
     }, 500);
   }
