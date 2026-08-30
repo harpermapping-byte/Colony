@@ -91,3 +91,11 @@ test("cargarCatalogoCombateFauna: requiereAgua viaja tal cual — orca/tiburón 
   assert.ok(catalogo["tiburon"].peligroso, "un tiburón debe ser hostil (combate)");
   assert.ok(!catalogo["conejo"].requiereAgua);
 });
+
+// docs/GDD_Combate.md §7bis (pedido 2026-08-30) — agro por distancia
+test("cargarCatalogoCombateFauna: radioAgro viaja tal cual del catálogo (orca/tiburón ya lo tenían, sin consumidor hasta ahora)", () => {
+  const catalogo = cargarCatalogoCombateFauna(RUTA_ANIMALES);
+  assert.strictEqual(catalogo["orca"].radioAgro, 10);
+  assert.strictEqual(catalogo["tiburon"].radioAgro, 7);
+  assert.ok(catalogo["orca"].radioAgro! > 0);
+});

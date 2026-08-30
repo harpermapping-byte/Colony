@@ -69,6 +69,8 @@ export interface Jugador {
   // automática — solo comida fuera de combate o pociones/magia la suben.
   vida: number;
   vidaMax: number;
+  /** docs/GDD_Anatomia.md — JSON de server/src/personaje/anatomia.ts::Anatomia, o null si nunca se tocó (se resuelve a anatomiaInicial() en RoomExteriorBase). */
+  anatomia: string | null;
 }
 
 // Gremios/clanes (pedido 2026-08-29): banco común (Farycoins), roster de
@@ -434,6 +436,8 @@ export interface IAlmacenDatos {
   obtenerOCrearJugador(nombre: string, saldoInicial?: number): Promise<Jugador>;
   /** Vida/vidaMax tras combate/comida/pociones (docs/GDD_Mecanicas.md §5.4) — sin regeneración automática, solo se llama en un evento explícito. */
   actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void>;
+  /** docs/GDD_Anatomia.md — JSON de Anatomia; misma cadencia que actualizarVidaJugador (tras un golpe con efecto anatómico o una acción médica), no cada tick. */
+  actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void>;
   obtenerFarycoins(jugadorId: number): Promise<number>;
   /** Suma (delta>0) o resta (delta<0) Farycoins de un jugador, TODO O NADA:
    * si restar dejaría el saldo negativo, no toca nada y `ok:false` — mismo
@@ -669,7 +673,8 @@ CREATE TABLE IF NOT EXISTS jugadores (
   creado_en TEXT NOT NULL,
   farycoins INTEGER NOT NULL DEFAULT 0, -- moneda del mundo, saldo numérico (no ítem de inventario)
   vida INTEGER NOT NULL DEFAULT 100,    -- docs/GDD_Mecanicas.md §5.4: base 100/100, modificable por equipo/combate
-  vida_max INTEGER NOT NULL DEFAULT 100
+  vida_max INTEGER NOT NULL DEFAULT 100,
+  anatomia TEXT                         -- docs/GDD_Anatomia.md: JSON de las 6 zonas (server/src/personaje/anatomia.ts::Anatomia); NULL = nunca se ha tocado, se resuelve a anatomiaInicial()
 );
 CREATE TABLE IF NOT EXISTS gremios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -997,6 +1002,7 @@ CREATE TABLE IF NOT EXISTS jugadores (
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS farycoins INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS vida INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS vida_max INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS anatomia TEXT;
 CREATE TABLE IF NOT EXISTS gremios (
   id SERIAL PRIMARY KEY,
   nombre TEXT UNIQUE NOT NULL,
@@ -1457,6 +1463,9 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     if (!nombresJugadores.has("vida_max")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN vida_max INTEGER NOT NULL DEFAULT 100");
     }
+    if (!nombresJugadores.has("anatomia")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN anatomia TEXT");
+    }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
     // cambio no las tendría; CREATE TABLE IF NOT EXISTS no amplía una tabla ya existente.
@@ -1488,7 +1497,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async obtenerOCrearJugador(nombre: string, saldoInicial = SALDO_INICIAL_JUGADOR): Promise<Jugador> {
     const existente = this.bd
-      .prepare("SELECT id, nombre, farycoins, vida, vida_max FROM jugadores WHERE nombre = ?")
+      .prepare("SELECT id, nombre, farycoins, vida, vida_max, anatomia FROM jugadores WHERE nombre = ?")
       .get(nombre);
     if (existente) {
       return {
@@ -1497,12 +1506,17 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
         farycoins: Number(existente.farycoins),
         vida: Number(existente.vida),
         vidaMax: Number(existente.vida_max),
+        anatomia: existente.anatomia == null ? null : String(existente.anatomia),
       };
     }
     const r = this.bd
       .prepare("INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES (?, ?, ?)")
       .run(nombre, new Date().toISOString(), saldoInicial);
-    return { id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100 };
+    return { id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100, anatomia: null };
+  }
+
+  async actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void> {
+    this.bd.prepare("UPDATE jugadores SET anatomia = ? WHERE id = ?").run(anatomiaJson, jugadorId);
   }
 
   async obtenerFarycoins(jugadorId: number): Promise<number> {
@@ -2581,10 +2595,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     // devuelve la fila exista ya o se acabe de crear, en una sola ida y vuelta.
     // farycoins SOLO se fija en el INSERT (fila nueva) — el DO UPDATE nunca
     // toca esa columna, así que una fila ya existente conserva su saldo.
-    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number }>(
+    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number; anatomia: string | null }>(
       `INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES ($1, $2, $3)
        ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
-       RETURNING id, nombre, farycoins, vida, vida_max`,
+       RETURNING id, nombre, farycoins, vida, vida_max, anatomia`,
       [nombre, new Date().toISOString(), saldoInicial]
     );
     return {
@@ -2593,11 +2607,16 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       farycoins: r.rows[0].farycoins,
       vida: r.rows[0].vida,
       vidaMax: r.rows[0].vida_max,
+      anatomia: r.rows[0].anatomia,
     };
   }
 
   async actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void> {
     await this.pool.query("UPDATE jugadores SET vida = $1, vida_max = $2 WHERE id = $3", [vida, vidaMax, jugadorId]);
+  }
+
+  async actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void> {
+    await this.pool.query("UPDATE jugadores SET anatomia = $1 WHERE id = $2", [anatomiaJson, jugadorId]);
   }
 
   async obtenerFarycoins(jugadorId: number): Promise<number> {
