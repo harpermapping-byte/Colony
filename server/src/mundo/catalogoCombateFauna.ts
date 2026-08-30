@@ -11,6 +11,9 @@ import * as fs from "fs";
 
 export type CategoriaVidaAnimal = "cria" | "pequeno" | "mediano" | "grande" | "alfa";
 
+/** docs/GDD_Ganaderia.md — producto "vivo" que da un animal de granja periódicamente (sin matarlo), vía resolverProduccion. Una especie puede dar varios (oveja: lana Y leche). */
+export type CategoriaProductoGranja = "leche" | "huevos" | "lana";
+
 export interface EstadisticasCombateAnimal {
   categoriaVida: CategoriaVidaAnimal;
   vidaMaxima: number;
@@ -23,6 +26,8 @@ export interface EstadisticasCombateAnimal {
   categoriaRecursoCarne?: string;
   /** docs/GDD_Caza.md — id de items/catalogo/items.json que da desollar el cadáver (cuero_grueso/piel_basta/...); ausente = sin piel útil. */
   categoriaRecursoPiel?: string;
+  /** docs/GDD_Ganaderia.md — qué productos "vivos" da esta especie como animal de granja; ausente/vacío = solo carne/piel al sacrificar. */
+  categoriaProductoGranja?: CategoriaProductoGranja[];
 }
 
 export type CatalogoCombateFauna = Record<string, EstadisticasCombateAnimal>;
@@ -35,6 +40,7 @@ interface EntradaCatalogoBaker {
   domesticable?: boolean;
   categoriaRecursoCarne?: string;
   categoriaRecursoPiel?: string;
+  categoriaProductoGranja?: CategoriaProductoGranja[];
 }
 
 // Relleno si una especie llegara a faltar en el catálogo (no debería pasar
@@ -61,6 +67,7 @@ export function cargarCatalogoCombateFauna(rutaAnimalesJson: string): CatalogoCo
       domesticable: !!datos.domesticable,
       categoriaRecursoCarne: datos.categoriaRecursoCarne,
       categoriaRecursoPiel: datos.categoriaRecursoPiel,
+      categoriaProductoGranja: datos.categoriaProductoGranja,
     };
   }
   return catalogo;

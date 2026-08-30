@@ -271,6 +271,27 @@ export interface CadaverFila {
   contenedor: Contenedor;
 }
 
+// Ganadería (docs/GDD_Ganaderia.md, pedido 2026-08-30): un animal de granja
+// vivo, propiedad de un jugador — nace al domesticar en el exterior o
+// comprar por tenderete, vive en la propiedad destino, y muere/desaparece
+// al sacrificarlo o escaparse. `extra` (mismo patrón JSON que
+// construcciones.extra) guarda el acumulador de producción POR PRODUCTO
+// (leche/lana/huevos, `resolverProduccion` reusado tal cual) y el último
+// día de mundo en que se resolvió el chequeo de escape. `enVenta*` es
+// NULL salvo mientras está listado en un tenderete (docs/GDD_Mercado.md).
+export interface AnimalGranjaFila {
+  id: string;
+  especieId: string;
+  mapaId: string;
+  propiedadId: string;
+  x: number;
+  y: number;
+  extra: Record<string, unknown>;
+  enVentaTenderoteId: string | null;
+  enVentaPrecio: number | null;
+  creadoEn: string;
+}
+
 // Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): un animal urbano
 // domesticable (perro/gato) se convierte en mascota tras 5 veces de darle
 // de comer — server/src/rooms/base/RoomExteriorBase.ts es el mecanismo en
@@ -487,6 +508,29 @@ export interface IAlmacenDatos {
   /** Actualiza SOLO el contenedor (tras lootear) — el resto de campos de un cadáver no cambian nunca. */
   actualizarContenedorCadaver(id: string, contenedor: Contenedor): Promise<void>;
   borrarCadaver(id: string): Promise<void>;
+  // Ganadería (docs/GDD_Ganaderia.md, pedido 2026-08-30) — mismo criterio
+  // que cadáveres: sin sector, por mapa entero (mucho menos frecuente que
+  // la población base de fauna salvaje).
+  listarAnimalesGranjaMapa(mapaId: string): Promise<AnimalGranjaFila[]>;
+  crearAnimalGranjaBd(a: AnimalGranjaFila): Promise<void>;
+  /** Actualiza SOLO `extra` (acumulador de producción + último día de escape chequeado) — el resto de campos no cambian salvo venta/traspaso. */
+  actualizarExtraAnimalGranja(id: string, extra: Record<string, unknown>): Promise<void>;
+  borrarAnimalGranja(id: string): Promise<void>;
+  /** Lista/quita de venta en un tenderete — solo el dueño de la propiedad del animal Y del tenderete puede llamarlo (comprobación en RoomExteriorBase). `false` si el animal no existe o no pertenece a `propiedadId`. */
+  fijarVentaAnimalGranja(id: string, propiedadId: string, tenderoteId: string | null, precioFarycoins: number | null): Promise<boolean>;
+  listarAnimalesEnVentaTenderete(tenderoteId: string): Promise<AnimalGranjaFila[]>;
+  /**
+   * Compra atómica: cobra al comprador, acredita al vendedor, y SOLO si
+   * ambas cobranzas van bien reubica el animal (propiedad/mapa/x/y) y lo
+   * quita de la venta — compare-and-swap por `enVentaTenderoteId` (mismo
+   * criterio que `comprarDeTenderete`, evita comprar dos veces el mismo animal).
+   */
+  comprarAnimalGranja(params: {
+    id: string; tenderoteId: string; propiedadDestino: string; mapaIdDestino: string; x: number; y: number;
+    compradorNombre: string; duenoNombre: string;
+  }): Promise<{ ok: true; especieId: string; precioTotal: number } | { ok: false; motivo: string }>;
+  /** Traspaso SIN farycoins (docs/GDD_Comercio.md) — reubica el animal a la propiedad del receptor. `false` si el animal ya no pertenece a `propiedadOrigen` (se vendió/movió mientras se negociaba). */
+  transferirAnimalGranja(id: string, propiedadOrigen: string, propiedadDestino: string, mapaIdDestino: string, x: number, y: number): Promise<boolean>;
   registrarMemoriaLider(diaIngame: number, evento: string): Promise<void>;
   memoriaLiderReciente(limite: number): Promise<MemoriaLider[]>;
   // Inventario (pedido 2026-08-29, fase 1: catálogo + servidor + persistencia
@@ -761,6 +805,21 @@ CREATE TABLE IF NOT EXISTS cadaveres (
   contenedor TEXT NOT NULL          -- JSON del Contenedor (loot), mismo patrón que construcciones.extra
 );
 CREATE INDEX IF NOT EXISTS idx_cadaveres_mapa ON cadaveres(mapa_id);
+CREATE TABLE IF NOT EXISTS animales_granja (
+  id TEXT PRIMARY KEY,
+  especie_id TEXT NOT NULL,
+  mapa_id TEXT NOT NULL,
+  propiedad_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  extra TEXT NOT NULL,               -- JSON: {produccion:{leche?/lana?/huevos?: EstadoProduccion}, ultimoDiaEscapeChequeado}
+  en_venta_tenderete_id TEXT,        -- NULL = no está en venta (docs/GDD_Mercado.md)
+  en_venta_precio INTEGER,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_animales_granja_mapa ON animales_granja(mapa_id);
+CREATE INDEX IF NOT EXISTS idx_animales_granja_propiedad ON animales_granja(propiedad_id);
+CREATE INDEX IF NOT EXISTS idx_animales_granja_venta ON animales_granja(en_venta_tenderete_id);
 CREATE TABLE IF NOT EXISTS memoria_lider (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   dia_ingame INTEGER NOT NULL,
@@ -1009,6 +1068,21 @@ CREATE TABLE IF NOT EXISTS cadaveres (
   contenedor TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_cadaveres_mapa ON cadaveres(mapa_id);
+CREATE TABLE IF NOT EXISTS animales_granja (
+  id TEXT PRIMARY KEY,
+  especie_id TEXT NOT NULL,
+  mapa_id TEXT NOT NULL,
+  propiedad_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  extra TEXT NOT NULL,
+  en_venta_tenderete_id TEXT,
+  en_venta_precio INTEGER,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_animales_granja_mapa ON animales_granja(mapa_id);
+CREATE INDEX IF NOT EXISTS idx_animales_granja_propiedad ON animales_granja(propiedad_id);
+CREATE INDEX IF NOT EXISTS idx_animales_granja_venta ON animales_granja(en_venta_tenderete_id);
 CREATE TABLE IF NOT EXISTS memoria_lider (
   id SERIAL PRIMARY KEY,
   dia_ingame INTEGER NOT NULL,
@@ -1088,6 +1162,22 @@ function filaCadaverDesdeSql(f: any): CadaverFila {
     y: Number(f.y),
     muertoEn: Number(f.muerto_en),
     contenedor: JSON.parse(f.contenedor) as Contenedor,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaAnimalGranjaDesdeSql(f: any): AnimalGranjaFila {
+  return {
+    id: String(f.id),
+    especieId: String(f.especie_id),
+    mapaId: String(f.mapa_id),
+    propiedadId: String(f.propiedad_id),
+    x: Number(f.x),
+    y: Number(f.y),
+    extra: JSON.parse(f.extra) as Record<string, unknown>,
+    enVentaTenderoteId: f.en_venta_tenderete_id === null || f.en_venta_tenderete_id === undefined ? null : String(f.en_venta_tenderete_id),
+    enVentaPrecio: f.en_venta_precio === null || f.en_venta_precio === undefined ? null : Number(f.en_venta_precio),
+    creadoEn: String(f.creado_en),
   };
 }
 
@@ -1916,6 +2006,90 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async borrarCadaver(id: string): Promise<void> {
     this.bd.prepare("DELETE FROM cadaveres WHERE id = ?").run(id);
+  }
+
+  async listarAnimalesGranjaMapa(mapaId: string): Promise<AnimalGranjaFila[]> {
+    const filas = this.bd
+      .prepare(
+        "SELECT id, especie_id, mapa_id, propiedad_id, x, y, extra, en_venta_tenderete_id, en_venta_precio, creado_en FROM animales_granja WHERE mapa_id = ?",
+      )
+      .all(mapaId);
+    return filas.map(filaAnimalGranjaDesdeSql);
+  }
+
+  async crearAnimalGranjaBd(a: AnimalGranjaFila): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO animales_granja (id, especie_id, mapa_id, propiedad_id, x, y, extra, en_venta_tenderete_id, en_venta_precio, creado_en)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(a.id, a.especieId, a.mapaId, a.propiedadId, a.x, a.y, JSON.stringify(a.extra), a.enVentaTenderoteId, a.enVentaPrecio, a.creadoEn);
+  }
+
+  async actualizarExtraAnimalGranja(id: string, extra: Record<string, unknown>): Promise<void> {
+    this.bd.prepare("UPDATE animales_granja SET extra = ? WHERE id = ?").run(JSON.stringify(extra), id);
+  }
+
+  async borrarAnimalGranja(id: string): Promise<void> {
+    this.bd.prepare("DELETE FROM animales_granja WHERE id = ?").run(id);
+  }
+
+  async fijarVentaAnimalGranja(id: string, propiedadId: string, tenderoteId: string | null, precioFarycoins: number | null): Promise<boolean> {
+    const r = this.bd
+      .prepare("UPDATE animales_granja SET en_venta_tenderete_id = ?, en_venta_precio = ? WHERE id = ? AND propiedad_id = ?")
+      .run(tenderoteId, precioFarycoins, id, propiedadId);
+    return Number(r.changes) > 0;
+  }
+
+  async listarAnimalesEnVentaTenderete(tenderoteId: string): Promise<AnimalGranjaFila[]> {
+    const filas = this.bd
+      .prepare(
+        "SELECT id, especie_id, mapa_id, propiedad_id, x, y, extra, en_venta_tenderete_id, en_venta_precio, creado_en FROM animales_granja WHERE en_venta_tenderete_id = ?",
+      )
+      .all(tenderoteId);
+    return filas.map(filaAnimalGranjaDesdeSql);
+  }
+
+  async comprarAnimalGranja(params: {
+    id: string; tenderoteId: string; propiedadDestino: string; mapaIdDestino: string; x: number; y: number;
+    compradorNombre: string; duenoNombre: string;
+  }): Promise<{ ok: true; especieId: string; precioTotal: number } | { ok: false; motivo: string }> {
+    const fila = this.bd
+      .prepare("SELECT especie_id, en_venta_precio FROM animales_granja WHERE id = ? AND en_venta_tenderete_id = ?")
+      .get(params.id, params.tenderoteId);
+    if (!fila) return { ok: false, motivo: "ese animal ya no está en venta aquí" };
+    const precioTotal = Number(fila.en_venta_precio ?? 0);
+
+    const comprador = await this.obtenerOCrearJugador(params.compradorNombre);
+    const debito = await this.ajustarFarycoins(comprador.id, -precioTotal);
+    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+
+    // Compare-and-swap: reubica SOLO si sigue en venta en ESE tenderete —
+    // evita comprar dos veces el mismo animal si dos jugadores lo intentan a la vez.
+    const r = this.bd
+      .prepare(
+        `UPDATE animales_granja SET propiedad_id = ?, mapa_id = ?, x = ?, y = ?, en_venta_tenderete_id = NULL, en_venta_precio = NULL
+         WHERE id = ? AND en_venta_tenderete_id = ?`,
+      )
+      .run(params.propiedadDestino, params.mapaIdDestino, params.x, params.y, params.id, params.tenderoteId);
+    if (Number(r.changes) === 0) {
+      await this.ajustarFarycoins(comprador.id, precioTotal); // reembolso: se vendió/quitó justo antes
+      return { ok: false, motivo: "ese animal se vendió justo antes" };
+    }
+
+    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre);
+    await this.ajustarFarycoins(vendedor.id, precioTotal);
+    return { ok: true, especieId: String(fila.especie_id), precioTotal };
+  }
+
+  async transferirAnimalGranja(id: string, propiedadOrigen: string, propiedadDestino: string, mapaIdDestino: string, x: number, y: number): Promise<boolean> {
+    const r = this.bd
+      .prepare(
+        `UPDATE animales_granja SET propiedad_id = ?, mapa_id = ?, x = ?, y = ?, en_venta_tenderete_id = NULL, en_venta_precio = NULL
+         WHERE id = ? AND propiedad_id = ?`,
+      )
+      .run(propiedadDestino, mapaIdDestino, x, y, id, propiedadOrigen);
+    return Number(r.changes) > 0;
   }
 
   async registrarMemoriaLider(diaIngame: number, evento: string): Promise<void> {
@@ -2793,6 +2967,85 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async borrarCadaver(id: string): Promise<void> {
     await this.pool.query("DELETE FROM cadaveres WHERE id = $1", [id]);
+  }
+
+  async listarAnimalesGranjaMapa(mapaId: string): Promise<AnimalGranjaFila[]> {
+    const r = await this.pool.query(
+      "SELECT id, especie_id, mapa_id, propiedad_id, x, y, extra, en_venta_tenderete_id, en_venta_precio, creado_en FROM animales_granja WHERE mapa_id = $1",
+      [mapaId],
+    );
+    return r.rows.map(filaAnimalGranjaDesdeSql);
+  }
+
+  async crearAnimalGranjaBd(a: AnimalGranjaFila): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO animales_granja (id, especie_id, mapa_id, propiedad_id, x, y, extra, en_venta_tenderete_id, en_venta_precio, creado_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [a.id, a.especieId, a.mapaId, a.propiedadId, a.x, a.y, JSON.stringify(a.extra), a.enVentaTenderoteId, a.enVentaPrecio, a.creadoEn],
+    );
+  }
+
+  async actualizarExtraAnimalGranja(id: string, extra: Record<string, unknown>): Promise<void> {
+    await this.pool.query("UPDATE animales_granja SET extra = $1 WHERE id = $2", [JSON.stringify(extra), id]);
+  }
+
+  async borrarAnimalGranja(id: string): Promise<void> {
+    await this.pool.query("DELETE FROM animales_granja WHERE id = $1", [id]);
+  }
+
+  async fijarVentaAnimalGranja(id: string, propiedadId: string, tenderoteId: string | null, precioFarycoins: number | null): Promise<boolean> {
+    const r = await this.pool.query(
+      "UPDATE animales_granja SET en_venta_tenderete_id = $1, en_venta_precio = $2 WHERE id = $3 AND propiedad_id = $4",
+      [tenderoteId, precioFarycoins, id, propiedadId],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async listarAnimalesEnVentaTenderete(tenderoteId: string): Promise<AnimalGranjaFila[]> {
+    const r = await this.pool.query(
+      "SELECT id, especie_id, mapa_id, propiedad_id, x, y, extra, en_venta_tenderete_id, en_venta_precio, creado_en FROM animales_granja WHERE en_venta_tenderete_id = $1",
+      [tenderoteId],
+    );
+    return r.rows.map(filaAnimalGranjaDesdeSql);
+  }
+
+  async comprarAnimalGranja(params: {
+    id: string; tenderoteId: string; propiedadDestino: string; mapaIdDestino: string; x: number; y: number;
+    compradorNombre: string; duenoNombre: string;
+  }): Promise<{ ok: true; especieId: string; precioTotal: number } | { ok: false; motivo: string }> {
+    const filaPrecio = await this.pool.query<{ especie_id: string; en_venta_precio: number | null }>(
+      "SELECT especie_id, en_venta_precio FROM animales_granja WHERE id = $1 AND en_venta_tenderete_id = $2",
+      [params.id, params.tenderoteId],
+    );
+    if (filaPrecio.rows.length === 0) return { ok: false, motivo: "ese animal ya no está en venta aquí" };
+    const precioTotal = Number(filaPrecio.rows[0].en_venta_precio ?? 0);
+
+    const comprador = await this.obtenerOCrearJugador(params.compradorNombre);
+    const debito = await this.ajustarFarycoins(comprador.id, -precioTotal);
+    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+
+    const r = await this.pool.query(
+      `UPDATE animales_granja SET propiedad_id = $1, mapa_id = $2, x = $3, y = $4, en_venta_tenderete_id = NULL, en_venta_precio = NULL
+       WHERE id = $5 AND en_venta_tenderete_id = $6`,
+      [params.propiedadDestino, params.mapaIdDestino, params.x, params.y, params.id, params.tenderoteId],
+    );
+    if ((r.rowCount ?? 0) === 0) {
+      await this.ajustarFarycoins(comprador.id, precioTotal); // reembolso: se vendió/quitó justo antes
+      return { ok: false, motivo: "ese animal se vendió justo antes" };
+    }
+
+    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre);
+    await this.ajustarFarycoins(vendedor.id, precioTotal);
+    return { ok: true, especieId: filaPrecio.rows[0].especie_id, precioTotal };
+  }
+
+  async transferirAnimalGranja(id: string, propiedadOrigen: string, propiedadDestino: string, mapaIdDestino: string, x: number, y: number): Promise<boolean> {
+    const r = await this.pool.query(
+      `UPDATE animales_granja SET propiedad_id = $1, mapa_id = $2, x = $3, y = $4, en_venta_tenderete_id = NULL, en_venta_precio = NULL
+       WHERE id = $5 AND propiedad_id = $6`,
+      [propiedadDestino, mapaIdDestino, x, y, id, propiedadOrigen],
+    );
+    return (r.rowCount ?? 0) > 0;
   }
 
   async registrarMemoriaLider(diaIngame: number, evento: string): Promise<void> {

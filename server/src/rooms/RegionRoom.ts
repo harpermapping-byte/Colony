@@ -310,4 +310,14 @@ export class RegionRoom extends RoomExteriorBase {
     this.crearJugador(client, options, x, y);
     this.enviarEstadoConstruccion(client); // no-op si esta región no tiene parcelasReservadas
   }
+
+  /** Mismo criterio que HubRoom — sin esto, docs/GDD_Ganaderia.md (animal:domesticar) y cadaver:desollar no encuentran nunca especie aquí. */
+  protected estadisticasFaunaDe(especieId: string) {
+    return this.catalogoCombateFauna?.[especieId] ?? null;
+  }
+
+  /** Ganadería (docs/GDD_Ganaderia.md): domesticar aquí saca al animal del merodeo urbano (GestorFauna), mismo mecanismo que mascota:darComida. */
+  protected async onFaunaDomesticada(id: string): Promise<boolean> {
+    return this.gestorFauna?.quitar(id) ?? false;
+  }
 }

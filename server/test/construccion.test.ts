@@ -177,6 +177,15 @@ test("catálogo construible: encurtido de pieles (docs/GDD_Caza.md) — cubo_sal
   });
 });
 
+test("catálogo construible: ganadería (docs/GDD_Ganaderia.md) — comedero/bebedero/nido/gallinero/cobertizo_ganado", () => {
+  assert.deepStrictEqual(catalogo.get("comedero")?.alimentador, { itemId: "pienso", capacidadMaxMaterial: 30 });
+  assert.strictEqual(catalogo.get("bebedero")?.requiereAgua, true, "bebedero reusa requiereAgua, sin alimentador");
+  assert.strictEqual(catalogo.get("bebedero")?.alimentador, undefined);
+  assert.deepStrictEqual(catalogo.get("nido")?.refugioGranja, { categoriasVida: ["pequeno", "mediano"] });
+  assert.deepStrictEqual(catalogo.get("gallinero")?.refugioGranja, { categoriasVida: ["pequeno", "mediano"] });
+  assert.deepStrictEqual(catalogo.get("cobertizo_ganado")?.refugioGranja, { categoriasVida: ["mediano", "grande"] });
+});
+
 test("parcelas: índice numérico, helpers y tolerancia a mapa sin parcelas.json", () => {
   const { ctx, dir } = crearContexto();
   assert.strictEqual(parcelaEn(ctx.parcelas, bloqueA.x, bloqueA.y), "p_0001");

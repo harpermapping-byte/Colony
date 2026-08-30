@@ -355,6 +355,12 @@ export class HubRoom extends RoomExteriorBase {
     return cadaver !== null;
   }
 
+  /** Ganadería (docs/GDD_Ganaderia.md): domesticar aquí saca al individuo de su sector activo (GestorFaunaSalvaje), sin cadáver ni loot. */
+  protected async onFaunaDomesticada(id: string): Promise<boolean> {
+    if (!this.gestorFaunaSalvaje) return false;
+    return (await this.gestorFaunaSalvaje.domesticar(id)) !== null;
+  }
+
   /** docs/GDD_Caza.md — solo el Hub conoce categoriaVida/categoriaRecursoCarne/Piel por especie (catalogoCombate real). */
   protected estadisticasFaunaDe(especieId: string) {
     return this.catalogoCombate?.[especieId] ?? null;

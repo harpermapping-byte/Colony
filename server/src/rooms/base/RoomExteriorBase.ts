@@ -1,8 +1,9 @@
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna, ComercioSchema, OfertaComercioSchema, CadaverSchema } from "../schema/HubState";
-import { Cadaver, cadaverDesaparecio } from "../../mundo/cadaveres";
-import { EstadisticasCombateAnimal } from "../../mundo/catalogoCombateFauna";
-import { pielDeDesollado } from "../../mundo/lootCaza";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
+import { Cadaver, cadaverDesaparecio, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER } from "../../mundo/cadaveres";
+import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
+import { pielDeDesollado, rellenarLootCaza } from "../../mundo/lootCaza";
+import { estaEncerrado, tiroEscape } from "../../mundo/ganaderia";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
 import { cargarCatalogoArenas, elegirArena } from "../../combate/seleccionArena";
@@ -39,7 +40,7 @@ import {
 } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -106,8 +107,26 @@ const ALTO_CUERPO = 6;
 // "peletero" (nuevo, sin recetas de crafteo todavía, solo gatea desollar).
 // Lista cerrada a propósito — un id que no está aquí no es un typo tolerado.
 const OFICIOS_JUGADOR_VALIDOS = new Set([
-  "herrero", "carpintero", "picapedrero", "curtidor", "sastre", "joyero", "peletero",
+  "herrero", "carpintero", "picapedrero", "curtidor", "sastre", "joyero", "peletero", "ganadero",
 ]);
+
+// --- Ganadería (docs/GDD_Ganaderia.md, pedido 2026-08-30) ---
+// Mismo umbral que las mascotas urbanas (RegionRoom.VECES_COMIDA_PARA_DOMESTICAR)
+// — número de veces distinto a propósito: aquí es un animal de granja, no una
+// mascota que sigue al jugador, así que no comparten la constante.
+const VECES_COMIDA_PARA_DOMESTICAR_GRANJA = 5;
+/**
+ * Qué hace falta para recolectar cada producto "vivo" — ítem que produce,
+ * herramienta+oficio exigidos (ausentes = cualquiera puede, como los
+ * huevos), y el mismo molde de `resolverProduccion` (cantidadPorDia,
+ * capacidadMax) que ya usa colmena/curtidor. Añadir un producto nuevo es
+ * solo una entrada más aquí — cero mensaje nuevo (regla 7 del CLAUDE.md).
+ */
+const PRODUCTOS_GRANJA: Record<CategoriaProductoGranja, { itemId: string; herramienta?: string; exigeOficio?: boolean; cantidadPorDia: number; capacidadMax: number }> = {
+  leche: { itemId: "leche", herramienta: "cubo_ordeno", exigeOficio: true, cantidadPorDia: 2, capacidadMax: 6 },
+  lana: { itemId: "lana", herramienta: "tijeras_esquilar", exigeOficio: true, cantidadPorDia: 1, capacidadMax: 3 },
+  huevos: { itemId: "huevo", cantidadPorDia: 1, capacidadMax: 4 },
+};
 
 // --- Combate táctico (docs/GDD_Combate.md, ✅ confirmado 2026-08-30) ---
 // PA fijo para toda unidad — placeholder de balance (mismo criterio que el
@@ -326,6 +345,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // publicarCadaver por primera vez (hoy solo HubRoom, vía fauna salvaje).
   protected cadaveresPuros = new Map<string, Cadaver>();
   private mapaIdCadaveres = "";
+  // Ganadería (docs/GDD_Ganaderia.md) — mismo criterio que cadaveresPuros:
+  // estado PURO, state.animalesGranja es solo el espejo de red. Poblado por
+  // publicarAnimalGranja() en iniciarConstruccion() (disponible en
+  // HubRoom Y RegionRoom, a diferencia de cadáveres).
+  protected animalesGranjaPuros = new Map<string, AnimalGranjaFila>();
+  private contadorAnimalGranja = 0;
+  /** Progreso de "domesticar" un animal de granja (docs/GDD_Ganaderia.md) — mismo patrón que RegionRoom.progresoDomesticar (mascotas), pero aquí vive en la base para funcionar en cualquier room. */
+  private progresoDomesticarGranja = new Map<string, { faunaId: string; veces: number }>();
   private siguienteObjetoMundoId = 1;
   // Asignado por HubRoom/RegionRoom tras cargar su mapa — habilita "coger" de
   // recolectables del bake exterior sin que esta base conozca su tipo
@@ -451,6 +478,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("curtidor:meterPiel", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarCurtidorMeterPiel(client, msg));
     this.onMessage("curtidor:recolectar", (client, msg: { construccionId?: number }) => void this.manejarCurtidorRecolectar(client, msg));
 
+    // Ganadería (docs/GDD_Ganaderia.md) — cría de animales domésticos:
+    // domesticar en el exterior o comprar por tenderete, comedero/bebedero,
+    // productos vivos (leche/lana/huevos), sacrificar. Disponible en
+    // cualquier room, no-op si no tiene ContextoConstruccion.
+    this.onMessage("animal:domesticar", (client, msg: { propiedadDestino?: string }) => void this.manejarAnimalDomesticar(client, msg));
+    this.onMessage("animal:cargarComedero", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarAnimalCargarComedero(client, msg));
+    this.onMessage("animal:recolectarProducto", (client, msg: { animalId?: string; producto?: string }) => void this.manejarAnimalRecolectarProducto(client, msg));
+    this.onMessage("animal:sacrificar", (client, msg: { animalId?: string }) => void this.manejarAnimalSacrificar(client, msg));
+    this.onMessage("animal:consultar", (client, msg: { animalId?: string }) => void this.manejarAnimalConsultar(client, msg));
+
     // --- gremios (docs/GDD_Gremios.md) — disponibles en las 4 rooms, no
     // dependen de ContextoConstruccion/parcelas (a diferencia de "construir"),
     // solo de la BD compartida.
@@ -478,6 +515,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("tenderete:reponer", (client, msg: { tenderoteId?: string; instanciaId?: number; cantidad?: number; precioFarycoins?: number }) => this.manejarTenderoteReponer(client, msg));
     this.onMessage("tenderete:fijarPrecio", (client, msg: { tenderoteId?: string; itemId?: string; precioFarycoins?: number }) => this.manejarTenderoteFijarPrecio(client, msg));
     this.onMessage("tenderete:comprar", (client, msg: { tenderoteId?: string; itemId?: string; cantidad?: number }) => this.manejarTenderoteComprar(client, msg));
+    // Venta de animales de granja (docs/GDD_Ganaderia.md) — mismo tenderete, categoría paralela a items (sin cantidad: un animal es una instancia entera).
+    this.onMessage("tenderete:listarAnimal", (client, msg: { tenderoteId?: string; animalId?: string; precioFarycoins?: number }) => void this.manejarTenderoteListarAnimal(client, msg));
+    this.onMessage("tenderete:quitarAnimalListado", (client, msg: { animalId?: string }) => void this.manejarTenderoteQuitarAnimalListado(client, msg));
+    this.onMessage("tenderete:comprarAnimal", (client, msg: { tenderoteId?: string; animalId?: string; propiedadDestino?: string }) => void this.manejarTenderoteComprarAnimal(client, msg));
 
     // --- producción/plantillas del jarl/transporte (docs/GDD_Produccion.md)
     // — mismo criterio que mercado: disponibles en cualquier room, no-op si
@@ -560,7 +601,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("comercio:solicitar", (client) => this.manejarComercioSolicitar(client));
     this.onMessage("comercio:ofrecer", (client, msg: { instanciaId?: number }) => this.manejarComercioOfrecer(client, msg));
     this.onMessage("comercio:quitarOferta", (client, msg: { instanciaId?: number }) => this.manejarComercioQuitarOferta(client, msg));
-    this.onMessage("comercio:confirmar", (client) => this.manejarComercioConfirmar(client));
+    // Traspaso de animales de granja (docs/GDD_Ganaderia.md) — mismo trato, categoría paralela a los ítems.
+    this.onMessage("comercio:ofrecerAnimal", (client, msg: { animalId?: string }) => this.manejarComercioOfrecerAnimal(client, msg));
+    this.onMessage("comercio:quitarOfertaAnimal", (client, msg: { animalId?: string }) => this.manejarComercioQuitarOfertaAnimal(client, msg));
+    this.onMessage("comercio:confirmar", (client) => void this.manejarComercioConfirmar(client));
     this.onMessage("comercio:cancelar", (client) => this.manejarComercioCancelar(client));
 
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
@@ -1118,6 +1162,23 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.state.cadaveres.set(cadaver.id, schema);
   }
 
+  /**
+   * Publica un animal de granja (docs/GDD_Ganaderia.md) — estado puro
+   * (`animalesGranjaPuros`) + su espejo de red (`state.animalesGranja`).
+   * A diferencia de publicarCadaver, se llama desde `iniciarConstruccion`
+   * (compartido por HubRoom Y RegionRoom) — funciona en cualquier room con
+   * ContextoConstruccion, no solo en el Hub.
+   */
+  protected publicarAnimalGranja(fila: AnimalGranjaFila) {
+    this.animalesGranjaPuros.set(fila.id, fila);
+    const schema = new AnimalGranjaSchema();
+    schema.x = fila.x;
+    schema.y = fila.y;
+    schema.especieId = fila.especieId;
+    schema.duenoNombre = this.ctxConstruccion?.propiedades.get(fila.propiedadId)?.dueno ?? "";
+    this.state.animalesGranja.set(fila.id, schema);
+  }
+
   /** Estadísticas de loot/combate de una especie — sobreescrito por HubRoom (única room con catalogoCombate real hoy); null en cualquier otra. */
   protected estadisticasFaunaDe(_especieId: string): EstadisticasCombateAnimal | null {
     return null;
@@ -1393,6 +1454,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       `Construcción (${asentamiento}): ${ctx.parcelas.parcelas.size} parcelas, ` +
       `${guardadas.length} construcciones cargadas, ${jarls.size} jarl(s)`,
     );
+
+    // Ganadería (docs/GDD_Ganaderia.md) — `asentamiento` ES el mapaId real
+    // aquí (HubRoom/RegionRoom llaman a iniciarConstruccion con el mismo
+    // basename que usan para cadáveres) — se publican TAL CUAL, sin
+    // resolver producción/escape en la carga: eso es perezoso, se resuelve
+    // en la primera interacción real (mismo criterio que curtidor/colmena).
+    for (const fila of await bd.listarAnimalesGranjaMapa(asentamiento)) {
+      this.publicarAnimalGranja(fila);
+    }
 
     this.onMessage("parcela:asignar", async (client, msg: { parcelaId?: string; nombreJugador?: string }) => {
       const nombre = this.nombreDe(client);
@@ -1996,6 +2066,39 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (comercioId) this.cerrarComercio(comercioId, "cancelado");
   }
 
+  /** Ofrecer un animal de granja propio (docs/GDD_Ganaderia.md) — mismo criterio que ofrecer un ítem: instancia entera, nadie toca la oferta con el otro ya confirmado. */
+  private manejarComercioOfrecerAnimal(client: Client, msg: { animalId?: string }) {
+    const comercioId = this.comerciosPorSesion.get(client.sessionId);
+    if (!comercioId || !msg?.animalId) return;
+    const comercio = this.state.comercios.get(comercioId);
+    if (!comercio || comercio.confirmadoA || comercio.confirmadoB) return;
+    const ctx = this.ctxConstruccion;
+    const nombre = this.state.players.get(client.sessionId)?.name;
+    if (!ctx || !nombre) return;
+    const fila = this.animalesGranjaPuros.get(msg.animalId);
+    if (!fila) return;
+    const dueno = ctx.propiedades.get(fila.propiedadId)?.dueno;
+    if (dueno?.toLowerCase() !== nombre.toLowerCase()) return; // solo puedes ofrecer TU propio animal
+    const soyA = comercio.jugadorA === client.sessionId;
+    const oferta = soyA ? comercio.ofertaAnimalesA : comercio.ofertaAnimalesB;
+    if (oferta.includes(msg.animalId)) return;
+    oferta.push(msg.animalId);
+  }
+
+  private manejarComercioQuitarOfertaAnimal(client: Client, msg: { animalId?: string }) {
+    const comercioId = this.comerciosPorSesion.get(client.sessionId);
+    if (!comercioId || !msg?.animalId) return;
+    const comercio = this.state.comercios.get(comercioId);
+    if (!comercio) return;
+    const soyA = comercio.jugadorA === client.sessionId;
+    const oferta = soyA ? comercio.ofertaAnimalesA : comercio.ofertaAnimalesB;
+    const idx = oferta.indexOf(msg.animalId);
+    if (idx === -1) return;
+    oferta.splice(idx, 1);
+    comercio.confirmadoA = false;
+    comercio.confirmadoB = false;
+  }
+
   /** Mueve cada instancia listada de `origen` a `destino` buscando hueco libre — false en cuanto una no cabe (o ya no existe), sin abortar a medias porque siempre se llama primero sobre COPIAS (ver manejarComercioConfirmar). */
   private simularIntercambio(origen: Contenedor, destino: Contenedor, instanciaIds: number[]): boolean {
     for (const id of instanciaIds) {
@@ -2008,14 +2111,43 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return true;
   }
 
+  /** Primera propiedad de `nombre` (en ESTA room) con refugio para `categoriaVida` — `null` si no tiene ninguna así (aborta el traspaso del animal). */
+  private primeraPropiedadConRefugio(nombre: string, categoriaVida: CategoriaVidaAnimal): string | null {
+    const ctx = this.ctxConstruccion;
+    if (!ctx) return null;
+    for (const [propiedadId, info] of ctx.propiedades.entries()) {
+      if (info.dueno?.toLowerCase() !== nombre.toLowerCase()) continue;
+      if (this.tieneRefugioParaCategoria(propiedadId, categoriaVida)) return propiedadId;
+    }
+    return null;
+  }
+
+  /** Valida que cada animal SIGA siendo de `nombreDueno` y que `nombreReceptor` tenga refugio para recibirlo — `null` si cualquiera falla (todo o nada, mismo criterio que simularIntercambio con ítems). */
+  private prepararTraspasoAnimales(animalIds: string[], nombreDueno: string, nombreReceptor: string): Map<string, string> | null {
+    const ctx = this.ctxConstruccion;
+    if (!ctx) return animalIds.length === 0 ? new Map() : null;
+    const destinos = new Map<string, string>();
+    for (const animalId of animalIds) {
+      const fila = this.animalesGranjaPuros.get(animalId);
+      const duenoActual = fila ? ctx.propiedades.get(fila.propiedadId)?.dueno : undefined;
+      if (!fila || duenoActual?.toLowerCase() !== nombreDueno.toLowerCase()) return null;
+      const stats = this.estadisticasFaunaDe(fila.especieId);
+      const destino = stats ? this.primeraPropiedadConRefugio(nombreReceptor, stats.categoriaVida) : null;
+      if (!destino) return null;
+      destinos.set(animalId, destino);
+    }
+    return destinos;
+  }
+
   /**
-   * Cuando AMBOS confirman: todo o nada (docs/GDD_Comercio.md) — se simula
-   * el intercambio completo sobre copias de los dos contenedores primero; si
-   * algún objeto no cabe en el destino, nadie pierde ni gana nada y se avisa
-   * del motivo. Solo si la simulación entera cuadra se repite exactamente la
-   * misma secuencia sobre los contenedores reales.
+   * Cuando AMBOS confirman: todo o nada (docs/GDD_Comercio.md), AMPLIADO a
+   * animales de granja (docs/GDD_Ganaderia.md) — se simula el intercambio
+   * de ítems Y se valida el traspaso de animales (cada uno sigue siendo
+   * del ofertante Y el receptor tiene refugio) sobre copias/consultas
+   * primero; si CUALQUIERA de las dos partes no cuadra, nadie pierde ni
+   * gana nada. Solo si TODO cuadra se aplica de verdad.
    */
-  private manejarComercioConfirmar(client: Client) {
+  private async manejarComercioConfirmar(client: Client) {
     const comercioId = this.comerciosPorSesion.get(client.sessionId);
     if (!comercioId) return;
     const comercio = this.state.comercios.get(comercioId);
@@ -2033,12 +2165,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const pasoBaA = comercio.ofertaB.map((o) => o.instanciaId);
     const simA: Contenedor = structuredClone(contA);
     const simB: Contenedor = structuredClone(contB);
-    const cuadra = this.simularIntercambio(simA, simB, pasoAaB) && this.simularIntercambio(simB, simA, pasoBaA);
-    if (!cuadra) {
+    const cuadraItems = this.simularIntercambio(simA, simB, pasoAaB) && this.simularIntercambio(simB, simA, pasoBaA);
+
+    const nombreA = this.state.players.get(comercio.jugadorA)?.name;
+    const nombreB = this.state.players.get(comercio.jugadorB)?.name;
+    const animalesAaB = nombreA && nombreB ? this.prepararTraspasoAnimales([...comercio.ofertaAnimalesA], nombreA, nombreB) : null;
+    const animalesBaA = nombreA && nombreB ? this.prepararTraspasoAnimales([...comercio.ofertaAnimalesB], nombreB, nombreA) : null;
+
+    if (!cuadraItems || !animalesAaB || !animalesBaA) {
       comercio.confirmadoA = false;
       comercio.confirmadoB = false;
+      const motivo = !cuadraItems ? "no hay hueco para completar el intercambio" : "un animal ofrecido ya no es válido (se movió, o el receptor no tiene refugio para él)";
       for (const sid of [comercio.jugadorA, comercio.jugadorB]) {
-        this.clients.find((c) => c.sessionId === sid)?.send("comercio:error", { motivo: "no hay hueco para completar el intercambio" });
+        this.clients.find((c) => c.sessionId === sid)?.send("comercio:error", { motivo });
       }
       return;
     }
@@ -2049,6 +2188,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const playerB = this.state.players.get(comercio.jugadorB);
     if (playerA) sincronizarContenedor(playerA.inventario.cuerpo, contA);
     if (playerB) sincronizarContenedor(playerB.inventario.cuerpo, contB);
+
+    const bd = await obtenerBdCompartida();
+    for (const [destinos, receptorPlayer] of [[animalesAaB, playerB] as const, [animalesBaA, playerA] as const]) {
+      for (const [animalId, destino] of destinos) {
+        const fila = this.animalesGranjaPuros.get(animalId);
+        if (!fila) continue;
+        const punto = this.puntoDePropiedad(destino) ?? (receptorPlayer ? { x: receptorPlayer.x, y: receptorPlayer.y } : { x: fila.x, y: fila.y });
+        const ok = await bd.transferirAnimalGranja(animalId, fila.propiedadId, destino, this.asentamientoConstruccion ?? fila.mapaId, punto.x, punto.y);
+        if (!ok) continue; // se movió/vendió justo entre la validación y aquí — se pierde ESE traspaso, no todo el trato (ya se aplicaron los ítems)
+        this.animalesGranjaPuros.delete(animalId);
+        this.state.animalesGranja.delete(animalId);
+        this.publicarAnimalGranja({ ...fila, propiedadId: destino, mapaId: this.asentamientoConstruccion ?? fila.mapaId, x: punto.x, y: punto.y, enVentaTenderoteId: null, enVentaPrecio: null });
+      }
+    }
 
     this.cerrarComercio(comercioId, "completado");
   }
@@ -2413,9 +2566,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     await this.resolverContratosDeDestino(msg.tenderoteId);
     const bd = await obtenerBdCompartida();
     const stock = await bd.listarStockTenderete(msg.tenderoteId);
+    const animales = await bd.listarAnimalesEnVentaTenderete(msg.tenderoteId);
     client.send("tenderete:escaparate", {
       tenderoteId: msg.tenderoteId,
       items: stock.map((s) => ({ itemId: s.itemId, precioFarycoins: s.precioFarycoins, disponible: s.cantidad > 0 })),
+      animales: animales.map((a) => ({ animalId: a.id, especieId: a.especieId, precioFarycoins: a.enVentaPrecio ?? 0 })),
     });
   }
 
@@ -2429,7 +2584,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return this.errorTenderete(client, "no tienes permiso para gestionar este tenderete");
     }
     const bd = await obtenerBdCompartida();
-    client.send("tenderete:gestion", { tenderoteId: msg.tenderoteId, items: await bd.listarStockTenderete(msg.tenderoteId) });
+    client.send("tenderete:gestion", {
+      tenderoteId: msg.tenderoteId,
+      items: await bd.listarStockTenderete(msg.tenderoteId),
+      animales: await bd.listarAnimalesEnVentaTenderete(msg.tenderoteId),
+    });
   }
 
   /**
@@ -2544,6 +2703,98 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       ok: true, tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad,
       precioTotal: r.precioTotal, saldoRestante: r.saldoRestante,
     });
+  }
+
+  /**
+   * Lista un animal de granja propio a la venta en un tenderete propio
+   * (docs/GDD_Ganaderia.md) — el animal sigue viviendo en SU propiedad
+   * hasta que se venda, no se mueve al listarlo. Requiere que el animal
+   * exista en ESTA room (mismo mapaId que el tenderete — comerciar un
+   * animal exige estar en su misma región, límite deliberado v1).
+   */
+  private async manejarTenderoteListarAnimal(client: Client, msg: { tenderoteId?: string; animalId?: string; precioFarycoins?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || !msg?.tenderoteId || !msg.animalId) return;
+    const precio = Math.floor(msg.precioFarycoins ?? 0);
+    if (!(precio > 0)) return this.errorTenderete(client, "precio inválido");
+
+    const duenoTenderete = await this.duenoDeTenderete(msg.tenderoteId);
+    if (!duenoTenderete || duenoTenderete.toLowerCase() !== nombre.toLowerCase()) {
+      return this.errorTenderete(client, "no eres el dueño de este tenderete");
+    }
+    const fila = this.animalesGranjaPuros.get(msg.animalId);
+    if (!fila) return this.errorTenderete(client, "ese animal no existe aquí");
+    const duenoAnimal = ctx.propiedades.get(fila.propiedadId)?.dueno;
+    if (duenoAnimal?.toLowerCase() !== nombre.toLowerCase()) return this.errorTenderete(client, "ese animal no es tuyo");
+
+    const bd = await obtenerBdCompartida();
+    const ok = await bd.fijarVentaAnimalGranja(msg.animalId, fila.propiedadId, msg.tenderoteId, precio);
+    if (!ok) return this.errorTenderete(client, "no se pudo listar ese animal");
+    fila.enVentaTenderoteId = msg.tenderoteId;
+    fila.enVentaPrecio = precio;
+    client.send("tenderete:animalListado", { tenderoteId: msg.tenderoteId, animalId: msg.animalId, precioFarycoins: precio });
+  }
+
+  /** Quita un animal de la venta — solo el dueño (no hace falta ser dueño del tenderete: es SU animal). */
+  private async manejarTenderoteQuitarAnimalListado(client: Client, msg: { animalId?: string }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || !msg?.animalId) return;
+    const fila = this.animalesGranjaPuros.get(msg.animalId);
+    if (!fila) return this.errorTenderete(client, "ese animal no existe aquí");
+    const duenoAnimal = ctx.propiedades.get(fila.propiedadId)?.dueno;
+    if (duenoAnimal?.toLowerCase() !== nombre.toLowerCase()) return this.errorTenderete(client, "ese animal no es tuyo");
+
+    const bd = await obtenerBdCompartida();
+    await bd.fijarVentaAnimalGranja(msg.animalId, fila.propiedadId, null, null);
+    fila.enVentaTenderoteId = null;
+    fila.enVentaPrecio = null;
+    client.send("tenderete:animalQuitado", { animalId: msg.animalId });
+  }
+
+  /**
+   * Compra un animal listado — cualquiera salvo el propio dueño, con
+   * `propiedadDestino` (tuya, EN ESTA MISMA región) que ya debe tener el
+   * refugio adecuado para esa especie — mismo requisito que domesticar.
+   * Compare-and-swap atómico en BD (cobro + abono + reubicación); si algo
+   * falla, no se cobra ni se mueve nada.
+   */
+  private async manejarTenderoteComprarAnimal(client: Client, msg: { tenderoteId?: string; animalId?: string; propiedadDestino?: string }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || !msg?.tenderoteId || !msg.animalId || !msg.propiedadDestino) return;
+
+    const fila = this.animalesGranjaPuros.get(msg.animalId);
+    if (!fila || fila.enVentaTenderoteId !== msg.tenderoteId) return this.errorTenderete(client, "ese animal ya no está en venta aquí");
+    const duenoActual = ctx.propiedades.get(fila.propiedadId)?.dueno;
+    if (duenoActual?.toLowerCase() === nombre.toLowerCase()) return this.errorTenderete(client, "no puedes comprarte tu propio animal");
+
+    const duenoDestino = ctx.propiedades.get(msg.propiedadDestino)?.dueno;
+    if (!duenoDestino || duenoDestino.toLowerCase() !== nombre.toLowerCase()) {
+      return this.errorTenderete(client, "esa propiedad de destino no es tuya");
+    }
+    const stats = this.estadisticasFaunaDe(fila.especieId);
+    if (stats && !this.tieneRefugioParaCategoria(msg.propiedadDestino, stats.categoriaVida)) {
+      return this.errorTenderete(client, "necesitas un refugio en la propiedad de destino para esta especie");
+    }
+
+    const punto = this.puntoDePropiedad(msg.propiedadDestino) ?? { x: fila.x, y: fila.y };
+    const bd = await obtenerBdCompartida();
+    const resultado = await bd.comprarAnimalGranja({
+      id: msg.animalId, tenderoteId: msg.tenderoteId, propiedadDestino: msg.propiedadDestino,
+      mapaIdDestino: this.asentamientoConstruccion ?? fila.mapaId, x: punto.x, y: punto.y,
+      compradorNombre: nombre, duenoNombre: duenoActual ?? nombre,
+    });
+    if (!resultado.ok) return this.errorTenderete(client, resultado.motivo);
+
+    this.animalesGranjaPuros.delete(msg.animalId);
+    this.state.animalesGranja.delete(msg.animalId);
+    this.publicarAnimalGranja({
+      ...fila, propiedadId: msg.propiedadDestino, mapaId: this.asentamientoConstruccion ?? fila.mapaId,
+      x: punto.x, y: punto.y, enVentaTenderoteId: null, enVentaPrecio: null,
+    });
+    client.send("tenderete:animalComprado", { tenderoteId: msg.tenderoteId, animalId: msg.animalId, especieId: resultado.especieId, precioTotal: resultado.precioTotal });
   }
 
   // ---- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ----
@@ -3756,6 +4007,322 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("curtidor:completado", { construccionId: viva.id, itemId: datos.salida, cantidad: resultado.cantidad });
   }
 
+  // ---- Ganadería (docs/GDD_Ganaderia.md, cría de animales domésticos) ----
+
+  private errorAnimal(client: Client, motivo: string) {
+    client.send("animal:error", { motivo });
+  }
+
+  /** ¿Hay algún refugio de esa categoriaVida (gallinero/nido/cobertizo_ganado) en esta propiedad? Sin uno, no se puede traer un animal de esas categorías. */
+  private tieneRefugioParaCategoria(propiedadId: string, categoriaVida: CategoriaVidaAnimal): boolean {
+    const ctx = this.ctxConstruccion;
+    if (!ctx) return false;
+    for (const viva of ctx.vivas.values()) {
+      if (viva.propiedad !== propiedadId) continue;
+      if (this.entradaDe(viva.objeto)?.refugioGranja?.categoriasVida.includes(categoriaVida)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * ¿Tiene esta propiedad comedero con stock Y bebedero hoy? Un `bebedero`
+   * se distingue de una trampa de pesca (que TAMBIÉN es `requiereAgua`)
+   * por no tener `produccion` — ambas cosas junto al agua, pero solo una
+   * es un abrevadero. Gatea la producción de leche/lana/huevos (se congela
+   * sin comer/beber, nunca hace daño al animal — decisión explícita).
+   */
+  private tieneComidaYAguaHoy(propiedadId: string): boolean {
+    const ctx = this.ctxConstruccion;
+    if (!ctx) return false;
+    let hayComedero = false, hayBebedero = false;
+    for (const viva of ctx.vivas.values()) {
+      if (viva.propiedad !== propiedadId) continue;
+      const entrada = this.entradaDe(viva.objeto);
+      if (!entrada) continue;
+      if (entrada.alimentador) {
+        const extra = (viva.extra ?? {}) as { alimentador?: { stock: number } };
+        if ((extra.alimentador?.stock ?? 0) > 0) hayComedero = true;
+      }
+      if (entrada.requiereAgua && !entrada.produccion) hayBebedero = true;
+    }
+    return hayComedero && hayBebedero;
+  }
+
+  /**
+   * Resuelve perezosamente el escape (docs/GDD_Ganaderia.md) desde
+   * `ultimoDiaEscapeChequeado` hasta hoy — SIEMPRE se llama antes de
+   * cualquier interacción con un animal concreto, para que uno ya escapado
+   * deje de responder cuanto antes. Si escapa: se borra de BD/estado y
+   * reaparece como `Fauna` normal en ESTA room (simplificación deliberada
+   * v1 — NO se integra en faunaSalvajeViva/reproducción individual
+   * persistente, ver docs/GDD_Ganaderia.md §escape). Devuelve `true` si
+   * ACABA de escapar en esta resolución.
+   */
+  private async resolverEscapeAnimal(fila: AnimalGranjaFila): Promise<boolean> {
+    const diaActual = tiempoMundo().dia;
+    const extraActual = fila.extra as { produccion?: Partial<Record<CategoriaProductoGranja, EstadoProduccion>>; ultimoDiaEscapeChequeado?: number };
+    const ultimoDia = extraActual.ultimoDiaEscapeChequeado ?? diaActual;
+    const diasTranscurridos = diaActual - ultimoDia;
+    if (diasTranscurridos <= 0) return false;
+
+    const encerrado = estaEncerrado(this.mundo, fila.x, fila.y);
+    const bd = await obtenerBdCompartida();
+    if (tiroEscape(diasTranscurridos, encerrado)) {
+      await bd.borrarAnimalGranja(fila.id);
+      this.animalesGranjaPuros.delete(fila.id);
+      this.state.animalesGranja.delete(fila.id);
+      const f = new Fauna();
+      f.x = fila.x; f.y = fila.y; f.especieId = fila.especieId;
+      const stats = this.estadisticasFaunaDe(fila.especieId);
+      f.vida = stats?.vidaMaxima ?? 15; f.vidaMax = stats?.vidaMaxima ?? 15; f.ataque = stats?.ataque ?? 2;
+      this.state.fauna.set(`escapado:${fila.id}`, f);
+      return true;
+    }
+
+    fila.extra = { ...extraActual, ultimoDiaEscapeChequeado: diaActual };
+    await bd.actualizarExtraAnimalGranja(fila.id, fila.extra);
+    return false;
+  }
+
+  /**
+   * Domestica el animal de granja domesticable más cercano (auto-apunta,
+   * mismo criterio sin targeting que el resto del proyecto) — funciona
+   * tanto contra fauna SALVAJE (HubRoom, p.ej. cabra) como URBANA
+   * (RegionRoom, p.ej. vaca/oveja/cerdo/gallina). `veces` = mismo umbral
+   * que mascotas (5x dar de comida), pero crea un AnimalGranja en
+   * `propiedadDestino` en vez de una Mascota que sigue al jugador — exige
+   * ya tener un refugio (gallinero/nido/cobertizo_ganado) allí.
+   */
+  private async manejarAnimalDomesticar(client: Client, msg: { propiedadDestino?: string }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !ctx || !player || !msg?.propiedadDestino) return;
+
+    const propiedadDestino = msg.propiedadDestino;
+    const duenoDestino = ctx.propiedades.get(propiedadDestino)?.dueno;
+    if (!duenoDestino || duenoDestino.toLowerCase() !== nombre.toLowerCase()) {
+      return this.errorAnimal(client, "esa propiedad no es tuya");
+    }
+
+    let faunaId: string | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    for (const [id, f] of this.state.fauna.entries()) {
+      const stats = this.estadisticasFaunaDe(f.especieId);
+      if (!stats?.domesticable || !stats.categoriaRecursoCarne) continue; // ganadería = domesticable CON carne (distingue de perro/gato/monturas)
+      const d = Math.hypot(f.x - player.x, f.y - player.y);
+      if (d < mejorDist) { mejorDist = d; faunaId = id; }
+    }
+    if (!faunaId) return this.errorAnimal(client, "no hay ningún animal de granja domesticable cerca");
+
+    const especieId = this.state.fauna.get(faunaId)!.especieId;
+    const stats = this.estadisticasFaunaDe(especieId)!;
+    if (!this.tieneRefugioParaCategoria(propiedadDestino, stats.categoriaVida)) {
+      return this.errorAnimal(client, "necesitas un refugio (gallinero/nido/cobertizo_ganado) en esa propiedad para esta especie");
+    }
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const comida = contenedor.items.find((it) => this.catalogoItems[it.itemId]?.comidaMascota);
+    if (!comida) return this.errorAnimal(client, "necesitas comida para domesticarlo");
+    const quitado = quitarItem(contenedor, comida.id, 1);
+    if (!quitado.ok) return;
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const progreso = this.progresoDomesticarGranja.get(client.sessionId);
+    const veces = (progreso?.faunaId === faunaId ? progreso.veces : 0) + 1;
+    if (veces < VECES_COMIDA_PARA_DOMESTICAR_GRANJA) {
+      this.progresoDomesticarGranja.set(client.sessionId, { faunaId, veces });
+      return client.send("animal:domesticando", { veces, faltan: VECES_COMIDA_PARA_DOMESTICAR_GRANJA - veces });
+    }
+    this.progresoDomesticarGranja.delete(client.sessionId);
+
+    const manejado = await this.onFaunaDomesticada(faunaId);
+    if (!manejado) this.state.fauna.delete(faunaId);
+
+    const bd = await obtenerBdCompartida();
+    const id = `animal:${especieId}:${Date.now()}:${this.contadorAnimalGranja++}`;
+    const punto = this.puntoDePropiedad(propiedadDestino) ?? { x: player.x, y: player.y };
+    const fila: AnimalGranjaFila = {
+      id, especieId, mapaId: this.asentamientoConstruccion ?? "", propiedadId: propiedadDestino,
+      x: punto.x, y: punto.y, extra: { ultimoDiaEscapeChequeado: tiempoMundo().dia },
+      enVentaTenderoteId: null, enVentaPrecio: null, creadoEn: new Date().toISOString(),
+    };
+    await bd.crearAnimalGranjaBd(fila);
+    this.publicarAnimalGranja(fila);
+    client.send("animal:domesticado", { animalId: id, especieId });
+  }
+
+  /** Carga un comedero con pienso a granel — dueño o jarl, sin oficio (mantenimiento, no artesanía). Mismo patrón que curtidor:cargarMaterial pero sin lote/transformación, solo un contador de stock. */
+  private async manejarAnimalCargarComedero(client: Client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number" || typeof msg.instanciaId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorAnimal(client, "construcción inexistente");
+    const dueno = ctx.propiedades.get(viva.propiedad)?.dueno ?? (await this.duenoDeTenderete(viva.propiedad));
+    if (dueno !== nombre && !esJarl(ctx, nombre)) return this.errorAnimal(client, "no eres el dueño de esta construcción");
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) return this.errorAnimal(client, "demasiado lejos");
+
+    const datos = this.entradaDe(viva.objeto)?.alimentador;
+    if (!datos) return this.errorAnimal(client, "esta construcción no admite pienso");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it || it.itemId !== datos.itemId) return this.errorAnimal(client, "eso no es lo que necesita este comedero");
+
+    const extraActual = (viva.extra ?? {}) as { alimentador?: { stock: number }; [k: string]: unknown };
+    const stockActual = extraActual.alimentador?.stock ?? 0;
+    const hueco = Math.max(0, datos.capacidadMaxMaterial - stockActual);
+    if (hueco <= 0) return this.errorAnimal(client, "ya está lleno");
+    const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad, hueco));
+
+    const resultado = quitarItem(contenedor, msg.instanciaId, cantidad);
+    if (!resultado.ok) return this.errorAnimal(client, resultado.motivo ?? "no se pudo cargar");
+
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...extraActual, alimentador: { stock: stockActual + cantidad } };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("animal:comederoEstado", { construccionId: viva.id, stock: stockActual + cantidad, capacidadMax: datos.capacidadMaxMaterial });
+  }
+
+  /**
+   * Recolecta un producto vivo (leche/lana/huevos) — dueño o jarl,
+   * resuelve el escape primero, luego `resolverProduccion` reusado tal
+   * cual (mismo mecanismo que colmena/curtidor): `requiereTrabajador`
+   * pasa a significar "tiene comida y agua hoy", congelando el reloj sin
+   * castigo cuando no las tiene.
+   */
+  private async manejarAnimalRecolectarProducto(client: Client, msg: { animalId?: string; producto?: string }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !ctx || !player || !msg?.animalId || !msg.producto) return;
+
+    const fila = this.animalesGranjaPuros.get(msg.animalId);
+    if (!fila) return this.errorAnimal(client, "ese animal no existe");
+    const dueno = ctx.propiedades.get(fila.propiedadId)?.dueno;
+    if (dueno?.toLowerCase() !== nombre.toLowerCase() && !esJarl(ctx, nombre)) {
+      return this.errorAnimal(client, "no eres el dueño de este animal");
+    }
+    if (Math.hypot(fila.x - player.x, fila.y - player.y) > RADIO_INTERACCION) return this.errorAnimal(client, "demasiado lejos");
+
+    const producto = msg.producto as CategoriaProductoGranja;
+    const cfg = PRODUCTOS_GRANJA[producto];
+    if (!cfg) return this.errorAnimal(client, "producto desconocido");
+    const stats = this.estadisticasFaunaDe(fila.especieId);
+    if (!stats?.categoriaProductoGranja?.includes(producto)) return this.errorAnimal(client, "este animal no da ese producto");
+    if (cfg.exigeOficio && player.oficio !== "ganadero") return this.errorAnimal(client, "necesitas el oficio de ganadero");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    if (cfg.herramienta && !contenedor.items.some((it) => it.itemId === cfg.herramienta)) {
+      return this.errorAnimal(client, `necesitas ${cfg.herramienta}`);
+    }
+
+    if (await this.resolverEscapeAnimal(fila)) return this.errorAnimal(client, "ese animal ya no está — se ha escapado");
+
+    const bd = await obtenerBdCompartida();
+    const extraActual = fila.extra as { produccion?: Partial<Record<CategoriaProductoGranja, EstadoProduccion>>; ultimoDiaEscapeChequeado?: number };
+    const produccionPrevia = extraActual.produccion ?? {};
+    const estadoPrevio: EstadoProduccion = produccionPrevia[producto] ?? { stock: 0, ultimoCalculo: Date.now() };
+    const alimentado = this.tieneComidaYAguaHoy(fila.propiedadId);
+    const datosProduccion: DatosProduccion = {
+      itemId: cfg.itemId, cantidadPorIntervalo: cfg.cantidadPorDia, intervaloHoras: 24, capacidadMax: cfg.capacidadMax, requiereTrabajador: true,
+    };
+    const resuelto = resolverProduccion({ ...estadoPrevio, trabajadorAsignado: alimentado }, datosProduccion, Date.now());
+    const cantidadEntera = Math.floor(resuelto.stock);
+
+    if (cantidadEntera <= 0) {
+      fila.extra = { ...extraActual, produccion: { ...produccionPrevia, [producto]: resuelto } };
+      await bd.actualizarExtraAnimalGranja(fila.id, fila.extra);
+      return this.errorAnimal(client, alimentado ? "todavía no hay nada que recolectar" : "el animal no ha comido ni bebido hoy");
+    }
+
+    const resultado = intentarCoger(contenedor, this.catalogoItems, { itemId: cfg.itemId, cantidad: cantidadEntera });
+    if (!resultado.ok) return this.errorAnimal(client, "no tienes hueco en tu inventario");
+
+    const nuevoEstado: EstadoProduccion = { ...resuelto, stock: resuelto.stock - cantidadEntera };
+    fila.extra = { ...extraActual, produccion: { ...produccionPrevia, [producto]: nuevoEstado } };
+    await bd.actualizarExtraAnimalGranja(fila.id, fila.extra);
+
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("animal:producto", { animalId: fila.id, producto, itemId: cfg.itemId, cantidad: cantidadEntera });
+  }
+
+  /**
+   * Sacrifica el animal — dueño o jarl, exige cuchillo_desollar (reusado
+   * de docs/GDD_Caza.md, SIN exigir oficio: matar tu propio animal no
+   * necesita entrenamiento). Da carne+piel reusando `rellenarLootCaza`/
+   * `pielDeDesollado` TAL CUAL — mismas tablas que la caza, sin pasar por
+   * cadáver (el animal desaparece del todo directamente).
+   */
+  private async manejarAnimalSacrificar(client: Client, msg: { animalId?: string }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !ctx || !player || !msg?.animalId) return;
+
+    const fila = this.animalesGranjaPuros.get(msg.animalId);
+    if (!fila) return this.errorAnimal(client, "ese animal no existe");
+    const dueno = ctx.propiedades.get(fila.propiedadId)?.dueno;
+    if (dueno?.toLowerCase() !== nombre.toLowerCase() && !esJarl(ctx, nombre)) {
+      return this.errorAnimal(client, "no eres el dueño de este animal");
+    }
+    if (Math.hypot(fila.x - player.x, fila.y - player.y) > RADIO_INTERACCION) return this.errorAnimal(client, "demasiado lejos");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
+      return this.errorAnimal(client, "necesitas un cuchillo de desollar");
+    }
+    const especie = this.estadisticasFaunaDe(fila.especieId);
+    if (!especie) return this.errorAnimal(client, "no se puede sacrificar esto");
+
+    const temporal = crearContenedor(ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER);
+    rellenarLootCaza(temporal, this.catalogoItems, especie);
+    const pielResultado = pielDeDesollado(especie);
+    if (pielResultado.pielItemId) agregarItem(temporal, this.catalogoItems, pielResultado.pielItemId, pielResultado.pielCantidad);
+
+    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const entregados: string[] = [];
+    for (const item of temporal.items) {
+      if (excedePesoMaximo(contenedor, this.catalogoItems, item.itemId, item.cantidad, pesoMaximo)) continue;
+      if (intentarCoger(contenedor, this.catalogoItems, { itemId: item.itemId, cantidad: item.cantidad }).ok) {
+        entregados.push(item.itemId);
+      }
+    }
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const bd = await obtenerBdCompartida();
+    await bd.borrarAnimalGranja(fila.id);
+    this.animalesGranjaPuros.delete(fila.id);
+    this.state.animalesGranja.delete(fila.id);
+    client.send("animal:sacrificado", { animalId: fila.id, entregados });
+  }
+
+  /** Consulta de solo lectura (estado/producción/vallado) — para UI/depuración, sin gating de dueño (información pública del animal, mismo criterio que tenderete:escaparate). */
+  private async manejarAnimalConsultar(client: Client, msg: { animalId?: string }) {
+    if (!msg?.animalId) return;
+    const fila = this.animalesGranjaPuros.get(msg.animalId);
+    if (!fila) return this.errorAnimal(client, "ese animal no existe");
+    await this.resolverEscapeAnimal(fila);
+    const filaActual = this.animalesGranjaPuros.get(msg.animalId);
+    if (!filaActual) return this.errorAnimal(client, "ese animal se acaba de escapar");
+    const stats = this.estadisticasFaunaDe(filaActual.especieId);
+    client.send("animal:estado", {
+      animalId: filaActual.id, especieId: filaActual.especieId, propiedadId: filaActual.propiedadId,
+      productos: stats?.categoriaProductoGranja ?? [],
+      encerrado: estaEncerrado(this.mundo, filaActual.x, filaActual.y),
+      alimentadoHoy: this.tieneComidaYAguaHoy(filaActual.propiedadId),
+    });
+  }
+
   /**
    * Actividad diaria de entrenamiento (docs/GDD_Personaje.md §3.5, pedido
    * 2026-08-30): acercarse a una construcción con `actividadAtributo` en su
@@ -3968,6 +4535,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * aquí, que la quite el camino genérico (sin cadáver).
    */
   protected async onFaunaMuerta(_id: string): Promise<boolean> {
+    return false;
+  }
+
+  /**
+   * Punto de enganche gemelo de `onFaunaMuerta` (docs/GDD_Ganaderia.md,
+   * pedido 2026-08-30): domesticar una fauna VIVA (no matarla) tiene que
+   * quitarla de SU gestor real (GestorFaunaSalvaje en HubRoom, GestorFauna
+   * en RegionRoom) para no dejar bookkeeping huérfano — cada room sabe cuál
+   * es el suyo. `true` = ya se encargó de quitarla del estado (mismo
+   * criterio que onFaunaMuerta); `false` = sin gestor aquí, cae al borrado
+   * genérico de `state.fauna`.
+   */
+  protected async onFaunaDomesticada(_id: string): Promise<boolean> {
     return false;
   }
 

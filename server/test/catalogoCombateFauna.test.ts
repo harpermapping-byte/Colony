@@ -38,6 +38,18 @@ test("cargarCatalogoCombateFauna: propaga categoriaRecursoCarne/Piel para el loo
   assert.strictEqual(catalogo["conejo"].categoriaRecursoCarne, "carne_blanca");
 });
 
+test("cargarCatalogoCombateFauna: propaga categoriaProductoGranja para ganadería (docs/GDD_Ganaderia.md)", () => {
+  const catalogo = cargarCatalogoCombateFauna(RUTA_ANIMALES);
+  assert.deepStrictEqual(catalogo["vaca"].categoriaProductoGranja, ["leche"]);
+  assert.deepStrictEqual(catalogo["oveja"].categoriaProductoGranja, ["lana", "leche"]);
+  assert.deepStrictEqual(catalogo["carnero"].categoriaProductoGranja, ["lana"]);
+  assert.deepStrictEqual(catalogo["cabra"].categoriaProductoGranja, ["leche"]);
+  assert.deepStrictEqual(catalogo["gallina_salvaje"].categoriaProductoGranja, ["huevos"]);
+  assert.deepStrictEqual(catalogo["oca"].categoriaProductoGranja, ["huevos"]);
+  assert.strictEqual(catalogo["toro"].categoriaProductoGranja, undefined, "el macho no da leche");
+  assert.strictEqual(catalogo["cerdo"].categoriaProductoGranja, undefined, "solo carne, ningún producto vivo");
+});
+
 test("estadisticasCombatePorDefecto: relleno seguro para una especie sin catalogar", () => {
   const relleno = estadisticasCombatePorDefecto();
   assert.strictEqual(relleno.categoriaVida, "pequeno");

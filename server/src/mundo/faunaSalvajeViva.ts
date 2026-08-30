@@ -231,6 +231,32 @@ export class GestorFaunaSalvaje {
   }
 
   /**
+   * Domestica a un individuo activo (docs/GDD_Ganaderia.md, pedido
+   * 2026-08-30): mismo camino de salida que `matarIndividuo` (marca
+   * `estado:"muerto"` — reusa el mismo valor, el resto del sistema solo
+   * necesita saber "ya no vive en la fauna salvaje", el motivo real no le
+   * importa — y lo quita del sector activo) pero SIN crear cadáver ni
+   * loot: pasa a ser un `AnimalGranja` de un jugador, no murió. Devuelve
+   * la especie para que quien llama sepa qué acaba de domesticar, o
+   * `null` si el id no está activo ahora mismo.
+   */
+  async domesticar(id: string): Promise<string | null> {
+    for (const vivos of this.sectoresActivos.values()) {
+      const idx = vivos.findIndex((v) => v.fila.id === id);
+      if (idx === -1) continue;
+      const v = vivos[idx];
+      v.fila.x = v.esquema.x;
+      v.fila.y = v.esquema.y;
+      v.fila.estado = "muerto";
+      await this.deps.guardarIndividuo(v.fila);
+      this.salida.delete(v.fila.id);
+      vivos.splice(idx, 1);
+      return v.fila.especieId;
+    }
+    return null;
+  }
+
+  /**
    * Aplica daño a un individuo activo (docs/GDD_Mecanicas.md §5.4, pedido
    * 2026-08-30) — los animales NO tienen defensa, así que `danio` se resta
    * directo de su vida. Si la vida llega a 0, mata al individuo por el

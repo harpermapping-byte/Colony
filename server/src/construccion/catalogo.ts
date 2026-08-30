@@ -19,6 +19,7 @@
 
 import * as path from "node:path";
 import { DatosProduccion } from "./produccion";
+import { CategoriaVidaAnimal } from "../mundo/catalogoCombateFauna";
 
 const RAIZ_REPO = path.resolve(__dirname, "..", "..", "..");
 const CARPETA_CATALOGO = path.join(RAIZ_REPO, "interiores", "catalogo");
@@ -81,6 +82,10 @@ export interface EntradaConstruible {
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: "cuenco" | "cazuela" | "olla" };
   /** Encurtido de pieles (docs/GDD_Caza.md) — presente en cubo_sal/barril_curtido. */
   curtidor?: EntradaCurtidor;
+  /** Ganadería (docs/GDD_Ganaderia.md) — presente en comedero: mueble-cubo cargable a granel, mismo mecanismo de "hueco/stock" que curtidor pero sin lote ni transformación, solo un contador de disponibilidad diaria. */
+  alimentador?: EntradaAlimentador;
+  /** Ganadería (docs/GDD_Ganaderia.md) — presente en gallinero/nido/cobertizo_ganado: refugio que hace falta tener en la propiedad destino para poder traer un animal de esas categoriasVida (domesticar o comprar). */
+  refugioGranja?: EntradaRefugioGranja;
 }
 
 export interface EntradaActividadAtributo {
@@ -112,6 +117,17 @@ export interface EntradaCurtidor {
   horas: number;
 }
 
+/** Ganadería (docs/GDD_Ganaderia.md) — mueble tipo comedero: carga a granel un itemId (pienso) hasta capacidadMaxMaterial, `animal:cargarComedero`. Con stock>0 da acceso a comida ese día a TODOS los animales de la propiedad (sin lote/transformación, a diferencia de curtidor). */
+export interface EntradaAlimentador {
+  itemId: string;
+  capacidadMaxMaterial: number;
+}
+
+/** Ganadería (docs/GDD_Ganaderia.md) — refugio (gallinero/nido/cobertizo_ganado): qué categoriasVida de EstadisticasCombateAnimal acepta como hogar — sin uno presente en la propiedad destino no se puede domesticar/comprar un animal de esas categorías hacia ahí. */
+export interface EntradaRefugioGranja {
+  categoriasVida: CategoriaVidaAnimal[];
+}
+
 interface EntradaElemento {
   capa?: string;
   specialModifier?: unknown;
@@ -135,6 +151,8 @@ interface EntradaExterior {
   plantable?: { multiplicadorCosecha: number };
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: "cuenco" | "cazuela" | "olla" };
   curtidor?: EntradaCurtidor;
+  alimentador?: EntradaAlimentador;
+  refugioGranja?: EntradaRefugioGranja;
 }
 
 interface EntradaTipoEdificio {
@@ -195,6 +213,8 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       plantable: d.plantable,
       cocina: d.cocina,
       curtidor: d.curtidor,
+      alimentador: d.alimentador,
+      refugioGranja: d.refugioGranja,
     });
   }
 

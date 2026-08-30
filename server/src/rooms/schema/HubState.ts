@@ -270,6 +270,9 @@ export class ComercioSchema extends Schema {
   @type("string") jugadorB = "";
   @type([OfertaComercioSchema]) ofertaA = new ArraySchema<OfertaComercioSchema>();
   @type([OfertaComercioSchema]) ofertaB = new ArraySchema<OfertaComercioSchema>();
+  /** Animales de granja ofrecidos (docs/GDD_Ganaderia.md) — solo el id, un animal es una instancia entera, sin "cantidad" que fraccionar. */
+  @type(["string"]) ofertaAnimalesA = new ArraySchema<string>();
+  @type(["string"]) ofertaAnimalesB = new ArraySchema<string>();
   @type("boolean") confirmadoA = false;
   @type("boolean") confirmadoB = false;
 }
@@ -287,6 +290,19 @@ export class CadaverSchema extends Schema {
   @type(ContenedorSchema) contenedor = new ContenedorSchema();
 }
 
+// Animal de granja vivo (docs/GDD_Ganaderia.md, pedido 2026-08-30) — clave
+// del map es `AnimalGranjaFila.id` ("animal:<especieId>:<epochMs>:<n>").
+// Sin contenedor propio (a diferencia de CadaverSchema): la producción
+// vive en BD (`extra`, server-only, nunca en el Schema) y se resuelve
+// perezosamente, el cliente solo necesita saber dónde está y qué es.
+export class AnimalGranjaSchema extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") especieId = "";
+  /** Nombre del dueño de la propiedad — SOLO para la etiqueta del cliente, mismo criterio que Mascota.duenoNombre. */
+  @type("string") duenoNombre = "";
+}
+
 export class HubState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: Npc }) npcs = new MapSchema<Npc>();
@@ -295,6 +311,7 @@ export class HubState extends Schema {
   @type({ map: Mascota }) mascotas = new MapSchema<Mascota>();
   @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
   @type({ map: CadaverSchema }) cadaveres = new MapSchema<CadaverSchema>();
+  @type({ map: AnimalGranjaSchema }) animalesGranja = new MapSchema<AnimalGranjaSchema>();
   // Evento Twitch "Eclipse" (docs/GDD_Twitch.md): oscuridad casi total
   // mientras esté activo, sin importar la hora del reloj de mundo — el
   // cliente decide cómo pintarlo (mucho más oscuro que la noche normal),
