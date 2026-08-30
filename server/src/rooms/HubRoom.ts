@@ -434,6 +434,14 @@ export class HubRoom extends RoomExteriorBase {
       const resultado = await this.gestorBosques.talar(cercano.ref);
       if (!resultado) return client.send("arbol:error", { motivo: "ese árbol ya no está" });
 
+      // Un árbol de origen bake nunca vive en el Schema (docs/GDD_Bosques.md
+      // §7) — sin este broadcast, cualquiera mirando el sector en ese
+      // instante seguiría viendo el modelo en pie. Los "crecidos" no lo
+      // necesitan: su remove del Schema ya lo hace todo.
+      if (cercano.ref.tipo === "bake") {
+        this.broadcast("arbol:baketalado", { x: cercano.x, y: cercano.y });
+      }
+
       // Recompensa (docs/GDD_Bosques.md): madera siempre (más si es adulto
       // que si es un brote joven), semilla de la misma especie solo de un
       // adulto y con 50% — un brote joven todavía no da semilla propia.
@@ -558,6 +566,15 @@ export class HubRoom extends RoomExteriorBase {
   protected async onFaunaDomesticada(id: string): Promise<boolean> {
     if (!this.gestorFaunaSalvaje) return false;
     return (await this.gestorFaunaSalvaje.domesticar(id)) !== null;
+  }
+
+  /** docs/GDD_Bosques.md §7 — árboles de origen bake talados en un sector, para que el cliente los excluya al construir su render (mismo `arbolesTaladosEnSector` de RoomExteriorBase, solo el Hub tiene GestorBosques). */
+  protected async arbolesTaladosEnSector(sectorX: number, sectorY: number): Promise<{ x: number; y: number }[]> {
+    if (!this.gestorBosques) return [];
+    const bd = await obtenerBdCompartida();
+    const mapaId = path.basename(this.mapa.rutaMapa);
+    const filas = await bd.listarArbolesVivosSector(mapaId, sectorX, sectorY);
+    return filas.filter((f) => f.origen === "bake" && f.estado === "talado").map((f) => ({ x: f.x, y: f.y }));
   }
 
   /** docs/GDD_Caza.md — solo el Hub conoce categoriaVida/categoriaRecursoCarne/Piel por especie (catalogoCombate real). */

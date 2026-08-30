@@ -193,6 +193,11 @@ export class StreamingSectores<H = unknown> {
     }
   }
 
+  /** Handle materializado de un sector concreto, si lo está ahora mismo — docs/GDD_Bosques.md §7 (ocultar en vivo algo talado/recogido delante del jugador). `undefined` si ese sector no está cargado (fuera de rango, o todavía materializando). */
+  obtenerHandle(sx: number, sy: number): H | undefined {
+    return this.materializados.get(clave(sx, sy));
+  }
+
   estadisticas() {
     return {
       materializados: this.materializados.size,

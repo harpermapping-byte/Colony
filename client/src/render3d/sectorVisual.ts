@@ -211,13 +211,28 @@ interface GrupoEspecie {
   objetos: { globalX: number; globalY: number; obj: ObjetoBakeado }[];
 }
 
-async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Promise<THREE.Group> {
+/** Clave de posición GLOBAL (casilla) — mismo criterio que el servidor usa para recolectables/árboles talados (docs/GDD_Bosques.md §7): la identidad de un prop bakeado es su posición, no su índice de instancia. */
+function clavePosicion(x: number, y: number): string {
+  return `${x},${y}`;
+}
+
+async function crearPropsSector(
+  indice: IndiceMapa,
+  sector: SectorBakeado,
+  excluidos: Set<string>,
+): Promise<{ raiz: THREE.Group; ocultables: Map<string, () => void> }> {
   const grupos = new Map<string, GrupoEspecie>();
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
     for (const obj of chunk.objetos) {
       // tipos sin categoría de asset conocida no se instancian
       if (!CATEGORIA_POR_TIPO[obj.t]) continue;
+      const globalX = cx * chunk.tamano + obj.x;
+      const globalY = cy * chunk.tamano + obj.y;
+      // Ya no existe (recolectado, o árbol talado — docs/GDD_Bosques.md §7):
+      // ni se instancia. El servidor es quien decide esto (sector:exclusiones,
+      // RoomExteriorBase.ts) — este cliente nunca lo infiere solo.
+      if (excluidos.has(clavePosicion(globalX, globalY))) continue;
       // La variante (obj.va) entra en la clave de grupo: cada plantilla .glb
       // cargada es UNA variante concreta (edificios/<tipo>_NN.glb) — sin
       // esto, dos edificios del mismo tipo con distinta variante bakeada
@@ -225,15 +240,18 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
       const variante = obj.va || 0;
       const claveGrupo = `${obj.t}:${obj.i}:${variante}`;
       if (!grupos.has(claveGrupo)) grupos.set(claveGrupo, { tipo: obj.t as GrupoEspecie["tipo"], id: obj.i, variante, objetos: [] });
-      grupos.get(claveGrupo)!.objetos.push({
-        globalX: cx * chunk.tamano + obj.x,
-        globalY: cy * chunk.tamano + obj.y,
-        obj,
-      });
+      grupos.get(claveGrupo)!.objetos.push({ globalX, globalY, obj });
     }
   }
 
   const raiz = new THREE.Group();
+  // Posición -> "ocúltate" (docs/GDD_Bosques.md §7): para cuando el jugador
+  // ve en vivo cómo se tala/recolecta algo de ESTE sector ya materializado.
+  // InstancedMesh no tiene "quitar instancia" nativo — la técnica estándar
+  // es escalarla a 0 (invisible, sin reconstruir el buffer entero); un
+  // clon .glb individual simplemente se oculta.
+  const ocultables = new Map<string, () => void>();
+  const matrizCero = new THREE.Matrix4().makeScale(0, 0, 0);
 
   await Promise.all(
     [...grupos.values()].map(async (grupo) => {
@@ -248,6 +266,7 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
           instancia.rotation.y = THREE.MathUtils.degToRad(obj.ro || 0);
           instancia.scale.setScalar(obj.es || 1);
           raiz.add(instancia);
+          ocultables.set(clavePosicion(globalX, globalY), () => { instancia.visible = false; });
         }
         return;
       }
@@ -291,13 +310,17 @@ async function crearPropsSector(indice: IndiceMapa, sector: SectorBakeado): Prom
         escala.set(anchoReal * es, dims.alto * es, largoReal * es);
         matriz.compose(posicion, rotacion, escala);
         malla.setMatrixAt(indice2, matriz);
+        ocultables.set(clavePosicion(globalX, globalY), () => {
+          malla.setMatrixAt(indice2, matrizCero);
+          malla.instanceMatrix.needsUpdate = true;
+        });
       });
       malla.instanceMatrix.needsUpdate = true;
       raiz.add(malla);
     }),
   );
 
-  return raiz;
+  return { raiz, ocultables };
 }
 
 const ALTURA_MURALLA: Record<string, number> = { empalizada: 1.7, muralla_piedra: 2.6 };
@@ -365,19 +388,40 @@ function crearMurallaSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
   return grupo;
 }
 
-/** Terreno + muralla + props de un sector, listos para añadir a escena como un único grupo. */
-export async function crearSectorVisual(indice: IndiceMapa, sector: SectorBakeado): Promise<THREE.Group> {
+/**
+ * Handle de un sector materializado — además del `Group` de escena, expone
+ * `ocultarPosicion` (docs/GDD_Bosques.md §7) para apagar en vivo un prop
+ * concreto ya renderizado (talado/recogido mientras el jugador lo tenía
+ * delante), sin reconstruir el sector entero. No-op si esa posición no
+ * tenía nada instanciado (terreno, o ya estaba excluida al construir).
+ */
+export interface HandleSector {
+  grupo: THREE.Group;
+  ocultarPosicion: (x: number, y: number) => void;
+}
+
+/**
+ * Terreno + muralla + props de un sector, listos para añadir a escena.
+ * `excluidos` (docs/GDD_Bosques.md §7) son posiciones GLOBALes "x,y" que ya
+ * no existen en el servidor (recogidas/taladas) — nunca se instancian.
+ */
+export async function crearSectorVisual(
+  indice: IndiceMapa,
+  sector: SectorBakeado,
+  excluidos: Set<string> = new Set(),
+): Promise<HandleSector> {
   const grupo = new THREE.Group();
   grupo.name = `sector_${sector.sectorX}_${sector.sectorY}`;
   grupo.add(crearTerrenoSector(indice, sector));
   grupo.add(crearMurallaSector(indice, sector));
-  grupo.add(await crearPropsSector(indice, sector));
-  return grupo;
+  const { raiz, ocultables } = await crearPropsSector(indice, sector, excluidos);
+  grupo.add(raiz);
+  return { grupo, ocultarPosicion: (x, y) => ocultables.get(clavePosicion(x, y))?.() };
 }
 
 /** Libera GPU/memoria de lo que creó `crearSectorVisual` (llamar tras quitarlo de escena). */
-export function soltarSectorVisual(grupo: THREE.Group): void {
-  grupo.traverse((obj) => {
+export function soltarSectorVisual(handle: HandleSector): void {
+  handle.grupo.traverse((obj) => {
     if (!obj.userData.propioDelSector) return;
     const malla = obj as THREE.Mesh;
     malla.geometry?.dispose();
@@ -388,5 +432,5 @@ export function soltarSectorVisual(grupo: THREE.Group): void {
       material.dispose();
     }
   });
-  grupo.clear();
+  handle.grupo.clear();
 }
