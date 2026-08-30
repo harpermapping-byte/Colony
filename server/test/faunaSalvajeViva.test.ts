@@ -280,7 +280,7 @@ test("matarIndividuo: quita al individuo del estado de Colyseus, lo marca muerto
   assert.strictEqual(filaGuardada.estado, "muerto", "se persiste como muerto, nunca se resucita");
 });
 
-test("matarIndividuo: rellena el cadáver con loot de caza si se pasa catalogoItems (docs/GDD_Caza.md)", async () => {
+test("matarIndividuo: rellena el cadáver con UN ÚNICO ítem 'cadáver entero' si se pasa catalogoItems (docs/GDD_Caza.md, rediseño 2026-08-30)", async () => {
   const { gestor, salida } = crearGestor({ catalogoItems: cargarCatalogoItems() });
   await gestor.activarSector({ sectorX: 0, sectorY: 0 }); // solo hay "lobo" en este bake falso
   const id = [...salida.keys()][0];
@@ -288,12 +288,9 @@ test("matarIndividuo: rellena el cadáver con loot de caza si se pasa catalogoIt
   const cadaver = await gestor.matarIndividuo(id);
 
   assert.ok(cadaver);
-  const cantidadDe = (itemId: string) =>
-    cadaver!.contenedor.items.filter((it) => it.itemId === itemId).reduce((s, it) => s + it.cantidad, 0);
-  assert.strictEqual(cantidadDe("carne_caza_mayor"), 7); // lobo = categoriaVida "grande"
-  assert.strictEqual(cantidadDe("tendones"), 3);
-  assert.strictEqual(cantidadDe("tripas"), 3);
-  assert.strictEqual(cantidadDe("cuero_grueso"), 0, "la piel NUNCA sale en el loot automático, solo al desollar");
+  assert.strictEqual(cadaver!.contenedor.items.length, 1, "un único ítem cadáver, nunca carne/tendones/tripas sueltos");
+  assert.strictEqual(cadaver!.contenedor.items[0].itemId, "cadaver_carne_caza_mayor_cuero_grueso_grande"); // lobo = categoriaVida "grande"
+  assert.strictEqual(cadaver!.contenedor.items[0].cantidad, 1);
 });
 
 test("matarIndividuo: sin catalogoItems (deps por defecto), el cadáver sigue vacío — comportamiento previo a esta mecánica intacto", async () => {

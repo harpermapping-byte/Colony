@@ -2,9 +2,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
 import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
-import { Cadaver, cadaverDesaparecio, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER } from "../../mundo/cadaveres";
+import { Cadaver, cadaverDesaparecio } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
-import { pielDeDesollado, rellenarLootCaza } from "../../mundo/lootCaza";
+import { rellenarLootCaza, datosDeCadaver, sacrificarAnimalGranja } from "../../mundo/lootCaza";
+import { EstadoDespiece, VerboDespiece, iniciarDespiece, despiezeListo, recolectarDespiece } from "../../mundo/despiece";
 import { estaEncerrado, tiroEscape } from "../../mundo/ganaderia";
 import { cargarCatalogoReproduccionGranja, resolverReproduccionPropiedad } from "../../mundo/reproduccionGranja";
 import { NPC_TENDERO_VENTA, NPC_TENDERO_COMPRA, REPOSICION_STOCK_NPC } from "../../mercado/catalogoNpcComercio";
@@ -488,6 +489,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected catalogoRecetas?: Map<string, RecetaCrafteo>;
   /** Crafteo en curso por sesión — vive y muere con la sesión (mismo criterio que `inventarios`, fase 2 de Inventario): si el jugador se desconecta a medias, se pierde, aceptable en v1. */
   protected craftesEnCurso = new Map<string, EstadoCrafteo>();
+  /** Desollar/despiezar un cadáver en curso por sesión (docs/GDD_Caza.md, 2026-08-30 octava pasada) — mismo criterio de vida/muerte que `craftesEnCurso`. */
+  protected despiecesEnCurso = new Map<string, EstadoDespiece>();
 
   // --- Injertos (docs/GDD_Agricultura.md §4) — especies híbridas creadas
   // por OTRAS rooms/sesiones pasadas viven en BD, no en items.json en
@@ -625,9 +628,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Oficio de jugador (docs/GDD_Caza.md) — sistema mínimo, sin requisito ni exclusividad real.
     this.onMessage("oficio:elegir", (client, msg: { oficio?: string }) => this.manejarOficioElegir(client, msg));
 
-    // Cadáveres/caza (docs/GDD_Caza.md)
+    // Cadáveres/caza (docs/GDD_Caza.md; procesado rediseñado 2026-08-30 octava
+    // pasada): lootear el cadáver del mundo da el ítem "cadáver entero" al
+    // inventario del jugador; procesarlo (desollar/despiezar) ya no toca el
+    // cadáver del mundo, consume ese ítem del CUERPO del jugador.
     this.onMessage("cadaver:lootear", (client, msg: { cadaverId?: string }) => this.manejarCadaverLootear(client, msg));
-    this.onMessage("cadaver:desollar", (client, msg: { cadaverId?: string }) => void this.manejarCadaverDesollar(client, msg));
+    this.onMessage("cadaver:procesarIniciar", (client, msg: { instanciaId?: number; verbo?: VerboDespiece; construccionId?: number }) => this.manejarCadaverProcesarIniciar(client, msg));
+    this.onMessage("cadaver:procesarRecolectar", (client) => this.manejarCadaverProcesarRecolectar(client));
     this.onMessage("piel:raspar", (client, msg: { instanciaId?: number; cantidad?: number }) => this.manejarPielRaspar(client, msg));
 
     // Encurtido de pieles (docs/GDD_Caza.md) — cubo_sal/barril_curtido,
@@ -1596,54 +1603,82 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
-   * Desollar (docs/GDD_Caza.md): exige oficio curtidor (Player.oficio)
-   * Y un cuchillo_desollar en el inventario. Da la piel de la especie (si
-   * tiene) + tirada de trofeo (5%, lootCaza.ts) y el cadáver DESAPARECE
-   * ENTERO — verbos ESTRICTAMENTE independientes de `cadaver:lootear`
-   * (decisión explícita del streamer): si no has looteado antes, la
-   * carne/tendones/tripas que quedaran en el cadáver se pierden con él.
+   * Empieza a procesar (desollar/despiezar) un cadáver ENTERO que el jugador
+   * lleva en su PROPIO inventario (docs/GDD_Caza.md, rediseño 2026-08-30
+   * octava pasada: "coges el cadáver, lo transportas, lo desuellas/despiezas
+   * ahí mismo o en la mesa"; el cadáver del MUNDO ya no se desuella
+   * directamente, solo se lootea vía `cadaver:lootear`). Exige oficio
+   * curtidor + cuchillo_desollar, igual que antes. Si `construccionId`
+   * apunta a una mesa_despiece/mesa_corte YA construida, el procesado es más
+   * rápido y rinde más ("igual que crafteo": la mesa nunca gatea, aquí
+   * tampoco — la ausencia de mesa no rechaza nada, solo hace la acción "en
+   * el sitio", más lenta y con menos material, ver despiece.ts).
    */
-  private async manejarCadaverDesollar(client: Client, msg: { cadaverId?: string }) {
+  private manejarCadaverProcesarIniciar(client: Client, msg: { instanciaId?: number; verbo?: VerboDespiece; construccionId?: number }) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    if (player.oficio !== "curtidor") {
-      return client.send("cadaver:error", { motivo: "necesitas el oficio de curtidor" });
-    }
+    if (player.oficio !== "curtidor") return client.send("cadaver:error", { motivo: "necesitas el oficio de curtidor" });
+    if (this.despiecesEnCurso.has(client.sessionId)) return client.send("cadaver:error", { motivo: "ya tienes un cadáver en proceso" });
+    if (msg.verbo !== "desollar" && msg.verbo !== "despiezar") return client.send("cadaver:error", { motivo: "verbo desconocido" });
+
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
       return client.send("cadaver:error", { motivo: "necesitas un cuchillo de desollar" });
     }
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it || !datosDeCadaver(it.itemId)) return client.send("cadaver:error", { motivo: "eso no es un cadáver que lleves encima" });
+
     const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_desollar");
     if (!herramienta.ok) return client.send("cadaver:error", { motivo: herramienta.motivo });
-    const cadaverId = msg.cadaverId ?? "";
-    const cadaver = this.cadaveresPuros.get(cadaverId);
-    if (!cadaver || !this.state.cadaveres.has(cadaverId)) {
-      return client.send("cadaver:error", { motivo: "ese cadáver ya no está" });
+
+    let enMesa = false;
+    if (typeof msg.construccionId === "number" && this.ctxConstruccion) {
+      const viva = this.ctxConstruccion.vivas.get(msg.construccionId);
+      enMesa = viva?.objeto === "mesa_despiece" || viva?.objeto === "mesa_corte";
     }
-    if (Math.hypot(cadaver.x - player.x, cadaver.y - player.y) > RADIO_INTERACCION) {
-      return client.send("cadaver:error", { motivo: "demasiado lejos" });
+
+    const estado = iniciarDespiece(it.id, it.itemId, msg.verbo, enMesa, Date.now());
+    this.despiecesEnCurso.set(client.sessionId, estado);
+    client.send("cadaver:procesarIniciado", { verbo: msg.verbo, enMesa, terminaEn: estado.terminaEn });
+  }
+
+  /** Recoge el resultado del procesado en curso — no-op amable si todavía no ha terminado (mismo criterio que `manejarCrafteoRecolectar`). */
+  private manejarCadaverProcesarRecolectar(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const estado = this.despiecesEnCurso.get(client.sessionId);
+    if (!estado || !despiezeListo(estado, Date.now())) return;
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const it = contenedor.items.find((i) => i.id === estado.itemInstanciaId && i.itemId === estado.cadaverItemId);
+    this.despiecesEnCurso.delete(client.sessionId);
+    if (!it) return client.send("cadaver:error", { motivo: "el cadáver ya no está en tu inventario" });
+    quitarItem(contenedor, it.id, 1);
+
+    const resultado = recolectarDespiece(estado);
+    if (!resultado) { // no debería pasar — el itemId ya se validó al iniciar
+      sincronizarContenedor(player.inventario.cuerpo, contenedor);
+      return client.send("cadaver:error", { motivo: "no se pudo procesar ese cadáver" });
     }
-    const especie = this.estadisticasFaunaDe(cadaver.especieOrigenId);
-    if (!especie) return client.send("cadaver:error", { motivo: "no se puede desollar esto" });
 
     const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
     const entregar = (itemId: string, cantidad: number) => {
+      if (cantidad <= 0) return false;
       if (excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo)) return false;
       return intentarCoger(contenedor, this.catalogoItems, { itemId, cantidad }).ok;
     };
-
-    const resultado = pielDeDesollado(especie);
     const entregados: string[] = [];
-    if (resultado.pielItemId && entregar(resultado.pielItemId, resultado.pielCantidad)) entregados.push(resultado.pielItemId);
+    if (resultado.carne && entregar(resultado.carne.itemId, resultado.carne.cantidad)) entregados.push(resultado.carne.itemId);
+    if (resultado.tendones && entregar("tendones", resultado.tendones)) entregados.push("tendones");
+    if (resultado.tripas && entregar("tripas", resultado.tripas)) entregados.push("tripas");
+    if (resultado.grasa && entregar("grasa", resultado.grasa)) entregados.push("grasa");
+    if (resultado.piel && entregar(resultado.piel.itemId, resultado.piel.cantidad)) entregados.push(resultado.piel.itemId);
     if (resultado.trofeoItemId && entregar(resultado.trofeoItemId, 1)) entregados.push(resultado.trofeoItemId);
 
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
-    this.cadaveresPuros.delete(cadaverId);
-    this.state.cadaveres.delete(cadaverId);
-    const bd = await obtenerBdCompartida();
-    await bd.borrarCadaver(cadaverId);
-    client.send("cadaver:desollado", { entregados });
+    client.send("cadaver:procesado", { entregados });
   }
 
   /**
@@ -5725,9 +5760,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   /**
    * Sacrifica el animal — dueño o jarl, exige cuchillo_desollar (reusado
    * de docs/GDD_Caza.md, SIN exigir oficio: matar tu propio animal no
-   * necesita entrenamiento). Da carne+piel reusando `rellenarLootCaza`/
-   * `pielDeDesollado` TAL CUAL — mismas tablas que la caza, sin pasar por
-   * cadáver (el animal desaparece del todo directamente).
+   * necesita entrenamiento). Da carne+piel reusando `sacrificarAnimalGranja`
+   * (rendimiento completo, mismas tablas que la caza) — sin pasar por el
+   * ítem "cadáver entero" del rediseño 2026-08-30 (el animal desaparece del
+   * todo directamente, no hace falta transportarlo a ningún sitio).
    */
   private async manejarAnimalSacrificar(client: Client, msg: { animalId?: string }) {
     const nombre = this.nombreDe(client);
@@ -5753,19 +5789,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const especie = this.estadisticasFaunaDe(fila.especieId);
     if (!especie) return this.errorAnimal(client, "no se puede sacrificar esto");
 
-    const temporal = crearContenedor(ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER);
-    rellenarLootCaza(temporal, this.catalogoItems, especie);
-    const pielResultado = pielDeDesollado(especie);
-    if (pielResultado.pielItemId) agregarItem(temporal, this.catalogoItems, pielResultado.pielItemId, pielResultado.pielCantidad);
-
+    const resultado = sacrificarAnimalGranja(especie);
     const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const entregar = (itemId: string, cantidad: number) => {
+      if (cantidad <= 0) return false;
+      if (excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo)) return false;
+      return intentarCoger(contenedor, this.catalogoItems, { itemId, cantidad }).ok;
+    };
     const entregados: string[] = [];
-    for (const item of temporal.items) {
-      if (excedePesoMaximo(contenedor, this.catalogoItems, item.itemId, item.cantidad, pesoMaximo)) continue;
-      if (intentarCoger(contenedor, this.catalogoItems, { itemId: item.itemId, cantidad: item.cantidad }).ok) {
-        entregados.push(item.itemId);
-      }
-    }
+    if (resultado.carne && entregar(resultado.carne.itemId, resultado.carne.cantidad)) entregados.push(resultado.carne.itemId);
+    if (entregar("tendones", resultado.tendones)) entregados.push("tendones");
+    if (entregar("tripas", resultado.tripas)) entregados.push("tripas");
+    if (entregar("grasa", resultado.grasa)) entregados.push("grasa");
+    if (resultado.piel && entregar(resultado.piel.itemId, resultado.piel.cantidad)) entregados.push(resultado.piel.itemId);
+    if (resultado.trofeoItemId && entregar(resultado.trofeoItemId, 1)) entregados.push(resultado.trofeoItemId);
+
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
     const bd = await obtenerBdCompartida();

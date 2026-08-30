@@ -1,7 +1,9 @@
 import * as THREE from "three";
 import { mallasPorPivote, type VoxelExportado } from "./voxelMalla";
 import { generarPiezaVoxel } from "./generarEquipoVoxel";
+import { generarPrendaVoxel } from "./generarPrendaVoxel";
 import equipoJson from "../../../ropa/catalogo/equipo.json";
+import prendasJson from "../../../ropa/catalogo/prendas.json";
 import materialesJson from "../../../interiores/catalogo/materiales.json";
 import itemsJson from "../../../items/catalogo/items.json";
 
@@ -25,17 +27,41 @@ import itemsJson from "../../../items/catalogo/items.json";
 
 type CatalogoItems = Record<string, { prendaId?: string; slotEquipo?: string }>;
 const ITEMS: CatalogoItems = itemsJson as unknown as CatalogoItems;
-const CATALOGOS_ROPA = { equipo: equipoJson as Record<string, any>, materiales: materialesJson as Record<string, any> };
+const CATALOGOS_ROPA = {
+  equipo: equipoJson as Record<string, any>,
+  prendas: prendasJson as Record<string, any>,
+  materiales: materialesJson as Record<string, any>,
+};
 
 // Marca las mallas que este módulo añade al rig, para poder quitarlas todas
 // de golpe antes de regenerar (equipo cambiado) sin tocar el resto del rig
 // (cuerpo, ropa base si algún día existe, pelo...).
 const ETIQUETA_EQUIPO = "equipoVisual";
 
-/** Vóxeles de UNA pieza equipada, ya resueltos a un slot físico concreto (para anillo, que puede caer en cualquier mano). */
+/**
+ * Vóxeles de UNA pieza equipada, ya resueltos a un slot físico concreto (para
+ * anillo, que puede caer en cualquier mano). Ropa civil craftable
+ * (docs/GDD_Profesiones.md, 2026-08-30): `prendaId` se busca primero en
+ * `prendas.json` (esquema RICO de vóxel, `generarPrendaVoxel` — mismo
+ * detalle que la ropa de NPC) y solo si no está ahí en `equipo.json`
+ * (esquema simple, un box por slot — las 48 piezas de armadura). Nunca
+ * ambos a la vez: un `prendaId` pertenece a un único catálogo.
+ */
 function voxelesDePieza(itemId: string, slotFisico: string, semilla: string): VoxelExportado[] {
   const entrada = ITEMS[itemId];
   if (!entrada?.prendaId) return []; // ítem sin representación visual todavía (placeholder de contenido, no error)
+
+  const prenda = CATALOGOS_ROPA.prendas[entrada.prendaId];
+  if (prenda) {
+    const materialId = prenda.materialesCompatibles[0];
+    const material = CATALOGOS_ROPA.materiales[materialId];
+    if (!material) return [];
+    const voxeles = generarPrendaVoxel(prenda, material, { semilla, prendaId: entrada.prendaId, materialId });
+    // slotCuerpo (torso/piernas/cabeza) no distingue mano/anillo como
+    // slotFisico — la ropa cuelga siempre del pivote que fija generarPrendaVoxel.
+    return voxeles;
+  }
+
   const pieza = CATALOGOS_ROPA.equipo[entrada.prendaId];
   if (!pieza) return [];
   const materialId = pieza.materialesCompatibles[0]; // determinista: siempre el primero declarado (mismo criterio simple que el resto de este módulo, sin sesgo de riqueza aquí — eso ya lo decidió qué pieza se generó/dropeó, no cómo se pinta)
