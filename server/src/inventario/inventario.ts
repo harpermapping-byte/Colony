@@ -56,6 +56,8 @@ export interface EntradaCatalogoItem {
   defensaMagica?: number;
   /** id de items/catalogo/items.json (tipo "municion") que consume esta arma a distancia — ausente en armas cuerpo a cuerpo. */
   municionId?: string;
+  /** docs/GDD_Anatomia.md, pedido 2026-08-30 — SOLO armas: qué efecto anatómico produce un golpe conectado (server/src/personaje/anatomia.ts::resolverGolpeAnatomico). "magico"/"fuego" reservados, sin arma que los use todavía. Ausente = sin efecto anatómico (fauna/NPC no llevan este campo). */
+  tipoDano?: "cortante" | "contundente" | "perforante" | "magico" | "fuego";
 
   // --- desgaste (server/src/inventario/desgaste.ts) — ausente = el ítem nunca se desgasta ---
   durabilidadMax?: number;
@@ -87,6 +89,9 @@ export interface EntradaCatalogoItem {
 
   /** docs/GDD_Cocina.md — igual que `restaura` pero con VARIOS vitales a la vez (un plato cocinado sube vida+estamina+comida+bebida en un solo consumo) — `restaura` se queda para consumibles de un solo vital, este es aditivo y nunca sustituye entradas existentes. */
   restauraMultiple?: AportesCocina;
+
+  /** docs/GDD_Inventario.md §9 (Líquidos, pedido 2026-08-30) — SOLO en recipientes portables (cantimplora, cubo_madera...): cuánto líquido cabe. Ausente = no es un recipiente de líquido (la mayoría de objetos). A más grande el recipiente, más `volumenMaxMl`. */
+  volumenMaxMl?: number;
 }
 
 /**
@@ -175,6 +180,8 @@ export interface ItemInstancia {
   durabilidad?: number;
   /** epoch ms de la última vez que se tocó (para el desgaste por inactividad, cálculo perezoso) */
   ultimoUso?: number;
+  /** docs/GDD_Inventario.md §9 (Líquidos) — ausente si el catálogo no declara `volumenMaxMl` (nunca es un recipiente) O si lo es pero está vacío. Nunca "medio lleno de dos líquidos a la vez": llenar sustituye el contenido entero. */
+  liquido?: { tipo: string; volumenMl: number; contaminada?: boolean };
 }
 
 export interface Contenedor {
@@ -456,6 +463,11 @@ export interface InventarioJugador {
 function *contenedoresDe(inv: InventarioJugador): Generator<[string, Contenedor]> {
   yield ["cuerpo", inv.cuerpo];
   for (const [slot, cont] of inv.extras) yield [slot, cont];
+}
+
+/** Resuelve una CLAVE de contenedor ("cuerpo" o un slot de SLOTS_CONTENEDOR) al Contenedor real — mismo vocabulario que devuelve buscarInstanciaJugador, para poder pedir "mover esto A tal contenedor" sin que quien llama conozca la forma interna de InventarioJugador. */
+export function contenedorDe(inv: InventarioJugador, contenedorId: string): Contenedor | undefined {
+  return contenedorId === "cuerpo" ? inv.cuerpo : inv.extras.get(contenedorId);
 }
 
 /** Busca una instancia por id en CUALQUIER contenedor del jugador (cuerpo o cualquier mochila/bolsa equipada) — para equipar/consumir/mover sin que quien llame tenga que saber de antemano en cuál está. */

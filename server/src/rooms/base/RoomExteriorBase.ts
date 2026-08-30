@@ -8,6 +8,7 @@ import { pielDeDesollado, rellenarLootCaza } from "../../mundo/lootCaza";
 import { estaEncerrado, tiroEscape } from "../../mundo/ganaderia";
 import { cargarCatalogoReproduccionGranja, resolverReproduccionPropiedad } from "../../mundo/reproduccionGranja";
 import { NPC_TENDERO_VENTA, NPC_TENDERO_COMPRA, REPOSICION_STOCK_NPC } from "../../mercado/catalogoNpcComercio";
+import { esRecipienteLiquido, llenar, vaciar, tieneLiquido, consumirVolumen } from "../../inventario/liquidos";
 import { diaFraccional } from "../../mundo/reproduccionFauna";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
@@ -36,6 +37,9 @@ import {
   excedePesoMaximo,
   moverItem,
   buscarHueco,
+  buscarInstanciaJugador,
+  contenedorDe,
+  Rotacion,
   SlotsEquipo,
   InventarioJugador,
   equiparItem,
@@ -60,6 +64,7 @@ import {
   validarColocacionPlantilla,
   esJarl,
   esJarlGlobal,
+  esJarlConSesionAdmin,
 } from "../../construccion/construccion";
 import { generarInteriorEdificio } from "../../construccion/interiorGenerado";
 import { resolverProduccion, resolverTransporte, EstadoProduccion, DatosProduccion } from "../../construccion/produccion";
@@ -88,6 +93,7 @@ import { RoomConectable, registrarRoom, quitarRoom, registrarJugador, quitarJuga
 import { obtenerGestorTwitch } from "../../twitch/gestorTwitch";
 import { TipoEvento } from "../../twitch/catalogoEventos";
 import { resolverSesionTwitch } from "../../twitch/oauthLogin";
+import { resolverSesionAdmin, IdentidadAdmin } from "../../admin/adminAuth";
 import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto } from "../../inventario/desgaste";
 import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
@@ -95,6 +101,13 @@ import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOV
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
 import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, IngredienteCocina, familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura, FamiliaPlato, ResultadoCoccion, OrigenCocina } from "../../cocina/cocina";
 import { EstadoQuesera, estadoQueseraInicial, iniciarLoteQueso, loteQuesoListo, recolectarLoteQueso } from "../../construccion/cuajado";
+import {
+  Anatomia, Zona, ZONAS, anatomiaInicial, resolverGolpeAnatomico, aplicarGolpe,
+  aplicarDrenajeAnatomico, resolverCuracionesEnCurso, estaCritico,
+  multiplicadorVelocidadPorFractura, multiplicadorVelocidadPorCuracion, MULTIPLICADOR_VELOCIDAD_CRITICO,
+  brazoInutilizado, usarVenda, usarTablilla, operarCirugia, instalarProtesis,
+} from "../../personaje/anatomia";
+import { AnatomiaSchema } from "../schema/HubState";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -152,6 +165,12 @@ export const PA_MAX_COMBATE = 6;
 const COSTE_PA_ATAQUE = 2;
 /** Coste fijo de usar un objeto (personaje:consumir) en el turno propio — mismo criterio que un golpe. */
 const COSTE_PA_OBJETO = 2;
+// Líquidos portables (docs/GDD_Inventario.md §9, pedido 2026-08-30) — un
+// "trago" de recipiente:beber, y cuánta sed quita a razón completa
+// (proporcional si el recipiente tenía menos que un trago entero). Valor de
+// arranque, igual de ajustable que el resto de números de balance del proyecto.
+const VOLUMEN_TRAGO_ML = 250;
+const BEBIDA_POR_TRAGO = 15;
 const LADO_ARENA_NORMAL = 8;
 const LADO_ARENA_BOSS = 10;
 const TOPE_RONDAS_CASCADA_IA = 60; // guarda-raíl: nunca debe hacer falta, pero evita un bucle infinito si algo queda mal configurado
@@ -289,6 +308,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // muere con la sesión, igual que `inputs`.
   private twitchLoginPorSesion = new Map<string, string>();
 
+  // Sesión de admin (docs/GDD_Admin.md, pedido 2026-08-30) — igual que
+  // twitchLoginPorSesion arriba, vive y muere con la sesión. puedeActuarComoJarl()
+  // la consulta en cada mensaje que lo necesite, sin releer BD.
+  protected adminSesionPorSesion = new Map<string, IdentidadAdmin>();
+
   // Muerte/respawn (docs/GDD_Muerte_Respawn.md) — guardia de idempotencia,
   // ver el comentario de manejarMuerteJugador.
   private jugadoresMuriendo = new Set<string>();
@@ -335,6 +359,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // velocidad real y el cooldown de salto viven aquí, server-only, mismo
   // criterio que pescaPorSesion/tiempoMovimiento.
   protected montadoPorSesion = new Map<string, { mascotaId: number; especieId: string; velocidad: number }>();
+  // Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30) — estado PURO completo
+  // por sesión (con timestamps de curación en curso, ver anatomia.ts), server
+  // -only: el Player.anatomia Schema solo replica el subconjunto de booleanas
+  // que el cliente necesita pintar (ZonaAnatomicaSchema, sin timestamps crudos
+  // — mismo criterio que calentandoDesde de cocina.ts nunca viaja al cliente).
+  protected anatomiaPorSesion = new Map<string, Anatomia>();
   private cooldownSaltoMontura = new Map<string, number>(); // sessionId -> epoch ms del próximo salto permitido
 
   // --- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — a diferencia de una
@@ -557,6 +587,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("equipo:equipar", (client, msg: { instanciaId?: number; slot?: string }) => this.manejarEquiparItem(client, msg));
     this.onMessage("equipo:desequipar", (client, msg: { slot?: string }) => this.manejarDesequiparItem(client, msg));
     this.onMessage("personaje:consumir", (client, msg: { instanciaId?: number }) => this.manejarPersonajeConsumir(client, msg));
+    // Grid drag&drop (docs/GDD_Inventario.md §10, pedido 2026-08-30): mover una
+    // instancia dentro de un contenedor propio o entre dos (cuerpo <-> mochila
+    // puesta) — un único mensaje para ambos casos, igual que moverItem.
+    this.onMessage("inventario:mover", (client, msg: { instanciaId?: number; contenedorDestino?: string; x?: number; y?: number; rot?: number }) => this.manejarInventarioMover(client, msg));
     // Desempaquetar una "bolsa de N" (docs/GDD_Agricultura.md, pedido
     // 2026-08-30: "compras bolsa en tienda de 10 unidades, al abrir bolsa
     // salen 10u") — genérico, reusable para cualquier futuro paquete, no
@@ -660,7 +694,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // en un plato — cuenco/cazuela/olla/cuenco_barro_grande/olla_grande/
     // tinaja_batidos, todas por el mismo protocolo genérico).
     this.onMessage("cocina:simple", (client, msg: { construccionId?: number; instanciaId?: number }) => this.manejarCocinaSimple(client, msg));
-    this.onMessage("cocina:llenarAgua", (client, msg: { construccionId?: number }) => this.manejarCocinaLlenarAgua(client, msg));
+    this.onMessage("cocina:llenarAgua", (client, msg: { construccionId?: number; instanciaId?: number }) => this.manejarCocinaLlenarAgua(client, msg));
+    // --- líquidos portables (docs/GDD_Inventario.md §9, pedido 2026-08-30) ---
+    this.onMessage("recipiente:llenar", (client, msg: { instanciaId?: number }) => this.manejarRecipienteLlenar(client, msg));
+    this.onMessage("recipiente:beber", (client, msg: { instanciaId?: number }) => this.manejarRecipienteBeber(client, msg));
     this.onMessage("cocina:anadir", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarCocinaAnadir(client, msg));
     this.onMessage("cocina:preparar", (client, msg: { construccionId?: number }) => this.manejarCocinaPreparar(client, msg));
     this.onMessage("cocina:consultar", (client, msg: { construccionId?: number }) => this.manejarCocinaConsultar(client, msg));
@@ -675,6 +712,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("quesera:cargarLeche", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarQueseraCargarLeche(client, msg));
     this.onMessage("quesera:iniciarLote", (client, msg: { construccionId?: number; conSal?: boolean }) => void this.manejarQueseraIniciarLote(client, msg));
     this.onMessage("quesera:recolectar", (client, msg: { construccionId?: number }) => void this.manejarQueseraRecolectar(client, msg));
+
+    // Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30): vendar/entablillar
+    // son primeros auxilios de campo (cualquiera, sin oficio); cirugía y
+    // prótesis exigen oficio curandero + mesa correspondiente.
+    this.onMessage("medico:vendar", (client, msg: { targetSessionId?: string; zona?: Zona; conUnguento?: boolean }) => void this.manejarMedicoVendar(client, msg));
+    this.onMessage("medico:entablillar", (client, msg: { targetSessionId?: string; zona?: Zona }) => void this.manejarMedicoEntablillar(client, msg));
+    this.onMessage("medico:cirugia", (client, msg: { targetSessionId?: string }) => void this.manejarMedicoCirugia(client, msg));
+    this.onMessage("medico:protesis", (client, msg: { targetSessionId?: string; zona?: Zona }) => void this.manejarMedicoProtesis(client, msg));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -771,7 +816,31 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return this.state.players.get(client.sessionId)?.name;
   }
 
-  protected crearJugador(client: Client, options: { name?: string; twitchSession?: string }, x: number, y: number): Player {
+  /**
+   * Igual que `esJarlGlobal(nombre)` pero además reconoce una sesión de
+   * admin (docs/GDD_Admin.md, pedido 2026-08-30) — jarl solo DE ESTE mapa
+   * (`this.asentamientoConstruccion`), o superadmin de cualquier mapa.
+   * Reemplaza uno a uno los sitios que antes llamaban a `esJarlGlobal`
+   * directamente fuera de un `ContextoConstruccion` (los que sí pasan por
+   * `ctx.jarls`/`esJarl` no necesitan tocarse: ver crearJugador, que ya
+   * inyecta el nombre ahí).
+   */
+  protected puedeActuarComoJarl(client: Client): boolean {
+    return esJarlConSesionAdmin(this.nombreDe(client), this.adminSesionPorSesion.get(client.sessionId) ?? null, this.asentamientoConstruccion);
+  }
+
+  /**
+   * Misma lógica que `puedeActuarComoJarl`, pero para gates que corren ANTES
+   * de `crearJugador` (p.ej. `InteriorRoom.onJoin` decide si deja entrar
+   * antes de crear al jugador) — ahí `adminSesionPorSesion` todavía no tiene
+   * nada para esta sesión, así que resuelve el token directo de `options`.
+   */
+  protected puedeActuarComoJarlEnJoin(nombre: string | undefined, options: { adminSession?: string }): boolean {
+    const identidad = options?.adminSession ? resolverSesionAdmin(options.adminSession) : null;
+    return esJarlConSesionAdmin(nombre, identidad, this.asentamientoConstruccion);
+  }
+
+  protected crearJugador(client: Client, options: { name?: string; twitchSession?: string; adminSession?: string }, x: number, y: number): Player {
     const player = new Player();
     player.x = x;
     player.y = y;
@@ -792,6 +861,25 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       client.send("twitch:loginConfirmado", { twitchLogin: identidadTwitch.twitchLogin });
     }
     registrarJugador(player.name, this, client.sessionId, identidadTwitch?.twitchLogin); // Twitch (docs/GDD_Twitch.md) — para comandos de chat y títulos
+
+    // Sesión de admin (docs/GDD_Admin.md, pedido 2026-08-30) — mismo patrón
+    // que la de Twitch justo arriba: token reenviado en CADA joinOrCreate,
+    // resuelto de nuevo aquí. Si esta cuenta es jarl DE ESTE mapa (o
+    // superadmin, cualquier mapa) se inyecta su nombre de PJ actual en
+    // ctx.jarls — así los ~18 sitios que ya hacen `esJarl(ctx, nombre)`
+    // (parcela:asignar, plantillas, dueño-o-jarl de una construcción...)
+    // lo reconocen sin tocar ni uno. Sin ctxConstruccion todavía (regiones
+    // normales sin parcelasReservadas) simplemente no hay nada que inyectar
+    // — puedeActuarComoJarl() sigue funcionando igual vía adminSesionPorSesion.
+    const identidadAdmin = options?.adminSession ? resolverSesionAdmin(options.adminSession) : null;
+    if (identidadAdmin) {
+      this.adminSesionPorSesion.set(client.sessionId, identidadAdmin);
+      const esJarlDeEsteMapa = identidadAdmin.rol === "superadmin" || identidadAdmin.mapaId === this.asentamientoConstruccion;
+      if (esJarlDeEsteMapa && this.ctxConstruccion) {
+        this.ctxConstruccion.jarls.add(player.name.trim().toLowerCase());
+      }
+      client.send("admin:sesionConfirmada", { usuario: identidadAdmin.usuario, rol: identidadAdmin.rol, mapaId: identidadAdmin.mapaId, esJarlAqui: esJarlDeEsteMapa });
+    }
 
     const contenedor = crearContenedor(ANCHO_CUERPO, ALTO_CUERPO);
     this.inventarios.set(client.sessionId, contenedor);
@@ -816,6 +904,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const nombreSaliente = this.state.players.get(client.sessionId)?.name;
     const twitchLoginSaliente = this.twitchLoginPorSesion.get(client.sessionId);
     this.twitchLoginPorSesion.delete(client.sessionId);
+
+    // Sesión de admin (docs/GDD_Admin.md): deshace SOLO lo que crearJugador
+    // inyectó en ctx.jarls por esta sesión — nunca quita un nombre que
+    // también sea jarl "de toda la vida" por JARL_NOMBRES (esJarlGlobal),
+    // porque ctx.jarls es UN Set compartido por toda la room, no por sesión:
+    // borrarlo a ciegas le quitaría el acceso a cualquier otro jugador con
+    // ese mismo nombre de jarl legado que siga conectado.
+    const identidadAdminSaliente = this.adminSesionPorSesion.get(client.sessionId);
+    this.adminSesionPorSesion.delete(client.sessionId);
+    if (identidadAdminSaliente && nombreSaliente && this.ctxConstruccion && !esJarlGlobal(nombreSaliente)) {
+      this.ctxConstruccion.jarls.delete(nombreSaliente.trim().toLowerCase());
+    }
     if (nombreSaliente) quitarJugador(nombreSaliente, client.sessionId, twitchLoginSaliente); // Twitch (docs/GDD_Twitch.md) — solo si el registro sigue siendo el de ESTA sesión (nombres duplicados, ver registro.ts)
 
     // Persistencia de inventario/equipo (docs/GDD_Equipo.md): se captura la
@@ -1127,6 +1227,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const inv = this.inventarioJugador(client.sessionId);
     if (!player || !inv) return;
     if (typeof msg?.instanciaId !== "number" || typeof msg?.slot !== "string") return;
+    // Anatomía (docs/GDD_Anatomia.md): brazo roto o amputado sin prótesis
+    // bloquea empuñar un arma — el resto de slots (cabeza/torso/piernas...)
+    // no exige brazos sanos, se sigue pudiendo equipar armadura.
+    if (msg.slot === "manoPrincipal" && this.brazoInutilizadoDe(client.sessionId)) {
+      return client.send("equipo:error", { motivo: "brazo roto o amputado, no puedes empuñar nada" });
+    }
 
     const resultado = equiparItem(inv, this.catalogoItems, msg.instanciaId, msg.slot);
     if (!resultado.ok) {
@@ -1163,6 +1269,38 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
     sincronizarEquipo(player.inventario, inv.equipo, inv.extras);
     this.recalcularStatsJugador(client);
+    this.persistirInventarioPorSesion(client);
+  }
+
+  /**
+   * Grid drag&drop (docs/GDD_Inventario.md §10, pedido 2026-08-30): mover una
+   * instancia propia a una celda (x,y,rot) concreta — dentro del MISMO
+   * contenedor (reordenar/rotar) o de uno a otro de los que el jugador lleva
+   * encima (cuerpo <-> mochila/bolsa/bandolera puesta). Server-authoritative
+   * de punta a punta: el cliente solo arrastra y pide, `moverItem` (puro, ya
+   * probado) decide si cabe — "todo o nada", nunca deja el origen a medias
+   * si el destino no tiene hueco. `contenedorDestino` ausente = mismo
+   * contenedor donde ya estaba (reordenar sin tener que saber en cuál está).
+   */
+  private manejarInventarioMover(client: Client, msg: { instanciaId?: number; contenedorDestino?: string; x?: number; y?: number; rot?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!player || !inv) return;
+    if (typeof msg?.instanciaId !== "number" || typeof msg?.x !== "number" || typeof msg?.y !== "number") return;
+    const rot: Rotacion = msg.rot === 1 ? 1 : 0;
+
+    const encontrado = buscarInstanciaJugador(inv, msg.instanciaId);
+    if (!encontrado) return client.send("inventario:error", { motivo: "no_encontrado" });
+
+    const claveDestino = msg.contenedorDestino ?? encontrado.contenedorId;
+    const destino = contenedorDe(inv, claveDestino);
+    if (!destino) return client.send("inventario:error", { motivo: "contenedor_destino_invalido" });
+
+    const resultado = moverItem(encontrado.contenedor, destino, this.catalogoItems, msg.instanciaId, msg.x, msg.y, rot);
+    if (!resultado.ok) return client.send("inventario:error", { motivo: resultado.motivo ?? "sin_hueco" });
+
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    sincronizarEquipo(player.inventario, inv.equipo, inv.extras);
     this.persistirInventarioPorSesion(client);
   }
 
@@ -1229,6 +1367,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   private aplicarUnVital(player: Player, vital: "vida" | "estamina" | "comida" | "bebida" | "sueno" | "caca", cantidad: number): number {
     if (vital === "vida") {
+      // Anatomía (docs/GDD_Anatomia.md): en estado crítico (<10% vidaMax),
+      // comida/pociones normales NO curan vida — solo la cirugía saca de
+      // ahí (pedido literal). El resto de vitales del mismo consumo (comida/
+      // estamina/bebida) siguen aplicándose con normalidad, ver el bucle que llama a esto.
+      if (estaCritico(player.vida, player.vidaMax)) return player.vida;
       const curado = curar({ vida: player.vida, vidaMax: player.vidaMax, ataque: player.ataque, defensa: player.defensa }, cantidad);
       player.vida = curado.vida;
       return player.vida;
@@ -1416,6 +1559,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
       return client.send("cadaver:error", { motivo: "necesitas un cuchillo de desollar" });
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_desollar");
+    if (!herramienta.ok) return client.send("cadaver:error", { motivo: herramienta.motivo });
     const cadaverId = msg.cadaverId ?? "";
     const cadaver = this.cadaveresPuros.get(cadaverId);
     if (!cadaver || !this.state.cadaveres.has(cadaverId)) {
@@ -1463,6 +1608,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
       return client.send("piel:error", { motivo: "necesitas un cuchillo de desollar" });
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_desollar");
+    if (!herramienta.ok) return client.send("piel:error", { motivo: herramienta.motivo });
     const it = contenedor.items.find((i) => i.id === msg.instanciaId);
     if (!it || it.itemId !== "piel_salada") return client.send("piel:error", { motivo: "eso no es una piel salada" });
     const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
@@ -2477,8 +2624,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   /** Jarl-only: canjea un punto de canal de PRUEBA (mismo entry point que usará el conector real). */
   private manejarTwitchSimularCanje(client: Client, msg: { tipo?: TipoEvento }) {
-    const nombre = this.nombreDe(client);
-    if (!nombre || !esJarlGlobal(nombre)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
+    if (!this.puedeActuarComoJarl(client)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
     if (msg?.tipo !== "bueno" && msg?.tipo !== "malo") return client.send("twitch:error", { motivo: "tipo debe ser 'bueno' o 'malo'" });
     const r = obtenerGestorTwitch().intentarCanje(msg.tipo);
     if (!r.ok) return client.send("twitch:error", { motivo: r.motivo });
@@ -2488,23 +2634,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   /** Jarl-only: simula `!curar`/`!comer`/`!beber`/`!cagar` sobre SÍ MISMO (docs/GDD_Twitch.md). */
   private manejarTwitchSimularComando(client: Client, msg: { comando?: string }) {
     const nombre = this.nombreDe(client);
-    if (!nombre || !esJarlGlobal(nombre)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
+    if (!nombre || !this.puedeActuarComoJarl(client)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
     if (!msg?.comando) return;
     obtenerGestorTwitch().manejarComandoChat(nombre, msg.comando);
   }
 
   /** Jarl-only: fuerza el flag "en directo" — para probar sin depender de la detección real de Twitch (docs/GDD_Twitch.md). */
   private manejarTwitchForzarDirecto(client: Client, msg: { on?: boolean }) {
-    const nombre = this.nombreDe(client);
-    if (!nombre || !esJarlGlobal(nombre)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
+    if (!this.puedeActuarComoJarl(client)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
     obtenerGestorTwitch().fijarEnDirecto(!!msg?.on);
     client.send("twitch:directoForzado", { on: !!msg?.on });
   }
 
   /** Jarl-only: activa/desactiva PvP global (docs/GDD_PvP.md) — "todas menos la capital", inicialmente deshabilitado. */
   private async manejarPvpFijar(client: Client, msg: { on?: boolean }) {
-    const nombre = this.nombreDe(client);
-    if (!nombre || !esJarlGlobal(nombre)) return client.send("pvp:error", { motivo: "solo el jarl puede cambiar esto" });
+    if (!this.puedeActuarComoJarl(client)) return client.send("pvp:error", { motivo: "solo el jarl puede cambiar esto" });
     const bd = await obtenerBdCompartida();
     await fijarPvpGlobal(bd, !!msg?.on);
     this.broadcast("pvp:actualizado", { on: !!msg?.on });
@@ -3126,7 +3270,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!nombre || !msg?.tenderoteId) return;
     await this.resolverContratosDeDestino(msg.tenderoteId);
     const dueno = await this.duenoDeTenderete(msg.tenderoteId);
-    if (!dueno || (dueno.toLowerCase() !== nombre.toLowerCase() && !esJarlGlobal(nombre))) {
+    if (!dueno || (dueno.toLowerCase() !== nombre.toLowerCase() && !this.puedeActuarComoJarl(client))) {
       return this.errorTenderete(client, "no tienes permiso para gestionar este tenderete");
     }
     const bd = await obtenerBdCompartida();
@@ -3990,14 +4134,56 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("cocina:cocinado", { itemId: cocinadoId });
   }
 
+  private errorRecipiente(client: Client, motivo: string) {
+    client.send("recipiente:error", { motivo });
+  }
+
+  /**
+   * Llena un recipiente portable (cantimplora/cubo_madera) desde la fuente
+   * de agua más cercana — reusa `casillaAguaCercana`, mismo criterio que
+   * barcos/pesca. docs/GDD_Inventario.md §9, pedido 2026-08-30.
+   */
+  private manejarRecipienteLlenar(client: Client, msg: { instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!player || !contenedor || typeof msg?.instanciaId !== "number") return;
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return this.errorRecipiente(client, "no tienes ese objeto");
+    const entrada = this.catalogoItems[it.itemId];
+    if (!entrada || !esRecipienteLiquido(entrada)) return this.errorRecipiente(client, "eso no es un recipiente de líquido");
+    if (!casillaAguaCercana(this.mundo, player.x, player.y, RADIO_INTERACCION)) {
+      return this.errorRecipiente(client, "necesitas estar junto al agua");
+    }
+    llenar(it, entrada, "agua");
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("recipiente:llenado", { instanciaId: it.id, tipo: "agua", volumenMl: it.liquido!.volumenMl });
+  }
+
+  /** Bebe un trago de un recipiente con agua — restaura sed, mismo `aplicarUnVital` que cualquier consumible. docs/GDD_Inventario.md §9. */
+  private manejarRecipienteBeber(client: Client, msg: { instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!player || !contenedor || typeof msg?.instanciaId !== "number") return;
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it || !tieneLiquido(it, "agua")) return this.errorRecipiente(client, "ese recipiente no tiene agua");
+
+    const bebido = consumirVolumen(it, VOLUMEN_TRAGO_ML);
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    const bebida = this.aplicarUnVital(player, "bebida", Math.round((bebido / VOLUMEN_TRAGO_ML) * BEBIDA_POR_TRAGO));
+    client.send("recipiente:bebido", { instanciaId: it.id, volumenMl: bebido, bebida });
+  }
+
   /**
    * Llena la vasija de agua y la pone al fuego — pedido explícito
    * (2026-08-30): "para hacer guisos y sopas necesitas llenar la olla de
    * agua y ponerla al fuego hasta que se caliente, un tiempo determinado".
-   * Agua "libre" (no consume ningún ítem, como en la pesca) — arranca el
+   * AMPLIACIÓN 2026-08-30: ya NO es agua libre — hay que meter un recipiente
+   * (cantimplora/cubo) CON agua como si fuera un ingrediente más; se vacía
+   * entero en la olla (docs/GDD_Inventario.md §9, pedido literal: "meter un
+   * cubo con agua a la olla como ingrediente si pide agua"). Arranca el
    * cronómetro de hervor; `cocina:anadir` la exige ya hirviendo.
    */
-  private async manejarCocinaLlenarAgua(client: Client, msg: { construccionId?: number }) {
+  private async manejarCocinaLlenarAgua(client: Client, msg: { construccionId?: number; instanciaId?: number }) {
     const ctx = this.ctxConstruccion;
     if (!ctx || typeof msg?.construccionId !== "number") return;
     const viva = ctx.vivas.get(msg.construccionId);
@@ -4006,6 +4192,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (entrada.cocina.hierveAgua === false) return this.errorCocina(client, "esta vasija no necesita agua ni fuego, se usa directamente");
     const estado = this.extraCocinaDe(viva);
     if (estado.conAgua) return this.errorCocina(client, "esta vasija ya tiene agua puesta");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const it = typeof msg?.instanciaId === "number" ? contenedor?.items.find((i) => i.id === msg.instanciaId) : undefined;
+    if (!contenedor || !it || !tieneLiquido(it, "agua")) {
+      return this.errorCocina(client, "necesitas un recipiente (cantimplora/cubo) con agua para meter en la olla");
+    }
+    vaciar(it);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
     const nuevoEstado: EstadoCocina = { ...estado, conAgua: true, calentandoDesde: Date.now() };
     const bd = await obtenerBdCompartida();
@@ -4102,18 +4297,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       this.registrarPlatoEnCatalogo(plato);
     }
 
-    const contenedor = this.inventarios.get(client.sessionId);
-    if (!contenedor) return;
-    const cogido = agregarItem(contenedor, this.catalogoItems, plato.itemId, resultado.platos);
-    if (!cogido.ok) return this.errorCocina(client, "no tienes hueco para los platos");
-
     const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (!player) return;
+    const entrega = this.entregarOSoltar(client, player, plato.itemId, resultado.platos);
 
     const nuevoEstado: EstadoCocina = { ingredientes: [] };
     viva.extra = { ...(viva.extra ?? {}), cocina: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
-    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: resultado.platos, mezclaBonus: resultado.mezclaBonus });
+    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: resultado.platos, mezclaBonus: resultado.mezclaBonus, enSuelo: !entrega.enInventario });
   }
 
   /** Contenido actual de la vasija — sin mutar nada, solo consulta (mismo criterio que motriz:consultar/cultivo:consultar). */
@@ -4174,14 +4365,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return false;
-    const cogido = agregarItem(contenedor, this.catalogoItems, plato.itemId, cantidadEntregar);
-    if (!cogido.ok) {
-      this.errorCocina(client, "no tienes hueco para el resultado");
-      return false;
-    }
     const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
-    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: cantidadEntregar, mezclaBonus: resultado.mezclaBonus });
+    if (!player) return false;
+    const entrega = this.entregarOSoltar(client, player, plato.itemId, cantidadEntregar);
+    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: cantidadEntregar, mezclaBonus: resultado.mezclaBonus, enSuelo: !entrega.enInventario });
     return true;
   }
 
@@ -4202,6 +4389,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_cocina")) {
       return this.errorCocina(client, "necesitas un cuchillo_cocina para cortar la ensalada");
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_cocina");
+    if (!herramienta.ok) return this.errorCocina(client, herramienta.motivo);
 
     const picks: { instanciaId: number; itemId: string; cantidad: number }[] = [];
     const totalesPorItem = new Map<string, number>();
@@ -4282,6 +4471,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_cocina")) {
       return this.errorCocina(client, "necesitas un cuchillo_cocina");
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_cocina");
+    if (!herramienta.ok) return this.errorCocina(client, herramienta.motivo);
     const item = typeof msg?.instanciaId === "number" ? contenedor.items.find((it) => it.id === msg.instanciaId) : undefined;
     if (!item || item.itemId !== "pan") return this.errorCocina(client, "eso no es pan");
 
@@ -4748,6 +4939,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const ctx = this.ctxConstruccion;
     if (!nombre || !ctx || !msg?.recetaId || typeof msg.construccionId !== "number") return;
     if (this.craftesEnCurso.has(client.sessionId)) return this.errorCrafteo(client, "ya tienes un crafteo en curso");
+    if (this.brazoInutilizadoDe(client.sessionId)) return this.errorCrafteo(client, "brazo roto o amputado, no puedes usar herramientas");
 
     if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
     const receta = this.catalogoRecetas.get(msg.recetaId);
@@ -4814,26 +5006,62 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
-    const jugadorParaPeso = this.state.players.get(client.sessionId);
-    const pesoMaximo = pesoMaximoTransportable(jugadorParaPeso?.atributos.fuerza ?? 1);
-    if (excedePesoMaximo(contenedor, this.catalogoItems, receta.resultado.itemId, receta.resultado.cantidad, pesoMaximo)) {
-      return this.errorCrafteo(client, "demasiado peso para cargar el resultado — descarga algo primero");
-    }
-    const resultado = intentarCoger(contenedor, this.catalogoItems, { itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad });
-    if (!resultado.ok) return this.errorCrafteo(client, "no tienes hueco en tu inventario");
-
     const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (!player) return;
+    const entrega = this.entregarOSoltar(client, player, receta.resultado.itemId, receta.resultado.cantidad);
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const nuevaXp = await bd.sumarXpOficio(jugador.id, receta.oficio, XP_POR_CRAFTEO);
     // Inteligencia (docs/GDD_Personaje.md): completar un crafteo entrena tanto el oficio como el atributo general.
-    if (player) await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
+    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
     client.send("crafteo:completado", {
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad,
-      oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
+      oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
     });
+  }
+
+  /**
+   * Entrega un ítem al inventario del jugador; si no cabe (hueco O peso),
+   * lo suelta a sus pies en vez de perderse — mismo mecanismo que "soltar"
+   * manual (`ObjetoMundoSchema`/`objetosMundo`). docs/GDD_Crafteo.md,
+   * pedido 2026-08-30: "si no caben, que caigan al suelo" — antes crafteo/
+   * cocina simplemente daban error y el jugador se quedaba sin el material
+   * ya gastado en el crafteo.
+   */
+  private entregarOSoltar(client: Client, player: Player, itemId: string, cantidad: number): { enInventario: boolean } {
+    const contenedor = this.inventarios.get(client.sessionId);
+    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo);
+    const resultado = contenedor && cabePeso ? intentarCoger(contenedor, this.catalogoItems, { itemId, cantidad }) : { ok: false as const };
+    if (resultado.ok) {
+      sincronizarContenedor(player.inventario.cuerpo, contenedor!);
+      return { enInventario: true };
+    }
+    const o = new ObjetoMundoSchema();
+    o.x = Math.floor(player.x) + 0.5;
+    o.y = Math.floor(player.y) + 0.5;
+    o.itemId = itemId;
+    o.cantidad = cantidad;
+    this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o);
+    return { enInventario: false };
+  }
+
+  /**
+   * Registra un uso de una herramienta "de gate" (cuchillo_desollar,
+   * cuchillo_cocina...) — items validados hoy solo por tenencia, nunca
+   * por durabilidad. Llamar SIEMPRE justo después del `.some(itemId===...)`
+   * que ya exige tenerla, así la instancia real existe seguro. Si está
+   * rota, bloquea la acción (nunca se repara sola). docs/GDD_Crafteo.md,
+   * pedido 2026-08-30: "desgaste en herramientas de crafteo/cocina".
+   */
+  private usarHerramientaDeGate(contenedor: Contenedor, itemId: string): { ok: true } | { ok: false; motivo: string } {
+    const it = contenedor.items.find((i) => i.itemId === itemId);
+    const entrada = this.catalogoItems[itemId];
+    if (!it || !entrada) return { ok: true }; // no debería pasar (tenencia ya comprobada) — no bloquea por si acaso
+    if (estaRoto(it, entrada)) return { ok: false, motivo: `tu ${itemId.replace(/_/g, " ")} está roto — necesitas otro` };
+    registrarUso(it, entrada, Date.now());
+    return { ok: true };
   }
 
   // ---- Encurtido de pieles (docs/GDD_Caza.md, cubo_sal/barril_curtido) ----
@@ -5312,6 +5540,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
       return this.errorAnimal(client, "necesitas un cuchillo de desollar");
     }
+    const herramienta = this.usarHerramientaDeGate(contenedor, "cuchillo_desollar");
+    if (!herramienta.ok) return this.errorAnimal(client, herramienta.motivo);
     const especie = this.estadisticasFaunaDe(fila.especieId);
     if (!especie) return this.errorAnimal(client, "no se puede sacrificar esto");
 
@@ -5579,6 +5809,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // de "respawneas sano", esto es lo que corta el bucle de daño ambiental/
     // inanición (que solo comprueba vida<=0, ver el guardia de arriba).
     player.vida = player.vidaMax;
+    // Anatomía (docs/GDD_Anatomia.md): "respawneas sano" también limpia
+    // sangrado/fractura/infección — pero NO amputaciones/prótesis, eso es
+    // permanente hasta que un curandero instale una prótesis de verdad.
+    const anatomiaRespawn = this.anatomiaDe(sessionId);
+    operarCirugia(anatomiaRespawn);
+    this.mirrorAnatomiaASchema(player.anatomia, anatomiaRespawn);
+    if (nombre) void this.persistirAnatomia(nombre, anatomiaRespawn);
 
     const bd = await obtenerBdCompartida();
     if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
@@ -6045,6 +6282,206 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     void this.otorgarXpAtributoPorSesion(client, "destreza", XP_DESTREZA_POR_MOVER_EN_COMBATE);
   }
 
+  // --- Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30) ---
+
+  /** Estado PURO completo (con timestamps) de la sesión — se crea vacío la primera vez que se toca (p.ej. si onJoin todavía no ha resuelto la carga async de BD). */
+  protected anatomiaDe(sessionId: string): Anatomia {
+    let a = this.anatomiaPorSesion.get(sessionId);
+    if (!a) {
+      a = anatomiaInicial();
+      this.anatomiaPorSesion.set(sessionId, a);
+    }
+    return a;
+  }
+
+  /** Copia el subconjunto de booleanas que el cliente necesita pintar — nunca los timestamps de curación en curso. */
+  protected mirrorAnatomiaASchema(schema: AnatomiaSchema, anatomia: Anatomia): void {
+    for (const z of ZONAS) {
+      const zonaEstado = anatomia[z];
+      const zonaSchema = schema[z];
+      zonaSchema.sangrado = zonaEstado.sangrado;
+      zonaSchema.fractura = zonaEstado.fractura;
+      zonaSchema.infectado = zonaEstado.infectado;
+      zonaSchema.amputado = zonaEstado.amputado;
+      zonaSchema.protesis = zonaEstado.protesis;
+      zonaSchema.curando = zonaEstado.vendadoDesde != null || zonaEstado.entablilladoDesde != null;
+    }
+  }
+
+  protected brazoInutilizadoDe(sessionId: string): boolean {
+    return brazoInutilizado(this.anatomiaDe(sessionId));
+  }
+
+  /** Persiste el estado completo (con timestamps) — misma cadencia que actualizarVidaJugador: eventos discretos (golpe, acción médica), nunca cada tick. */
+  protected async persistirAnatomia(nombreJugador: string, anatomia: Anatomia): Promise<void> {
+    if (!nombreJugador) return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    await bd.actualizarAnatomiaJugador(jugador.id, JSON.stringify(anatomia));
+  }
+
+  /**
+   * Tira el golpe anatómico si corresponde: el objetivo tiene que ser un
+   * jugador CONECTADO en esta room (fauna/NPC nunca llevan anatomía) — el
+   * atacante puede ser jugador (usa el `tipoDano` de su arma equipada en
+   * `manoPrincipal`, o "contundente" a puño limpio) o no (fauna/NPC
+   * atacando a un jugador de vuelta se trata igual, sin arma -> contundente).
+   */
+  protected async aplicarEfectoAnatomicoSiCorresponde(atacanteSessionId: string | null, objetivoSessionId: string): Promise<void> {
+    const objetivo = this.state.players.get(objetivoSessionId);
+    if (!objetivo || objetivo.vida <= 0) return;
+    let tipoDano: "cortante" | "contundente" | "perforante" | "magico" | "fuego" = "contundente";
+    const atacante = atacanteSessionId ? this.state.players.get(atacanteSessionId) : undefined;
+    if (atacante) {
+      const armaId = atacante.inventario.equipo.get("manoPrincipal");
+      tipoDano = (armaId ? this.catalogoItems[armaId]?.tipoDano : undefined) ?? "contundente";
+    }
+    const resultado = resolverGolpeAnatomico(tipoDano);
+    if (!resultado.sangrado && !resultado.fractura && !resultado.amputacion) return; // nada que aplicar ni persistir
+    const anatomia = this.anatomiaDe(objetivoSessionId);
+    aplicarGolpe(anatomia[resultado.zona], resultado);
+    this.mirrorAnatomiaASchema(objetivo.anatomia, anatomia);
+    if (objetivo.name) void this.persistirAnatomia(objetivo.name, anatomia);
+    this.clients.find((c) => c.sessionId === objetivoSessionId)?.send("anatomia:golpe", {
+      zona: resultado.zona, sangrado: resultado.sangrado, fractura: resultado.fractura, amputacion: resultado.amputacion,
+    });
+  }
+
+  /** La construcción viva más cercana de tipo `objetoId` dentro de `radio` casillas, o null. */
+  protected construccionCercana(x: number, y: number, objetoId: string, radio: number): { id: number } | null {
+    const ctx = this.ctxConstruccion;
+    if (!ctx) return null;
+    let mejor: { id: number; dist: number } | null = null;
+    for (const viva of ctx.vivas.values()) {
+      if (viva.objeto !== objetoId) continue;
+      const dist = Math.hypot(viva.x - x, viva.y - y);
+      if (dist > radio) continue;
+      if (!mejor || dist < mejor.dist) mejor = { id: viva.id, dist };
+    }
+    return mejor ? { id: mejor.id } : null;
+  }
+
+  private errorMedico(client: Client, motivo: string) {
+    client.send("medico:error", { motivo });
+  }
+
+  /** Jugador objetivo válido para una acción médica: uno mismo o cualquiera dentro de RADIO_INTERACCION. */
+  private jugadorObjetivoMedico(client: Client, targetSessionId: string | undefined): Player | null {
+    if (!targetSessionId) return null;
+    const medico = this.state.players.get(client.sessionId);
+    const target = this.state.players.get(targetSessionId);
+    if (!medico || !target) return null;
+    if (targetSessionId !== client.sessionId && Math.hypot(target.x - medico.x, target.y - medico.y) > RADIO_INTERACCION) return null;
+    return target;
+  }
+
+  /** Vendar (docs/GDD_Anatomia.md): cualquier jugador, sobre sí mismo u otro, sin oficio — consume 1 venda [+1 ungüento]. */
+  private async manejarMedicoVendar(client: Client, msg: { targetSessionId?: string; zona?: Zona; conUnguento?: boolean }) {
+    const target = this.jugadorObjetivoMedico(client, msg?.targetSessionId);
+    if (!target || !msg?.zona || !ZONAS.includes(msg.zona)) return this.errorMedico(client, "objetivo o zona inválidos");
+    const contenedor = this.inventarios.get(client.sessionId);
+    const venda = contenedor?.items.find((it) => it.itemId === "venda");
+    if (!contenedor || !venda) return this.errorMedico(client, "necesitas una venda");
+    const conUnguento = msg.conUnguento === true;
+    const unguento = conUnguento ? contenedor.items.find((it) => it.itemId === "unguento") : undefined;
+    if (conUnguento && !unguento) return this.errorMedico(client, "no tienes ungüento");
+
+    const anatomia = this.anatomiaDe(msg.targetSessionId!);
+    if (!usarVenda(anatomia[msg.zona], conUnguento, Date.now())) return this.errorMedico(client, "esa zona no está sangrando");
+
+    quitarItem(contenedor, venda.id, 1);
+    if (unguento) quitarItem(contenedor, unguento.id, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    this.mirrorAnatomiaASchema(target.anatomia, anatomia);
+    if (target.name) void this.persistirAnatomia(target.name, anatomia);
+    client.send("medico:vendado", { targetSessionId: msg.targetSessionId, zona: msg.zona });
+  }
+
+  /** Entablillar (docs/GDD_Anatomia.md): igual que vendar, sin oficio, consume 1 tablilla. */
+  private async manejarMedicoEntablillar(client: Client, msg: { targetSessionId?: string; zona?: Zona }) {
+    const target = this.jugadorObjetivoMedico(client, msg?.targetSessionId);
+    if (!target || !msg?.zona || !ZONAS.includes(msg.zona)) return this.errorMedico(client, "objetivo o zona inválidos");
+    const contenedor = this.inventarios.get(client.sessionId);
+    const tablilla = contenedor?.items.find((it) => it.itemId === "tablilla");
+    if (!contenedor || !tablilla) return this.errorMedico(client, "necesitas una tablilla");
+
+    const anatomia = this.anatomiaDe(msg.targetSessionId!);
+    if (!usarTablilla(anatomia[msg.zona], Date.now())) return this.errorMedico(client, "esa zona no tiene fractura activa");
+
+    quitarItem(contenedor, tablilla.id, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    this.mirrorAnatomiaASchema(target.anatomia, anatomia);
+    if (target.name) void this.persistirAnatomia(target.name, anatomia);
+    client.send("medico:entablillado", { targetSessionId: msg.targetSessionId, zona: msg.zona });
+  }
+
+  /**
+   * Cirugía (docs/GDD_Anatomia.md): exige oficio curandero, instrumental_cirugia
+   * en el inventario (herramienta reusable, no se consume), estar junto a
+   * mesa_cirugia, Y el paciente junto a una cama/camilla (esCama, cualquier
+   * cama ya existente sirve — "que te tumbes en camilla o cama", pedido
+   * literal). Cura TODO al instante y saca de crítico.
+   */
+  private async manejarMedicoCirugia(client: Client, msg: { targetSessionId?: string }) {
+    const medico = this.state.players.get(client.sessionId);
+    const target = this.jugadorObjetivoMedico(client, msg?.targetSessionId);
+    if (!medico || !target) return this.errorMedico(client, "objetivo inválido");
+    if (medico.oficio !== "curandero") return this.errorMedico(client, "necesitas el oficio de curandero");
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor?.items.some((it) => it.itemId === "instrumental_cirugia")) {
+      return this.errorMedico(client, "necesitas el instrumental de cirugía");
+    }
+    if (!this.construccionCercana(medico.x, medico.y, "mesa_cirugia", RADIO_INTERACCION)) {
+      return this.errorMedico(client, "necesitas estar junto a una mesa de cirugía");
+    }
+    const camaCerca = ["cama_individual", "cama_doble", "litera_marinero"].some((id) =>
+      this.construccionCercana(target.x, target.y, id, RADIO_INTERACCION),
+    );
+    if (!camaCerca) return this.errorMedico(client, "el paciente tiene que estar en una cama o camilla");
+
+    const anatomia = this.anatomiaDe(msg.targetSessionId!);
+    operarCirugia(anatomia);
+    if (estaCritico(target.vida, target.vidaMax)) {
+      target.vida = Math.max(target.vida, Math.ceil(target.vidaMax * 0.1));
+    }
+    this.mirrorAnatomiaASchema(target.anatomia, anatomia);
+    if (target.name) {
+      void this.persistirAnatomia(target.name, anatomia);
+      void (async () => {
+        const bd = await obtenerBdCompartida();
+        const jugador = await bd.obtenerOCrearJugador(target.name);
+        await bd.actualizarVidaJugador(jugador.id, target.vida, target.vidaMax);
+      })();
+    }
+    client.send("medico:operado", { targetSessionId: msg.targetSessionId });
+  }
+
+  /** Prótesis (docs/GDD_Anatomia.md): oficio curandero, junto a mesa_diagnostico, consume 1 protesis_madera. */
+  private async manejarMedicoProtesis(client: Client, msg: { targetSessionId?: string; zona?: Zona }) {
+    const medico = this.state.players.get(client.sessionId);
+    const target = this.jugadorObjetivoMedico(client, msg?.targetSessionId);
+    if (!medico || !target || !msg?.zona || !ZONAS.includes(msg.zona)) return this.errorMedico(client, "objetivo o zona inválidos");
+    if (medico.oficio !== "curandero") return this.errorMedico(client, "necesitas el oficio de curandero");
+    if (!this.construccionCercana(medico.x, medico.y, "mesa_diagnostico", RADIO_INTERACCION)) {
+      return this.errorMedico(client, "necesitas estar junto a una mesa de diagnóstico");
+    }
+    const contenedor = this.inventarios.get(client.sessionId);
+    const protesis = contenedor?.items.find((it) => it.itemId === "protesis_madera");
+    if (!contenedor || !protesis) return this.errorMedico(client, "necesitas una prótesis de madera");
+
+    const anatomia = this.anatomiaDe(msg.targetSessionId!);
+    if (!instalarProtesis(anatomia[msg.zona])) return this.errorMedico(client, "esa zona no está amputada, o ya tiene prótesis");
+
+    quitarItem(contenedor, protesis.id, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    this.mirrorAnatomiaASchema(target.anatomia, anatomia);
+    if (target.name) void this.persistirAnatomia(target.name, anatomia);
+    client.send("medico:protesisInstalada", { targetSessionId: msg.targetSessionId, zona: msg.zona });
+  }
+
   private async manejarCombateAccion(client: Client, msg: { combateId?: string; objetivoId?: string }) {
     if (!msg?.combateId || !msg?.objetivoId) return;
     const combate = this.state.combates.get(msg.combateId);
@@ -6055,6 +6492,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const objetivo = combate.unidades.get(msg.objetivoId);
     if (!atacante || atacante.estado !== "activo" || !objetivo || objetivo.estado !== "activo") return;
     if (atacante.pa < COSTE_PA_ATAQUE) return client.send("combate:error", { motivo: "sin PA suficiente" });
+    if (this.brazoInutilizadoDe(client.sessionId)) return client.send("combate:error", { motivo: "brazo roto o amputado, no puedes atacar" });
     if (!enAlcance(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo))) {
       return client.send("combate:error", { motivo: "fuera de alcance" });
     }
@@ -6062,6 +6500,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const actualizado = resolverAtaque(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo));
     this.aplicarUnidadesASchema(combate, [actualizado]);
     atacante.pa -= COSTE_PA_ATAQUE;
+    // Anatomía (docs/GDD_Anatomia.md): solo si el objetivo es un jugador y sigue en pie tras el golpe.
+    if (objetivo.esJugador && actualizado.estado === "activo") {
+      void this.aplicarEfectoAnatomicoSiCorresponde(client.sessionId, msg.objetivoId);
+    }
 
     // Destreza Y Fuerza (docs/GDD_Personaje.md §3.2, "dando golpes"): un
     // golpe conectado entrena ambas — atacante SIEMPRE es un jugador aquí
@@ -6204,6 +6646,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         vel = VEL_ANDAR * (this.mundo.velocidad[idx] ?? 1);
       }
 
+      // Anatomía (docs/GDD_Anatomia.md): pierna rota/amputada, cicatrizando,
+      // o estado crítico penalizan la velocidad — igual que el terreno, no
+      // aplica si algo más (montura/barco) mueve al jugador por él.
+      if (!montura && !esCapitanBarco) {
+        const anatomia = this.anatomiaDe(sessionId);
+        vel *= multiplicadorVelocidadPorFractura(anatomia) * multiplicadorVelocidadPorCuracion(anatomia);
+        if (estaCritico(player.vida, player.vidaMax)) vel *= MULTIPLICADOR_VELOCIDAD_CRITICO;
+      }
+
       if (seMueve) {
         const norma = Math.hypot(dir.x, dir.y);
         const paso = (vel * dt) / norma;
@@ -6311,8 +6762,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       tickVitales(player.vitales, horasPorTick);
       const extremo = aplicarTemperaturaCorporal(player.vitales, tempMundoC, horasPorTick);
       this.aplicarInanicionA(player, horasPorTick, extremo !== null);
+      // Anatomía (docs/GDD_Anatomia.md): drenaje de sangrado/infección PEREZOSO,
+      // mismo integrador horasPorTick que tickVitales — y cierre perezoso de la
+      // fase "cicatrizando" (venda/tablilla) cuando ya pasó su tiempo. Solo se
+      // mirror-ea al Schema (barato); persistir a BD queda para eventos discretos
+      // (golpe/acción médica), no cada tick.
+      const anatomiaTick = this.anatomiaDe(sessionId);
+      resolverCuracionesEnCurso(anatomiaTick, Date.now());
+      aplicarDrenajeAnatomico(anatomiaTick, player, horasPorTick);
+      this.mirrorAnatomiaASchema(player.anatomia, anatomiaTick);
       // Muerte por inanición (docs/GDD_Muerte_Respawn.md) — mismo criterio
       // "fire and forget" que el resto de efectos async en un tick síncrono.
+      // El sangrado/infección puede matar igual que la inanición.
       if (player.vida <= 0) void this.manejarMuerteJugador(sessionId);
     });
 

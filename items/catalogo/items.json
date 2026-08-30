@@ -982,7 +982,9 @@
     "apilable": false,
     "variantes": 2,
     "colorDebug": "#a0a0a8",
-    "_nota": "Herramienta de docs/GDD_Caza.md — sin ella (equipada o en el inventario) no se puede desollar un cadáver ni raspar una piel salada, además de tener el oficio curtidor/peletero (Player.oficio). También sirve para animal:sacrificar (docs/GDD_Ganaderia.md), sin exigir oficio para ese verbo."
+    "durabilidadMax": 40,
+    "desgastePorUso": 1,
+    "_nota": "Herramienta de docs/GDD_Caza.md — sin ella (equipada o en el inventario) no se puede desollar un cadáver ni raspar una piel salada, además de tener el oficio curtidor/peletero (Player.oficio). También sirve para animal:sacrificar (docs/GDD_Ganaderia.md), sin exigir oficio para ese verbo. Se desgasta 1 punto por uso (docs/GDD_Crafteo.md, pedido 2026-08-30)."
   },
   "cubo_ordeno": {
     "tipo": "herramienta",
@@ -1009,19 +1011,6 @@
     "variantes": 2,
     "colorDebug": "#8a8a90",
     "_nota": "Herramienta de docs/GDD_Ganaderia.md — sin ella (equipada o en el inventario) no se puede esquilar (animal:recolectarProducto, producto \"lana\"), además de tener el oficio ganadero (Player.oficio)."
-  },
-  "cuchillo_desollar": {
-    "tipo": "herramienta",
-    "slotEquipo": "manoPrincipal",
-    "huella": [
-      1,
-      1
-    ],
-    "peso": 0.4,
-    "apilable": false,
-    "variantes": 2,
-    "colorDebug": "#a0a0a8",
-    "_nota": "Herramienta de docs/GDD_Caza.md — sin ella (equipada o en el inventario) no se puede desollar un cadáver ni raspar una piel salada, además de tener el oficio curtidor/peletero (Player.oficio)."
   },
   "antorcha_portatil": {
     "tipo": "herramienta",
@@ -1139,6 +1128,32 @@
     "variantes": 1,
     "colorDebug": "#a89878"
   },
+  "cantimplora": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a9aa0",
+    "volumenMaxMl": 500,
+    "_nota": "Recipiente de líquido portable (docs/GDD_Inventario.md §9, pedido 2026-08-30) — pequeño, para llevar agua encima y beber. Se llena con recipiente:llenar junto a una fuente de agua, se bebe con recipiente:beber."
+  },
+  "cubo_madera": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#7a5a3a",
+    "volumenMaxMl": 2000,
+    "_nota": "Recipiente de líquido portable, grande (docs/GDD_Inventario.md §9) — cuatro veces la cantimplora. Es el que se mete en la olla como ingrediente de agua (cocina:llenarAgua ahora exige uno lleno, ya no es gratis)."
+  },
   "cuchillo_cocina": {
     "tipo": "objeto",
     "huella": [
@@ -1148,7 +1163,10 @@
     "peso": 0.2,
     "apilable": false,
     "variantes": 1,
-    "colorDebug": "#c0c0c8"
+    "colorDebug": "#c0c0c8",
+    "durabilidadMax": 40,
+    "desgastePorUso": 1,
+    "_nota": "Herramienta de docs/GDD_Cocina.md — sin ella no se puede cortar ensalada/pan. Se desgasta 1 punto por uso (docs/GDD_Crafteo.md, pedido 2026-08-30)."
   },
   "olla": {
     "tipo": "objeto",
@@ -1815,7 +1833,8 @@
     "cooldownMs": 400,
     "durabilidadMax": 60,
     "desgastePorUso": 1,
-    "prendaId": "arma_daga"
+    "prendaId": "arma_daga",
+    "tipoDano": "cortante"
   },
   "espada_corta": {
     "tipo": "arma",
@@ -1835,7 +1854,8 @@
     "cooldownMs": 600,
     "durabilidadMax": 100,
     "desgastePorUso": 1,
-    "prendaId": "arma_espada"
+    "prendaId": "arma_espada",
+    "tipoDano": "cortante"
   },
   "espada_larga": {
     "tipo": "arma",
@@ -1855,7 +1875,8 @@
     "cooldownMs": 750,
     "durabilidadMax": 120,
     "desgastePorUso": 2,
-    "prendaId": "arma_espada_larga"
+    "prendaId": "arma_espada_larga",
+    "tipoDano": "cortante"
   },
   "hacha_combate": {
     "tipo": "arma",
@@ -1876,7 +1897,8 @@
     "durabilidadMax": 110,
     "desgastePorUso": 2,
     "_nota": "Distinta de 'hacha_talar' (herramienta de tala, sin stats de combate) — misma silueta, catálogo separado a propósito.",
-    "prendaId": "arma_hacha"
+    "prendaId": "arma_hacha",
+    "tipoDano": "cortante"
   },
   "maza_guerra": {
     "tipo": "arma",
@@ -1896,7 +1918,8 @@
     "cooldownMs": 900,
     "durabilidadMax": 130,
     "desgastePorUso": 2,
-    "prendaId": "arma_maza"
+    "prendaId": "arma_maza",
+    "tipoDano": "contundente"
   },
   "lanza": {
     "tipo": "arma",
@@ -1916,7 +1939,8 @@
     "cooldownMs": 700,
     "durabilidadMax": 100,
     "desgastePorUso": 1,
-    "prendaId": "arma_lanza"
+    "prendaId": "arma_lanza",
+    "tipoDano": "perforante"
   },
   "honda": {
     "tipo": "arma",
@@ -1936,7 +1960,8 @@
     "cooldownMs": 700,
     "durabilidadMax": 50,
     "desgastePorUso": 1,
-    "municionId": "piedra_honda"
+    "municionId": "piedra_honda",
+    "tipoDano": "contundente"
   },
   "arco_corto": {
     "tipo": "arma",
@@ -1956,7 +1981,8 @@
     "cooldownMs": 800,
     "durabilidadMax": 90,
     "desgastePorUso": 1,
-    "municionId": "flecha"
+    "municionId": "flecha",
+    "tipoDano": "perforante"
   },
   "arco_largo": {
     "tipo": "arma",
@@ -1976,7 +2002,8 @@
     "cooldownMs": 950,
     "durabilidadMax": 110,
     "desgastePorUso": 1,
-    "municionId": "flecha"
+    "municionId": "flecha",
+    "tipoDano": "perforante"
   },
   "ballesta": {
     "tipo": "arma",
@@ -1996,7 +2023,58 @@
     "cooldownMs": 1300,
     "durabilidadMax": 120,
     "desgastePorUso": 2,
-    "municionId": "virote_ballesta"
+    "municionId": "virote_ballesta",
+    "tipoDano": "perforante"
+  },
+  "venda": {
+    "tipo": "consumible",
+    "huella": [1, 1],
+    "peso": 0.1,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 1,
+    "colorDebug": "#e8ded0",
+    "_nota": "Anatomía (docs/GDD_Anatomia.md) — cualquier jugador puede vendarse a sí mismo u a otro (medico:vendar), sin oficio. Detiene el sangrado activo al instante; la zona sigue 'cicatrizando' un rato con un malus leve. Receta: sastre, telar, tela_hilada."
+  },
+  "unguento": {
+    "tipo": "consumible",
+    "huella": [1, 1],
+    "peso": 0.15,
+    "apilable": true,
+    "stackMax": 15,
+    "variantes": 1,
+    "colorDebug": "#a8c878",
+    "_nota": "Anatomía — aplicado junto a la venda (medico:vendar {conUnguento:true}) evita el riesgo de infección durante la cicatrización. Receta: herbolista, mortero_grande_boticario, miel+fruta."
+  },
+  "tablilla": {
+    "tipo": "consumible",
+    "huella": [1, 1],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 15,
+    "variantes": 1,
+    "colorDebug": "#b89860",
+    "_nota": "Anatomía — cualquier jugador puede entablillar a sí mismo u a otro (medico:entablillar), sin oficio. Detiene la penalización de fractura al instante; la zona sigue 'soldando' un rato. Receta: carpintero, banco_carpintero, madera_blanda."
+  },
+  "protesis_madera": {
+    "tipo": "consumible",
+    "huella": [1, 1],
+    "peso": 1,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a6838",
+    "_nota": "Anatomía — la instala un curandero sobre una zona amputada (medico:protesis, mesa_diagnostico). Receta: curandero, mesa_diagnostico, madera_dura+cuero_curtido."
+  },
+  "instrumental_cirugia": {
+    "tipo": "herramienta",
+    "huella": [1, 1],
+    "peso": 1.2,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c8d0d8",
+    "durabilidadMax": 200,
+    "desgastePorUso": 1,
+    "_nota": "Anatomía — herramienta REUSABLE (no se consume, mismo criterio que cuchillo_desollar): el curandero la necesita en el inventario para operar (medico:cirugia). Receta: herrero, yunque, lingote_hierro."
   },
   "piedra_honda": {
     "tipo": "municion",

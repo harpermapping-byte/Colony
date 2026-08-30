@@ -69,6 +69,29 @@ export interface Jugador {
   // automática — solo comida fuera de combate o pociones/magia la suben.
   vida: number;
   vidaMax: number;
+  /** docs/GDD_Anatomia.md — JSON de server/src/personaje/anatomia.ts::Anatomia, o null si nunca se tocó (se resuelve a anatomiaInicial() en RoomExteriorBase). */
+  anatomia: string | null;
+}
+
+/**
+ * Cuenta de admin (docs/GDD_Admin.md, pedido 2026-08-30) — identidad
+ * SEPARADA de `Jugador` (que es libre/mutable por nombre de PJ): esto es
+ * una cuenta real, con contraseña propia y/o un login de Twitch ya
+ * vinculado. `mapaId` solo tiene sentido con `rol==="jarl"` (qué mapa
+ * administra — "1 jarl por mapa"); `null` para `rol==="superadmin"`
+ * (cualquier mapa) o si a un jarl aún no se le ha asignado ninguno.
+ */
+export type RolAdmin = "jarl" | "superadmin";
+export interface CuentaAdmin {
+  id: number;
+  usuario: string;
+  /** "salt:hash" de server/src/admin/passwordHash.ts, o null si solo se loguea por Twitch. */
+  passwordHash: string | null;
+  /** login de Twitch ya vinculado (docs/GDD_Twitch.md), o null si solo usuario/contraseña. */
+  twitchLogin: string | null;
+  rol: RolAdmin;
+  mapaId: string | null;
+  creadoEn: string;
 }
 
 // Gremios/clanes (pedido 2026-08-29): banco común (Farycoins), roster de
@@ -434,6 +457,18 @@ export interface IAlmacenDatos {
   obtenerOCrearJugador(nombre: string, saldoInicial?: number): Promise<Jugador>;
   /** Vida/vidaMax tras combate/comida/pociones (docs/GDD_Mecanicas.md §5.4) — sin regeneración automática, solo se llama en un evento explícito. */
   actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void>;
+  /** docs/GDD_Anatomia.md — JSON de Anatomia; misma cadencia que actualizarVidaJugador (tras un golpe con efecto anatómico o una acción médica), no cada tick. */
+  actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void>;
+
+  // --- Cuentas de admin (docs/GDD_Admin.md, pedido 2026-08-30) ---
+  crearCuentaAdmin(datos: { usuario: string; passwordHash: string | null; twitchLogin: string | null; rol: RolAdmin; mapaId: string | null }): Promise<CuentaAdmin>;
+  obtenerCuentaAdminPorUsuario(usuario: string): Promise<CuentaAdmin | null>;
+  obtenerCuentaAdminPorTwitchLogin(twitchLogin: string): Promise<CuentaAdmin | null>;
+  listarCuentasAdmin(): Promise<CuentaAdmin[]>;
+  actualizarPasswordAdmin(id: number, passwordHash: string): Promise<void>;
+  /** "1 jarl por mapa": asigna `usuario` como jarl de `mapaId`, y de paso le QUITA ese mapa a quien lo tuviera antes (si era otro). No toca cuentas superadmin. */
+  asignarJarlDeMapa(mapaId: string, usuario: string): Promise<{ ok: boolean; motivo?: string }>;
+
   obtenerFarycoins(jugadorId: number): Promise<number>;
   /** Suma (delta>0) o resta (delta<0) Farycoins de un jugador, TODO O NADA:
    * si restar dejaría el saldo negativo, no toca nada y `ok:false` — mismo
@@ -669,7 +704,22 @@ CREATE TABLE IF NOT EXISTS jugadores (
   creado_en TEXT NOT NULL,
   farycoins INTEGER NOT NULL DEFAULT 0, -- moneda del mundo, saldo numérico (no ítem de inventario)
   vida INTEGER NOT NULL DEFAULT 100,    -- docs/GDD_Mecanicas.md §5.4: base 100/100, modificable por equipo/combate
-  vida_max INTEGER NOT NULL DEFAULT 100
+  vida_max INTEGER NOT NULL DEFAULT 100,
+  anatomia TEXT                         -- docs/GDD_Anatomia.md: JSON de las 6 zonas (server/src/personaje/anatomia.ts::Anatomia); NULL = nunca se ha tocado, se resuelve a anatomiaInicial()
+);
+-- Cuentas de admin (docs/GDD_Admin.md, pedido 2026-08-30): jarl por mapa +
+-- superadmin. Identidad SEPARADA de la tabla jugadores a propósito — el
+-- nombre de PJ es libre/mutable, esto es una cuenta real (login por
+-- contraseña propia Y/O por twitch_login ya vinculado). rol="jarl" exige
+-- mapa_id (a qué mapa administra); rol="superadmin" lo deja NULL (cualquier mapa).
+CREATE TABLE IF NOT EXISTS admin_cuentas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  usuario TEXT UNIQUE NOT NULL,
+  password_hash TEXT,     -- server/src/admin/passwordHash.ts ("salt:hash"), NULL si solo se loguea por Twitch
+  twitch_login TEXT UNIQUE, -- login de Twitch ya vinculado (docs/GDD_Twitch.md oauthLogin.ts), NULL si solo usuario/contraseña
+  rol TEXT NOT NULL,     -- "jarl" | "superadmin"
+  mapa_id TEXT,           -- solo con rol="jarl" — 1 jarl por mapa, se aplica en el código (asignarJarlDeMapa), no con un UNIQUE de columna
+  creado_en TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS gremios (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -997,6 +1047,18 @@ CREATE TABLE IF NOT EXISTS jugadores (
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS farycoins INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS vida INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS vida_max INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS anatomia TEXT;
+-- Cuentas de admin (docs/GDD_Admin.md, pedido 2026-08-30) — ver comentario
+-- gemelo en MIGRACIONES_SQLITE, misma tabla exacta.
+CREATE TABLE IF NOT EXISTS admin_cuentas (
+  id SERIAL PRIMARY KEY,
+  usuario TEXT UNIQUE NOT NULL,
+  password_hash TEXT,
+  twitch_login TEXT UNIQUE,
+  rol TEXT NOT NULL,
+  mapa_id TEXT,
+  creado_en TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS gremios (
   id SERIAL PRIMARY KEY,
   nombre TEXT UNIQUE NOT NULL,
@@ -1427,6 +1489,18 @@ function filaAPlatoCreado(f: any): PlatoCreado {
   };
 }
 
+function filaACuentaAdmin(f: any): CuentaAdmin {
+  return {
+    id: Number(f.id),
+    usuario: String(f.usuario),
+    passwordHash: f.password_hash == null ? null : String(f.password_hash),
+    twitchLogin: f.twitch_login == null ? null : String(f.twitch_login),
+    rol: f.rol as RolAdmin,
+    mapaId: f.mapa_id == null ? null : String(f.mapa_id),
+    creadoEn: String(f.creado_en),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Motor SQLite — desarrollo/pruebas. Constructor síncrono (como siempre);
 // los métodos se declaran `async` solo para devolver Promise y cumplir
@@ -1456,6 +1530,9 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     }
     if (!nombresJugadores.has("vida_max")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN vida_max INTEGER NOT NULL DEFAULT 100");
+    }
+    if (!nombresJugadores.has("anatomia")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN anatomia TEXT");
     }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
@@ -1488,7 +1565,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async obtenerOCrearJugador(nombre: string, saldoInicial = SALDO_INICIAL_JUGADOR): Promise<Jugador> {
     const existente = this.bd
-      .prepare("SELECT id, nombre, farycoins, vida, vida_max FROM jugadores WHERE nombre = ?")
+      .prepare("SELECT id, nombre, farycoins, vida, vida_max, anatomia FROM jugadores WHERE nombre = ?")
       .get(nombre);
     if (existente) {
       return {
@@ -1497,12 +1574,53 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
         farycoins: Number(existente.farycoins),
         vida: Number(existente.vida),
         vidaMax: Number(existente.vida_max),
+        anatomia: existente.anatomia == null ? null : String(existente.anatomia),
       };
     }
     const r = this.bd
       .prepare("INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES (?, ?, ?)")
       .run(nombre, new Date().toISOString(), saldoInicial);
-    return { id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100 };
+    return { id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100, anatomia: null };
+  }
+
+  async actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void> {
+    this.bd.prepare("UPDATE jugadores SET anatomia = ? WHERE id = ?").run(anatomiaJson, jugadorId);
+  }
+
+  async crearCuentaAdmin(datos: { usuario: string; passwordHash: string | null; twitchLogin: string | null; rol: RolAdmin; mapaId: string | null }): Promise<CuentaAdmin> {
+    this.bd
+      .prepare("INSERT INTO admin_cuentas (usuario, password_hash, twitch_login, rol, mapa_id, creado_en) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(datos.usuario, datos.passwordHash, datos.twitchLogin, datos.rol, datos.mapaId, new Date().toISOString());
+    return (await this.obtenerCuentaAdminPorUsuario(datos.usuario))!;
+  }
+
+  async obtenerCuentaAdminPorUsuario(usuario: string): Promise<CuentaAdmin | null> {
+    const fila = this.bd.prepare("SELECT * FROM admin_cuentas WHERE usuario = ?").get(usuario);
+    return fila ? filaACuentaAdmin(fila) : null;
+  }
+
+  async obtenerCuentaAdminPorTwitchLogin(twitchLogin: string): Promise<CuentaAdmin | null> {
+    const fila = this.bd.prepare("SELECT * FROM admin_cuentas WHERE twitch_login = ?").get(twitchLogin);
+    return fila ? filaACuentaAdmin(fila) : null;
+  }
+
+  async listarCuentasAdmin(): Promise<CuentaAdmin[]> {
+    const filas = this.bd.prepare("SELECT * FROM admin_cuentas ORDER BY id").all();
+    return filas.map(filaACuentaAdmin);
+  }
+
+  async actualizarPasswordAdmin(id: number, passwordHash: string): Promise<void> {
+    this.bd.prepare("UPDATE admin_cuentas SET password_hash = ? WHERE id = ?").run(passwordHash, id);
+  }
+
+  async asignarJarlDeMapa(mapaId: string, usuario: string): Promise<{ ok: boolean; motivo?: string }> {
+    const cuenta = await this.obtenerCuentaAdminPorUsuario(usuario);
+    if (!cuenta) return { ok: false, motivo: "no existe esa cuenta de admin" };
+    if (cuenta.rol === "superadmin") return { ok: false, motivo: "una cuenta superadmin no se asigna a un mapa" };
+    // "1 jarl por mapa": a quien lo tuviera antes se le quita (mapa_id a NULL, sigue siendo jarl, solo que sin mapa).
+    this.bd.prepare("UPDATE admin_cuentas SET mapa_id = NULL WHERE rol = 'jarl' AND mapa_id = ? AND usuario != ?").run(mapaId, usuario);
+    this.bd.prepare("UPDATE admin_cuentas SET rol = 'jarl', mapa_id = ? WHERE id = ?").run(mapaId, cuenta.id);
+    return { ok: true };
   }
 
   async obtenerFarycoins(jugadorId: number): Promise<number> {
@@ -2581,10 +2699,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     // devuelve la fila exista ya o se acabe de crear, en una sola ida y vuelta.
     // farycoins SOLO se fija en el INSERT (fila nueva) — el DO UPDATE nunca
     // toca esa columna, así que una fila ya existente conserva su saldo.
-    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number }>(
+    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number; anatomia: string | null }>(
       `INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES ($1, $2, $3)
        ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
-       RETURNING id, nombre, farycoins, vida, vida_max`,
+       RETURNING id, nombre, farycoins, vida, vida_max, anatomia`,
       [nombre, new Date().toISOString(), saldoInicial]
     );
     return {
@@ -2593,11 +2711,52 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       farycoins: r.rows[0].farycoins,
       vida: r.rows[0].vida,
       vidaMax: r.rows[0].vida_max,
+      anatomia: r.rows[0].anatomia,
     };
   }
 
   async actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void> {
     await this.pool.query("UPDATE jugadores SET vida = $1, vida_max = $2 WHERE id = $3", [vida, vidaMax, jugadorId]);
+  }
+
+  async actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void> {
+    await this.pool.query("UPDATE jugadores SET anatomia = $1 WHERE id = $2", [anatomiaJson, jugadorId]);
+  }
+
+  async crearCuentaAdmin(datos: { usuario: string; passwordHash: string | null; twitchLogin: string | null; rol: RolAdmin; mapaId: string | null }): Promise<CuentaAdmin> {
+    const r = await this.pool.query(
+      `INSERT INTO admin_cuentas (usuario, password_hash, twitch_login, rol, mapa_id, creado_en) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [datos.usuario, datos.passwordHash, datos.twitchLogin, datos.rol, datos.mapaId, new Date().toISOString()],
+    );
+    return filaACuentaAdmin(r.rows[0]);
+  }
+
+  async obtenerCuentaAdminPorUsuario(usuario: string): Promise<CuentaAdmin | null> {
+    const r = await this.pool.query("SELECT * FROM admin_cuentas WHERE usuario = $1", [usuario]);
+    return r.rows.length > 0 ? filaACuentaAdmin(r.rows[0]) : null;
+  }
+
+  async obtenerCuentaAdminPorTwitchLogin(twitchLogin: string): Promise<CuentaAdmin | null> {
+    const r = await this.pool.query("SELECT * FROM admin_cuentas WHERE twitch_login = $1", [twitchLogin]);
+    return r.rows.length > 0 ? filaACuentaAdmin(r.rows[0]) : null;
+  }
+
+  async listarCuentasAdmin(): Promise<CuentaAdmin[]> {
+    const r = await this.pool.query("SELECT * FROM admin_cuentas ORDER BY id");
+    return r.rows.map(filaACuentaAdmin);
+  }
+
+  async actualizarPasswordAdmin(id: number, passwordHash: string): Promise<void> {
+    await this.pool.query("UPDATE admin_cuentas SET password_hash = $1 WHERE id = $2", [passwordHash, id]);
+  }
+
+  async asignarJarlDeMapa(mapaId: string, usuario: string): Promise<{ ok: boolean; motivo?: string }> {
+    const cuenta = await this.obtenerCuentaAdminPorUsuario(usuario);
+    if (!cuenta) return { ok: false, motivo: "no existe esa cuenta de admin" };
+    if (cuenta.rol === "superadmin") return { ok: false, motivo: "una cuenta superadmin no se asigna a un mapa" };
+    await this.pool.query("UPDATE admin_cuentas SET mapa_id = NULL WHERE rol = 'jarl' AND mapa_id = $1 AND usuario != $2", [mapaId, usuario]);
+    await this.pool.query("UPDATE admin_cuentas SET rol = 'jarl', mapa_id = $1 WHERE id = $2", [mapaId, cuenta.id]);
+    return { ok: true };
   }
 
   async obtenerFarycoins(jugadorId: number): Promise<number> {

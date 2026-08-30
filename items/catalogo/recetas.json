@@ -222,5 +222,55 @@
     ],
     "resultado": { "itemId": "barco_4", "cantidad": 1 },
     "tiempoBaseSeg": 150
+  },
+
+  "venda": {
+    "oficio": "sastre",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "venda", "cantidad": 3 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Anatomia.md — primeros auxilios de campo, cualquiera la usa sin oficio (medico:vendar); solo craftearla exige sastre."
+  },
+  "unguento": {
+    "oficio": "herbolista",
+    "mesas": ["mortero_grande_boticario"],
+    "nivelMinimo": 1,
+    "insumos": [
+      { "itemId": "miel", "cantidad": 1 },
+      { "itemId": "fruta", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "unguento", "cantidad": 2 },
+    "tiempoBaseSeg": 10
+  },
+  "tablilla": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }],
+    "resultado": { "itemId": "tablilla", "cantidad": 2 },
+    "tiempoBaseSeg": 8
+  },
+  "protesis_madera": {
+    "oficio": "curandero",
+    "mesas": ["mesa_diagnostico"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 2 },
+      { "itemId": "cuero_curtido", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "protesis_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Anatomia.md — la craftea el curandero, pero la INSTALA sobre el paciente vía medico:protesis (acción aparte, no consume directamente del inventario del jugador que la craftea)."
+  },
+  "instrumental_cirugia": {
+    "oficio": "herrero",
+    "mesas": ["yunque"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "instrumental_cirugia", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "Herramienta reusable (durabilidadMax en items.json) — el curandero la necesita en su inventario para operar, no se gasta por cirugía."
   }
 }

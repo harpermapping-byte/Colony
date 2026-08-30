@@ -28,7 +28,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 257); // 240 (ver historial) + 13 de cocina v2 (docs/GDD_Cocina.md, 2026-08-30): asado_huevo + harina/masa_pan/pan/rebanada_pan + mantequilla/queso + olla_barro/olla_metal/cuenco_barro_grande/tinaja_batidos/recipiente_queso/estructura_palos + 4 barco_1..4 (docs/GDD_Barcos.md, 2026-08-30)
+  assert.strictEqual(ids.length, 264); // 262 (ver historial) + 2 de líquidos (docs/GDD_Inventario.md §9, 2026-08-30): cantimplora/cubo_madera
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");
@@ -56,6 +56,20 @@ test("armas (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): cuerpo a cuerpo y 
     assert.strictEqual(catalogo[id].slotEquipo, undefined, `${id}: la munición no se equipa`);
     assert.ok(catalogo[id].apilable, `${id}: la munición debe apilar`);
   }
+});
+
+test("herramientas de gate (cuchillo_desollar/cuchillo_cocina) se desgastan con el uso (docs/GDD_Crafteo.md, pedido 2026-08-30)", () => {
+  for (const id of ["cuchillo_desollar", "cuchillo_cocina"]) {
+    const e = catalogo[id];
+    assert.ok(e, `falta ${id}`);
+    assert.ok((e.durabilidadMax ?? 0) > 0, `${id}: sin durabilidadMax`);
+    assert.ok((e.desgastePorUso ?? 0) > 0, `${id}: sin desgastePorUso`);
+  }
+});
+
+test("recipientes de líquido (cantimplora/cubo_madera): a más grande, más volumenMaxMl (docs/GDD_Inventario.md §9, pedido 2026-08-30)", () => {
+  assert.ok((catalogo["cantimplora"]?.volumenMaxMl ?? 0) > 0, "falta volumenMaxMl en cantimplora");
+  assert.ok((catalogo["cubo_madera"]?.volumenMaxMl ?? 0) > (catalogo["cantimplora"]?.volumenMaxMl ?? 0), "el cubo debe caber más que la cantimplora");
 });
 
 test("armas cuerpo a cuerpo: alcance corto (1-2), las de distancia llegan mucho más lejos", () => {

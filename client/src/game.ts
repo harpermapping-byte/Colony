@@ -27,6 +27,8 @@ import { crearPlaceholder } from "./render3d/placeholder";
 import { animalPlaceholder } from "./render3d/animalPlaceholder";
 import { aplicarMonturaAlAnimal } from "./render3d/monturaVisual";
 import { crearBarcoVisual } from "./render3d/barcoVisual";
+import { aplicarAnatomiaCompleta } from "./render3d/anatomiaVisual";
+import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista } from "./personaje/panelMedico";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -561,7 +563,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const panelCocina = new PanelCocina({
       contenedor,
       cocinarSimple: (construccionId, instanciaId) => room.send("cocina:simple", { construccionId, instanciaId }),
-      llenarAgua: (construccionId) => room.send("cocina:llenarAgua", { construccionId }),
+      llenarAgua: (construccionId, instanciaId) => room.send("cocina:llenarAgua", { construccionId, instanciaId }),
       anadir: (construccionId, instanciaId, cantidad) => room.send("cocina:anadir", { construccionId, instanciaId, cantidad }),
       preparar: (construccionId) => room.send("cocina:preparar", { construccionId }),
     });
@@ -589,6 +591,33 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       }
     }, 500);
   }
+
+  // Anatomía/médico (docs/GDD_Anatomia.md, pedido 2026-08-30) — panel
+  // PLACEHOLDER de testeo (ver panelMedico.ts), universal (no depende de
+  // construcción habilitada, a diferencia de cocina: cualquier jugador
+  // puede sangrar o vendarse).
+  const panelMedico = new PanelMedico({
+    contenedor,
+    vendar: (zona, conUnguento) => room.send("medico:vendar", { targetSessionId: room.sessionId, zona, conUnguento }),
+    entablillar: (zona) => room.send("medico:entablillar", { targetSessionId: room.sessionId, zona }),
+    cirugia: (targetSessionId) => room.send("medico:cirugia", { targetSessionId }),
+    protesis: (targetSessionId, zona) => room.send("medico:protesis", { targetSessionId, zona }),
+  });
+  const leerAnatomiaVista = (schema: any): Record<Zona, EstadoZonaVista> => {
+    const vista = {} as Record<Zona, EstadoZonaVista>;
+    for (const zona of ZONAS) {
+      const z = schema[zona];
+      vista[zona] = { sangrado: !!z?.sangrado, fractura: !!z?.fractura, infectado: !!z?.infectado, amputado: !!z?.amputado, protesis: !!z?.protesis, curando: !!z?.curando };
+    }
+    return vista;
+  };
+  room.onMessage("anatomia:golpe", (m: { zona: string; sangrado: boolean; fractura: boolean; amputacion: boolean }) =>
+    console.log(`[anatomía] golpe en ${m?.zona}`, m));
+  room.onMessage("medico:error", (m: { motivo: string }) => console.log("[médico]", m?.motivo));
+  room.onMessage("medico:vendado", (m: { zona: string }) => console.log(`[médico] vendado: ${m?.zona}`));
+  room.onMessage("medico:entablillado", (m: { zona: string }) => console.log(`[médico] entablillado: ${m?.zona}`));
+  room.onMessage("medico:operado", () => console.log("[médico] cirugía completada"));
+  room.onMessage("medico:protesisInstalada", (m: { zona: string }) => console.log(`[médico] prótesis instalada: ${m?.zona}`));
 
   const jugadores = new Map<string, EstadoJugador>();
   let jugadorLocal: EstadoJugador | null = null;
@@ -650,6 +679,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       estado.nadando = player.estado !== "tierra";
       estado.destinoY = estado.nadando ? -HUNDIMIENTO_NADANDO + player.nivel * HUNDIMIENTO_POR_NIVEL : 0;
       escena.actualizarVida(sessionId, player.vida, player.vidaMax);
+      // Anatomía (docs/GDD_Anatomia.md): siempre sobre el rig HUMANOIDE (no
+      // el de montura/barco, si el jugador está montado/embarcado ahora
+      // mismo) — se aplica igual para jugador local y remoto.
+      aplicarAnatomiaCompleta(rig.objeto, player.anatomia);
+      if (esYo) panelMedico.actualizarEstado(leerAnatomiaVista(player.anatomia));
       if (player.monturaEspecieId !== monturaActual) {
         monturaActual = player.monturaEspecieId;
         if (monturaActual) {
@@ -932,8 +966,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     contenedor,
     equipar: (instanciaId, slot) => room.send("equipo:equipar", { instanciaId, slot }),
     desequipar: (slot) => room.send("equipo:desequipar", { slot }),
+    // Grid drag&drop (docs/GDD_Inventario.md §10, pedido 2026-08-30).
+    mover: (instanciaId, contenedorDestino, x, y, rot) => room.send("inventario:mover", { instanciaId, contenedorDestino, x, y, rot }),
   });
   room.onMessage("equipo:error", (m: { motivo: string }) => console.log("[equipo]", m?.motivo));
+  room.onMessage("inventario:error", (m: { motivo: string }) => console.log("[inventario]", m?.motivo));
 
   // --- Login con Twitch (docs/GDD_Twitch.md §7) — PLACEHOLDER de testeo,
   // mismo criterio que el resto de paneles de esta pasada: un enlace suelto

@@ -16,6 +16,7 @@ import { DependenciasBosques, GestorBosques } from "../mundo/bosquesVivos";
 import { ObjetoArbolBakeado } from "../mundo/bosqueSector";
 import { EspecieArbol } from "../mundo/crecimientoBosques";
 import { quitarItem, excedePesoMaximo } from "../inventario/inventario";
+import { Anatomia, anatomiaInicial } from "../personaje/anatomia";
 import { intentarCoger } from "../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../inventario/sincronizarSchema";
 import { pesoMaximoTransportable } from "../personaje/bonusAtributos";
@@ -401,6 +402,9 @@ export class HubRoom extends RoomExteriorBase {
     this.onMessage("combate:atacar", async (client, msg: { objetivoTipo?: "fauna" | "jugador"; objetivoId?: string }) => {
       const atacante = this.state.players.get(client.sessionId);
       if (!atacante || !msg?.objetivoTipo || !msg?.objetivoId) return;
+      if (this.brazoInutilizadoDe(client.sessionId)) {
+        return client.send("combate:error", { motivo: "brazo roto o amputado, no puedes atacar" });
+      }
 
       if (msg.objetivoTipo === "fauna") {
         if (!this.gestorFaunaSalvaje) return client.send("combate:error", { motivo: "sin fauna salvaje en este mapa" });
@@ -440,6 +444,9 @@ export class HubRoom extends RoomExteriorBase {
         const jugador = await bd.obtenerOCrearJugador(objetivo.name);
         await bd.actualizarVidaJugador(jugador.id, objetivo.vida, objetivo.vidaMax);
       }
+      // Anatomía (docs/GDD_Anatomia.md): solo si el objetivo sigue en pie —
+      // si murió, ya se le rellenó la vida arriba, la herida no aporta nada.
+      if (!muerto) void this.aplicarEfectoAnatomicoSiCorresponde(client.sessionId, msg.objetivoId);
       this.broadcast("combate:golpe", {
         objetivoTipo: "jugador", objetivoId: msg.objetivoId, danio,
         vida: objetivo.vida, vidaMax: objetivo.vidaMax, muerto,
@@ -573,6 +580,11 @@ export class HubRoom extends RoomExteriorBase {
             player.vida = jugador.vida;
             player.vidaMax = jugador.vidaMax;
           }
+          // Anatomía persistida (docs/GDD_Anatomia.md) — mismo criterio
+          // best-effort que la vida: si falla, arranca en anatomiaInicial().
+          const anatomia: Anatomia = jugador.anatomia ? JSON.parse(jugador.anatomia) : anatomiaInicial();
+          this.anatomiaPorSesion.set(client.sessionId, anatomia);
+          if (player) this.mirrorAnatomiaASchema(player.anatomia, anatomia);
         })
         .catch((err) => console.error("No se pudo cargar la vida persistida del jugador:", err));
     }

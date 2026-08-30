@@ -11,7 +11,6 @@ import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catal
 import { asegurarAsentamientoBandido } from "../mundo/economiaAsentamientos";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
 import { cargarParcelasDeReservas } from "../construccion/parcelas";
-import { esJarlGlobal } from "../construccion/construccion";
 import { ventaJugadorPermitida, precioInmueble } from "../propiedades/propiedades";
 
 // Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): "si se les da de comer
@@ -255,8 +254,7 @@ export class RegionRoom extends RoomExteriorBase {
     });
 
     this.onMessage("inmueble:revocar", async (client, msg: { inmuebleId?: string }) => {
-      const nombre = this.nombreDe(client);
-      if (!nombre || !esJarlGlobal(nombre)) return client.send("inmueble:error", { motivo: "solo el jarl revoca propiedades" });
+      if (!this.puedeActuarComoJarl(client)) return client.send("inmueble:error", { motivo: "solo el jarl revoca propiedades" });
       const entrada = msg?.inmuebleId ? this.inmueblesVendibles.get(msg.inmuebleId) : undefined;
       if (!entrada) return client.send("inmueble:error", { motivo: "inmueble desconocido" });
       const bd = await obtenerBdCompartida();
