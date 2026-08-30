@@ -5,7 +5,7 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { recolectableCercano, RecolectableVivo } from "../src/mundo/recolectables";
+import { recolectableCercano, recolectablesAgotadosDeMapa, RecolectableVivo } from "../src/mundo/recolectables";
 import { cargarMapaColision } from "../src/mundo/mapaColision";
 
 const RAIZ_REPO = path.resolve(__dirname, "..", "..");
@@ -76,6 +76,42 @@ test("cargarMapaColision: recolectables solo incluye el pool ACTIVO (fix del bug
     assert.ok(item.itemId.length > 0);
     assert.ok(item.x >= 0 && item.x < mapa.ancho && item.y >= 0 && item.y < mapa.alto);
   }
+});
+
+test("recolectableCercano: un idx marcado 'agotado' con timestamp futuro se salta, aunque sea el más cercano", () => {
+  const recolectables = new Map<number, RecolectableVivo>();
+  const ancho = 100;
+  const idxCercano = 10 * ancho + 10;
+  recolectables.set(idxCercano, { itemId: "mora", x: 10, y: 10 });
+  recolectables.set(10 * ancho + 13, { itemId: "tomillo", x: 13, y: 10 });
+  const agotados = new Map<number, number>([[idxCercano, Date.now() + 60_000]]);
+
+  const encontrado = recolectableCercano(recolectables, ancho, 10.4, 10.4, 4, agotados);
+  assert.ok(encontrado);
+  assert.strictEqual(encontrado!.item.itemId, "tomillo", "debe saltarse el agotado y coger el siguiente más cercano");
+  assert.strictEqual(agotados.size, 1, "el agotado con timestamp futuro no se toca");
+});
+
+test("recolectableCercano: un idx 'agotado' con timestamp YA pasado vuelve a estar disponible y se autolimpia del Map", () => {
+  const recolectables = new Map<number, RecolectableVivo>();
+  const ancho = 100;
+  const idx = 10 * ancho + 10;
+  recolectables.set(idx, { itemId: "mora", x: 10, y: 10 });
+  const agotados = new Map<number, number>([[idx, Date.now() - 1000]]); // ya tocaba reaparecer
+
+  const encontrado = recolectableCercano(recolectables, ancho, 10.4, 10.4, 2, agotados);
+  assert.ok(encontrado);
+  assert.strictEqual(encontrado!.item.itemId, "mora");
+  assert.strictEqual(agotados.size, 0, "el timestamp vencido se borra solo (cálculo perezoso, sin tick de fondo)");
+});
+
+test("recolectablesAgotadosDeMapa: mismo Map por ruta mientras el proceso viva (mismo criterio de caché que recolectablesDeMapa)", () => {
+  const ruta = "/ruta/de/prueba/no/existe/en/disco.json";
+  const a = recolectablesAgotadosDeMapa(ruta);
+  a.set(1, 12345);
+  const b = recolectablesAgotadosDeMapa(ruta);
+  assert.strictEqual(a, b, "debe ser el MISMO objeto Map en llamadas sucesivas");
+  assert.strictEqual(b.get(1), 12345);
 });
 
 test("cargarMapaColision: recargar el MISMO mapa reusa el Map de recolectables (no resetea lo ya cogido — evita el granjeo 'sal y entra' de RegionRoom)", () => {

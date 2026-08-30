@@ -1905,6 +1905,31 @@
     "temaTaller": "apicultor",
     "_nota": "docs/GDD_Profesiones.md — pequeña, junto a las colmenas de Producción (docs/GDD_Produccion.md)."
   },
+  "cabana_cazador": {
+    "riqueza": "humilde",
+    "tieneBodega": false,
+    "rangoPlantasAltas": [
+      0,
+      0
+    ],
+    "salasPorPlanta": {
+      "planta_baja": [
+        [
+          "taller",
+          8
+        ],
+        [
+          "almacen",
+          3
+        ]
+      ]
+    },
+    "materialesPreferidos": [
+      "madera"
+    ],
+    "temaTaller": "cazador",
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30) — edificio NUEVO para el oficio cazador (antes Tier4 'recolección sin mesas'; ahora tiene progresión de mesas de nivel 1-4 de verdad, necesitaba edificio propio para bakear)."
+  },
   "taller_picapedrero": {
     "riqueza": "modesta",
     "tieneBodega": false,

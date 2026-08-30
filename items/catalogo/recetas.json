@@ -13,7 +13,7 @@
 
   "clavos_hierro": {
     "oficio": "herrero",
-    "mesas": ["yunque"],
+    "mesas": ["yunque_tocon"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "lingote_hierro", "cantidad": 1 }],
     "resultado": { "itemId": "clavos", "cantidad": 10 },
@@ -21,7 +21,7 @@
   },
   "martillo_acero": {
     "oficio": "herrero",
-    "mesas": ["martillo_pilon"],
+    "mesas": ["martinete"],
     "nivelMinimo": 3,
     "insumos": [
       { "itemId": "acero", "cantidad": 1 },
@@ -44,7 +44,7 @@
   },
   "pico_minero_tallado": {
     "oficio": "picapedrero",
-    "mesas": ["mesa_talla_piedra"],
+    "mesas": ["banco_clasificacion_cincelado"],
     "nivelMinimo": 2,
     "insumos": [
       { "itemId": "piedra_tallada", "cantidad": 2 },
@@ -55,7 +55,7 @@
   },
   "mochila_cuero_curtido": {
     "oficio": "curtidor",
-    "mesas": ["mesa_tenido_cuero"],
+    "mesas": ["tina_curtido"],
     "nivelMinimo": 2,
     "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
     "resultado": { "itemId": "mochila_cuero", "cantidad": 1 },
@@ -63,7 +63,7 @@
   },
   "silla_montar_curtida": {
     "oficio": "curtidor",
-    "mesas": ["mesa_tenido_cuero"],
+    "mesas": ["tina_curtido"],
     "nivelMinimo": 2,
     "insumos": [
       { "itemId": "cuero_curtido", "cantidad": 4 },
@@ -74,7 +74,7 @@
     "_nota": "docs/GDD_Monturas.md — mismo taller/oficio que mochila_cuero_curtido, más cuero (armazón grande) + madera_dura (arzón)."
   },
   "toalla_tela_hilada": {
-    "oficio": "sastre",
+    "oficio": "curtidor",
     "mesas": ["telar"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
@@ -95,7 +95,7 @@
 
   "harina": {
     "oficio": "molinero",
-    "mesas": ["muela_piedra"],
+    "mesas": ["molino_mano"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "trigo", "cantidad": 3 }],
     "resultado": { "itemId": "harina", "cantidad": 4 },
@@ -103,16 +103,16 @@
     "_nota": "Cocina v2 (docs/GDD_Cocina.md) — cierra el hueco del molinero (Backlog, tier 2 de 'Roles/profesiones y crafteo por planos'): primera receta real que muele grano de verdad."
   },
   "masa_pan": {
-    "oficio": "panadero",
-    "mesas": ["amasadora"],
+    "oficio": "molinero",
+    "mesas": ["amasadora", "artesa_amasado"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "harina", "cantidad": 2 }],
     "resultado": { "itemId": "masa_pan", "cantidad": 1 },
     "tiempoBaseSeg": 8,
-    "_nota": "Agua libre (mismo criterio que cocina:llenarAgua) — no consume ningún ítem de agua, no existe como tal en el inventario."
+    "_nota": "Agua libre (mismo criterio que cocina:llenarAgua) — no consume ningún ítem de agua, no existe como tal en el inventario. docs/GDD_Profesiones.md (2026-08-30): fusionada con la receta duplicada 'masa_pan_artesa' — panaderia/amasadora y molino/artesa_amasado nunca coinciden en la misma sala (mismo patrón multi-edificio ya aceptado para curtidor/joyero), así que ambas mesas siguen siendo válidas para esta ÚNICA receta."
   },
   "pan": {
-    "oficio": "panadero",
+    "oficio": "molinero",
     "mesas": ["horno_pan"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "masa_pan", "cantidad": 1 }],
@@ -120,7 +120,7 @@
     "tiempoBaseSeg": 15
   },
   "olla_barro": {
-    "oficio": "alfarero",
+    "oficio": "joyero",
     "mesas": ["torno_alfarero"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "arcilla", "cantidad": 3 }],
@@ -130,7 +130,7 @@
   },
   "olla_metal": {
     "oficio": "herrero",
-    "mesas": ["yunque"],
+    "mesas": ["yunque_tocon"],
     "nivelMinimo": 2,
     "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
     "resultado": { "itemId": "olla_metal", "cantidad": 1 },
@@ -138,7 +138,7 @@
     "_nota": "Alternativa a olla_barro. Ésta SÍ se consume al colocar olla_grande (requiereItemColocar) — un caldero de 20 raciones va reforzado, no de barro."
   },
   "cuenco_barro_grande": {
-    "oficio": "alfarero",
+    "oficio": "joyero",
     "mesas": ["torno_alfarero"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "arcilla", "cantidad": 3 }],
@@ -146,7 +146,7 @@
     "tiempoBaseSeg": 16
   },
   "tinaja_batidos": {
-    "oficio": "alfarero",
+    "oficio": "joyero",
     "mesas": ["horno_ceramica"],
     "nivelMinimo": 2,
     "insumos": [{ "itemId": "arcilla", "cantidad": 5 }],
@@ -154,7 +154,7 @@
     "tiempoBaseSeg": 22
   },
   "recipiente_queso": {
-    "oficio": "alfarero",
+    "oficio": "joyero",
     "mesas": ["torno_alfarero"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "arcilla", "cantidad": 2 }],
@@ -171,7 +171,7 @@
   },
 
   "barco_1_construido": {
-    "oficio": "carpintero_ribera",
+    "oficio": "ingeniero",
     "mesas": ["mesa_calafateo", "banco_carpintero_ribera"],
     "nivelMinimo": 5,
     "edificioRequerido": "astillero",
@@ -185,7 +185,7 @@
     "_nota": "docs/GDD_Barcos.md — el más pequeño de los 4 (1 plaza); nivel de oficio 5/6 ('nivel alto') pedido explícitamente por el streamer, sin ningún otro oficio adicional."
   },
   "barco_2_construido": {
-    "oficio": "carpintero_ribera",
+    "oficio": "ingeniero",
     "mesas": ["mesa_calafateo", "banco_carpintero_ribera"],
     "nivelMinimo": 5,
     "edificioRequerido": "astillero",
@@ -198,7 +198,7 @@
     "tiempoBaseSeg": 90
   },
   "barco_3_construido": {
-    "oficio": "carpintero_ribera",
+    "oficio": "ingeniero",
     "mesas": ["mesa_calafateo", "banco_carpintero_ribera"],
     "nivelMinimo": 5,
     "edificioRequerido": "astillero",
@@ -211,7 +211,7 @@
     "tiempoBaseSeg": 120
   },
   "barco_4_construido": {
-    "oficio": "carpintero_ribera",
+    "oficio": "ingeniero",
     "mesas": ["mesa_calafateo", "banco_carpintero_ribera"],
     "nivelMinimo": 5,
     "edificioRequerido": "astillero",
@@ -225,16 +225,16 @@
   },
 
   "venda": {
-    "oficio": "sastre",
+    "oficio": "curtidor",
     "mesas": ["telar"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "tela_hilada", "cantidad": 1 }],
     "resultado": { "itemId": "venda", "cantidad": 3 },
     "tiempoBaseSeg": 8,
-    "_nota": "docs/GDD_Anatomia.md — primeros auxilios de campo, cualquiera la usa sin oficio (medico:vendar); solo craftearla exige sastre."
+    "_nota": "docs/GDD_Anatomia.md — primeros auxilios de campo, cualquiera la usa sin oficio (medico:vendar); solo craftearla exige el oficio de curtidor (fusiona sastre, 2026-08-30)."
   },
   "unguento": {
-    "oficio": "herbolista",
+    "oficio": "curandero",
     "mesas": ["mortero_grande_boticario"],
     "nivelMinimo": 1,
     "insumos": [
@@ -266,11 +266,1676 @@
   },
   "instrumental_cirugia": {
     "oficio": "herrero",
-    "mesas": ["yunque"],
+    "mesas": ["yunque_tocon"],
     "nivelMinimo": 2,
     "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
     "resultado": { "itemId": "instrumental_cirugia", "cantidad": 1 },
     "tiempoBaseSeg": 25,
     "_nota": "Herramienta reusable (durabilidadMax en items.json) — el curandero la necesita en su inventario para operar, no se gasta por cirugía."
+  },
+  "percha_armadura_exposicion_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_campo"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "percha_armadura_exposicion", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Perchero de Armaduras de Exposición."
+  },
+  "expositor_espadas_cruzadas_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "expositor_espadas_cruzadas", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Exposidor de Espadas Cruzadas."
+  },
+  "yunque_exposicion_ornamental_craft": {
+    "oficio": "herrero",
+    "mesas": ["taller_armero"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 4 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "yunque_exposicion_ornamental", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Yunque de Exposición Ornamental."
+  },
+  "estante_martillos_tenazas_craft": {
+    "oficio": "herrero",
+    "mesas": ["gran_forja"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 5 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "estante_martillos_tenazas", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Estante de Martillos y Tenazas."
+  },
+  "cubo_carbon_lingotes_craft": {
+    "oficio": "herrero",
+    "mesas": ["gran_forja"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 5 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "cubo_carbon_lingotes", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Cubo de Carbón y Lingotes."
+  },
+  "reloj_cuco_engranajes_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_tronzado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "reloj_cuco_engranajes_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Reloj de Cuco y Engranajes de Madera."
+  },
+  "escultura_madera_bestia_mitica_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 3 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "escultura_madera_bestia_mitica", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Escultura de Madera de Bestia Mítica."
+  },
+  "estante_maquetas_barcos_craft": {
+    "oficio": "carpintero",
+    "mesas": ["torno_madera"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 4 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "estante_maquetas_barcos", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Estante con Maquetas de Barcos."
+  },
+  "banco_trabajo_auxiliar_decorativo_craft": {
+    "oficio": "carpintero",
+    "mesas": ["estacion_curvado_vapor"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 5 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "banco_trabajo_auxiliar_decorativo", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Banco de Trabajo Auxiliar Decorativo."
+  },
+  "biombo_madera_calada_craft": {
+    "oficio": "carpintero",
+    "mesas": ["estacion_curvado_vapor"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 5 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "biombo_madera_calada", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Biombo de Madera Calada."
+  },
+  "orreria_esfera_armilar_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_delineante"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "orreria_esfera_armilar", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Orrería y Esfera Armilar."
+  },
+  "mesa_planos_construccion_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["banco_mecanizado"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "mesa_planos_construccion", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Mesa de Planos de Construcción."
+  },
+  "barometro_reloj_presion_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["estacion_maquetas_navales"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 4 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "barometro_reloj_presion", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Barómetro de Pared y Reloj de Presión."
+  },
+  "automata_mecanico_adorno_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["banco_ingenieria_pesada"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 5 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "automata_mecanico_adorno", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Autómata Mecánico de Adorno."
+  },
+  "caja_herramientas_laton_grabado_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["banco_ingenieria_pesada"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 5 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "caja_herramientas_laton_grabado", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Caja de Herramientas de Latón Grabado."
+  },
+  "busto_piedra_cincelada_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "busto_piedra_cincelada", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Busto de Piedra Cincelada."
+  },
+  "gargola_canteria_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["mesa_mampuesto"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "gargola_canteria", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Gárgola de Cantería."
+  },
+  "mosaico_granito_pared_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["estacion_canteria_muelas"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 4 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "mosaico_granito_pared", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Cuadro de Mosaico de Granito."
+  },
+  "fuente_agua_interior_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["gran_taller_mamposteria"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 5 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "fuente_agua_interior", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Fuente de Agua de Interior."
+  },
+  "reloj_sol_mesa_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["gran_taller_mamposteria"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 5 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "reloj_sol_mesa", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Reloj de Sol de Mesa."
+  },
+  "maqueta_molino_viento_operativo_craft": {
+    "oficio": "molinero",
+    "mesas": ["mesa_tajado_limpieza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "trigo", "cantidad": 1 }],
+    "resultado": { "itemId": "maqueta_molino_viento_operativo", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Maqueta de Molino de Viento Operativo."
+  },
+  "espiga_trigo_seco_gigante_craft": {
+    "oficio": "molinero",
+    "mesas": ["molino_mano"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 3 }, { "itemId": "trigo", "cantidad": 1 }],
+    "resultado": { "itemId": "espiga_trigo_seco_gigante", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Espiga de Trigo Seco Gigante."
+  },
+  "sacos_grano_especias_decorativos_craft": {
+    "oficio": "molinero",
+    "mesas": ["estacion_germinacion_mantequeria"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 4 }, { "itemId": "trigo", "cantidad": 1 }],
+    "resultado": { "itemId": "sacos_grano_especias_decorativos", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Rincón de Sacos de Grano y Especias."
+  },
+  "rueda_molino_mesa_craft": {
+    "oficio": "molinero",
+    "mesas": ["gran_molino_agropecuario"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 5 }, { "itemId": "trigo", "cantidad": 1 }],
+    "resultado": { "itemId": "rueda_molino_mesa", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Rueda de Molino Adaptada como Mesa."
+  },
+  "rincon_mantequera_cesteria_craft": {
+    "oficio": "molinero",
+    "mesas": ["gran_molino_agropecuario"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 5 }, { "itemId": "trigo", "cantidad": 1 }],
+    "resultado": { "itemId": "rincon_mantequera_cesteria", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Mantequera y Cestería Tradicional."
+  },
+  "cabeza_ciervo_trofeo_craft": {
+    "oficio": "cazador",
+    "mesas": ["estacion_despiece_caza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "cabeza_ciervo_trofeo", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Cabeza de Ciervo Trofeo de Caza."
+  },
+  "alfombra_piel_oso_craft": {
+    "oficio": "cazador",
+    "mesas": ["banco_trampero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "alfombra_piel_oso", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Alfombra de Piel de Oso."
+  },
+  "arco_carcaj_cruzados_craft": {
+    "oficio": "cazador",
+    "mesas": ["banco_arqueria_caza"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 4 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "arco_carcaj_cruzados", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Arco y Carcaj Cruzados."
+  },
+  "trampa_oso_antigua_desactivada_craft": {
+    "oficio": "cazador",
+    "mesas": ["estacion_cazador_supremo"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 5 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "trampa_oso_antigua_desactivada", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Trampa de Oso Antigua Desactivada."
+  },
+  "jaula_pajaros_madera_cuero_craft": {
+    "oficio": "cazador",
+    "mesas": ["estacion_cazador_supremo"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 5 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "jaula_pajaros_madera_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Jaula de Pájaros de Madera y Cuero."
+  },
+  "estante_especias_botes_cristal_craft": {
+    "oficio": "cocinero",
+    "mesas": ["fogon_campamento"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "arcilla", "cantidad": 2 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "estante_especias_botes_cristal", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Estante de Especias y Botes de Cristal."
+  },
+  "bodegon_caza_frutas_secas_craft": {
+    "oficio": "cocinero",
+    "mesas": ["horno_barro_taberna"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "arcilla", "cantidad": 3 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "bodegon_caza_frutas_secas", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Bodegón de Caza y Frutas Secas."
+  },
+  "rincon_barriles_jarras_craft": {
+    "oficio": "cocinero",
+    "mesas": ["cocina_mamposteria"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "arcilla", "cantidad": 4 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "rincon_barriles_jarras", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Rincón de Barriles y Jarras."
+  },
+  "cazuelas_sartenes_cobre_craft": {
+    "oficio": "cocinero",
+    "mesas": ["gran_cocina_destileria"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "arcilla", "cantidad": 5 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "cazuelas_sartenes_cobre", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Cazuelas y Sartenes de Cobre."
+  },
+  "cesta_panes_artesanales_craft": {
+    "oficio": "cocinero",
+    "mesas": ["gran_cocina_destileria"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "arcilla", "cantidad": 5 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "cesta_panes_artesanales", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Cesta de Panes Artesanales."
+  },
+  "estanteria_tarros_alquimia_craft": {
+    "oficio": "curandero",
+    "mesas": ["secadero_hierbas"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "arcilla", "cantidad": 1 }],
+    "resultado": { "itemId": "estanteria_tarros_alquimia", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Estantería con Tarros de Alquimia."
+  },
+  "secadero_colgante_hierbas_craft": {
+    "oficio": "curandero",
+    "mesas": ["escritorio_escriba"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 3 }, { "itemId": "arcilla", "cantidad": 1 }],
+    "resultado": { "itemId": "secadero_colgante_hierbas", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Secadero Colgante de Hierbas."
+  },
+  "libro_botanica_atril_craft": {
+    "oficio": "curandero",
+    "mesas": ["estacion_boticario"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 4 }, { "itemId": "arcilla", "cantidad": 1 }],
+    "resultado": { "itemId": "libro_botanica_atril", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Libro de Botánica Sobre Atril."
+  },
+  "terrario_vidrio_hongos_craft": {
+    "oficio": "curandero",
+    "mesas": ["scriptorium_alquimico"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 5 }, { "itemId": "arcilla", "cantidad": 1 }],
+    "resultado": { "itemId": "terrario_vidrio_hongos", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Terrario de Vidrio con Hongos Extraños."
+  },
+  "balanza_bronce_ingredientes_craft": {
+    "oficio": "curandero",
+    "mesas": ["scriptorium_alquimico"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 5 }, { "itemId": "arcilla", "cantidad": 1 }],
+    "resultado": { "itemId": "balanza_bronce_ingredientes", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Balanza de Bronce con Ingredientes."
+  },
+  "bastidor_secado_cuero_exposicion_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "bastidor_secado_cuero_exposicion", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Bastidor de Secado de Cuero."
+  },
+  "cuadro_muestrario_telas_tintes_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "cuadro_muestrario_telas_tintes", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Cuadro de Muestrario de Telas y Tintes."
+  },
+  "telar_tapiz_expositivo_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 4 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "telar_tapiz_expositivo", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Telar de Tapiz Expositivo."
+  },
+  "maniqui_alta_costura_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_costura_pieles"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 5 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "maniqui_alta_costura", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Maniquí de Alta Costura."
+  },
+  "baul_cuero_repujado_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_costura_pieles"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 5 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "baul_cuero_repujado", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Baúl de Cuero Repujado."
+  },
+  "vitrina_gemas_talladas_craft": {
+    "oficio": "joyero",
+    "mesas": ["torno_alfarero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "gema_tallada", "cantidad": 2 }, { "itemId": "lingote_plata", "cantidad": 1 }],
+    "resultado": { "itemId": "vitrina_gemas_talladas", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Vitrina con Gemas Talladas."
+  },
+  "candelabro_plata_cristal_craft": {
+    "oficio": "joyero",
+    "mesas": ["horno_vidrio"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "gema_tallada", "cantidad": 3 }, { "itemId": "lingote_plata", "cantidad": 1 }],
+    "resultado": { "itemId": "candelabro_plata_cristal", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Candelabro Elaborado de Plata y Cristal."
+  },
+  "espejo_marco_laton_gemas_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_engarce"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "gema_tallada", "cantidad": 4 }, { "itemId": "lingote_plata", "cantidad": 1 }],
+    "resultado": { "itemId": "espejo_marco_laton_gemas", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Espejo con Marco de Latón y Gemas."
+  },
+  "caja_joyas_marfil_oro_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_fundicion_precioso"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "gema_tallada", "cantidad": 5 }, { "itemId": "lingote_plata", "cantidad": 1 }],
+    "resultado": { "itemId": "caja_joyas_marfil_oro", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Caja de Joyas de Marfil y Oro."
+  },
+  "vidriera_mosaico_coloreado_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_fundicion_precioso"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "gema_tallada", "cantidad": 5 }, { "itemId": "lingote_plata", "cantidad": 1 }],
+    "resultado": { "itemId": "vidriera_mosaico_coloreado", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Vidriera de Mosaico de Vidrio Coloreado."
+  },
+  "daga_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_tocon"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "daga", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "espada_corta_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "espada_corta", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "hacha_combate_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "hacha_combate", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "maza_guerra_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 4 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "maza_guerra", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "lanza_craft": {
+    "oficio": "herrero",
+    "mesas": ["banco_ajuste"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "lanza", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "arco_corto_craft": {
+    "oficio": "herrero",
+    "mesas": ["taller_armero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "arco_corto", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "espada_larga_craft": {
+    "oficio": "herrero",
+    "mesas": ["banco_ajuste"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "acero", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "espada_larga", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "arco_largo_craft": {
+    "oficio": "herrero",
+    "mesas": ["taller_armero"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 3 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "arco_largo", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "ballesta_craft": {
+    "oficio": "herrero",
+    "mesas": ["gran_forja"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "ballesta", "cantidad": 1 },
+    "tiempoBaseSeg": 40,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "flecha_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_tocon"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "flecha", "cantidad": 5 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "virote_ballesta_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 1 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "virote_ballesta", "cantidad": 5 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "gafas_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "gafas_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "coderas_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "coderas_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "manos_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "manos_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "rodilleras_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "rodilleras_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "casco_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "casco_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazos_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "brazos_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "zapatos_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "zapatos_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "hombreras_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "hombreras_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "piernas_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 4 }],
+    "resultado": { "itemId": "piernas_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 26,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "pechera_cota_malla_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 5 }],
+    "resultado": { "itemId": "pechera_cota_malla", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "gafas_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 2 }],
+    "resultado": { "itemId": "gafas_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "coderas_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 2 }],
+    "resultado": { "itemId": "coderas_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "manos_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 2 }],
+    "resultado": { "itemId": "manos_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "rodilleras_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 2 }],
+    "resultado": { "itemId": "rodilleras_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "casco_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 3 }],
+    "resultado": { "itemId": "casco_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazos_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 3 }],
+    "resultado": { "itemId": "brazos_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "zapatos_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 3 }],
+    "resultado": { "itemId": "zapatos_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "hombreras_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 3 }],
+    "resultado": { "itemId": "hombreras_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "piernas_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 4 }],
+    "resultado": { "itemId": "piernas_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "pechera_placas_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 5 }],
+    "resultado": { "itemId": "pechera_placas_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 40,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "honda_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 1 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "honda", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "mascara_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "mascara_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "manos_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "manos_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "coderas_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "coderas_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "rodilleras_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "rodilleras_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "casco_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "casco_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazos_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "brazos_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "zapatos_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "zapatos_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "hombreras_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "hombreras_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "piernas_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 4 }],
+    "resultado": { "itemId": "piernas_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "pechera_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 4 }],
+    "resultado": { "itemId": "pechera_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 24,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "pechera_cuero_tachonado_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 4 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "pechera_cuero_tachonado", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazalete_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 1 }],
+    "resultado": { "itemId": "brazalete_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "bolsa_cinturon_simple_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 1 }],
+    "resultado": { "itemId": "bolsa_cinturon_simple", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "rinonera_viajero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "rinonera_viajero", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "bolsa_cinturon_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "bolsa_cinturon", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "bandolera_tela_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "bandolera_tela", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "bandolera_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "bandolera_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "bandolera_gremio_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_costura_pieles"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }, { "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "bandolera_gremio", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "mochila_pequena_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "mochila_pequena", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "mochila_expedicion_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_bordado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 5 }, { "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "mochila_expedicion", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "piedra_honda_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 1 }],
+    "resultado": { "itemId": "piedra_honda", "cantidad": 10 },
+    "tiempoBaseSeg": 6,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "anillo_cobre_craft": {
+    "oficio": "joyero",
+    "mesas": ["banco_joyero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 1 }],
+    "resultado": { "itemId": "anillo_cobre", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "anillo_plata_craft": {
+    "oficio": "joyero",
+    "mesas": ["banco_joyero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 2 }],
+    "resultado": { "itemId": "anillo_plata", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazalete_plata_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_engarce"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 2 }],
+    "resultado": { "itemId": "brazalete_plata", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "anillo_oro_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_tallado_cristal"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 2 }, { "itemId": "gema_tallada", "cantidad": 1 }],
+    "resultado": { "itemId": "anillo_oro", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazalete_oro_grabado_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_esmaltado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 3 }, { "itemId": "gema_tallada", "cantidad": 1 }],
+    "resultado": { "itemId": "brazalete_oro_grabado", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "anillo_rubi_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_esmaltado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 2 }, { "itemId": "gema_tallada", "cantidad": 2 }],
+    "resultado": { "itemId": "anillo_rubi", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "silla_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }],
+    "resultado": { "itemId": "silla_pino", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md — variante de material real: el color/acabado de la silla lo decide qué madera se usó (madera_blanda), mismo patrón que olla_barro/olla_metal."
+  },
+  "silla_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "silla_roble", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Profesiones.md — variante de material real: el color/acabado de la silla lo decide qué madera se usó (madera_dura), mismo patrón que olla_barro/olla_metal."
+  },
+  "silla_nogal_tallada_craft": {
+    "oficio": "carpintero",
+    "mesas": ["mesa_talla_fina"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 3 }],
+    "resultado": { "itemId": "silla_nogal_tallada", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Profesiones.md — variante de material real: el color/acabado de la silla lo decide qué madera se usó (madera_dura), mismo patrón que olla_barro/olla_metal."
+  },
+  "jarra_cerveza_craft": {
+    "oficio": "cocinero",
+    "mesas": ["alambique"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "trigo", "cantidad": 3 }, { "itemId": "miel", "cantidad": 1 }],
+    "resultado": { "itemId": "jarra_cerveza", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Profesiones.md — jarra_cerveza ya existía como item sin ninguna receta."
+  },
+  "protesis_metal_craft": {
+    "oficio": "curandero",
+    "mesas": ["mesa_cirugia"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }, { "itemId": "cuero_curtido", "cantidad": 1 }],
+    "resultado": { "itemId": "protesis_metal", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Anatomia.md/GDD_Profesiones.md — versión de tier alto de protesis_madera, mismo verbo medico:protesis (RoomExteriorBase.ts ya acepta cualquiera de las dos)."
+  },
+  "mesa_comedor_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": ["mesa_ensamblaje"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 3 }],
+    "resultado": { "itemId": "mesa_comedor_pino", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md — mesa de comedor con variante de material real (madera_blanda), craftable en mesa_ensamblaje (carpintero N4)."
+  },
+  "mesa_comedor_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": ["mesa_ensamblaje"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 3 }],
+    "resultado": { "itemId": "mesa_comedor_roble", "cantidad": 1 },
+    "tiempoBaseSeg": 24,
+    "_nota": "docs/GDD_Profesiones.md — mesa de comedor con variante de material real (madera_dura), craftable en mesa_ensamblaje (carpintero N4)."
+  },
+  "martillo_forja_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_campo", "yunque_tocon"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "martillo_forja_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de herrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tenazas_cuello_largo_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra", "yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "tenazas_cuello_largo", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de herrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "martillo_remachar_aplanar_craft": {
+    "oficio": "herrero",
+    "mesas": ["taller_armero", "banco_ajuste"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "martillo_remachar_aplanar", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de herrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "martillo_maestro_malla_placas_craft": {
+    "oficio": "herrero",
+    "mesas": ["gran_forja", "martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "martillo_maestro_malla_placas", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de herrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "hacha_mano_cobre_hierro_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_tronzado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "hacha_mano_cobre_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tronzador_mano_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_tronzado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "tronzador_mano", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cepillo_carpintero_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "cepillo_carpintero", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "hacha_talar_pesada_craft": {
+    "oficio": "carpintero",
+    "mesas": ["torno_madera", "mesa_talla_fina"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "hacha_talar_pesada", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "formon_precision_craft": {
+    "oficio": "carpintero",
+    "mesas": ["torno_madera", "mesa_talla_fina"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "formon_precision", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "hacha_maestro_lenador_craft": {
+    "oficio": "carpintero",
+    "mesas": ["estacion_curvado_vapor", "mesa_ensamblaje"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "hacha_maestro_lenador", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "juego_tallas_maestro_craft": {
+    "oficio": "carpintero",
+    "mesas": ["estacion_curvado_vapor", "mesa_ensamblaje"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "juego_tallas_maestro", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "compas_regla_madera_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_delineante"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "compas_regla_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de ingeniero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "taladro_manivela_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["banco_mecanizado"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "taladro_manivela", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de ingeniero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "calibrador_dientes_bronce_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["estacion_maquetas_navales"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "calibrador_dientes_bronce", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de ingeniero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "escuadra_plomada_precision_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["banco_ingenieria_pesada"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "escuadra_plomada_precision", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de ingeniero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pico_minero_hierro_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "pico_minero_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "maceta_piedra_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "maceta_piedra", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cincel_mampuesto_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["mesa_mampuesto"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "cincel_mampuesto", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pico_cantera_pesado_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["estacion_canteria_muelas"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "pico_cantera_pesado", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cincel_hierro_duro_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["estacion_canteria_muelas"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "cincel_hierro_duro", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pico_maestro_minero_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["gran_taller_mamposteria"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "pico_maestro_minero", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "maceta_cinceles_maestro_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["gran_taller_mamposteria"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "maceta_cinceles_maestro", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "hoz_mano_hierro_craft": {
+    "oficio": "molinero",
+    "mesas": ["mesa_tajado_limpieza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "hoz_mano_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "maza_piedra_molienda_craft": {
+    "oficio": "molinero",
+    "mesas": ["mesa_tajado_limpieza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "maza_piedra_molienda", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "guadana_agricola_craft": {
+    "oficio": "molinero",
+    "mesas": ["molino_mano", "artesa_amasado"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "guadana_agricola", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "kit_ordeno_cepillo_craft": {
+    "oficio": "molinero",
+    "mesas": ["molino_mano", "artesa_amasado"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "kit_ordeno_cepillo", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "horca_trilladora_mecanica_craft": {
+    "oficio": "molinero",
+    "mesas": ["estacion_germinacion_mantequeria"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "horca_trilladora_mecanica", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pala_amasado_craft": {
+    "oficio": "molinero",
+    "mesas": ["estacion_germinacion_mantequeria"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "pala_amasado", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "guadana_maestro_cosechador_craft": {
+    "oficio": "molinero",
+    "mesas": ["gran_molino_agropecuario"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "guadana_maestro_cosechador", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "despalilladora_bastidor_panales_craft": {
+    "oficio": "molinero",
+    "mesas": ["gran_molino_agropecuario"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "despalilladora_bastidor_panales", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_desollar_craft": {
+    "oficio": "cazador",
+    "mesas": ["estacion_despiece_caza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_desollar", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_cazador_reforzado_craft": {
+    "oficio": "cazador",
+    "mesas": ["banco_trampero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_cazador_reforzado", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "aguja_trenzar_fibras_craft": {
+    "oficio": "cazador",
+    "mesas": ["banco_trampero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "aguja_trenzar_fibras", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_desollador_curvo_craft": {
+    "oficio": "cazador",
+    "mesas": ["banco_arqueria_caza"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_desollador_curvo", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "calibrador_flechas_craft": {
+    "oficio": "cazador",
+    "mesas": ["banco_arqueria_caza"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "calibrador_flechas", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "daga_despiece_mitico_craft": {
+    "oficio": "cazador",
+    "mesas": ["estacion_cazador_supremo"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "daga_despiece_mitico", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tensor_mecanico_cepos_pesados_craft": {
+    "oficio": "cazador",
+    "mesas": ["estacion_cazador_supremo"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "tensor_mecanico_cepos_pesados", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_picar_cazo_hierro_craft": {
+    "oficio": "cocinero",
+    "mesas": ["fogon_campamento"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_picar_cazo_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de cocinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "espatula_cucharon_madera_noble_craft": {
+    "oficio": "cocinero",
+    "mesas": ["horno_barro_taberna"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "espatula_cucharon_madera_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de cocinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_fileteado_filtro_cobre_craft": {
+    "oficio": "cocinero",
+    "mesas": ["cocina_mamposteria", "alambique"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_fileteado_filtro_cobre", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de cocinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillos_chef_real_serpentin_vidrio_craft": {
+    "oficio": "cocinero",
+    "mesas": ["gran_cocina_destileria"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillos_chef_real_serpentin_vidrio", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de cocinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_herbolario_podadera_craft": {
+    "oficio": "curandero",
+    "mesas": ["secadero_hierbas", "mortero_grande_boticario"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_herbolario_podadera", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pluma_tintero_craft": {
+    "oficio": "curandero",
+    "mesas": ["secadero_hierbas", "mortero_grande_boticario"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "pluma_tintero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "hoz_bronce_hierbas_craft": {
+    "oficio": "curandero",
+    "mesas": ["escritorio_escriba", "mesa_diagnostico"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "hoz_bronce_hierbas", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "mortero_piedra_herbolario_craft": {
+    "oficio": "curandero",
+    "mesas": ["escritorio_escriba", "mesa_diagnostico"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "mortero_piedra_herbolario", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tijera_herbolario_fina_craft": {
+    "oficio": "curandero",
+    "mesas": ["estacion_boticario", "mesa_destilado_esencias"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "tijera_herbolario_fina", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "balanza_botica_craft": {
+    "oficio": "curandero",
+    "mesas": ["estacion_boticario", "mesa_destilado_esencias"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "balanza_botica", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "podadera_marea_maestro_craft": {
+    "oficio": "curandero",
+    "mesas": ["scriptorium_alquimico", "mesa_cirugia"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "podadera_marea_maestro", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pluma_oro_retorta_craft": {
+    "oficio": "curandero",
+    "mesas": ["scriptorium_alquimico", "mesa_cirugia"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "pluma_oro_retorta", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_raspar_pieles_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado", "mesa_despiece"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_raspar_pieles", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "aguja_coser_basica_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado", "mesa_despiece"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "aguja_coser_basica", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchilla_semicircular_curtidor_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido", "telar"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchilla_semicircular_curtidor", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tijeras_telar_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido", "telar"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "tijeras_telar", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "punzon_talabarteria_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel", "mesa_corte"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "punzon_talabarteria", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "lezna_cuchilla_marroquineria_fina_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_costura_pieles", "mesa_bordado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "lezna_cuchilla_marroquineria_fina", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "martillo_ligero_orfebre_craft": {
+    "oficio": "joyero",
+    "mesas": ["torno_alfarero", "banco_joyero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "martillo_ligero_orfebre", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cana_corta_soplar_craft": {
+    "oficio": "joyero",
+    "mesas": ["torno_alfarero", "banco_joyero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cana_corta_soplar", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tenazas_joyero_lima_fina_craft": {
+    "oficio": "joyero",
+    "mesas": ["horno_vidrio", "horno_ceramica"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "tenazas_joyero_lima_fina", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cana_hierro_reforzada_craft": {
+    "oficio": "joyero",
+    "mesas": ["horno_vidrio", "horno_ceramica"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "cana_hierro_reforzada", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "engastador_garras_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_engarce", "mesa_tallado_cristal"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "engastador_garras", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "puntero_lapidaria_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_engarce", "mesa_tallado_cristal"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "puntero_lapidaria", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "microcincel_precision_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_fundicion_precioso", "mesa_esmaltado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "microcincel_precision", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "lente_aumento_joyero_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_fundicion_precioso", "mesa_esmaltado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "lente_aumento_joyero", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_cocina_craft": {
+    "oficio": "cocinero",
+    "mesas": ["fogon_campamento"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 1 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_cocina", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Cocina.md — herramienta real (durabilidadMax/desgaste), catalogada como 'objeto' mas sin receta hasta ahora."
+  },
+  "mascara_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "mascara_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md — único equipable que quedaba sin receta, mismo patrón que casco_hierro_craft."
+  },
+  "cubo_ordeno_craft": {
+    "oficio": "molinero",
+    "mesas": ["mesa_tajado_limpieza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }],
+    "resultado": { "itemId": "cubo_ordeno", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Profesiones.md — herramienta de ganadero (fusionado en molinero), sin familiaMaterial/tier (no pasa por el gating de recolección salvaje)."
+  },
+  "tijeras_esquilar_craft": {
+    "oficio": "molinero",
+    "mesas": ["mesa_tajado_limpieza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 1 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "tijeras_esquilar", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Profesiones.md — herramienta de ganadero (fusionado en molinero)."
+  },
+  "antorcha_portatil_craft": {
+    "oficio": "cocinero",
+    "mesas": ["fogon_campamento"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 1 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "antorcha_portatil", "cantidad": 1 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Profesiones.md — utilidad simple sin oficio de recolección detrás, cocinero por el fuego del fogón de campamento."
+  },
+  "cana_pesca_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_tronzado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "cana_pesca", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Profesiones.md — pescar sigue siendo libre para cualquiera sin oficio (fusión de oficios, 2026-08-30); esto solo da una forma real de FABRICAR la caña, no gatea pescar."
   }
 }

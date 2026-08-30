@@ -65,7 +65,7 @@ Al morir (`manejarMuerteJugador`), la anatomía se limpia con la MISMA `operarCi
 | `unguento` | herbolista | `mortero_grande_boticario` | miel + fruta |
 | `tablilla` | carpintero | `banco_carpintero` | madera_blanda |
 | `protesis_madera` | curandero | `mesa_diagnostico` | madera_dura + cuero_curtido |
-| `instrumental_cirugia` | herrero | `yunque` | lingote_hierro |
+| `instrumental_cirugia` | herrero | `yunque_tocon` | lingote_hierro |
 
 5 oficios distintos tocados — "vincúlalo con lo que ya tenemos" cumplido de punta a punta: molinero/panadero ya se habían enganchado en cocina v2 el mismo día, ahora sastre/herbolista/carpintero/curandero/herrero.
 

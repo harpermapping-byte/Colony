@@ -25,10 +25,12 @@ import {
 } from "../../combate/arenaCombate";
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
-import { recolectableCercano, recolectablesQuitadosDeMapa } from "../../mundo/recolectables";
+import { recolectableCercano, recolectablesAgotadosDeMapa } from "../../mundo/recolectables";
+import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria } from "../../mundo/herramientasRecoleccion";
 import {
   CatalogoItems,
   Contenedor,
+  ItemInstancia,
   crearContenedor,
   cargarCatalogoItems,
   quitarItem,
@@ -65,6 +67,7 @@ import {
   esJarl,
   esJarlGlobal,
   esJarlConSesionAdmin,
+  bonusModulosAdyacentes,
 } from "../../construccion/construccion";
 import { generarInteriorEdificio } from "../../construccion/interiorGenerado";
 import { resolverProduccion, resolverTransporte, EstadoProduccion, DatosProduccion } from "../../construccion/produccion";
@@ -129,12 +132,13 @@ const ALTO_CUERPO = 6;
 const ANCHO_INVENTARIO_GREMIO = 10;
 const ALTO_INVENTARIO_GREMIO = 10;
 
-// Oficio de jugador (docs/GDD_Caza.md, sistema mínimo v1, pedido 2026-08-30):
-// mismos ids que ya usa `receta.oficio` en items/catalogo/recetas.json, más
-// "peletero" (nuevo, sin recetas de crafteo todavía, solo gatea desollar).
+// Oficio de jugador (docs/GDD_Profesiones.md, diseño definitivo 2026-08-30):
+// LOS 10 oficios finales tras la ronda de fusiones acordada con el streamer
+// — mismos ids que usa `receta.oficio` en items/catalogo/recetas.json y
+// `nivelOficioMinimo`/`mejoraMesa` en interiores/catalogo/elementos.json.
 // Lista cerrada a propósito — un id que no está aquí no es un typo tolerado.
 const OFICIOS_JUGADOR_VALIDOS = new Set([
-  "herrero", "carpintero", "picapedrero", "curtidor", "sastre", "joyero", "peletero", "ganadero",
+  "herrero", "carpintero", "ingeniero", "picapedrero", "molinero", "cazador", "cocinero", "curandero", "curtidor", "joyero",
 ]);
 
 // --- Ganadería (docs/GDD_Ganaderia.md, pedido 2026-08-30) ---
@@ -576,8 +580,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const posiciones: string[] = [];
       const mapa = this.mapaExterior;
       if (mapa) {
-        const quitados = recolectablesQuitadosDeMapa(mapa.rutaMapa);
-        for (const idx of quitados) {
+        const agotados = recolectablesAgotadosDeMapa(mapa.rutaMapa);
+        const ahora = Date.now();
+        for (const [idx, disponibleDesde] of agotados) {
+          if (disponibleDesde <= ahora) {
+            agotados.delete(idx); // ya tocaba reaparecer — autolimpieza perezosa, igual que recolectableCercano
+            continue;
+          }
           const x = idx % mapa.ancho;
           const y = Math.floor(idx / mapa.ancho);
           if (x >= msg.tileX0 && x < msg.tileX1 && y >= msg.tileY0 && y < msg.tileY1) posiciones.push(`${x},${y}`);
@@ -1081,7 +1090,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
 
-    const candidato = this.buscarObjetoSoltadoCercano(player.x, player.y) ?? this.buscarCogibleEnMundo(player.x, player.y);
+    // Herramienta por tier (docs/GDD_Profesiones.md §0) — SOLO gatea la
+    // recolección salvaje del bake (árboles/vetas/hierbas); un objeto ya
+    // soltado por otro jugador se coge siempre libre, no hace falta talarlo/
+    // minarlo de nuevo.
+    let herramientaAUsar: ItemInstancia | undefined;
+    let candidato = this.buscarObjetoSoltadoCercano(player.x, player.y);
+    if (!candidato) {
+      const delMundo = this.buscarCogibleEnMundo(player.x, player.y);
+      if (delMundo) {
+        const requisito = requisitoDeCategoria(delMundo.itemId);
+        if (requisito) {
+          herramientaAUsar = mejorHerramientaPara(contenedor, this.catalogoItems, requisito);
+          if (!herramientaAUsar) {
+            client.send("coger:error", { motivo: `necesitas una herramienta de ${requisito.oficio} (tier ${requisito.tier} o superior)` });
+            return;
+          }
+        }
+        candidato = delMundo;
+      }
+    }
     if (!candidato) {
       client.send("coger:error", { motivo: "nada_cerca" });
       return;
@@ -1107,6 +1135,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return;
     }
     candidato.confirmar();
+    if (herramientaAUsar) {
+      const entradaHerramienta = this.catalogoItems[herramientaAUsar.itemId];
+      if (entradaHerramienta) registrarUso(herramientaAUsar, entradaHerramienta, Date.now());
+    }
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
     this.persistirInventarioPorSesion(client);
 
@@ -1153,15 +1185,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   protected buscarCogibleEnMundo(x: number, y: number): ObjetoCogible | null {
     if (!this.mapaExterior) return null;
-    const encontrado = recolectableCercano(this.mapaExterior.recolectables, this.mapaExterior.ancho, x, y, RADIO_INTERACCION);
-    if (!encontrado) return null;
     const mapa = this.mapaExterior;
+    const agotados = recolectablesAgotadosDeMapa(mapa.rutaMapa);
+    const encontrado = recolectableCercano(mapa.recolectables, mapa.ancho, x, y, RADIO_INTERACCION, agotados);
+    if (!encontrado) return null;
     return {
       itemId: encontrado.item.itemId,
       cantidad: 1,
       confirmar: () => {
-        mapa.recolectables.delete(encontrado.idx);
-        recolectablesQuitadosDeMapa(mapa.rutaMapa).add(encontrado.idx);
+        // Reaparece en el MISMO sitio tras un timer (docs/GDD_Profesiones.md
+        // §0, pedido 2026-08-30) — nunca se borra de mapa.recolectables, solo
+        // se marca "agotado hasta X" (recolectableCercano ya lo salta/limpia
+        // solo). Los árboles NO pasan por aquí — su propio sistema de
+        // semilla/propagación (GestorBosques) se queda tal cual.
+        const tiempoRespawnMs = tiempoRespawnMsDeCategoria(encontrado.item.itemId) ?? 15 * 60 * 1000;
+        agotados.set(encontrado.idx, Date.now() + tiempoRespawnMs);
         this.broadcast("mundo:objetoQuitado", { origen: "exterior", x: encontrado.item.x, y: encontrado.item.y });
       },
     };
@@ -1558,7 +1596,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
-   * Desollar (docs/GDD_Caza.md): exige oficio curtidor/peletero (Player.oficio)
+   * Desollar (docs/GDD_Caza.md): exige oficio curtidor (Player.oficio)
    * Y un cuchillo_desollar en el inventario. Da la piel de la especie (si
    * tiene) + tirada de trofeo (5%, lootCaza.ts) y el cadáver DESAPARECE
    * ENTERO — verbos ESTRICTAMENTE independientes de `cadaver:lootear`
@@ -1568,8 +1606,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private async manejarCadaverDesollar(client: Client, msg: { cadaverId?: string }) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    if (player.oficio !== "curtidor" && player.oficio !== "peletero") {
-      return client.send("cadaver:error", { motivo: "necesitas el oficio de curtidor o peletero" });
+    if (player.oficio !== "curtidor") {
+      return client.send("cadaver:error", { motivo: "necesitas el oficio de curtidor" });
     }
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
@@ -1612,13 +1650,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * Raspar una piel_salada con el cuchillo de desollar (docs/GDD_Caza.md,
    * paso 2/3 del encurtido, entre cubo_sal y barril_curtido) — acción
    * INSTANTÁNEA sobre el propio inventario, sin construcción de por medio.
-   * Mismo gating que desollar: oficio curtidor/peletero + cuchillo_desollar.
+   * Mismo gating que desollar: oficio curtidor + cuchillo_desollar.
    */
   private manejarPielRaspar(client: Client, msg: { instanciaId?: number; cantidad?: number }) {
     const player = this.state.players.get(client.sessionId);
     if (!player || typeof msg?.instanciaId !== "number") return;
-    if (player.oficio !== "curtidor" && player.oficio !== "peletero") {
-      return client.send("piel:error", { motivo: "necesitas el oficio de curtidor o peletero" });
+    if (player.oficio !== "curtidor") {
+      return client.send("piel:error", { motivo: "necesitas el oficio de curtidor" });
     }
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
@@ -5145,9 +5183,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const factorEnergia = factorVelocidadPorEnergia(ctx, this.catalogoConstruible, { objeto: viva.objeto, claves: viva.claves });
     // Inteligencia (docs/GDD_Personaje.md §3.3): "craftea más rápido" — multiplica el factor de energía, nunca lo sustituye.
     const factor = factorEnergia * factorVelocidadCrafteo(player?.atributos.inteligencia ?? 1);
-    const duracionMs = (receta.tiempoBaseSeg / Math.max(0.01, factor)) * 1000;
+    // Módulos de mejora adyacentes (docs/GDD_Profesiones.md, pedido 2026-08-30):
+    // el de "velocidad" recorta duracionMs directo (misma fórmula que dio el
+    // streamer); el de "cantidad" se congela en craftesEnCurso y se aplica al
+    // recoger, para que quitar/poner el módulo a mitad de crafteo no cambie nada.
+    const bonusModulos = bonusModulosAdyacentes(ctx, this.catalogoConstruible, viva);
+    const duracionMs = (receta.tiempoBaseSeg / Math.max(0.01, factor)) * 1000 * (1 - bonusModulos.velocidad);
     const terminaEn = Date.now() + duracionMs;
-    this.craftesEnCurso.set(client.sessionId, { recetaId: receta.id, terminaEn });
+    this.craftesEnCurso.set(client.sessionId, { recetaId: receta.id, terminaEn, bonusCantidad: bonusModulos.cantidad });
     client.send("crafteo:iniciado", { recetaId: receta.id, terminaEn });
   }
 
@@ -5168,7 +5211,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor) return;
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const entrega = this.entregarOSoltar(client, player, receta.resultado.itemId, receta.resultado.cantidad);
+    // Módulo de "cantidad" congelado al iniciar (ver manejarCrafteoIniciar).
+    const cantidadFinal = Math.floor(receta.resultado.cantidad * (1 + (estado.bonusCantidad ?? 0)));
+    const entrega = this.entregarOSoltar(client, player, receta.resultado.itemId, cantidadFinal);
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
@@ -5179,7 +5224,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Inteligencia (docs/GDD_Personaje.md): completar un crafteo entrena tanto el oficio como el atributo general.
     await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
     client.send("crafteo:completado", {
-      recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad,
+      recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: cantidadFinal,
       oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
     });
   }
@@ -5272,15 +5317,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("curtidor:estado", { construccionId: viva.id, stock: nuevoEstado.stock, capacidadMax: datos.capacidadMaxMaterial, lote: nuevoEstado.lote ?? null });
   }
 
-  /** Mete una piel a procesar — el paso ARTESANO: exige oficio curtidor/peletero, sin lote ya en curso y stock a granel suficiente. */
+  /** Mete una piel a procesar — el paso ARTESANO: exige oficio curtidor, sin lote ya en curso y stock a granel suficiente. */
   private async manejarCurtidorMeterPiel(client: Client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) {
     const nombre = this.nombreDe(client);
     const ctx = this.ctxConstruccion;
     if (!nombre || !ctx || typeof msg?.construccionId !== "number" || typeof msg.instanciaId !== "number") return;
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    if (player.oficio !== "curtidor" && player.oficio !== "peletero") {
-      return this.errorCurtidor(client, "necesitas el oficio de curtidor o peletero");
+    if (player.oficio !== "curtidor") {
+      return this.errorCurtidor(client, "necesitas el oficio de curtidor");
     }
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return this.errorCurtidor(client, "construcción inexistente");
@@ -5638,7 +5683,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!cfg) return this.errorAnimal(client, "producto desconocido");
     const stats = this.estadisticasFaunaDe(fila.especieId);
     if (!stats?.categoriaProductoGranja?.includes(producto)) return this.errorAnimal(client, "este animal no da ese producto");
-    if (cfg.exigeOficio && player.oficio !== "ganadero") return this.errorAnimal(client, "necesitas el oficio de ganadero");
+    if (cfg.exigeOficio && player.oficio !== "molinero") return this.errorAnimal(client, "necesitas el oficio de molinero");
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
@@ -6687,8 +6732,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return this.errorMedico(client, "necesitas estar junto a una mesa de diagnóstico");
     }
     const contenedor = this.inventarios.get(client.sessionId);
-    const protesis = contenedor?.items.find((it) => it.itemId === "protesis_madera");
-    if (!contenedor || !protesis) return this.errorMedico(client, "necesitas una prótesis de madera");
+    // docs/GDD_Profesiones.md (2026-08-30): protesis_metal (mesa_cirugia, curandero N4)
+    // es la versión de tier alto de protesis_madera (mesa_diagnostico, N2) — mismo verbo,
+    // cualquiera de las dos sirve, se prefiere gastar la de madera si el jugador tiene ambas.
+    const protesis = contenedor?.items.find((it) => it.itemId === "protesis_madera") ?? contenedor?.items.find((it) => it.itemId === "protesis_metal");
+    if (!contenedor || !protesis) return this.errorMedico(client, "necesitas una prótesis (de madera o de metal)");
 
     const anatomia = this.anatomiaDe(msg.targetSessionId!);
     if (!instalarProtesis(anatomia[msg.zona])) return this.errorMedico(client, "esa zona no está amputada, o ya tiene prótesis");

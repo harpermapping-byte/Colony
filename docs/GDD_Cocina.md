@@ -131,11 +131,11 @@ Para las piezas GENUINAMENTE NUEVAS de cocina v2 sí se introdujo un mecanismo n
 
 | receta | oficio | mesa |
 |---|---|---|
-| `harina` | molinero | `muela_piedra` |
-| `masa_pan` | panadero | `amasadora` |
+| `harina` | molinero | `molino_mano` |
+| `masa_pan` | panadero | `amasadora`/`artesa_amasado` |
 | `pan` | panadero | `horno_pan` |
 | `olla_barro` | alfarero | `torno_alfarero` |
-| `olla_metal` | herrero | `yunque` |
+| `olla_metal` | herrero | `yunque_tocon` |
 | `cuenco_barro_grande` | alfarero | `torno_alfarero` |
 | `tinaja_batidos` | alfarero | `horno_ceramica` |
 | `recipiente_queso` | alfarero | `torno_alfarero` |

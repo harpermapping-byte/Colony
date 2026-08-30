@@ -1,6 +1,126 @@
 # GDD — Profesiones: edificios, mesas y mobiliario por oficio
 
-**ESTADO: APLICADA AL CATÁLOGO (2026-08-29), verificada.** Este documento fija, para los 38 oficios pactados en `docs/Backlog_Mecanicas_Futuras.md` ("Roles/profesiones y crafteo por planos"): edificio, 2-4 mesas especiales y únicas (básica→avanzada, marcando cuáles deben conectar a la red motriz — `docs/GDD_Motriz.md`), mobiliario funcional y decorativo, y el tipo de NPC. **No se craftea nada todavía** — las recetas/planos concretos ("ya les daremos un uso") son un diseño posterior, oficio a oficio.
+## §0. DISEÑO DEFINITIVO DE OFICIOS DE JUGADOR (2026-08-30) — supera lo de abajo
+
+Sesión del 2026-08-30: el streamer cerró los **10 oficios de jugador finales** (fusionando los 38 de más abajo), un sistema de **4 niveles de mesa por oficio** con **módulos de mejora por adyacencia**, **herramientas por tier** (recolección + mesa) y un **catálogo de objetos decorativos exclusivos** craftables. Lo de abajo (§1 en adelante) es el diseño PREVIO (38 oficios, sin fusionar) — se deja como referencia histórica de qué mesas/mobiliario ya existían, pero la lista de oficios/niveles vigente es ESTA sección.
+
+### Los 10 oficios (fusión de los 38 originales)
+
+| Oficio final | Absorbe (nombre antiguo) |
+|---|---|
+| **herrero** | herrero + herrero_armaduras + herrero_armas("armero") + fletcher |
+| **carpintero** | carpintero + leñador |
+| **ingeniero** | carpintero_ribera (ahora también construye ciertos edificios, no solo barcos) |
+| **picapedrero** | picapedrero + minero |
+| **molinero** | molinero + panadero + agricultor + apicultor + ganadero |
+| **cazador** | cazador + trampero |
+| **cocinero** | cocinero + tabernero + destilador |
+| **curandero** | curandero + herbolista + rol de escriba (mapas/documentos/registros) |
+| **curtidor** | curtidor + peletero + carnicero + sastre + guarnicionero |
+| **joyero** | joyero + vidriero + alfarero |
+
+Eliminados del todo: `explorador` (no existe), `pescador` (libre para cualquiera con caña, sin oficio). `OFICIOS_JUGADOR_VALIDOS` (`server/src/rooms/base/RoomExteriorBase.ts`) y `items/catalogo/recetas.json` usan EXCLUSIVAMENTE estos 10 ids.
+
+### Niveles de mesa (1-4) por oficio
+
+Cada oficio tiene sus mesas repartidas en 4 niveles de complejidad (nombres/descripciones tal cual los dio el streamer), anotados con `nivelOficioMinimo:{oficio,nivel}` en `interiores/catalogo/elementos.json` (mecanismo ya existente de `docs/GDD_Crafteo.md §7bis`). Building donde se bakean (temaTaller, reusando edificios ya existentes salvo `cazador`, que es NUEVO — ver más abajo):
+
+| Oficio | Edificio (temaTaller) | N1 | N2 | N3 | N4 |
+|---|---|---|---|---|---|
+| herrero | herreria | forja_campo, yunque_tocon | forja_piedra, yunque_cuerno⚡ | taller_armero, banco_ajuste | gran_forja⚡, martinete⚡ |
+| carpintero | carpinteria | banco_tronzado | banco_carpintero | torno_madera⚡, mesa_talla_fina | estacion_curvado_vapor, mesa_ensamblaje |
+| ingeniero | carpintero_ribera | mesa_delineante | banco_mecanizado⚡ | estacion_maquetas_navales | banco_ingenieria_pesada⚡ |
+| picapedrero | picapedrero | banco_clasificacion_cincelado | mesa_mampuesto | estacion_canteria_muelas⚡ | gran_taller_mamposteria⚡ |
+| molinero | molino | mesa_tajado_limpieza | molino_mano⚡, artesa_amasado | estacion_germinacion_mantequeria | gran_molino_agropecuario⚡ |
+| cazador | **cazador** (NUEVO: `cabana_cazador`) | estacion_despiece_caza | banco_trampero | banco_arqueria_caza | estacion_cazador_supremo⚡ |
+| cocinero | cocinero (+ destileria para alambique) | fogon_campamento | horno_barro_taberna | cocina_mamposteria, alambique⚡ | gran_cocina_destileria⚡ |
+| curandero | herbolista | secadero_hierbas, mortero_grande_boticario | escritorio_escriba, mesa_diagnostico | estacion_boticario, mesa_destilado_esencias | scriptorium_alquimico, mesa_cirugia |
+| curtidor | curtiduria / carnicero / sastre / peletero (según la mesa concreta) | mesa_raspado, mesa_despiece | tina_curtido, telar | mesa_corte_piel, mesa_corte | mesa_costura_pieles, mesa_bordado |
+| joyero | joyeria / vidriero / alfareria (según la mesa concreta) | torno_alfarero⚡, banco_joyero | horno_vidrio⚡, horno_ceramica | mesa_engarce, mesa_tallado_cristal | mesa_fundicion_precioso⚡, mesa_esmaltado |
+
+**Edificio nuevo `cabana_cazador`** (único oficio sin edificio previo): `interiores/catalogo/tipos_edificio.json`, `temaTaller:"cazador"`, registrado con peso en las pools `aldea_pequena`/`aldea` de `ciudades/catalogo/asentamientos.json` (mismo patrón que `cabana_apicultor`). Verificado con bake real: aparece en semillas 4 y 8 de un lote de 8 `aldea`, con `estacion_despiece_caza` colocada en su sala `taller`.
+
+**Piezas donde el oficio fusionado abarca varios edificios legacy** (curtidor, joyero): cada mesa se queda en el edificio donde YA vivía antes de la fusión (p.ej. `telar`/`mesa_corte`/`mesa_bordado` siguen en el edificio de sastre, `mesa_corte_piel`/`mesa_costura_pieles` en el de peletero) — un jugador de ese oficio final trabaja en más de un edificio físico según qué mesa use. Simplificación aceptada explícitamente para no inventar una reconsolidación de edificios que nadie pidió.
+
+### Limpieza de mesas viejas duplicadas (2026-08-30, quinta pasada)
+
+Pedido literal: "si están duplicadas borra o unifica con las últimas creadas, para que las que pactamos antes sean las reales y únicas". De las "9 mesas viejas" que seguían con receta propia en paralelo (pre-fusión, `§1` de abajo):
+
+- **2 NO eran duplicado real** — `banco_carpintero_ribera`/`mesa_calafateo` (recetas `barco_1..4_construido`): sistema deliberadamente aparte de `docs/GDD_Barcos.md`, gateado por `edificioRequerido:"astillero"`, nunca colisiona en la misma sala que ninguna mesa de la tabla de arriba. Se dejan intactas.
+- **5 SÍ colisionaban de verdad** (mismo `temasProfesion`+tipo de sala que su equivalente nuevo, así que un mismo taller podía generar AMBAS a la vez): `yunque`→`yunque_tocon`, `martillo_pilon`→`martinete`, `mesa_talla_piedra`→`banco_clasificacion_cincelado`, `mesa_tenido_cuero`→`tina_curtido`, `muela_piedra`→`molino_mano`. Borradas de `interiores/catalogo/elementos.json` (para que nunca vuelvan a bakearse) y las recetas que las usaban (`clavos_hierro`/`olla_metal`/`instrumental_cirugia`, `martillo_acero`, `pico_minero_tallado`, `mochila_cuero_curtido`/`silla_montar_curtida`, `harina`) retargeteadas al `mesas` nuevo — mismo resultado, misma receta, mesa única.
+- **1 caso mixto** — `amasadora` (panaderia) y `artesa_amasado` (molino, nuevo): NO colisionan nunca en la misma sala (edificios distintos, `panaderia` sigue viva y registrada en 5 pools de asentamiento), así que no es el mismo bug — pero sí había DOS recetas (`masa_pan`/`masa_pan_artesa`) para el mismo resultado. Fusionadas en una sola (`masa_pan`, `mesas:["amasadora","artesa_amasado"]`) — mismo patrón multi-edificio ya aceptado arriba para curtidor/joyero. `horno_pan`→`pan` no tenía ningún duplicado, se deja tal cual.
+
+**3 regresiones reales atrapadas ANTES de commitear** (borrar un catálogo entero, no solo su `temasProfesion`, se lleva por delante cualquier campo que el reemplazo nuevo no tuviera todavía copiado):
+1. Los 4 ids borrados con `energia.consume` (Motriz, docs/GDD_Motriz.md) — `yunque`, `martillo_pilon`, `mesa_talla_piedra`, `muela_piedra` — tenían el gancho YA cableado; sus reemplazos nuevos (`yunque_tocon`/`martinete`/`banco_clasificacion_cincelado`/`molino_mano`) habían nacido SIN él (los `⚡` de la tabla de arriba eran aspiracionales, nunca wireados — gap previo a esta sesión, confirmado). Portado el mismo `energia` de cada viejo a su reemplazo directo — sin esto, un jugador conectado a la red motriz habría perdido el bonus de velocidad de golpe.
+2. `yunque` cubría además la sala `arsenal` (`cuartel_guardia`/`arena_combate`, edificios de tema herrería que NO tienen sala `taller`) — `yunque_tocon` solo traía `tiposSalaValidos:["taller"]`. Añadido `"arsenal"` + los `allowedRoomTags` que le faltaban (`COMUN_ALMACEN`/`COMUN_MILITAR`).
+3. `muela_piedra` cubría además `sala_molino` (la única sala de `molino_agua`, que NO genera salas `taller` en absoluto — sin esto, `molino_agua` se habría quedado sin NINGUNA mesa de molienda). `molino_mano` solo traía `["taller"]`; añadido `"sala_molino"` + `allowedRoomTags:"COMUN_AGRICULTURA"`. Las otras 3 mesas de molinero (N1/N3/N4) siguen sin cubrir `sala_molino` — gap preexistente a esta sesión, no introducido ni cerrado aquí, fuera de alcance de "quitar duplicados".
+
+Verificado con un bake real (`interiores/src/edificio.js::generarEdificio`, sin pasar por CLI): 15 semillas de `herreria`/`molino`/`curtiduria`/`taller_picapedrero` cada una — CERO apariciones de los 5 ids borrados, y sus reemplazos (`martinete`, `molino_mano`, `tina_curtido`, `banco_clasificacion_cincelado`) sí aparecen; 40 semillas adicionales confirman que `yunque_tocon`/`artesa_amasado` (los de nivel 1, más disputados por presupuesto de sala) también salen; 30 semillas más de `cuartel_guardia` confirman `yunque_tocon` en su sala `arsenal`, y 30 de `molino_agua` confirman `molino_mano` en su `sala_molino` (las 2 regresiones de arriba, ya cerradas). Integridad referencial completa de `recetas.json` re-verificada tras el retargeteo (script de la pasada anterior, "TODO OK"). `tsc` limpio, servidor 805/805, interiores 41/41 + editor e2e 11/11.
+
+### Módulos de mejora por adyacencia (mecanismo NUEVO)
+
+Pedido literal: mesas de nivel 2 a 4 llevan dos complementos estándar — **Mejora A (velocidad)** y **Mejora B (cantidad/rendimiento)** — que, colocados ORTOGONALMENTE ADYACENTES a la mesa, aplican un bonus a cualquier crafteo hecho en ella:
+
+```
+tiempoFinal    = tiempoBase * (1 - bonusVelocidad)
+cantidadFinal  = floor(cantidadBase * (1 + bonusCantidad))
+```
+
+- **Porcentajes** (no dados por el streamer, elegidos por defecto): nivel 2 → 12%, nivel 3 → 18%, nivel 4 → 25%. Mismo valor para velocidad y cantidad de un mismo nivel; cada módulo cuenta por separado (una mesa puede tener solo uno de los dos, o los dos).
+- **Catálogo**: nuevo campo `EntradaConstruible.mejoraMesa?: { mesa: string; tipo: "velocidad"|"cantidad"; bonus: number }` (`server/src/construccion/catalogo.ts`). 60 piezas nuevas en `elementos.json` (2 por mesa de nivel 2-4 × 10 oficios), con los nombres exactos que dio el streamer (p.ej. `fuelle_mecanico_pedal`, `cuba_temple_recogedor`, `sierra_bastidor_tensor`...).
+- **Resolución**: `bonusModulosAdyacentes(ctx, catalogo, viva)` (`server/src/construccion/construccion.ts`) — reutiliza el patrón de escaneo ya existente de `hayConstruibleAdyacente` (cocina v2), pero mirando `mejoraMesa` en vez de gatear la colocación. Como mucho un bonus de cada tipo cuenta (dos "velocidad" adyacentes no se suman, gana el mayor).
+- **Aplicación**: `RoomExteriorBase.ts::manejarCrafteoIniciar` calcula el bonus AL INICIAR (se congela en `EstadoCrafteo.bonusCantidad`, igual que `terminaEn` — quitar/poner un módulo a media cocción no cambia el crafteo en curso) y recorta `duracionMs` directo; `manejarCrafteoRecolectar` aplica el bonus de cantidad congelado a `receta.resultado.cantidad`.
+- **Corrección real durante la implementación**: los primeros módulos de curtidor/joyero/cocinero se etiquetaron con el edificio "principal" del oficio fusionado en vez del edificio REAL de la mesa a la que dan bonus (p.ej. `lanzadera_automatica_telar` boostea `telar`, que vive en el edificio de sastre, no en curtiduría) — un módulo que nunca puede bakearse en el MISMO edificio que su mesa objetivo jamás llegaría a estar adyacente a ella. Corregido pieza a pieza contra el `temasProfesion` real de cada mesa objetivo.
+- **Tests**: `server/test/mejoraMesaAdyacente.test.ts` (6 tests, función pura con `ContextoConstruccion` sintético — sin/con módulo, velocidad+cantidad simultáneos, módulo de otra mesa no cuenta, diagonal no cuenta, dos módulos del mismo tipo no se suman).
+
+### Herramientas por tier (recolección + mesa) — GATING YA CABLEADO
+
+62 herramientas nuevas en `items/catalogo/items.json` (+ 3 existentes anotadas: `hacha_talar`, `pico_minero`, `cuchillo_desollar`), con `familiaMaterial:"herramienta_<oficio>"` y `tier:1-4` — mismo campo/convención YA existente (`EntradaCatalogoItem.tier`).
+
+**Gating real implementado (2026-08-30, segunda pasada)**: `server/src/mundo/herramientasRecoleccion.ts` — tabla `CATEGORIA_HERRAMIENTA_RECOLECCION` (36 `categoriaRecurso` de `baker/catalogo/vegetacion.json`/`rocas.json` → `{oficio, tier}`, asignados por rareza real vía `densidadBase`) + `mejorHerramientaPara(contenedor, catalogo, requisito)` (busca en el inventario la herramienta de mayor tier de esa familia que no esté rota). `RoomExteriorBase.ts::manejarCoger` la aplica SOLO a la recolección salvaje del bake (`buscarCogibleEnMundo`), nunca a objetos ya soltados por otro jugador — sin la herramienta correcta, `coger:error` con el motivo exacto ("necesitas una herramienta de \<oficio\> (tier N o superior)"); con ella, se registra el uso (desgaste) igual que `cuchillo_desollar`.
+
+**Minería real (2026-08-30, tercera pasada)** — pedido literal: "igual que tala un árbol el leñador... este mina rocas". `rocas.json` no tenía NINGUNA entrada con `desaparaceAlRecolectar:true` (hueco preexistente, no de esta sesión): la tabla de picapedrero existía pero era inerte. Corregido añadiendo `desaparaceAlRecolectar:true` a las 36 entradas de `rocas.json` con `categoriaRecurso` (arcilla/turba/piedra_comun/carbón hasta oro/platino/gema) — reusa el pipeline GENÉRICO de "coger" (más simple que `arbol:talar`/`GestorBosques`, que es un sistema propio para árboles con propagación por semilla; una veta de mineral no "crece" igual). Sin rebake: el mapa demo ya tenía `piedra_comun` bakeado y pasó a ser recolectable de verdad al instante.
+
+**Reaparición temporizada — respawn (2026-08-30, cuarta pasada)** — pedido literal: "lo que recolectamos y desaparece tiene un timer para que vuelva a aparecer... unificar con árboles, rocas y todo recolectar". Los árboles **se quedan exactamente igual** (decisión explícita del streamer tras explicarle el trade-off): `GestorBosques` ya tiene un sistema más sofisticado (semilla/propagación sostenible — un árbol talado en su sitio bake NUNCA vuelve ahí, el bosque rebrota vía nuevos brotes cerca de árboles adultos vivos); sustituirlo por un timer simple habría sido una REGRESIÓN. El timer simple es SOLO para hierbas/rocas (todo lo que pasa por `coger` genérico):
+- `server/src/mundo/herramientasRecoleccion.ts::tiempoRespawnMsDeCategoria(categoriaRecurso)` — reusa el `tier` YA asignado por rareza real (más raro = tarda más): tier1=5min, tier2=15min, tier3=30min, tier4=60min.
+- `server/src/mundo/recolectables.ts::recolectablesAgotadosDeMapa(rutaMapa)` — `Map<idx, epoch ms>` (renombrado desde el `Set` que borraba para siempre) cacheado por proceso igual que `recolectablesDeMapa`; NO hay persistencia (un reinicio del servidor resetea recolectables Y agotados juntos, coherentes entre sí).
+- `recolectableCercano(...)` acepta el Map de agotados: salta los índices todavía en el futuro y se AUTOLIMPIA sola (borra la entrada) en cuanto su timestamp ya pasó — sin ningún tick de fondo, mismo "cálculo perezoso" del proyecto (CLAUDE.md).
+- `RoomExteriorBase.ts::buscarCogibleEnMundo` ya NO borra el recolectable al confirmarlo: marca `agotados.set(idx, Date.now() + tiempoRespawnMs)`. El handler `sector:exclusiones` (consulta re-preguntable del cliente para no dibujar el modelo bakeado de algo agotado) recorre el mismo Map y también poda las entradas ya vencidas.
+
+Verificado con datos reales: 11 tests puros de gating (`server/test/herramientasRecoleccion.test.ts`, incluye cobertura contra el catálogo real del baker + `tiempoRespawnMsDeCategoria` por tier) + 6 tests puros de respawn (`server/test/recolectables.test.ts`: agotado con timestamp futuro se salta, timestamp vencido se autolimpia y vuelve a estar disponible, caché por ruta) + 1 E2E contra el servidor real y el mapa demo (`server/test/herramientasRecoleccion.e2e.mjs`: sin herramienta se rechaza con el motivo correcto sobre un `flor_medicinal` real del bake; con `tijera_herbolario_fina` (curandero tier 3) se coge de verdad; con `pico_minero_hierro` (picapedrero tier 1) se mina un `piedra_comun` real).
+
+### Recetas completadas (2026-08-30, tercera pasada)
+
+Pedido literal: "vas a crear diferentes recetas según muebles y objetos que ya tengamos... una silla se fabrica con X material, y sale de ese color... todo crafteo requiere un tiempo determinado, no hay cola de crafteo, puedes craftear el mismo objeto varias veces" (el tiempo por complejidad y el no-cola-de-crafteo YA existían — `tiempoBaseSeg` y el slot único `craftesEnCurso`; craftear el mismo objeto varias veces ya funcionaba de fábrica). `items/catalogo/recetas.json` pasó de ~24 a 143 recetas:
+- **59 recetas de equipo ya existente sin receta**: ~59 items de armas/armaduras/joyería (`docs/GDD_Equipo.md`) tenían stats reales pero CERO forma de craftearse — herrero (armas + armadura hierro/acero), curtidor (armadura de cuero + bolsas/bandoleras), joyero (anillos/brazaletes), usando las mesas de nivel 1-4 nuevas.
+- **Material determina la variante visual**: 3 sillas (`silla_pino`/`silla_roble`/`silla_nogal_tallada`) y 2 mesas de comedor (`mesa_comedor_pino`/`mesa_comedor_roble`) — un item+receta+mueble por material, cada uno con `requiereItemColocar` a sí mismo (mismo patrón que `olla_barro`/`olla_metal`, docs/GDD_Cocina.md): cualquier madera vale para la receta base, pero CUÁL exactamente decide el color/variante final.
+- Verificado con un script de integridad referencial recorriendo TODO `recetas.json` (cada `mesas`/`insumos`/`resultado` resuelve a un item/mueble real del catálogo).
+- **Pendiente real, no cerrado esta pasada**: 3 mesas siguen sin ninguna receta (`mesa_corte`, `mesa_destilado_esencias`, `mesa_despiece` — curtidor/curandero) por falta de un item preexistente sin dueño que encajase bien.
+
+### Blueprints por mesa y nivel — cierre de huecos reales (2026-08-30, sexta pasada)
+
+Pedido literal: "plantear crafteos blueprints y separarlos en mesa y nivel de cada objeto/herramienta/mueble que existe actualmente en el juego en los listados". Auditoría completa de `items/catalogo/items.json` (382 items) cruzando qué `resultado.itemId` produce cada receta real de `recetas.json`:
+
+- **`mueble` (elementos.json)**: YA completo — las 55 entradas con `requiereItemColocar` resuelven a una receta real, y las 60 mesas de oficio se colocan gratis vía "construir" (no necesitan receta, son la ESTACIÓN, no el resultado). Cero hueco.
+- **`herramienta` (67 sin receta de 70 totales) — el hueco real y grave**: las 62 herramientas tier catalogadas en la pasada de "herramientas por tier" (más `cuchillo_desollar`) tenían `familiaMaterial`/`tier` pero CERO receta — el gating de `herramientasRecoleccion.ts` llevaba toda la sesión siendo inerte porque un jugador nunca podía FABRICAR ninguna herramienta, solo empezar con lo que ya tuviera. Cerrado con 63 recetas (una por herramienta, mesa = la(s) de su oficio en su MISMO nivel de la tabla de arriba, insumos escalados por tier — madera+`lingote_cobre` en tier 1 hasta madera_palmera+`lingote_oro` en tier 4, reusando los refinados de la capa de Refinamiento de `docs/GDD_Crafteo.md §1-2`, NO recolectables crudos: evita el candado circular de pedir un mineral de tier alto para fabricar la herramienta que hace falta para minarlo) + 4 utilidades sin `familiaMaterial` (`cubo_ordeno`/`tijeras_esquilar`/`antorcha_portatil`/`cana_pesca`, ganadero/cocinero/carpintero) + `cuchillo_cocina` (tipo `objeto` pero con durabilidad real de `docs/GDD_Cocina.md`, herramienta de facto).
+- **`equipable` (1 de 48 sin receta)**: `mascara_hierro`, única pieza suelta — receta calcada de `casco_hierro_craft` (mismo patrón, mismo tier).
+- **`objeto`/`consumible`/`recurso`/`semilla` — deliberadamente SIN receta nueva**: los 23 `consumible` restantes son de `docs/GDD_Cocina.md` (sistema dinámico de vasija, NO crafteo fijo — ya establecido). Los 148 `recurso`+32 `semilla` se recolectan/siembran, no se fabrican, por diseño. Los 31 `objeto` restantes (vajilla suelta, libro/pergamino/mapa_mesa, dados/baraja_cartas, moneda_suelta, reliquia, bolsas de semilla...) son clutter decorativo de casas NPC (loot/hallazgo), la MISMA categoría que el resto de decoración ambiental nunca crafteada — inventarles receta habría sido meter contenido que nadie pidió, no cerrar un hueco real.
+- Verificado: script de cobertura (`items.json` × `recetas.json`, por `tipo`) confirma 0 huecos en `herramienta`/`equipable`/`mueble` tras esta pasada. Integridad referencial completa re-verificada (211 recetas totales, "TODO OK"). `tsc` limpio, servidor 805/805 (sin tests nuevos dedicados esta pasada — son datos de catálogo, no lógica; cubiertos por la integridad referencial + la suite de `herramientasRecoleccion.test.ts`/`.e2e.mjs` ya existente).
+- **Pendiente real de esta pasada**: "ropa" (prendas civiles, `ropa/catalogo/prendas.json`, 6 entradas) usa un esquema de vóxel TOTALMENTE distinto (`slotCuerpo`/`voxelResolucion`/`detalle`/`zonasColor`) al de las 48 piezas de equipo ya crafteables (`ropa/catalogo/equipo.json`, esquema simple `slotEquipo`/`categoria`/`materialesCompatibles`) — no son el mismo catálogo y no se pueden fusionar sin tocar cliente (`equipoVisual.ts` no sabe render izar `generarPrenda.js`). Coger esto exige diseño+código de cliente nuevo, no solo entradas de catálogo; queda para decidir con el streamer antes de tocar nada (ver mensaje aparte).
+
+### Objetos decorativos exclusivos (craftables)
+
+50 piezas (5 por oficio, repartidas en los 4 niveles) — mobiliario puramente decorativo (`aportes.decoracion`) que NO se puede colocar gratis desde el menú de construir normal: se craftea primero (receta `<id>_craft` en `recetas.json`, oficio+mesa+nivel correctos) como un ITEM en `items/catalogo/items.json`, y el mueble en `elementos.json` lleva `requiereItemColocar:"<id>"` — mismo patrón exacto que `olla_metal`→`olla_grande` (docs/GDD_Cocina.md). Así "exclusivo" es real: hace falta el oficio, el nivel de mesa y los materiales, no solo construir.
+
+### Verificado (2026-08-30)
+
+`tsc` limpio, servidor 805/805 (785 + 6 de módulos + 11 de gating de herramienta, antes 9 + 3 tests nuevos de respawn en `recolectables.test.ts`, que ya venía incluido en los 785), interiores 41/41 (74 tipologías de edificio, antes 73 — `cabana_cazador`), ciudades 13/13. Bake real de 8 semillas de `aldea` confirmando `cabana_cazador` + su mesa de nivel 1 colocada en al menos una instancia. E2E real (`herramientasRecoleccion.e2e.mjs`) contra el mapa demo verificando el gating de principio a fin, incluida la roca minada de verdad.
+
+---
+
+## §1 en adelante — diseño PREVIO (2026-08-29), 38 oficios sin fusionar
+
+**Histórico, no vigente para la lista de oficios de jugador** (esa es la §0 de arriba) — se conserva porque documenta qué mesas/mobiliario concretos ya existían antes de la fusión, y sigue siendo la referencia de qué building/temaTaller usa cada mesa legacy.
 
 **Aplicado**: 50 mesas/mobiliario nuevos + 3 retrofits (`interiores/catalogo/elementos.json`), 8 edificios nuevos + `temaTaller:"molino"` en `molino_agua`/`molino_viento` (`interiores/catalogo/tipos_edificio.json`), 8 NPCs de oficio nuevos (`personajes/catalogo/npcs.json`), 8 entradas oficio→edificio (`poblacion/catalogo/oficiosEdificios.json`), y los 8 edificios nuevos + `lonja_pescado` (huérfana desde siempre, nunca se bakeaba) registrados con peso en las 5 pools de asentamiento correspondientes (`ciudades/catalogo/asentamientos.json`). Verificado: 34/34 tests de interiores (con las 54 tipologías de edificio generando sin error), 214/214 tests de servidor, 13/13 tests de ciudades, `tsc` limpio, y bakes de prueba reales (aldea_pequena/pueblo/capital) confirmando que los 9 edificios aparecen y sus mesas se colocan.
 
