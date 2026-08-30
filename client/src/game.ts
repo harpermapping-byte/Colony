@@ -743,6 +743,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const rig = vox ? crearPersonajeVoxel(vox) : crearRigHumanoide({ colorTunica: "#7a6248" });
     rig.objeto.rotation.order = "YXZ";
     rig.objeto.visible = npc.visible;
+    // NPC tutorial (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30:
+    // "se generan vestidos") — sin vóxeles bakeados propios (no vienen de
+    // poblacion/), así que se visten reusando TAL CUAL el pipeline de
+    // equipo del jugador (equipoVisual.ts) sobre el rig humanoide de
+    // repuesto; `npc.equipo` viene vacío para cualquier NPC normal.
+    if (npc.equipo && [...npc.equipo.keys()].length > 0) aplicarEquipoAlRig(rig.objeto, npc.equipo, slotId);
     const estado: EstadoJugador = {
       rig,
       destinoX: npc.x,

@@ -80,7 +80,9 @@ const rutaDemo = join(raiz, "assets", "mapas", "demo");
 let fallo = null;
 try {
   console.log("2) arrancando servidor real sobre el mapa demo (trae maestro_oficios en el spawn)...");
-  lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO), RUTA_MAPA: rutaDemo, BD_RUTA: rutaBd });
+  // JARL_NOMBRES: NOMBRE_RICO también sirve para probar la colocación de
+  // NPCs tutoriales (jarl/superadmin-only, docs/GDD_Profesiones.md ronda 3).
+  lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO), RUTA_MAPA: rutaDemo, BD_RUTA: rutaBd, JARL_NOMBRES: NOMBRE_RICO });
   await esperarPuerto(`http://localhost:${PUERTO}/`);
 
   const { Client } = await import(join(raiz, "node_modules/colyseus.js/build/esm/index.mjs"));
@@ -129,7 +131,7 @@ try {
   }
   console.log(`   OK: ${JSON.stringify(erroresOficio[0])}`);
 
-  console.log("7) cambiar el slot 1 (curtidor, con 500 XP acumulada) por molinero cuesta Farycoins y reinicia la XP del que se quita...");
+  console.log("7) cambiar el slot 1 (curtidor, con 500 XP acumulada) por molinero cuesta 50 Farycoins (primer cambio) y reinicia la XP del que se quita...");
   const cambiados = [];
   room.onMessage("oficio:cambiado", (m) => cambiados.push(m));
   room.send("oficio:cambiar", { slot: 1, oficio: "molinero" });
@@ -137,8 +139,20 @@ try {
   if (cambiados.length !== 1 || cambiados[0].oficioAnterior !== "curtidor" || cambiados[0].oficio !== "molinero") {
     throw new Error(`FALLO: debería confirmar el cambio curtidor->molinero, llegó ${JSON.stringify(cambiados)}`);
   }
-  if (cambiados[0].saldoRestante !== 1000 - 250) {
-    throw new Error(`FALLO: debería haber cobrado PRECIO_CAMBIO_OFICIO (250), saldo llegó a ${cambiados[0].saldoRestante}`);
+  if (cambiados[0].precioPagado !== 50 || cambiados[0].saldoRestante !== 1000 - 50) {
+    throw new Error(`FALLO: el primer cambio debería costar 50 Farycoins, llegó ${JSON.stringify(cambiados[0])}`);
+  }
+  console.log(`   OK: ${JSON.stringify(cambiados[0])}`);
+
+  console.log("8) un SEGUNDO cambio de oficio cuesta el DOBLE (precio exponencial)...");
+  cambiados.length = 0;
+  room.send("oficio:cambiar", { slot: 1, oficio: "curtidor" });
+  await esperar(400);
+  if (cambiados.length !== 1 || cambiados[0].precioPagado !== 100) {
+    throw new Error(`FALLO: el segundo cambio debería costar 100 (2x50), llegó ${JSON.stringify(cambiados)}`);
+  }
+  if (cambiados[0].saldoRestante !== 1000 - 50 - 100) {
+    throw new Error(`FALLO: saldo tras 2 cambios (50+100) debería ser ${1000 - 50 - 100}, llegó ${cambiados[0].saldoRestante}`);
   }
   console.log(`   OK: ${JSON.stringify(cambiados[0])}`);
 
@@ -150,9 +164,65 @@ try {
   }
   console.log("   OK: la XP de curtidor (500) se perdió al quitarlo del slot, como se pidió");
 
+  console.log("9) admin (JARL_NOMBRES) pide el catálogo de NPCs tutoriales...");
+  const catalogos = [];
+  room.onMessage("admin:npcTutorial:catalogo", (m) => catalogos.push(m));
+  room.send("admin:npcTutorial:catalogo", {});
+  await esperar(300);
+  if (catalogos.length !== 1 || catalogos[0].npcs.length < 10) {
+    throw new Error(`FALLO: debería llegar un catálogo con al menos 10 arquetipos, llegó ${JSON.stringify(catalogos)}`);
+  }
+  if (!catalogos[0].npcs.some((n) => n.id === "tutorial_pesca")) {
+    throw new Error(`FALLO: falta tutorial_pesca en el catálogo, llegó ${JSON.stringify(catalogos[0].npcs)}`);
+  }
+  console.log(`   OK: ${catalogos[0].npcs.length} arquetipos de NPC tutorial`);
+
+  console.log("10) coloca un NPC tutorial en su posición actual (jarl-only, persiste en BD y aparece en caliente)...");
+  const colocados = [];
+  room.onMessage("admin:npcTutorial:colocado", (m) => colocados.push(m));
+  room.send("admin:npcTutorial:colocar", { tipoTutorial: "tutorial_pesca" });
+  await esperar(400);
+  if (colocados.length !== 1 || colocados[0].tipoTutorial !== "tutorial_pesca") {
+    throw new Error(`FALLO: debería confirmar la colocación, llegó ${JSON.stringify(colocados)}`);
+  }
+  const idColocado = colocados[0].id;
+  console.log(`   OK: ${JSON.stringify(colocados[0])}`);
+
+  const bdTutorial = new DatabaseSync(rutaBd);
+  const filaTutorial = bdTutorial.prepare("SELECT * FROM npcs_tutoriales WHERE id = ?").get(idColocado);
+  bdTutorial.close();
+  if (!filaTutorial || filaTutorial.tipo_tutorial !== "tutorial_pesca" || filaTutorial.colocado_por !== NOMBRE_RICO) {
+    throw new Error(`FALLO: la fila persistida no coincide, llegó ${JSON.stringify(filaTutorial)}`);
+  }
+  console.log("   OK: persistido en npcs_tutoriales con el admin correcto");
+
+  console.log("11) un jugador SIN privilegios de jarl no puede colocar NPCs tutoriales...");
+  const clienteNormal = new Client(`ws://localhost:${PUERTO}`);
+  const roomNormal = await clienteNormal.joinOrCreate("hub", { name: "E2E-OficiosNormal" });
+  await esperar(400);
+  const erroresAdmin = [];
+  roomNormal.onMessage("admin:error", (m) => erroresAdmin.push(m));
+  roomNormal.send("admin:npcTutorial:colocar", { tipoTutorial: "tutorial_caza" });
+  await esperar(300);
+  if (!erroresAdmin.some((e) => /jarl/.test(e.motivo))) {
+    throw new Error(`FALLO: un jugador normal no debería poder colocar NPCs tutoriales, llegó ${JSON.stringify(erroresAdmin)}`);
+  }
+  console.log(`   OK: ${JSON.stringify(erroresAdmin[0])}`);
+  await roomNormal.leave();
+
+  console.log("12) quita el NPC tutorial colocado...");
+  const quitados = [];
+  room.onMessage("admin:npcTutorial:quitado", (m) => quitados.push(m));
+  room.send("admin:npcTutorial:quitar", { id: idColocado });
+  await esperar(300);
+  if (quitados.length !== 1 || quitados[0].id !== idColocado) {
+    throw new Error(`FALLO: debería confirmar que se quitó, llegó ${JSON.stringify(quitados)}`);
+  }
+  console.log(`   OK: ${JSON.stringify(quitados[0])}`);
+
   await room.leave();
 
-  console.log("\n✅ TODO OK: 2 slots de oficio, coste+reinicio de XP al cambiar, y gating por NPC verificados contra el servidor real.");
+  console.log("\n✅ TODO OK: 2 slots de oficio, coste exponencial+reinicio de XP al cambiar, NPCs tutoriales (catálogo/colocar/gating jarl/quitar) verificados contra el servidor real.");
 } catch (e) {
   fallo = e;
 } finally {

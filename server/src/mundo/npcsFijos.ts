@@ -19,6 +19,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { NpcBakeado } from "./agentes";
+import { NpcTutorialColocado } from "../datos/bd";
 
 export interface NpcFijoCatalogo {
   slotId: string;
@@ -43,4 +44,62 @@ export function cargarNpcsFijos(rutaMapa: string): NpcBakeado[] {
     oficio: n.oficio,
     rutina: [{ lugar: "plaza", accion: "trabajar", horaInicio: 0, horaFin: 24, punto: { x: n.x, y: n.y }, camino: null }],
   }));
+}
+
+// --- NPCs TUTORIAL (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30) ---
+// "un NPC por cada mecánica... colocados a mano por el admin/superadmin en
+// su posición actual, con un panel que designa qué NPC y dónde... se
+// generan vestidos con nombre, se podrá hablar con ellos con texto
+// predefinido (el texto en sí, pendiente de escribir todavía)".
+
+export interface NpcTutorial {
+  id: string; // tipoTutorial — clave estable, referenciada desde la BD (npcs_tutoriales.tipo_tutorial)
+  nombre: string;
+  /** qué mecánica explica — lo que enseñaría el "spawner" del admin al elegir cuál colocar. */
+  mecanica: string;
+  /** slot->itemId (items/catalogo/items.json), MISMO shape que InventarioSchema.equipo — se renderiza reusando equipoVisual.ts tal cual, cero pipeline nuevo. */
+  equipo: Record<string, string>;
+}
+
+const RUTA_CATALOGO_TUTORIALES = path.join(__dirname, "..", "..", "..", "poblacion", "catalogo", "npcsTutoriales.json");
+let catalogoTutorialesCache: Map<string, NpcTutorial> | null = null;
+
+/** Catálogo completo de arquetipos de NPC tutorial — cacheado en memoria, releído solo si el proceso arranca de cero. */
+export function cargarCatalogoNpcsTutoriales(): Map<string, NpcTutorial> {
+  if (catalogoTutorialesCache) return catalogoTutorialesCache;
+  const datos = JSON.parse(fs.readFileSync(RUTA_CATALOGO_TUTORIALES, "utf8")) as { npcs: NpcTutorial[] };
+  catalogoTutorialesCache = new Map(datos.npcs.map((n) => [n.id, n]));
+  return catalogoTutorialesCache;
+}
+
+/**
+ * Convierte una fila de `npcs_tutoriales` (BD, persistida por el admin) en
+ * el `NpcBakeado` que `GestorAgentes` sabe recolocar — mismo tramo único
+ * 0-24h sin `camino` que `cargarNpcsFijos`, más `tipoTutorial`/`equipo` para
+ * que salga vestido. `slotId` es estable (`tutorial_<id de fila>`) para que
+ * quitar/recolocar no deje huérfanos en `state.npcs`.
+ */
+export function npcTutorialAAgente(fila: NpcTutorialColocado, catalogo: Map<string, NpcTutorial>): NpcBakeado | null {
+  const arquetipo = catalogo.get(fila.tipoTutorial);
+  if (!arquetipo) return null; // tipoTutorial ya no existe en el catálogo (se quitó del JSON) — no revienta, simplemente no sale
+  return {
+    slotId: `tutorial_${fila.id}`,
+    nombre: fila.nombre,
+    oficio: "npc_tutorial",
+    tipoTutorial: fila.tipoTutorial,
+    equipo: arquetipo.equipo,
+    rutina: [{ lugar: "tutorial", accion: "trabajar", horaInicio: 0, horaFin: 24, punto: { x: fila.x, y: fila.y }, camino: null }],
+  };
+}
+
+/** Todos los NPCs tutorial persistidos de un mapa, ya convertidos a NpcBakeado — filas cuyo tipoTutorial ya no existe en el catálogo se omiten en vez de reventar. */
+export async function cargarNpcsTutorialesDeMapa(bd: { listarNpcsTutorialesDeMapa(mapaId: string): Promise<NpcTutorialColocado[]> }, mapaId: string): Promise<NpcBakeado[]> {
+  const catalogo = cargarCatalogoNpcsTutoriales();
+  const filas = await bd.listarNpcsTutorialesDeMapa(mapaId);
+  const npcs: NpcBakeado[] = [];
+  for (const fila of filas) {
+    const npc = npcTutorialAAgente(fila, catalogo);
+    if (npc) npcs.push(npc);
+  }
+  return npcs;
 }

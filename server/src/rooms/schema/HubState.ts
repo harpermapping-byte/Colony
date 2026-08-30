@@ -234,6 +234,17 @@ export class Npc extends Schema {
   // resto del grupo si andan cerca (cerrarVentanaCombate) — false para
   // cualquier civil normal de poblacion/, que sigue exactamente igual.
   @type("boolean") hostil = false;
+  // NPC tutorial fijo — RONDA 3 (docs/GDD_Profesiones.md, pedido
+  // 2026-08-30): "un NPC por cada mecánica... colocado a mano por el admin
+  // o superadmin en su posición actual". "" = NPC normal de poblacion/.
+  // `tipoTutorial` es el id de `poblacion/catalogo/npcsTutoriales.json`
+  // (qué mecánica explica — el texto real de cada tutorial es contenido
+  // pendiente, ver el catálogo); `equipo` es slot->itemId (MISMO shape que
+  // `InventarioSchema.equipo` del jugador) resuelto del catálogo al
+  // colocarlo, para que salga "vestido" reusando `equipoVisual.ts` tal
+  // cual — nunca se genera ropa nueva para NPCs, se reusa el pipeline del jugador.
+  @type("string") tipoTutorial = "";
+  @type({ map: "string" }) equipo = new MapSchema<string>();
 }
 
 // Enemigo activo de una mazmorra (docs/GDD_Bakeador_Dungeons.md §4) — el bake

@@ -35,11 +35,18 @@ export function tieneOficio(oficio1: string, oficio2: string, oficio: string): b
 
 /**
  * PLACEHOLDER de balance: coste en Farycoins de reemplazar un slot YA
- * ocupado (elegir el primer/segundo oficio en un slot vacío es gratis). Lo
- * bastante caro para que cambiar de oficio sea una decisión real, no un
- * capricho de un momento — referencia: unas pocas ventas a un NPC tendero.
+ * ocupado (elegir el primer/segundo oficio en un slot vacío sigue siendo
+ * gratis). Pedido 2026-08-30 (ronda 3): "reduce el coste a 50 farycoins,
+ * primer cambio; si cambia más veces es exponencial el precio sube" — el
+ * PRIMER cambio de la cuenta cuesta `PRECIO_BASE_CAMBIO_OFICIO`, cada
+ * cambio siguiente DUPLICA el precio del anterior (50, 100, 200, 400...).
+ * `cambios` es `Jugador.cambiosOficio` (persistido, nunca baja) ANTES de
+ * cobrar este cambio — 0 en el primero.
  */
-export const PRECIO_CAMBIO_OFICIO = 250;
+export const PRECIO_BASE_CAMBIO_OFICIO = 50;
+export function precioCambioOficio(cambios: number): number {
+  return PRECIO_BASE_CAMBIO_OFICIO * 2 ** Math.max(0, cambios);
+}
 
 /**
  * Mesas por nivel de oficio (docs/GDD_Profesiones.md §0, 4 tiers ya

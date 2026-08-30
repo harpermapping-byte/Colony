@@ -84,11 +84,12 @@ import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo }
 import { EstadoCurtidor, aceptaEntradaCurtidor, huecoMaterialCurtidor, iniciarLoteCurtidor, curtidorListo, recolectarLoteCurtidor } from "../../construccion/curtido";
 import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, VITAL_MAX } from "../../personaje/vitales";
 import {
-  OFICIOS_JUGADOR_VALIDOS, tieneOficio, PRECIO_CAMBIO_OFICIO,
+  OFICIOS_JUGADOR_VALIDOS, tieneOficio, precioCambioOficio,
   bonusVelocidadCrafteoPorNivelOficio, bonusCantidadCrafteoPorNivelOficio,
   UMBRAL_SUCIEDAD_MOLESTO, RECARGO_TIENDA_SUCIEDAD, SUCIEDAD_POR_CRAFTEO, SUCIEDAD_POR_RECOLECTAR,
   RITMO_LIMPIEZA_AGUA_POR_HORA, FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO,
 } from "../../personaje/oficios";
+import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente } from "../../mundo/npcsFijos";
 import { Atributo, esAtributoValido } from "../../personaje/atributos";
 import { UMBRALES_NIVEL_ATRIBUTO } from "../../progresion/nivel";
 import {
@@ -836,6 +837,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     // PvP (docs/GDD_PvP.md, pedido 2026-08-30): jarl-only, "inicialmente deshabilitada".
     this.onMessage("pvp:fijar", (client, msg: { on?: boolean }) => this.manejarPvpFijar(client, msg));
+
+    // NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3, pedido
+    // 2026-08-30): jarl/superadmin-only, colocados en la posición actual
+    // del admin que los pide.
+    this.onMessage("admin:npcTutorial:catalogo", (client) => this.manejarNpcTutorialCatalogo(client));
+    this.onMessage("admin:npcTutorial:colocar", (client, msg: { tipoTutorial?: string }) => void this.manejarNpcTutorialColocar(client, msg));
+    this.onMessage("admin:npcTutorial:quitar", (client, msg: { id?: number }) => void this.manejarNpcTutorialQuitar(client, msg));
 
     // Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30):
     // tecla T, mutuo — ambos deben pulsarla apuntándose el uno al otro.
@@ -1598,11 +1606,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
-   * Cambia un slot de oficio YA ocupado (docs/GDD_Profesiones.md ronda 2):
-   * cuesta `PRECIO_CAMBIO_OFICIO` Farycoins y REINICIA a 0 la XP del oficio
-   * que se quita ("se inicia de cero la profesión perdiendo todo el avance
-   * de la que quites") — el nuevo oficio también arranca a 0. Mismo gating
-   * de NPC que elegir.
+   * Cambia un slot de oficio YA ocupado (docs/GDD_Profesiones.md ronda
+   * 2/3): cuesta `precioCambioOficio(jugador.cambiosOficio)` Farycoins
+   * (50 el primer cambio de la cuenta, se DUPLICA cada vez que vuelve a
+   * cambiar — "primer cambio 50, si cambia más veces es exponencial el
+   * precio sube") y REINICIA a 0 la XP del oficio que se quita ("se inicia
+   * de cero la profesión perdiendo todo el avance de la que quites") — el
+   * nuevo oficio también arranca a 0. Mismo gating de NPC que elegir.
    */
   private async manejarOficioCambiar(client: Client, msg: { slot?: number; oficio?: string }) {
     const nombre = this.nombreDe(client);
@@ -1621,13 +1631,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (player.oficio1 === oficio || player.oficio2 === oficio) return client.send("oficio:error", { motivo: "ya tienes ese oficio en el otro slot" });
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
-    const cobro = await bd.ajustarFarycoins(jugador.id, -PRECIO_CAMBIO_OFICIO);
-    if (!cobro.ok) return client.send("oficio:error", { motivo: `necesitas ${PRECIO_CAMBIO_OFICIO} farycoins para cambiar de oficio` });
+    const precio = precioCambioOficio(jugador.cambiosOficio);
+    const cobro = await bd.ajustarFarycoins(jugador.id, -precio);
+    if (!cobro.ok) return client.send("oficio:error", { motivo: `necesitas ${precio} farycoins para cambiar de oficio` });
+    const cambiosOficio = await bd.incrementarCambiosOficio(jugador.id); // el siguiente cambio costará el doble
     await bd.reiniciarXpOficio(jugador.id, actual); // pierde TODO el avance del que quita
     await bd.fijarOficioSlot(jugador.id, slot, oficio);
     await bd.reiniciarXpOficio(jugador.id, oficio); // el nuevo también arranca de cero
     if (slot === 1) player.oficio1 = oficio; else player.oficio2 = oficio;
-    client.send("oficio:cambiado", { slot, oficioAnterior: actual, oficio, saldoRestante: cobro.saldo });
+    client.send("oficio:cambiado", { slot, oficioAnterior: actual, oficio, precioPagado: precio, saldoRestante: cobro.saldo, cambiosOficio });
   }
 
   /**
@@ -2908,6 +2920,59 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     await fijarPvpGlobal(bd, !!msg?.on);
     this.broadcast("pvp:actualizado", { on: !!msg?.on });
+  }
+
+  /**
+   * Catálogo de arquetipos de NPC tutorial (docs/GDD_Profesiones.md ronda
+   * 3) — jarl/superadmin-only: alimenta el "spawner" del admin ("saldrá qué
+   * tutorial explica cada uno"), no expone nada sensible pero tampoco hace
+   * falta que lo vea cualquiera.
+   */
+  private manejarNpcTutorialCatalogo(client: Client) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin ve esto" });
+    const catalogo = [...cargarCatalogoNpcsTutoriales().values()].map((n) => ({ id: n.id, nombre: n.nombre, mecanica: n.mecanica }));
+    client.send("admin:npcTutorial:catalogo", { npcs: catalogo });
+  }
+
+  /**
+   * Coloca un NPC tutorial EN LA POSICIÓN ACTUAL del admin/superadmin que
+   * envía el mensaje ("la que esté en ese momento de spawnear o marcar el
+   * admin", pedido literal) — persiste en BD (sobrevive un reinicio del
+   * servidor) Y se inserta EN CALIENTE en la simulación (visible para todos
+   * sin esperar a que la room se recree). Vestido con el equipo del
+   * catálogo, reusando el pipeline de `equipoVisual.ts` del cliente tal
+   * cual — cero renderizado nuevo.
+   */
+  private async manejarNpcTutorialColocar(client: Client, msg: { tipoTutorial?: string }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin coloca NPCs tutoriales" });
+    const nombreAdmin = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombreAdmin || !player || !msg?.tipoTutorial) return;
+    const arquetipo = cargarCatalogoNpcsTutoriales().get(msg.tipoTutorial);
+    if (!arquetipo) return client.send("admin:error", { motivo: `tipo de NPC tutorial desconocido: ${msg.tipoTutorial}` });
+
+    const bd = await obtenerBdCompartida();
+    const fila = await bd.colocarNpcTutorial({
+      mapaId: this.mapaIdPropio, tipoTutorial: msg.tipoTutorial, nombre: arquetipo.nombre,
+      x: player.x, y: player.y, colocadoPor: nombreAdmin,
+    });
+    const npc = npcTutorialAAgente(fila, cargarCatalogoNpcsTutoriales());
+    if (!npc) return; // no debería pasar (el catálogo se acaba de leer arriba), pero por si acaso
+    this.obtenerOCrearGestorAgentes().agregarNpcFijo(npc);
+    if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
+    client.send("admin:npcTutorial:colocado", { id: fila.id, tipoTutorial: fila.tipoTutorial, nombre: fila.nombre, x: fila.x, y: fila.y });
+  }
+
+  /** Quita un NPC tutorial (BD + en caliente) — jarl/superadmin-only. */
+  private async manejarNpcTutorialQuitar(client: Client, msg: { id?: number }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin quita NPCs tutoriales" });
+    if (typeof msg?.id !== "number") return;
+    const bd = await obtenerBdCompartida();
+    const existia = await bd.quitarNpcTutorial(msg.id);
+    if (!existia) return client.send("admin:error", { motivo: "ese NPC tutorial ya no existe" });
+    this.obtenerOCrearGestorAgentes().quitarAgente(`tutorial_${msg.id}`);
+    this.oficiosNpc.delete(`tutorial_${msg.id}`);
+    client.send("admin:npcTutorial:quitado", { id: msg.id });
   }
 
   /** Jugador vivo más cercano dentro de RADIO_INTERACCION, excluyendo al propio emisor — mismo criterio de auto-apuntado sin UI que "coger"/"combate:iniciar". */

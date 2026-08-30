@@ -6,8 +6,9 @@ import * as assert from "node:assert";
 import {
   OFICIOS_JUGADOR_VALIDOS, tieneOficio, NIVEL_MAX_OFICIO,
   bonusVelocidadCrafteoPorNivelOficio, bonusCantidadCrafteoPorNivelOficio,
-  FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO,
+  FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO, precioCambioOficio, PRECIO_BASE_CAMBIO_OFICIO,
 } from "../src/personaje/oficios";
+import { cargarCatalogoNpcsTutoriales } from "../src/mundo/npcsFijos";
 
 test("OFICIOS_JUGADOR_VALIDOS: exactamente los 10 oficios finales", () => {
   assert.strictEqual(OFICIOS_JUGADOR_VALIDOS.size, 10);
@@ -54,4 +55,32 @@ test("frases de suciedad: al menos 10-15 de vendedor y 20 de NPC genérico, sin 
   assert.strictEqual(new Set(FRASES_VENDEDOR_SUCIO).size, FRASES_VENDEDOR_SUCIO.length, "frase de vendedor duplicada");
   assert.strictEqual(new Set(FRASES_NPC_SUCIO).size, FRASES_NPC_SUCIO.length, "frase de NPC duplicada");
   for (const f of [...FRASES_VENDEDOR_SUCIO, ...FRASES_NPC_SUCIO]) assert.ok(f.trim().length > 0);
+});
+
+test("precioCambioOficio: 50 el primer cambio, se duplica cada vez (ronda 3, pedido 2026-08-30)", () => {
+  assert.strictEqual(PRECIO_BASE_CAMBIO_OFICIO, 50);
+  assert.strictEqual(precioCambioOficio(0), 50);
+  assert.strictEqual(precioCambioOficio(1), 100);
+  assert.strictEqual(precioCambioOficio(2), 200);
+  assert.strictEqual(precioCambioOficio(3), 400);
+  assert.strictEqual(precioCambioOficio(10), 50 * 2 ** 10);
+});
+
+test("precioCambioOficio: nunca negativo aunque llegue un cambios negativo por error", () => {
+  assert.strictEqual(precioCambioOficio(-5), 50);
+});
+
+test("catálogo de NPCs tutoriales: al menos 10 arquetipos, ids únicos, cada uno con mecánica y vestimenta real", () => {
+  const catalogo = cargarCatalogoNpcsTutoriales();
+  assert.ok(catalogo.size >= 10, `solo ${catalogo.size} arquetipos de NPC tutorial`);
+  const items = require("../../items/catalogo/items.json");
+  for (const [id, npc] of catalogo) {
+    assert.strictEqual(npc.id, id, `catálogo mal indexado en ${id}`);
+    assert.ok(npc.nombre.trim().length > 0, `${id} sin nombre`);
+    assert.ok(npc.mecanica.trim().length > 0, `${id} sin mecánica que explique`);
+    assert.ok(Object.keys(npc.equipo).length > 0, `${id} sale desnudo — sin equipo`);
+    for (const itemId of Object.values(npc.equipo)) {
+      assert.ok(items[itemId], `${id} viste "${itemId}", que no existe en items/catalogo/items.json`);
+    }
+  }
 });
