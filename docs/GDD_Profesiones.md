@@ -1,6 +1,82 @@
 # GDD — Profesiones: edificios, mesas y mobiliario por oficio
 
-**ESTADO: APLICADA AL CATÁLOGO (2026-08-29), verificada.** Este documento fija, para los 38 oficios pactados en `docs/Backlog_Mecanicas_Futuras.md` ("Roles/profesiones y crafteo por planos"): edificio, 2-4 mesas especiales y únicas (básica→avanzada, marcando cuáles deben conectar a la red motriz — `docs/GDD_Motriz.md`), mobiliario funcional y decorativo, y el tipo de NPC. **No se craftea nada todavía** — las recetas/planos concretos ("ya les daremos un uso") son un diseño posterior, oficio a oficio.
+## §0. DISEÑO DEFINITIVO DE OFICIOS DE JUGADOR (2026-08-30) — supera lo de abajo
+
+Sesión del 2026-08-30: el streamer cerró los **10 oficios de jugador finales** (fusionando los 38 de más abajo), un sistema de **4 niveles de mesa por oficio** con **módulos de mejora por adyacencia**, **herramientas por tier** (recolección + mesa) y un **catálogo de objetos decorativos exclusivos** craftables. Lo de abajo (§1 en adelante) es el diseño PREVIO (38 oficios, sin fusionar) — se deja como referencia histórica de qué mesas/mobiliario ya existían, pero la lista de oficios/niveles vigente es ESTA sección.
+
+### Los 10 oficios (fusión de los 38 originales)
+
+| Oficio final | Absorbe (nombre antiguo) |
+|---|---|
+| **herrero** | herrero + herrero_armaduras + herrero_armas("armero") + fletcher |
+| **carpintero** | carpintero + leñador |
+| **ingeniero** | carpintero_ribera (ahora también construye ciertos edificios, no solo barcos) |
+| **picapedrero** | picapedrero + minero |
+| **molinero** | molinero + panadero + agricultor + apicultor + ganadero |
+| **cazador** | cazador + trampero |
+| **cocinero** | cocinero + tabernero + destilador |
+| **curandero** | curandero + herbolista + rol de escriba (mapas/documentos/registros) |
+| **curtidor** | curtidor + peletero + carnicero + sastre + guarnicionero |
+| **joyero** | joyero + vidriero + alfarero |
+
+Eliminados del todo: `explorador` (no existe), `pescador` (libre para cualquiera con caña, sin oficio). `OFICIOS_JUGADOR_VALIDOS` (`server/src/rooms/base/RoomExteriorBase.ts`) y `items/catalogo/recetas.json` usan EXCLUSIVAMENTE estos 10 ids.
+
+### Niveles de mesa (1-4) por oficio
+
+Cada oficio tiene sus mesas repartidas en 4 niveles de complejidad (nombres/descripciones tal cual los dio el streamer), anotados con `nivelOficioMinimo:{oficio,nivel}` en `interiores/catalogo/elementos.json` (mecanismo ya existente de `docs/GDD_Crafteo.md §7bis`). Building donde se bakean (temaTaller, reusando edificios ya existentes salvo `cazador`, que es NUEVO — ver más abajo):
+
+| Oficio | Edificio (temaTaller) | N1 | N2 | N3 | N4 |
+|---|---|---|---|---|---|
+| herrero | herreria | forja_campo, yunque_tocon | forja_piedra, yunque_cuerno⚡ | taller_armero, banco_ajuste | gran_forja⚡, martinete⚡ |
+| carpintero | carpinteria | banco_tronzado | banco_carpintero | torno_madera⚡, mesa_talla_fina | estacion_curvado_vapor, mesa_ensamblaje |
+| ingeniero | carpintero_ribera | mesa_delineante | banco_mecanizado⚡ | estacion_maquetas_navales | banco_ingenieria_pesada⚡ |
+| picapedrero | picapedrero | banco_clasificacion_cincelado | mesa_mampuesto | estacion_canteria_muelas⚡ | gran_taller_mamposteria⚡ |
+| molinero | molino | mesa_tajado_limpieza | molino_mano⚡, artesa_amasado | estacion_germinacion_mantequeria | gran_molino_agropecuario⚡ |
+| cazador | **cazador** (NUEVO: `cabana_cazador`) | estacion_despiece_caza | banco_trampero | banco_arqueria_caza | estacion_cazador_supremo⚡ |
+| cocinero | cocinero (+ destileria para alambique) | fogon_campamento | horno_barro_taberna | cocina_mamposteria, alambique⚡ | gran_cocina_destileria⚡ |
+| curandero | herbolista | secadero_hierbas, mortero_grande_boticario | escritorio_escriba, mesa_diagnostico | estacion_boticario, mesa_destilado_esencias | scriptorium_alquimico, mesa_cirugia |
+| curtidor | curtiduria / carnicero / sastre / peletero (según la mesa concreta) | mesa_raspado, mesa_despiece | tina_curtido, telar | mesa_corte_piel, mesa_corte | mesa_costura_pieles, mesa_bordado |
+| joyero | joyeria / vidriero / alfareria (según la mesa concreta) | torno_alfarero⚡, banco_joyero | horno_vidrio⚡, horno_ceramica | mesa_engarce, mesa_tallado_cristal | mesa_fundicion_precioso⚡, mesa_esmaltado |
+
+**Edificio nuevo `cabana_cazador`** (único oficio sin edificio previo): `interiores/catalogo/tipos_edificio.json`, `temaTaller:"cazador"`, registrado con peso en las pools `aldea_pequena`/`aldea` de `ciudades/catalogo/asentamientos.json` (mismo patrón que `cabana_apicultor`). Verificado con bake real: aparece en semillas 4 y 8 de un lote de 8 `aldea`, con `estacion_despiece_caza` colocada en su sala `taller`.
+
+**Piezas donde el oficio fusionado abarca varios edificios legacy** (curtidor, joyero): cada mesa se queda en el edificio donde YA vivía antes de la fusión (p.ej. `telar`/`mesa_corte`/`mesa_bordado` siguen en el edificio de sastre, `mesa_corte_piel`/`mesa_costura_pieles` en el de peletero) — un jugador de ese oficio final trabaja en más de un edificio físico según qué mesa use. Simplificación aceptada explícitamente para no inventar una reconsolidación de edificios que nadie pidió.
+
+### Módulos de mejora por adyacencia (mecanismo NUEVO)
+
+Pedido literal: mesas de nivel 2 a 4 llevan dos complementos estándar — **Mejora A (velocidad)** y **Mejora B (cantidad/rendimiento)** — que, colocados ORTOGONALMENTE ADYACENTES a la mesa, aplican un bonus a cualquier crafteo hecho en ella:
+
+```
+tiempoFinal    = tiempoBase * (1 - bonusVelocidad)
+cantidadFinal  = floor(cantidadBase * (1 + bonusCantidad))
+```
+
+- **Porcentajes** (no dados por el streamer, elegidos por defecto): nivel 2 → 12%, nivel 3 → 18%, nivel 4 → 25%. Mismo valor para velocidad y cantidad de un mismo nivel; cada módulo cuenta por separado (una mesa puede tener solo uno de los dos, o los dos).
+- **Catálogo**: nuevo campo `EntradaConstruible.mejoraMesa?: { mesa: string; tipo: "velocidad"|"cantidad"; bonus: number }` (`server/src/construccion/catalogo.ts`). 60 piezas nuevas en `elementos.json` (2 por mesa de nivel 2-4 × 10 oficios), con los nombres exactos que dio el streamer (p.ej. `fuelle_mecanico_pedal`, `cuba_temple_recogedor`, `sierra_bastidor_tensor`...).
+- **Resolución**: `bonusModulosAdyacentes(ctx, catalogo, viva)` (`server/src/construccion/construccion.ts`) — reutiliza el patrón de escaneo ya existente de `hayConstruibleAdyacente` (cocina v2), pero mirando `mejoraMesa` en vez de gatear la colocación. Como mucho un bonus de cada tipo cuenta (dos "velocidad" adyacentes no se suman, gana el mayor).
+- **Aplicación**: `RoomExteriorBase.ts::manejarCrafteoIniciar` calcula el bonus AL INICIAR (se congela en `EstadoCrafteo.bonusCantidad`, igual que `terminaEn` — quitar/poner un módulo a media cocción no cambia el crafteo en curso) y recorta `duracionMs` directo; `manejarCrafteoRecolectar` aplica el bonus de cantidad congelado a `receta.resultado.cantidad`.
+- **Corrección real durante la implementación**: los primeros módulos de curtidor/joyero/cocinero se etiquetaron con el edificio "principal" del oficio fusionado en vez del edificio REAL de la mesa a la que dan bonus (p.ej. `lanzadera_automatica_telar` boostea `telar`, que vive en el edificio de sastre, no en curtiduría) — un módulo que nunca puede bakearse en el MISMO edificio que su mesa objetivo jamás llegaría a estar adyacente a ella. Corregido pieza a pieza contra el `temasProfesion` real de cada mesa objetivo.
+- **Tests**: `server/test/mejoraMesaAdyacente.test.ts` (6 tests, función pura con `ContextoConstruccion` sintético — sin/con módulo, velocidad+cantidad simultáneos, módulo de otra mesa no cuenta, diagonal no cuenta, dos módulos del mismo tipo no se suman).
+
+### Herramientas por tier (recolección + mesa)
+
+62 herramientas nuevas en `items/catalogo/items.json` (+ 3 existentes anotadas: `hacha_talar`, `pico_minero`, `cuchillo_desollar`), con `familiaMaterial:"herramienta_<oficio>"` y `tier:1-4` — mismo campo/convención YA existente (`EntradaCatalogoItem.tier`, "informativo, cero código lo consume todavía", igual que otros campos aditivos del catálogo).
+
+**⚠️ Pendiente real, NO implementado todavía**: el GATING por tier (necesitar la herramienta del tier correcto para recolectar madera/mineral/hierbas/caza, o para ciertas mesas) no está cableado. Hoy recolectar (`coger`) sigue siendo libre para cualquiera, sin herramienta, salvo lo que YA gateaba antes de esta sesión (`cuchillo_desollar` para desollar/piel, vía oficio curtidor). Cablearlo de verdad exige antes categorizar por tier CADA recurso recolectable existente (`baker/catalogo/vegetacion.json`/`rocas.json`/`animales.json`) — un trabajo de clasificación de contenido aparte, no solo código. `tier`/`familiaMaterial` quedan declarados y listos para ese momento.
+
+### Objetos decorativos exclusivos (craftables)
+
+50 piezas (5 por oficio, repartidas en los 4 niveles) — mobiliario puramente decorativo (`aportes.decoracion`) que NO se puede colocar gratis desde el menú de construir normal: se craftea primero (receta `<id>_craft` en `recetas.json`, oficio+mesa+nivel correctos) como un ITEM en `items/catalogo/items.json`, y el mueble en `elementos.json` lleva `requiereItemColocar:"<id>"` — mismo patrón exacto que `olla_metal`→`olla_grande` (docs/GDD_Cocina.md). Así "exclusivo" es real: hace falta el oficio, el nivel de mesa y los materiales, no solo construir.
+
+### Verificado (2026-08-30)
+
+`tsc` limpio, servidor 791/791 (antes 785 + 6 tests nuevos de módulos), interiores 41/41 (74 tipologías de edificio, antes 73 — `cabana_cazador`), ciudades 13/13. Bake real de 8 semillas de `aldea` confirmando `cabana_cazador` + su mesa de nivel 1 colocada en al menos una instancia.
+
+---
+
+## §1 en adelante — diseño PREVIO (2026-08-29), 38 oficios sin fusionar
+
+**Histórico, no vigente para la lista de oficios de jugador** (esa es la §0 de arriba) — se conserva porque documenta qué mesas/mobiliario concretos ya existían antes de la fusión, y sigue siendo la referencia de qué building/temaTaller usa cada mesa legacy.
 
 **Aplicado**: 50 mesas/mobiliario nuevos + 3 retrofits (`interiores/catalogo/elementos.json`), 8 edificios nuevos + `temaTaller:"molino"` en `molino_agua`/`molino_viento` (`interiores/catalogo/tipos_edificio.json`), 8 NPCs de oficio nuevos (`personajes/catalogo/npcs.json`), 8 entradas oficio→edificio (`poblacion/catalogo/oficiosEdificios.json`), y los 8 edificios nuevos + `lonja_pescado` (huérfana desde siempre, nunca se bakeaba) registrados con peso en las 5 pools de asentamiento correspondientes (`ciudades/catalogo/asentamientos.json`). Verificado: 34/34 tests de interiores (con las 54 tipologías de edificio generando sin error), 214/214 tests de servidor, 13/13 tests de ciudades, `tsc` limpio, y bakes de prueba reales (aldea_pequena/pueblo/capital) confirmando que los 9 edificios aparecen y sus mesas se colocan.
 

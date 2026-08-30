@@ -280,6 +280,50 @@ function hayConstruibleAdyacente(
   return false;
 }
 
+/**
+ * Módulos de mejora adyacentes a una mesa (docs/GDD_Profesiones.md, pedido
+ * 2026-08-30) — recorre las casillas ORTOGONALMENTE adyacentes a `viva`
+ * (la mesa) buscando construcciones cuyo `mejoraMesa.mesa` coincida con
+ * `viva.objeto`; devuelve el mayor bonus encontrado de cada tipo (como
+ * mucho cuenta un módulo de "velocidad" y uno de "cantidad", no se suman
+ * dos iguales). Llamado al INICIAR el crafteo — el bonus se congela en
+ * `EstadoCrafteo`, igual que `terminaEn`, para que quitar/poner un módulo
+ * a mitad de crafteo no afecte a lo que ya está en curso.
+ */
+export function bonusModulosAdyacentes(
+  ctx: ContextoConstruccion,
+  catalogo: Map<string, EntradaConstruible>,
+  viva: ConstruccionViva,
+): { velocidad: number; cantidad: number } {
+  const dentro = new Set(viva.claves);
+  let velocidad = 0;
+  let cantidad = 0;
+  for (const clave of viva.claves) {
+    const x = clave % ctx.mapa.ancho;
+    const y = Math.floor(clave / ctx.mapa.ancho);
+    const vecinos = [
+      { x, y: y - 1 },
+      { x, y: y + 1 },
+      { x: x - 1, y },
+      { x: x + 1, y },
+    ];
+    for (const v of vecinos) {
+      if (v.x < 0 || v.y < 0 || v.x >= ctx.mapa.ancho || v.y >= ctx.mapa.alto) continue;
+      const claveVecina = v.y * ctx.mapa.ancho + v.x;
+      if (dentro.has(claveVecina)) continue;
+      const idVecino = ctx.ocupacion.get(claveVecina);
+      if (idVecino == null) continue;
+      const vecinoViva = ctx.vivas.get(idVecino);
+      if (!vecinoViva) continue;
+      const mejora = catalogo.get(vecinoViva.objeto)?.mejoraMesa;
+      if (!mejora || mejora.mesa !== viva.objeto) continue;
+      if (mejora.tipo === "velocidad") velocidad = Math.max(velocidad, mejora.bonus);
+      else cantidad = Math.max(cantidad, mejora.bonus);
+    }
+  }
+  return { velocidad, cantidad };
+}
+
 /** ¿Alguna casilla ORTOGONALMENTE adyacente (fuera de la propia huella) es agua? */
 function hayAguaAdyacente(
   ctx: ContextoConstruccion,

@@ -65,6 +65,7 @@ import {
   esJarl,
   esJarlGlobal,
   esJarlConSesionAdmin,
+  bonusModulosAdyacentes,
 } from "../../construccion/construccion";
 import { generarInteriorEdificio } from "../../construccion/interiorGenerado";
 import { resolverProduccion, resolverTransporte, EstadoProduccion, DatosProduccion } from "../../construccion/produccion";
@@ -129,12 +130,13 @@ const ALTO_CUERPO = 6;
 const ANCHO_INVENTARIO_GREMIO = 10;
 const ALTO_INVENTARIO_GREMIO = 10;
 
-// Oficio de jugador (docs/GDD_Caza.md, sistema mínimo v1, pedido 2026-08-30):
-// mismos ids que ya usa `receta.oficio` en items/catalogo/recetas.json, más
-// "peletero" (nuevo, sin recetas de crafteo todavía, solo gatea desollar).
+// Oficio de jugador (docs/GDD_Profesiones.md, diseño definitivo 2026-08-30):
+// LOS 10 oficios finales tras la ronda de fusiones acordada con el streamer
+// — mismos ids que usa `receta.oficio` en items/catalogo/recetas.json y
+// `nivelOficioMinimo`/`mejoraMesa` en interiores/catalogo/elementos.json.
 // Lista cerrada a propósito — un id que no está aquí no es un typo tolerado.
 const OFICIOS_JUGADOR_VALIDOS = new Set([
-  "herrero", "carpintero", "picapedrero", "curtidor", "sastre", "joyero", "peletero", "ganadero",
+  "herrero", "carpintero", "ingeniero", "picapedrero", "molinero", "cazador", "cocinero", "curandero", "curtidor", "joyero",
 ]);
 
 // --- Ganadería (docs/GDD_Ganaderia.md, pedido 2026-08-30) ---
@@ -1558,7 +1560,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
-   * Desollar (docs/GDD_Caza.md): exige oficio curtidor/peletero (Player.oficio)
+   * Desollar (docs/GDD_Caza.md): exige oficio curtidor (Player.oficio)
    * Y un cuchillo_desollar en el inventario. Da la piel de la especie (si
    * tiene) + tirada de trofeo (5%, lootCaza.ts) y el cadáver DESAPARECE
    * ENTERO — verbos ESTRICTAMENTE independientes de `cadaver:lootear`
@@ -1568,8 +1570,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private async manejarCadaverDesollar(client: Client, msg: { cadaverId?: string }) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    if (player.oficio !== "curtidor" && player.oficio !== "peletero") {
-      return client.send("cadaver:error", { motivo: "necesitas el oficio de curtidor o peletero" });
+    if (player.oficio !== "curtidor") {
+      return client.send("cadaver:error", { motivo: "necesitas el oficio de curtidor" });
     }
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
@@ -1612,13 +1614,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * Raspar una piel_salada con el cuchillo de desollar (docs/GDD_Caza.md,
    * paso 2/3 del encurtido, entre cubo_sal y barril_curtido) — acción
    * INSTANTÁNEA sobre el propio inventario, sin construcción de por medio.
-   * Mismo gating que desollar: oficio curtidor/peletero + cuchillo_desollar.
+   * Mismo gating que desollar: oficio curtidor + cuchillo_desollar.
    */
   private manejarPielRaspar(client: Client, msg: { instanciaId?: number; cantidad?: number }) {
     const player = this.state.players.get(client.sessionId);
     if (!player || typeof msg?.instanciaId !== "number") return;
-    if (player.oficio !== "curtidor" && player.oficio !== "peletero") {
-      return client.send("piel:error", { motivo: "necesitas el oficio de curtidor o peletero" });
+    if (player.oficio !== "curtidor") {
+      return client.send("piel:error", { motivo: "necesitas el oficio de curtidor" });
     }
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
@@ -5145,9 +5147,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const factorEnergia = factorVelocidadPorEnergia(ctx, this.catalogoConstruible, { objeto: viva.objeto, claves: viva.claves });
     // Inteligencia (docs/GDD_Personaje.md §3.3): "craftea más rápido" — multiplica el factor de energía, nunca lo sustituye.
     const factor = factorEnergia * factorVelocidadCrafteo(player?.atributos.inteligencia ?? 1);
-    const duracionMs = (receta.tiempoBaseSeg / Math.max(0.01, factor)) * 1000;
+    // Módulos de mejora adyacentes (docs/GDD_Profesiones.md, pedido 2026-08-30):
+    // el de "velocidad" recorta duracionMs directo (misma fórmula que dio el
+    // streamer); el de "cantidad" se congela en craftesEnCurso y se aplica al
+    // recoger, para que quitar/poner el módulo a mitad de crafteo no cambie nada.
+    const bonusModulos = bonusModulosAdyacentes(ctx, this.catalogoConstruible, viva);
+    const duracionMs = (receta.tiempoBaseSeg / Math.max(0.01, factor)) * 1000 * (1 - bonusModulos.velocidad);
     const terminaEn = Date.now() + duracionMs;
-    this.craftesEnCurso.set(client.sessionId, { recetaId: receta.id, terminaEn });
+    this.craftesEnCurso.set(client.sessionId, { recetaId: receta.id, terminaEn, bonusCantidad: bonusModulos.cantidad });
     client.send("crafteo:iniciado", { recetaId: receta.id, terminaEn });
   }
 
@@ -5168,7 +5175,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor) return;
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const entrega = this.entregarOSoltar(client, player, receta.resultado.itemId, receta.resultado.cantidad);
+    // Módulo de "cantidad" congelado al iniciar (ver manejarCrafteoIniciar).
+    const cantidadFinal = Math.floor(receta.resultado.cantidad * (1 + (estado.bonusCantidad ?? 0)));
+    const entrega = this.entregarOSoltar(client, player, receta.resultado.itemId, cantidadFinal);
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
@@ -5179,7 +5188,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Inteligencia (docs/GDD_Personaje.md): completar un crafteo entrena tanto el oficio como el atributo general.
     await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
     client.send("crafteo:completado", {
-      recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad,
+      recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: cantidadFinal,
       oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
     });
   }
@@ -5272,15 +5281,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("curtidor:estado", { construccionId: viva.id, stock: nuevoEstado.stock, capacidadMax: datos.capacidadMaxMaterial, lote: nuevoEstado.lote ?? null });
   }
 
-  /** Mete una piel a procesar — el paso ARTESANO: exige oficio curtidor/peletero, sin lote ya en curso y stock a granel suficiente. */
+  /** Mete una piel a procesar — el paso ARTESANO: exige oficio curtidor, sin lote ya en curso y stock a granel suficiente. */
   private async manejarCurtidorMeterPiel(client: Client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) {
     const nombre = this.nombreDe(client);
     const ctx = this.ctxConstruccion;
     if (!nombre || !ctx || typeof msg?.construccionId !== "number" || typeof msg.instanciaId !== "number") return;
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    if (player.oficio !== "curtidor" && player.oficio !== "peletero") {
-      return this.errorCurtidor(client, "necesitas el oficio de curtidor o peletero");
+    if (player.oficio !== "curtidor") {
+      return this.errorCurtidor(client, "necesitas el oficio de curtidor");
     }
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return this.errorCurtidor(client, "construcción inexistente");
@@ -5638,7 +5647,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!cfg) return this.errorAnimal(client, "producto desconocido");
     const stats = this.estadisticasFaunaDe(fila.especieId);
     if (!stats?.categoriaProductoGranja?.includes(producto)) return this.errorAnimal(client, "este animal no da ese producto");
-    if (cfg.exigeOficio && player.oficio !== "ganadero") return this.errorAnimal(client, "necesitas el oficio de ganadero");
+    if (cfg.exigeOficio && player.oficio !== "molinero") return this.errorAnimal(client, "necesitas el oficio de molinero");
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;

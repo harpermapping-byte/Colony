@@ -77,6 +77,10 @@
         [
           "cabana_apicultor",
           2
+        ],
+        [
+          "cabana_cazador",
+          2
         ]
       ]
     },
@@ -152,6 +156,10 @@
         ],
         [
           "cabana_apicultor",
+          1
+        ],
+        [
+          "cabana_cazador",
           1
         ],
         [

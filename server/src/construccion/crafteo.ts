@@ -85,6 +85,8 @@ export interface EstadoCrafteo {
   recetaId: string;
   /** epoch ms en que termina — calculado UNA VEZ al iniciar (tiempoBaseSeg / factorVelocidadPorEnergia), nunca recalculado mientras está en curso. */
   terminaEn: number;
+  /** Módulo de "cantidad" adyacente a la mesa en el momento de iniciar (docs/GDD_Profesiones.md) — congelado igual que terminaEn, se aplica a receta.resultado.cantidad al recolectar. Ausente/0 = sin módulo. */
+  bonusCantidad?: number;
 }
 
 /** `true` cuando el crafteo en curso ya puede recogerse — comparación pura, sin tick. */

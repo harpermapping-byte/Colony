@@ -130,6 +130,17 @@ export interface EntradaConstruible {
    * (comportamiento de siempre, la inmensa mayoría de construibles).
    */
   nivelOficioMinimo?: { oficio: string; nivel: number };
+  /**
+   * Módulo de mejora por adyacencia (docs/GDD_Profesiones.md, pedido
+   * 2026-08-30) — presente en los complementos de nivel 2 a 4 (uno de
+   * "velocidad" y uno de "cantidad" por mesa): colocado ORTOGONALMENTE
+   * ADYACENTE a la construcción `mesa`, su `bonus` se aplica a cualquier
+   * crafteo hecho en ella (`construccion.ts::bonusModulosAdyacentes`,
+   * llamado desde RoomExteriorBase.ts). Nunca afecta XP, solo tiempo
+   * (velocidad) o `resultado.cantidad` (cantidad). Como mucho un módulo de
+   * cada tipo cuenta por mesa — dos "velocidad" adyacentes no se suman.
+   */
+  mejoraMesa?: { mesa: string; tipo: "velocidad" | "cantidad"; bonus: number };
 }
 
 export interface EntradaActividadAtributo {
@@ -182,6 +193,7 @@ interface EntradaElemento {
   actividadAtributo?: EntradaActividadAtributo;
   esCama?: boolean;
   nivelOficioMinimo?: { oficio: string; nivel: number };
+  mejoraMesa?: { mesa: string; tipo: "velocidad" | "cantidad"; bonus: number };
 }
 
 interface EntradaExterior {

@@ -122,6 +122,8 @@ Cierra varias de las preguntas abiertas de §7 (versión anterior de este docume
 
 **Sigue como contenido pendiente, no mecanismo** (pedido literal: *"las asignas tú y si no deja apuntado asignarlas a futuro"*): qué mesas concretas llevan `nivelOficioMinimo`, qué recetas llevan `planoRequerido`/`xpOtorgada` y con qué valores — es trabajo de catálogo oficio a oficio, igual que el resto de §7. El mecanismo de los tres campos está completo y probado (tsc + suite 785/785); les falta contenido real, no código.
 
+**`nivelOficioMinimo` ya relleno para los 10 oficios de jugador finales** (docs/GDD_Profesiones.md §0, 2026-08-30): las mesas de nivel 1-4 de cada oficio ya llevan el campo. Esa misma pasada añadió, además, un mecanismo NUEVO y distinto — `EntradaConstruible.mejoraMesa` (módulos de velocidad/cantidad colocados ADYACENTES a una mesa, no un requisito de nivel para construirla) — ver GDD_Profesiones.md §0 para el detalle completo. `planoRequerido`/`xpOtorgada` siguen sin contenido real todavía.
+
 ## 7. Fuera de alcance de esta propuesta (pendiente, oficio a oficio)
 
 - Las recetas/planos concretos de cada oficio — esto solo fija el CONTRATO, no rellena los ~38 oficios.
