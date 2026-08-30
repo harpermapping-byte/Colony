@@ -20,9 +20,20 @@ export interface IngredienteEnVasija {
   cantidad: number;
 }
 
-/** Estado persistido en `viva.extra.cocina` de una vasija (cuenco/cazuela/olla) — vacía = `{ ingredientes: [] }`. */
+/**
+ * Estado persistido en `viva.extra.cocina` de una vasija (cuenco/cazuela/
+ * olla) — vacía = `{ ingredientes: [] }`. Pedido explícito del streamer
+ * (2026-08-30): "para hacer guisos y sopas necesitas llenar la olla de
+ * agua y ponerla al fuego hasta que se caliente (un tiempo determinado)"
+ * — `conAgua`/`calentandoDesde` trackean ese paso; `cocina:anadir` lo
+ * exige ANTES de dejar meter ingredientes (ver `estaHirviendo`).
+ */
 export interface EstadoCocina {
   ingredientes: IngredienteEnVasija[];
+  /** true desde que se llena de agua — se vacía de golpe (junto con los ingredientes) al preparar un plato. */
+  conAgua?: boolean;
+  /** epoch ms de cuándo se puso al fuego (mismo instante que `conAgua` pasa a true) — el hervor se DERIVA de esto, nunca se guarda un booleano aparte. */
+  calentandoDesde?: number;
 }
 
 export interface IngredienteCocina {
@@ -38,6 +49,19 @@ export const UNIDADES_POR_PLATO = 2;
 export const BONUS_MEZCLA = 1.2;
 /** Boost de "cocinar tal cual" sobre el aporte crudo del ingrediente (sencillo, al fuego, sin vasija). */
 export const BOOST_COCINA_SIMPLE = 1.5;
+/** Tiempo REAL (no día de mundo, esto es un fogón encendido AHORA) que tarda el agua de una vasija en hervir desde que se llena — "un tiempo determinado", pedido explícito. */
+export const TIEMPO_HERVIR_MS = 20_000;
+
+/** ¿Ya hierve el agua de la vasija? false si nunca se llenó. */
+export function estaHirviendo(estado: EstadoCocina, ahoraMs: number): boolean {
+  return !!estado.conAgua && estado.calentandoDesde != null && ahoraMs - estado.calentandoDesde >= TIEMPO_HERVIR_MS;
+}
+
+/** Segundos que faltan para que hierva — 0 si ya hierve o si no tiene agua puesta todavía. */
+export function segundosParaHervir(estado: EstadoCocina, ahoraMs: number): number {
+  if (!estado.conAgua || estado.calentandoDesde == null) return 0;
+  return Math.max(0, Math.ceil((TIEMPO_HERVIR_MS - (ahoraMs - estado.calentandoDesde)) / 1000));
+}
 
 export interface ResultadoCoccion extends AportesCocina {
   platos: number;

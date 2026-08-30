@@ -1,7 +1,7 @@
 // Tests de cocina/cocina.ts (docs/GDD_Cocina.md, pedido 2026-08-30).
 import { test } from "node:test";
 import * as assert from "node:assert";
-import { cocinarSimple, cocinarPlato, clavePlato, nombrePlato, UNIDADES_POR_PLATO, BONUS_MEZCLA, BOOST_COCINA_SIMPLE, type IngredienteCocina } from "../src/cocina/cocina";
+import { cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, UNIDADES_POR_PLATO, BONUS_MEZCLA, BOOST_COCINA_SIMPLE, TIEMPO_HERVIR_MS, type IngredienteCocina } from "../src/cocina/cocina";
 
 test("cocinarSimple: sube comida por el boost, redondeando hacia arriba", () => {
   const r = cocinarSimple({ comida: 6 });
@@ -88,4 +88,26 @@ test("nombrePlato: dos ingredientes se unen con 'y'", () => {
 
 test("nombrePlato: tres o más ingredientes se listan con comas y 'y' antes del último", () => {
   assert.strictEqual(nombrePlato("olla", ["zanahoria", "carne_roja", "tomate"]), "Estofado de Zanahoria, Carne Roja y Tomate");
+});
+
+// --- Llenar de agua y esperar a que hierva (pedido 2026-08-30) ---
+
+test("estaHirviendo: false si nunca se llenó de agua", () => {
+  assert.strictEqual(estaHirviendo({ ingredientes: [] }, Date.now()), false);
+});
+
+test("estaHirviendo: false justo al llenar, true cuando pasa TIEMPO_HERVIR_MS", () => {
+  const estado = { ingredientes: [], conAgua: true, calentandoDesde: 1000 };
+  assert.strictEqual(estaHirviendo(estado, 1000), false);
+  assert.strictEqual(estaHirviendo(estado, 1000 + TIEMPO_HERVIR_MS - 1), false);
+  assert.strictEqual(estaHirviendo(estado, 1000 + TIEMPO_HERVIR_MS), true);
+  assert.strictEqual(estaHirviendo(estado, 1000 + TIEMPO_HERVIR_MS + 5000), true);
+});
+
+test("segundosParaHervir: TIEMPO_HERVIR_MS/1000 justo al llenar, 0 sin agua o ya hirviendo", () => {
+  assert.strictEqual(segundosParaHervir({ ingredientes: [] }, Date.now()), 0);
+  const estado = { ingredientes: [], conAgua: true, calentandoDesde: 0 };
+  assert.strictEqual(segundosParaHervir(estado, 0), TIEMPO_HERVIR_MS / 1000);
+  assert.strictEqual(segundosParaHervir(estado, TIEMPO_HERVIR_MS), 0);
+  assert.strictEqual(segundosParaHervir(estado, TIEMPO_HERVIR_MS + 9999), 0);
 });

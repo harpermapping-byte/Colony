@@ -63,7 +63,7 @@ import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
-import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, IngredienteCocina } from "../../cocina/cocina";
+import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, IngredienteCocina } from "../../cocina/cocina";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -436,6 +436,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30): hoguera (sencillo) o
     // vasija (cuenco/cazuela/olla, combina varios ingredientes en un plato).
     this.onMessage("cocina:simple", (client, msg: { construccionId?: number; instanciaId?: number }) => this.manejarCocinaSimple(client, msg));
+    this.onMessage("cocina:llenarAgua", (client, msg: { construccionId?: number }) => this.manejarCocinaLlenarAgua(client, msg));
     this.onMessage("cocina:anadir", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarCocinaAnadir(client, msg));
     this.onMessage("cocina:preparar", (client, msg: { construccionId?: number }) => this.manejarCocinaPreparar(client, msg));
     this.onMessage("cocina:consultar", (client, msg: { construccionId?: number }) => this.manejarCocinaConsultar(client, msg));
@@ -2646,7 +2647,30 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("cocina:cocinado", { itemId: cocinadoId });
   }
 
-  /** Añade un ingrediente a la vasija (cuenco/cazuela/olla) — capado por `cocina.capacidad` TIPOS distintos, la cantidad de cada uno no tiene tope propio. */
+  /**
+   * Llena la vasija de agua y la pone al fuego — pedido explícito
+   * (2026-08-30): "para hacer guisos y sopas necesitas llenar la olla de
+   * agua y ponerla al fuego hasta que se caliente, un tiempo determinado".
+   * Agua "libre" (no consume ningún ítem, como en la pesca) — arranca el
+   * cronómetro de hervor; `cocina:anadir` la exige ya hirviendo.
+   */
+  private async manejarCocinaLlenarAgua(client: Client, msg: { construccionId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a una vasija");
+    const estado = this.extraCocinaDe(viva);
+    if (estado.conAgua) return this.errorCocina(client, "esta vasija ya tiene agua puesta");
+
+    const nuevoEstado: EstadoCocina = { ...estado, conAgua: true, calentandoDesde: Date.now() };
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), cocina: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.enviarEstadoCocina(client, viva.id, nuevoEstado);
+  }
+
+  /** Añade un ingrediente a la vasija (cuenco/cazuela/olla) — exige agua ya hirviendo, capado por `cocina.capacidad` TIPOS distintos (la cantidad de cada uno no tiene tope propio). */
   private async manejarCocinaAnadir(client: Client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) {
     const ctx = this.ctxConstruccion;
     if (!ctx || typeof msg?.construccionId !== "number" || typeof msg?.instanciaId !== "number") return;
@@ -2654,13 +2678,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const entrada = viva && this.entradaDe(viva.objeto);
     if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a una vasija");
 
+    const estadoPrevio = this.extraCocinaDe(viva);
+    if (!estaHirviendo(estadoPrevio, Date.now())) {
+      return this.errorCocina(client, estadoPrevio.conAgua ? "el agua todavía no ha hervido" : "primero llena la vasija de agua y ponla al fuego");
+    }
+
     const contenedor = this.inventarios.get(client.sessionId);
     const item = contenedor?.items.find((it) => it.id === msg.instanciaId);
     if (!contenedor || !item) return this.errorCocina(client, "eso ya no está en tu inventario");
     const entradaItem = this.catalogoItems[item.itemId];
     if (!entradaItem?.aportesCocina || entradaItem.tipo !== "recurso") return this.errorCocina(client, "eso no es un ingrediente");
 
-    const estado = this.extraCocinaDe(viva);
+    const estado = estadoPrevio;
     const yaDentro = estado.ingredientes.find((i) => i.itemId === item.itemId);
     if (!yaDentro && estado.ingredientes.length >= entrada.cocina.capacidad!) {
       return this.errorCocina(client, "la vasija ya tiene demasiados ingredientes distintos");
@@ -2674,7 +2703,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const nuevos = yaDentro
       ? estado.ingredientes.map((i) => (i.itemId === item.itemId ? { ...i, cantidad: i.cantidad + cantidad } : i))
       : [...estado.ingredientes, { itemId: item.itemId, cantidad }];
-    const nuevoEstado: EstadoCocina = { ingredientes: nuevos };
+    const nuevoEstado: EstadoCocina = { ...estado, ingredientes: nuevos };
     const bd = await obtenerBdCompartida();
     viva.extra = { ...(viva.extra ?? {}), cocina: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
@@ -2749,7 +2778,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   private enviarEstadoCocina(client: Client, construccionId: number, estado: EstadoCocina) {
-    client.send("cocina:estado", { construccionId, ingredientes: estado.ingredientes });
+    const ahora = Date.now();
+    client.send("cocina:estado", {
+      construccionId,
+      ingredientes: estado.ingredientes,
+      conAgua: !!estado.conAgua,
+      hirviendo: estaHirviendo(estado, ahora),
+      segundosParaHervir: segundosParaHervir(estado, ahora),
+    });
   }
 
   /** "Bolsa de N" (docs/GDD_Agricultura.md) — la abre en `abreEn.cantidad` unidades sueltas de `abreEn.itemId`, sin gastar la bolsa si no hay hueco. */
