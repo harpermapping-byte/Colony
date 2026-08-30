@@ -155,7 +155,7 @@ Si pasa: inserta en DB, endurece casillas (colisión viva — se guarda una copi
 
 - **Recoger** devuelve el objeto (v1: desaparece; con inventario, vuelve).
 - **Permisos**: (v2, diseñado) lista blanca por propiedad para que amigos construyan.
-- **Renta/economía jarl**: (v2, diseñado) — el streamer dijo "la economía ya se aplicará, ahora no".
+- ~~Renta/economía jarl: (v2, diseñado)~~ — **resuelto (2026-08-30): impuesto del jarl configurable por propiedad (activar/desactivar, cantidad, cadencia), ver `docs/GDD_Economia.md` §6.**
 - **Tope de props por parcela** — v1, en `parcelas.json`.
 - **Plantillas** y **modo planos** — v2, SIN diseñar todavía (la referencia previa a "§0" era un enlace roto: §0 no contiene ese diseño). "Plantillas" en el sentido de construcción-en-regiones (§1bis, las `parcelasReservadas` de la capital) SÍ están implementadas; "plantillas" en el sentido de "el jarl coloca de antemano un edificio-tipo que un jugador compra ya hecho" (pedido separado, ver `docs/Backlog_Mecanicas_Futuras.md` "NPCs contratables para automatizar producción") sigue sin diseñar.
 

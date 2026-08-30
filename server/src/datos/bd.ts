@@ -118,6 +118,14 @@ export interface Propiedad {
   precioFarycoins: number | null;
   periodoHoras: number | null;
   expiraEn: string | null; // ISO, horas REALES (Date.now()) — NULL si es compra o si nunca fue tenencia comercial
+  // Impuesto del jarl (docs/GDD_Economia.md §6, pedido 2026-08-30: "es una
+  // decisión que toma el jarl, puede ponerlo o no y poner qué cantidad y
+  // cada cuánto tiempo") — independiente de modoTenencia, aplica igual a
+  // parcelas asignadas por el jarl que a inmuebles/habitaciones comerciales.
+  impuestoActivo: boolean;
+  impuestoFarycoins: number | null; // cantidad cobrada por periodo
+  impuestoPeriodoHoras: number | null; // cada cuántas horas REALES se cobra
+  impuestoUltimoCobro: string | null; // ISO — ancla del próximo cobro, arranca en AHORA al activar (nunca retroactivo)
 }
 
 // Mercado (pedido 2026-08-29, docs/GDD_Mercado.md): un tenderete NO es una
@@ -485,8 +493,10 @@ export interface IAlmacenDatos {
   // volumen por asentamiento es pequeño (decenas) y esto GARANTIZA que la
   // expiración de un alquiler se re-evalúa en cada toque real, sin caché que
   // pueda quedarse desfasada mientras la room sigue viva.
-  /** Point-query — resuelve la expiración perezosa (alquiler vencido → libera la fila) ANTES de devolver. `null` = nunca se tocó (disponible, libre). */
+  /** Point-query — resuelve la expiración perezosa (alquiler vencido → libera la fila) Y el impuesto del jarl pendiente (§ abajo) ANTES de devolver. `null` = nunca se tocó (disponible, libre). */
   obtenerPropiedad(id: string): Promise<(Propiedad & { id: string }) | null>;
+  /** Impuesto del jarl (docs/GDD_Economia.md §6, pedido 2026-08-30) — activa/desactiva y fija cantidad/cadencia de una propiedad concreta. Resetea el reloj de cobro a AHORA al activar (nunca retroactivo). El cobro EN SÍ se resuelve perezosamente dentro de `obtenerPropiedad`, no aquí. */
+  configurarImpuestoPropiedad(id: string, activo: boolean, farycoins: number | null, periodoHoras: number | null): Promise<void>;
   /** Todo o nada: cobra el precio, y solo si la propiedad sigue libre (o su alquiler venció) se la queda — si no, reembolsa. */
   comprarOAlquilar(params: {
     id: string;
@@ -712,7 +722,14 @@ CREATE TABLE IF NOT EXISTS propiedades (
   modo_tenencia TEXT,
   precio_farycoins INTEGER,
   periodo_horas INTEGER,
-  expira_en TEXT
+  expira_en TEXT,
+  -- Impuesto del jarl (docs/GDD_Economia.md §6, pedido 2026-08-30) — 4
+  -- columnas nuevas, mismo criterio "queda NULL/0 si nunca se configuró,
+  -- cero cambio de comportamiento" que la tenencia comercial de arriba.
+  impuesto_activo INTEGER NOT NULL DEFAULT 0,
+  impuesto_farycoins INTEGER,
+  impuesto_periodo_horas INTEGER,
+  impuesto_ultimo_cobro TEXT
 );
 CREATE TABLE IF NOT EXISTS construcciones (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1044,6 +1061,11 @@ ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS modo_tenencia TEXT;
 ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS precio_farycoins INTEGER;
 ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS periodo_horas INTEGER;
 ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS expira_en TEXT;
+-- Impuesto del jarl (docs/GDD_Economia.md §6, pedido 2026-08-30).
+ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS impuesto_activo INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS impuesto_farycoins INTEGER;
+ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS impuesto_periodo_horas INTEGER;
+ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS impuesto_ultimo_cobro TEXT;
 CREATE TABLE IF NOT EXISTS construcciones (
   id SERIAL PRIMARY KEY,
   propiedad TEXT NOT NULL,
@@ -1476,6 +1498,11 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       ["precio_farycoins", "INTEGER"],
       ["periodo_horas", "INTEGER"],
       ["expira_en", "TEXT"],
+      // Impuesto del jarl (docs/GDD_Economia.md §6, pedido 2026-08-30).
+      ["impuesto_activo", "INTEGER NOT NULL DEFAULT 0"],
+      ["impuesto_farycoins", "INTEGER"],
+      ["impuesto_periodo_horas", "INTEGER"],
+      ["impuesto_ultimo_cobro", "TEXT"],
     ] as const) {
       if (!nombresPropiedades.has(col)) this.bd.exec(`ALTER TABLE propiedades ADD COLUMN ${col} ${tipo}`);
     }
@@ -1717,7 +1744,8 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const filas = this.bd
       .prepare(
         // LEFT JOIN: una propiedad sin dueño (dueno NULL) debe salir igualmente, con dueno=null
-        `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en
+        `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en,
+                p.impuesto_activo, p.impuesto_farycoins, p.impuesto_periodo_horas, p.impuesto_ultimo_cobro
          FROM propiedades p LEFT JOIN jugadores j ON j.id = p.dueno`
       )
       .all();
@@ -1741,6 +1769,10 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       precioFarycoins: f.precio_farycoins == null ? null : Number(f.precio_farycoins),
       periodoHoras: f.periodo_horas == null ? null : Number(f.periodo_horas),
       expiraEn: f.expira_en == null ? null : String(f.expira_en),
+      impuestoActivo: Boolean(Number(f.impuesto_activo ?? 0)),
+      impuestoFarycoins: f.impuesto_farycoins == null ? null : Number(f.impuesto_farycoins),
+      impuestoPeriodoHoras: f.impuesto_periodo_horas == null ? null : Number(f.impuesto_periodo_horas),
+      impuestoUltimoCobro: f.impuesto_ultimo_cobro == null ? null : String(f.impuesto_ultimo_cobro),
     };
   }
 
@@ -1788,13 +1820,63 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async obtenerPropiedad(id: string): Promise<(Propiedad & { id: string }) | null> {
     this.liberarSiVencida(id);
+    await this.resolverImpuestoPropiedad(id);
     const fila = this.bd
       .prepare(
-        `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en
+        `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en,
+                p.impuesto_activo, p.impuesto_farycoins, p.impuesto_periodo_horas, p.impuesto_ultimo_cobro
          FROM propiedades p LEFT JOIN jugadores j ON j.id = p.dueno WHERE p.id = ?`,
       )
       .get(id);
     return fila ? this.filaAPropiedad(fila) : null;
+  }
+
+  /**
+   * Impuesto del jarl (docs/GDD_Economia.md §6, pedido 2026-08-30): activa o
+   * desactiva el cobro periódico de una propiedad concreta y fija su
+   * cantidad/cadencia — SOLO el jarl (guard en RoomExteriorBase, igual que
+   * `parcela:asignar`). Al ACTIVAR (o cambiar cantidad/periodo estando ya
+   * activo), `impuestoUltimoCobro` se resetea a AHORA: nunca cobra
+   * retroactivo de antes de la configuración nueva, mismo criterio que
+   * `resolverIngresoDiarioNpc` con NPCs recién descubiertos.
+   */
+  async configurarImpuestoPropiedad(id: string, activo: boolean, farycoins: number | null, periodoHoras: number | null): Promise<void> {
+    this.bd
+      .prepare(
+        `UPDATE propiedades SET impuesto_activo = ?, impuesto_farycoins = ?, impuesto_periodo_horas = ?, impuesto_ultimo_cobro = ? WHERE id = ?`,
+      )
+      .run(activo ? 1 : 0, farycoins, periodoHoras, activo ? new Date().toISOString() : null, id);
+  }
+
+  /**
+   * Cálculo perezoso (mismo patrón que `resolverIngresoDiarioNpc`, cero
+   * timers/polling): cobra de golpe TODOS los periodos completos
+   * transcurridos desde `impuestoUltimoCobro` — nada si el impuesto está
+   * desactivado, sin dueño, o no ha pasado ni un periodo entero todavía.
+   * Todo o nada por LOTE: si el dueño no puede pagar el lote completo, no
+   * se cobra nada y el reloj NO avanza — la deuda se acumula hasta que
+   * pueda (sin mecanismo de embargo/desahucio todavía, ver GDD). El precio
+   * se acredita al jarl con la MISMA `creditarJarl` que compra/alquiler.
+   */
+  private async resolverImpuestoPropiedad(id: string): Promise<void> {
+    const fila = this.bd
+      .prepare(
+        `SELECT dueno, impuesto_activo, impuesto_farycoins, impuesto_periodo_horas, impuesto_ultimo_cobro FROM propiedades WHERE id = ?`,
+      )
+      .get(id);
+    if (!fila || !fila.dueno || !Number(fila.impuesto_activo) || !fila.impuesto_farycoins || !fila.impuesto_periodo_horas || !fila.impuesto_ultimo_cobro) {
+      return;
+    }
+    const periodoMs = Number(fila.impuesto_periodo_horas) * 3600_000;
+    const transcurridoMs = Date.now() - new Date(String(fila.impuesto_ultimo_cobro)).getTime();
+    const periodos = Math.floor(transcurridoMs / periodoMs);
+    if (periodos <= 0) return;
+    const total = periodos * Number(fila.impuesto_farycoins);
+    const debito = await this.ajustarFarycoins(Number(fila.dueno), -total);
+    if (!debito.ok) return; // no puede pagar el lote entero — no cobra nada, no avanza el reloj (deuda se acumula)
+    const nuevoUltimoCobro = new Date(new Date(String(fila.impuesto_ultimo_cobro)).getTime() + periodos * periodoMs).toISOString();
+    this.bd.prepare("UPDATE propiedades SET impuesto_ultimo_cobro = ? WHERE id = ?").run(nuevoUltimoCobro, id);
+    await this.creditarJarl(total);
   }
 
   async comprarOAlquilar(params: {
@@ -2827,6 +2909,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     precio_farycoins: number | null;
     periodo_horas: number | null;
     expira_en: string | null;
+    impuesto_activo: boolean | number | null;
+    impuesto_farycoins: number | null;
+    impuesto_periodo_horas: number | null;
+    impuesto_ultimo_cobro: string | null;
   }): Propiedad & { id: string } {
     return {
       id: f.id,
@@ -2837,6 +2923,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       precioFarycoins: f.precio_farycoins,
       periodoHoras: f.periodo_horas,
       expiraEn: f.expira_en,
+      impuestoActivo: Boolean(f.impuesto_activo),
+      impuestoFarycoins: f.impuesto_farycoins,
+      impuestoPeriodoHoras: f.impuesto_periodo_horas,
+      impuestoUltimoCobro: f.impuesto_ultimo_cobro,
     };
   }
 
@@ -2844,8 +2934,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     const r = await this.pool.query<{
       id: string; tipo: string; asentamiento: string; dueno: string | null;
       modo_tenencia: string | null; precio_farycoins: number | null; periodo_horas: number | null; expira_en: string | null;
+      impuesto_activo: boolean | number | null; impuesto_farycoins: number | null; impuesto_periodo_horas: number | null; impuesto_ultimo_cobro: string | null;
     }>(
-      `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en
+      `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en,
+              p.impuesto_activo, p.impuesto_farycoins, p.impuesto_periodo_horas, p.impuesto_ultimo_cobro
        FROM propiedades p LEFT JOIN jugadores j ON j.id = p.dueno`
     );
     const mapa = new Map<string, Propiedad>();
@@ -2886,15 +2978,54 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async obtenerPropiedad(id: string): Promise<(Propiedad & { id: string }) | null> {
     await this.liberarSiVencida(id);
+    await this.resolverImpuestoPropiedad(id);
     const r = await this.pool.query<{
       id: string; tipo: string; asentamiento: string; dueno: string | null;
       modo_tenencia: string | null; precio_farycoins: number | null; periodo_horas: number | null; expira_en: string | null;
+      impuesto_activo: boolean | number | null; impuesto_farycoins: number | null; impuesto_periodo_horas: number | null; impuesto_ultimo_cobro: string | null;
     }>(
-      `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en
+      `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en,
+              p.impuesto_activo, p.impuesto_farycoins, p.impuesto_periodo_horas, p.impuesto_ultimo_cobro
        FROM propiedades p LEFT JOIN jugadores j ON j.id = p.dueno WHERE p.id = $1`,
       [id],
     );
     return r.rows.length > 0 ? this.filaAPropiedad(r.rows[0]) : null;
+  }
+
+  /** Mismo contrato que la implementación SQLite — ver el doc-comment de arriba. */
+  async configurarImpuestoPropiedad(id: string, activo: boolean, farycoins: number | null, periodoHoras: number | null): Promise<void> {
+    await this.pool.query(
+      `UPDATE propiedades SET impuesto_activo = $1, impuesto_farycoins = $2, impuesto_periodo_horas = $3, impuesto_ultimo_cobro = $4 WHERE id = $5`,
+      [activo, farycoins, periodoHoras, activo ? new Date().toISOString() : null, id],
+    );
+  }
+
+  /** Mismo contrato/comentario que la implementación SQLite — ver arriba. */
+  private async resolverImpuestoPropiedad(id: string): Promise<void> {
+    const r = await this.pool.query<{
+      dueno: number | null;
+      impuesto_activo: boolean | number | null;
+      impuesto_farycoins: number | null;
+      impuesto_periodo_horas: number | null;
+      impuesto_ultimo_cobro: string | null;
+    }>(
+      `SELECT dueno, impuesto_activo, impuesto_farycoins, impuesto_periodo_horas, impuesto_ultimo_cobro FROM propiedades WHERE id = $1`,
+      [id],
+    );
+    const fila = r.rows[0];
+    if (!fila || !fila.dueno || !fila.impuesto_activo || !fila.impuesto_farycoins || !fila.impuesto_periodo_horas || !fila.impuesto_ultimo_cobro) {
+      return;
+    }
+    const periodoMs = fila.impuesto_periodo_horas * 3600_000;
+    const transcurridoMs = Date.now() - new Date(fila.impuesto_ultimo_cobro).getTime();
+    const periodos = Math.floor(transcurridoMs / periodoMs);
+    if (periodos <= 0) return;
+    const total = periodos * fila.impuesto_farycoins;
+    const debito = await this.ajustarFarycoins(fila.dueno, -total);
+    if (!debito.ok) return;
+    const nuevoUltimoCobro = new Date(new Date(fila.impuesto_ultimo_cobro).getTime() + periodos * periodoMs).toISOString();
+    await this.pool.query("UPDATE propiedades SET impuesto_ultimo_cobro = $1 WHERE id = $2", [nuevoUltimoCobro, id]);
+    await this.creditarJarl(total);
   }
 
   async comprarOAlquilar(params: {

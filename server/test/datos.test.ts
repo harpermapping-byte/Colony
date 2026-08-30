@@ -52,6 +52,10 @@ test("asignar/revocar propiedad: dueño por nombre, revocar deja la fila con due
     precioFarycoins: null,
     periodoHoras: null,
     expiraEn: null,
+    impuestoActivo: false,
+    impuestoFarycoins: null,
+    impuestoPeriodoHoras: null,
+    impuestoUltimoCobro: null,
   });
 
   // Reasignar (upsert sobre la misma id) cambia el dueño sin duplicar fila
@@ -71,6 +75,10 @@ test("asignar/revocar propiedad: dueño por nombre, revocar deja la fila con due
     precioFarycoins: null,
     periodoHoras: null,
     expiraEn: null,
+    impuestoActivo: false,
+    impuestoFarycoins: null,
+    impuestoPeriodoHoras: null,
+    impuestoUltimoCobro: null,
   });
 
   // Asignar directamente sin dueño también es válido (parcela del jarl/asentamiento)
