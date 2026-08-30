@@ -25,7 +25,7 @@ MMO RPG medieval **instanciado** (Hub persistente + instancias con tope de jugad
 ## Filosofía técnica (no negociable sin preguntar al usuario)
 
 1. **Generar UNA vez, nunca en directo** — los bakeadores corren offline; el servidor en vivo solo lee. Cálculo perezoso para todo lo que cambia con el tiempo.
-2. **Catálogo como fuente de verdad**: el bakeador coloca referencias por id, nunca datos "a fuego". Toda entrada nueva de catálogo lleva `uso` (para qué sirve). Los colores/dimensiones visuales salen de `colorDebug` del catálogo — no duplicar tablas.
+2. **Catálogo como fuente de verdad**: el bakeador coloca referencias por id, nunca datos "a fuego". Toda entrada nueva de catálogo lleva `uso` (para qué sirve). Los colores/dimensiones visuales salen de `colorDebug` del catálogo — no duplicar tablas. Toda entrada nueva en `items/catalogo/items.json` o `interiores/catalogo/elementos.json` lleva además un campo `nombre` calculado con `items/catalogo/nombreBonito.js` (nunca un texto inventado a mano) — regla permanente, ver `docs/GDD_Inventario.md` §11.
 3. **Determinismo por semilla**: misma semilla = mismo resultado, siempre (PRNG mulberry32 en `azar.js`/`ruido.js`). Nada de `Math.random()` en generación.
 4. **Optimizado para gratis**: typed arrays en bucles calientes, claves numéricas (no strings) en Sets consultados por casilla, instancing en cliente, solo cuesta lo cercano a jugadores activos.
 5. **Edición no destructiva** (interiores): `origen: "generado" | "modificado"` — regenerar NUNCA borra lo modificado a mano salvo `forzar: true`.
