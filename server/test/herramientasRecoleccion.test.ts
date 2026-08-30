@@ -5,7 +5,7 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { requisitoDeCategoria, mejorHerramientaPara, CATEGORIA_HERRAMIENTA_RECOLECCION } from "../src/mundo/herramientasRecoleccion";
+import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria, CATEGORIA_HERRAMIENTA_RECOLECCION } from "../src/mundo/herramientasRecoleccion";
 import { cargarCatalogoItems, Contenedor, ItemInstancia } from "../src/inventario/inventario";
 
 const catalogo = cargarCatalogoItems();
@@ -67,6 +67,17 @@ test("mejorHerramientaPara: herramienta rota (durabilidad a 0) no cuenta", () =>
   const contenedor = contenedorCon([{ itemId: "hacha_mano_cobre_hierro", durabilidad: 0 }]);
   const herramienta = mejorHerramientaPara(contenedor, catalogo, requisitoDeCategoria("madera_blanda")!);
   assert.strictEqual(herramienta, undefined);
+});
+
+test("tiempoRespawnMsDeCategoria: a más tier (más rareza), más tiempo de reaparición", () => {
+  assert.strictEqual(tiempoRespawnMsDeCategoria("piedra_comun"), 5 * 60 * 1000); // tier 1
+  assert.strictEqual(tiempoRespawnMsDeCategoria("hierro"), 15 * 60 * 1000); // tier 2
+  assert.strictEqual(tiempoRespawnMsDeCategoria("plata"), 30 * 60 * 1000); // tier 3
+  assert.strictEqual(tiempoRespawnMsDeCategoria("oro"), 60 * 60 * 1000); // tier 4
+});
+
+test("tiempoRespawnMsDeCategoria: categoría no listada (o inventada) devuelve undefined", () => {
+  assert.strictEqual(tiempoRespawnMsDeCategoria("categoria_inventada_sin_gate"), undefined);
 });
 
 test("cobertura real: todo categoriaRecurso de vegetacion.json/rocas.json con recolectable tiene tabla de gating (o está deliberadamente fuera, semilla/fruta_cultivada)", () => {

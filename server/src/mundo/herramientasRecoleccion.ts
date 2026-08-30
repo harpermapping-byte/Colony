@@ -69,6 +69,28 @@ export const CATEGORIA_HERRAMIENTA_RECOLECCION: Record<string, RequisitoHerramie
   hongo_comestible: { oficio: "molinero", tier: 4 },
 };
 
+/**
+ * Reaparición tras recolectar (docs/GDD_Bosques.md/GDD_Profesiones.md,
+ * pedido 2026-08-30: "unificar recolectar con árboles" — los árboles YA
+ * tienen su propio sistema de semilla/propagación, que se queda tal cual;
+ * esto es SOLO para hierbas/rocas: un timer simple, reaparece en el MISMO
+ * sitio). Reusa el `tier` ya asignado por rareza real (más raro = tarda
+ * más) en vez de inventar una tabla de rareza nueva.
+ */
+const TIEMPO_RESPAWN_MS_POR_TIER: Record<number, number> = {
+  1: 5 * 60 * 1000,
+  2: 15 * 60 * 1000,
+  3: 30 * 60 * 1000,
+  4: 60 * 60 * 1000,
+};
+
+/** Milisegundos hasta que un recolectable de esta `categoriaRecurso` vuelve a estar disponible en el mismo sitio — `undefined` si la categoría no está en la tabla (no debería pasar para nada que pase por `requisitoDeCategoria`). */
+export function tiempoRespawnMsDeCategoria(categoriaRecurso: string): number | undefined {
+  const requisito = CATEGORIA_HERRAMIENTA_RECOLECCION[categoriaRecurso];
+  if (!requisito) return undefined;
+  return TIEMPO_RESPAWN_MS_POR_TIER[requisito.tier];
+}
+
 /** `undefined` = recurso sin requisito de herramienta (p.ej. cadáveres/objetos sueltos, o categorías no listadas). */
 export function requisitoDeCategoria(categoriaRecurso: string): RequisitoHerramienta | undefined {
   return CATEGORIA_HERRAMIENTA_RECOLECCION[categoriaRecurso];

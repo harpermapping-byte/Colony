@@ -25,8 +25,8 @@ import {
 } from "../../combate/arenaCombate";
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
-import { recolectableCercano, recolectablesQuitadosDeMapa } from "../../mundo/recolectables";
-import { requisitoDeCategoria, mejorHerramientaPara } from "../../mundo/herramientasRecoleccion";
+import { recolectableCercano, recolectablesAgotadosDeMapa } from "../../mundo/recolectables";
+import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria } from "../../mundo/herramientasRecoleccion";
 import {
   CatalogoItems,
   Contenedor,
@@ -580,8 +580,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const posiciones: string[] = [];
       const mapa = this.mapaExterior;
       if (mapa) {
-        const quitados = recolectablesQuitadosDeMapa(mapa.rutaMapa);
-        for (const idx of quitados) {
+        const agotados = recolectablesAgotadosDeMapa(mapa.rutaMapa);
+        const ahora = Date.now();
+        for (const [idx, disponibleDesde] of agotados) {
+          if (disponibleDesde <= ahora) {
+            agotados.delete(idx); // ya tocaba reaparecer — autolimpieza perezosa, igual que recolectableCercano
+            continue;
+          }
           const x = idx % mapa.ancho;
           const y = Math.floor(idx / mapa.ancho);
           if (x >= msg.tileX0 && x < msg.tileX1 && y >= msg.tileY0 && y < msg.tileY1) posiciones.push(`${x},${y}`);
@@ -1180,15 +1185,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   protected buscarCogibleEnMundo(x: number, y: number): ObjetoCogible | null {
     if (!this.mapaExterior) return null;
-    const encontrado = recolectableCercano(this.mapaExterior.recolectables, this.mapaExterior.ancho, x, y, RADIO_INTERACCION);
-    if (!encontrado) return null;
     const mapa = this.mapaExterior;
+    const agotados = recolectablesAgotadosDeMapa(mapa.rutaMapa);
+    const encontrado = recolectableCercano(mapa.recolectables, mapa.ancho, x, y, RADIO_INTERACCION, agotados);
+    if (!encontrado) return null;
     return {
       itemId: encontrado.item.itemId,
       cantidad: 1,
       confirmar: () => {
-        mapa.recolectables.delete(encontrado.idx);
-        recolectablesQuitadosDeMapa(mapa.rutaMapa).add(encontrado.idx);
+        // Reaparece en el MISMO sitio tras un timer (docs/GDD_Profesiones.md
+        // §0, pedido 2026-08-30) — nunca se borra de mapa.recolectables, solo
+        // se marca "agotado hasta X" (recolectableCercano ya lo salta/limpia
+        // solo). Los árboles NO pasan por aquí — su propio sistema de
+        // semilla/propagación (GestorBosques) se queda tal cual.
+        const tiempoRespawnMs = tiempoRespawnMsDeCategoria(encontrado.item.itemId) ?? 15 * 60 * 1000;
+        agotados.set(encontrado.idx, Date.now() + tiempoRespawnMs);
         this.broadcast("mundo:objetoQuitado", { origen: "exterior", x: encontrado.item.x, y: encontrado.item.y });
       },
     };
