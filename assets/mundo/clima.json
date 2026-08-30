@@ -1,0 +1,14 @@
+{
+  "_uso": "Clima COMPARTIDO (servidor y cliente, docs/GDD_Clima.md, pedido 2026-08-30): estado de clima del día (server/src/mundo/clima.ts y client/src/mundo/clima.ts calculan el MISMO resultado sin red, mismo criterio que assets/mundo/tiempo.json) y curva de temperatura del mundo por estación/hora. Sin sistema de nieve acumulable todavía — pedido explícitamente aparte por el streamer.",
+  "estados": ["soleado", "nublado", "lluvia", "viento", "nieve"],
+  "_pesos": "Peso relativo (no tiene que sumar 100) de cada estado por estación — un roll determinista por día de mundo (hash del día, nunca Math.random) elige uno. nieve:0 fuera de invierno = nunca nieva en otras estaciones.",
+  "pesosPorEstacion": {
+    "primavera": { "soleado": 30, "nublado": 25, "lluvia": 30, "viento": 15, "nieve": 0 },
+    "verano": { "soleado": 55, "nublado": 20, "lluvia": 10, "viento": 15, "nieve": 0 },
+    "otono": { "soleado": 20, "nublado": 30, "lluvia": 35, "viento": 15, "nieve": 0 },
+    "invierno": { "soleado": 20, "nublado": 25, "lluvia": 10, "viento": 10, "nieve": 35 }
+  },
+  "_temperatura": "Grados aproximados (sin unidad estricta, solo referencia interna): temperaturaBasePorEstacion es el punto medio del día; amplitudTermicaDiaria es la variación pico-a-pico entre la hora más fría (madrugada) y la más cálida (media tarde) — mismo placeholder de balance que el resto del proyecto.",
+  "temperaturaBasePorEstacion": { "primavera": 15, "verano": 27, "otono": 13, "invierno": 3 },
+  "amplitudTermicaDiaria": 8
+}

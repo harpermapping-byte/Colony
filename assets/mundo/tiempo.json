@@ -6,6 +6,7 @@
   "horaAmanecer": 4,
   "horaAnochecer": 20,
   "_diaNoche": "20 min reales de día + 10 de noche = 16 h de sol (04:00-20:00) y 8 de noche, sobre un día de 24 h de juego.",
-  "diasPorEstacion": 7,
+  "diasPorMes": 30,
+  "_calendario": "Calendario pedido explícito 2026-08-30 (docs/GDD_Clima.md): 12 meses de 30 días = 1 año de 360 días de juego, repartidos en 4 estaciones de 3 meses (diasPorEstacion = 3 * diasPorMes, mantenido calculado en tiempoMundo.ts para no duplicar el número). Antes diasPorEstacion=7 (placeholder de la primera pasada, sin nada más que dependiera de él).",
   "estaciones": ["primavera", "verano", "otono", "invierno"]
 }

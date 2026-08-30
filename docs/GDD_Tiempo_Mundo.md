@@ -24,7 +24,11 @@ define duraciones). Consecuencias buscadas:
 - 1 día de juego = **30 min reales** (día de 24 h de juego).
 - Amanecer 04:00, anochecer 20:00 → **16 h de sol + 8 de noche**
   (= 20 min reales de día + 10 de noche).
-- 1 estación = 7 días de juego; año de 4 estaciones (~14 h reales).
+- 1 mes = `diasPorMes` días de juego (30 hoy); 1 estación = 3 meses (90
+  días); año de 4 estaciones = 360 días de juego (~180 h reales). Ver
+  `docs/GDD_Clima.md` para el calendario completo, clima y temperatura
+  — `diasPorEstacion`/`diasPorAño` se DERIVAN en código, nunca se
+  duplican como número suelto en el JSON.
 - Época del mundo: 2026-01-01T00:00Z (día 0). Todo configurable en el
   JSON: cambiar `minutosRealesPorDia` acelera el mundo entero.
 
@@ -58,8 +62,10 @@ suites E2E de cliente en verde.
 
 - **Luces urbanas**: consumir el canal `indice.luces` de ciudades/
   (farolas/antorchas) encendiéndolas entre anochecer y amanecer.
-- **Estaciones visibles**: la estación ya se calcula pero no cambia nada
-  aún (tinte de vegetación/nieve son arte futuro).
+- ~~Estaciones visibles~~ — **implementado, ver `docs/GDD_Clima.md`**:
+  filtro de color sutil por estación + clima determinista por día. Sigue
+  pendiente: tinte de vegetación/nieve acumulable (arte futuro, pedido
+  explícitamente aparte).
 - **Interiores**: la iluminación interior es independiente del sol
   (aporte de luz por mueble, GDD_Bakeador_Interiores §7bis) — decidir si
   las ventanas dejan entrar la hora.

@@ -49,6 +49,11 @@ export class VitalesSchema extends Schema {
   // con cada comida, al tope ensucia al jugador (`Player.sucio`); baja a 0
   // al usar una hoja (`higiene:cagar`). No decae sola, no tiene tick propio.
   @type("number") caca = 0;
+  // Temperatura corporal (docs/GDD_Clima.md, pedido 2026-08-30): 0-100,
+  // 50 = neutro/cómodo. Deriva sola hacia la temperatura del mundo cada
+  // tick (`aplicarTemperaturaCorporal`) — fuera de rango gasta comida o
+  // bebida más rápido y resta al vidaMax efectivo (ver aplicarInanicion).
+  @type("number") temperatura = 50;
 }
 
 // Nivel de cada atributo (docs/GDD_Personaje.md) — YA derivado de la XP
