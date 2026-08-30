@@ -46,7 +46,79 @@ const CAPAS_POR_FASE = {
   [Priority.DECORACION]: ["iluminacion", "suciedad"],
 };
 
-function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado, temaProfesion }) {
+// Coherencia de paleta (GDD sección 8: "material por nivel de planta" +
+// materialesPreferidos de tipos_edificio.json, hasta ahora dato muerto para
+// interiores — edificio.js solo lo copiaba al resultado sin filtrar nada).
+// NUNCA es un filtro duro: es un SESGO de probabilidad sobre el material de
+// siempre (defSala.materialSuelo/materialPared) — un material solo entra
+// como candidato si YA se usa para ese plano en alguna sala de la MISMA
+// categoria (tipos_sala.json) y si su riquezaTipica (materiales.json)
+// admite la riqueza de esta sala; así nunca aparece un papel_pintado en una
+// choza humilde solo porque el edificio "prefiera" ese material en teoría.
+const cacheAlternativasMaterial = new WeakMap();
+function alternativasMaterialPorCategoria(catalogos) {
+  let cache = cacheAlternativasMaterial.get(catalogos);
+  if (cache) return cache;
+  const porCategoriaSuelo = {};
+  const porCategoriaPared = {};
+  for (const def of Object.values(catalogos.tiposSala)) {
+    if (!def || !def.categoria) continue;
+    (porCategoriaSuelo[def.categoria] ??= new Set()).add(def.materialSuelo);
+    (porCategoriaPared[def.categoria] ??= new Set()).add(def.materialPared);
+  }
+  cache = { suelo: porCategoriaSuelo, pared: porCategoriaPared };
+  cacheAlternativasMaterial.set(catalogos, cache);
+  return cache;
+}
+
+// Tendencia por nivel de planta (GDD sección 8, pendiente hasta ahora):
+// piedra en sótano/planta baja, madera en plantas altas — tabla simple,
+// se combina (no sustituye) con materialesPreferidos del edificio.
+function materialesPreferidosPorNivel(nivel) {
+  if (nivel === undefined || nivel === null) return [];
+  if (nivel < 0) return ["piedra"];
+  if (nivel === 0) return ["piedra", "madera"];
+  return ["madera"];
+}
+
+const PROBABILIDAD_SESGO_MATERIAL = 0.6;
+function elegirMaterialConSesgo({ plano, materialBase, categoriaSala, riqueza, preferencias, catalogos, rnd }) {
+  if (!preferencias || preferencias.length === 0) return materialBase;
+  const validosPorCategoria = alternativasMaterialPorCategoria(catalogos)[plano];
+  const validos = validosPorCategoria[categoriaSala];
+  if (!validos) return materialBase;
+  const candidatos = preferencias.filter((m) => {
+    if (m === materialBase || !validos.has(m)) return false;
+    const def = catalogos.materiales[m];
+    return !!def && (def.riquezaTipica || []).includes(riqueza);
+  });
+  if (candidatos.length === 0) return materialBase;
+  if (rnd() >= PROBABILIDAD_SESGO_MATERIAL) return materialBase;
+  return candidatos[Math.floor(rnd() * candidatos.length)];
+}
+
+// Cierra el ciclo de `estado` (GDD sección 9bis/9quater): hasta ahora
+// siempre {desgastado:false, roto:false, sucio:false} — "preparado desde ya
+// sin mecánica que lo altere". PRNG PROPIO por instancia (no el `rnd`
+// compartido de la sala): así no perturba el orden de colocación de nada,
+// exactamente igual que `elegirVariante` ya deriva su propio PRNG de
+// `instanceId`. Una pieza rota siempre está también desgastada (roto
+// implica desgastado, nunca al revés) — una sala noble prácticamente nunca
+// tiene nada roto/sucio, una humilde bastante más.
+const PROB_DESGASTADO_POR_RIQUEZA = { humilde: 0.35, modesta: 0.15, noble: 0.03 };
+const PROB_SUCIO_POR_RIQUEZA = { humilde: 0.25, modesta: 0.08, noble: 0.0 };
+const PROB_ROTO_SI_DESGASTADO = 0.15;
+function calcularEstadoDesgaste(instanceId, riqueza) {
+  const rndEstado = crearPRNG(`${instanceId}:estado`);
+  const probDesgastado = PROB_DESGASTADO_POR_RIQUEZA[riqueza] ?? PROB_DESGASTADO_POR_RIQUEZA.modesta;
+  const probSucio = PROB_SUCIO_POR_RIQUEZA[riqueza] ?? PROB_SUCIO_POR_RIQUEZA.modesta;
+  const desgastado = rndEstado() < probDesgastado;
+  const roto = desgastado && rndEstado() < PROB_ROTO_SI_DESGASTADO;
+  const sucio = rndEstado() < probSucio;
+  return { desgastado, roto, sucio };
+}
+
+function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado, temaProfesion, materialesPreferidos, nivel }) {
   const defSala = catalogos.tiposSala[tipoSalaId];
   if (!defSala) throw new Error(`tipoSala desconocido: ${tipoSalaId}`);
 
@@ -59,8 +131,9 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   // habitaciones que tiene que soportar (GDD sección 1bis).
   const ancho = Math.max(4, anchoForzado ?? elegirEntero(defSala.anchoTiles[0], defSala.anchoTiles[1]));
   const largo = Math.max(4, largoForzado ?? elegirEntero(defSala.largoTiles[0], defSala.largoTiles[1]));
-  const materialSuelo = defSala.materialSuelo;
-  const materialPared = defSala.materialPared;
+  const preferenciasMateriales = [...(materialesPreferidos || []), ...materialesPreferidosPorNivel(nivel)];
+  const materialSuelo = elegirMaterialConSesgo({ plano: "suelo", materialBase: defSala.materialSuelo, categoriaSala: defSala.categoria, riqueza, preferencias: preferenciasMateriales, catalogos, rnd });
+  const materialPared = elegirMaterialConSesgo({ plano: "pared", materialBase: defSala.materialPared, categoriaSala: defSala.categoria, riqueza, preferencias: preferenciasMateriales, catalogos, rnd });
 
   // El muro NO ocupa ninguna casilla propia — es un límite sin grosor en
   // el borde de la sala, no una fila/columna de suelo reservada. ancho x
@@ -193,6 +266,33 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
     return true;
   }
 
+  // Sesgo de orden (nunca bloqueo duro) contra el estrechamiento de la
+  // circulación: distancia mínima de una huella a la línea recta entre el
+  // origen de circulación (la puerta) y el centro geométrico de la sala —
+  // no es un grafo de visibilidad real (sería sobre-ingeniería para salas
+  // de 10-20 piezas), solo una aproximación barata para que el mobiliario
+  // "de relleno" (armarios, estanterías...) prefiera los huecos que NO
+  // estrechan pieza a pieza el paso natural puerta→centro, dejando ese
+  // pasillo más despejado sin reservar nada por adelantado (circulacionIntacta
+  // ya sigue siendo la única autoridad real sobre bloqueo duro).
+  function distanciaALineaCirculacion(x, y, hw, hl) {
+    const [ox, oy] = origenCirculacion;
+    const cx = (ancho - 1) / 2;
+    const cy = (largo - 1) / 2;
+    const pasos = Math.max(Math.round(Math.max(Math.abs(cx - ox), Math.abs(cy - oy))), 1);
+    let mejor = Infinity;
+    for (let p = 0; p <= pasos; p++) {
+      const lx = ox + ((cx - ox) * p) / pasos;
+      const ly = oy + ((cy - oy) * p) / pasos;
+      for (let dy = 0; dy < hl; dy++) {
+        for (let dx = 0; dx < hw; dx++) {
+          mejor = Math.min(mejor, Math.hypot(x + dx - lx, y + dy - ly));
+        }
+      }
+    }
+    return mejor;
+  }
+
   // Fallback genérico (usado por "libre" y como último recurso si la
   // colocación sistemática de abajo no encuentra sitio en ningún muro/
   // centro): posición al azar entre 25 intentos, orientación al azar.
@@ -320,7 +420,13 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
           .sort((a, b) => a[1] - b[1])
           .map(([c]) => c);
       } else {
-        candidatos = barajar(candidatos, rnd);
+        // Sin prioridad de esquina ni repetición pegada a la anterior (el
+        // caso normal de un armario/estantería de relleno): preferir huecos
+        // lejos de la línea puerta→centro, con jitter para no ser rígido.
+        candidatos = candidatos
+          .map((c) => [c, -distanciaALineaCirculacion(c[0], c[1], huellaRot[0], huellaRot[1]) + rnd() * 1.5])
+          .sort((a, b) => a[1] - b[1])
+          .map(([c]) => c);
       }
       for (const [x, y] of candidatos) {
         if (esPuerta(x, y)) continue;
@@ -762,7 +868,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const marcarGenerado = (item) => {
     item.instanceId = `${tipoSalaId}_${semilla}_${contadorInstancia++}`;
     item.origen = "generado";
-    item.estado = { desgastado: false, roto: false, sucio: false };
+    item.estado = calcularEstadoDesgaste(item.instanceId, riqueza);
     const variante = catalogoContenido.elegirVariante(item.id, item.instanceId);
     if (variante !== item.id) item.variante = variante;
     return item;
@@ -782,7 +888,11 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const sobreTodos = colocados.flatMap((c) => c.sobre || []);
   const estadisticas = calcularEstadisticas([...colocados, ...colgados, ...techo, ...sobreTodos]);
 
-  return { tipoSalaId, ancho, largo, materialSuelo, materialPared, riqueza, amueblado, semilla, puerta, sala, colocados, colgados, techo, estadisticas, origen: "generado" };
+  // bordesOcupados expuesto (antes solo local, se descartaba al salir):
+  // edificio.js lo necesita para la post-pasada de ventanas (sección 7 del
+  // GDD) — saber qué segmentos de pared ya usó un colgadoEnPared para no
+  // clavar una ventana encima.
+  return { tipoSalaId, ancho, largo, materialSuelo, materialPared, riqueza, amueblado, semilla, puerta, sala, colocados, colgados, techo, estadisticas, bordesOcupados: [...bordesOcupados], origen: "generado" };
 }
 
 module.exports = { colocarSala, crearPRNG };
