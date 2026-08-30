@@ -11,6 +11,8 @@
 import * as THREE from "three";
 import { cargarInstanciaEntidad } from "./entityLoader";
 import { obtenerTextura } from "./texturaLoader";
+import { salaEnPosicion, salasVisibles, paredOculta, type SalaRect, type Lado } from "./conoVision";
+import { luzAmbienteSala } from "./luzInteriores";
 
 interface ElementoColocado {
   id: string;
@@ -49,6 +51,19 @@ interface PuertaConexion {
   y: number;
 }
 
+// Ventana real (interiores/src/colocarElementos.js, GDD_Bakeador_Interiores
+// §7bis) — estructura del muro NORTE, con su aporteLuz ya resuelto por el
+// bakeador. `forma/tamano/marco/cristal` identifican la combinación exacta
+// (interiores/catalogo/ventanas.json) para cuando exista arte real; hoy solo
+// se usa `aporteLuz` (luzInteriores.ts) y `colorDebug` (placeholder visual).
+interface ElementoVentana {
+  x: number;
+  lado: "norte";
+  ancho: number;
+  aporteLuz: number;
+  colorDebug?: string;
+}
+
 interface SalaInterior {
   tipoSalaId: string;
   offsetX: number;
@@ -64,6 +79,7 @@ interface SalaInterior {
     materialPared?: string;
     colgados?: ElementoColgado[];
     techo?: ElementoTecho[];
+    ventanas?: ElementoVentana[];
   };
 }
 
@@ -121,9 +137,33 @@ function faseDe(clave: string): number {
   return (h % 1000) / 1000;
 }
 
-export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): { grupo: THREE.Group; luces: LuzInterior[] } {
+export interface InteriorVisual {
+  grupo: THREE.Group;
+  luces: LuzInterior[];
+  /** Cono de visión (docs/Backlog_Mecanicas_Futuras.md): recalcula qué
+   * paredes este/sur ocultar según en qué sala está el jugador — llamar en
+   * cada frame con su posición de mundo (x,z); barato, solo recalcula de
+   * verdad cuando cambia de sala (conoVision.ts). */
+  actualizarVisibilidad: (x: number, z: number) => void;
+  /** Luz ambiente por hora del día (docs/Backlog_Mecanicas_Futuras.md,
+   * luzInteriores.ts): llamar en cada frame con la hora de mundo actual
+   * (`tiempoMundo().hora`) — barato, solo asigna `intensity` por sala. */
+  actualizarLuzAmbiente: (hora: number) => void;
+}
+
+export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): InteriorVisual {
   const grupo = new THREE.Group();
   const luces: LuzInterior[] = [];
+  // Cono de visión (conoVision.ts): rectángulo de cada sala en el mismo
+  // orden/índice que se recorren abajo, y qué mesh de pared pertenece a qué
+  // sala/lado — para poder ocultar en bloque las que dan a cámara.
+  const salasRect: SalaRect[] = [];
+  const paredesRegistradas: { mesh: THREE.Mesh; salaIndex: number; lado: Lado }[] = [];
+  // Luz ambiente (luzInteriores.ts): una THREE.PointLight sintética por sala
+  // CON ventana (suma de aporteLuz > 0) — sin ventana, ninguna luz, nunca
+  // luzAmbienteSala>0 así que ni se crea (misma regla que "una sala sin
+  // ventana nunca recibe luz ambiente", GDD_Bakeador_Interiores §7bis).
+  const lucesAmbiente: { luz: THREE.PointLight; sumaAporteLuz: number }[] = [];
   // plantas[0] NO es siempre la planta baja (edificios con bodega) — mismo
   // bug que se corrigió en el servidor, mismo criterio aquí. `nivel` decide
   // qué planta se pinta (0 = planta baja si no se especifica otra).
@@ -153,6 +193,25 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): { gru
 
   for (const sala of salas) {
     const { offsetX, offsetY, resultado } = sala;
+    const salaIndex = salasRect.length;
+    salasRect.push({ offsetX, offsetY, ancho: resultado.ancho, largo: resultado.largo });
+
+    // Luz ambiente de esta sala (luzInteriores.ts): la suma de aporteLuz de
+    // sus ventanas es FIJA (viene del bake), así que la luz se crea una vez
+    // aquí y solo se retoca su `intensity` cada frame (actualizarLuzAmbiente).
+    const sumaAporteLuz = (resultado.ventanas ?? []).reduce((suma, v) => suma + v.aporteLuz, 0);
+    if (sumaAporteLuz > 0) {
+      // Alcance generoso (proporcional al tamaño de la sala, no el fijo de
+      // una antorcha): una luz ambiente debe cubrir la sala entera, no un
+      // círculo de 6 casillas — decay:1 (más suave que las antorchas,
+      // decay:2) para que no se note un "foco" central, más parecido a luz
+      // difusa entrando por la ventana.
+      const luzAmbiente = new THREE.PointLight(0xdfe8f5, 0, Math.max(resultado.ancho, resultado.largo) * 1.3, 1);
+      luzAmbiente.position.set(offsetX + resultado.ancho / 2, ALTO_LUZ_TECHO, offsetY + resultado.largo / 2);
+      grupo.add(luzAmbiente);
+      lucesAmbiente.push({ luz: luzAmbiente, sumaAporteLuz });
+    }
+
     const matSuelo = new THREE.MeshStandardMaterial({ color: colorDeSala(sala.tipoSalaId), roughness: 0.95, metalness: 0 });
     if (resultado.materialSuelo) aplicarTexturaCuandoExista("materiales", resultado.materialSuelo, matSuelo, resultado.ancho, resultado.largo);
     const suelo = new THREE.Mesh(new THREE.BoxGeometry(resultado.ancho, 0.1, resultado.largo), matSuelo);
@@ -164,12 +223,16 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): { gru
     // conexión real (interiores/src/edificio.js) — norte nunca la tiene
     // (las salas de una fila se alinean por el muro sur, GDD_Sistema_Puertas).
     for (let x = offsetX; x < offsetX + resultado.ancho; x++) {
-      añadirSiNoEsPuerta(grupo, geoParedH, matPared, x + 0.5, offsetY, esPuerta(x, offsetY - 1));
-      añadirSiNoEsPuerta(grupo, geoParedH, matPared, x + 0.5, offsetY + resultado.largo, esPuerta(x, offsetY + resultado.largo));
+      registrarPared(paredesRegistradas, salaIndex, "norte",
+        añadirSiNoEsPuerta(grupo, geoParedH, matPared, x + 0.5, offsetY, esPuerta(x, offsetY - 1)));
+      registrarPared(paredesRegistradas, salaIndex, "sur",
+        añadirSiNoEsPuerta(grupo, geoParedH, matPared, x + 0.5, offsetY + resultado.largo, esPuerta(x, offsetY + resultado.largo)));
     }
     for (let y = offsetY; y < offsetY + resultado.largo; y++) {
-      añadirSiNoEsPuerta(grupo, geoParedV, matPared, offsetX, y + 0.5, esPuerta(offsetX - 1, y));
-      añadirSiNoEsPuerta(grupo, geoParedV, matPared, offsetX + resultado.ancho, y + 0.5, esPuerta(offsetX + resultado.ancho, y));
+      registrarPared(paredesRegistradas, salaIndex, "oeste",
+        añadirSiNoEsPuerta(grupo, geoParedV, matPared, offsetX, y + 0.5, esPuerta(offsetX - 1, y)));
+      registrarPared(paredesRegistradas, salaIndex, "este",
+        añadirSiNoEsPuerta(grupo, geoParedV, matPared, offsetX + resultado.ancho, y + 0.5, esPuerta(offsetX + resultado.ancho, y)));
     }
 
     for (const item of resultado.colocados) {
@@ -306,7 +369,42 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): { gru
     grupo.add(caja);
   }
 
-  return { grupo, luces };
+  // Cono de visión: cierre con estado propio (última sala del jugador) para
+  // no recalcular el BFS de conoVision.ts en cada frame, solo al cambiar de
+  // sala — el resto del tiempo es un no-op barato (una comparación).
+  let ultimaSalaJugador = -2; // distinto de -1 (que ya significa "en un hueco") para forzar el primer cálculo
+  function actualizarVisibilidad(x: number, z: number) {
+    const salaIndex = salaEnPosicion(salasRect, x, z);
+    if (salaIndex === ultimaSalaJugador) return;
+    if (salaIndex === -1) return; // en un hueco de puerta/pasillo: mantener el último estado, sin parpadeo
+    ultimaSalaJugador = salaIndex;
+    const visibles = salasVisibles(salasRect, puertas, salaIndex);
+    for (const { mesh, salaIndex: si, lado } of paredesRegistradas) {
+      mesh.visible = !paredOculta(si, lado, visibles);
+    }
+  }
+
+  // Escala la luz ambiente lógica (0..1, luzInteriores.ts) a una intensidad
+  // de THREE.PointLight comparable a una antorcha (INTENSIDAD_LUZ≈1.3) —
+  // a mediodía con ventana grande queda algo más viva que una antorcha
+  // sola, de noche casi a cero (solo el suelo de luna). Simplificación
+  // documentada (docs/GDD_Construccion.md §1ter... GDD_Bakeador_Interiores
+  // §7bis en su actualización): esta luz se SUMA a la de las antorchas en
+  // vez de tomar el máximo de ambas — las antorchas siguen "siempre
+  // encendidas" a su intensidad fija (decisión ya tomada, no se toca aquí)
+  // y esta luz es un relleno adicional, no una sustitución; con la
+  // intensidad de antorcha ya modesta y esta luz acotada a este rango, no
+  // llega a verse "sobre-iluminado" en la práctica, pero no es la fórmula
+  // exacta de "máximo" que describe el backlog — pendiente de afinar si
+  // hiciera falta.
+  const ESCALA_LUZ_AMBIENTE = 2;
+  function actualizarLuzAmbiente(hora: number) {
+    for (const { luz, sumaAporteLuz } of lucesAmbiente) {
+      luz.intensity = luzAmbienteSala(hora, sumaAporteLuz) * ESCALA_LUZ_AMBIENTE;
+    }
+  }
+
+  return { grupo, luces, actualizarVisibilidad, actualizarLuzAmbiente };
 }
 
 // Píxeles de patrón por casilla de mundo (docs/GDD_Bakeador_Texturas.md,
@@ -347,11 +445,22 @@ function añadirSiNoEsPuerta(
   x: number,
   z: number,
   esHueco: boolean,
-) {
-  if (esHueco) return;
+): THREE.Mesh | null {
+  if (esHueco) return null;
   const caja = new THREE.Mesh(geometria, material);
   caja.position.set(x, ALTO_PARED / 2, z);
   grupo.add(caja);
+  return caja;
+}
+
+/** Registra un mesh de pared (si se creó — un hueco de puerta no deja mesh) para el cono de visión (conoVision.ts). */
+function registrarPared(
+  registro: { mesh: THREE.Mesh; salaIndex: number; lado: Lado }[],
+  salaIndex: number,
+  lado: Lado,
+  mesh: THREE.Mesh | null,
+) {
+  if (mesh) registro.push({ mesh, salaIndex, lado });
 }
 
 // Color de suelo estable por tipo de sala (hash simple → tono), para

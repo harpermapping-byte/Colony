@@ -26,6 +26,13 @@ export interface Construible {
   huella: [number, number]; // [ancho, largo] SIN rotar, en casillas
   colorDebug: string;
   colision: boolean;
+  /** Proyecto especial del jarl (docs/Backlog_Mecanicas_Futuras.md): el
+   * SERVIDOR ya rechaza colocarlo si no eres el jarl o no es parcela
+   * especial (mismo motivo que cualquier otra colocación inválida, mostrado
+   * en el panel de estado) — el menú todavía NO lo oculta a un jugador
+   * normal (pendiente de que el cliente sepa si el jugador local es jarl,
+   * ver docs/GDD_Construccion.md §1bis). */
+  proyectoJarl?: boolean;
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -46,6 +53,7 @@ interface EntradaBruta {
   colision?: boolean;
   anchorType?: string;
   construible?: boolean;
+  proyectoJarl?: boolean;
   [k: string]: unknown;
 }
 
@@ -92,6 +100,7 @@ function construirLista(): Construible[] {
       huella: [e.huella[0], e.huella[1]],
       colorDebug: e.colorDebug || COLOR_DESCONOCIDO,
       colision: esColisionable(e),
+      proyectoJarl: e.proyectoJarl,
     });
   }
 
@@ -103,6 +112,7 @@ function construirLista(): Construible[] {
       huella: [e.huellaExterior[0], e.huellaExterior[1]],
       colorDebug: e.colorDebug || COLOR_EDIFICIO,
       colision: true, // un edificio siempre es sólido
+      proyectoJarl: e.proyectoJarl,
     });
   }
 

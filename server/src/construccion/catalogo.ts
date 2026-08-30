@@ -62,6 +62,11 @@ export interface EntradaConstruible {
   produccion?: DatosProduccion;
   /** Solo tipos_edificio.json: colocable SOLO por el jarl vía plantilla:colocar (radio a la capital), NUNCA por "construir" normal — mecanismo paralelo a `construible`, no una variante suya. */
   plantillaJarl?: boolean;
+  /** Proyecto especial del jarl (docs/Backlog_Mecanicas_Futuras.md, "Proyectos especiales del jarl"):
+   * a diferencia de `plantillaJarl`, SIGUE viviendo en el "construir" normal de parcela (mismo Map,
+   * genera interior igual que cualquier edificio) — solo que `validarColocacion` exige además ser el
+   * jarl, que la parcela sea `tipo:"especial"` (docs/GDD_Ciudad_Capital.md §3), y tope de 1 por asentamiento. */
+  proyectoJarl?: boolean;
   /** Red motriz (docs/GDD_Motriz.md) — presente en molino/eje/palancas/mesas de profesión conectables. */
   energia?: EntradaEnergia;
   /** Actividad diaria de atributo (docs/GDD_Personaje.md §3.5) — presente en pesas/diana/atril: acercarse y mandar `actividad:realizar` otorga `xp` de `atributo`, una vez por día de mundo. */
@@ -93,6 +98,7 @@ interface EntradaExterior {
   produccion?: DatosProduccion;
   energia?: EntradaEnergia;
   actividadAtributo?: EntradaActividadAtributo;
+  proyectoJarl?: boolean;
 }
 
 interface EntradaTipoEdificio {
@@ -101,6 +107,7 @@ interface EntradaTipoEdificio {
   variantes?: number;
   produccion?: DatosProduccion;
   plantillaJarl?: boolean;
+  proyectoJarl?: boolean;
   energia?: EntradaEnergia;
 }
 
@@ -147,6 +154,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       produccion: d.produccion,
       energia: d.energia,
       actividadAtributo: d.actividadAtributo,
+      proyectoJarl: d.proyectoJarl,
     });
   }
 
@@ -165,6 +173,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       colision: true, // un edificio siempre bloquea su solar (se entra por portal, futuro)
       variantes: d.variantes ?? 1,
       energia: d.energia,
+      proyectoJarl: d.proyectoJarl,
     });
   }
 
