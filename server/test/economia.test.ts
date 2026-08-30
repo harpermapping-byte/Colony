@@ -3,7 +3,7 @@
 // en compras/alquileres de propiedad, y venta de un ítem a un NPC.
 import { test } from "node:test";
 import * as assert from "node:assert";
-import { AlmacenDatosSqlite as AlmacenDatos, SALDO_INICIAL_JUGADOR, SALDO_INICIAL_NPC_COMERCIANTE, saldoInicialPara } from "../src/datos/bd";
+import { AlmacenDatosSqlite as AlmacenDatos, SALDO_INICIAL_JUGADOR, SALDO_INICIAL_NPC_COMERCIANTE, INGRESO_DIARIO_NPC, saldoInicialPara } from "../src/datos/bd";
 
 function conJarl<T>(nombres: string, fn: () => Promise<T>): Promise<T> {
   const anterior = process.env.JARL_NOMBRES;
@@ -117,5 +117,52 @@ test("venderANpc: el saldo inicial del NPC (500) solo se aplica la PRIMERA vez, 
   await bd.venderANpc({ npcNombre: "npc:rio-3|tendero_2", itemId: "lana", cantidad: 1, precioUnitario: 1, vendedorNombre: "Bjorn" });
   const npc = await bd.obtenerOCrearJugador("npc:rio-3|tendero_2");
   assert.strictEqual(npc.farycoins, SALDO_INICIAL_NPC_COMERCIANTE - 2 - 1, "no se reinicia a 500 en cada llamada");
+  await bd.cerrar();
+});
+
+// --- Ingreso diario del NPC (pedido 2026-08-30: "los npc cada día reciben 20 Farycoins también") ---
+
+test("resolverIngresoDiarioNpc: la primera vez que se ve al NPC no da nada retroactivo, solo fija el día de partida", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const r = await bd.resolverIngresoDiarioNpc("npc:rio-3|tendero_a", 10);
+  assert.strictEqual(r.diasAcreditados, 0);
+  assert.strictEqual(r.saldo, SALDO_INICIAL_NPC_COMERCIANTE, "nace con el saldo inicial, sin ingreso extra el primer día");
+  await bd.cerrar();
+});
+
+test("resolverIngresoDiarioNpc: mismo día, no acredita nada de más", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.resolverIngresoDiarioNpc("npc:rio-3|tendero_b", 10);
+  const r = await bd.resolverIngresoDiarioNpc("npc:rio-3|tendero_b", 10);
+  assert.strictEqual(r.diasAcreditados, 0);
+  assert.strictEqual(r.saldo, SALDO_INICIAL_NPC_COMERCIANTE);
+  await bd.cerrar();
+});
+
+test("resolverIngresoDiarioNpc: un día después, acredita INGRESO_DIARIO_NPC (20) una vez", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.resolverIngresoDiarioNpc("npc:rio-3|tendero_c", 10);
+  const r = await bd.resolverIngresoDiarioNpc("npc:rio-3|tendero_c", 11);
+  assert.strictEqual(r.diasAcreditados, 1);
+  assert.strictEqual(r.saldo, SALDO_INICIAL_NPC_COMERCIANTE + INGRESO_DIARIO_NPC);
+  await bd.cerrar();
+});
+
+test("resolverIngresoDiarioNpc: se pone al día de golpe si nadie lo visitó en varios días (cálculo perezoso, sin tick de fondo)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.resolverIngresoDiarioNpc("npc:rio-3|tendero_d", 10);
+  const r = await bd.resolverIngresoDiarioNpc("npc:rio-3|tendero_d", 17); // 7 días sin que nadie se acercara
+  assert.strictEqual(r.diasAcreditados, 7);
+  assert.strictEqual(r.saldo, SALDO_INICIAL_NPC_COMERCIANTE + 7 * INGRESO_DIARIO_NPC);
+  await bd.cerrar();
+});
+
+test("resolverIngresoDiarioNpc: tras acreditar, el mismo día no vuelve a dar de más (idempotente)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.resolverIngresoDiarioNpc("npc:rio-3|tendero_e", 10);
+  await bd.resolverIngresoDiarioNpc("npc:rio-3|tendero_e", 12);
+  const r = await bd.resolverIngresoDiarioNpc("npc:rio-3|tendero_e", 12);
+  assert.strictEqual(r.diasAcreditados, 0);
+  assert.strictEqual(r.saldo, SALDO_INICIAL_NPC_COMERCIANTE + 2 * INGRESO_DIARIO_NPC);
   await bd.cerrar();
 });
