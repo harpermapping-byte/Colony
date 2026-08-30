@@ -22,9 +22,18 @@ export interface RecetaCrafteo {
   mesas: string[];
   nivelMinimo: number;
   /**
-   * Plano requerido (docs/GDD_Crafteo.md §7: cómo se consigue un plano
-   * sigue sin diseñar/implementar) — campo aditivo ya en el schema para
-   * cuando exista ese mecanismo; v1 NO lo comprueba (ver validarCrafteo).
+   * Plano requerido (docs/GDD_Crafteo.md §7bis, pedido 2026-08-30: "los
+   * planos nuevos los vinculamos a mesas, si construyo una mesa mejor
+   * tengo más y mejores blueprints") — id de una CONSTRUCCIÓN (mesa/mejora
+   * de mesa avanzada, `EntradaConstruible`) que debe existir YA levantada
+   * en el asentamiento para poder intentar esta receta; ausente = plano
+   * "básico", cualquiera con la mesa normal puede intentarla desde el
+   * arranque. Comprobado en RoomExteriorBase.manejarCrafteoIniciar contra
+   * `ctx.vivas` — MISMO mecanismo/código que `edificioRequerido` de abajo
+   * (existencia en el asentamiento); aquí el requisito típico es una mesa
+   * de tier más alto, no un edificio especial aparte. `validarCrafteo`
+   * (puro, sin ContextoConstruccion) sigue sin comprobarlo, igual que
+   * edificioRequerido.
    */
   planoRequerido?: string;
   /**
@@ -40,6 +49,14 @@ export interface RecetaCrafteo {
   insumos: { itemId: string; cantidad: number }[];
   resultado: { itemId: string; cantidad: number };
   tiempoBaseSeg: number;
+  /**
+   * XP de oficio otorgada al RECOGER esta receta (docs/GDD_Crafteo.md §7bis,
+   * pedido 2026-08-30: "por cada crafteo de esa blueprint asigna tú la
+   * cantidad de xp que da"). Ausente = usa el valor global de siempre
+   * (`XP_POR_CRAFTEO` en RoomExteriorBase.ts), para no obligar a rellenar
+   * este campo en TODAS las recetas ya existentes de golpe.
+   */
+  xpOtorgada?: number;
 }
 
 export type ResultadoValidacionCrafteo = { ok: true } | { ok: false; motivo: string };

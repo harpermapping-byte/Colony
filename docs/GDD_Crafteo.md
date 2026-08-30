@@ -111,9 +111,20 @@ CREATE TABLE IF NOT EXISTS jugador_oficios (
 
 Nivel = función pura de XP (tabla de umbrales, ej. nivel 1=0xp, 2=100xp, 3=300xp...) — no se persiste el nivel en sí, se deriva, mismo espíritu que "nunca dupliques una fuente de verdad". XP sube al completar un crafteo activo (§5) — el refinamiento pasivo (§4) NO da XP (es automatizado, no es "el jugador practicando el oficio").
 
+## 7bis. Planos ligados a mesas + niveles de oficio (pedido 2026-08-30)
+
+Cierra varias de las preguntas abiertas de §7 (versión anterior de este documento). Confirmado por el streamer:
+
+- *"los planos nuevos los vinculamos a mesas, si construyo nueva mesa mejor tengo mejores y más planos o blueprint, eso con cada oficio, empiezan con blueprints básicos"* — `RecetaCrafteo.planoRequerido?: string` (el campo ya existía en el schema, v1 lo dejaba sin comprobar) pasa a validarse de VERDAD: si una receta lo declara, exige que ESA construcción (típicamente una mesa de tier avanzado, un `EntradaConstruible`) exista YA levantada en el asentamiento — **exactamente el mismo mecanismo y el mismo código** que `edificioRequerido` (existencia en `ctx.vivas`, comprobado en `RoomExteriorBase.manejarCrafteoIniciar`, NO en `validarCrafteo` que sigue pura). No hay un "plano" persistido por jugador: el desbloqueo es "la mesa avanzada existe en el asentamiento", coherente con "si construyo una mesa mejor, tengo más planos" — construirla es lo que los desbloquea, para todo el asentamiento. Ausente = plano básico, cualquiera con la mesa normal puede intentar la receta desde el arranque ("empiezan con blueprints básicos").
+- *"los niveles de oficio permiten poder usar mejores mesas, construir o poner las mejoras de mesa"* — nuevo campo `EntradaConstruible.nivelOficioMinimo?: { oficio, nivel }` (mesas en `interiores/catalogo/elementos.json`, o piezas exteriores en `exteriores.json`): al intentar `construir` esa pieza, `RoomExteriorBase.ts` comprueba `nivelDeXp(xpOficio) >= nivel` (mismo `obtenerXpOficio`/`nivelDeXp` que ya usa el resto de crafteo) ANTES de dejar colocarla — gatea tanto construir una mesa de tier alto como poner una mejora de mesa suelta, con el mismo campo (una "mejora" es, mecánicamente, otra pieza más de `EntradaConstruible`). Ausente = cualquiera construye (comportamiento de siempre, la inmensa mayoría de construibles).
+  - "Tener alguna blueprint exclusiva por nivel" ya estaba cubierto por `RecetaCrafteo.nivelMinimo`, que `validarCrafteo` YA comprobaba desde antes de esta pasada — no hizo falta código nuevo, solo asignar el número en la receta cuando toque.
+- *"por cada crafteo de esa blueprint asigna tú la cantidad de xp que da para subir nivel de oficio"* — `RecetaCrafteo.xpOtorgada?: number`, usado en `manejarCrafteoRecolectar` (`receta.xpOtorgada ?? XP_POR_CRAFTEO`) — ausente = cae al valor global de siempre, para no obligar a rellenar TODAS las recetas existentes de golpe.
+
+**Sigue como contenido pendiente, no mecanismo** (pedido literal: *"las asignas tú y si no deja apuntado asignarlas a futuro"*): qué mesas concretas llevan `nivelOficioMinimo`, qué recetas llevan `planoRequerido`/`xpOtorgada` y con qué valores — es trabajo de catálogo oficio a oficio, igual que el resto de §7. El mecanismo de los tres campos está completo y probado (tsc + suite 785/785); les falta contenido real, no código.
+
 ## 7. Fuera de alcance de esta propuesta (pendiente, oficio a oficio)
 
 - Las recetas/planos concretos de cada oficio — esto solo fija el CONTRATO, no rellena los ~38 oficios.
-- Cómo se consigue un plano nuevo (comprado/encontrado/enseñado por NPC) — sigue abierto en el Backlog, sin decidir.
-- Umbrales exactos de XP por nivel, y cuánto XP da cada receta — placeholders a afinar como el resto de números de balance del proyecto.
+- ~~Cómo se consigue un plano nuevo~~ — **resuelto (2026-08-30), ver §7bis: ligado a construir la mesa correspondiente, no a un desbloqueo por jugador.**
+- Umbrales exactos de XP por nivel, y cuánto XP da cada receta — placeholders a afinar como el resto de números de balance del proyecto (`xpOtorgada` por receta ya es asignable desde §7bis, falta rellenarlo).
 - Si un personaje puede tener varios oficios a la vez o hay que especializarse — sigue abierto en el Backlog.

@@ -17,7 +17,7 @@ Campo por-room en `RoomExteriorBase` (`protected`, `false` por defecto — cualq
 
 La zona segura **siempre gana** al interruptor global, tenga el jarl el PvP activado o no: la condición real es `pvpGlobalHabilitado() && !esZonaSeguraPropia`.
 
-> Interpretación explícita más allá de la letra del pedido ("todas menos la ciudad capital y alrededores"): el Hub también se trata como zona segura, al ser el pueblo persistente central. A confirmar con el streamer si debería ser PvP como cualquier otra región.
+**Confirmado por el streamer (2026-08-30): "el hub es zona segura"** — la interpretación de arriba queda cerrada, no era solo una lectura propia.
 
 ## 3. Combate PvP (`manejarCombateIniciar`)
 
@@ -25,7 +25,13 @@ Mismo sistema de combate táctico por turnos ya existente (`docs/GDD_Combate.md`
 
 Cliente: `objetivoHostilMasCercano()` (tecla C) ahora también recorre `room.state.players` (excluyendo al propio) con el mismo criterio de auto-apuntado sin UI que fauna/enemigos — si el servidor rechaza, el jugador simplemente no entra en combate.
 
-## 4. Decisiones a confirmar con el streamer
+## 4. Decisiones confirmadas por el streamer (2026-08-30)
 
-- Hub tratado como zona segura además de la capital (ver §2) — no estaba en la letra literal del pedido.
-- Sin límite geográfico fino ("alrededores de la ciudad capital"): la zona segura es la REGIÓN entera con `tier: "capital_jarl"`, no un radio alrededor de la muralla.
+- ~~Hub tratado como zona segura~~ — **confirmado, ver §2: el Hub SÍ es zona segura, como cualquier región normal.**
+- Sin límite geográfico fino ("alrededores de la ciudad capital"): la zona segura es la REGIÓN entera con `tier: "capital_jarl"`, no un radio alrededor de la muralla — sigue así, sin objeción del streamer.
+
+## 5. PvP entre facciones (futuro, pedido 2026-08-30) — diseño confirmado, sin construir todavía
+
+Confirmado por el streamer: *"el pvp solo será en un futuro contra otras facciones, quiero decir, cada jarl y cada mapa es una facción; cuando se genere otra, esa será otra facción en otro mapa, y con esa sí funcionará el pvp, mismo tipo de combate"*.
+
+Lectura: el PvP dentro de UN MISMO mapa/jarl (lo que implementa este documento, §1-3) queda como está — el jarl lo activa/desactiva para SU propio mundo, Hub y capital siempre a salvo. El PvP contra otra FACCIÓN (otro jarl, en OTRO mapa exterior de producción — hoy el proyecto solo tiene `assets/mapas/principal/`, ver `docs/GDD_Barcos.md` §8 "bake de un segundo mapa exterior") reusaría el MISMO sistema de combate táctico (`docs/GDD_Combate.md`, §3 de este documento) contra jugadores de la otra facción, en vez de contra fauna/enemigo/NPC/jugador-mismo-mapa. No hay código que construir todavía — depende de que exista un segundo mapa/servidor con su propio jarl, que sigue sin bakearse (decisión del streamer, no bloqueada por diseño). Anotado aquí para no perder la decisión cuando llegue ese momento.

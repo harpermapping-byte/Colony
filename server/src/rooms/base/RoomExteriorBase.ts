@@ -1855,6 +1855,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         if (!veredicto.ok) return this.errorConstruir(client, veredicto.motivo);
         const propiedadId = veredicto.parcelaId;
 
+        // Crafteo (docs/GDD_Crafteo.md §7bis, pedido 2026-08-30): "los
+        // niveles de oficio permiten... construir o poner las mejoras de
+        // mesa" — mesas de tier avanzado y mejoras exigen nivel de oficio,
+        // no solo poder pagarlas (aquí es gratis como el resto, ver
+        // requiereItemColocar más abajo para lo que sí cuesta materiales).
+        if (entrada.nivelOficioMinimo) {
+          const jugadorNivel = await bd.obtenerOCrearJugador(nombre);
+          const xpNivel = await bd.obtenerXpOficio(jugadorNivel.id, entrada.nivelOficioMinimo.oficio);
+          if (nivelDeXp(xpNivel) < entrada.nivelOficioMinimo.nivel) {
+            return this.errorConstruir(client, `necesitas nivel ${entrada.nivelOficioMinimo.nivel} de ${entrada.nivelOficioMinimo.oficio} para construir esto`);
+          }
+        }
+
         // Cocina v2 (docs/GDD_Cocina.md): algunas piezas nuevas (olla_grande,
         // cuenco_barro_grande, tinaja_batidos, recipiente_queso,
         // estructura_palos) exigen tener el ítem craftado correspondiente en
@@ -5090,6 +5103,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (!existe) return this.errorCrafteo(client, `hace falta un ${receta.edificioRequerido} construido en el asentamiento`);
     }
 
+    // Planos (docs/GDD_Crafteo.md §7bis, pedido 2026-08-30): MISMO chequeo
+    // de existencia que edificioRequerido — típicamente una mesa de tier
+    // avanzado, no un edificio especial aparte. "Construir mesa mejor da
+    // más/mejores blueprints" queda satisfecho: el plano se desbloquea con
+    // que la mesa exista en el asentamiento, sin un desbloqueo aparte por jugador.
+    if (receta.planoRequerido) {
+      let existePlano = false;
+      for (const v of ctx.vivas.values()) {
+        if (v.objeto === receta.planoRequerido) { existePlano = true; break; }
+      }
+      if (!existePlano) return this.errorCrafteo(client, `hace falta un ${receta.planoRequerido} construido en el asentamiento`);
+    }
+
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const xp = await bd.obtenerXpOficio(jugador.id, receta.oficio);
@@ -5146,7 +5172,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
-    const nuevaXp = await bd.sumarXpOficio(jugador.id, receta.oficio, XP_POR_CRAFTEO);
+    // XP por blueprint (docs/GDD_Crafteo.md §7bis, pedido 2026-08-30): cada
+    // receta puede asignar SU PROPIA XP (`xpOtorgada`) — ausente = cae al
+    // global de siempre, para no tener que rellenar TODAS las recetas de golpe.
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, receta.oficio, receta.xpOtorgada ?? XP_POR_CRAFTEO);
     // Inteligencia (docs/GDD_Personaje.md): completar un crafteo entrena tanto el oficio como el atributo general.
     await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
     client.send("crafteo:completado", {

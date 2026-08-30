@@ -120,6 +120,16 @@ export interface EntradaConstruible {
    * del juego (que hoy sigue gratis, sin excepción, fuera de estas piezas).
    */
   requiereItemColocar?: string;
+  /**
+   * Crafteo (docs/GDD_Crafteo.md §7bis, pedido 2026-08-30: "los niveles de
+   * oficio permiten poder usar mejores mesas, construir o poner las mejoras
+   * de mesa") — presente en mesas de tier avanzado y en mejoras de mesa
+   * sueltas: exige tener ese nivel del oficio (XP derivada, mismo
+   * `nivelDeXp`/`obtenerXpOficio` que el resto de crafteo) para PONERLA,
+   * no solo para craftear en ella. Ausente = cualquiera puede construirla
+   * (comportamiento de siempre, la inmensa mayoría de construibles).
+   */
+  nivelOficioMinimo?: { oficio: string; nivel: number };
 }
 
 export interface EntradaActividadAtributo {
@@ -171,6 +181,7 @@ interface EntradaElemento {
   energia?: EntradaEnergia;
   actividadAtributo?: EntradaActividadAtributo;
   esCama?: boolean;
+  nivelOficioMinimo?: { oficio: string; nivel: number };
 }
 
 interface EntradaExterior {
@@ -190,6 +201,7 @@ interface EntradaExterior {
   refugioGranja?: EntradaRefugioGranja;
   requiereConstruibleAdyacente?: string | string[];
   requiereItemColocar?: string;
+  nivelOficioMinimo?: { oficio: string; nivel: number };
 }
 
 interface EntradaTipoEdificio {
@@ -229,6 +241,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       energia: d.energia,
       actividadAtributo: d.actividadAtributo,
       esCama: d.esCama,
+      nivelOficioMinimo: d.nivelOficioMinimo,
     });
   }
 
@@ -255,6 +268,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       refugioGranja: d.refugioGranja,
       requiereConstruibleAdyacente: d.requiereConstruibleAdyacente,
       requiereItemColocar: d.requiereItemColocar,
+      nivelOficioMinimo: d.nivelOficioMinimo,
     });
   }
 
