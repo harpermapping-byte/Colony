@@ -27,6 +27,16 @@ export interface RecetaCrafteo {
    * cuando exista ese mecanismo; v1 NO lo comprueba (ver validarCrafteo).
    */
   planoRequerido?: string;
+  /**
+   * Docs/GDD_Barcos.md (pedido 2026-08-30): id de EntradaConstruible que debe
+   * existir YA levantado en el asentamiento actual (p.ej. "astillero", el
+   * proyecto especial del jarl) para poder intentar esta receta — además de
+   * estar en la mesa correcta. Comprobado en RoomExteriorBase.ts:
+   * manejarCrafteoIniciar() contra `ctx.vivas` (mismo criterio que el tope
+   * "1 por asentamiento" de proyectoJarl en construccion.ts), NO aquí — esta
+   * función se mantiene pura, sin ContextoConstruccion.
+   */
+  edificioRequerido?: string;
   insumos: { itemId: string; cantidad: number }[];
   resultado: { itemId: string; cantidad: number };
   tiempoBaseSeg: number;

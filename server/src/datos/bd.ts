@@ -338,6 +338,27 @@ export interface Mascota {
 }
 
 /**
+ * Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): crafteado en el astillero,
+ * "colocado" junto al agua (barco:colocar, consume el ítem) — a partir de
+ * ahí vive anclado en el mundo, NUNCA en el inventario. `mapaId` es la
+ * carpeta bajo assets/mapas/ que lo ancla (qué HubRoom lo carga en
+ * onCreate); cruzar a un mapa vecino por un borde `mar_abierto` actualiza
+ * `mapaId`+x,y al spawn del mapa destino (mismo registro, no se recrea).
+ * Sin dueño real de "quién puede subir" — cualquiera puede embarcar si hay
+ * hueco (ver RoomExteriorBase.ts:manejarBarcoMontar), jugadorId es solo
+ * quién lo crafteó/colocó.
+ */
+export interface Barco {
+  id: number;
+  jugadorId: number;
+  tipoId: string;
+  mapaId: string;
+  x: number;
+  y: number;
+  creadoEn: string;
+}
+
+/**
  * Especie híbrida creada por injerto (docs/GDD_Agricultura.md §4, diseño
  * ya cerrado en Backlog_Mecanicas_Futuras.md) — permanente, sobrevive a un
  * reinicio del servidor. `semillaId`/`cosechaId` son los itemId sintéticos
@@ -586,6 +607,12 @@ export interface IAlmacenDatos {
   actualizarUbicacionMascota(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean>;
   /** docs/GDD_Monturas.md — marca `montura:true` permanentemente (mismo compare-and-swap por jugadorId que actualizarUbicacionMascota). */
   ponerMonturaMascota(id: number, jugadorId: number): Promise<boolean>;
+  // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — nace anclado donde se coloca (barco:colocar).
+  crearBarco(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number): Promise<Barco>;
+  /** Todos los barcos anclados en ESE mapa — HubRoom los carga a state.barcos en onCreate. */
+  listarBarcosDe(mapaId: string): Promise<Barco[]>;
+  /** Se llama al desembarcar (ancla donde quedó) y al cruzar de mapa (ancla en el spawn del destino). */
+  actualizarPosicionBarco(id: number, mapaId: string, x: number, y: number): Promise<void>;
   // Flags globales (docs/GDD_PvP.md, pedido 2026-08-30) — tabla genérica de un solo valor por clave.
   obtenerConfigMundo(clave: string): Promise<string | null>;
   fijarConfigMundo(clave: string, valor: string): Promise<void>;
@@ -726,6 +753,18 @@ CREATE TABLE IF NOT EXISTS mascotas (
   propiedad_id TEXT,
   creado_en TEXT NOT NULL,
   montura INTEGER NOT NULL DEFAULT 0
+);
+-- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): crafteado en el astillero
+-- y "colocado" junto al agua — ancla en el mundo (mapa_id+x+y), nunca vuelve
+-- al inventario. mapa_id cambia al cruzar un borde mar_abierto a otro mapa.
+CREATE TABLE IF NOT EXISTS barcos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  jugador_id INTEGER NOT NULL,
+  tipo_id TEXT NOT NULL,
+  mapa_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  creado_en TEXT NOT NULL
 );
 -- Flags globales de un solo valor (pedido 2026-08-30: PvP apagado por
 -- defecto, el jarl lo activa) — genérica a propósito, cualquier futuro
@@ -1023,6 +1062,15 @@ CREATE TABLE IF NOT EXISTS mascotas (
   montura BOOLEAN NOT NULL DEFAULT FALSE
 );
 ALTER TABLE mascotas ADD COLUMN IF NOT EXISTS montura BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE TABLE IF NOT EXISTS barcos (
+  id SERIAL PRIMARY KEY,
+  jugador_id INTEGER NOT NULL,
+  tipo_id TEXT NOT NULL,
+  mapa_id TEXT NOT NULL,
+  x DOUBLE PRECISION NOT NULL,
+  y DOUBLE PRECISION NOT NULL,
+  creado_en TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS configuracion_mundo (
   clave TEXT PRIMARY KEY,
   valor TEXT NOT NULL
@@ -1291,6 +1339,19 @@ function filaAMascota(f: any): Mascota {
     propiedadId: f.propiedad_id === null || f.propiedad_id === undefined ? null : String(f.propiedad_id),
     creadoEn: String(f.creado_en),
     montura: !!f.montura,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaABarco(f: any): Barco {
+  return {
+    id: Number(f.id),
+    jugadorId: Number(f.jugador_id),
+    tipoId: String(f.tipo_id),
+    mapaId: String(f.mapa_id),
+    x: Number(f.x),
+    y: Number(f.y),
+    creadoEn: String(f.creado_en),
   };
 }
 
@@ -2334,6 +2395,23 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return Number(r.changes) > 0;
   }
 
+  async crearBarco(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number): Promise<Barco> {
+    const ahora = new Date().toISOString();
+    const r = this.bd
+      .prepare("INSERT INTO barcos (jugador_id, tipo_id, mapa_id, x, y, creado_en) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(jugadorId, tipoId, mapaId, x, y, ahora);
+    return { id: Number(r.lastInsertRowid), jugadorId, tipoId, mapaId, x, y, creadoEn: ahora };
+  }
+
+  async listarBarcosDe(mapaId: string): Promise<Barco[]> {
+    const filas = this.bd.prepare("SELECT id, jugador_id, tipo_id, mapa_id, x, y, creado_en FROM barcos WHERE mapa_id = ?").all(mapaId);
+    return filas.map(filaABarco);
+  }
+
+  async actualizarPosicionBarco(id: number, mapaId: string, x: number, y: number): Promise<void> {
+    this.bd.prepare("UPDATE barcos SET mapa_id = ?, x = ?, y = ? WHERE id = ?").run(mapaId, x, y, id);
+  }
+
   async obtenerConfigMundo(clave: string): Promise<string | null> {
     const fila = this.bd.prepare("SELECT valor FROM configuracion_mundo WHERE clave = ?").get(clave);
     return fila ? String(fila.valor) : null;
@@ -3330,6 +3408,27 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       [id, jugadorId],
     );
     return (r.rowCount ?? 0) > 0;
+  }
+
+  async crearBarco(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number): Promise<Barco> {
+    const ahora = new Date().toISOString();
+    const r = await this.pool.query<{ id: number }>(
+      "INSERT INTO barcos (jugador_id, tipo_id, mapa_id, x, y, creado_en) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+      [jugadorId, tipoId, mapaId, x, y, ahora],
+    );
+    return { id: r.rows[0].id, jugadorId, tipoId, mapaId, x, y, creadoEn: ahora };
+  }
+
+  async listarBarcosDe(mapaId: string): Promise<Barco[]> {
+    const r = await this.pool.query(
+      "SELECT id, jugador_id, tipo_id, mapa_id, x, y, creado_en FROM barcos WHERE mapa_id = $1",
+      [mapaId],
+    );
+    return r.rows.map(filaABarco);
+  }
+
+  async actualizarPosicionBarco(id: number, mapaId: string, x: number, y: number): Promise<void> {
+    await this.pool.query("UPDATE barcos SET mapa_id = $1, x = $2, y = $3 WHERE id = $4", [mapaId, x, y, id]);
   }
 
   async obtenerConfigMundo(clave: string): Promise<string | null> {

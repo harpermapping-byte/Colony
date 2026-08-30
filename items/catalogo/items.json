@@ -25,7 +25,10 @@
     "desgastePorUso": "server/src/inventario/desgaste.ts:registrarUso() — resta durabilidad por uso directo; sin Room que lo invoque todavía",
     "municionId": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md: liga un arma a distancia (arco/ballesta/honda) con el id de items/catalogo/items.json (tipo 'municion') que consume al disparar.",
     "comidaMascota": "server/src/rooms/base/RoomExteriorBase.ts:manejarMascotaDarComida() — marca qué ítems sirven para alimentar un animal domesticable (docs/GDD_Mascotas.md); DIETA-CONSCIENTE desde docs/GDD_Monturas.md (2026-08-30): solo cuenta si además `origenCocina` encaja con la `dieta` real de la especie (carnivoro→'animal', herbivoro/omnivoro→'vegetal' o sin origenCocina) — las 4 carnes + 3 pescados + racion_viaje (carnívoros) y baya/fruta/fruto_seco/trigo/zanahoria (herbívoros/omnívoros)",
-    "esMontura": "server/src/rooms/base/RoomExteriorBase.ts:manejarMascotaPonerMontura() — se consume sobre una mascota YA domesticada y `montable` (personajes/catalogo/animales_rig.json) para marcarla `montura:true` (docs/GDD_Monturas.md) y poder subirse con `mascota:montar`"
+    "esMontura": "server/src/rooms/base/RoomExteriorBase.ts:manejarMascotaPonerMontura() — se consume sobre una mascota YA domesticada y `montable` (personajes/catalogo/animales_rig.json) para marcarla `montura:true` (docs/GDD_Monturas.md) y poder subirse con `mascota:montar`",
+    "esBarco": "server/src/mundo/catalogoBarcos.ts + server/src/rooms/base/RoomExteriorBase.ts:manejarBarcoColocar() — marca qué ítems son barcos colocables junto al agua (docs/GDD_Barcos.md)",
+    "plazas": "server/src/mundo/catalogoBarcos.ts — nº máximo de ocupantes simultáneos de este barco (1 capitán que pilota + el resto pasajeros)",
+    "velocidadBarco": "server/src/mundo/catalogoBarcos.ts + RoomExteriorBase.ts:actualizarMovimiento() — casillas/seg mientras el capitán lo pilota, SOLO sobre agua"
   },
   "hierro": {
     "tipo": "recurso",
@@ -858,6 +861,54 @@
     "colorDebug": "#5a3a20",
     "esMontura": true,
     "_nota": "docs/GDD_Monturas.md — NO se equipa en el jugador (no tiene slotEquipo): se usa sobre una mascota propia YA domesticada y `montable` en su catálogo de rig (mascota:ponerMontura), consumiéndose para marcarla montura:true de forma permanente."
+  },
+  "barco_1": {
+    "tipo": "objeto",
+    "huella": [3, 1],
+    "peso": 25,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#5a3a20",
+    "esBarco": true,
+    "plazas": 1,
+    "velocidadBarco": 6,
+    "_nota": "docs/GDD_Barcos.md (pedido 2026-08-30) — NO se equipa (sin slotEquipo): se coloca junto al agua con barco:colocar (consumiéndose), y ahí se monta/desmonta como una montura de agua (barco:montar/barco:desmontar), fusionando jugador+barco, solo sobre agua."
+  },
+  "barco_2": {
+    "tipo": "objeto",
+    "huella": [4, 1],
+    "peso": 40,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#5a3a20",
+    "esBarco": true,
+    "plazas": 2,
+    "velocidadBarco": 6.5,
+    "_nota": "docs/GDD_Barcos.md — mismo mecanismo que barco_1, 2 plazas (1 capitán + 1 pasajero)."
+  },
+  "barco_3": {
+    "tipo": "objeto",
+    "huella": [5, 1],
+    "peso": 55,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#5a3a20",
+    "esBarco": true,
+    "plazas": 3,
+    "velocidadBarco": 7,
+    "_nota": "docs/GDD_Barcos.md — mismo mecanismo que barco_1, 3 plazas (1 capitán + 2 pasajeros)."
+  },
+  "barco_4": {
+    "tipo": "objeto",
+    "huella": [6, 1],
+    "peso": 70,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#5a3a20",
+    "esBarco": true,
+    "plazas": 4,
+    "velocidadBarco": 7.5,
+    "_nota": "docs/GDD_Barcos.md — mismo mecanismo que barco_1, 4 plazas (1 capitán + 3 pasajeros), el mayor de los 4 iniciales."
   },
   "mochila_cuero": {
     "tipo": "equipable",

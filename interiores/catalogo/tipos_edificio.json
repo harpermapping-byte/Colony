@@ -2068,6 +2068,9 @@
   },
   "astillero": {
     "riqueza": "modesta",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [8, 7],
     "tieneBodega": false,
     "rangoPlantasAltas": [
       0,
@@ -2089,7 +2092,7 @@
       "madera"
     ],
     "temaTaller": "carpintero_ribera",
-    "_nota": "docs/GDD_Profesiones.md — conecta con 'Puerto/Muelle Comunal' del backlog (aún sin diseñar); el edificio en sí no depende de ese diseño."
+    "_nota": "docs/GDD_Profesiones.md — conecta con 'Puerto/Muelle Comunal' del backlog (aún sin diseñar); el edificio en sí no depende de ese diseño. Proyecto especial del jarl 14/14, el último que quedaba (docs/GDD_Barcos.md, pedido 2026-08-30): 'el taller de barcos' que exige el streamer — solo el jarl lo levanta (proyectoJarl, tope 1 por asentamiento), y solo con uno real construido se puede craftear un barco (edificioRequerido en items/catalogo/recetas.json). Su 'taller' ya trae mesa_calafateo+banco_carpintero_ribera (isMandatory, interiores/catalogo/elementos.json) — esas dos mesas son las que usan las recetas de barco, sin mueble nuevo que inventar."
   },
   "fundicion": {
     "riqueza": "modesta",

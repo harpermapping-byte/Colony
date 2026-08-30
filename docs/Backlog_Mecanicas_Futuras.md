@@ -95,7 +95,7 @@ Además de las parcelas normales de cada jugador, el **jarl/admin** de un asenta
 - **Ayuntamiento / Salón del Jarl** — sede de gestión: ver impuestos/renta (ya diseñado como v2 en `GDD_Construccion.md` §7) y asignar/revocar parcelas desde dentro del juego en vez de solo la herramienta admin — cierra directamente el pendiente "Jarl en juego pintando parcelas" de `GDD_Construccion.md` §8.
 - **Cuartel de la Guardia Comunal** — entrena/aloja guardias del asentamiento para su propia defensa. Simétrico exacto al `campamento_hostil` de la facción bandida pero del lado del jugador — ata a "Facciones y la ciudad enemiga" y al sistema de combate, ya HECHO (ver arriba) — falta solo el edificio/guardias en sí.
 - **Academia Arcana / Torre de Magos** — comunal, magos del asentamiento crean objetos/hechizos únicos. Mismo patrón que Gran Herrería pero para Ataque/Defensa mágica (ya en los atributos de personaje que definió el streamer) — hoy no hay ninguna estructura que use esa parte de las estadísticas; esta la cubriría.
-- **Puerto/Muelle Comunal** — construir/reparar barcos y pesca a mayor escala que la individual. Ata a "Barcos y navegación marítima" (sin diseñar) y "Pesca" (ya HECHA, más abajo).
+- **Puerto/Muelle Comunal** — construir/reparar barcos y pesca a mayor escala que la individual. Ata a "Barcos y navegación marítima" (HECHO en lo individual, ver más abajo — esto sería la gestión comunal, del edificio `capitania_puerto` que sigue sin diseñar) y "Pesca" (ya HECHA, más abajo).
 - **Gran Biblioteca/Archivo** — enseña planos/recetas raras que no se consiguen comprando. Ata directo a la pregunta abierta de "Roles/profesiones y crafteo por planos" (¿cómo se consigue un plano nuevo?) y a "Aprendizaje de recetas por relación con NPC" (ideas propias).
 
 **Pendiente de decidir cuando toque**: el coste de material/tiempo de cada uno (probablemente escalonado, el Taller de Asedio y la Gran Catedral no cuestan lo mismo que un Molino — hoy son gratis como cualquier `construible` sin `receta`), y si dan beneficio a CUALQUIERA del asentamiento (vecino de cualquier parcela) o solo a quien tenga parcela propia asignada por el jarl. **Ya decidido e implementado (2026-08-30)**: tope de 1 por asentamiento, sí — ver `docs/GDD_Construccion.md` §1ter.
@@ -223,9 +223,19 @@ Domesticación (mismo mecanismo que perro/gato, ahora también en el Hub/exterio
 
 Activa (caña + cebo, orilla, boya con ventana de reacción a la picada) y pasiva (trampa/cangrejera/batea de almejas, producción pasiva reusando el mismo mecanismo de colmena/aserradero). Ver `docs/GDD_Pesca.md`. Sin distinción de bioma de agua por casilla todavía (agua dulce vs. mar) — tabla de capturas genérica hasta que el runtime lea bioma de agua.
 
-## Barcos y navegación marítima — sin diseñar
+## Barcos y navegación marítima — HECHO (2026-08-30)
 
-Construcción de barco, navegar el mar (ya establecido como navegable, con fondo marino investigable como capa aparte), cargar mercancía, descubrir islas, cruzar a otro mapa por un borde de mar abierto.
+Astillero (jarl, `proyectoJarl`) + carpintero_ribera nivel alto crafteando 4
+tallas de barco (1-4 plazas, crecen a lo largo, más vela por talla); barco
+como objeto colocado junto al agua (nunca en el inventario), fusión
+multi-plaza montura-en-agua (capitán pilota, pasajeros se mueven con él,
+solo agua, se oculta en combate); cruce de borde `mar_abierto` a otro mapa
+exterior ya bakeado (campo `bordes` del índice, mudo hasta ahora, ya
+consumido). Ver `docs/GDD_Barcos.md`. Pendiente real: `.glb` de los 4
+barcos sin revisar/subir todavía, y un segundo mapa exterior de PRODUCCIÓN
+que el streamer decida bakear (el mecanismo de cruce ya está probado con
+mapas de prueba). Carga de mercancía/descubrir islas/fondo marino
+investigable siguen sin diseñar — no estaban en el pedido literal.
 
 ## Comercio y economía — HECHO (2026-08-29/30) en lo esencial: moneda real, tenderetes y comercio jugador-jugador
 
