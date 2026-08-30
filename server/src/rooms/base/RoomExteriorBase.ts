@@ -1,9 +1,12 @@
+import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
 import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { pielDeDesollado, rellenarLootCaza } from "../../mundo/lootCaza";
 import { estaEncerrado, tiroEscape } from "../../mundo/ganaderia";
+import { cargarCatalogoReproduccionGranja, resolverReproduccionPropiedad } from "../../mundo/reproduccionGranja";
+import { diaFraccional } from "../../mundo/reproduccionFauna";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
 import { cargarCatalogoArenas, elegirArena } from "../../combate/seleccionArena";
@@ -122,10 +125,13 @@ const VECES_COMIDA_PARA_DOMESTICAR_GRANJA = 5;
  * capacidadMax) que ya usa colmena/curtidor. Añadir un producto nuevo es
  * solo una entrada más aquí — cero mensaje nuevo (regla 7 del CLAUDE.md).
  */
-const PRODUCTOS_GRANJA: Record<CategoriaProductoGranja, { itemId: string; herramienta?: string; exigeOficio?: boolean; cantidadPorDia: number; capacidadMax: number }> = {
+// "huevos" NO está aquí a propósito (docs/GDD_Ganaderia.md, ampliación
+// 2026-08-30, pedido explícito del streamer): en vez de un acumulador
+// abstracto recolectado por `animal:recolectarProducto`, las aves ponen
+// huevos FÍSICOS visibles en el mundo — ver `resolverReproduccionAnimalesPropiedad`.
+const PRODUCTOS_GRANJA: Partial<Record<CategoriaProductoGranja, { itemId: string; herramienta?: string; exigeOficio?: boolean; cantidadPorDia: number; capacidadMax: number }>> = {
   leche: { itemId: "leche", herramienta: "cubo_ordeno", exigeOficio: true, cantidadPorDia: 2, capacidadMax: 6 },
   lana: { itemId: "lana", herramienta: "tijeras_esquilar", exigeOficio: true, cantidadPorDia: 1, capacidadMax: 3 },
-  huevos: { itemId: "huevo", cantidadPorDia: 1, capacidadMax: 4 },
 };
 
 // --- Combate táctico (docs/GDD_Combate.md, ✅ confirmado 2026-08-30) ---
@@ -351,6 +357,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // HubRoom Y RegionRoom, a diferencia de cadáveres).
   protected animalesGranjaPuros = new Map<string, AnimalGranjaFila>();
   private contadorAnimalGranja = 0;
+  /** Cría de descendencia (docs/GDD_Ganaderia.md, ampliación 2026-08-30) — catálogo reducido, cargado perezosamente UNA vez por room, INDEPENDIENTE de `estadisticasFaunaDe`/`catalogoFaunaSalvaje` (ver `reproduccionGranja.ts`: sin el atajo de `poblacionInfinita`, que no aplica a un animal ya domesticado). */
+  private catalogoReproduccionGranja?: Record<string, import("../../mundo/reproduccionFauna").EspecieReproductiva>;
+  private cargarReproduccionGranja() {
+    if (!this.catalogoReproduccionGranja) {
+      this.catalogoReproduccionGranja = cargarCatalogoReproduccionGranja(path.resolve(__dirname, "..", "..", "..", "..", "baker", "catalogo", "animales.json"));
+    }
+    return this.catalogoReproduccionGranja;
+  }
   /** Progreso de "domesticar" un animal de granja (docs/GDD_Ganaderia.md) — mismo patrón que RegionRoom.progresoDomesticar (mascotas), pero aquí vive en la base para funcionar en cualquier room. */
   private progresoDomesticarGranja = new Map<string, { faunaId: string; veces: number }>();
   private siguienteObjetoMundoId = 1;
@@ -4085,6 +4099,83 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
+   * Cría de descendencia (docs/GDD_Ganaderia.md, ampliación 2026-08-30,
+   * pedido del streamer) — resuelta perezosamente para TODA la propiedad
+   * de una vez (necesita ver a todos sus animales para emparejar), cada
+   * vez que se toca CUALQUIER animal de ella (recolectar/consultar, mismo
+   * criterio que `resolverEscapeAnimal` por individuo). Gatea fertilidad
+   * con el mismo "comida+agua hoy" que la producción de leche/lana/huevos;
+   * "nido" reusa la construible `nido`/`gallinero` ya existente en la
+   * propiedad (sin concepto nuevo). Los huevos se materializan como
+   * `ObjetoMundoSchema` reales en el sitio del ave — visibles y recogibles
+   * por cualquiera, pedido explícito "se puede ver en el suelo".
+   */
+  private async resolverReproduccionAnimalesPropiedad(propiedadId: string): Promise<void> {
+    const animales = [...this.animalesGranjaPuros.values()].filter((a) => a.propiedadId === propiedadId);
+    if (animales.length === 0) return;
+
+    const ctx = this.ctxConstruccion;
+    let tieneNido = false;
+    if (ctx) {
+      for (const viva of ctx.vivas.values()) {
+        if (viva.propiedad === propiedadId && viva.objeto === "nido") { tieneNido = true; break; }
+      }
+    }
+    const alimentado = this.tieneComidaYAguaHoy(propiedadId);
+    const { dia, hora } = tiempoMundo();
+    const ahora = diaFraccional(dia, hora);
+    const catalogo = this.cargarReproduccionGranja();
+
+    const resultado = resolverReproduccionPropiedad(animales, catalogo, alimentado, tieneNido, ahora);
+    if (resultado.extraPorId.size === 0 && resultado.nuevos.length === 0 && resultado.maduraciones.length === 0 && resultado.huevos.length === 0) return;
+
+    const bd = await obtenerBdCompartida();
+
+    for (const [id, extra] of resultado.extraPorId) {
+      const fila = this.animalesGranjaPuros.get(id);
+      if (!fila) continue;
+      fila.extra = extra;
+      await bd.actualizarExtraAnimalGranja(id, extra);
+    }
+
+    for (const madurez of resultado.maduraciones) {
+      await bd.borrarAnimalGranja(madurez.viejoId);
+      this.animalesGranjaPuros.delete(madurez.viejoId);
+      this.state.animalesGranja.delete(madurez.viejoId);
+      const nueva: AnimalGranjaFila = {
+        id: `animal:${madurez.nuevoEspecieId}:${Date.now()}:${this.contadorAnimalGranja++}`,
+        especieId: madurez.nuevoEspecieId, mapaId: this.asentamientoConstruccion ?? "", propiedadId,
+        x: madurez.x, y: madurez.y, extra: { ultimoDiaEscapeChequeado: dia },
+        enVentaTenderoteId: null, enVentaPrecio: null, creadoEn: new Date().toISOString(),
+      };
+      await bd.crearAnimalGranjaBd(nueva);
+      this.publicarAnimalGranja(nueva);
+    }
+
+    for (const cria of resultado.nuevos) {
+      const nueva: AnimalGranjaFila = {
+        id: `animal:${cria.especieId}:${Date.now()}:${this.contadorAnimalGranja++}`,
+        especieId: cria.especieId, mapaId: this.asentamientoConstruccion ?? "", propiedadId,
+        x: cria.x, y: cria.y, extra: { ultimoDiaEscapeChequeado: dia, reproduccion: { gestandoDesde: null, gestacionDuracionDias: null, nacioEn: ahora, ultimoHuevoEn: null } },
+        enVentaTenderoteId: null, enVentaPrecio: null, creadoEn: new Date().toISOString(),
+      };
+      await bd.crearAnimalGranjaBd(nueva);
+      this.publicarAnimalGranja(nueva);
+    }
+
+    for (const puesta of resultado.huevos) {
+      for (let i = 0; i < puesta.cantidad; i++) {
+        const o = new ObjetoMundoSchema();
+        o.x = Math.floor(puesta.x) + 0.5;
+        o.y = Math.floor(puesta.y) + 0.5;
+        o.itemId = "huevo";
+        o.cantidad = 1;
+        this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o);
+      }
+    }
+  }
+
+  /**
    * Domestica el animal de granja domesticable más cercano (auto-apunta,
    * mismo criterio sin targeting que el resto del proyecto) — funciona
    * tanto contra fauna SALVAJE (HubRoom, p.ej. cabra) como URBANA
@@ -4226,6 +4317,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     if (await this.resolverEscapeAnimal(fila)) return this.errorAnimal(client, "ese animal ya no está — se ha escapado");
+    await this.resolverReproduccionAnimalesPropiedad(fila.propiedadId);
 
     const bd = await obtenerBdCompartida();
     const extraActual = fila.extra as { produccion?: Partial<Record<CategoriaProductoGranja, EstadoProduccion>>; ultimoDiaEscapeChequeado?: number };
@@ -4312,8 +4404,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const fila = this.animalesGranjaPuros.get(msg.animalId);
     if (!fila) return this.errorAnimal(client, "ese animal no existe");
     await this.resolverEscapeAnimal(fila);
+    if (this.animalesGranjaPuros.has(msg.animalId)) await this.resolverReproduccionAnimalesPropiedad(fila.propiedadId);
     const filaActual = this.animalesGranjaPuros.get(msg.animalId);
-    if (!filaActual) return this.errorAnimal(client, "ese animal se acaba de escapar");
+    if (!filaActual) return this.errorAnimal(client, "ese animal ya no está — se escapó o (si era una cría) acaba de madurar");
     const stats = this.estadisticasFaunaDe(filaActual.especieId);
     client.send("animal:estado", {
       animalId: filaActual.id, especieId: filaActual.especieId, propiedadId: filaActual.propiedadId,
