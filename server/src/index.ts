@@ -12,6 +12,7 @@ import { iniciarChatBot } from "./twitch/chatBot";
 import { iniciarDeteccionDirecto } from "./twitch/estadoDirecto";
 import { obtenerGestorTwitch } from "./twitch/gestorTwitch";
 import { manejarPeticionLoginTwitch } from "./twitch/rutasOauth";
+import { cargarPvpDesdeBd } from "./mundo/pvp";
 
 const port = Number(process.env.PORT) || 2567;
 
@@ -69,3 +70,7 @@ obtenerBdCompartida().then((bd) => {
     ejecutarTickEconomia(bd).catch((err) => console.error("Tick de economía de la facción bandida falló:", err));
   }, INTERVALO_TICK_ECONOMIA_MS);
 });
+
+// PvP (docs/GDD_PvP.md, pedido 2026-08-30): recupera el último valor que
+// dejó el jarl — arranca en `false` (seguro) hasta que esto resuelve.
+obtenerBdCompartida().then((bd) => cargarPvpDesdeBd(bd));

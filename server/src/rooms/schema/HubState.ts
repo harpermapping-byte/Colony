@@ -231,6 +231,26 @@ export class MarcadorCombateSchema extends Schema {
   @type("number") y = 0;
 }
 
+// Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30: "una
+// pantallita que les salga a ambos como la del WoW"). Ofertas por INSTANCIA
+// COMPLETA (nunca una pila parcial — pedido explícito), guardadas por el
+// lado que la puso; `confirmadoA/B` se resetean a false en cuanto CUALQUIERA
+// de los dos toca su oferta, para que nadie confirme sobre un trato viejo.
+export class OfertaComercioSchema extends Schema {
+  @type("number") instanciaId = 0;
+  @type("string") itemId = "";
+  @type("number") cantidad = 0;
+}
+
+export class ComercioSchema extends Schema {
+  @type("string") jugadorA = "";
+  @type("string") jugadorB = "";
+  @type([OfertaComercioSchema]) ofertaA = new ArraySchema<OfertaComercioSchema>();
+  @type([OfertaComercioSchema]) ofertaB = new ArraySchema<OfertaComercioSchema>();
+  @type("boolean") confirmadoA = false;
+  @type("boolean") confirmadoB = false;
+}
+
 export class HubState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: Npc }) npcs = new MapSchema<Npc>();
@@ -253,4 +273,8 @@ export class HubState extends Schema {
   // Combates instanciados en una arena aparte, vistos desde la room de
   // ORIGEN mientras duran (docs/GDD_Combate.md §9.2) — clave = combateId.
   @type({ map: MarcadorCombateSchema }) combatesEnCurso = new MapSchema<MarcadorCombateSchema>();
+  // Comercios jugador-jugador activos (docs/GDD_Comercio.md) — clave =
+  // comercioId, como máximo UNO por jugador a la vez (RoomExteriorBase lo
+  // garantiza vía `comerciosPorSesion`).
+  @type({ map: ComercioSchema }) comercios = new MapSchema<ComercioSchema>();
 }

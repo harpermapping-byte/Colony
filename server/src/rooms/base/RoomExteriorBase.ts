@@ -1,5 +1,5 @@
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna, ComercioSchema, OfertaComercioSchema } from "../schema/HubState";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
 import { cargarCatalogoArenas, elegirArena } from "../../combate/seleccionArena";
@@ -16,7 +16,7 @@ import {
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado } from "../../mundo/mapaColision";
 import { recolectableCercano } from "../../mundo/recolectables";
-import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, cargarCatalogoRecetas, excedePesoMaximo } from "../../inventario/inventario";
+import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, cargarCatalogoRecetas, excedePesoMaximo, moverItem, buscarHueco } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../../inventario/sincronizarSchema";
 import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota } from "../../datos/bd";
@@ -58,6 +58,9 @@ import { RoomConectable, registrarRoom, quitarRoom, registrarJugador, quitarJuga
 import { obtenerGestorTwitch } from "../../twitch/gestorTwitch";
 import { TipoEvento } from "../../twitch/catalogoEventos";
 import { resolverSesionTwitch } from "../../twitch/oauthLogin";
+import { aplicarPenalizacionMuerte, PiezaEquipada } from "../../inventario/desgaste";
+import { resolverRespawn } from "../../personaje/respawn";
+import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -208,6 +211,28 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // la MISMA clave a quitarJugador() en onLeave (ver registro.ts); vive y
   // muere con la sesión, igual que `inputs`.
   private twitchLoginPorSesion = new Map<string, string>();
+
+  // Muerte/respawn (docs/GDD_Muerte_Respawn.md) — guardia de idempotencia,
+  // ver el comentario de manejarMuerteJugador.
+  private jugadoresMuriendo = new Set<string>();
+
+  // PvP (docs/GDD_PvP.md, pedido 2026-08-30): "todas menos la ciudad
+  // capital y alrededores" — zona segura SIEMPRE gana al interruptor
+  // global, tenga el jarl el PvP activado o no. Por defecto false (una
+  // aldea/POI normal, un interior, una arena...) — HubRoom y la región con
+  // tier "capital_jarl" lo ponen a true en su propio onCreate.
+  protected esZonaSeguraPropia = false;
+
+  // --- Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30) ---
+  // Solicitud "pulsé T apuntando a X" sin respuesta mutua todavía — caduca
+  // sola (VENTANA_SOLICITUD_COMERCIO_MS) para no dejar una intención colgada
+  // si el otro nunca contesta. Vive y muere con la sesión, mismo criterio
+  // que el resto del estado efímero de esta clase.
+  private solicitudesComercio = new Map<string, { objetivo: string; expira: number }>();
+  /** sessionId -> comercioId del comercio ABIERTO en el que participa (como mucho uno a la vez). */
+  private comerciosPorSesion = new Map<string, string>();
+  private siguienteComercioId = 1;
+  private static readonly VENTANA_SOLICITUD_COMERCIO_MS = 8000;
 
   // --- Mascotas (docs/GDD_Mascotas.md) — solo lo que "siguiendo" necesita
   // en ESTA room: qué sessionId es el dueño de cada mascotaId (nunca en el
@@ -411,6 +436,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("twitch:simularComando", (client, msg: { comando?: string }) => this.manejarTwitchSimularComando(client, msg));
     this.onMessage("twitch:forzarDirecto", (client, msg: { on?: boolean }) => this.manejarTwitchForzarDirecto(client, msg));
 
+    // PvP (docs/GDD_PvP.md, pedido 2026-08-30): jarl-only, "inicialmente deshabilitada".
+    this.onMessage("pvp:fijar", (client, msg: { on?: boolean }) => this.manejarPvpFijar(client, msg));
+
+    // Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30):
+    // tecla T, mutuo — ambos deben pulsarla apuntándose el uno al otro.
+    this.onMessage("comercio:solicitar", (client) => this.manejarComercioSolicitar(client));
+    this.onMessage("comercio:ofrecer", (client, msg: { instanciaId?: number }) => this.manejarComercioOfrecer(client, msg));
+    this.onMessage("comercio:quitarOferta", (client, msg: { instanciaId?: number }) => this.manejarComercioQuitarOferta(client, msg));
+    this.onMessage("comercio:confirmar", (client) => this.manejarComercioConfirmar(client));
+    this.onMessage("comercio:cancelar", (client) => this.manejarComercioCancelar(client));
+
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
     // Seguimiento de mascotas — cosmético, no necesita 30hz (mismo criterio que GestorFauna, 5hz de sobra para un paseo).
     this.clock.setInterval(() => this.moverMascotas(0.2), 200);
@@ -471,6 +507,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.inputs.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
+    this.solicitudesComercio.delete(client.sessionId);
+    // Comercio: desconectarse a medias cancela el trato entero (nada se
+    // mueve, mismo criterio "todo o nada" que un hueco insuficiente).
+    const comercioAbierto = this.comerciosPorSesion.get(client.sessionId);
+    if (comercioAbierto) this.cerrarComercio(comercioAbierto, "cancelado");
 
     // Mascotas: desaparecen de ESTA room (no se persiste x/y, ver Mascota en
     // HubState.ts) — su fila en BD sigue "siguiendo", vuelven a aparecer en
@@ -1282,13 +1323,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   private aplicarDanoEventosAmbientales(_dt: number): void {
     if (!this.eventoRayoActivo && !this.eventoTerremotoActivo) return;
-    this.state.players.forEach((player) => {
+    this.state.players.forEach((player, sessionId) => {
       if (this.eventoRayoActivo && !this.esInterior && Math.random() < PROB_RAYO_POR_SEG) {
         player.vida = Math.max(0, player.vida - DANO_RAYO);
       }
       if (this.eventoTerremotoActivo && Math.random() < PROB_TERREMOTO_POR_SEG) {
         player.vida = Math.max(0, player.vida - DANO_TERREMOTO);
       }
+      // Muerte por daño ambiental (docs/GDD_Muerte_Respawn.md) — mismo
+      // criterio "fire and forget" que el resto de efectos secundarios
+      // async disparados desde un tick síncrono (otorgarXpAtributoPorSesion).
+      if (player.vida <= 0) void this.manejarMuerteJugador(sessionId);
     });
   }
 
@@ -1351,6 +1396,174 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!nombre || !esJarlGlobal(nombre)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
     obtenerGestorTwitch().fijarEnDirecto(!!msg?.on);
     client.send("twitch:directoForzado", { on: !!msg?.on });
+  }
+
+  /** Jarl-only: activa/desactiva PvP global (docs/GDD_PvP.md) — "todas menos la capital", inicialmente deshabilitado. */
+  private async manejarPvpFijar(client: Client, msg: { on?: boolean }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !esJarlGlobal(nombre)) return client.send("pvp:error", { motivo: "solo el jarl puede cambiar esto" });
+    const bd = await obtenerBdCompartida();
+    await fijarPvpGlobal(bd, !!msg?.on);
+    this.broadcast("pvp:actualizado", { on: !!msg?.on });
+  }
+
+  /** Jugador vivo más cercano dentro de RADIO_INTERACCION, excluyendo al propio emisor — mismo criterio de auto-apuntado sin UI que "coger"/"combate:iniciar". */
+  private jugadorMasCercanoPara(sessionId: string): string | null {
+    const yo = this.state.players.get(sessionId);
+    if (!yo) return null;
+    let mejorId: string | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    for (const [id, p] of this.state.players.entries()) {
+      if (id === sessionId) continue;
+      const d = Math.hypot(p.x - yo.x, p.y - yo.y);
+      if (d < mejorDist) {
+        mejorDist = d;
+        mejorId = id;
+      }
+    }
+    return mejorId;
+  }
+
+  /**
+   * Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30):
+   * ambos deben pulsar la tecla de comercio apuntándose el uno al otro
+   * dentro de RADIO_INTERACCION — el primero en pulsar deja una solicitud
+   * con ventana corta; si el segundo pulsa apuntando de vuelta antes de que
+   * caduque, el trato se abre para los dos a la vez.
+   */
+  private manejarComercioSolicitar(client: Client) {
+    const sessionId = client.sessionId;
+    if (this.comerciosPorSesion.has(sessionId)) return; // ya está comerciando
+    const objetivoId = this.jugadorMasCercanoPara(sessionId);
+    if (!objetivoId) return client.send("comercio:error", { motivo: "no hay nadie cerca" });
+    if (this.comerciosPorSesion.has(objetivoId)) return client.send("comercio:error", { motivo: "ese jugador ya está comerciando" });
+
+    const ahora = Date.now();
+    const solicitudDelObjetivo = this.solicitudesComercio.get(objetivoId);
+    if (solicitudDelObjetivo && solicitudDelObjetivo.objetivo === sessionId && solicitudDelObjetivo.expira > ahora) {
+      this.solicitudesComercio.delete(sessionId);
+      this.solicitudesComercio.delete(objetivoId);
+      this.abrirComercio(sessionId, objetivoId);
+      return;
+    }
+    this.solicitudesComercio.set(sessionId, { objetivo: objetivoId, expira: ahora + RoomExteriorBase.VENTANA_SOLICITUD_COMERCIO_MS });
+    this.clients.find((c) => c.sessionId === objetivoId)?.send("comercio:propuesta", { deNombre: this.nombreDe(client) ?? "" });
+  }
+
+  private abrirComercio(sessionIdA: string, sessionIdB: string) {
+    const comercioId = `com_${this.siguienteComercioId++}`;
+    const comercio = new ComercioSchema();
+    comercio.jugadorA = sessionIdA;
+    comercio.jugadorB = sessionIdB;
+    this.state.comercios.set(comercioId, comercio);
+    this.comerciosPorSesion.set(sessionIdA, comercioId);
+    this.comerciosPorSesion.set(sessionIdB, comercioId);
+  }
+
+  private cerrarComercio(comercioId: string, motivo: "cancelado" | "completado") {
+    const comercio = this.state.comercios.get(comercioId);
+    if (!comercio) return;
+    this.comerciosPorSesion.delete(comercio.jugadorA);
+    this.comerciosPorSesion.delete(comercio.jugadorB);
+    this.state.comercios.delete(comercioId);
+    for (const sid of [comercio.jugadorA, comercio.jugadorB]) {
+      this.clients.find((c) => c.sessionId === sid)?.send("comercio:cerrado", { motivo });
+    }
+  }
+
+  private manejarComercioOfrecer(client: Client, msg: { instanciaId?: number }) {
+    const comercioId = this.comerciosPorSesion.get(client.sessionId);
+    if (!comercioId || typeof msg?.instanciaId !== "number") return;
+    const comercio = this.state.comercios.get(comercioId);
+    if (!comercio || comercio.confirmadoA || comercio.confirmadoB) return; // nadie toca la oferta con el otro ya confirmado
+    const soyA = comercio.jugadorA === client.sessionId;
+    const contenedor = this.inventarios.get(client.sessionId);
+    const item = contenedor?.items.find((i) => i.id === msg.instanciaId);
+    if (!item) return;
+    const oferta = soyA ? comercio.ofertaA : comercio.ofertaB;
+    if (oferta.some((o) => o.instanciaId === item.id)) return; // ya está ofrecido
+
+    const entrada = new OfertaComercioSchema();
+    entrada.instanciaId = item.id;
+    entrada.itemId = item.itemId;
+    entrada.cantidad = item.cantidad; // instancia COMPLETA siempre, sin pilas parciales (pedido explícito)
+    oferta.push(entrada);
+  }
+
+  private manejarComercioQuitarOferta(client: Client, msg: { instanciaId?: number }) {
+    const comercioId = this.comerciosPorSesion.get(client.sessionId);
+    if (!comercioId || typeof msg?.instanciaId !== "number") return;
+    const comercio = this.state.comercios.get(comercioId);
+    if (!comercio) return;
+    const soyA = comercio.jugadorA === client.sessionId;
+    const oferta = soyA ? comercio.ofertaA : comercio.ofertaB;
+    const idx = oferta.findIndex((o) => o.instanciaId === msg.instanciaId);
+    if (idx === -1) return;
+    oferta.splice(idx, 1);
+    comercio.confirmadoA = false;
+    comercio.confirmadoB = false; // cualquier cambio de oferta reabre la confirmación de AMBOS
+  }
+
+  private manejarComercioCancelar(client: Client) {
+    const comercioId = this.comerciosPorSesion.get(client.sessionId);
+    if (comercioId) this.cerrarComercio(comercioId, "cancelado");
+  }
+
+  /** Mueve cada instancia listada de `origen` a `destino` buscando hueco libre — false en cuanto una no cabe (o ya no existe), sin abortar a medias porque siempre se llama primero sobre COPIAS (ver manejarComercioConfirmar). */
+  private simularIntercambio(origen: Contenedor, destino: Contenedor, instanciaIds: number[]): boolean {
+    for (const id of instanciaIds) {
+      const item = origen.items.find((i) => i.id === id);
+      if (!item) return false;
+      const hueco = buscarHueco(destino, this.catalogoItems, item.itemId, 0);
+      if (!hueco) return false;
+      if (!moverItem(origen, destino, this.catalogoItems, id, hueco.x, hueco.y, 0).ok) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Cuando AMBOS confirman: todo o nada (docs/GDD_Comercio.md) — se simula
+   * el intercambio completo sobre copias de los dos contenedores primero; si
+   * algún objeto no cabe en el destino, nadie pierde ni gana nada y se avisa
+   * del motivo. Solo si la simulación entera cuadra se repite exactamente la
+   * misma secuencia sobre los contenedores reales.
+   */
+  private manejarComercioConfirmar(client: Client) {
+    const comercioId = this.comerciosPorSesion.get(client.sessionId);
+    if (!comercioId) return;
+    const comercio = this.state.comercios.get(comercioId);
+    if (!comercio) return;
+    const soyA = comercio.jugadorA === client.sessionId;
+    if (soyA) comercio.confirmadoA = true;
+    else comercio.confirmadoB = true;
+    if (!comercio.confirmadoA || !comercio.confirmadoB) return;
+
+    const contA = this.inventarios.get(comercio.jugadorA);
+    const contB = this.inventarios.get(comercio.jugadorB);
+    if (!contA || !contB) return this.cerrarComercio(comercioId, "cancelado");
+
+    const pasoAaB = comercio.ofertaA.map((o) => o.instanciaId);
+    const pasoBaA = comercio.ofertaB.map((o) => o.instanciaId);
+    const simA: Contenedor = structuredClone(contA);
+    const simB: Contenedor = structuredClone(contB);
+    const cuadra = this.simularIntercambio(simA, simB, pasoAaB) && this.simularIntercambio(simB, simA, pasoBaA);
+    if (!cuadra) {
+      comercio.confirmadoA = false;
+      comercio.confirmadoB = false;
+      for (const sid of [comercio.jugadorA, comercio.jugadorB]) {
+        this.clients.find((c) => c.sessionId === sid)?.send("comercio:error", { motivo: "no hay hueco para completar el intercambio" });
+      }
+      return;
+    }
+
+    this.simularIntercambio(contA, contB, pasoAaB);
+    this.simularIntercambio(contB, contA, pasoBaA);
+    const playerA = this.state.players.get(comercio.jugadorA);
+    const playerB = this.state.players.get(comercio.jugadorB);
+    if (playerA) sincronizarContenedor(playerA.inventario.cuerpo, contA);
+    if (playerB) sincronizarContenedor(playerB.inventario.cuerpo, contB);
+
+    this.cerrarComercio(comercioId, "completado");
   }
 
   private async manejarGremioInvitar(client: Client, msg: { jugadorNombre?: string }) {
@@ -2417,12 +2630,107 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     } else if (tipo === "npc") {
       this.state.npcs.delete(id);
     } else if (tipo === "jugador") {
-      // Sin diseño de muerte "de verdad" de jugador todavía (mismo hueco
-      // que el sistema interino, GDD_Mecanicas.md §5.4): rellena a vidaMax
-      // en el sitio en vez de un jugador "muerto" andante.
-      const p = this.state.players.get(id);
-      if (p) p.vida = p.vidaMax;
+      await this.manejarMuerteJugador(id);
     }
+  }
+
+  /**
+   * Dónde caen los objetos perdidos al morir (docs/GDD_Muerte_Respawn.md) —
+   * por defecto ESTA MISMA room, en la posición real del jugador (Hub/
+   * Region/Interior: sus coordenadas ya son las del mundo). `ArenaCombateRoom`
+   * lo sobreescribe: ahí las coordenadas son internas de la arena instanciada,
+   * no del mundo real, así que hay que resolver la room de ORIGEN.
+   */
+  protected roomYPosicionParaDrop(sessionId: string): { room: RoomExteriorBase; x: number; y: number } | null {
+    const player = this.state.players.get(sessionId);
+    if (!player) return null;
+    return { room: this, x: player.x, y: player.y };
+  }
+
+  /**
+   * Muerte de jugador de verdad (docs/GDD_Muerte_Respawn.md, pedido
+   * 2026-08-30) — llamada desde CUALQUIER camino que pueda dejar `vida` a 0
+   * (combate vía `finalizarMuerte`, y los que se disparan directo desde
+   * `actualizarMovimiento`: inanición, clima extremo, eventos Twitch de
+   * daño ambiental):
+   *
+   * - **-20% de durabilidad FLAT** (`aplicarPenalizacionMuerte`, ya existía
+   *   pura y testeada, sin nadie que la llamara) a lo que cuenta como
+   *   "equipo" — aproximado por TIPO de ítem (`herramienta`/`equipable`/
+   *   `arma`) porque todavía no existe un sistema de equipar en vivo (solo
+   *   el esqueleto de datos, `SlotsEquipo`/`guardarEquipo`) — cuando exista
+   *   de verdad, esto pasa a mirar los slots equipados en vez del tipo.
+   * - **El resto del inventario se pierde** — cae al suelo en el sitio de
+   *   la muerte como objetos sueltos normales (mismo `ObjetoMundoSchema`
+   *   que "soltar", recogible por cualquiera, él mismo incluido si vuelve).
+   * - **Respawn**: en la cama de su propiedad si tiene una, si no en el
+   *   spawn inicial (`resolverRespawn`).
+   */
+  protected async manejarMuerteJugador(sessionId: string) {
+    // Idempotencia (docs/GDD_Muerte_Respawn.md) — IMPRESCINDIBLE: el camino
+    // de daño ambiental/inanición comprueba `vida<=0` en CADA tick de
+    // movimiento (30hz) y `vida` no se resetea hasta el final de esta misma
+    // función (que es async, con awaits a BD de por medio) — sin este
+    // guardia, un jugador muerto por rayo/inanición dispararía esta función
+    // decenas de veces por segundo mientras dure la ventana async.
+    if (this.jugadoresMuriendo.has(sessionId)) return;
+    this.jugadoresMuriendo.add(sessionId);
+    try {
+      await this.procesarMuerteJugador(sessionId);
+    } finally {
+      this.jugadoresMuriendo.delete(sessionId);
+    }
+  }
+
+  private async procesarMuerteJugador(sessionId: string) {
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    const nombre = player.name;
+    const contenedor = this.inventarios.get(sessionId);
+
+    if (contenedor) {
+      const ahora = Date.now();
+      const equipoLike: PiezaEquipada[] = [];
+      const resto: typeof contenedor.items = [];
+      for (const it of contenedor.items) {
+        const entrada = this.catalogoItems[it.itemId];
+        if (entrada && (entrada.tipo === "herramienta" || entrada.tipo === "equipable" || entrada.tipo === "arma")) {
+          equipoLike.push({ instancia: it, entrada });
+        } else {
+          resto.push(it);
+        }
+      }
+      aplicarPenalizacionMuerte(equipoLike, ahora);
+
+      const destinoDrop = resto.length > 0 ? this.roomYPosicionParaDrop(sessionId) : null;
+      if (destinoDrop) {
+        const { room, x, y } = destinoDrop;
+        for (const it of resto) {
+          const o = new ObjetoMundoSchema();
+          o.x = Math.floor(x) + 0.5;
+          o.y = Math.floor(y) + 0.5;
+          o.itemId = it.itemId;
+          o.cantidad = it.cantidad;
+          room.state.objetosMundo.set(String(room.siguienteObjetoMundoId++), o);
+        }
+      }
+
+      contenedor.items = equipoLike.map((p) => p.instancia); // el cuerpo se queda solo con lo "equipado"
+      sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    }
+
+    // Vida llena YA (antes de resolver el respawn, que awaitea BD): además
+    // de "respawneas sano", esto es lo que corta el bucle de daño ambiental/
+    // inanición (que solo comprueba vida<=0, ver el guardia de arriba).
+    player.vida = player.vidaMax;
+
+    const bd = await obtenerBdCompartida();
+    if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
+    const destino = await resolverRespawn(bd, this.catalogoConstruible, nombre);
+
+    const client = this.clients.find((c) => c.sessionId === sessionId);
+    if (destino.tipo === "hub") client?.send("portal:ir", { tipo: "hub" });
+    else client?.send("portal:ir", { tipo: "region", mapaId: destino.mapaId, x: destino.x, y: destino.y });
   }
 
   /**
@@ -2572,6 +2880,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const objetivoStats = this.statsCombatiente(msg.objetivoId);
     if (!objetivoStats) return client.send("combate:error", { motivo: "objetivo no encontrado" });
+    // PvP (docs/GDD_PvP.md, pedido 2026-08-30): atacar a OTRO jugador solo
+    // si el jarl activó el interruptor global Y esta zona no es segura
+    // (Hub/capital, siempre a salvo pase lo que pase) — PvE (fauna/enemigo/
+    // npc) nunca pasa por aquí, sigue igual que siempre.
+    if (objetivoStats.esJugador && !(pvpGlobalHabilitado() && !this.esZonaSeguraPropia)) {
+      return client.send("combate:error", { motivo: "pvp deshabilitado aquí" });
+    }
     if (Math.hypot(objetivoStats.x - atacante.x, objetivoStats.y - atacante.y) > RADIO_INTERACCION) {
       return client.send("combate:error", { motivo: "demasiado lejos" });
     }
@@ -2925,11 +3240,25 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // jugador — estación/hora son las mismas para todos en este instante.
     const { estacion, hora } = tiempoMundo();
     const tempMundoC = temperaturaMundo(estacion as Estacion, hora);
-    this.state.players.forEach((player) => {
+    this.state.players.forEach((player, sessionId) => {
       tickVitales(player.vitales, horasPorTick);
       const extremo = aplicarTemperaturaCorporal(player.vitales, tempMundoC, horasPorTick);
       this.aplicarInanicionA(player, horasPorTick, extremo !== null);
+      // Muerte por inanición (docs/GDD_Muerte_Respawn.md) — mismo criterio
+      // "fire and forget" que el resto de efectos async en un tick síncrono.
+      if (player.vida <= 0) void this.manejarMuerteJugador(sessionId);
     });
+
+    // Comercio (docs/GDD_Comercio.md): alejarse cancela el trato, mismo
+    // criterio que desconectarse a medias — nadie confirma un intercambio
+    // con alguien que ya no está al lado.
+    for (const [comercioId, comercio] of this.state.comercios.entries()) {
+      const a = this.state.players.get(comercio.jugadorA);
+      const b = this.state.players.get(comercio.jugadorB);
+      if (!a || !b || Math.hypot(a.x - b.x, a.y - b.y) > RADIO_INTERACCION) {
+        this.cerrarComercio(comercioId, "cancelado");
+      }
+    }
   }
 
   /** Aplica la inanición pura de vitales.ts (docs/GDD_Personaje.md §3.6, §GDD_Clima.md) sobre este Player concreto — resuelve sus dos vidaMax (normal vs. reducido) a partir de su Resistencia real; `temperaturaExtrema` añade el mismo debilitamiento que la inanición sin dañar `vida` por sí solo. */

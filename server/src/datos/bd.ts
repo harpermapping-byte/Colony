@@ -463,6 +463,9 @@ export interface IAlmacenDatos {
   listarMascotas(jugadorId: number): Promise<Mascota[]>;
   /** Todo o nada: solo cambia si `id` pertenece de verdad a `jugadorId` — `false` si no existe o es de otro jugador. */
   actualizarUbicacionMascota(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean>;
+  // Flags globales (docs/GDD_PvP.md, pedido 2026-08-30) — tabla genérica de un solo valor por clave.
+  obtenerConfigMundo(clave: string): Promise<string | null>;
+  fijarConfigMundo(clave: string, valor: string): Promise<void>;
   cerrar(): Promise<void>;
 }
 
@@ -589,6 +592,14 @@ CREATE TABLE IF NOT EXISTS mascotas (
   ubicacion TEXT NOT NULL DEFAULT 'siguiendo',
   propiedad_id TEXT,
   creado_en TEXT NOT NULL
+);
+-- Flags globales de un solo valor (pedido 2026-08-30: PvP apagado por
+-- defecto, el jarl lo activa) — genérica a propósito, cualquier futuro
+-- interruptor de mundo reusa esta MISMA tabla en vez de una columna nueva
+-- cada vez ("las listas crecen, el código no").
+CREATE TABLE IF NOT EXISTS configuracion_mundo (
+  clave TEXT PRIMARY KEY,
+  valor TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,               -- "mapaId:edificio:nivel"
@@ -802,6 +813,10 @@ CREATE TABLE IF NOT EXISTS mascotas (
   ubicacion TEXT NOT NULL DEFAULT 'siguiendo',
   propiedad_id TEXT,
   creado_en TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS configuracion_mundo (
+  clave TEXT PRIMARY KEY,
+  valor TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,
@@ -1847,6 +1862,20 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return Number(r.changes) > 0;
   }
 
+  async obtenerConfigMundo(clave: string): Promise<string | null> {
+    const fila = this.bd.prepare("SELECT valor FROM configuracion_mundo WHERE clave = ?").get(clave);
+    return fila ? String(fila.valor) : null;
+  }
+
+  async fijarConfigMundo(clave: string, valor: string): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO configuracion_mundo (clave, valor) VALUES (?, ?)
+         ON CONFLICT(clave) DO UPDATE SET valor = excluded.valor`,
+      )
+      .run(clave, valor);
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -2667,6 +2696,19 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       [ubicacion, propiedadId, id, jugadorId],
     );
     return (r.rowCount ?? 0) > 0;
+  }
+
+  async obtenerConfigMundo(clave: string): Promise<string | null> {
+    const r = await this.pool.query<{ valor: string }>("SELECT valor FROM configuracion_mundo WHERE clave = $1", [clave]);
+    return r.rows[0]?.valor ?? null;
+  }
+
+  async fijarConfigMundo(clave: string, valor: string): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO configuracion_mundo (clave, valor) VALUES ($1, $2)
+       ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor`,
+      [clave, valor],
+    );
   }
 
   async cerrar(): Promise<void> {

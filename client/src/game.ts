@@ -17,6 +17,7 @@ import { PointLight, Color, Mesh, ConeGeometry, MeshBasicMaterial } from "three"
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
+import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -363,7 +364,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         puertaY: esCambioDePlanta ? PUERTA_Y : info.y,
       });
     } else if (info.tipo === "region") {
-      navegarA({ nombre: nombreJugador, sala: "region", mapaId: info.mapaId });
+      // x/y opcionales (docs/GDD_Muerte_Respawn.md: respawn junto a tu cama,
+      // no en el spawn genérico de la región) — sin ellos, spawn por defecto de siempre.
+      navegarA({ nombre: nombreJugador, sala: "region", mapaId: info.mapaId, entradaX: info.x, entradaY: info.y });
     } else if (info.tipo === "hub") {
       navegarA({ nombre: nombreJugador });
     } else {
@@ -646,6 +649,46 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("mascota:error", (m: { motivo: string }) => console.log("[mascota]", m?.motivo));
   room.send("mascota:listar");
 
+  // --- Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30) —
+  // panel PLACEHOLDER de testeo (ver panelComercio.ts). Tecla T: propone
+  // comerciar con el jugador más cercano; se abre solo cuando AMBOS la
+  // pulsan apuntándose el uno al otro (mismo criterio "servidor decide" que
+  // el resto de mecánicas de esta pasada).
+  const panelComercio = new PanelComercio({
+    contenedor,
+    ofrecer: (instanciaId) => room.send("comercio:ofrecer", { instanciaId }),
+    quitarOferta: (instanciaId) => room.send("comercio:quitarOferta", { instanciaId }),
+    confirmar: () => room.send("comercio:confirmar"),
+    cancelar: () => room.send("comercio:cancelar"),
+  });
+  function actualizarPanelComercio() {
+    const comercios = room.state.comercios as any;
+    let entrada: any = null;
+    for (const c of comercios.values()) {
+      if (c.jugadorA === room.sessionId || c.jugadorB === room.sessionId) { entrada = c; break; }
+    }
+    if (!entrada) return panelComercio.cerrar();
+    const soyA = entrada.jugadorA === room.sessionId;
+    const idPropio = soyA ? entrada.jugadorA : entrada.jugadorB;
+    const idOtro = soyA ? entrada.jugadorB : entrada.jugadorA;
+    const estado: EstadoComercioVista = {
+      comercioId: "",
+      nombrePropio: room.state.players.get(idPropio)?.name ?? "",
+      nombreOtro: room.state.players.get(idOtro)?.name ?? "",
+      ofertaPropia: [...(soyA ? entrada.ofertaA : entrada.ofertaB)].map((o: any) => ({ instanciaId: o.instanciaId, itemId: o.itemId, cantidad: o.cantidad })),
+      ofertaOtro: [...(soyA ? entrada.ofertaB : entrada.ofertaA)].map((o: any) => ({ instanciaId: o.instanciaId, itemId: o.itemId, cantidad: o.cantidad })),
+      confirmadoPropio: soyA ? entrada.confirmadoA : entrada.confirmadoB,
+      confirmadoOtro: soyA ? entrada.confirmadoB : entrada.confirmadoA,
+    };
+    panelComercio.actualizar(estado);
+  }
+  $(room.state).comercios.onAdd(() => actualizarPanelComercio());
+  $(room.state).comercios.onRemove(() => actualizarPanelComercio());
+  room.onStateChange(() => actualizarPanelComercio());
+  room.onMessage("comercio:cerrado", () => panelComercio.cerrar());
+  room.onMessage("comercio:error", (m: { motivo: string }) => console.log("[comercio]", m?.motivo));
+  room.onMessage("comercio:propuesta", (m: { deNombre: string }) => console.log(`[comercio] ${m?.deNombre} quiere comerciar contigo — pulsa T para aceptar`));
+
   // --- Login con Twitch (docs/GDD_Twitch.md §7) — PLACEHOLDER de testeo,
   // mismo criterio que el resto de paneles de esta pasada: un enlace suelto
   // si no has iniciado sesión, un texto si ya lo hiciste. Sin esto, el chat
@@ -697,6 +740,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const d = Math.hypot(e.x - jugadorLocal.x, e.y - jugadorLocal.z);
       if (d < mejorDist) { mejorDist = d; mejorId = id; }
     }
+    // PvP (docs/GDD_PvP.md, pedido 2026-08-30): el cliente propone el jugador
+    // más cercano como cualquier otro objetivo — el servidor es quien decide
+    // si el PvP está habilitado en esta zona (rechaza con combate:error si no).
+    for (const [id, p] of room.state.players.entries()) {
+      if (id === room.sessionId) continue;
+      const d = Math.hypot(p.x - jugadorLocal.x, p.y - jugadorLocal.z);
+      if (d < mejorDist) { mejorDist = d; mejorId = id; }
+    }
     return mejorId;
   }
 
@@ -742,6 +793,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // decide si hay algo cerca y si se puede (no-op fuera de una región con
     // fauna urbana). Cinco veces lo convierte en mascota.
     if (k === "g" && !teclas.has("g")) room.send("mascota:darComida");
+    // Comercio (docs/GDD_Comercio.md): T propone comerciar con el jugador
+    // más cercano — mutuo, el servidor solo abre el trato si el otro
+    // también la pulsó apuntándote a ti (ver panelComercio.ts).
+    if (k === "t" && !teclas.has("t")) room.send("comercio:solicitar");
     teclas.add(k);
   });
   window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));

@@ -173,6 +173,12 @@ export class ArenaCombateRoom extends RoomExteriorBase {
 
     for (const cu of combate.unidades.values()) {
       if (cu.esJugador) {
+        // Un jugador "caído" ya recibió SU propio portal:ir de respawn
+        // (docs/GDD_Muerte_Respawn.md, vía finalizarMuerte→manejarMuerteJugador,
+        // llamado antes desde comprobarFinDeCombate) — mandarle también
+        // "volverDeCombate" aquí lo reengancharía de vuelta al sitio donde
+        // empezó la pelea, pisando su respawn real.
+        if (cu.estado === "caido") continue;
         const retorno = this.retornosPorJugador.get(cu.id) ?? {};
         const c = this.clients.find((cl) => cl.sessionId === cu.id);
         c?.send("portal:ir", { tipo: "volverDeCombate", ...retorno });
@@ -181,5 +187,28 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       }
     }
     origen?.quitarMarcadorCombate(combateId);
+  }
+
+  /**
+   * Un jugador muere DENTRO de una arena instanciada — sus coordenadas aquí
+   * son internas de la arena (mundo/mapa de combate), no del mundo real, así
+   * que el objeto perdido tiene que caer en la room de ORIGEN (docs/
+   * GDD_Muerte_Respawn.md). Sin la puerta exacta por la que entró en juego
+   * (`retorno.puertaX/Y` — no siempre viene, p.ej. un combate iniciado
+   * directo en mitad del Hub), cae a un punto de referencia fijo del mapa
+   * de origen en vez de nada — impreciso mejor que perder el objeto del todo.
+   */
+  protected roomYPosicionParaDrop(sessionId: string): { room: RoomExteriorBase; x: number; y: number } | null {
+    let origen: RoomExteriorBase | undefined;
+    try {
+      origen = matchMaker.getLocalRoomById(this.origenRoomId) as unknown as RoomExteriorBase;
+    } catch {
+      origen = undefined; // la room de origen ya se autodispuso — el objeto se pierde, caso raro aceptado
+    }
+    if (!origen) return null;
+    const retorno = this.retornosPorJugador.get(sessionId);
+    const x = typeof retorno?.puertaX === "number" ? retorno.puertaX : 5;
+    const y = typeof retorno?.puertaY === "number" ? retorno.puertaY : 5;
+    return { room: origen, x, y };
   }
 }

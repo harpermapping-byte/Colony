@@ -139,6 +139,11 @@ export class RegionRoom extends RoomExteriorBase {
         const bd = await obtenerBdCompartida();
         await asegurarAsentamientoBandido(bd, options.mapaId);
       }
+      // Zona PvP (docs/GDD_PvP.md, pedido 2026-08-30): "todas menos la
+      // ciudad capital y alrededores" — la capital del jarl (`capital_jarl`,
+      // única en todo el mapa, docs/GDD_Ciudad_Capital.md) es SIEMPRE zona
+      // segura, tenga PvP global activado el jarl o no.
+      this.esZonaSeguraPropia = indice.tier === "capital_jarl";
 
       // Propiedades comerciales (docs/GDD_Propiedades.md, pedido 2026-08-29):
       // edificios ENTEROS comprables/alquilables — solo los que el bake

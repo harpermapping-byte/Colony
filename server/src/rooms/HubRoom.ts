@@ -44,7 +44,7 @@ function leerObjetosFaunaDeSector(rutaMapa: string, tamanoChunk: number, sectorX
 // mapa que el cliente carga por streaming. Si no está en disco (repo
 // parcial, entorno raro), se cae al demo para no tumbar el servidor; los
 // tests unitarios siguen usando el demo a propósito (pequeño y rápido).
-function rutaMapaHub(): string | undefined {
+export function rutaMapaHub(): string | undefined {
   if (process.env.RUTA_MAPA) return process.env.RUTA_MAPA;
   const principal = path.resolve(__dirname, "..", "..", "..", "assets", "mapas", "principal");
   return fs.existsSync(path.join(principal, "indice.json")) ? principal : undefined;
@@ -82,6 +82,7 @@ export class HubRoom extends RoomExteriorBase {
     this.mapa = cargarMapaColision(rutaMapa);
     this.mundo = this.mapa;
     this.mapaExterior = this.mapa; // habilita "coger" de recolectables del bake (fase 2 de inventario)
+    this.esZonaSeguraPropia = true; // PvP (docs/GDD_PvP.md): el Hub es el pueblo donde vive todo el mundo, siempre a salvo
     console.log(
       `Hub con mapa "${this.mapa.nombre}" (${this.mapa.ancho}x${this.mapa.alto} casillas), ` +
       `spawn en ${this.mapa.spawnX.toFixed(1)},${this.mapa.spawnY.toFixed(1)}`,
