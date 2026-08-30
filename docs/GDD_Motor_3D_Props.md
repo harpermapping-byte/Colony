@@ -75,7 +75,7 @@ Probado: suite Node `node --import tsx --test client/test/streaming.test.ts` (7 
 
 ## Qué falta (pendiente, no bloquea lo anterior)
 
-- **Consumo de interiores**: leer el resultado de `interiores/src/edificio.js`/`colocarElementos.js` para instanciar mobiliario al entrar a una instancia interior — mismo patrón que `propsBakeados.ts` (agrupar por pieza, instanciar placeholder o clonar `.glb`), pendiente de decidir cómo viaja la instancia interior al cliente (¿por el servidor al entrar por la puerta?).
+- ~~**Consumo de interiores**~~ **HECHO**, ver `docs/GDD_Sistema_Puertas.md`: el cliente hace `fetch` directo del interior bakeado (`/assets/mapas/<mapaId>/interiores/<edificio>.json`) al cruzar la puerta, `client/src/render3d/interiorVisual.ts` lo instancia entero (paredes, mobiliario, ventanas, luces), y una `InteriorRoom` de Colyseus lleva la colisión/portales — la geometría viaja por fetch de asset estático, no por Schema. Con oclusión dinámica (cono de visión) y luz ambiente por hora del día ya resueltos también (mismo documento).
 - ~~Carga perezosa de sectores + luz que sigue a la cámara~~ — **HECHO** (mecánica principal pactada con el streamer, ver sección siguiente).
 - **Catálogo de personajes/armas**: sigue sin existir `catalogo/personajes.json` (a propósito) — cuando toque el creador de personajes, se crea con el mismo patrón (`variantes`/`colorDebug`) y el rig ya definido en `rigHumanoide.ts` como esqueleto base.
 - **Fauna viva**: los objetos `t: "a"` del bake se pintan como marcadores estáticos de spawn; darles movimiento/IA es mecánica de servidor (fase futura), no del render.
