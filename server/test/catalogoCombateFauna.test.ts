@@ -81,3 +81,13 @@ test("cargarCatalogoCombateFauna: dieta viaja tal cual del catálogo, y jabalí/
   assert.strictEqual(catalogo["jabali"].domesticable, true);
   assert.strictEqual(catalogo["cerdo"].domesticable, true);
 });
+
+// docs/GDD_Barcos.md (pedido 2026-08-30) — combate acuático
+test("cargarCatalogoCombateFauna: requiereAgua viaja tal cual — orca/tiburón lo tienen, un animal de tierra no", () => {
+  const catalogo = cargarCatalogoCombateFauna(RUTA_ANIMALES);
+  assert.strictEqual(catalogo["orca"].requiereAgua, true);
+  assert.strictEqual(catalogo["tiburon"].requiereAgua, true);
+  assert.ok(catalogo["orca"].peligroso, "una orca debe ser hostil (combate)");
+  assert.ok(catalogo["tiburon"].peligroso, "un tiburón debe ser hostil (combate)");
+  assert.ok(!catalogo["conejo"].requiereAgua);
+});

@@ -1,0 +1,12 @@
+{
+  "nombre": "mar_01",
+  "anchoChunks": 1,
+  "altoChunks": 1,
+  "tamanoChunk": 8,
+  "tamanoSectorChunks": 1,
+  "leyendaTerreno": [
+    "agua"
+  ],
+  "portales": [],
+  "parcelasReservadas": []
+}

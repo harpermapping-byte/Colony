@@ -40,6 +40,10 @@ export interface ParticipanteArena {
   pasivo?: boolean;
   /** Solo si esJugador — lo que mandó de vuelta en `combate:iniciar`/`combate:unirse`; se reenvía tal cual al terminar. */
   retorno?: RetornoJugador;
+  /** docs/GDD_Barcos.md (pedido 2026-08-30) — solo si esJugador e iba en un barco al entrar en combate acuático: "barco" (el capitán, uno solo) o "nadando" (el resto de la tripulación). Puramente cosmético, ver CombateUnidad.visual. */
+  visualCombate?: "barco" | "nadando";
+  /** Solo con visualCombate==="barco" — qué modelo de barco pintar. */
+  barcoTipoId?: string;
 }
 
 export interface RosterArena {

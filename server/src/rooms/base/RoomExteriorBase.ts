@@ -11,7 +11,7 @@ import { NPC_TENDERO_VENTA, NPC_TENDERO_COMPRA, REPOSICION_STOCK_NPC } from "../
 import { diaFraccional } from "../../mundo/reproduccionFauna";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
-import { cargarCatalogoArenas, elegirArena } from "../../combate/seleccionArena";
+import { cargarCatalogoArenas, elegirArena, EntradaArena } from "../../combate/seleccionArena";
 import { MundoColision, moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO_PJ, tipoEn, casillaAguaCercana } from "../../mundo/colisiones";
 import {
   UnidadCombate,
@@ -463,7 +463,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private timeoutsVentanaCombate = new Map<string, Delayed>();
   /** Lo que mandó cada jugador en combate:iniciar/unirse para poder volver EXACTAMENTE de donde salió — vive y muere con el combate, nunca se persiste. */
   private retornosPendientes = new Map<string, RetornoJugador>();
-  private catalogoArenas?: string[];
+  private catalogoArenas?: EntradaArena[];
   /** docs/GDD_Caza.md — combates de "modo caza": sin ventana de unión, `cerrarVentanaCombate` se llama al instante y sus bucles de auto-unión (Enemigo/Fauna hostiles cercanos) se saltan. Se consume (borra) al usarse. */
   private combatesSinAutoUnion = new Set<string>();
 
@@ -5860,13 +5860,31 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Roster para la room de arena — la fuente de verdad de este combate
     // deja de ser esta room a partir de aquí.
     const participantes: RosterArena["participantes"] = [];
+    // Combate acuático (docs/GDD_Barcos.md, pedido 2026-08-30): "en el mar
+    // el combate es diferente (orcas, tiburones)... el sprite del lugar es
+    // agua" — cualquier especie hostil con requiereAgua (ya en baker/
+    // catalogo/animales.json, leído en vivo por primera vez aquí) vuelve
+    // TODO el combate acuático: arena de agua para todos, y la tripulación
+    // de un barco no se oculta como una montura normal (más abajo).
+    let combateEsAcuatico = false;
+    for (const u of combate.unidades.values()) {
+      if (u.esJugador || this.state.enemigos.has(u.id)) continue;
+      const f = this.state.fauna.get(u.id);
+      if (f && this.estadisticasFaunaDe(f.especieId)?.requiereAgua) { combateEsAcuatico = true; break; }
+    }
     for (const u of combate.unidades.values()) {
       if (u.esJugador) {
+        const enBarco = this.barcosPorSesion.get(u.id);
         participantes.push({
           id: u.id, bando: u.bando as Bando, esJugador: true,
           hp: u.hp, hpMax: u.hpMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
           nombreJugador: this.state.players.get(u.id)?.name,
           retorno: this.retornosPendientes.get(u.id),
+          // Solo si el combate es acuático Y de verdad iba en un barco: el
+          // capitán se ve EN el barco, el resto de la tripulación nadando —
+          // puramente cosmético, "no da más bonus ni nada" (pedido literal).
+          visualCombate: combateEsAcuatico && enBarco ? (enBarco.esCapitan ? "barco" : "nadando") : undefined,
+          barcoTipoId: combateEsAcuatico && enBarco?.esCapitan ? this.state.barcos.get(String(enBarco.barcoId))?.tipoId : undefined,
         });
         this.retornosPendientes.delete(u.id);
       } else {
@@ -5887,7 +5905,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     if (!this.catalogoArenas) this.catalogoArenas = cargarCatalogoArenas();
-    const mapaArenaId = elegirArena(combateId, this.catalogoArenas);
+    const mapaArenaId = elegirArena(combateId, this.catalogoArenas, combateEsAcuatico ? "agua" : "tierra");
     registrarRosterArena(combateId, { mapaArenaId, participantes, origenRoomId: this.roomId });
 
     const marcador = new MarcadorCombateSchema();
@@ -5903,7 +5921,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // viaja con él). La mascota reaparece "siguiendo" en esta room.
       this.desmontarSesionId(p.id);
       // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): mismo criterio que
-      // una montura animal — "ni el PJ montado" también vale para un barco.
+      // una montura animal en combate NORMAL — pero en combate ACUÁTICO el
+      // roster de arriba ya capturó "quién iba en el barco" (visualCombate)
+      // ANTES de este desembarco, así que la instantánea cosmética de la
+      // arena no se pierde aunque el barco sí se ancle aquí de verdad.
       void this.desembarcarSesionId(p.id);
       const c = this.clients.find((cl) => cl.sessionId === p.id);
       c?.send("portal:ir", { tipo: "combate", combateId, mapaArenaId });

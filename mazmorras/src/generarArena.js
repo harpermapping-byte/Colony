@@ -77,13 +77,13 @@ function generarObstaculosArena({ ancho, alto, semilla, densidad = 0.15 }) {
  * que lee `server/src/mundo/mapaColision.ts`, verificado contra ESE loader
  * en `server/test/` (no un formato inventado aparte).
  */
-function exportarArena({ id, ancho, alto, semilla, rutaSalida, densidad = 0.15 }) {
+function exportarArena({ id, ancho, alto, semilla, rutaSalida, densidad = 0.15, terreno = TERRENO_SUELO, objetoObstaculo = OBJETO_OBSTACULO }) {
   const obstaculos = generarObstaculosArena({ ancho, alto, semilla, densidad });
 
   const objetos = [];
   for (let y = 0; y < alto; y++) {
     for (let x = 0; x < ancho; x++) {
-      if (obstaculos[y * ancho + x]) objetos.push({ ...OBJETO_OBSTACULO, x, y });
+      if (obstaculos[y * ancho + x]) objetos.push({ ...objetoObstaculo, x, y });
     }
   }
 
@@ -97,7 +97,7 @@ function exportarArena({ id, ancho, alto, semilla, rutaSalida, densidad = 0.15 }
         altoChunks: 1,
         tamanoChunk: Math.max(ancho, alto),
         tamanoSectorChunks: 1,
-        leyendaTerreno: [TERRENO_SUELO],
+        leyendaTerreno: [terreno],
         portales: [],
         parcelasReservadas: [],
       },
@@ -109,10 +109,10 @@ function exportarArena({ id, ancho, alto, semilla, rutaSalida, densidad = 0.15 }
   // fila a fila — el chunk siempre es cuadrado (tamanoChunk = max(ancho,alto)),
   // así que se rellena hasta ese lado y el resto simplemente no se pisa
   const lado = Math.max(ancho, alto);
-  const terreno = "0".repeat(lado * lado);
+  const digitosTerreno = "0".repeat(lado * lado);
   fs.writeFileSync(
     path.join(rutaSalida, "sector_000_000.json"),
-    JSON.stringify({ chunks: { "0_0": { terreno, tamano: lado, objetos } } }),
+    JSON.stringify({ chunks: { "0_0": { terreno: digitosTerreno, tamano: lado, objetos } } }),
   );
 
   return { ancho, alto, semilla, obstaculos: objetos.length };
@@ -121,14 +121,19 @@ function exportarArena({ id, ancho, alto, semilla, rutaSalida, densidad = 0.15 }
 module.exports = { generarObstaculosArena, exportarArena };
 
 if (require.main === module) {
-  const [, , id, semilla, anchoArg, altoArg] = process.argv;
+  const [, , id, semilla, anchoArg, altoArg, terrenoArg, densidadArg] = process.argv;
   if (!id || !semilla) {
-    console.error("Uso: node generarArena.js <id> <semilla> [ancho=8] [alto=8]");
+    console.error("Uso: node generarArena.js <id> <semilla> [ancho=8] [alto=8] [terreno=cesped] [densidad=0.15]");
     process.exit(1);
   }
   const ancho = Number(anchoArg) || 8;
   const alto = Number(altoArg) || 8;
+  const terreno = terrenoArg || TERRENO_SUELO;
+  // Combate acuático (docs/GDD_Barcos.md, pedido 2026-08-30): una arena de
+  // agua no lleva las mismas rocas de cobertura por defecto — se puede
+  // pedir densidad=0 desde la CLI (orcas/tiburones nadan a mar abierto).
+  const densidad = densidadArg !== undefined ? Number(densidadArg) : 0.15;
   const rutaSalida = path.join(__dirname, "..", "..", "assets", "mapas", "arenas", id);
-  const resultado = exportarArena({ id, ancho, alto, semilla, rutaSalida });
-  console.log(`Arena "${id}" (${ancho}x${alto}, semilla=${semilla}): ${resultado.obstaculos} obstáculos -> ${rutaSalida}`);
+  const resultado = exportarArena({ id, ancho, alto, semilla, rutaSalida, terreno, densidad });
+  console.log(`Arena "${id}" (${ancho}x${alto}, semilla=${semilla}, terreno=${terreno}): ${resultado.obstaculos} obstáculos -> ${rutaSalida}`);
 }

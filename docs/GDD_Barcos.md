@@ -119,9 +119,15 @@ PJ-PJ. Un barco tampoco bucea (nivel siempre 0, "nadando").
 ## 5. Combate
 
 Mismo criterio que Monturas ("si entra en combate no aparece la montura ni
-el PJ montado"): el funnel único de entrada a combate desembarca al
-jugador ANTES de mandarlo a la arena (`desembarcarSesionId`, junto a
-`desmontarSesionId` de Monturas). El barco queda anclado donde estaba.
+el PJ montado") **salvo en combate ACUÁTICO** (orca/tiburón — pedido aparte
+2026-08-30, ver `docs/GDD_Combate.md §9.6`): ahí el capitán se ve EN el
+barco y el resto de la tripulación nadando, puramente cosmético, "no da más
+bonus ni nada". El funnel único de entrada a combate sigue desembarcando a
+TODOS antes de mandarlos a la arena (`desembarcarSesionId`/`desmontarSesionId`
+— el barco se ancla de verdad donde estaba, exactamente igual que en
+combate normal); la diferencia es que `cerrarVentanaCombate` toma una
+instantánea de "quién iba en qué barco" ANTES de ese desembarco y la manda
+a la arena como dato puramente visual (`CombateUnidad.visual`/`barcoTipoId`).
 
 ## 6. Navegación entre mapas exteriores
 
@@ -176,7 +182,8 @@ prueba, no de producción) que sí se cruzan entre sí de verdad en el E2E.
   `portal:ir {tipo:"hub", mapaId:"test_mar_b"}`, y que uniéndose de verdad
   a `hub_mapa`/`test_mar_b` el barco reaparece anclado ahí (BD
   `mapa_id` cambiado) con el jugador llegando a pie.
-- **Suite completa de servidor: 636/636** (630 + 4 nuevos de barcos + 2
+- **Suite completa de servidor: 638/638** (630 + 4 nuevos de barcos + 4
+  nuevos de combate acuático — `seleccionArena`/`catalogoCombateFauna` — + 2
   ajustes a tests existentes por el recuento de items.json). `tsc --noEmit`
   limpio en `server/` y `client/`. Build de producción (`vite build`)
   verificado.
