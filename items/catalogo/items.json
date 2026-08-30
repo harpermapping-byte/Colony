@@ -663,6 +663,32 @@
     "colorDebug": "#7a3a3a",
     "_nota": "Subproducto del cadáver de cualquier animal (docs/GDD_Caza.md) — genérico, no varía por especie. Sin categoriaRecurso: no lo coloca el bake, lo entrega el loot de caza al matar."
   },
+  "tendones": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 1,
+    "colorDebug": "#d8c8a8",
+    "_nota": "Subproducto del cadáver de cualquier animal (docs/GDD_Caza.md) — genérico, no varía por especie. Sin categoriaRecurso: no lo coloca el bake, lo entrega el loot de caza al matar."
+  },
+  "tripas": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 1,
+    "colorDebug": "#7a3a3a",
+    "_nota": "Subproducto del cadáver de cualquier animal (docs/GDD_Caza.md) — genérico, no varía por especie. Sin categoriaRecurso: no lo coloca el bake, lo entrega el loot de caza al matar."
+  },
   "pescado_rio": {
     "tipo": "recurso",
     "categoriaRecurso": "pescado_rio",
@@ -915,6 +941,19 @@
     "variantes": 2,
     "colorDebug": "#8a8a90",
     "_nota": "Herramienta de docs/GDD_Ganaderia.md — sin ella (equipada o en el inventario) no se puede esquilar (animal:recolectarProducto, producto \"lana\"), además de tener el oficio ganadero (Player.oficio)."
+  },
+  "cuchillo_desollar": {
+    "tipo": "herramienta",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#a0a0a8",
+    "_nota": "Herramienta de docs/GDD_Caza.md — sin ella (equipada o en el inventario) no se puede desollar un cadáver ni raspar una piel salada, además de tener el oficio curtidor/peletero (Player.oficio)."
   },
   "antorcha_portatil": {
     "tipo": "herramienta",
