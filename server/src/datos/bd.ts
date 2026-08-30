@@ -251,6 +251,31 @@ export interface FaunaHuevoFila {
   duracionDias: number;
 }
 
+// Crecimiento de bosques (docs/GDD_Bosques.md, pedido 2026-08-30) — mismo
+// criterio por sector que FaunaSalvajeFila, con una diferencia real: un
+// árbol de origen "bake" que nadie ha tocado NUNCA se persiste aquí (se
+// re-deriva del propio bake en cada resolución, ver bosqueSector.ts) —
+// solo aparecen los talados (origen:"bake", estado:"talado") y los
+// nacidos en el sistema (origen:"propagacion"|"plantado").
+export type EtapaArbol = "joven" | "adulto";
+export type OrigenArbol = "bake" | "propagacion" | "plantado";
+export type EstadoArbol = "vivo" | "talado";
+
+export interface ArbolVivoFila {
+  id: string;
+  mapaId: string;
+  sectorX: number;
+  sectorY: number;
+  especieId: string;
+  x: number;
+  y: number;
+  etapa: EtapaArbol;
+  origen: OrigenArbol;
+  /** día de mundo en que nació/se plantó; null en `origen:"bake"` (ya nace adulto, nunca "creció" en el sistema). */
+  diaPlantado: number | null;
+  estado: EstadoArbol;
+}
+
 // Cadáveres (docs/GDD_Agentes_Moviles.md, pedido 2026-08-30): al morir
 // un animal/NPC/jugador, deja de contar como esa entidad viva y aparece
 // esta fila — un cadáver lootable con SU PROPIO contenedor (reusa
@@ -500,6 +525,15 @@ export interface IAlmacenDatos {
   /** `null` = este sector nunca se resolvió — el primer spawn se genera determinista, no se "resuelve" un hueco. */
   obtenerUltimaResolucionSector(mapaId: string, sectorX: number, sectorY: number): Promise<number | null>;
   marcarSectorResuelto(mapaId: string, sectorX: number, sectorY: number, momento: number): Promise<void>;
+  // Crecimiento de bosques (docs/GDD_Bosques.md, pedido 2026-08-30) — mismo
+  // criterio por sector que la fauna salvaje, pero SIN materializar la
+  // población base: un árbol bakeado sin tocar nunca se persiste (se
+  // re-deriva del propio bake, ver server/src/mundo/bosqueSector.ts), solo
+  // los talados y los nacidos en el sistema (propagación/plantado).
+  listarArbolesVivosSector(mapaId: string, sectorX: number, sectorY: number): Promise<ArbolVivoFila[]>;
+  guardarArbolVivo(a: ArbolVivoFila): Promise<void>;
+  obtenerUltimaResolucionSectorBosque(mapaId: string, sectorX: number, sectorY: number): Promise<number | null>;
+  marcarSectorBosqueResuelto(mapaId: string, sectorX: number, sectorY: number, momento: number): Promise<void>;
   // Cadáveres (docs/GDD_Agentes_Moviles.md, pedido 2026-08-30) — sin
   // sector, por mapa entero (las muertes son mucho menos frecuentes que
   // la población base de fauna).
@@ -794,6 +828,27 @@ CREATE TABLE IF NOT EXISTS fauna_sector_resuelto (
   ultima_resolucion REAL NOT NULL,
   PRIMARY KEY (mapa_id, sector_x, sector_y)
 );
+CREATE TABLE IF NOT EXISTS arboles_vivos (
+  id TEXT PRIMARY KEY,                  -- "arbol:<mapaId>:<sectorX>:<sectorY>:<n>" (bake talado) o "...:brote:<dia>:<n>" (crecido)
+  mapa_id TEXT NOT NULL,
+  sector_x INTEGER NOT NULL,
+  sector_y INTEGER NOT NULL,
+  especie_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  etapa TEXT NOT NULL,                  -- 'joven' | 'adulto'
+  origen TEXT NOT NULL,                 -- 'bake' | 'propagacion' | 'plantado'
+  dia_plantado REAL,                    -- null en origen 'bake' (nace ya adulto, nunca "creció" en el sistema)
+  estado TEXT NOT NULL DEFAULT 'vivo'   -- 'vivo' | 'talado' — nunca vuelve a 'vivo'
+);
+CREATE INDEX IF NOT EXISTS idx_arboles_vivos_sector ON arboles_vivos(mapa_id, sector_x, sector_y);
+CREATE TABLE IF NOT EXISTS arboles_sector_resuelto (
+  mapa_id TEXT NOT NULL,
+  sector_x INTEGER NOT NULL,
+  sector_y INTEGER NOT NULL,
+  ultima_resolucion REAL NOT NULL,
+  PRIMARY KEY (mapa_id, sector_x, sector_y)
+);
 CREATE TABLE IF NOT EXISTS cadaveres (
   id TEXT PRIMARY KEY,
   mapa_id TEXT NOT NULL,
@@ -1057,6 +1112,27 @@ CREATE TABLE IF NOT EXISTS fauna_sector_resuelto (
   ultima_resolucion REAL NOT NULL,
   PRIMARY KEY (mapa_id, sector_x, sector_y)
 );
+CREATE TABLE IF NOT EXISTS arboles_vivos (
+  id TEXT PRIMARY KEY,                  -- "arbol:<mapaId>:<sectorX>:<sectorY>:<n>" (bake talado) o "...:brote:<dia>:<n>" (crecido)
+  mapa_id TEXT NOT NULL,
+  sector_x INTEGER NOT NULL,
+  sector_y INTEGER NOT NULL,
+  especie_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  etapa TEXT NOT NULL,                  -- 'joven' | 'adulto'
+  origen TEXT NOT NULL,                 -- 'bake' | 'propagacion' | 'plantado'
+  dia_plantado REAL,                    -- null en origen 'bake' (nace ya adulto, nunca "creció" en el sistema)
+  estado TEXT NOT NULL DEFAULT 'vivo'   -- 'vivo' | 'talado' — nunca vuelve a 'vivo'
+);
+CREATE INDEX IF NOT EXISTS idx_arboles_vivos_sector ON arboles_vivos(mapa_id, sector_x, sector_y);
+CREATE TABLE IF NOT EXISTS arboles_sector_resuelto (
+  mapa_id TEXT NOT NULL,
+  sector_x INTEGER NOT NULL,
+  sector_y INTEGER NOT NULL,
+  ultima_resolucion REAL NOT NULL,
+  PRIMARY KEY (mapa_id, sector_x, sector_y)
+);
 CREATE TABLE IF NOT EXISTS cadaveres (
   id TEXT PRIMARY KEY,
   mapa_id TEXT NOT NULL,
@@ -1148,6 +1224,23 @@ function filaFaunaHuevoDesdeSql(f: any): FaunaHuevoFila {
     y: Number(f.y),
     puestoEn: Number(f.puesto_en),
     duracionDias: Number(f.duracion_dias),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaArbolVivoDesdeSql(f: any): ArbolVivoFila {
+  return {
+    id: String(f.id),
+    mapaId: String(f.mapa_id),
+    sectorX: Number(f.sector_x),
+    sectorY: Number(f.sector_y),
+    especieId: String(f.especie_id),
+    x: Number(f.x),
+    y: Number(f.y),
+    etapa: String(f.etapa) as EtapaArbol,
+    origen: String(f.origen) as OrigenArbol,
+    diaPlantado: f.dia_plantado === null || f.dia_plantado === undefined ? null : Number(f.dia_plantado),
+    estado: String(f.estado) as EstadoArbol,
   };
 }
 
@@ -1976,6 +2069,43 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     this.bd
       .prepare(
         `INSERT INTO fauna_sector_resuelto (mapa_id, sector_x, sector_y, ultima_resolucion)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(mapa_id, sector_x, sector_y) DO UPDATE SET ultima_resolucion = excluded.ultima_resolucion`,
+      )
+      .run(mapaId, sectorX, sectorY, momento);
+  }
+
+  async listarArbolesVivosSector(mapaId: string, sectorX: number, sectorY: number): Promise<ArbolVivoFila[]> {
+    const filas = this.bd
+      .prepare(
+        `SELECT id, mapa_id, sector_x, sector_y, especie_id, x, y, etapa, origen, dia_plantado, estado
+         FROM arboles_vivos WHERE mapa_id = ? AND sector_x = ? AND sector_y = ?`,
+      )
+      .all(mapaId, sectorX, sectorY);
+    return filas.map(filaArbolVivoDesdeSql);
+  }
+
+  async guardarArbolVivo(a: ArbolVivoFila): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO arboles_vivos (id, mapa_id, sector_x, sector_y, especie_id, x, y, etapa, origen, dia_plantado, estado)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET etapa = excluded.etapa, estado = excluded.estado`,
+      )
+      .run(a.id, a.mapaId, a.sectorX, a.sectorY, a.especieId, a.x, a.y, a.etapa, a.origen, a.diaPlantado, a.estado);
+  }
+
+  async obtenerUltimaResolucionSectorBosque(mapaId: string, sectorX: number, sectorY: number): Promise<number | null> {
+    const fila = this.bd
+      .prepare("SELECT ultima_resolucion FROM arboles_sector_resuelto WHERE mapa_id = ? AND sector_x = ? AND sector_y = ?")
+      .get(mapaId, sectorX, sectorY);
+    return fila ? Number(fila.ultima_resolucion) : null;
+  }
+
+  async marcarSectorBosqueResuelto(mapaId: string, sectorX: number, sectorY: number, momento: number): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO arboles_sector_resuelto (mapa_id, sector_x, sector_y, ultima_resolucion)
          VALUES (?, ?, ?, ?)
          ON CONFLICT(mapa_id, sector_x, sector_y) DO UPDATE SET ultima_resolucion = excluded.ultima_resolucion`,
       )
@@ -2939,6 +3069,41 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async marcarSectorResuelto(mapaId: string, sectorX: number, sectorY: number, momento: number): Promise<void> {
     await this.pool.query(
       `INSERT INTO fauna_sector_resuelto (mapa_id, sector_x, sector_y, ultima_resolucion)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (mapa_id, sector_x, sector_y) DO UPDATE SET ultima_resolucion = EXCLUDED.ultima_resolucion`,
+      [mapaId, sectorX, sectorY, momento],
+    );
+  }
+
+  async listarArbolesVivosSector(mapaId: string, sectorX: number, sectorY: number): Promise<ArbolVivoFila[]> {
+    const r = await this.pool.query(
+      `SELECT id, mapa_id, sector_x, sector_y, especie_id, x, y, etapa, origen, dia_plantado, estado
+       FROM arboles_vivos WHERE mapa_id = $1 AND sector_x = $2 AND sector_y = $3`,
+      [mapaId, sectorX, sectorY],
+    );
+    return r.rows.map(filaArbolVivoDesdeSql);
+  }
+
+  async guardarArbolVivo(a: ArbolVivoFila): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO arboles_vivos (id, mapa_id, sector_x, sector_y, especie_id, x, y, etapa, origen, dia_plantado, estado)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       ON CONFLICT (id) DO UPDATE SET etapa = EXCLUDED.etapa, estado = EXCLUDED.estado`,
+      [a.id, a.mapaId, a.sectorX, a.sectorY, a.especieId, a.x, a.y, a.etapa, a.origen, a.diaPlantado, a.estado],
+    );
+  }
+
+  async obtenerUltimaResolucionSectorBosque(mapaId: string, sectorX: number, sectorY: number): Promise<number | null> {
+    const r = await this.pool.query(
+      "SELECT ultima_resolucion FROM arboles_sector_resuelto WHERE mapa_id = $1 AND sector_x = $2 AND sector_y = $3",
+      [mapaId, sectorX, sectorY],
+    );
+    return r.rows[0] ? Number(r.rows[0].ultima_resolucion) : null;
+  }
+
+  async marcarSectorBosqueResuelto(mapaId: string, sectorX: number, sectorY: number, momento: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO arboles_sector_resuelto (mapa_id, sector_x, sector_y, ultima_resolucion)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (mapa_id, sector_x, sector_y) DO UPDATE SET ultima_resolucion = EXCLUDED.ultima_resolucion`,
       [mapaId, sectorX, sectorY, momento],

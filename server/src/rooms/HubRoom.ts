@@ -12,6 +12,13 @@ import { ObjetoFaunaBakeado } from "../mundo/faunaSalvajeSector";
 import { cadaverDesaparecio } from "../mundo/cadaveres";
 import { diaFraccional } from "../mundo/reproduccionFauna";
 import { tiempoMundo } from "../mundo/tiempoMundo";
+import { DependenciasBosques, GestorBosques } from "../mundo/bosquesVivos";
+import { ObjetoArbolBakeado } from "../mundo/bosqueSector";
+import { EspecieArbol } from "../mundo/crecimientoBosques";
+import { quitarItem, excedePesoMaximo } from "../inventario/inventario";
+import { intentarCoger } from "../inventario/cogerSoltar";
+import { sincronizarContenedor } from "../inventario/sincronizarSchema";
+import { pesoMaximoTransportable } from "../personaje/bonusAtributos";
 import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
 import { cargarCatalogoItems } from "../inventario/inventario";
 import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
@@ -42,6 +49,54 @@ function leerObjetosFaunaDeSector(rutaMapa: string, tamanoChunk: number, sectorX
   return salida;
 }
 
+// Mismo formato que leerObjetosFaunaDeSector, pero para vegetación (t==="v")
+// — crecimiento de bosques (docs/GDD_Bosques.md, pedido 2026-08-30). Se
+// devuelven TODOS los objetos de vegetación tal cual (no solo árboles): es
+// resolverSectorBosque quien filtra por especie-con-crecimiento, mismo
+// criterio que la fauna (el lector no sabe de catálogos, solo lee bytes).
+function leerObjetosVegetacionDeSector(rutaMapa: string, tamanoChunk: number, sectorX: number, sectorY: number): ObjetoArbolBakeado[] {
+  const pad3 = (n: number) => String(n).padStart(3, "0");
+  const ruta = path.join(rutaMapa, `sector_${pad3(sectorX)}_${pad3(sectorY)}.json`);
+  if (!fs.existsSync(ruta)) return [];
+  const sector = JSON.parse(fs.readFileSync(ruta, "utf8")) as {
+    chunks: Record<string, { objetos: { i: string; t: string; x: number; y: number }[] }>;
+  };
+  const salida: ObjetoArbolBakeado[] = [];
+  for (const [clave, chunk] of Object.entries(sector.chunks)) {
+    const [cx, cy] = clave.split("_").map(Number);
+    const baseX = cx * tamanoChunk;
+    const baseY = cy * tamanoChunk;
+    for (const obj of chunk.objetos) {
+      if (obj.t === "v") salida.push({ i: obj.i, x: baseX + obj.x, y: baseY + obj.y });
+    }
+  }
+  return salida;
+}
+
+// Catálogo de crecimiento (docs/GDD_Bosques.md): solo las especies de
+// vegetacion.json que traen el campo `crecimiento` (árboles maderables) —
+// el resto de vegetación (arbustos, flores, frutales sin colisión...) ni
+// entra aquí, mismo criterio que cargarCatalogoCombateFauna filtrando por
+// campos presentes. Devuelve TAMBIÉN especieId->categoriaRecurso (qué
+// madera da cada especie al talarla, docs/GDD_Bosques.md) — mismo archivo,
+// una sola lectura.
+function cargarCatalogoCrecimientoArboles(rutaVegetacionJson: string): { crecimiento: Record<string, EspecieArbol>; madera: Record<string, string> } {
+  const vegetacion = JSON.parse(fs.readFileSync(rutaVegetacionJson, "utf8")) as Record<string, { crecimiento?: EspecieArbol; categoriaRecurso?: string }>;
+  const crecimiento: Record<string, EspecieArbol> = {};
+  const madera: Record<string, string> = {};
+  for (const [id, datos] of Object.entries(vegetacion)) {
+    if (id.startsWith("_") || !datos?.crecimiento) continue;
+    crecimiento[id] = datos.crecimiento;
+    if (datos.categoriaRecurso) madera[id] = datos.categoriaRecurso;
+  }
+  return { crecimiento, madera };
+}
+
+// Talar (docs/GDD_Bosques.md) — mismo orden de magnitud que
+// XP_FUERZA_POR_RECOLECTA_PESADA (RoomExteriorBase.ts), constante propia
+// porque esa no está exportada.
+const XP_FUERZA_TALAR = 2;
+
 // El hub juega sobre el MAPA PRINCIPAL (assets/mapas/principal/) — mismo
 // mapa que el cliente carga por streaming. Si no está en disco (repo
 // parcial, entorno raro), se cae al demo para no tumbar el servidor; los
@@ -68,6 +123,11 @@ export class HubRoom extends RoomExteriorBase {
   // (ver el try/catch de onCreate). `matarIndividuo` es el punto de
   // enganche para un futuro sistema de combate.
   private gestorFaunaSalvaje?: GestorFaunaSalvaje;
+  // Crecimiento de bosques (docs/GDD_Bosques.md) — mismo criterio de
+  // opcionalidad y try/catch propio que la fauna salvaje.
+  private gestorBosques?: GestorBosques;
+  // especieId -> categoriaRecurso (qué madera da cada especie al talarla) — usado por manejarArbolTalar.
+  private especieAMadera: Record<string, string> = {};
   // Guardado aparte (además de dentro de deps.catalogoCombate) para que lo
   // use también la autosimulación NPC-vs-fauna (docs/GDD_Combate.md §7).
   private catalogoCombate?: CatalogoCombateFauna;
@@ -172,6 +232,12 @@ export class HubRoom extends RoomExteriorBase {
           this.gestorFaunaSalvaje!
             .actualizarPorJugadores(posiciones, indice.tamanoChunk, indice.tamanoSectorChunks, 1)
             .catch((err) => console.error("Fauna salvaje: fallo actualizando sectores activos:", err));
+          // Bosques (docs/GDD_Bosques.md): MISMO intervalo de 8s que la
+          // fauna salvaje, sin uno nuevo — reusa las mismas posiciones ya
+          // calculadas arriba.
+          this.gestorBosques
+            ?.actualizarPorJugadores(posiciones, 1)
+            .catch((err) => console.error("Bosques: fallo actualizando sectores activos:", err));
         }, 8000);
         // Autosimulación de encuentros NPC-vs-fauna peligrosa (docs/GDD_Combate.md
         // §7, confirmado 2026-08-30: "en combates de NPC contra animales... se
@@ -183,6 +249,38 @@ export class HubRoom extends RoomExteriorBase {
           5000,
         );
         console.log("  Fauna salvaje en vivo activada (sectores bajo demanda)");
+
+        // Crecimiento de bosques EN VIVO (docs/GDD_Bosques.md, pedido
+        // 2026-08-30) — mismo patrón sector-activado que la fauna salvaje,
+        // pero sin tick propio (los árboles no se mueven). Try/catch propio:
+        // si algo falla aquí (catálogo raro, indice sin datos) el Hub sigue
+        // exactamente igual, con fauna viva pero sin bosques creciendo, en
+        // vez de tumbar la fauna que sí acaba de arrancar bien.
+        try {
+          const { crecimiento: catalogoArboles, madera: especieAMadera } = cargarCatalogoCrecimientoArboles(
+            path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "vegetacion.json"),
+          );
+          this.especieAMadera = especieAMadera;
+          const depsBosques: DependenciasBosques = {
+            mapaId,
+            catalogo: catalogoArboles,
+            mundo: this.mapa,
+            tamanoChunk: indice.tamanoChunk,
+            tamanoSectorChunks: indice.tamanoSectorChunks,
+            ahora: () => tiempoMundo().dia,
+            cargarBakeSector: (s) => leerObjetosVegetacionDeSector(rutaMapa, indice.tamanoChunk, s.sectorX, s.sectorY),
+            cargarPersistido: async (s) => ({
+              bakeTalados: (await bd.listarArbolesVivosSector(mapaId, s.sectorX, s.sectorY)).filter((f) => f.origen === "bake"),
+              crecidos: (await bd.listarArbolesVivosSector(mapaId, s.sectorX, s.sectorY)).filter((f) => f.origen !== "bake"),
+            }),
+            guardarArbolVivo: (a) => bd.guardarArbolVivo(a),
+            marcarSectorResuelto: (s, momento) => bd.marcarSectorBosqueResuelto(mapaId, s.sectorX, s.sectorY, momento),
+          };
+          this.gestorBosques = new GestorBosques(this.state.arbolesVivos, depsBosques);
+          console.log(`  Bosques en vivo activados (${Object.keys(catalogoArboles).length} especies con crecimiento)`);
+        } catch (err) {
+          console.error("Bosques: no se pudo iniciar, el Hub sigue sin crecimiento de árboles:", err);
+        }
       }
     } catch (err) {
       console.error("Fauna salvaje: no se pudo iniciar, el Hub sigue sin ella:", err);
@@ -309,6 +407,80 @@ export class HubRoom extends RoomExteriorBase {
         objetivoTipo: "jugador", objetivoId: msg.objetivoId, danio,
         vida: objetivo.vida, vidaMax: objetivo.vidaMax, muerto,
       });
+    });
+
+    // Crecimiento de bosques (docs/GDD_Bosques.md, pedido 2026-08-30) —
+    // talar/plantar solo tienen sentido donde hay gestorBosques (el Hub,
+    // ver "límite conocido" del GDD: no disponible en RegionRoom todavía).
+    this.onMessage("arbol:consultar", (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || !this.gestorBosques) return;
+      const cercano = this.gestorBosques.buscarArbolCercano(player.x, player.y, RADIO_INTERACCION);
+      client.send("arbol:info", cercano ? { especieId: cercano.especieId, etapa: cercano.etapa } : null);
+    });
+
+    this.onMessage("arbol:talar", async (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      if (!this.gestorBosques) return client.send("arbol:error", { motivo: "sin bosques en este mapa" });
+      const contenedor = this.inventarios.get(client.sessionId);
+      if (!contenedor) return;
+      if (!contenedor.items.some((it) => it.itemId === "hacha_talar")) {
+        return client.send("arbol:error", { motivo: "necesitas un hacha de talar" });
+      }
+      const cercano = this.gestorBosques.buscarArbolCercano(player.x, player.y, RADIO_INTERACCION);
+      if (!cercano) return client.send("arbol:error", { motivo: "no hay ningún árbol cerca" });
+
+      const resultado = await this.gestorBosques.talar(cercano.ref);
+      if (!resultado) return client.send("arbol:error", { motivo: "ese árbol ya no está" });
+
+      // Recompensa (docs/GDD_Bosques.md): madera siempre (más si es adulto
+      // que si es un brote joven), semilla de la misma especie solo de un
+      // adulto y con 50% — un brote joven todavía no da semilla propia.
+      const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+      const entregar = (itemId: string, cantidad: number) => {
+        if (excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo)) return false;
+        return intentarCoger(contenedor, this.catalogoItems, { itemId, cantidad }).ok;
+      };
+      const entregados: string[] = [];
+      const itemMadera = this.especieAMadera[resultado.especieId];
+      if (itemMadera) {
+        const cantidadMadera = resultado.etapa === "adulto" ? 3 + Math.floor(Math.random() * 3) : 1;
+        if (entregar(itemMadera, cantidadMadera)) entregados.push(itemMadera);
+      }
+      if (resultado.etapa === "adulto" && Math.random() < 0.5) {
+        const semillaId = `semilla_${resultado.especieId}`;
+        if (this.catalogoItems[semillaId] && entregar(semillaId, 1)) entregados.push(semillaId);
+      }
+
+      sincronizarContenedor(player.inventario.cuerpo, contenedor);
+      void this.otorgarXpAtributoPorSesion(client, "fuerza", XP_FUERZA_TALAR);
+      client.send("arbol:talado", { especieId: resultado.especieId, etapa: resultado.etapa, entregados });
+    });
+
+    this.onMessage("arbol:plantar", async (client, msg: { instanciaId?: number; x?: number; y?: number }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      if (!this.gestorBosques) return client.send("arbol:error", { motivo: "sin bosques en este mapa" });
+      if (typeof msg?.instanciaId !== "number") return;
+      const contenedor = this.inventarios.get(client.sessionId);
+      const semilla = contenedor?.items.find((it) => it.id === msg.instanciaId);
+      if (!contenedor || !semilla) return client.send("arbol:error", { motivo: "esa semilla ya no está en tu inventario" });
+      const especieId = this.catalogoItems[semilla.itemId]?.crecimientoArbol?.especieArbolId;
+      if (!especieId) return client.send("arbol:error", { motivo: "eso no es una semilla de árbol" });
+
+      const x = typeof msg.x === "number" ? msg.x : player.x;
+      const y = typeof msg.y === "number" ? msg.y : player.y;
+      if (Math.hypot(x - player.x, y - player.y) > RADIO_INTERACCION) {
+        return client.send("arbol:error", { motivo: "demasiado lejos" });
+      }
+
+      const fila = await this.gestorBosques.plantar(especieId, x, y);
+      if (!fila) return client.send("arbol:error", { motivo: "aquí no se puede plantar" });
+
+      quitarItem(contenedor, semilla.id, 1);
+      sincronizarContenedor(player.inventario.cuerpo, contenedor);
+      client.send("arbol:plantado", { especieId, x: fila.x, y: fila.y });
     });
   }
 
