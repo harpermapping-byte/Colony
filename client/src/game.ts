@@ -24,6 +24,8 @@ import { PanelInjerto } from "./agricultura/panelInjerto";
 import { PanelCocina, type IngredienteVista } from "./cocina/panelCocina";
 import { aplicarEquipoAlRig } from "./render3d/equipoVisual";
 import { PanelJugador } from "./personaje/panelJugador";
+import { animalPlaceholder } from "./render3d/animalPlaceholder";
+import { aplicarMonturaAlAnimal } from "./render3d/monturaVisual";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -575,12 +577,34 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     $(player.inventario.equipo).onAdd(actualizarEquipoVisual);
     $(player.inventario.equipo).onRemove(actualizarEquipoVisual);
 
+    // Montura (docs/GDD_Monturas.md, pedido 2026-08-30): mientras
+    // `monturaEspecieId` no esté vacío, `estado.rig` pasa a ser el animal
+    // (mismo bucle de interpolación/animación que ya trata jugadores/NPCs/
+    // fauna por igual, RigHumanoide y AnimalVoxel comparten forma
+    // {objeto,actualizar,orientar}) — el rig humanoide de siempre se queda
+    // oculto pero VIVO (nunca se destruye: conserva el equipo puesto) para
+    // volver a él tal cual al desmontar.
+    let monturaActual = "";
     $(player).onChange(() => {
       estado.destinoX = player.x;
       estado.destinoZ = player.y;
       estado.nadando = player.estado !== "tierra";
       estado.destinoY = estado.nadando ? -HUNDIMIENTO_NADANDO + player.nivel * HUNDIMIENTO_POR_NIVEL : 0;
       escena.actualizarVida(sessionId, player.vida, player.vidaMax);
+      if (player.monturaEspecieId !== monturaActual) {
+        monturaActual = player.monturaEspecieId;
+        if (monturaActual) {
+          const animalRig = crearAnimalVoxel(animalPlaceholder(monturaActual));
+          animalRig.objeto.rotation.order = "YXZ";
+          aplicarMonturaAlAnimal(animalRig.objeto, null);
+          rig.objeto.visible = false;
+          estado.rig = animalRig;
+        } else {
+          rig.objeto.visible = true;
+          estado.rig = rig;
+        }
+        escena.añadirEntidad(sessionId, estado.rig.objeto, estado.x, estado.z, player.name);
+      }
       if (esYo) {
         escena.seguirPunto(player.x, player.y);
         panelJugador?.actualizar(player);
@@ -650,7 +674,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const faunaVisual = new Map<string, EstadoJugador>();
   $(room.state).fauna.onAdd((animal: any, id: string) => {
     const vox = voxFaunaPorId.get(id);
-    const criatura = vox ? crearAnimalVoxel(vox) : crearAnimalVoxel({ ficha: { especieId: animal.especieId, esqueleto: "cuadrupedo", escala: 1 }, piezas: [] });
+    const criatura = vox ? crearAnimalVoxel(vox) : crearAnimalVoxel(animalPlaceholder(animal.especieId));
     criatura.orientar(1, 1);
     const estado: EstadoJugador = {
       rig: criatura,
@@ -674,11 +698,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   // Mascotas (docs/GDD_Mascotas.md) — mismo circuito visual que fauna
   // doméstica (sin vox propio por id: nace de un spawn de fauna.json que ya
-  // no existe, así que siempre usa el fallback genérico por especie).
+  // no existe, así que siempre usa la caja placeholder por especie,
+  // animalPlaceholder.ts). Con silla puesta (docs/GDD_Monturas.md,
+  // `mascota.montura`), lleva la silla puesta SIEMPRE que se la ve —
+  // siguiendo o "aparcada" — no solo mientras se está montando.
   const mascotasVisual = new Map<string, EstadoJugador>();
   $(room.state).mascotas.onAdd((mascota: any, id: string) => {
-    const criatura = crearAnimalVoxel({ ficha: { especieId: mascota.especieId, esqueleto: "cuadrupedo", escala: 1 }, piezas: [] });
+    const criatura = crearAnimalVoxel(animalPlaceholder(mascota.especieId));
     criatura.orientar(1, 1);
+    if (mascota.montura) aplicarMonturaAlAnimal(criatura.objeto, null);
     const estado: EstadoJugador = {
       rig: criatura,
       destinoX: mascota.x, destinoZ: mascota.y, destinoY: 0,
@@ -687,9 +715,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     };
     mascotasVisual.set(id, estado);
     escena.añadirEntidad(`mascota_${id}`, criatura.objeto, mascota.x, mascota.y, `🐾 ${mascota.especieId} de ${mascota.duenoNombre}`);
+    let monturaVisible = !!mascota.montura;
     $(mascota).onChange(() => {
       estado.destinoX = mascota.x;
       estado.destinoZ = mascota.y;
+      if (mascota.montura !== monturaVisible) {
+        monturaVisible = mascota.montura;
+        if (monturaVisible) aplicarMonturaAlAnimal(criatura.objeto, null);
+      }
     });
   });
   $(room.state).mascotas.onRemove((_mascota: any, id: string) => {
@@ -752,6 +785,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     contenedor,
     llamar: (mascotaId) => room.send("mascota:llamar", { mascotaId }),
     dejarEnPropiedad: (mascotaId, propiedadId) => room.send("mascota:dejarEnPropiedad", { mascotaId, propiedadId }),
+    ponerMontura: (mascotaId) => room.send("mascota:ponerMontura", { mascotaId }),
   });
   room.onMessage("mascota:lista", (lista: MascotaVista[]) => panelMascotas.actualizarListado(lista));
   room.onMessage("mascota:progreso", (m: ProgresoDomesticar) => panelMascotas.actualizarProgreso(m));
@@ -977,11 +1011,32 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (estadoPesca === "picando") room.send("pesca:interactuar");
       else if (estadoPesca === null) room.send("pesca:lanzar");
     }
+    // Monturas (docs/GDD_Monturas.md, pedido 2026-08-30): N pone la silla a
+    // la mascota propia más cercana ("siguiendo", ya domesticada, especie
+    // montable) — mismo criterio sin targeting que el resto. M monta/
+    // desmonta (toggle según `Player.monturaEspecieId`); sin mascotaId, el
+    // servidor auto-apunta a la más cercana con silla puesta. Espacio: salta
+    // en la dirección en la que se mueve/mira — solo hace algo si está
+    // montado (el servidor lo ignora si no).
+    if (k === "n" && !teclas.has("n")) room.send("mascota:ponerMontura", {});
+    if (k === "m" && !teclas.has("m")) {
+      const yo = room.state.players.get(room.sessionId);
+      if (yo?.monturaEspecieId) room.send("mascota:desmontar");
+      else room.send("mascota:montar", {});
+    }
+    if (k === " " && !teclas.has(" ")) {
+      const dir = ultimaDireccionEnviada.x || ultimaDireccionEnviada.y ? ultimaDireccionEnviada : ultimaDireccionMirada;
+      if (dir.x || dir.y) room.send("montura:saltar", { dx: dir.x, dy: dir.y });
+    }
     teclas.add(k);
   });
   window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));
 
   let ultimaDireccionEnviada: Direction = { x: 0, y: 0 };
+  // Última dirección NO nula (docs/GDD_Monturas.md) — para saltar hacia
+  // dónde se estaba mirando aunque en el instante de pulsar Espacio ya se
+  // haya soltado la tecla de movimiento.
+  let ultimaDireccionMirada: Direction = { x: 0, y: 1 };
   let tAnterior = performance.now();
 
   function bucle(tAhora: number) {
@@ -992,6 +1047,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       (teclas.has("d") || teclas.has("arrowright") ? 1 : 0) - (teclas.has("a") || teclas.has("arrowleft") ? 1 : 0);
     const y = (teclas.has("s") || teclas.has("arrowdown") ? 1 : 0) - (teclas.has("w") || teclas.has("arrowup") ? 1 : 0);
     const correr = teclas.has("shift");
+    if (x || y) ultimaDireccionMirada = { x, y };
 
     if (
       x !== ultimaDireccionEnviada.x ||

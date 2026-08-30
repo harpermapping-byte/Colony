@@ -60,6 +60,18 @@
     "resultado": { "itemId": "mochila_cuero", "cantidad": 1 },
     "tiempoBaseSeg": 20
   },
+  "silla_montar_curtida": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_tenido_cuero"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "cuero_curtido", "cantidad": 4 },
+      { "itemId": "madera_dura", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "silla_montar", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Monturas.md — mismo taller/oficio que mochila_cuero_curtido, más cuero (armazón grande) + madera_dura (arzón)."
+  },
   "toalla_tela_hilada": {
     "oficio": "sastre",
     "mesas": ["telar"],

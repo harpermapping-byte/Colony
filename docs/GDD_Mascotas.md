@@ -6,11 +6,11 @@ Pedido del streamer (2026-08-30): *"en las aldeas ciudades y ciudad capital sale
 
 ## 1. Qué animales se pueden domesticar
 
-Fauna URBANA (`baker/catalogo/animales.json`, `perro`/`gato`, ya tenían `domesticable: true` sin ningún consumidor) — SOLO existe en **RegionRoom** (aldeas/ciudades/capital, `server/src/mundo/fauna.ts:GestorFauna`), nunca en el Hub ni en fauna salvaje (`GestorFaunaSalvaje`, que no lee este campo). El catálogo de combate (`catalogoCombateFauna.ts`) ahora expone `domesticable` junto a `peligroso`/`vidaMaxima` — mismo campo, cero catálogo nuevo, "las listas crecen".
+Fauna URBANA (`baker/catalogo/animales.json`, `perro`/`gato`/`caballo`/`vaca`/`cerdo`/..., `domesticable: true`) en **RegionRoom** (aldeas/ciudades/capital, `server/src/mundo/fauna.ts:GestorFauna`). **Actualizado (docs/GDD_Monturas.md, 2026-08-30): también en el Hub/exterior salvaje** (`server/src/mundo/faunaSalvajeViva.ts:GestorFaunaSalvaje`, sectores bajo demanda) — mismo campo `domesticable` del catálogo de combate (`catalogoCombateFauna.ts`), la lógica compartida vive ahora en `RoomExteriorBase.manejarMascotaDarComidaGenerico` y cada Room solo aporta cómo encuentra/quita a su candidato. "Las listas crecen" se cumplió literalmente: jabalí y ciervo se sumaron sin tocar mecanismo, solo su flag de catálogo.
 
 ## 2. Dar de comer
 
-`mascota:darComida` (sin payload, `RegionRoom`) — mismo criterio "sin UI de targeting" que `coger`/`portal:usar`: el servidor auto-apunta al animal domesticable más cercano dentro de `RADIO_INTERACCION`, y consume automáticamente el primer ítem del inventario marcado `comidaMascota: true` en `items/catalogo/items.json`. Ninguno existía marcado así: se añadió el campo a **las 4 carnes + los 3 pescados + `racion_viaje`** (8 ítems ya reales del catálogo, obtenidos cazando/pescando o llevados de viaje) — deliberadamente NO se creó un ítem nuevo "comida de mascota": el catálogo ya tenía comida de sobra y perro/gato son carnívoros por catálogo (`dieta: "carnivoro"`), darles carne/pescado es el fit natural.
+`mascota:darComida` (sin payload, `RegionRoom` Y `HubRoom` desde docs/GDD_Monturas.md) — mismo criterio "sin UI de targeting" que `coger`/`portal:usar`: el servidor auto-apunta al animal domesticable más cercano dentro de `RADIO_INTERACCION`, y consume automáticamente el primer ítem del inventario marcado `comidaMascota: true` en `items/catalogo/items.json`. Ninguno existía marcado así: se añadió el campo a **las 4 carnes + los 3 pescados + `racion_viaje`** (8 ítems ya reales del catálogo, obtenidos cazando/pescando o llevados de viaje) — deliberadamente NO se creó un ítem nuevo "comida de mascota": el catálogo ya tenía comida de sobra y perro/gato son carnívoros por catálogo (`dieta: "carnivoro"`), darles carne/pescado es el fit natural. **Actualizado (docs/GDD_Monturas.md): ahora es DIETA-CONSCIENTE** (`comidaSirveParaDieta`) — un herbívoro (caballo, vaca, ciervo...) solo acepta comida marcada `origenCocina:"vegetal"` (baya/fruta/fruto_seco/trigo/zanahoria, nuevos `comidaMascota:true`), un carnívoro solo `"animal"`, un omnívoro cualquiera de las dos.
 
 Progreso en memoria por animal (`RegionRoom.progresoDomesticar`, vive y muere con la room — mismo criterio que `craftesEnCurso`/`inputs`): si un jugador DISTINTO empieza a darle de comer al mismo animal, el contador se reinicia a su nombre (evita que dos desconocidos se "repartan" sin querer la misma mascota). A la 5ª vez (`VECES_COMIDA_PARA_DOMESTICAR`), el animal desaparece de la fauna ambiental (`GestorFauna.quitar`) y nace como mascota.
 
@@ -45,7 +45,7 @@ Mismo criterio ya pactado con el streamer para combate ("que sean placeholder se
 
 ## 6. Fuera de alcance de esta pasada (pendiente, se afina después)
 
-- **Ninguna acción propia** todavía (pedido explícito) — combate a favor del dueño, buscar objetos, montar, etc.
+- **Ninguna acción propia** todavía (pedido explícito) — combate a favor del dueño, buscar objetos, etc. **Montar: HECHO (docs/GDD_Monturas.md, 2026-08-30)**.
 - **Dejar en propiedad no la hace visible dentro del edificio** — es un estado "guardada", no una entidad en el interior generado.
 - **Solo perro/gato de partida** — el campo `domesticable` ya está listo para cualquier especie futura que se marque así en `baker/catalogo/animales.json`, sin tocar código (misma filosofía "las listas crecen, el código no").
 - **Sin límite de mascotas por jugador** — no se pidió, no se impuso.

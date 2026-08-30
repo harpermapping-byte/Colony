@@ -66,7 +66,9 @@
       ["#e8e0d0", 18],
       ["#221a14", 14],
       ["#c9c0a8", 10]
-    ]
+    ],
+    "montable": true,
+    "velocidadMontura": 5
   },
   "ciervo": {
     "esqueleto": "cuadrupedo",
@@ -88,7 +90,38 @@
       "hocico": "medio",
       "cuernos": "ramificados",
       "_nota": "cuernos solo en machos (sexoPesos de la plantilla)"
-    }
+    },
+    "montable": true,
+    "velocidadMontura": 8
+  },
+  "jabali": {
+    "_nota": "Montura (pedido 2026-08-30, docs/GDD_Monturas.md) — cuerpo bajo y macizo, patas cortas a diferencia de ciervo/caballo.",
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.9,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.0,
+      "altoCuerpo": 0.5,
+      "anchoCuerpo": 0.45,
+      "altoPata": 0.35,
+      "grosorPata": 0.13,
+      "tamCabeza": 0.38
+    },
+    "rasgos": {
+      "orejas": "cortas",
+      "cola": "corta",
+      "hocico": "largo",
+      "cuernos": "ninguno"
+    },
+    "coloresPosibles": [
+      ["#4a3a2a", 40],
+      ["#332619", 35],
+      ["#5a4632", 25]
+    ],
+    "montable": true,
+    "velocidadMontura": 6.5
   },
   "gallina_salvaje": {
     "esqueleto": "ave",
@@ -457,7 +490,39 @@
       ["#d8d0c0", 18],
       ["#c9973a", 17],
       ["#8a7050", 15]
-    ]
+    ],
+    "montable": true,
+    "velocidadMontura": 8.5
+  },
+  "caballo_salvaje": {
+    "_nota": "Montura (pedido 2026-08-30, docs/GDD_Monturas.md) — mismas proporciones que 'caballo', domesticar uno salvaje da un caballo montable igual de rápido; no se renombra a 'caballo' al domesticarse, se queda con su propia entrada de rig.",
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.95,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.35,
+      "altoCuerpo": 0.62,
+      "anchoCuerpo": 0.38,
+      "altoPata": 0.75,
+      "grosorPata": 0.12,
+      "tamCabeza": 0.34
+    },
+    "rasgos": {
+      "orejas": "puntiagudas",
+      "cola": "larga",
+      "hocico": "largo",
+      "cuernos": "ninguno"
+    },
+    "coloresPosibles": [
+      ["#5a3a20", 35],
+      ["#3a2a1c", 30],
+      ["#8a7050", 20],
+      ["#1c1815", 15]
+    ],
+    "montable": true,
+    "velocidadMontura": 8.5
   },
   "burro": {
     "_nota": "Pedido 2026-08-29: se sustituye 'mulo' por 'burro' como animal de tiro con rig — el mulo es un híbrido estéril y no encaja con el sistema de cría (macho/hembra/cría) que se está montando; el burro sí se reproduce de verdad. Par doméstico de 'burro_salvaje' (que se mantiene igual). Orejas largas características.",
@@ -484,7 +549,38 @@
       ["#8a7a68", 40],
       ["#5a4a38", 35],
       ["#4a4038", 25]
-    ]
+    ],
+    "montable": true,
+    "velocidadMontura": 6
+  },
+  "cerdo": {
+    "_nota": "Montura (pedido 2026-08-30, docs/GDD_Monturas.md, 'y si se te ocurre alguno más') — cuerpo macizo y patas muy cortas, la más lenta de las monturas.",
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.05
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.9,
+      "altoCuerpo": 0.42,
+      "anchoCuerpo": 0.4,
+      "altoPata": 0.22,
+      "grosorPata": 0.11,
+      "tamCabeza": 0.3
+    },
+    "rasgos": {
+      "orejas": "laterales",
+      "cola": "corta",
+      "hocico": "corto",
+      "cuernos": "ninguno"
+    },
+    "coloresPosibles": [
+      ["#e8b8a0", 55],
+      ["#c98a68", 25],
+      ["#3a2a24", 20]
+    ],
+    "montable": true,
+    "velocidadMontura": 4.5
   },
   "buey": {
     "_nota": "Bovino de labranza (par de 'vaca_salvaje', más corpulento y con cuernos) — animal de tiro, no de monta.",

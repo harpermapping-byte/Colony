@@ -24,7 +24,8 @@
     "durabilidadMax": "server/src/inventario/inventario.ts:agregarItem() (fija durabilidad inicial) + server/src/inventario/desgaste.ts:tieneDurabilidad()/durabilidadInicial()/aplicarDesgasteInactividad()/registrarUso()/aplicarDanoArmadura()/aplicarPenalizacionMuerte()/estaRoto()/factorDurabilidad() — inicializar y calcular desgaste; ninguna Room llama a desgaste.ts todavía (solo cubierto por test)",
     "desgastePorUso": "server/src/inventario/desgaste.ts:registrarUso() — resta durabilidad por uso directo; sin Room que lo invoque todavía",
     "municionId": "SIN CONSUMIDOR — reservado para docs/GDD_Combate.md: liga un arma a distancia (arco/ballesta/honda) con el id de items/catalogo/items.json (tipo 'municion') que consume al disparar.",
-    "comidaMascota": "server/src/rooms/base/RoomExteriorBase.ts:manejarDarDeComerMascota() — marca qué ítems sirven para alimentar un animal domesticable (docs/GDD_Mascotas.md); las 4 carnes + los 3 pescados + racion_viaje lo llevan, ninguno más de partida"
+    "comidaMascota": "server/src/rooms/base/RoomExteriorBase.ts:manejarMascotaDarComida() — marca qué ítems sirven para alimentar un animal domesticable (docs/GDD_Mascotas.md); DIETA-CONSCIENTE desde docs/GDD_Monturas.md (2026-08-30): solo cuenta si además `origenCocina` encaja con la `dieta` real de la especie (carnivoro→'animal', herbivoro/omnivoro→'vegetal' o sin origenCocina) — las 4 carnes + 3 pescados + racion_viaje (carnívoros) y baya/fruta/fruto_seco/trigo/zanahoria (herbívoros/omnívoros)",
+    "esMontura": "server/src/rooms/base/RoomExteriorBase.ts:manejarMascotaPonerMontura() — se consume sobre una mascota YA domesticada y `montable` (personajes/catalogo/animales_rig.json) para marcarla `montura:true` (docs/GDD_Monturas.md) y poder subirse con `mascota:montar`"
   },
   "hierro": {
     "tipo": "recurso",
@@ -357,7 +358,8 @@
     "variantes": 2,
     "colorDebug": "#8a2a5a",
     "aportesCocina": { "vida": 2, "bebida": 2, "comida": 6 },
-    "origenCocina": "vegetal"
+    "origenCocina": "vegetal",
+    "comidaMascota": true
   },
   "fruta": {
     "tipo": "recurso",
@@ -372,7 +374,8 @@
     "variantes": 2,
     "colorDebug": "#c94a3a",
     "aportesCocina": { "vida": 2, "bebida": 4, "comida": 7 },
-    "origenCocina": "vegetal"
+    "origenCocina": "vegetal",
+    "comidaMascota": true
   },
   "fruto_seco": {
     "tipo": "recurso",
@@ -387,7 +390,8 @@
     "variantes": 2,
     "colorDebug": "#a07840",
     "aportesCocina": { "estamina": 4, "comida": 10 },
-    "origenCocina": "vegetal"
+    "origenCocina": "vegetal",
+    "comidaMascota": true
   },
   "cereal_silvestre": {
     "tipo": "recurso",
@@ -750,6 +754,19 @@
     "colorDebug": "#e0e0e8",
     "familiaMaterial": "cuero",
     "tier": 0
+  },
+  "silla_montar": {
+    "tipo": "objeto",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 3,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#5a3a20",
+    "esMontura": true,
+    "_nota": "docs/GDD_Monturas.md — NO se equipa en el jugador (no tiene slotEquipo): se usa sobre una mascota propia YA domesticada y `montable` en su catálogo de rig (mascota:ponerMontura), consumiéndose para marcarla montura:true de forma permanente."
   },
   "mochila_cuero": {
     "tipo": "equipable",
@@ -1747,8 +1764,8 @@
     "colorDebug": "#4a3a20"
   },
 
-  "trigo": { "tipo": "recurso", "categoriaRecurso": "cereal", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#d4b83a", "aportesCocina": { "comida": 12 }, "origenCocina": "vegetal" },
-  "zanahoria": { "tipo": "recurso", "categoriaRecurso": "hortaliza", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#e08a30", "aportesCocina": { "vida": 3, "comida": 6 }, "origenCocina": "vegetal" },
+  "trigo": { "tipo": "recurso", "categoriaRecurso": "cereal", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#d4b83a", "aportesCocina": { "comida": 12 }, "origenCocina": "vegetal", "comidaMascota": true },
+  "zanahoria": { "tipo": "recurso", "categoriaRecurso": "hortaliza", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#e08a30", "aportesCocina": { "vida": 3, "comida": 6 }, "origenCocina": "vegetal", "comidaMascota": true },
   "tomate": { "tipo": "recurso", "categoriaRecurso": "fruta_cultivada", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#c9402a", "aportesCocina": { "vida": 2, "bebida": 3, "comida": 6 }, "origenCocina": "vegetal" },
   "fresa": { "tipo": "recurso", "categoriaRecurso": "fruta_cultivada", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 2, "colorDebug": "#d9304a", "aportesCocina": { "vida": 1, "estamina": 1, "bebida": 2, "comida": 5 }, "origenCocina": "vegetal" },
 

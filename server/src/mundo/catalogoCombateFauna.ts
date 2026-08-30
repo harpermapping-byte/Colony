@@ -10,6 +10,7 @@
 import * as fs from "fs";
 
 export type CategoriaVidaAnimal = "cria" | "pequeno" | "mediano" | "grande" | "alfa";
+export type DietaAnimal = "herbivoro" | "carnivoro" | "omnivoro";
 
 export interface EstadisticasCombateAnimal {
   categoriaVida: CategoriaVidaAnimal;
@@ -17,8 +18,10 @@ export interface EstadisticasCombateAnimal {
   ataque: number;
   /** docs/GDD_Combate.md §7 (autosimulación NPC-vs-animal): si esta especie puede iniciar un encuentro hostil con un NPC. */
   peligroso: boolean;
-  /** docs/GDD_Mascotas.md — perro/gato (fauna urbana) pueden convertirse en mascota a base de comida; el resto de fauna, no. */
+  /** docs/GDD_Mascotas.md — perro/gato/vaca/caballo/... pueden convertirse en mascota a base de comida; el resto de fauna, no. */
   domesticable: boolean;
+  /** docs/GDD_Monturas.md — qué comida (comidaMascota + origenCocina) sirve para domesticar a ESTA especie: solo la de su dieta real, nunca cualquiera. undefined = sin dato (acepta cualquier comidaMascota, mismo criterio que racion_viaje sin origenCocina). */
+  dieta?: DietaAnimal;
 }
 
 export type CatalogoCombateFauna = Record<string, EstadisticasCombateAnimal>;
@@ -29,6 +32,7 @@ interface EntradaCatalogoBaker {
   ataque?: number;
   peligroso?: boolean;
   domesticable?: boolean;
+  dieta?: DietaAnimal;
 }
 
 // Relleno si una especie llegara a faltar en el catálogo (no debería pasar
@@ -52,6 +56,7 @@ export function cargarCatalogoCombateFauna(rutaAnimalesJson: string): CatalogoCo
       ataque: datos.ataque,
       peligroso: !!datos.peligroso,
       domesticable: !!datos.domesticable,
+      dieta: datos.dieta,
     };
   }
   return catalogo;

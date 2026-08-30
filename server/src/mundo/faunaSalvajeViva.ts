@@ -218,6 +218,30 @@ export class GestorFaunaSalvaje {
   }
 
   /**
+   * Quita a un individuo activo SIN matarlo (docs/GDD_Monturas.md, pedido
+   * 2026-08-30) — para cuando `mascota:darComida` lo domestica: a
+   * diferencia de `matarIndividuo`, marca `estado: "domesticado"` (nunca
+   * "muerto") y NO crea cadáver — un ciervo que se convierte en mascota no
+   * debería dejar un cuerpo looteable en su sitio. `true` si estaba activo
+   * y se quitó, `false` si ese id no está activo ahora mismo.
+   */
+  async quitarIndividuo(id: string): Promise<boolean> {
+    for (const vivos of this.sectoresActivos.values()) {
+      const idx = vivos.findIndex((v) => v.fila.id === id);
+      if (idx === -1) continue;
+      const v = vivos[idx];
+      v.fila.x = v.esquema.x;
+      v.fila.y = v.esquema.y;
+      v.fila.estado = "domesticado";
+      await this.deps.guardarIndividuo(v.fila);
+      this.salida.delete(v.fila.id);
+      vivos.splice(idx, 1);
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Aplica daño a un individuo activo (docs/GDD_Mecanicas.md §5.4, pedido
    * 2026-08-30) — los animales NO tienen defensa, así que `danio` se resta
    * directo de su vida. Si la vida llega a 0, mata al individuo por el

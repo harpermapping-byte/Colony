@@ -51,3 +51,14 @@ test("cargarCatalogoCombateFauna: domesticable viaja tal cual del catálogo (doc
   assert.strictEqual(catalogo["gato"].domesticable, true);
   assert.strictEqual(catalogo["oso_pardo"].domesticable, false);
 });
+
+// docs/GDD_Monturas.md (pedido 2026-08-30)
+test("cargarCatalogoCombateFauna: dieta viaja tal cual del catálogo, y jabalí/ciervo ya son domesticables", () => {
+  const catalogo = cargarCatalogoCombateFauna(RUTA_ANIMALES);
+  assert.strictEqual(catalogo["ciervo"].dieta, "herbivoro");
+  assert.strictEqual(catalogo["jabali"].dieta, "omnivoro");
+  assert.strictEqual(catalogo["lobo"].dieta, "carnivoro");
+  assert.strictEqual(catalogo["ciervo"].domesticable, true);
+  assert.strictEqual(catalogo["jabali"].domesticable, true);
+  assert.strictEqual(catalogo["cerdo"].domesticable, true);
+});

@@ -65,8 +65,11 @@ export interface EntradaCatalogoItem {
   /** docs/GDD_Personaje.md — solo en tipo:"consumible". Ausente en un consumible = sin efecto todavía (placeholder de contenido, no error). "caca" nunca se declara aquí — sube sola al comer, ver manejarPersonajeConsumir. */
   restaura?: { vital: "comida" | "bebida" | "sueno" | "estamina" | "vida" | "caca"; cantidad: number };
 
-  /** docs/GDD_Mascotas.md — sirve para "dar de comer" a un animal domesticable (perro/gato) y avanzar su domesticación. Ausente/false = no sirve como comida de mascota. */
+  /** docs/GDD_Mascotas.md — sirve para "dar de comer" a un animal domesticable y avanzar su domesticación; docs/GDD_Monturas.md lo cruza con `origenCocina` contra la `dieta` real de la especie. Ausente/false = no sirve como comida de mascota. */
   comidaMascota?: boolean;
+
+  /** docs/GDD_Monturas.md — se consume sobre una mascota propia ya domesticada y `montable` (personajes/catalogo/animales_rig.json) para marcarla `montura:true` de forma permanente. Ausente/false = objeto normal. */
+  esMontura?: boolean;
 
   /** docs/GDD_Agricultura.md — SOLO en tipo:"semilla": qué cultivo produce y cómo se comporta al plantarla. Ausente en cualquier otro tipo. */
   cultivo?: DatosCultivo;
@@ -81,6 +84,21 @@ export interface EntradaCatalogoItem {
 
   /** docs/GDD_Cocina.md — igual que `restaura` pero con VARIOS vitales a la vez (un plato cocinado sube vida+estamina+comida+bebida en un solo consumo) — `restaura` se queda para consumibles de un solo vital, este es aditivo y nunca sustituye entradas existentes. */
   restauraMultiple?: AportesCocina;
+}
+
+/**
+ * docs/GDD_Monturas.md (pedido 2026-08-30) — "dar de comer" ya no acepta
+ * cualquier `comidaMascota`: tiene que encajar con la dieta REAL de la
+ * especie (carnivoro/herbivoro/omnivoro, baker/catalogo/animales.json vía
+ * catalogoCombateFauna.ts). Sin dato de un lado u otro (dieta desconocida
+ * en catálogo, o comida sin `origenCocina` como racion_viaje) se acepta
+ * igual — universal, mismo criterio "nunca romper por un dato ausente" que
+ * el resto del proyecto.
+ */
+export function comidaSirveParaDieta(entrada: EntradaCatalogoItem | undefined, dieta: "herbivoro" | "carnivoro" | "omnivoro" | undefined): boolean {
+  if (!entrada?.comidaMascota) return false;
+  if (!dieta || !entrada.origenCocina || dieta === "omnivoro") return true;
+  return dieta === "carnivoro" ? entrada.origenCocina === "animal" : entrada.origenCocina === "vegetal";
 }
 
 /**

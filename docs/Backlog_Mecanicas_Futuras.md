@@ -209,9 +209,9 @@ Pensando en qué encaja con lo que ya existe en el proyecto (rig con pivotes por
 
 Respawn en la cama de una propiedad propia si existe, si no en el Hub; -20% de durabilidad al equipo, el resto del inventario cae al suelo en el sitio de la muerte. Ver `docs/GDD_Muerte_Respawn.md`.
 
-## Monturas — sin diseñar
+## Monturas — HECHO (2026-08-30)
 
-Domesticación, control de movimiento, resistencia. Ya hay un gancho preparado: el modificador de velocidad por tipo de terreno del bakeador (GDD sección 2) está pensado desde el principio para que una montura solo necesite su propio multiplicador aparte, sin tocar la tabla de terrenos.
+Domesticación (mismo mecanismo que perro/gato, ahora también en el Hub/exterior salvaje, no solo en aldeas), silla de montar como ítem que se le pone a una mascota propia, montar/desmontar (jugador+montura fusionados en una sola entidad física, velocidad real del catálogo de rig), salto corto, oculta en combate. Ver `docs/GDD_Monturas.md`.
 
 ## Pesca — HECHO (2026-08-30)
 

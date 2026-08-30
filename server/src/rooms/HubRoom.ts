@@ -289,6 +289,31 @@ export class HubRoom extends RoomExteriorBase {
         vida: objetivo.vida, vidaMax: objetivo.vidaMax, muerto,
       });
     });
+
+    // Mascotas/Monturas (docs/GDD_Monturas.md, pedido 2026-08-30): "que los
+    // que ya aparecen en aldeas también aparezcan en exteriores... fauna
+    // salvaje que puedas alimentar para montar" — mismo auto-apuntado y
+    // mismo mecanismo compartido (RoomExteriorBase.manejarMascotaDarComidaGenerico)
+    // que RegionRoom, pero contra la fauna SALVAJE viva del Hub. Al llegar
+    // a las 5 veces se quita del gestor con `quitarIndividuo` (nunca
+    // `matarIndividuo`: domesticar no debe dejar cadáver).
+    this.onMessage("mascota:darComida", (client) => {
+      if (!this.gestorFaunaSalvaje) return client.send("mascota:error", { motivo: "sin_fauna_aqui" });
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+
+      let faunaId: string | null = null;
+      let mejorDist = RADIO_INTERACCION;
+      this.state.fauna.forEach((f, id) => {
+        if (!this.catalogoCombate?.[f.especieId]?.domesticable) return;
+        const d = Math.hypot(f.x - player.x, f.y - player.y);
+        if (d < mejorDist) { mejorDist = d; faunaId = id; }
+      });
+      const candidato = faunaId
+        ? { faunaId, especieId: this.state.fauna.get(faunaId)!.especieId, dieta: this.catalogoCombate?.[this.state.fauna.get(faunaId)!.especieId]?.dieta }
+        : null;
+      void this.manejarMascotaDarComidaGenerico(client, candidato, (id) => this.gestorFaunaSalvaje!.quitarIndividuo(id));
+    });
   }
 
   onJoin(client: Client, options: { name?: string }) {

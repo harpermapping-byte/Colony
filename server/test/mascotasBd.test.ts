@@ -67,3 +67,35 @@ test("actualizarUbicacionMascota: false si el id de mascota no existe", async ()
   assert.strictEqual(ok, false);
   await bd.cerrar();
 });
+
+// docs/GDD_Monturas.md (pedido 2026-08-30)
+test("crearMascota: nace con montura=false", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const jugador = await bd.obtenerOCrearJugador("Ragnar");
+  const mascota = await bd.crearMascota(jugador.id, "caballo");
+  assert.strictEqual(mascota.montura, false);
+  await bd.cerrar();
+});
+
+test("ponerMonturaMascota: marca montura=true, es permanente al listar de nuevo", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const jugador = await bd.obtenerOCrearJugador("Ragnar");
+  const mascota = await bd.crearMascota(jugador.id, "caballo");
+  const ok = await bd.ponerMonturaMascota(mascota.id, jugador.id);
+  assert.strictEqual(ok, true);
+  const filas = await bd.listarMascotas(jugador.id);
+  assert.strictEqual(filas[0].montura, true);
+  await bd.cerrar();
+});
+
+test("ponerMonturaMascota: false si la mascota es de OTRO jugador (nunca deja tocar lo ajeno)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const ragnar = await bd.obtenerOCrearJugador("Ragnar");
+  const lagertha = await bd.obtenerOCrearJugador("Lagertha");
+  const mascota = await bd.crearMascota(ragnar.id, "caballo");
+  const ok = await bd.ponerMonturaMascota(mascota.id, lagertha.id);
+  assert.strictEqual(ok, false);
+  const filas = await bd.listarMascotas(ragnar.id);
+  assert.strictEqual(filas[0].montura, false, "no se tocó, sigue sin silla");
+  await bd.cerrar();
+});

@@ -207,7 +207,8 @@ export interface Tropa {
 // reproduccionFauna.ts) — nunca un contador que corra solo.
 export type SexoFauna = "macho" | "hembra";
 export type EtapaFauna = "cria" | "adulto";
-export type EstadoFaunaSalvaje = "vivo" | "muerto";
+/** "domesticado" (docs/GDD_Monturas.md, pedido 2026-08-30): se convirtió en mascota vía mascota:darComida en el Hub — a diferencia de "muerto", no crea cadáver; el único chequeo real (`faunaSalvajeSector.ts:vivo = estado==='vivo'`) ya trata cualquier valor distinto de "vivo" como no-vivo, así que no hace falta tocar nada más. */
+export type EstadoFaunaSalvaje = "vivo" | "muerto" | "domesticado";
 
 export interface FaunaSalvajeFila {
   id: string;
@@ -287,6 +288,8 @@ export interface Mascota {
   /** id de la propiedad donde se dejó (docs/GDD_Propiedades.md) — solo con ubicacion==="propiedad". */
   propiedadId: string | null;
   creadoEn: string;
+  /** docs/GDD_Monturas.md (pedido 2026-08-30) — true tras usar un ítem `esMontura` sobre ella (mascota:ponerMontura); solo entonces se puede `mascota:montar`. Permanente, nunca se quita. */
+  montura: boolean;
 }
 
 /**
@@ -504,6 +507,8 @@ export interface IAlmacenDatos {
   listarMascotas(jugadorId: number): Promise<Mascota[]>;
   /** Todo o nada: solo cambia si `id` pertenece de verdad a `jugadorId` — `false` si no existe o es de otro jugador. */
   actualizarUbicacionMascota(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean>;
+  /** docs/GDD_Monturas.md — marca `montura:true` permanentemente (mismo compare-and-swap por jugadorId que actualizarUbicacionMascota). */
+  ponerMonturaMascota(id: number, jugadorId: number): Promise<boolean>;
   // Flags globales (docs/GDD_PvP.md, pedido 2026-08-30) — tabla genérica de un solo valor por clave.
   obtenerConfigMundo(clave: string): Promise<string | null>;
   fijarConfigMundo(clave: string, valor: string): Promise<void>;
@@ -642,7 +647,8 @@ CREATE TABLE IF NOT EXISTS mascotas (
   especie_id TEXT NOT NULL,
   ubicacion TEXT NOT NULL DEFAULT 'siguiendo',
   propiedad_id TEXT,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  montura INTEGER NOT NULL DEFAULT 0
 );
 -- Flags globales de un solo valor (pedido 2026-08-30: PvP apagado por
 -- defecto, el jarl lo activa) — genérica a propósito, cualquier futuro
@@ -900,8 +906,10 @@ CREATE TABLE IF NOT EXISTS mascotas (
   especie_id TEXT NOT NULL,
   ubicacion TEXT NOT NULL DEFAULT 'siguiendo',
   propiedad_id TEXT,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  montura BOOLEAN NOT NULL DEFAULT FALSE
 );
+ALTER TABLE mascotas ADD COLUMN IF NOT EXISTS montura BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE TABLE IF NOT EXISTS configuracion_mundo (
   clave TEXT PRIMARY KEY,
   valor TEXT NOT NULL
@@ -1100,6 +1108,7 @@ function filaAMascota(f: any): Mascota {
     ubicacion: String(f.ubicacion) as UbicacionMascota,
     propiedadId: f.propiedad_id === null || f.propiedad_id === undefined ? null : String(f.propiedad_id),
     creadoEn: String(f.creado_en),
+    montura: !!f.montura,
   };
 }
 
@@ -1184,6 +1193,13 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const columnasAtributos = this.bd.prepare("PRAGMA table_info(jugador_atributos)").all();
     if (!columnasAtributos.some((c) => String(c.name) === "ultimo_dia_actividad")) {
       this.bd.exec("ALTER TABLE jugador_atributos ADD COLUMN ultimo_dia_actividad INTEGER");
+    }
+    // Mismo patrón para `montura` de `mascotas` (docs/GDD_Monturas.md,
+    // pedido 2026-08-30) — un datos.sqlite de dev creado antes de este
+    // cambio no la tendría.
+    const columnasMascotas = this.bd.prepare("PRAGMA table_info(mascotas)").all();
+    if (!columnasMascotas.some((c) => String(c.name) === "montura")) {
+      this.bd.exec("ALTER TABLE mascotas ADD COLUMN montura INTEGER NOT NULL DEFAULT 0");
     }
   }
 
@@ -1993,11 +2009,11 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const r = this.bd
       .prepare("INSERT INTO mascotas (jugador_id, especie_id, ubicacion, propiedad_id, creado_en) VALUES (?, ?, 'siguiendo', NULL, ?)")
       .run(jugadorId, especieId, ahora);
-    return { id: Number(r.lastInsertRowid), jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora };
+    return { id: Number(r.lastInsertRowid), jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora, montura: false };
   }
 
   async listarMascotas(jugadorId: number): Promise<Mascota[]> {
-    const filas = this.bd.prepare("SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en FROM mascotas WHERE jugador_id = ?").all(jugadorId);
+    const filas = this.bd.prepare("SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en, montura FROM mascotas WHERE jugador_id = ?").all(jugadorId);
     return filas.map(filaAMascota);
   }
 
@@ -2005,6 +2021,13 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const r = this.bd
       .prepare("UPDATE mascotas SET ubicacion = ?, propiedad_id = ? WHERE id = ? AND jugador_id = ?")
       .run(ubicacion, propiedadId, id, jugadorId);
+    return Number(r.changes) > 0;
+  }
+
+  async ponerMonturaMascota(id: number, jugadorId: number): Promise<boolean> {
+    const r = this.bd
+      .prepare("UPDATE mascotas SET montura = 1 WHERE id = ? AND jugador_id = ?")
+      .run(id, jugadorId);
     return Number(r.changes) > 0;
   }
 
@@ -2865,12 +2888,12 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       "INSERT INTO mascotas (jugador_id, especie_id, ubicacion, propiedad_id, creado_en) VALUES ($1, $2, 'siguiendo', NULL, $3) RETURNING id",
       [jugadorId, especieId, ahora],
     );
-    return { id: r.rows[0].id, jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora };
+    return { id: r.rows[0].id, jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora, montura: false };
   }
 
   async listarMascotas(jugadorId: number): Promise<Mascota[]> {
     const r = await this.pool.query(
-      "SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en FROM mascotas WHERE jugador_id = $1",
+      "SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en, montura FROM mascotas WHERE jugador_id = $1",
       [jugadorId],
     );
     return r.rows.map(filaAMascota);
@@ -2880,6 +2903,14 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     const r = await this.pool.query(
       "UPDATE mascotas SET ubicacion = $1, propiedad_id = $2 WHERE id = $3 AND jugador_id = $4",
       [ubicacion, propiedadId, id, jugadorId],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async ponerMonturaMascota(id: number, jugadorId: number): Promise<boolean> {
+    const r = await this.pool.query(
+      "UPDATE mascotas SET montura = TRUE WHERE id = $1 AND jugador_id = $2",
+      [id, jugadorId],
     );
     return (r.rowCount ?? 0) > 0;
   }
