@@ -1937,5 +1937,59 @@
     "resultado": { "itemId": "cana_pesca", "cantidad": 1 },
     "tiempoBaseSeg": 10,
     "_nota": "docs/GDD_Profesiones.md — pescar sigue siendo libre para cualquiera sin oficio (fusión de oficios, 2026-08-30); esto solo da una forma real de FABRICAR la caña, no gatea pescar."
+  },
+  "camisa_lino_campesina_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "camisa_lino_campesina", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md — ropa civil craftable (curtidor, absorbió sastre), séptima pasada 2026-08-30."
+  },
+  "pantalon_lana_campesino_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "pantalon_lana_campesino", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md — ropa civil craftable (curtidor, absorbió sastre), séptima pasada 2026-08-30."
+  },
+  "gorro_lino_campesino_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "gorro_lino_campesino", "cantidad": 1 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Profesiones.md — ropa civil craftable (curtidor, absorbió sastre), séptima pasada 2026-08-30."
+  },
+  "habito_sacerdote_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 3 }],
+    "resultado": { "itemId": "habito_sacerdote", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Profesiones.md — ropa civil craftable (curtidor, absorbió sastre), séptima pasada 2026-08-30."
+  },
+  "tabardo_guardia_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "tabardo_guardia", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md — ropa civil craftable (curtidor, absorbió sastre), séptima pasada 2026-08-30."
+  },
+  "pantalon_guardia_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "pantalon_guardia", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Profesiones.md — ropa civil craftable (curtidor, absorbió sastre), séptima pasada 2026-08-30."
   }
 }
