@@ -140,8 +140,11 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
   const idxPasillo = tipoSalaIds.findIndex((id) => catalogos.tiposSala[id]?.esPasillo);
   const idsFila = idxPasillo === -1 ? tipoSalaIds : tipoSalaIds.filter((_, i) => i !== idxPasillo);
 
+  // Ventanas (GDD_Bakeador_Interiores §7bis): nunca en bodega (sin fachada
+  // real, bajo tierra) — el resto de la fila sí, es el layout normal.
+  const permiteVentanas = rol !== "bodega";
   const salasFila = idsFila.map((tipoSalaId, i) =>
-    colocarSala({ tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:${nivel}:${i}`, temaProfesion })
+    colocarSala({ tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:${nivel}:${i}`, temaProfesion, permiteVentanas })
   );
 
   // El muro ya no es una casilla propia de cada sala (colocarElementos.js:
@@ -165,6 +168,9 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
       semilla: `${semilla}:${nivel}:pasillo`,
       anchoForzado: Math.max(4, anchoTotal),
       largoForzado: 4,
+      // su muro norte da a la fila de salas de encima (por donde entra cada
+      // puerta), no a fuera — sin ventana aquí, a diferencia de una sala normal.
+      permiteVentanas: false,
     });
   }
 

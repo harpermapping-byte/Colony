@@ -2364,5 +2364,182 @@
         }
       ]
     }
+  },
+  "taller_asedio": {
+    "riqueza": "modesta",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [10, 9],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "planta_baja": [["taller_asedio", 8], ["almacen", 4]]
+    },
+    "materialesPreferidos": ["madera", "metal", "piedra"],
+    "_nota": "Proyecto especial del jarl 1/14 (docs/Backlog_Mecanicas_Futuras.md 'Proyectos especiales del jarl'; docs/GDD_Faccion_Bandidos.md §8.2). Fabrica catapultas/torres de asedio/arietes — el crafteo real de esas máquinas sigue bloqueado por 'Roles/profesiones y crafteo por planos' (sin diseñar), este edificio solo deja de estar bloqueado el propio construible."
+  },
+  "banos_comunales": {
+    "riqueza": "noble",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [11, 9],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "planta_baja": [["banos_comunales", 9], ["vestibulo", 3]]
+    },
+    "materialesPreferidos": ["piedra", "marmol"],
+    "_nota": "Proyecto especial del jarl 2/14. Servicio GRATUITO de Comida/Bebida/Sueño/Salud para cualquiera del asentamiento (sala 'banos_comunales', sin riquezaMinima, distinta de 'sala_banos' que usa banos_publicos) — el propio efecto sobre vitales sigue sin mecanismo, solo el edificio."
+  },
+  "casino": {
+    "riqueza": "noble",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [9, 8],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "planta_baja": [["sala_juegos", 9], ["vestibulo", 3]]
+    },
+    "materialesPreferidos": ["marmol", "tela_tapiz", "madera"],
+    "_nota": "Proyecto especial del jarl 3/14. Minijuegos de apuestas — sumidero de dinero para 'Comercio y economía' (sin diseñar); reusa la sala 'sala_juegos' ya catalogada, sin sala propia nueva."
+  },
+  "gran_catedral": {
+    "riqueza": "noble",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [12, 10],
+    "tieneBodega": true,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "bodega": [["cripta", 6]],
+      "planta_baja": [["gran_catedral", 10], ["vestibulo", 3]]
+    },
+    "materialesPreferidos": ["marmol", "piedra", "tela_tapiz"],
+    "_nota": "Proyecto especial del jarl 4/14. Hito religioso/social del asentamiento — candidato a curación pasiva mejorada o bono de moral cuando exista ese sistema (sin diseñar)."
+  },
+  "establo_comunal": {
+    "riqueza": "modesta",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [10, 8],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "planta_baja": [["cuadra", 9], ["despensa", 3]]
+    },
+    "materialesPreferidos": ["madera", "piedra"],
+    "_nota": "Proyecto especial del jarl 5/14. Establos Comunales: almacenar monturas propias + comprar/vender nuevas — ata a 'Monturas' (sin diseñar). Distinto de 'establo' (edificio normal del bake, no construible por jugador/jarl), aunque reusa la misma sala 'cuadra'."
+  },
+  "gran_herreria": {
+    "riqueza": "modesta",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [10, 9],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "planta_baja": [["gran_herreria", 8], ["almacen", 4]]
+    },
+    "materialesPreferidos": ["piedra", "metal"],
+    "_nota": "Proyecto especial del jarl 6/14. Los herreros del asentamiento forjan armas/armaduras ÚNICAS — ata a 'Objetos con nombre propio generado por semilla' (sin diseñar). Distinto de 'herreria' (edificio normal, sala 'taller' genérica)."
+  },
+  "molino_comunal": {
+    "riqueza": "modesta",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [9, 10],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "planta_baja": [["sala_molino", 10]]
+    },
+    "materialesPreferidos": ["madera", "piedra"],
+    "_nota": "Proyecto especial del jarl 7/14. Muele grano/flores a escala comunal (ata a 'Injertos y cruces de cultivos' + 'Cocina', ambos sin diseñar). Id NUEVO, coexiste con 'molino_agua'/'molino_viento' (construibles por CUALQUIER jugador con parcela, para la red motriz — GDD_Motriz.md): son cosas distintas que comparten la sala 'sala_molino'. Sin `energia` todavía a propósito — la conexión a la red motriz de un molino comunal es una decisión de balance para cuando exista el oficio de molinero (Backlog, tier 2 de 'Roles/profesiones y crafteo por planos'), no bloquea este construible."
+  },
+  "gran_mercado": {
+    "riqueza": "noble",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [12, 9],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "planta_baja": [["lonja", 10], ["almacen", 3]]
+    },
+    "materialesPreferidos": ["piedra", "madera", "tela_tapiz"],
+    "_nota": "Proyecto especial del jarl 8/14. Plaza de comercio central con precios base propios, en vez de depender solo de la 'tienda' individual — ata a 'Comercio y economía' (sin diseñar). Reusa la sala 'lonja' (ya usada por lonja_pescado)."
+  },
+  "salon_jarl": {
+    "riqueza": "noble",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [11, 10],
+    "tieneBodega": true,
+    "rangoPlantasAltas": [0, 1],
+    "salasPorPlanta": {
+      "bodega": [["almacen", 6]],
+      "planta_baja": [["salon_jarl", 8], ["vestibulo", 3]],
+      "planta_alta": [["dormitorio_individual", 3], ["pasillo", 3]]
+    },
+    "materialesPreferidos": ["piedra", "marmol", "tela_tapiz"],
+    "_nota": "Proyecto especial del jarl 9/14. Ayuntamiento/Salón del Jarl: gestión de impuestos y asignación/revocación de parcelas en persona (GDD_Construccion.md §7/§8) — hoy sigue siendo la herramienta admin quien pinta parcelas, este edificio no cambia eso todavía, solo deja el sitio construido. Distinto de 'ayuntamiento' (edificio normal del bake, sala 'sala_consejo')."
+  },
+  "cuartel_guardia_comunal": {
+    "riqueza": "modesta",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [11, 10],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [1, 1],
+    "salasPorPlanta": {
+      "planta_baja": [["cuartel_guardia_comunal", 7], ["arsenal", 3]],
+      "planta_alta": [["dormitorio_comunal", 8], ["pasillo", 2]]
+    },
+    "materialesPreferidos": ["piedra", "metal"],
+    "_nota": "Proyecto especial del jarl 10/14. Entrena/aloja guardias del propio asentamiento para su defensa — ata a 'Facciones y la ciudad enemiga' y al sistema de combate (ambos sin diseñar). Distinto de 'cuartel_guardia' (edificio normal del bake, sala 'arsenal')."
+  },
+  "academia_arcana": {
+    "riqueza": "noble",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [10, 10],
+    "tieneBodega": true,
+    "rangoPlantasAltas": [1, 2],
+    "salasPorPlanta": {
+      "bodega": [["sala_alquimia", 5]],
+      "planta_baja": [["academia_arcana", 7], ["vestibulo", 3]],
+      "planta_alta": [["academia_arcana", 5], ["biblioteca", 3], ["pasillo", 3]]
+    },
+    "materialesPreferidos": ["piedra", "cristal", "metal"],
+    "_nota": "Proyecto especial del jarl 11/14. Los magos del asentamiento crean objetos/hechizos de Ataque y Defensa mágica ÚNICOS — mismo patrón que Gran Herrería, para las estadísticas de combate mágico del 'Sistema de personaje'. Distinto de 'academia_magia'/'torre_mago' (edificios normales del bake, sala 'sala_alquimia' genérica)."
+  },
+  "capitania_puerto": {
+    "riqueza": "modesta",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [8, 7],
+    "tieneBodega": false,
+    "rangoPlantasAltas": [0, 0],
+    "salasPorPlanta": {
+      "planta_baja": [["capitania_puerto", 9], ["almacen", 3]]
+    },
+    "materialesPreferidos": ["madera", "piedra"],
+    "_nota": "Proyecto especial del jarl 12/14. Oficina del capitán de puerto — gestiona barcos y pesca a escala comunal, ata a 'Barcos y navegación marítima' y 'Pesca' (ambos sin diseñar). El amarre/muelle en sí es exterior (exteriores.json), no necesita colocarse pegado al agua para este construible (mismo criterio que 'astillero', sin validación de adyacencia)."
+  },
+  "gran_archivo": {
+    "riqueza": "noble",
+    "construible": true,
+    "proyectoJarl": true,
+    "huellaExterior": [10, 9],
+    "tieneBodega": true,
+    "rangoPlantasAltas": [0, 1],
+    "salasPorPlanta": {
+      "bodega": [["almacen", 8]],
+      "planta_baja": [["gran_archivo", 8], ["vestibulo", 3]],
+      "planta_alta": [["gran_archivo", 5], ["pasillo", 2]]
+    },
+    "materialesPreferidos": ["madera", "piedra"],
+    "_nota": "Proyecto especial del jarl 13/14. Enseña planos/recetas raras que no se consiguen comprando — ata a 'Roles/profesiones y crafteo por planos' (sin diseñar). Distinto de 'biblioteca_publica' (edificio normal del bake, sala 'biblioteca' genérica). El 14º proyecto, Estatua del Líder, es puramente exterior — ver `proyectoJarl` en interiores/catalogo/exteriores.json, sin entrada aquí (sin interior)."
   }
 }

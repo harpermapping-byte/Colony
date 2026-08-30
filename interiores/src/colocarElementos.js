@@ -46,7 +46,7 @@ const CAPAS_POR_FASE = {
   [Priority.DECORACION]: ["iluminacion", "suciedad"],
 };
 
-function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado, temaProfesion }) {
+function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado, temaProfesion, permiteVentanas = true }) {
   const defSala = catalogos.tiposSala[tipoSalaId];
   if (!defSala) throw new Error(`tipoSala desconocido: ${tipoSalaId}`);
 
@@ -143,7 +143,84 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const colgados = []; // elementos en el plano pared (colgadoEnPared)
   const techo = []; // elementos en el plano techo
   const superficies = []; // hosts con esSuperficie:true ya colocados, para apilar sobreSuperficie encima
-  const bordesOcupados = new Set(); // "x_y" de segmentos de pared ya usados por colgadoEnPared
+  const bordesOcupados = new Set(); // "x_y" de segmentos de pared ya usados por colgadoEnPared o por una ventana
+
+  // Ventanas reales (GDD_Bakeador_Interiores sección 7bis, implementado
+  // 2026-08-30 — antes solo existían como combinatoria de catálogo, nunca
+  // se instanciaban): estructura, igual que la puerta — se generan SIEMPRE
+  // (ni `amueblado:"vacio"` las omite), nunca si `permiteVentanas` es false
+  // (edificio.js lo pone a false en bodega y en el pasillo: la bodega no
+  // tiene fachada de verdad y el norte del pasillo da a la fila de salas de
+  // encima, no a fuera). Solo en el muro NORTE: en el layout de fila de
+  // `generarPlanta` (edificio.js) es el ÚNICO lado que nunca tiene puerta
+  // ni sala vecina (las filas crecen en X, alineadas por el muro SUR) — sin
+  // un footprint real de edificio que decir qué da "a la calle", es el
+  // único lado del que se puede afirmar con certeza que da a fuera.
+  const ventanas = [];
+  if (permiteVentanas) {
+    // PRNG PROPIO (no el `rnd` de la sala): las ventanas son estructura,
+    // independiente de qué mobiliario le toque a esta sala — si compartieran
+    // el `rnd` de siempre, generar ventanas ANTES del resto de la función
+    // desplazaría la secuencia aleatoria de todo lo que viene después
+    // (mobiliario, y por tanto qué casillas quedan libres para el conector
+    // vertical que busca `edificio.js`), cambiando el resultado de semillas
+    // YA EXISTENTES para piezas que no tienen nada que ver con ventanas
+    // (encontrado bakeando de verdad: torre_mago/semilla-a se quedaba sin
+    // hueco para su escalera). Con PRNG propio, añadir ventanas no mueve ni
+    // una sola tirada de las demás piezas de la sala.
+    const rndVentanas = crearPRNG(`${semilla}:${tipoSalaId}:ventanas`);
+    const elegirEnteroVentanas = (min, max) => min + Math.floor(rndVentanas() * (max - min + 1));
+    const ejeValido = (eje) =>
+      Object.entries(catalogos.ventanas?.[eje] || {})
+        .filter(([id]) => !id.startsWith("_"))
+        .filter(([, def]) => riquezaAlcanza(riqueza, def.riquezaMinima));
+    const formasValidas = ejeValido("forma");
+    const tamanosValidos = ejeValido("tamano");
+    const marcosValidos = ejeValido("marco");
+    const cristalesValidos = ejeValido("cristal");
+
+    if (formasValidas.length && tamanosValidos.length && marcosValidos.length && cristalesValidos.length) {
+      // Más riqueza, más ventanas — mismo criterio que LIMITE_POR_CAPA_POR_RIQUEZA
+      // de mobiliario más abajo, acotado además por lo que quepa en `ancho`.
+      const LIMITE_VENTANAS_POR_RIQUEZA = { humilde: 1, modesta: 2, noble: 3 };
+      const maxVentanas = LIMITE_VENTANAS_POR_RIQUEZA[riqueza] ?? 2;
+      let intentos = 0;
+      while (ventanas.length < maxVentanas && intentos < maxVentanas * 8) {
+        intentos++;
+        const [formaId, formaDef] = formasValidas[elegirEnteroVentanas(0, formasValidas.length - 1)];
+        const [tamanoId, tamanoDef] = tamanosValidos[elegirEnteroVentanas(0, tamanosValidos.length - 1)];
+        const [marcoId] = marcosValidos[elegirEnteroVentanas(0, marcosValidos.length - 1)];
+        const [cristalId, cristalDef] = cristalesValidos[elegirEnteroVentanas(0, cristalesValidos.length - 1)];
+        const anchoVentana = tamanoDef.anchoTiles;
+        if (anchoVentana > ancho) continue;
+        const x = elegirEnteroVentanas(0, ancho - anchoVentana);
+        let libre = true;
+        for (let dx = 0; dx < anchoVentana; dx++) {
+          if (bordesOcupados.has(`${x + dx}_0`)) { libre = false; break; }
+        }
+        if (!libre) continue;
+        for (let dx = 0; dx < anchoVentana; dx++) bordesOcupados.add(`${x + dx}_0`);
+
+        // aporteLuz (GDD_Bakeador_Interiores §7bis): tamano.aporteLuz (solo
+        // tronera) sustituye por completo el factor de tamaño normal — su
+        // geometría de aspillera no escala como ancho×altura; el resto usa
+        // anchoTiles × 0.6 si es alta-y-estrecha (altaEnPared) o × 1 si no.
+        // cristal.aporteLuz (solo esmerilado) es un MULTIPLICADOR aparte —
+        // "deja pasar luz pero no forma", combina con cualquier tamaño (una
+        // tronera esmerilada, rara pero posible, da 0.2×0.5=0.1: casi opaca).
+        const factorTamano = tamanoDef.aporteLuz ?? tamanoDef.anchoTiles * (tamanoDef.altaEnPared ? 0.6 : 1);
+        const factorCristal = cristalDef.aporteLuz ?? 1;
+        const aporteLuz = Math.round(factorTamano * factorCristal * 100) / 100;
+
+        ventanas.push({
+          x, lado: "norte", ancho: anchoVentana,
+          forma: formaId, tamano: tamanoId, marco: marcoId, cristal: cristalId,
+          aporteLuz,
+          colorDebug: formaDef.colorDebug || "#a9c9d6",
+        });
+      }
+    }
+  }
 
   // Reglas por RoomTag (tipos_sala.json campo `tags`, ver roomTags.js):
   // que una sala etiquetada COMUN_TIENDA/COMUN_ALMACEN se NOTE en el
@@ -782,7 +859,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const sobreTodos = colocados.flatMap((c) => c.sobre || []);
   const estadisticas = calcularEstadisticas([...colocados, ...colgados, ...techo, ...sobreTodos]);
 
-  return { tipoSalaId, ancho, largo, materialSuelo, materialPared, riqueza, amueblado, semilla, puerta, sala, colocados, colgados, techo, estadisticas, origen: "generado" };
+  return { tipoSalaId, ancho, largo, materialSuelo, materialPared, riqueza, amueblado, semilla, puerta, sala, colocados, colgados, techo, ventanas, estadisticas, origen: "generado" };
 }
 
 module.exports = { colocarSala, crearPRNG };

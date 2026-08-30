@@ -255,14 +255,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // placeholder (cajas de color) del bake de interiores/, sin streaming ni
   // construcción — es una instancia pequeña y de un solo uso.
   const lucesInterior: LuzInterior[] = [];
+  let actualizarConoVision: ((x: number, z: number) => void) | null = null;
+  let actualizarLuzAmbiente: ((hora: number) => void) | null = null;
   if (ES_INTERIOR) {
     try {
       const r = await fetch(`/assets/mapas/${MAPA_ID}/interiores/${EDIFICIO_ID}.json`);
       if (r.ok) {
         const interior = (await r.json()) as InteriorBakeado;
-        const { grupo, luces } = crearInteriorVisual(interior, NIVEL);
+        const { grupo, luces, actualizarVisibilidad, actualizarLuzAmbiente: fnActualizarLuzAmbiente } = crearInteriorVisual(interior, NIVEL);
         escena.añadirEstatico(grupo);
         lucesInterior.push(...luces);
+        actualizarConoVision = actualizarVisibilidad;
+        actualizarLuzAmbiente = fnActualizarLuzAmbiente;
       } else {
         console.error(`No se pudo cargar el interior "${EDIFICIO_ID}" de "${MAPA_ID}"`);
       }
@@ -851,7 +855,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // NPCs: antorcha de los turnos de vigilancia (se enciende de noche,
     // con un parpadeo de llama) y burbuja de pregón de los especiales
     // (~4 s de grito cada ~13, desfasado por NPC para que no coreen).
-    const deNoche = !tiempoMundo().esDeDia;
+    const { hora: horaMundo, esDeDia } = tiempoMundo();
+    const deNoche = !esDeDia;
     const tSeg = tAhora / 1000;
     for (const [slotId, meta] of npcsMeta) {
       const estadoNpc = npcsVisual.get(slotId);
@@ -877,6 +882,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     for (const { luz, fase } of lucesInterior) {
       luz.intensity = INTENSIDAD_LUZ_INTERIOR + Math.sin(tSeg * 9 + fase * 13) * 0.25;
     }
+    // Cono de visión (conoVision.ts): qué paredes este/sur ocultar según en
+    // qué sala está el jugador — barato, solo recalcula al cambiar de sala.
+    if (actualizarConoVision && jugadorLocal) actualizarConoVision(jugadorLocal.x, jugadorLocal.z);
+    // Luz ambiente por hora del día (luzInteriores.ts): sube/baja con el
+    // reloj de mundo, sala a sala según su propia ventana.
+    if (actualizarLuzAmbiente) actualizarLuzAmbiente(horaMundo);
     // Farolas exteriores (ciudades/src/index.js, "luces"): solo de noche,
     // mismo parpadeo.
     for (const { luz, fase } of farolasExterior) {

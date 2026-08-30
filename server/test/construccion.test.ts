@@ -59,6 +59,7 @@ function buscarCasillaDeTipo(...tipos: number[]): { x: number; y: number } {
 const bloqueA = buscarBloqueTierra(6); // parcela de Ragnar (tope 20)
 const bloqueB = buscarBloqueTierra(4); // parcela de Lagertha
 const bloqueC = buscarBloqueTierra(2); // parcela "Chica" (tope 1)
+const bloqueEspecial = buscarBloqueTierra(3); // parcela "especial" del jarl (proyectos especiales)
 // el demo actual solo trae agua profunda; cualquiera de las dos vale para la regla
 const casillaAgua = buscarCasillaDeTipo(TIPO.AGUA, TIPO.AGUA_PROFUNDA);
 const casillaSolida = buscarCasillaDeTipo(TIPO.SOLIDO);
@@ -94,6 +95,17 @@ function escribirParcelasFixture(): string {
           casillas: 2,
           topeProps: 1,
         },
+        // parcela ESPECIAL (docs/GDD_Ciudad_Capital.md §3): sin dueño asignado
+        // (del jarl, como cualquier parcela reservada) — para los tests de
+        // proyectos especiales del jarl
+        p_0005: {
+          asentamiento: "demo",
+          nombre: "Especial",
+          tipo: "especial",
+          runs: filas(bloqueEspecial, 3),
+          casillas: 9,
+          topeProps: 10,
+        },
       },
     }),
   );
@@ -112,6 +124,10 @@ function crearContexto(): { ctx: ContextoConstruccion; dir: string } {
       ["p_0002", { dueno: "Lagertha" }],
       ["p_0003", { dueno: "Ragnar" }],
       ["p_0004", { dueno: "Ragnar" }],
+      // p_0005 (especial) asignada a Ragnar a propósito: caso límite del test
+      // §1bis — ni siendo "dueño" de la parcela especial puede levantar un
+      // proyecto del jarl, ese chequeo es aparte de la propiedad.
+      ["p_0005", { dueno: "Ragnar" }],
     ]),
     ocupacion: new Map(),
     vivas: new Map(),
@@ -138,8 +154,12 @@ test("catálogo construible: fusiona las tres fuentes con las reglas del GDD §3
   // copia siempre — docs/GDD_Motriz.md — casa_humilde simplemente no la usa)
   assert.deepStrictEqual(catalogo.get("casa_humilde"), {
     id: "casa_humilde", categoria: "edificio", huella: [7, 6], colision: true, variantes: 1, energia: undefined,
+    proyectoJarl: undefined,
   });
   assert.strictEqual(catalogo.get("mansion"), undefined); // sin construible:true
+  // proyecto especial del jarl: construible normal (mismo Map), con el flag puesto
+  assert.strictEqual(catalogo.get("taller_asedio")?.proyectoJarl, true);
+  assert.strictEqual(catalogo.get("estatua_lider_bronce")?.proyectoJarl, true);
 });
 
 test("parcelas: índice numérico, helpers y tolerancia a mapa sin parcelas.json", () => {
@@ -176,6 +196,61 @@ test("§5.1: fuera de parcela y parcela ajena se rechazan; el jarl sí puede", (
   // el jarl construye en cualquier parcela (comparación trim+lowercase)
   r = validarColocacion(ctx, { nombre: "  FLOKI ", entrada: pozo, x: bloqueB.x, y: bloqueB.y, rot: 0 });
   assert.strictEqual(r.ok, true);
+});
+
+test("§1bis: proyectos especiales del jarl — solo jarl, solo parcela especial, tope 1 SOLO para el edificio", () => {
+  const { ctx } = crearContexto();
+  const proyectoEdificio = {
+    id: "gran_catedral", categoria: "edificio" as const, huella: [1, 1] as [number, number],
+    colision: true, variantes: 1, proyectoJarl: true,
+  };
+  const proyectoLeon = {
+    id: "leon_guardian_piedra_estatua", categoria: "exterior" as const, huella: [1, 1] as [number, number],
+    colision: true, variantes: 1, proyectoJarl: true,
+  };
+
+  // un jugador normal NO puede, ni siendo "dueño" de la parcela especial
+  // (p_0005 asignada a Ragnar en el fixture a propósito, ver crearContexto) —
+  // el chequeo de proyectoJarl es aparte de la propiedad de la parcela
+  let r = validarColocacion(ctx, {
+    nombre: "Ragnar", entrada: proyectoEdificio, x: bloqueEspecial.x, y: bloqueEspecial.y, rot: 0,
+  });
+  assert.deepStrictEqual(r, { ok: false, motivo: "solo el jarl puede levantar un proyecto especial" });
+
+  // el jarl, pero en una parcela NORMAL (p_0001) — tampoco
+  r = validarColocacion(ctx, { nombre: "  FLOKI ", entrada: proyectoEdificio, x: bloqueA.x, y: bloqueA.y, rot: 0 });
+  assert.deepStrictEqual(r, { ok: false, motivo: "los proyectos especiales solo van en una parcela especial reservada" });
+
+  // el jarl, en la parcela especial: sí
+  r = validarColocacion(ctx, {
+    nombre: "  FLOKI ", entrada: proyectoEdificio, x: bloqueEspecial.x, y: bloqueEspecial.y, rot: 0,
+  });
+  assert.strictEqual(r.ok, true);
+  aplicarColocacion(ctx, {
+    id: 900, propiedad: "p_0005", objeto: "gran_catedral", categoria: "edificio",
+    x: bloqueEspecial.x, y: bloqueEspecial.y, rot: 0, variante: 0, colision: true, huella: [1, 1],
+  });
+
+  // un segundo edificio del MISMO tipo en el asentamiento: tope de 1 alcanzado
+  r = validarColocacion(ctx, {
+    nombre: "floki", entrada: proyectoEdificio, x: bloqueEspecial.x + 1, y: bloqueEspecial.y, rot: 0,
+  });
+  assert.deepStrictEqual(r, { ok: false, motivo: "ya existe un proyecto especial de este tipo en el asentamiento" });
+
+  // pieza EXTERIOR del mismo proyecto (león de piedra, "uno de un par"): SIN
+  // tope de 1 — puede colocarse más de una vez, la limita el topeProps normal
+  r = validarColocacion(ctx, {
+    nombre: "floki", entrada: proyectoLeon, x: bloqueEspecial.x + 1, y: bloqueEspecial.y, rot: 0,
+  });
+  assert.strictEqual(r.ok, true);
+  aplicarColocacion(ctx, {
+    id: 901, propiedad: "p_0005", objeto: "leon_guardian_piedra_estatua", categoria: "exterior",
+    x: bloqueEspecial.x + 1, y: bloqueEspecial.y, rot: 0, variante: 0, colision: true, huella: [1, 1],
+  });
+  r = validarColocacion(ctx, {
+    nombre: "floki", entrada: proyectoLeon, x: bloqueEspecial.x + 2, y: bloqueEspecial.y, rot: 0,
+  });
+  assert.strictEqual(r.ok, true); // el segundo león de la pareja, sin rechazo por tope
 });
 
 test("§5.2: la huella ROTADA entera debe caer en la misma parcela", () => {
