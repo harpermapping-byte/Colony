@@ -2,14 +2,7 @@ import { InteriorRoom, OpcionesInterior } from "./InteriorRoom";
 import { Enemigo } from "./schema/HubState";
 import { IAlmacenDatos } from "../datos/bd";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const enemigos: Record<string, { temasEnemigo: string[]; pesoSpawn?: number; esBoss?: boolean }> = require("../../../personajes/catalogo/enemigos.json");
-
-// Debe coincidir con el nº de variantes con el que se corrió
-// personajes/src/exportar_enemigos.js al generar assets/enemigos/pool.json
-// (el aspecto se generó offline, una vez — el servidor solo elige el índice).
-const VARIANTES_POR_ENEMIGO = 3;
+import { elegirEnemigoDeTema, VARIANTES_POR_ENEMIGO } from "../mundo/catalogoEnemigos";
 
 // Techo de enemigos activos a la vez (pedido explícito del streamer: "se
 // generan el límite de 30 enemigos 2 boses aleatoriamente") — el bake puede
@@ -29,20 +22,6 @@ const VIDA_ENEMIGO_BOSS = 150;
 const ATAQUE_ENEMIGO_BOSS = 20;
 const DEFENSA_ENEMIGO_BOSS = 10;
 const COOLDOWN_MS = 60 * 60 * 1000; // 1h tras limpiarla (§4.2 del GDD)
-
-function elegirEnemigoDeTema(temas: string[], soloBosses: boolean): string | null {
-  const candidatos = Object.entries(enemigos).filter(
-    ([, def]) => !!def.esBoss === soloBosses && (def.temasEnemigo || []).some((t) => temas.includes(t)),
-  );
-  if (candidatos.length === 0) return null;
-  const pesoTotal = candidatos.reduce((s, [, def]) => s + (def.pesoSpawn ?? 10), 0);
-  let r = Math.random() * pesoTotal;
-  for (const [id, def] of candidatos) {
-    r -= def.pesoSpawn ?? 10;
-    if (r <= 0) return id;
-  }
-  return candidatos[candidatos.length - 1][0];
-}
 
 /**
  * Interior de mazmorra — docs/GDD_Bakeador_Dungeons.md. Hereda TAL CUAL de
