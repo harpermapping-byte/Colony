@@ -189,3 +189,116 @@ test("rutas /auth/admin/* con método GET no se manejan (deja pasar al llamante)
     await cerrar();
   }
 });
+
+test("POST /auth/admin/crear-cuenta: un jarl NO puede crear cuentas -> 403", async () => {
+  const bd = await obtenerBdCompartida();
+  await bd.crearCuentaAdmin({ usuario: "SoloJarl", passwordHash: hashPassword("clave123"), twitchLogin: null, rol: "jarl", mapaId: "principal" });
+  const { url, cerrar } = await crearServidorDePrueba();
+  try {
+    const login = await postJson(url, "/auth/admin/login", { usuario: "SoloJarl", password: "clave123" });
+    const { token } = (await login.json()) as { token: string };
+    const r = await postJson(url, "/auth/admin/crear-cuenta", { token, usuario: "NuevoJarl", password: "clave456", rol: "jarl" });
+    assert.strictEqual(r.status, 403);
+  } finally {
+    await cerrar();
+  }
+});
+
+test("POST /auth/admin/crear-cuenta: superadmin crea una cuenta jarl sin mapa asignado todavía", async () => {
+  const bd = await obtenerBdCompartida();
+  await bd.crearCuentaAdmin({ usuario: "ElSuper", passwordHash: hashPassword("superclave1"), twitchLogin: null, rol: "superadmin", mapaId: null });
+  const { url, cerrar } = await crearServidorDePrueba();
+  try {
+    const login = await postJson(url, "/auth/admin/login", { usuario: "ElSuper", password: "superclave1" });
+    const { token } = (await login.json()) as { token: string };
+
+    const r = await postJson(url, "/auth/admin/crear-cuenta", { token, usuario: "NuevoJarl", password: "clave456", rol: "jarl" });
+    assert.strictEqual(r.status, 200);
+    const cuerpo = (await r.json()) as { usuario: string; rol: string; mapaId: string | null };
+    assert.strictEqual(cuerpo.usuario, "NuevoJarl");
+    assert.strictEqual(cuerpo.rol, "jarl");
+    assert.strictEqual(cuerpo.mapaId, null, "nace sin mapa — asignar-jarl es quien lo asigna");
+
+    const dup = await postJson(url, "/auth/admin/crear-cuenta", { token, usuario: "NuevoJarl", password: "otraClave1", rol: "jarl" });
+    assert.strictEqual(dup.status, 409, "usuario ya existe");
+  } finally {
+    await cerrar();
+  }
+});
+
+test("POST /auth/admin/asignar-jarl: superadmin asigna, y reasignar quita el mapa al anterior (1 jarl por mapa)", async () => {
+  const bd = await obtenerBdCompartida();
+  await bd.crearCuentaAdmin({ usuario: "ElSuper2", passwordHash: hashPassword("superclave1"), twitchLogin: null, rol: "superadmin", mapaId: null });
+  await bd.crearCuentaAdmin({ usuario: "Viejo", passwordHash: hashPassword("clave123"), twitchLogin: null, rol: "jarl", mapaId: "principal" });
+  await bd.crearCuentaAdmin({ usuario: "Nuevo", passwordHash: hashPassword("clave123"), twitchLogin: null, rol: "jarl", mapaId: null });
+  const { url, cerrar } = await crearServidorDePrueba();
+  try {
+    const login = await postJson(url, "/auth/admin/login", { usuario: "ElSuper2", password: "superclave1" });
+    const { token } = (await login.json()) as { token: string };
+
+    const r = await postJson(url, "/auth/admin/asignar-jarl", { token, mapaId: "principal", usuario: "Nuevo" });
+    assert.strictEqual(r.status, 200);
+
+    const nuevo = await bd.obtenerCuentaAdminPorUsuario("Nuevo");
+    assert.strictEqual(nuevo!.mapaId, "principal");
+    const viejo = await bd.obtenerCuentaAdminPorUsuario("Viejo");
+    assert.strictEqual(viejo!.mapaId, null);
+  } finally {
+    await cerrar();
+  }
+});
+
+test("POST /auth/admin/asignar-jarl: usuario inexistente -> 400 con motivo", async () => {
+  const bd = await obtenerBdCompartida();
+  await bd.crearCuentaAdmin({ usuario: "ElSuper3", passwordHash: hashPassword("superclave1"), twitchLogin: null, rol: "superadmin", mapaId: null });
+  const { url, cerrar } = await crearServidorDePrueba();
+  try {
+    const login = await postJson(url, "/auth/admin/login", { usuario: "ElSuper3", password: "superclave1" });
+    const { token } = (await login.json()) as { token: string };
+    const r = await postJson(url, "/auth/admin/asignar-jarl", { token, mapaId: "principal", usuario: "NadieAsi" });
+    assert.strictEqual(r.status, 400);
+  } finally {
+    await cerrar();
+  }
+});
+
+test("POST /auth/admin/listar-cuentas: superadmin ve todas, sin exponer el hash de contraseña", async () => {
+  const bd = await obtenerBdCompartida();
+  await bd.crearCuentaAdmin({ usuario: "ElSuper4", passwordHash: hashPassword("superclave1"), twitchLogin: null, rol: "superadmin", mapaId: null });
+  await bd.crearCuentaAdmin({ usuario: "OtroJarl", passwordHash: hashPassword("clave123"), twitchLogin: "otrojarl_tv", rol: "jarl", mapaId: "principal" });
+  const { url, cerrar } = await crearServidorDePrueba();
+  try {
+    const login = await postJson(url, "/auth/admin/login", { usuario: "ElSuper4", password: "superclave1" });
+    const { token } = (await login.json()) as { token: string };
+
+    const r = await postJson(url, "/auth/admin/listar-cuentas", { token });
+    assert.strictEqual(r.status, 200);
+    const cuerpo = (await r.json()) as { cuentas: Array<Record<string, unknown>> };
+    // Sin contar el total: este archivo comparte UN mismo BD_RUTA=":memory:"
+    // entre todos sus tests (mismo proceso, singleton obtenerBdCompartida),
+    // así que cuentas de tests anteriores siguen ahí — solo importa que
+    // ESTAS DOS estén y que ninguna fila exponga el hash.
+    assert.ok(cuerpo.cuentas.some((c) => c.usuario === "ElSuper4"));
+    for (const c of cuerpo.cuentas) {
+      assert.ok(!("passwordHash" in c) && !("password_hash" in c), "nunca expone el hash");
+    }
+    const otro = cuerpo.cuentas.find((c) => c.usuario === "OtroJarl")!;
+    assert.strictEqual(otro.mapaId, "principal");
+    assert.strictEqual(otro.tienePassword, true);
+    assert.strictEqual(otro.tieneTwitch, true);
+  } finally {
+    await cerrar();
+  }
+});
+
+test("crear-cuenta/asignar-jarl/listar-cuentas: un jugador sin sesión (token inválido) -> 403", async () => {
+  const { url, cerrar } = await crearServidorDePrueba();
+  try {
+    for (const ruta of ["/auth/admin/crear-cuenta", "/auth/admin/asignar-jarl", "/auth/admin/listar-cuentas"]) {
+      const r = await postJson(url, ruta, { token: "token_invalido", usuario: "x", password: "clave1234", rol: "jarl", mapaId: "principal" });
+      assert.strictEqual(r.status, 403, ruta);
+    }
+  } finally {
+    await cerrar();
+  }
+});

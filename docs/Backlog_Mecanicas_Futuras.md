@@ -355,3 +355,12 @@ merodeo simple, sin esta parte).
   (hoy es puro ambiente, ver GDD_Agentes_Moviles.md "Qué falta").
 
 **Nota (2026-08-30)**: `docs/GDD_Twitch.md` §3 añade una "Plaga de ratas" como evento de puntos de canal (spawn temporal, sin reproducción ni depredación real, desaparecen solas a los 2 minutos) — es solo un evento de color por ahora, no la ecología real pedida aquí, que sigue exactamente igual de aparcada.
+
+## Cuentas de admin (jarl por mapa + superadmin) — HECHO v1 (2026-08-30)
+
+Pedido del streamer: login de admin dual (usuario/contraseña propios O Twitch ya vinculado), "1 jarl por mapa" para cuando entren más streamers/mapas, y una cuenta superadmin que actúe como jarl en cualquier mapa. Discutido el diseño antes de construirlo (regla CLAUDE.md), ver `docs/GDD_Admin.md` para el diseño completo, las decisiones y lo verificado (762 tests de servidor + 2 E2E reales, uno de ellos visual con Playwright).
+
+Pendiente real, sin bloquear nada:
+- Vincular una cuenta de Twitch existente a una cuenta de admin no tiene UI — se hace escribiendo `twitch_login` a mano.
+- El panel de jarl/superadmin es un placeholder de testeo más (sin arte, puede solaparse con otros paneles en pantallas pequeñas) — mismo criterio que el resto de paneles del proyecto.
+- Sin rate limiting en `/auth/admin/login` — aceptable para un panel de un streamer, no para un login público expuesto.
