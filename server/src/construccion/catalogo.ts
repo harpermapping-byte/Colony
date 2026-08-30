@@ -79,11 +79,37 @@ export interface EntradaConstruible {
   plantable?: { multiplicadorCosecha: number };
   /** Cocina (docs/GDD_Cocina.md) — presente en hoguera_campamento/cuenco_cocina/cazuela_cocina/olla_cocina. `esVasija:false` = solo "cocinar tal cual" un ingrediente (hoguera); `esVasija:true` = además combina varios ingredientes en un plato nuevo, con capacidad de tipos distintos y el nombre que da su tamaño ("cuenco"/"cazuela"/"olla"). */
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: "cuenco" | "cazuela" | "olla" };
+  /** Encurtido de pieles (docs/GDD_Caza.md) — presente en cubo_sal/barril_curtido. */
+  curtidor?: EntradaCurtidor;
 }
 
 export interface EntradaActividadAtributo {
   atributo: string;
   xp: number;
+}
+
+/**
+ * Encurtido de pieles (docs/GDD_Caza.md, pedido 2026-08-30) — presente en
+ * `cubo_sal`/`barril_curtido` (exteriores.json): mueble-contenedor con un
+ * ÚNICO lote en curso (`server/src/construccion/curtido.ts`, mismo reloj
+ * perezoso que `produccion`/`crafteo`, sin tick de servidor).
+ */
+export interface EntradaCurtidor {
+  /** itemId a granel que carga el mueble (sal / curtiente) — `curtidor:cargarMaterial`. */
+  materialCarga: string;
+  /** unidades de `materialCarga` consumidas del stock por cada unidad de piel del lote. */
+  materialPorUnidad: number;
+  capacidadMaxMaterial: number;
+  /** Acepta un itemId EXACTO (p.ej. "piel_raspada") — alternativa a entradaFamilia/entradaTier. */
+  entradaItemId?: string;
+  /** Acepta cualquier item cuya `familiaMaterial` (items.json) coincida — p.ej. "cuero" para cualquier piel cruda. */
+  entradaFamilia?: string;
+  /** Solo junto a entradaFamilia: además exige ese `tier` exacto (0 = crudo). */
+  entradaTier?: number;
+  /** itemId que produce el lote al completarse. */
+  salida: string;
+  /** duración del lote en horas REALES (Date.now(), no horas de mundo) — mismo criterio que cadaveres.ts/desgaste.ts. */
+  horas: number;
 }
 
 interface EntradaElemento {
@@ -108,6 +134,7 @@ interface EntradaExterior {
   requiereAgua?: boolean;
   plantable?: { multiplicadorCosecha: number };
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: "cuenco" | "cazuela" | "olla" };
+  curtidor?: EntradaCurtidor;
 }
 
 interface EntradaTipoEdificio {
@@ -167,6 +194,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       requiereAgua: d.requiereAgua,
       plantable: d.plantable,
       cocina: d.cocina,
+      curtidor: d.curtidor,
     });
   }
 

@@ -1,5 +1,8 @@
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna, ComercioSchema, OfertaComercioSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna, ComercioSchema, OfertaComercioSchema, CadaverSchema } from "../schema/HubState";
+import { Cadaver, cadaverDesaparecio } from "../../mundo/cadaveres";
+import { EstadisticasCombateAnimal } from "../../mundo/catalogoCombateFauna";
+import { pielDeDesollado } from "../../mundo/lootCaza";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
 import { cargarCatalogoArenas, elegirArena } from "../../combate/seleccionArena";
@@ -60,6 +63,7 @@ import { temperaturaMundo, Estacion } from "../../mundo/clima";
 import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
 import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../construccion/energia";
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
+import { EstadoCurtidor, aceptaEntradaCurtidor, huecoMaterialCurtidor, iniciarLoteCurtidor, curtidorListo, recolectarLoteCurtidor } from "../../construccion/curtido";
 import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, VITAL_MAX } from "../../personaje/vitales";
 import { Atributo, esAtributoValido } from "../../personaje/atributos";
 import { UMBRALES_NIVEL_ATRIBUTO } from "../../progresion/nivel";
@@ -96,6 +100,14 @@ export const RADIO_INTERACCION = 2.2;
 
 const ANCHO_CUERPO = 8;
 const ALTO_CUERPO = 6;
+
+// Oficio de jugador (docs/GDD_Caza.md, sistema mínimo v1, pedido 2026-08-30):
+// mismos ids que ya usa `receta.oficio` en items/catalogo/recetas.json, más
+// "peletero" (nuevo, sin recetas de crafteo todavía, solo gatea desollar).
+// Lista cerrada a propósito — un id que no está aquí no es un typo tolerado.
+const OFICIOS_JUGADOR_VALIDOS = new Set([
+  "herrero", "carpintero", "picapedrero", "curtidor", "sastre", "joyero", "peletero",
+]);
 
 // --- Combate táctico (docs/GDD_Combate.md, ✅ confirmado 2026-08-30) ---
 // PA fijo para toda unidad — placeholder de balance (mismo criterio que el
@@ -308,6 +320,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected extrasInventario = new Map<string, Map<string, Contenedor>>();
   protected equipoInventario = new Map<string, SlotsEquipo>();
   protected catalogoItems: CatalogoItems = cargarCatalogoItems();
+  // Cadáveres (docs/GDD_Caza.md) — estado PURO (state.cadaveres es solo el
+  // espejo de red, mismo criterio que `inventarios`/`player.inventario.cuerpo`).
+  // Poblado por publicarCadaver(); mapaId lo fija cada subclase que llame a
+  // publicarCadaver por primera vez (hoy solo HubRoom, vía fauna salvaje).
+  protected cadaveresPuros = new Map<string, Cadaver>();
+  private mapaIdCadaveres = "";
   private siguienteObjetoMundoId = 1;
   // Asignado por HubRoom/RegionRoom tras cargar su mapa — habilita "coger" de
   // recolectables del bake exterior sin que esta base conozca su tipo
@@ -354,6 +372,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   /** Lo que mandó cada jugador en combate:iniciar/unirse para poder volver EXACTAMENTE de donde salió — vive y muere con el combate, nunca se persiste. */
   private retornosPendientes = new Map<string, RetornoJugador>();
   private catalogoArenas?: string[];
+  /** docs/GDD_Caza.md — combates de "modo caza": sin ventana de unión, `cerrarVentanaCombate` se llama al instante y sus bucles de auto-unión (Enemigo/Fauna hostiles cercanos) se saltan. Se consume (borra) al usarse. */
+  private combatesSinAutoUnion = new Set<string>();
 
   protected iniciarMovimiento() {
     this.setState(new HubState());
@@ -415,6 +435,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("higiene:lavar", (client) => this.manejarHigieneLavar(client));
     this.onMessage("dormir:iniciar", (client, msg: { construccionId?: number }) => this.manejarDormirIniciar(client, msg));
     this.onMessage("dormir:completar", (client) => this.manejarDormirCompletar(client));
+
+    // Oficio de jugador (docs/GDD_Caza.md) — sistema mínimo, sin requisito ni exclusividad real.
+    this.onMessage("oficio:elegir", (client, msg: { oficio?: string }) => this.manejarOficioElegir(client, msg));
+
+    // Cadáveres/caza (docs/GDD_Caza.md)
+    this.onMessage("cadaver:lootear", (client, msg: { cadaverId?: string }) => this.manejarCadaverLootear(client, msg));
+    this.onMessage("cadaver:desollar", (client, msg: { cadaverId?: string }) => void this.manejarCadaverDesollar(client, msg));
+    this.onMessage("piel:raspar", (client, msg: { instanciaId?: number; cantidad?: number }) => this.manejarPielRaspar(client, msg));
+
+    // Encurtido de pieles (docs/GDD_Caza.md) — cubo_sal/barril_curtido,
+    // mismo criterio que producción/crafteo: disponible en cualquier room,
+    // no-op si no tiene ContextoConstruccion.
+    this.onMessage("curtidor:cargarMaterial", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarCurtidorCargarMaterial(client, msg));
+    this.onMessage("curtidor:meterPiel", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarCurtidorMeterPiel(client, msg));
+    this.onMessage("curtidor:recolectar", (client, msg: { construccionId?: number }) => void this.manejarCurtidorRecolectar(client, msg));
 
     // --- gremios (docs/GDD_Gremios.md) — disponibles en las 4 rooms, no
     // dependen de ContextoConstruccion/parcelas (a diferencia de "construir"),
@@ -1043,6 +1078,182 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!player.sucio) return client.send("higiene:error", { motivo: "no estás sucio" });
     player.sucio = false;
     client.send("higiene:lavado", {});
+  }
+
+  /**
+   * Oficio de jugador (docs/GDD_Caza.md) — sistema MÍNIMO v1: elegir es
+   * gratis, instantáneo, sin requisito y sin exclusividad real (cambiable
+   * en cualquier momento, no hay "un solo oficio para siempre"). `oficio:""`
+   * lo quita. No hay progresión de aprendizaje todavía — mismo hueco
+   * "placeholder de balance a afinar" que el resto del proyecto.
+   */
+  private manejarOficioElegir(client: Client, msg: { oficio?: string }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const oficio = (msg.oficio ?? "").trim();
+    if (oficio !== "" && !OFICIOS_JUGADOR_VALIDOS.has(oficio)) {
+      return client.send("oficio:error", { motivo: `oficio desconocido: ${oficio}` });
+    }
+    player.oficio = oficio;
+    client.send("oficio:elegido", { oficio });
+  }
+
+  /**
+   * Publica un cadáver recién creado (docs/GDD_Caza.md) — estado puro
+   * (`cadaveresPuros`, para lootear/desollar) + su espejo de red
+   * (`state.cadaveres`, para que el cliente lo vea/renderice). Llamado hoy
+   * SOLO por HubRoom al matar fauna salvaje (única room con cadáveres
+   * reales); genérico a propósito (`Cadaver.tipoOrigen` ya admite
+   * npc/jugador) para cuando exista muerte real de esos otros orígenes.
+   */
+  protected publicarCadaver(cadaver: Cadaver) {
+    this.cadaveresPuros.set(cadaver.id, cadaver);
+    this.mapaIdCadaveres = cadaver.mapaId;
+    const schema = new CadaverSchema();
+    schema.x = cadaver.x;
+    schema.y = cadaver.y;
+    schema.tipoOrigen = cadaver.tipoOrigen;
+    schema.especieOrigenId = cadaver.especieOrigenId;
+    sincronizarContenedor(schema.contenedor, cadaver.contenedor);
+    this.state.cadaveres.set(cadaver.id, schema);
+  }
+
+  /** Estadísticas de loot/combate de una especie — sobreescrito por HubRoom (única room con catalogoCombate real hoy); null en cualquier otra. */
+  protected estadisticasFaunaDe(_especieId: string): EstadisticasCombateAnimal | null {
+    return null;
+  }
+
+  /** Barrido de expiración (docs/GDD_Caza.md, mismo `DIAS_HASTA_DESAPARECER_CADAVER` de cadaveres.ts) — llamarlo periódicamente desde onCreate de la subclase que publique cadáveres. */
+  protected async limpiarCadaveresExpirados(ahora: number) {
+    if (this.cadaveresPuros.size === 0) return;
+    const bd = await obtenerBdCompartida();
+    for (const [id, cadaver] of [...this.cadaveresPuros.entries()]) {
+      if (!cadaverDesaparecio(cadaver, ahora)) continue;
+      this.cadaveresPuros.delete(id);
+      this.state.cadaveres.delete(id);
+      await bd.borrarCadaver(id);
+    }
+  }
+
+  /**
+   * "Lootear todo": mueve al inventario del jugador todo lo que quepa
+   * (peso/hueco) del contenedor del cadáver — carne/tendones/tripas del
+   * loot automático al matar (lootCaza.ts), y cualquier cosa que quedara de
+   * una sesión anterior. Lo que no quepa se queda en el cadáver para
+   * después; no hace falta desollar para esto (verbos independientes,
+   * decisión explícita del streamer).
+   */
+  private manejarCadaverLootear(client: Client, msg: { cadaverId?: string }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const cadaverId = msg.cadaverId ?? "";
+    const cadaver = this.cadaveresPuros.get(cadaverId);
+    const cadaverSchema = this.state.cadaveres.get(cadaverId);
+    if (!cadaver || !cadaverSchema) return client.send("cadaver:error", { motivo: "ese cadáver ya no está" });
+    if (Math.hypot(cadaver.x - player.x, cadaver.y - player.y) > RADIO_INTERACCION) {
+      return client.send("cadaver:error", { motivo: "demasiado lejos" });
+    }
+
+    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    let movidos = 0;
+    for (const item of [...cadaver.contenedor.items]) {
+      if (excedePesoMaximo(contenedor, this.catalogoItems, item.itemId, item.cantidad, pesoMaximo)) continue;
+      if (intentarCoger(contenedor, this.catalogoItems, { itemId: item.itemId, cantidad: item.cantidad }).ok) {
+        quitarItem(cadaver.contenedor, item.id, item.cantidad);
+        movidos++;
+      }
+    }
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    sincronizarContenedor(cadaverSchema.contenedor, cadaver.contenedor);
+    void obtenerBdCompartida().then((bd) => bd.actualizarContenedorCadaver(cadaverId, cadaver.contenedor));
+    client.send("cadaver:lootado", { movidos });
+  }
+
+  /**
+   * Desollar (docs/GDD_Caza.md): exige oficio curtidor/peletero (Player.oficio)
+   * Y un cuchillo_desollar en el inventario. Da la piel de la especie (si
+   * tiene) + tirada de trofeo (5%, lootCaza.ts) y el cadáver DESAPARECE
+   * ENTERO — verbos ESTRICTAMENTE independientes de `cadaver:lootear`
+   * (decisión explícita del streamer): si no has looteado antes, la
+   * carne/tendones/tripas que quedaran en el cadáver se pierden con él.
+   */
+  private async manejarCadaverDesollar(client: Client, msg: { cadaverId?: string }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (player.oficio !== "curtidor" && player.oficio !== "peletero") {
+      return client.send("cadaver:error", { motivo: "necesitas el oficio de curtidor o peletero" });
+    }
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
+      return client.send("cadaver:error", { motivo: "necesitas un cuchillo de desollar" });
+    }
+    const cadaverId = msg.cadaverId ?? "";
+    const cadaver = this.cadaveresPuros.get(cadaverId);
+    if (!cadaver || !this.state.cadaveres.has(cadaverId)) {
+      return client.send("cadaver:error", { motivo: "ese cadáver ya no está" });
+    }
+    if (Math.hypot(cadaver.x - player.x, cadaver.y - player.y) > RADIO_INTERACCION) {
+      return client.send("cadaver:error", { motivo: "demasiado lejos" });
+    }
+    const especie = this.estadisticasFaunaDe(cadaver.especieOrigenId);
+    if (!especie) return client.send("cadaver:error", { motivo: "no se puede desollar esto" });
+
+    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const entregar = (itemId: string, cantidad: number) => {
+      if (excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo)) return false;
+      return intentarCoger(contenedor, this.catalogoItems, { itemId, cantidad }).ok;
+    };
+
+    const resultado = pielDeDesollado(especie);
+    const entregados: string[] = [];
+    if (resultado.pielItemId && entregar(resultado.pielItemId, resultado.pielCantidad)) entregados.push(resultado.pielItemId);
+    if (resultado.trofeoItemId && entregar(resultado.trofeoItemId, 1)) entregados.push(resultado.trofeoItemId);
+
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    this.cadaveresPuros.delete(cadaverId);
+    this.state.cadaveres.delete(cadaverId);
+    const bd = await obtenerBdCompartida();
+    await bd.borrarCadaver(cadaverId);
+    client.send("cadaver:desollado", { entregados });
+  }
+
+  /**
+   * Raspar una piel_salada con el cuchillo de desollar (docs/GDD_Caza.md,
+   * paso 2/3 del encurtido, entre cubo_sal y barril_curtido) — acción
+   * INSTANTÁNEA sobre el propio inventario, sin construcción de por medio.
+   * Mismo gating que desollar: oficio curtidor/peletero + cuchillo_desollar.
+   */
+  private manejarPielRaspar(client: Client, msg: { instanciaId?: number; cantidad?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || typeof msg?.instanciaId !== "number") return;
+    if (player.oficio !== "curtidor" && player.oficio !== "peletero") {
+      return client.send("piel:error", { motivo: "necesitas el oficio de curtidor o peletero" });
+    }
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    if (!contenedor.items.some((it) => it.itemId === "cuchillo_desollar")) {
+      return client.send("piel:error", { motivo: "necesitas un cuchillo de desollar" });
+    }
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it || it.itemId !== "piel_salada") return client.send("piel:error", { motivo: "eso no es una piel salada" });
+    const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
+
+    const itemsAntes = contenedor.items.map((i) => ({ ...i }));
+    const siguienteIdAntes = contenedor.siguienteId;
+    const quitado = quitarItem(contenedor, it.id, cantidad);
+    if (!quitado.ok) return;
+    const agregado = agregarItem(contenedor, this.catalogoItems, "piel_raspada", cantidad);
+    if (!agregado.ok) {
+      contenedor.items = itemsAntes;
+      contenedor.siguienteId = siguienteIdAntes;
+      return client.send("piel:error", { motivo: "no tienes hueco para la piel raspada" });
+    }
+
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("piel:raspada", { cantidad });
   }
 
   /**
@@ -3253,6 +3464,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("crafteo:error", { motivo });
   }
 
+  private errorCurtidor(client: Client, motivo: string) {
+    client.send("curtidor:error", { motivo });
+  }
+
   /**
    * Envoltorio async de resolverProduccion: si `datos.insumos` existe, lee
    * el stock actual del almacén de la construcción (misma tabla
@@ -3415,6 +3630,130 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: receta.resultado.cantidad,
       oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
     });
+  }
+
+  // ---- Encurtido de pieles (docs/GDD_Caza.md, cubo_sal/barril_curtido) ----
+  // Mueble-contenedor con UN lote a la vez (server/src/construccion/curtido.ts,
+  // reloj perezoso — sin tick): cargarMaterial mete stock a granel (cualquiera
+  // puede aportar), meterPiel arranca el lote (exige oficio, consume stock +
+  // la piel del inventario), recolectar entrega el resultado cuando toca.
+
+  /** Carga el mueble con material a granel (sal/curtiente) desde el cuerpo del jugador — dueño o jarl, sin oficio (tarea de mantenimiento, no de artesano). */
+  private async manejarCurtidorCargarMaterial(client: Client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number" || typeof msg.instanciaId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorCurtidor(client, "construcción inexistente");
+    const dueno = ctx.propiedades.get(viva.propiedad)?.dueno ?? (await this.duenoDeTenderete(viva.propiedad));
+    if (dueno !== nombre && !esJarl(ctx, nombre)) return this.errorCurtidor(client, "no eres el dueño de esta construcción");
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) return this.errorCurtidor(client, "demasiado lejos");
+
+    const datos = this.entradaDe(viva.objeto)?.curtidor;
+    if (!datos) return this.errorCurtidor(client, "esta construcción no admite material");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it || it.itemId !== datos.materialCarga) return this.errorCurtidor(client, "eso no es lo que necesita este mueble");
+
+    const bd = await obtenerBdCompartida();
+    const extraActual = (viva.extra ?? {}) as { curtidor?: EstadoCurtidor; [k: string]: unknown };
+    const estadoPrevio: EstadoCurtidor = extraActual.curtidor ?? { stock: 0 };
+    const hueco = huecoMaterialCurtidor(estadoPrevio, datos);
+    if (hueco <= 0) return this.errorCurtidor(client, "ya está lleno");
+    const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad, hueco));
+
+    const resultado = quitarItem(contenedor, msg.instanciaId, cantidad);
+    if (!resultado.ok) return this.errorCurtidor(client, resultado.motivo ?? "no se pudo cargar");
+
+    const nuevoEstado: EstadoCurtidor = { ...estadoPrevio, stock: estadoPrevio.stock + cantidad };
+    viva.extra = { ...extraActual, curtidor: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("curtidor:estado", { construccionId: viva.id, stock: nuevoEstado.stock, capacidadMax: datos.capacidadMaxMaterial, lote: nuevoEstado.lote ?? null });
+  }
+
+  /** Mete una piel a procesar — el paso ARTESANO: exige oficio curtidor/peletero, sin lote ya en curso y stock a granel suficiente. */
+  private async manejarCurtidorMeterPiel(client: Client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number" || typeof msg.instanciaId !== "number") return;
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (player.oficio !== "curtidor" && player.oficio !== "peletero") {
+      return this.errorCurtidor(client, "necesitas el oficio de curtidor o peletero");
+    }
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorCurtidor(client, "construcción inexistente");
+    const dueno = ctx.propiedades.get(viva.propiedad)?.dueno ?? (await this.duenoDeTenderete(viva.propiedad));
+    if (dueno !== nombre && !esJarl(ctx, nombre)) return this.errorCurtidor(client, "no eres el dueño de esta construcción");
+    if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) return this.errorCurtidor(client, "demasiado lejos");
+
+    const datos = this.entradaDe(viva.objeto)?.curtidor;
+    if (!datos) return this.errorCurtidor(client, "esta construcción no procesa pieles");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it || !aceptaEntradaCurtidor(datos, it.itemId, this.catalogoItems)) {
+      return this.errorCurtidor(client, "eso no se puede meter en este mueble");
+    }
+
+    const bd = await obtenerBdCompartida();
+    const extraActual = (viva.extra ?? {}) as { curtidor?: EstadoCurtidor; [k: string]: unknown };
+    const estadoPrevio: EstadoCurtidor = extraActual.curtidor ?? { stock: 0 };
+    const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
+    const nuevoEstado = iniciarLoteCurtidor(estadoPrevio, datos, cantidad, Date.now());
+    if (!nuevoEstado) {
+      return this.errorCurtidor(client, estadoPrevio.lote ? "ya hay un lote en proceso" : "no hay suficiente material cargado");
+    }
+
+    const resultado = quitarItem(contenedor, msg.instanciaId, cantidad);
+    if (!resultado.ok) return this.errorCurtidor(client, resultado.motivo ?? "no se pudo meter la piel");
+
+    viva.extra = { ...extraActual, curtidor: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("curtidor:estado", { construccionId: viva.id, stock: nuevoEstado.stock, capacidadMax: datos.capacidadMaxMaterial, lote: nuevoEstado.lote ?? null });
+  }
+
+  /** Recolecta el lote terminado — dueño o jarl, resuelto perezosamente por timestamp (sin tick de servidor). */
+  private async manejarCurtidorRecolectar(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorCurtidor(client, "construcción inexistente");
+    const dueno = ctx.propiedades.get(viva.propiedad)?.dueno ?? (await this.duenoDeTenderete(viva.propiedad));
+    if (dueno !== nombre && !esJarl(ctx, nombre)) return this.errorCurtidor(client, "no eres el dueño de esta construcción");
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) return this.errorCurtidor(client, "demasiado lejos");
+
+    const datos = this.entradaDe(viva.objeto)?.curtidor;
+    if (!datos) return this.errorCurtidor(client, "esta construcción no procesa pieles");
+
+    const extraActual = (viva.extra ?? {}) as { curtidor?: EstadoCurtidor; [k: string]: unknown };
+    const estadoPrevio: EstadoCurtidor = extraActual.curtidor ?? { stock: 0 };
+    const resultado = recolectarLoteCurtidor(estadoPrevio, datos, Date.now());
+    if (!resultado) return this.errorCurtidor(client, estadoPrevio.lote ? "todavía no está listo" : "no hay ningún lote en proceso");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const entregado = intentarCoger(contenedor, this.catalogoItems, { itemId: datos.salida, cantidad: resultado.cantidad });
+    if (!entregado.ok) return this.errorCurtidor(client, "no tienes hueco en tu inventario");
+
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...extraActual, curtidor: resultado.estado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("curtidor:completado", { construccionId: viva.id, itemId: datos.salida, cantidad: resultado.cantidad });
   }
 
   /**
@@ -3646,6 +3985,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       pa: cu.pa, paMax: cu.paMax,
       iniciativa: cu.iniciativa, estado: cu.estado as UnidadCombate["estado"],
       ataqueFisico: cu.ataqueFisico, defensaFisica: cu.defensaFisica, alcance: cu.alcance,
+      pasivo: cu.pasivo,
     };
   }
 
@@ -3693,7 +4033,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     bando: Bando,
     gx: number,
     gy: number,
-    stats: { hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean },
+    stats: { hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean; pasivo?: boolean },
   ): CombateUnidad {
     const cu = new CombateUnidad();
     cu.id = id;
@@ -3703,6 +4043,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     cu.gy = Math.max(0, Math.round(gy));
     cu.hp = stats.hp;
     cu.hpMax = stats.hpMax;
+    cu.pasivo = stats.pasivo ?? false;
     // Destreza (docs/GDD_Personaje.md §3.3): un jugador con más nivel tiene
     // más PA (más acciones por turno, ahora que AP+MP están unificados en un
     // único pool, §9.3) — solo aplica a jugadores, fauna/enemigos/NPCs se
@@ -3787,10 +4128,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     combate.gx0 = gx0; combate.gy0 = gy0; combate.ancho = arena.ancho; combate.alto = arena.alto;
     for (const casilla of arena.obstaculos) combate.obstaculos.push(casilla);
 
+    // Modo caza (docs/GDD_Caza.md, pedido 2026-08-30): objetivo es fauna NO
+    // peligrosa (jabalí/lobo/oso siguen siendo combate normal, vía
+    // faunaEsPeligrosa) — presa pasiva (deambula, nunca ataca) y sin ventana
+    // de unión: nadie más puede sumarse a cazar contigo a este bicho.
+    const especieObjetivo = this.state.fauna.get(msg.objetivoId)?.especieId;
+    const esModoCaza = especieObjetivo !== undefined && !this.faunaEsPeligrosa(especieObjetivo);
+
     const uAtacante = this.crearUnidadCombate(atacanteId, "A", atacante.x - gx0, atacante.y - gy0, {
       hp: atacante.vida, hpMax: atacante.vidaMax, ataque: atacante.ataque, defensa: atacante.defensa, esJugador: true,
     });
-    const uObjetivo = this.crearUnidadCombate(msg.objetivoId, "B", objetivoStats.x - gx0, objetivoStats.y - gy0, objetivoStats);
+    const uObjetivo = this.crearUnidadCombate(msg.objetivoId, "B", objetivoStats.x - gx0, objetivoStats.y - gy0, {
+      ...objetivoStats, pasivo: esModoCaza,
+    });
     combate.unidades.set(atacanteId, uAtacante);
     combate.unidades.set(msg.objetivoId, uObjetivo);
 
@@ -3801,7 +4151,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const combateId = `combate:${atacanteId}:${Date.now()}`;
     this.state.combates.set(combateId, combate);
-    this.timeoutsVentanaCombate.set(combateId, this.clock.setTimeout(() => this.cerrarVentanaCombate(combateId), VENTANA_UNION_COMBATE_MS));
+    if (esModoCaza) {
+      // Sin ventana: cierra ya mismo y sin auto-unión de fauna/enemigos
+      // hostiles cercanos (docs/GDD_Caza.md) — caza es estrictamente 1 vs 1.
+      this.combatesSinAutoUnion.add(combateId);
+      this.cerrarVentanaCombate(combateId);
+    } else {
+      this.timeoutsVentanaCombate.set(combateId, this.clock.setTimeout(() => this.cerrarVentanaCombate(combateId), VENTANA_UNION_COMBATE_MS));
+    }
   }
 
   /** Unirse al bando del jugador que empezó el combate, mientras la ventana de unión sigue abierta (docs/GDD_Combate.md §9.1). */
@@ -3853,17 +4210,22 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     // Auto-unión: Enemigo de mazmorra SIEMPRE (son hostiles por definición),
     // Fauna solo si la room sabe que es peligrosa (HubRoom, catalogoCombate).
-    for (const [id, e] of this.state.enemigos.entries()) {
-      if (combate.unidades.has(id)) continue;
-      if (Math.hypot(e.x - origenX, e.y - origenY) > RADIO_INTERACCION) continue;
-      const stats = this.statsCombatiente(id)!;
-      combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
-    }
-    for (const [id, f] of this.state.fauna.entries()) {
-      if (combate.unidades.has(id) || !this.faunaEsPeligrosa(f.especieId)) continue;
-      if (Math.hypot(f.x - origenX, f.y - origenY) > RADIO_INTERACCION) continue;
-      const stats = this.statsCombatiente(id)!;
-      combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
+    // Modo caza (docs/GDD_Caza.md) es estrictamente 1 vs 1: se salta entera.
+    const sinAutoUnion = this.combatesSinAutoUnion.has(combateId);
+    this.combatesSinAutoUnion.delete(combateId);
+    if (!sinAutoUnion) {
+      for (const [id, e] of this.state.enemigos.entries()) {
+        if (combate.unidades.has(id)) continue;
+        if (Math.hypot(e.x - origenX, e.y - origenY) > RADIO_INTERACCION) continue;
+        const stats = this.statsCombatiente(id)!;
+        combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
+      }
+      for (const [id, f] of this.state.fauna.entries()) {
+        if (combate.unidades.has(id) || !this.faunaEsPeligrosa(f.especieId)) continue;
+        if (Math.hypot(f.x - origenX, f.y - origenY) > RADIO_INTERACCION) continue;
+        const stats = this.statsCombatiente(id)!;
+        combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
+      }
     }
 
     // Roster para la room de arena — la fuente de verdad de este combate
@@ -3883,6 +4245,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         const base = {
           id: u.id, bando: u.bando as Bando, esJugador: false,
           hp: u.hp, hpMax: u.hpMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
+          pasivo: u.pasivo,
         };
         if (esEnemigo) {
           const e = this.state.enemigos.get(u.id)!;

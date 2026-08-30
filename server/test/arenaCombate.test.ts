@@ -115,6 +115,43 @@ test("simularCombateAutomatico: no muta las unidades de entrada", () => {
   assert.strictEqual(b.hp, 5);
 });
 
+// --- Modo caza (docs/GDD_Caza.md, pedido 2026-08-30): presa pasiva ---
+
+test("jugarTurnoIA: una unidad pasiva NUNCA ataca aunque el objetivo esté en alcance", () => {
+  const presa = unidad({ id: "conejo", bando: "B", gx: 1, gy: 0, pasivo: true });
+  const cazador = unidad({ id: "jugador", bando: "A", gx: 0, gy: 0, hp: 50, hpMax: 50 });
+  // rnd fijo a 0 -> PASOS_DEAMBULAR[0] = "quieto" (0,0), así que además se queda en su sitio.
+  const resultado = jugarTurnoIA("conejo", [presa, cazador], arenaAbierta(), () => 0);
+  assert.strictEqual(resultado.find((u) => u.id === "jugador")!.hp, 50, "nunca ataca al jugador, esté a tiro o no");
+});
+
+test("jugarTurnoIA: una unidad pasiva deambula sin perseguir — puede alejarse del objetivo, al revés que la IA normal", () => {
+  const presa = unidad({ id: "conejo", bando: "B", gx: 4, gy: 4, pasivo: true });
+  const cazador = unidad({ id: "jugador", bando: "A", gx: 0, gy: 0 });
+  // rnd fijo a 0.3 -> floor(0.3*5)=1 -> PASOS_DEAMBULAR[1] = {gx:1,gy:0}: se aleja del jugador.
+  const resultado = jugarTurnoIA("conejo", [presa, cazador], arenaAbierta(), () => 0.3);
+  const actualizada = resultado.find((u) => u.id === "conejo")!;
+  assert.strictEqual(actualizada.gx, 5, "se alejó del jugador en vez de perseguirlo");
+  assert.strictEqual(actualizada.gy, 4);
+});
+
+test("jugarTurnoIA: una unidad pasiva no deambula sobre un obstáculo", () => {
+  const arena = arenaAbierta();
+  arena.obstaculos[0 * arena.ancho + 2] = 1; // (gx=2, gy=0) obstáculo
+  const presa = unidad({ id: "conejo", bando: "B", gx: 1, gy: 0, pasivo: true });
+  // rnd -> PASOS_DEAMBULAR[1] = {gx:1,gy:0} (derecha, hacia el obstáculo en x=2,y=0): bloqueado.
+  const resultado = jugarTurnoIA("conejo", [presa], arena, () => 0.2);
+  assert.deepStrictEqual(resultado.find((u) => u.id === "conejo")!, presa, "bloqueado por el obstáculo, no se mueve");
+});
+
+test("jugarTurnoIA: una unidad pasiva no deambula sobre otra unidad activa (jugador u otro animal)", () => {
+  const presa = unidad({ id: "conejo", bando: "B", gx: 1, gy: 0, pasivo: true });
+  const ocupante = unidad({ id: "otro", bando: "A", gx: 2, gy: 0 });
+  // rnd -> PASOS_DEAMBULAR[1] = {gx:1,gy:0} (derecha, hacia la casilla ocupada): bloqueado.
+  const resultado = jugarTurnoIA("conejo", [presa, ocupante], arenaAbierta(), () => 0.2);
+  assert.deepStrictEqual(resultado.find((u) => u.id === "conejo")!, presa, "bloqueado por la unidad, no se mueve");
+});
+
 test("simularCombateAutomatico: es determinista — misma entrada + mismo rnd fijo = mismo resultado", () => {
   const crear = () => [
     [unidad({ id: "a", bando: "A", gx: 0, gy: 0, hp: 40, hpMax: 40, ataqueFisico: 8, iniciativa: 10 })],

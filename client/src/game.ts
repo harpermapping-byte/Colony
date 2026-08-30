@@ -24,6 +24,7 @@ import { PanelInjerto } from "./agricultura/panelInjerto";
 import { PanelCocina, type IngredienteVista } from "./cocina/panelCocina";
 import { aplicarEquipoAlRig } from "./render3d/equipoVisual";
 import { PanelJugador } from "./personaje/panelJugador";
+import { crearPlaceholder } from "./render3d/placeholder";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -896,6 +897,31 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (estadoPesca === "picando") { estadoPesca = "esperando"; panelPesca.actualizar(estadoPesca); }
   });
 
+  // --- Cadáveres/caza (docs/GDD_Caza.md) — placeholder de testeo, mismo
+  // criterio que el resto de esta pasada (sin arte, sin panel propio):
+  // caja tumbada en el sitio, tecla L lootea (carne/tendones/tripas) el
+  // cadáver más cercano, tecla K lo desuella (piel + trofeo, exige oficio
+  // + cuchillo_desollar — el servidor rechaza con "cadaver:error" si no).
+  $(room.state).cadaveres.onAdd((cadaver: any, id: string) => {
+    const caja = crearPlaceholder("#5a3a2a", 1.1, 0.3, 0.6);
+    escena.añadirEntidad(`cadaver_${id}`, caja, cadaver.x, cadaver.y, `💀 ${cadaver.especieOrigenId}`);
+  });
+  $(room.state).cadaveres.onRemove((_cadaver: any, id: string) => escena.quitarEntidad(`cadaver_${id}`));
+  room.onMessage("cadaver:error", (m: { motivo: string }) => console.log("[cadáver]", m?.motivo));
+  room.onMessage("cadaver:lootado", (m: { movidos: number }) => console.log("[cadáver] lootados", m?.movidos, "objeto(s)"));
+  room.onMessage("cadaver:desollado", (m: { entregados: string[] }) => console.log("[cadáver] desollado, entregado:", m?.entregados));
+
+  function cadaverMasCercano(): string | null {
+    if (!jugadorLocal) return null;
+    let mejorId: string | null = null;
+    let mejorDist = RADIO_COMBATE_CLIENTE;
+    for (const [id, c] of room.state.cadaveres.entries()) {
+      const d = Math.hypot((c as any).x - jugadorLocal.x, (c as any).y - jugadorLocal.z);
+      if (d < mejorDist) { mejorDist = d; mejorId = id; }
+    }
+    return mejorId;
+  }
+
   function objetivoHostilMasCercano(): string | null {
     if (!jugadorLocal) return null;
     let mejorId: string | null = null;
@@ -960,6 +986,16 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "v" && !teclas.has("v")) {
       const combateId = combatePendienteMasCercano();
       if (combateId) room.send("combate:unirse", { combateId, retorno: retornoDeCombate() });
+    }
+    // Cadáveres/caza (docs/GDD_Caza.md): L lootea, K desuella — mismo
+    // criterio sin targeting que el resto de teclas de acción.
+    if (k === "l" && !teclas.has("l")) {
+      const cadaverId = cadaverMasCercano();
+      if (cadaverId) room.send("cadaver:lootear", { cadaverId });
+    }
+    if (k === "k" && !teclas.has("k")) {
+      const cadaverId = cadaverMasCercano();
+      if (cadaverId) room.send("cadaver:desollar", { cadaverId });
     }
     // Mascotas (docs/GDD_Mascotas.md): G da de comer al animal domesticable
     // más cercano (perro/gato urbano) — sin UI de targeting, el servidor

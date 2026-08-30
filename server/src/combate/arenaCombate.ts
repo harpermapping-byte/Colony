@@ -38,6 +38,8 @@ export interface UnidadCombate {
   defensaFisica: number;
   /** alcance en casillas (Chebyshev) del arma/ataque equipado. */
   alcance: number;
+  /** docs/GDD_Caza.md — fauna NO peligrosa en modo caza: deambula sin rumbo, NUNCA ataca ni persigue, aunque el jugador esté a tiro. Ausente/false = IA normal (jugarTurnoIA). */
+  pasivo?: boolean;
 }
 
 /** Iniciativa determinista: base del catálogo/atributo + variación pequeña por `rnd` (fijo en tests = reproducible). */
@@ -73,6 +75,28 @@ function objetivoMasCercano(u: UnidadCombate, unidades: UnidadCombate[]): Unidad
   );
 }
 
+// Deambular (docs/GDD_Caza.md): quieto o 1 paso a una casilla adyacente
+// libre, elegido al azar — incluye "quieto" para que no sea un vaivén
+// constante casilla a casilla.
+const PASOS_DEAMBULAR: Casilla[] = [
+  { gx: 0, gy: 0 }, { gx: 1, gy: 0 }, { gx: -1, gy: 0 }, { gx: 0, gy: 1 }, { gx: 0, gy: -1 },
+];
+
+/**
+ * Turno de una presa (caza, docs/GDD_Caza.md): deambula sin rumbo por la
+ * arena, NUNCA ataca ni persigue al jugador aunque esté a tiro — a
+ * diferencia de `jugarTurnoIA`, ignora por completo `objetivoMasCercano`.
+ * Un animal `peligroso:true` (jabalí, lobo, oso...) sigue usando la IA
+ * normal — esta función es solo para la presa pasiva de un modo caza.
+ */
+function jugarTurnoIAPasiva(u: UnidadCombate, unidades: UnidadCombate[], arena: Arena, rnd: () => number): UnidadCombate[] {
+  const paso = PASOS_DEAMBULAR[Math.floor(rnd() * PASOS_DEAMBULAR.length)];
+  const destino: Casilla = { gx: u.gx + paso.gx, gy: u.gy + paso.gy };
+  if (esObstaculo(arena, destino.gx, destino.gy)) return unidades;
+  if (unidades.some((x) => x.id !== u.id && x.estado === "activo" && x.gx === destino.gx && x.gy === destino.gy)) return unidades;
+  return unidades.map((x) => (x.id === u.id ? { ...x, gx: destino.gx, gy: destino.gy } : x));
+}
+
 /**
  * Juega el turno de UNA unidad con la IA simple ya descrita en el GDD
  * ("acercarse al enemigo vivo más cercano y atacar si está en alcance") —
@@ -81,9 +105,10 @@ function objetivoMasCercano(u: UnidadCombate, unidades: UnidadCombate[]): Unidad
  * (`combate:pasarTurno`, cuando le toca a un `Enemigo`/`Fauna` sin cliente
  * que envíe mensajes). No muta `unidades`: devuelve la lista actualizada.
  */
-export function jugarTurnoIA(idUnidad: string, unidades: UnidadCombate[], arena: Arena): UnidadCombate[] {
+export function jugarTurnoIA(idUnidad: string, unidades: UnidadCombate[], arena: Arena, rnd: () => number = Math.random): UnidadCombate[] {
   const u = unidades.find((x) => x.id === idUnidad);
   if (!u || u.estado !== "activo") return unidades;
+  if (u.pasivo) return jugarTurnoIAPasiva(u, unidades, arena, rnd);
   const objetivo = objetivoMasCercano(u, unidades);
   if (!objetivo) return unidades; // el otro bando ya cayó entero
 

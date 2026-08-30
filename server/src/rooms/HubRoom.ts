@@ -9,9 +9,11 @@ import { obtenerBdCompartida } from "../datos/bdCompartida";
 import { cargarCatalogoFaunaSalvaje } from "../mundo/catalogoFaunaSalvaje";
 import { DependenciasFaunaSalvaje, GestorFaunaSalvaje } from "../mundo/faunaSalvajeViva";
 import { ObjetoFaunaBakeado } from "../mundo/faunaSalvajeSector";
+import { cadaverDesaparecio } from "../mundo/cadaveres";
 import { diaFraccional } from "../mundo/reproduccionFauna";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
+import { cargarCatalogoItems } from "../inventario/inventario";
 import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
 import { UnidadCombate, calcularIniciativa, simularCombateAutomatico } from "../combate/arenaCombate";
 import { TIPO, tipoEn } from "../mundo/colisiones";
@@ -137,11 +139,30 @@ export class HubRoom extends RoomExteriorBase {
           marcarSectorResuelto: (s, momento) => bd.marcarSectorResuelto(mapaId, s.sectorX, s.sectorY, momento),
           crearCadaver: (c) => bd.crearCadaverBd(c),
           catalogoCombate: this.catalogoCombate,
+          catalogoItems: cargarCatalogoItems(),
         };
-        // Guardado como campo (no variable local): el punto de enganche
-        // `matarIndividuo` lo llamará un futuro sistema de combate desde
-        // otro método de esta misma room — hoy nada lo invoca todavía.
+        // Guardado como campo (no variable local): `onFaunaMuerta` (docs/
+        // GDD_Combate.md) llama a matarIndividuo() al cerrar un combate real.
         this.gestorFaunaSalvaje = new GestorFaunaSalvaje(this.state.fauna, deps);
+
+        // Cadáveres de sesiones anteriores que todavía no han expirado
+        // (docs/GDD_Caza.md) — sin esto, un reinicio del servidor los deja
+        // persistidos en BD pero invisibles hasta el próximo `matarIndividuo`.
+        const ahoraCadaveres = () => {
+          const t = tiempoMundo();
+          return diaFraccional(t.dia, t.hora);
+        };
+        for (const fila of await bd.listarCadaveresMapa(mapaId)) {
+          if (cadaverDesaparecio(fila, ahoraCadaveres())) {
+            void bd.borrarCadaver(fila.id);
+            continue;
+          }
+          this.publicarCadaver(fila);
+        }
+        this.clock.setInterval(
+          () => void this.limpiarCadaveresExpirados(ahoraCadaveres()),
+          60_000,
+        );
         // Merodeo a 5hz (igual que la fauna doméstica); activar/desactivar
         // sectores es mucho más caro (E/S a BD) así que va aparte y más
         // despacio — de sobra para notar que un jugador cambió de sector.
@@ -330,7 +351,13 @@ export class HubRoom extends RoomExteriorBase {
   protected async onFaunaMuerta(id: string): Promise<boolean> {
     if (!this.gestorFaunaSalvaje) return false;
     const cadaver = await this.gestorFaunaSalvaje.matarIndividuo(id);
+    if (cadaver) this.publicarCadaver(cadaver); // docs/GDD_Caza.md — visible/lootable para cualquier jugador
     return cadaver !== null;
+  }
+
+  /** docs/GDD_Caza.md — solo el Hub conoce categoriaVida/categoriaRecursoCarne/Piel por especie (catalogoCombate real). */
+  protected estadisticasFaunaDe(especieId: string) {
+    return this.catalogoCombate?.[especieId] ?? null;
   }
 
   /** docs/GDD_Combate.md §9.1 — solo el Hub sabe qué fauna es peligrosa (catalogoCombate real), así que solo aquí auto-se-une a una ventana de combate cercana. */

@@ -27,7 +27,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 196); // 150 (agricultura/pesca/cocina) + 46 de equipo/armadura (docs/GDD_Equipo.md, 2026-08-30)
+  assert.strictEqual(ids.length, 205); // 196 (150 agricultura/pesca/cocina + 46 equipo/armadura) + 9 de caza/encurtido (docs/GDD_Caza.md: tendones, tripas, curtiente, cuchillo_desollar, 3 cabezas-trofeo, piel_salada, piel_raspada)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

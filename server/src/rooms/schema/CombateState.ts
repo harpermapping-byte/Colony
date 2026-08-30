@@ -37,6 +37,8 @@ export class CombateUnidad extends Schema {
   ataqueFisico = 0;
   defensaFisica = 0;
   alcance = 1;
+  /** docs/GDD_Caza.md — fauna no peligrosa en modo caza: deambula, nunca ataca (server/src/combate/arenaCombate.ts::jugarTurnoIAPasiva). */
+  pasivo = false;
 }
 
 export class CombateSchema extends Schema {

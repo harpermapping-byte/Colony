@@ -136,6 +136,16 @@ export class Player extends Schema {
   // Puramente cosmético (docs/GDD_Mecanicas.md §5.11, "nunca ventaja de
   // poder") — se refresca solo, cada vez que ese jugador habla en el chat.
   @type("string") tituloTwitch = "";
+  // Oficio de jugador (docs/GDD_Caza.md, pedido 2026-08-30): sistema MÍNIMO
+  // v1 — "" = ninguno, se elige libremente con `oficio:elegir` (sin
+  // requisito ni exclusividad real, cambiable en cualquier momento; no
+  // reemplaza la XP por-oficio-y-jugador ya existente en `jugador_oficios`,
+  // que sigue sin exclusividad). Hoy solo lo consume el gating de desollar
+  // (curtidor/peletero); nada impide que más adelante otras recetas de
+  // `items/catalogo/recetas.json` lo exijan también. Sin persistencia entre
+  // sesiones todavía — mismo criterio que `atributos`/`vitales`/`gremioId`,
+  // esperando el login real (ver `server/src/datos/bd.ts`, tabla `jugadores`).
+  @type("string") oficio = "";
 }
 
 // Agente móvil publicado (NPC de asentamiento; mañana bárbaros/fauna con el
@@ -264,6 +274,19 @@ export class ComercioSchema extends Schema {
   @type("boolean") confirmadoB = false;
 }
 
+// Cadáver looteable (server/src/mundo/cadaveres.ts, docs/GDD_Caza.md) — la
+// clave del map es `Cadaver.id` ("cadaver:<idFaunaOrigen>"). `contenedor`
+// espeja el `Contenedor` puro del mismo modo que `InventarioSchema.cuerpo`
+// (server/src/inventario/sincronizarSchema.ts). Antes de esta mecánica el
+// cadáver solo existía en BD, invisible/inaccesible para cualquier jugador.
+export class CadaverSchema extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") tipoOrigen = ""; // "animal" | "npc" | "jugador"
+  @type("string") especieOrigenId = "";
+  @type(ContenedorSchema) contenedor = new ContenedorSchema();
+}
+
 export class HubState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: Npc }) npcs = new MapSchema<Npc>();
@@ -271,6 +294,7 @@ export class HubState extends Schema {
   @type({ map: Fauna }) fauna = new MapSchema<Fauna>();
   @type({ map: Mascota }) mascotas = new MapSchema<Mascota>();
   @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
+  @type({ map: CadaverSchema }) cadaveres = new MapSchema<CadaverSchema>();
   // Evento Twitch "Eclipse" (docs/GDD_Twitch.md): oscuridad casi total
   // mientras esté activo, sin importar la hora del reloj de mundo — el
   // cliente decide cómo pintarlo (mucho más oscuro que la noche normal),

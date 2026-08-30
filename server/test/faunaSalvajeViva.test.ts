@@ -16,6 +16,7 @@ import { Cadaver } from "../src/mundo/cadaveres";
 import { Fauna } from "../src/rooms/schema/HubState";
 import { TIPO } from "../src/mundo/colisiones";
 import { FaunaHuevoFila, FaunaSalvajeFila } from "../src/datos/bd";
+import { cargarCatalogoItems } from "../src/inventario/inventario";
 
 function mundoAbierto(lado = 40) {
   const casillas = new Uint8Array(lado * lado).fill(TIPO.TIERRA);
@@ -28,8 +29,11 @@ const CATALOGO: CatalogoEspecies = {
 };
 
 const CATALOGO_COMBATE: CatalogoCombateFauna = {
-  lobo: { categoriaVida: "grande", vidaMaxima: 50, ataque: 12 },
-  conejo: { categoriaVida: "pequeno", vidaMaxima: 15, ataque: 2 },
+  lobo: {
+    categoriaVida: "grande", vidaMaxima: 50, ataque: 12, peligroso: true, domesticable: false,
+    categoriaRecursoCarne: "carne_caza_mayor", categoriaRecursoPiel: "cuero_grueso",
+  },
+  conejo: { categoriaVida: "pequeno", vidaMaxima: 15, ataque: 2, peligroso: false, domesticable: false },
 };
 
 class BdFalsa {
@@ -274,6 +278,31 @@ test("matarIndividuo: quita al individuo del estado de Colyseus, lo marca muerto
 
   const filaGuardada = bd.filas.get("0,0")!.find((f) => f.id === id)!;
   assert.strictEqual(filaGuardada.estado, "muerto", "se persiste como muerto, nunca se resucita");
+});
+
+test("matarIndividuo: rellena el cadáver con loot de caza si se pasa catalogoItems (docs/GDD_Caza.md)", async () => {
+  const { gestor, salida } = crearGestor({ catalogoItems: cargarCatalogoItems() });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 }); // solo hay "lobo" en este bake falso
+  const id = [...salida.keys()][0];
+
+  const cadaver = await gestor.matarIndividuo(id);
+
+  assert.ok(cadaver);
+  const cantidadDe = (itemId: string) =>
+    cadaver!.contenedor.items.filter((it) => it.itemId === itemId).reduce((s, it) => s + it.cantidad, 0);
+  assert.strictEqual(cantidadDe("carne_caza_mayor"), 7); // lobo = categoriaVida "grande"
+  assert.strictEqual(cantidadDe("tendones"), 3);
+  assert.strictEqual(cantidadDe("tripas"), 3);
+  assert.strictEqual(cantidadDe("cuero_grueso"), 0, "la piel NUNCA sale en el loot automático, solo al desollar");
+});
+
+test("matarIndividuo: sin catalogoItems (deps por defecto), el cadáver sigue vacío — comportamiento previo a esta mecánica intacto", async () => {
+  const { gestor, salida } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const id = [...salida.keys()][0];
+  const cadaver = await gestor.matarIndividuo(id);
+  assert.ok(cadaver);
+  assert.strictEqual(cadaver!.contenedor.items.length, 0);
 });
 
 test("matarIndividuo: null si el id no está activo (ya muerto o inexistente)", async () => {
