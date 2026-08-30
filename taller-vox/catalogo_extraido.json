@@ -2370,37 +2370,6 @@
       }
     ]
   },
-  "yunque": {
-    "huella": [
-      1,
-      1
-    ],
-    "colorDebug": "#5a5a60",
-    "capa": "decorMovible",
-    "anchorType": "WALL_BACK",
-    "esContenedor": false,
-    "esSuperficie": false,
-    "colocacion": [
-      "pegadaAPared"
-    ],
-    "materialesCompatibles": [
-      "metal"
-    ],
-    "variantesNombradas": [
-      {
-        "id": "yunque_bronce",
-        "peso": 45
-      },
-      {
-        "id": "yunque_cobre",
-        "peso": 35
-      },
-      {
-        "id": "yunque_oxidado",
-        "peso": 20
-      }
-    ]
-  },
   "mesa_trabajo": {
     "huella": [
       1,
@@ -4359,33 +4328,6 @@
       },
       {
         "id": "tina_curtido_desgastada",
-        "peso": 40
-      }
-    ]
-  },
-  "muela_piedra": {
-    "huella": [
-      2,
-      2
-    ],
-    "colorDebug": "#8a8a80",
-    "capa": "decorFija",
-    "anchorType": "FREE_CENTER",
-    "esContenedor": false,
-    "esSuperficie": false,
-    "colocacion": [
-      "centroSala"
-    ],
-    "materialesCompatibles": [
-      "piedra"
-    ],
-    "variantesNombradas": [
-      {
-        "id": "muela_piedra_granito",
-        "peso": 60
-      },
-      {
-        "id": "muela_piedra_desgastada",
         "peso": 40
       }
     ]
@@ -11190,34 +11132,6 @@
     ],
     "variantesNombradas": []
   },
-  "martillo_pilon": {
-    "huella": [
-      1,
-      1
-    ],
-    "colorDebug": "#4a4a52",
-    "capa": "decorFija",
-    "anchorType": "WALL_BACK",
-    "esContenedor": false,
-    "esSuperficie": false,
-    "colocacion": [
-      "pegadaAPared"
-    ],
-    "materialesCompatibles": [
-      "metal",
-      "madera"
-    ],
-    "variantesNombradas": [
-      {
-        "id": "martillo_pilon_hierro",
-        "peso": 60
-      },
-      {
-        "id": "martillo_pilon_oxidado",
-        "peso": 40
-      }
-    ]
-  },
   "mesa_grabado_armas": {
     "huella": [
       1,
@@ -11576,34 +11490,6 @@
       }
     ]
   },
-  "mesa_tenido_cuero": {
-    "huella": [
-      1,
-      1
-    ],
-    "colorDebug": "#7a4a2a",
-    "capa": "decorMovible",
-    "anchorType": "WALL_BACK",
-    "esContenedor": false,
-    "esSuperficie": false,
-    "colocacion": [
-      "pegadaAPared"
-    ],
-    "materialesCompatibles": [
-      "madera",
-      "cuero"
-    ],
-    "variantesNombradas": [
-      {
-        "id": "mesa_tenido_cuero_madera",
-        "peso": 60
-      },
-      {
-        "id": "mesa_tenido_cuero_desgastada",
-        "peso": 40
-      }
-    ]
-  },
   "mesa_engarce": {
     "huella": [
       1,
@@ -11930,33 +11816,6 @@
       },
       {
         "id": "yunque_armadura_oxidado",
-        "peso": 40
-      }
-    ]
-  },
-  "mesa_talla_piedra": {
-    "huella": [
-      1,
-      1
-    ],
-    "colorDebug": "#8a8a8a",
-    "capa": "decorFija",
-    "anchorType": "WALL_BACK",
-    "esContenedor": false,
-    "esSuperficie": false,
-    "colocacion": [
-      "pegadaAPared"
-    ],
-    "materialesCompatibles": [
-      "piedra"
-    ],
-    "variantesNombradas": [
-      {
-        "id": "mesa_talla_piedra_granito",
-        "peso": 60
-      },
-      {
-        "id": "mesa_talla_piedra_desgastada",
         "peso": 40
       }
     ]
@@ -12563,5 +12422,2419 @@
         "peso": 40
       }
     ]
+  },
+  "forja_campo": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "yunque_tocon": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "forja_piedra": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "yunque_cuerno": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "taller_armero": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "banco_ajuste": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "gran_forja": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "martinete": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "banco_tronzado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estacion_curvado_vapor": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "mesa_delineante": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "banco_mecanizado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estacion_maquetas_navales": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "banco_ingenieria_pesada": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "banco_clasificacion_cincelado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "mesa_mampuesto": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estacion_canteria_muelas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "gran_taller_mamposteria": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "mesa_tajado_limpieza": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "molino_mano": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "artesa_amasado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estacion_germinacion_mantequeria": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "gran_molino_agropecuario": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estacion_despiece_caza": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "banco_trampero": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "banco_arqueria_caza": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estacion_cazador_supremo": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "fogon_campamento": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "horno_barro_taberna": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cocina_mamposteria": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "gran_cocina_destileria": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "escritorio_escriba": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estacion_boticario": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "scriptorium_alquimico": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "fuelle_mecanico_pedal": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cuba_temple_recogedor": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "maza_semiautomatica_contrapeso": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "matrices_moldes_estampacion": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "piston_hidraulico_martinete": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "crisol_cerrado_inyeccion": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "sierra_bastidor_tensor": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "guias_cepillado_precision": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "torno_pedal_doble_inercia": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "formones_microcorte": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "caldera_vapor_inyectado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "prensa_encofrado_multiple": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "taladro_manivela_acelerado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "tornillo_ajuste_metrico": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "pantografo_escala": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "calibrador_troqueles": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "polipasto_engranajes_multiples": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "matriz_prensa_planchas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "maza_pesada_guia": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cubo_mezclador_mortero": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "polipasto_bajo_giro": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cinceles_hierro_duro": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "sierra_cable_abrasivo": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "plantilla_marcado_industrial": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "manivela_muelle_molido": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "criba_seda_fina": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "mantequera_piston_asistido": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "prensa_pesas_piedra": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "tolva_alimentacion_continua": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "tamiz_central_multinivel": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "huso_trenzado_pedales": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "desollador_hoja_curva": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "prensa_fijado_flechas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "calibrador_astiles": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "tensado_mecanico_cepos": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "extractor_multiple_glandulas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "puerta_termodinamica_hierro": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "artesa_completa_amasado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "serpentin_cobre_reforzado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "rejilla_multiple_ahumado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "caldera_inyeccion_vapor": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "prensa_extraccion_jugos": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "soporte_secado_tinta": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "macerador_hoja_piedra": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "retorta_calentamiento_continuo": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "balanza_microprecision": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "centrifugadora_manual": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "prensa_encuadernacion_maceracion": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "lanzadera_automatica_telar": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cuchilla_patronaje_eficiente": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "prensa_vapor_escaldado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "hormas_ajustables_tallas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "troqueladora_mecanica_fuerza": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cubas_maceracion_profunda": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "soplete_fuelle_continuo": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "torno_arcilla_molde_fijo": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "rueda_abrasiva_esmeril": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "moldes_soplado_doble": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "lentes_brazos_ajustables": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "horno_mufla_recuperador": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "percha_armadura_exposicion": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a8a90",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "expositor_espadas_cruzadas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a8a90",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "yunque_exposicion_ornamental": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a5a3a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estante_martillos_tenazas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cubo_carbon_lingotes": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#3a3a3a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "reloj_cuco_engranajes_madera": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#7a5a3a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "escultura_madera_bestia_mitica": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a6a3a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estante_maquetas_barcos": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a4a2a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "banco_trabajo_auxiliar_decorativo": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a6a3a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "biombo_madera_calada": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#7a5a3a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "orreria_esfera_armilar": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c9a020",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "mesa_planos_construccion": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "barometro_reloj_presion": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a8a90",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "automata_mecanico_adorno": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a8a90",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "caja_herramientas_laton_grabado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c9a020",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "busto_piedra_cincelada": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a8a8a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "gargola_canteria": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#7a7a7a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "mosaico_granito_pared": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a8a8a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "fuente_agua_interior": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a8a90",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "reloj_sol_mesa": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#a09070",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "maqueta_molino_viento_operativo": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c9b070",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "espiga_trigo_seco_gigante": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#d4b84a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "sacos_grano_especias_decorativos": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#d8c8a0",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "rueda_molino_mesa": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a8a80",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "rincon_mantequera_cesteria": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c9a860",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cabeza_ciervo_trofeo": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a6a4a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "alfombra_piel_oso": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a4a2a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "arco_carcaj_cruzados": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#7a5a3a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "trampa_oso_antigua_desactivada": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a6a70",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "jaula_pajaros_madera_cuero": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#7a5a3a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estante_especias_botes_cristal": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c9a860",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "bodegon_caza_frutas_secas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a5a3a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "rincon_barriles_jarras": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#7a5a3a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cazuelas_sartenes_cobre": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#a86a3a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cesta_panes_artesanales": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c9a860",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "estanteria_tarros_alquimia": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#5a7a6a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "secadero_colgante_hierbas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#7a8a4a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "libro_botanica_atril": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#7a2a3a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "terrario_vidrio_hongos": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#5a8a5a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "balanza_bronce_ingredientes": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a4a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "bastidor_secado_cuero_exposicion": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a7a5a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "cuadro_muestrario_telas_tintes": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#7a2a5a",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "telar_tapiz_expositivo": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#7a5a3a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "maniqui_alta_costura": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c9a8a0",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "baul_cuero_repujado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#6a4a2a",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "vitrina_gemas_talladas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c9a020",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "candelabro_plata_cristal": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c0c8d0",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "espejo_marco_laton_gemas": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c9a020",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "caja_joyas_marfil_oro": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#e0d0a0",
+    "capa": "decorFija",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "vidriera_mosaico_coloreado": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a5ac0",
+    "capa": "decorFija",
+    "anchorType": "WALL_HIGH_FLOATING",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "colgadoEnPared"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "silla_pino": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#c9a15a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "silla_roble": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#8a6a3a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "silla_nogal_tallada": {
+    "huella": [
+      1,
+      1
+    ],
+    "colorDebug": "#5a3a22",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": false,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "mesa_comedor_pino": {
+    "huella": [
+      2,
+      2
+    ],
+    "colorDebug": "#c9a15a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": true,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
+  },
+  "mesa_comedor_roble": {
+    "huella": [
+      2,
+      2
+    ],
+    "colorDebug": "#8a6a3a",
+    "capa": "decorMovible",
+    "anchorType": "FREE_CENTER",
+    "esContenedor": false,
+    "esSuperficie": true,
+    "colocacion": [
+      "libre"
+    ],
+    "materialesCompatibles": [],
+    "variantesNombradas": []
   }
 }
