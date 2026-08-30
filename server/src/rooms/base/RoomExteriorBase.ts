@@ -6721,8 +6721,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return this.errorMedico(client, "necesitas estar junto a una mesa de diagnóstico");
     }
     const contenedor = this.inventarios.get(client.sessionId);
-    const protesis = contenedor?.items.find((it) => it.itemId === "protesis_madera");
-    if (!contenedor || !protesis) return this.errorMedico(client, "necesitas una prótesis de madera");
+    // docs/GDD_Profesiones.md (2026-08-30): protesis_metal (mesa_cirugia, curandero N4)
+    // es la versión de tier alto de protesis_madera (mesa_diagnostico, N2) — mismo verbo,
+    // cualquiera de las dos sirve, se prefiere gastar la de madera si el jugador tiene ambas.
+    const protesis = contenedor?.items.find((it) => it.itemId === "protesis_madera") ?? contenedor?.items.find((it) => it.itemId === "protesis_metal");
+    if (!contenedor || !protesis) return this.errorMedico(client, "necesitas una prótesis (de madera o de metal)");
 
     const anatomia = this.anatomiaDe(msg.targetSessionId!);
     if (!instalarProtesis(anatomia[msg.zona])) return this.errorMedico(client, "esa zona no está amputada, o ya tiene prótesis");

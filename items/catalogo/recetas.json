@@ -722,5 +722,608 @@
     "resultado": { "itemId": "vidriera_mosaico_coloreado", "cantidad": 1 },
     "tiempoBaseSeg": 35,
     "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Vidriera de Mosaico de Vidrio Coloreado."
+  },
+  "daga_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_tocon"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "daga", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "espada_corta_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "espada_corta", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "hacha_combate_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "hacha_combate", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "maza_guerra_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 4 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "maza_guerra", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "lanza_craft": {
+    "oficio": "herrero",
+    "mesas": ["banco_ajuste"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "lanza", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "arco_corto_craft": {
+    "oficio": "herrero",
+    "mesas": ["taller_armero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "arco_corto", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "espada_larga_craft": {
+    "oficio": "herrero",
+    "mesas": ["banco_ajuste"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "acero", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "espada_larga", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "arco_largo_craft": {
+    "oficio": "herrero",
+    "mesas": ["taller_armero"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 3 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "arco_largo", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "ballesta_craft": {
+    "oficio": "herrero",
+    "mesas": ["gran_forja"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "ballesta", "cantidad": 1 },
+    "tiempoBaseSeg": 40,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "flecha_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_tocon"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "flecha", "cantidad": 5 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "virote_ballesta_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 1 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "virote_ballesta", "cantidad": 5 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "gafas_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "gafas_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "coderas_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "coderas_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "manos_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "manos_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "rodilleras_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "rodilleras_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "casco_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "casco_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazos_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "brazos_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "zapatos_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "zapatos_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "hombreras_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "hombreras_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "piernas_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 4 }],
+    "resultado": { "itemId": "piernas_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 26,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "pechera_cota_malla_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 5 }],
+    "resultado": { "itemId": "pechera_cota_malla", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "gafas_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 2 }],
+    "resultado": { "itemId": "gafas_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "coderas_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 2 }],
+    "resultado": { "itemId": "coderas_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "manos_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 2 }],
+    "resultado": { "itemId": "manos_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "rodilleras_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 2 }],
+    "resultado": { "itemId": "rodilleras_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "casco_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 3 }],
+    "resultado": { "itemId": "casco_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazos_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 3 }],
+    "resultado": { "itemId": "brazos_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "zapatos_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 3 }],
+    "resultado": { "itemId": "zapatos_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "hombreras_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 3 }],
+    "resultado": { "itemId": "hombreras_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "piernas_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 4 }],
+    "resultado": { "itemId": "piernas_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "pechera_placas_acero_craft": {
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 5 }],
+    "resultado": { "itemId": "pechera_placas_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 40,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "honda_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 1 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "honda", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "mascara_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "mascara_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "manos_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "manos_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "coderas_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "coderas_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "rodilleras_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "rodilleras_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "casco_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "casco_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazos_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "brazos_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "zapatos_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "zapatos_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "hombreras_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "hombreras_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "piernas_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 4 }],
+    "resultado": { "itemId": "piernas_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "pechera_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 4 }],
+    "resultado": { "itemId": "pechera_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 24,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "pechera_cuero_tachonado_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 4 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "pechera_cuero_tachonado", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazalete_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 1 }],
+    "resultado": { "itemId": "brazalete_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "bolsa_cinturon_simple_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 1 }],
+    "resultado": { "itemId": "bolsa_cinturon_simple", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "rinonera_viajero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "rinonera_viajero", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "bolsa_cinturon_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "bolsa_cinturon", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "bandolera_tela_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "bandolera_tela", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "bandolera_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "bandolera_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "bandolera_gremio_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_costura_pieles"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }, { "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "bandolera_gremio", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "mochila_pequena_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "mochila_pequena", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "mochila_expedicion_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_bordado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 5 }, { "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "mochila_expedicion", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "piedra_honda_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 1 }],
+    "resultado": { "itemId": "piedra_honda", "cantidad": 10 },
+    "tiempoBaseSeg": 6,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "anillo_cobre_craft": {
+    "oficio": "joyero",
+    "mesas": ["banco_joyero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 1 }],
+    "resultado": { "itemId": "anillo_cobre", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "anillo_plata_craft": {
+    "oficio": "joyero",
+    "mesas": ["banco_joyero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 2 }],
+    "resultado": { "itemId": "anillo_plata", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazalete_plata_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_engarce"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 2 }],
+    "resultado": { "itemId": "brazalete_plata", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "anillo_oro_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_tallado_cristal"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 2 }, { "itemId": "gema_tallada", "cantidad": 1 }],
+    "resultado": { "itemId": "anillo_oro", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "brazalete_oro_grabado_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_esmaltado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 3 }, { "itemId": "gema_tallada", "cantidad": 1 }],
+    "resultado": { "itemId": "brazalete_oro_grabado", "cantidad": 1 },
+    "tiempoBaseSeg": 28,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "anillo_rubi_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_esmaltado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "lingote_plata", "cantidad": 2 }, { "itemId": "gema_tallada", "cantidad": 2 }],
+    "resultado": { "itemId": "anillo_rubi", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+  },
+  "silla_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }],
+    "resultado": { "itemId": "silla_pino", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md — variante de material real: el color/acabado de la silla lo decide qué madera se usó (madera_blanda), mismo patrón que olla_barro/olla_metal."
+  },
+  "silla_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "silla_roble", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Profesiones.md — variante de material real: el color/acabado de la silla lo decide qué madera se usó (madera_dura), mismo patrón que olla_barro/olla_metal."
+  },
+  "silla_nogal_tallada_craft": {
+    "oficio": "carpintero",
+    "mesas": ["mesa_talla_fina"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 3 }],
+    "resultado": { "itemId": "silla_nogal_tallada", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Profesiones.md — variante de material real: el color/acabado de la silla lo decide qué madera se usó (madera_dura), mismo patrón que olla_barro/olla_metal."
+  },
+  "jarra_cerveza_craft": {
+    "oficio": "cocinero",
+    "mesas": ["alambique"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "trigo", "cantidad": 3 }, { "itemId": "miel", "cantidad": 1 }],
+    "resultado": { "itemId": "jarra_cerveza", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Profesiones.md — jarra_cerveza ya existía como item sin ninguna receta."
+  },
+  "masa_pan_artesa": {
+    "oficio": "molinero",
+    "mesas": ["artesa_amasado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "harina", "cantidad": 2 }],
+    "resultado": { "itemId": "masa_pan", "cantidad": 1 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Profesiones.md — misma masa_pan de siempre, pero craftable también en la mesa nueva de molinero (artesa_amasado) sin duplicar el item."
+  },
+  "protesis_metal_craft": {
+    "oficio": "curandero",
+    "mesas": ["mesa_cirugia"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }, { "itemId": "cuero_curtido", "cantidad": 1 }],
+    "resultado": { "itemId": "protesis_metal", "cantidad": 1 },
+    "tiempoBaseSeg": 35,
+    "_nota": "docs/GDD_Anatomia.md/GDD_Profesiones.md — versión de tier alto de protesis_madera, mismo verbo medico:protesis (RoomExteriorBase.ts ya acepta cualquiera de las dos)."
+  },
+  "mesa_comedor_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": ["mesa_ensamblaje"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 3 }],
+    "resultado": { "itemId": "mesa_comedor_pino", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Profesiones.md — mesa de comedor con variante de material real (madera_blanda), craftable en mesa_ensamblaje (carpintero N4)."
+  },
+  "mesa_comedor_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": ["mesa_ensamblaje"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 3 }],
+    "resultado": { "itemId": "mesa_comedor_roble", "cantidad": 1 },
+    "tiempoBaseSeg": 24,
+    "_nota": "docs/GDD_Profesiones.md — mesa de comedor con variante de material real (madera_dura), craftable en mesa_ensamblaje (carpintero N4)."
   }
 }
