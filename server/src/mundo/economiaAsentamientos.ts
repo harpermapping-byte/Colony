@@ -21,6 +21,19 @@ const GUARNICION_INICIAL: { rango: "lider" | "guardia" | "recluta"; cantidad: nu
   { rango: "recluta", cantidad: 4 },
 ];
 
+// Reclutamiento (docs/GDD_Faccion_Bandidos.md §7ter, pedido 2026-08-30: "si
+// empiezan con 5 tropas... con el tiempo y esos recursos pueden, en vez de
+// mejorar la ciudad, contratar más tropa/gente, con límite razonable") —
+// tope de población total (todos los rangos) por asentamiento. Placeholder
+// de balance, mismo criterio que el resto de números de referencia.
+export const POBLACION_MAX = 20;
+// Piedra no tenía NINGÚN sumidero hasta ahora (madera->muralla, hierro->
+// equipo se documentó en §7ter que se acumulaban sin tope una vez maxados
+// esos dos niveles) — reclutar le da uno real. Cada recluta nuevo sale con
+// rango "recluta" (gente sin más, no un ascenso — un guardia/líder no se
+// "contrata", se asciende, mecánica futura fuera de esta pasada).
+export const COSTE_RECLUTAMIENTO_PIEDRA = 80;
+
 /**
  * Idempotente: crea la fila de asentamiento y su guarnición inicial la
  * PRIMERA vez que se referencia un id (ya sea porque RegionRoom cargó esa
@@ -98,11 +111,27 @@ export function calcularTick(actual: Asentamiento, tropasVivas: number): Asentam
 }
 
 /**
+ * Cuántos reclutas nuevos justifica la piedra YA acumulada de este pulso,
+ * sin pasar de `POBLACION_MAX` tropas totales — función PURA, no toca BD
+ * (mismo criterio que `calcularTick`: se prueba sola contra números, quien
+ * gasta la piedra y crea las filas de verdad es `ejecutarTickEconomia`).
+ * Puede recomendar VARIOS de golpe si hay piedra de sobra acumulada (la
+ * producción normal es lenta, pero adelantar muchos pulsos de golpe — un
+ * test, o un asentamiento descubierto tarde — puede acumular mucha piedra).
+ */
+export function reclutasARecluter(asentamiento: Asentamiento, tropasVivas: number): number {
+  const hueco = POBLACION_MAX - tropasVivas;
+  if (hueco <= 0) return 0;
+  return Math.min(hueco, Math.floor(asentamiento.piedra / COSTE_RECLUTAMIENTO_PIEDRA));
+}
+
+/**
  * Un pulso real: lee todos los asentamientos, aplica calcularTick, persiste.
  * Solo los que siguen en manos de la facción ("bandido") — un asentamiento
  * ya conquistado (§ conquista, abajo) pasa a "neutral" y esta economía de
- * guerra (recursos → muralla/equipo) deja de aplicarle; su propia
- * progresión (donaciones/misiones) es otro sistema, fuera de alcance aquí.
+ * guerra (recursos → muralla/equipo/reclutamiento) deja de aplicarle; su
+ * propia progresión (donaciones/misiones) es otro sistema, fuera de
+ * alcance aquí.
  */
 export async function ejecutarTickEconomia(bd: IAlmacenDatos): Promise<void> {
   const asentamientos = await bd.listarAsentamientos();
@@ -111,6 +140,13 @@ export async function ejecutarTickEconomia(bd: IAlmacenDatos): Promise<void> {
     const tropas = await bd.listarTropas(a.id);
     const vivas = tropas.filter((t) => t.estado === "vivo").length;
     const siguiente = calcularTick(a, vivas);
+
+    const nuevosReclutas = reclutasARecluter(siguiente, vivas);
+    if (nuevosReclutas > 0) {
+      siguiente.piedra -= nuevosReclutas * COSTE_RECLUTAMIENTO_PIEDRA;
+      for (let i = 0; i < nuevosReclutas; i++) await bd.crearTropa(a.id, "recluta");
+    }
+
     await bd.guardarAsentamiento(siguiente);
   }
 }

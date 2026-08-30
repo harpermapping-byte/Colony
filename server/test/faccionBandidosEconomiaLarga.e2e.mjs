@@ -8,8 +8,10 @@
 //      nivelEquipo llegan a su tope) y luego se ESTANCA sin romperse (sin
 //      bucle infinito, sin números negativos, 300 pulsos en fracción de
 //      segundo).
-//   2. Nadie muere ni se duplica solo por pasar turnos — la economía nunca
-//      toca `tropas_asentamiento` (7 tropas antes y después, ni una más).
+//   2. Reclutamiento (docs/GDD_Faccion_Bandidos.md §7ter, pedido 2026-08-30):
+//      con piedra de sobra (antes sin sumidero) la población CRECE de
+//      verdad hasta POBLACION_MAX, siempre como "recluta" — nadie muere ni
+//      se duplica el lider/guardia original solo por pasar turnos.
 //   3. Ese nivelEquipo YA ALTO se nota jugando de verdad: la guarnición del
 //      cuartel Y la patrulla de fuera escalan sus stats con el mismo
 //      FACTOR_POR_NIVEL_EQUIPO (server/src/mundo/guarnicionBandida.ts).
@@ -19,6 +21,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { unlinkSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
+
+// Duplicado a mano (mismo valor que economiaAsentamientos.ts) — este script
+// .mjs plano no puede importar la constante de un módulo TS.
+const POBLACION_MAX = 20;
 
 const dirServidor = dirname(fileURLToPath(import.meta.url)).replace(/\/test$/, "");
 const raiz = join(dirServidor, "..");
@@ -104,11 +110,21 @@ try {
   }
   console.log(`   OK: la ciudad se desarrolló de verdad — nivel_muralla=2 (tope), nivel_equipo=3 (tope), recursos: ${JSON.stringify({ comida: asentamientoTrasTicks.comida, madera: asentamientoTrasTicks.madera, piedra: asentamientoTrasTicks.piedra, hierro: asentamientoTrasTicks.hierro })}`);
 
+  // Reclutamiento (docs/GDD_Faccion_Bandidos.md §7ter, pedido 2026-08-30):
+  // con piedra de sobra (antes no tenía NINGÚN sumidero) la población CRECE
+  // de verdad hasta POBLACION_MAX, siempre como rango "recluta" (un
+  // guardia/líder no se "contrata", se asciende — mecánica futura) — nunca
+  // muere nadie ni se duplica el lider/guardia original.
   const tropasTrasTicks = bd1.prepare("SELECT rango, estado FROM tropas_asentamiento WHERE asentamiento_id = ?").all(mapaId);
-  if (tropasTrasTicks.length !== 7 || tropasTrasTicks.some((t) => t.estado !== "vivo")) {
-    throw new Error(`FALLO: pasar turnos NO debería tocar tropas_asentamiento — quedaron ${JSON.stringify(tropasTrasTicks)}`);
+  if (tropasTrasTicks.some((t) => t.estado !== "vivo")) {
+    throw new Error(`FALLO: pasar turnos no debería matar ninguna tropa — quedaron ${JSON.stringify(tropasTrasTicks)}`);
   }
-  console.log(`   OK: pasar 300 turnos no crea, mata ni duplica ninguna tropa — sigue habiendo exactamente 7 vivas`);
+  if (tropasTrasTicks.length !== POBLACION_MAX) {
+    throw new Error(`FALLO: se esperaba que la población llegara a su tope (${POBLACION_MAX}) tras ${NUM_TICKS} pulsos con piedra de sobra — quedó en ${tropasTrasTicks.length}`);
+  }
+  const lidersYGuardias = tropasTrasTicks.filter((t) => t.rango !== "recluta").length;
+  if (lidersYGuardias !== 3) throw new Error(`FALLO: reclutar solo debería añadir "recluta" — el lider/guardia original (3) cambió a ${lidersYGuardias}`);
+  console.log(`   OK: la población creció de verdad con la piedra sobrante hasta su tope (${POBLACION_MAX} tropas, ${tropasTrasTicks.length - lidersYGuardias} recluta(s) nuevos incluidos) — nadie murió, el lider/guardia original sigue igual`);
   bd1.close();
 
   console.log("5) reentrando al servidor YA con la economía madura — la guarnición/patrulla deben notarlo en sus stats...");
@@ -129,13 +145,16 @@ try {
   }
   console.log(`   OK: la guarnición del cuartel escaló de verdad con nivelEquipo=3 (vidaMax: ${JSON.stringify(vidasGuardiaLider)}, factor x1.6)`);
 
+  // La patrulla ahora tiene TODOS los reclutas (POBLACION_MAX - 1 lider - 2
+  // guardia, el reclutamiento de §7ter creció la población hasta el tope).
   const hostiles = [...region.state.npcs.values()].filter((n) => n.hostil);
   const vidasPatrulla = hostiles.map((n) => n.vidaMax);
   const esperadaRecluta = Math.round(25 * 1.6);
-  if (hostiles.length !== 4 || vidasPatrulla.some((v) => v !== esperadaRecluta)) {
-    throw new Error(`FALLO: la patrulla de reclutas no escaló al nivelEquipo=3 real — vidaMax vistas ${JSON.stringify(vidasPatrulla)}, se esperaban 4x${esperadaRecluta}`);
+  const reclutasEsperados = POBLACION_MAX - 3; // -1 lider -2 guardia (ver §7ter: solo esos 3 rangos no son "recluta")
+  if (hostiles.length !== reclutasEsperados || vidasPatrulla.some((v) => v !== esperadaRecluta)) {
+    throw new Error(`FALLO: la patrulla de reclutas no escaló al nivelEquipo=3 real — vidaMax vistas ${JSON.stringify(vidasPatrulla)}, se esperaban ${reclutasEsperados}x${esperadaRecluta}`);
   }
-  console.log(`   OK: la patrulla de reclutas (${hostiles.length}) también escaló de verdad con nivelEquipo=3 (vidaMax=${esperadaRecluta} cada uno, factor x1.6)`);
+  console.log(`   OK: la patrulla de reclutas (${hostiles.length}, crecida por reclutamiento) también escaló de verdad con nivelEquipo=3 (vidaMax=${esperadaRecluta} cada uno, factor x1.6)`);
 
   await cuartel.leave();
   await region.leave();
