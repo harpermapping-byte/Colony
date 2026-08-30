@@ -23,7 +23,7 @@ import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catal
 import { cargarCatalogoItems } from "../inventario/inventario";
 import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
 import { UnidadCombate, calcularIniciativa, simularCombateAutomatico } from "../combate/arenaCombate";
-import { TIPO, tipoEn } from "../mundo/colisiones";
+import { TIPO, tipoEn, medioEn, casillaAguaCercana } from "../mundo/colisiones";
 import { cooldownNpcHablarMs } from "../personaje/bonusAtributos";
 
 // Lee un `sector_XXX_YYY.json` bakeado y devuelve solo sus objetos de
@@ -138,13 +138,23 @@ export class HubRoom extends RoomExteriorBase {
   // aquí es lo correcto, no un apaño — la matchmaker no da la room por lista
   // hasta que esta promesa resuelve, así que abrir la BD (posible red real
   // contra Neon) antes de aceptar jugadores es seguro.
-  async onCreate() {
-    const rutaMapa =
-      rutaMapaHub() ?? path.resolve(__dirname, "..", "..", "..", "assets", "mapas", "demo");
+  /**
+   * `options.mapaId` (docs/GDD_Barcos.md, pedido 2026-08-30 "Barcos y
+   * navegación marítima"): SOLO lo manda el join a "hub_mapa" (server/src/
+   * index.ts) al cruzar un borde `mar_abierto` en barco — el "hub" de
+   * siempre se sigue uniendo SIN options, exactamente como antes de esta
+   * pasada (rutaMapaHub() decide, cero cambio de comportamiento).
+   */
+  async onCreate(options?: { mapaId?: string }) {
+    const rutaMapa = options?.mapaId
+      ? path.resolve(__dirname, "..", "..", "..", "assets", "mapas", options.mapaId)
+      : rutaMapaHub() ?? path.resolve(__dirname, "..", "..", "..", "assets", "mapas", "demo");
     this.mapa = cargarMapaColision(rutaMapa);
     this.mundo = this.mapa;
     this.mapaExterior = this.mapa; // habilita "coger" de recolectables del bake (fase 2 de inventario)
     this.esZonaSeguraPropia = true; // PvP (docs/GDD_PvP.md): el Hub es el pueblo donde vive todo el mundo, siempre a salvo
+    this.mapaIdPropio = path.basename(rutaMapa);
+    this.bordesMapa = this.mapa.bordes;
     console.log(
       `Hub con mapa "${this.mapa.nombre}" (${this.mapa.ancho}x${this.mapa.alto} casillas), ` +
       `spawn en ${this.mapa.spawnX.toFixed(1)},${this.mapa.spawnY.toFixed(1)}`,
@@ -156,6 +166,28 @@ export class HubRoom extends RoomExteriorBase {
     // lógica compartida (RoomExteriorBase.iniciarConstruccion) pero con
     // parcelas rasterizadas del bake, ver RegionRoom.ts.
     await this.iniciarConstruccion(cargarParcelas(rutaMapa, this.mapa.ancho), path.basename(rutaMapa));
+
+    // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): los que ya estaban
+    // anclados en ESTE mapa (colocados en una sesión anterior, o que
+    // acaban de cruzar aquí desde un mapa vecino) reaparecen tal cual.
+    // Fuera de agua no debería pasar nunca en un mapa normal (se colocan
+    // sobre agua y solo se mueven por agua) salvo el caso límite de llegar
+    // por primera vez a un mapa vecino con coordenadas del mapa de origen
+    // (que casi seguro no encajan en esta rejilla) — se reancla al agua
+    // más cercana al spawn en vez de dejarlo varado en tierra o fuera del mapa.
+    try {
+      const bdBarcos = await obtenerBdCompartida();
+      for (const fila of await bdBarcos.listarBarcosDe(this.mapaIdPropio)) {
+        const medio = medioEn(this.mapa, fila.x, fila.y);
+        if (medio !== TIPO.AGUA && medio !== TIPO.AGUA_PROFUNDA) {
+          const agua = casillaAguaCercana(this.mapa, this.mapa.spawnX, this.mapa.spawnY, 40);
+          if (agua) { fila.x = agua.x; fila.y = agua.y; }
+        }
+        this.spawnearBarco(fila);
+      }
+    } catch (e) {
+      console.warn("[barcos] no se pudieron cargar los barcos anclados de este mapa:", e);
+    }
 
     // Fauna salvaje EN VIVO (docs/GDD_Agentes_Moviles.md, pedido
     // 2026-08-30): activa/desactiva sectores según se acercan o alejan

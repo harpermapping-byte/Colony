@@ -31,6 +31,13 @@ const gameServer = new Server({
 });
 
 gameServer.define("hub", HubRoom);
+// Barcos y navegación marítima (docs/GDD_Barcos.md, pedido 2026-08-30):
+// SEGUNDA definición de la MISMA clase, esta vez con mapaId obligatorio vía
+// filterBy — permite unirse al Hub de un mapa exterior DISTINTO al
+// principal (cruzar un borde mar_abierto en barco) sin tocar "hub" (que
+// sigue siendo el único mapa principal de siempre, cero riesgo para el
+// resto de conexiones). Ver HubRoom.onCreate(options.mapaId).
+gameServer.define("hub_mapa", HubRoom).filterBy(["mapaId"]);
 // Instancias con tope de jugadores (docs/GDD_Sistema_Puertas.md): filterBy
 // hace que dos joins con el MISMO mapaId/edificio caigan en la MISMA room
 // (comparten la aldea/el edificio) y uno distinto cree una room aparte.

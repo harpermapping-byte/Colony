@@ -62,9 +62,11 @@ Recetas, estaciones de trabajo (yunque, mesa de talla...), progresión de habili
 
 **HECHO (2026-08-29), ver `docs/GDD_Crafteo.md`**: el sistema de crafteo en sí ya existe, con dos capas — refinamiento pasivo con insumos reales (cálculo perezoso, mismo patrón que producción) y crafteo activo con `RecetaCrafteo` (`planoRequerido`+`nivelMinimo`+mesa concreta) en `server/src/construccion/crafteo.ts` (`nivelDeXp`, `validarCrafteo`, `crafteoListo`, protocolo `crafteo:iniciar/recolectar` + `refinamiento:depositar` en `RoomExteriorBase.ts`), progresión de XP por oficio en tabla `jugador_oficios`. **Corrección (2026-08-30)**: `items/catalogo/recetas.json` tiene hoy **8 recetas reales** (no 7, y `espada_hierro_basica` ya no es una de ellas — cita obsoleta): `clavos_hierro`, `martillo_acero`, `hacha_talar_reforzada`, `pico_minero_tallado`, `mochila_cuero_curtido`, `silla_montar_curtida`, `toalla_tela_hilada`, `joyero_engarzado`. **Lo que sigue pendiente es solo volumen, no el mecanismo**: rellenar el árbol completo para los ~38 oficios de `docs/GDD_Profesiones.md` se hace oficio a oficio cuando le toque el turno.
 
-## Cocina — HECHO (2026-08-30)
+## Cocina — HECHO (2026-08-30), ampliada el mismo día ("cocina v2")
 
 "Cocinar tal cual" al fuego (boost modesto sobre el ingrediente crudo) y combinar varios en cuenco/cazuela/olla para un plato nuevo — mismo criterio de combinación abierta + identidad permanente que los injertos (ver arriba). Bonus por mezclar vegetal+animal, como pedía este apunte ("carne, pescado, plantas/hierbas"). Ver `docs/GDD_Cocina.md`.
+
+**Cocina v2 (2026-08-30), pedido explícito de ampliar variedad de comida/crafteos — ver `docs/GDD_Cocina.md` §8-§15**: sartén (`cuenco_barro_grande`, sin hervor, da Frito si todo es de origen animal o Estofado si hay vegetal), olla grande (`olla_grande`, hasta 20 raciones, exige `estructura_palos` adyacente a una hoguera/chimenea — primer uso real de un mecanismo nuevo y reutilizable, "requiere construcción adyacente"), tinaja de batidos (leche + fruta/baya, nunca carne), ensalada y bocadillo (combinaciones abiertas SIN vasija persistida, cortando con `cuchillo_cocina`), asados directos renombrados (`asado_<ingrediente>`, carne/pescado/huevo al fuego solo), pan completo (harina del molinero → masa del panadero → horneado, cortable en 6 rebanadas), quesos y mantequilla (leche [+sal] reposada por tiempo real en `recipiente_queso`, mismo patrón que el curtido de pieles). 9 recetas de crafteo nuevas repartidas en 5 oficios (molinero, panadero, alfarero ×4, herrero, carpintero) — cierra de paso el hueco real que tenía el molinero (0 recetas antes de esto). Corrección de un bug de v1 detectado al generalizar: la identidad cacheada de un plato (`clavePlato`) no incluía la familia/vasija, así que combinaciones idénticas de ingredientes en vasijas distintas (p.ej. "carne_roja" sola en la olla vs. en la sartén) habrían compartido el mismo itemId — arreglado antes de que pudiera darse en producción.
 
 ## Construcción de estructuras (más allá de las parcelas ya definidas) — sin diseñar
 
@@ -93,7 +95,7 @@ Además de las parcelas normales de cada jugador, el **jarl/admin** de un asenta
 - **Ayuntamiento / Salón del Jarl** — sede de gestión: ver impuestos/renta (ya diseñado como v2 en `GDD_Construccion.md` §7) y asignar/revocar parcelas desde dentro del juego en vez de solo la herramienta admin — cierra directamente el pendiente "Jarl en juego pintando parcelas" de `GDD_Construccion.md` §8.
 - **Cuartel de la Guardia Comunal** — entrena/aloja guardias del asentamiento para su propia defensa. Simétrico exacto al `campamento_hostil` de la facción bandida pero del lado del jugador — ata a "Facciones y la ciudad enemiga" y al sistema de combate, ya HECHO (ver arriba) — falta solo el edificio/guardias en sí.
 - **Academia Arcana / Torre de Magos** — comunal, magos del asentamiento crean objetos/hechizos únicos. Mismo patrón que Gran Herrería pero para Ataque/Defensa mágica (ya en los atributos de personaje que definió el streamer) — hoy no hay ninguna estructura que use esa parte de las estadísticas; esta la cubriría.
-- **Puerto/Muelle Comunal** — construir/reparar barcos y pesca a mayor escala que la individual. Ata a "Barcos y navegación marítima" (sin diseñar) y "Pesca" (ya HECHA, más abajo).
+- **Puerto/Muelle Comunal** — construir/reparar barcos y pesca a mayor escala que la individual. Ata a "Barcos y navegación marítima" (HECHO en lo individual, ver más abajo — esto sería la gestión comunal, del edificio `capitania_puerto` que sigue sin diseñar) y "Pesca" (ya HECHA, más abajo).
 - **Gran Biblioteca/Archivo** — enseña planos/recetas raras que no se consiguen comprando. Ata directo a la pregunta abierta de "Roles/profesiones y crafteo por planos" (¿cómo se consigue un plano nuevo?) y a "Aprendizaje de recetas por relación con NPC" (ideas propias).
 
 **Pendiente de decidir cuando toque**: el coste de material/tiempo de cada uno (probablemente escalonado, el Taller de Asedio y la Gran Catedral no cuestan lo mismo que un Molino — hoy son gratis como cualquier `construible` sin `receta`), y si dan beneficio a CUALQUIERA del asentamiento (vecino de cualquier parcela) o solo a quien tenga parcela propia asignada por el jarl. **Ya decidido e implementado (2026-08-30)**: tope de 1 por asentamiento, sí — ver `docs/GDD_Construccion.md` §1ter.
@@ -221,9 +223,19 @@ Domesticación (mismo mecanismo que perro/gato, ahora también en el Hub/exterio
 
 Activa (caña + cebo, orilla, boya con ventana de reacción a la picada) y pasiva (trampa/cangrejera/batea de almejas, producción pasiva reusando el mismo mecanismo de colmena/aserradero). Ver `docs/GDD_Pesca.md`. Sin distinción de bioma de agua por casilla todavía (agua dulce vs. mar) — tabla de capturas genérica hasta que el runtime lea bioma de agua.
 
-## Barcos y navegación marítima — sin diseñar
+## Barcos y navegación marítima — HECHO (2026-08-30)
 
-Construcción de barco, navegar el mar (ya establecido como navegable, con fondo marino investigable como capa aparte), cargar mercancía, descubrir islas, cruzar a otro mapa por un borde de mar abierto.
+Astillero (jarl, `proyectoJarl`) + carpintero_ribera nivel alto crafteando 4
+tallas de barco (1-4 plazas, crecen a lo largo, más vela por talla); barco
+como objeto colocado junto al agua (nunca en el inventario), fusión
+multi-plaza montura-en-agua (capitán pilota, pasajeros se mueven con él,
+solo agua, se oculta en combate); cruce de borde `mar_abierto` a otro mapa
+exterior ya bakeado (campo `bordes` del índice, mudo hasta ahora, ya
+consumido). Ver `docs/GDD_Barcos.md`. Pendiente real: `.glb` de los 4
+barcos sin revisar/subir todavía, y un segundo mapa exterior de PRODUCCIÓN
+que el streamer decida bakear (el mecanismo de cruce ya está probado con
+mapas de prueba). Carga de mercancía/descubrir islas/fondo marino
+investigable siguen sin diseñar — no estaban en el pedido literal.
 
 ## Comercio y economía — HECHO (2026-08-29/30) en lo esencial: moneda real, tenderetes y comercio jugador-jugador
 

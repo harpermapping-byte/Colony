@@ -84,6 +84,14 @@ export interface DatosProduccion {
 
 Flujo: jugador junto a una mesa con `temasProfesion` compatible → `crafteo:iniciar {recetaId}` → servidor valida (dueño del plano, nivel de oficio, insumos en el inventario, mesa correcta) → descuenta insumos → aplica `factorVelocidadPorEnergia` (ya existe, `server/src/construccion/energia.ts`) al `tiempoBaseSeg` → tras el tiempo, entrega el resultado al inventario (mismo mecanismo que "coger"). Mismo criterio de validación server-autoritativa que el resto del proyecto — el cliente solo sugiere.
 
+`edificioRequerido` (campo opcional añadido en `docs/GDD_Barcos.md`, pedido
+2026-08-30): además de la mesa correcta, exige que exista una construcción
+viva de ese id (`interiores/catalogo/tipos_edificio.json`) en el
+asentamiento actual — comprobado en `manejarCrafteoIniciar`
+(`RoomExteriorBase.ts`), NO en `validarCrafteo` (que se mantiene pura, sin
+`ContextoConstruccion`). Sirve para atar una receta a un edificio especial
+del jarl (p.ej. barcos ↔ `astillero`) sin que baste con tener la mesa suelta.
+
 ## 6. Nivel de oficio (XP) — tabla nueva en BD
 
 El streamer confirmó las DOS cosas del punto 4 combinadas, no una u otra: XP por oficio (sube con el uso, como ya decía el Backlog) Y tier de material como gate — se unen así: el nivel de oficio (derivado de XP) es lo que DESBLOQUEA qué tier puedes tocar, tanto para operar una estación de refinamiento de tier alto (asignarte como trabajador) como para intentar una receta de tier alto.

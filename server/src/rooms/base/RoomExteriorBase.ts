@@ -1,6 +1,7 @@
+import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { pielDeDesollado, rellenarLootCaza } from "../../mundo/lootCaza";
@@ -22,7 +23,7 @@ import {
   resolverAtaque,
 } from "../../combate/arenaCombate";
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
-import { MapaCargado } from "../../mundo/mapaColision";
+import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
 import { recolectableCercano, recolectablesQuitadosDeMapa } from "../../mundo/recolectables";
 import {
   CatalogoItems,
@@ -46,7 +47,8 @@ import {
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
 import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, PREFIJO_NPC_COMERCIANTE } from "../../datos/bd";
+import { CatalogoBarcos, cargarCatalogoBarcos } from "../../mundo/catalogoBarcos";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, PREFIJO_NPC_COMERCIANTE } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -91,7 +93,8 @@ import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
-import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, IngredienteCocina } from "../../cocina/cocina";
+import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, IngredienteCocina, familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura, FamiliaPlato, ResultadoCoccion, OrigenCocina } from "../../cocina/cocina";
+import { EstadoQuesera, estadoQueseraInicial, iniciarLoteQueso, loteQuesoListo, recolectarLoteQueso } from "../../construccion/cuajado";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -229,6 +232,9 @@ const DIST_TELEPORT_MASCOTA = 15; // el dueño cambió de sitio de golpe (portal
 const VECES_COMIDA_PARA_DOMESTICAR = 5;
 const DISTANCIA_SALTO_MONTURA = 2.5; // casillas de un salto
 const COOLDOWN_SALTO_MONTURA_MS = 3000;
+// Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — a cuántas casillas del
+// borde del mapa se considera "llegando" (para el aviso de mapa vecino).
+const DISTANCIA_AVISO_BORDE_MAPA = 2.5;
 
 /** Lo que hay para coger en un punto: cuánto entra al inventario y qué hacer con la FUENTE si entró. */
 export interface ObjetoCogible extends Cogible {
@@ -326,6 +332,23 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // criterio que pescaPorSesion/tiempoMovimiento.
   protected montadoPorSesion = new Map<string, { mascotaId: number; especieId: string; velocidad: number }>();
   private cooldownSaltoMontura = new Map<string, number>(); // sessionId -> epoch ms del próximo salto permitido
+
+  // --- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — a diferencia de una
+  // montura animal (1 jinete, desaparece del Schema), un barco tiene varias
+  // plazas y SIGUE visible en state.barcos aunque esté ocupado: solo se
+  // oculta el rig humanoide de cada ocupante en el cliente. Todo esto vive
+  // y muere con la room, igual que montadoPorSesion/pescaPorSesion.
+  protected catalogoBarcos: CatalogoBarcos = cargarCatalogoBarcos();
+  /** sessionId -> en qué barco va y si es quien lo pilota (el resto son pasajeros que se mueven con él). */
+  protected barcosPorSesion = new Map<string, { barcoId: number; esCapitan: boolean }>();
+  /** barcoId (= clave numérica de state.barcos) -> sessionIds ocupantes ordenados, [0] siempre el capitán. */
+  protected ocupantesDeBarco = new Map<number, string[]>();
+  /** id de mapa (carpeta bajo assets/mapas/) que esta room representa — lo fija HubRoom en onCreate; usado para bd.listarBarcosDe/actualizarPosicionBarco. "" en rooms sin barcos (interior/región/arena). */
+  protected mapaIdPropio = "";
+  /** norte/sur/este/oeste del mapa actual (docs/GDD_Barcos.md "Barcos y navegación marítima") — solo HubRoom lo rellena en onCreate; undefined en el resto (RegionRoom/InteriorRoom no tienen "borde de mundo"). */
+  protected bordesMapa?: Record<"norte" | "sur" | "este" | "oeste", BordeMapa>;
+  /** sessionId (capitán) -> dirección del último aviso "mapa:vecino" enviado, o null si no está cerca de ningún borde ahora mismo — evita reenviar cada tick mientras se queda quieto ahí. */
+  private avisoVecinoPorSesion = new Map<string, string | null>();
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) ---
   // Solo InteriorRoom/DungeonRoom lo ponen a true (onCreate) — decide si
@@ -617,13 +640,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // backlog): mesa_injertos + dos semillas cualesquiera -> especie nueva.
     this.onMessage("injerto:crear", (client, msg: { construccionId?: number; instanciaIdA?: number; instanciaIdB?: number }) => this.manejarInjertoCrear(client, msg));
 
-    // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30): hoguera (sencillo) o
-    // vasija (cuenco/cazuela/olla, combina varios ingredientes en un plato).
+    // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30, ampliado 2026-08-30
+    // "cocina v2"): hoguera (sencillo) o vasija (combina varios ingredientes
+    // en un plato — cuenco/cazuela/olla/cuenco_barro_grande/olla_grande/
+    // tinaja_batidos, todas por el mismo protocolo genérico).
     this.onMessage("cocina:simple", (client, msg: { construccionId?: number; instanciaId?: number }) => this.manejarCocinaSimple(client, msg));
     this.onMessage("cocina:llenarAgua", (client, msg: { construccionId?: number }) => this.manejarCocinaLlenarAgua(client, msg));
     this.onMessage("cocina:anadir", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarCocinaAnadir(client, msg));
     this.onMessage("cocina:preparar", (client, msg: { construccionId?: number }) => this.manejarCocinaPreparar(client, msg));
     this.onMessage("cocina:consultar", (client, msg: { construccionId?: number }) => this.manejarCocinaConsultar(client, msg));
+    // Cocina v2: combinaciones abiertas SIN vasija persistida (instantáneas,
+    // mismo motor de identidad/caché que un plato de vasija) + cortar pan.
+    this.onMessage("cocina:ensalada", (client, msg: { construccionId?: number; ingredientes?: { instanciaId: number; cantidad?: number }[] }) => void this.manejarCocinaEnsalada(client, msg));
+    this.onMessage("cocina:bocadillo", (client, msg: { rellenos?: { instanciaId: number; cantidad?: number }[] }) => void this.manejarCocinaBocadillo(client, msg));
+    this.onMessage("cocina:cortarPan", (client, msg: { instanciaId?: number }) => this.manejarCocinaCortarPan(client, msg));
+    // Cocina v2: quesera (recipiente_queso) — mismo espíritu que curtidor,
+    // módulo aparte (server/src/construccion/cuajado.ts) por no encajar
+    // igual de bien en el modelo de curtido.ts (ver cabecera de cuajado.ts).
+    this.onMessage("quesera:cargarLeche", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarQueseraCargarLeche(client, msg));
+    this.onMessage("quesera:iniciarLote", (client, msg: { construccionId?: number; conSal?: boolean }) => void this.manejarQueseraIniciarLote(client, msg));
+    this.onMessage("quesera:recolectar", (client, msg: { construccionId?: number }) => void this.manejarQueseraRecolectar(client, msg));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -672,6 +708,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("mascota:montar", (client, msg: { mascotaId?: number }) => this.manejarMascotaMontar(client, msg));
     this.onMessage("mascota:desmontar", (client) => this.manejarMascotaDesmontar(client));
     this.onMessage("montura:saltar", (client, msg: { dx?: number; dy?: number }) => this.manejarMonturaSaltar(client, msg));
+
+    // --- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) ---
+    this.onMessage("barco:colocar", (client, msg: { itemId?: string }) => this.manejarBarcoColocar(client, msg));
+    this.onMessage("barco:montar", (client, msg: { barcoId?: number }) => this.manejarBarcoMontar(client, msg));
+    this.onMessage("barco:desmontar", (client) => this.manejarBarcoDesmontar(client));
+    this.onMessage("mapa:viajarVecino", (client) => this.manejarMapaViajarVecino(client));
 
     // --- Twitch: disparadores de PRUEBA (docs/GDD_Twitch.md) — jarl-only,
     // mismo criterio que "inmueble:revocar"/el resto de herramientas admin
@@ -782,6 +824,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // a aparecer desmontada en la próxima room a la que entre el dueño.
     this.montadoPorSesion.delete(client.sessionId);
     this.cooldownSaltoMontura.delete(client.sessionId);
+    // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): a diferencia de una
+    // mascota, el barco SÍ hace falta anclarlo en BD si el que se
+    // desconecta era el último a bordo (si no, quedaría "flotando" en
+    // memoria y reaparecería en su última posición del tick anterior en vez
+    // de la real al recargar la room) — por eso este SÍ se await-ea.
+    await this.desembarcarSesionId(client.sessionId);
+    this.avisoVecinoPorSesion.delete(client.sessionId);
     // Comercio: desconectarse a medias cancela el trato entero (nada se
     // mueve, mismo criterio "todo o nada" que un hueco insuficiente).
     const comercioAbierto = this.comerciosPorSesion.get(client.sessionId);
@@ -1604,6 +1653,23 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         if (!veredicto.ok) return this.errorConstruir(client, veredicto.motivo);
         const propiedadId = veredicto.parcelaId;
 
+        // Cocina v2 (docs/GDD_Cocina.md): algunas piezas nuevas (olla_grande,
+        // cuenco_barro_grande, tinaja_batidos, recipiente_queso,
+        // estructura_palos) exigen tener el ítem craftado correspondiente en
+        // el inventario y lo consumen al colocarse — el resto de construibles
+        // del juego sigue gratis, sin excepción, esto es deliberadamente
+        // acotado a estas piezas (ver `requiereItemColocar` en catalogo.ts).
+        if (entrada.requiereItemColocar) {
+          const contenedorColocar = this.inventarios.get(client.sessionId);
+          const itemColocar = contenedorColocar?.items.find((it) => it.itemId === entrada.requiereItemColocar);
+          if (!contenedorColocar || !itemColocar) {
+            return this.errorConstruir(client, `necesitas ${entrada.requiereItemColocar} en el inventario para colocar esto`);
+          }
+          quitarItem(contenedorColocar, itemColocar.id, 1);
+          const jugadorColocar = this.state.players.get(client.sessionId);
+          if (jugadorColocar) sincronizarContenedor(jugadorColocar.inventario.cuerpo, contenedorColocar);
+        }
+
         // la parcela puede no tener fila aún (nunca asignada): se crea sin
         // dueño para que la FK de construcciones apunte a algo real
         if (!ctx.propiedades.has(propiedadId)) {
@@ -2099,6 +2165,181 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     player.x = destinoX;
     player.y = destinoY;
     this.cooldownSaltoMontura.set(client.sessionId, ahora + COOLDOWN_SALTO_MONTURA_MS);
+  }
+
+  /**
+   * Colocar un barco (docs/GDD_Barcos.md, pedido 2026-08-30): consume un
+   * ítem `esBarco` del inventario y lo ancla en la casilla de agua más
+   * cercana (nunca en el inventario de nuevo desde aquí — a diferencia de
+   * la silla de montar, que se consume SOBRE otra cosa, un barco pasa a
+   * vivir como su propia fila en `barcos` (BD) + entidad en state.barcos).
+   */
+  private async manejarBarcoColocar(client: Client, msg: { itemId?: string }) {
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    if (!player || !contenedor || !nombre || !this.mapaIdPropio) return;
+
+    const it = typeof msg?.itemId === "string"
+      ? contenedor.items.find((i) => i.itemId === msg.itemId && this.catalogoBarcos[i.itemId])
+      : contenedor.items.find((i) => this.catalogoBarcos[i.itemId]);
+    if (!it) return client.send("barco:error", { motivo: "sin_barco" });
+
+    const agua = casillaAguaCercana(this.mundo, player.x, player.y, RADIO_INTERACCION);
+    if (!agua) return client.send("barco:error", { motivo: "sin_agua_cerca" });
+
+    const resultado = quitarItem(contenedor, it.id, 1);
+    if (!resultado.ok) return client.send("barco:error", { motivo: resultado.motivo ?? "sin_barco" });
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const fila = await bd.crearBarco(jugador.id, it.itemId, this.mapaIdPropio, agua.x, agua.y);
+    this.spawnearBarco(fila);
+    client.send("barco:colocado", { barcoId: fila.id, x: fila.x, y: fila.y });
+  }
+
+  /** Crea/actualiza la entidad Schema de un barco a partir de su fila de BD — usado al colocar uno nuevo y al cargar los del mapa en onCreate. */
+  protected spawnearBarco(fila: BarcoFila) {
+    const esquema = new Barco();
+    esquema.x = fila.x;
+    esquema.y = fila.y;
+    esquema.tipoId = fila.tipoId;
+    this.state.barcos.set(String(fila.id), esquema);
+  }
+
+  /**
+   * Barco propio... en realidad de CUALQUIERA — a diferencia de una
+   * mascota, un barco no tiene "dueño con exclusiva": varias plazas, se
+   * sube quien llegue mientras haya hueco (docs/GDD_Barcos.md §4). Nearest
+   * dentro de RADIO_INTERACCION con hueco libre, o el `barcoId` explícito
+   * si se manda (mismo criterio "sin UI de targeting" que mascotas).
+   */
+  private barcoConHuecoCercano(client: Client, barcoId: number | undefined): { id: number; esquema: Barco } | null {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return null;
+    const tieneHueco = (id: number, esquema: Barco) => {
+      const plazas = this.catalogoBarcos[esquema.tipoId]?.plazas ?? 1;
+      return (this.ocupantesDeBarco.get(id)?.length ?? 0) < plazas;
+    };
+    if (typeof barcoId === "number") {
+      const esquema = this.state.barcos.get(String(barcoId));
+      if (!esquema || Math.hypot(esquema.x - player.x, esquema.y - player.y) > RADIO_INTERACCION) return null;
+      return tieneHueco(barcoId, esquema) ? { id: barcoId, esquema } : null;
+    }
+    let mejor: { id: number; esquema: Barco } | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    this.state.barcos.forEach((esquema, clave) => {
+      const id = Number(clave);
+      if (!tieneHueco(id, esquema)) return;
+      const d = Math.hypot(esquema.x - player.x, esquema.y - player.y);
+      if (d < mejorDist) { mejorDist = d; mejor = { id, esquema }; }
+    });
+    return mejor;
+  }
+
+  /** Embarcar: el primero en subir pilota (capitán), el resto son pasajeros que se mueven con el barco (RoomExteriorBase.actualizarMovimiento). A diferencia de montar un animal, el barco NUNCA desaparece del Schema (varias plazas a la vez). */
+  private manejarBarcoMontar(client: Client, msg: { barcoId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (this.barcosPorSesion.has(client.sessionId)) return client.send("barco:error", { motivo: "ya_embarcado" });
+
+    const encontrado = this.barcoConHuecoCercano(client, msg?.barcoId);
+    if (!encontrado) return client.send("barco:error", { motivo: "nada_cerca" });
+    const { id: barcoId } = encontrado;
+
+    let ocupantes = this.ocupantesDeBarco.get(barcoId);
+    if (!ocupantes) { ocupantes = []; this.ocupantesDeBarco.set(barcoId, ocupantes); }
+    const esCapitan = ocupantes.length === 0;
+    ocupantes.push(client.sessionId);
+    this.barcosPorSesion.set(client.sessionId, { barcoId, esCapitan });
+    player.barcoId = barcoId;
+    player.barcoCapitan = esCapitan;
+  }
+
+  private async manejarBarcoDesmontar(client: Client) {
+    await this.desembarcarSesionId(client.sessionId);
+  }
+
+  /** Compartido con el auto-desembarco de combate/onLeave — `sessionId` directo, sin depender de tener un `Client` a mano (mismo criterio que desmontarSesionId de Monturas). */
+  protected async desembarcarSesionId(sessionId: string) {
+    const info = this.barcosPorSesion.get(sessionId);
+    if (!info) return;
+    this.barcosPorSesion.delete(sessionId);
+    const player = this.state.players.get(sessionId);
+    if (player) { player.barcoId = 0; player.barcoCapitan = false; }
+
+    const ocupantes = this.ocupantesDeBarco.get(info.barcoId);
+    if (ocupantes) {
+      const idx = ocupantes.indexOf(sessionId);
+      if (idx >= 0) ocupantes.splice(idx, 1);
+      if (ocupantes.length === 0) {
+        this.ocupantesDeBarco.delete(info.barcoId);
+        // último en bajarse: ancla la posición actual en BD para que sobreviva a un reinicio de room.
+        const esquema = this.state.barcos.get(String(info.barcoId));
+        if (esquema && this.mapaIdPropio) {
+          const bd = await obtenerBdCompartida();
+          await bd.actualizarPosicionBarco(info.barcoId, this.mapaIdPropio, esquema.x, esquema.y);
+        }
+      } else if (info.esCapitan) {
+        // el capitán se bajó con pasajeros a bordo: el siguiente en la lista pasa a pilotar.
+        const nuevoCapitanId = ocupantes[0];
+        const nuevoInfo = this.barcosPorSesion.get(nuevoCapitanId);
+        if (nuevoInfo) nuevoInfo.esCapitan = true;
+        const nuevoCapitan = this.state.players.get(nuevoCapitanId);
+        if (nuevoCapitan) nuevoCapitan.barcoCapitan = true;
+      }
+    }
+  }
+
+  /**
+   * Cruzar a un mapa exterior vecino en barco (docs/GDD_Barcos.md, pedido
+   * 2026-08-30 "Barcos y navegación marítima"): solo el capitán, solo si de
+   * verdad está junto a un borde `mar_abierto` con `nombre` (mapa vecino ya
+   * bakeado — inerte mientras no lo esté, ver `bordesMapa`). Reancla el
+   * barco en el mapa destino (BD) y manda `portal:ir` a TODOS los
+   * ocupantes — cada cliente recarga a su cuenta (mismo mecanismo que
+   * cualquier otro portal:ir), y cada `onLeave` que dispare esa recarga
+   * limpia `barcosPorSesion` localmente (ver onLeave más abajo) SIN volver
+   * a persistir posición (ya se hizo aquí, con el mapa correcto).
+   */
+  private async manejarMapaViajarVecino(client: Client) {
+    const info = this.barcosPorSesion.get(client.sessionId);
+    if (!info || !info.esCapitan) return client.send("barco:error", { motivo: "no_eres_capitan" });
+    const player = this.state.players.get(client.sessionId);
+    const esquema = this.state.barcos.get(String(info.barcoId));
+    if (!player || !esquema || !this.bordesMapa) return;
+    // Mismo criterio "sin UI de targeting" que portal:usar (F cerca de una
+    // puerta la cruza): el servidor mira dónde está realmente el jugador
+    // ahora mismo, ignorando cualquier dirección que mandara el cliente.
+    const direccion = this.direccionBordeCercana(player);
+    if (!direccion) return client.send("barco:error", { motivo: "no_estas_en_el_borde" });
+    const borde = this.bordesMapa[direccion];
+    if (!borde || borde.tipo !== "mar_abierto" || !borde.nombre) return client.send("barco:error", { motivo: "sin_mapa_vecino" });
+
+    const rutaDestino = path.resolve(__dirname, "..", "..", "..", "..", "assets", "mapas", borde.nombre);
+    if (!fs.existsSync(path.join(rutaDestino, "indice.json"))) return; // dato del índice apunta a un mapa que aún no existe en disco
+
+    const bd = await obtenerBdCompartida();
+    await bd.actualizarPosicionBarco(info.barcoId, borde.nombre, esquema.x, esquema.y);
+
+    const ocupantes = this.ocupantesDeBarco.get(info.barcoId) ?? [client.sessionId];
+    this.ocupantesDeBarco.delete(info.barcoId);
+    this.state.barcos.delete(String(info.barcoId));
+    for (const sid of ocupantes) {
+      this.barcosPorSesion.delete(sid);
+      this.avisoVecinoPorSesion.delete(sid);
+      this.clients.find((c) => c.sessionId === sid)?.send("portal:ir", { tipo: "hub", mapaId: borde.nombre });
+    }
+  }
+
+  /** Dirección de borde de mapa a la que `player` está pegado ahora mismo (dentro de DISTANCIA_AVISO_BORDE_MAPA), o null. Solo tiene sentido con `bordesMapa` cargado (HubRoom). */
+  private direccionBordeCercana(player: Player): "norte" | "sur" | "este" | "oeste" | null {
+    if (player.y <= DISTANCIA_AVISO_BORDE_MAPA) return "norte";
+    if (player.y >= this.mundo.alto - DISTANCIA_AVISO_BORDE_MAPA) return "sur";
+    if (player.x <= DISTANCIA_AVISO_BORDE_MAPA) return "oeste";
+    if (player.x >= this.mundo.ancho - DISTANCIA_AVISO_BORDE_MAPA) return "este";
+    return null;
   }
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) — implementa
@@ -3701,7 +3942,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const entradaItem = this.catalogoItems[item.itemId];
     if (!entradaItem?.aportesCocina || entradaItem.tipo !== "recurso") return this.errorCocina(client, "eso no se puede cocinar así");
 
-    const cocinadoId = `${item.itemId}_cocinado`;
+    // Cocina v2: carne/pescado/huevo directo al fuego pasan a "Asado"
+    // (pedido explícito) en vez del genérico "_cocinado" que sigue usando
+    // el resto (fruta, baya, trigo...).
+    const cocinadoId = entradaItem.origenCocina === "animal" ? `asado_${item.itemId}` : `${item.itemId}_cocinado`;
     if (!this.catalogoItems[cocinadoId]) return this.errorCocina(client, "esto todavía no tiene versión cocinada");
 
     quitarItem(contenedor, item.id, 1);
@@ -3728,6 +3972,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const viva = ctx.vivas.get(msg.construccionId);
     const entrada = viva && this.entradaDe(viva.objeto);
     if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a una vasija");
+    if (entrada.cocina.hierveAgua === false) return this.errorCocina(client, "esta vasija no necesita agua ni fuego, se usa directamente");
     const estado = this.extraCocinaDe(viva);
     if (estado.conAgua) return this.errorCocina(client, "esta vasija ya tiene agua puesta");
 
@@ -3747,7 +3992,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a una vasija");
 
     const estadoPrevio = this.extraCocinaDe(viva);
-    if (!estaHirviendo(estadoPrevio, Date.now())) {
+    if (entrada.cocina.hierveAgua !== false && !estaHirviendo(estadoPrevio, Date.now())) {
       return this.errorCocina(client, estadoPrevio.conAgua ? "el agua todavía no ha hervido" : "primero llena la vasija de agua y ponla al fuego");
     }
 
@@ -3756,6 +4001,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor || !item) return this.errorCocina(client, "eso ya no está en tu inventario");
     const entradaItem = this.catalogoItems[item.itemId];
     if (!entradaItem?.aportesCocina || entradaItem.tipo !== "recurso") return this.errorCocina(client, "eso no es un ingrediente");
+    if (!aceptaEnVasija(entrada.cocina.vasija ?? "", item.itemId, entradaItem.categoriaRecurso)) {
+      return this.errorCocina(client, "eso no sirve para un batido");
+    }
 
     const estado = estadoPrevio;
     const yaDentro = estado.ingredientes.find((i) => i.itemId === item.itemId);
@@ -3798,18 +4046,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const e = this.catalogoItems[i.itemId]!;
       return { itemId: i.itemId, cantidad: i.cantidad, aportes: e.aportesCocina!, origen: e.origenCocina! };
     });
-    const resultado = cocinarPlato(ingredientesCocina);
+    const resultado = cocinarPlato(ingredientesCocina, entrada.cocina.capacidad);
 
+    const familia = familiaDePlato(entrada.cocina.vasija ?? "", ingredientesCocina);
     const bd = await obtenerBdCompartida();
     await this.asegurarPlatosCargados(bd);
-    const clave = clavePlato(estado.ingredientes.map((i) => i.itemId));
+    const clave = clavePlato(familia, estado.ingredientes.map((i) => i.itemId));
     let plato = await bd.buscarPlatoPorClave(clave);
     if (!plato) {
       const sufijo = Math.random().toString(36).slice(2, 8);
       plato = {
         clave,
         itemId: `plato_${sufijo}`,
-        nombre: nombrePlato(entrada.cocina.vasija!, estado.ingredientes.map((i) => i.itemId)),
+        nombre: nombrePlato(prefijoDe(familia), estado.ingredientes.map((i) => i.itemId)),
         ingredientes: estado.ingredientes.map((i) => i.itemId),
         vida: resultado.vida ?? 0,
         estamina: resultado.estamina ?? 0,
@@ -3854,6 +4103,268 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       hirviendo: estaHirviendo(estado, ahora),
       segundosParaHervir: segundosParaHervir(estado, ahora),
     });
+  }
+
+  /**
+   * Registra el plato (o lo reusa si ya existe) y lo entrega al inventario
+   * — misma lógica de identidad/caché de `manejarCocinaPreparar`, extraída
+   * para que ensalada/bocadillo (combinaciones SIN vasija persistida) la
+   * reusen tal cual en vez de duplicarla.
+   */
+  private async entregarPlatoDinamico(
+    client: Client,
+    familia: FamiliaPlato,
+    itemIdsIngredientes: string[],
+    resultado: ResultadoCoccion,
+    cantidadEntregar: number,
+    colorDebug: string,
+  ): Promise<boolean> {
+    const bd = await obtenerBdCompartida();
+    await this.asegurarPlatosCargados(bd);
+    const clave = clavePlato(familia, itemIdsIngredientes);
+    let plato = await bd.buscarPlatoPorClave(clave);
+    if (!plato) {
+      const sufijo = Math.random().toString(36).slice(2, 8);
+      plato = {
+        clave,
+        itemId: `plato_${sufijo}`,
+        nombre: nombrePlato(prefijoDe(familia), itemIdsIngredientes),
+        ingredientes: itemIdsIngredientes,
+        vida: resultado.vida ?? 0,
+        estamina: resultado.estamina ?? 0,
+        comida: resultado.comida,
+        bebida: resultado.bebida ?? 0,
+        colorDebug,
+        creadoEn: new Date().toISOString(),
+      };
+      await bd.crearPlatoCreado(plato);
+      this.registrarPlatoEnCatalogo(plato);
+    }
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return false;
+    const cogido = agregarItem(contenedor, this.catalogoItems, plato.itemId, cantidadEntregar);
+    if (!cogido.ok) {
+      this.errorCocina(client, "no tienes hueco para el resultado");
+      return false;
+    }
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: cantidadEntregar, mezclaBonus: resultado.mezclaBonus });
+    return true;
+  }
+
+  /**
+   * Ensalada (docs/GDD_Cocina.md, cocina v2): cortar verduras/frutas crudas
+   * EN un cuenco (cualquier vasija sirve, sin fuego ni hervor) con un
+   * cuchillo_cocina en el inventario — instantáneo, sin estado persistido.
+   */
+  private async manejarCocinaEnsalada(client: Client, msg: { construccionId?: number; ingredientes?: { instanciaId: number; cantidad?: number }[] }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number" || !Array.isArray(msg.ingredientes)) return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a un cuenco");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    if (!contenedor.items.some((it) => it.itemId === "cuchillo_cocina")) {
+      return this.errorCocina(client, "necesitas un cuchillo_cocina para cortar la ensalada");
+    }
+
+    const picks: { instanciaId: number; itemId: string; cantidad: number }[] = [];
+    const totalesPorItem = new Map<string, number>();
+    for (const p of msg.ingredientes) {
+      const item = contenedor.items.find((it) => it.id === p.instanciaId);
+      if (!item) return this.errorCocina(client, "eso ya no está en tu inventario");
+      const e = this.catalogoItems[item.itemId];
+      if (!e?.aportesCocina || !e.origenCocina || !aptoParaEnsalada(e.categoriaRecurso)) {
+        return this.errorCocina(client, "eso no se puede cortar en ensalada");
+      }
+      const cantidad = Math.max(1, Math.min(Math.floor(p.cantidad ?? 1), item.cantidad));
+      picks.push({ instanciaId: item.id, itemId: item.itemId, cantidad });
+      totalesPorItem.set(item.itemId, (totalesPorItem.get(item.itemId) ?? 0) + cantidad);
+    }
+    if (totalesPorItem.size < 2) return this.errorCocina(client, "una ensalada necesita al menos 2 ingredientes distintos");
+
+    const ingredientesCocina: IngredienteCocina[] = [...totalesPorItem.entries()].map(([itemId, cantidad]) => {
+      const e = this.catalogoItems[itemId]!;
+      return { itemId, cantidad, aportes: e.aportesCocina!, origen: e.origenCocina! };
+    });
+    const resultado = cocinarPlato(ingredientesCocina);
+
+    for (const p of picks) {
+      const r = quitarItem(contenedor, p.instanciaId, p.cantidad);
+      if (!r.ok) return; // ya validado arriba que había cantidad suficiente
+    }
+    await this.entregarPlatoDinamico(client, "ensalada", [...totalesPorItem.keys()], resultado, resultado.platos, "#6a9a3a");
+  }
+
+  /**
+   * Bocadillo (docs/GDD_Cocina.md, cocina v2): 2 rebanada_pan + 1+ rellenos
+   * (cualquier consumible ya cocinado) — "sin cuenco ni olla ni nada",
+   * pedido explícito, así que no exige estar junto a ninguna construcción.
+   */
+  private async manejarCocinaBocadillo(client: Client, msg: { rellenos?: { instanciaId: number; cantidad?: number }[] }) {
+    if (!Array.isArray(msg?.rellenos) || msg.rellenos.length === 0) return this.errorCocina(client, "el bocadillo necesita al menos un relleno");
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const rebanadas = contenedor.items.find((it) => it.itemId === "rebanada_pan" && it.cantidad >= 2);
+    if (!rebanadas) return this.errorCocina(client, "necesitas 2 rebanadas de pan");
+
+    const picks: { instanciaId: number; itemId: string; cantidad: number }[] = [];
+    const totalesPorItem = new Map<string, number>();
+    for (const p of msg.rellenos) {
+      const item = contenedor.items.find((it) => it.id === p.instanciaId);
+      if (!item) return this.errorCocina(client, "eso ya no está en tu inventario");
+      const e = this.catalogoItems[item.itemId];
+      if (!e || e.tipo !== "consumible" || !e.restauraMultiple) return this.errorCocina(client, "eso no sirve de relleno");
+      const cantidad = Math.max(1, Math.min(Math.floor(p.cantidad ?? 1), item.cantidad));
+      picks.push({ instanciaId: item.id, itemId: item.itemId, cantidad });
+      totalesPorItem.set(item.itemId, (totalesPorItem.get(item.itemId) ?? 0) + cantidad);
+    }
+
+    // La propia rebanada cuenta como un "ingrediente" más en la media (el
+    // pan también aporta), mismo motor que una vasija.
+    const rebanadaAportes = aportesDesdeRestaura(this.catalogoItems["rebanada_pan"]!.restauraMultiple!);
+    const ingredientesCocina: IngredienteCocina[] = [
+      { itemId: "rebanada_pan", cantidad: 2, aportes: rebanadaAportes, origen: "vegetal" },
+      ...[...totalesPorItem.entries()].map(([itemId, cantidad]) => {
+        const e = this.catalogoItems[itemId]!;
+        return { itemId, cantidad, aportes: aportesDesdeRestaura(e.restauraMultiple!), origen: (e.origenCocina ?? "vegetal") as OrigenCocina };
+      }),
+    ];
+    const resultado = cocinarPlato(ingredientesCocina);
+
+    quitarItem(contenedor, rebanadas.id, 2);
+    for (const p of picks) {
+      const r = quitarItem(contenedor, p.instanciaId, p.cantidad);
+      if (!r.ok) return;
+    }
+    await this.entregarPlatoDinamico(client, "bocadillo", ["rebanada_pan", ...totalesPorItem.keys()], resultado, 1, "#d9a850");
+  }
+
+  /** Corta 1 pan con cuchillo_cocina -> 6 rebanada_pan, sin vasija ni fuego. */
+  private manejarCocinaCortarPan(client: Client, msg: { instanciaId?: number }) {
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    if (!contenedor.items.some((it) => it.itemId === "cuchillo_cocina")) {
+      return this.errorCocina(client, "necesitas un cuchillo_cocina");
+    }
+    const item = typeof msg?.instanciaId === "number" ? contenedor.items.find((it) => it.id === msg.instanciaId) : undefined;
+    if (!item || item.itemId !== "pan") return this.errorCocina(client, "eso no es pan");
+
+    quitarItem(contenedor, item.id, 1);
+    const resultado = agregarItem(contenedor, this.catalogoItems, "rebanada_pan", 6);
+    if (!resultado.ok) {
+      agregarItem(contenedor, this.catalogoItems, "pan", 1); // deshace: el pan no debe perderse si no cabe el resultado
+      return this.errorCocina(client, "no tienes hueco para las rebanadas");
+    }
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("cocina:cocinado", { itemId: "rebanada_pan", cantidad: 6 });
+  }
+
+  // --- Quesera (recipiente_queso, docs/GDD_Cocina.md): leche a granel +
+  // lote con/sin sal + tiempo real -> mantequilla/queso. Mismo espíritu que
+  // curtidor pero módulo aparte (cuajado.ts) — ver su cabecera. ---
+
+  private errorQuesera(client: Client, motivo: string) {
+    client.send("quesera:error", { motivo });
+  }
+
+  private extraQueseraDe(viva: { extra?: Record<string, unknown> | null }): EstadoQuesera {
+    return ((viva.extra as { quesera?: EstadoQuesera } | null)?.quesera ?? estadoQueseraInicial()) as EstadoQuesera;
+  }
+
+  private enviarEstadoQuesera(client: Client, construccionId: number, estado: EstadoQuesera) {
+    const ahora = Date.now();
+    client.send("quesera:estado", {
+      construccionId,
+      stockLeche: estado.stockLeche,
+      lote: estado.lote ? { conSal: estado.lote.conSal, listo: loteQuesoListo(estado, ahora) } : null,
+    });
+  }
+
+  private async manejarQueseraCargarLeche(client: Client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number" || typeof msg?.instanciaId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.quesera) return this.errorQuesera(client, "necesitas estar junto a una quesera");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const item = contenedor?.items.find((it) => it.id === msg.instanciaId);
+    if (!contenedor || !item || item.itemId !== "leche") return this.errorQuesera(client, "eso no es leche");
+
+    const cantidad = Math.max(1, Math.min(Math.floor(msg.cantidad ?? 1), item.cantidad));
+    const resultadoQuitar = quitarItem(contenedor, item.id, cantidad);
+    if (!resultadoQuitar.ok) return;
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const estado = this.extraQueseraDe(viva);
+    const nuevoEstado: EstadoQuesera = { ...estado, stockLeche: estado.stockLeche + cantidad };
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), quesera: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.enviarEstadoQuesera(client, viva.id, nuevoEstado);
+  }
+
+  /** Arranca el lote — `conSal:true` (queso) exige y consume 1 "sal" del inventario del jugador AHORA (no es stock a granel del mueble, ver cuajado.ts). */
+  private async manejarQueseraIniciarLote(client: Client, msg: { construccionId?: number; conSal?: boolean }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.quesera) return this.errorQuesera(client, "necesitas estar junto a una quesera");
+
+    const conSal = msg.conSal === true;
+    const contenedor = this.inventarios.get(client.sessionId);
+    let salItem: { id: number } | undefined;
+    if (conSal) {
+      salItem = contenedor?.items.find((it) => it.itemId === "sal");
+      if (!contenedor || !salItem) return this.errorQuesera(client, "necesitas sal para hacer queso");
+    }
+
+    const estado = this.extraQueseraDe(viva);
+    const nuevoEstado = iniciarLoteQueso(estado, conSal, Date.now());
+    if (!nuevoEstado) return this.errorQuesera(client, estado.lote ? "ya hay un lote en curso" : "necesitas más leche");
+
+    if (conSal && contenedor && salItem) {
+      quitarItem(contenedor, salItem.id, 1);
+      const player = this.state.players.get(client.sessionId);
+      if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    }
+
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), quesera: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.enviarEstadoQuesera(client, viva.id, nuevoEstado);
+  }
+
+  private async manejarQueseraRecolectar(client: Client, msg: { construccionId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.quesera) return this.errorQuesera(client, "necesitas estar junto a una quesera");
+
+    const estado = this.extraQueseraDe(viva);
+    const resultado = recolectarLoteQueso(estado, Date.now());
+    if (!resultado) return this.errorQuesera(client, estado.lote ? "todavía no está listo" : "no hay ningún lote en curso");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const cogido = agregarItem(contenedor, this.catalogoItems, resultado.itemId, 1);
+    if (!cogido.ok) return this.errorQuesera(client, "no tienes hueco para el resultado");
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), quesera: resultado.estado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    client.send("quesera:recolectado", { itemId: resultado.itemId });
   }
 
   /** "Bolsa de N" (docs/GDD_Agricultura.md) — la abre en `abreEn.cantidad` unidades sueltas de `abreEn.itemId`, sin gastar la bolsa si no hay hueco. */
@@ -4213,6 +4724,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return this.errorCrafteo(client, "mesa inexistente");
+
+    if (receta.edificioRequerido) {
+      let existe = false;
+      for (const v of ctx.vivas.values()) {
+        if (v.objeto === receta.edificioRequerido) { existe = true; break; }
+      }
+      if (!existe) return this.errorCrafteo(client, `hace falta un ${receta.edificioRequerido} construido en el asentamiento`);
+    }
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
@@ -5367,6 +5886,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // de mandarlo a la arena (nueva conexión de Colyseus, la montura no
       // viaja con él). La mascota reaparece "siguiendo" en esta room.
       this.desmontarSesionId(p.id);
+      // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): mismo criterio que
+      // una montura animal — "ni el PJ montado" también vale para un barco.
+      void this.desembarcarSesionId(p.id);
       const c = this.clients.find((cl) => cl.sessionId === p.id);
       c?.send("portal:ir", { tipo: "combate", combateId, mapaArenaId });
     }
@@ -5517,6 +6039,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.inputs.forEach((dir, sessionId) => {
       const player = this.state.players.get(sessionId);
       if (!player) return;
+      // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): un pasajero (no
+      // capitán) no se mueve con su propio input — su posición la fija el
+      // barco entero en la pasada de sincronización, más abajo.
+      const enBarco = this.barcosPorSesion.get(sessionId);
+      if (enBarco && !enBarco.esCapitan) return;
+      const esCapitanBarco = !!enBarco?.esCapitan;
+      const barcoPilotado = esCapitanBarco ? this.state.barcos.get(String(enBarco!.barcoId)) : undefined;
 
       const idx = Math.floor(player.y) * this.mundo.ancho + Math.floor(player.x);
       const medio = medioEn(this.mundo, player.x, player.y);
@@ -5530,10 +6059,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // estamina de sobra — sin ella, corre igual que andar aunque el
       // cliente siga pidiendo `correr` (no hay penalización dura, solo se
       // pierde la ventaja de velocidad hasta que la estamina se regenere).
-      const corriendoDeVerdad = !montura && medio === TIPO.TIERRA && seMueve && !!dir.correr && player.vitales.estamina > 0;
+      const corriendoDeVerdad = !montura && !esCapitanBarco && medio === TIPO.TIERRA && seMueve && !!dir.correr && player.vitales.estamina > 0;
       let vel: number;
       if (montura) {
         vel = montura.velocidad * (this.mundo.velocidad[idx] ?? 1);
+      } else if (esCapitanBarco) {
+        // Barco (docs/GDD_Barcos.md): velocidad fija del catálogo, SIN el
+        // multiplicador de terreno (ese modifica hierba/barro/camino, no
+        // tiene sentido sobre agua) — mismo criterio "no es el jugador quien
+        // se mueve" que una montura animal, sin sprint ni estamina.
+        vel = barcoPilotado ? this.catalogoBarcos[barcoPilotado.tipoId]?.velocidadBarco ?? 5 : 5;
       } else if (medio === TIPO.AGUA || medio === TIPO.AGUA_PROFUNDA) {
         vel = player.nivel < 0 ? VEL_BUCEAR : VEL_NADAR;
       } else if (corriendoDeVerdad) {
@@ -5547,8 +6082,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         const norma = Math.hypot(dir.x, dir.y);
         const paso = (vel * dt) / norma;
         const destino = moverAABB(this.mundo, player.x, player.y, dir.x * paso, dir.y * paso);
-        player.x = destino.x;
-        player.y = destino.y;
+        if (esCapitanBarco) {
+          // "solo por agua, no puede acceder a otro tipo de suelo" (pedido
+          // 2026-08-30): si el destino deja de ser agua, el barco simplemente
+          // no se mueve ese tick (nunca "vara" en la orilla a medias).
+          const medioDestino = medioEn(this.mundo, destino.x, destino.y);
+          if (medioDestino === TIPO.AGUA || medioDestino === TIPO.AGUA_PROFUNDA) {
+            player.x = destino.x;
+            player.y = destino.y;
+          }
+        } else {
+          player.x = destino.x;
+          player.y = destino.y;
+        }
       }
 
       // Resistencia por movimiento (docs/GDD_Personaje.md §3.4, pedido
@@ -5556,7 +6102,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // solo se toca BD al cruzar el umbral, nunca cada tick (30hz sería
       // reventar la BD por nada). Nunca montado: no es el jugador quien se
       // mueve, sería XP de Resistencia gratis a caballo.
-      if (!montura && medio === TIPO.TIERRA && seMueve) {
+      if (!montura && !esCapitanBarco && medio === TIPO.TIERRA && seMueve) {
         const acumulado = this.tiempoMovimiento.get(sessionId) ?? { correr: 0, andar: 0 };
         if (corriendoDeVerdad) {
           acumulado.correr += dt;
@@ -5578,9 +6124,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (medioAhora === TIPO.TIERRA || medioAhora === TIPO.SOLIDO) {
         player.nivel = 0;
         player.estado = "tierra";
-      } else if (montura) {
+      } else if (montura || esCapitanBarco) {
         // "un caballo no bucea" (docs/GDD_Mecanicas.md) — vadea a nivel
-        // superficie, nunca se sumerge.
+        // superficie, nunca se sumerge; un barco flota, tampoco (docs/GDD_Barcos.md).
         player.nivel = 0;
         player.estado = "nadando";
       } else {
@@ -5591,6 +6137,40 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const cuerpos = [...this.state.players.values()];
     separarPJs(this.mundo, cuerpos, RADIO_PJ);
+
+    // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): sincroniza el Schema
+    // del barco con su capitán y "pega" a los pasajeros a bordo — pasada
+    // FINAL, después de separarPJs, para que el barco gane siempre sobre el
+    // empuje PJ-PJ (los pasajeros no deben resbalar fuera de la cubierta).
+    // También dispara el aviso de mapa vecino al llegar a un borde mar_abierto.
+    this.ocupantesDeBarco.forEach((ocupantes, barcoId) => {
+      const esquema = this.state.barcos.get(String(barcoId));
+      const capitanId = ocupantes[0];
+      const capitan = capitanId ? this.state.players.get(capitanId) : undefined;
+      if (!esquema || !capitan) return;
+      esquema.x = capitan.x;
+      esquema.y = capitan.y;
+      for (let i = 1; i < ocupantes.length; i++) {
+        const pasajero = this.state.players.get(ocupantes[i]);
+        if (!pasajero) continue;
+        const ang = (i / Math.max(1, ocupantes.length - 1)) * Math.PI * 2;
+        pasajero.x = esquema.x + Math.cos(ang) * 0.5;
+        pasajero.y = esquema.y + Math.sin(ang) * 0.5;
+      }
+
+      if (this.bordesMapa) {
+        const dirActual = this.direccionBordeCercana(capitan);
+        const borde = dirActual ? this.bordesMapa[dirActual] : undefined;
+        const nombreVecino = borde && borde.tipo === "mar_abierto" ? borde.nombre : null;
+        const yaAvisado = this.avisoVecinoPorSesion.get(capitanId) ?? null;
+        if (nombreVecino && nombreVecino !== yaAvisado) {
+          this.avisoVecinoPorSesion.set(capitanId, nombreVecino);
+          this.clients.find((c) => c.sessionId === capitanId)?.send("mapa:vecino", { direccion: dirActual, nombre: nombreVecino });
+        } else if (!nombreVecino && yaAvisado) {
+          this.avisoVecinoPorSesion.delete(capitanId);
+        }
+      }
+    });
 
     // Vitales (docs/GDD_Personaje.md) — mismo tick que YA existe para
     // movimiento/colisión, TODOS los jugadores conectados (no solo los que

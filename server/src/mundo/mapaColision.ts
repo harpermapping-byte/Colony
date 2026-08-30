@@ -84,6 +84,18 @@ export interface ParcelaReservada {
   largo: number;
 }
 
+/** Borde del mapa (docs/GDD_Barcos.md, pedido 2026-08-30 "Barcos y navegación
+ * marítima"): `tipo:"mar_abierto"` = un barco puede cruzarlo; cualquier otro
+ * valor (p.ej. "cerrado") = pared dura, igual que hoy. `nombre` = carpeta
+ * bajo assets/mapas/ del mapa exterior vecino — null si aún no hay ninguno
+ * bakeado en esa dirección (caso de assets/mapas/principal/ hoy: el campo ya
+ * existía mudo en el índice desde el bakeador, esta pasada es la primera que
+ * lo LEE). */
+export interface BordeMapa {
+  tipo: string;
+  nombre: string | null;
+}
+
 export interface MapaCargado extends MundoColision {
   nombre: string;
   /** casilla de aparición (la ciudad del índice, corregida a suelo pisable) */
@@ -96,6 +108,8 @@ export interface MapaCargado extends MundoColision {
   recolectables: Map<number, RecolectableVivo>;
   /** [] en cualquier mapa que no sea la ciudad capital (o un futuro tier con el mismo campo) — ver ParcelaReservada. */
   parcelasReservadas: ParcelaReservada[];
+  /** norte/sur/este/oeste — undefined en mapas sin ese campo en el índice (p.ej. demo antiguo). */
+  bordes?: Record<"norte" | "sur" | "este" | "oeste", BordeMapa>;
 }
 
 export function cargarMapaColision(
@@ -112,6 +126,7 @@ export function cargarMapaColision(
     ciudad?: { x: number; y: number };
     portales?: Portal[];
     parcelasReservadas?: ParcelaReservada[];
+    bordes?: Record<"norte" | "sur" | "este" | "oeste", BordeMapa>;
   }>(path.join(rutaMapa, "indice.json"));
 
   const terrenos = leerJSON<Record<string, EntradaTerreno>>(path.join(rutaCatalogo, "terrenos.json"));
@@ -206,6 +221,7 @@ export function cargarMapaColision(
     portales: indice.portales ?? [],
     recolectables,
     parcelasReservadas: indice.parcelasReservadas ?? [],
+    bordes: indice.bordes,
   };
 }
 

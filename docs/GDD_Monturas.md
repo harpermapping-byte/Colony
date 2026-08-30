@@ -19,6 +19,8 @@ combate).
 Aclaración pedida aparte en el mismo mensaje ("Barcos y navegación
 marítima"): sin ningún detalle dado — se deja **fuera de esta pasada**,
 sigue "sin diseñar" en `docs/Backlog_Mecanicas_Futuras.md`.
+**Actualización (2026-08-30, mismo día): el streamer detalló el pedido de
+barcos aparte — ver `docs/GDD_Barcos.md`, HECHO.**
 
 ## 1. Qué especies son montura
 
@@ -284,9 +286,8 @@ nuevo al volver.
   (el mismo del jugador) en vez de uno derivado del tamaño real del animal;
   cuadra con "no tiene vida de momento" y no se pidió explícitamente.
 - **Barcos y navegación marítima** — mencionado en el título del pedido
-  original pero sin ningún detalle dado; sigue "sin diseñar" en
-  `docs/Backlog_Mecanicas_Futuras.md`, pendiente de que el streamer lo
-  concrete en un pase aparte.
+  original pero sin ningún detalle dado en ese momento; el streamer lo
+  concretó aparte el mismo día — HECHO, ver `docs/GDD_Barcos.md`.
 - **Rehorneado del mapa exterior de producción** — el cambio de catálogo
   que hace que `cerdo` aparezca suelto en el exterior (§2) necesita que el
   streamer rehornee el mapa principal (los bakes grandes los corre él,

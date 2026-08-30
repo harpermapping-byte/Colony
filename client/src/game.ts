@@ -26,6 +26,7 @@ import { PanelJugador } from "./personaje/panelJugador";
 import { crearPlaceholder } from "./render3d/placeholder";
 import { animalPlaceholder } from "./render3d/animalPlaceholder";
 import { aplicarMonturaAlAnimal } from "./render3d/monturaVisual";
+import { crearBarcoVisual } from "./render3d/barcoVisual";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -363,7 +364,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
               entradaY: ENTRADA_Y,
               twitchSession,
             })
-          : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession });
+          : MAPA_ID
+            // Barcos y navegación marítima (docs/GDD_Barcos.md, pedido
+            // 2026-08-30): cruzar un borde mar_abierto lleva a un Hub de OTRO
+            // mapa exterior — mismo "hub" de siempre, pero server/src/index.ts
+            // lo registra también como "hub_mapa" (filterBy mapaId) para no
+            // tocar el join normal (sin mapaId) de toda la vida.
+            ? await client.joinOrCreate("hub_mapa", { name: nombreJugador, mapaId: MAPA_ID, twitchSession })
+            : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession });
   const $ = getStateCallbacks(room);
 
   // Puertas: tecla de interacción (F) — pisar cerca de una y pulsar F pide
@@ -416,7 +424,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // no en el spawn genérico de la región) — sin ellos, spawn por defecto de siempre.
       navegarA({ nombre: nombreJugador, sala: "region", mapaId: info.mapaId, entradaX: info.x, entradaY: info.y });
     } else if (info.tipo === "hub") {
-      navegarA({ nombre: nombreJugador });
+      // mapaId presente = venimos de cruzar un borde mar_abierto en barco
+      // (docs/GDD_Barcos.md) — recarga apuntando al Hub de ESE mapa; sin él,
+      // el hub de siempre.
+      navegarA({ nombre: nombreJugador, mapaId: info.mapaId });
     } else {
       // "volver": desde un interior a su región (a la puerta exacta) o al
       // hub si se entró directo desde ahí; desde una región, siempre al hub.
@@ -429,6 +440,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     },
   );
   room.onMessage("portal:error", (m: { motivo: string }) => console.log("[puerta]", m?.motivo));
+  // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): solo informativo — F ya
+  // cruza el borde si de verdad hay mapa vecino (mismo criterio "sin UI de
+  // targeting/confirmación" que cualquier otra puerta), esto es únicamente
+  // para depurar en consola mientras no haya un segundo mapa de producción.
+  room.onMessage("mapa:vecino", (m: { direccion: string; nombre: string }) => console.log("[barco] mapa vecino a la vista:", m?.direccion, m?.nombre));
+  room.onMessage("barco:error", (m: { motivo: string }) => console.log("[barco]", m?.motivo));
 
   // --- Constructor y render de construcciones (GDD_Construccion §4 y §6) ---
   // Solo en el Hub: una región/interior de ciudades/ no es propiedad de
@@ -566,7 +583,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         cocinaCercanaId = id;
         if (!cercana) panelCocina.actualizarCercania(null, false);
         else {
-          panelCocina.actualizarCercania(id, cercana.cocina!.esVasija, cercana.cocina!.vasija, cercana.cocina!.capacidad);
+          panelCocina.actualizarCercania(id, cercana.cocina!.esVasija, cercana.cocina!.vasija, cercana.cocina!.capacidad, cercana.cocina!.hierveAgua);
           if (cercana.cocina!.esVasija) room.send("cocina:consultar", { construccionId: id });
         }
       }
@@ -621,6 +638,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // oculto pero VIVO (nunca se destruye: conserva el equipo puesto) para
     // volver a él tal cual al desmontar.
     let monturaActual = "";
+    // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): a diferencia de una
+    // montura animal, el barco NO fusiona el rig (su propia entidad ya se
+    // pinta aparte en state.barcos.onAdd, arriba) — mientras barcoId>0
+    // simplemente se oculta el rig humanoide/montura del ocupante, sea
+    // capitán o pasajero.
+    let barcoActual = 0;
     $(player).onChange(() => {
       estado.destinoX = player.x;
       estado.destinoZ = player.y;
@@ -640,6 +663,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           estado.rig = rig;
         }
         escena.añadirEntidad(sessionId, estado.rig.objeto, estado.x, estado.z, player.name);
+      }
+      if (player.barcoId !== barcoActual) {
+        barcoActual = player.barcoId;
+        estado.rig.objeto.visible = !barcoActual;
       }
       if (esYo) {
         escena.seguirPunto(player.x, player.y);
@@ -764,6 +791,32 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   $(room.state).mascotas.onRemove((_mascota: any, id: string) => {
     mascotasVisual.delete(id);
     escena.quitarEntidad(`mascota_${id}`);
+  });
+
+  // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — SIEMPRE visibles en
+  // state.barcos (a diferencia de una mascota montada, que desaparece del
+  // Schema): varias plazas, el barco es su propia entidad aunque esté
+  // ocupado. Los ocupantes (Player.barcoId>0) solo ocultan su rig humanoide
+  // más abajo, en el onChange de players — este bloque solo pinta el casco.
+  const barcosVisual = new Map<string, EstadoJugador>();
+  $(room.state).barcos.onAdd((barco: any, id: string) => {
+    const criatura = crearBarcoVisual(barco.tipoId);
+    const estado: EstadoJugador = {
+      rig: criatura as unknown as EstadoJugador["rig"],
+      destinoX: barco.x, destinoZ: barco.y, destinoY: 0,
+      x: barco.x, z: barco.y, y: 0,
+      nadando: false,
+    };
+    barcosVisual.set(id, estado);
+    escena.añadirEntidad(`barco_${id}`, criatura.objeto, barco.x, barco.y);
+    $(barco).onChange(() => {
+      estado.destinoX = barco.x;
+      estado.destinoZ = barco.y;
+    });
+  });
+  $(room.state).barcos.onRemove((_barco: any, id: string) => {
+    barcosVisual.delete(id);
+    escena.quitarEntidad(`barco_${id}`);
   });
 
   // --- Enemigos de mazmorra (docs/GDD_Bakeador_Dungeons.md §4): sin
@@ -1087,8 +1140,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       panelJugador.alternar();
       if (panelJugador.estaVisible()) panelJugador.actualizar(room.state.players.get(room.sessionId));
     }
-    // puertas (docs/GDD_Sistema_Puertas.md): F cerca de una la cruza
-    if (k === "f" && !teclas.has("f")) room.send("portal:usar");
+    // puertas (docs/GDD_Sistema_Puertas.md): F cerca de una la cruza.
+    // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): MISMA tecla cruza un
+    // borde mar_abierto pilotando un barco — mismo criterio "sin UI de
+    // targeting", el servidor decide si aplica (no-op si no estás en el borde).
+    if (k === "f" && !teclas.has("f")) {
+      room.send("portal:usar");
+      room.send("mapa:viajarVecino");
+    }
     // combate (docs/GDD_Combate.md): C ataca al hostil más cercano — sin UI
     // de targeting, mismo criterio que "coger"/"portal:usar". `retorno`
     // (§9.2) es lo que hace falta para volver aquí exacto al terminar.
@@ -1147,6 +1206,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === " " && !teclas.has(" ")) {
       const dir = ultimaDireccionEnviada.x || ultimaDireccionEnviada.y ? ultimaDireccionEnviada : ultimaDireccionMirada;
       if (dir.x || dir.y) room.send("montura:saltar", { dx: dir.x, dy: dir.y });
+    }
+    // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): J coloca un barco del
+    // inventario junto al agua más cercana; P sube/baja (toggle según
+    // Player.barcoId) — tecla propia, distinta de M/monturas, para no
+    // ambigüar cuál de las dos "monturas" (animal o barco) se pretende
+    // cuando hay ambas cerca a la vez.
+    if (k === "j" && !teclas.has("j")) room.send("barco:colocar", {});
+    if (k === "p" && !teclas.has("p")) {
+      const yo = room.state.players.get(room.sessionId);
+      if (yo?.barcoId) room.send("barco:desmontar");
+      else room.send("barco:montar", {});
     }
     teclas.add(k);
   });
