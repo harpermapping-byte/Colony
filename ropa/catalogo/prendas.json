@@ -190,6 +190,41 @@
     "quitaCalor": 5,
     "_nota": "Pareja del tabardo_guardia — mismo criterio de uniformidad."
   },
+  "camisa_seda_noble": {
+    "slotCuerpo": "torso",
+    "tipoPrenda": "camisa",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "tagsProfesion": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "seda",
+      "lino"
+    ],
+    "zonasColor": [
+      "cuerpo",
+      "puños",
+      "cuello"
+    ],
+    "zonasFijas": [],
+    "voxelResolucion": {
+      "x": 9,
+      "y": 13,
+      "z": 6
+    },
+    "detalle": {
+      "cuello": "redondo",
+      "mangas": "largas",
+      "bajo": "recto"
+    },
+    "colorDebug": "#c9a8d8",
+    "variantes": 3,
+    "quitaFrio": 3,
+    "quitaCalor": 20,
+    "_nota": "Camisa de gala noble (pedido 2026-08-30: 'seda nunca se usaba' pese a estar definida como fibra de lujo) — misma forma que camisa_lino_campesina, pero en seda (colores vivos vía tinte) para diferenciar visualmente a la nobleza del resto de tagsProfesion."
+  },
   "habito_sacerdote": {
     "slotCuerpo": "torso",
     "tipoPrenda": "camisa",

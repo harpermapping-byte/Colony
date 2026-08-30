@@ -18,6 +18,7 @@
 
 const { crearPRNG, elegirPonderado } = require("../../interiores/src/azar");
 const { aplicarMorfologia } = require("../../ropa/src/morfologia");
+const { elegirConjuntoPorProfesion } = require("../../ropa/src/elegirPrenda");
 
 // --- Geometría de estilos (cajas normalizadas sobre la cabeza) ---
 // Unidades: la cabeza es un cubo de lado 1 con x,z en [-0.5, 0.5] e
@@ -142,12 +143,33 @@ function generarPersonaje(npcId, opciones) {
   };
 
   const peloEstilo = elegir(pesos("peloEstilos"), rnd);
-  // Barba solo en hombres — decisión simple de v1; si algún NPC concreto
-  // necesita otra cosa, se pacta y se parametriza en su entrada.
-  const barbaEstilo = sexo === "hombre" ? elegir(pesos("barbaEstilos"), rnd) : "ninguna";
+  // Barba (pedido 2026-08-30): antes SIEMPRE "solo hombres", cableado en
+  // código — ahora `npc.permiteBarba` (bool) puede pisar esa regla por
+  // entrada del catálogo (p.ej. una NPC concreta con barba, un personaje
+  // excéntrico). Sin el campo, comportamiento EXACTO de siempre.
+  const permiteBarba = npc.permiteBarba !== undefined ? npc.permiteBarba : sexo === "hombre";
+  const barbaEstilo = permiteBarba ? elegir(pesos("barbaEstilos"), rnd) : "ninguna";
   const peloColorId = elegir(pesos("coloresPelo"), rnd);
   const pielColorId = elegir(pesos("coloresPiel"), rnd);
   const ojosColorId = elegir(pesos("coloresOjos"), rnd);
+
+  // Ropa (pedido 2026-08-30, docs/GDD_Ropa_Procedural.md): antes `ropa` era
+  // SIEMPRE una lista fija a mano por NPC. Si un NPC no trae `ropa` en el
+  // catálogo, se resuelve automáticamente cruzando su `profesion` con
+  // `ropa/catalogo/profesiones.json` (mismo mecanismo que ya usaba ropa/ en
+  // solitario) — determinista por npcId, no por semilla del individuo (toda
+  // la aldea del mismo oficio viste igual, como pide "uniforme" en guardia/
+  // sacerdote). Los 39 NPCs con `ropa` ya curada a mano NO se tocan.
+  let ropa = npc.ropa;
+  if (!ropa) {
+    const profesionRopa = catalogos.ropaProfesiones?.[npc.profesion];
+    if (profesionRopa) {
+      const prendasLimpias = Object.fromEntries(Object.entries(catalogos.ropaPrendas).filter(([k]) => !k.startsWith("_")));
+      ropa = Object.values(elegirConjuntoPorProfesion(prendasLimpias, profesionRopa, npc.profesion));
+    } else {
+      ropa = [];
+    }
+  }
 
   const ficha = {
     npcId,
@@ -162,7 +184,7 @@ function generarPersonaje(npcId, opciones) {
       pielColor: { id: pielColorId, hex: colorDe(rasgosBase.coloresPiel, pielColorId) },
       ojosColor: { id: ojosColorId, hex: colorDe(rasgosBase.coloresOjos, ojosColorId) },
     },
-    ropa: npc.ropa || [],
+    ropa,
   };
 
   // Vóxeles de pelo/barba sobre la cabeza YA morfada de este individuo
