@@ -681,5 +681,11 @@
     ],
     "tamano": 1.3,
     "_nota": "Visual compartido por espada_larga en items.json (arma_espada sirve a espada_corta) — ver docs/GDD_Equipo.md."
-  }
+  },
+  "camisa_lino_campesina": {"slotEquipo":"pechera","categoria":"ropa","riquezaTipica":["humilde","modesta"],"materialesCompatibles":["lino","lana"]},
+  "pantalon_lana_campesino": {"slotEquipo":"piernas","categoria":"ropa","riquezaTipica":["humilde","modesta"],"materialesCompatibles":["lana","lino","cuero"]},
+  "gorro_lino_campesino": {"slotEquipo":"casco","categoria":"ropa","riquezaTipica":["humilde","modesta"],"materialesCompatibles":["lino","lana"]},
+  "tabardo_guardia": {"slotEquipo":"pechera","categoria":"ropa","riquezaTipica":["modesta"],"materialesCompatibles":["cuero"]},
+  "pantalon_guardia": {"slotEquipo":"piernas","categoria":"ropa","riquezaTipica":["modesta"],"materialesCompatibles":["cuero"]},
+  "habito_sacerdote": {"slotEquipo":"pechera","categoria":"ropa","riquezaTipica":["humilde","modesta"],"materialesCompatibles":["lana"]}
 }
