@@ -318,8 +318,8 @@ export class HubRoom extends RoomExteriorBase {
     this.enviarEstadoConstruccion(client);
   }
 
-  onLeave(client: Client) {
-    super.onLeave(client);
+  async onLeave(client: Client) {
+    await super.onLeave(client);
     this.ultimoMensajeNpc.delete(client.sessionId);
   }
 

@@ -32,6 +32,7 @@ import {
   equiparItem,
   desequiparItem,
   calcularStatsEquipo,
+  SLOTS_CONTENEDOR,
 } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
@@ -577,14 +578,29 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // sus mascotas aparecen un instante después vía BD, nunca bloquean el join.
     void this.cargarMascotasSiguiendoDe(client, player.name);
 
+    // Inventario/equipo persistido (docs/GDD_Equipo.md §9 → ya implementado):
+    // mismo criterio que las mascotas — el cuerpo vacío de arriba se ve un
+    // instante y luego se sustituye por lo guardado, sin bloquear el join.
+    void this.cargarInventarioYEquipoDe(client, player.name);
+
     return player;
   }
 
-  onLeave(client: Client) {
+  async onLeave(client: Client) {
     const nombreSaliente = this.state.players.get(client.sessionId)?.name;
     const twitchLoginSaliente = this.twitchLoginPorSesion.get(client.sessionId);
     this.twitchLoginPorSesion.delete(client.sessionId);
     if (nombreSaliente) quitarJugador(nombreSaliente, client.sessionId, twitchLoginSaliente); // Twitch (docs/GDD_Twitch.md) — solo si el registro sigue siendo el de ESTA sesión (nombres duplicados, ver registro.ts)
+
+    // Persistencia de inventario/equipo (docs/GDD_Equipo.md): se captura la
+    // referencia ANTES de borrar los Map de abajo — guardarInventarioYEquipoDe
+    // es la única vez que se AWAITEA de verdad (a diferencia de coger/soltar/
+    // equipar, que disparan el guardado en segundo plano): aquí sí importa
+    // que la escritura a BD termine antes de que Colyseus dé la sesión por
+    // cerrada del todo, para no perder el último cambio de una desconexión
+    // brusca.
+    const invSaliente = nombreSaliente ? this.inventarioJugador(client.sessionId) : null;
+
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);
@@ -610,6 +626,84 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       }
       this.mascotasPorSesion.delete(client.sessionId);
     }
+
+    if (nombreSaliente && invSaliente) await this.guardarInventarioYEquipoDe(nombreSaliente, invSaliente);
+  }
+
+  /**
+   * Carga cuerpo/mochilas/equipo guardados de una sesión (docs/GDD_Equipo.md
+   * §9) — misma identidad que el resto de progreso del jugador (gremio,
+   * oficios, mascotas): `jugador_id` vía `obtenerOCrearJugador(nombre)`, NO
+   * el `twitchLogin` (ese es solo para que el chat te reconozca, GDD_Twitch
+   * §7 — el nombre del PJ sigue siendo la identidad real de guardado, igual
+   * que ya hace el resto del juego). Sin awaitear desde crearJugador a
+   * propósito, igual que cargarMascotasSiguiendoDe.
+   */
+  private async cargarInventarioYEquipoDe(client: Client, nombre: string) {
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const equipo = await bd.cargarEquipo(jugador.id);
+    const cuerpo = await bd.cargarContenedor(jugador.id, "cuerpo");
+
+    // Mochila/bandolera/bolsa de cinturón (SLOTS_CONTENEDOR): solo se cargan
+    // las que el equipo guardado dice que siguen puestas — una fila de
+    // `inventarios` huérfana (bolsa que se desequipó en su día) se queda sin
+    // referencia y no vuelve a aparecer, sin necesidad de borrarla aparte.
+    const extras = new Map<string, Contenedor>();
+    for (const slot of SLOTS_CONTENEDOR) {
+      const itemId = equipo[slot];
+      if (!itemId) continue;
+      const guardado = await bd.cargarContenedor(jugador.id, slot);
+      if (guardado) {
+        extras.set(slot, guardado);
+      } else {
+        // No debería pasar (guardarInventarioYEquipoDe guarda ambos a la
+        // vez) — por si acaso, una rejilla vacía del tamaño real del ítem en
+        // vez de perder el hueco entero.
+        const dims = this.catalogoItems[itemId]?.esContenedor;
+        extras.set(slot, crearContenedor(dims?.ancho ?? 1, dims?.alto ?? 1));
+      }
+    }
+
+    // La sesión pudo desconectarse mientras esto cargaba (mismo criterio de
+    // guarda que spawnearMascota) — no resucitar Maps de una sesión que ya
+    // se limpió en onLeave.
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    if (cuerpo) {
+      this.inventarios.set(client.sessionId, cuerpo);
+      sincronizarContenedor(player.inventario.cuerpo, cuerpo);
+    }
+    this.equipoInventario.set(client.sessionId, equipo);
+    this.extrasInventario.set(client.sessionId, extras);
+    sincronizarEquipo(player.inventario, equipo, extras);
+    this.recalcularStatsJugador(client);
+  }
+
+  /** Guarda cuerpo + cada mochila/bandolera/bolsa puesta + equipo — reemplazo completo, mismo criterio que sincronizarContenedor/sincronizarEquipo (reconstruye entero, nunca diffea). */
+  private async guardarInventarioYEquipoDe(nombre: string, inv: InventarioJugador) {
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    await bd.guardarContenedor(jugador.id, "cuerpo", inv.cuerpo);
+    for (const [slot, contenedorExtra] of inv.extras) {
+      await bd.guardarContenedor(jugador.id, slot, contenedorExtra);
+    }
+    await bd.guardarEquipo(jugador.id, inv.equipo);
+  }
+
+  /**
+   * Dispara el guardado de inventario/equipo de una sesión EN SEGUNDO PLANO
+   * (mismo criterio que otorgarXpAtributoPorSesion/cargarMascotasSiguiendoDe
+   * — nunca bloquea al jugador que acaba de coger/soltar/equipar/desequipar
+   * algo) — se llama tras cada mutación real de coger/soltar/equipar/
+   * desequipar; `onLeave` guarda por su cuenta (ahí sí importa awaitear).
+   */
+  private persistirInventarioPorSesion(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!player?.name || !inv) return;
+    void this.guardarInventarioYEquipoDe(player.name, inv);
   }
 
   /**
@@ -659,6 +753,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
     candidato.confirmar();
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    this.persistirInventarioPorSesion(client);
 
     // Fuerza/Inteligencia (docs/GDD_Personaje.md §3.2) — SIN awaitear, a
     // propósito (ver el comentario de esta función: coger es 100%
@@ -751,6 +846,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o); // MapSchema: se replica solo, incluida la foto inicial a quien se una después
 
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    this.persistirInventarioPorSesion(client);
   }
 
   /** Vista unificada (cuerpo+extras+equipo) del inventario de UNA sesión — construida sobre los 3 Map puros, nunca guardada aparte (evita que se desincronicen entre sí). */
@@ -802,6 +898,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
     sincronizarEquipo(player.inventario, inv.equipo, inv.extras);
     this.recalcularStatsJugador(client);
+    this.persistirInventarioPorSesion(client);
   }
 
   /**
@@ -827,6 +924,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
     sincronizarEquipo(player.inventario, inv.equipo, inv.extras);
     this.recalcularStatsJugador(client);
+    this.persistirInventarioPorSesion(client);
   }
 
   /**

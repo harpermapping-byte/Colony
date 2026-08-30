@@ -38,8 +38,9 @@ export class InventarioSchema extends Schema {
 // a propósito: docs/GDD_Mecanicas.md §5.4 ya fijó Player.vida/vidaMax como
 // la única fuente de HP ("nadie se cura solo con el tiempo", no negociable)
 // — duplicarla aquí con un drenaje por tick la violaría de raíz. Sin
-// persistencia entre sesiones, mismo criterio ya aceptado para el
-// inventario ("vive y muere con la sesión").
+// persistencia entre sesiones — a diferencia del inventario (docs/GDD_Equipo
+// §6bis), aquí SÍ es a propósito: volver con hambre/sed acumulados de una
+// sesión que pudo quedar abierta días es peor experiencia que nacer lleno.
 export class VitalesSchema extends Schema {
   @type("number") comida = 100;
   @type("number") bebida = 100;
