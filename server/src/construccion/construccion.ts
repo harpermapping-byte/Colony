@@ -85,11 +85,23 @@ export function esJarl(ctx: ContextoConstruccion, nombre: string): boolean {
  * en las que tienen `parcelasReservadas` habilitado (ctx puede no existir ahí).
  */
 export function esJarlGlobal(nombre: string): boolean {
-  const jarls = (process.env.JARL_NOMBRES ?? "")
+  return nombresJarl().includes(nombre.trim().toLowerCase());
+}
+
+/** Nombres de jarl configurados (env `JARL_NOMBRES`, coma-separados), normalizados a minúsculas — mismo parseo que `esJarlGlobal`, solo para COMPARAR (nunca para crear/buscar la fila real del jugador: usa `nombresJarlTalCual` para eso). */
+export function nombresJarl(): string[] {
+  return (process.env.JARL_NOMBRES ?? "")
     .split(",")
     .map((n) => n.trim().toLowerCase())
     .filter((n) => n.length > 0);
-  return jarls.includes(nombre.trim().toLowerCase());
+}
+
+/** Igual que `nombresJarl` pero SIN forzar minúsculas — docs/GDD_Economia.md: compras/alquileres/impuestos de propiedad se acreditan a la fila REAL del jugador jarl (`jugadores.nombre`, que conserva mayúsculas tal cual el jugador se llame), así que hay que buscarla con el nombre EXACTO configurado, no una versión en minúsculas que crearía una fila duplicada. */
+export function nombresJarlTalCual(): string[] {
+  return (process.env.JARL_NOMBRES ?? "")
+    .split(",")
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
 }
 
 /**

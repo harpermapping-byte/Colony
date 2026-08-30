@@ -99,6 +99,12 @@ export class RegionRoom extends RoomExteriorBase {
       const gestor = this.obtenerOCrearGestorAgentes();
       gestor.iniciar(poblacion.npcs, tiempoMundo().hora);
       console.log(`  ${gestor.cantidad} NPCs con rutina en el mapa`);
+      // Comercio con NPCs (docs/GDD_Economia.md, pedido 2026-08-30): solo
+      // hace falta saber CUÁLES son "tendero" — el resto de oficio sigue
+      // siendo flavor. slotId ya es la clave real de state.npcs.
+      for (const npc of poblacion.npcs) {
+        if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
+      }
     }
 
     // Fauna doméstica (GDD_Agentes_Moviles.md v1.3): sin rutina horaria,
@@ -112,6 +118,11 @@ export class RegionRoom extends RoomExteriorBase {
       this.gestorFauna = new GestorFauna(this.state.fauna, this.mundo, this.catalogoCombateFauna);
       this.gestorFauna.iniciar(datos.fauna);
       this.clock.setInterval(() => this.gestorFauna!.tick(0.2), 200);
+      // Agro por distancia (docs/GDD_Combate.md §7bis, pedido 2026-08-30) —
+      // mismo mecanismo que HubRoom, por si una región tuviera fauna urbana
+      // `peligroso` (hoy no la tiene, pero el mecanismo no debe vivir solo
+      // en un tipo de room).
+      this.clock.setInterval(() => this.verificarAgroFauna(), 200);
       console.log(`  ${this.gestorFauna.cantidad} animales sueltos en el mapa`);
     }
 

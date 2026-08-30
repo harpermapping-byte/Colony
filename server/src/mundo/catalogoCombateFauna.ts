@@ -31,6 +31,10 @@ export interface EstadisticasCombateAnimal {
   categoriaProductoGranja?: CategoriaProductoGranja[];
   /** docs/GDD_Monturas.md — qué comida (comidaMascota + origenCocina) sirve para domesticar a ESTA especie: solo la de su dieta real, nunca cualquiera. undefined = sin dato (acepta cualquier comidaMascota, mismo criterio que racion_viaje sin origenCocina). */
   dieta?: DietaAnimal;
+  /** docs/GDD_Barcos.md (pedido 2026-08-30) — especie acuática (orca/tiburón/...), mismo campo que ya usa el bakeador para colocarla en agua (baker/catalogo/animales.json); aquí se lee EN VIVO por primera vez: si un combate incluye una especie con esto a true, es "combate acuático" (arena de agua, la tripulación de un barco no desmonta, ver RoomExteriorBase.cerrarVentanaCombate). */
+  requiereAgua?: boolean;
+  /** docs/GDD_Combate.md §7bis (pedido 2026-08-30, "el depredador de tierra [y de agua] con triggers por distancia"): casillas de radio en las que esta especie, si `peligroso`, ataca por su cuenta al jugador más cercano (RoomExteriorBase.verificarAgroFauna) — ya existía en baker/catalogo/animales.json sin consumidor, primera vez que se lee en vivo. undefined = usa RADIO_AGRO_DEFECTO. */
+  radioAgro?: number;
 }
 
 export type CatalogoCombateFauna = Record<string, EstadisticasCombateAnimal>;
@@ -45,6 +49,8 @@ interface EntradaCatalogoBaker {
   categoriaRecursoPiel?: string;
   categoriaProductoGranja?: CategoriaProductoGranja[];
   dieta?: DietaAnimal;
+  requiereAgua?: boolean;
+  radioAgro?: number;
 }
 
 // Relleno si una especie llegara a faltar en el catálogo (no debería pasar
@@ -73,6 +79,8 @@ export function cargarCatalogoCombateFauna(rutaAnimalesJson: string): CatalogoCo
       categoriaRecursoPiel: datos.categoriaRecursoPiel,
       categoriaProductoGranja: datos.categoriaProductoGranja,
       dieta: datos.dieta,
+      requiereAgua: datos.requiereAgua,
+      radioAgro: datos.radioAgro,
     };
   }
   return catalogo;

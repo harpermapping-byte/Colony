@@ -302,46 +302,46 @@ test("inventario: guardarEquipo reemplaza el set completo (quitar un ítem lo bo
 // gremios/mercado/propiedades/producción/motriz: saldo numérico en `jugadores`,
 // no un ítem de inventario) --------------------------------------------------
 
-test("Farycoins: un jugador nuevo nace a 0, obtenerOCrearJugador lo devuelve", async () => {
+test("Farycoins: un jugador nuevo nace con SALDO_INICIAL_JUGADOR (20), obtenerOCrearJugador lo devuelve", async () => {
   const bd = new AlmacenDatos(":memory:");
   const j = await bd.obtenerOCrearJugador("Ivar");
-  assert.strictEqual(j.farycoins, 0);
-  assert.strictEqual(await bd.obtenerFarycoins(j.id), 0);
+  assert.strictEqual(j.farycoins, 20);
+  assert.strictEqual(await bd.obtenerFarycoins(j.id), 20);
   await bd.cerrar();
 });
 
 test("Farycoins: ajustarFarycoins suma y resta dentro de saldo, devuelve el saldo actualizado", async () => {
   const bd = new AlmacenDatos(":memory:");
-  const j = await bd.obtenerOCrearJugador("Ivar");
+  const j = await bd.obtenerOCrearJugador("Ivar"); // nace con 20
 
   const r1 = await bd.ajustarFarycoins(j.id, 100);
-  assert.deepStrictEqual(r1, { ok: true, saldo: 100 });
+  assert.deepStrictEqual(r1, { ok: true, saldo: 120 });
 
   const r2 = await bd.ajustarFarycoins(j.id, -30);
-  assert.deepStrictEqual(r2, { ok: true, saldo: 70 });
+  assert.deepStrictEqual(r2, { ok: true, saldo: 90 });
 
-  assert.strictEqual(await bd.obtenerFarycoins(j.id), 70);
+  assert.strictEqual(await bd.obtenerFarycoins(j.id), 90);
   await bd.cerrar();
 });
 
 test("Farycoins: ajustarFarycoins es TODO O NADA — restar más de lo que hay no toca el saldo", async () => {
   const bd = new AlmacenDatos(":memory:");
-  const j = await bd.obtenerOCrearJugador("Ivar");
-  await bd.ajustarFarycoins(j.id, 50);
+  const j = await bd.obtenerOCrearJugador("Ivar"); // nace con 20
+  await bd.ajustarFarycoins(j.id, 50); // 70
 
-  const r = await bd.ajustarFarycoins(j.id, -100); // se iría a -50, debe rechazarse entero
-  assert.deepStrictEqual(r, { ok: false, saldo: 50 });
-  assert.strictEqual(await bd.obtenerFarycoins(j.id), 50, "el saldo no debe haberse movido ni un poco");
+  const r = await bd.ajustarFarycoins(j.id, -100); // se iría a -30, debe rechazarse entero
+  assert.deepStrictEqual(r, { ok: false, saldo: 70 });
+  assert.strictEqual(await bd.obtenerFarycoins(j.id), 70, "el saldo no debe haberse movido ni un poco");
   await bd.cerrar();
 });
 
 test("Farycoins: dos jugadores distintos no comparten saldo", async () => {
   const bd = new AlmacenDatos(":memory:");
-  const a = await bd.obtenerOCrearJugador("Ivar");
-  const b = await bd.obtenerOCrearJugador("Ubbe");
+  const a = await bd.obtenerOCrearJugador("Ivar"); // nace con 20
+  const b = await bd.obtenerOCrearJugador("Ubbe"); // nace con 20
   await bd.ajustarFarycoins(a.id, 200);
-  assert.strictEqual(await bd.obtenerFarycoins(a.id), 200);
-  assert.strictEqual(await bd.obtenerFarycoins(b.id), 0);
+  assert.strictEqual(await bd.obtenerFarycoins(a.id), 220);
+  assert.strictEqual(await bd.obtenerFarycoins(b.id), 20);
   await bd.cerrar();
 });
 
@@ -541,7 +541,7 @@ test("Propiedades: comprarOAlquilar cobra el precio y da la propiedad (compra = 
   });
   assert.strictEqual(r.ok, true);
   if (!r.ok) return;
-  assert.strictEqual(r.saldoRestante, 300);
+  assert.strictEqual(r.saldoRestante, 320); // 20 iniciales + 500 - 200
   assert.strictEqual(r.expiraEn, null);
 
   const prop = await bd.obtenerPropiedad("i_aldea:casa_humilde_01");
@@ -561,7 +561,7 @@ test("Propiedades: comprarOAlquilar sin Farycoins suficientes falla sin tocar na
   assert.strictEqual(r.ok, false);
   if (r.ok) return;
   assert.strictEqual(r.motivo, "no tienes suficientes Farycoins");
-  assert.strictEqual(await bd.obtenerFarycoins((await bd.obtenerOCrearJugador("Bjorn")).id), 0, "no se descontó nada");
+  assert.strictEqual(await bd.obtenerFarycoins((await bd.obtenerOCrearJugador("Bjorn")).id), 20, "no se descontó nada (sigue con el saldo inicial)");
   assert.strictEqual(await bd.obtenerPropiedad("i_aldea:tienda_01"), null, "la propiedad sigue libre");
   await bd.cerrar();
 });
@@ -584,7 +584,7 @@ test("Propiedades: comprarOAlquilar sobre una propiedad YA ocupada reembolsa y f
   assert.strictEqual(r.ok, false);
   if (r.ok) return;
   assert.strictEqual(r.motivo, "ya no está disponible");
-  assert.strictEqual(await bd.obtenerFarycoins(segundo.id), 1000, "el reembolso deja el saldo intacto");
+  assert.strictEqual(await bd.obtenerFarycoins(segundo.id), 1020, "el reembolso deja el saldo intacto (20 iniciales + 1000)");
   assert.strictEqual((await bd.obtenerPropiedad("i_aldea:casa_humilde_02"))?.dueno, "Ragnar", "el primer comprador sigue siendo el dueño");
   await bd.cerrar();
 });
@@ -643,7 +643,7 @@ test("Propiedades: renovarTenencia extiende expiraEn (no resetea) y cobra de nue
   const expiraOriginal = new Date(primero.expiraEn!).getTime();
   const expiraNueva = new Date(r.expiraEn).getTime();
   assert.strictEqual(expiraNueva - expiraOriginal, 24 * 3600_000, "extiende +24h desde la expiración ANTERIOR, no desde ahora");
-  assert.strictEqual(await bd.obtenerFarycoins(inquilino.id), 1000 - 15 - 15, "cobra el precio de nuevo");
+  assert.strictEqual(await bd.obtenerFarycoins(inquilino.id), 20 + 1000 - 15 - 15, "cobra el precio de nuevo");
 
   const intento = await bd.renovarTenencia("h_aldea:taberna_02:0:1", "OtroJugador", 24, 15);
   assert.strictEqual(intento.ok, false);
@@ -706,20 +706,20 @@ test("Mercado: comprarDeTenderete cobra al comprador, decrementa stock, acredita
   assert.strictEqual(r.ok, true);
   if (!r.ok) return;
   assert.strictEqual(r.precioTotal, 15);
-  assert.strictEqual(r.saldoRestante, 85);
+  assert.strictEqual(r.saldoRestante, 105); // 20 iniciales + 100 - 15
   assert.strictEqual(r.cantidadRestante, 7);
-  assert.strictEqual(await bd.obtenerFarycoins(comprador.id), 85);
-  assert.strictEqual(await bd.obtenerFarycoins(vendedor.id), 15, "el vendedor cobra aunque nunca haya tocado la BD directamente");
+  assert.strictEqual(await bd.obtenerFarycoins(comprador.id), 105);
+  assert.strictEqual(await bd.obtenerFarycoins(vendedor.id), 35, "el vendedor cobra aunque nunca haya tocado la BD directamente (20 iniciales + 15)");
   await bd.cerrar();
 });
 
 test("Mercado: comprarDeTenderete sin Farycoins suficientes falla sin tocar el stock", async () => {
   const bd = new AlmacenDatos(":memory:");
-  await bd.obtenerOCrearJugador("Bjorn"); // nace a 0
+  await bd.obtenerOCrearJugador("Bjorn"); // nace con 20, no le llega para 10x5=50
   await bd.reponerStockTenderete("p_0001", "madera", 10, 5);
 
   const r = await bd.comprarDeTenderete({
-    tenderoteId: "p_0001", itemId: "madera", cantidad: 3,
+    tenderoteId: "p_0001", itemId: "madera", cantidad: 10,
     compradorNombre: "Bjorn", duenoNombre: "Ragnar",
   });
   assert.strictEqual(r.ok, false);
@@ -742,7 +742,7 @@ test("Mercado: comprarDeTenderete sin stock suficiente reembolsa al comprador (t
   assert.strictEqual(r.ok, false);
   if (r.ok) return;
   assert.strictEqual(r.motivo, "no queda stock suficiente");
-  assert.strictEqual(await bd.obtenerFarycoins(comprador.id), 100, "reembolso completo, nada perdido");
+  assert.strictEqual(await bd.obtenerFarycoins(comprador.id), 120, "reembolso completo, nada perdido (20 iniciales + 100)");
   assert.strictEqual((await bd.listarStockTenderete("p_0001"))[0].cantidad, 2, "el stock no bajó de 0");
   await bd.cerrar();
 });

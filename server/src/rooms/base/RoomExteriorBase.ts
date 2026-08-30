@@ -1,16 +1,17 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { pielDeDesollado, rellenarLootCaza } from "../../mundo/lootCaza";
 import { estaEncerrado, tiroEscape } from "../../mundo/ganaderia";
 import { cargarCatalogoReproduccionGranja, resolverReproduccionPropiedad } from "../../mundo/reproduccionGranja";
+import { NPC_TENDERO_VENTA, NPC_TENDERO_COMPRA, REPOSICION_STOCK_NPC } from "../../mercado/catalogoNpcComercio";
 import { diaFraccional } from "../../mundo/reproduccionFauna";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
-import { cargarCatalogoArenas, elegirArena } from "../../combate/seleccionArena";
+import { cargarCatalogoArenas, elegirArena, EntradaArena } from "../../combate/seleccionArena";
 import { MundoColision, moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO_PJ, tipoEn, casillaAguaCercana } from "../../mundo/colisiones";
 import {
   UnidadCombate,
@@ -47,7 +48,7 @@ import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
 import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
 import { CatalogoBarcos, cargarCatalogoBarcos } from "../../mundo/catalogoBarcos";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, PREFIJO_NPC_COMERCIANTE } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -164,6 +165,10 @@ const TOPE_RONDAS_CASCADA_IA = 60; // guarda-raíl: nunca debe hacer falta, pero
 // Ventana de unión antes de instanciar la arena (docs/GDD_Combate.md §9.1,
 // pedido 2026-08-30) — placeholder de balance, mismo criterio que el resto.
 const VENTANA_UNION_COMBATE_MS = 60_000;
+// Agro por distancia (docs/GDD_Combate.md §7bis, pedido 2026-08-30: "el
+// depredador de tierra [y de agua] con triggers por distancia") — radio de
+// una especie `peligroso` sin `radioAgro` propio en el catálogo.
+const RADIO_AGRO_DEFECTO = 5;
 
 // --- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ---
 // Placeholders de balance — mismo criterio que pesoMaximoTransportable
@@ -433,6 +438,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // concreto de room; InteriorRoom en cambio sobreescribe buscarCogibleEnMundo.
   protected mapaExterior?: MapaCargado;
 
+  /** slotId (clave de `state.npcs`) → oficio, poblado por RegionRoom desde poblacion.json al cargar el mapa (docs/GDD_Economia.md) — SOLO se usa hoy para encontrar NPCs "tendero" con comercio real; el resto de oficios sigue siendo flavor. */
+  protected oficiosNpc = new Map<string, string>();
+
   // --- construcción/parcelas/jarl (docs/GDD_Construccion.md) ---
   // Antes SOLO en HubRoom; con construcción-en-regiones (docs/
   // GDD_Ciudad_Capital.md §3bis, ciudad capital como RegionRoom con reglas
@@ -472,9 +480,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private timeoutsVentanaCombate = new Map<string, Delayed>();
   /** Lo que mandó cada jugador en combate:iniciar/unirse para poder volver EXACTAMENTE de donde salió — vive y muere con el combate, nunca se persiste. */
   private retornosPendientes = new Map<string, RetornoJugador>();
-  private catalogoArenas?: string[];
+  private catalogoArenas?: EntradaArena[];
   /** docs/GDD_Caza.md — combates de "modo caza": sin ventana de unión, `cerrarVentanaCombate` se llama al instante y sus bucles de auto-unión (Enemigo/Fauna hostiles cercanos) se saltan. Se consume (borra) al usarse. */
   private combatesSinAutoUnion = new Set<string>();
+  /**
+   * docs/GDD_Combate.md §7bis (pedido 2026-08-30) — ids de fauna/enemigo que
+   * se fueron a pelear a una room de arena aparte: su entidad SIGUE viva en
+   * `state.fauna` de esta room (nadie la borra hasta que muera o vuelva),
+   * así que sin esto `verificarAgroFauna`/`manejarCombateIniciar` la
+   * verían "libre" y podrían meterla en un SEGUNDO combate simultáneo
+   * mientras la primera pelea sigue en curso en otro sitio. Se añade al
+   * cerrar la ventana de unión (cerrarVentanaCombate) y se quita cuando el
+   * resultado vuelve (aplicarResultadoRemoto) — vive y muere con la room.
+   */
+  protected enOtraArena = new Set<string>();
 
   protected iniciarMovimiento() {
     this.setState(new HubState());
@@ -624,6 +643,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("tenderete:listarAnimal", (client, msg: { tenderoteId?: string; animalId?: string; precioFarycoins?: number }) => void this.manejarTenderoteListarAnimal(client, msg));
     this.onMessage("tenderete:quitarAnimalListado", (client, msg: { animalId?: string }) => void this.manejarTenderoteQuitarAnimalListado(client, msg));
     this.onMessage("tenderete:comprarAnimal", (client, msg: { tenderoteId?: string; animalId?: string; propiedadDestino?: string }) => void this.manejarTenderoteComprarAnimal(client, msg));
+
+    // --- comercio con NPC tendero (docs/GDD_Economia.md, pedido 2026-08-30)
+    // — auto-apuntado por proximidad al NPC "tendero" más cercano (mismo
+    // criterio que mascota/cadáver/fauna), NO reusa tenderete:* (ese exige
+    // una propiedad con dueño-jugador vía duenoDeTenderete; un NPC bakeado
+    // no tiene propiedad ni jugador real detrás).
+    this.onMessage("npc:comercioEscaparate", (client) => void this.manejarNpcComercioEscaparate(client));
+    this.onMessage("npc:comprar", (client, msg: { npcId?: string; itemId?: string; cantidad?: number }) => void this.manejarNpcComprar(client, msg));
+    this.onMessage("npc:vender", (client, msg: { npcId?: string; instanciaId?: number; cantidad?: number }) => void this.manejarNpcVender(client, msg));
 
     // --- producción/plantillas del jarl/transporte (docs/GDD_Produccion.md)
     // — mismo criterio que mercado: disponibles en cualquier room, no-op si
@@ -3347,6 +3375,135 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("tenderete:animalComprado", { tenderoteId: msg.tenderoteId, animalId: msg.animalId, especieId: resultado.especieId, precioTotal: resultado.precioTotal });
   }
 
+  // ---- Comercio con NPC tendero (docs/GDD_Economia.md, pedido 2026-08-30) ----
+  // Cada NPC "tendero" es su propio comerciante: saldo real (jugadores.nombre
+  // = "npc:<slotId>", SALDO_INICIAL_NPC_COMERCIANTE) y catálogo fijo de
+  // compra/venta (catalogoNpcComercio.ts). Reusa `tenderete_items` como
+  // almacén de stock (misma tabla que el Mercado de jugadores) pero NUNCA
+  // pasa por `duenoDeTenderete` — no hay propiedad detrás, solo el NPC.
+
+  private errorNpc(client: Client, motivo: string) {
+    client.send("npc:error", { motivo });
+  }
+
+  /** NPC "tendero" más cercano dentro de RADIO_INTERACCION — mismo criterio de auto-apuntado que mascota/cadáver/fauna. */
+  private npcTenderoMasCercano(x: number, y: number): { id: string; npc: Npc } | null {
+    let mejorId: string | null = null;
+    let mejorNpc: Npc | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    for (const [id, npc] of this.state.npcs.entries()) {
+      if (this.oficiosNpc.get(id) !== "tendero") continue;
+      const d = Math.hypot(npc.x - x, npc.y - y);
+      if (d < mejorDist) { mejorDist = d; mejorId = id; mejorNpc = npc; }
+    }
+    return mejorId && mejorNpc ? { id: mejorId, npc: mejorNpc } : null;
+  }
+
+  private tenderoteIdDeNpc(npcId: string): string {
+    return `${PREFIJO_NPC_COMERCIANTE}${npcId}`;
+  }
+
+  /**
+   * Ingreso diario del NPC (docs/GDD_Economia.md, pedido 2026-08-30: "los
+   * npc cada día reciben 20 Farycoins también, así aumentan su dinero,
+   * solo si están cargados o se acerca alguien") — cálculo perezoso, se
+   * llama SIEMPRE que un jugador se acerca a este NPC de verdad (escaparate/
+   * comprar/vender), nunca con un tick de fondo: si nadie lo visita en
+   * días, se pone al día de golpe la próxima vez que alguien llegue.
+   */
+  private async resolverIngresoDiarioNpc(npcId: string): Promise<void> {
+    const bd = await obtenerBdCompartida();
+    await bd.resolverIngresoDiarioNpc(this.tenderoteIdDeNpc(npcId), tiempoMundo().dia);
+  }
+
+  /** Público: catálogo de venta/compra del NPC más cercano — sin gating de dueño (no hay dueño, es un comerciante del mundo). */
+  private async manejarNpcComercioEscaparate(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const cercano = this.npcTenderoMasCercano(player.x, player.y);
+    if (!cercano) return this.errorNpc(client, "no hay ningún comerciante cerca");
+    await this.resolverIngresoDiarioNpc(cercano.id);
+    client.send("npc:comercioEscaparate", {
+      npcId: cercano.id,
+      nombre: cercano.npc.nombre,
+      venta: Object.entries(NPC_TENDERO_VENTA).map(([itemId, precioFarycoins]) => ({ itemId, precioFarycoins })),
+      compra: Object.entries(NPC_TENDERO_COMPRA).map(([itemId, precioFarycoins]) => ({ itemId, precioFarycoins })),
+    });
+  }
+
+  /** Comprar: el jugador paga, el NPC entrega — reusa `bd.comprarDeTenderete` tal cual, con tenderoteId/duenoNombre sintéticos del NPC. Repone stock perezosamente si se agotó (nunca un tick de fondo: solo al intentar comprar). */
+  private async manejarNpcComprar(client: Client, msg: { npcId?: string; itemId?: string; cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player || !msg?.npcId || !msg.itemId) return;
+    const npc = this.state.npcs.get(msg.npcId);
+    if (!npc || this.oficiosNpc.get(msg.npcId) !== "tendero") return this.errorNpc(client, "ese comerciante no existe");
+    if (Math.hypot(npc.x - player.x, npc.y - player.y) > RADIO_INTERACCION) return this.errorNpc(client, "demasiado lejos");
+    const precioUnitario = NPC_TENDERO_VENTA[msg.itemId];
+    if (!precioUnitario) return this.errorNpc(client, "este comerciante no vende eso");
+    const cantidad = Math.max(1, Math.floor(msg.cantidad ?? 1));
+    await this.resolverIngresoDiarioNpc(msg.npcId);
+
+    const tenderoteId = this.tenderoteIdDeNpc(msg.npcId);
+    const npcNombre = tenderoteId;
+    const bd = await obtenerBdCompartida();
+    const stockActual = await bd.listarStockTenderete(tenderoteId);
+    const enStock = stockActual.find((s) => s.itemId === msg.itemId)?.cantidad ?? 0;
+    if (enStock < cantidad) await bd.reponerStockTenderete(tenderoteId, msg.itemId, REPOSICION_STOCK_NPC, precioUnitario);
+
+    const r = await bd.comprarDeTenderete({ tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: npcNombre });
+    if (!r.ok) return this.errorNpc(client, r.motivo);
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const resultado = contenedor ? intentarCoger(contenedor, this.catalogoItems, { itemId: msg.itemId, cantidad }) : { ok: false as const };
+    if (!resultado.ok) {
+      await bd.ajustarFarycoins((await bd.obtenerOCrearJugador(nombre)).id, r.precioTotal);
+      await bd.reponerStockTenderete(tenderoteId, msg.itemId, cantidad, precioUnitario);
+      return this.errorNpc(client, "no tienes hueco en tu inventario");
+    }
+    sincronizarContenedor(player.inventario.cuerpo, contenedor!);
+    void this.otorgarXpAtributoPorSesion(client, "carisma", XP_CARISMA_POR_COMPRAR);
+    client.send("npc:compraResultado", { npcId: msg.npcId, itemId: msg.itemId, cantidad, precioTotal: r.precioTotal, saldoRestante: r.saldoRestante });
+  }
+
+  /**
+   * Vender: el jugador entrega el ítem, el NPC paga con SU PROPIO saldo
+   * (limitado — `venderANpc` falla "todo o nada" si no le llega) y el
+   * ítem se CONSUME (v1 deliberadamente simple, sin revenderlo — evita un
+   * bucle comprar-barato/vender-caro contra el mismo NPC).
+   */
+  private async manejarNpcVender(client: Client, msg: { npcId?: string; instanciaId?: number; cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player || !msg?.npcId || typeof msg.instanciaId !== "number") return;
+    const npc = this.state.npcs.get(msg.npcId);
+    if (!npc || this.oficiosNpc.get(msg.npcId) !== "tendero") return this.errorNpc(client, "ese comerciante no existe");
+    if (Math.hypot(npc.x - player.x, npc.y - player.y) > RADIO_INTERACCION) return this.errorNpc(client, "demasiado lejos");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const it = contenedor?.items.find((i) => i.id === msg.instanciaId);
+    if (!contenedor || !it) return this.errorNpc(client, "no tienes ese objeto");
+    const precioUnitario = NPC_TENDERO_COMPRA[it.itemId];
+    if (!precioUnitario) return this.errorNpc(client, "este comerciante no compra eso");
+    const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
+    await this.resolverIngresoDiarioNpc(msg.npcId); // antes de cobrar: que el ingreso de hoy ya cuente para lo que puede pagar
+
+    const bd = await obtenerBdCompartida();
+    const r = await bd.venderANpc({ npcNombre: this.tenderoteIdDeNpc(msg.npcId), itemId: it.itemId, cantidad, precioUnitario, vendedorNombre: nombre });
+    if (!r.ok) return this.errorNpc(client, r.motivo);
+
+    const resultado = quitarItem(contenedor, msg.instanciaId, cantidad);
+    if (!resultado.ok) {
+      // no debería pasar (ya comprobamos cantidad arriba), pero si pasa, deshace el cobro al NPC y el abono al jugador.
+      await bd.ajustarFarycoins((await bd.obtenerOCrearJugador(this.tenderoteIdDeNpc(msg.npcId))).id, r.precioTotal);
+      await bd.ajustarFarycoins((await bd.obtenerOCrearJugador(nombre)).id, -r.precioTotal);
+      return this.errorNpc(client, resultado.motivo ?? "no se pudo vender");
+    }
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    void this.otorgarXpAtributoPorSesion(client, "carisma", XP_CARISMA_POR_REPONER);
+    client.send("npc:ventaResultado", { npcId: msg.npcId, itemId: it.itemId, cantidad, precioTotal: r.precioTotal, saldoRestante: r.saldoRestante });
+  }
+
   // ---- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ----
   // Todo gira sobre `ctxConstruccion.vivas` (construcciones ya existentes:
   // colmenas del "construir" normal, plantillas del jarl) y reusa
@@ -5326,11 +5483,43 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const manejado = await this.onFaunaMuerta(id);
       if (!manejado) this.state.fauna.delete(id); // sin GestorFaunaSalvaje en esta room: solo se quita del estado
     } else if (tipo === "enemigo") {
+      await this.repartirLootFarycoinsPorMuerte(id);
       this.state.enemigos.delete(id);
     } else if (tipo === "npc") {
       this.state.npcs.delete(id);
     } else if (tipo === "jugador") {
       await this.manejarMuerteJugador(id);
+    }
+  }
+
+  /**
+   * Loot de Farycoins al matar un enemigo hostil (docs/GDD_Economia.md,
+   * pedido 2026-08-30: "al matar npc pueden lotear de 1 a 20 farycoins
+   * aleatoriamente") — SOLO `enemigos` (bandidos/mazmorra, que sí tienen
+   * combate y muerte reales); fauna y NPCs civiles quedan fuera a
+   * propósito (civiles ni siquiera son atacables hoy). Cada jugador del
+   * bando ganador de ESE combate concreto tira su PROPIA moneda 1-20 —
+   * decisión simple y ajustable si en grupo grande se ve desbalanceado.
+   */
+  private async repartirLootFarycoinsPorMuerte(enemigoId: string) {
+    const existente = this.combatePorUnidad(enemigoId);
+    if (!existente) return;
+    const [, combate] = existente;
+    const cuEnemigo = combate.unidades.get(enemigoId);
+    if (!cuEnemigo) return;
+    const ganadores: string[] = [];
+    for (const cu of combate.unidades.values()) {
+      if (cu.esJugador && cu.bando !== cuEnemigo.bando && cu.estado === "activo") ganadores.push(cu.id);
+    }
+    if (ganadores.length === 0) return;
+    const bd = await obtenerBdCompartida();
+    for (const sessionId of ganadores) {
+      const nombre = this.state.players.get(sessionId)?.name;
+      if (!nombre) continue;
+      const cantidad = 1 + Math.floor(Math.random() * 20); // 1..20, pedido explícito
+      const jugador = await bd.obtenerOCrearJugador(nombre);
+      const r = await bd.ajustarFarycoins(jugador.id, cantidad);
+      this.clients.find((c) => c.sessionId === sessionId)?.send("economia:loot", { motivo: "enemigo", farycoins: cantidad, saldo: r.saldo });
     }
   }
 
@@ -5573,6 +5762,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   /** Aplica el resultado final de un combatiente NO-jugador que peleó en una arena aparte, sobre SU entidad real en esta room (docs/GDD_Combate.md §9.2) — mismo efecto que si hubiera muerto/sobrevivido aquí mismo. */
   public async aplicarResultadoRemoto(id: string, hp: number, estadoFinal: "activo" | "caido" | "huido") {
+    this.enOtraArena.delete(id); // docs/GDD_Combate.md §7bis — la pelea remota ya terminó, vuelve a estar disponible (no-op si `id` es un jugador, nunca estuvo aquí)
     this.aplicarVida(id, hp);
     if (estadoFinal === "caido") await this.finalizarMuerte(id);
   }
@@ -5600,6 +5790,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return;
     }
 
+    // docs/GDD_Combate.md §7bis — ya se fue a pelear a otra arena (nadie lo
+    // borra de aquí hasta que esa pelea termine): no se puede iniciar OTRO
+    // combate contra el mismo bicho mientras tanto.
+    if (this.enOtraArena.has(msg.objetivoId)) return client.send("combate:error", { motivo: "ya está en otro combate" });
     const objetivoStats = this.statsCombatiente(msg.objetivoId);
     if (!objetivoStats) return client.send("combate:error", { motivo: "objetivo no encontrado" });
     // PvP (docs/GDD_PvP.md, pedido 2026-08-30): atacar a OTRO jugador solo
@@ -5654,6 +5848,70 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     } else {
       this.timeoutsVentanaCombate.set(combateId, this.clock.setTimeout(() => this.cerrarVentanaCombate(combateId), VENTANA_UNION_COMBATE_MS));
     }
+  }
+
+  /**
+   * Agro por distancia (docs/GDD_Combate.md §7bis, pedido 2026-08-30: "la
+   * orca/tiburón/depredador en agua debe funcionar como el depredador de
+   * tierra con triggers por distancia") — a diferencia de
+   * `comprobarEncuentrosAutomaticos` (HubRoom, solo NPC-vs-fauna, resuelve
+   * la pelea entera de golpe con `simularCombateAutomatico`), esto abre un
+   * combate INTERACTIVO real contra el jugador (ventana de unión, arena,
+   * turnos) — mismo camino que `manejarCombateIniciar`, solo que lo dispara
+   * la fauna, no una tecla. Cualquier especie `peligroso` con un jugador
+   * (que no esté ya en combate) dentro de su `radioAgro` ataca por su
+   * cuenta. Un encuentro por pasada, mismo criterio de sencillez que
+   * `comprobarEncuentrosAutomaticos` — de sobra para un mecanismo recién
+   * estrenado; llamar a este método a baja frecuencia (200ms-1s) desde el
+   * mismo intervalo que ya tickea el merodeo de fauna (HubRoom/RegionRoom).
+   */
+  protected verificarAgroFauna() {
+    for (const [faunaId, fauna] of this.state.fauna.entries()) {
+      if (this.combatePorUnidad(faunaId) || this.enOtraArena.has(faunaId)) continue;
+      const datos = this.estadisticasFaunaDe(fauna.especieId);
+      if (!datos?.peligroso) continue;
+      const radio = datos.radioAgro ?? RADIO_AGRO_DEFECTO;
+
+      let masCercano: { id: string; d: number } | null = null;
+      for (const [jugadorId, jugador] of this.state.players.entries()) {
+        if (this.combatePorUnidad(jugadorId)) continue;
+        const d = Math.hypot(jugador.x - fauna.x, jugador.y - fauna.y);
+        if (d <= radio && (!masCercano || d < masCercano.d)) masCercano = { id: jugadorId, d };
+      }
+      if (masCercano) {
+        this.iniciarCombateFaunaVsJugador(faunaId, masCercano.id);
+        return;
+      }
+    }
+  }
+
+  /** Abre el combate interactivo real fauna-vs-jugador (bando B=fauna, A=jugador) — mismo montaje de arena/CombateSchema/ventana que manejarCombateIniciar, sin `esModoCaza` (la fauna peligrosa nunca es presa pasiva) ni `client`/`retorno` (dispara la propia fauna: el jugador vuelve al Hub por defecto al terminar, mismo fallback que ya usa ArenaCombateRoom para un PvP sin retorno capturado). */
+  protected iniciarCombateFaunaVsJugador(faunaId: string, jugadorId: string) {
+    const jugador = this.state.players.get(jugadorId);
+    const faunaStats = this.statsCombatiente(faunaId);
+    if (!jugador || !faunaStats) return;
+
+    const cx = Math.floor((jugador.x + faunaStats.x) / 2);
+    const cy = Math.floor((jugador.y + faunaStats.y) / 2);
+    const { gx0, gy0, arena } = this.construirArenaDeCombate(cx, cy, LADO_ARENA_NORMAL);
+
+    const combate = new CombateSchema();
+    combate.gx0 = gx0; combate.gy0 = gy0; combate.ancho = arena.ancho; combate.alto = arena.alto;
+    for (const casilla of arena.obstaculos) combate.obstaculos.push(casilla);
+
+    const uJugador = this.crearUnidadCombate(jugadorId, "A", jugador.x - gx0, jugador.y - gy0, {
+      hp: jugador.vida, hpMax: jugador.vidaMax, ataque: jugador.ataque, defensa: jugador.defensa, esJugador: true,
+    });
+    const uFauna = this.crearUnidadCombate(faunaId, "B", faunaStats.x - gx0, faunaStats.y - gy0, faunaStats);
+    combate.unidades.set(jugadorId, uJugador);
+    combate.unidades.set(faunaId, uFauna);
+
+    combate.fase = "pendiente";
+    combate.cierraEn = Date.now() + VENTANA_UNION_COMBATE_MS;
+
+    const combateId = `combate:agro:${faunaId}:${Date.now()}`;
+    this.state.combates.set(combateId, combate);
+    this.timeoutsVentanaCombate.set(combateId, this.clock.setTimeout(() => this.cerrarVentanaCombate(combateId), VENTANA_UNION_COMBATE_MS));
   }
 
   /** Unirse al bando del jugador que empezó el combate, mientras la ventana de unión sigue abierta (docs/GDD_Combate.md §9.1). */
@@ -5726,16 +5984,39 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Roster para la room de arena — la fuente de verdad de este combate
     // deja de ser esta room a partir de aquí.
     const participantes: RosterArena["participantes"] = [];
+    // Combate acuático (docs/GDD_Barcos.md, pedido 2026-08-30): "en el mar
+    // el combate es diferente (orcas, tiburones)... el sprite del lugar es
+    // agua" — cualquier especie hostil con requiereAgua (ya en baker/
+    // catalogo/animales.json, leído en vivo por primera vez aquí) vuelve
+    // TODO el combate acuático: arena de agua para todos, y la tripulación
+    // de un barco no se oculta como una montura normal (más abajo).
+    let combateEsAcuatico = false;
+    for (const u of combate.unidades.values()) {
+      if (u.esJugador || this.state.enemigos.has(u.id)) continue;
+      const f = this.state.fauna.get(u.id);
+      if (f && this.estadisticasFaunaDe(f.especieId)?.requiereAgua) { combateEsAcuatico = true; break; }
+    }
     for (const u of combate.unidades.values()) {
       if (u.esJugador) {
+        const enBarco = this.barcosPorSesion.get(u.id);
         participantes.push({
           id: u.id, bando: u.bando as Bando, esJugador: true,
           hp: u.hp, hpMax: u.hpMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
           nombreJugador: this.state.players.get(u.id)?.name,
           retorno: this.retornosPendientes.get(u.id),
+          // Solo si el combate es acuático Y de verdad iba en un barco: el
+          // capitán se ve EN el barco, el resto de la tripulación nadando —
+          // puramente cosmético, "no da más bonus ni nada" (pedido literal).
+          visualCombate: combateEsAcuatico && enBarco ? (enBarco.esCapitan ? "barco" : "nadando") : undefined,
+          barcoTipoId: combateEsAcuatico && enBarco?.esCapitan ? this.state.barcos.get(String(enBarco.barcoId))?.tipoId : undefined,
         });
         this.retornosPendientes.delete(u.id);
       } else {
+        // docs/GDD_Combate.md §7bis — su entidad sigue viva aquí (nadie la
+        // borra hasta que la pelea termine): márcala "ocupada" para que
+        // verificarAgroFauna/manejarCombateIniciar no la metan en un
+        // segundo combate simultáneo mientras esta sigue en curso.
+        this.enOtraArena.add(u.id);
         const esEnemigo = this.state.enemigos.has(u.id);
         const base = {
           id: u.id, bando: u.bando as Bando, esJugador: false,
@@ -5753,7 +6034,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     if (!this.catalogoArenas) this.catalogoArenas = cargarCatalogoArenas();
-    const mapaArenaId = elegirArena(combateId, this.catalogoArenas);
+    const mapaArenaId = elegirArena(combateId, this.catalogoArenas, combateEsAcuatico ? "agua" : "tierra");
     registrarRosterArena(combateId, { mapaArenaId, participantes, origenRoomId: this.roomId });
 
     const marcador = new MarcadorCombateSchema();
@@ -5769,7 +6050,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // viaja con él). La mascota reaparece "siguiendo" en esta room.
       this.desmontarSesionId(p.id);
       // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): mismo criterio que
-      // una montura animal — "ni el PJ montado" también vale para un barco.
+      // una montura animal en combate NORMAL — pero en combate ACUÁTICO el
+      // roster de arriba ya capturó "quién iba en el barco" (visualCombate)
+      // ANTES de este desembarco, así que la instantánea cosmética de la
+      // arena no se pierde aunque el barco sí se ancle aquí de verdad.
       void this.desembarcarSesionId(p.id);
       const c = this.clients.find((cl) => cl.sessionId === p.id);
       c?.send("portal:ir", { tipo: "combate", combateId, mapaArenaId });
