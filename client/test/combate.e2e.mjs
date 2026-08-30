@@ -100,29 +100,44 @@ try {
   }, 15000, 100);
   comprobar("el jugador llega a menos de RADIO_INTERACCION del objetivo", !!llego, `distancia final=${distanciaInicial().toFixed(2)}`);
 
-  // 3) iniciar combate.
+  // 3) iniciar combate. Registrar el listener de portal:ir ANTES de mandar
+  // el mensaje (docs/GDD_Caza.md, pedido 2026-08-30): si el objetivo NO es
+  // fauna "peligrosa" (el caso normal para lo que suele haber cerca del
+  // spawn del mapa demo — conejo/ciervo...), el servidor entra en "modo
+  // caza" y salta la ventana de unión ENTERA de forma síncrona dentro del
+  // mismo mensaje — crea el CombateSchema en el Hub Y lo mueve a la arena
+  // (borrándolo del Hub) antes de que llegue ningún patch al cliente, así
+  // que nunca se observa un CombateSchema "pendiente" en room.state.combates
+  // para ese caso. Fauna SÍ peligrosa mantiene el flujo con ventana real.
+  let portalArena = null;
+  room.onMessage("portal:ir", (m) => (portalArena = m));
   room.send("combate:iniciar", { objetivoId });
+
   const combateId = await esperarCondicion(() => {
+    if (portalArena?.tipo === "combate") return portalArena.combateId; // modo caza: ya está en la arena
     for (const [id, c] of room.state.combates.entries()) {
       if (c.unidades.has(objetivoId)) return id;
     }
     return null;
   }, 3000, 100);
-  comprobar("combate:iniciar crea un CombateSchema con las dos unidades", !!combateId, errorRecibido ? JSON.stringify(errorRecibido) : "sin combateId");
+  comprobar("combate:iniciar crea el combate (directo a arena en modo caza, o CombateSchema en el Hub)", !!combateId, errorRecibido ? JSON.stringify(errorRecibido) : "sin combateId");
   if (!combateId) throw new Error("no se pudo iniciar combate (probablemente demasiado lejos del animal en el spawn de prueba)");
 
-  // 3bis) ventana de unión (docs/GDD_Combate.md §9.1) — arranca "pendiente"
-  // (nadie tiene turno todavía); "comenzar ya" la salta, no hay nadie más
-  // que se vaya a unir a pelear contra un animal salvaje solo. Cerrar la
-  // ventana INSTANCIA el combate en una arena aparte (§9.2) — portal:ir
-  // avisa a dónde ir.
-  comprobar("el combate arranca en fase 'pendiente' (ventana de unión)", room.state.combates.get(combateId)?.fase === "pendiente");
-  let portalArena = null;
-  room.onMessage("portal:ir", (m) => (portalArena = m));
-  room.send("combate:comenzarYa", { combateId });
-  const llegoPortal = await esperarCondicion(() => portalArena?.tipo === "combate" && portalArena?.combateId === combateId, 2000, 100);
-  comprobar("comenzarYa cierra la ventana e instancia la arena (portal:ir)", !!llegoPortal, JSON.stringify(portalArena));
-  comprobar("el combate desaparece del Hub (se fue a la arena)", !room.state.combates.has(combateId));
+  const modoCaza = portalArena?.tipo === "combate" && portalArena.combateId === combateId;
+  if (modoCaza) {
+    comprobar("modo caza (fauna no peligrosa): salta la ventana de unión y va directo a la arena (portal:ir)", true, JSON.stringify(portalArena));
+  } else {
+    // 3bis) ventana de unión normal (docs/GDD_Combate.md §9.1) — arranca
+    // "pendiente" (nadie tiene turno todavía); "comenzar ya" la salta, no
+    // hay nadie más que se vaya a unir a pelear contra un animal salvaje
+    // solo. Cerrar la ventana INSTANCIA el combate en una arena aparte
+    // (§9.2) — portal:ir avisa a dónde ir.
+    comprobar("el combate arranca en fase 'pendiente' (ventana de unión)", room.state.combates.get(combateId)?.fase === "pendiente");
+    room.send("combate:comenzarYa", { combateId });
+    const llegoPortal = await esperarCondicion(() => portalArena?.tipo === "combate" && portalArena?.combateId === combateId, 2000, 100);
+    comprobar("comenzarYa cierra la ventana e instancia la arena (portal:ir)", !!llegoPortal, JSON.stringify(portalArena));
+    comprobar("el combate desaparece del Hub (se fue a la arena)", !room.state.combates.has(combateId));
+  }
 
   room.leave();
   await esperar(300);
@@ -142,7 +157,7 @@ try {
   // moverse un paso hacia él; si no es su turno, pasar turno y esperar.
   let rondas = 0;
   let objetivoMuerto = false;
-  while (rondas < 80) {
+  while (rondas < 300) {
     rondas++;
     const combate = arena.state.combates.get(combateId);
     if (!combate) { objetivoMuerto = true; break; } // el combate ya se resolvió y se borró del Map
@@ -168,7 +183,12 @@ try {
       arena.send("combate:mover", { combateId, gx: propia.gx + dx, gy: propia.gy + dy });
       await esperar(150);
     }
-    if (propia.pa <= 0) {
+    // "sin PA suficiente" (menos PA que COSTE_PA_ATAQUE, valor solo-servidor
+    // por el mismo criterio que `alcance`) es una razón tan válida como
+    // pa<=0 para pasar turno — sin esto el cliente reintenta atacar en
+    // bucle sin avanzar nunca (bug real del smoke test, no del servidor).
+    const propiaActual = arena.state.combates.get(combateId)?.unidades.get(arena.sessionId);
+    if (!propiaActual || propiaActual.pa <= 0 || errorArena?.motivo === "sin PA suficiente") {
       arena.send("combate:pasarTurno", { combateId });
       await esperar(150);
     }
