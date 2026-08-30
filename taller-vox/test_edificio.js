@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const tiposEdificio = require("../interiores/catalogo/tipos_edificio.json");
-const { generarEdificio, clasificarEdificio, ARQUETIPO_FN, POR_ARQUETIPO, generarTodo, U, PAD, MADERA_CLARA, elegirTecho, ESTILOS_VENTANA } = require("./generar_edificio");
+const { generarEdificio, clasificarEdificio, ARQUETIPO_FN, POR_ARQUETIPO, generarTodo, U, PAD, MADERA_CLARA, TONOS_PUERTA, elegirTecho, ESTILOS_VENTANA } = require("./generar_edificio");
 
 const TODOS_LOS_TIPOS = Object.keys(tiposEdificio).filter((id) => !id.startsWith("_"));
 
@@ -103,12 +103,13 @@ test("elegirTecho: adobe da un tejado propio, no paja ni pizarra", () => {
 
 test("TODOS los edificios llevan puerta sí o sí (hoja en la fachada sur, planta baja)", () => {
   // la hoja de la puerta siempre cae en z0=z1=PAD-1, y0=0 — invariante de
-  // puertaEnFachada(pisos[0]/planta0) en TODOS los arquetipos, con o sin ala/elongación
+  // puertaEnFachada(pisos[0]/planta0) en TODOS los arquetipos, con o sin ala/elongación.
+  // El color de la hoja ahora varía por semilla (TONOS_PUERTA), no es siempre MADERA_CLARA.
   for (const tipoId of TODOS_LOS_TIPOS) {
     const m = generarEdificio(tipoId, 1);
-    const idxHoja = m.paleta.indexOf(MADERA_CLARA);
-    assert.ok(idxHoja !== -1, `${tipoId}: ni siquiera aparece el color de la hoja de puerta`);
-    const tienePuerta = m.cajas.some(([x0, y0, z0, x1, y1, z1, p]) => p === idxHoja && y0 === 0 && z0 === PAD - 1 && z1 === PAD - 1);
+    const idxsHoja = new Set(TONOS_PUERTA.map((hex) => m.paleta.indexOf(hex)).filter((i) => i !== -1));
+    assert.ok(idxsHoja.size > 0, `${tipoId}: ni siquiera aparece ningún color de hoja de puerta`);
+    const tienePuerta = m.cajas.some(([x0, y0, z0, x1, y1, z1, p]) => idxsHoja.has(p) && y0 === 0 && z0 === PAD - 1 && z1 === PAD - 1);
     assert.ok(tienePuerta, `${tipoId}: no se encontró la hoja de la puerta en la posición esperada`);
   }
 });

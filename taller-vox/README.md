@@ -38,6 +38,28 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   — hasta la alfombra sin variante nombrada sale con un patrón, no siempre
   lisa. `node -e "..."` con `personajes/src/renderIso` para verificación
   visual rápida (sin script de galería dedicado todavía).
+  **Ronda 2 de variantes (pedido 2026-08-30, "completa lo que falta")**:
+  cuatro efectos genéricos más, todos post-proceso sobre el modelo YA
+  construido (mismo patrón que `aplicarTallado`/`aplicarDesgaste`, no tocan
+  las ~10 funciones de arquetipo):
+  - `aplicarRoto` ("roto"/"rota"): quita del modelo las cajas más pequeñas
+    (< 15% del volumen máximo de la pieza — umbral RELATIVO, no absoluto,
+    para que aplique igual a piezas grandes y pequeñas) simulando huecos
+    reales, no solo un oscurecido.
+  - `aplicarIncrustacion` ("incrustado"/"incrustada"): tiñe de oro
+    (`TONOS.oro`) los vóxeles del borde superior de la caja más ancha —
+    detalle de orfebrería incrustada.
+  - `aplicarHerraje`: cuando el sufijo de la variante menciona un metal
+    (hierro/oxidado/bronce/oro/plata...), pinta remaches de ese mismo tono
+    en las esquinas de la caja más alta — herrajes reales, no solo un
+    cambio de color de toda la pieza.
+  - `aplicarTapizado` ("bordada"/"bordado", ASIENTO): tiñe el asiento
+    (caja más plana) de un tono más oscuro del color base — patrón de
+    tapizado distinto del cuero/madera del resto de la silla. Sin ejemplos
+    reales en el catálogo todavía (ningún ASIENTO tiene hoy una variante
+    "bordada" nombrada) — mecanismo probado con una variante sintética
+    temporal (22 vs 18 cajas), pendiente que el catálogo añada nombres de
+    variante de tapicería para que se dispare en producción.
 - **`generar_naturaleza.js`** — la ampliación del taller para todo lo SIN
   esqueleto (decisión del streamer; lo que tiene esqueleto sale de
   `personajes/`): árboles, arbustos, hierbas, flores, setas, cactus, algas,
@@ -154,6 +176,50 @@ offline con Node, sin dependencias, y solo sus `.glb` resultantes acaban en
   concreto, así que pueden divergir si nivel 1 no tiene plantas altas y
   nivel 3 sí) — el aspecto principal (material/forma/estilo) es siempre
   idéntico.
+
+  **Ronda 2 (pedido 2026-08-30, "completa lo que falta")**:
+  - **Color de puerta independiente del muro**: `puertaEnFachada` recibe
+    ahora `opciones.rnd` (los 10 arquetipos lo pasan) y elige la HOJA de un
+    tono real (`TONOS_PUERTA`, 6 maderas oscuras) en vez de un único
+    `MADERA_CLARA` fijo de siempre; el marco se queda oscuro (contorno
+    legible contra cualquier muro). Retrocompatible: sin `rnd`, aspecto
+    idéntico al de siempre.
+  - **Balcones en más arquetipos**: antes solo CASA. Ahora también POSADA
+    (45%, sobre la puerta, planta 1 — balcón de tabernera) e INSTITUCION
+    (35%, de mármol sobre el pórtico — balcón para hablar a la plaza), con
+    la misma comprobación de huecos ya ocupados que CASA (nunca se solapa
+    con una ventana ya pintada en esa planta+cara).
+  - **Decoración temática de fachada**: `blasonFachada` (placa de piedra +
+    emblema de color heráldico sobre la puerta, 80% en INSTITUCION),
+    `gargolasEnCornisa` (4 salientes de piedra oscura en las esquinas de la
+    cornisa de TEMPLO, antes de subir el tejado), `banderinEnFachada`
+    (mástil + tela de color vivo sobre la entrada, siempre en POSADA) — cada
+    uno un detalle pequeño que identifica el arquetipo sin depender solo de
+    su silueta.
+  - **Cúpula abovedada como tejado alternativo**: `techoAbovedado` (nueva)
+    encoge fila a fila con perfil de CUARTO DE CÍRCULO (`sqrt`) en vez del
+    lineal de `techoPiramidal` — silueta redondeada real, no un cono. 30%
+    de las veces en INSTITUCION en vez del piramidal de siempre (rotonda de
+    museo/biblioteca/ayuntamiento).
+  - **Clasificación de los 30 tipoEdificio "huérfanos"**: `clasificarEdificio`
+    ya no se limita al mapa explícito de 44 ids + fallback genérico
+    CASA/INSTITUCION — lee la señal que el catálogo YA da
+    (`temaTaller`/nombre de sala) para clasificar en el arquetipo real:
+    cualquier tipo con `temaTaller` o una sala `taller*`/`sala_molino`/
+    `gran_herreria`/`cocina` cae en TALLER (molino_agua, cabana_apicultor,
+    peletería, astillero, fundición, gran_herrería... 19 tipos que antes
+    salían como una CASA genérica), `cripta`→TEMPLO (gran_catedral),
+    `cuadra`→GRANERO (establo_comunal), `cuartel_guardia*`→MILITAR
+    (cuartel_guardia_comunal); el resto de nobles/cívicos
+    (banos_comunales/casino/gran_mercado/salon_jarl/gran_archivo/
+    capitania_puerto/academia_arcana) cae en INSTITUCION. Cero ids nuevos
+    a mano — mismo espíritu "catálogo como fuente de verdad" que el resto
+    del proyecto: un tipoEdificio futuro con sala de taller cae solo, sin
+    tocar este archivo.
+  - **Pendiente, no abordado esta ronda**: patio interior en U para
+    castillo/mansión (se valoró demasiado grande para esta pasada, requeriría
+    tocar `cuerpo()` para dejar un hueco interior real, no solo la silueta
+    exterior).
   ```bash
   node generar_edificio.js          # 1 edificio de ejemplo por arquetipo (10)
   node generar_edificio.js todo     # los ~41 tipos del catálogo (producción: lo corre el usuario)

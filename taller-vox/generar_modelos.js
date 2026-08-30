@@ -55,19 +55,31 @@ const TONOS = {
   lana: "#8a7a5a", lino: "#e8dfc0", seda: "#c9a8d8",
 };
 const TALLA_KEYWORDS = ["tallado", "tallada"];
-const DESGASTE_KEYWORDS = ["desgastada", "desgastado", "agrietada", "agrietado", "raida", "raido", "rota", "roto", "deslustrado", "oxidado", "oxidada", "vieja", "viejo"];
+const DESGASTE_KEYWORDS = ["desgastada", "desgastado", "agrietada", "agrietado", "raida", "raido", "deslustrado", "oxidado", "oxidada", "vieja", "viejo"];
+// "roto"/"rota" son un desgaste MÁS FUERTE (huecos reales, no solo oscurecido) — aparte de DESGASTE_KEYWORDS a propósito.
+const ROTO_KEYWORDS = ["roto", "rota"];
+const INCRUSTACION_KEYWORDS = ["incrustado", "incrustada"];
+const METAL_KEYS = new Set(["hierro", "oxidado", "oxidada", "bronce", "cobre", "acero", "oro", "plata", "laton", "obsidiana", "pedernal"]);
 
-/** Deriva {color, tallado, desgaste} del sufijo del id de una variante nombrada — vocabulario libre, sin match = queda el colorDebug original y sin estilo (comportamiento de siempre). */
+/** Deriva {color, tallado, desgaste, roto, incrustado, herraje} del sufijo del id de una variante nombrada — vocabulario libre, sin match = queda el colorDebug original y sin estilo (comportamiento de siempre). */
 function resolverVariante(idVariante, idBase, colorBase) {
   const sufijo = idVariante.startsWith(idBase + "_") ? idVariante.slice(idBase.length + 1) : idVariante;
   let color = colorBase;
+  let claveMaterial = null;
   for (const [clave, hex] of Object.entries(TONOS)) {
-    if (sufijo.includes(clave)) { color = hex; break; }
+    if (sufijo.includes(clave)) { color = hex; claveMaterial = clave; break; }
   }
   return {
     color,
     tallado: TALLA_KEYWORDS.some((k) => sufijo.includes(k)),
     desgaste: DESGASTE_KEYWORDS.some((k) => sufijo.includes(k)),
+    roto: ROTO_KEYWORDS.some((k) => sufijo.includes(k)),
+    incrustado: INCRUSTACION_KEYWORDS.some((k) => sufijo.includes(k)),
+    // Herraje automático (pedido 2026-08-30): si el tono elegido es un
+    // metal (hierro/bronce/acero/oro/plata...), la pieza lleva SU PROPIO
+    // ribete metálico — no hace falta una palabra clave nueva aparte,
+    // "hierro"/"oro"/etc. ya implican "esto tiene herrajes de ese metal".
+    herraje: claveMaterial != null && METAL_KEYS.has(claveMaterial) ? color : null,
   };
 }
 
@@ -127,6 +139,82 @@ function aplicarDesgaste(modelo, rnd) {
     return c;
   });
   return { ...modelo, paleta, cajas };
+}
+
+/** Roto de verdad (pedido 2026-08-30, "roto con huecos, no solo más oscuro"):
+ * quita al azar ~30% de las cajas PEQUEÑAS (detalle: pomos, remates,
+ * ranuras de tallado si las hay) — deja huecos reales en vez de solo
+ * cambiar color, sin arriesgar la estructura principal (nunca toca una
+ * caja grande, eso desmontaría el mueble entero). Determinista por rnd. */
+function aplicarRoto(modelo, rnd) {
+  const volumen = (c) => (c[3] - c[0] + 1) * (c[4] - c[1] + 1) * (c[5] - c[2] + 1);
+  const volMax = Math.max(...modelo.cajas.map(volumen));
+  const cajas = modelo.cajas.filter((c) => !(volumen(c) < volMax * 0.15 && rnd() < 0.45));
+  return { ...modelo, cajas };
+}
+
+/** Tapizado (pedido 2026-08-30): rayas de acento sobre la caja más ancha y
+ * PLANA del modelo (el asiento/cojín de una silla/banco/trono) — genérico,
+ * busca por proporción (ancho/fondo grandes, poco alto) en vez de asumir
+ * un arquetipo concreto, así funciona en cualquier ASIENTO sin tocar
+ * `generarAsiento`. Sin candidata plana clara (p.ej. un taburete muy
+ * pequeño), no hace nada. */
+function aplicarTapizado(modelo, colorAcento) {
+  let candidata = null, area = 0;
+  for (const c of modelo.cajas) {
+    const ancho = c[3] - c[0], fondo = c[5] - c[2], alto = c[4] - c[1];
+    if (ancho < 3 || fondo < 3 || alto > Math.max(2, Math.round(Math.min(ancho, fondo) * 0.35))) continue;
+    if (ancho * fondo > area) { candidata = c; area = ancho * fondo; }
+  }
+  if (!candidata) return modelo;
+  const [x0, , z0, x1, y1, z1] = candidata;
+  const paleta = modelo.paleta.slice();
+  let iAcento = paleta.indexOf(colorAcento);
+  if (iAcento === -1) { iAcento = paleta.length; paleta.push(colorAcento); }
+  const extra = [];
+  for (let x = x0; x <= x1; x += 4) extra.push([x, y1, z0, Math.min(x1, x + 1), y1, z1, iAcento]);
+  return { ...modelo, paleta, cajas: [...modelo.cajas, ...extra] };
+}
+
+/** Incrustación (pedido 2026-08-30): un pequeño acento puntual (gema/oro)
+ * centrado en la cara frontal de la caja más alta — genérico, distinto de
+ * `aplicarTallado` (que es ranurado repetido, no un único punto de foco). */
+function aplicarIncrustacion(modelo, colorAcento) {
+  let candidata = null;
+  for (const c of modelo.cajas) {
+    const ancho = c[3] - c[0], alto = c[4] - c[1];
+    if (ancho >= 2 && alto >= 2 && (!candidata || alto > candidata[4] - candidata[1])) candidata = c;
+  }
+  if (!candidata) return modelo;
+  const [x0, , z0, x1, , y1] = candidata;
+  const paleta = modelo.paleta.slice();
+  let iAcento = paleta.indexOf(colorAcento);
+  if (iAcento === -1) { iAcento = paleta.length; paleta.push(colorAcento); }
+  const cx = Math.round((x0 + x1) / 2);
+  const extra = [[cx - 1, candidata[4] - 1, z0, cx + 1, candidata[4], z0, iAcento]];
+  return { ...modelo, paleta, cajas: [...modelo.cajas, ...extra] };
+}
+
+/** Herraje (pedido 2026-08-30): ribete metálico fino arriba y abajo de la
+ * caja más ANCHA — bisagras/refuerzos visibles, se activa solo cuando el
+ * material resuelto de la variante ya es un metal (ver `herraje` en
+ * `resolverVariante`), cero palabra clave nueva que aprender. */
+function aplicarHerraje(modelo, colorMetal) {
+  let candidata = null;
+  for (const c of modelo.cajas) {
+    const ancho = c[3] - c[0];
+    if (ancho >= 3 && (!candidata || ancho > candidata[3] - candidata[0])) candidata = c;
+  }
+  if (!candidata) return modelo;
+  const [x0, y0, z0, x1, y1, z1] = candidata;
+  const paleta = modelo.paleta.slice();
+  let iMetal = paleta.indexOf(colorMetal);
+  if (iMetal === -1) { iMetal = paleta.length; paleta.push(colorMetal); }
+  const extra = [
+    [x0, y0, z1, x1, y0, z1, iMetal],
+    [x0, y1, z1, x1, y1, z1, iMetal],
+  ];
+  return { ...modelo, paleta, cajas: [...modelo.cajas, ...extra] };
 }
 
 // --- pequeño constructor de piezas ---------------------------------------
@@ -1159,7 +1247,7 @@ for (const [id, v] of Object.entries(catalogo)) {
   // MISMA huella/arquetipo que el id base, pero con el tono + estilo que su
   // propio nombre sugiere — nunca antes generaban un modelo propio.
   for (const variante of v.variantesNombradas || []) {
-    const { color, tallado, desgaste } = resolverVariante(variante.id, id, v.colorDebug);
+    const { color, tallado, desgaste, roto, incrustado, herraje } = resolverVariante(variante.id, id, v.colorDebug);
     U = resolverU(id, arq); // resolverU vuelve a fijar U (aplicarTallado/Desgaste no lo necesitan, pero el arquetipo sí)
     // ALFOMBRA es un caso especial: el PATRÓN depende del sufijo concreto
     // de la variante (bordada/ritual/redonda...), no del id base — el resto
@@ -1171,6 +1259,15 @@ for (const [id, v] of Object.entries(catalogo)) {
       : ARQUETIPO_FN[arq]({ ...v, colorDebug: color }, id);
     if (tallado) modeloVariante = aplicarTallado(modeloVariante);
     if (desgaste) modeloVariante = aplicarDesgaste(modeloVariante, crearRnd(variante.id));
+    if (roto) modeloVariante = aplicarRoto(modeloVariante, crearRnd(variante.id + "|roto"));
+    if (incrustado) modeloVariante = aplicarIncrustacion(modeloVariante, TONOS.oro);
+    if (herraje) modeloVariante = aplicarHerraje(modeloVariante, herraje);
+    // Tapizado (pedido 2026-08-30): solo en asientos, "bordado/a" ya es
+    // vocabulario real del catálogo (alfombras lo usan igual) — aquí en vez
+    // de patrón de suelo es rayas de acento sobre el cojín.
+    if (arq === "ASIENTO" && (variante.id.includes("bordada") || variante.id.includes("bordado"))) {
+      modeloVariante = aplicarTapizado(modeloVariante, sombrear(color, 0.6));
+    }
     resultado[variante.id] = {
       nombre: variante.id.replace(/_/g, " "), arquetipo: arq, capa: v.capa, resolucion: U,
       basadoEn: id, peso: variante.peso, ...modeloVariante,

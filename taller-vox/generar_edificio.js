@@ -511,14 +511,21 @@ function jardineraBajoVentana(b, vertical, a, c, fijo, vy) {
   }
 }
 
+// Tonos de puerta (pedido 2026-08-30: "color de puerta independiente del
+// muro") — antes SIEMPRE MADERA_CLARA sobre marco MADERA_OSCURA, ahora un
+// tono real por semilla si se pasa `opciones.rnd` (compatibilidad: sin rnd,
+// aspecto EXACTO de siempre). El marco se queda siempre oscuro (contorno
+// que se lee bien contra cualquier muro), solo la HOJA varía.
+const TONOS_PUERTA = ["#6a4a26", "#4a3018", "#7a5230", "#3a2814", "#8a5a30", "#5a3d20"];
 function puertaEnFachada(b, piso, opciones = {}) {
   const pw = Math.max(3, Math.round(U * (opciones.ancho || 0.8)));
   const ph = Math.min(piso.y1 - piso.y0, Math.round(U * (opciones.alto || 1.8)));
   const cx = Math.round((piso.x0 + piso.x1) / 2);
   const a = cx - Math.floor(pw / 2), c = a + pw - 1;
   const z = piso.z0 - 1;
+  const colorHoja = opciones.rnd ? TONOS_PUERTA[Math.floor(opciones.rnd() * TONOS_PUERTA.length)] : MADERA_CLARA;
   b.caja(a - 1, piso.y0, z - 1, c + 1, piso.y0 + ph, z - 1, MADERA_OSCURA); // marco
-  b.caja(a, piso.y0, z, c, piso.y0 + ph - 1, z, MADERA_CLARA); // hoja
+  b.caja(a, piso.y0, z, c, piso.y0 + ph - 1, z, colorHoja); // hoja
 }
 
 // Balcón volado en una planta alta: suelo + barandal de balaustres — casas
@@ -615,6 +622,31 @@ function techoPiramidal(b, x0, x1, z0, z1, yBase, color, opciones = {}) {
   return y;
 }
 
+// Cúpula/tejado abovedado (pedido 2026-08-30: "formas de tejado diferentes,
+// no solo dos aguas/piramidal") — mismo enfoque por filas que techoPiramidal
+// pero con perfil de CUARTO DE CÍRCULO (sqrt) en vez de lineal: encoge poco
+// arriba y mucho cerca de la base, la silueta redondeada de una cúpula real
+// en vez de un cono recto. Pensada para INSTITUCION (rotonda/sala noble).
+function techoAbovedado(b, x0, x1, z0, z1, yBase, color, opciones = {}) {
+  const mitadX = (x1 - x0 + 1) / 2, mitadZ = (z1 - z0 + 1) / 2;
+  const mitad = Math.min(mitadX, mitadZ);
+  const altura = opciones.altura ?? Math.round(mitad * 1.1);
+  const escalon = Math.max(1, Math.round(U * 0.22));
+  let y = yBase, paso = 0;
+  for (let h = 0; h < altura; h += escalon) {
+    const hSig = Math.min(altura, h + escalon);
+    // perfil de cuarto de círculo: radio(h) = mitad * sqrt(1 - (h/altura)^2)
+    const radio = mitad * Math.sqrt(Math.max(0, 1 - (h / altura) * (h / altura)));
+    const e = Math.round(mitad - radio);
+    const xx0 = x0 + Math.min(e, Math.round(mitadX) - 1), xx1 = x1 - Math.min(e, Math.round(mitadX) - 1);
+    const zz0 = z0 + Math.min(e, Math.round(mitadZ) - 1), zz1 = z1 - Math.min(e, Math.round(mitadZ) - 1);
+    const altoFila = Math.max(1, Math.round(hSig - h));
+    if (xx1 >= xx0 && zz1 >= zz0) b.caja(xx0, y, zz0, xx1, y + altoFila - 1, zz1, paso === 0 ? color : sombrear(color, 1 - paso * 0.02));
+    y += altoFila; paso++;
+  }
+  return y;
+}
+
 function techoAlmenado(b, x0, x1, z0, z1, y, colorMuro) {
   b.caja(x0, y, z0, x1, y, z1, sombrear(colorMuro, 0.85)); // azotea
   const paso = Math.max(2, Math.round(U * 0.5));
@@ -646,6 +678,44 @@ function porticoColumnas(b, x0, x1, z, yBase, altura, n, color) {
   b.caja(x0 - 1, yBase + altura, z - 3, x1 + 1, yBase + altura + Math.round(U * 0.15), z - 1, sombrear(color, 1.1)); // arquitrabe/frontón
 }
 
+// Decoración temática de fachada (pedido 2026-08-30: "decoración temática de
+// fachada" — blasón/gárgolas/banderín, un detalle pequeño que identifica el
+// arquetipo a simple vista, no solo su silueta general).
+
+// Blasón/escudo sobre la puerta — INSTITUCION: un cartel de piedra tallada
+// con un color de acento (oro/azul/rojo heráldico) centrado en la fachada.
+const COLORES_BLASON = ["#c9a227", "#2a4d8f", "#8f2a2a", "#2a6b4a"];
+function blasonFachada(b, planta0, rnd) {
+  const cx = Math.round((planta0.x0 + planta0.x1) / 2);
+  const y = planta0.y0 + Math.round((planta0.y1 - planta0.y0) * 0.75);
+  const z = planta0.z0 - 1;
+  const colorAcento = COLORES_BLASON[Math.floor(rnd() * COLORES_BLASON.length)];
+  b.caja(cx - 1, y, z - 1, cx + 1, y + 2, z - 1, sombrear(materiales.marmol?.colorDebug || "#e8e4dc", 0.9)); // placa de piedra
+  b.caja(cx, y, z - 1, cx, y + 1, z - 1, colorAcento); // emblema
+}
+
+// Gárgolas en las esquinas de la cornisa — TEMPLO: pequeños salientes de
+// piedra oscura, silueta reconocible de iglesia/catedral sin tocar el tejado.
+function gargolasEnCornisa(b, ultimo, y) {
+  const colorPiedra = sombrear(materiales.piedra?.colorDebug || "#8a8a86", 0.6);
+  const r = Math.max(1, Math.round(U * 0.1));
+  for (const [x, z] of [[ultimo.x0, ultimo.z0], [ultimo.x1, ultimo.z0], [ultimo.x0, ultimo.z1], [ultimo.x1, ultimo.z1]]) {
+    b.caja(x - r, y, z - r, x + r, y, z + r, colorPiedra);
+  }
+}
+
+// Banderín ondeando sobre la entrada — POSADA: un mástil corto con tela de
+// color vivo, anuncia la taberna desde la calle igual que cartel_tienda en ciudades/.
+const COLORES_BANDERIN = ["#a83232", "#3255a8", "#3a8f3a", "#c98a1e"];
+function banderinEnFachada(b, planta0, rnd) {
+  const cx = Math.round((planta0.x0 + planta0.x1) / 2) + Math.round(U * 0.6);
+  const y = planta0.y0 + Math.round((planta0.y1 - planta0.y0) * 0.85);
+  const z = planta0.z0 - 1;
+  const colorTela = COLORES_BANDERIN[Math.floor(rnd() * COLORES_BANDERIN.length)];
+  b.caja(cx, y, z - 1, cx, y + Math.round(U * 0.5), z - 1, MADERA_OSCURA); // mástil
+  b.caja(cx, y + Math.round(U * 0.35), z - 2, cx + Math.round(U * 0.25), y + Math.round(U * 0.5), z - 1, colorTela); // tela
+}
+
 // --- arquetipos --------------------------------------------------------------
 // Cada uno recibe {ancho,largo,plantasAltas,colorMuro,riqueza,rnd,tema} en
 // casillas y devuelve {grid,paleta,cajas}. El rnd solo varía detalle
@@ -658,7 +728,7 @@ function edificioChoza(ctx) {
   const { ancho, largo, colorMuro, riqueza, material, estiloMadera, estiloVentana, estiloVentanaAlt, rnd, nVentanas } = ctx;
   const b = Builder();
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), 1, colorMuro, { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza, rnd });
-  puertaEnFachada(b, pisos[0]);
+  puertaEnFachada(b, pisos[0], { rnd });
   const nv = nVentanas(pisos[0].x1 - pisos[0].x0 + 1, riqueza);
   ventanasEnFachada(b, { cara: "S", piso: pisos[0], n: Math.min(1, nv), esFrenteConPuerta: true });
   ventanasEnFachada(b, { cara: "N", piso: pisos[0], n: nv });
@@ -715,7 +785,7 @@ function edificioCasa(ctx) {
   // porche a la entrada: solo en ricas, no siempre — deja huecas sin él para que se note la diferencia
   const conPorche = rica && rnd() < prob(0.4);
   if (conPorche) porcheEnPuerta(b, pisos[0], materiales.madera.colorDebug, elegirTecho(material, riqueza, rnd));
-  puertaEnFachada(b, pisos[0], { ancho: riqueza === "noble" ? 1.0 : 0.85, alto: 1.9 });
+  puertaEnFachada(b, pisos[0], { ancho: riqueza === "noble" ? 1.0 : 0.85, alto: 1.9, rnd });
   // jardineras solo en fachadas con encanto (modesta/noble), más presentes cuanto más nivel
   const probJardinera = rica ? prob(riqueza === "noble" ? 0.22 : 0.12) : 0;
   // rangos ocupados por ventana en CADA (planta,cara) — los balcones de abajo
@@ -777,7 +847,7 @@ function edificioTaller(ctx) {
   const nPlantas = 1 + plantasAltas;
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro, { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza, rnd });
   // escaparate: puerta ancha en vez de puerta estrecha — el comercio se anuncia con el hueco, cartel_tienda ya lo cuelga ciudades/
-  puertaEnFachada(b, pisos[0], { ancho: 1.3, alto: 1.9 });
+  puertaEnFachada(b, pisos[0], { ancho: 1.3, alto: 1.9, rnd });
   ventanasEnFachada(b, { cara: "S", piso: pisos[0], n: nVentanas(pisos[0].x1 - pisos[0].x0 + 1, "noble"), esFrenteConPuerta: true });
   for (const [i, piso] of pisos.entries()) {
     if (i > 0) ventanasEnFachada(b, { cara: "S", piso, n: nVentanas(piso.x1 - piso.x0 + 1, riqueza) });
@@ -802,16 +872,29 @@ function edificioPosada(ctx) {
   // casas de la calle, no un lujo exclusivo de las nobles.
   const opciones = { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza, rnd, jetty: Math.round(U * 0.14), tudor: familiaTextura(material) === "madera" };
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro, opciones);
-  puertaEnFachada(b, pisos[0], { ancho: 1.1, alto: 2.0 });
+  puertaEnFachada(b, pisos[0], { ancho: 1.1, alto: 2.0, rnd });
+  let ocupadasS1 = [];
   for (const [i, piso] of pisos.entries()) {
     // muchas ventanas pequeñas en las plantas altas — habitaciones de huéspedes, una tras otra
     const nv = i === 0 ? nVentanas(piso.x1 - piso.x0 + 1, "modesta") : Math.max(3, Math.round((piso.x1 - piso.x0) / U / 1.5));
     const nvLateral = i === 0 ? nVentanas(piso.z1 - piso.z0 + 1, "modesta") : Math.max(1, Math.round((piso.z1 - piso.z0) / U / 1.5));
-    ventanasEnFachada(b, { cara: "S", piso, n: nv, esFrenteConPuerta: i === 0 });
+    const ocupadasS = ventanasEnFachada(b, { cara: "S", piso, n: nv, esFrenteConPuerta: i === 0 });
+    if (i === 1) ocupadasS1 = ocupadasS;
     ventanasEnFachada(b, { cara: "N", piso, n: nv });
     ventanasEnFachada(b, { cara: "E", piso, n: nvLateral });
     ventanasEnFachada(b, { cara: "O", piso, n: nvLateral });
   }
+  // balcón sobre la entrada, planta 1 — "posada con balcón" (pedido 2026-08-30:
+  // más arquetipos con balcón, no solo casa) — 45% de las veces, evita las
+  // ventanas ya pintadas en esa misma fachada igual que en edificioCasa.
+  if (pisos.length > 1 && rnd() < 0.45) {
+    const piso1 = pisos[1];
+    const anchoBalcon = Math.max(3, Math.round(U * 0.9));
+    const centro = Math.round((piso1.x0 + piso1.x1) / 2);
+    const a = centro - Math.floor(anchoBalcon / 2), c = a + anchoBalcon - 1;
+    if (rangoLibre(ocupadasS1, a, c)) balconEnFachada(b, piso1, "S", centro, anchoBalcon, materiales.madera.colorDebug);
+  }
+  banderinEnFachada(b, pisos[0], rnd); // banderín sobre la entrada — anuncia la taberna desde la calle
   const ultimo = pisos[pisos.length - 1];
   const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, elegirTecho(material, riqueza, rnd), ancho >= largo, { pendiente: 0.6 });
   chimenea(b, ultimo.x0 + Math.round(U * 0.8), ultimo.z0 + Math.round(U * 0.8), yTecho - Math.round(U * 0.4), Math.round(U * 1.1), colorMuro, rnd() < 0.6);
@@ -824,14 +907,35 @@ function edificioInstitucion(ctx) {
   const nPlantas = 1 + plantasAltas;
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorMuro, { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza, rnd });
   const planta0 = pisos[0];
-  puertaEnFachada(b, planta0, { ancho: 1.4, alto: 2.1 });
-  for (const piso of pisos) ventanasEnFachada(b, { cara: "S", piso, n: nVentanas(piso.x1 - piso.x0 + 1, "noble"), esFrenteConPuerta: piso === planta0 });
+  puertaEnFachada(b, planta0, { ancho: 1.4, alto: 2.1, rnd });
+  let ocupadasSInst = [];
+  pisos.forEach((piso, i) => {
+    const ocupadasS = ventanasEnFachada(b, { cara: "S", piso, n: nVentanas(piso.x1 - piso.x0 + 1, "noble"), esFrenteConPuerta: piso === planta0 });
+    if (i === 1) ocupadasSInst = ocupadasS;
+  });
   for (const piso of pisos) { ventanasEnFachada(b, { cara: "N", piso, n: nVentanas(piso.x1 - piso.x0 + 1, "noble") }); ventanasEnFachada(b, { cara: "E", piso, n: nVentanas(piso.z1 - piso.z0 + 1, "modesta") }); ventanasEnFachada(b, { cara: "O", piso, n: nVentanas(piso.z1 - piso.z0 + 1, "modesta") }); }
   // pórtico monumental de columnas ante la puerta — lo que distingue un ayuntamiento/templo/museo de una casa grande
   const nCols = Math.max(2, Math.floor((planta0.x1 - planta0.x0) / (U * 1.6)));
   porticoColumnas(b, planta0.x0 + Math.round(U * 0.4), planta0.x1 - Math.round(U * 0.4), planta0.z0, planta0.y0, planta0.y1 - planta0.y0 + 1, nCols, materiales.marmol?.colorDebug || "#e8e4dc");
+  // balcón de piedra sobre el pórtico, planta 1 — "balcón en más arquetipos"
+  // (pedido 2026-08-30), propio de un edificio institucional con presencia:
+  // ayuntamiento/palacio de justicia con balcón para hablar a la plaza.
+  if (pisos.length > 1 && rnd() < 0.35) {
+    const piso1 = pisos[1];
+    const anchoBalcon = Math.max(3, Math.round(U * 1.1));
+    const centro = Math.round((piso1.x0 + piso1.x1) / 2);
+    const a = centro - Math.floor(anchoBalcon / 2), c = a + anchoBalcon - 1;
+    if (rangoLibre(ocupadasSInst, a, c)) balconEnFachada(b, piso1, "S", centro, anchoBalcon, materiales.marmol?.colorDebug || "#e8e4dc");
+  }
+  // blasón sobre la puerta — casi siempre, es lo que dice "edificio oficial" sin leer letreros
+  if (rnd() < 0.8) blasonFachada(b, planta0, rnd);
   const ultimo = pisos[pisos.length - 1];
-  const techoY = techoPiramidal(b, ultimo.x0 - Math.round(U * 0.3), ultimo.x1 + Math.round(U * 0.3), ultimo.z0 - Math.round(U * 0.3), ultimo.z1 + Math.round(U * 0.3), yTecho, elegirTecho(null, "noble", rnd), { pendiente: 0.5 });
+  // formaTejado (pedido 2026-08-30): 30% cúpula abovedada en vez del piramidal
+  // de siempre — rotonda de museo/biblioteca, misma silueta noble pero no
+  // todo el mundo sale con el mismo tejado.
+  const techoY = rnd() < 0.3
+    ? techoAbovedado(b, ultimo.x0 - Math.round(U * 0.3), ultimo.x1 + Math.round(U * 0.3), ultimo.z0 - Math.round(U * 0.3), ultimo.z1 + Math.round(U * 0.3), yTecho, elegirTecho(null, "noble", rnd))
+    : techoPiramidal(b, ultimo.x0 - Math.round(U * 0.3), ultimo.x1 + Math.round(U * 0.3), ultimo.z0 - Math.round(U * 0.3), ultimo.z1 + Math.round(U * 0.3), yTecho, elegirTecho(null, "noble", rnd), { pendiente: 0.5 });
   return { grid: [ancho * U + PAD * 2, techoY + 2, largo * U + PAD * 2], paleta: b.paleta, cajas: b.cajas };
 }
 
@@ -841,7 +945,7 @@ function edificioTemplo(ctx) {
   const nPlantas = 1 + plantasAltas;
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 1.15), nPlantas, colorMuro, { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza, rnd });
   const planta0 = pisos[0];
-  puertaEnFachada(b, planta0, { ancho: 1.3, alto: 2.3 });
+  puertaEnFachada(b, planta0, { ancho: 1.3, alto: 2.3, rnd });
   // vidrieras: ventanas altas y estrechas en vez de las cuadradas normales, en las 4 caras
   for (const piso of pisos) {
     ventanasEnFachada(b, { cara: "E", piso, n: Math.max(2, Math.round((piso.z1 - piso.z0) / U / 2)) });
@@ -850,6 +954,7 @@ function edificioTemplo(ctx) {
     ventanasEnFachada(b, { cara: "N", piso, n: Math.max(1, Math.round((piso.x1 - piso.x0) / U / 3)) });
   }
   const ultimo = pisos[pisos.length - 1];
+  gargolasEnCornisa(b, ultimo, yTecho - 1); // gárgolas en las 4 esquinas de la cornisa — silueta de iglesia/catedral
   const techoY = techoDosAguas(b, ultimo.x0, ultimo.x1, ultimo.z0, ultimo.z1, yTecho, PIZARRA, ancho >= largo, { pendiente: 0.75 });
   // aguja/campanario centrado sobre la cumbrera
   const cx = Math.round((ultimo.x0 + ultimo.x1) / 2), cz = Math.round((ultimo.z0 + ultimo.z1) / 2);
@@ -865,7 +970,7 @@ function edificioMilitar(ctx) {
   const nPlantas = 1 + plantasAltas;
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, alturaPlantaVox(), nPlantas, colorPiedra, { material: "piedra", estiloVentana, estiloVentanaAlt, rnd });
   const planta0 = pisos[0];
-  puertaEnFachada(b, planta0, { ancho: 1.2, alto: 2.0 });
+  puertaEnFachada(b, planta0, { ancho: 1.2, alto: 2.0, rnd });
   // aspilleras: ventanas escasas y estrechas en las 4 caras, nada de lujo
   for (const piso of pisos) {
     ventanasEnFachada(b, { cara: "S", piso, n: 2, esFrenteConPuerta: piso === planta0 });
@@ -890,7 +995,7 @@ function edificioTorre(ctx) {
   if (escalonado) { opcionesTorre.escalonado = true; opcionesTorre.retranqueo = Math.round(U * 0.12); }
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 0.85), nPlantas, colorMuro, opcionesTorre);
   const planta0 = pisos[0];
-  puertaEnFachada(b, planta0, { ancho: 0.9, alto: 1.9 });
+  puertaEnFachada(b, planta0, { ancho: 0.9, alto: 1.9, rnd });
   // ventanas en espiral: una por planta, girando de cara — sugiere la escalera de caracol interior
   const ORDEN_ESPIRAL = ["S", "E", "N", "O"];
   pisos.forEach((piso, i) => { if (i === 0) return; ventanasEnFachada(b, { cara: ORDEN_ESPIRAL[i % 4], piso, n: 1 }); });
@@ -908,7 +1013,7 @@ function edificioGranero(ctx) {
   const { pisos, yTecho } = cuerpo(b, ancho * U, largo * U, Math.round(alturaPlantaVox() * 1.1), nPlantas, colorMuro, { material, estiloMadera, estiloVentana, estiloVentanaAlt, riqueza, rnd });
   const planta0 = pisos[0];
   // portalón doble ancho — carros entran a descargar, no una puerta de casa
-  puertaEnFachada(b, planta0, { ancho: 1.8, alto: 2.0 });
+  puertaEnFachada(b, planta0, { ancho: 1.8, alto: 2.0, rnd });
   const nv = nVentanas(planta0.x1 - planta0.x0 + 1, riqueza === "humilde" ? "humilde" : "modesta");
   if (pisos.length > 1) ventanasEnFachada(b, { cara: "S", piso: pisos[1], n: nv });
   const ultimo = pisos[pisos.length - 1];
@@ -925,7 +1030,7 @@ function edificioCastillo(ctx) {
   b.caja(x0, 0, z0, x1, alturaCuerpo - 1, z1, colorPiedra);
   const planta0 = { x0, x1, y0: 0, y1: alturaCuerpo - 1, z0, z1, estiloVentana, estiloVentanaAlt, rnd };
   for (const cara of CARAS) sillarPiedra(b, planta0, cara, colorPiedra); // las 4 caras del lienzo, no solo la de la puerta
-  puertaEnFachada(b, planta0, { ancho: 1.6, alto: 2.6 });
+  puertaEnFachada(b, planta0, { ancho: 1.6, alto: 2.6, rnd });
   ventanasEnFachada(b, { cara: "S", piso: planta0, n: 2, esFrenteConPuerta: true });
   ventanasEnFachada(b, { cara: "N", piso: planta0, n: 3 });
   ventanasEnFachada(b, { cara: "E", piso: planta0, n: 2 });
@@ -972,10 +1077,25 @@ const POR_ARQUETIPO = {
 const ARQUETIPO_DE = {};
 for (const [arq, ids] of Object.entries(POR_ARQUETIPO)) for (const id of ids) ARQUETIPO_DE[id] = arq;
 
+// Tipos "huérfanos" del mapa explícito (pedido 2026-08-30: "completa lo que
+// falta" — 30 de los 74 tipoEdificio del catálogo, casi todos oficios reales
+// como molino_agua/carnicería/astillero/gran_herrería, caían en la CASA/
+// INSTITUCION genérica del fallback en vez de la fachada de taller/templo/
+// militar que les toca). En vez de listar cada id a mano (el catálogo YA
+// dice qué es cada edificio vía temaTaller/salasPorPlanta), se lee esa señal
+// estructural — mismo espíritu "catálogo como fuente de verdad" que el resto
+// del proyecto: un tipoEdificio nuevo con sala de taller o temaTaller cae
+// solo en TALLER sin tocar este archivo.
 function clasificarEdificio(tipoId, info) {
   if (ARQUETIPO_DE[tipoId]) return ARQUETIPO_DE[tipoId];
+  const salas = Object.values(info.salasPorPlanta || {}).flat().map((s) => s[0]);
+  if (info.temaTaller || salas.some((s) => s.startsWith("taller") || s === "sala_molino" || s === "gran_herreria" || s === "cocina")) return "TALLER";
+  if (salas.includes("cripta")) return "TEMPLO";
+  if (salas.includes("cuadra")) return "GRANERO";
+  if (salas.some((s) => s.startsWith("cuartel_guardia"))) return "MILITAR";
   // fallback por riqueza/plantas para cualquier tipoEdificio futuro no listado — nunca se deja un edificio sin forma
   if (info.riqueza === "noble" && info.rangoPlantasAltas[1] >= 2) return "INSTITUCION";
+  if (info.riqueza === "noble" || salas.includes("capitania_puerto")) return "INSTITUCION";
   return "CASA";
 }
 
@@ -1216,4 +1336,4 @@ if (require.main === module) {
   console.log("Por arquetipo:", conteo);
 }
 
-module.exports = { generarTodo, generarEdificio, generarEdificioConNiveles, ARQUETIPO_FN, clasificarEdificio, TIPOS_PRUEBA, POR_ARQUETIPO, U, PAD, MADERA_CLARA, elegirTecho, elegirMaterial, ESTILOS_VENTANA };
+module.exports = { generarTodo, generarEdificio, generarEdificioConNiveles, ARQUETIPO_FN, clasificarEdificio, TIPOS_PRUEBA, POR_ARQUETIPO, U, PAD, MADERA_CLARA, TONOS_PUERTA, elegirTecho, elegirMaterial, ESTILOS_VENTANA };
