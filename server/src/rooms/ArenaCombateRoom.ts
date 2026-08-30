@@ -4,7 +4,7 @@ import { RoomExteriorBase, PA_MAX_COMBATE } from "./base/RoomExteriorBase";
 import { cargarMapaColision } from "../mundo/mapaColision";
 import { TIPO } from "../mundo/colisiones";
 import { CombateSchema, CombateUnidad } from "./schema/CombateState";
-import { Fauna, Enemigo } from "./schema/HubState";
+import { Fauna, Enemigo, Npc } from "./schema/HubState";
 import { calcularIniciativa, ordenarTurnos, UnidadCombate } from "../combate/arenaCombate";
 import { tomarRosterArena, RetornoJugador } from "../combate/registroArenas";
 
@@ -110,6 +110,15 @@ export class ArenaCombateRoom extends RoomExteriorBase {
         e.x = gx; e.y = gy; e.enemigoId = p.enemigoId ?? ""; e.variante = p.variante ?? 0; e.esBoss = p.esBoss ?? false;
         e.vida = p.hp; e.vidaMax = p.hpMax; e.ataque = p.ataqueFisico; e.defensa = p.defensaFisica;
         this.state.enemigos.set(p.id, e);
+      } else if (p.tipoEntidad === "npc") {
+        // Patrulla bandida (docs/GDD_Faccion_Bandidos.md §7ter) — mismo
+        // Npc "hostil" que en la room de origen, solo que aquí nace ya en
+        // combate; el aspecto (rig de repuesto si no hay vox propio) lo
+        // resuelve el cliente igual que cualquier otro Npc.
+        const n = new Npc();
+        n.x = gx; n.y = gy; n.nombre = p.nombreNpc ?? ""; n.hostil = true; n.accion = "combate"; n.visible = true;
+        n.vida = p.hp; n.vidaMax = p.hpMax; n.ataque = p.ataqueFisico; n.defensa = p.defensaFisica;
+        this.state.npcs.set(p.id, n);
       }
     }
 
@@ -175,6 +184,17 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       origen = undefined; // la room de origen ya se vació y autodispuso — nada que limpiar ahí
     }
 
+    // docs/GDD_Faccion_Bandidos.md §7quinquies (pedido 2026-08-30: "que la
+    // historia... nombres de jugadores... se recuerden") — quiénes ganaron
+    // ESTE combate en concreto: los jugadores que siguen "activo" (no
+    // "caido") cuando el bando contrario ya está vencido. Sin rastreo de
+    // "golpe final" — todo el bando A superviviente se lleva el mérito por
+    // igual, coherente con cómo ya funciona el co-op del combate.
+    const jugadoresGanadores = [...combate.unidades.values()]
+      .filter((u) => u.esJugador && u.estado !== "caido")
+      .map((u) => this.state.players.get(u.id)?.name)
+      .filter((nombre): nombre is string => !!nombre);
+
     for (const cu of combate.unidades.values()) {
       if (cu.esJugador) {
         // Un jugador "caído" ya recibió SU propio portal:ir de respawn
@@ -187,7 +207,7 @@ export class ArenaCombateRoom extends RoomExteriorBase {
         const c = this.clients.find((cl) => cl.sessionId === cu.id);
         c?.send("portal:ir", { tipo: "volverDeCombate", ...retorno });
       } else if (origen) {
-        void origen.aplicarResultadoRemoto(cu.id, cu.hp, cu.estado as "activo" | "caido" | "huido");
+        void origen.aplicarResultadoRemoto(cu.id, cu.hp, cu.estado as "activo" | "caido" | "huido", jugadoresGanadores);
       }
     }
     origen?.quitarMarcadorCombate(combateId);

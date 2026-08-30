@@ -8,10 +8,15 @@ import { NpcBakeado } from "../mundo/agentes";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
 import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
-import { asegurarAsentamientoBandido } from "../mundo/economiaAsentamientos";
+import { asegurarAsentamientoBandido, marcarTropaMuertaYVerificarConquista } from "../mundo/economiaAsentamientos";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
 import { cargarParcelasDeReservas } from "../construccion/parcelas";
 import { ventaJugadorPermitida, precioInmueble } from "../propiedades/propiedades";
+import { STATS_POR_RANGO, FACTOR_POR_NIVEL_EQUIPO, LOOT_POR_RANGO } from "../mundo/guarnicionBandida";
+import { crearCadaver } from "../mundo/cadaveres";
+import { diaFraccional } from "../mundo/reproduccionFauna";
+import { agregarItem } from "../inventario/inventario";
+import { generarGritoBandido } from "../ia/cronicaBandida";
 
 // Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): "si se les da de comer
 // unas 5 veces, podrás convertirlo en tu mascota" — fauna URBANA
@@ -59,6 +64,16 @@ export class RegionRoom extends RoomExteriorBase {
   // ya resuelto — undefined si el bake de esta región no trae fauna.json.
   private gestorFauna?: GestorFauna;
   private catalogoCombateFauna: CatalogoCombateFauna = {};
+  // Patrulla bandida (docs/GDD_Faccion_Bandidos.md §7ter) — slotId de
+  // state.npcs (`patrulla:<tropaId>`) -> id de tropas_asentamiento. Vacío en
+  // cualquier región que no sea un asentamiento_hostil vivo.
+  private patrullaTropaDeEnemigo = new Map<string, string>();
+  // Diálogo de bandidos (docs/GDD_Faccion_Bandidos.md §7quinquies) — claves
+  // `${slotId}|${jugador}` ya generadas esta vida de la room, para no
+  // llamar a la IA dos veces por el mismo encuentro (el grito se cachea en
+  // el propio `Npc.grito`, esto solo evita relanzar la llamada async
+  // mientras está en curso o después de que ya haya asignado un grito).
+  private gritosGenerados = new Set<string>();
 
   async onCreate(options: OpcionesRegion) {
     if (!options?.mapaId) throw new Error("RegionRoom necesita options.mapaId");
@@ -137,10 +152,20 @@ export class RegionRoom extends RoomExteriorBase {
       const indice = JSON.parse(fs.readFileSync(rutaIndice, "utf8")) as {
         tier?: string;
         edificios?: { id: string; tipo: string; reservadoJugador?: boolean }[];
+        // Polilíneas puerta -> plaza/focal YA calculadas por A* al hornear
+        // (ciudades/src/generar.js) — la patrulla bandida (§7ter, abajo) las
+        // reusa TAL CUAL para su ida/vuelta, "nunca A* en directo" (§2.3).
+        caminos?: [number, number][][];
       };
       if (indice.tier === "asentamiento_hostil") {
         const bd = await obtenerBdCompartida();
         await asegurarAsentamientoBandido(bd, options.mapaId);
+        await this.poblarPatrullaBandida(options.mapaId, indice.caminos);
+        // Diálogo de bandidos (docs/GDD_Faccion_Bandidos.md §7quinquies,
+        // pedido 2026-08-30: "si veo un bandido, la IA le habrá dicho qué
+        // frase decir según me vea") — más lento que el agro (no hace
+        // falta reaccionar en 200ms a que alguien se acerque a charlar).
+        this.clock.setInterval(() => this.verificarDialogoBandidos(), 1000);
       }
       // Zona PvP (docs/GDD_PvP.md, pedido 2026-08-30): "todas menos la
       // ciudad capital y alrededores" — la capital del jarl (`capital_jarl`,
@@ -302,5 +327,160 @@ export class RegionRoom extends RoomExteriorBase {
   /** Ganadería (docs/GDD_Ganaderia.md): domesticar aquí saca al animal del merodeo urbano (GestorFauna), mismo mecanismo que mascota:darComida. */
   protected async onFaunaDomesticada(id: string): Promise<boolean> {
     return this.gestorFauna?.quitar(id) ?? false;
+  }
+
+  /**
+   * §7ter (docs/GDD_Faccion_Bandidos.md, pedido 2026-08-30: "que patrullen
+   * varios ciudadanos en grupo o solitario de 1 a 5, simulando que están
+   * gathereando... por caminos ida y vuelta") — los RECLUTAS vivos de la
+   * guarnición (los guardia/líder se quedan de guardia fija en el cuartel,
+   * InteriorRoom.poblarGuarnicionBandida) salen a patrullar entre la
+   * plaza/focal del asentamiento y una de sus puertas, sobre la MISMA
+   * polilínea A* que ya calculó el bakeador de ciudades/ una vez (`caminos`
+   * en indice.json) — cero A* en directo (§2.3). Cero movimiento nuevo:
+   * reusa TAL CUAL `GestorAgentes.agregarAgenteTransportista` (mismo
+   * mecanismo de "paradas en bucle" que ya usan los NPC transportistas,
+   * docs/GDD_Produccion.md), solo mutando el `Npc` resultante a `hostil:true`
+   * con las stats reales de la tropa. Grupos de hasta 5 (un `Npc` por
+   * tropa) — "de al lado" en el mismo tramo, así se unen todos si se ataca
+   * a uno (cerrarVentanaCombate ya auto-une cualquier Npc `hostil` cercano).
+   */
+  private async poblarPatrullaBandida(mapaId: string, caminosCrudos: [number, number][][] | undefined) {
+    if (!caminosCrudos || caminosCrudos.length === 0) return;
+    const bd = await obtenerBdCompartida();
+    const asentamiento = await asegurarAsentamientoBandido(bd, mapaId);
+    if (asentamiento.bando !== "bandido") return;
+
+    const tropas = await bd.listarTropas(mapaId);
+    const reclutas = tropas.filter((t) => t.estado === "vivo" && t.rango === "recluta");
+    if (reclutas.length === 0) return;
+
+    const factor = FACTOR_POR_NIVEL_EQUIPO[asentamiento.nivelEquipo] ?? 1;
+    const base = STATS_POR_RANGO.recluta;
+    const gestor = this.obtenerOCrearGestorAgentes();
+    const TAMANO_GRUPO = 5;
+
+    let grupos = 0;
+    for (let i = 0; i < reclutas.length; i += TAMANO_GRUPO) {
+      const miembros = reclutas.slice(i, i + TAMANO_GRUPO);
+      const camino = caminosCrudos[grupos % caminosCrudos.length].map(([x, y]) => ({ x, y }));
+      grupos++;
+      if (camino.length < 2) continue; // camino inválido/demasiado corto: sin grupo esta vez, no debería pasar con el bake real
+
+      // camino[] va PUERTA -> plaza (el mismo orden que exporta generar.js);
+      // "ida" (salir a buscar recursos) es plaza -> puerta, la inversa.
+      const plaza = camino[camino.length - 1];
+      const puerta = camino[0];
+      const caminoIda = [...camino].reverse();
+      const caminoVuelta = camino;
+
+      for (const tropa of miembros) {
+        const slotId = `patrulla:${tropa.id}`;
+        gestor.agregarAgenteTransportista(slotId, "Bandido merodeador", plaza, puerta, caminoIda, caminoVuelta);
+        const esquema = this.state.npcs.get(slotId)!;
+        esquema.hostil = true;
+        esquema.accion = "patrullar";
+        esquema.vida = Math.round(base.vida * factor);
+        esquema.vidaMax = esquema.vida;
+        esquema.ataque = Math.round(base.ataque * factor);
+        esquema.defensa = Math.round(base.defensa * factor);
+        this.patrullaTropaDeEnemigo.set(slotId, tropa.id);
+      }
+    }
+    console.log(`  Patrulla bandida "${mapaId}": ${reclutas.length} recluta(s) de patrulla en ${grupos} grupo(s) (nivelEquipo=${asentamiento.nivelEquipo}).`);
+  }
+
+  /**
+   * §7quinquies (pedido 2026-08-30: "si veo un bandido de esa aldea, la IA
+   * le habrá dicho qué frase decir según me vea... si perdió una batalla
+   * contra un jugador, lo recuerda") — cuando un jugador se acerca lo
+   * bastante a una tropa de patrulla viva, le genera UNA frase de burbuja
+   * (`Npc.grito`, el mismo campo que ya usan los civiles de poblacion/ — el
+   * cliente ya sabe pintarlo rotando con el nombre) referenciando su
+   * historial real con ESE jugador si lo tiene. Una sola llamada de IA por
+   * (bandido, jugador) en toda la vida de esta room — `gritosGenerados`
+   * evita relanzarla mientras la llamada async sigue en curso o ya resuelta.
+   */
+  private verificarDialogoBandidos() {
+    if (this.patrullaTropaDeEnemigo.size === 0) return;
+    for (const [slotId] of this.patrullaTropaDeEnemigo) {
+      const npc = this.state.npcs.get(slotId);
+      if (!npc) continue;
+      for (const jugador of this.state.players.values()) {
+        const clave = `${slotId}|${jugador.name}`;
+        if (this.gritosGenerados.has(clave)) continue;
+        if (Math.hypot(npc.x - jugador.x, npc.y - jugador.y) > RADIO_INTERACCION) continue;
+        this.gritosGenerados.add(clave);
+        void this.generarYAsignarGrito(slotId, jugador.name);
+      }
+    }
+  }
+
+  private async generarYAsignarGrito(slotId: string, jugador: string) {
+    const bd = await obtenerBdCompartida();
+    const [asentamiento, historial] = await Promise.all([
+      bd.obtenerOCrearAsentamiento(this.mapaId),
+      bd.historialJugadorEnAsentamiento(this.mapaId, jugador, 5),
+    ]);
+    const grito = await generarGritoBandido({
+      asentamientoId: this.mapaId,
+      rango: "recluta",
+      nivelEquipo: asentamiento.nivelEquipo,
+      jugador,
+      historial,
+    });
+    if (!grito) return; // sin IA configurada (o falló): silencio, mismo criterio que el resto del proyecto
+    const npc = this.state.npcs.get(slotId); // puede haber muerto/desaparecido mientras se esperaba la IA
+    if (npc) npc.grito = grito;
+  }
+
+  /**
+   * §7ter — si el `Npc` muerto era una tropa de patrulla: baja permanente
+   * en BD (nunca revive), posible conquista si era la última viva, y
+   * cadáver looteable (mismo mecanismo que un animal muerto, docs/GDD_Caza.md
+   * — y que la guarnición del cuartel, InteriorRoom.finalizarMuerte).
+   * Cualquier otro Npc (un civil normal de poblacion/) sigue exactamente
+   * igual que siempre — `patrullaTropaDeEnemigo` está vacío para ellos.
+   */
+  protected async finalizarMuerte(id: string, jugadoresGanadores: string[] = []) {
+    const tropaId = this.patrullaTropaDeEnemigo.get(id);
+    if (!tropaId) return super.finalizarMuerte(id, jugadoresGanadores);
+
+    const npc = this.state.npcs.get(id);
+    // posición se lee ANTES de super.finalizarMuerte(id) — ese borra la
+    // entidad del Schema (state.npcs.delete), después ya no existe.
+    const x = npc?.x ?? 0;
+    const y = npc?.y ?? 0;
+    await super.finalizarMuerte(id, jugadoresGanadores);
+    this.patrullaTropaDeEnemigo.delete(id);
+    this.gestorAgentes?.quitarAgente(id); // sin esto GestorAgentes seguiría moviendo una entidad ya borrada del Schema
+
+    const bd = await obtenerBdCompartida();
+    // docs/GDD_Faccion_Bandidos.md §7quinquies — mismo criterio que
+    // InteriorRoom: hecho estructurado sin IA, la IA solo redacta la
+    // crónica de conquista y el grito de un bandido vivo.
+    const dia = tiempoMundo().dia;
+    for (const jugador of jugadoresGanadores) {
+      await bd.registrarMemoriaLider(
+        dia,
+        `${jugador} mató a un recluta de "${this.mapaId}".`,
+        { tipo: "tropa_muerta", asentamientoId: this.mapaId, jugador },
+      );
+    }
+
+    const rutaMapa = rutaDeMapaId(this.mapaId);
+    const { conquistada } = await marcarTropaMuertaYVerificarConquista(bd, tropaId, this.mapaId, rutaMapa, jugadoresGanadores);
+    if (conquistada) console.log(`  ¡Asentamiento bandido "${this.mapaId}" conquistado! Última tropa (${tropaId}) muerta en patrulla.`);
+
+    const cadaver = crearCadaver({
+      id: `cadaver:${tropaId}`,
+      mapaId: this.mapaId,
+      tipoOrigen: "npc",
+      especieOrigenId: tropaId,
+      x, y,
+      ahora: diaFraccional(tiempoMundo().dia, tiempoMundo().hora),
+    });
+    for (const { itemId, cantidad } of LOOT_POR_RANGO.recluta) agregarItem(cadaver.contenedor, this.catalogoItems, itemId, cantidad);
+    this.publicarCadaver(cadaver);
   }
 }

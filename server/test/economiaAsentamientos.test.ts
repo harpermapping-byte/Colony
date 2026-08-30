@@ -7,11 +7,15 @@ import {
   calcularTick,
   ejecutarTickEconomia,
   asegurarAsentamientoBandido,
+  reclutasARecluter,
   COMIDA_CONSUMO_POR_TROPA,
   MADERA_GENERADA_POR_TROPA,
+  PIEDRA_GENERADA_POR_TROPA,
   COSTE_MURALLA_NIVEL2_MADERA,
   COSTE_EQUIPO_NIVEL2_HIERRO,
   NIVEL_MURALLA_MAX,
+  POBLACION_MAX,
+  COSTE_RECLUTAMIENTO_PIEDRA,
 } from "../src/mundo/economiaAsentamientos";
 
 function asentamientoBase(overrides: Partial<Asentamiento> = {}): Asentamiento {
@@ -74,6 +78,48 @@ test("calcularTick es determinista: mismo estado + misma población = mismo resu
   const r1 = calcularTick(a, 3);
   const r2 = calcularTick(a, 3);
   assert.deepStrictEqual(r1, r2);
+});
+
+// Reclutamiento (docs/GDD_Faccion_Bandidos.md §7ter, pedido 2026-08-30:
+// "con el tiempo y esos recursos pueden, en vez de mejorar la ciudad,
+// contratar más tropa/gente, con límite razonable") — piedra sin sumidero
+// hasta ahora, le da uno real.
+test("reclutasARecluter: sin piedra suficiente, 0 reclutas nuevos", () => {
+  const a = asentamientoBase({ piedra: COSTE_RECLUTAMIENTO_PIEDRA - 1 });
+  assert.strictEqual(reclutasARecluter(a, 7), 0);
+});
+
+test("reclutasARecluter: con piedra de sobra, recluta tantos como el coste permita", () => {
+  const a = asentamientoBase({ piedra: COSTE_RECLUTAMIENTO_PIEDRA * 3 + 5 }); // sobra para 3, no para un 4º
+  assert.strictEqual(reclutasARecluter(a, 7), 3);
+});
+
+test("reclutasARecluter: nunca pasa de POBLACION_MAX aunque sobre piedra de sobra", () => {
+  const a = asentamientoBase({ piedra: COSTE_RECLUTAMIENTO_PIEDRA * 100 });
+  const tropasVivas = POBLACION_MAX - 2;
+  assert.strictEqual(reclutasARecluter(a, tropasVivas), 2); // solo hay hueco para 2 más
+});
+
+test("reclutasARecluter: ya en el tope (o por encima), 0 reclutas nuevos aunque sobre piedra", () => {
+  const a = asentamientoBase({ piedra: COSTE_RECLUTAMIENTO_PIEDRA * 100 });
+  assert.strictEqual(reclutasARecluter(a, POBLACION_MAX), 0);
+  assert.strictEqual(reclutasARecluter(a, POBLACION_MAX + 1), 0);
+});
+
+test("ejecutarTickEconomia: con piedra suficiente tras el tick, recluta una tropa nueva de verdad en BD y descuenta el coste", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const a = await bd.obtenerOCrearAsentamiento("aldea_bandidos_1");
+  await bd.guardarAsentamiento({ ...a, piedra: COSTE_RECLUTAMIENTO_PIEDRA - PIEDRA_GENERADA_POR_TROPA }); // le falta justo lo que producirá esta tropa
+  await bd.crearTropa("aldea_bandidos_1", "recluta");
+
+  await ejecutarTickEconomia(bd);
+
+  const tropas = await bd.listarTropas("aldea_bandidos_1");
+  assert.strictEqual(tropas.length, 2); // la original + la reclutada
+  assert.strictEqual(tropas.filter((t) => t.rango === "recluta").length, 2);
+  const [actualizado] = await bd.listarAsentamientos();
+  assert.strictEqual(actualizado.piedra, 0); // producido y gastado en el mismo pulso
+  await bd.cerrar();
 });
 
 test("ejecutarTickEconomia: tick real contra SQLite, con tropas muertas que NO cuentan para la población", async () => {

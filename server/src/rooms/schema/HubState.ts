@@ -221,6 +221,11 @@ export class Npc extends Schema {
   @type("number") vidaMax = 30;
   @type("number") ataque = 5;
   @type("number") defensa = 2;
+  // Patrulla bandida (docs/GDD_Faccion_Bandidos.md §7ter, pedido 2026-08-30):
+  // el único Npc que ataca por su cuenta (verificarAgroFauna) y arrastra al
+  // resto del grupo si andan cerca (cerrarVentanaCombate) — false para
+  // cualquier civil normal de poblacion/, que sigue exactamente igual.
+  @type("boolean") hostil = false;
 }
 
 // Enemigo activo de una mazmorra (docs/GDD_Bakeador_Dungeons.md §4) — el bake

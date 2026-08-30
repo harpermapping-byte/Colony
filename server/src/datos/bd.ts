@@ -449,10 +449,18 @@ export interface PlatoCreado {
 
 // Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
 // asentamiento — el registro de eventos que alimenta su contexto de IA.
+// tipo/asentamientoId/jugador (docs/GDD_Faccion_Bandidos.md §7quinquies,
+// pedido 2026-08-30 "que la historia del servidor, nombres de jugadores y
+// hazañas se recuerden") son opcionales: NULL en eventos viejos o sin un
+// asentamiento/jugador concreto atribuible — `evento` sigue siendo la
+// narración en texto, la fuente de verdad para mostrarla tal cual.
 export interface MemoriaLider {
   id: number;
   diaIngame: number;
   evento: string;
+  tipo?: "tropa_muerta" | "asentamiento_conquistado" | null;
+  asentamientoId?: string | null;
+  jugador?: string | null;
 }
 
 /**
@@ -670,8 +678,14 @@ export interface IAlmacenDatos {
   }): Promise<{ ok: true; especieId: string; precioTotal: number } | { ok: false; motivo: string }>;
   /** Traspaso SIN farycoins (docs/GDD_Comercio.md) — reubica el animal a la propiedad del receptor. `false` si el animal ya no pertenece a `propiedadOrigen` (se vendió/movió mientras se negociaba). */
   transferirAnimalGranja(id: string, propiedadOrigen: string, propiedadDestino: string, mapaIdDestino: string, x: number, y: number): Promise<boolean>;
-  registrarMemoriaLider(diaIngame: number, evento: string): Promise<void>;
+  registrarMemoriaLider(
+    diaIngame: number,
+    evento: string,
+    opciones?: { tipo?: "tropa_muerta" | "asentamiento_conquistado"; asentamientoId?: string; jugador?: string },
+  ): Promise<void>;
   memoriaLiderReciente(limite: number): Promise<MemoriaLider[]>;
+  /** docs/GDD_Faccion_Bandidos.md §7quinquies — historial de ESTE jugador con ESTE asentamiento concreto (para el diálogo de un bandido: "¿ya me conoce?"). Vacío si nunca coincidieron. */
+  historialJugadorEnAsentamiento(asentamientoId: string, jugador: string, limite: number): Promise<MemoriaLider[]>;
   // Inventario (pedido 2026-08-29, fase 1: catálogo + servidor + persistencia
   // — server/src/inventario/inventario.ts es el contrato de la lógica pura,
   // esto solo guarda/recupera su estado tal cual). `null` en cargarContenedor
@@ -1047,7 +1061,10 @@ CREATE TABLE IF NOT EXISTS memoria_lider (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   dia_ingame INTEGER NOT NULL,
   evento TEXT NOT NULL,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  tipo TEXT,             -- docs/GDD_Faccion_Bandidos.md §7quinquies: 'tropa_muerta' | 'asentamiento_conquistado' | NULL (eventos viejos, sin tipo)
+  asentamiento_id TEXT,  -- NULL si el evento no es de un asentamiento concreto
+  jugador TEXT           -- NULL si no hay un jugador concreto atribuible (o el evento es viejo)
 );
 -- Inventario (docs/Backlog_Mecanicas_Futuras.md "Inventario, contenedores y
 -- objetos en el mundo" + server/src/inventario/inventario.ts, pedido
@@ -1370,8 +1387,14 @@ CREATE TABLE IF NOT EXISTS memoria_lider (
   id SERIAL PRIMARY KEY,
   dia_ingame INTEGER NOT NULL,
   evento TEXT NOT NULL,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  tipo TEXT,
+  asentamiento_id TEXT,
+  jugador TEXT
 );
+ALTER TABLE memoria_lider ADD COLUMN IF NOT EXISTS tipo TEXT;
+ALTER TABLE memoria_lider ADD COLUMN IF NOT EXISTS asentamiento_id TEXT;
+ALTER TABLE memoria_lider ADD COLUMN IF NOT EXISTS jugador TEXT;
 CREATE TABLE IF NOT EXISTS inventarios (
   jugador_id INTEGER NOT NULL,
   contenedor_id TEXT NOT NULL,
@@ -1452,6 +1475,17 @@ function filaArbolVivoDesdeSql(f: any): ArbolVivoFila {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaAMemoriaLider(f: any): MemoriaLider {
+  return {
+    id: Number(f.id),
+    diaIngame: Number(f.dia_ingame),
+    evento: String(f.evento),
+    tipo: f.tipo == null ? null : (String(f.tipo) as MemoriaLider["tipo"]),
+    asentamientoId: f.asentamiento_id == null ? null : String(f.asentamiento_id),
+    jugador: f.jugador == null ? null : String(f.jugador),
+  };
+}
+
 function filaCadaverDesdeSql(f: any): CadaverFila {
   return {
     id: String(f.id),
@@ -1615,6 +1649,14 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const columnasMascotas = this.bd.prepare("PRAGMA table_info(mascotas)").all();
     if (!columnasMascotas.some((c) => String(c.name) === "montura")) {
       this.bd.exec("ALTER TABLE mascotas ADD COLUMN montura INTEGER NOT NULL DEFAULT 0");
+    }
+    // Mismo patrón para tipo/asentamiento_id/jugador de `memoria_lider`
+    // (docs/GDD_Faccion_Bandidos.md §7quinquies) — un datos.sqlite de dev
+    // creado antes de este cambio no las tendría.
+    const columnasMemoriaLider = this.bd.prepare("PRAGMA table_info(memoria_lider)").all();
+    const nombresMemoriaLider = new Set(columnasMemoriaLider.map((c) => String(c.name)));
+    for (const col of ["tipo", "asentamiento_id", "jugador"] as const) {
+      if (!nombresMemoriaLider.has(col)) this.bd.exec(`ALTER TABLE memoria_lider ADD COLUMN ${col} TEXT`);
     }
   }
 
@@ -2648,17 +2690,28 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return Number(r.changes) > 0;
   }
 
-  async registrarMemoriaLider(diaIngame: number, evento: string): Promise<void> {
+  async registrarMemoriaLider(
+    diaIngame: number,
+    evento: string,
+    opciones?: { tipo?: "tropa_muerta" | "asentamiento_conquistado"; asentamientoId?: string; jugador?: string },
+  ): Promise<void> {
     this.bd
-      .prepare("INSERT INTO memoria_lider (dia_ingame, evento, creado_en) VALUES (?, ?, ?)")
-      .run(diaIngame, evento, new Date().toISOString());
+      .prepare("INSERT INTO memoria_lider (dia_ingame, evento, creado_en, tipo, asentamiento_id, jugador) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(diaIngame, evento, new Date().toISOString(), opciones?.tipo ?? null, opciones?.asentamientoId ?? null, opciones?.jugador ?? null);
   }
 
   async memoriaLiderReciente(limite: number): Promise<MemoriaLider[]> {
     const filas = this.bd
-      .prepare("SELECT id, dia_ingame, evento FROM memoria_lider ORDER BY id DESC LIMIT ?")
+      .prepare("SELECT id, dia_ingame, evento, tipo, asentamiento_id, jugador FROM memoria_lider ORDER BY id DESC LIMIT ?")
       .all(limite);
-    return filas.map((f) => ({ id: Number(f.id), diaIngame: Number(f.dia_ingame), evento: String(f.evento) }));
+    return filas.map((f) => filaAMemoriaLider(f));
+  }
+
+  async historialJugadorEnAsentamiento(asentamientoId: string, jugador: string, limite: number): Promise<MemoriaLider[]> {
+    const filas = this.bd
+      .prepare("SELECT id, dia_ingame, evento, tipo, asentamiento_id, jugador FROM memoria_lider WHERE asentamiento_id = ? AND jugador = ? ORDER BY id DESC LIMIT ?")
+      .all(asentamientoId, jugador, limite);
+    return filas.map((f) => filaAMemoriaLider(f));
   }
 
   async guardarContenedor(jugadorId: number, contenedorId: string, contenedor: Contenedor): Promise<void> {
@@ -3827,20 +3880,31 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return (r.rowCount ?? 0) > 0;
   }
 
-  async registrarMemoriaLider(diaIngame: number, evento: string): Promise<void> {
-    await this.pool.query("INSERT INTO memoria_lider (dia_ingame, evento, creado_en) VALUES ($1, $2, $3)", [
-      diaIngame,
-      evento,
-      new Date().toISOString(),
-    ]);
+  async registrarMemoriaLider(
+    diaIngame: number,
+    evento: string,
+    opciones?: { tipo?: "tropa_muerta" | "asentamiento_conquistado"; asentamientoId?: string; jugador?: string },
+  ): Promise<void> {
+    await this.pool.query(
+      "INSERT INTO memoria_lider (dia_ingame, evento, creado_en, tipo, asentamiento_id, jugador) VALUES ($1, $2, $3, $4, $5, $6)",
+      [diaIngame, evento, new Date().toISOString(), opciones?.tipo ?? null, opciones?.asentamientoId ?? null, opciones?.jugador ?? null],
+    );
   }
 
   async memoriaLiderReciente(limite: number): Promise<MemoriaLider[]> {
-    const r = await this.pool.query<{ id: number; dia_ingame: number; evento: string }>(
-      "SELECT id, dia_ingame, evento FROM memoria_lider ORDER BY id DESC LIMIT $1",
+    const r = await this.pool.query(
+      "SELECT id, dia_ingame, evento, tipo, asentamiento_id, jugador FROM memoria_lider ORDER BY id DESC LIMIT $1",
       [limite],
     );
-    return r.rows.map((f) => ({ id: f.id, diaIngame: f.dia_ingame, evento: f.evento }));
+    return r.rows.map((f) => filaAMemoriaLider(f));
+  }
+
+  async historialJugadorEnAsentamiento(asentamientoId: string, jugador: string, limite: number): Promise<MemoriaLider[]> {
+    const r = await this.pool.query(
+      "SELECT id, dia_ingame, evento, tipo, asentamiento_id, jugador FROM memoria_lider WHERE asentamiento_id = $1 AND jugador = $2 ORDER BY id DESC LIMIT $3",
+      [asentamientoId, jugador, limite],
+    );
+    return r.rows.map((f) => filaAMemoriaLider(f));
   }
 
   async guardarContenedor(jugadorId: number, contenedorId: string, contenedor: Contenedor): Promise<void> {

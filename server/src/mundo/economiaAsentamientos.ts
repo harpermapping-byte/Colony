@@ -21,6 +21,19 @@ const GUARNICION_INICIAL: { rango: "lider" | "guardia" | "recluta"; cantidad: nu
   { rango: "recluta", cantidad: 4 },
 ];
 
+// Reclutamiento (docs/GDD_Faccion_Bandidos.md §7ter, pedido 2026-08-30: "si
+// empiezan con 5 tropas... con el tiempo y esos recursos pueden, en vez de
+// mejorar la ciudad, contratar más tropa/gente, con límite razonable") —
+// tope de población total (todos los rangos) por asentamiento. Placeholder
+// de balance, mismo criterio que el resto de números de referencia.
+export const POBLACION_MAX = 20;
+// Piedra no tenía NINGÚN sumidero hasta ahora (madera->muralla, hierro->
+// equipo se documentó en §7ter que se acumulaban sin tope una vez maxados
+// esos dos niveles) — reclutar le da uno real. Cada recluta nuevo sale con
+// rango "recluta" (gente sin más, no un ascenso — un guardia/líder no se
+// "contrata", se asciende, mecánica futura fuera de esta pasada).
+export const COSTE_RECLUTAMIENTO_PIEDRA = 80;
+
 /**
  * Idempotente: crea la fila de asentamiento y su guarnición inicial la
  * PRIMERA vez que se referencia un id (ya sea porque RegionRoom cargó esa
@@ -98,11 +111,27 @@ export function calcularTick(actual: Asentamiento, tropasVivas: number): Asentam
 }
 
 /**
+ * Cuántos reclutas nuevos justifica la piedra YA acumulada de este pulso,
+ * sin pasar de `POBLACION_MAX` tropas totales — función PURA, no toca BD
+ * (mismo criterio que `calcularTick`: se prueba sola contra números, quien
+ * gasta la piedra y crea las filas de verdad es `ejecutarTickEconomia`).
+ * Puede recomendar VARIOS de golpe si hay piedra de sobra acumulada (la
+ * producción normal es lenta, pero adelantar muchos pulsos de golpe — un
+ * test, o un asentamiento descubierto tarde — puede acumular mucha piedra).
+ */
+export function reclutasARecluter(asentamiento: Asentamiento, tropasVivas: number): number {
+  const hueco = POBLACION_MAX - tropasVivas;
+  if (hueco <= 0) return 0;
+  return Math.min(hueco, Math.floor(asentamiento.piedra / COSTE_RECLUTAMIENTO_PIEDRA));
+}
+
+/**
  * Un pulso real: lee todos los asentamientos, aplica calcularTick, persiste.
  * Solo los que siguen en manos de la facción ("bandido") — un asentamiento
  * ya conquistado (§ conquista, abajo) pasa a "neutral" y esta economía de
- * guerra (recursos → muralla/equipo) deja de aplicarle; su propia
- * progresión (donaciones/misiones) es otro sistema, fuera de alcance aquí.
+ * guerra (recursos → muralla/equipo/reclutamiento) deja de aplicarle; su
+ * propia progresión (donaciones/misiones) es otro sistema, fuera de
+ * alcance aquí.
  */
 export async function ejecutarTickEconomia(bd: IAlmacenDatos): Promise<void> {
   const asentamientos = await bd.listarAsentamientos();
@@ -111,6 +140,13 @@ export async function ejecutarTickEconomia(bd: IAlmacenDatos): Promise<void> {
     const tropas = await bd.listarTropas(a.id);
     const vivas = tropas.filter((t) => t.estado === "vivo").length;
     const siguiente = calcularTick(a, vivas);
+
+    const nuevosReclutas = reclutasARecluter(siguiente, vivas);
+    if (nuevosReclutas > 0) {
+      siguiente.piedra -= nuevosReclutas * COSTE_RECLUTAMIENTO_PIEDRA;
+      for (let i = 0; i < nuevosReclutas; i++) await bd.crearTropa(a.id, "recluta");
+    }
+
     await bd.guardarAsentamiento(siguiente);
   }
 }
@@ -134,6 +170,7 @@ export async function ejecutarTickEconomia(bd: IAlmacenDatos): Promise<void> {
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { tiempoMundo } from "./tiempoMundo";
+import { narrarConquista } from "../ia/cronicaBandida";
 
 const RAIZ_REPO = path.resolve(__dirname, "..", "..", "..");
 const RUTA_EXPORTAR_ASENTAMIENTO = path.join(RAIZ_REPO, "poblacion", "src", "exportarAsentamiento.js");
@@ -166,19 +203,30 @@ export async function repoblarAsentamientoConquistado(rutaMapa: string): Promise
 }
 
 /**
- * Transición bandido -> neutral: guarda el cambio de bando, dos líneas de
- * memoria para el líder (una futura IA la leerá como contexto — GDD §6
- * "fases siguientes") y dispara la repoblación. Idempotente: si el
- * asentamiento YA es neutral, no hace nada (nunca reconquista dos veces ni
- * regenera población sobre población ya conquistada).
+ * Transición bandido -> neutral: guarda el cambio de bando, deja una
+ * entrada de crónica (docs/GDD_Faccion_Bandidos.md §7quinquies: redactada
+ * por IA con los nombres reales de quienes lo lograron, o el texto de
+ * siempre si no hay IA configurada) y dispara la repoblación. Idempotente:
+ * si el asentamiento YA es neutral, no hace nada (nunca reconquista dos
+ * veces ni regenera población sobre población ya conquistada).
  */
-export async function conquistarAsentamiento(bd: IAlmacenDatos, asentamiento: Asentamiento, rutaMapa: string): Promise<void> {
+export async function conquistarAsentamiento(
+  bd: IAlmacenDatos,
+  asentamiento: Asentamiento,
+  rutaMapa: string,
+  jugadoresGanadores: string[] = [],
+): Promise<void> {
   if (asentamiento.bando !== "bandido") return;
   await bd.guardarAsentamiento({ ...asentamiento, bando: "neutral" });
-  await bd.registrarMemoriaLider(
-    tiempoMundo().dia,
-    `La aldea "${asentamiento.id}" ha caído: su última tropa ha muerto y los jugadores la han conquistado.`,
-  );
+  const dia = tiempoMundo().dia;
+  const evento = await narrarConquista(asentamiento.id, jugadoresGanadores);
+  if (jugadoresGanadores.length === 0) {
+    await bd.registrarMemoriaLider(dia, evento, { tipo: "asentamiento_conquistado", asentamientoId: asentamiento.id });
+  } else {
+    for (const jugador of jugadoresGanadores) {
+      await bd.registrarMemoriaLider(dia, evento, { tipo: "asentamiento_conquistado", asentamientoId: asentamiento.id, jugador });
+    }
+  }
   await repoblarAsentamientoConquistado(rutaMapa);
 }
 
@@ -188,12 +236,18 @@ export async function conquistarAsentamiento(bd: IAlmacenDatos, asentamiento: As
  * comprueba sola si esa era la última tropa viva, disparando la conquista
  * si toca. `asentamientoId`/`rutaMapa` los conoce quien mata a la tropa
  * (la room del combate sabe en qué mapa/asentamiento está pasando).
+ * `jugadoresGanadores` (docs/GDD_Faccion_Bandidos.md §7quinquies, pedido
+ * 2026-08-30: "que la historia... nombres de jugadores... se recuerden") —
+ * quien llama ya sabe qué jugadores estaban en el bando ganador del
+ * combate real que mató esta tropa; vacío si no se pudo atribuir (p.ej.
+ * autosimulación NPC-vs-fauna, sin jugador de por medio).
  */
 export async function marcarTropaMuertaYVerificarConquista(
   bd: IAlmacenDatos,
   tropaId: string,
   asentamientoId: string,
   rutaMapa: string,
+  jugadoresGanadores: string[] = [],
 ): Promise<{ conquistada: boolean }> {
   await bd.marcarTropaMuerta(tropaId);
   const tropas = await bd.listarTropas(asentamientoId);
@@ -202,6 +256,6 @@ export async function marcarTropaMuertaYVerificarConquista(
   const asentamiento = await bd.obtenerOCrearAsentamiento(asentamientoId);
   if (asentamiento.bando !== "bandido") return { conquistada: false }; // ya conquistada antes
 
-  await conquistarAsentamiento(bd, asentamiento, rutaMapa);
+  await conquistarAsentamiento(bd, asentamiento, rutaMapa, jugadoresGanadores);
   return { conquistada: true };
 }

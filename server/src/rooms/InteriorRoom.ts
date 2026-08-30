@@ -2,12 +2,20 @@ import { Client, ServerError } from "@colyseus/core";
 import * as fs from "fs";
 import * as path from "path";
 import { RoomExteriorBase, RADIO_INTERACCION, ObjetoCogible } from "./base/RoomExteriorBase";
+import { Enemigo } from "./schema/HubState";
 import { cargarInterior, InteriorCargado } from "../mundo/interiorColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { poblarInterior, NpcConCasa } from "../mundo/agentesInterior";
 import { tiempoMundo } from "../mundo/tiempoMundo";
+import { diaFraccional } from "../mundo/reproduccionFauna";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
+import { RangoTropa } from "../datos/bd";
 import { salasAlquilablesPermitidas, precioHabitacion } from "../propiedades/propiedades";
+import { asegurarAsentamientoBandido, marcarTropaMuertaYVerificarConquista } from "../mundo/economiaAsentamientos";
+import { crearCadaver } from "../mundo/cadaveres";
+import { agregarItem } from "../inventario/inventario";
+import { elegirEnemigoDeTema, VARIANTES_POR_ENEMIGO } from "../mundo/catalogoEnemigos";
+import { STATS_POR_RANGO, FACTOR_POR_NIVEL_EQUIPO, LOOT_POR_RANGO } from "../mundo/guarnicionBandida";
 
 export interface OpcionesInterior {
   name?: string;
@@ -34,6 +42,8 @@ export class InteriorRoom extends RoomExteriorBase {
   // solo añade la población de enemigos encima, sin duplicar nada de esto.
   protected interior!: InteriorCargado;
   protected opciones!: OpcionesInterior;
+  /** clave de state.enemigos -> id de tropas_asentamiento (§7bis) — solo se rellena si ESTE interior es el cuartel (campamento_hostil) de un asentamiento bandido vivo. Vacío en cualquier otro edificio. */
+  private tropaDeEnemigo = new Map<string, string>();
 
   async onCreate(options: OpcionesInterior) {
     if (!options?.mapaId || !options?.edificio) {
@@ -49,6 +59,8 @@ export class InteriorRoom extends RoomExteriorBase {
       `${this.interior.ancho}x${this.interior.alto} casillas, ${this.interior.conectores.length} conector(es)`,
     );
     this.iniciarMovimiento();
+
+    if (this.interior.tipoEdificioId === "campamento_hostil") await this.poblarGuarnicionBandida();
 
     // Vida en interiores (GDD_Agentes_Moviles.md v1.2): si el asentamiento
     // tiene poblacion.json, los NPCs cuya rutina dice "estoy en ESTA casa
@@ -232,5 +244,117 @@ export class InteriorRoom extends RoomExteriorBase {
         this.broadcast("mundo:objetoQuitado", { origen: "interior", instanceId: idElegido });
       },
     };
+  }
+
+  /**
+   * §7bis — guarnición real del cuartel bandido, sin cooldown ni azar: una
+   * tropa viva (tropas_asentamiento, BD) = un Enemigo aquí dentro, una
+   * tropa muerta = hueco vacío para siempre. Si el asentamiento ya fue
+   * conquistado (bando "neutral") no hace nada: vuelve a ser un edificio
+   * normal, con población civil vía poblacion.json como cualquier otro
+   * (repoblarAsentamientoConquistado ya la genera al conquistarlo).
+   * Puntos candidatos: casillas pisables de sala_comun/dormitorio_comunal/
+   * celda de ESTE edificio (this.interior.salasPorTipo) — un cuartel no
+   * trae `spawnsEnemigos` bakeados como una mazmorra (eso es exclusivo de
+   * mazmorras/src/generarMazmorra.js), así que se reutilizan las mismas
+   * casillas pisables que ya usa "vida en interiores" para NPCs civiles.
+   *
+   * Solo guardia/líder están AQUÍ dentro — los reclutas están fuera, de
+   * patrulla (docs/GDD_Faccion_Bandidos.md §7ter, RegionRoom.poblarPatrullaBandida):
+   * "simulamos que están gathereando", así que no se les puebla también
+   * quietos en el cuartel a la vez (serían la misma tropa en dos sitios).
+   */
+  private async poblarGuarnicionBandida() {
+    const bd = await obtenerBdCompartida();
+    const asentamiento = await asegurarAsentamientoBandido(bd, this.opciones.mapaId);
+    if (asentamiento.bando !== "bandido") return;
+
+    const tropas = await bd.listarTropas(this.opciones.mapaId);
+    const vivas = tropas.filter((t) => t.estado === "vivo" && t.rango !== "recluta");
+    const factor = FACTOR_POR_NIVEL_EQUIPO[asentamiento.nivelEquipo] ?? 1;
+    const puntos = [
+      ...(this.interior.salasPorTipo.get("sala_comun") ?? []),
+      ...(this.interior.salasPorTipo.get("dormitorio_comunal") ?? []),
+      ...(this.interior.salasPorTipo.get("celda") ?? []),
+    ];
+    if (puntos.length === 0) {
+      console.log(`  Cuartel bandido "${this.opciones.mapaId}" (${this.opciones.edificio}): sin casillas candidatas — sin guarnición esta visita.`);
+      return;
+    }
+
+    let n = 0;
+    for (const tropa of vivas) {
+      const esLider = tropa.rango === "lider";
+      const enemigoId = elegirEnemigoDeTema(["bandido"], esLider) ?? elegirEnemigoDeTema(["bandido"], false);
+      if (!enemigoId) continue;
+      const punto = puntos[n % puntos.length];
+      const base = STATS_POR_RANGO[tropa.rango];
+      const e = new Enemigo();
+      e.x = punto.x + 0.5;
+      e.y = punto.y + 0.5;
+      e.enemigoId = enemigoId;
+      e.variante = Math.floor(Math.random() * VARIANTES_POR_ENEMIGO);
+      e.esBoss = esLider;
+      e.vida = Math.round(base.vida * factor);
+      e.vidaMax = e.vida;
+      e.ataque = Math.round(base.ataque * factor);
+      e.defensa = Math.round(base.defensa * factor);
+      const clave = `tropa_${n++}`;
+      this.state.enemigos.set(clave, e);
+      this.tropaDeEnemigo.set(clave, tropa.id);
+    }
+    console.log(`  Cuartel bandido "${this.opciones.mapaId}" (${this.opciones.edificio}): ${n} tropa(s) viva(s) de ${tropas.length} totales (nivelEquipo=${asentamiento.nivelEquipo}) — sin cooldown, economía real.`);
+  }
+
+  /**
+   * §7bis — si el enemigo muerto era una tropa real del cuartel bandido:
+   * baja permanente en BD (nunca revive), posible conquista si era la
+   * última viva, y cadáver looteable con material real (mismo mecanismo
+   * que un animal muerto, docs/GDD_Caza.md). Cualquier otro enemigo
+   * (edificio normal, o una mazmorra vía DungeonRoom que hereda esto TAL
+   * CUAL) sigue exactamente igual que siempre — `tropaDeEnemigo` está
+   * vacío ahí, así que cae directo a `super.finalizarMuerte`.
+   */
+  protected async finalizarMuerte(id: string, jugadoresGanadores: string[] = []) {
+    const tropaId = this.tropaDeEnemigo.get(id);
+    if (!tropaId) return super.finalizarMuerte(id, jugadoresGanadores);
+
+    const enemigo = this.state.enemigos.get(id);
+    // posición/rango se leen ANTES de super.finalizarMuerte(id) — ese borra
+    // la entidad del Schema (state.enemigos.delete), después ya no existe.
+    const x = enemigo?.x ?? 0;
+    const y = enemigo?.y ?? 0;
+    const rangoLoot: RangoTropa = enemigo?.esBoss ? "lider" : "guardia";
+    await super.finalizarMuerte(id, jugadoresGanadores);
+    this.tropaDeEnemigo.delete(id);
+
+    const bd = await obtenerBdCompartida();
+    // docs/GDD_Faccion_Bandidos.md §7quinquies — hecho estructurado, sin IA
+    // (una llamada por jugador y muerte sería carísimo e innecesario; la IA
+    // solo redacta la crónica de conquista y el grito de un bandido vivo,
+    // no cada baja suelta).
+    const dia = tiempoMundo().dia;
+    for (const jugador of jugadoresGanadores) {
+      await bd.registrarMemoriaLider(
+        dia,
+        `${jugador} mató a un ${rangoLoot} de "${this.opciones.mapaId}".`,
+        { tipo: "tropa_muerta", asentamientoId: this.opciones.mapaId, jugador },
+      );
+    }
+
+    const rutaMapa = rutaDeMapaId(this.opciones.mapaId);
+    const { conquistada } = await marcarTropaMuertaYVerificarConquista(bd, tropaId, this.opciones.mapaId, rutaMapa, jugadoresGanadores);
+    if (conquistada) console.log(`  ¡Asentamiento bandido "${this.opciones.mapaId}" conquistado! Última tropa (${tropaId}) muerta.`);
+
+    const cadaver = crearCadaver({
+      id: `cadaver:${tropaId}`,
+      mapaId: this.opciones.mapaId,
+      tipoOrigen: "npc",
+      especieOrigenId: tropaId,
+      x, y,
+      ahora: diaFraccional(tiempoMundo().dia, tiempoMundo().hora),
+    });
+    for (const { itemId, cantidad } of LOOT_POR_RANGO[rangoLoot]) agregarItem(cadaver.contenedor, this.catalogoItems, itemId, cantidad);
+    this.publicarCadaver(cadaver);
   }
 }
