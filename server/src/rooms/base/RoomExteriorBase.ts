@@ -26,9 +26,11 @@ import {
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
 import { recolectableCercano, recolectablesQuitadosDeMapa } from "../../mundo/recolectables";
+import { requisitoDeCategoria, mejorHerramientaPara } from "../../mundo/herramientasRecoleccion";
 import {
   CatalogoItems,
   Contenedor,
+  ItemInstancia,
   crearContenedor,
   cargarCatalogoItems,
   quitarItem,
@@ -1083,7 +1085,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
 
-    const candidato = this.buscarObjetoSoltadoCercano(player.x, player.y) ?? this.buscarCogibleEnMundo(player.x, player.y);
+    // Herramienta por tier (docs/GDD_Profesiones.md §0) — SOLO gatea la
+    // recolección salvaje del bake (árboles/vetas/hierbas); un objeto ya
+    // soltado por otro jugador se coge siempre libre, no hace falta talarlo/
+    // minarlo de nuevo.
+    let herramientaAUsar: ItemInstancia | undefined;
+    let candidato = this.buscarObjetoSoltadoCercano(player.x, player.y);
+    if (!candidato) {
+      const delMundo = this.buscarCogibleEnMundo(player.x, player.y);
+      if (delMundo) {
+        const requisito = requisitoDeCategoria(delMundo.itemId);
+        if (requisito) {
+          herramientaAUsar = mejorHerramientaPara(contenedor, this.catalogoItems, requisito);
+          if (!herramientaAUsar) {
+            client.send("coger:error", { motivo: `necesitas una herramienta de ${requisito.oficio} (tier ${requisito.tier} o superior)` });
+            return;
+          }
+        }
+        candidato = delMundo;
+      }
+    }
     if (!candidato) {
       client.send("coger:error", { motivo: "nada_cerca" });
       return;
@@ -1109,6 +1130,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return;
     }
     candidato.confirmar();
+    if (herramientaAUsar) {
+      const entradaHerramienta = this.catalogoItems[herramientaAUsar.itemId];
+      if (entradaHerramienta) registrarUso(herramientaAUsar, entradaHerramienta, Date.now());
+    }
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
     this.persistirInventarioPorSesion(client);
 

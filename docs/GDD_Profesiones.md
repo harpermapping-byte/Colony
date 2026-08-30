@@ -58,11 +58,13 @@ cantidadFinal  = floor(cantidadBase * (1 + bonusCantidad))
 - **Corrección real durante la implementación**: los primeros módulos de curtidor/joyero/cocinero se etiquetaron con el edificio "principal" del oficio fusionado en vez del edificio REAL de la mesa a la que dan bonus (p.ej. `lanzadera_automatica_telar` boostea `telar`, que vive en el edificio de sastre, no en curtiduría) — un módulo que nunca puede bakearse en el MISMO edificio que su mesa objetivo jamás llegaría a estar adyacente a ella. Corregido pieza a pieza contra el `temasProfesion` real de cada mesa objetivo.
 - **Tests**: `server/test/mejoraMesaAdyacente.test.ts` (6 tests, función pura con `ContextoConstruccion` sintético — sin/con módulo, velocidad+cantidad simultáneos, módulo de otra mesa no cuenta, diagonal no cuenta, dos módulos del mismo tipo no se suman).
 
-### Herramientas por tier (recolección + mesa)
+### Herramientas por tier (recolección + mesa) — GATING YA CABLEADO
 
-62 herramientas nuevas en `items/catalogo/items.json` (+ 3 existentes anotadas: `hacha_talar`, `pico_minero`, `cuchillo_desollar`), con `familiaMaterial:"herramienta_<oficio>"` y `tier:1-4` — mismo campo/convención YA existente (`EntradaCatalogoItem.tier`, "informativo, cero código lo consume todavía", igual que otros campos aditivos del catálogo).
+62 herramientas nuevas en `items/catalogo/items.json` (+ 3 existentes anotadas: `hacha_talar`, `pico_minero`, `cuchillo_desollar`), con `familiaMaterial:"herramienta_<oficio>"` y `tier:1-4` — mismo campo/convención YA existente (`EntradaCatalogoItem.tier`).
 
-**⚠️ Pendiente real, NO implementado todavía**: el GATING por tier (necesitar la herramienta del tier correcto para recolectar madera/mineral/hierbas/caza, o para ciertas mesas) no está cableado. Hoy recolectar (`coger`) sigue siendo libre para cualquiera, sin herramienta, salvo lo que YA gateaba antes de esta sesión (`cuchillo_desollar` para desollar/piel, vía oficio curtidor). Cablearlo de verdad exige antes categorizar por tier CADA recurso recolectable existente (`baker/catalogo/vegetacion.json`/`rocas.json`/`animales.json`) — un trabajo de clasificación de contenido aparte, no solo código. `tier`/`familiaMaterial` quedan declarados y listos para ese momento.
+**Gating real implementado (2026-08-30, segunda pasada)**: `server/src/mundo/herramientasRecoleccion.ts` — tabla `CATEGORIA_HERRAMIENTA_RECOLECCION` (36 `categoriaRecurso` de `baker/catalogo/vegetacion.json`/`rocas.json` → `{oficio, tier}`, asignados por rareza real vía `densidadBase`) + `mejorHerramientaPara(contenedor, catalogo, requisito)` (busca en el inventario la herramienta de mayor tier de esa familia que no esté rota). `RoomExteriorBase.ts::manejarCoger` la aplica SOLO a la recolección salvaje del bake (`buscarCogibleEnMundo`), nunca a objetos ya soltados por otro jugador — sin la herramienta correcta, `coger:error` con el motivo exacto ("necesitas una herramienta de \<oficio\> (tier N o superior)"); con ella, se registra el uso (desgaste) igual que `cuchillo_desollar`.
+
+Descubrimiento durante la implementación: `rocas.json` (mineral/piedra, oficio picapedrero) **no tiene NINGUNA entrada con `desaparaceAlRecolectar:true`** — hoy nada de eso es recolectable de verdad todavía (pendiente aparte, no introducido por esta sesión); la tabla de picapedrero queda lista para cuando exista esa mecánica. Verificado con datos reales: 9 tests puros (`server/test/herramientasRecoleccion.test.ts`, incluye un test de cobertura contra el catálogo real del baker) + 1 E2E contra el servidor real y el mapa demo (`server/test/herramientasRecoleccion.e2e.mjs`: sin herramienta se rechaza con el motivo correcto sobre un `flor_medicinal` real del bake; con `tijera_herbolario_fina` (curandero tier 3) se coge de verdad y el nodo desaparece del mundo).
 
 ### Objetos decorativos exclusivos (craftables)
 
@@ -70,7 +72,7 @@ cantidadFinal  = floor(cantidadBase * (1 + bonusCantidad))
 
 ### Verificado (2026-08-30)
 
-`tsc` limpio, servidor 791/791 (antes 785 + 6 tests nuevos de módulos), interiores 41/41 (74 tipologías de edificio, antes 73 — `cabana_cazador`), ciudades 13/13. Bake real de 8 semillas de `aldea` confirmando `cabana_cazador` + su mesa de nivel 1 colocada en al menos una instancia.
+`tsc` limpio, servidor 800/800 (785 + 6 de módulos + 9 de gating de herramienta), interiores 41/41 (74 tipologías de edificio, antes 73 — `cabana_cazador`), ciudades 13/13. Bake real de 8 semillas de `aldea` confirmando `cabana_cazador` + su mesa de nivel 1 colocada en al menos una instancia. E2E real (`herramientasRecoleccion.e2e.mjs`) contra el mapa demo verificando el gating de principio a fin.
 
 ---
 
