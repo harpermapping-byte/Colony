@@ -195,6 +195,14 @@ export function validarColocacion(
     return { ok: false, motivo: "el molino de agua necesita un cauce junto a su huella" };
   }
 
+  // Pesca pasiva (docs/GDD_Pesca.md): trampa/cangrejera/batea, mismo
+  // requisito de "agua junto a la huella" que el molino de agua — reusa la
+  // misma comprobación, ninguna casilla de la propia huella puede ser agua
+  // (construcción siempre en tierra) pero necesita el cauce/orilla al lado.
+  if (entrada.requiereAgua && !hayAguaAdyacente(ctx, casillas, claves)) {
+    return { ok: false, motivo: "esto necesita agua junto a su huella" };
+  }
+
   return { ok: true, parcelaId, claves };
 }
 

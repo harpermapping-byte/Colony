@@ -798,6 +798,33 @@
     "variantes": 2,
     "colorDebug": "#c9a050"
   },
+  "cana_pesca": {
+    "tipo": "herramienta",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      3
+    ],
+    "peso": 1.5,
+    "apilable": false,
+    "durabilidadMax": 40,
+    "desgastePorUso": 1,
+    "variantes": 2,
+    "colorDebug": "#a67c3a"
+  },
+  "cebo_pesca": {
+    "tipo": "recurso",
+    "categoriaRecurso": "cebo_pesca",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.05,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 1,
+    "colorDebug": "#5a4a30"
+  },
   "racion_viaje": {
     "tipo": "consumible",
     "restaura": {

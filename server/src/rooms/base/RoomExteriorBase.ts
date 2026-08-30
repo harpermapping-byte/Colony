@@ -3,7 +3,7 @@ import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fa
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
 import { cargarCatalogoArenas, elegirArena } from "../../combate/seleccionArena";
-import { MundoColision, moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO_PJ, tipoEn } from "../../mundo/colisiones";
+import { MundoColision, moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO_PJ, tipoEn, casillaAguaCercana } from "../../mundo/colisiones";
 import {
   UnidadCombate,
   Bando,
@@ -16,7 +16,7 @@ import {
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado } from "../../mundo/mapaColision";
 import { recolectableCercano } from "../../mundo/recolectables";
-import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, cargarCatalogoRecetas, excedePesoMaximo, moverItem, buscarHueco } from "../../inventario/inventario";
+import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, agregarItem, cargarCatalogoRecetas, excedePesoMaximo, moverItem, buscarHueco } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../../inventario/sincronizarSchema";
 import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota } from "../../datos/bd";
@@ -58,9 +58,10 @@ import { RoomConectable, registrarRoom, quitarRoom, registrarJugador, quitarJuga
 import { obtenerGestorTwitch } from "../../twitch/gestorTwitch";
 import { TipoEvento } from "../../twitch/catalogoEventos";
 import { resolverSesionTwitch } from "../../twitch/oauthLogin";
-import { aplicarPenalizacionMuerte, PiezaEquipada } from "../../inventario/desgaste";
+import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto } from "../../inventario/desgaste";
 import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
+import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -234,6 +235,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private siguienteComercioId = 1;
   private static readonly VENTANA_SOLICITUD_COMERCIO_MS = 8000;
 
+  // --- Pesca (docs/GDD_Pesca.md, pedido 2026-08-30) — vive y muere con la
+  // sesión, mismo criterio que `durmiendo`/`craftesEnCurso`. `timer` es el
+  // Delayed de Colyseus que dispara la próxima picada o el escape del pez
+  // (mismo patrón que `timeoutsVentanaCombate`).
+  private pescaPorSesion = new Map<string, { x: number; y: number; fase: "esperando" | "picando"; itemId?: string; timer?: Delayed }>();
+
   // --- Mascotas (docs/GDD_Mascotas.md) — solo lo que "siguiendo" necesita
   // en ESTA room: qué sessionId es el dueño de cada mascotaId (nunca en el
   // Schema, ver comentario de Mascota en HubState.ts), y qué mascotaIds
@@ -327,6 +334,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         if (durmiente) durmiente.durmiendo = false;
         client.send("dormir:cancelado", {});
       }
+      // Moverse de verdad también corta la pesca (docs/GDD_Pesca.md) — no
+      // tiene sentido seguir "anclado" con la caña lanzada si el jugador se va.
+      if (((dir?.x ?? 0) !== 0 || (dir?.y ?? 0) !== 0) && this.pescaPorSesion.has(client.sessionId)) {
+        this.detenerPesca(client.sessionId);
+        client.send("pesca:cancelada", {});
+      }
       this.inputs.set(client.sessionId, {
         x: clamp(dir?.x ?? 0, -1, 1),
         y: clamp(dir?.y ?? 0, -1, 1),
@@ -346,6 +359,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("coger", (client) => this.manejarCoger(client));
     this.onMessage("soltar", (client, msg: { instanciaId?: number; cantidad?: number }) => this.manejarSoltar(client, msg));
     this.onMessage("personaje:consumir", (client, msg: { instanciaId?: number }) => this.manejarPersonajeConsumir(client, msg));
+
+    // Pesca (docs/GDD_Pesca.md, pedido 2026-08-30): caña + cebo, orilla, boya.
+    this.onMessage("pesca:lanzar", (client) => this.manejarPescaLanzar(client));
+    this.onMessage("pesca:interactuar", (client) => this.manejarPescaInteractuar(client));
+    this.onMessage("pesca:cancelar", (client) => this.detenerPesca(client.sessionId));
 
     // Higiene y sueño en cama (docs/GDD_Personaje.md §3.6, pedido explícito 2026-08-30)
     this.onMessage("higiene:cagar", (client, msg: { instanciaId?: number }) => this.manejarHigieneCagar(client, msg));
@@ -512,6 +530,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // mueve, mismo criterio "todo o nada" que un hueco insuficiente).
     const comercioAbierto = this.comerciosPorSesion.get(client.sessionId);
     if (comercioAbierto) this.cerrarComercio(comercioAbierto, "cancelado");
+    this.detenerPesca(client.sessionId);
 
     // Mascotas: desaparecen de ESTA room (no se persiste x/y, ver Mascota en
     // HubState.ts) — su fila en BD sigue "siguiendo", vuelven a aparecer en
@@ -1564,6 +1583,103 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (playerB) sincronizarContenedor(playerB.inventario.cuerpo, contB);
 
     this.cerrarComercio(comercioId, "completado");
+  }
+
+  /**
+   * Pesca (docs/GDD_Pesca.md, pedido 2026-08-30): "necesitas caña con cebo
+   * e irte a una superficie de agua en la orilla, con la caña en mano
+   * usar". Requiere `cana_pesca` en buen estado + 1 `cebo_pesca` en el
+   * inventario, estar en TIERRA con agua dentro de RADIO_INTERACCION — el
+   * cebo se consume al lanzar, la caña se queda "anclada" (state en
+   * `pescaPorSesion`) hasta capturar/escapar/cancelar/moverse.
+   */
+  private manejarPescaLanzar(client: Client) {
+    const sessionId = client.sessionId;
+    if (this.pescaPorSesion.has(sessionId)) return;
+    const player = this.state.players.get(sessionId);
+    const contenedor = this.inventarios.get(sessionId);
+    if (!player || !contenedor) return;
+
+    const cana = contenedor.items.find((it) => it.itemId === "cana_pesca");
+    const entradaCana = cana && this.catalogoItems[cana.itemId];
+    if (!cana || !entradaCana || estaRoto(cana, entradaCana)) {
+      return client.send("pesca:error", { motivo: "necesitas una caña de pescar en buen estado" });
+    }
+    const cebo = contenedor.items.find((it) => it.itemId === "cebo_pesca");
+    if (!cebo) return client.send("pesca:error", { motivo: "necesitas cebo" });
+
+    if (medioEn(this.mundo, player.x, player.y) !== TIPO.TIERRA) {
+      return client.send("pesca:error", { motivo: "tienes que estar en tierra, junto al agua" });
+    }
+    const boya = casillaAguaCercana(this.mundo, player.x, player.y, RADIO_INTERACCION);
+    if (!boya) return client.send("pesca:error", { motivo: "no hay agua cerca" });
+
+    quitarItem(contenedor, cebo.id, 1);
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    this.pescaPorSesion.set(sessionId, { x: boya.x, y: boya.y, fase: "esperando" });
+    client.send("pesca:lanzada", { x: boya.x, y: boya.y });
+    this.programarProximaPicada(sessionId);
+  }
+
+  private programarProximaPicada(sessionId: string) {
+    const estado = this.pescaPorSesion.get(sessionId);
+    if (!estado) return;
+    estado.timer = this.clock.setTimeout(() => this.intentarPicada(sessionId), INTERVALO_PICADA_MS);
+  }
+
+  private intentarPicada(sessionId: string) {
+    const estado = this.pescaPorSesion.get(sessionId);
+    if (!estado || estado.fase !== "esperando") return;
+    if (!tocaPicar()) return this.programarProximaPicada(sessionId);
+
+    estado.fase = "picando";
+    estado.itemId = elegirCaptura(); // se decide YA, no al reaccionar — reaccionar solo confirma que llega a tiempo
+    this.clients.find((c) => c.sessionId === sessionId)?.send("pesca:pica", { movimientos: MOVIMIENTOS_BOYA, ventanaMs: VENTANA_REACCION_MS });
+    estado.timer = this.clock.setTimeout(() => this.picadaEscapada(sessionId), VENTANA_REACCION_MS);
+  }
+
+  private picadaEscapada(sessionId: string) {
+    const estado = this.pescaPorSesion.get(sessionId);
+    if (!estado || estado.fase !== "picando") return;
+    estado.fase = "esperando";
+    estado.itemId = undefined;
+    this.clients.find((c) => c.sessionId === sessionId)?.send("pesca:escapado", {});
+    this.programarProximaPicada(sessionId);
+  }
+
+  /** El jugador reacciona a tiempo mientras la boya se agita — mismo criterio "sin UI de targeting" que el resto: un único mensaje sin payload. */
+  private manejarPescaInteractuar(client: Client) {
+    const sessionId = client.sessionId;
+    const estado = this.pescaPorSesion.get(sessionId);
+    if (!estado || estado.fase !== "picando" || !estado.itemId) return;
+    estado.timer?.clear();
+
+    const player = this.state.players.get(sessionId);
+    const contenedor = this.inventarios.get(sessionId);
+    if (player && contenedor) {
+      const resultado = agregarItem(contenedor, this.catalogoItems, estado.itemId, 1);
+      if (resultado.ok) {
+        const cana = contenedor.items.find((it) => it.itemId === "cana_pesca");
+        const entradaCana = cana && this.catalogoItems[cana.itemId];
+        if (cana && entradaCana) registrarUso(cana, entradaCana, Date.now());
+        sincronizarContenedor(player.inventario.cuerpo, contenedor);
+        client.send("pesca:capturado", { itemId: estado.itemId });
+      } else {
+        client.send("pesca:error", { motivo: "no te cabe en el inventario" });
+      }
+    }
+    estado.fase = "esperando";
+    estado.itemId = undefined;
+    this.programarProximaPicada(sessionId);
+  }
+
+  /** Corta la pesca activa de esta sesión, si la hay — cancelar, moverse, desconectar. */
+  private detenerPesca(sessionId: string) {
+    const estado = this.pescaPorSesion.get(sessionId);
+    if (!estado) return;
+    estado.timer?.clear();
+    this.pescaPorSesion.delete(sessionId);
   }
 
   private async manejarGremioInvitar(client: Client, msg: { jugadorNombre?: string }) {

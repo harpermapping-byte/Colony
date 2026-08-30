@@ -207,17 +207,17 @@ Pensando en qué encaja con lo que ya existe en el proyecto (rig con pivotes por
 - **Aprendizaje de recetas por relación con NPC**, no solo comprando el plano — un curandero/herrero con buena reputación te enseña algo que no vende a cualquiera; conecta reputación + profesiones + los NPCs con IA que ya están en el backlog.
 - **Clima afectando mecánicas, no solo estética**: lluvia moja (apaga antorchas al aire libre, ropa mojada = más frío), nieve en `montana_nevada` con daño por frío sin abrigo adecuado — todo esto ya tiene datos base (biomas, ropa por fibra) para engancharse sin catálogos nuevos.
 
-## Muerte y respawn — sin diseñar
+## Muerte y respawn — HECHO (2026-08-30)
 
-Qué pasa al morir (¿se pierden objetos?, ¿punto de reaparición?, ¿penalización temporal?) — nada decidido todavía.
+Respawn en la cama de una propiedad propia si existe, si no en el Hub; -20% de durabilidad al equipo, el resto del inventario cae al suelo en el sitio de la muerte. Ver `docs/GDD_Muerte_Respawn.md`.
 
 ## Monturas — sin diseñar
 
 Domesticación, control de movimiento, resistencia. Ya hay un gancho preparado: el modificador de velocidad por tipo de terreno del bakeador (GDD sección 2) está pensado desde el principio para que una montura solo necesite su propio multiplicador aparte, sin tocar la tabla de terrenos.
 
-## Pesca — sin diseñar
+## Pesca — HECHO (2026-08-30)
 
-Cebos (conecta con "capturar insectos" ya anotado como verbo pendiente), cañas/redes, zonas de pesca por bioma (agua dulce vs. mar, ya diferenciadas en el catálogo de recursos como Pescado de Río / Pescado de Mar / Marisco).
+Activa (caña + cebo, orilla, boya con ventana de reacción a la picada) y pasiva (trampa/cangrejera/batea de almejas, producción pasiva reusando el mismo mecanismo de colmena/aserradero). Ver `docs/GDD_Pesca.md`. Sin distinción de bioma de agua por casilla todavía (agua dulce vs. mar) — tabla de capturas genérica hasta que el runtime lea bioma de agua.
 
 ## Barcos y navegación marítima — sin diseñar
 

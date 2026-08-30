@@ -13,11 +13,12 @@ import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelas
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
 import { ModoConstruccion } from "./construccion/constructor";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
-import { PointLight, Color, Mesh, ConeGeometry, MeshBasicMaterial } from "three";
+import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
+import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -732,6 +733,51 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   });
   $(room.state).combatesEnCurso.onRemove((_marcador: any, id: string) => escena.quitarEntidad(`combate_${id}`));
 
+  // --- Pesca (docs/GDD_Pesca.md, pedido 2026-08-30) — panel PLACEHOLDER de
+  // testeo + una boya cosmética SOLO LOCAL (no viaja por el Schema — nadie
+  // más necesita verla, mismo criterio de scope que el resto de esta
+  // pasada). Tecla U: "usar" la caña — lanza si no se está pescando ya,
+  // reacciona a la picada si la boya se está agitando.
+  const panelPesca = new PanelPesca({ contenedor, cancelar: () => room.send("pesca:cancelar") });
+  let estadoPesca: EstadoPescaVista = null;
+  let boyaMesh: Mesh | null = null;
+  const ID_BOYA = "pesca_boya_propia";
+  function quitarBoya() {
+    if (boyaMesh) { escena.quitarEntidad(ID_BOYA); boyaMesh = null; }
+  }
+  room.onMessage("pesca:lanzada", (m: { x: number; y: number }) => {
+    estadoPesca = "esperando";
+    panelPesca.actualizar(estadoPesca);
+    quitarBoya();
+    boyaMesh = new Mesh(new SphereGeometry(0.12, 8, 8), new MeshBasicMaterial({ color: 0xd9432a }));
+    escena.añadirEntidad(ID_BOYA, boyaMesh, m.x, m.y, "🎣");
+    const inicio = performance.now();
+    animables.push({
+      actualizar: () => {
+        if (!boyaMesh) return;
+        const t = (performance.now() - inicio) / 1000;
+        const amplitud = estadoPesca === "picando" ? 0.18 : 0.05;
+        const velocidad = estadoPesca === "picando" ? 10 : 2.5;
+        boyaMesh.position.y = 0.15 + Math.sin(t * velocidad) * amplitud;
+      },
+    });
+  });
+  room.onMessage("pesca:pica", () => { estadoPesca = "picando"; panelPesca.actualizar(estadoPesca); });
+  room.onMessage("pesca:escapado", () => { estadoPesca = "esperando"; panelPesca.actualizar(estadoPesca); });
+  room.onMessage("pesca:capturado", (m: { itemId: string }) => {
+    console.log(`[pesca] capturado: ${m?.itemId}`);
+    estadoPesca = "esperando"; // el servidor sigue pescando (misma caña, mismo cebo ya consumido) — ver manejarPescaInteractuar
+    panelPesca.actualizar(estadoPesca);
+  });
+  room.onMessage("pesca:cancelada", () => { estadoPesca = null; panelPesca.actualizar(null); quitarBoya(); });
+  room.onMessage("pesca:error", (m: { motivo: string }) => {
+    console.log("[pesca]", m?.motivo);
+    // Un error al LANZAR no cambia nada (nunca se llegó a pescar). Un error
+    // al reaccionar a una picada (p.ej. inventario lleno) sí — el servidor
+    // sigue pescando, solo que sin capturar esta vez.
+    if (estadoPesca === "picando") { estadoPesca = "esperando"; panelPesca.actualizar(estadoPesca); }
+  });
+
   function objetivoHostilMasCercano(): string | null {
     if (!jugadorLocal) return null;
     let mejorId: string | null = null;
@@ -801,6 +847,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // más cercano — mutuo, el servidor solo abre el trato si el otro
     // también la pulsó apuntándote a ti (ver panelComercio.ts).
     if (k === "t" && !teclas.has("t")) room.send("comercio:solicitar");
+    // Pesca (docs/GDD_Pesca.md): U "usa" la caña — lanza si no se está
+    // pescando ya, reacciona a la picada si la boya se está agitando (el
+    // servidor decide si el estado encaja; en cualquier otro momento no-op).
+    if (k === "u" && !teclas.has("u")) {
+      if (estadoPesca === "picando") room.send("pesca:interactuar");
+      else if (estadoPesca === null) room.send("pesca:lanzar");
+    }
     teclas.add(k);
   });
   window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));

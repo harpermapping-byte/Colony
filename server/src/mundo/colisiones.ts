@@ -105,6 +105,32 @@ export function nivelMinimo(medio: number): number {
   return 0;
 }
 
+/**
+ * Casilla de agua (TIPO.AGUA/AGUA_PROFUNDA) más cercana a (x,y) dentro de
+ * `radio` casillas, o null — para pesca (docs/GDD_Pesca.md): ahí cae el
+ * cebo y se ancla la boya. Escaneo de vecindad acotado (mismo criterio que
+ * `recolectableCercano`), nunca el mapa entero.
+ */
+export function casillaAguaCercana(mundo: MundoColision, x: number, y: number, radio: number): { x: number; y: number } | null {
+  const r = Math.ceil(radio);
+  const cx = Math.floor(x), cy = Math.floor(y);
+  let mejor: { x: number; y: number } | null = null;
+  let mejorDist = radio;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const centroX = cx + dx + 0.5, centroY = cy + dy + 0.5;
+      const dist = Math.hypot(centroX - x, centroY - y);
+      if (dist > mejorDist) continue;
+      const t = tipoEn(mundo, centroX, centroY);
+      if (t === TIPO.AGUA || t === TIPO.AGUA_PROFUNDA) {
+        mejor = { x: centroX, y: centroY };
+        mejorDist = dist;
+      }
+    }
+  }
+  return mejor;
+}
+
 export interface CuerpoPJ {
   x: number;
   y: number;
