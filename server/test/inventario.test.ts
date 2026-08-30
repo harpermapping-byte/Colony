@@ -28,7 +28,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 262); // 257 (ver historial) + 5 de anatomía (docs/GDD_Anatomia.md, 2026-08-30): venda/unguento/tablilla/protesis_madera/instrumental_cirugia
+  assert.strictEqual(ids.length, 264); // 262 (ver historial) + 2 de líquidos (docs/GDD_Inventario.md §9, 2026-08-30): cantimplora/cubo_madera
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");
@@ -65,6 +65,11 @@ test("herramientas de gate (cuchillo_desollar/cuchillo_cocina) se desgastan con 
     assert.ok((e.durabilidadMax ?? 0) > 0, `${id}: sin durabilidadMax`);
     assert.ok((e.desgastePorUso ?? 0) > 0, `${id}: sin desgastePorUso`);
   }
+});
+
+test("recipientes de líquido (cantimplora/cubo_madera): a más grande, más volumenMaxMl (docs/GDD_Inventario.md §9, pedido 2026-08-30)", () => {
+  assert.ok((catalogo["cantimplora"]?.volumenMaxMl ?? 0) > 0, "falta volumenMaxMl en cantimplora");
+  assert.ok((catalogo["cubo_madera"]?.volumenMaxMl ?? 0) > (catalogo["cantimplora"]?.volumenMaxMl ?? 0), "el cubo debe caber más que la cantimplora");
 });
 
 test("armas cuerpo a cuerpo: alcance corto (1-2), las de distancia llegan mucho más lejos", () => {

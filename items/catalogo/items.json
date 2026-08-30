@@ -1128,6 +1128,32 @@
     "variantes": 1,
     "colorDebug": "#a89878"
   },
+  "cantimplora": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a9aa0",
+    "volumenMaxMl": 500,
+    "_nota": "Recipiente de líquido portable (docs/GDD_Inventario.md §9, pedido 2026-08-30) — pequeño, para llevar agua encima y beber. Se llena con recipiente:llenar junto a una fuente de agua, se bebe con recipiente:beber."
+  },
+  "cubo_madera": {
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#7a5a3a",
+    "volumenMaxMl": 2000,
+    "_nota": "Recipiente de líquido portable, grande (docs/GDD_Inventario.md §9) — cuatro veces la cantimplora. Es el que se mete en la olla como ingrediente de agua (cocina:llenarAgua ahora exige uno lleno, ya no es gratis)."
+  },
   "cuchillo_cocina": {
     "tipo": "objeto",
     "huella": [

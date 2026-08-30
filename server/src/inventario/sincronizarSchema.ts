@@ -28,6 +28,11 @@ export function sincronizarContenedor(schema: ContenedorSchema, puro: Contenedor
     s.x = it.x;
     s.y = it.y;
     s.rot = it.rot;
+    // Líquidos (docs/GDD_Inventario.md §9) — "" / 0 = sin líquido, mismo
+    // criterio de "campo ausente = no aplica" que el resto de la instancia.
+    s.liquidoTipo = it.liquido?.tipo ?? "";
+    s.liquidoVolumenMl = it.liquido?.volumenMl ?? 0;
+    s.liquidoContaminada = it.liquido?.contaminada ?? false;
     schema.items.push(s);
   }
 }

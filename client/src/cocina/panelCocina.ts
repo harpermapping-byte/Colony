@@ -32,7 +32,7 @@ function nombreVasija(vasija: string | undefined): string {
 export interface OpcionesPanelCocina {
   contenedor: HTMLElement;
   cocinarSimple(construccionId: number, instanciaId: number): void;
-  llenarAgua(construccionId: number): void;
+  llenarAgua(construccionId: number, instanciaId: number): void;
   anadir(construccionId: number, instanciaId: number, cantidad: number): void;
   preparar(construccionId: number): void;
 }
@@ -149,10 +149,28 @@ export class PanelCocina {
     // tinaja_batidos no necesitan agua ni hervor — directo a añadir.
     if (e.hierveAgua !== false) {
       if (!e.conAgua) {
+        // Líquidos (docs/GDD_Inventario.md §9, pedido 2026-08-30): ya no es
+        // agua gratis — hay que meter un recipiente (cantimplora/cubo) CON
+        // agua, se vacía entero como ingrediente. Placeholder de testeo:
+        // input con el id de instancia a mano, mismo criterio que el resto.
+        const filaAgua = document.createElement("div");
+        filaAgua.style.display = "flex";
+        filaAgua.style.gap = "6px";
+        filaAgua.style.marginBottom = "6px";
+        const inputRecipiente = document.createElement("input");
+        inputRecipiente.type = "number";
+        inputRecipiente.placeholder = "id recipiente con agua";
+        inputRecipiente.style.width = "150px";
+        filaAgua.appendChild(inputRecipiente);
         const llenar = document.createElement("button");
-        llenar.textContent = "💧 Llenar de agua y poner al fuego";
-        llenar.onclick = () => this.opciones.llenarAgua(id);
-        this.raiz.appendChild(llenar);
+        llenar.textContent = "💧 Meter agua y poner al fuego";
+        llenar.onclick = () => {
+          const iid = Number(inputRecipiente.value);
+          if (Number.isFinite(iid) && iid > 0) this.opciones.llenarAgua(id, iid);
+          inputRecipiente.value = "";
+        };
+        filaAgua.appendChild(llenar);
+        this.raiz.appendChild(filaAgua);
         return;
       }
       if (!e.hirviendo) {

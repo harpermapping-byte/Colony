@@ -563,7 +563,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const panelCocina = new PanelCocina({
       contenedor,
       cocinarSimple: (construccionId, instanciaId) => room.send("cocina:simple", { construccionId, instanciaId }),
-      llenarAgua: (construccionId) => room.send("cocina:llenarAgua", { construccionId }),
+      llenarAgua: (construccionId, instanciaId) => room.send("cocina:llenarAgua", { construccionId, instanciaId }),
       anadir: (construccionId, instanciaId, cantidad) => room.send("cocina:anadir", { construccionId, instanciaId, cantidad }),
       preparar: (construccionId) => room.send("cocina:preparar", { construccionId }),
     });
@@ -966,8 +966,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     contenedor,
     equipar: (instanciaId, slot) => room.send("equipo:equipar", { instanciaId, slot }),
     desequipar: (slot) => room.send("equipo:desequipar", { slot }),
+    // Grid drag&drop (docs/GDD_Inventario.md §10, pedido 2026-08-30).
+    mover: (instanciaId, contenedorDestino, x, y, rot) => room.send("inventario:mover", { instanciaId, contenedorDestino, x, y, rot }),
   });
   room.onMessage("equipo:error", (m: { motivo: string }) => console.log("[equipo]", m?.motivo));
+  room.onMessage("inventario:error", (m: { motivo: string }) => console.log("[inventario]", m?.motivo));
 
   // --- Login con Twitch (docs/GDD_Twitch.md §7) — PLACEHOLDER de testeo,
   // mismo criterio que el resto de paneles de esta pasada: un enlace suelto
