@@ -73,6 +73,27 @@ export interface EntradaCatalogoItem {
 
   /** docs/GDD_Agricultura.md — "bolsa de semillas" comprada en tienda: `objeto:abrir` la desempaqueta en `cantidad` unidades sueltas de `itemId` (una semilla apilable). Mecanismo genérico, reusable para cualquier futuro "paquete de N" — no solo semillas. */
   abreEn?: { itemId: string; cantidad: number };
+
+  /** docs/GDD_Cocina.md, pedido 2026-08-30 — SOLO en ingredientes crudos (tipo "recurso"): cuánto aportaría cocinado. Obligatorio `comida` ("todos quitan hambre", pedido explícito); vida/estamina/bebida opcionales, "cada uno lo marca el diseño". Consumido por `server/src/cocina/cocina.ts`. */
+  aportesCocina?: AportesCocina;
+  /** docs/GDD_Cocina.md — solo junto a `aportesCocina`: para el bonus de "combinar planta y carne". */
+  origenCocina?: "vegetal" | "animal";
+
+  /** docs/GDD_Cocina.md — igual que `restaura` pero con VARIOS vitales a la vez (un plato cocinado sube vida+estamina+comida+bebida en un solo consumo) — `restaura` se queda para consumibles de un solo vital, este es aditivo y nunca sustituye entradas existentes. */
+  restauraMultiple?: AportesCocina;
+}
+
+/**
+ * Lo que aporta un ingrediente crudo al cocinarse, o un plato ya cocinado
+ * al comerlo — mismos 4 ejes que pidió el streamer (docs/GDD_Cocina.md):
+ * "+stamina +vida +hambre +bebida". `comida` siempre presente (quita
+ * hambre); el resto opcional según el ingrediente/plato.
+ */
+export interface AportesCocina {
+  vida?: number;
+  estamina?: number;
+  comida: number;
+  bebida?: number;
 }
 
 /**

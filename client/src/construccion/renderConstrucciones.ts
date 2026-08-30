@@ -105,6 +105,15 @@ export class RenderConstrucciones {
     return this.masCercanaDeObjeto((datos) => datos.objeto === objeto, x, y, radio);
   }
 
+  /** Cocina (docs/GDD_Cocina.md) — la estación de cocina (hoguera o vasija) más cercana, con su metadata de catálogo ya resuelta para que el cliente sepa qué UI mostrar sin una segunda consulta. */
+  cocinaMasCercana(x: number, y: number, radio: number): { id: number; cocina: NonNullable<ReturnType<typeof obtenerConstruible>>["cocina"] } | null {
+    const id = this.masCercanaDeObjeto((datos) => !!obtenerConstruible(datos.objeto)?.cocina, x, y, radio);
+    if (id == null) return null;
+    const pieza = this.piezas.get(id);
+    const cocina = pieza && obtenerConstruible(pieza.datos.objeto)?.cocina;
+    return cocina ? { id, cocina } : null;
+  }
+
   private masCercanaDeObjeto(filtro: (datos: ConstruccionRed) => boolean, x: number, y: number, radio: number): number | null {
     let mejorId: number | null = null;
     let mejorDist = radio;

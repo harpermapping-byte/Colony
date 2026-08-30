@@ -355,7 +355,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#8a2a5a"
+    "colorDebug": "#8a2a5a",
+    "aportesCocina": { "vida": 2, "bebida": 2, "comida": 6 },
+    "origenCocina": "vegetal"
   },
   "fruta": {
     "tipo": "recurso",
@@ -368,7 +370,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#c94a3a"
+    "colorDebug": "#c94a3a",
+    "aportesCocina": { "vida": 2, "bebida": 4, "comida": 7 },
+    "origenCocina": "vegetal"
   },
   "fruto_seco": {
     "tipo": "recurso",
@@ -381,7 +385,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#a07840"
+    "colorDebug": "#a07840",
+    "aportesCocina": { "estamina": 4, "comida": 10 },
+    "origenCocina": "vegetal"
   },
   "cereal_silvestre": {
     "tipo": "recurso",
@@ -540,7 +546,9 @@
     "stackMax": 10,
     "variantes": 2,
     "colorDebug": "#8a2a2a",
-    "comidaMascota": true
+    "comidaMascota": true,
+    "aportesCocina": { "vida": 6, "estamina": 1, "comida": 10 },
+    "origenCocina": "animal"
   },
   "carne_blanca": {
     "tipo": "recurso",
@@ -554,7 +562,9 @@
     "stackMax": 10,
     "variantes": 2,
     "colorDebug": "#c9a898",
-    "comidaMascota": true
+    "comidaMascota": true,
+    "aportesCocina": { "vida": 4, "estamina": 3, "comida": 9 },
+    "origenCocina": "animal"
   },
   "carne_caza_mayor": {
     "tipo": "recurso",
@@ -568,7 +578,9 @@
     "stackMax": 10,
     "variantes": 2,
     "colorDebug": "#7a2a20",
-    "comidaMascota": true
+    "comidaMascota": true,
+    "aportesCocina": { "vida": 8, "estamina": 2, "comida": 14 },
+    "origenCocina": "animal"
   },
   "carne_exotica": {
     "tipo": "recurso",
@@ -582,7 +594,9 @@
     "stackMax": 10,
     "variantes": 2,
     "colorDebug": "#9a3a5a",
-    "comidaMascota": true
+    "comidaMascota": true,
+    "aportesCocina": { "vida": 7, "estamina": 4, "comida": 12 },
+    "origenCocina": "animal"
   },
   "pescado_rio": {
     "tipo": "recurso",
@@ -596,7 +610,9 @@
     "stackMax": 10,
     "variantes": 2,
     "colorDebug": "#8aa870",
-    "comidaMascota": true
+    "comidaMascota": true,
+    "aportesCocina": { "vida": 4, "comida": 8 },
+    "origenCocina": "animal"
   },
   "pescado_lago": {
     "tipo": "recurso",
@@ -610,7 +626,9 @@
     "stackMax": 10,
     "variantes": 2,
     "colorDebug": "#7a9868",
-    "comidaMascota": true
+    "comidaMascota": true,
+    "aportesCocina": { "vida": 4, "comida": 8 },
+    "origenCocina": "animal"
   },
   "pescado_mar": {
     "tipo": "recurso",
@@ -624,7 +642,9 @@
     "stackMax": 10,
     "variantes": 2,
     "colorDebug": "#5a7a9a",
-    "comidaMascota": true
+    "comidaMascota": true,
+    "aportesCocina": { "vida": 5, "bebida": 2, "comida": 9 },
+    "origenCocina": "animal"
   },
   "marisco": {
     "tipo": "recurso",
@@ -637,7 +657,9 @@
     "apilable": true,
     "stackMax": 10,
     "variantes": 2,
-    "colorDebug": "#c98a78"
+    "colorDebug": "#c98a78",
+    "aportesCocina": { "vida": 3, "estamina": 2, "comida": 7 },
+    "origenCocina": "animal"
   },
   "cuero_grueso": {
     "tipo": "recurso",
@@ -1253,7 +1275,9 @@
     "stackMax": 20,
     "variantes": 1,
     "colorDebug": "#e0a020",
-    "_nota": "Recurso FABRICADO por una colmena (docs/GDD_Produccion.md) — a diferencia de los recursos recolectados del bake exterior, este no lleva categoriaRecurso (no viene de vegetacion/rocas/animales.json)."
+    "_nota": "Recurso FABRICADO por una colmena (docs/GDD_Produccion.md) — a diferencia de los recursos recolectados del bake exterior, este no lleva categoriaRecurso (no viene de vegetacion/rocas/animales.json).",
+    "aportesCocina": { "estamina": 6, "bebida": 1, "comida": 5 },
+    "origenCocina": "vegetal"
   },
   "cera": {
     "tipo": "recurso",
@@ -1712,10 +1736,10 @@
     "colorDebug": "#4a3a20"
   },
 
-  "trigo": { "tipo": "recurso", "categoriaRecurso": "cereal", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#d4b83a" },
-  "zanahoria": { "tipo": "recurso", "categoriaRecurso": "hortaliza", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#e08a30" },
-  "tomate": { "tipo": "recurso", "categoriaRecurso": "fruta_cultivada", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#c9402a" },
-  "fresa": { "tipo": "recurso", "categoriaRecurso": "fruta_cultivada", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 2, "colorDebug": "#d9304a" },
+  "trigo": { "tipo": "recurso", "categoriaRecurso": "cereal", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#d4b83a", "aportesCocina": { "comida": 12 }, "origenCocina": "vegetal" },
+  "zanahoria": { "tipo": "recurso", "categoriaRecurso": "hortaliza", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#e08a30", "aportesCocina": { "vida": 3, "comida": 6 }, "origenCocina": "vegetal" },
+  "tomate": { "tipo": "recurso", "categoriaRecurso": "fruta_cultivada", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 2, "colorDebug": "#c9402a", "aportesCocina": { "vida": 2, "bebida": 3, "comida": 6 }, "origenCocina": "vegetal" },
+  "fresa": { "tipo": "recurso", "categoriaRecurso": "fruta_cultivada", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 2, "colorDebug": "#d9304a", "aportesCocina": { "vida": 1, "estamina": 1, "bebida": 2, "comida": 5 }, "origenCocina": "vegetal" },
 
   "semilla_trigo": {
     "tipo": "semilla",
@@ -1777,5 +1801,22 @@
   "bolsa_semillas_trigo": { "tipo": "objeto", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 5, "variantes": 1, "colorDebug": "#a8874a", "abreEn": { "itemId": "semilla_trigo", "cantidad": 10 } },
   "bolsa_semillas_zanahoria": { "tipo": "objeto", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 5, "variantes": 1, "colorDebug": "#a8874a", "abreEn": { "itemId": "semilla_zanahoria", "cantidad": 10 } },
   "bolsa_semillas_tomate": { "tipo": "objeto", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 5, "variantes": 1, "colorDebug": "#a8874a", "abreEn": { "itemId": "semilla_tomate", "cantidad": 10 } },
-  "bolsa_semillas_fresa": { "tipo": "objeto", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 5, "variantes": 1, "colorDebug": "#a8874a", "abreEn": { "itemId": "semilla_fresa", "cantidad": 10 } }
+  "bolsa_semillas_fresa": { "tipo": "objeto", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 5, "variantes": 1, "colorDebug": "#a8874a", "abreEn": { "itemId": "semilla_fresa", "cantidad": 10 } },
+
+  "carne_roja_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#7a3a2a", "restauraMultiple": { "vida": 9, "estamina": 2, "comida": 15 } },
+  "carne_blanca_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#c98a68", "restauraMultiple": { "vida": 6, "estamina": 5, "comida": 14 } },
+  "carne_caza_mayor_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#6a2a18", "restauraMultiple": { "vida": 12, "estamina": 3, "comida": 21 } },
+  "carne_exotica_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#8a3a4a", "restauraMultiple": { "vida": 11, "estamina": 6, "comida": 18 } },
+  "pescado_rio_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#7a9860", "restauraMultiple": { "vida": 6, "comida": 12 } },
+  "pescado_lago_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#6a8858", "restauraMultiple": { "vida": 6, "comida": 12 } },
+  "pescado_mar_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#4a6a88", "restauraMultiple": { "vida": 8, "bebida": 3, "comida": 14 } },
+  "marisco_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#b87a68", "restauraMultiple": { "vida": 5, "estamina": 3, "comida": 11 } },
+  "baya_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 1, "colorDebug": "#7a1a4a", "restauraMultiple": { "vida": 3, "bebida": 3, "comida": 9 } },
+  "fruta_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 1, "colorDebug": "#b83a2a", "restauraMultiple": { "vida": 3, "bebida": 6, "comida": 11 } },
+  "fruto_seco_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 1, "colorDebug": "#8a6830", "restauraMultiple": { "estamina": 6, "comida": 15 } },
+  "trigo_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 20, "variantes": 1, "colorDebug": "#c9a82a", "restauraMultiple": { "comida": 18 } },
+  "zanahoria_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 1, "colorDebug": "#d07a20", "restauraMultiple": { "vida": 5, "comida": 9 } },
+  "tomate_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 1, "colorDebug": "#b8301a", "restauraMultiple": { "vida": 3, "bebida": 5, "comida": 9 } },
+  "fresa_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 1, "colorDebug": "#c9203a", "restauraMultiple": { "vida": 2, "estamina": 2, "bebida": 3, "comida": 8 } },
+  "miel_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.5, "apilable": true, "stackMax": 20, "variantes": 1, "colorDebug": "#c98a10", "restauraMultiple": { "estamina": 9, "bebida": 2, "comida": 8 } }
 }

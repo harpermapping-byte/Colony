@@ -21,7 +21,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 134); // 121 anteriores + 13 de agricultura (docs/GDD_Agricultura.md: fertilizante, 4 cultivos, 4 semillas, 4 bolsas — los 2 híbridos de ejemplo se quitaron al pasar a injerto:crear, ver §4)
+  assert.strictEqual(ids.length, 150); // 134 anteriores + 16 versiones "_cocinado" de ingredientes (docs/GDD_Cocina.md — aportesCocina/origenCocina se añadieron a ítems YA existentes, sin sumar claves nuevas)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

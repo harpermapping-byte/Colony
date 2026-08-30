@@ -35,6 +35,8 @@ export interface Construible {
   proyectoJarl?: boolean;
   /** Agricultura (docs/GDD_Agricultura.md) — presente en bancal_cultivo/maceta_*: se le puede plantar una semilla (mensajes `cultivo:*`). */
   plantable?: boolean;
+  /** Cocina (docs/GDD_Cocina.md) — presente en hoguera_campamento/cuenco_cocina/cazuela_cocina/olla_cocina. */
+  cocina?: { esVasija: boolean; capacidad?: number; vasija?: "cuenco" | "cazuela" | "olla" };
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -57,6 +59,7 @@ interface EntradaBruta {
   construible?: boolean;
   proyectoJarl?: boolean;
   plantable?: { multiplicadorCosecha: number };
+  cocina?: { esVasija: boolean; capacidad?: number; vasija?: "cuenco" | "cazuela" | "olla" };
   [k: string]: unknown;
 }
 
@@ -105,6 +108,7 @@ function construirLista(): Construible[] {
       colision: esColisionable(e),
       proyectoJarl: e.proyectoJarl,
       plantable: !!e.plantable,
+      cocina: e.cocina,
     });
   }
 

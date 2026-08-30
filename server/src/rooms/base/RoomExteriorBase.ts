@@ -19,7 +19,7 @@ import { recolectableCercano } from "../../mundo/recolectables";
 import { CatalogoItems, Contenedor, crearContenedor, cargarCatalogoItems, quitarItem, agregarItem, cargarCatalogoRecetas, excedePesoMaximo, moverItem, buscarHueco } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../../inventario/sincronizarSchema";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -63,6 +63,7 @@ import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
+import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, IngredienteCocina } from "../../cocina/cocina";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -318,6 +319,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // cultivo:*/injerto:* — barato tras la primera vez gracias a este flag).
   private hibridosCargados = false;
 
+  // --- Cocina (docs/GDD_Cocina.md, pedido 2026-08-30) — mismo criterio que
+  // los híbridos de injerto: los platos ya inventados por OTRAS
+  // rooms/sesiones viven en BD, se funden en `catalogoItems` perezosamente.
+  private platosCargados = false;
+
   // --- Combate instanciado (docs/GDD_Combate.md §9.1-9.2) ---
   /** Timer de cierre de la ventana de unión, por combate — se cancela si "comenzar ya" cierra antes. */
   private timeoutsVentanaCombate = new Map<string, Delayed>();
@@ -426,6 +432,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Injertos (docs/GDD_Agricultura.md §4, diseño ya cerrado en el
     // backlog): mesa_injertos + dos semillas cualesquiera -> especie nueva.
     this.onMessage("injerto:crear", (client, msg: { construccionId?: number; instanciaIdA?: number; instanciaIdB?: number }) => this.manejarInjertoCrear(client, msg));
+
+    // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30): hoguera (sencillo) o
+    // vasija (cuenco/cazuela/olla, combina varios ingredientes en un plato).
+    this.onMessage("cocina:simple", (client, msg: { construccionId?: number; instanciaId?: number }) => this.manejarCocinaSimple(client, msg));
+    this.onMessage("cocina:anadir", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarCocinaAnadir(client, msg));
+    this.onMessage("cocina:preparar", (client, msg: { construccionId?: number }) => this.manejarCocinaPreparar(client, msg));
+    this.onMessage("cocina:consultar", (client, msg: { construccionId?: number }) => this.manejarCocinaConsultar(client, msg));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -738,7 +751,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const it = contenedor.items.find((i) => i.id === msg.instanciaId);
     if (!it) return client.send("personaje:error", { motivo: "no_encontrado" });
     const entrada = this.catalogoItems[it.itemId];
-    if (!entrada || entrada.tipo !== "consumible" || !entrada.restaura) {
+    if (!entrada || entrada.tipo !== "consumible" || (!entrada.restaura && !entrada.restauraMultiple)) {
       return client.send("personaje:error", { motivo: "no_se_puede_consumir" });
     }
 
@@ -747,28 +760,45 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
     if (unidadCombate) unidadCombate.pa -= COSTE_PA_OBJETO;
 
-    // "vida" NO vive en player.vitales (docs/GDD_Mecanicas.md §5.4:
-    // Player.vida/vidaMax es la única fuente de HP) — se cura con la MISMA
-    // función pura que usa combate.ts, aquí disparada por una acción
-    // explícita del jugador (consumir), no por un tick: respeta la regla
-    // "nadie se cura solo con el tiempo" tal cual, curar sigue siendo evento.
-    let valor: number;
-    if (entrada.restaura.vital === "vida") {
-      const curado = curar({ vida: player.vida, vidaMax: player.vidaMax, ataque: player.ataque, defensa: player.defensa }, entrada.restaura.cantidad);
-      player.vida = curado.vida;
-      valor = player.vida;
-    } else {
-      restaurarVital(player.vitales, entrada.restaura.vital, entrada.restaura.cantidad);
-      valor = player.vitales[entrada.restaura.vital];
-      // Higiene (docs/GDD_Personaje.md §3.6, pedido explícito): "cada vez
-      // que comes esa comida aumenta la barrita [de cagar]" — misma
-      // cantidad que sube `comida`, al tope se ensucia solo.
-      if (entrada.restaura.vital === "comida") {
-        restaurarVital(player.vitales, "caca", entrada.restaura.cantidad);
-        if (player.vitales.caca >= VITAL_MAX) player.sucio = true;
+    let valores: Partial<Record<"vida" | "estamina" | "comida" | "bebida" | "sueno" | "caca", number>>;
+    if (entrada.restauraMultiple) {
+      // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30): un plato sube VARIOS
+      // vitales a la vez en un solo consumo — mismo aplicarUnVital que abajo,
+      // una vez por cada eje que el plato/ingrediente cocinado declare.
+      valores = {};
+      for (const [vital, cantidad] of Object.entries(entrada.restauraMultiple) as [keyof typeof entrada.restauraMultiple, number][]) {
+        if (cantidad == null) continue;
+        valores[vital] = this.aplicarUnVital(player, vital, cantidad);
       }
+    } else {
+      valores = { [entrada.restaura!.vital]: this.aplicarUnVital(player, entrada.restaura!.vital, entrada.restaura!.cantidad) };
     }
-    client.send("personaje:consumido", { itemId: it.itemId, vital: entrada.restaura.vital, valor });
+    client.send("personaje:consumido", { itemId: it.itemId, valores });
+  }
+
+  /**
+   * Un único vital, ambas rutas de consumo (`restaura`/`restauraMultiple`)
+   * pasan por aquí. "vida" NO vive en player.vitales (docs/GDD_Mecanicas.md
+   * §5.4: Player.vida/vidaMax es la única fuente de HP) — se cura con la
+   * MISMA función pura que usa combate.ts, aquí disparada por una acción
+   * explícita del jugador (consumir), no por un tick: respeta la regla
+   * "nadie se cura solo con el tiempo" tal cual, curar sigue siendo evento.
+   */
+  private aplicarUnVital(player: Player, vital: "vida" | "estamina" | "comida" | "bebida" | "sueno" | "caca", cantidad: number): number {
+    if (vital === "vida") {
+      const curado = curar({ vida: player.vida, vidaMax: player.vidaMax, ataque: player.ataque, defensa: player.defensa }, cantidad);
+      player.vida = curado.vida;
+      return player.vida;
+    }
+    restaurarVital(player.vitales, vital, cantidad);
+    // Higiene (docs/GDD_Personaje.md §3.6, pedido explícito): "cada vez que
+    // comes esa comida aumenta la barrita [de cagar]" — misma cantidad que
+    // sube `comida`, al tope se ensucia solo.
+    if (vital === "comida") {
+      restaurarVital(player.vitales, "caca", cantidad);
+      if (player.vitales.caca >= VITAL_MAX) player.sucio = true;
+    }
+    return player.vitales[vital];
   }
 
   /**
@@ -2548,6 +2578,178 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       semillaId: hibrido.semillaId, cosechaId: hibrido.cosechaId, nombre: hibrido.nombre,
       rasgos: hibrido.rasgos, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
     });
+  }
+
+  private errorCocina(client: Client, motivo: string) {
+    client.send("cocina:error", { motivo });
+  }
+
+  private extraCocinaDe(viva: { extra?: Record<string, unknown> | null }): EstadoCocina {
+    return ((viva.extra as { cocina?: EstadoCocina } | null)?.cocina ?? { ingredientes: [] }) as EstadoCocina;
+  }
+
+  /**
+   * Funde en `this.catalogoItems` (memoria de ESTA room) todo plato ya
+   * inventado que viva en BD — mismo patrón perezoso que
+   * `asegurarHibridosCargados`, UNA vez por vida de la room.
+   */
+  private async asegurarPlatosCargados(bd: IAlmacenDatos): Promise<void> {
+    if (this.platosCargados) return;
+    this.platosCargados = true;
+    const platos = await bd.listarPlatosCreados();
+    for (const p of platos) this.registrarPlatoEnCatalogo(p);
+  }
+
+  private registrarPlatoEnCatalogo(p: PlatoCreado): void {
+    this.catalogoItems[p.itemId] = {
+      tipo: "consumible",
+      huella: [1, 1],
+      peso: 0.4,
+      apilable: true,
+      stackMax: 10,
+      variantes: 1,
+      colorDebug: p.colorDebug,
+      restauraMultiple: {
+        vida: p.vida || undefined,
+        estamina: p.estamina || undefined,
+        comida: p.comida,
+        bebida: p.bebida || undefined,
+      },
+    };
+  }
+
+  /** "Cocinar tal cual" (docs/GDD_Cocina.md) — un ingrediente crudo, al fuego, sin vasija: boost modesto sobre su aporte crudo. */
+  private manejarCocinaSimple(client: Client, msg: { construccionId?: number; instanciaId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number" || typeof msg?.instanciaId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.cocina) return this.errorCocina(client, "necesitas estar junto a un fuego");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const item = contenedor?.items.find((it) => it.id === msg.instanciaId);
+    if (!contenedor || !item) return this.errorCocina(client, "eso ya no está en tu inventario");
+    const entradaItem = this.catalogoItems[item.itemId];
+    if (!entradaItem?.aportesCocina || entradaItem.tipo !== "recurso") return this.errorCocina(client, "eso no se puede cocinar así");
+
+    const cocinadoId = `${item.itemId}_cocinado`;
+    if (!this.catalogoItems[cocinadoId]) return this.errorCocina(client, "esto todavía no tiene versión cocinada");
+
+    quitarItem(contenedor, item.id, 1);
+    const resultado = agregarItem(contenedor, this.catalogoItems, cocinadoId, 1);
+    if (!resultado.ok) {
+      agregarItem(contenedor, this.catalogoItems, item.itemId, 1); // deshace: el ingrediente no debe perderse si no cabe el resultado
+      return this.errorCocina(client, "no tienes hueco para el resultado");
+    }
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    client.send("cocina:cocinado", { itemId: cocinadoId });
+  }
+
+  /** Añade un ingrediente a la vasija (cuenco/cazuela/olla) — capado por `cocina.capacidad` TIPOS distintos, la cantidad de cada uno no tiene tope propio. */
+  private async manejarCocinaAnadir(client: Client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number" || typeof msg?.instanciaId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a una vasija");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const item = contenedor?.items.find((it) => it.id === msg.instanciaId);
+    if (!contenedor || !item) return this.errorCocina(client, "eso ya no está en tu inventario");
+    const entradaItem = this.catalogoItems[item.itemId];
+    if (!entradaItem?.aportesCocina || entradaItem.tipo !== "recurso") return this.errorCocina(client, "eso no es un ingrediente");
+
+    const estado = this.extraCocinaDe(viva);
+    const yaDentro = estado.ingredientes.find((i) => i.itemId === item.itemId);
+    if (!yaDentro && estado.ingredientes.length >= entrada.cocina.capacidad!) {
+      return this.errorCocina(client, "la vasija ya tiene demasiados ingredientes distintos");
+    }
+    const cantidad = Math.max(1, Math.min(Math.floor(msg.cantidad ?? 1), item.cantidad));
+    const resultadoQuitar = quitarItem(contenedor, item.id, cantidad);
+    if (!resultadoQuitar.ok) return;
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const nuevos = yaDentro
+      ? estado.ingredientes.map((i) => (i.itemId === item.itemId ? { ...i, cantidad: i.cantidad + cantidad } : i))
+      : [...estado.ingredientes, { itemId: item.itemId, cantidad }];
+    const nuevoEstado: EstadoCocina = { ingredientes: nuevos };
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), cocina: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.enviarEstadoCocina(client, viva.id, nuevoEstado);
+  }
+
+  /**
+   * Cocina lo que hay en la vasija — la identidad del plato (nombre,
+   * itemId) se cachea por el CONJUNTO de tipos de ingrediente usados
+   * (`clavePlato`, cocina.ts): misma receta siempre da el mismo plato,
+   * permanente en BD; más cantidad solo da más raciones. Vacía la vasija
+   * al terminar.
+   */
+  private async manejarCocinaPreparar(client: Client, msg: { construccionId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.entradaDe(viva.objeto);
+    if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a una vasija");
+    const estado = this.extraCocinaDe(viva);
+    if (estado.ingredientes.length === 0) return this.errorCocina(client, "la vasija está vacía");
+
+    const ingredientesCocina: IngredienteCocina[] = estado.ingredientes.map((i) => {
+      const e = this.catalogoItems[i.itemId]!;
+      return { itemId: i.itemId, cantidad: i.cantidad, aportes: e.aportesCocina!, origen: e.origenCocina! };
+    });
+    const resultado = cocinarPlato(ingredientesCocina);
+
+    const bd = await obtenerBdCompartida();
+    await this.asegurarPlatosCargados(bd);
+    const clave = clavePlato(estado.ingredientes.map((i) => i.itemId));
+    let plato = await bd.buscarPlatoPorClave(clave);
+    if (!plato) {
+      const sufijo = Math.random().toString(36).slice(2, 8);
+      plato = {
+        clave,
+        itemId: `plato_${sufijo}`,
+        nombre: nombrePlato(entrada.cocina.vasija!, estado.ingredientes.map((i) => i.itemId)),
+        ingredientes: estado.ingredientes.map((i) => i.itemId),
+        vida: resultado.vida ?? 0,
+        estamina: resultado.estamina ?? 0,
+        comida: resultado.comida,
+        bebida: resultado.bebida ?? 0,
+        colorDebug: "#c98a4a",
+        creadoEn: new Date().toISOString(),
+      };
+      await bd.crearPlatoCreado(plato);
+      this.registrarPlatoEnCatalogo(plato);
+    }
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const cogido = agregarItem(contenedor, this.catalogoItems, plato.itemId, resultado.platos);
+    if (!cogido.ok) return this.errorCocina(client, "no tienes hueco para los platos");
+
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const nuevoEstado: EstadoCocina = { ingredientes: [] };
+    viva.extra = { ...(viva.extra ?? {}), cocina: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: resultado.platos, mezclaBonus: resultado.mezclaBonus });
+  }
+
+  /** Contenido actual de la vasija — sin mutar nada, solo consulta (mismo criterio que motriz:consultar/cultivo:consultar). */
+  private manejarCocinaConsultar(client: Client, msg: { construccionId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return;
+    this.enviarEstadoCocina(client, viva.id, this.extraCocinaDe(viva));
+  }
+
+  private enviarEstadoCocina(client: Client, construccionId: number, estado: EstadoCocina) {
+    client.send("cocina:estado", { construccionId, ingredientes: estado.ingredientes });
   }
 
   /** "Bolsa de N" (docs/GDD_Agricultura.md) — la abre en `abreEn.cantidad` unidades sueltas de `abreEn.itemId`, sin gastar la bolsa si no hay hueco. */

@@ -311,6 +311,25 @@ export interface CultivoHibrido {
   creadoEn: string;
 }
 
+/**
+ * Plato cocinado en una vasija (docs/GDD_Cocina.md, pedido 2026-08-30) —
+ * permanente, identificado por `clave` (conjunto de tipos de ingrediente,
+ * ver `cocina/cocina.ts::clavePlato`). `itemId` es el id sintético que
+ * cada room funde en su copia en memoria de `catalogoItems`.
+ */
+export interface PlatoCreado {
+  clave: string;
+  itemId: string;
+  nombre: string;
+  ingredientes: string[];
+  vida: number;
+  estamina: number;
+  comida: number;
+  bebida: number;
+  colorDebug: string;
+  creadoEn: string;
+}
+
 // Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
 // asentamiento — el registro de eventos que alimenta su contexto de IA.
 export interface MemoriaLider {
@@ -493,6 +512,11 @@ export interface IAlmacenDatos {
   listarCultivosHibridos(): Promise<CultivoHibrido[]>;
   /** "Renombrar a mano" (diseño ya cerrado) — no-op silencioso si el id no existe. */
   renombrarCultivoHibrido(semillaId: string, nombre: string): Promise<void>;
+  // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30) — platos permanentes.
+  crearPlatoCreado(p: PlatoCreado): Promise<void>;
+  /** Por `clavePlato` (conjunto de tipos de ingrediente) — null si esta combinación nunca se cocinó antes. */
+  buscarPlatoPorClave(clave: string): Promise<PlatoCreado | null>;
+  listarPlatosCreados(): Promise<PlatoCreado[]>;
   cerrar(): Promise<void>;
 }
 
@@ -646,6 +670,22 @@ CREATE TABLE IF NOT EXISTS cultivos_hibridos (
   meses_siembra TEXT NOT NULL,          -- JSON de number[]
   cosecha_recurrente INTEGER NOT NULL,  -- 0/1 (SQLite no tiene boolean nativo)
   cantidad_por_cosecha INTEGER NOT NULL,
+  color_debug TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+-- Cocina (docs/GDD_Cocina.md, pedido 2026-08-30): un plato cocinado en
+-- cuenco/cazuela/olla se identifica por el CONJUNTO de tipos de
+-- ingrediente usados (clave, ordenada, sin cantidades — misma receta =
+-- mismo plato siempre) — permanente, igual criterio que cultivos_hibridos.
+CREATE TABLE IF NOT EXISTS platos_creados (
+  clave TEXT PRIMARY KEY,               -- itemIds distintos ORDENADOS, unidos por "|" — identidad de la receta
+  item_id TEXT NOT NULL,                -- itemId sintético del plato (p.ej. "plato_ab12cd")
+  nombre TEXT NOT NULL,                 -- nombre automático ("Guiso de Zanahoria y Carne Roja")
+  ingredientes TEXT NOT NULL,           -- JSON string[] (mismos ids que la clave, para lectura humana)
+  vida INTEGER NOT NULL,
+  estamina INTEGER NOT NULL,
+  comida INTEGER NOT NULL,
+  bebida INTEGER NOT NULL,
   color_debug TEXT NOT NULL,
   creado_en TEXT NOT NULL
 );
@@ -880,6 +920,18 @@ CREATE TABLE IF NOT EXISTS cultivos_hibridos (
   color_debug TEXT NOT NULL,
   creado_en TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS platos_creados (
+  clave TEXT PRIMARY KEY,
+  item_id TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  ingredientes TEXT NOT NULL,
+  vida INTEGER NOT NULL,
+  estamina INTEGER NOT NULL,
+  comida INTEGER NOT NULL,
+  bebida INTEGER NOT NULL,
+  color_debug TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS mazmorras_estado (
   clave TEXT PRIMARY KEY,
   limpiada_en TEXT
@@ -1063,6 +1115,21 @@ function filaACultivoHibrido(f: any): CultivoHibrido {
     mesesSiembra: JSON.parse(f.meses_siembra),
     cosechaRecurrente: Number(f.cosecha_recurrente) === 1,
     cantidadPorCosecha: Number(f.cantidad_por_cosecha),
+    colorDebug: String(f.color_debug),
+    creadoEn: String(f.creado_en),
+  };
+}
+
+function filaAPlatoCreado(f: any): PlatoCreado {
+  return {
+    clave: String(f.clave),
+    itemId: String(f.item_id),
+    nombre: String(f.nombre),
+    ingredientes: JSON.parse(f.ingredientes),
+    vida: Number(f.vida),
+    estamina: Number(f.estamina),
+    comida: Number(f.comida),
+    bebida: Number(f.bebida),
     colorDebug: String(f.color_debug),
     creadoEn: String(f.creado_en),
   };
@@ -1976,6 +2043,25 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     this.bd.prepare("UPDATE cultivos_hibridos SET nombre = ? WHERE semilla_id = ?").run(nombre, semillaId);
   }
 
+  async crearPlatoCreado(p: PlatoCreado): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO platos_creados (clave, item_id, nombre, ingredientes, vida, estamina, comida, bebida, color_debug, creado_en)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(p.clave, p.itemId, p.nombre, JSON.stringify(p.ingredientes), p.vida, p.estamina, p.comida, p.bebida, p.colorDebug, p.creadoEn);
+  }
+
+  async buscarPlatoPorClave(clave: string): Promise<PlatoCreado | null> {
+    const fila = this.bd.prepare("SELECT * FROM platos_creados WHERE clave = ?").get(clave) as any;
+    return fila ? filaAPlatoCreado(fila) : null;
+  }
+
+  async listarPlatosCreados(): Promise<PlatoCreado[]> {
+    const filas = this.bd.prepare("SELECT * FROM platos_creados").all() as any[];
+    return filas.map(filaAPlatoCreado);
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -2829,6 +2915,24 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async renombrarCultivoHibrido(semillaId: string, nombre: string): Promise<void> {
     await this.pool.query("UPDATE cultivos_hibridos SET nombre = $1 WHERE semilla_id = $2", [nombre, semillaId]);
+  }
+
+  async crearPlatoCreado(p: PlatoCreado): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO platos_creados (clave, item_id, nombre, ingredientes, vida, estamina, comida, bebida, color_debug, creado_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [p.clave, p.itemId, p.nombre, JSON.stringify(p.ingredientes), p.vida, p.estamina, p.comida, p.bebida, p.colorDebug, p.creadoEn],
+    );
+  }
+
+  async buscarPlatoPorClave(clave: string): Promise<PlatoCreado | null> {
+    const r = await this.pool.query("SELECT * FROM platos_creados WHERE clave = $1", [clave]);
+    return r.rows[0] ? filaAPlatoCreado(r.rows[0]) : null;
+  }
+
+  async listarPlatosCreados(): Promise<PlatoCreado[]> {
+    const r = await this.pool.query("SELECT * FROM platos_creados");
+    return r.rows.map(filaAPlatoCreado);
   }
 
   async cerrar(): Promise<void> {

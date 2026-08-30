@@ -21,6 +21,7 @@ import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComerci
 import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
 import { PanelCultivo, type EstadoCultivoVista } from "./agricultura/panelCultivo";
 import { PanelInjerto } from "./agricultura/panelInjerto";
+import { PanelCocina, type IngredienteVista } from "./cocina/panelCocina";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -493,6 +494,38 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (id !== injertoCercanoId) {
         injertoCercanoId = id;
         panelInjerto.actualizar(id);
+      }
+    }, 500);
+
+    // --- Cocina (docs/GDD_Cocina.md, pedido 2026-08-30) — panel PLACEHOLDER
+    // de testeo (ver panelCocina.ts). Auto-apuntado por proximidad a
+    // cualquier estación de cocina (hoguera o vasija); qué UI mostrar la
+    // decide `RenderConstrucciones.cocinaMasCercana` (ya trae la metadata).
+    const panelCocina = new PanelCocina({
+      contenedor,
+      cocinarSimple: (construccionId, instanciaId) => room.send("cocina:simple", { construccionId, instanciaId }),
+      anadir: (construccionId, instanciaId, cantidad) => room.send("cocina:anadir", { construccionId, instanciaId, cantidad }),
+      preparar: (construccionId) => room.send("cocina:preparar", { construccionId }),
+    });
+    let cocinaCercanaId: number | null = null;
+    room.onMessage("cocina:estado", (m: { construccionId: number; ingredientes: IngredienteVista[] }) => {
+      if (m.construccionId === cocinaCercanaId) panelCocina.actualizarIngredientes(m.ingredientes);
+    });
+    room.onMessage("cocina:cocinado", (m: { itemId: string }) => console.log(`[cocina] cocinado: ${m?.itemId}`));
+    room.onMessage("cocina:preparado", (m: { nombre: string; cantidad: number; mezclaBonus: boolean }) =>
+      console.log(`[cocina] preparado: ${m?.cantidad}x ${m?.nombre}${m?.mezclaBonus ? " (bonus de mezcla)" : ""}`));
+    room.onMessage("cocina:error", (m: { motivo: string }) => console.log("[cocina]", m?.motivo));
+    setInterval(() => {
+      if (!jugadorLocal) return;
+      const cercana = renderConstrucciones.cocinaMasCercana(jugadorLocal.x, jugadorLocal.z, 2.2);
+      const id = cercana?.id ?? null;
+      if (id !== cocinaCercanaId) {
+        cocinaCercanaId = id;
+        if (!cercana) panelCocina.actualizarCercania(null, false);
+        else {
+          panelCocina.actualizarCercania(id, cercana.cocina!.esVasija, cercana.cocina!.vasija, cercana.cocina!.capacidad);
+          if (cercana.cocina!.esVasija) room.send("cocina:consultar", { construccionId: id });
+        }
       }
     }, 500);
   }

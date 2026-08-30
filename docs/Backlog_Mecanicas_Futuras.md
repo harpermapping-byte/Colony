@@ -66,9 +66,9 @@ Recetas, estaciones de trabajo (yunque, mesa de talla...), progresión de habili
 
 **Apunte 2026-08-29 (docs/GDD_Motriz.md, cluster Motriz ya implementado)**: ciertas mesas de profesión SÍ necesitan potencia mecánica para craftear más rápido — el catálogo ya marca esto hoy (`energia.consume`+`multiplicador` en `yunque`, `torno_alfarero`, `sierra_grande`; ampliable a más mesas por edición de catálogo pura cuando se confirme cuáles) y la red motriz (molino → eje/palancas → mesa) ya funciona de punta a punta. Lo que falta es el propio sistema de crafteo — cuando se diseñe, el punto de enganche YA existe y no hay que inventarlo: `factorVelocidadPorEnergia(ctx, catalogo, mesa)` (`server/src/construccion/energia.ts`) se llama UNA VEZ al empezar cualquier acción con tiempo sobre una mesa y devuelve el multiplicador de velocidad (1 si no hay potencia suficiente o la mesa no la necesita). Las mesas que necesiten conexión motriz para craftear del todo (no solo más rápido) son una variante a decidir en ese diseño, no un cambio de la red en sí.
 
-## Cocina — sin diseñar
+## Cocina — HECHO (2026-08-30)
 
-Recetas combinando categorías de recurso ya existentes (carne, pescado, plantas/hierbas), posibles beneficios temporales al comer.
+"Cocinar tal cual" al fuego (boost modesto sobre el ingrediente crudo) y combinar varios en cuenco/cazuela/olla para un plato nuevo — mismo criterio de combinación abierta + identidad permanente que los injertos (ver arriba). Bonus por mezclar vegetal+animal, como pedía este apunte ("carne, pescado, plantas/hierbas"). Ver `docs/GDD_Cocina.md`.
 
 ## Construcción de estructuras (más allá de las parcelas ya definidas) — sin diseñar
 

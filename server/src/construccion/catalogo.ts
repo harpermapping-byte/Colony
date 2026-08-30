@@ -77,6 +77,8 @@ export interface EntradaConstruible {
   requiereAgua?: boolean;
   /** Agricultura (docs/GDD_Agricultura.md) — presente en bancal_cultivo/maceta_*: superficie donde plantar UNA semilla a la vez (mensajes `cultivo:*`, RoomExteriorBase.ts). `multiplicadorCosecha` escala la cantidad de cada cosecha (macetas grandes rinden más). */
   plantable?: { multiplicadorCosecha: number };
+  /** Cocina (docs/GDD_Cocina.md) — presente en hoguera_campamento/cuenco_cocina/cazuela_cocina/olla_cocina. `esVasija:false` = solo "cocinar tal cual" un ingrediente (hoguera); `esVasija:true` = además combina varios ingredientes en un plato nuevo, con capacidad de tipos distintos y el nombre que da su tamaño ("cuenco"/"cazuela"/"olla"). */
+  cocina?: { esVasija: boolean; capacidad?: number; vasija?: "cuenco" | "cazuela" | "olla" };
 }
 
 export interface EntradaActividadAtributo {
@@ -105,6 +107,7 @@ interface EntradaExterior {
   proyectoJarl?: boolean;
   requiereAgua?: boolean;
   plantable?: { multiplicadorCosecha: number };
+  cocina?: { esVasija: boolean; capacidad?: number; vasija?: "cuenco" | "cazuela" | "olla" };
 }
 
 interface EntradaTipoEdificio {
@@ -163,6 +166,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       proyectoJarl: d.proyectoJarl,
       requiereAgua: d.requiereAgua,
       plantable: d.plantable,
+      cocina: d.cocina,
     });
   }
 
