@@ -29,6 +29,8 @@ import { aplicarMonturaAlAnimal } from "./render3d/monturaVisual";
 import { crearBarcoVisual } from "./render3d/barcoVisual";
 import { aplicarAnatomiaCompleta } from "./render3d/anatomiaVisual";
 import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista } from "./personaje/panelMedico";
+import { PanelLoginAdmin } from "./admin/panelLoginAdmin";
+import { PanelJarl } from "./admin/panelJarl";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -347,15 +349,25 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   if (twitchSessionDeUrl) sessionStorage.setItem("twitchSession", twitchSessionDeUrl);
   const twitchSession = twitchSessionDeUrl || sessionStorage.getItem("twitchSession") || undefined;
 
+  // Sesión de admin (docs/GDD_Admin.md, pedido 2026-08-30) — MISMO patrón
+  // que la de Twitch justo arriba: llega en la URL una vez (redirect de
+  // /auth/twitch/callback si la cuenta de Twitch está vinculada a un admin,
+  // o el propio login por usuario/contraseña la guarda directo en
+  // sessionStorage y recarga, ver panelLoginAdmin.ts), sobrevive a
+  // `navegarA` (recarga de página) mientras dure la pestaña.
+  const adminSessionDeUrl = new URLSearchParams(location.search).get("adminSession");
+  if (adminSessionDeUrl) sessionStorage.setItem("adminSession", adminSessionDeUrl);
+  const adminSession = adminSessionDeUrl || sessionStorage.getItem("adminSession") || undefined;
+
   const client = new Client(SERVER_URL);
   // Sistema de puertas: qué sala Colyseus y con qué opciones (docs/
   // GDD_Sistema_Puertas.md) — region/interior usan filterBy(mapaId[,edificio])
   // en el servidor, así que dos jugadores en el MISMO sitio comparten room.
   const room =
     SALA === "region"
-      ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y, twitchSession })
+      ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y, twitchSession, adminSession })
       : SALA === "arena"
-        ? await client.joinOrCreate("arena", { name: nombreJugador, combateId: COMBATE_ID, twitchSession })
+        ? await client.joinOrCreate("arena", { name: nombreJugador, combateId: COMBATE_ID, twitchSession, adminSession })
         : ES_INTERIOR
           ? await client.joinOrCreate(SALA === "mazmorra" ? "mazmorra" : "interior", {
               name: nombreJugador,
@@ -365,6 +377,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
               entradaX: ENTRADA_X,
               entradaY: ENTRADA_Y,
               twitchSession,
+              adminSession,
             })
           : MAPA_ID
             // Barcos y navegación marítima (docs/GDD_Barcos.md, pedido
@@ -372,8 +385,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
             // mapa exterior — mismo "hub" de siempre, pero server/src/index.ts
             // lo registra también como "hub_mapa" (filterBy mapaId) para no
             // tocar el join normal (sin mapaId) de toda la vida.
-            ? await client.joinOrCreate("hub_mapa", { name: nombreJugador, mapaId: MAPA_ID, twitchSession })
-            : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession });
+            ? await client.joinOrCreate("hub_mapa", { name: nombreJugador, mapaId: MAPA_ID, twitchSession, adminSession })
+            : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession, adminSession });
   const $ = getStateCallbacks(room);
 
   // Puertas: tecla de interacción (F) — pisar cerca de una y pulsar F pide
@@ -998,6 +1011,74 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("twitch:loginConfirmado", (m: { twitchLogin: string }) => {
     cajaTwitch.textContent = `🎮 Twitch: conectado como ${m.twitchLogin}`;
   });
+
+  // --- Login de admin (docs/GDD_Admin.md, pedido 2026-08-30) — dual:
+  // usuario/contraseña propios (formulario, PanelLoginAdmin) O una cuenta
+  // de Twitch ya vinculada (el botón "Conectar con Twitch" de arriba sirve
+  // para las dos cosas a la vez si esa cuenta está vinculada — ver
+  // twitch/rutasOauth.ts, añade adminSession al redirect). Sin sesión de
+  // admin, todo sigue exactamente igual que hasta ahora (jugador normal).
+  let identidadAdminActual: { usuario: string; rol: "jarl" | "superadmin"; mapaId: string | null; esJarlAqui: boolean } | null = null;
+  const cajaAdmin = document.createElement("div");
+  cajaAdmin.style.position = "absolute";
+  cajaAdmin.style.left = "16px";
+  cajaAdmin.style.top = "56px";
+  contenedor.appendChild(cajaAdmin);
+
+  const mostrarEstadoAdmin = (texto: string) => {
+    cajaAdmin.innerHTML = "";
+    const caja = document.createElement("div");
+    caja.style.background = "rgba(16,16,24,0.88)";
+    caja.style.color = "#e0e0f0";
+    caja.style.font = "13px sans-serif";
+    caja.style.padding = "6px 10px";
+    caja.style.borderRadius = "6px";
+    caja.style.border = "1px solid #4a4a6a";
+    caja.textContent = texto;
+    cajaAdmin.appendChild(caja);
+  };
+
+  if (adminSession) {
+    mostrarEstadoAdmin("👑 Admin: conectando...");
+  } else {
+    new PanelLoginAdmin({
+      contenedor: cajaAdmin,
+      serverUrlHttp: SERVER_URL.replace(/^ws/, "http"),
+      onLoginOk: (token) => {
+        sessionStorage.setItem("adminSession", token);
+        location.reload(); // recarga para que el próximo join mande adminSession, mismo ciclo que el redirect de Twitch
+      },
+    });
+  }
+  let panelJarl: PanelJarl | null = null;
+  room.onMessage(
+    "admin:sesionConfirmada",
+    (m: { usuario: string; rol: "jarl" | "superadmin"; mapaId: string | null; esJarlAqui: boolean }) => {
+      identidadAdminActual = m;
+      const etiquetaRol = m.rol === "superadmin" ? "⭐ Superadmin" : "👑 Jarl";
+      mostrarEstadoAdmin(`${etiquetaRol}: ${m.usuario}${m.rol === "jarl" && !m.esJarlAqui ? " (sin jarl aquí)" : ""}`);
+
+      // Panel de jarl/superadmin (docs/GDD_Admin.md): un jarl solo lo ve
+      // cuando ES jarl DE ESTE mapa concreto (esJarlAqui) — en un mapa
+      // ajeno no tiene ninguna herramienta que ofrecer. Un superadmin lo ve
+      // SIEMPRE, en cualquier mapa (puedeActuarComoJarl ya lo trata como
+      // jarl en todos lados), con la sección extra de gestión de cuentas.
+      const puedeVerPanel = m.rol === "superadmin" || m.esJarlAqui;
+      if (puedeVerPanel && !panelJarl && adminSession) {
+        panelJarl = new PanelJarl({
+          contenedor,
+          esSuperadmin: m.rol === "superadmin",
+          serverUrlHttp: SERVER_URL.replace(/^ws/, "http"),
+          adminToken: adminSession,
+          pvpFijar: (on) => room.send("pvp:fijar", { on }),
+          simularCanje: (tipo) => room.send("twitch:simularCanje", { tipo }),
+          simularComando: (comando) => room.send("twitch:simularComando", { comando }),
+          forzarDirecto: (on) => room.send("twitch:forzarDirecto", { on }),
+        });
+      }
+    },
+  );
+  room.onMessage("pvp:actualizado", (m: { on: boolean }) => panelJarl?.actualizarPvp(m.on));
 
   // Marcador de "combate en curso" en el mapa de origen mientras la pelea
   // vive instanciada en su propia arena (docs/GDD_Combate.md §9.2) — cono
