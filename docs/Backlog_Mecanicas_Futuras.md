@@ -20,25 +20,17 @@ Ya está construido en el bakeador (`baker/src/decoracion.js`) el mecanismo de d
 - Si la fauna sigue el mismo pool/mecanismo de activación (el diseño ya lo soporta, capa `a` en los objetos exportados) o necesita reglas propias por ser móvil.
 - Cómo cambia el jugador/streamer la cantidad activa en vivo (ej. "quiero más densidad de animales") sin re-hornear — leer más puntos del mismo pool ya exportado y activarlos, dato ya disponible en el archivo de sector.
 
-## Ciclo de vida y reproducción animal — propuesto, falta confirmar del todo
+## Ciclo de vida y reproducción animal — HECHO (2026-08-29/30) para fauna SALVAJE, sigue pendiente para animales de granja/domésticos
 
-Plantillas compartidas por familia de animal (mismo patrón que categorías de recurso — pocas plantillas, cada especie apunta a una):
+Idea original (plantillas compartidas por familia de animal, pocas plantillas, cada especie apunta a una): mamífero grande cría→joven→adulto, mamífero pequeño cría→adulto, ave/reptil/anfibio huevo→cría→adulto, pez alevín→juvenil→adulto, insecto 4 o 3 fases según metamorfosis. La implementación real se quedó en un modelo más simple de 2 etapas (cría/adulto genérico, con huevo como paso intermedio en las ovíparas) en vez de las fases intermedias con nombre propio de cada familia — cubre el mismo problema con menos superficie.
 
-- **Mamífero grande**: cría → joven → adulto (3 fases).
-- **Mamífero pequeño**: cría → adulto (2 fases, maduran rápido).
-- **Ave**: huevo → polluelo → adulto (3 fases).
-- **Reptil**: huevo → cría → adulto (3 fases; algunos siguen creciendo de adultos).
-- **Anfibio**: huevo → renacuajo → adulto (3 fases, metamorfosis real).
-- **Pez**: alevín → juvenil → adulto (3 fases).
-- **Insecto**: 4 fases si metamorfosis completa (huevo→larva→pupa→adulto) o 3 si incompleta (huevo→ninfa→adulto), según la especie.
+**HECHO, ver `server/src/mundo/reproduccionFauna.ts` (módulo puro) + `server/src/mundo/faunaSalvajeSector.ts` (integración en vivo) + `docs/GDD_Agentes_Moviles.md` (fases 2-6)**: apareamiento real (busca la pareja elegible más cercana de sexo opuesto en un radio, 50% de posibilidades de que cuaje), gestación por tamaño (pequeño 3 días, mediano 5-8, grande 15-20 — días de mundo), partos y huevos (con incubación propia), maduración de cría a adulto (10/20/40 días según tamaño), hambre/sed que bloquea el apareamiento si el animal no comió/bebió a tiempo (ventana de 1 día para herbívoros, 6 para carnívoros). Persistido en BD, resuelto perezosamente al cargar/consultar un sector — nunca tick a tick para toda la población. Cubre 67 especies (mamíferos salvajes + `gallo` doméstico + 2 reptiles/anfibios grandes/medianos); el resto del catálogo (insectos, peces, aves, reptiles/anfibios pequeños) es población infinita, más barata, sin ciclo de vida real. Verificado con `server/test/reproduccionFauna.test.ts` (17 tests).
 
-Todas las especies tienen sexo (macho/hembra). El nombre real de la cría (ternero, cervatillo, cachorro...) se guarda como dato cuando existe en español.
+**Sigue sin implementar, explícitamente aparcado (ver GDD_Agentes_Moviles.md "Pendiente")**: los animales de granja/domésticos (vaca, oveja, cabra, gallina, cerdo... `docs/GDD_Ganaderia.md`, HECHO 2026-08-30) NO se reproducen — se compran o se domestican en el exterior, producen leche/huevos/lana, se pueden vender/sacrificar/perder por escape, pero no crían descendencia. Falta una mecánica de cría "más fácil" para domésticos, todavía sin acotar.
 
-**Pendiente de definir cuando toque**: cómo se dispara la reproducción, tiempos de gestación/incubación, cómo interactúan macho/hembra, qué pasa con las crías hasta hacerse adultas.
+## Necesidades de los animales — HECHO (parcial) para fauna salvaje y de granja, "comodidad" sigue sin diseñar
 
-## Necesidades de los animales — solo esqueleto, sin diseñar
-
-Hambre, sed, comodidad — mencionado como algo que debe existir para dar profundidad al cuidado/domesticación, sin definir todavía valores, cómo se degradan, ni qué pasa si no se cubren.
+Hambre y sed YA cubiertas en ambos sistemas de animales que existen hoy: fauna salvaje vía `necesitaAgua`/`necesitaComida` (`reproduccionFauna.ts`, gatea el apareamiento, ver sección de arriba) y fauna de granja vía comedero/bebedero (`docs/GDD_Ganaderia.md` §5, `tieneComidaYAguaHoy`, gatea la producción de leche/huevos/lana ese día). En ningún caso es un valor 0-100 que se degrada como los vitales del jugador (`personaje/vitales.ts`) — son comprobaciones booleanas por ventana de tiempo (¿comió/bebió dentro de X días?), más simples que eso. **Comodidad sigue sin ningún valor ni mecánica** — no se ha definido qué sería ni cómo se mediría.
 
 ## Agricultura (labrar/macetas/riego/fertilizante/siembra por meses) — HECHO (2026-08-30)
 
@@ -52,19 +44,23 @@ Agua y fertilizante YA implementados (ver arriba). Lo que queda de esta idea ori
 
 Primera pasada del mismo día había implementado una versión simplificada (recetas fijas de crafteo); el streamer confirmó explícitamente que quería el diseño original y se rehizo entero para seguirlo: 6 atributos numéricos 0-1 por cultivo (`RasgosCultivo` en `items/catalogo/items.json`), cruce en `mesa_injertos` como media de los dos padres + variación aleatoria (`server/src/cultivo/cultivo.ts::mezclarRasgos`), **combinación abierta** entre cualquier par de semillas (nada de recetas predefinidas), resultado registrado como especie **nueva y permanente** en BD (`cultivos_hibridos`, dual SQLite/Postgres — el `cultivos.json` que proponía este backlog se sustituyó por una tabla, ya que la especie nace en runtime, no se puede precompilar a un JSON en disco) con nombre automático renombrable a mano (`renombrarCultivoHibrido`, sin UI todavía). Los dos puntos que quedaban "pendiente" en este backlog (probabilidad de éxito del injerto, qué pasa si falla) se resolvieron: nunca falla, la variación vive solo en los rasgos resultantes. Ver `docs/GDD_Agricultura.md` §4.
 
-## Combate — sin diseñar
+## Combate — HECHO v1 (2026-08-30), con huecos documentados
 
-Armas cuerpo a cuerpo y a distancia, salud/aguante, PvE contra fauna peligrosa y monstruos de mazmorra. PvP probablemente limitado o desactivado por defecto dado el enfoque comunitario del proyecto — a decidir cuando toque.
+Armas cuerpo a cuerpo y a distancia, salud/aguante, PvE contra fauna peligrosa y monstruos de mazmorra. PvP también decidido e implementado — ver más abajo.
 
-**Costura 2026-08-29 (pedido del streamer, "los depredadores también son enemigos del jugador, y neutral — como un bandido pero animal")**: sin combate todavía no hay nada que dispare, pero se dejó marcado en el catálogo para cuando le toque el turno. `baker/catalogo/animales.json` ya tenía `peligroso: true` en 18 especies (jabalí, lobo, lince, oso pardo, lobo de las nieves, lince boreal, escorpión, serpiente de cascabel, víbora del desierto, chacal dorado, medusa, tiburón, orca, anguila abisal, cocodrilo del pantano, escorpión de lava, araña gigante, pez espada) — ahora todas ganan además `disposicion: "neutral"`. La distinción real, para cuando exista el sistema de IA/combate: **neutral** (esta fauna) no ataca al jugador porque sí, solo si se le provoca o se acerca demasiado (radio de agro) — a diferencia de **hostil** (la facción bandida, `faccion: "hostil"` ya usado en `baker/catalogo/pois.json` para POIs enemigos), que sí ataca por iniciativa propia. Mismo concepto de "enemigo" que un bandido, disposición distinta — nada más que el dato, sin mecánica todavía.
+**Costura 2026-08-29 (pedido del streamer, "los depredadores también son enemigos del jugador, y neutral — como un bandido pero animal")**: `baker/catalogo/animales.json` marcó 18 especies peligrosas con `disposicion: "neutral"` (no ataca salvo que se le provoque o se acerque el jugador dentro de su `radioAgro`, de 2 a 10 casillas según tamaño) frente a `hostil` (la facción bandida). En ese momento era solo dato, sin mecánica.
 
-**Detalle añadido el mismo día** ("si entras en el radio X alrededor del animal peligroso, atacará, cada animal tiene un radio dependiendo de su tamaño"): las 18 especies ganan también `radioAgro` (casillas), a mano por tamaño real del animal — desde 2 (escorpión, víbora, medusa) hasta 10 (orca), con lobo/lince/chacal en 4-6, oso pardo 8, tiburón 7, cocodrilo/araña gigante 5. No hay un dato de tamaño consistente en el catálogo (`escalaBase` solo está en 4 de las 18) para derivarlo automático, así que es criterio manual documentado aquí. Sigue siendo solo dato — el sistema que compruebe "¿el jugador está a menos de `radioAgro` de un `oso_pardo` activo?" y dispare el ataque es parte del combate, todavía sin construir.
+**HECHO (2026-08-30), ver `docs/GDD_Combate.md` ("ESTADO: ✅ IMPLEMENTADO")**: combate táctico por turnos real y verificado, no solo diseñado. Motor puro en `server/src/combate/{combate,arenaCombate,pathfindingArena}.ts` (con su propia suite de tests), `CombateSchema`/`CombateUnidad` en `server/src/rooms/schema/CombateState.ts`, 5 mensajes cableados en `RoomExteriorBase.ts` (`combate:iniciar/mover/accion/pasarTurno/huir`, `PA_MAX_COMBATE = 6`), instanciado en `ArenaCombateRoom.ts` con ventana de unión de 60s. El `radioAgro`/`disposicion` de 2026-08-29 YA dispara de verdad: PvE automático contra fauna peligrosa vía `HubRoom.comprobarEncuentrosAutomaticos` (cada 5s) y enemigos de mazmorra vía `DungeonRoom.poblarEnemigos`. Verificado con E2E real (`client/test/combate.e2e.mjs`), no solo tests unitarios. Huecos honestos que quedan (documentados en el propio GDD §8): UI todavía placeholder, sin árbol de habilidades, sin línea de visión en el combate táctico, equipo real (armas/armaduras) todavía no entra en el cálculo de daño.
 
-## Oficios de crafteo (herrería, talla, y los que falten) — sin diseñar
+**PvP — HECHO v1 (2026-08-30), ver `docs/GDD_PvP.md`**: la pregunta "probablemente limitado o desactivado" ya está decidida y construida — interruptor global que solo el jarl puede activar por región (`pvp:fijar`), zonas seguras (Hub + capital) que SIEMPRE ganan sobre el interruptor, gating real en `manejarCombateIniciar`. Desactivado por defecto, coherente con el enfoque comunitario del proyecto.
+
+## Oficios de crafteo (herrería, talla, y los que falten) — mecanismo HECHO (2026-08-29), árbol completo de recetas por oficio sigue pendiente
 
 Recetas, estaciones de trabajo (yunque, mesa de talla...), progresión de habilidad por oficio, qué herramienta/nivel hace falta para cada receta.
 
-**Apunte 2026-08-29 (docs/GDD_Motriz.md, cluster Motriz ya implementado)**: ciertas mesas de profesión SÍ necesitan potencia mecánica para craftear más rápido — el catálogo ya marca esto hoy (`energia.consume`+`multiplicador` en `yunque`, `torno_alfarero`, `sierra_grande`; ampliable a más mesas por edición de catálogo pura cuando se confirme cuáles) y la red motriz (molino → eje/palancas → mesa) ya funciona de punta a punta. Lo que falta es el propio sistema de crafteo — cuando se diseñe, el punto de enganche YA existe y no hay que inventarlo: `factorVelocidadPorEnergia(ctx, catalogo, mesa)` (`server/src/construccion/energia.ts`) se llama UNA VEZ al empezar cualquier acción con tiempo sobre una mesa y devuelve el multiplicador de velocidad (1 si no hay potencia suficiente o la mesa no la necesita). Las mesas que necesiten conexión motriz para craftear del todo (no solo más rápido) son una variante a decidir en ese diseño, no un cambio de la red en sí.
+**Apunte 2026-08-29 (docs/GDD_Motriz.md, cluster Motriz ya implementado)**: ciertas mesas de profesión SÍ necesitan potencia mecánica para craftear más rápido — el catálogo ya marca esto hoy (`energia.consume`+`multiplicador` en `yunque`, `torno_alfarero`, `sierra_grande`) y la red motriz (molino → eje/palancas → mesa) ya funciona de punta a punta, enganchada vía `factorVelocidadPorEnergia(ctx, catalogo, mesa)` (`server/src/construccion/energia.ts`).
+
+**HECHO (2026-08-29), ver `docs/GDD_Crafteo.md`**: el sistema de crafteo en sí ya existe, con dos capas — refinamiento pasivo con insumos reales (cálculo perezoso, mismo patrón que producción) y crafteo activo con `RecetaCrafteo` (`planoRequerido`+`nivelMinimo`+mesa concreta) en `server/src/construccion/crafteo.ts` (`nivelDeXp`, `validarCrafteo`, `crafteoListo`, protocolo `crafteo:iniciar/recolectar` + `refinamiento:depositar` en `RoomExteriorBase.ts`), progresión de XP por oficio en tabla `jugador_oficios`. Ejemplo real ya en `items/catalogo/recetas.json`: `espada_hierro_basica` (oficio `herrero_armas`, plano exigido, nivel mínimo). **Lo que sigue pendiente es solo volumen, no el mecanismo**: hoy cubre 7 recetas representativas (una por familia de oficio) — rellenar el árbol completo para los ~38 oficios de `docs/GDD_Profesiones.md` se hace oficio a oficio cuando le toque el turno.
 
 ## Cocina — HECHO (2026-08-30)
 
@@ -84,7 +80,7 @@ Además de las parcelas normales de cada jugador, el **jarl/admin** de un asenta
 
 **Lista del streamer**:
 - **Taller de Asedio** — fabrica máquinas de asedio (catapulta/torre/ariete). Ya documentado en `GDD_Faccion_Bandidos.md` §8, con sus dependencias reales (generador de capital, construcción fuera del Hub, combate).
-- **Baños Públicos** — servicio gratis de Comida/Bebida/Sueño/Salud para cualquiera del asentamiento. Encaje: consume directamente del "Sistema de personaje" (vitales ya listados por el streamer) en cuanto existan; es el primer uso concreto de un edificio que RELLENA vitales en vez de solo alojar mobiliario decorativo.
+- **Baños Públicos** — servicio gratis de Comida/Bebida/Sueño/Salud para cualquiera del asentamiento. Encaje: consume directamente del "Sistema de personaje" (vitales ya HECHOS y jugables, ver arriba); sería el primer uso concreto de un edificio que RELLENA vitales en vez de solo alojar mobiliario decorativo — falta solo el edificio en sí, los vitales que consumiría ya existen de verdad.
 - **Casino** — minijuegos de apuestas. Encaje: sumidero de dinero real para "Comercio y economía" (todo gold sink necesita un sitio) — con Twitch integrado más adelante, encaja de más con apuestas en vivo de los viewers (backlog "Modo Live").
 - **Gran Catedral** — hito religioso/social del asentamiento. Sin mecánica cerrada; candidato natural a curación pasiva mejorada o bono de moral cuando exista ese sistema (ver "Curación pasiva vs activa distintas" en ideas propias, más abajo).
 - **Estatua del Líder** — estatua del jarl/streamer. Puramente de hito/identidad visual — buen candidato a arte único generado por semilla del propio jarl en vez de placeholder genérico (mismo principio que "Objetos con nombre propio generado por semilla", ideas propias).
@@ -93,11 +89,11 @@ Además de las parcelas normales de cada jugador, el **jarl/admin** de un asenta
 - **Molino** — moler cosecha/flores. Encaje YA ANTICIPADO en el propio contrato de construcción: `GDD_Construccion.md` §3 reserva desde v1 un campo `energia: {consume}` / `{produce, fuente: "viento"|"agua"|"movimiento"}` en cualquier entrada de catálogo diciendo literalmente "los molinos del futuro serán entradas de catálogo, no reformas" — este es exactamente ese momento. Conecta además con "Injertos y cruces de cultivos" (grano→harina) y "Cocina" (harina→pan).
 
 **Propuestas con utilidad concreta (a filtrar por el streamer)**:
-- **Gran Mercado / Lonja** — plaza de comercio central del asentamiento con precios base propios, en vez de depender solo de la `tienda` individual de cada dueño de parcela. Ata directo a "Comercio y economía — sin diseñar".
+- **Gran Mercado / Lonja** — plaza de comercio central del asentamiento con precios base propios, en vez de depender solo de la `tienda` individual de cada dueño de parcela. Ata directo a "Comercio y economía" (arriba, ya HECHO en lo esencial — esto seguiría siendo la pieza de precio-base-por-asentamiento que todavía no existe).
 - **Ayuntamiento / Salón del Jarl** — sede de gestión: ver impuestos/renta (ya diseñado como v2 en `GDD_Construccion.md` §7) y asignar/revocar parcelas desde dentro del juego en vez de solo la herramienta admin — cierra directamente el pendiente "Jarl en juego pintando parcelas" de `GDD_Construccion.md` §8.
-- **Cuartel de la Guardia Comunal** — entrena/aloja guardias del asentamiento para su propia defensa. Simétrico exacto al `campamento_hostil` de la facción bandida pero del lado del jugador — ata a "Facciones y la ciudad enemiga" y al futuro sistema de combate.
+- **Cuartel de la Guardia Comunal** — entrena/aloja guardias del asentamiento para su propia defensa. Simétrico exacto al `campamento_hostil` de la facción bandida pero del lado del jugador — ata a "Facciones y la ciudad enemiga" y al sistema de combate, ya HECHO (ver arriba) — falta solo el edificio/guardias en sí.
 - **Academia Arcana / Torre de Magos** — comunal, magos del asentamiento crean objetos/hechizos únicos. Mismo patrón que Gran Herrería pero para Ataque/Defensa mágica (ya en los atributos de personaje que definió el streamer) — hoy no hay ninguna estructura que use esa parte de las estadísticas; esta la cubriría.
-- **Puerto/Muelle Comunal** — construir/reparar barcos y pesca a mayor escala que la individual. Ata a "Barcos y navegación marítima" y "Pesca" (ambos "sin diseñar" más abajo).
+- **Puerto/Muelle Comunal** — construir/reparar barcos y pesca a mayor escala que la individual. Ata a "Barcos y navegación marítima" (sin diseñar) y "Pesca" (ya HECHA, más abajo).
 - **Gran Biblioteca/Archivo** — enseña planos/recetas raras que no se consiguen comprando. Ata directo a la pregunta abierta de "Roles/profesiones y crafteo por planos" (¿cómo se consigue un plano nuevo?) y a "Aprendizaje de recetas por relación con NPC" (ideas propias).
 
 **Pendiente de decidir cuando toque**: el coste de material/tiempo de cada uno (probablemente escalonado, el Taller de Asedio y la Gran Catedral no cuestan lo mismo que un Molino — hoy son gratis como cualquier `construible` sin `receta`), y si dan beneficio a CUALQUIERA del asentamiento (vecino de cualquier parcela) o solo a quien tenga parcela propia asignada por el jarl. **Ya decidido e implementado (2026-08-30)**: tope de 1 por asentamiento, sí — ver `docs/GDD_Construccion.md` §1ter.
@@ -106,7 +102,7 @@ Además de las parcelas normales de cada jugador, el **jarl/admin** de un asenta
 
 **HECHO (2026-08-30), ver `docs/GDD_Construccion.md` §1ter**: el mecanismo real de "proyecto especial del jarl" como `construible` ya existe — flag `proyectoJarl:true` (13 de los 14 en `tipos_edificio.json` con id propio: `taller_asedio`, `banos_comunales`, `casino`, `gran_catedral`, `establo_comunal`, `gran_herreria`, `molino_comunal`, `gran_mercado`, `salon_jarl`, `cuartel_guardia_comunal`, `academia_arcana`, `capitania_puerto`, `gran_archivo`; la Estatua del Líder en `exteriores.json`), validado por `validarColocacion()` (solo jarl, solo parcela `tipo:"especial"`, tope de 1 por asentamiento para el edificio — sin tope para las piezas decorativas sueltas de un mismo proyecto). Sigue SIN diseñar, como antes: el tope de 1 por asentamiento QUEDÓ decidido (sí, hay tope) al implementar esto; el coste de material/tiempo de cada uno; y a quién beneficia (cualquiera del asentamiento o solo quien tenga parcela propia) — eso depende de sistemas que no existen todavía (vitales-desde-edificio para Baños, economía para Casino/Gran Mercado, crafteo por planos para Gran Herrería/Academia Arcana/Taller de Asedio).
 
-## Sistema de personaje — esqueleto de estadísticas ya estructurado, valores/fórmulas sin cerrar
+## Sistema de personaje — HECHO (2026-08-29/30): vitales, atributos, fórmulas y equipo real ya cerrados y verificados
 
 Primer boceto de qué estadísticas tiene un jugador (el streamer las dio, aquí solo se ordenan). Recordar el principio ya fijado: inventario y equipo son autoritativos en servidor, el cliente solo predice/muestra (ver conversación de arquitectura general).
 
@@ -121,13 +117,15 @@ Primer boceto de qué estadísticas tiene un jugador (el streamer las dio, aquí
 
 **Peso transportable e inventario** (el punto que más detalle trajo el streamer, ver sección propia más abajo).
 
-**Pendiente de definir cuando toque**: fórmulas concretas (cómo pasa Fuerza a Peso transportable, cómo pasan Destreza/Inteligencia a bonus de ataque/defensa), slots de equipo (¿cabeza/torso/piernas/brazos, mismos pivotes que ya usa `rigHumanoide.ts` y cuelga `ropa/`?), curva de progresión, y penalizaciones por vitales a 0 (¿morir de hambre de verdad, o solo penalización dura?).
+**Esqueleto aplicado (2026-08-29, docs/GDD_Personaje.md)**: los 5 vitales de "simulación de vida" (vida/comida/bebida/sueño/estamina, decaimiento en horas reales sin tick nuevo) y los 6 atributos (XP igual que oficios, curva de nivel compartida en `server/src/progresion/nivel.ts`) ya están en `Player` y verificados con servidor real. Ataque/Defensa NO se duplican aquí — siguen siendo stats de arma/armadura en `items.json`, a combinar con atributos ahora que Combate ya existe (ver sección de arriba).
 
-**Esqueleto aplicado (2026-08-29, docs/GDD_Personaje.md)**: los 5 vitales de "simulación de vida" (vida/comida/bebida/sueño/estamina, decaimiento en horas reales sin tick nuevo) y los 6 atributos (XP igual que oficios, curva de nivel compartida en `server/src/progresion/nivel.ts`) ya están en `Player` y verificados con servidor real. Ataque/Defensa NO se duplican aquí — siguen siendo stats de arma/armadura en `items.json`, a combinar con atributos cuando exista Combate. Sin persistencia entre sesiones (mismo criterio que el inventario) y sin UI — ambas cosas esperan al login real y a la interfaz, que el streamer dejó explícitamente para el final.
+**HECHO (2026-08-29/30) — las fórmulas que quedaban pendientes ya están cerradas y en uso real**: `pesoMaximoTransportable`, `vidaMaximaPorResistencia`, `paMaxPorDestreza`, `factorVelocidadCrafteo` (todas en `server/src/progresion/` e importadas en `RoomExteriorBase.ts`) resuelven Fuerza→peso, Resistencia→vida máx, Destreza→PA de combate, y el resto de bonus por atributo. Slots de equipo reales y jugables — no solo diseñados — ver `docs/GDD_Equipo.md`: 19 slots (`equiparItem`/`desequiparItem`), con UI (`client/src/personaje/panelJugador.ts`) y render sobre el rig (`client/src/render3d/equipoVisual.ts`). Único pendiente real que queda: persistencia de vitales/atributos entre sesiones (el inventario/equipo ya la tienen, ver `docs/GDD_Equipo.md` §6bis) y penalizaciones exactas por vitales a 0 — pospuesto a propósito hasta el login real.
 
-## Inventario, contenedores y objetos en el mundo — fase 1 CONSTRUIDA (catálogo + servidor + persistencia), interfaz y "coger del mundo" sin diseñar
+## Inventario, contenedores y objetos en el mundo — fases 1 y 2 HECHAS (catálogo + servidor + persistencia + "coger del mundo"), solo la interfaz de rejilla arrastrable (fase 3) sigue pendiente
 
-**Actualización 2026-08-29**: catálogo (`items/catalogo/items.json`, 55 ítems), lógica de rejilla pura (`server/src/inventario/inventario.ts`, 15 tests), persistencia dual SQLite/Postgres (`inventarios`/`equipo` en `server/src/datos/bd.ts`, 13 tests) y Schema de Colyseus (`Player.inventario` en `HubState.ts`) ya construidos y verificados — contrato completo en `docs/GDD_Inventario.md`. Varias de las preguntas "pendiente" de abajo ya se resolvieron ahí (rejilla independiente por contenedor, no anidada; rotación 0/1, no 0/90/180/270). Lo que sigue abierto: la interfaz de cliente (fase 3) y "coger del mundo"/soltar (fase 2) — ver GDD §7 para el desglose exacto.
+**Actualización 2026-08-29**: catálogo (`items/catalogo/items.json`, 55 ítems), lógica de rejilla pura (`server/src/inventario/inventario.ts`, 15 tests), persistencia dual SQLite/Postgres (`inventarios`/`equipo` en `server/src/datos/bd.ts`, 13 tests) y Schema de Colyseus (`Player.inventario` en `HubState.ts`) ya construidos y verificados — contrato completo en `docs/GDD_Inventario.md`. Varias de las preguntas "pendiente" de abajo ya se resolvieron ahí (rejilla independiente por contenedor, no anidada; rotación 0/1, no 0/90/180/270).
+
+**HECHO (2026-08-29) — fase 2, "coger del mundo"/soltar, ver `docs/GDD_Inventario.md` §7**: `server/src/inventario/cogerSoltar.ts::intentarCoger`, todo-o-nada, enganchado a los recolectables reales del mundo (`server/src/mundo/recolectables.ts`). **Lo único que sigue abierto es la fase 3**: hay un panel de cliente funcional (`client/src/personaje/panelJugador.ts`) pero no es una rejilla arrastrable de verdad (drag&drop, rotar, previsualizar) — sigue siendo interfaz sin diseñar en ese sentido concreto.
 
 Concepto decidido por el streamer, estilo Project Zomboid:
 
@@ -140,7 +138,7 @@ Concepto decidido por el streamer, estilo Project Zomboid:
 
 **Pendiente de definir cuando toque**: tamaño de la rejilla base del personaje, cómo escala el tamaño de la rejilla de cada contenedor (mochila pequeña vs baúl), si rotar un objeto en la rejilla es una mecánica (como el Tetris real) o los objetos tienen forma fija, cómo se sincroniza servidor-autoritativo sin lag perceptible al arrastrar objetos, y si coger un objeto del suelo tiene un radio de interacción o hay que "abrirlo" como un contenedor.
 
-## Roles/profesiones y crafteo por planos — concepto decidido, árbol y recetas sin diseñar
+## Roles/profesiones y crafteo por planos — mecanismo HECHO (2026-08-29, ver "Oficios de crafteo" arriba), árbol de recetas por oficio sigue pendiente
 
 - Cada profesión permite ciertos crafteos, desbloqueados por **planos** ("blueprint") — no todo el mundo craftea todo desde el principio.
 - Progresión por **rama/experiencia de la propia profesión** (mejora de herrero, mejora de carpintero...) — mismo patrón "se mejora con el uso" que los atributos de arriba, no un nivel de personaje genérico compartido.
@@ -158,9 +156,11 @@ Orden de prioridad, de más a menos infraestructura ya construida detrás:
 
 **Pendiente de definir cuando toque, oficio a oficio**: cómo se consigue un plano nuevo (comprado/encontrado/enseñado por NPC), recetas/objetos/herramientas concretos, y si un personaje puede tener varias profesiones a la vez o hay que especializarse. Recomendación (no decidida): empezar por el Tier 1+2 completo (7 oficios) antes de tocar Tier 4/5 — cierra Producción→Motriz→crafteo→Mercado con lo ya construido, sin abrir combate/heridas/minería todavía.
 
-**Edificio/mesas/mobiliario por oficio — aplicado al catálogo (2026-08-29)**: `docs/GDD_Profesiones.md` fija, para los 38 oficios, el edificio, 2-4 mesas especiales y únicas por oficio (básica→avanzada, marcando cuáles conectan a la red motriz), mobiliario funcional/decorativo, y el NPC de oficio — sin recetas todavía (eso sigue pendiente, oficio a oficio). Ya en `main`: 50 mesas/mobiliario + 8 edificios nuevos + 8 NPCs de oficio + su enganche a `poblacion/` y a los bakes de `ciudades/` — verificado con bakes de prueba reales.
+**Edificio/mesas/mobiliario por oficio — aplicado al catálogo (2026-08-29)**: `docs/GDD_Profesiones.md` fija, para los 38 oficios, el edificio, 2-4 mesas especiales y únicas por oficio (básica→avanzada, marcando cuáles conectan a la red motriz), mobiliario funcional/decorativo, y el NPC de oficio. Ya en `main`: 50 mesas/mobiliario + 8 edificios nuevos + 8 NPCs de oficio + su enganche a `poblacion/` y a los bakes de `ciudades/` — verificado con bakes de prueba reales.
 
-## NPCs contratables para automatizar producción (trabajar, transportar, vender) — concepto del streamer, reconciliado con la arquitectura real, sin diseñar del todo
+**Corrección (mismo día, 2026-08-29): el mecanismo de planos+recetas YA no está sin diseñar** — ver la sección "Oficios de crafteo" de arriba (`docs/GDD_Crafteo.md`): planos (`planoRequerido`), nivel mínimo de oficio, y XP por rama, con un ejemplo real cerrado (`espada_hierro_basica`). Lo que sigue pendiente es solo volumen: rellenar recetas concretas para las ~38 profesiones, oficio a oficio.
+
+## NPCs contratables para automatizar producción (trabajar, transportar, vender) — la pieza de TRANSPORTE ya HECHA (2026-08-29), automatizar trabajo en granja/mesa sigue sin construir
 
 Pedido del streamer (2026-08-29): el menú de construcción no es solo bloques/muebles/decoración sin interior + edificios pequeños con interior (ver `GDD_Construccion.md` §8) — la otra mitad es aprovechar el pathfinding ya construido para AUTOMATIZAR trabajo contratando NPCs con dinero: un NPC que trabaje una granja/mesa y guarde el material en las cajas de la parcela, otro que transporte materiales de un punto A a un punto B (venderlos, o llevarlos a otra parcela propia donde se transforman en otro material vía crafteo — ej. harina→pan en una panadería), contratado desde una mesa/edificio específico hablando con un NPC "reclutador" (tipo oficina de empleo).
 
@@ -173,14 +173,16 @@ Pedido del streamer (2026-08-29): el menú de construcción no es solo bloques/m
 
 Cómo encaja SIN romper la regla: lo que está prohibido es A\* REPETIDO en el tick, no A\* alguna vez. Mismo patrón que ya usa `interiorGenerado.ts` (genera el interior de un edificio construido UNA VEZ, al construirlo, no cada tick): calcular la ruta del contrato UNA VEZ, al firmarlo (o al construir el segundo punto si faltaba), contra la rejilla ya construida del mapa+parcelas, y cachearla (mismo campo tipo `camino` que ya usan los `TramoRutina`, o el `extra` de `construcciones`). Si el jugador mueve algo de en medio después, se recalcula UNA VEZ en ese momento — coherente con "generar una vez, nunca en directo", no una excepción.
 
-**Qué falta antes de poder implementarlo (dependencias reales, en orden)**:
-1. Dinero/economía — pagar al NPC (backlog "Comercio y economía — sin diseñar").
-2. Inventario/objetos en el mundo — contenido real de las cajas, no solo el mueble placeholder de hoy (backlog "Inventario, contenedores y objetos en el mundo").
-3. Oficios de crafteo con recetas+estación reales (backlog "Oficios de crafteo" y "Roles/profesiones y crafteo por planos").
+**Qué falta antes de poder implementarlo (dependencias reales, en orden — actualizado 2026-08-30, ver más abajo qué ya se resolvió)**:
+1. ~~Dinero/economía~~ — **HECHO**, ver "Comercio y economía" más abajo (Farycoins real).
+2. Inventario/objetos en el mundo — contenido real de las cajas, no solo el mueble placeholder de hoy (backlog "Inventario, contenedores y objetos en el mundo", fases 1-2 ya hechas — falta el contenido real de las cajas en sí, no el mecanismo).
+3. ~~Oficios de crafteo con recetas+estación reales~~ — **HECHO el mecanismo**, ver "Oficios de crafteo" arriba; falta solo volumen de recetas.
 4. Edificios pequeños de construcción propios (mesa/oficina de reclutamiento — ver `GDD_Construccion.md` §8).
-5. Un A\* de caminos reusable EN RUNTIME — hoy ese algoritmo solo existe como bakeador offline dentro de `baker/src/`, nunca se ha llamado desde el servidor vivo; hay que extraerlo/exponerlo como función reusable primero.
+5. ~~Un A\* de caminos reusable EN RUNTIME~~ — **HECHO**, ver `server/src/mundo/pathfindingRuntime.ts::calcularCaminoRuntime`.
 
-**Pendiente de decidir cuando toque**: si el NPC contratado sale de un pool de "desempleados" (ej. `vagabundo` reconvertido) o cualquier NPC del asentamiento puede aceptar; si el contrato se paga una vez o es sueldo periódico (mismo patrón de tick que `ejecutarTickEconomia` de la facción bandida); qué pasa si el punto B no tiene hueco/capacidad; y a quién se vende (no hay mercado bakeado hoy fuera de `tienda`).
+**Progreso real (2026-08-29), pieza de TRANSPORTE ya construida — ver `docs/GDD_Produccion.md`**: `transporte:contratar` en `RoomExteriorBase.ts`, tabla `contratos_transporte`, NPC carretero visible vía `GestorAgentes.agregarAgenteTransportista`, ruta calculada UNA VEZ al firmar el contrato (coherente con "nunca A* en el tick", exactamente como proponía este backlog). Lo que sigue sin construir es la otra mitad: un NPC que "trabaje" una granja/mesa de verdad — hoy sigue siendo un flag abstracto (`trabajadorAsignado: boolean`), no un NPC contratado real — y el reclutador/oficina de empleo.
+
+**Pendiente de decidir cuando toque**: si el NPC contratado sale de un pool de "desempleados" (ej. `vagabundo` reconvertido) o cualquier NPC del asentamiento puede aceptar; si el contrato se paga una vez o es sueldo periódico (mismo patrón de tick que `ejecutarTickEconomia` de la facción bandida); qué pasa si el punto B no tiene hueco/capacidad.
 
 ## Ideas propias a valorar (propuestas, no decisiones — para que el streamer las filtre)
 
@@ -221,31 +223,43 @@ Activa (caña + cebo, orilla, boya con ventana de reacción a la picada) y pasiv
 
 Construcción de barco, navegar el mar (ya establecido como navegable, con fondo marino investigable como capa aparte), cargar mercancía, descubrir islas, cruzar a otro mapa por un borde de mar abierto.
 
-## Comercio y economía — sin diseñar
+## Comercio y economía — HECHO (2026-08-29/30) en lo esencial: moneda real, tenderetes y comercio jugador-jugador
 
 Moneda, mercaderes NPC (los que ya aparecen en plantillas de POI como "oasis_mercader"), compraventa entre jugadores, si hay fluctuación de precios.
 
-## Gremios / equipos — sin diseñar
+**HECHO — moneda real**: `Farycoins` (columna `jugadores.farycoins`, ajuste atómico vía `ajustarFarycoins`). **HECHO — comercio jugador-jugador**, ver `docs/GDD_Comercio.md`: `ComercioSchema`/`OfertaComercioSchema` en `HubState.ts`, mensajes `comercio:solicitar/ofrecer/confirmar/cancelar` (tecla T, apertura mutua, todo-o-nada, ahora también con animales de granja — `docs/GDD_Ganaderia.md`). **HECHO — tenderetes de jugador**, ver `docs/GDD_Mercado.md`: `comprarDeTenderete`/`reponerStockTenderete`/`fijarPrecioTenderete`, tabla `tenderete_items`, protocolo `tenderete:*`. **Sigue sin construir**: fluctuación automática de precios (el vendedor fija su precio libremente, sin `precioBase` de catálogo que suba/baje solo) y una economía real de mercaderes NPC (los de POI siguen siendo flavor, sin inventario/precio dinámico).
+
+## Gremios / equipos — HECHO (2026-08-29) el núcleo, parcelas/construcción compartida sigue sin diseñar
 
 Parcelas compartidas de gremio (mencionado ya en la arquitectura general del proyecto), roles dentro del gremio, construcción colaborativa.
 
-## Roles de Twitch dentro del juego — concepto decidido, beneficios concretos sin definir
+**HECHO, ver `docs/GDD_Gremios.md`**: `server/src/gremios/{gremios,contextoGremios}.ts` (`GremioVivo`, `ContextoGremios`), tablas `gremios`/`gremio_miembros`/`gremio_invitaciones`, mensajes `gremio:fundar/invitar/expulsar/depositar/retirar/actualizar` en `RoomExteriorBase.ts`. Banco común, roles (líder/miembro), emblema/color de catálogo cerrado — todo ya jugable. **Sigue sin diseñar, explícito en el propio GDD §7**: no hay parcelas ni propiedades a nombre del gremio, toda propiedad hoy es de un jugador individual — "construcción colaborativa" real sigue pendiente.
+
+## Roles de Twitch dentro del juego — HECHO v1 (2026-08-30) para lo cosmético, sin ventaja de poder por decisión explícita
 
 Ya está decidido que el login es OAuth de Twitch y que sub/mod/VIP dan ventajas dentro del juego (una de las 5 decisiones fundacionales del proyecto) — falta decidir qué ventaja concreta da cada rol.
 
-## NPCs Gobernadores con IA — concepto decidido, mecánica concreta sin definir
+**HECHO, ver `docs/GDD_Twitch.md` ("v1 implementada y verificada")**: títulos por rol (jarl/mod/sub/seguidor) y comandos de chat (`!curar`/`!comer`/`!beber`/`!cagar`) disponibles para cualquier jugador conectado, más 9 eventos de puntos de canal con efecto cerrado. **Corrección real de diseño, no un pendiente**: el propio GDD marca los títulos como **explícitamente cosméticos** ("nunca ventaja de poder", §2) — se decidió deliberadamente NO dar ventaja diferenciada de poder por sub/mod/VIP, así que esta pregunta ya no está "sin definir", está resuelta en sentido contrario al que planteaba este backlog.
+
+## NPCs Gobernadores con IA — diálogo genérico con IA HECHO (2026-08-30), el concepto específico "Gobernador" (3-4 NPCs con misiones por economía) sigue sin construir
 
 Ya está decidido el modelo híbrido: NPCs base con IA simple/rutinas, y 3-4 NPCs "Gobernador" con integración LLM en tiempo real que generan misiones según la economía de la ciudad y responden al chat. Falta definir cómo mantienen memoria de conversación, límites de coste/latencia, y el contexto exacto que reciben.
 
-## Modo Live — eventos de Twitch en tiempo real — concepto decidido, mapeo concreto sin definir
+**HECHO, ver `docs/GDD_IA_NPCs.md`**: diálogo real con IA (Gemini/Groq con fallback, memoria RAG casera anti-repetición) — pero aplicable a CUALQUIER NPC del catálogo con contexto de mundo placeholder, no el concepto específico de "Gobernador". El propio GDD lo deja explícito: "sistema de jarl por mapa/isla, aún sin construir", sin generación de misiones según economía. No existe ningún NPC "Gobernador" en catálogo/código todavía.
+
+## Modo Live — eventos de Twitch en tiempo real — mapeo HECHO (2026-08-30), conexión real a Twitch (EventSub) sigue pendiente
 
 Ya está decidido que cuando el streamer está en directo, eventos de Twitch (subs, bits, raids) generan eventos en el mundo (clima, spawns de recursos, hordas). Falta el mapeo concreto: qué evento de Twitch dispara exactamente qué efecto y con qué intensidad.
 
-## Facciones y la ciudad enemiga — sin diseñar
+**HECHO, ver `docs/GDD_Twitch.md` §3**: mapeo concreto ya cerrado — 9 eventos de puntos de canal, cada uno con su efecto/duración/intensidad exacta. **Sigue pendiente**: hoy solo se dispara vía `twitch:simularCanje` (jarl-only, de prueba) — la conexión real a canjes/bits/subs de Twitch de verdad (EventSub) espera a que el streamer autorice OAuth (§0.3, §6 del propio GDD).
+
+## Facciones y la ciudad enemiga — bandidos/conquista mayormente HECHO, asedio bloqueado ahora solo por crafteo por planos
 
 Ya está decidido que hay una ciudad neutral y una ciudad enemiga en el mapa. Falta diseñar reputación, conflicto entre ambas, y si el jugador puede elegir bando o interactuar con la facción enemiga de alguna forma.
 
-**Nota 2026-08-29**: la parte de "aldea/castillo bandido con economía viva + líder IA + conquista al matar a la última tropa" YA está diseñada y en buena parte construida — ver `docs/GDD_Faccion_Bandidos.md`. Lo que falta y sigue en este backlog es el paso ANTES de poder atacar: **asedio** (la entrada está bloqueada hasta romperla con máquinas de asedio construidas por el jarl en un Taller de Máquinas de Asedio, en la ciudad capital del jugador) — diseño reconciliado en `GDD_Faccion_Bandidos.md` §8, bloqueado de raíz por tres piezas que aún no existen: el generador de la ciudad capital (reglas nuevas, pendiente), construcción/parcelas habilitado fuera del Hub, y el sistema de combate.
+**Nota 2026-08-29**: la parte de "aldea/castillo bandido con economía viva + líder IA + conquista al matar a la última tropa" YA está diseñada y en buena parte construida — ver `docs/GDD_Faccion_Bandidos.md`. Lo que falta y sigue en este backlog es el paso ANTES de poder atacar: **asedio** (la entrada está bloqueada hasta romperla con máquinas de asedio construidas por el jarl en un Taller de Máquinas de Asedio, en la ciudad capital del jugador).
+
+**Actualización 2026-08-30 — dos de los tres bloqueos originales YA están resueltos, y el combate (el tercero) también**: (a) el generador de ciudad capital — **HECHO**, tier `capital_jarl` con parcelas reservadas, ver `docs/GDD_Ciudad_Capital.md`; (b) construcción/parcelas fuera del Hub — **HECHO**, `docs/GDD_Construccion.md` §1bis extiende el sistema a cualquier `RegionRoom` con `parcelasReservadas`; (c) el sistema de combate — **HECHO**, ver la sección "Combate" de arriba. El bloqueo real que queda, según el propio `docs/GDD_Ciudad_Capital.md` §6, es uno que este backlog no tenía anotado: **crafteo por planos** para el Taller de Asedio (fabricar las máquinas en sí) — y la mecánica concreta de "romper la entrada/matar la guarnición para poder conquistar" (`marcarTropaMuertaYVerificarConquista` no comprueba todavía si la entrada está abierta) sigue sin construirse, ver `docs/GDD_Faccion_Bandidos.md` §8.3.
 
 ## Ideas propias para profundidad/diversión del MMO (propuestas, no decisiones)
 
@@ -292,11 +306,11 @@ Al preparar las reglas de colocación del bakeador de interiores (`GDD_Bakeador_
 
 - **Objetos sueltos de superficie, estilo Project Zomboid** (`plato`, `libro`, `frasco_pocion`, `moneda_suelta`... en `elementos.json`, `colocacion: sobreSuperficie`, capa `decorMovible` igual que el mobiliario grande): el bakeador los coloca como clutter ambiental sobre mesas/mostradores/atriles/altares (cualquier elemento con `esSuperficie: true`). Coger uno de estos en vivo debería quitarlo del mundo y convertirlo en objeto de inventario (desaparece de la sala, aparece en el inventario del jugador) — misma mecánica de "recoger" que el resto del juego, no algo exclusivo de interiores. Pendiente de definir junto con el sistema de inventario en general.
 
-## Verbos de interacción a cubrir más adelante (recordatorio, sin diseñar)
+## Verbos de interacción a cubrir más adelante (recordatorio) — la mayoría de plantas/animales YA cubiertos
 
-- **Plantas**: regar, enfermar, curar, transplantar, morir, cosechar, injertar.
-- **Animales**: matar, domesticar, pelar/desollar, secar, cocinar/quemar, criar.
-- **Insectos/fauna menor**: capturar (decoración, comida, cebo de pesca, u otros usos).
+- **Plantas**: ~~cosechar~~ HECHO (Agricultura), ~~injertar~~ HECHO (Injertos). Sin cubrir: regar (hoy es automático/pasivo, no un verbo del jugador), enfermar, curar, transplantar, morir.
+- **Animales**: ~~matar~~ HECHO (Caza/Combate), ~~domesticar~~ HECHO (Ganadería), ~~pelar/desollar~~ HECHO (`docs/GDD_Caza.md`, curtido), ~~cocinar~~ HECHO (`docs/GDD_Cocina.md`). Sin cubrir: secar, quemar, criar (cría de descendencia doméstica — confirmado pendiente, ver "Ciclo de vida y reproducción animal" arriba).
+- **Insectos/fauna menor**: capturar (decoración, comida, cebo de pesca, u otros usos) — sin cubrir.
 
 Todo esto refuerza la regla ya fijada de "todo lo que existe tiene un uso" — se van completando los usos concretos según se construya cada mecánica, no hace falta cerrarlos todos ahora.
 
@@ -319,3 +333,5 @@ merodeo simple, sin esta parte).
   vida ni interacción entre especies), spawn de basura/comida como recurso
   consumible, y el gato ganando una función real más allá de decoración
   (hoy es puro ambiente, ver GDD_Agentes_Moviles.md "Qué falta").
+
+**Nota (2026-08-30)**: `docs/GDD_Twitch.md` §3 añade una "Plaga de ratas" como evento de puntos de canal (spawn temporal, sin reproducción ni depredación real, desaparecen solas a los 2 minutos) — es solo un evento de color por ahora, no la ecología real pedida aquí, que sigue exactamente igual de aparcada.
