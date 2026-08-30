@@ -170,6 +170,7 @@ export async function ejecutarTickEconomia(bd: IAlmacenDatos): Promise<void> {
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { tiempoMundo } from "./tiempoMundo";
+import { narrarConquista } from "../ia/cronicaBandida";
 
 const RAIZ_REPO = path.resolve(__dirname, "..", "..", "..");
 const RUTA_EXPORTAR_ASENTAMIENTO = path.join(RAIZ_REPO, "poblacion", "src", "exportarAsentamiento.js");
@@ -202,19 +203,30 @@ export async function repoblarAsentamientoConquistado(rutaMapa: string): Promise
 }
 
 /**
- * Transición bandido -> neutral: guarda el cambio de bando, dos líneas de
- * memoria para el líder (una futura IA la leerá como contexto — GDD §6
- * "fases siguientes") y dispara la repoblación. Idempotente: si el
- * asentamiento YA es neutral, no hace nada (nunca reconquista dos veces ni
- * regenera población sobre población ya conquistada).
+ * Transición bandido -> neutral: guarda el cambio de bando, deja una
+ * entrada de crónica (docs/GDD_Faccion_Bandidos.md §7quinquies: redactada
+ * por IA con los nombres reales de quienes lo lograron, o el texto de
+ * siempre si no hay IA configurada) y dispara la repoblación. Idempotente:
+ * si el asentamiento YA es neutral, no hace nada (nunca reconquista dos
+ * veces ni regenera población sobre población ya conquistada).
  */
-export async function conquistarAsentamiento(bd: IAlmacenDatos, asentamiento: Asentamiento, rutaMapa: string): Promise<void> {
+export async function conquistarAsentamiento(
+  bd: IAlmacenDatos,
+  asentamiento: Asentamiento,
+  rutaMapa: string,
+  jugadoresGanadores: string[] = [],
+): Promise<void> {
   if (asentamiento.bando !== "bandido") return;
   await bd.guardarAsentamiento({ ...asentamiento, bando: "neutral" });
-  await bd.registrarMemoriaLider(
-    tiempoMundo().dia,
-    `La aldea "${asentamiento.id}" ha caído: su última tropa ha muerto y los jugadores la han conquistado.`,
-  );
+  const dia = tiempoMundo().dia;
+  const evento = await narrarConquista(asentamiento.id, jugadoresGanadores);
+  if (jugadoresGanadores.length === 0) {
+    await bd.registrarMemoriaLider(dia, evento, { tipo: "asentamiento_conquistado", asentamientoId: asentamiento.id });
+  } else {
+    for (const jugador of jugadoresGanadores) {
+      await bd.registrarMemoriaLider(dia, evento, { tipo: "asentamiento_conquistado", asentamientoId: asentamiento.id, jugador });
+    }
+  }
   await repoblarAsentamientoConquistado(rutaMapa);
 }
 
@@ -224,12 +236,18 @@ export async function conquistarAsentamiento(bd: IAlmacenDatos, asentamiento: As
  * comprueba sola si esa era la última tropa viva, disparando la conquista
  * si toca. `asentamientoId`/`rutaMapa` los conoce quien mata a la tropa
  * (la room del combate sabe en qué mapa/asentamiento está pasando).
+ * `jugadoresGanadores` (docs/GDD_Faccion_Bandidos.md §7quinquies, pedido
+ * 2026-08-30: "que la historia... nombres de jugadores... se recuerden") —
+ * quien llama ya sabe qué jugadores estaban en el bando ganador del
+ * combate real que mató esta tropa; vacío si no se pudo atribuir (p.ej.
+ * autosimulación NPC-vs-fauna, sin jugador de por medio).
  */
 export async function marcarTropaMuertaYVerificarConquista(
   bd: IAlmacenDatos,
   tropaId: string,
   asentamientoId: string,
   rutaMapa: string,
+  jugadoresGanadores: string[] = [],
 ): Promise<{ conquistada: boolean }> {
   await bd.marcarTropaMuerta(tropaId);
   const tropas = await bd.listarTropas(asentamientoId);
@@ -238,6 +256,6 @@ export async function marcarTropaMuertaYVerificarConquista(
   const asentamiento = await bd.obtenerOCrearAsentamiento(asentamientoId);
   if (asentamiento.bando !== "bandido") return { conquistada: false }; // ya conquistada antes
 
-  await conquistarAsentamiento(bd, asentamiento, rutaMapa);
+  await conquistarAsentamiento(bd, asentamiento, rutaMapa, jugadoresGanadores);
   return { conquistada: true };
 }

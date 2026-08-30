@@ -18,6 +18,7 @@ Cómo los NPCs conversan de verdad con los jugadores, con capa gratuita, sin sal
 - `server/src/rooms/HubRoom.ts` — mensaje `"npc:hablar"` `{ npcId, mensaje }` → responde SOLO al cliente que preguntó con `"npc:respuesta"` `{ npcId, texto }` (o `"npc:error"` `{ npcId, motivo }`). Nunca en broadcast: es una conversación privada.
 - `personajes/catalogo/contexto_mundo.json` — el texto de ambientación compartido.
 - `personajes/catalogo/npcs.json` — cada NPC gana (opcionales) `personalidad` (string) y `conocimiento` (array de frases). Los 4 arquetipos de prueba ya llevan contenido real para validar el circuito completo.
+- **Segundo consumidor de `ia/proveedor.ts`** (docs/GDD_Faccion_Bandidos.md §7quinquies, 2026-08-30): `server/src/ia/cronicaBandida.ts` — la crónica del líder bandido y el diálogo de sus tropas, mismo `IProveedorIA`/`ProveedorIAConRespaldo`, pero SIN decidir nada (solo redacta hechos ya guardados en `memoria_lider`, nunca mecánica de combate/economía).
 
 ## Verificado (v1)
 

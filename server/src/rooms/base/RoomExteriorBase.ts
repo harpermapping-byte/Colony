@@ -5674,7 +5674,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /** Quita a un combatiente muerto de su lista real y hace lo que corresponda a su tipo. */
-  protected async finalizarMuerte(id: string) {
+  /**
+   * `jugadoresGanadores` (docs/GDD_Faccion_Bandidos.md §7quinquies, pedido
+   * 2026-08-30: "que la historia... nombres de jugadores... se recuerden")
+   * — nombres de los jugadores del bando ganador del combate real que causó
+   * esta muerte (vacío si no viene de un combate con jugadores, p.ej.
+   * autosimulación NPC-vs-fauna); las subclases con guarnición/patrulla
+   * bandida (InteriorRoom/RegionRoom) lo usan para atribuir la baja. La
+   * base no hace nada con él salvo pasarlo.
+   */
+  protected async finalizarMuerte(id: string, jugadoresGanadores: string[] = []) {
     const tipo = this.tipoCombatiente(id);
     if (tipo === "fauna") {
       const manejado = await this.onFaunaMuerta(id);
@@ -5958,10 +5967,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /** Aplica el resultado final de un combatiente NO-jugador que peleó en una arena aparte, sobre SU entidad real en esta room (docs/GDD_Combate.md §9.2) — mismo efecto que si hubiera muerto/sobrevivido aquí mismo. */
-  public async aplicarResultadoRemoto(id: string, hp: number, estadoFinal: "activo" | "caido" | "huido") {
+  public async aplicarResultadoRemoto(id: string, hp: number, estadoFinal: "activo" | "caido" | "huido", jugadoresGanadores: string[] = []) {
     this.enOtraArena.delete(id); // docs/GDD_Combate.md §7bis — la pelea remota ya terminó, vuelve a estar disponible (no-op si `id` es un jugador, nunca estuvo aquí)
     this.aplicarVida(id, hp);
-    if (estadoFinal === "caido") await this.finalizarMuerte(id);
+    if (estadoFinal === "caido") await this.finalizarMuerte(id, jugadoresGanadores);
   }
 
   private manejarCombateIniciar(client: Client, msg: { objetivoId?: string; retorno?: RetornoJugador }) {

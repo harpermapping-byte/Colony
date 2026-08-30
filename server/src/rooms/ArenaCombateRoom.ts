@@ -184,6 +184,17 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       origen = undefined; // la room de origen ya se vació y autodispuso — nada que limpiar ahí
     }
 
+    // docs/GDD_Faccion_Bandidos.md §7quinquies (pedido 2026-08-30: "que la
+    // historia... nombres de jugadores... se recuerden") — quiénes ganaron
+    // ESTE combate en concreto: los jugadores que siguen "activo" (no
+    // "caido") cuando el bando contrario ya está vencido. Sin rastreo de
+    // "golpe final" — todo el bando A superviviente se lleva el mérito por
+    // igual, coherente con cómo ya funciona el co-op del combate.
+    const jugadoresGanadores = [...combate.unidades.values()]
+      .filter((u) => u.esJugador && u.estado !== "caido")
+      .map((u) => this.state.players.get(u.id)?.name)
+      .filter((nombre): nombre is string => !!nombre);
+
     for (const cu of combate.unidades.values()) {
       if (cu.esJugador) {
         // Un jugador "caído" ya recibió SU propio portal:ir de respawn
@@ -196,7 +207,7 @@ export class ArenaCombateRoom extends RoomExteriorBase {
         const c = this.clients.find((cl) => cl.sessionId === cu.id);
         c?.send("portal:ir", { tipo: "volverDeCombate", ...retorno });
       } else if (origen) {
-        void origen.aplicarResultadoRemoto(cu.id, cu.hp, cu.estado as "activo" | "caido" | "huido");
+        void origen.aplicarResultadoRemoto(cu.id, cu.hp, cu.estado as "activo" | "caido" | "huido", jugadoresGanadores);
       }
     }
     origen?.quitarMarcadorCombate(combateId);

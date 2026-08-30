@@ -209,6 +209,39 @@ test("memoria del líder: registrarMemoriaLider + memoriaLiderReciente devuelve 
   await bd.cerrar();
 });
 
+// docs/GDD_Faccion_Bandidos.md §7quinquies (pedido 2026-08-30: "que la
+// historia del servidor, nombres de jugadores y hazañas se recuerden").
+test("memoria del líder: tipo/asentamientoId/jugador viajan tal cual (NULL si no se pasan, mismo comportamiento de siempre)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.registrarMemoriaLider(1, "Fundación de la aldea"); // sin opciones: sigue funcionando igual que antes de §7quinquies
+  await bd.registrarMemoriaLider(2, "Yasser mató a un recluta de \"aldea_1\".", { tipo: "tropa_muerta", asentamientoId: "aldea_1", jugador: "Yasser" });
+
+  const [conDatos, sinDatos] = await bd.memoriaLiderReciente(2);
+  assert.strictEqual(conDatos.tipo, "tropa_muerta");
+  assert.strictEqual(conDatos.asentamientoId, "aldea_1");
+  assert.strictEqual(conDatos.jugador, "Yasser");
+  assert.strictEqual(sinDatos.tipo, null);
+  assert.strictEqual(sinDatos.asentamientoId, null);
+  assert.strictEqual(sinDatos.jugador, null);
+  await bd.cerrar();
+});
+
+test("historialJugadorEnAsentamiento: solo trae los eventos de ESE jugador con ESE asentamiento, más reciente primero", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.registrarMemoriaLider(1, "Yasser mató a un recluta de aldea_1", { tipo: "tropa_muerta", asentamientoId: "aldea_1", jugador: "Yasser" });
+  await bd.registrarMemoriaLider(2, "Zoe mató a un recluta de aldea_1", { tipo: "tropa_muerta", asentamientoId: "aldea_1", jugador: "Zoe" }); // otro jugador: no debe salir
+  await bd.registrarMemoriaLider(3, "Yasser mató a un recluta de aldea_2", { tipo: "tropa_muerta", asentamientoId: "aldea_2", jugador: "Yasser" }); // otro asentamiento: no debe salir
+  await bd.registrarMemoriaLider(4, "Yasser conquistó aldea_1", { tipo: "asentamiento_conquistado", asentamientoId: "aldea_1", jugador: "Yasser" });
+
+  const historial = await bd.historialJugadorEnAsentamiento("aldea_1", "Yasser", 10);
+  assert.strictEqual(historial.length, 2);
+  assert.strictEqual(historial[0].evento, "Yasser conquistó aldea_1"); // más reciente primero
+  assert.strictEqual(historial[1].evento, "Yasser mató a un recluta de aldea_1");
+
+  assert.strictEqual((await bd.historialJugadorEnAsentamiento("aldea_1", "Alguien_que_nunca_estuvo", 10)).length, 0);
+  await bd.cerrar();
+});
+
 // Inventario (pedido 2026-08-29, fase 1) -------------------------------------
 
 test("inventario: guardar/cargar contenedor hace roundtrip exacto (huecos, cantidades, siguienteId)", async () => {

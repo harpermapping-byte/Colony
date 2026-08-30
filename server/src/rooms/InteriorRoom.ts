@@ -314,9 +314,9 @@ export class InteriorRoom extends RoomExteriorBase {
    * CUAL) sigue exactamente igual que siempre — `tropaDeEnemigo` está
    * vacío ahí, así que cae directo a `super.finalizarMuerte`.
    */
-  protected async finalizarMuerte(id: string) {
+  protected async finalizarMuerte(id: string, jugadoresGanadores: string[] = []) {
     const tropaId = this.tropaDeEnemigo.get(id);
-    if (!tropaId) return super.finalizarMuerte(id);
+    if (!tropaId) return super.finalizarMuerte(id, jugadoresGanadores);
 
     const enemigo = this.state.enemigos.get(id);
     // posición/rango se leen ANTES de super.finalizarMuerte(id) — ese borra
@@ -324,12 +324,25 @@ export class InteriorRoom extends RoomExteriorBase {
     const x = enemigo?.x ?? 0;
     const y = enemigo?.y ?? 0;
     const rangoLoot: RangoTropa = enemigo?.esBoss ? "lider" : "guardia";
-    await super.finalizarMuerte(id);
+    await super.finalizarMuerte(id, jugadoresGanadores);
     this.tropaDeEnemigo.delete(id);
 
     const bd = await obtenerBdCompartida();
+    // docs/GDD_Faccion_Bandidos.md §7quinquies — hecho estructurado, sin IA
+    // (una llamada por jugador y muerte sería carísimo e innecesario; la IA
+    // solo redacta la crónica de conquista y el grito de un bandido vivo,
+    // no cada baja suelta).
+    const dia = tiempoMundo().dia;
+    for (const jugador of jugadoresGanadores) {
+      await bd.registrarMemoriaLider(
+        dia,
+        `${jugador} mató a un ${rangoLoot} de "${this.opciones.mapaId}".`,
+        { tipo: "tropa_muerta", asentamientoId: this.opciones.mapaId, jugador },
+      );
+    }
+
     const rutaMapa = rutaDeMapaId(this.opciones.mapaId);
-    const { conquistada } = await marcarTropaMuertaYVerificarConquista(bd, tropaId, this.opciones.mapaId, rutaMapa);
+    const { conquistada } = await marcarTropaMuertaYVerificarConquista(bd, tropaId, this.opciones.mapaId, rutaMapa, jugadoresGanadores);
     if (conquistada) console.log(`  ¡Asentamiento bandido "${this.opciones.mapaId}" conquistado! Última tropa (${tropaId}) muerta.`);
 
     const cadaver = crearCadaver({

@@ -16,6 +16,7 @@ import { STATS_POR_RANGO, FACTOR_POR_NIVEL_EQUIPO, LOOT_POR_RANGO } from "../mun
 import { crearCadaver } from "../mundo/cadaveres";
 import { diaFraccional } from "../mundo/reproduccionFauna";
 import { agregarItem } from "../inventario/inventario";
+import { generarGritoBandido } from "../ia/cronicaBandida";
 
 // Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): "si se les da de comer
 // unas 5 veces, podrás convertirlo en tu mascota" — fauna URBANA
@@ -67,6 +68,12 @@ export class RegionRoom extends RoomExteriorBase {
   // state.npcs (`patrulla:<tropaId>`) -> id de tropas_asentamiento. Vacío en
   // cualquier región que no sea un asentamiento_hostil vivo.
   private patrullaTropaDeEnemigo = new Map<string, string>();
+  // Diálogo de bandidos (docs/GDD_Faccion_Bandidos.md §7quinquies) — claves
+  // `${slotId}|${jugador}` ya generadas esta vida de la room, para no
+  // llamar a la IA dos veces por el mismo encuentro (el grito se cachea en
+  // el propio `Npc.grito`, esto solo evita relanzar la llamada async
+  // mientras está en curso o después de que ya haya asignado un grito).
+  private gritosGenerados = new Set<string>();
 
   async onCreate(options: OpcionesRegion) {
     if (!options?.mapaId) throw new Error("RegionRoom necesita options.mapaId");
@@ -154,6 +161,11 @@ export class RegionRoom extends RoomExteriorBase {
         const bd = await obtenerBdCompartida();
         await asegurarAsentamientoBandido(bd, options.mapaId);
         await this.poblarPatrullaBandida(options.mapaId, indice.caminos);
+        // Diálogo de bandidos (docs/GDD_Faccion_Bandidos.md §7quinquies,
+        // pedido 2026-08-30: "si veo un bandido, la IA le habrá dicho qué
+        // frase decir según me vea") — más lento que el agro (no hace
+        // falta reaccionar en 200ms a que alguien se acerque a charlar).
+        this.clock.setInterval(() => this.verificarDialogoBandidos(), 1000);
       }
       // Zona PvP (docs/GDD_PvP.md, pedido 2026-08-30): "todas menos la
       // ciudad capital y alrededores" — la capital del jarl (`capital_jarl`,
@@ -378,6 +390,50 @@ export class RegionRoom extends RoomExteriorBase {
   }
 
   /**
+   * §7quinquies (pedido 2026-08-30: "si veo un bandido de esa aldea, la IA
+   * le habrá dicho qué frase decir según me vea... si perdió una batalla
+   * contra un jugador, lo recuerda") — cuando un jugador se acerca lo
+   * bastante a una tropa de patrulla viva, le genera UNA frase de burbuja
+   * (`Npc.grito`, el mismo campo que ya usan los civiles de poblacion/ — el
+   * cliente ya sabe pintarlo rotando con el nombre) referenciando su
+   * historial real con ESE jugador si lo tiene. Una sola llamada de IA por
+   * (bandido, jugador) en toda la vida de esta room — `gritosGenerados`
+   * evita relanzarla mientras la llamada async sigue en curso o ya resuelta.
+   */
+  private verificarDialogoBandidos() {
+    if (this.patrullaTropaDeEnemigo.size === 0) return;
+    for (const [slotId] of this.patrullaTropaDeEnemigo) {
+      const npc = this.state.npcs.get(slotId);
+      if (!npc) continue;
+      for (const jugador of this.state.players.values()) {
+        const clave = `${slotId}|${jugador.name}`;
+        if (this.gritosGenerados.has(clave)) continue;
+        if (Math.hypot(npc.x - jugador.x, npc.y - jugador.y) > RADIO_INTERACCION) continue;
+        this.gritosGenerados.add(clave);
+        void this.generarYAsignarGrito(slotId, jugador.name);
+      }
+    }
+  }
+
+  private async generarYAsignarGrito(slotId: string, jugador: string) {
+    const bd = await obtenerBdCompartida();
+    const [asentamiento, historial] = await Promise.all([
+      bd.obtenerOCrearAsentamiento(this.mapaId),
+      bd.historialJugadorEnAsentamiento(this.mapaId, jugador, 5),
+    ]);
+    const grito = await generarGritoBandido({
+      asentamientoId: this.mapaId,
+      rango: "recluta",
+      nivelEquipo: asentamiento.nivelEquipo,
+      jugador,
+      historial,
+    });
+    if (!grito) return; // sin IA configurada (o falló): silencio, mismo criterio que el resto del proyecto
+    const npc = this.state.npcs.get(slotId); // puede haber muerto/desaparecido mientras se esperaba la IA
+    if (npc) npc.grito = grito;
+  }
+
+  /**
    * §7ter — si el `Npc` muerto era una tropa de patrulla: baja permanente
    * en BD (nunca revive), posible conquista si era la última viva, y
    * cadáver looteable (mismo mecanismo que un animal muerto, docs/GDD_Caza.md
@@ -385,22 +441,34 @@ export class RegionRoom extends RoomExteriorBase {
    * Cualquier otro Npc (un civil normal de poblacion/) sigue exactamente
    * igual que siempre — `patrullaTropaDeEnemigo` está vacío para ellos.
    */
-  protected async finalizarMuerte(id: string) {
+  protected async finalizarMuerte(id: string, jugadoresGanadores: string[] = []) {
     const tropaId = this.patrullaTropaDeEnemigo.get(id);
-    if (!tropaId) return super.finalizarMuerte(id);
+    if (!tropaId) return super.finalizarMuerte(id, jugadoresGanadores);
 
     const npc = this.state.npcs.get(id);
     // posición se lee ANTES de super.finalizarMuerte(id) — ese borra la
     // entidad del Schema (state.npcs.delete), después ya no existe.
     const x = npc?.x ?? 0;
     const y = npc?.y ?? 0;
-    await super.finalizarMuerte(id);
+    await super.finalizarMuerte(id, jugadoresGanadores);
     this.patrullaTropaDeEnemigo.delete(id);
     this.gestorAgentes?.quitarAgente(id); // sin esto GestorAgentes seguiría moviendo una entidad ya borrada del Schema
 
     const bd = await obtenerBdCompartida();
+    // docs/GDD_Faccion_Bandidos.md §7quinquies — mismo criterio que
+    // InteriorRoom: hecho estructurado sin IA, la IA solo redacta la
+    // crónica de conquista y el grito de un bandido vivo.
+    const dia = tiempoMundo().dia;
+    for (const jugador of jugadoresGanadores) {
+      await bd.registrarMemoriaLider(
+        dia,
+        `${jugador} mató a un recluta de "${this.mapaId}".`,
+        { tipo: "tropa_muerta", asentamientoId: this.mapaId, jugador },
+      );
+    }
+
     const rutaMapa = rutaDeMapaId(this.mapaId);
-    const { conquistada } = await marcarTropaMuertaYVerificarConquista(bd, tropaId, this.mapaId, rutaMapa);
+    const { conquistada } = await marcarTropaMuertaYVerificarConquista(bd, tropaId, this.mapaId, rutaMapa, jugadoresGanadores);
     if (conquistada) console.log(`  ¡Asentamiento bandido "${this.mapaId}" conquistado! Última tropa (${tropaId}) muerta en patrulla.`);
 
     const cadaver = crearCadaver({
