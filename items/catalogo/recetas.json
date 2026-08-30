@@ -5,6 +5,7 @@
     "mesas": "server/src/construccion/crafteo.ts:validarCrafteo() — comprueba que el objeto donde se craftea es una mesa válida para la receta",
     "nivelMinimo": "server/src/construccion/crafteo.ts:validarCrafteo() — exige nivel de oficio mínimo (nivelDeXp(xpOficio))",
     "planoRequerido": "SIN CONSUMIDOR — v1 no lo comprueba (mecanismo de desbloqueo por plano sin diseñar, ver GDD_Crafteo.md §7)",
+    "edificioRequerido": "server/src/rooms/base/RoomExteriorBase.ts:manejarCrafteoIniciar() — exige que exista una construcción viva con ese id (interiores/catalogo/tipos_edificio.json) en el asentamiento actual, además de la mesa concreta; docs/GDD_Barcos.md, pedido 2026-08-30 ('solo se pueden construir en el taller de barcos')",
     "insumos": "server/src/construccion/crafteo.ts:validarCrafteo() (comprueba inventario suficiente) + RoomExteriorBase.ts:manejarCrafteoIniciar() (descuenta cada insumo al iniciar, vía quitarItem)",
     "resultado": "server/src/rooms/base/RoomExteriorBase.ts:manejarCrafteoRecolectar() — entrega el ítem resultante al inventario al recoger",
     "tiempoBaseSeg": "server/src/rooms/base/RoomExteriorBase.ts:manejarCrafteoIniciar() — calcula terminaEn, modulado por factorVelocidadPorEnergia de la mesa"
@@ -90,5 +91,58 @@
     ],
     "resultado": { "itemId": "joyero_pequeno", "cantidad": 1 },
     "tiempoBaseSeg": 15
+  },
+  "barco_1_construido": {
+    "oficio": "carpintero_ribera",
+    "mesas": ["mesa_calafateo", "banco_carpintero_ribera"],
+    "nivelMinimo": 5,
+    "edificioRequerido": "astillero",
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 6 },
+      { "itemId": "clavos", "cantidad": 10 },
+      { "itemId": "tela_hilada", "cantidad": 2 }
+    ],
+    "resultado": { "itemId": "barco_1", "cantidad": 1 },
+    "tiempoBaseSeg": 60,
+    "_nota": "docs/GDD_Barcos.md — el más pequeño de los 4 (1 plaza); nivel de oficio 5/6 ('nivel alto') pedido explícitamente por el streamer, sin ningún otro oficio adicional."
+  },
+  "barco_2_construido": {
+    "oficio": "carpintero_ribera",
+    "mesas": ["mesa_calafateo", "banco_carpintero_ribera"],
+    "nivelMinimo": 5,
+    "edificioRequerido": "astillero",
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 10 },
+      { "itemId": "clavos", "cantidad": 16 },
+      { "itemId": "tela_hilada", "cantidad": 3 }
+    ],
+    "resultado": { "itemId": "barco_2", "cantidad": 1 },
+    "tiempoBaseSeg": 90
+  },
+  "barco_3_construido": {
+    "oficio": "carpintero_ribera",
+    "mesas": ["mesa_calafateo", "banco_carpintero_ribera"],
+    "nivelMinimo": 5,
+    "edificioRequerido": "astillero",
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 14 },
+      { "itemId": "clavos", "cantidad": 22 },
+      { "itemId": "tela_hilada", "cantidad": 4 }
+    ],
+    "resultado": { "itemId": "barco_3", "cantidad": 1 },
+    "tiempoBaseSeg": 120
+  },
+  "barco_4_construido": {
+    "oficio": "carpintero_ribera",
+    "mesas": ["mesa_calafateo", "banco_carpintero_ribera"],
+    "nivelMinimo": 5,
+    "edificioRequerido": "astillero",
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 18 },
+      { "itemId": "clavos", "cantidad": 28 },
+      { "itemId": "tela_hilada", "cantidad": 5 }
+    ],
+    "resultado": { "itemId": "barco_4", "cantidad": 1 },
+    "tiempoBaseSeg": 150
   }
 }

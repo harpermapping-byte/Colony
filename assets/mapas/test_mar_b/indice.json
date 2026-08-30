@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "tamanoSectorChunks": 1,
+  "leyendaTerreno": [
+    "agua"
+  ],
+  "nombre": "test_mar_b",
+  "semilla": "test_mar_b-01",
+  "anchoChunks": 1,
+  "altoChunks": 1,
+  "tamanoChunk": 16,
+  "biomasHabilitados": [
+    "costa"
+  ],
+  "bordes": {
+    "norte": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "sur": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "este": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "oeste": {
+      "tipo": "mar_abierto",
+      "nombre": "test_mar_a"
+    }
+  }
+}

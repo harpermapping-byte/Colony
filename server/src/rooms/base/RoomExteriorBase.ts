@@ -1,6 +1,7 @@
+import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { pielDeDesollado, rellenarLootCaza } from "../../mundo/lootCaza";
@@ -21,7 +22,7 @@ import {
   resolverAtaque,
 } from "../../combate/arenaCombate";
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
-import { MapaCargado } from "../../mundo/mapaColision";
+import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
 import { recolectableCercano, recolectablesQuitadosDeMapa } from "../../mundo/recolectables";
 import {
   CatalogoItems,
@@ -45,7 +46,8 @@ import {
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
 import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila } from "../../datos/bd";
+import { CatalogoBarcos, cargarCatalogoBarcos } from "../../mundo/catalogoBarcos";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -228,6 +230,9 @@ const DIST_TELEPORT_MASCOTA = 15; // el dueño cambió de sitio de golpe (portal
 const VECES_COMIDA_PARA_DOMESTICAR = 5;
 const DISTANCIA_SALTO_MONTURA = 2.5; // casillas de un salto
 const COOLDOWN_SALTO_MONTURA_MS = 3000;
+// Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — a cuántas casillas del
+// borde del mapa se considera "llegando" (para el aviso de mapa vecino).
+const DISTANCIA_AVISO_BORDE_MAPA = 2.5;
 
 /** Lo que hay para coger en un punto: cuánto entra al inventario y qué hacer con la FUENTE si entró. */
 export interface ObjetoCogible extends Cogible {
@@ -325,6 +330,23 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // criterio que pescaPorSesion/tiempoMovimiento.
   protected montadoPorSesion = new Map<string, { mascotaId: number; especieId: string; velocidad: number }>();
   private cooldownSaltoMontura = new Map<string, number>(); // sessionId -> epoch ms del próximo salto permitido
+
+  // --- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — a diferencia de una
+  // montura animal (1 jinete, desaparece del Schema), un barco tiene varias
+  // plazas y SIGUE visible en state.barcos aunque esté ocupado: solo se
+  // oculta el rig humanoide de cada ocupante en el cliente. Todo esto vive
+  // y muere con la room, igual que montadoPorSesion/pescaPorSesion.
+  protected catalogoBarcos: CatalogoBarcos = cargarCatalogoBarcos();
+  /** sessionId -> en qué barco va y si es quien lo pilota (el resto son pasajeros que se mueven con él). */
+  protected barcosPorSesion = new Map<string, { barcoId: number; esCapitan: boolean }>();
+  /** barcoId (= clave numérica de state.barcos) -> sessionIds ocupantes ordenados, [0] siempre el capitán. */
+  protected ocupantesDeBarco = new Map<number, string[]>();
+  /** id de mapa (carpeta bajo assets/mapas/) que esta room representa — lo fija HubRoom en onCreate; usado para bd.listarBarcosDe/actualizarPosicionBarco. "" en rooms sin barcos (interior/región/arena). */
+  protected mapaIdPropio = "";
+  /** norte/sur/este/oeste del mapa actual (docs/GDD_Barcos.md "Barcos y navegación marítima") — solo HubRoom lo rellena en onCreate; undefined en el resto (RegionRoom/InteriorRoom no tienen "borde de mundo"). */
+  protected bordesMapa?: Record<"norte" | "sur" | "este" | "oeste", BordeMapa>;
+  /** sessionId (capitán) -> dirección del último aviso "mapa:vecino" enviado, o null si no está cerca de ningún borde ahora mismo — evita reenviar cada tick mientras se queda quieto ahí. */
+  private avisoVecinoPorSesion = new Map<string, string | null>();
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) ---
   // Solo InteriorRoom/DungeonRoom lo ponen a true (onCreate) — decide si
@@ -660,6 +682,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("mascota:desmontar", (client) => this.manejarMascotaDesmontar(client));
     this.onMessage("montura:saltar", (client, msg: { dx?: number; dy?: number }) => this.manejarMonturaSaltar(client, msg));
 
+    // --- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) ---
+    this.onMessage("barco:colocar", (client, msg: { itemId?: string }) => this.manejarBarcoColocar(client, msg));
+    this.onMessage("barco:montar", (client, msg: { barcoId?: number }) => this.manejarBarcoMontar(client, msg));
+    this.onMessage("barco:desmontar", (client) => this.manejarBarcoDesmontar(client));
+    this.onMessage("mapa:viajarVecino", (client) => this.manejarMapaViajarVecino(client));
+
     // --- Twitch: disparadores de PRUEBA (docs/GDD_Twitch.md) — jarl-only,
     // mismo criterio que "inmueble:revocar"/el resto de herramientas admin
     // ya existentes. En producción, el conector real (chatBot.ts/EventSub
@@ -769,6 +797,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // a aparecer desmontada en la próxima room a la que entre el dueño.
     this.montadoPorSesion.delete(client.sessionId);
     this.cooldownSaltoMontura.delete(client.sessionId);
+    // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): a diferencia de una
+    // mascota, el barco SÍ hace falta anclarlo en BD si el que se
+    // desconecta era el último a bordo (si no, quedaría "flotando" en
+    // memoria y reaparecería en su última posición del tick anterior en vez
+    // de la real al recargar la room) — por eso este SÍ se await-ea.
+    await this.desembarcarSesionId(client.sessionId);
+    this.avisoVecinoPorSesion.delete(client.sessionId);
     // Comercio: desconectarse a medias cancela el trato entero (nada se
     // mueve, mismo criterio "todo o nada" que un hueco insuficiente).
     const comercioAbierto = this.comerciosPorSesion.get(client.sessionId);
@@ -2086,6 +2121,181 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     player.x = destinoX;
     player.y = destinoY;
     this.cooldownSaltoMontura.set(client.sessionId, ahora + COOLDOWN_SALTO_MONTURA_MS);
+  }
+
+  /**
+   * Colocar un barco (docs/GDD_Barcos.md, pedido 2026-08-30): consume un
+   * ítem `esBarco` del inventario y lo ancla en la casilla de agua más
+   * cercana (nunca en el inventario de nuevo desde aquí — a diferencia de
+   * la silla de montar, que se consume SOBRE otra cosa, un barco pasa a
+   * vivir como su propia fila en `barcos` (BD) + entidad en state.barcos).
+   */
+  private async manejarBarcoColocar(client: Client, msg: { itemId?: string }) {
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    if (!player || !contenedor || !nombre || !this.mapaIdPropio) return;
+
+    const it = typeof msg?.itemId === "string"
+      ? contenedor.items.find((i) => i.itemId === msg.itemId && this.catalogoBarcos[i.itemId])
+      : contenedor.items.find((i) => this.catalogoBarcos[i.itemId]);
+    if (!it) return client.send("barco:error", { motivo: "sin_barco" });
+
+    const agua = casillaAguaCercana(this.mundo, player.x, player.y, RADIO_INTERACCION);
+    if (!agua) return client.send("barco:error", { motivo: "sin_agua_cerca" });
+
+    const resultado = quitarItem(contenedor, it.id, 1);
+    if (!resultado.ok) return client.send("barco:error", { motivo: resultado.motivo ?? "sin_barco" });
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const fila = await bd.crearBarco(jugador.id, it.itemId, this.mapaIdPropio, agua.x, agua.y);
+    this.spawnearBarco(fila);
+    client.send("barco:colocado", { barcoId: fila.id, x: fila.x, y: fila.y });
+  }
+
+  /** Crea/actualiza la entidad Schema de un barco a partir de su fila de BD — usado al colocar uno nuevo y al cargar los del mapa en onCreate. */
+  protected spawnearBarco(fila: BarcoFila) {
+    const esquema = new Barco();
+    esquema.x = fila.x;
+    esquema.y = fila.y;
+    esquema.tipoId = fila.tipoId;
+    this.state.barcos.set(String(fila.id), esquema);
+  }
+
+  /**
+   * Barco propio... en realidad de CUALQUIERA — a diferencia de una
+   * mascota, un barco no tiene "dueño con exclusiva": varias plazas, se
+   * sube quien llegue mientras haya hueco (docs/GDD_Barcos.md §4). Nearest
+   * dentro de RADIO_INTERACCION con hueco libre, o el `barcoId` explícito
+   * si se manda (mismo criterio "sin UI de targeting" que mascotas).
+   */
+  private barcoConHuecoCercano(client: Client, barcoId: number | undefined): { id: number; esquema: Barco } | null {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return null;
+    const tieneHueco = (id: number, esquema: Barco) => {
+      const plazas = this.catalogoBarcos[esquema.tipoId]?.plazas ?? 1;
+      return (this.ocupantesDeBarco.get(id)?.length ?? 0) < plazas;
+    };
+    if (typeof barcoId === "number") {
+      const esquema = this.state.barcos.get(String(barcoId));
+      if (!esquema || Math.hypot(esquema.x - player.x, esquema.y - player.y) > RADIO_INTERACCION) return null;
+      return tieneHueco(barcoId, esquema) ? { id: barcoId, esquema } : null;
+    }
+    let mejor: { id: number; esquema: Barco } | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    this.state.barcos.forEach((esquema, clave) => {
+      const id = Number(clave);
+      if (!tieneHueco(id, esquema)) return;
+      const d = Math.hypot(esquema.x - player.x, esquema.y - player.y);
+      if (d < mejorDist) { mejorDist = d; mejor = { id, esquema }; }
+    });
+    return mejor;
+  }
+
+  /** Embarcar: el primero en subir pilota (capitán), el resto son pasajeros que se mueven con el barco (RoomExteriorBase.actualizarMovimiento). A diferencia de montar un animal, el barco NUNCA desaparece del Schema (varias plazas a la vez). */
+  private manejarBarcoMontar(client: Client, msg: { barcoId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (this.barcosPorSesion.has(client.sessionId)) return client.send("barco:error", { motivo: "ya_embarcado" });
+
+    const encontrado = this.barcoConHuecoCercano(client, msg?.barcoId);
+    if (!encontrado) return client.send("barco:error", { motivo: "nada_cerca" });
+    const { id: barcoId } = encontrado;
+
+    let ocupantes = this.ocupantesDeBarco.get(barcoId);
+    if (!ocupantes) { ocupantes = []; this.ocupantesDeBarco.set(barcoId, ocupantes); }
+    const esCapitan = ocupantes.length === 0;
+    ocupantes.push(client.sessionId);
+    this.barcosPorSesion.set(client.sessionId, { barcoId, esCapitan });
+    player.barcoId = barcoId;
+    player.barcoCapitan = esCapitan;
+  }
+
+  private async manejarBarcoDesmontar(client: Client) {
+    await this.desembarcarSesionId(client.sessionId);
+  }
+
+  /** Compartido con el auto-desembarco de combate/onLeave — `sessionId` directo, sin depender de tener un `Client` a mano (mismo criterio que desmontarSesionId de Monturas). */
+  protected async desembarcarSesionId(sessionId: string) {
+    const info = this.barcosPorSesion.get(sessionId);
+    if (!info) return;
+    this.barcosPorSesion.delete(sessionId);
+    const player = this.state.players.get(sessionId);
+    if (player) { player.barcoId = 0; player.barcoCapitan = false; }
+
+    const ocupantes = this.ocupantesDeBarco.get(info.barcoId);
+    if (ocupantes) {
+      const idx = ocupantes.indexOf(sessionId);
+      if (idx >= 0) ocupantes.splice(idx, 1);
+      if (ocupantes.length === 0) {
+        this.ocupantesDeBarco.delete(info.barcoId);
+        // último en bajarse: ancla la posición actual en BD para que sobreviva a un reinicio de room.
+        const esquema = this.state.barcos.get(String(info.barcoId));
+        if (esquema && this.mapaIdPropio) {
+          const bd = await obtenerBdCompartida();
+          await bd.actualizarPosicionBarco(info.barcoId, this.mapaIdPropio, esquema.x, esquema.y);
+        }
+      } else if (info.esCapitan) {
+        // el capitán se bajó con pasajeros a bordo: el siguiente en la lista pasa a pilotar.
+        const nuevoCapitanId = ocupantes[0];
+        const nuevoInfo = this.barcosPorSesion.get(nuevoCapitanId);
+        if (nuevoInfo) nuevoInfo.esCapitan = true;
+        const nuevoCapitan = this.state.players.get(nuevoCapitanId);
+        if (nuevoCapitan) nuevoCapitan.barcoCapitan = true;
+      }
+    }
+  }
+
+  /**
+   * Cruzar a un mapa exterior vecino en barco (docs/GDD_Barcos.md, pedido
+   * 2026-08-30 "Barcos y navegación marítima"): solo el capitán, solo si de
+   * verdad está junto a un borde `mar_abierto` con `nombre` (mapa vecino ya
+   * bakeado — inerte mientras no lo esté, ver `bordesMapa`). Reancla el
+   * barco en el mapa destino (BD) y manda `portal:ir` a TODOS los
+   * ocupantes — cada cliente recarga a su cuenta (mismo mecanismo que
+   * cualquier otro portal:ir), y cada `onLeave` que dispare esa recarga
+   * limpia `barcosPorSesion` localmente (ver onLeave más abajo) SIN volver
+   * a persistir posición (ya se hizo aquí, con el mapa correcto).
+   */
+  private async manejarMapaViajarVecino(client: Client) {
+    const info = this.barcosPorSesion.get(client.sessionId);
+    if (!info || !info.esCapitan) return client.send("barco:error", { motivo: "no_eres_capitan" });
+    const player = this.state.players.get(client.sessionId);
+    const esquema = this.state.barcos.get(String(info.barcoId));
+    if (!player || !esquema || !this.bordesMapa) return;
+    // Mismo criterio "sin UI de targeting" que portal:usar (F cerca de una
+    // puerta la cruza): el servidor mira dónde está realmente el jugador
+    // ahora mismo, ignorando cualquier dirección que mandara el cliente.
+    const direccion = this.direccionBordeCercana(player);
+    if (!direccion) return client.send("barco:error", { motivo: "no_estas_en_el_borde" });
+    const borde = this.bordesMapa[direccion];
+    if (!borde || borde.tipo !== "mar_abierto" || !borde.nombre) return client.send("barco:error", { motivo: "sin_mapa_vecino" });
+
+    const rutaDestino = path.resolve(__dirname, "..", "..", "..", "..", "assets", "mapas", borde.nombre);
+    if (!fs.existsSync(path.join(rutaDestino, "indice.json"))) return; // dato del índice apunta a un mapa que aún no existe en disco
+
+    const bd = await obtenerBdCompartida();
+    await bd.actualizarPosicionBarco(info.barcoId, borde.nombre, esquema.x, esquema.y);
+
+    const ocupantes = this.ocupantesDeBarco.get(info.barcoId) ?? [client.sessionId];
+    this.ocupantesDeBarco.delete(info.barcoId);
+    this.state.barcos.delete(String(info.barcoId));
+    for (const sid of ocupantes) {
+      this.barcosPorSesion.delete(sid);
+      this.avisoVecinoPorSesion.delete(sid);
+      this.clients.find((c) => c.sessionId === sid)?.send("portal:ir", { tipo: "hub", mapaId: borde.nombre });
+    }
+  }
+
+  /** Dirección de borde de mapa a la que `player` está pegado ahora mismo (dentro de DISTANCIA_AVISO_BORDE_MAPA), o null. Solo tiene sentido con `bordesMapa` cargado (HubRoom). */
+  private direccionBordeCercana(player: Player): "norte" | "sur" | "este" | "oeste" | null {
+    if (player.y <= DISTANCIA_AVISO_BORDE_MAPA) return "norte";
+    if (player.y >= this.mundo.alto - DISTANCIA_AVISO_BORDE_MAPA) return "sur";
+    if (player.x <= DISTANCIA_AVISO_BORDE_MAPA) return "oeste";
+    if (player.x >= this.mundo.ancho - DISTANCIA_AVISO_BORDE_MAPA) return "este";
+    return null;
   }
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) — implementa
@@ -4088,6 +4298,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return this.errorCrafteo(client, "mesa inexistente");
 
+    if (receta.edificioRequerido) {
+      let existe = false;
+      for (const v of ctx.vivas.values()) {
+        if (v.objeto === receta.edificioRequerido) { existe = true; break; }
+      }
+      if (!existe) return this.errorCrafteo(client, `hace falta un ${receta.edificioRequerido} construido en el asentamiento`);
+    }
+
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const xp = await bd.obtenerXpOficio(jugador.id, receta.oficio);
@@ -5209,6 +5427,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // de mandarlo a la arena (nueva conexión de Colyseus, la montura no
       // viaja con él). La mascota reaparece "siguiendo" en esta room.
       this.desmontarSesionId(p.id);
+      // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): mismo criterio que
+      // una montura animal — "ni el PJ montado" también vale para un barco.
+      void this.desembarcarSesionId(p.id);
       const c = this.clients.find((cl) => cl.sessionId === p.id);
       c?.send("portal:ir", { tipo: "combate", combateId, mapaArenaId });
     }
@@ -5359,6 +5580,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.inputs.forEach((dir, sessionId) => {
       const player = this.state.players.get(sessionId);
       if (!player) return;
+      // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): un pasajero (no
+      // capitán) no se mueve con su propio input — su posición la fija el
+      // barco entero en la pasada de sincronización, más abajo.
+      const enBarco = this.barcosPorSesion.get(sessionId);
+      if (enBarco && !enBarco.esCapitan) return;
+      const esCapitanBarco = !!enBarco?.esCapitan;
+      const barcoPilotado = esCapitanBarco ? this.state.barcos.get(String(enBarco!.barcoId)) : undefined;
 
       const idx = Math.floor(player.y) * this.mundo.ancho + Math.floor(player.x);
       const medio = medioEn(this.mundo, player.x, player.y);
@@ -5372,10 +5600,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // estamina de sobra — sin ella, corre igual que andar aunque el
       // cliente siga pidiendo `correr` (no hay penalización dura, solo se
       // pierde la ventaja de velocidad hasta que la estamina se regenere).
-      const corriendoDeVerdad = !montura && medio === TIPO.TIERRA && seMueve && !!dir.correr && player.vitales.estamina > 0;
+      const corriendoDeVerdad = !montura && !esCapitanBarco && medio === TIPO.TIERRA && seMueve && !!dir.correr && player.vitales.estamina > 0;
       let vel: number;
       if (montura) {
         vel = montura.velocidad * (this.mundo.velocidad[idx] ?? 1);
+      } else if (esCapitanBarco) {
+        // Barco (docs/GDD_Barcos.md): velocidad fija del catálogo, SIN el
+        // multiplicador de terreno (ese modifica hierba/barro/camino, no
+        // tiene sentido sobre agua) — mismo criterio "no es el jugador quien
+        // se mueve" que una montura animal, sin sprint ni estamina.
+        vel = barcoPilotado ? this.catalogoBarcos[barcoPilotado.tipoId]?.velocidadBarco ?? 5 : 5;
       } else if (medio === TIPO.AGUA || medio === TIPO.AGUA_PROFUNDA) {
         vel = player.nivel < 0 ? VEL_BUCEAR : VEL_NADAR;
       } else if (corriendoDeVerdad) {
@@ -5389,8 +5623,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         const norma = Math.hypot(dir.x, dir.y);
         const paso = (vel * dt) / norma;
         const destino = moverAABB(this.mundo, player.x, player.y, dir.x * paso, dir.y * paso);
-        player.x = destino.x;
-        player.y = destino.y;
+        if (esCapitanBarco) {
+          // "solo por agua, no puede acceder a otro tipo de suelo" (pedido
+          // 2026-08-30): si el destino deja de ser agua, el barco simplemente
+          // no se mueve ese tick (nunca "vara" en la orilla a medias).
+          const medioDestino = medioEn(this.mundo, destino.x, destino.y);
+          if (medioDestino === TIPO.AGUA || medioDestino === TIPO.AGUA_PROFUNDA) {
+            player.x = destino.x;
+            player.y = destino.y;
+          }
+        } else {
+          player.x = destino.x;
+          player.y = destino.y;
+        }
       }
 
       // Resistencia por movimiento (docs/GDD_Personaje.md §3.4, pedido
@@ -5398,7 +5643,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // solo se toca BD al cruzar el umbral, nunca cada tick (30hz sería
       // reventar la BD por nada). Nunca montado: no es el jugador quien se
       // mueve, sería XP de Resistencia gratis a caballo.
-      if (!montura && medio === TIPO.TIERRA && seMueve) {
+      if (!montura && !esCapitanBarco && medio === TIPO.TIERRA && seMueve) {
         const acumulado = this.tiempoMovimiento.get(sessionId) ?? { correr: 0, andar: 0 };
         if (corriendoDeVerdad) {
           acumulado.correr += dt;
@@ -5420,9 +5665,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (medioAhora === TIPO.TIERRA || medioAhora === TIPO.SOLIDO) {
         player.nivel = 0;
         player.estado = "tierra";
-      } else if (montura) {
+      } else if (montura || esCapitanBarco) {
         // "un caballo no bucea" (docs/GDD_Mecanicas.md) — vadea a nivel
-        // superficie, nunca se sumerge.
+        // superficie, nunca se sumerge; un barco flota, tampoco (docs/GDD_Barcos.md).
         player.nivel = 0;
         player.estado = "nadando";
       } else {
@@ -5433,6 +5678,40 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const cuerpos = [...this.state.players.values()];
     separarPJs(this.mundo, cuerpos, RADIO_PJ);
+
+    // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): sincroniza el Schema
+    // del barco con su capitán y "pega" a los pasajeros a bordo — pasada
+    // FINAL, después de separarPJs, para que el barco gane siempre sobre el
+    // empuje PJ-PJ (los pasajeros no deben resbalar fuera de la cubierta).
+    // También dispara el aviso de mapa vecino al llegar a un borde mar_abierto.
+    this.ocupantesDeBarco.forEach((ocupantes, barcoId) => {
+      const esquema = this.state.barcos.get(String(barcoId));
+      const capitanId = ocupantes[0];
+      const capitan = capitanId ? this.state.players.get(capitanId) : undefined;
+      if (!esquema || !capitan) return;
+      esquema.x = capitan.x;
+      esquema.y = capitan.y;
+      for (let i = 1; i < ocupantes.length; i++) {
+        const pasajero = this.state.players.get(ocupantes[i]);
+        if (!pasajero) continue;
+        const ang = (i / Math.max(1, ocupantes.length - 1)) * Math.PI * 2;
+        pasajero.x = esquema.x + Math.cos(ang) * 0.5;
+        pasajero.y = esquema.y + Math.sin(ang) * 0.5;
+      }
+
+      if (this.bordesMapa) {
+        const dirActual = this.direccionBordeCercana(capitan);
+        const borde = dirActual ? this.bordesMapa[dirActual] : undefined;
+        const nombreVecino = borde && borde.tipo === "mar_abierto" ? borde.nombre : null;
+        const yaAvisado = this.avisoVecinoPorSesion.get(capitanId) ?? null;
+        if (nombreVecino && nombreVecino !== yaAvisado) {
+          this.avisoVecinoPorSesion.set(capitanId, nombreVecino);
+          this.clients.find((c) => c.sessionId === capitanId)?.send("mapa:vecino", { direccion: dirActual, nombre: nombreVecino });
+        } else if (!nombreVecino && yaAvisado) {
+          this.avisoVecinoPorSesion.delete(capitanId);
+        }
+      }
+    });
 
     // Vitales (docs/GDD_Personaje.md) — mismo tick que YA existe para
     // movimiento/colisión, TODOS los jugadores conectados (no solo los que

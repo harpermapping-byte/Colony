@@ -154,6 +154,10 @@ export class Player extends Schema {
   @type("string") monturaEspecieId = "";
   /** id de la fila `mascotas` (BD) que se está montando — 0 = ninguna. Para saber a cuál devolver el Schema al desmontar. */
   @type("number") monturaMascotaId = 0;
+  /** docs/GDD_Barcos.md (pedido 2026-08-30) — id de la fila `barcos` (BD)/clave de state.barcos en la que va embarcado; 0 = ninguna. A diferencia de una montura animal, el Schema del barco NO desaparece (varias plazas) — el cliente solo oculta el rig humanoide mientras esto sea >0. */
+  @type("number") barcoId = 0;
+  /** Solo con barcoId>0: true = es quien pilota (su input mueve el barco), false = pasajero (se mueve con él). */
+  @type("boolean") barcoCapitan = false;
 }
 
 // Agente móvil publicado (NPC de asentamiento; mañana bárbaros/fauna con el
@@ -240,6 +244,20 @@ export class Mascota extends Schema {
   @type("string") duenoNombre = "";
   /** docs/GDD_Monturas.md — tiene silla puesta (mascota:ponerMontura) y por tanto se puede `mascota:montar`. Mientras el dueño la está montando, esta entrada DESAPARECE del Schema (fusionada en Player, ver monturaEspecieId) — vuelve a aparecer al desmontar. */
   @type("boolean") montura = false;
+}
+
+// Barco (docs/GDD_Barcos.md, pedido 2026-08-30): a diferencia de una
+// mascota, un barco NO come/sigue/vuelve solo a casa — se ancla donde se
+// coloca (server/src/datos/bd.ts:Barco) y así se queda hasta que alguien lo
+// mueve pilotándolo. SIEMPRE visible en el Schema (a diferencia de Mascota,
+// que desaparece al montarla): con varias plazas, el barco es su propia
+// entidad en el mundo aunque haya jugadores embarcados — RoomExteriorBase
+// solo oculta el rig humanoide de cada ocupante (Player.barcoId > 0),
+// nunca borra este Schema.
+export class Barco extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") tipoId = "";
 }
 
 // Objeto soltado al mundo por un jugador (fase 2 de inventario, "soltar" —
@@ -331,6 +349,7 @@ export class HubState extends Schema {
   @type({ map: Enemigo }) enemigos = new MapSchema<Enemigo>();
   @type({ map: Fauna }) fauna = new MapSchema<Fauna>();
   @type({ map: Mascota }) mascotas = new MapSchema<Mascota>();
+  @type({ map: Barco }) barcos = new MapSchema<Barco>();
   @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
   @type({ map: CadaverSchema }) cadaveres = new MapSchema<CadaverSchema>();
   @type({ map: AnimalGranjaSchema }) animalesGranja = new MapSchema<AnimalGranjaSchema>();
