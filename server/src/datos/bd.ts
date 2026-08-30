@@ -17,6 +17,7 @@
 import * as path from "node:path";
 import { Pool } from "pg";
 import { Contenedor, ItemInstancia, SlotsEquipo, RasgosCultivo } from "../inventario/inventario";
+import { nombresJarlTalCual } from "../construccion/construccion";
 
 // @types/node del monorepo es v20 y no conoce "node:sqlite" (los tipos llegaron en v22.5),
 // así que declaramos a mano lo mínimo que usamos y cargamos con require (estamos en CommonJS).
@@ -35,6 +36,20 @@ interface BaseDatosSync {
 const { DatabaseSync } = require("node:sqlite") as {
   DatabaseSync: new (ruta: string) => BaseDatosSync;
 };
+
+// Economía (docs/GDD_Economia.md, pedido 2026-08-30): saldo inicial al
+// crear la fila de un jugador NUEVO por primera vez (nunca reajusta uno
+// existente) — "cada player cuando se crea tiene 20 Farycoins", pedido
+// explícito del streamer. El comerciante NPC pasa SALDO_INICIAL_NPC_COMERCIANTE
+// (500) en su propia llamada, ver `manejarNpcComercio` en RoomExteriorBase.ts.
+export const SALDO_INICIAL_JUGADOR = 20;
+export const SALDO_INICIAL_NPC_COMERCIANTE = 500;
+/** Prefijo de identidad de un comerciante NPC en `jugadores.nombre` — nunca puede chocar con un nombre de jugador real (docs/GDD_Economia.md). */
+export const PREFIJO_NPC_COMERCIANTE = "npc:";
+/** Saldo inicial correcto según de quién sea la fila que se está creando por primera vez. */
+export function saldoInicialPara(nombre: string): number {
+  return nombre.startsWith(PREFIJO_NPC_COMERCIANTE) ? SALDO_INICIAL_NPC_COMERCIANTE : SALDO_INICIAL_JUGADOR;
+}
 
 export interface Jugador {
   id: number;
@@ -392,7 +407,8 @@ export interface MemoriaLider {
  * concreta (así el motor real es un detalle de `crearAlmacenDatos`).
  */
 export interface IAlmacenDatos {
-  obtenerOCrearJugador(nombre: string): Promise<Jugador>;
+  /** `saldoInicial` (docs/GDD_Economia.md, pedido 2026-08-30) SOLO se aplica si la fila no existía — 20 por defecto (jugador nuevo); un comerciante NPC ("npc:<id>") pasa 500. Nunca reajusta el saldo de una fila ya existente. */
+  obtenerOCrearJugador(nombre: string, saldoInicial?: number): Promise<Jugador>;
   /** Vida/vidaMax tras combate/comida/pociones (docs/GDD_Mecanicas.md §5.4) — sin regeneración automática, solo se llama en un evento explícito. */
   actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void>;
   obtenerFarycoins(jugadorId: number): Promise<number>;
@@ -486,6 +502,14 @@ export interface IAlmacenDatos {
   sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void>;
   /** docs/GDD_Crafteo.md §4: descuenta insumo del almacén de una construcción (misma tabla `tenderete_items`, reusada como "qué hay guardado aquí" — sin cobro, sin precio). Compare-and-swap: `false` si no quedaba suficiente, nunca deja cantidad negativa. */
   consumirStockTenderete(tenderoteId: string, itemId: string, cantidad: number): Promise<boolean>;
+  /** docs/GDD_Economia.md (pedido 2026-08-30): vende AL comerciante — el NPC paga con su PROPIO saldo (limitado, `SALDO_INICIAL_NPC_COMERCIANTE`) y el ítem se consume (no se acumula stock revendible, v1 deliberadamente simple: sin bucle comprar-barato/vender-caro entre el mismo NPC). Todo o nada: si el NPC no tiene suficiente, no se cobra nada. */
+  venderANpc(params: {
+    npcNombre: string;
+    itemId: string;
+    cantidad: number;
+    precioUnitario: number;
+    vendedorNombre: string;
+  }): Promise<{ ok: true; saldoRestante: number; precioTotal: number } | { ok: false; motivo: string }>;
   listarConstrucciones(): Promise<Construccion[]>;
   insertarConstruccion(c: NuevaConstruccion): Promise<number>;
   borrarConstruccion(id: number): Promise<boolean>;
@@ -1385,7 +1409,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     }
   }
 
-  async obtenerOCrearJugador(nombre: string): Promise<Jugador> {
+  async obtenerOCrearJugador(nombre: string, saldoInicial = SALDO_INICIAL_JUGADOR): Promise<Jugador> {
     const existente = this.bd
       .prepare("SELECT id, nombre, farycoins, vida, vida_max FROM jugadores WHERE nombre = ?")
       .get(nombre);
@@ -1399,9 +1423,9 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       };
     }
     const r = this.bd
-      .prepare("INSERT INTO jugadores (nombre, creado_en) VALUES (?, ?)")
-      .run(nombre, new Date().toISOString());
-    return { id: Number(r.lastInsertRowid), nombre, farycoins: 0, vida: 100, vidaMax: 100 };
+      .prepare("INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES (?, ?, ?)")
+      .run(nombre, new Date().toISOString(), saldoInicial);
+    return { id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100 };
   }
 
   async obtenerFarycoins(jugadorId: number): Promise<number> {
@@ -1724,7 +1748,20 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       await this.ajustarFarycoins(jugador.id, params.precioFarycoins); // reembolso: alguien se adelantó
       return { ok: false, motivo: "ya no está disponible" };
     }
+    await this.creditarJarl(params.precioFarycoins);
     return { ok: true, saldoRestante: debito.saldo, expiraEn };
+  }
+
+  /** docs/GDD_Economia.md (pedido 2026-08-30): compras/alquileres de propiedad "se pagan al jarl" — se reparte a partes iguales entre los `JARL_NOMBRES` configurados (el resto, si no divide exacto, se pierde — nunca se crea dinero de más). Sin jarl configurado, no pasa nada (mismo comportamiento sumidero de antes). */
+  private async creditarJarl(precioFarycoins: number): Promise<void> {
+    const jarls = nombresJarlTalCual();
+    if (jarls.length === 0 || precioFarycoins <= 0) return;
+    const parte = Math.floor(precioFarycoins / jarls.length);
+    if (parte <= 0) return;
+    for (const nombreJarl of jarls) {
+      const jugadorJarl = await this.obtenerOCrearJugador(nombreJarl);
+      await this.ajustarFarycoins(jugadorJarl.id, parte);
+    }
   }
 
   async renovarTenencia(
@@ -1746,6 +1783,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
     const nuevaExpira = new Date(new Date(prop.expiraEn).getTime() + periodoHoras * 3600_000).toISOString();
     this.bd.prepare("UPDATE propiedades SET expira_en = ? WHERE id = ? AND dueno = ?").run(nuevaExpira, id, jugador.id);
+    await this.creditarJarl(precioFarycoins);
     return { ok: true, expiraEn: nuevaExpira };
   }
 
@@ -1811,7 +1849,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       return { ok: false, motivo: "no queda stock suficiente" };
     }
 
-    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre);
+    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
     await this.ajustarFarycoins(vendedor.id, precioTotal);
     return { ok: true, saldoRestante: debito.saldo, cantidadRestante: Number(stock.cantidad), precioTotal };
   }
@@ -1835,6 +1873,22 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       .prepare("UPDATE tenderete_items SET cantidad = cantidad - ? WHERE tenderete_id = ? AND item_id = ? AND cantidad >= ?")
       .run(cantidad, tenderoteId, itemId, cantidad);
     return Number(r.changes) > 0;
+  }
+
+  async venderANpc(params: {
+    npcNombre: string;
+    itemId: string;
+    cantidad: number;
+    precioUnitario: number;
+    vendedorNombre: string;
+  }): Promise<{ ok: true; saldoRestante: number; precioTotal: number } | { ok: false; motivo: string }> {
+    const precioTotal = Math.max(0, Math.round(params.precioUnitario * params.cantidad));
+    const npc = await this.obtenerOCrearJugador(params.npcNombre, saldoInicialPara(params.npcNombre));
+    const debitoNpc = await this.ajustarFarycoins(npc.id, -precioTotal);
+    if (!debitoNpc.ok) return { ok: false, motivo: "el comerciante no tiene suficiente dinero ahora mismo" };
+    const vendedor = await this.obtenerOCrearJugador(params.vendedorNombre);
+    const abono = await this.ajustarFarycoins(vendedor.id, precioTotal);
+    return { ok: true, saldoRestante: abono.saldo, precioTotal };
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {
@@ -2222,7 +2276,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       return { ok: false, motivo: "ese animal se vendió justo antes" };
     }
 
-    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre);
+    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
     await this.ajustarFarycoins(vendedor.id, precioTotal);
     return { ok: true, especieId: String(fila.especie_id), precioTotal };
   }
@@ -2410,14 +2464,16 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return new AlmacenDatosPostgres(pool);
   }
 
-  async obtenerOCrearJugador(nombre: string): Promise<Jugador> {
+  async obtenerOCrearJugador(nombre: string, saldoInicial = SALDO_INICIAL_JUGADOR): Promise<Jugador> {
     // INSERT ... ON CONFLICT DO UPDATE + RETURNING: upsert real de Postgres,
     // devuelve la fila exista ya o se acabe de crear, en una sola ida y vuelta.
+    // farycoins SOLO se fija en el INSERT (fila nueva) — el DO UPDATE nunca
+    // toca esa columna, así que una fila ya existente conserva su saldo.
     const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number }>(
-      `INSERT INTO jugadores (nombre, creado_en) VALUES ($1, $2)
+      `INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES ($1, $2, $3)
        ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
        RETURNING id, nombre, farycoins, vida, vida_max`,
-      [nombre, new Date().toISOString()]
+      [nombre, new Date().toISOString(), saldoInicial]
     );
     return {
       id: r.rows[0].id,
@@ -2745,7 +2801,20 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       await this.ajustarFarycoins(jugador.id, params.precioFarycoins); // reembolso: alguien se adelantó
       return { ok: false, motivo: "ya no está disponible" };
     }
+    await this.creditarJarl(params.precioFarycoins);
     return { ok: true, saldoRestante: debito.saldo, expiraEn };
+  }
+
+  /** docs/GDD_Economia.md (pedido 2026-08-30): compras/alquileres de propiedad "se pagan al jarl" — se reparte a partes iguales entre los `JARL_NOMBRES` configurados (el resto, si no divide exacto, se pierde — nunca se crea dinero de más). Sin jarl configurado, no pasa nada (mismo comportamiento sumidero de antes). */
+  private async creditarJarl(precioFarycoins: number): Promise<void> {
+    const jarls = nombresJarlTalCual();
+    if (jarls.length === 0 || precioFarycoins <= 0) return;
+    const parte = Math.floor(precioFarycoins / jarls.length);
+    if (parte <= 0) return;
+    for (const nombreJarl of jarls) {
+      const jugadorJarl = await this.obtenerOCrearJugador(nombreJarl);
+      await this.ajustarFarycoins(jugadorJarl.id, parte);
+    }
   }
 
   async renovarTenencia(
@@ -2769,6 +2838,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     await this.pool.query("UPDATE propiedades SET expira_en = $1 WHERE id = $2 AND dueno = $3", [
       nuevaExpira, id, jugador.id,
     ]);
+    await this.creditarJarl(precioFarycoins);
     return { ok: true, expiraEn: nuevaExpira };
   }
 
@@ -2830,7 +2900,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       return { ok: false, motivo: "no queda stock suficiente" };
     }
 
-    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre);
+    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
     await this.ajustarFarycoins(vendedor.id, precioTotal);
     return { ok: true, saldoRestante: debito.saldo, cantidadRestante: stock.rows[0].cantidad, precioTotal };
   }
@@ -2849,6 +2919,22 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       [cantidad, tenderoteId, itemId],
     );
     return (r.rowCount ?? 0) > 0;
+  }
+
+  async venderANpc(params: {
+    npcNombre: string;
+    itemId: string;
+    cantidad: number;
+    precioUnitario: number;
+    vendedorNombre: string;
+  }): Promise<{ ok: true; saldoRestante: number; precioTotal: number } | { ok: false; motivo: string }> {
+    const precioTotal = Math.max(0, Math.round(params.precioUnitario * params.cantidad));
+    const npc = await this.obtenerOCrearJugador(params.npcNombre, saldoInicialPara(params.npcNombre));
+    const debitoNpc = await this.ajustarFarycoins(npc.id, -precioTotal);
+    if (!debitoNpc.ok) return { ok: false, motivo: "el comerciante no tiene suficiente dinero ahora mismo" };
+    const vendedor = await this.obtenerOCrearJugador(params.vendedorNombre);
+    const abono = await this.ajustarFarycoins(vendedor.id, precioTotal);
+    return { ok: true, saldoRestante: abono.saldo, precioTotal };
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {
@@ -3221,7 +3307,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       return { ok: false, motivo: "ese animal se vendió justo antes" };
     }
 
-    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre);
+    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
     await this.ajustarFarycoins(vendedor.id, precioTotal);
     return { ok: true, especieId: filaPrecio.rows[0].especie_id, precioTotal };
   }

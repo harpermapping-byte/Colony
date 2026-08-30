@@ -1,11 +1,12 @@
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { pielDeDesollado, rellenarLootCaza } from "../../mundo/lootCaza";
 import { estaEncerrado, tiroEscape } from "../../mundo/ganaderia";
 import { cargarCatalogoReproduccionGranja, resolverReproduccionPropiedad } from "../../mundo/reproduccionGranja";
+import { NPC_TENDERO_VENTA, NPC_TENDERO_COMPRA, REPOSICION_STOCK_NPC } from "../../mercado/catalogoNpcComercio";
 import { diaFraccional } from "../../mundo/reproduccionFauna";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
@@ -45,7 +46,7 @@ import {
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
 import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, PREFIJO_NPC_COMERCIANTE } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -397,6 +398,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // concreto de room; InteriorRoom en cambio sobreescribe buscarCogibleEnMundo.
   protected mapaExterior?: MapaCargado;
 
+  /** slotId (clave de `state.npcs`) → oficio, poblado por RegionRoom desde poblacion.json al cargar el mapa (docs/GDD_Economia.md) — SOLO se usa hoy para encontrar NPCs "tendero" con comercio real; el resto de oficios sigue siendo flavor. */
+  protected oficiosNpc = new Map<string, string>();
+
   // --- construcción/parcelas/jarl (docs/GDD_Construccion.md) ---
   // Antes SOLO en HubRoom; con construcción-en-regiones (docs/
   // GDD_Ciudad_Capital.md §3bis, ciudad capital como RegionRoom con reglas
@@ -588,6 +592,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("tenderete:listarAnimal", (client, msg: { tenderoteId?: string; animalId?: string; precioFarycoins?: number }) => void this.manejarTenderoteListarAnimal(client, msg));
     this.onMessage("tenderete:quitarAnimalListado", (client, msg: { animalId?: string }) => void this.manejarTenderoteQuitarAnimalListado(client, msg));
     this.onMessage("tenderete:comprarAnimal", (client, msg: { tenderoteId?: string; animalId?: string; propiedadDestino?: string }) => void this.manejarTenderoteComprarAnimal(client, msg));
+
+    // --- comercio con NPC tendero (docs/GDD_Economia.md, pedido 2026-08-30)
+    // — auto-apuntado por proximidad al NPC "tendero" más cercano (mismo
+    // criterio que mascota/cadáver/fauna), NO reusa tenderete:* (ese exige
+    // una propiedad con dueño-jugador vía duenoDeTenderete; un NPC bakeado
+    // no tiene propiedad ni jugador real detrás).
+    this.onMessage("npc:comercioEscaparate", (client) => void this.manejarNpcComercioEscaparate(client));
+    this.onMessage("npc:comprar", (client, msg: { npcId?: string; itemId?: string; cantidad?: number }) => void this.manejarNpcComprar(client, msg));
+    this.onMessage("npc:vender", (client, msg: { npcId?: string; instanciaId?: number; cantidad?: number }) => void this.manejarNpcVender(client, msg));
 
     // --- producción/plantillas del jarl/transporte (docs/GDD_Produccion.md)
     // — mismo criterio que mercado: disponibles en cualquier room, no-op si
@@ -3074,6 +3087,119 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("tenderete:animalComprado", { tenderoteId: msg.tenderoteId, animalId: msg.animalId, especieId: resultado.especieId, precioTotal: resultado.precioTotal });
   }
 
+  // ---- Comercio con NPC tendero (docs/GDD_Economia.md, pedido 2026-08-30) ----
+  // Cada NPC "tendero" es su propio comerciante: saldo real (jugadores.nombre
+  // = "npc:<slotId>", SALDO_INICIAL_NPC_COMERCIANTE) y catálogo fijo de
+  // compra/venta (catalogoNpcComercio.ts). Reusa `tenderete_items` como
+  // almacén de stock (misma tabla que el Mercado de jugadores) pero NUNCA
+  // pasa por `duenoDeTenderete` — no hay propiedad detrás, solo el NPC.
+
+  private errorNpc(client: Client, motivo: string) {
+    client.send("npc:error", { motivo });
+  }
+
+  /** NPC "tendero" más cercano dentro de RADIO_INTERACCION — mismo criterio de auto-apuntado que mascota/cadáver/fauna. */
+  private npcTenderoMasCercano(x: number, y: number): { id: string; npc: Npc } | null {
+    let mejorId: string | null = null;
+    let mejorNpc: Npc | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    for (const [id, npc] of this.state.npcs.entries()) {
+      if (this.oficiosNpc.get(id) !== "tendero") continue;
+      const d = Math.hypot(npc.x - x, npc.y - y);
+      if (d < mejorDist) { mejorDist = d; mejorId = id; mejorNpc = npc; }
+    }
+    return mejorId && mejorNpc ? { id: mejorId, npc: mejorNpc } : null;
+  }
+
+  private tenderoteIdDeNpc(npcId: string): string {
+    return `${PREFIJO_NPC_COMERCIANTE}${npcId}`;
+  }
+
+  /** Público: catálogo de venta/compra del NPC más cercano — sin gating de dueño (no hay dueño, es un comerciante del mundo). */
+  private async manejarNpcComercioEscaparate(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const cercano = this.npcTenderoMasCercano(player.x, player.y);
+    if (!cercano) return this.errorNpc(client, "no hay ningún comerciante cerca");
+    client.send("npc:comercioEscaparate", {
+      npcId: cercano.id,
+      nombre: cercano.npc.nombre,
+      venta: Object.entries(NPC_TENDERO_VENTA).map(([itemId, precioFarycoins]) => ({ itemId, precioFarycoins })),
+      compra: Object.entries(NPC_TENDERO_COMPRA).map(([itemId, precioFarycoins]) => ({ itemId, precioFarycoins })),
+    });
+  }
+
+  /** Comprar: el jugador paga, el NPC entrega — reusa `bd.comprarDeTenderete` tal cual, con tenderoteId/duenoNombre sintéticos del NPC. Repone stock perezosamente si se agotó (nunca un tick de fondo: solo al intentar comprar). */
+  private async manejarNpcComprar(client: Client, msg: { npcId?: string; itemId?: string; cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player || !msg?.npcId || !msg.itemId) return;
+    const npc = this.state.npcs.get(msg.npcId);
+    if (!npc || this.oficiosNpc.get(msg.npcId) !== "tendero") return this.errorNpc(client, "ese comerciante no existe");
+    if (Math.hypot(npc.x - player.x, npc.y - player.y) > RADIO_INTERACCION) return this.errorNpc(client, "demasiado lejos");
+    const precioUnitario = NPC_TENDERO_VENTA[msg.itemId];
+    if (!precioUnitario) return this.errorNpc(client, "este comerciante no vende eso");
+    const cantidad = Math.max(1, Math.floor(msg.cantidad ?? 1));
+
+    const tenderoteId = this.tenderoteIdDeNpc(msg.npcId);
+    const npcNombre = tenderoteId;
+    const bd = await obtenerBdCompartida();
+    const stockActual = await bd.listarStockTenderete(tenderoteId);
+    const enStock = stockActual.find((s) => s.itemId === msg.itemId)?.cantidad ?? 0;
+    if (enStock < cantidad) await bd.reponerStockTenderete(tenderoteId, msg.itemId, REPOSICION_STOCK_NPC, precioUnitario);
+
+    const r = await bd.comprarDeTenderete({ tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: npcNombre });
+    if (!r.ok) return this.errorNpc(client, r.motivo);
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const resultado = contenedor ? intentarCoger(contenedor, this.catalogoItems, { itemId: msg.itemId, cantidad }) : { ok: false as const };
+    if (!resultado.ok) {
+      await bd.ajustarFarycoins((await bd.obtenerOCrearJugador(nombre)).id, r.precioTotal);
+      await bd.reponerStockTenderete(tenderoteId, msg.itemId, cantidad, precioUnitario);
+      return this.errorNpc(client, "no tienes hueco en tu inventario");
+    }
+    sincronizarContenedor(player.inventario.cuerpo, contenedor!);
+    void this.otorgarXpAtributoPorSesion(client, "carisma", XP_CARISMA_POR_COMPRAR);
+    client.send("npc:compraResultado", { npcId: msg.npcId, itemId: msg.itemId, cantidad, precioTotal: r.precioTotal, saldoRestante: r.saldoRestante });
+  }
+
+  /**
+   * Vender: el jugador entrega el ítem, el NPC paga con SU PROPIO saldo
+   * (limitado — `venderANpc` falla "todo o nada" si no le llega) y el
+   * ítem se CONSUME (v1 deliberadamente simple, sin revenderlo — evita un
+   * bucle comprar-barato/vender-caro contra el mismo NPC).
+   */
+  private async manejarNpcVender(client: Client, msg: { npcId?: string; instanciaId?: number; cantidad?: number }) {
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player || !msg?.npcId || typeof msg.instanciaId !== "number") return;
+    const npc = this.state.npcs.get(msg.npcId);
+    if (!npc || this.oficiosNpc.get(msg.npcId) !== "tendero") return this.errorNpc(client, "ese comerciante no existe");
+    if (Math.hypot(npc.x - player.x, npc.y - player.y) > RADIO_INTERACCION) return this.errorNpc(client, "demasiado lejos");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const it = contenedor?.items.find((i) => i.id === msg.instanciaId);
+    if (!contenedor || !it) return this.errorNpc(client, "no tienes ese objeto");
+    const precioUnitario = NPC_TENDERO_COMPRA[it.itemId];
+    if (!precioUnitario) return this.errorNpc(client, "este comerciante no compra eso");
+    const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
+
+    const bd = await obtenerBdCompartida();
+    const r = await bd.venderANpc({ npcNombre: this.tenderoteIdDeNpc(msg.npcId), itemId: it.itemId, cantidad, precioUnitario, vendedorNombre: nombre });
+    if (!r.ok) return this.errorNpc(client, r.motivo);
+
+    const resultado = quitarItem(contenedor, msg.instanciaId, cantidad);
+    if (!resultado.ok) {
+      // no debería pasar (ya comprobamos cantidad arriba), pero si pasa, deshace el cobro al NPC y el abono al jugador.
+      await bd.ajustarFarycoins((await bd.obtenerOCrearJugador(this.tenderoteIdDeNpc(msg.npcId))).id, r.precioTotal);
+      await bd.ajustarFarycoins((await bd.obtenerOCrearJugador(nombre)).id, -r.precioTotal);
+      return this.errorNpc(client, resultado.motivo ?? "no se pudo vender");
+    }
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    void this.otorgarXpAtributoPorSesion(client, "carisma", XP_CARISMA_POR_REPONER);
+    client.send("npc:ventaResultado", { npcId: msg.npcId, itemId: it.itemId, cantidad, precioTotal: r.precioTotal, saldoRestante: r.saldoRestante });
+  }
+
   // ---- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ----
   // Todo gira sobre `ctxConstruccion.vivas` (construcciones ya existentes:
   // colmenas del "construir" normal, plantillas del jarl) y reusa
@@ -4774,11 +4900,43 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const manejado = await this.onFaunaMuerta(id);
       if (!manejado) this.state.fauna.delete(id); // sin GestorFaunaSalvaje en esta room: solo se quita del estado
     } else if (tipo === "enemigo") {
+      await this.repartirLootFarycoinsPorMuerte(id);
       this.state.enemigos.delete(id);
     } else if (tipo === "npc") {
       this.state.npcs.delete(id);
     } else if (tipo === "jugador") {
       await this.manejarMuerteJugador(id);
+    }
+  }
+
+  /**
+   * Loot de Farycoins al matar un enemigo hostil (docs/GDD_Economia.md,
+   * pedido 2026-08-30: "al matar npc pueden lotear de 1 a 20 farycoins
+   * aleatoriamente") — SOLO `enemigos` (bandidos/mazmorra, que sí tienen
+   * combate y muerte reales); fauna y NPCs civiles quedan fuera a
+   * propósito (civiles ni siquiera son atacables hoy). Cada jugador del
+   * bando ganador de ESE combate concreto tira su PROPIA moneda 1-20 —
+   * decisión simple y ajustable si en grupo grande se ve desbalanceado.
+   */
+  private async repartirLootFarycoinsPorMuerte(enemigoId: string) {
+    const existente = this.combatePorUnidad(enemigoId);
+    if (!existente) return;
+    const [, combate] = existente;
+    const cuEnemigo = combate.unidades.get(enemigoId);
+    if (!cuEnemigo) return;
+    const ganadores: string[] = [];
+    for (const cu of combate.unidades.values()) {
+      if (cu.esJugador && cu.bando !== cuEnemigo.bando && cu.estado === "activo") ganadores.push(cu.id);
+    }
+    if (ganadores.length === 0) return;
+    const bd = await obtenerBdCompartida();
+    for (const sessionId of ganadores) {
+      const nombre = this.state.players.get(sessionId)?.name;
+      if (!nombre) continue;
+      const cantidad = 1 + Math.floor(Math.random() * 20); // 1..20, pedido explícito
+      const jugador = await bd.obtenerOCrearJugador(nombre);
+      const r = await bd.ajustarFarycoins(jugador.id, cantidad);
+      this.clients.find((c) => c.sessionId === sessionId)?.send("economia:loot", { motivo: "enemigo", farycoins: cantidad, saldo: r.saldo });
     }
   }
 

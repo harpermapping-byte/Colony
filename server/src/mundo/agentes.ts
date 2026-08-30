@@ -47,6 +47,8 @@ export interface NpcBakeado {
   grito?: string; // frase de calle de los especiales (poblacion/catalogo/especiales.json)
   velocidad?: number; // multiplicador de VEL_NPC (el "corredor" especial) — undefined = 1
   rutina: TramoRutina[];
+  /** poblacion/catalogo/oficiosEdificios.json — "tendero" habilita comercio real (docs/GDD_Economia.md), el resto es flavor todavía. Campo YA presente en poblacion.json; solo faltaba tipar/leer. */
+  oficio?: string;
 }
 
 // Más lento que el jugador (VEL_ANDAR 3.75): los NPC pasean, no compiten.

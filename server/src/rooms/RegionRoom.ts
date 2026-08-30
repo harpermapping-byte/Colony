@@ -99,6 +99,12 @@ export class RegionRoom extends RoomExteriorBase {
       const gestor = this.obtenerOCrearGestorAgentes();
       gestor.iniciar(poblacion.npcs, tiempoMundo().hora);
       console.log(`  ${gestor.cantidad} NPCs con rutina en el mapa`);
+      // Comercio con NPCs (docs/GDD_Economia.md, pedido 2026-08-30): solo
+      // hace falta saber CUÁLES son "tendero" — el resto de oficio sigue
+      // siendo flavor. slotId ya es la clave real de state.npcs.
+      for (const npc of poblacion.npcs) {
+        if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
+      }
     }
 
     // Fauna doméstica (GDD_Agentes_Moviles.md v1.3): sin rutina horaria,
