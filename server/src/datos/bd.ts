@@ -71,6 +71,15 @@ export interface Jugador {
   vidaMax: number;
   /** docs/GDD_Anatomia.md — JSON de server/src/personaje/anatomia.ts::Anatomia, o null si nunca se tocó (se resuelve a anatomiaInicial() en RoomExteriorBase). */
   anatomia: string | null;
+  /**
+   * Oficio de jugador RONDA 2 (docs/GDD_Profesiones.md, pedido 2026-08-30):
+   * los 2 slots elegidos con el NPC "maestro de oficios" —
+   * `server/src/personaje/oficios.ts` (`OFICIOS_JUGADOR_VALIDOS`,
+   * `tieneOficio`). "" = slot vacío. A diferencia de vitales/gremioId, SÍ
+   * persiste entre sesiones — es una elección deliberada, no estado volátil.
+   */
+  oficio1: string;
+  oficio2: string;
 }
 
 /**
@@ -498,6 +507,10 @@ export interface IAlmacenDatos {
   obtenerXpOficio(jugadorId: number, oficio: string): Promise<number>;
   /** Suma (nunca resta) XP a un oficio — crea la fila si no existía. Devuelve el nuevo total. */
   sumarXpOficio(jugadorId: number, oficio: string, delta: number): Promise<number>;
+  /** Pone a 0 la XP de un oficio (docs/GDD_Profesiones.md ronda 2: cambiar un slot ya ocupado "reinicia de cero" el oficio que se quita) — no borra la fila, solo la XP. */
+  reiniciarXpOficio(jugadorId: number, oficio: string): Promise<void>;
+  /** Slots de oficio elegidos por el jugador (0 = ninguno actualizado, "" en el campo si vacío). Elegir un slot vacío no cuesta nada; RoomExteriorBase cobra el `PRECIO_CAMBIO_OFICIO` y reinicia la XP ANTES de llamar a esto cuando el slot ya estaba ocupado. */
+  fijarOficioSlot(jugadorId: number, slot: 1 | 2, oficio: string): Promise<void>;
   /** docs/GDD_Personaje.md: XP de atributo — mismo mecanismo EXACTO que oficios (nivel derivado en server/src/progresion/nivel.ts, nunca persistido en sí). */
   obtenerXpAtributo(jugadorId: number, atributo: string): Promise<number>;
   /** Suma (nunca resta) XP a un atributo — crea la fila si no existía. Devuelve el nuevo total. */
@@ -738,7 +751,9 @@ CREATE TABLE IF NOT EXISTS jugadores (
   farycoins INTEGER NOT NULL DEFAULT 0, -- moneda del mundo, saldo numérico (no ítem de inventario)
   vida INTEGER NOT NULL DEFAULT 100,    -- docs/GDD_Mecanicas.md §5.4: base 100/100, modificable por equipo/combate
   vida_max INTEGER NOT NULL DEFAULT 100,
-  anatomia TEXT                         -- docs/GDD_Anatomia.md: JSON de las 6 zonas (server/src/personaje/anatomia.ts::Anatomia); NULL = nunca se ha tocado, se resuelve a anatomiaInicial()
+  anatomia TEXT,                        -- docs/GDD_Anatomia.md: JSON de las 6 zonas (server/src/personaje/anatomia.ts::Anatomia); NULL = nunca se ha tocado, se resuelve a anatomiaInicial()
+  oficio_1 TEXT NOT NULL DEFAULT '',    -- docs/GDD_Profesiones.md ronda 2: los 2 slots de oficio elegidos con el NPC "maestro de oficios" — "" = vacío
+  oficio_2 TEXT NOT NULL DEFAULT ''
 );
 -- Cuentas de admin (docs/GDD_Admin.md, pedido 2026-08-30): jarl por mapa +
 -- superadmin. Identidad SEPARADA de la tabla jugadores a propósito — el
@@ -1103,6 +1118,8 @@ ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS farycoins INTEGER NOT NULL DEFAUL
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS vida INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS vida_max INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS anatomia TEXT;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS oficio_1 TEXT NOT NULL DEFAULT '';
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS oficio_2 TEXT NOT NULL DEFAULT '';
 -- Cuentas de admin (docs/GDD_Admin.md, pedido 2026-08-30) — ver comentario
 -- gemelo en MIGRACIONES_SQLITE, misma tabla exacta.
 CREATE TABLE IF NOT EXISTS admin_cuentas (
@@ -1618,6 +1635,12 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     if (!nombresJugadores.has("anatomia")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN anatomia TEXT");
     }
+    if (!nombresJugadores.has("oficio_1")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN oficio_1 TEXT NOT NULL DEFAULT ''");
+    }
+    if (!nombresJugadores.has("oficio_2")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN oficio_2 TEXT NOT NULL DEFAULT ''");
+    }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
     // cambio no las tendría; CREATE TABLE IF NOT EXISTS no amplía una tabla ya existente.
@@ -1662,7 +1685,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async obtenerOCrearJugador(nombre: string, saldoInicial = SALDO_INICIAL_JUGADOR): Promise<Jugador> {
     const existente = this.bd
-      .prepare("SELECT id, nombre, farycoins, vida, vida_max, anatomia FROM jugadores WHERE nombre = ?")
+      .prepare("SELECT id, nombre, farycoins, vida, vida_max, anatomia, oficio_1, oficio_2 FROM jugadores WHERE nombre = ?")
       .get(nombre);
     if (existente) {
       return {
@@ -1672,12 +1695,22 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
         vida: Number(existente.vida),
         vidaMax: Number(existente.vida_max),
         anatomia: existente.anatomia == null ? null : String(existente.anatomia),
+        oficio1: String(existente.oficio_1 ?? ""),
+        oficio2: String(existente.oficio_2 ?? ""),
       };
     }
     const r = this.bd
       .prepare("INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES (?, ?, ?)")
       .run(nombre, new Date().toISOString(), saldoInicial);
-    return { id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100, anatomia: null };
+    return { id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100, anatomia: null, oficio1: "", oficio2: "" };
+  }
+
+  async fijarOficioSlot(jugadorId: number, slot: 1 | 2, oficio: string): Promise<void> {
+    this.bd.prepare(`UPDATE jugadores SET oficio_${slot} = ? WHERE id = ?`).run(oficio, jugadorId);
+  }
+
+  async reiniciarXpOficio(jugadorId: number, oficio: string): Promise<void> {
+    this.bd.prepare("UPDATE jugador_oficios SET xp = 0 WHERE jugador_id = ? AND oficio = ?").run(jugadorId, oficio);
   }
 
   async actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void> {
@@ -2896,10 +2929,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     // devuelve la fila exista ya o se acabe de crear, en una sola ida y vuelta.
     // farycoins SOLO se fija en el INSERT (fila nueva) — el DO UPDATE nunca
     // toca esa columna, así que una fila ya existente conserva su saldo.
-    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number; anatomia: string | null }>(
+    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number; anatomia: string | null; oficio_1: string; oficio_2: string }>(
       `INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES ($1, $2, $3)
        ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
-       RETURNING id, nombre, farycoins, vida, vida_max, anatomia`,
+       RETURNING id, nombre, farycoins, vida, vida_max, anatomia, oficio_1, oficio_2`,
       [nombre, new Date().toISOString(), saldoInicial]
     );
     return {
@@ -2909,7 +2942,17 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       vida: r.rows[0].vida,
       vidaMax: r.rows[0].vida_max,
       anatomia: r.rows[0].anatomia,
+      oficio1: r.rows[0].oficio_1 ?? "",
+      oficio2: r.rows[0].oficio_2 ?? "",
     };
+  }
+
+  async fijarOficioSlot(jugadorId: number, slot: 1 | 2, oficio: string): Promise<void> {
+    await this.pool.query(`UPDATE jugadores SET oficio_${slot} = $1 WHERE id = $2`, [oficio, jugadorId]);
+  }
+
+  async reiniciarXpOficio(jugadorId: number, oficio: string): Promise<void> {
+    await this.pool.query("UPDATE jugador_oficios SET xp = 0 WHERE jugador_id = $1 AND oficio = $2", [jugadorId, oficio]);
   }
 
   async actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void> {

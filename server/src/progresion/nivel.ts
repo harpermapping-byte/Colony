@@ -26,8 +26,20 @@ export function generarUmbrales(nivelMax: number, incrementoBase: number): numbe
   return umbrales;
 }
 
-/** PLACEHOLDER de balance (mismo criterio que pesoMaximoTransportable, tiempoBaseSeg...): números de referencia a afinar, no una decisión cerrada. Nivel 1 = sin XP. Oficios: máximo nivel 6. */
-export const UMBRALES_NIVEL = generarUmbrales(6, 100);
+/**
+ * PLACEHOLDER de balance (mismo criterio que pesoMaximoTransportable,
+ * tiempoBaseSeg...): números de referencia a afinar, no una decisión
+ * cerrada. Nivel 1 = sin XP. Oficios: máximo nivel 10 (antes 6, pedido
+ * 2026-08-30 "afinar oficio" — exclusividad real de 2 oficios elegidos,
+ * mesas desbloqueadas por nivel, bono de velocidad+cantidad de crafteo).
+ * Umbral del nivel 10 = 4050 XP (`generarUmbrales(10,90)`), pensado para que
+ * un jugador DEDICADO (farmeo activo de XP de oficio, varias horas/día)
+ * llegue al tope en ~2 semanas, y uno CASUAL (sesiones cortas, XP de rebote
+ * al craftear/recolectar sin perseguirlo) tarde ~1 mes — con
+ * `XP_POR_CRAFTEO=20` (RoomExteriorBase.ts) eso son ~200 crafteos/recolectas
+ * de un dedicado o ~135/mes de un casual, ambos plausibles a ese ritmo.
+ */
+export const UMBRALES_NIVEL = generarUmbrales(10, 90);
 
 /**
  * Atributos del personaje (docs/GDD_Personaje.md, pedido 2026-08-30):

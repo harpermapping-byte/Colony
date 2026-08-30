@@ -26,6 +26,7 @@ import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
 import { UnidadCombate, calcularIniciativa, simularCombateAutomatico } from "../combate/arenaCombate";
 import { TIPO, tipoEn, medioEn, casillaAguaCercana } from "../mundo/colisiones";
 import { cooldownNpcHablarMs } from "../personaje/bonusAtributos";
+import { cargarNpcsFijos } from "../mundo/npcsFijos";
 
 // Lee un `sector_XXX_YYY.json` bakeado y devuelve solo sus objetos de
 // fauna (t==="a") con coordenadas GLOBALAS de casilla — mismo formato de
@@ -167,6 +168,24 @@ export class HubRoom extends RoomExteriorBase {
     // lógica compartida (RoomExteriorBase.iniciarConstruccion) pero con
     // parcelas rasterizadas del bake, ver RegionRoom.ts.
     await this.iniciarConstruccion(cargarParcelas(rutaMapa, this.mapa.ancho), path.basename(rutaMapa));
+
+    // NPCs FIJOS (docs/GDD_Profesiones.md ronda 2, pedido 2026-08-30): el
+    // Hub es LA CAPITAL — donde tiene más sentido un NPC plantado a mano por
+    // el admin (el "maestro de oficios", por ejemplo). A diferencia de
+    // RegionRoom, el Hub hoy no carga `poblacion.json` (sin NPCs con
+    // rutina) — esto SOLO añade los fijos de `npcsFijos.json`, si el mapa
+    // trae alguno; sin archivo, sin cambio de comportamiento.
+    {
+      const npcsFijos = cargarNpcsFijos(rutaMapa);
+      if (npcsFijos.length > 0) {
+        const gestor = this.obtenerOCrearGestorAgentes();
+        gestor.iniciar(npcsFijos, tiempoMundo().hora);
+        for (const npc of npcsFijos) {
+          if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
+        }
+        console.log(`  ${gestor.cantidad} NPC(s) fijo(s) en el mapa`);
+      }
+    }
 
     // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): los que ya estaban
     // anclados en ESTE mapa (colocados en una sesión anterior, o que
@@ -579,6 +598,10 @@ export class HubRoom extends RoomExteriorBase {
           if (player) {
             player.vida = jugador.vida;
             player.vidaMax = jugador.vidaMax;
+            // Oficio persistido — ronda 2 (docs/GDD_Profesiones.md, pedido
+            // 2026-08-30): mismo criterio best-effort que vida/anatomía.
+            player.oficio1 = jugador.oficio1;
+            player.oficio2 = jugador.oficio2;
           }
           // Anatomía persistida (docs/GDD_Anatomia.md) — mismo criterio
           // best-effort que la vida: si falla, arranca en anatomiaInicial().

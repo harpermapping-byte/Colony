@@ -9,11 +9,11 @@ test("nivelDeXp: sin XP es nivel 1", () => {
 });
 
 test("nivelDeXp: sube según los umbrales, nunca de golpe a un nivel que no toca", () => {
-  assert.strictEqual(nivelDeXp(99), 1);
-  assert.strictEqual(nivelDeXp(100), 2);
-  assert.strictEqual(nivelDeXp(299), 2);
-  assert.strictEqual(nivelDeXp(300), 3);
-  assert.strictEqual(nivelDeXp(999999), 6, "se queda en el nivel máximo de la tabla, no explota");
+  assert.strictEqual(nivelDeXp(89), 1);
+  assert.strictEqual(nivelDeXp(90), 2);
+  assert.strictEqual(nivelDeXp(269), 2);
+  assert.strictEqual(nivelDeXp(270), 3);
+  assert.strictEqual(nivelDeXp(999999), 10, "se queda en el nivel máximo de la tabla, no explota");
 });
 
 const RECETA: RecetaCrafteo = {

@@ -763,6 +763,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       estado.destinoZ = npc.y;
       rig.objeto.visible = npc.visible;
       meta.accion = npc.accion;
+      // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): el
+      // servidor cambia `npc.grito` un momento para soltar una frase de
+      // "hueles mal" — sin esto la burbuja se quedaría con el pregón
+      // capturado al aparecer el NPC, sin enterarse nunca del cambio.
+      meta.grito = npc.grito || "";
       escena.actualizarVida(`npc_${slotId}`, npc.vida, npc.vidaMax);
     });
   });

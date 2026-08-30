@@ -1,0 +1,13 @@
+{
+  "_nota": "docs/GDD_Profesiones.md ronda 2 (pedido 2026-08-30): NPCs fijos plantados a mano por el admin (server/src/mundo/npcsFijos.ts) — este es el ejemplo de referencia usado también por server/test/despiece.e2e.mjs, en el spawn del mapa demo para que quede a mano sin tener que andar.",
+  "npcs": [
+    {
+      "slotId": "maestro_oficios_demo",
+      "nombre": "Maestro de Oficios",
+      "oficio": "maestro_oficios",
+      "x": 30,
+      "y": 19,
+      "grito": "¡Aprende un oficio, aquí decides tu futuro!"
+    }
+  ]
+}
