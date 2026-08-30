@@ -1,4 +1,8 @@
 {
-  "_nota": "Catálogo de arenas de combate bakeadas (docs/GDD_Combate.md §9.4, mazmorras/src/generarArena.js) — assets/mapas/arenas/<id>/. Al cerrar la ventana de unión se elige una determinista por semilla del combate entre las que haya aquí. Esta pasada solo trae 2 de PRUEBA (agentes solo bakean pequeño); ampliar la lista y bakear más variantes por bioma es trabajo del streamer cuando apruebe la producción real.",
-  "arenas": ["pradera_01", "bosque_01"]
+  "_nota": "Catálogo de arenas de combate bakeadas (docs/GDD_Combate.md §9.4, mazmorras/src/generarArena.js) — assets/mapas/arenas/<id>/. Al cerrar la ventana de unión se elige una determinista por semilla del combate entre las que haya aquí, filtrando por `terreno` cuando el combate lo pide (docs/GDD_Barcos.md, pedido 2026-08-30: combate acuático contra orca/tiburón/... elige SOLO entre las de terreno:'agua'; el resto sigue eligiendo entre las de 'tierra'). Esta pasada solo trae 3 de PRUEBA (agentes solo bakean pequeño); ampliar la lista y bakear más variantes por bioma es trabajo del streamer cuando apruebe la producción real.",
+  "arenas": [
+    { "id": "pradera_01", "terreno": "tierra" },
+    { "id": "bosque_01", "terreno": "tierra" },
+    { "id": "mar_01", "terreno": "agua" }
+  ]
 }

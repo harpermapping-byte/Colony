@@ -85,6 +85,8 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       cu.defensaFisica = p.defensaFisica;
       cu.alcance = p.alcance;
       cu.pasivo = p.pasivo ?? false;
+      cu.visual = p.visualCombate ?? "";
+      cu.barcoTipoId = p.barcoTipoId ?? "";
       combate.unidades.set(cu.id, cu);
       puras.push({
         id: cu.id, esJugador: cu.esJugador, bando: cu.bando as "A" | "B", gx: cu.gx, gy: cu.gy,

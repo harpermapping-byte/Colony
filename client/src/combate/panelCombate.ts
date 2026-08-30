@@ -19,6 +19,9 @@ interface UnidadCombateVista {
   hp: number;
   hpMax: number;
   estado: string;
+  /** docs/GDD_Barcos.md (pedido 2026-08-30) — "" | "barco" | "nadando", puramente cosmético. */
+  visual: string;
+  barcoTipoId: string;
 }
 
 interface CombateVista {
@@ -107,7 +110,13 @@ export class PanelCombate {
 
     const propiaDiv = document.createElement("div");
     propiaDiv.style.marginBottom = "6px";
-    propiaDiv.textContent = `Tú: ${Math.round(propia.hp)}/${Math.round(propia.hpMax)} HP (${propia.estado})`;
+    // Combate acuático (docs/GDD_Barcos.md, pedido 2026-08-30): puramente
+    // informativo — "no da más bonus ni nada", solo para saber si eres el
+    // capitán (visual="barco") o ibas de tripulación (visual="nadando").
+    // Sin panel de aliados todavía (mismo límite ya aceptado del resto de
+    // esta UI, ver cabecera del archivo) — solo se muestra de uno mismo.
+    const indicadorVisual = propia.visual === "barco" ? ` 🚣${propia.barcoTipoId ? ` (${propia.barcoTipoId})` : ""}` : propia.visual === "nadando" ? " 🏊" : "";
+    propiaDiv.textContent = `Tú: ${Math.round(propia.hp)}/${Math.round(propia.hpMax)} HP (${propia.estado})${indicadorVisual}`;
     this.raiz.appendChild(propiaDiv);
 
     const lista = document.createElement("div");

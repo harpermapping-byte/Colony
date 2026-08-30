@@ -8,8 +8,16 @@ import * as path from "path";
 
 const RUTA_CATALOGO_DEFECTO = path.join(__dirname, "..", "..", "..", "mazmorras", "catalogo", "arenas.json");
 
-export function cargarCatalogoArenas(ruta: string = RUTA_CATALOGO_DEFECTO): string[] {
-  const bruto = JSON.parse(fs.readFileSync(ruta, "utf8")) as { arenas: string[] };
+/** docs/GDD_Barcos.md (pedido 2026-08-30) — "tierra" (pradera/bosque/...) o "agua" (combate acuático: orca/tiburón/...). */
+export type TerrenoArena = "tierra" | "agua";
+
+export interface EntradaArena {
+  id: string;
+  terreno: TerrenoArena;
+}
+
+export function cargarCatalogoArenas(ruta: string = RUTA_CATALOGO_DEFECTO): EntradaArena[] {
+  const bruto = JSON.parse(fs.readFileSync(ruta, "utf8")) as { arenas: EntradaArena[] };
   return bruto.arenas;
 }
 
@@ -23,7 +31,17 @@ function hashDeterminista(texto: string): number {
   return h >>> 0;
 }
 
-export function elegirArena(combateId: string, arenas: string[]): string {
+/**
+ * `terreno` (docs/GDD_Barcos.md, pedido 2026-08-30): si se pide, filtra a
+ * solo las arenas de ese terreno — un combate acuático NUNCA debería caer
+ * en una arena de pradera. Si el catálogo todavía no tiene ninguna de ese
+ * terreno (p.ej. antes de que el streamer bakee más variantes de agua),
+ * cae al catálogo COMPLETO en vez de romper el combate — mejor una arena
+ * de tierra "incorrecta" que un combate que no puede ni empezar.
+ */
+export function elegirArena(combateId: string, arenas: EntradaArena[], terreno?: TerrenoArena): string {
   if (arenas.length === 0) throw new Error("catálogo de arenas de combate vacío (mazmorras/catalogo/arenas.json)");
-  return arenas[hashDeterminista(combateId) % arenas.length];
+  const candidatas = terreno ? arenas.filter((a) => a.terreno === terreno) : arenas;
+  const lista = candidatas.length > 0 ? candidatas : arenas;
+  return lista[hashDeterminista(combateId) % lista.length].id;
 }

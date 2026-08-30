@@ -31,6 +31,8 @@ export interface EstadisticasCombateAnimal {
   categoriaProductoGranja?: CategoriaProductoGranja[];
   /** docs/GDD_Monturas.md — qué comida (comidaMascota + origenCocina) sirve para domesticar a ESTA especie: solo la de su dieta real, nunca cualquiera. undefined = sin dato (acepta cualquier comidaMascota, mismo criterio que racion_viaje sin origenCocina). */
   dieta?: DietaAnimal;
+  /** docs/GDD_Barcos.md (pedido 2026-08-30) — especie acuática (orca/tiburón/...), mismo campo que ya usa el bakeador para colocarla en agua (baker/catalogo/animales.json); aquí se lee EN VIVO por primera vez: si un combate incluye una especie con esto a true, es "combate acuático" (arena de agua, la tripulación de un barco no desmonta, ver RoomExteriorBase.cerrarVentanaCombate). */
+  requiereAgua?: boolean;
 }
 
 export type CatalogoCombateFauna = Record<string, EstadisticasCombateAnimal>;
@@ -45,6 +47,7 @@ interface EntradaCatalogoBaker {
   categoriaRecursoPiel?: string;
   categoriaProductoGranja?: CategoriaProductoGranja[];
   dieta?: DietaAnimal;
+  requiereAgua?: boolean;
 }
 
 // Relleno si una especie llegara a faltar en el catálogo (no debería pasar
@@ -73,6 +76,7 @@ export function cargarCatalogoCombateFauna(rutaAnimalesJson: string): CatalogoCo
       categoriaRecursoPiel: datos.categoriaRecursoPiel,
       categoriaProductoGranja: datos.categoriaProductoGranja,
       dieta: datos.dieta,
+      requiereAgua: datos.requiereAgua,
     };
   }
   return catalogo;

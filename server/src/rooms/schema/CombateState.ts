@@ -39,6 +39,17 @@ export class CombateUnidad extends Schema {
   alcance = 1;
   /** docs/GDD_Caza.md — fauna no peligrosa en modo caza: deambula, nunca ataca (server/src/combate/arenaCombate.ts::jugarTurnoIAPasiva). */
   pasivo = false;
+
+  // --- Combate acuático (docs/GDD_Barcos.md/GDD_Combate.md, pedido
+  // 2026-08-30): SOLO cosmético — "no da más bonus ni nada", nunca leído
+  // por la simulación (movimiento/ataque/turnos), solo para que el cliente
+  // pinte al jugador en el barco o nadando en vez del rig normal. Snapshot
+  // tomado UNA vez al entrar (RoomExteriorBase.cerrarVentanaCombate), nunca
+  // tocado por el resto de esta clase.
+  /** "" = normal, "barco" = el capitán (uno solo por barco), "nadando" = el resto de la tripulación que iba a bordo. */
+  @type("string") visual = "";
+  /** Solo con visual==="barco" — qué modelo de barco pintar debajo. */
+  @type("string") barcoTipoId = "";
 }
 
 export class CombateSchema extends Schema {
