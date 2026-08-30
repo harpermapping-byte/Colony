@@ -1741,7 +1741,7 @@
     "apilable": false,
     "variantes": 3,
     "colorDebug": "#a08050",
-    "_nota": "Trofeo de caza (docs/GDD_Caza.md) — 5% de probabilidad al desollar un animal categoriaVida:pequeno/cria. Sin colgador en la pared todavía (depende del menú de decoración de jugador, sin diseñar) — de momento se lleva/guarda como cualquier otro objeto."
+    "_nota": "Trofeo de caza (docs/GDD_Caza.md) — 5% de probabilidad al desollar un animal categoriaVida:pequeno/cria. Colgador de pared: interiores/catalogo/elementos.json#trofeo_pared_pequena (requiereItemColocar, mismo patrón que el resto de decor colgado, sin menú nuevo)."
   },
   "cabeza_trofeo_mediana": {
     "tipo": "recurso",
@@ -1753,7 +1753,7 @@
     "apilable": false,
     "variantes": 3,
     "colorDebug": "#8a6040",
-    "_nota": "Trofeo de caza (docs/GDD_Caza.md) — 5% de probabilidad al desollar un animal categoriaVida:mediano. Sin colgador en la pared todavía (depende del menú de decoración de jugador, sin diseñar)."
+    "_nota": "Trofeo de caza (docs/GDD_Caza.md) — 5% de probabilidad al desollar un animal categoriaVida:mediano. Colgador de pared: interiores/catalogo/elementos.json#trofeo_pared_mediana."
   },
   "cabeza_trofeo_grande": {
     "tipo": "recurso",
@@ -1765,7 +1765,7 @@
     "apilable": false,
     "variantes": 3,
     "colorDebug": "#6a4a30",
-    "_nota": "Trofeo de caza (docs/GDD_Caza.md) — 5% de probabilidad al desollar un animal categoriaVida:grande/alfa. Sin colgador en la pared todavía (depende del menú de decoración de jugador, sin diseñar)."
+    "_nota": "Trofeo de caza (docs/GDD_Caza.md) — 5% de probabilidad al desollar un animal categoriaVida:grande/alfa. Colgador de pared: interiores/catalogo/elementos.json#trofeo_pared_grande."
   },
   "tela_hilada": {
     "tipo": "recurso",
