@@ -84,11 +84,13 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       cu.ataqueFisico = p.ataqueFisico;
       cu.defensaFisica = p.defensaFisica;
       cu.alcance = p.alcance;
+      cu.pasivo = p.pasivo ?? false;
       combate.unidades.set(cu.id, cu);
       puras.push({
         id: cu.id, esJugador: cu.esJugador, bando: cu.bando as "A" | "B", gx: cu.gx, gy: cu.gy,
         hp: cu.hp, hpMax: cu.hpMax, pa: cu.pa, paMax: cu.paMax, iniciativa: cu.iniciativa,
         estado: "activo", ataqueFisico: cu.ataqueFisico, defensaFisica: cu.defensaFisica, alcance: cu.alcance,
+        pasivo: cu.pasivo,
       });
 
       if (p.esJugador) {

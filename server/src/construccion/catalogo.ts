@@ -77,11 +77,37 @@ export interface EntradaConstruible {
   requiereAgua?: boolean;
   /** Agricultura (docs/GDD_Agricultura.md) — presente en bancal_cultivo/maceta_*: superficie donde plantar UNA semilla a la vez (mensajes `cultivo:*`, RoomExteriorBase.ts). `multiplicadorCosecha` escala la cantidad de cada cosecha (macetas grandes rinden más). */
   plantable?: { multiplicadorCosecha: number };
+  /** Encurtido de pieles (docs/GDD_Caza.md) — presente en cubo_sal/barril_curtido. */
+  curtidor?: EntradaCurtidor;
 }
 
 export interface EntradaActividadAtributo {
   atributo: string;
   xp: number;
+}
+
+/**
+ * Encurtido de pieles (docs/GDD_Caza.md, pedido 2026-08-30) — presente en
+ * `cubo_sal`/`barril_curtido` (exteriores.json): mueble-contenedor con un
+ * ÚNICO lote en curso (`server/src/construccion/curtido.ts`, mismo reloj
+ * perezoso que `produccion`/`crafteo`, sin tick de servidor).
+ */
+export interface EntradaCurtidor {
+  /** itemId a granel que carga el mueble (sal / curtiente) — `curtidor:cargarMaterial`. */
+  materialCarga: string;
+  /** unidades de `materialCarga` consumidas del stock por cada unidad de piel del lote. */
+  materialPorUnidad: number;
+  capacidadMaxMaterial: number;
+  /** Acepta un itemId EXACTO (p.ej. "piel_raspada") — alternativa a entradaFamilia/entradaTier. */
+  entradaItemId?: string;
+  /** Acepta cualquier item cuya `familiaMaterial` (items.json) coincida — p.ej. "cuero" para cualquier piel cruda. */
+  entradaFamilia?: string;
+  /** Solo junto a entradaFamilia: además exige ese `tier` exacto (0 = crudo). */
+  entradaTier?: number;
+  /** itemId que produce el lote al completarse. */
+  salida: string;
+  /** duración del lote en horas REALES (Date.now(), no horas de mundo) — mismo criterio que cadaveres.ts/desgaste.ts. */
+  horas: number;
 }
 
 interface EntradaElemento {
@@ -105,6 +131,7 @@ interface EntradaExterior {
   proyectoJarl?: boolean;
   requiereAgua?: boolean;
   plantable?: { multiplicadorCosecha: number };
+  curtidor?: EntradaCurtidor;
 }
 
 interface EntradaTipoEdificio {
@@ -163,6 +190,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       proyectoJarl: d.proyectoJarl,
       requiereAgua: d.requiereAgua,
       plantable: d.plantable,
+      curtidor: d.curtidor,
     });
   }
 

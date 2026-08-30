@@ -36,6 +36,8 @@ export interface ParticipanteArena {
   ataqueFisico: number;
   defensaFisica: number;
   alcance: number;
+  /** docs/GDD_Caza.md — presa de modo caza: deambula sin rumbo en la arena, nunca ataca (server/src/combate/arenaCombate.ts::jugarTurnoIAPasiva). Ausente/false = IA normal. */
+  pasivo?: boolean;
   /** Solo si esJugador — lo que mandó de vuelta en `combate:iniciar`/`combate:unirse`; se reenvía tal cual al terminar. */
   retorno?: RetornoJugador;
 }

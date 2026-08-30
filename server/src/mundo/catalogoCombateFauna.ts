@@ -19,6 +19,10 @@ export interface EstadisticasCombateAnimal {
   peligroso: boolean;
   /** docs/GDD_Mascotas.md — perro/gato (fauna urbana) pueden convertirse en mascota a base de comida; el resto de fauna, no. */
   domesticable: boolean;
+  /** docs/GDD_Caza.md — id de items/catalogo/items.json que da el loot automático al matar (carne_roja/carne_blanca/...); ausente = sin carne útil. */
+  categoriaRecursoCarne?: string;
+  /** docs/GDD_Caza.md — id de items/catalogo/items.json que da desollar el cadáver (cuero_grueso/piel_basta/...); ausente = sin piel útil. */
+  categoriaRecursoPiel?: string;
 }
 
 export type CatalogoCombateFauna = Record<string, EstadisticasCombateAnimal>;
@@ -29,11 +33,14 @@ interface EntradaCatalogoBaker {
   ataque?: number;
   peligroso?: boolean;
   domesticable?: boolean;
+  categoriaRecursoCarne?: string;
+  categoriaRecursoPiel?: string;
 }
 
 // Relleno si una especie llegara a faltar en el catálogo (no debería pasar
 // con el bake actual, pero un animal sin estadísticas no debe romper el
-// combate): vida/ataque de un animal pequeño normal, no peligroso, no domesticable.
+// combate): vida/ataque de un animal pequeño normal, no peligroso, no
+// domesticable, sin carne/piel de loot (mejor no dar nada que inventar un recurso).
 const RELLENO: EstadisticasCombateAnimal = { categoriaVida: "pequeno", vidaMaxima: 15, ataque: 2, peligroso: false, domesticable: false };
 
 export function estadisticasCombatePorDefecto(): EstadisticasCombateAnimal {
@@ -52,6 +59,8 @@ export function cargarCatalogoCombateFauna(rutaAnimalesJson: string): CatalogoCo
       ataque: datos.ataque,
       peligroso: !!datos.peligroso,
       domesticable: !!datos.domesticable,
+      categoriaRecursoCarne: datos.categoriaRecursoCarne,
+      categoriaRecursoPiel: datos.categoriaRecursoPiel,
     };
   }
   return catalogo;

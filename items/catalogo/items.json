@@ -187,6 +187,45 @@
     "variantes": 2,
     "colorDebug": "#f0ece0"
   },
+  "curtiente": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.7,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 1,
+    "colorDebug": "#6a4a20",
+    "_nota": "Solución curtiente (corteza machacada + taninos) que se carga a granel en un barril_curtido (docs/GDD_Caza.md) — paso final del encurtido, reacciona con piel_raspada. Sin categoriaRecurso: recurso fabricado, no lo coloca el bake."
+  },
+  "piel_salada": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 1,
+    "colorDebug": "#c9b898",
+    "_nota": "Encurtido de pieles (docs/GDD_Caza.md), paso 1→2: cualquier piel_cruda (piel_basta/fina/exotica/invierno/cuero_grueso/cuero_reptil) + sal a granel en un cubo_sal, tras un tiempo. Genérica (no varía por especie de origen) — se raspa con cuchillo_desollar para pasar a piel_raspada."
+  },
+  "piel_raspada": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.9,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 1,
+    "colorDebug": "#b8a888",
+    "_nota": "Encurtido de pieles (docs/GDD_Caza.md), paso 2→3: piel_salada raspada con cuchillo_desollar (acción instantánea, exige oficio curtidor/peletero) — lista para el barril_curtido, donde con curtiente a granel se convierte en cuero_curtido."
+  },
   "carbon": {
     "tipo": "recurso",
     "categoriaRecurso": "carbon",
@@ -584,6 +623,32 @@
     "colorDebug": "#9a3a5a",
     "comidaMascota": true
   },
+  "tendones": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 1,
+    "colorDebug": "#d8c8a8",
+    "_nota": "Subproducto del cadáver de cualquier animal (docs/GDD_Caza.md) — genérico, no varía por especie. Sin categoriaRecurso: no lo coloca el bake, lo entrega el loot de caza al matar."
+  },
+  "tripas": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 1,
+    "colorDebug": "#7a3a3a",
+    "_nota": "Subproducto del cadáver de cualquier animal (docs/GDD_Caza.md) — genérico, no varía por especie. Sin categoriaRecurso: no lo coloca el bake, lo entrega el loot de caza al matar."
+  },
   "pescado_rio": {
     "tipo": "recurso",
     "categoriaRecurso": "pescado_rio",
@@ -785,6 +850,19 @@
     "apilable": false,
     "variantes": 3,
     "colorDebug": "#6a6a70"
+  },
+  "cuchillo_desollar": {
+    "tipo": "herramienta",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#a0a0a8",
+    "_nota": "Herramienta de docs/GDD_Caza.md — sin ella (equipada o en el inventario) no se puede desollar un cadáver ni raspar una piel salada, además de tener el oficio curtidor/peletero (Player.oficio)."
   },
   "antorcha_portatil": {
     "tipo": "herramienta",
@@ -1406,6 +1484,42 @@
     "stackMax": 15,
     "variantes": 2,
     "colorDebug": "#8a5a30"
+  },
+  "cabeza_trofeo_pequena": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.5,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#a08050",
+    "_nota": "Trofeo de caza (docs/GDD_Caza.md) — 5% de probabilidad al desollar un animal categoriaVida:pequeno/cria. Sin colgador en la pared todavía (depende del menú de decoración de jugador, sin diseñar) — de momento se lleva/guarda como cualquier otro objeto."
+  },
+  "cabeza_trofeo_mediana": {
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#8a6040",
+    "_nota": "Trofeo de caza (docs/GDD_Caza.md) — 5% de probabilidad al desollar un animal categoriaVida:mediano. Sin colgador en la pared todavía (depende del menú de decoración de jugador, sin diseñar)."
+  },
+  "cabeza_trofeo_grande": {
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 6,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#6a4a30",
+    "_nota": "Trofeo de caza (docs/GDD_Caza.md) — 5% de probabilidad al desollar un animal categoriaVida:grande/alfa. Sin colgador en la pared todavía (depende del menú de decoración de jugador, sin diseñar)."
   },
   "tela_hilada": {
     "tipo": "recurso",

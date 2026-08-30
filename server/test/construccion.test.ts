@@ -162,6 +162,21 @@ test("catálogo construible: fusiona las tres fuentes con las reglas del GDD §3
   assert.strictEqual(catalogo.get("estatua_lider_bronce")?.proyectoJarl, true);
 });
 
+test("catálogo construible: encurtido de pieles (docs/GDD_Caza.md) — cubo_sal/barril_curtido traen su EntradaCurtidor", () => {
+  const cuboSal = catalogo.get("cubo_sal");
+  assert.strictEqual(cuboSal?.categoria, "exterior");
+  assert.strictEqual(cuboSal?.colision, true);
+  assert.deepStrictEqual(cuboSal?.curtidor, {
+    materialCarga: "sal", materialPorUnidad: 2, capacidadMaxMaterial: 20,
+    entradaFamilia: "cuero", entradaTier: 0, salida: "piel_salada", horas: 4,
+  });
+  const barril = catalogo.get("barril_curtido");
+  assert.deepStrictEqual(barril?.curtidor, {
+    materialCarga: "curtiente", materialPorUnidad: 2, capacidadMaxMaterial: 20,
+    entradaItemId: "piel_raspada", salida: "cuero_curtido", horas: 6,
+  });
+});
+
 test("parcelas: índice numérico, helpers y tolerancia a mapa sin parcelas.json", () => {
   const { ctx, dir } = crearContexto();
   assert.strictEqual(parcelaEn(ctx.parcelas, bloqueA.x, bloqueA.y), "p_0001");

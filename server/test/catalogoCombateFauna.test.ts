@@ -31,6 +31,13 @@ test("cargarCatalogoCombateFauna: ignora las claves de nota (_nota, _nota_colisi
   assert.strictEqual(catalogo["_nota"], undefined);
 });
 
+test("cargarCatalogoCombateFauna: propaga categoriaRecursoCarne/Piel para el loot de caza (docs/GDD_Caza.md)", () => {
+  const catalogo = cargarCatalogoCombateFauna(RUTA_ANIMALES);
+  assert.strictEqual(catalogo["jabali"].categoriaRecursoCarne, "carne_caza_mayor");
+  assert.strictEqual(catalogo["jabali"].categoriaRecursoPiel, "cuero_grueso");
+  assert.strictEqual(catalogo["conejo"].categoriaRecursoCarne, "carne_blanca");
+});
+
 test("estadisticasCombatePorDefecto: relleno seguro para una especie sin catalogar", () => {
   const relleno = estadisticasCombatePorDefecto();
   assert.strictEqual(relleno.categoriaVida, "pequeno");

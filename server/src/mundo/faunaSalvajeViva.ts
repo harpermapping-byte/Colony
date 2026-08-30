@@ -18,9 +18,11 @@ import { MundoColision, TIPO } from "./colisiones";
 import { CatalogoEspecies, ObjetoFaunaBakeado, convertirFilaAAnimal, resolverSector } from "./faunaSalvajeSector";
 import { necesitaAgua, necesitaComida } from "./reproduccionFauna";
 import { Cadaver, crearCadaver } from "./cadaveres";
-import { CatalogoCombateFauna } from "./catalogoCombateFauna";
+import { CatalogoCombateFauna, estadisticasCombatePorDefecto } from "./catalogoCombateFauna";
 import { aplicarDanio, curar, estaMuerto } from "../combate/combate";
 import { FaunaHuevoFila, FaunaSalvajeFila } from "../datos/bd";
+import { CatalogoItems } from "../inventario/inventario";
+import { rellenarLootCaza } from "./lootCaza";
 
 const RADIO_MERODEO = 3; // casillas — paseo corto alrededor de donde se resolvió cada individuo
 const VEL = 1.0;
@@ -61,6 +63,8 @@ export interface DependenciasFaunaSalvaje {
   catalogo: CatalogoEspecies;
   /** Vida/ataque por especie (docs/GDD_Mecanicas.md §5.4) — relleno seguro si se omite, ver `estadisticasCombatePorDefecto`. */
   catalogoCombate?: CatalogoCombateFauna;
+  /** docs/GDD_Caza.md — items/catalogo/items.json, para rellenar el cadáver con carne/tendones/tripas al morir. Ausente = cadáver vacío (mismo comportamiento que antes de esta mecánica). */
+  catalogoItems?: CatalogoItems;
   mundo: MundoColision;
   /** Día de mundo fraccional actual — inyectado (no Date.now() aquí) para poder testear con un reloj fijo. */
   ahora: () => number;
@@ -183,12 +187,15 @@ export class GestorFaunaSalvaje {
    * Colyseus (deja de contar como animal vivo) y crea+persiste su
    * cadáver en su sitio (pedido 2026-08-30: "al morir... aparece el
    * cadáver looteable en el suelo"). `null` si ese id no está activo
-   * ahora mismo (ya murió, se desactivó su sector, o nunca existió).
+   * ahora mismo (ya murió, se desactivó su sector, o nunca existió). El
+   * cadáver ya sale con loot de caza dentro si `deps.catalogoItems` está
+   * puesto (docs/GDD_Caza.md) — carne/tendones/tripas, nunca piel (esa
+   * sale aparte, de desollar).
    *
-   * PUNTO DE ENGANCHE para cuando exista un sistema de combate: hoy
-   * nada llama a este método en producción — igual que
-   * `marcarTropaMuerta` en su día, la mecánica ya está lista, falta
-   * quien decida CUÁNDO invocarla.
+   * Invocado hoy por `HubRoom.onFaunaMuerta` al cerrar un combate real
+   * contra fauna (docs/GDD_Combate.md) — comentario histórico corregido
+   * 2026-08-30, antes decía "nada lo invoca todavía" (quedó desfasado en
+   * cuanto se implementó el combate).
    */
   async matarIndividuo(id: string): Promise<Cadaver | null> {
     for (const vivos of this.sectoresActivos.values()) {
@@ -211,6 +218,12 @@ export class GestorFaunaSalvaje {
         y: v.fila.y,
         ahora: this.deps.ahora(),
       });
+      // Loot de caza (docs/GDD_Caza.md): carne/tendones/tripas SIEMPRE, la
+      // piel queda aparte para quien lo desuelle (cadaver:desollar).
+      if (this.deps.catalogoItems) {
+        const especie = this.deps.catalogoCombate?.[v.fila.especieId] ?? estadisticasCombatePorDefecto();
+        rellenarLootCaza(cadaver.contenedor, this.deps.catalogoItems, especie);
+      }
       await this.deps.crearCadaver(cadaver);
       return cadaver;
     }
