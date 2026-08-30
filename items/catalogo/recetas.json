@@ -1316,5 +1316,626 @@
     "resultado": { "itemId": "mesa_comedor_roble", "cantidad": 1 },
     "tiempoBaseSeg": 24,
     "_nota": "docs/GDD_Profesiones.md — mesa de comedor con variante de material real (madera_dura), craftable en mesa_ensamblaje (carpintero N4)."
+  },
+  "martillo_forja_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_campo", "yunque_tocon"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "martillo_forja_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de herrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tenazas_cuello_largo_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra", "yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "tenazas_cuello_largo", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de herrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "martillo_remachar_aplanar_craft": {
+    "oficio": "herrero",
+    "mesas": ["taller_armero", "banco_ajuste"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "martillo_remachar_aplanar", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de herrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "martillo_maestro_malla_placas_craft": {
+    "oficio": "herrero",
+    "mesas": ["gran_forja", "martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "martillo_maestro_malla_placas", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de herrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "hacha_mano_cobre_hierro_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_tronzado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "hacha_mano_cobre_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tronzador_mano_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_tronzado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "tronzador_mano", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cepillo_carpintero_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "cepillo_carpintero", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "hacha_talar_pesada_craft": {
+    "oficio": "carpintero",
+    "mesas": ["torno_madera", "mesa_talla_fina"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "hacha_talar_pesada", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "formon_precision_craft": {
+    "oficio": "carpintero",
+    "mesas": ["torno_madera", "mesa_talla_fina"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "formon_precision", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "hacha_maestro_lenador_craft": {
+    "oficio": "carpintero",
+    "mesas": ["estacion_curvado_vapor", "mesa_ensamblaje"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "hacha_maestro_lenador", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "juego_tallas_maestro_craft": {
+    "oficio": "carpintero",
+    "mesas": ["estacion_curvado_vapor", "mesa_ensamblaje"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "juego_tallas_maestro", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "compas_regla_madera_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_delineante"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "compas_regla_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de ingeniero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "taladro_manivela_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["banco_mecanizado"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "taladro_manivela", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de ingeniero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "calibrador_dientes_bronce_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["estacion_maquetas_navales"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "calibrador_dientes_bronce", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de ingeniero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "escuadra_plomada_precision_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["banco_ingenieria_pesada"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "escuadra_plomada_precision", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de ingeniero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pico_minero_hierro_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "pico_minero_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "maceta_piedra_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "maceta_piedra", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cincel_mampuesto_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["mesa_mampuesto"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "cincel_mampuesto", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pico_cantera_pesado_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["estacion_canteria_muelas"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "pico_cantera_pesado", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cincel_hierro_duro_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["estacion_canteria_muelas"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "cincel_hierro_duro", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pico_maestro_minero_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["gran_taller_mamposteria"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "pico_maestro_minero", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "maceta_cinceles_maestro_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["gran_taller_mamposteria"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "maceta_cinceles_maestro", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de picapedrero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "hoz_mano_hierro_craft": {
+    "oficio": "molinero",
+    "mesas": ["mesa_tajado_limpieza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "hoz_mano_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "maza_piedra_molienda_craft": {
+    "oficio": "molinero",
+    "mesas": ["mesa_tajado_limpieza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "maza_piedra_molienda", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "guadana_agricola_craft": {
+    "oficio": "molinero",
+    "mesas": ["molino_mano", "artesa_amasado"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "guadana_agricola", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "kit_ordeno_cepillo_craft": {
+    "oficio": "molinero",
+    "mesas": ["molino_mano", "artesa_amasado"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "kit_ordeno_cepillo", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "horca_trilladora_mecanica_craft": {
+    "oficio": "molinero",
+    "mesas": ["estacion_germinacion_mantequeria"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "horca_trilladora_mecanica", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pala_amasado_craft": {
+    "oficio": "molinero",
+    "mesas": ["estacion_germinacion_mantequeria"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "pala_amasado", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "guadana_maestro_cosechador_craft": {
+    "oficio": "molinero",
+    "mesas": ["gran_molino_agropecuario"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "guadana_maestro_cosechador", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "despalilladora_bastidor_panales_craft": {
+    "oficio": "molinero",
+    "mesas": ["gran_molino_agropecuario"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "despalilladora_bastidor_panales", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de molinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_desollar_craft": {
+    "oficio": "cazador",
+    "mesas": ["estacion_despiece_caza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_desollar", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_cazador_reforzado_craft": {
+    "oficio": "cazador",
+    "mesas": ["banco_trampero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_cazador_reforzado", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "aguja_trenzar_fibras_craft": {
+    "oficio": "cazador",
+    "mesas": ["banco_trampero"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "aguja_trenzar_fibras", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_desollador_curvo_craft": {
+    "oficio": "cazador",
+    "mesas": ["banco_arqueria_caza"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_desollador_curvo", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "calibrador_flechas_craft": {
+    "oficio": "cazador",
+    "mesas": ["banco_arqueria_caza"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "calibrador_flechas", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "daga_despiece_mitico_craft": {
+    "oficio": "cazador",
+    "mesas": ["estacion_cazador_supremo"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "daga_despiece_mitico", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tensor_mecanico_cepos_pesados_craft": {
+    "oficio": "cazador",
+    "mesas": ["estacion_cazador_supremo"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "tensor_mecanico_cepos_pesados", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de cazador ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_picar_cazo_hierro_craft": {
+    "oficio": "cocinero",
+    "mesas": ["fogon_campamento"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_picar_cazo_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de cocinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "espatula_cucharon_madera_noble_craft": {
+    "oficio": "cocinero",
+    "mesas": ["horno_barro_taberna"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "espatula_cucharon_madera_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de cocinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_fileteado_filtro_cobre_craft": {
+    "oficio": "cocinero",
+    "mesas": ["cocina_mamposteria", "alambique"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_fileteado_filtro_cobre", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de cocinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillos_chef_real_serpentin_vidrio_craft": {
+    "oficio": "cocinero",
+    "mesas": ["gran_cocina_destileria"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillos_chef_real_serpentin_vidrio", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de cocinero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_herbolario_podadera_craft": {
+    "oficio": "curandero",
+    "mesas": ["secadero_hierbas", "mortero_grande_boticario"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_herbolario_podadera", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pluma_tintero_craft": {
+    "oficio": "curandero",
+    "mesas": ["secadero_hierbas", "mortero_grande_boticario"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "pluma_tintero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "hoz_bronce_hierbas_craft": {
+    "oficio": "curandero",
+    "mesas": ["escritorio_escriba", "mesa_diagnostico"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "hoz_bronce_hierbas", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "mortero_piedra_herbolario_craft": {
+    "oficio": "curandero",
+    "mesas": ["escritorio_escriba", "mesa_diagnostico"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "mortero_piedra_herbolario", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tijera_herbolario_fina_craft": {
+    "oficio": "curandero",
+    "mesas": ["estacion_boticario", "mesa_destilado_esencias"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "tijera_herbolario_fina", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "balanza_botica_craft": {
+    "oficio": "curandero",
+    "mesas": ["estacion_boticario", "mesa_destilado_esencias"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "balanza_botica", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "podadera_marea_maestro_craft": {
+    "oficio": "curandero",
+    "mesas": ["scriptorium_alquimico", "mesa_cirugia"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "podadera_marea_maestro", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "pluma_oro_retorta_craft": {
+    "oficio": "curandero",
+    "mesas": ["scriptorium_alquimico", "mesa_cirugia"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "pluma_oro_retorta", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de curandero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_raspar_pieles_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado", "mesa_despiece"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_raspar_pieles", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "aguja_coser_basica_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_raspado", "mesa_despiece"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "aguja_coser_basica", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchilla_semicircular_curtidor_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido", "telar"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchilla_semicircular_curtidor", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tijeras_telar_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido", "telar"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "tijeras_telar", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "punzon_talabarteria_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte_piel", "mesa_corte"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "punzon_talabarteria", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "lezna_cuchilla_marroquineria_fina_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_costura_pieles", "mesa_bordado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "lezna_cuchilla_marroquineria_fina", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de curtidor ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "martillo_ligero_orfebre_craft": {
+    "oficio": "joyero",
+    "mesas": ["torno_alfarero", "banco_joyero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "martillo_ligero_orfebre", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cana_corta_soplar_craft": {
+    "oficio": "joyero",
+    "mesas": ["torno_alfarero", "banco_joyero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cana_corta_soplar", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "tenazas_joyero_lima_fina_craft": {
+    "oficio": "joyero",
+    "mesas": ["horno_vidrio", "horno_ceramica"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "tenazas_joyero_lima_fina", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cana_hierro_reforzada_craft": {
+    "oficio": "joyero",
+    "mesas": ["horno_vidrio", "horno_ceramica"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "cana_hierro_reforzada", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 2 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "engastador_garras_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_engarce", "mesa_tallado_cristal"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "engastador_garras", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "puntero_lapidaria_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_engarce", "mesa_tallado_cristal"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "acero", "cantidad": 1 }],
+    "resultado": { "itemId": "puntero_lapidaria", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "microcincel_precision_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_fundicion_precioso", "mesa_esmaltado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "microcincel_precision", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "lente_aumento_joyero_craft": {
+    "oficio": "joyero",
+    "mesas": ["mesa_fundicion_precioso", "mesa_esmaltado"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_palmera", "cantidad": 1 }, { "itemId": "lingote_oro", "cantidad": 1 }],
+    "resultado": { "itemId": "lente_aumento_joyero", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 4 de joyero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
+  },
+  "cuchillo_cocina_craft": {
+    "oficio": "cocinero",
+    "mesas": ["fogon_campamento"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 1 }, { "itemId": "lingote_cobre", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_cocina", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Cocina.md — herramienta real (durabilidadMax/desgaste), catalogada como 'objeto' mas sin receta hasta ahora."
+  },
+  "mascara_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["forja_piedra"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
+    "resultado": { "itemId": "mascara_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Profesiones.md — único equipable que quedaba sin receta, mismo patrón que casco_hierro_craft."
+  },
+  "cubo_ordeno_craft": {
+    "oficio": "molinero",
+    "mesas": ["mesa_tajado_limpieza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }],
+    "resultado": { "itemId": "cubo_ordeno", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Profesiones.md — herramienta de ganadero (fusionado en molinero), sin familiaMaterial/tier (no pasa por el gating de recolección salvaje)."
+  },
+  "tijeras_esquilar_craft": {
+    "oficio": "molinero",
+    "mesas": ["mesa_tajado_limpieza"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 1 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "tijeras_esquilar", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Profesiones.md — herramienta de ganadero (fusionado en molinero)."
+  },
+  "antorcha_portatil_craft": {
+    "oficio": "cocinero",
+    "mesas": ["fogon_campamento"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 1 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "antorcha_portatil", "cantidad": 1 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Profesiones.md — utilidad simple sin oficio de recolección detrás, cocinero por el fuego del fogón de campamento."
+  },
+  "cana_pesca_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_tronzado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "cana_pesca", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Profesiones.md — pescar sigue siendo libre para cualquiera sin oficio (fusión de oficios, 2026-08-30); esto solo da una forma real de FABRICAR la caña, no gatea pescar."
   }
 }
