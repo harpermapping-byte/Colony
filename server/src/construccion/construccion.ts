@@ -20,6 +20,7 @@
 import { MundoColision, TIPO } from "../mundo/colisiones";
 import { IndiceParcelas, parcelaEn, topeDe, tipoDe } from "./parcelas";
 import { EntradaConstruible } from "./catalogo";
+import type { IdentidadAdmin } from "../admin/adminAuth";
 
 /** Lo mínimo que la validación necesita saber de una propiedad (bd.Propiedad encaja). */
 export interface PropiedadMinima {
@@ -102,6 +103,26 @@ export function nombresJarlTalCual(): string[] {
     .split(",")
     .map((n) => n.trim())
     .filter((n) => n.length > 0);
+}
+
+/**
+ * Igual que `esJarlGlobal`, pero además reconoce una sesión de admin
+ * (docs/GDD_Admin.md, pedido 2026-08-30): jarl solo DE `mapaIdDeEstaRoom`
+ * (1 jarl por mapa, pactado con el streamer), o superadmin de cualquier
+ * mapa. PURA a propósito (sin Colyseus/BD) — la resuelve `RoomExteriorBase`
+ * pasándole lo que ya tiene en memoria (nombre del jugador + la
+ * `IdentidadAdmin` que devolvió `resolverSesionAdmin` en el join), nunca
+ * relee nada aquí.
+ */
+export function esJarlConSesionAdmin(
+  nombre: string | undefined,
+  identidadAdmin: IdentidadAdmin | null,
+  mapaIdDeEstaRoom: string | undefined,
+): boolean {
+  if (nombre && esJarlGlobal(nombre)) return true;
+  if (!identidadAdmin) return false;
+  if (identidadAdmin.rol === "superadmin") return true;
+  return identidadAdmin.rol === "jarl" && identidadAdmin.mapaId === mapaIdDeEstaRoom;
 }
 
 /**

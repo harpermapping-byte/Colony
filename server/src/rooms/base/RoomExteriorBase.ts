@@ -64,6 +64,7 @@ import {
   validarColocacionPlantilla,
   esJarl,
   esJarlGlobal,
+  esJarlConSesionAdmin,
 } from "../../construccion/construccion";
 import { generarInteriorEdificio } from "../../construccion/interiorGenerado";
 import { resolverProduccion, resolverTransporte, EstadoProduccion, DatosProduccion } from "../../construccion/produccion";
@@ -92,6 +93,7 @@ import { RoomConectable, registrarRoom, quitarRoom, registrarJugador, quitarJuga
 import { obtenerGestorTwitch } from "../../twitch/gestorTwitch";
 import { TipoEvento } from "../../twitch/catalogoEventos";
 import { resolverSesionTwitch } from "../../twitch/oauthLogin";
+import { resolverSesionAdmin, IdentidadAdmin } from "../../admin/adminAuth";
 import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto } from "../../inventario/desgaste";
 import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
@@ -305,6 +307,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // la MISMA clave a quitarJugador() en onLeave (ver registro.ts); vive y
   // muere con la sesión, igual que `inputs`.
   private twitchLoginPorSesion = new Map<string, string>();
+
+  // Sesión de admin (docs/GDD_Admin.md, pedido 2026-08-30) — igual que
+  // twitchLoginPorSesion arriba, vive y muere con la sesión. puedeActuarComoJarl()
+  // la consulta en cada mensaje que lo necesite, sin releer BD.
+  protected adminSesionPorSesion = new Map<string, IdentidadAdmin>();
 
   // Muerte/respawn (docs/GDD_Muerte_Respawn.md) — guardia de idempotencia,
   // ver el comentario de manejarMuerteJugador.
@@ -809,7 +816,31 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return this.state.players.get(client.sessionId)?.name;
   }
 
-  protected crearJugador(client: Client, options: { name?: string; twitchSession?: string }, x: number, y: number): Player {
+  /**
+   * Igual que `esJarlGlobal(nombre)` pero además reconoce una sesión de
+   * admin (docs/GDD_Admin.md, pedido 2026-08-30) — jarl solo DE ESTE mapa
+   * (`this.asentamientoConstruccion`), o superadmin de cualquier mapa.
+   * Reemplaza uno a uno los sitios que antes llamaban a `esJarlGlobal`
+   * directamente fuera de un `ContextoConstruccion` (los que sí pasan por
+   * `ctx.jarls`/`esJarl` no necesitan tocarse: ver crearJugador, que ya
+   * inyecta el nombre ahí).
+   */
+  protected puedeActuarComoJarl(client: Client): boolean {
+    return esJarlConSesionAdmin(this.nombreDe(client), this.adminSesionPorSesion.get(client.sessionId) ?? null, this.asentamientoConstruccion);
+  }
+
+  /**
+   * Misma lógica que `puedeActuarComoJarl`, pero para gates que corren ANTES
+   * de `crearJugador` (p.ej. `InteriorRoom.onJoin` decide si deja entrar
+   * antes de crear al jugador) — ahí `adminSesionPorSesion` todavía no tiene
+   * nada para esta sesión, así que resuelve el token directo de `options`.
+   */
+  protected puedeActuarComoJarlEnJoin(nombre: string | undefined, options: { adminSession?: string }): boolean {
+    const identidad = options?.adminSession ? resolverSesionAdmin(options.adminSession) : null;
+    return esJarlConSesionAdmin(nombre, identidad, this.asentamientoConstruccion);
+  }
+
+  protected crearJugador(client: Client, options: { name?: string; twitchSession?: string; adminSession?: string }, x: number, y: number): Player {
     const player = new Player();
     player.x = x;
     player.y = y;
@@ -830,6 +861,25 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       client.send("twitch:loginConfirmado", { twitchLogin: identidadTwitch.twitchLogin });
     }
     registrarJugador(player.name, this, client.sessionId, identidadTwitch?.twitchLogin); // Twitch (docs/GDD_Twitch.md) — para comandos de chat y títulos
+
+    // Sesión de admin (docs/GDD_Admin.md, pedido 2026-08-30) — mismo patrón
+    // que la de Twitch justo arriba: token reenviado en CADA joinOrCreate,
+    // resuelto de nuevo aquí. Si esta cuenta es jarl DE ESTE mapa (o
+    // superadmin, cualquier mapa) se inyecta su nombre de PJ actual en
+    // ctx.jarls — así los ~18 sitios que ya hacen `esJarl(ctx, nombre)`
+    // (parcela:asignar, plantillas, dueño-o-jarl de una construcción...)
+    // lo reconocen sin tocar ni uno. Sin ctxConstruccion todavía (regiones
+    // normales sin parcelasReservadas) simplemente no hay nada que inyectar
+    // — puedeActuarComoJarl() sigue funcionando igual vía adminSesionPorSesion.
+    const identidadAdmin = options?.adminSession ? resolverSesionAdmin(options.adminSession) : null;
+    if (identidadAdmin) {
+      this.adminSesionPorSesion.set(client.sessionId, identidadAdmin);
+      const esJarlDeEsteMapa = identidadAdmin.rol === "superadmin" || identidadAdmin.mapaId === this.asentamientoConstruccion;
+      if (esJarlDeEsteMapa && this.ctxConstruccion) {
+        this.ctxConstruccion.jarls.add(player.name.trim().toLowerCase());
+      }
+      client.send("admin:sesionConfirmada", { usuario: identidadAdmin.usuario, rol: identidadAdmin.rol, mapaId: identidadAdmin.mapaId, esJarlAqui: esJarlDeEsteMapa });
+    }
 
     const contenedor = crearContenedor(ANCHO_CUERPO, ALTO_CUERPO);
     this.inventarios.set(client.sessionId, contenedor);
@@ -854,6 +904,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const nombreSaliente = this.state.players.get(client.sessionId)?.name;
     const twitchLoginSaliente = this.twitchLoginPorSesion.get(client.sessionId);
     this.twitchLoginPorSesion.delete(client.sessionId);
+
+    // Sesión de admin (docs/GDD_Admin.md): deshace SOLO lo que crearJugador
+    // inyectó en ctx.jarls por esta sesión — nunca quita un nombre que
+    // también sea jarl "de toda la vida" por JARL_NOMBRES (esJarlGlobal),
+    // porque ctx.jarls es UN Set compartido por toda la room, no por sesión:
+    // borrarlo a ciegas le quitaría el acceso a cualquier otro jugador con
+    // ese mismo nombre de jarl legado que siga conectado.
+    const identidadAdminSaliente = this.adminSesionPorSesion.get(client.sessionId);
+    this.adminSesionPorSesion.delete(client.sessionId);
+    if (identidadAdminSaliente && nombreSaliente && this.ctxConstruccion && !esJarlGlobal(nombreSaliente)) {
+      this.ctxConstruccion.jarls.delete(nombreSaliente.trim().toLowerCase());
+    }
     if (nombreSaliente) quitarJugador(nombreSaliente, client.sessionId, twitchLoginSaliente); // Twitch (docs/GDD_Twitch.md) — solo si el registro sigue siendo el de ESTA sesión (nombres duplicados, ver registro.ts)
 
     // Persistencia de inventario/equipo (docs/GDD_Equipo.md): se captura la
@@ -2592,8 +2654,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   /** Jarl-only: canjea un punto de canal de PRUEBA (mismo entry point que usará el conector real). */
   private manejarTwitchSimularCanje(client: Client, msg: { tipo?: TipoEvento }) {
-    const nombre = this.nombreDe(client);
-    if (!nombre || !esJarlGlobal(nombre)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
+    if (!this.puedeActuarComoJarl(client)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
     if (msg?.tipo !== "bueno" && msg?.tipo !== "malo") return client.send("twitch:error", { motivo: "tipo debe ser 'bueno' o 'malo'" });
     const r = obtenerGestorTwitch().intentarCanje(msg.tipo);
     if (!r.ok) return client.send("twitch:error", { motivo: r.motivo });
@@ -2603,23 +2664,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   /** Jarl-only: simula `!curar`/`!comer`/`!beber`/`!cagar` sobre SÍ MISMO (docs/GDD_Twitch.md). */
   private manejarTwitchSimularComando(client: Client, msg: { comando?: string }) {
     const nombre = this.nombreDe(client);
-    if (!nombre || !esJarlGlobal(nombre)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
+    if (!nombre || !this.puedeActuarComoJarl(client)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
     if (!msg?.comando) return;
     obtenerGestorTwitch().manejarComandoChat(nombre, msg.comando);
   }
 
   /** Jarl-only: fuerza el flag "en directo" — para probar sin depender de la detección real de Twitch (docs/GDD_Twitch.md). */
   private manejarTwitchForzarDirecto(client: Client, msg: { on?: boolean }) {
-    const nombre = this.nombreDe(client);
-    if (!nombre || !esJarlGlobal(nombre)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
+    if (!this.puedeActuarComoJarl(client)) return client.send("twitch:error", { motivo: "solo el jarl puede probar esto" });
     obtenerGestorTwitch().fijarEnDirecto(!!msg?.on);
     client.send("twitch:directoForzado", { on: !!msg?.on });
   }
 
   /** Jarl-only: activa/desactiva PvP global (docs/GDD_PvP.md) — "todas menos la capital", inicialmente deshabilitado. */
   private async manejarPvpFijar(client: Client, msg: { on?: boolean }) {
-    const nombre = this.nombreDe(client);
-    if (!nombre || !esJarlGlobal(nombre)) return client.send("pvp:error", { motivo: "solo el jarl puede cambiar esto" });
+    if (!this.puedeActuarComoJarl(client)) return client.send("pvp:error", { motivo: "solo el jarl puede cambiar esto" });
     const bd = await obtenerBdCompartida();
     await fijarPvpGlobal(bd, !!msg?.on);
     this.broadcast("pvp:actualizado", { on: !!msg?.on });
@@ -3241,7 +3300,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!nombre || !msg?.tenderoteId) return;
     await this.resolverContratosDeDestino(msg.tenderoteId);
     const dueno = await this.duenoDeTenderete(msg.tenderoteId);
-    if (!dueno || (dueno.toLowerCase() !== nombre.toLowerCase() && !esJarlGlobal(nombre))) {
+    if (!dueno || (dueno.toLowerCase() !== nombre.toLowerCase() && !this.puedeActuarComoJarl(client))) {
       return this.errorTenderete(client, "no tienes permiso para gestionar este tenderete");
     }
     const bd = await obtenerBdCompartida();
