@@ -138,8 +138,8 @@ export class InteriorRoom extends RoomExteriorBase {
       client.send("habitacion:lista", lista);
     });
 
-    this.onMessage("habitacion:comprar", (client, msg: { salaIndex?: number }) => this.manejarHabitacionAdquirir(client, msg?.salaIndex, "compra"));
-    this.onMessage("habitacion:alquilar", (client, msg: { salaIndex?: number }) => this.manejarHabitacionAdquirir(client, msg?.salaIndex, "alquiler"));
+    this.onMessage("habitacion:comprar", (client, msg: { salaIndex?: number; origenPago?: "gremio" }) => this.manejarHabitacionAdquirir(client, msg?.salaIndex, "compra", msg?.origenPago));
+    this.onMessage("habitacion:alquilar", (client, msg: { salaIndex?: number; origenPago?: "gremio" }) => this.manejarHabitacionAdquirir(client, msg?.salaIndex, "alquiler", msg?.origenPago));
 
     this.onMessage("habitacion:renovar", async (client, msg: { salaIndex?: number }) => {
       const nombre = this.nombreDe(client);
@@ -158,7 +158,7 @@ export class InteriorRoom extends RoomExteriorBase {
     return typeof salaIndex === "number" ? this.interior.salasIndexadas.find((s) => s.salaIndex === salaIndex) : undefined;
   }
 
-  private async manejarHabitacionAdquirir(client: Client, salaIndex: number | undefined, modo: "compra" | "alquiler") {
+  private async manejarHabitacionAdquirir(client: Client, salaIndex: number | undefined, modo: "compra" | "alquiler", origenPago?: "gremio") {
     const sala = this.salaIndexadaDe(salaIndex);
     if (!sala) return client.send("habitacion:error", { motivo: "habitación desconocida" });
     const precio = precioHabitacion(sala.tipoSalaId, modo);
@@ -171,6 +171,7 @@ export class InteriorRoom extends RoomExteriorBase {
       modo,
       precioFarycoins: precio.precio,
       periodoHoras: precio.periodoHoras,
+      origenPago,
     });
     if (!r) return;
     const nombre = this.nombreDe(client)!;

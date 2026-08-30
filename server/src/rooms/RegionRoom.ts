@@ -238,8 +238,8 @@ export class RegionRoom extends RoomExteriorBase {
       client.send("inmueble:lista", lista);
     });
 
-    this.onMessage("inmueble:comprar", (client, msg: { inmuebleId?: string }) => this.manejarInmuebleAdquirir(client, mapaId, msg?.inmuebleId, "compra"));
-    this.onMessage("inmueble:alquilar", (client, msg: { inmuebleId?: string }) => this.manejarInmuebleAdquirir(client, mapaId, msg?.inmuebleId, "alquiler"));
+    this.onMessage("inmueble:comprar", (client, msg: { inmuebleId?: string; origenPago?: "gremio" }) => this.manejarInmuebleAdquirir(client, mapaId, msg?.inmuebleId, "compra", msg?.origenPago));
+    this.onMessage("inmueble:alquilar", (client, msg: { inmuebleId?: string; origenPago?: "gremio" }) => this.manejarInmuebleAdquirir(client, mapaId, msg?.inmuebleId, "alquiler", msg?.origenPago));
 
     this.onMessage("inmueble:renovar", async (client, msg: { inmuebleId?: string }) => {
       const nombre = this.nombreDe(client);
@@ -267,7 +267,7 @@ export class RegionRoom extends RoomExteriorBase {
     return `i_${mapaId}:${inmuebleId}`;
   }
 
-  private async manejarInmuebleAdquirir(client: Client, mapaId: string, inmuebleId: string | undefined, modo: "compra" | "alquiler") {
+  private async manejarInmuebleAdquirir(client: Client, mapaId: string, inmuebleId: string | undefined, modo: "compra" | "alquiler", origenPago?: "gremio") {
     const entrada = inmuebleId ? this.inmueblesVendibles.get(inmuebleId) : undefined;
     if (!entrada) return client.send("inmueble:error", { motivo: "inmueble desconocido" });
     const precio = precioInmueble(entrada.tipoEdificioId, modo);
@@ -280,6 +280,7 @@ export class RegionRoom extends RoomExteriorBase {
       modo,
       precioFarycoins: precio.precio,
       periodoHoras: precio.periodoHoras,
+      origenPago,
     });
     if (!r) return;
     const nombre = this.nombreDe(client)!;

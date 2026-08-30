@@ -530,6 +530,38 @@ test("Gremios: un jugador no puede pertenecer a dos gremios a la vez (UNIQUE en 
   await bd.cerrar();
 });
 
+// --- Inventario compartido de gremio (docs/GDD_Gremios.md §7, pedido 2026-08-30) ---
+
+test("Gremios: cargarInventarioGremio devuelve null hasta el primer guardarInventarioGremio", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const lider = await bd.obtenerOCrearJugador("Ragnar");
+  const { gremio } = (await bd.crearGremio("Cuervos de Hierro", lider.id, "#c0392b", "emblema_lobo")) as { gremio: { id: number } };
+  assert.strictEqual(await bd.cargarInventarioGremio(gremio.id), null);
+  await bd.cerrar();
+});
+
+test("Gremios: guardarInventarioGremio persiste y cargarInventarioGremio lo devuelve tal cual (roundtrip)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const lider = await bd.obtenerOCrearJugador("Ragnar");
+  const { gremio } = (await bd.crearGremio("Cuervos de Hierro", lider.id, "#c0392b", "emblema_lobo")) as { gremio: { id: number } };
+  const catalogo = cargarCatalogoItems();
+  const contenedor = crearContenedor(10, 10);
+  agregarItem(contenedor, catalogo, "hierro", 3);
+  await bd.guardarInventarioGremio(gremio.id, contenedor);
+
+  const releido = await bd.cargarInventarioGremio(gremio.id);
+  assert.strictEqual(releido?.ancho, 10);
+  assert.strictEqual(releido?.alto, 10);
+  assert.strictEqual(releido?.items.length, 1);
+  assert.strictEqual(releido?.items[0].itemId, "hierro");
+
+  // guardar de nuevo (upsert) no duplica fila
+  await bd.guardarInventarioGremio(gremio.id, contenedor);
+  const releido2 = await bd.cargarInventarioGremio(gremio.id);
+  assert.strictEqual(releido2?.items.length, 1);
+  await bd.cerrar();
+});
+
 // --- Propiedades comerciales (docs/GDD_Propiedades.md, pedido 2026-08-29) ---
 
 test("Propiedades: obtenerPropiedad devuelve null para una propiedad nunca tocada (disponible)", async () => {

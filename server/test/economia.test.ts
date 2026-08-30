@@ -263,3 +263,47 @@ test("impuesto: propiedad sin dueño (jarl/asentamiento) nunca cobra aunque est�
   assert.strictEqual(prop?.dueno, null);
   await bd.cerrar(); // si esto no lanza, no intentó cobrar a un dueño inexistente
 });
+
+// Gremios: comprar propiedad con el banco del gremio (docs/GDD_Gremios.md
+// §7, pedido 2026-08-30: "se puede comprar terrenos más fácil al unir
+// dineros"). Estos tests ejercitan solo la capa bd.ts (gremioId en
+// comprarOAlquilar) — el guard "solo el líder" vive en RoomExteriorBase.
+test("comprarOAlquilar con gremioId: paga del banco del gremio, no del monedero del jugador", () =>
+  conJarl("Streamer", async () => {
+    const bd = new AlmacenDatos(":memory:");
+    const lider = await bd.obtenerOCrearJugador("Ragnar");
+    const { gremio } = (await bd.crearGremio("Cuervos de Hierro", lider.id, "#c0392b", "emblema_lobo")) as { gremio: { id: number } };
+    await bd.ajustarBancoGremio(gremio.id, 500);
+    const saldoJugadorAntes = await bd.obtenerFarycoins(lider.id);
+
+    const r = await bd.comprarOAlquilar({
+      id: "i_aldea:casa_gremio_01", tipo: "inmueble", asentamiento: "aldea",
+      jugadorNombre: "Ragnar", modo: "compra", precioFarycoins: 200, periodoHoras: null,
+      gremioId: gremio.id,
+    });
+    assert.strictEqual(r.ok, true);
+    assert.strictEqual(await bd.obtenerFarycoins(lider.id), saldoJugadorAntes, "el monedero del jugador NO se toca");
+    const gremioActualizado = await bd.obtenerGremio(gremio.id);
+    assert.strictEqual(gremioActualizado?.saldoBanco, 300, "el banco del gremio paga el precio");
+    const prop = await bd.obtenerPropiedad("i_aldea:casa_gremio_01");
+    assert.strictEqual(prop?.dueno, "Ragnar", "el jugador sigue siendo el dueño, el gremio solo puso el dinero");
+    await bd.cerrar();
+  }));
+
+test("comprarOAlquilar con gremioId: sin fondos suficientes en el banco, falla sin tocar nada", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const lider = await bd.obtenerOCrearJugador("Ragnar");
+  const { gremio } = (await bd.crearGremio("Cuervos de Hierro", lider.id, "#c0392b", "emblema_lobo")) as { gremio: { id: number } };
+  await bd.ajustarBancoGremio(gremio.id, 50);
+
+  const r = await bd.comprarOAlquilar({
+    id: "i_aldea:casa_gremio_02", tipo: "inmueble", asentamiento: "aldea",
+    jugadorNombre: "Ragnar", modo: "compra", precioFarycoins: 200, periodoHoras: null,
+    gremioId: gremio.id,
+  });
+  assert.strictEqual(r.ok, false);
+  if (!r.ok) assert.strictEqual(r.motivo, "el banco del gremio no tiene fondos suficientes");
+  assert.strictEqual((await bd.obtenerGremio(gremio.id))?.saldoBanco, 50, "el banco no se toca si falla");
+  assert.strictEqual(await bd.obtenerPropiedad("i_aldea:casa_gremio_02"), null, "la propiedad sigue libre");
+  await bd.cerrar();
+});

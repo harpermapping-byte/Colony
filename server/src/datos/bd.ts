@@ -515,6 +515,13 @@ export interface IAlmacenDatos {
   eliminarInvitacion(gremioId: number, jugadorId: number): Promise<void>;
   /** Mismo primitivo compare-and-swap que ajustarFarycoins, pero sobre gremios.saldo_banco. */
   ajustarBancoGremio(gremioId: number, delta: number): Promise<{ ok: boolean; saldo: number }>;
+  // Inventario compartido de gremio (docs/GDD_Gremios.md §7, pedido
+  // 2026-08-30) — mismo contrato/shape que guardarContenedor/cargarContenedor
+  // de jugador, pero UNA sola fila por gremio (sin contenedor_id): un
+  // almacén compartido, no cuerpo+mochilas.
+  guardarInventarioGremio(gremioId: number, contenedor: Contenedor): Promise<void>;
+  /** `null` si el gremio nunca tuvo inventario tocado — quien llame crea uno con `crearContenedor()` por defecto. */
+  cargarInventarioGremio(gremioId: number): Promise<Contenedor | null>;
   cargarPropiedades(): Promise<Map<string, Propiedad>>;
   asignarPropiedad(id: string, tipo: string, asentamiento: string, duenoNombre: string | null): Promise<void>;
   /** Libera dueño Y cualquier tenencia comercial (modo/precio/periodo/expira) — el jarl revoca cualquier propiedad, compra o alquiler (docs/GDD_Propiedades.md). */
@@ -537,6 +544,8 @@ export interface IAlmacenDatos {
     modo: ModoTenencia;
     precioFarycoins: number;
     periodoHoras: number | null;
+    /** docs/GDD_Gremios.md §7 (pedido 2026-08-30) — con esto el precio sale del banco del gremio en vez del monedero del jugador; el dueño de la propiedad sigue siendo el jugador. */
+    gremioId?: number;
   }): Promise<{ ok: true; saldoRestante: number; expiraEn: string | null } | { ok: false; motivo: string }>;
   /** Extiende (no resetea) `expiraEn` del alquiler ACTIVO de `jugadorNombre`, cobrando de nuevo el precio. */
   renovarTenencia(
@@ -754,6 +763,18 @@ CREATE TABLE IF NOT EXISTS gremio_invitaciones (
   invitado_por INTEGER NOT NULL,         -- FK jugadores.id del líder que invitó
   creado_en TEXT NOT NULL,
   PRIMARY KEY (gremio_id, jugador_id)
+);
+-- Inventario compartido del gremio (docs/GDD_Gremios.md §7, pedido
+-- 2026-08-30: "se puede compartir... el inventariado de objetos") — mismo
+-- shape EXACTO que un Contenedor de jugador (tabla inventarios), pero UNA
+-- sola fila por gremio (no hace falta contenedor_id, un gremio tiene un
+-- único almacén compartido, no cuerpo+mochilas).
+CREATE TABLE IF NOT EXISTS gremio_inventario (
+  gremio_id INTEGER PRIMARY KEY,
+  ancho INTEGER NOT NULL,
+  alto INTEGER NOT NULL,
+  siguiente_id INTEGER NOT NULL DEFAULT 1,
+  items TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS propiedades (
   id TEXT PRIMARY KEY,                  -- "p_0001" (parcela), "i_<mapaId>:<edificioId>" (inmueble) o "h_<mapaId>:<edificioId>:<nivel>:<salaIndex>" (habitación)
@@ -1099,6 +1120,13 @@ CREATE TABLE IF NOT EXISTS gremio_invitaciones (
   invitado_por INTEGER NOT NULL,
   creado_en TEXT NOT NULL,
   PRIMARY KEY (gremio_id, jugador_id)
+);
+CREATE TABLE IF NOT EXISTS gremio_inventario (
+  gremio_id INTEGER PRIMARY KEY,
+  ancho INTEGER NOT NULL,
+  alto INTEGER NOT NULL,
+  siguiente_id INTEGER NOT NULL DEFAULT 1,
+  items TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS propiedades (
   id TEXT PRIMARY KEY,
@@ -1823,6 +1851,28 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return { ok: Number(r.changes) > 0, saldo: gremio?.saldoBanco ?? 0 };
   }
 
+  async guardarInventarioGremio(gremioId: number, contenedor: Contenedor): Promise<void> {
+    const r = this.bd
+      .prepare("UPDATE gremio_inventario SET ancho = ?, alto = ?, siguiente_id = ?, items = ? WHERE gremio_id = ?")
+      .run(contenedor.ancho, contenedor.alto, contenedor.siguienteId, JSON.stringify(contenedor.items), gremioId);
+    if (Number(r.changes) === 0) {
+      this.bd
+        .prepare("INSERT INTO gremio_inventario (gremio_id, ancho, alto, siguiente_id, items) VALUES (?, ?, ?, ?, ?)")
+        .run(gremioId, contenedor.ancho, contenedor.alto, contenedor.siguienteId, JSON.stringify(contenedor.items));
+    }
+  }
+
+  async cargarInventarioGremio(gremioId: number): Promise<Contenedor | null> {
+    const f = this.bd.prepare("SELECT ancho, alto, siguiente_id, items FROM gremio_inventario WHERE gremio_id = ?").get(gremioId);
+    if (!f) return null;
+    return {
+      ancho: Number(f.ancho),
+      alto: Number(f.alto),
+      siguienteId: Number(f.siguiente_id),
+      items: JSON.parse(String(f.items)) as ItemInstancia[],
+    };
+  }
+
   async crearInvitacion(gremioId: number, jugadorId: number, invitadoPorId: number): Promise<void> {
     this.bd
       .prepare(
@@ -1991,11 +2041,21 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     modo: ModoTenencia;
     precioFarycoins: number;
     periodoHoras: number | null;
+    // Gremios (docs/GDD_Gremios.md §7, pedido 2026-08-30: "comprar terrenos
+    // más fácil al unir dineros") — con `gremioId` el precio sale del banco
+    // del gremio (`ajustarBancoGremio`) en vez del monedero del jugador;
+    // quien es DUEÑO de la propiedad sigue siendo el jugador (identidad v1
+    // no cambia, el gremio solo puso el dinero). El guard de "solo el líder
+    // gasta del banco" vive en RoomExteriorBase, no aquí.
+    gremioId?: number;
   }): Promise<{ ok: true; saldoRestante: number; expiraEn: string | null } | { ok: false; motivo: string }> {
     this.liberarSiVencida(params.id);
     const jugador = await this.obtenerOCrearJugador(params.jugadorNombre);
-    const debito = await this.ajustarFarycoins(jugador.id, -params.precioFarycoins);
-    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+    const debito =
+      params.gremioId != null
+        ? await this.ajustarBancoGremio(params.gremioId, -params.precioFarycoins)
+        : await this.ajustarFarycoins(jugador.id, -params.precioFarycoins);
+    if (!debito.ok) return { ok: false, motivo: params.gremioId != null ? "el banco del gremio no tiene fondos suficientes" : "no tienes suficientes Farycoins" };
 
     const ahora = new Date().toISOString();
     const expiraEn =
@@ -2022,7 +2082,9 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       .get(params.id, params.tipo, params.asentamiento, jugador.id, ahora, params.modo, params.precioFarycoins, params.periodoHoras, expiraEn);
 
     if (!fila) {
-      await this.ajustarFarycoins(jugador.id, params.precioFarycoins); // reembolso: alguien se adelantó
+      // reembolso: alguien se adelantó — al mismo origen que pagó
+      if (params.gremioId != null) await this.ajustarBancoGremio(params.gremioId, params.precioFarycoins);
+      else await this.ajustarFarycoins(jugador.id, params.precioFarycoins);
       return { ok: false, motivo: "ya no está disponible" };
     }
     await this.creditarJarl(params.precioFarycoins);
@@ -3020,6 +3082,24 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return { ok: false, saldo: gremio?.saldoBanco ?? 0 };
   }
 
+  async guardarInventarioGremio(gremioId: number, contenedor: Contenedor): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO gremio_inventario (gremio_id, ancho, alto, siguiente_id, items) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (gremio_id) DO UPDATE SET ancho = EXCLUDED.ancho, alto = EXCLUDED.alto, siguiente_id = EXCLUDED.siguiente_id, items = EXCLUDED.items`,
+      [gremioId, contenedor.ancho, contenedor.alto, contenedor.siguienteId, JSON.stringify(contenedor.items)],
+    );
+  }
+
+  async cargarInventarioGremio(gremioId: number): Promise<Contenedor | null> {
+    const r = await this.pool.query<{ ancho: number; alto: number; siguiente_id: number; items: string }>(
+      "SELECT ancho, alto, siguiente_id, items FROM gremio_inventario WHERE gremio_id = $1",
+      [gremioId],
+    );
+    if (r.rows.length === 0) return null;
+    const f = r.rows[0];
+    return { ancho: f.ancho, alto: f.alto, siguienteId: f.siguiente_id, items: JSON.parse(f.items) as ItemInstancia[] };
+  }
+
   async crearInvitacion(gremioId: number, jugadorId: number, invitadoPorId: number): Promise<void> {
     await this.pool.query(
       `INSERT INTO gremio_invitaciones (gremio_id, jugador_id, invitado_por, creado_en) VALUES ($1, $2, $3, $4)
@@ -3176,11 +3256,16 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     modo: ModoTenencia;
     precioFarycoins: number;
     periodoHoras: number | null;
+    /** Mismo contrato que la implementación SQLite — ver su doc-comment. */
+    gremioId?: number;
   }): Promise<{ ok: true; saldoRestante: number; expiraEn: string | null } | { ok: false; motivo: string }> {
     await this.liberarSiVencida(params.id);
     const jugador = await this.obtenerOCrearJugador(params.jugadorNombre);
-    const debito = await this.ajustarFarycoins(jugador.id, -params.precioFarycoins);
-    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+    const debito =
+      params.gremioId != null
+        ? await this.ajustarBancoGremio(params.gremioId, -params.precioFarycoins)
+        : await this.ajustarFarycoins(jugador.id, -params.precioFarycoins);
+    if (!debito.ok) return { ok: false, motivo: params.gremioId != null ? "el banco del gremio no tiene fondos suficientes" : "no tienes suficientes Farycoins" };
 
     const ahora = new Date().toISOString();
     const expiraEn =
@@ -3200,7 +3285,8 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     );
 
     if (r.rows.length === 0) {
-      await this.ajustarFarycoins(jugador.id, params.precioFarycoins); // reembolso: alguien se adelantó
+      if (params.gremioId != null) await this.ajustarBancoGremio(params.gremioId, params.precioFarycoins);
+      else await this.ajustarFarycoins(jugador.id, params.precioFarycoins); // reembolso: alguien se adelantó
       return { ok: false, motivo: "ya no está disponible" };
     }
     await this.creditarJarl(params.precioFarycoins);

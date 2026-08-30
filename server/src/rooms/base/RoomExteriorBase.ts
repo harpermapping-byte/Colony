@@ -123,6 +123,11 @@ export const RADIO_INTERACCION = 2.2;
 
 const ANCHO_CUERPO = 8;
 const ALTO_CUERPO = 6;
+// Inventario compartido del gremio (docs/GDD_Gremios.md §7, pedido
+// 2026-08-30) — más grande que el cuerpo de un jugador a propósito, es un
+// almacén colectivo, no un inventario personal.
+const ANCHO_INVENTARIO_GREMIO = 10;
+const ALTO_INVENTARIO_GREMIO = 10;
 
 // Oficio de jugador (docs/GDD_Caza.md, sistema mínimo v1, pedido 2026-08-30):
 // mismos ids que ya usa `receta.oficio` en items/catalogo/recetas.json, más
@@ -647,6 +652,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("gremio:depositar", (client, msg: { cantidad?: number }) => this.manejarGremioDepositar(client, msg));
     this.onMessage("gremio:retirar", (client, msg: { cantidad?: number }) => this.manejarGremioRetirar(client, msg));
     this.onMessage("gremio:estado", (client) => this.manejarGremioEstado(client));
+    // Inventario compartido del gremio (docs/GDD_Gremios.md §7, pedido
+    // 2026-08-30) — cualquier miembro deposita, solo el líder retira (v1,
+    // mismo criterio que el banco de Farycoins).
+    this.onMessage("gremio:inventarioEstado", (client) => this.manejarGremioInventarioEstado(client));
+    this.onMessage(
+      "gremio:inventarioDepositar",
+      (client, msg: { instanciaId?: number; x?: number; y?: number; rot?: number }) => this.manejarGremioInventarioMover(client, msg, "depositar"),
+    );
+    this.onMessage(
+      "gremio:inventarioRetirar",
+      (client, msg: { instanciaId?: number; x?: number; y?: number; rot?: number }) => this.manejarGremioInventarioMover(client, msg, "retirar"),
+    );
 
     // --- mercado (docs/GDD_Mercado.md) — un tenderete vive SOBRE una
     // propiedad que el emisor YA posee (parcela asignada por el jarl, vía
@@ -3234,6 +3251,59 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("gremio:estado", gremio ? await this.detalleGremio(bd, gremio) : null);
   }
 
+  /**
+   * Inventario compartido del gremio (docs/GDD_Gremios.md §7, pedido
+   * 2026-08-30: "se puede compartir un banco con el dinero y el
+   * inventariado de objetos") — UN almacén por gremio (no cuerpo+mochilas),
+   * cargado perezosamente de BD (nunca cacheado en ContextoGremios, mismo
+   * criterio que las propiedades comerciales — volumen pequeño, se prefiere
+   * releer siempre a arriesgar un desfase). `crearContenedor` por defecto si
+   * el gremio nunca tocó su almacén todavía.
+   */
+  private async manejarGremioInventarioEstado(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const gremio = this.gremioDeJugador(ctx, jugador.id);
+    if (!gremio) return this.errorGremio(client, "no perteneces a ningún gremio");
+    const contenedor = (await bd.cargarInventarioGremio(gremio.id)) ?? crearContenedor(ANCHO_INVENTARIO_GREMIO, ALTO_INVENTARIO_GREMIO);
+    client.send("gremio:inventarioEstado", { ancho: contenedor.ancho, alto: contenedor.alto, items: contenedor.items });
+  }
+
+  /** Reusa el `moverItem` puro de siempre — origen/destino cambian según la dirección; "retirar" exige ser el líder (mismo criterio que el banco de Farycoins). */
+  private async manejarGremioInventarioMover(
+    client: Client,
+    msg: { instanciaId?: number; x?: number; y?: number; rot?: number },
+    direccion: "depositar" | "retirar",
+  ) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || typeof msg?.instanciaId !== "number" || typeof msg?.x !== "number" || typeof msg?.y !== "number") return;
+    const rot: Rotacion = msg.rot === 1 ? 1 : 0;
+    const bd = await obtenerBdCompartida();
+    const ctx = await obtenerContextoGremios(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const gremio = this.gremioDeJugador(ctx, jugador.id);
+    if (!gremio) return this.errorGremio(client, "no perteneces a ningún gremio");
+    if (direccion === "retirar" && gremio.liderJugadorId !== jugador.id) {
+      return this.errorGremio(client, "solo el líder retira del inventario del gremio (v1)");
+    }
+    const contenedorPropio = this.inventarios.get(client.sessionId);
+    if (!contenedorPropio) return;
+    const contenedorGremio = (await bd.cargarInventarioGremio(gremio.id)) ?? crearContenedor(ANCHO_INVENTARIO_GREMIO, ALTO_INVENTARIO_GREMIO);
+
+    const origen = direccion === "depositar" ? contenedorPropio : contenedorGremio;
+    const destino = direccion === "depositar" ? contenedorGremio : contenedorPropio;
+    const resultado = moverItem(origen, destino, this.catalogoItems, msg.instanciaId, msg.x, msg.y, rot);
+    if (!resultado.ok) return this.errorGremio(client, resultado.motivo ?? "sin_hueco");
+
+    await bd.guardarInventarioGremio(gremio.id, contenedorGremio);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedorPropio);
+    client.send("gremio:inventarioEstado", { ancho: contenedorGremio.ancho, alto: contenedorGremio.alto, items: contenedorGremio.items });
+  }
+
   // ---- Propiedades comerciales (docs/GDD_Propiedades.md) ----
   // Compartido entre RegionRoom (inmuebles enteros) e InteriorRoom
   // (habitaciones de taberna/posada) — la única diferencia entre ambas es el
@@ -3241,19 +3311,53 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // MISMO (bd.comprarOAlquilar ya es todo-o-nada). `canalError` porque cada
   // room usa su propio namespace de mensajes ("inmueble:error"/"habitacion:error").
 
-  /** `null` si falló (ya se le mandó el error al cliente) o si no hay jugador identificado. */
+  /**
+   * `null` si falló (ya se le mandó el error al cliente) o si no hay
+   * jugador identificado. `origenPago:"gremio"` (docs/GDD_Gremios.md §7,
+   * pedido 2026-08-30: "comprar terrenos más fácil al unir dineros") paga
+   * con el banco del gremio del jugador en vez de su propio monedero —
+   * mismo guard "solo el líder" que ya usa `gremio:retirar` (gastar del
+   * banco es, en el fondo, una retirada). El DUEÑO de la propiedad sigue
+   * siendo el jugador, el gremio solo puso el dinero.
+   */
   protected async comprarOAlquilarPropiedad(
     client: Client,
     canalError: string,
-    params: { id: string; tipo: "inmueble" | "habitacion"; asentamiento: string; modo: ModoTenencia; precioFarycoins: number; periodoHoras: number | null },
+    params: { id: string; tipo: "inmueble" | "habitacion"; asentamiento: string; modo: ModoTenencia; precioFarycoins: number; periodoHoras: number | null; origenPago?: "gremio" },
   ): Promise<{ ok: true; saldoRestante: number; expiraEn: string | null } | null> {
     const nombre = this.nombreDe(client);
     if (!nombre) return null;
     const bd = await obtenerBdCompartida();
-    const r = await bd.comprarOAlquilar({ ...params, jugadorNombre: nombre });
+
+    let gremioId: number | undefined;
+    if (params.origenPago === "gremio") {
+      const ctxGremios = await obtenerContextoGremios(bd);
+      const jugador = await bd.obtenerOCrearJugador(nombre);
+      const gremio = this.gremioDeJugador(ctxGremios, jugador.id);
+      if (!gremio) {
+        client.send(canalError, { motivo: "no perteneces a ningún gremio" });
+        return null;
+      }
+      if (gremio.liderJugadorId !== jugador.id) {
+        client.send(canalError, { motivo: "solo el líder compra con el banco del gremio (v1)" });
+        return null;
+      }
+      gremioId = gremio.id;
+    }
+
+    const { origenPago, ...resto } = params;
+    const r = await bd.comprarOAlquilar({ ...resto, jugadorNombre: nombre, gremioId });
     if (!r.ok) {
       client.send(canalError, { motivo: r.motivo });
       return null;
+    }
+    if (gremioId != null) {
+      // refresca el saldo cacheado en ContextoGremios (mismo criterio que
+      // manejarGremioDepositar/Retirar tras mutar el banco).
+      const ctxGremios = await obtenerContextoGremios(bd);
+      const gremioVivo = ctxGremios.porId.get(gremioId);
+      const actualizado = await bd.obtenerGremio(gremioId);
+      if (gremioVivo && actualizado) gremioVivo.saldoBanco = actualizado.saldoBanco;
     }
     return r;
   }
