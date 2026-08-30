@@ -15,35 +15,7 @@ import { asegurarAsentamientoBandido, marcarTropaMuertaYVerificarConquista } fro
 import { crearCadaver } from "../mundo/cadaveres";
 import { agregarItem } from "../inventario/inventario";
 import { elegirEnemigoDeTema, VARIANTES_POR_ENEMIGO } from "../mundo/catalogoEnemigos";
-
-// --- Cuartel bandido (docs/GDD_Faccion_Bandidos.md §7bis, pedido
-// 2026-08-30: "las aldeas/ciudades aunque sean dungeons van por separado —
-// las dungeons se recargan cada hora, estas no, tienen vida/economía
-// propia") — el edificio "campamento_hostil" (poiVinculado: guarida_bandidos/
-// campamento_barbaros_*/campamento_cazadores_furtivos, interiores/catalogo/
-// tipos_edificio.json) es el cuartel real de la guarnición de un
-// asentamiento bandido vivo: vida/ataque/defensa por rango, escalados por el
-// nivelEquipo REAL del asentamiento (1=garrote/túnica, 2=cota/espada,
-// 3=placas/hacha) — la primera vez que subir de nivel de equipo se nota
-// jugando, no solo en una fila de SQLite. Placeholder de balance, mismo
-// criterio que el resto de números de referencia del proyecto.
-const STATS_POR_RANGO: Record<RangoTropa, { vida: number; ataque: number; defensa: number }> = {
-  recluta: { vida: 25, ataque: 5, defensa: 1 },
-  guardia: { vida: 50, ataque: 9, defensa: 4 },
-  lider: { vida: 90, ataque: 15, defensa: 7 },
-};
-const FACTOR_POR_NIVEL_EQUIPO: Record<number, number> = { 1: 1, 2: 1.3, 3: 1.6 };
-
-// Loot al morir una tropa (cadáver looteable, docs/GDD_Caza.md — mismo
-// mecanismo que un animal, "cadaver:lootear"): materiales YA existentes en
-// el catálogo, nada nuevo que inventar — escala con el rango, no con el
-// nivelEquipo (el equipo real que llevaba puesto no se puede lootear
-// todavía, ver docs/GDD_Faccion_Bandidos.md §7bis "fuera de esta pasada").
-const LOOT_POR_RANGO: Record<RangoTropa, { itemId: string; cantidad: number }[]> = {
-  recluta: [{ itemId: "madera_dura", cantidad: 1 }],
-  guardia: [{ itemId: "madera_dura", cantidad: 2 }, { itemId: "piedra_tallada", cantidad: 1 }],
-  lider: [{ itemId: "piedra_tallada", cantidad: 2 }, { itemId: "hierro", cantidad: 2 }],
-};
+import { STATS_POR_RANGO, FACTOR_POR_NIVEL_EQUIPO, LOOT_POR_RANGO } from "../mundo/guarnicionBandida";
 
 export interface OpcionesInterior {
   name?: string;
@@ -285,6 +257,11 @@ export class InteriorRoom extends RoomExteriorBase {
    * trae `spawnsEnemigos` bakeados como una mazmorra (eso es exclusivo de
    * mazmorras/src/generarMazmorra.js), así que se reutilizan las mismas
    * casillas pisables que ya usa "vida en interiores" para NPCs civiles.
+   *
+   * Solo guardia/líder están AQUÍ dentro — los reclutas están fuera, de
+   * patrulla (docs/GDD_Faccion_Bandidos.md §7ter, RegionRoom.poblarPatrullaBandida):
+   * "simulamos que están gathereando", así que no se les puebla también
+   * quietos en el cuartel a la vez (serían la misma tropa en dos sitios).
    */
   private async poblarGuarnicionBandida() {
     const bd = await obtenerBdCompartida();
@@ -292,7 +269,7 @@ export class InteriorRoom extends RoomExteriorBase {
     if (asentamiento.bando !== "bandido") return;
 
     const tropas = await bd.listarTropas(this.opciones.mapaId);
-    const vivas = tropas.filter((t) => t.estado === "vivo");
+    const vivas = tropas.filter((t) => t.estado === "vivo" && t.rango !== "recluta");
     const factor = FACTOR_POR_NIVEL_EQUIPO[asentamiento.nivelEquipo] ?? 1;
     const puntos = [
       ...(this.interior.salasPorTipo.get("sala_comun") ?? []),

@@ -11,8 +11,8 @@
 
 export type Bando = "A" | "B";
 
-/** Qué hay que reconstruir en la room de arena si el participante NO es un jugador (fauna/enemigo sin cliente). */
-export type TipoEntidadNoJugador = "fauna" | "enemigo";
+/** Qué hay que reconstruir en la room de arena si el participante NO es un jugador (fauna/enemigo/npc sin cliente). */
+export type TipoEntidadNoJugador = "fauna" | "enemigo" | "npc";
 
 /** Todo lo que el cliente necesita mandar de vuelta para reconstruir la URL exacta de la que salió (docs/GDD_Combate.md §9.2) — opaco para el servidor, solo se relee al volver. */
 export type RetornoJugador = Record<string, string | number>;
@@ -29,6 +29,8 @@ export interface ParticipanteArena {
   enemigoId?: string;
   variante?: number;
   esBoss?: boolean;
+  /** Solo si tipoEntidad==="npc" (docs/GDD_Faccion_Bandidos.md §7ter, patrulla bandida) — nombre del Npc real de origen, para reconstruirlo en la arena. */
+  nombreNpc?: string;
   /** Solo si esJugador — nombre estable del jugador (sessionId cambia al reconectar a la room nueva; el nombre no). */
   nombreJugador?: string;
   hp: number;

@@ -6080,6 +6080,30 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         return;
       }
     }
+
+    // Patrullas bandidas (docs/GDD_Faccion_Bandidos.md §7ter, pedido
+    // 2026-08-30: "el depredador en agua debe funcionar como el depredador
+    // de tierra... y ahora la patrulla de ciudadanos como un animal, al
+    // estar a x distancia el jugador entra en modo combate") — mismo
+    // mecanismo de agro que la fauna peligrosa de arriba, para cualquier
+    // `Npc` marcado `hostil` (hoy solo las patrullas de reclutas bandidos,
+    // RegionRoom.poblarPatrullaBandida) — un civil normal de poblacion/
+    // nunca tiene `hostil:true`, así que esto no les afecta en nada.
+    for (const [npcId, npc] of this.state.npcs.entries()) {
+      if (!npc.hostil) continue;
+      if (this.combatePorUnidad(npcId) || this.enOtraArena.has(npcId)) continue;
+
+      let masCercano: { id: string; d: number } | null = null;
+      for (const [jugadorId, jugador] of this.state.players.entries()) {
+        if (this.combatePorUnidad(jugadorId)) continue;
+        const d = Math.hypot(jugador.x - npc.x, jugador.y - npc.y);
+        if (d <= RADIO_AGRO_DEFECTO && (!masCercano || d < masCercano.d)) masCercano = { id: jugadorId, d };
+      }
+      if (masCercano) {
+        this.iniciarCombateFaunaVsJugador(npcId, masCercano.id);
+        return;
+      }
+    }
   }
 
   /** Abre el combate interactivo real fauna-vs-jugador (bando B=fauna, A=jugador) — mismo montaje de arena/CombateSchema/ventana que manejarCombateIniciar, sin `esModoCaza` (la fauna peligrosa nunca es presa pasiva) ni `client`/`retorno` (dispara la propia fauna: el jugador vuelve al Hub por defecto al terminar, mismo fallback que ya usa ArenaCombateRoom para un PvP sin retorno capturado). */
@@ -6176,6 +6200,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         const stats = this.statsCombatiente(id)!;
         combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
       }
+      // Patrulla bandida (docs/GDD_Faccion_Bandidos.md §7ter, pedido
+      // 2026-08-30: "si va un grupo de 5, uno lo ve entra en combate y se
+      // unirían los 5 de al lado") — mismo criterio que Enemigo: un `Npc`
+      // `hostil` SIEMPRE se une si anda cerca, nunca un civil normal.
+      for (const [id, n] of this.state.npcs.entries()) {
+        if (combate.unidades.has(id) || !n.hostil) continue;
+        if (Math.hypot(n.x - origenX, n.y - origenY) > RADIO_INTERACCION) continue;
+        const stats = this.statsCombatiente(id)!;
+        combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
+      }
     }
 
     // Roster para la room de arena — la fuente de verdad de este combate
@@ -6223,6 +6257,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         if (esEnemigo) {
           const e = this.state.enemigos.get(u.id)!;
           participantes.push({ ...base, tipoEntidad: "enemigo", enemigoId: e.enemigoId, variante: e.variante, esBoss: e.esBoss });
+        } else if (this.state.npcs.has(u.id)) {
+          // Patrulla bandida (docs/GDD_Faccion_Bandidos.md §7ter) — un Npc
+          // hostil auto-unido arriba se reconstruye en la arena igual que
+          // cualquier otro Npc, solo que `hostil:true` desde el principio.
+          const n = this.state.npcs.get(u.id)!;
+          participantes.push({ ...base, tipoEntidad: "npc", nombreNpc: n.nombre });
         } else {
           const f = this.state.fauna.get(u.id);
           participantes.push({ ...base, tipoEntidad: "fauna", especieId: f?.especieId ?? "" });
