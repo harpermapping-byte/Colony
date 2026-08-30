@@ -13,7 +13,7 @@
 
   "clavos_hierro": {
     "oficio": "herrero",
-    "mesas": ["yunque"],
+    "mesas": ["yunque_tocon"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "lingote_hierro", "cantidad": 1 }],
     "resultado": { "itemId": "clavos", "cantidad": 10 },
@@ -21,7 +21,7 @@
   },
   "martillo_acero": {
     "oficio": "herrero",
-    "mesas": ["martillo_pilon"],
+    "mesas": ["martinete"],
     "nivelMinimo": 3,
     "insumos": [
       { "itemId": "acero", "cantidad": 1 },
@@ -44,7 +44,7 @@
   },
   "pico_minero_tallado": {
     "oficio": "picapedrero",
-    "mesas": ["mesa_talla_piedra"],
+    "mesas": ["banco_clasificacion_cincelado"],
     "nivelMinimo": 2,
     "insumos": [
       { "itemId": "piedra_tallada", "cantidad": 2 },
@@ -55,7 +55,7 @@
   },
   "mochila_cuero_curtido": {
     "oficio": "curtidor",
-    "mesas": ["mesa_tenido_cuero"],
+    "mesas": ["tina_curtido"],
     "nivelMinimo": 2,
     "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
     "resultado": { "itemId": "mochila_cuero", "cantidad": 1 },
@@ -63,7 +63,7 @@
   },
   "silla_montar_curtida": {
     "oficio": "curtidor",
-    "mesas": ["mesa_tenido_cuero"],
+    "mesas": ["tina_curtido"],
     "nivelMinimo": 2,
     "insumos": [
       { "itemId": "cuero_curtido", "cantidad": 4 },
@@ -95,7 +95,7 @@
 
   "harina": {
     "oficio": "molinero",
-    "mesas": ["muela_piedra"],
+    "mesas": ["molino_mano"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "trigo", "cantidad": 3 }],
     "resultado": { "itemId": "harina", "cantidad": 4 },
@@ -104,12 +104,12 @@
   },
   "masa_pan": {
     "oficio": "molinero",
-    "mesas": ["amasadora"],
+    "mesas": ["amasadora", "artesa_amasado"],
     "nivelMinimo": 1,
     "insumos": [{ "itemId": "harina", "cantidad": 2 }],
     "resultado": { "itemId": "masa_pan", "cantidad": 1 },
     "tiempoBaseSeg": 8,
-    "_nota": "Agua libre (mismo criterio que cocina:llenarAgua) — no consume ningún ítem de agua, no existe como tal en el inventario."
+    "_nota": "Agua libre (mismo criterio que cocina:llenarAgua) — no consume ningún ítem de agua, no existe como tal en el inventario. docs/GDD_Profesiones.md (2026-08-30): fusionada con la receta duplicada 'masa_pan_artesa' — panaderia/amasadora y molino/artesa_amasado nunca coinciden en la misma sala (mismo patrón multi-edificio ya aceptado para curtidor/joyero), así que ambas mesas siguen siendo válidas para esta ÚNICA receta."
   },
   "pan": {
     "oficio": "molinero",
@@ -130,7 +130,7 @@
   },
   "olla_metal": {
     "oficio": "herrero",
-    "mesas": ["yunque"],
+    "mesas": ["yunque_tocon"],
     "nivelMinimo": 2,
     "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }],
     "resultado": { "itemId": "olla_metal", "cantidad": 1 },
@@ -266,7 +266,7 @@
   },
   "instrumental_cirugia": {
     "oficio": "herrero",
-    "mesas": ["yunque"],
+    "mesas": ["yunque_tocon"],
     "nivelMinimo": 2,
     "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }],
     "resultado": { "itemId": "instrumental_cirugia", "cantidad": 1 },
@@ -1289,15 +1289,6 @@
     "resultado": { "itemId": "jarra_cerveza", "cantidad": 1 },
     "tiempoBaseSeg": 30,
     "_nota": "docs/GDD_Profesiones.md — jarra_cerveza ya existía como item sin ninguna receta."
-  },
-  "masa_pan_artesa": {
-    "oficio": "molinero",
-    "mesas": ["artesa_amasado"],
-    "nivelMinimo": 1,
-    "insumos": [{ "itemId": "harina", "cantidad": 2 }],
-    "resultado": { "itemId": "masa_pan", "cantidad": 1 },
-    "tiempoBaseSeg": 8,
-    "_nota": "docs/GDD_Profesiones.md — misma masa_pan de siempre, pero craftable también en la mesa nueva de molinero (artesa_amasado) sin duplicar el item."
   },
   "protesis_metal_craft": {
     "oficio": "curandero",

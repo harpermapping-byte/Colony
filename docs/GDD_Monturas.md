@@ -145,7 +145,7 @@ equipa uno mismo:
   (`bd.ponerMonturaMascota`, compare-and-swap por `jugadorId` como el resto
   de mutaciones de mascota) y en el Schema.
 - **Receta** (`items/catalogo/recetas.json:silla_montar_curtida`): oficio
-  curtidor, mesa `mesa_tenido_cuero` (misma que `mochila_cuero_curtido`),
+  curtidor, mesa `tina_curtido` (misma que `mochila_cuero_curtido`),
   4× `cuero_curtido` + 1× `madera_dura` — así hay una forma real de
   conseguirla sin inventar un ítem sin origen.
 - **Persistencia**: columna nueva `mascotas.montura` (SQLite `INTEGER
