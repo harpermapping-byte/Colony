@@ -20,6 +20,7 @@ import {
   buscarInstanciaJugador,
   InventarioJugador,
   CatalogoItems,
+  comidaSirveParaDieta,
 } from "../src/inventario/inventario";
 
 const catalogo: CatalogoItems = cargarCatalogoItems();
@@ -27,7 +28,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 239); // 211 (205 agricultura/pesca/cocina/equipo/caza + 6 ganadería) + 28 semilla_<especie> de árbol (docs/GDD_Bosques.md, una por especie maderable de vegetacion.json)
+  assert.strictEqual(ids.length, 240); // 239 (211 agricultura/pesca/cocina/equipo/caza/ganadería + 28 semilla_<especie> de árbol, docs/GDD_Bosques.md) + silla_montar (docs/GDD_Monturas.md, 2026-08-30)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");
@@ -369,4 +370,26 @@ test("buscarInstanciaJugador: encuentra una instancia tanto en el cuerpo como de
   assert.ok(encontrado);
   assert.strictEqual(encontrado!.contenedorId, "espalda");
   assert.strictEqual(buscarInstanciaJugador(inv, 999999), null);
+});
+
+// docs/GDD_Monturas.md (pedido 2026-08-30): "dar de comer" ya no acepta
+// cualquier comidaMascota — tiene que encajar con la dieta real de la especie.
+test("comidaSirveParaDieta", () => {
+  const carneRoja = catalogo["carne_roja"]; // comidaMascota, origenCocina "animal"
+  const zanahoria = catalogo["zanahoria"]; // comidaMascota, origenCocina "vegetal"
+  const hierro = catalogo["hierro"]; // ni siquiera comidaMascota
+
+  assert.strictEqual(comidaSirveParaDieta(carneRoja, "carnivoro"), true);
+  assert.strictEqual(comidaSirveParaDieta(carneRoja, "herbivoro"), false, "un herbívoro no come carne");
+  assert.strictEqual(comidaSirveParaDieta(zanahoria, "herbivoro"), true);
+  assert.strictEqual(comidaSirveParaDieta(zanahoria, "carnivoro"), false, "un carnívoro no come verdura");
+  assert.strictEqual(comidaSirveParaDieta(carneRoja, "omnivoro"), true, "un omnívoro come de todo");
+  assert.strictEqual(comidaSirveParaDieta(zanahoria, "omnivoro"), true, "un omnívoro come de todo");
+  assert.strictEqual(comidaSirveParaDieta(hierro, "carnivoro"), false, "sin comidaMascota, nunca sirve");
+
+  // sin dato de un lado u otro = universal (racion_viaje sin origenCocina, o especie sin dieta en catálogo)
+  const racionViaje = catalogo["racion_viaje"];
+  assert.strictEqual(comidaSirveParaDieta(racionViaje, "herbivoro"), true);
+  assert.strictEqual(comidaSirveParaDieta(racionViaje, "carnivoro"), true);
+  assert.strictEqual(comidaSirveParaDieta(carneRoja, undefined), true, "especie sin dieta conocida: acepta cualquier comidaMascota");
 });

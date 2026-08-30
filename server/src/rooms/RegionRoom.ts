@@ -13,14 +13,14 @@ import { obtenerBdCompartida } from "../datos/bdCompartida";
 import { cargarParcelasDeReservas } from "../construccion/parcelas";
 import { esJarlGlobal } from "../construccion/construccion";
 import { ventaJugadorPermitida, precioInmueble } from "../propiedades/propiedades";
-import { quitarItem } from "../inventario/inventario";
-import { sincronizarContenedor } from "../inventario/sincronizarSchema";
 
 // Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): "si se les da de comer
-// unas 5 veces, podrás convertirlo en tu mascota" — SOLO fauna urbana
-// domesticable (perro/gato, catalogoCombate.domesticable), y solo aquí:
-// RegionRoom es la única room con fauna urbana viva (GestorFauna).
-const VECES_COMIDA_PARA_DOMESTICAR = 5;
+// unas 5 veces, podrás convertirlo en tu mascota" — fauna URBANA
+// domesticable (perro/gato/caballo/vaca/..., catalogoCombate.domesticable);
+// RegionRoom es la única room con fauna urbana viva (GestorFauna). El
+// mecanismo compartido (comida diet-aware, progreso, crear mascota) vive en
+// RoomExteriorBase.manejarMascotaDarComidaGenerico desde docs/GDD_Monturas.md
+// (2026-08-30) — HubRoom tiene su propio equivalente para fauna salvaje.
 
 interface OpcionesRegion {
   name?: string;
@@ -60,13 +60,6 @@ export class RegionRoom extends RoomExteriorBase {
   // ya resuelto — undefined si el bake de esta región no trae fauna.json.
   private gestorFauna?: GestorFauna;
   private catalogoCombateFauna: CatalogoCombateFauna = {};
-  // Progreso de domesticación (docs/GDD_Mascotas.md) — EN MEMORIA, vive y
-  // muere con la room (mismo criterio que craftesEnCurso/inputs): si se
-  // reinicia el servidor a medias, se pierde el progreso, aceptable en v1.
-  // Solo cuenta quien esté alimentando ACTUALMENTE: si otro jugador le da de
-  // comer al mismo animal, el progreso se reinicia a su nombre (evita que
-  // dos desconocidos se "repartan" la misma mascota sin querer).
-  private progresoDomesticar = new Map<string, { sessionId: string; veces: number }>();
 
   async onCreate(options: OpcionesRegion) {
     if (!options?.mapaId) throw new Error("RegionRoom necesita options.mapaId");
@@ -202,8 +195,7 @@ export class RegionRoom extends RoomExteriorBase {
   private manejarMascotaDarComida(client: Client) {
     if (!this.gestorFauna) return client.send("mascota:error", { motivo: "sin_fauna_aqui" });
     const player = this.state.players.get(client.sessionId);
-    const contenedor = this.inventarios.get(client.sessionId);
-    if (!player || !contenedor) return;
+    if (!player) return;
 
     let faunaId: string | null = null;
     let mejorDist = RADIO_INTERACCION;
@@ -212,29 +204,10 @@ export class RegionRoom extends RoomExteriorBase {
       const d = Math.hypot(f.x - player.x, f.y - player.y);
       if (d < mejorDist) { mejorDist = d; faunaId = id; }
     });
-    if (!faunaId) return client.send("mascota:error", { motivo: "nada_cerca" });
-
-    const it = contenedor.items.find((i) => this.catalogoItems[i.itemId]?.comidaMascota === true);
-    if (!it) return client.send("mascota:error", { motivo: "sin_comida" });
-    const resultado = quitarItem(contenedor, it.id, 1);
-    if (!resultado.ok) return client.send("mascota:error", { motivo: resultado.motivo ?? "sin_comida" });
-    sincronizarContenedor(player.inventario.cuerpo, contenedor);
-
-    let progreso = this.progresoDomesticar.get(faunaId);
-    if (!progreso || progreso.sessionId !== client.sessionId) progreso = { sessionId: client.sessionId, veces: 0 };
-    progreso.veces++;
-
-    if (progreso.veces >= VECES_COMIDA_PARA_DOMESTICAR) {
-      this.progresoDomesticar.delete(faunaId);
-      const especieId = this.state.fauna.get(faunaId)!.especieId;
-      this.gestorFauna.quitar(faunaId);
-      void this.crearMascota(client, especieId).then((mascota) => {
-        client.send("mascota:domesticada", { mascotaId: mascota.id, especieId });
-      });
-    } else {
-      this.progresoDomesticar.set(faunaId, progreso);
-      client.send("mascota:progreso", { faunaId, veces: progreso.veces, faltan: VECES_COMIDA_PARA_DOMESTICAR - progreso.veces });
-    }
+    const candidato = faunaId
+      ? { faunaId, especieId: this.state.fauna.get(faunaId)!.especieId, dieta: this.catalogoCombateFauna[this.state.fauna.get(faunaId)!.especieId]?.dieta }
+      : null;
+    void this.manejarMascotaDarComidaGenerico(client, candidato, (id) => this.gestorFauna!.quitar(id));
   }
 
   /** Propiedades comerciales (docs/GDD_Propiedades.md) — inmuebles ENTEROS de esta región. No-op si el bake no reservó ninguno. */

@@ -146,6 +146,14 @@ export class Player extends Schema {
   // sesiones todavía — mismo criterio que `atributos`/`vitales`/`gremioId`,
   // esperando el login real (ver `server/src/datos/bd.ts`, tabla `jugadores`).
   @type("string") oficio = "";
+  // Montura (docs/GDD_Monturas.md, pedido 2026-08-30): "" = a pie. Montado,
+  // el PJ y la mascota son UNA sola entidad física (docs/GDD_Mecanicas.md
+  // §"Monturas acordado 2026-08-27) — el servidor solo simula al jugador,
+  // con la velocidad/medio de la montura; la mascota desaparece de
+  // state.mascotas mientras dura (RoomExteriorBase.manejarMascotaMontar).
+  @type("string") monturaEspecieId = "";
+  /** id de la fila `mascotas` (BD) que se está montando — 0 = ninguna. Para saber a cuál devolver el Schema al desmontar. */
+  @type("number") monturaMascotaId = 0;
 }
 
 // Agente móvil publicado (NPC de asentamiento; mañana bárbaros/fauna con el
@@ -230,6 +238,8 @@ export class Mascota extends Schema {
   @type("string") especieId = "";
   /** Nombre del jugador dueño — SOLO para la etiqueta del cliente, la lógica de "a quién sigue" vive en memoria del servidor (nunca en el Schema). */
   @type("string") duenoNombre = "";
+  /** docs/GDD_Monturas.md — tiene silla puesta (mascota:ponerMontura) y por tanto se puede `mascota:montar`. Mientras el dueño la está montando, esta entrada DESAPARECE del Schema (fusionada en Player, ver monturaEspecieId) — vuelve a aparecer al desmontar. */
+  @type("boolean") montura = false;
 }
 
 // Objeto soltado al mundo por un jugador (fase 2 de inventario, "soltar" —

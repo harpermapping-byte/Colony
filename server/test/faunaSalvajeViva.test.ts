@@ -323,6 +323,51 @@ test("matarIndividuo: tras matar, desactivarSector no vuelve a guardar ni resuci
   assert.strictEqual(salida.size, 0);
 });
 
+// docs/GDD_Ganaderia.md + docs/GDD_Monturas.md (pedido 2026-08-30): domesticar
+// es DISTINTO de matarIndividuo — sin cadáver (para que un ciervo tameado no
+// deje un cuerpo looteable ni cuente como caza), aunque reusa el mismo
+// estado "muerto" en BD (el único chequeo real, `faunaSalvajeSector.ts:
+// vivo = estado==="vivo"`, ya trata cualquier valor distinto de "vivo" como
+// no-vivo, así que no hace falta un tercer estado).
+test("domesticar: quita al individuo del estado de Colyseus, sin cadáver, devuelve su especie", async () => {
+  const { gestor, salida, bd } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const id = [...salida.keys()][0];
+  const animal = salida.get(id)!;
+  animal.x = 12.3;
+  animal.y = 7.7;
+
+  const especieId = await gestor.domesticar(id);
+
+  assert.strictEqual(especieId, "lobo");
+  assert.strictEqual(salida.size, 0, "desaparece del estado de Colyseus");
+  assert.strictEqual(gestor.cantidadViva(), 0);
+  assert.strictEqual(bd.cadaveres.length, 0, "domesticar nunca crea cadáver, a diferencia de matarIndividuo");
+
+  const filaGuardada = bd.filas.get("0,0")!.find((f) => f.id === id)!;
+  assert.strictEqual(filaGuardada.estado, "muerto", "mismo valor que matarIndividuo — el resto del sistema solo necesita saber que ya no vive en la fauna salvaje");
+  assert.strictEqual(filaGuardada.x, 12.3);
+  assert.strictEqual(filaGuardada.y, 7.7);
+});
+
+test("domesticar: null si el id no está activo (ya quitado o inexistente)", async () => {
+  const { gestor } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const resultado = await gestor.domesticar("no-existe");
+  assert.strictEqual(resultado, null);
+});
+
+test("domesticar: tras domesticar, desactivarSector no vuelve a guardarlo ni lo resucita", async () => {
+  const { gestor, salida, bd } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const id = [...salida.keys()][0];
+  await gestor.domesticar(id);
+  const guardadosTrasQuitar = bd.guardados.length;
+  await gestor.desactivarSector({ sectorX: 0, sectorY: 0 });
+  assert.strictEqual(bd.guardados.length, guardadosTrasQuitar, "ya no está activo, desactivar no lo vuelve a tocar");
+  assert.strictEqual(salida.size, 0);
+});
+
 test("activarSector: la vida/vidaMax/ataque del esquema salen del catálogo de combate de la especie", async () => {
   const { gestor, salida } = crearGestor();
   await gestor.activarSector({ sectorX: 0, sectorY: 0 });

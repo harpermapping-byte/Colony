@@ -443,9 +443,10 @@ Reglas pactadas con el usuario:
   pantalla/lejos cuando haga falta (el bucle de animables ya está
   centralizado en `game.ts` — es un `if` de distancia).
 
-**Monturas (acordado 2026-08-27).** Habrá animales montables: el PJ se
-sube encima y **se convierten en UNA sola cosa** a todos los efectos.
-Reglas pactadas para cuando se implemente:
+**Monturas — HECHO (2026-08-30, ver `docs/GDD_Monturas.md` para el diseño
+completo).** Animales montables: el PJ se sube encima y **se convierten en
+UNA sola cosa** a todos los efectos. Reglas pactadas el 2026-08-27,
+implementadas tal cual:
 
 - **Servidor — una entidad física**: montar fusiona los dos cuerpos en uno.
   Se simula SOLO la montura (su velocidad, su radio de colisión, su medio —

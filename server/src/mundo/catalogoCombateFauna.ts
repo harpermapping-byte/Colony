@@ -10,6 +10,7 @@
 import * as fs from "fs";
 
 export type CategoriaVidaAnimal = "cria" | "pequeno" | "mediano" | "grande" | "alfa";
+export type DietaAnimal = "herbivoro" | "carnivoro" | "omnivoro";
 
 /** docs/GDD_Ganaderia.md — producto "vivo" que da un animal de granja periódicamente (sin matarlo), vía resolverProduccion. Una especie puede dar varios (oveja: lana Y leche). */
 export type CategoriaProductoGranja = "leche" | "huevos" | "lana";
@@ -20,7 +21,7 @@ export interface EstadisticasCombateAnimal {
   ataque: number;
   /** docs/GDD_Combate.md §7 (autosimulación NPC-vs-animal): si esta especie puede iniciar un encuentro hostil con un NPC. */
   peligroso: boolean;
-  /** docs/GDD_Mascotas.md — perro/gato (fauna urbana) pueden convertirse en mascota a base de comida; el resto de fauna, no. */
+  /** docs/GDD_Mascotas.md — perro/gato/vaca/caballo/... pueden convertirse en mascota a base de comida; el resto de fauna, no. */
   domesticable: boolean;
   /** docs/GDD_Caza.md — id de items/catalogo/items.json que da el loot automático al matar (carne_roja/carne_blanca/...); ausente = sin carne útil. */
   categoriaRecursoCarne?: string;
@@ -28,6 +29,8 @@ export interface EstadisticasCombateAnimal {
   categoriaRecursoPiel?: string;
   /** docs/GDD_Ganaderia.md — qué productos "vivos" da esta especie como animal de granja; ausente/vacío = solo carne/piel al sacrificar. */
   categoriaProductoGranja?: CategoriaProductoGranja[];
+  /** docs/GDD_Monturas.md — qué comida (comidaMascota + origenCocina) sirve para domesticar a ESTA especie: solo la de su dieta real, nunca cualquiera. undefined = sin dato (acepta cualquier comidaMascota, mismo criterio que racion_viaje sin origenCocina). */
+  dieta?: DietaAnimal;
 }
 
 export type CatalogoCombateFauna = Record<string, EstadisticasCombateAnimal>;
@@ -41,6 +44,7 @@ interface EntradaCatalogoBaker {
   categoriaRecursoCarne?: string;
   categoriaRecursoPiel?: string;
   categoriaProductoGranja?: CategoriaProductoGranja[];
+  dieta?: DietaAnimal;
 }
 
 // Relleno si una especie llegara a faltar en el catálogo (no debería pasar
@@ -68,6 +72,7 @@ export function cargarCatalogoCombateFauna(rutaAnimalesJson: string): CatalogoCo
       categoriaRecursoCarne: datos.categoriaRecursoCarne,
       categoriaRecursoPiel: datos.categoriaRecursoPiel,
       categoriaProductoGranja: datos.categoriaProductoGranja,
+      dieta: datos.dieta,
     };
   }
   return catalogo;

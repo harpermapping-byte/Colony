@@ -231,12 +231,13 @@ export class GestorFaunaSalvaje {
   }
 
   /**
-   * Domestica a un individuo activo (docs/GDD_Ganaderia.md, pedido
-   * 2026-08-30): mismo camino de salida que `matarIndividuo` (marca
-   * `estado:"muerto"` — reusa el mismo valor, el resto del sistema solo
-   * necesita saber "ya no vive en la fauna salvaje", el motivo real no le
-   * importa — y lo quita del sector activo) pero SIN crear cadáver ni
-   * loot: pasa a ser un `AnimalGranja` de un jugador, no murió. Devuelve
+   * Domestica a un individuo activo (docs/GDD_Ganaderia.md +
+   * docs/GDD_Monturas.md, pedido 2026-08-30, mismo método para ambas: un
+   * `AnimalGranja` de granja y una mascota/montura salen de aquí igual):
+   * mismo camino de salida que `matarIndividuo` (marca `estado:"muerto"` —
+   * reusa el mismo valor, el resto del sistema solo necesita saber "ya no
+   * vive en la fauna salvaje", el motivo real no le importa — y lo quita
+   * del sector activo) pero SIN crear cadáver ni loot: no murió. Devuelve
    * la especie para que quien llama sepa qué acaba de domesticar, o
    * `null` si el id no está activo ahora mismo.
    */

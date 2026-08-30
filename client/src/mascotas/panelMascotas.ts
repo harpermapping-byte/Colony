@@ -12,6 +12,8 @@ export interface MascotaVista {
   especieId: string;
   ubicacion: "siguiendo" | "propiedad";
   propiedadId: string | null;
+  /** docs/GDD_Monturas.md — ya tiene silla puesta (mascota:ponerMontura), se puede montar. */
+  montura: boolean;
 }
 
 export interface ProgresoDomesticar {
@@ -23,6 +25,8 @@ export interface OpcionesPanelMascotas {
   contenedor: HTMLElement;
   llamar(mascotaId: number): void;
   dejarEnPropiedad(mascotaId: number, propiedadId: string): void;
+  /** docs/GDD_Monturas.md — silla propia sobre esta mascota (sin mascotaId: el servidor auto-apunta igual, pero el botón ya sabe a cuál). */
+  ponerMontura(mascotaId: number): void;
 }
 
 export class PanelMascotas {
@@ -71,7 +75,7 @@ export class PanelMascotas {
     ayuda.style.fontSize = "11px";
     ayuda.style.opacity = "0.8";
     ayuda.style.marginBottom = "6px";
-    ayuda.textContent = "Junto a un perro/gato: tecla G para darle de comer (5 veces lo convierte en tu mascota).";
+    ayuda.textContent = "Tecla G: dar de comer (5 veces la convierte en tu mascota). Con silla puesta: N para ponérsela cerca, M para montar/desmontar, Espacio para saltar montado.";
     this.raiz.appendChild(ayuda);
 
     if (this.progreso) {
@@ -101,7 +105,8 @@ export class PanelMascotas {
       fila.style.gap = "6px";
 
       const texto = document.createElement("span");
-      texto.textContent = `${m.especieId} (${m.ubicacion === "siguiendo" ? "te sigue" : `en propiedad ${m.propiedadId}`})`;
+      const etiquetaMontura = m.montura ? " 🐴" : "";
+      texto.textContent = `${m.especieId}${etiquetaMontura} (${m.ubicacion === "siguiendo" ? "te sigue" : `en propiedad ${m.propiedadId}`})`;
       fila.appendChild(texto);
 
       if (m.ubicacion === "propiedad") {
@@ -110,6 +115,15 @@ export class PanelMascotas {
         llamar.onclick = () => this.opciones.llamar(m.id);
         fila.appendChild(llamar);
       } else {
+        // Montura (docs/GDD_Monturas.md): sin silla, ofrece ponérsela (el
+        // servidor exige especie montable + un ítem esMontura en el
+        // inventario — aquí solo se pide, igual que el resto del panel).
+        if (!m.montura) {
+          const ponerSilla = document.createElement("button");
+          ponerSilla.textContent = "Poner silla";
+          ponerSilla.onclick = () => this.opciones.ponerMontura(m.id);
+          fila.appendChild(ponerSilla);
+        }
         const dejar = document.createElement("button");
         dejar.textContent = "Dejar aquí";
         dejar.onclick = () => {

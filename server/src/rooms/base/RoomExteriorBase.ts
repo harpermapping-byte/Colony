@@ -40,9 +40,11 @@ import {
   desequiparItem,
   calcularStatsEquipo,
   SLOTS_CONTENEDOR,
+  comidaSirveParaDieta,
 } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
+import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
 import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
@@ -214,11 +216,18 @@ const DURACION_DORMIR_MS = 20_000;
 const DANO_INANICION_POR_HORA = 8;
 
 // --- Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30) — el seguimiento
-// vive aquí (cualquier room); "dar de comer"/domesticar vive en RegionRoom
-// (única room con fauna urbana). Placeholder de balance. ---
+// vive aquí (cualquier room); "dar de comer"/domesticar (manejarMascotaDarComidaGenerico,
+// abajo) también vive aquí desde docs/GDD_Monturas.md (2026-08-30) — cada
+// Room solo aporta CÓMO encuentra/quita a su candidato (RegionRoom: fauna
+// urbana vía GestorFauna; HubRoom: fauna salvaje vía GestorFaunaSalvaje),
+// el resto (comida diet-aware, progreso, crear mascota) es idéntico.
+// Placeholder de balance. ---
 const VEL_MASCOTA = 3.4; // ligeramente más lenta que VEL_ANDAR — sigue, no adelanta
 const DIST_SEGUIMIENTO_MASCOTA = 1.3; // separación objetivo respecto al dueño
 const DIST_TELEPORT_MASCOTA = 15; // el dueño cambió de sitio de golpe (portal/spawn) — no perseguir media room a pie
+const VECES_COMIDA_PARA_DOMESTICAR = 5;
+const DISTANCIA_SALTO_MONTURA = 2.5; // casillas de un salto
+const COOLDOWN_SALTO_MONTURA_MS = 3000;
 
 /** Lo que hay para coger en un punto: cuánto entra al inventario y qué hacer con la FUENTE si entró. */
 export interface ObjetoCogible extends Cogible {
@@ -305,6 +314,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private mascotaDuenoSesion = new Map<number, string>();
   private mascotasPorSesion = new Map<string, Set<number>>();
   private offsetMascota = new Map<number, { ang: number; dist: number }>();
+  // Domesticar (docs/GDD_Mascotas.md/docs/GDD_Monturas.md) — quién le está
+  // dando de comer a QUÉ individuo salvaje/urbano ahora mismo, vive y muere
+  // con la room (nunca en BD, se reinicia solo si nadie termina las 5 veces).
+  protected progresoDomesticar = new Map<string, { sessionId: string; veces: number }>();
+  // Montura (docs/GDD_Monturas.md, pedido 2026-08-30) — sessionId de quien
+  // está montado -> datos de la montura en curso; separado del Schema
+  // (Player.monturaEspecieId/monturaMascotaId solo replica lo visual, la
+  // velocidad real y el cooldown de salto viven aquí, server-only, mismo
+  // criterio que pescaPorSesion/tiempoMovimiento.
+  protected montadoPorSesion = new Map<string, { mascotaId: number; especieId: string; velocidad: number }>();
+  private cooldownSaltoMontura = new Map<string, number>(); // sessionId -> epoch ms del próximo salto permitido
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) ---
   // Solo InteriorRoom/DungeonRoom lo ponen a true (onCreate) — decide si
@@ -367,6 +387,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
   /** Progreso de "domesticar" un animal de granja (docs/GDD_Ganaderia.md) — mismo patrón que RegionRoom.progresoDomesticar (mascotas), pero aquí vive en la base para funcionar en cualquier room. */
   private progresoDomesticarGranja = new Map<string, { faunaId: string; veces: number }>();
+  // docs/GDD_Monturas.md — qué especies son `montable` y a qué velocidad
+  // (personajes/catalogo/animales_rig.json), cargado una vez por room igual
+  // que catalogoItems.
+  protected catalogoMonturas: CatalogoMonturas = cargarCatalogoMonturas();
   private siguienteObjetoMundoId = 1;
   // Asignado por HubRoom/RegionRoom tras cargar su mapa — habilita "coger" de
   // recolectables del bake exterior sin que esta base conozca su tipo
@@ -591,11 +615,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("combate:huir", (client, msg: { combateId?: string }) => this.manejarCombateHuir(client, msg));
 
     // --- Mascotas (docs/GDD_Mascotas.md) — disponibles en cualquier room
-    // con movimiento (Hub/Region/Interior): "dar de comer" es lo único
-    // atado a fauna urbana concreta (solo RegionRoom, registrado ahí).
+    // con movimiento (Hub/Region/Interior): "dar de comer" está atado a
+    // fauna concreta de cada room (urbana en RegionRoom, salvaje en
+    // HubRoom), cada una lo registra por su cuenta llamando al genérico de
+    // la base.
     this.onMessage("mascota:listar", (client) => this.manejarMascotaListar(client));
     this.onMessage("mascota:llamar", (client, msg: { mascotaId?: number }) => this.manejarMascotaLlamar(client, msg));
     this.onMessage("mascota:dejarEnPropiedad", (client, msg: { mascotaId?: number; propiedadId?: string }) => this.manejarMascotaDejarEnPropiedad(client, msg));
+
+    // --- Monturas (docs/GDD_Monturas.md, pedido 2026-08-30) ---
+    this.onMessage("mascota:ponerMontura", (client, msg: { mascotaId?: number }) => this.manejarMascotaPonerMontura(client, msg));
+    this.onMessage("mascota:montar", (client, msg: { mascotaId?: number }) => this.manejarMascotaMontar(client, msg));
+    this.onMessage("mascota:desmontar", (client) => this.manejarMascotaDesmontar(client));
+    this.onMessage("montura:saltar", (client, msg: { dx?: number; dy?: number }) => this.manejarMonturaSaltar(client, msg));
 
     // --- Twitch: disparadores de PRUEBA (docs/GDD_Twitch.md) — jarl-only,
     // mismo criterio que "inmueble:revocar"/el resto de herramientas admin
@@ -701,6 +733,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.equipoInventario.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
     this.solicitudesComercio.delete(client.sessionId);
+    // Montura (docs/GDD_Monturas.md): solo limpieza en memoria — la mascota
+    // sigue "siguiendo" en BD tal cual (nunca se persiste "montado"), vuelve
+    // a aparecer desmontada en la próxima room a la que entre el dueño.
+    this.montadoPorSesion.delete(client.sessionId);
+    this.cooldownSaltoMontura.delete(client.sessionId);
     // Comercio: desconectarse a medias cancela el trato entero (nada se
     // mueve, mismo criterio "todo o nada" que un hueco insuficiente).
     const comercioAbierto = this.comerciosPorSesion.get(client.sessionId);
@@ -1751,6 +1788,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     esquema.duenoNombre = duenoNombre;
     esquema.x = dueno.x;
     esquema.y = dueno.y;
+    esquema.montura = mascota.montura; // docs/GDD_Monturas.md — la silla persiste con la mascota, se ve al reaparecer
     this.state.mascotas.set(String(mascota.id), esquema);
     this.mascotaDuenoSesion.set(mascota.id, client.sessionId);
     this.offsetMascota.set(mascota.id, { ang: Math.random() * Math.PI * 2, dist: DIST_SEGUIMIENTO_MASCOTA });
@@ -1795,7 +1833,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const mascotas = await bd.listarMascotas(jugador.id);
-    client.send("mascota:lista", mascotas.map((m) => ({ id: m.id, especieId: m.especieId, ubicacion: m.ubicacion, propiedadId: m.propiedadId })));
+    client.send("mascota:lista", mascotas.map((m) => ({ id: m.id, especieId: m.especieId, ubicacion: m.ubicacion, propiedadId: m.propiedadId, montura: m.montura })));
   }
 
   private async manejarMascotaLlamar(client: Client, msg: { mascotaId?: number }) {
@@ -1823,6 +1861,194 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!ok) return client.send("mascota:error", { motivo: "no_es_tuya" });
     this.quitarMascotaDeSchemaLocal(msg.mascotaId);
     client.send("mascota:actualizada", { mascotaId: msg.mascotaId, ubicacion: "propiedad" as UbicacionMascota, propiedadId: msg.propiedadId });
+  }
+
+  /**
+   * "Dar de comer" genérico (docs/GDD_Monturas.md, pedido 2026-08-30) — el
+   * núcleo compartido entre RegionRoom (fauna urbana, `GestorFauna.quitar`
+   * síncrono) y HubRoom (fauna salvaje, `GestorFaunaSalvaje.domesticar`
+   * async, compartido con docs/GDD_Ganaderia.md): cada Room solo aporta
+   * CÓMO encuentra su candidato más cercano (Schema/gestor distinto) y CÓMO
+   * lo quita — comida diet-aware, progreso y creación de mascota son
+   * idénticos en los dos sitios.
+   */
+  protected async manejarMascotaDarComidaGenerico(
+    client: Client,
+    candidato: { faunaId: string; especieId: string; dieta?: "herbivoro" | "carnivoro" | "omnivoro" } | null,
+    quitarCandidato: (faunaId: string) => Promise<boolean> | boolean,
+  ) {
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!player || !contenedor) return;
+    if (!candidato) return client.send("mascota:error", { motivo: "nada_cerca" });
+
+    const it = contenedor.items.find((i) => comidaSirveParaDieta(this.catalogoItems[i.itemId], candidato.dieta));
+    if (!it) return client.send("mascota:error", { motivo: "sin_comida" });
+    const resultado = quitarItem(contenedor, it.id, 1);
+    if (!resultado.ok) return client.send("mascota:error", { motivo: resultado.motivo ?? "sin_comida" });
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    let progreso = this.progresoDomesticar.get(candidato.faunaId);
+    if (!progreso || progreso.sessionId !== client.sessionId) progreso = { sessionId: client.sessionId, veces: 0 };
+    progreso.veces++;
+
+    if (progreso.veces >= VECES_COMIDA_PARA_DOMESTICAR) {
+      this.progresoDomesticar.delete(candidato.faunaId);
+      const quitado = await quitarCandidato(candidato.faunaId);
+      if (!quitado) return; // se escapó/desactivó su sector justo entre medias (raro) — no crear una mascota fantasma
+      const mascota = await this.crearMascota(client, candidato.especieId);
+      client.send("mascota:domesticada", { mascotaId: mascota.id, especieId: candidato.especieId });
+    } else {
+      this.progresoDomesticar.set(candidato.faunaId, progreso);
+      client.send("mascota:progreso", { faunaId: candidato.faunaId, veces: progreso.veces, faltan: VECES_COMIDA_PARA_DOMESTICAR - progreso.veces });
+    }
+  }
+
+  // --- Monturas (docs/GDD_Monturas.md, pedido 2026-08-30) ---
+
+  /**
+   * Ponerle la silla a una mascota PROPIA ya domesticada y "siguiendo" cerca
+   * (mismo auto-apuntado por `RADIO_INTERACCION` que darComida/coger) —
+   * consume un ítem `esMontura` del inventario. Exige que la especie sea
+   * `montable` de catálogo (docs/GDD_Mecanicas.md "Monturas acordado
+   * 2026-08-27": "montable es un flag por especie, no por plantilla").
+   * Permanente: una vez con silla, siempre se puede montar.
+   */
+  /**
+   * Mascota PROPIA más cercana dentro de `RADIO_INTERACCION` que cumpla
+   * `filtro` — mismo criterio "sin UI de targeting" que darComida/coger:
+   * si el cliente ya manda un `mascotaId` explícito se respeta tal cual
+   * (validado igual, por dueño+distancia), si no se auto-apunta.
+   */
+  private mascotaPropiaCercana(client: Client, mascotaId: number | undefined, filtro: (e: Mascota) => boolean): { id: number; esquema: Mascota } | null {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return null;
+    if (typeof mascotaId === "number") {
+      const esquema = this.state.mascotas.get(String(mascotaId));
+      if (!esquema || this.mascotaDuenoSesion.get(mascotaId) !== client.sessionId) return null;
+      if (Math.hypot(esquema.x - player.x, esquema.y - player.y) > RADIO_INTERACCION) return null;
+      return filtro(esquema) ? { id: mascotaId, esquema } : null;
+    }
+    let mejor: { id: number; esquema: Mascota } | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    this.state.mascotas.forEach((esquema, clave) => {
+      const id = Number(clave);
+      if (this.mascotaDuenoSesion.get(id) !== client.sessionId || !filtro(esquema)) return;
+      const d = Math.hypot(esquema.x - player.x, esquema.y - player.y);
+      if (d < mejorDist) { mejorDist = d; mejor = { id, esquema }; }
+    });
+    return mejor;
+  }
+
+  private async manejarMascotaPonerMontura(client: Client, msg: { mascotaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    if (!player || !contenedor || !nombre) return;
+
+    const encontrada = this.mascotaPropiaCercana(client, msg?.mascotaId, (e) => !e.montura && !!this.catalogoMonturas[e.especieId]?.montable);
+    if (!encontrada) return client.send("mascota:error", { motivo: "nada_cerca" });
+    const { id: mascotaIdNum, esquema } = encontrada;
+
+    const it = contenedor.items.find((i) => this.catalogoItems[i.itemId]?.esMontura === true);
+    if (!it) return client.send("mascota:error", { motivo: "sin_silla" });
+    const resultado = quitarItem(contenedor, it.id, 1);
+    if (!resultado.ok) return client.send("mascota:error", { motivo: resultado.motivo ?? "sin_silla" });
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const ok = await bd.ponerMonturaMascota(mascotaIdNum, jugador.id);
+    if (!ok) return client.send("mascota:error", { motivo: "no_es_tuya_o_no_esta_cerca" });
+    esquema.montura = true;
+    client.send("mascota:actualizada", { mascotaId: mascotaIdNum, ubicacion: "siguiendo" as UbicacionMascota, montura: true });
+  }
+
+  /**
+   * Montar (docs/GDD_Mecanicas.md "Monturas acordado 2026-08-27"): fusiona
+   * jugador+mascota en UNA sola entidad física — la mascota desaparece del
+   * Schema (`quitarMascotaDeSchemaLocal`, igual que "dejar en propiedad")
+   * mientras dura, el jugador pasa a moverse a la velocidad de la montura
+   * (`actualizarMovimiento`, más abajo). `Player.monturaEspecieId` es lo
+   * único que el cliente necesita para colgar el rig del jinete + el prop
+   * de la silla del pivote `cuerpo` de la montura (client/src/render3d).
+   */
+  private manejarMascotaMontar(client: Client, msg: { mascotaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (this.montadoPorSesion.has(client.sessionId)) return client.send("mascota:error", { motivo: "ya_montado" });
+
+    const encontrada = this.mascotaPropiaCercana(client, msg?.mascotaId, (e) => e.montura && !!this.catalogoMonturas[e.especieId]?.montable);
+    if (!encontrada) return client.send("mascota:error", { motivo: "nada_cerca" });
+    const { id: mascotaIdNum, esquema } = encontrada;
+    const datosMontura = this.catalogoMonturas[esquema.especieId]!; // ya comprobado por el filtro de arriba
+
+    this.montadoPorSesion.set(client.sessionId, { mascotaId: mascotaIdNum, especieId: esquema.especieId, velocidad: datosMontura.velocidadMontura });
+    this.quitarMascotaDeSchemaLocal(mascotaIdNum);
+    player.monturaEspecieId = esquema.especieId;
+    player.monturaMascotaId = mascotaIdNum;
+  }
+
+  /** Desmontar: separa de nuevo en dos entidades — la mascota reaparece "siguiendo" justo donde está el jugador. */
+  private manejarMascotaDesmontar(client: Client) {
+    this.desmontarSesion(client);
+  }
+
+  /** Compartido con el auto-desmontar de combate/onLeave — `sessionId` directo, sin depender de tener un `Client` a mano. */
+  protected desmontarSesionId(sessionId: string) {
+    const montura = this.montadoPorSesion.get(sessionId);
+    if (!montura) return;
+    this.montadoPorSesion.delete(sessionId);
+    const player = this.state.players.get(sessionId);
+    if (!player) return;
+    player.monturaEspecieId = "";
+    player.monturaMascotaId = 0;
+    const nombre = player.name;
+    if (!nombre) return;
+    const esquema = new Mascota();
+    esquema.especieId = montura.especieId;
+    esquema.duenoNombre = nombre;
+    esquema.x = player.x;
+    esquema.y = player.y;
+    esquema.montura = true;
+    this.state.mascotas.set(String(montura.mascotaId), esquema);
+    this.mascotaDuenoSesion.set(montura.mascotaId, sessionId);
+    this.offsetMascota.set(montura.mascotaId, { ang: Math.random() * Math.PI * 2, dist: DIST_SEGUIMIENTO_MASCOTA });
+    let set = this.mascotasPorSesion.get(sessionId);
+    if (!set) { set = new Set(); this.mascotasPorSesion.set(sessionId, set); }
+    set.add(montura.mascotaId);
+  }
+
+  private desmontarSesion(client: Client) {
+    this.desmontarSesionId(client.sessionId);
+  }
+
+  /**
+   * Saltar (pedido 2026-08-30, "solo es para moverse más rápido y saltar
+   * nada más") — hop corto en la dirección en la que mira, ignora UN
+   * obstáculo sólido de golpe (valla/muro bajo/hueco estrecho) pero nunca
+   * sale del mapa ni aterriza en un medio distinto (un caballo no salta AL
+   * agua). Cooldown para que no sea un dash infinito.
+   */
+  private manejarMonturaSaltar(client: Client, msg: { dx?: number; dy?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !this.montadoPorSesion.has(client.sessionId)) return;
+    const ahora = Date.now();
+    if ((this.cooldownSaltoMontura.get(client.sessionId) ?? 0) > ahora) return;
+    let { dx = 0, dy = 0 } = msg ?? {};
+    const norma = Math.hypot(dx, dy);
+    if (norma < 0.01) return; // sin dirección (quieto): no hay hacia dónde saltar
+    dx /= norma; dy /= norma;
+
+    const medioActual = medioEn(this.mundo, player.x, player.y);
+    const destinoX = player.x + dx * DISTANCIA_SALTO_MONTURA;
+    const destinoY = player.y + dy * DISTANCIA_SALTO_MONTURA;
+    if (tipoEn(this.mundo, destinoX, destinoY) === TIPO.SOLIDO) return; // no atraviesa un muro/borde de mapa
+    if (medioEn(this.mundo, destinoX, destinoY) !== medioActual) return; // no cambia de medio de un salto (tierra<->agua)
+
+    player.x = destinoX;
+    player.y = destinoY;
+    this.cooldownSaltoMontura.set(client.sessionId, ahora + COOLDOWN_SALTO_MONTURA_MS);
   }
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) — implementa
@@ -4941,6 +5167,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     for (const p of participantes) {
       if (!p.esJugador) continue;
+      // Monturas (docs/GDD_Monturas.md, pedido 2026-08-30): "si entra en
+      // combate no aparece la montura, ni el PJ montado" — desmontar ANTES
+      // de mandarlo a la arena (nueva conexión de Colyseus, la montura no
+      // viaja con él). La mascota reaparece "siguiendo" en esta room.
+      this.desmontarSesionId(p.id);
       const c = this.clients.find((cl) => cl.sessionId === p.id);
       c?.send("portal:ir", { tipo: "combate", combateId, mapaArenaId });
     }
@@ -5095,13 +5326,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const idx = Math.floor(player.y) * this.mundo.ancho + Math.floor(player.x);
       const medio = medioEn(this.mundo, player.x, player.y);
       const seMueve = dir.x !== 0 || dir.y !== 0;
+      // Montura (docs/GDD_Mecanicas.md "Monturas acordado 2026-08-27"):
+      // "el input del jugador mueve a la montura" — sustituye ANDAR/CORRER
+      // enteros, misma tabla de terreno (`this.mundo.velocidad`), sin sprint
+      // ni gasto de estamina (no es el jugador quien corre).
+      const montura = this.montadoPorSesion.get(sessionId);
       // Sprint (docs/GDD_Personaje.md §3.4): solo en tierra, solo con
       // estamina de sobra — sin ella, corre igual que andar aunque el
       // cliente siga pidiendo `correr` (no hay penalización dura, solo se
       // pierde la ventaja de velocidad hasta que la estamina se regenere).
-      const corriendoDeVerdad = medio === TIPO.TIERRA && seMueve && !!dir.correr && player.vitales.estamina > 0;
+      const corriendoDeVerdad = !montura && medio === TIPO.TIERRA && seMueve && !!dir.correr && player.vitales.estamina > 0;
       let vel: number;
-      if (medio === TIPO.AGUA || medio === TIPO.AGUA_PROFUNDA) {
+      if (montura) {
+        vel = montura.velocidad * (this.mundo.velocidad[idx] ?? 1);
+      } else if (medio === TIPO.AGUA || medio === TIPO.AGUA_PROFUNDA) {
         vel = player.nivel < 0 ? VEL_BUCEAR : VEL_NADAR;
       } else if (corriendoDeVerdad) {
         vel = VEL_CORRER * (this.mundo.velocidad[idx] ?? 1);
@@ -5121,8 +5359,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // Resistencia por movimiento (docs/GDD_Personaje.md §3.4, pedido
       // 2026-08-30): tiempo REAL acumulado corriendo/andando en tierra —
       // solo se toca BD al cruzar el umbral, nunca cada tick (30hz sería
-      // reventar la BD por nada).
-      if (medio === TIPO.TIERRA && seMueve) {
+      // reventar la BD por nada). Nunca montado: no es el jugador quien se
+      // mueve, sería XP de Resistencia gratis a caballo.
+      if (!montura && medio === TIPO.TIERRA && seMueve) {
         const acumulado = this.tiempoMovimiento.get(sessionId) ?? { correr: 0, andar: 0 };
         if (corriendoDeVerdad) {
           acumulado.correr += dt;
@@ -5144,6 +5383,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (medioAhora === TIPO.TIERRA || medioAhora === TIPO.SOLIDO) {
         player.nivel = 0;
         player.estado = "tierra";
+      } else if (montura) {
+        // "un caballo no bucea" (docs/GDD_Mecanicas.md) — vadea a nivel
+        // superficie, nunca se sumerge.
+        player.nivel = 0;
+        player.estado = "nadando";
       } else {
         player.nivel = clamp(player.nivel, nivelMinimo(medioAhora), 0);
         player.estado = player.nivel < 0 ? "buceando" : "nadando";
