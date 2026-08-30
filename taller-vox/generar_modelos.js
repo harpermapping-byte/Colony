@@ -969,6 +969,7 @@ function clasificar(id, v) {
   const contenedorBajo = ["baul", "arcon", "cofre", "barril", "tinaja", "caldero", "cesta"];
   const tinas = ["tina_madera", "bañera"];
   if (ESTRUCTURALES[id]) return "ESTRUCTURAL";
+  if (id.startsWith("alfombra") || id === "circulo_ritual") return "ALFOMBRA";
   if (tinas.includes(id)) return "TINA";
   if (colgadoParedRe) return "COLGADO_PARED";
   if (camas.some((k) => id.includes(k))) return "CAMA";
@@ -1002,6 +1003,90 @@ function generarColgadoPared(id, v) {
   return generarPanelPared(v.huella, v.colorDebug, id);
 }
 
+// --- alfombras con patrones (pedido 2026-08-30: "que puedan tener patrones
+// MUY variados") ------------------------------------------------------------
+// Antes toda alfombra/círculo ritual caía a GENERICO (una caja de color
+// plano) — esto las trata como arquetipo propio: una losa muy fina (0.12
+// casillas de alto) pintada con uno de varios patrones geométricos por
+// vóxel, elegido por palabra clave del id (variante nombrada) o, si no hay
+// match, determinista por hash del propio id (para que hasta la alfombra
+// SIN variante nombrada salga con un patrón, no siempre lisa).
+const PATRONES_ALFOMBRA = ["liso", "rayas", "damero", "medallon", "concentrico", "cruz"];
+
+function elegirPatron(id) {
+  const s = id;
+  if (s.includes("ritual") || s.includes("tiza") || s.includes("sangre")) return "cruz";
+  if (s.includes("bordada") || s.includes("oro")) return "medallon";
+  if (s.includes("redonda")) return "concentrico";
+  if (s.includes("desgastada") || s.includes("deshilachada") || s.includes("raida")) return "liso";
+  // sin match: determinista por hash del id, para que la alfombra base
+  // (sin variante nombrada) también salga variada, no siempre lisa.
+  return PATRONES_ALFOMBRA[hashStr(s) % PATRONES_ALFOMBRA.length];
+}
+
+/** f(x,z) -> 0 (colorBase) | 1 (colorAcento), en casillas de vóxel enteras dentro de gx*gz. */
+function funcionPatron(patronId, gx, gz) {
+  switch (patronId) {
+    case "rayas": {
+      const franja = Math.max(2, Math.round(gx / 6));
+      return (x) => Math.floor(x / franja) % 2;
+    }
+    case "damero": {
+      const celda = Math.max(2, Math.round(Math.min(gx, gz) / 6));
+      return (x, z) => (Math.floor(x / celda) + Math.floor(z / celda)) % 2;
+    }
+    case "medallon": {
+      const cx = gx / 2, cz = gz / 2;
+      const borde = Math.max(1, Math.round(Math.min(gx, gz) * 0.09));
+      const radio = Math.min(gx, gz) * 0.22;
+      return (x, z) => {
+        if (x < borde || x >= gx - borde || z < borde || z >= gz - borde) return 1;
+        return Math.abs(x - cx) + Math.abs(z - cz) < radio ? 1 : 0;
+      };
+    }
+    case "concentrico": {
+      const cx = gx / 2, cz = gz / 2;
+      const anillo = Math.max(2, Math.round(Math.min(gx, gz) / 8));
+      return (x, z) => Math.floor(Math.hypot(x - cx, z - cz) / anillo) % 2;
+    }
+    case "cruz": {
+      const cx = gx / 2, cz = gz / 2;
+      const grosor = Math.max(1, Math.round(Math.min(gx, gz) * 0.13));
+      return (x, z) => (Math.abs(x - cx) < grosor || Math.abs(z - cz) < grosor ? 1 : 0);
+    }
+    default: { // "liso" — solo un borde fino de acento
+      const borde = Math.max(1, Math.round(Math.min(gx, gz) * 0.06));
+      return (x, z) => (x < borde || x >= gx - borde || z < borde || z >= gz - borde ? 1 : 0);
+    }
+  }
+}
+
+function generarAlfombra(huella, colorBase, id) {
+  const [hx, hy] = huella;
+  const gx = Math.max(2, Math.round(hx * U)), gz = Math.max(2, Math.round(hy * U));
+  const alto = Math.max(1, Math.round(U * 0.12));
+  const patronId = elegirPatron(id);
+  // acento: tono real si el id menciona un material conocido (TONOS, ya
+  // usado para muebles), si no un contraste simple sobre el color base.
+  let colorAcento = sombrear(colorBase, 0.55);
+  for (const [clave, hex] of Object.entries(TONOS)) {
+    if (id.includes(clave)) { colorAcento = hex; break; }
+  }
+  const fn = funcionPatron(patronId, gx, gz);
+  const b = Builder();
+  for (let z = 0; z < gz; z++) {
+    let x = 0;
+    while (x < gx) {
+      const v = fn(x, z);
+      let x2 = x;
+      while (x2 + 1 < gx && fn(x2 + 1, z) === v) x2++;
+      b.caja(x, 0, z, x2, alto - 1, z, v ? colorAcento : colorBase);
+      x = x2 + 1;
+    }
+  }
+  return { grid: [gx, alto, gz], paleta: b.paleta, cajas: b.cajas };
+}
+
 const ARQUETIPO_FN = {
   ASIENTO: (v, id) => generarAsiento(v.huella, v.colorDebug, id),
   MESA: (v, id) => generarMesa(v.huella, v.colorDebug, v.esSuperficie, id),
@@ -1011,6 +1096,7 @@ const ARQUETIPO_FN = {
   TINA: (v) => generarTina(v.huella, v.colorDebug),
   COLGADO_PARED: (v, id) => generarColgadoPared(id, v),
   OBJETO_PEQUENO: (v, id) => generarObjetoPequeno(id, v.colorDebug),
+  ALFOMBRA: (v, id) => generarAlfombra(v.huella, v.colorDebug, id),
   ESTRUCTURAL: (v, id) => ESTRUCTURALES[id](v),
   GENERICO: (v) => generarObjetoPequeno("", v.colorDebug),
 };
@@ -1036,6 +1122,7 @@ function resolverU(id, arq) {
     case "ASIENTO": factor = 1.4; break; // listones, travesaños
     case "MESA": factor = ALTA_MESA.includes(id) ? 1.4 : 1.2; break;
     case "CAMA": factor = 1.3; break; // cabecero, remates
+    case "ALFOMBRA": factor = 1.3; break; // más subdivisión = patrón más nítido (medallón/concéntrico se leen mejor)
     case "CONTENEDOR_ALTO": factor = 1.5; break; // puertas, bisagras, pomos
     case "CONTENEDOR_BAJO": factor = (id === "barril" || id === "tinaja" || id === "caldero") ? 1.3 : 1.4; break;
     case "TINA": factor = 1.0; break;
@@ -1074,7 +1161,14 @@ for (const [id, v] of Object.entries(catalogo)) {
   for (const variante of v.variantesNombradas || []) {
     const { color, tallado, desgaste } = resolverVariante(variante.id, id, v.colorDebug);
     U = resolverU(id, arq); // resolverU vuelve a fijar U (aplicarTallado/Desgaste no lo necesitan, pero el arquetipo sí)
-    let modeloVariante = ARQUETIPO_FN[arq]({ ...v, colorDebug: color }, id);
+    // ALFOMBRA es un caso especial: el PATRÓN depende del sufijo concreto
+    // de la variante (bordada/ritual/redonda...), no del id base — el resto
+    // de arquetipos siguen recibiendo el id base de siempre (ESTRUCTURAL,
+    // por ejemplo, indexa `ESTRUCTURALES[id]` y reventaría con un id que no
+    // esté en esa tabla).
+    let modeloVariante = arq === "ALFOMBRA"
+      ? generarAlfombra(v.huella, color, variante.id)
+      : ARQUETIPO_FN[arq]({ ...v, colorDebug: color }, id);
     if (tallado) modeloVariante = aplicarTallado(modeloVariante);
     if (desgaste) modeloVariante = aplicarDesgaste(modeloVariante, crearRnd(variante.id));
     resultado[variante.id] = {
