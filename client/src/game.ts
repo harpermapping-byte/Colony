@@ -583,7 +583,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         cocinaCercanaId = id;
         if (!cercana) panelCocina.actualizarCercania(null, false);
         else {
-          panelCocina.actualizarCercania(id, cercana.cocina!.esVasija, cercana.cocina!.vasija, cercana.cocina!.capacidad);
+          panelCocina.actualizarCercania(id, cercana.cocina!.esVasija, cercana.cocina!.vasija, cercana.cocina!.capacidad, cercana.cocina!.hierveAgua);
           if (cercana.cocina!.esVasija) room.send("cocina:consultar", { construccionId: id });
         }
       }

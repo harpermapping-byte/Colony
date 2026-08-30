@@ -94,8 +94,8 @@ test("comprarAnimalGranja: cobra al comprador, abona al vendedor, y reubica el a
   assert.strictEqual(fila.y, 40);
   assert.strictEqual(fila.enVentaTenderoteId, null, "sale de la venta al comprarse");
 
-  assert.strictEqual((await bd.obtenerOCrearJugador("Lagertha")).farycoins, 50);
-  assert.strictEqual((await bd.obtenerOCrearJugador("Ragnar")).farycoins, 650);
+  assert.strictEqual((await bd.obtenerOCrearJugador("Lagertha")).farycoins, 70); // 20 iniciales + 200 - 150
+  assert.strictEqual((await bd.obtenerOCrearJugador("Ragnar")).farycoins, 670); // 20 iniciales + 500 + 150
   await bd.cerrar();
 });
 
@@ -127,7 +127,7 @@ test("comprarAnimalGranja: ya no está en venta ahí (vendido/quitado justo ante
     x: 30, y: 40, compradorNombre: "Lagertha", duenoNombre: "Ragnar",
   });
   assert.deepStrictEqual(r, { ok: false, motivo: "ese animal ya no está en venta aquí" });
-  assert.strictEqual((await bd.obtenerOCrearJugador("Lagertha")).farycoins, 200, "no se cobró nada");
+  assert.strictEqual((await bd.obtenerOCrearJugador("Lagertha")).farycoins, 220, "no se cobró nada (20 iniciales + 200)");
   await bd.cerrar();
 });
 

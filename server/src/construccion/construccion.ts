@@ -85,11 +85,23 @@ export function esJarl(ctx: ContextoConstruccion, nombre: string): boolean {
  * en las que tienen `parcelasReservadas` habilitado (ctx puede no existir ahí).
  */
 export function esJarlGlobal(nombre: string): boolean {
-  const jarls = (process.env.JARL_NOMBRES ?? "")
+  return nombresJarl().includes(nombre.trim().toLowerCase());
+}
+
+/** Nombres de jarl configurados (env `JARL_NOMBRES`, coma-separados), normalizados a minúsculas — mismo parseo que `esJarlGlobal`, solo para COMPARAR (nunca para crear/buscar la fila real del jugador: usa `nombresJarlTalCual` para eso). */
+export function nombresJarl(): string[] {
+  return (process.env.JARL_NOMBRES ?? "")
     .split(",")
     .map((n) => n.trim().toLowerCase())
     .filter((n) => n.length > 0);
-  return jarls.includes(nombre.trim().toLowerCase());
+}
+
+/** Igual que `nombresJarl` pero SIN forzar minúsculas — docs/GDD_Economia.md: compras/alquileres/impuestos de propiedad se acreditan a la fila REAL del jugador jarl (`jugadores.nombre`, que conserva mayúsculas tal cual el jugador se llame), así que hay que buscarla con el nombre EXACTO configurado, no una versión en minúsculas que crearía una fila duplicada. */
+export function nombresJarlTalCual(): string[] {
+  return (process.env.JARL_NOMBRES ?? "")
+    .split(",")
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0);
 }
 
 /**
@@ -203,7 +215,48 @@ export function validarColocacion(
     return { ok: false, motivo: "esto necesita agua junto a su huella" };
   }
 
+  // Cocina v2 (docs/GDD_Cocina.md, olla_grande/estructura_palos): variante
+  // de "algo concreto adyacente a la huella" pero mirando CONSTRUCCIONES en
+  // vez de terreno — mismo criterio que hayAguaAdyacente.
+  if (entrada.requiereConstruibleAdyacente) {
+    const tipos = Array.isArray(entrada.requiereConstruibleAdyacente)
+      ? entrada.requiereConstruibleAdyacente
+      : [entrada.requiereConstruibleAdyacente];
+    if (!hayConstruibleAdyacente(ctx, casillas, claves, tipos)) {
+      return { ok: false, motivo: `esto necesita ${tipos.join(" o ")} junto a su huella` };
+    }
+  }
+
   return { ok: true, parcelaId, claves };
+}
+
+/** ¿Alguna casilla ORTOGONALMENTE adyacente (fuera de la propia huella) tiene una construcción cuyo `objeto` está en `tipos`? */
+function hayConstruibleAdyacente(
+  ctx: ContextoConstruccion,
+  casillas: { x: number; y: number }[],
+  claves: number[],
+  tipos: string[],
+): boolean {
+  const dentro = new Set(claves);
+  const buscados = new Set(tipos);
+  for (const c of casillas) {
+    const vecinos = [
+      { x: c.x, y: c.y - 1 },
+      { x: c.x, y: c.y + 1 },
+      { x: c.x - 1, y: c.y },
+      { x: c.x + 1, y: c.y },
+    ];
+    for (const v of vecinos) {
+      if (v.x < 0 || v.y < 0 || v.x >= ctx.mapa.ancho || v.y >= ctx.mapa.alto) continue;
+      const clave = v.y * ctx.mapa.ancho + v.x;
+      if (dentro.has(clave)) continue;
+      const idConstruccion = ctx.ocupacion.get(clave);
+      if (idConstruccion == null) continue;
+      const viva = ctx.vivas.get(idConstruccion);
+      if (viva && buscados.has(viva.objeto)) return true;
+    }
+  }
+  return false;
 }
 
 /** ¿Alguna casilla ORTOGONALMENTE adyacente (fuera de la propia huella) es agua? */

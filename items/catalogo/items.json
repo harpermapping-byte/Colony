@@ -1518,7 +1518,9 @@
     "stackMax": 15,
     "variantes": 1,
     "colorDebug": "#f0ecdc",
-    "_nota": "Ganadería (docs/GDD_Ganaderia.md) — vaca/cabra/oveja ordeñadas con cubo_ordeno (animal:recolectarProducto), cálculo perezoso vía resolverProduccion, mismo mecanismo que la miel de colmena. Sin categoriaRecurso: recurso vivo, no lo coloca el bake."
+    "_nota": "Ganadería (docs/GDD_Ganaderia.md) — vaca/cabra/oveja ordeñadas con cubo_ordeno (animal:recolectarProducto), cálculo perezoso vía resolverProduccion, mismo mecanismo que la miel de colmena. Sin categoriaRecurso: recurso vivo, no lo coloca el bake.",
+    "aportesCocina": { "vida": 1, "estamina": 2, "comida": 4, "bebida": 5 },
+    "origenCocina": "animal"
   },
   "huevo": {
     "tipo": "recurso",
@@ -1531,7 +1533,9 @@
     "stackMax": 20,
     "variantes": 2,
     "colorDebug": "#e8d8a8",
-    "_nota": "Ganadería (docs/GDD_Ganaderia.md) — gallina/oca recogido a mano del nido (animal:recolectarProducto, sin herramienta ni oficio). Sin categoriaRecurso: recurso vivo, no lo coloca el bake."
+    "_nota": "Ganadería (docs/GDD_Ganaderia.md) — gallina/oca recogido a mano del nido (animal:recolectarProducto, sin herramienta ni oficio). Sin categoriaRecurso: recurso vivo, no lo coloca el bake.",
+    "aportesCocina": { "vida": 2, "estamina": 3, "comida": 6 },
+    "origenCocina": "animal"
   },
   "lana": {
     "tipo": "recurso",
@@ -2145,14 +2149,14 @@
   "semilla_palmera_costera": { "tipo": "semilla", "categoriaRecurso": "semilla", "huella": [1, 1], "peso": 0.02, "apilable": true, "stackMax": 20, "variantes": 1, "colorDebug": "#5a8a3a", "crecimientoArbol": { "especieArbolId": "palmera_costera", "diasMaduracion": 300 } },
   "semilla_arbol_carbonizado": { "tipo": "semilla", "categoriaRecurso": "semilla", "huella": [1, 1], "peso": 0.02, "apilable": true, "stackMax": 20, "variantes": 1, "colorDebug": "#1a1512", "crecimientoArbol": { "especieArbolId": "arbol_carbonizado", "diasMaduracion": 270 } },
 
-  "carne_roja_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#7a3a2a", "restauraMultiple": { "vida": 9, "estamina": 2, "comida": 15 } },
-  "carne_blanca_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#c98a68", "restauraMultiple": { "vida": 6, "estamina": 5, "comida": 14 } },
-  "carne_caza_mayor_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#6a2a18", "restauraMultiple": { "vida": 12, "estamina": 3, "comida": 21 } },
-  "carne_exotica_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#8a3a4a", "restauraMultiple": { "vida": 11, "estamina": 6, "comida": 18 } },
-  "pescado_rio_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#7a9860", "restauraMultiple": { "vida": 6, "comida": 12 } },
-  "pescado_lago_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#6a8858", "restauraMultiple": { "vida": 6, "comida": 12 } },
-  "pescado_mar_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#4a6a88", "restauraMultiple": { "vida": 8, "bebida": 3, "comida": 14 } },
-  "marisco_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#b87a68", "restauraMultiple": { "vida": 5, "estamina": 3, "comida": 11 } },
+  "asado_carne_roja": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#7a3a2a", "restauraMultiple": { "vida": 9, "estamina": 2, "comida": 15 }, "_nota": "Cocina v2 (docs/GDD_Cocina.md): antes 'carne_roja_cocinado' — renombrado porque carne/pescado al fuego directo (sin vasija) ahora se llama 'Asado', pedido explícito del streamer." },
+  "asado_carne_blanca": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#c98a68", "restauraMultiple": { "vida": 6, "estamina": 5, "comida": 14 } },
+  "asado_carne_caza_mayor": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#6a2a18", "restauraMultiple": { "vida": 12, "estamina": 3, "comida": 21 } },
+  "asado_carne_exotica": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#8a3a4a", "restauraMultiple": { "vida": 11, "estamina": 6, "comida": 18 } },
+  "asado_pescado_rio": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#7a9860", "restauraMultiple": { "vida": 6, "comida": 12 } },
+  "asado_pescado_lago": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#6a8858", "restauraMultiple": { "vida": 6, "comida": 12 } },
+  "asado_pescado_mar": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#4a6a88", "restauraMultiple": { "vida": 8, "bebida": 3, "comida": 14 } },
+  "asado_marisco": { "tipo": "consumible", "huella": [1, 1], "peso": 0.7, "apilable": true, "stackMax": 10, "variantes": 1, "colorDebug": "#b87a68", "restauraMultiple": { "vida": 5, "estamina": 3, "comida": 11 } },
   "baya_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 1, "colorDebug": "#7a1a4a", "restauraMultiple": { "vida": 3, "bebida": 3, "comida": 9 } },
   "fruta_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 1, "colorDebug": "#b83a2a", "restauraMultiple": { "vida": 3, "bebida": 6, "comida": 11 } },
   "fruto_seco_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 1, "colorDebug": "#8a6830", "restauraMultiple": { "estamina": 6, "comida": 15 } },
@@ -2161,6 +2165,22 @@
   "tomate_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 1, "colorDebug": "#b8301a", "restauraMultiple": { "vida": 3, "bebida": 5, "comida": 9 } },
   "fresa_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.15, "apilable": true, "stackMax": 25, "variantes": 1, "colorDebug": "#c9203a", "restauraMultiple": { "vida": 2, "estamina": 2, "bebida": 3, "comida": 8 } },
   "miel_cocinado": { "tipo": "consumible", "huella": [1, 1], "peso": 0.5, "apilable": true, "stackMax": 20, "variantes": 1, "colorDebug": "#c98a10", "restauraMultiple": { "estamina": 9, "bebida": 2, "comida": 8 } },
+  "asado_huevo": { "tipo": "consumible", "huella": [1, 1], "peso": 0.2, "apilable": true, "stackMax": 20, "variantes": 1, "colorDebug": "#e8b830", "restauraMultiple": { "vida": 2, "estamina": 3, "comida": 8 }, "_nota": "Cocina v2: huevo frito directo al fuego, sin vasija — mismo mecanismo que asado_carne_roja. Coherente con que huevo pase a origenCocina:animal (línea de 'huevo' en este mismo archivo)." },
+
+  "harina": { "tipo": "recurso", "categoriaRecurso": "harina", "huella": [1, 1], "peso": 0.25, "apilable": true, "stackMax": 30, "variantes": 1, "colorDebug": "#e8d8a0", "_nota": "Cocina v2 (docs/GDD_Cocina.md) — trigo molido, receta de crafteo 'harina' (oficio molinero, mesa muela_piedra, items/catalogo/recetas.json). Insumo de masa_pan; cuando se añadan más cereales al catálogo (CLAUDE.md §7) cada uno tendrá su propia harina_<cereal>." },
+  "masa_pan": { "tipo": "recurso", "categoriaRecurso": "masa", "huella": [1, 1], "peso": 0.4, "apilable": true, "stackMax": 20, "variantes": 1, "colorDebug": "#f0e0b0", "_nota": "Cocina v2 — harina + agua libre amasadas en 'amasadora' (receta 'masa_pan', oficio panadero). Se hornea en horno_pan para dar 'pan'." },
+  "pan": { "tipo": "consumible", "huella": [1, 1], "peso": 0.5, "apilable": true, "stackMax": 15, "variantes": 1, "colorDebug": "#c9963a", "restauraMultiple": { "estamina": 3, "comida": 16 }, "_nota": "Cocina v2 — masa_pan horneada en horno_pan (receta 'pan', oficio panadero). Comible tal cual o cortado en 6 rebanada_pan con cuchillo_cocina (cocina:cortarPan)." },
+  "rebanada_pan": { "tipo": "consumible", "huella": [1, 1], "peso": 0.09, "apilable": true, "stackMax": 30, "variantes": 1, "colorDebug": "#d9a850", "restauraMultiple": { "estamina": 1, "comida": 3 }, "_nota": "Cocina v2 — 1 pan cortado con cuchillo_cocina da 6 (cocina:cortarPan). Comible suelta o 2 + relleno(s) = bocadillo (cocina:bocadillo, identidad dinámica igual que los platos de vasija)." },
+
+  "mantequilla": { "tipo": "consumible", "huella": [1, 1], "peso": 0.3, "apilable": true, "stackMax": 15, "variantes": 1, "colorDebug": "#f0d878", "restauraMultiple": { "vida": 4, "estamina": 8, "comida": 12 }, "_nota": "Cocina v2 — leche reposada SIN sal en recipiente_queso (server/src/construccion/cuajado.ts), tiempo corto real. Stats fuertes: pedido explícito del streamer." },
+  "queso": { "tipo": "consumible", "huella": [1, 1], "peso": 0.4, "apilable": true, "stackMax": 15, "variantes": 1, "colorDebug": "#e8c848", "restauraMultiple": { "vida": 8, "estamina": 5, "comida": 18 }, "_nota": "Cocina v2 — leche + sal (ya existente del curtido de pieles) reposada en recipiente_queso, tiempo largo real. Stats más fuertes que la mantequilla — cura más completa." },
+
+  "olla_barro": { "tipo": "recurso", "huella": [1, 1], "peso": 2, "apilable": false, "stackMax": 1, "variantes": 1, "colorDebug": "#8a6a4a", "_nota": "Cocina v2 — receta de crafteo 'olla_barro' (oficio alfarero, mesa torno_alfarero, arcilla). Coloca la construible olla_cocina (requiereItemColocar) — o se vende/comercia tal cual." },
+  "olla_metal": { "tipo": "recurso", "huella": [1, 1], "peso": 3, "apilable": false, "stackMax": 1, "variantes": 1, "colorDebug": "#5a5a60", "_nota": "Cocina v2 — receta de crafteo 'olla_metal' (oficio herrero, mesa yunque, lingote_hierro). Alternativa a olla_barro para colocar olla_cocina — 'la olla se hace de barro o de metal', pedido explícito." },
+  "cuenco_barro_grande": { "tipo": "recurso", "huella": [1, 1], "peso": 2.5, "apilable": false, "stackMax": 1, "variantes": 1, "colorDebug": "#7a5a3a", "_nota": "Cocina v2 — receta de crafteo homónima (oficio alfarero, torno_alfarero, arcilla). Coloca la construible cuenco_barro_grande (sartén: fritos/estofados)." },
+  "tinaja_batidos": { "tipo": "recurso", "huella": [1, 1], "peso": 4, "apilable": false, "stackMax": 1, "variantes": 1, "colorDebug": "#9a7a50", "_nota": "Cocina v2 — receta de crafteo homónima (oficio alfarero, horno_ceramica, arcilla). Coloca la construible tinaja_batidos (leche + fruta/baya -> Batido)." },
+  "recipiente_queso": { "tipo": "recurso", "huella": [1, 1], "peso": 1.5, "apilable": false, "stackMax": 1, "variantes": 1, "colorDebug": "#c9b878", "_nota": "Cocina v2 — receta de crafteo homónima (oficio alfarero, torno_alfarero, arcilla). Coloca la construible recipiente_queso (quesera: leche [+sal] + tiempo -> mantequilla/queso)." },
+  "estructura_palos": { "tipo": "recurso", "huella": [1, 1], "peso": 3, "apilable": false, "stackMax": 1, "variantes": 1, "colorDebug": "#8a6838", "_nota": "Cocina v2 — receta de crafteo homónima (oficio carpintero, banco_carpintero, madera). Coloca la construible estructura_palos (trípode de madera, requiere hoguera/chimenea adyacente) — a su vez prerrequisito de adyacencia para olla_grande." },
 
   "casco_cuero": {
     "tipo": "equipable",
