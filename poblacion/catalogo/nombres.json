@@ -1,21 +1,2819 @@
 {
-  "_nota": "Catálogo de nombres para poblacion/src/generarIdentidad.js — listas ponderadas [nombre, peso], estilo nórdico/medieval acorde a la ambientación (mismo registro que los NPCs de prueba de los tests: Ragnar, Bjorn, Floki, Lagertha). Una sola 'cultura' por ahora; si el streamer pacta asentamientos de otra ambientación, se añaden más listas sin tocar el generador.",
+  "_nota": "Nombres de NPC — políticos españoles de cualquier partido desde el inicio de la democracia (1977) hasta hoy (pedido 2026-08-30, \"meme de la comunidad del streamer\": presidentes de Gobierno, vicepresidentes, ministros con cartera de todos los gobiernos, y secretarios generales/presidentes de los principales partidos con representación parlamentaria). Reemplaza el catálogo nórdico anterior. `parejas` son personas REALES completas (nombre+apellidos+sexo) — poblacion/src/generarIdentidad.js las usa TAL CUAL la mayoría de las veces (la gracia del meme, PROB_PAREJA_REAL=0.7); `masculinos`/`femeninos`/`apellidos` son las mismas listas separadas en nombres/apellidos sueltos, para cuando hace falta MÁS variedad de la que da la lista de parejas reales (remezcla nombre de una persona con apellido de otra — \"si se acaban esos nombres, se generan a partir de primer nombre de uno con apellido de otro\", pedido literal) — así el pool nunca se queda corto por muchos NPC que hagan falta. Solo NPC (aldeas, NPC fijos/tutoriales, bandidos, NPC contratados/transportistas), NUNCA nombres de usuario/jugador. Compilado por investigación con IA (WebSearch, 2026-08-30) contra fuentes públicas — algunos cargos/fechas de carteras muy antiguas (UCD, 1976-1982) o remodelaciones muy recientes (2025-2026) pueden tener imprecisiones menores de fecha exacta; los nombres en sí (que es lo único que usa el juego) están contrastados. Se excluyeron deliberadamente los puntos que la investigación marcó como dudosos/sin confirmar en vez de arriesgar un nombre mal atribuido.",
   "masculinos": [
-    ["Ragnar", 5], ["Bjorn", 5], ["Floki", 4], ["Ivar", 4], ["Ubbe", 4],
-    ["Halfdan", 3], ["Rollo", 3], ["Sigurd", 4], ["Leif", 4], ["Erik", 5],
-    ["Torvald", 3], ["Gunnar", 4], ["Harald", 4], ["Knut", 3], ["Aslak", 2],
-    ["Bard", 3], ["Einar", 4], ["Osvald", 2], ["Steinar", 2], ["Vidar", 3]
+    [
+      "Adolfo",
+      3
+    ],
+    [
+      "Leopoldo",
+      3
+    ],
+    [
+      "Felipe",
+      3
+    ],
+    [
+      "José María",
+      3
+    ],
+    [
+      "José Luis",
+      3
+    ],
+    [
+      "Mariano",
+      3
+    ],
+    [
+      "Pedro",
+      3
+    ],
+    [
+      "Fernando",
+      3
+    ],
+    [
+      "Manuel",
+      3
+    ],
+    [
+      "Alfonso",
+      3
+    ],
+    [
+      "Enrique",
+      3
+    ],
+    [
+      "Narcís",
+      3
+    ],
+    [
+      "Francisco",
+      3
+    ],
+    [
+      "Rodrigo",
+      3
+    ],
+    [
+      "Javier",
+      3
+    ],
+    [
+      "Alfredo",
+      3
+    ],
+    [
+      "Carlos",
+      3
+    ],
+    [
+      "Marcelino",
+      3
+    ],
+    [
+      "José Pedro",
+      3
+    ],
+    [
+      "Rodolfo",
+      3
+    ],
+    [
+      "Juan José",
+      3
+    ],
+    [
+      "Landelino",
+      3
+    ],
+    [
+      "Íñigo",
+      3
+    ],
+    [
+      "Alberto",
+      3
+    ],
+    [
+      "Agustín",
+      3
+    ],
+    [
+      "Juan Antonio",
+      3
+    ],
+    [
+      "José Manuel",
+      3
+    ],
+    [
+      "Jaime",
+      3
+    ],
+    [
+      "Joaquín",
+      3
+    ],
+    [
+      "Ignacio",
+      3
+    ],
+    [
+      "Pío",
+      3
+    ],
+    [
+      "José",
+      3
+    ],
+    [
+      "Antoni",
+      3
+    ],
+    [
+      "Juan Alberto",
+      3
+    ],
+    [
+      "Tomás",
+      3
+    ],
+    [
+      "Miguel",
+      3
+    ],
+    [
+      "José Antonio",
+      3
+    ],
+    [
+      "Jordi",
+      3
+    ],
+    [
+      "Vicente",
+      3
+    ],
+    [
+      "Ernest",
+      3
+    ],
+    [
+      "Julián",
+      3
+    ],
+    [
+      "Gustavo",
+      3
+    ],
+    [
+      "Luis Carlos",
+      3
+    ],
+    [
+      "Claudio",
+      3
+    ],
+    [
+      "Juan Manuel",
+      3
+    ],
+    [
+      "Abel",
+      3
+    ],
+    [
+      "Josep",
+      3
+    ],
+    [
+      "Ángel",
+      3
+    ],
+    [
+      "Eduardo",
+      3
+    ],
+    [
+      "Federico",
+      3
+    ],
+    [
+      "Cristóbal",
+      3
+    ],
+    [
+      "Juan Carlos",
+      3
+    ],
+    [
+      "Jaume",
+      3
+    ],
+    [
+      "Rafael",
+      3
+    ],
+    [
+      "Miguel Ángel",
+      3
+    ],
+    [
+      "Juan Fernando",
+      3
+    ],
+    [
+      "Jesús",
+      3
+    ],
+    [
+      "Celestino",
+      3
+    ],
+    [
+      "Valeriano",
+      3
+    ],
+    [
+      "Bernat",
+      3
+    ],
+    [
+      "Joan",
+      3
+    ],
+    [
+      "César Antonio",
+      3
+    ],
+    [
+      "Jorge",
+      3
+    ],
+    [
+      "Juan Ignacio",
+      3
+    ],
+    [
+      "Luis",
+      3
+    ],
+    [
+      "José Ignacio",
+      3
+    ],
+    [
+      "Álvaro",
+      3
+    ],
+    [
+      "Félix",
+      3
+    ],
+    [
+      "Óscar",
+      3
+    ],
+    [
+      "Salvador",
+      3
+    ],
+    [
+      "Pablo",
+      3
+    ],
+    [
+      "Màxim",
+      3
+    ],
+    [
+      "Miquel",
+      3
+    ],
+    [
+      "Ángel Víctor",
+      3
+    ],
+    [
+      "Arcadi",
+      3
+    ],
+    [
+      "Antonio",
+      3
+    ],
+    [
+      "Santiago",
+      3
+    ],
+    [
+      "Gerardo",
+      3
+    ],
+    [
+      "Julio",
+      3
+    ],
+    [
+      "Gaspar",
+      3
+    ],
+    [
+      "Cayo",
+      3
+    ],
+    [
+      "Albert",
+      3
+    ],
+    [
+      "Adrián",
+      3
+    ],
+    [
+      "Artur",
+      3
+    ],
+    [
+      "David",
+      3
+    ],
+    [
+      "Carles",
+      3
+    ],
+    [
+      "Josep-Lluís",
+      3
+    ],
+    [
+      "Oriol",
+      3
+    ],
+    [
+      "Xabier",
+      3
+    ],
+    [
+      "Josu Jon",
+      3
+    ],
+    [
+      "Iñigo",
+      3
+    ],
+    [
+      "Andoni",
+      3
+    ],
+    [
+      "Aitor",
+      3
+    ],
+    [
+      "Telesforo",
+      3
+    ],
+    [
+      "Jon",
+      3
+    ],
+    [
+      "Arnaldo",
+      3
+    ],
+    [
+      "Xosé Manuel",
+      3
+    ],
+    [
+      "Anxo",
+      3
+    ],
+    [
+      "Guillerme",
+      3
+    ],
+    [
+      "Xavier",
+      3
+    ],
+    [
+      "Andrés",
+      3
+    ],
+    [
+      "Gorka",
+      3
+    ]
   ],
   "femeninos": [
-    ["Lagertha", 4], ["Freydis", 4], ["Astrid", 5], ["Helga", 4], ["Gudrun", 4],
-    ["Ingrid", 5], ["Sigrid", 4], ["Thora", 3], ["Yrsa", 3], ["Solveig", 3],
-    ["Ragnhild", 3], ["Bergljot", 2], ["Signe", 3], ["Alva", 3], ["Runa", 3],
-    ["Disa", 2], ["Frida", 4], ["Katla", 2], ["Vigdis", 2], ["Saga", 3]
+    [
+      "María Teresa",
+      3
+    ],
+    [
+      "Elena",
+      3
+    ],
+    [
+      "Soraya",
+      3
+    ],
+    [
+      "Carmen",
+      3
+    ],
+    [
+      "Nadia",
+      3
+    ],
+    [
+      "Teresa",
+      3
+    ],
+    [
+      "María Jesús",
+      3
+    ],
+    [
+      "Sara",
+      3
+    ],
+    [
+      "Matilde",
+      3
+    ],
+    [
+      "Cristina",
+      3
+    ],
+    [
+      "Ana",
+      3
+    ],
+    [
+      "Margarita",
+      3
+    ],
+    [
+      "Isabel",
+      3
+    ],
+    [
+      "Elvira",
+      3
+    ],
+    [
+      "Esperanza",
+      3
+    ],
+    [
+      "Pilar",
+      3
+    ],
+    [
+      "Loyola",
+      3
+    ],
+    [
+      "Anna",
+      3
+    ],
+    [
+      "Celia",
+      3
+    ],
+    [
+      "Trinidad",
+      3
+    ],
+    [
+      "Carme",
+      3
+    ],
+    [
+      "Magdalena",
+      3
+    ],
+    [
+      "Leire",
+      3
+    ],
+    [
+      "Mercedes",
+      3
+    ],
+    [
+      "Ángeles",
+      3
+    ],
+    [
+      "Bibiana",
+      3
+    ],
+    [
+      "María Antonia",
+      3
+    ],
+    [
+      "Beatriz",
+      3
+    ],
+    [
+      "María Dolores",
+      3
+    ],
+    [
+      "Fátima",
+      3
+    ],
+    [
+      "Dolors",
+      3
+    ],
+    [
+      "Arancha",
+      3
+    ],
+    [
+      "Dolores",
+      3
+    ],
+    [
+      "Raquel",
+      3
+    ],
+    [
+      "Reyes",
+      3
+    ],
+    [
+      "María Luisa",
+      3
+    ],
+    [
+      "Carolina",
+      3
+    ],
+    [
+      "Mónica",
+      3
+    ],
+    [
+      "Elma",
+      3
+    ],
+    [
+      "Irene",
+      3
+    ],
+    [
+      "Diana",
+      3
+    ],
+    [
+      "Meritxell",
+      3
+    ],
+    [
+      "Sira",
+      3
+    ],
+    [
+      "Ione",
+      3
+    ],
+    [
+      "Yolanda",
+      3
+    ],
+    [
+      "Verónica",
+      3
+    ],
+    [
+      "Inés",
+      3
+    ],
+    [
+      "Laura",
+      3
+    ],
+    [
+      "Marta",
+      3
+    ],
+    [
+      "Elisenda",
+      3
+    ],
+    [
+      "Rosa",
+      3
+    ]
   ],
   "apellidos": [
-    ["Sturlusson", 3], ["Ragnarsson", 3], ["Eriksdottir", 3], ["Bjornsson", 3],
-    ["Halvardsen", 2], ["Ulfsson", 3], ["Sigurdsdottir", 2], ["Haraldsen", 2],
-    ["Torvaldsson", 2], ["Gunnarsdottir", 2], ["Steinarsson", 2], ["Vidarsen", 2],
-    ["Alvsson", 2], ["Rurikson", 1], ["Ormsdottir", 1]
+    [
+      "Suárez González",
+      3
+    ],
+    [
+      "Calvo-Sotelo y Bustelo",
+      3
+    ],
+    [
+      "González Márquez",
+      3
+    ],
+    [
+      "Aznar López",
+      3
+    ],
+    [
+      "Rodríguez Zapatero",
+      3
+    ],
+    [
+      "Rajoy Brey",
+      3
+    ],
+    [
+      "Sánchez Pérez-Castejón",
+      3
+    ],
+    [
+      "de Santiago y Díaz de Mendívil",
+      3
+    ],
+    [
+      "Gutiérrez Mellado",
+      3
+    ],
+    [
+      "Osorio García",
+      3
+    ],
+    [
+      "Fuentes Quintana",
+      3
+    ],
+    [
+      "Abril Martorell",
+      3
+    ],
+    [
+      "Guerra González",
+      3
+    ],
+    [
+      "Serra i Serra",
+      3
+    ],
+    [
+      "Álvarez-Cascos Fernández",
+      3
+    ],
+    [
+      "Rato Figaredo",
+      3
+    ],
+    [
+      "Arenas Bocanegra",
+      3
+    ],
+    [
+      "Fernández de la Vega Sanz",
+      3
+    ],
+    [
+      "Solbes Mira",
+      3
+    ],
+    [
+      "Salgado Méndez",
+      3
+    ],
+    [
+      "Pérez Rubalcaba",
+      3
+    ],
+    [
+      "Sáenz de Santamaría Antón",
+      3
+    ],
+    [
+      "Calvo Poyato",
+      3
+    ],
+    [
+      "Calviño Santamaría",
+      3
+    ],
+    [
+      "Ribera Rodríguez",
+      3
+    ],
+    [
+      "Montero Cuadrado",
+      3
+    ],
+    [
+      "Aagesen Muñoz",
+      3
+    ],
+    [
+      "Cuerpo Caballero",
+      3
+    ],
+    [
+      "Oreja Aguirre",
+      3
+    ],
+    [
+      "Pérez-Llorca Rodrigo",
+      3
+    ],
+    [
+      "Martín Villa",
+      3
+    ],
+    [
+      "Rosón Pérez",
+      3
+    ],
+    [
+      "Lavilla Alsina",
+      3
+    ],
+    [
+      "Cavero Lataillade",
+      3
+    ],
+    [
+      "Fernández Ordóñez",
+      3
+    ],
+    [
+      "Oliart Saussol",
+      3
+    ],
+    [
+      "Rodríguez Sahagún",
+      3
+    ],
+    [
+      "García Díez",
+      3
+    ],
+    [
+      "Otero Novas",
+      3
+    ],
+    [
+      "Ortega y Díaz-Ambrona",
+      3
+    ],
+    [
+      "Lamo de Espinosa",
+      3
+    ],
+    [
+      "Álvarez Álvarez",
+      3
+    ],
+    [
+      "Garrigues Walker",
+      3
+    ],
+    [
+      "Camuñas Solís",
+      3
+    ],
+    [
+      "Cabanillas Gallas",
+      3
+    ],
+    [
+      "Clavero Arévalo",
+      3
+    ],
+    [
+      "Morán López",
+      3
+    ],
+    [
+      "Solana Madariaga",
+      3
+    ],
+    [
+      "Barrionuevo Peña",
+      3
+    ],
+    [
+      "Corcuera Cuesta",
+      3
+    ],
+    [
+      "Asunción Hernández",
+      3
+    ],
+    [
+      "Belloch Julbe",
+      3
+    ],
+    [
+      "Ledesma Bartret",
+      3
+    ],
+    [
+      "Múgica Herzog",
+      3
+    ],
+    [
+      "de la Quadra-Salcedo",
+      3
+    ],
+    [
+      "Boyer Salvador",
+      3
+    ],
+    [
+      "Solchaga Catalán",
+      3
+    ],
+    [
+      "Almunia Amann",
+      3
+    ],
+    [
+      "Chaves González",
+      3
+    ],
+    [
+      "Griñán Martínez",
+      3
+    ],
+    [
+      "Solé Tura",
+      3
+    ],
+    [
+      "Alborch Bataller",
+      3
+    ],
+    [
+      "Sáenz de Cosculluela",
+      3
+    ],
+    [
+      "Borrell Fontelles",
+      3
+    ],
+    [
+      "Albero Silla",
+      3
+    ],
+    [
+      "Lluch Martín",
+      3
+    ],
+    [
+      "García Vargas",
+      3
+    ],
+    [
+      "Suárez Pertierra",
+      3
+    ],
+    [
+      "Maravall Herrero",
+      3
+    ],
+    [
+      "Croissier Batista",
+      3
+    ],
+    [
+      "Aranzadi Martínez",
+      3
+    ],
+    [
+      "Eguiagaray Ucelay",
+      3
+    ],
+    [
+      "Fernández Sanz",
+      3
+    ],
+    [
+      "Alberdi Alonso",
+      3
+    ],
+    [
+      "Matutes Juan",
+      3
+    ],
+    [
+      "Piqué i Camps",
+      3
+    ],
+    [
+      "Palacio Vallelersundi",
+      3
+    ],
+    [
+      "Mayor Oreja",
+      3
+    ],
+    [
+      "Acebes Paniagua",
+      3
+    ],
+    [
+      "Mariscal de Gante",
+      3
+    ],
+    [
+      "Michavila Núñez",
+      3
+    ],
+    [
+      "Serra Rexach",
+      3
+    ],
+    [
+      "Trillo-Figueroa",
+      3
+    ],
+    [
+      "Montoro Romero",
+      3
+    ],
+    [
+      "Pimentel Siles",
+      3
+    ],
+    [
+      "Aparicio Pérez",
+      3
+    ],
+    [
+      "Zaplana Hernández-Soro",
+      3
+    ],
+    [
+      "Tocino Biscarolasaga",
+      3
+    ],
+    [
+      "Matas Palou",
+      3
+    ],
+    [
+      "Rodríguez Herrer",
+      3
+    ],
+    [
+      "Aguirre Gil de Biedma",
+      3
+    ],
+    [
+      "del Castillo Vera",
+      3
+    ],
+    [
+      "de Palacio del Valle-Lersundi",
+      3
+    ],
+    [
+      "Arias Cañete",
+      3
+    ],
+    [
+      "Arias-Salgado Montalvo",
+      3
+    ],
+    [
+      "Birulés i Bertran",
+      3
+    ],
+    [
+      "Romay Beccaría",
+      3
+    ],
+    [
+      "Villalobos Talero",
+      3
+    ],
+    [
+      "Pastor Julián",
+      3
+    ],
+    [
+      "Cabanillas Alonso",
+      3
+    ],
+    [
+      "Moratinos Cuyaubé",
+      3
+    ],
+    [
+      "Jiménez García-Herrera",
+      3
+    ],
+    [
+      "Bono Martínez",
+      3
+    ],
+    [
+      "Alonso Suárez",
+      3
+    ],
+    [
+      "Chacón Piqueras",
+      3
+    ],
+    [
+      "López Aguilar",
+      3
+    ],
+    [
+      "Fernández Bermejo",
+      3
+    ],
+    [
+      "Caamaño Domínguez",
+      3
+    ],
+    [
+      "Caldera Sánchez-Capitán",
+      3
+    ],
+    [
+      "Corbacho Chaves",
+      3
+    ],
+    [
+      "Gómez Sánchez",
+      3
+    ],
+    [
+      "Blanco López",
+      3
+    ],
+    [
+      "Álvarez Arza",
+      3
+    ],
+    [
+      "Garmendia Mendizábal",
+      3
+    ],
+    [
+      "Sevilla Segura",
+      3
+    ],
+    [
+      "Narbona Ruiz",
+      3
+    ],
+    [
+      "Espinosa Mangana",
+      3
+    ],
+    [
+      "Soria Escoms",
+      3
+    ],
+    [
+      "Pajín Iraola",
+      3
+    ],
+    [
+      "San Segundo",
+      3
+    ],
+    [
+      "Cabrera Calvo-Sotelo",
+      3
+    ],
+    [
+      "Gabilondo Pujol",
+      3
+    ],
+    [
+      "Sebastián Gascón",
+      3
+    ],
+    [
+      "Montilla Aguilera",
+      3
+    ],
+    [
+      "Clos i Matheu",
+      3
+    ],
+    [
+      "Molina",
+      3
+    ],
+    [
+      "González-Sinde",
+      3
+    ],
+    [
+      "Aído Almagro",
+      3
+    ],
+    [
+      "Trujillo Rincón",
+      3
+    ],
+    [
+      "Corredor Sierra",
+      3
+    ],
+    [
+      "García-Margallo y Marfil",
+      3
+    ],
+    [
+      "Dastis Quecedo",
+      3
+    ],
+    [
+      "Fernández Díaz",
+      3
+    ],
+    [
+      "Zoido Álvarez",
+      3
+    ],
+    [
+      "Ruiz-Gallardón",
+      3
+    ],
+    [
+      "Catalá Polo",
+      3
+    ],
+    [
+      "Morenés Eulate",
+      3
+    ],
+    [
+      "de Cospedal García",
+      3
+    ],
+    [
+      "de Guindos Jurado",
+      3
+    ],
+    [
+      "Báñez García",
+      3
+    ],
+    [
+      "de la Serna Hernáiz",
+      3
+    ],
+    [
+      "Wert Ortega",
+      3
+    ],
+    [
+      "Méndez de Vigo",
+      3
+    ],
+    [
+      "García Tejerina",
+      3
+    ],
+    [
+      "Soria López",
+      3
+    ],
+    [
+      "Nadal Belda",
+      3
+    ],
+    [
+      "Mato Adrover",
+      3
+    ],
+    [
+      "Alonso Aranegui",
+      3
+    ],
+    [
+      "Montserrat Montserrat",
+      3
+    ],
+    [
+      "González Laya",
+      3
+    ],
+    [
+      "Albares Bueno",
+      3
+    ],
+    [
+      "Grande-Marlaska Gómez",
+      3
+    ],
+    [
+      "Delgado García",
+      3
+    ],
+    [
+      "Campo Moreno",
+      3
+    ],
+    [
+      "Llop Cuenca",
+      3
+    ],
+    [
+      "Bolaños García",
+      3
+    ],
+    [
+      "Robles Fernández",
+      3
+    ],
+    [
+      "Valerio Cordón",
+      3
+    ],
+    [
+      "Ábalos Meco",
+      3
+    ],
+    [
+      "Sánchez Jiménez",
+      3
+    ],
+    [
+      "Puente Santiago",
+      3
+    ],
+    [
+      "Celaá Diéguez",
+      3
+    ],
+    [
+      "Alegría Continente",
+      3
+    ],
+    [
+      "Planas Puchades",
+      3
+    ],
+    [
+      "Maroto Illera",
+      3
+    ],
+    [
+      "Hereu i Boher",
+      3
+    ],
+    [
+      "Carcedo Roces",
+      3
+    ],
+    [
+      "Illa Roca",
+      3
+    ],
+    [
+      "Darias San Sebastián",
+      3
+    ],
+    [
+      "García Gómez",
+      3
+    ],
+    [
+      "Montón Giménez",
+      3
+    ],
+    [
+      "Escrivá Belmonte",
+      3
+    ],
+    [
+      "López Águeda",
+      3
+    ],
+    [
+      "Saiz Alonso",
+      3
+    ],
+    [
+      "Bustinduy Amador",
+      3
+    ],
+    [
+      "Montero Gil",
+      3
+    ],
+    [
+      "Redondo García",
+      3
+    ],
+    [
+      "Castells Oliván",
+      3
+    ],
+    [
+      "Subirats Humet",
+      3
+    ],
+    [
+      "Morant Ripoll",
+      3
+    ],
+    [
+      "Huerta Hernández",
+      3
+    ],
+    [
+      "Rodríguez Uribes",
+      3
+    ],
+    [
+      "Iceta i Llorens",
+      3
+    ],
+    [
+      "Urtasun Domènech",
+      3
+    ],
+    [
+      "Batet Lamaña",
+      3
+    ],
+    [
+      "Torres Pérez",
+      3
+    ],
+    [
+      "Rodríguez García",
+      3
+    ],
+    [
+      "Rego Rego",
+      3
+    ],
+    [
+      "España García",
+      3
+    ],
+    [
+      "Silva Muñoz",
+      3
+    ],
+    [
+      "Pastor Ridruejo",
+      3
+    ],
+    [
+      "Fraga Iribarne",
+      3
+    ],
+    [
+      "Verstrynge Rojas",
+      3
+    ],
+    [
+      "Hernández Mancha",
+      3
+    ],
+    [
+      "Casado Blanco",
+      3
+    ],
+    [
+      "Núñez Feijóo",
+      3
+    ],
+    [
+      "Calvo Ortega",
+      3
+    ],
+    [
+      "Carrillo Solares",
+      3
+    ],
+    [
+      "Iglesias Argüelles",
+      3
+    ],
+    [
+      "Anguita González",
+      3
+    ],
+    [
+      "Frutos Grás",
+      3
+    ],
+    [
+      "Llamazares Trigo",
+      3
+    ],
+    [
+      "Lara Moya",
+      3
+    ],
+    [
+      "Garzón Espinosa",
+      3
+    ],
+    [
+      "Maíllo Cañadas",
+      3
+    ],
+    [
+      "Santiago Romero",
+      3
+    ],
+    [
+      "Iglesias Turrión",
+      3
+    ],
+    [
+      "Belarra Urteaga",
+      3
+    ],
+    [
+      "Díaz Pérez",
+      3
+    ],
+    [
+      "Martínez Barbero",
+      3
+    ],
+    [
+      "Abascal Conde",
+      3
+    ],
+    [
+      "Rivera Díaz",
+      3
+    ],
+    [
+      "Arrimadas García",
+      3
+    ],
+    [
+      "Vázquez Lázara",
+      3
+    ],
+    [
+      "Pérez-Nievas",
+      3
+    ],
+    [
+      "Pujol Soley",
+      3
+    ],
+    [
+      "Mas Gavarró",
+      3
+    ],
+    [
+      "Bonvehí i Torras",
+      3
+    ],
+    [
+      "Puigdemont Casamajó",
+      3
+    ],
+    [
+      "Borràs Castanyer",
+      3
+    ],
+    [
+      "Turull i Negre",
+      3
+    ],
+    [
+      "Carod-Rovira",
+      3
+    ],
+    [
+      "Puigcercós Boixassa",
+      3
+    ],
+    [
+      "Junqueras i Vies",
+      3
+    ],
+    [
+      "Rovira Vergés",
+      3
+    ],
+    [
+      "Alamany Gutiérrez",
+      3
+    ],
+    [
+      "Garaikoetxea Urriza",
+      3
+    ],
+    [
+      "Arzalluz Antia",
+      3
+    ],
+    [
+      "Imaz Astiazaran",
+      3
+    ],
+    [
+      "Urkullu Renteria",
+      3
+    ],
+    [
+      "Ortuzar Arozena",
+      3
+    ],
+    [
+      "Esteban Bravo",
+      3
+    ],
+    [
+      "Monzón Ortiz de Urbina",
+      3
+    ],
+    [
+      "Idigoras Astibia",
+      3
+    ],
+    [
+      "Otegi Mondragón",
+      3
+    ],
+    [
+      "Beiras García",
+      3
+    ],
+    [
+      "Quintana González",
+      3
+    ],
+    [
+      "Vázquez Vázquez",
+      3
+    ],
+    [
+      "Vence Deza",
+      3
+    ],
+    [
+      "Pontón Mondelo",
+      3
+    ],
+    [
+      "Clavijo Batlle",
+      3
+    ],
+    [
+      "Díez González",
+      3
+    ],
+    [
+      "Herzog",
+      3
+    ],
+    [
+      "Maneiro Labayen",
+      3
+    ]
+  ],
+  "parejas": [
+    {
+      "nombre": "Adolfo",
+      "apellidos": "Suárez González",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Leopoldo",
+      "apellidos": "Calvo-Sotelo y Bustelo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Felipe",
+      "apellidos": "González Márquez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José María",
+      "apellidos": "Aznar López",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José Luis",
+      "apellidos": "Rodríguez Zapatero",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Mariano",
+      "apellidos": "Rajoy Brey",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Pedro",
+      "apellidos": "Sánchez Pérez-Castejón",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Fernando",
+      "apellidos": "de Santiago y Díaz de Mendívil",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Manuel",
+      "apellidos": "Gutiérrez Mellado",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Alfonso",
+      "apellidos": "Osorio García",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Enrique",
+      "apellidos": "Fuentes Quintana",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Fernando",
+      "apellidos": "Abril Martorell",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Alfonso",
+      "apellidos": "Guerra González",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Narcís",
+      "apellidos": "Serra i Serra",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Francisco",
+      "apellidos": "Álvarez-Cascos Fernández",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Rodrigo",
+      "apellidos": "Rato Figaredo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Javier",
+      "apellidos": "Arenas Bocanegra",
+      "sexo": "m"
+    },
+    {
+      "nombre": "María Teresa",
+      "apellidos": "Fernández de la Vega Sanz",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Pedro",
+      "apellidos": "Solbes Mira",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Elena",
+      "apellidos": "Salgado Méndez",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Alfredo",
+      "apellidos": "Pérez Rubalcaba",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Soraya",
+      "apellidos": "Sáenz de Santamaría Antón",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Carmen",
+      "apellidos": "Calvo Poyato",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Nadia",
+      "apellidos": "Calviño Santamaría",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Teresa",
+      "apellidos": "Ribera Rodríguez",
+      "sexo": "f"
+    },
+    {
+      "nombre": "María Jesús",
+      "apellidos": "Montero Cuadrado",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Sara",
+      "apellidos": "Aagesen Muñoz",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Carlos",
+      "apellidos": "Cuerpo Caballero",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Marcelino",
+      "apellidos": "Oreja Aguirre",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José Pedro",
+      "apellidos": "Pérez-Llorca Rodrigo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Rodolfo",
+      "apellidos": "Martín Villa",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Juan José",
+      "apellidos": "Rosón Pérez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Landelino",
+      "apellidos": "Lavilla Alsina",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Íñigo",
+      "apellidos": "Cavero Lataillade",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Francisco",
+      "apellidos": "Fernández Ordóñez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Alberto",
+      "apellidos": "Oliart Saussol",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Agustín",
+      "apellidos": "Rodríguez Sahagún",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Juan Antonio",
+      "apellidos": "García Díez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José Manuel",
+      "apellidos": "Otero Novas",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Juan Antonio",
+      "apellidos": "Ortega y Díaz-Ambrona",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Jaime",
+      "apellidos": "Lamo de Espinosa",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José Luis",
+      "apellidos": "Álvarez Álvarez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Joaquín",
+      "apellidos": "Garrigues Walker",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Ignacio",
+      "apellidos": "Camuñas Solís",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Pío",
+      "apellidos": "Cabanillas Gallas",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Manuel",
+      "apellidos": "Clavero Arévalo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Fernando",
+      "apellidos": "Morán López",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Javier",
+      "apellidos": "Solana Madariaga",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José",
+      "apellidos": "Barrionuevo Peña",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José Luis",
+      "apellidos": "Corcuera Cuesta",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Antoni",
+      "apellidos": "Asunción Hernández",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Juan Alberto",
+      "apellidos": "Belloch Julbe",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Fernando",
+      "apellidos": "Ledesma Bartret",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Enrique",
+      "apellidos": "Múgica Herzog",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Tomás",
+      "apellidos": "de la Quadra-Salcedo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Miguel",
+      "apellidos": "Boyer Salvador",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Carlos",
+      "apellidos": "Solchaga Catalán",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Joaquín",
+      "apellidos": "Almunia Amann",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Manuel",
+      "apellidos": "Chaves González",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José Antonio",
+      "apellidos": "Griñán Martínez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Jordi",
+      "apellidos": "Solé Tura",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Carmen",
+      "apellidos": "Alborch Bataller",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Javier",
+      "apellidos": "Sáenz de Cosculluela",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José",
+      "apellidos": "Borrell Fontelles",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Vicente",
+      "apellidos": "Albero Silla",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Ernest",
+      "apellidos": "Lluch Martín",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Julián",
+      "apellidos": "García Vargas",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Gustavo",
+      "apellidos": "Suárez Pertierra",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José María",
+      "apellidos": "Maravall Herrero",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Luis Carlos",
+      "apellidos": "Croissier Batista",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Claudio",
+      "apellidos": "Aranzadi Martínez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Juan Manuel",
+      "apellidos": "Eguiagaray Ucelay",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Matilde",
+      "apellidos": "Fernández Sanz",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Cristina",
+      "apellidos": "Alberdi Alonso",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Abel",
+      "apellidos": "Matutes Juan",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Josep",
+      "apellidos": "Piqué i Camps",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Ana",
+      "apellidos": "Palacio Vallelersundi",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Jaime",
+      "apellidos": "Mayor Oreja",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Ángel",
+      "apellidos": "Acebes Paniagua",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Margarita",
+      "apellidos": "Mariscal de Gante",
+      "sexo": "f"
+    },
+    {
+      "nombre": "José María",
+      "apellidos": "Michavila Núñez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Eduardo",
+      "apellidos": "Serra Rexach",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Federico",
+      "apellidos": "Trillo-Figueroa",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Cristóbal",
+      "apellidos": "Montoro Romero",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Manuel",
+      "apellidos": "Pimentel Siles",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Juan Carlos",
+      "apellidos": "Aparicio Pérez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Eduardo",
+      "apellidos": "Zaplana Hernández-Soro",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Isabel",
+      "apellidos": "Tocino Biscarolasaga",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Jaume",
+      "apellidos": "Matas Palou",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Elvira",
+      "apellidos": "Rodríguez Herrer",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Esperanza",
+      "apellidos": "Aguirre Gil de Biedma",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Pilar",
+      "apellidos": "del Castillo Vera",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Loyola",
+      "apellidos": "de Palacio del Valle-Lersundi",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Miguel",
+      "apellidos": "Arias Cañete",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Rafael",
+      "apellidos": "Arias-Salgado Montalvo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Anna",
+      "apellidos": "Birulés i Bertran",
+      "sexo": "f"
+    },
+    {
+      "nombre": "José Manuel",
+      "apellidos": "Romay Beccaría",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Celia",
+      "apellidos": "Villalobos Talero",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Ana",
+      "apellidos": "Pastor Julián",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Pío",
+      "apellidos": "Cabanillas Alonso",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Miguel Ángel",
+      "apellidos": "Moratinos Cuyaubé",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Trinidad",
+      "apellidos": "Jiménez García-Herrera",
+      "sexo": "f"
+    },
+    {
+      "nombre": "José",
+      "apellidos": "Bono Martínez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José Antonio",
+      "apellidos": "Alonso Suárez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Carme",
+      "apellidos": "Chacón Piqueras",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Juan Fernando",
+      "apellidos": "López Aguilar",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Mariano",
+      "apellidos": "Fernández Bermejo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Francisco",
+      "apellidos": "Caamaño Domínguez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Jesús",
+      "apellidos": "Caldera Sánchez-Capitán",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Celestino",
+      "apellidos": "Corbacho Chaves",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Valeriano",
+      "apellidos": "Gómez Sánchez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José",
+      "apellidos": "Blanco López",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Magdalena",
+      "apellidos": "Álvarez Arza",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Cristina",
+      "apellidos": "Garmendia Mendizábal",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Jordi",
+      "apellidos": "Sevilla Segura",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Cristina",
+      "apellidos": "Narbona Ruiz",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Elena",
+      "apellidos": "Espinosa Mangana",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Bernat",
+      "apellidos": "Soria Escoms",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Leire",
+      "apellidos": "Pajín Iraola",
+      "sexo": "f"
+    },
+    {
+      "nombre": "María Jesús",
+      "apellidos": "San Segundo",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Mercedes",
+      "apellidos": "Cabrera Calvo-Sotelo",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Ángel",
+      "apellidos": "Gabilondo Pujol",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Miguel",
+      "apellidos": "Sebastián Gascón",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José",
+      "apellidos": "Montilla Aguilera",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Joan",
+      "apellidos": "Clos i Matheu",
+      "sexo": "m"
+    },
+    {
+      "nombre": "César Antonio",
+      "apellidos": "Molina",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Ángeles",
+      "apellidos": "González-Sinde",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Bibiana",
+      "apellidos": "Aído Almagro",
+      "sexo": "f"
+    },
+    {
+      "nombre": "María Antonia",
+      "apellidos": "Trujillo Rincón",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Beatriz",
+      "apellidos": "Corredor Sierra",
+      "sexo": "f"
+    },
+    {
+      "nombre": "José Manuel",
+      "apellidos": "García-Margallo y Marfil",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Alfonso",
+      "apellidos": "Dastis Quecedo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Jorge",
+      "apellidos": "Fernández Díaz",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Juan Ignacio",
+      "apellidos": "Zoido Álvarez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Alberto",
+      "apellidos": "Ruiz-Gallardón",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Rafael",
+      "apellidos": "Catalá Polo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Pedro",
+      "apellidos": "Morenés Eulate",
+      "sexo": "m"
+    },
+    {
+      "nombre": "María Dolores",
+      "apellidos": "de Cospedal García",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Luis",
+      "apellidos": "de Guindos Jurado",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Fátima",
+      "apellidos": "Báñez García",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Íñigo",
+      "apellidos": "de la Serna Hernáiz",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José Ignacio",
+      "apellidos": "Wert Ortega",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Íñigo",
+      "apellidos": "Méndez de Vigo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Isabel",
+      "apellidos": "García Tejerina",
+      "sexo": "f"
+    },
+    {
+      "nombre": "José Manuel",
+      "apellidos": "Soria López",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Álvaro",
+      "apellidos": "Nadal Belda",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Ana",
+      "apellidos": "Mato Adrover",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Alfonso",
+      "apellidos": "Alonso Aranegui",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Dolors",
+      "apellidos": "Montserrat Montserrat",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Arancha",
+      "apellidos": "González Laya",
+      "sexo": "f"
+    },
+    {
+      "nombre": "José Manuel",
+      "apellidos": "Albares Bueno",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Fernando",
+      "apellidos": "Grande-Marlaska Gómez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Dolores",
+      "apellidos": "Delgado García",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Juan Carlos",
+      "apellidos": "Campo Moreno",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Pilar",
+      "apellidos": "Llop Cuenca",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Félix",
+      "apellidos": "Bolaños García",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Margarita",
+      "apellidos": "Robles Fernández",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Magdalena",
+      "apellidos": "Valerio Cordón",
+      "sexo": "f"
+    },
+    {
+      "nombre": "José Luis",
+      "apellidos": "Ábalos Meco",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Raquel",
+      "apellidos": "Sánchez Jiménez",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Óscar",
+      "apellidos": "Puente Santiago",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Isabel",
+      "apellidos": "Celaá Diéguez",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Pilar",
+      "apellidos": "Alegría Continente",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Luis",
+      "apellidos": "Planas Puchades",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Reyes",
+      "apellidos": "Maroto Illera",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Jordi",
+      "apellidos": "Hereu i Boher",
+      "sexo": "m"
+    },
+    {
+      "nombre": "María Luisa",
+      "apellidos": "Carcedo Roces",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Salvador",
+      "apellidos": "Illa Roca",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Carolina",
+      "apellidos": "Darias San Sebastián",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Mónica",
+      "apellidos": "García Gómez",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Carmen",
+      "apellidos": "Montón Giménez",
+      "sexo": "f"
+    },
+    {
+      "nombre": "José Luis",
+      "apellidos": "Escrivá Belmonte",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Óscar",
+      "apellidos": "López Águeda",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Elma",
+      "apellidos": "Saiz Alonso",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Pablo",
+      "apellidos": "Bustinduy Amador",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Irene",
+      "apellidos": "Montero Gil",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Ana",
+      "apellidos": "Redondo García",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Manuel",
+      "apellidos": "Castells Oliván",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Joan",
+      "apellidos": "Subirats Humet",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Diana",
+      "apellidos": "Morant Ripoll",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Màxim",
+      "apellidos": "Huerta Hernández",
+      "sexo": "m"
+    },
+    {
+      "nombre": "José Manuel",
+      "apellidos": "Rodríguez Uribes",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Miquel",
+      "apellidos": "Iceta i Llorens",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Ernest",
+      "apellidos": "Urtasun Domènech",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Meritxell",
+      "apellidos": "Batet Lamaña",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Ángel Víctor",
+      "apellidos": "Torres Pérez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Isabel",
+      "apellidos": "Rodríguez García",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Sira",
+      "apellidos": "Rego Rego",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Arcadi",
+      "apellidos": "España García",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Federico",
+      "apellidos": "Silva Muñoz",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Félix",
+      "apellidos": "Pastor Ridruejo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Manuel",
+      "apellidos": "Fraga Iribarne",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Jorge",
+      "apellidos": "Verstrynge Rojas",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Antonio",
+      "apellidos": "Hernández Mancha",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Pablo",
+      "apellidos": "Casado Blanco",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Alberto",
+      "apellidos": "Núñez Feijóo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Rafael",
+      "apellidos": "Calvo Ortega",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Santiago",
+      "apellidos": "Carrillo Solares",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Gerardo",
+      "apellidos": "Iglesias Argüelles",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Julio",
+      "apellidos": "Anguita González",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Francisco",
+      "apellidos": "Frutos Grás",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Gaspar",
+      "apellidos": "Llamazares Trigo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Cayo",
+      "apellidos": "Lara Moya",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Alberto",
+      "apellidos": "Garzón Espinosa",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Antonio",
+      "apellidos": "Maíllo Cañadas",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Enrique",
+      "apellidos": "Santiago Romero",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Pablo",
+      "apellidos": "Iglesias Turrión",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Ione",
+      "apellidos": "Belarra Urteaga",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Yolanda",
+      "apellidos": "Díaz Pérez",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Verónica",
+      "apellidos": "Martínez Barbero",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Santiago",
+      "apellidos": "Abascal Conde",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Albert",
+      "apellidos": "Rivera Díaz",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Inés",
+      "apellidos": "Arrimadas García",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Adrián",
+      "apellidos": "Vázquez Lázara",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Carlos",
+      "apellidos": "Pérez-Nievas",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Jordi",
+      "apellidos": "Pujol Soley",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Artur",
+      "apellidos": "Mas Gavarró",
+      "sexo": "m"
+    },
+    {
+      "nombre": "David",
+      "apellidos": "Bonvehí i Torras",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Carles",
+      "apellidos": "Puigdemont Casamajó",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Laura",
+      "apellidos": "Borràs Castanyer",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Jordi",
+      "apellidos": "Turull i Negre",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Josep-Lluís",
+      "apellidos": "Carod-Rovira",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Joan",
+      "apellidos": "Puigcercós Boixassa",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Oriol",
+      "apellidos": "Junqueras i Vies",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Marta",
+      "apellidos": "Rovira Vergés",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Elisenda",
+      "apellidos": "Alamany Gutiérrez",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Carlos",
+      "apellidos": "Garaikoetxea Urriza",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Xabier",
+      "apellidos": "Arzalluz Antia",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Josu Jon",
+      "apellidos": "Imaz Astiazaran",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Iñigo",
+      "apellidos": "Urkullu Renteria",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Andoni",
+      "apellidos": "Ortuzar Arozena",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Aitor",
+      "apellidos": "Esteban Bravo",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Telesforo",
+      "apellidos": "Monzón Ortiz de Urbina",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Jon",
+      "apellidos": "Idigoras Astibia",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Arnaldo",
+      "apellidos": "Otegi Mondragón",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Xosé Manuel",
+      "apellidos": "Beiras García",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Anxo",
+      "apellidos": "Quintana González",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Guillerme",
+      "apellidos": "Vázquez Vázquez",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Xavier",
+      "apellidos": "Vence Deza",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Ana",
+      "apellidos": "Pontón Mondelo",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Fernando",
+      "apellidos": "Clavijo Batlle",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Rosa",
+      "apellidos": "Díez González",
+      "sexo": "f"
+    },
+    {
+      "nombre": "Andrés",
+      "apellidos": "Herzog",
+      "sexo": "m"
+    },
+    {
+      "nombre": "Gorka",
+      "apellidos": "Maneiro Labayen",
+      "sexo": "m"
+    }
   ]
 }

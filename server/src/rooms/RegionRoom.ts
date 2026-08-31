@@ -5,6 +5,7 @@ import { RoomExteriorBase, RADIO_INTERACCION } from "./base/RoomExteriorBase";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { NpcBakeado } from "../mundo/agentes";
+import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa } from "../mundo/npcsFijos";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
 import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
@@ -17,6 +18,7 @@ import { crearCadaver } from "../mundo/cadaveres";
 import { diaFraccional } from "../mundo/reproduccionFauna";
 import { agregarItem } from "../inventario/inventario";
 import { generarGritoBandido } from "../ia/cronicaBandida";
+import { nombrePoliticoDeterminista } from "../personaje/nombresNpc";
 
 // Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): "si se les da de comer
 // unas 5 veces, podrás convertirlo en tu mascota" — fauna URBANA
@@ -104,20 +106,31 @@ export class RegionRoom extends RoomExteriorBase {
     // los agentes nacen recolocados según la hora del reloj de mundo y se
     // simulan a 10 hz (paseo, no combate) SOLO mientras la room viva — la
     // room autodispone al vaciarse, así una aldea sin jugadores cuesta cero.
-    const rutaPoblacion = path.join(rutaMapa, "poblacion.json");
-    if (fs.existsSync(rutaPoblacion)) {
-      const poblacion = JSON.parse(fs.readFileSync(rutaPoblacion, "utf8")) as { npcs: NpcBakeado[] };
-      // obtenerOCrearGestorAgentes (docs/GDD_Produccion.md): mismo gestor
-      // que usará un futuro NPC transportista en esta región — un único
-      // GestorAgentes por room, un único tick, nunca dos relojes distintos.
-      const gestor = this.obtenerOCrearGestorAgentes();
-      gestor.iniciar(poblacion.npcs, tiempoMundo().hora);
-      console.log(`  ${gestor.cantidad} NPCs con rutina en el mapa`);
-      // Comercio con NPCs (docs/GDD_Economia.md, pedido 2026-08-30): solo
-      // hace falta saber CUÁLES son "tendero" — el resto de oficio sigue
-      // siendo flavor. slotId ya es la clave real de state.npcs.
-      for (const npc of poblacion.npcs) {
-        if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
+    // NPCs FIJOS (docs/GDD_Profesiones.md ronda 2/3, pedido 2026-08-30): el
+    // admin los coloca a mano en `npcsFijos.json` del mapa, o en vivo desde
+    // el juego (tutoriales, persistidos en BD) — mismo GestorAgentes, un
+    // tramo único de 24h así que nunca se mueven. A diferencia de los NPCs
+    // con rutina, estos cargan SIEMPRE, aunque el mapa no tenga poblacion.json.
+    {
+      const rutaPoblacion = path.join(rutaMapa, "poblacion.json");
+      const npcsConRutina: NpcBakeado[] = fs.existsSync(rutaPoblacion)
+        ? (JSON.parse(fs.readFileSync(rutaPoblacion, "utf8")) as { npcs: NpcBakeado[] }).npcs
+        : [];
+      const npcsTutoriales = await cargarNpcsTutorialesDeMapa(await obtenerBdCompartida(), this.mapaId);
+      const todosLosNpcs = [...npcsConRutina, ...cargarNpcsFijos(rutaMapa), ...npcsTutoriales];
+      if (todosLosNpcs.length > 0) {
+        // obtenerOCrearGestorAgentes (docs/GDD_Produccion.md): mismo gestor
+        // que usará un futuro NPC transportista en esta región — un único
+        // GestorAgentes por room, un único tick, nunca dos relojes distintos.
+        const gestor = this.obtenerOCrearGestorAgentes();
+        gestor.iniciar(todosLosNpcs, tiempoMundo().hora);
+        console.log(`  ${gestor.cantidad} NPCs en el mapa (${npcsTutoriales.length} tutorial(es))`);
+        // Comercio con NPCs (docs/GDD_Economia.md, pedido 2026-08-30): solo
+        // hace falta saber CUÁLES son "tendero" — el resto de oficio sigue
+        // siendo flavor. slotId ya es la clave real de state.npcs.
+        for (const npc of todosLosNpcs) {
+          if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
+        }
       }
     }
 
@@ -376,7 +389,11 @@ export class RegionRoom extends RoomExteriorBase {
 
       for (const tropa of miembros) {
         const slotId = `patrulla:${tropa.id}`;
-        gestor.agregarAgenteTransportista(slotId, "Bandido merodeador", plaza, puerta, caminoIda, caminoVuelta);
+        // Nombre de político (pedido 2026-08-30, "los NPC hostiles también
+        // tiran de esa lista") — antes "Bandido merodeador" genérico
+        // compartido por todo el grupo; ahora cada tropa tiene su propia
+        // identidad determinista.
+        gestor.agregarAgenteTransportista(slotId, nombrePoliticoDeterminista(slotId), plaza, puerta, caminoIda, caminoVuelta);
         const esquema = this.state.npcs.get(slotId)!;
         esquema.hostil = true;
         esquema.accion = "patrullar";

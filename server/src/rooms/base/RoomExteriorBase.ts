@@ -83,6 +83,14 @@ import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../c
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
 import { EstadoCurtidor, aceptaEntradaCurtidor, huecoMaterialCurtidor, iniciarLoteCurtidor, curtidorListo, recolectarLoteCurtidor } from "../../construccion/curtido";
 import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, VITAL_MAX } from "../../personaje/vitales";
+import {
+  OFICIOS_JUGADOR_VALIDOS, tieneOficio, precioCambioOficio,
+  bonusVelocidadCrafteoPorNivelOficio, bonusCantidadCrafteoPorNivelOficio,
+  UMBRAL_SUCIEDAD_MOLESTO, RECARGO_TIENDA_SUCIEDAD, SUCIEDAD_POR_CRAFTEO, SUCIEDAD_POR_RECOLECTAR,
+  RITMO_LIMPIEZA_AGUA_POR_HORA, FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO,
+} from "../../personaje/oficios";
+import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente } from "../../mundo/npcsFijos";
+import { nombrePoliticoDeterminista } from "../../personaje/nombresNpc";
 import { Atributo, esAtributoValido } from "../../personaje/atributos";
 import { UMBRALES_NIVEL_ATRIBUTO } from "../../progresion/nivel";
 import {
@@ -156,9 +164,8 @@ const ALTO_INVENTARIO_GREMIO = 10;
 // — mismos ids que usa `receta.oficio` en items/catalogo/recetas.json y
 // `nivelOficioMinimo`/`mejoraMesa` en interiores/catalogo/elementos.json.
 // Lista cerrada a propósito — un id que no está aquí no es un typo tolerado.
-const OFICIOS_JUGADOR_VALIDOS = new Set([
-  "herrero", "carpintero", "ingeniero", "picapedrero", "molinero", "cazador", "cocinero", "curandero", "curtidor", "joyero",
-]);
+// Movida a server/src/personaje/oficios.ts (ronda 2, pedido 2026-08-30) para
+// que la exclusividad de 2 slots viva en un módulo puro, re-importada aquí.
 
 // --- Ganadería (docs/GDD_Ganaderia.md, pedido 2026-08-30) ---
 // Mismo umbral que las mascotas urbanas (RegionRoom.VECES_COMIDA_PARA_DOMESTICAR)
@@ -220,6 +227,14 @@ const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar u
 
 // --- Crafteo (docs/GDD_Crafteo.md) — placeholder de balance, mismo criterio que el resto ---
 const XP_POR_CRAFTEO = 20;
+/** Cuánto dura una frase de suciedad en la burbuja de un NPC antes de volver a su pregón normal (docs/GDD_Personaje.md §3.6). */
+const DURACION_FRASE_SUCIA_MS = 6000;
+/** Cada cuánto se revisa si algún jugador sucio tiene un NPC cerca (barato a propósito, ver revisarBarksSuciedad). */
+const INTERVALO_BARK_SUCIEDAD_MS = 4000;
+/** Cooldown por jugador entre un bark de suciedad y el siguiente — no un coro constante mientras camina por la calle. */
+const COOLDOWN_BARK_SUCIEDAD_MS = 30000;
+/** Radio en casillas para que un NPC "note" a un jugador sucio al pasar cerca. */
+const RADIO_BARK_SUCIEDAD = 3;
 
 // --- Atributos (docs/GDD_Personaje.md §3.2, pedido 2026-08-30: "que cada
 // atributo tenga varias formas de sacar exp") — cada atributo tiene AL
@@ -660,12 +675,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     // Higiene y sueño en cama (docs/GDD_Personaje.md §3.6, pedido explícito 2026-08-30)
     this.onMessage("higiene:cagar", (client, msg: { instanciaId?: number }) => this.manejarHigieneCagar(client, msg));
-    this.onMessage("higiene:lavar", (client) => this.manejarHigieneLavar(client));
+    this.onMessage("higiene:lavar", (client, msg: { instanciaId?: number }) => this.manejarHigieneLavar(client, msg));
     this.onMessage("dormir:iniciar", (client, msg: { construccionId?: number }) => this.manejarDormirIniciar(client, msg));
     this.onMessage("dormir:completar", (client) => this.manejarDormirCompletar(client));
 
-    // Oficio de jugador (docs/GDD_Caza.md) — sistema mínimo, sin requisito ni exclusividad real.
+    // Oficio de jugador — ronda 2 (docs/GDD_Profesiones.md): 2 slots, elegir
+    // un vacío es gratis, cambiar uno ocupado cuesta Farycoins y reinicia la
+    // XP del que se quita — ambos exigen hablar con el NPC maestro_oficios.
     this.onMessage("oficio:elegir", (client, msg: { oficio?: string }) => this.manejarOficioElegir(client, msg));
+    this.onMessage("oficio:cambiar", (client, msg: { slot?: number; oficio?: string }) => this.manejarOficioCambiar(client, msg));
 
     // Cadáveres/caza (docs/GDD_Caza.md; procesado rediseñado 2026-08-30 octava
     // pasada): lootear el cadáver del mundo da el ítem "cadáver entero" al
@@ -873,6 +891,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // PvP (docs/GDD_PvP.md, pedido 2026-08-30): jarl-only, "inicialmente deshabilitada".
     this.onMessage("pvp:fijar", (client, msg: { on?: boolean }) => this.manejarPvpFijar(client, msg));
 
+    // NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3, pedido
+    // 2026-08-30): jarl/superadmin-only, colocados en la posición actual
+    // del admin que los pide.
+    this.onMessage("admin:npcTutorial:catalogo", (client) => this.manejarNpcTutorialCatalogo(client));
+    this.onMessage("admin:npcTutorial:colocar", (client, msg: { tipoTutorial?: string }) => void this.manejarNpcTutorialColocar(client, msg));
+    this.onMessage("admin:npcTutorial:quitar", (client, msg: { id?: number }) => void this.manejarNpcTutorialQuitar(client, msg));
+
     // Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30):
     // tecla T, mutuo — ambos deben pulsarla apuntándose el uno al otro.
     this.onMessage("comercio:solicitar", (client) => this.manejarComercioSolicitar(client));
@@ -893,6 +918,31 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Daño ambiental de eventos Twitch (rayo/terremoto) — igual de barato que
     // el resto de ticks lentos de esta base, ver aplicarDanoEventosAmbientales.
     this.clock.setInterval(() => this.aplicarDanoEventosAmbientales(1), 1000);
+    // Suciedad: NPCs sueltan frase al pasar cerca de un jugador sucio
+    // (docs/GDD_Personaje.md §3.6, pedido 2026-08-30) — barato a propósito,
+    // cada pocos segundos, no cada tick de movimiento (O(jugadores·npcs) es
+    // aceptable a este ritmo, no a 30hz).
+    this.clock.setInterval(() => this.revisarBarksSuciedad(), INTERVALO_BARK_SUCIEDAD_MS);
+  }
+
+  private ultimoBarkSucioPorSesion = new Map<string, number>();
+
+  /** Recorre jugadores sucios + NPCs cercanos, suelta una frase con cooldown por jugador (evita que el mismo jugador dispare barks sin parar). */
+  private revisarBarksSuciedad() {
+    if (this.state.npcs.size === 0) return;
+    const ahora = Date.now();
+    this.state.players.forEach((player, sessionId) => {
+      if (player.suciedad < UMBRAL_SUCIEDAD_MOLESTO) return;
+      const ultimo = this.ultimoBarkSucioPorSesion.get(sessionId) ?? 0;
+      if (ahora - ultimo < COOLDOWN_BARK_SUCIEDAD_MS) return;
+      for (const npc of this.state.npcs.values()) {
+        if (!npc.visible) continue;
+        if (Math.hypot(npc.x - player.x, npc.y - player.y) > RADIO_BARK_SUCIEDAD) continue;
+        this.soltarFraseNpc(npc, FRASES_NPC_SUCIO);
+        this.ultimoBarkSucioPorSesion.set(sessionId, ahora);
+        break; // un solo NPC por revisión, no un coro
+      }
+    });
   }
 
   onDispose() {
@@ -1216,6 +1266,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
     this.persistirInventarioPorSesion(client);
+    // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): recolectar también ensucia, un poco menos que craftear.
+    player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_RECOLECTAR);
 
     // Fuerza/Inteligencia (docs/GDD_Personaje.md §3.2) — SIN awaitear, a
     // propósito (ver el comentario de esta función: coger es 100%
@@ -1512,7 +1564,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // sube `comida`, al tope se ensucia solo.
     if (vital === "comida") {
       restaurarVital(player.vitales, "caca", cantidad);
-      if (player.vitales.caca >= VITAL_MAX) player.sucio = true;
+      if (player.vitales.caca >= VITAL_MAX) player.suciedad = Math.min(100, player.suciedad + 30);
     }
     return player.vitales[vital];
   }
@@ -1545,34 +1597,118 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
-   * Higiene: quita `sucio` — solo dentro del agua (mismo `player.estado` que
-   * ya distingue nadar/bucear de tierra, cero mecanismo nuevo de detección).
+   * Higiene — ronda 2 (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): quita
+   * `suciedad` del todo, pero solo dentro del agua Y con 1 "jabon" en el
+   * inventario (se consume) — antes bastaba con estar en el agua un
+   * instante. La limpieza SIN jabón, solo por estar en el agua un rato, es
+   * pasiva (ver `RITMO_LIMPIEZA_AGUA_POR_HORA` en el tick de vitales, más
+   * abajo en este archivo) — esta acción es el atajo instantáneo.
    */
-  private manejarHigieneLavar(client: Client) {
+  private manejarHigieneLavar(client: Client, msg: { instanciaId?: number }) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     if (player.estado === "tierra") return client.send("higiene:error", { motivo: "necesitas estar en el agua" });
-    if (!player.sucio) return client.send("higiene:error", { motivo: "no estás sucio" });
-    player.sucio = false;
+    if (player.suciedad <= 0) return client.send("higiene:error", { motivo: "no estás sucio" });
+    const contenedor = this.inventarios.get(client.sessionId);
+    const it = contenedor?.items.find((i) => i.itemId === "jabon" && (typeof msg?.instanciaId !== "number" || i.id === msg.instanciaId));
+    if (!contenedor || !it) return client.send("higiene:error", { motivo: "necesitas jabón" });
+    const resultado = quitarItem(contenedor, it.id, 1);
+    if (!resultado.ok) return client.send("higiene:error", { motivo: resultado.motivo ?? "no se pudo usar el jabón" });
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    player.suciedad = 0;
     client.send("higiene:lavado", {});
   }
 
   /**
-   * Oficio de jugador (docs/GDD_Caza.md) — sistema MÍNIMO v1: elegir es
-   * gratis, instantáneo, sin requisito y sin exclusividad real (cambiable
-   * en cualquier momento, no hay "un solo oficio para siempre"). `oficio:""`
-   * lo quita. No hay progresión de aprendizaje todavía — mismo hueco
-   * "placeholder de balance a afinar" que el resto del proyecto.
+   * Pone temporalmente `npc.grito` a una frase al azar del array dado
+   * (docs/GDD_Personaje.md §3.6, pedido 2026-08-30: barks de suciedad) —
+   * reusa TAL CUAL la burbuja de pregón que el cliente YA sabe mostrar
+   * (`game.ts`, campo `Npc.grito`), sin UI nueva. Vuelve a su grito
+   * original a los `DURACION_FRASE_SUCIA_MS` — no pisa el pregón fijo del
+   * NPC para siempre, solo un momento.
    */
-  private manejarOficioElegir(client: Client, msg: { oficio?: string }) {
-    const player = this.state.players.get(client.sessionId);
-    if (!player) return;
-    const oficio = (msg.oficio ?? "").trim();
-    if (oficio !== "" && !OFICIOS_JUGADOR_VALIDOS.has(oficio)) {
-      return client.send("oficio:error", { motivo: `oficio desconocido: ${oficio}` });
+  private soltarFraseNpc(npc: Npc, frases: string[]) {
+    const original = npc.grito;
+    npc.grito = frases[Math.floor(Math.random() * frases.length)];
+    this.clock.setTimeout(() => { npc.grito = original; }, DURACION_FRASE_SUCIA_MS);
+  }
+
+  /** NPC "maestro_oficios" más cercano dentro de RADIO_INTERACCION — mismo criterio que npcTenderoMasCercano. */
+  private npcMaestroOficiosMasCercano(x: number, y: number): { id: string; npc: Npc } | null {
+    let mejorId: string | null = null;
+    let mejorNpc: Npc | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    for (const [id, npc] of this.state.npcs.entries()) {
+      if (this.oficiosNpc.get(id) !== "maestro_oficios") continue;
+      const d = Math.hypot(npc.x - x, npc.y - y);
+      if (d < mejorDist) { mejorDist = d; mejorId = id; mejorNpc = npc; }
     }
-    player.oficio = oficio;
-    client.send("oficio:elegido", { oficio });
+    return mejorId && mejorNpc ? { id: mejorId, npc: mejorNpc } : null;
+  }
+
+  /**
+   * Oficio de jugador — RONDA 2 (docs/GDD_Profesiones.md, pedido 2026-08-30:
+   * "sigue sin coste ni exclusividad real"). Elegir el PRIMER o SEGUNDO
+   * oficio (un slot vacío) es gratis, pero solo hablando con el NPC
+   * "maestro de oficios" (`npcMaestroOficiosMasCercano`, plantado a mano por
+   * el admin — server/src/mundo/npcsFijos.ts). Cambiarlo cuando el jugador
+   * ya tiene 2 elegidos va por `manejarOficioCambiar`.
+   */
+  private async manejarOficioElegir(client: Client, msg: { oficio?: string }) {
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player) return;
+    const oficio = (msg.oficio ?? "").trim();
+    if (!OFICIOS_JUGADOR_VALIDOS.has(oficio)) return client.send("oficio:error", { motivo: `oficio desconocido: ${oficio}` });
+    if (!this.npcMaestroOficiosMasCercano(player.x, player.y)) {
+      return client.send("oficio:error", { motivo: "necesitas hablar con el maestro de oficios" });
+    }
+    if (player.oficio1 === oficio || player.oficio2 === oficio) return client.send("oficio:error", { motivo: "ya tienes ese oficio" });
+    const slot: 1 | 2 | null = player.oficio1 === "" ? 1 : player.oficio2 === "" ? 2 : null;
+    if (!slot) return client.send("oficio:error", { motivo: "ya tienes 2 oficios elegidos — usa oficio:cambiar para reemplazar uno" });
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    await bd.fijarOficioSlot(jugador.id, slot, oficio);
+    await bd.reiniciarXpOficio(jugador.id, oficio); // arranca de cero, nivel 1 real
+    if (slot === 1) player.oficio1 = oficio; else player.oficio2 = oficio;
+    client.send("oficio:elegido", { slot, oficio });
+  }
+
+  /**
+   * Cambia un slot de oficio YA ocupado (docs/GDD_Profesiones.md ronda
+   * 2/3): cuesta `precioCambioOficio(jugador.cambiosOficio)` Farycoins
+   * (50 el primer cambio de la cuenta, se DUPLICA cada vez que vuelve a
+   * cambiar — "primer cambio 50, si cambia más veces es exponencial el
+   * precio sube") y REINICIA a 0 la XP del oficio que se quita ("se inicia
+   * de cero la profesión perdiendo todo el avance de la que quites") — el
+   * nuevo oficio también arranca a 0. Mismo gating de NPC que elegir.
+   */
+  private async manejarOficioCambiar(client: Client, msg: { slot?: number; oficio?: string }) {
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player) return;
+    const slot: 1 | 2 | null = msg.slot === 1 || msg.slot === 2 ? msg.slot : null;
+    const oficio = (msg.oficio ?? "").trim();
+    if (!slot) return client.send("oficio:error", { motivo: "slot inválido (1 o 2)" });
+    if (!OFICIOS_JUGADOR_VALIDOS.has(oficio)) return client.send("oficio:error", { motivo: `oficio desconocido: ${oficio}` });
+    if (!this.npcMaestroOficiosMasCercano(player.x, player.y)) {
+      return client.send("oficio:error", { motivo: "necesitas hablar con el maestro de oficios" });
+    }
+    const actual = slot === 1 ? player.oficio1 : player.oficio2;
+    if (actual === "") return client.send("oficio:error", { motivo: "ese slot está vacío — usa oficio:elegir" });
+    if (actual === oficio) return client.send("oficio:error", { motivo: "ya tienes ese oficio en ese slot" });
+    if (player.oficio1 === oficio || player.oficio2 === oficio) return client.send("oficio:error", { motivo: "ya tienes ese oficio en el otro slot" });
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const precio = precioCambioOficio(jugador.cambiosOficio);
+    const cobro = await bd.ajustarFarycoins(jugador.id, -precio);
+    if (!cobro.ok) return client.send("oficio:error", { motivo: `necesitas ${precio} farycoins para cambiar de oficio` });
+    const cambiosOficio = await bd.incrementarCambiosOficio(jugador.id); // el siguiente cambio costará el doble
+    await bd.reiniciarXpOficio(jugador.id, actual); // pierde TODO el avance del que quita
+    await bd.fijarOficioSlot(jugador.id, slot, oficio);
+    await bd.reiniciarXpOficio(jugador.id, oficio); // el nuevo también arranca de cero
+    if (slot === 1) player.oficio1 = oficio; else player.oficio2 = oficio;
+    client.send("oficio:cambiado", { slot, oficioAnterior: actual, oficio, precioPagado: precio, saldoRestante: cobro.saldo, cambiosOficio });
   }
 
   /**
@@ -1685,7 +1821,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private manejarCadaverProcesarIniciar(client: Client, msg: { instanciaId?: number; verbo?: VerboDespiece; construccionId?: number }) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    if (player.oficio !== "curtidor") return client.send("cadaver:error", { motivo: "necesitas el oficio de curtidor" });
+    if (!tieneOficio(player.oficio1, player.oficio2, "curtidor")) return client.send("cadaver:error", { motivo: "necesitas el oficio de curtidor" });
     if (this.despiecesEnCurso.has(client.sessionId)) return client.send("cadaver:error", { motivo: "ya tienes un cadáver en proceso" });
     if (msg.verbo !== "desollar" && msg.verbo !== "despiezar") return client.send("cadaver:error", { motivo: "verbo desconocido" });
 
@@ -1758,7 +1894,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private manejarPielRaspar(client: Client, msg: { instanciaId?: number; cantidad?: number }) {
     const player = this.state.players.get(client.sessionId);
     if (!player || typeof msg?.instanciaId !== "number") return;
-    if (player.oficio !== "curtidor") {
+    if (!tieneOficio(player.oficio1, player.oficio2, "curtidor")) {
       return client.send("piel:error", { motivo: "necesitas el oficio de curtidor" });
     }
     const contenedor = this.inventarios.get(client.sessionId);
@@ -3200,6 +3336,59 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.broadcast("pvp:actualizado", { on: !!msg?.on });
   }
 
+  /**
+   * Catálogo de arquetipos de NPC tutorial (docs/GDD_Profesiones.md ronda
+   * 3) — jarl/superadmin-only: alimenta el "spawner" del admin ("saldrá qué
+   * tutorial explica cada uno"), no expone nada sensible pero tampoco hace
+   * falta que lo vea cualquiera.
+   */
+  private manejarNpcTutorialCatalogo(client: Client) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin ve esto" });
+    const catalogo = [...cargarCatalogoNpcsTutoriales().values()].map((n) => ({ id: n.id, nombre: n.nombre, mecanica: n.mecanica }));
+    client.send("admin:npcTutorial:catalogo", { npcs: catalogo });
+  }
+
+  /**
+   * Coloca un NPC tutorial EN LA POSICIÓN ACTUAL del admin/superadmin que
+   * envía el mensaje ("la que esté en ese momento de spawnear o marcar el
+   * admin", pedido literal) — persiste en BD (sobrevive un reinicio del
+   * servidor) Y se inserta EN CALIENTE en la simulación (visible para todos
+   * sin esperar a que la room se recree). Vestido con el equipo del
+   * catálogo, reusando el pipeline de `equipoVisual.ts` del cliente tal
+   * cual — cero renderizado nuevo.
+   */
+  private async manejarNpcTutorialColocar(client: Client, msg: { tipoTutorial?: string }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin coloca NPCs tutoriales" });
+    const nombreAdmin = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombreAdmin || !player || !msg?.tipoTutorial) return;
+    const arquetipo = cargarCatalogoNpcsTutoriales().get(msg.tipoTutorial);
+    if (!arquetipo) return client.send("admin:error", { motivo: `tipo de NPC tutorial desconocido: ${msg.tipoTutorial}` });
+
+    const bd = await obtenerBdCompartida();
+    const fila = await bd.colocarNpcTutorial({
+      mapaId: this.mapaIdPropio, tipoTutorial: msg.tipoTutorial, nombre: arquetipo.nombre,
+      x: player.x, y: player.y, colocadoPor: nombreAdmin,
+    });
+    const npc = npcTutorialAAgente(fila, cargarCatalogoNpcsTutoriales());
+    if (!npc) return; // no debería pasar (el catálogo se acaba de leer arriba), pero por si acaso
+    this.obtenerOCrearGestorAgentes().agregarNpcFijo(npc);
+    if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
+    client.send("admin:npcTutorial:colocado", { id: fila.id, tipoTutorial: fila.tipoTutorial, nombre: fila.nombre, x: fila.x, y: fila.y });
+  }
+
+  /** Quita un NPC tutorial (BD + en caliente) — jarl/superadmin-only. */
+  private async manejarNpcTutorialQuitar(client: Client, msg: { id?: number }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin quita NPCs tutoriales" });
+    if (typeof msg?.id !== "number") return;
+    const bd = await obtenerBdCompartida();
+    const existia = await bd.quitarNpcTutorial(msg.id);
+    if (!existia) return client.send("admin:error", { motivo: "ese NPC tutorial ya no existe" });
+    this.obtenerOCrearGestorAgentes().quitarAgente(`tutorial_${msg.id}`);
+    this.oficiosNpc.delete(`tutorial_${msg.id}`);
+    client.send("admin:npcTutorial:quitado", { id: msg.id });
+  }
+
   /** Jugador vivo más cercano dentro de RADIO_INTERACCION, excluyendo al propio emisor — mismo criterio de auto-apuntado sin UI que "coger"/"combate:iniciar". */
   private jugadorMasCercanoPara(sessionId: string): string | null {
     const yo = this.state.players.get(sessionId);
@@ -4208,7 +4397,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
     sincronizarContenedor(player.inventario.cuerpo, contenedor!);
     void this.otorgarXpAtributoPorSesion(client, "carisma", XP_CARISMA_POR_COMPRAR);
-    client.send("npc:compraResultado", { npcId: msg.npcId, itemId: msg.itemId, cantidad, precioTotal: r.precioTotal, saldoRestante: r.saldoRestante });
+    // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): "que si...
+    // llega a niveles altos te cobren más los npc de tienda y suelten
+    // frases" — recargo aparte del precio ya cobrado (best-effort: si no le
+    // llega para el recargo no se deshace la compra, es un impuesto de
+    // sabor, no un bloqueo) + una de las frases de vendedor en su burbuja.
+    let recargoAplicado = 0;
+    if (player.suciedad >= UMBRAL_SUCIEDAD_MOLESTO) {
+      recargoAplicado = Math.ceil(r.precioTotal * RECARGO_TIENDA_SUCIEDAD);
+      if (recargoAplicado > 0) await bd.ajustarFarycoins((await bd.obtenerOCrearJugador(nombre)).id, -recargoAplicado);
+      this.soltarFraseNpc(npc, FRASES_VENDEDOR_SUCIO);
+    }
+    client.send("npc:compraResultado", { npcId: msg.npcId, itemId: msg.itemId, cantidad, precioTotal: r.precioTotal + recargoAplicado, saldoRestante: r.saldoRestante - recargoAplicado });
   }
 
   /**
@@ -5379,9 +5579,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     });
 
     // paseo visual: NPC dedicado en bucle origen↔destino (cosmético, el
-    // cálculo económico de arriba no depende de que "llegue" de verdad)
+    // cálculo económico de arriba no depende de que "llegue" de verdad).
+    // Nombre de político (pedido 2026-08-30, "los NPC contratados también
+    // tiran de esa lista") — antes "Carretero de <jugador>".
+    const slotIdCarretero = `contrato:${contrato.id}`;
     this.obtenerOCrearGestorAgentes().agregarAgenteTransportista(
-      `contrato:${contrato.id}`, `Carretero de ${nombre}`, origenPunto, destinoPunto, caminoIda, caminoVuelta,
+      slotIdCarretero, nombrePoliticoDeterminista(slotIdCarretero), origenPunto, destinoPunto, caminoIda, caminoVuelta,
     );
 
     client.send("transporte:estado", await this.listadoTransporte(nombre));
@@ -5629,8 +5832,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
     const factorEnergia = factorVelocidadPorEnergia(ctx, this.catalogoConstruible, { objeto: viva.objeto, claves: viva.claves });
+    // Oficio elegido (docs/GDD_Profesiones.md ronda 2, pedido 2026-08-30):
+    // el bono de velocidad/cantidad por nivel SOLO aplica si el jugador
+    // tiene `receta.oficio` en uno de sus 2 slots — craftear un oficio que
+    // no elegiste sigue funcionando (mesa+nivel+insumos), simplemente sin bono.
+    const oficioElegido = !!player && tieneOficio(player.oficio1, player.oficio2, receta.oficio);
+    const nivelOficio = nivelDeXp(xp);
+    const bonusVelocidadOficio = oficioElegido ? bonusVelocidadCrafteoPorNivelOficio(nivelOficio) : 0;
+    const bonusCantidadOficio = oficioElegido ? bonusCantidadCrafteoPorNivelOficio(nivelOficio) : 0;
     // Inteligencia (docs/GDD_Personaje.md §3.3): "craftea más rápido" — multiplica el factor de energía, nunca lo sustituye.
-    const factor = factorEnergia * factorVelocidadCrafteo(player?.atributos.inteligencia ?? 1);
+    const factor = factorEnergia * factorVelocidadCrafteo(player?.atributos.inteligencia ?? 1) * (1 + bonusVelocidadOficio);
     // Módulos de mejora adyacentes (docs/GDD_Profesiones.md, pedido 2026-08-30):
     // el de "velocidad" recorta duracionMs directo (misma fórmula que dio el
     // streamer); el de "cantidad" se congela en craftesEnCurso y se aplica al
@@ -5638,7 +5849,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bonusModulos = bonusModulosAdyacentes(ctx, this.catalogoConstruible, viva);
     const duracionMs = (receta.tiempoBaseSeg / Math.max(0.01, factor)) * 1000 * (1 - bonusModulos.velocidad);
     const terminaEn = Date.now() + duracionMs;
-    this.craftesEnCurso.set(client.sessionId, { recetaId: receta.id, terminaEn, bonusCantidad: bonusModulos.cantidad });
+    this.craftesEnCurso.set(client.sessionId, { recetaId: receta.id, terminaEn, bonusCantidad: bonusModulos.cantidad, bonusCantidadOficio });
     client.send("crafteo:iniciado", { recetaId: receta.id, terminaEn });
   }
 
@@ -5659,8 +5870,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor) return;
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    // Módulo de "cantidad" congelado al iniciar (ver manejarCrafteoIniciar).
-    const cantidadFinal = Math.floor(receta.resultado.cantidad * (1 + (estado.bonusCantidad ?? 0)));
+    // Módulo de "cantidad" + bono de nivel de oficio, ambos congelados al iniciar (ver manejarCrafteoIniciar).
+    const cantidadFinal = Math.floor(receta.resultado.cantidad * (1 + (estado.bonusCantidad ?? 0) + (estado.bonusCantidadOficio ?? 0)));
     const entrega = this.entregarOSoltar(client, player, receta.resultado.itemId, cantidadFinal);
 
     const bd = await obtenerBdCompartida();
@@ -5668,9 +5879,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // XP por blueprint (docs/GDD_Crafteo.md §7bis, pedido 2026-08-30): cada
     // receta puede asignar SU PROPIA XP (`xpOtorgada`) — ausente = cae al
     // global de siempre, para no tener que rellenar TODAS las recetas de golpe.
-    const nuevaXp = await bd.sumarXpOficio(jugador.id, receta.oficio, receta.xpOtorgada ?? XP_POR_CRAFTEO);
+    // Oficio elegido (docs/GDD_Profesiones.md ronda 2): la XP SOLO sube si
+    // `receta.oficio` está en uno de los 2 slots del jugador — craftear un
+    // oficio no elegido sigue entregando el objeto, pero no progresa.
+    const oficioElegido = tieneOficio(player.oficio1, player.oficio2, receta.oficio);
+    const nuevaXp = oficioElegido
+      ? await bd.sumarXpOficio(jugador.id, receta.oficio, receta.xpOtorgada ?? XP_POR_CRAFTEO)
+      : await bd.obtenerXpOficio(jugador.id, receta.oficio);
     // Inteligencia (docs/GDD_Personaje.md): completar un crafteo entrena tanto el oficio como el atributo general.
     await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
+    // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): "si trabajas
+    // o haces acciones sube" — cada crafteo completado ensucia un poco.
+    player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_CRAFTEO);
     client.send("crafteo:completado", {
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: cantidadFinal,
       oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
@@ -5772,7 +5992,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!nombre || !ctx || typeof msg?.construccionId !== "number" || typeof msg.instanciaId !== "number") return;
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    if (player.oficio !== "curtidor") {
+    if (!tieneOficio(player.oficio1, player.oficio2, "curtidor")) {
       return this.errorCurtidor(client, "necesitas el oficio de curtidor");
     }
     const viva = ctx.vivas.get(msg.construccionId);
@@ -6131,7 +6351,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!cfg) return this.errorAnimal(client, "producto desconocido");
     const stats = this.estadisticasFaunaDe(fila.especieId);
     if (!stats?.categoriaProductoGranja?.includes(producto)) return this.errorAnimal(client, "este animal no da ese producto");
-    if (cfg.exigeOficio && player.oficio !== "molinero") return this.errorAnimal(client, "necesitas el oficio de molinero");
+    if (cfg.exigeOficio && !tieneOficio(player.oficio1, player.oficio2, "molinero")) return this.errorAnimal(client, "necesitas el oficio de molinero");
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
@@ -7206,7 +7426,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const medico = this.state.players.get(client.sessionId);
     const target = this.jugadorObjetivoMedico(client, msg?.targetSessionId);
     if (!medico || !target) return this.errorMedico(client, "objetivo inválido");
-    if (medico.oficio !== "curandero") return this.errorMedico(client, "necesitas el oficio de curandero");
+    if (!tieneOficio(medico.oficio1, medico.oficio2, "curandero")) return this.errorMedico(client, "necesitas el oficio de curandero");
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor?.items.some((it) => it.itemId === "instrumental_cirugia")) {
       return this.errorMedico(client, "necesitas el instrumental de cirugía");
@@ -7241,7 +7461,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const medico = this.state.players.get(client.sessionId);
     const target = this.jugadorObjetivoMedico(client, msg?.targetSessionId);
     if (!medico || !target || !msg?.zona || !ZONAS.includes(msg.zona)) return this.errorMedico(client, "objetivo o zona inválidos");
-    if (medico.oficio !== "curandero") return this.errorMedico(client, "necesitas el oficio de curandero");
+    if (!tieneOficio(medico.oficio1, medico.oficio2, "curandero")) return this.errorMedico(client, "necesitas el oficio de curandero");
     if (!this.construccionCercana(medico.x, medico.y, "mesa_diagnostico", RADIO_INTERACCION)) {
       return this.errorMedico(client, "necesitas estar junto a una mesa de diagnóstico");
     }
@@ -7607,6 +7827,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       tickVitales(player.vitales, horasPorTick);
       const extremo = aplicarTemperaturaCorporal(player.vitales, tempMundoC, horasPorTick);
       this.aplicarInanicionA(player, horasPorTick, extremo !== null);
+      // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): "limpiarse
+      // es o nadando en el agua durante X tiempo" — limpieza pasiva mientras
+      // esté en el agua (nadando o buceando), sin acción explícita. El
+      // atajo instantáneo con jabón sigue siendo `higiene:lavar`.
+      if (player.estado !== "tierra" && player.suciedad > 0) {
+        player.suciedad = Math.max(0, player.suciedad - RITMO_LIMPIEZA_AGUA_POR_HORA * horasPorTick);
+      }
       // Anatomía (docs/GDD_Anatomia.md): drenaje de sangrado/infección PEREZOSO,
       // mismo integrador horasPorTick que tickVitales — y cierre perezoso de la
       // fase "cicatrizando" (venda/tablilla) cuando ya pasó su tiempo. Solo se

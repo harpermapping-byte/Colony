@@ -265,8 +265,8 @@
     "tiempoBaseSeg": 8
   },
   "protesis_madera": {
-    "oficio": "curandero",
-    "mesas": ["mesa_diagnostico"],
+    "oficio": "ingeniero",
+    "mesas": ["banco_mecanizado"],
     "nivelMinimo": 2,
     "insumos": [
       { "itemId": "madera_dura", "cantidad": 2 },
@@ -274,7 +274,7 @@
     ],
     "resultado": { "itemId": "protesis_madera", "cantidad": 1 },
     "tiempoBaseSeg": 30,
-    "_nota": "docs/GDD_Anatomia.md — la craftea el curandero, pero la INSTALA sobre el paciente vía medico:protesis (acción aparte, no consume directamente del inventario del jugador que la craftea)."
+    "_nota": "docs/GDD_Anatomia.md, división de trabajo ronda 2 (pedido 2026-08-30): la craftea el INGENIERO (banco_mecanizado, mesa de oficio) — el CURANDERO es quien la INSTALA sobre el paciente vía medico:protesis (acción aparte, exige oficio curandero, no consume directamente del inventario de quien la craftea)."
   },
   "instrumental_cirugia": {
     "oficio": "herrero",
@@ -1303,13 +1303,13 @@
     "_nota": "docs/GDD_Profesiones.md — jarra_cerveza ya existía como item sin ninguna receta."
   },
   "protesis_metal_craft": {
-    "oficio": "curandero",
-    "mesas": ["mesa_cirugia"],
+    "oficio": "ingeniero",
+    "mesas": ["banco_ingenieria_pesada"],
     "nivelMinimo": 4,
     "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }, { "itemId": "cuero_curtido", "cantidad": 1 }],
     "resultado": { "itemId": "protesis_metal", "cantidad": 1 },
     "tiempoBaseSeg": 35,
-    "_nota": "docs/GDD_Anatomia.md/GDD_Profesiones.md — versión de tier alto de protesis_madera, mismo verbo medico:protesis (RoomExteriorBase.ts ya acepta cualquiera de las dos)."
+    "_nota": "docs/GDD_Anatomia.md/GDD_Profesiones.md, división de trabajo ronda 2 (pedido 2026-08-30) — versión de tier alto de protesis_madera, misma división ingeniero-craftea/curandero-instala; mismo verbo medico:protesis (RoomExteriorBase.ts ya acepta cualquiera de las dos)."
   },
   "mesa_comedor_pino_craft": {
     "oficio": "carpintero",

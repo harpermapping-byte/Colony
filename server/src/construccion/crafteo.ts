@@ -87,6 +87,14 @@ export interface EstadoCrafteo {
   terminaEn: number;
   /** Módulo de "cantidad" adyacente a la mesa en el momento de iniciar (docs/GDD_Profesiones.md) — congelado igual que terminaEn, se aplica a receta.resultado.cantidad al recolectar. Ausente/0 = sin módulo. */
   bonusCantidad?: number;
+  /**
+   * Bono de CANTIDAD por nivel de oficio elegido (docs/GDD_Profesiones.md
+   * ronda 2, pedido 2026-08-30: "a nivel 10 cantidad de objeto recibido
+   * x2") — congelado al iniciar igual que `bonusCantidad`, se SUMA a él al
+   * recolectar (`server/src/personaje/oficios.ts::bonusCantidadCrafteoPorNivelOficio`).
+   * 0 si el jugador no tiene ese oficio elegido en sus 2 slots.
+   */
+  bonusCantidadOficio?: number;
 }
 
 /** `true` cuando el crafteo en curso ya puede recogerse — comparación pura, sin tick. */

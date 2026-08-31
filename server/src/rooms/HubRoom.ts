@@ -27,6 +27,7 @@ import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
 import { UnidadCombate, calcularIniciativa, simularCombateAutomatico } from "../combate/arenaCombate";
 import { TIPO, tipoEn, medioEn, casillaAguaCercana } from "../mundo/colisiones";
 import { cooldownNpcHablarMs } from "../personaje/bonusAtributos";
+import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa, cargarCatalogoNpcsTutoriales } from "../mundo/npcsFijos";
 
 // Lee un `sector_XXX_YYY.json` bakeado y devuelve solo sus objetos de
 // fauna (t==="a") con coordenadas GLOBALAS de casilla — mismo formato de
@@ -168,6 +169,27 @@ export class HubRoom extends RoomExteriorBase {
     // lógica compartida (RoomExteriorBase.iniciarConstruccion) pero con
     // parcelas rasterizadas del bake, ver RegionRoom.ts.
     await this.iniciarConstruccion(cargarParcelas(rutaMapa, this.mapa.ancho), path.basename(rutaMapa));
+
+    // NPCs FIJOS (docs/GDD_Profesiones.md ronda 2/3, pedido 2026-08-30): el
+    // Hub es LA CAPITAL — donde tiene más sentido un NPC plantado a mano por
+    // el admin (el "maestro de oficios", los tutoriales...). A diferencia de
+    // RegionRoom, el Hub hoy no carga `poblacion.json` (sin NPCs con
+    // rutina) — esto SOLO añade los de `npcsFijos.json` (mapa, hecho a
+    // mano) + los tutoriales que un admin ya colocó en vivo (BD, ronda 3);
+    // sin ninguno de los dos, sin cambio de comportamiento.
+    {
+      const npcsFijos = cargarNpcsFijos(rutaMapa);
+      const npcsTutoriales = await cargarNpcsTutorialesDeMapa(await obtenerBdCompartida(), this.mapaIdPropio);
+      const todosLosFijos = [...npcsFijos, ...npcsTutoriales];
+      if (todosLosFijos.length > 0) {
+        const gestor = this.obtenerOCrearGestorAgentes();
+        gestor.iniciar(todosLosFijos, tiempoMundo().hora);
+        for (const npc of todosLosFijos) {
+          if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
+        }
+        console.log(`  ${gestor.cantidad} NPC(s) fijo(s) en el mapa (${npcsTutoriales.length} tutorial(es))`);
+      }
+    }
 
     // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): los que ya estaban
     // anclados en ESTE mapa (colocados en una sesión anterior, o que
@@ -362,6 +384,20 @@ export class HubRoom extends RoomExteriorBase {
       // rate-limit por jugador (GDD_Mecanicas §5.12, "rate-limit por
       // mensaje" pendiente): sin esto un cliente puede spamear el handler y
       // agotar la cuota gratuita de Gemini/Groq para todos los jugadores.
+      // NPC tutorial (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30):
+      // "texto predefinido a modo tutorial" — el texto EN SÍ todavía no
+      // está escrito ("ahora no se hace ese texto", pedido explícito), así
+      // que responde con un placeholder que nombra la mecánica en vez de
+      // gastar cuota de Gemini/Groq en una IA que no pinta nada aquí.
+      const npcTutorial = this.state.npcs.get(msg.npcId);
+      if (npcTutorial?.tipoTutorial) {
+        const arquetipo = cargarCatalogoNpcsTutoriales().get(npcTutorial.tipoTutorial);
+        client.send("npc:respuesta", {
+          npcId: msg.npcId,
+          texto: `[Tutorial pendiente de escribir: ${arquetipo?.mecanica ?? npcTutorial.tipoTutorial}]`,
+        });
+        return;
+      }
       const ahora = Date.now();
       const anterior = this.ultimoMensajeNpc.get(client.sessionId) ?? 0;
       // Carisma (docs/GDD_Personaje.md §3.3): "más interacciones o
@@ -580,6 +616,10 @@ export class HubRoom extends RoomExteriorBase {
           if (player) {
             player.vida = jugador.vida;
             player.vidaMax = jugador.vidaMax;
+            // Oficio persistido — ronda 2 (docs/GDD_Profesiones.md, pedido
+            // 2026-08-30): mismo criterio best-effort que vida/anatomía.
+            player.oficio1 = jugador.oficio1;
+            player.oficio2 = jugador.oficio2;
           }
           // Anatomía persistida (docs/GDD_Anatomia.md) — mismo criterio
           // best-effort que la vida: si falla, arranca en anatomiaInicial().

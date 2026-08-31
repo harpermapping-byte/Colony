@@ -784,6 +784,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const rig = vox ? crearPersonajeVoxel(vox) : crearRigHumanoide({ colorTunica: "#7a6248" });
     rig.objeto.rotation.order = "YXZ";
     rig.objeto.visible = npc.visible;
+    // NPC tutorial (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30:
+    // "se generan vestidos") — sin vóxeles bakeados propios (no vienen de
+    // poblacion/), así que se visten reusando TAL CUAL el pipeline de
+    // equipo del jugador (equipoVisual.ts) sobre el rig humanoide de
+    // repuesto; `npc.equipo` viene vacío para cualquier NPC normal.
+    if (npc.equipo && [...npc.equipo.keys()].length > 0) aplicarEquipoAlRig(rig.objeto, npc.equipo, slotId);
     const estado: EstadoJugador = {
       rig,
       destinoX: npc.x,
@@ -804,6 +810,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       estado.destinoZ = npc.y;
       rig.objeto.visible = npc.visible;
       meta.accion = npc.accion;
+      // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): el
+      // servidor cambia `npc.grito` un momento para soltar una frase de
+      // "hueles mal" — sin esto la burbuja se quedaría con el pregón
+      // capturado al aparecer el NPC, sin enterarse nunca del cambio.
+      meta.grito = npc.grito || "";
       escena.actualizarVida(`npc_${slotId}`, npc.vida, npc.vidaMax);
     });
   });
@@ -956,7 +967,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const figura = variante.tipoRig === "animal" ? crearAnimalVoxel(variante) : crearPersonajeVoxel(variante);
     figura.objeto.rotation.order = "YXZ";
     figura.orientar(1, 1);
-    const etiqueta = enemigo.esBoss ? `☠ ${enemigo.enemigoId}` : enemigo.enemigoId;
+    // Bandidos de mazmorra (pedido 2026-08-31): "serán bandido y punto,
+    // nombre de lo que es" — respawnean cada tanto, así que NUNCA llevan
+    // nombre de político (a diferencia de los bandidos del mapa exterior,
+    // que sí son individuos permanentes — docs/GDD_Poblacion_NPCs.md). Se
+    // etiquetan por su tipo, no por su enemigoId de catálogo crudo.
+    const nombreMostrado = enemigo.enemigoId.includes("bandido") ? "Bandido" : enemigo.enemigoId;
+    const etiqueta = enemigo.esBoss ? `☠ ${nombreMostrado}` : nombreMostrado;
     escena.añadirEntidad(`enemigo_${id}`, figura.objeto, enemigo.x, enemigo.y, etiqueta);
     escena.actualizarVida(`enemigo_${id}`, enemigo.vida, enemigo.vidaMax);
     enemigosVisual.set(id, figura);

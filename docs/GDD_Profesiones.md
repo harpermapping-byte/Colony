@@ -117,6 +117,63 @@ Pedido literal: "plantear crafteos blueprints y separarlos en mesa y nivel de ca
 
 `tsc` limpio, servidor 805/805 (785 + 6 de módulos + 11 de gating de herramienta, antes 9 + 3 tests nuevos de respawn en `recolectables.test.ts`, que ya venía incluido en los 785), interiores 41/41 (74 tipologías de edificio, antes 73 — `cabana_cazador`), ciudades 13/13. Bake real de 8 semillas de `aldea` confirmando `cabana_cazador` + su mesa de nivel 1 colocada en al menos una instancia. E2E real (`herramientasRecoleccion.e2e.mjs`) contra el mapa demo verificando el gating de principio a fin, incluida la roca minada de verdad.
 
+## §0bis. RONDA 2 — exclusividad real, 2 slots, progresión (2026-08-30)
+
+Pedido literal: "Oficio de jugador sigue sin coste ni exclusividad real: cambiarlo es gratis e instantáneo, sin curva de aprendizaje". Cierra ese hueco de raíz — `server/src/personaje/oficios.ts` (módulo puro nuevo) es la fuente de verdad de todo lo de abajo.
+
+### 2 slots elegidos con un NPC — el "maestro de oficios"
+
+- `Player.oficio` (string único) se reemplaza por `oficio1`/`oficio2` (`HubState.ts`) — EXACTAMENTE 2 oficios elegibles a la vez, de los 10 finales.
+- Se eligen/cambian hablando con un NPC **plantado a mano por el admin** en el sitio exacto que decida (capital, exterior o interior — hoy solo exterior implementado, ver "Pendiente" abajo): `assets/mapas/<mapaId>/npcsFijos.json`, cargado por `server/src/mundo/npcsFijos.ts` y fusionado en el `GestorAgentes` de siempre como un `NpcBakeado` con un único tramo de 24h y sin `camino` — el mecanismo de "NPC quieto en el sitio" YA existía en `agentes.ts` (`cambiarTramo`), esto solo lo activa desde un catálogo hecho a mano en vez de la rutina bakeada de `poblacion/`. `oficiosNpc.set(slotId, "maestro_oficios")` lo hace localizable con el MISMO mecanismo que ya usan los NPC "tendero".
+- **Elegir un slot vacío** (`oficio:elegir`, mensaje existente reescrito): gratis, pero exige estar junto al NPC (`RADIO_INTERACCION`, mismo radio que comerciar). Con los 2 slots ya llenos, se rechaza pidiendo `oficio:cambiar`.
+- **Cambiar un slot ya ocupado** (`oficio:cambiar`, mensaje NUEVO, `{slot, oficio}`): mismo gating de NPC + cuesta `PRECIO_CAMBIO_OFICIO` Farycoins (250, placeholder de balance) + **reinicia a 0 la XP del oficio que se quita** (`bd.reiniciarXpOficio`) — "se inicia de cero la profesión perdiendo todo el avance de la que quites", literal. El oficio nuevo también arranca a 0 (nunca hereda XP de una elección anterior).
+- **Persistencia real** (a diferencia de vitales/gremioId, que siguen sin persistir): `jugadores.oficio_1`/`oficio_2` en `server/src/datos/bd.ts` (sqlite + Postgres, migraciones `ALTER TABLE ... ADD COLUMN`), cargados en `HubRoom.onJoin` igual que vida/anatomía (best-effort, no bloquea el join).
+- **Exclusividad real de la XP**: `sumarXpOficio` (crafteo completado) solo se llama si `tieneOficio(player.oficio1, player.oficio2, receta.oficio)` — craftear un oficio NO elegido sigue funcionando (mesa+nivel+insumos, como siempre, ningún jugador queda bloqueado de la funcionalidad base), pero no progresa nada; antes cualquiera subía XP en cualquier oficio sin haberlo "elegido" nunca, que era la raíz del "sin exclusividad real".
+- **Verificado con un E2E real** (`server/test/oficios.e2e.mjs`) contra el mapa demo (que ya trae un `maestro_oficios` en el spawn, `assets/mapas/demo/npcsFijos.json`): elegir slot 1 gratis, repetir se rechaza, elegir slot 2 gratis, un tercero se rechaza pidiendo `oficio:cambiar`, cambiar cobra el precio exacto Y dejó la XP del oficio quitado en 0 en la BD real.
+- **Pendiente, no abordado esta ronda**: colocación de NPC fijo en INTERIORES (hoy solo exterior, `HubRoom`/`RegionRoom`); herramienta admin con GUI para plantar el NPC (hoy es JSON a mano, mismo criterio que el resto de catálogos "hechos por el admin" del proyecto); rechazo "lejos del NPC" solo verificado por lectura de código, no por E2E (habría exigido simular un paseo real).
+
+### Curva de nivel de oficio — 10 niveles, ~2 semanas dedicado / ~1 mes casual
+
+`UMBRALES_NIVEL` (`server/src/progresion/nivel.ts`) pasa de 6 niveles (base 100) a **10 niveles, base 90** (`generarUmbrales(10,90)`, tope 4050 XP) — mismo mecanismo que ya usan los atributos (10 niveles), solo que oficio ahora también llega a 10 en vez de quedarse corto en 6. Con `XP_POR_CRAFTEO=20` por crafteo/recolecta, el tope son ~200 acciones — placeholder de balance pensado para que un jugador que lo persigue activamente (varias horas/día en su oficio) lo agote en ~2 semanas, y uno casual (XP de rebote sin perseguirlo) tarde ~1 mes. Afecta también a `botanica` (injerto, mismo `nivelDeXp` por defecto) — efecto secundario aceptado, no un sistema aparte.
+
+### Mesas por nivel — umbrales reales actualizados
+
+La tabla N1-N4 de arriba seguía anotada con `nivelOficioMinimo.nivel` 1/2/3/4 sobre la vieja curva de 6 niveles. Con la curva de 10 niveles, pedido literal "nivel 0 tienes mesas nivel 1, a nivel 3 o 4 nivel 2, a nivel 5 o 6 nivel 3, a nivel 8 nivel 4" — remapeado (extremo alto de cada rango, más conservador) a **N1→nivel 1, N2→nivel 4, N3→nivel 6, N4→nivel 8**, MISMA norma en los 10 oficios (60 entradas de `interiores/catalogo/elementos.json` actualizadas de golpe con un script, JSON reverificado válido).
+
+### Bono de nivel 10 — velocidad y cantidad de crafteo, en TODOS los oficios
+
+Pedido literal: "cada nivel o cada X niveles desbloquees mesas... a nivel 10 pasarían cosas como bonus de velocidad de crafteo al 50% y cantidad de objeto recibido x2... el resto de niveles que poco a poco aumenten, MISMA norma en todos los oficios". `bonusVelocidadCrafteoPorNivelOficio`/`bonusCantidadCrafteoPorNivelOficio` (`oficios.ts`) son lineales entre nivel 1 (0%) y nivel 10 (+50% velocidad / +100% cantidad, x2) — SOLO aplican si el jugador tiene ese oficio elegido (`tieneOficio`), igual que la XP. Se calculan y CONGELAN al iniciar el crafteo (`EstadoCrafteo.bonusCantidadOficio`, mismo criterio que el bono de módulos adyacentes ya existente — subir de nivel a media cocción no cambia un crafteo ya en curso) y multiplican/suman sobre los bonos existentes (energía de la mesa, Inteligencia del jugador, módulos adyacentes), nunca los sustituyen.
+
+### División de trabajo curandero/ingeniero en prótesis
+
+Pedido literal: "el curandero cura mejor y es el único que puede operar y poner prótesis, las prótesis las hace el ingeniero". La instalación (`medico:protesis`, exige oficio `curandero`) YA estaba así desde `docs/GDD_Anatomia.md` — lo que cambia es QUIÉN CRAFTEA la prótesis: `protesis_madera`/`protesis_metal_craft` (`items/catalogo/recetas.json`) pasan de `oficio:"curandero"` + mesas de curandero a `oficio:"ingeniero"` + `banco_mecanizado`/`banco_ingenieria_pesada` (sus propias mesas N2/N4) — un ingeniero fabrica la prótesis, un curandero la instala, dos oficios distintos en la cadena, ver `docs/GDD_Anatomia.md §5`.
+
+### Suciedad — de booleano a stat real con consecuencias
+
+`Player.sucio` (booleano) se reemplaza por `Player.suciedad` (0-100, `HubState.ts`) — ver `docs/GDD_Personaje.md §3.6` para el detalle completo (sube con trabajo/recolección, recargo en tiendas + frases de NPC a partir de un umbral, se limpia nadando o con jabón).
+
+### Slot de equipo de piernas — YA EXISTÍA
+
+Comprobado antes de escribir nada nuevo: `ropa/catalogo/equipo.json` ya tenía `piernas` como slot de equipo real (`piernas_cuero`/`piernas_hierro`/`piernas_acero`, con stats), pendiente solo del pantalón puramente cosmético de `ropa/catalogo/prendas.json` (documentado como incompatible con el pipeline de render en vivo, ver §0 arriba, séptima pasada) — no hacía falta ningún slot nuevo.
+
+## §0ter. RONDA 3 — precio exponencial de cambio de oficio + NPCs tutoriales (2026-08-30)
+
+### Precio de cambio de oficio: 50 base, exponencial
+
+Pedido literal: "reduce el costo de cambio a 50 farycoins. primer cambio si cambia más veces es exponencial el precio sube". `PRECIO_CAMBIO_OFICIO` (fijo, 250) se sustituye por `precioCambioOficio(cambios)` = `50 * 2^cambios` (`server/src/personaje/oficios.ts`) — 50/100/200/400... `cambios` es `Jugador.cambiosOficio`, columna nueva persistida (`jugadores.cambios_oficio`, sqlite+Postgres) que solo SUBE, nunca baja, y se lee ANTES de cobrar / se incrementa DESPUÉS de cobrar con éxito (`bd.incrementarCambiosOficio`). Es un contador GLOBAL de la cuenta (no por slot) — cambiar el slot 1 o el slot 2 cuenta para el mismo contador, así alternar entre slots para abaratar no funciona. `oficio:cambiado` ahora manda también `precioPagado` y `cambiosOficio` (antes solo `saldoRestante`).
+
+### NPCs tutoriales — uno por mecánica, colocados en vivo por el admin/superadmin
+
+Pedido literal: "los npc estáticos los pone el admin y superadmin, como con un panel de npc, que designa qué npc y en la posición que esté en ese momento de spawnear o marcar... para ser tutoriales fijos, no se mueven, se generan vestidos con nombre, se podrá hablar con ellos con texto predefinido... un NPC por cada mecánica... el texto de los tutoriales se hace más adelante".
+
+- **Catálogo de arquetipos** — `poblacion/catalogo/npcsTutoriales.json` (12 hoy, uno por mecánica ya implementada: oficios, construcción, crafteo, inventario, comercio, combate, anatomía, agricultura, pesca, caza, mascotas, gremios): `id`, `nombre`, `mecanica` (qué explica — lo que enseñaría el "spawner" del admin al elegir cuál colocar) y `equipo` (slot→itemId, MISMO shape que `InventarioSchema.equipo` del jugador). Ampliable sin tocar código — añadir una entrada más es catálogo puro.
+- **Colocación EN VIVO, no un archivo hecho a mano**: a diferencia del `npcsFijos.json` de la ronda 2 (edición manual de un JSON), el admin/superadmin envía `admin:npcTutorial:colocar {tipoTutorial}` DESDE DENTRO DEL JUEGO — el servidor usa su posición ACTUAL (`player.x`/`player.y` en ese instante, "la que esté en ese momento de marcar", literal) y persiste una fila en la tabla nueva `npcs_tutoriales` (sqlite+Postgres, `mapa_id`/`tipo_tutorial`/`nombre`/`x`/`y`/`colocado_por`/`colocado_en`). `admin:npcTutorial:catalogo` lista los arquetipos disponibles (nombre+mecánica, para el futuro panel); `admin:npcTutorial:quitar {id}` los retira. Los 3 mensajes son jarl/superadmin-only (`puedeActuarComoJarl`, mismo gating ya usado por PvP/Twitch de prueba).
+- **En caliente Y persistente a la vez**: `GestorAgentes.agregarNpcFijo` (nuevo, `server/src/mundo/agentes.ts`) inserta el NPC en la simulación al instante (visible para todos sin esperar un reinicio de la room) — mismo patrón que el NPC transportista (`agregarAgenteTransportista`) ya usaba para altas en caliente. Al arrancar la room (`HubRoom`/`RegionRoom`), `cargarNpcsTutorialesDeMapa` (`server/src/mundo/npcsFijos.ts`) recrea TODOS los persistidos de ese mapa — sobreviven un reinicio del servidor.
+- **"Se generan vestidos" — cero pipeline de render nuevo**: `Npc.equipo` (nuevo `MapSchema<string>` en `HubState.ts`, mismo shape que el del jugador) se rellena del catálogo al colocarlo; el cliente (`game.ts`) llama a `aplicarEquipoAlRig` — la MISMA función que ya viste al jugador — sobre el rig de repuesto de cualquier NPC sin vóxeles bakeados propios. Cero generador de ropa nuevo, cero catálogo de vestimenta duplicado.
+- **"Texto predefinido... el texto se hace más adelante"**: `Npc.tipoTutorial` (nuevo campo, id del catálogo) hace que `npc:hablar` (`HubRoom.ts`) devuelva un placeholder (`[Tutorial pendiente de escribir: <mecánica>]`) en vez de invocar la IA de conversación — mecanismo listo, contenido real pendiente de escribir a propósito, tal y como se pidió.
+- **Verificado con un E2E real**: `server/test/oficios.e2e.mjs` (pasos 9-12) — jarl pide el catálogo (12 arquetipos), coloca un `tutorial_pesca` en su posición exacta, se confirma persistido en `npcs_tutoriales` con el admin correcto, un jugador SIN privilegios de jarl se rechaza al intentarlo, y se quita el NPC de vuelta. `server/test/oficios.test.ts` valida el catálogo entero contra `items/catalogo/items.json` real (cada pieza de ropa existe de verdad).
+- **Pendiente, no abordado esta ronda**: el panel visual en sí (hoy son 3 mensajes de Colyseus, listos para que un futuro cliente les ponga UI — ningún cliente los llama todavía, "UI es lo último" sigue vigente); el texto real de cada tutorial; colocación en interiores (mismo límite ya anotado en la ronda 2).
+
 ---
 
 ## §1 en adelante — diseño PREVIO (2026-08-29), 38 oficios sin fusionar

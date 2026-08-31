@@ -5,9 +5,9 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import { generarUmbrales, nivelDeXp, UMBRALES_NIVEL, UMBRALES_NIVEL_ATRIBUTO } from "../src/progresion/nivel";
 
-test("generarUmbrales: reproduce EXACTAMENTE la tabla de oficios ya existente (6 niveles, base 100)", () => {
-  assert.deepStrictEqual(generarUmbrales(6, 100), [0, 100, 300, 600, 1000, 1500]);
-  assert.deepStrictEqual(UMBRALES_NIVEL, [0, 100, 300, 600, 1000, 1500]);
+test("generarUmbrales: 10 niveles base 90 (curva de oficios ronda 2, pedido 2026-08-30)", () => {
+  assert.deepStrictEqual(generarUmbrales(10, 90), [0, 90, 270, 540, 900, 1350, 1890, 2520, 3240, 4050]);
+  assert.deepStrictEqual(UMBRALES_NIVEL, [0, 90, 270, 540, 900, 1350, 1890, 2520, 3240, 4050]);
 });
 
 test("generarUmbrales: 10 niveles — cada salto pide MÁS que el anterior (nunca lineal)", () => {
@@ -21,10 +21,10 @@ test("generarUmbrales: 10 niveles — cada salto pide MÁS que el anterior (nunc
   }
 });
 
-test("UMBRALES_NIVEL_ATRIBUTO: tope real en nivel 10, 3x más caro que el antiguo tope de oficios (nivel 6)", () => {
+test("UMBRALES_NIVEL_ATRIBUTO: tope real en nivel 10, algo más caro que el tope de oficios (mismos 10 niveles, base más alta)", () => {
   assert.strictEqual(UMBRALES_NIVEL_ATRIBUTO.length, 10);
   assert.strictEqual(UMBRALES_NIVEL_ATRIBUTO[9], 4500);
-  assert.strictEqual(UMBRALES_NIVEL_ATRIBUTO[9], UMBRALES_NIVEL[5] * 3);
+  assert.ok(UMBRALES_NIVEL_ATRIBUTO[9] > UMBRALES_NIVEL[9], "un atributo al máximo debe costar más XP que un oficio al máximo");
 });
 
 test("nivelDeXp: con la curva de atributos, nunca pasa de nivel 10 por mucha XP que se le dé", () => {
@@ -33,7 +33,7 @@ test("nivelDeXp: con la curva de atributos, nunca pasa de nivel 10 por mucha XP 
   assert.strictEqual(nivelDeXp(4499, UMBRALES_NIVEL_ATRIBUTO), 9);
 });
 
-test("nivelDeXp: sin segundo argumento sigue usando la curva de oficios (compatibilidad con crafteo.ts)", () => {
-  assert.strictEqual(nivelDeXp(1500), 6);
-  assert.strictEqual(nivelDeXp(999999), 6);
+test("nivelDeXp: sin segundo argumento sigue usando la curva de oficios (compatibilidad con crafteo.ts), ahora con tope en nivel 10", () => {
+  assert.strictEqual(nivelDeXp(4050), 10);
+  assert.strictEqual(nivelDeXp(999999), 10);
 });

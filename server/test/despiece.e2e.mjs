@@ -37,7 +37,9 @@ console.log("1) sembrando BD sqlite temporal (2 jugadores; ambos con el cadáver
       creado_en TEXT NOT NULL,
       farycoins INTEGER NOT NULL DEFAULT 0,
       vida INTEGER NOT NULL DEFAULT 100,
-      vida_max INTEGER NOT NULL DEFAULT 100
+      vida_max INTEGER NOT NULL DEFAULT 100,
+      oficio_1 TEXT NOT NULL DEFAULT '',
+      oficio_2 TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS inventarios (
       jugador_id INTEGER NOT NULL,
@@ -49,8 +51,12 @@ console.log("1) sembrando BD sqlite temporal (2 jugadores; ambos con el cadáver
       PRIMARY KEY (jugador_id, contenedor_id)
     );
   `);
-  bd.prepare("INSERT INTO jugadores (id, nombre, creado_en) VALUES (1, ?, ?)").run(NOMBRE_CON_TODO, new Date().toISOString());
-  bd.prepare("INSERT INTO jugadores (id, nombre, creado_en) VALUES (2, ?, ?)").run(NOMBRE_SIN_CUCHILLO, new Date().toISOString());
+  // oficio_1='curtidor' sembrado directo en BD (ronda 2 de oficios, docs/GDD_Profesiones.md):
+  // elegirlo de verdad exige hablar con el NPC maestro_oficios, que este test no necesita
+  // — lo que se está probando aquí es el gating de cuchillo/oficio en el despiece, no la
+  // elección de oficio en sí.
+  bd.prepare("INSERT INTO jugadores (id, nombre, creado_en, oficio_1) VALUES (1, ?, ?, 'curtidor')").run(NOMBRE_CON_TODO, new Date().toISOString());
+  bd.prepare("INSERT INTO jugadores (id, nombre, creado_en, oficio_1) VALUES (2, ?, ?, 'curtidor')").run(NOMBRE_SIN_CUCHILLO, new Date().toISOString());
   const itemsConTodo = JSON.stringify([
     { id: 1, itemId: "cuchillo_desollar", cantidad: 1, x: 0, y: 0, rot: 0 },
     { id: 2, itemId: CADAVER_ID, cantidad: 1, x: 1, y: 0, rot: 0 },
@@ -98,8 +104,6 @@ try {
   const clienteB = new Client(`ws://localhost:${PUERTO}`);
   const roomB = await clienteB.joinOrCreate("hub", { name: NOMBRE_SIN_CUCHILLO });
   await esperar(400);
-  roomB.send("oficio:elegir", { oficio: "curtidor" });
-  await esperar(200);
   const erroresB = [];
   roomB.onMessage("cadaver:error", (m) => erroresB.push(m));
   roomB.send("cadaver:procesarIniciar", { instanciaId: 1, verbo: "despiezar" });
@@ -114,8 +118,6 @@ try {
   const clienteA = new Client(`ws://localhost:${PUERTO}`);
   const roomA = await clienteA.joinOrCreate("hub", { name: NOMBRE_CON_TODO });
   await esperar(400);
-  roomA.send("oficio:elegir", { oficio: "curtidor" });
-  await esperar(200);
 
   const erroresA = [];
   roomA.onMessage("cadaver:error", (m) => erroresA.push(m));
