@@ -159,6 +159,14 @@
         "tipo": "region",
         "mapaId": "testzone/pois/asentamiento_cultistas_poi_281_272"
       }
+    },
+    {
+      "tipo": "interior",
+      "x": 234,
+      "y": 266,
+      "edificio": "carpinteria_testzone-taller-01",
+      "tipoEdificioId": "carpinteria",
+      "_nota": "Test Zone (pedido 2026-08-31) — Zona 2, taller con las 4 mesas de crafteo de referencia (niveles 1/4/6/8 reales del catálogo), edificio suelto sin solar bakeado, puerta colocada a mano en césped abierto."
     }
   ]
 }

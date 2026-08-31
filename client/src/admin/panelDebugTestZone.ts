@@ -12,12 +12,14 @@ import itemsJson from "../../../items/catalogo/items.json";
 
 // TODO coords reales de assets/mapas/testzone/ZONAS.md — estas son
 // PLACEHOLDER mientras el mapa de la Test Zone se termina de bakear.
+// Coordenadas reales de assets/mapas/testzone/ZONAS.md (bake testzone-01, 320x320).
 const ZONAS_TESTZONE: { etiqueta: string; x: number; y: number }[] = [
-  { etiqueta: "Zona 1 Recolección", x: 10, y: 10 },
-  { etiqueta: "Zona 2 Crafteo", x: 40, y: 10 },
-  { etiqueta: "Zona 3 Almacenamiento", x: 70, y: 10 },
-  { etiqueta: "Zona 4 Construcción", x: 10, y: 40 },
-  { etiqueta: "Zona 5 Combate", x: 40, y: 40 },
+  { etiqueta: "Spawn", x: 220, y: 270 },
+  { etiqueta: "Zona 1 Recolección", x: 206, y: 258 },
+  { etiqueta: "Zona 2 Crafteo", x: 234, y: 266 },
+  { etiqueta: "Zona 3 Almacenamiento", x: 228, y: 280 },
+  { etiqueta: "Zona 4 Construcción", x: 219, y: 276 },
+  { etiqueta: "Zona 5 Combate", x: 236, y: 280 },
 ];
 
 interface EntradaItem {

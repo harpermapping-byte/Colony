@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "mapa": "testzone",
+  "siguienteId": 2,
+  "parcelas": {
+    "p_0001": {
+      "asentamiento": "testzone",
+      "nombre": "Parcela de Pruebas (Zona 4)",
+      "runs": [
+        [273, 216, 221],
+        [274, 216, 221],
+        [275, 216, 221],
+        [276, 216, 221],
+        [277, 216, 221],
+        [278, 216, 221]
+      ],
+      "casillas": 36,
+      "topeProps": 7
+    }
+  }
+}

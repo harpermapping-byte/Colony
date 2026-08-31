@@ -90,6 +90,7 @@ import {
   RITMO_LIMPIEZA_AGUA_POR_HORA, FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO, NIVEL_MAX_OFICIO,
 } from "../../personaje/oficios";
 import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente } from "../../mundo/npcsFijos";
+import { contenedoresTestDeMapa } from "../../mundo/contenedoresTest";
 import { nombrePoliticoDeterminista } from "../../personaje/nombresNpc";
 import { Atributo, esAtributoValido } from "../../personaje/atributos";
 import { UMBRALES_NIVEL_ATRIBUTO, UMBRALES_NIVEL } from "../../progresion/nivel";
@@ -897,6 +898,22 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("admin:npcTutorial:catalogo", (client) => this.manejarNpcTutorialCatalogo(client));
     this.onMessage("admin:npcTutorial:colocar", (client, msg: { tipoTutorial?: string }) => void this.manejarNpcTutorialColocar(client, msg));
     this.onMessage("admin:npcTutorial:quitar", (client, msg: { id?: number }) => void this.manejarNpcTutorialQuitar(client, msg));
+
+    // Comandos de DEBUG para la Test Zone (pedido 2026-08-31, "montando una
+    // Test Zone para probar mecánicas con 2+ jugadores"): jarl/superadmin-
+    // only, mismo gate que los NPCs tutoriales — SIEMPRE self-target (cada
+    // admin/tester se hace las pruebas a sí mismo, sin selector de objetivo).
+    this.onMessage("admin:debug:darItem", (client, msg: { itemId?: string; cantidad?: number }) => this.manejarDebugDarItem(client, msg));
+    this.onMessage("admin:debug:limpiarInventario", (client) => this.manejarDebugLimpiarInventario(client));
+    this.onMessage("admin:debug:godMode", (client, msg: { activo?: boolean }) => this.manejarDebugGodMode(client, msg));
+    this.onMessage("admin:debug:maxOficio", (client, msg: { slot?: 1 | 2 }) => void this.manejarDebugMaxOficio(client, msg));
+    this.onMessage("admin:debug:resetearNodo", (client, msg: { nodoId?: string }) => this.manejarDebugResetearNodo(client, msg));
+    this.onMessage("admin:debug:teleport", (client, msg: { x?: number; y?: number }) => this.manejarDebugTeleport(client, msg));
+
+    // Cofres de mundo de la Test Zone (pedido 2026-08-31): SIN gate de
+    // jarl — son cofres de pruebas para cualquiera, no herramienta admin.
+    this.onMessage("contenedorTest:abrir", (client, msg: { id?: string }) => this.manejarContenedorTestAbrir(client, msg));
+    this.onMessage("contenedorTest:tomar", (client, msg: { id?: string; itemId?: string; cantidad?: number }) => this.manejarContenedorTestTomar(client, msg));
 
     // Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30):
     // tecla T, mutuo — ambos deben pulsarla apuntándose el uno al otro.
@@ -3388,6 +3405,146 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.obtenerOCrearGestorAgentes().quitarAgente(`tutorial_${msg.id}`);
     this.oficiosNpc.delete(`tutorial_${msg.id}`);
     client.send("admin:npcTutorial:quitado", { id: msg.id });
+  }
+
+  // --- Comandos de debug de la Test Zone (pedido 2026-08-31) ---
+  // Todos jarl/superadmin-only (mismo `puedeActuarComoJarl` que los NPCs
+  // tutoriales) y SELF-TARGET: actúan sobre el jugador que envía el mensaje,
+  // sin selector de objetivo — "cada admin/tester se hace las pruebas a sí
+  // mismo". Éxito -> "admin:debug:ok" {accion,...}; error -> "admin:error"
+  // {motivo}, mismo shape que ya usan npcTutorial/twitch/pvp.
+
+  /** `admin:debug:darItem {itemId,cantidad}` — reusa agregarItem (inventario/inventario.ts), el mismo motor que usa coger/crafteo/loot. */
+  private manejarDebugDarItem(client: Client, msg: { itemId?: string; cantidad?: number }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!player || !contenedor) return client.send("admin:error", { motivo: "inventario no disponible" });
+    if (!msg?.itemId || !this.catalogoItems[msg.itemId]) return client.send("admin:error", { motivo: `item desconocido: ${msg?.itemId}` });
+    const cantidad = Math.max(1, Math.floor(msg.cantidad ?? 1));
+    const resultado = agregarItem(contenedor, this.catalogoItems, msg.itemId, cantidad);
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (!resultado.ok) return client.send("admin:error", { motivo: resultado.motivo === "sin_hueco" ? "sin hueco en el inventario" : "item desconocido" });
+    this.persistirInventarioPorSesion(client);
+    client.send("admin:debug:ok", { accion: "darItem", itemId: msg.itemId, cantidad });
+  }
+
+  /** `admin:debug:limpiarInventario {}` — vacía cuerpo + TODAS las mochilas/bandoleras puestas; el equipo (armadura/arma equipada) se queda puesto a propósito. */
+  private manejarDebugLimpiarInventario(client: Client) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    const extras = this.extrasInventario.get(client.sessionId);
+    if (!player || !contenedor) return client.send("admin:error", { motivo: "inventario no disponible" });
+    contenedor.items = [];
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (extras) {
+      for (const extra of extras.values()) extra.items = [];
+      const equipo = this.equipoInventario.get(client.sessionId);
+      if (equipo) sincronizarEquipo(player.inventario, equipo, extras);
+    }
+    this.persistirInventarioPorSesion(client);
+    client.send("admin:debug:ok", { accion: "limpiarInventario" });
+  }
+
+  /** `admin:debug:godMode {activo}` — flag en Player.godMode; el tick de vitales/inanición/temperatura, el daño ambiental y `aplicarUnidadesASchema` (combate) lo respetan. */
+  private manejarDebugGodMode(client: Client, msg: { activo?: boolean }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return client.send("admin:error", { motivo: "jugador inválido" });
+    player.godMode = !!msg?.activo;
+    client.send("admin:debug:ok", { accion: "godMode", activo: player.godMode });
+  }
+
+  /** `admin:debug:maxOficio {slot}` — sube la XP guardada del oficio de ese slot al umbral de NIVEL_MAX_OFICIO (el nivel SIEMPRE se deriva de XP, nunca se persiste en sí — ver progresion/nivel.ts). */
+  private async manejarDebugMaxOficio(client: Client, msg: { slot?: 1 | 2 }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player) return client.send("admin:error", { motivo: "jugador inválido" });
+    if (msg?.slot !== 1 && msg?.slot !== 2) return client.send("admin:error", { motivo: "slot debe ser 1 o 2" });
+    const oficio = msg.slot === 1 ? player.oficio1 : player.oficio2;
+    if (!oficio) return client.send("admin:error", { motivo: `el slot ${msg.slot} no tiene oficio asignado` });
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const xpTope = UMBRALES_NIVEL[NIVEL_MAX_OFICIO - 1];
+    const xpActual = await bd.obtenerXpOficio(jugador.id, oficio);
+    if (xpActual < xpTope) await bd.sumarXpOficio(jugador.id, oficio, xpTope - xpActual);
+    client.send("admin:debug:ok", { accion: "maxOficio", slot: msg.slot, oficio, nivel: NIVEL_MAX_OFICIO });
+  }
+
+  /**
+   * `admin:debug:resetearNodo {nodoId}` — los recolectables agotados
+   * (hierbas/rocas/vegetación que pasan por "coger", mundo/recolectables.ts)
+   * no tienen un id amigable de por sí: viven en un Map por CASILLA
+   * (`y*ancho+x`, la misma clave que ya usa `recolectableCercano`). Formato
+   * de payload FINAL (coordinado con el panel de debug del cliente,
+   * `client/src/admin/panelDebugTestZone.ts`, que ya manda `nodoId` como
+   * string): `"x,y"` — las mismas casillas de mundo que ve el cliente al
+   * hacer "coger" sobre el nodo (se truncan igual que el resto del
+   * recolectado real). Si esa casilla no estaba agotada, no pasa nada
+   * (`habiaAgotado:false`, no es un error real — el tester puede no saber
+   * si de verdad estaba gastada).
+   */
+  private manejarDebugResetearNodo(client: Client, msg: { nodoId?: string }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
+    if (!this.mapaExterior) return client.send("admin:error", { motivo: "sin mapa exterior cargado en esta room" });
+    const partes = (msg?.nodoId ?? "").split(",").map((s) => Number(s.trim()));
+    if (partes.length !== 2 || partes.some((n) => !Number.isFinite(n))) {
+      return client.send("admin:error", { motivo: 'nodoId debe ser "x,y" (casillas del mundo)' });
+    }
+    const [x, y] = partes;
+    const agotados = recolectablesAgotadosDeMapa(this.mapaExterior.rutaMapa);
+    const idx = Math.floor(y) * this.mapaExterior.ancho + Math.floor(x);
+    const habiaAgotado = agotados.delete(idx);
+    client.send("admin:debug:ok", { accion: "resetearNodo", nodoId: msg!.nodoId, habiaAgotado });
+  }
+
+  /** `admin:debug:teleport {x,y}` — mueve al jugador directo al Schema, sin pasar por colisión/física de movimiento normal (mismo criterio directo que el respawn/portal ya usan). */
+  private manejarDebugTeleport(client: Client, msg: { x?: number; y?: number }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return client.send("admin:error", { motivo: "jugador inválido" });
+    if (typeof msg?.x !== "number" || typeof msg?.y !== "number") return client.send("admin:error", { motivo: "faltan x/y" });
+    player.x = msg.x;
+    player.y = msg.y;
+    client.send("admin:debug:ok", { accion: "teleport", x: msg.x, y: msg.y });
+  }
+
+  // --- Cofres de mundo de la Test Zone (pedido 2026-08-31) ---
+  // Sin gate de jarl: cualquier jugador puede abrir/tomar. "Infinito": tomar
+  // NUNCA descuenta stock del cofre (ver contenedoresTest.ts).
+
+  private cofreTestPorId(id: string): import("../../mundo/contenedoresTest").ContenedorTest | undefined {
+    if (!this.mapaExterior) return undefined;
+    return contenedoresTestDeMapa(this.mapaExterior.rutaMapa).get(id);
+  }
+
+  /** `contenedorTest:abrir {id}` -> responde `contenedorTest:estado {id, items}` con la foto inicial del cofre. */
+  private manejarContenedorTestAbrir(client: Client, msg: { id?: string }) {
+    if (!msg?.id) return client.send("contenedorTest:error", { motivo: "falta id" });
+    const cofre = this.cofreTestPorId(msg.id);
+    if (!cofre) return client.send("contenedorTest:error", { motivo: `cofre desconocido: ${msg.id}` });
+    client.send("contenedorTest:estado", { id: cofre.id, items: cofre.items });
+  }
+
+  /** `contenedorTest:tomar {id, itemId, cantidad}` -> mete el item en el inventario del jugador (mismo motor que darItem/coger) sin descontar del cofre. */
+  private manejarContenedorTestTomar(client: Client, msg: { id?: string; itemId?: string; cantidad?: number }) {
+    if (!msg?.id || !msg?.itemId) return client.send("contenedorTest:error", { motivo: "faltan id/itemId" });
+    const cofre = this.cofreTestPorId(msg.id);
+    if (!cofre) return client.send("contenedorTest:error", { motivo: `cofre desconocido: ${msg.id}` });
+    if (!cofre.items.some((it) => it.itemId === msg.itemId)) {
+      return client.send("contenedorTest:error", { motivo: `ese cofre no tiene ${msg.itemId}` });
+    }
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!player || !contenedor) return client.send("contenedorTest:error", { motivo: "inventario no disponible" });
+    const cantidad = Math.max(1, Math.floor(msg.cantidad ?? 1));
+    const resultado = agregarItem(contenedor, this.catalogoItems, msg.itemId, cantidad);
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (!resultado.ok) return client.send("contenedorTest:error", { motivo: resultado.motivo === "sin_hueco" ? "sin hueco en el inventario" : "item desconocido" });
+    this.persistirInventarioPorSesion(client);
+    client.send("contenedorTest:tomado", { id: cofre.id, itemId: msg.itemId, cantidad });
   }
 
   /** Jugador vivo más cercano dentro de RADIO_INTERACCION, excluyendo al propio emisor — mismo criterio de auto-apuntado sin UI que "coger"/"combate:iniciar". */
