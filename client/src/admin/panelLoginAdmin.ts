@@ -66,7 +66,11 @@ export class PanelLoginAdmin {
     const boton = document.createElement("button");
     boton.textContent = "Entrar";
     const enviar = async () => {
-      if (this.enviando || !inputUsuario.value || !inputPassword.value) return;
+      if (this.enviando) return;
+      if (!inputUsuario.value || !inputPassword.value) {
+        errorTexto.textContent = "rellena usuario y contraseña";
+        return;
+      }
       this.enviando = true;
       errorTexto.textContent = "";
       try {
