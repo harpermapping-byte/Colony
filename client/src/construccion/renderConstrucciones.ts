@@ -72,6 +72,18 @@ export class RenderConstrucciones {
     return this.ocupadas.has(y * this.anchoMapa + x);
   }
 
+  /** Datos crudos (x,y,rot,objeto...) de una construcción por id — p.ej. para calcular la posición de un asiento (docs/GDD_Mesas_Minijuego.md). */
+  datosDe(id: number): ConstruccionRed | undefined {
+    return this.piezas.get(id)?.datos;
+  }
+
+  /** ids de TODAS las construcciones vivas de un `objeto` de catálogo exacto — p.ej. para que un test ubique la mesa_ajedrez recién colocada sin adivinar su id. */
+  idsDeObjeto(objeto: string): number[] {
+    const ids: number[] = [];
+    for (const { datos } of this.piezas.values()) if (datos.objeto === objeto) ids.push(datos.id);
+    return ids;
+  }
+
   /** Construcciones vivas en una propiedad (para el espejo del topeProps). */
   contarPorPropiedad(propiedadId: string): number {
     let n = 0;
@@ -121,6 +133,11 @@ export class RenderConstrucciones {
   /** Construcción PLANTABLE más cercana a (x,y) dentro de `radio` — mismo criterio "sin UI de targeting" que coger/portal:usar. */
   plantableMasCercana(x: number, y: number, radio: number): number | null {
     return this.masCercanaDeObjeto((datos) => !!obtenerConstruible(datos.objeto)?.plantable, x, y, radio);
+  }
+
+  /** Asiento genérico (silla/banco/taburete/mecedora/sofa/trono, docs/GDD_Personaje.md §3.6bis) más cercano a (x,y) — mismo criterio que `plantableMasCercana`. No filtra por ocupado: el servidor es quien lo rechaza si ya hay alguien sentado. */
+  asientoMasCercano(x: number, y: number, radio: number): number | null {
+    return this.masCercanaDeObjeto((datos) => !!obtenerConstruible(datos.objeto)?.esAsiento, x, y, radio);
   }
 
   /** Construcción con este `objeto` de catálogo exacto más cercana a (x,y) dentro de `radio` (p.ej. "mesa_injertos") — mismo criterio de auto-apuntado por proximidad. */

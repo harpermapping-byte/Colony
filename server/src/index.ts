@@ -1,7 +1,7 @@
 import { createServer } from "http";
 import { Server } from "@colyseus/core";
-import { WebSocketTransport } from "@colyseus/ws-transport";
 import { Encoder } from "@colyseus/schema";
+import { WebSocketTransport } from "@colyseus/ws-transport";
 import { HubRoom } from "./rooms/HubRoom";
 import { RegionRoom } from "./rooms/RegionRoom";
 import { InteriorRoom } from "./rooms/InteriorRoom";
@@ -19,15 +19,17 @@ import { cargarPvpDesdeBd } from "./mundo/pvp";
 import { cargarNombreCapitalDesdeBd } from "./mundo/capital";
 import { sembrarMueblesTestZone, sembrarNpcsTutorialTestZone } from "./mundo/semillaTestZone";
 
-// El BUFFER_SIZE por defecto (8KB) se quedó corto y tumbaba el proceso
-// entero con "buffer overflow" (encontrado probando la Test Zone
-// 2026-08-31: 12 POIs + fauna + NPCs fijos + contenedores en un solo mapa
-// hacen que el primer parche de estado completo supere los 8KB). Colyseus
-// no reintenta ni degrada: es una excepción no capturada que mata el
-// servidor. 64KB da margen de sobra para asentamientos grandes futuros sin
-// coste real (es solo el tamaño del buffer de codificación reusado, no
-// memoria por jugador).
-Encoder.BUFFER_SIZE = 64 * 1024;
+// El BUFFER_SIZE por defecto de @colyseus/schema (8KB, Buffer.poolSize) se
+// queda corto con el Hub real (cientos de NPCs/fauna/construcciones vivas,
+// más 12 POIs + contenedores de la Test Zone) — confirmado independientemente
+// con el e2e de la mesa de ajedrez/construcción (176KB) y probando la Test
+// Zone 2026-08-31. Verificado leyendo node_modules/@colyseus/schema/lib/
+// encoder/Encoder.js: al detectar overflow el encoder se REDIMENSIONA y
+// re-codifica solo (Buffer.alloc + reintento), con un console.warn — no
+// tira el proceso ni pierde datos, es un coste de RENDIMIENTO (ese
+// reencodeo completo de más) que 256KB evita para las cargas ya medidas,
+// con margen para asentamientos/construcciones más grandes.
+Encoder.BUFFER_SIZE = 256 * 1024;
 
 const port = Number(process.env.PORT) || 2567;
 

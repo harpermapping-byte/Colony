@@ -533,6 +533,7 @@
     ]
   },
   "silla": {
+    "esAsiento": true,
     "nombre": "Silla",
     "capa": "decorMovible",
     "tiposSalaValidos": [
@@ -606,6 +607,7 @@
     "esSilla": true
   },
   "banco": {
+    "esAsiento": true,
     "nombre": "Banco",
     "capa": "decorMovible",
     "tiposSalaValidos": [
@@ -722,6 +724,7 @@
     ]
   },
   "taburete": {
+    "esAsiento": true,
     "nombre": "Taburete",
     "capa": "decorMovible",
     "tiposSalaValidos": [
@@ -785,6 +788,7 @@
     "esSilla": true
   },
   "mecedora": {
+    "esAsiento": true,
     "nombre": "Mecedora",
     "capa": "decorMovible",
     "tiposSalaValidos": [
@@ -4240,6 +4244,7 @@
     ]
   },
   "trono": {
+    "esAsiento": true,
     "nombre": "Trono",
     "capa": "decorMovible",
     "tiposSalaValidos": [
@@ -7344,6 +7349,7 @@
     "esSilla": true
   },
   "sofa": {
+    "esAsiento": true,
     "nombre": "Sofá",
     "capa": "decorMovible",
     "tiposSalaValidos": [
@@ -24161,6 +24167,7 @@
     "requiereItemColocar": "vidriera_mosaico_coloreado"
   },
   "silla_pino": {
+    "esAsiento": true,
     "nombre": "Silla de Pino",
     "capa": "decorMovible",
     "tiposSalaValidos": [
@@ -24198,6 +24205,7 @@
     "_nota": "docs/GDD_Profesiones.md — silla CRAFTEABLE por el jugador (independiente de la \"silla\" genérica del bake de NPCs), variante de material real vía requiereItemColocar."
   },
   "silla_roble": {
+    "esAsiento": true,
     "nombre": "Silla de Roble",
     "capa": "decorMovible",
     "tiposSalaValidos": [
@@ -24235,6 +24243,7 @@
     "_nota": "docs/GDD_Profesiones.md — silla CRAFTEABLE por el jugador (independiente de la \"silla\" genérica del bake de NPCs), variante de material real vía requiereItemColocar."
   },
   "silla_nogal_tallada": {
+    "esAsiento": true,
     "nombre": "Silla de Nogal Tallada",
     "capa": "decorMovible",
     "tiposSalaValidos": [
@@ -24644,5 +24653,40 @@
     "instrumento": "campana",
     "requiereItemColocar": "campana_bronce",
     "_nota": "docs/GDD_Instrumentos.md — instrumento musical interactivo craftable (oficio herrero, Mesa Nivel 2 \"yunque_cuerno\"), NO sale en generación procedural (colocarElementos.js excluye requiereItemColocar). Clic para abrir el modal de reproducción MIDI."
+  },
+  "mesa_ajedrez": {
+    "capa": "decorMovible",
+    "tiposSalaValidos": [
+      "sala_comun",
+      "taller",
+      "comedor_pequeno",
+      "comedor_mediano"
+    ],
+    "colocacion": [
+      "libre"
+    ],
+    "huella": [
+      3,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#8a6a3a",
+    "aportes": {
+      "funcionalidad": 10,
+      "decoracion": 10
+    },
+    "anchorType": "FLOOR_DECAL",
+    "dimensions": {
+      "x": 3,
+      "y": 2
+    },
+    "clearanceFrontal": 1,
+    "allowedRoomTags": [
+      "COMUN_VIVIENDA",
+      "COMUN_TALLER",
+      "COMUN_COMEDOR"
+    ],
+    "requiereItemColocar": "mesa_ajedrez",
+    "_nota": "anchorType FLOOR_DECAL (no es alfombra, es el único mecanismo real que existe hoy para que un mueble ocupe huella SIN bloquear el paso — server/src/construccion/catalogo.ts:cargarCatalogoConstruible ignora el campo `colision` para muebles y solo mira anchorType) — necesario porque las 2 sillas jugables (server/src/construccion/mesasJuego.ts) caen DENTRO de esta misma huella [3,2] y un jugador no puede caminar sobre una casilla sólida para sentarse. docs/GDD_Mesas_Minijuego.md — MOBILIARIO DE JUEGO craftable (independiente de las mesas de OFICIO como mesa_delineante): pieza ÚNICA fusionada mesa+2 taburetes, huella [3,2]; las posiciones de las 2 sillas son offsets fijos en server/src/construccion/mesasJuego.ts (childSlots/anclaAdmite de colocarElementos.js es solo para el bakeador offline de interiores, no aplica a la colocación en vivo del jugador). Variante de material real vía requiereItemColocar, mismo patrón que silla_pino."
   }
 }

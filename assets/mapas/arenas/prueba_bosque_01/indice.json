@@ -1,0 +1,12 @@
+{
+  "nombre": "prueba_bosque_01",
+  "anchoChunks": 1,
+  "altoChunks": 1,
+  "tamanoChunk": 22,
+  "tamanoSectorChunks": 1,
+  "leyendaTerreno": [
+    "cesped"
+  ],
+  "portales": [],
+  "parcelasReservadas": []
+}

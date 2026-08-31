@@ -4,6 +4,7 @@ import { terrenoEn } from "../mapa/formatoMapa";
 import { colorTerreno, colorObjeto, dimensionesObjeto } from "./catalogoVisual";
 import { obtenerPlantilla } from "./entityLoader";
 import type { CategoriaAsset } from "./assetCatalog";
+import { crearRigHumanoide } from "./rigHumanoide";
 
 /**
  * Materialización de UN sector del mapa bakeado (terreno + props) — la
@@ -79,6 +80,302 @@ const ACLARADO_SUPERFICIE = 0.12;
 const ELEV_AGUA_MIN = 0;
 const ELEV_AGUA_MAX = 4;
 
+/**
+ * "Clamp to edge" de un canvas: lo centra en uno nuevo `margen` píxeles más
+ * grande por cada lado, replicando la fila/columna/esquina de borde real
+ * estirada hacia fuera — relleno visual barato sin inventar terreno nuevo.
+ * Uso: arenas de combate (GDD_Combate.md §9.x), el grid táctico real es
+ * pequeño ("se ve enano" — pedido del streamer) y esto solo hace que se VEA
+ * más grande alrededor; el bake/colisión/lógica de combate no cambian nada.
+ */
+function extenderConMargenClamp(origen: HTMLCanvasElement, margen: number): HTMLCanvasElement {
+  const ancho = origen.width;
+  const alto = origen.height;
+  const destino = document.createElement("canvas");
+  destino.width = ancho + margen * 2;
+  destino.height = alto + margen * 2;
+  const ctx = destino.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(origen, margen, margen);
+  ctx.drawImage(origen, 0, 0, ancho, 1, margen, 0, ancho, margen); // borde arriba
+  ctx.drawImage(origen, 0, alto - 1, ancho, 1, margen, alto + margen, ancho, margen); // borde abajo
+  ctx.drawImage(origen, 0, 0, 1, alto, 0, margen, margen, alto); // borde izquierda
+  ctx.drawImage(origen, ancho - 1, 0, 1, alto, ancho + margen, margen, margen, alto); // borde derecha
+  ctx.drawImage(origen, 0, 0, 1, 1, 0, 0, margen, margen); // esquina arriba-izquierda
+  ctx.drawImage(origen, ancho - 1, 0, 1, 1, ancho + margen, 0, margen, margen); // esquina arriba-derecha
+  ctx.drawImage(origen, 0, alto - 1, 1, 1, 0, alto + margen, margen, margen); // esquina abajo-izquierda
+  ctx.drawImage(origen, ancho - 1, alto - 1, 1, 1, ancho + margen, alto + margen, margen, margen); // esquina abajo-derecha
+  return destino;
+}
+
+/**
+ * Líneas de rejilla táctica (1 unidad = 1 casilla), desde (0,0) hasta
+ * (ancho,alto) en espacio LOCAL del sector — quien llama la posiciona en su
+ * esquina real. Pedido tras el margen visual de arena (`margenVisual` en
+ * `crearTerrenoSector`): con terreno de relleno alrededor, el borde del
+ * grid táctico real dejó de coincidir con el borde del plano y se volvió
+ * invisible — esto NO es la "UI de rejilla" (overlay de movimiento/target)
+ * que panelCombate.ts documenta como pendiente para el pase final; es solo
+ * la referencia visual de dónde está el campo de combate real.
+ */
+function crearRejillaTactica(ancho: number, alto: number): THREE.LineSegments {
+  const puntos: number[] = [];
+  for (let i = 0; i <= ancho; i++) puntos.push(i, 0, 0, i, 0, alto);
+  for (let j = 0; j <= alto; j++) puntos.push(0, 0, j, ancho, 0, j);
+  const geometria = new THREE.BufferGeometry();
+  geometria.setAttribute("position", new THREE.Float32BufferAttribute(puntos, 3));
+  const lineas = new THREE.LineSegments(
+    geometria,
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }),
+  );
+  lineas.userData.propioDelSector = true;
+  return lineas;
+}
+
+type TemaArenaVisual = "exterior" | "urbano" | "acuatico" | "dungeon";
+
+/**
+ * Tema de decoración del margen visual de una arena, deducido de su
+ * `leyendaTerreno` real (terrenos.json) — sin campo de catálogo nuevo que
+ * mantener. "agua"/"agua_profunda" -> acuático; suelo urbano del bakeador
+ * de ciudades -> urbano; "roca" SIN césped -> dungeon (ninguna biomas.json
+ * real usa "roca" como terrenoBase — solo mazmorras/generarArena.js la usa
+ * sola para cuevas/minas, confirmado); cualquier otra cosa (cesped/tierra/
+ * arena/nieve/playa/barro/...) -> exterior, el caso por defecto.
+ */
+function clasificarTemaArena(leyendaTerreno: string[]): TemaArenaVisual {
+  const set = new Set(leyendaTerreno);
+  if (set.has("agua") || set.has("agua_profunda")) return "acuatico";
+  if (set.has("adoquin") || set.has("muralla_piedra") || set.has("empalizada") || set.has("solar_edificio")) return "urbano";
+  const esRocoso = set.has("roca") || set.has("roca_volcanica") || set.has("roca_b");
+  const tieneCesped = set.has("cesped") || set.has("cesped_b") || set.has("cesped_c") || set.has("cesped_ralo");
+  if (esRocoso && !tieneCesped) return "dungeon";
+  return "exterior";
+}
+
+interface DecoracionManual {
+  tipo: "v" | "r" | "a" | "m";
+  id: string;
+  x: number;
+  y: number;
+  rotacionDeg?: number;
+  escala?: number;
+}
+
+/**
+ * Instancia decoración colocada A MANO (nunca aleatoria — pedido explícito
+ * del streamer) en coordenadas LOCALES al centro del grid táctico; quien
+ * llama traslada el grupo devuelto a su posición de mundo real. Mismo
+ * mecanismo que `crearPropsSector` (plantilla .glb real si existe, si no
+ * caja de color de catálogo) pero sin InstancedMesh ni "ocultables": esto
+ * no es bake real, nunca se recoge/tala/reemplaza en vivo.
+ */
+async function crearDecoracionManual(items: DecoracionManual[]): Promise<THREE.Group> {
+  const grupo = new THREE.Group();
+  await Promise.all(
+    items.map(async (item) => {
+      const categoria = CATEGORIA_POR_TIPO[item.tipo];
+      const plantilla = categoria ? await obtenerPlantilla(categoria, item.id, { tipo: "numerada", indice: 0 }) : null;
+      let nodo: THREE.Object3D;
+      if (plantilla) {
+        nodo = plantilla.clone(true);
+      } else {
+        const dims = dimensionesObjeto(item.tipo, item.id);
+        const geometria = new THREE.BoxGeometry(dims.ancho, dims.alto, dims.profundo);
+        geometria.translate(0, dims.alto / 2, 0);
+        const malla = new THREE.Mesh(
+          geometria,
+          new THREE.MeshStandardMaterial({ color: colorObjeto(item.tipo, item.id), roughness: 0.85, metalness: 0.05 }),
+        );
+        malla.castShadow = true;
+        malla.receiveShadow = true;
+        nodo = malla;
+      }
+      nodo.position.set(item.x, 0, item.y);
+      nodo.rotation.y = THREE.MathUtils.degToRad(item.rotacionDeg || 0);
+      if (item.escala) nodo.scale.setScalar(item.escala);
+      nodo.userData.propioDelSector = true;
+      grupo.add(nodo);
+    }),
+  );
+  return grupo;
+}
+
+/** Ángulo (grados, convención `rotation.y=atan2(dx,dz)` de este proyecto) que hace mirar un objeto en (x,y) HACIA el centro (0,0). */
+function anguloHaciaCentro(x: number, y: number): number {
+  return THREE.MathUtils.radToDeg(Math.atan2(-x, -y));
+}
+
+const COLORES_TUNICA_NPC = ["#7a5a3a", "#3a5a7a", "#5a7a3a", "#7a3a5a"];
+
+interface ClusterDecoracion {
+  anguloDeg: number;
+  radio: number;
+  /** Una entrada por pieza del grupo — la LONGITUD decide la densidad (1 = casi vacío, 5-6 = grupo denso). */
+  especies: { tipo: DecoracionManual["tipo"]; id: string }[];
+}
+
+// Desplazamientos fijos (no radiales) para separar las piezas DENTRO de un
+// mismo cluster sin que queden todas apiladas en el mismo punto — a mano,
+// nada de jitter aleatorio.
+const OFFSETS_CLUSTER: [number, number][] = [
+  [0, 0], [0.9, 0.35], [-0.75, 0.55], [0.4, -0.9], [-0.55, -0.7], [1.1, -0.15],
+];
+
+/** Reparte los `clusters` en items de decoración — cada pieza mira en un ángulo distinto (nada de filas mirando todas igual). */
+function colocarClusters(clusters: ClusterDecoracion[]): DecoracionManual[] {
+  const items: DecoracionManual[] = [];
+  clusters.forEach((cluster, ci) => {
+    const rad = THREE.MathUtils.degToRad(cluster.anguloDeg);
+    const cx = Math.sin(rad) * cluster.radio;
+    const cy = Math.cos(rad) * cluster.radio;
+    cluster.especies.forEach((especie, i) => {
+      const [ox, oy] = OFFSETS_CLUSTER[i % OFFSETS_CLUSTER.length];
+      items.push({ tipo: especie.tipo, id: especie.id, x: cx + ox, y: cy + oy, rotacionDeg: (ci * 41 + i * 67) % 360 });
+    });
+  });
+  return items;
+}
+
+/**
+ * Segunda capa de clusters DERIVADA de `base` (pedido streamer: "aun mas
+ * densidad, el doble minimo") — mismos grupos girados `deltaAngulo` y
+ * acercados al grid (factor sobre el margen, no sobre hw entero, así nunca
+ * cae DENTRO del grid real) — dobla la cantidad de decoración manteniendo
+ * el mismo patrón irregular de huecos (una copia girada de algo irregular
+ * sigue siendo irregular), sin tener que escribir cada cluster otra vez.
+ */
+function duplicarClustersDesplazados(base: ClusterDecoracion[], hw: number, deltaAngulo: number, factorMargen: number): ClusterDecoracion[] {
+  return base.map((c) => ({
+    anguloDeg: (c.anguloDeg + deltaAngulo) % 360,
+    radio: hw + (c.radio - hw) * factorMargen,
+    especies: c.especies,
+  }));
+}
+
+/**
+ * Decoración A MANO del margen visual de una arena (pedido streamer
+ * 2026-08-31: "fuera del grid NO TIENE DECORACION... que haya arboles algun
+ * animal... rocas arbustos flores... si es urbano decoracion urbana...
+ * bastante... en el mapa agua peces... alga... orca o tiburon mirando
+ * estatico... en el mapa ciudad NPC mirando estaticos"; corrección del
+ * mismo streamer justo después de ver la primera versión en anillo
+ * equiespaciado: "parece un damero de ajedrez... algo mas disperso, agrupar
+ * en un sitio, en otro menos") — grupos (`colocarClusters`) en ángulos y
+ * radios DESIGUALES a propósito (huecos grandes entre unos y otros, tamaño
+ * de grupo variable) en vez de un anillo uniforme, alternando ids REALES de
+ * catálogo, más fauna/depredadores/NPCs sueltos — todo determinista, nada
+ * de PRNG/ruido.
+ */
+async function crearDecoracionMargenArena(
+  anchoReal: number,
+  altoReal: number,
+  margenVisual: number,
+  leyendaTerreno: string[],
+): Promise<THREE.Group> {
+  const tema = clasificarTemaArena(leyendaTerreno);
+  const hw = anchoReal / 2; // arenas de hoy son siempre cuadradas (anchoReal===altoReal), un solo semi-lado basta
+  const v = (id: string) => ({ tipo: "v" as const, id });
+  const m = (id: string) => ({ tipo: "m" as const, id });
+  const rc = (id: string) => ({ tipo: "r" as const, id });
+  const a = (id: string) => ({ tipo: "a" as const, id });
+
+  let items: DecoracionManual[] = [];
+
+  // Segunda capa (duplicarClustersDesplazados) girada+acercada sobre la
+  // base a mano — pedido streamer tras ver la primera pasada: "aun mas
+  // densidad, el doble minimo".
+  const DELTA_CAPA2 = 33;
+  const FACTOR_CAPA2 = 0.7;
+
+  if (tema === "exterior") {
+    const base: ClusterDecoracion[] = [
+      { anguloDeg: 8, radio: hw + margenVisual * 0.6, especies: [v("roble"), v("pino"), v("abeto"), v("roble"), v("haya"), v("pino")] }, // bosquecillo denso
+      { anguloDeg: 48, radio: hw + 1.5, especies: [v("margarita"), v("amapola"), v("trebol")] },
+      { anguloDeg: 95, radio: hw + margenVisual * 0.42, especies: [v("arbusto_comun"), v("seto_silvestre")] },
+      { anguloDeg: 150, radio: hw + margenVisual * 0.66, especies: [v("haya"), v("roble"), v("abeto"), v("haya")] },
+      // hueco grande 150->270 (120°): sin decoración a propósito
+      { anguloDeg: 270, radio: hw + 1.6, especies: [v("diente_de_leon")] },
+      { anguloDeg: 310, radio: hw + margenVisual * 0.58, especies: [v("pino"), v("abeto"), v("arbusto_comun"), v("roble"), v("trebol")] },
+    ];
+    items = colocarClusters([...base, ...duplicarClustersDesplazados(base, hw, DELTA_CAPA2, FACTOR_CAPA2)]);
+    const fauna: [string, number][] = [
+      ["corzo", 25], ["conejo", 118], ["ciervo", 205], ["ardilla", 330], ["zorro", 65], ["liebre", 285],
+    ];
+    const rFauna = hw + margenVisual * 0.55;
+    for (const [id, deg] of fauna) {
+      const rad = THREE.MathUtils.degToRad(deg);
+      const x = Math.sin(rad) * rFauna, y = Math.cos(rad) * rFauna;
+      items.push({ tipo: "a", id, x, y, rotacionDeg: anguloHaciaCentro(x, y) });
+    }
+  } else if (tema === "urbano") {
+    const base: ClusterDecoracion[] = [
+      { anguloDeg: 15, radio: hw + 1.5, especies: [m("barril"), m("caja_madera"), m("cesta_pan")] },
+      { anguloDeg: 70, radio: hw + margenVisual * 0.65, especies: [m("puesto_mercado"), m("tenderete_comida"), m("farola_calle")] },
+      { anguloDeg: 125, radio: hw + 1.4, especies: [m("saco_harina")] },
+      { anguloDeg: 170, radio: hw + margenVisual * 0.6, especies: [m("banco_piedra"), m("fuente_piedra"), m("estatua_piedra"), m("banco_madera")] },
+      // hueco 170->250 (80°): calle despejada
+      { anguloDeg: 250, radio: hw + 1.6, especies: [m("cubo_madera"), m("lena_apilada")] },
+      { anguloDeg: 300, radio: hw + margenVisual * 0.68, especies: [m("carreta"), m("carromato"), m("valla_madera"), m("barril")] },
+    ];
+    items = colocarClusters([...base, ...duplicarClustersDesplazados(base, hw, DELTA_CAPA2, FACTOR_CAPA2)]);
+  } else if (tema === "acuatico") {
+    const base: ClusterDecoracion[] = [
+      { anguloDeg: 20, radio: hw + 1.3, especies: [v("alga_parda"), a("pez_pequeno"), v("posidonia")] },
+      { anguloDeg: 100, radio: hw + margenVisual * 0.6, especies: [v("coral_cerebro"), v("coral_blando"), a("pez_mediano")] },
+      { anguloDeg: 155, radio: hw + 1.4, especies: [v("algas_varadas")] },
+      // hueco 155->205 corto, pero el siguiente 205->300 (95°) sí es amplio
+      { anguloDeg: 205, radio: hw + margenVisual * 0.5, especies: [a("pez_grande"), v("coral_cuerno_de_ciervo"), a("pez_mediano"), v("posidonia")] },
+      { anguloDeg: 300, radio: hw + 1.3, especies: [v("alga_parda"), a("pez_pequeno")] },
+    ];
+    items = colocarClusters([...base, ...duplicarClustersDesplazados(base, hw, DELTA_CAPA2, FACTOR_CAPA2)]);
+    // orca/tiburón: colorDebug real (camuflaje de mar profundo) se pierde
+    // contra el fondo oscuro del agua a tamaño normal — escala grande
+    // (depredador de verdad, no un pez más) para que se note igual.
+    const rPredador = hw + margenVisual * 0.62;
+    for (const [id, deg] of [["orca", 55], ["tiburon", 235]] as [string, number][]) {
+      const rad = THREE.MathUtils.degToRad(deg);
+      const x = Math.sin(rad) * rPredador, y = Math.cos(rad) * rPredador;
+      items.push({ tipo: "a", id, x, y, rotacionDeg: anguloHaciaCentro(x, y), escala: 2.6 });
+    }
+  } else {
+    const base: ClusterDecoracion[] = [
+      { anguloDeg: 25, radio: hw + 1.4, especies: [rc("guijarros"), rc("canto_rodado")] },
+      { anguloDeg: 80, radio: hw + margenVisual * 0.62, especies: [rc("roca_erratica"), rc("pizarra"), rc("granito")] },
+      // hueco 80->190 (110°): suelo de cueva despejado
+      { anguloDeg: 190, radio: hw + 1.5, especies: [rc("canto_rodado")] },
+      { anguloDeg: 250, radio: hw + margenVisual * 0.66, especies: [rc("roca_caliza"), rc("granito"), rc("roca_erratica"), rc("guijarros")] },
+      { anguloDeg: 320, radio: hw + 1.3, especies: [rc("pizarra"), rc("canto_rodado")] },
+    ];
+    items = colocarClusters([...base, ...duplicarClustersDesplazados(base, hw, DELTA_CAPA2, FACTOR_CAPA2)]);
+  }
+
+  const grupo = await crearDecoracionManual(items);
+
+  if (tema === "urbano") {
+    // NPCs estáticos (sin rig de red: crearRigHumanoide puro, misma pinta
+    // que un aldeano real, quieto — nunca se llama actualizar()) mirando
+    // al centro del grid, en ángulos/radios DESIGUALES (no una cruz perfecta).
+    const posiciones: [number, number][] = [
+      [35, hw + margenVisual * 0.58], [140, hw + margenVisual * 0.5],
+      [210, hw + margenVisual * 0.62], [320, hw + margenVisual * 0.55],
+      [75, hw + margenVisual * 0.4], [180, hw + margenVisual * 0.68],
+      [265, hw + margenVisual * 0.45], [355, hw + margenVisual * 0.6],
+    ];
+    posiciones.forEach(([deg, radio], i) => {
+      const rad = THREE.MathUtils.degToRad(deg);
+      const x = Math.sin(rad) * radio, y = Math.cos(rad) * radio;
+      const rig = crearRigHumanoide({ colorTunica: COLORES_TUNICA_NPC[i % COLORES_TUNICA_NPC.length] });
+      rig.orientar(-x, -y);
+      rig.objeto.position.set(x, 0, y);
+      rig.objeto.traverse((o) => { o.userData.propioDelSector = true; });
+      grupo.add(rig.objeto);
+    });
+  }
+
+  return grupo;
+}
+
 function crearPlanoSector(
   canvas: HTMLCanvasElement,
   ancho: number,
@@ -107,7 +404,11 @@ function crearPlanoSector(
   return malla;
 }
 
-function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Group {
+function crearTerrenoSector(
+  indice: IndiceMapa,
+  sector: SectorBakeado,
+  margenVisual = 0,
+): { grupo: THREE.Group; ancho: number; alto: number } {
   const t = indice.tamanoChunk;
   const tilesSector = indice.tamanoSectorChunks * t;
   const origenTileX = sector.sectorX * tilesSector;
@@ -160,8 +461,20 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
         ctxSuelo.fillStyle = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${agua.alfa})`;
         ctxSuelo.fillRect(baseX + x, baseY + y, 1, 1);
         // lecho: mitad por tipo de agua (somera clara, profunda oscura),
-        // mitad por la elevación bakeada (elevación baja = hondo = oscuro)
-        const e = parseInt(chunk.elevacion[y * chunk.tamano + x], 36);
+        // mitad por la elevación bakeada (elevación baja = hondo = oscuro).
+        // BUG REAL encontrado verificando visualmente la arena acuática
+        // (docs/GDD_Combate.md §9.6): `chunk.elevacion` es un campo del
+        // bakeador EXTERIOR (baker/src/exportar.js) que los bakes más
+        // simples (mazmorras/src/generarArena.js para arenas de combate —
+        // "sin salas ni mobiliario, una arena es solo suelo+obstáculos" — y
+        // baker/src/generar_mapas_prueba_barcos.js para los mapas de prueba
+        // 100% agua) nunca escriben. `mar_01` es agua entera, así que ESTE
+        // acceso indexaba `undefined` en la primera casilla y tiraba abajo
+        // el sector entero (nunca se detectó porque ningún e2e con
+        // navegador había cargado antes una arena/mapa de prueba con agua
+        // de verdad). Sin dato de elevación, un tono medio fijo es un lecho
+        // plano razonable — sigue sin romper nada donde SÍ hay elevación.
+        const e = chunk.elevacion ? parseInt(chunk.elevacion[y * chunk.tamano + x], 36) : (ELEV_AGUA_MIN + ELEV_AGUA_MAX) / 2;
         const eNorm = Math.min(1, Math.max(0, (e - ELEV_AGUA_MIN) / rangoElev));
         const tono = 0.5 * agua.base + 0.5 * eNorm;
         const r = Math.round(LECHO_OSCURO.r + (LECHO_CLARO.r - LECHO_OSCURO.r) * tono);
@@ -174,11 +487,24 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
   }
 
   const grupo = new THREE.Group();
-  const planoFondo = crearPlanoSector(fondo, ancho, alto, false);
+  // margenVisual > 0: los planos crecen simétricamente por los 4 lados, así
+  // que el centro (origenTileX+ancho/2, origenTileY+alto/2) NO se mueve —
+  // solo se pide geometría/textura más grandes, la posición es la misma.
+  const anchoFinal = ancho + margenVisual * 2;
+  const altoFinal = alto + margenVisual * 2;
+  const sueloFinal = margenVisual > 0 ? extenderConMargenClamp(suelo, margenVisual) : suelo;
+  const fondoFinal = margenVisual > 0 ? extenderConMargenClamp(fondo, margenVisual) : fondo;
+  const planoFondo = crearPlanoSector(fondoFinal, anchoFinal, altoFinal, false);
   planoFondo.position.set(origenTileX + ancho / 2, -PROFUNDIDAD_FONDO, origenTileY + alto / 2);
-  const planoSuelo = crearPlanoSector(suelo, ancho, alto, true);
+  const planoSuelo = crearPlanoSector(sueloFinal, anchoFinal, altoFinal, true);
   planoSuelo.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
   grupo.add(planoFondo, planoSuelo);
+  if (margenVisual > 0) {
+    // margenVisual>0 hoy SOLO pasa en arenas (game.ts) — ver crearRejillaTactica.
+    const rejilla = crearRejillaTactica(ancho, alto);
+    rejilla.position.set(origenTileX, 0.02, origenTileY);
+    grupo.add(rejilla);
+  }
 
   // extrusión de los sólidos urbanos: una InstancedMesh de cubos por tipo
   // de terreno (muralla/empalizada/solar) — mismo coste que los props
@@ -200,7 +526,7 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
     malla.userData.propioDelSector = true;
     grupo.add(malla);
   }
-  return grupo;
+  return { grupo, ancho, alto };
 }
 
 interface GrupoEspecie {
@@ -404,18 +730,38 @@ export interface HandleSector {
  * Terreno + muralla + props de un sector, listos para añadir a escena.
  * `excluidos` (docs/GDD_Bosques.md §7) son posiciones GLOBALes "x,y" que ya
  * no existen en el servidor (recogidas/taladas) — nunca se instancian.
+ * `margenVisual` (casillas): relleno de terreno alrededor del sector real,
+ * "clamp to edge" (ver `extenderConMargenClamp`) MÁS decoración a mano por
+ * tema del bioma (ver `crearDecoracionMargenArena`) y la rejilla táctica
+ * (`crearRejillaTactica`) — pensado para arenas de combate, donde el bake
+ * es SIEMPRE un único sector completo (`anchoChunks/altoChunks/
+ * tamanoSectorChunks = 1`, confirmado en los bakes de prueba), así que no
+ * hay sector vecino con el que pueda hacer costura.
  */
 export async function crearSectorVisual(
   indice: IndiceMapa,
   sector: SectorBakeado,
   excluidos: Set<string> = new Set(),
+  margenVisual = 0,
 ): Promise<HandleSector> {
   const grupo = new THREE.Group();
   grupo.name = `sector_${sector.sectorX}_${sector.sectorY}`;
-  grupo.add(crearTerrenoSector(indice, sector));
+  const terreno = crearTerrenoSector(indice, sector, margenVisual);
+  grupo.add(terreno.grupo);
   grupo.add(crearMurallaSector(indice, sector));
   const { raiz, ocultables } = await crearPropsSector(indice, sector, excluidos);
   grupo.add(raiz);
+  if (margenVisual > 0) {
+    // margenVisual>0 hoy SOLO pasa en arenas — decoración A MANO del margen
+    // visual (crearDecoracionMargenArena), mismo centro que los planos de
+    // terreno (terreno.ancho/alto son los del sector REAL, sin el margen).
+    const tilesSector = indice.tamanoSectorChunks * indice.tamanoChunk;
+    const origenTileX = sector.sectorX * tilesSector;
+    const origenTileY = sector.sectorY * tilesSector;
+    const decoracion = await crearDecoracionMargenArena(terreno.ancho, terreno.alto, margenVisual, indice.leyendaTerreno);
+    decoracion.position.set(origenTileX + terreno.ancho / 2, 0, origenTileY + terreno.alto / 2);
+    grupo.add(decoracion);
+  }
   return { grupo, ocultarPosicion: (x, y) => ocultables.get(clavePosicion(x, y))?.() };
 }
 
