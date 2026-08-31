@@ -150,6 +150,73 @@ function construirMST(salas) {
   return aristas;
 }
 
+// Profundidad BFS desde la sala 0 (la raíz con la que arranca construirMST,
+// tratada aquí como "entrada") sobre las aristas de un árbol/grafo de
+// salas — pedido 2026-08-31 ("salas más grandes/temáticas" según lo lejos
+// que están de la entrada). 0 = la propia entrada; sube 1 por cada salto.
+function bfsProfundidades(numSalas, aristas) {
+  const adyacencia = Array.from({ length: numSalas }, () => []);
+  for (const [i, j] of aristas) { adyacencia[i].push(j); adyacencia[j].push(i); }
+  const profundidad = new Array(numSalas).fill(0);
+  const visitado = new Array(numSalas).fill(false);
+  if (numSalas > 0) {
+    visitado[0] = true;
+    const cola = [0];
+    while (cola.length) {
+      const actual = cola.shift();
+      for (const vecino of adyacencia[actual]) {
+        if (visitado[vecino]) continue;
+        visitado[vecino] = true;
+        profundidad[vecino] = profundidad[actual] + 1;
+        cola.push(vecino);
+      }
+    }
+  }
+  return profundidad;
+}
+
+// Bucles sobre el MST (pedido 2026-08-31, idea vista en un generador de
+// dungeons de Three.js ajeno — mismo algoritmo base que ya teníamos
+// nosotros, room-scatter+MST, salvo que ellos reinsertan algunas aristas
+// del grafo de proximidad que el MST descarta): un MST conecta TODO con el
+// mínimo de corredores, o sea siempre hay un ÚNICO camino entre dos salas
+// cualesquiera — nunca se puede rodear. Aquí se reinserta una fracción de
+// las aristas "casi tan cortas" como la que cada sala ya usa en su propio
+// MST (nunca una arista lejana/rara), con un tope proporcional al nº de
+// salas para no disparar el número de corredores.
+const FACTOR_CERCANIA_BUCLE = 1.4;
+const PROB_BUCLE = 0.35;
+const TOPE_BUCLES_POR_SALA = 0.25; // ~1 bucle extra cada 4 salas, como mucho
+function elegirAristasBucle(salas, aristasMST, rnd) {
+  if (salas.length < 3) return [];
+  const centro = (s) => [s.offsetX + s.resultado.ancho / 2, s.offsetY + s.resultado.largo / 2];
+  const centros = salas.map(centro);
+  const conectados = new Set(aristasMST.map(([i, j]) => `${Math.min(i, j)}_${Math.max(i, j)}`));
+  const distanciaMstPorNodo = new Map(); // nodo -> distancia de SU arista MST (referencia de "cercanía razonable" para ese nodo)
+  for (const [i, j] of aristasMST) {
+    const d = Math.hypot(centros[i][0] - centros[j][0], centros[i][1] - centros[j][1]);
+    distanciaMstPorNodo.set(i, Math.min(distanciaMstPorNodo.get(i) ?? Infinity, d));
+    distanciaMstPorNodo.set(j, Math.min(distanciaMstPorNodo.get(j) ?? Infinity, d));
+  }
+  const candidatas = [];
+  for (let i = 0; i < salas.length; i++) {
+    for (let j = i + 1; j < salas.length; j++) {
+      if (conectados.has(`${i}_${j}`)) continue;
+      const d = Math.hypot(centros[i][0] - centros[j][0], centros[i][1] - centros[j][1]);
+      const referencia = Math.max(distanciaMstPorNodo.get(i) ?? Infinity, distanciaMstPorNodo.get(j) ?? Infinity);
+      if (d <= referencia * FACTOR_CERCANIA_BUCLE) candidatas.push([i, j, d]);
+    }
+  }
+  candidatas.sort((a, b) => a[2] - b[2]); // bucles cortos/baratos primero
+  const tope = Math.max(0, Math.floor(salas.length * TOPE_BUCLES_POR_SALA));
+  const elegidas = [];
+  for (const [i, j] of candidatas) {
+    if (elegidas.length >= tope) break;
+    if (rnd() < PROB_BUCLE) elegidas.push([i, j]);
+  }
+  return elegidas;
+}
+
 // Corredor recto en L entre la casilla de suelo de `salaA` más cercana a
 // `salaB` y viceversa — cada tile del camino se registra como puerta de
 // conexión (mismo mecanismo que ya usa interiorColision.ts para despejar
@@ -181,6 +248,35 @@ function generarPlantaMazmorra({ nivel, rol, def, catalogosInteriores, semilla }
   const AREA_MEDIA_SALA = def.formaSala === "rectangular" ? 200 : 140;
   const lado = Math.max(40, Math.ceil(Math.sqrt(numSalas * AREA_MEDIA_SALA * 2.6)));
 
+  // --- Fase de topología aproximada (pedido 2026-08-31: "salas más
+  // grandes/temáticas" según lo lejos que están de la entrada) — para
+  // decidir el TAMAÑO de una sala hace falta saber su profundidad en el
+  // grafo de conexión, pero el grafo se construye sobre posiciones YA
+  // colocadas, y las posiciones reales (más abajo) dependen del tamaño real
+  // de cada sala. Se rompe el círculo con un scatter barato de cuadrados
+  // del mismo tamaño medio (mismo lienzo, mismo criterio de rechazo por
+  // solape) SOLO para tener centros con los que calcular MST+profundidad
+  // BFS por adelantado — la colocación real de abajo puede acabar en
+  // posiciones algo distintas (asumido: es una estimación de profundidad
+  // para dimensionar, no la mazmorra final — MST/corredores/sala de jefe se
+  // recalculan sobre las posiciones REALES más abajo).
+  const ladoAprox = Math.round(Math.sqrt(AREA_MEDIA_SALA));
+  const rndAprox = crearPRNG(`${semilla}:topologia:${nivel}`);
+  const preliminares = [];
+  for (let i = 0; i < numSalas; i++) {
+    let mejorCandidata = null;
+    for (let intento = 0; intento < 40; intento++) {
+      const offsetX = 1 + Math.floor(rndAprox() * Math.max(1, lado - ladoAprox - 2));
+      const offsetY = 1 + Math.floor(rndAprox() * Math.max(1, lado - ladoAprox - 2));
+      const candidata = { resultado: { ancho: ladoAprox, largo: ladoAprox }, offsetX, offsetY };
+      mejorCandidata = candidata; // si los 40 intentos solapan, la última vale igual — solo es una estimación
+      if (!preliminares.some((s) => seSolapan(s, candidata, 1))) break;
+    }
+    preliminares.push(mejorCandidata);
+  }
+  const profundidadPorIndice = bfsProfundidades(preliminares.length, construirMST(preliminares));
+  const profundidadMaximaAprox = Math.max(1, ...profundidadPorIndice);
+
   const tiposSalaCiclo = def.salasPermitidas || [];
   const salasColocadas = [];
   for (let i = 0; i < numSalas; i++) {
@@ -188,10 +284,25 @@ function generarPlantaMazmorra({ nivel, rol, def, catalogosInteriores, semilla }
       ? tiposSalaCiclo[Math.floor(rnd() * tiposSalaCiclo.length)]
       : "guarida_bestia";
     const semillaSala = `${semilla}:sala:${nivel}:${i}`;
+    // 0 = pegada a la entrada, 1 = el punto más profundo del grafo estimado.
+    const factorProfundidad = profundidadPorIndice[i] / profundidadMaximaAprox;
     let anchoObjetivo, largoObjetivo;
     if (def.formaSala === "organica") {
-      anchoObjetivo = 9 + Math.floor(rnd() * 10); // 9-18
-      largoObjetivo = 9 + Math.floor(rnd() * 10);
+      const minLado = 9 + Math.round(factorProfundidad * 4); // 9 → 13
+      const maxLado = 18 + Math.round(factorProfundidad * 10); // 18 → 28
+      anchoObjetivo = minLado + Math.floor(rnd() * (maxLado - minLado + 1));
+      largoObjetivo = minLado + Math.floor(rnd() * (maxLado - minLado + 1));
+    } else {
+      // rectangular: sesga DENTRO del rango propio de tipoSalaId (nunca se
+      // sale de lo que ese tipo de sala declara en tipos_sala.json) hacia
+      // su máximo cuanto más profunda — antes era un tamaño al azar en todo
+      // el rango, sin relación con la posición en la mazmorra.
+      const defSala = catalogosInteriores.tiposSala[tipoSalaId];
+      if (defSala) {
+        const sesgo = Math.min(1, factorProfundidad + rnd() * 0.3); // nunca 100% determinista por profundidad — algo de variación
+        anchoObjetivo = Math.round(defSala.anchoTiles[0] + (defSala.anchoTiles[1] - defSala.anchoTiles[0]) * sesgo);
+        largoObjetivo = Math.round(defSala.largoTiles[0] + (defSala.largoTiles[1] - defSala.largoTiles[0]) * sesgo);
+      }
     }
     let resultado;
     try {
@@ -217,15 +328,31 @@ function generarPlantaMazmorra({ nivel, rol, def, catalogosInteriores, semilla }
     // menos salas de las pedidas — más vale eso que un lienzo enorme y lento)
   }
 
+  const aristasMST = construirMST(salasColocadas);
   const puertasConexion = [];
-  for (const [i, j] of construirMST(salasColocadas)) {
+  for (const [i, j] of aristasMST) {
+    for (const p of carvarCorredor(salasColocadas[i], salasColocadas[j])) puertasConexion.push(p);
+  }
+  // Bucles (pedido 2026-08-31, ver elegirAristasBucle más arriba): reinserta
+  // algunas aristas cercanas que el MST descarta, para que no sea siempre
+  // un único camino entre dos salas — rutas alternativas reales.
+  for (const [i, j] of elegirAristasBucle(salasColocadas, aristasMST, rnd)) {
     for (const p of carvarCorredor(salasColocadas[i], salasColocadas[j])) puertasConexion.push(p);
   }
 
-  // sala principal para el conector vertical (escaleras) — la más grande
-  const salaConector = salasColocadas.length
-    ? salasColocadas.reduce((a, b) => (a.resultado.ancho * a.resultado.largo >= b.resultado.ancho * b.resultado.largo ? a : b))
-    : null;
+  // Sala principal para el conector vertical (escaleras) y slot de jefe:
+  // la MÁS PROFUNDA del grafo REAL ya colocado (antes: simplemente "la más
+  // grande", sin relación con la posición en la mazmorra) — empate roto por
+  // área, mismo criterio de "más grande" como desempate razonable.
+  const profundidadReal = bfsProfundidades(salasColocadas.length, aristasMST);
+  let salaConector = null, mejorProfundidad = -1, mejorArea = -1;
+  salasColocadas.forEach((sala, idx) => {
+    const p = profundidadReal[idx] ?? 0;
+    const area = sala.resultado.ancho * sala.resultado.largo;
+    if (p > mejorProfundidad || (p === mejorProfundidad && area > mejorArea)) {
+      mejorProfundidad = p; mejorArea = area; salaConector = sala;
+    }
+  });
 
   // spawns de enemigos: varios puntos por sala + 1 slot de jefe en la sala
   // más grande (docs/GDD_Bakeador_Dungeons.md §4.2 — bake coloca CANDIDATOS,
@@ -372,4 +499,4 @@ function generarMazmorra({ tipoDungeonId, catalogosMazmorra, catalogosInteriores
   };
 }
 
-module.exports = { generarMazmorra, generarPlantaMazmorra, construirMST, carvarCorredor };
+module.exports = { generarMazmorra, generarPlantaMazmorra, construirMST, carvarCorredor, bfsProfundidades, elegirAristasBucle };

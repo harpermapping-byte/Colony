@@ -437,3 +437,50 @@ test("comida: un carnívoro con hambre NO tiene comportamiento activo todavía (
   assert.strictEqual(vioComer, false, "sin sistema de caza, un carnívoro no se autoalimenta");
   assert.ok(vioCaminar, "pero sigue paseando con normalidad");
 });
+
+// --- Manada/banco/bandada (pedido 2026-08-31) ---
+
+test("tick: dos conejos (gregarios) plantados lejos entre sí terminan más cerca — cohesión de manada", async () => {
+  const { gestor, salida } = crearGestor({
+    cargarBakeSector: () => [
+      { i: "conejo", x: 5, y: 5 },
+      { i: "conejo", x: 13, y: 5 }, // separación inicial 8 — dentro de RADIO_MANADA (10)
+    ],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const [a, b] = [...salida.values()];
+  const distanciaInicial = Math.hypot(a.x - b.x, a.y - b.y);
+  for (let i = 0; i < 400; i++) gestor.tick(0.3);
+  const distanciaFinal = Math.hypot(a.x - b.x, a.y - b.y);
+  assert.ok(distanciaFinal < distanciaInicial - 2, `esperaba que se acercaran (inicial ${distanciaInicial}, final ${distanciaFinal})`);
+});
+
+test("tick: dos lobos (peligrosos, no gregarios) plantados a la misma distancia NO muestran esa cohesión", async () => {
+  const { gestor, salida } = crearGestor({
+    cargarBakeSector: () => [
+      { i: "lobo", x: 5, y: 5 },
+      { i: "lobo", x: 13, y: 5 },
+    ],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const [a, b] = [...salida.values()];
+  const distanciaInicial = Math.hypot(a.x - b.x, a.y - b.y);
+  let distanciaMaxima = distanciaInicial;
+  for (let i = 0; i < 400; i++) {
+    gestor.tick(0.3);
+    distanciaMaxima = Math.max(distanciaMaxima, Math.hypot(a.x - b.x, a.y - b.y));
+  }
+  // Sin cohesión, el paseo libre (radio 3 cada uno) puede perfectamente alejarlos más de lo que empezaron — la prueba de que NO hay una fuerza que los junte es que la distancia puede crecer.
+  assert.ok(distanciaMaxima >= distanciaInicial, `sin cohesión, no debería haber una fuerza sistemática que los acerque (inicial ${distanciaInicial}, máxima vista ${distanciaMaxima})`);
+});
+
+test("tick: un conejo SIN vecinos de su especie cerca se comporta como antes (radio de merodeo normal, sin desplazarse hacia nada)", async () => {
+  const { gestor, salida } = crearGestor({
+    cargarBakeSector: () => [{ i: "conejo", x: 5, y: 5 }],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const animal = [...salida.values()][0];
+  const x0 = animal.x, y0 = animal.y;
+  for (let i = 0; i < 60; i++) gestor.tick(0.1);
+  assert.ok(Math.hypot(animal.x - x0, animal.y - y0) < 3 + 1.5, "sigue sin alejarse más de su radio de merodeo, igual que un solitario");
+});

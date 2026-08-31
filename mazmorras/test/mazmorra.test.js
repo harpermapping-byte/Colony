@@ -5,7 +5,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert");
 
-const { generarMazmorra } = require("../src/generarMazmorra");
+const { generarMazmorra, bfsProfundidades, elegirAristasBucle, construirMST } = require("../src/generarMazmorra");
 const { generarFormaOrganica } = require("../src/celular");
 const { cargarCatalogos } = require("../../interiores/src/catalogo");
 
@@ -117,6 +117,88 @@ test("el slot de jefe de CADA tipo de mazmorra resuelve a un enemigo real en run
       );
     }
   }
+});
+
+// --- Profundidad BFS + bucles sobre el MST (pedido 2026-08-31) ---
+
+test("bfsProfundidades: la raíz (sala 0) siempre tiene profundidad 0, y sube 1 por cada salto real en una cadena", () => {
+  // 0-1-2-3 en cadena: profundidad 0,1,2,3
+  const cadena = [[0, 1], [1, 2], [2, 3]];
+  assert.deepStrictEqual(bfsProfundidades(4, cadena), [0, 1, 2, 3]);
+});
+
+test("bfsProfundidades: usa la ruta MÁS CORTA cuando hay varios caminos (no la primera que encuentra)", () => {
+  // 0 conectado directo a 2 (profundidad 1) Y por 0-1-2 (profundidad 2 si fuera esa la única ruta) — BFS coge la corta.
+  const grafo = [[0, 1], [1, 2], [0, 2]];
+  assert.deepStrictEqual(bfsProfundidades(3, grafo), [0, 1, 1]);
+});
+
+test("bfsProfundidades: nodos sin aristas ni sea la raíz (grafo vacío) se quedan a profundidad 0, no revienta", () => {
+  assert.deepStrictEqual(bfsProfundidades(1, []), [0]);
+  assert.deepStrictEqual(bfsProfundidades(0, []), []);
+});
+
+function salaDePrueba(offsetX, offsetY, lado = 6) {
+  return { offsetX, offsetY, resultado: { ancho: lado, largo: lado } };
+}
+
+test("elegirAristasBucle: con menos de 3 salas nunca añade bucles (no hay nada que rodear)", () => {
+  const salas = [salaDePrueba(0, 0), salaDePrueba(10, 0)];
+  const mst = construirMST(salas);
+  assert.deepStrictEqual(elegirAristasBucle(salas, mst, () => 0), []);
+});
+
+test("elegirAristasBucle: nunca reinserta una arista que YA está en el MST", () => {
+  const salas = [salaDePrueba(0, 0), salaDePrueba(10, 0), salaDePrueba(20, 0), salaDePrueba(30, 0), salaDePrueba(40, 0)];
+  const mst = construirMST(salas);
+  const conectadas = new Set(mst.map(([i, j]) => `${Math.min(i, j)}_${Math.max(i, j)}`));
+  const bucles = elegirAristasBucle(salas, mst, () => 0); // rnd()=0 siempre pasa el filtro de probabilidad: caso "más bucles posibles"
+  for (const [i, j] of bucles) {
+    assert.ok(!conectadas.has(`${Math.min(i, j)}_${Math.max(i, j)}`), `[${i},${j}] ya estaba en el MST — no debería reinsertarse`);
+  }
+});
+
+test("elegirAristasBucle: con rnd()=1 (nunca pasa la probabilidad) no añade ningún bucle", () => {
+  const salas = [salaDePrueba(0, 0), salaDePrueba(10, 0), salaDePrueba(20, 0), salaDePrueba(30, 0)];
+  const mst = construirMST(salas);
+  assert.deepStrictEqual(elegirAristasBucle(salas, mst, () => 0.999999), []);
+});
+
+test("elegirAristasBucle: nunca supera el tope proporcional al número de salas", () => {
+  // salas en rejilla — muchos pares "cercanos" candidatos, para forzar el tope en vez del filtro de cercanía
+  const salas = [];
+  for (let x = 0; x < 5; x++) for (let y = 0; y < 4; y++) salas.push(salaDePrueba(x * 10, y * 10));
+  const mst = construirMST(salas);
+  const bucles = elegirAristasBucle(salas, mst, () => 0); // siempre pasa el filtro de probabilidad
+  assert.ok(bucles.length <= Math.floor(salas.length * 0.25) + 1, `demasiados bucles: ${bucles.length} para ${salas.length} salas`);
+});
+
+test("salas más profundas en el grafo tienden a ser más grandes que las cercanas a la entrada (mazmorras orgánicas, muestra estadística)", () => {
+  // No es determinista sala a sala (hay ruido aleatorio dentro del rango),
+  // pero en agregado sobre varias mazmorras/semillas el área media de las
+  // salas más profundas debe ser mayor que la de las más cercanas a la
+  // entrada — si esto falla, el sesgo por profundidad se rompió.
+  let areaSumaCercanas = 0, nCercanas = 0;
+  let areaSumaProfundas = 0, nProfundas = 0;
+  for (const semilla of ["prof-1", "prof-2", "prof-3", "prof-4", "prof-5"]) {
+    const m = generarMazmorra({ tipoDungeonId: "cueva_goblins", catalogosMazmorra, catalogosInteriores, semilla });
+    for (const planta of m.plantas) {
+      if (planta.salas.length < 4) continue;
+      const aristasMST = construirMST(planta.salas.map((s) => ({ offsetX: s.offsetX, offsetY: s.offsetY, resultado: s.resultado })));
+      const profundidades = bfsProfundidades(planta.salas.length, aristasMST);
+      const maxProf = Math.max(1, ...profundidades);
+      planta.salas.forEach((s, idx) => {
+        const area = s.resultado.ancho * s.resultado.largo;
+        const factor = profundidades[idx] / maxProf;
+        if (factor <= 0.25) { areaSumaCercanas += area; nCercanas++; }
+        else if (factor >= 0.75) { areaSumaProfundas += area; nProfundas++; }
+      });
+    }
+  }
+  assert.ok(nCercanas > 3 && nProfundas > 3, "muestra insuficiente — ajustar semillas/tipo si esto falla");
+  const mediaCercanas = areaSumaCercanas / nCercanas;
+  const mediaProfundas = areaSumaProfundas / nProfundas;
+  assert.ok(mediaProfundas > mediaCercanas, `esperaba salas profundas más grandes en media (cercanas=${mediaCercanas.toFixed(1)}, profundas=${mediaProfundas.toFixed(1)})`);
 });
 
 // La conectividad REAL (flood-fill contra la rejilla de colisión que carga

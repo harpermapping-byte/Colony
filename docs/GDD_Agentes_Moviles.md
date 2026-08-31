@@ -675,6 +675,50 @@ cadáver."
   `cadaveres.ts`, 5 de su persistencia en BD, y 3 de `matarIndividuo`
   sobre el gestor de fauna en vivo), `tsc --noEmit` limpio.
 
+### Hecho en la fase 8 (manada/banco/bandada — pedido 2026-08-31)
+
+Pedido: mejorar el comportamiento de fauna salvaje/marítima/aves con
+ideas de librerías/simuladores de ecosistema ajenos (`sim-ecs`, varios
+"ecosystem simulator" de GitHub) — evaluados y descartados como
+dependencia (ver razonamiento en el chat: duplicarían el Schema de
+Colyseus, que ya hace de "componente" de por sí, y están pensados para
+miles de entidades por frame, justo lo contrario del criterio "cálculo
+perezoso, solo lo cercano a jugadores" de este proyecto) — pero SÍ se
+implementó a mano la técnica útil que faltaba: cohesión de grupo
+(steering-lite, no boids completo) para que herbívoros/peces/aves
+merodeen en manada/banco/bandada en vez de cada individuo de forma
+totalmente independiente.
+
+- **`server/src/mundo/faunaSalvajeViva.ts`** — `esGregario(dieta, combate)`
+  (función pura, nueva): deriva de catálogos YA existentes (`dieta` de
+  `catalogo`, `peligroso`/`categoriaVida` de `catalogoCombate`) sin
+  añadir ningún flag nuevo por especie — cualquier adulto no peligroso y
+  no carnívoro (herbívoros, omnívoros, peces, aves) es gregario;
+  depredadores y crías, no.
+- **`centroideManada(v)`** (nuevo, privado): centroide de vecinos ACTIVOS
+  de la misma especie dentro de `RADIO_MANADA` (10 casillas), buscando en
+  TODOS los sectores activos (un grupo puede repartirse entre sectores
+  vecinos, no solo el propio).
+- **`elegirDestino(v)`**: si la especie es gregaria y hay vecinos cerca,
+  el CENTRO del próximo paseo se desplaza un `PESO_COHESION` (0.15, bajo
+  a propósito) hacia el centroide del grupo en vez de quedarse siempre
+  sobre el propio individuo — tira del grupo sin apelmazarlo en una sola
+  casilla ni moverlo en bloque de forma robótica (el `RADIO_MERODEO`
+  normal sigue aplicando alrededor de ese centro desplazado). Sin
+  vecinos cerca, o especie no gregaria (lobos, zorros...), se comporta
+  EXACTAMENTE igual que antes.
+- **Verificado**: 3 tests nuevos en `server/test/faunaSalvajeViva.test.ts`
+  — dos conejos (gregarios) plantados a 8 casillas terminan
+  significativamente más cerca tras 400 ticks; dos lobos (peligrosos, no
+  gregarios) a la misma distancia NO muestran esa cohesión (su distancia
+  máxima observada puede superar la inicial, sin fuerza sistemática que
+  los junte); un conejo sin vecinos cerca se comporta como antes (mismo
+  radio de merodeo). Suite completa de servidor 917/917, `tsc --noEmit`
+  limpio.
+- **No se tocó** `mundo/fauna.ts` (fauna doméstica urbana) — el pedido
+  era sobre fauna salvaje/marítima/aves; la doméstica ya vive dentro de
+  propiedades/corrales, donde "manada" no aplica igual.
+
 ### Pendiente (fuera de esta pasada)
 
 - **Caza de depredadores con combate y cadáver**: aparcado a propósito —

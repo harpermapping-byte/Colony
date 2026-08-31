@@ -29,6 +29,24 @@ const VEL = 1.0;
 const ACCIONES_IDLE = ["sentarse", "jugar", "dormir", "alerta"];
 const RADIO_BUSQUEDA_AGUA = 15; // casillas — hasta dónde busca agua antes de rendirse por este intento
 
+// --- Manada/banco/bandada (pedido 2026-08-31) — cohesión ligera, no boids
+// completo: cada individuo gregario, al elegir su próximo paseo, desplaza
+// el CENTRO de su merodeo hacia el centroide de vecinos de su misma
+// especie cercanos, en vez de merodear siempre alrededor de sí mismo. Sin
+// vecinos cerca (o especie no gregaria) se comporta exactamente igual que
+// antes. PESO_COHESION bajo a propósito: tira del grupo sin que se apelmacen
+// en una sola casilla ni se mueva en bloque de forma robótica.
+const RADIO_MANADA = 10; // casillas — hasta dónde "ve" a vecinos de su especie para formar grupo
+const PESO_COHESION = 0.15;
+
+/** Gregario = deriva de catálogos YA existentes (dieta de `catalogo`, peligroso/categoriaVida de `catalogoCombate`), sin flag nuevo por especie: cualquier adulto no peligroso y no carnívoro (herbívoros, omnívoros, peces, aves) tiende a agruparse; depredadores y crías, no. Sin `catalogoCombate` (opcional) se asume no peligroso/no cría — mismo criterio "nunca romper por un dato ausente" que `estadisticasCombatePorDefecto`. */
+function esGregario(dieta: string | undefined, combate: { peligroso?: boolean; categoriaVida?: string } | undefined): boolean {
+  if (dieta === "carnivoro") return false;
+  if (combate?.peligroso) return false;
+  if (combate?.categoriaVida === "cria") return false;
+  return true;
+}
+
 function accionIdleAlAzar(): string {
   return ACCIONES_IDLE[Math.floor(Math.random() * ACCIONES_IDLE.length)];
 }
@@ -395,12 +413,37 @@ export class GestorFaunaSalvaje {
     }
   }
 
+  /** Centroide de vecinos ACTIVOS de la misma especie dentro de RADIO_MANADA (busca en todos los sectores activos, no solo el propio — un grupo puede repartirse entre sectores vecinos). `null` si no hay ninguno cerca. */
+  private centroideManada(v: IndividuoVivo): { x: number; y: number } | null {
+    let sx = 0, sy = 0, n = 0;
+    for (const vivos of this.sectoresActivos.values()) {
+      for (const otro of vivos) {
+        if (otro === v || otro.fila.especieId !== v.fila.especieId) continue;
+        if (Math.hypot(otro.esquema.x - v.esquema.x, otro.esquema.y - v.esquema.y) > RADIO_MANADA) continue;
+        sx += otro.esquema.x;
+        sy += otro.esquema.y;
+        n++;
+      }
+    }
+    return n > 0 ? { x: sx / n, y: sy / n } : null;
+  }
+
   private elegirDestino(v: IndividuoVivo): { x: number; y: number } | null {
+    // Cohesión de manada/banco/bandada (pedido 2026-08-31): si la especie es
+    // gregaria y hay vecinos cerca, el CENTRO del merodeo se desplaza un
+    // poco hacia el centroide del grupo en vez de quedarse siempre sobre el
+    // propio individuo — con PESO_COHESION bajo, tira del grupo sin
+    // apelmazarlo ni moverlo en bloque de forma robótica.
+    const especie = this.deps.catalogo[v.fila.especieId];
+    const combate = this.deps.catalogoCombate?.[v.fila.especieId];
+    const centro = esGregario(especie?.dieta, combate) ? this.centroideManada(v) : null;
+    const baseX = centro ? v.esquema.x + (centro.x - v.esquema.x) * PESO_COHESION : v.esquema.x;
+    const baseY = centro ? v.esquema.y + (centro.y - v.esquema.y) * PESO_COHESION : v.esquema.y;
     for (let intento = 0; intento < 6; intento++) {
       const ang = Math.random() * Math.PI * 2;
       const dist = Math.random() * RADIO_MERODEO;
-      const cx = v.esquema.x + Math.cos(ang) * dist;
-      const cy = v.esquema.y + Math.sin(ang) * dist;
+      const cx = baseX + Math.cos(ang) * dist;
+      const cy = baseY + Math.sin(ang) * dist;
       if (this.transitable(cx, cy)) return { x: cx, y: cy };
     }
     return null;
