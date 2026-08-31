@@ -670,9 +670,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           this.broadcast("instrumento:parado", { sessionId: client.sessionId });
         }
       }
+      // Validación en el límite del sistema (pedido 2026-08-31, tras
+      // revisar el AntiCheat.validateInput de un repo ajeno): `clamp` NO
+      // protege contra NaN/Infinity (Math.min/max con NaN da NaN, no el
+      // límite) — un cliente hecho a mano (fuera del cliente oficial,
+      // saltándose la validación de TypeScript) podría mandar `x`/`y` no
+      // finitos y corromper `player.x/y` a NaN en el servidor. `?? 0` solo
+      // cubre null/undefined, no NaN/Infinity/strings — de ahí el check aparte.
+      const xValido = Number.isFinite(dir?.x) ? dir!.x : 0;
+      const yValido = Number.isFinite(dir?.y) ? dir!.y : 0;
       this.inputs.set(client.sessionId, {
-        x: clamp(dir?.x ?? 0, -1, 1),
-        y: clamp(dir?.y ?? 0, -1, 1),
+        x: clamp(xValido, -1, 1),
+        y: clamp(yValido, -1, 1),
         correr: !!dir?.correr,
       });
     });
