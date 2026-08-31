@@ -50,8 +50,8 @@ Solo las 4 extremidades son `ZONAS_AMPUTABLES` — cabeza/torso no se amputan (n
 
 ### Cirugía y prótesis — oficio curandero, la vía "buena" de curación
 
-- **`medico:cirugia`**: exige oficio `curandero`, `instrumental_cirugia` en el inventario (herramienta REUSABLE, no se consume — misma convención que `cuchillo_desollar`), estar junto a `mesa_cirugia`, y el PACIENTE junto a una cama/camilla (`esCama`, cualquier cama del catálogo sirve — "que te tumbes en camilla o cama", pedido literal). Cura sangrado/fractura/infección de las 6 zonas AL INSTANTE; si el paciente estaba en crítico, lo saca (restaura vida al umbral del 10%). NO revierte amputaciones.
-- **`medico:protesis`**: exige oficio `curandero` + estar junto a `mesa_diagnostico` + `protesis_madera` en el inventario (SÍ se consume). Solo sobre una zona amputada sin prótesis previa — la instala, anula su penalización, el cliente cambia la malla a un tono de madera.
+- **`medico:cirugia`**: exige tener `curandero` elegido (uno de los 2 slots de oficio, ronda 2 — `tieneOficio`, docs/GDD_Profesiones.md), `instrumental_cirugia` en el inventario (herramienta REUSABLE, no se consume — misma convención que `cuchillo_desollar`), estar junto a `mesa_cirugia`, y el PACIENTE junto a una cama/camilla (`esCama`, cualquier cama del catálogo sirve — "que te tumbes en camilla o cama", pedido literal). Cura sangrado/fractura/infección de las 6 zonas AL INSTANTE; si el paciente estaba en crítico, lo saca (restaura vida al umbral del 10%). NO revierte amputaciones.
+- **`medico:protesis`**: exige tener `curandero` elegido + estar junto a `mesa_diagnostico` + `protesis_madera` en el inventario (SÍ se consume). Solo sobre una zona amputada sin prótesis previa — la instala, anula su penalización, el cliente cambia la malla a un tono de madera.
 
 ### Respawn — "respawneas sano", pero no gratis del todo
 
@@ -64,10 +64,20 @@ Al morir (`manejarMuerteJugador`), la anatomía se limpia con la MISMA `operarCi
 | `venda` | sastre | `telar` | tela_hilada |
 | `unguento` | herbolista | `mortero_grande_boticario` | miel + fruta |
 | `tablilla` | carpintero | `banco_carpintero` | madera_blanda |
-| `protesis_madera` | curandero | `mesa_diagnostico` | madera_dura + cuero_curtido |
+| `protesis_madera` | ingeniero (ronda 2, ver nota) | `banco_mecanizado` | madera_dura + cuero_curtido |
+| `protesis_metal` (`protesis_metal_craft`) | ingeniero (ronda 2, ver nota) | `banco_ingenieria_pesada` | lingote_hierro + cuero_curtido |
 | `instrumental_cirugia` | herrero | `yunque_tocon` | lingote_hierro |
 
 5 oficios distintos tocados — "vincúlalo con lo que ya tenemos" cumplido de punta a punta: molinero/panadero ya se habían enganchado en cocina v2 el mismo día, ahora sastre/herbolista/carpintero/curandero/herrero.
+
+**División de trabajo, ronda 2 (docs/GDD_Profesiones.md, pedido 2026-08-30):**
+antes `protesis_madera`/`protesis_metal_craft` las craftea el propio curandero
+(`mesa_diagnostico`/`mesa_cirugia`); ahora las craftea el **ingeniero**
+(`banco_mecanizado`/`banco_ingenieria_pesada`, sus mesas de oficio) y el
+**curandero sigue siendo el único que las INSTALA** vía `medico:protesis`
+(gating intacto, sin cambios en RoomExteriorBase salvo la receta) — "el
+curandero cura mejor y es el único que puede operar y poner prótesis, las
+prótesis las hace el ingeniero".
 
 ## 6. Sincronización cliente — Schema y visual
 

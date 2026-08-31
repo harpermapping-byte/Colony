@@ -49,6 +49,10 @@ export interface NpcBakeado {
   rutina: TramoRutina[];
   /** poblacion/catalogo/oficiosEdificios.json — "tendero" habilita comercio real (docs/GDD_Economia.md), el resto es flavor todavía. Campo YA presente en poblacion.json; solo faltaba tipar/leer. */
   oficio?: string;
+  /** NPC tutorial fijo (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30): id de `poblacion/catalogo/npcsTutoriales.json` — "" u ausente = NPC normal. */
+  tipoTutorial?: string;
+  /** Vestimenta del NPC tutorial — slot->itemId, MISMO shape que `InventarioSchema.equipo` del jugador, resuelto del catálogo al colocarlo (server/src/mundo/npcsFijos.ts). */
+  equipo?: Record<string, string>;
 }
 
 // Más lento que el jugador (VEL_ANDAR 3.75): los NPC pasean, no compiten.
@@ -78,6 +82,12 @@ interface EstadoAgente {
 // Pausa en cada parada de una ronda/deambular: suficiente para "estar" en
 // el sitio (vigilar la esquina, vocear la mercancía) sin parecer una estatua.
 const PAUSA_PARADA_SEG = 7;
+
+/** Copia tipoTutorial/equipo del NpcBakeado al Schema replicado — ambos opcionales, "" u omitido = NPC normal (nunca toca nada si no vienen). */
+function copiarTutorial(esquema: Npc, npc: NpcBakeado) {
+  if (npc.tipoTutorial) esquema.tipoTutorial = npc.tipoTutorial;
+  if (npc.equipo) for (const [slot, itemId] of Object.entries(npc.equipo)) esquema.equipo.set(slot, itemId);
+}
 
 /** Índice del tramo que manda a esta hora (o -1 si la rutina está vacía). */
 export function tramoActivoPorHora(rutina: TramoRutina[], hora: number): number {
@@ -119,6 +129,7 @@ export class GestorAgentes {
       esquema.grito = npc.grito ?? "";
       esquema.accion = tramo.accion;
       esquema.visible = visibleEn(tramo);
+      copiarTutorial(esquema, npc);
       this.salida.set(npc.slotId, esquema);
       this.agentes.push({ npc, esquema, tramoActivo: i, camino: null, segmento: 0, paradaActual: 0, pausaRestante: PAUSA_PARADA_SEG });
     }
@@ -258,7 +269,30 @@ export class GestorAgentes {
     this.agentes.push({ npc, esquema, tramoActivo: 0, camino: null, segmento: 0, paradaActual: 0, pausaRestante: PAUSA_PARADA_SEG });
   }
 
-  /** Retira un agente (p.ej. al cancelar un contrato de transporte) — de la simulación Y del Schema replicado. */
+  /**
+   * NPC tutorial fijo colocado en caliente por el admin/superadmin
+   * (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30: "ya la colocará
+   * ingame el admin") — MISMO mecanismo que `agregarAgenteTransportista`
+   * (tramo único 0-24h, sin `camino`, así que `GestorAgentes` lo trata como
+   * quieto en el sitio para siempre) pero sin paradas ni destino: un único
+   * punto, nunca se mueve.
+   */
+  agregarNpcFijo(npc: NpcBakeado) {
+    const punto = npc.rutina[0]?.punto;
+    if (!punto) return;
+    const esquema = new Npc();
+    esquema.x = punto.x + 0.5;
+    esquema.y = punto.y + 0.5;
+    esquema.nombre = npc.nombre;
+    esquema.grito = npc.grito ?? "";
+    esquema.accion = npc.rutina[0].accion;
+    esquema.visible = true;
+    copiarTutorial(esquema, npc);
+    this.salida.set(npc.slotId, esquema);
+    this.agentes.push({ npc, esquema, tramoActivo: 0, camino: null, segmento: 0, paradaActual: 0, pausaRestante: PAUSA_PARADA_SEG });
+  }
+
+  /** Retira un agente (p.ej. al cancelar un contrato de transporte, o quitar un NPC tutorial) — de la simulación Y del Schema replicado. */
   quitarAgente(slotId: string) {
     const i = this.agentes.findIndex((a) => a.npc.slotId === slotId);
     if (i >= 0) this.agentes.splice(i, 1);

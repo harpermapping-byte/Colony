@@ -54,8 +54,8 @@ export class VitalesSchema extends Schema {
   @type("number") sueno = 100;
   @type("number") estamina = 100;
   // Higiene (docs/GDD_Personaje.md §3.6, pedido explícito 2026-08-30): sube
-  // con cada comida, al tope ensucia al jugador (`Player.sucio`); baja a 0
-  // al usar una hoja (`higiene:cagar`). No decae sola, no tiene tick propio.
+  // con cada comida, al tope suma a `Player.suciedad`; baja a 0 al usar una
+  // hoja (`higiene:cagar`). No decae sola, no tiene tick propio.
   @type("number") caca = 0;
   // Temperatura corporal (docs/GDD_Clima.md, pedido 2026-08-30): 0-100,
   // 50 = neutro/cómodo. Deriva sola hacia la temperatura del mundo cada
@@ -143,12 +143,15 @@ export class Player extends Schema {
   @type("string") gremioNombre = "";
   @type("string") gremioColor = "";
   @type("string") gremioEmblemaId = "";
-  // Higiene (docs/GDD_Personaje.md §3.6, pedido explícito 2026-08-30):
-  // true cuando `vitales.caca` llegó a 100 sin usar una hoja a tiempo — solo
-  // se quita lavándose en agua (`higiene:lavar`). Estado del jugador, no de
-  // una prenda concreta: todavía no existe un slot de equipo de pantalón
-  // (ver §6) al que colgar este estado.
-  @type("boolean") sucio = false;
+  // Suciedad (docs/GDD_Personaje.md §3.6, ronda 2 pedido 2026-08-30: "stat
+  // de suciedad real, sube con `vitales.caca` al tope Y con cada acción de
+  // trabajo — crafteo/recolección — y a partir de UMBRAL_SUCIEDAD_MOLESTO
+  // los NPC tendero cobran un recargo y NPCs sueltan frases al pasar cerca").
+  // 0-100, reemplaza el booleano `sucio` de la v1. Se limpia poco a poco
+  // nadando/buceando (`RITMO_LIMPIEZA_AGUA_POR_HORA`) o de golpe con jabón
+  // en el agua (`higiene:lavar`, consume 1 "jabon"). Estado del propio
+  // jugador, no de una prenda concreta.
+  @type("number") suciedad = 0;
   // Sueño en cama (docs/GDD_Personaje.md §3.6) — replicado solo para que el
   // cliente pueda mostrar una pose/animación de "durmiendo" más adelante; la
   // duración real vive server-only en `RoomExteriorBase.durmiendo`.
@@ -186,16 +189,21 @@ export class Player extends Schema {
   // Puramente cosmético (docs/GDD_Mecanicas.md §5.11, "nunca ventaja de
   // poder") — se refresca solo, cada vez que ese jugador habla en el chat.
   @type("string") tituloTwitch = "";
-  // Oficio de jugador (docs/GDD_Caza.md, pedido 2026-08-30): sistema MÍNIMO
-  // v1 — "" = ninguno, se elige libremente con `oficio:elegir` (sin
-  // requisito ni exclusividad real, cambiable en cualquier momento; no
-  // reemplaza la XP por-oficio-y-jugador ya existente en `jugador_oficios`,
-  // que sigue sin exclusividad). Hoy solo lo consume el gating de desollar
-  // (curtidor/peletero); nada impide que más adelante otras recetas de
-  // `items/catalogo/recetas.json` lo exijan también. Sin persistencia entre
-  // sesiones todavía — mismo criterio que `atributos`/`vitales`/`gremioId`,
-  // esperando el login real (ver `server/src/datos/bd.ts`, tabla `jugadores`).
-  @type("string") oficio = "";
+  // Oficio de jugador — RONDA 2 (docs/GDD_Profesiones.md, pedido 2026-08-30:
+  // "sigue sin coste ni exclusividad real"). Reemplaza el `oficio` único de
+  // la v1: EXACTAMENTE 2 slots ("" = vacío), elegidos hablando con el NPC
+  // "maestro de oficios" (`oficio:elegir` en un slot vacío, gratis;
+  // `oficio:cambiar` en un slot ocupado, cuesta `PRECIO_CAMBIO_OFICIO`
+  // Farycoins y reinicia a 0 la XP del oficio que se quita —
+  // `server/src/personaje/oficios.ts`). La XP de oficio
+  // (`jugador_oficios`) solo se otorga si el oficio de la receta está en
+  // uno de estos 2 slots (`tieneOficio`) — el crafteo en sí sigue abierto a
+  // cualquiera, lo que exige el oficio elegido es progresar/tener bono.
+  // SÍ persiste entre sesiones (`jugadores.oficio_1`/`oficio_2` en
+  // server/src/datos/bd.ts), a diferencia de vitales/gremioId — es una
+  // elección deliberada del jugador, no un estado de sesión.
+  @type("string") oficio1 = "";
+  @type("string") oficio2 = "";
   // Montura (docs/GDD_Monturas.md, pedido 2026-08-30): "" = a pie. Montado,
   // el PJ y la mascota son UNA sola entidad física (docs/GDD_Mecanicas.md
   // §"Monturas acordado 2026-08-27) — el servidor solo simula al jugador,
@@ -241,6 +249,17 @@ export class Npc extends Schema {
   // resto del grupo si andan cerca (cerrarVentanaCombate) — false para
   // cualquier civil normal de poblacion/, que sigue exactamente igual.
   @type("boolean") hostil = false;
+  // NPC tutorial fijo — RONDA 3 (docs/GDD_Profesiones.md, pedido
+  // 2026-08-30): "un NPC por cada mecánica... colocado a mano por el admin
+  // o superadmin en su posición actual". "" = NPC normal de poblacion/.
+  // `tipoTutorial` es el id de `poblacion/catalogo/npcsTutoriales.json`
+  // (qué mecánica explica — el texto real de cada tutorial es contenido
+  // pendiente, ver el catálogo); `equipo` es slot->itemId (MISMO shape que
+  // `InventarioSchema.equipo` del jugador) resuelto del catálogo al
+  // colocarlo, para que salga "vestido" reusando `equipoVisual.ts` tal
+  // cual — nunca se genera ropa nueva para NPCs, se reusa el pipeline del jugador.
+  @type("string") tipoTutorial = "";
+  @type({ map: "string" }) equipo = new MapSchema<string>();
 }
 
 // Enemigo activo de una mazmorra (docs/GDD_Bakeador_Dungeons.md §4) — el bake

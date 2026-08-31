@@ -73,6 +73,39 @@ export interface Jugador {
   anatomia: string | null;
   /** docs/GDD_Enfermedades.md — JSON de server/src/personaje/enfermedades.ts::EstadoEnfermedades, o null si nunca se tocó (se resuelve a enfermedadesInicial() en RoomExteriorBase). */
   enfermedades: string | null;
+  /**
+   * Oficio de jugador RONDA 2 (docs/GDD_Profesiones.md, pedido 2026-08-30):
+   * los 2 slots elegidos con el NPC "maestro de oficios" —
+   * `server/src/personaje/oficios.ts` (`OFICIOS_JUGADOR_VALIDOS`,
+   * `tieneOficio`). "" = slot vacío. A diferencia de vitales/gremioId, SÍ
+   * persiste entre sesiones — es una elección deliberada, no estado volátil.
+   */
+  oficio1: string;
+  oficio2: string;
+  /**
+   * Cuántas veces ha pagado ya por cambiar de oficio (docs/GDD_Profesiones.md
+   * ronda 3, pedido 2026-08-30: "primer cambio 50 farycoins, si cambia más
+   * veces es exponencial el precio sube") — nunca baja, solo se lee para
+   * calcular `precioCambioOficio(cambios)` (server/src/personaje/oficios.ts)
+   * ANTES de cobrar, y se incrementa DESPUÉS de cobrar con éxito.
+   */
+  cambiosOficio: number;
+}
+
+/**
+ * NPC tutorial fijo ya persistido (docs/GDD_Profesiones.md ronda 3, pedido
+ * 2026-08-30) — una fila por NPC colocado por un admin/superadmin.
+ */
+export interface NpcTutorialColocado {
+  id: number;
+  mapaId: string;
+  /** id de `poblacion/catalogo/npcsTutoriales.json` — qué mecánica explica. */
+  tipoTutorial: string;
+  nombre: string;
+  x: number;
+  y: number;
+  colocadoPor: string;
+  colocadoEn: string;
 }
 
 /**
@@ -489,6 +522,14 @@ export interface IAlmacenDatos {
   /** "1 jarl por mapa": asigna `usuario` como jarl de `mapaId`, y de paso le QUITA ese mapa a quien lo tuviera antes (si era otro). No toca cuentas superadmin. */
   asignarJarlDeMapa(mapaId: string, usuario: string): Promise<{ ok: boolean; motivo?: string }>;
 
+  // --- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30) ---
+  /** Coloca un NPC tutorial en la posición actual del admin — `tipoTutorial` debe ser un id real de `poblacion/catalogo/npcsTutoriales.json` (no se valida aquí, lo valida quien llama). */
+  colocarNpcTutorial(datos: { mapaId: string; tipoTutorial: string; nombre: string; x: number; y: number; colocadoPor: string }): Promise<NpcTutorialColocado>;
+  /** Todos los NPCs tutoriales persistidos de un mapa — para recrearlos al arrancar la room (mismo criterio que poblacion.json/npcsFijos.json). */
+  listarNpcsTutorialesDeMapa(mapaId: string): Promise<NpcTutorialColocado[]>;
+  /** `true` si de verdad había una fila con ese id (para que el admin sepa si el id ya no existía). */
+  quitarNpcTutorial(id: number): Promise<boolean>;
+
   obtenerFarycoins(jugadorId: number): Promise<number>;
   /** Suma (delta>0) o resta (delta<0) Farycoins de un jugador, TODO O NADA:
    * si restar dejaría el saldo negativo, no toca nada y `ok:false` — mismo
@@ -502,6 +543,12 @@ export interface IAlmacenDatos {
   obtenerXpOficio(jugadorId: number, oficio: string): Promise<number>;
   /** Suma (nunca resta) XP a un oficio — crea la fila si no existía. Devuelve el nuevo total. */
   sumarXpOficio(jugadorId: number, oficio: string, delta: number): Promise<number>;
+  /** Pone a 0 la XP de un oficio (docs/GDD_Profesiones.md ronda 2: cambiar un slot ya ocupado "reinicia de cero" el oficio que se quita) — no borra la fila, solo la XP. */
+  reiniciarXpOficio(jugadorId: number, oficio: string): Promise<void>;
+  /** Slots de oficio elegidos por el jugador (0 = ninguno actualizado, "" en el campo si vacío). Elegir un slot vacío no cuesta nada; RoomExteriorBase cobra el precio y reinicia la XP ANTES de llamar a esto cuando el slot ya estaba ocupado. */
+  fijarOficioSlot(jugadorId: number, slot: 1 | 2, oficio: string): Promise<void>;
+  /** Suma 1 a `jugadores.cambios_oficio` y devuelve el nuevo total — se llama DESPUÉS de cobrar con éxito un `oficio:cambiar` (precio exponencial, ver `Jugador.cambiosOficio`). */
+  incrementarCambiosOficio(jugadorId: number): Promise<number>;
   /** docs/GDD_Personaje.md: XP de atributo — mismo mecanismo EXACTO que oficios (nivel derivado en server/src/progresion/nivel.ts, nunca persistido en sí). */
   obtenerXpAtributo(jugadorId: number, atributo: string): Promise<number>;
   /** Suma (nunca resta) XP a un atributo — crea la fila si no existía. Devuelve el nuevo total. */
@@ -743,8 +790,26 @@ CREATE TABLE IF NOT EXISTS jugadores (
   vida INTEGER NOT NULL DEFAULT 100,    -- docs/GDD_Mecanicas.md §5.4: base 100/100, modificable por equipo/combate
   vida_max INTEGER NOT NULL DEFAULT 100,
   anatomia TEXT,                        -- docs/GDD_Anatomia.md: JSON de las 6 zonas (server/src/personaje/anatomia.ts::Anatomia); NULL = nunca se ha tocado, se resuelve a anatomiaInicial()
-  enfermedades TEXT                     -- docs/GDD_Enfermedades.md: JSON de server/src/personaje/enfermedades.ts::EstadoEnfermedades; NULL = nunca se ha tocado, se resuelve a enfermedadesInicial()
+  enfermedades TEXT,                    -- docs/GDD_Enfermedades.md: JSON de server/src/personaje/enfermedades.ts::EstadoEnfermedades; NULL = nunca se ha tocado, se resuelve a enfermedadesInicial()
+  oficio_1 TEXT NOT NULL DEFAULT '',    -- docs/GDD_Profesiones.md ronda 2: los 2 slots de oficio elegidos con el NPC "maestro de oficios" — "" = vacío
+  oficio_2 TEXT NOT NULL DEFAULT '',
+  cambios_oficio INTEGER NOT NULL DEFAULT 0 -- ronda 3: cuántas veces ya pagó por cambiar — precio exponencial, ver Jugador.cambiosOficio
 );
+-- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30):
+-- una fila por NPC colocado a mano por un admin/superadmin — RegionRoom/
+-- HubRoom los recrea al arrancar leyendo esta tabla (mismo criterio que
+-- poblacion.json/npcsFijos.json, pero editable en vivo desde el juego).
+CREATE TABLE IF NOT EXISTS npcs_tutoriales (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  mapa_id TEXT NOT NULL,
+  tipo_tutorial TEXT NOT NULL,          -- id de poblacion/catalogo/npcsTutoriales.json
+  nombre TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  colocado_por TEXT NOT NULL,
+  colocado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_npcs_tutoriales_mapa ON npcs_tutoriales(mapa_id);
 -- Cuentas de admin (docs/GDD_Admin.md, pedido 2026-08-30): jarl por mapa +
 -- superadmin. Identidad SEPARADA de la tabla jugadores a propósito — el
 -- nombre de PJ es libre/mutable, esto es una cuenta real (login por
@@ -1109,6 +1174,21 @@ ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS vida INTEGER NOT NULL DEFAULT 100
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS vida_max INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS anatomia TEXT;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS enfermedades TEXT;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS oficio_1 TEXT NOT NULL DEFAULT '';
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS oficio_2 TEXT NOT NULL DEFAULT '';
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS cambios_oficio INTEGER NOT NULL DEFAULT 0;
+-- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3) — ver comentario gemelo en MIGRACIONES_SQLITE.
+CREATE TABLE IF NOT EXISTS npcs_tutoriales (
+  id SERIAL PRIMARY KEY,
+  mapa_id TEXT NOT NULL,
+  tipo_tutorial TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  colocado_por TEXT NOT NULL,
+  colocado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_npcs_tutoriales_mapa ON npcs_tutoriales(mapa_id);
 -- Cuentas de admin (docs/GDD_Admin.md, pedido 2026-08-30) — ver comentario
 -- gemelo en MIGRACIONES_SQLITE, misma tabla exacta.
 CREATE TABLE IF NOT EXISTS admin_cuentas (
@@ -1627,6 +1707,15 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     if (!nombresJugadores.has("enfermedades")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN enfermedades TEXT");
     }
+    if (!nombresJugadores.has("oficio_1")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN oficio_1 TEXT NOT NULL DEFAULT ''");
+    }
+    if (!nombresJugadores.has("oficio_2")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN oficio_2 TEXT NOT NULL DEFAULT ''");
+    }
+    if (!nombresJugadores.has("cambios_oficio")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN cambios_oficio INTEGER NOT NULL DEFAULT 0");
+    }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
     // cambio no las tendría; CREATE TABLE IF NOT EXISTS no amplía una tabla ya existente.
@@ -1671,7 +1760,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async obtenerOCrearJugador(nombre: string, saldoInicial = SALDO_INICIAL_JUGADOR): Promise<Jugador> {
     const existente = this.bd
-      .prepare("SELECT id, nombre, farycoins, vida, vida_max, anatomia, enfermedades FROM jugadores WHERE nombre = ?")
+      .prepare("SELECT id, nombre, farycoins, vida, vida_max, anatomia, enfermedades, oficio_1, oficio_2, cambios_oficio FROM jugadores WHERE nombre = ?")
       .get(nombre);
     if (existente) {
       return {
@@ -1682,12 +1771,50 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
         vidaMax: Number(existente.vida_max),
         anatomia: existente.anatomia == null ? null : String(existente.anatomia),
         enfermedades: existente.enfermedades == null ? null : String(existente.enfermedades),
+        oficio1: String(existente.oficio_1 ?? ""),
+        oficio2: String(existente.oficio_2 ?? ""),
+        cambiosOficio: Number(existente.cambios_oficio ?? 0),
       };
     }
     const r = this.bd
       .prepare("INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES (?, ?, ?)")
       .run(nombre, new Date().toISOString(), saldoInicial);
-    return { id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100, anatomia: null, enfermedades: null };
+    return { id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100, anatomia: null, enfermedades: null, oficio1: "", oficio2: "", cambiosOficio: 0 };
+  }
+
+  async fijarOficioSlot(jugadorId: number, slot: 1 | 2, oficio: string): Promise<void> {
+    this.bd.prepare(`UPDATE jugadores SET oficio_${slot} = ? WHERE id = ?`).run(oficio, jugadorId);
+  }
+
+  async reiniciarXpOficio(jugadorId: number, oficio: string): Promise<void> {
+    this.bd.prepare("UPDATE jugador_oficios SET xp = 0 WHERE jugador_id = ? AND oficio = ?").run(jugadorId, oficio);
+  }
+
+  async incrementarCambiosOficio(jugadorId: number): Promise<number> {
+    this.bd.prepare("UPDATE jugadores SET cambios_oficio = cambios_oficio + 1 WHERE id = ?").run(jugadorId);
+    const fila = this.bd.prepare("SELECT cambios_oficio FROM jugadores WHERE id = ?").get(jugadorId);
+    return fila ? Number(fila.cambios_oficio) : 0;
+  }
+
+  async colocarNpcTutorial(datos: { mapaId: string; tipoTutorial: string; nombre: string; x: number; y: number; colocadoPor: string }): Promise<NpcTutorialColocado> {
+    const colocadoEn = new Date().toISOString();
+    const r = this.bd
+      .prepare("INSERT INTO npcs_tutoriales (mapa_id, tipo_tutorial, nombre, x, y, colocado_por, colocado_en) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(datos.mapaId, datos.tipoTutorial, datos.nombre, datos.x, datos.y, datos.colocadoPor, colocadoEn);
+    return { id: Number(r.lastInsertRowid), mapaId: datos.mapaId, tipoTutorial: datos.tipoTutorial, nombre: datos.nombre, x: datos.x, y: datos.y, colocadoPor: datos.colocadoPor, colocadoEn };
+  }
+
+  async listarNpcsTutorialesDeMapa(mapaId: string): Promise<NpcTutorialColocado[]> {
+    const filas = this.bd.prepare("SELECT * FROM npcs_tutoriales WHERE mapa_id = ? ORDER BY id").all(mapaId);
+    return filas.map((f) => ({
+      id: Number(f.id), mapaId: String(f.mapa_id), tipoTutorial: String(f.tipo_tutorial), nombre: String(f.nombre),
+      x: Number(f.x), y: Number(f.y), colocadoPor: String(f.colocado_por), colocadoEn: String(f.colocado_en),
+    }));
+  }
+
+  async quitarNpcTutorial(id: number): Promise<boolean> {
+    const r = this.bd.prepare("DELETE FROM npcs_tutoriales WHERE id = ?").run(id);
+    return Number(r.changes) > 0;
   }
 
   async actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void> {
@@ -2910,10 +3037,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     // devuelve la fila exista ya o se acabe de crear, en una sola ida y vuelta.
     // farycoins SOLO se fija en el INSERT (fila nueva) — el DO UPDATE nunca
     // toca esa columna, así que una fila ya existente conserva su saldo.
-    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number; anatomia: string | null; enfermedades: string | null }>(
+    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number; anatomia: string | null; enfermedades: string | null; oficio_1: string; oficio_2: string; cambios_oficio: number }>(
       `INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES ($1, $2, $3)
        ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
-       RETURNING id, nombre, farycoins, vida, vida_max, anatomia, enfermedades`,
+       RETURNING id, nombre, farycoins, vida, vida_max, anatomia, enfermedades, oficio_1, oficio_2, cambios_oficio`,
       [nombre, new Date().toISOString(), saldoInicial]
     );
     return {
@@ -2924,7 +3051,51 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       vidaMax: r.rows[0].vida_max,
       anatomia: r.rows[0].anatomia,
       enfermedades: r.rows[0].enfermedades,
+      oficio1: r.rows[0].oficio_1 ?? "",
+      oficio2: r.rows[0].oficio_2 ?? "",
+      cambiosOficio: r.rows[0].cambios_oficio ?? 0,
     };
+  }
+
+  async fijarOficioSlot(jugadorId: number, slot: 1 | 2, oficio: string): Promise<void> {
+    await this.pool.query(`UPDATE jugadores SET oficio_${slot} = $1 WHERE id = $2`, [oficio, jugadorId]);
+  }
+
+  async reiniciarXpOficio(jugadorId: number, oficio: string): Promise<void> {
+    await this.pool.query("UPDATE jugador_oficios SET xp = 0 WHERE jugador_id = $1 AND oficio = $2", [jugadorId, oficio]);
+  }
+
+  async incrementarCambiosOficio(jugadorId: number): Promise<number> {
+    const r = await this.pool.query<{ cambios_oficio: number }>(
+      "UPDATE jugadores SET cambios_oficio = cambios_oficio + 1 WHERE id = $1 RETURNING cambios_oficio",
+      [jugadorId],
+    );
+    return r.rows[0]?.cambios_oficio ?? 0;
+  }
+
+  async colocarNpcTutorial(datos: { mapaId: string; tipoTutorial: string; nombre: string; x: number; y: number; colocadoPor: string }): Promise<NpcTutorialColocado> {
+    const colocadoEn = new Date().toISOString();
+    const r = await this.pool.query<{ id: number }>(
+      "INSERT INTO npcs_tutoriales (mapa_id, tipo_tutorial, nombre, x, y, colocado_por, colocado_en) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+      [datos.mapaId, datos.tipoTutorial, datos.nombre, datos.x, datos.y, datos.colocadoPor, colocadoEn],
+    );
+    return { id: r.rows[0].id, mapaId: datos.mapaId, tipoTutorial: datos.tipoTutorial, nombre: datos.nombre, x: datos.x, y: datos.y, colocadoPor: datos.colocadoPor, colocadoEn };
+  }
+
+  async listarNpcsTutorialesDeMapa(mapaId: string): Promise<NpcTutorialColocado[]> {
+    const r = await this.pool.query<{ id: number; mapa_id: string; tipo_tutorial: string; nombre: string; x: number; y: number; colocado_por: string; colocado_en: string }>(
+      "SELECT * FROM npcs_tutoriales WHERE mapa_id = $1 ORDER BY id",
+      [mapaId],
+    );
+    return r.rows.map((f) => ({
+      id: f.id, mapaId: f.mapa_id, tipoTutorial: f.tipo_tutorial, nombre: f.nombre,
+      x: f.x, y: f.y, colocadoPor: f.colocado_por, colocadoEn: f.colocado_en,
+    }));
+  }
+
+  async quitarNpcTutorial(id: number): Promise<boolean> {
+    const r = await this.pool.query("DELETE FROM npcs_tutoriales WHERE id = $1", [id]);
+    return (r.rowCount ?? 0) > 0;
   }
 
   async actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void> {

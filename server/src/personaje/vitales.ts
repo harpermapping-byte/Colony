@@ -32,8 +32,8 @@ export interface Vitales {
   // Higiene (docs/GDD_Personaje.md §3.6, pedido explícito 2026-08-30):
   // sube con CADA comida (misma cantidad que restaura de `comida`, evento
   // explícito igual que el resto de vitales — nunca un tick propio); al
-  // tope el jugador se ensucia (`Player.sucio`, ver HubState.ts). No decae
-  // sola: solo baja al usar una hoja (`higiene:cagar`) o llega a 100.
+  // tope suma a `Player.suciedad` (ver HubState.ts/personaje/oficios.ts). No
+  // decae sola: solo baja al usar una hoja (`higiene:cagar`) o llega a 100.
   caca: number;
   // Temperatura corporal (docs/GDD_Clima.md, pedido 2026-08-30): 0-100,
   // `TEMPERATURA_NEUTRA`=50 es cómodo — deriva sola hacia la temperatura del
