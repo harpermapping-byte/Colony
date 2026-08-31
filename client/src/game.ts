@@ -493,6 +493,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     },
   );
   room.onMessage("portal:error", (m: { motivo: string }) => console.log("[puerta]", m?.motivo));
+  // Rechazo de combate:iniciar/accion (lejos, pvp deshabilitado, ya en
+  // combate...) — no había NINGÚN listener para esto (encontrado probando
+  // la Test Zone 2026-08-31): el jugador pulsaba C y no pasaba nada, sin
+  // ninguna pista de por qué. Solo consola por ahora (mismo criterio que
+  // "[puerta]" arriba), no hay panel de combate con hueco para un texto.
+  room.onMessage("combate:error", (m: { motivo: string }) => console.log("[combate]", m?.motivo));
   // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): solo informativo — F ya
   // cruza el borde si de verdad hay mapa vecino (mismo criterio "sin UI de
   // targeting/confirmación" que cualquier otra puerta), esto es únicamente
@@ -1594,6 +1600,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     }
     for (const [id, e] of room.state.enemigos.entries()) {
       const d = Math.hypot(e.x - jugadorLocal.x, e.y - jugadorLocal.z);
+      if (d < mejorDist) { mejorDist = d; mejorId = id; }
+    }
+    // NPCs hostiles (patrulla bandida, y el dummy de combate de la Test
+    // Zone, docs/GDD_TestZone.md pedido 2026-08-31) — el servidor ya
+    // soportaba "npc" como combatiente, pero nunca se proponían aquí.
+    for (const [id, n] of room.state.npcs.entries()) {
+      if (!n.hostil) continue;
+      const d = Math.hypot(n.x - jugadorLocal.x, n.y - jugadorLocal.z);
       if (d < mejorDist) { mejorDist = d; mejorId = id; }
     }
     // PvP (docs/GDD_PvP.md, pedido 2026-08-30): el cliente propone el jugador

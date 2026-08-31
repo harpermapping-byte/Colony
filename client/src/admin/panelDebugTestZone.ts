@@ -10,9 +10,18 @@
  */
 import itemsJson from "../../../items/catalogo/items.json";
 
-// TODO coords reales de assets/mapas/testzone/ZONAS.md — estas son
-// PLACEHOLDER mientras el mapa de la Test Zone se termina de bakear.
-// Coordenadas reales de assets/mapas/testzone/ZONAS.md (bake testzone-01, 320x320).
+// Dos mapas de Test Zone distintos (docs/GDD_TestZone.md) — coordenadas
+// reales de cada uno (assets/mapas/<mapa>/ZONAS.md), elegidas por mapaId
+// para que los botones sirvan en cualquiera de los dos sin tocar código.
+const ZONAS_TESTFLAT: { etiqueta: string; x: number; y: number }[] = [
+  { etiqueta: "Spawn", x: 32, y: 32 },
+  { etiqueta: "Norte: Muebles/mesas", x: 31, y: 15 },
+  { etiqueta: "Sur: NPCs que hablan", x: 32, y: 46 },
+  { etiqueta: "Este: Cofres", x: 46, y: 32 },
+  { etiqueta: "Oeste: Nodos recolección", x: 17, y: 33 },
+  { etiqueta: "Noreste: Dummies combate", x: 47, y: 16 },
+  { etiqueta: "Portal a la aldea", x: 57, y: 32 },
+];
 const ZONAS_TESTZONE: { etiqueta: string; x: number; y: number }[] = [
   { etiqueta: "Spawn", x: 220, y: 270 },
   { etiqueta: "Zona 1 Recolección", x: 206, y: 258 },
@@ -21,6 +30,8 @@ const ZONAS_TESTZONE: { etiqueta: string; x: number; y: number }[] = [
   { etiqueta: "Zona 4 Construcción", x: 219, y: 276 },
   { etiqueta: "Zona 5 Combate", x: 236, y: 280 },
 ];
+const ZONAS_ACTIVAS =
+  new URLSearchParams(location.search).get("mapaId") === "testzone" ? ZONAS_TESTZONE : ZONAS_TESTFLAT;
 
 interface EntradaItem {
   nombre?: string;
@@ -201,7 +212,7 @@ export class PanelDebugTestZone {
 
     // --- Teleport rápido ---
     this.separador("Teleport rápido");
-    for (const zona of ZONAS_TESTZONE) {
+    for (const zona of ZONAS_ACTIVAS) {
       const filaZona = this.fila();
       filaZona.style.margin = "2px 0";
       const btnZona = document.createElement("button");

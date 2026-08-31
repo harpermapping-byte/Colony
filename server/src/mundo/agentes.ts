@@ -87,6 +87,14 @@ const PAUSA_PARADA_SEG = 7;
 function copiarTutorial(esquema: Npc, npc: NpcBakeado) {
   if (npc.tipoTutorial) esquema.tipoTutorial = npc.tipoTutorial;
   if (npc.equipo) for (const [slot, itemId] of Object.entries(npc.equipo)) esquema.equipo.set(slot, itemId);
+  // Dummy de combate de la Test Zone (docs/GDD_TestZone.md, pedido
+  // 2026-08-31 "que con click/tecla sobre bandido puedas probar combate"):
+  // hasta ahora `hostil` solo lo ponía a true la patrulla bandida (en otro
+  // punto del código) — sin esto, el cliente nunca proponía a NINGÚN NPC
+  // como objetivo de combate (game.ts::objetivoHostilMasCercano solo mira
+  // fauna/enemigos/jugadores), y el dummy quedaba inatacable de verdad
+  // aunque el servidor ya soportaba "npc" como tipo de combatiente válido.
+  if (npc.oficio === "dummy_combate") esquema.hostil = true;
 }
 
 /** Índice del tramo que manda a esta hora (o -1 si la rutina está vacía). */
