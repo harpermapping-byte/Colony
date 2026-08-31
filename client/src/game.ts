@@ -97,6 +97,14 @@ const RUTA_MAPA =
     ? `/assets/mapas/${MAPA_ID}`
     : SALA === "arena"
     ? `/assets/mapas/arenas/${MAPA_ID}` // aquí MAPA_ID es el id de la arena bakeada (§9.4), no un asentamiento
+    : MAPA_ID
+    // Hub de un mapa exterior DISTINTO al principal (barcos, Test Zone vía
+    // ?mapaId=...): el join de más abajo ya elige la room "hub_mapa" para
+    // esto — este ternario se le había olvidado a esa misma pasada (bug real
+    // encontrado probando la Test Zone 2026-08-31), así que el cliente
+    // seguía pintando siempre el mapa principal aunque conectara a la room
+    // correcta, dejando el terreno vacío/desincronizado del estado real.
+    ? `/assets/mapas/${MAPA_ID}`
     : (import.meta as any).env?.VITE_RUTA_MAPA || "/assets/mapas/principal";
 
 interface Direction {
