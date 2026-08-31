@@ -724,9 +724,27 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       console.log("[gremio] invitación recibida", m);
     });
     room.onMessage("gremio:error", (m: { motivo: string }) => console.log("[gremio]", m?.motivo));
+
+    // Captura genérica de "último mensaje visto de este tipo" (barrido de
+    // sistemas 2026-08-31: tenderete/cocina/crafteo/oficio no tienen panel
+    // de cliente todavía, igual que gremios arriba) — evita añadir una
+    // variable+listener dedicados cada vez que un e2e nuevo necesita leer
+    // la respuesta de un mensaje sin estado replicado propio. nanoevents
+    // (motor de colyseus.js onMessage) acumula listeners, así que esto
+    // convive sin pisar los console.log de "xxx:error" ya registrados.
+    const ultimosMensajes = new Map<string, unknown>();
+    for (const tipo of [
+      "tenderete:escaparate", "tenderete:gestion", "tenderete:compraResultado", "tenderete:error",
+      "cocina:estado", "cocina:preparado", "cocina:error",
+      "crafteo:iniciado", "crafteo:completado", "crafteo:error",
+      "oficio:elegido", "oficio:error",
+    ]) {
+      room.onMessage(tipo, (m: unknown) => ultimosMensajes.set(tipo, m));
+    }
     (window as any).__test = {
       enviar: (tipo: string, msg?: unknown) => room.send(tipo, msg),
       sessionId: () => room.sessionId,
+      ultimoMensaje: (tipo: string) => ultimosMensajes.get(tipo) ?? null,
       ultimoEstadoGremio: () => ultimoEstadoGremio,
       ultimaInvitacionGremio: () => ultimaInvitacionGremio,
       // vista pública+privada de un jugador (el propio, o cualquiera dentro
@@ -817,6 +835,16 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("medico:entablillado", (m: { zona: string }) => console.log(`[médico] entablillado: ${m?.zona}`));
   room.onMessage("medico:operado", () => console.log("[médico] cirugía completada"));
   room.onMessage("medico:protesisInstalada", (m: { zona: string }) => console.log(`[médico] prótesis instalada: ${m?.zona}`));
+
+  // Tenderete/oficio (docs/GDD_Mercado.md, docs/GDD_Profesiones.md): sin
+  // panel de cliente todavía (protocolo probado por e2e mandando el mensaje
+  // Colyseus real), pero sus "xxx:error" se colaban sin loguear — bug real
+  // encontrado en el barrido de sistemas (2026-08-31), mismo patrón que
+  // combate:error la vez anterior: sin este listener, un rechazo del
+  // servidor (precio inválido, no eres el dueño, oficio desconocido...) era
+  // invisible tanto en juego como en consola.
+  room.onMessage("tenderete:error", (m: { motivo: string }) => console.log("[tenderete]", m?.motivo));
+  room.onMessage("oficio:error", (m: { motivo: string }) => console.log("[oficio]", m?.motivo));
 
   const jugadores = new Map<string, EstadoJugador>();
   let jugadorLocal: EstadoJugador | null = null;
