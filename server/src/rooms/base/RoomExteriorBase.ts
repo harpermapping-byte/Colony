@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { pielDeDesollado, rellenarLootCaza } from "../../mundo/lootCaza";
@@ -60,6 +60,7 @@ import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
 import {
   ContextoConstruccion,
+  ConstruccionViva,
   validarColocacion,
   aplicarColocacion,
   quitarConstruccion,
@@ -70,6 +71,8 @@ import {
   bonusModulosAdyacentes,
 } from "../../construccion/construccion";
 import { generarInteriorEdificio } from "../../construccion/interiorGenerado";
+import { Silla, posicionSilla, elegirSillaLibre, mesaCompleta, mesaVacia } from "../../construccion/mesasJuego";
+import { aplicarMovimientoAjedrez, FEN_INICIAL_AJEDREZ } from "../../construccion/ajedrez";
 import { resolverProduccion, resolverTransporte, EstadoProduccion, DatosProduccion } from "../../construccion/produccion";
 import { ContextoGremios, GremioVivo, obtenerContextoGremios } from "../../gremios/contextoGremios";
 import { EMBLEMA_POR_DEFECTO, colorGremioValido, colorPorDefecto, emblemaGremioValido, nombreGremioValido } from "../../gremios/gremios";
@@ -341,6 +344,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private solicitudesComercio = new Map<string, { objetivo: string; expira: number }>();
   /** sessionId -> comercioId del comercio ABIERTO en el que participa (como mucho uno a la vez). */
   private comerciosPorSesion = new Map<string, string>();
+
+  /** Mesas de minijuego (docs/GDD_Mesas_Minijuego.md) — sessionId -> construccionId de la mesa de ajedrez en la que está sentado (como mucho una a la vez, mismo criterio que comercio). */
+  private mesaAjedrezPorSesion = new Map<string, number>();
   private siguienteComercioId = 1;
   private static readonly VENTANA_SOLICITUD_COMERCIO_MS = 8000;
 
@@ -825,6 +831,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("comercio:confirmar", (client) => void this.manejarComercioConfirmar(client));
     this.onMessage("comercio:cancelar", (client) => this.manejarComercioCancelar(client));
 
+    // Mesas de MINIJUEGO (docs/GDD_Mesas_Minijuego.md, pedido 2026-08-30):
+    // ajedrez como ejemplo completo — mueble craftable+colocable (mesa_ajedrez,
+    // "construir" normal) con 2 sillas de asiento fijo. MÁS LIGERO que
+    // combate: sin arena/roster propios, vive inline en `ctxConstruccion` +
+    // `state.mesasAjedrez` de la room dueña de la construcción. Cualquiera
+    // puede sentarse (no hace falta ser dueño de la parcela — es mobiliario,
+    // no un combate).
+    this.onMessage("mesa:sentarse", (client, msg: { construccionId?: number; silla?: Silla }) => this.manejarMesaSentarse(client, msg));
+    this.onMessage("mesa:levantarse", (client) => this.manejarMesaLevantarse(client));
+    this.onMessage("mesa:mover", (client, msg: { construccionId?: number; desde?: string; hasta?: string; promocion?: string }) => this.manejarMesaMover(client, msg));
+
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
     // Seguimiento de mascotas — cosmético, no necesita 30hz (mismo criterio que GestorFauna, 5hz de sobra para un paseo).
     this.clock.setInterval(() => this.moverMascotas(0.2), 200);
@@ -977,6 +994,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const comercioAbierto = this.comerciosPorSesion.get(client.sessionId);
     if (comercioAbierto) this.cerrarComercio(comercioAbierto, "cancelado");
     this.detenerPesca(client.sessionId);
+    // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md): desconectarse
+    // sentado libera la silla — mismo criterio que comercio.
+    const mesaAjedrezAbierta = this.mesaAjedrezPorSesion.get(client.sessionId);
+    if (mesaAjedrezAbierta != null) this.quitarDeMesaAjedrez(client.sessionId, mesaAjedrezAbierta);
 
     // Mascotas: desaparecen de ESTA room (no se persiste x/y, ver Mascota en
     // HubState.ts) — su fila en BD sigue "siguiendo", vuelven a aparecer en
@@ -1971,6 +1992,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         return this.errorConstruir(client, "no eres el dueño de esta construcción");
       }
       await bd.obtenerPropiedad(viva.propiedad); // Impuesto del jarl (docs/GDD_Economia.md §6) — mismo criterio que en "construir".
+      // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md): recoger la mesa
+      // con gente sentada corta la partida y libera las dos sillas — antes
+      // de borrar la construcción, para no dejar `mesaAjedrezPorSesion`
+      // apuntando a un construccionId que ya no existe.
+      if (viva.objeto === "mesa_ajedrez") this.cerrarMesaAjedrez(viva.id);
       await bd.borrarConstruccion(viva.id);
       quitarConstruccion(ctx, viva.id); // restaura la colisión del bake
       this.broadcast("construccion:quitada", { id: viva.id });
@@ -2992,6 +3018,134 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     this.cerrarComercio(comercioId, "completado");
+  }
+
+  // ---- Mesas de minijuego: ajedrez (docs/GDD_Mesas_Minijuego.md) ----
+  // Estado inline en `state.mesasAjedrez` (MapSchema keyed por
+  // String(construccionId)), creado perezosamente al primer "sentarse" y
+  // borrado en cuanto las dos sillas quedan libres — nunca acumula basura
+  // de mesas sin nadie sentado. `mesaAjedrezPorSesion` es el único punto de
+  // verdad de "en qué mesa estoy sentado" (mismo patrón que
+  // `comerciosPorSesion`), consultado también en onLeave/"recoger".
+
+  private errorMesa(client: Client, motivo: string) {
+    client.send("mesa:error", { motivo });
+  }
+
+  /** Construcción viva "mesa_ajedrez" en `construccionId`, o null si no existe/no es una mesa de ajedrez. */
+  private mesaAjedrezVivaDe(construccionId: number): ConstruccionViva | null {
+    const viva = this.ctxConstruccion?.vivas.get(construccionId);
+    return viva && viva.objeto === "mesa_ajedrez" ? viva : null;
+  }
+
+  private manejarMesaSentarse(client: Client, msg: { construccionId?: number; silla?: Silla }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || typeof msg?.construccionId !== "number") return;
+    if (this.mesaAjedrezPorSesion.has(client.sessionId)) return this.errorMesa(client, "ya estás sentado en una mesa");
+
+    const viva = this.mesaAjedrezVivaDe(msg.construccionId);
+    if (!viva) return this.errorMesa(client, "no hay ninguna mesa de ajedrez ahí");
+
+    const clave = String(msg.construccionId);
+    let mesa = this.state.mesasAjedrez.get(clave);
+    // Una partida "terminada" se reinicia en cuanto alguien vuelve a
+    // sentarse (aunque solo ocupe una silla) — el tablero final no se
+    // "hereda" a la siguiente partida.
+    if (mesa && mesa.fase === "terminado") {
+      mesa.fen = FEN_INICIAL_AJEDREZ;
+      mesa.fase = "esperando";
+      mesa.turnoDe = "";
+      mesa.ganador = "";
+    }
+    const preferida = msg.silla === "blancas" || msg.silla === "negras" ? msg.silla : null;
+    const sillaElegida = mesa ? elegirSillaLibre(mesa, preferida) : (preferida ?? "blancas");
+    if (!sillaElegida) return this.errorMesa(client, "las dos sillas están ocupadas");
+
+    const pos = posicionSilla("mesa_ajedrez", viva, sillaElegida);
+    if (!pos || Math.hypot(pos.x - player.x, pos.y - player.y) > RADIO_INTERACCION) {
+      return this.errorMesa(client, "demasiado lejos de la mesa");
+    }
+
+    if (!mesa) {
+      mesa = new MesaAjedrezSchema();
+      this.state.mesasAjedrez.set(clave, mesa);
+    }
+    if (sillaElegida === "blancas") mesa.sillaBlancas = client.sessionId;
+    else mesa.sillaNegras = client.sessionId;
+    this.mesaAjedrezPorSesion.set(client.sessionId, msg.construccionId);
+
+    // las 2 sillas ya están ocupadas: arranca la partida, blancas mueven primero (regla estándar)
+    if (mesaCompleta(mesa)) {
+      mesa.fase = "activo";
+      mesa.turnoDe = mesa.sillaBlancas;
+    }
+  }
+
+  private manejarMesaLevantarse(client: Client) {
+    const construccionId = this.mesaAjedrezPorSesion.get(client.sessionId);
+    if (construccionId == null) return;
+    this.quitarDeMesaAjedrez(client.sessionId, construccionId);
+  }
+
+  private manejarMesaMover(client: Client, msg: { construccionId?: number; desde?: string; hasta?: string; promocion?: string }) {
+    if (typeof msg?.construccionId !== "number" || !msg.desde || !msg.hasta) return;
+    const mesa = this.state.mesasAjedrez.get(String(msg.construccionId));
+    if (!mesa || mesa.fase !== "activo") return this.errorMesa(client, "no hay ninguna partida activa en esa mesa");
+    if (mesa.turnoDe !== client.sessionId) return this.errorMesa(client, "no es tu turno");
+
+    // re-chequeo de distancia (no solo al sentarse): la silla concreta en la
+    // que está sentado este sessionId, misma constante RADIO_INTERACCION
+    // que el resto de acciones de proximidad del proyecto.
+    const player = this.state.players.get(client.sessionId);
+    const viva = this.mesaAjedrezVivaDe(msg.construccionId);
+    const sillaPropia: Silla | null = mesa.sillaBlancas === client.sessionId ? "blancas" : mesa.sillaNegras === client.sessionId ? "negras" : null;
+    if (!player || !viva || !sillaPropia) return;
+    const pos = posicionSilla("mesa_ajedrez", viva, sillaPropia);
+    if (!pos || Math.hypot(pos.x - player.x, pos.y - player.y) > RADIO_INTERACCION) {
+      return this.errorMesa(client, "demasiado lejos de la mesa");
+    }
+
+    const resultado = aplicarMovimientoAjedrez(mesa.fen, msg.desde, msg.hasta, msg.promocion);
+    if (!resultado.ok) return this.errorMesa(client, resultado.motivo);
+
+    mesa.fen = resultado.fen;
+    if (resultado.terminado) {
+      mesa.fase = "terminado";
+      mesa.turnoDe = "";
+      mesa.ganador = resultado.ganador ?? "tablas";
+    } else {
+      mesa.turnoDe = resultado.turno === "blancas" ? mesa.sillaBlancas : mesa.sillaNegras;
+    }
+  }
+
+  /** Levanta a `sessionId` de la mesa `construccionId` (silla libre, corta la partida en curso si estaba activa) — usado por "mesa:levantarse", onLeave y "recoger". */
+  private quitarDeMesaAjedrez(sessionId: string, construccionId: number) {
+    this.mesaAjedrezPorSesion.delete(sessionId);
+    const mesa = this.state.mesasAjedrez.get(String(construccionId));
+    if (!mesa) return;
+    if (mesa.sillaBlancas === sessionId) mesa.sillaBlancas = "";
+    if (mesa.sillaNegras === sessionId) mesa.sillaNegras = "";
+    // Levantarse a media partida la corta — v1 sin abandono formal/derrota
+    // (mismo "placeholder de balance a afinar" que el resto del proyecto):
+    // la posición se resetea para que quien se siente después empiece de cero.
+    if (mesa.fase === "activo") {
+      mesa.fase = "esperando";
+      mesa.turnoDe = "";
+      mesa.fen = FEN_INICIAL_AJEDREZ;
+      mesa.ganador = "";
+    }
+    if (mesaVacia(mesa)) this.state.mesasAjedrez.delete(String(construccionId));
+  }
+
+  /** La construcción entera se recoge (dueño de la parcela): vacía las dos sillas y borra la partida, sin esperar a que cada jugador se levante uno a uno. */
+  private cerrarMesaAjedrez(construccionId: number) {
+    const clave = String(construccionId);
+    const mesa = this.state.mesasAjedrez.get(clave);
+    if (!mesa) return;
+    for (const sid of [mesa.sillaBlancas, mesa.sillaNegras]) {
+      if (sid) this.mesaAjedrezPorSesion.delete(sid);
+    }
+    this.state.mesasAjedrez.delete(clave);
   }
 
   /**

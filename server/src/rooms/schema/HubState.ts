@@ -345,6 +345,30 @@ export class ComercioSchema extends Schema {
   @type("boolean") confirmadoB = false;
 }
 
+// Mesas de MINIJUEGO (docs/GDD_Mesas_Minijuego.md) — mueble craftable+
+// colocable (mesa_ajedrez hoy, mismo esqueleto sirve para damas/blackjack a
+// futuro cambiando solo el motor de reglas y el panel). MÁS LIGERO que
+// combate a propósito: sin arena/room propia, vive inline en el estado de
+// la room dueña de la construcción (Hub/Region/Interior). Clave del map en
+// `HubState.mesasAjedrez` = String(construccionId) de la fila real de
+// `construcciones` (GDD_Construccion §2) — así una mesa recién colocada no
+// tiene entrada hasta que alguien se sienta (`RoomExteriorBase.ts` la crea
+// perezosa) y una mesa vacía de nuevo se borra del map (sin acumular
+// partidas fantasma sin jugadores).
+export class MesaAjedrezSchema extends Schema {
+  /** sessionId sentado, o "" si la silla está libre. */
+  @type("string") sillaBlancas = "";
+  @type("string") sillaNegras = "";
+  /** Posición actual en notación FEN (chess.js) — arranca en la posición inicial estándar de ajedrez. */
+  @type("string") fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  /** "esperando" (<2 sentados) | "activo" (las 2 sillas ocupadas, jugando) | "terminado" (jaque mate/tablas — el tablero final se queda visible hasta que alguien se levanta). */
+  @type("string") fase = "esperando";
+  /** sessionId a quien le toca mover; "" fuera de fase "activo". */
+  @type("string") turnoDe = "";
+  /** "" | "blancas" | "negras" | "tablas" — solo relevante en fase "terminado". */
+  @type("string") ganador = "";
+}
+
 // Cadáver looteable (server/src/mundo/cadaveres.ts, docs/GDD_Caza.md) — la
 // clave del map es `Cadaver.id` ("cadaver:<idFaunaOrigen>"). `contenedor`
 // espeja el `Contenedor` puro del mismo modo que `InventarioSchema.cuerpo`
@@ -413,4 +437,8 @@ export class HubState extends Schema {
   // comercioId, como máximo UNO por jugador a la vez (RoomExteriorBase lo
   // garantiza vía `comerciosPorSesion`).
   @type({ map: ComercioSchema }) comercios = new MapSchema<ComercioSchema>();
+  // Mesas de ajedrez activas (docs/GDD_Mesas_Minijuego.md) — clave =
+  // String(construccionId) del mueble "mesa_ajedrez" ya colocado. Entradas
+  // perezosas: solo existen mientras al menos una silla está ocupada.
+  @type({ map: MesaAjedrezSchema }) mesasAjedrez = new MapSchema<MesaAjedrezSchema>();
 }

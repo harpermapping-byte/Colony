@@ -1,6 +1,19 @@
 import { createServer } from "http";
 import { Server } from "@colyseus/core";
+import { Encoder } from "@colyseus/schema";
 import { WebSocketTransport } from "@colyseus/ws-transport";
+
+// El Hub (mapa principal, cientos de NPCs/fauna/construcciones vivas) supera
+// el BUFFER_SIZE por defecto de @colyseus/schema (16KB) al serializar el
+// estado COMPLETO para un cliente que se une a mitad de partida — confirmado
+// con el e2e de la mesa de ajedrez y el de construcción (docs/
+// GDD_Mesas_Minijuego.md §7bis). NO es un bug de pérdida de datos: leyendo
+// node_modules/@colyseus/schema, el encoder se auto-redimensiona y
+// re-codifica solo en cuanto detecta el overflow — el aviso es de
+// RENDIMIENTO (evita ese reencodeo completo de más), no de corrección.
+// 256KB porque el e2e de construcción real ya pedía 176KB por sí solo; con
+// más oficios/NPCs/edificios ese número solo va a crecer.
+Encoder.BUFFER_SIZE = 256 * 1024;
 import { HubRoom } from "./rooms/HubRoom";
 import { RegionRoom } from "./rooms/RegionRoom";
 import { InteriorRoom } from "./rooms/InteriorRoom";

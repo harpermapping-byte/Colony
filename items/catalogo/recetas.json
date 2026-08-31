@@ -372,6 +372,15 @@
     "tiempoBaseSeg": 15,
     "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Orrería y Esfera Armilar."
   },
+  "mesa_ajedrez_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_delineante"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 4 }, { "itemId": "lingote_hierro", "cantidad": 2 }],
+    "resultado": { "itemId": "mesa_ajedrez", "cantidad": 1 },
+    "tiempoBaseSeg": 40,
+    "_nota": "docs/GDD_Mesas_Minijuego.md — MOBILIARIO DE JUEGO (mesa+2 taburetes tallados en madera con bisagras/tablero de metal), NO una mesa de oficio: ejemplo end-to-end de minijuego craftable+colocable+jugable, nivel de entrada (N1 mesa_delineante) a propósito, sin gates raros."
+  },
   "mesa_planos_construccion_craft": {
     "oficio": "ingeniero",
     "mesas": ["banco_mecanizado"],

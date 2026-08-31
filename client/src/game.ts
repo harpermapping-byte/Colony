@@ -31,6 +31,8 @@ import { aplicarAnatomiaCompleta } from "./render3d/anatomiaVisual";
 import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista } from "./personaje/panelMedico";
 import { PanelLoginAdmin } from "./admin/panelLoginAdmin";
 import { PanelJarl } from "./admin/panelJarl";
+import { PanelAjedrez } from "./minijuegos/panelAjedrez";
+import { posicionSilla as posicionSillaMesaJuego, type Silla as SillaMesaJuego } from "./minijuegos/mesasJuego";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -467,10 +469,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // ningún jugador todavía (docs/GDD_Sistema_Puertas.md "Qué falta").
   const anchoMapa = indiceMapa ? indiceMapa.anchoChunks * indiceMapa.tamanoChunk : 0;
   let modoConstruccion: ModoConstruccion | null = null;
+  // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md) — igual que
+  // `modoConstruccion`, izadas fuera del `if (SALA === "hub")` de abajo
+  // porque la tecla F (más adelante, fuera de este bloque) necesita leerlas.
+  let renderConstrucciones: RenderConstrucciones | null = null;
+  let panelAjedrez: PanelAjedrez | null = null;
   if (SALA === "hub") {
     const indiceParcelas =
       parcelasArchivo && anchoMapa > 0 ? construirIndiceParcelas(parcelasArchivo, anchoMapa) : new Map<number, string>();
-    const renderConstrucciones = new RenderConstrucciones(escena, anchoMapa || 1 << 16);
+    renderConstrucciones = new RenderConstrucciones(escena, anchoMapa || 1 << 16);
+    // Alias narrowed no-null para el resto de este bloque (mismo motivo que
+    // "const modo = modoConstruccion" un poco más abajo: TypeScript no
+    // conserva el narrowing de un `let` a través de un closure/callback).
+    const render = renderConstrucciones;
     modoConstruccion = new ModoConstruccion({
       contenedor,
       escena,
@@ -478,7 +489,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       anchoMapa: anchoMapa || 1 << 16,
       parcelas: parcelasArchivo,
       indiceParcelas,
-      render: renderConstrucciones,
+      render,
       enviarConstruir: (mensaje) => room.send("construir", mensaje),
     });
     const modo = modoConstruccion;
@@ -488,9 +499,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage("parcelas:estado", (estado: Record<string, { dueno: string | null }>) =>
       modo.actualizarDuenos(estado),
     );
-    room.onMessage("construcciones:lista", (lista: ConstruccionRed[]) => renderConstrucciones.aplicarLista(lista || []));
-    room.onMessage("construccion:nueva", (c: ConstruccionRed) => renderConstrucciones.aplicarNueva(c));
-    room.onMessage("construccion:quitada", (m: { id: number }) => renderConstrucciones.aplicarQuitada(m.id));
+    room.onMessage("construcciones:lista", (lista: ConstruccionRed[]) => render.aplicarLista(lista || []));
+    room.onMessage("construccion:nueva", (c: ConstruccionRed) => render.aplicarNueva(c));
+    room.onMessage("construccion:quitada", (m: { id: number }) => render.aplicarQuitada(m.id));
     // Contador de rechazos para la sonda: el e2e distingue "el servidor aceptó"
     // (sube construcciones) de "el servidor rechazó" (sube este contador) sin
     // rascar el DOM del panel.
@@ -508,13 +519,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       seleccionar: (id: string) => modo.seleccionar(id),
       rotar: () => modo.rotar(),
       colocarEn: (x: number, y: number) => modo.colocarEn(x, y),
-      construcciones: () => renderConstrucciones.cantidad(),
+      construcciones: () => render.cantidad(),
       parcelas: () => modo.estadoParcelas(),
       // el cliente no expone la room: la sonda cubre el único send que el e2e
       // necesita fuera del colocador (asignación de parcela por el jarl, §4)
       asignarParcela: (parcelaId: string, nombreJugador: string) =>
         room.send("parcela:asignar", { parcelaId, nombreJugador }),
       errores: () => erroresConstruir,
+      // ids de todas las construcciones vivas de un objeto de catálogo (p.ej.
+      // "mesa_ajedrez") — usado por el e2e de mesas de minijuego para ubicar
+      // lo recién colocado sin tener que adivinar el id que asignó el servidor.
+      idsDeObjeto: (objeto: string) => render.idsDeObjeto(objeto),
     };
 
     // --- Agricultura (docs/GDD_Agricultura.md, pedido 2026-08-30) — panel
@@ -532,7 +547,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     });
     let cultivoCercanoId: number | null = null;
     room.onMessage("cultivo:estado", (m: EstadoCultivoVista) => {
-      renderConstrucciones.tintarSuelo(m.construccionId, m.agua, m.fertilizante);
+      render.tintarSuelo(m.construccionId, m.agua, m.fertilizante);
       if (m.construccionId === cultivoCercanoId) panelCultivo.actualizar(m);
     });
     room.onMessage("cultivo:cosechado", (m: { itemId: string; cantidad: number }) => console.log(`[cultivo] cosechado: ${m?.cantidad}x ${m?.itemId}`));
@@ -543,7 +558,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // proximidad a un bancal no necesita 60hz.
     setInterval(() => {
       if (!jugadorLocal) return;
-      const id = renderConstrucciones.plantableMasCercana(jugadorLocal.x, jugadorLocal.z, 2.2);
+      const id = render.plantableMasCercana(jugadorLocal.x, jugadorLocal.z, 2.2);
       if (id !== cultivoCercanoId) {
         cultivoCercanoId = id;
         if (id == null) panelCultivo.actualizar(null);
@@ -562,7 +577,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage("injerto:creado", (m: { nombre: string }) => console.log(`[injerto] nueva especie: ${m?.nombre}`));
     setInterval(() => {
       if (!jugadorLocal) return;
-      const id = renderConstrucciones.deObjetoMasCercana("mesa_injertos", jugadorLocal.x, jugadorLocal.z, 2.2);
+      const id = render.deObjetoMasCercana("mesa_injertos", jugadorLocal.x, jugadorLocal.z, 2.2);
       if (id !== injertoCercanoId) {
         injertoCercanoId = id;
         panelInjerto.actualizar(id);
@@ -592,7 +607,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage("cocina:error", (m: { motivo: string }) => console.log("[cocina]", m?.motivo));
     setInterval(() => {
       if (!jugadorLocal) return;
-      const cercana = renderConstrucciones.cocinaMasCercana(jugadorLocal.x, jugadorLocal.z, 2.2);
+      const cercana = render.cocinaMasCercana(jugadorLocal.x, jugadorLocal.z, 2.2);
       const id = cercana?.id ?? null;
       if (id !== cocinaCercanaId) {
         cocinaCercanaId = id;
@@ -603,6 +618,70 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         }
       }
     }, 500);
+
+    // --- Mesas de minijuego: ajedrez (docs/GDD_Mesas_Minijuego.md, pedido
+    // 2026-08-30) — panel PLACEHOLDER de testeo (ver panelAjedrez.ts).
+    // Mueble craftable/colocable normal (misma "construir" de arriba); el
+    // popup se abre solo cuando el ESTADO dice fase:"activo" (mismo criterio
+    // que PanelCombate reaccionando a `combates`), reactivo a
+    // `state.mesasAjedrez` con el mismo trío onAdd/onRemove/onStateChange
+    // que combate/comercio.
+    panelAjedrez = new PanelAjedrez({
+      contenedor,
+      sessionIdPropio: room.sessionId,
+      enviarMover: (construccionId, desde, hasta, promocion) => room.send("mesa:mover", { construccionId, desde, hasta, promocion }),
+      enviarLevantarse: () => room.send("mesa:levantarse"),
+    });
+    const elPanelAjedrez = panelAjedrez;
+    const actualizarPanelAjedrez = () => elPanelAjedrez.actualizar((room.state as any).mesasAjedrez);
+    $(room.state).mesasAjedrez.onAdd(() => actualizarPanelAjedrez());
+    $(room.state).mesasAjedrez.onRemove(() => actualizarPanelAjedrez());
+    room.onStateChange(() => actualizarPanelAjedrez());
+    room.onMessage("mesa:error", (m: { motivo: string }) => console.log("[mesa]", m?.motivo));
+
+    // Hint de "sentarse" (proximidad, sin UI de targeting): mismo cadencia
+    // de 500ms que cultivo/injerto/cocina de arriba — busca la mesa de
+    // ajedrez más cercana (radio ancho: la huella 3x2 hace que el CENTRO de
+    // la mesa pueda estar algo más lejos que RADIO_INTERACCION aunque una
+    // silla concreta sí esté al alcance) y, de sus 2 sillas, la más cercana
+    // que esté libre y de verdad dentro de RADIO_INTERACCION real.
+    setInterval(() => {
+      if (!jugadorLocal) return;
+      if (miMesaAjedrezActual() != null) return; // ya sentado: actualizarPanelAjedrez ya oculta el hint
+      const asiento = asientoAjedrezAlcanzable(jugadorLocal.x, jugadorLocal.z);
+      elPanelAjedrez.actualizarHint(asiento ? "Pulsa F para sentarte a jugar al ajedrez" : null);
+    }, 500);
+
+    // Sonda SOLO-PARA-TESTS (e2e con Playwright): el crafteo (docs/
+    // GDD_Crafteo.md) todavía no tiene panel de cliente (ninguna receta lo
+    // usa desde el navegador hoy — el mecanismo es server-only por ahora),
+    // así que esto manda el protocolo Colyseus REAL tal cual lo haría un
+    // futuro panel, sin inventar un mensaje nuevo. mesa:sentarse/levantarse
+    // SÍ tienen UI real (tecla F, ver más abajo) — la sonda las deja
+    // disponibles igualmente por si un test quiere fijar la silla exacta.
+    let ultimoCrafteoCompletado: { itemId: string; cantidad: number; enSuelo: boolean } | null = null;
+    room.onMessage("crafteo:completado", (m: { itemId: string; cantidad: number; enSuelo: boolean }) => { ultimoCrafteoCompletado = m; });
+    room.onMessage("crafteo:error", (m: { motivo: string }) => console.log("[crafteo]", m?.motivo));
+    (window as any).__ajedrez = {
+      elegirIngeniero: () => room.send("oficio:elegir", { oficio: "ingeniero" }),
+      craftear: (construccionIdMesa: number) => room.send("crafteo:iniciar", { recetaId: "mesa_ajedrez_craft", construccionId: construccionIdMesa }),
+      recolectarCrafteo: () => room.send("crafteo:recolectar"),
+      ultimoCrafteoCompletado: () => ultimoCrafteoCompletado,
+      sentarse: (construccionId: number, silla: SillaMesaJuego) => room.send("mesa:sentarse", { construccionId, silla }),
+      levantarse: () => room.send("mesa:levantarse"),
+      mover: (construccionId: number, desde: string, hasta: string) => room.send("mesa:mover", { construccionId, desde, hasta }),
+      estado: (construccionId: number) => {
+        const m = (room.state as any).mesasAjedrez?.get(String(construccionId));
+        return m ? { sillaBlancas: m.sillaBlancas, sillaNegras: m.sillaNegras, fen: m.fen, fase: m.fase, turnoDe: m.turnoDe, ganador: m.ganador } : null;
+      },
+      // posición mundo (x,y) de una silla concreta — para que el e2e sepa
+      // exactamente a dónde caminar (mismo cálculo que usa el propio juego).
+      posicionSilla: (construccionId: number, silla: SillaMesaJuego) => {
+        const datos = renderConstrucciones?.datosDe(construccionId);
+        return datos ? posicionSillaMesaJuego("mesa_ajedrez", datos, silla) : null;
+      },
+      sessionId: () => room.sessionId,
+    };
   }
 
   // Anatomía/médico (docs/GDD_Anatomia.md, pedido 2026-08-30) — panel
@@ -1197,6 +1276,46 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // Árboles de origen bake talados por CUALQUIER jugador (docs/GDD_Bosques.md §7).
   room.onMessage("arbol:baketalado", (m: { x: number; y: number }) => ocultarPropBakeadoEnVivo(m.x, m.y));
 
+  // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md) — mismo criterio "sin
+  // UI de targeting" que el resto de esta sección: la tecla (F, reusada de
+  // puertas/barcos) auto-apunta a la silla libre alcanzable más cercana.
+  const RADIO_MESA_AJEDREZ_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor
+
+  /** construccionId de la mesa de ajedrez en la que este jugador está sentado (blancas o negras), o null. */
+  function miMesaAjedrezActual(): number | null {
+    const mesas = (room.state as any).mesasAjedrez;
+    if (!mesas) return null;
+    for (const [id, m] of mesas.entries()) {
+      if ((m as any).sillaBlancas === room.sessionId || (m as any).sillaNegras === room.sessionId) return Number(id);
+    }
+    return null;
+  }
+
+  /**
+   * Mesa de ajedrez + silla concreta alcanzable desde (px,py): primero
+   * busca la mesa_ajedrez más cercana con un radio ANCHO (la huella 3x2
+   * hace que el CENTRO de la mesa pueda quedar más lejos que
+   * RADIO_INTERACCION aunque una silla del borde sí esté al alcance), y
+   * dentro de esa mesa exige que la silla LIBRE concreta esté de verdad
+   * dentro de RADIO_INTERACCION real — mismo espejo local de siempre, la
+   * verdad la dicta el servidor con "mesa:error" si discrepa.
+   */
+  function asientoAjedrezAlcanzable(px: number, py: number): { construccionId: number; silla: SillaMesaJuego } | null {
+    if (!renderConstrucciones) return null;
+    const id = renderConstrucciones.deObjetoMasCercana("mesa_ajedrez", px, py, RADIO_MESA_AJEDREZ_CLIENTE + 2);
+    if (id == null) return null;
+    const datos = renderConstrucciones.datosDe(id);
+    const mesa = (room.state as any).mesasAjedrez?.get(String(id));
+    if (!datos) return null;
+    for (const silla of ["blancas", "negras"] as const) {
+      const ocupante = mesa ? (silla === "blancas" ? mesa.sillaBlancas : mesa.sillaNegras) : "";
+      if (ocupante) continue;
+      const pos = posicionSillaMesaJuego("mesa_ajedrez", datos, silla);
+      if (pos && Math.hypot(pos.x - px, pos.y - py) <= RADIO_MESA_AJEDREZ_CLIENTE) return { construccionId: id, silla };
+    }
+    return null;
+  }
+
   function cadaverMasCercano(): string | null {
     if (!jugadorLocal) return null;
     let mejorId: string | null = null;
@@ -1265,6 +1384,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "f" && !teclas.has("f")) {
       room.send("portal:usar");
       room.send("mapa:viajarVecino");
+      // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md, pedido 2026-08-30):
+      // MISMA tecla F, mismo criterio "manda sin UI de targeting, el
+      // servidor decide" que puertas/barcos de arriba — toggle sentarse/
+      // levantarse según si ya estás sentado en alguna mesa de ajedrez.
+      if (jugadorLocal) {
+        const miMesa = miMesaAjedrezActual();
+        if (miMesa != null) {
+          room.send("mesa:levantarse");
+        } else {
+          const asiento = asientoAjedrezAlcanzable(jugadorLocal.x, jugadorLocal.z);
+          if (asiento) room.send("mesa:sentarse", { construccionId: asiento.construccionId, silla: asiento.silla });
+        }
+      }
     }
     // combate (docs/GDD_Combate.md): C ataca al hostil más cercano — sin UI
     // de targeting, mismo criterio que "coger"/"portal:usar". `retorno`

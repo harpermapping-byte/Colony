@@ -194,6 +194,20 @@ interface EntradaElemento {
   esCama?: boolean;
   nivelOficioMinimo?: { oficio: string; nivel: number };
   mejoraMesa?: { mesa: string; tipo: "velocidad" | "cantidad"; bonus: number };
+  /**
+   * Corrección real (docs/GDD_Mesas_Minijuego.md, 2026-08-30): este campo
+   * YA existía en `elementos.json` (silla_pino/silla_roble/silla_nogal_
+   * tallada y los 50 objetos decorativos exclusivos de docs/GDD_Profesiones.md
+   * lo traen desde su alta original) pero NUNCA se propagaba a
+   * `EntradaConstruible` para la categoría "mueble" — solo `EntradaExterior`
+   * (exteriores.json) lo leía. Efecto real: cualquiera podía "construir"
+   * esas 55+ piezas gratis, sin poseer el ítem craftado, porque
+   * `RoomExteriorBase.ts` comprobaba `entrada.requiereItemColocar` sobre un
+   * campo que para un "mueble" siempre era `undefined` — el gate estaba
+   * muerto en la práctica pese a estar documentado como si funcionara.
+   * Corregido con el mismo patrón que exteriores (ver el loop de abajo).
+   */
+  requiereItemColocar?: string;
 }
 
 interface EntradaExterior {
@@ -254,6 +268,8 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       actividadAtributo: d.actividadAtributo,
       esCama: d.esCama,
       nivelOficioMinimo: d.nivelOficioMinimo,
+      mejoraMesa: d.mejoraMesa,
+      requiereItemColocar: d.requiereItemColocar,
     });
   }
 

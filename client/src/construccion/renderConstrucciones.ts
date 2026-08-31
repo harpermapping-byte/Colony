@@ -72,6 +72,18 @@ export class RenderConstrucciones {
     return this.ocupadas.has(y * this.anchoMapa + x);
   }
 
+  /** Datos crudos (x,y,rot,objeto...) de una construcción por id — p.ej. para calcular la posición de un asiento (docs/GDD_Mesas_Minijuego.md). */
+  datosDe(id: number): ConstruccionRed | undefined {
+    return this.piezas.get(id)?.datos;
+  }
+
+  /** ids de TODAS las construcciones vivas de un `objeto` de catálogo exacto — p.ej. para que un test ubique la mesa_ajedrez recién colocada sin adivinar su id. */
+  idsDeObjeto(objeto: string): number[] {
+    const ids: number[] = [];
+    for (const { datos } of this.piezas.values()) if (datos.objeto === objeto) ids.push(datos.id);
+    return ids;
+  }
+
   /** Construcciones vivas en una propiedad (para el espejo del topeProps). */
   contarPorPropiedad(propiedadId: string): number {
     let n = 0;

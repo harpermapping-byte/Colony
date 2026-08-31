@@ -13,6 +13,7 @@
     "@colyseus/core": "0.16.24",
     "@colyseus/schema": "^3.0.0",
     "@colyseus/ws-transport": "^0.16.5",
+    "chess.js": "^1.4.0",
     "pg": "^8.23.0",
     "tmi.js": "^1.8.5"
   },
