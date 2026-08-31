@@ -524,6 +524,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const modo = modoConstruccion;
 
     let ultimaPlantillaColocada: { construccionId: number; plantillaId: string } | null = null;
+    // docs/GDD_Economia.md §9: mercaderes NPC por oficio — cacheados para la
+    // sonda de test __construccion, mismo criterio que ultimaPlantillaColocada
+    // (sin UI real todavía que los muestre).
+    let ultimoEscaparateMercader: unknown = null;
+    let ultimaCompraMercader: unknown = null;
+    let ultimaVentaMercader: unknown = null;
+    let ultimoErrorMercader: string | null = null;
     // --- Colocador de plantillas del jarl (docs/GDD_Produccion.md, pedido
     // 2026-08-31: "el admin o superadmin tendrá el mismo tipo de colocador
     // que el de las construcciones o amueblamiento de los jugadores") —
@@ -698,8 +705,21 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       consultarCofre: (construccionId: number) => room.send("cofre:consultar", { construccionId }),
       meterEnCofre: (construccionId: number, instanciaId: number) => room.send("cofre:meterItem", { construccionId, instanciaId }),
       sacarDeCofre: (construccionId: number, instanciaId: number) => room.send("cofre:sacarItem", { construccionId, instanciaId }),
+      // docs/GDD_Economia.md §9: mercaderes NPC por oficio — protocolo npc:*
+      // tampoco tiene UI todavía, mismo criterio que arriba.
+      mercadoEscaparate: () => room.send("npc:comercioEscaparate"),
+      mercadoComprar: (npcId: string, itemId: string, cantidad: number) => room.send("npc:comprar", { npcId, itemId, cantidad }),
+      mercadoVender: (npcId: string, instanciaId: number, cantidad: number) => room.send("npc:vender", { npcId, instanciaId, cantidad }),
+      ultimoEscaparateMercader: () => ultimoEscaparateMercader,
+      ultimaCompraMercader: () => ultimaCompraMercader,
+      ultimaVentaMercader: () => ultimaVentaMercader,
+      ultimoErrorMercader: () => ultimoErrorMercader,
       errores: () => erroresConstruir,
     };
+    room.onMessage("npc:error", (m: { motivo: string }) => { ultimoErrorMercader = m?.motivo ?? ""; console.log("[npc]", m?.motivo); });
+    room.onMessage("npc:comercioEscaparate", (m: unknown) => { ultimoEscaparateMercader = m; console.log("[npc] escaparate", m); });
+    room.onMessage("npc:compraResultado", (m: unknown) => { ultimaCompraMercader = m; console.log("[npc] compraResultado", m); });
+    room.onMessage("npc:ventaResultado", (m: unknown) => { ultimaVentaMercader = m; console.log("[npc] ventaResultado", m); });
 
     // --- Agricultura (docs/GDD_Agricultura.md, pedido 2026-08-30) — panel
     // PLACEHOLDER de testeo (ver panelCultivo.ts). Sin tecla dedicada: el

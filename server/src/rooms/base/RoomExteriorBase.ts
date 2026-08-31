@@ -8,7 +8,17 @@ import { rellenarLootCaza, datosDeCadaver, sacrificarAnimalGranja } from "../../
 import { EstadoDespiece, VerboDespiece, iniciarDespiece, despiezeListo, recolectarDespiece } from "../../mundo/despiece";
 import { estaEncerrado, tiroEscape } from "../../mundo/ganaderia";
 import { cargarCatalogoReproduccionGranja, resolverReproduccionPropiedad } from "../../mundo/reproduccionGranja";
-import { NPC_TENDERO_VENTA, NPC_TENDERO_COMPRA, REPOSICION_STOCK_NPC } from "../../mercado/catalogoNpcComercio";
+import {
+  cargarCatalogoMercaderes,
+  esOficioMercader,
+  elegirArticulosDeMercader,
+  precioVentaMercader,
+  precioCompraMercader,
+  rangoStockMercader,
+  limiteCompraDiarioMercader,
+  stockAleatorioEnRango,
+  VENTANA_RESET_MERCADER_MS,
+} from "../../mercado/catalogoMercaderes";
 import { esRecipienteLiquido, llenar, vaciar, tieneLiquido, consumirVolumen } from "../../inventario/liquidos";
 import { diaFraccional } from "../../mundo/reproduccionFauna";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
@@ -4647,32 +4657,56 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("tenderete:animalComprado", { tenderoteId: msg.tenderoteId, animalId: msg.animalId, especieId: resultado.especieId, precioTotal: resultado.precioTotal });
   }
 
-  // ---- Comercio con NPC tendero (docs/GDD_Economia.md, pedido 2026-08-30) ----
-  // Cada NPC "tendero" es su propio comerciante: saldo real (jugadores.nombre
-  // = "npc:<slotId>", SALDO_INICIAL_NPC_COMERCIANTE) y catálogo fijo de
-  // compra/venta (catalogoNpcComercio.ts). Reusa `tenderete_items` como
-  // almacén de stock (misma tabla que el Mercado de jugadores) pero NUNCA
-  // pasa por `duenoDeTenderete` — no hay propiedad detrás, solo el NPC.
+  // ---- Comercio con NPC mercader POR OFICIO (docs/GDD_Economia.md §9,
+  // pedido 2026-08-31) ---- Cada NPC cuyo oficio tiene pool en
+  // catalogoMercaderes.json es su propio comerciante: saldo real
+  // (jugadores.nombre = "npc:<slotId>", SALDO_INICIAL_NPC_COMERCIANTE) y un
+  // subconjunto DETERMINISTA de artículos de su oficio (mismo NPC = misma
+  // selección siempre), vendidos/comprados a precios derivados de un único
+  // precioBase por catálogo (±20%/-50%, pedido literal del streamer).
+  // Reusa `tenderete_items` como almacén — sell-stock bajo "npc:<slotId>",
+  // presupuesto de compra diario bajo "npc:<slotId>:compra" (misma tabla,
+  // namespace de id distinto, cero tabla nueva) — pero NUNCA pasa por
+  // `duenoDeTenderete`: no hay propiedad detrás, solo el NPC.
 
   private errorNpc(client: Client, motivo: string) {
     client.send("npc:error", { motivo });
   }
 
-  /** NPC "tendero" más cercano dentro de RADIO_INTERACCION — mismo criterio de auto-apuntado que mascota/cadáver/fauna. */
-  private npcTenderoMasCercano(x: number, y: number): { id: string; npc: Npc } | null {
+  /** NPC mercader (cualquier oficio con pool en el catálogo) más cercano dentro de RADIO_INTERACCION — mismo criterio de auto-apuntado que mascota/cadáver/fauna. */
+  private npcMercaderMasCercano(x: number, y: number): { id: string; npc: Npc; oficio: string } | null {
+    const catalogo = cargarCatalogoMercaderes();
     let mejorId: string | null = null;
     let mejorNpc: Npc | null = null;
+    let mejorOficio: string | null = null;
     let mejorDist = RADIO_INTERACCION;
     for (const [id, npc] of this.state.npcs.entries()) {
-      if (this.oficiosNpc.get(id) !== "tendero") continue;
+      const oficio = this.oficiosNpc.get(id);
+      if (!esOficioMercader(oficio, catalogo)) continue;
       const d = Math.hypot(npc.x - x, npc.y - y);
-      if (d < mejorDist) { mejorDist = d; mejorId = id; mejorNpc = npc; }
+      if (d < mejorDist) { mejorDist = d; mejorId = id; mejorNpc = npc; mejorOficio = oficio!; }
     }
-    return mejorId && mejorNpc ? { id: mejorId, npc: mejorNpc } : null;
+    return mejorId && mejorNpc && mejorOficio ? { id: mejorId, npc: mejorNpc, oficio: mejorOficio } : null;
   }
 
   private tenderoteIdDeNpc(npcId: string): string {
     return `${PREFIJO_NPC_COMERCIANTE}${npcId}`;
+  }
+
+  /** Namespace SEPARADO en la misma tabla `tenderete_items` — cantidad = presupuesto de compra RESTANTE hoy (nunca sell-stock real). */
+  private tenderoteIdCompraDeNpc(npcId: string): string {
+    return `${this.tenderoteIdDeNpc(npcId)}:compra`;
+  }
+
+  /** Selección determinista + precios ya derivados (venta/compra) de los artículos que ESTE NPC concreto ofrece hoy — null si su oficio no tiene pool. */
+  private articulosDeMercaderNpc(npcId: string, oficio: string): { itemId: string; precioBase: number; precioVenta: number; precioCompra: number }[] | null {
+    const catalogo = cargarCatalogoMercaderes();
+    const entrada = catalogo.oficios[oficio];
+    if (!entrada) return null;
+    return elegirArticulosDeMercader(npcId, oficio, entrada, catalogo.config).map((itemId) => {
+      const precioBase = entrada.pool[itemId];
+      return { itemId, precioBase, precioVenta: precioVentaMercader(precioBase), precioCompra: precioCompraMercader(precioBase) };
+    });
   }
 
   /**
@@ -4688,41 +4722,67 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     await bd.resolverIngresoDiarioNpc(this.tenderoteIdDeNpc(npcId), tiempoMundo().dia);
   }
 
+  /**
+   * Reinicio DIARIO REAL (Date.now(), pedido literal: "no ligado al reloj
+   * de mundo") del stock de venta y del presupuesto de compra de un
+   * mercader — re-sortea cada artículo de su selección a un valor absoluto
+   * nuevo dentro de [stockMin,stockMax]. Llamar SIEMPRE DESPUÉS de
+   * `resolverIngresoDiarioNpc` (garantiza que la fila de `npc_comerciantes`
+   * ya existe).
+   */
+  private async resolverStockDiarioMercader(npcId: string, oficio: string): Promise<void> {
+    const catalogo = cargarCatalogoMercaderes();
+    const entrada = catalogo.oficios[oficio];
+    if (!entrada) return;
+    const bd = await obtenerBdCompartida();
+    const tocaReset = await bd.resolverResetStockMercader(this.tenderoteIdDeNpc(npcId), Date.now(), VENTANA_RESET_MERCADER_MS);
+    if (!tocaReset) return;
+    const [stockMin, stockMax] = rangoStockMercader(entrada, catalogo.config);
+    const limiteCompra = limiteCompraDiarioMercader(entrada, catalogo.config);
+    const tenderoteIdVenta = this.tenderoteIdDeNpc(npcId);
+    const tenderoteIdCompra = this.tenderoteIdCompraDeNpc(npcId);
+    for (const itemId of elegirArticulosDeMercader(npcId, oficio, entrada, catalogo.config)) {
+      const precioBase = entrada.pool[itemId];
+      await bd.fijarStockTenderete(tenderoteIdVenta, itemId, stockAleatorioEnRango(stockMin, stockMax), precioVentaMercader(precioBase));
+      await bd.fijarStockTenderete(tenderoteIdCompra, itemId, limiteCompra, precioCompraMercader(precioBase));
+    }
+  }
+
   /** Público: catálogo de venta/compra del NPC más cercano — sin gating de dueño (no hay dueño, es un comerciante del mundo). */
   private async manejarNpcComercioEscaparate(client: Client) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    const cercano = this.npcTenderoMasCercano(player.x, player.y);
+    const cercano = this.npcMercaderMasCercano(player.x, player.y);
     if (!cercano) return this.errorNpc(client, "no hay ningún comerciante cerca");
     await this.resolverIngresoDiarioNpc(cercano.id);
+    await this.resolverStockDiarioMercader(cercano.id, cercano.oficio);
+    const articulos = this.articulosDeMercaderNpc(cercano.id, cercano.oficio) ?? [];
     client.send("npc:comercioEscaparate", {
       npcId: cercano.id,
       nombre: cercano.npc.nombre,
-      venta: Object.entries(NPC_TENDERO_VENTA).map(([itemId, precioFarycoins]) => ({ itemId, precioFarycoins })),
-      compra: Object.entries(NPC_TENDERO_COMPRA).map(([itemId, precioFarycoins]) => ({ itemId, precioFarycoins })),
+      venta: articulos.map((a) => ({ itemId: a.itemId, precioFarycoins: a.precioVenta })),
+      compra: articulos.map((a) => ({ itemId: a.itemId, precioFarycoins: a.precioCompra })),
     });
   }
 
-  /** Comprar: el jugador paga, el NPC entrega — reusa `bd.comprarDeTenderete` tal cual, con tenderoteId/duenoNombre sintéticos del NPC. Repone stock perezosamente si se agotó (nunca un tick de fondo: solo al intentar comprar). */
+  /** Comprar: el jugador paga, el NPC entrega — reusa `bd.comprarDeTenderete` tal cual, con tenderoteId/duenoNombre sintéticos del NPC. El stock lo repone el reinicio diario (§9); si se agota a media jornada, se queda agotado hasta el siguiente reinicio real — escasez a propósito. */
   private async manejarNpcComprar(client: Client, msg: { npcId?: string; itemId?: string; cantidad?: number }) {
     const nombre = this.nombreDe(client);
     const player = this.state.players.get(client.sessionId);
     if (!nombre || !player || !msg?.npcId || !msg.itemId) return;
     const npc = this.state.npcs.get(msg.npcId);
-    if (!npc || this.oficiosNpc.get(msg.npcId) !== "tendero") return this.errorNpc(client, "ese comerciante no existe");
+    const oficio = this.oficiosNpc.get(msg.npcId);
+    if (!npc || !esOficioMercader(oficio)) return this.errorNpc(client, "ese comerciante no existe");
     if (Math.hypot(npc.x - player.x, npc.y - player.y) > RADIO_INTERACCION) return this.errorNpc(client, "demasiado lejos");
-    const precioUnitario = NPC_TENDERO_VENTA[msg.itemId];
-    if (!precioUnitario) return this.errorNpc(client, "este comerciante no vende eso");
+    const articulo = this.articulosDeMercaderNpc(msg.npcId, oficio!)?.find((a) => a.itemId === msg.itemId);
+    if (!articulo) return this.errorNpc(client, "este comerciante no vende eso");
     const cantidad = Math.max(1, Math.floor(msg.cantidad ?? 1));
     await this.resolverIngresoDiarioNpc(msg.npcId);
+    await this.resolverStockDiarioMercader(msg.npcId, oficio!);
 
     const tenderoteId = this.tenderoteIdDeNpc(msg.npcId);
     const npcNombre = tenderoteId;
     const bd = await obtenerBdCompartida();
-    const stockActual = await bd.listarStockTenderete(tenderoteId);
-    const enStock = stockActual.find((s) => s.itemId === msg.itemId)?.cantidad ?? 0;
-    if (enStock < cantidad) await bd.reponerStockTenderete(tenderoteId, msg.itemId, REPOSICION_STOCK_NPC, precioUnitario);
-
     const r = await bd.comprarDeTenderete({ tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: npcNombre });
     if (!r.ok) return this.errorNpc(client, r.motivo);
 
@@ -4730,7 +4790,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const resultado = contenedor ? intentarCoger(contenedor, this.catalogoItems, { itemId: msg.itemId, cantidad }) : { ok: false as const };
     if (!resultado.ok) {
       await bd.ajustarFarycoins((await bd.obtenerOCrearJugador(nombre)).id, r.precioTotal);
-      await bd.reponerStockTenderete(tenderoteId, msg.itemId, cantidad, precioUnitario);
+      await bd.reponerStockTenderete(tenderoteId, msg.itemId, cantidad, articulo.precioVenta);
       return this.errorNpc(client, "no tienes hueco en tu inventario");
     }
     sincronizarContenedor(player.inventario.cuerpo, contenedor!);
@@ -4753,26 +4813,34 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * Vender: el jugador entrega el ítem, el NPC paga con SU PROPIO saldo
    * (limitado — `venderANpc` falla "todo o nada" si no le llega) y el
    * ítem se CONSUME (v1 deliberadamente simple, sin revenderlo — evita un
-   * bucle comprar-barato/vender-caro contra el mismo NPC).
+   * bucle comprar-barato/vender-caro contra el mismo NPC). Límite de compra
+   * DIARIO por artículo (pedido 2026-08-31): se recorta la cantidad al
+   * presupuesto restante de hoy, nunca se rechaza de más si aún queda algo.
    */
   private async manejarNpcVender(client: Client, msg: { npcId?: string; instanciaId?: number; cantidad?: number }) {
     const nombre = this.nombreDe(client);
     const player = this.state.players.get(client.sessionId);
     if (!nombre || !player || !msg?.npcId || typeof msg.instanciaId !== "number") return;
     const npc = this.state.npcs.get(msg.npcId);
-    if (!npc || this.oficiosNpc.get(msg.npcId) !== "tendero") return this.errorNpc(client, "ese comerciante no existe");
+    const oficio = this.oficiosNpc.get(msg.npcId);
+    if (!npc || !esOficioMercader(oficio)) return this.errorNpc(client, "ese comerciante no existe");
     if (Math.hypot(npc.x - player.x, npc.y - player.y) > RADIO_INTERACCION) return this.errorNpc(client, "demasiado lejos");
 
     const contenedor = this.inventarios.get(client.sessionId);
     const it = contenedor?.items.find((i) => i.id === msg.instanciaId);
     if (!contenedor || !it) return this.errorNpc(client, "no tienes ese objeto");
-    const precioUnitario = NPC_TENDERO_COMPRA[it.itemId];
-    if (!precioUnitario) return this.errorNpc(client, "este comerciante no compra eso");
-    const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad));
+    const articulo = this.articulosDeMercaderNpc(msg.npcId, oficio!)?.find((a) => a.itemId === it.itemId);
+    if (!articulo) return this.errorNpc(client, "este comerciante no compra eso");
     await this.resolverIngresoDiarioNpc(msg.npcId); // antes de cobrar: que el ingreso de hoy ya cuente para lo que puede pagar
+    await this.resolverStockDiarioMercader(msg.npcId, oficio!);
 
     const bd = await obtenerBdCompartida();
-    const r = await bd.venderANpc({ npcNombre: this.tenderoteIdDeNpc(msg.npcId), itemId: it.itemId, cantidad, precioUnitario, vendedorNombre: nombre });
+    const tenderoteIdCompra = this.tenderoteIdCompraDeNpc(msg.npcId);
+    const presupuestoRestante = (await bd.listarStockTenderete(tenderoteIdCompra)).find((s) => s.itemId === it.itemId)?.cantidad ?? 0;
+    if (presupuestoRestante <= 0) return this.errorNpc(client, "ya no compra más de esto hoy");
+    const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad, presupuestoRestante));
+
+    const r = await bd.venderANpc({ npcNombre: this.tenderoteIdDeNpc(msg.npcId), itemId: it.itemId, cantidad, precioUnitario: articulo.precioCompra, vendedorNombre: nombre });
     if (!r.ok) return this.errorNpc(client, r.motivo);
 
     const resultado = quitarItem(contenedor, msg.instanciaId, cantidad);
@@ -4782,6 +4850,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       await bd.ajustarFarycoins((await bd.obtenerOCrearJugador(nombre)).id, -r.precioTotal);
       return this.errorNpc(client, resultado.motivo ?? "no se pudo vender");
     }
+    await bd.consumirStockTenderete(tenderoteIdCompra, it.itemId, cantidad);
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
     void this.otorgarXpAtributoPorSesion(client, "carisma", XP_CARISMA_POR_REPONER);
     client.send("npc:ventaResultado", { npcId: msg.npcId, itemId: it.itemId, cantidad, precioTotal: r.precioTotal, saldoRestante: r.saldoRestante });

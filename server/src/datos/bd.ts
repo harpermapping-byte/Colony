@@ -675,6 +675,19 @@ export interface IAlmacenDatos {
   }): Promise<{ ok: true; saldoRestante: number; precioTotal: number } | { ok: false; motivo: string }>;
   /** docs/GDD_Economia.md (pedido 2026-08-30, "los npc cada día reciben 20 Farycoins también"): acredita `INGRESO_DIARIO_NPC` por cada día de mundo transcurrido desde la última resolución — cálculo perezoso, SOLO se llama cuando un jugador de verdad se acerca al NPC (nunca un tick de fondo). La primera vez que se ve a un NPC no le da nada retroactivo (solo fija el día de partida). */
   resolverIngresoDiarioNpc(npcNombre: string, diaActual: number): Promise<{ diasAcreditados: number; saldo: number }>;
+  /** Como reponerStockTenderete, pero FIJA la cantidad en vez de sumarla — mercaderes por oficio (docs/GDD_Economia.md §9): el reinicio diario re-sortea el stock a un valor absoluto nuevo, no lo acumula sobre lo que quedaba. */
+  fijarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioFarycoins: number): Promise<void>;
+  /**
+   * ¿Toca reiniciar el stock/presupuesto de compra de este mercader?
+   * (docs/GDD_Economia.md §9, pedido literal: "reset cada 24 horas REALES,
+   * no ligado al reloj de mundo"). `true` la PRIMERA vez que se ve al NPC
+   * (para que nazca con stock) y cada vez que hayan pasado >= `ventanaMs`
+   * desde el último reinicio — y en ese caso YA marca el reinicio como
+   * hecho (para que el llamador re-sortee el stock exactamente una vez).
+   * Requiere que la fila de `npc_comerciantes` YA exista — llamar SIEMPRE
+   * después de `resolverIngresoDiarioNpc` en el mismo punto de contacto.
+   */
+  resolverResetStockMercader(npcNombre: string, ahoraMs: number, ventanaMs: number): Promise<boolean>;
   listarConstrucciones(): Promise<Construccion[]>;
   insertarConstruccion(c: NuevaConstruccion): Promise<number>;
   borrarConstruccion(id: number): Promise<boolean>;
@@ -949,7 +962,8 @@ CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tend
 -- el último día de mundo ya acreditado para saber cuántos días atrasados tocan.
 CREATE TABLE IF NOT EXISTS npc_comerciantes (
   nombre TEXT PRIMARY KEY,
-  ultimo_dia_ingreso INTEGER NOT NULL
+  ultimo_dia_ingreso INTEGER NOT NULL,
+  ultimo_reset_stock_ms INTEGER
 );
 -- Producción/transporte (docs/GDD_Produccion.md, pedido 2026-08-29): un
 -- contrato entre una construcción productora y un tenderete destino. La
@@ -1342,8 +1356,12 @@ CREATE TABLE IF NOT EXISTS tenderete_items (
 CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
 CREATE TABLE IF NOT EXISTS npc_comerciantes (
   nombre TEXT PRIMARY KEY,
-  ultimo_dia_ingreso INTEGER NOT NULL
+  ultimo_dia_ingreso INTEGER NOT NULL,
+  ultimo_reset_stock_ms BIGINT
 );
+-- Mercaderes por oficio (docs/GDD_Economia.md §9, pedido 2026-08-31) — tabla
+-- ya desplegada sin esta columna en Neon.
+ALTER TABLE npc_comerciantes ADD COLUMN IF NOT EXISTS ultimo_reset_stock_ms BIGINT;
 CREATE TABLE IF NOT EXISTS contratos_transporte (
   id SERIAL PRIMARY KEY,
   origen_construccion_id INTEGER NOT NULL,
@@ -1853,6 +1871,13 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const nombresMemoriaLider = new Set(columnasMemoriaLider.map((c) => String(c.name)));
     for (const col of ["tipo", "asentamiento_id", "jugador"] as const) {
       if (!nombresMemoriaLider.has(col)) this.bd.exec(`ALTER TABLE memoria_lider ADD COLUMN ${col} TEXT`);
+    }
+    // Mismo patrón para `ultimo_reset_stock_ms` de `npc_comerciantes`
+    // (docs/GDD_Economia.md §9, mercaderes por oficio, pedido 2026-08-31) —
+    // un datos.sqlite de dev creado antes de este cambio no la tendría.
+    const columnasNpcComerciantes = this.bd.prepare("PRAGMA table_info(npc_comerciantes)").all();
+    if (!columnasNpcComerciantes.some((c) => String(c.name) === "ultimo_reset_stock_ms")) {
+      this.bd.exec("ALTER TABLE npc_comerciantes ADD COLUMN ultimo_reset_stock_ms INTEGER");
     }
   }
 
@@ -2539,6 +2564,24 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const r = await this.ajustarFarycoins(npc.id, diasAcreditados * INGRESO_DIARIO_NPC);
     this.bd.prepare("UPDATE npc_comerciantes SET ultimo_dia_ingreso = ? WHERE nombre = ?").run(diaActual, npcNombre);
     return { diasAcreditados, saldo: r.saldo };
+  }
+
+  async fijarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioFarycoins: number): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO tenderete_items (tenderete_id, item_id, cantidad, precio_farycoins) VALUES (?, ?, ?, ?)
+         ON CONFLICT(tenderete_id, item_id) DO UPDATE SET
+           cantidad = excluded.cantidad, precio_farycoins = excluded.precio_farycoins`,
+      )
+      .run(tenderoteId, itemId, cantidad, precioFarycoins);
+  }
+
+  async resolverResetStockMercader(npcNombre: string, ahoraMs: number, ventanaMs: number): Promise<boolean> {
+    const fila = this.bd.prepare("SELECT ultimo_reset_stock_ms FROM npc_comerciantes WHERE nombre = ?").get(npcNombre);
+    const ultimo = fila && fila.ultimo_reset_stock_ms != null ? Number(fila.ultimo_reset_stock_ms) : null;
+    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
+    this.bd.prepare("UPDATE npc_comerciantes SET ultimo_reset_stock_ms = ? WHERE nombre = ?").run(ahoraMs, npcNombre);
+    return true;
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {
@@ -3850,6 +3893,27 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     const r = await this.ajustarFarycoins(npc.id, diasAcreditados * INGRESO_DIARIO_NPC);
     await this.pool.query("UPDATE npc_comerciantes SET ultimo_dia_ingreso = $1 WHERE nombre = $2", [diaActual, npcNombre]);
     return { diasAcreditados, saldo: r.saldo };
+  }
+
+  async fijarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioFarycoins: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO tenderete_items (tenderete_id, item_id, cantidad, precio_farycoins) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (tenderete_id, item_id) DO UPDATE SET
+         cantidad = EXCLUDED.cantidad, precio_farycoins = EXCLUDED.precio_farycoins`,
+      [tenderoteId, itemId, cantidad, precioFarycoins],
+    );
+  }
+
+  async resolverResetStockMercader(npcNombre: string, ahoraMs: number, ventanaMs: number): Promise<boolean> {
+    const fila = await this.pool.query<{ ultimo_reset_stock_ms: string | number | null }>(
+      "SELECT ultimo_reset_stock_ms FROM npc_comerciantes WHERE nombre = $1",
+      [npcNombre],
+    );
+    const bruto = fila.rows[0]?.ultimo_reset_stock_ms;
+    const ultimo = bruto != null ? Number(bruto) : null;
+    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
+    await this.pool.query("UPDATE npc_comerciantes SET ultimo_reset_stock_ms = $1 WHERE nombre = $2", [ahoraMs, npcNombre]);
+    return true;
   }
 
   async listarConstrucciones(): Promise<Construccion[]> {

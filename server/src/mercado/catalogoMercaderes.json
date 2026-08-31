@@ -1,0 +1,136 @@
+{
+  "_nota": "docs/GDD_Economia.md §9 (pedido 2026-08-31, respuesta a la pregunta abierta de §8 'diferenciar por oficio'): pool de artículos candidatos por OFICIO (poblacion/catalogo/oficiosEdificios.json — mismo vocabulario, npc.oficio en agentes.ts), con un precioBase FarycoinsPOR UNIDAD fijado a mano al dar de alta cada entrada. Cada NPC con ese oficio elige un subconjunto determinista (itemsPorMercaderMin..Max de _config) de su pool — MISMO npcId siempre da MISMA selección, nunca cambia — y para cada artículo elegido vende a precioBase×MARGEN_VENTA y compra a precioBase×MARGEN_COMPRA (server/src/mercado/catalogoMercaderes.ts). Reemplaza el catálogo genérico plano de catalogoNpcComercio.ts (v1, 2026-08-30) — 'tendero' sigue existiendo como un oficio más, ya no un caso especial en el código.",
+  "config": {
+    "itemsPorMercaderMin": 5,
+    "itemsPorMercaderMax": 10,
+    "stockMinDefecto": 5,
+    "stockMaxDefecto": 20,
+    "limiteCompraDiarioDefecto": 20
+  },
+  "oficios": {
+    "tendero": {
+      "pool": {
+        "antorcha_portatil": 5,
+        "racion_viaje": 3,
+        "sal": 2,
+        "hierba_curativa": 4,
+        "jarra_agua": 2,
+        "jabon": 2,
+        "cantimplora": 3,
+        "cesta_pan": 3
+      }
+    },
+    "herrero": {
+      "pool": {
+        "hierro": 3,
+        "carbon": 2,
+        "lingote_hierro": 5,
+        "acero": 7,
+        "herradura": 3,
+        "clavos": 1,
+        "martillo": 6,
+        "tenazas": 5
+      }
+    },
+    "panadero": {
+      "pool": {
+        "harina": 2,
+        "trigo": 1,
+        "pan": 3,
+        "rebanada_pan": 1,
+        "huevo": 2,
+        "mantequilla": 3
+      }
+    },
+    "tabernero": {
+      "pool": {
+        "jarra_cerveza": 3,
+        "queso": 3,
+        "pan": 3,
+        "miel": 3,
+        "fruta": 2,
+        "baya": 1,
+        "racion_viaje": 3
+      }
+    },
+    "pescador": {
+      "pool": {
+        "cana_pesca": 6,
+        "cebo_pesca": 1,
+        "pescado_rio": 2,
+        "pescado_lago": 2,
+        "pescado_mar": 3,
+        "marisco": 3
+      }
+    },
+    "carpintero": {
+      "pool": {
+        "madera_dura": 2,
+        "madera_blanda": 1,
+        "madera_abedul": 2,
+        "hacha_talar": 6,
+        "cepillo_carpintero": 7,
+        "clavos": 1
+      }
+    },
+    "curtidor": {
+      "pool": {
+        "piel_basta": 2,
+        "cuero_grueso": 3,
+        "piel_fina": 4,
+        "piel_exotica": 6,
+        "cuero_curtido": 4,
+        "curtiente": 2
+      }
+    },
+    "alfarero": {
+      "pool": {
+        "arcilla": 1,
+        "olla": 4,
+        "plato": 2,
+        "taza": 1,
+        "cuenco": 2,
+        "olla_barro": 3
+      }
+    },
+    "apicultor": {
+      "pool": {
+        "miel": 3,
+        "cera": 3,
+        "vela_mesa": 2,
+        "miel_cocinado": 4
+      }
+    },
+    "sastre": {
+      "pool": {
+        "lana": 1,
+        "tela_hilada": 3,
+        "fibra_vegetal": 1,
+        "camisa_lino_campesina": 5,
+        "pantalon_lana_campesino": 5,
+        "gorro_lino_campesino": 3
+      }
+    },
+    "anciano_sabio": {
+      "pool": {
+        "hierba_curativa": 3,
+        "hierba_aromatica": 2,
+        "flor_medicinal": 3,
+        "hongo_medicinal": 3,
+        "unguento": 6,
+        "jarabe_catarro": 5,
+        "venda": 3
+      }
+    },
+    "carnicero": {
+      "pool": {
+        "carne_roja": 3,
+        "carne_blanca": 2,
+        "asado_carne_roja": 5,
+        "asado_carne_blanca": 4,
+        "tendones": 1,
+        "tripas": 1
+      }
+    }
+  }
+}
