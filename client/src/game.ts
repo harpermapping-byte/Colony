@@ -705,6 +705,90 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       },
       sessionId: () => room.sessionId,
     };
+
+    // Sonda SOLO-PARA-TESTS (e2e con Playwright, barrido de sistemas
+    // pedido 2026-08-31): comercio/combate ya tienen panel real más abajo
+    // (mandan el MISMO mensaje que esto); gremios sigue sin panel de
+    // cliente todavía (mismo caso que crafteo/ajedrez arriba, sin mecánica
+    // de UI que lo use hoy). En vez de una sonda a medida por mensaje, esto
+    // es un paso GENÉRICO al protocolo Colyseus real (mismo room.send que
+    // usaría cualquier botón, nunca un atajo que salte validación del
+    // servidor) más una lectura de estado sincronizado — evita duplicar
+    // cableado de mensajes que YA manda un panel real solo para poder
+    // dirigirlo desde un test.
+    let ultimoEstadoGremio: unknown = null;
+    let ultimaInvitacionGremio: unknown = null;
+    room.onMessage("gremio:estado", (m: unknown) => { ultimoEstadoGremio = m; });
+    room.onMessage("gremio:invitacionRecibida", (m: { gremioId: number; gremioNombre: string; invitadoPor: string }) => {
+      ultimaInvitacionGremio = m;
+      console.log("[gremio] invitación recibida", m);
+    });
+    room.onMessage("gremio:error", (m: { motivo: string }) => console.log("[gremio]", m?.motivo));
+    (window as any).__test = {
+      enviar: (tipo: string, msg?: unknown) => room.send(tipo, msg),
+      sessionId: () => room.sessionId,
+      ultimoEstadoGremio: () => ultimoEstadoGremio,
+      ultimaInvitacionGremio: () => ultimaInvitacionGremio,
+      // vista pública+privada de un jugador (el propio, o cualquiera dentro
+      // de esta room) — mismo subconjunto que ya replica Player Schema.
+      jugador: (sessionId: string) => {
+        const p = room.state.players.get(sessionId);
+        if (!p) return null;
+        const anatomia: Record<string, EstadoZonaVista> = {} as Record<string, EstadoZonaVista>;
+        for (const z of ZONAS) {
+          const zs = (p.anatomia as any)[z];
+          anatomia[z] = { sangrado: zs.sangrado, fractura: zs.fractura, infectado: zs.infectado, amputado: zs.amputado, protesis: zs.protesis, curando: zs.curando };
+        }
+        return {
+          sentado: p.sentado, oficio: p.oficio,
+          gremioId: p.gremioId, gremioNombre: p.gremioNombre,
+          vida: p.vida, vidaMax: p.vidaMax, anatomia,
+        };
+      },
+      // el comercio (si hay uno) en el que participa el jugador de ESTA página.
+      comercioPropio: () => {
+        for (const c of ((room.state as any).comercios as Map<string, any>).values()) {
+          if (c.jugadorA === room.sessionId || c.jugadorB === room.sessionId) {
+            return {
+              jugadorA: c.jugadorA, jugadorB: c.jugadorB,
+              ofertaA: [...c.ofertaA].map((o: any) => ({ instanciaId: o.instanciaId, itemId: o.itemId, cantidad: o.cantidad })),
+              ofertaB: [...c.ofertaB].map((o: any) => ({ instanciaId: o.instanciaId, itemId: o.itemId, cantidad: o.cantidad })),
+              confirmadoA: c.confirmadoA, confirmadoB: c.confirmadoB,
+            };
+          }
+        }
+        return null;
+      },
+      inventarioCuerpo: (sessionId?: string) => {
+        const p = room.state.players.get(sessionId ?? room.sessionId);
+        return p ? [...p.inventario.cuerpo.items].map((it: any) => ({ id: it.id, itemId: it.itemId, cantidad: it.cantidad })) : [];
+      },
+      // fauna viva cerca de (x,y) — para el barrido de combate PvE: localizar
+      // un objetivo real sin adivinar coordenadas de bake a mano.
+      faunaCercana: (x: number, y: number, radio: number) => {
+        let mejor: { id: string; especieId: string; x: number; y: number; dist: number } | null = null;
+        for (const [id, f] of (room.state as any).fauna.entries()) {
+          const dist = Math.hypot(f.x - x, f.y - y);
+          if (dist <= radio && (!mejor || dist < mejor.dist)) mejor = { id, especieId: f.especieId, x: f.x, y: f.y, dist };
+        }
+        return mejor;
+      },
+      combateEstado: (combateId: string) => {
+        const c = (room.state as any).combates.get(combateId);
+        if (!c) return null;
+        return { fase: c.fase, unidades: [...c.unidades.keys()] };
+      },
+      // todos los combates activos (dataset pequeño) — para localizar por
+      // qué id se abrió uno recién iniciado sin depender de un mensaje de
+      // vuelta que lo confirme.
+      combates: () => {
+        const salida: { id: string; fase: string; unidades: string[] }[] = [];
+        for (const [id, c] of ((room.state as any).combates as Map<string, any>).entries()) {
+          salida.push({ id, fase: c.fase, unidades: [...c.unidades.keys()] });
+        }
+        return salida;
+      },
+    };
   }
 
   // Anatomía/médico (docs/GDD_Anatomia.md, pedido 2026-08-30) — panel
@@ -1017,6 +1101,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   $(room.state).combates.onAdd(() => actualizarPanelCombate());
   $(room.state).combates.onRemove(() => actualizarPanelCombate());
   room.onStateChange(() => actualizarPanelCombate());
+  // Bug real encontrado en el barrido de sistemas 2026-08-31 (mismo motivo
+  // que costó tiempo en el e2e de mesaAjedrez: un "*:error" del servidor
+  // sin console.log en el cliente es invisible salvo un console.warn
+  // genérico de colyseus.js "onMessage() not registered"): combate:error
+  // era el ÚNICO *:error de todo game.ts sin logear su motivo (demasiado
+  // lejos, ya en combate, pvp deshabilitado...) — mismo patrón que el resto.
+  room.onMessage("combate:error", (m: { motivo: string }) => console.log("[combate]", m?.motivo));
 
   // --- Mascotas (docs/GDD_Mascotas.md) — panel PLACEHOLDER de testeo (ver panelMascotas.ts). Tecla G: dar de comer al animal domesticable más cercano. ---
   const panelMascotas = new PanelMascotas({
