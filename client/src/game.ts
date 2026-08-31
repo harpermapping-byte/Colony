@@ -1599,7 +1599,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // Compañero (docs/GDD_Companeros.md): burbuja de queja por hambre — el
     // servidor ya manda el texto listo en quejaTexto (nunca genera aquí uno
     // propio), solo se alterna con el nombre igual que el resto de burbujas.
-    for (const [id, c] of room.state.companeros) {
+    for (const [id, c] of room.state.companeros ?? []) {
       const estadoC = companerosVisual.get(id);
       const nombreC = estadoC?.name ?? "";
       if (!c.quejaTexto) { escena.textoEtiqueta(`companero_${id}`, nombreC, false); continue; }
