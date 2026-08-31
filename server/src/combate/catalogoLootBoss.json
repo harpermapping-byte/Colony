@@ -1,0 +1,23 @@
+{
+  "_nota": "docs/GDD_Combate.md — loot procedural de jefes HUMANOIDES (pedido 2026-08-31: 'loot procedural por cadáver de enemigos, solo bosses humanoides no animales'). Un único pool ponderado v1, reusando ítems reales ya existentes en items/catalogo/items.json — cuando el streamer quiera pools distintos por tema/tier, se amplía aquí sin tocar código (mismo criterio 'las listas crecen, el código no'). Consumido por server/src/mundo/lootProcedural.ts.",
+  "numDropsMin": 2,
+  "numDropsMax": 4,
+  "pool": [
+    { "itemId": "daga", "peso": 10, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "espada_corta", "peso": 8, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "espada_larga", "peso": 5, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "hacha_combate", "peso": 6, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "maza_guerra", "peso": 5, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "lanza", "peso": 5, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "arco_corto", "peso": 6, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "arco_largo", "peso": 4, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "ballesta", "peso": 3, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "piernas_cuero", "peso": 6, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "piernas_hierro", "peso": 4, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "piernas_acero", "peso": 2, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "gema", "peso": 8, "cantidadMin": 1, "cantidadMax": 3 },
+    { "itemId": "gema_tallada", "peso": 3, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "lingote_oro", "peso": 4, "cantidadMin": 1, "cantidadMax": 2 },
+    { "itemId": "lingote_plata", "peso": 6, "cantidadMin": 1, "cantidadMax": 3 }
+  ]
+}

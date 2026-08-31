@@ -113,6 +113,36 @@ export function precioCompraMercader(precioBase: number): number {
   return Math.max(0, Math.round(precioBase * MARGEN_COMPRA_MERCADER));
 }
 
+// --- Oferta/demanda REAL (pedido 2026-08-31: "guarda el tema de precios de
+// mercader por oferta real... aplicarlo aquí") — el precio que de verdad se
+// cobra/paga se recalcula tras CADA compra/venta a partir del stock que
+// queda, reusando las columnas que ya existían (`tenderete_items.cantidad`
+// para el stock de venta del NPC, y ese mismo contador reaprovechado como
+// "presupuesto de compra restante hoy" en el pool de compra) — nada de
+// tabla ni tracking nuevo, la propia cantidad restante YA ES la señal de
+// volumen. Determinista en la fórmula, no en el resultado (depende de lo
+// que compren/vendan los jugadores en vivo — economía viva, igual que el
+// reinicio diario de stock).
+
+/** Techo de la subida de precio de venta cuando el stock se agota del todo (+50% sobre el ×1.2 normal). */
+export const ESCASEZ_PRIME_MAX = 0.5;
+/** Techo de la bajada de precio de compra cuando el NPC ya cubrió casi todo su cupo diario de hoy (-40% sobre el ×0.5 normal). */
+export const DEMANDA_DESCUENTO_MAX = 0.4;
+
+/** Precio de venta (NPC→jugador) con recargo por escasez: cuanto menos stock queda, más caro — hasta ESCASEZ_PRIME_MAX de recargo con el stock a 0. */
+export function precioVentaConEscasez(precioBase: number, stockActual: number, stockMax: number): number {
+  const ratio = stockMax > 0 ? Math.max(0, Math.min(1, stockActual / stockMax)) : 1;
+  const factor = 1 + ESCASEZ_PRIME_MAX * (1 - ratio);
+  return Math.max(1, Math.round(precioVentaMercader(precioBase) * factor));
+}
+
+/** Precio de compra (jugador→NPC) con descuento por demanda: cuanto más ha comprado ya el NPC hoy de este artículo, menos paga por el siguiente — hasta DEMANDA_DESCUENTO_MAX de descuento con el cupo a 0. */
+export function precioCompraConDemanda(precioBase: number, presupuestoRestante: number, limiteDiario: number): number {
+  const ratio = limiteDiario > 0 ? Math.max(0, Math.min(1, presupuestoRestante / limiteDiario)) : 1;
+  const factor = 1 - DEMANDA_DESCUENTO_MAX * (1 - ratio);
+  return Math.max(0, Math.round(precioCompraMercader(precioBase) * factor));
+}
+
 export function rangoStockMercader(entrada: EntradaOficioMercader, config: ConfigMercaderes = cargarCatalogoMercaderes().config): [number, number] {
   return [entrada.stockMin ?? config.stockMinDefecto, entrada.stockMax ?? config.stockMaxDefecto];
 }

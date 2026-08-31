@@ -11,11 +11,15 @@ import {
   elegirArticulosDeMercader,
   precioVentaMercader,
   precioCompraMercader,
+  precioVentaConEscasez,
+  precioCompraConDemanda,
   rangoStockMercader,
   limiteCompraDiarioMercader,
   stockAleatorioEnRango,
   MARGEN_VENTA_MERCADER,
   MARGEN_COMPRA_MERCADER,
+  ESCASEZ_PRIME_MAX,
+  DEMANDA_DESCUENTO_MAX,
 } from "../src/mercado/catalogoMercaderes";
 
 const catalogo = cargarCatalogoMercaderes();
@@ -62,6 +66,30 @@ test("precioVentaMercader/precioCompraMercader: derivan de precioBase con los m�
   assert.strictEqual(precioCompraMercader(10), 5);
   assert.strictEqual(precioVentaMercader(5), 6);
   assert.strictEqual(precioCompraMercader(1), 1, "nunca redondea a 0 — precioCompra siempre cobra/paga al menos 1 si precioBase>=1");
+});
+
+test("precioVentaConEscasez: con stock lleno es igual al precio normal, y sube hasta +ESCASEZ_PRIME_MAX con el stock a 0", () => {
+  assert.strictEqual(precioVentaConEscasez(10, 20, 20), precioVentaMercader(10), "stock lleno: sin recargo");
+  assert.strictEqual(precioVentaConEscasez(10, 0, 20), Math.round(precioVentaMercader(10) * (1 + ESCASEZ_PRIME_MAX)), "stock agotado: recargo máximo");
+  const medio = precioVentaConEscasez(10, 10, 20);
+  assert.ok(medio > precioVentaMercader(10) && medio < precioVentaMercader(10) * (1 + ESCASEZ_PRIME_MAX), "a medio stock, precio intermedio");
+});
+
+test("precioVentaConEscasez: nunca baja de 1, y stockMax<=0 no revienta (se trata como sin escasez)", () => {
+  assert.strictEqual(precioVentaConEscasez(1, 0, 20), Math.max(1, Math.round(precioVentaMercader(1) * (1 + ESCASEZ_PRIME_MAX))));
+  assert.strictEqual(precioVentaConEscasez(10, 5, 0), precioVentaMercader(10));
+});
+
+test("precioCompraConDemanda: con presupuesto lleno es igual al precio normal, y baja hasta -DEMANDA_DESCUENTO_MAX con el cupo a 0", () => {
+  assert.strictEqual(precioCompraConDemanda(10, 20, 20), precioCompraMercader(10), "cupo lleno (nadie vendió hoy): sin descuento");
+  assert.strictEqual(precioCompraConDemanda(10, 0, 20), Math.round(precioCompraMercader(10) * (1 - DEMANDA_DESCUENTO_MAX)), "cupo agotado: descuento máximo");
+  const medio = precioCompraConDemanda(10, 10, 20);
+  assert.ok(medio < precioCompraMercader(10) && medio > precioCompraMercader(10) * (1 - DEMANDA_DESCUENTO_MAX), "a medio cupo, precio intermedio");
+});
+
+test("precioCompraConDemanda: nunca baja de 0, y limiteDiario<=0 no revienta (se trata como sin demanda)", () => {
+  assert.ok(precioCompraConDemanda(10, 0, 20) >= 0);
+  assert.strictEqual(precioCompraConDemanda(10, 5, 0), precioCompraMercader(10));
 });
 
 test("rangoStockMercader/limiteCompraDiarioMercader: caen a los valores por defecto de config si el oficio no los sobreescribe", () => {

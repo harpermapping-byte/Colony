@@ -6,7 +6,7 @@
  * para no duplicar el mismo require+selección ponderada en las dos rooms.
  */
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const enemigos: Record<string, { temasEnemigo: string[]; pesoSpawn?: number; esBoss?: boolean }> = require("../../../personajes/catalogo/enemigos.json");
+const enemigos: Record<string, { temasEnemigo: string[]; pesoSpawn?: number; esBoss?: boolean; tipoRig?: string }> = require("../../../personajes/catalogo/enemigos.json");
 
 // Debe coincidir con el nº de variantes con el que se corrió
 // personajes/src/exportar_enemigos.js al generar assets/enemigos/pool.json
@@ -25,4 +25,9 @@ export function elegirEnemigoDeTema(temas: string[], soloBosses: boolean): strin
     if (r <= 0) return id;
   }
   return candidatos[candidatos.length - 1][0];
+}
+
+/** ¿Este enemigoId es humanoide (tipoRig "npc") y no animal? Pedido 2026-08-31: el loot procedural de jefe solo aplica a bosses humanoides. */
+export function esEnemigoHumanoide(enemigoId: string): boolean {
+  return enemigos[enemigoId]?.tipoRig === "npc";
 }

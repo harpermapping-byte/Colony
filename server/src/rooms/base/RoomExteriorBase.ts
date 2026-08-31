@@ -14,6 +14,8 @@ import {
   elegirArticulosDeMercader,
   precioVentaMercader,
   precioCompraMercader,
+  precioVentaConEscasez,
+  precioCompraConDemanda,
   rangoStockMercader,
   limiteCompraDiarioMercader,
   stockAleatorioEnRango,
@@ -4825,11 +4827,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     await this.resolverIngresoDiarioNpc(cercano.id);
     await this.resolverStockDiarioMercader(cercano.id, cercano.oficio);
     const articulos = this.articulosDeMercaderNpc(cercano.id, cercano.oficio) ?? [];
+    // Precio REAL mostrado = el que ya quedó grabado en tenderete_items tras
+    // la última compra/venta (oferta/demanda, ver catalogoMercaderes.ts) —
+    // no el estático del catálogo, para que el escaparate no mienta.
+    const bd = await obtenerBdCompartida();
+    const stockVenta = await bd.listarStockTenderete(this.tenderoteIdDeNpc(cercano.id));
+    const stockCompra = await bd.listarStockTenderete(this.tenderoteIdCompraDeNpc(cercano.id));
     client.send("npc:comercioEscaparate", {
       npcId: cercano.id,
       nombre: cercano.npc.nombre,
-      venta: articulos.map((a) => ({ itemId: a.itemId, precioFarycoins: a.precioVenta })),
-      compra: articulos.map((a) => ({ itemId: a.itemId, precioFarycoins: a.precioCompra })),
+      venta: articulos.map((a) => ({ itemId: a.itemId, precioFarycoins: stockVenta.find((s) => s.itemId === a.itemId)?.precioFarycoins ?? a.precioVenta })),
+      compra: articulos.map((a) => ({ itemId: a.itemId, precioFarycoins: stockCompra.find((s) => s.itemId === a.itemId)?.precioFarycoins ?? a.precioCompra })),
     });
   }
 
@@ -4853,6 +4861,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     const r = await bd.comprarDeTenderete({ tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: npcNombre });
     if (!r.ok) return this.errorNpc(client, r.motivo);
+
+    // Oferta/demanda real: cuanto menos stock queda tras esta compra, más
+    // caro sale el siguiente — recorta hasta el próximo reinicio diario.
+    const entradaOficioVenta = cargarCatalogoMercaderes().oficios[oficio!];
+    if (entradaOficioVenta) {
+      const [, stockMax] = rangoStockMercader(entradaOficioVenta);
+      await bd.fijarPrecioTenderete(tenderoteId, msg.itemId, precioVentaConEscasez(articulo.precioBase, r.cantidadRestante, stockMax));
+    }
 
     const contenedor = this.inventarios.get(client.sessionId);
     const resultado = contenedor ? intentarCoger(contenedor, this.catalogoItems, { itemId: msg.itemId, cantidad }) : { ok: false as const };
@@ -4904,11 +4920,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const bd = await obtenerBdCompartida();
     const tenderoteIdCompra = this.tenderoteIdCompraDeNpc(msg.npcId);
-    const presupuestoRestante = (await bd.listarStockTenderete(tenderoteIdCompra)).find((s) => s.itemId === it.itemId)?.cantidad ?? 0;
+    const filaCompra = (await bd.listarStockTenderete(tenderoteIdCompra)).find((s) => s.itemId === it.itemId);
+    const presupuestoRestante = filaCompra?.cantidad ?? 0;
     if (presupuestoRestante <= 0) return this.errorNpc(client, "ya no compra más de esto hoy");
     const cantidad = Math.max(1, Math.min(msg.cantidad ?? it.cantidad, it.cantidad, presupuestoRestante));
+    // Oferta/demanda real: el precio ya grabado hoy (baja según lo que ya
+    // compró el NPC), no el estático del catálogo — ver catalogoMercaderes.ts.
+    const precioUnitario = filaCompra?.precioFarycoins ?? articulo.precioCompra;
 
-    const r = await bd.venderANpc({ npcNombre: this.tenderoteIdDeNpc(msg.npcId), itemId: it.itemId, cantidad, precioUnitario: articulo.precioCompra, vendedorNombre: nombre });
+    const r = await bd.venderANpc({ npcNombre: this.tenderoteIdDeNpc(msg.npcId), itemId: it.itemId, cantidad, precioUnitario, vendedorNombre: nombre });
     if (!r.ok) return this.errorNpc(client, r.motivo);
 
     const resultado = quitarItem(contenedor, msg.instanciaId, cantidad);
@@ -4919,6 +4939,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return this.errorNpc(client, resultado.motivo ?? "no se pudo vender");
     }
     await bd.consumirStockTenderete(tenderoteIdCompra, it.itemId, cantidad);
+    // Oferta/demanda real: cuanto menos cupo de compra le queda hoy al NPC, peor precio ofrece al siguiente vendedor.
+    const entradaOficioCompra = cargarCatalogoMercaderes().oficios[oficio!];
+    if (entradaOficioCompra) {
+      const limiteCompra = limiteCompraDiarioMercader(entradaOficioCompra);
+      await bd.fijarPrecioTenderete(tenderoteIdCompra, it.itemId, precioCompraConDemanda(articulo.precioBase, presupuestoRestante - cantidad, limiteCompra));
+    }
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
     void this.otorgarXpAtributoPorSesion(client, "carisma", XP_CARISMA_POR_REPONER);
     client.send("npc:ventaResultado", { npcId: msg.npcId, itemId: it.itemId, cantidad, precioTotal: r.precioTotal, saldoRestante: r.saldoRestante });

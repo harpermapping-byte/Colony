@@ -2,7 +2,12 @@ import { InteriorRoom, OpcionesInterior } from "./InteriorRoom";
 import { Enemigo } from "./schema/HubState";
 import { IAlmacenDatos } from "../datos/bd";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
-import { elegirEnemigoDeTema, VARIANTES_POR_ENEMIGO } from "../mundo/catalogoEnemigos";
+import { elegirEnemigoDeTema, VARIANTES_POR_ENEMIGO, esEnemigoHumanoide } from "../mundo/catalogoEnemigos";
+import { generarLootBoss } from "../mundo/lootProcedural";
+import { crearCadaver } from "../mundo/cadaveres";
+import { agregarItem } from "../inventario/inventario";
+import { tiempoMundo } from "../mundo/tiempoMundo";
+import { diaFraccional } from "../mundo/reproduccionFauna";
 
 // Techo de enemigos activos a la vez (pedido explícito del streamer: "se
 // generan el límite de 30 enemigos 2 boses aleatoriamente") — el bake puede
@@ -74,6 +79,35 @@ export class DungeonRoom extends InteriorRoom {
       this.state.enemigos.set(`e_${n++}`, e);
     }
     console.log(`  Mazmorra "${clave}": ${n} enemigo(s) activo(s) (de ${this.interior.spawnsEnemigos.length} puntos candidatos).`);
+  }
+
+  /**
+   * Loot procedural de cadáver — SOLO jefes humanoides (pedido 2026-08-31:
+   * "solo enemigos humanoide bosses no animales"). Cualquier otro enemigo
+   * de mazmorra (normal, o boss animal como reina_arana/lobo_alfa) sigue
+   * igual que siempre: cae directo a `super.finalizarMuerte` sin cadáver.
+   */
+  protected async finalizarMuerte(id: string, jugadoresGanadores: string[] = []) {
+    const enemigo = this.state.enemigos.get(id);
+    const esJefeHumanoide = !!enemigo?.esBoss && esEnemigoHumanoide(enemigo.enemigoId);
+    if (!esJefeHumanoide) return super.finalizarMuerte(id, jugadoresGanadores);
+
+    // Leer posición/id ANTES de super.finalizarMuerte(id) — borra la entidad del Schema (state.enemigos.delete).
+    const x = enemigo!.x;
+    const y = enemigo!.y;
+    const enemigoId = enemigo!.enemigoId;
+    await super.finalizarMuerte(id, jugadoresGanadores);
+
+    const cadaver = crearCadaver({
+      id: `cadaver:${this.opciones.mapaId}:${this.opciones.edificio}:${id}`,
+      mapaId: this.opciones.mapaId,
+      tipoOrigen: "npc",
+      especieOrigenId: enemigoId,
+      x, y,
+      ahora: diaFraccional(tiempoMundo().dia, tiempoMundo().hora),
+    });
+    for (const { itemId, cantidad } of generarLootBoss()) agregarItem(cadaver.contenedor, this.catalogoItems, itemId, cantidad);
+    this.publicarCadaver(cadaver);
   }
 }
 
