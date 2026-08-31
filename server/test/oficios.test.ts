@@ -8,7 +8,9 @@ import {
   bonusVelocidadCrafteoPorNivelOficio, bonusCantidadCrafteoPorNivelOficio,
   FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO, precioCambioOficio, PRECIO_BASE_CAMBIO_OFICIO,
 } from "../src/personaje/oficios";
-import { cargarCatalogoNpcsTutoriales } from "../src/mundo/npcsFijos";
+import { cargarCatalogoNpcsTutoriales, cargarLoreTexto } from "../src/mundo/npcsFijos";
+import * as fs from "fs";
+import * as path from "path";
 
 test("OFICIOS_JUGADOR_VALIDOS: exactamente los 10 oficios finales", () => {
   assert.strictEqual(OFICIOS_JUGADOR_VALIDOS.size, 10);
@@ -70,17 +72,36 @@ test("precioCambioOficio: nunca negativo aunque llegue un cambios negativo por e
   assert.strictEqual(precioCambioOficio(-5), 50);
 });
 
-test("catálogo de NPCs tutoriales: al menos 10 arquetipos, ids únicos, cada uno con mecánica y vestimenta real", () => {
+test("catálogo de NPCs tutoriales/lore: al menos 10 arquetipos, ids únicos, cada uno con mecánica y vestimenta real", () => {
   const catalogo = cargarCatalogoNpcsTutoriales();
-  assert.ok(catalogo.size >= 10, `solo ${catalogo.size} arquetipos de NPC tutorial`);
+  assert.ok(catalogo.size >= 10, `solo ${catalogo.size} arquetipos de NPC tutorial/lore`);
   const items = require("../../items/catalogo/items.json");
   for (const [id, npc] of catalogo) {
     assert.strictEqual(npc.id, id, `catálogo mal indexado en ${id}`);
     assert.ok(npc.nombre.trim().length > 0, `${id} sin nombre`);
-    assert.ok(npc.mecanica.trim().length > 0, `${id} sin mecánica que explique`);
+    assert.ok(npc.mecanica.trim().length > 0, `${id} sin mecánica/tema que explique`);
     assert.ok(Object.keys(npc.equipo).length > 0, `${id} sale desnudo — sin equipo`);
     for (const itemId of Object.values(npc.equipo)) {
       assert.ok(items[itemId], `${id} viste "${itemId}", que no existe en items/catalogo/items.json`);
     }
+  }
+});
+
+test("catálogo de NPCs lore (pedido 2026-08-31): al menos 4-5 narradores, categoria correcta", () => {
+  const catalogo = cargarCatalogoNpcsTutoriales();
+  const lore = [...catalogo.values()].filter((n) => n.categoria === "lore");
+  assert.ok(lore.length >= 4, `solo ${lore.length} NPC de lore, se pidieron 4-5`);
+  for (const n of lore) assert.ok(n.titulo && n.titulo.trim().length > 0, `${n.id}: NPC de lore sin título de sabor`);
+});
+
+test("cargarLoreTexto: en caliente (sin caché) — rellenar una clave se nota sin reiniciar el proceso", () => {
+  const ruta = path.join(__dirname, "..", "..", "poblacion", "catalogo", "loreTexto.json");
+  const original = fs.readFileSync(ruta, "utf8");
+  try {
+    assert.deepStrictEqual(cargarLoreTexto(), {}, "vacío por defecto, tal cual viene el repo");
+    fs.writeFileSync(ruta, JSON.stringify({ textos: { lore_fundacion: "Hace mil años..." } }), "utf8");
+    assert.strictEqual(cargarLoreTexto().lore_fundacion, "Hace mil años...", "debería leer el archivo de nuevo, sin caché");
+  } finally {
+    fs.writeFileSync(ruta, original, "utf8"); // deja el catálogo real tal cual estaba
   }
 });

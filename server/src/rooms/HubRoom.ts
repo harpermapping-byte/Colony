@@ -27,7 +27,7 @@ import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
 import { UnidadCombate, calcularIniciativa, simularCombateAutomatico } from "../combate/arenaCombate";
 import { TIPO, tipoEn, medioEn, casillaAguaCercana } from "../mundo/colisiones";
 import { cooldownNpcHablarMs } from "../personaje/bonusAtributos";
-import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa, cargarCatalogoNpcsTutoriales } from "../mundo/npcsFijos";
+import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa, cargarCatalogoNpcsTutoriales, cargarLoreTexto } from "../mundo/npcsFijos";
 
 // Lee un `sector_XXX_YYY.json` bakeado y devuelve solo sus objetos de
 // fauna (t==="a") con coordenadas GLOBALAS de casilla — mismo formato de
@@ -384,17 +384,24 @@ export class HubRoom extends RoomExteriorBase {
       // rate-limit por jugador (GDD_Mecanicas §5.12, "rate-limit por
       // mensaje" pendiente): sin esto un cliente puede spamear el handler y
       // agotar la cuota gratuita de Gemini/Groq para todos los jugadores.
-      // NPC tutorial (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30):
-      // "texto predefinido a modo tutorial" — el texto EN SÍ todavía no
-      // está escrito ("ahora no se hace ese texto", pedido explícito), así
-      // que responde con un placeholder que nombra la mecánica en vez de
-      // gastar cuota de Gemini/Groq en una IA que no pinta nada aquí.
+      // NPC tutorial/lore (docs/GDD_Profesiones.md ronda 3/4, pedido
+      // 2026-08-30/31): "texto predefinido" — para tutoriales el texto EN
+      // SÍ todavía no está escrito ("ahora no se hace ese texto", pedido
+      // explícito), así que responde con un placeholder que nombra la
+      // mecánica en vez de gastar cuota de Gemini/Groq en una IA que no
+      // pinta nada aquí. Para lore (categoria:"lore"), el texto real vive
+      // en poblacion/catalogo/loreTexto.json — "cuando termine el juego
+      // haré el lore y se pondrá ahí", pedido literal: se lee EN CALIENTE
+      // (sin caché) para que rellenar esa clave más adelante funcione sin
+      // reiniciar el servidor; sin entrada todavía, mismo placeholder que un tutorial.
       const npcTutorial = this.state.npcs.get(msg.npcId);
       if (npcTutorial?.tipoTutorial) {
         const arquetipo = cargarCatalogoNpcsTutoriales().get(npcTutorial.tipoTutorial);
+        const esLore = arquetipo?.categoria === "lore";
+        const loreEscrito = esLore ? cargarLoreTexto()[npcTutorial.tipoTutorial] : undefined;
         client.send("npc:respuesta", {
           npcId: msg.npcId,
-          texto: `[Tutorial pendiente de escribir: ${arquetipo?.mecanica ?? npcTutorial.tipoTutorial}]`,
+          texto: loreEscrito ?? `[${esLore ? "Lore" : "Tutorial"} pendiente de escribir: ${arquetipo?.mecanica ?? npcTutorial.tipoTutorial}]`,
         });
         return;
       }

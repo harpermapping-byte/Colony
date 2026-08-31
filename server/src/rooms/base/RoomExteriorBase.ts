@@ -3344,7 +3344,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   private manejarNpcTutorialCatalogo(client: Client) {
     if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin ve esto" });
-    const catalogo = [...cargarCatalogoNpcsTutoriales().values()].map((n) => ({ id: n.id, nombre: n.nombre, mecanica: n.mecanica }));
+    const catalogo = [...cargarCatalogoNpcsTutoriales().values()].map((n) => ({ id: n.id, categoria: n.categoria ?? "tutorial", nombre: n.nombre, titulo: n.titulo, mecanica: n.mecanica }));
     client.send("admin:npcTutorial:catalogo", { npcs: catalogo });
   }
 

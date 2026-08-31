@@ -1,0 +1,4 @@
+{
+  "_nota": "docs/GDD_Poblacion_NPCs.md (pedido 2026-08-31): texto REAL del lore que cuenta cada NPC 'lore' de poblacion/catalogo/npcsTutoriales.json (categoria:\"lore\") al hablarle — 'cuando termine el juego haré el lore y se pondrá ahí'. Clave = id del NPC en npcsTutoriales.json, valor = el texto que dirá. Vacío hoy a propósito: server/src/rooms/HubRoom.ts lee este archivo EN CALIENTE (sin caché, sin reiniciar el servidor) en cada npc:hablar — un id SIN entrada aquí devuelve el mismo placeholder que un NPC tutorial sin texto. Añadir una clave nueva (o rellenar una ya presente) la pone en juego al instante.",
+  "textos": {}
+}
