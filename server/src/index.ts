@@ -2,16 +2,6 @@ import { createServer } from "http";
 import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { Encoder } from "@colyseus/schema";
-
-// El BUFFER_SIZE por defecto (8KB) se quedó corto y tumbaba el proceso
-// entero con "buffer overflow" (encontrado probando la Test Zone
-// 2026-08-31: 12 POIs + fauna + NPCs fijos + contenedores en un solo mapa
-// hacen que el primer parche de estado completo supere los 8KB). Colyseus
-// no reintenta ni degrada: es una excepción no capturada que mata el
-// servidor. 64KB da margen de sobra para asentamientos grandes futuros sin
-// coste real (es solo el tamaño del buffer de codificación reusado, no
-// memoria por jugador).
-Encoder.BUFFER_SIZE = 64 * 1024;
 import { HubRoom } from "./rooms/HubRoom";
 import { RegionRoom } from "./rooms/RegionRoom";
 import { InteriorRoom } from "./rooms/InteriorRoom";
@@ -27,6 +17,16 @@ import { manejarPeticionAdmin } from "./admin/rutasAdmin";
 import { sembrarCuentasAdminIniciales } from "./admin/seedAdmin";
 import { cargarPvpDesdeBd } from "./mundo/pvp";
 import { cargarNombreCapitalDesdeBd } from "./mundo/capital";
+
+// El BUFFER_SIZE por defecto (8KB) se quedó corto y tumbaba el proceso
+// entero con "buffer overflow" (encontrado probando la Test Zone
+// 2026-08-31: 12 POIs + fauna + NPCs fijos + contenedores en un solo mapa
+// hacen que el primer parche de estado completo supere los 8KB). Colyseus
+// no reintenta ni degrada: es una excepción no capturada que mata el
+// servidor. 64KB da margen de sobra para asentamientos grandes futuros sin
+// coste real (es solo el tamaño del buffer de codificación reusado, no
+// memoria por jugador).
+Encoder.BUFFER_SIZE = 64 * 1024;
 
 const port = Number(process.env.PORT) || 2567;
 
