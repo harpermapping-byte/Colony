@@ -27,6 +27,33 @@ export interface Punto {
  * (mundo/mapaColision.ts) — tierra transitable = coste 1, agua/sólido =
  * bloqueado. `null` si no hay camino (islas separadas por agua, por ejemplo).
  */
+/**
+ * Un punto de origen/destino REAL suele ser la propia casilla ocupada de una
+ * construcción (colisión=true: el mueble/edificio endurece su huella) — si
+ * se le pasa tal cual a `aEstrella`, esa casilla es SÓLIDA (coste Infinity),
+ * el A* nunca la alcanza y acaba explorando el mapa VIVO entero (3200x3200,
+ * "find-min" O(n) por iteración) antes de rendirse: un cuelgue práctico, no
+ * un fallo. Encontrado 2026-08-31 depurando transporte→cofre. Igual que
+ * `casillaPisableMasCercana` (mundo/mapaColision.ts, mundo/interiorColision.ts):
+ * anillo creciente hasta la primera casilla no sólida, radio acotado porque
+ * solo hace falta salir de la propia huella (edificios reales siempre tienen
+ * tierra alrededor).
+ */
+function casillaTransitableCercana(mundo: MundoColision, x: number, y: number, radioMax = 12): Punto {
+  if (mundo.casillas[y * mundo.ancho + x] !== TIPO.SOLIDO) return { x, y };
+  for (let r = 1; r <= radioMax; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // solo el anillo
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= mundo.ancho || ny >= mundo.alto) continue;
+        if (mundo.casillas[ny * mundo.ancho + nx] !== TIPO.SOLIDO) return { x: nx, y: ny };
+      }
+    }
+  }
+  return { x, y }; // rodeada de sólido a 12 casillas: no debería pasar en un edificio real
+}
+
 export function calcularCaminoRuntime(mundo: MundoColision, origen: Punto, destino: Punto): Punto[] | null {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { aEstrella } = require(RUTA_GEOMETRIA_CIUDADES) as {
@@ -51,5 +78,15 @@ export function calcularCaminoRuntime(mundo: MundoColision, origen: Punto, desti
   if (ox < 0 || oy < 0 || ox >= mundo.ancho || oy >= mundo.alto) return null;
   if (dx < 0 || dy < 0 || dx >= mundo.ancho || dy >= mundo.alto) return null;
 
-  return aEstrella(mundo.ancho, mundo.alto, { x: ox, y: oy }, { x: dx, y: dy }, costeDe);
+  const inicio = casillaTransitableCercana(mundo, ox, oy);
+  const fin = casillaTransitableCercana(mundo, dx, dy);
+
+  const camino = aEstrella(mundo.ancho, mundo.alto, inicio, fin, costeDe);
+  if (!camino) return null;
+  // reintroduce las puntas originales (la propia huella del edificio) si el
+  // snap las movió, para que el paseo visual del NPC siga naciendo/muriendo
+  // exactamente en la construcción, no en la casilla vecina.
+  if (inicio.x !== ox || inicio.y !== oy) camino.unshift({ x: ox, y: oy });
+  if (fin.x !== dx || fin.y !== dy) camino.push({ x: dx, y: dy });
+  return camino;
 }

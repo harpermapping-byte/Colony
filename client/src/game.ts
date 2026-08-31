@@ -691,6 +691,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // tampoco tiene UI todavía — mismo criterio que asignarParcela arriba.
       comprarPlantilla: (construccionId: number) => room.send("plantilla:comprar", { construccionId }),
       ultimaPlantillaColocada: () => ultimaPlantillaColocada,
+      // docs/GDD_Produccion.md §3ter: transporte y cofres tampoco tienen UI
+      // todavía (transporte:*/cofre:* son protocolo puro) — mismo criterio.
+      contratarTransporte: (origenConstruccionId: number, destino: { destinoTenderoteId?: string; destinoConstruccionId?: number }) =>
+        room.send("transporte:contratar", { origenConstruccionId, ...destino }),
+      consultarCofre: (construccionId: number) => room.send("cofre:consultar", { construccionId }),
+      meterEnCofre: (construccionId: number, instanciaId: number) => room.send("cofre:meterItem", { construccionId, instanciaId }),
+      sacarDeCofre: (construccionId: number, instanciaId: number) => room.send("cofre:sacarItem", { construccionId, instanciaId }),
       errores: () => erroresConstruir,
     };
 
@@ -817,6 +824,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // esto es solo para que quede constancia en consola mientras no haya panel dedicado.
   room.onMessage("companero:actualizado", (m: { ubicacion: string; propiedadId?: string }) => console.log("[compañero]", m));
   room.onMessage("plantilla:actualizada", (m: { construccionId: number; trabajadorAsignado?: boolean }) => console.log("[plantilla]", m));
+  // Transporte y cofres (docs/GDD_Produccion.md §3ter) — sin panel propio
+  // todavía (protocolo puro, ver sonda __construccion arriba), solo consola.
+  room.onMessage("transporte:error", (m: { motivo: string }) => console.log("[transporte]", m?.motivo));
+  room.onMessage("cofre:error", (m: { motivo: string }) => console.log("[cofre]", m?.motivo));
+  room.onMessage("cofre:estado", (m: unknown) => console.log("[cofre] estado", m));
   const leerAnatomiaVista = (schema: any): Record<Zona, EstadoZonaVista> => {
     const vista = {} as Record<Zona, EstadoZonaVista>;
     for (const zona of ZONAS) {

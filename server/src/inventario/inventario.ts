@@ -285,6 +285,43 @@ export function buscarHueco(
   return null;
 }
 
+/**
+ * Cuántas unidades MÁS de `itemId` caben en `contenedor` ahora mismo — hueco
+ * en pilas ya abiertas (hasta `stackMax`) + casillas libres × unidades por
+ * pila (docs/GDD_Produccion.md §3ter, pedido 2026-08-31: transporte a un
+ * cofre necesita saber el hueco disponible ANTES de resolver, igual que ya
+ * hacía con el hueco "infinito" de un tenderete — `resolverTransporte` capa
+ * el número de viajes por este valor, nunca por lo que `agregarItem` decida
+ * a posteriori). Escaneo simple sobre `buscarHueco` repetido en una copia
+ * barata (solo cuenta casillas, no muta el contenedor real).
+ */
+export function capacidadLibre(contenedor: Contenedor, catalogo: CatalogoItems, itemId: string): number {
+  const entrada = catalogo[itemId];
+  if (!entrada) return 0;
+  let libre = 0;
+  if (entrada.apilable) {
+    const tope = entrada.stackMax ?? Infinity;
+    for (const it of contenedor.items) {
+      if (it.itemId === itemId && it.cantidad < tope) libre += tope - it.cantidad;
+    }
+    if (libre === Infinity) return Infinity;
+  }
+  // Casillas libres restantes: simula colocar pilas nuevas una a una sobre
+  // una COPIA barata (nunca muta `contenedor`) hasta que no quepa más — así
+  // no hay que reimplementar el "hueco solapado" de hayHueco/buscarHueco
+  // para huellas >1x1, ni sobre-contar posiciones que se pisan entre sí.
+  const porCasilla = entrada.apilable ? (entrada.stackMax ?? Infinity) : 1;
+  if (porCasilla === Infinity) return Infinity;
+  const copia: Contenedor = { ancho: contenedor.ancho, alto: contenedor.alto, items: contenedor.items.map((it) => ({ ...it })), siguienteId: contenedor.siguienteId };
+  let hueco = buscarHueco(copia, catalogo, itemId);
+  while (hueco) {
+    copia.items.push({ id: copia.siguienteId++, itemId, cantidad: porCasilla, x: hueco.x, y: hueco.y, rot: 0 });
+    libre += porCasilla;
+    hueco = buscarHueco(copia, catalogo, itemId);
+  }
+  return libre;
+}
+
 export interface ResultadoAgregar {
   ok: boolean;
   motivo?: "sin_hueco" | "item_desconocido";

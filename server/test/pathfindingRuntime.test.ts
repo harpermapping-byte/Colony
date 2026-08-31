@@ -62,3 +62,37 @@ test("calcularCaminoRuntime: fuera de los límites del mapa devuelve null en vez
   assert.strictEqual(calcularCaminoRuntime(mundo, { x: -1, y: 2 }, { x: 5, y: 5 }), null);
   assert.strictEqual(calcularCaminoRuntime(mundo, { x: 2, y: 2 }, { x: 999, y: 5 }), null);
 });
+
+// Bug real encontrado 2026-08-31 depurando transporte→cofre: origen/destino
+// de un contrato suelen ser la PROPIA casilla ocupada de una construcción
+// (colisión=true endurece su huella) — pasada tal cual a aEstrella, esa
+// casilla es sólida (coste Infinity) e inalcanzable, y el A* exploraba el
+// mapa VIVO entero antes de rendirse (un cuelgue práctico en 3200x3200, aquí
+// reproducido en un mapa de test pequeño para que sea instantáneo).
+test("calcularCaminoRuntime: destino sobre su propia casilla sólida (huella de una construcción) — encuentra camino igualmente", () => {
+  const mundo = mundoVacio();
+  mundo.casillas[2 * ANCHO + 10] = TIPO.SOLIDO; // "arcón" plantado en (10,2), rodeado de tierra
+  const camino = calcularCaminoRuntime(mundo, { x: 2, y: 2 }, { x: 10, y: 2 });
+  assert.ok(camino, "debe encontrar camino aunque el propio destino sea sólido");
+  assert.strictEqual(camino![camino!.length - 1].x, 10, "la punta del camino sigue siendo la casilla original del destino");
+  assert.strictEqual(camino![camino!.length - 1].y, 2);
+});
+
+test("calcularCaminoRuntime: origen sobre su propia casilla sólida — encuentra camino igualmente", () => {
+  const mundo = mundoVacio();
+  mundo.casillas[2 * ANCHO + 2] = TIPO.SOLIDO; // "colmena" plantada en (2,2)
+  const camino = calcularCaminoRuntime(mundo, { x: 2, y: 2 }, { x: 10, y: 2 });
+  assert.ok(camino, "debe encontrar camino aunque el propio origen sea sólido");
+  assert.strictEqual(camino![0].x, 2, "la punta del camino sigue siendo la casilla original del origen");
+  assert.strictEqual(camino![0].y, 2);
+});
+
+test("calcularCaminoRuntime: origen Y destino ambos sobre su propia casilla sólida, uno junto al otro (caso real del cofre)", () => {
+  const mundo = mundoVacio();
+  mundo.casillas[2 * ANCHO + 5] = TIPO.SOLIDO; // colmena
+  mundo.casillas[2 * ANCHO + 7] = TIPO.SOLIDO; // arcón, 2 casillas más allá
+  const camino = calcularCaminoRuntime(mundo, { x: 5, y: 2 }, { x: 7, y: 2 });
+  assert.ok(camino, "camino corto entre dos construcciones vecinas, ambas sólidas en su propia casilla");
+  assert.strictEqual(camino![0].x, 5);
+  assert.strictEqual(camino![camino!.length - 1].x, 7);
+});

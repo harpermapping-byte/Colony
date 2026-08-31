@@ -50,6 +50,7 @@ import {
   calcularStatsEquipo,
   SLOTS_CONTENEDOR,
   comidaSirveParaDieta,
+  capacidadLibre,
 } from "../../inventario/inventario";
 import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
@@ -61,6 +62,7 @@ import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
 import {
   ContextoConstruccion,
+  ConstruccionViva,
   validarColocacion,
   aplicarColocacion,
   quitarConstruccion,
@@ -227,6 +229,20 @@ const RADIO_PLANTILLAS_JARL_CASILLAS = Number(process.env.RADIO_PLANTILLAS_JARL_
 const COSTE_TRABAJADOR_FARYCOINS = 50;
 const CARGA_POR_VIAJE_TRANSPORTE = 10;
 const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar un ítem nunca antes vendido ahí — el dueño lo ajusta con tenderete:fijarPrecio
+const PREFIJO_DESTINO_COFRE = "cofre:";
+
+/** docs/GDD_Produccion.md §3ter — id de construcción si `destino` es un cofre ("cofre:<id>"), null si es una propiedadId de tenderete normal. */
+function idDeCofre(destino: string): number | null {
+  if (!destino.startsWith(PREFIJO_DESTINO_COFRE)) return null;
+  const id = Number(destino.slice(PREFIJO_DESTINO_COFRE.length));
+  return Number.isFinite(id) ? id : null;
+}
+
+/** Tamaño real del contenedor de un cofre — `almacenamientoCofre` ya viene precalculado en el catálogo (raíz cuadrada de `aportes.almacenamiento`); 3x3 de reserva si el catálogo no lo trae por lo que sea. */
+function capacidadCofre(entrada: EntradaConstruible | undefined): [number, number] {
+  const lado = entrada?.almacenamientoCofre ?? 3;
+  return [lado, lado];
+}
 
 // --- Crafteo (docs/GDD_Crafteo.md) — placeholder de balance, mismo criterio que el resto ---
 const XP_POR_CRAFTEO = 20;
@@ -860,9 +876,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
-    this.onMessage("transporte:contratar", (client, msg: { origenConstruccionId?: number; destinoTenderoteId?: string }) => this.manejarTransporteContratar(client, msg));
+    this.onMessage("transporte:contratar", (client, msg: { origenConstruccionId?: number; destinoTenderoteId?: string; destinoConstruccionId?: number }) => this.manejarTransporteContratar(client, msg));
     this.onMessage("transporte:cancelar", (client, msg: { contratoId?: number }) => this.manejarTransporteCancelar(client, msg));
     this.onMessage("transporte:estado", (client) => this.manejarTransporteEstado(client));
+    // Cofre de construcción (docs/GDD_Produccion.md §3ter, pedido 2026-08-31).
+    this.onMessage("cofre:consultar", (client, msg: { construccionId?: number }) => void this.manejarCofreConsultar(client, msg));
+    this.onMessage("cofre:meterItem", (client, msg: { construccionId?: number; instanciaId?: number }) => void this.manejarCofreMeterItem(client, msg));
+    this.onMessage("cofre:sacarItem", (client, msg: { construccionId?: number; instanciaId?: number }) => void this.manejarCofreSacarItem(client, msg));
 
     // --- red motriz (docs/GDD_Motriz.md) — mismo criterio: disponible en
     // cualquier room con ContextoConstruccion, no-op si no lo hay.
@@ -4853,18 +4873,33 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const datosProduccion = this.entradaDe(origenViva.objeto)?.produccion;
     if (!datosProduccion) return;
 
+    // Cofre (docs/GDD_Produccion.md §3ter, pedido 2026-08-31: "destino
+    // flexible a cofre/almacén sin Mercado") — MISMO contrato, MISMO campo
+    // `destinoTenderoteId`, solo que su valor lleva el prefijo "cofre:<id>"
+    // en vez de una propiedadId (mismo criterio "tipo codificado en el id"
+    // ya usado por "pt_"/"i_"/"h_" en la tabla `propiedades`). El cofre
+    // destino tiene tope REAL (a diferencia de un tenderete), así que hay
+    // que resolverlo ANTES de saber cuántos viajes caben.
+    const idCofre = idDeCofre(contrato.destinoTenderoteId);
+    const destinoCofre = idCofre != null ? ctx.vivas.get(idCofre) : undefined;
+    if (idCofre != null && !destinoCofre) return; // el cofre ya no existe en esta room
+
     const bd = await obtenerBdCompartida();
     const ahora = Date.now();
     const extraActual = (origenViva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
     const estadoPrevio: EstadoProduccion = extraActual.produccion ?? { stock: 0, ultimoCalculo: ahora };
     const producidoActualizado = await this.resolverProduccionConInsumos(origenViva.propiedad, estadoPrevio, datosProduccion, ahora);
 
+    const extraCofre = destinoCofre ? ((destinoCofre.extra ?? {}) as { contenedor?: Contenedor; [k: string]: unknown }) : undefined;
+    const contenedorCofre = destinoCofre ? (extraCofre!.contenedor ?? crearContenedor(...capacidadCofre(this.entradaDe(destinoCofre.objeto)))) : undefined;
+    const huecoDisponible = contenedorCofre ? capacidadLibre(contenedorCofre, this.catalogoItems, contrato.itemId) : Infinity; // el tenderete no tiene tope propio (docs/GDD_Mercado.md)
+
     const { transportado, nuevoUltimoResuelto } = resolverTransporte(
       new Date(contrato.ultimoViajeResuelto).getTime(),
       ahora,
       { duracionViajeSeg: contrato.duracionViajeSeg, cargaPorViaje: contrato.cargaPorViaje },
       producidoActualizado.stock,
-      Infinity, // el tenderete destino no tiene tope propio (docs/GDD_Mercado.md: la lista de venta no limita cantidad)
+      huecoDisponible,
     );
     const transportadoEntero = Math.floor(transportado);
 
@@ -4877,7 +4912,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     origenViva.extra = { ...extraActual, produccion: { ...producidoActualizado, stock: producidoActualizado.stock - transportadoEntero } };
     await bd.actualizarExtraConstruccion(origenViva.id, origenViva.extra);
-    await bd.sumarStockTenderete(contrato.destinoTenderoteId, contrato.itemId, transportadoEntero, PRECIO_INICIAL_TRANSPORTE_FARYCOINS);
+    if (destinoCofre && contenedorCofre) {
+      agregarItem(contenedorCofre, this.catalogoItems, contrato.itemId, transportadoEntero);
+      destinoCofre.extra = { ...extraCofre, contenedor: contenedorCofre };
+      await bd.actualizarExtraConstruccion(destinoCofre.id, destinoCofre.extra);
+    } else {
+      await bd.sumarStockTenderete(contrato.destinoTenderoteId, contrato.itemId, transportadoEntero, PRECIO_INICIAL_TRANSPORTE_FARYCOINS);
+    }
     await bd.actualizarUltimoViajeContrato(contrato.id, new Date(nuevoUltimoResuelto).toISOString());
   }
 
@@ -6032,26 +6073,48 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * rejilla — transportar entre dos regiones distintas no está soportado
    * en v1). El camino se calcula UNA VEZ aquí y se cachea para siempre.
    */
-  private async manejarTransporteContratar(client: Client, msg: { origenConstruccionId?: number; destinoTenderoteId?: string }) {
+  private async manejarTransporteContratar(
+    client: Client,
+    msg: { origenConstruccionId?: number; destinoTenderoteId?: string; destinoConstruccionId?: number },
+  ) {
     const nombre = this.nombreDe(client);
     const ctx = this.ctxConstruccion;
-    if (!nombre || !ctx || typeof msg?.origenConstruccionId !== "number" || !msg.destinoTenderoteId) return;
+    if (!nombre || !ctx || typeof msg?.origenConstruccionId !== "number") return;
+    if (!msg.destinoTenderoteId && typeof msg.destinoConstruccionId !== "number") return;
 
     const origenViva = ctx.vivas.get(msg.origenConstruccionId);
     if (!origenViva) return this.errorTransporte(client, "construcción de origen inexistente");
     const duenoOrigen = ctx.propiedades.get(origenViva.propiedad)?.dueno ?? (await this.duenoDeTenderete(origenViva.propiedad));
     if (!duenoOrigen || duenoOrigen.toLowerCase() !== nombre.toLowerCase()) return this.errorTransporte(client, "no eres el dueño del origen");
 
-    const duenoDestino = await this.duenoDeTenderete(msg.destinoTenderoteId);
-    if (!duenoDestino || duenoDestino.toLowerCase() !== nombre.toLowerCase()) return this.errorTransporte(client, "no eres el dueño del destino");
+    // Destino: un tenderete normal (propiedadId, camino de siempre) O un
+    // cofre (docs/GDD_Produccion.md §3ter, pedido 2026-08-31: "destino
+    // flexible a cofre/almacén sin Mercado") — una construcción concreta
+    // `esContenedor:true`, direccionada como "cofre:<id>" en el MISMO campo
+    // `destinoTenderoteId` del contrato (mismo criterio "tipo en el id" que
+    // pt_/i_/h_ en `propiedades`).
+    let destino: string;
+    let destinoPunto: { x: number; y: number } | null;
+    if (typeof msg.destinoConstruccionId === "number") {
+      const cofreViva = ctx.vivas.get(msg.destinoConstruccionId);
+      if (!cofreViva) return this.errorTransporte(client, "ese cofre no existe aquí");
+      if (!this.entradaDe(cofreViva.objeto)?.esContenedor) return this.errorTransporte(client, "eso no es un cofre");
+      const duenoCofre = ctx.propiedades.get(cofreViva.propiedad)?.dueno ?? (await this.duenoDeTenderete(cofreViva.propiedad));
+      if (!duenoCofre || duenoCofre.toLowerCase() !== nombre.toLowerCase()) return this.errorTransporte(client, "no eres el dueño del cofre");
+      destino = `${PREFIJO_DESTINO_COFRE}${cofreViva.id}`;
+      destinoPunto = { x: cofreViva.x, y: cofreViva.y };
+    } else {
+      destino = msg.destinoTenderoteId!;
+      const duenoDestino = await this.duenoDeTenderete(destino);
+      if (!duenoDestino || duenoDestino.toLowerCase() !== nombre.toLowerCase()) return this.errorTransporte(client, "no eres el dueño del destino");
+      destinoPunto = this.puntoDePropiedad(destino);
+    }
+    if (!destinoPunto) return this.errorTransporte(client, "destino desconocido en esta región");
 
     const datos = this.entradaDe(origenViva.objeto)?.produccion;
     if (!datos) return this.errorTransporte(client, "el origen no produce nada transportable");
 
     const origenPunto = { x: origenViva.x, y: origenViva.y };
-    const destinoPunto = this.puntoDePropiedad(msg.destinoTenderoteId);
-    if (!destinoPunto) return this.errorTransporte(client, "destino desconocido en esta región");
-
     const caminoIda = calcularCaminoRuntime(this.mundo, origenPunto, destinoPunto);
     if (!caminoIda || caminoIda.length < 2) return this.errorTransporte(client, "no hay camino posible hasta el destino");
     const caminoVuelta = [...caminoIda].reverse();
@@ -6060,7 +6123,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const contrato = await bd.crearContratoTransporte({
-      origenConstruccionId: origenViva.id, destinoTenderoteId: msg.destinoTenderoteId, dueno: jugador.id,
+      origenConstruccionId: origenViva.id, destinoTenderoteId: destino, dueno: jugador.id,
       itemId: datos.itemId, caminoIda, caminoVuelta, duracionViajeSeg, cargaPorViaje: CARGA_POR_VIAJE_TRANSPORTE,
     });
 
@@ -6097,6 +6160,103 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const nombre = this.nombreDe(client);
     if (!nombre) return;
     client.send("transporte:estado", await this.listadoTransporte(nombre));
+  }
+
+  // ---- Cofre de construcción (docs/GDD_Produccion.md §3ter, pedido
+  // 2026-08-31: "destino flexible a cofre/almacén sin Mercado") — activa lo
+  // mínimo de `esContenedor` (docs/GDD_Inventario.md §7, pendiente en
+  // general) que hace falta para que un mueble contenedor sea un destino de
+  // transporte real: guardar/leer su Contenedor, meterle/sacarle cosas a
+  // mano. Sin drag&drop ni picker visual todavía — mismo criterio de
+  // esqueleto que companero:darItem/quitarItem (instanciaId crudo).
+
+  private errorCofre(client: Client, motivo: string) {
+    client.send("cofre:error", { motivo });
+  }
+
+  /** ¿`viva` es un cofre real? Devuelve su entrada de catálogo o null si no. */
+  private cofreDe(viva: ConstruccionViva): EntradaConstruible | null {
+    const entrada = this.entradaDe(viva.objeto);
+    return entrada?.esContenedor ? entrada : null;
+  }
+
+  /** dueño de la construcción (o jarl) — mismo criterio que produccion:recolectar. */
+  private async esDuenoOJarlDe(ctx: ContextoConstruccion, propiedad: string, nombre: string): Promise<boolean> {
+    const dueno = ctx.propiedades.get(propiedad)?.dueno ?? (await this.duenoDeTenderete(propiedad));
+    return !!dueno && (dueno.toLowerCase() === nombre.toLowerCase() || esJarl(ctx, nombre));
+  }
+
+  private contenedorDeCofre(viva: ConstruccionViva, entrada: EntradaConstruible): Contenedor {
+    const extra = (viva.extra ?? {}) as { contenedor?: Contenedor; [k: string]: unknown };
+    return extra.contenedor ?? crearContenedor(...capacidadCofre(entrada));
+  }
+
+  private async guardarContenedorDeCofre(viva: ConstruccionViva, contenedor: Contenedor) {
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), contenedor };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+  }
+
+  /** Contenido actual de un cofre — dueño o jarl. Resuelve primero cualquier transporte pendiente que entregue aquí (mismo criterio "point-query siempre fresca" que un tenderete). */
+  private async manejarCofreConsultar(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.cofreDe(viva);
+    if (!viva || !entrada) return this.errorCofre(client, "eso no es un cofre");
+    if (!(await this.esDuenoOJarlDe(ctx, viva.propiedad, nombre))) return this.errorCofre(client, "no eres el dueño de este cofre");
+    await this.resolverContratosDeDestino(`${PREFIJO_DESTINO_COFRE}${viva.id}`);
+    const contenedor = this.contenedorDeCofre(viva, entrada);
+    client.send("cofre:estado", { construccionId: viva.id, ancho: contenedor.ancho, alto: contenedor.alto, items: contenedor.items });
+  }
+
+  /** Mete un ítem del CUERPO del jugador en el cofre. */
+  private async manejarCofreMeterItem(client: Client, msg: { construccionId?: number; instanciaId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!nombre || !ctx || !inv || typeof msg?.construccionId !== "number" || typeof msg?.instanciaId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.cofreDe(viva);
+    if (!viva || !entrada) return this.errorCofre(client, "eso no es un cofre");
+    if (!(await this.esDuenoOJarlDe(ctx, viva.propiedad, nombre))) return this.errorCofre(client, "no eres el dueño de este cofre");
+    const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return this.errorCofre(client, "no tienes ese ítem");
+    const contenedor = this.contenedorDeCofre(viva, entrada);
+    const hueco = buscarHueco(contenedor, this.catalogoItems, it.itemId);
+    if (!hueco) return this.errorCofre(client, "el cofre está lleno");
+    const r = moverItem(inv.cuerpo, contenedor, this.catalogoItems, msg.instanciaId, hueco.x, hueco.y, 0);
+    if (!r.ok) return this.errorCofre(client, r.motivo ?? "no se pudo meter el ítem");
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    await this.guardarContenedorDeCofre(viva, contenedor);
+    client.send("cofre:estado", { construccionId: viva.id, ancho: contenedor.ancho, alto: contenedor.alto, items: contenedor.items });
+  }
+
+  /** Saca un ítem del cofre al CUERPO del jugador. */
+  private async manejarCofreSacarItem(client: Client, msg: { construccionId?: number; instanciaId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!nombre || !ctx || !inv || typeof msg?.construccionId !== "number" || typeof msg?.instanciaId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    const entrada = viva && this.cofreDe(viva);
+    if (!viva || !entrada) return this.errorCofre(client, "eso no es un cofre");
+    if (!(await this.esDuenoOJarlDe(ctx, viva.propiedad, nombre))) return this.errorCofre(client, "no eres el dueño de este cofre");
+    const contenedor = this.contenedorDeCofre(viva, entrada);
+    const it = contenedor.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return this.errorCofre(client, "el cofre no tiene ese ítem");
+    const hueco = buscarHueco(inv.cuerpo, this.catalogoItems, it.itemId);
+    if (!hueco) return this.errorCofre(client, "no tienes hueco");
+    const r = moverItem(contenedor, inv.cuerpo, this.catalogoItems, msg.instanciaId, hueco.x, hueco.y, 0);
+    if (!r.ok) return this.errorCofre(client, r.motivo ?? "no se pudo sacar el ítem");
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    await this.guardarContenedorDeCofre(viva, contenedor);
+    client.send("cofre:estado", { construccionId: viva.id, ancho: contenedor.ancho, alto: contenedor.alto, items: contenedor.items });
   }
 
   // ---- Red motriz (docs/GDD_Motriz.md) ----

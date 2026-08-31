@@ -149,6 +149,17 @@ export interface EntradaConstruible {
    * broadcast para que el resto sepa qué sonido/animación mostrar.
    */
   instrumento?: string;
+  /**
+   * Cofre de transporte (docs/GDD_Produccion.md §3ter, pedido 2026-08-31:
+   * "destino flexible a cofre/almacén sin Mercado") — presente en cualquier
+   * mueble `esContenedor:true` de `elementos.json` (baúl, arcón, armario...).
+   * `almacenamientoCofre` es la rejilla real (lado ≈ raíz cuadrada de
+   * `aportes.almacenamiento`, ya existente en el catálogo como puntuación de
+   * decoración — se reusa, no se inventa un número nuevo) que usa
+   * `crearContenedor` al abrirlo la primera vez.
+   */
+  esContenedor?: boolean;
+  almacenamientoCofre?: number;
 }
 
 export interface EntradaActividadAtributo {
@@ -203,6 +214,9 @@ interface EntradaElemento {
   nivelOficioMinimo?: { oficio: string; nivel: number };
   mejoraMesa?: { mesa: string; tipo: "velocidad" | "cantidad"; bonus: number };
   instrumento?: string;
+  /** docs/GDD_Produccion.md §3ter — mueble de almacenamiento (baúl/arcón/armario...). `aportes.almacenamiento` ya existía en el catálogo (puntuación de decoración, `interiores/`) — se reusa como pista de tamaño real del contenedor. */
+  esContenedor?: boolean;
+  aportes?: { almacenamiento?: number };
 }
 
 interface EntradaExterior {
@@ -264,6 +278,8 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       esCama: d.esCama,
       nivelOficioMinimo: d.nivelOficioMinimo,
       instrumento: d.instrumento,
+      esContenedor: d.esContenedor,
+      almacenamientoCofre: d.esContenedor ? Math.max(2, Math.round(Math.sqrt(d.aportes?.almacenamiento ?? 9))) : undefined,
     });
   }
 

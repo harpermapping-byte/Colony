@@ -21,6 +21,7 @@ import {
   InventarioJugador,
   CatalogoItems,
   comidaSirveParaDieta,
+  capacidadLibre,
 } from "../src/inventario/inventario";
 
 const catalogo: CatalogoItems = cargarCatalogoItems();
@@ -115,6 +116,45 @@ test("agregarItem: ítem desconocido no revienta, devuelve motivo claro", () => 
   const r = agregarItem(c, catalogo, "esto_no_existe", 1);
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.motivo, "item_desconocido");
+});
+
+// --- capacidadLibre (docs/GDD_Produccion.md §3ter, pedido 2026-08-31: hueco
+// real de un cofre ANTES de resolver un transporte, no a posteriori) ---
+
+test("capacidadLibre: contenedor vacío, apilable — 16 casillas × stackMax cada una", () => {
+  const c = crearContenedor(4, 4);
+  const stackMax = catalogo["hierro"].stackMax!;
+  assert.strictEqual(capacidadLibre(c, catalogo, "hierro"), 16 * stackMax);
+});
+
+test("capacidadLibre: exactamente lo que agregarItem consigue meter, ni más ni menos", () => {
+  const c = crearContenedor(2, 2);
+  const libre = capacidadLibre(c, catalogo, "hierro");
+  const r = agregarItem(c, catalogo, "hierro", libre);
+  assert.ok(r.ok, "debe caber justo lo que capacidadLibre prometió");
+  assert.strictEqual(capacidadLibre(c, catalogo, "hierro"), 0, "ya no cabe ni una unidad más");
+  const rDeMas = agregarItem(c, catalogo, "hierro", 1);
+  assert.strictEqual(rDeMas.ok, false, "una unidad de más ya no cabe, confirma el límite exacto");
+});
+
+test("capacidadLibre: descuenta el hueco YA usado en una pila abierta a medias", () => {
+  const c = crearContenedor(4, 4);
+  const stackMax = catalogo["hierro"].stackMax!;
+  agregarItem(c, catalogo, "hierro", 3); // abre una pila con 3, deja stackMax-3 de hueco ahí
+  assert.strictEqual(capacidadLibre(c, catalogo, "hierro"), 15 * stackMax + (stackMax - 3));
+});
+
+test("capacidadLibre: ítem NO apilable con huella >1x1 — cuenta huecos reales, sin solaparse consigo mismo", () => {
+  const c = crearContenedor(4, 4); // 16 casillas, hacha_talar ocupa 1x2 → caben 8 sin solape
+  assert.ok(!catalogo["hacha_talar"].apilable, "confirma que es no-apilable, si no el test no prueba lo que dice");
+  assert.strictEqual(capacidadLibre(c, catalogo, "hacha_talar"), 8);
+});
+
+test("capacidadLibre: contenedor lleno devuelve 0; ítem desconocido también", () => {
+  const c = crearContenedor(1, 1);
+  agregarItem(c, catalogo, "hierro", catalogo["hierro"].stackMax!);
+  assert.strictEqual(capacidadLibre(c, catalogo, "hierro"), 0);
+  assert.strictEqual(capacidadLibre(c, catalogo, "esto_no_existe"), 0);
 });
 
 test("hayHueco: respeta límites de la rejilla y el solapamiento real por huella rotada", () => {
