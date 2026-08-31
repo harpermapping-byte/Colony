@@ -607,6 +607,8 @@ export interface IAlmacenDatos {
   /** `null` si el gremio nunca tuvo inventario tocado — quien llame crea uno con `crearContenedor()` por defecto. */
   cargarInventarioGremio(gremioId: number): Promise<Contenedor | null>;
   cargarPropiedades(): Promise<Map<string, Propiedad>>;
+  /** Panel "todo lo que tienes" (docs/GDD_Resumen_Jugador.md, pedido 2026-08-31): TODAS las propiedades (parcela/inmueble/habitacion/plantilla) cuyo dueño es este jugador exacto — mismo shape que `cargarPropiedades`, ya filtrado en SQL en vez de traer la tabla entera y filtrar en memoria. */
+  listarPropiedadesDeJugador(nombre: string): Promise<Array<Propiedad & { id: string }>>;
   asignarPropiedad(id: string, tipo: string, asentamiento: string, duenoNombre: string | null): Promise<void>;
   /** Libera dueño Y cualquier tenencia comercial (modo/precio/periodo/expira) — el jarl revoca cualquier propiedad, compra o alquiler (docs/GDD_Propiedades.md). */
   revocarPropiedad(id: string): Promise<void>;
@@ -2192,6 +2194,18 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return mapa;
   }
 
+  async listarPropiedadesDeJugador(nombre: string): Promise<Array<Propiedad & { id: string }>> {
+    const filas = this.bd
+      .prepare(
+        `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en,
+                p.impuesto_activo, p.impuesto_farycoins, p.impuesto_periodo_horas, p.impuesto_ultimo_cobro
+         FROM propiedades p JOIN jugadores j ON j.id = p.dueno
+         WHERE j.nombre = ?`
+      )
+      .all(nombre);
+    return filas.map((f) => this.filaAPropiedad(f));
+  }
+
   private filaAPropiedad(f: Record<string, unknown>): Propiedad & { id: string } {
     return {
       id: String(f.id),
@@ -3546,6 +3560,21 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       mapa.set(id, propiedad);
     }
     return mapa;
+  }
+
+  async listarPropiedadesDeJugador(nombre: string): Promise<Array<Propiedad & { id: string }>> {
+    const r = await this.pool.query<{
+      id: string; tipo: string; asentamiento: string; dueno: string | null;
+      modo_tenencia: string | null; precio_farycoins: number | null; periodo_horas: number | null; expira_en: string | null;
+      impuesto_activo: boolean | number | null; impuesto_farycoins: number | null; impuesto_periodo_horas: number | null; impuesto_ultimo_cobro: string | null;
+    }>(
+      `SELECT p.id, p.tipo, p.asentamiento, j.nombre AS dueno, p.modo_tenencia, p.precio_farycoins, p.periodo_horas, p.expira_en,
+              p.impuesto_activo, p.impuesto_farycoins, p.impuesto_periodo_horas, p.impuesto_ultimo_cobro
+       FROM propiedades p JOIN jugadores j ON j.id = p.dueno
+       WHERE j.nombre = $1`,
+      [nombre],
+    );
+    return r.rows.map((f) => this.filaAPropiedad(f));
   }
 
   async asignarPropiedad(id: string, tipo: string, asentamiento: string, duenoNombre: string | null): Promise<void> {

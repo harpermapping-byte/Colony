@@ -36,6 +36,7 @@ import { crearBarcoVisual } from "./render3d/barcoVisual";
 import { aplicarAnatomiaCompleta } from "./render3d/anatomiaVisual";
 import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista, type EstadoEnfermedadesVista } from "./personaje/panelMedico";
 import { PanelCompanero } from "./personaje/panelCompanero";
+import { PanelResumen, type PropiedadVista } from "./personaje/panelResumen";
 import { PanelLoginAdmin } from "./admin/panelLoginAdmin";
 import { PanelJarl } from "./admin/panelJarl";
 import { PanelDebugTestZone } from "./admin/panelDebugTestZone";
@@ -981,7 +982,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // otro jugador cercano — cada jugador solo tiene el suyo).
   const companerosVisual = new Map<string, EstadoJugador>();
   const esMiCompanero = (c: any) => c.duenoNombre === room.state.players.get(room.sessionId)?.name;
-  const actualizarPanelCompanero = (c: any) => panelCompanero.actualizarEstado({ nombre: c.nombre, nivel: c.nivel, vida: c.vida, vidaMax: c.vidaMax });
+  const actualizarPanelCompanero = (c: any) => {
+    panelCompanero.actualizarEstado({ nombre: c.nombre, nivel: c.nivel, vida: c.vida, vidaMax: c.vidaMax });
+    panelResumen.actualizarCompanero({ nombre: c.nombre, nivel: c.nivel, vida: c.vida, vidaMax: c.vidaMax, x: c.x, y: c.y, quejaTexto: c.quejaTexto });
+  };
   $(room.state).companeros.onAdd((c: any, id: string) => {
     const vox = voxPorSlot.get(c.npcOrigenSlot);
     const rig = vox ? crearPersonajeVoxel(vox) : crearRigHumanoide({ colorTunica: "#7a6248" });
@@ -1005,7 +1009,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   $(room.state).companeros.onRemove((c: any, id: string) => {
     companerosVisual.delete(id);
     escena.quitarEntidad(`companero_${id}`);
-    if (esMiCompanero(c)) panelCompanero.actualizarEstado(null);
+    if (esMiCompanero(c)) { panelCompanero.actualizarEstado(null); panelResumen.actualizarCompanero(null); }
   });
   // sonda para los tests E2E: cuántos NPCs llegaron del servidor y dónde están
   (window as any).__npcs = () => ({
@@ -1165,12 +1169,21 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     dejarEnPropiedad: (mascotaId, propiedadId) => room.send("mascota:dejarEnPropiedad", { mascotaId, propiedadId }),
     ponerMontura: (mascotaId) => room.send("mascota:ponerMontura", { mascotaId }),
   });
-  room.onMessage("mascota:lista", (lista: MascotaVista[]) => panelMascotas.actualizarListado(lista));
+  room.onMessage("mascota:lista", (lista: MascotaVista[]) => { panelMascotas.actualizarListado(lista); panelResumen.actualizarMascotas(lista); });
   room.onMessage("mascota:progreso", (m: ProgresoDomesticar) => panelMascotas.actualizarProgreso(m));
   room.onMessage("mascota:domesticada", () => { panelMascotas.actualizarProgreso(null); room.send("mascota:listar"); });
   room.onMessage("mascota:actualizada", () => room.send("mascota:listar"));
   room.onMessage("mascota:error", (m: { motivo: string }) => console.log("[mascota]", m?.motivo));
   room.send("mascota:listar");
+
+  // --- Panel "todo lo que tienes" (docs/GDD_Resumen_Jugador.md, pedido
+  // 2026-08-31) — monturas y compañero se apuntan a los mismos flujos de
+  // arriba/abajo, propiedades es el único mensaje nuevo. Tecla Tab.
+  const panelResumen = new PanelResumen({
+    contenedor,
+    consultarPropiedades: () => room.send("propiedad:listarMias"),
+  });
+  room.onMessage("propiedad:misPropiedades", (lista: PropiedadVista[]) => panelResumen.actualizarPropiedades(lista));
 
   // --- Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30) —
   // panel PLACEHOLDER de testeo (ver panelComercio.ts). Tecla T: propone
@@ -1564,6 +1577,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "i" && !teclas.has("i")) {
       panelJugador.alternar();
       if (panelJugador.estaVisible()) panelJugador.actualizar(room.state.players.get(room.sessionId));
+    }
+    // Panel "todo lo que tienes" (docs/GDD_Resumen_Jugador.md, pedido
+    // 2026-08-31): Tab — última tecla libre, las 26 letras ya estaban
+    // todas tomadas; preventDefault evita que el navegador robe el foco.
+    if (k === "tab" && !teclas.has("tab")) {
+      e.preventDefault();
+      panelResumen.alternar();
     }
     // puertas (docs/GDD_Sistema_Puertas.md): F cerca de una la cruza.
     // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): MISMA tecla cruza un

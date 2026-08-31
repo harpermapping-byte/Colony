@@ -897,6 +897,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("mascota:llamar", (client, msg: { mascotaId?: number }) => this.manejarMascotaLlamar(client, msg));
     this.onMessage("mascota:dejarEnPropiedad", (client, msg: { mascotaId?: number; propiedadId?: string }) => this.manejarMascotaDejarEnPropiedad(client, msg));
 
+    // Panel "todo lo que tienes" (docs/GDD_Resumen_Jugador.md, pedido
+    // 2026-08-31) — monturas y compañero YA viajan por sus propios canales
+    // (mascota:lista / room.state.companeros); propiedades es la única pieza
+    // que no existía, así que es el único mensaje nuevo de verdad.
+    this.onMessage("propiedad:listarMias", (client) => this.manejarPropiedadListarMias(client));
+
     // --- Monturas (docs/GDD_Monturas.md, pedido 2026-08-30) ---
     this.onMessage("mascota:ponerMontura", (client, msg: { mascotaId?: number }) => this.manejarMascotaPonerMontura(client, msg));
     this.onMessage("mascota:montar", (client, msg: { mascotaId?: number }) => this.manejarMascotaMontar(client, msg));
@@ -2854,6 +2860,27 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       await bd.guardarContenedor(companeroJugadorId, slot, contenedorExtra);
     }
     await bd.guardarEquipo(companeroJugadorId, inv.equipo);
+  }
+
+  /**
+   * Panel "todo lo que tienes" (docs/GDD_Resumen_Jugador.md, pedido
+   * 2026-08-31): snapshot bajo demanda, mismo criterio que
+   * `manejarMapaConsultarExploracion` — sin push continuo, el cliente pide
+   * fresco cada vez que abre el panel. `bd.listarPropiedadesDeJugador` ya
+   * filtra en SQL (parcela/inmueble/habitacion/plantilla, cualquier tipo)
+   * por el nombre EXACTO del jugador, mismo criterio de identidad v1 que el
+   * resto del proyecto.
+   */
+  private async manejarPropiedadListarMias(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const bd = await obtenerBdCompartida();
+    const propiedades = await bd.listarPropiedadesDeJugador(nombre);
+    client.send("propiedad:misPropiedades", propiedades.map((p) => ({
+      id: p.id, tipo: p.tipo, asentamiento: p.asentamiento,
+      modoTenencia: p.modoTenencia, precioFarycoins: p.precioFarycoins, expiraEn: p.expiraEn,
+      impuestoActivo: p.impuestoActivo, impuestoFarycoins: p.impuestoFarycoins, impuestoPeriodoHoras: p.impuestoPeriodoHoras,
+    })));
   }
 
   private async manejarMascotaListar(client: Client) {

@@ -87,6 +87,27 @@ test("asignar/revocar propiedad: dueño por nombre, revocar deja la fila con due
   await bd.cerrar();
 });
 
+test("listarPropiedadesDeJugador (panel \"todo lo que tienes\"): solo las de ESE jugador exacto, ninguna sin dueño ni de otro", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.asignarPropiedad("p_0001", "parcela", "ciudad", "Bjorn");
+  await bd.asignarPropiedad("i_hub:taberna", "inmueble", "hub", "Bjorn");
+  await bd.asignarPropiedad("p_0002", "parcela", "ciudad", "Floki"); // de otro jugador — no debe salir
+  await bd.asignarPropiedad("p_0003", "parcela", "aldea_norte", null); // sin dueño — no debe salir
+
+  const propias = await bd.listarPropiedadesDeJugador("Bjorn");
+  assert.strictEqual(propias.length, 2);
+  assert.deepStrictEqual(new Set(propias.map((p) => p.id)), new Set(["p_0001", "i_hub:taberna"]));
+  for (const p of propias) assert.strictEqual(p.dueno, "Bjorn");
+
+  // Revocada: deja de salir en el listado (mismo criterio que dueno=null)
+  await bd.revocarPropiedad("p_0001");
+  assert.strictEqual((await bd.listarPropiedadesDeJugador("Bjorn")).length, 1);
+
+  // Un nombre sin ninguna propiedad: lista vacía, no un error
+  assert.deepStrictEqual(await bd.listarPropiedadesDeJugador("NadieAsi"), []);
+  await bd.cerrar();
+});
+
 test("construcciones: insertar/listar/borrar con roundtrip del JSON de extra", async () => {
   const bd = new AlmacenDatos(":memory:");
   await bd.asignarPropiedad("p_0001", "parcela", "ciudad", "Bjorn");
