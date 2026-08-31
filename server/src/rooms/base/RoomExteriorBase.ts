@@ -347,6 +347,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   /** Mesas de minijuego (docs/GDD_Mesas_Minijuego.md) — sessionId -> construccionId de la mesa de ajedrez en la que está sentado (como mucho una a la vez, mismo criterio que comercio). */
   private mesaAjedrezPorSesion = new Map<string, number>();
+  // Asiento genérico (docs/GDD_Personaje.md §3.6bis) — mismo criterio que
+  // `mesaAjedrezPorSesion`/`durmiendo`, pero sin duración ni partida: un
+  // simple toggle sentado/de pie. `asientosOcupados` es el reverso (qué
+  // construcción está ocupada por quién) — a diferencia de `durmiendo`
+  // (varias personas pueden "dormir" a la vez en la misma cama, gap
+  // preexistente sin tocar), un asiento de 1 plaza sí se bloquea de verdad
+  // para no apilar 2 jugadores en la misma silla.
+  private sentadoEn = new Map<string, number>();
+  private asientosOcupados = new Map<number, string>();
   private siguienteComercioId = 1;
   private static readonly VENTANA_SOLICITUD_COMERCIO_MS = 8000;
 
@@ -543,6 +552,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         const durmiente = this.state.players.get(client.sessionId);
         if (durmiente) durmiente.durmiendo = false;
         client.send("dormir:cancelado", {});
+      }
+      // Moverse de verdad también levanta de un asiento genérico (docs/
+      // GDD_Personaje.md §3.6bis) — mismo criterio que dormir, arriba.
+      if (((dir?.x ?? 0) !== 0 || (dir?.y ?? 0) !== 0) && this.sentadoEn.has(client.sessionId)) {
+        this.levantarDeAsiento(client.sessionId);
+        client.send("asiento:cancelado", {});
       }
       // Moverse de verdad también corta la pesca (docs/GDD_Pesca.md) — no
       // tiene sentido seguir "anclado" con la caña lanzada si el jugador se va.
@@ -842,6 +857,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("mesa:levantarse", (client) => this.manejarMesaLevantarse(client));
     this.onMessage("mesa:mover", (client, msg: { construccionId?: number; desde?: string; hasta?: string; promocion?: string }) => this.manejarMesaMover(client, msg));
 
+    // Asiento genérico (docs/GDD_Personaje.md §3.6bis, pedido 2026-08-31):
+    // silla/banco/taburete/mecedora/sofa/trono — cualquier mueble con
+    // `esAsiento:true`. NO es la mesa de ajedrez de arriba (esa es jugable,
+    // con sus propias 2 sillas nombradas); esto es un asiento de 1 plaza
+    // puramente cosmético.
+    this.onMessage("asiento:sentarse", (client, msg: { construccionId?: number }) => this.manejarAsientoSentarse(client, msg));
+    this.onMessage("asiento:levantarse", (client) => { if (this.sentadoEn.has(client.sessionId)) this.levantarDeAsiento(client.sessionId); });
+
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
     // Seguimiento de mascotas — cosmético, no necesita 30hz (mismo criterio que GestorFauna, 5hz de sobra para un paseo).
     this.clock.setInterval(() => this.moverMascotas(0.2), 200);
@@ -998,6 +1021,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // sentado libera la silla — mismo criterio que comercio.
     const mesaAjedrezAbierta = this.mesaAjedrezPorSesion.get(client.sessionId);
     if (mesaAjedrezAbierta != null) this.quitarDeMesaAjedrez(client.sessionId, mesaAjedrezAbierta);
+    // Asiento genérico (docs/GDD_Personaje.md §3.6bis): desconectarse
+    // sentado libera la silla, mismo criterio que la mesa de ajedrez arriba.
+    if (this.sentadoEn.has(client.sessionId)) this.levantarDeAsiento(client.sessionId);
 
     // Mascotas: desaparecen de ESTA room (no se persiste x/y, ver Mascota en
     // HubState.ts) — su fila en BD sigue "siguiendo", vuelven a aparecer en
@@ -1997,6 +2023,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // de borrar la construcción, para no dejar `mesaAjedrezPorSesion`
       // apuntando a un construccionId que ya no existe.
       if (viva.objeto === "mesa_ajedrez") this.cerrarMesaAjedrez(viva.id);
+      // Asiento genérico (docs/GDD_Personaje.md §3.6bis): recoger una silla
+      // ocupada levanta a quien esté sentado, mismo criterio que la mesa
+      // de ajedrez de arriba — antes de borrar la construcción.
+      const ocupante = this.asientosOcupados.get(viva.id);
+      if (ocupante) this.levantarDeAsiento(ocupante);
       await bd.borrarConstruccion(viva.id);
       quitarConstruccion(ctx, viva.id); // restaura la colisión del bake
       this.broadcast("construccion:quitada", { id: viva.id });
@@ -3085,6 +3116,49 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const construccionId = this.mesaAjedrezPorSesion.get(client.sessionId);
     if (construccionId == null) return;
     this.quitarDeMesaAjedrez(client.sessionId, construccionId);
+  }
+
+  /**
+   * Asiento genérico (docs/GDD_Personaje.md §3.6bis) — cosmético puro, sin
+   * duración ni recompensa (a diferencia de dormir): gatea por `esAsiento`
+   * en el catálogo, distancia real (`RADIO_INTERACCION`) y que la
+   * construcción concreta no esté ya ocupada por otra sesión (un asiento de
+   * 1 plaza, aunque su huella visual sea de 2 casillas como `banco`/`sofa`
+   * — mismo "placeholder de balance a afinar" que el resto del proyecto).
+   */
+  private manejarAsientoSentarse(client: Client, msg: { construccionId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    if (this.sentadoEn.has(client.sessionId)) return this.errorAsiento(client, "ya estás sentado en algún sitio");
+    if (this.asientosOcupados.has(msg.construccionId)) return this.errorAsiento(client, "ese asiento ya está ocupado");
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorAsiento(client, "construcción inexistente");
+    if (!this.entradaDe(viva.objeto)?.esAsiento) return this.errorAsiento(client, "eso no es un asiento");
+
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) {
+      return this.errorAsiento(client, "demasiado lejos del asiento");
+    }
+
+    this.sentadoEn.set(client.sessionId, msg.construccionId);
+    this.asientosOcupados.set(msg.construccionId, client.sessionId);
+    player.sentado = true;
+  }
+
+  /** Compartido por cancelar-al-moverse, "asiento:levantarse", onLeave y "recoger" sobre la construcción ocupada. */
+  private levantarDeAsiento(sessionId: string) {
+    const construccionId = this.sentadoEn.get(sessionId);
+    if (construccionId == null) return;
+    this.sentadoEn.delete(sessionId);
+    if (this.asientosOcupados.get(construccionId) === sessionId) this.asientosOcupados.delete(construccionId);
+    const player = this.state.players.get(sessionId);
+    if (player) player.sentado = false;
+  }
+
+  private errorAsiento(client: Client, motivo: string) {
+    client.send("asiento:error", { motivo });
   }
 
   private manejarMesaMover(client: Client, msg: { construccionId?: number; desde?: string; hasta?: string; promocion?: string }) {

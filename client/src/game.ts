@@ -652,6 +652,29 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       elPanelAjedrez.actualizarHint(asiento ? "Pulsa F para sentarte a jugar al ajedrez" : null);
     }, 500);
 
+    // Asiento genérico (docs/GDD_Personaje.md §3.6bis, pedido 2026-08-31):
+    // hint pequeño e independiente del de ajedrez de arriba — mismo criterio
+    // de proximidad de 500ms, pero para cualquier silla/banco/taburete/
+    // mecedora/sofa/trono (`esAsiento:true`). No compite con el hint de
+    // ajedrez: solo se muestra si NO hay una mesa de ajedrez alcanzable
+    // (evita 2 hints a la vez si un jugador está entre ambos).
+    const hintAsiento = document.createElement("div");
+    hintAsiento.style.cssText =
+      "position:absolute;left:50%;bottom:60px;transform:translateX(-50%);background:rgba(20,16,10,0.85);color:#f0e8d8;font:13px sans-serif;padding:6px 12px;border-radius:6px;border:1px solid #6a5a3a;display:none;pointer-events:none;";
+    hintAsiento.textContent = "Pulsa F para sentarte";
+    contenedor.appendChild(hintAsiento);
+    setInterval(() => {
+      if (!jugadorLocal) { hintAsiento.style.display = "none"; return; }
+      if (enAsientoGenerico() || miMesaAjedrezActual() != null || asientoAjedrezAlcanzable(jugadorLocal.x, jugadorLocal.z)) {
+        hintAsiento.style.display = "none";
+        return;
+      }
+      const idAsiento = asientoGenericoAlcanzable(jugadorLocal.x, jugadorLocal.z);
+      hintAsiento.style.display = idAsiento != null ? "block" : "none";
+    }, 500);
+    room.onMessage("asiento:error", (m: { motivo: string }) => console.log("[asiento]", m?.motivo));
+    room.onMessage("asiento:cancelado", () => console.log("[asiento] cancelado (te has movido)"));
+
     // Sonda SOLO-PARA-TESTS (e2e con Playwright): el crafteo (docs/
     // GDD_Crafteo.md) todavía no tiene panel de cliente (ninguna receta lo
     // usa desde el navegador hoy — el mecanismo es server-only por ahora),
@@ -1316,6 +1339,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     return null;
   }
 
+  const RADIO_ASIENTO_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor
+
+  /** ¿Estoy sentado en un asiento genérico (silla/banco/...) ahora mismo? Espejo de `jugadorLocal.sentado` — la construcción concreta la sabe el servidor, aquí solo hace falta el sí/no para decidir qué hace F. */
+  function enAsientoGenerico(): boolean {
+    return !!jugadorLocal && !!(room.state.players.get(room.sessionId) as any)?.sentado;
+  }
+
+  /** Asiento genérico alcanzable desde (px,py) — mismo criterio "sin UI de targeting" que `asientoAjedrezAlcanzable`, pero de una sola plaza y sin geometría de rotación (el punto de la construcción YA es el asiento). */
+  function asientoGenericoAlcanzable(px: number, py: number): number | null {
+    return renderConstrucciones?.asientoMasCercano(px, py, RADIO_ASIENTO_CLIENTE) ?? null;
+  }
+
   function cadaverMasCercano(): string | null {
     if (!jugadorLocal) return null;
     let mejorId: string | null = null;
@@ -1392,9 +1427,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         const miMesa = miMesaAjedrezActual();
         if (miMesa != null) {
           room.send("mesa:levantarse");
+        } else if (enAsientoGenerico()) {
+          // Asiento genérico (docs/GDD_Personaje.md §3.6bis, pedido
+          // 2026-08-31): mismo toggle que la mesa de ajedrez, pero para
+          // cualquier silla/banco/taburete/mecedora/sofa/trono del catálogo
+          // (`esAsiento:true`) — no solo la mesa jugable.
+          room.send("asiento:levantarse");
         } else {
           const asiento = asientoAjedrezAlcanzable(jugadorLocal.x, jugadorLocal.z);
-          if (asiento) room.send("mesa:sentarse", { construccionId: asiento.construccionId, silla: asiento.silla });
+          if (asiento) {
+            room.send("mesa:sentarse", { construccionId: asiento.construccionId, silla: asiento.silla });
+          } else {
+            const idAsiento = asientoGenericoAlcanzable(jugadorLocal.x, jugadorLocal.z);
+            if (idAsiento != null) room.send("asiento:sentarse", { construccionId: idAsiento });
+          }
         }
       }
     }

@@ -201,6 +201,22 @@ test("catálogo construible: mesa_ajedrez (docs/GDD_Mesas_Minijuego.md) — mueb
   assert.strictEqual(mesa?.nivelOficioMinimo, undefined);
 });
 
+// Asiento genérico (docs/GDD_Personaje.md §3.6bis, pedido 2026-08-31): NO es
+// la mesa de ajedrez de arriba — un asiento de 1 plaza, puramente cosmético,
+// en cualquier silla/banco/taburete/mecedora/sofa/trono del catálogo.
+test("catálogo construible: esAsiento marca solo mobiliario para sentarse, no las mesas de OFICIO homónimas", () => {
+  for (const id of ["silla", "silla_pino", "silla_roble", "silla_nogal_tallada", "banco", "taburete", "mecedora", "sofa", "trono"]) {
+    assert.strictEqual(catalogo.get(id)?.esAsiento, true, `${id} debería tener esAsiento:true`);
+  }
+  // "banco_carpintero"/"banco_mecanizado" etc. son ESTACIONES DE CRAFTEO
+  // (docs/GDD_Profesiones.md), no asientos — el nombre "banco" es un falso
+  // amigo (banco de carpintero = mesa de trabajo, no para sentarse). Deben
+  // quedar SIN el flag pese a compartir el prefijo del nombre.
+  for (const id of ["banco_carpintero", "banco_joyero", "banco_mecanizado", "banco_ajuste", "banco_pulido"]) {
+    assert.notStrictEqual(catalogo.get(id)?.esAsiento, true, `${id} es una mesa de oficio, no un asiento`);
+  }
+});
+
 test("catálogo construible: encurtido de pieles (docs/GDD_Caza.md) — cubo_sal/barril_curtido traen su EntradaCurtidor", () => {
   const cuboSal = catalogo.get("cubo_sal");
   assert.strictEqual(cuboSal?.categoria, "exterior");

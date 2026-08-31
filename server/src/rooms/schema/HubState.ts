@@ -141,6 +141,13 @@ export class Player extends Schema {
   // cliente pueda mostrar una pose/animación de "durmiendo" más adelante; la
   // duración real vive server-only en `RoomExteriorBase.durmiendo`.
   @type("boolean") durmiendo = false;
+  // Asiento genérico (docs/GDD_Personaje.md §3.6bis) — mismo criterio que
+  // `durmiendo`: solo replica el estado para pose/animación futura del
+  // cliente, la construcción/ocupante concreto vive server-only en
+  // `RoomExteriorBase.sentadoEn`/`asientosOcupados`. No confundir con las
+  // mesas de minijuego jugables (`mesasJuego.ts`), que tienen su propio
+  // estado por partida.
+  @type("boolean") sentado = false;
   // Vida/Ataque/Defensa (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30):
   // todo jugador arranca con 100/100 — vidaMax/ataque/defensa varían en
   // vivo según equipo, atributos y magia (server/src/combate/combate.ts).

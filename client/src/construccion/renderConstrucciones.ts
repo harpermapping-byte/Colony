@@ -112,6 +112,11 @@ export class RenderConstrucciones {
     return this.masCercanaDeObjeto((datos) => !!obtenerConstruible(datos.objeto)?.plantable, x, y, radio);
   }
 
+  /** Asiento genérico (silla/banco/taburete/mecedora/sofa/trono, docs/GDD_Personaje.md §3.6bis) más cercano a (x,y) — mismo criterio que `plantableMasCercana`. No filtra por ocupado: el servidor es quien lo rechaza si ya hay alguien sentado. */
+  asientoMasCercano(x: number, y: number, radio: number): number | null {
+    return this.masCercanaDeObjeto((datos) => !!obtenerConstruible(datos.objeto)?.esAsiento, x, y, radio);
+  }
+
   /** Construcción con este `objeto` de catálogo exacto más cercana a (x,y) dentro de `radio` (p.ej. "mesa_injertos") — mismo criterio de auto-apuntado por proximidad. */
   deObjetoMasCercana(objeto: string, x: number, y: number, radio: number): number | null {
     return this.masCercanaDeObjeto((datos) => datos.objeto === objeto, x, y, radio);

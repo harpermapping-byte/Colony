@@ -37,6 +37,8 @@ export interface Construible {
   plantable?: boolean;
   /** Cocina (docs/GDD_Cocina.md) — presente en hoguera_campamento/cuenco_cocina/cazuela_cocina/olla_cocina. */
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: string; hierveAgua?: boolean };
+  /** Asiento genérico (docs/GDD_Personaje.md §3.6bis) — presente en silla/banco/taburete/mecedora/sofa/trono, para el auto-apuntado de la tecla F (game.ts::asientoGenericoAlcanzable). */
+  esAsiento?: boolean;
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -60,6 +62,7 @@ interface EntradaBruta {
   proyectoJarl?: boolean;
   plantable?: { multiplicadorCosecha: number };
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: string; hierveAgua?: boolean };
+  esAsiento?: boolean;
   [k: string]: unknown;
 }
 
@@ -95,6 +98,7 @@ function construirLista(): Construible[] {
       huella: [e.huella[0], e.huella[1]],
       colorDebug: e.colorDebug || COLOR_DESCONOCIDO,
       colision: esColisionable(e),
+      esAsiento: e.esAsiento,
     });
   }
 
