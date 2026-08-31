@@ -2331,7 +2331,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     const cuerpo = (await bd.cargarContenedor(companero.companeroJugadorId, "cuerpo")) ?? crearContenedor(4, 4);
     const equipo = await bd.cargarEquipo(companero.companeroJugadorId);
-    const inv: InventarioJugador = { cuerpo, extras: new Map(), equipo };
+    // Mochila (docs/GDD_Companeros.md, pedido 2026-08-31: "solo mochila, no
+    // las 3 que tiene el player") — mismo criterio de carga que un jugador
+    // (cargarInventarioYEquipoDe): solo si el equipo guardado dice que sigue
+    // puesta la "espalda", nunca cinturón/bandolera (el compañero no puede
+    // llevarlas, ver manejarCompaneroEquipar).
+    const extras = new Map<string, Contenedor>();
+    if (equipo.espalda) {
+      const guardado = await bd.cargarContenedor(companero.companeroJugadorId, "espalda");
+      const dims = this.catalogoItems[equipo.espalda]?.esContenedor;
+      extras.set("espalda", guardado ?? crearContenedor(dims?.ancho ?? 1, dims?.alto ?? 1));
+    }
+    const inv: InventarioJugador = { cuerpo, extras, equipo };
     this.companeroInventarioPorSesion.set(client.sessionId, inv);
     this.companeroHambrePorSesion.set(client.sessionId, hambreInicial());
     this.companeroJugadorIdPorSesion.set(client.sessionId, companero.companeroJugadorId);
@@ -2503,7 +2514,24 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     await this.reclutarCompanero(client, objetivo.slotId, objetivo.npc, costeReclutar(objetivo.slotId));
   }
 
-  /** Dar un ítem propio al compañero (docs/GDD_Companeros.md) — reusa moverItem tal cual (mismo motor que el drag&drop de mochilas, GDD_Inventario.md §10). */
+  /** Primer hueco libre en cuerpo O en cualquier extra (mochila) — para dar un ítem al compañero sin que el streamer tenga que elegir a mano en cuál de los dos cabe. */
+  private buscarHuecoEnInventario(inv: InventarioJugador, itemId: string): { contenedor: Contenedor; x: number; y: number } | null {
+    const enCuerpo = buscarHueco(inv.cuerpo, this.catalogoItems, itemId);
+    if (enCuerpo) return { contenedor: inv.cuerpo, ...enCuerpo };
+    for (const extra of inv.extras.values()) {
+      const hueco = buscarHueco(extra, this.catalogoItems, itemId);
+      if (hueco) return { contenedor: extra, ...hueco };
+    }
+    return null;
+  }
+
+  /**
+   * Dar un ítem propio al compañero (docs/GDD_Companeros.md) — reusa
+   * moverItem tal cual (mismo motor que el drag&drop de mochilas,
+   * GDD_Inventario.md §10). El destino puede ser su cuerpo O su mochila
+   * equipada si tiene una (docs/GDD_Companeros.md: "podría añadírsele
+   * mochila también", pedido 2026-08-31) — nunca hace falta elegir cuál.
+   */
   private manejarCompaneroDarItem(client: Client, msg: { instanciaId?: number }) {
     const player = this.state.players.get(client.sessionId);
     const inv = this.inventarioJugador(client.sessionId);
@@ -2511,41 +2539,52 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!player || !inv || !invCompanero || typeof msg?.instanciaId !== "number") return;
     const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaId);
     if (!it) return this.errorCompanero(client, "no tienes ese ítem");
-    const hueco = buscarHueco(invCompanero.cuerpo, this.catalogoItems, it.itemId);
+    const hueco = this.buscarHuecoEnInventario(invCompanero, it.itemId);
     if (!hueco) return this.errorCompanero(client, "el compañero no tiene hueco");
-    const r = moverItem(inv.cuerpo, invCompanero.cuerpo, this.catalogoItems, msg.instanciaId, hueco.x, hueco.y, 0);
+    const r = moverItem(inv.cuerpo, hueco.contenedor, this.catalogoItems, msg.instanciaId, hueco.x, hueco.y, 0);
     if (!r.ok) return this.errorCompanero(client, r.motivo ?? "no se pudo dar el ítem");
     sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
     const esquema = this.companeroSchemaDe(client.sessionId);
-    if (esquema) sincronizarContenedor(esquema.inventario.cuerpo, invCompanero.cuerpo);
+    if (esquema) { sincronizarContenedor(esquema.inventario.cuerpo, invCompanero.cuerpo); sincronizarEquipo(esquema.inventario, invCompanero.equipo, invCompanero.extras); }
     this.persistirInventarioPorSesion(client);
     void this.persistirInventarioCompanero(client.sessionId);
   }
 
-  /** Quitarle un ítem al compañero — mismo mecanismo al revés. */
+  /** Quitarle un ítem al compañero — lo busca en cuerpo O en su mochila (buscarInstanciaJugador ya recorre las dos), lo trae siempre al cuerpo del jugador. */
   private manejarCompaneroQuitarItem(client: Client, msg: { instanciaId?: number }) {
     const player = this.state.players.get(client.sessionId);
     const inv = this.inventarioJugador(client.sessionId);
     const invCompanero = this.companeroInventarioPorSesion.get(client.sessionId);
     if (!player || !inv || !invCompanero || typeof msg?.instanciaId !== "number") return;
-    const it = invCompanero.cuerpo.items.find((i) => i.id === msg.instanciaId);
-    if (!it) return this.errorCompanero(client, "el compañero no tiene ese ítem");
-    const hueco = buscarHueco(inv.cuerpo, this.catalogoItems, it.itemId);
+    const encontrado = buscarInstanciaJugador(invCompanero, msg.instanciaId);
+    if (!encontrado) return this.errorCompanero(client, "el compañero no tiene ese ítem");
+    const hueco = buscarHueco(inv.cuerpo, this.catalogoItems, encontrado.item.itemId);
     if (!hueco) return this.errorCompanero(client, "no tienes hueco");
-    const r = moverItem(invCompanero.cuerpo, inv.cuerpo, this.catalogoItems, msg.instanciaId, hueco.x, hueco.y, 0);
+    const r = moverItem(encontrado.contenedor, inv.cuerpo, this.catalogoItems, msg.instanciaId, hueco.x, hueco.y, 0);
     if (!r.ok) return this.errorCompanero(client, r.motivo ?? "no se pudo quitar el ítem");
     sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
     const esquema = this.companeroSchemaDe(client.sessionId);
-    if (esquema) sincronizarContenedor(esquema.inventario.cuerpo, invCompanero.cuerpo);
+    if (esquema) { sincronizarContenedor(esquema.inventario.cuerpo, invCompanero.cuerpo); sincronizarEquipo(esquema.inventario, invCompanero.equipo, invCompanero.extras); }
     this.persistirInventarioPorSesion(client);
     void this.persistirInventarioCompanero(client.sessionId);
   }
 
   /** Equipar/desequipar sobre el compañero (docs/GDD_Companeros.md: "podrá armar, dar ropa") — MISMO mecanismo puro que un jugador (equiparItem/desequiparItem), solo que el resultado se sincroniza a CompaneroSchema y recalcula SUS stats, no las del jugador. */
+  /**
+   * Equipar sobre el compañero (docs/GDD_Companeros.md: "podría añadírsele
+   * mochila también como a un usuario... solo mochila, no las 3 que tiene
+   * el player", pedido 2026-08-31) — de los 3 slots-contenedor que existen
+   * (espalda/cinturon/bandolera, SLOTS_CONTENEDOR), el compañero SOLO puede
+   * llevar mochila (espalda); cinturón y bandolera se rechazan aquí, no en
+   * `equiparItem` (esa función sigue siendo genérica para jugadores).
+   */
   private manejarCompaneroEquipar(client: Client, msg: { instanciaId?: number; slot?: string }) {
     const invCompanero = this.companeroInventarioPorSesion.get(client.sessionId);
     const esquema = this.companeroSchemaDe(client.sessionId);
     if (!invCompanero || !esquema || typeof msg?.instanciaId !== "number" || typeof msg?.slot !== "string") return;
+    if (SLOTS_CONTENEDOR.has(msg.slot) && msg.slot !== "espalda") {
+      return this.errorCompanero(client, "el compañero solo puede llevar mochila, no bolsa de cinturón ni bandolera");
+    }
     const resultado = equiparItem(invCompanero, this.catalogoItems, msg.instanciaId, msg.slot);
     if (!resultado.ok) return this.errorCompanero(client, resultado.motivo ?? "no_equipable_en_ese_slot");
     this.sincronizarYRecalcularCompanero(client.sessionId, invCompanero, esquema);
@@ -2606,6 +2645,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (companeroJugadorId == null || !inv) return;
     const bd = await obtenerBdCompartida();
     await bd.guardarContenedor(companeroJugadorId, "cuerpo", inv.cuerpo);
+    for (const [slot, contenedorExtra] of inv.extras) {
+      await bd.guardarContenedor(companeroJugadorId, slot, contenedorExtra);
+    }
     await bd.guardarEquipo(companeroJugadorId, inv.equipo);
   }
 

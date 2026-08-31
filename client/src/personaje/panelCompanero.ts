@@ -110,7 +110,7 @@ export class PanelCompanero {
     this.raiz.appendChild(filaTransferir);
 
     const inputSlot = document.createElement("input");
-    inputSlot.placeholder = "slot (ej. torso)";
+    inputSlot.placeholder = "slot (ej. torso, espalda=mochila)";
     inputSlot.style.width = "100%";
     inputSlot.style.margin = "4px 0";
     this.raiz.appendChild(inputSlot);
