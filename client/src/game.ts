@@ -136,6 +136,12 @@ interface EstadoJugador {
   // mascotas/compañeros comparten esta misma interfaz y simplemente nunca
   // lo ponen a true.
   tocandoInstrumento?: boolean;
+  // Compañero NPC (docs/GDD_Companeros.md) — SOLO compañeros: texto de queja
+  // por hambre que ya manda listo el servidor (bucle(), burbuja periódica).
+  // Espejo local del campo `quejaTexto` de CompaneroSchema — mirar el mapa
+  // local en vez de `room.state.companeros` directamente evita la ventana
+  // de carrera de justo después de unirse a la room (ver docs/GDD_Companeros.md §8).
+  quejaTexto?: string;
 }
 
 /**
@@ -921,6 +927,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     rig.objeto.rotation.order = "YXZ";
     const estado: EstadoJugador = {
       rig, destinoX: c.x, destinoZ: c.y, destinoY: 0, x: c.x, z: c.y, y: 0, nadando: false, name: c.nombre,
+      quejaTexto: c.quejaTexto,
     };
     companerosVisual.set(id, estado);
     escena.añadirEntidad(`companero_${id}`, rig.objeto, c.x, c.y, c.nombre);
@@ -929,6 +936,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     $(c).onChange(() => {
       estado.destinoX = c.x;
       estado.destinoZ = c.y;
+      estado.quejaTexto = c.quejaTexto;
       escena.actualizarVida(`companero_${id}`, c.vida, c.vidaMax);
       if (esMiCompanero(c)) actualizarPanelCompanero(c);
     });
@@ -1679,12 +1687,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // Compañero (docs/GDD_Companeros.md): burbuja de queja por hambre — el
     // servidor ya manda el texto listo en quejaTexto (nunca genera aquí uno
     // propio), solo se alterna con el nombre igual que el resto de burbujas.
-    for (const [id, c] of room.state.companeros?.entries() ?? []) {
-      const estadoC = companerosVisual.get(id);
-      const nombreC = estadoC?.name ?? "";
-      if (!c.quejaTexto) { escena.textoEtiqueta(`companero_${id}`, nombreC, false); continue; }
+    // Itera el mapa LOCAL (companerosVisual, ya espejado vía onAdd/onChange)
+    // en vez de `room.state.companeros` directamente — mismo criterio que
+    // el resto de bucle() (jugadores/npcsVisual/faunaVisual/...): un Map
+    // local siempre existe (vacío hasta el primer patch), evita la ventana
+    // de carrera de justo tras unirse a la room en que NINGÚN campo de
+    // `room.state` está poblado todavía (confirmado: afecta a TODOS los
+    // Maps del estado por igual, no solo a compañeros — ver GDD_Companeros §8).
+    for (const [id, estadoC] of companerosVisual) {
+      const nombreC = estadoC.name ?? "";
+      if (!estadoC.quejaTexto) { escena.textoEtiqueta(`companero_${id}`, nombreC, false); continue; }
       const fase = (tSeg + id.length * 1.7) % 10;
-      escena.textoEtiqueta(`companero_${id}`, fase < 3 ? c.quejaTexto : nombreC, fase < 3);
+      escena.textoEtiqueta(`companero_${id}`, fase < 3 ? estadoC.quejaTexto : nombreC, fase < 3);
     }
 
     // Luces de interior (antorchas/candelabros/lámparas — capa "iluminacion"
