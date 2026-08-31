@@ -320,6 +320,31 @@ export class Mascota extends Schema {
   @type("boolean") montura = false;
 }
 
+// Compañero NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — un Npc real de
+// poblacion/ reclutado (contratar por diálogo+carisma, o comprado a un
+// vendedor). Mismo criterio de vida que Mascota: solo existe en el Schema
+// mientras está "siguiendo" a su dueño Y su dueño está en ESTA room — se
+// spawnea al entrar y se borra al salir, nunca se persiste x/y (solo la fila
+// BD vía datos/bd.ts). Reusa InventarioSchema tal cual (mismo truco que
+// CadaverSchema.contenedor) — el compañero tiene contenedor propio + equipo.
+export class CompaneroSchema extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") nombre = "";
+  /** slotId del Npc original en poblacion.json — el cliente reusa su MISMO vox (voxPorSlot), no genera un aspecto nuevo. */
+  @type("string") npcOrigenSlot = "";
+  /** Nombre del jugador dueño — SOLO para etiqueta, mismo criterio que Mascota.duenoNombre. */
+  @type("string") duenoNombre = "";
+  @type("number") vida = 0;
+  @type("number") vidaMax = 0;
+  @type("number") ataque = 0;
+  @type("number") defensa = 0;
+  @type("int8") nivel = 1;
+  @type(InventarioSchema) inventario = new InventarioSchema();
+  /** Burbuja de queja por hambre (docs/GDD_Companeros.md) — "" = nada que decir; mismo mecanismo de burbuja periódica que la tos del catarro (docs/GDD_Enfermedades.md). */
+  @type("string") quejaTexto = "";
+}
+
 // Barco (docs/GDD_Barcos.md, pedido 2026-08-30): a diferencia de una
 // mascota, un barco NO come/sigue/vuelve solo a casa — se ancla donde se
 // coloca (server/src/datos/bd.ts:Barco) y así se queda hasta que alguien lo
@@ -423,6 +448,7 @@ export class HubState extends Schema {
   @type({ map: Enemigo }) enemigos = new MapSchema<Enemigo>();
   @type({ map: Fauna }) fauna = new MapSchema<Fauna>();
   @type({ map: Mascota }) mascotas = new MapSchema<Mascota>();
+  @type({ map: CompaneroSchema }) companeros = new MapSchema<CompaneroSchema>();
   @type({ map: Barco }) barcos = new MapSchema<Barco>();
   @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
   @type({ map: CadaverSchema }) cadaveres = new MapSchema<CadaverSchema>();

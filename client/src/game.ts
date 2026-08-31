@@ -29,6 +29,7 @@ import { aplicarMonturaAlAnimal } from "./render3d/monturaVisual";
 import { crearBarcoVisual } from "./render3d/barcoVisual";
 import { aplicarAnatomiaCompleta } from "./render3d/anatomiaVisual";
 import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista, type EstadoEnfermedadesVista } from "./personaje/panelMedico";
+import { PanelCompanero } from "./personaje/panelCompanero";
 import { PanelLoginAdmin } from "./admin/panelLoginAdmin";
 import { PanelJarl } from "./admin/panelJarl";
 
@@ -625,6 +626,21 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     tomarUnguento: () => room.send("medico:tomarUnguento"),
     tomarJarabe: () => room.send("medico:tomarJarabe"),
   });
+
+  // Compañero NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — panel
+  // PLACEHOLDER de testeo, mismo criterio que panelMedico.
+  const panelCompanero = new PanelCompanero({
+    contenedor,
+    intentarReclutar: () => room.send("companero:intentarReclutar"),
+    comprarDeVendedor: (npcVendedorId) => room.send("companero:comprarDeVendedor", { npcVendedorId }),
+    darItem: (instanciaId) => room.send("companero:darItem", { instanciaId }),
+    quitarItem: (instanciaId) => room.send("companero:quitarItem", { instanciaId }),
+    equipar: (instanciaId, slot) => room.send("companero:equipar", { instanciaId, slot }),
+    desequipar: (slot) => room.send("companero:desequipar", { slot }),
+  });
+  room.onMessage("companero:error", (m: { motivo: string }) => console.log("[compañero]", m?.motivo));
+  room.onMessage("companero:persuasionFallida", (m: { nombre: string }) => console.log(`[compañero] ${m?.nombre} no se deja convencer todavía`));
+  room.onMessage("companero:reclutado", (m: { nombre: string; coste: number }) => console.log(`[compañero] ${m?.nombre} se une por ${m?.coste} Farycoins`));
   const leerAnatomiaVista = (schema: any): Record<Zona, EstadoZonaVista> => {
     const vista = {} as Record<Zona, EstadoZonaVista>;
     for (const zona of ZONAS) {
@@ -806,6 +822,39 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     npcsVisual.delete(slotId);
     npcsMeta.delete(slotId);
     escena.quitarEntidad(`npc_${slotId}`);
+  });
+
+  // --- Compañero NPC (docs/GDD_Companeros.md, pedido 2026-08-30): mismo
+  // circuito que un Npc de poblacion/ (mismo vóxel real, por npcOrigenSlot —
+  // sigue viéndose igual que antes de reclutarlo), pero clave "companero_<id>"
+  // porque comparte namespace de etiquetas con jugadores/NPCs. Al mucho UN
+  // compañero visible a la vez en este cliente (el del jugador local o el de
+  // otro jugador cercano — cada jugador solo tiene el suyo).
+  const companerosVisual = new Map<string, EstadoJugador>();
+  const esMiCompanero = (c: any) => c.duenoNombre === room.state.players.get(room.sessionId)?.name;
+  const actualizarPanelCompanero = (c: any) => panelCompanero.actualizarEstado({ nombre: c.nombre, nivel: c.nivel, vida: c.vida, vidaMax: c.vidaMax });
+  $(room.state).companeros.onAdd((c: any, id: string) => {
+    const vox = voxPorSlot.get(c.npcOrigenSlot);
+    const rig = vox ? crearPersonajeVoxel(vox) : crearRigHumanoide({ colorTunica: "#7a6248" });
+    rig.objeto.rotation.order = "YXZ";
+    const estado: EstadoJugador = {
+      rig, destinoX: c.x, destinoZ: c.y, destinoY: 0, x: c.x, z: c.y, y: 0, nadando: false, name: c.nombre,
+    };
+    companerosVisual.set(id, estado);
+    escena.añadirEntidad(`companero_${id}`, rig.objeto, c.x, c.y, c.nombre);
+    escena.actualizarVida(`companero_${id}`, c.vida, c.vidaMax);
+    if (esMiCompanero(c)) actualizarPanelCompanero(c);
+    $(c).onChange(() => {
+      estado.destinoX = c.x;
+      estado.destinoZ = c.y;
+      escena.actualizarVida(`companero_${id}`, c.vida, c.vidaMax);
+      if (esMiCompanero(c)) actualizarPanelCompanero(c);
+    });
+  });
+  $(room.state).companeros.onRemove((c: any, id: string) => {
+    companerosVisual.delete(id);
+    escena.quitarEntidad(`companero_${id}`);
+    if (esMiCompanero(c)) panelCompanero.actualizarEstado(null);
   });
   // sonda para los tests E2E: cuántos NPCs llegaron del servidor y dónde están
   (window as any).__npcs = () => ({
@@ -1444,7 +1493,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const factor = 1 - Math.exp(-12 * dt);
     // Jugadores y NPCs comparten interpolación y animación de marcha: un
     // NPC es "otro que se mueve por patches del servidor", nada más.
-    for (const estado of [...jugadores.values(), ...npcsVisual.values(), ...faunaVisual.values(), ...mascotasVisual.values()]) {
+    for (const estado of [...jugadores.values(), ...npcsVisual.values(), ...faunaVisual.values(), ...mascotasVisual.values(), ...companerosVisual.values()]) {
       const dx = estado.destinoX - estado.x;
       const dz = estado.destinoZ - estado.z;
       const distancia = Math.hypot(dx, dz);
@@ -1504,6 +1553,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const fase = (tSeg + sessionId.length * 1.7) % 10;
       const sintoma = estadoJ.catarro ? "Cough cough..." : "*tiritando*";
       escena.textoEtiqueta(sessionId, fase < 3 ? sintoma : nombreJ, fase < 3);
+    }
+
+    // Compañero (docs/GDD_Companeros.md): burbuja de queja por hambre — el
+    // servidor ya manda el texto listo en quejaTexto (nunca genera aquí uno
+    // propio), solo se alterna con el nombre igual que el resto de burbujas.
+    for (const [id, c] of room.state.companeros) {
+      const estadoC = companerosVisual.get(id);
+      const nombreC = estadoC?.name ?? "";
+      if (!c.quejaTexto) { escena.textoEtiqueta(`companero_${id}`, nombreC, false); continue; }
+      const fase = (tSeg + id.length * 1.7) % 10;
+      escena.textoEtiqueta(`companero_${id}`, fase < 3 ? c.quejaTexto : nombreC, fase < 3);
     }
 
     // Luces de interior (antorchas/candelabros/lámparas — capa "iluminacion"

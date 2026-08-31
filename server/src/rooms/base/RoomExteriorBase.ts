@@ -55,7 +55,7 @@ import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
 import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
 import { CatalogoBarcos, cargarCatalogoBarcos } from "../../mundo/catalogoBarcos";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, PREFIJO_NPC_COMERCIANTE } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -125,7 +125,12 @@ import {
   rodarGripePorFrio, resolverAutocuracionEnfermedades, tomarUnguentoCatarro, tomarJarabeGripe,
   aplicarTopeVidaPorCatarro, multiplicadorVelocidadPorGripe,
 } from "../../personaje/enfermedades";
-import { AnatomiaSchema, EnfermedadesSchema } from "../schema/HubState";
+import { AnatomiaSchema, EnfermedadesSchema, CompaneroSchema } from "../schema/HubState";
+import {
+  probabilidadReclutar, intentarPersuadir, costeReclutar, nivelCompanero,
+  bonusAtaquePorNivelCompanero, bonusDefensaPorNivelCompanero,
+  EstadoHambreCompanero, hambreInicial, resolverHambreCompanero,
+} from "../../personaje/companeros";
 
 const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
@@ -133,6 +138,13 @@ const VEL_NADAR = 2.2;
 const VEL_BUCEAR = 1.7;
 const ESTAMINA_GASTO_POR_SEG_CORRIENDO = 15; // vacía los 100 de estamina en ~6.7s de sprint continuo
 export const TICK_HZ = 30;
+
+// Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — base modesta,
+// mismo orden de magnitud que un jugador recién creado (ATAQUE_BASE_JUGADOR=3),
+// el bonus por nivel (companeros.ts) y el equipo hacen el resto.
+const VIDA_BASE_COMPANERO = 60;
+const ATAQUE_BASE_COMPANERO = 3;
+const DEFENSA_BASE_COMPANERO = 1;
 
 /** Radio de interacción para portales Y para "coger" (fase 2 de inventario) —
  * antes repetido como 2.2 mágico en 3 sitios distintos (un portal por room),
@@ -235,6 +247,8 @@ const XP_FUERZA_POR_RECOLECTA_PESADA = 2; // "talando/minando cosas con herramie
 const PESO_MINIMO_FUERZA = 2; // solo objetos "pesados" (piedra, madera...) cuentan — coger una pluma no entrena fuerza
 const XP_FUERZA_POR_GOLPE_CONECTADO = 1; // "dando golpes" — un golpe cuerpo a cuerpo también entrena fuerza, además de destreza
 const XP_DESTREZA_POR_GOLPE_CONECTADO = 3;
+/** docs/GDD_Companeros.md: mismo ritmo combinado que destreza+fuerza de un jugador (3+1) por golpe conectado — "reciben EXP como el jugador". */
+const XP_COMPANERO_POR_GOLPE_CONECTADO = 4;
 const XP_DESTREZA_POR_MOVER_EN_COMBATE = 1; // moverse por la arena entrena reflejos/agilidad
 const XP_INTELIGENCIA_POR_CRAFTEO = 4;
 const XP_INTELIGENCIA_POR_RECOLECTAR = 1; // "todas las que tengan crafteo también crafteando o recolectando" — identificar y extraer un recurso también enseña
@@ -380,6 +394,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private mascotaDuenoSesion = new Map<number, string>();
   private mascotasPorSesion = new Map<string, Set<number>>();
   private offsetMascota = new Map<number, { ang: number; dist: number }>();
+  // Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — MISMO
+  // criterio que las mascotas de arriba, pero UN solo compañero por sesión
+  // (nunca un Set): quién es el dueño real de cada companeroId, y qué
+  // companeroId tiene puesto a "siguiendo" cada sesión (para limpieza O(1)
+  // en onLeave). Hambre/queja server-only, ver companeroHambrePorSesion.
+  protected companeroDuenoSesion = new Map<number, string>();
+  protected companeroPorSesion = new Map<string, number>();
+  private offsetCompanero = new Map<number, { ang: number; dist: number }>();
+  protected companeroHambrePorSesion = new Map<string, EstadoHambreCompanero>();
+  /** id de la fila SINTÉTICA en `jugadores` (companero:<slot>) del compañero de cada sesión — para guardarle su inventario/equipo sin tener que re-resolverlo cada vez. */
+  protected companeroJugadorIdPorSesion = new Map<string, number>();
+  /** id REAL en `jugadores` del dueño (no el sintético del compañero) — para otorgarXpCompanero sin tener que re-resolver el nombre cada golpe. */
+  protected companeroDuenoJugadorIdPorSesion = new Map<string, number>();
+  /** XP acumulada en memoria del compañero de cada sesión — se persiste en cada ganancia (evento discreto), no cada tick. */
+  protected companeroXpPorSesion = new Map<string, number>();
   // Domesticar (docs/GDD_Mascotas.md/docs/GDD_Monturas.md) — quién le está
   // dando de comer a QUÉ individuo salvaje/urbano ahora mismo, vive y muere
   // con la room (nunca en BD, se reinicia solo si nadie termina las 5 veces).
@@ -786,6 +815,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // curandero — tomárselos no exige nada más, igual que vendar/entablillar).
     this.onMessage("medico:tomarUnguento", (client) => this.manejarTomarUnguento(client));
     this.onMessage("medico:tomarJarabe", (client) => this.manejarTomarJarabe(client));
+
+    // --- Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30) ---
+    this.onMessage("companero:intentarReclutar", (client) => void this.manejarCompaneroIntentarReclutar(client));
+    this.onMessage("companero:comprarDeVendedor", (client, msg: { npcVendedorId?: string }) => void this.manejarCompaneroComprarDeVendedor(client, msg));
+    this.onMessage("companero:darItem", (client, msg: { instanciaId?: number }) => this.manejarCompaneroDarItem(client, msg));
+    this.onMessage("companero:quitarItem", (client, msg: { instanciaId?: number }) => this.manejarCompaneroQuitarItem(client, msg));
+    this.onMessage("companero:equipar", (client, msg: { instanciaId?: number; slot?: string }) => this.manejarCompaneroEquipar(client, msg));
+    this.onMessage("companero:desequipar", (client, msg: { slot?: string }) => this.manejarCompaneroDesequipar(client, msg));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -875,6 +912,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
     // Seguimiento de mascotas — cosmético, no necesita 30hz (mismo criterio que GestorFauna, 5hz de sobra para un paseo).
     this.clock.setInterval(() => this.moverMascotas(0.2), 200);
+    // Compañeros (docs/GDD_Companeros.md): mismo criterio que mascotas —
+    // seguimiento cosmético + hambre perezosa en el mismo tick barato de 5hz.
+    this.clock.setInterval(() => this.moverCompaneros(0.2), 200);
     // Daño ambiental de eventos Twitch (rayo/terremoto) — igual de barato que
     // el resto de ticks lentos de esta base, ver aplicarDanoEventosAmbientales.
     this.clock.setInterval(() => this.aplicarDanoEventosAmbientales(1), 1000);
@@ -989,6 +1029,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // (mismo criterio que otorgarXpAtributoPorSesion): el jugador entra ya,
     // sus mascotas aparecen un instante después vía BD, nunca bloquean el join.
     void this.cargarMascotasSiguiendoDe(client, player.name);
+    // Compañero "siguiendo" (docs/GDD_Companeros.md) — mismo criterio sin awaitear que las mascotas.
+    void this.cargarCompaneroSiguiendoDe(client, player.name);
 
     // Inventario/equipo persistido (docs/GDD_Equipo.md §9 → ya implementado):
     // mismo criterio que las mascotas — el cuerpo vacío de arriba se ve un
@@ -1061,6 +1103,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         this.offsetMascota.delete(id);
       }
       this.mascotasPorSesion.delete(client.sessionId);
+    }
+
+    // Compañeros: desaparece de ESTA room (no se persiste x/y, ver
+    // CompaneroSchema en HubState.ts) — su fila en BD sigue "siguiendo",
+    // vuelve a aparecer en la próxima room a la que entre el dueño. Se
+    // guarda su inventario/equipo ANTES de limpiar los Maps (mismo criterio
+    // "onLeave sí importa awaitear" que guardarInventarioYEquipoDe).
+    const companeroId = this.companeroPorSesion.get(client.sessionId);
+    if (companeroId != null) {
+      await this.persistirInventarioCompanero(client.sessionId);
+      this.quitarCompaneroDeSchemaLocal(companeroId);
     }
 
     if (nombreSaliente && invSaliente) await this.guardarInventarioYEquipoDe(nombreSaliente, invSaliente);
@@ -2387,6 +2440,309 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (dist <= paso) { m.x = tx; m.y = ty; }
       else { m.x += (dx / dist) * paso; m.y += (dy / dist) * paso; }
     });
+  }
+
+  // --- Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30) ---
+
+  /** Inventario+equipo EN MEMORIA del compañero de una sesión — mismo patrón que inventarioJugador, cargado de BD al spawnear, guardado al desconectar. */
+  protected companeroInventarioPorSesion = new Map<string, InventarioJugador>();
+
+  private errorCompanero(client: Client, motivo: string) {
+    client.send("companero:error", { motivo });
+  }
+
+  /** Al entrar a CUALQUIER room, reaparece aquí el compañero que el jugador tiene puesto a "siguiendo" — mismo criterio que cargarMascotasSiguiendoDe. */
+  protected async cargarCompaneroSiguiendoDe(client: Client, nombre: string) {
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const companeros = await bd.listarCompaneros(jugador.id);
+    const activo = companeros.find((c) => c.ubicacion === "siguiendo");
+    if (activo) await this.spawnearCompanero(client, activo, nombre);
+  }
+
+  /** Mete la entrada en el Schema de ESTA room + carga su inventario/equipo propios (fila sintética "companero:<slot>" en jugadores) + registra a quién sigue. */
+  private async spawnearCompanero(client: Client, companero: Companero, duenoNombre: string) {
+    const dueno = this.state.players.get(client.sessionId);
+    if (!dueno) return;
+    const bd = await obtenerBdCompartida();
+    const cuerpo = (await bd.cargarContenedor(companero.companeroJugadorId, "cuerpo")) ?? crearContenedor(4, 4);
+    const equipo = await bd.cargarEquipo(companero.companeroJugadorId);
+    const inv: InventarioJugador = { cuerpo, extras: new Map(), equipo };
+    this.companeroInventarioPorSesion.set(client.sessionId, inv);
+    this.companeroHambrePorSesion.set(client.sessionId, hambreInicial());
+    this.companeroJugadorIdPorSesion.set(client.sessionId, companero.companeroJugadorId);
+    this.companeroDuenoJugadorIdPorSesion.set(client.sessionId, companero.jugadorId);
+    this.companeroXpPorSesion.set(client.sessionId, companero.xp);
+
+    const nivel = nivelCompanero(companero.xp);
+    const stats = calcularStatsEquipo(this.catalogoItems, equipo);
+    const esquema = new CompaneroSchema();
+    esquema.nombre = companero.nombre;
+    esquema.npcOrigenSlot = companero.npcOrigenSlot;
+    esquema.duenoNombre = duenoNombre;
+    esquema.nivel = nivel;
+    esquema.vidaMax = VIDA_BASE_COMPANERO;
+    esquema.vida = esquema.vidaMax;
+    esquema.ataque = ATAQUE_BASE_COMPANERO + bonusAtaquePorNivelCompanero(nivel) + stats.ataqueFisico;
+    esquema.defensa = DEFENSA_BASE_COMPANERO + bonusDefensaPorNivelCompanero(nivel) + stats.defensaFisica;
+    esquema.x = dueno.x;
+    esquema.y = dueno.y;
+    sincronizarContenedor(esquema.inventario.cuerpo, inv.cuerpo);
+    sincronizarEquipo(esquema.inventario, inv.equipo, inv.extras);
+    this.state.companeros.set(String(companero.id), esquema);
+    this.companeroDuenoSesion.set(companero.id, client.sessionId);
+    this.companeroPorSesion.set(client.sessionId, companero.id);
+    this.offsetCompanero.set(companero.id, { ang: Math.random() * Math.PI * 2, dist: DIST_SEGUIMIENTO_MASCOTA });
+  }
+
+  /** La quita de ESTA room (deja de seguir/renderizarse) sin tocar su fila en BD. */
+  private quitarCompaneroDeSchemaLocal(companeroId: number) {
+    this.state.companeros.delete(String(companeroId));
+    const sessionId = this.companeroDuenoSesion.get(companeroId);
+    this.companeroDuenoSesion.delete(companeroId);
+    this.offsetCompanero.delete(companeroId);
+    if (sessionId) {
+      this.companeroPorSesion.delete(sessionId);
+      this.companeroInventarioPorSesion.delete(sessionId);
+      this.companeroHambrePorSesion.delete(sessionId);
+      this.companeroJugadorIdPorSesion.delete(sessionId);
+      this.companeroDuenoJugadorIdPorSesion.delete(sessionId);
+      this.companeroXpPorSesion.delete(sessionId);
+    }
+  }
+
+  /**
+   * Seguimiento (mismo criterio que moverMascotas) + hambre perezosa en el
+   * mismo tick barato de 5hz — "solo necesita comer y beber, como mecánica
+   * de animal salvaje": si tiene comida en SU inventario se la come sola, si
+   * no pierde vida poco a poco y lo dice (burbuja de texto, mismo mecanismo
+   * que la tos del catarro — docs/GDD_Enfermedades.md). "Buscar" comida
+   * activamente queda fuera de esta fase (ver docs/GDD_Companeros.md §7).
+   */
+  private moverCompaneros(dt: number) {
+    const horasTranscurridas = dt / 3600;
+    this.state.companeros.forEach((c, clave) => {
+      const companeroId = Number(clave);
+      const sessionId = this.companeroDuenoSesion.get(companeroId);
+      const dueno = sessionId ? this.state.players.get(sessionId) : undefined;
+      if (!dueno || !sessionId) return; // no debería pasar (se limpia en onLeave) — por si acaso, no mover a ningún sitio
+      const off = this.offsetCompanero.get(companeroId) ?? { ang: 0, dist: DIST_SEGUIMIENTO_MASCOTA };
+      const tx = dueno.x + Math.cos(off.ang) * off.dist;
+      const ty = dueno.y + Math.sin(off.ang) * off.dist;
+      const dx = tx - c.x;
+      const dy = ty - c.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > DIST_TELEPORT_MASCOTA) { c.x = tx; c.y = ty; }
+      else if (dist >= 0.05) {
+        const paso = VEL_MASCOTA * dt;
+        if (dist <= paso) { c.x = tx; c.y = ty; }
+        else { c.x += (dx / dist) * paso; c.y += (dy / dist) * paso; }
+      }
+
+      const inv = this.companeroInventarioPorSesion.get(sessionId);
+      const hambre = this.companeroHambrePorSesion.get(sessionId);
+      if (!inv || !hambre) return;
+      const comida = inv.cuerpo.items.find((it) => this.catalogoItems[it.itemId]?.comidaMascota);
+      const mensaje = resolverHambreCompanero(
+        hambre, horasTranscurridas, c,
+        () => !!comida,
+        () => { if (comida) quitarItem(inv.cuerpo as unknown as Contenedor, comida.id, 1); },
+      );
+      c.quejaTexto = mensaje ?? "";
+      if (c.vida <= 0) this.quitarCompaneroDeSchemaLocal(companeroId); // se desmaya de hambre — vuelve al reclutarlo de nuevo no aplica aún, ver GDD §7
+    });
+  }
+
+  /**
+   * Núcleo compartido de reclutamiento (pedido literal: "habrá que crear
+   * función reclutar para todas estas opciones usen la misma") — usado por
+   * diálogo+carisma (manejarCompaneroIntentarReclutar) y por vendedor
+   * (manejarCompaneroComprarDeVendedor). Misión/encuentro aleatorio quedan
+   * como ganchos reservados (docs/GDD_Companeros.md §0) — ninguno de los dos
+   * sistemas existe todavía, cuando existan llaman a esta MISMA función con
+   * coste 0.
+   */
+  private async reclutarCompanero(client: Client, npcSlotId: string, npc: Npc, coste: number): Promise<boolean> {
+    const nombre = this.nombreDe(client);
+    const jugador = this.state.players.get(client.sessionId);
+    if (!nombre || !jugador) return false;
+    if (this.companeroPorSesion.has(client.sessionId)) {
+      this.errorCompanero(client, "ya tienes un compañero");
+      return false;
+    }
+    const bd = await obtenerBdCompartida();
+    const jugadorFila = await bd.obtenerOCrearJugador(nombre);
+    if (coste > 0) {
+      const debito = await bd.ajustarFarycoins(jugadorFila.id, -coste);
+      if (!debito.ok) {
+        this.errorCompanero(client, "no tienes suficientes Farycoins");
+        return false;
+      }
+    }
+    const nombreSintetico = `${PREFIJO_NPC_COMPANERO}${npcSlotId}`;
+    const companeroJugador = await bd.obtenerOCrearJugador(nombreSintetico, 0);
+    const companero = await bd.crearCompanero(jugadorFila.id, companeroJugador.id, npcSlotId, npc.nombre);
+    this.gestorAgentes?.quitarAgente(npcSlotId); // deja de caminar su rutina de poblacion/ — ya es un compañero, no un NPC ambiental
+    await this.spawnearCompanero(client, companero, nombre);
+    client.send("companero:reclutado", { nombre: npc.nombre, coste });
+    return true;
+  }
+
+  /** El NPC más cercano NO hostil dentro de RADIO_INTERACCION que todavía no sea compañero de nadie — objetivo tanto de diálogo como de vendedor. */
+  private npcReclutableCercano(x: number, y: number): { slotId: string; npc: Npc } | null {
+    let mejor: { slotId: string; npc: Npc; dist: number } | null = null;
+    for (const [slotId, npc] of this.state.npcs.entries()) {
+      if (npc.hostil) continue;
+      const dist = Math.hypot(npc.x - x, npc.y - y);
+      if (dist > RADIO_INTERACCION) continue;
+      if (!mejor || dist < mejor.dist) mejor = { slotId, npc, dist };
+    }
+    return mejor ? { slotId: mejor.slotId, npc: mejor.npc } : null;
+  }
+
+  /**
+   * Diálogo directo (docs/GDD_Companeros.md): tirada de persuasión según el
+   * Carisma del jugador — si falla, no pasa nada (es una conversación, no un
+   * golpe: se puede reintentar). Si convence, paga el coste algorítmico de
+   * ESE NPC concreto.
+   */
+  private async manejarCompaneroIntentarReclutar(client: Client) {
+    const jugador = this.state.players.get(client.sessionId);
+    if (!jugador) return;
+    const objetivo = this.npcReclutableCercano(jugador.x, jugador.y);
+    if (!objetivo) return this.errorCompanero(client, "no hay nadie cerca a quien reclutar");
+    if (!intentarPersuadir(jugador.atributos.carisma)) {
+      return client.send("companero:persuasionFallida", { nombre: objetivo.npc.nombre });
+    }
+    await this.reclutarCompanero(client, objetivo.slotId, objetivo.npc, costeReclutar(objetivo.slotId));
+  }
+
+  /**
+   * Vendedor (docs/GDD_Companeros.md): un comerciante NPC (mismo criterio
+   * que tenderoteIdDeNpc, PREFIJO_NPC_COMERCIANTE) actúa de intermediario —
+   * SIN tirada de persuasión (estás pagando a un profesional, no
+   * convenciendo tú mismo), sobre el NPC no-hostil más cercano al jugador
+   * (no al vendedor: "lo spawnee al lado" cuando lo compras). Alcance
+   * consciente: sin roster propio pre-generado por vendedor todavía (ver
+   * GDD §7) — cualquier vendedor sirve de intermediario para cualquier NPC
+   * reclutable cercano.
+   */
+  private async manejarCompaneroComprarDeVendedor(client: Client, msg: { npcVendedorId?: string }) {
+    const jugador = this.state.players.get(client.sessionId);
+    if (!jugador || !msg?.npcVendedorId) return;
+    const vendedor = this.state.npcs.get(msg.npcVendedorId);
+    if (!vendedor || Math.hypot(vendedor.x - jugador.x, vendedor.y - jugador.y) > RADIO_INTERACCION) {
+      return this.errorCompanero(client, "necesitas estar junto al vendedor");
+    }
+    const objetivo = this.npcReclutableCercano(jugador.x, jugador.y);
+    if (!objetivo) return this.errorCompanero(client, "el vendedor no tiene a nadie disponible ahora mismo");
+    await this.reclutarCompanero(client, objetivo.slotId, objetivo.npc, costeReclutar(objetivo.slotId));
+  }
+
+  /** Dar un ítem propio al compañero (docs/GDD_Companeros.md) — reusa moverItem tal cual (mismo motor que el drag&drop de mochilas, GDD_Inventario.md §10). */
+  private manejarCompaneroDarItem(client: Client, msg: { instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    const invCompanero = this.companeroInventarioPorSesion.get(client.sessionId);
+    if (!player || !inv || !invCompanero || typeof msg?.instanciaId !== "number") return;
+    const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return this.errorCompanero(client, "no tienes ese ítem");
+    const hueco = buscarHueco(invCompanero.cuerpo, this.catalogoItems, it.itemId);
+    if (!hueco) return this.errorCompanero(client, "el compañero no tiene hueco");
+    const r = moverItem(inv.cuerpo, invCompanero.cuerpo, this.catalogoItems, msg.instanciaId, hueco.x, hueco.y, 0);
+    if (!r.ok) return this.errorCompanero(client, r.motivo ?? "no se pudo dar el ítem");
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    const esquema = this.companeroSchemaDe(client.sessionId);
+    if (esquema) sincronizarContenedor(esquema.inventario.cuerpo, invCompanero.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    void this.persistirInventarioCompanero(client.sessionId);
+  }
+
+  /** Quitarle un ítem al compañero — mismo mecanismo al revés. */
+  private manejarCompaneroQuitarItem(client: Client, msg: { instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    const invCompanero = this.companeroInventarioPorSesion.get(client.sessionId);
+    if (!player || !inv || !invCompanero || typeof msg?.instanciaId !== "number") return;
+    const it = invCompanero.cuerpo.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return this.errorCompanero(client, "el compañero no tiene ese ítem");
+    const hueco = buscarHueco(inv.cuerpo, this.catalogoItems, it.itemId);
+    if (!hueco) return this.errorCompanero(client, "no tienes hueco");
+    const r = moverItem(invCompanero.cuerpo, inv.cuerpo, this.catalogoItems, msg.instanciaId, hueco.x, hueco.y, 0);
+    if (!r.ok) return this.errorCompanero(client, r.motivo ?? "no se pudo quitar el ítem");
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    const esquema = this.companeroSchemaDe(client.sessionId);
+    if (esquema) sincronizarContenedor(esquema.inventario.cuerpo, invCompanero.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    void this.persistirInventarioCompanero(client.sessionId);
+  }
+
+  /** Equipar/desequipar sobre el compañero (docs/GDD_Companeros.md: "podrá armar, dar ropa") — MISMO mecanismo puro que un jugador (equiparItem/desequiparItem), solo que el resultado se sincroniza a CompaneroSchema y recalcula SUS stats, no las del jugador. */
+  private manejarCompaneroEquipar(client: Client, msg: { instanciaId?: number; slot?: string }) {
+    const invCompanero = this.companeroInventarioPorSesion.get(client.sessionId);
+    const esquema = this.companeroSchemaDe(client.sessionId);
+    if (!invCompanero || !esquema || typeof msg?.instanciaId !== "number" || typeof msg?.slot !== "string") return;
+    const resultado = equiparItem(invCompanero, this.catalogoItems, msg.instanciaId, msg.slot);
+    if (!resultado.ok) return this.errorCompanero(client, resultado.motivo ?? "no_equipable_en_ese_slot");
+    this.sincronizarYRecalcularCompanero(client.sessionId, invCompanero, esquema);
+    void this.persistirInventarioCompanero(client.sessionId);
+  }
+
+  private manejarCompaneroDesequipar(client: Client, msg: { slot?: string }) {
+    const invCompanero = this.companeroInventarioPorSesion.get(client.sessionId);
+    const esquema = this.companeroSchemaDe(client.sessionId);
+    if (!invCompanero || !esquema || typeof msg?.slot !== "string") return;
+    const resultado = desequiparItem(invCompanero, this.catalogoItems, msg.slot, Infinity); // el compañero no tiene Fuerza propia todavía — sin tope de peso en esta fase
+    if (!resultado.ok) return this.errorCompanero(client, resultado.motivo ?? "slot_vacio");
+    this.sincronizarYRecalcularCompanero(client.sessionId, invCompanero, esquema);
+    void this.persistirInventarioCompanero(client.sessionId);
+  }
+
+  private companeroSchemaDe(sessionId: string): CompaneroSchema | undefined {
+    const companeroId = this.companeroPorSesion.get(sessionId);
+    return companeroId != null ? this.state.companeros.get(String(companeroId)) : undefined;
+  }
+
+  /**
+   * XP de combate del compañero (docs/GDD_Companeros.md: "reciben EXP como
+   * el jugador... más sencillo"): un solo contador (no 5 atributos), sube
+   * de nivel 1-10 con la MISMA curva de umbrales que los atributos de
+   * jugador (companeros.ts::UMBRALES_NIVEL_COMPANERO) y el nivel da un
+   * bonus modesto de ataque/defensa — se persiste en cada ganancia
+   * (evento discreto de combate), nunca cada tick.
+   */
+  private async otorgarXpCompanero(sessionId: string, cantidad: number) {
+    const companeroId = this.companeroPorSesion.get(sessionId);
+    const duenoJugadorId = this.companeroDuenoJugadorIdPorSesion.get(sessionId);
+    const esquema = this.companeroSchemaDe(sessionId);
+    if (companeroId == null || duenoJugadorId == null || !esquema) return;
+    const nuevaXp = (this.companeroXpPorSesion.get(sessionId) ?? 0) + cantidad;
+    this.companeroXpPorSesion.set(sessionId, nuevaXp);
+    esquema.nivel = nivelCompanero(nuevaXp);
+    const inv = this.companeroInventarioPorSesion.get(sessionId);
+    const stats = inv ? calcularStatsEquipo(this.catalogoItems, inv.equipo) : { ataqueFisico: 0, defensaFisica: 0, ataqueMagico: 0, defensaMagica: 0 };
+    esquema.ataque = ATAQUE_BASE_COMPANERO + bonusAtaquePorNivelCompanero(esquema.nivel) + stats.ataqueFisico;
+    esquema.defensa = DEFENSA_BASE_COMPANERO + bonusDefensaPorNivelCompanero(esquema.nivel) + stats.defensaFisica;
+    const bd = await obtenerBdCompartida();
+    await bd.actualizarXpCompanero(companeroId, duenoJugadorId, nuevaXp);
+  }
+
+  private sincronizarYRecalcularCompanero(sessionId: string, inv: InventarioJugador, esquema: CompaneroSchema) {
+    sincronizarContenedor(esquema.inventario.cuerpo, inv.cuerpo);
+    sincronizarEquipo(esquema.inventario, inv.equipo, inv.extras);
+    const stats = calcularStatsEquipo(this.catalogoItems, inv.equipo);
+    esquema.ataque = ATAQUE_BASE_COMPANERO + bonusAtaquePorNivelCompanero(esquema.nivel) + stats.ataqueFisico;
+    esquema.defensa = DEFENSA_BASE_COMPANERO + bonusDefensaPorNivelCompanero(esquema.nivel) + stats.defensaFisica;
+  }
+
+  /** Guarda el inventario/equipo del compañero en SU fila sintética de jugadores — misma cadencia que persistirInventarioPorSesion (tras cada mutación real), más una vez al desconectar. */
+  private async persistirInventarioCompanero(sessionId: string) {
+    const companeroJugadorId = this.companeroJugadorIdPorSesion.get(sessionId);
+    const inv = this.companeroInventarioPorSesion.get(sessionId);
+    if (companeroJugadorId == null || !inv) return;
+    const bd = await obtenerBdCompartida();
+    await bd.guardarContenedor(companeroJugadorId, "cuerpo", inv.cuerpo);
+    await bd.guardarEquipo(companeroJugadorId, inv.equipo);
   }
 
   private async manejarMascotaListar(client: Client) {
@@ -6652,6 +7008,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       hp: jugador.vida, hpMax: jugador.vidaMax, ataque: jugador.ataque, defensa: jugador.defensa, esJugador: true,
     });
     combate.unidades.set(jugadorId, cu);
+
+    // Compañero (docs/GDD_Companeros.md): SI participa, pero sin hueco
+    // propio en ordenTurnos — actúa dentro del turno de SU DUEÑO (mover/
+    // accion resuelven qué unidad tocar por `unidadId`, validado por
+    // duenoSessionId). Se une automáticamente junto a él, mismo bando.
+    const companeroId = this.companeroPorSesion.get(jugadorId);
+    const companeroEsquema = companeroId != null ? this.state.companeros.get(String(companeroId)) : undefined;
+    if (companeroId != null && companeroEsquema) {
+      const cuCompanero = this.crearUnidadCombate(String(companeroId), "A", companeroEsquema.x - combate.gx0, companeroEsquema.y - combate.gy0, {
+        hp: companeroEsquema.vida, hpMax: companeroEsquema.vidaMax, ataque: companeroEsquema.ataque, defensa: companeroEsquema.defensa, esJugador: false,
+      });
+      cuCompanero.duenoSessionId = jugadorId;
+      combate.unidades.set(String(companeroId), cuCompanero);
+    }
   }
 
   /** Cualquier participante ya apuntado puede saltarse lo que quede de la ventana de unión (docs/GDD_Combate.md §9.1). */
@@ -6794,13 +7164,30 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
   }
 
-  private manejarCombateMover(client: Client, msg: { combateId?: string; gx?: number; gy?: number }) {
+  /**
+   * Resuelve QUÉ unidad actúa este mensaje (docs/GDD_Companeros.md, pedido
+   * 2026-08-30: "podrá moverse él y luego también mover a su compañero y
+   * atacar") — por defecto la propia (client.sessionId), o la de SU
+   * compañero si `unidadId` la nombra y de verdad le pertenece
+   * (`duenoSessionId`). El compañero NUNCA tiene hueco propio en
+   * ordenTurnos: solo se puede accionar mientras es el turno de SU DUEÑO
+   * (comprobación ya hecha por el llamador contra `client.sessionId`).
+   */
+  private unidadParaAccion(combate: CombateSchema, client: Client, unidadId: string | undefined): CombateUnidad | undefined {
+    if (unidadId && unidadId !== client.sessionId) {
+      const cu = combate.unidades.get(unidadId);
+      return cu && cu.duenoSessionId === client.sessionId ? cu : undefined;
+    }
+    return combate.unidades.get(client.sessionId);
+  }
+
+  private manejarCombateMover(client: Client, msg: { combateId?: string; gx?: number; gy?: number; unidadId?: string }) {
     if (!msg?.combateId || typeof msg.gx !== "number" || typeof msg.gy !== "number") return;
     const combate = this.state.combates.get(msg.combateId);
     if (!combate) return;
     const idActual = combate.ordenTurnos[combate.turnoActual];
     if (idActual !== client.sessionId) return client.send("combate:error", { motivo: "no es tu turno" });
-    const cu = combate.unidades.get(client.sessionId);
+    const cu = this.unidadParaAccion(combate, client, msg.unidadId);
     if (!cu || cu.estado !== "activo") return;
 
     const arena = this.arenaDeCombate(combate);
@@ -6814,9 +7201,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     cu.gx = msg.gx; cu.gy = msg.gy; cu.pa -= coste;
 
     // Destreza (docs/GDD_Personaje.md §3.2): moverse por la arena entrena
-    // reflejos/agilidad — cu.esJugador ya lo garantiza (solo un jugador
-    // envía este mensaje, ver la comprobación de turno de arriba).
-    void this.otorgarXpAtributoPorSesion(client, "destreza", XP_DESTREZA_POR_MOVER_EN_COMBATE);
+    // reflejos/agilidad — SOLO si la unidad que se movió es el propio
+    // jugador (cu.esJugador); un compañero no tiene atributos de jugador,
+    // su progresión es la suya propia (companeros.ts), aparte.
+    if (cu.esJugador) void this.otorgarXpAtributoPorSesion(client, "destreza", XP_DESTREZA_POR_MOVER_EN_COMBATE);
   }
 
   // --- Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30) ---
@@ -7105,17 +7493,22 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("medico:jarabeTomado", { curado: true });
   }
 
-  private async manejarCombateAccion(client: Client, msg: { combateId?: string; objetivoId?: string }) {
+  private async manejarCombateAccion(client: Client, msg: { combateId?: string; objetivoId?: string; unidadId?: string }) {
     if (!msg?.combateId || !msg?.objetivoId) return;
     const combate = this.state.combates.get(msg.combateId);
     if (!combate) return;
     const idActual = combate.ordenTurnos[combate.turnoActual];
     if (idActual !== client.sessionId) return client.send("combate:error", { motivo: "no es tu turno" });
-    const atacante = combate.unidades.get(client.sessionId);
+    const atacante = this.unidadParaAccion(combate, client, msg.unidadId);
     const objetivo = combate.unidades.get(msg.objetivoId);
     if (!atacante || atacante.estado !== "activo" || !objetivo || objetivo.estado !== "activo") return;
     if (atacante.pa < COSTE_PA_ATAQUE) return client.send("combate:error", { motivo: "sin PA suficiente" });
-    if (this.brazoInutilizadoDe(client.sessionId)) return client.send("combate:error", { motivo: "brazo roto o amputado, no puedes atacar" });
+    // Anatomía (docs/GDD_Anatomia.md): brazo roto/amputado bloquea atacar —
+    // solo aplica si quien ataca es el propio jugador (un compañero no
+    // tiene anatomía por zona, ver docs/GDD_Companeros.md).
+    if (atacante.esJugador && this.brazoInutilizadoDe(client.sessionId)) {
+      return client.send("combate:error", { motivo: "brazo roto o amputado, no puedes atacar" });
+    }
     if (!enAlcance(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo))) {
       return client.send("combate:error", { motivo: "fuera de alcance" });
     }
@@ -7128,11 +7521,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       void this.aplicarEfectoAnatomicoSiCorresponde(client.sessionId, msg.objetivoId);
     }
 
-    // Destreza Y Fuerza (docs/GDD_Personaje.md §3.2, "dando golpes"): un
-    // golpe conectado entrena ambas — atacante SIEMPRE es un jugador aquí
-    // (idActual===client.sessionId ya lo garantiza más arriba).
-    void this.otorgarXpAtributoPorSesion(client, "destreza", XP_DESTREZA_POR_GOLPE_CONECTADO);
-    void this.otorgarXpAtributoPorSesion(client, "fuerza", XP_FUERZA_POR_GOLPE_CONECTADO);
+    if (atacante.esJugador) {
+      // Destreza Y Fuerza (docs/GDD_Personaje.md §3.2, "dando golpes"): un
+      // golpe conectado entrena ambas.
+      void this.otorgarXpAtributoPorSesion(client, "destreza", XP_DESTREZA_POR_GOLPE_CONECTADO);
+      void this.otorgarXpAtributoPorSesion(client, "fuerza", XP_FUERZA_POR_GOLPE_CONECTADO);
+    } else if (atacante.duenoSessionId === client.sessionId) {
+      // Compañero (docs/GDD_Companeros.md): "reciben EXP como el jugador,
+      // pero más sencillo" — un solo contador, no 5 atributos.
+      void this.otorgarXpCompanero(client.sessionId, XP_COMPANERO_POR_GOLPE_CONECTADO);
+    }
 
     if (await this.comprobarFinDeCombate(msg.combateId)) return;
     void this.avanzarTurnosIA(msg.combateId);
