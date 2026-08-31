@@ -39,6 +39,15 @@ export class CombateUnidad extends Schema {
   alcance = 1;
   /** docs/GDD_Caza.md — fauna no peligrosa en modo caza: deambula, nunca ataca (server/src/combate/arenaCombate.ts::jugarTurnoIAPasiva). */
   pasivo = false;
+  /**
+   * docs/GDD_Companeros.md (pedido 2026-08-30): sessionId del jugador dueño
+   * SOLO si esta unidad es un compañero — "" para todo lo demás (jugador,
+   * fauna, enemigo, npc hostil). El compañero NO tiene su propio hueco en
+   * ordenTurnos: actúa DENTRO del turno de su dueño, como si fuera "él
+   * mismo pudiendo mover y atacar dos veces" — mover/accion resuelven la
+   * unidad objetivo por `unidadId` opcional, validado contra este campo.
+   */
+  duenoSessionId = "";
 
   // --- Combate acuático (docs/GDD_Barcos.md/GDD_Combate.md, pedido
   // 2026-08-30): SOLO cosmético — "no da más bonus ni nada", nunca leído

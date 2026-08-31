@@ -46,9 +46,13 @@ export const SALDO_INICIAL_JUGADOR = 20;
 export const SALDO_INICIAL_NPC_COMERCIANTE = 500;
 /** Prefijo de identidad de un comerciante NPC en `jugadores.nombre` — nunca puede chocar con un nombre de jugador real (docs/GDD_Economia.md). */
 export const PREFIJO_NPC_COMERCIANTE = "npc:";
+/** docs/GDD_Companeros.md (pedido 2026-08-30) — mismo truco que PREFIJO_NPC_COMERCIANTE: una fila sintética en `jugadores` para reusar GRATIS inventario/equipo/vida ya existentes en vez de tablas paralelas. */
+export const PREFIJO_NPC_COMPANERO = "companero:";
 /** Saldo inicial correcto según de quién sea la fila que se está creando por primera vez. */
 export function saldoInicialPara(nombre: string): number {
-  return nombre.startsWith(PREFIJO_NPC_COMERCIANTE) ? SALDO_INICIAL_NPC_COMERCIANTE : SALDO_INICIAL_JUGADOR;
+  if (nombre.startsWith(PREFIJO_NPC_COMERCIANTE)) return SALDO_INICIAL_NPC_COMERCIANTE;
+  if (nombre.startsWith(PREFIJO_NPC_COMPANERO)) return 0; // un compañero no compra/vende, no necesita saldo
+  return SALDO_INICIAL_JUGADOR;
 }
 /** Ingreso diario de un NPC comerciante (pedido 2026-08-30: "los npc cada día reciben 20 Farycoins también, así aumentan su dinero") — mismo importe que el saldo inicial de jugador, cálculo perezoso vía `resolverIngresoDiarioNpc`. */
 export const INGRESO_DIARIO_NPC = 20;
@@ -388,6 +392,27 @@ export interface Mascota {
 }
 
 /**
+ * Compañero NPC reclutado (docs/GDD_Companeros.md, pedido 2026-08-30) — un
+ * Npc real de `poblacion/` que dejó de ser ambiental y ahora sigue a un
+ * jugador. `companeroJugadorId` es la fila SINTÉTICA en `jugadores` (nombre
+ * `PREFIJO_NPC_COMPANERO + npcOrigenSlot`, mismo truco que un comerciante
+ * NPC) que reusa GRATIS inventario/equipo/vida ya existentes — esta fila
+ * `companeros` solo guarda la relación de propiedad + progresión + de qué
+ * Npc salió (para repintar el mismo aspecto/vox).
+ */
+export interface Companero {
+  id: number;
+  jugadorId: number;
+  companeroJugadorId: number;
+  npcOrigenSlot: string;
+  nombre: string;
+  xp: number;
+  ubicacion: UbicacionMascota;
+  propiedadId: string | null;
+  creadoEn: string;
+}
+
+/**
  * Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): crafteado en el astillero,
  * "colocado" junto al agua (barco:colocar, consume el ítem) — a partir de
  * ahí vive anclado en el mundo, NUNCA en el inventario. `mapaId` es la
@@ -707,6 +732,13 @@ export interface IAlmacenDatos {
   actualizarUbicacionMascota(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean>;
   /** docs/GDD_Monturas.md — marca `montura:true` permanentemente (mismo compare-and-swap por jugadorId que actualizarUbicacionMascota). */
   ponerMonturaMascota(id: number, jugadorId: number): Promise<boolean>;
+  // Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — nace "siguiendo" (RoomExteriorBase lo spawnea de inmediato), mismo patrón que mascotas.
+  crearCompanero(jugadorId: number, companeroJugadorId: number, npcOrigenSlot: string, nombre: string): Promise<Companero>;
+  listarCompaneros(jugadorId: number): Promise<Companero[]>;
+  /** Todo o nada: solo cambia si `id` pertenece de verdad a `jugadorId` — `false` si no existe o es de otro jugador. */
+  actualizarUbicacionCompanero(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean>;
+  /** XP acumulada (nivel se deriva en vivo con nivelDeXp, nunca se persiste el nivel en sí — mismo criterio que atributos de jugador). */
+  actualizarXpCompanero(id: number, jugadorId: number, xp: number): Promise<boolean>;
   // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — nace anclado donde se coloca (barco:colocar).
   crearBarco(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number): Promise<Barco>;
   /** Todos los barcos anclados en ESE mapa — HubRoom los carga a state.barcos en onCreate. */
@@ -896,6 +928,22 @@ CREATE TABLE IF NOT EXISTS mascotas (
   propiedad_id TEXT,
   creado_en TEXT NOT NULL,
   montura INTEGER NOT NULL DEFAULT 0
+);
+-- Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30): un Npc real de
+-- poblacion/ reclutado por un jugador. companero_jugador_id es la fila
+-- SINTÉTICA en jugadores (nombre 'companero:<slot>') que reusa inventario/
+-- equipo/vida ya existentes — esta tabla solo guarda la relación de
+-- propiedad + progresión + de qué Npc salió (para repintar su mismo aspecto).
+CREATE TABLE IF NOT EXISTS companeros (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  jugador_id INTEGER NOT NULL,
+  companero_jugador_id INTEGER NOT NULL,
+  npc_origen_slot TEXT NOT NULL UNIQUE,
+  nombre TEXT NOT NULL,
+  xp INTEGER NOT NULL DEFAULT 0,
+  ubicacion TEXT NOT NULL DEFAULT 'siguiendo',
+  propiedad_id TEXT,
+  creado_en TEXT NOT NULL
 );
 -- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): crafteado en el astillero
 -- y "colocado" junto al agua — ancla en el mundo (mapa_id+x+y), nunca vuelve
@@ -1236,6 +1284,17 @@ CREATE TABLE IF NOT EXISTS mascotas (
   creado_en TEXT NOT NULL,
   montura BOOLEAN NOT NULL DEFAULT FALSE
 );
+CREATE TABLE IF NOT EXISTS companeros (
+  id SERIAL PRIMARY KEY,
+  jugador_id INTEGER NOT NULL,
+  companero_jugador_id INTEGER NOT NULL,
+  npc_origen_slot TEXT NOT NULL UNIQUE,
+  nombre TEXT NOT NULL,
+  xp INTEGER NOT NULL DEFAULT 0,
+  ubicacion TEXT NOT NULL DEFAULT 'siguiendo',
+  propiedad_id TEXT,
+  creado_en TEXT NOT NULL
+);
 ALTER TABLE mascotas ADD COLUMN IF NOT EXISTS montura BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE TABLE IF NOT EXISTS barcos (
   id SERIAL PRIMARY KEY,
@@ -1531,6 +1590,20 @@ function filaAMascota(f: any): Mascota {
     propiedadId: f.propiedad_id === null || f.propiedad_id === undefined ? null : String(f.propiedad_id),
     creadoEn: String(f.creado_en),
     montura: !!f.montura,
+  };
+}
+
+function filaACompanero(f: any): Companero {
+  return {
+    id: Number(f.id),
+    jugadorId: Number(f.jugador_id),
+    companeroJugadorId: Number(f.companero_jugador_id),
+    npcOrigenSlot: String(f.npc_origen_slot),
+    nombre: String(f.nombre),
+    xp: Number(f.xp),
+    ubicacion: String(f.ubicacion) as UbicacionMascota,
+    propiedadId: f.propiedad_id === null || f.propiedad_id === undefined ? null : String(f.propiedad_id),
+    creadoEn: String(f.creado_en),
   };
 }
 
@@ -2812,6 +2885,33 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return Number(r.changes) > 0;
   }
 
+  async crearCompanero(jugadorId: number, companeroJugadorId: number, npcOrigenSlot: string, nombre: string): Promise<Companero> {
+    const ahora = new Date().toISOString();
+    const r = this.bd
+      .prepare("INSERT INTO companeros (jugador_id, companero_jugador_id, npc_origen_slot, nombre, xp, ubicacion, propiedad_id, creado_en) VALUES (?, ?, ?, ?, 0, 'siguiendo', NULL, ?)")
+      .run(jugadorId, companeroJugadorId, npcOrigenSlot, nombre, ahora);
+    return { id: Number(r.lastInsertRowid), jugadorId, companeroJugadorId, npcOrigenSlot, nombre, xp: 0, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora };
+  }
+
+  async listarCompaneros(jugadorId: number): Promise<Companero[]> {
+    const filas = this.bd.prepare("SELECT id, jugador_id, companero_jugador_id, npc_origen_slot, nombre, xp, ubicacion, propiedad_id, creado_en FROM companeros WHERE jugador_id = ?").all(jugadorId);
+    return filas.map(filaACompanero);
+  }
+
+  async actualizarUbicacionCompanero(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean> {
+    const r = this.bd
+      .prepare("UPDATE companeros SET ubicacion = ?, propiedad_id = ? WHERE id = ? AND jugador_id = ?")
+      .run(ubicacion, propiedadId, id, jugadorId);
+    return Number(r.changes) > 0;
+  }
+
+  async actualizarXpCompanero(id: number, jugadorId: number, xp: number): Promise<boolean> {
+    const r = this.bd
+      .prepare("UPDATE companeros SET xp = ? WHERE id = ? AND jugador_id = ?")
+      .run(xp, id, jugadorId);
+    return Number(r.changes) > 0;
+  }
+
   async crearBarco(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number): Promise<Barco> {
     const ahora = new Date().toISOString();
     const r = this.bd
@@ -4003,6 +4103,39 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     const r = await this.pool.query(
       "UPDATE mascotas SET montura = TRUE WHERE id = $1 AND jugador_id = $2",
       [id, jugadorId],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async crearCompanero(jugadorId: number, companeroJugadorId: number, npcOrigenSlot: string, nombre: string): Promise<Companero> {
+    const ahora = new Date().toISOString();
+    const r = await this.pool.query(
+      "INSERT INTO companeros (jugador_id, companero_jugador_id, npc_origen_slot, nombre, xp, ubicacion, propiedad_id, creado_en) VALUES ($1, $2, $3, $4, 0, 'siguiendo', NULL, $5) RETURNING id",
+      [jugadorId, companeroJugadorId, npcOrigenSlot, nombre, ahora],
+    );
+    return { id: r.rows[0].id, jugadorId, companeroJugadorId, npcOrigenSlot, nombre, xp: 0, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora };
+  }
+
+  async listarCompaneros(jugadorId: number): Promise<Companero[]> {
+    const r = await this.pool.query(
+      "SELECT id, jugador_id, companero_jugador_id, npc_origen_slot, nombre, xp, ubicacion, propiedad_id, creado_en FROM companeros WHERE jugador_id = $1",
+      [jugadorId],
+    );
+    return r.rows.map(filaACompanero);
+  }
+
+  async actualizarUbicacionCompanero(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean> {
+    const r = await this.pool.query(
+      "UPDATE companeros SET ubicacion = $1, propiedad_id = $2 WHERE id = $3 AND jugador_id = $4",
+      [ubicacion, propiedadId, id, jugadorId],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async actualizarXpCompanero(id: number, jugadorId: number, xp: number): Promise<boolean> {
+    const r = await this.pool.query(
+      "UPDATE companeros SET xp = $1 WHERE id = $2 AND jugador_id = $3",
+      [xp, id, jugadorId],
     );
     return (r.rowCount ?? 0) > 0;
   }
