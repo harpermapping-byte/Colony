@@ -1256,7 +1256,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           simularCanje: (tipo) => room.send("twitch:simularCanje", { tipo }),
           simularComando: (comando) => room.send("twitch:simularComando", { comando }),
           forzarDirecto: (on) => room.send("twitch:forzarDirecto", { on }),
+          renombrarCapital: (nombre) => room.send("admin:capital:renombrar", { nombre }),
         });
+        room.send("admin:capital:consultar");
       }
       // Panel de debug de la Test Zone (docs/GDD_Admin.md, pedido
       // 2026-08-31): mismo criterio de visibilidad que PanelJarl — el
@@ -1276,6 +1278,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     },
   );
   room.onMessage("pvp:actualizado", (m: { on: boolean }) => panelJarl?.actualizarPvp(m.on));
+  room.onMessage("capital:renombrada", (m: { nombre: string }) => panelJarl?.actualizarCapital(m?.nombre ?? ""));
   room.onMessage("admin:debug:ok", (m: { accion: string }) => panelDebugTestZone?.mostrarResultado(`OK: ${m?.accion}`));
   room.onMessage("admin:error", (m: { motivo: string }) => panelDebugTestZone?.mostrarResultado(`Error: ${m?.motivo}`));
 

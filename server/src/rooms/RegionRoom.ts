@@ -3,6 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { RoomExteriorBase, RADIO_INTERACCION } from "./base/RoomExteriorBase";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
+import { nombreCapitalOverride } from "../mundo/capital";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { NpcBakeado } from "../mundo/agentes";
 import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa } from "../mundo/npcsFijos";
@@ -185,6 +186,13 @@ export class RegionRoom extends RoomExteriorBase {
       // única en todo el mapa, docs/GDD_Ciudad_Capital.md) es SIEMPRE zona
       // segura, tenga PvP global activado el jarl o no.
       this.esZonaSeguraPropia = indice.tier === "capital_jarl";
+      // Nombre custom del jarl (docs/GDD_Ciudad_Capital.md, pedido
+      // 2026-08-31) — "" = nunca renombrada, se queda el nombre baked que
+      // ya cargó `cargarMapaColision` en `this.mapa.nombre`.
+      if (this.esZonaSeguraPropia) {
+        const nombreOverride = nombreCapitalOverride();
+        if (nombreOverride) this.mapa.nombre = nombreOverride;
+      }
 
       // Propiedades comerciales (docs/GDD_Propiedades.md, pedido 2026-08-29):
       // edificios ENTEROS comprables/alquilables — solo los que el bake

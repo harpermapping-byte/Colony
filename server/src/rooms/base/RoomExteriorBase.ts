@@ -110,6 +110,7 @@ import { resolverSesionAdmin, IdentidadAdmin } from "../../admin/adminAuth";
 import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto } from "../../inventario/desgaste";
 import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
+import { nombreCapitalOverride, fijarNombreCapital, LONGITUD_MAXIMA_NOMBRE_CAPITAL } from "../../mundo/capital";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
 import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, IngredienteCocina, familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura, FamiliaPlato, ResultadoCoccion, OrigenCocina } from "../../cocina/cocina";
@@ -910,6 +911,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     // PvP (docs/GDD_PvP.md, pedido 2026-08-30): jarl-only, "inicialmente deshabilitada".
     this.onMessage("pvp:fijar", (client, msg: { on?: boolean }) => this.manejarPvpFijar(client, msg));
+    // Ciudad capital (docs/GDD_Ciudad_Capital.md, pedido 2026-08-31): "el
+    // jarl puede cambiar el nombre de la ciudad capital inicial a su
+    // gusto" — jarl/superadmin-only, disponible en cualquier room (mismo
+    // criterio que pvp:fijar: es una decisión de mundo, no exige estar
+    // físicamente en la capital).
+    this.onMessage("admin:capital:renombrar", (client, msg: { nombre?: string }) => void this.manejarCapitalRenombrar(client, msg));
+    this.onMessage("admin:capital:consultar", (client) => {
+      if (!this.puedeActuarComoJarl(client)) return;
+      client.send("capital:renombrada", { nombre: nombreCapitalOverride() });
+    });
 
     // NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3, pedido
     // 2026-08-30): jarl/superadmin-only, colocados en la posición actual
@@ -3378,6 +3389,24 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     await fijarPvpGlobal(bd, !!msg?.on);
     this.broadcast("pvp:actualizado", { on: !!msg?.on });
+  }
+
+  /**
+   * Jarl-only: renombra la ciudad capital (docs/GDD_Ciudad_Capital.md,
+   * pedido 2026-08-31). Persiste vía `mundo/capital.ts` (mismo patrón que
+   * PvP) — el nombre nuevo se ve al instante en cualquier room que lo
+   * consulte (RegionRoom de la propia capital al recargar, y el futuro
+   * mapa de mundo). Vacío = vuelve a usar el nombre baked.
+   */
+  private async manejarCapitalRenombrar(client: Client, msg: { nombre?: string }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede renombrar la capital" });
+    const nombre = typeof msg?.nombre === "string" ? msg.nombre.trim() : "";
+    if (nombre.length > LONGITUD_MAXIMA_NOMBRE_CAPITAL) {
+      return client.send("admin:error", { motivo: `nombre demasiado largo (máx ${LONGITUD_MAXIMA_NOMBRE_CAPITAL})` });
+    }
+    const bd = await obtenerBdCompartida();
+    await fijarNombreCapital(bd, nombre);
+    this.broadcast("capital:renombrada", { nombre: nombreCapitalOverride() });
   }
 
   /**
