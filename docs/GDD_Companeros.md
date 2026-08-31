@@ -18,7 +18,7 @@ Ampliación tras pregunta de scoping (mismo día): *"la opción uno [un NPC ya e
 
 ## 1. Reclutar — núcleo compartido
 
-`RoomExteriorBase.reclutarCompanero(client, npcSlotId, npc, coste)`: valida que el jugador no tenga ya compañero, cobra `coste` Farycoins (`ajustarFarycoins`, todo-o-nada), crea la fila sintética en `jugadores` + la fila en `companeros`, saca el Npc de su rutina ambiental (`GestorAgentes.quitarAgente`) y lo spawnea como compañero.
+`RoomExteriorBase.reclutarCompanero(client, npcSlotId, npc, coste)`: valida que el jugador no tenga ya compañero, cobra `coste` Farycoins (`ajustarFarycoins`, todo-o-nada), crea la fila sintética en `jugadores` + la fila en `companeros`, saca el Npc de su rutina ambiental (`GestorAgentes.quitarAgente`) y lo spawnea como compañero. El chequeo de "¿ya tienes compañero?" consulta `bd.listarCompaneros(jugadorId)` (BD, no la sesión — corregido 2026-08-31: mirar solo la sesión dejaba reclutar un SEGUNDO compañero mientras el primero estaba "trabajando" en una plantilla, ver `docs/GDD_Produccion.md` §5bis, porque ese estado no vive en ningún Map de sesión).
 
 - **`companero:intentarReclutar`**: sobre el NPC no-hostil más cercano (`npcReclutableCercano`, `RADIO_INTERACCION`). Tira `intentarPersuadir(carisma)` — si falla, no pasa NADA (es una conversación, se puede reintentar, sin coste); si convence, llama al núcleo con `costeReclutar(slotId)`.
 - **`companero:comprarDeVendedor { npcVendedorId }`**: exige estar junto a un NPC vendedor (`RADIO_INTERACCION`), sin tirada — llama al núcleo sobre el NPC reclutable más cercano AL JUGADOR (no al vendedor: "lo spawnee al lado" cuando lo compras).
@@ -53,6 +53,7 @@ Mismo mecanismo EXACTO que una mascota "siguiendo" (`docs/GDD_Mascotas.md`): al 
 
 - `PREFIJO_NPC_COMPANERO = "companero:"` (`server/src/datos/bd.ts`) — mismo patrón que `PREFIJO_NPC_COMERCIANTE`; `saldoInicialPara` le da 0 Farycoins (no compra/vende).
 - Tabla `companeros` (SQLite + Postgres, migraciones incluidas): `id, jugador_id (dueño real), companero_jugador_id (fila sintética), npc_origen_slot (UNIQUE — un NPC solo puede reclutarse una vez), nombre, xp, ubicacion, propiedad_id, creado_en`. `crearCompanero`/`listarCompaneros`/`actualizarUbicacionCompanero`/`actualizarXpCompanero` — mismas firmas y criterio "todo o nada por jugadorId" que sus equivalentes de `Mascota`.
+- `ubicacion: "propiedad"` (con `propiedad_id`) — hasta 2026-08-31 nunca lo alcanzaba ningún camino real (el mecanismo estaba, sin usar). Ahora sí: el compañero puesto a trabajar en una plantilla de producción lo usa EXACTAMENTE como una mascota dejada en propiedad (desaparece de la room, reaparece al llamarlo) — ver `docs/GDD_Produccion.md` §5bis para el detalle completo (companero:asignarTrabajo/llamar).
 
 ## 7. Huecos honestos que quedan
 

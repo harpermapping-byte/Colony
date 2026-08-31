@@ -13,7 +13,7 @@ import { RenderConstrucciones, type ConstruccionRed } from "./construccion/rende
 import { PanelMapaMundo } from "./mapa/panelMapaMundo";
 import { ModoConstruccion } from "./construccion/constructor";
 import { ColocadorPlantillas } from "./construccion/colocadorPlantillas";
-import { obtenerConstruible } from "./construccion/catalogoConstruccion";
+import { obtenerConstruibleOPlantilla } from "./construccion/catalogoConstruccion";
 import { MenuInteraccion, type OpcionMenuInteraccion } from "./ui/menuInteraccion";
 import { ModalInstrumento } from "./ui/modalInstrumento";
 import { reproducirMidi, detenerReproduccion, type TipoInstrumento } from "./audio/instrumentos";
@@ -523,6 +523,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     });
     const modo = modoConstruccion;
 
+    let ultimaPlantillaColocada: { construccionId: number; plantillaId: string } | null = null;
     // --- Colocador de plantillas del jarl (docs/GDD_Produccion.md, pedido
     // 2026-08-31: "el admin o superadmin tendrá el mismo tipo de colocador
     // que el de las construcciones o amueblamiento de los jugadores") —
@@ -547,12 +548,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         radioMax: RADIO_PLANTILLAS_JARL_CASILLAS_CLIENTE,
         enviarColocar: (mensaje) => room.send("plantilla:colocar", mensaje),
       });
-      room.onMessage("plantilla:error", (m: { motivo: string }) => colocadorPlantillas?.mostrarError(m?.motivo || ""));
+      // "plantilla:error" también lo dispara plantilla:asignarTrabajador
+      // (docs/GDD_Produccion.md §3bis), disponible para CUALQUIER jugador,
+      // no solo el jarl — de ahí el console.log además de avisar al
+      // colocador (que solo el jarl puede llegar a abrir).
+      room.onMessage("plantilla:error", (m: { motivo: string }) => {
+        colocadorPlantillas?.mostrarError(m?.motivo || "");
+        console.log("[plantilla]", m?.motivo);
+      });
       // Confirmación del servidor — "construccion:nueva" (arriba) ya pinta la
-      // pieza, este mensaje solo evita el warning de colyseus.js por no
-      // tener un handler registrado (mismo criterio que el resto de esta
-      // sección: "tolerar la ausencia es gratis, la presencia no").
-      room.onMessage("plantilla:colocada", () => {});
+      // pieza; se guarda además para la sonda de test __construccion (no hay
+      // UI de "comprar plantilla" todavía, ver comprarPlantilla más abajo).
+      room.onMessage("plantilla:colocada", (m: { construccionId: number; plantillaId: string }) => {
+        ultimaPlantillaColocada = m;
+      });
     }
 
     // --- Mapa de mundo con niebla de guerra (docs/GDD_Mapa_Mundo.md,
@@ -614,7 +623,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (impactos.length === 0) return;
       const datos = renderConstrucciones.datosDeMalla(impactos[0].object);
       if (!datos) return;
-      const construible = obtenerConstruible(datos.objeto);
+      const construible = obtenerConstruibleOPlantilla(datos.objeto);
       const nombre = construible?.nombre ?? datos.objeto;
       const opciones: OpcionMenuInteraccion[] = [];
       if (construible?.instrumento) {
@@ -625,6 +634,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
             modalInstrumento.mostrar(nombre);
           },
         });
+      }
+      // Trabajador de producción (docs/GDD_Produccion.md §3bis, pedido
+      // 2026-08-31: "trabajador de producción como NPC real" + "podrás sacar
+      // [al compañero] de su puesto... y reasignarlos también") — sin saber
+      // el estado actual (el cliente no lo trae, ver ConstruccionRed), las 3
+      // opciones se ofrecen siempre que la construcción NECESITE trabajador;
+      // el servidor decide si aplica y responde con plantilla:error/
+      // companero:error si no ("sin UI de targeting", mismo criterio que el
+      // resto del proyecto).
+      if (construible?.produccion?.requiereTrabajador) {
+        opciones.push({ etiqueta: "Contratar trabajador (50₣)", accion: () => room.send("plantilla:asignarTrabajador", { construccionId: datos.id, activo: true }) });
+        opciones.push({ etiqueta: "Despedir trabajador", accion: () => room.send("plantilla:asignarTrabajador", { construccionId: datos.id, activo: false }) });
+        opciones.push({ etiqueta: "Poner a mi compañero a trabajar aquí", accion: () => room.send("companero:asignarTrabajo", { construccionId: datos.id }) });
       }
       menuInteraccion.mostrar(e.clientX, e.clientY, nombre, opciones);
     });
@@ -665,6 +687,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // necesita fuera del colocador (asignación de parcela por el jarl, §4)
       asignarParcela: (parcelaId: string, nombreJugador: string) =>
         room.send("parcela:asignar", { parcelaId, nombreJugador }),
+      // docs/GDD_Produccion.md §3bis: comprar una plantilla del jarl (aserradero...)
+      // tampoco tiene UI todavía — mismo criterio que asignarParcela arriba.
+      comprarPlantilla: (construccionId: number) => room.send("plantilla:comprar", { construccionId }),
+      ultimaPlantillaColocada: () => ultimaPlantillaColocada,
       errores: () => erroresConstruir,
     };
 
@@ -780,10 +806,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     quitarItem: (instanciaId) => room.send("companero:quitarItem", { instanciaId }),
     equipar: (instanciaId, slot) => room.send("companero:equipar", { instanciaId, slot }),
     desequipar: (slot) => room.send("companero:desequipar", { slot }),
+    llamar: () => room.send("companero:llamar"),
   });
   room.onMessage("companero:error", (m: { motivo: string }) => console.log("[compañero]", m?.motivo));
   room.onMessage("companero:persuasionFallida", (m: { nombre: string }) => console.log(`[compañero] ${m?.nombre} no se deja convencer todavía`));
   room.onMessage("companero:reclutado", (m: { nombre: string; coste: number }) => console.log(`[compañero] ${m?.nombre} se une por ${m?.coste} Farycoins`));
+  // Trabajador de producción (docs/GDD_Produccion.md §3bis, pedido 2026-08-31):
+  // confirmación de que el trabajador contratado/compañero cambió — el
+  // objeto colocado se repinta solo (no lleva estado visual propio todavía),
+  // esto es solo para que quede constancia en consola mientras no haya panel dedicado.
+  room.onMessage("companero:actualizado", (m: { ubicacion: string; propiedadId?: string }) => console.log("[compañero]", m));
+  room.onMessage("plantilla:actualizada", (m: { construccionId: number; trabajadorAsignado?: boolean }) => console.log("[plantilla]", m));
   const leerAnatomiaVista = (schema: any): Record<Zona, EstadoZonaVista> => {
     const vista = {} as Record<Zona, EstadoZonaVista>;
     for (const zona of ZONAS) {

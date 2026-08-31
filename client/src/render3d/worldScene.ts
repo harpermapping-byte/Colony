@@ -262,7 +262,15 @@ export class WorldScene {
     if (!objeto) return;
     this.scene.remove(objeto);
     this.entidades.delete(idEntidad);
+    // Bug real (encontrado probando companero:asignarTrabajo, docs/GDD_
+    // Produccion.md §3bis): CSS2DRenderer NUNCA quita del DOM el <div> de un
+    // CSS2DObject solo porque su Object3D padre salga de la escena — deja de
+    // TRAVERSARLO, pero el elemento ya insertado en labelRenderer.domElement
+    // se queda huérfano para siempre (el nombre flotante "sobrevivía" a la
+    // entidad). Hay que sacarlo del DOM explícitamente aquí.
+    this.etiquetas.get(idEntidad)?.remove();
     this.etiquetas.delete(idEntidad);
+    this.barrasVida.get(idEntidad)?.fondo.remove();
     this.barrasVida.delete(idEntidad);
   }
 

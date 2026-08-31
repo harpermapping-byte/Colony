@@ -23,6 +23,8 @@ export interface OpcionesPanelCompanero {
   quitarItem(instanciaId: number): void;
   equipar(instanciaId: number, slot: string): void;
   desequipar(slot: string): void;
+  /** docs/GDD_Produccion.md §3bis — trae de vuelta al compañero que está trabajando en una plantilla. */
+  llamar(): void;
 }
 
 export class PanelCompanero {
@@ -82,6 +84,19 @@ export class PanelCompanero {
       btnComprar.onclick = () => { if (inputVendedor.value) this.opciones.comprarDeVendedor(inputVendedor.value); };
       filaVendedor.appendChild(btnComprar);
       this.raiz.appendChild(filaVendedor);
+
+      // docs/GDD_Produccion.md §3bis: si el "sin compañero" es en realidad
+      // "está trabajando en una plantilla" (desaparece del Schema mientras
+      // trabaja, mismo criterio que una mascota dejada en propiedad), este
+      // botón lo trae de vuelta — inofensivo si de verdad no tienes ninguno
+      // (el servidor responde "no tienes compañero" y no pasa nada).
+      const filaLlamar = document.createElement("div");
+      filaLlamar.style.marginTop = "6px";
+      const btnLlamar = document.createElement("button");
+      btnLlamar.textContent = "Llamar (si está trabajando)";
+      btnLlamar.onclick = () => this.opciones.llamar();
+      filaLlamar.appendChild(btnLlamar);
+      this.raiz.appendChild(filaLlamar);
       return;
     }
 

@@ -43,6 +43,8 @@ export interface Construible {
   nombre?: string;
   /** Instrumentos musicales interactivos (docs/GDD_Instrumentos.md) — tipo corto ("tambor"/"laud"/"flauta"/"campana") que game.ts usa para elegir animación/sonido; presente SOLO en las 4 entradas de elementos.json con `instrumento`. */
   instrumento?: string;
+  /** Producción pasiva (docs/GDD_Produccion.md) — `requiereTrabajador` es lo único que necesita el menú de interacción (contratar/despedir trabajador, poner a trabajar al compañero) para decidir si ofrece esas opciones. */
+  produccion?: { requiereTrabajador?: boolean };
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -69,6 +71,7 @@ interface EntradaBruta {
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: string; hierveAgua?: boolean };
   nombre?: string;
   instrumento?: string;
+  produccion?: { requiereTrabajador?: boolean };
   [k: string]: unknown;
 }
 
@@ -120,6 +123,7 @@ function construirLista(): Construible[] {
       proyectoJarl: e.proyectoJarl,
       plantable: !!e.plantable,
       cocina: e.cocina,
+      produccion: e.produccion,
     });
   }
 
@@ -162,6 +166,7 @@ function construirListaPlantillas(): Construible[] {
       plantillaJarl: e.plantillaJarl === true,
       proyectoJarl: e.proyectoJarl === true,
       nombre: e.nombre,
+      produccion: e.produccion,
     });
   }
   return lista;
@@ -184,10 +189,22 @@ export const CONSTRUIBLES_POR_CATEGORIA: Map<CategoriaConstruible, Construible[]
 })();
 
 const POR_ID = new Map<string, Construible>(CONSTRUIBLES.map((c) => [c.id, c]));
+const POR_ID_PLANTILLA = new Map<string, Construible>(PLANTILLAS_JARL.map((c) => [c.id, c]));
 
 /** Entrada construible por id (undefined si el id no está en los catálogos). */
 export function obtenerConstruible(id: string): Construible | undefined {
   return POR_ID.get(id);
+}
+
+/**
+ * Como `obtenerConstruible`, pero busca TAMBIÉN en `PLANTILLAS_JARL`
+ * (aserradero, fundición...) — necesario para el menú de interacción
+ * (docs/GDD_Produccion.md §3bis) sobre una construcción que un jugador
+ * puede poseer (una plantilla comprada) aunque no viva en el menú normal de
+ * construir.
+ */
+export function obtenerConstruibleOPlantilla(id: string): Construible | undefined {
+  return POR_ID.get(id) ?? POR_ID_PLANTILLA.get(id);
 }
 
 /**

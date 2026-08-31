@@ -32,6 +32,18 @@ export interface EstadoProduccion {
   /** epoch ms de la última vez que se resolvió el acumulador. */
   ultimoCalculo: number;
   trabajadorAsignado?: boolean;
+  /**
+   * Quién es el trabajador actual (docs/GDD_Produccion.md §3bis, pedido
+   * 2026-08-31: "el 2 y el 3" — trabajador contratado pagando Farycoins, O
+   * el compañero del jugador puesto a trabajar aquí en vez de seguirle).
+   * Solo bookkeeping para que `plantilla:asignarTrabajador` y
+   * `companero:asignarTrabajo/llamar` no se pisen entre sí (p.ej. llamar al
+   * compañero no debe apagar un trabajador ya PAGADO en la misma
+   * construcción) — `resolverProduccion` sigue mirando SOLO
+   * `trabajadorAsignado`, este campo no cambia el acumulador. `undefined` en
+   * estados guardados antes de esto = comportamiento de siempre (pagado).
+   */
+  trabajadorTipo?: "pagado" | "companero";
 }
 
 /**

@@ -854,6 +854,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("companero:quitarItem", (client, msg: { instanciaId?: number }) => this.manejarCompaneroQuitarItem(client, msg));
     this.onMessage("companero:equipar", (client, msg: { instanciaId?: number; slot?: string }) => this.manejarCompaneroEquipar(client, msg));
     this.onMessage("companero:desequipar", (client, msg: { slot?: string }) => this.manejarCompaneroDesequipar(client, msg));
+    // Compañero trabajando en producción (docs/GDD_Produccion.md §3bis, pedido 2026-08-31).
+    this.onMessage("companero:asignarTrabajo", (client, msg: { construccionId?: number }) => void this.manejarCompaneroAsignarTrabajo(client, msg));
+    this.onMessage("companero:llamar", (client) => void this.manejarCompaneroLlamar(client));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -2130,6 +2133,23 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         // producción acumulada aunque siguiera persistida en `extra`.
         extra: c.extra,
       });
+      // Trabajador contratado (docs/GDD_Produccion.md §3bis): el NPC fijo
+      // que lo representa NO se persiste como agente (los agentes nunca
+      // sobreviven a un reinicio de room, ver agentes.ts) pero el booleano
+      // SÍ (en `extra`, cargado justo arriba) — sin esto, un reinicio de
+      // servidor dejaría el trabajador PAGADO activo (sigue produciendo)
+      // pero invisible, "supervivencia a reinicio" incompleta (mismo bug
+      // real que §5 ya encontró para el acumulador).
+      const extraCargado = (c.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
+      if (extraCargado.produccion?.trabajadorAsignado && extraCargado.produccion.trabajadorTipo === "pagado") {
+        const viva = ctx.vivas.get(c.id);
+        if (viva) {
+          this.obtenerOCrearGestorAgentes().agregarNpcFijo({
+            slotId: `trabajador_${viva.id}`, nombre: "Trabajador",
+            rutina: [{ lugar: "trabajo", accion: "trabajar", horaInicio: 0, horaFin: 24, punto: { x: viva.x, y: viva.y } }],
+          });
+        }
+      }
     }
     console.log(
       `Construcción (${asentamiento}): ${ctx.parcelas.parcelas.size} parcelas, ` +
@@ -2652,12 +2672,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const nombre = this.nombreDe(client);
     const jugador = this.state.players.get(client.sessionId);
     if (!nombre || !jugador) return false;
-    if (this.companeroPorSesion.has(client.sessionId)) {
+    const bd = await obtenerBdCompartida();
+    const jugadorFila = await bd.obtenerOCrearJugador(nombre);
+    // BD, no solo la sesión (docs/GDD_Produccion.md §3bis, pedido
+    // 2026-08-31): un compañero puesto a trabajar en una plantilla
+    // (companero:asignarTrabajo) desaparece de `companeroPorSesion` mientras
+    // trabaja, pero SIGUE siendo tu compañero — sin este chequeo, dejarlo
+    // trabajando y reclutar otro duplicaría compañeros.
+    if ((await bd.listarCompaneros(jugadorFila.id)).length > 0) {
       this.errorCompanero(client, "ya tienes un compañero");
       return false;
     }
-    const bd = await obtenerBdCompartida();
-    const jugadorFila = await bd.obtenerOCrearJugador(nombre);
     if (coste > 0) {
       const debito = await bd.ajustarFarycoins(jugadorFila.id, -coste);
       if (!debito.ok) {
@@ -5836,7 +5861,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.broadcast("plantilla:actualizada", { construccionId: viva.id, dueno: nombre });
   }
 
-  /** Activa/desactiva el trabajador de una plantilla — dueño o jarl, pago único al activar. */
+  /**
+   * Activa/desactiva el TRABAJADOR CONTRATADO (pagado en Farycoins) de una
+   * plantilla — dueño o jarl. Distinto del compañero puesto a trabajar
+   * (`companero:asignarTrabajo`, docs/GDD_Produccion.md §3bis) — los dos
+   * comparten el mismo booleano `trabajadorAsignado` del acumulador pero se
+   * distinguen por `trabajadorTipo` para no pisarse: activar este mientras
+   * hay un compañero trabajando se rechaza (llama al compañero primero),
+   * desactivar este cuando el trabajador actual es un compañero también se
+   * rechaza (usa `companero:llamar`, no esto).
+   *
+   * NPC real (pedido 2026-08-31: "trabajador de producción como NPC real"):
+   * un `NpcBakeado` sintético de un único punto, sin rutina — mismo
+   * mecanismo que un NPC tutorial fijo (`agregarNpcFijo`), plantado en la
+   * construcción mientras el trabajador esté activo.
+   */
   private async manejarPlantillaAsignarTrabajador(client: Client, msg: { construccionId?: number; activo?: boolean }) {
     const nombre = this.nombreDe(client);
     const ctx = this.ctxConstruccion;
@@ -5854,16 +5893,125 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     const extraActual = (viva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
     const estadoPrevio: EstadoProduccion = extraActual.produccion ?? { stock: 0, ultimoCalculo: Date.now() };
+    const eraPagado = estadoPrevio.trabajadorAsignado === true && estadoPrevio.trabajadorTipo === "pagado";
 
-    if (activo && !estadoPrevio.trabajadorAsignado) {
+    if (estadoPrevio.trabajadorAsignado && estadoPrevio.trabajadorTipo === "companero") {
+      return this.errorPlantilla(client, activo ? "ya tiene un compañero trabajando aquí" : "el trabajador es un compañero — usa companero:llamar para retirarlo");
+    }
+    if (activo && !eraPagado) {
       const jugador = await bd.obtenerOCrearJugador(nombre);
       const debito = await bd.ajustarFarycoins(jugador.id, -COSTE_TRABAJADOR_FARYCOINS);
       if (!debito.ok) return this.errorPlantilla(client, "no tienes suficientes Farycoins para el trabajador");
     }
-    const nuevoEstado: EstadoProduccion = { ...estadoPrevio, trabajadorAsignado: activo, ultimoCalculo: Date.now() };
+    const nuevoEstado: EstadoProduccion = {
+      ...estadoPrevio, trabajadorAsignado: activo, trabajadorTipo: activo ? "pagado" : undefined, ultimoCalculo: Date.now(),
+    };
     viva.extra = { ...extraActual, produccion: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+
+    if (activo !== eraPagado) {
+      const slotId = `trabajador_${viva.id}`;
+      if (activo) {
+        this.obtenerOCrearGestorAgentes().agregarNpcFijo({
+          slotId, nombre: "Trabajador",
+          rutina: [{ lugar: "trabajo", accion: "trabajar", horaInicio: 0, horaFin: 24, punto: { x: viva.x, y: viva.y } }],
+        });
+      } else {
+        this.gestorAgentes?.quitarAgente(slotId);
+      }
+    }
     client.send("plantilla:actualizada", { construccionId: viva.id, trabajadorAsignado: activo });
+  }
+
+  /**
+   * Compañero puesto a trabajar en una plantilla de producción (pedido
+   * 2026-08-31: "podrá tener compañeros también trabajando, sí, que podrás
+   * sacar de su puesto para que te sigan cuando quieras y reasignarlos
+   * también") — reusa `Companero.ubicacion`/`propiedadId`
+   * (`actualizarUbicacionCompanero`, ya existía en bd.ts, mismo campo que
+   * `Mascota` pero sin ningún camino que lo usara hasta ahora) EXACTAMENTE
+   * como una mascota "dejada en propiedad": desaparece de ESTA room
+   * mientras trabaja (mismo criterio ya aceptado ahí, ver `mascota:
+   * dejarEnPropiedad`), vuelve a seguir con `companero:llamar`. Sin coste en
+   * Farycoins — el precio ya se pagó al reclutarlo.
+   */
+  private async manejarCompaneroAsignarTrabajo(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorCompanero(client, "esa construcción no existe aquí");
+    const dueno = await this.duenoDeTenderete(viva.propiedad);
+    if (!dueno || dueno.toLowerCase() !== nombre.toLowerCase()) {
+      return this.errorCompanero(client, "no eres el dueño de esta construcción");
+    }
+    const datos = this.entradaDe(viva.objeto)?.produccion;
+    if (!datos?.requiereTrabajador) return this.errorCompanero(client, "esto no necesita trabajador");
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const companero = (await bd.listarCompaneros(jugador.id))[0];
+    if (!companero) return this.errorCompanero(client, "no tienes compañero");
+    if (companero.ubicacion === "propiedad" && companero.propiedadId === viva.propiedad) {
+      return this.errorCompanero(client, "ya está trabajando aquí");
+    }
+
+    const extraActual = (viva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
+    const estadoPrevio: EstadoProduccion = extraActual.produccion ?? { stock: 0, ultimoCalculo: Date.now() };
+    if (estadoPrevio.trabajadorAsignado && estadoPrevio.trabajadorTipo === "pagado") {
+      return this.errorCompanero(client, "esta plantilla ya tiene un trabajador contratado");
+    }
+
+    // Reasignar: si ya trabajaba en OTRA construcción, la libera primero —
+    // SOLO si esta room la conoce (mismo hueco honesto que el transporte
+    // entre rooms distintas, docs/GDD_Produccion.md §6).
+    if (companero.ubicacion === "propiedad" && companero.propiedadId) {
+      for (const otra of ctx.vivas.values()) {
+        if (otra.propiedad !== companero.propiedadId) continue;
+        const extraOtra = (otra.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
+        if (!extraOtra.produccion?.trabajadorAsignado || extraOtra.produccion.trabajadorTipo !== "companero") break;
+        otra.extra = { ...extraOtra, produccion: { ...extraOtra.produccion, trabajadorAsignado: false, trabajadorTipo: undefined, ultimoCalculo: Date.now() } };
+        await bd.actualizarExtraConstruccion(otra.id, otra.extra);
+        break;
+      }
+    }
+
+    viva.extra = { ...extraActual, produccion: { ...estadoPrevio, trabajadorAsignado: true, trabajadorTipo: "companero", ultimoCalculo: Date.now() } };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    await bd.actualizarUbicacionCompanero(companero.id, jugador.id, "propiedad", viva.propiedad);
+
+    if (this.companeroPorSesion.get(client.sessionId) === companero.id) {
+      await this.persistirInventarioCompanero(client.sessionId);
+      this.quitarCompaneroDeSchemaLocal(companero.id);
+    }
+    client.send("companero:actualizado", { ubicacion: "propiedad", propiedadId: viva.propiedad });
+  }
+
+  /** Llama de vuelta al compañero que está trabajando — vuelve a "siguiendo" y a aparecer en el Schema. */
+  private async manejarCompaneroLlamar(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const companero = (await bd.listarCompaneros(jugador.id))[0];
+    if (!companero) return this.errorCompanero(client, "no tienes compañero");
+    if (companero.ubicacion !== "propiedad") return this.errorCompanero(client, "ya te sigue");
+
+    const ctx = this.ctxConstruccion;
+    if (ctx && companero.propiedadId) {
+      for (const viva of ctx.vivas.values()) {
+        if (viva.propiedad !== companero.propiedadId) continue;
+        const extraActual = (viva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
+        if (!extraActual.produccion?.trabajadorAsignado || extraActual.produccion.trabajadorTipo !== "companero") break;
+        viva.extra = { ...extraActual, produccion: { ...extraActual.produccion, trabajadorAsignado: false, trabajadorTipo: undefined, ultimoCalculo: Date.now() } };
+        await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+        break;
+      }
+    }
+
+    await bd.actualizarUbicacionCompanero(companero.id, jugador.id, "siguiendo", null);
+    await this.spawnearCompanero(client, { ...companero, ubicacion: "siguiendo", propiedadId: null }, nombre);
+    client.send("companero:actualizado", { ubicacion: "siguiendo" });
   }
 
   private async listadoTransporte(nombre: string) {

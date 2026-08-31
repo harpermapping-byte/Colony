@@ -41,6 +41,16 @@ test("resolverProduccion: requiereTrabajador sin trabajador asignado congela el 
   assert.strictEqual(tras2hMas.stock, (2 / conTrabajador.intervaloHoras) * conTrabajador.cantidadPorIntervalo);
 });
 
+test("resolverProduccion: trabajadorTipo (pagado/compañero, docs/GDD_Produccion.md §3bis) no cambia el acumulador — solo mira trabajadorAsignado", () => {
+  const conTrabajador: DatosProduccion = { ...COLMENA, itemId: "madera_dura", requiereTrabajador: true };
+  const conPagado = resolverProduccion({ stock: 0, ultimoCalculo: 0, trabajadorAsignado: true, trabajadorTipo: "pagado" }, conTrabajador, 2 * 3_600_000);
+  const conCompanero = resolverProduccion({ stock: 0, ultimoCalculo: 0, trabajadorAsignado: true, trabajadorTipo: "companero" }, conTrabajador, 2 * 3_600_000);
+  const sinTipo = resolverProduccion({ stock: 0, ultimoCalculo: 0, trabajadorAsignado: true }, conTrabajador, 2 * 3_600_000);
+  assert.strictEqual(conPagado.stock, conCompanero.stock);
+  assert.strictEqual(conPagado.stock, sinTipo.stock);
+  assert.ok(conPagado.stock > 0);
+});
+
 // --- docs/GDD_Crafteo.md: refinamiento con insumos reales ---
 
 const FUNDICION: DatosProduccion = {
