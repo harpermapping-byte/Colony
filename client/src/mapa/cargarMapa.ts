@@ -29,7 +29,24 @@ export async function cargarIndice(rutaBase: string): Promise<IndiceMapa> {
 export async function cargarSector(rutaBase: string, sx: number, sy: number): Promise<SectorBakeado | null> {
   try {
     const r = await fetch(`${rutaBase}/sector_${pad3(sx)}_${pad3(sy)}.json`);
-    return r.ok ? r.json() : null;
+    if (!r.ok) return null;
+    const sector = (await r.json()) as SectorBakeado;
+    // BUG REAL encontrado verificando visualmente docs/GDD_Combate.md §9.6
+    // (arena mar_01 con el suelo/fondo en negro puro, sin terreno visible):
+    // los bakes "solo terreno" (mazmorras/src/generarArena.js para arenas de
+    // combate, baker/src/generar_mapas_prueba_barcos.js para los mapas de
+    // prueba 100% agua) nunca escriben sectorX/sectorY en el JSON del
+    // sector — sectorVisual.ts los usa para calcular el origen de casilla
+    // del plano de suelo/fondo (`sector.sectorX * tilesSector`), así que
+    // faltando se propaga un NaN que deja la geometría del plano con
+    // tamaño NaN (invisible, sin ni siquiera lanzar error, solo el aviso de
+    // Three.js en consola). El índice ya se sabe aquí mismo (es literal el
+    // sx/sy pedido) — se rellena UNA vez para toda la cadena de
+    // consumidores (crearTerrenoSector/crearPropsSector/nombre del grupo/
+    // game.ts::pedirExclusiones) en vez de defender cada uno por separado.
+    if (sector.sectorX === undefined) sector.sectorX = sx;
+    if (sector.sectorY === undefined) sector.sectorY = sy;
+    return sector;
   } catch {
     return null;
   }

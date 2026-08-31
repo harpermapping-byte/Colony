@@ -160,8 +160,20 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
         ctxSuelo.fillStyle = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${agua.alfa})`;
         ctxSuelo.fillRect(baseX + x, baseY + y, 1, 1);
         // lecho: mitad por tipo de agua (somera clara, profunda oscura),
-        // mitad por la elevación bakeada (elevación baja = hondo = oscuro)
-        const e = parseInt(chunk.elevacion[y * chunk.tamano + x], 36);
+        // mitad por la elevación bakeada (elevación baja = hondo = oscuro).
+        // BUG REAL encontrado verificando visualmente la arena acuática
+        // (docs/GDD_Combate.md §9.6): `chunk.elevacion` es un campo del
+        // bakeador EXTERIOR (baker/src/exportar.js) que los bakes más
+        // simples (mazmorras/src/generarArena.js para arenas de combate —
+        // "sin salas ni mobiliario, una arena es solo suelo+obstáculos" — y
+        // baker/src/generar_mapas_prueba_barcos.js para los mapas de prueba
+        // 100% agua) nunca escriben. `mar_01` es agua entera, así que ESTE
+        // acceso indexaba `undefined` en la primera casilla y tiraba abajo
+        // el sector entero (nunca se detectó porque ningún e2e con
+        // navegador había cargado antes una arena/mapa de prueba con agua
+        // de verdad). Sin dato de elevación, un tono medio fijo es un lecho
+        // plano razonable — sigue sin romper nada donde SÍ hay elevación.
+        const e = chunk.elevacion ? parseInt(chunk.elevacion[y * chunk.tamano + x], 36) : (ELEV_AGUA_MIN + ELEV_AGUA_MAX) / 2;
         const eNorm = Math.min(1, Math.max(0, (e - ELEV_AGUA_MIN) / rangoElev));
         const tono = 0.5 * agua.base + 0.5 * eNorm;
         const r = Math.round(LECHO_OSCURO.r + (LECHO_CLARO.r - LECHO_OSCURO.r) * tono);

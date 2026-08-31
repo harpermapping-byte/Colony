@@ -75,10 +75,15 @@ export interface ObjetoBakeado {
 
 export interface ChunkBakeado {
   terreno: string; // tamano*tamano caracteres base36 → índice en leyendaTerreno
-  elevacion: string;
+  // Opcional de verdad: los bakes "solo terreno" (mazmorras/src/generarArena.js
+  // para arenas de combate, baker/src/generar_mapas_prueba_barcos.js para los
+  // mapas de prueba 100% agua) nunca la escriben — bug real encontrado
+  // verificando visualmente docs/GDD_Combate.md §9.6 (mar_01 crasheaba el
+  // sector entero al faltar aquí, ver sectorVisual.ts::crearTerrenoSector).
+  elevacion?: string;
   tamano: number;
   objetos: ObjetoBakeado[];
-  pois: unknown[];
+  pois?: unknown[];
 }
 
 export interface SectorBakeado {
