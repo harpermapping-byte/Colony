@@ -80,6 +80,10 @@ No existía nada parecido en `ciudades/` (confirmado por búsqueda antes de toca
 
 **No se horneó la capital final de producción** (radio 96 completo con `interiores/`+`fauna`+`overview.png` reales) — eso lo corre el streamer, como en cualquier otro tier grande. Sí se corrió `exportarCiudad` de punta a punta sobre una `ciudad` generada en memoria (tamaño real, semilla `s2`) como comprobación manual de que `indice.json` lleva `parcelasReservadas` y que `zonasVerdes` lleva las entradas `campo_cultivo` — no forma parte de la suite permanente, fue una verificación puntual antes del commit.
 
+## 5bis. Renombrar la capital (jarl, pedido 2026-08-31)
+
+*"el jarl puede cambiar el nombre de la ciudad capital inicial a su gusto"* — mensaje `admin:capital:renombrar {nombre}`, jarl/superadmin-only (`puedeActuarComoJarl`), disponible desde CUALQUIER room (mismo criterio que `pvp:fijar`: es una decisión de mundo, no exige estar físicamente dentro de la capital). Implementado en `server/src/mundo/capital.ts`, MISMO patrón exacto que el interruptor de PvP global (`mundo/pvp.ts`): un único valor en memoria por proceso, respaldado en la tabla genérica `configuracion_mundo` (clave `nombre_capital`), cargado una vez al arrancar (`index.ts`). Vacío = sin override, se sigue usando el nombre baked del `indice.json` de la propia capital. `RegionRoom.onCreate` aplica el override sobre `this.mapa.nombre` en cuanto detecta `indice.tier === "capital_jarl"`. UI: fila nueva en `PanelJarl` (input + botón "Renombrar"), sin botón explícito de "volver al nombre baked" (hueco pequeño y deliberado — mandar vacío desde consola lo resuelve si hiciera falta). Tests: `server/test/capital.test.ts` (5), mismo esqueleto que `pvp.test.ts`.
+
 ## 6. Pendiente (no resuelto aquí, a propósito)
 
 - **Construcción/parcelas fuera del Hub — RESUELTO (2026-08-29)**: `docs/GDD_Construccion.md` §1bis extiende el sistema a cualquier `RegionRoom` cuyo bake traiga `parcelasReservadas` (hoy la capital). Deja de ser bloqueante para el resto de puntos de esta sección.

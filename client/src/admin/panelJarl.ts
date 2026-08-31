@@ -17,12 +17,17 @@ export interface OpcionesPanelJarl {
   simularCanje(tipo: "bueno" | "malo"): void;
   simularComando(comando: string): void;
   forzarDirecto(on: boolean): void;
+  renombrarCapital(nombre: string): void;
 }
 
 export class PanelJarl {
   private raiz: HTMLDivElement;
   private pvpOn: boolean | null = null;
   private mensajeCuentas = "";
+  // Ciudad capital (docs/GDD_Ciudad_Capital.md, pedido 2026-08-31) — ""
+  // tras la primera respuesta del servidor = nunca renombrada (se usa el
+  // nombre baked); `null` = todavía no hemos preguntado.
+  private nombreCapital: string | null = null;
 
   constructor(private opciones: OpcionesPanelJarl) {
     this.raiz = document.createElement("div");
@@ -44,6 +49,11 @@ export class PanelJarl {
 
   actualizarPvp(on: boolean) {
     this.pvpOn = on;
+    this.render();
+  }
+
+  actualizarCapital(nombre: string) {
+    this.nombreCapital = nombre;
     this.render();
   }
 
@@ -85,6 +95,29 @@ export class PanelJarl {
     btnPvpOff.onclick = () => this.opciones.pvpFijar(false);
     filaPvp.appendChild(btnPvpOff);
     this.raiz.appendChild(filaPvp);
+
+    // --- Ciudad capital (docs/GDD_Ciudad_Capital.md) ---
+    const separadorCapital = document.createElement("div");
+    separadorCapital.style.marginTop = "6px";
+    separadorCapital.style.paddingTop = "6px";
+    separadorCapital.style.borderTop = "1px solid #8a6a2a";
+    separadorCapital.style.opacity = "0.85";
+    const actual = this.nombreCapital === null ? "cargando…" : this.nombreCapital || "(nombre de nacimiento)";
+    separadorCapital.textContent = `Ciudad capital: ${actual}`;
+    this.raiz.appendChild(separadorCapital);
+
+    const filaCapital = document.createElement("div");
+    filaCapital.style.margin = "4px 0";
+    const inputCapital = document.createElement("input");
+    inputCapital.placeholder = "nuevo nombre";
+    inputCapital.style.width = "140px";
+    filaCapital.appendChild(inputCapital);
+    const btnRenombrar = document.createElement("button");
+    btnRenombrar.textContent = "Renombrar";
+    btnRenombrar.style.marginLeft = "4px";
+    btnRenombrar.onclick = () => { if (inputCapital.value.trim()) this.opciones.renombrarCapital(inputCapital.value.trim()); };
+    filaCapital.appendChild(btnRenombrar);
+    this.raiz.appendChild(filaCapital);
 
     // --- Pruebas de Twitch (docs/GDD_Twitch.md) — mismos comandos que el bot real, sin depender de un directo activo ---
     const separadorTwitch = document.createElement("div");
