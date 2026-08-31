@@ -141,6 +141,14 @@ export interface EntradaConstruible {
    * cada tipo cuenta por mesa — dos "velocidad" adyacentes no se suman.
    */
   mejoraMesa?: { mesa: string; tipo: "velocidad" | "cantidad"; bonus: number };
+  /**
+   * Instrumentos musicales interactivos (docs/GDD_Instrumentos.md, pedido
+   * 2026-08-31) — presente en tambor_guerra/laud/flauta_dulce/campana_bronce:
+   * tipo corto ("tambor"/"laud"/"flauta"/"campana") que valida
+   * `instrumento:tocar` (RoomExteriorBase.ts) y que el cliente reenvía en el
+   * broadcast para que el resto sepa qué sonido/animación mostrar.
+   */
+  instrumento?: string;
 }
 
 export interface EntradaActividadAtributo {
@@ -194,6 +202,7 @@ interface EntradaElemento {
   esCama?: boolean;
   nivelOficioMinimo?: { oficio: string; nivel: number };
   mejoraMesa?: { mesa: string; tipo: "velocidad" | "cantidad"; bonus: number };
+  instrumento?: string;
 }
 
 interface EntradaExterior {
@@ -254,6 +263,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       actividadAtributo: d.actividadAtributo,
       esCama: d.esCama,
       nivelOficioMinimo: d.nivelOficioMinimo,
+      instrumento: d.instrumento,
     });
   }
 

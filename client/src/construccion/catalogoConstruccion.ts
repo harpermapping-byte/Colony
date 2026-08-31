@@ -37,6 +37,10 @@ export interface Construible {
   plantable?: boolean;
   /** Cocina (docs/GDD_Cocina.md) — presente en hoguera_campamento/cuenco_cocina/cazuela_cocina/olla_cocina. */
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: string; hierveAgua?: boolean };
+  /** Nombre bonito de catálogo (items/catalogo/nombreBonito.js) — para etiquetar menús/UI sin ir a buscarlo aparte. */
+  nombre?: string;
+  /** Instrumentos musicales interactivos (docs/GDD_Instrumentos.md) — tipo corto ("tambor"/"laud"/"flauta"/"campana") que game.ts usa para elegir animación/sonido; presente SOLO en las 4 entradas de elementos.json con `instrumento`. */
+  instrumento?: string;
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -60,6 +64,8 @@ interface EntradaBruta {
   proyectoJarl?: boolean;
   plantable?: { multiplicadorCosecha: number };
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: string; hierveAgua?: boolean };
+  nombre?: string;
+  instrumento?: string;
   [k: string]: unknown;
 }
 
@@ -95,6 +101,8 @@ function construirLista(): Construible[] {
       huella: [e.huella[0], e.huella[1]],
       colorDebug: e.colorDebug || COLOR_DESCONOCIDO,
       colision: esColisionable(e),
+      nombre: e.nombre,
+      instrumento: e.instrumento,
     });
   }
 

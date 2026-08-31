@@ -54,8 +54,17 @@ export function normalizarMarcha(marcha: Marcha | undefined): number {
 
 export interface RigHumanoide {
   objeto: THREE.Group;
-  /** Avanza la animación según la marcha (parado/andando/corriendo). */
-  actualizar(dt: number, marcha?: Marcha): void;
+  /**
+   * Avanza la animación según la marcha (parado/andando/corriendo).
+   * `tocando` (docs/GDD_Instrumentos.md, pedido 2026-08-31): pose genérica
+   * de "tocando instrumento" — balanceo de brazos/cabeza sobre el idle,
+   * compartida por los 4 instrumentos (alcance explícito: una sola
+   * coreografía, no una por instrumento). Solo tiene efecto real con
+   * marcha=0 (parado) — el servidor ya cancela la reproducción en cuanto el
+   * jugador se mueve, así que ambas cosas nunca deberían darse juntas, pero
+   * la pose no fuerza esa combinación por su cuenta.
+   */
+  actualizar(dt: number, marcha?: Marcha, tocando?: boolean): void;
   /** Orienta el cuerpo entero hacia una dirección de mundo (dx, dz). */
   orientar(dx: number, dz: number): void;
 }
@@ -162,10 +171,11 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
 
   // --- Animación por pivotes ---
   let fase = 0;
+  let faseTocando = 0;
   let pesoAndar = 0; // 0=parado, 1=en movimiento — con rampa para no cortar en seco
   let pesoCorrer = 0; // 0=andando, 1=corriendo — segunda rampa sobre la primera
 
-  function actualizar(dt: number, marcha: Marcha = 0) {
+  function actualizar(dt: number, marcha: Marcha = 0, tocando = false) {
     const m = normalizarMarcha(marcha);
     pesoAndar = THREE.MathUtils.clamp(pesoAndar + (m >= 1 ? dt : -dt) * 6, 0, 1);
     pesoCorrer = THREE.MathUtils.clamp(pesoCorrer + (m >= 2 ? dt : -dt) * 6, 0, 1);
@@ -178,8 +188,22 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
     brazoIzq.rotation.x = -zancada * (0.7 + 0.25 * pesoCorrer);
     brazoDer.rotation.x = zancada * (0.7 + 0.25 * pesoCorrer);
     torso.rotation.x = 0.2 * pesoCorrer;
+    torso.rotation.z = 0;
+    cabeza.rotation.x = 0;
     // parado: respiración sutil del torso; en movimiento: rebote de zancada
     torso.position.y = ALTO_PIERNA + (pesoAndar > 0.01 ? Math.abs(Math.cos(fase)) * (0.03 + 0.025 * pesoCorrer) * pesoAndar : Math.sin(fase * 0.35) * 0.008);
+
+    // Tocando instrumento: pose genérica sobre el idle (brazos alzados que
+    // se balancean, leve cabeceo/vaivén del torso) — pisa la rotación de
+    // brazos de arriba a propósito, ya nunca coincide con zancada real.
+    if (tocando) {
+      faseTocando += dt * 6;
+      const balanceo = Math.sin(faseTocando) * 0.35;
+      brazoIzq.rotation.x = -0.9 + balanceo;
+      brazoDer.rotation.x = -0.9 - balanceo;
+      cabeza.rotation.x = Math.sin(faseTocando * 0.5) * 0.08;
+      torso.rotation.z = Math.sin(faseTocando * 0.5) * 0.03;
+    }
   }
 
   function orientar(dx: number, dz: number) {

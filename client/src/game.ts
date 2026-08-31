@@ -11,8 +11,12 @@ import type { IndiceMapa } from "./mapa/formatoMapa";
 import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelasCliente";
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
 import { ModoConstruccion } from "./construccion/constructor";
+import { obtenerConstruible } from "./construccion/catalogoConstruccion";
+import { MenuInteraccion, type OpcionMenuInteraccion } from "./ui/menuInteraccion";
+import { ModalInstrumento } from "./ui/modalInstrumento";
+import { reproducirMidi, detenerReproduccion, type TipoInstrumento } from "./audio/instrumentos";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
-import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial } from "three";
+import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2 } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
@@ -125,6 +129,13 @@ interface EstadoJugador {
   name?: string;
   catarro?: boolean;
   gripe?: boolean;
+  // Instrumentos musicales (docs/GDD_Instrumentos.md, pedido 2026-08-31):
+  // true mientras este jugador tiene un MIDI sonando — dispara la pose
+  // genérica "tocando" del rig (rigHumanoide.ts) en vez de reservar una
+  // Marcha nueva. Solo jugadores reales lo usan de verdad; NPCs/fauna/
+  // mascotas/compañeros comparten esta misma interfaz y simplemente nunca
+  // lo ponen a true.
+  tocandoInstrumento?: boolean;
 }
 
 /**
@@ -510,6 +521,68 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       modo.mostrarError(m?.motivo || "");
     });
 
+    // --- Instrumentos musicales (docs/GDD_Instrumentos.md, pedido
+    // 2026-08-31): clic sobre un objeto construido → menú de interacción
+    // GENÉRICO (menuInteraccion.ts) — pensado para colgar aquí futuras
+    // interacciones sin bindear más teclas ("iremos añadiendo aquí para
+    // evitar bindear de tanta tecla", pedido explícito). Hoy la única
+    // interacción real es "Tocar" sobre los 4 instrumentos craftables;
+    // cualquier otro objeto clicado simplemente no ofrece nada.
+    const menuInteraccion = new MenuInteraccion();
+    let instrumentoObjetivo: { id: number; nombre: string } | null = null;
+    const modalInstrumento = new ModalInstrumento({
+      tocar: (midiUrl) => {
+        if (!instrumentoObjetivo) return;
+        room.send("instrumento:tocar", { construccionId: instrumentoObjetivo.id, midiUrl });
+      },
+    });
+    const raycasterClic = new Raycaster();
+    escena.renderer.domElement.addEventListener("click", (e) => {
+      if (modo.activo()) return; // el modo construcción ya consume sus propios clics (colocar/rotar)
+      const r = escena.renderer.domElement.getBoundingClientRect();
+      const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      raycasterClic.setFromCamera(ndc, escena.camera);
+      const impactos = raycasterClic.intersectObjects(renderConstrucciones.mallas(), false);
+      if (impactos.length === 0) return;
+      const datos = renderConstrucciones.datosDeMalla(impactos[0].object);
+      if (!datos) return;
+      const construible = obtenerConstruible(datos.objeto);
+      const nombre = construible?.nombre ?? datos.objeto;
+      const opciones: OpcionMenuInteraccion[] = [];
+      if (construible?.instrumento) {
+        opciones.push({
+          etiqueta: `Tocar ${nombre}`,
+          accion: () => {
+            instrumentoObjetivo = { id: datos.id, nombre };
+            modalInstrumento.mostrar(nombre);
+          },
+        });
+      }
+      menuInteraccion.mostrar(e.clientX, e.clientY, nombre, opciones);
+    });
+
+    // El servidor ya validó proximidad+catálogo antes de retransmitir — el
+    // cliente solo descarga/sintetiza (audio/instrumentos.ts) y, si algo
+    // falla en SU propio lado (URL rota, MIDI corrupto...), avisa al
+    // servidor para que no se quede "tocando" sin sonido real.
+    room.onMessage("instrumento:tocando", (m: { sessionId: string; tipo: TipoInstrumento; midiUrl: string }) => {
+      const esMio = m?.sessionId === room.sessionId;
+      reproducirMidi(m.sessionId, m.tipo, m.midiUrl, () => {
+        if (esMio) room.send("instrumento:parar");
+      }).catch((err) => {
+        console.log("[instrumento] fallo al reproducir:", err?.message || err);
+        if (esMio) {
+          modalInstrumento.mostrarError("No se pudo reproducir ese MIDI (URL rota o formato inválido).");
+          room.send("instrumento:parar");
+        }
+      });
+    });
+    room.onMessage("instrumento:parado", (m: { sessionId: string }) => detenerReproduccion(m?.sessionId));
+    room.onMessage("instrumento:error", (m: { motivo: string }) => {
+      console.log("[instrumento]", m?.motivo);
+      modalInstrumento.mostrarError(m?.motivo || "No se pudo tocar.");
+    });
+
     // Sonda SOLO-PARA-TESTS (e2e con Playwright): manejar el modo construcción
     // sin simular ratón sobre el canvas. No usar desde código de juego.
     (window as any).__construccion = {
@@ -685,6 +758,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       name: player.name,
       catarro: false,
       gripe: false,
+      tocandoInstrumento: false,
     };
     jugadores.set(sessionId, estado);
     escena.añadirEntidad(sessionId, rig.objeto, player.x, player.y, player.name);
@@ -740,6 +814,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       estado.catarro = !!player.enfermedades?.catarro;
       estado.gripe = !!player.enfermedades?.gripe;
       if (esYo) panelMedico.actualizarEnfermedades(leerEnfermedadesVista(player.enfermedades));
+      // Instrumentos musicales (docs/GDD_Instrumentos.md): la POSE se rige
+      // por este booleano replicado (mismo criterio que `durmiendo`) — así
+      // un jugador que llega a mitad de canción también ve al que toca en
+      // la pose correcta, aunque se perdiera el broadcast puntual que
+      // dispara el AUDIO (ver "instrumento:tocando"/"instrumento:parado").
+      estado.tocandoInstrumento = !!player.tocandoInstrumento;
       if (player.monturaEspecieId !== monturaActual) {
         monturaActual = player.monturaEspecieId;
         if (monturaActual) {
@@ -1552,7 +1632,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // nadando el cuerpo se tumba hacia delante; en tierra vuelve a vertical
       const inclinacionObjetivo = estado.nadando ? -1.1 : 0;
       estado.rig.objeto.rotation.x += (inclinacionObjetivo - estado.rig.objeto.rotation.x) * factor;
-      estado.rig.actualizar(dt, marcha);
+      estado.rig.actualizar(dt, marcha, estado.tocandoInstrumento);
     }
 
     // NPCs: antorcha de los turnos de vigilancia (se enciende de noche,
@@ -1599,7 +1679,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // Compañero (docs/GDD_Companeros.md): burbuja de queja por hambre — el
     // servidor ya manda el texto listo en quejaTexto (nunca genera aquí uno
     // propio), solo se alterna con el nombre igual que el resto de burbujas.
-    for (const [id, c] of room.state.companeros ?? []) {
+    for (const [id, c] of room.state.companeros?.entries() ?? []) {
       const estadoC = companerosVisual.get(id);
       const nombreC = estadoC?.name ?? "";
       if (!c.quejaTexto) { escena.textoEtiqueta(`companero_${id}`, nombreC, false); continue; }

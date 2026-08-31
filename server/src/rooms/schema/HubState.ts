@@ -156,6 +156,12 @@ export class Player extends Schema {
   // cliente pueda mostrar una pose/animación de "durmiendo" más adelante; la
   // duración real vive server-only en `RoomExteriorBase.durmiendo`.
   @type("boolean") durmiendo = false;
+  // Instrumentos musicales (docs/GDD_Instrumentos.md, pedido 2026-08-31):
+  // true mientras tiene un MIDI sonando — mismo criterio que `durmiendo`,
+  // replicado para que el rig de CUALQUIER cliente (incluido uno que se
+  // acerque a mitad de canción) muestre la pose "tocando" sin depender del
+  // broadcast puntual de "instrumento:tocando" (ese solo dispara el audio).
+  @type("boolean") tocandoInstrumento = false;
   // Debug godMode (admin:debug:godMode, Test Zone, pedido 2026-08-31):
   // jarl/superadmin-only, self-target — con esto activo el jugador no
   // pierde vida (daño ambiental/combate) ni comida/hidratación (ver el

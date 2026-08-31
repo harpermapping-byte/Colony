@@ -285,6 +285,30 @@ test("las 74 tipologías de edificio generan sin error, con varias semillas", ()
   }
 });
 
+test("requiereItemColocar NUNCA sale del bake — solo craftable+plantado a mano (docs/GDD_Instrumentos.md §2, bug real corregido en colocarElementos.js)", () => {
+  const requiereItem = new Set(
+    Object.entries(catalogos.elementos)
+      .filter(([id, el]) => !id.startsWith("_") && el.requiereItemColocar)
+      .map(([id]) => id),
+  );
+  assert.ok(requiereItem.size > 0, "el catálogo debería tener piezas requiereItemColocar (si no, este test no prueba nada)");
+  const tipos = Object.keys(catalogos.tiposEdificio).filter((k) => !k.startsWith("_"));
+  const fugas = new Set();
+  for (const t of tipos) {
+    for (const semilla of ["req-a", "req-b"]) {
+      const e = generarEdificio({ tipoEdificioId: t, catalogos, semilla: `${t}-${semilla}`, riqueza: "noble" });
+      for (const planta of e.plantas) {
+        for (const sala of planta.salas) {
+          for (const pieza of [...(sala.resultado.colocados || []), ...(sala.resultado.colgados || [])]) {
+            if (requiereItem.has(pieza.id)) fugas.add(pieza.id);
+          }
+        }
+      }
+    }
+  }
+  assert.strictEqual(fugas.size, 0, `piezas requiereItemColocar coladas por el bake: ${[...fugas].join(", ")}`);
+});
+
 test("edificios multi-planta: al menos uno con 3+ plantas entre los generados", () => {
   const e = generarEdificio({ tipoEdificioId: "castillo", catalogos, semilla: "multiplanta-test" });
   assert.ok(e.plantas.length >= 2, `castillo debería tener varias plantas, tiene ${e.plantas.length}`);
