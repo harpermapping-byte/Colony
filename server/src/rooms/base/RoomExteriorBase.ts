@@ -90,6 +90,7 @@ import {
   RITMO_LIMPIEZA_AGUA_POR_HORA, FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO,
 } from "../../personaje/oficios";
 import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente } from "../../mundo/npcsFijos";
+import { nombrePoliticoDeterminista } from "../../personaje/nombresNpc";
 import { Atributo, esAtributoValido } from "../../personaje/atributos";
 import { UMBRALES_NIVEL_ATRIBUTO } from "../../progresion/nivel";
 import {
@@ -5165,9 +5166,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     });
 
     // paseo visual: NPC dedicado en bucle origen↔destino (cosmético, el
-    // cálculo económico de arriba no depende de que "llegue" de verdad)
+    // cálculo económico de arriba no depende de que "llegue" de verdad).
+    // Nombre de político (pedido 2026-08-30, "los NPC contratados también
+    // tiran de esa lista") — antes "Carretero de <jugador>".
+    const slotIdCarretero = `contrato:${contrato.id}`;
     this.obtenerOCrearGestorAgentes().agregarAgenteTransportista(
-      `contrato:${contrato.id}`, `Carretero de ${nombre}`, origenPunto, destinoPunto, caminoIda, caminoVuelta,
+      slotIdCarretero, nombrePoliticoDeterminista(slotIdCarretero), origenPunto, destinoPunto, caminoIda, caminoVuelta,
     );
 
     client.send("transporte:estado", await this.listadoTransporte(nombre));

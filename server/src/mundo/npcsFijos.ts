@@ -54,7 +54,10 @@ export function cargarNpcsFijos(rutaMapa: string): NpcBakeado[] {
 
 export interface NpcTutorial {
   id: string; // tipoTutorial — clave estable, referenciada desde la BD (npcs_tutoriales.tipo_tutorial)
+  /** Nombre real de poblacion/catalogo/nombres.json (ronda 3, pedido 2026-08-30: "todo NPC tira de esa lista") — lo que se ve en la etiqueta del NPC. */
   nombre: string;
+  /** Rol de sabor que antes era el propio `nombre` ("Maestro de Oficios"...) — flavor, no viaja al cliente. */
+  titulo?: string;
   /** qué mecánica explica — lo que enseñaría el "spawner" del admin al elegir cuál colocar. */
   mecanica: string;
   /** slot->itemId (items/catalogo/items.json), MISMO shape que InventarioSchema.equipo — se renderiza reusando equipoVisual.ts tal cual, cero pipeline nuevo. */

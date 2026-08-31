@@ -18,6 +18,7 @@ import { crearCadaver } from "../mundo/cadaveres";
 import { diaFraccional } from "../mundo/reproduccionFauna";
 import { agregarItem } from "../inventario/inventario";
 import { generarGritoBandido } from "../ia/cronicaBandida";
+import { nombrePoliticoDeterminista } from "../personaje/nombresNpc";
 
 // Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): "si se les da de comer
 // unas 5 veces, podrás convertirlo en tu mascota" — fauna URBANA
@@ -388,7 +389,11 @@ export class RegionRoom extends RoomExteriorBase {
 
       for (const tropa of miembros) {
         const slotId = `patrulla:${tropa.id}`;
-        gestor.agregarAgenteTransportista(slotId, "Bandido merodeador", plaza, puerta, caminoIda, caminoVuelta);
+        // Nombre de político (pedido 2026-08-30, "los NPC hostiles también
+        // tiran de esa lista") — antes "Bandido merodeador" genérico
+        // compartido por todo el grupo; ahora cada tropa tiene su propia
+        // identidad determinista.
+        gestor.agregarAgenteTransportista(slotId, nombrePoliticoDeterminista(slotId), plaza, puerta, caminoIda, caminoVuelta);
         const esquema = this.state.npcs.get(slotId)!;
         esquema.hostil = true;
         esquema.accion = "patrullar";
