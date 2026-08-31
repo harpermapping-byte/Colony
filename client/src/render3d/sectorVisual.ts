@@ -79,6 +79,58 @@ const ACLARADO_SUPERFICIE = 0.12;
 const ELEV_AGUA_MIN = 0;
 const ELEV_AGUA_MAX = 4;
 
+/**
+ * "Clamp to edge" de un canvas: lo centra en uno nuevo `margen` píxeles más
+ * grande por cada lado, replicando la fila/columna/esquina de borde real
+ * estirada hacia fuera — relleno visual barato sin inventar terreno nuevo.
+ * Uso: arenas de combate (GDD_Combate.md §9.x), el grid táctico real es
+ * pequeño ("se ve enano" — pedido del streamer) y esto solo hace que se VEA
+ * más grande alrededor; el bake/colisión/lógica de combate no cambian nada.
+ */
+function extenderConMargenClamp(origen: HTMLCanvasElement, margen: number): HTMLCanvasElement {
+  const ancho = origen.width;
+  const alto = origen.height;
+  const destino = document.createElement("canvas");
+  destino.width = ancho + margen * 2;
+  destino.height = alto + margen * 2;
+  const ctx = destino.getContext("2d")!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(origen, margen, margen);
+  ctx.drawImage(origen, 0, 0, ancho, 1, margen, 0, ancho, margen); // borde arriba
+  ctx.drawImage(origen, 0, alto - 1, ancho, 1, margen, alto + margen, ancho, margen); // borde abajo
+  ctx.drawImage(origen, 0, 0, 1, alto, 0, margen, margen, alto); // borde izquierda
+  ctx.drawImage(origen, ancho - 1, 0, 1, alto, ancho + margen, margen, margen, alto); // borde derecha
+  ctx.drawImage(origen, 0, 0, 1, 1, 0, 0, margen, margen); // esquina arriba-izquierda
+  ctx.drawImage(origen, ancho - 1, 0, 1, 1, ancho + margen, 0, margen, margen); // esquina arriba-derecha
+  ctx.drawImage(origen, 0, alto - 1, 1, 1, 0, alto + margen, margen, margen); // esquina abajo-izquierda
+  ctx.drawImage(origen, ancho - 1, alto - 1, 1, 1, ancho + margen, alto + margen, margen, margen); // esquina abajo-derecha
+  return destino;
+}
+
+/**
+ * Líneas de rejilla táctica (1 unidad = 1 casilla), desde (0,0) hasta
+ * (ancho,alto) en espacio LOCAL del sector — quien llama la posiciona en su
+ * esquina real. Pedido tras el margen visual de arena (`margenVisual` en
+ * `crearTerrenoSector`): con terreno de relleno alrededor, el borde del
+ * grid táctico real dejó de coincidir con el borde del plano y se volvió
+ * invisible — esto NO es la "UI de rejilla" (overlay de movimiento/target)
+ * que panelCombate.ts documenta como pendiente para el pase final; es solo
+ * la referencia visual de dónde está el campo de combate real.
+ */
+function crearRejillaTactica(ancho: number, alto: number): THREE.LineSegments {
+  const puntos: number[] = [];
+  for (let i = 0; i <= ancho; i++) puntos.push(i, 0, 0, i, 0, alto);
+  for (let j = 0; j <= alto; j++) puntos.push(0, 0, j, ancho, 0, j);
+  const geometria = new THREE.BufferGeometry();
+  geometria.setAttribute("position", new THREE.Float32BufferAttribute(puntos, 3));
+  const lineas = new THREE.LineSegments(
+    geometria,
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }),
+  );
+  lineas.userData.propioDelSector = true;
+  return lineas;
+}
+
 function crearPlanoSector(
   canvas: HTMLCanvasElement,
   ancho: number,
@@ -107,7 +159,7 @@ function crearPlanoSector(
   return malla;
 }
 
-function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Group {
+function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado, margenVisual = 0): THREE.Group {
   const t = indice.tamanoChunk;
   const tilesSector = indice.tamanoSectorChunks * t;
   const origenTileX = sector.sectorX * tilesSector;
@@ -186,11 +238,24 @@ function crearTerrenoSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
   }
 
   const grupo = new THREE.Group();
-  const planoFondo = crearPlanoSector(fondo, ancho, alto, false);
+  // margenVisual > 0: los planos crecen simétricamente por los 4 lados, así
+  // que el centro (origenTileX+ancho/2, origenTileY+alto/2) NO se mueve —
+  // solo se pide geometría/textura más grandes, la posición es la misma.
+  const anchoFinal = ancho + margenVisual * 2;
+  const altoFinal = alto + margenVisual * 2;
+  const sueloFinal = margenVisual > 0 ? extenderConMargenClamp(suelo, margenVisual) : suelo;
+  const fondoFinal = margenVisual > 0 ? extenderConMargenClamp(fondo, margenVisual) : fondo;
+  const planoFondo = crearPlanoSector(fondoFinal, anchoFinal, altoFinal, false);
   planoFondo.position.set(origenTileX + ancho / 2, -PROFUNDIDAD_FONDO, origenTileY + alto / 2);
-  const planoSuelo = crearPlanoSector(suelo, ancho, alto, true);
+  const planoSuelo = crearPlanoSector(sueloFinal, anchoFinal, altoFinal, true);
   planoSuelo.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
   grupo.add(planoFondo, planoSuelo);
+  if (margenVisual > 0) {
+    // margenVisual>0 hoy SOLO pasa en arenas (game.ts) — ver crearRejillaTactica.
+    const rejilla = crearRejillaTactica(ancho, alto);
+    rejilla.position.set(origenTileX, 0.02, origenTileY);
+    grupo.add(rejilla);
+  }
 
   // extrusión de los sólidos urbanos: una InstancedMesh de cubos por tipo
   // de terreno (muralla/empalizada/solar) — mismo coste que los props
@@ -416,15 +481,21 @@ export interface HandleSector {
  * Terreno + muralla + props de un sector, listos para añadir a escena.
  * `excluidos` (docs/GDD_Bosques.md §7) son posiciones GLOBALes "x,y" que ya
  * no existen en el servidor (recogidas/taladas) — nunca se instancian.
+ * `margenVisual` (casillas): solo relleno de terreno alrededor del sector
+ * real, "clamp to edge" (ver `extenderConMargenClamp`) — pensado para
+ * arenas de combate, donde el bake es SIEMPRE un único sector completo
+ * (`anchoChunks/altoChunks/tamanoSectorChunks = 1`, confirmado en los bakes
+ * de prueba), así que no hay sector vecino con el que pueda hacer costura.
  */
 export async function crearSectorVisual(
   indice: IndiceMapa,
   sector: SectorBakeado,
   excluidos: Set<string> = new Set(),
+  margenVisual = 0,
 ): Promise<HandleSector> {
   const grupo = new THREE.Group();
   grupo.name = `sector_${sector.sectorX}_${sector.sectorY}`;
-  grupo.add(crearTerrenoSector(indice, sector));
+  grupo.add(crearTerrenoSector(indice, sector, margenVisual));
   grupo.add(crearMurallaSector(indice, sector));
   const { raiz, ocultables } = await crearPropsSector(indice, sector, excluidos);
   grupo.add(raiz);

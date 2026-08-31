@@ -93,6 +93,13 @@ const RUTA_MAPA =
     ? `/assets/mapas/arenas/${MAPA_ID}` // aquí MAPA_ID es el id de la arena bakeada (§9.4), no un asentamiento
     : (import.meta as any).env?.VITE_RUTA_MAPA || "/assets/mapas/principal";
 
+// El grid táctico de una arena (server/src/rooms/ArenaCombateRoom.ts) sale
+// 1:1 del bake real y queda pequeño (petición streamer: "el mapa generado
+// se ve enano"). Este margen es SOLO visual (sectorVisual.ts,
+// extenderConMargenClamp): terreno de relleno fuera del grid, sin tocar
+// bake/colisión/lógica de combate — el jugador nunca sale del grid real.
+const MARGEN_VISUAL_ARENA = 6;
+
 interface Direction {
   x: number;
   y: number;
@@ -191,7 +198,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         obtenerSector: (sx, sy) => cargarSector(RUTA_MAPA, sx, sy),
         materializar: async (sector) => {
           const excluidos = await pedirExclusiones(sector.sectorX, sector.sectorY, tilesPorSector);
-          const handle = await crearSectorVisual(indice, sector, excluidos);
+          const handle = await crearSectorVisual(indice, sector, excluidos, SALA === "arena" ? MARGEN_VISUAL_ARENA : 0);
           escena.añadirEstatico(handle.grupo);
           return handle;
         },
