@@ -10,6 +10,7 @@ import { crearAnimalVoxel, type AnimalExportado } from "./render3d/animalVoxel";
 import type { IndiceMapa } from "./mapa/formatoMapa";
 import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelasCliente";
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
+import { PanelMapaMundo } from "./mapa/panelMapaMundo";
 import { ModoConstruccion } from "./construccion/constructor";
 import { obtenerConstruible } from "./construccion/catalogoConstruccion";
 import { MenuInteraccion, type OpcionMenuInteraccion } from "./ui/menuInteraccion";
@@ -494,6 +495,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // ningún jugador todavía (docs/GDD_Sistema_Puertas.md "Qué falta").
   const anchoMapa = indiceMapa ? indiceMapa.anchoChunks * indiceMapa.tamanoChunk : 0;
   let modoConstruccion: ModoConstruccion | null = null;
+  let panelMapaMundo: PanelMapaMundo | null = null;
   if (SALA === "hub") {
     const indiceParcelas =
       parcelasArchivo && anchoMapa > 0 ? construirIndiceParcelas(parcelasArchivo, anchoMapa) : new Map<number, string>();
@@ -509,6 +511,23 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       enviarConstruir: (mensaje) => room.send("construir", mensaje),
     });
     const modo = modoConstruccion;
+
+    // --- Mapa de mundo con niebla de guerra (docs/GDD_Mapa_Mundo.md,
+    // pedido 2026-08-31): tecla M — "la M es mapa" (montura se movió a X).
+    if (indiceMapa) {
+      panelMapaMundo = new PanelMapaMundo({
+        contenedor,
+        rutaMapa: RUTA_MAPA,
+        indice: indiceMapa,
+        parcelasArchivo,
+        nombreJugador,
+        obtenerDuenos: () => modo.estadoParcelas(),
+        posicionJugador: () => (jugadorLocal ? { x: jugadorLocal.x, z: jugadorLocal.z } : null),
+        consultarExploracion: () => room.send("mapa:consultarExploracion"),
+      });
+      room.onMessage("mapa:exploracion", (m: { sectores: number[]; tilesPorSector: number }) => panelMapaMundo?.aplicarExploracion(m));
+    }
+
     // Los onMessage se registran SIEMPRE (aunque el servidor desplegado aún no
     // emita estos mensajes): un mensaje sin handler registrado es un error de
     // consola en colyseus.js — tolerar la ausencia es gratis, la presencia no.
@@ -1490,6 +1509,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "e" && !teclas.has("e")) room.send("nivel", 1);
     // modo construcción: B entra/sale (ESC y R los gestiona el propio modo)
     if (k === "b" && !teclas.has("b")) modoConstruccion?.alternar();
+    // Mapa de mundo (docs/GDD_Mapa_Mundo.md, pedido 2026-08-31): "la M es mapa".
+    if (k === "m" && !teclas.has("m")) panelMapaMundo?.alternar();
     // Jugador (docs/GDD_Equipo.md): I abre/cierra el panel de equipo/inventario
     if (k === "i" && !teclas.has("i")) {
       panelJugador.alternar();
@@ -1557,13 +1578,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     }
     // Monturas (docs/GDD_Monturas.md, pedido 2026-08-30): N pone la silla a
     // la mascota propia más cercana ("siguiendo", ya domesticada, especie
-    // montable) — mismo criterio sin targeting que el resto. M monta/
-    // desmonta (toggle según `Player.monturaEspecieId`); sin mascotaId, el
-    // servidor auto-apunta a la más cercana con silla puesta. Espacio: salta
-    // en la dirección en la que se mueve/mira — solo hace algo si está
-    // montado (el servidor lo ignora si no).
+    // montable) — mismo criterio sin targeting que el resto. X monta/
+    // desmonta (toggle según `Player.monturaEspecieId`, ANTES en 'm' —
+    // liberada para el mapa de mundo, docs/GDD_Mapa_Mundo.md pedido
+    // 2026-08-31: "la M es mapa"); sin mascotaId, el servidor auto-apunta
+    // a la más cercana con silla puesta. Espacio: salta en la dirección en
+    // la que se mueve/mira — solo hace algo si está montado (el servidor
+    // lo ignora si no).
     if (k === "n" && !teclas.has("n")) room.send("mascota:ponerMontura", {});
-    if (k === "m" && !teclas.has("m")) {
+    if (k === "x" && !teclas.has("x")) {
       const yo = room.state.players.get(room.sessionId);
       if (yo?.monturaEspecieId) room.send("mascota:desmontar");
       else room.send("mascota:montar", {});

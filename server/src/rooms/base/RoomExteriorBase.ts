@@ -111,6 +111,7 @@ import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto } from
 import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { nombreCapitalOverride, fijarNombreCapital, LONGITUD_MAXIMA_NOMBRE_CAPITAL } from "../../mundo/capital";
+import { nuevasClavesReveladas } from "../../mundo/exploracion";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
 import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, IngredienteCocina, familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura, FamiliaPlato, ResultadoCoccion, OrigenCocina } from "../../cocina/cocina";
@@ -431,6 +432,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // criterio que anatomiaPorSesion: estado PURO completo (con timestamps)
   // server-only, EnfermedadesSchema solo replica lo que el cliente pinta.
   protected enfermedadesPorSesion = new Map<string, EstadoEnfermedades>();
+  // Niebla de guerra del mapa de mundo (docs/GDD_Mapa_Mundo.md, pedido
+  // 2026-08-31) — sectores revelados server-only (persistidos en BD por
+  // jugador+mapa); vacío hasta que el onJoin de HubRoom termina de cargar
+  // (best-effort, mismo criterio que anatomia/enfermedades: si no está
+  // cargado aún, `revelarExploracionSiHaceFalta` no hace nada esos
+  // primeros ticks, sin romper nada).
+  protected exploracionPorSesion = new Map<string, { jugadorId: number; revelados: Set<number> }>();
   private cooldownSaltoMontura = new Map<string, number>(); // sessionId -> epoch ms del próximo salto permitido
 
   // --- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — a diferencia de una
@@ -445,6 +453,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected ocupantesDeBarco = new Map<number, string[]>();
   /** id de mapa (carpeta bajo assets/mapas/) que esta room representa — lo fija HubRoom en onCreate; usado para bd.listarBarcosDe/actualizarPosicionBarco. "" en rooms sin barcos (interior/región/arena). */
   protected mapaIdPropio = "";
+  /** Tamaño de sector en casillas (docs/GDD_Mapa_Mundo.md) — SOLO HubRoom lo rellena en onCreate (mismo alcance que anatomia/enfermedades: niebla de guerra es un feature del mundo persistente, no de regiones/interiores). 0 = niebla de guerra deshabilitada en esta room. */
+  protected tilesPorSectorExploracion = 0;
   /** norte/sur/este/oeste del mapa actual (docs/GDD_Barcos.md "Barcos y navegación marítima") — solo HubRoom lo rellena en onCreate; undefined en el resto (RegionRoom/InteriorRoom no tienen "borde de mundo"). */
   protected bordesMapa?: Record<"norte" | "sur" | "este" | "oeste", BordeMapa>;
   /** sessionId (capitán) -> dirección del último aviso "mapa:vecino" enviado, o null si no está cerca de ningún borde ahora mismo — evita reenviar cada tick mientras se queda quieto ahí. */
@@ -921,6 +931,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (!this.puedeActuarComoJarl(client)) return;
       client.send("capital:renombrada", { nombre: nombreCapitalOverride() });
     });
+    // Mapa de mundo con niebla de guerra (docs/GDD_Mapa_Mundo.md, pedido
+    // 2026-08-31) — bajo demanda, al abrir el mapa (tecla M), no hay push
+    // continuo: el revelado en sí ya ocurre solo mientras el jugador
+    // camina (actualizarMovimiento), esto solo devuelve el snapshot actual.
+    this.onMessage("mapa:consultarExploracion", (client) => this.manejarMapaConsultarExploracion(client));
 
     // NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3, pedido
     // 2026-08-30): jarl/superadmin-only, colocados en la posición actual
@@ -3407,6 +3422,44 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     await fijarNombreCapital(bd, nombre);
     this.broadcast("capital:renombrada", { nombre: nombreCapitalOverride() });
+  }
+
+  /**
+   * Mapa de mundo con niebla de guerra (docs/GDD_Mapa_Mundo.md, pedido
+   * 2026-08-31): el revelado en sí es incremental y perezoso (ver
+   * `revelarExploracionSiHaceFalta`, llamado desde `actualizarMovimiento`
+   * en cada tick que el jugador se mueve) — este handler solo devuelve el
+   * snapshot actual bajo demanda, al abrir el mapa.
+   */
+  private manejarMapaConsultarExploracion(client: Client) {
+    const estado = this.exploracionPorSesion.get(client.sessionId);
+    client.send("mapa:exploracion", {
+      sectores: estado ? [...estado.revelados] : [],
+      tilesPorSector: this.tilesPorSectorExploracion,
+    });
+  }
+
+  /**
+   * Revelado incremental de niebla de guerra — llamado desde
+   * `actualizarMovimiento` tras cada movimiento real. Pura consulta+mutación
+   * en memoria salvo cuando aparecen sectores NUEVOS (el caso normal, la
+   * mayoría de ticks, no hace nada) — solo entonces persiste, con el mismo
+   * criterio "solo tocar BD en el evento discreto" que el resto del
+   * proyecto (XP de resistencia, producción...).
+   */
+  protected revelarExploracionSiHaceFalta(sessionId: string, x: number, y: number) {
+    const estado = this.exploracionPorSesion.get(sessionId);
+    const tilesPorSector = this.tilesPorSectorExploracion;
+    if (!estado || !tilesPorSector || !this.mapaIdPropio) return;
+    const nuevas = nuevasClavesReveladas(estado.revelados, x, y, tilesPorSector);
+    if (nuevas.length === 0) return;
+    for (const clave of nuevas) estado.revelados.add(clave);
+    const { jugadorId, revelados } = estado;
+    const mapaId = this.mapaIdPropio;
+    const snapshot = [...revelados];
+    void obtenerBdCompartida()
+      .then((bd) => bd.guardarExploracion(jugadorId, mapaId, snapshot))
+      .catch((err) => console.error("No se pudo persistir la exploración del mapa:", err));
   }
 
   /**
@@ -8015,6 +8068,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           player.x = destino.x;
           player.y = destino.y;
         }
+        // Niebla de guerra (docs/GDD_Mapa_Mundo.md, pedido 2026-08-31):
+        // cualquier movimiento real la revela, sin importar el modo
+        // (andando/corriendo/nadando/montado/en barco) — no-op barato si
+        // sigue dentro del mismo puñado de sectores ya revelados.
+        this.revelarExploracionSiHaceFalta(sessionId, player.x, player.y);
       }
 
       // Resistencia por movimiento (docs/GDD_Personaje.md §3.4, pedido

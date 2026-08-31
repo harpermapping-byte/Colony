@@ -158,6 +158,7 @@ export class HubRoom extends RoomExteriorBase {
     this.esZonaSeguraPropia = true; // PvP (docs/GDD_PvP.md): el Hub es el pueblo donde vive todo el mundo, siempre a salvo
     this.mapaIdPropio = path.basename(rutaMapa);
     this.bordesMapa = this.mapa.bordes;
+    this.tilesPorSectorExploracion = this.mapa.tilesPorSector; // niebla de guerra (docs/GDD_Mapa_Mundo.md)
     console.log(
       `Hub con mapa "${this.mapa.nombre}" (${this.mapa.ancho}x${this.mapa.alto} casillas), ` +
       `spawn en ${this.mapa.spawnX.toFixed(1)},${this.mapa.spawnY.toFixed(1)}`,
@@ -638,6 +639,19 @@ export class HubRoom extends RoomExteriorBase {
           const enfermedades: EstadoEnfermedades = jugador.enfermedades ? JSON.parse(jugador.enfermedades) : enfermedadesInicial();
           this.enfermedadesPorSesion.set(client.sessionId, enfermedades);
           if (player) this.mirrorEnfermedadesASchema(player.enfermedades, enfermedades);
+          // Niebla de guerra (docs/GDD_Mapa_Mundo.md, pedido 2026-08-31) —
+          // mismo criterio best-effort: si falla, arranca sin nada revelado
+          // (peor UX momentánea, nunca rompe el join).
+          void obtenerBdCompartida()
+            .then((bd) => bd.obtenerExploracion(jugador.id, this.mapaIdPropio))
+            .then((sectores) => {
+              this.exploracionPorSesion.set(client.sessionId, { jugadorId: jugador.id, revelados: new Set(sectores) });
+              // Revela ya el punto de aparición — sin esto, un jugador que
+              // no se mueva nunca vería "niebla" bajo sus propios pies.
+              const p = this.state.players.get(client.sessionId);
+              if (p) this.revelarExploracionSiHaceFalta(client.sessionId, p.x, p.y);
+            })
+            .catch((err) => console.error("No se pudo cargar la exploración persistida del jugador:", err));
         })
         .catch((err) => console.error("No se pudo cargar la vida persistida del jugador:", err));
     }

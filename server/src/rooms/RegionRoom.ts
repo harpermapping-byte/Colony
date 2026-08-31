@@ -81,6 +81,7 @@ export class RegionRoom extends RoomExteriorBase {
   async onCreate(options: OpcionesRegion) {
     if (!options?.mapaId) throw new Error("RegionRoom necesita options.mapaId");
     this.mapaId = options.mapaId;
+    this.mapaIdPropio = options.mapaId; // mismo campo genérico que ya usa HubRoom (barcos, npcsTutoriales...) — RegionRoom no lo rellenaba
     const rutaMapa = rutaDeMapaId(options.mapaId);
     this.mapa = cargarMapaColision(rutaMapa);
     this.mundo = this.mapa;

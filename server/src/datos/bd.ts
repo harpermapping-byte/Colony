@@ -795,6 +795,11 @@ export interface IAlmacenDatos {
   // Flags globales (docs/GDD_PvP.md, pedido 2026-08-30) — tabla genérica de un solo valor por clave.
   obtenerConfigMundo(clave: string): Promise<string | null>;
   fijarConfigMundo(clave: string, valor: string): Promise<void>;
+  // Niebla de guerra del mapa de mundo (docs/GDD_Mapa_Mundo.md, pedido
+  // 2026-08-31) — sectores revelados por jugador+mapa, permanente. `[]` si
+  // nunca abrió el mapa en ese mapaId.
+  obtenerExploracion(jugadorId: number, mapaId: string): Promise<number[]>;
+  guardarExploracion(jugadorId: number, mapaId: string, sectores: number[]): Promise<void>;
   // Injertos (docs/GDD_Agricultura.md §4, pedido 2026-08-30) — especies híbridas permanentes.
   crearCultivoHibrido(c: CultivoHibrido): Promise<void>;
   listarCultivosHibridos(): Promise<CultivoHibrido[]>;
@@ -1029,6 +1034,18 @@ CREATE TABLE IF NOT EXISTS barcos (
 CREATE TABLE IF NOT EXISTS configuracion_mundo (
   clave TEXT PRIMARY KEY,
   valor TEXT NOT NULL
+);
+-- Niebla de guerra del mapa de mundo (docs/GDD_Mapa_Mundo.md, pedido
+-- 2026-08-31): "aunque mueras sigas teniendo eso descubierto, o si
+-- desconectas igual" — un array JSON de sectores empaquetados (mundo/
+-- exploracion.ts) por jugador+mapa, reescrito entero en cada revelado
+-- nuevo (los revelados son infrecuentes, no vale la pena una fila por
+-- sector).
+CREATE TABLE IF NOT EXISTS exploracion (
+  jugador_id INTEGER NOT NULL,
+  mapa_id TEXT NOT NULL,
+  sectores TEXT NOT NULL,
+  PRIMARY KEY (jugador_id, mapa_id)
 );
 -- Injertos (docs/GDD_Agricultura.md §4, diseño ya cerrado en
 -- Backlog_Mecanicas_Futuras.md "Injertos y cruces de cultivos", construido
@@ -1388,6 +1405,12 @@ CREATE TABLE IF NOT EXISTS barcos (
 CREATE TABLE IF NOT EXISTS configuracion_mundo (
   clave TEXT PRIMARY KEY,
   valor TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS exploracion (
+  jugador_id INTEGER NOT NULL,
+  mapa_id TEXT NOT NULL,
+  sectores TEXT NOT NULL,
+  PRIMARY KEY (jugador_id, mapa_id)
 );
 CREATE TABLE IF NOT EXISTS cultivos_hibridos (
   semilla_id TEXT PRIMARY KEY,
@@ -3061,6 +3084,20 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return fila ? String(fila.valor) : null;
   }
 
+  async obtenerExploracion(jugadorId: number, mapaId: string): Promise<number[]> {
+    const fila = this.bd.prepare("SELECT sectores FROM exploracion WHERE jugador_id = ? AND mapa_id = ?").get(jugadorId, mapaId);
+    return fila ? (JSON.parse(String(fila.sectores)) as number[]) : [];
+  }
+
+  async guardarExploracion(jugadorId: number, mapaId: string, sectores: number[]): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO exploracion (jugador_id, mapa_id, sectores) VALUES (?, ?, ?)
+         ON CONFLICT(jugador_id, mapa_id) DO UPDATE SET sectores = excluded.sectores`,
+      )
+      .run(jugadorId, mapaId, JSON.stringify(sectores));
+  }
+
   async fijarConfigMundo(clave: string, valor: string): Promise<void> {
     this.bd
       .prepare(
@@ -4335,6 +4372,19 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async obtenerConfigMundo(clave: string): Promise<string | null> {
     const r = await this.pool.query<{ valor: string }>("SELECT valor FROM configuracion_mundo WHERE clave = $1", [clave]);
     return r.rows[0]?.valor ?? null;
+  }
+
+  async obtenerExploracion(jugadorId: number, mapaId: string): Promise<number[]> {
+    const r = await this.pool.query<{ sectores: string }>("SELECT sectores FROM exploracion WHERE jugador_id = $1 AND mapa_id = $2", [jugadorId, mapaId]);
+    return r.rows[0] ? (JSON.parse(r.rows[0].sectores) as number[]) : [];
+  }
+
+  async guardarExploracion(jugadorId: number, mapaId: string, sectores: number[]): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO exploracion (jugador_id, mapa_id, sectores) VALUES ($1, $2, $3)
+       ON CONFLICT (jugador_id, mapa_id) DO UPDATE SET sectores = EXCLUDED.sectores`,
+      [jugadorId, mapaId, JSON.stringify(sectores)],
+    );
   }
 
   async fijarConfigMundo(clave: string, valor: string): Promise<void> {

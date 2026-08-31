@@ -110,6 +110,8 @@ export interface MapaCargado extends MundoColision {
   parcelasReservadas: ParcelaReservada[];
   /** norte/sur/este/oeste — undefined en mapas sin ese campo en el índice (p.ej. demo antiguo). */
   bordes?: Record<"norte" | "sur" | "este" | "oeste", BordeMapa>;
+  /** Tamaño de sector en CASILLAS (tamanoSectorChunks * tamanoChunk) — mismo cálculo que `streamingSectores.ts` del cliente, para la niebla de guerra (docs/GDD_Mapa_Mundo.md) y cualquier otro consumidor server-side que necesite pensar en sectores. */
+  tilesPorSector: number;
 }
 
 export function cargarMapaColision(
@@ -222,6 +224,7 @@ export function cargarMapaColision(
     recolectables,
     parcelasReservadas: indice.parcelasReservadas ?? [],
     bordes: indice.bordes,
+    tilesPorSector: indice.tamanoSectorChunks * indice.tamanoChunk,
   };
 }
 
