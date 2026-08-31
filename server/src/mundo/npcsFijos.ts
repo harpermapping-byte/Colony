@@ -54,11 +54,13 @@ export function cargarNpcsFijos(rutaMapa: string): NpcBakeado[] {
 
 export interface NpcTutorial {
   id: string; // tipoTutorial — clave estable, referenciada desde la BD (npcs_tutoriales.tipo_tutorial)
+  /** "tutorial" (explica una mecánica) o "lore" (cuenta lore del servidor, pedido 2026-08-31) — mismo mecanismo de colocación/vestido para las dos, solo cambia qué placeholder/fuente de texto usa `npc:hablar`. Ausente = "tutorial" (catálogos viejos sin el campo). */
+  categoria?: "tutorial" | "lore";
   /** Nombre real de poblacion/catalogo/nombres.json (ronda 3, pedido 2026-08-30: "todo NPC tira de esa lista") — lo que se ve en la etiqueta del NPC. */
   nombre: string;
   /** Rol de sabor que antes era el propio `nombre` ("Maestro de Oficios"...) — flavor, no viaja al cliente. */
   titulo?: string;
-  /** qué mecánica explica — lo que enseñaría el "spawner" del admin al elegir cuál colocar. */
+  /** Qué mecánica explica (categoria "tutorial") o de qué lore habla (categoria "lore") — lo que enseñaría el "spawner" del admin al elegir cuál colocar. */
   mecanica: string;
   /** slot->itemId (items/catalogo/items.json), MISMO shape que InventarioSchema.equipo — se renderiza reusando equipoVisual.ts tal cual, cero pipeline nuevo. */
   equipo: Record<string, string>;
@@ -67,12 +69,28 @@ export interface NpcTutorial {
 const RUTA_CATALOGO_TUTORIALES = path.join(__dirname, "..", "..", "..", "poblacion", "catalogo", "npcsTutoriales.json");
 let catalogoTutorialesCache: Map<string, NpcTutorial> | null = null;
 
-/** Catálogo completo de arquetipos de NPC tutorial — cacheado en memoria, releído solo si el proceso arranca de cero. */
+/** Catálogo completo de arquetipos de NPC tutorial/lore — cacheado en memoria, releído solo si el proceso arranca de cero. */
 export function cargarCatalogoNpcsTutoriales(): Map<string, NpcTutorial> {
   if (catalogoTutorialesCache) return catalogoTutorialesCache;
   const datos = JSON.parse(fs.readFileSync(RUTA_CATALOGO_TUTORIALES, "utf8")) as { npcs: NpcTutorial[] };
   catalogoTutorialesCache = new Map(datos.npcs.map((n) => [n.id, n]));
   return catalogoTutorialesCache;
+}
+
+const RUTA_LORE_TEXTO = path.join(__dirname, "..", "..", "..", "poblacion", "catalogo", "loreTexto.json");
+
+/**
+ * Texto real de los NPC "lore" (docs/GDD_Poblacion_NPCs.md, pedido
+ * 2026-08-31: "cuando termine el juego haré el lore y se pondrá ahí") —
+ * `{ id de NpcTutorial: texto }`. A propósito SIN caché (a diferencia del
+ * catálogo de arquetipos, que apenas cambia): este archivo se rellenará más
+ * adelante y el pedido es que funcione en caliente, sin reiniciar el
+ * servidor. Archivo ausente/entrada faltante = objeto vacío, nunca lanza.
+ */
+export function cargarLoreTexto(): Record<string, string> {
+  if (!fs.existsSync(RUTA_LORE_TEXTO)) return {};
+  const datos = JSON.parse(fs.readFileSync(RUTA_LORE_TEXTO, "utf8")) as { textos?: Record<string, string> };
+  return datos.textos ?? {};
 }
 
 /**
