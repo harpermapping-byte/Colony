@@ -893,7 +893,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const figura = variante.tipoRig === "animal" ? crearAnimalVoxel(variante) : crearPersonajeVoxel(variante);
     figura.objeto.rotation.order = "YXZ";
     figura.orientar(1, 1);
-    const etiqueta = enemigo.esBoss ? `☠ ${enemigo.enemigoId}` : enemigo.enemigoId;
+    // Bandidos de mazmorra (pedido 2026-08-31): "serán bandido y punto,
+    // nombre de lo que es" — respawnean cada tanto, así que NUNCA llevan
+    // nombre de político (a diferencia de los bandidos del mapa exterior,
+    // que sí son individuos permanentes — docs/GDD_Poblacion_NPCs.md). Se
+    // etiquetan por su tipo, no por su enemigoId de catálogo crudo.
+    const nombreMostrado = enemigo.enemigoId.includes("bandido") ? "Bandido" : enemigo.enemigoId;
+    const etiqueta = enemigo.esBoss ? `☠ ${nombreMostrado}` : nombreMostrado;
     escena.añadirEntidad(`enemigo_${id}`, figura.objeto, enemigo.x, enemigo.y, etiqueta);
     escena.actualizarVida(`enemigo_${id}`, enemigo.vida, enemigo.vidaMax);
     enemigosVisual.set(id, figura);
