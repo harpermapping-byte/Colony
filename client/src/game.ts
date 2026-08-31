@@ -32,6 +32,8 @@ import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista, type EstadoEnferme
 import { PanelCompanero } from "./personaje/panelCompanero";
 import { PanelLoginAdmin } from "./admin/panelLoginAdmin";
 import { PanelJarl } from "./admin/panelJarl";
+import { PanelDebugTestZone } from "./admin/panelDebugTestZone";
+import { PanelContenedorTest } from "./mundo/panelContenedorTest";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -1142,6 +1144,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     });
   }
   let panelJarl: PanelJarl | null = null;
+  let panelDebugTestZone: PanelDebugTestZone | null = null;
   room.onMessage(
     "admin:sesionConfirmada",
     (m: { usuario: string; rol: "jarl" | "superadmin"; mapaId: string | null; esJarlAqui: boolean }) => {
@@ -1167,9 +1170,26 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           forzarDirecto: (on) => room.send("twitch:forzarDirecto", { on }),
         });
       }
+      // Panel de debug de la Test Zone (docs/GDD_Admin.md, pedido
+      // 2026-08-31): mismo criterio de visibilidad que PanelJarl — el
+      // servidor es quien gatea de verdad cada admin:debug:*, esto es solo
+      // conveniencia de UI para no tener que escribir comandos a mano.
+      if (puedeVerPanel && !panelDebugTestZone && adminSession) {
+        panelDebugTestZone = new PanelDebugTestZone({
+          contenedor,
+          darItem: (itemId, cantidad) => room.send("admin:debug:darItem", { itemId, cantidad }),
+          limpiarInventario: () => room.send("admin:debug:limpiarInventario", {}),
+          godMode: (activo) => room.send("admin:debug:godMode", { activo }),
+          maxOficio: (slot) => room.send("admin:debug:maxOficio", { slot }),
+          resetearNodo: (nodoId) => room.send("admin:debug:resetearNodo", { nodoId }),
+          teleport: (x, y) => room.send("admin:debug:teleport", { x, y }),
+        });
+      }
     },
   );
   room.onMessage("pvp:actualizado", (m: { on: boolean }) => panelJarl?.actualizarPvp(m.on));
+  room.onMessage("admin:debug:ok", (m: { accion: string }) => panelDebugTestZone?.mostrarResultado(`OK: ${m?.accion}`));
+  room.onMessage("admin:error", (m: { motivo: string }) => panelDebugTestZone?.mostrarResultado(`Error: ${m?.motivo}`));
 
   // Marcador de "combate en curso" en el mapa de origen mientras la pelea
   // vive instanciada en su propia arena (docs/GDD_Combate.md §9.2) — cono
@@ -1189,6 +1209,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // pasada). Tecla U: "usar" la caña — lanza si no se está pescando ya,
   // reacciona a la picada si la boya se está agitando.
   const panelPesca = new PanelPesca({ contenedor, cancelar: () => room.send("pesca:cancelar") });
+
+  // --- Cofres de mundo de la Test Zone (docs/GDD_Admin.md, pedido
+  // 2026-08-31) — sin gating (cualquier jugador del mapa testzone), sin
+  // schema de cofres en el state todavía (lo está montando otro agente en
+  // paralelo), así que sin detección de proximidad real: tecla Y abre el
+  // cofre de prueba fijo `ID_COFRE_TEST_PRUEBA`.
+  const ID_COFRE_TEST_PRUEBA = "cofre_test_1";
+  const panelContenedorTest = new PanelContenedorTest({
+    contenedor,
+    tomar: (id, itemId, cantidad) => room.send("contenedorTest:tomar", { id, itemId, cantidad }),
+    cerrar: () => {},
+  });
+  room.onMessage("contenedorTest:estado", (m: { id: string; items: { itemId: string; cantidad: number }[] }) =>
+    panelContenedorTest.actualizarEstado(m?.id, m?.items ?? []));
   let estadoPesca: EstadoPescaVista = null;
   let boyaMesh: Mesh | null = null;
   const ID_BOYA = "pesca_boya_propia";
@@ -1458,6 +1492,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (yo?.barcoId) room.send("barco:desmontar");
       else room.send("barco:montar", {});
     }
+    // Cofres de mundo de la Test Zone (pedido 2026-08-31): Y abre/pide
+    // estado del cofre de prueba fijo — sin UI de targeting todavía.
+    if (k === "y" && !teclas.has("y")) room.send("contenedorTest:abrir", { id: ID_COFRE_TEST_PRUEBA });
+    // Panel de debug jarl/superadmin de la Test Zone: F9 alterna visibilidad
+    // (siempre se crea si hay sesión de admin confirmada, pero puede estorbar
+    // en pantalla mientras se juega — igual que I con el inventario).
+    if (k === "f9" && !teclas.has("f9")) panelDebugTestZone?.alternar();
     teclas.add(k);
   });
   window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));

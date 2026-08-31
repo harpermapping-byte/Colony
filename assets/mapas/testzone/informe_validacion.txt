@@ -1,0 +1,3 @@
+ATENCIÓN — se detectaron problemas:
+100 chunks generados, 12 POIs colocados, 1 sin ruta.
+1 POI(s) sin camino encontrado hasta la ciudad: tienda_cazador en (161,192)

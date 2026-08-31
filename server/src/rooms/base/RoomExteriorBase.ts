@@ -87,12 +87,12 @@ import {
   OFICIOS_JUGADOR_VALIDOS, tieneOficio, precioCambioOficio,
   bonusVelocidadCrafteoPorNivelOficio, bonusCantidadCrafteoPorNivelOficio,
   UMBRAL_SUCIEDAD_MOLESTO, RECARGO_TIENDA_SUCIEDAD, SUCIEDAD_POR_CRAFTEO, SUCIEDAD_POR_RECOLECTAR,
-  RITMO_LIMPIEZA_AGUA_POR_HORA, FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO,
+  RITMO_LIMPIEZA_AGUA_POR_HORA, FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO, NIVEL_MAX_OFICIO,
 } from "../../personaje/oficios";
 import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente } from "../../mundo/npcsFijos";
 import { nombrePoliticoDeterminista } from "../../personaje/nombresNpc";
 import { Atributo, esAtributoValido } from "../../personaje/atributos";
-import { UMBRALES_NIVEL_ATRIBUTO } from "../../progresion/nivel";
+import { UMBRALES_NIVEL_ATRIBUTO, UMBRALES_NIVEL } from "../../progresion/nivel";
 import {
   pesoMaximoTransportable,
   vidaMaximaPorResistencia,
@@ -3256,6 +3256,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private aplicarDanoEventosAmbientales(_dt: number): void {
     if (!this.eventoRayoActivo && !this.eventoTerremotoActivo) return;
     this.state.players.forEach((player, sessionId) => {
+      if (player.godMode) return; // debug (admin:debug:godMode): inmune también al daño ambiental
       if (this.eventoRayoActivo && !this.esInterior && Math.random() < PROB_RAYO_POR_SEG) {
         player.vida = Math.max(0, player.vida - DANO_RAYO);
       }
@@ -6771,8 +6772,28 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const cu = combate.unidades.get(u.id);
       if (!cu) continue;
       const hpAntes = cu.hp;
-      cu.gx = u.gx; cu.gy = u.gy; cu.hp = u.hp; cu.pa = u.pa; cu.estado = u.estado;
-      this.aplicarVida(u.id, u.hp); // el estado "real" (Player/Fauna/Npc/Enemigo) es la fuente de verdad fuera del combate
+      cu.gx = u.gx; cu.gy = u.gy; cu.pa = u.pa;
+      // Debug godMode (admin:debug:godMode): un jugador con el flag no pierde
+      // vida NI en combate — ni un rasguño, cu.hp se queda como estaba.
+      const jugadorGod = cu.esJugador && !!this.state.players.get(u.id)?.godMode;
+      // Dummy de combate de la Test Zone (npcsFijos con oficio "dummy_combate",
+      // pedido 2026-08-31): "vida infinita/regenerable" — se deja pegar (el
+      // golpe SÍ se aplica, para que el tester vea el daño calculado) pero en
+      // cuanto tocaría morir se regenera al instante a tope y sigue "activo",
+      // nunca llega a `finalizarMuerte`/desaparece del mapa.
+      const dummyRegenera = !cu.esJugador && (u.hp <= 0 || u.estado === "caido") && this.oficiosNpc.get(u.id) === "dummy_combate";
+      if (jugadorGod) {
+        cu.hp = hpAntes;
+        cu.estado = "activo";
+        this.aplicarVida(u.id, hpAntes);
+      } else if (dummyRegenera) {
+        cu.hp = cu.hpMax;
+        cu.estado = "activo";
+        this.aplicarVida(u.id, cu.hpMax);
+      } else {
+        cu.hp = u.hp; cu.estado = u.estado;
+        this.aplicarVida(u.id, u.hp); // el estado "real" (Player/Fauna/Npc/Enemigo) es la fuente de verdad fuera del combate
+      }
 
       // Resistencia (docs/GDD_Personaje.md §3.2, "recibir golpes"): el
       // objetivo puede haber sido golpeado por otro jugador (manejarCombateAccion)
@@ -7824,9 +7845,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const { estacion, hora } = tiempoMundo();
     const tempMundoC = temperaturaMundo(estacion as Estacion, hora);
     this.state.players.forEach((player, sessionId) => {
-      tickVitales(player.vitales, horasPorTick);
-      const extremo = aplicarTemperaturaCorporal(player.vitales, tempMundoC, horasPorTick);
-      this.aplicarInanicionA(player, horasPorTick, extremo !== null);
+      // Debug godMode (admin:debug:godMode, pedido 2026-08-31): "no pierde
+      // vida ni comida/hidratación" — se salta ENTERO el tick de vitales/
+      // inanición/temperatura (comida y bebida se quedan quietas) para este
+      // jugador; el resto (suciedad/anatomía/enfermedades) sigue igual, son
+      // cosméticos o ya no drenan vida si no hay sangrado activo.
+      let extremo: "calor" | "frio" | null = null;
+      if (!player.godMode) {
+        tickVitales(player.vitales, horasPorTick);
+        extremo = aplicarTemperaturaCorporal(player.vitales, tempMundoC, horasPorTick);
+        this.aplicarInanicionA(player, horasPorTick, extremo !== null);
+      }
       // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): "limpiarse
       // es o nadando en el agua durante X tiempo" — limpieza pasiva mientras
       // esté en el agua (nadando o buceando), sin acción explícita. El
@@ -7841,7 +7870,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // (golpe/acción médica), no cada tick.
       const anatomiaTick = this.anatomiaDe(sessionId);
       resolverCuracionesEnCurso(anatomiaTick, Date.now());
-      aplicarDrenajeAnatomico(anatomiaTick, player, horasPorTick);
+      if (!player.godMode) aplicarDrenajeAnatomico(anatomiaTick, player, horasPorTick);
       // Enfermedades (docs/GDD_Enfermedades.md, pedido 2026-08-30): arranca
       // el reloj de catarro en cuanto haya alguna zona infectada, tira gripe
       // de flanco si acaba de empezar a hacer frío en invierno, cierra
@@ -7854,7 +7883,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       rodarGripePorFrio(enfermedadesTick, extremo === "frio", estacion === "invierno", ahoraMs);
       const { catarroCurado, gripeCurada } = resolverAutocuracionEnfermedades(enfermedadesTick, ahoraMs);
       if (catarroCurado) curarInfecciones(anatomiaTick);
-      aplicarTopeVidaPorCatarro(enfermedadesTick, player);
+      if (!player.godMode) aplicarTopeVidaPorCatarro(enfermedadesTick, player);
       this.mirrorAnatomiaASchema(player.anatomia, anatomiaTick);
       this.mirrorEnfermedadesASchema(player.enfermedades, enfermedadesTick);
       if ((catarroCurado || gripeCurada) && player.name) void this.persistirEnfermedades(player.name, enfermedadesTick);
