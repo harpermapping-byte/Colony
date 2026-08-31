@@ -53,6 +53,13 @@ export default defineConfig({
   server: {
     port: 5173,
     fs: { allow: [join(__dirname, ".."), __dirname] },
+    // Vite 5+ bloquea por defecto cualquier Host desconocido (protección
+    // contra DNS rebinding) — sin esto, entrar por un túnel público
+    // (cloudflared, ngrok...) para probar en red con otro jugador da
+    // "Blocked request. This host is not allowed" (encontrado probando la
+    // Test Zone 2026-08-31). Solo aplica en dev (`npm run dev:client`); el
+    // build de producción servido por Vercel no pasa por aquí.
+    allowedHosts: true,
   },
   // Los chunks propios del bundler van a dist/_bundle en vez de al
   // dist/assets por defecto de Vite — ese nombre lo reservamos para la
