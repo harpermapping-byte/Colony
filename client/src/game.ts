@@ -850,6 +850,39 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage(tipo, (m: unknown) => ultimosMensajes.set(tipo, m));
   }
 
+  // Logging real de "xxx:error" para los sistemas SIN panel de cliente
+  // todavía (confirmado por grep, 2026-08-31): estos 21 tipos los manda el
+  // servidor pero ningún fichero de client/src/ los escuchaba — se perdían
+  // en silencio, ni en juego ni en consola/logs de test. Mismo criterio que
+  // medico:error/cocina:error de arriba (CLAUDE.md), un simple console.log
+  // del motivo — no necesitan `ultimosMensajes` (eso es solo para que los
+  // e2e sin panel lean la RESPUESTA de una acción; esto es puro logging de
+  // rechazo, igual que combate:error/tenderete:error/oficio:error ya
+  // arreglados antes en esta misma sesión de barrido).
+  for (const [tipo, etiqueta] of [
+    ["actividad:error", "actividad"],
+    ["animal:error", "animal"],
+    ["coger:error", "coger"],
+    ["curtidor:error", "curtidor"],
+    ["dormir:error", "dormir"],
+    ["habitacion:error", "habitación"],
+    ["higiene:error", "higiene"],
+    ["inmueble:error", "inmueble"],
+    ["motriz:error", "motriz"],
+    ["npc:error", "npc"],
+    ["personaje:error", "personaje"],
+    ["piel:error", "piel"],
+    ["plantilla:error", "plantilla"],
+    ["produccion:error", "producción"],
+    ["quesera:error", "quesera"],
+    ["recipiente:error", "recipiente"],
+    ["refinamiento:error", "refinamiento"],
+    ["soltar:error", "soltar"],
+    ["transporte:error", "transporte"],
+  ] as const) {
+    room.onMessage(tipo, (m: { motivo?: string }) => console.log(`[${etiqueta}]`, m?.motivo));
+  }
+
   // Tenderete/oficio (docs/GDD_Mercado.md, docs/GDD_Profesiones.md): sin
   // panel de cliente todavía (protocolo probado por e2e mandando el mensaje
   // Colyseus real), pero sus "xxx:error" se colaban sin loguear — bug real
@@ -1246,6 +1279,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("twitch:loginConfirmado", (m: { twitchLogin: string }) => {
     cajaTwitch.textContent = `🎮 Twitch: conectado como ${m.twitchLogin}`;
   });
+  room.onMessage("twitch:error", (m: { motivo?: string }) => console.log("[twitch]", m?.motivo));
 
   // --- Login de admin (docs/GDD_Admin.md, pedido 2026-08-30) — dual:
   // usuario/contraseña propios (formulario, PanelLoginAdmin) O una cuenta
@@ -1314,6 +1348,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     },
   );
   room.onMessage("pvp:actualizado", (m: { on: boolean }) => panelJarl?.actualizarPvp(m.on));
+  room.onMessage("pvp:error", (m: { motivo?: string }) => console.log("[pvp]", m?.motivo));
 
   // Marcador de "combate en curso" en el mapa de origen mientras la pelea
   // vive instanciada en su propia arena (docs/GDD_Combate.md §9.2) — cono
