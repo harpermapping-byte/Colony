@@ -47,10 +47,20 @@ export interface Construible {
   produccion?: { requiereTrabajador?: boolean };
   /** Cama (docs/GDD_Personaje.md §3.6) — el menú de interacción ofrece "Tumbarse" (dormir:iniciar). */
   esCama?: boolean;
-  /** Sentarse (pedido 2026-08-31) — el menú de interacción ofrece "Sentarse" (sentar:iniciar). */
+  /** Sentarse por clic (pedido 2026-08-31) — el menú de interacción ofrece "Sentarse" (sentar:iniciar). */
   esSilla?: boolean;
   /** Cofre/arcón (docs/GDD_Produccion.md §3ter) — el menú de interacción ofrece "Abrir" (cofre:consultar). */
   esContenedor?: boolean;
+  /**
+   * Asiento genérico por PROXIMIDAD (docs/GDD_Personaje.md §3.6bis, tecla F
+   * — game.ts::asientoGenericoAlcanzable), en las mismas piezas que `esSilla`
+   * en muchos casos: dos mecanismos redundantes nacidos en paralelo el mismo
+   * día (`esSilla`=clic, protocolo `sentar:*`; `esAsiento`=tecla F,
+   * protocolo `asiento:*`) — no colisionan (mensajes/maps disjuntos, ambos
+   * comparten sin problema `PlayerSchema.sentado`) pero conviene unificar la
+   * UX más adelante en vez de dejar las dos activas sin más.
+   */
+  esAsiento?: boolean;
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -81,6 +91,7 @@ interface EntradaBruta {
   esCama?: boolean;
   esSilla?: boolean;
   esContenedor?: boolean;
+  esAsiento?: boolean;
   [k: string]: unknown;
 }
 
@@ -121,6 +132,7 @@ function construirLista(): Construible[] {
       esCama: e.esCama,
       esSilla: e.esSilla,
       esContenedor: e.esContenedor,
+      esAsiento: e.esAsiento,
     });
   }
 

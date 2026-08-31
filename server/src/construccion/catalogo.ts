@@ -74,8 +74,10 @@ export interface EntradaConstruible {
   actividadAtributo?: EntradaActividadAtributo;
   /** Cama (docs/GDD_Personaje.md §3.6) — presente en cama_individual/cama_doble/litera_marinero: acercarse y mandar `dormir:iniciar` empieza un sueño con tope de tiempo que recupera Estamina entera al completarse. */
   esCama?: boolean;
-  /** Sentarse (pedido 2026-08-31, "sillas, bancos, sofás y otros muebles que sirvan en la vida real para sentarse") — presente en silla/banco/sofa/taburete/mecedora/trono/butaca: clic sobre el mueble → `sentar:iniciar {construccionId}`, se cancela solo al moverse (mismo criterio que `esCama`/dormir). */
+  /** Sentarse por clic (pedido 2026-08-31, "sillas, bancos, sofás y otros muebles que sirvan en la vida real para sentarse") — presente en silla/banco/sofa/taburete/mecedora/trono/butaca: clic sobre el mueble → `sentar:iniciar {construccionId}`, se cancela solo al moverse (mismo criterio que `esCama`/dormir). */
   esSilla?: boolean;
+  /** Asiento genérico por proximidad (docs/GDD_Personaje.md §3.6bis) — presente en silla/banco/taburete/mecedora/sofa/trono (parcial solape con `esSilla`, nacido en paralelo el mismo día — ver nota en `EntradaElemento` más abajo): acercarse y mandar `asiento:sentarse` sienta al jugador (cosmético, sin duración ni recompensa — no confundir con `esCama`/dormir ni con las mesas de minijuego jugables de `mesasJuego.ts`). */
+  esAsiento?: boolean;
   /** Pesca pasiva (docs/GDD_Pesca.md) — presente en trampa_pesca/cangrejera/batea_almejas: exige agua ORTOGONALMENTE ADYACENTE a la huella al colocarse (mismo `hayAguaAdyacente` que el molino de agua), nunca dentro de la huella (construcción siempre en tierra). */
   requiereAgua?: boolean;
   /** Agricultura (docs/GDD_Agricultura.md) — presente en bancal_cultivo/maceta_*: superficie donde plantar UNA semilla a la vez (mensajes `cultivo:*`, RoomExteriorBase.ts). `multiplicadorCosecha` escala la cantidad de cada cosecha (macetas grandes rinden más). */
@@ -214,12 +216,28 @@ interface EntradaElemento {
   actividadAtributo?: EntradaActividadAtributo;
   esCama?: boolean;
   esSilla?: boolean;
+  /** Nacido en paralelo el mismo día que `esSilla` (misma furniture list, dos mecanismos distintos: clic vs tecla F por proximidad — ver la nota en `EntradaConstruible`). */
+  esAsiento?: boolean;
   nivelOficioMinimo?: { oficio: string; nivel: number };
   mejoraMesa?: { mesa: string; tipo: "velocidad" | "cantidad"; bonus: number };
   instrumento?: string;
   /** docs/GDD_Produccion.md §3ter — mueble de almacenamiento (baúl/arcón/armario...). `aportes.almacenamiento` ya existía en el catálogo (puntuación de decoración, `interiores/`) — se reusa como pista de tamaño real del contenedor. */
   esContenedor?: boolean;
   aportes?: { almacenamiento?: number };
+  /**
+   * Corrección real (docs/GDD_Mesas_Minijuego.md, 2026-08-30): este campo
+   * YA existía en `elementos.json` (silla_pino/silla_roble/silla_nogal_
+   * tallada y los 50 objetos decorativos exclusivos de docs/GDD_Profesiones.md
+   * lo traen desde su alta original) pero NUNCA se propagaba a
+   * `EntradaConstruible` para la categoría "mueble" — solo `EntradaExterior`
+   * (exteriores.json) lo leía. Efecto real: cualquiera podía "construir"
+   * esas 55+ piezas gratis, sin poseer el ítem craftado, porque
+   * `RoomExteriorBase.ts` comprobaba `entrada.requiereItemColocar` sobre un
+   * campo que para un "mueble" siempre era `undefined` — el gate estaba
+   * muerto en la práctica pese a estar documentado como si funcionara.
+   * Corregido con el mismo patrón que exteriores (ver el loop de abajo).
+   */
+  requiereItemColocar?: string;
 }
 
 interface EntradaExterior {
@@ -280,10 +298,13 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       actividadAtributo: d.actividadAtributo,
       esCama: d.esCama,
       esSilla: d.esSilla,
+      esAsiento: d.esAsiento,
       nivelOficioMinimo: d.nivelOficioMinimo,
+      mejoraMesa: d.mejoraMesa,
       instrumento: d.instrumento,
       esContenedor: d.esContenedor,
       almacenamientoCofre: d.esContenedor ? Math.max(2, Math.round(Math.sqrt(d.aportes?.almacenamiento ?? 9))) : undefined,
+      requiereItemColocar: d.requiereItemColocar,
     });
   }
 

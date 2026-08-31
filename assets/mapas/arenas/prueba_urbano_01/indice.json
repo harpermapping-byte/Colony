@@ -1,0 +1,13 @@
+{
+  "nombre": "prueba_urbano_01",
+  "anchoChunks": 1,
+  "altoChunks": 1,
+  "tamanoChunk": 22,
+  "tamanoSectorChunks": 1,
+  "leyendaTerreno": [
+    "adoquin",
+    "muralla_piedra"
+  ],
+  "portales": [],
+  "parcelasReservadas": []
+}

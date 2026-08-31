@@ -162,6 +162,61 @@ test("catálogo construible: fusiona las tres fuentes con las reglas del GDD §3
   assert.strictEqual(catalogo.get("estatua_lider_bronce")?.proyectoJarl, true);
 });
 
+// Corrección real (docs/GDD_Mesas_Minijuego.md, 2026-08-30, encontrada al
+// implementar mesa_ajedrez): `requiereItemColocar`/`mejoraMesa` YA existían
+// en `elementos.json` para varias piezas reales (silla_pino, los 50
+// decorativos exclusivos de GDD_Profesiones.md, los 60 módulos de mejora
+// por adyacencia) pero el fusionador de "mueble" nunca los copiaba a
+// `EntradaConstruible` — el gate de "construir" y `bonusModulosAdyacentes`
+// leían siempre `undefined` para cualquier mueble, aunque exteriores.json
+// SÍ propagaba requiereItemColocar correctamente. Ambas piezas colocables
+// gratis / bonus de mesa inertes en la práctica pese a estar documentadas
+// como funcionando. Este test fija que el fusionador de "mueble" ahora
+// copia los dos campos, igual que ya hacía "exterior".
+test("catálogo construible: mueble propaga requiereItemColocar y mejoraMesa (antes se perdían para categoria:\"mueble\")", () => {
+  assert.strictEqual(catalogo.get("silla_pino")?.requiereItemColocar, "silla_pino");
+  assert.strictEqual(catalogo.get("silla_roble")?.requiereItemColocar, "silla_roble");
+  const modulo = catalogo.get("fuelle_mecanico_pedal");
+  assert.strictEqual(modulo?.mejoraMesa?.tipo, "velocidad");
+  assert.ok((modulo?.mejoraMesa?.bonus ?? 0) > 0);
+});
+
+// Mesa de ajedrez (docs/GDD_Mesas_Minijuego.md) — mobiliario JUGABLE
+// craftable, no una mesa de OFICIO: mismo patrón "requiereItemColocar a sí
+// mismo" que silla_pino, huella [3,2] (mesa + 2 taburetes fusionados).
+test("catálogo construible: mesa_ajedrez (docs/GDD_Mesas_Minijuego.md) — mueble craftable, huella [3,2]", () => {
+  const mesa = catalogo.get("mesa_ajedrez");
+  assert.strictEqual(mesa?.categoria, "mueble");
+  assert.deepStrictEqual(mesa?.huella, [3, 2]);
+  // colision:false (vía anchorType:"FLOOR_DECAL") — las 2 sillas jugables
+  // (mesasJuego.ts) caen DENTRO de esta misma huella; si fuera sólida nadie
+  // podría caminar hasta su propio asiento para sentarse (bug real
+  // encontrado y corregido con el e2e de docs/GDD_Mesas_Minijuego.md).
+  assert.strictEqual(mesa?.colision, false);
+  assert.strictEqual(mesa?.requiereItemColocar, "mesa_ajedrez");
+  // Gate real está en la RECETA (nivelMinimo, validarCrafteo) — igual que
+  // silla_pino/orreria_esfera_armilar, el mueble en sí no repite el gate de
+  // oficio (solo lo hacen las mesas de OFICIO como mesa_delineante): quien
+  // ya tiene el ítem craftado (o lo recibió por comercio) puede colocarlo.
+  assert.strictEqual(mesa?.nivelOficioMinimo, undefined);
+});
+
+// Asiento genérico (docs/GDD_Personaje.md §3.6bis, pedido 2026-08-31): NO es
+// la mesa de ajedrez de arriba — un asiento de 1 plaza, puramente cosmético,
+// en cualquier silla/banco/taburete/mecedora/sofa/trono del catálogo.
+test("catálogo construible: esAsiento marca solo mobiliario para sentarse, no las mesas de OFICIO homónimas", () => {
+  for (const id of ["silla", "silla_pino", "silla_roble", "silla_nogal_tallada", "banco", "taburete", "mecedora", "sofa", "trono"]) {
+    assert.strictEqual(catalogo.get(id)?.esAsiento, true, `${id} debería tener esAsiento:true`);
+  }
+  // "banco_carpintero"/"banco_mecanizado" etc. son ESTACIONES DE CRAFTEO
+  // (docs/GDD_Profesiones.md), no asientos — el nombre "banco" es un falso
+  // amigo (banco de carpintero = mesa de trabajo, no para sentarse). Deben
+  // quedar SIN el flag pese a compartir el prefijo del nombre.
+  for (const id of ["banco_carpintero", "banco_joyero", "banco_mecanizado", "banco_ajuste", "banco_pulido"]) {
+    assert.notStrictEqual(catalogo.get(id)?.esAsiento, true, `${id} es una mesa de oficio, no un asiento`);
+  }
+});
+
 test("catálogo construible: encurtido de pieles (docs/GDD_Caza.md) — cubo_sal/barril_curtido traen su EntradaCurtidor", () => {
   const cuboSal = catalogo.get("cubo_sal");
   assert.strictEqual(cuboSal?.categoria, "exterior");

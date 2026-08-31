@@ -1,0 +1,13 @@
+{
+  "nombre": "prueba_acuatico_01",
+  "anchoChunks": 1,
+  "altoChunks": 1,
+  "tamanoChunk": 24,
+  "tamanoSectorChunks": 1,
+  "leyendaTerreno": [
+    "barro",
+    "agua"
+  ],
+  "portales": [],
+  "parcelasReservadas": []
+}

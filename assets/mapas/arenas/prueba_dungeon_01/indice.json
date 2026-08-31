@@ -1,0 +1,12 @@
+{
+  "nombre": "prueba_dungeon_01",
+  "anchoChunks": 1,
+  "altoChunks": 1,
+  "tamanoChunk": 20,
+  "tamanoSectorChunks": 1,
+  "leyendaTerreno": [
+    "roca"
+  ],
+  "portales": [],
+  "parcelasReservadas": []
+}

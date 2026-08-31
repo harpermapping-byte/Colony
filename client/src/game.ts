@@ -42,6 +42,8 @@ import { PanelLoginAdmin } from "./admin/panelLoginAdmin";
 import { PanelJarl } from "./admin/panelJarl";
 import { PanelDebugTestZone } from "./admin/panelDebugTestZone";
 import { PanelContenedorTest } from "./mundo/panelContenedorTest";
+import { PanelAjedrez } from "./minijuegos/panelAjedrez";
+import { posicionSilla as posicionSillaMesaJuego, type Silla as SillaMesaJuego } from "./minijuegos/mesasJuego";
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -109,6 +111,13 @@ const RUTA_MAPA =
     // correcta, dejando el terreno vacío/desincronizado del estado real.
     ? `/assets/mapas/${MAPA_ID}`
     : (import.meta as any).env?.VITE_RUTA_MAPA || "/assets/mapas/principal";
+
+// El grid táctico de una arena (server/src/rooms/ArenaCombateRoom.ts) sale
+// 1:1 del bake real y queda pequeño (petición streamer: "el mapa generado
+// se ve enano"). Este margen es SOLO visual (sectorVisual.ts,
+// extenderConMargenClamp): terreno de relleno fuera del grid, sin tocar
+// bake/colisión/lógica de combate — el jugador nunca sale del grid real.
+const MARGEN_VISUAL_ARENA = 6;
 
 interface Direction {
   x: number;
@@ -239,7 +248,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         obtenerSector: (sx, sy) => cargarSector(RUTA_MAPA, sx, sy),
         materializar: async (sector) => {
           const excluidos = await pedirExclusiones(sector.sectorX, sector.sectorY, tilesPorSector);
-          const handle = await crearSectorVisual(indice, sector, excluidos);
+          const handle = await crearSectorVisual(indice, sector, excluidos, SALA === "arena" ? MARGEN_VISUAL_ARENA : 0);
           escena.añadirEstatico(handle.grupo);
           return handle;
         },
@@ -525,10 +534,25 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   let modoConstruccion: ModoConstruccion | null = null;
   let colocadorPlantillas: ColocadorPlantillas | null = null;
   let panelMapaMundo: PanelMapaMundo | null = null;
+  // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md) — igual que
+  // `modoConstruccion`, izadas fuera del `if (SALA === "hub")` de abajo
+  // porque la tecla F (más adelante, fuera de este bloque) necesita leerlas.
+  let renderConstrucciones: RenderConstrucciones | null = null;
+  let panelAjedrez: PanelAjedrez | null = null;
+  // Captura genérica de "último mensaje visto de este tipo" (barrido de
+  // sistemas 2026-08-31), izada por el MISMO motivo que renderConstrucciones/
+  // panelAjedrez arriba: los mensajes de médico (más abajo, fuera del
+  // `if (SALA === "hub")`) también necesitan escribir aquí, y `__test`
+  // (dentro del bloque hub) necesita LEER lo que ellos escriban.
+  const ultimosMensajes = new Map<string, unknown>();
   if (SALA === "hub") {
     const indiceParcelas =
       parcelasArchivo && anchoMapa > 0 ? construirIndiceParcelas(parcelasArchivo, anchoMapa) : new Map<number, string>();
-    const renderConstrucciones = new RenderConstrucciones(escena, anchoMapa || 1 << 16);
+    renderConstrucciones = new RenderConstrucciones(escena, anchoMapa || 1 << 16);
+    // Alias narrowed no-null para el resto de este bloque (mismo motivo que
+    // "const modo = modoConstruccion" un poco más abajo: TypeScript no
+    // conserva el narrowing de un `let` a través de un closure/callback).
+    const render = renderConstrucciones;
     modoConstruccion = new ModoConstruccion({
       contenedor,
       escena,
@@ -536,7 +560,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       anchoMapa: anchoMapa || 1 << 16,
       parcelas: parcelasArchivo,
       indiceParcelas,
-      render: renderConstrucciones,
+      render,
       enviarConstruir: (mensaje) => room.send("construir", mensaje),
     });
     const modo = modoConstruccion;
@@ -611,9 +635,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage("parcelas:estado", (estado: Record<string, { dueno: string | null }>) =>
       modo.actualizarDuenos(estado),
     );
-    room.onMessage("construcciones:lista", (lista: ConstruccionRed[]) => renderConstrucciones.aplicarLista(lista || []));
-    room.onMessage("construccion:nueva", (c: ConstruccionRed) => renderConstrucciones.aplicarNueva(c));
-    room.onMessage("construccion:quitada", (m: { id: number }) => renderConstrucciones.aplicarQuitada(m.id));
+    room.onMessage("construcciones:lista", (lista: ConstruccionRed[]) => render.aplicarLista(lista || []));
+    room.onMessage("construccion:nueva", (c: ConstruccionRed) => render.aplicarNueva(c));
+    room.onMessage("construccion:quitada", (m: { id: number }) => render.aplicarQuitada(m.id));
     // Contador de rechazos para la sonda: el e2e distingue "el servidor aceptó"
     // (sube construcciones) de "el servidor rechazó" (sube este contador) sin
     // rascar el DOM del panel.
@@ -652,7 +676,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const r = escena.renderer.domElement.getBoundingClientRect();
       const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       raycasterClic.setFromCamera(ndc, escena.camera);
-      const impactos = raycasterClic.intersectObjects(renderConstrucciones.mallas(), false);
+      const impactos = raycasterClic.intersectObjects(render.mallas(), false);
       if (impactos.length === 0) {
         // Clic sin ningún mueble debajo (pedido 2026-08-31: "también puedes
         // sentarte en el suelo... dando click sobre suelo") — sin raycast
@@ -664,7 +688,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         ]);
         return;
       }
-      const datos = renderConstrucciones.datosDeMalla(impactos[0].object);
+      const datos = render.datosDeMalla(impactos[0].object);
       if (!datos) return;
       const construible = obtenerConstruibleOPlantilla(datos.objeto);
       const nombre = construible?.nombre ?? datos.objeto;
@@ -748,7 +772,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       seleccionar: (id: string) => modo.seleccionar(id),
       rotar: () => modo.rotar(),
       colocarEn: (x: number, y: number) => modo.colocarEn(x, y),
-      construcciones: () => renderConstrucciones.cantidad(),
+      construcciones: () => render.cantidad(),
       parcelas: () => modo.estadoParcelas(),
       // el cliente no expone la room: la sonda cubre el único send que el e2e
       // necesita fuera del colocador (asignación de parcela por el jarl, §4)
@@ -775,6 +799,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       ultimaVentaMercader: () => ultimaVentaMercader,
       ultimoErrorMercader: () => ultimoErrorMercader,
       errores: () => erroresConstruir,
+      // ids de todas las construcciones vivas de un objeto de catálogo (p.ej.
+      // "mesa_ajedrez") — usado por el e2e de mesas de minijuego para ubicar
+      // lo recién colocado sin tener que adivinar el id que asignó el servidor.
+      idsDeObjeto: (objeto: string) => render.idsDeObjeto(objeto),
     };
     room.onMessage("npc:error", (m: { motivo: string }) => { ultimoErrorMercader = m?.motivo ?? ""; console.log("[npc]", m?.motivo); });
     room.onMessage("npc:comercioEscaparate", (m: unknown) => { ultimoEscaparateMercader = m; console.log("[npc] escaparate", m); });
@@ -796,7 +824,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     });
     let cultivoCercanoId: number | null = null;
     room.onMessage("cultivo:estado", (m: EstadoCultivoVista) => {
-      renderConstrucciones.tintarSuelo(m.construccionId, m.agua, m.fertilizante);
+      render.tintarSuelo(m.construccionId, m.agua, m.fertilizante);
       if (m.construccionId === cultivoCercanoId) panelCultivo.actualizar(m);
     });
     room.onMessage("cultivo:cosechado", (m: { itemId: string; cantidad: number }) => console.log(`[cultivo] cosechado: ${m?.cantidad}x ${m?.itemId}`));
@@ -807,7 +835,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // proximidad a un bancal no necesita 60hz.
     setInterval(() => {
       if (!jugadorLocal) return;
-      const id = renderConstrucciones.plantableMasCercana(jugadorLocal.x, jugadorLocal.z, 2.2);
+      const id = render.plantableMasCercana(jugadorLocal.x, jugadorLocal.z, 2.2);
       if (id !== cultivoCercanoId) {
         cultivoCercanoId = id;
         if (id == null) panelCultivo.actualizar(null);
@@ -826,7 +854,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage("injerto:creado", (m: { nombre: string }) => console.log(`[injerto] nueva especie: ${m?.nombre}`));
     setInterval(() => {
       if (!jugadorLocal) return;
-      const id = renderConstrucciones.deObjetoMasCercana("mesa_injertos", jugadorLocal.x, jugadorLocal.z, 2.2);
+      const id = render.deObjetoMasCercana("mesa_injertos", jugadorLocal.x, jugadorLocal.z, 2.2);
       if (id !== injertoCercanoId) {
         injertoCercanoId = id;
         panelInjerto.actualizar(id);
@@ -856,7 +884,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage("cocina:error", (m: { motivo: string }) => console.log("[cocina]", m?.motivo));
     setInterval(() => {
       if (!jugadorLocal) return;
-      const cercana = renderConstrucciones.cocinaMasCercana(jugadorLocal.x, jugadorLocal.z, 2.2);
+      const cercana = render.cocinaMasCercana(jugadorLocal.x, jugadorLocal.z, 2.2);
       const id = cercana?.id ?? null;
       if (id !== cocinaCercanaId) {
         cocinaCercanaId = id;
@@ -867,6 +895,195 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         }
       }
     }, 500);
+
+    // --- Mesas de minijuego: ajedrez (docs/GDD_Mesas_Minijuego.md, pedido
+    // 2026-08-30) — panel PLACEHOLDER de testeo (ver panelAjedrez.ts).
+    // Mueble craftable/colocable normal (misma "construir" de arriba); el
+    // popup se abre solo cuando el ESTADO dice fase:"activo" (mismo criterio
+    // que PanelCombate reaccionando a `combates`), reactivo a
+    // `state.mesasAjedrez` con el mismo trío onAdd/onRemove/onStateChange
+    // que combate/comercio.
+    panelAjedrez = new PanelAjedrez({
+      contenedor,
+      sessionIdPropio: room.sessionId,
+      enviarMover: (construccionId, desde, hasta, promocion) => room.send("mesa:mover", { construccionId, desde, hasta, promocion }),
+      enviarLevantarse: () => room.send("mesa:levantarse"),
+    });
+    const elPanelAjedrez = panelAjedrez;
+    const actualizarPanelAjedrez = () => elPanelAjedrez.actualizar((room.state as any).mesasAjedrez);
+    $(room.state).mesasAjedrez.onAdd(() => actualizarPanelAjedrez());
+    $(room.state).mesasAjedrez.onRemove(() => actualizarPanelAjedrez());
+    room.onStateChange(() => actualizarPanelAjedrez());
+    room.onMessage("mesa:error", (m: { motivo: string }) => console.log("[mesa]", m?.motivo));
+
+    // Hint de "sentarse" (proximidad, sin UI de targeting): mismo cadencia
+    // de 500ms que cultivo/injerto/cocina de arriba — busca la mesa de
+    // ajedrez más cercana (radio ancho: la huella 3x2 hace que el CENTRO de
+    // la mesa pueda estar algo más lejos que RADIO_INTERACCION aunque una
+    // silla concreta sí esté al alcance) y, de sus 2 sillas, la más cercana
+    // que esté libre y de verdad dentro de RADIO_INTERACCION real.
+    setInterval(() => {
+      if (!jugadorLocal) return;
+      if (miMesaAjedrezActual() != null) return; // ya sentado: actualizarPanelAjedrez ya oculta el hint
+      const asiento = asientoAjedrezAlcanzable(jugadorLocal.x, jugadorLocal.z);
+      elPanelAjedrez.actualizarHint(asiento ? "Pulsa F para sentarte a jugar al ajedrez" : null);
+    }, 500);
+
+    // Asiento genérico (docs/GDD_Personaje.md §3.6bis, pedido 2026-08-31):
+    // hint pequeño e independiente del de ajedrez de arriba — mismo criterio
+    // de proximidad de 500ms, pero para cualquier silla/banco/taburete/
+    // mecedora/sofa/trono (`esAsiento:true`). No compite con el hint de
+    // ajedrez: solo se muestra si NO hay una mesa de ajedrez alcanzable
+    // (evita 2 hints a la vez si un jugador está entre ambos).
+    const hintAsiento = document.createElement("div");
+    hintAsiento.style.cssText =
+      "position:absolute;left:50%;bottom:60px;transform:translateX(-50%);background:rgba(20,16,10,0.85);color:#f0e8d8;font:13px sans-serif;padding:6px 12px;border-radius:6px;border:1px solid #6a5a3a;display:none;pointer-events:none;";
+    hintAsiento.textContent = "Pulsa F para sentarte";
+    contenedor.appendChild(hintAsiento);
+    setInterval(() => {
+      if (!jugadorLocal) { hintAsiento.style.display = "none"; return; }
+      if (enAsientoGenerico() || miMesaAjedrezActual() != null || asientoAjedrezAlcanzable(jugadorLocal.x, jugadorLocal.z)) {
+        hintAsiento.style.display = "none";
+        return;
+      }
+      const idAsiento = asientoGenericoAlcanzable(jugadorLocal.x, jugadorLocal.z);
+      hintAsiento.style.display = idAsiento != null ? "block" : "none";
+    }, 500);
+    room.onMessage("asiento:error", (m: { motivo: string }) => console.log("[asiento]", m?.motivo));
+    room.onMessage("asiento:cancelado", () => console.log("[asiento] cancelado (te has movido)"));
+
+    // Sonda SOLO-PARA-TESTS (e2e con Playwright): el crafteo (docs/
+    // GDD_Crafteo.md) todavía no tiene panel de cliente (ninguna receta lo
+    // usa desde el navegador hoy — el mecanismo es server-only por ahora),
+    // así que esto manda el protocolo Colyseus REAL tal cual lo haría un
+    // futuro panel, sin inventar un mensaje nuevo. mesa:sentarse/levantarse
+    // SÍ tienen UI real (tecla F, ver más abajo) — la sonda las deja
+    // disponibles igualmente por si un test quiere fijar la silla exacta.
+    let ultimoCrafteoCompletado: { itemId: string; cantidad: number; enSuelo: boolean } | null = null;
+    room.onMessage("crafteo:completado", (m: { itemId: string; cantidad: number; enSuelo: boolean }) => { ultimoCrafteoCompletado = m; });
+    room.onMessage("crafteo:error", (m: { motivo: string }) => console.log("[crafteo]", m?.motivo));
+    (window as any).__ajedrez = {
+      elegirIngeniero: () => room.send("oficio:elegir", { oficio: "ingeniero" }),
+      craftear: (construccionIdMesa: number) => room.send("crafteo:iniciar", { recetaId: "mesa_ajedrez_craft", construccionId: construccionIdMesa }),
+      recolectarCrafteo: () => room.send("crafteo:recolectar"),
+      ultimoCrafteoCompletado: () => ultimoCrafteoCompletado,
+      sentarse: (construccionId: number, silla: SillaMesaJuego) => room.send("mesa:sentarse", { construccionId, silla }),
+      levantarse: () => room.send("mesa:levantarse"),
+      mover: (construccionId: number, desde: string, hasta: string) => room.send("mesa:mover", { construccionId, desde, hasta }),
+      estado: (construccionId: number) => {
+        const m = (room.state as any).mesasAjedrez?.get(String(construccionId));
+        return m ? { sillaBlancas: m.sillaBlancas, sillaNegras: m.sillaNegras, fen: m.fen, fase: m.fase, turnoDe: m.turnoDe, ganador: m.ganador } : null;
+      },
+      // posición mundo (x,y) de una silla concreta — para que el e2e sepa
+      // exactamente a dónde caminar (mismo cálculo que usa el propio juego).
+      posicionSilla: (construccionId: number, silla: SillaMesaJuego) => {
+        const datos = renderConstrucciones?.datosDe(construccionId);
+        return datos ? posicionSillaMesaJuego("mesa_ajedrez", datos, silla) : null;
+      },
+      sessionId: () => room.sessionId,
+    };
+
+    // Sonda SOLO-PARA-TESTS (e2e con Playwright, barrido de sistemas
+    // pedido 2026-08-31): comercio/combate ya tienen panel real más abajo
+    // (mandan el MISMO mensaje que esto); gremios sigue sin panel de
+    // cliente todavía (mismo caso que crafteo/ajedrez arriba, sin mecánica
+    // de UI que lo use hoy). En vez de una sonda a medida por mensaje, esto
+    // es un paso GENÉRICO al protocolo Colyseus real (mismo room.send que
+    // usaría cualquier botón, nunca un atajo que salte validación del
+    // servidor) más una lectura de estado sincronizado — evita duplicar
+    // cableado de mensajes que YA manda un panel real solo para poder
+    // dirigirlo desde un test.
+    let ultimoEstadoGremio: unknown = null;
+    let ultimaInvitacionGremio: unknown = null;
+    room.onMessage("gremio:estado", (m: unknown) => { ultimoEstadoGremio = m; });
+    room.onMessage("gremio:invitacionRecibida", (m: { gremioId: number; gremioNombre: string; invitadoPor: string }) => {
+      ultimaInvitacionGremio = m;
+      console.log("[gremio] invitación recibida", m);
+    });
+    room.onMessage("gremio:error", (m: { motivo: string }) => console.log("[gremio]", m?.motivo));
+
+    // Captura genérica de "último mensaje visto de este tipo" (barrido de
+    // sistemas 2026-08-31: tenderete/cocina/crafteo/oficio no tienen panel
+    // de cliente todavía, igual que gremios arriba) — evita añadir una
+    // variable+listener dedicados cada vez que un e2e nuevo necesita leer
+    // la respuesta de un mensaje sin estado replicado propio. nanoevents
+    // (motor de colyseus.js onMessage) acumula listeners, así que esto
+    // convive sin pisar los console.log de "xxx:error" ya registrados.
+    // (`ultimosMensajes` está izado arriba del `if`, no declarado aquí.)
+    for (const tipo of [
+      "tenderete:escaparate", "tenderete:gestion", "tenderete:compraResultado", "tenderete:error",
+      "cocina:estado", "cocina:preparado", "cocina:error",
+      "crafteo:iniciado", "crafteo:completado", "crafteo:error",
+      "oficio:elegido", "oficio:error",
+    ]) {
+      room.onMessage(tipo, (m: unknown) => ultimosMensajes.set(tipo, m));
+    }
+    (window as any).__test = {
+      enviar: (tipo: string, msg?: unknown) => room.send(tipo, msg),
+      sessionId: () => room.sessionId,
+      ultimoMensaje: (tipo: string) => ultimosMensajes.get(tipo) ?? null,
+      ultimoEstadoGremio: () => ultimoEstadoGremio,
+      ultimaInvitacionGremio: () => ultimaInvitacionGremio,
+      // vista pública+privada de un jugador (el propio, o cualquiera dentro
+      // de esta room) — mismo subconjunto que ya replica Player Schema.
+      jugador: (sessionId: string) => {
+        const p = room.state.players.get(sessionId);
+        if (!p) return null;
+        const anatomia: Record<string, EstadoZonaVista> = {} as Record<string, EstadoZonaVista>;
+        for (const z of ZONAS) {
+          const zs = (p.anatomia as any)[z];
+          anatomia[z] = { sangrado: zs.sangrado, fractura: zs.fractura, infectado: zs.infectado, amputado: zs.amputado, protesis: zs.protesis, curando: zs.curando };
+        }
+        return {
+          sentado: p.sentado, oficio: p.oficio,
+          gremioId: p.gremioId, gremioNombre: p.gremioNombre,
+          vida: p.vida, vidaMax: p.vidaMax, anatomia,
+        };
+      },
+      // el comercio (si hay uno) en el que participa el jugador de ESTA página.
+      comercioPropio: () => {
+        for (const c of ((room.state as any).comercios as Map<string, any>).values()) {
+          if (c.jugadorA === room.sessionId || c.jugadorB === room.sessionId) {
+            return {
+              jugadorA: c.jugadorA, jugadorB: c.jugadorB,
+              ofertaA: [...c.ofertaA].map((o: any) => ({ instanciaId: o.instanciaId, itemId: o.itemId, cantidad: o.cantidad })),
+              ofertaB: [...c.ofertaB].map((o: any) => ({ instanciaId: o.instanciaId, itemId: o.itemId, cantidad: o.cantidad })),
+              confirmadoA: c.confirmadoA, confirmadoB: c.confirmadoB,
+            };
+          }
+        }
+        return null;
+      },
+      inventarioCuerpo: (sessionId?: string) => {
+        const p = room.state.players.get(sessionId ?? room.sessionId);
+        return p ? [...p.inventario.cuerpo.items].map((it: any) => ({ id: it.id, itemId: it.itemId, cantidad: it.cantidad })) : [];
+      },
+      // fauna viva cerca de (x,y) — para el barrido de combate PvE: localizar
+      // un objetivo real sin adivinar coordenadas de bake a mano.
+      faunaCercana: (x: number, y: number, radio: number) => {
+        let mejor: { id: string; especieId: string; x: number; y: number; dist: number } | null = null;
+        for (const [id, f] of (room.state as any).fauna.entries()) {
+          const dist = Math.hypot(f.x - x, f.y - y);
+          if (dist <= radio && (!mejor || dist < mejor.dist)) mejor = { id, especieId: f.especieId, x: f.x, y: f.y, dist };
+        }
+        return mejor;
+      },
+      combateEstado: (combateId: string) => {
+        const c = (room.state as any).combates.get(combateId);
+        if (!c) return null;
+        return { fase: c.fase, unidades: [...c.unidades.keys()] };
+      },
+      // todos los combates activos (dataset pequeño) — para localizar por
+      // qué id se abrió uno recién iniciado sin depender de un mensaje de
+      // vuelta que lo confirme.
+      combates: () => {
+        const salida: { id: string; fase: string; unidades: string[] }[] = [];
+        for (const [id, c] of ((room.state as any).combates as Map<string, any>).entries()) {
+          salida.push({ id, fase: c.fase, unidades: [...c.unidades.keys()] });
+        }
+        return salida;
+      },
+    };
   }
 
   // Anatomía/médico (docs/GDD_Anatomia.md, pedido 2026-08-30) — panel
@@ -929,6 +1146,57 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const leerEnfermedadesVista = (schema: any): EstadoEnfermedadesVista => ({
     catarro: !!schema?.catarro, unguentosTomados: schema?.unguentosTomados ?? 0, gripe: !!schema?.gripe,
   });
+  // Mismo mecanismo de "último mensaje visto" que tenderete/cocina/crafteo
+  // (barrido de sistemas 2026-08-31) — faltaba para médico, que vive fuera
+  // del bloque hub: sin esto, __test.ultimoMensaje("medico:operado") daba
+  // SIEMPRE null pese a que el servidor sí lo mandaba (bug del propio test,
+  // no del servidor).
+  for (const tipo of ["medico:error", "medico:vendado", "medico:entablillado", "medico:operado", "medico:protesisInstalada"]) {
+    room.onMessage(tipo, (m: unknown) => ultimosMensajes.set(tipo, m));
+  }
+
+  // Logging real de "xxx:error" para los sistemas SIN panel de cliente
+  // todavía (confirmado por grep, 2026-08-31): estos 21 tipos los manda el
+  // servidor pero ningún fichero de client/src/ los escuchaba — se perdían
+  // en silencio, ni en juego ni en consola/logs de test. Mismo criterio que
+  // medico:error/cocina:error de arriba (CLAUDE.md), un simple console.log
+  // del motivo — no necesitan `ultimosMensajes` (eso es solo para que los
+  // e2e sin panel lean la RESPUESTA de una acción; esto es puro logging de
+  // rechazo, igual que combate:error/tenderete:error/oficio:error ya
+  // arreglados antes en esta misma sesión de barrido).
+  for (const [tipo, etiqueta] of [
+    ["actividad:error", "actividad"],
+    ["animal:error", "animal"],
+    ["coger:error", "coger"],
+    ["curtidor:error", "curtidor"],
+    ["dormir:error", "dormir"],
+    ["habitacion:error", "habitación"],
+    ["higiene:error", "higiene"],
+    ["inmueble:error", "inmueble"],
+    ["motriz:error", "motriz"],
+    ["npc:error", "npc"],
+    ["personaje:error", "personaje"],
+    ["piel:error", "piel"],
+    ["plantilla:error", "plantilla"],
+    ["produccion:error", "producción"],
+    ["quesera:error", "quesera"],
+    ["recipiente:error", "recipiente"],
+    ["refinamiento:error", "refinamiento"],
+    ["soltar:error", "soltar"],
+    ["transporte:error", "transporte"],
+  ] as const) {
+    room.onMessage(tipo, (m: { motivo?: string }) => console.log(`[${etiqueta}]`, m?.motivo));
+  }
+
+  // Tenderete/oficio (docs/GDD_Mercado.md, docs/GDD_Profesiones.md): sin
+  // panel de cliente todavía (protocolo probado por e2e mandando el mensaje
+  // Colyseus real), pero sus "xxx:error" se colaban sin loguear — bug real
+  // encontrado en el barrido de sistemas (2026-08-31), mismo patrón que
+  // combate:error la vez anterior: sin este listener, un rechazo del
+  // servidor (precio inválido, no eres el dueño, oficio desconocido...) era
+  // invisible tanto en juego como en consola.
+  room.onMessage("tenderete:error", (m: { motivo: string }) => console.log("[tenderete]", m?.motivo));
+  room.onMessage("oficio:error", (m: { motivo: string }) => console.log("[oficio]", m?.motivo));
 
   const jugadores = new Map<string, EstadoJugador>();
   let jugadorLocal: EstadoJugador | null = null;
@@ -1298,6 +1566,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   $(room.state).combates.onAdd(() => actualizarPanelCombate());
   $(room.state).combates.onRemove(() => actualizarPanelCombate());
   room.onStateChange(() => actualizarPanelCombate());
+  // Bug real encontrado en el barrido de sistemas 2026-08-31 (mismo motivo
+  // que costó tiempo en el e2e de mesaAjedrez: un "*:error" del servidor
+  // sin console.log en el cliente es invisible salvo un console.warn
+  // genérico de colyseus.js "onMessage() not registered"): combate:error
+  // era el ÚNICO *:error de todo game.ts sin logear su motivo (demasiado
+  // lejos, ya en combate, pvp deshabilitado...) — mismo patrón que el resto.
+  room.onMessage("combate:error", (m: { motivo: string }) => console.log("[combate]", m?.motivo));
 
   // --- Mascotas (docs/GDD_Mascotas.md) — panel PLACEHOLDER de testeo (ver panelMascotas.ts). Tecla G: dar de comer al animal domesticable más cercano. ---
   const panelMascotas = new PanelMascotas({
@@ -1403,6 +1678,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("twitch:loginConfirmado", (m: { twitchLogin: string }) => {
     cajaTwitch.textContent = `🎮 Twitch: conectado como ${m.twitchLogin}`;
   });
+  room.onMessage("twitch:error", (m: { motivo?: string }) => console.log("[twitch]", m?.motivo));
 
   // --- Login de admin (docs/GDD_Admin.md, pedido 2026-08-30) — dual:
   // usuario/contraseña propios (formulario, PanelLoginAdmin) O una cuenta
@@ -1492,6 +1768,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("capital:renombrada", (m: { nombre: string }) => panelJarl?.actualizarCapital(m?.nombre ?? ""));
   room.onMessage("admin:debug:ok", (m: { accion: string }) => panelDebugTestZone?.mostrarResultado(`OK: ${m?.accion}`));
   room.onMessage("admin:error", (m: { motivo: string }) => panelDebugTestZone?.mostrarResultado(`Error: ${m?.motivo}`));
+  room.onMessage("pvp:error", (m: { motivo?: string }) => console.log("[pvp]", m?.motivo));
 
   // Marcador de "combate en curso" en el mapa de origen mientras la pelea
   // vive instanciada en su propia arena (docs/GDD_Combate.md §9.2) — cono
@@ -1645,6 +1922,58 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // Árboles de origen bake talados por CUALQUIER jugador (docs/GDD_Bosques.md §7).
   room.onMessage("arbol:baketalado", (m: { x: number; y: number }) => ocultarPropBakeadoEnVivo(m.x, m.y));
 
+  // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md) — mismo criterio "sin
+  // UI de targeting" que el resto de esta sección: la tecla (F, reusada de
+  // puertas/barcos) auto-apunta a la silla libre alcanzable más cercana.
+  const RADIO_MESA_AJEDREZ_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor
+
+  /** construccionId de la mesa de ajedrez en la que este jugador está sentado (blancas o negras), o null. */
+  function miMesaAjedrezActual(): number | null {
+    const mesas = (room.state as any).mesasAjedrez;
+    if (!mesas) return null;
+    for (const [id, m] of mesas.entries()) {
+      if ((m as any).sillaBlancas === room.sessionId || (m as any).sillaNegras === room.sessionId) return Number(id);
+    }
+    return null;
+  }
+
+  /**
+   * Mesa de ajedrez + silla concreta alcanzable desde (px,py): primero
+   * busca la mesa_ajedrez más cercana con un radio ANCHO (la huella 3x2
+   * hace que el CENTRO de la mesa pueda quedar más lejos que
+   * RADIO_INTERACCION aunque una silla del borde sí esté al alcance), y
+   * dentro de esa mesa exige que la silla LIBRE concreta esté de verdad
+   * dentro de RADIO_INTERACCION real — mismo espejo local de siempre, la
+   * verdad la dicta el servidor con "mesa:error" si discrepa.
+   */
+  function asientoAjedrezAlcanzable(px: number, py: number): { construccionId: number; silla: SillaMesaJuego } | null {
+    if (!renderConstrucciones) return null;
+    const id = renderConstrucciones.deObjetoMasCercana("mesa_ajedrez", px, py, RADIO_MESA_AJEDREZ_CLIENTE + 2);
+    if (id == null) return null;
+    const datos = renderConstrucciones.datosDe(id);
+    const mesa = (room.state as any).mesasAjedrez?.get(String(id));
+    if (!datos) return null;
+    for (const silla of ["blancas", "negras"] as const) {
+      const ocupante = mesa ? (silla === "blancas" ? mesa.sillaBlancas : mesa.sillaNegras) : "";
+      if (ocupante) continue;
+      const pos = posicionSillaMesaJuego("mesa_ajedrez", datos, silla);
+      if (pos && Math.hypot(pos.x - px, pos.y - py) <= RADIO_MESA_AJEDREZ_CLIENTE) return { construccionId: id, silla };
+    }
+    return null;
+  }
+
+  const RADIO_ASIENTO_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor
+
+  /** ¿Estoy sentado en un asiento genérico (silla/banco/...) ahora mismo? Espejo de `jugadorLocal.sentado` — la construcción concreta la sabe el servidor, aquí solo hace falta el sí/no para decidir qué hace F. */
+  function enAsientoGenerico(): boolean {
+    return !!jugadorLocal && !!(room.state.players.get(room.sessionId) as any)?.sentado;
+  }
+
+  /** Asiento genérico alcanzable desde (px,py) — mismo criterio "sin UI de targeting" que `asientoAjedrezAlcanzable`, pero de una sola plaza y sin geometría de rotación (el punto de la construcción YA es el asiento). */
+  function asientoGenericoAlcanzable(px: number, py: number): number | null {
+    return renderConstrucciones?.asientoMasCercano(px, py, RADIO_ASIENTO_CLIENTE) ?? null;
+  }
+
   function cadaverMasCercano(): string | null {
     if (!jugadorLocal) return null;
     let mejorId: string | null = null;
@@ -1737,6 +2066,30 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "f" && !teclas.has("f")) {
       room.send("portal:usar");
       room.send("mapa:viajarVecino");
+      // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md, pedido 2026-08-30):
+      // MISMA tecla F, mismo criterio "manda sin UI de targeting, el
+      // servidor decide" que puertas/barcos de arriba — toggle sentarse/
+      // levantarse según si ya estás sentado en alguna mesa de ajedrez.
+      if (jugadorLocal) {
+        const miMesa = miMesaAjedrezActual();
+        if (miMesa != null) {
+          room.send("mesa:levantarse");
+        } else if (enAsientoGenerico()) {
+          // Asiento genérico (docs/GDD_Personaje.md §3.6bis, pedido
+          // 2026-08-31): mismo toggle que la mesa de ajedrez, pero para
+          // cualquier silla/banco/taburete/mecedora/sofa/trono del catálogo
+          // (`esAsiento:true`) — no solo la mesa jugable.
+          room.send("asiento:levantarse");
+        } else {
+          const asiento = asientoAjedrezAlcanzable(jugadorLocal.x, jugadorLocal.z);
+          if (asiento) {
+            room.send("mesa:sentarse", { construccionId: asiento.construccionId, silla: asiento.silla });
+          } else {
+            const idAsiento = asientoGenericoAlcanzable(jugadorLocal.x, jugadorLocal.z);
+            if (idAsiento != null) room.send("asiento:sentarse", { construccionId: idAsiento });
+          }
+        }
+      }
     }
     // combate (docs/GDD_Combate.md): C ataca al hostil más cercano — sin UI
     // de targeting, mismo criterio que "coger"/"portal:usar". `retorno`
