@@ -33,6 +33,8 @@ export interface Construible {
    * normal (pendiente de que el cliente sepa si el jugador local es jarl,
    * ver docs/GDD_Construccion.md §1bis). */
   proyectoJarl?: boolean;
+  /** Plantilla del jarl (docs/GDD_Produccion.md) — presente SOLO en `PLANTILLAS_JARL`, NUNCA en `CONSTRUIBLES` (aserradero y compañía se excluyen del menú normal, ver `construirLista`). */
+  plantillaJarl?: boolean;
   /** Agricultura (docs/GDD_Agricultura.md) — presente en bancal_cultivo/maceta_*: se le puede plantar una semilla (mensajes `cultivo:*`). */
   plantable?: boolean;
   /** Cocina (docs/GDD_Cocina.md) — presente en hoguera_campamento/cuenco_cocina/cazuela_cocina/olla_cocina. */
@@ -62,6 +64,7 @@ interface EntradaBruta {
   anchorType?: string;
   construible?: boolean;
   proyectoJarl?: boolean;
+  plantillaJarl?: boolean;
   plantable?: { multiplicadorCosecha: number };
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: string; hierveAgua?: boolean };
   nombre?: string;
@@ -135,8 +138,40 @@ function construirLista(): Construible[] {
   return lista;
 }
 
+/**
+ * Plantillas del jarl (docs/GDD_Produccion.md, generalizado 2026-08-31 a los
+ * proyectos especiales — docs/GDD_Ciudad_Capital.md §5ter): tipos de edificio
+ * con `plantillaJarl: true` (aserradero, producción exterior) O
+ * `proyectoJarl: true` (proyectos especiales) — MISMO filtro que
+ * `cargarCatalogoPlantillas` del servidor. Lista APARTE de `CONSTRUIBLES`
+ * (`construirLista` ya los excluye ahí vía `construible !== true`): solo el
+ * colocador de plantillas jarl-only (`colocadorPlantillas.ts`) los ofrece,
+ * nunca el menú normal de construcción de un jugador cualquiera.
+ */
+function construirListaPlantillas(): Construible[] {
+  const lista: Construible[] = [];
+  for (const [id, e] of Object.entries(comoTabla(tiposEdificioJson))) {
+    if (!e.huellaExterior) continue;
+    if (e.plantillaJarl !== true && e.proyectoJarl !== true) continue;
+    lista.push({
+      id,
+      categoria: "edificio",
+      huella: [e.huellaExterior[0], e.huellaExterior[1]],
+      colorDebug: e.colorDebug || COLOR_EDIFICIO,
+      colision: true,
+      plantillaJarl: e.plantillaJarl === true,
+      proyectoJarl: e.proyectoJarl === true,
+      nombre: e.nombre,
+    });
+  }
+  return lista;
+}
+
 /** Todo lo construible, en orden de catálogo. */
 export const CONSTRUIBLES: Construible[] = construirLista();
+
+/** Todo lo colocable SOLO por el jarl vía `colocadorPlantillas.ts` (aserradero + proyectos especiales). */
+export const PLANTILLAS_JARL: Construible[] = construirListaPlantillas();
 
 /** Agrupado por categoría para pintar el panel (mantiene el orden de catálogo). */
 export const CONSTRUIBLES_POR_CATEGORIA: Map<CategoriaConstruible, Construible[]> = (() => {

@@ -183,12 +183,8 @@ export function validarColocacion(
     // son decoración que legítimamente necesita varias copias (un par de
     // leones, varios postes de amarre); las limita el topeProps normal de la
     // parcela, no este tope de "uno por asentamiento".
-    if (entrada.categoria === "edificio") {
-      for (const viva of ctx.vivas.values()) {
-        if (viva.objeto === entrada.id) {
-          return { ok: false, motivo: "ya existe un proyecto especial de este tipo en el asentamiento" };
-        }
-      }
+    if (entrada.categoria === "edificio" && existeConstruccionDelMismoTipo(ctx, entrada.id)) {
+      return { ok: false, motivo: "ya existe un proyecto especial de este tipo en el asentamiento" };
     }
   }
 
@@ -249,6 +245,22 @@ export function validarColocacion(
   }
 
   return { ok: true, parcelaId, claves };
+}
+
+/**
+ * ¿Ya hay una construcción viva con este `objeto` de catálogo en el
+ * asentamiento? Tope de "uno por asentamiento" de los proyectos especiales
+ * del jarl (1bis arriba) — reusado también por `validarColocacionPlantilla`
+ * para que el mismo tope aplique sea cual sea el camino de colocación
+ * (construir normal en parcela especial, o plantilla:colocar libre): ambos
+ * comparten `ctx.vivas`, así que esto pilla duplicados cruzados entre los
+ * dos mecanismos.
+ */
+function existeConstruccionDelMismoTipo(ctx: ContextoConstruccion, objetoId: string): boolean {
+  for (const viva of ctx.vivas.values()) {
+    if (viva.objeto === objetoId) return true;
+  }
+  return false;
 }
 
 /** ¿Alguna casilla ORTOGONALMENTE adyacente (fuera de la propia huella) tiene una construcción cuyo `objeto` está en `tipos`? */
@@ -360,14 +372,28 @@ export interface PeticionColocacionPlantilla {
 export type ResultadoValidacionPlantilla = { ok: true; claves: number[] } | { ok: false; motivo: string };
 
 /**
- * Plantillas del jarl (docs/GDD_Produccion.md): mecanismo PARALELO a
- * validarColocacion, no una variante — nunca exige estar dentro de una
- * parcela (al contrario: EXIGE estar fuera de cualquier parcela existente,
- * "el jarl asigna parcelas... aparte tendrá un sistema de plantillas de
- * edificios en exterior, en un radio grande alrededor de la capital, fuera
- * no podrá" — pedido literal del streamer). `capital`/`radioMax` los
- * resuelve el llamador (el punto de spawn/ciudad de ESTA región, sea el Hub
- * o la ciudad capital real vía RegionRoom — agnóstico de cuál es cuál).
+ * Plantillas del jarl (docs/GDD_Produccion.md; generalizado 2026-08-31 a los
+ * proyectos especiales, docs/GDD_Ciudad_Capital.md §5ter): mecanismo
+ * PARALELO a validarColocacion, no una variante. Dos modos según el flag de
+ * `entrada`, ambos "el mismo tipo de colocador" pedido por el streamer:
+ *
+ * - `plantillaJarl` (aserradero, producción exterior): EXIGE estar fuera de
+ *   cualquier parcela existente, sin cambios — "el jarl asigna parcelas...
+ *   aparte tendrá un sistema de plantillas de edificios en exterior, en un
+ *   radio grande alrededor de la capital, fuera no podrá" (pedido original
+ *   2026-08-29).
+ * - `proyectoJarl` (proyecto especial: antes SOLO colocable vía "construir"
+ *   normal sobre una parcela `tipo:"especial"` pre-marcada a mano, ver
+ *   validarColocacion 1bis): con este mecanismo el jarl lo coloca LIBREMENTE
+ *   dentro del radio, pise o no pise parcela — "que cuando construya también
+ *   en el interior de la ciudad capital los edificios especiales los
+ *   coloque donde quiera" (pedido 2026-08-31). El tope de uno-por-asentamiento
+ *   se mantiene (`existeConstruccionDelMismoTipo`, compartido con la vía
+ *   normal — ambas escriben en el mismo `ctx.vivas`).
+ *
+ * `capital`/`radioMax` los resuelve el llamador (el punto de spawn/ciudad de
+ * ESTA región, sea el Hub o la ciudad capital real vía RegionRoom —
+ * agnóstico de cuál es cuál).
  */
 export function validarColocacionPlantilla(
   ctx: ContextoConstruccion,
@@ -376,6 +402,7 @@ export function validarColocacionPlantilla(
   radioMax: number,
 ): ResultadoValidacionPlantilla {
   const { nombre, entrada, x, y, rot } = peticion;
+  const esProyectoEspecial = entrada.proyectoJarl === true;
 
   // 1. solo el jarl coloca plantillas
   if (!esJarl(ctx, nombre)) return { ok: false, motivo: "solo el jarl coloca plantillas" };
@@ -388,12 +415,20 @@ export function validarColocacionPlantilla(
     return { ok: false, motivo: "fuera del radio de plantillas de la capital" };
   }
 
-  // 3. huella rotada entera: tierra transitable, libre, y FUERA de cualquier
-  //    parcela ya pintada (una plantilla nunca pisa terreno de jugador)
+  // 2bis. proyectos especiales: mismo tope de "uno por asentamiento" que la
+  // vía normal (construir en parcela especial) — ver el JSDoc de arriba.
+  if (esProyectoEspecial && entrada.categoria === "edificio" && existeConstruccionDelMismoTipo(ctx, entrada.id)) {
+    return { ok: false, motivo: "ya existe un proyecto especial de este tipo en el asentamiento" };
+  }
+
+  // 3. huella rotada entera: tierra transitable y libre. Una plantilla
+  //    normal sigue exigiendo estar FUERA de cualquier parcela ("nunca pisa
+  //    terreno de jugador"); un proyecto especial puede pisar parcela sin
+  //    problema — es del jarl, va "donde quiera" dentro del radio.
   const casillas = casillasDe(x, y, entrada.huella, rot);
   const claves: number[] = [];
   for (const c of casillas) {
-    if (parcelaEn(ctx.parcelas, c.x, c.y) !== undefined) {
+    if (!esProyectoEspecial && parcelaEn(ctx.parcelas, c.x, c.y) !== undefined) {
       return { ok: false, motivo: "hay una parcela ahí — las plantillas van fuera de las parcelas" };
     }
     const clave = c.y * ctx.mapa.ancho + c.x;

@@ -53,6 +53,12 @@ const ASERRADERO: EntradaConstruible = {
   id: "aserradero", categoria: "edificio", huella: [3, 3], colision: true, variantes: 1, plantillaJarl: true,
 };
 
+// Proyecto especial del jarl (docs/GDD_Ciudad_Capital.md §5ter, generalización
+// 2026-08-31): a diferencia de una plantilla normal, SÍ puede pisar parcela.
+const SALON_JARL: EntradaConstruible = {
+  id: "salon_jarl", categoria: "edificio", huella: [3, 3], colision: true, variantes: 1, proyectoJarl: true,
+};
+
 test("validarColocacionPlantilla: solo el jarl coloca plantillas", () => {
   const ctx = crearCtx(parcelasVacias());
   const r = validarColocacionPlantilla(ctx, { nombre: "Ragnar", entrada: ASERRADERO, x: 18, y: 18, rot: 0 }, CAPITAL, RADIO);
@@ -99,4 +105,51 @@ test("validarColocacionPlantilla: rechaza si otra construcción ya ocupa la casi
   assert.strictEqual(r.ok, false);
   if (r.ok) return;
   assert.strictEqual(r.motivo, "casilla ocupada por otra construcción");
+});
+
+// --- Generalización a proyectos especiales del jarl (docs/GDD_Ciudad_Capital.md §5ter) ---
+
+test("validarColocacionPlantilla: un proyecto especial SÍ puede pisar una parcela existente (\"donde quiera\")", () => {
+  const ctx = crearCtx(parcelasConUnBloque());
+  const r = validarColocacionPlantilla(ctx, { nombre: "ElJarl", entrada: SALON_JARL, x: 16, y: 16, rot: 0 }, CAPITAL, RADIO);
+  assert.strictEqual(r.ok, true);
+});
+
+test("validarColocacionPlantilla: un proyecto especial sigue exigiendo tierra libre (agua/obstáculo)", () => {
+  const ctx = crearCtx(parcelasVacias());
+  ctx.mapa.casillas[19 * ANCHO + 19] = TIPO.AGUA;
+  const r = validarColocacionPlantilla(ctx, { nombre: "ElJarl", entrada: SALON_JARL, x: 18, y: 18, rot: 0 }, CAPITAL, RADIO);
+  assert.strictEqual(r.ok, false);
+  if (r.ok) return;
+  assert.strictEqual(r.motivo, "casilla no construible (agua u obstáculo)");
+});
+
+test("validarColocacionPlantilla: un proyecto especial sigue exigiendo estar dentro del radio de la capital", () => {
+  const ctx = crearCtx(parcelasVacias());
+  const r = validarColocacionPlantilla(ctx, { nombre: "ElJarl", entrada: SALON_JARL, x: 0, y: 0, rot: 0 }, CAPITAL, RADIO);
+  assert.strictEqual(r.ok, false);
+  if (r.ok) return;
+  assert.strictEqual(r.motivo, "fuera del radio de plantillas de la capital");
+});
+
+test("validarColocacionPlantilla: tope de UNO por asentamiento para el mismo proyecto especial", () => {
+  const ctx = crearCtx(parcelasVacias());
+  ctx.vivas.set(1, {
+    id: 1, propiedad: "pt_test_10_10", objeto: "salon_jarl", categoria: "edificio",
+    x: 10, y: 10, rot: 0, variante: 0, colision: true, claves: [],
+  });
+  const r = validarColocacionPlantilla(ctx, { nombre: "ElJarl", entrada: SALON_JARL, x: 18, y: 18, rot: 0 }, CAPITAL, RADIO);
+  assert.strictEqual(r.ok, false);
+  if (r.ok) return;
+  assert.strictEqual(r.motivo, "ya existe un proyecto especial de este tipo en el asentamiento");
+});
+
+test("validarColocacionPlantilla: el tope de proyecto especial no afecta a OTRO tipo de proyecto", () => {
+  const ctx = crearCtx(parcelasVacias());
+  ctx.vivas.set(1, {
+    id: 1, propiedad: "pt_test_10_10", objeto: "gran_mercado", categoria: "edificio",
+    x: 10, y: 10, rot: 0, variante: 0, colision: true, claves: [],
+  });
+  const r = validarColocacionPlantilla(ctx, { nombre: "ElJarl", entrada: SALON_JARL, x: 18, y: 18, rot: 0 }, CAPITAL, RADIO);
+  assert.strictEqual(r.ok, true);
 });

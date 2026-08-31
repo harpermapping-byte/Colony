@@ -79,6 +79,12 @@ export class RenderConstrucciones {
     return n;
   }
 
+  /** ¿Ya hay una construcción viva con este `objeto` de catálogo? Espejo local del tope "uno por asentamiento" de los proyectos especiales del jarl (colocadorPlantillas.ts) — la verdad final la decide el servidor. */
+  existeObjeto(objeto: string): boolean {
+    for (const { datos } of this.piezas.values()) if (datos.objeto === objeto) return true;
+    return false;
+  }
+
   cantidad(): number {
     return this.piezas.size;
   }

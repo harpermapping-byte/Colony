@@ -12,6 +12,7 @@ import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelas
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
 import { PanelMapaMundo } from "./mapa/panelMapaMundo";
 import { ModoConstruccion } from "./construccion/constructor";
+import { ColocadorPlantillas } from "./construccion/colocadorPlantillas";
 import { obtenerConstruible } from "./construccion/catalogoConstruccion";
 import { MenuInteraccion, type OpcionMenuInteraccion } from "./ui/menuInteraccion";
 import { ModalInstrumento } from "./ui/modalInstrumento";
@@ -503,6 +504,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // ningún jugador todavía (docs/GDD_Sistema_Puertas.md "Qué falta").
   const anchoMapa = indiceMapa ? indiceMapa.anchoChunks * indiceMapa.tamanoChunk : 0;
   let modoConstruccion: ModoConstruccion | null = null;
+  let colocadorPlantillas: ColocadorPlantillas | null = null;
   let panelMapaMundo: PanelMapaMundo | null = null;
   if (SALA === "hub") {
     const indiceParcelas =
@@ -519,6 +521,38 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       enviarConstruir: (mensaje) => room.send("construir", mensaje),
     });
     const modo = modoConstruccion;
+
+    // --- Colocador de plantillas del jarl (docs/GDD_Produccion.md, pedido
+    // 2026-08-31: "el admin o superadmin tendrá el mismo tipo de colocador
+    // que el de las construcciones o amueblamiento de los jugadores") —
+    // tecla Z, gateada a jarl/superadmin más abajo (identidadAdminActual).
+    // `capital` espeja `MapaCargado.spawnX/Y` del servidor (indice.ciudad,
+    // o el centro del mapa si no hay ciudad bakeada) — RADIO_* mismo valor
+    // por defecto que `RADIO_PLANTILLAS_JARL_CASILLAS` del servidor, solo
+    // feedback local, el servidor manda si se desincroniza vía env var.
+    if (indiceMapa) {
+      const RADIO_PLANTILLAS_JARL_CASILLAS_CLIENTE = 80;
+      const capital = indiceMapa.ciudad ?? {
+        x: Math.floor((indiceMapa.anchoChunks * indiceMapa.tamanoChunk) / 2),
+        y: Math.floor((indiceMapa.altoChunks * indiceMapa.tamanoChunk) / 2),
+      };
+      colocadorPlantillas = new ColocadorPlantillas({
+        contenedor,
+        escena,
+        anchoMapa: anchoMapa || 1 << 16,
+        indiceParcelas,
+        render: renderConstrucciones,
+        capital,
+        radioMax: RADIO_PLANTILLAS_JARL_CASILLAS_CLIENTE,
+        enviarColocar: (mensaje) => room.send("plantilla:colocar", mensaje),
+      });
+      room.onMessage("plantilla:error", (m: { motivo: string }) => colocadorPlantillas?.mostrarError(m?.motivo || ""));
+      // Confirmación del servidor — "construccion:nueva" (arriba) ya pinta la
+      // pieza, este mensaje solo evita el warning de colyseus.js por no
+      // tener un handler registrado (mismo criterio que el resto de esta
+      // sección: "tolerar la ausencia es gratis, la presencia no").
+      room.onMessage("plantilla:colocada", () => {});
+    }
 
     // --- Mapa de mundo con niebla de guerra (docs/GDD_Mapa_Mundo.md,
     // pedido 2026-08-31): tecla M — "la M es mapa" (montura se movió a X).
@@ -1519,6 +1553,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "b" && !teclas.has("b")) modoConstruccion?.alternar();
     // Mapa de mundo (docs/GDD_Mapa_Mundo.md, pedido 2026-08-31): "la M es mapa".
     if (k === "m" && !teclas.has("m")) panelMapaMundo?.alternar();
+    // Colocador de plantillas del jarl (docs/GDD_Produccion.md, pedido
+    // 2026-08-31): Z entra/sale, gateado a jarl de este mapa o superadmin
+    // (mismo criterio de visibilidad que PanelJarl) — el resto de letras
+    // "naturales" (P, B, M...) ya están tomadas por otros sistemas.
+    if (k === "z" && !teclas.has("z") && (identidadAdminActual?.esJarlAqui || identidadAdminActual?.rol === "superadmin")) {
+      colocadorPlantillas?.alternar();
+    }
     // Jugador (docs/GDD_Equipo.md): I abre/cierra el panel de equipo/inventario
     if (k === "i" && !teclas.has("i")) {
       panelJugador.alternar();

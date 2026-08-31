@@ -317,18 +317,28 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
 }
 
 /**
- * Plantillas del jarl (docs/GDD_Produccion.md, pedido 2026-08-29): tipos de
- * edificio con `plantillaJarl: true` (aserradero) — colocable SOLO por el
- * jarl dentro de un radio a la capital, nunca por el "construir" normal de
- * parcela (por eso viven en un Map SEPARADO de cargarCatalogoConstruible,
- * no mezclado — evita que un jugador cualquiera pueda "construir" uno).
+ * Plantillas del jarl (docs/GDD_Produccion.md, pedido 2026-08-29; generalizado
+ * 2026-08-31 a los proyectos especiales, docs/GDD_Ciudad_Capital.md §5ter):
+ * tipos de edificio con `plantillaJarl: true` (aserradero, producción
+ * exterior) O `proyectoJarl: true` (proyectos especiales — antes SOLO
+ * colocables vía el "construir" normal sobre una parcela `tipo:"especial"`
+ * pre-marcada; AHORA también colocables con este mismo mecanismo, libres
+ * "donde quiera" dentro del radio — ver `validarColocacionPlantilla`).
+ * Colocable SOLO por el jarl, nunca por el "construir" normal de un jugador
+ * cualquiera (por eso viven en un Map SEPARADO de cargarCatalogoConstruible,
+ * no mezclado). `plantillaJarl`/`proyectoJarl` se propagan TAL CUAL del
+ * catálogo (nunca se fuerza uno u otro) — de eso depende que
+ * `manejarPlantillaComprar` (RoomExteriorBase.ts) solo deje comprar las
+ * plantillaJarl (producción, vendible) y nunca un proyectoJarl (monumento
+ * comunal del jarl, no es propiedad de nadie).
  */
 export function cargarCatalogoPlantillas(): Map<string, EntradaConstruible> {
   const resultado = new Map<string, EntradaConstruible>();
   const tiposEdificio = leerCatalogo<EntradaTipoEdificio>("tipos_edificio.json");
   for (const [id, d] of Object.entries(tiposEdificio)) {
     if (id.startsWith("_")) continue;
-    if (d.plantillaJarl !== true || !d.huellaExterior) continue;
+    if (!d.huellaExterior) continue;
+    if (d.plantillaJarl !== true && d.proyectoJarl !== true) continue;
     resultado.set(id, {
       id,
       categoria: "edificio",
@@ -336,7 +346,8 @@ export function cargarCatalogoPlantillas(): Map<string, EntradaConstruible> {
       colision: true,
       variantes: d.variantes ?? 1,
       produccion: d.produccion,
-      plantillaJarl: true,
+      plantillaJarl: d.plantillaJarl === true,
+      proyectoJarl: d.proyectoJarl === true,
       energia: d.energia,
     });
   }
