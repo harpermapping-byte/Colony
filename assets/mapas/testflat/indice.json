@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "tamanoSectorChunks": 10,
+  "leyendaTerreno": [
+    "agua_profunda",
+    "agua",
+    "playa",
+    "playa_rocosa",
+    "arena",
+    "cesped",
+    "cesped_ralo",
+    "tierra",
+    "tierra_baldia",
+    "suelo_barbecho",
+    "camino",
+    "puente",
+    "tierra_labrada",
+    "barro",
+    "nieve",
+    "hielo",
+    "roca",
+    "roca_inaccesible",
+    "ceniza",
+    "roca_volcanica",
+    "lava",
+    "adoquin",
+    "muralla_piedra",
+    "empalizada",
+    "solar_edificio",
+    "extramuros",
+    "cesped_b",
+    "cesped_c",
+    "nieve_b",
+    "nieve_c",
+    "arena_b",
+    "arena_c",
+    "barro_b",
+    "ceniza_b",
+    "playa_b",
+    "roca_b"
+  ],
+  "nombre": "testflat",
+  "semilla": "testflat-01",
+  "anchoChunks": 2,
+  "altoChunks": 2,
+  "tamanoChunk": 32,
+  "biomasHabilitados": [
+    "pradera"
+  ],
+  "bordes": {
+    "norte": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "sur": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "este": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "oeste": {
+      "tipo": "cerrado",
+      "nombre": null
+    }
+  },
+  "ciudad": {
+    "x": 32,
+    "y": 32
+  },
+  "portales": [
+    {
+      "tipo": "exterior",
+      "x": 58,
+      "y": 32,
+      "destino": {
+        "tipo": "region",
+        "mapaId": "testaldea"
+      }
+    }
+  ]
+}

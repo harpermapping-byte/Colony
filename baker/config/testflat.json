@@ -1,0 +1,21 @@
+{
+  "nombre": "testflat",
+  "semilla": "testflat-01",
+  "anchoChunks": 2,
+  "altoChunks": 2,
+  "tamanoChunk": 32,
+  "biomasHabilitados": ["pradera"],
+  "separacionMinimaPOI": 100000,
+  "probabilidadLegendaria": 0,
+  "pasoHidrologia": 8,
+  "umbralRio": 999,
+  "pasoCaminos": 16,
+  "maxCaminosAPOIs": 0,
+  "bordes": {
+    "norte": { "tipo": "cerrado" },
+    "sur": { "tipo": "cerrado" },
+    "este": { "tipo": "cerrado" },
+    "oeste": { "tipo": "cerrado" }
+  },
+  "carpetaSalida": "output/testflat"
+}

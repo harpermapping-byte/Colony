@@ -77,7 +77,7 @@
       "tipo": "interior",
       "x": 127,
       "y": 34,
-      "edificio": "catacumbas_testzone-01:poi:catacumbas_poi_127_30",
+      "edificio": "catacumbas_testzone-01_poi_catacumbas_poi_127_30",
       "tipoEdificioId": "catacumbas",
       "esMazmorra": true
     },
@@ -85,7 +85,7 @@
       "tipo": "interior",
       "x": 192,
       "y": 40,
-      "edificio": "ruinas_torre_caida_testzone-01:poi:mazmorra_olvidada_192_36",
+      "edificio": "ruinas_torre_caida_testzone-01_poi_mazmorra_olvidada_192_36",
       "tipoEdificioId": "ruinas_torre_caida",
       "esMazmorra": true
     },
@@ -93,7 +93,7 @@
       "tipo": "interior",
       "x": 221,
       "y": 107,
-      "edificio": "torre_nigromante_testzone-01:poi:torre_vigia_enemiga_221_103",
+      "edificio": "torre_nigromante_testzone-01_poi_torre_vigia_enemiga_221_103",
       "tipoEdificioId": "torre_nigromante",
       "esMazmorra": true
     },
@@ -101,7 +101,7 @@
       "tipo": "interior",
       "x": 131,
       "y": 121,
-      "edificio": "pantano_maldito_testzone-01:poi:pantano_maldito_poi_131_121",
+      "edificio": "pantano_maldito_testzone-01_poi_pantano_maldito_poi_131_121",
       "tipoEdificioId": "pantano_maldito",
       "esMazmorra": true
     },
@@ -109,14 +109,14 @@
       "tipo": "interior",
       "x": 161,
       "y": 196,
-      "edificio": "tienda_testzone-01:poi:tienda_cazador_161_192",
+      "edificio": "tienda_testzone-01_poi_tienda_cazador_161_192",
       "tipoEdificioId": "tienda"
     },
     {
       "tipo": "interior",
       "x": 227,
       "y": 201,
-      "edificio": "ruinas_biblioteca_arcana_testzone-01:poi:ruinas_biblioteca_arcana_poi_227_197",
+      "edificio": "ruinas_biblioteca_arcana_testzone-01_poi_ruinas_biblioteca_arcana_poi_227_197",
       "tipoEdificioId": "ruinas_biblioteca_arcana",
       "esMazmorra": true
     },
@@ -124,14 +124,14 @@
       "tipo": "interior",
       "x": 28,
       "y": 242,
-      "edificio": "ruina_testzone-01:poi:ruinas_pequenas_28_238",
+      "edificio": "ruina_testzone-01_poi_ruinas_pequenas_28_238",
       "tipoEdificioId": "ruina"
     },
     {
       "tipo": "interior",
       "x": 74,
       "y": 264,
-      "edificio": "cueva_goblins_testzone-01:poi:cueva_pequena_74_264",
+      "edificio": "cueva_goblins_testzone-01_poi_cueva_pequena_74_264",
       "tipoEdificioId": "cueva_goblins",
       "esMazmorra": true
     },
@@ -139,7 +139,7 @@
       "tipo": "interior",
       "x": 101,
       "y": 270,
-      "edificio": "fortaleza_orca_testzone-01:poi:fuerte_barbaro_101_266",
+      "edificio": "fortaleza_orca_testzone-01_poi_fuerte_barbaro_101_266",
       "tipoEdificioId": "fortaleza_orca",
       "esMazmorra": true
     },
@@ -147,7 +147,7 @@
       "tipo": "interior",
       "x": 242,
       "y": 240,
-      "edificio": "cueva_goblins_testzone-01:poi:cueva_pequena_242_240",
+      "edificio": "cueva_goblins_testzone-01_poi_cueva_pequena_242_240",
       "tipoEdificioId": "cueva_goblins",
       "esMazmorra": true
     },

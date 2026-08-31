@@ -1,0 +1,1046 @@
+{
+  "version": 1,
+  "tamanoSectorChunks": 10,
+  "leyendaTerreno": [
+    "adoquin",
+    "camino",
+    "cesped",
+    "empalizada",
+    "extramuros",
+    "solar_edificio",
+    "tierra"
+  ],
+  "nombre": "aldea_pequena-testaldea-01",
+  "semilla": "testaldea-01",
+  "tier": "aldea_pequena",
+  "variante": "colina",
+  "anchoChunks": 14,
+  "altoChunks": 14,
+  "tamanoChunk": 8,
+  "ciudad": {
+    "x": 73,
+    "y": 41
+  },
+  "portales": [
+    {
+      "tipo": "exterior",
+      "x": 76,
+      "y": 38
+    },
+    {
+      "tipo": "interior",
+      "x": 61,
+      "y": 49,
+      "edificio": "templo_testaldea-01_templo_0",
+      "tipoEdificioId": "templo"
+    },
+    {
+      "tipo": "interior",
+      "x": 48,
+      "y": 58,
+      "edificio": "granero_testaldea-01_granero_1",
+      "tipoEdificioId": "granero"
+    },
+    {
+      "tipo": "interior",
+      "x": 65,
+      "y": 66,
+      "edificio": "casa_humilde_testaldea-01_casa_humilde_4",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 57,
+      "y": 74,
+      "edificio": "granero_testaldea-01_granero_5",
+      "tipoEdificioId": "granero"
+    },
+    {
+      "tipo": "interior",
+      "x": 44,
+      "y": 57,
+      "edificio": "casa_humilde_testaldea-01_casa_humilde_3",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 68,
+      "y": 42,
+      "edificio": "cabana_apicultor_testaldea-01_cabana_apicultor_6",
+      "tipoEdificioId": "cabana_apicultor"
+    },
+    {
+      "tipo": "interior",
+      "x": 44,
+      "y": 45,
+      "edificio": "choza_curandero_testaldea-01_choza_curandero_2",
+      "tipoEdificioId": "choza_curandero"
+    },
+    {
+      "tipo": "interior",
+      "x": 62,
+      "y": 63,
+      "edificio": "choza_curandero_testaldea-01_choza_curandero_7",
+      "tipoEdificioId": "choza_curandero"
+    }
+  ],
+  "muralla": {
+    "poligono": [
+      [
+        87.4,
+        59
+      ],
+      [
+        85.4,
+        66.2
+      ],
+      [
+        81.8,
+        72.5
+      ],
+      [
+        77.6,
+        78.1
+      ],
+      [
+        72.8,
+        83.4
+      ],
+      [
+        66.4,
+        86.3
+      ],
+      [
+        59.6,
+        89
+      ],
+      [
+        52.3,
+        89.7
+      ],
+      [
+        44.7,
+        88.8
+      ],
+      [
+        38.5,
+        84.3
+      ],
+      [
+        33,
+        79.4
+      ],
+      [
+        29.5,
+        72.9
+      ],
+      [
+        27.7,
+        66
+      ],
+      [
+        27.3,
+        59
+      ],
+      [
+        28.3,
+        52.2
+      ],
+      [
+        30.6,
+        45.7
+      ],
+      [
+        34.4,
+        39.9
+      ],
+      [
+        39.4,
+        34.9
+      ],
+      [
+        45.3,
+        30.9
+      ],
+      [
+        52.3,
+        28.5
+      ],
+      [
+        59.6,
+        28.9
+      ],
+      [
+        66.3,
+        31.8
+      ],
+      [
+        71.9,
+        36
+      ],
+      [
+        77,
+        40.4
+      ],
+      [
+        82.1,
+        45.3
+      ],
+      [
+        86.3,
+        51.5
+      ]
+    ],
+    "modulos": [
+      {
+        "tipo": "recto",
+        "x": 87,
+        "y": 60.2,
+        "rot": 105,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 86.4,
+        "y": 62.6,
+        "rot": 105,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 85.7,
+        "y": 65,
+        "rot": 105,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 84.5,
+        "y": 67.8,
+        "rot": 120,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 82.7,
+        "y": 71,
+        "rot": 120,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 80.7,
+        "y": 73.9,
+        "rot": 127,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 78.6,
+        "y": 76.7,
+        "rot": 127,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 76.4,
+        "y": 79.4,
+        "rot": 132,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 74,
+        "y": 82.1,
+        "rot": 132,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 71.2,
+        "y": 84.1,
+        "rot": 156,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 68,
+        "y": 85.6,
+        "rot": 156,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 64.7,
+        "y": 87,
+        "rot": 158,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 61.3,
+        "y": 88.3,
+        "rot": 158,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 57.8,
+        "y": 89.2,
+        "rot": 174,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 54.1,
+        "y": 89.5,
+        "rot": 174,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 51,
+        "y": 89.6,
+        "rot": -173,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 48.5,
+        "y": 89.2,
+        "rot": -173,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 46,
+        "y": 88.9,
+        "rot": -173,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 43.7,
+        "y": 88,
+        "rot": -144,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 41.6,
+        "y": 86.5,
+        "rot": -144,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 39.6,
+        "y": 85.1,
+        "rot": -144,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 37.1,
+        "y": 83.1,
+        "rot": -138,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 34.4,
+        "y": 80.6,
+        "rot": -138,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 32.1,
+        "y": 77.8,
+        "rot": -118,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 30.4,
+        "y": 74.5,
+        "rot": -118,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 29.1,
+        "y": 71.2,
+        "rot": -105,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 28.1,
+        "y": 67.7,
+        "rot": -105,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 27.6,
+        "y": 64.2,
+        "rot": -93,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 27.4,
+        "y": 60.7,
+        "rot": -93,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 27.5,
+        "y": 57.3,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 28,
+        "y": 53.9,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 28.8,
+        "y": 50.5,
+        "rot": -70,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 30,
+        "y": 47.3,
+        "rot": -70,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 31.5,
+        "y": 44.2,
+        "rot": -57,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 33.4,
+        "y": 41.3,
+        "rot": -57,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 35.6,
+        "y": 38.6,
+        "rot": -45,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 38.1,
+        "y": 36.1,
+        "rot": -45,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 40.9,
+        "y": 33.9,
+        "rot": -34,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 43.8,
+        "y": 31.9,
+        "rot": -34,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 47.1,
+        "y": 30.3,
+        "rot": -19,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 50.6,
+        "y": 29.1,
+        "rot": -19,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 54.1,
+        "y": 28.6,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 57.8,
+        "y": 28.8,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 61.3,
+        "y": 29.7,
+        "rot": 23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 64.6,
+        "y": 31.1,
+        "rot": 23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 67.7,
+        "y": 32.9,
+        "rot": 37,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 70.5,
+        "y": 35,
+        "rot": 37,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 73.1,
+        "y": 37.1,
+        "rot": 41,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 75.7,
+        "y": 39.3,
+        "rot": 41,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 78.2,
+        "y": 41.6,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 80.8,
+        "y": 44.1,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 82.8,
+        "y": 46.3,
+        "rot": 56,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 84.2,
+        "y": 48.4,
+        "rot": 56,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 85.6,
+        "y": 50.5,
+        "rot": 56,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 86.5,
+        "y": 52.8,
+        "rot": 82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 86.8,
+        "y": 55.3,
+        "rot": 82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 87.2,
+        "y": 57.8,
+        "rot": 82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 87.4,
+        "y": 59,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 81.8,
+        "y": 72.5,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 72.8,
+        "y": 83.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 59.6,
+        "y": 89,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 44.7,
+        "y": 88.8,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 33,
+        "y": 79.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 27.7,
+        "y": 66,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 28.3,
+        "y": 52.2,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 34.4,
+        "y": 39.9,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 45.3,
+        "y": 30.9,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 59.6,
+        "y": 28.9,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 71.9,
+        "y": 36,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 82.1,
+        "y": 45.3,
+        "rot": 0,
+        "material": "empalizada"
+      }
+    ]
+  },
+  "caminos": [
+    [
+      [
+        111,
+        0
+      ],
+      [
+        108,
+        3
+      ],
+      [
+        105,
+        6
+      ],
+      [
+        102,
+        9
+      ],
+      [
+        99,
+        12
+      ],
+      [
+        96,
+        15
+      ],
+      [
+        93,
+        18
+      ],
+      [
+        90,
+        21
+      ],
+      [
+        87,
+        24
+      ],
+      [
+        85,
+        27
+      ],
+      [
+        83,
+        30
+      ],
+      [
+        81,
+        33
+      ],
+      [
+        78,
+        36
+      ],
+      [
+        75,
+        38
+      ],
+      [
+        72,
+        39
+      ],
+      [
+        69,
+        42
+      ],
+      [
+        66,
+        45
+      ],
+      [
+        63,
+        48
+      ],
+      [
+        61,
+        51
+      ],
+      [
+        60,
+        54
+      ],
+      [
+        57,
+        57
+      ]
+    ]
+  ],
+  "zonasVerdes": [
+    {
+      "tipo": "parque",
+      "x": 73,
+      "y": 64,
+      "r": 4
+    },
+    {
+      "tipo": "parque",
+      "x": 68,
+      "y": 55,
+      "r": 4
+    }
+  ],
+  "parcelasReservadas": [],
+  "luces": [
+    {
+      "x": 75,
+      "y": 40,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 59,
+      "y": 63,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 52,
+      "y": 62,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 53,
+      "y": 55,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 60,
+      "y": 56,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 74,
+      "y": 39,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 65,
+      "y": 47,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 60,
+      "y": 55,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    }
+  ],
+  "edificios": [
+    {
+      "id": "templo_testaldea-01:templo:0",
+      "tipo": "templo",
+      "semilla": "testaldea-01:templo:0",
+      "cx": 57.7,
+      "cy": 45.7,
+      "rot": -45,
+      "w": 12,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 8
+        },
+        {
+          "ox": -2.5,
+          "oy": -6.5,
+          "w": 7,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 61,
+        "y": 49
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "granero_testaldea-01:granero:1",
+      "tipo": "granero",
+      "semilla": "testaldea-01:granero:1",
+      "cx": 47.5,
+      "cy": 62.9,
+      "rot": -180,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 48,
+        "y": 58
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_testaldea-01:casa_humilde:4",
+      "tipo": "casa_humilde",
+      "semilla": "testaldea-01:casa_humilde:4",
+      "cx": 63.3,
+      "cy": 69.9,
+      "rot": -153,
+      "w": 7,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 65,
+        "y": 66
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "granero_testaldea-01:granero:5",
+      "tipo": "granero",
+      "semilla": "testaldea-01:granero:5",
+      "cx": 52.6,
+      "cy": 73.5,
+      "rot": -90,
+      "w": 7,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 7
+        },
+        {
+          "ox": 1,
+          "oy": -5.5,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 57,
+        "y": 74
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_testaldea-01:casa_humilde:3",
+      "tipo": "casa_humilde",
+      "semilla": "testaldea-01:casa_humilde:3",
+      "cx": 43.5,
+      "cy": 53.6,
+      "rot": 0,
+      "w": 7,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 44,
+        "y": 57
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "cabana_apicultor_testaldea-01:cabana_apicultor:6",
+      "tipo": "cabana_apicultor",
+      "semilla": "testaldea-01:cabana_apicultor:6",
+      "cx": 71.3,
+      "cy": 45.3,
+      "rot": -225,
+      "w": 6,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 68,
+        "y": 42
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "choza_curandero_testaldea-01:choza_curandero:2",
+      "tipo": "choza_curandero",
+      "semilla": "testaldea-01:choza_curandero:2",
+      "cx": 41.1,
+      "cy": 44.5,
+      "rot": -90,
+      "w": 6,
+      "h": 4,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 6,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 44,
+        "y": 45
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "choza_curandero_testaldea-01:choza_curandero:7",
+      "tipo": "choza_curandero",
+      "semilla": "testaldea-01:choza_curandero:7",
+      "cx": 63.9,
+      "cy": 61.1,
+      "rot": 45,
+      "w": 5,
+      "h": 4,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 62,
+        "y": 63
+      },
+      "reservadoJugador": false
+    }
+  ]
+}

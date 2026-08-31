@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "mapa": "testflat",
+  "siguienteId": 2,
+  "parcelas": {
+    "tf_0001": {
+      "asentamiento": "testflat",
+      "nombre": "Parcela de Pruebas (Norte del spawn)",
+      "runs": [
+        [10, 26, 37],
+        [11, 26, 37],
+        [12, 26, 37],
+        [13, 26, 37],
+        [14, 26, 37],
+        [15, 26, 37],
+        [16, 26, 37],
+        [17, 26, 37],
+        [18, 26, 37],
+        [19, 26, 37],
+        [20, 26, 37],
+        [21, 26, 37]
+      ],
+      "casillas": 144,
+      "topeProps": 30
+    }
+  }
+}

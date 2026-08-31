@@ -17,6 +17,7 @@ import { manejarPeticionAdmin } from "./admin/rutasAdmin";
 import { sembrarCuentasAdminIniciales } from "./admin/seedAdmin";
 import { cargarPvpDesdeBd } from "./mundo/pvp";
 import { cargarNombreCapitalDesdeBd } from "./mundo/capital";
+import { sembrarMueblesTestZone, sembrarNpcsTutorialTestZone } from "./mundo/semillaTestZone";
 
 // El BUFFER_SIZE por defecto (8KB) se quedó corto y tumbaba el proceso
 // entero con "buffer overflow" (encontrado probando la Test Zone
@@ -107,3 +108,10 @@ obtenerBdCompartida().then((bd) => cargarNombreCapitalDesdeBd(bd));
 // test la PRIMERA vez que arranca con `admin_cuentas` vacía — no hace nada
 // en arranques siguientes ni si el streamer ya las cambió a mano.
 obtenerBdCompartida().then(sembrarCuentasAdminIniciales);
+
+// Test Zone plana (docs/GDD_TestZone.md, pedido 2026-08-31): siembra
+// mesas/muebles como construcciones REALES y los 17 NPCs tutorial/lore en
+// assets/mapas/testflat/ — mismo criterio "solo la primera vez" que las
+// cuentas de admin de arriba.
+obtenerBdCompartida().then(sembrarMueblesTestZone);
+obtenerBdCompartida().then(sembrarNpcsTutorialTestZone);

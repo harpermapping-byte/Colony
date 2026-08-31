@@ -2,14 +2,47 @@
 
 Pedido 2026-08-31: "mapa de pruebas pequeño pero completo donde 2 o más
 jugadores puedan conectarse en red y probar de forma rápida e interactiva
-TODAS las mecánicas implementadas". Placeholders, sin arte final. Vive en
-`assets/mapas/testzone/` (bakeado con `baker/config/testzone.json`, 10x10
-chunks = 320x320 casillas, biomas bosque/montaña/pradera/costa cerca del
-spawn para variedad de recolección).
+TODAS las mecánicas implementadas". Placeholders, sin arte final.
 
-Se accede con `?mapaId=testzone` en la URL del cliente (sala `hub_mapa` del
-servidor, mismo mecanismo que usan barcos para cruzar a otro mapa exterior
-— ver GDD_Barcos.md).
+**Dos mapas, dos enfoques** (mismo pedido, iterado dos veces el mismo día):
+
+- **`testflat`** (RECOMENDADO, el más reciente) — cuadrado pequeño de solo
+  césped, SIN generación procedural de nada (sin POIs, sin fauna/vegetación
+  bakeada), todo colocado a mano y repartido alrededor del spawn por
+  dirección (una mecánica por dirección cardinal). Arregla además la
+  limitación de `testzone` (§4 más abajo): las mesas de crafteo son
+  construcciones REALES sembradas en BD, no mobiliario decorativo. Detalle
+  completo en `assets/mapas/testflat/ZONAS.md`. Incluye portal a una aldea
+  de verdad (`testaldea/`, bakeada con `ciudades/`) para probar entrar en
+  edificios con interior real.
+- **`testzone`** (el primer intento, más grande y con generación
+  procedural real de biomas/mazmorras/POIs) — se mantiene tal cual, sigue
+  siendo útil para probar el pipeline de bake normal end-to-end. Detalle en
+  `assets/mapas/testzone/ZONAS.md`.
+
+Se accede con `?mapaId=testflat` (o `?mapaId=testzone`) en la URL del
+cliente (sala `hub_mapa` del servidor, mismo mecanismo que usan barcos para
+cruzar a otro mapa exterior — ver GDD_Barcos.md).
+
+## 0. `testflat` — resumen rápido
+
+Spawn (32.5,32.5), mapa 64x64, césped puro. Alrededor, por dirección (ver
+`assets/mapas/testflat/ZONAS.md` para coordenadas exactas):
+**Norte** = 16 muebles (11 mesas de los 10 oficios + cama/2 instrumentos
+MIDI/silla/mesa) como construcciones reales sembradas por
+`server/src/mundo/semillaTestZone.ts` al arrancar. **Sur** = 17 NPCs
+tutorial/lore que hablan (nombres reales, sembrados en `npcs_tutoriales`).
+**Este** = 8 cofres de mundo con stock infinito. **Oeste** = 4 nodos de
+recolección a mano (árbol/planta/veta/caza). **Noreste** = 2 dummies de
+combate con vida infinita ("Muñeco de Pruebas" y "Bandido"). Más al este,
+portal a `testaldea` (aldea real bakeada con `ciudades/`, 8 edificios con
+interior de verdad).
+
+Verificado con servidor real + Playwright (2026-08-31): terreno limpio sin
+errores, spawn correcto, los 16 muebles y 19 NPCs fijos cargan en el
+servidor (`Construcción (testflat): 1 parcelas, 16 construcciones
+cargadas`, `19 NPC(s) fijo(s)... 17 tutorial(es)`), los NPCs tutorial/lore
+se ven con sus nombres reales al caminar hacia el sur.
 
 ## 1. Las 5 zonas (`assets/mapas/testzone/ZONAS.md`)
 
