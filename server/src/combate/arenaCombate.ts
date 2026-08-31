@@ -52,6 +52,11 @@ export function ordenarTurnos(unidades: UnidadCombate[]): string[] {
   return [...unidades].sort((a, b) => b.iniciativa - a.iniciativa).map((u) => u.id);
 }
 
+/** Tirada de huida (docs/GDD_Combate.md, pedido streamer) — `rnd` inyectable para tests deterministas, mismo patrón que `calcularIniciativa`/`rodarInfeccionPorHerida`. */
+export function tirarHuida(probabilidad: number, rnd: () => number = Math.random): boolean {
+  return rnd() < probabilidad;
+}
+
 export function enAlcance(atacante: UnidadCombate, objetivo: UnidadCombate): boolean {
   return distanciaChebyshev({ gx: atacante.gx, gy: atacante.gy }, { gx: objetivo.gx, gy: objetivo.gy }) <= atacante.alcance;
 }

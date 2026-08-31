@@ -18,6 +18,8 @@ interface UnidadCombateVista {
   bando: string;
   hp: number;
   hpMax: number;
+  pa: number;
+  paMax: number;
   estado: string;
   /** docs/GDD_Barcos.md (pedido 2026-08-30) — "" | "barco" | "nadando", puramente cosmético. */
   visual: string;
@@ -105,7 +107,11 @@ export class PanelCombate {
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "6px";
-    titulo.textContent = esMiTurno ? "⚔ Tu turno" : `Turno de: ${idTurno}`;
+    // WASD mueve en el grid (combate:mover, gasta PA) mientras es tu turno —
+    // sin este aviso no hay forma de saber que las teclas de siempre hacen
+    // algo distinto aquí dentro (pedido streamer: "movimiento del mundo en
+    // general [...] en combate sí").
+    titulo.textContent = esMiTurno ? "⚔ Tu turno — WASD para moverte" : `Turno de: ${idTurno}`;
     this.raiz.appendChild(titulo);
 
     const propiaDiv = document.createElement("div");
@@ -116,7 +122,10 @@ export class PanelCombate {
     // Sin panel de aliados todavía (mismo límite ya aceptado del resto de
     // esta UI, ver cabecera del archivo) — solo se muestra de uno mismo.
     const indicadorVisual = propia.visual === "barco" ? ` 🚣${propia.barcoTipoId ? ` (${propia.barcoTipoId})` : ""}` : propia.visual === "nadando" ? " 🏊" : "";
-    propiaDiv.textContent = `Tú: ${Math.round(propia.hp)}/${Math.round(propia.hpMax)} HP (${propia.estado})${indicadorVisual}`;
+    // PA (docs/GDD_Combate.md §9.3, pedido streamer): sin esto en pantalla el
+    // jugador no tiene forma de saber cuánto le queda para mover/atacar/huir
+    // — antes el panel solo mostraba HP, invisible del todo.
+    propiaDiv.textContent = `Tú: ${Math.round(propia.hp)}/${Math.round(propia.hpMax)} HP — PA: ${propia.pa}/${propia.paMax} (${propia.estado})${indicadorVisual}`;
     this.raiz.appendChild(propiaDiv);
 
     const lista = document.createElement("div");

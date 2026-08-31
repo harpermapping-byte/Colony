@@ -82,3 +82,38 @@ test("pasoHacia: si la diagonal está bloqueada, prueba los pasos rectos antes d
   assert.ok(siguiente.gx === 1 || siguiente.gy === 1);
   assert.notDeepStrictEqual(siguiente, { gx: 1, gy: 1 });
 });
+
+// --- coste de terreno (pedido streamer: "2 PA si la casilla es terreno difícil/agua") ---
+
+test("costeCasilla: sin `costes` en la arena, todo sigue costando 1 (compatibilidad)", () => {
+  const arena = arenaAbierta();
+  assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 2, gy: 0 }, 5), 2);
+});
+
+test("costeCasilla: una casilla de coste 2 en línea recta se refleja en el total", () => {
+  // pasillo de 1 sola fila: sin sitio para un rodeo diagonal más barato, el
+  // camino recto es el único posible de verdad.
+  const arena = arenaAbierta(5, 1);
+  arena.costes = new Uint8Array(5); // todo 0 -> costeDeEntrar cae a 1 por defecto
+  arena.costes[1] = 2; // (1,0) cuesta 2
+  // (0,0) -> (1,0) [coste 2] -> (2,0) [coste 1] = 3 en total
+  assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 2, gy: 0 }, 5), 3);
+  assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 0 }, { gx: 2, gy: 0 }, 2), null); // no llega con solo 2 PA
+});
+
+test("costeCasilla: prefiere un rodeo de más pasos pero más barato que cruzar una casilla carísima en línea recta", () => {
+  const arena = arenaAbierta(5, 5);
+  arena.costes = new Uint8Array(25); // resto del mapa cuesta 1
+  arena.costes[2 * 5 + 2] = 10; // (2,2) es un "pozo" carísimo, justo en medio de la línea recta
+  // recto por la fila y=2: (0,2)->(1,2)->(2,2)[10]->(3,2)->(4,2) = 1+10+1+1 = 13
+  // rodeo por la fila y=1 (Chebyshev: la diagonal no añade pasos): (0,2)->(1,1)->(2,1)->(3,1)->(4,2) = 1+1+1+1 = 4
+  assert.strictEqual(costeCasilla(arena, { gx: 0, gy: 2 }, { gx: 4, gy: 2 }, 12), 4);
+});
+
+test("casillasAlcanzables: una franja de coste 2 reduce el alcance real, no solo el número de pasos", () => {
+  const arena = arenaAbierta(5, 5);
+  arena.costes = new Uint8Array(25).fill(2); // todo el mapa es "difícil"
+  const alcanzables = casillasAlcanzables(arena, { gx: 2, gy: 2 }, 2); // con pa=2 y coste 2/casilla, solo 1 paso posible
+  assert.ok(alcanzables.has("3,2")); // 1 paso, coste 2 == pa
+  assert.ok(!alcanzables.has("4,2")); // 2 pasos costaría 4, más que el pa disponible
+});

@@ -313,6 +313,47 @@ async function main() {
     await page.screenshot({ path: rutaCaptura });
     console.log(`   captura: ${rutaCaptura}`);
 
+    // 6) Movimiento EN COMBATE real (docs/GDD_Combate.md §9.3, pedido
+    // streamer: "el movimiento cambia al del mundo en general [...] en
+    // combate sí") — WASD manda combate:mover de verdad, gasta PA real y
+    // mueve el rig visual (player.x/y), no solo la unidad táctica. Prueba
+    // las 4 direcciones hasta que una mueva de verdad (bosque_01 tiene
+    // obstáculos sembrados por semilla — no toda dirección está libre).
+    if (textoPanelCombate.includes("Tu turno")) {
+      console.log("6) moviendo en combate con WASD (combate:mover real, gasta PA)...");
+      const paInicial = Number(/PA: (\d+)\//.exec(textoPanelCombate)?.[1]);
+      comprobar("el panel muestra el PA real de la unidad propia", Number.isFinite(paInicial) && paInicial > 0, `PA inicial=${paInicial}`);
+
+      const posInicial = await page.evaluate(() => window.__colonyDebug);
+      let movido = false;
+      let posFinal = posInicial;
+      for (const tecla of ["d", "a", "s", "w"]) {
+        await page.keyboard.press(tecla);
+        await espera(400); // patch de servidor (15/seg) + interpolación del rig
+        posFinal = await page.evaluate(() => window.__colonyDebug);
+        if (posFinal.x !== posInicial.x || posFinal.y !== posInicial.y) { movido = true; break; }
+      }
+      comprobar(
+        "combate:mover real mueve la posición del jugador (rig visual, no solo la unidad táctica)",
+        movido,
+        `antes=(${posInicial.x},${posInicial.y}) después=(${posFinal.x},${posFinal.y})`,
+      );
+
+      const textoPanelTrasMover = await page.evaluate(() => document.body.innerText);
+      const paTrasMover = Number(/PA: (\d+)\//.exec(textoPanelTrasMover)?.[1]);
+      comprobar(
+        "moverse UNA casilla en tierra (bosque_01, todo cesped) consume exactamente 1 PA",
+        movido && paTrasMover === paInicial - 1,
+        `PA antes=${paInicial} después=${paTrasMover}`,
+      );
+
+      const rutaCapturaMovido = join(CARPETA_CAPTURAS, "combate_tierra_tras_mover.png");
+      await page.screenshot({ path: rutaCapturaMovido });
+      console.log(`   captura: ${rutaCapturaMovido}`);
+    } else {
+      console.log("6) saltado (no era mi turno en el instante de comprobar el panel)");
+    }
+
     comprobar("sin errores de página/consola durante todo el flujo", erroresConsola.length === 0, erroresConsola.slice(0, 5).join(" | "));
 
     console.log(`\n=== RESUMEN: combate de tierra real en mapaArenaId="${mapaArenaIdObservado}" (combateId=${combateId}), captura en ${rutaCaptura} ===`);

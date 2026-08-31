@@ -67,6 +67,17 @@ export class CombateSchema extends Schema {
   @type("int8") ancho = 8;
   @type("int8") alto = 8;
   @type(["int8"]) obstaculos = new ArraySchema<number>(); // 1 = obstáculo, índice gy*ancho+gx
+  /**
+   * Coste en PA de entrar en cada casilla (índice gy*ancho+gx, pedido
+   * streamer: "2 PA si la casilla es terreno difícil/agua") — SOLO servidor
+   * (sin @type, no viaja al cliente, mismo criterio que ataqueFisico/
+   * defensaFisica de CombateUnidad): el cliente no necesita saberlo para
+   * pintar la UI placeholder. Poblado por ArenaCombateRoom desde el terreno
+   * real del bake; vacío (todo cuesta 1) en la arena PROVISIONAL de la
+   * ventana de unión (RoomExteriorBase.construirArenaDeCombate), que nunca
+   * llega a jugarse turno a turno de verdad.
+   */
+  costes: Uint8Array = new Uint8Array(0);
   @type(["string"]) ordenTurnos = new ArraySchema<string>(); // ids de CombateUnidad, por iniciativa desc
   @type("int8") turnoActual = 0; // índice sobre ordenTurnos
   @type({ map: CombateUnidad }) unidades = new MapSchema<CombateUnidad>();

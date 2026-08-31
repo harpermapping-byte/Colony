@@ -10,6 +10,13 @@ export interface Arena {
   alto: number;
   /** 1 casilla por byte, índice `gy * ancho + gx` — 1 = obstáculo, 0 = libre. */
   obstaculos: Uint8Array;
+  /**
+   * Coste en PA de ENTRAR en cada casilla (índice `gy * ancho + gx`), pedido
+   * streamer: "2 PA si la casilla es terreno difícil/agua". Ausente o vacío
+   * = todo cuesta 1 (compatibilidad con la autosimulación §7 y cualquier
+   * arena sin datos de terreno reales, p.ej. la de prueba de los tests).
+   */
+  costes?: Uint8Array;
 }
 
 export interface Casilla {
@@ -37,66 +44,69 @@ const VECINOS_8 = [
   [-1, 1], [0, 1], [1, 1],
 ];
 
-/**
- * BFS acotado por `pa` (Puntos de Acción restantes — recurso ÚNICO de turno,
- * docs/GDD_Combate.md §9.3 — coste 1 por paso incluida diagonal, mismo
- * criterio Chebyshev que el alcance) — devuelve el conjunto de casillas
- * alcanzables (sin contar la de origen), evitando obstáculos y casillas
- * ocupadas por otra unidad. 64/100 casillas máximo: trivial en coste, se
- * recalcula en cada `combate:mover`/cambio de turno, nunca cacheado (la
- * ocupación cambia cada turno).
- */
-export function casillasAlcanzables(arena: Arena, origen: Casilla, pa: number, ocupadas: Set<string> = new Set()): Set<string> {
-  const alcanzables = new Set<string>();
-  if (pa <= 0) return alcanzables;
-  let frontera: Casilla[] = [origen];
-  const visitado = new Set<string>([clave(origen)]);
-  for (let paso = 0; paso < pa; paso++) {
-    const siguiente: Casilla[] = [];
-    for (const c of frontera) {
-      for (const [dx, dy] of VECINOS_8) {
-        const vec: Casilla = { gx: c.gx + dx, gy: c.gy + dy };
-        const k = clave(vec);
-        if (visitado.has(k) || esObstaculo(arena, vec.gx, vec.gy) || ocupadas.has(k)) continue;
-        visitado.add(k);
-        alcanzables.add(k);
-        siguiente.push(vec);
-      }
-    }
-    frontera = siguiente;
-    if (frontera.length === 0) break;
-  }
-  return alcanzables;
+/** Coste en PA de ENTRAR en `destino` (1 por defecto, o lo que diga `arena.costes` — pedido streamer: "2 PA si la casilla es terreno difícil/agua"). */
+function costeDeEntrar(arena: Arena, destino: Casilla): number {
+  if (!arena.costes) return 1;
+  const c = arena.costes[destino.gy * arena.ancho + destino.gx];
+  return c > 0 ? c : 1;
 }
 
 /**
- * Coste real (en pasos, BFS) de ir de `origen` a `destino`, o `null` si no
- * es alcanzable con `pa` pasos como mucho — usa el MISMO BFS que
- * `casillasAlcanzables` (coherentes entre sí), pero devuelve la distancia
- * en vez del conjunto entero. Lo usa `combate:mover` para descontar el PA
- * gastado de verdad, no una aproximación en línea recta.
+ * Dijkstra acotado por `pa` (Puntos de Acción restantes — recurso ÚNICO de
+ * turno, docs/GDD_Combate.md §9.3, 8 direcciones incluida diagonal, mismo
+ * criterio Chebyshev que el alcance) — coste real por casilla vía
+ * `arena.costes` en vez del BFS uniforme de antes (1 paso = 1 PA siempre).
+ * Devuelve el coste mínimo para ENTRAR en cada casilla alcanzable (sin
+ * contar el origen), evitando obstáculos y casillas ocupadas por otra
+ * unidad. Tablero máximo ~900 casillas (30x30): un Dijkstra sin cola de
+ * prioridad (escaneo lineal del mínimo) es trivial en coste aquí, se
+ * recalcula en cada `combate:mover`/cambio de turno, nunca cacheado (la
+ * ocupación cambia cada turno).
+ */
+function distanciasDesde(arena: Arena, origen: Casilla, pa: number, ocupadas: Set<string>): Map<string, number> {
+  const distancias = new Map<string, number>([[clave(origen), 0]]);
+  if (pa <= 0) { distancias.delete(clave(origen)); return distancias; }
+  const pendiente = new Set<string>([clave(origen)]);
+  while (pendiente.size > 0) {
+    let mejorClave = "";
+    let mejorDist = Infinity;
+    for (const k of pendiente) {
+      const d = distancias.get(k)!;
+      if (d < mejorDist) { mejorDist = d; mejorClave = k; }
+    }
+    pendiente.delete(mejorClave);
+    const [gx, gy] = mejorClave.split(",").map(Number);
+    for (const [dx, dy] of VECINOS_8) {
+      const vec: Casilla = { gx: gx + dx, gy: gy + dy };
+      const k = clave(vec);
+      if (esObstaculo(arena, vec.gx, vec.gy) || ocupadas.has(k)) continue;
+      const nuevoCoste = mejorDist + costeDeEntrar(arena, vec);
+      if (nuevoCoste > pa) continue;
+      const actual = distancias.get(k);
+      if (actual === undefined || nuevoCoste < actual) {
+        distancias.set(k, nuevoCoste);
+        pendiente.add(k);
+      }
+    }
+  }
+  distancias.delete(clave(origen));
+  return distancias;
+}
+
+/** Casillas alcanzables con `pa` (ver `distanciasDesde`) — mismo criterio que antes, ahora consciente de coste de terreno. */
+export function casillasAlcanzables(arena: Arena, origen: Casilla, pa: number, ocupadas: Set<string> = new Set()): Set<string> {
+  return new Set(distanciasDesde(arena, origen, pa, ocupadas).keys());
+}
+
+/**
+ * Coste real (en PA) de ir de `origen` a `destino`, o `null` si no es
+ * alcanzable con `pa` como mucho — usa el MISMO Dijkstra que
+ * `casillasAlcanzables` (coherentes entre sí). Lo usa `combate:mover` para
+ * descontar el PA gastado de verdad, no una aproximación en línea recta.
  */
 export function costeCasilla(arena: Arena, origen: Casilla, destino: Casilla, pa: number, ocupadas: Set<string> = new Set()): number | null {
   if (origen.gx === destino.gx && origen.gy === destino.gy) return 0;
-  let frontera: Casilla[] = [origen];
-  const visitado = new Set<string>([clave(origen)]);
-  const destinoClave = clave(destino);
-  for (let paso = 1; paso <= pa; paso++) {
-    const siguiente: Casilla[] = [];
-    for (const c of frontera) {
-      for (const [dx, dy] of VECINOS_8) {
-        const vec: Casilla = { gx: c.gx + dx, gy: c.gy + dy };
-        const k = clave(vec);
-        if (visitado.has(k) || esObstaculo(arena, vec.gx, vec.gy) || ocupadas.has(k)) continue;
-        if (k === destinoClave) return paso;
-        visitado.add(k);
-        siguiente.push(vec);
-      }
-    }
-    frontera = siguiente;
-    if (frontera.length === 0) break;
-  }
-  return null;
+  return distanciasDesde(arena, origen, pa, ocupadas).get(clave(destino)) ?? null;
 }
 
 /** Un paso codicioso hacia `objetivo` (8 direcciones), evitando obstáculos — usado por la IA automática (§7), no por el `combate:mover` interactivo (ese usa `casillasAlcanzables` + el punto exacto que pide el jugador). */

@@ -2104,6 +2104,30 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const combateId = combatePendienteMasCercano();
       if (combateId) room.send("combate:unirse", { combateId, retorno: retornoDeCombate() });
     }
+    // Movimiento EN COMBATE (docs/GDD_Combate.md §9.3, pedido streamer: "el
+    // movimiento cambia al del mundo en general [...] esto es solo en
+    // combate, en el grid de combate [...] fuera de combate no") — MISMAS
+    // teclas WASD/flechas que el mundo abierto, pero el resultado es un
+    // paso DISCRETO en el grid táctico (combate:mover, PA real, validado
+    // por el servidor) en vez del movimiento libre continuo de bucle() de
+    // más abajo (que se salta entero mientras SALA==="arena", ver ahí). Solo
+    // manda algo si de verdad es tu turno — fuera de eso, no-op silencioso,
+    // igual que cualquier otra tecla de acción sin condición cumplida.
+    if (SALA === "arena" && !teclas.has(k)) {
+      const dir =
+        k === "w" || k === "arrowup" ? { dx: 0, dy: -1 } :
+        k === "s" || k === "arrowdown" ? { dx: 0, dy: 1 } :
+        k === "a" || k === "arrowleft" ? { dx: -1, dy: 0 } :
+        k === "d" || k === "arrowright" ? { dx: 1, dy: 0 } :
+        null;
+      if (dir) {
+        const combate = (room.state as any).combates.get(COMBATE_ID);
+        const miUnidad = combate?.unidades.get(room.sessionId);
+        if (combate && miUnidad && combate.ordenTurnos[combate.turnoActual] === room.sessionId) {
+          room.send("combate:mover", { combateId: COMBATE_ID, gx: miUnidad.gx + dir.dx, gy: miUnidad.gy + dir.dy });
+        }
+      }
+    }
     // Cadáveres/caza (docs/GDD_Caza.md, rediseño 2026-08-30 octava pasada):
     // L lootea el cadáver del MUNDO más cercano (da el ítem "cadáver
     // entero"). K desuella / O despieza el cadáver que el jugador lleva
@@ -2201,10 +2225,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const correr = teclas.has("shift");
     if (x || y) ultimaDireccionMirada = { x, y };
 
+    // En una arena el movimiento es EN COMBATE (tecla a tecla, gastando PA
+    // real vía combate:mover, cableado en el keydown de más abajo) — el
+    // "input" de movimiento libre continuo del mundo abierto no aplica aquí
+    // (el servidor ya lo ignora en combate activo, pero ni falta que hace
+    // mandarlo). Fuera de una arena, exactamente el mismo comportamiento de
+    // siempre.
     if (
-      x !== ultimaDireccionEnviada.x ||
-      y !== ultimaDireccionEnviada.y ||
-      correr !== !!ultimaDireccionEnviada.correr
+      SALA !== "arena" &&
+      (x !== ultimaDireccionEnviada.x ||
+        y !== ultimaDireccionEnviada.y ||
+        correr !== !!ultimaDireccionEnviada.correr)
     ) {
       ultimaDireccionEnviada = { x, y, correr };
       room.send("input", ultimaDireccionEnviada);
