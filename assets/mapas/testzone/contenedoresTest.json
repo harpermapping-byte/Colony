@@ -1,0 +1,102 @@
+{
+  "_nota": "Cofres de MUNDO de la Test Zone (docs/GDD_Mecanicas.md — no hay sistema general de cofres todavía, esto es SOLO para pruebas). Formato: {contenedores:[{id, x, y, items:[{itemId, cantidad}]}]}. `id` es la clave que usa el cliente en contenedorTest:abrir/tomar (único dentro de este mapa, no hace falta que sea único global). x/y en casillas del mapa, mismo sistema que npcsFijos.json. `items` es SOLO la foto inicial que se le enseña a un jugador al abrir (contenedorTest:abrir) — el servidor NO descuenta stock al tomar (server/src/mundo/contenedoresTest.ts), así que la cantidad aquí es orientativa/decorativa, no un tope real. itemId debe existir en items/catalogo/items.json. Sin gating de jarl: cualquier jugador en testzone puede abrir/tomar de estos 7 cofres (uno por categoría amplia). El cofre \"pociones\" no tiene poción real todavía (el catálogo de items solo tiene `frasco_pocion` vacío) — se rellena con los consumibles medicinales que sí existen (venda/ungüento/jarabe/tablilla) + el frasco, a sustituir cuando exista un catálogo de pociones de verdad.",
+  "contenedores": [
+    {
+      "id": "herramientas",
+      "x": 226,
+      "y": 278,
+      "items": [
+        { "itemId": "hacha_talar", "cantidad": 99 },
+        { "itemId": "pico_minero", "cantidad": 99 },
+        { "itemId": "cana_pesca", "cantidad": 99 },
+        { "itemId": "cuchillo_desollar", "cantidad": 99 },
+        { "itemId": "hoz_mano_hierro", "cantidad": 99 }
+      ]
+    },
+    {
+      "id": "armas",
+      "x": 228,
+      "y": 278,
+      "items": [
+        { "itemId": "daga", "cantidad": 99 },
+        { "itemId": "espada_larga", "cantidad": 99 },
+        { "itemId": "hacha_combate", "cantidad": 99 },
+        { "itemId": "arco_largo", "cantidad": 99 },
+        { "itemId": "ballesta", "cantidad": 99 }
+      ]
+    },
+    {
+      "id": "armaduras",
+      "x": 230,
+      "y": 278,
+      "items": [
+        { "itemId": "casco_acero", "cantidad": 99 },
+        { "itemId": "pechera_placas_acero", "cantidad": 99 },
+        { "itemId": "brazos_acero", "cantidad": 99 },
+        { "itemId": "piernas_acero", "cantidad": 99 },
+        { "itemId": "zapatos_acero", "cantidad": 99 }
+      ]
+    },
+    {
+      "id": "ropa",
+      "x": 226,
+      "y": 280,
+      "items": [
+        { "itemId": "camisa_lino_campesina", "cantidad": 99 },
+        { "itemId": "pantalon_lana_campesino", "cantidad": 99 },
+        { "itemId": "gorro_lino_campesino", "cantidad": 99 },
+        { "itemId": "tabardo_guardia", "cantidad": 99 },
+        { "itemId": "habito_sacerdote", "cantidad": 99 }
+      ]
+    },
+    {
+      "id": "comida",
+      "x": 228,
+      "y": 280,
+      "items": [
+        { "itemId": "pan", "cantidad": 99 },
+        { "itemId": "queso", "cantidad": 99 },
+        { "itemId": "asado_carne_roja", "cantidad": 99 },
+        { "itemId": "asado_pescado_mar", "cantidad": 99 },
+        { "itemId": "racion_viaje", "cantidad": 99 }
+      ]
+    },
+    {
+      "id": "pociones",
+      "x": 230,
+      "y": 280,
+      "items": [
+        { "itemId": "venda", "cantidad": 99 },
+        { "itemId": "unguento", "cantidad": 99 },
+        { "itemId": "jarabe_catarro", "cantidad": 99 },
+        { "itemId": "tablilla", "cantidad": 99 },
+        { "itemId": "frasco_pocion", "cantidad": 99 }
+      ]
+    },
+    {
+      "id": "materiales",
+      "x": 228,
+      "y": 282,
+      "items": [
+        { "itemId": "hierro", "cantidad": 99 },
+        { "itemId": "madera_dura", "cantidad": 99 },
+        { "itemId": "cuero_grueso", "cantidad": 99 },
+        { "itemId": "fibra_vegetal", "cantidad": 99 },
+        { "itemId": "piedra_comun", "cantidad": 99 }
+      ]
+    },
+    {
+      "id": "cofre_test_1",
+      "x": 228,
+      "y": 280,
+      "items": [
+        { "itemId": "espada_larga", "cantidad": 99 },
+        { "itemId": "pechera_placas_acero", "cantidad": 99 },
+        { "itemId": "pan", "cantidad": 99 },
+        { "itemId": "venda", "cantidad": 99 },
+        { "itemId": "hierro", "cantidad": 99 }
+      ],
+      "_nota": "cofre genérico de conveniencia (misma Zona 3 que 'comida') — id fijo `ID_COFRE_TEST_PRUEBA` que el cliente ya abre con la tecla Y (client/src/game.ts) mientras no hay detección de proximidad real; un poco de cada categoría para probar sin tener que elegir cofre."
+    }
+  ]
+}

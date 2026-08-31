@@ -1,0 +1,21 @@
+{
+  "nombre": "testzone",
+  "semilla": "testzone-01",
+  "anchoChunks": 10,
+  "altoChunks": 10,
+  "tamanoChunk": 32,
+  "biomasHabilitados": ["bosque", "montana_nevada", "pradera", "costa"],
+  "separacionMinimaPOI": 40,
+  "probabilidadLegendaria": 0.02,
+  "pasoHidrologia": 8,
+  "umbralRio": 5,
+  "pasoCaminos": 16,
+  "maxCaminosAPOIs": 15,
+  "bordes": {
+    "norte": { "tipo": "cerrado" },
+    "sur": { "tipo": "cerrado" },
+    "este": { "tipo": "cerrado" },
+    "oeste": { "tipo": "cerrado" }
+  },
+  "carpetaSalida": "../assets/mapas/testzone"
+}

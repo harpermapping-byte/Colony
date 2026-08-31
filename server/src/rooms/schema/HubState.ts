@@ -162,6 +162,13 @@ export class Player extends Schema {
   // acerque a mitad de canción) muestre la pose "tocando" sin depender del
   // broadcast puntual de "instrumento:tocando" (ese solo dispara el audio).
   @type("boolean") tocandoInstrumento = false;
+  // Debug godMode (admin:debug:godMode, Test Zone, pedido 2026-08-31):
+  // jarl/superadmin-only, self-target — con esto activo el jugador no
+  // pierde vida (daño ambiental/combate) ni comida/hidratación (ver el
+  // guardia en `actualizarMovimiento`/`aplicarDanoEventosAmbientales`/
+  // `aplicarUnidadesASchema` de RoomExteriorBase). Solo para pruebas, no
+  // persiste en BD (se apaga solo al reconectar, como `durmiendo`).
+  @type("boolean") godMode = false;
   // Vida/Ataque/Defensa (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30):
   // todo jugador arranca con 100/100 — vidaMax/ataque/defensa varían en
   // vivo según equipo, atributos y magia (server/src/combate/combate.ts).

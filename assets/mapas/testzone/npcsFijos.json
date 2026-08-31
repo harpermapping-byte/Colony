@@ -1,0 +1,13 @@
+{
+  "_nota": "Test Zone (pedido 2026-08-31): dummy de combate fijo en la Zona 5, mismo formato que server/src/mundo/npcsFijos.ts::cargarNpcsFijos. La vida infinita del oficio 'dummy_combate' la implementa el otro agente en servidor; aquí solo se coloca la entrada.",
+  "npcs": [
+    {
+      "slotId": "dummy_1",
+      "nombre": "Muñeco de Pruebas",
+      "oficio": "dummy_combate",
+      "x": 236,
+      "y": 280,
+      "grito": ""
+    }
+  ]
+}

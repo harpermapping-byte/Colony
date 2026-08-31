@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "tamanoSectorChunks": 10,
+  "leyendaTerreno": [
+    "agua_profunda",
+    "agua",
+    "playa",
+    "playa_rocosa",
+    "arena",
+    "cesped",
+    "cesped_ralo",
+    "tierra",
+    "tierra_baldia",
+    "suelo_barbecho",
+    "camino",
+    "puente",
+    "tierra_labrada",
+    "barro",
+    "nieve",
+    "hielo",
+    "roca",
+    "roca_inaccesible",
+    "ceniza",
+    "roca_volcanica",
+    "lava",
+    "adoquin",
+    "muralla_piedra",
+    "empalizada",
+    "solar_edificio",
+    "extramuros",
+    "cesped_b",
+    "cesped_c",
+    "nieve_b",
+    "nieve_c",
+    "arena_b",
+    "arena_c",
+    "barro_b",
+    "ceniza_b",
+    "playa_b",
+    "roca_b"
+  ],
+  "nombre": "testzone",
+  "semilla": "testzone-01",
+  "anchoChunks": 10,
+  "altoChunks": 10,
+  "tamanoChunk": 32,
+  "biomasHabilitados": [
+    "bosque",
+    "montana_nevada",
+    "pradera",
+    "costa"
+  ],
+  "bordes": {
+    "norte": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "sur": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "este": {
+      "tipo": "cerrado",
+      "nombre": null
+    },
+    "oeste": {
+      "tipo": "cerrado",
+      "nombre": null
+    }
+  },
+  "ciudad": {
+    "x": 160,
+    "y": 160
+  },
+  "portales": [
+    {
+      "tipo": "interior",
+      "x": 127,
+      "y": 34,
+      "edificio": "catacumbas_testzone-01:poi:catacumbas_poi_127_30",
+      "tipoEdificioId": "catacumbas",
+      "esMazmorra": true
+    },
+    {
+      "tipo": "interior",
+      "x": 192,
+      "y": 40,
+      "edificio": "ruinas_torre_caida_testzone-01:poi:mazmorra_olvidada_192_36",
+      "tipoEdificioId": "ruinas_torre_caida",
+      "esMazmorra": true
+    },
+    {
+      "tipo": "interior",
+      "x": 221,
+      "y": 107,
+      "edificio": "torre_nigromante_testzone-01:poi:torre_vigia_enemiga_221_103",
+      "tipoEdificioId": "torre_nigromante",
+      "esMazmorra": true
+    },
+    {
+      "tipo": "interior",
+      "x": 131,
+      "y": 121,
+      "edificio": "pantano_maldito_testzone-01:poi:pantano_maldito_poi_131_121",
+      "tipoEdificioId": "pantano_maldito",
+      "esMazmorra": true
+    },
+    {
+      "tipo": "interior",
+      "x": 161,
+      "y": 196,
+      "edificio": "tienda_testzone-01:poi:tienda_cazador_161_192",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 227,
+      "y": 201,
+      "edificio": "ruinas_biblioteca_arcana_testzone-01:poi:ruinas_biblioteca_arcana_poi_227_197",
+      "tipoEdificioId": "ruinas_biblioteca_arcana",
+      "esMazmorra": true
+    },
+    {
+      "tipo": "interior",
+      "x": 28,
+      "y": 242,
+      "edificio": "ruina_testzone-01:poi:ruinas_pequenas_28_238",
+      "tipoEdificioId": "ruina"
+    },
+    {
+      "tipo": "interior",
+      "x": 74,
+      "y": 264,
+      "edificio": "cueva_goblins_testzone-01:poi:cueva_pequena_74_264",
+      "tipoEdificioId": "cueva_goblins",
+      "esMazmorra": true
+    },
+    {
+      "tipo": "interior",
+      "x": 101,
+      "y": 270,
+      "edificio": "fortaleza_orca_testzone-01:poi:fuerte_barbaro_101_266",
+      "tipoEdificioId": "fortaleza_orca",
+      "esMazmorra": true
+    },
+    {
+      "tipo": "interior",
+      "x": 242,
+      "y": 240,
+      "edificio": "cueva_goblins_testzone-01:poi:cueva_pequena_242_240",
+      "tipoEdificioId": "cueva_goblins",
+      "esMazmorra": true
+    },
+    {
+      "tipo": "exterior",
+      "x": 281,
+      "y": 272,
+      "destino": {
+        "tipo": "region",
+        "mapaId": "testzone/pois/asentamiento_cultistas_poi_281_272"
+      }
+    },
+    {
+      "tipo": "interior",
+      "x": 234,
+      "y": 266,
+      "edificio": "carpinteria_testzone-taller-01",
+      "tipoEdificioId": "carpinteria",
+      "_nota": "Test Zone (pedido 2026-08-31) — Zona 2, taller con las 4 mesas de crafteo de referencia (niveles 1/4/6/8 reales del catálogo), edificio suelto sin solar bakeado, puerta colocada a mano en césped abierto."
+    }
+  ]
+}
