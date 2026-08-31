@@ -474,6 +474,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // porque la tecla F (más adelante, fuera de este bloque) necesita leerlas.
   let renderConstrucciones: RenderConstrucciones | null = null;
   let panelAjedrez: PanelAjedrez | null = null;
+  // Captura genérica de "último mensaje visto de este tipo" (barrido de
+  // sistemas 2026-08-31), izada por el MISMO motivo que renderConstrucciones/
+  // panelAjedrez arriba: los mensajes de médico (más abajo, fuera del
+  // `if (SALA === "hub")`) también necesitan escribir aquí, y `__test`
+  // (dentro del bloque hub) necesita LEER lo que ellos escriban.
+  const ultimosMensajes = new Map<string, unknown>();
   if (SALA === "hub") {
     const indiceParcelas =
       parcelasArchivo && anchoMapa > 0 ? construirIndiceParcelas(parcelasArchivo, anchoMapa) : new Map<number, string>();
@@ -732,7 +738,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // la respuesta de un mensaje sin estado replicado propio. nanoevents
     // (motor de colyseus.js onMessage) acumula listeners, así que esto
     // convive sin pisar los console.log de "xxx:error" ya registrados.
-    const ultimosMensajes = new Map<string, unknown>();
+    // (`ultimosMensajes` está izado arriba del `if`, no declarado aquí.)
     for (const tipo of [
       "tenderete:escaparate", "tenderete:gestion", "tenderete:compraResultado", "tenderete:error",
       "cocina:estado", "cocina:preparado", "cocina:error",
@@ -835,6 +841,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("medico:entablillado", (m: { zona: string }) => console.log(`[médico] entablillado: ${m?.zona}`));
   room.onMessage("medico:operado", () => console.log("[médico] cirugía completada"));
   room.onMessage("medico:protesisInstalada", (m: { zona: string }) => console.log(`[médico] prótesis instalada: ${m?.zona}`));
+  // Mismo mecanismo de "último mensaje visto" que tenderete/cocina/crafteo
+  // (barrido de sistemas 2026-08-31) — faltaba para médico, que vive fuera
+  // del bloque hub: sin esto, __test.ultimoMensaje("medico:operado") daba
+  // SIEMPRE null pese a que el servidor sí lo mandaba (bug del propio test,
+  // no del servidor).
+  for (const tipo of ["medico:error", "medico:vendado", "medico:entablillado", "medico:operado", "medico:protesisInstalada"]) {
+    room.onMessage(tipo, (m: unknown) => ultimosMensajes.set(tipo, m));
+  }
 
   // Tenderete/oficio (docs/GDD_Mercado.md, docs/GDD_Profesiones.md): sin
   // panel de cliente todavía (protocolo probado por e2e mandando el mensaje
