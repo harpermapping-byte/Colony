@@ -13,6 +13,8 @@ export interface EstadoCompaneroVista {
   nivel: number;
   vida: number;
   vidaMax: number;
+  /** Pedido 2026-08-31: "la gente que apoya debe poder decidir si se une o no, no autounirse" — toggle del dueño. */
+  participaEnCombate: boolean;
 }
 
 export interface OpcionesPanelCompanero {
@@ -25,6 +27,8 @@ export interface OpcionesPanelCompanero {
   desequipar(slot: string): void;
   /** docs/GDD_Produccion.md §3bis — trae de vuelta al compañero que está trabajando en una plantilla. */
   llamar(): void;
+  /** Pedido 2026-08-31 — decidir si el compañero se une solo a tus combates o se queda fuera. */
+  fijarParticipaCombate(activo: boolean): void;
 }
 
 export class PanelCompanero {
@@ -141,5 +145,20 @@ export class PanelCompanero {
     btnDesequipar.onclick = () => { if (inputSlot.value) this.opciones.desequipar(inputSlot.value); };
     filaEquipo.appendChild(btnDesequipar);
     this.raiz.appendChild(filaEquipo);
+
+    // Pedido 2026-08-31: "la gente que apoya debe poder decidir si se une o
+    // no, no autounirse" — antes se metía siempre en tu combate sin preguntar.
+    const filaCombate = document.createElement("div");
+    filaCombate.style.marginTop = "6px";
+    const labelCombate = document.createElement("label");
+    labelCombate.style.cursor = "pointer";
+    const checkCombate = document.createElement("input");
+    checkCombate.type = "checkbox";
+    checkCombate.checked = this.estado.participaEnCombate;
+    checkCombate.onchange = () => this.opciones.fijarParticipaCombate(checkCombate.checked);
+    labelCombate.appendChild(checkCombate);
+    labelCombate.appendChild(document.createTextNode(" se une a mis combates"));
+    filaCombate.appendChild(labelCombate);
+    this.raiz.appendChild(filaCombate);
   }
 }

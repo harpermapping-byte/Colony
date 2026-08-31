@@ -16,6 +16,7 @@ import { ColocadorPlantillas } from "./construccion/colocadorPlantillas";
 import { obtenerConstruibleOPlantilla } from "./construccion/catalogoConstruccion";
 import { MenuInteraccion, type OpcionMenuInteraccion } from "./ui/menuInteraccion";
 import { ModalInstrumento } from "./ui/modalInstrumento";
+import { PanelCofre } from "./construccion/panelCofre";
 import { reproducirMidi, detenerReproduccion, type TipoInstrumento } from "./audio/instrumentos";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
 import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2 } from "three";
@@ -120,6 +121,11 @@ interface Direction {
 // va medio cuerpo dentro del agua; buceando baja además ~0.4 por nivel.
 const HUNDIMIENTO_NADANDO = 0.55;
 const HUNDIMIENTO_POR_NIVEL = 0.4;
+// Sentarse/tumbarse (pedido 2026-08-31): mismo mecanismo de "bajar el rig"
+// que nadando, para que la pose de piernas dobladas (rigHumanoide.ts) no
+// deje al personaje flotando por encima del asiento/suelo.
+const HUNDIMIENTO_SENTADO = 0.25;
+const HUNDIMIENTO_SENTADO_SUELO = 0.4;
 
 interface EstadoJugador {
   rig: RigHumanoide;
@@ -147,6 +153,12 @@ interface EstadoJugador {
   // mascotas/compañeros comparten esta misma interfaz y simplemente nunca
   // lo ponen a true.
   tocandoInstrumento?: boolean;
+  // Sentarse/tumbarse (pedido 2026-08-31) — mismo criterio que
+  // tocandoInstrumento: booleanos replicados que solo mueven la POSE del
+  // rig, la lógica real vive en el servidor. Solo jugadores reales.
+  sentado?: boolean;
+  sentadoSuelo?: boolean;
+  durmiendo?: boolean;
   // Compañero NPC (docs/GDD_Companeros.md) — SOLO compañeros: texto de queja
   // por hambre que ya manda listo el servidor (bucle(), burbuja periódica).
   // Espejo local del campo `quejaTexto` de CompaneroSchema — mirar el mapa
@@ -611,6 +623,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       modo.mostrarError(m?.motivo || "");
     });
 
+    // Panel real de cofre/arcón (pedido 2026-08-31) — cofreObjetivo lo fija
+    // el clic "Abrir X" del menú de interacción, más abajo.
+    let cofreObjetivo: { id: number; nombre: string } | null = null;
+    const panelCofre = new PanelCofre({
+      contenedor,
+      sacar: (construccionId, instanciaId) => room.send("cofre:sacarItem", { construccionId, instanciaId }),
+    });
+
     // --- Instrumentos musicales (docs/GDD_Instrumentos.md, pedido
     // 2026-08-31): clic sobre un objeto construido → menú de interacción
     // GENÉRICO (menuInteraccion.ts) — pensado para colgar aquí futuras
@@ -633,7 +653,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       raycasterClic.setFromCamera(ndc, escena.camera);
       const impactos = raycasterClic.intersectObjects(renderConstrucciones.mallas(), false);
-      if (impactos.length === 0) return;
+      if (impactos.length === 0) {
+        // Clic sin ningún mueble debajo (pedido 2026-08-31: "también puedes
+        // sentarte en el suelo... dando click sobre suelo") — sin raycast
+        // real de terreno, se ofrece siempre que el clic no tocara ningún
+        // mueble: sentar:suelo se sienta donde YA está el jugador, así que
+        // no hace falta saber la casilla exacta del clic.
+        menuInteraccion.mostrar(e.clientX, e.clientY, "Suelo", [
+          { etiqueta: "Sentarse en el suelo", accion: () => room.send("sentar:suelo", {}) },
+        ]);
+        return;
+      }
       const datos = renderConstrucciones.datosDeMalla(impactos[0].object);
       if (!datos) return;
       const construible = obtenerConstruibleOPlantilla(datos.objeto);
@@ -645,6 +675,21 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           accion: () => {
             instrumentoObjetivo = { id: datos.id, nombre };
             modalInstrumento.mostrar(nombre);
+          },
+        });
+      }
+      if (construible?.esSilla) {
+        opciones.push({ etiqueta: `Sentarse en ${nombre}`, accion: () => room.send("sentar:iniciar", { construccionId: datos.id }) });
+      }
+      if (construible?.esCama) {
+        opciones.push({ etiqueta: `Tumbarse en ${nombre}`, accion: () => room.send("dormir:iniciar", { construccionId: datos.id }) });
+      }
+      if (construible?.esContenedor) {
+        opciones.push({
+          etiqueta: `Abrir ${nombre}`,
+          accion: () => {
+            cofreObjetivo = { id: datos.id, nombre };
+            room.send("cofre:consultar", { construccionId: datos.id });
           },
         });
       }
@@ -685,6 +730,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       console.log("[instrumento]", m?.motivo);
       modalInstrumento.mostrarError(m?.motivo || "No se pudo tocar.");
     });
+    room.onMessage("cofre:error", (m: { motivo: string }) => console.log("[cofre]", m?.motivo));
+    room.onMessage("cofre:estado", (m: { construccionId: number; ancho: number; alto: number; items: { id: number; itemId: string; cantidad: number }[] }) => {
+      if (cofreObjetivo) panelCofre.abrir(cofreObjetivo.nombre);
+      panelCofre.actualizarEstado(m.construccionId, m.items || []);
+    });
+    // Sentarse (pedido 2026-08-31) — sin panel propio (no hay nada que
+    // mostrar salvo la pose, que ya se ve en el rig), solo consola por si
+    // falla (mismo criterio que combate:error/puerta arriba).
+    room.onMessage("sentar:error", (m: { motivo: string }) => console.log("[sentar]", m?.motivo));
 
     // Sonda SOLO-PARA-TESTS (e2e con Playwright): manejar el modo construcción
     // sin simular ratón sobre el canvas. No usar desde código de juego.
@@ -840,6 +894,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     equipar: (instanciaId, slot) => room.send("companero:equipar", { instanciaId, slot }),
     desequipar: (slot) => room.send("companero:desequipar", { slot }),
     llamar: () => room.send("companero:llamar"),
+    fijarParticipaCombate: (activo) => room.send("companero:fijarParticipaCombate", { activo }),
   });
   room.onMessage("companero:error", (m: { motivo: string }) => console.log("[compañero]", m?.motivo));
   room.onMessage("companero:persuasionFallida", (m: { nombre: string }) => console.log(`[compañero] ${m?.nombre} no se deja convencer todavía`));
@@ -853,8 +908,6 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // Transporte y cofres (docs/GDD_Produccion.md §3ter) — sin panel propio
   // todavía (protocolo puro, ver sonda __construccion arriba), solo consola.
   room.onMessage("transporte:error", (m: { motivo: string }) => console.log("[transporte]", m?.motivo));
-  room.onMessage("cofre:error", (m: { motivo: string }) => console.log("[cofre]", m?.motivo));
-  room.onMessage("cofre:estado", (m: unknown) => console.log("[cofre] estado", m));
   const leerAnatomiaVista = (schema: any): Record<Zona, EstadoZonaVista> => {
     const vista = {} as Record<Zona, EstadoZonaVista>;
     for (const zona of ZONAS) {
@@ -959,6 +1012,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // la pose correcta, aunque se perdiera el broadcast puntual que
       // dispara el AUDIO (ver "instrumento:tocando"/"instrumento:parado").
       estado.tocandoInstrumento = !!player.tocandoInstrumento;
+      // Sentarse/tumbarse (pedido 2026-08-31) — mismo criterio que
+      // tocandoInstrumento arriba: la pose se rige por el booleano
+      // replicado, no por si ESTE cliente fue quien lo pidió.
+      estado.sentado = !!player.sentado;
+      estado.sentadoSuelo = !!player.sentadoSuelo;
+      estado.durmiendo = !!player.durmiendo;
+      if (!estado.nadando) {
+        estado.destinoY = estado.sentado
+          ? -HUNDIMIENTO_SENTADO
+          : estado.sentadoSuelo
+          ? -HUNDIMIENTO_SENTADO_SUELO
+          : 0;
+      }
       if (player.monturaEspecieId !== monturaActual) {
         monturaActual = player.monturaEspecieId;
         if (monturaActual) {
@@ -1054,7 +1120,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const companerosVisual = new Map<string, EstadoJugador>();
   const esMiCompanero = (c: any) => c.duenoNombre === room.state.players.get(room.sessionId)?.name;
   const actualizarPanelCompanero = (c: any) => {
-    panelCompanero.actualizarEstado({ nombre: c.nombre, nivel: c.nivel, vida: c.vida, vidaMax: c.vidaMax });
+    panelCompanero.actualizarEstado({ nombre: c.nombre, nivel: c.nivel, vida: c.vida, vidaMax: c.vidaMax, participaEnCombate: c.participaEnCombate });
     panelResumen.actualizarCompanero({ nombre: c.nombre, nivel: c.nivel, vida: c.vida, vidaMax: c.vidaMax, x: c.x, y: c.y, quejaTexto: c.quejaTexto });
   };
   $(room.state).companeros.onAdd((c: any, id: string) => {
@@ -1811,10 +1877,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       estado.z += dz * factor;
       estado.y += (estado.destinoY - estado.y) * factor;
       estado.rig.objeto.position.set(estado.x, estado.y, estado.z);
-      // nadando el cuerpo se tumba hacia delante; en tierra vuelve a vertical
-      const inclinacionObjetivo = estado.nadando ? -1.1 : 0;
+      // nadando el cuerpo se tumba hacia delante (boca abajo, estilo crol);
+      // tumbado en cama, más plano todavía (boca arriba, mismo signo);
+      // en tierra vuelve a vertical. Signo invertido (pedido 2026-08-31,
+      // "la animacion de nadar esta mal, nada de espaldas mirando al
+      // cielo"): con -1.1 el personaje quedaba boca arriba en vez de boca
+      // abajo — la inclinación va en el sentido contrario al de este rig.
+      const inclinacionObjetivo = estado.nadando ? 1.1 : estado.durmiendo ? 1.5 : 0;
       estado.rig.objeto.rotation.x += (inclinacionObjetivo - estado.rig.objeto.rotation.x) * factor;
-      estado.rig.actualizar(dt, marcha, estado.tocandoInstrumento);
+      estado.rig.actualizar(dt, marcha, estado.tocandoInstrumento, estado.sentado, estado.sentadoSuelo, estado.durmiendo);
     }
 
     // NPCs: antorcha de los turnos de vigilancia (se enciende de noche,

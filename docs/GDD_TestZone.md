@@ -164,6 +164,84 @@ simple y further prueba el flujo real de construcción de un tirón.
    carrera concreta (F5 muy rápido) sigue sin arreglar — mitigación:
    evitar F5, usar pestaña/incógnito nueva para reconectar.
 
+## 7bis. Interacción por clic + sentarse/tumbarse/abrir cofres (2026-08-31)
+
+Pedido explícito: "hagamos esto como interacción principal aunque algunas
+mantengamos bloqueado a tecla — recoger del suelo, interactuar puertas o
+hablar con NPC con botones". Regla adoptada: **clic sobre el mueble/suelo
+para todo lo nuevo** (sentarse, tumbarse, abrir cofre, tocar instrumento —
+este último ya era por clic), **tecla para lo que ya era tecla** (F puertas,
+coger recolectables, C/V combate). Todo cuelga del MISMO raycaster/menú
+genérico que ya existía para instrumentos (`client/src/game.ts`, clic sobre
+`renderConstrucciones.mallas()`) — un clic sin ningún mueble debajo ofrece
+"Sentarse en el suelo" en su lugar (sin raycast de terreno real, se sienta
+donde ya está el jugador).
+
+- **Catálogo**: `esSilla` (NUEVO, mismo patrón que `esCama`) en
+  `interiores/catalogo/elementos.json` — marcado en silla/banco/sofa/
+  taburete/mecedora/trono/butaca. Pasa por `server/src/construccion/catalogo.ts`
+  y por el catálogo espejo del cliente (`client/src/construccion/catalogoConstruccion.ts`,
+  que hasta ahora NO exponía `esCama`/`esContenedor` tampoco, aunque el
+  campo ya viniera en el JSON — añadidos los 3).
+- **Sentarse** (`sentar:iniciar {construccionId}` en mueble, `sentar:suelo {}`
+  en el suelo) — NUEVO de cero, mismo patrón que `dormir:iniciar` (proximidad
+  + "ya estás sentado"), sin duración: dura hasta que `input` con movimiento
+  real lo cancela (mismo `input` handler que ya cancelaba dormir/pesca).
+  `Player.sentado`/`sentadoSuelo` (schema) → pose del rig, DOS poses
+  distintas (pedido explícito: "sentarte en el suelo, otra animación") —
+  piernas más flexionadas + torso inclinado en el suelo.
+- **Tumbarse en cama** — el backend YA EXISTÍA completo
+  (`dormir:iniciar/completar`, recupera Estamina) pero no tenía NINGÚN
+  disparador de cliente (protocolo puro desde que se implementó). Ahora el
+  clic sobre una cama lo dispara. `Player.durmiendo` (schema, también ya
+  existía sin usar) ahora sí mueve una pose "tumbado" — reusa el mismo
+  mecanismo de inclinación de cuerpo entero que nadando (`estado.rig.objeto.rotation.x`).
+- **Abrir cofre/arcón** — el backend YA EXISTÍA completo (`cofre:consultar/
+  meterItem/sacarItem`, `esContenedor`) pero sin ningún panel (solo
+  `console.log`). Nuevo `client/src/construccion/panelCofre.ts`: lista de
+  items + "Sacar". "Meter" un ítem del inventario propio queda pendiente —
+  necesitaría integrarse con el drag&drop real de `panelJugador.ts`
+  (`ContenedorVista`/`mover`), que hoy solo conoce los contenedores del
+  jugador (cuerpo/mochilas), no un cofre externo.
+- **Animación de nadar arreglada** — el pedido "nada de espaldas mirando al
+  cielo" apuntaba a `client/src/game.ts`: la inclinación del cuerpo entero
+  al nadar tenía el signo cambiado (`-1.1` en vez de `1.1`), tumbaba al
+  personaje boca arriba en vez de boca abajo (estilo crol). Un solo signo.
+- **Combate contra NPCs hostiles arreglado** (dummy/bandido de pruebas) —
+  ver §7ter, es un hallazgo aparte de la misma pasada.
+- **Compañero: "se une a mis combates" configurable** — pedido "la gente
+  que apoya debe poder decidir si se une o no, no autounirse": antes el
+  compañero se metía SIEMPRE en tu combate al unirte tú a uno ya empezado
+  (`manejarCombateUnirse`), sin preguntar. Nuevo `CompaneroSchema.participaEnCombate`
+  (default `true`, no cambia nada si no lo tocas) + checkbox en
+  `panelCompanero.ts` + mensaje `companero:fijarParticipaCombate`.
+
+**Sin verificar exhaustivamente por tiempo** (aunque comparten el MISMO
+mecanismo ya probado con "sentarse en el suelo", confirmado con Playwright
+contra servidor real: clic → menú → mensaje → servidor acepta → pose visible
+distinta al resto de NPCs de pie): sentarse en silla/banco/sofá
+específicamente, tumbarse en cama, abrir el arcón. Sembrados en
+`testflat` (Norte, junto a las mesas) para poder probarlos: `silla`,
+`banco`, `sofa`, `cama_individual`, `arcon`.
+
+## 7ter. Combate contra el dummy — hallazgo real (2026-08-31)
+
+El servidor YA soportaba "npc" como tipo de combatiente válido
+(`statsCombatiente`), pero el cliente NUNCA los proponía como objetivo:
+`game.ts::objetivoHostilMasCercano()` (lo que decide a quién ataca la tecla
+**C** — el juego entero ataca así, nunca por clic, ni fauna ni PvP) solo
+miraba `fauna`/`enemigos`/`players`. El propio comentario del schema ya lo
+avisaba: *"Nadie los ataca todavía (sin disparador de combate real)"*.
+
+Arreglo: `Npc.hostil` (schema, ya existía — lo usa la patrulla bandida) se
+pone a `true` para `oficio === "dummy_combate"` en
+`server/src/mundo/agentes.ts::copiarTutorial`; el cliente añade un bucle
+sobre `room.state.npcs` filtrando por `.hostil` en `objetivoHostilMasCercano`.
+De paso, `game.ts` nunca escuchaba `"combate:error"` — cualquier rechazo
+(demasiado lejos, ya en combate...) era invisible del todo; ahora se
+loguea. Verificado con servidor real: acercarse al dummy (radio 2.2) y
+pulsar C sí manda `combate:iniciar` y el servidor lo acepta.
+
 ## 7. Pendiente real (aparte del §4)
 
 - Detección de proximidad real a mesas/cofres en el cliente (hoy son

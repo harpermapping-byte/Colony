@@ -74,6 +74,8 @@ export interface EntradaConstruible {
   actividadAtributo?: EntradaActividadAtributo;
   /** Cama (docs/GDD_Personaje.md §3.6) — presente en cama_individual/cama_doble/litera_marinero: acercarse y mandar `dormir:iniciar` empieza un sueño con tope de tiempo que recupera Estamina entera al completarse. */
   esCama?: boolean;
+  /** Sentarse (pedido 2026-08-31, "sillas, bancos, sofás y otros muebles que sirvan en la vida real para sentarse") — presente en silla/banco/sofa/taburete/mecedora/trono/butaca: clic sobre el mueble → `sentar:iniciar {construccionId}`, se cancela solo al moverse (mismo criterio que `esCama`/dormir). */
+  esSilla?: boolean;
   /** Pesca pasiva (docs/GDD_Pesca.md) — presente en trampa_pesca/cangrejera/batea_almejas: exige agua ORTOGONALMENTE ADYACENTE a la huella al colocarse (mismo `hayAguaAdyacente` que el molino de agua), nunca dentro de la huella (construcción siempre en tierra). */
   requiereAgua?: boolean;
   /** Agricultura (docs/GDD_Agricultura.md) — presente en bancal_cultivo/maceta_*: superficie donde plantar UNA semilla a la vez (mensajes `cultivo:*`, RoomExteriorBase.ts). `multiplicadorCosecha` escala la cantidad de cada cosecha (macetas grandes rinden más). */
@@ -211,6 +213,7 @@ interface EntradaElemento {
   energia?: EntradaEnergia;
   actividadAtributo?: EntradaActividadAtributo;
   esCama?: boolean;
+  esSilla?: boolean;
   nivelOficioMinimo?: { oficio: string; nivel: number };
   mejoraMesa?: { mesa: string; tipo: "velocidad" | "cantidad"; bonus: number };
   instrumento?: string;
@@ -276,6 +279,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       energia: d.energia,
       actividadAtributo: d.actividadAtributo,
       esCama: d.esCama,
+      esSilla: d.esSilla,
       nivelOficioMinimo: d.nivelOficioMinimo,
       instrumento: d.instrumento,
       esContenedor: d.esContenedor,

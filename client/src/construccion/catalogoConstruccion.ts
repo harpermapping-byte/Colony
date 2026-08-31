@@ -45,6 +45,12 @@ export interface Construible {
   instrumento?: string;
   /** Producción pasiva (docs/GDD_Produccion.md) — `requiereTrabajador` es lo único que necesita el menú de interacción (contratar/despedir trabajador, poner a trabajar al compañero) para decidir si ofrece esas opciones. */
   produccion?: { requiereTrabajador?: boolean };
+  /** Cama (docs/GDD_Personaje.md §3.6) — el menú de interacción ofrece "Tumbarse" (dormir:iniciar). */
+  esCama?: boolean;
+  /** Sentarse (pedido 2026-08-31) — el menú de interacción ofrece "Sentarse" (sentar:iniciar). */
+  esSilla?: boolean;
+  /** Cofre/arcón (docs/GDD_Produccion.md §3ter) — el menú de interacción ofrece "Abrir" (cofre:consultar). */
+  esContenedor?: boolean;
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -72,6 +78,9 @@ interface EntradaBruta {
   nombre?: string;
   instrumento?: string;
   produccion?: { requiereTrabajador?: boolean };
+  esCama?: boolean;
+  esSilla?: boolean;
+  esContenedor?: boolean;
   [k: string]: unknown;
 }
 
@@ -109,6 +118,9 @@ function construirLista(): Construible[] {
       colision: esColisionable(e),
       nombre: e.nombre,
       instrumento: e.instrumento,
+      esCama: e.esCama,
+      esSilla: e.esSilla,
+      esContenedor: e.esContenedor,
     });
   }
 

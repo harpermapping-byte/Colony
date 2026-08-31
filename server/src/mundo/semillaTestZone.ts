@@ -47,8 +47,11 @@ const MUEBLES_A_SEMBRAR: { objeto: string; x: number; y: number }[] = [
   { objeto: "cama_individual", x: 34, y: 16 }, // esCama (huella 1x2)
   { objeto: "laud", x: 28, y: 18 }, // instrumento "laud"
   { objeto: "tambor_guerra", x: 30, y: 18 }, // instrumento "tambor"
-  { objeto: "silla", x: 32, y: 18 },
+  { objeto: "silla", x: 32, y: 18 }, // esSilla
   { objeto: "mesa_comedor", x: 34, y: 18 }, // huella 2x3
+  { objeto: "banco", x: 28, y: 20 }, // esSilla (huella 2x1)
+  { objeto: "sofa", x: 30, y: 20 }, // esSilla (huella 2x1)
+  { objeto: "arcon", x: 32, y: 20 }, // esContenedor
 ];
 
 /** Categoría real de cada mueble de arriba en el catálogo construible — evita cargar el catálogo entero solo para esto. Todos son "mueble" (interiores/catalogo/elementos.json vía cargarCatalogoConstruible). */

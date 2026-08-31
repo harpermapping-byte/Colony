@@ -63,8 +63,13 @@ export interface RigHumanoide {
    * marcha=0 (parado) — el servidor ya cancela la reproducción en cuanto el
    * jugador se mueve, así que ambas cosas nunca deberían darse juntas, pero
    * la pose no fuerza esa combinación por su cuenta.
+   * `sentado`/`sentadoSuelo`/`tumbado` (pedido 2026-08-31, "sentarse en
+   * sillas/bancos/sofás, sentarse en el suelo con otra animación, y
+   * tumbarse en la cama"): poses estáticas, se pisan entre sí en ese orden
+   * de prioridad (sentado > sentadoSuelo > tumbado > tocando) — nunca
+   * deberían coincidir de todas formas (el servidor cancela unas a otras).
    */
-  actualizar(dt: number, marcha?: Marcha, tocando?: boolean): void;
+  actualizar(dt: number, marcha?: Marcha, tocando?: boolean, sentado?: boolean, sentadoSuelo?: boolean, tumbado?: boolean): void;
   /** Orienta el cuerpo entero hacia una dirección de mundo (dx, dz). */
   orientar(dx: number, dz: number): void;
 }
@@ -175,7 +180,37 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   let pesoAndar = 0; // 0=parado, 1=en movimiento — con rampa para no cortar en seco
   let pesoCorrer = 0; // 0=andando, 1=corriendo — segunda rampa sobre la primera
 
-  function actualizar(dt: number, marcha: Marcha = 0, tocando = false) {
+  function actualizar(dt: number, marcha: Marcha = 0, tocando = false, sentado = false, sentadoSuelo = false, tumbado = false) {
+    // Poses estáticas (sentado/sentadoSuelo/tumbado) pisan la zancada
+    // entera y no se mezclan con marcha/tocando — el servidor ya garantiza
+    // que no coinciden con movimiento real (se cancelan solas al andar).
+    if (sentado || sentadoSuelo) {
+      const flexion = sentadoSuelo ? 1.9 : 1.4; // en el suelo, piernas más recogidas
+      piernaIzq.rotation.x = flexion;
+      piernaDer.rotation.x = flexion;
+      brazoIzq.rotation.x = sentadoSuelo ? 0.3 : 0;
+      brazoDer.rotation.x = sentadoSuelo ? 0.3 : 0;
+      torso.rotation.x = sentadoSuelo ? 0.15 : 0;
+      torso.rotation.z = 0;
+      cabeza.rotation.x = 0;
+      torso.position.y = ALTO_PIERNA;
+      return;
+    }
+    if (tumbado) {
+      // Tumbado (cama): piernas y brazos relajados, la inclinación de
+      // cuerpo entero boca arriba la aplica el llamante (mismo mecanismo
+      // que nadando, game.ts) rotando `objeto` — aquí solo se sueltan los
+      // pivotes para que no se vea la pose de correr mientras está tumbado.
+      piernaIzq.rotation.x = 0;
+      piernaDer.rotation.x = 0;
+      brazoIzq.rotation.x = 0;
+      brazoDer.rotation.x = 0;
+      torso.rotation.x = 0;
+      torso.rotation.z = 0;
+      cabeza.rotation.x = 0;
+      torso.position.y = ALTO_PIERNA;
+      return;
+    }
     const m = normalizarMarcha(marcha);
     pesoAndar = THREE.MathUtils.clamp(pesoAndar + (m >= 1 ? dt : -dt) * 6, 0, 1);
     pesoCorrer = THREE.MathUtils.clamp(pesoCorrer + (m >= 2 ? dt : -dt) * 6, 0, 1);

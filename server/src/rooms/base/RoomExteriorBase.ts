@@ -375,6 +375,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // igual que `craftesEnCurso` — mismo patrón "terminaEn" que crafteo, sin
   // tick nuevo (el cliente pide `dormir:completar` cuando cree que ya toca).
   private durmiendo = new Map<string, { terminaEn: number }>();
+  /** Sentarse en un mueble real (esSilla) — mismo espíritu que `durmiendo` pero sin duración: dura hasta que el jugador se mueve. */
+  private sentado = new Set<string>();
+  /** Sentarse en el suelo, sin mueble — pose distinta (`sentadoSuelo`), mismo criterio "hasta moverse". */
+  private sentadoSuelo = new Set<string>();
   protected mundo!: MundoColision;
 
   // Login con Twitch (docs/GDD_Twitch.md §7) — solo se guarda para poder dar
@@ -633,6 +637,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         if (durmiente) durmiente.durmiendo = false;
         client.send("dormir:cancelado", {});
       }
+      // Levantarse de la silla/suelo (pedido 2026-08-31: "para levantarte es
+      // usar WASD") — mismo criterio exacto que dormir de arriba: soltar
+      // teclas (x=0,y=0) no cuenta, solo moverse de verdad.
+      if ((dir?.x ?? 0) !== 0 || (dir?.y ?? 0) !== 0) {
+        if (this.sentado.delete(client.sessionId)) {
+          const j = this.state.players.get(client.sessionId);
+          if (j) j.sentado = false;
+        }
+        if (this.sentadoSuelo.delete(client.sessionId)) {
+          const j = this.state.players.get(client.sessionId);
+          if (j) j.sentadoSuelo = false;
+        }
+      }
       // Moverse de verdad también corta la pesca (docs/GDD_Pesca.md) — no
       // tiene sentido seguir "anclado" con la caña lanzada si el jugador se va.
       if (((dir?.x ?? 0) !== 0 || (dir?.y ?? 0) !== 0) && this.pescaPorSesion.has(client.sessionId)) {
@@ -728,6 +745,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("higiene:lavar", (client, msg: { instanciaId?: number }) => this.manejarHigieneLavar(client, msg));
     this.onMessage("dormir:iniciar", (client, msg: { construccionId?: number }) => this.manejarDormirIniciar(client, msg));
     this.onMessage("dormir:completar", (client) => this.manejarDormirCompletar(client));
+    // Sentarse (pedido 2026-08-31) — mismo patrón que dormir, sin duración.
+    this.onMessage("sentar:iniciar", (client, msg: { construccionId?: number }) => this.manejarSentarIniciar(client, msg));
+    this.onMessage("sentar:suelo", (client) => this.manejarSentarSuelo(client));
 
     // Oficio de jugador — ronda 2 (docs/GDD_Profesiones.md): 2 slots, elegir
     // un vacío es gratis, cambiar uno ocupado cuesta Farycoins y reinicia la
@@ -883,6 +903,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Compañero trabajando en producción (docs/GDD_Produccion.md §3bis, pedido 2026-08-31).
     this.onMessage("companero:asignarTrabajo", (client, msg: { construccionId?: number }) => void this.manejarCompaneroAsignarTrabajo(client, msg));
     this.onMessage("companero:llamar", (client) => void this.manejarCompaneroLlamar(client));
+    this.onMessage("companero:fijarParticipaCombate", (client, msg: { activo?: boolean }) => this.manejarCompaneroFijarParticipaCombate(client, msg));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
@@ -2075,6 +2096,46 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
+   * Sentarse en un mueble real (pedido 2026-08-31: "click sobre el mueble,
+   * sentarte será una opción... para levantarte es usar WASD") — MISMO
+   * patrón que dormir (construcción real + `esSilla` + proximidad), pero
+   * sin duración/recompensa: dura hasta que `input` con movimiento real lo
+   * cancela (ver arriba).
+   */
+  private manejarSentarIniciar(client: Client, msg: { construccionId?: number }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    if (this.sentado.has(client.sessionId)) return client.send("sentar:error", { motivo: "ya estás sentado" });
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return client.send("sentar:error", { motivo: "construcción inexistente" });
+    if (!this.entradaDe(viva.objeto)?.esSilla) return client.send("sentar:error", { motivo: "ahí no te puedes sentar" });
+
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) {
+      return client.send("sentar:error", { motivo: "demasiado lejos del mueble" });
+    }
+    this.sentadoSuelo.delete(client.sessionId);
+    if (player.sentadoSuelo) player.sentadoSuelo = false;
+    this.sentado.add(client.sessionId);
+    player.sentado = true;
+    client.send("sentar:iniciado", {});
+  }
+
+  /** Sentarse en el suelo, sin mueble (pedido 2026-08-31: "otra animación") — sin proximidad que comprobar, es donde ya está el jugador. */
+  private manejarSentarSuelo(client: Client) {
+    if (this.sentadoSuelo.has(client.sessionId)) return client.send("sentar:error", { motivo: "ya estás sentado" });
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    this.sentado.delete(client.sessionId);
+    if (player.sentado) player.sentado = false;
+    this.sentadoSuelo.add(client.sessionId);
+    player.sentadoSuelo = true;
+    client.send("sentar:iniciado", {});
+  }
+
+  /**
    * Construcción/parcelas/jarl (docs/GDD_Construccion.md §4-§5) — antes solo
    * vivía en HubRoom; generalizado para construcción-en-regiones (docs/
    * GDD_Ciudad_Capital.md §3bis): la ciudad capital es una RegionRoom
@@ -2870,6 +2931,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private companeroSchemaDe(sessionId: string): CompaneroSchema | undefined {
     const companeroId = this.companeroPorSesion.get(sessionId);
     return companeroId != null ? this.state.companeros.get(String(companeroId)) : undefined;
+  }
+
+  /** Pedido 2026-08-31: "la gente que apoya debe poder decidir si se une o no" — toggle del dueño, sin más validación que tener compañero. */
+  private manejarCompaneroFijarParticipaCombate(client: Client, msg: { activo?: boolean }) {
+    const esquema = this.companeroSchemaDe(client.sessionId);
+    if (!esquema || typeof msg?.activo !== "boolean") return;
+    esquema.participaEnCombate = msg.activo;
   }
 
   /**
@@ -7792,7 +7860,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // duenoSessionId). Se une automáticamente junto a él, mismo bando.
     const companeroId = this.companeroPorSesion.get(jugadorId);
     const companeroEsquema = companeroId != null ? this.state.companeros.get(String(companeroId)) : undefined;
-    if (companeroId != null && companeroEsquema) {
+    // Pedido 2026-08-31: "la gente que apoya debe poder decidir si se une o
+    // no, no autounirse" — el dueño puede desactivarlo (panelCompanero.ts),
+    // por defecto sigue uniéndose siempre (mismo comportamiento de antes).
+    if (companeroId != null && companeroEsquema && companeroEsquema.participaEnCombate) {
       const cuCompanero = this.crearUnidadCombate(String(companeroId), "A", companeroEsquema.x - combate.gx0, companeroEsquema.y - combate.gy0, {
         hp: companeroEsquema.vida, hpMax: companeroEsquema.vidaMax, ataque: companeroEsquema.ataque, defensa: companeroEsquema.defensa, esJugador: false,
       });

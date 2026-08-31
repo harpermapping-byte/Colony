@@ -162,6 +162,14 @@ export class Player extends Schema {
   // acerque a mitad de canción) muestre la pose "tocando" sin depender del
   // broadcast puntual de "instrumento:tocando" (ese solo dispara el audio).
   @type("boolean") tocandoInstrumento = false;
+  // Sentarse (pedido 2026-08-31, "click sobre el mueble... sentarte, para
+  // levantarte es usar WASD") — mismo criterio que `durmiendo`: replicado
+  // solo para la pose, la lógica real (Set de sessionIds) vive en
+  // `RoomExteriorBase.sentado`. `sentadoSuelo` es una pose DISTINTA (pedido
+  // explícito: "también puedes sentarte en el suelo, otra animación") sin
+  // mueble real detrás, solo la posición donde ya estaba el jugador.
+  @type("boolean") sentado = false;
+  @type("boolean") sentadoSuelo = false;
   // Debug godMode (admin:debug:godMode, Test Zone, pedido 2026-08-31):
   // jarl/superadmin-only, self-target — con esto activo el jugador no
   // pierde vida (daño ambiental/combate) ni comida/hidratación (ver el
@@ -356,6 +364,8 @@ export class CompaneroSchema extends Schema {
   @type(InventarioSchema) inventario = new InventarioSchema();
   /** Burbuja de queja por hambre (docs/GDD_Companeros.md) — "" = nada que decir; mismo mecanismo de burbuja periódica que la tos del catarro (docs/GDD_Enfermedades.md). */
   @type("string") quejaTexto = "";
+  /** Pedido 2026-08-31: "la gente que apoya debe poder decidir si se une o no, no autounirse" — antes el compañero se metía SIEMPRE en el combate de su dueño sin preguntar (manejarCombateUnirse); true = comportamiento de siempre (default, nada cambia si no lo tocas), false = se queda fuera. Lo decide el dueño desde panelCompanero.ts. */
+  @type("boolean") participaEnCombate = true;
 }
 
 // Barco (docs/GDD_Barcos.md, pedido 2026-08-30): a diferencia de una
