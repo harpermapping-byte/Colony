@@ -9,8 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tonejs/midi": "^2.0.28",
     "colyseus.js": "^0.16.22",
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "tone": "^15.1.22"
   },
   "devDependencies": {
     "@types/three": "^0.185.4",

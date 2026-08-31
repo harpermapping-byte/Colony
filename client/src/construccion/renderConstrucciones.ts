@@ -83,6 +83,23 @@ export class RenderConstrucciones {
     return this.piezas.size;
   }
 
+  /** Todas las mallas de construcciones vivas — para raycasting de clic sobre objeto (menuInteraccion.ts, docs/GDD_Instrumentos.md). */
+  mallas(): THREE.Object3D[] {
+    return [...this.piezas.values()].map((p) => p.malla);
+  }
+
+  /** Datos de catálogo/red de la construcción dueña de esta malla (o de un hijo suyo), o null si no es ninguna de las nuestras — mismo `userData.construccionId` marcado en crearMalla. */
+  datosDeMalla(objeto: THREE.Object3D | null): ConstruccionRed | null {
+    let o: THREE.Object3D | null = objeto;
+    while (o) {
+      if (typeof o.userData.construccionId === "number") {
+        return this.piezas.get(o.userData.construccionId)?.datos ?? null;
+      }
+      o = o.parent;
+    }
+    return null;
+  }
+
   /** Agricultura (docs/GDD_Agricultura.md): tiñe la tapa de un bancal/maceta según agua/fertilizante 0-100 — oscuro = buen suelo, marrón clarito = seco/pobre. No-op si la pieza no existe (ya se quitó, o el jugador está en otro mapa). */
   tintarSuelo(construccionId: number, agua: number, fertilizante: number): void {
     const pieza = this.piezas.get(construccionId);
@@ -152,6 +169,7 @@ export class RenderConstrucciones {
     malla.position.set(c.x + w / 2, altura / 2, c.y + h / 2);
     malla.castShadow = true;
     malla.receiveShadow = true;
+    malla.userData.construccionId = c.id; // para el raycasting de clic (menuInteraccion.ts)
     return malla;
   }
 }

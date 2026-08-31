@@ -2003,5 +2003,41 @@
     "resultado": { "itemId": "pantalon_guardia", "cantidad": 1 },
     "tiempoBaseSeg": 16,
     "_nota": "docs/GDD_Profesiones.md — ropa civil craftable (curtidor, absorbió sastre), séptima pasada 2026-08-30."
+  },
+  "tambor_guerra_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "tambor_guerra", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Instrumentos.md (2026-08-31) — 1 de 4 instrumentos musicales interactivos. \"tina_curtido\" es la Mesa Nivel 2 del curtidor (NIVEL_MESA en oficios.ts: tier 2 = nivelOficioMinimo.nivel 4), gating explícito pedido por el streamer."
+  },
+  "laud_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }, { "itemId": "tripas", "cantidad": 1 }],
+    "resultado": { "itemId": "laud", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Instrumentos.md (2026-08-31) — 2 de 4 instrumentos musicales interactivos. \"banco_carpintero\" es la Mesa Nivel 2 del carpintero. Cuerdas de tripa (curado real de la época, no hay \"cuerda\" genérica en el catálogo)."
+  },
+  "flauta_dulce_craft": {
+    "oficio": "curandero",
+    "mesas": ["mesa_diagnostico"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 2 }],
+    "resultado": { "itemId": "flauta_dulce", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Instrumentos.md (2026-08-31) — 3 de 4 instrumentos musicales interactivos. El streamer pidió \"Tallador de Madera / Botánico\", oficio que no existe en OFICIOS_JUGADOR_VALIDOS (oficios.ts); curandero (trabaja con hierbas/madera en mesa_diagnostico) es el más cercano de los 10 oficios reales — carpintero ya está usado en el laúd."
+  },
+  "campana_bronce_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "bronce", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "campana_bronce", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Instrumentos.md (2026-08-31) — 4 de 4 instrumentos musicales interactivos. \"yunque_cuerno\" es la Mesa Nivel 2 del herrero."
   }
 }

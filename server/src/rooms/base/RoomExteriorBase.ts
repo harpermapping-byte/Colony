@@ -601,6 +601,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         this.detenerPesca(client.sessionId);
         client.send("pesca:cancelada", {});
       }
+      // Instrumentos musicales (docs/GDD_Instrumentos.md, pedido 2026-08-31,
+      // spec literal: "el sonido/animación se detiene si el jugador se
+      // mueve") — server-autoritativo, mismo criterio que dormir/pesca de
+      // arriba: no depende de que el cliente mande instrumento:parar por su
+      // cuenta (soltar teclas, x=0 y=0, NO cuenta como moverse de verdad).
+      if ((dir?.x ?? 0) !== 0 || (dir?.y ?? 0) !== 0) {
+        const tocador = this.state.players.get(client.sessionId);
+        if (tocador?.tocandoInstrumento) {
+          tocador.tocandoInstrumento = false;
+          this.broadcast("instrumento:parado", { sessionId: client.sessionId });
+        }
+      }
       this.inputs.set(client.sessionId, {
         x: clamp(dir?.x ?? 0, -1, 1),
         y: clamp(dir?.y ?? 0, -1, 1),
@@ -791,6 +803,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("cocina:anadir", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarCocinaAnadir(client, msg));
     this.onMessage("cocina:preparar", (client, msg: { construccionId?: number }) => this.manejarCocinaPreparar(client, msg));
     this.onMessage("cocina:consultar", (client, msg: { construccionId?: number }) => this.manejarCocinaConsultar(client, msg));
+    // Instrumentos musicales (docs/GDD_Instrumentos.md, pedido 2026-08-31):
+    // el cliente ya sabe qué instrumento clicó (menuInteraccion.ts) y trae
+    // su propia URL de .mid pegada por el jugador — el servidor solo valida
+    // proximidad+catálogo y retransmite a la room (misma sala = "cercanos",
+    // Colyseus ya la tiene delimitada por área).
+    this.onMessage("instrumento:tocar", (client, msg: { construccionId?: number; midiUrl?: string }) => this.manejarInstrumentoTocar(client, msg));
+    this.onMessage("instrumento:parar", (client) => this.manejarInstrumentoParar(client));
     // Cocina v2: combinaciones abiertas SIN vasija persistida (instantáneas,
     // mismo motor de identidad/caché que un plato de vasija) + cortar pan.
     this.onMessage("cocina:ensalada", (client, msg: { construccionId?: number; ingredientes?: { instanciaId: number; cantidad?: number }[] }) => void this.manejarCocinaEnsalada(client, msg));
@@ -1091,6 +1110,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const comercioAbierto = this.comerciosPorSesion.get(client.sessionId);
     if (comercioAbierto) this.cerrarComercio(comercioAbierto, "cancelado");
     this.detenerPesca(client.sessionId);
+    // Instrumentos musicales: desconectarse a medias también corta la
+    // música para el resto (su Player desaparece del estado igualmente,
+    // pero el audio local de cada cliente vive fuera del Schema — sin este
+    // aviso seguiría sonando hasta que el MIDI llegase solo a su fin).
+    if (this.state.players.get(client.sessionId)?.tocandoInstrumento) {
+      this.broadcast("instrumento:parado", { sessionId: client.sessionId });
+    }
 
     // Mascotas: desaparecen de ESTA room (no se persiste x/y, ver Mascota en
     // HubState.ts) — su fila en BD sigue "siguiendo", vuelven a aparecer en
@@ -5138,6 +5164,51 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     viva.extra = { ...(viva.extra ?? {}), cocina: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
     client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: resultado.platos, mezclaBonus: resultado.mezclaBonus, enSuelo: !entrega.enInventario });
+  }
+
+  /**
+   * Instrumentos musicales (docs/GDD_Instrumentos.md, pedido 2026-08-31): el
+   * cliente ya clicó exactamente el objeto (menuInteraccion.ts) así que
+   * aquí solo se REVALIDA lo que un cliente hostil podría falsear —
+   * construcción real, catálogo con `instrumento`, y distancia — nunca se
+   * hace auto-apuntado por proximidad como cocina/cultivo. La URL del MIDI
+   * la pone el jugador (spec del streamer: "el usuario se encarga de
+   * convertirlo"), el servidor no la valida más allá de forma/tamaño — el
+   * cliente que la reciba decide si sabe descargarla o no.
+   */
+  private manejarInstrumentoTocar(client: Client, msg: { construccionId?: number; midiUrl?: string }) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || typeof msg?.construccionId !== "number") return;
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorInstrumento(client, "ese instrumento ya no está ahí");
+    const entrada = this.entradaDe(viva.objeto);
+    if (!entrada?.instrumento) return this.errorInstrumento(client, "eso no es un instrumento");
+    if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) {
+      return this.errorInstrumento(client, "demasiado lejos del instrumento");
+    }
+    const midiUrl = typeof msg.midiUrl === "string" ? msg.midiUrl.trim() : "";
+    if (!midiUrl || midiUrl.length > 2000) return this.errorInstrumento(client, "pega una URL de .mid válida");
+    player.tocandoInstrumento = true;
+    this.broadcast("instrumento:tocando", {
+      sessionId: client.sessionId,
+      tipo: entrada.instrumento,
+      midiUrl,
+      construccionId: viva.id,
+    });
+  }
+
+  /** Parada explícita del propio jugador (fin del MIDI en su cliente, o botón/cierre del modal) — el movimiento real ya la corta sola en el handler de "input". */
+  private manejarInstrumentoParar(client: Client) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || !player.tocandoInstrumento) return;
+    player.tocandoInstrumento = false;
+    this.broadcast("instrumento:parado", { sessionId: client.sessionId });
+  }
+
+  private errorInstrumento(client: Client, motivo: string) {
+    client.send("instrumento:error", { motivo });
   }
 
   /** Contenido actual de la vasija — sin mutar nada, solo consulta (mismo criterio que motriz:consultar/cultivo:consultar). */

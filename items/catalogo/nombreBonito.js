@@ -73,7 +73,7 @@ const EXCEPCIONES_PALABRA = {
   arana: "araña", aranas: "arañas", cana: "caña", castano: "castaño",
   pequena: "pequeña", pequeno: "pequeño", senales: "señales", rinonera: "riñonera",
   banos: "baños", ordeno: "ordeño", disenio: "diseño", montanas: "montañas",
-  raiz: "raíz", baul: "baúl", oido: "oído",
+  raiz: "raíz", baul: "baúl", oido: "oído", laud: "laúd",
   jergon: "jergón", salon: "salón", eslabon: "eslabón",
   cirugia: "cirugía", agricola: "agrícola", organo: "órgano", serpentin: "serpentín",
   cirio: "cirio", canteria: "cantería", cesteria: "cestería",
@@ -167,7 +167,7 @@ const ADJETIVOS = new Set([
   "secundario", "secundaria", "termal", "separadora", "separador", "fuerte",
   "motriz", "heraldico", "maritimas", "metrico", "navales", "alquimico",
   "ajustable", "ajustables", "fijo", "fija", "fijos", "fijas",
-  "agropecuario", "agropecuaria",
+  "agropecuario", "agropecuaria", "dulce", "dulces",
 ]);
 
 // Sustantivos que terminan en -ado/-ada por casualidad (NO son participio-

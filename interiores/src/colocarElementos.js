@@ -831,7 +831,17 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         // resto del catálogo. Si la sala no tiene tema asignado, las
         // piezas con `temasProfesion` simplemente no salen (evita mezclar
         // fragua+telar+alambique en un taller sin oficio identificado).
-        .filter((el) => !el.temasProfesion || (temaProfesion && el.temasProfesion.includes(temaProfesion)));
+        .filter((el) => !el.temasProfesion || (temaProfesion && el.temasProfesion.includes(temaProfesion)))
+        // `requiereItemColocar`: la pieza solo debe existir si un jugador la
+        // crafteó y la plantó a mano (docs/GDD_Profesiones.md "Objetos
+        // Decorativos Exclusivos", docs/GDD_Instrumentos.md) — nunca puesta
+        // por el bake. Bug real descubierto al añadir los instrumentos
+        // musicales (docs/GDD_Instrumentos.md, "no saldrá en spawns"): este
+        // filtro no existía, así que las ~60 piezas con requiereItemColocar
+        // ya en el catálogo (perchas, trofeos, mesa_comedor_roble...)
+        // llevaban tiempo pudiendo salir gratis del bake sin haberse
+        // crafteado nunca.
+        .filter((el) => !el.requiereItemColocar);
 
       // Las piezas que van pegadas a un muro (WALL_BACK/CORNER) se colocan
       // justo después de las obligatorias y ANTES que cualquier decoración
