@@ -49,8 +49,13 @@ export class DungeonRoom extends InteriorRoom {
     await this.poblarEnemigos(options);
   }
 
+  /** Misma clave que usa `mazmorras_estado` (cooldown de limpieza, §4.2/§7 del GDD) — un único sitio para no arriesgar que las dos fórmulas se desincronicen. */
+  private claveMazmorra(): string {
+    return `${this.opciones.mapaId}:${this.opciones.edificio}:${this.interior.nivel}`;
+  }
+
   private async poblarEnemigos(options: OpcionesInterior) {
-    const clave = `${options.mapaId}:${options.edificio}:${this.interior.nivel}`;
+    const clave = this.claveMazmorra();
     const limpiadaEn = await this.bd.obtenerLimpiezaMazmorra(clave);
     if (limpiadaEn && Date.now() - new Date(limpiadaEn).getTime() < COOLDOWN_MS) {
       console.log(`  Mazmorra "${clave}" en cooldown tras limpiarla — sin enemigos esta visita.`);
@@ -89,8 +94,13 @@ export class DungeonRoom extends InteriorRoom {
    */
   protected async finalizarMuerte(id: string, jugadoresGanadores: string[] = []) {
     const enemigo = this.state.enemigos.get(id);
+    const eraEnemigo = !!enemigo; // capturar ANTES de que super.finalizarMuerte borre la entidad del Schema
     const esJefeHumanoide = !!enemigo?.esBoss && esEnemigoHumanoide(enemigo.enemigoId);
-    if (!esJefeHumanoide) return super.finalizarMuerte(id, jugadoresGanadores);
+    if (!esJefeHumanoide) {
+      await super.finalizarMuerte(id, jugadoresGanadores);
+      if (eraEnemigo) await this.comprobarMazmorraLimpiada();
+      return;
+    }
 
     // Leer posición/id ANTES de super.finalizarMuerte(id) — borra la entidad del Schema (state.enemigos.delete).
     const x = enemigo!.x;
@@ -98,6 +108,7 @@ export class DungeonRoom extends InteriorRoom {
     const enemigoId = enemigo!.enemigoId;
     const variante = enemigo!.variante;
     await super.finalizarMuerte(id, jugadoresGanadores);
+    await this.comprobarMazmorraLimpiada();
 
     const cadaver = crearCadaver({
       id: `cadaver:${this.opciones.mapaId}:${this.opciones.edificio}:${id}`,
@@ -113,6 +124,22 @@ export class DungeonRoom extends InteriorRoom {
     });
     for (const { itemId, cantidad } of generarLootBoss()) agregarItem(cadaver.contenedor, this.catalogoItems, itemId, cantidad);
     this.publicarCadaver(cadaver);
+  }
+
+  /**
+   * Trigger real de "mazmorra limpiada" (docs/GDD_Combate.md, docs/GDD_Bakeador_Dungeons.md
+   * §4.2/§7, pedido 2026-09-01) — se llama tras CADA muerte de `Enemigo` de
+   * esta mazmorra (nunca de jugador/fauna/npc, ver `eraEnemigo` arriba). Si
+   * `state.enemigos` se queda vacío, arranca el cooldown de 1h que
+   * `poblarEnemigos` ya comprobaba desde el principio (antes de esta
+   * pasada, nada lo activaba nunca de verdad). Idempotente: si dos muertes
+   * llegasen a resolverse "a la vez" (no debería, `finalizarMuerte` es
+   * secuencial), `marcarMazmorraLimpiada` hace UPDATE-o-INSERT, nunca
+   * duplica fila.
+   */
+  private async comprobarMazmorraLimpiada(): Promise<void> {
+    if (this.state.enemigos.size > 0) return;
+    await this.bd.marcarMazmorraLimpiada(this.claveMazmorra());
   }
 }
 

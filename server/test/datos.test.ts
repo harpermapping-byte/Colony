@@ -61,6 +61,26 @@ test("actualizarVitalesJugador: persiste y se lee de vuelta con obtenerOCrearJug
   await bd.cerrar();
 });
 
+test("mazmorras_estado (docs/GDD_Bakeador_Dungeons.md §4.3, docs/GDD_Combate.md §3): una clave nunca limpiada da null, marcarMazmorraLimpiada persiste un timestamp real y es upsert (nunca duplica fila)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const clave = "demo:cueva_goblins:0";
+  assert.strictEqual(await bd.obtenerLimpiezaMazmorra(clave), null);
+
+  await bd.marcarMazmorraLimpiada(clave);
+  const primero = await bd.obtenerLimpiezaMazmorra(clave);
+  assert.ok(primero && !Number.isNaN(Date.parse(primero)), `esperaba timestamp ISO, dio ${primero}`);
+
+  // Limpiarla de nuevo (segunda visita, otro cooldown) actualiza la MISMA fila.
+  await new Promise((r) => setTimeout(r, 5));
+  await bd.marcarMazmorraLimpiada(clave);
+  const segundo = await bd.obtenerLimpiezaMazmorra(clave);
+  assert.ok(segundo! > primero!, "la segunda limpieza debe avanzar el timestamp");
+
+  // Otra clave (otro mapaId/edificio/nivel) es independiente.
+  assert.strictEqual(await bd.obtenerLimpiezaMazmorra("demo:cueva_goblins:1"), null);
+  await bd.cerrar();
+});
+
 test("asignar/revocar propiedad: dueño por nombre, revocar deja la fila con dueno=null", async () => {
   const bd = new AlmacenDatos(":memory:");
   // Asignar crea al jugador si no existe (mismo camino que "parcela:asignar")
