@@ -1,7 +1,7 @@
 import { Client, getStateCallbacks } from "colyseus.js";
 import { SERVER_URL } from "./config";
 import { WorldScene } from "./render3d/worldScene";
-import { crearRigHumanoide, type RigHumanoide } from "./render3d/rigHumanoide";
+import { crearRigHumanoide, inclinarCaido, type RigHumanoide } from "./render3d/rigHumanoide";
 import { cargarIndice, cargarSector } from "./mapa/cargarMapa";
 import { StreamingSectores } from "./mapa/streamingSectores";
 import { crearSectorVisual, soltarSectorVisual, type HandleSector } from "./render3d/sectorVisual";
@@ -22,7 +22,7 @@ import { PanelCarpinteroLegendario, type DisenoCarpintero } from "./construccion
 import { PanelIngenieroLegendario, type ProyectoIngeniero } from "./construccion/panelIngenieroLegendario";
 import { reproducirMidi, detenerReproduccion, type TipoInstrumento } from "./audio/instrumentos";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
-import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2 } from "three";
+import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2, Object3D } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
 import { PanelForja } from "./construccion/panelForja";
@@ -54,6 +54,11 @@ import { posicionSilla as posicionSillaMesaJuego, type Silla as SillaMesaJuego }
 // `colorDebug` por facción/clase (pendiente, ver docs/GDD_Motor_3D_Props.md).
 const COLOR_JUGADOR_LOCAL = "#f6ad55";
 const COLOR_JUGADOR_REMOTO = "#4fd1c5";
+// Cadáveres (pedido 2026-09-01): color de "túnica" del rig cuando el
+// cadáver no trae equipo que lo cubra (jugador desnudo, o NPC sin ficha
+// de poblacion/ ni equipo puesto) — neutro, ni el color de jugador local
+// ni el remoto, para no confundir un cadáver con alguien vivo.
+const COLOR_CADAVER_SIN_EQUIPO = "#6b5744";
 
 // Sistema de puertas (docs/GDD_Sistema_Puertas.md): qué sala Colyseus tocar
 // y qué mapa cargar viene de la URL — un cambio de sala/instancia es una
@@ -451,6 +456,25 @@ export async function iniciarJuego(contenedor: HTMLElement) {
             ? await client.joinOrCreate("hub_mapa", { name: nombreJugador, mapaId: MAPA_ID, twitchSession, adminSession })
             : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession, adminSession });
   const $ = getStateCallbacks(room);
+
+  // Sonda mínima SOLO-PARA-TESTS, disponible en CUALQUIER sala (a
+  // diferencia de `window.__test` de abajo, que solo existe dentro del
+  // `if (SALA === "hub")` — región/interior/mazmorra/arena no lo tienen
+  // hoy). `admin:debug:*` (Test Zone) necesita poder mandarse desde
+  // cualquier sala para verificar en vivo cosas que solo pasan fuera del
+  // Hub (p.ej. cadáveres de enemigos de mazmorra, pedido 2026-09-01) — si
+  // más adelante `window.__test` se generaliza a todas las salas, esto
+  // puede fundirse con aquel.
+  if (!(window as any).__test) {
+    const ultimosMin = new Map<string, unknown>();
+    room.onMessage("admin:debug:ok", (m: unknown) => ultimosMin.set("admin:debug:ok", m));
+    room.onMessage("admin:error", (m: unknown) => ultimosMin.set("admin:error", m));
+    (window as any).__test = {
+      enviar: (tipo: string, msg?: unknown) => room.send(tipo, msg),
+      sessionId: () => room.sessionId,
+      ultimoMensaje: (tipo: string) => ultimosMin.get(tipo) ?? null,
+    };
+  }
 
   // Puertas: tecla de interacción (F) — pisar cerca de una y pulsar F pide
   // al servidor cruzarla; la respuesta decide la siguiente URL (recarga).
@@ -1072,6 +1096,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // "crafteo:herreria:cancelar".
       "crafteo:herreria:iniciado", "crafteo:herreria:progreso", "crafteo:herreria:completado", "crafteo:herreria:cancelado",
       "oficio:elegido", "oficio:error",
+      "admin:debug:ok", "admin:error",
     ]) {
       room.onMessage(tipo, (m: unknown) => ultimosMensajes.set(tipo, m));
     }
@@ -1530,6 +1555,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     faunaVisual.delete(id);
     escena.quitarEntidad(`fauna_${id}`);
   });
+  // sonda de test (pedido 2026-09-01, verificación de cadáveres):
+  // admin:debug:matar necesita el id real del Schema, sin targeting por clic.
+  (window as any).__fauna = () => [...room.state.fauna.entries()].map(([id, a]: [string, any]) => ({ id, especieId: a.especieId }));
 
   // Mascotas (docs/GDD_Mascotas.md) — mismo circuito visual que fauna
   // doméstica (sin vox propio por id: nace de un spawn de fauna.json que ya
@@ -1627,6 +1655,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   (window as any).__enemigos = () => ({
     total: enemigosVisual.size,
     bosses: [...room.state.enemigos.values()].filter((e: any) => e.esBoss).length,
+    // lista con ids reales (sonda de test — pedido 2026-09-01, verificación
+    // de cadáveres): admin:debug:matar necesita el id real del Schema, no
+    // hay targeting por clic todavía.
+    lista: [...room.state.enemigos.entries()].map(([id, e]: [string, any]) => ({ id, enemigoId: e.enemigoId, esBoss: e.esBoss })),
   });
 
   // --- Combate táctico (docs/GDD_Combate.md, ✅ confirmado 2026-08-30) ---
@@ -1963,11 +1995,86 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // recolectar, como crafteo) — más rápido/rinde más si `construccionId`
   // apunta a una mesa_despiece/mesa_corte propia cercana (sin UI de
   // targeting todavía, se manda sin construccionId = "en el sitio").
+  // Aspecto real de los cadáveres (docs/GDD_Muerte_Respawn.md, pedido
+  // 2026-09-01: "el cadáver debe ser el mismo modelo... en pose tumbada")
+  // — MISMO rig+equipo que el personaje/animal tenía en vida, reusando tal
+  // cual los pipelines ya existentes (crearRigHumanoide/crearPersonajeVoxel/
+  // crearAnimalVoxel/aplicarEquipoAlRig), solo con la pose "caído" en vez
+  // de la de pie. `datosVisual` (JSON de `DatosVisualCadaver`, servidor
+  // `mundo/cadaveres.ts`) trae lo mínimo para reconstruirlo — ver ese
+  // comentario para las limitaciones honestas por tipoOrigen. Estático de
+  // por vida: un cadáver no se mueve ni se anima, así que la pose se
+  // aplica UNA vez aquí y nunca entra en el bucle de interpolación.
   $(room.state).cadaveres.onAdd((cadaver: any, id: string) => {
-    const caja = crearPlaceholder("#5a3a2a", 1.1, 0.3, 0.6);
-    escena.añadirEntidad(`cadaver_${id}`, caja, cadaver.x, cadaver.y, `💀 ${cadaver.especieOrigenId}`);
+    let datos: Record<string, any> = {};
+    try {
+      datos = cadaver.datosVisual ? JSON.parse(cadaver.datosVisual) : {};
+    } catch {
+      datos = {}; // datosVisual corrupto/a medias de sincronizar — cae al fallback más simple de cada rama
+    }
+    let objeto: Object3D;
+    const etiqueta = `💀 ${cadaver.especieOrigenId}`;
+
+    if (cadaver.tipoOrigen === "jugador") {
+      const rig = crearRigHumanoide({ colorTunica: COLOR_CADAVER_SIN_EQUIPO });
+      rig.objeto.rotation.order = "YXZ";
+      if (datos.equipo && Object.keys(datos.equipo).length > 0) {
+        const blueprints: Record<string, BlueprintRopaResuelto> = {};
+        for (const [slot, bpId] of Object.entries(datos.equipoBlueprintRopa || {})) {
+          const bp = room.state.blueprintsRopa.get(String(bpId));
+          if (!bp) continue;
+          try {
+            blueprints[slot] = {
+              prendaBaseId: bp.prendaBaseId, materialId: bp.materialId,
+              detalle: JSON.parse(bp.detalleJson), tintes: JSON.parse(bp.tintesJson),
+            };
+          } catch { /* blueprint corrupto — ese slot cae al catálogo estático */ }
+        }
+        aplicarEquipoAlRig(rig.objeto, datos.equipo, id, blueprints);
+      }
+      rig.actualizar(0, 0, false, false, false, false, true);
+      objeto = rig.objeto;
+    } else if (cadaver.tipoOrigen === "npc") {
+      // 3 orígenes posibles hoy, de más a menos fiel (ver DatosVisualNpc):
+      // jefe/tropa de mazmorra o guarnición → mismo pool que en vivo;
+      // civil de poblacion/ (nadie los mata todavía, pero el camino ya
+      // funciona si algún día ocurre) → su ficha bakeada real; cualquier
+      // otro → rig plano + equipo si llevaba (mismo fallback que en vivo).
+      const variantesPool = datos.enemigoId ? poolEnemigos[datos.enemigoId] : undefined;
+      const figuraPool = variantesPool?.[datos.variante ?? 0];
+      const voxPoblacion = datos.slotId ? voxPorSlot.get(datos.slotId) : undefined;
+      if (figuraPool) {
+        if (figuraPool.tipoRig === "animal") {
+          const criatura = crearAnimalVoxel(figuraPool, { caido: true, id });
+          objeto = criatura.objeto;
+        } else {
+          const rig = crearPersonajeVoxel(figuraPool);
+          rig.objeto.rotation.order = "YXZ";
+          rig.actualizar(0, 0, false, false, false, false, true);
+          objeto = rig.objeto;
+        }
+      } else {
+        const rig = voxPoblacion ? crearPersonajeVoxel(voxPoblacion) : crearRigHumanoide({ colorTunica: COLOR_CADAVER_SIN_EQUIPO });
+        rig.objeto.rotation.order = "YXZ";
+        if (datos.equipo && Object.keys(datos.equipo).length > 0) aplicarEquipoAlRig(rig.objeto, datos.equipo, id);
+        rig.actualizar(0, 0, false, false, false, false, true);
+        objeto = rig.objeto;
+      }
+    } else {
+      // animal (fauna salvaje, único origen que muere hoy): ya se renderiza
+      // en vivo con una caja-placeholder por especie sin vóxel individual
+      // (animalPlaceholder — ver su comentario), así que la especie sola
+      // ya reconstruye el mismo aspecto exacto que tenía viva.
+      const criatura = crearAnimalVoxel(animalPlaceholder(cadaver.especieOrigenId), { caido: true, id });
+      objeto = criatura.objeto;
+    }
+
+    if (cadaver.tipoOrigen !== "animal") inclinarCaido(objeto, id);
+    escena.añadirEntidad(`cadaver_${id}`, objeto, cadaver.x, cadaver.y, etiqueta);
   });
   $(room.state).cadaveres.onRemove((_cadaver: any, id: string) => escena.quitarEntidad(`cadaver_${id}`));
+  // sonda de test (pedido 2026-09-01, verificación visual de cadáveres).
+  (window as any).__cadaveres = () => [...room.state.cadaveres.entries()].map(([id, c]: [string, any]) => ({ id, tipoOrigen: c.tipoOrigen, especieOrigenId: c.especieOrigenId, datosVisual: c.datosVisual, x: c.x, y: c.y }));
   // true entre "procesarIniciado" y "procesado"/error — mismo criterio que
   // "sin cola" del resto del crafteo: como mucho un procesado a la vez, K/O
   // recolectan en vez de arrancar otro mientras esté en curso.

@@ -477,6 +477,11 @@ export class RegionRoom extends RoomExteriorBase {
     // entidad del Schema (state.npcs.delete), después ya no existe.
     const x = npc?.x ?? 0;
     const y = npc?.y ?? 0;
+    // Equipo puesto (si lo llevaba, mismo `npc.equipo` que ya se pinta en
+    // vivo — ver game.ts `aplicarEquipoAlRig(rig.objeto, npc.equipo, ...)`),
+    // leído ANTES de borrar la entidad por la misma razón que x/y.
+    const equipoVisual: Record<string, string> = {};
+    if (npc) for (const [slot, itemId] of npc.equipo.entries()) equipoVisual[slot] = itemId;
     await super.finalizarMuerte(id, jugadoresGanadores);
     this.patrullaTropaDeEnemigo.delete(id);
     this.gestorAgentes?.quitarAgente(id); // sin esto GestorAgentes seguiría moviendo una entidad ya borrada del Schema
@@ -505,6 +510,7 @@ export class RegionRoom extends RoomExteriorBase {
       especieOrigenId: tropaId,
       x, y,
       ahora: diaFraccional(tiempoMundo().dia, tiempoMundo().hora),
+      datosVisual: { equipo: equipoVisual },
     });
     for (const { itemId, cantidad } of LOOT_POR_RANGO.recluta) agregarItem(cadaver.contenedor, this.catalogoItems, itemId, cantidad);
     this.publicarCadaver(cadaver);

@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
 import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema, BlueprintRopaSchema } from "../schema/HubState";
-import { Cadaver, cadaverDesaparecio, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER } from "../../mundo/cadaveres";
+import { Cadaver, cadaverDesaparecio, crearCadaver, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER, DatosVisualJugador } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { rellenarLootCaza, datosDeCadaver, sacrificarAnimalGranja } from "../../mundo/lootCaza";
 import { EstadoDespiece, VerboDespiece, iniciarDespiece, despiezeListo, recolectarDespiece } from "../../mundo/despiece";
@@ -1170,6 +1170,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("admin:debug:maxOficio", (client, msg: { slot?: 1 | 2 }) => void this.manejarDebugMaxOficio(client, msg));
     this.onMessage("admin:debug:resetearNodo", (client, msg: { nodoId?: string }) => this.manejarDebugResetearNodo(client, msg));
     this.onMessage("admin:debug:teleport", (client, msg: { x?: number; y?: number }) => this.manejarDebugTeleport(client, msg));
+    // `admin:debug:matar` (pedido 2026-09-01, verificación de cadáveres):
+    // ver el comentario junto a `manejarDebugMatar` más abajo.
+    this.onMessage("admin:debug:matar", (client, msg: { tipo?: string; id?: string }) => void this.manejarDebugMatar(client, msg));
 
     // Cofres de mundo de la Test Zone (pedido 2026-08-31): SIN gate de
     // jarl — son cofres de pruebas para cualquiera, no herramienta admin.
@@ -2093,6 +2096,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     schema.y = cadaver.y;
     schema.tipoOrigen = cadaver.tipoOrigen;
     schema.especieOrigenId = cadaver.especieOrigenId;
+    schema.datosVisual = cadaver.datosVisual ?? "";
     sincronizarContenedor(schema.contenedor, cadaver.contenedor);
     this.state.cadaveres.set(cadaver.id, schema);
   }
@@ -3957,6 +3961,32 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
     this.persistirInventarioPorSesion(client);
     client.send("admin:debug:ok", { accion: "limpiarInventario" });
+  }
+
+  /**
+   * `admin:debug:matar {tipo, id}` (Test Zone, pedido 2026-09-01: verificar
+   * en vivo que jugador/npc/animal muertos salen con su cadáver real, sin
+   * tener que jugar un combate entero cada vez) — fuerza la muerte de
+   * cualquier combatiente yendo DIRECTO a `finalizarMuerte`/
+   * `manejarMuerteJugador`, el mismo camino final que ya usa el combate de
+   * verdad (cadáver incluido tal cual esté cableado para ese tipo/mapa) —
+   * no duplica ninguna lógica de muerte, solo se salta el combate previo.
+   * `tipo="jugador"` es siempre self-target (mismo criterio que el resto de
+   * comandos de esta sección); `npc`/`enemigo`/`fauna` requieren `id` real
+   * de `state.npcs`/`state.enemigos`/`state.fauna` de ESTA room.
+   */
+  private async manejarDebugMatar(client: Client, msg: { tipo?: string; id?: string }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
+    const tipo = msg?.tipo;
+    if (tipo === "jugador") {
+      await this.manejarMuerteJugador(client.sessionId);
+      return client.send("admin:debug:ok", { accion: "matar", tipo, id: client.sessionId });
+    }
+    if (!msg?.id) return client.send("admin:error", { motivo: "falta id" });
+    const existe = tipo === "npc" ? this.state.npcs.has(msg.id) : tipo === "enemigo" ? this.state.enemigos.has(msg.id) : tipo === "fauna" ? this.state.fauna.has(msg.id) : false;
+    if (!existe) return client.send("admin:error", { motivo: `${tipo} inválido o inexistente: ${msg.id}` });
+    await this.finalizarMuerte(msg.id);
+    client.send("admin:debug:ok", { accion: "matar", tipo, id: msg.id });
   }
 
   /** `admin:debug:godMode {activo}` — flag en Player.godMode; el tick de vitales/inanición/temperatura, el daño ambiental y `aplicarUnidadesASchema` (combate) lo respetan. */
@@ -8514,6 +8544,32 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
       contenedor.items = equipoLike.map((p) => p.instancia); // el cuerpo se queda solo con lo "equipado"
       sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    }
+
+    // Cadáver looteable (docs/GDD_Muerte_Respawn.md, pedido 2026-09-01):
+    // mismo mecanismo que animal/npc (Cadaver.tipoOrigen ya lo admitía,
+    // pero nadie lo creaba para jugadores). `datosVisual` congela lo que
+    // llevaba EQUIPADO (visualmente puesto, `inventario.equipo` — no la
+    // mochila de arriba, que es otra cosa) para que el cliente reconstruya
+    // el mismo aspecto en pose caída. Vacío tras un respawn en el sitio
+    // (godMode/pruebas): esta llamada sigue siendo correcta, solo que sale
+    // "desnudo" si de verdad no llevaba nada puesto.
+    if (this.mapaIdPropio) {
+      const equipoVisual: Record<string, string> = {};
+      for (const [slot, itemId] of player.inventario.equipo.entries()) equipoVisual[slot] = itemId;
+      const equipoBlueprintRopa: Record<string, number> = {};
+      for (const [slot, id] of player.inventario.equipoBlueprintRopa.entries()) equipoBlueprintRopa[slot] = id;
+      const datosVisual: DatosVisualJugador = { equipo: equipoVisual, equipoBlueprintRopa };
+      const cadaver = crearCadaver({
+        id: `cadaver:jugador:${sessionId}:${Date.now()}`,
+        mapaId: this.mapaIdPropio,
+        tipoOrigen: "jugador",
+        especieOrigenId: nombre || sessionId,
+        x: player.x, y: player.y,
+        ahora: diaFraccional(tiempoMundo().dia, tiempoMundo().hora),
+        datosVisual,
+      });
+      this.publicarCadaver(cadaver);
     }
 
     // Vida llena YA (antes de resolver el respawn, que awaitea BD): además

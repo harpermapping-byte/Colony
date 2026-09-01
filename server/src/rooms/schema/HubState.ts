@@ -497,6 +497,12 @@ export class CadaverSchema extends Schema {
   @type("string") tipoOrigen = ""; // "animal" | "npc" | "jugador"
   @type("string") especieOrigenId = "";
   @type(ContenedorSchema) contenedor = new ContenedorSchema();
+  // Identidad VISUAL (pedido 2026-09-01, GDD_Muerte_Respawn.md) — JSON de
+  // `DatosVisualCadaver` (server/src/mundo/cadaveres.ts), "" si no hace
+  // falta (fauna: `especieOrigenId` ya basta). El cliente la lee para
+  // montar el MISMO rig+equipo que tenía en vida, en pose caída, en vez
+  // de la caja genérica de antes.
+  @type("string") datosVisual = "";
 }
 
 // Animal de granja vivo (docs/GDD_Ganaderia.md, pedido 2026-08-30) — clave
