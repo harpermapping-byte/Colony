@@ -1667,7 +1667,7 @@
     "stackMax": 20,
     "variantes": 2,
     "colorDebug": "#e8d8a8",
-    "_nota": "Ganadería (docs/GDD_Ganaderia.md) — gallina/oca recogido a mano del nido (animal:recolectarProducto, sin herramienta ni oficio). Sin categoriaRecurso: recurso vivo, no lo coloca el bake.",
+    "_nota": "Ganadería (docs/GDD_Ganaderia.md §11.3/§12) — objeto FÍSICO que gallina/oca pone en el mundo (ObjetoMundoSchema, junto al ave; el nido solo sube la cantidad, 1-3 en vez de 1), recogido con \"coger\" por cualquiera (clic sobre el huevo o sobre el nido -> menú de interacción, sin herramienta ni oficio). Sin categoriaRecurso: recurso vivo, no lo coloca el bake.",
     "aportesCocina": { "vida": 2, "estamina": 3, "comida": 6 },
     "origenCocina": "animal"
   },

@@ -1,6 +1,6 @@
 import { Client, matchMaker } from "@colyseus/core";
 import * as path from "path";
-import { RoomExteriorBase, PA_MAX_COMBATE } from "./base/RoomExteriorBase";
+import { RoomExteriorBase } from "./base/RoomExteriorBase";
 import { cargarMapaColision } from "../mundo/mapaColision";
 import { TIPO } from "../mundo/colisiones";
 import { CombateSchema, CombateUnidad } from "./schema/CombateState";
@@ -88,7 +88,12 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       cu.bando = p.bando;
       cu.gx = gx; cu.gy = gy;
       cu.hp = p.hp; cu.hpMax = p.hpMax;
-      cu.pa = PA_MAX_COMBATE; cu.paMax = PA_MAX_COMBATE;
+      // docs/GDD_Combate.md §8 (bug corregido 2026-09-01): `p.paMax` ya viene
+      // calculado desde la room de origen (Destreza para jugador,
+      // PA_MAX_COMBATE_BOSS para enemigo esBoss) — antes se hardcodeaba
+      // PA_MAX_COMBATE aquí y esos dos casos nunca llegaban a aplicarse en
+      // el combate que de verdad se juega.
+      cu.pa = p.paMax; cu.paMax = p.paMax;
       cu.iniciativa = calcularIniciativa(10, Math.random);
       cu.estado = "activo";
       cu.ataqueFisico = p.ataqueFisico;

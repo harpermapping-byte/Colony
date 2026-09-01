@@ -39,6 +39,28 @@ test("actualizarVidaJugador: persiste y se lee de vuelta con obtenerOCrearJugado
   await bd.cerrar();
 });
 
+test("vitales (docs/GDD_Personaje.md §2): un jugador nuevo nace a 100/100/100/100", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Ragnar");
+  assert.strictEqual(j.comida, 100);
+  assert.strictEqual(j.bebida, 100);
+  assert.strictEqual(j.sueno, 100);
+  assert.strictEqual(j.estamina, 100);
+  await bd.cerrar();
+});
+
+test("actualizarVitalesJugador: persiste y se lee de vuelta con obtenerOCrearJugador (persistencia 2026-09-01)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Ragnar");
+  await bd.actualizarVitalesJugador(j.id, 30, 45, 60, 75);
+  const releido = await bd.obtenerOCrearJugador("Ragnar");
+  assert.strictEqual(releido.comida, 30);
+  assert.strictEqual(releido.bebida, 45);
+  assert.strictEqual(releido.sueno, 60);
+  assert.strictEqual(releido.estamina, 75);
+  await bd.cerrar();
+});
+
 test("asignar/revocar propiedad: dueño por nombre, revocar deja la fila con dueno=null", async () => {
   const bd = new AlmacenDatos(":memory:");
   // Asignar crea al jugador si no existe (mismo camino que "parcela:asignar")

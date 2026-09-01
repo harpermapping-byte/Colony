@@ -241,13 +241,21 @@ const PRODUCTOS_GRANJA: Partial<Record<CategoriaProductoGranja, { itemId: string
 };
 
 // --- Combate táctico (docs/GDD_Combate.md, ✅ confirmado 2026-08-30) ---
-// PA fijo para toda unidad — placeholder de balance (mismo criterio que el
-// resto de números de referencia del proyecto): el árbol de
-// habilidades/clases que lo variaría por unidad queda fuera de esta
-// pasada (GDD §6, "trabajo posterior, como las recetas de Crafteo"). Un
-// solo pool (§9.3) del que salen mover/atacar/objeto/magia — sustituye al
-// AP+MP separado de la primera pasada.
+// PA base para fauna/NPC/enemigo normal — placeholder de balance (mismo
+// criterio que el resto de números de referencia del proyecto). Un solo
+// pool (§9.3) del que salen mover/atacar/objeto/magia — sustituye al
+// AP+MP separado de la primera pasada. El JUGADOR no usa este valor fijo:
+// varía con Destreza vía `paMaxPorDestreza` (docs/GDD_Personaje.md §3.3).
 export const PA_MAX_COMBATE = 6;
+/**
+ * PA de un enemigo `esBoss:true` (docs/GDD_Combate.md §8, pedido
+ * 2026-09-01: "bosses tendrán más PA en torno a 10") — mismo mecanismo que
+ * ya diferencia vida/ataque/defensa de boss en DungeonRoom.ts
+ * (`VIDA_ENEMIGO_BOSS` etc.), aplicado aquí a PA. Solo aplica a
+ * `tipoCombatiente==="enemigo"` con `esBoss:true` (mazmorras y líderes de
+ * patrulla bandida) — fauna/NPC normales siguen en PA_MAX_COMBATE fijo.
+ */
+export const PA_MAX_COMBATE_BOSS = 10;
 /** Coste fijo de un golpe con lo que se lleve equipado — placeholder, a afinar cuando exista árbol de habilidades. */
 const COSTE_PA_ATAQUE = 2;
 /** Coste fijo de usar un objeto (personaje:consumir) en el turno propio — mismo criterio que un golpe. */
@@ -1423,6 +1431,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // cerrada del todo, para no perder el último cambio de una desconexión
     // brusca.
     const invSaliente = nombreSaliente ? this.inventarioJugador(client.sessionId) : null;
+    // Vitales (docs/GDD_Personaje.md §2, persistencia 2026-09-01) — misma
+    // captura ANTES de borrar `state.players` que invSaliente arriba; se
+    // guarda por el mismo motivo (desconexión/F5) y con el mismo criterio
+    // "aquí sí importa awaitear".
+    const vitalesSaliente = this.state.players.get(client.sessionId)?.vitales ?? null;
 
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
@@ -1500,6 +1513,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     if (nombreSaliente && invSaliente) await this.guardarInventarioYEquipoDe(nombreSaliente, invSaliente);
+    if (nombreSaliente && vitalesSaliente) await this.guardarVitalesDe(nombreSaliente, vitalesSaliente);
+  }
+
+  /**
+   * Guarda hambre/sed/sueño/estamina al desconectarse (docs/GDD_Personaje.md
+   * §2, pedido 2026-09-01: "que persista en desconexiones o F5") — SOLO
+   * aquí, nunca cada tick (los vitales decaen a 30hz; guardar en cada tick
+   * sería una escritura de BD por jugador cada ~33ms). Mismo patrón EXACTO
+   * que `guardarInventarioYEquipoDe`: resuelve `jugador.id` por nombre,
+   * nunca por sessionId (la identidad de guardado de todo el proyecto).
+   */
+  private async guardarVitalesDe(nombre: string, vitales: { comida: number; bebida: number; sueno: number; estamina: number }) {
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    await bd.actualizarVitalesJugador(jugador.id, vitales.comida, vitales.bebida, vitales.sueno, vitales.estamina);
   }
 
   /**
@@ -8766,23 +8794,23 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return null;
   }
 
-  private statsCombatiente(id: string): { x: number; y: number; hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean } | null {
+  private statsCombatiente(id: string): { x: number; y: number; hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean; esBoss: boolean } | null {
     const tipo = this.tipoCombatiente(id);
     if (tipo === "jugador") {
       const p = this.state.players.get(id)!;
-      return { x: p.x, y: p.y, hp: p.vida, hpMax: p.vidaMax, ataque: p.ataque, defensa: p.defensa, esJugador: true };
+      return { x: p.x, y: p.y, hp: p.vida, hpMax: p.vidaMax, ataque: p.ataque, defensa: p.defensa, esJugador: true, esBoss: false };
     }
     if (tipo === "fauna") {
       const f = this.state.fauna.get(id)!;
-      return { x: f.x, y: f.y, hp: f.vida, hpMax: f.vidaMax, ataque: f.ataque, defensa: 0, esJugador: false };
+      return { x: f.x, y: f.y, hp: f.vida, hpMax: f.vidaMax, ataque: f.ataque, defensa: 0, esJugador: false, esBoss: false };
     }
     if (tipo === "enemigo") {
       const e = this.state.enemigos.get(id)!;
-      return { x: e.x, y: e.y, hp: e.vida, hpMax: e.vidaMax, ataque: e.ataque, defensa: e.defensa, esJugador: false };
+      return { x: e.x, y: e.y, hp: e.vida, hpMax: e.vidaMax, ataque: e.ataque, defensa: e.defensa, esJugador: false, esBoss: e.esBoss };
     }
     if (tipo === "npc") {
       const n = this.state.npcs.get(id)!;
-      return { x: n.x, y: n.y, hp: n.vida, hpMax: n.vidaMax, ataque: n.ataque, defensa: n.defensa, esJugador: false };
+      return { x: n.x, y: n.y, hp: n.vida, hpMax: n.vidaMax, ataque: n.ataque, defensa: n.defensa, esJugador: false, esBoss: false };
     }
     return null;
   }
@@ -9105,7 +9133,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     bando: Bando,
     gx: number,
     gy: number,
-    stats: { hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean; pasivo?: boolean },
+    stats: { hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean; esBoss?: boolean; pasivo?: boolean },
   ): CombateUnidad {
     const cu = new CombateUnidad();
     cu.id = id;
@@ -9118,9 +9146,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     cu.pasivo = stats.pasivo ?? false;
     // Destreza (docs/GDD_Personaje.md §3.3): un jugador con más nivel tiene
     // más PA (más acciones por turno, ahora que AP+MP están unificados en un
-    // único pool, §9.3) — solo aplica a jugadores, fauna/enemigos/NPCs se
-    // quedan en el tope fijo de siempre.
-    const paMax = stats.esJugador ? paMaxPorDestreza(this.state.players.get(id)?.atributos.destreza ?? 1) : PA_MAX_COMBATE;
+    // único pool, §9.3). Un enemigo `esBoss` tiene más PA que fauna/NPC/
+    // enemigo normal (PA_MAX_COMBATE_BOSS, pedido 2026-09-01) — el resto se
+    // queda en el tope fijo de siempre.
+    const paMax = stats.esJugador
+      ? paMaxPorDestreza(this.state.players.get(id)?.atributos.destreza ?? 1)
+      : stats.esBoss
+        ? PA_MAX_COMBATE_BOSS
+        : PA_MAX_COMBATE;
     cu.pa = paMax; cu.paMax = paMax;
     cu.iniciativa = calcularIniciativa(10, Math.random);
     cu.estado = "activo";
@@ -9445,7 +9478,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         const enBarco = this.barcosPorSesion.get(u.id);
         participantes.push({
           id: u.id, bando: u.bando as Bando, esJugador: true,
-          hp: u.hp, hpMax: u.hpMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
+          hp: u.hp, hpMax: u.hpMax, paMax: u.paMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
           nombreJugador: this.state.players.get(u.id)?.name,
           retorno: this.retornosPendientes.get(u.id),
           // Solo si el combate es acuático Y de verdad iba en un barco: el
@@ -9464,7 +9497,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         const esEnemigo = this.state.enemigos.has(u.id);
         const base = {
           id: u.id, bando: u.bando as Bando, esJugador: false,
-          hp: u.hp, hpMax: u.hpMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
+          hp: u.hp, hpMax: u.hpMax, paMax: u.paMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
           pasivo: u.pasivo,
         };
         if (esEnemigo) {

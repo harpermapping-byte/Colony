@@ -634,6 +634,13 @@ export class HubRoom extends RoomExteriorBase {
             // 2026-08-30): mismo criterio best-effort que vida/anatomía.
             player.oficio1 = jugador.oficio1;
             player.oficio2 = jugador.oficio2;
+            // Vitales persistidos (docs/GDD_Personaje.md §2, pedido
+            // 2026-09-01) — mismo criterio best-effort que vida: si falla,
+            // se queda en el 100/100/100/100 base del Schema.
+            player.vitales.comida = jugador.comida;
+            player.vitales.bebida = jugador.bebida;
+            player.vitales.sueno = jugador.sueno;
+            player.vitales.estamina = jugador.estamina;
           }
           // Anatomía persistida (docs/GDD_Anatomia.md) — mismo criterio
           // best-effort que la vida: si falla, arranca en anatomiaInicial().

@@ -28,12 +28,23 @@ solo el jarl, solo en parcela `tipo:"especial"` — mismo mecanismo que
 marítima" en su nota) se deja intacto — es la oficina administrativa de
 puerto/pesca, un edificio DISTINTO, sigue "sin diseñar".
 
-La profesión: `carpintero_ribera` ya era un oficio planeado
-(`docs/GDD_Profesiones.md`, ligado a `astillero`) — se exige nivel 5 de 6
-("nivel alto", escala existente de `server/src/progresion/nivel.ts`). No se
-añade ninguna otra profesión encima — el pedido dejaba la elección abierta
-("y no sé si alguna más... lo dejo a tu elección") y no hay nada más que
-aporte aquí.
+La profesión: el oficio real que gatea los barcos es **`ingeniero`**
+(`docs/GDD_Profesiones.md` §0 — los 10 oficios finales fusionaron
+`carpintero_ribera` dentro de `ingeniero`: "ahora también construye
+ciertos edificios, no solo barcos") — se exige nivel 5 de 6 ("nivel alto",
+escala existente de `server/src/progresion/nivel.ts`), `nivelMinimo:5` en
+las 4 recetas (`items/catalogo/recetas.json`). **`carpintero_ribera` NO es
+un oficio jugable** — sigue vivo solo como nombre de mueble/tema
+(`banco_carpintero_ribera`, `mesa_calafateo`, `temaTaller` del astillero),
+igual que un "yunque" se llama así sin que exista ningún oficio "yunquero".
+No se añade ninguna otra profesión encima — el pedido dejaba la elección
+abierta ("y no sé si alguna más... lo dejo a tu elección") y no hay nada
+más que aporte aquí.
+
+**Corrección 2026-09-01**: esta sección decía por error que el gate era el
+oficio `carpintero_ribera` — el código real (`barco_1..4_construido`)
+siempre usó `oficio:"ingeniero"`, nunca existió como oficio jugable de
+verdad; era un desfase de documentación, no un bug de código.
 
 **El gate real** no es "estar de pie en una mesa concreta" (esa mesa es una
 pieza de `elementos.json` como cualquier otra, técnicamente colocable en

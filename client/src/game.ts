@@ -10,6 +10,7 @@ import { crearAnimalVoxel, type AnimalExportado } from "./render3d/animalVoxel";
 import type { IndiceMapa } from "./mapa/formatoMapa";
 import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelasCliente";
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
+import { RenderObjetosMundo } from "./mundo/renderObjetosMundo";
 import { PanelMapaMundo } from "./mapa/panelMapaMundo";
 import { ModoConstruccion } from "./construccion/constructor";
 import { ColocadorPlantillas } from "./construccion/colocadorPlantillas";
@@ -572,6 +573,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // `modoConstruccion`, izadas fuera del `if (SALA === "hub")` de abajo
   // porque la tecla F (más adelante, fuera de este bloque) necesita leerlas.
   let renderConstrucciones: RenderConstrucciones | null = null;
+  let renderObjetosMundo: RenderObjetosMundo | null = null;
   let panelAjedrez: PanelAjedrez | null = null;
   // Captura genérica de "último mensaje visto de este tipo" (barrido de
   // sistemas 2026-08-31), izada por el MISMO motivo que renderConstrucciones/
@@ -587,6 +589,22 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // "const modo = modoConstruccion" un poco más abajo: TypeScript no
     // conserva el narrowing de un `let` a través de un closure/callback).
     const render = renderConstrucciones;
+
+    // Objetos sueltos del mundo (docs/GDD_Ganaderia.md §12, pedido
+    // 2026-09-01) — `state.objetosMundo` es un MapSchema plano (sin
+    // protocolo de mensajes propio como construcciones), así que basta con
+    // el trío onAdd/onRemove de siempre. Igual que renderConstrucciones,
+    // limitado al Hub por ahora (mismo alcance ya aceptado para mesas de
+    // minijuego/asiento genérico — extenderlo a Región/Interior es un hueco
+    // conocido y compartido, no específico de esto).
+    renderObjetosMundo = new RenderObjetosMundo(escena);
+    const objetosMundoRender = renderObjetosMundo;
+    $(room.state).objetosMundo.onAdd((o: any, id: string) => {
+      objetosMundoRender.aplicarNueva({ id, x: o.x, y: o.y, itemId: o.itemId, cantidad: o.cantidad });
+    });
+    $(room.state).objetosMundo.onRemove((_o: any, id: string) => {
+      objetosMundoRender.aplicarQuitada(id);
+    });
     modoConstruccion = new ModoConstruccion({
       contenedor,
       escena,
@@ -748,7 +766,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const r = escena.renderer.domElement.getBoundingClientRect();
       const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       raycasterClic.setFromCamera(ndc, escena.camera);
-      const impactos = raycasterClic.intersectObjects(render.mallas(), false);
+      // Objetos sueltos del mundo (docs/GDD_Ganaderia.md §12, pedido
+      // 2026-09-01: "click sobre... el huevo, recoger huevo") — mismo
+      // raycast que las construcciones, mallas combinadas; se distingue
+      // DESPUÉS por cuál de los dos Map las reconoce (renderObjetosMundo.mallas()
+      // vacío en cualquier room que no sea el Hub, ver su instanciación).
+      const impactos = raycasterClic.intersectObjects([...render.mallas(), ...(renderObjetosMundo?.mallas() ?? [])], false);
       if (impactos.length === 0) {
         // Clic sin ningún mueble debajo (pedido 2026-08-31: "también puedes
         // sentarte en el suelo... dando click sobre suelo") — sin raycast
@@ -757,6 +780,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         // no hace falta saber la casilla exacta del clic.
         menuInteraccion.mostrar(e.clientX, e.clientY, "Suelo", [
           { etiqueta: "Sentarse en el suelo", accion: () => room.send("sentar:suelo", {}) },
+        ]);
+        return;
+      }
+      const datosObjetoMundo = renderObjetosMundo?.datosDeMalla(impactos[0].object) ?? null;
+      if (datosObjetoMundo) {
+        // "coger" es el mismo mensaje genérico de siempre (sin id — auto-
+        // apunta al objeto suelto más cercano, RoomExteriorBase.ts): haber
+        // podido clicar la malla ya implica estar cerca de ESTE objeto, así
+        // que en la práctica coge el que se ve clicado — mismo criterio
+        // "sin UI de targeting, el servidor decide" que el resto del proyecto.
+        const nombreObjeto = renderObjetosMundo!.nombreDe(datosObjetoMundo.itemId);
+        menuInteraccion.mostrar(e.clientX, e.clientY, nombreObjeto, [
+          { etiqueta: `Recoger ${nombreObjeto}`, accion: () => room.send("coger") },
         ]);
         return;
       }
@@ -808,6 +844,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // telar/banco_carpintero/mesa_planos_ingenieria arriba.
       if (datos.objeto === "mesa_ajedrez") {
         opciones.push({ etiqueta: "Jugar al ajedrez", accion: () => room.send("mesa:sentarse", { construccionId: datos.id }) });
+      }
+      // Ganadería (docs/GDD_Ganaderia.md §12, pedido 2026-09-01): el nido en
+      // sí no "contiene" el huevo (sigue apareciendo junto al ave que lo
+      // puso, el nido solo influye en la CANTIDAD — §11.3) pero es el punto
+      // de interacción natural que pidió el streamer; mismo "coger" genérico
+      // que el huevo suelto de arriba, sin selección de instancia.
+      if (datos.objeto === "nido") {
+        opciones.push({ etiqueta: "Recoger huevo", accion: () => room.send("coger") });
       }
       // Trabajador de producción (docs/GDD_Produccion.md §3bis, pedido
       // 2026-08-31: "trabajador de producción como NPC real" + "podrás sacar

@@ -35,6 +35,16 @@ export interface ParticipanteArena {
   nombreJugador?: string;
   hp: number;
   hpMax: number;
+  /**
+   * PA máximo YA calculado en la room de origen (`crearUnidadCombate` —
+   * Destreza para jugador, PA_MAX_COMBATE_BOSS para enemigo `esBoss`,
+   * PA_MAX_COMBATE para el resto). Corrige un bug real (docs/GDD_Combate.md
+   * §8, 2026-09-01): antes de este campo, `ArenaCombateRoom.onCreate`
+   * hardcodeaba PA_MAX_COMBATE para TODOS al reconstruir la unidad, así que
+   * ni la Destreza del jugador ni el PA de boss llegaban a aplicarse nunca
+   * en el combate que de verdad se juega turno a turno.
+   */
+  paMax: number;
   ataqueFisico: number;
   defensaFisica: number;
   alcance: number;

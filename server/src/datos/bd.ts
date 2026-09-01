@@ -81,7 +81,7 @@ export interface Jugador {
    * Oficio de jugador RONDA 2 (docs/GDD_Profesiones.md, pedido 2026-08-30):
    * los 2 slots elegidos con el NPC "maestro de oficios" —
    * `server/src/personaje/oficios.ts` (`OFICIOS_JUGADOR_VALIDOS`,
-   * `tieneOficio`). "" = slot vacío. A diferencia de vitales/gremioId, SÍ
+   * `tieneOficio`). "" = slot vacío. A diferencia de gremioId, SÍ
    * persiste entre sesiones — es una elección deliberada, no estado volátil.
    */
   oficio1: string;
@@ -94,6 +94,21 @@ export interface Jugador {
    * ANTES de cobrar, y se incrementa DESPUÉS de cobrar con éxito.
    */
   cambiosOficio: number;
+  /**
+   * Vitales (docs/GDD_Personaje.md §2, persistencia añadida 2026-09-01,
+   * pedido del streamer: "que tenga persistencia... que persista en
+   * desconexiones o F5") — hambre/sed/sueño/estamina (0-100), mismo rango
+   * que `server/src/personaje/vitales.ts::VITAL_MAX`. Se guardan SOLO al
+   * desconectar (`onLeave`), nunca cada tick (decaen a 30hz, guardar en
+   * cada tick sería una escritura de BD por jugador cada ~33ms) — mismo
+   * criterio de "escritura por evento, no por tick" que el resto del
+   * proyecto. NO hay decaimiento retroactivo mientras está desconectado
+   * (igual que `vida`: nadie decae/regenera solo con el paso del tiempo).
+   */
+  comida: number;
+  bebida: number;
+  sueno: number;
+  estamina: number;
 }
 
 /**
@@ -632,6 +647,8 @@ export interface IAlmacenDatos {
   obtenerOCrearJugador(nombre: string, saldoInicial?: number): Promise<Jugador>;
   /** Vida/vidaMax tras combate/comida/pociones (docs/GDD_Mecanicas.md §5.4) — sin regeneración automática, solo se llama en un evento explícito. */
   actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void>;
+  /** Vitales (hambre/sed/sueño/estamina) — SOLO se llama al desconectar (`onLeave`), nunca cada tick. Ver el comentario de `Jugador.comida` para el porqué. */
+  actualizarVitalesJugador(jugadorId: number, comida: number, bebida: number, sueno: number, estamina: number): Promise<void>;
   /** docs/GDD_Anatomia.md — JSON de Anatomia; misma cadencia que actualizarVidaJugador (tras un golpe con efecto anatómico o una acción médica), no cada tick. */
   actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void>;
   /** docs/GDD_Enfermedades.md — JSON de EstadoEnfermedades; misma cadencia que actualizarAnatomiaJugador (inicio/cura de catarro o gripe), no cada tick. */
@@ -975,7 +992,11 @@ CREATE TABLE IF NOT EXISTS jugadores (
   enfermedades TEXT,                    -- docs/GDD_Enfermedades.md: JSON de server/src/personaje/enfermedades.ts::EstadoEnfermedades; NULL = nunca se ha tocado, se resuelve a enfermedadesInicial()
   oficio_1 TEXT NOT NULL DEFAULT '',    -- docs/GDD_Profesiones.md ronda 2: los 2 slots de oficio elegidos con el NPC "maestro de oficios" — "" = vacío
   oficio_2 TEXT NOT NULL DEFAULT '',
-  cambios_oficio INTEGER NOT NULL DEFAULT 0 -- ronda 3: cuántas veces ya pagó por cambiar — precio exponencial, ver Jugador.cambiosOficio
+  cambios_oficio INTEGER NOT NULL DEFAULT 0, -- ronda 3: cuántas veces ya pagó por cambiar — precio exponencial, ver Jugador.cambiosOficio
+  comida INTEGER NOT NULL DEFAULT 100,  -- vitales (docs/GDD_Personaje.md §2), persistencia 2026-09-01 — ver comentario de Jugador.comida
+  bebida INTEGER NOT NULL DEFAULT 100,
+  sueno INTEGER NOT NULL DEFAULT 100,
+  estamina INTEGER NOT NULL DEFAULT 100
 );
 -- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30):
 -- una fila por NPC colocado a mano por un admin/superadmin — RegionRoom/
@@ -1154,8 +1175,9 @@ CREATE TABLE IF NOT EXISTS jugador_oficios (
 );
 -- Personaje (docs/GDD_Personaje.md, pedido 2026-08-29): XP por atributo,
 -- MISMO mecanismo que jugador_oficios (nivel derivado, nunca persistido en
--- sí) — vitales (vida/comida/bebida/sueño/estamina) NO se persisten, viven y
--- mueren con la sesión (ver server/src/personaje/vitales.ts).
+-- sí) — vida y vitales (comida/bebida/sueño/estamina) SÍ persisten (columnas
+-- de "jugadores" arriba, comida/bebida/sueno/estamina añadidas 2026-09-01),
+-- solo el NIVEL de atributo (XP) vive en esta tabla aparte.
 CREATE TABLE IF NOT EXISTS jugador_atributos (
   jugador_id INTEGER NOT NULL,
   atributo TEXT NOT NULL,
@@ -1461,6 +1483,10 @@ ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS cambios_oficio INTEGER NOT NULL D
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS ultimo_tejido_legendario_ms BIGINT;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS ultimo_carpinteria_legendaria_ms BIGINT;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS ultimo_ingenieria_legendaria_ms BIGINT;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS comida INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS bebida INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS sueno INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS estamina INTEGER NOT NULL DEFAULT 100;
 -- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3) — ver comentario gemelo en MIGRACIONES_SQLITE.
 CREATE TABLE IF NOT EXISTS npcs_tutoriales (
   id SERIAL PRIMARY KEY,
@@ -2133,6 +2159,18 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     if (!nombresJugadores.has("ultimo_ingenieria_legendaria_ms")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN ultimo_ingenieria_legendaria_ms INTEGER");
     }
+    if (!nombresJugadores.has("comida")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN comida INTEGER NOT NULL DEFAULT 100");
+    }
+    if (!nombresJugadores.has("bebida")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN bebida INTEGER NOT NULL DEFAULT 100");
+    }
+    if (!nombresJugadores.has("sueno")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN sueno INTEGER NOT NULL DEFAULT 100");
+    }
+    if (!nombresJugadores.has("estamina")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN estamina INTEGER NOT NULL DEFAULT 100");
+    }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
     // cambio no las tendría; CREATE TABLE IF NOT EXISTS no amplía una tabla ya existente.
@@ -2191,7 +2229,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async obtenerOCrearJugador(nombre: string, saldoInicial = SALDO_INICIAL_JUGADOR): Promise<Jugador> {
     const existente = this.bd
-      .prepare("SELECT id, nombre, farycoins, vida, vida_max, anatomia, enfermedades, oficio_1, oficio_2, cambios_oficio FROM jugadores WHERE nombre = ?")
+      .prepare("SELECT id, nombre, farycoins, vida, vida_max, anatomia, enfermedades, oficio_1, oficio_2, cambios_oficio, comida, bebida, sueno, estamina FROM jugadores WHERE nombre = ?")
       .get(nombre);
     if (existente) {
       return {
@@ -2205,12 +2243,19 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
         oficio1: String(existente.oficio_1 ?? ""),
         oficio2: String(existente.oficio_2 ?? ""),
         cambiosOficio: Number(existente.cambios_oficio ?? 0),
+        comida: Number(existente.comida ?? 100),
+        bebida: Number(existente.bebida ?? 100),
+        sueno: Number(existente.sueno ?? 100),
+        estamina: Number(existente.estamina ?? 100),
       };
     }
     const r = this.bd
       .prepare("INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES (?, ?, ?)")
       .run(nombre, new Date().toISOString(), saldoInicial);
-    return { id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100, anatomia: null, enfermedades: null, oficio1: "", oficio2: "", cambiosOficio: 0 };
+    return {
+      id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100, anatomia: null, enfermedades: null,
+      oficio1: "", oficio2: "", cambiosOficio: 0, comida: 100, bebida: 100, sueno: 100, estamina: 100,
+    };
   }
 
   async fijarOficioSlot(jugadorId: number, slot: 1 | 2, oficio: string): Promise<void> {
@@ -2353,6 +2398,10 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void> {
     this.bd.prepare("UPDATE jugadores SET vida = ?, vida_max = ? WHERE id = ?").run(vida, vidaMax, jugadorId);
+  }
+
+  async actualizarVitalesJugador(jugadorId: number, comida: number, bebida: number, sueno: number, estamina: number): Promise<void> {
+    this.bd.prepare("UPDATE jugadores SET comida = ?, bebida = ?, sueno = ?, estamina = ? WHERE id = ?").run(comida, bebida, sueno, estamina, jugadorId);
   }
 
   async ajustarFarycoins(jugadorId: number, delta: number): Promise<{ ok: boolean; saldo: number }> {
@@ -3680,10 +3729,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     // devuelve la fila exista ya o se acabe de crear, en una sola ida y vuelta.
     // farycoins SOLO se fija en el INSERT (fila nueva) — el DO UPDATE nunca
     // toca esa columna, así que una fila ya existente conserva su saldo.
-    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number; anatomia: string | null; enfermedades: string | null; oficio_1: string; oficio_2: string; cambios_oficio: number }>(
+    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number; anatomia: string | null; enfermedades: string | null; oficio_1: string; oficio_2: string; cambios_oficio: number; comida: number; bebida: number; sueno: number; estamina: number }>(
       `INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES ($1, $2, $3)
        ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
-       RETURNING id, nombre, farycoins, vida, vida_max, anatomia, enfermedades, oficio_1, oficio_2, cambios_oficio`,
+       RETURNING id, nombre, farycoins, vida, vida_max, anatomia, enfermedades, oficio_1, oficio_2, cambios_oficio, comida, bebida, sueno, estamina`,
       [nombre, new Date().toISOString(), saldoInicial]
     );
     return {
@@ -3697,6 +3746,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       oficio1: r.rows[0].oficio_1 ?? "",
       oficio2: r.rows[0].oficio_2 ?? "",
       cambiosOficio: r.rows[0].cambios_oficio ?? 0,
+      comida: r.rows[0].comida ?? 100,
+      bebida: r.rows[0].bebida ?? 100,
+      sueno: r.rows[0].sueno ?? 100,
+      estamina: r.rows[0].estamina ?? 100,
     };
   }
 
@@ -3794,6 +3847,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void> {
     await this.pool.query("UPDATE jugadores SET vida = $1, vida_max = $2 WHERE id = $3", [vida, vidaMax, jugadorId]);
+  }
+
+  async actualizarVitalesJugador(jugadorId: number, comida: number, bebida: number, sueno: number, estamina: number): Promise<void> {
+    await this.pool.query("UPDATE jugadores SET comida = $1, bebida = $2, sueno = $3, estamina = $4 WHERE id = $5", [comida, bebida, sueno, estamina, jugadorId]);
   }
 
   async actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void> {
