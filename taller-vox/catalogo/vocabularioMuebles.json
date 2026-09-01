@@ -1,0 +1,42 @@
+{
+  "_nota": "docs/GDD_Ropa_Procedural.md §Carpintero legendario — diccionario español→parámetros REALES del generador (taller-vox/generarMuebleVoxel.js). MISMO patrón que ropa/catalogo/vocabularioLegendario.json (sastre): consumido por taller-vox/interpretarPromptMueble.js (servidor, autoritativo) y client/src/render3d/interpretarPromptMueble.ts (cliente, preview instantánea). Los tonos de madera reutilizan las MISMAS claves que taller-vox/generar_modelos.js::TONOS (resolverVariante) — mismo vocabulario de sufijo libre que ya usan las 560 variantesNombradas de interiores/catalogo/elementos.json, no una tabla de colores nueva. El color de ACENTO (tapizado/incrustación) reutiliza el mismo array 'color' de ropa/catalogo/vocabularioLegendario.json (requerido directamente desde interpretarPromptMueble.js) — cero duplicado.",
+  "tipoMueble": [
+    { "valor": "silla", "palabras": ["silla", "sillon", "sillón", "taburete", "banco", "asiento", "banqueta"] },
+    { "valor": "mesa", "palabras": ["mesa", "mesilla", "escritorio", "tablero"] },
+    { "valor": "cama", "palabras": ["cama", "lecho", "camastro", "litera"] },
+    { "valor": "arcon", "palabras": ["arcon", "arcón", "cofre", "baul", "baúl", "caja fuerte", "cajon", "cajón"] }
+  ],
+  "madera": [
+    { "valor": "roble", "hex": "#5a3d20", "palabras": ["roble"] },
+    { "valor": "nogal", "hex": "#3d2814", "palabras": ["nogal"] },
+    { "valor": "pino", "hex": "#d9be82", "palabras": ["pino"] },
+    { "valor": "tejo", "hex": "#8a6a3a", "palabras": ["tejo"] },
+    { "valor": "sauce", "hex": "#c9b57a", "palabras": ["sauce"] },
+    { "valor": "avellano", "hex": "#a67c4a", "palabras": ["avellano"] },
+    { "valor": "castano", "hex": "#7a5230", "palabras": ["castano", "castaño"] },
+    { "valor": "arce", "hex": "#c9a86a", "palabras": ["arce"] },
+    { "valor": "chopo", "hex": "#d9c090", "palabras": ["chopo"] },
+    { "valor": "abedul", "hex": "#e8d9b0", "palabras": ["abedul"] },
+    { "valor": "encina", "hex": "#4a3016", "palabras": ["encina"] },
+    { "valor": "haya", "hex": "#c9a878", "palabras": ["haya"] },
+    { "valor": "abeto", "hex": "#c9b088", "palabras": ["abeto"] },
+    { "valor": "caoba", "hex": "#5a2a1a", "palabras": ["caoba"] },
+    { "valor": "olmo", "hex": "#a58358", "palabras": ["olmo"] },
+    { "valor": "fresno", "hex": "#c9b48a", "palabras": ["fresno"] }
+  ],
+  "modificador": [
+    { "campo": "tallado", "valor": true, "palabras": ["tallado", "tallada", "labrado", "labrada", "grabado", "grabada", "esculpido", "esculpida"] },
+    { "campo": "desgaste", "valor": true, "palabras": ["desgastado", "desgastada", "gastado", "gastada", "envejecido", "envejecida", "viejo", "vieja", "rustico", "rústico", "rustica", "rústica"] },
+    { "campo": "roto", "valor": true, "palabras": ["roto", "rota", "astillado", "astillada", "agrietado", "agrietada", "en ruinas"] },
+    { "campo": "tapizado", "valor": true, "palabras": ["tapizado", "tapizada", "acolchado", "acolchada", "con cojin", "con cojín", "mullido", "mullida"] },
+    { "campo": "incrustado", "valor": true, "palabras": ["incrustado", "incrustada", "incrustaciones", "con gema", "con piedra preciosa", "con oro", "engastado", "engastada"] },
+    { "campo": "herraje", "valor": true, "palabras": ["con herrajes", "con refuerzos de metal", "reforzado con hierro", "con bisagras", "con remaches"] }
+  ],
+  "estilo": [
+    { "descripcion": "rústico/campesino", "palabras": ["rustico", "rústico", "campesino", "campesina", "humilde", "sencillo", "sencilla"], "madera": "pino", "detalle": { "desgaste": true } },
+    { "descripcion": "noble/señorial", "palabras": ["noble", "señorial", "principesco", "principesca", "de lujo", "lujoso", "lujosa"], "madera": "roble", "detalle": { "tallado": true, "incrustado": true }, "color": "#c9a020" },
+    { "descripcion": "marinero/de taberna", "palabras": ["marinero", "marinera", "de taberna", "de posada", "corsario"], "madera": "olmo", "detalle": { "desgaste": true, "herraje": true } },
+    { "descripcion": "de guerra/militar", "palabras": ["de guerra", "militar", "de campamento", "de cuartel"], "madera": "castano", "detalle": { "herraje": true } },
+    { "descripcion": "elegante/refinado", "palabras": ["elegante", "refinado", "refinada", "fino", "fina", "de gala"], "madera": "haya", "detalle": { "tallado": true, "tapizado": true }, "color": "#5a1a2f" }
+  ]
+}

@@ -18,6 +18,8 @@ import { MenuInteraccion, type OpcionMenuInteraccion } from "./ui/menuInteraccio
 import { ModalInstrumento } from "./ui/modalInstrumento";
 import { PanelCofre } from "./construccion/panelCofre";
 import { PanelSastreLegendario, type DisenoSastre } from "./construccion/panelSastreLegendario";
+import { PanelCarpinteroLegendario, type DisenoCarpintero } from "./construccion/panelCarpinteroLegendario";
+import { PanelIngenieroLegendario, type ProyectoIngeniero } from "./construccion/panelIngenieroLegendario";
 import { reproducirMidi, detenerReproduccion, type TipoInstrumento } from "./audio/instrumentos";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
 import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2 } from "three";
@@ -670,6 +672,30 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // Sonda SOLO-PARA-TESTS (mismo criterio que window.__construccion/__ajedrez de arriba): abre el panel sin depender de acertar el raycast del clic 3D sobre el telar.
     (window as any).__sastre = { abrirPanel: (construccionId: number) => panelSastre.abrir(construccionId) };
 
+    // Carpintero legendario (docs/GDD_Ropa_Procedural.md §Carpintero legendario) — MISMO patrón que el sastre.
+    const panelCarpintero = new PanelCarpinteroLegendario({
+      contenedor,
+      aceptar: (construccionId, texto, nombre) => room.send("carpintero:tallarAceptar", { construccionId, texto, nombre }),
+      tallarCopia: (construccionId, muebleGeneradoId) => room.send("carpintero:tallarCopia", { construccionId, muebleGeneradoId }),
+      pedirMisDisenos: () => room.send("carpintero:misDisenos"),
+    });
+    room.onMessage("carpintero:error", (m: { motivo: string }) => panelCarpintero.mostrarError(m?.motivo || "No se pudo tallar."));
+    room.onMessage("carpintero:tallarResultado", () => panelCarpintero.confirmarCreado());
+    room.onMessage("carpintero:tallarCopiaResultado", () => {});
+    room.onMessage("carpintero:misDisenos", (m: { disenos: DisenoCarpintero[] }) => panelCarpintero.actualizarMisDisenos(m?.disenos || []));
+    (window as any).__carpintero = { abrirPanel: (construccionId: number) => panelCarpintero.abrir(construccionId) };
+
+    // Ingeniero legendario (docs/GDD_Ropa_Procedural.md §Ingeniero legendario) — alcance reducido a propósito, ver GDD.
+    const panelIngeniero = new PanelIngenieroLegendario({
+      contenedor,
+      aceptar: (construccionId, texto, nombre) => room.send("ingeniero:proyectarAceptar", { construccionId, texto, nombre }),
+      pedirMisDisenos: () => room.send("ingeniero:misDisenos"),
+    });
+    room.onMessage("ingeniero:error", (m: { motivo: string }) => panelIngeniero.mostrarError(m?.motivo || "No se pudo proyectar."));
+    room.onMessage("ingeniero:proyectarResultado", () => panelIngeniero.confirmarCreado());
+    room.onMessage("ingeniero:misDisenos", (m: { disenos: ProyectoIngeniero[] }) => panelIngeniero.actualizarMisDisenos(m?.disenos || []));
+    (window as any).__ingeniero = { abrirPanel: (construccionId: number) => panelIngeniero.abrir(construccionId) };
+
     // --- Instrumentos musicales (docs/GDD_Instrumentos.md, pedido
     // 2026-08-31): clic sobre un objeto construido → menú de interacción
     // GENÉRICO (menuInteraccion.ts) — pensado para colgar aquí futuras
@@ -734,6 +760,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       }
       if (datos.objeto === "telar") {
         opciones.push({ etiqueta: "Tejer prenda legendaria", accion: () => panelSastre.abrir(datos.id) });
+      }
+      if (datos.objeto === "banco_carpintero") {
+        opciones.push({ etiqueta: "Tallar mueble legendario", accion: () => panelCarpintero.abrir(datos.id) });
+      }
+      if (datos.objeto === "mesa_planos_ingenieria") {
+        opciones.push({ etiqueta: "Proyectar edificio legendario", accion: () => panelIngeniero.abrir(datos.id) });
       }
       // Trabajador de producción (docs/GDD_Produccion.md §3bis, pedido
       // 2026-08-31: "trabajador de producción como NPC real" + "podrás sacar

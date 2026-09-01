@@ -106,6 +106,14 @@ import { SesionForja, iniciarSesionForja, avivarFuego, golpearYunque, templar, r
 // (mismo patrón que otros `require` de catálogo JSON de este archivo).
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { interpretarPromptTejido, cargarCatalogoPrendas } = require("../../../../ropa/src/interpretarPrompt");
+// Carpintero/Ingeniero legendarios (docs/GDD_Ropa_Procedural.md §Carpintero
+// legendario / §Ingeniero legendario) — MISMO patrón: interpretación
+// autoritativa en el servidor, puerto TS gemelo en el cliente para la
+// preview instantánea.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { interpretarPromptMueble } = require("../../../../taller-vox/interpretarPromptMueble");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { interpretarPromptEdificio } = require("../../../../taller-vox/interpretarPromptEdificio");
 import { EstadoCurtidor, aceptaEntradaCurtidor, huecoMaterialCurtidor, iniciarLoteCurtidor, curtidorListo, recolectarLoteCurtidor } from "../../construccion/curtido";
 import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, VITAL_MAX } from "../../personaje/vitales";
 import {
@@ -293,6 +301,20 @@ const INSUMOS_COPIA_SASTRE: Record<string, { itemId: string; cantidad: number }[
   seda: [{ itemId: "tela_hilada", cantidad: 3 }],
   cuero: [{ itemId: "cuero_curtido", cantidad: 2 }],
 };
+
+// --- Carpintero legendario (docs/GDD_Ropa_Procedural.md §Carpintero legendario, pedido posterior al sastre, MISMO patrón) ---
+const BANCO_CARPINTERO_OBJETO_ID = "banco_carpintero";
+const NIVEL_MINIMO_CARPINTERO_LEGENDARIO = 10;
+const VENTANA_CARPINTERIA_LEGENDARIA_MS = 24 * 60 * 60 * 1000; // 24h REALES, mismo criterio que el sastre.
+const XP_CARPINTERO_POR_BLUEPRINT = 40;
+/** Insumos para craftear una COPIA de un mueble ya diseñado — madera genérica (tablones), la misma que ya consumen las recetas de carpintería reales. */
+const INSUMOS_COPIA_CARPINTERO: { itemId: string; cantidad: number }[] = [{ itemId: "madera_dura", cantidad: 4 }];
+
+// --- Ingeniero legendario (docs/GDD_Ropa_Procedural.md §Ingeniero legendario, MISMO patrón) ---
+const MESA_PLANOS_INGENIERO_OBJETO_ID = "mesa_planos_ingenieria";
+const NIVEL_MINIMO_INGENIERO_LEGENDARIO = 10;
+const VENTANA_INGENIERIA_LEGENDARIA_MS = 24 * 60 * 60 * 1000; // 24h REALES.
+const XP_INGENIERO_POR_BLUEPRINT = 40;
 /** Cuánto dura una frase de suciedad en la burbuja de un NPC antes de volver a su pregón normal (docs/GDD_Personaje.md §3.6). */
 const DURACION_FRASE_SUCIA_MS = 6000;
 /** Cada cuánto se revisa si algún jugador sucio tiene un NPC cerca (barato a propósito, ver revisarBarksSuciedad). */
@@ -1029,6 +1051,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("sastre:tejerAceptar", (client, msg: { construccionId?: number; texto?: string; tintes?: Record<string, string>; nombre?: string }) => void this.manejarSastreTejerAceptar(client, msg));
     this.onMessage("sastre:tejerCopia", (client, msg: { construccionId?: number; prendaGeneradaId?: number }) => void this.manejarSastreTejerCopia(client, msg));
     this.onMessage("sastre:misDisenos", (client) => void this.manejarSastreMisDisenos(client));
+    this.onMessage("carpintero:tallarAceptar", (client, msg: { construccionId?: number; texto?: string; nombre?: string }) => void this.manejarCarpinteroTallarAceptar(client, msg));
+    this.onMessage("carpintero:tallarCopia", (client, msg: { construccionId?: number; muebleGeneradoId?: number }) => void this.manejarCarpinteroTallarCopia(client, msg));
+    this.onMessage("carpintero:misDisenos", (client) => void this.manejarCarpinteroMisDisenos(client));
+    this.onMessage("ingeniero:proyectarAceptar", (client, msg: { construccionId?: number; texto?: string; nombre?: string }) => void this.manejarIngenieroProyectarAceptar(client, msg));
+    this.onMessage("ingeniero:misDisenos", (client) => void this.manejarIngenieroMisDisenos(client));
 
     // Actividades diarias de entrenamiento (docs/GDD_Personaje.md §3.5,
     // pedido 2026-08-30): un único mensaje genérico para pesas/diana/atril
@@ -7190,6 +7217,195 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const jugador = await bd.obtenerOCrearJugador(nombreJugador);
     const disenos = await bd.listarPrendasGeneradasDeCreador(jugador.id);
     client.send("sastre:misDisenos", { disenos: disenos.map((d) => ({ id: d.id, prendaBaseId: d.prendaBaseId, materialId: d.materialId, nombre: d.nombre, creadoEn: d.creadoEn })) });
+  }
+
+  private errorCarpintero(client: Client, motivo: string) {
+    client.send("carpintero:error", { motivo });
+  }
+
+  /**
+   * Carpintero legendario (docs/GDD_Ropa_Procedural.md §Carpintero legendario)
+   * — MISMO flujo que el sastre: texto libre → `interpretarPromptMueble`
+   * (SIEMPRE reinterpretado aquí, nunca se confía en la preview del
+   * cliente) → blueprint permanente en BD → item físico en el inventario
+   * (el `arquetipoId` resuelto, real de interiores/catalogo/elementos.json,
+   * DOBLA como itemId de items/catalogo/items.json — mismo criterio "sin
+   * carrier nuevo" que prendaBaseId). Pendiente documentado (GDD): colocar
+   * ese item en el mundo hoy da el mueble ESTÁTICO del catálogo, no la
+   * geometría generada — la resolución de blueprint en la construcción viva
+   * queda para una fase posterior, igual que `equipoBlueprintRopa` en sesión.
+   */
+  private async manejarCarpinteroTallarAceptar(client: Client, msg: { construccionId?: number; texto?: string; nombre?: string }) {
+    const nombreJugador = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const player = this.state.players.get(client.sessionId);
+    if (!nombreJugador || !ctx || !player || typeof msg?.construccionId !== "number") return;
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva || viva.objeto !== BANCO_CARPINTERO_OBJETO_ID) return this.errorCarpintero(client, "necesitas estar en un banco de carpintero");
+    if (!tieneOficio(player.oficio1, player.oficio2, "carpintero")) return this.errorCarpintero(client, "necesitas el oficio de carpintero");
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    const xp = await bd.obtenerXpOficio(jugador.id, "carpintero");
+    const nivel = nivelDeXp(xp);
+    if (nivel < NIVEL_MINIMO_CARPINTERO_LEGENDARIO) {
+      return this.errorCarpintero(client, `necesitas nivel ${NIVEL_MINIMO_CARPINTERO_LEGENDARIO} de carpintero (tienes ${nivel})`);
+    }
+
+    const texto = typeof msg.texto === "string" ? msg.texto.slice(0, 200) : "";
+    const parametros = interpretarPromptMueble(texto) as {
+      tipoMueble: string; arquetipoId: string; maderaId: string; colorMadera: string; colorAcento: string | null;
+      tallado: boolean; desgaste: boolean; roto: boolean; tapizado: boolean; incrustado: boolean; herraje: boolean;
+    };
+    const nombreMueble = typeof msg.nombre === "string" && msg.nombre.trim() ? msg.nombre.trim().slice(0, 60) : `Mueble de ${nombreJugador}`;
+
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!inv) return;
+    const hueco = this.buscarHuecoEnInventario(inv, parametros.arquetipoId);
+    if (!hueco) return this.errorCarpintero(client, "no tienes hueco en el inventario para el mueble nuevo");
+
+    const permitido = await bd.resolverCooldownCarpinteriaLegendaria(jugador.id, Date.now(), VENTANA_CARPINTERIA_LEGENDARIA_MS);
+    if (!permitido) return this.errorCarpintero(client, "el oficio de carpintero está fatigado — vuelve mañana");
+
+    const blueprint = await bd.crearMuebleGenerado({ creadorId: jugador.id, arquetipoId: parametros.arquetipoId, parametros, nombre: nombreMueble, promptTexto: texto });
+
+    const resultado = agregarItem(hueco.contenedor, this.catalogoItems, parametros.arquetipoId, 1);
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    for (const [slot, extra] of inv.extras) {
+      if (extra !== hueco.contenedor) continue;
+      const extraSchema = player.inventario.extras.get(slot);
+      if (extraSchema) sincronizarContenedor(extraSchema, extra);
+    }
+    if (!resultado.ok) return this.errorCarpintero(client, "no se pudo añadir el mueble al inventario");
+
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, "carpintero", XP_CARPINTERO_POR_BLUEPRINT);
+    client.send("carpintero:tallarResultado", {
+      muebleGeneradoId: blueprint.id, arquetipoId: parametros.arquetipoId, parametros, nombre: blueprint.nombre,
+      xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
+    });
+  }
+
+  /** Craftear otra copia de un mueble YA diseñado — solo el creador, sin cooldown, gasta madera. MISMO patrón que manejarSastreTejerCopia. */
+  private async manejarCarpinteroTallarCopia(client: Client, msg: { construccionId?: number; muebleGeneradoId?: number }) {
+    const nombreJugador = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const player = this.state.players.get(client.sessionId);
+    if (!nombreJugador || !ctx || !player || typeof msg?.construccionId !== "number" || typeof msg?.muebleGeneradoId !== "number") return;
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva || viva.objeto !== BANCO_CARPINTERO_OBJETO_ID) return this.errorCarpintero(client, "necesitas estar en un banco de carpintero");
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    const blueprint = await bd.obtenerMuebleGenerado(msg.muebleGeneradoId);
+    if (!blueprint) return this.errorCarpintero(client, "ese diseño no existe");
+    if (blueprint.creadorId !== jugador.id) return this.errorCarpintero(client, "solo quien lo creó puede tallar copias de este diseño");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    for (const insumo of INSUMOS_COPIA_CARPINTERO) {
+      const enInventario = contenedor.items.filter((it) => it.itemId === insumo.itemId).reduce((s, it) => s + it.cantidad, 0);
+      if (enInventario < insumo.cantidad) return this.errorCarpintero(client, `te falta ${insumo.itemId}`);
+    }
+
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!inv) return;
+    const hueco = this.buscarHuecoEnInventario(inv, blueprint.arquetipoId);
+    if (!hueco) return this.errorCarpintero(client, "no tienes hueco en el inventario para la copia");
+
+    for (const insumo of INSUMOS_COPIA_CARPINTERO) {
+      let restante = insumo.cantidad;
+      for (const it of [...contenedor.items]) {
+        if (restante <= 0) break;
+        if (it.itemId !== insumo.itemId) continue;
+        const quitar = Math.min(restante, it.cantidad);
+        quitarItem(contenedor, it.id, quitar);
+        restante -= quitar;
+      }
+    }
+
+    agregarItem(hueco.contenedor, this.catalogoItems, blueprint.arquetipoId, 1);
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    for (const [slot, extra] of inv.extras) {
+      if (extra !== hueco.contenedor) continue;
+      const extraSchema = player.inventario.extras.get(slot);
+      if (extraSchema) sincronizarContenedor(extraSchema, extra);
+    }
+    client.send("carpintero:tallarCopiaResultado", { muebleGeneradoId: blueprint.id, nombre: blueprint.nombre });
+  }
+
+  /** Lista tus propios muebles diseñados (panel del banco de carpintero: "tallar de mis diseños"). */
+  private async manejarCarpinteroMisDisenos(client: Client) {
+    const nombreJugador = this.nombreDe(client);
+    if (!nombreJugador) return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    const disenos = await bd.listarMueblesGeneradosDeCreador(jugador.id);
+    client.send("carpintero:misDisenos", { disenos: disenos.map((d) => ({ id: d.id, arquetipoId: d.arquetipoId, parametros: d.parametros, nombre: d.nombre, creadoEn: d.creadoEn })) });
+  }
+
+  private errorIngeniero(client: Client, motivo: string) {
+    client.send("ingeniero:error", { motivo });
+  }
+
+  /**
+   * Ingeniero legendario (docs/GDD_Ropa_Procedural.md §Ingeniero legendario)
+   * — MISMO flujo de interpretación/persistencia que sastre/carpintero.
+   * Alcance reducido A PROPÓSITO (documentado en el GDD, aprobado por el
+   * pedido original): NO produce todavía un item ni coloca el edificio en
+   * el mundo — el blueprint queda persistente y listable ("mis proyectos"),
+   * visible en la preview 3D del panel. Colocar edificios de diseño propio
+   * en el mundo (tecla B) queda como backlog real.
+   */
+  private async manejarIngenieroProyectarAceptar(client: Client, msg: { construccionId?: number; texto?: string; nombre?: string }) {
+    const nombreJugador = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const player = this.state.players.get(client.sessionId);
+    if (!nombreJugador || !ctx || !player || typeof msg?.construccionId !== "number") return;
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva || viva.objeto !== MESA_PLANOS_INGENIERO_OBJETO_ID) return this.errorIngeniero(client, "necesitas estar en una mesa de planos de ingeniería");
+    if (!tieneOficio(player.oficio1, player.oficio2, "ingeniero")) return this.errorIngeniero(client, "necesitas el oficio de ingeniero");
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    const xp = await bd.obtenerXpOficio(jugador.id, "ingeniero");
+    const nivel = nivelDeXp(xp);
+    if (nivel < NIVEL_MINIMO_INGENIERO_LEGENDARIO) {
+      return this.errorIngeniero(client, `necesitas nivel ${NIVEL_MINIMO_INGENIERO_LEGENDARIO} de ingeniero (tienes ${nivel})`);
+    }
+
+    const texto = typeof msg.texto === "string" ? msg.texto.slice(0, 200) : "";
+    const parametros = interpretarPromptEdificio(texto);
+    const nombreEdificio = typeof msg.nombre === "string" && msg.nombre.trim() ? msg.nombre.trim().slice(0, 60) : `Proyecto de ${nombreJugador}`;
+
+    const permitido = await bd.resolverCooldownIngenieriaLegendaria(jugador.id, Date.now(), VENTANA_INGENIERIA_LEGENDARIA_MS);
+    if (!permitido) return this.errorIngeniero(client, "el oficio de ingeniero está fatigado — vuelve mañana");
+
+    const blueprint = await bd.crearEdificioGenerado({
+      creadorId: jugador.id,
+      tipoEdificio: (parametros as { tipoEdificio: string }).tipoEdificio,
+      parametros,
+      nombre: nombreEdificio,
+      promptTexto: texto,
+    });
+
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, "ingeniero", XP_INGENIERO_POR_BLUEPRINT);
+    client.send("ingeniero:proyectarResultado", {
+      edificioGeneradoId: blueprint.id, tipoEdificio: blueprint.tipoEdificio, parametros, nombre: blueprint.nombre,
+      xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
+    });
+  }
+
+  /** Lista tus propios proyectos de edificio (panel de la mesa de planos: "mis proyectos"). */
+  private async manejarIngenieroMisDisenos(client: Client) {
+    const nombreJugador = this.nombreDe(client);
+    if (!nombreJugador) return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    const disenos = await bd.listarEdificiosGeneradosDeCreador(jugador.id);
+    client.send("ingeniero:misDisenos", { disenos: disenos.map((d) => ({ id: d.id, tipoEdificio: d.tipoEdificio, parametros: d.parametros, nombre: d.nombre, creadoEn: d.creadoEn })) });
   }
 
   /**
