@@ -77,8 +77,15 @@ export interface RigHumanoide {
    * y no como "tumbado a propósito". El volcado del cuerpo entero (yacer de
    * lado en el suelo) lo aplica el llamante rotando `objeto` — mismo
    * mecanismo ya usado por nadar/tumbado — ver `inclinarCaido` más abajo.
+   * `trabajando` (docs/GDD_NPCs_Contratables.md, pedido 2026-09-01): pose
+   * fija de un NPC trabajador operando su mesa de oficio — de pie, ligera
+   * inclinación hacia delante y brazos ocupados sobre la mesa (sin
+   * keyframes, un pose fijo es consistente con el resto del proyecto,
+   * mismo criterio que `tocando`/`caido`). Prioridad justo por debajo de
+   * `caido` y de las poses sentado/tumbado (nunca deberían coincidir de
+   * todas formas: un trabajador nunca se sienta ni cae mientras trabaja).
    */
-  actualizar(dt: number, marcha?: Marcha, tocando?: boolean, sentado?: boolean, sentadoSuelo?: boolean, tumbado?: boolean, caido?: boolean): void;
+  actualizar(dt: number, marcha?: Marcha, tocando?: boolean, sentado?: boolean, sentadoSuelo?: boolean, tumbado?: boolean, caido?: boolean, trabajando?: boolean): void;
   /** Orienta el cuerpo entero hacia una dirección de mundo (dx, dz). */
   orientar(dx: number, dz: number): void;
 }
@@ -189,7 +196,7 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   let pesoAndar = 0; // 0=parado, 1=en movimiento — con rampa para no cortar en seco
   let pesoCorrer = 0; // 0=andando, 1=corriendo — segunda rampa sobre la primera
 
-  function actualizar(dt: number, marcha: Marcha = 0, tocando = false, sentado = false, sentadoSuelo = false, tumbado = false, caido = false) {
+  function actualizar(dt: number, marcha: Marcha = 0, tocando = false, sentado = false, sentadoSuelo = false, tumbado = false, caido = false, trabajando = false) {
     // Cadáver: prioridad absoluta, pose fija desmadejada — nunca se anima
     // (el llamante la aplica una única vez y no vuelve a llamar actualizar).
     if (caido) {
@@ -235,6 +242,22 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
       torso.rotation.x = 0;
       torso.rotation.z = 0;
       cabeza.rotation.x = 0;
+      torso.position.y = ALTO_PIERNA;
+      return;
+    }
+    if (trabajando) {
+      // Ligero balanceo de brazos (moler/martillear/tallar genérico) sobre
+      // una postura fija inclinada hacia la mesa — misma cadencia visual
+      // que `tocando` pero más contenida (brazos abajo, no alzados).
+      faseTocando += dt * 4;
+      const balanceo = Math.sin(faseTocando) * 0.25;
+      piernaIzq.rotation.x = 0;
+      piernaDer.rotation.x = 0;
+      brazoIzq.rotation.x = -0.55 + balanceo;
+      brazoDer.rotation.x = -0.55 - balanceo;
+      torso.rotation.x = 0.25;
+      torso.rotation.z = 0;
+      cabeza.rotation.x = 0.15;
       torso.position.y = ALTO_PIERNA;
       return;
     }

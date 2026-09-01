@@ -1,0 +1,124 @@
+/**
+ * NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido
+ * 2026-09-01): "cualquier jugador contrata NPCs trabajadores" desde el
+ * reclutador de la capital — PURA (sin Colyseus/BD/fs), mismo patrón que
+ * crafteo.ts/oficios.ts: números y funciones que RoomExteriorBase aplica
+ * sobre las filas reales de `npcs_trabajadores`.
+ */
+import { OFICIOS_JUGADOR_VALIDOS } from "../personaje/oficios";
+
+// --- Coste de contratación (creciente por oficio adicional) ---
+
+/** Coste del PRIMER oficio. Cada oficio adicional cuesta más que el anterior (ver costeContratacionTrabajador) — "cuantos más oficios, más caro" del pedido. */
+export const COSTE_BASE_OFICIO_TRABAJADOR = 100;
+/** +50% del coste base por cada oficio por encima del primero — progresión simple, fácil de razonar para el jugador (nada de exponenciales). */
+export const INCREMENTO_POR_OFICIO_ADICIONAL = 0.5;
+
+/**
+ * Coste total en Farycoins de contratar un trabajador con `numOficios`
+ * oficios: suma de `coste_base * (1 + incremento*(i-1))` para i=1..n — el
+ * oficio i-ésimo cuesta más que el (i-1)-ésimo, así que el coste MARGINAL
+ * crece con cada oficio añadido (no solo el total). Con los valores por
+ * defecto: 1 oficio = 100, 2 = 250, 3 = 450, 4 = 700...
+ */
+export function costeContratacionTrabajador(numOficios: number): number {
+  let total = 0;
+  for (let i = 1; i <= numOficios; i++) total += COSTE_BASE_OFICIO_TRABAJADOR * (1 + INCREMENTO_POR_OFICIO_ADICIONAL * (i - 1));
+  return Math.round(total);
+}
+
+/** `true` si la lista es un subconjunto no vacío, sin duplicados, de los 10 oficios reales (docs/GDD_Profesiones.md §0). */
+export function oficiosValidos(oficios: string[]): boolean {
+  if (oficios.length === 0) return false;
+  if (new Set(oficios).size !== oficios.length) return false;
+  return oficios.every((o) => OFICIOS_JUGADOR_VALIDOS.has(o));
+}
+
+/** ¿puede este trabajador operar una receta de este oficio? — reusa el mismo catálogo cerrado que un jugador (requisito §6 del pedido: "reutiliza la validación de oficio que ya existe"). */
+export function puedeOperarOficio(oficiosTrabajador: string[], oficioReceta: string): boolean {
+  return oficiosTrabajador.includes(oficioReceta);
+}
+
+// --- Salario mensual ---
+
+/** Farycoins/mes por oficio del trabajador — un trabajador con más oficios también cuesta más de mantener, no solo más de contratar. */
+export const SALARIO_BASE_MES_POR_OFICIO = 15;
+
+export function salarioMensualTrabajador(numOficios: number): number {
+  return SALARIO_BASE_MES_POR_OFICIO * Math.max(1, numOficios);
+}
+
+/**
+ * Días de mundo entre un pago y el siguiente — MISMO calendario que
+ * `assets/mundo/tiempo.json` (`diasPorMes`, hoy 30) pero como constante
+ * propia: este módulo es puro (no puede importar el JSON de assets sin
+ * arrastrar una dependencia de rutas relativas de servidor), y el streamer
+ * puede cambiar el calendario del mundo sin que esto se desincronice si
+ * algún día se prefiere un ciclo de "salario" distinto al de "mes" — hoy
+ * son el mismo número a propósito.
+ */
+export const DIAS_POR_MES_TRABAJADOR = 30;
+
+export interface TrabajadorParaPago {
+  id: number;
+  oficios: string[];
+  fechaContratacionDia: number;
+  ultimoPagoDia: number;
+}
+
+export interface ResultadoPayroll {
+  /** `false` = todavía no toca pagar a este dueño — no hacer nada (ni cobrar ni despedir). */
+  tocaPagar: boolean;
+  /** Farycoins que se cobrarán de golpe (suma de `aPagar`) — 0 si `tocaPagar` es `false` o si todos se despiden. */
+  costeTotal: number;
+  /** Trabajadores que siguen activos tras esta resolución (cobrados, `ultimoPagoDia` debe pasar a `diaActual`). */
+  aPagar: TrabajadorParaPago[];
+  /** Trabajadores que se despiden por no llegar el dinero — el llamante debe borrarlos de BD y del mundo. */
+  aDespedir: TrabajadorParaPago[];
+}
+
+/**
+ * Cálculo PURO y perezoso del día de pago (docs/GDD_NPCs_Contratables.md
+ * §Salario) — mismo espíritu que `resolverIngresoDiarioNpc`: nadie llama
+ * esto en un cron, se resuelve por comparación de días cuando alguien mira
+ * (aquí: el tick periódico de trabajadores del room, agrupado por dueño).
+ *
+ * "De golpe" (pedido literal: "si tiene 10, paga a los 10 juntos ese día"):
+ * el ANCLA del ciclo de pago de un dueño es el `ultimoPagoDia` MÁS ANTIGUO
+ * entre sus trabajadores activos — así, aunque se contraten en días
+ * distintos, el primer pago sincroniza a todo el grupo en la misma fecha
+ * para siempre después (un trabajador nuevo se pliega al ciclo del grupo,
+ * puede que cobre un pelín antes de cumplir su primer mes completo — efecto
+ * secundario aceptado a cambio de la simplicidad de un solo ciclo por
+ * dueño, documentado aquí en vez de escondido).
+ *
+ * Si el saldo no alcanza para pagar a todos, se despide primero a los
+ * CONTRATADOS MÁS RECIENTES (`fechaContratacionDia` descendente) hasta que
+ * el resto quepa en `saldoDisponible` — decisión de diseño (el pedido dejaba
+ * elegir entre "más caros" o "más recientes"): despedir por antigüedad
+ * protege a los trabajadores más asentados/productivos del jugador, que es
+ * la lectura más intuitiva de "se me fue el dinero, pierdo lo último que
+ * contraté" — un trabajador de un solo día nunca desplaza a uno de varios
+ * meses solo por ser más barato de mantener.
+ */
+export function resolverPayroll(trabajadores: TrabajadorParaPago[], diaActual: number, saldoDisponible: number): ResultadoPayroll {
+  if (trabajadores.length === 0) return { tocaPagar: false, costeTotal: 0, aPagar: [], aDespedir: [] };
+
+  const anclaMinima = Math.min(...trabajadores.map((t) => t.ultimoPagoDia));
+  if (diaActual - anclaMinima < DIAS_POR_MES_TRABAJADOR) {
+    return { tocaPagar: false, costeTotal: 0, aPagar: [], aDespedir: [] };
+  }
+
+  const ordenadosPorAntiguedad = [...trabajadores].sort((a, b) => a.fechaContratacionDia - b.fechaContratacionDia);
+  const aDespedir: TrabajadorParaPago[] = [];
+  let aPagar = ordenadosPorAntiguedad;
+  let costeTotal = aPagar.reduce((s, t) => s + salarioMensualTrabajador(t.oficios.length), 0);
+  // se despide desde el FINAL de la lista ordenada por antigüedad (el más reciente) mientras no quepa en el saldo
+  while (costeTotal > saldoDisponible && aPagar.length > 0) {
+    const masReciente = aPagar[aPagar.length - 1];
+    aDespedir.push(masReciente);
+    aPagar = aPagar.slice(0, -1);
+    costeTotal = aPagar.reduce((s, t) => s + salarioMensualTrabajador(t.oficios.length), 0);
+  }
+  return { tocaPagar: true, costeTotal, aPagar, aDespedir };
+}

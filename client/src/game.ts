@@ -28,6 +28,7 @@ import { PanelCombate } from "./combate/panelCombate";
 import { PanelForja } from "./construccion/panelForja";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
+import { PanelReclutador, type CatalogoReclutadorVista, type TrabajadorVista } from "./economia/panelReclutador";
 import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
 import { PanelCultivo, type EstadoCultivoVista } from "./agricultura/panelCultivo";
 import { PanelInjerto } from "./agricultura/panelInjerto";
@@ -183,6 +184,11 @@ interface EstadoJugador {
   // local en vez de `room.state.companeros` directamente evita la ventana
   // de carrera de justo después de unirse a la room (ver docs/GDD_Companeros.md §8).
   quejaTexto?: string;
+  // NPC trabajador contratado (docs/GDD_NPCs_Contratables.md, pedido
+  // 2026-09-01) — true cuando `npc.accion === "craftear"` (mesa+receta
+  // asignadas, ver npcsFijos.ts::npcTrabajadorAAgente), dispara la pose fija
+  // "trabajando" del rig. Solo NPCs lo usan de verdad.
+  trabajando?: boolean;
 }
 
 /**
@@ -1472,6 +1478,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       z: npc.y,
       y: 0,
       nadando: false,
+      trabajando: npc.accion === "craftear",
     };
     npcsVisual.set(slotId, estado);
     const meta = { nombre: npc.nombre, grito: npc.grito || "", accion: npc.accion, antorcha: null as PointLight | null };
@@ -1483,6 +1490,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       estado.destinoZ = npc.y;
       rig.objeto.visible = npc.visible;
       meta.accion = npc.accion;
+      estado.trabajando = npc.accion === "craftear";
       // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): el
       // servidor cambia `npc.grito` un momento para soltar una frase de
       // "hueles mal" — sin esto la burbuja se quedaría con el pregón
@@ -1534,11 +1542,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     escena.quitarEntidad(`companero_${id}`);
     if (esMiCompanero(c)) { panelCompanero.actualizarEstado(null); panelResumen.actualizarCompanero(null); }
   });
-  // sonda para los tests E2E: cuántos NPCs llegaron del servidor y dónde están
+  // sonda para los tests E2E: cuántos NPCs llegaron del servidor y dónde
+  // están. `porSlot` (2026-09-01, NPCs trabajadores) añade accion/trabajando
+  // por slotId — para poder comprobar sin capturas que la pose "trabajando"
+  // se disparó de verdad (npc.accion === "craftear") antes de tomar la
+  // captura de verificación.
   (window as any).__npcs = () => ({
     total: npcsVisual.size,
     visibles: [...npcsVisual.values()].filter((n) => n.rig.objeto.visible).length,
     muestra: [...npcsVisual.values()].slice(0, 3).map((n) => ({ x: +n.destinoX.toFixed(1), y: +n.destinoZ.toFixed(1) })),
+    porSlot: Object.fromEntries(
+      [...npcsVisual.entries()].map(([slotId, n]) => [slotId, { accion: npcsMeta.get(slotId)?.accion ?? null, trabajando: !!n.trabajando }]),
+    ),
   });
 
   // --- Fauna doméstica (GDD_Agentes_Moviles.md v1.3): mismo circuito que
@@ -1793,6 +1808,44 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("comercio:cerrado", () => panelComercio.cerrar());
   room.onMessage("comercio:error", (m: { motivo: string }) => console.log("[comercio]", m?.motivo));
   room.onMessage("comercio:propuesta", (m: { deNombre: string }) => console.log(`[comercio] ${m?.deNombre} quiere comerciar contigo — pulsa T para aceptar`));
+
+  // --- Reclutador de NPCs trabajadores (docs/GDD_NPCs_Contratables.md,
+  // pedido 2026-09-01) — panel PLACEHOLDER de testeo (ver
+  // panelReclutador.ts). Tecla R: abre/cierra el panel cuando hay un NPC
+  // reclutador cerca (mismo criterio "sin UI de targeting" que el resto de
+  // interacciones de esta pasada); la mesa se asigna a "la construcción más
+  // cercana a mí ahora mismo" (RenderConstrucciones.masCercanaCualquiera),
+  // sin selector — igual de simple que apuntar con F a una puerta.
+  const RADIO_RECLUTADOR_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor
+  const panelReclutador = new PanelReclutador({
+    contenedor,
+    diaMundoActual: () => tiempoMundo().dia,
+    contratar: (oficios) => room.send("reclutador:contratar", { oficios }),
+    asignarMesaAqui: (trabajadorId) => {
+      if (!jugadorLocal) return;
+      const construccionId = renderConstrucciones?.masCercanaCualquiera(jugadorLocal.x, jugadorLocal.z, RADIO_RECLUTADOR_CLIENTE);
+      if (construccionId == null) { console.log("[trabajador] no hay ninguna construcción lo bastante cerca"); return; }
+      room.send("trabajador:asignarMesa", { trabajadorId, construccionId });
+    },
+    asignarReceta: (trabajadorId, recetaId) => room.send("trabajador:asignarReceta", { trabajadorId, recetaId }),
+    despedir: (trabajadorId) => room.send("trabajador:despedir", { trabajadorId }),
+    transporteContratar: () => console.log("[reclutador] usa transporte:contratar {origenConstruccionId, destinoTenderoteId|destinoConstruccionId} — mismo sistema de siempre (docs/GDD_Produccion.md), sin panel propio todavía"),
+  });
+  room.onMessage("reclutador:catalogo", (m: CatalogoReclutadorVista) => panelReclutador.actualizarCatalogo(m));
+  room.onMessage("reclutador:contratado", () => room.send("trabajador:listar"));
+  room.onMessage("trabajador:listado", (m: { trabajadores: TrabajadorVista[] }) => panelReclutador.actualizarTrabajadores(m?.trabajadores ?? []));
+  room.onMessage("trabajador:actualizado", () => room.send("trabajador:listar"));
+  room.onMessage("trabajador:despedido", () => room.send("trabajador:listar"));
+  room.onMessage("trabajador:error", (m: { motivo: string }) => { console.log("[trabajador]", m?.motivo); panelReclutador.mostrarError(m?.motivo ?? ""); });
+  /** NPC reclutador (tipoTutorial "reclutador_trabajadores") dentro de RADIO_RECLUTADOR_CLIENTE, o null. */
+  function reclutadorCercano(): boolean {
+    if (!jugadorLocal) return false;
+    for (const npc of room.state.npcs.values() as any) {
+      if (npc.tipoTutorial !== "reclutador_trabajadores") continue;
+      if (Math.hypot(npc.x - jugadorLocal.x, npc.y - jugadorLocal.z) <= RADIO_RECLUTADOR_CLIENTE) return true;
+    }
+    return false;
+  }
 
   // --- Equipo (docs/GDD_Equipo.md) — panel PLACEHOLDER de testeo (ver
   // panelJugador.ts), oculto hasta pulsar I (mismo criterio "condicional"
@@ -2239,6 +2292,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "z" && !teclas.has("z") && (identidadAdminActual?.esJarlAqui || identidadAdminActual?.rol === "superadmin")) {
       colocadorPlantillas?.alternar();
     }
+    // Reclutador de NPCs trabajadores (docs/GDD_NPCs_Contratables.md,
+    // pedido 2026-09-01): R abre/cierra el panel — solo hace algo si hay un
+    // reclutador cerca o si el panel ya estaba abierto (para poder cerrarlo
+    // aunque te hayas alejado).
+    if (k === "r" && !teclas.has("r") && !colocadorPlantillas?.activo()) {
+      if (panelReclutador.estaAbierto()) {
+        panelReclutador.alternar();
+      } else if (reclutadorCercano()) {
+        room.send("reclutador:catalogo");
+        room.send("trabajador:listar");
+        panelReclutador.alternar();
+      }
+    }
     // Jugador (docs/GDD_Equipo.md): I abre/cierra el panel de equipo/inventario
     if (k === "i" && !teclas.has("i")) {
       panelJugador.alternar();
@@ -2461,7 +2527,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // abajo — la inclinación va en el sentido contrario al de este rig.
       const inclinacionObjetivo = estado.nadando ? 1.1 : estado.durmiendo ? 1.5 : 0;
       estado.rig.objeto.rotation.x += (inclinacionObjetivo - estado.rig.objeto.rotation.x) * factor;
-      estado.rig.actualizar(dt, marcha, estado.tocandoInstrumento, estado.sentado, estado.sentadoSuelo, estado.durmiendo);
+      estado.rig.actualizar(dt, marcha, estado.tocandoInstrumento, estado.sentado, estado.sentadoSuelo, estado.durmiendo, false, estado.trabajando);
     }
 
     // NPCs: antorcha de los turnos de vigilancia (se enciende de noche,

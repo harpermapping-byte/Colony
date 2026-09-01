@@ -19,7 +19,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { NpcBakeado } from "./agentes";
-import { NpcTutorialColocado } from "../datos/bd";
+import { NpcTutorialColocado, NpcTrabajador } from "../datos/bd";
 
 export interface NpcFijoCatalogo {
   slotId: string;
@@ -54,8 +54,20 @@ export function cargarNpcsFijos(rutaMapa: string): NpcBakeado[] {
 
 export interface NpcTutorial {
   id: string; // tipoTutorial — clave estable, referenciada desde la BD (npcs_tutoriales.tipo_tutorial)
-  /** "tutorial" (explica una mecánica) o "lore" (cuenta lore del servidor, pedido 2026-08-31) — mismo mecanismo de colocación/vestido para las dos, solo cambia qué placeholder/fuente de texto usa `npc:hablar`. Ausente = "tutorial" (catálogos viejos sin el campo). */
-  categoria?: "tutorial" | "lore";
+  /**
+   * "tutorial" (explica una mecánica) o "lore" (cuenta lore del servidor,
+   * pedido 2026-08-31) — mismo mecanismo de colocación/vestido para las
+   * dos, solo cambia qué placeholder/fuente de texto usa `npc:hablar`.
+   * "reclutador" (docs/GDD_NPCs_Contratables.md, pedido 2026-09-01): MISMO
+   * mecanismo de colocación EN VIVO/persistente/vestido que las otras dos
+   * categorías (jarl coloca/mueve/quita con `admin:npcTutorial:*`, ver
+   * GDD_Profesiones.md ronda 3) — pero su interacción NO pasa por
+   * `npc:hablar` (placeholder de texto): un jugador cercano dispara
+   * `reclutador:catalogo`/`reclutador:contratar` (RoomExteriorBase.ts,
+   * disponible en Hub Y Region, a diferencia de `npc:hablar` que solo vive
+   * en HubRoom) para abrir el panel real de contratación. Ausente = "tutorial" (catálogos viejos sin el campo).
+   */
+  categoria?: "tutorial" | "lore" | "reclutador";
   /** Nombre real de poblacion/catalogo/nombres.json (ronda 3, pedido 2026-08-30: "todo NPC tira de esa lista") — lo que se ve en la etiqueta del NPC. */
   nombre: string;
   /** Rol de sabor que antes era el propio `nombre` ("Maestro de Oficios"...) — flavor, no viaja al cliente. */
@@ -123,4 +135,34 @@ export async function cargarNpcsTutorialesDeMapa(bd: { listarNpcsTutorialesDeMap
     if (npc) npcs.push(npc);
   }
   return npcs;
+}
+
+// --- NPCs TRABAJADORES contratables (docs/GDD_NPCs_Contratables.md, pedido 2026-09-01) ---
+
+/**
+ * Convierte una fila de `npcs_trabajadores` en el `NpcBakeado` que
+ * `GestorAgentes` sabe recolocar — MISMO mecanismo exacto que un NPC
+ * tutorial (`npcTutorialAAgente`): un tramo único 0-24h, sin `camino` (nunca
+ * camina solo, "regla dura: nunca A* en vivo" de agentes.ts), en su
+ * posición actual (la del reclutador si aún no tiene mesa asignada, la de
+ * la mesa si ya la tiene — `x`/`y` de la fila ya reflejan cuál toca).
+ * `accion` distingue visualmente "craftear" (pose trabajando del rig, tiene
+ * mesa Y receta asignadas) de "trabajar" (idle normal, recién contratado o
+ * sin receta todavía) — ver `client/src/render3d/rigHumanoide.ts`.
+ */
+export function npcTrabajadorAAgente(fila: NpcTrabajador): NpcBakeado {
+  return {
+    slotId: `trabajadorOficio_${fila.id}`,
+    nombre: fila.nombre,
+    oficio: "npc_trabajador",
+    rutina: [{
+      lugar: "trabajo", accion: fila.construccionId != null && fila.recetaId ? "craftear" : "trabajar",
+      horaInicio: 0, horaFin: 24, punto: { x: fila.x, y: fila.y }, camino: null,
+    }],
+  };
+}
+
+/** Todos los NPCs trabajadores persistidos de un mapa, ya convertidos a NpcBakeado — para recrearlos al arrancar la room (sobreviven un reinicio del servidor). */
+export async function cargarNpcsTrabajadoresDeMapa(bd: { listarNpcsTrabajadoresDeMapa(mapaId: string): Promise<NpcTrabajador[]> }, mapaId: string): Promise<NpcTrabajador[]> {
+  return bd.listarNpcsTrabajadoresDeMapa(mapaId);
 }

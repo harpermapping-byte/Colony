@@ -170,7 +170,13 @@ Orden de prioridad, de más a menos infraestructura ya construida detrás:
 
 **Corrección (mismo día, 2026-08-29): el mecanismo de planos+recetas YA no está sin diseñar** — ver la sección "Oficios de crafteo" de arriba (`docs/GDD_Crafteo.md`): planos (`planoRequerido`), nivel mínimo de oficio, y XP por rama, con un ejemplo real cerrado (`espada_hierro_basica`). Lo que sigue pendiente es solo volumen: rellenar recetas concretas para las ~38 profesiones, oficio a oficio.
 
-## NPCs contratables para automatizar producción (trabajar, transportar, vender) — la pieza de TRANSPORTE ya HECHA (2026-08-29), automatizar trabajo en granja/mesa sigue sin construir
+## NPCs contratables para automatizar producción (trabajar, transportar, vender) — HECHO (2026-09-01), ver `docs/GDD_NPCs_Contratables.md`
+
+**Resuelto (2026-09-01)**: el reclutador + trabajador de mesa/oficio real que esta sección dejaba pendiente ya está implementado y verificado — ver `docs/GDD_NPCs_Contratables.md` (reclutador fijo colocado por el jarl, contratación con coste creciente por oficio, NPC real visible operando su mesa asignada, crafteo automático por tick reusando `crafteo.ts`, salario mensual perezoso por día de mundo con despido automático por impago). El texto original de esta sección se deja abajo como registro histórico del análisis previo a implementarlo.
+
+<details><summary>Análisis original (pre-implementación, 2026-08-29/30)</summary>
+
+**La pieza de TRANSPORTE ya HECHA (2026-08-29), automatizar trabajo en granja/mesa sigue sin construir** (estado en el momento de escribir esto, ya superado — ver arriba).
 
 Pedido del streamer (2026-08-29): el menú de construcción no es solo bloques/muebles/decoración sin interior + edificios pequeños con interior (ver `GDD_Construccion.md` §8) — la otra mitad es aprovechar el pathfinding ya construido para AUTOMATIZAR trabajo contratando NPCs con dinero: un NPC que trabaje una granja/mesa y guarde el material en las cajas de la parcela, otro que transporte materiales de un punto A a un punto B (venderlos, o llevarlos a otra parcela propia donde se transforman en otro material vía crafteo — ej. harina→pan en una panadería), contratado desde una mesa/edificio específico hablando con un NPC "reclutador" (tipo oficina de empleo).
 
@@ -193,6 +199,10 @@ Cómo encaja SIN romper la regla: lo que está prohibido es A\* REPETIDO en el t
 **Progreso real (2026-08-29), pieza de TRANSPORTE ya construida — ver `docs/GDD_Produccion.md`**: `transporte:contratar` en `RoomExteriorBase.ts`, tabla `contratos_transporte`, NPC carretero visible vía `GestorAgentes.agregarAgenteTransportista`, ruta calculada UNA VEZ al firmar el contrato (coherente con "nunca A* en el tick", exactamente como proponía este backlog). Lo que sigue sin construir es la otra mitad: un NPC que "trabaje" una granja/mesa de verdad — hoy sigue siendo un flag abstracto (`trabajadorAsignado: boolean`), no un NPC contratado real — y el reclutador/oficina de empleo.
 
 **Pendiente de decidir cuando toque**: si el NPC contratado sale de un pool de "desempleados" (ej. `vagabundo` reconvertido) o cualquier NPC del asentamiento puede aceptar; si el contrato se paga una vez o es sueldo periódico (mismo patrón de tick que `ejecutarTickEconomia` de la facción bandida); qué pasa si el punto B no tiene hueco/capacidad.
+
+*(Estas dos últimas preguntas quedaron resueltas en la implementación: el NPC contratado nace nuevo desde el reclutador (no sale de un pool de "desempleados" existente), y el pago es sueldo PERIÓDICO mensual — ver `docs/GDD_NPCs_Contratables.md`.)*
+
+</details>
 
 ## Ideas propias a valorar (propuestas, no decisiones — para que el streamer las filtre)
 
