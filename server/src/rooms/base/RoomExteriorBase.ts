@@ -131,7 +131,7 @@ import {
 import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente, npcTrabajadorAAgente } from "../../mundo/npcsFijos";
 import {
   costeContratacionTrabajador, oficiosValidos, puedeOperarOficio, salarioMensualTrabajador,
-  resolverPayroll, TrabajadorParaPago,
+  resolverPayroll, TrabajadorParaPago, DIAS_POR_MES_TRABAJADOR,
 } from "../../construccion/trabajadores";
 import { contenedoresTestDeMapa } from "../../mundo/contenedoresTest";
 import { nombrePoliticoDeterminista } from "../../personaje/nombresNpc";
@@ -7348,6 +7348,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       oficios,
       costePorCantidad: Array.from({ length: oficios.length }, (_, i) => costeContratacionTrabajador(i + 1)),
       salarioBasePorOficioMes: salarioMensualTrabajador(1),
+      // días de mundo entre un pago y el siguiente — el panel lo usa para
+      // estimar "próximo pago" a partir de ultimoPagoDia sin duplicar la
+      // constante (docs/GDD_NPCs_Contratables.md §8).
+      diasPorMesTrabajador: DIAS_POR_MES_TRABAJADOR,
     });
   }
 

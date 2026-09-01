@@ -1542,11 +1542,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     escena.quitarEntidad(`companero_${id}`);
     if (esMiCompanero(c)) { panelCompanero.actualizarEstado(null); panelResumen.actualizarCompanero(null); }
   });
-  // sonda para los tests E2E: cuántos NPCs llegaron del servidor y dónde están
+  // sonda para los tests E2E: cuántos NPCs llegaron del servidor y dónde
+  // están. `porSlot` (2026-09-01, NPCs trabajadores) añade accion/trabajando
+  // por slotId — para poder comprobar sin capturas que la pose "trabajando"
+  // se disparó de verdad (npc.accion === "craftear") antes de tomar la
+  // captura de verificación.
   (window as any).__npcs = () => ({
     total: npcsVisual.size,
     visibles: [...npcsVisual.values()].filter((n) => n.rig.objeto.visible).length,
     muestra: [...npcsVisual.values()].slice(0, 3).map((n) => ({ x: +n.destinoX.toFixed(1), y: +n.destinoZ.toFixed(1) })),
+    porSlot: Object.fromEntries(
+      [...npcsVisual.entries()].map(([slotId, n]) => [slotId, { accion: npcsMeta.get(slotId)?.accion ?? null, trabajando: !!n.trabajando }]),
+    ),
   });
 
   // --- Fauna doméstica (GDD_Agentes_Moviles.md v1.3): mismo circuito que
@@ -1812,6 +1819,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const RADIO_RECLUTADOR_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor
   const panelReclutador = new PanelReclutador({
     contenedor,
+    diaMundoActual: () => tiempoMundo().dia,
     contratar: (oficios) => room.send("reclutador:contratar", { oficios }),
     asignarMesaAqui: (trabajadorId) => {
       if (!jugadorLocal) return;
@@ -1828,7 +1836,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("trabajador:listado", (m: { trabajadores: TrabajadorVista[] }) => panelReclutador.actualizarTrabajadores(m?.trabajadores ?? []));
   room.onMessage("trabajador:actualizado", () => room.send("trabajador:listar"));
   room.onMessage("trabajador:despedido", () => room.send("trabajador:listar"));
-  room.onMessage("trabajador:error", (m: { motivo: string }) => console.log("[trabajador]", m?.motivo));
+  room.onMessage("trabajador:error", (m: { motivo: string }) => { console.log("[trabajador]", m?.motivo); panelReclutador.mostrarError(m?.motivo ?? ""); });
   /** NPC reclutador (tipoTutorial "reclutador_trabajadores") dentro de RADIO_RECLUTADOR_CLIENTE, o null. */
   function reclutadorCercano(): boolean {
     if (!jugadorLocal) return false;
