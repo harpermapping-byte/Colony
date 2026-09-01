@@ -190,6 +190,12 @@ export class HubRoom extends RoomExteriorBase {
         }
         console.log(`  ${gestor.cantidad} NPC(s) fijo(s) en el mapa (${npcsTutoriales.length} tutorial(es))`);
       }
+      // NPCs trabajadores contratados (docs/GDD_NPCs_Contratables.md, pedido
+      // 2026-09-01) — persistidos por dueño, sobreviven un reinicio del
+      // servidor igual que los tutoriales de arriba.
+      const trabajadores = await (await obtenerBdCompartida()).listarNpcsTrabajadoresDeMapa(this.mapaIdPropio);
+      for (const fila of trabajadores) this.registrarTrabajadorEnMemoria(fila);
+      if (trabajadores.length > 0) console.log(`  ${trabajadores.length} NPC(s) trabajador(es) contratado(s) en el mapa`);
     }
 
     // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): los que ya estaban

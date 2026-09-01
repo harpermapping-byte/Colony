@@ -134,6 +134,12 @@ export class RegionRoom extends RoomExteriorBase {
           if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
         }
       }
+      // NPCs trabajadores contratados (docs/GDD_NPCs_Contratables.md, pedido
+      // 2026-09-01) — típicamente en la ciudad capital (el reclutador vive
+      // ahí), pero cualquier RegionRoom con construcción puede tenerlos.
+      const trabajadores = await (await obtenerBdCompartida()).listarNpcsTrabajadoresDeMapa(this.mapaId);
+      for (const fila of trabajadores) this.registrarTrabajadorEnMemoria(fila);
+      if (trabajadores.length > 0) console.log(`  ${trabajadores.length} NPC(s) trabajador(es) contratado(s) en el mapa`);
     }
 
     // Fauna doméstica (GDD_Agentes_Moviles.md v1.3): sin rutina horaria,

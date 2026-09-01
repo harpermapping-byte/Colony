@@ -69,7 +69,7 @@ import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
 import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
 import { CatalogoBarcos, cargarCatalogoBarcos } from "../../mundo/catalogoBarcos";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero, NpcTrabajador } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -128,7 +128,11 @@ import {
   UMBRAL_SUCIEDAD_MOLESTO, RECARGO_TIENDA_SUCIEDAD, SUCIEDAD_POR_CRAFTEO, SUCIEDAD_POR_RECOLECTAR,
   RITMO_LIMPIEZA_AGUA_POR_HORA, FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO, NIVEL_MAX_OFICIO,
 } from "../../personaje/oficios";
-import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente } from "../../mundo/npcsFijos";
+import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente, npcTrabajadorAAgente } from "../../mundo/npcsFijos";
+import {
+  costeContratacionTrabajador, oficiosValidos, puedeOperarOficio, salarioMensualTrabajador,
+  resolverPayroll, TrabajadorParaPago,
+} from "../../construccion/trabajadores";
 import { contenedoresTestDeMapa } from "../../mundo/contenedoresTest";
 import { nombrePoliticoDeterminista } from "../../personaje/nombresNpc";
 import { Atributo, esAtributoValido } from "../../personaje/atributos";
@@ -265,6 +269,8 @@ const RADIO_AGRO_DEFECTO = 5;
 // (inventario.ts): números de referencia a afinar, no decisiones cerradas.
 const RADIO_PLANTILLAS_JARL_CASILLAS = Number(process.env.RADIO_PLANTILLAS_JARL_CASILLAS ?? 80);
 const COSTE_TRABAJADOR_FARYCOINS = 50;
+// NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido 2026-09-01).
+const INTERVALO_TICK_TRABAJADOR_MS = 10_000;
 const CARGA_POR_VIAJE_TRANSPORTE = 10;
 const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar un ítem nunca antes vendido ahí — el dueño lo ajusta con tenderete:fijarPrecio
 const PREFIJO_DESTINO_COFRE = "cofre:";
@@ -668,6 +674,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected catalogoRecetas?: Map<string, RecetaCrafteo>;
   /** Crafteo en curso por sesión — vive y muere con la sesión (mismo criterio que `inventarios`, fase 2 de Inventario): si el jugador se desconecta a medias, se pierde, aceptable en v1. */
   protected craftesEnCurso = new Map<string, EstadoCrafteo>();
+  // --- NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido 2026-09-01) ---
+  /** Trabajadores de ESTE mapa, cacheados en memoria de room (poblado al arrancar + en cada alta/asignación/despido) — evita un round-trip a BD en cada tick de crafteo/payroll; la fila real sigue viviendo en `npcs_trabajadores`. */
+  protected trabajadoresActivos = new Map<number, NpcTrabajador>();
+  /** Crafteo automático en curso por trabajador — MISMO shape que `craftesEnCurso`, pero en memoria de la construcción/room (nunca de una sesión de jugador): si el servidor se reinicia a medias, el crafteo en curso se pierde (los insumos ya consumidos, aceptable en v1 — mismo riesgo que `craftesEnCurso` para jugadores). */
+  protected craftesTrabajador = new Map<number, EstadoCrafteo>();
   /** Desollar/despiezar un cadáver en curso por sesión (docs/GDD_Caza.md, 2026-08-30 octava pasada) — mismo criterio de vida/muerte que `craftesEnCurso`. */
   protected despiecesEnCurso = new Map<string, EstadoDespiece>();
   /** Minijuego de forja en curso por sesión (docs/GDD_Crafteo.md §Minijuego de Herrería, pedido 2026-09-01) — solo recetas de herrero de armas/armaduras (`receta.minijuego === "herreria"`) pasan por aquí; mismo criterio de vida/muerte que `craftesEnCurso` (se limpia en onLeave, los insumos ya gastados no se devuelven). */
@@ -1053,6 +1064,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("crafteo:iniciar", (client, msg: { recetaId?: string; construccionId?: number }) => this.manejarCrafteoIniciar(client, msg));
     this.onMessage("crafteo:recolectar", (client) => this.manejarCrafteoRecolectar(client));
 
+    // --- NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido 2026-09-01) ---
+    this.onMessage("reclutador:catalogo", (client) => this.manejarReclutadorCatalogo(client));
+    this.onMessage("reclutador:contratar", (client, msg: { oficios?: string[] }) => void this.manejarReclutadorContratar(client, msg));
+    this.onMessage("trabajador:listar", (client) => void this.manejarTrabajadorListar(client));
+    this.onMessage("trabajador:asignarMesa", (client, msg: { trabajadorId?: number; construccionId?: number }) => void this.manejarTrabajadorAsignarMesa(client, msg));
+    this.onMessage("trabajador:asignarReceta", (client, msg: { trabajadorId?: number; recetaId?: string | null }) => void this.manejarTrabajadorAsignarReceta(client, msg));
+    this.onMessage("trabajador:despedir", (client, msg: { trabajadorId?: number }) => void this.manejarTrabajadorDespedir(client, msg));
+
     // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería) — el
     // arranque sigue siendo "crafteo:iniciar" de arriba (misma validación de
     // mesa/nivel/insumos); estos dos mensajes solo existen mientras hay una
@@ -1223,6 +1242,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // cada pocos segundos, no cada tick de movimiento (O(jugadores·npcs) es
     // aceptable a este ritmo, no a 30hz).
     this.clock.setInterval(() => this.revisarBarksSuciedad(), INTERVALO_BARK_SUCIEDAD_MS);
+    // NPCs trabajadores (docs/GDD_NPCs_Contratables.md, pedido 2026-09-01):
+    // crafteo automático (mesa+receta asignadas) + resolución perezosa del
+    // salario mensual, agrupado por dueño. 10s de por medio a propósito —
+    // no hace falta más rápido (los crafteos duran segundos/minutos reales,
+    // el salario se resuelve en días de mundo) y así el coste en BD de este
+    // tick es insignificante incluso con muchos trabajadores contratados.
+    this.clock.setInterval(() => void this.tickTrabajadores(), INTERVALO_TICK_TRABAJADOR_MS);
   }
 
   private ultimoBarkSucioPorSesion = new Map<string, number>();
@@ -7175,6 +7201,259 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: cantidadFinal,
       oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
     });
+  }
+
+  // ==========================================================================
+  // NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido
+  // 2026-09-01) — un reclutador fijo (NpcTutorial categoria "reclutador",
+  // colocado/movido/quitado por el jarl con `admin:npcTutorial:*`, ver
+  // npcsFijos.ts) desde el que CUALQUIER jugador contrata NPCs trabajadores
+  // reales: aparecen en el mundo, se les asigna una mesa + una receta de SU
+  // oficio, y craftean solos (tick de arriba) consumiendo/entregando en el
+  // almacén (`tenderete_items`) de la PROPIEDAD de esa mesa — nunca en el
+  // inventario del jugador dueño ni en uno propio del trabajador: es el
+  // mismo almacén que ya usa `refinamiento:depositar`/el trabajador pagado
+  // de una plantilla de producción, así que el jugador ve todo en un único
+  // sitio (su tenderete/cofre de esa construcción) sin un inventario nuevo
+  // que gestionar por trabajador.
+  // ==========================================================================
+
+  private errorTrabajador(client: Client, motivo: string) {
+    client.send("trabajador:error", { motivo });
+  }
+
+  /** El NPC reclutador (categoria "reclutador" en npcsTutoriales.json) más cercano dentro de RADIO_INTERACCION, o `null`. */
+  private reclutadorCercano(x: number, y: number): { id: string } | null {
+    for (const [id, npc] of this.state.npcs.entries()) {
+      if (npc.tipoTutorial !== "reclutador_trabajadores") continue;
+      if (Math.hypot(npc.x - x, npc.y - y) <= RADIO_INTERACCION) return { id };
+    }
+    return null;
+  }
+
+  /** Registra un trabajador YA persistido en la simulación (cache en memoria + GestorAgentes) — usado tanto al arrancar la room (HubRoom/RegionRoom, filas ya existentes) como justo tras contratar/reasignar uno nuevo en caliente. */
+  protected registrarTrabajadorEnMemoria(fila: NpcTrabajador) {
+    this.trabajadoresActivos.set(fila.id, fila);
+    this.obtenerOCrearGestorAgentes().agregarNpcFijo(npcTrabajadorAAgente(fila));
+  }
+
+  /** Catálogo de oficios contratables + coste por cantidad (1..10 oficios) — igual para cualquiera que pregunte, no depende de quién sea el jugador. */
+  private manejarReclutadorCatalogo(client: Client) {
+    const oficios = [...OFICIOS_JUGADOR_VALIDOS];
+    client.send("reclutador:catalogo", {
+      oficios,
+      costePorCantidad: Array.from({ length: oficios.length }, (_, i) => costeContratacionTrabajador(i + 1)),
+      salarioBasePorOficioMes: salarioMensualTrabajador(1),
+    });
+  }
+
+  /** Contrata un trabajador nuevo — debe estar cerca del reclutador. Nace en la posición del reclutador, sin mesa ni receta (el jugador las asigna después con trabajador:asignarMesa/asignarReceta). */
+  private async manejarReclutadorContratar(client: Client, msg: { oficios?: string[] }) {
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player || !msg?.oficios) return;
+    const reclutador = this.reclutadorCercano(player.x, player.y);
+    if (!reclutador) return this.errorTrabajador(client, "no hay ningún reclutador cerca");
+    if (!oficiosValidos(msg.oficios)) return this.errorTrabajador(client, "lista de oficios inválida");
+
+    const coste = costeContratacionTrabajador(msg.oficios.length);
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const debito = await bd.ajustarFarycoins(jugador.id, -coste);
+    if (!debito.ok) return this.errorTrabajador(client, `no tienes suficientes Farycoins (cuesta ${coste})`);
+
+    const npcReclutador = this.state.npcs.get(reclutador.id)!;
+    const dia = tiempoMundo().dia;
+    const fila = await bd.contratarNpcTrabajador({
+      mapaId: this.mapaIdPropio ?? "desconocido", duenoId: jugador.id,
+      nombre: nombrePoliticoDeterminista(`trabajador_${jugador.id}_${Date.now()}`),
+      oficios: msg.oficios, x: npcReclutador.x, y: npcReclutador.y, diaActual: dia,
+    });
+    this.registrarTrabajadorEnMemoria(fila);
+    client.send("reclutador:contratado", { trabajador: fila, saldoRestante: debito.saldo });
+  }
+
+  /** Los trabajadores del jugador que pregunta — para el panel de gestión (asignar mesa/receta, despedir, ver próximo pago). */
+  private async manejarTrabajadorListar(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const propios = await bd.listarNpcsTrabajadoresDeJugador(jugador.id);
+    client.send("trabajador:listado", { trabajadores: propios });
+  }
+
+  /** `true` si `nombre` es el dueño real de este trabajador (o jarl) — mismo criterio de gating que el resto de acciones de propiedad. */
+  private async trabajadorPerteneceA(client: Client, trabajadorId: number): Promise<{ ok: true; fila: NpcTrabajador } | { ok: false }> {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return { ok: false };
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const fila = this.trabajadoresActivos.get(trabajadorId) ?? (await bd.listarNpcsTrabajadoresDeJugador(jugador.id)).find((t) => t.id === trabajadorId);
+    if (!fila) return { ok: false };
+    const ctx = this.ctxConstruccion;
+    if (fila.duenoId !== jugador.id && !(ctx && esJarl(ctx, nombre))) return { ok: false };
+    return { ok: true, fila };
+  }
+
+  /**
+   * Asigna (o reasigna) la mesa de un trabajador — TELEPORT instantáneo a
+   * la casilla de la mesa (regla dura de agentes.ts: nunca A* en vivo,
+   * mismo criterio que cualquier NPC fijo). Debe estar cerca de la mesa
+   * para asignarla (evita "teletransportar" trabajadores a mesas al otro
+   * lado del mapa sin ni pisarlas). No exige que el trabajador tenga YA el
+   * oficio de ninguna receta concreta — eso se valida al asignar la receta
+   * (§ siguiente), una mesa puede servir varias recetas de oficios distintos.
+   */
+  private async manejarTrabajadorAsignarMesa(client: Client, msg: { trabajadorId?: number; construccionId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const ctx = this.ctxConstruccion;
+    if (!player || !ctx || typeof msg?.trabajadorId !== "number" || typeof msg?.construccionId !== "number") return;
+    const pertenece = await this.trabajadorPerteneceA(client, msg.trabajadorId);
+    if (!pertenece.ok) return this.errorTrabajador(client, "ese trabajador no es tuyo");
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorTrabajador(client, "mesa inexistente");
+    if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) return this.errorTrabajador(client, "demasiado lejos de la mesa");
+
+    const bd = await obtenerBdCompartida();
+    await bd.asignarMesaNpcTrabajador(msg.trabajadorId, msg.construccionId, viva.x, viva.y);
+    // receta anterior (si la había) puede que ya no aplique a la mesa nueva — se limpia, el jugador la reasigna a propósito.
+    await bd.asignarRecetaNpcTrabajador(msg.trabajadorId, null);
+    this.craftesTrabajador.delete(msg.trabajadorId);
+    const actualizado: NpcTrabajador = { ...pertenece.fila, construccionId: msg.construccionId, recetaId: null, x: viva.x, y: viva.y };
+    this.gestorAgentes?.quitarAgente(`trabajadorOficio_${msg.trabajadorId}`);
+    this.registrarTrabajadorEnMemoria(actualizado);
+    client.send("trabajador:actualizado", { trabajador: actualizado });
+  }
+
+  /**
+   * Asigna qué receta craftea el trabajador en su mesa — exige mesa YA
+   * asignada, receta real, mesa correcta para esa receta (`receta.mesas`,
+   * mismo catálogo que valida un jugador) y que el OFICIO de la receta esté
+   * entre los del trabajador (requisito §6 del pedido: reusa
+   * `puedeOperarOficio`/`OFICIOS_JUGADOR_VALIDOS`, ningún catálogo nuevo).
+   * `recetaId: null` desasigna (el trabajador queda parado en su mesa, sin craftear).
+   */
+  private async manejarTrabajadorAsignarReceta(client: Client, msg: { trabajadorId?: number; recetaId?: string | null }) {
+    if (typeof msg?.trabajadorId !== "number") return;
+    const pertenece = await this.trabajadorPerteneceA(client, msg.trabajadorId);
+    if (!pertenece.ok) return this.errorTrabajador(client, "ese trabajador no es tuyo");
+    const fila = pertenece.fila;
+    if (fila.construccionId == null) return this.errorTrabajador(client, "asígnale antes una mesa");
+
+    if (msg.recetaId != null) {
+      if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
+      const receta = this.catalogoRecetas.get(msg.recetaId);
+      if (!receta) return this.errorTrabajador(client, "receta desconocida");
+      if (!puedeOperarOficio(fila.oficios, receta.oficio)) return this.errorTrabajador(client, `este trabajador no tiene el oficio ${receta.oficio}`);
+      const viva = this.ctxConstruccion?.vivas.get(fila.construccionId);
+      if (!viva || !receta.mesas.includes(viva.objeto)) return this.errorTrabajador(client, "esa receta no se craftea en la mesa asignada");
+    }
+
+    const bd = await obtenerBdCompartida();
+    await bd.asignarRecetaNpcTrabajador(msg.trabajadorId, msg.recetaId ?? null);
+    this.craftesTrabajador.delete(msg.trabajadorId); // cambiar de receta a media faena descarta el crafteo en curso, mismo criterio que quitar un módulo de mesa
+    const actualizado: NpcTrabajador = { ...fila, recetaId: msg.recetaId ?? null };
+    this.gestorAgentes?.quitarAgente(`trabajadorOficio_${msg.trabajadorId}`);
+    this.registrarTrabajadorEnMemoria(actualizado);
+    client.send("trabajador:actualizado", { trabajador: actualizado });
+  }
+
+  /** Despido a mano por el dueño (o el jarl) — BORRA la fila (nunca vuelve, mismo criterio que el despido automático por impago). */
+  private async manejarTrabajadorDespedir(client: Client, msg: { trabajadorId?: number }) {
+    if (typeof msg?.trabajadorId !== "number") return;
+    const pertenece = await this.trabajadorPerteneceA(client, msg.trabajadorId);
+    if (!pertenece.ok) return this.errorTrabajador(client, "ese trabajador no es tuyo");
+    this.despedirTrabajadorEnMemoria(msg.trabajadorId);
+    const bd = await obtenerBdCompartida();
+    await bd.despedirNpcTrabajador(msg.trabajadorId);
+    client.send("trabajador:despedido", { trabajadorId: msg.trabajadorId });
+  }
+
+  /** Quita un trabajador de la simulación (mundo + cachés en memoria) — la fila de BD la borra quien llame (a mano o por impago). */
+  private despedirTrabajadorEnMemoria(id: number) {
+    this.trabajadoresActivos.delete(id);
+    this.craftesTrabajador.delete(id);
+    this.gestorAgentes?.quitarAgente(`trabajadorOficio_${id}`);
+  }
+
+  /**
+   * Tick periódico (cada INTERVALO_TICK_TRABAJADOR_MS): 1) avanza el
+   * crafteo automático de cada trabajador con mesa+receta asignadas, 2)
+   * resuelve el salario mensual agrupado por dueño (cálculo perezoso, ver
+   * `resolverPayroll`). Silenciosamente no-op si esta room no tiene ningún
+   * trabajador (caso normal, la inmensa mayoría de mapas).
+   */
+  private async tickTrabajadores(): Promise<void> {
+    if (this.trabajadoresActivos.size === 0) return;
+    const bd = await obtenerBdCompartida();
+    const ahora = Date.now();
+    const dia = tiempoMundo().dia;
+
+    // --- 1) crafteo automático ---
+    if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
+    const ctx = this.ctxConstruccion;
+    for (const fila of [...this.trabajadoresActivos.values()]) {
+      const enCurso = this.craftesTrabajador.get(fila.id);
+      if (enCurso) {
+        if (!crafteoListo(enCurso, ahora)) continue;
+        const receta = this.catalogoRecetas.get(enCurso.recetaId);
+        this.craftesTrabajador.delete(fila.id);
+        if (receta) {
+          const viva = ctx?.vivas.get(fila.construccionId!);
+          if (viva) await bd.sumarStockTenderete(viva.propiedad, receta.resultado.itemId, receta.resultado.cantidad, 0);
+        }
+        continue; // recogido este tick — el próximo arranca uno nuevo
+      }
+      if (!ctx || fila.construccionId == null || !fila.recetaId) continue;
+      const viva = ctx.vivas.get(fila.construccionId);
+      if (!viva) continue;
+      const receta = this.catalogoRecetas.get(fila.recetaId);
+      if (!receta || !receta.mesas.includes(viva.objeto) || !puedeOperarOficio(fila.oficios, receta.oficio)) continue;
+
+      // Insumos del ALMACÉN DE LA MESA (tenderete_items de su propiedad —
+      // NUNCA el inventario del jugador dueño ni uno propio del
+      // trabajador, decisión documentada en GDD_NPCs_Contratables.md):
+      // se comprueba TODO antes de consumir nada, para no dejar un
+      // consumo parcial si falta el segundo insumo de la lista.
+      const stock = await bd.listarStockTenderete(viva.propiedad);
+      const alcanza = receta.insumos.every((ins) => (stock.find((s) => s.itemId === ins.itemId)?.cantidad ?? 0) >= ins.cantidad);
+      if (!alcanza) continue;
+      for (const ins of receta.insumos) await bd.consumirStockTenderete(viva.propiedad, ins.itemId, ins.cantidad);
+      // Sin bonos de energía/oficio/pócima (a diferencia del jugador): el
+      // trabajador craftea a ritmo BASE siempre — simplificación deliberada,
+      // ver GDD_NPCs_Contratables.md.
+      this.craftesTrabajador.set(fila.id, { recetaId: receta.id, terminaEn: ahora + receta.tiempoBaseSeg * 1000 });
+    }
+
+    // --- 2) salario mensual, agrupado por dueño (cálculo perezoso) ---
+    const porDueno = new Map<number, NpcTrabajador[]>();
+    for (const fila of this.trabajadoresActivos.values()) {
+      if (!porDueno.has(fila.duenoId)) porDueno.set(fila.duenoId, []);
+      porDueno.get(fila.duenoId)!.push(fila);
+    }
+    for (const [duenoId, filas] of porDueno) {
+      const paraPago: TrabajadorParaPago[] = filas.map((f) => ({ id: f.id, oficios: f.oficios, fechaContratacionDia: f.fechaContratacionDia, ultimoPagoDia: f.ultimoPagoDia }));
+      // pre-chequeo barato en memoria (sin tocar BD) antes de pedir el saldo — la inmensa mayoría de ticks no toca ningún día de pago.
+      const anclaMinima = Math.min(...paraPago.map((t) => t.ultimoPagoDia));
+      if (dia - anclaMinima < 30) continue;
+      const saldo = await bd.obtenerFarycoins(duenoId);
+      const resultado = resolverPayroll(paraPago, dia, saldo);
+      if (!resultado.tocaPagar) continue;
+      for (const despedido of resultado.aDespedir) {
+        this.despedirTrabajadorEnMemoria(despedido.id);
+        await bd.despedirNpcTrabajador(despedido.id);
+      }
+      if (resultado.aPagar.length > 0) {
+        await bd.ajustarFarycoins(duenoId, -resultado.costeTotal);
+        const ids = resultado.aPagar.map((t) => t.id);
+        await bd.marcarPagoNpcTrabajador(ids, dia);
+        for (const id of ids) {
+          const fila = this.trabajadoresActivos.get(id);
+          if (fila) this.trabajadoresActivos.set(id, { ...fila, ultimoPagoDia: dia });
+        }
+      }
+    }
   }
 
   private errorSastre(client: Client, motivo: string) {
