@@ -377,6 +377,7 @@ export interface ResultadoColarPocion {
   motivo?: "fase_incorrecta" | "demasiado_pronto";
   efectos?: EfectoPocion[];
   pureza?: number;
+  color?: ColorPocion;
 }
 
 /** Termina la sesión ("colar" la poción) — escala la magnitud de `resultadoBase.efectos` por la pureza del fuego, nunca cambia qué stats salieron ni si hubo negativo. Un "especial" no tiene magnitud que escalar (o sale entero, o no sale) — pasa tal cual. */
@@ -387,5 +388,42 @@ export function colarPocion(sesion: SesionAlquimia, ahoraMs: number, cfg: Config
   const efectos = sesion.resultadoBase.efectos.map((e): EfectoPocion =>
     e.categoria === "stat" ? { categoria: "stat", stat: e.stat, magnitudPct: e.magnitudPct * factor } : e,
   );
-  return { ok: true, efectos, pureza: r.pureza };
+  return { ok: true, efectos, pureza: r.pureza, color: colorPocion(sesion.resultadoBase) };
+}
+
+// ---------------------------------------------------------------------------
+// Color del líquido según ingredientes (docs/GDD_Pociones.md, pedido
+// 2026-09-01: "generen en listado las pociones para generar luego su 3d,
+// con diferente color de liquido dentro dependiendo que intgredientes
+// tenga... diferentes props de colores") — el color depende de QUÉ
+// INGREDIENTES entraron (corruptivo/catalizador), nunca del resultado
+// tirado (dos pociones con los mismos ingredientes son del mismo color
+// aunque la tirada de efectos salga distinta cada vez). Un pool pequeño y
+// FIJO de 5 variantes de catálogo (nunca continuo/por-ingrediente-exacto:
+// sería intratable, mismo criterio que "no hay 1 itemId por combinación
+// posible de efectos", ver §5 del GDD) — cada una es una entrada real en
+// items.json que taller-vox/generar_comida.js ya sabe pintar (`generarFrasco`
+// usa `colorDebug` directo para el líquido, cero generador nuevo).
+
+export type ColorPocion = "clara" | "toxica" | "vital" | "inestable" | "radiante";
+
+/**
+ * Prioridad (primera que aplica gana): mezcla avanzada es SIEMPRE la más
+ * especial (garantiza 4 bonos) así que su color manda aunque también
+ * hubiera corruptivos; con corruptivo Y catalizador normales a la vez
+ * (sin llegar a mezcla avanzada) el resultado es "inestable" — dos fuerzas
+ * en pugna; solo uno de los dos da su color puro; ninguno de los dos
+ * (relleno neutro solamente) es la base "clara".
+ */
+export function colorPocion(resultado: { corruptivosUnicos: number; catalizadoresUnicos: number; mezclaAvanzada: boolean }): ColorPocion {
+  if (resultado.mezclaAvanzada) return "radiante";
+  if (resultado.corruptivosUnicos > 0 && resultado.catalizadoresUnicos > 0) return "inestable";
+  if (resultado.corruptivosUnicos > 0) return "toxica";
+  if (resultado.catalizadoresUnicos > 0) return "vital";
+  return "clara";
+}
+
+/** itemId de catálogo real para ese color — las 5 entradas viven en items.json (`pocion_alquimica_<color>`), mismo `efectoPocion` en la instancia que antes, la tirada nunca vive en el itemId. */
+export function itemIdPocion(color: ColorPocion): string {
+  return `pocion_alquimica_${color}`;
 }

@@ -103,7 +103,7 @@ import {
   SesionAlquimia, IngredienteAlquimia, BuffPocion, EfectoPocion,
   iniciarSesionAlquimia, avivarAlquimia, enfriarAlquimia, colarPocion,
   crearBuffsPocion, aplicarBuffsPocion, CONFIG_ESTACION_ALQUIMIA,
-  factorBuffPocion, factorGastoEstaminaPocion, tieneEspecialActivo,
+  factorBuffPocion, factorGastoEstaminaPocion, tieneEspecialActivo, itemIdPocion,
 } from "../../construccion/alquimia";
 // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido
 // 2026-08-31) — interpretación de texto libre, módulo JS puro compartido
@@ -158,7 +158,12 @@ import { nombreCapitalOverride, fijarNombreCapital, LONGITUD_MAXIMA_NOMBRE_CAPIT
 import { nuevasClavesReveladas } from "../../mundo/exploracion";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
-import { EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir, IngredienteCocina, familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura, FamiliaPlato, ResultadoCoccion, OrigenCocina } from "../../cocina/cocina";
+import {
+  EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir,
+  IngredienteCocina, familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura,
+  FamiliaPlato, ResultadoCoccion, OrigenCocina,
+  SesionCocina, iniciarSesionCocina, avivarCocina, enfriarCocina, servirCocina, CONFIG_ESTACION_COCINA,
+} from "../../cocina/cocina";
 import { EstadoQuesera, estadoQueseraInicial, iniciarLoteQueso, loteQuesoListo, recolectarLoteQueso } from "../../construccion/cuajado";
 import {
   Anatomia, Zona, ZONAS, anatomiaInicial, resolverGolpeAnatomico, aplicarGolpe,
@@ -685,6 +690,22 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected forjasEnCurso = new Map<string, SesionForja>();
   /** Minijuego de alquimia en curso por sesión (docs/GDD_Pociones.md, pedido 2026-09-01) — "mismo sistema de activarse que la del herrero": mismo criterio de vida/muerte que `forjasEnCurso`. */
   protected alquimiasEnCurso = new Map<string, SesionAlquimia>();
+  /** Minijuego de cocina en curso por sesión (docs/GDD_Cocina.md, pedido 2026-09-01: "dale con minijuego cocina") — mismo criterio de vida/muerte que `forjasEnCurso`/`alquimiasEnCurso`. */
+  protected cocinasEnCurso = new Map<string, SesionCocina>();
+
+  /**
+   * `true` si el jugador ya tiene CUALQUIER minijuego/crafteo en curso —
+   * único punto de verdad para los 4 guards "ya tienes X en curso"
+   * (crafteo/forja/alquimia/cocina). Fallo real encontrado al añadir cocina
+   * (2026-09-01): `manejarCrafteoIniciar` solo comprobaba `craftesEnCurso`/
+   * `forjasEnCurso`, nunca `alquimiasEnCurso` — un jugador con una poción en
+   * el caldero podía arrancar un crafteo normal a la vez. Corregido de paso
+   * centralizando el chequeo en vez de mantener 4 listas parciales sueltas.
+   */
+  protected algunMinijuegoEnCurso(sessionId: string): boolean {
+    return this.craftesEnCurso.has(sessionId) || this.forjasEnCurso.has(sessionId)
+      || this.alquimiasEnCurso.has(sessionId) || this.cocinasEnCurso.has(sessionId);
+  }
   /** Buffs de poción activos por sesión (docs/GDD_Pociones.md) — efímero, igual que `montadoPorSesion`: se pierde al desconectar, nunca se persiste. Caducidad comprobada perezosamente (`alquimia.ts::aplicarBuffsPocion`), nunca un tick. */
   protected buffsPocionPorSesion = new Map<string, BuffPocion[]>();
 
@@ -806,7 +827,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // Alquimia (docs/GDD_Pociones.md): mismo bloqueo que la forja — el
       // jugador está plantado junto al caldero mientras dura la sesión.
       const enAlquimiaActiva = this.alquimiasEnCurso.has(client.sessionId);
-      const movimientoBloqueado = enCombateActivo || enForjaActiva || enAlquimiaActiva;
+      // Cocina (docs/GDD_Cocina.md, pedido 2026-09-01): mismo bloqueo — el jugador está plantado junto al fuego mientras dura la sesión.
+      const enCocinaActiva = this.cocinasEnCurso.has(client.sessionId);
+      const movimientoBloqueado = enCombateActivo || enForjaActiva || enAlquimiaActiva || enCocinaActiva;
       this.inputs.set(client.sessionId, {
         x: movimientoBloqueado ? 0 : clamp(xValido, -1, 1),
         y: movimientoBloqueado ? 0 : clamp(yValido, -1, 1),
@@ -998,7 +1021,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("recipiente:llenar", (client, msg: { instanciaId?: number }) => this.manejarRecipienteLlenar(client, msg));
     this.onMessage("recipiente:beber", (client, msg: { instanciaId?: number }) => this.manejarRecipienteBeber(client, msg));
     this.onMessage("cocina:anadir", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarCocinaAnadir(client, msg));
-    this.onMessage("cocina:preparar", (client, msg: { construccionId?: number }) => this.manejarCocinaPreparar(client, msg));
+    // "cocina:preparar" ARRANCA la sesión interactiva (pedido 2026-09-01:
+    // "dale con minijuego cocina", mismo sistema que herrería/alquimia) —
+    // ya no es instantáneo. cocina:accion/servir/cancelar cierran el ciclo,
+    // mismo protocolo que alquimia:accion/colar/cancelar.
+    this.onMessage("cocina:preparar", (client, msg: { construccionId?: number }) => void this.manejarCocinaPreparar(client, msg));
+    this.onMessage("cocina:accion", (client, msg: { accion?: string }) => this.manejarCocinaAccion(client, msg));
+    this.onMessage("cocina:servir", (client) => void this.manejarCocinaServir(client));
+    this.onMessage("cocina:cancelar", (client) => this.manejarCocinaCancelar(client));
     this.onMessage("cocina:consultar", (client, msg: { construccionId?: number }) => this.manejarCocinaConsultar(client, msg));
     // Instrumentos musicales (docs/GDD_Instrumentos.md, pedido 2026-08-31):
     // el cliente ya sabe qué instrumento clicó (menuInteraccion.ts) y trae
@@ -1407,6 +1437,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // ingredientes gastados se pierden; los buffs de poción activos también
     // se olvidan (efímeros, nunca persistidos, igual que montadoPorSesion).
     this.alquimiasEnCurso.delete(client.sessionId);
+    // Cocina (docs/GDD_Cocina.md, pedido 2026-09-01): mismo criterio — sesión a medias se pierde.
+    this.cocinasEnCurso.delete(client.sessionId);
     this.buffsPocionPorSesion.delete(client.sessionId);
     this.equipoBlueprintRopaInventario.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
@@ -6093,33 +6125,93 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * permanente en BD; más cantidad solo da más raciones. Vacía la vasija
    * al terminar.
    */
+  /**
+   * ARRANCA la sesión interactiva de cocina (docs/GDD_Cocina.md, pedido
+   * 2026-09-01: "dale con minijuego cocina", "todas las vasijas" con
+   * cocinero nivel 2) — ya no cocina al instante: congela `cocinarPlato`
+   * sobre lo que había en la vasija (mismo criterio que `manejarAlquimiaIniciar`
+   * con `prepararPocion`) y vacía la vasija YA (los ingredientes ya se
+   * gastaron del inventario del jugador al meterlos con `cocina:anadir`,
+   * esto solo limpia el estado de la construcción para la siguiente tanda).
+   * `cocina:servir` cierra el ciclo y entrega el plato de verdad.
+   */
   private async manejarCocinaPreparar(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
     const ctx = this.ctxConstruccion;
-    if (!ctx || typeof msg?.construccionId !== "number") return;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    if (this.algunMinijuegoEnCurso(client.sessionId)) return this.errorCocina(client, "ya tienes un crafteo o minijuego en curso");
     const viva = ctx.vivas.get(msg.construccionId);
     const entrada = viva && this.entradaDe(viva.objeto);
     if (!viva || !entrada?.cocina?.esVasija) return this.errorCocina(client, "necesitas estar junto a una vasija");
     const estado = this.extraCocinaDe(viva);
     if (estado.ingredientes.length === 0) return this.errorCocina(client, "la vasija está vacía");
 
+    // Cocinero nivel 2 (pedido 2026-09-01) — mismo patrón que
+    // manejarAlquimiaIniciar contra "caldero": el nivel mínimo se lee del
+    // propio catálogo de construcción, nunca duplicado a mano aquí.
+    const nivelMinimo = entrada.nivelOficioMinimo?.nivel ?? 1;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const xp = await bd.obtenerXpOficio(jugador.id, "cocinero");
+    if (nivelDeXp(xp) < nivelMinimo) return this.errorCocina(client, "nivel de cocinero insuficiente");
+
     const ingredientesCocina: IngredienteCocina[] = estado.ingredientes.map((i) => {
       const e = this.catalogoItems[i.itemId]!;
       return { itemId: i.itemId, cantidad: i.cantidad, aportes: e.aportesCocina!, origen: e.origenCocina! };
     });
-    const resultado = cocinarPlato(ingredientesCocina, entrada.cocina.capacidad);
-
     const familia = familiaDePlato(entrada.cocina.vasija ?? "", ingredientesCocina);
+    const itemIdsIngredientes = estado.ingredientes.map((i) => i.itemId);
+    // Poción "x2 producción de crafteos" (docs/GDD_Pociones.md, ampliación
+    // 2026-09-01) — mismo mecanismo que manejarCrafteoIniciar: congelada al
+    // arrancar, se aplica a las raciones al servir.
+    const bonusCantidadPocion = tieneEspecialActivo(this.buffsPocionPorSesion.get(client.sessionId) ?? [], "produccionCrafteoX2", Date.now()) ? 1 : 0;
+    const sesion = iniciarSesionCocina(ingredientesCocina, familia, itemIdsIngredientes, entrada.cocina.capacidad, bonusCantidadPocion);
+    this.cocinasEnCurso.set(client.sessionId, sesion);
+
+    const nuevoEstado: EstadoCocina = { ingredientes: [] };
+    viva.extra = { ...(viva.extra ?? {}), cocina: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    client.send("cocina:iniciado", { construccionId: msg.construccionId, cfg: CONFIG_ESTACION_COCINA, sesion: sesion.estacion });
+  }
+
+  /** Avivar/enfriar el fuego de la vasija — mismo patrón que alquimia:accion, sin resolución (servir es un mensaje aparte porque entrega/otorga XP de verdad). */
+  private manejarCocinaAccion(client: Client, msg: { accion?: string }) {
+    const sesion = this.cocinasEnCurso.get(client.sessionId);
+    if (!sesion) return this.errorCocina(client, "no tienes ningún plato en el fuego");
+
+    const ahoraMs = Date.now();
+    const resultado = msg?.accion === "avivar" ? avivarCocina(sesion, ahoraMs)
+      : msg?.accion === "enfriar" ? enfriarCocina(sesion, ahoraMs)
+      : null;
+    if (!resultado) return this.errorCocina(client, "acción de cocina desconocida");
+    if (!resultado.ok) return this.errorCocina(client, resultado.motivo ?? "acción inválida");
+    client.send("cocina:progreso", { sesion: sesion.estacion });
+  }
+
+  /** Termina la sesión y entrega el plato de verdad — mismo criterio de reparto de XP que manejarAlquimiaColar (cocinero + inteligencia). */
+  private async manejarCocinaServir(client: Client) {
+    const sesion = this.cocinasEnCurso.get(client.sessionId);
+    if (!sesion) return this.errorCocina(client, "no tienes ningún plato en el fuego");
+    const r = servirCocina(sesion, Date.now());
+    if (!r.ok) return this.errorCocina(client, r.motivo ?? "todavía no puedes servir");
+
+    this.cocinasEnCurso.delete(client.sessionId);
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player) return;
+    const resultado = r.resultado!;
+
     const bd = await obtenerBdCompartida();
     await this.asegurarPlatosCargados(bd);
-    const clave = clavePlato(familia, estado.ingredientes.map((i) => i.itemId));
+    const clave = clavePlato(sesion.familia, sesion.itemIdsIngredientes);
     let plato = await bd.buscarPlatoPorClave(clave);
     if (!plato) {
       const sufijo = Math.random().toString(36).slice(2, 8);
       plato = {
         clave,
         itemId: `plato_${sufijo}`,
-        nombre: nombrePlato(prefijoDe(familia), estado.ingredientes.map((i) => i.itemId)),
-        ingredientes: estado.ingredientes.map((i) => i.itemId),
+        nombre: nombrePlato(prefijoDe(sesion.familia), sesion.itemIdsIngredientes),
+        ingredientes: sesion.itemIdsIngredientes,
         vida: resultado.vida ?? 0,
         estamina: resultado.estamina ?? 0,
         comida: resultado.comida,
@@ -6131,14 +6223,27 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       this.registrarPlatoEnCatalogo(plato);
     }
 
-    const player = this.state.players.get(client.sessionId);
-    if (!player) return;
-    const entrega = this.entregarOSoltar(client, player, plato.itemId, resultado.platos);
+    // bonusCantidadPocion congelado al iniciar (ver manejarCocinaPreparar) — mismo patrón que cantidadFinal de crafteo.
+    const cantidadFinal = Math.floor(resultado.platos * (1 + sesion.bonusCantidadPocion));
+    const entrega = this.entregarOSoltar(client, player, plato.itemId, cantidadFinal);
 
-    const nuevoEstado: EstadoCocina = { ingredientes: [] };
-    viva.extra = { ...(viva.extra ?? {}), cocina: nuevoEstado };
-    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
-    client.send("cocina:preparado", { itemId: plato.itemId, nombre: plato.nombre, cantidad: resultado.platos, mezclaBonus: resultado.mezclaBonus, enSuelo: !entrega.enInventario });
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const oficioElegido = tieneOficio(player.oficio1, player.oficio2, "cocinero");
+    const nuevaXp = oficioElegido
+      ? await bd.sumarXpOficio(jugador.id, "cocinero", this.xpConBuffPocion(client.sessionId, XP_POR_CRAFTEO))
+      : await bd.obtenerXpOficio(jugador.id, "cocinero");
+    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO, client.sessionId);
+
+    client.send("cocina:preparado", {
+      itemId: plato.itemId, nombre: plato.nombre, cantidad: cantidadFinal, mezclaBonus: resultado.mezclaBonus, pureza: r.pureza,
+      oficio: "cocinero", xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
+    });
+  }
+
+  /** Cancela la cocina en curso — los ingredientes YA gastados (al añadirlos a la vasija) no se devuelven, mismo criterio que craftesEnCurso/forjasEnCurso/alquimiasEnCurso. */
+  private manejarCocinaCancelar(client: Client) {
+    if (!this.cocinasEnCurso.delete(client.sessionId)) return;
+    client.send("cocina:cancelado", {});
   }
 
   /**
@@ -7062,8 +7167,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const nombre = this.nombreDe(client);
     const ctx = this.ctxConstruccion;
     if (!nombre || !ctx || !msg?.recetaId || typeof msg.construccionId !== "number") return;
-    if (this.craftesEnCurso.has(client.sessionId)) return this.errorCrafteo(client, "ya tienes un crafteo en curso");
-    if (this.forjasEnCurso.has(client.sessionId)) return this.errorCrafteo(client, "ya tienes una forja en curso");
+    if (this.algunMinijuegoEnCurso(client.sessionId)) return this.errorCrafteo(client, "ya tienes un crafteo o minijuego en curso");
     if (this.brazoInutilizadoDe(client.sessionId)) return this.errorCrafteo(client, "brazo roto o amputado, no puedes usar herramientas");
 
     if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
@@ -7883,8 +7987,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const nombre = this.nombreDe(client);
     const ctx = this.ctxConstruccion;
     if (!nombre || !ctx || typeof msg?.construccionId !== "number" || !Array.isArray(msg.instanciaIds)) return;
-    if (this.alquimiasEnCurso.has(client.sessionId)) return this.errorAlquimia(client, "ya tienes una poción en el caldero");
-    if (this.craftesEnCurso.has(client.sessionId) || this.forjasEnCurso.has(client.sessionId)) return this.errorAlquimia(client, "ya tienes un crafteo en curso");
+    if (this.algunMinijuegoEnCurso(client.sessionId)) return this.errorAlquimia(client, "ya tienes un crafteo o minijuego en curso");
     if (msg.instanciaIds.length < 2 || msg.instanciaIds.length > 6) return this.errorAlquimia(client, "hacen falta entre 2 y 6 ingredientes");
     if (new Set(msg.instanciaIds).size !== msg.instanciaIds.length) return this.errorAlquimia(client, "ingrediente repetido en la lista");
 
@@ -7947,7 +8050,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const player = this.state.players.get(client.sessionId);
     if (!nombre || !player) return;
 
-    const entrega = this.entregarPocion(client, player, resultado.efectos!);
+    // Color del líquido según ingredientes (docs/GDD_Pociones.md, ampliación
+    // 2026-09-01) — decide el itemId REAL de catálogo entre las 5 variantes
+    // (pocion_alquimica_clara/toxica/vital/inestable/radiante); la tirada de
+    // efectos (arriba) es independiente y sigue viviendo en la instancia.
+    const itemId = itemIdPocion(resultado.color!);
+    const entrega = this.entregarPocion(client, player, resultado.efectos!, itemId);
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
@@ -7959,7 +8067,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_CRAFTEO);
 
     client.send("alquimia:completado", {
-      itemId: "pocion_alquimica", cantidad: 1, instanciaId: entrega.instanciaId, pureza: resultado.pureza, efectos: resultado.efectos,
+      itemId, cantidad: 1, instanciaId: entrega.instanciaId, pureza: resultado.pureza, efectos: resultado.efectos,
       oficio: "curandero", xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
     });
   }
@@ -7975,12 +8083,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * con `extra`, ver inventario.ts) — no puede reusar `entregarOSoltar` tal
    * cual porque ese helper no sabe de datos por-instancia (perdería la
    * tirada al crear el ítem). Mismo "cae al suelo si no cabe" que el resto.
+   * `itemId` es dinámico (una de las 5 variantes de color, `itemIdPocion`,
+   * docs/GDD_Pociones.md ampliación 2026-09-01) — nunca hardcodeado aquí.
    */
-  private entregarPocion(client: Client, player: Player, efectos: EfectoPocion[]): { enInventario: boolean; instanciaId?: number } {
+  private entregarPocion(client: Client, player: Player, efectos: EfectoPocion[], itemId: string): { enInventario: boolean; instanciaId?: number } {
     const contenedor = this.inventarios.get(client.sessionId);
     const pesoMaximo = this.pesoMaximoConBuffs(client.sessionId, player.atributos.fuerza);
-    const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, "pocion_alquimica", 1, pesoMaximo);
-    const resultado = contenedor && cabePeso ? agregarItem(contenedor, this.catalogoItems, "pocion_alquimica", 1, { efectoPocion: efectos }) : { ok: false as const };
+    const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, itemId, 1, pesoMaximo);
+    const resultado = contenedor && cabePeso ? agregarItem(contenedor, this.catalogoItems, itemId, 1, { efectoPocion: efectos }) : { ok: false as const };
     if (resultado.ok) {
       sincronizarContenedor(player.inventario.cuerpo, contenedor!);
       return { enInventario: true, instanciaId: resultado.instancia?.id };
@@ -7988,7 +8098,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const o = new ObjetoMundoSchema();
     o.x = Math.floor(player.x) + 0.5;
     o.y = Math.floor(player.y) + 0.5;
-    o.itemId = "pocion_alquimica";
+    o.itemId = itemId;
     o.cantidad = 1;
     this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o);
     return { enInventario: false };
@@ -8000,7 +8110,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
     const item = contenedor.items.find((it) => it.id === msg.instanciaId);
-    if (!item || item.itemId !== "pocion_alquimica" || !item.efectoPocion) return this.errorAlquimia(client, "eso no se puede beber");
+    // `efectoPocion` (no el itemId) es lo que de verdad identifica una poción
+    // bebible — solo `entregarPocion` lo rellena, y ahora hay 5 itemIds
+    // posibles según el color (docs/GDD_Pociones.md, ampliación 2026-09-01),
+    // así que comprobar un itemId fijo aquí ya no tendría sentido.
+    if (!item || !item.efectoPocion) return this.errorAlquimia(client, "eso no se puede beber");
 
     const ahoraMs = Date.now();
     const nuevosBuffs = crearBuffsPocion(item.efectoPocion, ahoraMs);

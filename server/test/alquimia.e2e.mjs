@@ -168,7 +168,10 @@ try {
   await enviarYEsperar("alquimia:colar", undefined, eventos.completado);
   if (eventos.completado.length !== 1) throw new Error(`FALLO: alquimia:colar debería completar, llegó errores=${JSON.stringify(eventos.errores)}`);
   const resultado = eventos.completado[0];
-  if (resultado.itemId !== "pocion_alquimica" || typeof resultado.instanciaId !== "number") {
+  // Color por ingredientes (docs/GDD_Pociones.md, ampliación 2026-09-01):
+  // mezcla avanzada (3 catalizadores) manda sobre "inestable" aunque también
+  // haya 1 corruptivo — la variante esperada aquí es SIEMPRE "radiante".
+  if (resultado.itemId !== "pocion_alquimica_radiante" || typeof resultado.instanciaId !== "number") {
     throw new Error(`FALLO: entrega inesperada, llegó ${JSON.stringify(resultado)}`);
   }
   // El negativo es genuinamente probabilístico (1 corruptivo -> 35% de

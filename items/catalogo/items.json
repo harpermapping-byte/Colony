@@ -2421,8 +2421,8 @@
     "colorDebug": "#7a9a5a",
     "_nota": "docs/GDD_Enfermedades.md (pedido 2026-08-30) — cura la GRIPE (por frío en invierno) al instante, un solo jarabe basta (medico:tomarJarabe, self-service, sin oficio). El nombre coloquial ('para el catarro') es el que usó el streamer; lo que cura mecánicamente es la gripe, no el catarro (ese lo cura el ungüento). Receta: curandero, mortero_grande_boticario, hierba_aromatica+miel."
   },
-  "pocion_alquimica": {
-    "nombre": "Poción Alquímica",
+  "pocion_alquimica_clara": {
+    "nombre": "Poción Alquímica Clara",
     "tipo": "consumible",
     "huella": [
       1,
@@ -2431,8 +2431,60 @@
     "peso": 0.3,
     "apilable": false,
     "variantes": 1,
-    "colorDebug": "#8a5ac9",
-    "_nota": "docs/GDD_Pociones.md (pedido 2026-09-01) — resultado del caldero de alquimia (curandero): NO apilable porque cada instancia lleva su propia tirada estocástica (ItemInstancia.efectoPocion, ver server/src/construccion/alquimia.ts) — dos pociones nunca son intercambiables entre sí. Se bebe con pocion:beber."
+    "colorDebug": "#d9c078",
+    "_nota": "docs/GDD_Pociones.md (ampliación 2026-09-01, listado de color por ingredientes) — sin corruptivo ni catalizador (solo relleno neutro): la base 'sin nada especial'. Mismo criterio que el resto de variantes: NO apilable porque cada instancia lleva su propia tirada estocástica (ItemInstancia.efectoPocion, ver server/src/construccion/alquimia.ts::colorPocion) — dos pociones nunca son intercambiables entre sí. Se bebe con pocion:beber."
+  },
+  "pocion_alquimica_toxica": {
+    "nombre": "Poción Alquímica Tóxica",
+    "tipo": "consumible",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#5a9a3a",
+    "_nota": "docs/GDD_Pociones.md (ampliación 2026-09-01) — al menos un ingrediente corruptivo y ningún catalizador (alquimia.ts::colorPocion). NO apilable, ver pocion_alquimica_clara."
+  },
+  "pocion_alquimica_vital": {
+    "nombre": "Poción Alquímica Vital",
+    "tipo": "consumible",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#c94a5a",
+    "_nota": "docs/GDD_Pociones.md (ampliación 2026-09-01) — al menos un catalizador y ningún corruptivo, sin llegar a mezcla avanzada (alquimia.ts::colorPocion). NO apilable, ver pocion_alquimica_clara."
+  },
+  "pocion_alquimica_inestable": {
+    "nombre": "Poción Alquímica Inestable",
+    "tipo": "consumible",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a4a9a",
+    "_nota": "docs/GDD_Pociones.md (ampliación 2026-09-01) — corruptivo Y catalizador a la vez, sin llegar a mezcla avanzada (alquimia.ts::colorPocion). NO apilable, ver pocion_alquimica_clara."
+  },
+  "pocion_alquimica_radiante": {
+    "nombre": "Poción Alquímica Radiante",
+    "tipo": "consumible",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#f0c840",
+    "_nota": "docs/GDD_Pociones.md (ampliación 2026-09-01) — mezcla avanzada (3+ catalizadores distintos, SIEMPRE 4 bonos): la variante manda sobre 'inestable' aunque también hubiera corruptivos (alquimia.ts::colorPocion). NO apilable, ver pocion_alquimica_clara."
   },
   "tablilla": {
     "nombre": "Tablilla",

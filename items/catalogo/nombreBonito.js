@@ -147,6 +147,7 @@ const ADJETIVOS = new Set([
   "auxiliar", "completo", "completa", "continua", "continuo", "real", "noble", "nobles",
   "legendario", "mitica", "mitico", "magico", "magicos", "exotica", "silvestre",
   "alquimica", "alquimico", "alquimicas", "alquimicos",
+  "clara", "toxica", "vital", "inestable", "radiante",
   "venenosa", "curativa", "rota", "roto", "rotos", "oxidada", "vieja", "viejo",
   "antigua", "antiguo", "joven", "multiple", "multiples", "multinivel", "semicircular",
   "central", "operativo", "defensivo", "eficiente", "asistido", "improvisada",
