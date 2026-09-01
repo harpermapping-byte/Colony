@@ -21,6 +21,8 @@
       "hocico": "corto"
     }
   },
+  "coneja": { "heredaDe": "conejo", "escala": [0.85, 1.15], "_nota": "Hembra de \"conejo\" — mismo cuerpo. Auditoría 2026-09-03 (pedido streamer, 'revisa que todos los animales están bien con la regla de sexo'): conejo es domesticable con par urbano real (coneja/gazapo, biomas:[] igual que perro/perra) — trío que se había quedado fuera de la pasada anterior por centrarse en las 9 especies ya con `razas`; conejo no tiene razas propias, así que hereda 'nada' extra, solo el cuerpo." },
+  "gazapo": { "heredaDe": "conejo", "escala": [0.3, 0.45], "esCria": true, "_nota": "Cría de conejo/coneja — sin razas propias (conejo tampoco las tiene)." },
   "lobo": {
     "esqueleto": "cuadrupedo",
     "escala": [
@@ -110,6 +112,8 @@
     "montable": true,
     "velocidadMontura": 8
   },
+  "cierva": { "heredaDe": "ciervo", "escala": [0.9, 1.1], "rasgos": { "cuernos": "ninguno" }, "_nota": "Hembra de \"ciervo\" — mismo cuerpo, sin cuernos (los ramificados son de macho). Auditoría 2026-09-03: ciervo/jabali son domesticable:true con trío real en baker/catalogo/animales.json pero cierva/cervatillo/jabalina/jabato se habían quedado sin rig en la pasada anterior (centrada en las especies YA con `razas`, ciervo/jabali no tienen). Se completan aquí por coherencia — heredan también `montable`/`velocidadMontura` (catalogoMonturas.ts resuelve heredaDe)." },
+  "cervatillo": { "heredaDe": "ciervo", "escala": [0.35, 0.5], "esCria": true, "_nota": "Cría de ciervo/cierva — sin razas propias (ciervo tampoco las tiene), sin cuernos." },
   "jabali": {
     "_nota": "Montura (pedido 2026-08-30, docs/GDD_Monturas.md) — cuerpo bajo y macizo, patas cortas a diferencia de ciervo/caballo.",
     "esqueleto": "cuadrupedo",
@@ -148,6 +152,8 @@
     "montable": true,
     "velocidadMontura": 6.5
   },
+  "jabalina": { "heredaDe": "jabali", "escala": [0.9, 1.15], "_nota": "Hembra de \"jabali\" — mismo cuerpo y colores. Auditoría 2026-09-03 (ver nota de 'cierva')." },
+  "jabato": { "heredaDe": "jabali", "escala": [0.3, 0.45], "esCria": true, "_nota": "Cría de jabali/jabalina — sin colores/razas propios." },
   "gallina_salvaje": {
     "esqueleto": "ave",
     "escala": [
