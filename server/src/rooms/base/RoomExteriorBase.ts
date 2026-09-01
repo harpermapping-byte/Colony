@@ -21,7 +21,8 @@ import {
   stockAleatorioEnRango,
   VENTANA_RESET_MERCADER_MS,
 } from "../../mercado/catalogoMercaderes";
-import { esRecipienteLiquido, llenar, vaciar, tieneLiquido, consumirVolumen } from "../../inventario/liquidos";
+import { esRecipienteLiquido, llenar, vaciar, tieneLiquido, consumirVolumen, transferirLiquido } from "../../inventario/liquidos";
+import { crearContenedorMuebles, meterMueble, sacarMueble } from "../../inventario/contenedorMuebles";
 import { diaFraccional } from "../../mundo/reproduccionFauna";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
@@ -70,7 +71,7 @@ import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincr
 import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
 import { CatalogoBarcos, cargarCatalogoBarcos } from "../../mundo/catalogoBarcos";
 import { CatalogoCarros, cargarCatalogoCarros } from "../../mundo/catalogoCarros";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, Carro as CarroFila, ConjuntoTiro as ConjuntoTiroFila, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero, NpcTrabajador } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, Carro as CarroFila, ConjuntoTiro as ConjuntoTiroFila, ContenidoCarro, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero, NpcTrabajador } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -602,6 +603,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected conjuntosPorSesion = new Map<string, { conjuntoId: number; esConductor: boolean }>();
   /** conjuntoId (= clave numérica de state.conjuntosTiro) -> sessionIds ocupantes ordenados, [0] siempre el conductor — mismo patrón que ocupantesDeBarco. */
   protected ocupantesDeConjunto = new Map<number, string[]>();
+  /**
+   * Carga de un carro/conjunto (docs/GDD_Carros.md §8, Fase 2, pedido
+   * 2026-09-03) — mismo criterio que la carga de un cofre (`extra` de una
+   * construcción): vive en memoria como `Contenedor`/`ContenedorMuebles`
+   * puros (nunca en el Schema, mismo motivo que un cofre nunca lo tiene:
+   * un carro puede llevar MUCHO más que lo que interesa replicar en vivo a
+   * todo el mundo) y se persiste en la columna `contenido` de
+   * `carros`/`conjuntos_tiro` en cada mutación. Clave `"carro:<id>"` o
+   * `"conjunto:<id>"` (mismos ids que state.carros/state.conjuntosTiro) —
+   * un mismo carro físico nunca tiene las dos entradas a la vez, pero usan
+   * namespaces numéricos independientes en BD.
+   */
+  protected contenidoCarroPorClave = new Map<string, ContenidoCarro>();
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) ---
   // Solo InteriorRoom/DungeonRoom lo ponen a true (onCreate) — decide si
@@ -1220,6 +1234,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("carro:desenganchar", (client, msg: { conjuntoId?: number }) => void this.manejarCarroDesenganchar(client, msg));
     this.onMessage("conjunto:montar", (client, msg: { conjuntoId?: number }) => this.manejarConjuntoMontar(client, msg));
     this.onMessage("conjunto:desmontar", (client) => void this.manejarConjuntoDesmontar(client));
+
+    // --- Carga de carros (docs/GDD_Carros.md §8, Fase 2, pedido 2026-09-03) ---
+    this.onMessage("carro:consultarCarga", (client, msg: { id?: number; tipo?: "carro" | "conjunto" }) => this.manejarCarroConsultarCarga(client, msg));
+    this.onMessage("carro:meterCarga", (client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaId?: number }) => void this.manejarCarroMeterCarga(client, msg));
+    this.onMessage("carro:sacarCarga", (client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaId?: number }) => void this.manejarCarroSacarCarga(client, msg));
+    this.onMessage("carro:meterMueble", (client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaId?: number }) => void this.manejarCarroMeterMueble(client, msg));
+    this.onMessage("carro:sacarMueble", (client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaId?: number }) => void this.manejarCarroSacarMueble(client, msg));
+    this.onMessage("carro:meterAnimal", (client, msg: { id?: number; tipo?: "carro" | "conjunto"; mascotaId?: number }) => void this.manejarCarroMeterAnimal(client, msg));
+    this.onMessage("carro:sacarAnimal", (client, msg: { id?: number; tipo?: "carro" | "conjunto"; mascotaId?: number }) => void this.manejarCarroSacarAnimal(client, msg));
+    this.onMessage("carro:consultarLiquido", (client, msg: { id?: number; tipo?: "carro" | "conjunto" }) => this.manejarCarroConsultarLiquido(client, msg));
+    this.onMessage("carro:conectarManguera", (client, msg: { id?: number; tipo?: "carro" | "conjunto" }) => void this.manejarCarroConectarManguera(client, msg));
+    this.onMessage("carro:desconectarManguera", (client, msg: { id?: number; tipo?: "carro" | "conjunto" }) => this.manejarCarroDesconectarManguera(client, msg));
+    this.onMessage("carro:verterLiquido", (client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaIdDestino?: number }) => void this.manejarCarroVerterLiquido(client, msg));
 
     // --- Twitch: disparadores de PRUEBA (docs/GDD_Twitch.md) — jarl-only,
     // mismo criterio que "inmueble:revocar"/el resto de herramientas admin
@@ -3833,6 +3860,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     esquema.y = fila.y;
     esquema.tipoId = fila.tipoId;
     this.state.carros.set(String(fila.id), esquema);
+    this.contenidoCarroPorClave.set(`carro:${fila.id}`, fila.contenido ?? this.crearContenidoInicial(fila.tipoId));
   }
 
   /** Crea/actualiza la entidad Schema de un conjunto enganchado a partir de su fila de BD — usado al enganchar uno nuevo y al cargar los del mapa en onCreate. */
@@ -3844,6 +3872,65 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     esquema.mascotaId = fila.mascotaId;
     esquema.carroTipoId = fila.carroTipoId;
     this.state.conjuntosTiro.set(String(fila.id), esquema);
+    this.contenidoCarroPorClave.set(`conjunto:${fila.id}`, fila.contenido ?? this.crearContenidoInicial(fila.carroTipoId));
+  }
+
+  /**
+   * Carga inicial VACÍA de un carro recién colocado, según la `categoria`
+   * de su catálogo (docs/GDD_Carros.md §8, Fase 2) — el resto de claves de
+   * `ContenidoCarro` quedan `undefined` (solo tiene sentido UNA a la vez).
+   */
+  private crearContenidoInicial(tipoId: string): ContenidoCarro {
+    const datos = this.catalogoCarros[tipoId];
+    if (!datos) return {};
+    switch (datos.categoria) {
+      case "materiales":
+        return { carga: crearContenedor(datos.capacidadContenedor?.ancho ?? 8, datos.capacidadContenedor?.alto ?? 6) };
+      case "muebles":
+        return { muebles: crearContenedorMuebles(datos.capacidadMuebles ?? 20) };
+      case "animales":
+        return { jaula: [] };
+      case "liquidos":
+        return { liquido: { tipo: "", volumenMl: 0, volumenMaxMl: datos.capacidadLiquidoMl ?? 20000 } };
+      default:
+        return {};
+    }
+  }
+
+  /** Carga en memoria de un carro/conjunto — casi siempre ya está (spawnearCarro/spawnearConjuntoTiro la siembran), el fallback es solo defensivo. */
+  private contenidoDe(tipo: "carro" | "conjunto", id: number): ContenidoCarro {
+    const clave = `${tipo}:${id}`;
+    let c = this.contenidoCarroPorClave.get(clave);
+    if (!c) { c = {}; this.contenidoCarroPorClave.set(clave, c); }
+    return c;
+  }
+
+  /** Persiste la carga de un carro/conjunto tras mutarla — mismo criterio que guardarContenedorDeCofre (cofre:meterItem). */
+  private async guardarContenidoCarro(tipo: "carro" | "conjunto", id: number, contenido: ContenidoCarro) {
+    const bd = await obtenerBdCompartida();
+    if (tipo === "carro") await bd.actualizarContenidoCarro(id, contenido);
+    else await bd.actualizarContenidoConjuntoTiro(id, contenido);
+  }
+
+  /**
+   * Carro APARCADO o conjunto ENGANCHADO cercano, según `tipo` — la carga
+   * (materiales/muebles/animales/líquidos, docs/GDD_Carros.md §8 Fase 2)
+   * funciona igual esté el carro parado o tirado por su animal, así que
+   * todos los mensajes `carro:meter*`/`sacar*`/etc. pasan por aquí en vez
+   * de por `carroAparcadoCercano`/`conjuntoConHuecoCercano` (esos dos son
+   * específicos de enganchar/montar, con sus propias reglas de "hueco").
+   */
+  private entidadCarroCercana(client: Client, tipo: "carro" | "conjunto" | undefined, id: number | undefined): { tipo: "carro" | "conjunto"; id: number; x: number; y: number; carroTipoId: string } | null {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || typeof id !== "number") return null;
+    if (tipo === "conjunto") {
+      const esquema = this.state.conjuntosTiro.get(String(id));
+      if (!esquema || Math.hypot(esquema.x - player.x, esquema.y - player.y) > RADIO_INTERACCION) return null;
+      return { tipo: "conjunto", id, x: esquema.x, y: esquema.y, carroTipoId: esquema.carroTipoId };
+    }
+    const esquema = this.state.carros.get(String(id));
+    if (!esquema || Math.hypot(esquema.x - player.x, esquema.y - player.y) > RADIO_INTERACCION) return null;
+    return { tipo: "carro", id, x: esquema.x, y: esquema.y, carroTipoId: esquema.tipoId };
   }
 
   /**
@@ -3874,7 +3961,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const y = Math.floor(player.y) + 0.5;
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
-    const fila = await bd.crearCarro(jugador.id, it.itemId, this.mapaIdPropio, x, y);
+    const fila = await bd.crearCarro(jugador.id, it.itemId, this.mapaIdPropio, x, y, this.crearContenidoInicial(it.itemId));
     this.spawnearCarro(fila);
     client.send("carro:colocado", { carroId: fila.id, x, y });
   }
@@ -3930,6 +4017,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const especieAnimalId = esquemaMascota.especieId;
     const x = esquemaMascota.x;
     const y = esquemaMascota.y;
+    // La carga es del CARRO, no del animal — se traslada tal cual al conjunto (docs/GDD_Carros.md §8, Fase 2).
+    const contenido = this.contenidoDe("carro", carroIdNum);
+    this.contenidoCarroPorClave.delete(`carro:${carroIdNum}`);
 
     this.quitarMascotaDeSchemaLocal(mascotaIdNum);
     this.state.carros.delete(String(carroIdNum));
@@ -3937,7 +4027,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     await bd.eliminarCarro(carroIdNum);
-    const fila = await bd.crearConjuntoTiro(jugador.id, mascotaIdNum, especieAnimalId, esquemaCarro.tipoId, this.mapaIdPropio, x, y);
+    const fila = await bd.crearConjuntoTiro(jugador.id, mascotaIdNum, especieAnimalId, esquemaCarro.tipoId, this.mapaIdPropio, x, y, contenido);
     this.spawnearConjuntoTiro(fila);
     client.send("carro:enganchado", { conjuntoId: fila.id });
   }
@@ -3973,10 +4063,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const filaMascota = mascotas.find((m) => m.id === esquema.mascotaId);
     if (!filaMascota) return; // no debería pasar — la fila de mascotas nunca se borra al enganchar
 
+    // La carga es del CARRO, no del animal — vuelve intacta al aparcarlo de nuevo (docs/GDD_Carros.md §8, Fase 2).
+    const contenido = this.contenidoDe("conjunto", msg.conjuntoId);
+    this.contenidoCarroPorClave.delete(`conjunto:${msg.conjuntoId}`);
+
     this.state.conjuntosTiro.delete(String(msg.conjuntoId));
     await bd.eliminarConjuntoTiro(msg.conjuntoId);
 
-    const carroFila = await bd.crearCarro(jugador.id, filaConjunto.carroTipoId, this.mapaIdPropio, esquema.x, esquema.y);
+    const carroFila = await bd.crearCarro(jugador.id, filaConjunto.carroTipoId, this.mapaIdPropio, esquema.x, esquema.y, contenido);
     this.spawnearCarro(carroFila);
     this.spawnearMascota(client, filaMascota, nombre);
 
@@ -4078,6 +4172,205 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const bd = await obtenerBdCompartida();
       await bd.actualizarPosicionConjuntoTiro(info.conjuntoId, this.mapaIdPropio, esquema.x, esquema.y);
     }
+  }
+
+  // --- Carga de carros (docs/GDD_Carros.md §8, Fase 2, pedido 2026-09-03) —
+  // materiales (rejilla Tetris), muebles (capacidad, no rejilla), animales
+  // (jaula), líquidos (cisterna). Funciona igual con el carro aparcado o
+  // enganchado (entidadCarroCercana resuelve ambos casos).
+
+  /** docs/GDD_Carros.md §8.2 — mismo patrón EXACTO que cofre:consultar. */
+  private manejarCarroConsultarCarga(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto" }) {
+    const objetivo = this.entidadCarroCercana(client, msg?.tipo, msg?.id);
+    if (!objetivo) return client.send("carro:error", { motivo: "nada_cerca" });
+    const contenido = this.contenidoDe(objetivo.tipo, objetivo.id);
+    if (!contenido.carga) return client.send("carro:error", { motivo: "no_es_carro_de_materiales" });
+    client.send("carro:estadoCarga", { id: objetivo.id, tipo: objetivo.tipo, ancho: contenido.carga.ancho, alto: contenido.carga.alto, items: contenido.carga.items });
+  }
+
+  /** docs/GDD_Carros.md §8.2 — mismo patrón EXACTO que cofre:meterItem (buscarHueco + moverItem entre el cuerpo del jugador y la rejilla del carro). */
+  private async manejarCarroMeterCarga(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!player || !inv || typeof msg?.instanciaId !== "number") return;
+    const objetivo = this.entidadCarroCercana(client, msg?.tipo, msg?.id);
+    if (!objetivo) return client.send("carro:error", { motivo: "nada_cerca" });
+    const contenido = this.contenidoDe(objetivo.tipo, objetivo.id);
+    if (!contenido.carga) return client.send("carro:error", { motivo: "no_es_carro_de_materiales" });
+    const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return client.send("carro:error", { motivo: "no_tienes_ese_item" });
+    const hueco = buscarHueco(contenido.carga, this.catalogoItems, it.itemId);
+    if (!hueco) return client.send("carro:error", { motivo: "sin_hueco" });
+    const r = moverItem(inv.cuerpo, contenido.carga, this.catalogoItems, msg.instanciaId, hueco.x, hueco.y, 0);
+    if (!r.ok) return client.send("carro:error", { motivo: r.motivo ?? "no_se_pudo_meter" });
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    await this.guardarContenidoCarro(objetivo.tipo, objetivo.id, contenido);
+    client.send("carro:estadoCarga", { id: objetivo.id, tipo: objetivo.tipo, ancho: contenido.carga.ancho, alto: contenido.carga.alto, items: contenido.carga.items });
+  }
+
+  /** docs/GDD_Carros.md §8.2 — inverso exacto de meterCarga. */
+  private async manejarCarroSacarCarga(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!player || !inv || typeof msg?.instanciaId !== "number") return;
+    const objetivo = this.entidadCarroCercana(client, msg?.tipo, msg?.id);
+    if (!objetivo) return client.send("carro:error", { motivo: "nada_cerca" });
+    const contenido = this.contenidoDe(objetivo.tipo, objetivo.id);
+    if (!contenido.carga) return client.send("carro:error", { motivo: "no_es_carro_de_materiales" });
+    const it = contenido.carga.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return client.send("carro:error", { motivo: "no_encontrado" });
+    const hueco = buscarHueco(inv.cuerpo, this.catalogoItems, it.itemId);
+    if (!hueco) return client.send("carro:error", { motivo: "sin_hueco" });
+    const r = moverItem(contenido.carga, inv.cuerpo, this.catalogoItems, msg.instanciaId, hueco.x, hueco.y, 0);
+    if (!r.ok) return client.send("carro:error", { motivo: r.motivo ?? "no_se_pudo_sacar" });
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    await this.guardarContenidoCarro(objetivo.tipo, objetivo.id, contenido);
+    client.send("carro:estadoCarga", { id: objetivo.id, tipo: objetivo.tipo, ancho: contenido.carga.ancho, alto: contenido.carga.alto, items: contenido.carga.items });
+  }
+
+  /**
+   * docs/GDD_Carros.md §8.3 — capacidad por TAMAÑO, no rejilla
+   * (`contenedorMuebles.ts`, ya probado con 7 tests). Solo acepta ítems con
+   * `tamanoTransporte` en catálogo (silla/mesa_comedor/cama_individual/
+   * arcon — los "muebles-ítem" del carpintero legendario).
+   */
+  private async manejarCarroMeterMueble(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!player || !inv || typeof msg?.instanciaId !== "number") return;
+    const objetivo = this.entidadCarroCercana(client, msg?.tipo, msg?.id);
+    if (!objetivo) return client.send("carro:error", { motivo: "nada_cerca" });
+    const contenido = this.contenidoDe(objetivo.tipo, objetivo.id);
+    if (!contenido.muebles) return client.send("carro:error", { motivo: "no_es_carro_de_muebles" });
+    const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaId);
+    if (!it) return client.send("carro:error", { motivo: "no_tienes_ese_item" });
+    const tamano = this.catalogoItems[it.itemId]?.tamanoTransporte;
+    if (!tamano) return client.send("carro:error", { motivo: "no_transportable" });
+    const r = meterMueble(contenido.muebles, { instanciaId: it.id, itemId: it.itemId, tamano });
+    if (!r.ok) return client.send("carro:error", { motivo: r.motivo ?? "sin_capacidad" });
+    const q = quitarItem(inv.cuerpo, it.id, 1);
+    if (!q.ok) { sacarMueble(contenido.muebles, it.id); return client.send("carro:error", { motivo: q.motivo ?? "no_se_pudo_meter" }); }
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    await this.guardarContenidoCarro(objetivo.tipo, objetivo.id, contenido);
+    client.send("carro:estadoMuebles", { id: objetivo.id, tipo: objetivo.tipo, capacidadMax: contenido.muebles.capacidadMax, muebles: contenido.muebles.muebles });
+  }
+
+  /** docs/GDD_Carros.md §8.3 — inverso exacto de meterMueble (el mueble vuelve a ser un ítem normal en el inventario). */
+  private async manejarCarroSacarMueble(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!player || !inv || typeof msg?.instanciaId !== "number") return;
+    const objetivo = this.entidadCarroCercana(client, msg?.tipo, msg?.id);
+    if (!objetivo) return client.send("carro:error", { motivo: "nada_cerca" });
+    const contenido = this.contenidoDe(objetivo.tipo, objetivo.id);
+    if (!contenido.muebles) return client.send("carro:error", { motivo: "no_es_carro_de_muebles" });
+    const guardado = contenido.muebles.muebles.find((m) => m.instanciaId === msg.instanciaId);
+    if (!guardado) return client.send("carro:error", { motivo: "no_encontrado" });
+    const q = agregarItem(inv.cuerpo, this.catalogoItems, guardado.itemId, 1);
+    if (!q.ok) return client.send("carro:error", { motivo: q.motivo ?? "sin_hueco" });
+    sacarMueble(contenido.muebles, msg.instanciaId); // ya validado que existe justo arriba, no puede fallar
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    await this.guardarContenidoCarro(objetivo.tipo, objetivo.id, contenido);
+    client.send("carro:estadoMuebles", { id: objetivo.id, tipo: objetivo.tipo, capacidadMax: contenido.muebles.capacidadMax, muebles: contenido.muebles.muebles });
+  }
+
+  /**
+   * docs/GDD_Carros.md §8.4 — mete una mascota PROPIA "siguiendo" (ya
+   * domesticada, sin montar — `mascotaPropiaCercana` solo busca en
+   * `state.mascotas`, que ya excluye salvajes/montadas/enganchadas por
+   * construcción) en la jaula del carro. Mismo mecanismo que
+   * `quitarMascotaDeSchemaLocal` de enganchar, sin fusionar en un Schema
+   * nuevo — solo un id más en `jaula[]`.
+   */
+  private async manejarCarroMeterAnimal(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto"; mascotaId?: number }) {
+    const objetivo = this.entidadCarroCercana(client, msg?.tipo, msg?.id);
+    if (!objetivo) return client.send("carro:error", { motivo: "nada_cerca" });
+    const contenido = this.contenidoDe(objetivo.tipo, objetivo.id);
+    if (!contenido.jaula) return client.send("carro:error", { motivo: "no_es_carro_jaula" });
+    const capacidad = this.catalogoCarros[objetivo.carroTipoId]?.capacidadJaula ?? 0;
+    if (contenido.jaula.length >= capacidad) return client.send("carro:error", { motivo: "jaula_llena" });
+    const encontrada = this.mascotaPropiaCercana(client, msg?.mascotaId, () => true);
+    if (!encontrada) return client.send("carro:error", { motivo: "nada_cerca" });
+    const { id: mascotaIdNum } = encontrada;
+    this.quitarMascotaDeSchemaLocal(mascotaIdNum);
+    contenido.jaula.push(mascotaIdNum);
+    await this.guardarContenidoCarro(objetivo.tipo, objetivo.id, contenido);
+    client.send("carro:estadoJaula", { id: objetivo.id, tipo: objetivo.tipo, jaula: contenido.jaula });
+  }
+
+  /** docs/GDD_Carros.md §8.4 — inversa exacta: vuelve a aparecer "siguiendo" junto al carro (spawnearMascota, mismo mecanismo de siempre). */
+  private async manejarCarroSacarAnimal(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto"; mascotaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    if (!player || !nombre || typeof msg?.mascotaId !== "number") return;
+    const objetivo = this.entidadCarroCercana(client, msg?.tipo, msg?.id);
+    if (!objetivo) return client.send("carro:error", { motivo: "nada_cerca" });
+    const contenido = this.contenidoDe(objetivo.tipo, objetivo.id);
+    if (!contenido.jaula) return client.send("carro:error", { motivo: "no_es_carro_jaula" });
+    const idx = contenido.jaula.indexOf(msg.mascotaId);
+    if (idx < 0) return client.send("carro:error", { motivo: "no_encontrado" });
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const mascotas = await bd.listarMascotas(jugador.id);
+    const filaMascota = mascotas.find((m) => m.id === msg.mascotaId);
+    if (!filaMascota) return; // no debería pasar — la fila de mascotas nunca se borra al enjaularla
+    contenido.jaula.splice(idx, 1);
+    await this.guardarContenidoCarro(objetivo.tipo, objetivo.id, contenido);
+    this.spawnearMascota(client, filaMascota, nombre);
+    client.send("carro:estadoJaula", { id: objetivo.id, tipo: objetivo.tipo, jaula: contenido.jaula });
+  }
+
+  /** docs/GDD_Carros.md §8.5 — mismo patrón que carro:consultarCarga, sin mutar nada. */
+  private manejarCarroConsultarLiquido(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto" }) {
+    const objetivo = this.entidadCarroCercana(client, msg?.tipo, msg?.id);
+    if (!objetivo) return client.send("carro:error", { motivo: "nada_cerca" });
+    const contenido = this.contenidoDe(objetivo.tipo, objetivo.id);
+    if (!contenido.liquido) return client.send("carro:error", { motivo: "no_es_cisterna" });
+    client.send("carro:estadoLiquido", { id: objetivo.id, tipo: objetivo.tipo, liquido: contenido.liquido });
+  }
+
+  /** docs/GDD_Carros.md §8.5 — llena la cisterna ENTERA desde agua cercana, mismo criterio que recipiente:llenar pero a la escala de la cisterna. */
+  private async manejarCarroConectarManguera(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto" }) {
+    const objetivo = this.entidadCarroCercana(client, msg?.tipo, msg?.id);
+    if (!objetivo) return client.send("carro:error", { motivo: "nada_cerca" });
+    const contenido = this.contenidoDe(objetivo.tipo, objetivo.id);
+    if (!contenido.liquido) return client.send("carro:error", { motivo: "no_es_cisterna" });
+    if (!casillaAguaCercana(this.mundo, objetivo.x, objetivo.y, RADIO_INTERACCION)) return client.send("carro:error", { motivo: "sin_agua_cerca" });
+    contenido.liquido.tipo = "agua";
+    contenido.liquido.volumenMl = contenido.liquido.volumenMaxMl;
+    await this.guardarContenidoCarro(objetivo.tipo, objetivo.id, contenido);
+    client.send("carro:manguera", { id: objetivo.id, tipo: objetivo.tipo, conectada: true, liquido: contenido.liquido });
+  }
+
+  /** docs/GDD_Carros.md §8.5 — "corta la conexión, sin efecto de datos" (pedido literal), el volumen ya se transfirió al llenar. */
+  private manejarCarroDesconectarManguera(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto" }) {
+    client.send("carro:manguera", { id: msg?.id, tipo: msg?.tipo, conectada: false });
+  }
+
+  /** docs/GDD_Carros.md §8.5 — vierte de la cisterna a OTRO recipiente portable del jugador (cantimplora, cubo...) hasta llenarlo o vaciar la cisterna, lo que ocurra antes (transferirLiquido, única lógica pura nueva del sistema). */
+  private async manejarCarroVerterLiquido(client: Client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaIdDestino?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!player || !inv || typeof msg?.instanciaIdDestino !== "number") return;
+    const objetivo = this.entidadCarroCercana(client, msg?.tipo, msg?.id);
+    if (!objetivo) return client.send("carro:error", { motivo: "nada_cerca" });
+    const contenido = this.contenidoDe(objetivo.tipo, objetivo.id);
+    if (!contenido.liquido) return client.send("carro:error", { motivo: "no_es_cisterna" });
+    if (contenido.liquido.volumenMl <= 0) return client.send("carro:error", { motivo: "cisterna_vacia" });
+    const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaIdDestino);
+    if (!it) return client.send("carro:error", { motivo: "no_tienes_ese_recipiente" });
+    const entrada = this.catalogoItems[it.itemId];
+    if (!entrada || !esRecipienteLiquido(entrada)) return client.send("carro:error", { motivo: "eso_no_es_un_recipiente" });
+    const transferido = transferirLiquido(contenido.liquido, it, entrada);
+    if (transferido <= 0) return client.send("carro:error", { motivo: "no_cabe_o_liquido_distinto" });
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    await this.guardarContenidoCarro(objetivo.tipo, objetivo.id, contenido);
+    client.send("carro:vertido", { id: objetivo.id, tipo: objetivo.tipo, instanciaId: it.id, volumenMl: transferido, liquido: contenido.liquido });
   }
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) — implementa

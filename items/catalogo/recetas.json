@@ -2441,5 +2441,96 @@
     "resultado": { "itemId": "carreta_dos_plazas", "cantidad": 1 },
     "tiempoBaseSeg": 60,
     "_nota": "docs/GDD_Carros.md §8.1/§11/§14 Fase 1 (2026-09-04) — receta añadida en el mismo commit que carro:colocar/enganchar/ConjuntoTiroSchema (su mecanismo de servidor). Primer carro real jugable del sistema."
+  },
+  "carro_materiales_pequeno_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 7 },
+      { "itemId": "lingote_hierro", "cantidad": 3 },
+      { "itemId": "clavos", "cantidad": 10 }
+    ],
+    "resultado": { "itemId": "carro_materiales_pequeno", "cantidad": 1 },
+    "tiempoBaseSeg": 55,
+    "_nota": "docs/GDD_Carros.md §8.2/§11/§14 Fase 2 (2026-09-04) — receta añadida en el mismo commit que carro:meterCarga/sacarCarga (su mecanismo de servidor)."
+  },
+  "carro_materiales_grande_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 14 },
+      { "itemId": "lingote_hierro", "cantidad": 7 },
+      { "itemId": "clavos", "cantidad": 20 }
+    ],
+    "resultado": { "itemId": "carro_materiales_grande", "cantidad": 1 },
+    "tiempoBaseSeg": 90,
+    "_nota": "docs/GDD_Carros.md §8.2/§11/§14 Fase 2 (2026-09-04) — mismo criterio que carro_materiales_pequeno_craft, tier alto."
+  },
+  "carro_muebles_pequeno_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 7 },
+      { "itemId": "lingote_hierro", "cantidad": 3 },
+      { "itemId": "clavos", "cantidad": 10 }
+    ],
+    "resultado": { "itemId": "carro_muebles_pequeno", "cantidad": 1 },
+    "tiempoBaseSeg": 55,
+    "_nota": "docs/GDD_Carros.md §8.3/§11/§14 Fase 2 (2026-09-04) — receta añadida en el mismo commit que carro:meterMueble/sacarMueble (su mecanismo de servidor)."
+  },
+  "carro_muebles_grande_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 14 },
+      { "itemId": "lingote_hierro", "cantidad": 7 },
+      { "itemId": "clavos", "cantidad": 20 }
+    ],
+    "resultado": { "itemId": "carro_muebles_grande", "cantidad": 1 },
+    "tiempoBaseSeg": 90,
+    "_nota": "docs/GDD_Carros.md §8.3/§11/§14 Fase 2 (2026-09-04) — mismo criterio que carro_muebles_pequeno_craft, tier alto."
+  },
+  "carro_jaula_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 10 },
+      { "itemId": "lingote_hierro", "cantidad": 6 },
+      { "itemId": "clavos", "cantidad": 16 }
+    ],
+    "resultado": { "itemId": "carro_jaula", "cantidad": 1 },
+    "tiempoBaseSeg": 75,
+    "_nota": "docs/GDD_Carros.md §8.4/§11/§14 Fase 2 (2026-09-04) — receta añadida en el mismo commit que carro:meterAnimal/sacarAnimal (su mecanismo de servidor)."
+  },
+  "cisterna_pequena_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 6 },
+      { "itemId": "lingote_hierro", "cantidad": 8 },
+      { "itemId": "clavos", "cantidad": 8 }
+    ],
+    "resultado": { "itemId": "cisterna_pequena", "cantidad": 1 },
+    "tiempoBaseSeg": 60,
+    "_nota": "docs/GDD_Carros.md §8.5/§11/§14 Fase 2 (2026-09-04) — receta añadida en el mismo commit que carro:conectarManguera/verterLiquido (su mecanismo de servidor). Más hierro que madera (cuerpo metálico de la cisterna)."
+  },
+  "cisterna_grande_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 10 },
+      { "itemId": "lingote_hierro", "cantidad": 16 },
+      { "itemId": "clavos", "cantidad": 14 }
+    ],
+    "resultado": { "itemId": "cisterna_grande", "cantidad": 1 },
+    "tiempoBaseSeg": 100,
+    "_nota": "docs/GDD_Carros.md §8.5/§11/§14 Fase 2 (2026-09-04) — mismo criterio que cisterna_pequena_craft, tier alto."
   }
 }

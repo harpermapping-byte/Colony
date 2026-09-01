@@ -17,6 +17,7 @@
 import * as path from "node:path";
 import { Pool } from "pg";
 import { Contenedor, ItemInstancia, SlotsEquipo, RasgosCultivo } from "../inventario/inventario";
+import { ContenedorMuebles } from "../inventario/contenedorMuebles";
 import { nombresJarlTalCual } from "../construccion/construccion";
 
 // @types/node del monorepo es v20 y no conoce "node:sqlite" (los tipos llegaron en v22.5),
@@ -531,6 +532,26 @@ export interface Barco {
  * barco varado, GDD_Carros §3) — `jugadorId` es solo quién lo crafteó/colocó.
  * Deja de existir en cuanto se engancha (pasa a ConjuntoTiro).
  */
+/**
+ * docs/GDD_Carros.md §5/§8 (Fase 2, pedido 2026-09-03): lo que lleva CARGADO
+ * un carro/conjunto según la `categoria` de su catálogo (`catalogoCarros.ts`)
+ * — como mucho UNA de las 4 claves tiene sentido a la vez (la que
+ * corresponda a esa categoría), el resto quedan `undefined`. Serializado tal
+ * cual a JSON en la columna `contenido` de `carros`/`conjuntos_tiro` (mismo
+ * criterio "un blob TEXT, JSON.stringify/parse a mano" que `construcciones.extra`).
+ * Sobrevive a enganchar/desenganchar: la carga es del CARRO, no del animal.
+ */
+export interface ContenidoCarro {
+  /** categoria "materiales" — rejilla Tetris grande. */
+  carga?: Contenedor;
+  /** categoria "muebles" — capacidad por tamaño, no rejilla (docs/GDD_Carros.md §8.3). */
+  muebles?: ContenedorMuebles;
+  /** categoria "animales" — ids de mascotas propias enjauladas (docs/GDD_Carros.md §8.4). */
+  jaula?: number[];
+  /** categoria "liquidos" — cisterna (docs/GDD_Carros.md §8.5). */
+  liquido?: { tipo: string; volumenMl: number; volumenMaxMl: number };
+}
+
 export interface Carro {
   id: number;
   jugadorId: number;
@@ -539,6 +560,7 @@ export interface Carro {
   x: number;
   y: number;
   creadoEn: string;
+  contenido: ContenidoCarro | null;
 }
 
 /**
@@ -560,6 +582,7 @@ export interface ConjuntoTiro {
   x: number;
   y: number;
   creadoEn: string;
+  contenido: ContenidoCarro | null;
 }
 
 /**
@@ -989,18 +1012,22 @@ export interface IAlmacenDatos {
   /** Se llama al desembarcar (ancla donde quedó) y al cruzar de mapa (ancla en el spawn del destino). */
   actualizarPosicionBarco(id: number, mapaId: string, x: number, y: number): Promise<void>;
   // Carros (docs/GDD_Carros.md §3/§5, pedido 2026-09-03) — mismo patrón exacto que Barcos, con el paso intermedio de fusión en ConjuntoTiro.
-  /** Nace aparcado (carro:colocar). */
-  crearCarro(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number): Promise<Carro>;
+  /** Nace aparcado (carro:colocar) — `contenido` ya inicializado vacío según categoría (docs/GDD_Carros.md §8, Fase 2). */
+  crearCarro(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<Carro>;
   /** Todos los carros aparcados en ESE mapa — HubRoom los carga a state.carros en onCreate. */
   listarCarrosDe(mapaId: string): Promise<Carro[]>;
   /** Se llama al enganchar (deja de estar "aparcado", pasa a ConjuntoTiro). */
   eliminarCarro(id: number): Promise<void>;
-  /** carro:enganchar — funde una mascota (ya existente, sin borrar su fila) con un carro (que SÍ se borra vía eliminarCarro) en una entidad nueva. */
-  crearConjuntoTiro(jugadorId: number, mascotaId: number, especieAnimalId: string, carroTipoId: string, mapaId: string, x: number, y: number): Promise<ConjuntoTiro>;
+  /** docs/GDD_Carros.md §8 (Fase 2) — persiste la carga tras `carro:meterCarga`/`meterMueble`/`meterAnimal`/`conectarManguera`/etc. sobre un carro APARCADO. */
+  actualizarContenidoCarro(id: number, contenido: ContenidoCarro | null): Promise<void>;
+  /** carro:enganchar — funde una mascota (ya existente, sin borrar su fila) con un carro (que SÍ se borra vía eliminarCarro) en una entidad nueva; `contenido` es el que traía el carro (sobrevive al enganche, la carga es del carro no del animal). */
+  crearConjuntoTiro(jugadorId: number, mascotaId: number, especieAnimalId: string, carroTipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<ConjuntoTiro>;
   /** Todos los conjuntos enganchados en ESE mapa (con o sin conductor) — HubRoom los carga a state.conjuntosTiro en onCreate. */
   listarConjuntosTiroDe(mapaId: string): Promise<ConjuntoTiro[]>;
   /** Se llama al desmontar el conductor (ancla donde quedó) — mismo criterio que actualizarPosicionBarco. */
   actualizarPosicionConjuntoTiro(id: number, mapaId: string, x: number, y: number): Promise<void>;
+  /** docs/GDD_Carros.md §8 (Fase 2) — misma idea que actualizarContenidoCarro, pero sobre un conjunto YA enganchado. */
+  actualizarContenidoConjuntoTiro(id: number, contenido: ContenidoCarro | null): Promise<void>;
   /** carro:desenganchar — separa de vuelta en un Carro aparcado + la mascota vuelve a "siguiendo" (RoomExteriorBase recrea ambos, esto solo borra la fusión). */
   eliminarConjuntoTiro(id: number): Promise<void>;
   // Flags globales (docs/GDD_PvP.md, pedido 2026-08-30) — tabla genérica de un solo valor por clave.
@@ -1304,12 +1331,15 @@ CREATE TABLE IF NOT EXISTS carros (
   mapa_id TEXT NOT NULL,
   x REAL NOT NULL,
   y REAL NOT NULL,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  contenido TEXT
 );
 -- Conjuntos de tiro (docs/GDD_Carros.md §5, pedido 2026-09-03): animal
 -- (mascota_id, su fila en mascotas NO se borra) + carro fusionados por
 -- carro:enganchar. Ancla en el mundo igual que un carro/barco -- sobrevive
--- aparcado sin conductor a un reinicio de room.
+-- aparcado sin conductor a un reinicio de room. contenido = misma carga que
+-- traía el Carro de origen (JSON, docs/GDD_Carros.md §8 Fase 2) -- la carga
+-- es del carro, no del animal, sobrevive a enganchar/desenganchar.
 CREATE TABLE IF NOT EXISTS conjuntos_tiro (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   jugador_id INTEGER NOT NULL,
@@ -1319,7 +1349,8 @@ CREATE TABLE IF NOT EXISTS conjuntos_tiro (
   mapa_id TEXT NOT NULL,
   x REAL NOT NULL,
   y REAL NOT NULL,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  contenido TEXT
 );
 -- Flags globales de un solo valor (pedido 2026-08-30: PvP apagado por
 -- defecto, el jarl lo activa) — genérica a propósito, cualquier futuro
@@ -1778,8 +1809,10 @@ CREATE TABLE IF NOT EXISTS carros (
   mapa_id TEXT NOT NULL,
   x DOUBLE PRECISION NOT NULL,
   y DOUBLE PRECISION NOT NULL,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  contenido TEXT
 );
+ALTER TABLE carros ADD COLUMN IF NOT EXISTS contenido TEXT;
 CREATE TABLE IF NOT EXISTS conjuntos_tiro (
   id SERIAL PRIMARY KEY,
   jugador_id INTEGER NOT NULL,
@@ -1789,8 +1822,10 @@ CREATE TABLE IF NOT EXISTS conjuntos_tiro (
   mapa_id TEXT NOT NULL,
   x DOUBLE PRECISION NOT NULL,
   y DOUBLE PRECISION NOT NULL,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  contenido TEXT
 );
+ALTER TABLE conjuntos_tiro ADD COLUMN IF NOT EXISTS contenido TEXT;
 CREATE TABLE IF NOT EXISTS configuracion_mundo (
   clave TEXT PRIMARY KEY,
   valor TEXT NOT NULL
@@ -2158,6 +2193,7 @@ function filaACarro(f: any): Carro {
     x: Number(f.x),
     y: Number(f.y),
     creadoEn: String(f.creado_en),
+    contenido: f.contenido == null ? null : (JSON.parse(String(f.contenido)) as ContenidoCarro),
   };
 }
 
@@ -2173,6 +2209,7 @@ function filaAConjuntoTiro(f: any): ConjuntoTiro {
     x: Number(f.x),
     y: Number(f.y),
     creadoEn: String(f.creado_en),
+    contenido: f.contenido == null ? null : (JSON.parse(String(f.contenido)) as ContenidoCarro),
   };
 }
 
@@ -2364,6 +2401,17 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     }
     if (!columnasMascotas.some((c) => String(c.name) === "arnes_peso_maximo")) {
       this.bd.exec("ALTER TABLE mascotas ADD COLUMN arnes_peso_maximo REAL NOT NULL DEFAULT 0");
+    }
+    // Mismo patrón para `contenido` de `carros`/`conjuntos_tiro`
+    // (docs/GDD_Carros.md §8, Fase 2, pedido 2026-09-03) — un datos.sqlite
+    // de dev creado en Fase 1 no la tendría todavía.
+    const columnasCarros = this.bd.prepare("PRAGMA table_info(carros)").all();
+    if (!columnasCarros.some((c) => String(c.name) === "contenido")) {
+      this.bd.exec("ALTER TABLE carros ADD COLUMN contenido TEXT");
+    }
+    const columnasConjuntosTiro = this.bd.prepare("PRAGMA table_info(conjuntos_tiro)").all();
+    if (!columnasConjuntosTiro.some((c) => String(c.name) === "contenido")) {
+      this.bd.exec("ALTER TABLE conjuntos_tiro ADD COLUMN contenido TEXT");
     }
     // Mismo patrón para tipo/asentamiento_id/jugador de `memoria_lider`
     // (docs/GDD_Faccion_Bandidos.md §7quinquies) — un datos.sqlite de dev
@@ -3736,16 +3784,17 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     this.bd.prepare("UPDATE barcos SET mapa_id = ?, x = ?, y = ? WHERE id = ?").run(mapaId, x, y, id);
   }
 
-  async crearCarro(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number): Promise<Carro> {
+  async crearCarro(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<Carro> {
     const ahora = new Date().toISOString();
+    const contenidoJson = contenido == null ? null : JSON.stringify(contenido);
     const r = this.bd
-      .prepare("INSERT INTO carros (jugador_id, tipo_id, mapa_id, x, y, creado_en) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(jugadorId, tipoId, mapaId, x, y, ahora);
-    return { id: Number(r.lastInsertRowid), jugadorId, tipoId, mapaId, x, y, creadoEn: ahora };
+      .prepare("INSERT INTO carros (jugador_id, tipo_id, mapa_id, x, y, creado_en, contenido) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(jugadorId, tipoId, mapaId, x, y, ahora, contenidoJson);
+    return { id: Number(r.lastInsertRowid), jugadorId, tipoId, mapaId, x, y, creadoEn: ahora, contenido };
   }
 
   async listarCarrosDe(mapaId: string): Promise<Carro[]> {
-    const filas = this.bd.prepare("SELECT id, jugador_id, tipo_id, mapa_id, x, y, creado_en FROM carros WHERE mapa_id = ?").all(mapaId);
+    const filas = this.bd.prepare("SELECT id, jugador_id, tipo_id, mapa_id, x, y, creado_en, contenido FROM carros WHERE mapa_id = ?").all(mapaId);
     return filas.map(filaACarro);
   }
 
@@ -3753,23 +3802,32 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     this.bd.prepare("DELETE FROM carros WHERE id = ?").run(id);
   }
 
-  async crearConjuntoTiro(jugadorId: number, mascotaId: number, especieAnimalId: string, carroTipoId: string, mapaId: string, x: number, y: number): Promise<ConjuntoTiro> {
+  async actualizarContenidoCarro(id: number, contenido: ContenidoCarro | null): Promise<void> {
+    this.bd.prepare("UPDATE carros SET contenido = ? WHERE id = ?").run(contenido == null ? null : JSON.stringify(contenido), id);
+  }
+
+  async crearConjuntoTiro(jugadorId: number, mascotaId: number, especieAnimalId: string, carroTipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<ConjuntoTiro> {
     const ahora = new Date().toISOString();
+    const contenidoJson = contenido == null ? null : JSON.stringify(contenido);
     const r = this.bd
-      .prepare("INSERT INTO conjuntos_tiro (jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, ahora);
-    return { id: Number(r.lastInsertRowid), jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, creadoEn: ahora };
+      .prepare("INSERT INTO conjuntos_tiro (jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en, contenido) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, ahora, contenidoJson);
+    return { id: Number(r.lastInsertRowid), jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, creadoEn: ahora, contenido };
   }
 
   async listarConjuntosTiroDe(mapaId: string): Promise<ConjuntoTiro[]> {
     const filas = this.bd
-      .prepare("SELECT id, jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en FROM conjuntos_tiro WHERE mapa_id = ?")
+      .prepare("SELECT id, jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en, contenido FROM conjuntos_tiro WHERE mapa_id = ?")
       .all(mapaId);
     return filas.map(filaAConjuntoTiro);
   }
 
   async actualizarPosicionConjuntoTiro(id: number, mapaId: string, x: number, y: number): Promise<void> {
     this.bd.prepare("UPDATE conjuntos_tiro SET mapa_id = ?, x = ?, y = ? WHERE id = ?").run(mapaId, x, y, id);
+  }
+
+  async actualizarContenidoConjuntoTiro(id: number, contenido: ContenidoCarro | null): Promise<void> {
+    this.bd.prepare("UPDATE conjuntos_tiro SET contenido = ? WHERE id = ?").run(contenido == null ? null : JSON.stringify(contenido), id);
   }
 
   async eliminarConjuntoTiro(id: number): Promise<void> {
@@ -5270,18 +5328,19 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     await this.pool.query("UPDATE barcos SET mapa_id = $1, x = $2, y = $3 WHERE id = $4", [mapaId, x, y, id]);
   }
 
-  async crearCarro(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number): Promise<Carro> {
+  async crearCarro(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<Carro> {
     const ahora = new Date().toISOString();
+    const contenidoJson = contenido == null ? null : JSON.stringify(contenido);
     const r = await this.pool.query<{ id: number }>(
-      "INSERT INTO carros (jugador_id, tipo_id, mapa_id, x, y, creado_en) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
-      [jugadorId, tipoId, mapaId, x, y, ahora],
+      "INSERT INTO carros (jugador_id, tipo_id, mapa_id, x, y, creado_en, contenido) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+      [jugadorId, tipoId, mapaId, x, y, ahora, contenidoJson],
     );
-    return { id: r.rows[0].id, jugadorId, tipoId, mapaId, x, y, creadoEn: ahora };
+    return { id: r.rows[0].id, jugadorId, tipoId, mapaId, x, y, creadoEn: ahora, contenido };
   }
 
   async listarCarrosDe(mapaId: string): Promise<Carro[]> {
     const r = await this.pool.query(
-      "SELECT id, jugador_id, tipo_id, mapa_id, x, y, creado_en FROM carros WHERE mapa_id = $1",
+      "SELECT id, jugador_id, tipo_id, mapa_id, x, y, creado_en, contenido FROM carros WHERE mapa_id = $1",
       [mapaId],
     );
     return r.rows.map(filaACarro);
@@ -5291,18 +5350,23 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     await this.pool.query("DELETE FROM carros WHERE id = $1", [id]);
   }
 
-  async crearConjuntoTiro(jugadorId: number, mascotaId: number, especieAnimalId: string, carroTipoId: string, mapaId: string, x: number, y: number): Promise<ConjuntoTiro> {
+  async actualizarContenidoCarro(id: number, contenido: ContenidoCarro | null): Promise<void> {
+    await this.pool.query("UPDATE carros SET contenido = $1 WHERE id = $2", [contenido == null ? null : JSON.stringify(contenido), id]);
+  }
+
+  async crearConjuntoTiro(jugadorId: number, mascotaId: number, especieAnimalId: string, carroTipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<ConjuntoTiro> {
     const ahora = new Date().toISOString();
+    const contenidoJson = contenido == null ? null : JSON.stringify(contenido);
     const r = await this.pool.query<{ id: number }>(
-      "INSERT INTO conjuntos_tiro (jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id",
-      [jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, ahora],
+      "INSERT INTO conjuntos_tiro (jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en, contenido) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+      [jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, ahora, contenidoJson],
     );
-    return { id: r.rows[0].id, jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, creadoEn: ahora };
+    return { id: r.rows[0].id, jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, creadoEn: ahora, contenido };
   }
 
   async listarConjuntosTiroDe(mapaId: string): Promise<ConjuntoTiro[]> {
     const r = await this.pool.query(
-      "SELECT id, jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en FROM conjuntos_tiro WHERE mapa_id = $1",
+      "SELECT id, jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en, contenido FROM conjuntos_tiro WHERE mapa_id = $1",
       [mapaId],
     );
     return r.rows.map(filaAConjuntoTiro);
@@ -5310,6 +5374,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async actualizarPosicionConjuntoTiro(id: number, mapaId: string, x: number, y: number): Promise<void> {
     await this.pool.query("UPDATE conjuntos_tiro SET mapa_id = $1, x = $2, y = $3 WHERE id = $4", [mapaId, x, y, id]);
+  }
+
+  async actualizarContenidoConjuntoTiro(id: number, contenido: ContenidoCarro | null): Promise<void> {
+    await this.pool.query("UPDATE conjuntos_tiro SET contenido = $1 WHERE id = $2", [contenido == null ? null : JSON.stringify(contenido), id]);
   }
 
   async eliminarConjuntoTiro(id: number): Promise<void> {

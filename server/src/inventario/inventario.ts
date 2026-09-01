@@ -77,6 +77,8 @@ export interface EntradaCatalogoItem {
   esApero?: boolean;
   /** docs/GDD_Carros.md §3 — SOLO junto a `esApero`: peso máximo de carro (catalogoCarros.ts:DatosCarro.peso) que este arnés puede tirar. */
   pesoMaximoArnes?: number;
+  /** docs/GDD_Carros.md §8.3 (Fase 2) — SOLO en "muebles-ítem" transportables (silla/mesa_comedor/cama_individual/arcon...): tamaño que ocupa en la capacidad de un carro de muebles (1=silla/taburete, 2=mesa pequeña/arcón, 3=mesa grande/cama). Ausente = no cabe en un carro de muebles. */
+  tamanoTransporte?: number;
 
   /** docs/GDD_Agricultura.md — SOLO en tipo:"semilla": qué cultivo produce y cómo se comporta al plantarla. Ausente en cualquier otro tipo. */
   cultivo?: DatosCultivo;
