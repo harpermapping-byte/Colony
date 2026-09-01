@@ -1,0 +1,31 @@
+{
+  "_nota": "docs/GDD_Ropa_Procedural.md §Ingeniero legendario — diccionario español→parámetros REALES del generador (taller-vox/generarEdificioVoxel.js), inspirado en los parámetros configurables de taller-vox/generar_edificio.js (material/forma/ventanas/balcón/porche) pero con vocabulario propio. MISMO patrón que vocabularioMuebles.json/vocabularioLegendario.json. El color de acento (puerta/ribetes) reutiliza el mismo array 'color' de ropa/catalogo/vocabularioLegendario.json — cero tabla de colores duplicada.",
+  "tipoEdificio": [
+    { "valor": "casa_humilde", "palabras": ["casa humilde", "cabana", "cabaña", "choza", "casucha", "casa sencilla", "casa pequena", "casa pequeña"] },
+    { "valor": "casa_noble", "palabras": ["casa noble", "mansion", "mansión", "palacete", "casa señorial", "casa grande", "villa"] },
+    { "valor": "tienda", "palabras": ["tienda", "comercio", "puesto", "local"] },
+    { "valor": "taberna", "palabras": ["taberna", "posada", "mesón", "meson", "fonda"] }
+  ],
+  "material": [
+    { "valor": "madera", "hex": "#8a6a3a", "palabras": ["madera", "entramado", "de troncos", "de tablones"] },
+    { "valor": "piedra", "hex": "#8a8a8a", "palabras": ["piedra", "de sillar", "de canteria", "de cantería"] },
+    { "valor": "ladrillo", "hex": "#a85a3a", "palabras": ["ladrillo", "de ladrillos"] },
+    { "valor": "adobe", "hex": "#c9a06a", "palabras": ["adobe", "de barro", "encalada", "encalado"] },
+    { "valor": "estuco", "hex": "#e8ddc8", "palabras": ["estuco", "enlucido", "enlucida", "blanqueada", "blanqueado"] }
+  ],
+  "forma": [
+    { "valor": "rect", "palabras": ["rectangular", "cuadrada", "compacta", "sencilla"] },
+    { "valor": "alargada", "palabras": ["alargada", "alargado", "larga", "estrecha y larga"] },
+    { "valor": "L", "palabras": ["en forma de l", "en ele", "con ala", "con anexo"] }
+  ],
+  "techo": [
+    { "valor": "paja", "hex": "#d4b84a", "palabras": ["techo de paja", "tejado de paja", "de bálago", "de balago"] },
+    { "valor": "pizarra", "hex": "#4a4a52", "palabras": ["techo de pizarra", "tejado de pizarra", "techo gris", "de pizarra"] },
+    { "valor": "teja", "hex": "#8a3a2a", "palabras": ["techo de teja", "tejado de teja", "de tejas rojas", "de tejas"] }
+  ],
+  "modificador": [
+    { "campo": "balcon", "valor": true, "palabras": ["balcon", "balcón", "terraza"] },
+    { "campo": "porche", "valor": true, "palabras": ["porche", "soportal", "entrada cubierta"] },
+    { "campo": "ventanasGrandes", "valor": true, "palabras": ["ventanas grandes", "ventanales", "muchas ventanas", "ventanas amplias"] }
+  ]
+}

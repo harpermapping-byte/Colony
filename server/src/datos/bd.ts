@@ -535,6 +535,42 @@ export interface PrendaGenerada {
   creadoEn: string;
 }
 
+/**
+ * Mueble legendario bakeado por un carpintero (docs/GDD_Ropa_Procedural.md
+ * §Carpintero legendario) — MISMO patrón exacto que `PrendaGenerada`: id
+ * autoincremental (nunca deduplicado por contenido), solo el creador puede
+ * craftear copias.
+ */
+export interface MuebleGenerado {
+  id: number;
+  creadorId: number;
+  /** id real de interiores/catalogo/elementos.json (silla/mesa_comedor/cama_individual/arcon) que dobla como itemId. */
+  arquetipoId: string;
+  /** parámetros resueltos por interpretarPromptMueble (madera/colorAcento/modificadores) — JSON. */
+  parametros: Record<string, unknown>;
+  nombre: string;
+  promptTexto: string;
+  creadoEn: string;
+}
+
+/**
+ * Edificio legendario proyectado por un ingeniero (docs/GDD_Ropa_Procedural.md
+ * §Ingeniero legendario) — MISMO patrón. A diferencia de la ropa/muebles,
+ * hoy NO se coloca en el mundo (pendiente documentado): el blueprint queda
+ * persistente y listable, sin ítem físico ni construcción real todavía.
+ */
+export interface EdificioGenerado {
+  id: number;
+  creadorId: number;
+  /** id real de interiores/catalogo/tipos_edificio.json (casa_humilde/casa_noble/tienda/taberna). */
+  tipoEdificio: string;
+  /** parámetros resueltos por interpretarPromptEdificio (material/forma/techo/balcón/porche...) — JSON. */
+  parametros: Record<string, unknown>;
+  nombre: string;
+  promptTexto: string;
+  creadoEn: string;
+}
+
 // Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
 // asentamiento — el registro de eventos que alimenta su contexto de IA.
 // tipo/asentamientoId/jugador (docs/GDD_Faccion_Bandidos.md §7quinquies,
@@ -859,6 +895,16 @@ export interface IAlmacenDatos {
   crearPrendaGenerada(p: Omit<PrendaGenerada, "id" | "creadoEn">): Promise<PrendaGenerada>;
   obtenerPrendaGenerada(id: number): Promise<PrendaGenerada | null>;
   listarPrendasGeneradasDeCreador(creadorId: number): Promise<PrendaGenerada[]>;
+  // Carpintero legendario (docs/GDD_Ropa_Procedural.md §Carpintero legendario, mismo patrón exacto que el sastre).
+  resolverCooldownCarpinteriaLegendaria(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean>;
+  crearMuebleGenerado(m: Omit<MuebleGenerado, "id" | "creadoEn">): Promise<MuebleGenerado>;
+  obtenerMuebleGenerado(id: number): Promise<MuebleGenerado | null>;
+  listarMueblesGeneradosDeCreador(creadorId: number): Promise<MuebleGenerado[]>;
+  // Ingeniero legendario (docs/GDD_Ropa_Procedural.md §Ingeniero legendario, mismo patrón exacto).
+  resolverCooldownIngenieriaLegendaria(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean>;
+  crearEdificioGenerado(e: Omit<EdificioGenerado, "id" | "creadoEn">): Promise<EdificioGenerado>;
+  obtenerEdificioGenerado(id: number): Promise<EdificioGenerado | null>;
+  listarEdificiosGeneradosDeCreador(creadorId: number): Promise<EdificioGenerado[]>;
   cerrar(): Promise<void>;
 }
 
@@ -1289,6 +1335,28 @@ CREATE TABLE IF NOT EXISTS prendas_generadas (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_prendas_generadas_creador ON prendas_generadas(creador_id);
+-- Carpintero legendario (docs/GDD_Ropa_Procedural.md §Carpintero legendario) — mismo patrón exacto que prendas_generadas.
+CREATE TABLE IF NOT EXISTS muebles_generados (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  creador_id INTEGER NOT NULL,
+  arquetipo_id TEXT NOT NULL,
+  parametros TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  prompt_texto TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_muebles_generados_creador ON muebles_generados(creador_id);
+-- Ingeniero legendario (docs/GDD_Ropa_Procedural.md §Ingeniero legendario) — mismo patrón exacto.
+CREATE TABLE IF NOT EXISTS edificios_generados (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  creador_id INTEGER NOT NULL,
+  tipo_edificio TEXT NOT NULL,
+  parametros TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  prompt_texto TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_edificios_generados_creador ON edificios_generados(creador_id);
 `;
 
 const MIGRACIONES_POSTGRES = `
@@ -1310,6 +1378,8 @@ ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS oficio_1 TEXT NOT NULL DEFAULT ''
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS oficio_2 TEXT NOT NULL DEFAULT '';
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS cambios_oficio INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS ultimo_tejido_legendario_ms BIGINT;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS ultimo_carpinteria_legendaria_ms BIGINT;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS ultimo_ingenieria_legendaria_ms BIGINT;
 -- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3) — ver comentario gemelo en MIGRACIONES_SQLITE.
 CREATE TABLE IF NOT EXISTS npcs_tutoriales (
   id SERIAL PRIMARY KEY,
@@ -1662,6 +1732,26 @@ CREATE TABLE IF NOT EXISTS prendas_generadas (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_prendas_generadas_creador ON prendas_generadas(creador_id);
+CREATE TABLE IF NOT EXISTS muebles_generados (
+  id SERIAL PRIMARY KEY,
+  creador_id INTEGER NOT NULL,
+  arquetipo_id TEXT NOT NULL,
+  parametros TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  prompt_texto TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_muebles_generados_creador ON muebles_generados(creador_id);
+CREATE TABLE IF NOT EXISTS edificios_generados (
+  id SERIAL PRIMARY KEY,
+  creador_id INTEGER NOT NULL,
+  tipo_edificio TEXT NOT NULL,
+  parametros TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  prompt_texto TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_edificios_generados_creador ON edificios_generados(creador_id);
 `;
 
 // Mapeo de fila cruda (SQLite o Postgres, misma forma de columnas) a los
@@ -1853,6 +1943,30 @@ function filaAPrendaGenerada(f: any): PrendaGenerada {
   };
 }
 
+function filaAMuebleGenerado(f: any): MuebleGenerado {
+  return {
+    id: Number(f.id),
+    creadorId: Number(f.creador_id),
+    arquetipoId: String(f.arquetipo_id),
+    parametros: JSON.parse(f.parametros),
+    nombre: String(f.nombre),
+    promptTexto: String(f.prompt_texto),
+    creadoEn: String(f.creado_en),
+  };
+}
+
+function filaAEdificioGenerado(f: any): EdificioGenerado {
+  return {
+    id: Number(f.id),
+    creadorId: Number(f.creador_id),
+    tipoEdificio: String(f.tipo_edificio),
+    parametros: JSON.parse(f.parametros),
+    nombre: String(f.nombre),
+    promptTexto: String(f.prompt_texto),
+    creadoEn: String(f.creado_en),
+  };
+}
+
 function filaACuentaAdmin(f: any): CuentaAdmin {
   return {
     id: Number(f.id),
@@ -1912,6 +2026,12 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     }
     if (!nombresJugadores.has("ultimo_tejido_legendario_ms")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN ultimo_tejido_legendario_ms INTEGER");
+    }
+    if (!nombresJugadores.has("ultimo_carpinteria_legendaria_ms")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN ultimo_carpinteria_legendaria_ms INTEGER");
+    }
+    if (!nombresJugadores.has("ultimo_ingenieria_legendaria_ms")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN ultimo_ingenieria_legendaria_ms INTEGER");
     }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
@@ -3314,6 +3434,64 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return filas.map(filaAPrendaGenerada);
   }
 
+  async resolverCooldownCarpinteriaLegendaria(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
+    const fila = this.bd.prepare("SELECT ultimo_carpinteria_legendaria_ms FROM jugadores WHERE id = ?").get(jugadorId) as any;
+    const ultimo = fila && fila.ultimo_carpinteria_legendaria_ms != null ? Number(fila.ultimo_carpinteria_legendaria_ms) : null;
+    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
+    this.bd.prepare("UPDATE jugadores SET ultimo_carpinteria_legendaria_ms = ? WHERE id = ?").run(ahoraMs, jugadorId);
+    return true;
+  }
+
+  async crearMuebleGenerado(m: Omit<MuebleGenerado, "id" | "creadoEn">): Promise<MuebleGenerado> {
+    const creadoEn = new Date().toISOString();
+    const r = this.bd
+      .prepare(
+        `INSERT INTO muebles_generados (creador_id, arquetipo_id, parametros, nombre, prompt_texto, creado_en)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(m.creadorId, m.arquetipoId, JSON.stringify(m.parametros), m.nombre, m.promptTexto, creadoEn);
+    return { id: Number(r.lastInsertRowid), creadoEn, ...m };
+  }
+
+  async obtenerMuebleGenerado(id: number): Promise<MuebleGenerado | null> {
+    const fila = this.bd.prepare("SELECT * FROM muebles_generados WHERE id = ?").get(id) as any;
+    return fila ? filaAMuebleGenerado(fila) : null;
+  }
+
+  async listarMueblesGeneradosDeCreador(creadorId: number): Promise<MuebleGenerado[]> {
+    const filas = this.bd.prepare("SELECT * FROM muebles_generados WHERE creador_id = ?").all(creadorId) as any[];
+    return filas.map(filaAMuebleGenerado);
+  }
+
+  async resolverCooldownIngenieriaLegendaria(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
+    const fila = this.bd.prepare("SELECT ultimo_ingenieria_legendaria_ms FROM jugadores WHERE id = ?").get(jugadorId) as any;
+    const ultimo = fila && fila.ultimo_ingenieria_legendaria_ms != null ? Number(fila.ultimo_ingenieria_legendaria_ms) : null;
+    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
+    this.bd.prepare("UPDATE jugadores SET ultimo_ingenieria_legendaria_ms = ? WHERE id = ?").run(ahoraMs, jugadorId);
+    return true;
+  }
+
+  async crearEdificioGenerado(e: Omit<EdificioGenerado, "id" | "creadoEn">): Promise<EdificioGenerado> {
+    const creadoEn = new Date().toISOString();
+    const r = this.bd
+      .prepare(
+        `INSERT INTO edificios_generados (creador_id, tipo_edificio, parametros, nombre, prompt_texto, creado_en)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(e.creadorId, e.tipoEdificio, JSON.stringify(e.parametros), e.nombre, e.promptTexto, creadoEn);
+    return { id: Number(r.lastInsertRowid), creadoEn, ...e };
+  }
+
+  async obtenerEdificioGenerado(id: number): Promise<EdificioGenerado | null> {
+    const fila = this.bd.prepare("SELECT * FROM edificios_generados WHERE id = ?").get(id) as any;
+    return fila ? filaAEdificioGenerado(fila) : null;
+  }
+
+  async listarEdificiosGeneradosDeCreador(creadorId: number): Promise<EdificioGenerado[]> {
+    const filas = this.bd.prepare("SELECT * FROM edificios_generados WHERE creador_id = ?").all(creadorId) as any[];
+    return filas.map(filaAEdificioGenerado);
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -4666,6 +4844,70 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async listarPrendasGeneradasDeCreador(creadorId: number): Promise<PrendaGenerada[]> {
     const r = await this.pool.query("SELECT * FROM prendas_generadas WHERE creador_id = $1", [creadorId]);
     return r.rows.map(filaAPrendaGenerada);
+  }
+
+  async resolverCooldownCarpinteriaLegendaria(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
+    const fila = await this.pool.query<{ ultimo_carpinteria_legendaria_ms: string | number | null }>(
+      "SELECT ultimo_carpinteria_legendaria_ms FROM jugadores WHERE id = $1",
+      [jugadorId],
+    );
+    const bruto = fila.rows[0]?.ultimo_carpinteria_legendaria_ms;
+    const ultimo = bruto != null ? Number(bruto) : null;
+    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
+    await this.pool.query("UPDATE jugadores SET ultimo_carpinteria_legendaria_ms = $1 WHERE id = $2", [ahoraMs, jugadorId]);
+    return true;
+  }
+
+  async crearMuebleGenerado(m: Omit<MuebleGenerado, "id" | "creadoEn">): Promise<MuebleGenerado> {
+    const creadoEn = new Date().toISOString();
+    const r = await this.pool.query<{ id: number }>(
+      `INSERT INTO muebles_generados (creador_id, arquetipo_id, parametros, nombre, prompt_texto, creado_en)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [m.creadorId, m.arquetipoId, JSON.stringify(m.parametros), m.nombre, m.promptTexto, creadoEn],
+    );
+    return { id: r.rows[0].id, creadoEn, ...m };
+  }
+
+  async obtenerMuebleGenerado(id: number): Promise<MuebleGenerado | null> {
+    const r = await this.pool.query("SELECT * FROM muebles_generados WHERE id = $1", [id]);
+    return r.rows[0] ? filaAMuebleGenerado(r.rows[0]) : null;
+  }
+
+  async listarMueblesGeneradosDeCreador(creadorId: number): Promise<MuebleGenerado[]> {
+    const r = await this.pool.query("SELECT * FROM muebles_generados WHERE creador_id = $1", [creadorId]);
+    return r.rows.map(filaAMuebleGenerado);
+  }
+
+  async resolverCooldownIngenieriaLegendaria(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
+    const fila = await this.pool.query<{ ultimo_ingenieria_legendaria_ms: string | number | null }>(
+      "SELECT ultimo_ingenieria_legendaria_ms FROM jugadores WHERE id = $1",
+      [jugadorId],
+    );
+    const bruto = fila.rows[0]?.ultimo_ingenieria_legendaria_ms;
+    const ultimo = bruto != null ? Number(bruto) : null;
+    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
+    await this.pool.query("UPDATE jugadores SET ultimo_ingenieria_legendaria_ms = $1 WHERE id = $2", [ahoraMs, jugadorId]);
+    return true;
+  }
+
+  async crearEdificioGenerado(e: Omit<EdificioGenerado, "id" | "creadoEn">): Promise<EdificioGenerado> {
+    const creadoEn = new Date().toISOString();
+    const r = await this.pool.query<{ id: number }>(
+      `INSERT INTO edificios_generados (creador_id, tipo_edificio, parametros, nombre, prompt_texto, creado_en)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [e.creadorId, e.tipoEdificio, JSON.stringify(e.parametros), e.nombre, e.promptTexto, creadoEn],
+    );
+    return { id: r.rows[0].id, creadoEn, ...e };
+  }
+
+  async obtenerEdificioGenerado(id: number): Promise<EdificioGenerado | null> {
+    const r = await this.pool.query("SELECT * FROM edificios_generados WHERE id = $1", [id]);
+    return r.rows[0] ? filaAEdificioGenerado(r.rows[0]) : null;
+  }
+
+  async listarEdificiosGeneradosDeCreador(creadorId: number): Promise<EdificioGenerado[]> {
+    const r = await this.pool.query("SELECT * FROM edificios_generados WHERE creador_id = $1", [creadorId]);
+    return r.rows.map(filaAEdificioGenerado);
   }
 
   async cerrar(): Promise<void> {
