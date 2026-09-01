@@ -290,6 +290,13 @@ const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar u
 const PREFIJO_DESTINO_COFRE = "cofre:";
 /** Mercado v2 (docs/GDD_Mercado.md §12) — id del mueble 2x1 (interiores/catalogo/elementos.json) que hace de tenderete de mercado; mismo criterio "id hardcodeado" que telar/banco_carpintero/mesa_ajedrez para un objeto singular con interacción propia. */
 const ID_PUESTO_MERCADO_JUGADOR = "puesto_mercado_jugador";
+/** Librería (docs/GDD_Libreria.md) — el ÚNICO itemId que puede escribirse; ya escrito, sigue siendo este mismo itemId (el contenido real vive en libros_generados, enlazado por libroGeneradoId). */
+const ID_LIBRO_EN_BLANCO_JUGADOR = "libro_en_blanco_jugador";
+/** Herramienta de escritura ya existente en el catálogo (oficio curandero, tier1) — reusada tal cual, sin inventar un ítem "pluma y tinta" nuevo. No se consume: es una herramienta, no un material fungible. */
+const ITEM_PLUMA_ESCRITURA = "pluma_tintero";
+const MAX_PAGINAS_LIBRO_JUGADOR = 20;
+const MAX_CARACTERES_POR_PAGINA_LIBRO = 2000;
+const MAX_CARACTERES_TITULO_LIBRO = 80;
 
 /** docs/GDD_Produccion.md §3ter — id de construcción si `destino` es un cofre ("cofre:<id>"), null si es una propiedadId de tenderete normal. */
 function idDeCofre(destino: string): number | null {
@@ -298,8 +305,17 @@ function idDeCofre(destino: string): number | null {
   return Number.isFinite(id) ? id : null;
 }
 
-/** Tamaño real del contenedor de un cofre — `almacenamientoCofre` ya viene precalculado en el catálogo (raíz cuadrada de `aportes.almacenamiento`); 3x3 de reserva si el catálogo no lo trae por lo que sea. */
+/**
+ * Tamaño real del contenedor de un `esContenedor` — normalmente un cofre
+ * cuadrado (`almacenamientoCofre` ya viene precalculado en el catálogo,
+ * raíz cuadrada de `aportes.almacenamiento`; 3x3 de reserva si falta).
+ * Una librería (docs/GDD_Libreria.md) es distinta a propósito: en vez de un
+ * cuadrado aproximado, `capacidad × 1` da el número EXACTO de libros que
+ * caben (cada libro `huella:[1,1]`) — "da igual el peso, entran N libros"
+ * es literal porque la rejilla nunca mira peso, solo casillas.
+ */
 function capacidadCofre(entrada: EntradaConstruible | undefined): [number, number] {
+  if (entrada?.libreria) return [entrada.libreria.capacidad, 1];
   const lado = entrada?.almacenamientoCofre ?? 3;
   return [lado, lado];
 }
@@ -1099,6 +1115,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("cofre:consultar", (client, msg: { construccionId?: number }) => void this.manejarCofreConsultar(client, msg));
     this.onMessage("cofre:meterItem", (client, msg: { construccionId?: number; instanciaId?: number }) => void this.manejarCofreMeterItem(client, msg));
     this.onMessage("cofre:sacarItem", (client, msg: { construccionId?: number; instanciaId?: number }) => void this.manejarCofreSacarItem(client, msg));
+    // Librería (docs/GDD_Libreria.md, pedido 2026-09-01): la estantería en sí
+    // reusa el protocolo cofre:* de arriba TAL CUAL (esContenedor:true) —
+    // estos dos mensajes son solo lo NUEVO: escribir y leer libros.
+    this.onMessage("libro:escribir", (client, msg: { instanciaId?: number; titulo?: string; paginas?: string[] }) => void this.manejarLibroEscribir(client, msg));
+    this.onMessage("libro:leerGenerado", (client, msg: { libroGeneradoId?: number }) => void this.manejarLibroLeerGenerado(client, msg));
 
     // --- red motriz (docs/GDD_Motriz.md) — mismo criterio: disponible en
     // cualquier room con ContextoConstruccion, no-op si no lo hay.
@@ -7161,6 +7182,65 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.persistirInventarioPorSesion(client);
     await this.guardarContenedorDeCofre(viva, contenedor);
     client.send("cofre:estado", { construccionId: viva.id, ancho: contenedor.ancho, alto: contenedor.alto, items: contenedor.items });
+  }
+
+  private errorLibro(client: Client, motivo: string) {
+    client.send("libro:error", { motivo });
+  }
+
+  /**
+   * Escribe (o reescribe) un `libro_en_blanco_jugador` del CUERPO del
+   * jugador — mismo patrón "blueprint por instancia" que el sastre/carpintero
+   * legendarios (docs/GDD_Libreria.md, pedido 2026-09-01), pero SIN
+   * cooldown ni mesa: solo hace falta tener el libro y una pluma_tintero
+   * encima (no se consume, es herramienta). Reescribir un libro YA escrito
+   * solo lo permite su propio autor — un libro comprado/encontrado de otro
+   * jugador se puede LEER (§ siguiente) pero no pisar su contenido.
+   */
+  private async manejarLibroEscribir(client: Client, msg: { instanciaId?: number; titulo?: string; paginas?: string[] }) {
+    const nombre = this.nombreDe(client);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!nombre || !inv || typeof msg?.instanciaId !== "number") return;
+    const titulo = (msg.titulo ?? "").trim().slice(0, MAX_CARACTERES_TITULO_LIBRO);
+    if (!titulo) return this.errorLibro(client, "el libro necesita un título");
+    const paginas = Array.isArray(msg.paginas) ? msg.paginas.map((p) => String(p).slice(0, MAX_CARACTERES_POR_PAGINA_LIBRO)).filter((p) => p.length > 0) : [];
+    if (paginas.length === 0) return this.errorLibro(client, "el libro necesita al menos una página");
+    if (paginas.length > MAX_PAGINAS_LIBRO_JUGADOR) return this.errorLibro(client, `máximo ${MAX_PAGINAS_LIBRO_JUGADOR} páginas`);
+
+    const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaId);
+    if (!it || it.itemId !== ID_LIBRO_EN_BLANCO_JUGADOR) return this.errorLibro(client, "eso no es un libro en blanco");
+    if (!inv.cuerpo.items.some((i) => i.itemId === ITEM_PLUMA_ESCRITURA)) {
+      return this.errorLibro(client, "necesitas una pluma_tintero para escribir");
+    }
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+
+    if (it.libroGeneradoId) {
+      const existente = await bd.obtenerLibroGenerado(it.libroGeneradoId);
+      if (!existente || existente.autorId !== jugador.id) {
+        return this.errorLibro(client, "no puedes reescribir el libro de otro jugador");
+      }
+      await bd.actualizarLibroGenerado(it.libroGeneradoId, titulo, paginas);
+      client.send("libro:escrito", { instanciaId: it.id, libroGeneradoId: it.libroGeneradoId, titulo, paginas });
+      return;
+    }
+
+    const nuevo = await bd.crearLibroGenerado({ autorId: jugador.id, titulo, paginas });
+    it.libroGeneradoId = nuevo.id;
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    client.send("libro:escrito", { instanciaId: it.id, libroGeneradoId: nuevo.id, titulo, paginas });
+  }
+
+  /** Lee un libro YA escrito por un jugador — cualquiera (encontrarlo/comprarlo también es "tenerlo para leer"), sin gating de dueño (docs/GDD_Libreria.md). Los libros de catálogo (oficio/mecánica/lore, texto fijo) no pasan por aquí — el cliente los lee directo de items/catalogo/librosContenido.json, sin ida y vuelta al servidor. */
+  private async manejarLibroLeerGenerado(client: Client, msg: { libroGeneradoId?: number }) {
+    if (typeof msg?.libroGeneradoId !== "number") return;
+    const bd = await obtenerBdCompartida();
+    const libro = await bd.obtenerLibroGenerado(msg.libroGeneradoId);
+    if (!libro) return this.errorLibro(client, "ese libro no existe");
+    client.send("libro:leido", { libroGeneradoId: libro.id, titulo: libro.titulo, paginas: libro.paginas });
   }
 
   // ---- Red motriz (docs/GDD_Motriz.md) ----

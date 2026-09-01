@@ -14917,6 +14917,83 @@
     "uso": "Tenderete de mercado de un jugador: tablero con mercancía a la vista bajo un tejadillo de tela de colores. Craftable por el carpintero (nivel 2, \"puesto_mercado_jugador_craft\") y colocable como cualquier mueble (docs/GDD_Mercado.md §12) — su inventario de venta es el mismo tenderete_items de siempre, sin tope real de objetos ni de peso; para que la parte pública (escaparate/comprar) funcione hace falta además un trabajador de oficio \"tendero\" asignado a él (docs/GDD_NPCs_Contratables.md).",
     "requiereItemColocar": "puesto_mercado_jugador"
   },
+  "libreria_baja": {
+    "nombre": "Librería Baja",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "biblioteca",
+      "estudio",
+      "sala_comun"
+    ],
+    "colocacion": [
+      "pegadaAPared"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "materialesCompatibles": [
+      "madera"
+    ],
+    "variantes": 3,
+    "colorDebug": "#8a6a3a",
+    "esContenedor": true,
+    "libreria": { "capacidad": 20 },
+    "isMandatory": true,
+    "uso": "Estantería baja de madera para guardar libros — su hueco (docs/GDD_Libreria.md) no mira el peso ni el tamaño de lo que entra, solo cuenta libros: hasta 20 a la vez. Craftable por el carpintero (nivel 1, \"libreria_baja_craft\").",
+    "requiereItemColocar": "libreria_baja"
+  },
+  "libreria_alta": {
+    "nombre": "Librería Alta",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "biblioteca",
+      "estudio",
+      "salon_jarl"
+    ],
+    "colocacion": [
+      "pegadaAPared"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "materialesCompatibles": [
+      "madera"
+    ],
+    "variantes": 3,
+    "colorDebug": "#6a4a2a",
+    "esContenedor": true,
+    "libreria": { "capacidad": 40 },
+    "isMandatory": true,
+    "uso": "Estantería alta hasta el techo — misma huella en el suelo que la baja, el doble de baldas. Hasta 40 libros, sin tope de peso (docs/GDD_Libreria.md). Craftable por el carpintero (nivel 2, \"libreria_alta_craft\").",
+    "requiereItemColocar": "libreria_alta"
+  },
+  "libreria_doble": {
+    "nombre": "Librería Doble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "biblioteca",
+      "gran_archivo"
+    ],
+    "colocacion": [
+      "pegadaAPared"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "materialesCompatibles": [
+      "madera"
+    ],
+    "variantes": 3,
+    "colorDebug": "#5a3a22",
+    "esContenedor": true,
+    "libreria": { "capacidad": 50 },
+    "isMandatory": true,
+    "uso": "Estantería doble de cuerpo ancho, la más grande del catálogo — hasta 50 libros, sin tope de peso (docs/GDD_Libreria.md). Craftable por el carpintero (nivel 3, \"libreria_doble_craft\").",
+    "requiereItemColocar": "libreria_doble"
+  },
   "puesto_herramientas_mercado": {
     "nombre": "Puesto de Herramientas de Mercado",
     "capa": "decorFija",

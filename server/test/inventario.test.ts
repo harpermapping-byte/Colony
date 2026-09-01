@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 469); // 468 (ver historial: 464 = 459 = 428 + grasa + 33 cadáveres de caza + jarabe_catarro + 4 instrumentos musicales + mesa_ajedrez, + camisa_seda_noble, + 30 variantes "_bonificado/a(s)" de herrería + silla/mesa_comedor/cama_individual/arcon - pocion_alquimica genérica + 5 variantes de color pocion_alquimica_clara/toxica/vital/inestable/radiante) + puesto_mercado_jugador (docs/GDD_Mercado.md §12, mueble tenderete craftable por el carpintero)
+  assert.strictEqual(ids.length, 491); // 469 (ver historial: 468 = 464 = 459 = 428 + grasa + 33 cadáveres de caza + jarabe_catarro + 4 instrumentos musicales + mesa_ajedrez, + camisa_seda_noble, + 30 variantes "_bonificado/a(s)" de herrería + silla/mesa_comedor/cama_individual/arcon - pocion_alquimica genérica + 5 variantes de color pocion_alquimica_clara/toxica/vital/inestable/radiante + puesto_mercado_jugador) + 22 de docs/GDD_Libreria.md: libreria_baja/alta/doble + libro_en_blanco_jugador + 18 libros de contenido fijo (10 oficio + 3 mecánica + 5 lore, generados por items/catalogo/generarLibros.js desde librosContenido.json)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

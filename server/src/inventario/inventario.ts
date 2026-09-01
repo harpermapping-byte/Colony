@@ -211,6 +211,8 @@ export interface ItemInstancia {
   ultimoUso?: number;
   /** docs/GDD_Ropa_Procedural.md §Sastre legendario — ausente/0 = ítem normal de catálogo; >0 = copia de un blueprint de `prendas_generadas` (bd.ts), el aspecto real sale de ahí, no del catálogo estático. */
   prendaGeneradaId?: number;
+  /** docs/GDD_Libreria.md (pedido 2026-09-01) — SOLO en `libro_en_blanco_jugador`: ausente = todavía en blanco, sin escribir; >0 = ya escrito, título/texto reales viven en `libros_generados` (bd.ts), enlazados por este id — mismo patrón exacto que `prendaGeneradaId`. */
+  libroGeneradoId?: number;
   /** docs/GDD_Inventario.md §9 (Líquidos) — ausente si el catálogo no declara `volumenMaxMl` (nunca es un recipiente) O si lo es pero está vacío. Nunca "medio lleno de dos líquidos a la vez": llenar sustituye el contenido entero. */
   liquido?: { tipo: string; volumenMl: number; contaminada?: boolean };
   /**

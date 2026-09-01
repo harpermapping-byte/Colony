@@ -624,6 +624,24 @@ export interface EdificioGenerado {
   creadoEn: string;
 }
 
+/**
+ * Libro escrito por un jugador (docs/GDD_Libreria.md, pedido 2026-09-01) —
+ * MISMO patrón que MuebleGenerado/PrendaGenerada/EdificioGenerado: id
+ * autoincremental, enlazado desde una instancia de `libro_en_blanco_jugador`
+ * por `libroGeneradoId` (inventario.ts). A diferencia de los otros tres, SÍ
+ * se puede reescribir por su propio autor (`actualizarLibroGenerado`) — un
+ * libro no es un blueprint para craftear copias, es contenido de un único
+ * objeto físico que su dueño puede seguir editando.
+ */
+export interface LibroGenerado {
+  id: number;
+  autorId: number;
+  titulo: string;
+  /** una página por entrada — se lee con clic izquierda/derecha en el visor del cliente. */
+  paginas: string[];
+  creadoEn: string;
+}
+
 // Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
 // asentamiento — el registro de eventos que alimenta su contexto de IA.
 // tipo/asentamientoId/jugador (docs/GDD_Faccion_Bandidos.md §7quinquies,
@@ -984,6 +1002,11 @@ export interface IAlmacenDatos {
   crearEdificioGenerado(e: Omit<EdificioGenerado, "id" | "creadoEn">): Promise<EdificioGenerado>;
   obtenerEdificioGenerado(id: number): Promise<EdificioGenerado | null>;
   listarEdificiosGeneradosDeCreador(creadorId: number): Promise<EdificioGenerado[]>;
+  // Librería (docs/GDD_Libreria.md, pedido 2026-09-01) — sin cooldown: escribir un libro no compite con ningún recurso escaso, solo con tener el blueprint y la pluma.
+  crearLibroGenerado(l: Omit<LibroGenerado, "id" | "creadoEn">): Promise<LibroGenerado>;
+  obtenerLibroGenerado(id: number): Promise<LibroGenerado | null>;
+  /** Reescribe un libro YA creado — el llamante (RoomExteriorBase) ya comprobó que `autorId` coincide antes de llamar. */
+  actualizarLibroGenerado(id: number, titulo: string, paginas: string[]): Promise<void>;
   cerrar(): Promise<void>;
 }
 
@@ -1485,6 +1508,15 @@ CREATE TABLE IF NOT EXISTS edificios_generados (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_edificios_generados_creador ON edificios_generados(creador_id);
+-- Librería (docs/GDD_Libreria.md, pedido 2026-09-01) — mismo patrón exacto que prendas_generadas/muebles_generados/edificios_generados.
+CREATE TABLE IF NOT EXISTS libros_generados (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  autor_id INTEGER NOT NULL,
+  titulo TEXT NOT NULL,
+  paginas TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_libros_generados_autor ON libros_generados(autor_id);
 `;
 
 const MIGRACIONES_POSTGRES = `
@@ -1910,6 +1942,14 @@ CREATE TABLE IF NOT EXISTS edificios_generados (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_edificios_generados_creador ON edificios_generados(creador_id);
+CREATE TABLE IF NOT EXISTS libros_generados (
+  id SERIAL PRIMARY KEY,
+  autor_id INTEGER NOT NULL,
+  titulo TEXT NOT NULL,
+  paginas TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_libros_generados_autor ON libros_generados(autor_id);
 `;
 
 // Mapeo de fila cruda (SQLite o Postgres, misma forma de columnas) a los
@@ -2122,6 +2162,16 @@ function filaAEdificioGenerado(f: any): EdificioGenerado {
     parametros: JSON.parse(f.parametros),
     nombre: String(f.nombre),
     promptTexto: String(f.prompt_texto),
+    creadoEn: String(f.creado_en),
+  };
+}
+
+function filaALibroGenerado(f: any): LibroGenerado {
+  return {
+    id: Number(f.id),
+    autorId: Number(f.autor_id),
+    titulo: String(f.titulo),
+    paginas: JSON.parse(f.paginas),
     creadoEn: String(f.creado_en),
   };
 }
@@ -3790,6 +3840,23 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return filas.map(filaAEdificioGenerado);
   }
 
+  async crearLibroGenerado(l: Omit<LibroGenerado, "id" | "creadoEn">): Promise<LibroGenerado> {
+    const creadoEn = new Date().toISOString();
+    const r = this.bd
+      .prepare("INSERT INTO libros_generados (autor_id, titulo, paginas, creado_en) VALUES (?, ?, ?, ?)")
+      .run(l.autorId, l.titulo, JSON.stringify(l.paginas), creadoEn);
+    return { id: Number(r.lastInsertRowid), creadoEn, ...l };
+  }
+
+  async obtenerLibroGenerado(id: number): Promise<LibroGenerado | null> {
+    const fila = this.bd.prepare("SELECT * FROM libros_generados WHERE id = ?").get(id) as any;
+    return fila ? filaALibroGenerado(fila) : null;
+  }
+
+  async actualizarLibroGenerado(id: number, titulo: string, paginas: string[]): Promise<void> {
+    this.bd.prepare("UPDATE libros_generados SET titulo = ?, paginas = ? WHERE id = ?").run(titulo, JSON.stringify(paginas), id);
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -5313,6 +5380,24 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async listarEdificiosGeneradosDeCreador(creadorId: number): Promise<EdificioGenerado[]> {
     const r = await this.pool.query("SELECT * FROM edificios_generados WHERE creador_id = $1", [creadorId]);
     return r.rows.map(filaAEdificioGenerado);
+  }
+
+  async crearLibroGenerado(l: Omit<LibroGenerado, "id" | "creadoEn">): Promise<LibroGenerado> {
+    const creadoEn = new Date().toISOString();
+    const r = await this.pool.query<{ id: number }>(
+      "INSERT INTO libros_generados (autor_id, titulo, paginas, creado_en) VALUES ($1, $2, $3, $4) RETURNING id",
+      [l.autorId, l.titulo, JSON.stringify(l.paginas), creadoEn],
+    );
+    return { id: r.rows[0].id, creadoEn, ...l };
+  }
+
+  async obtenerLibroGenerado(id: number): Promise<LibroGenerado | null> {
+    const r = await this.pool.query("SELECT * FROM libros_generados WHERE id = $1", [id]);
+    return r.rows[0] ? filaALibroGenerado(r.rows[0]) : null;
+  }
+
+  async actualizarLibroGenerado(id: number, titulo: string, paginas: string[]): Promise<void> {
+    await this.pool.query("UPDATE libros_generados SET titulo = $1, paginas = $2 WHERE id = $3", [titulo, JSON.stringify(paginas), id]);
   }
 
   async cerrar(): Promise<void> {

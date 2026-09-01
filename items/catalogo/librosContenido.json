@@ -1,0 +1,196 @@
+{
+  "_formato": "docs/GDD_Libreria.md — archivo de AUTORÍA de libros (lo edita el streamer directamente, sin tocar código). Cada entrada: clave = id único del libro (snake_case, sin espacios); 'titulo' = nombre real que verá el jugador (NO pasa por nombreBonito.js, es prosa escrita a mano); 'categoria' = 'oficio' | 'mecanica' | 'lore'; 'oficio' = SOLO si categoria:'oficio', uno real de OFICIOS_JUGADOR_VALIDOS (herrero/carpintero/ingeniero/picapedrero/molinero/cazador/cocinero/curandero/curtidor/joyero) — decide el color de la portada; 'paginas' = array de strings, una página por elemento, se leen con clic izquierda/derecha en el visor. Para añadir un libro de LORE nuevo (los que puedes escribir a tu antojo): copia una entrada de categoria:'lore', cambia la clave/titulo/paginas. Cuando termines de editar, ejecuta 'node items/catalogo/generarLibros.js' — genera/actualiza la entrada mecánica correspondiente en items.json (nombre, color de portada, tipo) SOLA, nunca hay que tocar items.json a mano. Los libros que el JUGADOR escribe (categoria 'jugador') no van aquí — son 'libro_en_blanco_jugador' en items.json, su texto vive en la tabla libros_generados (bd.ts), escrito en vivo con pluma_tintero.",
+
+  "libro_herrero_1": {
+    "titulo": "El Yunque y la Llama",
+    "categoria": "oficio",
+    "oficio": "herrero",
+    "paginas": [
+      "El fuego no perdona al que duda. Quien mete el hierro en la forja y aparta la mirada, saca un arma torcida — o ninguna arma.",
+      "Tres golpes hacen la forma; el cuarto la rompe si no sabes cuándo parar. Escucha el metal: cuando canta agudo, está listo para el temple.",
+      "El aprendiz pregunta por qué el maestro nunca tiene prisa. El maestro responde: 'porque ya perdí tres dedos por tenerla'.",
+      "Guarda esto: un herrero que no respeta el agua fría no llega a viejo con las dos manos enteras."
+    ]
+  },
+  "libro_carpintero_1": {
+    "titulo": "Vetas y Paciencia",
+    "categoria": "oficio",
+    "oficio": "carpintero",
+    "paginas": [
+      "La madera recuerda cómo creció. Cortar contra la veta es pedirle al árbol que te desobedezca — y lo hará, astillándose donde menos lo esperas.",
+      "El roble es terco y honesto: pesado de trabajar, pero no miente sobre su fuerza. El pino es dócil, ligero, y se rinde antes.",
+      "Un mueble mal encolado se nota el primer invierno, cuando la casa se seca y las juntas hablan crujiendo.",
+      "Aprendiz: mide dos veces, corta una. Si lo olvidas, que sea con la pieza más barata."
+    ]
+  },
+  "libro_ingeniero_1": {
+    "titulo": "Ruedas que No Mienten",
+    "categoria": "oficio",
+    "oficio": "ingeniero",
+    "paginas": [
+      "Un engranaje no tiene opinión: gira lo que le mandan los dientes de al lado, ni un grado más.",
+      "El agua empuja siempre igual; el viento, nunca dos veces igual. Diseña para el peor día, no para el mejor.",
+      "Los planos que no se prueban en pequeño antes de construirse en grande solo sirven para quemar leña.",
+      "Si algo se atasca, no le des más fuerza: pregúntate qué pieza está mal medida. La fuerza esconde el error, no lo arregla."
+    ]
+  },
+  "libro_picapedrero_1": {
+    "titulo": "La Piedra Habla Bajito",
+    "categoria": "oficio",
+    "oficio": "picapedrero",
+    "paginas": [
+      "Cada bloque tiene una línea débil por donde prefiere partirse. Encontrarla antes de golpear es la mitad del oficio.",
+      "El granito perdona pocos errores; la caliza perdona menos tiempo — se ensucia y se desgasta si no la tratas.",
+      "Un muro bien tallado no necesita mortero para sostenerse: el peso justo, en el sitio justo, es su propio pegamento.",
+      "Los canteros viejos dicen que se puede oír cuándo un bloque va a ceder. Los canteros vivos, los que aprendieron a escucharlo."
+    ]
+  },
+  "libro_molinero_1": {
+    "titulo": "El Grano y la Rueda",
+    "categoria": "oficio",
+    "oficio": "molinero",
+    "paginas": [
+      "La piedra de moler que gira demasiado rápido quema la harina antes de molerla bien — la prisa sabe amarga.",
+      "Un molino de agua depende del cauce; uno de viento, del cielo. Ninguno de los dos negocia contigo.",
+      "El grano húmedo se pega a la piedra y para el mecanismo entero. Guarda seco, muele seco.",
+      "Se dice en el gremio: 'el molinero honesto se conoce por el peso justo del saco, no por el precio bajo'."
+    ]
+  },
+  "libro_cazador_1": {
+    "titulo": "Huellas Antes del Alba",
+    "categoria": "oficio",
+    "oficio": "cazador",
+    "paginas": [
+      "El viento a favor te delata; el viento en contra te esconde. Camina siempre oliendo hacia la presa, nunca al revés.",
+      "Una trampa mal escondida enseña a la manada entera a evitar ese camino para siempre.",
+      "No sigas al animal herido de noche: un jabalí acorralado y a oscuras no distingue cazador de árbol.",
+      "El buen cazador no caza lo que no puede aprovechar entero — piel, carne y hueso, o mejor no tirar la flecha."
+    ]
+  },
+  "libro_cocinero_1": {
+    "titulo": "Fuego Lento, Mesa Llena",
+    "categoria": "oficio",
+    "oficio": "cocinero",
+    "paginas": [
+      "La sal se añade en tres momentos, no en uno: al principio para el fondo, a mitad para ajustar, al final para despertar.",
+      "Un guiso que hierve fuerte se pelea consigo mismo; uno que hierve despacio se hace amigo de sus propios ingredientes.",
+      "No hay receta que sobreviva a un ingrediente podrido. Revisa antes de cocinar, nunca después de servir.",
+      "El cocinero de taberna aprende rápido: la gente perdona un plato sencillo bien hecho, nunca uno ambicioso y frío."
+    ]
+  },
+  "libro_curandero_1": {
+    "titulo": "Manual del Sanador de Aldea",
+    "categoria": "oficio",
+    "oficio": "curandero",
+    "paginas": [
+      "La hierba curativa machacada cierra heridas pequeñas; para las grandes, hace falta algo más que hierbas — hace falta calma.",
+      "Un paciente asustado se cura más despacio que uno tranquilo. Habla antes de tocar.",
+      "No mezcles remedios que no entiendas del todo: dos venenos débiles pueden hacer uno fuerte.",
+      "Guarda siempre algo de vendaje limpio y agua hervida — el resto del oficio se aprende, esto se prepara antes de que haga falta."
+    ]
+  },
+  "libro_curtidor_1": {
+    "titulo": "Del Pellejo al Cuero",
+    "categoria": "oficio",
+    "oficio": "curtidor",
+    "paginas": [
+      "Una piel mal raspada se pudre igual de rápido esté curtida o no — el trabajo empieza antes del curtido, no en él.",
+      "La sal seca, la corteza curte, el aceite ablanda. Confundir el orden arruina meses de trabajo en un día.",
+      "El cuero grueso protege más y pesa más; el fino se mueve contigo pero cede antes al primer golpe serio.",
+      "Un buen curtidor huele el cuero antes de venderlo — el olor agrio nunca miente sobre un curtido mal hecho."
+    ]
+  },
+  "libro_joyero_1": {
+    "titulo": "Facetas y Paciencia",
+    "categoria": "oficio",
+    "oficio": "joyero",
+    "paginas": [
+      "Una gema mal tallada pierde más brillo que valor — y el valor tarda en notarse, el brillo perdido se ve al momento.",
+      "El oro se dobla antes de romperse; la plata se raja si la fuerzas fría. Conoce el metal antes de exigirle forma.",
+      "El engaste demasiado apretado agrieta la piedra con el tiempo; demasiado suelto, la pierdes en el primer golpe.",
+      "Se dice entre joyeros: 'el cliente compra el brillo, pero paga por lo que no se ve — la pieza que no se rompe'."
+    ]
+  },
+
+  "libro_mecanica_construccion": {
+    "titulo": "Guía del Colono: Construir y Poseer",
+    "categoria": "mecanica",
+    "paginas": [
+      "El jarl de tu asentamiento reparte parcelas. Sin una parcela asignada, no puedes construir nada en el exterior.",
+      "Dentro de tu parcela, cualquier mueble o estructura del catálogo es tuyo con solo colocarlo — algunos exigen tener antes el objeto craftado en la mano.",
+      "Recoger una construcción la hace desaparecer del mundo (de momento) — piénsalo dos veces antes de recoger lo que llevó tiempo montar.",
+      "Un inmueble en la ciudad se compra o se alquila con Farycoins, distinto de la parcela gratuita del jarl. Ambos son propiedad tuya de pleno derecho."
+    ]
+  },
+  "libro_mecanica_mercado": {
+    "titulo": "Guía del Colono: Comerciar sin Perder la Camisa",
+    "categoria": "mecanica",
+    "paginas": [
+      "Un tenderete de mercado es un mueble más, plantado sobre tu propia parcela o inmueble — nadie roba lo que guardas dentro salvo tú mismo, al venderlo.",
+      "Sin un tendero contratado plantado en el puesto, la tienda permanece cerrada al público — puedes seguir surtiendo y fijando precios mientras tanto.",
+      "Las ganancias de una venta no llegan directas a tu bolsa: se acumulan en el propio tenderete, recógelas cuando quieras.",
+      "Un artículo agotado no desaparece de la lista — sigue visible como 'agotado' hasta que lo repongas."
+    ]
+  },
+  "libro_mecanica_oficios": {
+    "titulo": "Guía del Colono: Elegir un Oficio",
+    "categoria": "mecanica",
+    "paginas": [
+      "Cada colono elige hasta dos oficios de los diez reales. Progresar en uno exige tenerlo elegido — craftear sin haberlo elegido no enseña nada.",
+      "Cambiar un oficio ya elegido por otro cuesta Farycoins y reinicia esa progresión desde cero. Elige con cabeza la primera vez.",
+      "Las mesas de crafteo tienen nivel: una mesa avanzada exige más nivel de oficio para poder usarla, no solo para craftear mejor en ella.",
+      "Contratar un trabajador NPC con tu mismo oficio no sustituye tu propio aprendizaje — el trabajador craftea por ti, pero nunca sube tu nivel."
+    ]
+  },
+
+  "libro_lore_fundacion": {
+    "titulo": "Crónica de la Fundación del Asentamiento",
+    "categoria": "lore",
+    "paginas": [
+      "Dicen los ancianos que el primer jarl no eligió este valle por la tierra fértil, sino porque el río nunca se congelaba del todo.",
+      "Los primeros colonos llegaron con lo puesto y una promesa: nadie pasaría hambre mientras hubiera un vecino con grano de sobra.",
+      "La empalizada original ardió dos veces antes de que alguien pensara en construirla con piedra en vez de con prisa.",
+      "Hoy quedan pocas casas de aquella primera fila — pero sus cimientos siguen ahí, bajo las nuevas, sosteniendo todo lo demás."
+    ]
+  },
+  "libro_lore_jarl_viejo": {
+    "titulo": "El Jarl que Nunca Levantó la Voz",
+    "categoria": "lore",
+    "paginas": [
+      "No se recuerda a Ovald el Silencioso por sus discursos, porque apenas dio ninguno — se recuerda por escuchar hasta el final antes de decidir.",
+      "Cuentan que resolvió una disputa de tierras dejando que ambos vecinos araran juntos la misma parcela durante una temporada. Al final, ninguno quiso separarla.",
+      "Cuando le preguntaron por qué nunca castigaba con dureza, respondió: 'el miedo construye murallas más rápido que la lealtad, pero se cae antes'.",
+      "Su tumba no tiene estatua. Tiene un banco, para que la gente se siente a hablar, como él prefería."
+    ]
+  },
+  "libro_lore_bestias_bosque": {
+    "titulo": "Bestiario del Cazador Trasnochado",
+    "categoria": "lore",
+    "paginas": [
+      "El lobo alfa de estos bosques no caza al que corre — caza al que corre solo. Viaja acompañado y perderá interés.",
+      "Hay quien jura haber visto una araña reina del tamaño de un carro tirado por bueyes. Los que la vieron de cerca ya no lo cuentan.",
+      "Los murciélagos de las cuevas altas no son peligrosos en sí — lo peligroso es lo que anida más adentro, y ellos huyen de ello primero.",
+      "Un buen consejo de abuela cazadora: si el bosque se queda en silencio de golpe, tú también deberías."
+    ]
+  },
+  "libro_lore_gremios": {
+    "titulo": "Historia Breve de los Gremios",
+    "categoria": "lore",
+    "paginas": [
+      "El primer gremio no nació de la ambición, sino del hambre: tres herreros compartiendo un único horno porque ninguno podía pagar uno propio.",
+      "Con el tiempo, compartir el banco se convirtió en compartir el nombre — y el nombre, en compartir la reputación.",
+      "Un gremio próspero se reconoce no por su tesoro, sino por cuántos miembros nuevos acepta sin pedir nada a cambio el primer mes.",
+      "Los gremios rivales se pelean por contratos, nunca por honor — el honor, dicen los viejos maestros, no da de comer."
+    ]
+  },
+  "libro_lore_farycoins": {
+    "titulo": "De Dónde Vienen las Monedas",
+    "categoria": "lore",
+    "paginas": [
+      "Ninguna mina de este valle produce Farycoins — se acuñan en la capital, con un peso y un brillo que nadie más consigue igualar.",
+      "Se dice que el primer lote se acuñó fundiendo el tesoro de un bandido derrotado, y de ahí el apodo que aún usan los viejos: 'monedas de mal fario, buena fortuna'.",
+      "El jarl cobra impuesto sobre algunas propiedades — no por avaricia, insisten sus heraldos, sino porque un asentamiento sin arcas no repara sus propios muros.",
+      "Cada moneda perdida en el bosque, cada Farycoin que un jugador nunca recoge, dicen que vuelve tarde o temprano a la economía del valle. Nadie ha explicado bien cómo."
+    ]
+  }
+}

@@ -31,6 +31,7 @@ import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mas
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
 import { PanelReclutador, type CatalogoReclutadorVista, type TrabajadorVista, type RutaVista, type ConstruccionVista } from "./economia/panelReclutador";
 import { PanelTenderete, type ItemEscaparateTenderete, type ItemGestionTenderete } from "./economia/panelTenderete";
+import { PanelLibro } from "./economia/panelLibro";
 import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
 import { PanelCultivo, type EstadoCultivoVista } from "./agricultura/panelCultivo";
 import { PanelInjerto } from "./agricultura/panelInjerto";
@@ -706,6 +707,25 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const panelCofre = new PanelCofre({
       contenedor,
       sacar: (construccionId, instanciaId) => room.send("cofre:sacarItem", { construccionId, instanciaId }),
+      // Librería (docs/GDD_Libreria.md, pedido 2026-09-01): "Leer" aparece en
+      // CUALQUIER cofre/librería para filas de tipo "libro" — un libro sigue
+      // siendo legible dondequiera que esté guardado.
+      leer: (it) => panelLibro.abrir(it.itemId, it.id, it.libroGeneradoId ?? 0),
+    });
+
+    // Visor/escritor de libros (docs/GDD_Libreria.md) — abierto desde el
+    // botón "Leer" de arriba (mueble librería/cofre) sobre un ítem concreto.
+    const panelLibro = new PanelLibro({
+      contenedor,
+      escribir: (instanciaId, titulo, paginas) => room.send("libro:escribir", { instanciaId, titulo, paginas }),
+      pedirLeerGenerado: (libroGeneradoId) => room.send("libro:leerGenerado", { libroGeneradoId }),
+    });
+    room.onMessage("libro:error", (m: { motivo: string }) => panelLibro.mostrarError(m?.motivo || "No se pudo completar la operación."));
+    room.onMessage("libro:leido", (m: { libroGeneradoId: number; titulo: string; paginas: string[] }) => {
+      panelLibro.actualizarGenerado(m.libroGeneradoId, m.titulo, m.paginas || []);
+    });
+    room.onMessage("libro:escrito", (m: { instanciaId: number; libroGeneradoId: number; titulo: string; paginas: string[] }) => {
+      panelLibro.confirmarEscrito(m.instanciaId, m.libroGeneradoId, m.titulo, m.paginas || []);
     });
 
     // Tenderete de mercado de jugador (docs/GDD_Mercado.md §12, pedido

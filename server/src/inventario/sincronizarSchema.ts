@@ -35,6 +35,8 @@ export function sincronizarContenedor(schema: ContenedorSchema, puro: Contenedor
     s.liquidoContaminada = it.liquido?.contaminada ?? false;
     // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario) — 0 = ítem normal, mismo criterio "campo ausente = no aplica" que durabilidad/liquido.
     s.prendaGeneradaId = it.prendaGeneradaId ?? 0;
+    // Librería (docs/GDD_Libreria.md) — 0 = libro en blanco/normal de catálogo.
+    s.libroGeneradoId = it.libroGeneradoId ?? 0;
     schema.items.push(s);
   }
 }
