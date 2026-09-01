@@ -103,6 +103,7 @@ import {
   SesionAlquimia, IngredienteAlquimia, BuffPocion, EfectoPocion,
   iniciarSesionAlquimia, avivarAlquimia, enfriarAlquimia, colarPocion,
   crearBuffsPocion, aplicarBuffsPocion, CONFIG_ESTACION_ALQUIMIA,
+  factorBuffPocion, factorGastoEstaminaPocion, tieneEspecialActivo,
 } from "../../construccion/alquimia";
 // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido
 // 2026-08-31) — interpretación de texto libre, módulo JS puro compartido
@@ -1569,7 +1570,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // ahora SÍ limita de verdad — antes la fórmula existía pero nada la
     // llamaba (ver Backlog). Se comprueba ANTES de intentarCoger, la
     // propia fuente (bake/objetosMundo) no se toca si esto rechaza.
-    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const pesoMaximo = this.pesoMaximoConBuffs(client.sessionId, player.atributos.fuerza);
     if (excedePesoMaximo(contenedor, this.catalogoItems, candidato.itemId, candidato.cantidad, pesoMaximo)) {
       client.send("coger:error", { motivo: "demasiado_peso" });
       return;
@@ -1731,6 +1732,38 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
+   * vidaMax real de un jugador (Resistencia + poción "más vida"/"vida
+   * reducida" si tiene alguna viva) — docs/GDD_Pociones.md, ampliación
+   * 2026-09-01. Multiplicativo directo sobre `vidaMaximaPorResistencia`
+   * (nunca 0, ver `factorBuffPocion` en alquimia.ts). Único punto que
+   * calcula esto: lo usan tanto `otorgarXpAtributo` (rama resistencia, al
+   * subir de nivel) como `aplicarInanicionA` (cada tick, para que un buff
+   * que caduca a media partida se refleje solo en el siguiente tick, sin
+   * esperar a que el jugador vuelva a subir Resistencia).
+   */
+  private vidaMaximaConBuffs(sessionId: string, nivelResistencia: number): number {
+    const buffs = this.buffsPocionPorSesion.get(sessionId) ?? [];
+    return Math.round(vidaMaximaPorResistencia(nivelResistencia) * factorBuffPocion(buffs, "vida", Date.now()));
+  }
+
+  /** Peso máximo transportable real (Fuerza + poción "más carga de peso") — mismo criterio que vidaMaximaConBuffs, un único punto para los 7 sitios que antes llamaban a pesoMaximoTransportable directo. */
+  private pesoMaximoConBuffs(sessionId: string, nivelFuerza: number): number {
+    const buffs = this.buffsPocionPorSesion.get(sessionId) ?? [];
+    return pesoMaximoTransportable(nivelFuerza) * factorBuffPocion(buffs, "carga", Date.now());
+  }
+
+  /** `delta` de XP de oficio ya multiplicado x2 si el jugador tiene la poción "doble xp por acciones de oficio" activa — docs/GDD_Pociones.md. Solo XP de OFICIO (sumarXpOficio); la de atributos (otorgarXpAtributo) no la pidió el streamer. */
+  private xpConBuffPocion(sessionId: string, delta: number): number {
+    const buffs = this.buffsPocionPorSesion.get(sessionId) ?? [];
+    return tieneEspecialActivo(buffs, "xpOficioX2", Date.now()) ? delta * 2 : delta;
+  }
+
+  /** `true` si el jugador tiene la poción de sigilo activa — usado en verificarAgroFauna para que ni la fauna peligrosa ni las patrullas bandidas lo elijan como objetivo nuevo (no interrumpe un combate ya en curso, solo previene uno nuevo). */
+  private tieneSigiloActivo(sessionId: string): boolean {
+    return tieneEspecialActivo(this.buffsPocionPorSesion.get(sessionId) ?? [], "sigilo", Date.now());
+  }
+
+  /**
    * Equipar (docs/GDD_Equipo.md): la instancia puede venir de CUALQUIER
    * contenedor propio (cuerpo o una mochila/bolsa ya puesta) — mismo
    * criterio "servidor autoritativo" que coger/soltar, el cliente solo pide
@@ -1774,7 +1807,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!player || !inv) return;
     if (typeof msg?.slot !== "string") return;
 
-    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const pesoMaximo = this.pesoMaximoConBuffs(client.sessionId, player.atributos.fuerza);
     const resultado = desequiparItem(inv, this.catalogoItems, msg.slot, pesoMaximo);
     if (!resultado.ok) {
       client.send("equipo:error", { motivo: resultado.motivo ?? "slot_vacio" });
@@ -2124,7 +2157,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return client.send("cadaver:error", { motivo: "demasiado lejos" });
     }
 
-    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const pesoMaximo = this.pesoMaximoConBuffs(client.sessionId, player.atributos.fuerza);
     let movidos = 0;
     for (const item of [...cadaver.contenedor.items]) {
       if (excedePesoMaximo(contenedor, this.catalogoItems, item.itemId, item.cantidad, pesoMaximo)) continue;
@@ -2200,7 +2233,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return client.send("cadaver:error", { motivo: "no se pudo procesar ese cadáver" });
     }
 
-    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const pesoMaximo = this.pesoMaximoConBuffs(client.sessionId, player.atributos.fuerza);
     const entregar = (itemId: string, cantidad: number) => {
       if (cantidad <= 0) return false;
       if (excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo)) return false;
@@ -2721,7 +2754,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // liderazgo social — con `liderazgo` retirado de la lista de atributos
     // (2026-08-30, un único disparador no lo justificaba), esta XP pasa a
     // Carisma, que ya tenía otro disparador real (`npc:hablar`).
-    if (player) await this.otorgarXpAtributo(bd, jugador.id, "carisma", player, XP_CARISMA_POR_FUNDAR_GREMIO);
+    if (player) await this.otorgarXpAtributo(bd, jugador.id, "carisma", player, XP_CARISMA_POR_FUNDAR_GREMIO, client.sessionId);
     client.send("gremio:estado", await this.detalleGremio(bd, vivo));
   }
 
@@ -2732,14 +2765,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * hasta que su propio disparador los toque, mismo criterio ya aceptado
    * para gremioId/gremioNombre).
    */
-  protected async otorgarXpAtributo(bd: IAlmacenDatos, jugadorId: number, atributo: Atributo, player: Player, delta: number) {
+  protected async otorgarXpAtributo(bd: IAlmacenDatos, jugadorId: number, atributo: Atributo, player: Player, delta: number, sessionId: string) {
     const nuevaXp = await bd.sumarXpAtributo(jugadorId, atributo, delta);
     const nivel = nivelDeXp(nuevaXp, UMBRALES_NIVEL_ATRIBUTO);
     player.atributos[atributo] = nivel;
     // Bonus por nivel (docs/GDD_Personaje.md §3.3) — Resistencia es el
     // único que toca OTRO campo de Player además de su propio nivel: sube
     // vidaMax al instante (nunca baja `vida` de golpe, solo el techo).
-    if (atributo === "resistencia") player.vidaMax = vidaMaximaPorResistencia(nivel);
+    // vidaMaximaConBuffs (docs/GDD_Pociones.md) pliega también la poción de
+    // "más vida" si la tiene activa — aplicarInanicionA la recalcula cada
+    // tick igualmente, esto es solo para que no quede un instante desfasada
+    // justo tras subir de nivel.
+    if (atributo === "resistencia") {
+      player.vidaMax = this.vidaMaximaConBuffs(sessionId, nivel);
+      player.vida = Math.min(player.vida, player.vidaMax);
+    }
   }
 
   /**
@@ -2768,7 +2808,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!nombre) return;
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
-    await this.otorgarXpAtributo(bd, jugador.id, atributo, player, delta);
+    await this.otorgarXpAtributo(bd, jugador.id, atributo, player, delta, sessionId);
   }
 
   // --- Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30) ---
@@ -5796,7 +5836,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const player = this.state.players.get(client.sessionId);
     if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
-    const nuevaXp = await bd.sumarXpOficio(jugador.id, "botanica", XP_POR_CRAFTEO);
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, "botanica", this.xpConBuffPocion(client.sessionId, XP_POR_CRAFTEO));
     client.send("injerto:creado", {
       semillaId: hibrido.semillaId, cosechaId: hibrido.cosechaId, nombre: hibrido.nombre,
       rasgos: hibrido.rasgos, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
@@ -7053,7 +7093,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bonusModulos = bonusModulosAdyacentes(ctx, this.catalogoConstruible, viva);
     const duracionMs = (receta.tiempoBaseSeg / Math.max(0.01, factor)) * 1000 * (1 - bonusModulos.velocidad);
     const terminaEn = Date.now() + duracionMs;
-    this.craftesEnCurso.set(client.sessionId, { recetaId: receta.id, terminaEn, bonusCantidad: bonusModulos.cantidad, bonusCantidadOficio });
+    // Poción "x2 producción de crafteos" (docs/GDD_Pociones.md, pedido
+    // 2026-09-01) — mismo patrón que bonusCantidad/bonusCantidadOficio:
+    // congelada al iniciar, para que beber una nueva o dejar caducar la
+    // que tenías a media faena no cambie el crafteo ya en curso. `1` =
+    // +100% (x2 exacto), reutiliza el mismo sumando de manejarCrafteoRecolectar.
+    const bonusCantidadPocion = tieneEspecialActivo(this.buffsPocionPorSesion.get(client.sessionId) ?? [], "produccionCrafteoX2", Date.now()) ? 1 : 0;
+    this.craftesEnCurso.set(client.sessionId, { recetaId: receta.id, terminaEn, bonusCantidad: bonusModulos.cantidad, bonusCantidadOficio, bonusCantidadPocion });
     client.send("crafteo:iniciado", { recetaId: receta.id, terminaEn });
   }
 
@@ -7074,8 +7120,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!contenedor) return;
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    // Módulo de "cantidad" + bono de nivel de oficio, ambos congelados al iniciar (ver manejarCrafteoIniciar).
-    const cantidadFinal = Math.floor(receta.resultado.cantidad * (1 + (estado.bonusCantidad ?? 0) + (estado.bonusCantidadOficio ?? 0)));
+    // Módulo de "cantidad" + bono de nivel de oficio + poción "x2 producción", los tres congelados al iniciar (ver manejarCrafteoIniciar).
+    const cantidadFinal = Math.floor(receta.resultado.cantidad * (1 + (estado.bonusCantidad ?? 0) + (estado.bonusCantidadOficio ?? 0) + (estado.bonusCantidadPocion ?? 0)));
     const entrega = this.entregarOSoltar(client, player, receta.resultado.itemId, cantidadFinal);
 
     const bd = await obtenerBdCompartida();
@@ -7088,10 +7134,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // oficio no elegido sigue entregando el objeto, pero no progresa.
     const oficioElegido = tieneOficio(player.oficio1, player.oficio2, receta.oficio);
     const nuevaXp = oficioElegido
-      ? await bd.sumarXpOficio(jugador.id, receta.oficio, receta.xpOtorgada ?? XP_POR_CRAFTEO)
+      ? await bd.sumarXpOficio(jugador.id, receta.oficio, this.xpConBuffPocion(client.sessionId, receta.xpOtorgada ?? XP_POR_CRAFTEO))
       : await bd.obtenerXpOficio(jugador.id, receta.oficio);
     // Inteligencia (docs/GDD_Personaje.md): completar un crafteo entrena tanto el oficio como el atributo general.
-    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
+    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO, client.sessionId);
     // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): "si trabajas
     // o haces acciones sube" — cada crafteo completado ensucia un poco.
     player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_CRAFTEO);
@@ -7183,7 +7229,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (extraSchema) sincronizarContenedor(extraSchema, extra);
     }
 
-    const nuevaXp = await bd.sumarXpOficio(jugador.id, "sastre", XP_SASTRE_POR_BLUEPRINT);
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, "sastre", this.xpConBuffPocion(client.sessionId, XP_SASTRE_POR_BLUEPRINT));
     client.send("sastre:tejerResultado", {
       prendaGeneradaId: blueprint.id, prendaBaseId, materialId, detalle, tintes, nombre: blueprint.nombre,
       xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
@@ -7318,7 +7364,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
     if (!resultado.ok) return this.errorCarpintero(client, "no se pudo añadir el mueble al inventario");
 
-    const nuevaXp = await bd.sumarXpOficio(jugador.id, "carpintero", XP_CARPINTERO_POR_BLUEPRINT);
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, "carpintero", this.xpConBuffPocion(client.sessionId, XP_CARPINTERO_POR_BLUEPRINT));
     client.send("carpintero:tallarResultado", {
       muebleGeneradoId: blueprint.id, arquetipoId: parametros.arquetipoId, parametros, nombre: blueprint.nombre,
       xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
@@ -7430,7 +7476,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       promptTexto: texto,
     });
 
-    const nuevaXp = await bd.sumarXpOficio(jugador.id, "ingeniero", XP_INGENIERO_POR_BLUEPRINT);
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, "ingeniero", this.xpConBuffPocion(client.sessionId, XP_INGENIERO_POR_BLUEPRINT));
     client.send("ingeniero:proyectarResultado", {
       edificioGeneradoId: blueprint.id, tipoEdificio: blueprint.tipoEdificio, parametros, nombre: blueprint.nombre,
       xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
@@ -7490,9 +7536,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const oficioElegido = tieneOficio(player.oficio1, player.oficio2, receta.oficio);
     const nuevaXp = oficioElegido
-      ? await bd.sumarXpOficio(jugador.id, receta.oficio, receta.xpOtorgada ?? XP_POR_CRAFTEO)
+      ? await bd.sumarXpOficio(jugador.id, receta.oficio, this.xpConBuffPocion(client.sessionId, receta.xpOtorgada ?? XP_POR_CRAFTEO))
       : await bd.obtenerXpOficio(jugador.id, receta.oficio);
-    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
+    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO, client.sessionId);
     player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_CRAFTEO);
 
     client.send("crafteo:herreria:completado", {
@@ -7598,9 +7644,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const oficioElegido = tieneOficio(player.oficio1, player.oficio2, "curandero");
     const nuevaXp = oficioElegido
-      ? await bd.sumarXpOficio(jugador.id, "curandero", XP_POR_CRAFTEO)
+      ? await bd.sumarXpOficio(jugador.id, "curandero", this.xpConBuffPocion(client.sessionId, XP_POR_CRAFTEO))
       : await bd.obtenerXpOficio(jugador.id, "curandero");
-    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
+    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO, client.sessionId);
     player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_CRAFTEO);
 
     client.send("alquimia:completado", {
@@ -7623,7 +7669,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   private entregarPocion(client: Client, player: Player, efectos: EfectoPocion[]): { enInventario: boolean; instanciaId?: number } {
     const contenedor = this.inventarios.get(client.sessionId);
-    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const pesoMaximo = this.pesoMaximoConBuffs(client.sessionId, player.atributos.fuerza);
     const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, "pocion_alquimica", 1, pesoMaximo);
     const resultado = contenedor && cabePeso ? agregarItem(contenedor, this.catalogoItems, "pocion_alquimica", 1, { efectoPocion: efectos }) : { ok: false as const };
     if (resultado.ok) {
@@ -7657,6 +7703,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (player) {
       sincronizarContenedor(player.inventario.cuerpo, contenedor);
       this.recalcularStatsJugador(client);
+      // vidaMax (docs/GDD_Pociones.md, ampliación 2026-09-01: "mas vida"/
+      // "vida reducida") no pasa por recalcularStatsJugador (esa es solo
+      // ataque/defensa) — se refresca aquí para que "más vida" se note YA,
+      // sin esperar al siguiente tick de aplicarInanicionA.
+      player.vidaMax = this.vidaMaximaConBuffs(client.sessionId, player.atributos.resistencia);
+      player.vida = Math.min(player.vida, player.vidaMax);
     }
     client.send("pocion:bebida", { efectos: item.efectoPocion });
   }
@@ -7671,7 +7723,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   private entregarOSoltar(client: Client, player: Player, itemId: string, cantidad: number): { enInventario: boolean } {
     const contenedor = this.inventarios.get(client.sessionId);
-    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const pesoMaximo = this.pesoMaximoConBuffs(client.sessionId, player.atributos.fuerza);
     const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo);
     const resultado = contenedor && cabePeso ? intentarCoger(contenedor, this.catalogoItems, { itemId, cantidad }) : { ok: false as const };
     if (resultado.ok) {
@@ -8187,7 +8239,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!especie) return this.errorAnimal(client, "no se puede sacrificar esto");
 
     const resultado = sacrificarAnimalGranja(especie);
-    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const pesoMaximo = this.pesoMaximoConBuffs(client.sessionId, player.atributos.fuerza);
     const entregar = (itemId: string, cantidad: number) => {
       if (cantidad <= 0) return false;
       if (excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo)) return false;
@@ -8261,7 +8313,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (ultimoDia === dia) return this.errorActividad(client, "ya hiciste esta actividad hoy — vuelve mañana");
 
     await bd.marcarActividadAtributoHoy(jugador.id, cfg.atributo, dia);
-    await this.otorgarXpAtributo(bd, jugador.id, cfg.atributo, player, cfg.xp);
+    await this.otorgarXpAtributo(bd, jugador.id, cfg.atributo, player, cfg.xp, client.sessionId);
     client.send("actividad:hecha", { construccionId: msg.construccionId, atributo: cfg.atributo, xp: cfg.xp });
   }
 
@@ -8758,6 +8810,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       let masCercano: { id: string; d: number } | null = null;
       for (const [jugadorId, jugador] of this.state.players.entries()) {
         if (this.combatePorUnidad(jugadorId)) continue;
+        // Poción de sigilo (docs/GDD_Pociones.md, pedido 2026-09-01: "los
+        // bandidos no le atacaran ni animales") — solo previene un agro
+        // NUEVO, no interrumpe un combate ya en curso.
+        if (this.tieneSigiloActivo(jugadorId)) continue;
         const d = Math.hypot(jugador.x - fauna.x, jugador.y - fauna.y);
         if (d <= radio && (!masCercano || d < masCercano.d)) masCercano = { id: jugadorId, d };
       }
@@ -8782,6 +8838,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       let masCercano: { id: string; d: number } | null = null;
       for (const [jugadorId, jugador] of this.state.players.entries()) {
         if (this.combatePorUnidad(jugadorId)) continue;
+        if (this.tieneSigiloActivo(jugadorId)) continue; // sigilo: bandidos tampoco inician agro nuevo
         const d = Math.hypot(jugador.x - npc.x, jugador.y - npc.y);
         if (d <= RADIO_AGRO_DEFECTO && (!masCercano || d < masCercano.d)) masCercano = { id: jugadorId, d };
       }
@@ -9533,7 +9590,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         vel = player.nivel < 0 ? VEL_BUCEAR : VEL_NADAR;
       } else if (corriendoDeVerdad) {
         vel = VEL_CORRER * (this.mundo.velocidad[idx] ?? 1);
-        player.vitales.estamina = Math.max(0, player.vitales.estamina - ESTAMINA_GASTO_POR_SEG_CORRIENDO * dt);
+        // Poción "más estamina"/"estamina reducida" (docs/GDD_Pociones.md,
+        // ampliación 2026-09-01) — no hay un "máximo" de estamina que subir
+        // (VITAL_MAX es fijo y compartido por los 5 vitales), así que el
+        // buff abarata/encarece el GASTO de sprint (factorGastoEstaminaPocion,
+        // signo invertido: +estamina gasta menos).
+        const buffsEstamina = this.buffsPocionPorSesion.get(sessionId) ?? [];
+        player.vitales.estamina = Math.max(0, player.vitales.estamina - ESTAMINA_GASTO_POR_SEG_CORRIENDO * factorGastoEstaminaPocion(buffsEstamina, Date.now()) * dt);
       } else {
         vel = VEL_ANDAR * (this.mundo.velocidad[idx] ?? 1);
       }
@@ -9547,6 +9610,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         if (estaCritico(player.vida, player.vidaMax)) vel *= MULTIPLICADOR_VELOCIDAD_CRITICO;
         // Gripe (docs/GDD_Enfermedades.md): tiritar de frío, -50% de velocidad hasta curarse.
         vel *= multiplicadorVelocidadPorGripe(this.enfermedadesDe(sessionId));
+        // Poción "más velocidad"/"velocidad reducida" (docs/GDD_Pociones.md) — mismo criterio que arriba: no aplica si algo más (montura/barco) mueve al jugador por él.
+        vel *= factorBuffPocion(this.buffsPocionPorSesion.get(sessionId) ?? [], "velocidad", Date.now());
       }
 
       if (seMueve) {
@@ -9667,7 +9732,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (!player.godMode) {
         tickVitales(player.vitales, horasPorTick);
         extremo = aplicarTemperaturaCorporal(player.vitales, tempMundoC, horasPorTick);
-        this.aplicarInanicionA(player, horasPorTick, extremo !== null);
+        this.aplicarInanicionA(player, sessionId, horasPorTick, extremo !== null);
       }
       // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): "limpiarse
       // es o nadando en el agua durante X tiempo" — limpieza pasiva mientras
@@ -9718,13 +9783,23 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
   }
 
-  /** Aplica la inanición pura de vitales.ts (docs/GDD_Personaje.md §3.6, §GDD_Clima.md) sobre este Player concreto — resuelve sus dos vidaMax (normal vs. reducido) a partir de su Resistencia real; `temperaturaExtrema` añade el mismo debilitamiento que la inanición sin dañar `vida` por sí solo. */
-  private aplicarInanicionA(player: Player, horasTranscurridas: number, temperaturaExtrema: boolean) {
+  /**
+   * Aplica la inanición pura de vitales.ts (docs/GDD_Personaje.md §3.6,
+   * §GDD_Clima.md) sobre este Player concreto — resuelve sus dos vidaMax
+   * (normal vs. reducido) a partir de su Resistencia real más la poción de
+   * "más vida"/"vida reducida" si tiene alguna viva (vidaMaximaConBuffs,
+   * docs/GDD_Pociones.md); `temperaturaExtrema` añade el mismo
+   * debilitamiento que la inanición sin dañar `vida` por sí solo. Corre
+   * CADA TICK (ver el forEach que la llama) — es el sitio que de verdad
+   * mantiene vidaMax consistente con un buff que acaba de caducar, sin
+   * esperar a que el jugador vuelva a subir Resistencia.
+   */
+  private aplicarInanicionA(player: Player, sessionId: string, horasTranscurridas: number, temperaturaExtrema: boolean) {
     aplicarInanicion(
       player.vitales,
       player,
-      vidaMaximaPorResistencia(player.atributos.resistencia),
-      vidaMaximaPorResistencia(1),
+      this.vidaMaximaConBuffs(sessionId, player.atributos.resistencia),
+      this.vidaMaximaConBuffs(sessionId, 1),
       DANO_INANICION_POR_HORA,
       horasTranscurridas,
       temperaturaExtrema,

@@ -34,6 +34,29 @@ Los stats de los bonos positivos salen de un Fisher-Yates del pool de 4 (`rnd` i
 
 `CONFIG_ESTACION_ALQUIMIA`: ventana objetivo 55-80°, `duracionMinimaSeg: 8` (no se puede colar antes, evita "colar al segundo 1" con pureza artificialmente alta por poca muestra).
 
+### 1.4 Ampliación del pool de efectos (pedido 2026-09-01)
+
+Pedido literal: *"un bonus sea tambien mas velocidad, otro el doble xp por acciones de oficio, otro de x2 en produccion de crafteos, otro mas vida otro mas stamina otro mas carga de peso otro de sigilo(los bandidos no e atacaran ni animales) en negativo velocidad reducida vida reducida stamina reducida"*. Dos familias nuevas en `alquimia.ts`, un `EfectoPocion`/`BuffPocion` que pasó a discriminated union (`{categoria:"stat",...} | {categoria:"especial",...}`) para poder expresarlas sin forzar ninguna a la forma de la otra:
+
+- **`StatAlquimia` de magnitud** — `velocidad`/`vida`/`estamina`/`carga` se suman a los 4 stats de combate ya existentes. `POOL_STATS_NEGATIVOS` (7: los 4 de combate + velocidad/vida/estamina) es el pool del efecto de riesgo — el streamer pidió negativo explícito para esos 3 pero NO para "carga", así que "carga reducida" NO existe (no se inventa contrapartida no pedida). `POOL_STATS_ALQUIMIA` (8) es el de negativos + carga, para los bonos positivos.
+- **`EfectoEspecial` binario** — `xpOficioX2`/`produccionCrafteoX2`/`sigilo` no tienen magnitud continua (o están activos o no), así que viven en un pool aparte (`POOL_ESPECIALES_ALQUIMIA`, 3) que solo participa en los bonos POSITIVOS (nunca en el negativo — el streamer no pidió "media XP" ni nada parecido de contrapartida).
+
+`prepararPocion` reutiliza el MISMO mecanismo de siempre sin tocar la lógica de probabilidades del pedido original: el negativo sigue tirando de un solo pool (ahora `POOL_STATS_NEGATIVOS`, 7 en vez de 4); los positivos siguen barajando-y-cortando un pool (ahora `[...POOL_STATS_ALQUIMIA, ...POOL_ESPECIALES_ALQUIMIA]`, 11 en vez de 4) y asignan magnitud SOLO a los que salen "stat" — un especial se cuela en la lista tal cual, sin tirada de magnitud. Efecto colateral querido: antes, con un pool de exactamente 4 elementos, "mezcla avanzada" (barajar+cortar en 4) daba SIEMPRE los 4 stats de combate — con 11 elementos sigue garantizando 4 bonos simultáneos de golpe (mismo contrato "incondicional una vez desbloqueada"), pero ahora CUÁLES de los 11 es genuinamente aleatorio. Verificado en un E2E real: una tirada real dio `vida + produccionCrafteoX2 + sigilo + defensaMagica`, otra dio los 4 stats de combate/vida — la variedad es real, no solo teórica.
+
+**Cómo se aplica cada efecto nuevo** (todos en `RoomExteriorBase.ts`, ninguno pasa por `aplicarBuffsPocion`/`StatsConBuffs`, que se quedó EXCLUSIVAMENTE para los 4 stats de combate — ver §6 por qué):
+
+| Efecto | Dónde engancha | Mecanismo |
+|---|---|---|
+| `velocidad` | `actualizarMovimiento` (multiplicador junto a fractura/gripe/crítico) | `factorBuffPocion` multiplicativo directo |
+| `vida` | `vidaMaximaConBuffs` (helper), usado en `otorgarXpAtributo` rama resistencia, `aplicarInanicionA` (CADA tick — el que de verdad mantiene vidaMax al día con un buff que caduca) y `manejarPocionBeber` | `factorBuffPocion` multiplicativo directo sobre `vidaMaximaPorResistencia(nivel)` |
+| `estamina` | gasto de sprint (`ESTAMINA_GASTO_POR_SEG_CORRIENDO`) en `actualizarMovimiento` | `factorGastoEstaminaPocion`, signo INVERTIDO: "+estamina" abarata el gasto, no sube un máximo (no existe: `VITAL_MAX` es un techo fijo compartido por los 5 vitales, `vitales.ts`) |
+| `carga` | `pesoMaximoConBuffs` (helper), sustituye las 7 llamadas directas a `pesoMaximoTransportable` | `factorBuffPocion` multiplicativo directo |
+| `xpOficioX2` | `xpConBuffPocion` (helper) envolviendo el `delta` en las 7 llamadas de gameplay a `bd.sumarXpOficio` (el `admin:debug:maxOficio` queda fuera, no es una ganancia real) | `tieneEspecialActivo` — SOLO XP de oficio, la de atributos (`otorgarXpAtributo`) no se pidió |
+| `produccionCrafteoX2` | `manejarCrafteoIniciar` congela `bonusCantidadPocion` (1 = +100%) en `craftesEnCurso`, sumado a `bonusCantidad`/`bonusCantidadOficio` al recolectar — MISMA mecánica que los módulos de cantidad, cero código nuevo | Alcance deliberado: solo `crafteo.ts` (insumos→resultado.cantidad). Herrería (`resultadoPerfecto`, una pieza de equipo única) y la propia poción (una instancia con tirada propia) quedan fuera — duplicar una espada encantada o una poción no tiene sentido de diseño |
+| `sigilo` | `verificarAgroFauna`, ambos loops (fauna peligrosa Y patrullas bandidas) excluyen a quien `tieneSigiloActivo` de ser elegido `masCercano` | Alcance deliberado: solo PREVIENE un agro NUEVO — no interrumpe un combate ya en curso (el streamer pidió "no le atacarán", no "puede huir de en medio de una pelea") |
+
+Los 4 stats de magnitud nuevos usan un factor **multiplicativo directo** sobre su base real (`1 + pct/100`, suelo `0.2` para no dejar nunca un stat en 0/negativo) — a propósito DISTINTO del aditivo-desde-referencia-fija de los 4 de combate (§6): `vidaMax`/peso máximo/velocidad NUNCA son 0 en la ruta normal (siempre hay algo de vida, de carga, de velocidad de partida), así que no existe el bug de "base 0 hace el buff inerte" que sí justificaba la referencia fija en ataque/defensa — multiplicar directo es más simple y además más intuitivo (un +15% de vida da más HP plano a nivel 10 que a nivel 1, proporcional).
+
 ## 2. Ingredientes — allowlist real (no "cualquier cosa")
 
 "Esos serán los únicos que sirvan, el resto no dejará meterlos": 3 flags opcionales nuevos en `EntradaCatalogoItem` (`server/src/inventario/inventario.ts`) — `alquimiaIngrediente` (neutro, admitido pero sin efecto en la tirada), `alquimiaCorruptivo`, `alquimiaCatalizador`. `manejarAlquimiaIniciar` rechaza cualquier instancia cuyo catálogo no lleve NINGUNO de los 3.
@@ -66,17 +89,21 @@ Igual que el minijuego de forja: movimiento bloqueado mientras `alquimiasEnCurso
 
 Decisión verificada contra el código real antes de implementar (mismo criterio que se usó para decidir el bonus de herrería, docs/GDD_Crafteo.md §7ter): `SlotsEquipo` (equipo del jugador) guarda SOLO el `itemId` por slot — un arma/armadura equipada pierde cualquier dato de instancia (por eso el bonus de herrería es un itemId de catálogo `_bonificado` aparte). Una POCIÓN nunca pasa por ahí: se bebe directo desde el inventario (`pocion:beber` lee `ItemInstancia.efectoPocion` y la consume en el momento), así que el resultado estocástico SÍ puede vivir como campo opcional en la instancia — mismo patrón que `durabilidad`/`liquido`, sin necesitar 1 entrada de catálogo por cada combinación posible de efectos (que sería intratable: los efectos son continuos, no discretos).
 
-## 6. Aplicación del buff — por qué NO es un multiplicador sobre el stat propio
+## 6. Aplicación del buff — por qué NO es un multiplicador sobre el stat propio (los 4 de combate)
 
 Bug real encontrado (y corregido) durante la implementación: `defensaFisica`/`ataqueMagico`/`defensaMagica` valen **0** en el caso más común (sin armadura puesta, sin oficio de magia). Un buff `stat × (1 + pct/100)` sobre una base de 0 da SIEMPRE 0 — la poción sería inerte justo en el caso más frecuente. `aplicarBuffsPocion` calcula el % sobre `REFERENCIA_STAT_ALQUIMIA` (20, un arma/armadura tier 1-2 real del catálogo) y lo SUMA como bonus plano: `magnitudPct=15` → siempre `+3`, tenga el jugador algo equipado o no.
+
+`aplicarBuffsPocion`/`StatsConBuffs` se quedaron EXCLUSIVAMENTE para estos 4 (filtran por `categoria==="stat"` y por un `STATS_COMBATE` fijo, ya no todo `POOL_STATS_ALQUIMIA`) porque `vidaMax`/velocidad/peso máximo no tienen el problema de base 0 — ver §1.4 para su propio `factorBuffPocion` multiplicativo, deliberadamente distinto.
 
 ## 7. Verificación
 
 - `server/test/estacionFuego.test.ts` (10 tests) — motor genérico de temperatura/pureza.
-- `server/test/alquimia.test.ts` (21 tests) — las 3 reglas de negativo/positivo/mezcla avanzada exactas del pedido, la sesión interactiva, el escalado por pureza, el bug de stat-base-0 (regresión explícita).
-- `server/test/alquimia.e2e.mjs` — protocolo real contra el servidor: allowlist de ingredientes, sesión completa (iniciar→avivar→colar), mezcla avanzada real (4 bonos garantizados con los 3 catalizadores del juego), buff real aplicado a `player.ataque`/`defensa` tras beber, cancelado sin devolución.
+- `server/test/alquimia.test.ts` (37 tests) — las 3 reglas de negativo/positivo/mezcla avanzada exactas del pedido, la sesión interactiva, el escalado por pureza, el bug de stat-base-0 (regresión explícita), el pool ampliado (§1.4: `POOL_STATS_NEGATIVOS` sin "carga", especiales colándose de verdad en mezcla avanzada barriendo semillas, `factorBuffPocion`/`factorGastoEstaminaPocion`/`tieneEspecialActivo` puros).
+- `server/test/alquimia.e2e.mjs` — protocolo real contra el servidor: allowlist de ingredientes, sesión completa (iniciar→avivar→colar), mezcla avanzada real (4 bonos garantizados, composición variable con el pool ampliado — verificado en corridas reales con mezclas de stat/especial distintas), buff real aplicado a las stats de combate que la tirada haya tocado tras beber, cancelado sin devolución.
+- `server/test/agroFauna.e2e.mjs`/`herreria.e2e.mjs` re-verificados tras esta pasada (sigilo toca `verificarAgroFauna`, xpOficioX2/producción tocan el mismo `otorgarXpAtributo`/`sumarXpOficio`/`craftesEnCurso` que usa crafteo/forja) — sin regresión.
 
 ## 8. Pendiente (no mecanismo, contenido/UI)
 
 - **Sin panel de cliente todavía** (mismo estado que crafteo/forja) — protocolo real vía `window.__test`.
 - Cocina: pedido explícito de reutilizar `estacionFuego.ts` para un minijuego análogo en las vasijas de cocina existentes (`server/src/cocina/cocina.ts`, ya completo y determinista) — no abordado en esta pasada, mecanismo genérico ya listo para ello.
+- Los efectos nuevos de §1.4 no tienen todavía ninguna UI que muestre "tienes sigilo activo"/"doble XP activa" al jugador — mismo estado que el resto del proyecto (placeholder primero, UI real al final).

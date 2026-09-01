@@ -224,7 +224,10 @@ export interface ItemInstancia {
    * que `durabilidad`/`liquido`. Ausente = ítem sin tirada (no es una poción
    * preparada, p.ej. el frasco vacío antes de prepararla).
    */
-  efectoPocion?: { stat: "ataqueFisico" | "defensaFisica" | "ataqueMagico" | "defensaMagica"; magnitudPct: number }[];
+  efectoPocion?: (
+    | { categoria: "stat"; stat: "ataqueFisico" | "defensaFisica" | "ataqueMagico" | "defensaMagica" | "velocidad" | "vida" | "estamina" | "carga"; magnitudPct: number }
+    | { categoria: "especial"; especial: "xpOficioX2" | "produccionCrafteoX2" | "sigilo" }
+  )[];
 }
 
 export interface Contenedor {

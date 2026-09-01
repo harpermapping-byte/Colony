@@ -38,9 +38,40 @@ import {
   ResultadoAccionEstacion,
 } from "./estacionFuego";
 
-export type StatAlquimia = "ataqueFisico" | "defensaFisica" | "ataqueMagico" | "defensaMagica";
+export type StatAlquimia =
+  | "ataqueFisico" | "defensaFisica" | "ataqueMagico" | "defensaMagica"
+  // Ampliación (pedido 2026-09-01: "un bonus sea tambien mas velocidad...
+  // mas vida otro mas stamina otro mas carga de peso... en negativo
+  // velocidad reducida vida reducida stamina reducida") — mismo pool de
+  // magnitud que los 4 de combate, solo que aplicados por RoomExteriorBase
+  // sobre una base propia distinta cada uno (vel/vidaMax/gasto-estamina/
+  // pesoMaximo) en vez de StatsEquipo — ver factorBuffPocion más abajo.
+  | "velocidad" | "vida" | "estamina" | "carga";
 
-export const POOL_STATS_ALQUIMIA: readonly StatAlquimia[] = ["ataqueFisico", "defensaFisica", "ataqueMagico", "defensaMagica"];
+/**
+ * Elegibles para el efecto NEGATIVO (y también parte del pool positivo) —
+ * el streamer pidió explícitamente negativo para velocidad/vida/estamina
+ * ("velocidad reducida vida reducida stamina reducida") pero NO para carga,
+ * así que "carga" se queda fuera de este pool para no inventar un "carga
+ * reducida" no pedido (ver POOL_STATS_ALQUIMIA justo debajo).
+ */
+export const POOL_STATS_NEGATIVOS: readonly StatAlquimia[] = [
+  "ataqueFisico", "defensaFisica", "ataqueMagico", "defensaMagica", "velocidad", "vida", "estamina",
+];
+
+/** Pool completo para los bonos POSITIVOS (magnitud) — el de negativos + "carga" (pedida solo en positivo). */
+export const POOL_STATS_ALQUIMIA: readonly StatAlquimia[] = [...POOL_STATS_NEGATIVOS, "carga"];
+
+/**
+ * Efectos "especiales" (pedido 2026-09-01: "el doble xp por acciones de
+ * oficio, otro de x2 en produccion de crafteos, otro de sigilo") — a
+ * diferencia de los StatAlquimia de arriba NO tienen magnitud continua (no
+ * hay "10% de doble XP"): o están activos o no. Solo aparecen en bonos
+ * POSITIVOS — el streamer no pidió contrapartida negativa para ninguno de
+ * los tres, así que no se inventa una.
+ */
+export type EfectoEspecial = "xpOficioX2" | "produccionCrafteoX2" | "sigilo";
+export const POOL_ESPECIALES_ALQUIMIA: readonly EfectoEspecial[] = ["xpOficioX2", "produccionCrafteoX2", "sigilo"];
 
 export interface IngredienteAlquimia {
   itemId: string;
@@ -49,11 +80,17 @@ export interface IngredienteAlquimia {
   catalizador?: boolean;
 }
 
-export interface EfectoPocion {
-  stat: StatAlquimia;
-  /** % con signo — negativo en el efecto de riesgo, positivo en los bonos. */
-  magnitudPct: number;
-}
+/**
+ * Discriminated union: un efecto de magnitud continua (los StatAlquimia,
+ * `magnitudPct` con signo) o un especial binario (sin magnitud — o sale o
+ * no sale). Antes de esta ampliación todo eran stats de combate con
+ * magnitud, de ahí que RoomExteriorBase/tests previos usaran `{stat,
+ * magnitudPct}` plano; ahora hace falta el discriminante `categoria` para
+ * que TypeScript sepa cuál de los dos es cada elemento del array.
+ */
+export type EfectoPocion =
+  | { categoria: "stat"; stat: StatAlquimia; magnitudPct: number }
+  | { categoria: "especial"; especial: EfectoEspecial };
 
 export interface ResultadoPocion {
   efectos: EfectoPocion[];
@@ -132,12 +169,12 @@ export function prepararPocion(
   const catalizadoresUnicos = contarUnicos(ingredientes, "catalizador");
   const efectos: EfectoPocion[] = [];
 
-  // 1) Negativo — probabilidad acumulativa por corruptivo, magnitud 1-5%.
+  // 1) Negativo — probabilidad acumulativa por corruptivo, magnitud 1-5%. Nunca un especial (ver POOL_STATS_NEGATIVOS: "carga" tampoco entra aquí).
   const probNegativo = Math.min(1, cfg.probNegativoBase + cfg.probNegativoPorCorruptivo * corruptivosUnicos);
   if (rnd() < probNegativo) {
-    const stat = POOL_STATS_ALQUIMIA[Math.floor(rnd() * POOL_STATS_ALQUIMIA.length)];
+    const stat = POOL_STATS_NEGATIVOS[Math.floor(rnd() * POOL_STATS_NEGATIVOS.length)];
     const magnitud = cfg.magnitudNegativoMin + rnd() * (cfg.magnitudNegativoMax - cfg.magnitudNegativoMin);
-    efectos.push({ stat, magnitudPct: -magnitud });
+    efectos.push({ categoria: "stat", stat, magnitudPct: -magnitud });
   }
 
   // 2) Positivos — cuántos bonos (n) y en qué rango de magnitud.
@@ -163,27 +200,37 @@ export function prepararPocion(
       }
     }
   }
-  n = Math.min(n, POOL_STATS_ALQUIMIA.length);
+  // Pool combinado para los positivos (docs/GDD_Pociones.md, ampliación
+  // 2026-09-01): los 8 stats de magnitud + los 3 especiales binarios — con
+  // el pool original de 4 elementos, "mezcla avanzada" daba SIEMPRE los
+  // mismos 4 stats de combate (shuffle+slice(0,4) de un array de 4 es el
+  // array entero); con 11 elementos sigue garantizando 4 bonos simultáneos
+  // de golpe, pero sorteados entre los 11 posibles — más variedad real,
+  // mismo contrato "incondicional una vez desbloqueada".
+  const poolPositivo: readonly (StatAlquimia | EfectoEspecial)[] = [...POOL_STATS_ALQUIMIA, ...POOL_ESPECIALES_ALQUIMIA];
+  n = Math.min(n, poolPositivo.length);
 
-  const statsElegidos = barajar(POOL_STATS_ALQUIMIA, rnd).slice(0, n);
-  for (const stat of statsElegidos) {
-    const magnitud = rangoMin + rnd() * (rangoMax - rangoMin);
-    efectos.push({ stat, magnitudPct: magnitud });
+  const elegidos = barajar(poolPositivo, rnd).slice(0, n);
+  for (const elegido of elegidos) {
+    if ((POOL_ESPECIALES_ALQUIMIA as readonly string[]).includes(elegido)) {
+      efectos.push({ categoria: "especial", especial: elegido as EfectoEspecial });
+    } else {
+      const magnitud = rangoMin + rnd() * (rangoMax - rangoMin);
+      efectos.push({ categoria: "stat", stat: elegido as StatAlquimia, magnitudPct: magnitud });
+    }
   }
 
   return { efectos, corruptivosUnicos, catalizadoresUnicos, mezclaAvanzada };
 }
 
-export interface BuffPocion {
-  stat: StatAlquimia;
-  magnitudPct: number;
-  /** epoch ms — expirado cuando `Date.now() >= expiraEn`, comprobado perezosamente en `aplicarBuffsPocion` (nunca un tick de servidor). */
-  expiraEn: number;
-}
+/** Mismo discriminante que EfectoPocion + `expiraEn` (epoch ms) — expirado cuando `Date.now() >= expiraEn`, comprobado perezosamente donde se lee (nunca un tick de servidor). */
+export type BuffPocion =
+  | { categoria: "stat"; stat: StatAlquimia; magnitudPct: number; expiraEn: number }
+  | { categoria: "especial"; especial: EfectoEspecial; expiraEn: number };
 
 /** Convierte el resultado de una poción bebida en buffs con caducidad real — llamado UNA VEZ en `pocion:beber`. */
 export function crearBuffsPocion(efectos: EfectoPocion[], ahoraMs: number, cfg: ConfigAlquimia = CONFIG_ALQUIMIA_DEFECTO): BuffPocion[] {
-  return efectos.map((e) => ({ stat: e.stat, magnitudPct: e.magnitudPct, expiraEn: ahoraMs + cfg.duracionBuffMs }));
+  return efectos.map((e) => ({ ...e, expiraEn: ahoraMs + cfg.duracionBuffMs }));
 }
 
 export interface StatsConBuffs {
@@ -192,6 +239,9 @@ export interface StatsConBuffs {
   ataqueMagico: number;
   defensaMagica: number;
 }
+
+/** Los 4 stats de combate ORIGINALES (StatsEquipo) — subconjunto fijo de StatAlquimia, ya no todo el pool (que ahora incluye velocidad/vida/estamina/carga, sin sitio en StatsConBuffs). Tipado como `keyof StatsConBuffs` (no `StatAlquimia` a secas) para que TS deje indexar `resultado[stat]` sin `any`. */
+const STATS_COMBATE: readonly (keyof StatsConBuffs)[] = ["ataqueFisico", "defensaFisica", "ataqueMagico", "defensaMagica"];
 
 /**
  * Valor de referencia sobre el que se calcula el % de un buff de poción —
@@ -219,15 +269,55 @@ export const REFERENCIA_STAT_ALQUIMIA = 20;
 export function aplicarBuffsPocion(base: StatsConBuffs, buffs: BuffPocion[], ahoraMs: number): StatsConBuffs {
   const sumaPorStat = new Map<StatAlquimia, number>();
   for (const b of buffs) {
-    if (b.expiraEn <= ahoraMs) continue;
+    if (b.expiraEn <= ahoraMs || b.categoria !== "stat") continue;
     sumaPorStat.set(b.stat, (sumaPorStat.get(b.stat) ?? 0) + b.magnitudPct);
   }
   const resultado = { ...base };
-  for (const stat of POOL_STATS_ALQUIMIA) {
+  for (const stat of STATS_COMBATE) {
     const pct = sumaPorStat.get(stat);
     if (pct) resultado[stat] = Math.max(0, resultado[stat] + (REFERENCIA_STAT_ALQUIMIA * pct) / 100);
   }
   return resultado;
+}
+
+function sumaPctDeStat(buffs: BuffPocion[], stat: StatAlquimia, ahoraMs: number): number {
+  let suma = 0;
+  for (const b of buffs) if (b.categoria === "stat" && b.stat === stat && b.expiraEn > ahoraMs) suma += b.magnitudPct;
+  return suma;
+}
+
+/** Nunca deja un factor en 0 o negativo aunque se acumulen varios buffs negativos a la vez (p.ej. 2 pociones de "velocidad reducida" bebidas juntas). */
+const FACTOR_PISO_ALQUIMIA = 0.2;
+
+/**
+ * Factor MULTIPLICATIVO directo para velocidad/vida/carga — a diferencia de
+ * `aplicarBuffsPocion` (los 4 stats de combate, que necesitan una
+ * referencia fija porque `defensaFisica`/`ataqueMagico` valen 0 sin
+ * equipo/oficio de magia), la base de estos tres NUNCA es 0 (siempre hay
+ * velocidad de movimiento, vidaMax, peso transportable de partida) —
+ * multiplicar directo sobre la base real es seguro y más intuitivo (un
+ * +15% de vida da más HP plano a nivel 10 que a nivel 1, proporcional a la
+ * base real de cada uno) sin inventar una segunda constante de referencia.
+ */
+export function factorBuffPocion(buffs: BuffPocion[], stat: StatAlquimia, ahoraMs: number): number {
+  return Math.max(FACTOR_PISO_ALQUIMIA, 1 + sumaPctDeStat(buffs, stat, ahoraMs) / 100);
+}
+
+/**
+ * Estamina es la excepción entre los cuatro nuevos: no existe un "máximo"
+ * por jugador que subir (VITAL_MAX es una constante fija compartida por
+ * los 5 vitales, vitales.ts) — en vez de eso el buff abarata/encarece el
+ * GASTO por segundo de sprint (`ESTAMINA_GASTO_POR_SEG_CORRIENDO`,
+ * RoomExteriorBase.ts). Signo invertido a propósito: "+estamina" (pct>0)
+ * = gastas MENOS, "estamina reducida" (pct<0) = gastas MÁS.
+ */
+export function factorGastoEstaminaPocion(buffs: BuffPocion[], ahoraMs: number): number {
+  return Math.max(FACTOR_PISO_ALQUIMIA, 1 - sumaPctDeStat(buffs, "estamina", ahoraMs) / 100);
+}
+
+/** `true` si hay algún buff especial de ese tipo todavía vivo — varias pociones apiladas del mismo especial no se acumulan (sigue siendo "x2", nunca "x4"), basta con que exista uno sin caducar. */
+export function tieneEspecialActivo(buffs: BuffPocion[], especial: EfectoEspecial, ahoraMs: number): boolean {
+  return buffs.some((b) => b.categoria === "especial" && b.especial === especial && b.expiraEn > ahoraMs);
 }
 
 // ---------------------------------------------------------------------------
@@ -289,11 +379,13 @@ export interface ResultadoColarPocion {
   pureza?: number;
 }
 
-/** Termina la sesión ("colar" la poción) — escala la magnitud de `resultadoBase.efectos` por la pureza del fuego, nunca cambia qué stats salieron ni si hubo negativo. */
+/** Termina la sesión ("colar" la poción) — escala la magnitud de `resultadoBase.efectos` por la pureza del fuego, nunca cambia qué stats salieron ni si hubo negativo. Un "especial" no tiene magnitud que escalar (o sale entero, o no sale) — pasa tal cual. */
 export function colarPocion(sesion: SesionAlquimia, ahoraMs: number, cfg: ConfigEstacion = CONFIG_ESTACION_ALQUIMIA): ResultadoColarPocion {
   const r = finalizarEstacion(sesion.estacion, ahoraMs, cfg);
   if (!r.ok) return { ok: false, motivo: r.motivo };
   const factor = FACTOR_PUREZA_MINIMO + (1 - FACTOR_PUREZA_MINIMO) * r.pureza!;
-  const efectos = sesion.resultadoBase.efectos.map((e) => ({ stat: e.stat, magnitudPct: e.magnitudPct * factor }));
+  const efectos = sesion.resultadoBase.efectos.map((e): EfectoPocion =>
+    e.categoria === "stat" ? { categoria: "stat", stat: e.stat, magnitudPct: e.magnitudPct * factor } : e,
+  );
   return { ok: true, efectos, pureza: r.pureza };
 }

@@ -117,6 +117,15 @@ export interface EstadoCrafteo {
    * 0 si el jugador no tiene ese oficio elegido en sus 2 slots.
    */
   bonusCantidadOficio?: number;
+  /**
+   * Bono de CANTIDAD por poción "x2 producción de crafteos" activa al
+   * iniciar (docs/GDD_Pociones.md, pedido 2026-09-01) — mismo patrón que
+   * `bonusCantidad`/`bonusCantidadOficio`: se congela aquí (beber una
+   * poción nueva o dejar que caduque a media faena no cambia el crafteo ya
+   * en curso) y se SUMA a los otros dos al recolectar. `1` = +100% (x2
+   * exacto sobre un crafteo sin otros bonos), 0/ausente = sin efecto.
+   */
+  bonusCantidadPocion?: number;
 }
 
 /** `true` cuando el crafteo en curso ya puede recogerse — comparación pura, sin tick. */

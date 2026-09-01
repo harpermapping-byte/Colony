@@ -176,24 +176,42 @@ try {
   // este e2e) — solo lo positivo (mezcla avanzada con 3 catalizadores
   // distintos) es determinista: SIEMPRE 4 bonos. 4 ó 5 efectos totales son
   // ambos resultados válidos; 4 negativos o menos de 4 positivos no lo son.
-  const positivos = resultado.efectos.filter((e) => e.magnitudPct > 0);
-  const negativos = resultado.efectos.filter((e) => e.magnitudPct < 0);
-  if (positivos.length !== 4) throw new Error(`FALLO: mezcla avanzada debería dar 4 positivos, llegó ${JSON.stringify(resultado.efectos)}`);
+  // Un "especial" (xpOficioX2/produccionCrafteoX2/sigilo, ampliación
+  // 2026-09-01) no tiene magnitudPct — siempre cuenta como positivo, nunca
+  // sale en el rol negativo (POOL_STATS_NEGATIVOS no los incluye).
+  const positivos = resultado.efectos.filter((e) => e.categoria === "especial" || e.magnitudPct > 0);
+  const negativos = resultado.efectos.filter((e) => e.categoria === "stat" && e.magnitudPct < 0);
+  if (positivos.length !== 4) throw new Error(`FALLO: mezcla avanzada debería dar 4 positivos (stat o especial), llegó ${JSON.stringify(resultado.efectos)}`);
   if (resultado.efectos.length !== positivos.length + negativos.length || negativos.length > 1) {
     throw new Error(`FALLO: como mucho 1 efecto negativo, llegó ${JSON.stringify(resultado.efectos)}`);
   }
   console.log(`   OK: pureza=${resultado.pureza?.toFixed(2)} efectos=${JSON.stringify(resultado.efectos)}`);
 
-  console.log("7) beber la poción sube de verdad las stats de combate del jugador...");
-  const statsAntes = { ataque: room.state.players.get(room.sessionId).ataque, defensa: room.state.players.get(room.sessionId).defensa };
+  console.log("7) beber la poción aplica de verdad los efectos rolados a las stats de combate del jugador...");
+  // Con el pool ampliado (8 stats + 3 especiales, ampliación 2026-09-01) la
+  // mezcla avanzada ya NO garantiza que los 4 bonos caigan en los 4 stats
+  // de combate — pueden salir velocidad/vida/estamina/carga/especiales. Se
+  // comprueba lo que el propio servidor dice que roló (eventos.bebida[0].efectos,
+  // el mismo array que colarPocion entregó) contra las stats de combate
+  // reales ANTES/DESPUÉS: determinista dado el roll, en vez de asumir que
+  // ataque/defensa concretamente cambian (ya no es siempre así).
+  const leerCombate = () => {
+    const p = room.state.players.get(room.sessionId);
+    return { ataqueFisico: p.ataque, defensaFisica: p.defensa, ataqueMagico: p.ataqueMagico, defensaMagica: p.defensaMagica };
+  };
+  const antesCombate = leerCombate();
   await enviarYEsperar("pocion:beber", { instanciaId: resultado.instanciaId }, eventos.bebida);
   if (eventos.bebida.length !== 1) throw new Error(`FALLO: pocion:beber debería confirmar, llegó ${JSON.stringify(eventos.bebida)}`);
   await esperar(200);
-  const statsDespues = { ataque: room.state.players.get(room.sessionId).ataque, defensa: room.state.players.get(room.sessionId).defensa };
-  if (statsAntes.ataque === statsDespues.ataque && statsAntes.defensa === statsDespues.defensa) {
-    throw new Error(`FALLO: beber la poción debería cambiar ataque o defensa (buff real), antes=${JSON.stringify(statsAntes)} después=${JSON.stringify(statsDespues)}`);
+  const despuesCombate = leerCombate();
+  const efectosCombate = eventos.bebida[0].efectos.filter((e) => e.categoria === "stat" && e.stat in antesCombate);
+  if (efectosCombate.length === 0) {
+    console.log(`   OK (esta tirada no incluyó ningún stat de combate — pool ampliado, efectos reales: ${JSON.stringify(eventos.bebida[0].efectos)})`);
+  } else {
+    const huboCambio = efectosCombate.some((e) => antesCombate[e.stat] !== despuesCombate[e.stat]);
+    if (!huboCambio) throw new Error(`FALLO: la tirada incluía stats de combate (${JSON.stringify(efectosCombate)}) pero ninguno cambió tras beber — antes=${JSON.stringify(antesCombate)} después=${JSON.stringify(despuesCombate)}`);
+    console.log(`   OK: antes=${JSON.stringify(antesCombate)} después=${JSON.stringify(despuesCombate)}`);
   }
-  console.log(`   OK: antes=${JSON.stringify(statsAntes)} después=${JSON.stringify(statsDespues)}`);
 
   console.log("8) cancelar una alquimia en curso limpia la sesión y NO devuelve los ingredientes...");
   eventos.iniciado.length = 0;

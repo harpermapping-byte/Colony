@@ -428,7 +428,7 @@ export class HubRoom extends RoomExteriorBase {
         if (player) {
           const bd = await obtenerBdCompartida();
           const jugador = await bd.obtenerOCrearJugador(nombre);
-          await this.otorgarXpAtributo(bd, jugador.id, "carisma", player, 5);
+          await this.otorgarXpAtributo(bd, jugador.id, "carisma", player, 5, client.sessionId);
         }
       } catch (err) {
         client.send("npc:error", { npcId: msg.npcId, motivo: (err as Error).message });
