@@ -7,6 +7,26 @@
  */
 import { OFICIOS_JUGADOR_VALIDOS } from "../personaje/oficios";
 
+// --- Oficios contratables (jugador + "transporte") ---
+
+/**
+ * "transporte" como oficio de TRABAJADOR contratado (docs/GDD_NPCs_Contratables.md
+ * §Fusión con transporte, pedido 2026-09-01) — decisión: NO se añade a
+ * `OFICIOS_JUGADOR_VALIDOS` (server/src/personaje/oficios.ts), que gobierna
+ * los 2 slots de oficio de JUGADOR (XP, nivel, mesas por nivel, bonos de
+ * velocidad/cantidad — todo ligado a una sesión de jugador real). Un
+ * trabajador contratado de oficio "transporte" no craftea nada ni sube de
+ * nivel: opera una RUTA (server/src/mundo/agentes.ts::agregarAgenteTransportista),
+ * conceptualmente distinto de los 10 oficios de mesa+receta. Un jugador
+ * tampoco "transporta" bienes él mismo del mismo modo que forja o talla, así
+ * que ofrecérselo como 3er slot de personaje no encajaría en ese sistema —
+ * es exclusivo del catálogo de TRABAJADOR.
+ */
+export const OFICIO_TRANSPORTE = "transporte";
+
+/** Oficios contratables desde el reclutador: los 10 de jugador + "transporte". `oficiosValidos`/costes/salario usan ESTE set, nunca `OFICIOS_JUGADOR_VALIDOS` directamente. */
+export const OFICIOS_TRABAJADOR_VALIDOS: ReadonlySet<string> = new Set<string>([...OFICIOS_JUGADOR_VALIDOS, OFICIO_TRANSPORTE]);
+
 // --- Coste de contratación (creciente por oficio adicional) ---
 
 /** Coste del PRIMER oficio. Cada oficio adicional cuesta más que el anterior (ver costeContratacionTrabajador) — "cuantos más oficios, más caro" del pedido. */
@@ -27,11 +47,11 @@ export function costeContratacionTrabajador(numOficios: number): number {
   return Math.round(total);
 }
 
-/** `true` si la lista es un subconjunto no vacío, sin duplicados, de los 10 oficios reales (docs/GDD_Profesiones.md §0). */
+/** `true` si la lista es un subconjunto no vacío, sin duplicados, de los oficios contratables (los 10 de jugador + "transporte", `OFICIOS_TRABAJADOR_VALIDOS`). */
 export function oficiosValidos(oficios: string[]): boolean {
   if (oficios.length === 0) return false;
   if (new Set(oficios).size !== oficios.length) return false;
-  return oficios.every((o) => OFICIOS_JUGADOR_VALIDOS.has(o));
+  return oficios.every((o) => OFICIOS_TRABAJADOR_VALIDOS.has(o));
 }
 
 /** ¿puede este trabajador operar una receta de este oficio? — reusa el mismo catálogo cerrado que un jugador (requisito §6 del pedido: "reutiliza la validación de oficio que ya existe"). */
