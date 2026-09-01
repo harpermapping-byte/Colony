@@ -323,11 +323,15 @@ sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
   100% reactiva porque se recalcula cada tick en el servidor — solo el
   pintado tiene este retraso.
 - **Partículas** (`client/src/render3d/climaVisual.ts`, clase
-  `EfectosClima`): `THREE.Points` de lluvia/nieve cayendo y polvo a la
-  deriva (viento), activados/desactivados según `ciclo.clima` de
-  `cicloDia.ts`, siempre centrados en `objetivoCamara` (nunca fijos en
-  coordenadas de mundo — así vale para cualquier punto de un mapa de
-  miles de casillas sin generar nada por streaming aparte).
+  `EfectosClima`): nieve y polvo (viento) son `THREE.Points` (caen/derivan
+  como píxeles sueltos); la lluvia es `THREE.LineSegments` (2 vértices por
+  gota, arriba/abajo separados `LARGO_GOTA`, ambos se mueven a la vez) —
+  **corregido 2026-09-01**, pedido del streamer: "la nieve se ve cayendo
+  como píxeles, la lluvia debería verse como líneas" — se lee mejor una
+  gota rápida como estría que como punto. Activadas/desactivadas según
+  `ciclo.clima` de `cicloDia.ts`, siempre centradas en `objetivoCamara`
+  (nunca fijas en coordenadas de mundo — así vale para cualquier punto de
+  un mapa de miles de casillas sin generar nada por streaming aparte).
 - **Charcos**: `THREE.CircleGeometry` oscuros semitransparentes, un pool
   fijo de 14 recolocados al azar alrededor del jugador SOLO al empezar a
   llover (no cada frame) — decorativos, sin efecto de juego ("no como un

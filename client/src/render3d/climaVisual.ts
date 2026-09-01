@@ -40,8 +40,25 @@ function geometriaAlrededor(n: number, radio: number, altura: number): THREE.Buf
   return geo;
 }
 
+const LARGO_GOTA = 0.35; // longitud de cada segmento de lluvia (estría, no punto)
+
+/** Igual que `geometriaAlrededor` pero con 2 vértices por gota (arriba/abajo, `LineSegments`) — la lluvia se lee como una estría cayendo rápido, no como un píxel suelto (a diferencia de la nieve, que sí cae como copos/puntos). */
+function geometriaLluvia(n: number, radio: number, altura: number): THREE.BufferGeometry {
+  const pos = new Float32Array(n * 2 * 3);
+  for (let i = 0; i < n; i++) {
+    const x = (Math.random() * 2 - 1) * radio;
+    const yArriba = Math.random() * altura;
+    const z = (Math.random() * 2 - 1) * radio;
+    pos[i * 6] = x; pos[i * 6 + 1] = yArriba; pos[i * 6 + 2] = z;
+    pos[i * 6 + 3] = x; pos[i * 6 + 4] = yArriba - LARGO_GOTA; pos[i * 6 + 5] = z;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  return geo;
+}
+
 export class EfectosClima {
-  private lluvia: THREE.Points;
+  private lluvia: THREE.LineSegments;
   private nieveCayendo: THREE.Points;
   private polvo: THREE.Points;
   private charcos: THREE.Group;
@@ -49,9 +66,10 @@ export class EfectosClima {
   private tipoAnterior = "";
 
   constructor(scene: THREE.Scene) {
-    this.lluvia = new THREE.Points(
-      geometriaAlrededor(NUM_LLUVIA, RADIO_PARTICULAS, ALTURA_PARTICULAS),
-      new THREE.PointsMaterial({ color: 0xaac8ff, size: 0.05, transparent: true, opacity: 0.55, depthWrite: false }),
+    // Lluvia: LÍNEAS (estría), no puntos — se lee mejor cayendo rápido.
+    this.lluvia = new THREE.LineSegments(
+      geometriaLluvia(NUM_LLUVIA, RADIO_PARTICULAS, ALTURA_PARTICULAS),
+      new THREE.LineBasicMaterial({ color: 0xaac8ff, transparent: true, opacity: 0.55, depthWrite: false }),
     );
     this.lluvia.visible = false;
     this.nieveCayendo = new THREE.Points(
@@ -111,7 +129,7 @@ export class EfectosClima {
     this.nieveCayendo.position.copy(centro);
     this.polvo.position.copy(centro);
 
-    if (this.lluvia.visible) caerParticulas(this.lluvia, dt, 9, ALTURA_PARTICULAS);
+    if (this.lluvia.visible) caerLineas(this.lluvia, dt, 9, ALTURA_PARTICULAS);
     if (this.nieveCayendo.visible) caerParticulas(this.nieveCayendo, dt, 1.3, ALTURA_PARTICULAS, 0.4);
     if (this.polvo.visible) {
       // Dirección determinista por día (docs/GDD_Clima.md, pedido del
@@ -135,6 +153,21 @@ function caerParticulas(puntos: THREE.Points, dt: number, velocidad: number, alt
     if (y < 0) { y = altura; x = (Math.random() * 2 - 1) * RADIO_PARTICULAS; }
     attr.setX(i, x);
     attr.setY(i, y);
+  }
+  attr.needsUpdate = true;
+}
+
+/** Igual que `caerParticulas` pero para `LineSegments` de 2 vértices por gota — mueve arriba/abajo a la vez, así el segmento mantiene siempre la misma longitud mientras cae. */
+function caerLineas(lineas: THREE.LineSegments, dt: number, velocidad: number, altura: number): void {
+  const attr = lineas.geometry.getAttribute("position") as THREE.BufferAttribute;
+  const paso = velocidad * dt;
+  for (let i = 0; i < attr.count; i += 2) {
+    let yArriba = attr.getY(i) - paso;
+    let x = attr.getX(i);
+    let z = attr.getZ(i);
+    if (yArriba - LARGO_GOTA < 0) { yArriba = altura; x = (Math.random() * 2 - 1) * RADIO_PARTICULAS; z = (Math.random() * 2 - 1) * RADIO_PARTICULAS; }
+    attr.setXYZ(i, x, yArriba, z);
+    attr.setXYZ(i + 1, x, yArriba - LARGO_GOTA, z);
   }
   attr.needsUpdate = true;
 }
