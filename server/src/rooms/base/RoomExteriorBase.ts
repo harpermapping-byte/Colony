@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema, BlueprintRopaSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, CarroSchema, ConjuntoTiroSchema, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema, BlueprintRopaSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, crearCadaver, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER, DatosVisualJugador } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { rellenarLootCaza, datosDeCadaver, sacrificarAnimalGranja } from "../../mundo/lootCaza";
@@ -69,7 +69,8 @@ import { intentarCoger, Cogible } from "../../inventario/cogerSoltar";
 import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincronizarSchema";
 import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
 import { CatalogoBarcos, cargarCatalogoBarcos } from "../../mundo/catalogoBarcos";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero, NpcTrabajador } from "../../datos/bd";
+import { CatalogoCarros, cargarCatalogoCarros } from "../../mundo/catalogoCarros";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, Carro as CarroFila, ConjuntoTiro as ConjuntoTiroFila, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero, NpcTrabajador } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -189,6 +190,11 @@ const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina
 const VEL_NADAR = 2.2;
 const VEL_BUCEAR = 1.7;
 const ESTAMINA_GASTO_POR_SEG_CORRIENDO = 15; // vacía los 100 de estamina en ~6.7s de sprint continuo
+// docs/GDD_Carros.md §6 (pedido 2026-09-03): "más rápido que andando pero
+// más lento que en montura sola" — factor fijo de fase 1 (rango [0.6,0.85]
+// del GDD) sobre la velocidad de la especie que tira; variará por
+// peso/categoría de carga en fase 2.
+const FACTOR_CARRO_NORMAL = 0.75;
 export const TICK_HZ = 30;
 
 // Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — base modesta,
@@ -547,7 +553,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // (Player.monturaEspecieId/monturaMascotaId solo replica lo visual, la
   // velocidad real y el cooldown de salto viven aquí, server-only, mismo
   // criterio que pescaPorSesion/tiempoMovimiento.
-  protected montadoPorSesion = new Map<string, { mascotaId: number; especieId: string; velocidad: number }>();
+  protected montadoPorSesion = new Map<string, { mascotaId: number; especieId: string; velocidad: number; arnes: boolean; arnesPesoMaximo: number }>();
   // Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30) — estado PURO completo
   // por sesión (con timestamps de curación en curso, ver anatomia.ts), server
   // -only: el Player.anatomia Schema solo replica el subconjunto de booleanas
@@ -585,6 +591,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected bordesMapa?: Record<"norte" | "sur" | "este" | "oeste", BordeMapa>;
   /** sessionId (capitán) -> dirección del último aviso "mapa:vecino" enviado, o null si no está cerca de ningún borde ahora mismo — evita reenviar cada tick mientras se queda quieto ahí. */
   private avisoVecinoPorSesion = new Map<string, string | null>();
+
+  // --- Carros (docs/GDD_Carros.md, pedido 2026-09-03) — mismo criterio
+  // exacto que Barcos: aparcados (state.carros) o enganchados a un animal
+  // (state.conjuntosTiro), anclados en el mundo hasta que alguien los mueve
+  // conduciéndolos. Todo esto vive y muere con la room, igual que
+  // montadoPorSesion/barcosPorSesion.
+  protected catalogoCarros: CatalogoCarros = cargarCatalogoCarros();
+  /** sessionId -> en qué conjunto va y si es quien lleva las riendas (el resto son pasajeros que se mueven con él) — mismo patrón que barcosPorSesion. */
+  protected conjuntosPorSesion = new Map<string, { conjuntoId: number; esConductor: boolean }>();
+  /** conjuntoId (= clave numérica de state.conjuntosTiro) -> sessionIds ocupantes ordenados, [0] siempre el conductor — mismo patrón que ocupantesDeBarco. */
+  protected ocupantesDeConjunto = new Map<number, string[]>();
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) ---
   // Solo InteriorRoom/DungeonRoom lo ponen a true (onCreate) — decide si
@@ -1196,6 +1213,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("barco:desmontar", (client) => this.manejarBarcoDesmontar(client));
     this.onMessage("mapa:viajarVecino", (client) => this.manejarMapaViajarVecino(client));
 
+    // --- Carros y arneses de tiro (docs/GDD_Carros.md, pedido 2026-09-03) ---
+    this.onMessage("mascota:ponerArnes", (client, msg: { mascotaId?: number }) => void this.manejarMascotaPonerArnes(client, msg));
+    this.onMessage("carro:colocar", (client, msg: { itemId?: string }) => void this.manejarCarroColocar(client, msg));
+    this.onMessage("carro:enganchar", (client, msg: { mascotaId?: number; carroId?: number }) => void this.manejarCarroEnganchar(client, msg));
+    this.onMessage("carro:desenganchar", (client, msg: { conjuntoId?: number }) => void this.manejarCarroDesenganchar(client, msg));
+    this.onMessage("conjunto:montar", (client, msg: { conjuntoId?: number }) => this.manejarConjuntoMontar(client, msg));
+    this.onMessage("conjunto:desmontar", (client) => void this.manejarConjuntoDesmontar(client));
+
     // --- Twitch: disparadores de PRUEBA (docs/GDD_Twitch.md) — jarl-only,
     // mismo criterio que "inmueble:revocar"/el resto de herramientas admin
     // ya existentes. En producción, el conector real (chatBot.ts/EventSub
@@ -1481,6 +1506,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // memoria y reaparecería en su última posición del tick anterior en vez
     // de la real al recargar la room) — por eso este SÍ se await-ea.
     await this.desembarcarSesionId(client.sessionId);
+    // Carros (docs/GDD_Carros.md, pedido 2026-09-03): mismo criterio que
+    // barcos — si el que se desconecta llevaba las riendas, hace falta
+    // anclar el conjunto en BD para que no reaparezca "flotando" en su
+    // última posición del tick anterior.
+    await this.desmontarConjuntoSesionId(client.sessionId);
     this.avisoVecinoPorSesion.delete(client.sessionId);
     // Comercio: desconectarse a medias cancela el trato entero (nada se
     // mueve, mismo criterio "todo o nada" que un hueco insuficiente).
@@ -2948,6 +2978,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     esquema.x = dueno.x;
     esquema.y = dueno.y;
     esquema.montura = mascota.montura; // docs/GDD_Monturas.md — la silla persiste con la mascota, se ve al reaparecer
+    esquema.arnes = mascota.arnes; // docs/GDD_Carros.md §2 — mismo criterio que la silla, el arnés persiste con la mascota
+    esquema.arnesPesoMaximo = mascota.arnesPesoMaximo;
     this.state.mascotas.set(String(mascota.id), esquema);
     this.mascotaDuenoSesion.set(mascota.id, client.sessionId);
     this.offsetMascota.set(mascota.id, { ang: Math.random() * Math.PI * 2, dist: DIST_SEGUIMIENTO_MASCOTA });
@@ -3520,7 +3552,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const { id: mascotaIdNum, esquema } = encontrada;
     const datosMontura = this.catalogoMonturas[esquema.especieId]!; // ya comprobado por el filtro de arriba
 
-    this.montadoPorSesion.set(client.sessionId, { mascotaId: mascotaIdNum, especieId: esquema.especieId, velocidad: datosMontura.velocidadMontura });
+    this.montadoPorSesion.set(client.sessionId, { mascotaId: mascotaIdNum, especieId: esquema.especieId, velocidad: datosMontura.velocidadMontura, arnes: esquema.arnes, arnesPesoMaximo: esquema.arnesPesoMaximo });
     this.quitarMascotaDeSchemaLocal(mascotaIdNum);
     player.monturaEspecieId = esquema.especieId;
     player.monturaMascotaId = mascotaIdNum;
@@ -3548,6 +3580,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     esquema.x = player.x;
     esquema.y = player.y;
     esquema.montura = true;
+    esquema.arnes = montura.arnes;
+    esquema.arnesPesoMaximo = montura.arnesPesoMaximo;
     this.state.mascotas.set(String(montura.mascotaId), esquema);
     this.mascotaDuenoSesion.set(montura.mascotaId, sessionId);
     this.offsetMascota.set(montura.mascotaId, { ang: Math.random() * Math.PI * 2, dist: DIST_SEGUIMIENTO_MASCOTA });
@@ -3761,6 +3795,289 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (player.x <= DISTANCIA_AVISO_BORDE_MAPA) return "oeste";
     if (player.x >= this.mundo.ancho - DISTANCIA_AVISO_BORDE_MAPA) return "este";
     return null;
+  }
+
+  // --- Carros y arneses de tiro (docs/GDD_Carros.md, pedido 2026-09-03) ---
+
+  /** Ponerle el arnés a una mascota PROPIA montable ya domesticada y "siguiendo" cerca — mismo mecanismo exacto que manejarMascotaPonerMontura (§1 de GDD_Monturas), ranura independiente (`arnes` vs `montura`). Consume un ítem `esApero` y persiste su `pesoMaximoArnes` junto al flag. */
+  private async manejarMascotaPonerArnes(client: Client, msg: { mascotaId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    if (!player || !contenedor || !nombre) return;
+
+    const encontrada = this.mascotaPropiaCercana(client, msg?.mascotaId, (e) => !e.arnes && !!this.catalogoMonturas[e.especieId]?.montable);
+    if (!encontrada) return client.send("mascota:error", { motivo: "nada_cerca" });
+    const { id: mascotaIdNum, esquema } = encontrada;
+
+    const it = contenedor.items.find((i) => this.catalogoItems[i.itemId]?.esApero === true);
+    if (!it) return client.send("mascota:error", { motivo: "sin_arnes" });
+    const pesoMaximo = this.catalogoItems[it.itemId]?.pesoMaximoArnes ?? 0;
+    const resultado = quitarItem(contenedor, it.id, 1);
+    if (!resultado.ok) return client.send("mascota:error", { motivo: resultado.motivo ?? "sin_arnes" });
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const ok = await bd.ponerArnesMascota(mascotaIdNum, jugador.id, pesoMaximo);
+    if (!ok) return client.send("mascota:error", { motivo: "no_es_tuya_o_no_esta_cerca" });
+    esquema.arnes = true;
+    esquema.arnesPesoMaximo = pesoMaximo;
+    client.send("mascota:actualizada", { mascotaId: mascotaIdNum, ubicacion: "siguiendo" as UbicacionMascota, arnes: true });
+  }
+
+  /** Crea/actualiza la entidad Schema de un carro aparcado a partir de su fila de BD — usado al colocar uno nuevo, al desenganchar y al cargar los del mapa en onCreate. */
+  protected spawnearCarro(fila: CarroFila) {
+    const esquema = new CarroSchema();
+    esquema.x = fila.x;
+    esquema.y = fila.y;
+    esquema.tipoId = fila.tipoId;
+    this.state.carros.set(String(fila.id), esquema);
+  }
+
+  /** Crea/actualiza la entidad Schema de un conjunto enganchado a partir de su fila de BD — usado al enganchar uno nuevo y al cargar los del mapa en onCreate. */
+  protected spawnearConjuntoTiro(fila: ConjuntoTiroFila) {
+    const esquema = new ConjuntoTiroSchema();
+    esquema.x = fila.x;
+    esquema.y = fila.y;
+    esquema.especieAnimalId = fila.especieAnimalId;
+    esquema.mascotaId = fila.mascotaId;
+    esquema.carroTipoId = fila.carroTipoId;
+    this.state.conjuntosTiro.set(String(fila.id), esquema);
+  }
+
+  /**
+   * Colocar un carro (docs/GDD_Carros.md §3, pedido 2026-09-03): mismo
+   * patrón EXACTO que manejarBarcoColocar, pero en tierra firme junto al
+   * jugador en vez de junto al agua (un carro no flota) — mismo criterio de
+   * posicionamiento que "soltar" un ítem al mundo (tile-centro de donde
+   * está el jugador).
+   */
+  private async manejarCarroColocar(client: Client, msg: { itemId?: string }) {
+    const player = this.state.players.get(client.sessionId);
+    const contenedor = this.inventarios.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    if (!player || !contenedor || !nombre || !this.mapaIdPropio) return;
+
+    const it = typeof msg?.itemId === "string"
+      ? contenedor.items.find((i) => i.itemId === msg.itemId && this.catalogoCarros[i.itemId])
+      : contenedor.items.find((i) => this.catalogoCarros[i.itemId]);
+    if (!it) return client.send("carro:error", { motivo: "sin_carro" });
+
+    if (medioEn(this.mundo, player.x, player.y) !== TIPO.TIERRA) return client.send("carro:error", { motivo: "necesitas_tierra_firme" });
+
+    const resultado = quitarItem(contenedor, it.id, 1);
+    if (!resultado.ok) return client.send("carro:error", { motivo: resultado.motivo ?? "sin_carro" });
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const x = Math.floor(player.x) + 0.5;
+    const y = Math.floor(player.y) + 0.5;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const fila = await bd.crearCarro(jugador.id, it.itemId, this.mapaIdPropio, x, y);
+    this.spawnearCarro(fila);
+    client.send("carro:colocado", { carroId: fila.id, x, y });
+  }
+
+  /**
+   * Carro aparcado (SIN enganchar) más cercano dentro de `RADIO_INTERACCION`
+   * — mismo criterio "sin UI de targeting" que barcoConHuecoCercano, pero
+   * sin concepto de "hueco" (un carro aparcado no tiene ocupantes).
+   */
+  private carroAparcadoCercano(client: Client, carroId: number | undefined): { id: number; esquema: CarroSchema } | null {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return null;
+    if (typeof carroId === "number") {
+      const esquema = this.state.carros.get(String(carroId));
+      if (!esquema || Math.hypot(esquema.x - player.x, esquema.y - player.y) > RADIO_INTERACCION) return null;
+      return { id: carroId, esquema };
+    }
+    let mejor: { id: number; esquema: CarroSchema } | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    this.state.carros.forEach((esquema, clave) => {
+      const id = Number(clave);
+      const d = Math.hypot(esquema.x - player.x, esquema.y - player.y);
+      if (d < mejorDist) { mejorDist = d; mejor = { id, esquema }; }
+    });
+    return mejor;
+  }
+
+  /**
+   * Enganchar (docs/GDD_Carros.md §3): funde una mascota PROPIA con arnés
+   * (`mascotaPropiaCercana`, mismo auto-apuntado que el resto de acciones
+   * sobre mascotas) y un carro aparcado cercano en una entidad nueva
+   * `ConjuntoTiroSchema` — ambos desaparecen de sus Maps de origen. Valida
+   * `pesoMaximoArnes` del arnés puesto contra el peso del carro (§3, "un
+   * arnés básico no tira de una cisterna llena").
+   */
+  private async manejarCarroEnganchar(client: Client, msg: { mascotaId?: number; carroId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    if (!player || !nombre || !this.mapaIdPropio) return;
+
+    const mascotaEncontrada = this.mascotaPropiaCercana(client, msg?.mascotaId, (e) => e.arnes);
+    if (!mascotaEncontrada) return client.send("carro:error", { motivo: "sin_animal_con_arnes" });
+    const { id: mascotaIdNum, esquema: esquemaMascota } = mascotaEncontrada;
+
+    const carroEncontrado = this.carroAparcadoCercano(client, msg?.carroId);
+    if (!carroEncontrado) return client.send("carro:error", { motivo: "sin_carro_cerca" });
+    const { id: carroIdNum, esquema: esquemaCarro } = carroEncontrado;
+
+    const datosCarro = this.catalogoCarros[esquemaCarro.tipoId];
+    if (!datosCarro) return client.send("carro:error", { motivo: "carro_desconocido" });
+    if (datosCarro.peso > esquemaMascota.arnesPesoMaximo) return client.send("carro:error", { motivo: "arnes_insuficiente" });
+
+    const especieAnimalId = esquemaMascota.especieId;
+    const x = esquemaMascota.x;
+    const y = esquemaMascota.y;
+
+    this.quitarMascotaDeSchemaLocal(mascotaIdNum);
+    this.state.carros.delete(String(carroIdNum));
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    await bd.eliminarCarro(carroIdNum);
+    const fila = await bd.crearConjuntoTiro(jugador.id, mascotaIdNum, especieAnimalId, esquemaCarro.tipoId, this.mapaIdPropio, x, y);
+    this.spawnearConjuntoTiro(fila);
+    client.send("carro:enganchado", { conjuntoId: fila.id });
+  }
+
+  /**
+   * Desenganchar (docs/GDD_Carros.md §3): inverso exacto de enganchar —
+   * exige que nadie vaya montado (mismo criterio que desamarrar un barco) y
+   * que el conjunto pertenezca de verdad al jugador (a diferencia de
+   * enganchar/montar un carro/conjunto ajeno, que sí está permitido —
+   * "siguiendo" es un vínculo de propiedad estricto, no se le puede asignar
+   * la mascota de otro a la fuerza). Recrea un `Carro` aparcado + reactiva
+   * la mascota como "siguiendo" (spawnearMascota, mismo mecanismo de
+   * siempre) con TODO su estado real (montura/arnés incluidos).
+   */
+  private async manejarCarroDesenganchar(client: Client, msg: { conjuntoId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    if (!player || !nombre || !this.mapaIdPropio) return;
+    if (typeof msg?.conjuntoId !== "number") return;
+
+    const esquema = this.state.conjuntosTiro.get(String(msg.conjuntoId));
+    if (!esquema) return client.send("carro:error", { motivo: "no_existe" });
+    if (Math.hypot(esquema.x - player.x, esquema.y - player.y) > RADIO_INTERACCION) return client.send("carro:error", { motivo: "nada_cerca" });
+    if ((this.ocupantesDeConjunto.get(msg.conjuntoId)?.length ?? 0) > 0) return client.send("carro:error", { motivo: "gente_a_bordo" });
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const conjuntos = await bd.listarConjuntosTiroDe(this.mapaIdPropio);
+    const filaConjunto = conjuntos.find((f) => f.id === msg.conjuntoId);
+    if (!filaConjunto || filaConjunto.jugadorId !== jugador.id) return client.send("carro:error", { motivo: "no_es_tuyo" });
+
+    const mascotas = await bd.listarMascotas(jugador.id);
+    const filaMascota = mascotas.find((m) => m.id === esquema.mascotaId);
+    if (!filaMascota) return; // no debería pasar — la fila de mascotas nunca se borra al enganchar
+
+    this.state.conjuntosTiro.delete(String(msg.conjuntoId));
+    await bd.eliminarConjuntoTiro(msg.conjuntoId);
+
+    const carroFila = await bd.crearCarro(jugador.id, filaConjunto.carroTipoId, this.mapaIdPropio, esquema.x, esquema.y);
+    this.spawnearCarro(carroFila);
+    this.spawnearMascota(client, filaMascota, nombre);
+
+    client.send("carro:desenganchado", { carroId: carroFila.id, mascotaId: filaMascota.id });
+  }
+
+  /**
+   * Conjunto con hueco libre cercano — mismo criterio EXACTO que
+   * barcoConHuecoCercano (§4 de GDD_Carros: "mismo menú que montar solo"),
+   * `asientos` de catalogoCarros hace de `plazas` de catalogoBarcos.
+   */
+  private conjuntoConHuecoCercano(client: Client, conjuntoId: number | undefined): { id: number; esquema: ConjuntoTiroSchema } | null {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return null;
+    const tieneHueco = (id: number, esquema: ConjuntoTiroSchema) => {
+      const asientos = this.catalogoCarros[esquema.carroTipoId]?.asientos ?? 1;
+      return (this.ocupantesDeConjunto.get(id)?.length ?? 0) < asientos;
+    };
+    if (typeof conjuntoId === "number") {
+      const esquema = this.state.conjuntosTiro.get(String(conjuntoId));
+      if (!esquema || Math.hypot(esquema.x - player.x, esquema.y - player.y) > RADIO_INTERACCION) return null;
+      return tieneHueco(conjuntoId, esquema) ? { id: conjuntoId, esquema } : null;
+    }
+    let mejor: { id: number; esquema: ConjuntoTiroSchema } | null = null;
+    let mejorDist = RADIO_INTERACCION;
+    this.state.conjuntosTiro.forEach((esquema, clave) => {
+      const id = Number(clave);
+      if (!tieneHueco(id, esquema)) return;
+      const d = Math.hypot(esquema.x - player.x, esquema.y - player.y);
+      if (d < mejorDist) { mejorDist = d; mejor = { id, esquema }; }
+    });
+    return mejor;
+  }
+
+  /**
+   * Montar el conjunto (docs/GDD_Carros.md §4, pedido 2026-09-03): "mismo
+   * menú que montar solo" — el primero en montar un conjunto SIN conductor
+   * pasa a llevar las riendas, el resto (solo carros categoria "personas"
+   * con más de 1 asiento) son pasajeros que se mueven con él, exactamente
+   * como embarcar en un barco. A diferencia de un barco, el conductor NO se
+   * decide por orden de llegada al conjunto entero sino por si YA hay
+   * alguien llevando las riendas ahora mismo (`conductorSessionId`) — así
+   * un conjunto que se quedó sin conductor (ver manejarConjuntoDesmontar)
+   * puede recuperar uno sin desalojar a los pasajeros que se quedaron.
+   */
+  private manejarConjuntoMontar(client: Client, msg: { conjuntoId?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    if (this.conjuntosPorSesion.has(client.sessionId) || this.montadoPorSesion.has(client.sessionId) || this.barcosPorSesion.has(client.sessionId)) {
+      return client.send("carro:error", { motivo: "ya_montado" });
+    }
+
+    const encontrado = this.conjuntoConHuecoCercano(client, msg?.conjuntoId);
+    if (!encontrado) return client.send("carro:error", { motivo: "nada_cerca" });
+    const { id: conjuntoId, esquema } = encontrado;
+
+    let ocupantes = this.ocupantesDeConjunto.get(conjuntoId);
+    if (!ocupantes) { ocupantes = []; this.ocupantesDeConjunto.set(conjuntoId, ocupantes); }
+    const esConductor = !esquema.conductorSessionId;
+    ocupantes.push(client.sessionId);
+    this.conjuntosPorSesion.set(client.sessionId, { conjuntoId, esConductor });
+    player.conjuntoId = conjuntoId;
+    player.conjuntoConductor = esConductor;
+    if (esConductor) esquema.conductorSessionId = client.sessionId;
+  }
+
+  private async manejarConjuntoDesmontar(client: Client) {
+    await this.desmontarConjuntoSesionId(client.sessionId);
+  }
+
+  /**
+   * Compartido con el auto-desmontar de onLeave — `sessionId` directo, sin
+   * depender de tener un `Client` a mano (mismo criterio que
+   * desembarcarSesionId de Barcos). Desmontar el CONDUCTOR no expulsa a los
+   * pasajeros ni recoloca a nadie: "se para en el sitio... hasta que alguien
+   * vuelva a montar como conductor o se desenganche" (§4, pedido literal) —
+   * simplemente se ancla la posición actual en BD (nadie más lo mueve) y se
+   * limpia `conductorSessionId`, listo para que otro lo retome.
+   */
+  protected async desmontarConjuntoSesionId(sessionId: string) {
+    const info = this.conjuntosPorSesion.get(sessionId);
+    if (!info) return;
+    this.conjuntosPorSesion.delete(sessionId);
+    const player = this.state.players.get(sessionId);
+    if (player) { player.conjuntoId = 0; player.conjuntoConductor = false; }
+
+    const ocupantes = this.ocupantesDeConjunto.get(info.conjuntoId);
+    if (ocupantes) {
+      const idx = ocupantes.indexOf(sessionId);
+      if (idx >= 0) ocupantes.splice(idx, 1);
+      if (ocupantes.length === 0) this.ocupantesDeConjunto.delete(info.conjuntoId);
+    }
+
+    if (!info.esConductor) return;
+    const esquema = this.state.conjuntosTiro.get(String(info.conjuntoId));
+    if (!esquema) return;
+    esquema.conductorSessionId = "";
+    if (this.mapaIdPropio) {
+      const bd = await obtenerBdCompartida();
+      await bd.actualizarPosicionConjuntoTiro(info.conjuntoId, this.mapaIdPropio, esquema.x, esquema.y);
+    }
   }
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) — implementa
@@ -9670,6 +9987,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // ANTES de este desembarco, así que la instantánea cosmética de la
       // arena no se pierde aunque el barco sí se ancle aquí de verdad.
       void this.desembarcarSesionId(p.id);
+      // Carros (docs/GDD_Carros.md, pedido 2026-09-03): mismo criterio que montura/barco.
+      void this.desmontarConjuntoSesionId(p.id);
       const c = this.clients.find((cl) => cl.sessionId === p.id);
       c?.send("portal:ir", { tipo: "combate", combateId, mapaArenaId });
     }
@@ -10181,6 +10500,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (enBarco && !enBarco.esCapitan) return;
       const esCapitanBarco = !!enBarco?.esCapitan;
       const barcoPilotado = esCapitanBarco ? this.state.barcos.get(String(enBarco!.barcoId)) : undefined;
+      // Carros (docs/GDD_Carros.md §1, pedido 2026-09-03): mismo criterio
+      // exacto que barcos — un pasajero (no conductor) no se mueve con su
+      // propio input, su posición la fija el conjunto en la pasada de
+      // sincronización, más abajo. Un conjunto SIN conductor (aparcado tras
+      // desmontarse el que llevaba las riendas) tampoco mueve a nadie.
+      const enConjunto = this.conjuntosPorSesion.get(sessionId);
+      if (enConjunto && !enConjunto.esConductor) return;
+      const esConductorConjunto = !!enConjunto?.esConductor;
+      const conjuntoConducido = esConductorConjunto ? this.state.conjuntosTiro.get(String(enConjunto!.conjuntoId)) : undefined;
 
       const idx = Math.floor(player.y) * this.mundo.ancho + Math.floor(player.x);
       const medio = medioEn(this.mundo, player.x, player.y);
@@ -10194,7 +10522,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // estamina de sobra — sin ella, corre igual que andar aunque el
       // cliente siga pidiendo `correr` (no hay penalización dura, solo se
       // pierde la ventaja de velocidad hasta que la estamina se regenere).
-      const corriendoDeVerdad = !montura && !esCapitanBarco && medio === TIPO.TIERRA && seMueve && !!dir.correr && player.vitales.estamina > 0;
+      const corriendoDeVerdad = !montura && !esCapitanBarco && !esConductorConjunto && medio === TIPO.TIERRA && seMueve && !!dir.correr && player.vitales.estamina > 0;
       let vel: number;
       if (montura) {
         vel = montura.velocidad * (this.mundo.velocidad[idx] ?? 1);
@@ -10204,6 +10532,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         // tiene sentido sobre agua) — mismo criterio "no es el jugador quien
         // se mueve" que una montura animal, sin sprint ni estamina.
         vel = barcoPilotado ? this.catalogoBarcos[barcoPilotado.tipoId]?.velocidadBarco ?? 5 : 5;
+      } else if (esConductorConjunto) {
+        // Carro (docs/GDD_Carros.md §6, pedido literal "más rápido que
+        // andando pero más lento que en montura sola"): sustituye la
+        // velocidad entera igual que una montura sola, aplicando
+        // FACTOR_CARRO_NORMAL sobre la velocidad base de la especie que
+        // tira — el terreno se sigue aplicando igual que con monturas. Sin
+        // categorías de carga que varíen el factor por peso todavía (fase 2)
+        // ni el frenazo de apero en uso (fase 3).
+        const velBase = conjuntoConducido ? this.catalogoMonturas[conjuntoConducido.especieAnimalId]?.velocidadMontura ?? VEL_ANDAR : VEL_ANDAR;
+        // "Siempre ≥ VEL_ANDAR" (GDD §6, explícito) — suelo de seguridad para
+        // cualquier especie de tiro lenta futura; con el catálogo de hoy
+        // ninguna lo necesita (el más lento, el buey, ya queda por encima).
+        vel = Math.max(velBase * FACTOR_CARRO_NORMAL, VEL_ANDAR + 0.25) * (this.mundo.velocidad[idx] ?? 1);
       } else if (medio === TIPO.AGUA || medio === TIPO.AGUA_PROFUNDA) {
         vel = player.nivel < 0 ? VEL_BUCEAR : VEL_NADAR;
       } else if (corriendoDeVerdad) {
@@ -10222,7 +10563,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // Anatomía (docs/GDD_Anatomia.md): pierna rota/amputada, cicatrizando,
       // o estado crítico penalizan la velocidad — igual que el terreno, no
       // aplica si algo más (montura/barco) mueve al jugador por él.
-      if (!montura && !esCapitanBarco) {
+      if (!montura && !esCapitanBarco && !esConductorConjunto) {
         const anatomia = this.anatomiaDe(sessionId);
         vel *= multiplicadorVelocidadPorFractura(anatomia) * multiplicadorVelocidadPorCuracion(anatomia);
         if (estaCritico(player.vida, player.vidaMax)) vel *= MULTIPLICADOR_VELOCIDAD_CRITICO;
@@ -10261,7 +10602,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // solo se toca BD al cruzar el umbral, nunca cada tick (30hz sería
       // reventar la BD por nada). Nunca montado: no es el jugador quien se
       // mueve, sería XP de Resistencia gratis a caballo.
-      if (!montura && !esCapitanBarco && medio === TIPO.TIERRA && seMueve) {
+      if (!montura && !esCapitanBarco && !esConductorConjunto && medio === TIPO.TIERRA && seMueve) {
         const acumulado = this.tiempoMovimiento.get(sessionId) ?? { correr: 0, andar: 0 };
         if (corriendoDeVerdad) {
           acumulado.correr += dt;
@@ -10283,7 +10624,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (medioAhora === TIPO.TIERRA || medioAhora === TIPO.SOLIDO) {
         player.nivel = 0;
         player.estado = "tierra";
-      } else if (montura || esCapitanBarco) {
+      } else if (montura || esCapitanBarco || esConductorConjunto) {
         // "un caballo no bucea" (docs/GDD_Mecanicas.md) — vadea a nivel
         // superficie, nunca se sumerge; un barco flota, tampoco (docs/GDD_Barcos.md).
         player.nivel = 0;
@@ -10329,6 +10670,32 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           this.avisoVecinoPorSesion.delete(capitanId);
         }
       }
+    });
+
+    // Carros (docs/GDD_Carros.md §1/§4, pedido 2026-09-03): sincroniza el
+    // Schema del conjunto con su conductor y "pega" a los pasajeros —
+    // mismo criterio EXACTO que barcos, pasada FINAL tras separarPJs. A
+    // diferencia de un barco, el conductor NO es siempre ocupantes[0] (un
+    // conjunto puede recuperar conductor sin desalojar pasajeros, ver
+    // manejarConjuntoMontar) — se busca por `conductorSessionId`. Sin
+    // conductor: el conjunto se queda quieto donde esté (§4, "se para en el
+    // sitio"), nada que sincronizar.
+    this.ocupantesDeConjunto.forEach((ocupantes, conjuntoId) => {
+      const esquema = this.state.conjuntosTiro.get(String(conjuntoId));
+      if (!esquema) return;
+      const conductorId = esquema.conductorSessionId;
+      const conductor = conductorId ? this.state.players.get(conductorId) : undefined;
+      if (!conductor) return;
+      esquema.x = conductor.x;
+      esquema.y = conductor.y;
+      const pasajeros = ocupantes.filter((sid) => sid !== conductorId);
+      pasajeros.forEach((sid, i) => {
+        const pasajero = this.state.players.get(sid);
+        if (!pasajero) return;
+        const ang = ((i + 1) / Math.max(1, pasajeros.length)) * Math.PI * 2;
+        pasajero.x = esquema.x + Math.cos(ang) * 0.7;
+        pasajero.y = esquema.y + Math.sin(ang) * 0.7;
+      });
     });
 
     // Vitales (docs/GDD_Personaje.md) — mismo tick que YA existe para

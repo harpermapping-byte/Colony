@@ -220,6 +220,18 @@ export class HubRoom extends RoomExteriorBase {
       console.warn("[barcos] no se pudieron cargar los barcos anclados de este mapa:", e);
     }
 
+    // Carros y conjuntos de tiro (docs/GDD_Carros.md §3/§5, pedido
+    // 2026-09-03): mismo criterio exacto que barcos arriba, pero sin
+    // reancla especial (un carro/conjunto no exige un medio concreto como
+    // el agua) — reaparecen tal cual donde se quedaron.
+    try {
+      const bdCarros = await obtenerBdCompartida();
+      for (const fila of await bdCarros.listarCarrosDe(this.mapaIdPropio)) this.spawnearCarro(fila);
+      for (const fila of await bdCarros.listarConjuntosTiroDe(this.mapaIdPropio)) this.spawnearConjuntoTiro(fila);
+    } catch (e) {
+      console.warn("[carros] no se pudieron cargar los carros/conjuntos de este mapa:", e);
+    }
+
     // Fauna salvaje EN VIVO (docs/GDD_Agentes_Moviles.md, pedido
     // 2026-08-30): activa/desactiva sectores según se acercan o alejan
     // jugadores — el resto del mapa (miles de sectores) no cuesta nada

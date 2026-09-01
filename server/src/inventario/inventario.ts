@@ -73,6 +73,11 @@ export interface EntradaCatalogoItem {
   /** docs/GDD_Monturas.md — se consume sobre una mascota propia ya domesticada y `montable` (personajes/catalogo/animales_rig.json) para marcarla `montura:true` de forma permanente. Ausente/false = objeto normal. */
   esMontura?: boolean;
 
+  /** docs/GDD_Carros.md §2 — arnés de tiro: se consume sobre una mascota propia `montable` (mascota:ponerArnes) para marcarla `arnes:true` de forma permanente, habilitando `carro:enganchar`. Ausente/false = objeto normal. */
+  esApero?: boolean;
+  /** docs/GDD_Carros.md §3 — SOLO junto a `esApero`: peso máximo de carro (catalogoCarros.ts:DatosCarro.peso) que este arnés puede tirar. */
+  pesoMaximoArnes?: number;
+
   /** docs/GDD_Agricultura.md — SOLO en tipo:"semilla": qué cultivo produce y cómo se comporta al plantarla. Ausente en cualquier otro tipo. */
   cultivo?: DatosCultivo;
 

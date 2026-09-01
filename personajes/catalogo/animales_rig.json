@@ -1107,7 +1107,7 @@
     "_notaRazas": "Razas (pedido 2026-08-30, ampliadas 2026-09-01): ibérico y duroc oscuros/rojizos, yorkshire rosado (= color base de siempre), vietnamita pequeño y panzudo, mangalica de capa leonada, kunekune pequeño y rechoncho."
   },
   "buey": {
-    "_nota": "Bovino de labranza (par de 'vaca_salvaje', más corpulento y con cuernos) — animal de tiro, no de monta.",
+    "_nota": "Bovino de labranza (par de 'vaca_salvaje', más corpulento y con cuernos). Corrección docs/GDD_Carros.md (pedido streamer 2026-09-03, textual: 'que el buey pueda ser domesticable, montable, y poder tirar de un carro'): SÍ es montable — la nota original decía lo contrario ('no de monta'), pero el pedido de esta sesión lo pide explícitamente para poder ensillarlo o ponerle arnés de tiro. Velocidad de montura más lenta que un burro (4.5): es un animal de labranza corpulento, no de transporte rápido.",
     "esqueleto": "cuadrupedo",
     "escala": [
       1.0,
@@ -1146,7 +1146,9 @@
       { "id": "retinto", "peso": 30, "coloresPosibles": [["#8a4020", 70], ["#6a3018", 30]] },
       { "id": "comun", "peso": 40 }
     ],
-    "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): pardo alpino claro, retinto rojizo oscuro, común = base sin override."
+    "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): pardo alpino claro, retinto rojizo oscuro, común = base sin override.",
+    "montable": true,
+    "velocidadMontura": 5.5
   },
   "gallo": {
     "esqueleto": "ave",

@@ -22,9 +22,10 @@ test("cargarCatalogoMonturas: una especie no montable (conejo/lobo) no aparece",
   assert.strictEqual(catalogo["lobo"], undefined);
 });
 
-test("cargarCatalogoMonturas: buey es domesticable pero NO montable (animal de tiro, no de monta)", () => {
+test("cargarCatalogoMonturas: buey ES montable (docs/GDD_Carros.md, pedido 2026-09-03: 'que el buey pueda ser domesticable, montable, y poder tirar de un carro' — corrige la decisión anterior de esta misma tabla)", () => {
   const catalogo = cargarCatalogoMonturas(RUTA_RIG);
-  assert.strictEqual(catalogo["buey"], undefined);
+  assert.strictEqual(catalogo["buey"]?.montable, true);
+  assert.strictEqual(catalogo["buey"]?.velocidadMontura, 5.5);
 });
 
 test("cargarCatalogoMonturas: ignora las claves de nota (_nota)", () => {

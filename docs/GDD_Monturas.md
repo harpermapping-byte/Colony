@@ -46,9 +46,13 @@ pedir más si quiere:**
   `caballo`/`caballo_salvaje` cubre el pedido. Añadir una `yegua` con rig
   propio es trivial (mismo patrón que `caballo_salvaje` de esta pasada) si
   se pide expresamente.
-- `buey` (bovino de tiro, ya en catálogo) se dejó FUERA a propósito — su
-  propia nota en `animales_rig.json` ya decía *"animal de tiro, no de
-  monta"*, una decisión de otro pase que este respeta.
+- `buey` (bovino de tiro, ya en catálogo) se dejó FUERA a propósito en esta
+  pasada — su propia nota en `animales_rig.json` decía *"animal de tiro, no
+  de monta"*. **Corregido 2026-09-03/04** (docs/GDD_Carros.md §14 Fase 1):
+  el pedido explícito de esa sesión fue *"que el buey pueda ser
+  domesticable, montable, y poder tirar de un carro"* — SÍ es `montable`
+  ahora (`velocidadMontura: 5.5`), imprescindible para poder ponerle arnés y
+  engancharlo a un carro (`carro:enganchar` exige una especie `montable`).
 - `docs/GDD_Mascotas.md §1` ya decía: *"el campo `domesticable` ya está
   listo para cualquier especie futura... sin tocar código"* — se cumplió:
   jabalí y ciervo solo necesitaron `domesticable:true` en

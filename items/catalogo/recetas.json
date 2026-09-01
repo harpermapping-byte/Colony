@@ -2404,5 +2404,42 @@
     "resultado": { "itemId": "gorro_piel_noble", "cantidad": 1 },
     "tiempoBaseSeg": 16,
     "_nota": "docs/GDD_Equipo.md §11 (2026-09-02) — cuero, no tela_hilada (material cuero en prendas.json)."
+  },
+  "arnes_cuero_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "cuero_curtido", "cantidad": 4 },
+      { "itemId": "lingote_hierro", "cantidad": 2 }
+    ],
+    "resultado": { "itemId": "arnes_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Carros.md §2/§11/§14 Fase 1 (2026-09-04) — receta añadida en el mismo commit que mascota:ponerArnes (su mecanismo de servidor)."
+  },
+  "arnes_reforzado_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "cuero_curtido", "cantidad": 8 },
+      { "itemId": "lingote_hierro", "cantidad": 5 }
+    ],
+    "resultado": { "itemId": "arnes_reforzado", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Carros.md §2/§11/§14 Fase 1 (2026-09-04) — tier alto, mismo criterio que arnes_cuero_craft."
+  },
+  "carreta_dos_plazas_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 8 },
+      { "itemId": "lingote_hierro", "cantidad": 4 },
+      { "itemId": "clavos", "cantidad": 12 }
+    ],
+    "resultado": { "itemId": "carreta_dos_plazas", "cantidad": 1 },
+    "tiempoBaseSeg": 60,
+    "_nota": "docs/GDD_Carros.md §8.1/§11/§14 Fase 1 (2026-09-04) — receta añadida en el mismo commit que carro:colocar/enganchar/ConjuntoTiroSchema (su mecanismo de servidor). Primer carro real jugable del sistema."
   }
 }
