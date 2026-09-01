@@ -186,7 +186,9 @@
     "apilable": true,
     "stackMax": 30,
     "variantes": 2,
-    "colorDebug": "#d4c020"
+    "colorDebug": "#d4c020",
+    "alquimiaCorruptivo": true,
+    "_nota": "docs/GDD_Pociones.md — ingrediente corruptivo (sube la probabilidad de un efecto negativo en la poción, ver server/src/construccion/alquimia.ts). Azufre clásico de alquimia: volátil/inestable."
   },
   "sal": {
     "nombre": "Sal",
@@ -200,7 +202,9 @@
     "apilable": true,
     "stackMax": 30,
     "variantes": 2,
-    "colorDebug": "#f0ece0"
+    "colorDebug": "#f0ece0",
+    "alquimiaIngrediente": true,
+    "_nota": "docs/GDD_Pociones.md — ingrediente neutro admitido en el caldero (relleno, sin corruptivo/catalizador)."
   },
   "curtiente": {
     "nombre": "Curtiente",
@@ -427,7 +431,8 @@
     "colorDebug": "#8a2a5a",
     "aportesCocina": { "vida": 2, "bebida": 2, "comida": 6 },
     "origenCocina": "vegetal",
-    "comidaMascota": true
+    "comidaMascota": true,
+    "alquimiaIngrediente": true
   },
   "fruta": {
     "nombre": "Fruta",
@@ -444,7 +449,8 @@
     "colorDebug": "#c94a3a",
     "aportesCocina": { "vida": 2, "bebida": 4, "comida": 7 },
     "origenCocina": "vegetal",
-    "comidaMascota": true
+    "comidaMascota": true,
+    "alquimiaIngrediente": true
   },
   "fruto_seco": {
     "nombre": "Fruto Seco",

@@ -42,11 +42,11 @@ Auditoría real del catálogo (`items/catalogo/items.json`, tipo `"recurso"`, te
 
 | itemId | flag | por qué |
 |---|---|---|
-| `hierba_venenosa` | corruptivo | único recurso con nombre tóxico del catálogo |
+| `hierba_venenosa`, `azufre` | corruptivo | tóxico/mineral inestable — 2 distintos posibles, `probNegativo` tope real 0.60 (0.10 + 0.25×2) |
 | `hierba_curativa`, `flor_medicinal`, `hongo_medicinal` | catalizador | los 3 ingredientes "medicinales" reales — exactamente 3, así que la mezcla avanzada (≥3 catalizadores distintos) solo se desbloquea usando LOS TRES a la vez, un combo deliberado |
-| `hierba_aromatica`, `hierba_comestible`, `hongo_comestible`, `raiz_comestible`, `miel` | ingrediente (neutro) | relleno — hace bulto en la mezcla (2-6 ingredientes por poción) sin arriesgar ni forzar nada |
+| `hierba_aromatica`, `hierba_comestible`, `hongo_comestible`, `raiz_comestible`, `miel`, `sal`, `baya`, `fruta` | ingrediente (neutro) | relleno — hace bulto en la mezcla (2-6 ingredientes por poción) sin arriesgar ni forzar nada |
 
-Estos 5 recursos curandero (venenosa/curativa/aromática + flor/hongo medicinal) YA existían en el catálogo desde antes (gating de recolección en `herramientasRecoleccion.ts`) pero NINGUNA receta los consumía — ahora tienen consumidor real.
+13 ingredientes admitidos en total. La mayoría (hierbas/hongos/raíz curandero, azufre, sal) YA existían en el catálogo desde antes (recolección/minería) pero sin receta que los consumiera; baya/fruta ya se usaban en cocina y ahora sirven también de relleno aquí.
 
 ## 3. Mesa — `caldero`
 
