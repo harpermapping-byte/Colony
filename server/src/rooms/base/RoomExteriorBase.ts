@@ -198,6 +198,14 @@ const ESTAMINA_GASTO_POR_SEG_CORRIENDO = 15; // vacía los 100 de estamina en ~6
 // del GDD) sobre la velocidad de la especie que tira; variará por
 // peso/categoría de carga en fase 2.
 const FACTOR_CARRO_NORMAL = 0.75;
+// docs/GDD_Carros.md §6/§9.3 (pedido 2026-09-03): "mientras se usan cuesta
+// más moverse" — apero activo (arado/cultivadora labrando/sembrando solos)
+// frena ADICIONALMENTE sobre la velocidad de conjunto normal.
+const FACTOR_APERO_EN_USO = 0.4;
+// docs/GDD_Carros.md §9.3: "planta en 2×2, más rápido que el jugador" — radio
+// en casillas alrededor del conjunto que barre la cultivadora automática
+// cada vez que entra en una casilla nueva.
+const RADIO_CULTIVADORA = 2;
 export const TICK_HZ = 30;
 
 // Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — base modesta,
@@ -628,6 +636,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * ahí, mismo criterio que `ctxConstruccion` sin rellenar.
    */
   protected casillasCultivo = new Map<number, EstadoCasillaCultivo>();
+
+  /**
+   * Aperos en uso (docs/GDD_Carros.md §9.3, Fase 3b, pedido 2026-09-03) —
+   * conjuntoId -> modo activo ("labrar" para `arado_madera`, "cultivar"
+   * para `cultivadora_semillas`), vive y muere con la room igual que
+   * `conjuntosPorSesion`. `ultimaCasillaAperoPorConjunto` evita repetir el
+   * efecto cada tick mientras el conjunto sigue en la MISMA casilla — solo
+   * dispara al entrar en una nueva.
+   */
+  protected aperoEnUsoPorConjunto = new Map<number, "labrar" | "cultivar">();
+  private ultimaCasillaAperoPorConjunto = new Map<number, number>();
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) ---
   // Solo InteriorRoom/DungeonRoom lo ponen a true (onCreate) — decide si
@@ -1264,6 +1283,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("cultivoCasilla:labrar", (client, msg: { x?: number; y?: number }) => void this.manejarCultivoCasillaLabrar(client, msg));
     this.onMessage("cultivoCasilla:plantar", (client, msg: { x?: number; y?: number; instanciaIdSemilla?: number }) => void this.manejarCultivoCasillaPlantar(client, msg));
     this.onMessage("cultivoCasilla:cosechar", (client, msg: { x?: number; y?: number }) => void this.manejarCultivoCasillaCosechar(client, msg));
+    this.onMessage("apero:comenzarLabrar", (client, msg: { conjuntoId?: number }) => this.manejarAperoComenzar(client, msg, "labrar"));
+    this.onMessage("apero:comenzarCultivar", (client, msg: { conjuntoId?: number }) => this.manejarAperoComenzar(client, msg, "cultivar"));
+    this.onMessage("apero:detener", (client, msg: { conjuntoId?: number }) => this.manejarAperoDetener(client, msg));
 
     // --- Twitch: disparadores de PRUEBA (docs/GDD_Twitch.md) — jarl-only,
     // mismo criterio que "inmueble:revocar"/el resto de herramientas admin
@@ -3930,6 +3952,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         return { jaula: [] };
       case "liquidos":
         return { liquido: { tipo: "", volumenMl: 0, volumenMaxMl: datos.capacidadLiquidoMl ?? 20000 } };
+      case "labranza":
+        // docs/GDD_Carros.md §9.3 — SOLO la cultivadora declara
+        // `capacidadContenedor` (semillero pequeño); el arado no lleva
+        // carga propia (contenido vacío, `{}`, mismo criterio que "default").
+        return datos.capacidadContenedor ? { carga: crearContenedor(datos.capacidadContenedor.ancho, datos.capacidadContenedor.alto) } : {};
       default:
         return {};
     }
@@ -4203,6 +4230,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     if (!info.esConductor) return;
+    // Nadie lleva las riendas: el apero (si estaba en uso) se para solo —
+    // sin conductor, el conjunto no se mueve, no tiene sentido seguir "en uso".
+    this.aperoEnUsoPorConjunto.delete(info.conjuntoId);
+    this.ultimaCasillaAperoPorConjunto.delete(info.conjuntoId);
     const esquema = this.state.conjuntosTiro.get(String(info.conjuntoId));
     if (!esquema) return;
     esquema.conductorSessionId = "";
@@ -4537,6 +4568,127 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       duenoId: jugador.id, estado: resultado.siguienteCasilla.estado, semillaId: resultado.siguienteCasilla.semillaId ?? null, diaPlantado: resultado.siguienteCasilla.diaPlantado ?? null,
     });
     client.send("cultivoCasilla:cosechada", { x: tileX, y: tileY, itemId: datosCultivo.itemIdCosecha, cantidad: resultado.cantidad });
+  }
+
+  // --- Aperos de labranza montados (docs/GDD_Carros.md §9.3, Fase 3b,
+  // pedido 2026-09-03) — arado_madera/cultivadora_semillas (categoria
+  // "labranza"): automatizan cultivoCasilla:labrar/plantar disparados por
+  // el movimiento del conjunto en vez de un click manual. Se enganchan y
+  // montan EXACTAMENTE como cualquier otro carro (§1-§4) — esto solo añade
+  // "qué pasa mientras se mueve" encima de esa base ya probada.
+
+  /** `apero:comenzarLabrar`/`apero:comenzarCultivar` — solo el CONDUCTOR puede activar su propio apero. */
+  private manejarAperoComenzar(client: Client, msg: { conjuntoId?: number }, modo: "labrar" | "cultivar") {
+    const info = this.conjuntosPorSesion.get(client.sessionId);
+    if (!info || !info.esConductor) return client.send("apero:error", { motivo: "no_eres_el_conductor" });
+    if (typeof msg?.conjuntoId === "number" && msg.conjuntoId !== info.conjuntoId) return client.send("apero:error", { motivo: "ese_no_es_tu_conjunto" });
+    const esquema = this.state.conjuntosTiro.get(String(info.conjuntoId));
+    if (!esquema) return;
+    const datosCarro = this.catalogoCarros[esquema.carroTipoId];
+    if (!datosCarro || datosCarro.categoria !== "labranza") return client.send("apero:error", { motivo: "esto_no_es_un_apero" });
+    this.aperoEnUsoPorConjunto.set(info.conjuntoId, modo);
+    this.ultimaCasillaAperoPorConjunto.delete(info.conjuntoId); // fuerza procesar la casilla actual en el próximo tick, sin esperar a moverse
+    client.send("apero:comenzado", { conjuntoId: info.conjuntoId, modo });
+  }
+
+  /** `apero:detener` — corta el modo automático, vuelve a velocidad de carro normal. */
+  private manejarAperoDetener(client: Client, msg: { conjuntoId?: number }) {
+    const info = this.conjuntosPorSesion.get(client.sessionId);
+    if (!info || !info.esConductor) return;
+    if (typeof msg?.conjuntoId === "number" && msg.conjuntoId !== info.conjuntoId) return;
+    this.aperoEnUsoPorConjunto.delete(info.conjuntoId);
+    this.ultimaCasillaAperoPorConjunto.delete(info.conjuntoId);
+    client.send("apero:detenido", { conjuntoId: info.conjuntoId });
+  }
+
+  /**
+   * Labra automáticamente la casilla que el conjunto acaba de pisar —
+   * MISMA validación que `cultivoCasilla:labrar` (parcela propia del
+   * CONDUCTOR, suelo libre, sin colisión, sin ya estar labrada), disparada
+   * por movimiento en vez de un click. Silencioso: una casilla que no
+   * cumple las reglas (ajena, ocupada, ya labrada...) simplemente se
+   * salta, sin error — un arado cruzando el borde de la parcela no debe
+   * espamear al jugador.
+   */
+  private async aplicarAperoLabrarAutomatico(conjuntoId: number, esquema: ConjuntoTiroSchema) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || !this.mapaIdPropio) return;
+    const nombre = this.state.players.get(esquema.conductorSessionId)?.name;
+    if (!nombre) return;
+
+    const tileX = Math.floor(esquema.x);
+    const tileY = Math.floor(esquema.y);
+    const idx = this.idxCasillaDe(tileX, tileY);
+    if (this.casillasCultivo.has(idx)) return;
+    if (medioEn(this.mundo, tileX + 0.5, tileY + 0.5) !== TIPO.TIERRA) return;
+    if (ctx.ocupacion.has(idx)) return;
+    const parcelaId = parcelaEn(ctx.parcelas, tileX, tileY);
+    if (!parcelaId) return;
+    if (!(await this.esDuenoOJarlDe(ctx, parcelaId, nombre))) return;
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const resultado = labrarCasilla(this.casillasCultivo.get(idx), jugador.id);
+    if (!resultado.ok || !resultado.valor) return;
+    this.casillasCultivo.set(idx, resultado.valor);
+    await bd.guardarCasillaCultivo({
+      mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
+      duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
+    });
+    // Feedback al conductor (mismo evento que un labrado manual) — no
+    // espamea a nadie más, solo quien va llevando las riendas del arado.
+    this.clients.find((c) => c.sessionId === esquema.conductorSessionId)?.send("cultivoCasilla:labrada", { x: tileX, y: tileY });
+  }
+
+  /**
+   * Siembra automáticamente cada casilla YA labrada del CONDUCTOR dentro
+   * de `RADIO_CULTIVADORA` casillas del conjunto, usando la semilla que
+   * lleve cargada en su propio contenedor pequeño (`contenido.carga` de
+   * categoria "labranza" — mismo mecanismo de carga que un carro de
+   * materiales, `carro:meterCarga` para cargarla antes de salir a
+   * cultivar). Se para sola en cuanto se agotan las semillas cargadas.
+   */
+  private async aplicarAperoCultivarAutomatico(conjuntoId: number, esquema: ConjuntoTiroSchema) {
+    const ctx = this.ctxConstruccion;
+    if (!ctx || !this.mapaIdPropio) return;
+    const nombre = this.state.players.get(esquema.conductorSessionId)?.name;
+    if (!nombre) return;
+    const contenido = this.contenidoDe("conjunto", conjuntoId);
+    if (!contenido.carga) return; // apero sin semillero (p.ej. un arado_madera sin capacidadContenedor)
+    const primeraSemilla = contenido.carga.items.find((it) => this.catalogoItems[it.itemId]?.cultivo);
+    if (!primeraSemilla) return; // sin semillas cargadas
+    const entradaSemilla = this.catalogoItems[primeraSemilla.itemId];
+    const { mes, dia } = tiempoMundo();
+    if (!entradaSemilla?.cultivo || !puedeSembrarEnMes(entradaSemilla.cultivo.mesesSiembra, mes)) return;
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const centroX = Math.floor(esquema.x);
+    const centroY = Math.floor(esquema.y);
+    let cambiado = false;
+    for (let dy = -RADIO_CULTIVADORA; dy <= RADIO_CULTIVADORA; dy++) {
+      for (let dx = -RADIO_CULTIVADORA; dx <= RADIO_CULTIVADORA; dx++) {
+        const semilla = contenido.carga.items.find((it) => it.itemId === primeraSemilla.itemId);
+        if (!semilla) { dy = RADIO_CULTIVADORA + 1; break; } // se acabaron las semillas, corta el barrido entero
+        const tileX = centroX + dx;
+        const tileY = centroY + dy;
+        const idx = this.idxCasillaDe(tileX, tileY);
+        const casilla = this.casillasCultivo.get(idx);
+        if (!casilla || casilla.estado !== "labrada" || casilla.duenoId !== jugador.id) continue;
+        const resultado = plantarCasilla(casilla, semilla.itemId, jugador.id, dia);
+        if (!resultado.ok || !resultado.valor) continue;
+        quitarItem(contenido.carga, semilla.id, 1);
+        this.casillasCultivo.set(idx, resultado.valor);
+        await bd.guardarCasillaCultivo({
+          mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
+          duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
+        });
+        cambiado = true;
+        // Feedback al conductor (mismo evento que una siembra manual) por cada casilla realmente sembrada.
+        this.clients.find((c) => c.sessionId === esquema.conductorSessionId)?.send("cultivoCasilla:plantada", { x: tileX, y: tileY, semillaId: semilla.itemId });
+      }
+    }
+    if (cambiado) await this.guardarContenidoCarro("conjunto", conjuntoId, contenido);
   }
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) — implementa
@@ -11003,7 +11155,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         // "Siempre ≥ VEL_ANDAR" (GDD §6, explícito) — suelo de seguridad para
         // cualquier especie de tiro lenta futura; con el catálogo de hoy
         // ninguna lo necesita (el más lento, el buey, ya queda por encima).
-        vel = Math.max(velBase * FACTOR_CARRO_NORMAL, VEL_ANDAR + 0.25) * (this.mundo.velocidad[idx] ?? 1);
+        let velConjunto = Math.max(velBase * FACTOR_CARRO_NORMAL, VEL_ANDAR + 0.25);
+        // Apero en uso (§9.3, Fase 3b): "cuesta más moverse" mientras
+        // labra/siembra solo — frena ADICIONALMENTE, sin suelo de
+        // seguridad (a diferencia del carro normal, aquí SÍ puede quedar
+        // por debajo de VEL_ANDAR, es el precio de la automatización).
+        if (this.aperoEnUsoPorConjunto.has(enConjunto!.conjuntoId)) velConjunto *= FACTOR_APERO_EN_USO;
+        vel = velConjunto * (this.mundo.velocidad[idx] ?? 1);
       } else if (medio === TIPO.AGUA || medio === TIPO.AGUA_PROFUNDA) {
         vel = player.nivel < 0 ? VEL_BUCEAR : VEL_NADAR;
       } else if (corriendoDeVerdad) {
@@ -11155,6 +11313,22 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         pasajero.x = esquema.x + Math.cos(ang) * 0.7;
         pasajero.y = esquema.y + Math.sin(ang) * 0.7;
       });
+
+      // Aperos en uso (docs/GDD_Carros.md §9.3, Fase 3b, pedido 2026-09-03):
+      // arado/cultivadora labran/siembran solos cada vez que el conjunto
+      // ENTRA en una casilla nueva mientras `apero:comenzarLabrar`/
+      // `comenzarCultivar` está activo — fire-and-forget async (mismo
+      // criterio que otorgarXpAtributoPorSesion), un tick de física no
+      // espera a una escritura de BD.
+      const modoApero = this.aperoEnUsoPorConjunto.get(conjuntoId);
+      if (modoApero) {
+        const idxActual = this.idxCasillaDe(esquema.x, esquema.y);
+        if (this.ultimaCasillaAperoPorConjunto.get(conjuntoId) !== idxActual) {
+          this.ultimaCasillaAperoPorConjunto.set(conjuntoId, idxActual);
+          if (modoApero === "labrar") void this.aplicarAperoLabrarAutomatico(conjuntoId, esquema);
+          else void this.aplicarAperoCultivarAutomatico(conjuntoId, esquema);
+        }
+      }
     });
 
     // Vitales (docs/GDD_Personaje.md) — mismo tick que YA existe para

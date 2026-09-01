@@ -2544,5 +2544,31 @@
     "resultado": { "itemId": "cisterna_grande", "cantidad": 1 },
     "tiempoBaseSeg": 100,
     "_nota": "docs/GDD_Carros.md §8.5/§11/§14 Fase 2 (2026-09-04) — mismo criterio que cisterna_pequena_craft, tier alto."
+  },
+  "arado_madera_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 6 },
+      { "itemId": "lingote_hierro", "cantidad": 3 },
+      { "itemId": "clavos", "cantidad": 8 }
+    ],
+    "resultado": { "itemId": "arado_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 45,
+    "_nota": "docs/GDD_Carros.md §9.3/§11/§14 Fase 3b (2026-09-04) — receta añadida en el mismo commit que apero:comenzarLabrar (su mecanismo de servidor)."
+  },
+  "cultivadora_semillas_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 9 },
+      { "itemId": "lingote_hierro", "cantidad": 6 },
+      { "itemId": "clavos", "cantidad": 12 }
+    ],
+    "resultado": { "itemId": "cultivadora_semillas", "cantidad": 1 },
+    "tiempoBaseSeg": 70,
+    "_nota": "docs/GDD_Carros.md §9.3/§11/§14 Fase 3b (2026-09-04) — receta añadida en el mismo commit que apero:comenzarCultivar (su mecanismo de servidor)."
   }
 }
