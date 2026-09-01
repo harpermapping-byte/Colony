@@ -65,13 +65,18 @@ export class WorldScene {
     contenedor.appendChild(this.labelRenderer.domElement);
 
     // Niebla/viento (docs/GDD_Clima.md): capa 2D lisa por ENCIMA del lienzo
-    // 3D pero por DEBAJO de las etiquetas (insertBefore), opacidad fija —
-    // nunca satura a sólido como hacía THREE.Fog.
+    // 3D pero por DEBAJO de las etiquetas (insertBefore) — nunca satura a
+    // sólido como hacía THREE.Fog. Degradado RADIAL (pedido del streamer:
+    // "el centro nítido, hacia los bordes más niebla"): transparente en el
+    // centro de la pantalla, sube hasta el máximo de esa capa en el borde;
+    // `style.opacity` (ver actualizar()) escala el degradado ENTERO según
+    // el clima, así el centro se queda siempre transparente sin importar
+    // la intensidad.
     this.overlayClima = document.createElement("div");
     Object.assign(this.overlayClima.style, {
       position: "absolute", top: "0", left: "0", right: "0", bottom: "0",
-      background: "#dce6ea", opacity: "0", pointerEvents: "none",
-      transition: "opacity 1.5s linear",
+      background: "radial-gradient(circle at center, rgba(220,230,234,0) 0%, rgba(220,230,234,0.55) 65%, rgba(220,230,234,0.95) 100%)",
+      opacity: "0", pointerEvents: "none", transition: "opacity 1.5s linear",
     });
     contenedor.insertBefore(this.overlayClima, this.labelRenderer.domElement);
 

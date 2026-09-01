@@ -337,12 +337,18 @@ sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
 - **Niebla/viento** (`worldScene.ts`): **corregido 2026-09-01** — la
   primera versión usaba `THREE.Fog`, que por diseño satura a color SÓLIDO
   a partir de `far` (no es una capa translúcida); con un mapa isométrico
-  grande eso tapaba la pantalla entera. Sustituido por una capa 2D lisa
+  grande eso tapaba la pantalla entera. Sustituido por una capa 2D
   sobre el lienzo (`overlayClima`, un `<div>` posicionado igual que el
-  `CSS2DRenderer` de las etiquetas, por debajo de ellas) con OPACIDAD FIJA
-  — nunca depende de la profundidad de lo que haya detrás, así jamás
-  llega a taparlo del todo: niebla 18%, viento 7% (el viento se nota sobre
-  todo por el polvo moviéndose, esta capa es solo un toque). `FACTOR_LUZ_CLIMA`
+  `CSS2DRenderer` de las etiquetas, por debajo de ellas) con un degradado
+  RADIAL — nunca depende de la profundidad de lo que haya detrás, así
+  jamás llega a taparlo del todo. **Ajustado de nuevo 2026-09-01** (pedido
+  del streamer, "centro nítido, hacia los bordes más niebla"): el fondo es
+  `radial-gradient(circle at center, transparent 0%, ... 65%, ... 100%)`
+  — transparente en el centro de la pantalla, sube hasta el máximo hacia
+  el borde; `style.opacity` (0.18 niebla, 0.07 viento) escala el degradado
+  ENTERO por tipo de clima, así el centro se queda siempre despejado sin
+  importar la intensidad (el viento se nota sobre todo por el polvo
+  moviéndose, esta capa es solo un toque). `FACTOR_LUZ_CLIMA`
   (§4) gana la entrada `niebla: 0.75`. El polvo de viento
   (`climaVisual.ts`) también baja de opacidad (0.25→0.18, mismo pedido de
   "10/20% como mucho") y ahora sopla en una dirección determinista por
