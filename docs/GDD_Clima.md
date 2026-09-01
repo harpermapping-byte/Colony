@@ -311,7 +311,18 @@ sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
   cargados cuando cambia el nivel global (una vez al día, `game.ts` lo
   comprueba cada 15s) es barato. Se libera con el mismo mecanismo de
   limpieza de GPU que ya tenía el resto de `sectorVisual.ts`
-  (`userData.propioDelSector`).
+  (`userData.propioDelSector`). **Bug real encontrado al enseñarle
+  capturas al streamer** (dos planos transparentes casi a la misma altura
+  — suelo y nieve — se ordenan por distancia a cámara en la pasada de
+  transparencia de Three, no por orden de escena, y la nieve podía quedar
+  invisible por debajo del suelo): `planoNieve.renderOrder = 1` fuerza que
+  se dibuje siempre DESPUÉS del suelo. Verificado con capturas a nivel
+  fijo (`?nieve=N` por URL, mismo criterio que `?dia=`/`?hora=`, solo
+  depuración) sobre el MISMO día/hora/clima base — comparar nieve real por
+  día de calendario salía "sucio" porque cada día puede tener un clima de
+  fondo distinto e independiente del nivel de nieve, así que antes de este
+  ajuste la comparación confundía el cambio de clima del día con el efecto
+  de la nieve.
 - **Hielo**: las casillas de agua se pintan de un tono frío opaco
   (`COLOR_HIELO`) en vez del agua translúcida de siempre, en el mismo
   bucle. **Simplificación documentada**: esto se decide con el nivel de

@@ -266,7 +266,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // momento sin reconstruir nada (actualizarNieveSector solo retoca
       // opacidad/altura de un plano ya existente).
       const sectoresActivos = new Map<string, HandleSector>();
-      let nivelNieveActual = nivelNieve(tiempoMundo().dia);
+      // Forzado de nivel por URL (`?nieve=4`, mismo criterio que `?dia=`/
+      // `?hora=`) — depuración/capturas: fija el nivel visual sin esperar
+      // a que el calendario real acumule tanto, nunca en producción.
+      const nivelForzadoParam = new URLSearchParams(location.search).get("nieve");
+      const nivelForzado = nivelForzadoParam !== null && Number.isFinite(Number(nivelForzadoParam)) ? Math.max(0, Math.floor(Number(nivelForzadoParam))) : null;
+      let nivelNieveActual = nivelForzado ?? nivelNieve(tiempoMundo().dia);
       streaming = new StreamingSectores({
         indice,
         obtenerSector: (sx, sy) => cargarSector(RUTA_MAPA, sx, sy),
@@ -283,14 +288,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           sectoresActivos.delete(`${sx}_${sy}`);
         },
       });
-      setInterval(() => {
-        const nivel = nivelNieve(tiempoMundo().dia);
-        if (nivel === nivelNieveActual) return;
-        nivelNieveActual = nivel;
-        for (const handle of sectoresActivos.values()) actualizarNieveSector(handle, nivel);
-      }, 15000);
+      if (nivelForzado === null) {
+        setInterval(() => {
+          const nivel = nivelNieve(tiempoMundo().dia);
+          if (nivel === nivelNieveActual) return;
+          nivelNieveActual = nivel;
+          for (const handle of sectoresActivos.values()) actualizarNieveSector(handle, nivel);
+        }, 15000);
+      }
       // Sonda de depuración/pruebas e2e: estado del streaming en vivo.
       (window as any).__streaming = () => streaming!.estadisticas();
+      (window as any).__nieve = () => nivelNieveActual;
 
       for (const farola of indice.luces ?? []) {
         const luz = new PointLight(new Color(farola.color).getHex(), 0, farola.radio, 2);

@@ -609,6 +609,12 @@ function crearTerrenoSector(
   const planoNieve = crearPlanoSector(nieveFinal, anchoFinal, altoFinal, true);
   planoNieve.name = "capaNieve";
   planoNieve.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
+  // `renderOrder` explícito: dos planos transparentes casi a la misma
+  // altura (suelo y nieve) pueden ordenarse mal en la pasada de
+  // transparencia de Three (por distancia a cámara, no por orden de
+  // escena) y la nieve queda invisible por debajo del suelo. Forzar que
+  // la nieve se dibuje SIEMPRE después del suelo (orden 0) lo evita.
+  planoNieve.renderOrder = 1;
   aplicarNivelNieveAPlano(planoNieve, nivelNieveActual);
   grupo.add(planoNieve);
 
