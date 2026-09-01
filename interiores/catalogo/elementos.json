@@ -14896,6 +14896,27 @@
     "colorDebug": "#7a2a3a",
     "uso": "Puesto con rollos de tela de distintas fibras a la venta."
   },
+  "puesto_mercado_jugador": {
+    "nombre": "Puesto de Mercado de Jugador",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "lonja"
+    ],
+    "colocacion": [
+      "libre"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "materialesCompatibles": [
+      "madera"
+    ],
+    "variantes": 3,
+    "colorDebug": "#b8863c",
+    "uso": "Tenderete de mercado de un jugador: tablero con mercancía a la vista bajo un tejadillo de tela de colores. Craftable por el carpintero (nivel 2, \"puesto_mercado_jugador_craft\") y colocable como cualquier mueble (docs/GDD_Mercado.md §12) — su inventario de venta es el mismo tenderete_items de siempre, sin tope real de objetos ni de peso; para que la parte pública (escaparate/comprar) funcione hace falta además un trabajador de oficio \"tendero\" asignado a él (docs/GDD_NPCs_Contratables.md).",
+    "requiereItemColocar": "puesto_mercado_jugador"
+  },
   "puesto_herramientas_mercado": {
     "nombre": "Puesto de Herramientas de Mercado",
     "capa": "decorFija",

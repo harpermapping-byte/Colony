@@ -30,6 +30,7 @@ import { PanelForja } from "./construccion/panelForja";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
 import { PanelReclutador, type CatalogoReclutadorVista, type TrabajadorVista, type RutaVista, type ConstruccionVista } from "./economia/panelReclutador";
+import { PanelTenderete, type ItemEscaparateTenderete, type ItemGestionTenderete } from "./economia/panelTenderete";
 import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
 import { PanelCultivo, type EstadoCultivoVista } from "./agricultura/panelCultivo";
 import { PanelInjerto } from "./agricultura/panelInjerto";
@@ -707,6 +708,36 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       sacar: (construccionId, instanciaId) => room.send("cofre:sacarItem", { construccionId, instanciaId }),
     });
 
+    // Tenderete de mercado de jugador (docs/GDD_Mercado.md §12, pedido
+    // posterior a v1) — clic sobre el mueble puesto_mercado_jugador, mismo
+    // criterio "sin UI de targeting" que el resto: se ofrecen SIEMPRE las
+    // dos opciones (gestionar/abrir tienda) y el servidor decide cuál aplica.
+    const panelTenderete = new PanelTenderete({
+      contenedor,
+      comprar: (tenderoteId, itemId, cantidad) => room.send("tenderete:comprar", { tenderoteId, itemId, cantidad }),
+      fijarPrecio: (tenderoteId, itemId, precioFarycoins) => room.send("tenderete:fijarPrecio", { tenderoteId, itemId, precioFarycoins }),
+      reponer: (tenderoteId, instanciaId, cantidad, precioFarycoins) => room.send("tenderete:reponer", { tenderoteId, instanciaId, cantidad, precioFarycoins }),
+      recogerGanancias: (tenderoteId) => room.send("tenderete:recogerGanancias", { tenderoteId }),
+      itemsDelCuerpo: () => {
+        const p = room.state.players.get(room.sessionId);
+        return p ? [...(p as any).inventario.cuerpo.items].map((it: any) => ({ instanciaId: it.id, itemId: it.itemId, cantidad: it.cantidad })) : [];
+      },
+    });
+    room.onMessage("tenderete:error", (m: { motivo: string }) => panelTenderete.mostrarError(m?.motivo || "No se pudo completar la operación."));
+    room.onMessage("tenderete:escaparate", (m: { tenderoteId: string; tendero: boolean; items: ItemEscaparateTenderete[] }) => {
+      panelTenderete.actualizarEscaparate(m.tenderoteId, !!m.tendero, m.items || []);
+    });
+    room.onMessage("tenderete:gestion", (m: { tenderoteId: string; tendero: boolean; cajaFarycoins: number; items: ItemGestionTenderete[] }) => {
+      panelTenderete.actualizarGestion(m.tenderoteId, !!m.tendero, m.cajaFarycoins ?? 0, m.items || []);
+    });
+    room.onMessage("tenderete:compraResultado", (m: { ok: boolean; tenderoteId?: string }) => {
+      if (m?.ok && m.tenderoteId) room.send("tenderete:escaparate", { tenderoteId: m.tenderoteId }); // refresca disponibilidad tras comprar
+    });
+    room.onMessage("tenderete:gananciasRecogidas", (m: { tenderoteId: string; farycoins: number }) => {
+      console.log("[tenderete] ganancias recogidas:", m?.farycoins);
+      if (m?.tenderoteId) room.send("tenderete:gestion", { tenderoteId: m.tenderoteId }); // refresca la caja a 0 en el panel abierto
+    });
+
     // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido 2026-08-31).
     const panelSastre = new PanelSastreLegendario({
       contenedor,
@@ -822,6 +853,27 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           accion: () => {
             cofreObjetivo = { id: datos.id, nombre };
             room.send("cofre:consultar", { construccionId: datos.id });
+          },
+        });
+      }
+      // Mercado de jugador (docs/GDD_Mercado.md §12, pedido posterior a v1):
+      // el clic ofrece SIEMPRE las dos opciones — el servidor rechaza
+      // "Gestionar" si no eres el dueño y "Comprar/Abrir tienda" si lo eres
+      // o si no hay tendero contratado. `datos.propiedad` (ConstruccionRed)
+      // es el tenderoteId real, el mismo que usa el protocolo tenderete:*.
+      if (datos.objeto === "puesto_mercado_jugador") {
+        opciones.push({
+          etiqueta: "Gestionar mi tienda",
+          accion: () => {
+            panelTenderete.abrirGestion(datos.propiedad);
+            room.send("tenderete:gestion", { tenderoteId: datos.propiedad });
+          },
+        });
+        opciones.push({
+          etiqueta: "Abrir tienda",
+          accion: () => {
+            panelTenderete.abrirComprar(datos.propiedad);
+            room.send("tenderete:escaparate", { tenderoteId: datos.propiedad });
           },
         });
       }

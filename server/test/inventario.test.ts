@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 468); // 464 (ver historial: 459 = 428 + grasa + 33 cadáveres de caza + jarabe_catarro + 4 instrumentos musicales + mesa_ajedrez, + camisa_seda_noble, + 30 variantes "_bonificado/a(s)" de herrería + silla/mesa_comedor/cama_individual/arcon) - pocion_alquimica genérica + 5 variantes de color pocion_alquimica_clara/toxica/vital/inestable/radiante (docs/GDD_Pociones.md, ampliación 2026-09-01)
+  assert.strictEqual(ids.length, 469); // 468 (ver historial: 464 = 459 = 428 + grasa + 33 cadáveres de caza + jarabe_catarro + 4 instrumentos musicales + mesa_ajedrez, + camisa_seda_noble, + 30 variantes "_bonificado/a(s)" de herrería + silla/mesa_comedor/cama_individual/arcon - pocion_alquimica genérica + 5 variantes de color pocion_alquimica_clara/toxica/vital/inestable/radiante) + puesto_mercado_jugador (docs/GDD_Mercado.md §12, mueble tenderete craftable por el carpintero)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

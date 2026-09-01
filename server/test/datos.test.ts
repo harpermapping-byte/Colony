@@ -923,6 +923,59 @@ test("Mercado: revocarPropiedad vacía el tenderete de esa propiedad", async () 
   await bd.cerrar();
 });
 
+// --- Mercado v2 (docs/GDD_Mercado.md §12, pedido posterior a v1): caja de ganancias del tenderete de jugador ---
+
+test("Mercado v2: obtenerCajaTenderete devuelve 0 si nunca se acumuló nada", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  assert.strictEqual(await bd.obtenerCajaTenderete("p_0001"), 0);
+  await bd.cerrar();
+});
+
+test("Mercado v2: comprarDeTenderete con abonarACaja acumula en la caja SIN acreditar al vendedor directamente", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const comprador = await bd.obtenerOCrearJugador("Bjorn");
+  await bd.ajustarFarycoins(comprador.id, 100);
+  const vendedor = await bd.obtenerOCrearJugador("Ragnar");
+  const saldoVendedorAntes = await bd.obtenerFarycoins(vendedor.id);
+  await bd.reponerStockTenderete("p_0001", "madera", 10, 5);
+
+  const r = await bd.comprarDeTenderete({
+    tenderoteId: "p_0001", itemId: "madera", cantidad: 3,
+    compradorNombre: "Bjorn", duenoNombre: "Ragnar", abonarACaja: true,
+  });
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(await bd.obtenerFarycoins(vendedor.id), saldoVendedorAntes, "el vendedor NO cobra directo con abonarACaja");
+  assert.strictEqual(await bd.obtenerCajaTenderete("p_0001"), 15, "el importe se acumuló en la caja del tenderete");
+  await bd.cerrar();
+});
+
+test("Mercado v2: incrementarCajaTenderete suma sobre lo que ya había", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.incrementarCajaTenderete("p_0001", 10);
+  await bd.incrementarCajaTenderete("p_0001", 5);
+  assert.strictEqual(await bd.obtenerCajaTenderete("p_0001"), 15);
+  await bd.cerrar();
+});
+
+test("Mercado v2: recogerCajaTenderete vacía la caja y devuelve lo que había ANTES de vaciarla", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.incrementarCajaTenderete("p_0001", 42);
+  const cobrado = await bd.recogerCajaTenderete("p_0001");
+  assert.strictEqual(cobrado, 42);
+  assert.strictEqual(await bd.obtenerCajaTenderete("p_0001"), 0, "la caja quedó a 0 tras recoger");
+  assert.strictEqual(await bd.recogerCajaTenderete("p_0001"), 0, "recoger dos veces seguidas no duplica nada");
+  await bd.cerrar();
+});
+
+test("Mercado v2: revocarPropiedad también vacía la caja de ganancias sin recoger", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.asignarPropiedad("p_0001", "parcela", "hub", "Ragnar");
+  await bd.incrementarCajaTenderete("p_0001", 30);
+  await bd.revocarPropiedad("p_0001");
+  assert.strictEqual(await bd.obtenerCajaTenderete("p_0001"), 0);
+  await bd.cerrar();
+});
+
 // --- Producción y transporte (docs/GDD_Produccion.md, pedido 2026-08-29) ---
 
 test("Produccion: actualizarExtraConstruccion persiste el JSON de estado sin migración (columna extra ya existente)", async () => {

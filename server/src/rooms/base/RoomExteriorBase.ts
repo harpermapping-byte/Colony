@@ -130,8 +130,9 @@ import {
 } from "../../personaje/oficios";
 import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente, npcTrabajadorAAgente } from "../../mundo/npcsFijos";
 import {
-  costeContratacionTrabajador, oficiosValidos, puedeOperarOficio, salarioMensualTrabajador,
-  resolverPayroll, TrabajadorParaPago, DIAS_POR_MES_TRABAJADOR, OFICIOS_TRABAJADOR_VALIDOS, OFICIO_TRANSPORTE,
+  costeContratacionTrabajador, costeContratarOficios, oficiosValidos, puedeOperarOficio, salarioMensualTrabajador,
+  resolverPayroll, TrabajadorParaPago, DIAS_POR_MES_TRABAJADOR, OFICIOS_TRABAJADOR_VALIDOS, OFICIO_TRANSPORTE, OFICIO_TENDERO,
+  COSTE_TENDERO_SOLO, SALARIO_TENDERO_SOLO,
 } from "../../construccion/trabajadores";
 import { contenedoresTestDeMapa } from "../../mundo/contenedoresTest";
 import { nombrePoliticoDeterminista } from "../../personaje/nombresNpc";
@@ -287,6 +288,8 @@ const INTERVALO_TICK_TRABAJADOR_MS = 10_000;
 const CARGA_POR_VIAJE_TRANSPORTE = 10;
 const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar un ítem nunca antes vendido ahí — el dueño lo ajusta con tenderete:fijarPrecio
 const PREFIJO_DESTINO_COFRE = "cofre:";
+/** Mercado v2 (docs/GDD_Mercado.md §12) — id del mueble 2x1 (interiores/catalogo/elementos.json) que hace de tenderete de mercado; mismo criterio "id hardcodeado" que telar/banco_carpintero/mesa_ajedrez para un objeto singular con interacción propia. */
+const ID_PUESTO_MERCADO_JUGADOR = "puesto_mercado_jugador";
 
 /** docs/GDD_Produccion.md §3ter — id de construcción si `destino` es un cofre ("cofre:<id>"), null si es una propiedadId de tenderete normal. */
 function idDeCofre(destino: string): number | null {
@@ -990,6 +993,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("tenderete:reponer", (client, msg: { tenderoteId?: string; instanciaId?: number; cantidad?: number; precioFarycoins?: number }) => this.manejarTenderoteReponer(client, msg));
     this.onMessage("tenderete:fijarPrecio", (client, msg: { tenderoteId?: string; itemId?: string; precioFarycoins?: number }) => this.manejarTenderoteFijarPrecio(client, msg));
     this.onMessage("tenderete:comprar", (client, msg: { tenderoteId?: string; itemId?: string; cantidad?: number }) => this.manejarTenderoteComprar(client, msg));
+    // Mercado v2 (docs/GDD_Mercado.md §12): las ganancias de venta se acumulan en la caja del tenderete, el dueño las recoge cuando quiera.
+    this.onMessage("tenderete:recogerGanancias", (client, msg: { tenderoteId?: string }) => void this.manejarTenderoteRecogerGanancias(client, msg));
     // Venta de animales de granja (docs/GDD_Ganaderia.md) — mismo tenderete, categoría paralela a items (sin cantidad: un animal es una instancia entera).
     this.onMessage("tenderete:listarAnimal", (client, msg: { tenderoteId?: string; animalId?: string; precioFarycoins?: number }) => void this.manejarTenderoteListarAnimal(client, msg));
     this.onMessage("tenderete:quitarAnimalListado", (client, msg: { animalId?: string }) => void this.manejarTenderoteQuitarAnimalListado(client, msg));
@@ -5043,7 +5048,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return prop?.dueno ?? null;
   }
 
-  /** Público — cualquiera puede pedirlo. Cantidad exacta NUNCA viaja aquí (solo disponible:bool) — lo detallado es privado (gestion). */
+  /**
+   * Mercado v2 (docs/GDD_Mercado.md §12, pedido posterior a v1): la parte
+   * PÚBLICA de un tenderete (escaparate/comprar) exige que la propiedad
+   * tenga un mueble `puesto_mercado_jugador` colocado CON un trabajador de
+   * oficio "tendero" asignado a él — "para que esta tienda funcione deben
+   * contratar a un tendero" (pedido literal). Gestión (reponer/fijarPrecio/
+   * recogerGanancias) NO lo exige: el dueño puede montar/surtir la tienda
+   * antes de contratar a nadie. `this.trabajadoresActivos` ya está en
+   * memoria (mismo caché que usa el tick de crafteo), sin ida a BD.
+   */
+  private tieneTenderoOperando(propiedadId: string): boolean {
+    for (const t of this.trabajadoresActivos.values()) {
+      if (!t.oficios.includes(OFICIO_TENDERO) || t.construccionId == null) continue;
+      const viva = this.ctxConstruccion?.vivas.get(t.construccionId);
+      if (viva && viva.objeto === ID_PUESTO_MERCADO_JUGADOR && viva.propiedad === propiedadId) return true;
+    }
+    return false;
+  }
+
+  /** Público — cualquiera puede pedirlo. Cantidad exacta NUNCA viaja aquí (solo disponible:bool) — lo detallado es privado (gestion). Incluye `tendero` (docs/GDD_Mercado.md §12): el cliente puede mostrar "cerrado, sin tendero" sin que sea un error duro — el error duro llega al intentar comprar de verdad. */
   private async manejarTenderoteEscaparate(client: Client, msg: { tenderoteId?: string }) {
     if (!msg?.tenderoteId) return;
     await this.resolverContratosDeDestino(msg.tenderoteId);
@@ -5052,12 +5076,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const animales = await bd.listarAnimalesEnVentaTenderete(msg.tenderoteId);
     client.send("tenderete:escaparate", {
       tenderoteId: msg.tenderoteId,
+      tendero: this.tieneTenderoOperando(msg.tenderoteId),
       items: stock.map((s) => ({ itemId: s.itemId, precioFarycoins: s.precioFarycoins, disponible: s.cantidad > 0 })),
       animales: animales.map((a) => ({ animalId: a.id, especieId: a.especieId, precioFarycoins: a.enVentaPrecio ?? 0 })),
     });
   }
 
-  /** Privado — solo dueño o jarl: cantidades EXACTAS ("solo lo ve el dueño y el admin", pedido explícito). */
+  /** Privado — solo dueño o jarl: cantidades EXACTAS ("solo lo ve el dueño y el admin", pedido explícito). Incluye `cajaFarycoins` (docs/GDD_Mercado.md §12): ganancias de venta acumuladas sin recoger. */
   private async manejarTenderoteGestion(client: Client, msg: { tenderoteId?: string }) {
     const nombre = this.nombreDe(client);
     if (!nombre || !msg?.tenderoteId) return;
@@ -5069,9 +5094,29 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     client.send("tenderete:gestion", {
       tenderoteId: msg.tenderoteId,
+      tendero: this.tieneTenderoOperando(msg.tenderoteId),
+      cajaFarycoins: await bd.obtenerCajaTenderete(msg.tenderoteId),
       items: await bd.listarStockTenderete(msg.tenderoteId),
       animales: await bd.listarAnimalesEnVentaTenderete(msg.tenderoteId),
     });
+  }
+
+  /** Recoge la caja de ganancias acumuladas — solo dueño (docs/GDD_Mercado.md §12, "botón de recoger ganancias"). No exige tendero: el dueño puede recoger lo ya vendido aunque haya despedido al tendero después. */
+  private async manejarTenderoteRecogerGanancias(client: Client, msg: { tenderoteId?: string }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !msg?.tenderoteId) return;
+    const dueno = await this.duenoDeTenderete(msg.tenderoteId);
+    if (!dueno || dueno.toLowerCase() !== nombre.toLowerCase()) {
+      return this.errorTenderete(client, "no eres el dueño de este tenderete");
+    }
+    const bd = await obtenerBdCompartida();
+    const cobrado = await bd.recogerCajaTenderete(msg.tenderoteId);
+    let saldoRestante: number | null = null;
+    if (cobrado > 0) {
+      const jugador = await bd.obtenerOCrearJugador(nombre);
+      saldoRestante = (await bd.ajustarFarycoins(jugador.id, cobrado)).saldo;
+    }
+    client.send("tenderete:gananciasRecogidas", { tenderoteId: msg.tenderoteId, farycoins: cobrado, saldoRestante });
   }
 
   /**
@@ -5153,6 +5198,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const dueno = await this.duenoDeTenderete(msg.tenderoteId);
     if (!dueno) return this.errorTenderete(client, "este tenderete no tiene dueño");
     if (dueno.toLowerCase() === nombre.toLowerCase()) return this.errorTenderete(client, "no puedes comprarte a ti mismo");
+    // Mercado v2 (docs/GDD_Mercado.md §12): sin un tendero contratado y
+    // plantado en el puesto, la tienda está "cerrada" — no se puede comprar.
+    if (!this.tieneTenderoOperando(msg.tenderoteId)) {
+      return this.errorTenderete(client, "este tenderete no tiene tendero contratado, la tienda está cerrada");
+    }
 
     const bd = await obtenerBdCompartida();
     // Carisma (docs/GDD_Personaje.md §3.3, Comercio fusionado dentro):
@@ -5164,7 +5214,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // el precio (corralito), positivo lo baja más (oferta). Mismo parámetro
     // `descuento` de comprarDeTenderete, ahora también admite negativos.
     const descuento = descuentoComercio(compradorPlayer?.atributos.carisma ?? 1) + this.modificadorPrecioEventoTwitch;
-    const r = await bd.comprarDeTenderete({ tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: dueno, descuento });
+    const r = await bd.comprarDeTenderete({ tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: dueno, descuento, abonarACaja: true });
     if (!r.ok) return this.errorTenderete(client, r.motivo);
 
     const contenedor = this.inventarios.get(client.sessionId);
@@ -7459,6 +7509,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // estimar "próximo pago" a partir de ultimoPagoDia sin duplicar la
       // constante (docs/GDD_NPCs_Contratables.md §8).
       diasPorMesTrabajador: DIAS_POR_MES_TRABAJADOR,
+      // Mercado v2 (docs/GDD_Mercado.md §12): tendero EN SOLITARIO cuesta
+      // menos que costePorCantidad[0] — el panel lo necesita para no mostrar
+      // el coste genérico de 1 oficio cuando el jugador elige solo "tendero".
+      costeTenderoSolo: COSTE_TENDERO_SOLO,
+      salarioTenderoSolo: SALARIO_TENDERO_SOLO,
     });
   }
 
@@ -7471,7 +7526,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!reclutador) return this.errorTrabajador(client, "no hay ningún reclutador cerca");
     if (!oficiosValidos(msg.oficios)) return this.errorTrabajador(client, "lista de oficios inválida");
 
-    const coste = costeContratacionTrabajador(msg.oficios.length);
+    const coste = costeContratarOficios(msg.oficios);
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const debito = await bd.ajustarFarycoins(jugador.id, -coste);

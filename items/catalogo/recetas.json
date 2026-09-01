@@ -31,6 +31,19 @@
     "tiempoBaseSeg": 25,
     "_nota": "tier2 (acero) + otra familia (madera_dura) en la misma receta — mismo caso que una espada real pediría metal+empuñadura."
   },
+  "puesto_mercado_jugador_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 3 },
+      { "itemId": "madera_blanda", "cantidad": 2 },
+      { "itemId": "tela_hilada", "cantidad": 2 }
+    ],
+    "resultado": { "itemId": "puesto_mercado_jugador", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Mercado.md §12 (pedido posterior a v1) — mueble 2x1 que se coloca como tenderete de mercado (requiereItemColocar en elementos.json); la tela es el tejadillo de colores del puesto."
+  },
   "hacha_talar_reforzada": {
     "oficio": "carpintero",
     "mesas": ["banco_carpintero"],

@@ -24,8 +24,21 @@ import { OFICIOS_JUGADOR_VALIDOS } from "../personaje/oficios";
  */
 export const OFICIO_TRANSPORTE = "transporte";
 
-/** Oficios contratables desde el reclutador: los 10 de jugador + "transporte". `oficiosValidos`/costes/salario usan ESTE set, nunca `OFICIOS_JUGADOR_VALIDOS` directamente. */
-export const OFICIOS_TRABAJADOR_VALIDOS: ReadonlySet<string> = new Set<string>([...OFICIOS_JUGADOR_VALIDOS, OFICIO_TRANSPORTE]);
+/**
+ * "tendero" como oficio de TRABAJADOR contratado (docs/GDD_Mercado.md §12,
+ * pedido posterior a v1: "para que esta tienda funcione deben contratar a un
+ * tendero") — mismo criterio que "transporte" (§Fusión con transporte de
+ * docs/GDD_NPCs_Contratables.md): NO se añade a `OFICIOS_JUGADOR_VALIDOS`
+ * porque un tendero no craftea nada, no sube de nivel, no tiene mesas por
+ * nivel — solo se PLANTA en un `puesto_mercado_jugador` (asignado con el
+ * mismo `trabajador:asignarMesa` de siempre) para que la parte pública del
+ * tenderete (escaparate/comprar) quede abierta (RoomExteriorBase.ts,
+ * `tieneTenderoOperando`).
+ */
+export const OFICIO_TENDERO = "tendero";
+
+/** Oficios contratables desde el reclutador: los 10 de jugador + "transporte" + "tendero". `oficiosValidos`/costes/salario usan ESTE set, nunca `OFICIOS_JUGADOR_VALIDOS` directamente. */
+export const OFICIOS_TRABAJADOR_VALIDOS: ReadonlySet<string> = new Set<string>([...OFICIOS_JUGADOR_VALIDOS, OFICIO_TRANSPORTE, OFICIO_TENDERO]);
 
 // --- Coste de contratación (creciente por oficio adicional) ---
 
@@ -47,6 +60,31 @@ export function costeContratacionTrabajador(numOficios: number): number {
   return Math.round(total);
 }
 
+/**
+ * Un tendero EN SOLITARIO (docs/GDD_Mercado.md §12, pedido explícito: "el
+ * costo de este NPC es menor que el resto") cuesta menos de contratar Y de
+ * mantener que cualquier trabajador de 1 oficio normal — no craftea nada, su
+ * único trabajo es plantarse en el puesto para que la tienda esté abierta.
+ * Combinado con OTRO oficio (p.ej. ["tendero","herrero"]) no aplica ningún
+ * descuento — usa la fórmula normal, mismo criterio que el resto de
+ * combinaciones (excepción NARROW, documentada aquí a propósito porque
+ * rompe el invariante "nunca mira el NOMBRE del oficio" que sienta
+ * docs/GDD_NPCs_Contratables.md §Fusión con transporte — este pedido lo
+ * pide explícitamente para tendero solo).
+ */
+export const COSTE_TENDERO_SOLO = 40;
+export const SALARIO_TENDERO_SOLO = 8;
+
+function esTenderoEnSolitario(oficios: readonly string[]): boolean {
+  return oficios.length === 1 && oficios[0] === OFICIO_TENDERO;
+}
+
+/** Coste real de contratar con esta lista exacta de oficios — envuelve `costeContratacionTrabajador` aplicando el descuento de tendero-solo. Usar SIEMPRE que se conozca la lista real (contratación); `costeContratacionTrabajador(numOficios)` se queda para la vista genérica "por cantidad" del catálogo, que no conoce oficios concretos. */
+export function costeContratarOficios(oficios: readonly string[]): number {
+  if (esTenderoEnSolitario(oficios)) return COSTE_TENDERO_SOLO;
+  return costeContratacionTrabajador(oficios.length);
+}
+
 /** `true` si la lista es un subconjunto no vacío, sin duplicados, de los oficios contratables (los 10 de jugador + "transporte", `OFICIOS_TRABAJADOR_VALIDOS`). */
 export function oficiosValidos(oficios: string[]): boolean {
   if (oficios.length === 0) return false;
@@ -66,6 +104,12 @@ export const SALARIO_BASE_MES_POR_OFICIO = 15;
 
 export function salarioMensualTrabajador(numOficios: number): number {
   return SALARIO_BASE_MES_POR_OFICIO * Math.max(1, numOficios);
+}
+
+/** Salario real de esta lista exacta de oficios — igual que `costeContratarOficios`, aplica el descuento de tendero-solo (COSTE_TENDERO_SOLO/SALARIO_TENDERO_SOLO) antes de caer a la fórmula normal por cantidad. */
+export function salarioMensualDeOficios(oficios: readonly string[]): number {
+  if (esTenderoEnSolitario(oficios)) return SALARIO_TENDERO_SOLO;
+  return salarioMensualTrabajador(oficios.length);
 }
 
 /**
@@ -132,13 +176,13 @@ export function resolverPayroll(trabajadores: TrabajadorParaPago[], diaActual: n
   const ordenadosPorAntiguedad = [...trabajadores].sort((a, b) => a.fechaContratacionDia - b.fechaContratacionDia);
   const aDespedir: TrabajadorParaPago[] = [];
   let aPagar = ordenadosPorAntiguedad;
-  let costeTotal = aPagar.reduce((s, t) => s + salarioMensualTrabajador(t.oficios.length), 0);
+  let costeTotal = aPagar.reduce((s, t) => s + salarioMensualDeOficios(t.oficios), 0);
   // se despide desde el FINAL de la lista ordenada por antigüedad (el más reciente) mientras no quepa en el saldo
   while (costeTotal > saldoDisponible && aPagar.length > 0) {
     const masReciente = aPagar[aPagar.length - 1];
     aDespedir.push(masReciente);
     aPagar = aPagar.slice(0, -1);
-    costeTotal = aPagar.reduce((s, t) => s + salarioMensualTrabajador(t.oficios.length), 0);
+    costeTotal = aPagar.reduce((s, t) => s + salarioMensualDeOficios(t.oficios), 0);
   }
   return { tocaPagar: true, costeTotal, aPagar, aDespedir };
 }

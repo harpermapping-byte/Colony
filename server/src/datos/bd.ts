@@ -783,7 +783,7 @@ export interface IAlmacenDatos {
   reponerStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioFarycoins: number): Promise<void>;
   /** Solo cambia el precio de un ítem YA en venta — `false` si ese ítem nunca se repuso ahí. */
   fijarPrecioTenderete(tenderoteId: string, itemId: string, precioFarycoins: number): Promise<boolean>;
-  /** Todo o nada: cobra al comprador, decrementa stock atómicamente (nunca por debajo de 0), acredita al vendedor — sin transacción SQL explícita, mismo patrón compare-and-swap por WHERE que el resto de mutaciones económicas. `descuento` (-1..1, docs/GDD_Personaje.md §3.3 bonus de Comercio + docs/GDD_Twitch.md El Corralito/Mercado en oferta) reduce (positivo) o sube (negativo, evento Twitch) el precio TOTAL que paga el comprador Y el que recibe el vendedor por igual (negociación, no regalo — no crea ni destruye Farycoins de la nada). */
+  /** Todo o nada: cobra al comprador, decrementa stock atómicamente (nunca por debajo de 0), acredita al vendedor — sin transacción SQL explícita, mismo patrón compare-and-swap por WHERE que el resto de mutaciones económicas. `descuento` (-1..1, docs/GDD_Personaje.md §3.3 bonus de Comercio + docs/GDD_Twitch.md El Corralito/Mercado en oferta) reduce (positivo) o sube (negativo, evento Twitch) el precio TOTAL que paga el comprador Y el que recibe el vendedor por igual (negociación, no regalo — no crea ni destruye Farycoins de la nada). `abonarACaja` (docs/GDD_Mercado.md §12, pedido posterior a v1: "el dinero se queda en el inventario del mueble... botón de recoger ganancias") — si `true`, el importe NO se acredita directamente al monedero de `duenoNombre`, se acumula en la caja del propio tenderete (`tenderete_caja`, `recogerCajaTenderete`); solo lo usa el tenderete de JUGADOR (`tenderete:comprar`), nunca el comercio con NPC (`npc:comprar`, que sigue pagando directo al monedero sintético del NPC). */
   comprarDeTenderete(params: {
     tenderoteId: string;
     itemId: string;
@@ -791,10 +791,17 @@ export interface IAlmacenDatos {
     compradorNombre: string;
     duenoNombre: string;
     descuento?: number;
+    abonarACaja?: boolean;
   }): Promise<
     | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
     | { ok: false; motivo: string }
   >;
+  /** Caja de ganancias del tenderete (docs/GDD_Mercado.md §12) — cuánto hay acumulado sin recoger todavía. 0 si nunca vendió nada. */
+  obtenerCajaTenderete(tenderoteId: string): Promise<number>;
+  /** Suma `farycoins` a la caja del tenderete — usado por `comprarDeTenderete` cuando `abonarACaja: true`. */
+  incrementarCajaTenderete(tenderoteId: string, farycoins: number): Promise<void>;
+  /** Atómico: pone la caja a 0 y devuelve lo que había ANTES de vaciarla (quien llame lo acredita al dueño) — 0 si no había nada. */
+  recogerCajaTenderete(tenderoteId: string): Promise<number>;
   /** Como reponerStockTenderete, pero SIN tocar el precio — usado por el transporte (docs/GDD_Produccion.md) para no pisar el precio que el dueño ya puso. `precioInicial` solo se usa si la fila no existía todavía. */
   sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void>;
   /** docs/GDD_Crafteo.md §4: descuenta insumo del almacén de una construcción (misma tabla `tenderete_items`, reusada como "qué hay guardado aquí" — sin cobro, sin precio). Compare-and-swap: `false` si no quedaba suficiente, nunca deja cantidad negativa. */
@@ -1112,6 +1119,17 @@ CREATE TABLE IF NOT EXISTS tenderete_items (
   PRIMARY KEY (tenderete_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
+-- Mercado v2 (docs/GDD_Mercado.md §12, pedido posterior a v1): ganancias de
+-- venta acumuladas SIN recoger todavía — el dueño las cobra a mano con
+-- "tenderete:recogerGanancias" ("el dinero se queda en el inventario del
+-- mueble... botón de recoger ganancias", pedido literal). Tabla separada de
+-- tenderete_items a propósito: esa tabla la reusan crafteo/transporte/
+-- mercaderes NPC con semántica de "stock", nunca de "dinero acumulado" —
+-- mezclar ambas habría exigido distinguir filas por item_id especial.
+CREATE TABLE IF NOT EXISTS tenderete_caja (
+  tenderete_id TEXT PRIMARY KEY,
+  farycoins INTEGER NOT NULL DEFAULT 0
+);
 -- Economía (docs/GDD_Economia.md, pedido 2026-08-30): ingreso diario de un
 -- NPC comerciante ("npc:<slotId>" en jugadores.nombre) — cálculo perezoso,
 -- SOLO cuando alguien se acerca de verdad (nunca un tick de fondo): guarda
@@ -1590,6 +1608,11 @@ CREATE TABLE IF NOT EXISTS tenderete_items (
   PRIMARY KEY (tenderete_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
+-- Mercado v2 (docs/GDD_Mercado.md §12) — ver comentario del motor SQLite.
+CREATE TABLE IF NOT EXISTS tenderete_caja (
+  tenderete_id TEXT PRIMARY KEY,
+  farycoins INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS npc_comerciantes (
   nombre TEXT PRIMARY KEY,
   ultimo_dia_ingreso INTEGER NOT NULL,
@@ -2708,6 +2731,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     // también cualquier tenderete que hubiera sobre ella — sin esto, un
     // tenderete "huérfano" seguiría vendiendo sin dueño reconocible.
     this.bd.prepare("DELETE FROM tenderete_items WHERE tenderete_id = ?").run(id);
+    this.bd.prepare("DELETE FROM tenderete_caja WHERE tenderete_id = ?").run(id);
   }
 
   /** Compare-and-swap: libera la fila SOLO si es un alquiler vencido — no toca compras ni alquileres vigentes. */
@@ -2909,6 +2933,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     compradorNombre: string;
     duenoNombre: string;
     descuento?: number;
+    abonarACaja?: boolean;
   }): Promise<
     | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
     | { ok: false; motivo: string }
@@ -2936,9 +2961,42 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       return { ok: false, motivo: "no queda stock suficiente" };
     }
 
-    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
-    await this.ajustarFarycoins(vendedor.id, precioTotal);
+    // Mercado v2 (docs/GDD_Mercado.md §12): tenderete de JUGADOR acumula en
+    // su propia caja en vez de pagar directo al monedero del dueño — el
+    // resto de usos (NPC comerciante) sigue pagando directo, sin cambio.
+    if (params.abonarACaja) {
+      await this.incrementarCajaTenderete(params.tenderoteId, precioTotal);
+    } else {
+      const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
+      await this.ajustarFarycoins(vendedor.id, precioTotal);
+    }
     return { ok: true, saldoRestante: debito.saldo, cantidadRestante: Number(stock.cantidad), precioTotal };
+  }
+
+  async obtenerCajaTenderete(tenderoteId: string): Promise<number> {
+    const fila = this.bd.prepare("SELECT farycoins FROM tenderete_caja WHERE tenderete_id = ?").get(tenderoteId);
+    return fila ? Number(fila.farycoins) : 0;
+  }
+
+  async incrementarCajaTenderete(tenderoteId: string, farycoins: number): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO tenderete_caja (tenderete_id, farycoins) VALUES (?, ?)
+         ON CONFLICT(tenderete_id) DO UPDATE SET farycoins = tenderete_caja.farycoins + excluded.farycoins`,
+      )
+      .run(tenderoteId, farycoins);
+  }
+
+  async recogerCajaTenderete(tenderoteId: string): Promise<number> {
+    // RETURNING de un UPDATE da el valor DESPUÉS de aplicarse (0, ya vaciado)
+    // — para devolver lo que había ANTES hace falta leer primero. better-
+    // sqlite3 es síncrono (sin await entre el SELECT y el UPDATE, nada puede
+    // colarse en medio), mismo criterio de "secuencial, no transacción
+    // explícita" que el resto de este fichero (p.ej. comprarDeTenderete).
+    const fila = this.bd.prepare("SELECT farycoins FROM tenderete_caja WHERE tenderete_id = ?").get(tenderoteId);
+    const cantidad = fila ? Number(fila.farycoins) : 0;
+    if (cantidad > 0) this.bd.prepare("UPDATE tenderete_caja SET farycoins = 0 WHERE tenderete_id = ?").run(tenderoteId);
+    return cantidad;
   }
 
   async sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void> {
@@ -4224,6 +4282,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       [new Date().toISOString(), id],
     );
     await this.pool.query("DELETE FROM tenderete_items WHERE tenderete_id = $1", [id]);
+    await this.pool.query("DELETE FROM tenderete_caja WHERE tenderete_id = $1", [id]);
   }
 
   /** Compare-and-swap: libera la fila SOLO si es un alquiler vencido. */
@@ -4401,6 +4460,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     compradorNombre: string;
     duenoNombre: string;
     descuento?: number;
+    abonarACaja?: boolean;
   }): Promise<
     | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
     | { ok: false; motivo: string }
@@ -4427,9 +4487,41 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       return { ok: false, motivo: "no queda stock suficiente" };
     }
 
-    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
-    await this.ajustarFarycoins(vendedor.id, precioTotal);
+    if (params.abonarACaja) {
+      await this.incrementarCajaTenderete(params.tenderoteId, precioTotal);
+    } else {
+      const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
+      await this.ajustarFarycoins(vendedor.id, precioTotal);
+    }
     return { ok: true, saldoRestante: debito.saldo, cantidadRestante: stock.rows[0].cantidad, precioTotal };
+  }
+
+  async obtenerCajaTenderete(tenderoteId: string): Promise<number> {
+    const r = await this.pool.query<{ farycoins: number }>(
+      "SELECT farycoins FROM tenderete_caja WHERE tenderete_id = $1",
+      [tenderoteId],
+    );
+    return r.rows.length ? r.rows[0].farycoins : 0;
+  }
+
+  async incrementarCajaTenderete(tenderoteId: string, farycoins: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO tenderete_caja (tenderete_id, farycoins) VALUES ($1, $2)
+       ON CONFLICT (tenderete_id) DO UPDATE SET farycoins = tenderete_caja.farycoins + EXCLUDED.farycoins`,
+      [tenderoteId, farycoins],
+    );
+  }
+
+  async recogerCajaTenderete(tenderoteId: string): Promise<number> {
+    // mismo criterio "secuencial, sin transacción explícita" que el resto —
+    // RETURNING de un UPDATE daría el valor YA vaciado, no el de antes.
+    const fila = await this.pool.query<{ farycoins: number }>(
+      "SELECT farycoins FROM tenderete_caja WHERE tenderete_id = $1",
+      [tenderoteId],
+    );
+    const cantidad = fila.rows.length ? fila.rows[0].farycoins : 0;
+    if (cantidad > 0) await this.pool.query("UPDATE tenderete_caja SET farycoins = 0 WHERE tenderete_id = $1", [tenderoteId]);
+    return cantidad;
   }
 
   async sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void> {
