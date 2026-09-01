@@ -28,6 +28,13 @@ export class ItemInstanciaSchema extends Schema {
   // "carrier" genérico del slot (huella/peso/apilable normales), pero el
   // aspecto real sale de `HubState.blueprintsRopa.get(String(prendaGeneradaId))`.
   @type("number") prendaGeneradaId = 0;
+  // Librería (docs/GDD_Libreria.md, pedido 2026-09-01) — 0 = libro normal de
+  // catálogo (texto fijo, o `libro_en_blanco_jugador` SIN escribir todavía).
+  // >0 = este `libro_en_blanco_jugador` YA fue escrito: título/texto reales
+  // viven en `libros_generados` (bd.ts), se piden solo al abrirlo con
+  // `libro:leerGenerado` (nunca se sincroniza el texto entero por red sin
+  // pedirlo, a diferencia de `blueprintsRopa` que sí hace falta ver puesto).
+  @type("number") libroGeneradoId = 0;
 }
 
 export class ContenedorSchema extends Schema {

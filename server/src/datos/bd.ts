@@ -624,6 +624,24 @@ export interface EdificioGenerado {
   creadoEn: string;
 }
 
+/**
+ * Libro escrito por un jugador (docs/GDD_Libreria.md, pedido 2026-09-01) —
+ * MISMO patrón que MuebleGenerado/PrendaGenerada/EdificioGenerado: id
+ * autoincremental, enlazado desde una instancia de `libro_en_blanco_jugador`
+ * por `libroGeneradoId` (inventario.ts). A diferencia de los otros tres, SÍ
+ * se puede reescribir por su propio autor (`actualizarLibroGenerado`) — un
+ * libro no es un blueprint para craftear copias, es contenido de un único
+ * objeto físico que su dueño puede seguir editando.
+ */
+export interface LibroGenerado {
+  id: number;
+  autorId: number;
+  titulo: string;
+  /** una página por entrada — se lee con clic izquierda/derecha en el visor del cliente. */
+  paginas: string[];
+  creadoEn: string;
+}
+
 // Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
 // asentamiento — el registro de eventos que alimenta su contexto de IA.
 // tipo/asentamientoId/jugador (docs/GDD_Faccion_Bandidos.md §7quinquies,
@@ -783,7 +801,7 @@ export interface IAlmacenDatos {
   reponerStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioFarycoins: number): Promise<void>;
   /** Solo cambia el precio de un ítem YA en venta — `false` si ese ítem nunca se repuso ahí. */
   fijarPrecioTenderete(tenderoteId: string, itemId: string, precioFarycoins: number): Promise<boolean>;
-  /** Todo o nada: cobra al comprador, decrementa stock atómicamente (nunca por debajo de 0), acredita al vendedor — sin transacción SQL explícita, mismo patrón compare-and-swap por WHERE que el resto de mutaciones económicas. `descuento` (-1..1, docs/GDD_Personaje.md §3.3 bonus de Comercio + docs/GDD_Twitch.md El Corralito/Mercado en oferta) reduce (positivo) o sube (negativo, evento Twitch) el precio TOTAL que paga el comprador Y el que recibe el vendedor por igual (negociación, no regalo — no crea ni destruye Farycoins de la nada). */
+  /** Todo o nada: cobra al comprador, decrementa stock atómicamente (nunca por debajo de 0), acredita al vendedor — sin transacción SQL explícita, mismo patrón compare-and-swap por WHERE que el resto de mutaciones económicas. `descuento` (-1..1, docs/GDD_Personaje.md §3.3 bonus de Comercio + docs/GDD_Twitch.md El Corralito/Mercado en oferta) reduce (positivo) o sube (negativo, evento Twitch) el precio TOTAL que paga el comprador Y el que recibe el vendedor por igual (negociación, no regalo — no crea ni destruye Farycoins de la nada). `abonarACaja` (docs/GDD_Mercado.md §12, pedido posterior a v1: "el dinero se queda en el inventario del mueble... botón de recoger ganancias") — si `true`, el importe NO se acredita directamente al monedero de `duenoNombre`, se acumula en la caja del propio tenderete (`tenderete_caja`, `recogerCajaTenderete`); solo lo usa el tenderete de JUGADOR (`tenderete:comprar`), nunca el comercio con NPC (`npc:comprar`, que sigue pagando directo al monedero sintético del NPC). */
   comprarDeTenderete(params: {
     tenderoteId: string;
     itemId: string;
@@ -791,10 +809,17 @@ export interface IAlmacenDatos {
     compradorNombre: string;
     duenoNombre: string;
     descuento?: number;
+    abonarACaja?: boolean;
   }): Promise<
     | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
     | { ok: false; motivo: string }
   >;
+  /** Caja de ganancias del tenderete (docs/GDD_Mercado.md §12) — cuánto hay acumulado sin recoger todavía. 0 si nunca vendió nada. */
+  obtenerCajaTenderete(tenderoteId: string): Promise<number>;
+  /** Suma `farycoins` a la caja del tenderete — usado por `comprarDeTenderete` cuando `abonarACaja: true`. */
+  incrementarCajaTenderete(tenderoteId: string, farycoins: number): Promise<void>;
+  /** Atómico: pone la caja a 0 y devuelve lo que había ANTES de vaciarla (quien llame lo acredita al dueño) — 0 si no había nada. */
+  recogerCajaTenderete(tenderoteId: string): Promise<number>;
   /** Como reponerStockTenderete, pero SIN tocar el precio — usado por el transporte (docs/GDD_Produccion.md) para no pisar el precio que el dueño ya puso. `precioInicial` solo se usa si la fila no existía todavía. */
   sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void>;
   /** docs/GDD_Crafteo.md §4: descuenta insumo del almacén de una construcción (misma tabla `tenderete_items`, reusada como "qué hay guardado aquí" — sin cobro, sin precio). Compare-and-swap: `false` si no quedaba suficiente, nunca deja cantidad negativa. */
@@ -977,6 +1002,11 @@ export interface IAlmacenDatos {
   crearEdificioGenerado(e: Omit<EdificioGenerado, "id" | "creadoEn">): Promise<EdificioGenerado>;
   obtenerEdificioGenerado(id: number): Promise<EdificioGenerado | null>;
   listarEdificiosGeneradosDeCreador(creadorId: number): Promise<EdificioGenerado[]>;
+  // Librería (docs/GDD_Libreria.md, pedido 2026-09-01) — sin cooldown: escribir un libro no compite con ningún recurso escaso, solo con tener el blueprint y la pluma.
+  crearLibroGenerado(l: Omit<LibroGenerado, "id" | "creadoEn">): Promise<LibroGenerado>;
+  obtenerLibroGenerado(id: number): Promise<LibroGenerado | null>;
+  /** Reescribe un libro YA creado — el llamante (RoomExteriorBase) ya comprobó que `autorId` coincide antes de llamar. */
+  actualizarLibroGenerado(id: number, titulo: string, paginas: string[]): Promise<void>;
   cerrar(): Promise<void>;
 }
 
@@ -1112,6 +1142,17 @@ CREATE TABLE IF NOT EXISTS tenderete_items (
   PRIMARY KEY (tenderete_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
+-- Mercado v2 (docs/GDD_Mercado.md §12, pedido posterior a v1): ganancias de
+-- venta acumuladas SIN recoger todavía — el dueño las cobra a mano con
+-- "tenderete:recogerGanancias" ("el dinero se queda en el inventario del
+-- mueble... botón de recoger ganancias", pedido literal). Tabla separada de
+-- tenderete_items a propósito: esa tabla la reusan crafteo/transporte/
+-- mercaderes NPC con semántica de "stock", nunca de "dinero acumulado" —
+-- mezclar ambas habría exigido distinguir filas por item_id especial.
+CREATE TABLE IF NOT EXISTS tenderete_caja (
+  tenderete_id TEXT PRIMARY KEY,
+  farycoins INTEGER NOT NULL DEFAULT 0
+);
 -- Economía (docs/GDD_Economia.md, pedido 2026-08-30): ingreso diario de un
 -- NPC comerciante ("npc:<slotId>" en jugadores.nombre) — cálculo perezoso,
 -- SOLO cuando alguien se acerca de verdad (nunca un tick de fondo): guarda
@@ -1467,6 +1508,15 @@ CREATE TABLE IF NOT EXISTS edificios_generados (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_edificios_generados_creador ON edificios_generados(creador_id);
+-- Librería (docs/GDD_Libreria.md, pedido 2026-09-01) — mismo patrón exacto que prendas_generadas/muebles_generados/edificios_generados.
+CREATE TABLE IF NOT EXISTS libros_generados (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  autor_id INTEGER NOT NULL,
+  titulo TEXT NOT NULL,
+  paginas TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_libros_generados_autor ON libros_generados(autor_id);
 `;
 
 const MIGRACIONES_POSTGRES = `
@@ -1590,6 +1640,11 @@ CREATE TABLE IF NOT EXISTS tenderete_items (
   PRIMARY KEY (tenderete_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_tenderete_items_tenderete ON tenderete_items(tenderete_id);
+-- Mercado v2 (docs/GDD_Mercado.md §12) — ver comentario del motor SQLite.
+CREATE TABLE IF NOT EXISTS tenderete_caja (
+  tenderete_id TEXT PRIMARY KEY,
+  farycoins INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS npc_comerciantes (
   nombre TEXT PRIMARY KEY,
   ultimo_dia_ingreso INTEGER NOT NULL,
@@ -1887,6 +1942,14 @@ CREATE TABLE IF NOT EXISTS edificios_generados (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_edificios_generados_creador ON edificios_generados(creador_id);
+CREATE TABLE IF NOT EXISTS libros_generados (
+  id SERIAL PRIMARY KEY,
+  autor_id INTEGER NOT NULL,
+  titulo TEXT NOT NULL,
+  paginas TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_libros_generados_autor ON libros_generados(autor_id);
 `;
 
 // Mapeo de fila cruda (SQLite o Postgres, misma forma de columnas) a los
@@ -2099,6 +2162,16 @@ function filaAEdificioGenerado(f: any): EdificioGenerado {
     parametros: JSON.parse(f.parametros),
     nombre: String(f.nombre),
     promptTexto: String(f.prompt_texto),
+    creadoEn: String(f.creado_en),
+  };
+}
+
+function filaALibroGenerado(f: any): LibroGenerado {
+  return {
+    id: Number(f.id),
+    autorId: Number(f.autor_id),
+    titulo: String(f.titulo),
+    paginas: JSON.parse(f.paginas),
     creadoEn: String(f.creado_en),
   };
 }
@@ -2708,6 +2781,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     // también cualquier tenderete que hubiera sobre ella — sin esto, un
     // tenderete "huérfano" seguiría vendiendo sin dueño reconocible.
     this.bd.prepare("DELETE FROM tenderete_items WHERE tenderete_id = ?").run(id);
+    this.bd.prepare("DELETE FROM tenderete_caja WHERE tenderete_id = ?").run(id);
   }
 
   /** Compare-and-swap: libera la fila SOLO si es un alquiler vencido — no toca compras ni alquileres vigentes. */
@@ -2909,6 +2983,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     compradorNombre: string;
     duenoNombre: string;
     descuento?: number;
+    abonarACaja?: boolean;
   }): Promise<
     | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
     | { ok: false; motivo: string }
@@ -2936,9 +3011,42 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       return { ok: false, motivo: "no queda stock suficiente" };
     }
 
-    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
-    await this.ajustarFarycoins(vendedor.id, precioTotal);
+    // Mercado v2 (docs/GDD_Mercado.md §12): tenderete de JUGADOR acumula en
+    // su propia caja en vez de pagar directo al monedero del dueño — el
+    // resto de usos (NPC comerciante) sigue pagando directo, sin cambio.
+    if (params.abonarACaja) {
+      await this.incrementarCajaTenderete(params.tenderoteId, precioTotal);
+    } else {
+      const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
+      await this.ajustarFarycoins(vendedor.id, precioTotal);
+    }
     return { ok: true, saldoRestante: debito.saldo, cantidadRestante: Number(stock.cantidad), precioTotal };
+  }
+
+  async obtenerCajaTenderete(tenderoteId: string): Promise<number> {
+    const fila = this.bd.prepare("SELECT farycoins FROM tenderete_caja WHERE tenderete_id = ?").get(tenderoteId);
+    return fila ? Number(fila.farycoins) : 0;
+  }
+
+  async incrementarCajaTenderete(tenderoteId: string, farycoins: number): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO tenderete_caja (tenderete_id, farycoins) VALUES (?, ?)
+         ON CONFLICT(tenderete_id) DO UPDATE SET farycoins = tenderete_caja.farycoins + excluded.farycoins`,
+      )
+      .run(tenderoteId, farycoins);
+  }
+
+  async recogerCajaTenderete(tenderoteId: string): Promise<number> {
+    // RETURNING de un UPDATE da el valor DESPUÉS de aplicarse (0, ya vaciado)
+    // — para devolver lo que había ANTES hace falta leer primero. better-
+    // sqlite3 es síncrono (sin await entre el SELECT y el UPDATE, nada puede
+    // colarse en medio), mismo criterio de "secuencial, no transacción
+    // explícita" que el resto de este fichero (p.ej. comprarDeTenderete).
+    const fila = this.bd.prepare("SELECT farycoins FROM tenderete_caja WHERE tenderete_id = ?").get(tenderoteId);
+    const cantidad = fila ? Number(fila.farycoins) : 0;
+    if (cantidad > 0) this.bd.prepare("UPDATE tenderete_caja SET farycoins = 0 WHERE tenderete_id = ?").run(tenderoteId);
+    return cantidad;
   }
 
   async sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void> {
@@ -3732,6 +3840,23 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return filas.map(filaAEdificioGenerado);
   }
 
+  async crearLibroGenerado(l: Omit<LibroGenerado, "id" | "creadoEn">): Promise<LibroGenerado> {
+    const creadoEn = new Date().toISOString();
+    const r = this.bd
+      .prepare("INSERT INTO libros_generados (autor_id, titulo, paginas, creado_en) VALUES (?, ?, ?, ?)")
+      .run(l.autorId, l.titulo, JSON.stringify(l.paginas), creadoEn);
+    return { id: Number(r.lastInsertRowid), creadoEn, ...l };
+  }
+
+  async obtenerLibroGenerado(id: number): Promise<LibroGenerado | null> {
+    const fila = this.bd.prepare("SELECT * FROM libros_generados WHERE id = ?").get(id) as any;
+    return fila ? filaALibroGenerado(fila) : null;
+  }
+
+  async actualizarLibroGenerado(id: number, titulo: string, paginas: string[]): Promise<void> {
+    this.bd.prepare("UPDATE libros_generados SET titulo = ?, paginas = ? WHERE id = ?").run(titulo, JSON.stringify(paginas), id);
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -4224,6 +4349,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       [new Date().toISOString(), id],
     );
     await this.pool.query("DELETE FROM tenderete_items WHERE tenderete_id = $1", [id]);
+    await this.pool.query("DELETE FROM tenderete_caja WHERE tenderete_id = $1", [id]);
   }
 
   /** Compare-and-swap: libera la fila SOLO si es un alquiler vencido. */
@@ -4401,6 +4527,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     compradorNombre: string;
     duenoNombre: string;
     descuento?: number;
+    abonarACaja?: boolean;
   }): Promise<
     | { ok: true; saldoRestante: number; cantidadRestante: number; precioTotal: number }
     | { ok: false; motivo: string }
@@ -4427,9 +4554,41 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       return { ok: false, motivo: "no queda stock suficiente" };
     }
 
-    const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
-    await this.ajustarFarycoins(vendedor.id, precioTotal);
+    if (params.abonarACaja) {
+      await this.incrementarCajaTenderete(params.tenderoteId, precioTotal);
+    } else {
+      const vendedor = await this.obtenerOCrearJugador(params.duenoNombre, saldoInicialPara(params.duenoNombre));
+      await this.ajustarFarycoins(vendedor.id, precioTotal);
+    }
     return { ok: true, saldoRestante: debito.saldo, cantidadRestante: stock.rows[0].cantidad, precioTotal };
+  }
+
+  async obtenerCajaTenderete(tenderoteId: string): Promise<number> {
+    const r = await this.pool.query<{ farycoins: number }>(
+      "SELECT farycoins FROM tenderete_caja WHERE tenderete_id = $1",
+      [tenderoteId],
+    );
+    return r.rows.length ? r.rows[0].farycoins : 0;
+  }
+
+  async incrementarCajaTenderete(tenderoteId: string, farycoins: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO tenderete_caja (tenderete_id, farycoins) VALUES ($1, $2)
+       ON CONFLICT (tenderete_id) DO UPDATE SET farycoins = tenderete_caja.farycoins + EXCLUDED.farycoins`,
+      [tenderoteId, farycoins],
+    );
+  }
+
+  async recogerCajaTenderete(tenderoteId: string): Promise<number> {
+    // mismo criterio "secuencial, sin transacción explícita" que el resto —
+    // RETURNING de un UPDATE daría el valor YA vaciado, no el de antes.
+    const fila = await this.pool.query<{ farycoins: number }>(
+      "SELECT farycoins FROM tenderete_caja WHERE tenderete_id = $1",
+      [tenderoteId],
+    );
+    const cantidad = fila.rows.length ? fila.rows[0].farycoins : 0;
+    if (cantidad > 0) await this.pool.query("UPDATE tenderete_caja SET farycoins = 0 WHERE tenderete_id = $1", [tenderoteId]);
+    return cantidad;
   }
 
   async sumarStockTenderete(tenderoteId: string, itemId: string, cantidad: number, precioInicial: number): Promise<void> {
@@ -5221,6 +5380,24 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async listarEdificiosGeneradosDeCreador(creadorId: number): Promise<EdificioGenerado[]> {
     const r = await this.pool.query("SELECT * FROM edificios_generados WHERE creador_id = $1", [creadorId]);
     return r.rows.map(filaAEdificioGenerado);
+  }
+
+  async crearLibroGenerado(l: Omit<LibroGenerado, "id" | "creadoEn">): Promise<LibroGenerado> {
+    const creadoEn = new Date().toISOString();
+    const r = await this.pool.query<{ id: number }>(
+      "INSERT INTO libros_generados (autor_id, titulo, paginas, creado_en) VALUES ($1, $2, $3, $4) RETURNING id",
+      [l.autorId, l.titulo, JSON.stringify(l.paginas), creadoEn],
+    );
+    return { id: r.rows[0].id, creadoEn, ...l };
+  }
+
+  async obtenerLibroGenerado(id: number): Promise<LibroGenerado | null> {
+    const r = await this.pool.query("SELECT * FROM libros_generados WHERE id = $1", [id]);
+    return r.rows[0] ? filaALibroGenerado(r.rows[0]) : null;
+  }
+
+  async actualizarLibroGenerado(id: number, titulo: string, paginas: string[]): Promise<void> {
+    await this.pool.query("UPDATE libros_generados SET titulo = $1, paginas = $2 WHERE id = $3", [titulo, JSON.stringify(paginas), id]);
   }
 
   async cerrar(): Promise<void> {

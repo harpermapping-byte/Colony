@@ -16,18 +16,23 @@ import itemsJson from "../../../items/catalogo/items.json";
 
 interface EntradaItem {
   nombre?: string;
+  tipo?: string;
 }
 const ITEMS = itemsJson as unknown as Record<string, EntradaItem>;
 
-interface ItemCofre {
+export interface ItemCofre {
   id: number;
   itemId: string;
   cantidad: number;
+  /** docs/GDD_Libreria.md — 0/ausente = libro de catálogo (o ni siquiera es un libro); >0 = libro escrito por un jugador, ver panelLibro.ts. */
+  libroGeneradoId?: number;
 }
 
 export interface OpcionesPanelCofre {
   contenedor: HTMLElement;
   sacar(construccionId: number, instanciaId: number): void;
+  /** docs/GDD_Libreria.md (pedido 2026-09-01) — opcional: solo se ofrece el botón "Leer" en filas con `tipo:"libro"` si esta opción está presente (una librería la pasa, un cofre normal no). */
+  leer?(item: ItemCofre): void;
 }
 
 export class PanelCofre {
@@ -101,6 +106,12 @@ export class PanelCofre {
       const etiqueta = document.createElement("span");
       etiqueta.textContent = `${ITEMS[it.itemId]?.nombre ?? it.itemId} x${it.cantidad}`;
       fila.appendChild(etiqueta);
+      if (this.opciones.leer && ITEMS[it.itemId]?.tipo === "libro") {
+        const btnLeer = document.createElement("button");
+        btnLeer.textContent = "Leer";
+        btnLeer.onclick = () => this.opciones.leer!(it);
+        fila.appendChild(btnLeer);
+      }
       const btn = document.createElement("button");
       btn.textContent = "Sacar";
       btn.onclick = () => this.opciones.sacar(this.idAbierto!, it.id);

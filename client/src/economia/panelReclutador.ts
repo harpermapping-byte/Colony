@@ -30,12 +30,17 @@ for (const [id, receta] of Object.entries(RECETAS)) {
 
 /** Oficio de trabajador exclusivo para operar rutas (docs/GDD_NPCs_Contratables.md §Fusión con transporte) — nunca en OFICIOS_JUGADOR_VALIDOS del servidor, pero el catálogo del reclutador lo incluye igual que los 10 de mesa. */
 const OFICIO_TRANSPORTE = "transporte";
+/** Oficio de trabajador exclusivo del tenderete de mercado (docs/GDD_Mercado.md §12) — se plancha en un `puesto_mercado_jugador` con `asignarMesa`, sin receta. Más barato EN SOLITARIO que cualquier otro oficio (ver costeTenderoSolo/salarioTenderoSolo del catálogo). */
+const OFICIO_TENDERO = "tendero";
 
 export interface CatalogoReclutadorVista {
   oficios: string[];
   costePorCantidad: number[]; // costePorCantidad[i] = coste de contratar con (i+1) oficios
   salarioBasePorOficioMes: number;
   diasPorMesTrabajador: number;
+  /** Mercado v2 (docs/GDD_Mercado.md §12) — coste/salario reales cuando la selección es EXACTAMENTE ["tendero"] (más barato que costePorCantidad[0]). */
+  costeTenderoSolo: number;
+  salarioTenderoSolo: number;
 }
 
 export interface TrabajadorVista {
@@ -158,8 +163,14 @@ export class PanelReclutador {
     this.render();
   }
 
+  /** `true` si la selección actual es EXACTAMENTE un tendero en solitario (docs/GDD_Mercado.md §12) — el único caso con coste/salario propio, distinto de la fórmula genérica por cantidad. */
+  private esTenderoSolo(): boolean {
+    return this.seleccion.size === 1 && this.seleccion.has(OFICIO_TENDERO);
+  }
+
   private costeActual(): number {
     if (!this.catalogo || this.seleccion.size === 0) return 0;
+    if (this.esTenderoSolo()) return this.catalogo.costeTenderoSolo;
     return this.catalogo.costePorCantidad[this.seleccion.size - 1] ?? 0;
   }
 
@@ -173,6 +184,7 @@ export class PanelReclutador {
   }
 
   private salarioMensual(t: TrabajadorVista): number {
+    if (t.oficios.length === 1 && t.oficios[0] === OFICIO_TENDERO) return this.catalogo?.salarioTenderoSolo ?? 8;
     return (this.catalogo?.salarioBasePorOficioMes ?? 15) * Math.max(1, t.oficios.length);
   }
 
@@ -232,7 +244,9 @@ export class PanelReclutador {
     const lineaSalario = document.createElement("div");
     lineaSalario.style.opacity = "0.8";
     lineaSalario.style.fontSize = "11px";
-    const salarioEstim = this.catalogo.salarioBasePorOficioMes * Math.max(1, this.seleccion.size);
+    const salarioEstim = this.esTenderoSolo()
+      ? this.catalogo.salarioTenderoSolo
+      : this.catalogo.salarioBasePorOficioMes * Math.max(1, this.seleccion.size);
     lineaSalario.textContent = this.seleccion.size > 0
       ? `Salario mensual una vez contratado: ${salarioEstim} Farycoins/mes`
       : "";

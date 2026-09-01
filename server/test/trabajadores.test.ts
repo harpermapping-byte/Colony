@@ -7,13 +7,18 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import {
   costeContratacionTrabajador,
+  costeContratarOficios,
   salarioMensualTrabajador,
+  salarioMensualDeOficios,
   oficiosValidos,
   puedeOperarOficio,
   resolverPayroll,
   DIAS_POR_MES_TRABAJADOR,
   COSTE_BASE_OFICIO_TRABAJADOR,
+  COSTE_TENDERO_SOLO,
+  SALARIO_TENDERO_SOLO,
   OFICIO_TRANSPORTE,
+  OFICIO_TENDERO,
   OFICIOS_TRABAJADOR_VALIDOS,
 } from "../src/construccion/trabajadores";
 import { OFICIOS_JUGADOR_VALIDOS } from "../src/personaje/oficios";
@@ -43,6 +48,34 @@ test("oficiosValidos: rechaza vacío, duplicados y oficios fuera del catálogo c
 test("puedeOperarOficio: solo con el oficio de la receta entre los suyos", () => {
   assert.strictEqual(puedeOperarOficio(["herrero", "cocinero"], "herrero"), true);
   assert.strictEqual(puedeOperarOficio(["herrero", "cocinero"], "joyero"), false);
+});
+
+// --- tendero (docs/GDD_Mercado.md §12, pedido posterior a v1: "el costo de este NPC es menor que el resto") ---
+
+test("OFICIO_TENDERO está en OFICIOS_TRABAJADOR_VALIDOS pero NO en OFICIOS_JUGADOR_VALIDOS (mismo criterio que transporte)", () => {
+  assert.ok(OFICIOS_TRABAJADOR_VALIDOS.has(OFICIO_TENDERO));
+  assert.ok(!OFICIOS_JUGADOR_VALIDOS.has(OFICIO_TENDERO));
+});
+
+test("costeContratarOficios: un tendero EN SOLITARIO cuesta menos que 1 oficio normal; combinado con otro oficio no hay descuento", () => {
+  assert.strictEqual(costeContratarOficios([OFICIO_TENDERO]), COSTE_TENDERO_SOLO);
+  assert.ok(COSTE_TENDERO_SOLO < costeContratacionTrabajador(1));
+  assert.strictEqual(costeContratarOficios(["herrero"]), costeContratacionTrabajador(1));
+  assert.strictEqual(costeContratarOficios([OFICIO_TENDERO, "herrero"]), costeContratacionTrabajador(2));
+});
+
+test("salarioMensualDeOficios: mismo descuento de tendero-solo aplicado al salario mensual", () => {
+  assert.strictEqual(salarioMensualDeOficios([OFICIO_TENDERO]), SALARIO_TENDERO_SOLO);
+  assert.ok(SALARIO_TENDERO_SOLO < salarioMensualTrabajador(1));
+  assert.strictEqual(salarioMensualDeOficios(["carpintero"]), salarioMensualTrabajador(1));
+});
+
+test("resolverPayroll cobra/despide a un tendero-solo por el salario reducido, no por el genérico", () => {
+  const trabajadores = [{ id: 1, oficios: [OFICIO_TENDERO], fechaContratacionDia: 0, ultimoPagoDia: 0 }];
+  const r = resolverPayroll(trabajadores, DIAS_POR_MES_TRABAJADOR, SALARIO_TENDERO_SOLO);
+  assert.strictEqual(r.tocaPagar, true);
+  assert.strictEqual(r.costeTotal, SALARIO_TENDERO_SOLO);
+  assert.strictEqual(r.aDespedir.length, 0);
 });
 
 // --- salario y payroll ---

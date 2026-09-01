@@ -131,8 +131,9 @@ import {
 } from "../../personaje/oficios";
 import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente, npcTrabajadorAAgente } from "../../mundo/npcsFijos";
 import {
-  costeContratacionTrabajador, oficiosValidos, puedeOperarOficio, salarioMensualTrabajador,
-  resolverPayroll, TrabajadorParaPago, DIAS_POR_MES_TRABAJADOR, OFICIOS_TRABAJADOR_VALIDOS, OFICIO_TRANSPORTE,
+  costeContratacionTrabajador, costeContratarOficios, oficiosValidos, puedeOperarOficio, salarioMensualTrabajador,
+  resolverPayroll, TrabajadorParaPago, DIAS_POR_MES_TRABAJADOR, OFICIOS_TRABAJADOR_VALIDOS, OFICIO_TRANSPORTE, OFICIO_TENDERO,
+  COSTE_TENDERO_SOLO, SALARIO_TENDERO_SOLO,
 } from "../../construccion/trabajadores";
 import { contenedoresTestDeMapa } from "../../mundo/contenedoresTest";
 import { nombrePoliticoDeterminista } from "../../personaje/nombresNpc";
@@ -293,6 +294,15 @@ const INTERVALO_TICK_TRABAJADOR_MS = 10_000;
 const CARGA_POR_VIAJE_TRANSPORTE = 10;
 const PRECIO_INICIAL_TRANSPORTE_FARYCOINS = 1; // precio de salida al entregar un ítem nunca antes vendido ahí — el dueño lo ajusta con tenderete:fijarPrecio
 const PREFIJO_DESTINO_COFRE = "cofre:";
+/** Mercado v2 (docs/GDD_Mercado.md §12) — id del mueble 2x1 (interiores/catalogo/elementos.json) que hace de tenderete de mercado; mismo criterio "id hardcodeado" que telar/banco_carpintero/mesa_ajedrez para un objeto singular con interacción propia. */
+const ID_PUESTO_MERCADO_JUGADOR = "puesto_mercado_jugador";
+/** Librería (docs/GDD_Libreria.md) — el ÚNICO itemId que puede escribirse; ya escrito, sigue siendo este mismo itemId (el contenido real vive en libros_generados, enlazado por libroGeneradoId). */
+const ID_LIBRO_EN_BLANCO_JUGADOR = "libro_en_blanco_jugador";
+/** Herramienta de escritura ya existente en el catálogo (oficio curandero, tier1) — reusada tal cual, sin inventar un ítem "pluma y tinta" nuevo. No se consume: es una herramienta, no un material fungible. */
+const ITEM_PLUMA_ESCRITURA = "pluma_tintero";
+const MAX_PAGINAS_LIBRO_JUGADOR = 20;
+const MAX_CARACTERES_POR_PAGINA_LIBRO = 2000;
+const MAX_CARACTERES_TITULO_LIBRO = 80;
 
 /** docs/GDD_Produccion.md §3ter — id de construcción si `destino` es un cofre ("cofre:<id>"), null si es una propiedadId de tenderete normal. */
 function idDeCofre(destino: string): number | null {
@@ -301,8 +311,17 @@ function idDeCofre(destino: string): number | null {
   return Number.isFinite(id) ? id : null;
 }
 
-/** Tamaño real del contenedor de un cofre — `almacenamientoCofre` ya viene precalculado en el catálogo (raíz cuadrada de `aportes.almacenamiento`); 3x3 de reserva si el catálogo no lo trae por lo que sea. */
+/**
+ * Tamaño real del contenedor de un `esContenedor` — normalmente un cofre
+ * cuadrado (`almacenamientoCofre` ya viene precalculado en el catálogo,
+ * raíz cuadrada de `aportes.almacenamiento`; 3x3 de reserva si falta).
+ * Una librería (docs/GDD_Libreria.md) es distinta a propósito: en vez de un
+ * cuadrado aproximado, `capacidad × 1` da el número EXACTO de libros que
+ * caben (cada libro `huella:[1,1]`) — "da igual el peso, entran N libros"
+ * es literal porque la rejilla nunca mira peso, solo casillas.
+ */
 function capacidadCofre(entrada: EntradaConstruible | undefined): [number, number] {
+  if (entrada?.libreria) return [entrada.libreria.capacidad, 1];
   const lado = entrada?.almacenamientoCofre ?? 3;
   return [lado, lado];
 }
@@ -998,6 +1017,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("tenderete:reponer", (client, msg: { tenderoteId?: string; instanciaId?: number; cantidad?: number; precioFarycoins?: number }) => this.manejarTenderoteReponer(client, msg));
     this.onMessage("tenderete:fijarPrecio", (client, msg: { tenderoteId?: string; itemId?: string; precioFarycoins?: number }) => this.manejarTenderoteFijarPrecio(client, msg));
     this.onMessage("tenderete:comprar", (client, msg: { tenderoteId?: string; itemId?: string; cantidad?: number }) => this.manejarTenderoteComprar(client, msg));
+    // Mercado v2 (docs/GDD_Mercado.md §12): las ganancias de venta se acumulan en la caja del tenderete, el dueño las recoge cuando quiera.
+    this.onMessage("tenderete:recogerGanancias", (client, msg: { tenderoteId?: string }) => void this.manejarTenderoteRecogerGanancias(client, msg));
     // Venta de animales de granja (docs/GDD_Ganaderia.md) — mismo tenderete, categoría paralela a items (sin cantidad: un animal es una instancia entera).
     this.onMessage("tenderete:listarAnimal", (client, msg: { tenderoteId?: string; animalId?: string; precioFarycoins?: number }) => void this.manejarTenderoteListarAnimal(client, msg));
     this.onMessage("tenderete:quitarAnimalListado", (client, msg: { animalId?: string }) => void this.manejarTenderoteQuitarAnimalListado(client, msg));
@@ -1102,6 +1123,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("cofre:consultar", (client, msg: { construccionId?: number }) => void this.manejarCofreConsultar(client, msg));
     this.onMessage("cofre:meterItem", (client, msg: { construccionId?: number; instanciaId?: number }) => void this.manejarCofreMeterItem(client, msg));
     this.onMessage("cofre:sacarItem", (client, msg: { construccionId?: number; instanciaId?: number }) => void this.manejarCofreSacarItem(client, msg));
+    // Librería (docs/GDD_Libreria.md, pedido 2026-09-01): la estantería en sí
+    // reusa el protocolo cofre:* de arriba TAL CUAL (esContenedor:true) —
+    // estos dos mensajes son solo lo NUEVO: escribir y leer libros.
+    this.onMessage("libro:escribir", (client, msg: { instanciaId?: number; titulo?: string; paginas?: string[] }) => void this.manejarLibroEscribir(client, msg));
+    this.onMessage("libro:leerGenerado", (client, msg: { libroGeneradoId?: number }) => void this.manejarLibroLeerGenerado(client, msg));
 
     // --- red motriz (docs/GDD_Motriz.md) — mismo criterio: disponible en
     // cualquier room con ContextoConstruccion, no-op si no lo hay.
@@ -5052,7 +5078,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return prop?.dueno ?? null;
   }
 
-  /** Público — cualquiera puede pedirlo. Cantidad exacta NUNCA viaja aquí (solo disponible:bool) — lo detallado es privado (gestion). */
+  /**
+   * Mercado v2 (docs/GDD_Mercado.md §12, pedido posterior a v1): la parte
+   * PÚBLICA de un tenderete (escaparate/comprar) exige que la propiedad
+   * tenga un mueble `puesto_mercado_jugador` colocado CON un trabajador de
+   * oficio "tendero" asignado a él — "para que esta tienda funcione deben
+   * contratar a un tendero" (pedido literal). Gestión (reponer/fijarPrecio/
+   * recogerGanancias) NO lo exige: el dueño puede montar/surtir la tienda
+   * antes de contratar a nadie. `this.trabajadoresActivos` ya está en
+   * memoria (mismo caché que usa el tick de crafteo), sin ida a BD.
+   */
+  private tieneTenderoOperando(propiedadId: string): boolean {
+    for (const t of this.trabajadoresActivos.values()) {
+      if (!t.oficios.includes(OFICIO_TENDERO) || t.construccionId == null) continue;
+      const viva = this.ctxConstruccion?.vivas.get(t.construccionId);
+      if (viva && viva.objeto === ID_PUESTO_MERCADO_JUGADOR && viva.propiedad === propiedadId) return true;
+    }
+    return false;
+  }
+
+  /** Público — cualquiera puede pedirlo. Cantidad exacta NUNCA viaja aquí (solo disponible:bool) — lo detallado es privado (gestion). Incluye `tendero` (docs/GDD_Mercado.md §12): el cliente puede mostrar "cerrado, sin tendero" sin que sea un error duro — el error duro llega al intentar comprar de verdad. */
   private async manejarTenderoteEscaparate(client: Client, msg: { tenderoteId?: string }) {
     if (!msg?.tenderoteId) return;
     await this.resolverContratosDeDestino(msg.tenderoteId);
@@ -5061,12 +5106,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const animales = await bd.listarAnimalesEnVentaTenderete(msg.tenderoteId);
     client.send("tenderete:escaparate", {
       tenderoteId: msg.tenderoteId,
+      tendero: this.tieneTenderoOperando(msg.tenderoteId),
       items: stock.map((s) => ({ itemId: s.itemId, precioFarycoins: s.precioFarycoins, disponible: s.cantidad > 0 })),
       animales: animales.map((a) => ({ animalId: a.id, especieId: a.especieId, precioFarycoins: a.enVentaPrecio ?? 0 })),
     });
   }
 
-  /** Privado — solo dueño o jarl: cantidades EXACTAS ("solo lo ve el dueño y el admin", pedido explícito). */
+  /** Privado — solo dueño o jarl: cantidades EXACTAS ("solo lo ve el dueño y el admin", pedido explícito). Incluye `cajaFarycoins` (docs/GDD_Mercado.md §12): ganancias de venta acumuladas sin recoger. */
   private async manejarTenderoteGestion(client: Client, msg: { tenderoteId?: string }) {
     const nombre = this.nombreDe(client);
     if (!nombre || !msg?.tenderoteId) return;
@@ -5078,9 +5124,29 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     client.send("tenderete:gestion", {
       tenderoteId: msg.tenderoteId,
+      tendero: this.tieneTenderoOperando(msg.tenderoteId),
+      cajaFarycoins: await bd.obtenerCajaTenderete(msg.tenderoteId),
       items: await bd.listarStockTenderete(msg.tenderoteId),
       animales: await bd.listarAnimalesEnVentaTenderete(msg.tenderoteId),
     });
+  }
+
+  /** Recoge la caja de ganancias acumuladas — solo dueño (docs/GDD_Mercado.md §12, "botón de recoger ganancias"). No exige tendero: el dueño puede recoger lo ya vendido aunque haya despedido al tendero después. */
+  private async manejarTenderoteRecogerGanancias(client: Client, msg: { tenderoteId?: string }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !msg?.tenderoteId) return;
+    const dueno = await this.duenoDeTenderete(msg.tenderoteId);
+    if (!dueno || dueno.toLowerCase() !== nombre.toLowerCase()) {
+      return this.errorTenderete(client, "no eres el dueño de este tenderete");
+    }
+    const bd = await obtenerBdCompartida();
+    const cobrado = await bd.recogerCajaTenderete(msg.tenderoteId);
+    let saldoRestante: number | null = null;
+    if (cobrado > 0) {
+      const jugador = await bd.obtenerOCrearJugador(nombre);
+      saldoRestante = (await bd.ajustarFarycoins(jugador.id, cobrado)).saldo;
+    }
+    client.send("tenderete:gananciasRecogidas", { tenderoteId: msg.tenderoteId, farycoins: cobrado, saldoRestante });
   }
 
   /**
@@ -5162,6 +5228,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const dueno = await this.duenoDeTenderete(msg.tenderoteId);
     if (!dueno) return this.errorTenderete(client, "este tenderete no tiene dueño");
     if (dueno.toLowerCase() === nombre.toLowerCase()) return this.errorTenderete(client, "no puedes comprarte a ti mismo");
+    // Mercado v2 (docs/GDD_Mercado.md §12): sin un tendero contratado y
+    // plantado en el puesto, la tienda está "cerrada" — no se puede comprar.
+    if (!this.tieneTenderoOperando(msg.tenderoteId)) {
+      return this.errorTenderete(client, "este tenderete no tiene tendero contratado, la tienda está cerrada");
+    }
 
     const bd = await obtenerBdCompartida();
     // Carisma (docs/GDD_Personaje.md §3.3, Comercio fusionado dentro):
@@ -5173,7 +5244,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // el precio (corralito), positivo lo baja más (oferta). Mismo parámetro
     // `descuento` de comprarDeTenderete, ahora también admite negativos.
     const descuento = descuentoComercio(compradorPlayer?.atributos.carisma ?? 1) + this.modificadorPrecioEventoTwitch;
-    const r = await bd.comprarDeTenderete({ tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: dueno, descuento });
+    const r = await bd.comprarDeTenderete({ tenderoteId: msg.tenderoteId, itemId: msg.itemId, cantidad, compradorNombre: nombre, duenoNombre: dueno, descuento, abonarACaja: true });
     if (!r.ok) return this.errorTenderete(client, r.motivo);
 
     const contenedor = this.inventarios.get(client.sessionId);
@@ -7122,6 +7193,65 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("cofre:estado", { construccionId: viva.id, ancho: contenedor.ancho, alto: contenedor.alto, items: contenedor.items });
   }
 
+  private errorLibro(client: Client, motivo: string) {
+    client.send("libro:error", { motivo });
+  }
+
+  /**
+   * Escribe (o reescribe) un `libro_en_blanco_jugador` del CUERPO del
+   * jugador — mismo patrón "blueprint por instancia" que el sastre/carpintero
+   * legendarios (docs/GDD_Libreria.md, pedido 2026-09-01), pero SIN
+   * cooldown ni mesa: solo hace falta tener el libro y una pluma_tintero
+   * encima (no se consume, es herramienta). Reescribir un libro YA escrito
+   * solo lo permite su propio autor — un libro comprado/encontrado de otro
+   * jugador se puede LEER (§ siguiente) pero no pisar su contenido.
+   */
+  private async manejarLibroEscribir(client: Client, msg: { instanciaId?: number; titulo?: string; paginas?: string[] }) {
+    const nombre = this.nombreDe(client);
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!nombre || !inv || typeof msg?.instanciaId !== "number") return;
+    const titulo = (msg.titulo ?? "").trim().slice(0, MAX_CARACTERES_TITULO_LIBRO);
+    if (!titulo) return this.errorLibro(client, "el libro necesita un título");
+    const paginas = Array.isArray(msg.paginas) ? msg.paginas.map((p) => String(p).slice(0, MAX_CARACTERES_POR_PAGINA_LIBRO)).filter((p) => p.length > 0) : [];
+    if (paginas.length === 0) return this.errorLibro(client, "el libro necesita al menos una página");
+    if (paginas.length > MAX_PAGINAS_LIBRO_JUGADOR) return this.errorLibro(client, `máximo ${MAX_PAGINAS_LIBRO_JUGADOR} páginas`);
+
+    const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaId);
+    if (!it || it.itemId !== ID_LIBRO_EN_BLANCO_JUGADOR) return this.errorLibro(client, "eso no es un libro en blanco");
+    if (!inv.cuerpo.items.some((i) => i.itemId === ITEM_PLUMA_ESCRITURA)) {
+      return this.errorLibro(client, "necesitas una pluma_tintero para escribir");
+    }
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+
+    if (it.libroGeneradoId) {
+      const existente = await bd.obtenerLibroGenerado(it.libroGeneradoId);
+      if (!existente || existente.autorId !== jugador.id) {
+        return this.errorLibro(client, "no puedes reescribir el libro de otro jugador");
+      }
+      await bd.actualizarLibroGenerado(it.libroGeneradoId, titulo, paginas);
+      client.send("libro:escrito", { instanciaId: it.id, libroGeneradoId: it.libroGeneradoId, titulo, paginas });
+      return;
+    }
+
+    const nuevo = await bd.crearLibroGenerado({ autorId: jugador.id, titulo, paginas });
+    it.libroGeneradoId = nuevo.id;
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    this.persistirInventarioPorSesion(client);
+    client.send("libro:escrito", { instanciaId: it.id, libroGeneradoId: nuevo.id, titulo, paginas });
+  }
+
+  /** Lee un libro YA escrito por un jugador — cualquiera (encontrarlo/comprarlo también es "tenerlo para leer"), sin gating de dueño (docs/GDD_Libreria.md). Los libros de catálogo (oficio/mecánica/lore, texto fijo) no pasan por aquí — el cliente los lee directo de items/catalogo/librosContenido.json, sin ida y vuelta al servidor. */
+  private async manejarLibroLeerGenerado(client: Client, msg: { libroGeneradoId?: number }) {
+    if (typeof msg?.libroGeneradoId !== "number") return;
+    const bd = await obtenerBdCompartida();
+    const libro = await bd.obtenerLibroGenerado(msg.libroGeneradoId);
+    if (!libro) return this.errorLibro(client, "ese libro no existe");
+    client.send("libro:leido", { libroGeneradoId: libro.id, titulo: libro.titulo, paginas: libro.paginas });
+  }
+
   // ---- Red motriz (docs/GDD_Motriz.md) ----
   // Sin tabla ni tick nuevos: el BFS de potencia (potenciaDisponibleEnCasillas,
   // construccion/energia.ts) recorre `ctxConstruccion.ocupacion`, que ya
@@ -7468,6 +7598,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // estimar "próximo pago" a partir de ultimoPagoDia sin duplicar la
       // constante (docs/GDD_NPCs_Contratables.md §8).
       diasPorMesTrabajador: DIAS_POR_MES_TRABAJADOR,
+      // Mercado v2 (docs/GDD_Mercado.md §12): tendero EN SOLITARIO cuesta
+      // menos que costePorCantidad[0] — el panel lo necesita para no mostrar
+      // el coste genérico de 1 oficio cuando el jugador elige solo "tendero".
+      costeTenderoSolo: COSTE_TENDERO_SOLO,
+      salarioTenderoSolo: SALARIO_TENDERO_SOLO,
     });
   }
 
@@ -7480,7 +7615,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!reclutador) return this.errorTrabajador(client, "no hay ningún reclutador cerca");
     if (!oficiosValidos(msg.oficios)) return this.errorTrabajador(client, "lista de oficios inválida");
 
-    const coste = costeContratacionTrabajador(msg.oficios.length);
+    const coste = costeContratarOficios(msg.oficios);
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const debito = await bd.ajustarFarycoins(jugador.id, -coste);

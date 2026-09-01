@@ -164,6 +164,17 @@ export interface EntradaConstruible {
    */
   esContenedor?: boolean;
   almacenamientoCofre?: number;
+  /**
+   * Librería (docs/GDD_Libreria.md, pedido 2026-09-01) — presente en
+   * libreria_baja/alta/doble: mueble `esContenedor:true` (reusa TAL CUAL el
+   * protocolo cofre:consultar/meterItem/sacarItem, cero mensajes nuevos)
+   * cuya rejilla no sale de `aportes.almacenamiento` como un cofre normal —
+   * `capacidad` es un hueco EXACTO de `capacidad × 1` casillas (cada libro
+   * `huella:[1,1]`), así "da igual el peso, entran N libros" es literal:
+   * la rejilla nunca mira peso, solo casillas (ver `capacidadCofre` en
+   * RoomExteriorBase.ts).
+   */
+  libreria?: { capacidad: number };
 }
 
 export interface EntradaActividadAtributo {
@@ -224,6 +235,8 @@ interface EntradaElemento {
   /** docs/GDD_Produccion.md §3ter — mueble de almacenamiento (baúl/arcón/armario...). `aportes.almacenamiento` ya existía en el catálogo (puntuación de decoración, `interiores/`) — se reusa como pista de tamaño real del contenedor. */
   esContenedor?: boolean;
   aportes?: { almacenamiento?: number };
+  /** docs/GDD_Libreria.md — presente en libreria_baja/alta/doble, siempre junto a esContenedor:true. */
+  libreria?: { capacidad: number };
   /**
    * Corrección real (docs/GDD_Mesas_Minijuego.md, 2026-08-30): este campo
    * YA existía en `elementos.json` (silla_pino/silla_roble/silla_nogal_
@@ -304,6 +317,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       instrumento: d.instrumento,
       esContenedor: d.esContenedor,
       almacenamientoCofre: d.esContenedor ? Math.max(2, Math.round(Math.sqrt(d.aportes?.almacenamiento ?? 9))) : undefined,
+      libreria: d.libreria,
       requiereItemColocar: d.requiereItemColocar,
     });
   }

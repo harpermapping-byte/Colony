@@ -31,6 +31,64 @@
     "tiempoBaseSeg": 25,
     "_nota": "tier2 (acero) + otra familia (madera_dura) en la misma receta — mismo caso que una espada real pediría metal+empuñadura."
   },
+  "puesto_mercado_jugador_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 3 },
+      { "itemId": "madera_blanda", "cantidad": 2 },
+      { "itemId": "tela_hilada", "cantidad": 2 }
+    ],
+    "resultado": { "itemId": "puesto_mercado_jugador", "cantidad": 1 },
+    "tiempoBaseSeg": 25,
+    "_nota": "docs/GDD_Mercado.md §12 (pedido posterior a v1) — mueble 2x1 que se coloca como tenderete de mercado (requiereItemColocar en elementos.json); la tela es el tejadillo de colores del puesto."
+  },
+  "libreria_baja_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_blanda", "cantidad": 4 }],
+    "resultado": { "itemId": "libreria_baja", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Libreria.md — estantería 1x1, capacidad 20 libros (requiereItemColocar en elementos.json)."
+  },
+  "libreria_alta_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 3 },
+      { "itemId": "madera_blanda", "cantidad": 2 }
+    ],
+    "resultado": { "itemId": "libreria_alta", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Libreria.md — estantería 1x1 hasta el techo, capacidad 40 libros (requiereItemColocar en elementos.json)."
+  },
+  "libreria_doble_craft": {
+    "oficio": "carpintero",
+    "mesas": ["mesa_ensamblaje"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 5 },
+      { "itemId": "lingote_hierro", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "libreria_doble", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Libreria.md — estantería 2x1, la más grande del catálogo, capacidad 50 libros (requiereItemColocar en elementos.json)."
+  },
+  "libro_en_blanco_jugador_craft": {
+    "oficio": "curandero",
+    "mesas": ["estacion_boticario"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "pergamino", "cantidad": 3 },
+      { "itemId": "cuero_curtido", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "libro_en_blanco_jugador", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Libreria.md (pedido 2026-09-01) — blueprint de libro en blanco, oficio curandero elegido por encajar con las herramientas de escritura ya existentes del catálogo (pluma_tintero/pluma_oro_retorta, escritorio_escriba/scriptorium_alquimico). Se escribe después con \"libro:escribir\" usando pluma_tintero — el texto NO sale de esta receta."
+  },
   "hacha_talar_reforzada": {
     "oficio": "carpintero",
     "mesas": ["banco_carpintero"],
