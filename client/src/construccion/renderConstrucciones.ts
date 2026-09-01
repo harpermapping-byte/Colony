@@ -154,6 +154,11 @@ export class RenderConstrucciones {
     return cocina ? { id, cocina } : null;
   }
 
+  /** Cualquier construcción viva más cercana, sin filtrar por objeto — usado por el panel del reclutador (docs/GDD_NPCs_Contratables.md) para "asignar la mesa a la que estoy pegado" sin que el jugador tenga que escribir un id a mano. */
+  masCercanaCualquiera(x: number, y: number, radio: number): number | null {
+    return this.masCercanaDeObjeto(() => true, x, y, radio);
+  }
+
   private masCercanaDeObjeto(filtro: (datos: ConstruccionRed) => boolean, x: number, y: number, radio: number): number | null {
     let mejorId: number | null = null;
     let mejorDist = radio;
