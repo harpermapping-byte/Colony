@@ -586,6 +586,28 @@ export interface ConjuntoTiro {
 }
 
 /**
+ * Casilla de cultivo a CAMPO ABIERTO (docs/GDD_Carros.md §9.1, Fase 3,
+ * pedido 2026-09-03) — agricultura DIRECTA sobre suelo abierto, en paralelo
+ * a la de construcción (`bancal_cultivo`, sin tocar). A diferencia de un
+ * recolectable silvestre (mundo/recolectables.ts, sin BD, cálculo
+ * perezoso), una casilla labrada/sembrada SÍ se persiste — un jugador no
+ * puede perder días de trabajo si la room se reinicia. `idxCasilla` es
+ * `Math.floor(y) * anchoMapa + Math.floor(x)` (misma convención de índice
+ * global que el resto del proyecto).
+ */
+export interface CasillaCultivo {
+  mapaId: string;
+  idxCasilla: number;
+  x: number;
+  y: number;
+  duenoId: number;
+  estado: "labrada" | "sembrada";
+  semillaId: string | null;
+  /** tiempoMundo().dia en que se plantó — solo con estado "sembrada". */
+  diaPlantado: number | null;
+}
+
+/**
  * Especie híbrida creada por injerto (docs/GDD_Agricultura.md §4, diseño
  * ya cerrado en Backlog_Mecanicas_Futuras.md) — permanente, sobrevive a un
  * reinicio del servidor. `semillaId`/`cosechaId` son los itemId sintéticos
@@ -1030,6 +1052,11 @@ export interface IAlmacenDatos {
   actualizarContenidoConjuntoTiro(id: number, contenido: ContenidoCarro | null): Promise<void>;
   /** carro:desenganchar — separa de vuelta en un Carro aparcado + la mascota vuelve a "siguiendo" (RoomExteriorBase recrea ambos, esto solo borra la fusión). */
   eliminarConjuntoTiro(id: number): Promise<void>;
+  // Agricultura de casilla (docs/GDD_Carros.md §9.1, Fase 3, pedido 2026-09-03) — cultivoCasilla:labrar/plantar/cosechar.
+  /** Upsert por (mapaId, idxCasilla) — labrar/plantar/cosechar llaman a esto en cada transición de estado. */
+  guardarCasillaCultivo(c: CasillaCultivo): Promise<void>;
+  /** Todas las casillas de cultivo de ESE mapa — iniciarConstruccion las carga a la caché de proceso (cultivoCasillaVivo.ts) la PRIMERA vez que se visita. */
+  listarCasillasCultivoDe(mapaId: string): Promise<CasillaCultivo[]>;
   // Flags globales (docs/GDD_PvP.md, pedido 2026-08-30) — tabla genérica de un solo valor por clave.
   obtenerConfigMundo(clave: string): Promise<string | null>;
   fijarConfigMundo(clave: string, valor: string): Promise<void>;
@@ -1351,6 +1378,24 @@ CREATE TABLE IF NOT EXISTS conjuntos_tiro (
   y REAL NOT NULL,
   creado_en TEXT NOT NULL,
   contenido TEXT
+);
+-- Agricultura de casilla (docs/GDD_Carros.md §9.1, Fase 3, pedido
+-- 2026-09-03): campo abierto labrado/sembrado directamente sobre suelo,
+-- en paralelo a bancal_cultivo (construcción, sin tocar). idx_casilla es
+-- el índice global de casilla dentro de mapa_id (misma convención que el
+-- resto del proyecto) -- persistida porque un jugador no puede perder
+-- días de trabajo si la room se reinicia (a diferencia de un recolectable
+-- silvestre).
+CREATE TABLE IF NOT EXISTS casillas_cultivo (
+  mapa_id TEXT NOT NULL,
+  idx_casilla INTEGER NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  dueno_id INTEGER NOT NULL,
+  estado TEXT NOT NULL,
+  semilla_id TEXT,
+  dia_plantado INTEGER,
+  PRIMARY KEY (mapa_id, idx_casilla)
 );
 -- Flags globales de un solo valor (pedido 2026-08-30: PvP apagado por
 -- defecto, el jarl lo activa) — genérica a propósito, cualquier futuro
@@ -1826,6 +1871,17 @@ CREATE TABLE IF NOT EXISTS conjuntos_tiro (
   contenido TEXT
 );
 ALTER TABLE conjuntos_tiro ADD COLUMN IF NOT EXISTS contenido TEXT;
+CREATE TABLE IF NOT EXISTS casillas_cultivo (
+  mapa_id TEXT NOT NULL,
+  idx_casilla INTEGER NOT NULL,
+  x DOUBLE PRECISION NOT NULL,
+  y DOUBLE PRECISION NOT NULL,
+  dueno_id INTEGER NOT NULL,
+  estado TEXT NOT NULL,
+  semilla_id TEXT,
+  dia_plantado INTEGER,
+  PRIMARY KEY (mapa_id, idx_casilla)
+);
 CREATE TABLE IF NOT EXISTS configuracion_mundo (
   clave TEXT PRIMARY KEY,
   valor TEXT NOT NULL
@@ -2210,6 +2266,20 @@ function filaAConjuntoTiro(f: any): ConjuntoTiro {
     y: Number(f.y),
     creadoEn: String(f.creado_en),
     contenido: f.contenido == null ? null : (JSON.parse(String(f.contenido)) as ContenidoCarro),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaACasillaCultivo(f: any): CasillaCultivo {
+  return {
+    mapaId: String(f.mapa_id),
+    idxCasilla: Number(f.idx_casilla),
+    x: Number(f.x),
+    y: Number(f.y),
+    duenoId: Number(f.dueno_id),
+    estado: String(f.estado) as "labrada" | "sembrada",
+    semillaId: f.semilla_id === null || f.semilla_id === undefined ? null : String(f.semilla_id),
+    diaPlantado: f.dia_plantado === null || f.dia_plantado === undefined ? null : Number(f.dia_plantado),
   };
 }
 
@@ -3834,6 +3904,25 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     this.bd.prepare("DELETE FROM conjuntos_tiro WHERE id = ?").run(id);
   }
 
+  async guardarCasillaCultivo(c: CasillaCultivo): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO casillas_cultivo (mapa_id, idx_casilla, x, y, dueno_id, estado, semilla_id, dia_plantado)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(mapa_id, idx_casilla) DO UPDATE SET
+           x = excluded.x, y = excluded.y, dueno_id = excluded.dueno_id, estado = excluded.estado,
+           semilla_id = excluded.semilla_id, dia_plantado = excluded.dia_plantado`,
+      )
+      .run(c.mapaId, c.idxCasilla, c.x, c.y, c.duenoId, c.estado, c.semillaId, c.diaPlantado);
+  }
+
+  async listarCasillasCultivoDe(mapaId: string): Promise<CasillaCultivo[]> {
+    const filas = this.bd
+      .prepare("SELECT mapa_id, idx_casilla, x, y, dueno_id, estado, semilla_id, dia_plantado FROM casillas_cultivo WHERE mapa_id = ?")
+      .all(mapaId);
+    return filas.map(filaACasillaCultivo);
+  }
+
   async obtenerConfigMundo(clave: string): Promise<string | null> {
     const fila = this.bd.prepare("SELECT valor FROM configuracion_mundo WHERE clave = ?").get(clave);
     return fila ? String(fila.valor) : null;
@@ -5382,6 +5471,25 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async eliminarConjuntoTiro(id: number): Promise<void> {
     await this.pool.query("DELETE FROM conjuntos_tiro WHERE id = $1", [id]);
+  }
+
+  async guardarCasillaCultivo(c: CasillaCultivo): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO casillas_cultivo (mapa_id, idx_casilla, x, y, dueno_id, estado, semilla_id, dia_plantado)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (mapa_id, idx_casilla) DO UPDATE SET
+         x = EXCLUDED.x, y = EXCLUDED.y, dueno_id = EXCLUDED.dueno_id, estado = EXCLUDED.estado,
+         semilla_id = EXCLUDED.semilla_id, dia_plantado = EXCLUDED.dia_plantado`,
+      [c.mapaId, c.idxCasilla, c.x, c.y, c.duenoId, c.estado, c.semillaId, c.diaPlantado],
+    );
+  }
+
+  async listarCasillasCultivoDe(mapaId: string): Promise<CasillaCultivo[]> {
+    const r = await this.pool.query(
+      "SELECT mapa_id, idx_casilla, x, y, dueno_id, estado, semilla_id, dia_plantado FROM casillas_cultivo WHERE mapa_id = $1",
+      [mapaId],
+    );
+    return r.rows.map(filaACasillaCultivo);
   }
 
   async obtenerConfigMundo(clave: string): Promise<string | null> {

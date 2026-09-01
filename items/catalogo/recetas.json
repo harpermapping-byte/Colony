@@ -2520,6 +2520,18 @@
     "tiempoBaseSeg": 60,
     "_nota": "docs/GDD_Carros.md §8.5/§11/§14 Fase 2 (2026-09-04) — receta añadida en el mismo commit que carro:conectarManguera/verterLiquido (su mecanismo de servidor). Más hierro que madera (cuerpo metálico de la cisterna)."
   },
+  "azada_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_tocon"],
+    "nivelMinimo": 1,
+    "insumos": [
+      { "itemId": "lingote_hierro", "cantidad": 2 },
+      { "itemId": "madera_blanda", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "azada_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Carros.md §9.2/§14 Fase 3 (2026-09-04) — receta añadida en el mismo commit que cultivoCasilla:labrar (su mecanismo de servidor). Mango de madera_blanda + hoja de lingote_hierro, mismo criterio que el resto de herramientas herrero-carpintero."
+  },
   "cisterna_grande_craft": {
     "oficio": "ingeniero",
     "mesas": ["mesa_planos_ingenieria"],

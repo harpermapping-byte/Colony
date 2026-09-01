@@ -23,6 +23,8 @@ import {
 } from "../../mercado/catalogoMercaderes";
 import { esRecipienteLiquido, llenar, vaciar, tieneLiquido, consumirVolumen, transferirLiquido } from "../../inventario/liquidos";
 import { crearContenedorMuebles, meterMueble, sacarMueble } from "../../inventario/contenedorMuebles";
+import { EstadoCasillaCultivo, labrar as labrarCasilla, plantar as plantarCasilla, listaParaCosechar as listaParaCosecharCasilla, cosechar as cosecharCasilla } from "../../mundo/cultivoCasilla";
+import { casillasCultivoDeMapa } from "../../mundo/cultivoCasillaVivo";
 import { diaFraccional } from "../../mundo/reproduccionFauna";
 import { CombateSchema, CombateUnidad } from "../schema/CombateState";
 import { RosterArena, RetornoJugador, registrarRosterArena } from "../../combate/registroArenas";
@@ -71,9 +73,9 @@ import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincr
 import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
 import { CatalogoBarcos, cargarCatalogoBarcos } from "../../mundo/catalogoBarcos";
 import { CatalogoCarros, cargarCatalogoCarros } from "../../mundo/catalogoCarros";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, Carro as CarroFila, ConjuntoTiro as ConjuntoTiroFila, ContenidoCarro, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero, NpcTrabajador } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, Carro as CarroFila, ConjuntoTiro as ConjuntoTiroFila, ContenidoCarro, CasillaCultivo, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero, NpcTrabajador } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
-import { IndiceParcelas, runsDe } from "../../construccion/parcelas";
+import { IndiceParcelas, runsDe, parcelaEn } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
 import {
   ContextoConstruccion,
@@ -616,6 +618,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * namespaces numéricos independientes en BD.
    */
   protected contenidoCarroPorClave = new Map<string, ContenidoCarro>();
+
+  /**
+   * Agricultura de casilla (docs/GDD_Carros.md §9.1, Fase 3, pedido
+   * 2026-09-03) — el MISMO Map cacheado por proceso que devuelve
+   * `casillasCultivoDeMapa` (mundo/cultivoCasillaVivo.ts), reasignado en
+   * `iniciarConstruccion` una vez se conoce `mapaIdPropio`. Vacío en
+   * cualquier room sin construcción (arena/combate) — cero comportamiento
+   * ahí, mismo criterio que `ctxConstruccion` sin rellenar.
+   */
+  protected casillasCultivo = new Map<number, EstadoCasillaCultivo>();
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) ---
   // Solo InteriorRoom/DungeonRoom lo ponen a true (onCreate) — decide si
@@ -1247,6 +1259,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("carro:conectarManguera", (client, msg: { id?: number; tipo?: "carro" | "conjunto" }) => void this.manejarCarroConectarManguera(client, msg));
     this.onMessage("carro:desconectarManguera", (client, msg: { id?: number; tipo?: "carro" | "conjunto" }) => this.manejarCarroDesconectarManguera(client, msg));
     this.onMessage("carro:verterLiquido", (client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaIdDestino?: number }) => void this.manejarCarroVerterLiquido(client, msg));
+
+    // --- Agricultura de casilla (docs/GDD_Carros.md §9, Fase 3, pedido 2026-09-03) ---
+    this.onMessage("cultivoCasilla:labrar", (client, msg: { x?: number; y?: number }) => void this.manejarCultivoCasillaLabrar(client, msg));
+    this.onMessage("cultivoCasilla:plantar", (client, msg: { x?: number; y?: number; instanciaIdSemilla?: number }) => void this.manejarCultivoCasillaPlantar(client, msg));
+    this.onMessage("cultivoCasilla:cosechar", (client, msg: { x?: number; y?: number }) => void this.manejarCultivoCasillaCosechar(client, msg));
 
     // --- Twitch: disparadores de PRUEBA (docs/GDD_Twitch.md) — jarl-only,
     // mismo criterio que "inmueble:revocar"/el resto de herramientas admin
@@ -2588,6 +2605,27 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       jarls,
     };
     this.ctxConstruccion = ctx;
+
+    // Agricultura de casilla (docs/GDD_Carros.md §9.1, Fase 3, pedido
+    // 2026-09-03): mismo criterio que recolectablesDeMapa — caché de
+    // PROCESO por mapaId, hidratada desde BD solo la primera vez que se
+    // visita (esNuevo). Se cuelga de `iniciarConstruccion` (no de
+    // HubRoom/RegionRoom por separado) porque es el único punto que YA
+    // corren ambos tipos de room con `mapaIdPropio`/parcelas listos.
+    if (this.mapaIdPropio) {
+      const { mapa: casillasCultivo, esNuevo } = casillasCultivoDeMapa(this.mapaIdPropio);
+      this.casillasCultivo = casillasCultivo;
+      if (esNuevo) {
+        for (const fila of await bd.listarCasillasCultivoDe(this.mapaIdPropio)) {
+          this.casillasCultivo.set(fila.idxCasilla, {
+            estado: fila.estado,
+            duenoId: fila.duenoId,
+            semillaId: fila.semillaId ?? undefined,
+            diaPlantado: fila.diaPlantado ?? undefined,
+          });
+        }
+      }
+    }
 
     const todasConstrucciones = await bd.listarConstrucciones();
     // Una construcción pertenece a ESTA región si su propiedad es una
@@ -4371,6 +4409,134 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.persistirInventarioPorSesion(client);
     await this.guardarContenidoCarro(objetivo.tipo, objetivo.id, contenido);
     client.send("carro:vertido", { id: objetivo.id, tipo: objetivo.tipo, instanciaId: it.id, volumenMl: transferido, liquido: contenido.liquido });
+  }
+
+  // --- Agricultura de casilla (docs/GDD_Carros.md §9, Fase 3, pedido
+  // 2026-09-03) — campo abierto labrado a mano con azada, en paralelo a la
+  // agricultura de construcción (bancal_cultivo, sin tocar). §9.3
+  // (arado/cultivadora montados) queda para cuando esto se valide a mano.
+
+  private errorCultivoCasilla(client: Client, motivo: string) {
+    client.send("cultivoCasilla:error", { motivo });
+  }
+
+  /** idx global de casilla — misma convención (`Math.floor(y) * ancho + Math.floor(x)`) que el resto del proyecto. */
+  private idxCasillaDe(x: number, y: number): number {
+    return Math.floor(y) * this.mundo.ancho + Math.floor(x);
+  }
+
+  /**
+   * docs/GDD_Carros.md §9.2 — labra suelo abierto con la azada equipada.
+   * Reglas (mismo nivel de rigor que validarColocacion, deliberadamente
+   * simple): casilla dentro de una parcela PROPIA, walkable, sin colisión
+   * (sin construcción encima), sin ya estar labrada/sembrada.
+   */
+  private async manejarCultivoCasillaLabrar(client: Client, msg: { x?: number; y?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!player || !nombre || !ctx || !this.mapaIdPropio) return;
+    if (typeof msg?.x !== "number" || typeof msg?.y !== "number") return;
+    if (Math.hypot(msg.x - player.x, msg.y - player.y) > RADIO_INTERACCION) return this.errorCultivoCasilla(client, "demasiado_lejos");
+    if (player.inventario.equipo.get("manoPrincipal") !== "azada_hierro") return this.errorCultivoCasilla(client, "necesitas_azada");
+
+    const tileX = Math.floor(msg.x);
+    const tileY = Math.floor(msg.y);
+    const idx = this.idxCasillaDe(tileX, tileY);
+    if (medioEn(this.mundo, tileX + 0.5, tileY + 0.5) !== TIPO.TIERRA) return this.errorCultivoCasilla(client, "suelo_no_valido");
+    if (ctx.ocupacion.has(idx)) return this.errorCultivoCasilla(client, "suelo_ocupado");
+    const parcelaId = parcelaEn(ctx.parcelas, tileX, tileY);
+    if (!parcelaId) return this.errorCultivoCasilla(client, "fuera_de_parcela");
+    if (!(await this.esDuenoOJarlDe(ctx, parcelaId, nombre))) return this.errorCultivoCasilla(client, "no_es_tu_parcela");
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const resultado = labrarCasilla(this.casillasCultivo.get(idx), jugador.id);
+    if (!resultado.ok || !resultado.valor) return this.errorCultivoCasilla(client, resultado.motivo ?? "ya_labrada");
+
+    this.casillasCultivo.set(idx, resultado.valor);
+    await bd.guardarCasillaCultivo({
+      mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
+      duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
+    });
+    client.send("cultivoCasilla:labrada", { x: tileX, y: tileY });
+  }
+
+  /** docs/GDD_Carros.md §9.2 — siembra una semilla en una casilla YA labrada del mismo dueño; mismo mes de siembra que la agricultura de construcción (reusa el catálogo). */
+  private async manejarCultivoCasillaPlantar(client: Client, msg: { x?: number; y?: number; instanciaIdSemilla?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!player || !nombre || !contenedor || !this.mapaIdPropio) return;
+    if (typeof msg?.x !== "number" || typeof msg?.y !== "number" || typeof msg?.instanciaIdSemilla !== "number") return;
+    if (Math.hypot(msg.x - player.x, msg.y - player.y) > RADIO_INTERACCION) return this.errorCultivoCasilla(client, "demasiado_lejos");
+
+    const semilla = contenedor.items.find((it) => it.id === msg.instanciaIdSemilla);
+    if (!semilla) return this.errorCultivoCasilla(client, "esa_semilla_ya_no_esta");
+    const entradaSemilla = this.catalogoItems[semilla.itemId];
+    if (!entradaSemilla?.cultivo) return this.errorCultivoCasilla(client, "eso_no_es_una_semilla");
+
+    const { mes, dia } = tiempoMundo();
+    if (!puedeSembrarEnMes(entradaSemilla.cultivo.mesesSiembra, mes)) return this.errorCultivoCasilla(client, "fuera_de_temporada");
+
+    const tileX = Math.floor(msg.x);
+    const tileY = Math.floor(msg.y);
+    const idx = this.idxCasillaDe(tileX, tileY);
+
+    const bd = await obtenerBdCompartida();
+    await this.asegurarHibridosCargados(bd); // una semilla híbrida creada en OTRA room debe reconocerse aquí también
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const resultado = plantarCasilla(this.casillasCultivo.get(idx), semilla.itemId, jugador.id, dia);
+    if (!resultado.ok || !resultado.valor) return this.errorCultivoCasilla(client, resultado.motivo ?? "sin_labrar");
+
+    quitarItem(contenedor, semilla.id, 1);
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    this.casillasCultivo.set(idx, resultado.valor);
+    await bd.guardarCasillaCultivo({
+      mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
+      duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
+    });
+    client.send("cultivoCasilla:plantada", { x: tileX, y: tileY, semillaId: semilla.itemId });
+  }
+
+  /** docs/GDD_Carros.md §9.2 — cosecha lo plantado, mismo cálculo (`diasCrecimiento`/`cantidadPorCosecha`/`cosechaRecurrente`) que la agricultura de construcción, sin el bloqueo por agua (§9.1: "sin chequeo de suelo/humedad por ahora"). */
+  private async manejarCultivoCasillaCosechar(client: Client, msg: { x?: number; y?: number }) {
+    const player = this.state.players.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!player || !nombre || !contenedor || !this.mapaIdPropio) return;
+    if (typeof msg?.x !== "number" || typeof msg?.y !== "number") return;
+    if (Math.hypot(msg.x - player.x, msg.y - player.y) > RADIO_INTERACCION) return this.errorCultivoCasilla(client, "demasiado_lejos");
+
+    const tileX = Math.floor(msg.x);
+    const tileY = Math.floor(msg.y);
+    const idx = this.idxCasillaDe(tileX, tileY);
+    const casilla = this.casillasCultivo.get(idx);
+    if (!casilla || casilla.estado !== "sembrada" || !casilla.semillaId) return this.errorCultivoCasilla(client, "nada_que_cosechar");
+
+    const bd = await obtenerBdCompartida();
+    await this.asegurarHibridosCargados(bd);
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    if (casilla.duenoId !== jugador.id) return this.errorCultivoCasilla(client, "no_es_tuya");
+
+    const datosCultivo = this.catalogoItems[casilla.semillaId]?.cultivo;
+    if (!datosCultivo) return this.errorCultivoCasilla(client, "semilla_desconocida");
+
+    const dia = tiempoMundo().dia;
+    if (!listaParaCosecharCasilla(casilla, datosCultivo.diasCrecimiento, dia)) return this.errorCultivoCasilla(client, "todavia_no");
+
+    const resultado = cosecharCasilla(casilla, datosCultivo.cantidadPorCosecha, datosCultivo.cosechaRecurrente, dia);
+    const cogido = agregarItem(contenedor, this.catalogoItems, datosCultivo.itemIdCosecha, resultado.cantidad);
+    if (!cogido.ok) return this.errorCultivoCasilla(client, "sin_hueco");
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    this.casillasCultivo.set(idx, resultado.siguienteCasilla);
+    await bd.guardarCasillaCultivo({
+      mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
+      duenoId: jugador.id, estado: resultado.siguienteCasilla.estado, semillaId: resultado.siguienteCasilla.semillaId ?? null, diaPlantado: resultado.siguienteCasilla.diaPlantado ?? null,
+    });
+    client.send("cultivoCasilla:cosechada", { x: tileX, y: tileY, itemId: datosCultivo.itemIdCosecha, cantidad: resultado.cantidad });
   }
 
   // --- Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) — implementa
