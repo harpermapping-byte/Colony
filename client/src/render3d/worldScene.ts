@@ -1,6 +1,17 @@
 import * as THREE from "three";
 import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { estadoCiclo } from "./cicloDia";
+import { EfectosClima } from "./climaVisual";
+
+// Niebla/viento (docs/GDD_Clima.md, pedido del streamer: "que vea peor,
+// pero que vea, una pequeña molestia") — THREE.Fog acorta lo visible sin
+// tapar la pantalla entera; niebla lo hace fuerte, viento apenas lo roza.
+// SIN_NIEBLA queda tan lejos que nunca llega a notarse en pantalla.
+const NIEBLA_POR_CLIMA: Record<string, { near: number; far: number } | null> = {
+  niebla: { near: 3, far: 15 },
+  viento: { near: 10, far: 30 },
+};
+const SIN_NIEBLA = { near: 500, far: 600 };
 
 const TAMANO_MUNDO_VISIBLE = 16; // unidades de mundo visibles en el eje corto de la cámara
 
@@ -27,6 +38,10 @@ export class WorldScene {
   // dirección actual de la luz (la escribe el ciclo día/noche cada frame);
   // arranca en el ángulo fijo que tenía la escena antes del ciclo
   private direccionLuz = new THREE.Vector3(40, 60, 25).normalize();
+  private readonly efectosClima: EfectosClima;
+  private readonly niebla = new THREE.Fog(0x000000, SIN_NIEBLA.near, SIN_NIEBLA.far);
+  /** Último clima resuelto (docs/GDD_Clima.md) — expuesto de solo lectura para depuración/tests, mismo criterio que el resto de sondas `window.__*`. */
+  climaActual = "";
 
   constructor(contenedor: HTMLElement, ancho: number, alto: number) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -77,6 +92,9 @@ export class WorldScene {
     // estuviera a ras de suelo taparía el fondo translúcido y al PJ buceando
     this.sueloEmergencia.position.y = -3;
     this.scene.add(this.sueloEmergencia);
+
+    this.scene.fog = this.niebla;
+    this.efectosClima = new EfectosClima(this.scene);
 
     this.resize(ancho, alto);
   }
@@ -134,6 +152,18 @@ export class WorldScene {
     this.ambiente.intensity = ciclo.intensidadAmbiente;
     (this.scene.background as THREE.Color).copy(ciclo.colorCielo);
     this.reposicionarSol();
+
+    // Niebla/viento: acortan lo visible (docs/GDD_Clima.md, "que vea peor,
+    // pero que vea"); el resto de climas no tocan la niebla en absoluto.
+    this.climaActual = ciclo.clima;
+    const rango = NIEBLA_POR_CLIMA[ciclo.clima] ?? SIN_NIEBLA;
+    this.niebla.near = rango.near;
+    this.niebla.far = rango.far;
+    this.niebla.color.copy(this.scene.background as THREE.Color);
+    // Partículas/charcos de lluvia-nieve-viento, siempre centrados en lo
+    // que la cámara está mirando (objetivoCamara, no la posición de la
+    // cámara isométrica en sí) — nunca fijos en coordenadas de mundo.
+    this.efectosClima.actualizar(dt, ciclo.clima, this.objetivoCamara);
   }
 
   /**

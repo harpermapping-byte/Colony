@@ -22,7 +22,7 @@
  */
 import * as THREE from "three";
 import { tiempoMundo, HORA_AMANECER, HORA_ANOCHECER } from "../mundo/tiempoMundo";
-import { climaDelDia, type Estacion } from "../mundo/clima";
+import { estadoClimaDelDia, type Estacion } from "../mundo/clima";
 
 export interface EstadoCiclo {
   /** dirección DESDE la que llega la luz, normalizada (se multiplica por la distancia del sol al objetivo) */
@@ -54,15 +54,17 @@ const FILTRO_ESTACION: Record<Estacion, THREE.Color> = {
 };
 const BLANCO = new THREE.Color(1, 1, 1);
 
-// Intensidad por clima (estados posibles del día, docs/GDD_Clima.md) — solo
-// atenúa luz/ambiente; "viento" casi no se nota en la luz (es un estado de
-// ambiente, no de cielo cubierto). Sin nieve acumulable, solo el filtro.
+// Intensidad por clima (tipo resuelto de la franja horaria actual,
+// docs/GDD_Clima.md) — solo atenúa luz/ambiente; "viento" casi no se nota
+// en la luz (es un estado de ambiente, no de cielo cubierto). La nieve
+// acumulada en sí (capa visual) vive en climaVisual.ts, no aquí.
 const FACTOR_LUZ_CLIMA: Record<string, number> = {
   soleado: 1.0,
   nublado: 0.82,
   lluvia: 0.7,
   nieve: 0.88,
   viento: 0.95,
+  niebla: 0.75,
 };
 
 const _dir = new THREE.Vector3();
@@ -118,12 +120,12 @@ export function estadoCiclo(ahoraMs = Date.now()): EstadoCiclo {
     };
   }
 
-  aplicarEstacionYClima(resultado, dia, estacion as Estacion);
+  aplicarEstacionYClima(resultado, dia, hora, estacion as Estacion);
   return resultado;
 }
 
-/** Multiplica el filtro de estación sobre cielo/luz ya calculados por la hora, y atenúa intensidad según el clima del día — mutación en sitio sobre el resultado ya construido, nunca lo sustituye. */
-function aplicarEstacionYClima(estado: EstadoCiclo, dia: number, estacion: Estacion): void {
+/** Multiplica el filtro de estación sobre cielo/luz ya calculados por la hora, y atenúa intensidad según el clima de ESTA franja horaria — mutación en sitio sobre el resultado ya construido, nunca lo sustituye. */
+function aplicarEstacionYClima(estado: EstadoCiclo, dia: number, hora: number, estacion: Estacion): void {
   const filtro = FILTRO_ESTACION[estacion] ?? FILTRO_ESTACION.primavera;
   estado.colorCielo.multiply(filtro);
   // la luz se tiñe a la mitad de fuerza que el cielo — el sol/la luna ya
@@ -131,7 +133,7 @@ function aplicarEstacionYClima(estado: EstadoCiclo, dia: number, estacion: Estac
   _filtroLuz.copy(BLANCO).lerp(filtro, 0.5);
   estado.colorLuz.multiply(_filtroLuz);
 
-  estado.clima = climaDelDia(dia, estacion);
+  estado.clima = estadoClimaDelDia(dia, hora).tipo;
   const factor = FACTOR_LUZ_CLIMA[estado.clima] ?? 1;
   estado.intensidadLuz *= factor;
   estado.intensidadAmbiente *= factor;

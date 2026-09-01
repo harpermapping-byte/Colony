@@ -4,7 +4,8 @@ import { WorldScene } from "./render3d/worldScene";
 import { crearRigHumanoide, inclinarCaido, type RigHumanoide } from "./render3d/rigHumanoide";
 import { cargarIndice, cargarSector } from "./mapa/cargarMapa";
 import { StreamingSectores } from "./mapa/streamingSectores";
-import { crearSectorVisual, soltarSectorVisual, type HandleSector } from "./render3d/sectorVisual";
+import { crearSectorVisual, soltarSectorVisual, actualizarNieveSector, type HandleSector } from "./render3d/sectorVisual";
+import { nivelNieve } from "./mundo/nieve";
 import { crearPersonajeVoxel, type PersonajeExportado } from "./render3d/personajeVoxel";
 import { crearAnimalVoxel, type AnimalExportado } from "./render3d/animalVoxel";
 import type { IndiceMapa } from "./mapa/formatoMapa";
@@ -259,20 +260,35 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const indice = await cargarIndice(RUTA_MAPA);
       indiceMapa = indice;
       const tilesPorSector = indice.tamanoSectorChunks * indice.tamanoChunk;
+      // Nieve acumulada (docs/GDD_Clima.md): nivel GLOBAL, no por sector —
+      // se recalcula cada pocos segundos (cambia como mucho una vez por día
+      // de mundo) y se aplica a TODOS los sectores materializados en ese
+      // momento sin reconstruir nada (actualizarNieveSector solo retoca
+      // opacidad/altura de un plano ya existente).
+      const sectoresActivos = new Map<string, HandleSector>();
+      let nivelNieveActual = nivelNieve(tiempoMundo().dia);
       streaming = new StreamingSectores({
         indice,
         obtenerSector: (sx, sy) => cargarSector(RUTA_MAPA, sx, sy),
         materializar: async (sector) => {
           const excluidos = await pedirExclusiones(sector.sectorX, sector.sectorY, tilesPorSector);
-          const handle = await crearSectorVisual(indice, sector, excluidos, SALA === "arena" ? MARGEN_VISUAL_ARENA : 0);
+          const handle = await crearSectorVisual(indice, sector, excluidos, SALA === "arena" ? MARGEN_VISUAL_ARENA : 0, nivelNieveActual);
           escena.añadirEstatico(handle.grupo);
+          sectoresActivos.set(`${sector.sectorX}_${sector.sectorY}`, handle);
           return handle;
         },
-        soltar: (handle) => {
+        soltar: (handle, sx, sy) => {
           escena.quitarEstatico(handle.grupo);
           soltarSectorVisual(handle);
+          sectoresActivos.delete(`${sx}_${sy}`);
         },
       });
+      setInterval(() => {
+        const nivel = nivelNieve(tiempoMundo().dia);
+        if (nivel === nivelNieveActual) return;
+        nivelNieveActual = nivel;
+        for (const handle of sectoresActivos.values()) actualizarNieveSector(handle, nivel);
+      }, 15000);
       // Sonda de depuración/pruebas e2e: estado del streaming en vivo.
       (window as any).__streaming = () => streaming!.estadisticas();
 
@@ -1487,6 +1503,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         panelJugador?.actualizar(player);
         // gancho para los tests E2E (Playwright lee la verdad del servidor)
         (window as any).__colonyDebug = { x: player.x, y: player.y, estado: player.estado, nivel: player.nivel };
+        // docs/GDD_Clima.md: clima resuelto en el frame actual (mismo criterio que el resto de sondas __*).
+        (window as any).__clima = () => escena.climaActual;
       }
     });
     if (esYo) panelJugador?.actualizar(player);

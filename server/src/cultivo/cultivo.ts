@@ -13,7 +13,14 @@
  * DERIVAN del día en que se regó/abonó por última vez, exactamente igual
  * que el resto del proyecto deriva stock/desgaste de un timestamp en vez
  * de mantenerlo al día con un tick.
+ *
+ * Pasada 2026-09-01 (docs/GDD_Clima.md, pedido del streamer): un día de
+ * lluvia riega como si se hubiera regado a mano ese mismo día; un día con
+ * nieve acumulada en el suelo no cuenta para el calendario de crecimiento.
  */
+import { algunaFranjaLlovio, type Estacion } from "../mundo/clima";
+import { estacionYDiaDelAnio } from "../mundo/tiempoMundo";
+import { nivelNieve } from "../mundo/nieve";
 
 export interface EstadoCultivo {
   /** itemId de la semilla plantada — ausente/undefined = parcela vacía, lista para plantar. */
@@ -30,11 +37,31 @@ export interface EstadoCultivo {
 export const DECAIMIENTO_AGUA_POR_DIA = 25;
 /** El fertilizante aguanta más: de 100 a 0 en unos 8 días de mundo. */
 export const DECAIMIENTO_FERTILIZANTE_POR_DIA = 12;
+/** Días que decay a 0 sin riego (100/DECAIMIENTO_AGUA_POR_DIA) — mismo tramo que mira hacia atrás por si llovió esos días (docs/GDD_Clima.md, pedido del streamer: "la lluvia sube el riego al 100"). */
+const DIAS_VENTANA_RIEGO = Math.ceil(100 / DECAIMIENTO_AGUA_POR_DIA);
 
-/** Nivel de agua ahora mismo (0-100), derivado de cuántos días de mundo han pasado desde el último riego. Parcela nunca regada = 0. */
+/** Último día (<= diaActual) dentro de la ventana de riego en que llovió alguna franja, o undefined si ninguno. */
+function ultimoDiaLluviaReciente(diaActual: number): number | undefined {
+  for (let d = diaActual; d > diaActual - DIAS_VENTANA_RIEGO; d--) {
+    if (d < 0) break;
+    const { estacion, diaDelAnio } = estacionYDiaDelAnio(d);
+    if (algunaFranjaLlovio(d, estacion as Estacion, diaDelAnio)) return d;
+  }
+  return undefined;
+}
+
+/**
+ * Nivel de agua ahora mismo (0-100), derivado de cuántos días de mundo han
+ * pasado desde el último riego EFECTIVO — el mayor entre el último riego a
+ * mano y el último día que llovió (docs/GDD_Clima.md, pedido del streamer):
+ * un día de lluvia riega exactamente igual que regar a mano ese mismo día.
+ * Parcela nunca regada y sin lluvia reciente = 0.
+ */
 export function nivelAgua(estado: EstadoCultivo, diaActual: number): number {
-  if (estado.diaUltimoRiego == null) return 0;
-  const dias = Math.max(0, diaActual - estado.diaUltimoRiego);
+  const diaLluvia = ultimoDiaLluviaReciente(diaActual);
+  const diaEfectivo = Math.max(estado.diaUltimoRiego ?? -Infinity, diaLluvia ?? -Infinity);
+  if (!Number.isFinite(diaEfectivo)) return 0;
+  const dias = Math.max(0, diaActual - diaEfectivo);
   return Math.max(0, 100 - DECAIMIENTO_AGUA_POR_DIA * dias);
 }
 
@@ -51,14 +78,29 @@ export function puedeSembrarEnMes(mesesSiembra: number[], mesActual: number): bo
 }
 
 /**
- * ¿Está lista para cosechar? Ha pasado `diasCrecimiento` desde que se
- * plantó Y hay algo de agua AHORA MISMO (bloqueo simple: si se deja secar
- * del todo, no se puede cosechar hasta volver a regar — el crecimiento en
- * sí corre por calendario, no día a día "¿se regó hoy?", ver cabecera).
+ * Días de crecimiento REALES entre diaPlantado y diaActual — cuenta solo
+ * los días en que NO había nieve acumulada en el suelo (docs/GDD_Clima.md,
+ * pedido del streamer: "con nieve los cultivos NO pueden crecer"). Un día
+ * nevado no atrasa la cosecha para siempre, simplemente no cuenta ese día.
+ */
+function diasCrecidosSinNieve(diaPlantado: number, diaActual: number): number {
+  let dias = 0;
+  for (let d = Math.max(0, diaPlantado); d < diaActual; d++) {
+    if (nivelNieve(d) === 0) dias++;
+  }
+  return dias;
+}
+
+/**
+ * ¿Está lista para cosechar? Han pasado `diasCrecimiento` días SIN nieve
+ * acumulada desde que se plantó Y hay algo de agua AHORA MISMO (bloqueo
+ * simple: si se deja secar del todo, no se puede cosechar hasta volver a
+ * regar — el crecimiento en sí corre por calendario, no día a día "¿se
+ * regó hoy?", ver cabecera).
  */
 export function listaParaCosechar(estado: EstadoCultivo, diasCrecimiento: number, diaActual: number): boolean {
   if (estado.semillaId == null || estado.diaPlantado == null) return false;
-  const diasCrecidos = diaActual - estado.diaPlantado;
+  const diasCrecidos = diasCrecidosSinNieve(estado.diaPlantado, diaActual);
   return diasCrecidos >= diasCrecimiento && nivelAgua(estado, diaActual) > 0;
 }
 

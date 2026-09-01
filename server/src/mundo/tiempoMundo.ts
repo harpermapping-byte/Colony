@@ -44,17 +44,27 @@ const diaForzado = (() => {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
 })();
 
+/** Estación + día-dentro-del-año de un día de mundo cualquiera — extraído para que `clima.ts`/`nieve.ts` puedan recorrer días PASADOS (acumulador de nieve) sin duplicar esta cuenta. */
+export function estacionYDiaDelAnio(dia: number): { estacion: string; diaDelAnio: number } {
+  const diaDelAnio = ((dia % DIAS_POR_ANIO) + DIAS_POR_ANIO) % DIAS_POR_ANIO;
+  return {
+    estacion: tiempoJson.estaciones[Math.floor(diaDelAnio / DIAS_POR_ESTACION) % tiempoJson.estaciones.length],
+    diaDelAnio,
+  };
+}
+
+export { DIAS_POR_ANIO };
+
 export function tiempoMundo(ahoraMs = Date.now()): TiempoMundo {
   const diasFloat = Math.max(0, ahoraMs - tiempoJson.epocaUnixMs) / MS_POR_DIA;
   const dia = diaForzado ?? Math.floor(diasFloat);
   const hora = horaForzada ?? (diasFloat - Math.floor(diasFloat)) * 24;
-  const estaciones = tiempoJson.estaciones;
-  const diaDelAnio = dia % DIAS_POR_ANIO;
+  const { estacion, diaDelAnio } = estacionYDiaDelAnio(dia);
   return {
     dia,
     hora,
     esDeDia: hora >= tiempoJson.horaAmanecer && hora < tiempoJson.horaAnochecer,
-    estacion: estaciones[Math.floor(diaDelAnio / DIAS_POR_ESTACION) % estaciones.length],
+    estacion,
     mes: Math.floor(diaDelAnio / tiempoJson.diasPorMes) + 1,
     anio: Math.floor(dia / DIAS_POR_ANIO),
   };

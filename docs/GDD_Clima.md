@@ -162,10 +162,11 @@ los sustituye):
   `GDD_Personaje.md`: forzar horas reales de exposición no es viable) —
   cubierto entero por los tests puros de `vitales.test.ts`.
 
-## 6. Fuera de alcance de esta pasada
+## 6. Fuera de alcance de esta pasada (2026-08-30)
 
 - Nieve acumulable, partículas de lluvia/nieve/viento — pedido
-  explícitamente aparte por el streamer.
+  explícitamente aparte por el streamer. **Hecho en la pasada 2026-09-01,
+  ver §7 en adelante.**
 - Wiring real de `quitaFrio`/`quitaCalor` al servidor (§3, gap
   documentado) — necesita slots de equipo de torso/piernas primero.
 - Luces urbanas por clima (antorchas apagándose con lluvia/viento, etc.)
@@ -173,3 +174,220 @@ los sustituye):
   runtime (mismo pendiente que `GDD_Tiempo_Mundo.md` "Qué falta").
 - HUD con clima/estación en pantalla — junto con el resto de interfaces
   de personaje (`GDD_Personaje.md §6`).
+
+---
+
+# Pasada 2026-09-01 — nieve acumulable, lluvia/niebla/viento visuales, hielo
+
+Pedido explícito del streamer: lluvia con charcos decorativos, nieve que se
+acumula en el suelo por niveles (ralentiza al caminar, más cuanto más
+nivel), agua que se congela en hielo cuando nieva (no se nada, se
+desliza), niebla/viento como sprites que limitan un poco la vista, y que
+la lluvia riegue los cultivos mientras la nieve les pausa el crecimiento.
+Todo con **placeholders sencillos** (mismo criterio que el resto del
+proyecto — el arte real llega en otra pasada sin tocar la maquinaria).
+
+## 7. Temperatura — una sola curva anual, sin saltos entre estaciones
+
+Sustituye la base fija por estación de §1: `temperaturaMundo(diaDelAnio, hora)`
+(`server/src/mundo/clima.ts` + `client/src/mundo/clima.ts`) sale de un
+coseno ANUAL (mínimo en la mitad de invierno, máximo en la mitad de
+verano, transición gradual — nunca un escalón al cruzar de estación) más
+el coseno DIARIO de siempre (mínimo ~03:00, máximo ~15:00) encima.
+Constantes en `assets/mundo/clima.json`: `temperaturaMediaAnualC=15`,
+`amplitudAnualC=17`, `amplitudDiariaC=6`, `diaPicoVeranoDelAnio=135` (mitad
+del bloque "verano") — dan exactamente **-5°C en la madrugada de mitad de
+invierno y 35°C en la tarde de mitad de verano**, el rango pedido por el
+streamer. `estacionYDiaDelAnio(dia)` (nuevo export de `tiempoMundo.ts`,
+servidor y cliente) deriva estación+día-del-año de cualquier día de mundo
+— lo usa `clima.ts` y el acumulador de nieve (§9) para mirar hacia atrás.
+
+## 8. Clima por FRANJA horaria, no por día entero
+
+El día se parte en 4 franjas de 6h (`madrugada`/`mañana`/`tarde`/`noche`,
+`clima.json.franjas`) con tirada INDEPENDIENTE cada una
+(`climaDeFranja(dia, franjaIdx, estacion)`, mismo hash determinista de
+siempre sobre `dia*4+franjaIdx`) — así puede nevar de madrugada y escampar
+por la tarde el mismo día, pedido explícito del streamer. El catálogo ya
+NO tiene "lluvia"/"nieve" como estados propios: `estados` es
+`soleado/nublado/precipitacion/viento/niebla`, y **el tipo concreto de
+precipitación lo decide la temperatura DE ESA FRANJA**
+(`tipoConcreto(estado, temperaturaC)`: `<= umbralNieveC (5)` → nieve, si no
+→ lluvia) — "nieva siempre entre -5 y 5 grados" sale solo de la
+temperatura, sin tabla aparte que mantener sincronizada a mano, y de paso
+da probabilidad de nieve MÁS ALTA hacia el corazón del invierno y menor
+hacia sus bordes (verificado en `clima.test.ts`) sin necesidad de pesos
+por mes. `niebla`/`viento` tienen el mismo peso de precipitación que
+antes lo tenía el catálogo — solo son un sprite que limita vista (§11),
+no interactúan con temperatura/nieve.
+
+`estadoClimaEnHora(dia, hora, estacion, diaDelAnio)`: el TIPO es el de la
+franja a la que pertenece esa hora (no cambia a media franja); la
+TEMPERATURA es la curva continua real de esa hora exacta (no se queda
+pegada al valor representativo de la franja) — así el frío/calor corporal
+(§3) no da saltos al cruzar de franja. `estadoClimaDelDia`/
+`temperaturaMundoDelDia` son las conveniencias que además derivan
+estación/día-del-año solas, para llamar con solo `dia`/`hora` a mano
+(usadas por `RoomExteriorBase.ts` y `cicloDia.ts`).
+
+## 9. Nieve acumulada — acumulador GLOBAL sin guardar estado
+
+`server/src/mundo/nieve.ts` + `client/src/mundo/nieve.ts` (mismo par de
+siempre): `nivelNieve(dia)` da un nivel 0..`nivelMaximoNieve` (4 en el
+catálogo) **para TODO el mapa exterior a la vez** (no por casilla — pedido
+explícito: "capa de nieve se aplica a todo el mapeado"). Regla exacta,
+por día, recorrida hacia atrás:
+
+- sube 1 (con tope) el día en que **alguna** franja nevó
+  (`algunaFranjaNevo`).
+- baja 1 el día en que **ninguna** franja nevó Y la temperatura de la
+  franja "tarde" supera `umbralDeshieloC` (5).
+- se mantiene igual en cualquier otro caso (frío pero sin nevar ese día
+  concreto) — así si vuelve a nevar, el nivel sigue subiendo desde donde
+  se quedó, NUNCA desde 0 (pedido explícito del streamer).
+
+Sin guardar nada en BD ni mandar nada por red: se DERIVA recorriendo hacia
+atrás `ventanaFoldDiasNieve` (45) días desde el día pedido, arrancando en
+nivel 0 — como el nivel nunca sube/baja más de 1 por día y tiene tope 4,
+45 días de margen (medio invierno) es de sobra para que el resultado sea
+el mismo que arrancar desde el principio del mundo, verificado en
+`nieve.test.ts` (nunca se acarrea de un invierno a dos inviernos después,
+nunca da un salto >1 entre días consecutivos, llega al tope en inviernos
+de sobra probados). Coste: ~180 evaluaciones baratas (hash+coseno) por
+llamada — se recalcula una vez por tick de servidor (no por jugador,
+`RoomExteriorBase.ts`) y cada ~15s en cliente (`game.ts`), nunca más
+seguido: el nivel cambia como mucho una vez por día de mundo.
+
+## 10. Efectos de la nieve — ralentiza, congela el agua, pausa cultivos
+
+- **Ralentización en tierra** (`multiplicadorVelocidadPorNieve(nivel)` en
+  `nieve.ts`, lineal: `1 - nivel*0.15`, tope 0.4 al nivel máximo):
+  multiplica la velocidad ya calculada en `actualizarMovimiento`
+  (`RoomExteriorBase.ts`) exactamente como ya hacen fractura/gripe/pociones
+  — solo en tierra, no sobre hielo (esa velocidad ya es la propia del
+  hielo) ni nadando. **Gap documentado a propósito**: la fauna salvaje
+  (`faunaSalvajeViva.ts`) NO lee `mundo.velocidad` como el jugador (tiene
+  su propio sistema de movimiento más simple), así que hoy solo el
+  jugador se ralentiza en nieve — pedido explícito "si pasas por ahí
+  animales o personas" incluía animales, pero engancharlo a la IA de
+  fauna es un cambio aparte que no se ha tocado en esta pasada.
+- **Hielo** (agua + `nivelNieve>0`): el jugador de a pie (no montura/barco
+  — no se ha pedido que también resbalen) deja de nadar — la casilla se
+  trata como tierra a efectos de estado/velocidad, sin tocar
+  `TIPO`/`mundo.casillas` (evita tocar fauna/pathfinding/barcos/pesca, que
+  siguen viendo agua normal ahí). Corre más rápido que andando
+  (`VEL_HIELO=5`) pero CON deslizamiento: en vez de mover al jugador al
+  instante como el resto de medios, `velocidadHieloPorSesion` guarda una
+  velocidad con inercia que converge a la velocidad objetivo por
+  suavizado exponencial cada tick (`FRICCION_HIELO=0.12`,
+  `actual += (objetivo-actual)*friccion`) — con el tick fijo del servidor
+  (`TICK_HZ=30`) esto es estable sin más física. Sigue deslizando aunque
+  se suelte el input (objetivo pasa a 0, tarda varios ticks en pararse) y
+  dejar de pisar hielo borra la inercia al instante. Se limpia en
+  `onLeave` como el resto de mapas por sesión.
+- **Cultivos** (`server/src/cultivo/cultivo.ts`): un día de lluvia riega
+  como si se hubiera regado a mano ESE mismo día
+  (`ultimoDiaLluviaReciente`, mira los últimos `DIAS_VENTANA_RIEGO` (4,
+  derivado de `100/DECAIMIENTO_AGUA_POR_DIA`) días — el mismo tramo en el
+  que la lluvia todavía importaría para el nivel de agua). Un día con
+  nieve acumulada en el suelo (`nivelNieve(d) > 0`) NO cuenta para el
+  calendario de crecimiento (`diasCrecidosSinNieve`): la cosecha no se
+  pierde, simplemente ese día no avanza el contador — se recupera en
+  cuanto se derrite.
+
+## 11. Visual — capa de nieve por sector, hielo, partículas, charcos
+
+Todo PLACEHOLDER (mismo criterio que el resto del arte del proyecto — se
+sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
+
+- **Capa de nieve** (`client/src/render3d/sectorVisual.ts`): un plano
+  semitransparente MÁS por sector (no una malla por casilla — carísimo),
+  construido en el mismo bucle que ya pinta el canvas de terreno,
+  excluyendo agua/hielo por máscara (alfa 0 en esos píxeles). Opacidad
+  (hasta 0.85) y altura (hasta 0.22) suben linealmente con el nivel
+  0..4 — nunca se reconstruye la geometría/textura al cambiar de nivel,
+  solo se retocan esas dos propiedades (`actualizarNieveSector`,
+  `aplicarNivelNieveAPlano`), así que actualizar TODOS los sectores
+  cargados cuando cambia el nivel global (una vez al día, `game.ts` lo
+  comprueba cada 15s) es barato. Se libera con el mismo mecanismo de
+  limpieza de GPU que ya tenía el resto de `sectorVisual.ts`
+  (`userData.propioDelSector`).
+- **Hielo**: las casillas de agua se pintan de un tono frío opaco
+  (`COLOR_HIELO`) en vez del agua translúcida de siempre, en el mismo
+  bucle. **Simplificación documentada**: esto se decide con el nivel de
+  nieve que había AL MATERIALIZAR el sector, no es reactivo — si el
+  jugador se queda quieto en un sector ya cargado y la nieve se derrite
+  del todo, el hielo visual no vuelve a agua hasta que el sector se
+  suelta y se recarga (el streaming ya lo hace solo al alejarse/volver).
+  La mecánica de juego (bloquear nadar, velocidad+deslizamiento) SÍ es
+  100% reactiva porque se recalcula cada tick en el servidor — solo el
+  pintado tiene este retraso.
+- **Partículas** (`client/src/render3d/climaVisual.ts`, clase
+  `EfectosClima`): `THREE.Points` de lluvia/nieve cayendo y polvo a la
+  deriva (viento), activados/desactivados según `ciclo.clima` de
+  `cicloDia.ts`, siempre centrados en `objetivoCamara` (nunca fijos en
+  coordenadas de mundo — así vale para cualquier punto de un mapa de
+  miles de casillas sin generar nada por streaming aparte).
+- **Charcos**: `THREE.CircleGeometry` oscuros semitransparentes, un pool
+  fijo de 14 recolocados al azar alrededor del jugador SOLO al empezar a
+  llover (no cada frame) — decorativos, sin efecto de juego ("no como un
+  río", pedido explícito). Usan `Math.random()` a propósito: es parpadeo
+  visual efímero client-only, no generación de mundo (la regla "nunca
+  Math.random() en generación" es para contenido bakeado/determinista).
+- **Niebla/viento** (`worldScene.ts`): `THREE.Fog` de verdad (acorta lo
+  visible, no tapa la pantalla) — niebla fuerte (`near:3, far:15`),
+  viento flojo (`near:10, far:30`), pedido explícito "que vea peor, pero
+  que vea, una pequeña molestia". `FACTOR_LUZ_CLIMA` (§4) gana la entrada
+  `niebla: 0.75`.
+- Sonda de depuración `window.__clima()` (mismo criterio que
+  `window.__colonyDebug`/`__streaming`) expone el clima resuelto del
+  frame actual.
+
+## 12. Verificación
+
+- `server/test/clima.test.ts` (17): franjas, determinismo, extremos exactos
+  -5°C/35°C, rango nunca se sale de [-5,35] muestreado, `tipoConcreto`
+  nieve/lluvia por temperatura, nunca nieva en pleno verano, sí nieva en
+  mitad de invierno, más nieve en el corazón del invierno que en sus
+  bordes (el "tapering" pedido), `temperaturaTarde`/`estadoClimaEnHora`/
+  conveniencias.
+- `server/test/nieve.test.ts` (7): determinismo, 0 en pleno verano, nunca
+  fuera de [0,4], nunca salta más de 1 entre días consecutivos, llega a
+  acumular y a tocar el tope en inviernos de sobra probados, nunca se
+  acarrea de un invierno a dos inviernos después.
+- `server/test/cultivo.test.ts`: +4 tests sobre la suite existente (24
+  total) — lluvia riega como riego a mano, un día nevado no cuenta para
+  el calendario de crecimiento; los tests viejos de decaimiento puro se
+  reescribieron para aislar la interferencia real de la lluvia (buscan
+  programáticamente un día/ventana sin lluvia en vez de un número fijo,
+  ya que ahora SÍ puede llover en cualquier día probado).
+- Suite completa de servidor: **1119/1119** en verde, `tsc --noEmit`
+  limpio en `server` y `client`, `vite build` del cliente sin errores.
+- **Verificación visual** (Playwright,
+  `client/test/climaVisual.e2e.mjs`): arranca servidor+cliente reales
+  sobre el mapa demo, fuerza día/hora con `DIA_FORZADO`/`?dia=` a tres
+  escenarios (nieve acumulada al tope, lluvia, niebla) y captura pantalla
+  — las tres cargan sin errores de página, `window.__clima()` en cliente
+  coincide con el clima calculado en servidor para lluvia/niebla
+  (confirma que la derivación por temperatura funciona igual en los dos
+  lados sin sincronizar nada), y la capa de nieve se comprobó por
+  diferencia de píxel (mismo criterio que el filtro de estación de §4: a
+  ojo desnudo el cambio es sutil sobre una captura pequeña, pero
+  numéricamente el terreno sale consistentemente más claro con nivel de
+  nieve al máximo que sin nieve en los mismos puntos de pantalla).
+
+## 13. Fuera de alcance de esta pasada
+
+- Fauna salvaje ralentizada por nieve (§10, gap documentado) — su sistema
+  de movimiento no comparte tabla de velocidad con el jugador.
+- Hielo visual reactivo en un sector ya cargado (§11) — se corrige solo
+  al recargar el sector (alejarse/volver), la mecánica de juego no tiene
+  este retraso.
+- Monturas/barcos sobre hielo: siguen tratando el agua como agua normal
+  (nadan/flotan igual) — no se ha pedido que también resbalen.
+- Nieve visible sobre props/tejados/personajes — pedido explícitamente
+  descartado para esta pasada ("sobre objetos muebles y edificios o
+  personas y animales no se ve nada el efecto nieve, como mucho afecta
+  velocidad nada más").
+- HUD de clima en pantalla — sigue junto al resto de interfaces
+  pendientes (`GDD_Personaje.md §6`).

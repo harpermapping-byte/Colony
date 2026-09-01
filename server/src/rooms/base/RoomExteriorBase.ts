@@ -94,7 +94,8 @@ import { EMBLEMA_POR_DEFECTO, colorGremioValido, colorPorDefecto, emblemaGremioV
 import { precioInmueble } from "../../propiedades/propiedades";
 import { GestorAgentes, VEL_NPC } from "../../mundo/agentes";
 import { tiempoMundo } from "../../mundo/tiempoMundo";
-import { temperaturaMundo, Estacion } from "../../mundo/clima";
+import { temperaturaMundoDelDia } from "../../mundo/clima";
+import { nivelNieve, multiplicadorVelocidadPorNieve } from "../../mundo/nieve";
 import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
 import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../construccion/energia";
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
@@ -188,6 +189,11 @@ const VEL_ANDAR = 3.75;
 const VEL_CORRER = 6; // sprint (docs/GDD_Personaje.md §3.4) — gasta estamina, en tierra solamente
 const VEL_NADAR = 2.2;
 const VEL_BUCEAR = 1.7;
+// Hielo (docs/GDD_Clima.md): agua con nieve acumulada encima — no se nada,
+// se camina rápido (más que andar normal) pero CON INERCIA (deslizamiento):
+// distinto del resto de medios, que mueven al jugador al instante.
+const VEL_HIELO = 5;
+const FRICCION_HIELO = 0.12; // suavizado exponencial hacia la velocidad objetivo cada tick — bajo = desliza mucho, 1 = instantáneo (como el resto del movimiento)
 const ESTAMINA_GASTO_POR_SEG_CORRIENDO = 15; // vacía los 100 de estamina en ~6.7s de sprint continuo
 export const TICK_HZ = 30;
 
@@ -455,6 +461,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // muere con la sesión, igual que `inputs` (nunca se persiste, solo se
   // usa para saber cuándo tocar `otorgarXpAtributoPorSessionId`).
   private tiempoMovimiento = new Map<string, { correr: number; andar: number }>();
+  /** Velocidad con inercia mientras se desliza sobre hielo (docs/GDD_Clima.md) — el resto del movimiento no la necesita, es instantáneo. Se borra en cuanto el jugador deja de estar sobre hielo. */
+  private velocidadHieloPorSesion = new Map<string, { x: number; y: number }>();
   // Sueño en cama (docs/GDD_Personaje.md §3.6): vive y muere con la sesión,
   // igual que `craftesEnCurso` — mismo patrón "terminaEn" que crafteo, sin
   // tick nuevo (el cliente pide `dormir:completar` cuando cree que ya toca).
@@ -1469,6 +1477,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.buffsPocionPorSesion.delete(client.sessionId);
     this.equipoBlueprintRopaInventario.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
+    this.velocidadHieloPorSesion.delete(client.sessionId);
     this.solicitudesComercio.delete(client.sessionId);
     // Montura (docs/GDD_Monturas.md): solo limpieza en memoria — la mascota
     // sigue "siguiendo" en BD tal cual (nunca se persiste "montado"), vuelve
@@ -10194,6 +10203,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   private actualizarMovimiento() {
     const dt = 1 / TICK_HZ;
+    // Nieve acumulada (docs/GDD_Clima.md): nivel GLOBAL, UNA vez por tick
+    // igual que la temperatura — nunca por jugador. Frena en tierra y
+    // congela el agua en hielo (ver más abajo).
+    const nivelNieveActual = nivelNieve(tiempoMundo().dia);
     this.inputs.forEach((dir, sessionId) => {
       const player = this.state.players.get(sessionId);
       if (!player) return;
@@ -10218,6 +10231,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // cliente siga pidiendo `correr` (no hay penalización dura, solo se
       // pierde la ventaja de velocidad hasta que la estamina se regenere).
       const corriendoDeVerdad = !montura && !esCapitanBarco && medio === TIPO.TIERRA && seMueve && !!dir.correr && player.vitales.estamina > 0;
+      // Hielo (docs/GDD_Clima.md): agua con nieve acumulada encima — solo
+      // para el jugador de a pie, una montura/barco siguen tratando el agua
+      // como agua (no se ha pedido que también resbalen).
+      const sobreHielo = !montura && !esCapitanBarco && (medio === TIPO.AGUA || medio === TIPO.AGUA_PROFUNDA) && nivelNieveActual > 0;
       let vel: number;
       if (montura) {
         vel = montura.velocidad * (this.mundo.velocidad[idx] ?? 1);
@@ -10227,6 +10244,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         // tiene sentido sobre agua) — mismo criterio "no es el jugador quien
         // se mueve" que una montura animal, sin sprint ni estamina.
         vel = barcoPilotado ? this.catalogoBarcos[barcoPilotado.tipoId]?.velocidadBarco ?? 5 : 5;
+      } else if (sobreHielo) {
+        // No se nada sobre hielo — se camina rápido, pero CON inercia (la
+        // aplicación de esta velocidad, más abajo, desliza en vez de mover
+        // al instante como el resto de medios).
+        vel = VEL_HIELO;
       } else if (medio === TIPO.AGUA || medio === TIPO.AGUA_PROFUNDA) {
         vel = player.nivel < 0 ? VEL_BUCEAR : VEL_NADAR;
       } else if (corriendoDeVerdad) {
@@ -10253,30 +10275,59 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         vel *= multiplicadorVelocidadPorGripe(this.enfermedadesDe(sessionId));
         // Poción "más velocidad"/"velocidad reducida" (docs/GDD_Pociones.md) — mismo criterio que arriba: no aplica si algo más (montura/barco) mueve al jugador por él.
         vel *= factorBuffPocion(this.buffsPocionPorSesion.get(sessionId) ?? [], "velocidad", Date.now());
+        // Nieve acumulada en tierra (docs/GDD_Clima.md, pedido del
+        // streamer): "a más capas de nieve más lento te mueves" — no sobre
+        // hielo (esa `vel` ya es la propia del hielo) ni nadando/buceando.
+        if (medio === TIPO.TIERRA) vel *= multiplicadorVelocidadPorNieve(nivelNieveActual);
       }
 
-      if (seMueve) {
-        const norma = Math.hypot(dir.x, dir.y);
-        const paso = (vel * dt) / norma;
-        const destino = moverAABB(this.mundo, player.x, player.y, dir.x * paso, dir.y * paso);
-        if (esCapitanBarco) {
-          // "solo por agua, no puede acceder a otro tipo de suelo" (pedido
-          // 2026-08-30): si el destino deja de ser agua, el barco simplemente
-          // no se mueve ese tick (nunca "vara" en la orilla a medias).
-          const medioDestino = medioEn(this.mundo, destino.x, destino.y);
-          if (medioDestino === TIPO.AGUA || medioDestino === TIPO.AGUA_PROFUNDA) {
+      if (sobreHielo) {
+        // Deslizamiento (docs/GDD_Clima.md, pedido del streamer "que corras
+        // más pero con deslizamiento"): suavizado exponencial hacia la
+        // velocidad objetivo cada tick en vez del movimiento instantáneo de
+        // siempre — con tick fijo (TICK_HZ) esto es estable sin más physics.
+        // Sigue deslizando aunque se suelte el input (velocidad objetivo 0,
+        // pero la inercia tarda varios ticks en apagarse del todo).
+        const anterior = this.velocidadHieloPorSesion.get(sessionId) ?? { x: 0, y: 0 };
+        const norma = Math.hypot(dir.x, dir.y) || 1;
+        const objetivoX = seMueve ? (dir.x / norma) * vel : 0;
+        const objetivoY = seMueve ? (dir.y / norma) * vel : 0;
+        const actualX = anterior.x + (objetivoX - anterior.x) * FRICCION_HIELO;
+        const actualY = anterior.y + (objetivoY - anterior.y) * FRICCION_HIELO;
+        if (Math.hypot(actualX, actualY) > 0.01) {
+          const destino = moverAABB(this.mundo, player.x, player.y, actualX * dt, actualY * dt);
+          player.x = destino.x;
+          player.y = destino.y;
+          this.revelarExploracionSiHaceFalta(sessionId, player.x, player.y);
+        }
+        this.velocidadHieloPorSesion.set(sessionId, { x: actualX, y: actualY });
+      } else {
+        // Deja de resbalar en cuanto pisa cualquier otra cosa (tierra, agua
+        // sin hielo, montura...) — nada de inercia residual fuera del hielo.
+        this.velocidadHieloPorSesion.delete(sessionId);
+        if (seMueve) {
+          const norma = Math.hypot(dir.x, dir.y);
+          const paso = (vel * dt) / norma;
+          const destino = moverAABB(this.mundo, player.x, player.y, dir.x * paso, dir.y * paso);
+          if (esCapitanBarco) {
+            // "solo por agua, no puede acceder a otro tipo de suelo" (pedido
+            // 2026-08-30): si el destino deja de ser agua, el barco simplemente
+            // no se mueve ese tick (nunca "vara" en la orilla a medias).
+            const medioDestino = medioEn(this.mundo, destino.x, destino.y);
+            if (medioDestino === TIPO.AGUA || medioDestino === TIPO.AGUA_PROFUNDA) {
+              player.x = destino.x;
+              player.y = destino.y;
+            }
+          } else {
             player.x = destino.x;
             player.y = destino.y;
           }
-        } else {
-          player.x = destino.x;
-          player.y = destino.y;
+          // Niebla de guerra (docs/GDD_Mapa_Mundo.md, pedido 2026-08-31):
+          // cualquier movimiento real la revela, sin importar el modo
+          // (andando/corriendo/nadando/montado/en barco) — no-op barato si
+          // sigue dentro del mismo puñado de sectores ya revelados.
+          this.revelarExploracionSiHaceFalta(sessionId, player.x, player.y);
         }
-        // Niebla de guerra (docs/GDD_Mapa_Mundo.md, pedido 2026-08-31):
-        // cualquier movimiento real la revela, sin importar el modo
-        // (andando/corriendo/nadando/montado/en barco) — no-op barato si
-        // sigue dentro del mismo puñado de sectores ya revelados.
-        this.revelarExploracionSiHaceFalta(sessionId, player.x, player.y);
       }
 
       // Resistencia por movimiento (docs/GDD_Personaje.md §3.4, pedido
@@ -10303,7 +10354,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       }
 
       const medioAhora = medioEn(this.mundo, player.x, player.y);
-      if (medioAhora === TIPO.TIERRA || medioAhora === TIPO.SOLIDO) {
+      // Hielo tras moverse (docs/GDD_Clima.md): sigue contando como "tierra"
+      // para el estado/animación — la superficie helada se ve distinta,
+      // pero el jugador está de pie sobre ella, no nadando.
+      const hieloAhora = !montura && !esCapitanBarco && (medioAhora === TIPO.AGUA || medioAhora === TIPO.AGUA_PROFUNDA) && nivelNieveActual > 0;
+      if (medioAhora === TIPO.TIERRA || medioAhora === TIPO.SOLIDO || hieloAhora) {
         player.nivel = 0;
         player.estado = "tierra";
       } else if (montura || esCapitanBarco) {
@@ -10361,8 +10416,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const horasPorTick = dt / 3600;
     // Temperatura del mundo (docs/GDD_Clima.md): UNA vez por tick, no por
     // jugador — estación/hora son las mismas para todos en este instante.
-    const { estacion, hora } = tiempoMundo();
-    const tempMundoC = temperaturaMundo(estacion as Estacion, hora);
+    const { dia, hora, estacion } = tiempoMundo();
+    const tempMundoC = temperaturaMundoDelDia(dia, hora);
     this.state.players.forEach((player, sessionId) => {
       // Debug godMode (admin:debug:godMode, pedido 2026-08-31): "no pierde
       // vida ni comida/hidratación" — se salta ENTERO el tick de vitales/

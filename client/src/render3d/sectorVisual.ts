@@ -5,6 +5,7 @@ import { colorTerreno, colorObjeto, dimensionesObjeto } from "./catalogoVisual";
 import { obtenerPlantilla } from "./entityLoader";
 import type { CategoriaAsset } from "./assetCatalog";
 import { crearRigHumanoide } from "./rigHumanoide";
+import { NIVEL_MAXIMO_NIEVE } from "../mundo/nieve";
 
 /**
  * Materialización de UN sector del mapa bakeado (terreno + props) — la
@@ -465,10 +466,31 @@ function crearPlanoSector(
   return malla;
 }
 
+/** Opacidad + altura de la capa de nieve de UN plano ya creado, según el nivel (0..NIVEL_MAXIMO_NIEVE) — nunca reconstruye geometría/textura. */
+function aplicarNivelNieveAPlano(plano: THREE.Mesh, nivel: number): void {
+  const material = plano.material as THREE.MeshStandardMaterial;
+  const fraccion = Math.max(0, Math.min(1, nivel / NIVEL_MAXIMO_NIEVE));
+  material.opacity = OPACIDAD_MAX_NIEVE * fraccion;
+  plano.position.y = ALTURA_MAX_NIEVE * fraccion;
+  plano.visible = nivel > 0;
+}
+
+// Hielo (docs/GDD_Clima.md): agua con nieve acumulada encima — sustituye
+// el tono translúcido de AGUAS por un tono opaco frío, mismo criterio que
+// el resto de esta tabla (placeholder de color, sin textura real todavía).
+const COLOR_HIELO = new THREE.Color(0xcfe4ec);
+// Capa de nieve en tierra: blanco simple, opacidad y altura crecientes con
+// el nivel (0..NIVEL_MAXIMO_NIEVE) — PLACEHOLDER (docs/GDD_Clima.md §nieve
+// visual): un plano semitransparente por sector, nunca una malla por
+// casilla (sería carísimo). Nunca cubre agua/hielo (ver más abajo).
+const OPACIDAD_MAX_NIEVE = 0.85;
+const ALTURA_MAX_NIEVE = 0.22;
+
 function crearTerrenoSector(
   indice: IndiceMapa,
   sector: SectorBakeado,
   margenVisual = 0,
+  nivelNieveActual = 0,
 ): { grupo: THREE.Group; ancho: number; alto: number } {
   const t = indice.tamanoChunk;
   const tilesSector = indice.tamanoSectorChunks * t;
@@ -497,6 +519,16 @@ function crearTerrenoSector(
   const ctxFondo = fondo.getContext("2d")!;
   ctxFondo.fillStyle = "#000000";
   ctxFondo.fillRect(0, 0, ancho, alto);
+  // Máscara de nieve (docs/GDD_Clima.md): blanco opaco donde SÍ puede haber
+  // nieve (tierra), transparente donde no (agua/hielo) — se pinta UNA vez
+  // al materializar el sector; la opacidad/altura de todo el plano (no de
+  // este canvas) es lo que sube y baja con el nivel, ver `actualizarNieveSector`.
+  const nieveCanvas = document.createElement("canvas");
+  nieveCanvas.width = ancho;
+  nieveCanvas.height = alto;
+  const ctxNieve = nieveCanvas.getContext("2d")!;
+  ctxNieve.clearRect(0, 0, ancho, alto);
+  ctxNieve.fillStyle = "#ffffff";
 
   const rangoElev = Math.max(1, ELEV_AGUA_MAX - ELEV_AGUA_MIN);
   const solidosPorTipo = new Map<string, number[]>(); // terreno urbano -> [gx,gy,...]
@@ -514,6 +546,14 @@ function crearTerrenoSector(
         const agua = AGUAS[id];
         if (!agua) {
           ctxSuelo.fillStyle = colorTerreno(id);
+          ctxSuelo.fillRect(baseX + x, baseY + y, 1, 1);
+          ctxNieve.fillRect(baseX + x, baseY + y, 1, 1);
+          continue;
+        }
+        if (nivelNieveActual > 0) {
+          // Hielo (docs/GDD_Clima.md): opaco, sin lecho visible debajo — no
+          // se nada encima, es "tierra" a efectos de juego (RoomExteriorBase.ts).
+          ctxSuelo.fillStyle = `#${COLOR_HIELO.getHexString()}`;
           ctxSuelo.fillRect(baseX + x, baseY + y, 1, 1);
           continue;
         }
@@ -560,6 +600,18 @@ function crearTerrenoSector(
   const planoSuelo = crearPlanoSector(sueloFinal, anchoFinal, altoFinal, true);
   planoSuelo.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
   grupo.add(planoFondo, planoSuelo);
+
+  // Capa de nieve (docs/GDD_Clima.md): mismo plano/textura que el suelo,
+  // la máscara ya excluye agua/hielo. Opacidad/altura arrancan acordes al
+  // nivel de HOY; `actualizarNieveSector` las retoca sin reconstruir nada
+  // cuando el nivel global cambie mientras el sector siga materializado.
+  const nieveFinal = margenVisual > 0 ? extenderConMargenClamp(nieveCanvas, margenVisual) : nieveCanvas;
+  const planoNieve = crearPlanoSector(nieveFinal, anchoFinal, altoFinal, true);
+  planoNieve.name = "capaNieve";
+  planoNieve.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
+  aplicarNivelNieveAPlano(planoNieve, nivelNieveActual);
+  grupo.add(planoNieve);
+
   if (margenVisual > 0) {
     // margenVisual>0 hoy SOLO pasa en arenas (game.ts) — ver crearRejillaTactica.
     const rejilla = crearRejillaTactica(ancho, alto);
@@ -804,10 +856,11 @@ export async function crearSectorVisual(
   sector: SectorBakeado,
   excluidos: Set<string> = new Set(),
   margenVisual = 0,
+  nivelNieveActual = 0,
 ): Promise<HandleSector> {
   const grupo = new THREE.Group();
   grupo.name = `sector_${sector.sectorX}_${sector.sectorY}`;
-  const terreno = crearTerrenoSector(indice, sector, margenVisual);
+  const terreno = crearTerrenoSector(indice, sector, margenVisual, nivelNieveActual);
   grupo.add(terreno.grupo);
   grupo.add(crearMurallaSector(indice, sector));
   const { raiz, ocultables } = await crearPropsSector(indice, sector, excluidos);
@@ -844,4 +897,10 @@ export function soltarSectorVisual(handle: HandleSector): void {
     }
   });
   handle.grupo.clear();
+}
+
+/** Retoca opacidad/altura de la capa de nieve de un sector YA materializado, sin reconstruir nada — llamar cuando el nivel global de nieve cambie (docs/GDD_Clima.md, una vez por día de mundo). No-op si este sector no tiene capa de nieve (arenas/mazmorras u otro caso raro). */
+export function actualizarNieveSector(handle: HandleSector, nivel: number): void {
+  const plano = handle.grupo.getObjectByName("capaNieve") as THREE.Mesh | undefined;
+  if (plano) aplicarNivelNieveAPlano(plano, nivel);
 }

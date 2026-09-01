@@ -1,14 +1,29 @@
 {
-  "_uso": "Clima COMPARTIDO (servidor y cliente, docs/GDD_Clima.md, pedido 2026-08-30): estado de clima del día (server/src/mundo/clima.ts y client/src/mundo/clima.ts calculan el MISMO resultado sin red, mismo criterio que assets/mundo/tiempo.json) y curva de temperatura del mundo por estación/hora. Sin sistema de nieve acumulable todavía — pedido explícitamente aparte por el streamer.",
-  "estados": ["soleado", "nublado", "lluvia", "viento", "nieve"],
-  "_pesos": "Peso relativo (no tiene que sumar 100) de cada estado por estación — un roll determinista por día de mundo (hash del día, nunca Math.random) elige uno. nieve:0 fuera de invierno = nunca nieva en otras estaciones.",
+  "_uso": "Clima COMPARTIDO (servidor y cliente, docs/GDD_Clima.md, pedido 2026-08-30 + pasada de nieve/lluvia/niebla/viento 2026-09-01): estado de clima por FRANJA horaria del día (server/src/mundo/clima.ts y client/src/mundo/clima.ts calculan el MISMO resultado sin red). Sin partículas ni nieve acumulable en la primera pasada — desde esta pasada SÍ: acumulador de nieve en server/src/mundo/nieve.ts + client/src/mundo/nieve.ts, mismo catálogo.",
+  "estados": ["soleado", "nublado", "precipitacion", "viento", "niebla"],
+  "_pesos": "Peso relativo (no tiene que sumar 100) de cada estado por estación — un roll determinista por FRANJA de mundo (hash de día+franja, nunca Math.random) elige uno. 'precipitacion' NO es lluvia o nieve todavía: eso se decide después por temperatura (ver _derivarTipo). Mismo peso de precipitación en invierno que en primavera/otoño a propósito — la diferencia lluvia/nieve la pone la temperatura, no este peso. 'niebla' y 'viento' son solo un sprite que limita un poco la vista (docs/GDD_Clima.md) — más niebla en otoño/invierno (mañanas frías), más floja en verano.",
   "pesosPorEstacion": {
-    "primavera": { "soleado": 30, "nublado": 25, "lluvia": 30, "viento": 15, "nieve": 0 },
-    "verano": { "soleado": 55, "nublado": 20, "lluvia": 10, "viento": 15, "nieve": 0 },
-    "otono": { "soleado": 20, "nublado": 30, "lluvia": 35, "viento": 15, "nieve": 0 },
-    "invierno": { "soleado": 20, "nublado": 25, "lluvia": 10, "viento": 10, "nieve": 35 }
+    "primavera": { "soleado": 30, "nublado": 20, "precipitacion": 25, "viento": 10, "niebla": 15 },
+    "verano": { "soleado": 50, "nublado": 15, "precipitacion": 10, "viento": 15, "niebla": 10 },
+    "otono": { "soleado": 20, "nublado": 25, "precipitacion": 30, "viento": 10, "niebla": 15 },
+    "invierno": { "soleado": 25, "nublado": 20, "precipitacion": 25, "viento": 10, "niebla": 20 }
   },
-  "_temperatura": "Grados aproximados (sin unidad estricta, solo referencia interna): temperaturaBasePorEstacion es el punto medio del día; amplitudTermicaDiaria es la variación pico-a-pico entre la hora más fría (madrugada) y la más cálida (media tarde) — mismo placeholder de balance que el resto del proyecto.",
-  "temperaturaBasePorEstacion": { "primavera": 15, "verano": 27, "otono": 13, "invierno": 3 },
-  "amplitudTermicaDiaria": 8
+  "_franjas": "El día se parte en 4 franjas de 6h con tirada INDEPENDIENTE cada una (mismos pesos de arriba) — así puede nevar de madrugada y escampar por la tarde en el mismo día. 'horaRepresentativa' es la hora usada para leer la temperatura de esa franja (decide si su precipitación sale lluvia o nieve). El cliente suaviza el cambio de una franja a otra con un fundido de unos minutos — eso es solo render, no toca este cálculo.",
+  "franjas": [
+    { "id": "madrugada", "horaInicio": 0, "horaRepresentativa": 3 },
+    { "id": "manana", "horaInicio": 6, "horaRepresentativa": 9 },
+    { "id": "tarde", "horaInicio": 12, "horaRepresentativa": 15 },
+    { "id": "noche", "horaInicio": 18, "horaRepresentativa": 21 }
+  ],
+  "_derivarTipo": "'precipitacion' se muestra como 'nieve' si la temperatura de ESA franja es <= umbralNieveC; si no, como 'lluvia'. Así 'nieva siempre entre -5 y 5 grados' sale solo de la temperatura, sin tabla aparte.",
+  "umbralNieveC": 5,
+  "_temperatura": "UNA sola curva anual continua (coseno) en vez de una base fija por estación — sin saltos entre estaciones, más frío hacia la mitad de invierno y más cálido hacia la mitad de verano de forma gradual. Encima, oscilación diaria de siempre (coseno, mínimo ~03:00, máximo ~15:00). Extremos exactos con estos números: mínimo absoluto -5°C (madrugada, mitad de invierno), máximo absoluto 35°C (media tarde, mitad de verano). temperaturaMediaAnualC = punto medio; amplitudAnualC = mitad del rango estacional; amplitudDiariaC = oscilación pico-a-pico día/noche; diaPicoVeranoDelAnio = día-dentro-del-año (0-359) del punto más cálido del año (mitad de la estación 'verano').",
+  "temperaturaMediaAnualC": 15,
+  "amplitudAnualC": 17,
+  "amplitudDiariaC": 6,
+  "diaPicoVeranoDelAnio": 135,
+  "_nieveAcumulada": "Constantes del acumulador de nieve (server/src/mundo/nieve.ts + client/src/mundo/nieve.ts) — nivel GLOBAL 0..nivelMaximo, un entero por día de mundo, sin guardar estado (se deriva recorriendo hacia atrás ventanaFoldDias días). Sube 1 el día en que alguna franja nevó; baja 1 el día en que NINGUNA franja nevó Y la temperatura de la franja 'tarde' supera umbralDeshieloC; se mantiene en cualquier otro caso (frío pero sin nevar ese día concreto).",
+  "nivelMaximoNieve": 4,
+  "umbralDeshieloC": 5,
+  "ventanaFoldDiasNieve": 45
 }
