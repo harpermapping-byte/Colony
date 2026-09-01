@@ -23,6 +23,7 @@ import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD
 import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2 } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
+import { PanelForja } from "./construccion/panelForja";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
 import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
@@ -1621,6 +1622,38 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // lejos, ya en combate, pvp deshabilitado...) — mismo patrón que el resto.
   room.onMessage("combate:error", (m: { motivo: string }) => console.log("[combate]", m?.motivo));
 
+  // --- Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería,
+  // pedido 2026-09-01) — panel PLACEHOLDER de testeo (ver panelForja.ts),
+  // mismo criterio que panelCombate.ts. Arranca vía "crafteo:iniciar" (sin
+  // UI de recetas todavía, igual que el resto de crafteo — window.__test),
+  // reactivo solo a mensajes (una forja no tiene Schema replicado, es
+  // efímera por sesión). ESPACIO golpea mientras hay una forja en FORJAR,
+  // mismo hueco de tecla libre que el resto de acciones sin targeting.
+  let forjaFaseActual: string | null = null;
+  const panelForja = new PanelForja({
+    contenedor,
+    enviarAvivar: () => room.send("crafteo:herreria:accion", { accion: "avivar" }),
+    enviarGolpear: () => room.send("crafteo:herreria:accion", { accion: "golpear" }),
+    enviarTemplar: () => room.send("crafteo:herreria:accion", { accion: "templar" }),
+    enviarCancelar: () => room.send("crafteo:herreria:cancelar"),
+  });
+  room.onMessage("crafteo:herreria:iniciado", (m: { cfg: any; sesion: any }) => {
+    forjaFaseActual = m.sesion.fase;
+    panelForja.mostrarSesion(m.cfg, m.sesion);
+  });
+  room.onMessage("crafteo:herreria:progreso", (m: { sesion: any }) => {
+    forjaFaseActual = m.sesion.fase;
+    panelForja.actualizarSesion(m.sesion);
+  });
+  room.onMessage("crafteo:herreria:completado", (m: any) => {
+    forjaFaseActual = null;
+    panelForja.mostrarResultado(m);
+  });
+  room.onMessage("crafteo:herreria:cancelado", () => {
+    forjaFaseActual = null;
+    panelForja.ocultar();
+  });
+
   // --- Mascotas (docs/GDD_Mascotas.md) — panel PLACEHOLDER de testeo (ver panelMascotas.ts). Tecla G: dar de comer al animal domesticable más cercano. ---
   const panelMascotas = new PanelMascotas({
     contenedor,
@@ -2150,6 +2183,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "v" && !teclas.has("v")) {
       const combateId = combatePendienteMasCercano();
       if (combateId) room.send("combate:unirse", { combateId, retorno: retornoDeCombate() });
+    }
+    // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería):
+    // ESPACIO golpea mientras el panel está en fase FORJAR — mismo criterio
+    // "tecla de acción sin targeting" que el resto de este bloque.
+    if (k === " " && !teclas.has(" ") && forjaFaseActual === "FORJAR") {
+      e.preventDefault();
+      room.send("crafteo:herreria:accion", { accion: "golpear" });
     }
     // Movimiento EN COMBATE (docs/GDD_Combate.md §9.3, pedido streamer: "el
     // movimiento cambia al del mundo en general [...] esto es solo en
