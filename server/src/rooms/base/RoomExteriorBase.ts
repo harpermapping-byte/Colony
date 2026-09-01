@@ -103,7 +103,7 @@ import {
   SesionAlquimia, IngredienteAlquimia, BuffPocion, EfectoPocion,
   iniciarSesionAlquimia, avivarAlquimia, enfriarAlquimia, colarPocion,
   crearBuffsPocion, aplicarBuffsPocion, CONFIG_ESTACION_ALQUIMIA,
-  factorBuffPocion, factorGastoEstaminaPocion, tieneEspecialActivo,
+  factorBuffPocion, factorGastoEstaminaPocion, tieneEspecialActivo, itemIdPocion,
 } from "../../construccion/alquimia";
 // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido
 // 2026-08-31) — interpretación de texto libre, módulo JS puro compartido
@@ -7771,7 +7771,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const player = this.state.players.get(client.sessionId);
     if (!nombre || !player) return;
 
-    const entrega = this.entregarPocion(client, player, resultado.efectos!);
+    // Color del líquido según ingredientes (docs/GDD_Pociones.md, ampliación
+    // 2026-09-01) — decide el itemId REAL de catálogo entre las 5 variantes
+    // (pocion_alquimica_clara/toxica/vital/inestable/radiante); la tirada de
+    // efectos (arriba) es independiente y sigue viviendo en la instancia.
+    const itemId = itemIdPocion(resultado.color!);
+    const entrega = this.entregarPocion(client, player, resultado.efectos!, itemId);
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
@@ -7783,7 +7788,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_CRAFTEO);
 
     client.send("alquimia:completado", {
-      itemId: "pocion_alquimica", cantidad: 1, instanciaId: entrega.instanciaId, pureza: resultado.pureza, efectos: resultado.efectos,
+      itemId, cantidad: 1, instanciaId: entrega.instanciaId, pureza: resultado.pureza, efectos: resultado.efectos,
       oficio: "curandero", xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
     });
   }
@@ -7799,12 +7804,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * con `extra`, ver inventario.ts) — no puede reusar `entregarOSoltar` tal
    * cual porque ese helper no sabe de datos por-instancia (perdería la
    * tirada al crear el ítem). Mismo "cae al suelo si no cabe" que el resto.
+   * `itemId` es dinámico (una de las 5 variantes de color, `itemIdPocion`,
+   * docs/GDD_Pociones.md ampliación 2026-09-01) — nunca hardcodeado aquí.
    */
-  private entregarPocion(client: Client, player: Player, efectos: EfectoPocion[]): { enInventario: boolean; instanciaId?: number } {
+  private entregarPocion(client: Client, player: Player, efectos: EfectoPocion[], itemId: string): { enInventario: boolean; instanciaId?: number } {
     const contenedor = this.inventarios.get(client.sessionId);
     const pesoMaximo = this.pesoMaximoConBuffs(client.sessionId, player.atributos.fuerza);
-    const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, "pocion_alquimica", 1, pesoMaximo);
-    const resultado = contenedor && cabePeso ? agregarItem(contenedor, this.catalogoItems, "pocion_alquimica", 1, { efectoPocion: efectos }) : { ok: false as const };
+    const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, itemId, 1, pesoMaximo);
+    const resultado = contenedor && cabePeso ? agregarItem(contenedor, this.catalogoItems, itemId, 1, { efectoPocion: efectos }) : { ok: false as const };
     if (resultado.ok) {
       sincronizarContenedor(player.inventario.cuerpo, contenedor!);
       return { enInventario: true, instanciaId: resultado.instancia?.id };
@@ -7812,7 +7819,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const o = new ObjetoMundoSchema();
     o.x = Math.floor(player.x) + 0.5;
     o.y = Math.floor(player.y) + 0.5;
-    o.itemId = "pocion_alquimica";
+    o.itemId = itemId;
     o.cantidad = 1;
     this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o);
     return { enInventario: false };
@@ -7824,7 +7831,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
     const item = contenedor.items.find((it) => it.id === msg.instanciaId);
-    if (!item || item.itemId !== "pocion_alquimica" || !item.efectoPocion) return this.errorAlquimia(client, "eso no se puede beber");
+    // `efectoPocion` (no el itemId) es lo que de verdad identifica una poción
+    // bebible — solo `entregarPocion` lo rellena, y ahora hay 5 itemIds
+    // posibles según el color (docs/GDD_Pociones.md, ampliación 2026-09-01),
+    // así que comprobar un itemId fijo aquí ya no tendría sentido.
+    if (!item || !item.efectoPocion) return this.errorAlquimia(client, "eso no se puede beber");
 
     const ahoraMs = Date.now();
     const nuevosBuffs = crearBuffsPocion(item.efectoPocion, ahoraMs);

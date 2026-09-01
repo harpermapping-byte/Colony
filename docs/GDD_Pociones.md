@@ -105,5 +105,47 @@ Bug real encontrado (y corregido) durante la implementación: `defensaFisica`/`a
 ## 8. Pendiente (no mecanismo, contenido/UI)
 
 - **Sin panel de cliente todavía** (mismo estado que crafteo/forja) — protocolo real vía `window.__test`.
-- Cocina: pedido explícito de reutilizar `estacionFuego.ts` para un minijuego análogo en las vasijas de cocina existentes (`server/src/cocina/cocina.ts`, ya completo y determinista) — no abordado en esta pasada, mecanismo genérico ya listo para ello.
+- ~~Cocina: pedido explícito de reutilizar `estacionFuego.ts` para un minijuego análogo en las vasijas de cocina existentes~~ **HECHO 2026-09-01** — ver `docs/GDD_Cocina.md` §18.
 - Los efectos nuevos de §1.4 no tienen todavía ninguna UI que muestre "tienes sigilo activo"/"doble XP activa" al jugador — mismo estado que el resto del proyecto (placeholder primero, UI real al final).
+
+## 9. Color del líquido según ingredientes — el "listado" para generar el 3D (ampliación 2026-09-01)
+
+Pedido literal: *"generen en listado las pociones para generar luego su 3d, con diferente color de liquido dentro dependiendo que intgredientes tenga, esto hara que haya diferentes props de colores de las pociones y luego tendran atributos cada una segun su crafteo"*. Confirma exactamente el diseño de §5: los ATRIBUTOS (la tirada de `efectoPocion`) ya vivían en la INSTANCIA, nunca en el catálogo — lo que faltaba era que el COLOR (el catálogo, el "listado") variara con los ingredientes, para que `taller-vox` pueda pintar props realmente distintos.
+
+### 9.1 Por qué 5 variantes fijas, no un color por combinación exacta
+
+Mismo criterio que §5 ("intratable" un itemId por combinación de EFECTOS) aplicado ahora al COLOR: el color depende de qué ingredientes entraron, no del roll — así que dos pociones con los mismos ingredientes son SIEMPRE del mismo color, aunque la tirada de efectos salga distinta cada vez (matiz importante: color = función de `corruptivosUnicos`/`catalizadoresUnicos`/`mezclaAvanzada`, nunca de `efectos`). Un pool continuo (un color por cada combinación posible de los 13 ingredientes) sería tan intratable como un itemId por combinación de efectos — así que, igual que ahí, se fija un pool PEQUEÑO de 5 categorías con prioridad (`alquimia.ts::colorPocion`, primera que aplica gana):
+
+1. **`radiante`** — mezcla avanzada (3+ catalizadores). Manda SIEMPRE, aunque también haya corruptivos — es el resultado más especial (4 bonos garantizados), su color no debe "perderse" dentro de "inestable".
+2. **`inestable`** — corruptivo Y catalizador a la vez (sin llegar a mezcla avanzada) — dos fuerzas en pugna.
+3. **`toxica`** — solo corruptivo.
+4. **`vital`** — solo catalizador (1-2, sin mezcla avanzada).
+5. **`clara`** — ni corruptivo ni catalizador (relleno neutro solamente) — la base.
+
+### 9.2 Catálogo — 5 entradas reales, no una con tinte en caliente
+
+`pocion_alquimica` (única, genérica) se sustituye por `pocion_alquimica_clara/toxica/vital/inestable/radiante` en `items/catalogo/items.json` — mismo `tipo:"consumible", apilable:false` de siempre (sigue sin apilar: cada instancia lleva su propia tirada de `efectoPocion`, el color NO cambia ese motivo), cada una con su propio `colorDebug` (regla CLAUDE.md #2: el color visual sale del catálogo, nunca se calcula en caliente ni se duplica en una tabla aparte):
+
+| color | colorDebug | condición |
+|---|---|---|
+| clara | `#d9c078` (ámbar pálido) | sin corruptivo ni catalizador |
+| toxica | `#5a9a3a` (verde) | solo corruptivo |
+| vital | `#c94a5a` (rojo) | solo catalizador |
+| inestable | `#8a4a9a` (morado) | corruptivo + catalizador |
+| radiante | `#f0c840` (dorado) | mezcla avanzada |
+
+`itemIdPocion(color)` (`alquimia.ts`) da el itemId real; `colarPocion` calcula `color` a partir de `resultadoBase` y lo devuelve en `ResultadoColarPocion` — `manejarAlquimiaColar` (`RoomExteriorBase.ts`) usa `itemIdPocion(resultado.color!)` tanto para `entregarPocion` (que ganó un parámetro `itemId`, antes hardcodeado) como para el `itemId` del evento `alquimia:completado`. `manejarPocionBeber` dejó de comprobar `item.itemId === "pocion_alquimica"` (ya no existe, y ahora hay 5 posibles) — el criterio real siempre fue `item.efectoPocion` presente, que es lo único que de verdad identifica "esto es una poción bebible" (bug encontrado y corregido en esta misma pasada: sin este cambio, beber CUALQUIER poción habría quedado roto).
+
+### 9.3 Generación 3D — `taller-vox/generar_comida.js` ya sabía pintar, cero generador nuevo
+
+`generarFrasco` (arquetipo FRASCO, ya existente desde antes de esta pasada) pinta el vidrio con una versión oscurecida de `v.colorDebug` y el LÍQUIDO con `v.colorDebug` directo — 100% dirigido por catálogo, sin ningún parámetro de color hardcodeado dentro del generador. Bastó con sustituir la entrada única de `IDS_FRASCO` por las 5 nuevas para que las 5 variantes salgan con su bote realmente distinto, verificado generando la muestra (`node generar_comida.js --muestra`): paletas `["#776a42","#d9c078",...]` (clara), `["#325520","#5a9a3a",...]` (tóxica), `["#846e23","#f0c840",...]` (radiante) — el vidrio y el líquido escalan juntos desde el mismo `colorDebug`.
+
+**Sin generar ni subir ningún `.glb` en esta pasada** — eso sigue el flujo de aprobación pactado (CLAUDE.md: "generar → revisar en el visor → aprobar/rehacer → exportar y SUBIR SOLO LOS APROBADOS"), pendiente de que el streamer lo revise cuando decida. Lo que esta pasada deja listo es el "listado" (el catálogo con 5 itemIds reales y su `colorDebug`) para que ese paso, cuando llegue, no tenga que tocar ni el catálogo ni el generador.
+
+### 9.4 Verificado
+
+- `server/test/alquimia.test.ts` — `colorPocion` (los 5 casos + prioridad radiante-sobre-inestable) y `itemIdPocion` puros; `colarPocion` devuelve `color` correcto.
+- `server/test/inventario.test.ts` — conteo de catálogo actualizado (464→468: -1 genérica + 5 variantes).
+- `server/test/alquimia.e2e.mjs` — reverificado contra el servidor real: la combinación de 3 catalizadores+1 corruptivo entrega `pocion_alquimica_radiante` de verdad (no la genérica de antes).
+- `taller-vox/generar_comida.js --muestra` — paletas de color confirmadas distintas por variante.
+- Vista previa rápida (swatches, no el frasco 3D final) generada y enseñada al streamer antes de dar la pasada por cerrada.

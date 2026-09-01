@@ -23,6 +23,8 @@ import {
   factorBuffPocion,
   factorGastoEstaminaPocion,
   tieneEspecialActivo,
+  colorPocion,
+  itemIdPocion,
 } from "../src/construccion/alquimia";
 
 const rndSecuencia = (valores: number[]) => {
@@ -390,6 +392,47 @@ test("colarPocion: nunca cambia QUÉ stat salió ni el signo del efecto, solo su
   const negativoFinal = r.efectos!.find(esStat)!;
   assert.strictEqual(negativoFinal.stat, negativoBase.stat);
   assert.ok(negativoFinal.magnitudPct <= 0, "un efecto negativo escalado sigue siendo negativo (o 0), nunca cambia de signo");
+});
+
+// --- colorPocion / itemIdPocion (docs/GDD_Pociones.md, ampliación 2026-09-01: listado de color por ingredientes) ---
+
+test("colorPocion: sin corruptivo ni catalizador -> 'clara'", () => {
+  assert.strictEqual(colorPocion({ corruptivosUnicos: 0, catalizadoresUnicos: 0, mezclaAvanzada: false }), "clara");
+});
+
+test("colorPocion: solo corruptivo -> 'toxica'", () => {
+  assert.strictEqual(colorPocion({ corruptivosUnicos: 1, catalizadoresUnicos: 0, mezclaAvanzada: false }), "toxica");
+  assert.strictEqual(colorPocion({ corruptivosUnicos: 2, catalizadoresUnicos: 0, mezclaAvanzada: false }), "toxica");
+});
+
+test("colorPocion: solo catalizador (sin mezcla avanzada) -> 'vital'", () => {
+  assert.strictEqual(colorPocion({ corruptivosUnicos: 0, catalizadoresUnicos: 1, mezclaAvanzada: false }), "vital");
+  assert.strictEqual(colorPocion({ corruptivosUnicos: 0, catalizadoresUnicos: 2, mezclaAvanzada: false }), "vital");
+});
+
+test("colorPocion: corruptivo Y catalizador a la vez (sin mezcla avanzada) -> 'inestable'", () => {
+  assert.strictEqual(colorPocion({ corruptivosUnicos: 1, catalizadoresUnicos: 1, mezclaAvanzada: false }), "inestable");
+  assert.strictEqual(colorPocion({ corruptivosUnicos: 2, catalizadoresUnicos: 2, mezclaAvanzada: false }), "inestable");
+});
+
+test("colorPocion: mezcla avanzada manda SIEMPRE -> 'radiante', aunque también haya corruptivo (no cae en 'inestable')", () => {
+  assert.strictEqual(colorPocion({ corruptivosUnicos: 0, catalizadoresUnicos: 3, mezclaAvanzada: true }), "radiante");
+  assert.strictEqual(colorPocion({ corruptivosUnicos: 2, catalizadoresUnicos: 3, mezclaAvanzada: true }), "radiante");
+});
+
+test("itemIdPocion: mapea cada color a su itemId real de catálogo", () => {
+  assert.strictEqual(itemIdPocion("clara"), "pocion_alquimica_clara");
+  assert.strictEqual(itemIdPocion("toxica"), "pocion_alquimica_toxica");
+  assert.strictEqual(itemIdPocion("vital"), "pocion_alquimica_vital");
+  assert.strictEqual(itemIdPocion("inestable"), "pocion_alquimica_inestable");
+  assert.strictEqual(itemIdPocion("radiante"), "pocion_alquimica_radiante");
+});
+
+test("colarPocion: el resultado trae 'color' calculado a partir de resultadoBase (corruptivo+catalizador -> 'inestable')", () => {
+  const s = iniciarSesionAlquimia([corruptivo("hierba_venenosa"), catalizador("hierba_curativa")], rndFijo(0.9), 0);
+  const r = colarPocion(s, CONFIG_ESTACION_ALQUIMIA.duracionMinimaSeg * 1000 + 100);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.color, "inestable");
 });
 
 test("avivarAlquimia/enfriarAlquimia: delegan en la temperatura de la sesión", () => {

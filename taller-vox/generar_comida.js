@@ -129,7 +129,14 @@ const IDS_PLATO = new Set([
 ]);
 const IDS_PAN = new Set(["pan", "rebanada_pan"]);
 const IDS_BEBIDA = new Set(["jarra_agua", "infusion_energia", "jarabe_catarro"]);
-const IDS_FRASCO = new Set(["pocion_alquimica", "unguento"]);
+// docs/GDD_Pociones.md (ampliación 2026-09-01): 5 variantes de color según
+// ingredientes (alquimia.ts::colorPocion) — cada una es una entrada real de
+// catálogo con su propio colorDebug, así que generarFrasco (que ya pinta el
+// líquido directo de v.colorDebug) las diferencia gratis, sin tocar código.
+const IDS_FRASCO = new Set([
+  "pocion_alquimica_clara", "pocion_alquimica_toxica", "pocion_alquimica_vital",
+  "pocion_alquimica_inestable", "pocion_alquimica_radiante", "unguento",
+]);
 const IDS_VENDAJE = new Set(["venda", "tablilla", "protesis_madera", "protesis_metal"]);
 const IDS_BLOQUE = new Set(["queso", "mantequilla"]);
 const IDS_RACION = new Set(["racion_viaje"]);
@@ -168,7 +175,7 @@ module.exports = { IDS_CONSUMIBLE, clasificarComida, generarComida, ARQUETIPO_FN
 if (require.main === module) {
   const muestra = process.argv.includes("--muestra");
   const ids = muestra
-    ? ["asado_carne_roja", "pan", "jarra_agua", "pocion_alquimica", "venda", "queso"]
+    ? ["asado_carne_roja", "pan", "jarra_agua", "pocion_alquimica_clara", "pocion_alquimica_toxica", "pocion_alquimica_radiante", "venda", "queso"]
     : IDS_CONSUMIBLE;
   const resultado = {};
   for (const id of ids) resultado[id] = generarComida(id);

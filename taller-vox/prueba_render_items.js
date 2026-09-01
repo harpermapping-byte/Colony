@@ -47,7 +47,7 @@ const MUESTRAS = [
   { grupo: "ARMA", ids: ["daga", "espada_larga", "hacha_combate", "maza_guerra", "lanza", "arco_largo", "ballesta", "honda"], fn: generarArma },
   { grupo: "HERRAMIENTA", ids: ["hacha_talar", "pico_minero", "martillo_forja_hierro", "cuchillo_desollar", "tenazas_cuello_largo", "cana_pesca", "pluma_tintero"], fn: generarHerramienta },
   { grupo: "OBJETO", ids: ["plato", "caldero", "jarra_cerveza", "sarten", "silla_montar", "libro", "brasero", "jaula_pajaro"], fn: generarObjeto },
-  { grupo: "COMIDA", ids: ["asado_carne_roja", "pan", "jarra_agua", "pocion_alquimica", "venda", "queso"], fn: generarComida },
+  { grupo: "COMIDA", ids: ["asado_carne_roja", "pan", "jarra_agua", "pocion_alquimica_clara", "pocion_alquimica_toxica", "pocion_alquimica_radiante", "venda", "queso"], fn: generarComida },
 ];
 
 const items = [];
