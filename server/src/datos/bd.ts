@@ -149,6 +149,16 @@ export interface NpcTrabajador {
   y: number;
   fechaContratacionDia: number;
   ultimoPagoDia: number;
+  /**
+   * docs/GDD_Carros.md §12 (Fase 5, pedido 2026-09-03) — mascota PROPIA
+   * `montable` asignada para que este trabajador (oficio "transporte") viaje
+   * más rápido que a pie. Mutuamente excluyente con `conjuntoAsignadoId`
+   * (una montura suelta o un conjunto fusionado, nunca los dos a la vez —
+   * son dos formas de la MISMA idea: "qué usa para desplazarse").
+   */
+  mascotaAsignadaId: number | null;
+  /** docs/GDD_Carros.md §12 — conjunto de tiro PROPIO asignado; si su categoria es "materiales" también sustituye `cargaPorViaje` por la capacidad real de su rejilla (§12/§8.2). Mutuamente excluyente con `mascotaAsignadaId`. */
+  conjuntoAsignadoId: number | null;
 }
 
 export interface NuevoNpcTrabajador {
@@ -772,6 +782,8 @@ export interface IAlmacenDatos {
   /** `false` si `construccionId` ya no existe como fila — validado por quien llama, no aquí (esta capa no conoce ConstruccionViva). */
   asignarMesaNpcTrabajador(id: number, construccionId: number, x: number, y: number): Promise<boolean>;
   asignarRecetaNpcTrabajador(id: number, recetaId: string | null): Promise<boolean>;
+  /** docs/GDD_Carros.md §12 (Fase 5) — mismo patrón que asignarMesaNpcTrabajador: pasar `null` en ambos quita la asignación (vuelve a andar a pie). Mutuamente excluyentes, quien llama decide cuál de los dos va con valor. */
+  asignarMonturaNpcTrabajador(id: number, mascotaAsignadaId: number | null, conjuntoAsignadoId: number | null): Promise<boolean>;
   /** Pone `ultimoPagoDia = dia` a la vez para varios trabajadores — el pago mensual se cobra "de golpe" a todo el grupo (docs/GDD_NPCs_Contratables.md). */
   marcarPagoNpcTrabajador(ids: number[], dia: number): Promise<void>;
   /** Despido/eliminación (a mano por el dueño, o automático por impago) — `false` si el id ya no existía. */
@@ -922,6 +934,8 @@ export interface IAlmacenDatos {
   crearContratoTransporte(c: NuevoContratoTransporte): Promise<ContratoTransporte>;
   listarContratosTransporte(): Promise<ContratoTransporte[]>;
   actualizarUltimoViajeContrato(id: number, ultimoViajeResuelto: string): Promise<void>;
+  /** docs/GDD_Carros.md §12 (Fase 5) — recalculada al asignar/quitar montura/conjunto a mitad de ruta activa (la velocidad efectiva cambia, la duración persistida del viaje tiene que seguirla). */
+  actualizarDuracionContrato(id: number, duracionViajeSeg: number): Promise<void>;
   desactivarContratoTransporte(id: number): Promise<void>;
   /** El contrato ACTIVO (si hay) que opera este trabajador de oficio "transporte" — docs/GDD_NPCs_Contratables.md §Fusión con transporte. */
   buscarContratoDeTrabajador(trabajadorId: number): Promise<ContratoTransporte | null>;
@@ -1282,7 +1296,9 @@ CREATE TABLE IF NOT EXISTS npcs_trabajadores (
   y REAL NOT NULL,
   fecha_contratacion_dia INTEGER NOT NULL,
   ultimo_pago_dia INTEGER NOT NULL,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  mascota_asignada_id INTEGER,           -- FK mascotas.id, docs/GDD_Carros.md §12 (Fase 5) — NULL = anda a pie
+  conjunto_asignado_id INTEGER           -- FK conjuntos_tiro.id, docs/GDD_Carros.md §12 — mutuamente excluyente con mascota_asignada_id
 );
 CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_dueno ON npcs_trabajadores(dueno_id);
 CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_mapa ON npcs_trabajadores(mapa_id);
@@ -1797,6 +1813,8 @@ CREATE TABLE IF NOT EXISTS npcs_trabajadores (
   ultimo_pago_dia INTEGER NOT NULL,
   creado_en TEXT NOT NULL
 );
+ALTER TABLE npcs_trabajadores ADD COLUMN IF NOT EXISTS mascota_asignada_id INTEGER;
+ALTER TABLE npcs_trabajadores ADD COLUMN IF NOT EXISTS conjunto_asignado_id INTEGER;
 CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_dueno ON npcs_trabajadores(dueno_id);
 CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_mapa ON npcs_trabajadores(mapa_id);
 CREATE TABLE IF NOT EXISTS jugador_oficios (
@@ -2514,6 +2532,17 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       this.bd.exec("ALTER TABLE contratos_transporte ADD COLUMN trabajador_id INTEGER");
       this.bd.exec("CREATE INDEX IF NOT EXISTS idx_contratos_trabajador ON contratos_transporte(trabajador_id)");
     }
+    // Mismo patrón para `mascota_asignada_id`/`conjunto_asignado_id` de
+    // `npcs_trabajadores` (docs/GDD_Carros.md §12, Fase 5, pedido
+    // 2026-09-03) — un datos.sqlite de dev creado antes de este cambio no
+    // las tendría.
+    const columnasTrabajadores = this.bd.prepare("PRAGMA table_info(npcs_trabajadores)").all();
+    if (!columnasTrabajadores.some((c) => String(c.name) === "mascota_asignada_id")) {
+      this.bd.exec("ALTER TABLE npcs_trabajadores ADD COLUMN mascota_asignada_id INTEGER");
+    }
+    if (!columnasTrabajadores.some((c) => String(c.name) === "conjunto_asignado_id")) {
+      this.bd.exec("ALTER TABLE npcs_trabajadores ADD COLUMN conjunto_asignado_id INTEGER");
+    }
   }
 
   async obtenerOCrearJugador(nombre: string, saldoInicial = SALDO_INICIAL_JUGADOR): Promise<Jugador> {
@@ -2588,6 +2617,8 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       oficios: JSON.parse(String(f.oficios)), construccionId: f.construccion_id == null ? null : Number(f.construccion_id),
       recetaId: f.receta_id == null ? null : String(f.receta_id), x: Number(f.x), y: Number(f.y),
       fechaContratacionDia: Number(f.fecha_contratacion_dia), ultimoPagoDia: Number(f.ultimo_pago_dia),
+      mascotaAsignadaId: f.mascota_asignada_id == null ? null : Number(f.mascota_asignada_id),
+      conjuntoAsignadoId: f.conjunto_asignado_id == null ? null : Number(f.conjunto_asignado_id),
     };
   }
 
@@ -2602,6 +2633,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return {
       id: Number(r.lastInsertRowid), mapaId: datos.mapaId, duenoId: datos.duenoId, nombre: datos.nombre, oficios: datos.oficios,
       construccionId: null, recetaId: null, x: datos.x, y: datos.y, fechaContratacionDia: datos.diaActual, ultimoPagoDia: datos.diaActual,
+      mascotaAsignadaId: null, conjuntoAsignadoId: null,
     };
   }
 
@@ -2622,6 +2654,13 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async asignarRecetaNpcTrabajador(id: number, recetaId: string | null): Promise<boolean> {
     const r = this.bd.prepare("UPDATE npcs_trabajadores SET receta_id = ? WHERE id = ?").run(recetaId, id);
+    return Number(r.changes) > 0;
+  }
+
+  async asignarMonturaNpcTrabajador(id: number, mascotaAsignadaId: number | null, conjuntoAsignadoId: number | null): Promise<boolean> {
+    const r = this.bd
+      .prepare("UPDATE npcs_trabajadores SET mascota_asignada_id = ?, conjunto_asignado_id = ? WHERE id = ?")
+      .run(mascotaAsignadaId, conjuntoAsignadoId, id);
     return Number(r.changes) > 0;
   }
 
@@ -3388,6 +3427,10 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async actualizarUltimoViajeContrato(id: number, ultimoViajeResuelto: string): Promise<void> {
     this.bd.prepare("UPDATE contratos_transporte SET ultimo_viaje_resuelto = ? WHERE id = ?").run(ultimoViajeResuelto, id);
+  }
+
+  async actualizarDuracionContrato(id: number, duracionViajeSeg: number): Promise<void> {
+    this.bd.prepare("UPDATE contratos_transporte SET duracion_viaje_seg = ? WHERE id = ?").run(duracionViajeSeg, id);
   }
 
   async desactivarContratoTransporte(id: number): Promise<void> {
@@ -4170,11 +4213,12 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return (r.rowCount ?? 0) > 0;
   }
 
-  private filaATrabajador(f: { id: number; mapa_id: string; dueno_id: number; nombre: string; oficios: string; construccion_id: number | null; receta_id: string | null; x: number; y: number; fecha_contratacion_dia: number; ultimo_pago_dia: number }): NpcTrabajador {
+  private filaATrabajador(f: { id: number; mapa_id: string; dueno_id: number; nombre: string; oficios: string; construccion_id: number | null; receta_id: string | null; x: number; y: number; fecha_contratacion_dia: number; ultimo_pago_dia: number; mascota_asignada_id: number | null; conjunto_asignado_id: number | null }): NpcTrabajador {
     return {
       id: f.id, mapaId: f.mapa_id, duenoId: f.dueno_id, nombre: f.nombre, oficios: JSON.parse(f.oficios),
       construccionId: f.construccion_id, recetaId: f.receta_id, x: f.x, y: f.y,
       fechaContratacionDia: f.fecha_contratacion_dia, ultimoPagoDia: f.ultimo_pago_dia,
+      mascotaAsignadaId: f.mascota_asignada_id, conjuntoAsignadoId: f.conjunto_asignado_id,
     };
   }
 
@@ -4188,6 +4232,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return {
       id: r.rows[0].id, mapaId: datos.mapaId, duenoId: datos.duenoId, nombre: datos.nombre, oficios: datos.oficios,
       construccionId: null, recetaId: null, x: datos.x, y: datos.y, fechaContratacionDia: datos.diaActual, ultimoPagoDia: datos.diaActual,
+      mascotaAsignadaId: null, conjuntoAsignadoId: null,
     };
   }
 
@@ -4208,6 +4253,14 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async asignarRecetaNpcTrabajador(id: number, recetaId: string | null): Promise<boolean> {
     const r = await this.pool.query("UPDATE npcs_trabajadores SET receta_id = $1 WHERE id = $2", [recetaId, id]);
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async asignarMonturaNpcTrabajador(id: number, mascotaAsignadaId: number | null, conjuntoAsignadoId: number | null): Promise<boolean> {
+    const r = await this.pool.query(
+      "UPDATE npcs_trabajadores SET mascota_asignada_id = $1, conjunto_asignado_id = $2 WHERE id = $3",
+      [mascotaAsignadaId, conjuntoAsignadoId, id]
+    );
     return (r.rowCount ?? 0) > 0;
   }
 
@@ -4956,6 +5009,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async actualizarUltimoViajeContrato(id: number, ultimoViajeResuelto: string): Promise<void> {
     await this.pool.query("UPDATE contratos_transporte SET ultimo_viaje_resuelto = $1 WHERE id = $2", [ultimoViajeResuelto, id]);
+  }
+
+  async actualizarDuracionContrato(id: number, duracionViajeSeg: number): Promise<void> {
+    await this.pool.query("UPDATE contratos_transporte SET duracion_viaje_seg = $1 WHERE id = $2", [duracionViajeSeg, id]);
   }
 
   async desactivarContratoTransporte(id: number): Promise<void> {

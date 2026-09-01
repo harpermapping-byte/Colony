@@ -1178,6 +1178,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // para una RUTA origen→destino, reusando toda la maquinaria de
     // contratos_transporte/agregarAgenteTransportista ya existente.
     this.onMessage("trabajador:asignarRuta", (client, msg: { trabajadorId?: number; origenConstruccionId?: number; destinoTenderoteId?: string; destinoConstruccionId?: number }) => void this.manejarTrabajadorAsignarRuta(client, msg));
+    // docs/GDD_Carros.md §12 (Fase 5, pedido 2026-09-03) — montura/conjunto
+    // propios asignados a un trabajador de transporte, más rápido que a pie.
+    this.onMessage("trabajador:asignarMontura", (client, msg: { trabajadorId?: number; mascotaId?: number | null; conjuntoId?: number | null }) => void this.manejarTrabajadorAsignarMontura(client, msg));
     this.onMessage("trabajador:despedir", (client, msg: { trabajadorId?: number }) => void this.manejarTrabajadorDespedir(client, msg));
     // Panel de gestión (docs/GDD_NPCs_Contratables.md §Panel de gestión,
     // pedido 2026-09-01): construcciones/propiedades REALES del jugador que
@@ -6538,10 +6541,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const contenedorCofre = destinoCofre ? (extraCofre!.contenedor ?? crearContenedor(...capacidadCofre(this.entradaDe(destinoCofre.objeto)))) : undefined;
     const huecoDisponible = contenedorCofre ? capacidadLibre(contenedorCofre, this.catalogoItems, contrato.itemId) : Infinity; // el tenderete no tiene tope propio (docs/GDD_Mercado.md)
 
+    // docs/GDD_Carros.md §12 (Fase 5) — si el trabajador que opera esta ruta
+    // tiene un conjunto de materiales asignado, carga su capacidad REAL de
+    // rejilla en vez del valor persistido en el contrato (recalculado cada
+    // resolución, nunca cacheado — puede cambiar si se reasigna el conjunto).
+    let cargaPorViaje = contrato.cargaPorViaje;
+    if (contrato.trabajadorId != null) {
+      const filaTrabajador = this.trabajadoresActivos.get(contrato.trabajadorId) ?? (await bd.listarNpcsTrabajadoresDeJugador(contrato.dueno)).find((t) => t.id === contrato.trabajadorId);
+      if (filaTrabajador) cargaPorViaje = await this.capacidadEfectivaTrabajador(filaTrabajador, contrato.itemId, contrato.cargaPorViaje);
+    }
     const { transportado, nuevoUltimoResuelto } = resolverTransporte(
       new Date(contrato.ultimoViajeResuelto).getTime(),
       ahora,
-      { duracionViajeSeg: contrato.duracionViajeSeg, cargaPorViaje: contrato.cargaPorViaje },
+      { duracionViajeSeg: contrato.duracionViajeSeg, cargaPorViaje },
       producidoActualizado.stock,
       huecoDisponible,
     );
@@ -7794,6 +7806,54 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * el motivo de error como string, o `null` si quedó firmado — el llamante
    * decide qué canal usar (`trabajador:error`, único canal de esta familia).
    */
+  /**
+   * docs/GDD_Carros.md §12 (Fase 5, pedido 2026-09-03) — velocidad de paseo
+   * (cosmético, agentes.ts) de un trabajador de transporte: a pie (VEL_NPC)
+   * salvo que tenga montura/conjunto PROPIOS asignados (trabajador:asignarMontura),
+   * en cuyo caso usa la velocidad de esa especie sola, o esa
+   * especie×FACTOR_CARRO_NORMAL si es un conjunto (mismo factor que aplica
+   * al jugador conduciendo, GDD_Carros §6) — con suelo VEL_NPC: nunca más
+   * lento que a pie por llevar montura/carro asignados. A propósito SIN el
+   * suelo "jugador" (VEL_ANDAR+0.25) que usa el conductor humano — este NPC
+   * nunca anduvo a VEL_ANDAR, su base ya es la más lenta (VEL_NPC).
+   */
+  private async velocidadEfectivaTrabajador(fila: NpcTrabajador): Promise<number> {
+    const bd = await obtenerBdCompartida();
+    if (fila.mascotaAsignadaId != null) {
+      const mascota = (await bd.listarMascotas(fila.duenoId)).find((m) => m.id === fila.mascotaAsignadaId);
+      const datos = mascota ? this.catalogoMonturas[mascota.especieId] : undefined;
+      if (datos) return Math.max(datos.velocidadMontura, VEL_NPC);
+    } else if (fila.conjuntoAsignadoId != null) {
+      const conjunto = (await bd.listarConjuntosTiroDe(fila.mapaId)).find((c) => c.id === fila.conjuntoAsignadoId && c.jugadorId === fila.duenoId);
+      const datos = conjunto ? this.catalogoMonturas[conjunto.especieAnimalId] : undefined;
+      if (datos) return Math.max(datos.velocidadMontura * FACTOR_CARRO_NORMAL, VEL_NPC);
+    }
+    return VEL_NPC;
+  }
+
+  /**
+   * docs/GDD_Carros.md §12/§8.2 — cuánto transporta un trabajador por VIAJE
+   * económico (resolverTransporte): `cargaPorDefecto` (CARGA_POR_VIAJE_TRANSPORTE)
+   * salvo que tenga un conjunto PROPIO asignado cuyo carro es categoria
+   * "materiales", en cuyo caso sustituye por la capacidad REAL de su
+   * rejilla (una carreta carga mucho más que lo que cabría a lomos). Se
+   * calcula sobre una rejilla VACÍA del tamaño de catálogo — el contenido
+   * físico real del carro (`contenidoCarroPorClave`, manipulable a mano por
+   * el jugador) es un sistema aparte; esto es solo el tope del contrato
+   * perezoso, recalculado cada vez que se resuelve (nunca persistido).
+   */
+  private async capacidadEfectivaTrabajador(fila: NpcTrabajador, itemId: string, cargaPorDefecto: number): Promise<number> {
+    if (fila.conjuntoAsignadoId == null) return cargaPorDefecto;
+    const bd = await obtenerBdCompartida();
+    const conjunto = (await bd.listarConjuntosTiroDe(fila.mapaId)).find((c) => c.id === fila.conjuntoAsignadoId && c.jugadorId === fila.duenoId);
+    if (!conjunto) return cargaPorDefecto;
+    const datosCarro = this.catalogoCarros[conjunto.carroTipoId];
+    if (!datosCarro || datosCarro.categoria !== "materiales" || !datosCarro.capacidadContenedor) return cargaPorDefecto;
+    const vacio = crearContenedor(datosCarro.capacidadContenedor.ancho, datosCarro.capacidadContenedor.alto);
+    const libre = capacidadLibre(vacio, this.catalogoItems, itemId);
+    return Number.isFinite(libre) && libre > 0 ? libre : cargaPorDefecto;
+  }
+
   private async crearRutaTransporte(
     nombre: string, trabajadorId: number, nombreCarretero: string,
     msg: { origenConstruccionId: number; destinoTenderoteId?: string; destinoConstruccionId?: number },
@@ -7838,10 +7898,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const caminoIda = calcularCaminoRuntime(this.mundo, origenPunto, destinoPunto);
     if (!caminoIda || caminoIda.length < 2) return "no hay camino posible hasta el destino";
     const caminoVuelta = [...caminoIda].reverse();
-    const duracionViajeSeg = Math.max(5, caminoIda.length / VEL_NPC);
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
+    // docs/GDD_Carros.md §12 (Fase 5) — montura/conjunto propios ya
+    // asignados al trabajador (trabajador:asignarMontura) aceleran el viaje
+    // y, si es un conjunto de materiales, cargan más por viaje.
+    const filaTrabajador = this.trabajadoresActivos.get(trabajadorId) ?? (await bd.listarNpcsTrabajadoresDeJugador(jugador.id)).find((t) => t.id === trabajadorId);
+    const velEfectiva = filaTrabajador ? await this.velocidadEfectivaTrabajador(filaTrabajador) : VEL_NPC;
+    const duracionViajeSeg = Math.max(5, caminoIda.length / velEfectiva);
+    const cargaEfectiva = filaTrabajador ? await this.capacidadEfectivaTrabajador(filaTrabajador, datos.itemId, CARGA_POR_VIAJE_TRANSPORTE) : CARGA_POR_VIAJE_TRANSPORTE;
 
     // reasignar ruta: un trabajador solo opera UNA a la vez — se retira la
     // anterior (si la había) antes de firmar la nueva, nunca dos activas.
@@ -7853,7 +7919,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const contrato = await bd.crearContratoTransporte({
       origenConstruccionId: origenViva.id, destinoTenderoteId: destino, dueno: jugador.id,
-      itemId: datos.itemId, caminoIda, caminoVuelta, duracionViajeSeg, cargaPorViaje: CARGA_POR_VIAJE_TRANSPORTE,
+      itemId: datos.itemId, caminoIda, caminoVuelta, duracionViajeSeg, cargaPorViaje: cargaEfectiva,
       trabajadorId,
     });
 
@@ -7865,7 +7931,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.gestorAgentes?.quitarAgente(`trabajadorOficio_${trabajadorId}`);
     const slotIdCarretero = `contrato:${contrato.id}`;
     this.obtenerOCrearGestorAgentes().agregarAgenteTransportista(
-      slotIdCarretero, nombreCarretero, origenPunto, destinoPunto, caminoIda, caminoVuelta,
+      slotIdCarretero, nombreCarretero, origenPunto, destinoPunto, caminoIda, caminoVuelta, velEfectiva / VEL_NPC,
     );
     return null;
   }
@@ -7912,6 +7978,66 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.trabajadoresActivos.set(msg.trabajadorId, { ...pertenece.fila, recetaId: null });
     const contrato = await bd.buscarContratoDeTrabajador(msg.trabajadorId);
     client.send("trabajador:rutaAsignada", { trabajadorId: msg.trabajadorId, contrato });
+  }
+
+  /**
+   * docs/GDD_Carros.md §12 (Fase 5, pedido 2026-09-03) — asigna (o quita,
+   * mandando ambos campos vacíos) la montura suelta o el conjunto de tiro
+   * PROPIOS que un trabajador usa para desplazarse por su ruta más rápido
+   * que a pie (y, si es un conjunto "materiales", cargar más por viaje).
+   * Mutuamente excluyente: mandar mascotaId Y conjuntoId a la vez es error,
+   * no "gana uno" (mismo criterio de rechazo explícito que el resto de
+   * validaciones de trabajador). No exige el oficio "transporte" — igual
+   * que `asignarMesa` no exige receta todavía, el efecto solo se nota si
+   * más tarde se le asigna una ruta con `trabajador:asignarRuta`.
+   */
+  private async manejarTrabajadorAsignarMontura(client: Client, msg: { trabajadorId?: number; mascotaId?: number | null; conjuntoId?: number | null }) {
+    if (typeof msg?.trabajadorId !== "number") return;
+    if (msg.mascotaId != null && msg.conjuntoId != null) return this.errorTrabajador(client, "monta o engancha, no las dos cosas a la vez");
+    const pertenece = await this.trabajadorPerteneceA(client, msg.trabajadorId);
+    if (!pertenece.ok) return this.errorTrabajador(client, "ese trabajador no es tuyo");
+    const fila = pertenece.fila;
+    const bd = await obtenerBdCompartida();
+    const nombre = this.nombreDe(client)!;
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+
+    let mascotaAsignadaId: number | null = null;
+    let conjuntoAsignadoId: number | null = null;
+    if (msg.mascotaId != null) {
+      const mascota = (await bd.listarMascotas(jugador.id)).find((m) => m.id === msg.mascotaId);
+      if (!mascota) return this.errorTrabajador(client, "esa mascota no es tuya");
+      if (!this.catalogoMonturas[mascota.especieId]?.montable) return this.errorTrabajador(client, "esa especie no es montable");
+      // no puede estar en uso por el propio jugador ahora mismo (un animal, un jinete a la vez).
+      for (const m of this.montadoPorSesion.values()) if (m.mascotaId === msg.mascotaId) return this.errorTrabajador(client, "esa mascota está montada ahora mismo");
+      mascotaAsignadaId = mascota.id;
+    } else if (msg.conjuntoId != null) {
+      const conjunto = (await bd.listarConjuntosTiroDe(fila.mapaId)).find((c) => c.id === msg.conjuntoId && c.jugadorId === jugador.id);
+      if (!conjunto) return this.errorTrabajador(client, "ese conjunto no es tuyo");
+      for (const c of this.conjuntosPorSesion.values()) if (c.conjuntoId === msg.conjuntoId) return this.errorTrabajador(client, "ese conjunto está en uso ahora mismo");
+      conjuntoAsignadoId = conjunto.id;
+    }
+
+    await bd.asignarMonturaNpcTrabajador(msg.trabajadorId, mascotaAsignadaId, conjuntoAsignadoId);
+    const actualizado: NpcTrabajador = { ...fila, mascotaAsignadaId, conjuntoAsignadoId };
+    this.registrarTrabajadorEnMemoria(actualizado);
+
+    // si ya operaba una ruta, recalcula velocidad/duración y respawnea el
+    // paseo visual con la nueva velocidad — el CAMINO en sí nunca se
+    // recalcula (regla dura de agentes.ts, "nada de A* en vivo"), solo la
+    // velocidad a la que se camina esa misma polilínea ya fija.
+    const contrato = await bd.buscarContratoDeTrabajador(msg.trabajadorId);
+    if (contrato) {
+      const velEfectiva = await this.velocidadEfectivaTrabajador(actualizado);
+      const duracionViajeSeg = Math.max(5, contrato.caminoIda.length / velEfectiva);
+      await bd.actualizarDuracionContrato(contrato.id, duracionViajeSeg);
+      this.gestorAgentes?.quitarAgente(`contrato:${contrato.id}`);
+      const origenPunto = contrato.caminoIda[0];
+      const destinoPunto = contrato.caminoIda[contrato.caminoIda.length - 1];
+      this.obtenerOCrearGestorAgentes().agregarAgenteTransportista(
+        `contrato:${contrato.id}`, actualizado.nombre, origenPunto, destinoPunto, contrato.caminoIda, contrato.caminoVuelta, velEfectiva / VEL_NPC,
+      );
+    }
+    client.send("trabajador:actualizado", { trabajador: actualizado });
   }
 
   private async manejarTransporteCancelar(client: Client, msg: { contratoId?: number }) {
