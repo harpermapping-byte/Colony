@@ -450,9 +450,17 @@ test("tick: dos conejos (gregarios) plantados lejos entre sí terminan más cerc
   await gestor.activarSector({ sectorX: 0, sectorY: 0 });
   const [a, b] = [...salida.values()];
   const distanciaInicial = Math.hypot(a.x - b.x, a.y - b.y);
-  for (let i = 0; i < 400; i++) gestor.tick(0.3);
-  const distanciaFinal = Math.hypot(a.x - b.x, a.y - b.y);
-  assert.ok(distanciaFinal < distanciaInicial - 2, `esperaba que se acercaran (inicial ${distanciaInicial}, final ${distanciaFinal})`);
+  // Promedio de las últimas 100 lecturas en vez de la distancia EXACTA del
+  // último tick: con Math.random() de por medio, un solo tick final puede
+  // caer en un pico de ruido del propio radio de merodeo aunque la
+  // tendencia real (cohesión) sea clara — de ahí el test flakeaba a veces.
+  const distancias: number[] = [];
+  for (let i = 0; i < 500; i++) {
+    gestor.tick(0.3);
+    if (i >= 400) distancias.push(Math.hypot(a.x - b.x, a.y - b.y));
+  }
+  const distanciaMedia = distancias.reduce((s, d) => s + d, 0) / distancias.length;
+  assert.ok(distanciaMedia < distanciaInicial - 2, `esperaba que se acercaran en media (inicial ${distanciaInicial}, media final ${distanciaMedia})`);
 });
 
 test("tick: dos lobos (peligrosos, no gregarios) plantados a la misma distancia NO muestran esa cohesión", async () => {

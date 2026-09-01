@@ -667,6 +667,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage("sastre:tejerResultado", () => panelSastre.confirmarCreada());
     room.onMessage("sastre:tejerCopiaResultado", () => {});
     room.onMessage("sastre:misDisenos", (m: { disenos: DisenoSastre[] }) => panelSastre.actualizarMisDisenos(m?.disenos || []));
+    // Sonda SOLO-PARA-TESTS (mismo criterio que window.__construccion/__ajedrez de arriba): abre el panel sin depender de acertar el raycast del clic 3D sobre el telar.
+    (window as any).__sastre = { abrirPanel: (construccionId: number) => panelSastre.abrir(construccionId) };
 
     // --- Instrumentos musicales (docs/GDD_Instrumentos.md, pedido
     // 2026-08-31): clic sobre un objeto construido → menú de interacción

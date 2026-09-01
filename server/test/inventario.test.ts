@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 428); // 427 (ver historial: 388 + grasa + 33 cadáveres de caza + jarabe_catarro + 4 instrumentos musicales) + mesa_ajedrez (docs/GDD_Mesas_Minijuego.md, 2026-08-30 — rama paralela fusionada a main)
+  assert.strictEqual(ids.length, 429); // 428 (ver historial: 427 + mesa_ajedrez) + camisa_seda_noble (docs/GDD_Ropa_Procedural.md §Sastre legendario — faltaba la entrada de items.json del único arquetipo de seda, bug real encontrado probando el sastre legendario)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");
