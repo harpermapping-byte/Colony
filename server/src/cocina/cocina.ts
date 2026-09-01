@@ -12,6 +12,7 @@
  */
 
 import { AportesCocina } from "../inventario/inventario";
+import { ConfigEstacion, SesionEstacion, iniciarSesionEstacion, avivarEstacion, enfriarEstacion, finalizarEstacion, ResultadoAccionEstacion } from "../construccion/estacionFuego";
 
 export type OrigenCocina = "vegetal" | "animal";
 
@@ -219,4 +220,94 @@ const CATEGORIAS_ENSALADA = new Set(["hortaliza", "baya", "fruta", "fruta_cultiv
 /** ¿Se puede cortar este ingrediente en una ensalada? */
 export function aptoParaEnsalada(categoriaRecurso: string | undefined): boolean {
   return categoriaRecurso != null && CATEGORIAS_ENSALADA.has(categoriaRecurso);
+}
+
+// ---------------------------------------------------------------------------
+// Sesión interactiva (docs/GDD_Cocina.md, pedido 2026-09-01: "dale con
+// minijuego cocina" — mismo sistema de activarse que herrería/alquimia,
+// reutilizando el MISMO estacionFuego.ts genérico en vez de inventar otro
+// motor de temperatura). `cocinarPlato` sigue siendo la ÚNICA fuente de QUÉ
+// sale del plato (ingredientes deciden vida/estamina/comida/bebida/platos) —
+// gestionar el fuego durante la sesión solo ESCALA esa magnitud entre el
+// suelo (fuego mal llevado) y el 100% (gestión perfecta), nunca cambia
+// platos/mezclaBonus (esos ya los fijó `cocinarPlato`, no el fuego).
+// Alcance del gate (pedido explícito del streamer 2026-09-01, "todas las
+// vasijas"): esVasija:true (cuenco/cazuela/olla/olla_grande/cuenco_grande/
+// tinaja) exige cocinero nivel 2 y pasa por esta sesión — `cocina:simple`
+// (hoguera/chimenea, sin vasija) y ensalada/bocadillo/cortarPan (sin fuego,
+// cortar/montar, no "cocinar") se quedan EXACTAMENTE igual que siempre.
+
+export const CONFIG_ESTACION_COCINA: ConfigEstacion = {
+  temperaturaInicial: 15,
+  temperaturaObjetivoMin: 55,
+  temperaturaObjetivoMax: 80,
+  gananciaCalor: 20,
+  perdidaCalor: 15,
+  enfriamientoAmbientePorSeg: 3,
+  duracionMinimaSeg: 8,
+};
+
+/** Suelo del factor de escala por pureza — un fuego mal gestionado sigue dando esto de las stats ya decididas por los ingredientes, nunca 0 (mismo criterio y valor que FACTOR_PUREZA_MINIMO de alquimia.ts — constante PROPIA, no importada, para no acoplar cocina.ts a construccion/alquimia.ts). */
+export const FACTOR_PUREZA_MINIMO_COCINA = 0.4;
+
+export interface SesionCocina {
+  estacion: SesionEstacion;
+  /** `cocinarPlato` ya resuelto sobre los ingredientes de la vasija — congelado al iniciar, igual que crafteo.ts congela `terminaEn`/insumos al arrancar. */
+  resultadoBase: ResultadoCoccion;
+  familia: FamiliaPlato;
+  itemIdsIngredientes: string[];
+  /** Poción "x2 producción de crafteos" (docs/GDD_Pociones.md) congelada al iniciar — 1 = +100% raciones, 0 = sin efecto. Ausente de cocinarPlato/ResultadoCoccion a propósito: es un bonus de RoomExteriorBase (buffs por sesión de jugador), no algo que decidan los ingredientes. */
+  bonusCantidadPocion: number;
+}
+
+/** Arranca la sesión — congela `cocinarPlato(ingredientes, capacidadMax)` DE UNA VEZ (ver cabecera) y la `SesionEstacion` del fuego. */
+export function iniciarSesionCocina(
+  ingredientes: IngredienteCocina[],
+  familia: FamiliaPlato,
+  itemIdsIngredientes: string[],
+  capacidadMax?: number,
+  bonusCantidadPocion = 0,
+  ahoraMs: number = Date.now(),
+  cfg: ConfigEstacion = CONFIG_ESTACION_COCINA,
+): SesionCocina {
+  return {
+    estacion: iniciarSesionEstacion(cfg, ahoraMs),
+    resultadoBase: cocinarPlato(ingredientes, capacidadMax),
+    familia,
+    itemIdsIngredientes,
+    bonusCantidadPocion,
+  };
+}
+
+export function avivarCocina(sesion: SesionCocina, ahoraMs: number, cfg: ConfigEstacion = CONFIG_ESTACION_COCINA): ResultadoAccionEstacion {
+  return avivarEstacion(sesion.estacion, ahoraMs, cfg);
+}
+
+export function enfriarCocina(sesion: SesionCocina, ahoraMs: number, cfg: ConfigEstacion = CONFIG_ESTACION_COCINA): ResultadoAccionEstacion {
+  return enfriarEstacion(sesion.estacion, ahoraMs, cfg);
+}
+
+export interface ResultadoServirCocina {
+  ok: boolean;
+  motivo?: "fase_incorrecta" | "demasiado_pronto";
+  resultado?: ResultadoCoccion;
+  pureza?: number;
+}
+
+/** Termina la sesión ("servir" el plato) — escala vida/estamina/comida/bebida de `resultadoBase` por la pureza del fuego; `platos`/`mezclaBonus` pasan intactos (los ingredientes ya los decidieron, el fuego no cambia CUÁNTO ni SI hubo bonus de mezcla, solo la calidad de cada ración). */
+export function servirCocina(sesion: SesionCocina, ahoraMs: number, cfg: ConfigEstacion = CONFIG_ESTACION_COCINA): ResultadoServirCocina {
+  const r = finalizarEstacion(sesion.estacion, ahoraMs, cfg);
+  if (!r.ok) return { ok: false, motivo: r.motivo };
+  const factor = FACTOR_PUREZA_MINIMO_COCINA + (1 - FACTOR_PUREZA_MINIMO_COCINA) * r.pureza!;
+  const escalar = (v: number | undefined) => (v == null ? undefined : Math.round(v * factor));
+  const base = sesion.resultadoBase;
+  const resultado: ResultadoCoccion = {
+    platos: base.platos,
+    mezclaBonus: base.mezclaBonus,
+    vida: escalar(base.vida),
+    estamina: escalar(base.estamina),
+    comida: Math.max(1, Math.round(base.comida * factor)),
+    bebida: escalar(base.bebida),
+  };
+  return { ok: true, resultado, pureza: r.pureza };
 }

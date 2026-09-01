@@ -31,7 +31,7 @@ import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComerci
 import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
 import { PanelCultivo, type EstadoCultivoVista } from "./agricultura/panelCultivo";
 import { PanelInjerto } from "./agricultura/panelInjerto";
-import { PanelCocina, type IngredienteVista } from "./cocina/panelCocina";
+import { PanelCocina, type IngredienteVista, type ConfigSesionCocinaVista, type EstadoSesionCocinaVista } from "./cocina/panelCocina";
 import { aplicarEquipoAlRig, type BlueprintRopaResuelto } from "./render3d/equipoVisual";
 import { PanelJugador } from "./personaje/panelJugador";
 import { crearPlaceholder } from "./render3d/placeholder";
@@ -946,6 +946,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       llenarAgua: (construccionId, instanciaId) => room.send("cocina:llenarAgua", { construccionId, instanciaId }),
       anadir: (construccionId, instanciaId, cantidad) => room.send("cocina:anadir", { construccionId, instanciaId, cantidad }),
       preparar: (construccionId) => room.send("cocina:preparar", { construccionId }),
+      // Minijuego (docs/GDD_Cocina.md, pedido 2026-09-01): "cocina:preparar"
+      // ahora ARRANCA la sesión — avivar/enfriar/servir/cancelar la cierran,
+      // mismo protocolo que alquimia:accion/colar/cancelar (sin panel propio
+      // todavía, pero cocina SÍ tenía panel real, así que aquí se conecta).
+      avivar: () => room.send("cocina:accion", { accion: "avivar" }),
+      enfriar: () => room.send("cocina:accion", { accion: "enfriar" }),
+      servir: () => room.send("cocina:servir"),
+      cancelarSesion: () => room.send("cocina:cancelar"),
     });
     let cocinaCercanaId: number | null = null;
     room.onMessage("cocina:estado", (m: { construccionId: number; ingredientes: IngredienteVista[]; conAgua: boolean; hirviendo: boolean; segundosParaHervir: number }) => {
@@ -954,8 +962,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       }
     });
     room.onMessage("cocina:cocinado", (m: { itemId: string }) => console.log(`[cocina] cocinado: ${m?.itemId}`));
-    room.onMessage("cocina:preparado", (m: { nombre: string; cantidad: number; mezclaBonus: boolean }) =>
-      console.log(`[cocina] preparado: ${m?.cantidad}x ${m?.nombre}${m?.mezclaBonus ? " (bonus de mezcla)" : ""}`));
+    room.onMessage("cocina:iniciado", (m: { cfg: ConfigSesionCocinaVista; sesion: EstadoSesionCocinaVista }) => panelCocina.mostrarSesion(m.cfg, m.sesion));
+    room.onMessage("cocina:progreso", (m: { sesion: EstadoSesionCocinaVista }) => panelCocina.actualizarSesion(m.sesion));
+    room.onMessage("cocina:cancelado", () => panelCocina.ocultarSesion());
+    room.onMessage("cocina:preparado", (m: { nombre: string; cantidad: number; mezclaBonus: boolean; pureza?: number; enSuelo: boolean }) =>
+      panelCocina.mostrarResultado({ nombre: m.nombre, cantidad: m.cantidad, mezclaBonus: m.mezclaBonus, pureza: m.pureza, enSuelo: m.enSuelo }));
     room.onMessage("cocina:error", (m: { motivo: string }) => console.log("[cocina]", m?.motivo));
     setInterval(() => {
       if (!jugadorLocal) return;
@@ -1088,6 +1099,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     for (const tipo of [
       "tenderete:escaparate", "tenderete:gestion", "tenderete:compraResultado", "tenderete:error",
       "cocina:estado", "cocina:preparado", "cocina:error",
+      // Minijuego de cocina (docs/GDD_Cocina.md, pedido 2026-09-01): "cocina:preparar" ahora arranca la sesión, mismo criterio que crafteo:herreria:* de abajo.
+      "cocina:iniciado", "cocina:progreso", "cocina:cancelado",
       "crafteo:iniciado", "crafteo:completado", "crafteo:error",
       // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería,
       // pedido 2026-09-01) — mismo criterio que el resto de esta lista: sin

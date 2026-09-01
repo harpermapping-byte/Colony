@@ -5,6 +5,7 @@ import {
   cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir,
   UNIDADES_POR_PLATO, BONUS_MEZCLA, BOOST_COCINA_SIMPLE, TIEMPO_HERVIR_MS, type IngredienteCocina,
   familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura,
+  iniciarSesionCocina, avivarCocina, enfriarCocina, servirCocina, CONFIG_ESTACION_COCINA, FACTOR_PUREZA_MINIMO_COCINA,
 } from "../src/cocina/cocina";
 
 test("cocinarSimple: sube comida por el boost, redondeando hacia arriba", () => {
@@ -177,4 +178,71 @@ test("segundosParaHervir: TIEMPO_HERVIR_MS/1000 justo al llenar, 0 sin agua o ya
   assert.strictEqual(segundosParaHervir(estado, 0), TIEMPO_HERVIR_MS / 1000);
   assert.strictEqual(segundosParaHervir(estado, TIEMPO_HERVIR_MS), 0);
   assert.strictEqual(segundosParaHervir(estado, TIEMPO_HERVIR_MS + 9999), 0);
+});
+
+// --- sesión interactiva (docs/GDD_Cocina.md, pedido 2026-09-01: "dale con minijuego cocina") ---
+
+test("iniciarSesionCocina: congela cocinarPlato sobre los ingredientes al arrancar, independiente del fuego", () => {
+  const s = iniciarSesionCocina([ZANAHORIA, CARNE], "sopa", ["zanahoria", "carne_roja"], undefined, 0, 0);
+  assert.strictEqual(s.estacion.fase, "TRABAJANDO");
+  assert.strictEqual(s.estacion.temperatura, CONFIG_ESTACION_COCINA.temperaturaInicial);
+  assert.deepStrictEqual(s.resultadoBase, cocinarPlato([ZANAHORIA, CARNE], undefined));
+  assert.strictEqual(s.familia, "sopa");
+  assert.deepStrictEqual(s.itemIdsIngredientes, ["zanahoria", "carne_roja"]);
+  assert.strictEqual(s.bonusCantidadPocion, 0);
+});
+
+test("servirCocina: 'demasiado_pronto' antes de duracionMinimaSeg, no cambia la fase", () => {
+  const s = iniciarSesionCocina([ZANAHORIA], "sopa", ["zanahoria"], undefined, 0, 0);
+  const r = servirCocina(s, 1000); // 1s, muy por debajo de duracionMinimaSeg
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.motivo, "demasiado_pronto");
+  assert.strictEqual(s.estacion.fase, "TRABAJANDO");
+});
+
+test("servirCocina: pureza casi perfecta escala vida/estamina/comida/bebida muy cerca de la base, nunca toca platos/mezclaBonus", () => {
+  const s = iniciarSesionCocina([ZANAHORIA, CARNE], "sopa", ["zanahoria", "carne_roja"], undefined, 0, 0);
+  const ahoraMs = CONFIG_ESTACION_COCINA.duracionMinimaSeg * 1000 + 100;
+  s.estacion.segundosTotales = 10;
+  s.estacion.segundosEnVentana = 9.9; // pureza = 0.99
+  s.estacion.ultimaAccionEn = ahoraMs;
+  const r = servirCocina(s, ahoraMs);
+  assert.strictEqual(r.ok, true);
+  assert.ok(r.pureza! > 0.95, `pureza esperada casi perfecta, salió ${r.pureza}`);
+  assert.strictEqual(r.resultado!.platos, s.resultadoBase.platos, "platos nunca se escala por pureza");
+  assert.strictEqual(r.resultado!.mezclaBonus, s.resultadoBase.mezclaBonus);
+  const factor = FACTOR_PUREZA_MINIMO_COCINA + (1 - FACTOR_PUREZA_MINIMO_COCINA) * r.pureza!;
+  assert.strictEqual(r.resultado!.vida, Math.round(s.resultadoBase.vida! * factor));
+  assert.strictEqual(r.resultado!.estamina, Math.round(s.resultadoBase.estamina! * factor));
+  assert.strictEqual(r.resultado!.comida, Math.max(1, Math.round(s.resultadoBase.comida * factor)));
+  assert.strictEqual(r.resultado!.bebida, Math.round(s.resultadoBase.bebida! * factor));
+});
+
+test("servirCocina: pureza pésima escala al suelo FACTOR_PUREZA_MINIMO_COCINA (comida nunca por debajo de 1)", () => {
+  const s = iniciarSesionCocina([ZANAHORIA, CARNE], "sopa", ["zanahoria", "carne_roja"], undefined, 0, 0);
+  // arranca frío y nunca se aviva -> nunca entra en la ventana objetivo
+  const r = servirCocina(s, CONFIG_ESTACION_COCINA.duracionMinimaSeg * 1000 + 100);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.pureza, 0);
+  assert.strictEqual(r.resultado!.platos, s.resultadoBase.platos);
+  assert.strictEqual(r.resultado!.vida, Math.round(s.resultadoBase.vida! * FACTOR_PUREZA_MINIMO_COCINA));
+  assert.strictEqual(r.resultado!.comida, Math.max(1, Math.round(s.resultadoBase.comida * FACTOR_PUREZA_MINIMO_COCINA)));
+  assert.ok(r.resultado!.comida >= 1);
+});
+
+test("servirCocina: nunca toca platos (el x2 de la poción 'producción' lo aplica RoomExteriorBase sobre resultado.platos, fuera de aquí)", () => {
+  const s = iniciarSesionCocina([ZANAHORIA], "sopa", ["zanahoria"], undefined, 1 /* bonusCantidadPocion, informativo */, 0);
+  const r = servirCocina(s, CONFIG_ESTACION_COCINA.duracionMinimaSeg * 1000 + 100);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.resultado!.platos, s.resultadoBase.platos);
+});
+
+test("avivarCocina/enfriarCocina: delegan en la temperatura de la sesión", () => {
+  const s = iniciarSesionCocina([ZANAHORIA], "sopa", ["zanahoria"], undefined, 0, 0);
+  const antes = s.estacion.temperatura;
+  avivarCocina(s, 0);
+  assert.ok(s.estacion.temperatura > antes);
+  const trasAvivar = s.estacion.temperatura;
+  enfriarCocina(s, 0);
+  assert.ok(s.estacion.temperatura < trasAvivar);
 });

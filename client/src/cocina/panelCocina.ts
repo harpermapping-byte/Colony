@@ -29,12 +29,43 @@ function nombreVasija(vasija: string | undefined): string {
   return vasija.replace(/_/g, " ").replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 }
 
+/**
+ * Sesión interactiva del minijuego (docs/GDD_Cocina.md, pedido 2026-09-01:
+ * "dale con minijuego cocina") — mismo shape que `SesionEstacion`
+ * (estacionFuego.ts) que ya manda el servidor tal cual en `cocina:iniciado`/
+ * `cocina:progreso`.
+ */
+export interface EstadoSesionCocinaVista {
+  fase: string; // "TRABAJANDO" | "TERMINADO"
+  temperatura: number;
+  segundosEnVentana: number;
+  segundosTotales: number;
+}
+
+export interface ConfigSesionCocinaVista {
+  temperaturaObjetivoMin: number;
+  temperaturaObjetivoMax: number;
+  duracionMinimaSeg: number;
+}
+
+export interface ResultadoCocinaVista {
+  nombre: string;
+  cantidad: number;
+  mezclaBonus: boolean;
+  pureza?: number;
+  enSuelo: boolean;
+}
+
 export interface OpcionesPanelCocina {
   contenedor: HTMLElement;
   cocinarSimple(construccionId: number, instanciaId: number): void;
   llenarAgua(construccionId: number, instanciaId: number): void;
   anadir(construccionId: number, instanciaId: number, cantidad: number): void;
   preparar(construccionId: number): void;
+  avivar(construccionId: number): void;
+  enfriar(construccionId: number): void;
+  servir(construccionId: number): void;
+  cancelarSesion(construccionId: number): void;
 }
 
 export class PanelCocina {
@@ -43,6 +74,10 @@ export class PanelCocina {
   private estado: EstadoCocinaVista | null = null;
   /** Cuenta atrás LOCAL mientras hierve el agua — evita tener que preguntarle al servidor cada segundo solo para refrescar un número (docs/GDD_Cocina.md). */
   private temporizadorHervor: ReturnType<typeof setInterval> | null = null;
+  /** Sesión del minijuego en curso (docs/GDD_Cocina.md, pedido 2026-09-01) — presente = el panel muestra la sesión en vez del estado normal de la vasija, mismo criterio que panelForja.ts. */
+  private sesionCfg: ConfigSesionCocinaVista | null = null;
+  private sesion: EstadoSesionCocinaVista | null = null;
+  private resultado: ResultadoCocinaVista | null = null;
 
   constructor(private opciones: OpcionesPanelCocina) {
     this.raiz = document.createElement("div");
@@ -94,8 +129,44 @@ export class PanelCocina {
     this.temporizadorHervor = null;
   }
 
+  /** Llamar al recibir "cocina:iniciado" — arranca el minijuego, sustituye la vista normal de la vasija. */
+  mostrarSesion(cfg: ConfigSesionCocinaVista, sesion: EstadoSesionCocinaVista) {
+    this.sesionCfg = cfg;
+    this.sesion = sesion;
+    this.resultado = null;
+    this.pararTemporizador();
+    this.raiz.hidden = false;
+    this.render();
+  }
+
+  /** Llamar al recibir "cocina:progreso". */
+  actualizarSesion(sesion: EstadoSesionCocinaVista) {
+    if (!this.sesionCfg) return;
+    this.sesion = sesion;
+    this.render();
+  }
+
+  /** Llamar al recibir "cocina:preparado" — el resultado final, sustituye el minijuego hasta que el jugador cierre. */
+  mostrarResultado(resultado: ResultadoCocinaVista) {
+    this.sesionCfg = null;
+    this.sesion = null;
+    this.resultado = resultado;
+    this.raiz.hidden = false;
+    this.render();
+  }
+
+  /** Llamar al recibir "cocina:cancelado" — vuelve a la vista normal de la vasija. */
+  ocultarSesion() {
+    this.sesionCfg = null;
+    this.sesion = null;
+    this.resultado = null;
+    this.render();
+  }
+
   private render() {
     this.raiz.innerHTML = "";
+    if (this.resultado) return this.renderResultado(this.resultado);
+    if (this.sesionCfg && this.sesion) return this.renderSesion(this.sesionCfg, this.sesion);
     if (this.construccionId == null || !this.estado) {
       this.raiz.hidden = true;
       return;
@@ -223,9 +294,92 @@ export class PanelCocina {
     this.raiz.appendChild(filaAnadir);
 
     const preparar = document.createElement("button");
-    preparar.textContent = "Preparar plato";
+    preparar.textContent = "Preparar plato (arranca el minijuego)";
     preparar.disabled = e.ingredientes.length === 0;
     preparar.onclick = () => this.opciones.preparar(id);
     this.raiz.appendChild(preparar);
+  }
+
+  /** Minijuego real-time (docs/GDD_Cocina.md, pedido 2026-09-01) — mismo criterio de placeholder que el resto del panel: texto plano, sin barras ni escena, solo lo justo para poder JUGAR y comprobar el protocolo. */
+  private renderSesion(cfg: ConfigSesionCocinaVista, sesion: EstadoSesionCocinaVista) {
+    this.raiz.hidden = false;
+    const id = this.construccionId!;
+
+    const titulo = document.createElement("div");
+    titulo.style.fontWeight = "bold";
+    titulo.style.marginBottom = "6px";
+    titulo.textContent = "🔥 Cocinando";
+    this.raiz.appendChild(titulo);
+
+    const temp = document.createElement("div");
+    temp.textContent = `Temperatura: ${Math.round(sesion.temperatura)}° (ventana ${cfg.temperaturaObjetivoMin}–${cfg.temperaturaObjetivoMax}°)`;
+    this.raiz.appendChild(temp);
+
+    const enVentana = sesion.temperatura >= cfg.temperaturaObjetivoMin && sesion.temperatura <= cfg.temperaturaObjetivoMax;
+    const estadoDiv = document.createElement("div");
+    estadoDiv.style.marginBottom = "6px";
+    estadoDiv.style.color = enVentana ? "#7ec850" : "#d9a63a";
+    estadoDiv.textContent = enVentana ? "✓ dentro de la ventana" : "fuera de la ventana";
+    this.raiz.appendChild(estadoDiv);
+
+    const tiempo = document.createElement("div");
+    tiempo.style.marginBottom = "8px";
+    tiempo.style.opacity = "0.8";
+    tiempo.textContent = `Tiempo: ${sesion.segundosTotales.toFixed(1)}s / mínimo ${cfg.duracionMinimaSeg}s — ${sesion.segundosEnVentana.toFixed(1)}s dentro de ventana`;
+    this.raiz.appendChild(tiempo);
+
+    const botones = document.createElement("div");
+    botones.style.display = "flex";
+    botones.style.gap = "6px";
+    const avivar = document.createElement("button");
+    avivar.textContent = "🔥 Avivar";
+    avivar.onclick = () => this.opciones.avivar(id);
+    botones.appendChild(avivar);
+    const enfriar = document.createElement("button");
+    enfriar.textContent = "💧 Enfriar";
+    enfriar.onclick = () => this.opciones.enfriar(id);
+    botones.appendChild(enfriar);
+    const servir = document.createElement("button");
+    servir.textContent = "🍽 Servir";
+    servir.disabled = sesion.segundosTotales < cfg.duracionMinimaSeg;
+    servir.onclick = () => this.opciones.servir(id);
+    botones.appendChild(servir);
+    const cancelar = document.createElement("button");
+    cancelar.textContent = "✕ Cancelar";
+    cancelar.onclick = () => this.opciones.cancelarSesion(id);
+    botones.appendChild(cancelar);
+    this.raiz.appendChild(botones);
+  }
+
+  private renderResultado(resultado: ResultadoCocinaVista) {
+    this.raiz.hidden = false;
+    const titulo = document.createElement("div");
+    titulo.style.fontWeight = "bold";
+    titulo.style.marginBottom = "6px";
+    titulo.textContent = "✅ Plato servido";
+    this.raiz.appendChild(titulo);
+
+    const detalle = document.createElement("div");
+    detalle.textContent = `${resultado.cantidad}× ${resultado.nombre}${resultado.mezclaBonus ? " (bonus de mezcla)" : ""}`;
+    this.raiz.appendChild(detalle);
+
+    if (resultado.pureza != null) {
+      const pureza = document.createElement("div");
+      pureza.style.opacity = "0.8";
+      pureza.textContent = `Pureza del fuego: ${Math.round(resultado.pureza * 100)}%`;
+      this.raiz.appendChild(pureza);
+    }
+    if (resultado.enSuelo) {
+      const aviso = document.createElement("div");
+      aviso.style.color = "#d9a63a";
+      aviso.textContent = "Sin hueco en el inventario — cayó al suelo";
+      this.raiz.appendChild(aviso);
+    }
+
+    const cerrar = document.createElement("button");
+    cerrar.textContent = "Cerrar";
+    cerrar.style.marginTop = "8px";
+    cerrar.onclick = () => this.ocultarSesion();
+    this.raiz.appendChild(cerrar);
   }
 }

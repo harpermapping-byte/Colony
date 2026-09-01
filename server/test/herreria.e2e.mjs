@@ -206,7 +206,8 @@ try {
   errores.length = 0;
   room.send("crafteo:iniciar", { recetaId: "daga_craft", construccionId: idYunque });
   await esperar(300);
-  if (!errores.some((m) => /forja en curso/.test(m))) {
+  // Guard unificado 2026-09-01 (algunMinijuegoEnCurso, docs/GDD_Cocina.md) — mismo mensaje para crafteo/forja/alquimia/cocina, ya no uno específico por sistema.
+  if (!errores.some((m) => /en curso/.test(m))) {
     throw new Error(`FALLO: doble iniciar debería rechazarse, llegó ${JSON.stringify(errores)}`);
   }
   console.log(`   OK: ${JSON.stringify(errores)}`);
