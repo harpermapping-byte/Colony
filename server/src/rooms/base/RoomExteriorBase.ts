@@ -131,7 +131,7 @@ import {
 import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente, npcTrabajadorAAgente } from "../../mundo/npcsFijos";
 import {
   costeContratacionTrabajador, oficiosValidos, puedeOperarOficio, salarioMensualTrabajador,
-  resolverPayroll, TrabajadorParaPago, DIAS_POR_MES_TRABAJADOR,
+  resolverPayroll, TrabajadorParaPago, DIAS_POR_MES_TRABAJADOR, OFICIOS_TRABAJADOR_VALIDOS, OFICIO_TRANSPORTE,
 } from "../../construccion/trabajadores";
 import { contenedoresTestDeMapa } from "../../mundo/contenedoresTest";
 import { nombrePoliticoDeterminista } from "../../personaje/nombresNpc";
@@ -1084,7 +1084,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
     this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
-    this.onMessage("transporte:contratar", (client, msg: { origenConstruccionId?: number; destinoTenderoteId?: string; destinoConstruccionId?: number }) => this.manejarTransporteContratar(client, msg));
+    // "transporte:contratar" (firma libre, sin coste) fue RETIRADO — fusión
+    // con NPCs trabajadores (docs/GDD_NPCs_Contratables.md §Fusión con
+    // transporte, pedido 2026-09-01): la única puerta de entrada ahora es
+    // contratar un trabajador de oficio "transporte" y asignarle una ruta.
     this.onMessage("transporte:cancelar", (client, msg: { contratoId?: number }) => this.manejarTransporteCancelar(client, msg));
     this.onMessage("transporte:estado", (client) => this.manejarTransporteEstado(client));
     // Cofre de construcción (docs/GDD_Produccion.md §3ter, pedido 2026-08-31).
@@ -1108,7 +1111,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("trabajador:listar", (client) => void this.manejarTrabajadorListar(client));
     this.onMessage("trabajador:asignarMesa", (client, msg: { trabajadorId?: number; construccionId?: number }) => void this.manejarTrabajadorAsignarMesa(client, msg));
     this.onMessage("trabajador:asignarReceta", (client, msg: { trabajadorId?: number; recetaId?: string | null }) => void this.manejarTrabajadorAsignarReceta(client, msg));
+    // Oficio "transporte" fusionado (docs/GDD_NPCs_Contratables.md §Fusión
+    // con transporte, pedido 2026-09-01) — equivalente a asignarMesa pero
+    // para una RUTA origen→destino, reusando toda la maquinaria de
+    // contratos_transporte/agregarAgenteTransportista ya existente.
+    this.onMessage("trabajador:asignarRuta", (client, msg: { trabajadorId?: number; origenConstruccionId?: number; destinoTenderoteId?: string; destinoConstruccionId?: number }) => void this.manejarTrabajadorAsignarRuta(client, msg));
     this.onMessage("trabajador:despedir", (client, msg: { trabajadorId?: number }) => void this.manejarTrabajadorDespedir(client, msg));
+    // Panel de gestión (docs/GDD_NPCs_Contratables.md §Panel de gestión,
+    // pedido 2026-09-01): construcciones/propiedades REALES del jugador que
+    // pregunta, para poblar los selectores de mesa/ruta — reusa
+    // `listarPropiedadesDeJugador` + `listarConstrucciones` (ya existentes
+    // para "todo lo que tienes"/producción), sin inventar un listado nuevo.
+    this.onMessage("trabajador:misConstrucciones", (client) => void this.manejarTrabajadorMisConstrucciones(client));
 
     // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería) — el
     // arranque sigue siendo "crafteo:iniciar" de arriba (misma validación de
@@ -6843,24 +6857,25 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
-   * Firma un contrato de transporte: origen y destino deben pertenecer AL
-   * MISMO jugador (dueño) y a ESTA MISMA room (el A* solo conoce su propia
-   * rejilla — transportar entre dos regiones distintas no está soportado
-   * en v1). El camino se calcula UNA VEZ aquí y se cachea para siempre.
+   * Firma un contrato de transporte para el trabajador `trabajadorId` (oficio
+   * "transporte", docs/GDD_NPCs_Contratables.md §Fusión con transporte):
+   * origen y destino deben pertenecer AL MISMO jugador (dueño) y a ESTA
+   * MISMA room (el A* solo conoce su propia rejilla — transportar entre dos
+   * regiones distintas no está soportado en v1). El camino se calcula UNA
+   * VEZ aquí y se cachea para siempre (nunca A* en vivo después). Devuelve
+   * el motivo de error como string, o `null` si quedó firmado — el llamante
+   * decide qué canal usar (`trabajador:error`, único canal de esta familia).
    */
-  private async manejarTransporteContratar(
-    client: Client,
-    msg: { origenConstruccionId?: number; destinoTenderoteId?: string; destinoConstruccionId?: number },
-  ) {
-    const nombre = this.nombreDe(client);
+  private async crearRutaTransporte(
+    nombre: string, trabajadorId: number, nombreCarretero: string,
+    msg: { origenConstruccionId: number; destinoTenderoteId?: string; destinoConstruccionId?: number },
+  ): Promise<string | null> {
     const ctx = this.ctxConstruccion;
-    if (!nombre || !ctx || typeof msg?.origenConstruccionId !== "number") return;
-    if (!msg.destinoTenderoteId && typeof msg.destinoConstruccionId !== "number") return;
-
+    if (!ctx) return "esta región no soporta construcciones";
     const origenViva = ctx.vivas.get(msg.origenConstruccionId);
-    if (!origenViva) return this.errorTransporte(client, "construcción de origen inexistente");
+    if (!origenViva) return "construcción de origen inexistente";
     const duenoOrigen = ctx.propiedades.get(origenViva.propiedad)?.dueno ?? (await this.duenoDeTenderete(origenViva.propiedad));
-    if (!duenoOrigen || duenoOrigen.toLowerCase() !== nombre.toLowerCase()) return this.errorTransporte(client, "no eres el dueño del origen");
+    if (!duenoOrigen || duenoOrigen.toLowerCase() !== nombre.toLowerCase()) return "no eres el dueño del origen";
 
     // Destino: un tenderete normal (propiedadId, camino de siempre) O un
     // cofre (docs/GDD_Produccion.md §3ter, pedido 2026-08-31: "destino
@@ -6872,46 +6887,103 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     let destinoPunto: { x: number; y: number } | null;
     if (typeof msg.destinoConstruccionId === "number") {
       const cofreViva = ctx.vivas.get(msg.destinoConstruccionId);
-      if (!cofreViva) return this.errorTransporte(client, "ese cofre no existe aquí");
-      if (!this.entradaDe(cofreViva.objeto)?.esContenedor) return this.errorTransporte(client, "eso no es un cofre");
+      if (!cofreViva) return "ese cofre no existe aquí";
+      if (!this.entradaDe(cofreViva.objeto)?.esContenedor) return "eso no es un cofre";
       const duenoCofre = ctx.propiedades.get(cofreViva.propiedad)?.dueno ?? (await this.duenoDeTenderete(cofreViva.propiedad));
-      if (!duenoCofre || duenoCofre.toLowerCase() !== nombre.toLowerCase()) return this.errorTransporte(client, "no eres el dueño del cofre");
+      if (!duenoCofre || duenoCofre.toLowerCase() !== nombre.toLowerCase()) return "no eres el dueño del cofre";
       destino = `${PREFIJO_DESTINO_COFRE}${cofreViva.id}`;
       destinoPunto = { x: cofreViva.x, y: cofreViva.y };
-    } else {
-      destino = msg.destinoTenderoteId!;
+    } else if (msg.destinoTenderoteId) {
+      destino = msg.destinoTenderoteId;
       const duenoDestino = await this.duenoDeTenderete(destino);
-      if (!duenoDestino || duenoDestino.toLowerCase() !== nombre.toLowerCase()) return this.errorTransporte(client, "no eres el dueño del destino");
+      if (!duenoDestino || duenoDestino.toLowerCase() !== nombre.toLowerCase()) return "no eres el dueño del destino";
       destinoPunto = this.puntoDePropiedad(destino);
+    } else {
+      return "falta el destino";
     }
-    if (!destinoPunto) return this.errorTransporte(client, "destino desconocido en esta región");
+    if (!destinoPunto) return "destino desconocido en esta región";
 
     const datos = this.entradaDe(origenViva.objeto)?.produccion;
-    if (!datos) return this.errorTransporte(client, "el origen no produce nada transportable");
+    if (!datos) return "el origen no produce nada transportable";
 
     const origenPunto = { x: origenViva.x, y: origenViva.y };
     const caminoIda = calcularCaminoRuntime(this.mundo, origenPunto, destinoPunto);
-    if (!caminoIda || caminoIda.length < 2) return this.errorTransporte(client, "no hay camino posible hasta el destino");
+    if (!caminoIda || caminoIda.length < 2) return "no hay camino posible hasta el destino";
     const caminoVuelta = [...caminoIda].reverse();
     const duracionViajeSeg = Math.max(5, caminoIda.length / VEL_NPC);
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
+
+    // reasignar ruta: un trabajador solo opera UNA a la vez — se retira la
+    // anterior (si la había) antes de firmar la nueva, nunca dos activas.
+    const anterior = await bd.buscarContratoDeTrabajador(trabajadorId);
+    if (anterior) {
+      await bd.desactivarContratoTransporte(anterior.id);
+      this.gestorAgentes?.quitarAgente(`contrato:${anterior.id}`);
+    }
+
     const contrato = await bd.crearContratoTransporte({
       origenConstruccionId: origenViva.id, destinoTenderoteId: destino, dueno: jugador.id,
       itemId: datos.itemId, caminoIda, caminoVuelta, duracionViajeSeg, cargaPorViaje: CARGA_POR_VIAJE_TRANSPORTE,
+      trabajadorId,
     });
 
-    // paseo visual: NPC dedicado en bucle origen↔destino (cosmético, el
-    // cálculo económico de arriba no depende de que "llegue" de verdad).
-    // Nombre de político (pedido 2026-08-30, "los NPC contratados también
-    // tiran de esa lista") — antes "Carretero de <jugador>".
+    // paseo visual: el propio trabajador camina el bucle origen↔destino
+    // (cosmético, el cálculo económico de arriba no depende de que "llegue"
+    // de verdad) — sustituye al NPC "fijo" idle que lo representaba desde
+    // que se contrató (mismo slotId que usaba npcTrabajadorAAgente, para
+    // que no queden dos NPCs del mismo trabajador a la vez).
+    this.gestorAgentes?.quitarAgente(`trabajadorOficio_${trabajadorId}`);
     const slotIdCarretero = `contrato:${contrato.id}`;
     this.obtenerOCrearGestorAgentes().agregarAgenteTransportista(
-      slotIdCarretero, nombrePoliticoDeterminista(slotIdCarretero), origenPunto, destinoPunto, caminoIda, caminoVuelta,
+      slotIdCarretero, nombreCarretero, origenPunto, destinoPunto, caminoIda, caminoVuelta,
     );
+    return null;
+  }
 
-    client.send("transporte:estado", await this.listadoTransporte(nombre));
+  /**
+   * Asigna (o reasigna) la ruta de un trabajador de oficio "transporte" —
+   * equivalente a `trabajador:asignarMesa` para los oficios de mesa+receta,
+   * pero para transporte (docs/GDD_NPCs_Contratables.md §Fusión con
+   * transporte): reusa `crearRutaTransporte` (el mismo cálculo de camino y
+   * el mismo `agregarAgenteTransportista` que ya usaba el sistema previo de
+   * `transporte:contratar`, ahora retirado — la única puerta de entrada es
+   * un trabajador contratado con este oficio).
+   */
+  private async manejarTrabajadorAsignarRuta(
+    client: Client,
+    msg: { trabajadorId?: number; origenConstruccionId?: number; destinoTenderoteId?: string; destinoConstruccionId?: number },
+  ) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || typeof msg?.trabajadorId !== "number" || typeof msg?.origenConstruccionId !== "number") return;
+    if (!msg.destinoTenderoteId && typeof msg.destinoConstruccionId !== "number") return;
+    const pertenece = await this.trabajadorPerteneceA(client, msg.trabajadorId);
+    if (!pertenece.ok) return this.errorTrabajador(client, "ese trabajador no es tuyo");
+    if (!pertenece.fila.oficios.includes(OFICIO_TRANSPORTE)) return this.errorTrabajador(client, "este trabajador no tiene el oficio transporte");
+    // un trabajador operando una ruta no puede estar A LA VEZ trabajando una
+    // mesa (un solo NPC, un solo sitio) — se limpia mesa/receta si las tenía.
+    this.gestorAgentes?.quitarAgente(`trabajadorOficio_${msg.trabajadorId}`);
+
+    const error = await this.crearRutaTransporte(nombre, msg.trabajadorId, pertenece.fila.nombre, {
+      origenConstruccionId: msg.origenConstruccionId, destinoTenderoteId: msg.destinoTenderoteId, destinoConstruccionId: msg.destinoConstruccionId,
+    });
+    if (error) return this.errorTrabajador(client, error);
+
+    // si este trabajador tenía receta de mesa asignada de antes (multi-
+    // oficio, p.ej. herrero+transporte), se desactiva — no puede craftear Y
+    // caminar la ruta a la vez, mismo criterio que asignarMesa limpia la
+    // receta al cambiar de mesa. La mesa en sí se deja (barata de reasignar
+    // si vuelve a hacer falta) pero sin receta el tick de crafteo no hace nada.
+    const bd = await obtenerBdCompartida();
+    await bd.asignarRecetaNpcTrabajador(msg.trabajadorId, null);
+    this.craftesTrabajador.delete(msg.trabajadorId);
+    // actualiza la caché en memoria SIN volver a plantar el NPC fijo (ya
+    // camina la ruta como agente transportista, ver crearRutaTransporte) —
+    // a propósito no se llama a registrarTrabajadorEnMemoria aquí.
+    this.trabajadoresActivos.set(msg.trabajadorId, { ...pertenece.fila, recetaId: null });
+    const contrato = await bd.buscarContratoDeTrabajador(msg.trabajadorId);
+    client.send("trabajador:rutaAsignada", { trabajadorId: msg.trabajadorId, contrato });
   }
 
   private async manejarTransporteCancelar(client: Client, msg: { contratoId?: number }) {
@@ -6928,6 +7000,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
     await bd.desactivarContratoTransporte(contrato.id);
     this.gestorAgentes?.quitarAgente(`contrato:${contrato.id}`);
+    // si esta ruta la operaba un trabajador contratado, vuelve a plantarlo
+    // como NPC fijo idle (mismo estado que recién contratado, sin mesa ni
+    // ruta) en vez de dejarlo sin representación visual en el mundo.
+    if (contrato.trabajadorId != null) {
+      const fila = this.trabajadoresActivos.get(contrato.trabajadorId);
+      if (fila) this.registrarTrabajadorEnMemoria(fila);
+    }
     client.send("transporte:estado", await this.listadoTransporte(nombre));
   }
 
@@ -7371,7 +7450,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   /** Catálogo de oficios contratables + coste por cantidad (1..10 oficios) — igual para cualquiera que pregunte, no depende de quién sea el jugador. */
   private manejarReclutadorCatalogo(client: Client) {
-    const oficios = [...OFICIOS_JUGADOR_VALIDOS];
+    const oficios = [...OFICIOS_TRABAJADOR_VALIDOS];
     client.send("reclutador:catalogo", {
       oficios,
       costePorCantidad: Array.from({ length: oficios.length }, (_, i) => costeContratacionTrabajador(i + 1)),
@@ -7409,14 +7488,49 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("reclutador:contratado", { trabajador: fila, saldoRestante: debito.saldo });
   }
 
-  /** Los trabajadores del jugador que pregunta — para el panel de gestión (asignar mesa/receta, despedir, ver próximo pago). */
+  /**
+   * Los trabajadores del jugador que pregunta — para el panel de gestión
+   * (asignar mesa/receta/ruta, despedir, ver próximo pago). Incluye
+   * `rutas`: los contratos de transporte activos de ESTE jugador con
+   * `trabajadorId` fijado (docs/GDD_NPCs_Contratables.md §Fusión con
+   * transporte) — el panel cruza cada trabajador de oficio "transporte" con
+   * su fila aquí por `trabajadorId` para mostrar origen→destino sin un
+   * segundo viaje de red.
+   */
   private async manejarTrabajadorListar(client: Client) {
     const nombre = this.nombreDe(client);
     if (!nombre) return;
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const propios = await bd.listarNpcsTrabajadoresDeJugador(jugador.id);
-    client.send("trabajador:listado", { trabajadores: propios });
+    const rutas = (await bd.listarContratosTransporte()).filter((c) => c.dueno === jugador.id && c.trabajadorId != null);
+    client.send("trabajador:listado", {
+      trabajadores: propios,
+      rutas: rutas.map((c) => ({ trabajadorId: c.trabajadorId, contratoId: c.id, origenConstruccionId: c.origenConstruccionId, destinoTenderoteId: c.destinoTenderoteId, itemId: c.itemId })),
+    });
+  }
+
+  /**
+   * Construcciones/propiedades REALES del jugador que pregunta, para
+   * poblar los selectores de "mesa" y "ruta" del panel de gestión
+   * (docs/GDD_NPCs_Contratables.md §Panel de gestión, pedido 2026-09-01) —
+   * reusa `listarPropiedadesDeJugador` (ya usado por "todo lo que tienes")
+   * + `listarConstrucciones` (ya usado por producción/respawn) filtrando
+   * por las propiedades del jugador, en vez de inventar un listado nuevo.
+   */
+  private async manejarTrabajadorMisConstrucciones(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    const bd = await obtenerBdCompartida();
+    const propiedades = await bd.listarPropiedadesDeJugador(nombre);
+    const idsPropios = new Set(propiedades.map((p) => p.id));
+    const construcciones = (await bd.listarConstrucciones()).filter((c) => idsPropios.has(c.propiedad));
+    client.send("trabajador:misConstrucciones", {
+      construcciones: construcciones.map((c) => ({
+        id: c.id, propiedad: c.propiedad, objeto: c.objeto, categoria: c.categoria, x: c.x, y: c.y,
+        esContenedor: !!this.entradaDe(c.objeto)?.esContenedor,
+      })),
+    });
   }
 
   /** `true` si `nombre` es el dueño real de este trabajador (o jarl) — mismo criterio de gating que el resto de acciones de propiedad. */
@@ -7452,6 +7566,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) return this.errorTrabajador(client, "demasiado lejos de la mesa");
 
     const bd = await obtenerBdCompartida();
+    // un trabajador trabajando una mesa no puede estar A LA VEZ operando una
+    // ruta (un solo NPC, un solo sitio) — mismo criterio simétrico que
+    // asignarRuta limpia mesa/receta al asignar una ruta.
+    const rutaActiva = await bd.buscarContratoDeTrabajador(msg.trabajadorId);
+    if (rutaActiva) {
+      await bd.desactivarContratoTransporte(rutaActiva.id);
+      this.gestorAgentes?.quitarAgente(`contrato:${rutaActiva.id}`);
+    }
     await bd.asignarMesaNpcTrabajador(msg.trabajadorId, msg.construccionId, viva.x, viva.y);
     // receta anterior (si la había) puede que ya no aplique a la mesa nueva — se limpia, el jugador la reasigna a propósito.
     await bd.asignarRecetaNpcTrabajador(msg.trabajadorId, null);
@@ -7500,8 +7622,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (typeof msg?.trabajadorId !== "number") return;
     const pertenece = await this.trabajadorPerteneceA(client, msg.trabajadorId);
     if (!pertenece.ok) return this.errorTrabajador(client, "ese trabajador no es tuyo");
-    this.despedirTrabajadorEnMemoria(msg.trabajadorId);
     const bd = await obtenerBdCompartida();
+    await this.desactivarRutaDeTrabajador(bd, msg.trabajadorId);
+    this.despedirTrabajadorEnMemoria(msg.trabajadorId);
     await bd.despedirNpcTrabajador(msg.trabajadorId);
     client.send("trabajador:despedido", { trabajadorId: msg.trabajadorId });
   }
@@ -7511,6 +7634,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.trabajadoresActivos.delete(id);
     this.craftesTrabajador.delete(id);
     this.gestorAgentes?.quitarAgente(`trabajadorOficio_${id}`);
+  }
+
+  /** Si `id` operaba una ruta de transporte activa, la desactiva y retira su agente visual — un trabajador que deja de existir (despido manual o por impago) no puede seguir "caminando" un contrato huérfano (docs/GDD_NPCs_Contratables.md §Fusión con transporte). No-op si no tenía ninguna. */
+  private async desactivarRutaDeTrabajador(bd: Awaited<ReturnType<typeof obtenerBdCompartida>>, id: number) {
+    const ruta = await bd.buscarContratoDeTrabajador(id);
+    if (!ruta) return;
+    await bd.desactivarContratoTransporte(ruta.id);
+    this.gestorAgentes?.quitarAgente(`contrato:${ruta.id}`);
   }
 
   /**
@@ -7577,6 +7708,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const resultado = resolverPayroll(paraPago, dia, saldo);
       if (!resultado.tocaPagar) continue;
       for (const despedido of resultado.aDespedir) {
+        await this.desactivarRutaDeTrabajador(bd, despedido.id);
         this.despedirTrabajadorEnMemoria(despedido.id);
         await bd.despedirNpcTrabajador(despedido.id);
       }

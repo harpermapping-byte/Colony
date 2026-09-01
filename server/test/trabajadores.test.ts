@@ -13,7 +13,10 @@ import {
   resolverPayroll,
   DIAS_POR_MES_TRABAJADOR,
   COSTE_BASE_OFICIO_TRABAJADOR,
+  OFICIO_TRANSPORTE,
+  OFICIOS_TRABAJADOR_VALIDOS,
 } from "../src/construccion/trabajadores";
+import { OFICIOS_JUGADOR_VALIDOS } from "../src/personaje/oficios";
 import { AlmacenDatosSqlite as AlmacenDatos } from "../src/datos/bd";
 
 // --- coste de contratación ---
@@ -106,7 +109,92 @@ test("resolverPayroll: si ni siquiera alcanza para el más antiguo, se despide a
   assert.strictEqual(r.costeTotal, 0);
 });
 
+// --- "transporte" fusionado como oficio de trabajador (docs/GDD_NPCs_Contratables.md §Fusión con transporte, pedido 2026-09-01) ---
+
+test("OFICIO_TRANSPORTE: NO está en OFICIOS_JUGADOR_VALIDOS (no es un oficio de PERSONAJE) pero SÍ en OFICIOS_TRABAJADOR_VALIDOS", () => {
+  assert.strictEqual(OFICIOS_JUGADOR_VALIDOS.has(OFICIO_TRANSPORTE), false);
+  assert.strictEqual(OFICIOS_TRABAJADOR_VALIDOS.has(OFICIO_TRANSPORTE), true);
+});
+
+test("oficiosValidos: 'transporte' es un oficio contratable más — solo o combinado con oficios de mesa", () => {
+  assert.strictEqual(oficiosValidos(["transporte"]), true);
+  assert.strictEqual(oficiosValidos(["herrero", "transporte"]), true);
+  assert.strictEqual(oficiosValidos(["transporte", "transporte"]), false, "duplicados se rechazan igual que cualquier oficio");
+});
+
+test("costeContratacionTrabajador/salarioMensualTrabajador: 'transporte' cuesta y cobra EXACTAMENTE igual que cualquier otro oficio (mismas fórmulas, ninguna rama especial)", () => {
+  assert.strictEqual(costeContratacionTrabajador(1), COSTE_BASE_OFICIO_TRABAJADOR, "un trabajador de SOLO transporte cuesta el mismo base que uno de solo herrero — la fórmula no mira los nombres de los oficios, solo la cantidad");
+  assert.strictEqual(salarioMensualTrabajador(1), salarioMensualTrabajador(1), "sanity");
+  // 2 oficios (uno de ellos transporte) cuesta/cobra igual que 2 oficios cualesquiera — ambas fórmulas son puramente aritméticas sobre el COUNT, nunca miran qué oficios son.
+  assert.strictEqual(costeContratacionTrabajador(2), costeContratacionTrabajador(2));
+  assert.strictEqual(salarioMensualTrabajador(2), salarioMensualTrabajador(2));
+});
+
+test("resolverPayroll: un trabajador de oficio 'transporte' se paga/despide con el MISMO ciclo que cualquier otro — sin caso aparte", () => {
+  const trabajadores = [
+    { id: 1, oficios: ["herrero"], fechaContratacionDia: 0, ultimoPagoDia: 0 },
+    { id: 2, oficios: [OFICIO_TRANSPORTE], fechaContratacionDia: 0, ultimoPagoDia: 0 },
+  ];
+  const conFondos = resolverPayroll(trabajadores, DIAS_POR_MES_TRABAJADOR, 100000);
+  assert.strictEqual(conFondos.tocaPagar, true);
+  assert.strictEqual(conFondos.aPagar.length, 2, "el de transporte cobra junto al de mesa, mismo ciclo");
+  assert.strictEqual(conFondos.costeTotal, salarioMensualTrabajador(1) * 2);
+
+  // sin fondos para ninguno: el de transporte se despide igual que cualquiera — mismo criterio de antigüedad (empatados en fecha, ambos caen).
+  const sinFondos = resolverPayroll(trabajadores, DIAS_POR_MES_TRABAJADOR, 0);
+  assert.strictEqual(sinFondos.aDespedir.length, 2);
+  assert.ok(sinFondos.aDespedir.some((t) => t.oficios.includes(OFICIO_TRANSPORTE)), "el trabajador de transporte NO se salva por ser de transporte — despido igual que cualquiera si no hay dinero");
+});
+
 // --- persistencia BD (sqlite en memoria) ---
+
+test("BD: contratos_transporte enlaza con npcs_trabajadores por trabajadorId (tablas separadas, unidas por id — docs/GDD_NPCs_Contratables.md §Fusión con transporte)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const dueno = await bd.obtenerOCrearJugador("Ragnar");
+  const trabajador = await bd.contratarNpcTrabajador({
+    mapaId: "capital", duenoId: dueno.id, nombre: "Ivar", oficios: [OFICIO_TRANSPORTE], x: 0, y: 0, diaActual: 1,
+  });
+
+  // sin ruta asignada todavía: no hay contrato ligado.
+  assert.strictEqual(await bd.buscarContratoDeTrabajador(trabajador.id), null);
+
+  const camino = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }];
+  const contrato = await bd.crearContratoTransporte({
+    origenConstruccionId: 100, destinoTenderoteId: "pt_1", dueno: dueno.id, itemId: "madera",
+    caminoIda: camino, caminoVuelta: [...camino].reverse(), duracionViajeSeg: 10, cargaPorViaje: 10,
+    trabajadorId: trabajador.id,
+  });
+  assert.strictEqual(contrato.trabajadorId, trabajador.id);
+
+  const encontrado = await bd.buscarContratoDeTrabajador(trabajador.id);
+  assert.ok(encontrado);
+  assert.strictEqual(encontrado!.id, contrato.id);
+  assert.strictEqual(encontrado!.origenConstruccionId, 100);
+
+  // listarContratosTransporte (usado por la resolución perezosa existente) también trae el campo trabajadorId, sin romper nada previo.
+  const todos = await bd.listarContratosTransporte();
+  assert.strictEqual(todos.find((c) => c.id === contrato.id)?.trabajadorId, trabajador.id);
+
+  // desactivar (despido/reasignación) rompe el enlace de "ruta activa".
+  await bd.desactivarContratoTransporte(contrato.id);
+  assert.strictEqual(await bd.buscarContratoDeTrabajador(trabajador.id), null);
+
+  await bd.cerrar();
+});
+
+test("BD: un contrato de transporte SIN trabajador (histórico, previo a la fusión) sigue funcionando — trabajadorId null", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const dueno = await bd.obtenerOCrearJugador("Floki");
+  const contrato = await bd.crearContratoTransporte({
+    origenConstruccionId: 5, destinoTenderoteId: "pt_9", dueno: dueno.id, itemId: "piedra",
+    caminoIda: [{ x: 0, y: 0 }, { x: 1, y: 1 }], caminoVuelta: [{ x: 1, y: 1 }, { x: 0, y: 0 }],
+    duracionViajeSeg: 5, cargaPorViaje: 10, trabajadorId: null,
+  });
+  assert.strictEqual(contrato.trabajadorId, null);
+  const listado = await bd.listarContratosTransporte();
+  assert.strictEqual(listado.find((c) => c.id === contrato.id)?.trabajadorId, null);
+  await bd.cerrar();
+});
 
 test("BD: contratar/asignar mesa/asignar receta/listar/despedir un trabajador", async () => {
   const bd = new AlmacenDatos(":memory:");

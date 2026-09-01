@@ -29,7 +29,7 @@ import { PanelCombate } from "./combate/panelCombate";
 import { PanelForja } from "./construccion/panelForja";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
-import { PanelReclutador, type CatalogoReclutadorVista, type TrabajadorVista } from "./economia/panelReclutador";
+import { PanelReclutador, type CatalogoReclutadorVista, type TrabajadorVista, type RutaVista, type ConstruccionVista } from "./economia/panelReclutador";
 import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
 import { PanelCultivo, type EstadoCultivoVista } from "./agricultura/panelCultivo";
 import { PanelInjerto } from "./agricultura/panelInjerto";
@@ -918,10 +918,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // tampoco tiene UI todavía — mismo criterio que asignarParcela arriba.
       comprarPlantilla: (construccionId: number) => room.send("plantilla:comprar", { construccionId }),
       ultimaPlantillaColocada: () => ultimaPlantillaColocada,
-      // docs/GDD_Produccion.md §3ter: transporte y cofres tampoco tienen UI
-      // todavía (transporte:*/cofre:* son protocolo puro) — mismo criterio.
-      contratarTransporte: (origenConstruccionId: number, destino: { destinoTenderoteId?: string; destinoConstruccionId?: number }) =>
-        room.send("transporte:contratar", { origenConstruccionId, ...destino }),
+      // docs/GDD_NPCs_Contratables.md §Fusión con transporte (pedido
+      // 2026-09-01): "transporte" es un oficio de trabajador más — la sonda
+      // ahora exige un trabajadorId ya contratado con ese oficio (antes,
+      // firma libre vía "transporte:contratar", retirado). cofre:* sigue
+      // siendo protocolo puro sin UI, mismo criterio.
+      asignarRutaTrabajador: (trabajadorId: number, origenConstruccionId: number, destino: { destinoTenderoteId?: string; destinoConstruccionId?: number }) =>
+        room.send("trabajador:asignarRuta", { trabajadorId, origenConstruccionId, ...destino }),
       consultarCofre: (construccionId: number) => room.send("cofre:consultar", { construccionId }),
       meterEnCofre: (construccionId: number, instanciaId: number) => room.send("cofre:meterItem", { construccionId, instanciaId }),
       sacarDeCofre: (construccionId: number, instanciaId: number) => room.send("cofre:sacarItem", { construccionId, instanciaId }),
@@ -1854,31 +1857,29 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("comercio:propuesta", (m: { deNombre: string }) => console.log(`[comercio] ${m?.deNombre} quiere comerciar contigo — pulsa T para aceptar`));
 
   // --- Reclutador de NPCs trabajadores (docs/GDD_NPCs_Contratables.md,
-  // pedido 2026-09-01) — panel PLACEHOLDER de testeo (ver
-  // panelReclutador.ts). Tecla R: abre/cierra el panel cuando hay un NPC
-  // reclutador cerca (mismo criterio "sin UI de targeting" que el resto de
-  // interacciones de esta pasada); la mesa se asigna a "la construcción más
-  // cercana a mí ahora mismo" (RenderConstrucciones.masCercanaCualquiera),
-  // sin selector — igual de simple que apuntar con F a una puerta.
+  // pedido 2026-09-01) — panel de gestión (ver panelReclutador.ts). Tecla R:
+  // abre/cierra el panel cuando hay un NPC reclutador cerca. Mesa y ruta se
+  // asignan desde selectores de construcciones REALES del jugador
+  // (`trabajador:misConstrucciones`, pedido 2026-09-01 §Panel de gestión) —
+  // ya no "la más cercana a mí": un jugador con varias propiedades necesita
+  // poder elegir/reasignar sin desplazarse hasta cada una.
   const RADIO_RECLUTADOR_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor
   const panelReclutador = new PanelReclutador({
     contenedor,
     diaMundoActual: () => tiempoMundo().dia,
     contratar: (oficios) => room.send("reclutador:contratar", { oficios }),
-    asignarMesaAqui: (trabajadorId) => {
-      if (!jugadorLocal) return;
-      const construccionId = renderConstrucciones?.masCercanaCualquiera(jugadorLocal.x, jugadorLocal.z, RADIO_RECLUTADOR_CLIENTE);
-      if (construccionId == null) { console.log("[trabajador] no hay ninguna construcción lo bastante cerca"); return; }
-      room.send("trabajador:asignarMesa", { trabajadorId, construccionId });
-    },
+    asignarMesa: (trabajadorId, construccionId) => room.send("trabajador:asignarMesa", { trabajadorId, construccionId }),
     asignarReceta: (trabajadorId, recetaId) => room.send("trabajador:asignarReceta", { trabajadorId, recetaId }),
+    asignarRuta: (trabajadorId, origenConstruccionId, destino) => room.send("trabajador:asignarRuta", { trabajadorId, origenConstruccionId, ...destino }),
     despedir: (trabajadorId) => room.send("trabajador:despedir", { trabajadorId }),
-    transporteContratar: () => console.log("[reclutador] usa transporte:contratar {origenConstruccionId, destinoTenderoteId|destinoConstruccionId} — mismo sistema de siempre (docs/GDD_Produccion.md), sin panel propio todavía"),
+    refrescarConstrucciones: () => room.send("trabajador:misConstrucciones"),
   });
   room.onMessage("reclutador:catalogo", (m: CatalogoReclutadorVista) => panelReclutador.actualizarCatalogo(m));
   room.onMessage("reclutador:contratado", () => room.send("trabajador:listar"));
-  room.onMessage("trabajador:listado", (m: { trabajadores: TrabajadorVista[] }) => panelReclutador.actualizarTrabajadores(m?.trabajadores ?? []));
+  room.onMessage("trabajador:listado", (m: { trabajadores: TrabajadorVista[]; rutas: RutaVista[] }) => panelReclutador.actualizarTrabajadores(m?.trabajadores ?? [], m?.rutas ?? []));
+  room.onMessage("trabajador:misConstrucciones", (m: { construcciones: ConstruccionVista[] }) => panelReclutador.actualizarConstrucciones(m?.construcciones ?? []));
   room.onMessage("trabajador:actualizado", () => room.send("trabajador:listar"));
+  room.onMessage("trabajador:rutaAsignada", () => { room.send("trabajador:listar"); room.send("trabajador:misConstrucciones"); });
   room.onMessage("trabajador:despedido", () => room.send("trabajador:listar"));
   room.onMessage("trabajador:error", (m: { motivo: string }) => { console.log("[trabajador]", m?.motivo); panelReclutador.mostrarError(m?.motivo ?? ""); });
   /** NPC reclutador (tipoTutorial "reclutador_trabajadores") dentro de RADIO_RECLUTADOR_CLIENTE, o null. */

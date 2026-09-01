@@ -268,6 +268,8 @@ export interface ContratoTransporte {
   cargaPorViaje: number;
   ultimoViajeResuelto: string;
   activo: boolean;
+  /** NPC trabajador (npcs_trabajadores.id, oficio "transporte") que opera esta ruta — NULL en contratos antiguos previos a la fusión (docs/GDD_NPCs_Contratables.md §Fusión con transporte). Tablas separadas, enlazadas por id (mínima fricción con toda la maquinaria de resolución perezosa ya existente). */
+  trabajadorId: number | null;
 }
 
 export interface NuevoContratoTransporte {
@@ -279,6 +281,7 @@ export interface NuevoContratoTransporte {
   caminoVuelta: { x: number; y: number }[];
   duracionViajeSeg: number;
   cargaPorViaje: number;
+  trabajadorId: number | null;
 }
 
 export interface Construccion {
@@ -832,6 +835,8 @@ export interface IAlmacenDatos {
   listarContratosTransporte(): Promise<ContratoTransporte[]>;
   actualizarUltimoViajeContrato(id: number, ultimoViajeResuelto: string): Promise<void>;
   desactivarContratoTransporte(id: number): Promise<void>;
+  /** El contrato ACTIVO (si hay) que opera este trabajador de oficio "transporte" — docs/GDD_NPCs_Contratables.md §Fusión con transporte. */
+  buscarContratoDeTrabajador(trabajadorId: number): Promise<ContratoTransporte | null>;
   // Mazmorras (docs/GDD_Bakeador_Dungeons.md §4.2): cooldown de 1h tras
   // limpiar una planta, para que no se repueble al instante y se pueda
   // "farmear a saco". `clave` = mapaId:edificio:nivel.
@@ -1131,10 +1136,12 @@ CREATE TABLE IF NOT EXISTS contratos_transporte (
   carga_por_viaje INTEGER NOT NULL DEFAULT 10,
   ultimo_viaje_resuelto TEXT NOT NULL,  -- ISO, cálculo perezoso (igual que expira_en de Propiedades)
   activo INTEGER NOT NULL DEFAULT 1,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  trabajador_id INTEGER               -- FK npcs_trabajadores.id (fusión con "transporte" como oficio, docs/GDD_NPCs_Contratables.md) — NULL en contratos previos a la fusión
 );
 CREATE INDEX IF NOT EXISTS idx_contratos_origen ON contratos_transporte(origen_construccion_id);
 CREATE INDEX IF NOT EXISTS idx_contratos_destino ON contratos_transporte(destino_tenderete_id);
+CREATE INDEX IF NOT EXISTS idx_contratos_trabajador ON contratos_transporte(trabajador_id);
 -- NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido
 -- 2026-09-01): un NPC real por fila, contratado desde el reclutador de la
 -- capital, con 1+ oficios (JSON de strings — más oficios, más caro, ver
@@ -1607,6 +1614,9 @@ CREATE TABLE IF NOT EXISTS contratos_transporte (
 );
 CREATE INDEX IF NOT EXISTS idx_contratos_origen ON contratos_transporte(origen_construccion_id);
 CREATE INDEX IF NOT EXISTS idx_contratos_destino ON contratos_transporte(destino_tenderete_id);
+-- Fusión "transporte" como oficio de trabajador (docs/GDD_NPCs_Contratables.md) — tabla ya desplegada sin esta columna en Neon.
+ALTER TABLE contratos_transporte ADD COLUMN IF NOT EXISTS trabajador_id INTEGER;
+CREATE INDEX IF NOT EXISTS idx_contratos_trabajador ON contratos_transporte(trabajador_id);
 -- NPCs trabajadores contratables — ver comentario gemelo en MIGRACIONES_SQLITE.
 CREATE TABLE IF NOT EXISTS npcs_trabajadores (
   id SERIAL PRIMARY KEY,
@@ -2224,6 +2234,15 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const columnasCadaveres = this.bd.prepare("PRAGMA table_info(cadaveres)").all();
     if (!columnasCadaveres.some((c) => String(c.name) === "datos_visual")) {
       this.bd.exec("ALTER TABLE cadaveres ADD COLUMN datos_visual TEXT NOT NULL DEFAULT ''");
+    }
+    // Mismo patrón para `trabajador_id` de `contratos_transporte` (fusión
+    // "transporte" como oficio de trabajador, docs/GDD_NPCs_Contratables.md,
+    // pedido 2026-09-01) — un datos.sqlite de dev creado antes de este
+    // cambio no la tendría.
+    const columnasContratos = this.bd.prepare("PRAGMA table_info(contratos_transporte)").all();
+    if (!columnasContratos.some((c) => String(c.name) === "trabajador_id")) {
+      this.bd.exec("ALTER TABLE contratos_transporte ADD COLUMN trabajador_id INTEGER");
+      this.bd.exec("CREATE INDEX IF NOT EXISTS idx_contratos_trabajador ON contratos_transporte(trabajador_id)");
     }
   }
 
@@ -3054,6 +3073,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       cargaPorViaje: Number(f.carga_por_viaje),
       ultimoViajeResuelto: String(f.ultimo_viaje_resuelto),
       activo: Number(f.activo) === 1,
+      trabajadorId: f.trabajador_id == null ? null : Number(f.trabajador_id),
     };
   }
 
@@ -3062,28 +3082,38 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const r = this.bd
       .prepare(
         `INSERT INTO contratos_transporte
-           (origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo, creado_en)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+           (origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo, creado_en, trabajador_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       )
       .run(
         c.origenConstruccionId, c.destinoTenderoteId, c.dueno, c.itemId,
         JSON.stringify(c.caminoIda), JSON.stringify(c.caminoVuelta),
-        c.duracionViajeSeg, c.cargaPorViaje, ahora, ahora,
+        c.duracionViajeSeg, c.cargaPorViaje, ahora, ahora, c.trabajadorId ?? null,
       );
     return {
       id: Number(r.lastInsertRowid), origenConstruccionId: c.origenConstruccionId, destinoTenderoteId: c.destinoTenderoteId,
       dueno: c.dueno, itemId: c.itemId, caminoIda: c.caminoIda, caminoVuelta: c.caminoVuelta,
       duracionViajeSeg: c.duracionViajeSeg, cargaPorViaje: c.cargaPorViaje, ultimoViajeResuelto: ahora, activo: true,
+      trabajadorId: c.trabajadorId ?? null,
     };
   }
 
   async listarContratosTransporte(): Promise<ContratoTransporte[]> {
     const filas = this.bd
       .prepare(
-        "SELECT id, origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo FROM contratos_transporte WHERE activo = 1",
+        "SELECT id, origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo, trabajador_id FROM contratos_transporte WHERE activo = 1",
       )
       .all();
     return filas.map((f) => this.filaAContrato(f));
+  }
+
+  async buscarContratoDeTrabajador(trabajadorId: number): Promise<ContratoTransporte | null> {
+    const fila = this.bd
+      .prepare(
+        "SELECT id, origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo, trabajador_id FROM contratos_transporte WHERE activo = 1 AND trabajador_id = ?",
+      )
+      .get(trabajadorId);
+    return fila ? this.filaAContrato(fila) : null;
   }
 
   async actualizarUltimoViajeContrato(id: number, ultimoViajeResuelto: string): Promise<void> {
@@ -4524,13 +4554,14 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   private filaAContrato(f: {
     id: number; origen_construccion_id: number; destino_tenderete_id: string; dueno: number; item_id: string;
     camino_ida: string; camino_vuelta: string; duracion_viaje_seg: number; carga_por_viaje: number;
-    ultimo_viaje_resuelto: string; activo: number;
+    ultimo_viaje_resuelto: string; activo: number; trabajador_id: number | null;
   }): ContratoTransporte {
     return {
       id: f.id, origenConstruccionId: f.origen_construccion_id, destinoTenderoteId: f.destino_tenderete_id,
       dueno: f.dueno, itemId: f.item_id, caminoIda: JSON.parse(f.camino_ida), caminoVuelta: JSON.parse(f.camino_vuelta),
       duracionViajeSeg: f.duracion_viaje_seg, cargaPorViaje: f.carga_por_viaje,
       ultimoViajeResuelto: f.ultimo_viaje_resuelto, activo: f.activo === 1,
+      trabajadorId: f.trabajador_id == null ? null : Number(f.trabajador_id),
     };
   }
 
@@ -4538,18 +4569,19 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     const ahora = new Date().toISOString();
     const r = await this.pool.query<{ id: number }>(
       `INSERT INTO contratos_transporte
-         (origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo, creado_en)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $9) RETURNING id`,
+         (origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo, creado_en, trabajador_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $9, $10) RETURNING id`,
       [
         c.origenConstruccionId, c.destinoTenderoteId, c.dueno, c.itemId,
         JSON.stringify(c.caminoIda), JSON.stringify(c.caminoVuelta),
-        c.duracionViajeSeg, c.cargaPorViaje, ahora,
+        c.duracionViajeSeg, c.cargaPorViaje, ahora, c.trabajadorId ?? null,
       ],
     );
     return {
       id: r.rows[0].id, origenConstruccionId: c.origenConstruccionId, destinoTenderoteId: c.destinoTenderoteId,
       dueno: c.dueno, itemId: c.itemId, caminoIda: c.caminoIda, caminoVuelta: c.caminoVuelta,
       duracionViajeSeg: c.duracionViajeSeg, cargaPorViaje: c.cargaPorViaje, ultimoViajeResuelto: ahora, activo: true,
+      trabajadorId: c.trabajadorId ?? null,
     };
   }
 
@@ -4557,11 +4589,23 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     const r = await this.pool.query<{
       id: number; origen_construccion_id: number; destino_tenderete_id: string; dueno: number; item_id: string;
       camino_ida: string; camino_vuelta: string; duracion_viaje_seg: number; carga_por_viaje: number;
-      ultimo_viaje_resuelto: string; activo: number;
+      ultimo_viaje_resuelto: string; activo: number; trabajador_id: number | null;
     }>(
-      "SELECT id, origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo FROM contratos_transporte WHERE activo = 1",
+      "SELECT id, origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo, trabajador_id FROM contratos_transporte WHERE activo = 1",
     );
     return r.rows.map((f) => this.filaAContrato(f));
+  }
+
+  async buscarContratoDeTrabajador(trabajadorId: number): Promise<ContratoTransporte | null> {
+    const r = await this.pool.query<{
+      id: number; origen_construccion_id: number; destino_tenderete_id: string; dueno: number; item_id: string;
+      camino_ida: string; camino_vuelta: string; duracion_viaje_seg: number; carga_por_viaje: number;
+      ultimo_viaje_resuelto: string; activo: number; trabajador_id: number | null;
+    }>(
+      "SELECT id, origen_construccion_id, destino_tenderete_id, dueno, item_id, camino_ida, camino_vuelta, duracion_viaje_seg, carga_por_viaje, ultimo_viaje_resuelto, activo, trabajador_id FROM contratos_transporte WHERE activo = 1 AND trabajador_id = $1",
+      [trabajadorId],
+    );
+    return r.rows[0] ? this.filaAContrato(r.rows[0]) : null;
   }
 
   async actualizarUltimoViajeContrato(id: number, ultimoViajeResuelto: string): Promise<void> {
