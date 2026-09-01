@@ -798,6 +798,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (datos.objeto === "mesa_planos_ingenieria") {
         opciones.push({ etiqueta: "Proyectar edificio legendario", accion: () => panelIngeniero.abrir(datos.id) });
       }
+      // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md §7bis.4, pedido
+      // 2026-09-01): el auto-apuntado de silla por proximidad+tecla F
+      // sentaba de forma inconsistente pese a distancia de sobra, sin
+      // patrón encontrado — se sustituye por este MISMO menú de
+      // interacción genérico (clic sobre la mesa), sin selección de silla
+      // (el servidor asigna la primera libre, igual que antes). Un futuro
+      // mesa_damas/mesa_blackjack añade su propia rama aquí, igual que
+      // telar/banco_carpintero/mesa_planos_ingenieria arriba.
+      if (datos.objeto === "mesa_ajedrez") {
+        opciones.push({ etiqueta: "Jugar al ajedrez", accion: () => room.send("mesa:sentarse", { construccionId: datos.id }) });
+      }
       // Trabajador de producción (docs/GDD_Produccion.md §3bis, pedido
       // 2026-08-31: "trabajador de producción como NPC real" + "podrás sacar
       // [al compañero] de su puesto... y reasignarlos también") — sin saber
@@ -1011,25 +1022,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onStateChange(() => actualizarPanelAjedrez());
     room.onMessage("mesa:error", (m: { motivo: string }) => console.log("[mesa]", m?.motivo));
 
-    // Hint de "sentarse" (proximidad, sin UI de targeting): mismo cadencia
-    // de 500ms que cultivo/injerto/cocina de arriba — busca la mesa de
-    // ajedrez más cercana (radio ancho: la huella 3x2 hace que el CENTRO de
-    // la mesa pueda estar algo más lejos que RADIO_INTERACCION aunque una
-    // silla concreta sí esté al alcance) y, de sus 2 sillas, la más cercana
-    // que esté libre y de verdad dentro de RADIO_INTERACCION real.
-    setInterval(() => {
-      if (!jugadorLocal) return;
-      if (miMesaAjedrezActual() != null) return; // ya sentado: actualizarPanelAjedrez ya oculta el hint
-      const asiento = asientoAjedrezAlcanzable(jugadorLocal.x, jugadorLocal.z);
-      elPanelAjedrez.actualizarHint(asiento ? "Pulsa F para sentarte a jugar al ajedrez" : null);
-    }, 500);
-
     // Asiento genérico (docs/GDD_Personaje.md §3.6bis, pedido 2026-08-31):
-    // hint pequeño e independiente del de ajedrez de arriba — mismo criterio
-    // de proximidad de 500ms, pero para cualquier silla/banco/taburete/
-    // mecedora/sofa/trono (`esAsiento:true`). No compite con el hint de
-    // ajedrez: solo se muestra si NO hay una mesa de ajedrez alcanzable
-    // (evita 2 hints a la vez si un jugador está entre ambos).
+    // hint pequeño de proximidad (500ms) para cualquier silla/banco/
+    // taburete/mecedora/sofa/trono (`esAsiento:true`). Las mesas de
+    // minijuego (ajedrez...) ya no comparten tecla/hint con este sistema:
+    // se juegan con clic sobre la mesa (menú de interacción de arriba,
+    // docs/GDD_Mesas_Minijuego.md §7bis.4).
     const hintAsiento = document.createElement("div");
     hintAsiento.style.cssText =
       "position:absolute;left:50%;bottom:60px;transform:translateX(-50%);background:rgba(20,16,10,0.85);color:#f0e8d8;font:13px sans-serif;padding:6px 12px;border-radius:6px;border:1px solid #6a5a3a;display:none;pointer-events:none;";
@@ -1037,7 +1035,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     contenedor.appendChild(hintAsiento);
     setInterval(() => {
       if (!jugadorLocal) { hintAsiento.style.display = "none"; return; }
-      if (enAsientoGenerico() || miMesaAjedrezActual() != null || asientoAjedrezAlcanzable(jugadorLocal.x, jugadorLocal.z)) {
+      if (enAsientoGenerico()) {
         hintAsiento.style.display = "none";
         return;
       }
@@ -1052,8 +1050,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // usa desde el navegador hoy — el mecanismo es server-only por ahora),
     // así que esto manda el protocolo Colyseus REAL tal cual lo haría un
     // futuro panel, sin inventar un mensaje nuevo. mesa:sentarse/levantarse
-    // SÍ tienen UI real (tecla F, ver más abajo) — la sonda las deja
-    // disponibles igualmente por si un test quiere fijar la silla exacta.
+    // SÍ tienen UI real (clic sobre la mesa → menú de interacción, ver más
+    // arriba) — la sonda las deja disponibles igualmente por si un test
+    // quiere fijar la silla exacta sin pelear con el raycast del clic 3D
+    // (mismo criterio que window.__carpintero/__sastre/__ingeniero).
     let ultimoCrafteoCompletado: { itemId: string; cantidad: number; enSuelo: boolean } | null = null;
     room.onMessage("crafteo:completado", (m: { itemId: string; cantidad: number; enSuelo: boolean }) => { ultimoCrafteoCompletado = m; });
     room.onMessage("crafteo:error", (m: { motivo: string }) => console.log("[crafteo]", m?.motivo));
@@ -2208,46 +2208,6 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // Árboles de origen bake talados por CUALQUIER jugador (docs/GDD_Bosques.md §7).
   room.onMessage("arbol:baketalado", (m: { x: number; y: number }) => ocultarPropBakeadoEnVivo(m.x, m.y));
 
-  // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md) — mismo criterio "sin
-  // UI de targeting" que el resto de esta sección: la tecla (F, reusada de
-  // puertas/barcos) auto-apunta a la silla libre alcanzable más cercana.
-  const RADIO_MESA_AJEDREZ_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor
-
-  /** construccionId de la mesa de ajedrez en la que este jugador está sentado (blancas o negras), o null. */
-  function miMesaAjedrezActual(): number | null {
-    const mesas = (room.state as any).mesasAjedrez;
-    if (!mesas) return null;
-    for (const [id, m] of mesas.entries()) {
-      if ((m as any).sillaBlancas === room.sessionId || (m as any).sillaNegras === room.sessionId) return Number(id);
-    }
-    return null;
-  }
-
-  /**
-   * Mesa de ajedrez + silla concreta alcanzable desde (px,py): primero
-   * busca la mesa_ajedrez más cercana con un radio ANCHO (la huella 3x2
-   * hace que el CENTRO de la mesa pueda quedar más lejos que
-   * RADIO_INTERACCION aunque una silla del borde sí esté al alcance), y
-   * dentro de esa mesa exige que la silla LIBRE concreta esté de verdad
-   * dentro de RADIO_INTERACCION real — mismo espejo local de siempre, la
-   * verdad la dicta el servidor con "mesa:error" si discrepa.
-   */
-  function asientoAjedrezAlcanzable(px: number, py: number): { construccionId: number; silla: SillaMesaJuego } | null {
-    if (!renderConstrucciones) return null;
-    const id = renderConstrucciones.deObjetoMasCercana("mesa_ajedrez", px, py, RADIO_MESA_AJEDREZ_CLIENTE + 2);
-    if (id == null) return null;
-    const datos = renderConstrucciones.datosDe(id);
-    const mesa = (room.state as any).mesasAjedrez?.get(String(id));
-    if (!datos) return null;
-    for (const silla of ["blancas", "negras"] as const) {
-      const ocupante = mesa ? (silla === "blancas" ? mesa.sillaBlancas : mesa.sillaNegras) : "";
-      if (ocupante) continue;
-      const pos = posicionSillaMesaJuego("mesa_ajedrez", datos, silla);
-      if (pos && Math.hypot(pos.x - px, pos.y - py) <= RADIO_MESA_AJEDREZ_CLIENTE) return { construccionId: id, silla };
-    }
-    return null;
-  }
-
   const RADIO_ASIENTO_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor
 
   /** ¿Estoy sentado en un asiento genérico (silla/banco/...) ahora mismo? Espejo de `jugadorLocal.sentado` — la construcción concreta la sabe el servidor, aquí solo hace falta el sí/no para decidir qué hace F. */
@@ -2255,7 +2215,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     return !!jugadorLocal && !!(room.state.players.get(room.sessionId) as any)?.sentado;
   }
 
-  /** Asiento genérico alcanzable desde (px,py) — mismo criterio "sin UI de targeting" que `asientoAjedrezAlcanzable`, pero de una sola plaza y sin geometría de rotación (el punto de la construcción YA es el asiento). */
+  /** Asiento genérico alcanzable desde (px,py) — "sin UI de targeting": auto-apunta al más cercano, de una sola plaza y sin geometría de rotación (el punto de la construcción YA es el asiento). */
   function asientoGenericoAlcanzable(px: number, py: number): number | null {
     return renderConstrucciones?.asientoMasCercano(px, py, RADIO_ASIENTO_CLIENTE) ?? null;
   }
@@ -2365,28 +2325,21 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "f" && !teclas.has("f")) {
       room.send("portal:usar");
       room.send("mapa:viajarVecino");
-      // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md, pedido 2026-08-30):
-      // MISMA tecla F, mismo criterio "manda sin UI de targeting, el
-      // servidor decide" que puertas/barcos de arriba — toggle sentarse/
-      // levantarse según si ya estás sentado en alguna mesa de ajedrez.
+      // Asiento genérico (docs/GDD_Personaje.md §3.6bis, pedido 2026-08-31):
+      // toggle sentarse/levantarse en cualquier silla/banco/taburete/
+      // mecedora/sofa/trono del catálogo (`esAsiento:true`) — "sin UI de
+      // targeting", el servidor decide. Las mesas de minijuego (ajedrez...)
+      // YA NO comparten esta tecla (docs/GDD_Mesas_Minijuego.md §7bis.4: el
+      // auto-apuntado de silla por F sentaba de forma inconsistente pese a
+      // distancia de sobra, sin patrón encontrado) — se juegan con clic
+      // sobre la mesa, mismo menú de interacción genérico que instrumentos/
+      // sillas/camas (ver más arriba).
       if (jugadorLocal) {
-        const miMesa = miMesaAjedrezActual();
-        if (miMesa != null) {
-          room.send("mesa:levantarse");
-        } else if (enAsientoGenerico()) {
-          // Asiento genérico (docs/GDD_Personaje.md §3.6bis, pedido
-          // 2026-08-31): mismo toggle que la mesa de ajedrez, pero para
-          // cualquier silla/banco/taburete/mecedora/sofa/trono del catálogo
-          // (`esAsiento:true`) — no solo la mesa jugable.
+        if (enAsientoGenerico()) {
           room.send("asiento:levantarse");
         } else {
-          const asiento = asientoAjedrezAlcanzable(jugadorLocal.x, jugadorLocal.z);
-          if (asiento) {
-            room.send("mesa:sentarse", { construccionId: asiento.construccionId, silla: asiento.silla });
-          } else {
-            const idAsiento = asientoGenericoAlcanzable(jugadorLocal.x, jugadorLocal.z);
-            if (idAsiento != null) room.send("asiento:sentarse", { construccionId: idAsiento });
-          }
+          const idAsiento = asientoGenericoAlcanzable(jugadorLocal.x, jugadorLocal.z);
+          if (idAsiento != null) room.send("asiento:sentarse", { construccionId: idAsiento });
         }
       }
     }

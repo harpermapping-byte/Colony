@@ -19,8 +19,11 @@
 //      exige y consume el ítem craftado (requiereItemColocar).
 //   4) Los dos jugadores se sientan (mensaje real "mesa:sentarse", validado
 //      por el servidor con la distancia real tras caminar hasta la silla —
-//      NO por la tecla F: bug real sin resolver todavía, ver el comentario
-//      de sentarseConReintentos más abajo).
+//      vía la sonda window.__ajedrez.sentarse, mismo criterio que
+//      window.__carpintero/__sastre/__ingeniero: evita pelear con el
+//      raycast del clic 3D en Playwright, ver sentarseConReintentos abajo;
+//      en el juego real esto lo dispara un clic sobre la mesa, docs/
+//      GDD_Mesas_Minijuego.md §8).
 //   5) Con las 2 sillas ocupadas la partida arranca sola (fase "activo");
 //      blancas mueven e2-e4 con dos clics REALES sobre el tablero DOM.
 // Capturas en las 4 fases pedidas por el streamer, mismo patrón de spawn
@@ -353,20 +356,27 @@ async function creepHacia(pagina, tx, ty, maxPasos = 10) {
 }
 
 /**
- * BUG REAL sin resolver, no atajo cosmético (docs/GDD_Mesas_Minijuego.md,
- * pendiente de investigar aparte): la tecla F (auto-apuntado por proximidad,
- * `asientoAjedrezAlcanzable` en client/src/game.ts) sienta a veces sí y a
- * veces no con la MISMA distancia real de sobra — confirmado con varios
- * intentos que no es un problema de posición (una corrección de caminar de
- * vuelta al punto exacto tampoco lo arregla de forma fiable) ni de
- * `anchorType:"FLOOR_DECAL"` en sí (colocar/caminar hasta la mesa funciona
- * bien ya). Para no bloquear la verificación del resto del flujo real
- * (arranque de partida con las 2 sillas, sincronización de jugada, captura
- * desde cada POV) se usa aquí SIEMPRE la sonda de test `window.__ajedrez.
- * sentarse` en vez de la tecla F — es el MISMO mensaje Colyseus real
- * `mesa:sentarse`, validado por el servidor con la MISMA RADIO_INTERACCION
- * real (nunca salta la validación, solo salta la detección de silla del
- * cliente, que es justo la pieza con el bug).
+ * Se usa la sonda de test `window.__ajedrez.sentarse` (el MISMO mensaje
+ * Colyseus real "mesa:sentarse", validado por el servidor con la MISMA
+ * RADIO_INTERACCION real — nunca salta validación) en vez de disparar el
+ * clic 3D real sobre la mesa: mismo criterio que
+ * `carpinteroIngenieroLegendario.e2e.cjs` con window.__carpintero/__ingeniero
+ * — acertar el raycast de Playwright sobre un mesh concreto es frágil, y
+ * aquí lo que se quiere verificar es el PROTOCOLO/mecánica de la partida, no
+ * el raycast del navegador (en el juego real la interacción es un clic
+ * sobre la mesa → menú → "Jugar al ajedrez", docs/GDD_Mesas_Minijuego.md §8
+ * — hasta 2026-09-01 era tecla F con auto-apuntado por proximidad, que
+ * sentaba de forma inconsistente sin patrón encontrado, GDD §7bis.4; se
+ * sustituyó el mecanismo entero en vez de seguir persiguiendo esa
+ * detección).
+ *
+ * Los reintentos de aquí abajo cubren un problema DISTINTO y real (§7bis.3
+ * del GDD): entre soltar las teclas de `caminarHacia` (declara "llegado" en
+ * el sondeo de cada 2s) y que el servidor confirme la posición final hay una
+ * vuelta de red real (input -> servidor -> simulación -> patch de vuelta) —
+ * sentarse justo en ese hueco puede validar contra una posición todavía en
+ * movimiento. Por eso se re-lee la posición real y se reintenta con
+ * `creepHacia` si hace falta, en vez de fiarlo todo al primer intento.
  */
 async function sentarseConReintentos(pagina, construccionId, sessionIdPropio, objetivo, silla, intentos = 7) {
   for (let i = 0; i < intentos; i++) {
@@ -592,27 +602,19 @@ async function main() {
 
     // ---- Paso 6: Jarl camina hasta la silla de blancas (ruta en dos tramos
     // ya verificada de antemano, ver buscarHuecoMesaAjedrezConRuta) —
-    // CAPTURA 1 (mesa vacía + hint) ----
+    // CAPTURA 1 (mesa vacía) ----
     console.log("6) caminando hasta la silla de blancas (vía waypoint", huecoMesaAjedrez.waypoint, ")...");
     const llegoWaypointA = await caminarHacia(paginaA, huecoMesaAjedrez.waypoint.x, huecoMesaAjedrez.waypoint.y, 60000);
     comprobar(llegoWaypointA, "Jarl llegó al waypoint intermedio (tramo 1/2)");
     const llegoA = await caminarHacia(paginaA, posBlancas.x, posBlancas.y, 420000);
     comprobar(llegoA, "Jarl llegó junto a la mesa de ajedrez (tramo 2/2)");
-    await paginaA.waitForFunction(() => {
-      const el = document.querySelector(".hint-ajedrez");
-      return el && getComputedStyle(el).display !== "none";
-    }, null, { timeout: 10000 }).catch(() => {});
-    const hintVisible = await paginaA.evaluate(() => {
-      const el = document.querySelector(".hint-ajedrez");
-      return !!el && getComputedStyle(el).display !== "none";
-    });
-    comprobar(hintVisible, 'hint "Pulsa F para sentarte" visible junto a la mesa vacía');
     await esperar(400);
-    await paginaA.screenshot({ path: path.join(CARPETA_CAPTURAS, "ajedrez_1_mesa_vacia_hint.png") });
-    console.log("  captura: ajedrez_1_mesa_vacia_hint.png");
+    await paginaA.screenshot({ path: path.join(CARPETA_CAPTURAS, "ajedrez_1_mesa_vacia.png") });
+    console.log("  captura: ajedrez_1_mesa_vacia.png");
 
-    // ---- Paso 7: Jarl se sienta (tecla F real) — CAPTURA 2 (sentado, esperando rival) ----
-    console.log("7) Jarl se sienta (mesa:sentarse real, ver nota sobre el bug de la tecla F)...");
+    // ---- Paso 7: Jarl se sienta (mesa:sentarse real vía sonda, ver nota
+    // sobre sentarseConReintentos) — CAPTURA 2 (sentado, esperando rival) ----
+    console.log("7) Jarl se sienta (mesa:sentarse real)...");
     const sessionIdA = await paginaA.evaluate(() => window.__ajedrez.sessionId());
     const sentadoA = await sentarseConReintentos(paginaA, idMesaAjedrez, sessionIdA, posBlancas, "blancas");
     comprobar(sentadoA, "Jarl sentado (mesa:sentarse real validado por el servidor)");
