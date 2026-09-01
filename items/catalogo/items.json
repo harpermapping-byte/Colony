@@ -2388,6 +2388,288 @@
     "municionId": "virote_ballesta",
     "tipoDano": "perforante"
   },
+  "cuchillo_piedra": {
+    "nombre": "Cuchillo de Piedra",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a8a82",
+    "familiaMaterial": "piedra",
+    "tier": 0,
+    "ataqueFisico": 4,
+    "alcance": 1,
+    "cooldownMs": 450,
+    "durabilidadMax": 35,
+    "desgastePorUso": 1,
+    "prendaId": "arma_daga",
+    "tipoDano": "cortante",
+    "_nota": "Daga primitiva de pedernal tallado (pedido streamer 2026-09-01: armas de piedra) — tier más bajo del catálogo de dagas, por debajo de 'daga' (hierro). Visual compartido con 'arma_daga' (mismo criterio que daga/daga_bonificada)."
+  },
+  "hacha_piedra": {
+    "nombre": "Hacha de Piedra",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 2.2,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a8a82",
+    "familiaMaterial": "piedra",
+    "tier": 0,
+    "ataqueFisico": 9,
+    "alcance": 1,
+    "cooldownMs": 900,
+    "durabilidadMax": 55,
+    "desgastePorUso": 2,
+    "prendaId": "arma_hacha",
+    "tipoDano": "cortante",
+    "_nota": "Hacha de mano con cabeza de piedra atada al mango — tier más bajo del catálogo de hachas, por debajo de 'hacha_combate' (hierro)."
+  },
+  "garrote_madera": {
+    "nombre": "Garrote de Madera",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.8,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#7a5a38",
+    "familiaMaterial": "madera",
+    "tier": 0,
+    "ataqueFisico": 7,
+    "alcance": 1,
+    "cooldownMs": 750,
+    "durabilidadMax": 50,
+    "desgastePorUso": 1,
+    "prendaId": "arma_maza",
+    "tipoDano": "contundente",
+    "_nota": "Maza primitiva, un tronco tallado — tier más bajo del catálogo de mazas, por debajo de 'maza_guerra' (hierro)."
+  },
+  "baston_guerra": {
+    "nombre": "Bastón de Guerra",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      3
+    ],
+    "peso": 1.2,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a6a45",
+    "familiaMaterial": "madera",
+    "tier": 0,
+    "ataqueFisico": 6,
+    "alcance": 2,
+    "cooldownMs": 550,
+    "durabilidadMax": 55,
+    "desgastePorUso": 1,
+    "prendaId": "arma_lanza",
+    "tipoDano": "contundente",
+    "_nota": "Bastón/cayado de combate a dos manos — reusa el visual de 'arma_lanza' (mismo mango largo)."
+  },
+
+  "cimitarra": {
+    "nombre": "Cimitarra",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.6,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#a8a8b0",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "ataqueFisico": 11,
+    "alcance": 1,
+    "cooldownMs": 500,
+    "durabilidadMax": 95,
+    "desgastePorUso": 1,
+    "prendaId": "arma_espada",
+    "tipoDano": "cortante",
+    "_nota": "Espada curva rápida, alternativa a 'espada_corta' (menos daño por golpe, cooldown más corto)."
+  },
+
+  "cimitarra_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"cimitarra\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Cimitarra Bonificada",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.6,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#a8a8b0",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "ataqueFisico": 13.8,
+    "alcance": 1,
+    "cooldownMs": 500,
+    "durabilidadMax": 95,
+    "desgastePorUso": 1,
+    "prendaId": "arma_espada",
+    "tipoDano": "cortante"
+  },
+  "martillo_guerra": {
+    "nombre": "Martillo de Guerra",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 4.4,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#70685a",
+    "familiaMaterial": "metal",
+    "tier": 2,
+    "ataqueFisico": 24,
+    "alcance": 1,
+    "cooldownMs": 1050,
+    "durabilidadMax": 150,
+    "desgastePorUso": 3,
+    "prendaId": "arma_maza",
+    "tipoDano": "contundente",
+    "_nota": "Martillo pesado a dos manos, por encima de 'maza_guerra' — más daño, cooldown más lento."
+  },
+
+  "martillo_guerra_bonificado": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"martillo_guerra\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Martillo de Guerra Bonificado",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 4.4,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#70685a",
+    "familiaMaterial": "metal",
+    "tier": 2,
+    "ataqueFisico": 30,
+    "alcance": 1,
+    "cooldownMs": 1050,
+    "durabilidadMax": 150,
+    "desgastePorUso": 3,
+    "prendaId": "arma_maza",
+    "tipoDano": "contundente"
+  },
+  "jabalina": {
+    "nombre": "Jabalina",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.3,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a6a45",
+    "familiaMaterial": "madera",
+    "tier": 1,
+    "ataqueFisico": 10,
+    "alcance": 3,
+    "cooldownMs": 650,
+    "durabilidadMax": 65,
+    "desgastePorUso": 1,
+    "prendaId": "arma_lanza",
+    "tipoDano": "perforante",
+    "_nota": "Lanza ligera de mano, más alcance que 'lanza' a costa de menos daño — hermana ligera de la lanza, mismo visual."
+  },
+
+  "jabalina_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"jabalina\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Jabalina Bonificada",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.3,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a6a45",
+    "familiaMaterial": "madera",
+    "tier": 1,
+    "ataqueFisico": 12.5,
+    "alcance": 3,
+    "cooldownMs": 650,
+    "durabilidadMax": 65,
+    "desgastePorUso": 1,
+    "prendaId": "arma_lanza",
+    "tipoDano": "perforante"
+  },
+  "tridente": {
+    "nombre": "Tridente",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      3
+    ],
+    "peso": 3.0,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a8a90",
+    "familiaMaterial": "metal",
+    "tier": 2,
+    "ataqueFisico": 16,
+    "alcance": 3,
+    "cooldownMs": 850,
+    "durabilidadMax": 120,
+    "desgastePorUso": 2,
+    "prendaId": "arma_lanza",
+    "tipoDano": "perforante",
+    "_nota": "Lanza de tres puntas de metal, por encima de 'lanza' — más daño y alcance, más lenta."
+  },
+
+  "tridente_bonificado": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"tridente\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Tridente Bonificado",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      3
+    ],
+    "peso": 3.0,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a8a90",
+    "familiaMaterial": "metal",
+    "tier": 2,
+    "ataqueFisico": 20,
+    "alcance": 3,
+    "cooldownMs": 850,
+    "durabilidadMax": 120,
+    "desgastePorUso": 2,
+    "prendaId": "arma_lanza",
+    "tipoDano": "perforante"
+  },
+
   "venda": {
     "nombre": "Venda",
     "tipo": "consumible",
@@ -3705,6 +3987,211 @@
     "desgastePorUso": 2,
     "prendaId": "pechera_placas_acero"
   },
+
+  "casco_madera": {
+    "nombre": "Casco de Madera",
+    "tipo": "equipable",
+    "slotEquipo": "casco",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a6a42",
+    "defensaFisica": 0.6,
+    "durabilidadMax": 45,
+    "desgastePorUso": 1,
+    "familiaMaterial": "madera",
+    "tier": 0,
+    "prendaId": "casco_madera",
+    "_nota": "Visual: ropa/catalogo/equipo.json#casco_madera. Tier más ligero (por debajo de cuero) de casco — docs/GDD_Equipo.md, pedido streamer 2026-09-01: armadura de madera como opción más liviana."
+  },
+  "brazos_madera": {
+    "nombre": "Brazos de Madera",
+    "tipo": "equipable",
+    "slotEquipo": "brazos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.35,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a6a42",
+    "defensaFisica": 0.45,
+    "durabilidadMax": 45,
+    "desgastePorUso": 1,
+    "familiaMaterial": "madera",
+    "tier": 0,
+    "prendaId": "brazos_madera",
+    "_nota": "Visual: ropa/catalogo/equipo.json#brazos_madera. Tier más ligero (por debajo de cuero) de brazos — docs/GDD_Equipo.md."
+  },
+  "piernas_madera": {
+    "nombre": "Piernas de Madera",
+    "tipo": "equipable",
+    "slotEquipo": "piernas",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a6a42",
+    "defensaFisica": 0.65,
+    "durabilidadMax": 45,
+    "desgastePorUso": 1,
+    "familiaMaterial": "madera",
+    "tier": 0,
+    "prendaId": "piernas_madera",
+    "_nota": "Visual: ropa/catalogo/equipo.json#piernas_madera. Tier más ligero (por debajo de cuero) de piernas — docs/GDD_Equipo.md."
+  },
+  "pechera_madera": {
+    "nombre": "Pechera de Madera",
+    "tipo": "equipable",
+    "slotEquipo": "pechera",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 1.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a6a42",
+    "defensaFisica": 1.6,
+    "durabilidadMax": 55,
+    "desgastePorUso": 1,
+    "familiaMaterial": "madera",
+    "tier": 0,
+    "prendaId": "pechera_madera",
+    "_nota": "Visual: ropa/catalogo/equipo.json#pechera_madera. Coraza de tablillas de madera endurecida — el tier MÁS ligero de pechera, por debajo de pechera_cuero (madera < cuero < cuero_tachonado < cota_malla < placas_acero)."
+  },
+
+  "escudo_madera": {
+    "nombre": "Escudo de Madera",
+    "tipo": "equipable",
+    "slotEquipo": "manoSecundaria",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.6,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a6a42",
+    "defensaFisica": 1.0,
+    "durabilidadMax": 45,
+    "desgastePorUso": 1,
+    "familiaMaterial": "madera",
+    "tier": 0,
+    "prendaId": "escudo_madera",
+    "_nota": "Primer escudo del catálogo (pedido streamer 2026-09-01) — se equipa en manoSecundaria, EL MISMO slot que ya usaba antorcha_portatil: cero slot/mecanismo nuevo, calcularStatsEquipo (server/src/inventario/inventario.ts) ya suma defensaFisica de CUALQUIER slot equipado, sin filtrar por grupo. Visual: ropa/catalogo/equipo.json#escudo_madera."
+  },
+  "escudo_cuero": {
+    "nombre": "Escudo de Cuero",
+    "tipo": "equipable",
+    "slotEquipo": "manoSecundaria",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 2.0,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#7a4a2a",
+    "defensaFisica": 1.5,
+    "durabilidadMax": 65,
+    "desgastePorUso": 1,
+    "familiaMaterial": "cuero",
+    "tier": 0,
+    "prendaId": "escudo_cuero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#escudo_cuero."
+  },
+  "escudo_hierro": {
+    "nombre": "Escudo de Hierro",
+    "tipo": "equipable",
+    "slotEquipo": "manoSecundaria",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.2,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 2.6,
+    "durabilidadMax": 115,
+    "desgastePorUso": 1,
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "prendaId": "escudo_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#escudo_hierro."
+  },
+
+  "escudo_hierro_bonificado": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"escudo_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Escudo de Hierro Bonificado",
+    "tipo": "equipable",
+    "slotEquipo": "manoSecundaria",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.2,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 3.3,
+    "durabilidadMax": 115,
+    "desgastePorUso": 1,
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "prendaId": "escudo_hierro"
+  },
+  "escudo_acero": {
+    "nombre": "Escudo de Acero",
+    "tipo": "equipable",
+    "slotEquipo": "manoSecundaria",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.8,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 3.6,
+    "durabilidadMax": 165,
+    "desgastePorUso": 1,
+    "familiaMaterial": "metal",
+    "tier": 2,
+    "prendaId": "escudo_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#escudo_acero."
+  },
+
+  "escudo_acero_bonificado": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"escudo_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Escudo de Acero Bonificado",
+    "tipo": "equipable",
+    "slotEquipo": "manoSecundaria",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.8,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 4.5,
+    "durabilidadMax": 165,
+    "desgastePorUso": 1,
+    "familiaMaterial": "metal",
+    "tier": 2,
+    "prendaId": "escudo_acero"
+  },
+
   "anillo_cobre": {
     "nombre": "Anillo de Cobre",
     "tipo": "equipable",
@@ -4071,6 +4558,12 @@
   "tabardo_guardia": {"nombre":"Tabardo de Guardia","tipo":"equipable","slotEquipo":"pechera","huella":[1,1],"peso":1.2,"apilable":false,"variantes":1,"colorDebug":"#6d7681","defensaFisica":0.6,"durabilidadMax":50,"desgastePorUso":1,"prendaId":"tabardo_guardia","_nota":"docs/GDD_Profesiones.md (2026-08-30) — ropa civil craftable, MISMO pipeline visual que la armadura (ropa/catalogo/equipo.json), no el generador rico de NPCs (ropa/catalogo/prendas.json, sigue sin tocar)."},
   "pantalon_guardia": {"nombre":"Pantalón de Guardia","tipo":"equipable","slotEquipo":"piernas","huella":[1,1],"peso":1,"apilable":false,"variantes":1,"colorDebug":"#57504a","defensaFisica":0.5,"durabilidadMax":50,"desgastePorUso":1,"prendaId":"pantalon_guardia","_nota":"docs/GDD_Profesiones.md (2026-08-30) — ropa civil craftable, MISMO pipeline visual que la armadura (ropa/catalogo/equipo.json), no el generador rico de NPCs (ropa/catalogo/prendas.json, sigue sin tocar)."},
   "habito_sacerdote": {"nombre":"Hábito de Sacerdote","tipo":"equipable","slotEquipo":"pechera","huella":[1,1],"peso":0.5,"apilable":false,"variantes":1,"colorDebug":"#4a3c30","defensaFisica":0.1,"durabilidadMax":30,"desgastePorUso":1,"prendaId":"habito_sacerdote","_nota":"docs/GDD_Profesiones.md (2026-08-30) — ropa civil craftable, MISMO pipeline visual que la armadura (ropa/catalogo/equipo.json), no el generador rico de NPCs (ropa/catalogo/prendas.json, sigue sin tocar)."},
+  "delantal_herrero": {"nombre":"Delantal de Herrero","tipo":"equipable","slotEquipo":"pechera","huella":[1,1],"peso":0.6,"apilable":false,"variantes":1,"colorDebug":"#5a4038","defensaFisica":0.15,"durabilidadMax":35,"desgastePorUso":1,"prendaId":"delantal_herrero","_nota":"docs/GDD_Ropa_Procedural.md (2026-09-01, ampliación catálogo inicial pedida por el streamer) — ropa civil craftable, mismo criterio que camisa_lino_campesina/tabardo_guardia: prendaId apunta a ropa/catalogo/prendas.json#delantal_herrero (mismo id), no a equipo.json — el generador rico de NPCs ya sirve para el jugador porque el id coincide 1:1."},
+  "mandil_carpintero": {"nombre":"Mandil de Carpintero","tipo":"equipable","slotEquipo":"pechera","huella":[1,1],"peso":0.5,"apilable":false,"variantes":1,"colorDebug":"#8a6a42","defensaFisica":0.1,"durabilidadMax":30,"desgastePorUso":1,"prendaId":"mandil_carpintero","_nota":"docs/GDD_Ropa_Procedural.md (2026-09-01) — ropa civil craftable, mismo criterio que delantal_herrero."},
+  "tunica_molinero": {"nombre":"Túnica de Molinero","tipo":"equipable","slotEquipo":"pechera","huella":[1,1],"peso":0.4,"apilable":false,"variantes":1,"colorDebug":"#e8dfc0","defensaFisica":0.1,"durabilidadMax":28,"desgastePorUso":1,"prendaId":"tunica_molinero","_nota":"docs/GDD_Ropa_Procedural.md (2026-09-01) — ropa civil craftable, mismo criterio que delantal_herrero."},
+  "delantal_curtidor": {"nombre":"Delantal de Curtidor","tipo":"equipable","slotEquipo":"pechera","huella":[1,1],"peso":0.6,"apilable":false,"variantes":1,"colorDebug":"#6a4a30","defensaFisica":0.15,"durabilidadMax":35,"desgastePorUso":1,"prendaId":"delantal_curtidor","_nota":"docs/GDD_Ropa_Procedural.md (2026-09-01) — ropa civil craftable, mismo criterio que delantal_herrero."},
+  "tunica_alfarero": {"nombre":"Túnica de Alfarero","tipo":"equipable","slotEquipo":"pechera","huella":[1,1],"peso":0.4,"apilable":false,"variantes":1,"colorDebug":"#c9a878","defensaFisica":0.1,"durabilidadMax":28,"desgastePorUso":1,"prendaId":"tunica_alfarero","_nota":"docs/GDD_Ropa_Procedural.md (2026-09-01) — ropa civil craftable, mismo criterio que delantal_herrero."},
+  "chaleco_tabernero": {"nombre":"Chaleco de Tabernero","tipo":"equipable","slotEquipo":"pechera","huella":[1,1],"peso":0.5,"apilable":false,"variantes":1,"colorDebug":"#6b5a42","defensaFisica":0.1,"durabilidadMax":30,"desgastePorUso":1,"prendaId":"chaleco_tabernero","_nota":"docs/GDD_Ropa_Procedural.md (2026-09-01) — ropa civil craftable, mismo criterio que delantal_herrero."},
   "grasa": {"nombre":"Grasa","tipo":"recurso","huella":[1,1],"peso":0.15,"apilable":true,"stackMax":20,"variantes":1,"colorDebug":"#e8d8a0","_nota":"Subproducto de despiezar un cadáver (docs/GDD_Caza.md, 2026-08-30) — genérico, no varía por especie. Sin categoriaRecurso: no lo coloca el bake, lo entrega despiece.ts al procesar."},
   "cadaver_carne_blanca_cuero_reptil_mediano": {"nombre":"Cadáver de Carne Blanca con Cuero de Reptil (Mediano)","tipo":"objeto","huella":[2,2],"peso":8,"apilable":false,"stackMax":1,"variantes":1,"colorDebug":"#8a4a3a","_nota":"docs/GDD_Caza.md (2026-08-30) — cadáver entero de un animal mediano (carne: carne_blanca, piel: cuero_reptil), tal cual cae del loteo. Se procesa con \"cadaver:procesarIniciar\" {verbo:\"desollar\"|\"despiezar\"}, en el sitio (más lento, menos material) o junto a mesa_despiece/mesa_corte (más rápido, más material)."},
   "cadaver_carne_blanca_piel_basta_mediano": {"nombre":"Cadáver de Carne Blanca con Piel Basta (Mediano)","tipo":"objeto","huella":[2,2],"peso":8,"apilable":false,"stackMax":1,"variantes":1,"colorDebug":"#8a4a3a","_nota":"docs/GDD_Caza.md (2026-08-30) — cadáver entero de un animal mediano (carne: carne_blanca, piel: piel_basta), tal cual cae del loteo. Se procesa con \"cadaver:procesarIniciar\" {verbo:\"desollar\"|\"despiezar\"}, en el sitio (más lento, menos material) o junto a mesa_despiece/mesa_corte (más rápido, más material)."},

@@ -681,5 +681,59 @@
     ],
     "tamano": 1.3,
     "_nota": "Visual compartido por espada_larga en items.json (arma_espada sirve a espada_corta) — ver docs/GDD_Equipo.md."
+  },
+  "casco_madera": {
+    "slotEquipo": "casco",
+    "categoria": "armadura",
+    "riquezaTipica": ["humilde"],
+    "materialesCompatibles": ["madera"]
+  },
+  "brazos_madera": {
+    "slotEquipo": "brazos",
+    "categoria": "armadura",
+    "riquezaTipica": ["humilde"],
+    "materialesCompatibles": ["madera"]
+  },
+  "piernas_madera": {
+    "slotEquipo": "piernas",
+    "categoria": "armadura",
+    "riquezaTipica": ["humilde"],
+    "materialesCompatibles": ["madera"]
+  },
+  "pechera_madera": {
+    "slotEquipo": "pechera",
+    "categoria": "armadura",
+    "riquezaTipica": ["humilde"],
+    "materialesCompatibles": ["madera"],
+    "_nota": "Tier más ligero de pechera (por debajo de pechera_cuero) — tablillas de madera endurecida, pedido streamer 2026-09-01."
+  },
+  "escudo_madera": {
+    "slotEquipo": "manoSecundaria",
+    "categoria": "escudo",
+    "riquezaTipica": ["humilde"],
+    "materialesCompatibles": ["madera"],
+    "tamano": 0.9,
+    "_nota": "Primer escudo del catálogo (pedido streamer 2026-09-01) — visual compartido por varias entradas de items.json vía prendaId, mismo criterio que arma_daga/arma_espada. Sin slot/mecanismo nuevo: se equipa en manoSecundaria."
+  },
+  "escudo_cuero": {
+    "slotEquipo": "manoSecundaria",
+    "categoria": "escudo",
+    "riquezaTipica": ["humilde", "modesta"],
+    "materialesCompatibles": ["cuero"],
+    "tamano": 0.95
+  },
+  "escudo_hierro": {
+    "slotEquipo": "manoSecundaria",
+    "categoria": "escudo",
+    "riquezaTipica": ["modesta"],
+    "materialesCompatibles": ["metal"],
+    "tamano": 1.05
+  },
+  "escudo_acero": {
+    "slotEquipo": "manoSecundaria",
+    "categoria": "escudo",
+    "riquezaTipica": ["modesta", "noble"],
+    "materialesCompatibles": ["metal"],
+    "tamano": 1.15
   }
 }

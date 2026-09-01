@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 468); // 464 (ver historial: 459 = 428 + grasa + 33 cadáveres de caza + jarabe_catarro + 4 instrumentos musicales + mesa_ajedrez, + camisa_seda_noble, + 30 variantes "_bonificado/a(s)" de herrería + silla/mesa_comedor/cama_individual/arcon) - pocion_alquimica genérica + 5 variantes de color pocion_alquimica_clara/toxica/vital/inestable/radiante (docs/GDD_Pociones.md, ampliación 2026-09-01)
+  assert.strictEqual(ids.length, 496); // 468 (ver historial en commits anteriores) + 28 (docs/GDD_Equipo.md, ampliación catálogo inicial 2026-09-01: 4 armadura tier "madera" + 6 escudos incl. bonificados + 12 armas nuevas incl. bonificadas + 6 ropa civil por oficio)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");
