@@ -325,6 +325,11 @@ export class InteriorRoom extends RoomExteriorBase {
     const x = enemigo?.x ?? 0;
     const y = enemigo?.y ?? 0;
     const rangoLoot: RangoTropa = enemigo?.esBoss ? "lider" : "guardia";
+    // Mismo pool que renderiza a la tropa VIVA (docs/GDD_Bakeador_Dungeons.md
+    // §4, client `poolEnemigos[enemigoId][variante]` — la guarnición usa el
+    // mismo `Enemigo` Schema/circuito que los enemigos de mazmorra).
+    const enemigoIdVisual = enemigo?.enemigoId;
+    const variante = enemigo?.variante;
     await super.finalizarMuerte(id, jugadoresGanadores);
     this.tropaDeEnemigo.delete(id);
 
@@ -353,6 +358,7 @@ export class InteriorRoom extends RoomExteriorBase {
       especieOrigenId: tropaId,
       x, y,
       ahora: diaFraccional(tiempoMundo().dia, tiempoMundo().hora),
+      datosVisual: enemigoIdVisual ? { enemigoId: enemigoIdVisual, variante } : undefined,
     });
     for (const { itemId, cantidad } of LOOT_POR_RANGO[rangoLoot]) agregarItem(cadaver.contenedor, this.catalogoItems, itemId, cantidad);
     this.publicarCadaver(cadaver);

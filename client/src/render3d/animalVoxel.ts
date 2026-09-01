@@ -34,6 +34,22 @@ export interface AnimalVoxel {
   orientar(dx: number, dz: number): void;
 }
 
+export interface OpcionesAnimalVoxel {
+  /**
+   * Pose "caído" (cadáveres, pedido 2026-09-01) — ESTÁTICA: se aplica una
+   * única vez al construir el rig (patas/alas separadas del cuerpo, cuerpo
+   * volcado de lado) y el llamante NUNCA debe llamar `actualizar()` después
+   * (no hay animación de cadáver). Pivotes específicos por plantilla para
+   * las 3 requeridas (cuadrupedo/ave/insecto, docs/GDD_Muerte_Respawn.md);
+   * el resto de esqueletos (pez/serpiente/crustáceo/anfibio, fuera del
+   * pedido explícito) solo reciben el volcado genérico de cuerpo entero,
+   * que ya por sí solo deja de parecer una criatura viva de pie.
+   */
+  caido?: boolean;
+  /** id del cadáver — jitter DETERMINISTA de qué lado cae (nunca Math.random, ver inclinarCaido en rigHumanoide.ts). */
+  id?: string;
+}
+
 function caja(p: PiezaAnimal): THREE.Mesh {
   const malla = new THREE.Mesh(
     new THREE.BoxGeometry(p.w, p.h, p.d),
@@ -63,7 +79,60 @@ function origenPivote(nombre: string, piezas: PiezaAnimal[]): THREE.Vector3 {
   return new THREE.Vector3(cx, cy, cz);
 }
 
-export function crearAnimalVoxel(datos: AnimalExportado): AnimalVoxel {
+/**
+ * Pose "caído" por plantilla — solo pivotes, nunca geometría nueva (mismo
+ * criterio que el rig humanoide): separa patas/alas del cuerpo como si
+ * hubiera caído inerte. `bocaX` deriva de un hash del `id` del cadáver
+ * (determinista — mismo cadáver, misma pose para cualquier cliente, nunca
+ * Math.random, regla del proyecto).
+ */
+function aplicarPoseCaidaAnimal(pivotes: Map<string, THREE.Group>, esqueleto: string, lado: number): void {
+  switch (esqueleto) {
+    case "cuadrupedo": {
+      for (const [nombre, grupo] of pivotes) {
+        if (!nombre.startsWith("pata")) continue;
+        const der = nombre.endsWith("Der");
+        grupo.rotation.x = (der ? 1 : -1) * 0.9;
+        grupo.rotation.z = lado * 0.5;
+      }
+      const cabeza = pivotes.get("cabeza");
+      if (cabeza) cabeza.rotation.z = lado * 0.35;
+      const cola = pivotes.get("cola");
+      if (cola) cola.rotation.x = 0.4;
+      break;
+    }
+    case "ave": {
+      for (const ladoAla of ["alaIzq", "alaDer"]) {
+        const ala = pivotes.get(ladoAla);
+        if (ala) ala.rotation.z = (ladoAla === "alaIzq" ? -1 : 1) * 1.1; // extendida, no plegada
+      }
+      for (const p of ["pataIzq", "pataDer"]) {
+        const pata = pivotes.get(p);
+        if (pata) pata.rotation.x = 1.2;
+      }
+      const cabeza = pivotes.get("cabeza");
+      if (cabeza) cabeza.rotation.z = lado * 0.4;
+      break;
+    }
+    case "insecto": {
+      let i = 0;
+      for (const [nombre, grupo] of pivotes) {
+        if (!nombre.startsWith("pata")) continue;
+        grupo.rotation.x = 0.6 * (i % 2 === 0 ? 1 : -1);
+        i++;
+      }
+      for (const ladoAla of ["alaIzq", "alaDer"]) {
+        const ala = pivotes.get(ladoAla);
+        if (ala) ala.rotation.z = (ladoAla === "alaIzq" ? -1 : 1) * 0.3;
+      }
+      break;
+    }
+    default:
+      break; // fuera del pedido explícito: solo el volcado genérico de abajo
+  }
+}
+
+export function crearAnimalVoxel(datos: AnimalExportado, opciones?: OpcionesAnimalVoxel): AnimalVoxel {
   const raiz = new THREE.Group();
   const pivotes = new Map<string, THREE.Group>();
 
@@ -88,6 +157,27 @@ export function crearAnimalVoxel(datos: AnimalExportado): AnimalVoxel {
   }
 
   const esqueleto = datos.ficha.esqueleto;
+
+  if (opciones?.caido) {
+    // Volcado genérico de cuerpo entero, válido para cualquier esqueleto
+    // (bbox calculada ANTES de rotar, con raíz todavía en el origen):
+    // rotar 90° en Z tumba al animal de lado; se sube lo que ocupaba de
+    // ancho para no enterrarlo medio en la casilla.
+    const bbox = new THREE.Box3().setFromObject(raiz);
+    let hash = 0;
+    const idJitter = opciones?.id ?? "";
+    for (let i = 0; i < idJitter.length; i++) hash = (hash * 31 + idJitter.charCodeAt(i)) >>> 0;
+    const lado = hash % 2 === 0 ? 1 : -1;
+    aplicarPoseCaidaAnimal(pivotes, esqueleto, lado);
+    raiz.rotation.z = (lado * Math.PI) / 2;
+    raiz.position.y = Math.max(Math.abs(bbox.min.x), Math.abs(bbox.max.x)) + 0.03;
+    const objeto = raiz;
+    return {
+      objeto,
+      actualizar: () => {}, // cadáver estático: nunca se llama, pero cumple la interfaz
+      orientar: () => {},
+    };
+  }
   let fase = Math.random() * Math.PI * 2; // desfase entre individuos: que no respiren todos a la vez (solo visual, no afecta a nada determinista)
   let pesoAndar = 0;
   let pesoCorrer = 0;

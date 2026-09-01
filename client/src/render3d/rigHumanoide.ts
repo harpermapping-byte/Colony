@@ -68,8 +68,17 @@ export interface RigHumanoide {
    * tumbarse en la cama"): poses estáticas, se pisan entre sí en ese orden
    * de prioridad (sentado > sentadoSuelo > tumbado > tocando) — nunca
    * deberían coincidir de todas formas (el servidor cancela unas a otras).
+   * `caido` (pedido 2026-09-01, "los cadáveres deben verse como el
+   * personaje real, tumbado"): PRIORIDAD MÁXIMA, por delante incluso de
+   * sentado/tumbado — un cadáver nunca debería mezclarse con ninguna otra
+   * pose. A diferencia de `tumbado` (relajado, simétrico, para dormir en
+   * cama) esta pose queda asimétrica y desmadejada (brazo/pierna en
+   * ángulos distintos, cabeza ladeada) para leerse claramente como "caído"
+   * y no como "tumbado a propósito". El volcado del cuerpo entero (yacer de
+   * lado en el suelo) lo aplica el llamante rotando `objeto` — mismo
+   * mecanismo ya usado por nadar/tumbado — ver `inclinarCaido` más abajo.
    */
-  actualizar(dt: number, marcha?: Marcha, tocando?: boolean, sentado?: boolean, sentadoSuelo?: boolean, tumbado?: boolean): void;
+  actualizar(dt: number, marcha?: Marcha, tocando?: boolean, sentado?: boolean, sentadoSuelo?: boolean, tumbado?: boolean, caido?: boolean): void;
   /** Orienta el cuerpo entero hacia una dirección de mundo (dx, dz). */
   orientar(dx: number, dz: number): void;
 }
@@ -180,7 +189,25 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   let pesoAndar = 0; // 0=parado, 1=en movimiento — con rampa para no cortar en seco
   let pesoCorrer = 0; // 0=andando, 1=corriendo — segunda rampa sobre la primera
 
-  function actualizar(dt: number, marcha: Marcha = 0, tocando = false, sentado = false, sentadoSuelo = false, tumbado = false) {
+  function actualizar(dt: number, marcha: Marcha = 0, tocando = false, sentado = false, sentadoSuelo = false, tumbado = false, caido = false) {
+    // Cadáver: prioridad absoluta, pose fija desmadejada — nunca se anima
+    // (el llamante la aplica una única vez y no vuelve a llamar actualizar).
+    if (caido) {
+      piernaIzq.rotation.x = 0.35;
+      piernaIzq.rotation.z = -0.25;
+      piernaDer.rotation.x = -0.15;
+      piernaDer.rotation.z = 0.4;
+      brazoIzq.rotation.x = 0.2;
+      brazoIzq.rotation.z = -0.9;
+      brazoDer.rotation.x = -0.6;
+      brazoDer.rotation.z = 0.5;
+      torso.rotation.x = 0;
+      torso.rotation.z = 0.08;
+      cabeza.rotation.x = 0;
+      cabeza.rotation.z = -0.3;
+      torso.position.y = ALTO_PIERNA;
+      return;
+    }
     // Poses estáticas (sentado/sentadoSuelo/tumbado) pisan la zancada
     // entera y no se mezclan con marcha/tocando — el servidor ya garantiza
     // que no coinciden con movimiento real (se cancelan solas al andar).
@@ -247,4 +274,28 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   }
 
   return { objeto: raiz, actualizar, orientar };
+}
+
+/**
+ * Vuelca el rig entero para que quede tumbado en el suelo (cadáveres,
+ * pedido 2026-09-01) — mismo mecanismo ya usado por nadar/dormir (rotar
+ * `objeto.rotation.x`, RigHumanoide.actualizar solo suelta los pivotes),
+ * aplicado UNA sola vez porque un cadáver no vuelve a animarse. Cae de
+ * lado (rotation.z) en vez de bocarriba/bocabajo — se lee mejor en la
+ * cámara isométrica fija — con una pequeña variación de lado/ángulo
+ * DETERMINISTA por `id` (mismo cadáver = misma pose para cualquier
+ * cliente que lo mire, nunca `Math.random()` — regla del proyecto) para
+ * que varios cadáveres juntos no queden todos clonados.
+ */
+export function inclinarCaido(objeto: THREE.Object3D, id: string): void {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  const lado = hash % 2 === 0 ? 1 : -1;
+  const jitter = ((hash >> 3) % 100) / 100 - 0.5; // -0.5..0.5
+  objeto.rotation.order = "YXZ";
+  objeto.rotation.x = 0.05 + jitter * 0.15;
+  objeto.rotation.z = lado * (Math.PI / 2 + jitter * 0.3);
+  // al caer de lado la altura que ocupaba de ancho pasa a ser vertical —
+  // se sube un poco para no enterrar medio cuerpo bajo la casilla.
+  objeto.position.y += 0.28;
 }

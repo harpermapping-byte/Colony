@@ -96,6 +96,7 @@ export class DungeonRoom extends InteriorRoom {
     const x = enemigo!.x;
     const y = enemigo!.y;
     const enemigoId = enemigo!.enemigoId;
+    const variante = enemigo!.variante;
     await super.finalizarMuerte(id, jugadoresGanadores);
 
     const cadaver = crearCadaver({
@@ -105,6 +106,10 @@ export class DungeonRoom extends InteriorRoom {
       especieOrigenId: enemigoId,
       x, y,
       ahora: diaFraccional(tiempoMundo().dia, tiempoMundo().hora),
+      // Mismo pool que renderiza al jefe VIVO (docs/GDD_Bakeador_Dungeons.md
+      // §4, client `poolEnemigos[enemigoId][variante]`) — el cadáver sale
+      // con la MISMA figura, no un rig plano genérico.
+      datosVisual: { enemigoId, variante },
     });
     for (const { itemId, cantidad } of generarLootBoss()) agregarItem(cadaver.contenedor, this.catalogoItems, itemId, cantidad);
     this.publicarCadaver(cadaver);

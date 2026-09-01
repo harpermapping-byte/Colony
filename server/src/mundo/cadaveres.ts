@@ -30,6 +30,48 @@ export const DIAS_HASTA_DESAPARECER_CADAVER = 1;
 
 export type TipoOrigenCadaver = "animal" | "npc" | "jugador";
 
+/**
+ * Identidad VISUAL del cadáver (pedido 2026-09-01, "el cadáver debe ser el
+ * mismo modelo generado de ese personaje/animal concreto... en pose
+ * tumbada"): lo mínimo para que el cliente reconstruya el MISMO rig que
+ * tenía en vida, en vez de la caja genérica de antes. Se guarda como JSON
+ * en `Cadaver.datosVisual` (string, nunca objeto suelto — mismo patrón que
+ * `contenedor`/`extra` en el resto del proyecto) porque su forma cambia
+ * según `tipoOrigen` y el Schema de Colyseus solo sincroniza un string.
+ *
+ * - **jugador**: no tiene morfología/color propios hoy (el rig del
+ *   jugador vivo es fijo, solo cambia el equipo puesto — game.ts
+ *   `crearRigHumanoide({colorTunica: ...})`) — así que "su apariencia" se
+ *   reduce honestamente a QUÉ llevaba puesto: `equipo` (slot->itemId,
+ *   espejo de `InventarioSchema.equipo`) y `equipoBlueprintRopa`
+ *   (slot->id de prenda legendaria del sastre, si llevaba alguna).
+ * - **npc**: `slotId` es la clave real en `poblacion.json`/`voxPorSlot`
+ *   (cliente) para los civiles con ficha bakeada — HOY nadie mata a esos
+ *   (ver límite documentado en GDD_Muerte_Respawn.md); los NPC que sí
+ *   mueren hoy (tropas bandidas, guarnición, jefes de mazmorra) no tienen
+ *   ficha de poblacion/ real, así que caen honestamente al mismo rig
+ *   plano + `equipo` (si lo llevaban) que ya usan en vivo.
+ * - **animal**: la fauna SALVAJE (única que muere hoy) ya se renderiza en
+ *   vivo con una caja-placeholder por especie (`animalPlaceholder`, sin
+ *   vóxel individual — ver su comentario), así que `especieOrigenId` por
+ *   sí solo ya reconstruye EXACTAMENTE el mismo aspecto que tenía vivo; no
+ *   hace falta ningún dato extra aquí.
+ */
+export interface DatosVisualJugador {
+  equipo?: Record<string, string>;
+  equipoBlueprintRopa?: Record<string, number>;
+}
+export interface DatosVisualNpc {
+  /** Clave real en poblacion.json/voxPorSlot (civiles con ficha bakeada) — nadie mata a esos hoy, ver comentario de arriba. */
+  slotId?: string;
+  /** slot->itemId visualmente puesto (NPC tutorial, mismo mecanismo que el jugador). */
+  equipo?: Record<string, string>;
+  /** enemigoId + variante del pool de enemigos de mazmorra (client `poolEnemigos`, docs/GDD_Bakeador_Dungeons.md §4) — jefes humanoides de DungeonRoom. */
+  enemigoId?: string;
+  variante?: number;
+}
+export type DatosVisualCadaver = DatosVisualJugador | DatosVisualNpc;
+
 export interface Cadaver {
   id: string;
   mapaId: string;
@@ -41,6 +83,8 @@ export interface Cadaver {
   /** día de mundo fraccional (ver reproduccionFauna.ts: diaFraccional) en que murió. */
   muertoEn: number;
   contenedor: Contenedor;
+  /** JSON de `DatosVisualCadaver` (ver arriba), "" (u omitido) si no hace falta ninguno (fauna). */
+  datosVisual?: string;
 }
 
 /** Crea un cadáver con el inventario vacío del tamaño estándar, en el sitio y momento en que murió el origen. */
@@ -52,6 +96,8 @@ export function crearCadaver(params: {
   x: number;
   y: number;
   ahora: number;
+  /** Ver `DatosVisualCadaver` — omitido = "" (fauna, o sin datos de apariencia que guardar). */
+  datosVisual?: DatosVisualCadaver;
 }): Cadaver {
   return {
     id: params.id,
@@ -62,6 +108,7 @@ export function crearCadaver(params: {
     y: params.y,
     muertoEn: params.ahora,
     contenedor: crearContenedor(ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER),
+    datosVisual: params.datosVisual ? JSON.stringify(params.datosVisual) : "",
   };
 }
 

@@ -65,6 +65,23 @@ test("borrarCadaver: desaparece de la lista (al cumplirse el día de decadencia)
   await bd.cerrar();
 });
 
+test("crearCadaverBd + listarCadaveresMapa: datosVisual se guarda y se lee igual (identidad visual, pedido 2026-09-01)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const datosVisual = JSON.stringify({ equipo: { torso: "armadura_cuero" } });
+  await bd.crearCadaverBd(cadaverFila({ id: "v", datosVisual }));
+  const filas = await bd.listarCadaveresMapa("principal");
+  assert.strictEqual(filas[0].datosVisual, datosVisual);
+  await bd.cerrar();
+});
+
+test("crearCadaverBd: sin datosVisual explícito, se guarda y lee como cadena vacía", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.crearCadaverBd(cadaverFila());
+  const filas = await bd.listarCadaveresMapa("principal");
+  assert.strictEqual(filas[0].datosVisual, "");
+  await bd.cerrar();
+});
+
 test("cadáveres de distinto tipoOrigen (animal/npc/jugador) se guardan y leen igual", async () => {
   const bd = new AlmacenDatos(":memory:");
   await bd.crearCadaverBd(cadaverFila({ id: "a", tipoOrigen: "animal", especieOrigenId: "lobo" }));

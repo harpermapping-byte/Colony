@@ -27,6 +27,33 @@ test("crearCadaver: guarda origen/posición/momento y un contenedor vacío del t
   assert.strictEqual(c.contenedor.ancho, ANCHO_INVENTARIO_CADAVER);
   assert.strictEqual(c.contenedor.alto, ALTO_INVENTARIO_CADAVER);
   assert.deepStrictEqual(c.contenedor.items, []);
+  assert.strictEqual(c.datosVisual, "", "sin datosVisual explícito, queda vacío (fauna: la especie ya basta)");
+});
+
+test("crearCadaver: datosVisual se guarda como JSON del objeto pasado (identidad visual, pedido 2026-09-01)", () => {
+  const jugador = crearCadaver({
+    id: "cadaver:jugador:s1:1",
+    mapaId: "principal",
+    tipoOrigen: "jugador",
+    especieOrigenId: "Ragnar",
+    x: 1, y: 2, ahora: 5,
+    datosVisual: { equipo: { torso: "armadura_cuero" }, equipoBlueprintRopa: { torso: 42 } },
+  });
+  assert.strictEqual(typeof jugador.datosVisual, "string");
+  assert.deepStrictEqual(JSON.parse(jugador.datosVisual), {
+    equipo: { torso: "armadura_cuero" },
+    equipoBlueprintRopa: { torso: 42 },
+  });
+
+  const npc = crearCadaver({
+    id: "cadaver:npc:1",
+    mapaId: "principal",
+    tipoOrigen: "npc",
+    especieOrigenId: "bandido_1",
+    x: 0, y: 0, ahora: 0,
+    datosVisual: { enemigoId: "bandido_recon", variante: 2 },
+  });
+  assert.deepStrictEqual(JSON.parse(npc.datosVisual), { enemigoId: "bandido_recon", variante: 2 });
 });
 
 test("crearCadaver: mismo tamaño de inventario sea cual sea el tipo de origen (animal/npc/jugador)", () => {

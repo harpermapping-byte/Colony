@@ -381,6 +381,8 @@ export interface CadaverFila {
   y: number;
   muertoEn: number;
   contenedor: Contenedor;
+  /** JSON de `DatosVisualCadaver` (mundo/cadaveres.ts) — "" (u omitido) si no aplica (fauna). */
+  datosVisual?: string;
 }
 
 // Ganadería (docs/GDD_Ganaderia.md, pedido 2026-08-30): un animal de granja
@@ -1270,7 +1272,8 @@ CREATE TABLE IF NOT EXISTS cadaveres (
   x REAL NOT NULL,
   y REAL NOT NULL,
   muerto_en REAL NOT NULL,
-  contenedor TEXT NOT NULL          -- JSON del Contenedor (loot), mismo patrón que construcciones.extra
+  contenedor TEXT NOT NULL,         -- JSON del Contenedor (loot), mismo patrón que construcciones.extra
+  datos_visual TEXT NOT NULL DEFAULT ''  -- JSON de DatosVisualCadaver (mundo/cadaveres.ts), '' si no aplica
 );
 CREATE INDEX IF NOT EXISTS idx_cadaveres_mapa ON cadaveres(mapa_id);
 CREATE TABLE IF NOT EXISTS animales_granja (
@@ -1677,6 +1680,7 @@ CREATE TABLE IF NOT EXISTS cadaveres (
   muerto_en REAL NOT NULL,
   contenedor TEXT NOT NULL
 );
+ALTER TABLE cadaveres ADD COLUMN IF NOT EXISTS datos_visual TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_cadaveres_mapa ON cadaveres(mapa_id);
 CREATE TABLE IF NOT EXISTS animales_granja (
   id TEXT PRIMARY KEY,
@@ -1838,6 +1842,7 @@ function filaCadaverDesdeSql(f: any): CadaverFila {
     y: Number(f.y),
     muertoEn: Number(f.muerto_en),
     contenedor: JSON.parse(f.contenedor) as Contenedor,
+    datosVisual: f.datos_visual == null ? "" : String(f.datos_visual),
   };
 }
 
@@ -2079,6 +2084,13 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const columnasNpcComerciantes = this.bd.prepare("PRAGMA table_info(npc_comerciantes)").all();
     if (!columnasNpcComerciantes.some((c) => String(c.name) === "ultimo_reset_stock_ms")) {
       this.bd.exec("ALTER TABLE npc_comerciantes ADD COLUMN ultimo_reset_stock_ms INTEGER");
+    }
+    // Mismo patrón para `datos_visual` de `cadaveres` (docs/GDD_Muerte_Respawn.md,
+    // pedido 2026-09-01: identidad visual del cadáver) — un datos.sqlite de
+    // dev creado antes de este cambio no la tendría.
+    const columnasCadaveres = this.bd.prepare("PRAGMA table_info(cadaveres)").all();
+    if (!columnasCadaveres.some((c) => String(c.name) === "datos_visual")) {
+      this.bd.exec("ALTER TABLE cadaveres ADD COLUMN datos_visual TEXT NOT NULL DEFAULT ''");
     }
   }
 
@@ -3078,7 +3090,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
   async listarCadaveresMapa(mapaId: string): Promise<CadaverFila[]> {
     const filas = this.bd
       .prepare(
-        "SELECT id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor FROM cadaveres WHERE mapa_id = ?",
+        "SELECT id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor, datos_visual FROM cadaveres WHERE mapa_id = ?",
       )
       .all(mapaId);
     return filas.map(filaCadaverDesdeSql);
@@ -3087,10 +3099,10 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
   async crearCadaverBd(c: CadaverFila): Promise<void> {
     this.bd
       .prepare(
-        `INSERT INTO cadaveres (id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO cadaveres (id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor, datos_visual)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(c.id, c.mapaId, c.tipoOrigen, c.especieOrigenId, c.x, c.y, c.muertoEn, JSON.stringify(c.contenedor));
+      .run(c.id, c.mapaId, c.tipoOrigen, c.especieOrigenId, c.x, c.y, c.muertoEn, JSON.stringify(c.contenedor), c.datosVisual ?? "");
   }
 
   async actualizarContenedorCadaver(id: string, contenedor: Contenedor): Promise<void> {
@@ -4487,7 +4499,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async listarCadaveresMapa(mapaId: string): Promise<CadaverFila[]> {
     const r = await this.pool.query(
-      "SELECT id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor FROM cadaveres WHERE mapa_id = $1",
+      "SELECT id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor, datos_visual FROM cadaveres WHERE mapa_id = $1",
       [mapaId],
     );
     return r.rows.map(filaCadaverDesdeSql);
@@ -4495,9 +4507,9 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async crearCadaverBd(c: CadaverFila): Promise<void> {
     await this.pool.query(
-      `INSERT INTO cadaveres (id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [c.id, c.mapaId, c.tipoOrigen, c.especieOrigenId, c.x, c.y, c.muertoEn, JSON.stringify(c.contenedor)],
+      `INSERT INTO cadaveres (id, mapa_id, tipo_origen, especie_origen_id, x, y, muerto_en, contenedor, datos_visual)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [c.id, c.mapaId, c.tipoOrigen, c.especieOrigenId, c.x, c.y, c.muertoEn, JSON.stringify(c.contenedor), c.datosVisual ?? ""],
     );
   }
 
