@@ -4,9 +4,12 @@
  * pulidos de esta pasada (`panelSastreLegendario.ts`, `panelCofre.ts`): sin
  * preview 3D (aquí no se genera geometría, solo se contrata/asigna), pero
  * con la misma atención a mostrar SIEMPRE el coste/estado ANTES de que el
- * jugador confirme nada. Dos secciones: contratar (checkboxes de oficio +
- * coste marginal en vivo) y gestionar tus trabajadores ya contratados
- * (mesa/receta/próximo pago/despedir).
+ * jugador confirme nada. Tres secciones: contratar (checkboxes de oficio +
+ * coste marginal en vivo, incluye "transporte" desde la fusión del pedido
+ * 2026-09-01) y gestionar tus trabajadores ya contratados — mesa+receta
+ * para los oficios de mesa, RUTA origen→destino para "transporte", ambos
+ * selectores poblados SOLO con construcciones reales del jugador
+ * (`trabajador:misConstrucciones`, nunca inventadas) — y despedir.
  */
 import recetasJson from "../../../items/catalogo/recetas.json";
 
@@ -25,6 +28,9 @@ for (const [id, receta] of Object.entries(RECETAS)) {
   RECETAS_POR_OFICIO.get(receta.oficio)!.push({ id, etiqueta });
 }
 
+/** Oficio de trabajador exclusivo para operar rutas (docs/GDD_NPCs_Contratables.md §Fusión con transporte) — nunca en OFICIOS_JUGADOR_VALIDOS del servidor, pero el catálogo del reclutador lo incluye igual que los 10 de mesa. */
+const OFICIO_TRANSPORTE = "transporte";
+
 export interface CatalogoReclutadorVista {
   oficios: string[];
   costePorCantidad: number[]; // costePorCantidad[i] = coste de contratar con (i+1) oficios
@@ -42,14 +48,34 @@ export interface TrabajadorVista {
   ultimoPagoDia: number;
 }
 
+/** Ruta activa de un trabajador de oficio "transporte" (docs/GDD_NPCs_Contratables.md §Fusión con transporte) — viaja junto al listado de trabajadores, sin un segundo viaje de red. */
+export interface RutaVista {
+  trabajadorId: number;
+  contratoId: number;
+  origenConstruccionId: number;
+  destinoTenderoteId: string;
+  itemId: string;
+}
+
+/** Construcción real del jugador (docs/GDD_NPCs_Contratables.md §Panel de gestión) — para poblar los selectores de mesa/ruta, nunca una lista inventada. */
+export interface ConstruccionVista {
+  id: number;
+  propiedad: string;
+  objeto: string;
+  categoria: string;
+  esContenedor: boolean;
+}
+
 export interface OpcionesPanelReclutador {
   contenedor: HTMLElement;
   diaMundoActual(): number;
   contratar(oficios: string[]): void;
-  asignarMesaAqui(trabajadorId: number): void;
+  asignarMesa(trabajadorId: number, construccionId: number): void;
   asignarReceta(trabajadorId: number, recetaId: string | null): void;
+  asignarRuta(trabajadorId: number, origenConstruccionId: number, destino: { destinoConstruccionId?: number; destinoTenderoteId?: string }): void;
   despedir(trabajadorId: number): void;
-  transporteContratar(): void;
+  /** Pide `trabajador:misConstrucciones` — se llama al abrir el panel y tras cada acción, para que los selectores nunca queden desfasados. */
+  refrescarConstrucciones(): void;
 }
 
 const COLOR_FONDO = "rgba(20,15,8,0.96)";
@@ -61,6 +87,8 @@ export class PanelReclutador {
   private abierto = false;
   private catalogo: CatalogoReclutadorVista | null = null;
   private trabajadores: TrabajadorVista[] = [];
+  private rutas: RutaVista[] = [];
+  private construcciones: ConstruccionVista[] = [];
   private seleccion = new Set<string>();
   private ultimoError = "";
 
@@ -78,7 +106,7 @@ export class PanelReclutador {
     this.raiz.style.borderRadius = "8px";
     this.raiz.style.border = `1px solid ${COLOR_BORDE}`;
     this.raiz.style.minWidth = "380px";
-    this.raiz.style.maxWidth = "460px";
+    this.raiz.style.maxWidth = "480px";
     this.raiz.style.maxHeight = "78vh";
     this.raiz.style.overflowY = "auto";
     this.raiz.style.zIndex = "50";
@@ -93,6 +121,7 @@ export class PanelReclutador {
 
   abrir() {
     this.abierto = true;
+    this.opciones.refrescarConstrucciones();
     this.render();
   }
 
@@ -103,6 +132,7 @@ export class PanelReclutador {
 
   alternar() {
     this.abierto = !this.abierto;
+    if (this.abierto) this.opciones.refrescarConstrucciones();
     this.render();
   }
 
@@ -111,8 +141,14 @@ export class PanelReclutador {
     this.render();
   }
 
-  actualizarTrabajadores(trabajadores: TrabajadorVista[]) {
+  actualizarTrabajadores(trabajadores: TrabajadorVista[], rutas: RutaVista[]) {
     this.trabajadores = trabajadores;
+    this.rutas = rutas;
+    this.render();
+  }
+
+  actualizarConstrucciones(construcciones: ConstruccionVista[]) {
+    this.construcciones = construcciones;
     this.render();
   }
 
@@ -127,7 +163,7 @@ export class PanelReclutador {
     return this.catalogo.costePorCantidad[this.seleccion.size - 1] ?? 0;
   }
 
-  /** Coste MARGINAL de añadir un oficio más a la selección actual (lo que costaría el próximo, no el total) — la fórmula solo depende de la CANTIDAD ya elegida, no de cuál oficio sea. */
+  /** Coste MARGINAL de añadir un oficio más a la selección actual (lo que costaría el próximo, no el total) — la fórmula solo depende de la CANTIDAD ya elegida, no de cuál oficio sea (transporte incluido, mismo coste que cualquier otro — docs/GDD_NPCs_Contratables.md §Fusión con transporte). */
   private costeMarginalSiguiente(): number {
     if (!this.catalogo) return 0;
     const n = this.seleccion.size;
@@ -153,7 +189,7 @@ export class PanelReclutador {
     const sub = document.createElement("div");
     sub.style.opacity = "0.85";
     sub.style.marginBottom = "4px";
-    sub.textContent = "Elige 1 o más oficios — cuantos más, más caro (el coste de cada oficio crece con el anterior):";
+    sub.textContent = "Elige 1 o más oficios — cuantos más, más caro (el coste de cada oficio crece con el anterior). \"transporte\" es un oficio más: el trabajador opera rutas en vez de una mesa.";
     seccion.appendChild(sub);
 
     for (const oficio of this.catalogo.oficios) {
@@ -214,49 +250,44 @@ export class PanelReclutador {
       this.render();
     };
     filaBotones.appendChild(contratar);
-
-    const transporte = document.createElement("button");
-    transporte.textContent = "Contratar transporte...";
-    transporte.style.marginLeft = "8px";
-    transporte.onclick = () => this.opciones.transporteContratar();
-    filaBotones.appendChild(transporte);
     seccion.appendChild(filaBotones);
 
     return seccion;
   }
 
-  private filaTrabajador(t: TrabajadorVista): HTMLElement {
-    const fila = document.createElement("div");
-    fila.style.border = "1px solid #4a3f2a";
-    fila.style.borderRadius = "5px";
-    fila.style.padding = "7px 8px";
-    fila.style.margin = "5px 0";
+  /** `<select>` de construcciones REALES del jugador (docs/GDD_NPCs_Contratables.md §Panel de gestión) — nunca una lista inventada, siempre `this.construcciones` (poblada desde `trabajador:misConstrucciones`). `filtro` opcional restringe a una categoría/tipo (p.ej. solo contenedores para destino de ruta). */
+  private selectorConstrucciones(seleccionActual: number | null, filtro?: (c: ConstruccionVista) => boolean): HTMLSelectElement {
+    const select = document.createElement("select");
+    select.style.maxWidth = "170px";
+    const lista = filtro ? this.construcciones.filter(filtro) : this.construcciones;
+    if (lista.length === 0) {
+      const vacia = document.createElement("option");
+      vacia.value = "";
+      vacia.textContent = "(no tienes ninguna)";
+      select.appendChild(vacia);
+      select.disabled = true;
+      return select;
+    }
+    for (const c of lista) {
+      const opcion = document.createElement("option");
+      opcion.value = String(c.id);
+      opcion.textContent = `${c.objeto} #${c.id}`;
+      if (c.id === seleccionActual) opcion.selected = true;
+      select.appendChild(opcion);
+    }
+    return select;
+  }
 
-    const cab = document.createElement("div");
-    cab.style.fontWeight = "bold";
-    cab.textContent = `${t.nombre} — ${t.oficios.join(", ")}`;
-    fila.appendChild(cab);
-
-    const dia = this.opciones.diaMundoActual();
-    const diasPorMes = this.catalogo?.diasPorMesTrabajador ?? 30;
-    const proximoPagoDia = t.ultimoPagoDia + diasPorMes;
-    const diasRestantes = Math.max(0, proximoPagoDia - dia);
+  private filaTrabajadorTransporte(t: TrabajadorVista): HTMLElement {
+    const rutaActual = this.rutas.find((r) => r.trabajadorId === t.id) ?? null;
 
     const estado = document.createElement("div");
     estado.style.opacity = "0.85";
     estado.style.fontSize = "11px";
-    estado.style.margin = "2px 0";
-    const nombreMesa = t.construccionId != null ? `#${t.construccionId}` : "sin asignar";
-    const nombreReceta = t.recetaId ?? "sin asignar";
-    estado.textContent = `Mesa: ${nombreMesa} · Receta: ${nombreReceta} · ${t.recetaId && t.construccionId != null ? "craftando" : "esperando"}`;
-    fila.appendChild(estado);
-
-    const pago = document.createElement("div");
-    pago.style.opacity = "0.85";
-    pago.style.fontSize = "11px";
-    pago.style.margin = "2px 0 6px";
-    pago.textContent = `Salario: ${this.salarioMensual(t)}₣/mes · próximo pago en ${diasRestantes} día${diasRestantes === 1 ? "" : "s"} (día ${proximoPagoDia})`;
-    fila.appendChild(pago);
+    estado.style.margin = "2px 0 6px";
+    estado.textContent = rutaActual
+      ? `Ruta activa: construcción #${rutaActual.origenConstruccionId} → ${rutaActual.destinoTenderoteId} (transporta ${rutaActual.itemId})`
+      : "Sin ruta asignada todavía";
 
     const acciones = document.createElement("div");
     acciones.style.display = "flex";
@@ -264,10 +295,70 @@ export class PanelReclutador {
     acciones.style.alignItems = "center";
     acciones.style.gap = "6px";
 
+    const etiquetaOrigen = document.createElement("span");
+    etiquetaOrigen.style.opacity = "0.8";
+    etiquetaOrigen.textContent = "Origen:";
+    acciones.appendChild(etiquetaOrigen);
+    const selectOrigen = this.selectorConstrucciones(rutaActual?.origenConstruccionId ?? null);
+    acciones.appendChild(selectOrigen);
+
+    const etiquetaDestino = document.createElement("span");
+    etiquetaDestino.style.opacity = "0.8";
+    etiquetaDestino.textContent = "Destino:";
+    acciones.appendChild(etiquetaDestino);
+    // el destino puede ser cualquier construcción propia (cofre, o su
+    // propiedad como tenderete) — la distinción `esContenedor` la resuelve
+    // este panel al enviar el mensaje, el jugador solo elige "dónde".
+    const selectDestino = this.selectorConstrucciones(null, (c) => !rutaActual || c.id !== rutaActual.origenConstruccionId);
+    acciones.appendChild(selectDestino);
+
+    const asignar = document.createElement("button");
+    asignar.textContent = rutaActual ? "Reasignar ruta" : "Asignar ruta";
+    asignar.disabled = this.construcciones.length === 0;
+    asignar.onclick = () => {
+      const origenId = Number(selectOrigen.value);
+      const destinoId = Number(selectDestino.value);
+      if (!origenId || !destinoId) return;
+      const destinoConstruccion = this.construcciones.find((c) => c.id === destinoId);
+      const destino = destinoConstruccion?.esContenedor
+        ? { destinoConstruccionId: destinoId }
+        : { destinoTenderoteId: destinoConstruccion?.propiedad ?? "" };
+      this.opciones.asignarRuta(t.id, origenId, destino);
+    };
+    acciones.appendChild(asignar);
+
+    const despedir = document.createElement("button");
+    despedir.textContent = "Despedir";
+    despedir.style.marginLeft = "auto";
+    despedir.style.color = "#e08080";
+    despedir.onclick = () => this.opciones.despedir(t.id);
+    acciones.appendChild(despedir);
+
+    const contenedor = document.createElement("div");
+    contenedor.appendChild(estado);
+    contenedor.appendChild(acciones);
+    return contenedor;
+  }
+
+  private filaTrabajadorMesa(t: TrabajadorVista): HTMLElement {
+    const acciones = document.createElement("div");
+    acciones.style.display = "flex";
+    acciones.style.flexWrap = "wrap";
+    acciones.style.alignItems = "center";
+    acciones.style.gap = "6px";
+
+    // Mesa: SOLO construcciones reales del jugador (docs/GDD_NPCs_Contratables.md
+    // §Panel de gestión, pedido 2026-09-01) — antes era "la más cercana a
+    // ti"; ahora un selector real, para poder reasignar sin desplazarse.
+    const selectMesa = this.selectorConstrucciones(t.construccionId);
+    acciones.appendChild(selectMesa);
     const asignarMesa = document.createElement("button");
-    asignarMesa.textContent = "Asignar mesa aquí";
-    asignarMesa.title = "Asigna la construcción más cercana a ti ahora mismo";
-    asignarMesa.onclick = () => this.opciones.asignarMesaAqui(t.id);
+    asignarMesa.textContent = "Asignar mesa";
+    asignarMesa.disabled = this.construcciones.length === 0;
+    asignarMesa.onclick = () => {
+      const id = Number(selectMesa.value);
+      if (id) this.opciones.asignarMesa(t.id, id);
+    };
     acciones.appendChild(asignarMesa);
 
     // Selector de receta: solo las recetas de OFICIOS que este trabajador
@@ -276,7 +367,7 @@ export class PanelReclutador {
     // validación real (mesa compatible con la receta) la sigue haciendo el
     // servidor al recibir trabajador:asignarReceta.
     const selectReceta = document.createElement("select");
-    selectReceta.style.maxWidth = "180px";
+    selectReceta.style.maxWidth = "170px";
     const opcionVacia = document.createElement("option");
     opcionVacia.value = "";
     opcionVacia.textContent = "(sin receta)";
@@ -304,7 +395,60 @@ export class PanelReclutador {
     despedir.onclick = () => this.opciones.despedir(t.id);
     acciones.appendChild(despedir);
 
-    fila.appendChild(acciones);
+    return acciones;
+  }
+
+  private filaTrabajador(t: TrabajadorVista): HTMLElement {
+    const fila = document.createElement("div");
+    fila.style.border = "1px solid #4a3f2a";
+    fila.style.borderRadius = "5px";
+    fila.style.padding = "7px 8px";
+    fila.style.margin = "5px 0";
+
+    const cab = document.createElement("div");
+    cab.style.fontWeight = "bold";
+    cab.textContent = `${t.nombre} — ${t.oficios.join(", ")}`;
+    fila.appendChild(cab);
+
+    const esTransporte = t.oficios.includes(OFICIO_TRANSPORTE);
+    if (!esTransporte) {
+      const dia = this.opciones.diaMundoActual();
+      const diasPorMes = this.catalogo?.diasPorMesTrabajador ?? 30;
+      const proximoPagoDia = t.ultimoPagoDia + diasPorMes;
+      const diasRestantes = Math.max(0, proximoPagoDia - dia);
+
+      const estado = document.createElement("div");
+      estado.style.opacity = "0.85";
+      estado.style.fontSize = "11px";
+      estado.style.margin = "2px 0";
+      const nombreMesa = t.construccionId != null ? `#${t.construccionId}` : "sin asignar";
+      const nombreReceta = t.recetaId ?? "sin asignar";
+      estado.textContent = `Mesa: ${nombreMesa} · Receta: ${nombreReceta} · ${t.recetaId && t.construccionId != null ? "craftando" : "esperando"}`;
+      fila.appendChild(estado);
+
+      const pago = document.createElement("div");
+      pago.style.opacity = "0.85";
+      pago.style.fontSize = "11px";
+      pago.style.margin = "2px 0 6px";
+      pago.textContent = `Salario: ${this.salarioMensual(t)}₣/mes · próximo pago en ${diasRestantes} día${diasRestantes === 1 ? "" : "s"} (día ${proximoPagoDia})`;
+      fila.appendChild(pago);
+    } else {
+      // el salario mensual y el despido por impago aplican IGUAL a un
+      // trabajador de "transporte" (docs/GDD_NPCs_Contratables.md §Fusión
+      // con transporte) — se muestra el mismo aviso de pago que un oficio de mesa.
+      const dia = this.opciones.diaMundoActual();
+      const diasPorMes = this.catalogo?.diasPorMesTrabajador ?? 30;
+      const proximoPagoDia = t.ultimoPagoDia + diasPorMes;
+      const diasRestantes = Math.max(0, proximoPagoDia - dia);
+      const pago = document.createElement("div");
+      pago.style.opacity = "0.85";
+      pago.style.fontSize = "11px";
+      pago.style.margin = "2px 0 6px";
+      pago.textContent = `Salario: ${this.salarioMensual(t)}₣/mes · próximo pago en ${diasRestantes} día${diasRestantes === 1 ? "" : "s"} (día ${proximoPagoDia})`;
+      fila.appendChild(pago);
+    }
+
+    fila.appendChild(esTransporte ? this.filaTrabajadorTransporte(t) : this.filaTrabajadorMesa(t));
     return fila;
   }
 
@@ -347,7 +491,8 @@ export class PanelReclutador {
     } else {
       // "próximo pago del grupo" (docs/GDD_NPCs_Contratables.md §8: el
       // ancla es el ultimoPagoDia MÁS ANTIGUO del grupo — todos cobran de
-      // golpe ese día) — informativo, el cálculo real vive en el servidor.
+      // golpe ese día, transporte incluido) — informativo, el cálculo real
+      // vive en el servidor.
       const anclaMinima = Math.min(...this.trabajadores.map((t) => t.ultimoPagoDia));
       const diasPorMes = this.catalogo?.diasPorMesTrabajador ?? 30;
       const proximoPagoGrupo = anclaMinima + diasPorMes;

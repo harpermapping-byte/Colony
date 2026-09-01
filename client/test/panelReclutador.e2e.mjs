@@ -40,6 +40,8 @@ const rutaBd = join(dirServidor, "test", "panelReclutador_e2e.sqlite");
 // Mismas coordenadas que server/test/npcs_trabajadores_crafteo.e2e.mjs (spawn
 // real del mapa principal, dentro de la parcela p_0001).
 const YUNQUE_XY = { x: 1600, y: 1601 };
+const COLMENA_XY = { x: 1600, y: 1602 };
+const COFRE_XY = { x: 1600, y: 1604 };
 const PARCELA_ID = "p_0001";
 
 for (const f of [rutaBd]) { try { unlinkSync(f); } catch {} }
@@ -51,6 +53,11 @@ console.log("0) sembrando BD sqlite temporal (yunque_tocon real + lingote_hierro
     CREATE TABLE IF NOT EXISTS jugadores (
       id INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT UNIQUE NOT NULL, creado_en TEXT NOT NULL,
       farycoins INTEGER NOT NULL DEFAULT 0, vida INTEGER NOT NULL DEFAULT 100, vida_max INTEGER NOT NULL DEFAULT 100
+    );
+    CREATE TABLE IF NOT EXISTS propiedades (
+      id TEXT PRIMARY KEY, tipo TEXT NOT NULL, asentamiento TEXT NOT NULL, dueno INTEGER, asignada_en TEXT,
+      modo_tenencia TEXT, precio_farycoins INTEGER, periodo_horas INTEGER, expira_en TEXT,
+      impuesto_activo INTEGER NOT NULL DEFAULT 0, impuesto_farycoins INTEGER, impuesto_periodo_horas INTEGER, impuesto_ultimo_cobro TEXT
     );
     CREATE TABLE IF NOT EXISTS construcciones (
       id INTEGER PRIMARY KEY AUTOINCREMENT, propiedad TEXT NOT NULL, objeto TEXT NOT NULL, categoria TEXT NOT NULL,
@@ -64,9 +71,20 @@ console.log("0) sembrando BD sqlite temporal (yunque_tocon real + lingote_hierro
   `);
   const ahora = new Date().toISOString();
   bd.prepare("INSERT INTO jugadores (id, nombre, creado_en, farycoins) VALUES (1, ?, ?, 1000)").run(JARL, ahora);
+  // "p_0001" propiedad del JARL — el panel de gestión (docs/GDD_NPCs_Contratables.md
+  // §Panel de gestión) solo lista construcciones REALES del jugador, así
+  // que el selector de mesa necesita una fila de propiedad real con dueño.
+  bd.prepare("INSERT INTO propiedades (id, tipo, asentamiento, dueno, asignada_en) VALUES (?, 'parcela', 'ciudad', 1, ?)").run(PARCELA_ID, ahora);
   bd.prepare("INSERT INTO construcciones (propiedad, objeto, categoria, x, y, rot, variante, extra, creado_en) VALUES (?,?,?,?,?,?,?,?,?)")
     .run(PARCELA_ID, "yunque_tocon", "mueble", YUNQUE_XY.x, YUNQUE_XY.y, 0, 0, null, ahora);
   bd.prepare("INSERT INTO tenderete_items (tenderete_id, item_id, cantidad, precio_farycoins) VALUES (?, 'lingote_hierro', 5, 0)").run(PARCELA_ID);
+  // colmena (produce miel, origen de ruta) + cofre (destino de ruta) — para
+  // verificar la sección de RUTA del panel de gestión (docs/GDD_NPCs_Contratables.md
+  // §8bis/§Panel de gestión, fusión con transporte, pedido 2026-09-01).
+  bd.prepare("INSERT INTO construcciones (propiedad, objeto, categoria, x, y, rot, variante, extra, creado_en) VALUES (?,?,?,?,?,?,?,?,?)")
+    .run(PARCELA_ID, "colmena", "exterior", COLMENA_XY.x, COLMENA_XY.y, 0, 0, null, ahora);
+  bd.prepare("INSERT INTO construcciones (propiedad, objeto, categoria, x, y, rot, variante, extra, creado_en) VALUES (?,?,?,?,?,?,?,?,?)")
+    .run(PARCELA_ID, "cofre_pequeno", "mueble", COFRE_XY.x, COFRE_XY.y, 0, 0, null, ahora);
   bd.close();
 }
 
@@ -153,16 +171,24 @@ try {
   comprobar("muestra salario mensual y próximo día de pago", await panel.locator("text=/Salario: \\d+₣\\/mes · próximo pago en/").isVisible());
   await page.screenshot({ path: join(capturas, "reclutador3_contratado.png") });
 
-  console.log("6) 'Asignar mesa aquí' asigna la mesa sembrada (jugador ya está lo bastante cerca, spawn junto a ella)...");
-  await panel.locator('button:has-text("Asignar mesa aquí")').click();
+  console.log("6) el selector de mesa lista SOLO construcciones REALES del jugador (docs/GDD_NPCs_Contratables.md §Panel de gestión) — se elige la yunque_tocon sembrada y se asigna...");
+  await page.waitForFunction(
+    () => [...document.querySelectorAll('[data-testid="panel-reclutador"] select option')].some((o) => o.textContent?.includes("yunque_tocon")),
+    null, { timeout: 8000 },
+  );
+  const opcionesMesa = await panel.locator("select").first().locator("option").allTextContents();
+  comprobar("el selector de mesa NO está vacío/inventado — trae la yunque_tocon real", opcionesMesa.some((o) => o.includes("yunque_tocon")), JSON.stringify(opcionesMesa));
+  await panel.locator("select").first().selectOption({ label: opcionesMesa.find((o) => o.includes("yunque_tocon")) });
+  await panel.locator('button:has-text("Asignar mesa")').first().click();
   await page.waitForTimeout(600);
   comprobar("la fila del trabajador ya no dice 'sin asignar' para la mesa", !(await panel.locator("text=Mesa: sin asignar").isVisible().catch(() => false)));
 
   console.log("7) el selector de receta ofrece SOLO recetas del oficio del trabajador (dropdown, ya no texto libre)...");
-  const opciones = await panel.locator("select option").allTextContents();
+  const opciones = await panel.locator("select").nth(1).locator("option").allTextContents();
   comprobar("clavos_hierro (herrero) está en las opciones", opciones.some((o) => o.includes("clavos_hierro")));
   comprobar("ninguna receta de otro oficio (p.ej. masa_pan, molinero) aparece", !opciones.some((o) => o.includes("masa_pan")));
-  await panel.locator("select").selectOption({ label: opciones.find((o) => o.includes("clavos_hierro")) });
+  // select[0] = selector de mesa (§6), select[1] = selector de receta.
+  await panel.locator("select").nth(1).selectOption({ label: opciones.find((o) => o.includes("clavos_hierro")) });
   await panel.locator('button:has-text("Asignar receta")').click();
   await page.waitForTimeout(600);
   comprobar("la fila refleja la receta asignada (craftando)", await panel.locator("text=/Receta: clavos_hierro.*craftando/").isVisible());
@@ -175,7 +201,42 @@ try {
   comprobar("el trabajador está en el mundo con accion 'craftear'", !!trabajador && trabajador[1].accion === "craftear", JSON.stringify(trabajador));
   comprobar("el flag 'trabajando' del rig está activo", !!trabajador && trabajador[1].trabajando === true, JSON.stringify(trabajador));
 
-  console.log("9) captura real de la pose 'trabajando' del rig sobre la mesa...");
+  console.log("9bis) contrata un trabajador de oficio 'transporte' y usa la sección de RUTA del panel (docs/GDD_NPCs_Contratables.md §8bis/§Panel de gestión, fusión con transporte)...");
+  await panel.locator('label:has-text("transporte") input[type=checkbox]').check();
+  await page.waitForTimeout(150);
+  await panel.getByRole("button", { name: "Contratar", exact: true }).click();
+  await page.waitForTimeout(600);
+  comprobar("aparece un segundo trabajador tras contratar el de transporte", await panel.locator("text=Tus trabajadores (2)").isVisible());
+  await page.screenshot({ path: join(capturas, "reclutador6_transporte_contratado.png") });
+
+  // la fila de RUTA es la que NO tiene "Asignar mesa" (transporte usa
+  // "Asignar ruta") — se localiza por el botón, no por posición, para no
+  // depender del orden de renderizado de la lista.
+  const filaTransporte = panel.locator("div").filter({ has: page.getByRole("button", { name: "Asignar ruta" }) }).last();
+  await filaTransporte.waitFor({ state: "attached", timeout: 8000 });
+  await page.waitForFunction(
+    () => [...document.querySelectorAll('[data-testid="panel-reclutador"] select option')].some((o) => o.textContent?.includes("colmena")),
+    null, { timeout: 8000 },
+  );
+  const selectsRuta = filaTransporte.locator("select");
+  const opcionesOrigen = await selectsRuta.nth(0).locator("option").allTextContents();
+  const opcionesDestino = await selectsRuta.nth(1).locator("option").allTextContents();
+  comprobar("el selector de origen trae la colmena real (nunca inventada)", opcionesOrigen.some((o) => o.includes("colmena")), JSON.stringify(opcionesOrigen));
+  comprobar("el selector de destino trae el cofre real", opcionesDestino.some((o) => o.includes("cofre_pequeno")), JSON.stringify(opcionesDestino));
+  await selectsRuta.nth(0).selectOption({ label: opcionesOrigen.find((o) => o.includes("colmena")) });
+  await selectsRuta.nth(1).selectOption({ label: opcionesDestino.find((o) => o.includes("cofre_pequeno")) });
+  await filaTransporte.getByRole("button", { name: "Asignar ruta" }).click();
+  await page.waitForTimeout(800);
+  comprobar("la fila refleja la ruta activa (ya no 'sin ruta asignada')", !(await panel.locator("text=Sin ruta asignada todavía").isVisible().catch(() => false)));
+  comprobar("la fila muestra 'Ruta activa' con origen→destino", await panel.locator("text=/Ruta activa: construcción #\\d+ → cofre:\\d+/").isVisible());
+  await page.screenshot({ path: join(capturas, "reclutador7_ruta_asignada.png") });
+
+  console.log("10) en el MUNDO 3D, el trabajador de transporte camina como agente transportista (no se queda plantado como NPC fijo)...");
+  const npcsTrasRuta = await page.evaluate(() => window.__npcs());
+  const agenteRuta = Object.keys(npcsTrasRuta.porSlot || {}).find((slot) => slot.startsWith("contrato:"));
+  comprobar("existe un agente transportista en el mundo para la ruta recién asignada", !!agenteRuta, JSON.stringify(npcsTrasRuta.porSlot));
+
+  console.log("11) captura real de la pose 'trabajando' del rig sobre la mesa...");
   await panel.locator('button:has-text("Cerrar")').click().catch(() => {});
   await page.waitForTimeout(300);
   await page.screenshot({ path: join(capturas, "reclutador5_pose_trabajando_en_el_mundo.png") });
