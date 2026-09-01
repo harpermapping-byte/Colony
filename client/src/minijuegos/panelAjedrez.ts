@@ -46,8 +46,6 @@ export class PanelAjedrez {
   private readonly lineaEstado: HTMLDivElement;
   private readonly lineaGanador: HTMLDivElement;
 
-  private readonly raizHint: HTMLDivElement;
-
   private construccionIdActivo: number | null = null;
   private colorPropio: "w" | "b" | null = null;
   private seleccionada: string | null = null;
@@ -55,11 +53,6 @@ export class PanelAjedrez {
 
   constructor(private readonly opciones: OpcionesPanelAjedrez) {
     this.inyectarEstilos();
-
-    this.raizHint = document.createElement("div");
-    this.raizHint.className = "hint-ajedrez";
-    this.raizHint.style.display = "none";
-    opciones.contenedor.appendChild(this.raizHint);
 
     this.raiz = document.createElement("div");
     this.raiz.className = "panel-ajedrez";
@@ -116,9 +109,6 @@ export class PanelAjedrez {
     }
     this.construccionIdActivo = id !== null ? Number(id) : null;
 
-    // sentado en cualquier mesa (incluida la propia): nunca mostrar el hint de "sentarse" a la vez que el tablero
-    this.raizHint.style.display = "none";
-
     if (!mesa) {
       this.raiz.style.display = "none";
       this.seleccionada = null;
@@ -127,20 +117,6 @@ export class PanelAjedrez {
     this.raiz.style.display = "block";
     this.colorPropio = mesa.sillaBlancas === this.opciones.sessionIdPropio ? "w" : "b";
     this.renderizar(mesa);
-  }
-
-  /** Hint de proximidad (docs/GDD_Mesas_Minijuego.md): mostrar "Pulsa F para sentarte" solo si NO estás ya sentado en ninguna mesa. `null`/"" oculta el hint. */
-  actualizarHint(texto: string | null): void {
-    if (this.construccionIdActivo !== null) {
-      this.raizHint.style.display = "none"; // ya sentado: el propio tablero es la señal
-      return;
-    }
-    if (texto) {
-      this.raizHint.textContent = texto;
-      this.raizHint.style.display = "block";
-    } else {
-      this.raizHint.style.display = "none";
-    }
   }
 
   private renderizar(mesa: MesaAjedrezVista): void {
@@ -245,9 +221,6 @@ export class PanelAjedrez {
     const estilos = document.createElement("style");
     estilos.id = "estilos-ajedrez";
     estilos.textContent = `
-      .hint-ajedrez{position:absolute;left:50%;bottom:90px;transform:translateX(-50%);
-        background:rgba(20,16,10,0.85);color:#f0e8d8;font:13px sans-serif;padding:6px 12px;
-        border-radius:6px;border:1px solid #6a5a3a;pointer-events:none;z-index:9}
       .panel-ajedrez{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
         background:rgba(20,16,10,0.92);color:#f0e8d8;font:13px sans-serif;padding:14px 16px;
         border-radius:8px;border:1px solid #6a5a3a;z-index:20;text-align:center}
