@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { tiempoMundo } from "../mundo/tiempoMundo";
 
 /**
  * Efectos visuales de clima (docs/GDD_Clima.md, pedido del streamer) —
@@ -9,6 +10,15 @@ import * as THREE from "three";
  * llueve. Todo sigue a la cámara — nunca fijo en el mundo, así vale para
  * un mapa de miles de casillas sin generar nada por streaming aparte.
  */
+
+/** Dirección del viento del día (no hay sistema de viento de verdad todavía) — determinista por día de mundo, mismo criterio "nunca Math.random()" que el resto del proyecto, así el polvo siempre sopla igual mientras dure el día en vez de errático. */
+function anguloVientoDelDia(dia: number): number {
+  let h = dia | 0;
+  h = Math.imul(h ^ (h >>> 16), 2246822507);
+  h = Math.imul(h ^ (h >>> 13), 3266489909);
+  h = (h ^ (h >>> 16)) >>> 0;
+  return (h % 360) * (Math.PI / 180);
+}
 
 const RADIO_PARTICULAS = 13;
 const ALTURA_PARTICULAS = 9;
@@ -51,7 +61,10 @@ export class EfectosClima {
     this.nieveCayendo.visible = false;
     this.polvo = new THREE.Points(
       geometriaAlrededor(NUM_POLVO, RADIO_PARTICULAS, ALTURA_PARTICULAS * 0.4),
-      new THREE.PointsMaterial({ color: 0xcbb98a, size: 0.06, transparent: true, opacity: 0.25, depthWrite: false }),
+      // Opacidad baja a propósito (pedido del streamer: "capa al 10/20% de
+      // opacidad como máximo") — el viento se nota por el MOVIMIENTO del
+      // polvo, no por taparlo todo.
+      new THREE.PointsMaterial({ color: 0xcbb98a, size: 0.06, transparent: true, opacity: 0.18, depthWrite: false }),
     );
     this.polvo.visible = false;
 
@@ -100,7 +113,15 @@ export class EfectosClima {
 
     if (this.lluvia.visible) caerParticulas(this.lluvia, dt, 9, ALTURA_PARTICULAS);
     if (this.nieveCayendo.visible) caerParticulas(this.nieveCayendo, dt, 1.3, ALTURA_PARTICULAS, 0.4);
-    if (this.polvo.visible) derivarParticulas(this.polvo, dt, 2.2);
+    if (this.polvo.visible) {
+      // Dirección determinista por día (docs/GDD_Clima.md, pedido del
+      // streamer: "se mueven según dirección del viento, si no hay
+      // [sistema de viento todavía] aleatoria") — no hay un sistema de
+      // viento real en el mundo, así que se deriva del día como el resto
+      // del clima, nunca de un Math.random() por frame.
+      const angulo = anguloVientoDelDia(tiempoMundo().dia);
+      derivarParticulas(this.polvo, dt, 2.4, Math.cos(angulo), Math.sin(angulo));
+    }
   }
 }
 
@@ -118,13 +139,19 @@ function caerParticulas(puntos: THREE.Points, dt: number, velocidad: number, alt
   attr.needsUpdate = true;
 }
 
-/** Deriva horizontal continua (polvo de viento) — envuelve al salir del radio en vez de caer. */
-function derivarParticulas(puntos: THREE.Points, dt: number, velocidad: number): void {
+/** Deriva en la dirección del viento (dirX,dirZ normalizado) — envuelve como un toroide al salir del radio en vez de caer, así el polvo nunca se agota. */
+function derivarParticulas(puntos: THREE.Points, dt: number, velocidad: number, dirX: number, dirZ: number): void {
   const attr = puntos.geometry.getAttribute("position") as THREE.BufferAttribute;
+  const paso = velocidad * dt;
   for (let i = 0; i < attr.count; i++) {
-    let x = attr.getX(i) + velocidad * dt;
-    if (x > RADIO_PARTICULAS) x = -RADIO_PARTICULAS;
+    let x = attr.getX(i) + dirX * paso;
+    let z = attr.getZ(i) + dirZ * paso;
+    if (x > RADIO_PARTICULAS) x -= RADIO_PARTICULAS * 2;
+    else if (x < -RADIO_PARTICULAS) x += RADIO_PARTICULAS * 2;
+    if (z > RADIO_PARTICULAS) z -= RADIO_PARTICULAS * 2;
+    else if (z < -RADIO_PARTICULAS) z += RADIO_PARTICULAS * 2;
     attr.setX(i, x);
+    attr.setZ(i, z);
   }
   attr.needsUpdate = true;
 }

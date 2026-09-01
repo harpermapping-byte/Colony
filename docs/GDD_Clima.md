@@ -334,11 +334,21 @@ sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
   río", pedido explícito). Usan `Math.random()` a propósito: es parpadeo
   visual efímero client-only, no generación de mundo (la regla "nunca
   Math.random() en generación" es para contenido bakeado/determinista).
-- **Niebla/viento** (`worldScene.ts`): `THREE.Fog` de verdad (acorta lo
-  visible, no tapa la pantalla) — niebla fuerte (`near:3, far:15`),
-  viento flojo (`near:10, far:30`), pedido explícito "que vea peor, pero
-  que vea, una pequeña molestia". `FACTOR_LUZ_CLIMA` (§4) gana la entrada
-  `niebla: 0.75`.
+- **Niebla/viento** (`worldScene.ts`): **corregido 2026-09-01** — la
+  primera versión usaba `THREE.Fog`, que por diseño satura a color SÓLIDO
+  a partir de `far` (no es una capa translúcida); con un mapa isométrico
+  grande eso tapaba la pantalla entera. Sustituido por una capa 2D lisa
+  sobre el lienzo (`overlayClima`, un `<div>` posicionado igual que el
+  `CSS2DRenderer` de las etiquetas, por debajo de ellas) con OPACIDAD FIJA
+  — nunca depende de la profundidad de lo que haya detrás, así jamás
+  llega a taparlo del todo: niebla 18%, viento 7% (el viento se nota sobre
+  todo por el polvo moviéndose, esta capa es solo un toque). `FACTOR_LUZ_CLIMA`
+  (§4) gana la entrada `niebla: 0.75`. El polvo de viento
+  (`climaVisual.ts`) también baja de opacidad (0.25→0.18, mismo pedido de
+  "10/20% como mucho") y ahora sopla en una dirección determinista por
+  día (`anguloVientoDelDia`, mismo hash de siempre sobre `tiempoMundo().dia`
+  — no hay un sistema de viento del mundo todavía, así que se deriva del
+  día en vez de moverse al azar cada frame) en vez de solo hacia +X.
 - Sonda de depuración `window.__clima()` (mismo criterio que
   `window.__colonyDebug`/`__streaming`) expone el clima resuelto del
   frame actual.

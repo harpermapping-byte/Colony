@@ -4,14 +4,18 @@ import { estadoCiclo } from "./cicloDia";
 import { EfectosClima } from "./climaVisual";
 
 // Niebla/viento (docs/GDD_Clima.md, pedido del streamer: "que vea peor,
-// pero que vea, una pequeña molestia") — THREE.Fog acorta lo visible sin
-// tapar la pantalla entera; niebla lo hace fuerte, viento apenas lo roza.
-// SIN_NIEBLA queda tan lejos que nunca llega a notarse en pantalla.
-const NIEBLA_POR_CLIMA: Record<string, { near: number; far: number } | null> = {
-  niebla: { near: 3, far: 15 },
-  viento: { near: 10, far: 30 },
+// pero que vea, una pequeña molestia — máximo 10/20% de opacidad, nunca
+// tapar la pantalla"). CORREGIDO 2026-09-01: `THREE.Fog` satura a color
+// SÓLIDO a partir de `far` (por diseño, no es una capa translúcida) — con
+// un mapa isométrico grande eso tapaba la pantalla entera. Se sustituye
+// por una capa 2D fija sobre el lienzo (`overlayClima`, DOM plano, mismo
+// patrón que el `CSS2DRenderer` de las etiquetas): opacidad CONSTANTE,
+// nunca depende de la profundidad de lo que haya detrás, así jamás llega
+// a taparlo del todo por mucho que se aleje la cámara.
+const OPACIDAD_POR_CLIMA: Record<string, number> = {
+  niebla: 0.18,
+  viento: 0.07, // el viento se nota sobre todo por el polvo moviéndose (climaVisual.ts), esta capa es solo un toque
 };
-const SIN_NIEBLA = { near: 500, far: 600 };
 
 const TAMANO_MUNDO_VISIBLE = 16; // unidades de mundo visibles en el eje corto de la cámara
 
@@ -39,7 +43,7 @@ export class WorldScene {
   // arranca en el ángulo fijo que tenía la escena antes del ciclo
   private direccionLuz = new THREE.Vector3(40, 60, 25).normalize();
   private readonly efectosClima: EfectosClima;
-  private readonly niebla = new THREE.Fog(0x000000, SIN_NIEBLA.near, SIN_NIEBLA.far);
+  private readonly overlayClima: HTMLDivElement;
   /** Último clima resuelto (docs/GDD_Clima.md) — expuesto de solo lectura para depuración/tests, mismo criterio que el resto de sondas `window.__*`. */
   climaActual = "";
 
@@ -59,6 +63,17 @@ export class WorldScene {
     this.labelRenderer.domElement.style.pointerEvents = "none";
     contenedor.style.position = "relative";
     contenedor.appendChild(this.labelRenderer.domElement);
+
+    // Niebla/viento (docs/GDD_Clima.md): capa 2D lisa por ENCIMA del lienzo
+    // 3D pero por DEBAJO de las etiquetas (insertBefore), opacidad fija —
+    // nunca satura a sólido como hacía THREE.Fog.
+    this.overlayClima = document.createElement("div");
+    Object.assign(this.overlayClima.style, {
+      position: "absolute", top: "0", left: "0", right: "0", bottom: "0",
+      background: "#dce6ea", opacity: "0", pointerEvents: "none",
+      transition: "opacity 1.5s linear",
+    });
+    contenedor.insertBefore(this.overlayClima, this.labelRenderer.domElement);
 
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
     this.posicionarCamaraIsometrica();
@@ -93,7 +108,6 @@ export class WorldScene {
     this.sueloEmergencia.position.y = -3;
     this.scene.add(this.sueloEmergencia);
 
-    this.scene.fog = this.niebla;
     this.efectosClima = new EfectosClima(this.scene);
 
     this.resize(ancho, alto);
@@ -153,13 +167,11 @@ export class WorldScene {
     (this.scene.background as THREE.Color).copy(ciclo.colorCielo);
     this.reposicionarSol();
 
-    // Niebla/viento: acortan lo visible (docs/GDD_Clima.md, "que vea peor,
-    // pero que vea"); el resto de climas no tocan la niebla en absoluto.
     this.climaActual = ciclo.clima;
-    const rango = NIEBLA_POR_CLIMA[ciclo.clima] ?? SIN_NIEBLA;
-    this.niebla.near = rango.near;
-    this.niebla.far = rango.far;
-    this.niebla.color.copy(this.scene.background as THREE.Color);
+    // Niebla/viento: capa 2D de opacidad fija (docs/GDD_Clima.md, "que vea
+    // peor, pero que vea" — 10/20% como mucho); el resto de climas la dejan
+    // en 0 (transparente del todo).
+    this.overlayClima.style.opacity = String(OPACIDAD_POR_CLIMA[ciclo.clima] ?? 0);
     // Partículas/charcos de lluvia-nieve-viento, siempre centrados en lo
     // que la cámara está mirando (objetivoCamara, no la posición de la
     // cámara isométrica en sí) — nunca fijos en coordenadas de mundo.
