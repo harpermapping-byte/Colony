@@ -1014,6 +1014,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       "tenderete:escaparate", "tenderete:gestion", "tenderete:compraResultado", "tenderete:error",
       "cocina:estado", "cocina:preparado", "cocina:error",
       "crafteo:iniciado", "crafteo:completado", "crafteo:error",
+      // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería,
+      // pedido 2026-09-01) — mismo criterio que el resto de esta lista: sin
+      // panel de cliente todavía, protocolo real disponible vía
+      // window.__test.enviar("crafteo:herreria:accion", {accion}) /
+      // "crafteo:herreria:cancelar".
+      "crafteo:herreria:iniciado", "crafteo:herreria:progreso", "crafteo:herreria:completado", "crafteo:herreria:cancelado",
       "oficio:elegido", "oficio:error",
     ]) {
       room.onMessage(tipo, (m: unknown) => ultimosMensajes.set(tipo, m));

@@ -1949,6 +1949,30 @@
     "prendaId": "arma_daga",
     "tipoDano": "cortante"
   },
+
+  "daga_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"daga\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Daga Bonificada",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#9a9aa0",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "ataqueFisico": 7.5,
+    "alcance": 1,
+    "cooldownMs": 400,
+    "durabilidadMax": 60,
+    "desgastePorUso": 1,
+    "prendaId": "arma_daga",
+    "tipoDano": "cortante"
+  },
   "espada_corta": {
     "nombre": "Espada Corta",
     "tipo": "arma",
@@ -1971,6 +1995,30 @@
     "prendaId": "arma_espada",
     "tipoDano": "cortante"
   },
+
+  "espada_corta_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"espada_corta\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Espada Corta Bonificada",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.8,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#a8a8b0",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "ataqueFisico": 12.5,
+    "alcance": 1,
+    "cooldownMs": 600,
+    "durabilidadMax": 100,
+    "desgastePorUso": 1,
+    "prendaId": "arma_espada",
+    "tipoDano": "cortante"
+  },
   "espada_larga": {
     "nombre": "Espada Larga",
     "tipo": "arma",
@@ -1986,6 +2034,30 @@
     "familiaMaterial": "metal",
     "tier": 2,
     "ataqueFisico": 14,
+    "alcance": 2,
+    "cooldownMs": 750,
+    "durabilidadMax": 120,
+    "desgastePorUso": 2,
+    "prendaId": "arma_espada_larga",
+    "tipoDano": "cortante"
+  },
+
+  "espada_larga_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"espada_larga\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Espada Larga Bonificada",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 2.6,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#b0b0b8",
+    "familiaMaterial": "metal",
+    "tier": 2,
+    "ataqueFisico": 17.5,
     "alcance": 2,
     "cooldownMs": 750,
     "durabilidadMax": 120,
@@ -2016,6 +2088,31 @@
     "prendaId": "arma_hacha",
     "tipoDano": "cortante"
   },
+
+  "hacha_combate_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"hacha_combate\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Hacha de Combate Bonificada",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.0,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#8a7a60",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "ataqueFisico": 20,
+    "alcance": 1,
+    "cooldownMs": 850,
+    "durabilidadMax": 110,
+    "desgastePorUso": 2,
+    "_nota": "Distinta de 'hacha_talar' (herramienta de tala, sin stats de combate) — misma silueta, catálogo separado a propósito.",
+    "prendaId": "arma_hacha",
+    "tipoDano": "cortante"
+  },
   "maza_guerra": {
     "nombre": "Maza de Guerra",
     "tipo": "arma",
@@ -2038,6 +2135,30 @@
     "prendaId": "arma_maza",
     "tipoDano": "contundente"
   },
+
+  "maza_guerra_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"maza_guerra\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Maza de Guerra Bonificada",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.6,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#70685a",
+    "familiaMaterial": "metal",
+    "tier": 1,
+    "ataqueFisico": 22.5,
+    "alcance": 1,
+    "cooldownMs": 900,
+    "durabilidadMax": 130,
+    "desgastePorUso": 2,
+    "prendaId": "arma_maza",
+    "tipoDano": "contundente"
+  },
   "lanza": {
     "nombre": "Lanza",
     "tipo": "arma",
@@ -2053,6 +2174,30 @@
     "familiaMaterial": "madera",
     "tier": 1,
     "ataqueFisico": 12,
+    "alcance": 2,
+    "cooldownMs": 700,
+    "durabilidadMax": 100,
+    "desgastePorUso": 1,
+    "prendaId": "arma_lanza",
+    "tipoDano": "perforante"
+  },
+
+  "lanza_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"lanza\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Lanza Bonificada",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      3
+    ],
+    "peso": 2.4,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8a6a45",
+    "familiaMaterial": "madera",
+    "tier": 1,
+    "ataqueFisico": 15,
     "alcance": 2,
     "cooldownMs": 700,
     "durabilidadMax": 100,
@@ -2104,6 +2249,30 @@
     "municionId": "flecha",
     "tipoDano": "perforante"
   },
+
+  "arco_corto_bonificado": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"arco_corto\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Arco Corto Bonificado",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.6,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#8a6a45",
+    "familiaMaterial": "madera",
+    "tier": 1,
+    "ataqueFisico": 11.3,
+    "alcance": 6,
+    "cooldownMs": 800,
+    "durabilidadMax": 90,
+    "desgastePorUso": 1,
+    "municionId": "flecha",
+    "tipoDano": "perforante"
+  },
   "arco_largo": {
     "nombre": "Arco Largo",
     "tipo": "arma",
@@ -2126,6 +2295,30 @@
     "municionId": "flecha",
     "tipoDano": "perforante"
   },
+
+  "arco_largo_bonificado": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"arco_largo\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Arco Largo Bonificado",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      3
+    ],
+    "peso": 2.2,
+    "apilable": false,
+    "variantes": 3,
+    "colorDebug": "#7a5a38",
+    "familiaMaterial": "madera",
+    "tier": 2,
+    "ataqueFisico": 16.3,
+    "alcance": 9,
+    "cooldownMs": 950,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "municionId": "flecha",
+    "tipoDano": "perforante"
+  },
   "ballesta": {
     "nombre": "Ballesta",
     "tipo": "arma",
@@ -2141,6 +2334,30 @@
     "familiaMaterial": "madera",
     "tier": 2,
     "ataqueFisico": 17,
+    "alcance": 7,
+    "cooldownMs": 1300,
+    "durabilidadMax": 120,
+    "desgastePorUso": 2,
+    "municionId": "virote_ballesta",
+    "tipoDano": "perforante"
+  },
+
+  "ballesta_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"ballesta\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), ataqueFisico +25% fijo respecto a la base.",
+    "nombre": "Ballesta Bonificada",
+    "tipo": "arma",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 3.2,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#5a4a3a",
+    "familiaMaterial": "madera",
+    "tier": 2,
+    "ataqueFisico": 21.3,
     "alcance": 7,
     "cooldownMs": 1300,
     "durabilidadMax": 120,
@@ -2442,6 +2659,26 @@
     "prendaId": "casco_hierro",
     "_nota": "Visual: ropa/catalogo/equipo.json#casco_hierro. Tier 1 de casco (docs/GDD_Equipo.md)."
   },
+
+  "casco_hierro_bonificado": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"casco_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Casco de Hierro Bonificado",
+    "tipo": "equipable",
+    "slotEquipo": "casco",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.9,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.8,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "casco_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#casco_hierro. Tier 1 de casco (docs/GDD_Equipo.md)."
+  },
   "casco_acero": {
     "nombre": "Casco de Acero",
     "tipo": "equipable",
@@ -2455,6 +2692,26 @@
     "variantes": 1,
     "colorDebug": "#b0b0b8",
     "defensaFisica": 1.9,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "casco_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#casco_acero. Tier 2 de casco (docs/GDD_Equipo.md)."
+  },
+
+  "casco_acero_bonificado": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"casco_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Casco de Acero Bonificado",
+    "tipo": "equipable",
+    "slotEquipo": "casco",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.1,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 2.4,
     "durabilidadMax": 160,
     "desgastePorUso": 1,
     "prendaId": "casco_acero",
@@ -2496,6 +2753,26 @@
     "prendaId": "mascara_hierro",
     "_nota": "Visual: ropa/catalogo/equipo.json#mascara_hierro. Tier 1 de mascara (docs/GDD_Equipo.md)."
   },
+
+  "mascara_hierro_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"mascara_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Mascara de Hierro Bonificada",
+    "tipo": "equipable",
+    "slotEquipo": "mascara",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 0.9,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "mascara_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#mascara_hierro. Tier 1 de mascara (docs/GDD_Equipo.md)."
+  },
   "gafas_hierro": {
     "nombre": "Gafas de Hierro",
     "tipo": "equipable",
@@ -2514,6 +2791,26 @@
     "prendaId": "gafas_hierro",
     "_nota": "Visual: ropa/catalogo/equipo.json#gafas_hierro. Tier 1 de gafas (docs/GDD_Equipo.md)."
   },
+
+  "gafas_hierro_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"gafas_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Gafas de Hierro Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "gafas",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 0.4,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "gafas_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#gafas_hierro. Tier 1 de gafas (docs/GDD_Equipo.md)."
+  },
   "gafas_acero": {
     "nombre": "Gafas de Acero",
     "tipo": "equipable",
@@ -2527,6 +2824,26 @@
     "variantes": 1,
     "colorDebug": "#b0b0b8",
     "defensaFisica": 0.5,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "gafas_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#gafas_acero. Tier 2 de gafas (docs/GDD_Equipo.md)."
+  },
+
+  "gafas_acero_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"gafas_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Gafas de Acero Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "gafas",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 0.6,
     "durabilidadMax": 160,
     "desgastePorUso": 1,
     "prendaId": "gafas_acero",
@@ -2568,6 +2885,26 @@
     "prendaId": "brazos_hierro",
     "_nota": "Visual: ropa/catalogo/equipo.json#brazos_hierro. Tier 1 de brazos (docs/GDD_Equipo.md)."
   },
+
+  "brazos_hierro_bonificados": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"brazos_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Brazos de Hierro Bonificados",
+    "tipo": "equipable",
+    "slotEquipo": "brazos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.4,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "brazos_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#brazos_hierro. Tier 1 de brazos (docs/GDD_Equipo.md)."
+  },
   "brazos_acero": {
     "nombre": "Brazos de Acero",
     "tipo": "equipable",
@@ -2581,6 +2918,26 @@
     "variantes": 1,
     "colorDebug": "#b0b0b8",
     "defensaFisica": 1.5,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "brazos_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#brazos_acero. Tier 2 de brazos (docs/GDD_Equipo.md)."
+  },
+
+  "brazos_acero_bonificados": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"brazos_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Brazos de Acero Bonificados",
+    "tipo": "equipable",
+    "slotEquipo": "brazos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.0,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.9,
     "durabilidadMax": 160,
     "desgastePorUso": 1,
     "prendaId": "brazos_acero",
@@ -2622,6 +2979,26 @@
     "prendaId": "manos_hierro",
     "_nota": "Visual: ropa/catalogo/equipo.json#manos_hierro. Tier 1 de manos (docs/GDD_Equipo.md)."
   },
+
+  "manos_hierro_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"manos_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Manos de Hierro Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "manos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.1,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "manos_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#manos_hierro. Tier 1 de manos (docs/GDD_Equipo.md)."
+  },
   "manos_acero": {
     "nombre": "Manos de Acero",
     "tipo": "equipable",
@@ -2635,6 +3012,26 @@
     "variantes": 1,
     "colorDebug": "#b0b0b8",
     "defensaFisica": 1.3,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "manos_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#manos_acero. Tier 2 de manos (docs/GDD_Equipo.md)."
+  },
+
+  "manos_acero_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"manos_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Manos de Acero Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "manos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.6,
     "durabilidadMax": 160,
     "desgastePorUso": 1,
     "prendaId": "manos_acero",
@@ -2676,6 +3073,26 @@
     "prendaId": "piernas_hierro",
     "_nota": "Visual: ropa/catalogo/equipo.json#piernas_hierro. Tier 1 de piernas (docs/GDD_Equipo.md)."
   },
+
+  "piernas_hierro_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"piernas_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Piernas de Hierro Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "piernas",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.1,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 2,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "piernas_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#piernas_hierro. Tier 1 de piernas (docs/GDD_Equipo.md)."
+  },
   "piernas_acero": {
     "nombre": "Piernas de Acero",
     "tipo": "equipable",
@@ -2689,6 +3106,26 @@
     "variantes": 1,
     "colorDebug": "#b0b0b8",
     "defensaFisica": 2.2,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "piernas_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#piernas_acero. Tier 2 de piernas (docs/GDD_Equipo.md)."
+  },
+
+  "piernas_acero_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"piernas_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Piernas de Acero Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "piernas",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 1.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 2.8,
     "durabilidadMax": 160,
     "desgastePorUso": 1,
     "prendaId": "piernas_acero",
@@ -2730,6 +3167,26 @@
     "prendaId": "zapatos_hierro",
     "_nota": "Visual: ropa/catalogo/equipo.json#zapatos_hierro. Tier 1 de zapatos (docs/GDD_Equipo.md)."
   },
+
+  "zapatos_hierro_bonificados": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"zapatos_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Zapatos de Hierro Bonificados",
+    "tipo": "equipable",
+    "slotEquipo": "zapatos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.3,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "zapatos_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#zapatos_hierro. Tier 1 de zapatos (docs/GDD_Equipo.md)."
+  },
   "zapatos_acero": {
     "nombre": "Zapatos de Acero",
     "tipo": "equipable",
@@ -2743,6 +3200,26 @@
     "variantes": 1,
     "colorDebug": "#b0b0b8",
     "defensaFisica": 1.4,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "zapatos_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#zapatos_acero. Tier 2 de zapatos (docs/GDD_Equipo.md)."
+  },
+
+  "zapatos_acero_bonificados": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"zapatos_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Zapatos de Acero Bonificados",
+    "tipo": "equipable",
+    "slotEquipo": "zapatos",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.8,
     "durabilidadMax": 160,
     "desgastePorUso": 1,
     "prendaId": "zapatos_acero",
@@ -2784,6 +3261,26 @@
     "prendaId": "hombreras_hierro",
     "_nota": "Visual: ropa/catalogo/equipo.json#hombreras_hierro. Tier 1 de hombreras (docs/GDD_Equipo.md)."
   },
+
+  "hombreras_hierro_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"hombreras_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Hombreras de Hierro Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "hombreras",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.3,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "hombreras_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#hombreras_hierro. Tier 1 de hombreras (docs/GDD_Equipo.md)."
+  },
   "hombreras_acero": {
     "nombre": "Hombreras de Acero",
     "tipo": "equipable",
@@ -2797,6 +3294,26 @@
     "variantes": 1,
     "colorDebug": "#b0b0b8",
     "defensaFisica": 1.4,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "hombreras_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#hombreras_acero. Tier 2 de hombreras (docs/GDD_Equipo.md)."
+  },
+
+  "hombreras_acero_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"hombreras_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Hombreras de Acero Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "hombreras",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.8,
     "durabilidadMax": 160,
     "desgastePorUso": 1,
     "prendaId": "hombreras_acero",
@@ -2838,6 +3355,26 @@
     "prendaId": "rodilleras_hierro",
     "_nota": "Visual: ropa/catalogo/equipo.json#rodilleras_hierro. Tier 1 de rodilleras (docs/GDD_Equipo.md)."
   },
+
+  "rodilleras_hierro_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"rodilleras_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Rodilleras de Hierro Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "rodilleras",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1.1,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "rodilleras_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#rodilleras_hierro. Tier 1 de rodilleras (docs/GDD_Equipo.md)."
+  },
   "rodilleras_acero": {
     "nombre": "Rodilleras de Acero",
     "tipo": "equipable",
@@ -2851,6 +3388,26 @@
     "variantes": 1,
     "colorDebug": "#b0b0b8",
     "defensaFisica": 1.3,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "rodilleras_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#rodilleras_acero. Tier 2 de rodilleras (docs/GDD_Equipo.md)."
+  },
+
+  "rodilleras_acero_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"rodilleras_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Rodilleras de Acero Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "rodilleras",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.6,
     "durabilidadMax": 160,
     "desgastePorUso": 1,
     "prendaId": "rodilleras_acero",
@@ -2892,6 +3449,26 @@
     "prendaId": "coderas_hierro",
     "_nota": "Visual: ropa/catalogo/equipo.json#coderas_hierro. Tier 1 de coderas (docs/GDD_Equipo.md)."
   },
+
+  "coderas_hierro_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"coderas_hierro\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Coderas de Hierro Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "coderas",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#6a6a70",
+    "defensaFisica": 1,
+    "durabilidadMax": 110,
+    "desgastePorUso": 1,
+    "prendaId": "coderas_hierro",
+    "_nota": "Visual: ropa/catalogo/equipo.json#coderas_hierro. Tier 1 de coderas (docs/GDD_Equipo.md)."
+  },
   "coderas_acero": {
     "nombre": "Coderas de Acero",
     "tipo": "equipable",
@@ -2905,6 +3482,26 @@
     "variantes": 1,
     "colorDebug": "#b0b0b8",
     "defensaFisica": 1.2,
+    "durabilidadMax": 160,
+    "desgastePorUso": 1,
+    "prendaId": "coderas_acero",
+    "_nota": "Visual: ropa/catalogo/equipo.json#coderas_acero. Tier 2 de coderas (docs/GDD_Equipo.md)."
+  },
+
+  "coderas_acero_bonificadas": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"coderas_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Coderas de Acero Bonificadas",
+    "tipo": "equipable",
+    "slotEquipo": "coderas",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.7,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b0b0b8",
+    "defensaFisica": 1.5,
     "durabilidadMax": 160,
     "desgastePorUso": 1,
     "prendaId": "coderas_acero",
@@ -2962,6 +3559,26 @@
     "desgastePorUso": 2,
     "prendaId": "pechera_cota_malla"
   },
+
+  "pechera_cota_malla_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"pechera_cota_malla\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Pechera de Cota de Malla Bonificada",
+    "tipo": "equipable",
+    "slotEquipo": "pechera",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 5.5,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a8a90",
+    "defensaFisica": 6.9,
+    "defensaMagica": 1,
+    "durabilidadMax": 150,
+    "desgastePorUso": 2,
+    "prendaId": "pechera_cota_malla"
+  },
   "pechera_placas_acero": {
     "nombre": "Pechera de Placas de Acero",
     "tipo": "equipable",
@@ -2975,6 +3592,26 @@
     "variantes": 1,
     "colorDebug": "#b8b8c0",
     "defensaFisica": 8.5,
+    "defensaMagica": 2,
+    "durabilidadMax": 200,
+    "desgastePorUso": 2,
+    "prendaId": "pechera_placas_acero"
+  },
+
+  "pechera_placas_acero_bonificada": {
+    "_nota": "Resultado PERFECTO (5★) del minijuego de forja de \"pechera_placas_acero\" (docs/GDD_Crafteo.md §Minijuego de Herrería) — mismo aspecto (prendaId sin cambios), defensaFisica +25% fijo respecto a la base.",
+    "nombre": "Pechera de Placas de Acero Bonificada",
+    "tipo": "equipable",
+    "slotEquipo": "pechera",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 7.0,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b8b8c0",
+    "defensaFisica": 10.6,
     "defensaMagica": 2,
     "durabilidadMax": 200,
     "desgastePorUso": 2,

@@ -57,6 +57,28 @@ export interface RecetaCrafteo {
    * este campo en TODAS las recetas ya existentes de golpe.
    */
   xpOtorgada?: number;
+  /**
+   * Minijuego interactivo en vez de crafteo por temporizador (docs/GDD_Crafteo.md
+   * §Minijuego de Herrería, pedido 2026-09-01: "solo para las armas y
+   * armaduras, el resto de crafteos del herrero no se hacen con el
+   * minijuego"). Ausente = crafteo normal (`terminaEn`, este mismo fichero).
+   * Hoy solo "herreria" (server/src/construccion/herreria.ts) — string
+   * abierto por si algún día otro oficio suma el suyo.
+   */
+  minijuego?: string;
+  /**
+   * Resultado que se entrega en vez de `resultado` cuando el minijuego
+   * termina en un golpe PERFECTO (5★, `herreria.ts::resultadoForja`) — MISMO
+   * itemId base pero una variante "bonificada" ya catalogada aparte con más
+   * ataqueFisico/defensaFisica (+25% fijo, ver items.json) y el mismo
+   * aspecto (prendaId sin cambios). Nunca un bonus calculado en caliente:
+   * inventario.ts::calcularStatsEquipo lee el stat directo del catálogo por
+   * itemId, así que la variante tiene que existir como entrada real — mismo
+   * criterio que casco_cuero/casco_hierro/casco_acero siendo 3 entradas
+   * distintas en vez de una con un multiplicador de tier. Ausente si
+   * `minijuego` también está ausente.
+   */
+  resultadoPerfecto?: { itemId: string; cantidad: number };
 }
 
 export type ResultadoValidacionCrafteo = { ok: true } | { ok: false; motivo: string };

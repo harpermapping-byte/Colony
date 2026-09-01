@@ -745,6 +745,8 @@
     "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Vidriera de Mosaico de Vidrio Coloreado."
   },
   "daga_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"daga_bonificada","cantidad":1},
     "oficio": "herrero",
     "mesas": ["yunque_tocon"],
     "nivelMinimo": 1,
@@ -754,6 +756,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "espada_corta_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"espada_corta_bonificada","cantidad":1},
     "oficio": "herrero",
     "mesas": ["yunque_cuerno"],
     "nivelMinimo": 2,
@@ -763,6 +767,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "hacha_combate_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"hacha_combate_bonificada","cantidad":1},
     "oficio": "herrero",
     "mesas": ["yunque_cuerno"],
     "nivelMinimo": 2,
@@ -772,6 +778,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "maza_guerra_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"maza_guerra_bonificada","cantidad":1},
     "oficio": "herrero",
     "mesas": ["yunque_cuerno"],
     "nivelMinimo": 2,
@@ -781,6 +789,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "lanza_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"lanza_bonificada","cantidad":1},
     "oficio": "herrero",
     "mesas": ["banco_ajuste"],
     "nivelMinimo": 2,
@@ -790,6 +800,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "arco_corto_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"arco_corto_bonificado","cantidad":1},
     "oficio": "herrero",
     "mesas": ["taller_armero"],
     "nivelMinimo": 2,
@@ -799,6 +811,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "espada_larga_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"espada_larga_bonificada","cantidad":1},
     "oficio": "herrero",
     "mesas": ["banco_ajuste"],
     "nivelMinimo": 3,
@@ -808,6 +822,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "arco_largo_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"arco_largo_bonificado","cantidad":1},
     "oficio": "herrero",
     "mesas": ["taller_armero"],
     "nivelMinimo": 3,
@@ -817,6 +833,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "ballesta_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"ballesta_bonificada","cantidad":1},
     "oficio": "herrero",
     "mesas": ["gran_forja"],
     "nivelMinimo": 3,
@@ -844,6 +862,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "gafas_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"gafas_hierro_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,
@@ -853,6 +873,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "coderas_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"coderas_hierro_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,
@@ -862,6 +884,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "manos_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"manos_hierro_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,
@@ -871,6 +895,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "rodilleras_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"rodilleras_hierro_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,
@@ -880,6 +906,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "casco_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"casco_hierro_bonificado","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,
@@ -889,6 +917,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "brazos_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"brazos_hierro_bonificados","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,
@@ -898,6 +928,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "zapatos_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"zapatos_hierro_bonificados","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,
@@ -907,6 +939,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "hombreras_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"hombreras_hierro_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,
@@ -916,6 +950,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "piernas_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"piernas_hierro_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,
@@ -925,6 +961,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "pechera_cota_malla_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"pechera_cota_malla_bonificada","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,
@@ -934,6 +972,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "gafas_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"gafas_acero_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["martinete"],
     "nivelMinimo": 4,
@@ -943,6 +983,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "coderas_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"coderas_acero_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["martinete"],
     "nivelMinimo": 4,
@@ -952,6 +994,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "manos_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"manos_acero_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["martinete"],
     "nivelMinimo": 4,
@@ -961,6 +1005,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "rodilleras_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"rodilleras_acero_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["martinete"],
     "nivelMinimo": 4,
@@ -970,6 +1016,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "casco_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"casco_acero_bonificado","cantidad":1},
     "oficio": "herrero",
     "mesas": ["martinete"],
     "nivelMinimo": 4,
@@ -979,6 +1027,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "brazos_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"brazos_acero_bonificados","cantidad":1},
     "oficio": "herrero",
     "mesas": ["martinete"],
     "nivelMinimo": 4,
@@ -988,6 +1038,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "zapatos_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"zapatos_acero_bonificados","cantidad":1},
     "oficio": "herrero",
     "mesas": ["martinete"],
     "nivelMinimo": 4,
@@ -997,6 +1049,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "hombreras_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"hombreras_acero_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["martinete"],
     "nivelMinimo": 4,
@@ -1006,6 +1060,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "piernas_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"piernas_acero_bonificadas","cantidad":1},
     "oficio": "herrero",
     "mesas": ["martinete"],
     "nivelMinimo": 4,
@@ -1015,6 +1071,8 @@
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
   "pechera_placas_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"pechera_placas_acero_bonificada","cantidad":1},
     "oficio": "herrero",
     "mesas": ["martinete"],
     "nivelMinimo": 4,
@@ -1915,6 +1973,8 @@
     "_nota": "docs/GDD_Cocina.md — herramienta real (durabilidadMax/desgaste), catalogada como 'objeto' mas sin receta hasta ahora."
   },
   "mascara_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": {"itemId":"mascara_hierro_bonificada","cantidad":1},
     "oficio": "herrero",
     "mesas": ["forja_piedra"],
     "nivelMinimo": 2,

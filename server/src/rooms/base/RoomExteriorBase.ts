@@ -98,6 +98,7 @@ import { temperaturaMundo, Estacion } from "../../mundo/clima";
 import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
 import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../construccion/energia";
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
+import { SesionForja, iniciarSesionForja, avivarFuego, golpearYunque, templar, resultadoForja, CONFIG_FORJA_DEFECTO } from "../../construccion/herreria";
 import { EstadoCurtidor, aceptaEntradaCurtidor, huecoMaterialCurtidor, iniciarLoteCurtidor, curtidorListo, recolectarLoteCurtidor } from "../../construccion/curtido";
 import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, VITAL_MAX } from "../../personaje/vitales";
 import {
@@ -605,6 +606,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected craftesEnCurso = new Map<string, EstadoCrafteo>();
   /** Desollar/despiezar un cadáver en curso por sesión (docs/GDD_Caza.md, 2026-08-30 octava pasada) — mismo criterio de vida/muerte que `craftesEnCurso`. */
   protected despiecesEnCurso = new Map<string, EstadoDespiece>();
+  /** Minijuego de forja en curso por sesión (docs/GDD_Crafteo.md §Minijuego de Herrería, pedido 2026-09-01) — solo recetas de herrero de armas/armaduras (`receta.minijuego === "herreria"`) pasan por aquí; mismo criterio de vida/muerte que `craftesEnCurso` (se limpia en onLeave, los insumos ya gastados no se devuelven). */
+  protected forjasEnCurso = new Map<string, SesionForja>();
 
   // --- Injertos (docs/GDD_Agricultura.md §4) — especies híbridas creadas
   // por OTRAS rooms/sesiones pasadas viven en BD, no en items.json en
@@ -715,10 +718,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // con la posición táctica real que fija combate:mover.
       const combatePropio = this.combatePorUnidad(client.sessionId);
       const enCombateActivo = combatePropio?.[1].fase === "activo" && combatePropio[1].unidades.get(client.sessionId)?.estado === "activo";
+      // Mismo criterio que el combate: mientras hay un minijuego de forja en
+      // curso (docs/GDD_Crafteo.md §Minijuego de Herrería, pedido
+      // 2026-09-01: "el pj no podrá moverse, está en el minijuego hasta que
+      // complete") el jugador está plantado junto al yunque — bloquea el
+      // movimiento libre igual que enCombateActivo, nunca lo pisa.
+      const enForjaActiva = this.forjasEnCurso.has(client.sessionId);
+      const movimientoBloqueado = enCombateActivo || enForjaActiva;
       this.inputs.set(client.sessionId, {
-        x: enCombateActivo ? 0 : clamp(xValido, -1, 1),
-        y: enCombateActivo ? 0 : clamp(yValido, -1, 1),
-        correr: !enCombateActivo && !!dir?.correr,
+        x: movimientoBloqueado ? 0 : clamp(xValido, -1, 1),
+        y: movimientoBloqueado ? 0 : clamp(yValido, -1, 1),
+        correr: !movimientoBloqueado && !!dir?.correr,
       });
     });
 
@@ -971,6 +981,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("refinamiento:depositar", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarRefinamientoDepositar(client, msg));
     this.onMessage("crafteo:iniciar", (client, msg: { recetaId?: string; construccionId?: number }) => this.manejarCrafteoIniciar(client, msg));
     this.onMessage("crafteo:recolectar", (client) => this.manejarCrafteoRecolectar(client));
+
+    // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería) — el
+    // arranque sigue siendo "crafteo:iniciar" de arriba (misma validación de
+    // mesa/nivel/insumos); estos dos mensajes solo existen mientras hay una
+    // SesionForja activa para esa sesión.
+    this.onMessage("crafteo:herreria:accion", (client, msg: { accion?: string }) => void this.manejarForjaAccion(client, msg));
+    this.onMessage("crafteo:herreria:cancelar", (client) => this.manejarForjaCancelar(client));
 
     // Actividades diarias de entrenamiento (docs/GDD_Personaje.md §3.5,
     // pedido 2026-08-30): un único mensaje genérico para pesas/diana/atril
@@ -1260,6 +1277,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.inventarios.delete(client.sessionId);
     this.extrasInventario.delete(client.sessionId);
     this.equipoInventario.delete(client.sessionId);
+    // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería): igual
+    // que craftesEnCurso, una forja a medias se pierde si el jugador se
+    // desconecta — los insumos ya se gastaron al iniciarla.
+    this.forjasEnCurso.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
     this.solicitudesComercio.delete(client.sessionId);
     // Montura (docs/GDD_Monturas.md): solo limpieza en memoria — la mascota
@@ -6836,6 +6857,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const ctx = this.ctxConstruccion;
     if (!nombre || !ctx || !msg?.recetaId || typeof msg.construccionId !== "number") return;
     if (this.craftesEnCurso.has(client.sessionId)) return this.errorCrafteo(client, "ya tienes un crafteo en curso");
+    if (this.forjasEnCurso.has(client.sessionId)) return this.errorCrafteo(client, "ya tienes una forja en curso");
     if (this.brazoInutilizadoDe(client.sessionId)) return this.errorCrafteo(client, "brazo roto o amputado, no puedes usar herramientas");
 
     if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
@@ -6890,6 +6912,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
     const player = this.state.players.get(client.sessionId);
     if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería): nada
+    // de factorEnergia/duracionMs/terminaEn — la duración la decide el
+    // jugador jugando en tiempo real, no un temporizador. Insumos YA
+    // descontados arriba, igual que el camino normal.
+    if (receta.minijuego === "herreria") {
+      const sesion = iniciarSesionForja(receta.id);
+      this.forjasEnCurso.set(client.sessionId, sesion);
+      client.send("crafteo:herreria:iniciado", { recetaId: receta.id, cfg: CONFIG_FORJA_DEFECTO, sesion });
+      return;
+    }
 
     if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
     const factorEnergia = factorVelocidadPorEnergia(ctx, this.catalogoConstruible, { objeto: viva.objeto, claves: viva.claves });
@@ -6956,6 +6989,67 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: cantidadFinal,
       oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
     });
+  }
+
+  /**
+   * Procesa una acción del minijuego de forja (docs/GDD_Crafteo.md §Minijuego
+   * de Herrería) — avivar/golpear/templar sobre la SesionForja de ESTA
+   * sesión. Server-autoritativo: la calidad de cada golpe sale de la
+   * posición de `sesion.cursor` que simula el propio servidor (herreria.ts),
+   * nunca de un timing que mande el cliente. Al llegar a fase TERMINADO
+   * (justo tras templar), esta misma llamada resuelve y entrega el
+   * resultado — mismo criterio de entrega que manejarCrafteoRecolectar.
+   */
+  private async manejarForjaAccion(client: Client, msg: { accion?: string }) {
+    const sesion = this.forjasEnCurso.get(client.sessionId);
+    if (!sesion) return this.errorCrafteo(client, "no tienes ninguna forja en curso");
+
+    const ahoraMs = Date.now();
+    let resultadoAccion: { ok: boolean; motivo?: string; calidad?: string };
+    if (msg?.accion === "avivar") resultadoAccion = avivarFuego(sesion, ahoraMs);
+    else if (msg?.accion === "golpear") resultadoAccion = golpearYunque(sesion, ahoraMs);
+    else if (msg?.accion === "templar") resultadoAccion = templar(sesion, ahoraMs);
+    else return this.errorCrafteo(client, "acción de forja desconocida");
+
+    if (!resultadoAccion.ok) return this.errorCrafteo(client, resultadoAccion.motivo ?? "acción de forja inválida");
+
+    if (sesion.fase !== "TERMINADO") {
+      client.send("crafteo:herreria:progreso", { sesion, resultadoGolpe: resultadoAccion.calidad });
+      return;
+    }
+
+    this.forjasEnCurso.delete(client.sessionId);
+    const nombre = this.nombreDe(client);
+    if (!nombre) return;
+    if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
+    const receta = this.catalogoRecetas.get(sesion.recetaId);
+    const player = this.state.players.get(client.sessionId);
+    if (!receta || !receta.resultadoPerfecto || !player) return; // receta se quitó del catálogo entre medias — nada que entregar, insumos ya se perdieron (mismo riesgo que crafteo normal)
+
+    const { estrellas, perfecta } = resultadoForja(sesion);
+    const resultado = perfecta ? receta.resultadoPerfecto : receta.resultado;
+    const entrega = this.entregarOSoltar(client, player, resultado.itemId, resultado.cantidad);
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const oficioElegido = tieneOficio(player.oficio1, player.oficio2, receta.oficio);
+    const nuevaXp = oficioElegido
+      ? await bd.sumarXpOficio(jugador.id, receta.oficio, receta.xpOtorgada ?? XP_POR_CRAFTEO)
+      : await bd.obtenerXpOficio(jugador.id, receta.oficio);
+    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
+    player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_CRAFTEO);
+
+    client.send("crafteo:herreria:completado", {
+      recetaId: receta.id, itemId: resultado.itemId, cantidad: resultado.cantidad,
+      estrellas, perfecta, oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
+      enSuelo: !entrega.enInventario,
+    });
+  }
+
+  /** Cancela la forja en curso — los insumos YA gastados no se devuelven (mismo riesgo asumido que abandonar cualquier crafteo, ver craftesEnCurso). */
+  private manejarForjaCancelar(client: Client) {
+    if (!this.forjasEnCurso.delete(client.sessionId)) return;
+    client.send("crafteo:herreria:cancelado", {});
   }
 
   /**
