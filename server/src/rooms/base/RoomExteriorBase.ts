@@ -99,6 +99,11 @@ import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
 import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../construccion/energia";
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
 import { SesionForja, iniciarSesionForja, avivarFuego, golpearYunque, templar, resultadoForja, CONFIG_FORJA_DEFECTO } from "../../construccion/herreria";
+import {
+  SesionAlquimia, IngredienteAlquimia, BuffPocion, EfectoPocion,
+  iniciarSesionAlquimia, avivarAlquimia, enfriarAlquimia, colarPocion,
+  crearBuffsPocion, aplicarBuffsPocion, CONFIG_ESTACION_ALQUIMIA,
+} from "../../construccion/alquimia";
 // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido
 // 2026-08-31) — interpretación de texto libre, módulo JS puro compartido
 // con el cliente (client/src/render3d/interpretarPrompt.ts, puerto TS para
@@ -644,6 +649,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected despiecesEnCurso = new Map<string, EstadoDespiece>();
   /** Minijuego de forja en curso por sesión (docs/GDD_Crafteo.md §Minijuego de Herrería, pedido 2026-09-01) — solo recetas de herrero de armas/armaduras (`receta.minijuego === "herreria"`) pasan por aquí; mismo criterio de vida/muerte que `craftesEnCurso` (se limpia en onLeave, los insumos ya gastados no se devuelven). */
   protected forjasEnCurso = new Map<string, SesionForja>();
+  /** Minijuego de alquimia en curso por sesión (docs/GDD_Pociones.md, pedido 2026-09-01) — "mismo sistema de activarse que la del herrero": mismo criterio de vida/muerte que `forjasEnCurso`. */
+  protected alquimiasEnCurso = new Map<string, SesionAlquimia>();
+  /** Buffs de poción activos por sesión (docs/GDD_Pociones.md) — efímero, igual que `montadoPorSesion`: se pierde al desconectar, nunca se persiste. Caducidad comprobada perezosamente (`alquimia.ts::aplicarBuffsPocion`), nunca un tick. */
+  protected buffsPocionPorSesion = new Map<string, BuffPocion[]>();
 
   // --- Injertos (docs/GDD_Agricultura.md §4) — especies híbridas creadas
   // por OTRAS rooms/sesiones pasadas viven en BD, no en items.json en
@@ -760,7 +769,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // complete") el jugador está plantado junto al yunque — bloquea el
       // movimiento libre igual que enCombateActivo, nunca lo pisa.
       const enForjaActiva = this.forjasEnCurso.has(client.sessionId);
-      const movimientoBloqueado = enCombateActivo || enForjaActiva;
+      // Alquimia (docs/GDD_Pociones.md): mismo bloqueo que la forja — el
+      // jugador está plantado junto al caldero mientras dura la sesión.
+      const enAlquimiaActiva = this.alquimiasEnCurso.has(client.sessionId);
+      const movimientoBloqueado = enCombateActivo || enForjaActiva || enAlquimiaActiva;
       this.inputs.set(client.sessionId, {
         x: movimientoBloqueado ? 0 : clamp(xValido, -1, 1),
         y: movimientoBloqueado ? 0 : clamp(yValido, -1, 1),
@@ -1024,6 +1036,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // SesionForja activa para esa sesión.
     this.onMessage("crafteo:herreria:accion", (client, msg: { accion?: string }) => void this.manejarForjaAccion(client, msg));
     this.onMessage("crafteo:herreria:cancelar", (client) => this.manejarForjaCancelar(client));
+
+    // Minijuego de alquimia (docs/GDD_Pociones.md, pedido 2026-09-01) —
+    // arranque LIBRE de recetaId fija (el jugador elige los ingredientes,
+    // no una RecetaCrafteo con insumos cerrados) sobre un "caldero" ya
+    // construido. "Mismo sistema de activarse que la del herrero": misma
+    // forma de protocolo (iniciar -> acción* -> colar/cancelar).
+    this.onMessage("alquimia:iniciar", (client, msg: { construccionId?: number; instanciaIds?: number[] }) => void this.manejarAlquimiaIniciar(client, msg));
+    this.onMessage("alquimia:accion", (client, msg: { accion?: string }) => this.manejarAlquimiaAccion(client, msg));
+    this.onMessage("alquimia:colar", (client) => void this.manejarAlquimiaColar(client));
+    this.onMessage("alquimia:cancelar", (client) => this.manejarAlquimiaCancelar(client));
+    this.onMessage("pocion:beber", (client, msg: { instanciaId?: number }) => void this.manejarPocionBeber(client, msg));
 
     // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido 2026-08-31).
     this.onMessage("sastre:tejerAceptar", (client, msg: { construccionId?: number; texto?: string; tintes?: Record<string, string>; nombre?: string }) => void this.manejarSastreTejerAceptar(client, msg));
@@ -1323,6 +1346,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // que craftesEnCurso, una forja a medias se pierde si el jugador se
     // desconecta — los insumos ya se gastaron al iniciarla.
     this.forjasEnCurso.delete(client.sessionId);
+    // Alquimia (docs/GDD_Pociones.md): mismo criterio — sesión a medias e
+    // ingredientes gastados se pierden; los buffs de poción activos también
+    // se olvidan (efímeros, nunca persistidos, igual que montadoPorSesion).
+    this.alquimiasEnCurso.delete(client.sessionId);
+    this.buffsPocionPorSesion.delete(client.sessionId);
     this.equipoBlueprintRopaInventario.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
     this.solicitudesComercio.delete(client.sessionId);
@@ -1657,7 +1685,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const player = this.state.players.get(client.sessionId);
     const equipo = this.equipoInventario.get(client.sessionId);
     if (!player || !equipo) return;
-    const stats = calcularStatsEquipo(this.catalogoItems, equipo);
+    const statsEquipo = calcularStatsEquipo(this.catalogoItems, equipo);
+    // Pociones (docs/GDD_Pociones.md, pedido 2026-09-01): buffs activos por
+    // encima de lo que ya suma el equipo — perezoso (Date.now() en cada
+    // recálculo filtra los ya caducados solo, nunca un tick que los purgue
+    // aparte). Se refresca aquí mismo (equip change) Y al beber una poción
+    // (manejarPocionBeber) — un buff que caduque a media partida sin que
+    // ninguno de los dos vuelva a dispararse queda "pegado" hasta el
+    // siguiente recálculo real: mismo criterio de precisión aceptado que el
+    // resto del proyecto (desgaste.ts, ver herreria.ts), no un tick nuevo
+    // solo para esto.
+    const buffs = this.buffsPocionPorSesion.get(client.sessionId) ?? [];
+    const stats = aplicarBuffsPocion(statsEquipo, buffs, Date.now());
     player.ataque = ATAQUE_BASE_JUGADOR + stats.ataqueFisico;
     player.defensa = DEFENSA_BASE_JUGADOR + stats.defensaFisica;
     player.ataqueMagico = stats.ataqueMagico;
@@ -7251,6 +7290,159 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private manejarForjaCancelar(client: Client) {
     if (!this.forjasEnCurso.delete(client.sessionId)) return;
     client.send("crafteo:herreria:cancelado", {});
+  }
+
+  private errorAlquimia(client: Client, motivo: string) {
+    client.send("alquimia:error", { motivo });
+  }
+
+  /**
+   * Arranca una sesión de alquimia (docs/GDD_Pociones.md, pedido
+   * 2026-09-01) — a diferencia de crafteo:iniciar, NO hay una RecetaCrafteo
+   * de insumos fijos: el jugador elige entre 2 y 6 instancias cualesquiera
+   * de SU inventario (cuerpo), y solo se aceptan si el catálogo las marca
+   * `alquimiaIngrediente`/`alquimiaCorruptivo`/`alquimiaCatalizador` (§
+   * "esos serán los únicos que sirvan, el resto no dejará meterlos").
+   * Consume los ingredientes YA (nunca se devuelven al cancelar, mismo
+   * criterio que crafteo/forja) y tira `prepararPocion` de una vez —
+   * gestionar el fuego después (avivar/enfriar/colar) solo ESCALA esa
+   * tirada, nunca la repite.
+   */
+  private async manejarAlquimiaIniciar(client: Client, msg: { construccionId?: number; instanciaIds?: number[] }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number" || !Array.isArray(msg.instanciaIds)) return;
+    if (this.alquimiasEnCurso.has(client.sessionId)) return this.errorAlquimia(client, "ya tienes una poción en el caldero");
+    if (this.craftesEnCurso.has(client.sessionId) || this.forjasEnCurso.has(client.sessionId)) return this.errorAlquimia(client, "ya tienes un crafteo en curso");
+    if (msg.instanciaIds.length < 2 || msg.instanciaIds.length > 6) return this.errorAlquimia(client, "hacen falta entre 2 y 6 ingredientes");
+    if (new Set(msg.instanciaIds).size !== msg.instanciaIds.length) return this.errorAlquimia(client, "ingrediente repetido en la lista");
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva || viva.objeto !== "caldero") return this.errorAlquimia(client, "eso no es un caldero");
+
+    if (!this.catalogoConstruible) this.catalogoConstruible = cargarCatalogoConstruible();
+    const nivelMinimo = this.catalogoConstruible.get("caldero")?.nivelOficioMinimo?.nivel ?? 1;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const xp = await bd.obtenerXpOficio(jugador.id, "curandero");
+    if (nivelDeXp(xp) < nivelMinimo) return this.errorAlquimia(client, "nivel de curandero insuficiente");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const ingredientes: IngredienteAlquimia[] = [];
+    for (const instanciaId of msg.instanciaIds) {
+      const item = contenedor.items.find((it) => it.id === instanciaId);
+      if (!item) return this.errorAlquimia(client, "ingrediente no encontrado");
+      const entrada = this.catalogoItems[item.itemId];
+      if (!entrada || !(entrada.alquimiaIngrediente || entrada.alquimiaCorruptivo || entrada.alquimiaCatalizador)) {
+        return this.errorAlquimia(client, `${item.itemId} no sirve para pociones`);
+      }
+      ingredientes.push({ itemId: item.itemId, corruptivo: entrada.alquimiaCorruptivo, catalizador: entrada.alquimiaCatalizador });
+    }
+
+    // descuenta AHORA, igual que crafteo/forja (nunca se devuelve al cancelar).
+    for (const instanciaId of msg.instanciaIds) quitarItem(contenedor, instanciaId, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const sesion = iniciarSesionAlquimia(ingredientes);
+    this.alquimiasEnCurso.set(client.sessionId, sesion);
+    client.send("alquimia:iniciado", { construccionId: msg.construccionId, cfg: CONFIG_ESTACION_ALQUIMIA, sesion: sesion.estacion });
+  }
+
+  /** Avivar/enfriar el caldero — mismo patrón que crafteo:herreria:accion, sin resolución (colar es un mensaje aparte porque entrega/otorga XP de verdad). */
+  private manejarAlquimiaAccion(client: Client, msg: { accion?: string }) {
+    const sesion = this.alquimiasEnCurso.get(client.sessionId);
+    if (!sesion) return this.errorAlquimia(client, "no tienes ninguna poción en el caldero");
+
+    const ahoraMs = Date.now();
+    const resultado = msg?.accion === "avivar" ? avivarAlquimia(sesion, ahoraMs)
+      : msg?.accion === "enfriar" ? enfriarAlquimia(sesion, ahoraMs)
+      : null;
+    if (!resultado) return this.errorAlquimia(client, "acción de alquimia desconocida");
+    if (!resultado.ok) return this.errorAlquimia(client, resultado.motivo ?? "acción inválida");
+    client.send("alquimia:progreso", { sesion: sesion.estacion });
+  }
+
+  /** Cuela la poción — resuelve pureza, entrega el objeto con la tirada real adjunta y otorga XP, igual que manejarForjaAccion al llegar a TERMINADO. */
+  private async manejarAlquimiaColar(client: Client) {
+    const sesion = this.alquimiasEnCurso.get(client.sessionId);
+    if (!sesion) return this.errorAlquimia(client, "no tienes ninguna poción en el caldero");
+    const resultado = colarPocion(sesion, Date.now());
+    if (!resultado.ok) return this.errorAlquimia(client, resultado.motivo ?? "todavía no puedes colar");
+
+    this.alquimiasEnCurso.delete(client.sessionId);
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player) return;
+
+    const entrega = this.entregarPocion(client, player, resultado.efectos!);
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const oficioElegido = tieneOficio(player.oficio1, player.oficio2, "curandero");
+    const nuevaXp = oficioElegido
+      ? await bd.sumarXpOficio(jugador.id, "curandero", XP_POR_CRAFTEO)
+      : await bd.obtenerXpOficio(jugador.id, "curandero");
+    await this.otorgarXpAtributo(bd, jugador.id, "inteligencia", player, XP_INTELIGENCIA_POR_CRAFTEO);
+    player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_CRAFTEO);
+
+    client.send("alquimia:completado", {
+      itemId: "pocion_alquimica", cantidad: 1, instanciaId: entrega.instanciaId, pureza: resultado.pureza, efectos: resultado.efectos,
+      oficio: "curandero", xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
+    });
+  }
+
+  /** Cancela la alquimia en curso — los ingredientes YA gastados no se devuelven (mismo criterio que craftesEnCurso/forjasEnCurso). */
+  private manejarAlquimiaCancelar(client: Client) {
+    if (!this.alquimiasEnCurso.delete(client.sessionId)) return;
+    client.send("alquimia:cancelado", {});
+  }
+
+  /**
+   * Entrega la poción con su tirada real adjunta A LA INSTANCIA (`agregarItem`
+   * con `extra`, ver inventario.ts) — no puede reusar `entregarOSoltar` tal
+   * cual porque ese helper no sabe de datos por-instancia (perdería la
+   * tirada al crear el ítem). Mismo "cae al suelo si no cabe" que el resto.
+   */
+  private entregarPocion(client: Client, player: Player, efectos: EfectoPocion[]): { enInventario: boolean; instanciaId?: number } {
+    const contenedor = this.inventarios.get(client.sessionId);
+    const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
+    const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, "pocion_alquimica", 1, pesoMaximo);
+    const resultado = contenedor && cabePeso ? agregarItem(contenedor, this.catalogoItems, "pocion_alquimica", 1, { efectoPocion: efectos }) : { ok: false as const };
+    if (resultado.ok) {
+      sincronizarContenedor(player.inventario.cuerpo, contenedor!);
+      return { enInventario: true, instanciaId: resultado.instancia?.id };
+    }
+    const o = new ObjetoMundoSchema();
+    o.x = Math.floor(player.x) + 0.5;
+    o.y = Math.floor(player.y) + 0.5;
+    o.itemId = "pocion_alquimica";
+    o.cantidad = 1;
+    this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o);
+    return { enInventario: false };
+  }
+
+  /** Bebe una poción ya preparada — aplica sus efectos como BuffPocion (caducidad real, ver alquimia.ts) y recalcula stats YA, sin esperar al siguiente cambio de equipo. */
+  private async manejarPocionBeber(client: Client, msg: { instanciaId?: number }) {
+    if (typeof msg?.instanciaId !== "number") return;
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const item = contenedor.items.find((it) => it.id === msg.instanciaId);
+    if (!item || item.itemId !== "pocion_alquimica" || !item.efectoPocion) return this.errorAlquimia(client, "eso no se puede beber");
+
+    const ahoraMs = Date.now();
+    const nuevosBuffs = crearBuffsPocion(item.efectoPocion, ahoraMs);
+    const actuales = this.buffsPocionPorSesion.get(client.sessionId) ?? [];
+    this.buffsPocionPorSesion.set(client.sessionId, [...actuales, ...nuevosBuffs]);
+
+    quitarItem(contenedor, item.id, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) {
+      sincronizarContenedor(player.inventario.cuerpo, contenedor);
+      this.recalcularStatsJugador(client);
+    }
+    client.send("pocion:bebida", { efectos: item.efectoPocion });
   }
 
   /**

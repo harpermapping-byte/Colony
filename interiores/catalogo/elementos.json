@@ -2181,7 +2181,14 @@
         "id": "caldero_oxidado",
         "peso": 20
       }
-    ]
+    ],
+    "temasProfesion": [
+      "alquimia"
+    ],
+    "nivelOficioMinimo": {
+      "oficio": "curandero",
+      "nivel": 2
+    }
   },
   "estanteria_pociones": {
     "nombre": "Estantería de Pociones",

@@ -92,6 +92,35 @@ export interface EntradaCatalogoItem {
 
   /** docs/GDD_Inventario.md §9 (Líquidos, pedido 2026-08-30) — SOLO en recipientes portables (cantimplora, cubo_madera...): cuánto líquido cabe. Ausente = no es un recipiente de líquido (la mayoría de objetos). A más grande el recipiente, más `volumenMaxMl`. */
   volumenMaxMl?: number;
+
+  /**
+   * docs/GDD_Pociones.md (pedido 2026-09-01) — marca que este ingrediente
+   * está ADMITIDO en el caldero de alquimia SIN ser corruptivo ni
+   * catalizador (relleno neutro — hace bulto en la mezcla, entre 2 y 6
+   * ingredientes por poción, sin afectar la tirada). `alquimiaCorruptivo`/
+   * `alquimiaCatalizador` YA implican admitido, no hace falta repetir este
+   * flag en ellos. "Esos serán los únicos que sirvan, el resto no dejará
+   * meterlos" (pedido literal) — cualquier ítem SIN ninguno de los 3 flags
+   * se rechaza en `manejarAlquimiaIniciar`.
+   */
+  alquimiaIngrediente?: boolean;
+  /**
+   * docs/GDD_Pociones.md (pedido 2026-09-01) — SOLO ingredientes que el
+   * curandero puede meter en el caldero: cada `alquimiaCorruptivo` ÚNICO
+   * distinto metido en la misma poción suma +25% acumulativo a la
+   * probabilidad de que salga un efecto negativo (`server/src/construccion/
+   * alquimia.ts::prepararPocion`). Ausente/false = ingrediente neutro (no
+   * afecta esta tirada, solo cuenta como "insumo" de la receta).
+   */
+  alquimiaCorruptivo?: boolean;
+  /**
+   * docs/GDD_Pociones.md — igual que `alquimiaCorruptivo` pero para el lado
+   * positivo: cada `alquimiaCatalizador` ÚNICO distinto sube la probabilidad
+   * de forzar varios bonos positivos a la vez (2-3), y meter 3 o más
+   * catalizadores distintos desbloquea la "mezcla avanzada" (hasta 4 bonos,
+   * magnitud 5-15% en vez de 1-3%). Ausente/false = ingrediente neutro.
+   */
+  alquimiaCatalizador?: boolean;
 }
 
 /**
@@ -184,6 +213,18 @@ export interface ItemInstancia {
   prendaGeneradaId?: number;
   /** docs/GDD_Inventario.md §9 (Líquidos) — ausente si el catálogo no declara `volumenMaxMl` (nunca es un recipiente) O si lo es pero está vacío. Nunca "medio lleno de dos líquidos a la vez": llenar sustituye el contenido entero. */
   liquido?: { tipo: string; volumenMl: number; contaminada?: boolean };
+  /**
+   * docs/GDD_Pociones.md (pedido 2026-09-01) — SOLO en pociones ya
+   * preparadas: el resultado ESTOCÁSTICO real de esa poción concreta
+   * (`server/src/construccion/alquimia.ts::prepararPocion`), 0 a 5 entradas
+   * (0-1 negativa + 0-4 positivas). A diferencia del bonus de herrería (que
+   * es un itemId de catálogo distinto, porque el equipo solo guarda itemId
+   * por slot), una poción se CONSUME directa desde el inventario — nunca
+   * pasa por `calcularStatsEquipo` — así que el roll puede vivir aquí, igual
+   * que `durabilidad`/`liquido`. Ausente = ítem sin tirada (no es una poción
+   * preparada, p.ej. el frasco vacío antes de prepararla).
+   */
+  efectoPocion?: { stat: "ataqueFisico" | "defensaFisica" | "ataqueMagico" | "defensaMagica"; magnitudPct: number }[];
 }
 
 export interface Contenedor {
@@ -339,7 +380,22 @@ export interface ResultadoAgregar {
  * devuelve ok:false con lo que SÍ entró ya aplicado — nunca a medias sin
  * decírselo a quien llama).
  */
-export function agregarItem(contenedor: Contenedor, catalogo: CatalogoItems, itemId: string, cantidad: number): ResultadoAgregar {
+export function agregarItem(
+  contenedor: Contenedor,
+  catalogo: CatalogoItems,
+  itemId: string,
+  cantidad: number,
+  /**
+   * Datos de instancia extra a fusionar en la(s) pila(s) NUEVA(S) que abra
+   * esta llamada — docs/GDD_Pociones.md, pedido 2026-09-01: el resultado
+   * estocástico de una poción (`efectoPocion`) nace en el momento de
+   * entregarla, no puede salir de un valor fijo del catálogo como
+   * `durabilidadMax`. Ausente = comportamiento de siempre. Nunca se aplica a
+   * una pila YA existente que solo suma cantidad (apilar no tiene sentido
+   * con datos por-instancia distintos entre sí).
+   */
+  extra?: Partial<ItemInstancia>,
+): ResultadoAgregar {
   const entrada = catalogo[itemId];
   if (!entrada) return { ok: false, motivo: "item_desconocido" };
 
@@ -372,6 +428,7 @@ export function agregarItem(contenedor: Contenedor, catalogo: CatalogoItems, ite
       // nace a durabilidad máxima si el catálogo declara durabilidadMax;
       // si no, se queda sin el campo (nunca se desgasta) — ver desgaste.ts
       ...(entrada.durabilidadMax != null ? { durabilidad: entrada.durabilidadMax } : {}),
+      ...extra,
     };
     contenedor.items.push(instancia);
     restante -= enEstaPila;

@@ -489,7 +489,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#5a9c4c"
+    "colorDebug": "#5a9c4c",
+    "alquimiaIngrediente": true,
+    "_nota": "docs/GDD_Pociones.md — ingrediente neutro admitido en el caldero (relleno, sin corruptivo/catalizador)."
   },
   "hierba_curativa": {
     "nombre": "Hierba Curativa",
@@ -503,7 +505,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#4a9a6a"
+    "colorDebug": "#4a9a6a",
+    "alquimiaCatalizador": true,
+    "_nota": "docs/GDD_Pociones.md — ingrediente catalizador (probabilidad de forzar varios bonos positivos a la vez, ver server/src/construccion/alquimia.ts)."
   },
   "hierba_venenosa": {
     "nombre": "Hierba Venenosa",
@@ -517,7 +521,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#6a9a2a"
+    "colorDebug": "#6a9a2a",
+    "alquimiaCorruptivo": true,
+    "_nota": "docs/GDD_Pociones.md — ingrediente corruptivo (sube la probabilidad de un efecto negativo en la poción, ver server/src/construccion/alquimia.ts)."
   },
   "hierba_aromatica": {
     "nombre": "Hierba Aromática",
@@ -531,7 +537,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#7a9c5a"
+    "colorDebug": "#7a9c5a",
+    "alquimiaIngrediente": true,
+    "_nota": "docs/GDD_Pociones.md — ingrediente neutro admitido en el caldero (relleno, sin corruptivo/catalizador)."
   },
   "flor_medicinal": {
     "nombre": "Flor Medicinal",
@@ -545,7 +553,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#c98ac0"
+    "colorDebug": "#c98ac0",
+    "alquimiaCatalizador": true,
+    "_nota": "docs/GDD_Pociones.md — ingrediente catalizador (probabilidad de forzar varios bonos positivos a la vez, ver server/src/construccion/alquimia.ts)."
   },
   "hongo_comestible": {
     "nombre": "Hongo Comestible",
@@ -559,7 +569,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#c9a878"
+    "colorDebug": "#c9a878",
+    "alquimiaIngrediente": true,
+    "_nota": "docs/GDD_Pociones.md — ingrediente neutro admitido en el caldero (relleno, sin corruptivo/catalizador)."
   },
   "hongo_medicinal": {
     "nombre": "Hongo Medicinal",
@@ -573,7 +585,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#a878c9"
+    "colorDebug": "#a878c9",
+    "alquimiaCatalizador": true,
+    "_nota": "docs/GDD_Pociones.md — ingrediente catalizador (probabilidad de forzar varios bonos positivos a la vez, ver server/src/construccion/alquimia.ts)."
   },
   "raiz_comestible": {
     "nombre": "Raíz Comestible",
@@ -587,7 +601,9 @@
     "apilable": true,
     "stackMax": 25,
     "variantes": 2,
-    "colorDebug": "#b89060"
+    "colorDebug": "#b89060",
+    "alquimiaIngrediente": true,
+    "_nota": "docs/GDD_Pociones.md — ingrediente neutro admitido en el caldero (relleno, sin corruptivo/catalizador)."
   },
   "fibra_vegetal": {
     "nombre": "Fibra Vegetal",
@@ -1601,7 +1617,8 @@
     "colorDebug": "#e0a020",
     "_nota": "Recurso FABRICADO por una colmena (docs/GDD_Produccion.md) — a diferencia de los recursos recolectados del bake exterior, este no lleva categoriaRecurso (no viene de vegetacion/rocas/animales.json).",
     "aportesCocina": { "estamina": 6, "bebida": 1, "comida": 5 },
-    "origenCocina": "vegetal"
+    "origenCocina": "vegetal",
+    "alquimiaIngrediente": true
   },
   "cera": {
     "nombre": "Cera",
@@ -2397,6 +2414,19 @@
     "variantes": 1,
     "colorDebug": "#7a9a5a",
     "_nota": "docs/GDD_Enfermedades.md (pedido 2026-08-30) — cura la GRIPE (por frío en invierno) al instante, un solo jarabe basta (medico:tomarJarabe, self-service, sin oficio). El nombre coloquial ('para el catarro') es el que usó el streamer; lo que cura mecánicamente es la gripe, no el catarro (ese lo cura el ungüento). Receta: curandero, mortero_grande_boticario, hierba_aromatica+miel."
+  },
+  "pocion_alquimica": {
+    "nombre": "Poción Alquímica",
+    "tipo": "consumible",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a5ac9",
+    "_nota": "docs/GDD_Pociones.md (pedido 2026-09-01) — resultado del caldero de alquimia (curandero): NO apilable porque cada instancia lleva su propia tirada estocástica (ItemInstancia.efectoPocion, ver server/src/construccion/alquimia.ts) — dos pociones nunca son intercambiables entre sí. Se bebe con pocion:beber."
   },
   "tablilla": {
     "nombre": "Tablilla",
