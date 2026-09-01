@@ -180,6 +180,8 @@ export interface ItemInstancia {
   durabilidad?: number;
   /** epoch ms de la última vez que se tocó (para el desgaste por inactividad, cálculo perezoso) */
   ultimoUso?: number;
+  /** docs/GDD_Ropa_Procedural.md §Sastre legendario — ausente/0 = ítem normal de catálogo; >0 = copia de un blueprint de `prendas_generadas` (bd.ts), el aspecto real sale de ahí, no del catálogo estático. */
+  prendaGeneradaId?: number;
   /** docs/GDD_Inventario.md §9 (Líquidos) — ausente si el catálogo no declara `volumenMaxMl` (nunca es un recipiente) O si lo es pero está vacío. Nunca "medio lleno de dos líquidos a la vez": llenar sustituye el contenido entero. */
   liquido?: { tipo: string; volumenMl: number; contaminada?: boolean };
 }
@@ -495,6 +497,8 @@ export interface InventarioJugador {
   cuerpo: Contenedor;
   extras: Map<string, Contenedor>; // slot contenedor -> su rejilla propia
   equipo: SlotsEquipo;
+  /** docs/GDD_Ropa_Procedural.md §Sastre legendario — slot -> prendaGeneradaId, SOLO para slots donde lo equipado es una prenda legendaria (ausente = normal). Paralelo a `equipo`, nunca se pisan entre sí. */
+  equipoBlueprintRopa: Record<string, number>;
 }
 
 function *contenedoresDe(inv: InventarioJugador): Generator<[string, Contenedor]> {
@@ -552,6 +556,12 @@ export function equiparItem(inv: InventarioJugador, catalogo: CatalogoItems, ins
 
   quitarItem(contenedor, instanciaId, item.cantidad);
   inv.equipo[slot] = item.itemId;
+  // Sastre legendario: el aspecto real de esta instancia viaja con ella al
+  // equiparse, igual que el itemId — sin esto, quitarse y volver a ponerse
+  // una prenda legendaria la convertiría en una copia "en blanco" del
+  // catálogo (mismo bug que tendría durabilidad si se rastreara aquí).
+  if (item.prendaGeneradaId) inv.equipoBlueprintRopa[slot] = item.prendaGeneradaId;
+  else delete inv.equipoBlueprintRopa[slot];
   if (entrada.esContenedor && SLOTS_CONTENEDOR.has(slot)) {
     inv.extras.set(slot, crearContenedor(entrada.esContenedor.ancho, entrada.esContenedor.alto));
   }
@@ -597,8 +607,15 @@ export function desequiparItem(inv: InventarioJugador, catalogo: CatalogoItems, 
 
   const resultado = agregarItem(inv.cuerpo, catalogo, itemId, 1);
   if (!resultado.ok) return { ok: false, motivo: "sin_hueco" };
+  // Sastre legendario: si lo que se desequipa era una prenda legendaria,
+  // la instancia recién creada se marca con el mismo blueprint — nunca
+  // apilable (equipables no lo son), así que `resultado.instancia` es
+  // siempre la instancia nueva, nunca una pila ajena ya existente.
+  const prendaGeneradaId = inv.equipoBlueprintRopa[slot];
+  if (prendaGeneradaId && resultado.instancia) resultado.instancia.prendaGeneradaId = prendaGeneradaId;
 
   delete inv.equipo[slot];
+  delete inv.equipoBlueprintRopa[slot];
   if (SLOTS_CONTENEDOR.has(slot)) inv.extras.delete(slot);
   return { ok: true };
 }

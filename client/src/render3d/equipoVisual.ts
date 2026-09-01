@@ -39,6 +39,21 @@ const CATALOGOS_ROPA = {
 const ETIQUETA_EQUIPO = "equipoVisual";
 
 /**
+ * Blueprint YA resuelto (JSON parseado) de una prenda legendaria — espejo
+ * de `HubState.blueprintsRopa` (docs/GDD_Ropa_Procedural.md §Sastre
+ * legendario). Quien llama a `aplicarEquipoAlRig`/`voxelesDeEquipo` es
+ * responsable de convertir el `MapSchema<BlueprintRopaSchema>` de Colyseus
+ * a este shape (JSON.parse de detalleJson/tintesJson) — este módulo no
+ * sabe nada de Colyseus a propósito, mismo criterio que el resto del archivo.
+ */
+export interface BlueprintRopaResuelto {
+  prendaBaseId: string;
+  materialId: string;
+  detalle: Record<string, unknown>;
+  tintes: Record<string, string>;
+}
+
+/**
  * Vóxeles de UNA pieza equipada, ya resueltos a un slot físico concreto (para
  * anillo, que puede caer en cualquier mano). Ropa civil craftable
  * (docs/GDD_Profesiones.md, 2026-08-30): `prendaId` se busca primero en
@@ -46,8 +61,24 @@ const ETIQUETA_EQUIPO = "equipoVisual";
  * detalle que la ropa de NPC) y solo si no está ahí en `equipo.json`
  * (esquema simple, un box por slot — las 48 piezas de armadura). Nunca
  * ambos a la vez: un `prendaId` pertenece a un único catálogo.
+ *
+ * `blueprint` (Sastre legendario, pedido 2026-08-31): si este slot concreto
+ * lleva una prenda legendaria, SUSTITUYE el `materialId`/`detalle`/`tintes`
+ * que usaría el catálogo estático — el `prendaBaseId` del blueprint decide
+ * qué arquetipo (silueta/zonasColor) usar, igual que si fuera su propio
+ * itemId. Así lo que se vio en el panel del telar se ve IGUAL puesto.
  */
-function voxelesDePieza(itemId: string, slotFisico: string, semilla: string): VoxelExportado[] {
+function voxelesDePieza(itemId: string, slotFisico: string, semilla: string, blueprint?: BlueprintRopaResuelto): VoxelExportado[] {
+  if (blueprint) {
+    const prendaBase = CATALOGOS_ROPA.prendas[blueprint.prendaBaseId];
+    const material = CATALOGOS_ROPA.materiales[blueprint.materialId];
+    if (!prendaBase || !material) return [];
+    return generarPrendaVoxel(prendaBase, material, {
+      semilla, prendaId: blueprint.prendaBaseId, materialId: blueprint.materialId,
+      detalleOverride: blueprint.detalle, tintes: blueprint.tintes,
+    });
+  }
+
   const entrada = ITEMS[itemId];
   if (!entrada?.prendaId) return []; // ítem sin representación visual todavía (placeholder de contenido, no error)
 
@@ -73,16 +104,23 @@ function voxelesDePieza(itemId: string, slotFisico: string, semilla: string): Vo
 /**
  * Vóxeles de TODO lo equipado por un jugador — `equipo` es slot->itemId
  * (mismo shape que `InventarioSchema.equipo`, tanto si llega como
- * MapSchema real como si ya se aplanó a un objeto plano).
+ * MapSchema real como si ya se aplanó a un objeto plano). `blueprintsPorSlot`
+ * (Sastre legendario, opcional) — slot->blueprint YA resuelto, para los
+ * slots donde lo equipado es una prenda legendaria (ausente = todos los
+ * slots se resuelven por catálogo estático, comportamiento de siempre).
  */
-export function voxelesDeEquipo(equipo: Iterable<[string, string]> | Record<string, string>, semilla: string): VoxelExportado[] {
+export function voxelesDeEquipo(
+  equipo: Iterable<[string, string]> | Record<string, string>,
+  semilla: string,
+  blueprintsPorSlot?: Record<string, BlueprintRopaResuelto>,
+): VoxelExportado[] {
   const entradas: [string, string][] = Symbol.iterator in Object(equipo)
     ? [...(equipo as Iterable<[string, string]>)]
     : Object.entries(equipo as Record<string, string>);
   const voxeles: VoxelExportado[] = [];
   for (const [slot, itemId] of entradas) {
     if (!itemId) continue;
-    voxeles.push(...voxelesDePieza(itemId, slot, semilla));
+    voxeles.push(...voxelesDePieza(itemId, slot, semilla, blueprintsPorSlot?.[slot]));
   }
   return voxeles;
 }
@@ -92,11 +130,16 @@ export function voxelesDeEquipo(equipo: Iterable<[string, string]> | Record<stri
  * equipo previa (mismo pivote o no) para que un cambio de equipo nunca
  * acumule piezas viejas encima de las nuevas.
  */
-export function aplicarEquipoAlRig(rigObjeto: THREE.Object3D, equipo: Iterable<[string, string]> | Record<string, string>, semilla: string): void {
+export function aplicarEquipoAlRig(
+  rigObjeto: THREE.Object3D,
+  equipo: Iterable<[string, string]> | Record<string, string>,
+  semilla: string,
+  blueprintsPorSlot?: Record<string, BlueprintRopaResuelto>,
+): void {
   rigObjeto.traverse((nodo) => {
     if (nodo.userData?.[ETIQUETA_EQUIPO]) nodo.removeFromParent();
   });
-  const voxeles = voxelesDeEquipo(equipo, semilla);
+  const voxeles = voxelesDeEquipo(equipo, semilla, blueprintsPorSlot);
   for (const [pivote, malla] of mallasPorPivote(voxeles)) {
     const nodo = rigObjeto.getObjectByName(pivote);
     if (!nodo) {

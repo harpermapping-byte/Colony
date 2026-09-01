@@ -21,6 +21,13 @@ export class ItemInstanciaSchema extends Schema {
   @type("string") liquidoTipo = "";
   @type("number") liquidoVolumenMl = 0;
   @type("boolean") liquidoContaminada = false;
+  // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario,
+  // pedido 2026-08-31) — 0 = ítem normal de catálogo (comportamiento de
+  // siempre). >0 = esta instancia concreta es una copia de un blueprint de
+  // `prendas_generadas` (server/src/datos/bd.ts): el itemId sigue siendo el
+  // "carrier" genérico del slot (huella/peso/apilable normales), pero el
+  // aspecto real sale de `HubState.blueprintsRopa.get(String(prendaGeneradaId))`.
+  @type("number") prendaGeneradaId = 0;
 }
 
 export class ContenedorSchema extends Schema {
@@ -38,6 +45,30 @@ export class InventarioSchema extends Schema {
   @type(ContenedorSchema) cuerpo = new ContenedorSchema();
   @type({ map: ContenedorSchema }) extras = new MapSchema<ContenedorSchema>();
   @type({ map: "string" }) equipo = new MapSchema<string>();
+  // Sastre legendario — slot -> prendaGeneradaId (string, mismo criterio que
+  // el resto de MapSchema con claves textuales) SOLO para los slots donde lo
+  // equipado es una prenda legendaria; slots normales nunca tienen entrada
+  // aquí (ausente = "resuelve por itemId de catálogo, como siempre" en
+  // equipoVisual.ts). Separado de `equipo` a propósito: no toca el
+  // significado ni el tipo de ese map ya existente.
+  @type({ map: "number" }) equipoBlueprintRopa = new MapSchema<number>();
+}
+
+/**
+ * Blueprint de una prenda legendaria (docs/GDD_Ropa_Procedural.md §Sastre
+ * legendario) — espejo de red de `PrendaGenerada` (server/src/datos/bd.ts).
+ * Vive en `HubState.blueprintsRopa`, GLOBAL a la room (no por jugador): así
+ * cualquier cliente que vea a cualquier otro jugador con una prenda
+ * legendaria puesta puede resolverla sin pedirla al servidor aparte —
+ * cargada perezosamente la primera vez que hace falta (creación o equipar).
+ */
+export class BlueprintRopaSchema extends Schema {
+  @type("string") prendaBaseId = "";
+  @type("string") materialId = "";
+  @type("string") detalleJson = "{}";
+  @type("string") tintesJson = "{}";
+  @type("string") nombre = "";
+  @type("number") creadorJugadorId = 0;
 }
 
 // Vitales (docs/GDD_Personaje.md) — comida/bebida/sueño decaen en horas
@@ -528,4 +559,9 @@ export class HubState extends Schema {
   // String(construccionId) del mueble "mesa_ajedrez" ya colocado. Entradas
   // perezosas: solo existen mientras al menos una silla está ocupada.
   @type({ map: MesaAjedrezSchema }) mesasAjedrez = new MapSchema<MesaAjedrezSchema>();
+  // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario) —
+  // clave = String(prendaGeneradaId), cargada perezosamente (nunca se
+  // precarga la BD entera: solo entra aquí cuando alguien la crea o cuando
+  // hace falta resolver un equipoBlueprintRopa que aún no está en el mapa).
+  @type({ map: BlueprintRopaSchema }) blueprintsRopa = new MapSchema<BlueprintRopaSchema>();
 }

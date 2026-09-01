@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema, BlueprintRopaSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { rellenarLootCaza, datosDeCadaver, sacrificarAnimalGranja } from "../../mundo/lootCaza";
@@ -97,6 +97,13 @@ import { temperaturaMundo, Estacion } from "../../mundo/clima";
 import { calcularCaminoRuntime } from "../../mundo/pathfindingRuntime";
 import { potenciaDisponibleEnCasillas, factorVelocidadPorEnergia } from "../../construccion/energia";
 import { RecetaCrafteo, EstadoCrafteo, nivelDeXp, validarCrafteo, crafteoListo } from "../../construccion/crafteo";
+// Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido
+// 2026-08-31) — interpretación de texto libre, módulo JS puro compartido
+// con el cliente (client/src/render3d/interpretarPrompt.ts, puerto TS para
+// la vista previa); aquí es la SIEMPRE autoritativa. Sin tipos propios
+// (mismo patrón que otros `require` de catálogo JSON de este archivo).
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { interpretarPromptTejido, cargarCatalogoPrendas } = require("../../../../ropa/src/interpretarPrompt");
 import { EstadoCurtidor, aceptaEntradaCurtidor, huecoMaterialCurtidor, iniciarLoteCurtidor, curtidorListo, recolectarLoteCurtidor } from "../../construccion/curtido";
 import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, VITAL_MAX } from "../../personaje/vitales";
 import {
@@ -260,6 +267,29 @@ function capacidadCofre(entrada: EntradaConstruible | undefined): [number, numbe
 
 // --- Crafteo (docs/GDD_Crafteo.md) — placeholder de balance, mismo criterio que el resto ---
 const XP_POR_CRAFTEO = 20;
+// --- Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido 2026-08-31) ---
+const TELAR_OBJETO_ID = "telar";
+/** Nivel de oficio "sastre" (derivado de XP, nunca persistido en sí — nivelDeXp) a partir del cual se desbloquea "tejer prenda nueva". Placeholder de balance, mismo criterio que el resto del proyecto. */
+const NIVEL_MINIMO_SASTRE_LEGENDARIO = 10;
+const VENTANA_TEJIDO_LEGENDARIO_MS = 24 * 60 * 60 * 1000; // 24h REALES (Date.now()), no día de mundo — mismo criterio que el reinicio de stock de mercaderes.
+/** XP de oficio otorgada al crear un blueprint nuevo (no al craftear copias — eso ya usa XP_POR_CRAFTEO si algún día se registra como receta real). */
+const XP_SASTRE_POR_BLUEPRINT = 40;
+/**
+ * Insumos para craftear una COPIA de un blueprint ya existente, por
+ * materialId — mismos insumos reales que ya usan las recetas de ropa
+ * civil de items/catalogo/recetas.json ("tela_hilada" genérico para
+ * cualquier fibra, "cuero_curtido" para cuero), no unos inventados aparte.
+ * lino/lana/seda comparten la misma tela genérica porque hoy NINGUNA de
+ * las 3 tiene un insumo propio distinto en el catálogo real (seda ni
+ * siquiera tiene receta propia todavía — ver interiores/catalogo/materiales.json,
+ * "sin especiesFuente propia").
+ */
+const INSUMOS_COPIA_SASTRE: Record<string, { itemId: string; cantidad: number }[]> = {
+  lino: [{ itemId: "tela_hilada", cantidad: 3 }],
+  lana: [{ itemId: "tela_hilada", cantidad: 3 }],
+  seda: [{ itemId: "tela_hilada", cantidad: 3 }],
+  cuero: [{ itemId: "cuero_curtido", cantidad: 2 }],
+};
 /** Cuánto dura una frase de suciedad en la burbuja de un NPC antes de volver a su pregón normal (docs/GDD_Personaje.md §3.6). */
 const DURACION_FRASE_SUCIA_MS = 6000;
 /** Cada cuánto se revisa si algún jugador sucio tiene un NPC cerca (barato a propósito, ver revisarBarksSuciedad). */
@@ -544,6 +574,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // Contenedor propio — los 3 pueden convivir a la vez por diseño.
   protected extrasInventario = new Map<string, Map<string, Contenedor>>();
   protected equipoInventario = new Map<string, SlotsEquipo>();
+  // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario) —
+  // slot -> prendaGeneradaId, paralelo a `equipoInventario`. SOLO en
+  // memoria por sesión (a diferencia de `equipo`, no se persiste todavía en
+  // BD junto al resto del equipo — límite conocido, documentado en el GDD:
+  // sobrevive mientras la room esté viva, no a un reinicio del servidor).
+  protected equipoBlueprintRopaInventario = new Map<string, Record<string, number>>();
   protected catalogoItems: CatalogoItems = cargarCatalogoItems();
   // Cadáveres (docs/GDD_Caza.md) — estado PURO (state.cadaveres es solo el
   // espejo de red, mismo criterio que `inventarios`/`player.inventario.cuerpo`).
@@ -959,6 +995,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("crafteo:iniciar", (client, msg: { recetaId?: string; construccionId?: number }) => this.manejarCrafteoIniciar(client, msg));
     this.onMessage("crafteo:recolectar", (client) => this.manejarCrafteoRecolectar(client));
 
+    // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido 2026-08-31).
+    this.onMessage("sastre:tejerAceptar", (client, msg: { construccionId?: number; texto?: string; tintes?: Record<string, string>; nombre?: string }) => void this.manejarSastreTejerAceptar(client, msg));
+    this.onMessage("sastre:tejerCopia", (client, msg: { construccionId?: number; prendaGeneradaId?: number }) => void this.manejarSastreTejerCopia(client, msg));
+    this.onMessage("sastre:misDisenos", (client) => void this.manejarSastreMisDisenos(client));
+
     // Actividades diarias de entrenamiento (docs/GDD_Personaje.md §3.5,
     // pedido 2026-08-30): un único mensaje genérico para pesas/diana/atril
     // — qué atributo y cuánta XP salen del propio catálogo construible
@@ -1199,6 +1240,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, contenedor); // sin esto el Schema se queda en ancho=0/alto=0 (bug real, ver crítica del diseño)
     this.extrasInventario.set(client.sessionId, new Map());
     this.equipoInventario.set(client.sessionId, {});
+    this.equipoBlueprintRopaInventario.set(client.sessionId, {});
 
     // Mascotas "siguiendo" (docs/GDD_Mascotas.md) — sin awaitear a propósito
     // (mismo criterio que otorgarXpAtributoPorSesion): el jugador entra ya,
@@ -1247,6 +1289,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.inventarios.delete(client.sessionId);
     this.extrasInventario.delete(client.sessionId);
     this.equipoInventario.delete(client.sessionId);
+    this.equipoBlueprintRopaInventario.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
     this.solicitudesComercio.delete(client.sessionId);
     // Montura (docs/GDD_Monturas.md): solo limpieza en memoria — la mascota
@@ -1565,7 +1608,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const extras = this.extrasInventario.get(sessionId);
     const equipo = this.equipoInventario.get(sessionId);
     if (!cuerpo || !extras || !equipo) return null;
-    return { cuerpo, extras, equipo };
+    const equipoBlueprintRopa = this.equipoBlueprintRopaInventario.get(sessionId) ?? {};
+    return { cuerpo, extras, equipo, equipoBlueprintRopa };
   }
 
   /**
@@ -1612,7 +1656,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
-    sincronizarEquipo(player.inventario, inv.equipo, inv.extras);
+    sincronizarEquipo(player.inventario, inv.equipo, inv.extras, inv.equipoBlueprintRopa);
     this.recalcularStatsJugador(client);
     this.persistirInventarioPorSesion(client);
   }
@@ -1638,7 +1682,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
-    sincronizarEquipo(player.inventario, inv.equipo, inv.extras);
+    sincronizarEquipo(player.inventario, inv.equipo, inv.extras, inv.equipoBlueprintRopa);
     this.recalcularStatsJugador(client);
     this.persistirInventarioPorSesion(client);
   }
@@ -1671,7 +1715,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!resultado.ok) return client.send("inventario:error", { motivo: resultado.motivo ?? "sin_hueco" });
 
     sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
-    sincronizarEquipo(player.inventario, inv.equipo, inv.extras);
+    sincronizarEquipo(player.inventario, inv.equipo, inv.extras, inv.equipoBlueprintRopa);
     this.persistirInventarioPorSesion(client);
   }
 
@@ -2734,7 +2778,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const dims = this.catalogoItems[equipo.espalda]?.esContenedor;
       extras.set("espalda", guardado ?? crearContenedor(dims?.ancho ?? 1, dims?.alto ?? 1));
     }
-    const inv: InventarioJugador = { cuerpo, extras, equipo };
+    const inv: InventarioJugador = { cuerpo, extras, equipo, equipoBlueprintRopa: {} };
     this.companeroInventarioPorSesion.set(client.sessionId, inv);
     this.companeroHambrePorSesion.set(client.sessionId, hambreInicial());
     this.companeroJugadorIdPorSesion.set(client.sessionId, companero.companeroJugadorId);
@@ -6943,6 +6987,163 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       recetaId: receta.id, itemId: receta.resultado.itemId, cantidad: cantidadFinal,
       oficio: receta.oficio, xp: nuevaXp, nivel: nivelDeXp(nuevaXp), enSuelo: !entrega.enInventario,
     });
+  }
+
+  private errorSastre(client: Client, motivo: string) {
+    client.send("sastre:error", { motivo });
+  }
+
+  /**
+   * Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario,
+   * pedido 2026-08-31): "1 vez al día... una prenda de ropa nueva pero
+   * bakeada en ese momento, no placeholder... solo el creador conocerá la
+   * blueprint nueva y solo él podrá crearla". Texto libre → parámetros
+   * REALES (`interpretarPromptTejido`, SIEMPRE reinterpretado aquí — nunca
+   * se confía en lo que calculó el cliente como preview) → blueprint
+   * permanente en BD + sincronizado a `state.blueprintsRopa` (para que
+   * cualquier jugador que la vea puesta la resuelva) → prenda física en el
+   * inventario, ya vinculada por `prendaGeneradaId`.
+   */
+  private async manejarSastreTejerAceptar(client: Client, msg: { construccionId?: number; texto?: string; tintes?: Record<string, string>; nombre?: string }) {
+    const nombreJugador = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const player = this.state.players.get(client.sessionId);
+    if (!nombreJugador || !ctx || !player || typeof msg?.construccionId !== "number") return;
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva || viva.objeto !== TELAR_OBJETO_ID) return this.errorSastre(client, "necesitas estar en un telar");
+    if (!tieneOficio(player.oficio1, player.oficio2, "sastre")) return this.errorSastre(client, "necesitas el oficio de sastre");
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    const xp = await bd.obtenerXpOficio(jugador.id, "sastre");
+    const nivel = nivelDeXp(xp);
+    if (nivel < NIVEL_MINIMO_SASTRE_LEGENDARIO) {
+      return this.errorSastre(client, `necesitas nivel ${NIVEL_MINIMO_SASTRE_LEGENDARIO} de sastre (tienes ${nivel})`);
+    }
+
+    const texto = typeof msg.texto === "string" ? msg.texto.slice(0, 200) : "";
+    const interpretacion = interpretarPromptTejido(texto);
+    const { prendaBaseId, materialId, detalle, colorHint } = interpretacion as { prendaBaseId: string; materialId: string; detalle: Record<string, unknown>; colorHint: string | null };
+
+    // Tintes: color explícito del jugador por zona (msg.tintes, validado
+    // como hex real — nunca se confía en una cadena arbitraria del cliente)
+    // gana sobre el colorHint que haya detectado el texto; sin ninguno de
+    // los dos, esa zona se queda sin tintar (color de material tal cual).
+    const catalogoPrendas = cargarCatalogoPrendas();
+    const zonasColor: string[] = catalogoPrendas[prendaBaseId]?.zonasColor ?? [];
+    const tintesJugador = msg.tintes && typeof msg.tintes === "object" ? msg.tintes : {};
+    const tintes: Record<string, string> = {};
+    for (const zona of zonasColor) {
+      const explicito = tintesJugador[zona];
+      if (typeof explicito === "string" && /^#[0-9a-fA-F]{6}$/.test(explicito)) tintes[zona] = explicito;
+      else if (colorHint) tintes[zona] = colorHint;
+    }
+    const nombrePrenda = typeof msg.nombre === "string" && msg.nombre.trim() ? msg.nombre.trim().slice(0, 60) : `Prenda de ${nombreJugador}`;
+
+    // Comprueba que cabe ANTES de consumir el cooldown de hoy — así un
+    // inventario lleno no le cuesta al jugador su única tirada del día.
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!inv) return;
+    const hueco = this.buscarHuecoEnInventario(inv, prendaBaseId);
+    if (!hueco) return this.errorSastre(client, "no tienes hueco en el inventario para la prenda nueva");
+
+    const permitido = await bd.resolverCooldownTejidoLegendario(jugador.id, Date.now(), VENTANA_TEJIDO_LEGENDARIO_MS);
+    if (!permitido) return this.errorSastre(client, "el oficio de sastre está fatigado — vuelve mañana");
+
+    const blueprint = await bd.crearPrendaGenerada({ creadorId: jugador.id, prendaBaseId, materialId, detalle, tintes, nombre: nombrePrenda, promptTexto: texto });
+
+    const bpSchema = new BlueprintRopaSchema();
+    bpSchema.prendaBaseId = blueprint.prendaBaseId;
+    bpSchema.materialId = blueprint.materialId;
+    bpSchema.detalleJson = JSON.stringify(blueprint.detalle);
+    bpSchema.tintesJson = JSON.stringify(blueprint.tintes);
+    bpSchema.nombre = blueprint.nombre;
+    bpSchema.creadorJugadorId = blueprint.creadorId;
+    this.state.blueprintsRopa.set(String(blueprint.id), bpSchema);
+
+    const resultado = agregarItem(hueco.contenedor, this.catalogoItems, prendaBaseId, 1);
+    if (resultado.ok && resultado.instancia) resultado.instancia.prendaGeneradaId = blueprint.id;
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    for (const [slot, extra] of inv.extras) {
+      if (extra !== hueco.contenedor) continue;
+      const extraSchema = player.inventario.extras.get(slot);
+      if (extraSchema) sincronizarContenedor(extraSchema, extra);
+    }
+
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, "sastre", XP_SASTRE_POR_BLUEPRINT);
+    client.send("sastre:tejerResultado", {
+      prendaGeneradaId: blueprint.id, prendaBaseId, materialId, detalle, tintes, nombre: blueprint.nombre,
+      xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
+    });
+  }
+
+  /**
+   * Craftear una copia de un blueprint YA existente (pedido 2026-08-31,
+   * confirmado: "puede recraftear copias después, gastando materiales, sin
+   * límite de 1/día") — SOLO el creador original puede hacerlo. Coste fijo
+   * de materiales según la familia del material base (mismo criterio
+   * "número de referencia" que el resto del proyecto) — sin cooldown, sin
+   * XP de blueprint (esa ya se dio al crearlo), solo insumos + hueco.
+   */
+  private async manejarSastreTejerCopia(client: Client, msg: { construccionId?: number; prendaGeneradaId?: number }) {
+    const nombreJugador = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const player = this.state.players.get(client.sessionId);
+    if (!nombreJugador || !ctx || !player || typeof msg?.construccionId !== "number" || typeof msg?.prendaGeneradaId !== "number") return;
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva || viva.objeto !== TELAR_OBJETO_ID) return this.errorSastre(client, "necesitas estar en un telar");
+
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    const blueprint = await bd.obtenerPrendaGenerada(msg.prendaGeneradaId);
+    if (!blueprint) return this.errorSastre(client, "ese diseño no existe");
+    if (blueprint.creadorId !== jugador.id) return this.errorSastre(client, "solo quien lo creó puede craftear copias de este diseño");
+
+    const insumos = INSUMOS_COPIA_SASTRE[blueprint.materialId] ?? INSUMOS_COPIA_SASTRE.lino;
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    for (const insumo of insumos) {
+      const enInventario = contenedor.items.filter((it) => it.itemId === insumo.itemId).reduce((s, it) => s + it.cantidad, 0);
+      if (enInventario < insumo.cantidad) return this.errorSastre(client, `te falta ${insumo.itemId}`);
+    }
+
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!inv) return;
+    const hueco = this.buscarHuecoEnInventario(inv, blueprint.prendaBaseId);
+    if (!hueco) return this.errorSastre(client, "no tienes hueco en el inventario para la copia");
+
+    for (const insumo of insumos) {
+      let restante = insumo.cantidad;
+      for (const it of [...contenedor.items]) {
+        if (restante <= 0) break;
+        if (it.itemId !== insumo.itemId) continue;
+        const quitar = Math.min(restante, it.cantidad);
+        quitarItem(contenedor, it.id, quitar);
+        restante -= quitar;
+      }
+    }
+
+    const resultado = agregarItem(hueco.contenedor, this.catalogoItems, blueprint.prendaBaseId, 1);
+    if (resultado.ok && resultado.instancia) resultado.instancia.prendaGeneradaId = blueprint.id;
+    sincronizarContenedor(player.inventario.cuerpo, inv.cuerpo);
+    for (const [slot, extra] of inv.extras) {
+      if (extra !== hueco.contenedor) continue;
+      const extraSchema = player.inventario.extras.get(slot);
+      if (extraSchema) sincronizarContenedor(extraSchema, extra);
+    }
+    client.send("sastre:tejerCopiaResultado", { prendaGeneradaId: blueprint.id, nombre: blueprint.nombre });
+  }
+
+  /** Lista tus propios blueprints (para el panel del telar: "craftear de mis diseños") — nunca los de otro sastre, aunque los conozcas de vista. */
+  private async manejarSastreMisDisenos(client: Client) {
+    const nombreJugador = this.nombreDe(client);
+    if (!nombreJugador) return;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombreJugador);
+    const disenos = await bd.listarPrendasGeneradasDeCreador(jugador.id);
+    client.send("sastre:misDisenos", { disenos: disenos.map((d) => ({ id: d.id, prendaBaseId: d.prendaBaseId, materialId: d.materialId, nombre: d.nombre, creadoEn: d.creadoEn })) });
   }
 
   /**
