@@ -9308,9 +9308,22 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   /** Hook para cuando un combate de ESTA room se resuelve (bando entero caído/huido) — no-op por defecto; ArenaCombateRoom lo usa para teleportar de vuelta y propagar resultados. */
   protected onCombateResuelto(_combateId: string, _combate: CombateSchema): void {}
 
-  /** Quita el marcador de "combate en curso" de esta room — lo llama la room de arena, vía matchMaker, cuando el combate termina (docs/GDD_Combate.md §9.2). */
+  /**
+   * Quita el marcador de "combate en curso" de esta room — lo llama la room
+   * de arena, vía matchMaker, cuando el combate termina (docs/GDD_Combate.md
+   * §9.2). Si era el último pendiente, deshace el `autoDispose=false` que
+   * puso `cerrarVentanaCombate`: si ya no queda nadie conectado aquí, la
+   * room ya no tiene ningún motivo para seguir viva — `disconnect()` la
+   * dispone de verdad ahora mismo (Colyseus no la revisa solo porque
+   * `autoDispose` vuelva a `true`, hay que pedirlo); si sigue habiendo
+   * clientes, basta con devolver el comportamiento normal para la próxima
+   * vez que se vacíe.
+   */
   public quitarMarcadorCombate(combateId: string) {
     this.state.combatesEnCurso.delete(combateId);
+    if (this.state.combatesEnCurso.size > 0) return;
+    if (this.clients.length === 0) void this.disconnect();
+    else this.autoDispose = true;
   }
 
   /** Aplica el resultado final de un combatiente NO-jugador que peleó en una arena aparte, sobre SU entidad real en esta room (docs/GDD_Combate.md §9.2) — mismo efecto que si hubiera muerto/sobrevivido aquí mismo. */
@@ -9656,6 +9669,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     marcador.x = origenX; marcador.y = origenY;
     this.state.combatesEnCurso.set(combateId, marcador);
     this.state.combates.delete(combateId); // el combate se va a la room de arena — esta room ya no lo resuelve
+    // Bug real (docs/GDD_Combate.md §9.2, encontrado 2026-09-01 construyendo
+    // client/test/mazmorraLimpiada.e2e.cjs): el jugador va a hacer `room.leave()`
+    // para irse a la arena — si estaba SOLO aquí, esta room se queda con 0
+    // clientes y el `autoDispose` por defecto de Colyseus la destruiría ANTES
+    // de que el combate resuelva, perdiendo en silencio cualquier resultado
+    // que dependa de la entidad real de esta room (loot, XP, `finalizarMuerte`
+    // de subclase). Desactivado mientras haya algún `combatesEnCurso` propio
+    // — `quitarMarcadorCombate` lo reactiva (o dispone la room a mano) en
+    // cuanto el último se resuelve.
+    this.autoDispose = false;
 
     for (const p of participantes) {
       if (!p.esJugador) continue;
