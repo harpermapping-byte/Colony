@@ -33,7 +33,7 @@ Nuevo `tipo:"apero"` en `items/catalogo/items.json`, mismo patrón que `esMontur
 - **Cualquier especie `montable`** puede llevar arnés — el pedido es explícito: *"tirados por CUALQUIER ANIMAL QUE SE PUEDA MONTAR"*. No hace falta un flag nuevo en `animales_rig.json`: se reusa `montable` (ya existe, ya cubre caballo/burro/buey/jabalí/ciervo y ahora sus hembras vía `heredaDe`, ver `docs/GDD_Generador_Personajes.md`).
 - **Mensaje `mascota:ponerArnes {mascotaId?}`** — mismo mecanismo exacto que `mascota:ponerMontura` (§1 de GDD_Monturas): exige una mascota propia "siguiendo", `montable`, sin arnés puesto todavía; consume una unidad de un ítem `esApero:true`; persiste `arnes:true` en BD (`mascotas.arnes`, nueva columna) y en el Schema (`Mascota.arnes`).
 - **Compatibilidad con silla de montar**: un animal puede llevar silla Y arnés a la vez (son ranuras distintas, `montura`/`arnes`, ambas booleanas en la misma fila de `mascotas`) — permite, por ejemplo, un caballo ensillado que además tira de un carruaje si el diseño de asientos lo admite (el conductor va en el pescante del carro, no a lomos).
-- **Catálogo inicial**: `arnes_cuero` (tier básico, cualquier montable), `arnes_reforzado` (tier alto, requerido por los carros más pesados — carga/muebles/cisterna — ver `pesoMaximoArnes` en §7). Igual que el resto del catálogo de esta sesión: solo contenido, con receta de crafteo desde el primer commit (curtidor, cuero_curtido) — ya aprendimos que "todo lo inicial lleva receta".
+- **Catálogo inicial**: `arnes_cuero` (tier básico, cualquier montable), `arnes_reforzado` (tier alto, requerido por los carros más pesados — carga/muebles/cisterna — ver `pesoMaximoArnes` en §7). **Excepción a la regla "todo lo inicial lleva receta"** (docs/GDD_Equipo.md §10/§11): estas 2 entradas ya existen en el catálogo (§14 "Progreso real") pero SIN receta todavía a propósito — craftear algo que hoy no hace nada al usarse (falta `mascota:ponerArnes`) sería engañoso; la receta se añade en el mismo commit que el mensaje de servidor que lo consume, no antes.
 
 ## 3. Enganchar / desenganchar
 
@@ -106,7 +106,7 @@ nivelIngenieroMinimo: 2 | 3 | 4
 
 ### 8.1 Transporte de personas (capoteado / descapotado)
 
-- `capacidad: { asientos: N }` — el catálogo inicial: `carreta_2` (2 asientos, descapotada, tier ingeniero 2), `diligencia_4` (4 asientos, capoteada, tier 3), `carruaje_noble_5` (5 asientos, capoteado, tapizado, tier 4 — pedido explícito: *"un carruaje más de noble en nivel 4, para transportar dentro 4 o 5 personas, como un carruaje/carroza visualmente"*).
+- `capacidad: { asientos: N }` — el catálogo inicial: `carreta_dos_plazas` (2 asientos, descapotada, tier ingeniero 2), `diligencia_4` (4 asientos, capoteada, tier 3), `carruaje_noble_5` (5 asientos, capoteado, tapizado, tier 4 — pedido explícito: *"un carruaje más de noble en nivel 4, para transportar dentro 4 o 5 personas, como un carruaje/carroza visualmente"*).
 - Cada asiento es un offset fijo relativo al conductor (mismo mecanismo que pasajeros de barco), tabla `POSICION_ASIENTO_POR_CARRO` — código, no catálogo (hecho estructural del carro, igual criterio que `POSICION_POR_SLOT` de `generarEquipo.js`).
 
 ### 8.2 Transporte de materiales (capoteado / descapotado)
@@ -149,21 +149,52 @@ Pedido: *"como si fuera una olla gigante o un cubo enorme, puede transportar MUC
 - **`carro:desconectarManguera`** — corta la conexión, sin efecto de datos (la manguera es solo el gesto de "conectar", el volumen ya se transfirió al llenar).
 - Uso real más allá de agua: si se permite `tipo` distinto de agua en el futuro (leche a granel de una granja grande, por ejemplo) el mismo mecanismo sirve sin cambios — se deja documentado como posible ampliación, no incluido en el alcance inicial (agua es lo único que hoy tiene fuente en el mundo).
 
-## 9. Aperos de labranza — arado y cultivadora
+## 9. Agricultura por casilla (NUEVA, en paralelo a la de construcción) + aperos
 
-**Hallazgo importante de §0 que obliga a adaptar el pedido**: no existe "arar una casilla" ni "sembrar en un área de 2×2 casillas" en el sistema real — sembrar es una acción sobre una CONSTRUCCIÓN ya colocada (`bancal_cultivo`), una planta por instancia, sin cooldown. Los aperos se diseñan entonces sobre construcciones, no sobre casillas sueltas, manteniendo el espíritu exacto de lo pedido ("más rápido que a mano, cubre más de una vez"):
+**Corrección 2026-09-04 (aclaración del streamer): habrá DOS agriculturas conviviendo, no una adaptada a la otra.** La versión anterior de este documento adaptaba el arado a colocar `bancal_cultivo` (construcción) porque esa era la ÚNICA agricultura que existía. El pedido real es otro: además de la agricultura de construcción (bancales/macetas, sin tocar, sigue igual para huertos/jardines pequeños), se añade una agricultura DIRECTA SOBRE LA CASILLA — labrar el suelo abierto a mano con **azada** o montado con **arado de tiro**, sembrar y cosechar ahí mismo, campos grandes tipo franja medieval en vez de un bancal por planta.
 
-- **Arado** (`arado_madera`, tier 2 ingeniero): se engancha como un carro (arnés + `carro:enganchar`), el jugador lo monta y hace click sobre el apero → **`apero:comenzarLabrar {conjuntoId}`**. Mientras `enUso:true` (velocidad reducida, §6) y el jugador se desplaza por una parcela propia, el arado va **colocando automáticamente instancias de `bancal_cultivo`** en las casillas libres que va recorriendo (mismo `validarColocacion` de siempre, sin saltarse ninguna regla — solo automatiza la repetición manual de "abrir menú, colocar, mover, repetir" que hoy hace el jugador a pie). Sustituye trabajo, no reglas.
-- **Cultivadora** (`cultivadora_semillas`, tier 3 ingeniero): lleva un `Contenedor` propio pequeño (rejilla normal) cargado de semillas por el jugador antes de salir. Click → **`apero:comenzarCultivar {conjuntoId}`**: mientras `enUso:true`, en cada `bancal_cultivo` VACÍO propio dentro de un radio de 2 casillas alrededor del conjunto (la interpretación real del "2x2" pedido, adaptada a construcciones existentes en vez de tiles), llama automáticamente a la misma lógica de `cultivo:plantar` que ya existe, consumiendo una semilla del contenedor propio de la cultivadora por cada bancal plantado — batch real sobre la mecánica ya existente, no una mecánica de cultivo paralela.
-- **`apero:detener {conjuntoId}`** — para cualquiera de los dos, corta el modo automático (vuelve a velocidad de carro normal).
-- Ambos aperos son de **1 solo asiento** (el que ara/cultiva), sin pasajeros — categoría `"labranza"` en vez de una de las 5 de transporte.
+### 9.1 Modelo de datos — mismo patrón que `recolectables.ts`, pero CON persistencia
+
+Un campo labrado tarda días en dar fruto (igual que un bancal) y un jugador no puede perder ese trabajo si el servidor reinicia (a diferencia de un recolectable silvestre, que si reaparece no rompe nada) — por eso, a diferencia de `recolectables.ts` (deliberadamente sin BD, "cálculo perezoso"), la casilla de cultivo SÍ se persiste, mismo contrato dual SQLite/Postgres de siempre:
+
+```
+casillas_cultivo (mapa_id, idx_casilla, x, y, dueno_id, estado, semilla_item_id?, dia_plantado?)
+  -- estado: "labrada" (vacía, lista para sembrar) | "sembrada" (con cultivo creciendo)
+  -- PK (mapa_id, idx_casilla)
+```
+
+En memoria: `Map<idxCasillaGlobal, EstadoCasillaCultivo>` cacheado por `rutaMapa`/mapa_id a nivel de PROCESO — mismo criterio exacto que `recolectablesDeMapa()` (`server/src/mundo/recolectables.ts`), salvo que aquí el Map se **hidrata desde `casillas_cultivo` al crear la room** en vez de nacer vacío del bake, y cada cambio (`labrar`/`plantar`/`cosechar`) escribe también a BD (mismo patrón "en memoria + persistido" que ya usa el inventario del jugador).
+
+**Reusa el catálogo de semillas YA existente** (`DatosCultivo` en `inventario.ts`: `itemIdCosecha`, `diasCrecimiento`, `mesesSiembra`, `cosechaRecurrente`, `cantidadPorCosecha`) — mismas semillas, mismo tiempo de crecimiento, mismo calendario de meses de siembra que ya usa `bancal_cultivo`. Solo cambia DÓNDE vive la planta (una casilla abierta, no una construcción con huella), no las reglas de qué/cuándo se puede sembrar.
+
+**Reglas de labrado** (mismo nivel de rigor que `validarColocacion`, sin inventar un sistema de suelo/bioma nuevo — se deja explícitamente simple para esta fase): casilla dentro de una parcela PROPIA, walkable, sin colisión (sin construcción/prop encima), sin ya estar `labrada`/`sembrada`. Sin chequeo de tipo de suelo/humedad por ahora (mismo alcance reducido que ya se aceptó para `plantable` en construcciones — ampliable después si se quiere distinguir tierra fértil de pedregal).
+
+### 9.2 Herramienta de mano: azada
+
+- **`azada_hierro`** (`items/catalogo/items.json`, `tipo:"herramienta"`, `slotEquipo:"manoPrincipal"`, craftable por herrero desde nivel 1 — mismo patrón que `hacha_talar`/`pico_minero`) — sin ella no se puede labrar.
+- **`cultivoCasilla:labrar {x,y}`** — casilla adyacente (`RADIO_INTERACCION`), exige azada equipada, aplica las reglas de 9.1, marca la casilla `"labrada"`. Con cooldown corto de acción (mismo criterio que recolectar a mano, no instantáneo pero rápido — cifra concreta en fase de contenido).
+- **`cultivoCasilla:plantar {x,y, instanciaIdSemilla}`** — casilla `"labrada"` propia, consume 1 semilla del inventario (mismo catálogo de semillas de siempre), pasa a `"sembrada"` con `dia_plantado` = día de mundo actual.
+- **`cultivoCasilla:cosechar {x,y}`** — casilla `"sembrada"` con `diasCrecimiento` cumplidos (mismo cálculo que ya usa `cultivo:cosechar` de bancales), entrega `cantidadPorCosecha` de `itemIdCosecha`, vuelve a `"labrada"` (o a "sin labrar", según `cosechaRecurrente` de la semilla — mismo campo ya existente).
+- Uno a uno, sin automatismo — el azada es el equivalente manual, mismo ritmo que sembrar en un bancal hoy, la diferencia es DÓNDE se siembra (campo abierto, no una construcción con huella).
+
+### 9.3 Arado de tiro (montado) — automatiza la azada, no la sustituye
+
+- **`arado_madera`** (tier 2 ingeniero, categoría `"labranza"` de §7): se engancha como un carro (arnés + `carro:enganchar`), se monta con el mismo menú de siempre (§4). Click sobre el apero → **`apero:comenzarLabrar {conjuntoId}`**.
+- Mientras `enUso:true` (velocidad reducida, §6), cada casilla NUEVA por la que pasa el conjunto dentro de la parcela propia se labra automáticamente — llama a la MISMA validación/efecto que `cultivoCasilla:labrar`, solo que disparada por el movimiento del conjunto en vez de un click manual. Sustituye repetición, no reglas — igual criterio que ya se aplicaba en la versión anterior de este documento, ahora sobre el sistema de casilla real en vez de bancales.
+- **Cultivadora** (`cultivadora_semillas`, tier 3): mismo patrón — lleva un `Contenedor` pequeño de semillas cargado por el jugador; en modo `apero:comenzarCultivar`, siembra automáticamente (`cultivoCasilla:plantar` con la semilla cargada) cada casilla `"labrada"` propia dentro de un radio de 2 casillas del conjunto mientras se desplaza — el "planta en 2×2, más rápido que el jugador" pedido, ahora literal sobre casillas de verdad.
+- **`apero:detener {conjuntoId}`** — corta el modo automático para ambos, vuelve a velocidad de carro normal.
+- Ambos aperos son de **1 solo asiento**, sin pasajeros.
+
+### 9.4 Relación con la agricultura de construcción (sin tocar)
+
+`bancal_cultivo`/`maceta_*` siguen exactamente igual — para huertos pequeños, patios, interiores, macetas decorativas. La agricultura de casilla es la opción de CAMPO ABIERTO a gran escala (parcelas grandes, mismo espíritu que un campo de labranza medieval real). Un jugador puede tener las dos a la vez en su propiedad sin conflicto — son sistemas independientes que comparten únicamente el catálogo de semillas.
 
 ## 10. Ideas añadidas (invitación explícita del streamer: *"si se te ocurre algún uso real más, añádelo"*)
 
 Tres ampliaciones que encajan en el mismo patrón sin inventar mecanismo nuevo, propuestas para valorar (no bloquean el resto si se descartan):
 
-- **Rastrillo/grada** (`grada_madera`, tier 2): apero barato, mismo mecanismo que el arado pero SIN colocar `bancal_cultivo` — en su lugar acelera la RECOLECCIÓN (`cultivo:cosechar`) en batch sobre bancales maduros del radio, para la temporada de cosecha en vez de siembra. Reusa `cosechar` tal cual, mismo criterio que la cultivadora reusa `plantar`.
-- **Carro cisterna también para riego** (`carro:regarEnLote`): con la cisterna ya llena, un modo "regar" análogo al arado/cultivadora que llama a `cultivo:regar` en batch sobre el radio — cero mecanismo nuevo, mismo patrón, aprovecha que ya se pidió transporte de líquidos.
+- **Rastrillo/grada** (`grada_madera`, tier 2): apero barato, mismo mecanismo que el arado pero para RECOLECCIÓN en vez de siembra — en modo `apero:comenzarCosechar`, cosecha automáticamente cada casilla `"sembrada"` madura del radio mientras se desplaza (`cultivoCasilla:cosechar` en batch, §9.2). Reusa la cosecha tal cual, mismo criterio que la cultivadora reusa plantar.
+- **Carro cisterna también para riego** (`carro:regarEnLote`): con la cisterna ya llena, un modo "regar" análogo al arado/cultivadora sobre las casillas `"sembrada"` del radio — cero mecanismo nuevo (la agricultura de casilla no tiene riego propio todavía; si se implementa, este sería su consumidor natural), aprovecha que ya se pidió transporte de líquidos.
 - **Carro-taller ambulante** (categoría nueva opcional, tier 4): un carro con una `mesa`/estación de crafteo de nivel 1 incorporada (yunque_tocon o banco_carpintero portátil) para craftear básico lejos de casa en una expedición larga — encaja con el espíritu "carro de mercader/expedición" sin inventar sistema de crafteo nuevo, solo coloca una mesa ya existente sobre el conjunto. Se deja como candidato de ampliación, no imprescindible para el MVP.
 
 ## 11. Crafteo — ingeniero, por niveles
@@ -172,7 +203,7 @@ Mismo patrón `nivelOficioMinimo` que ya usa TODO el catálogo construible (`con
 
 | Nivel | Ejemplos |
 |---|---|
-| 2 | `arnes_cuero`, `carreta_2`, `carro_materiales_pequeno`, `carro_muebles_pequeno`, `arado_madera`, `cisterna_pequena` |
+| 2 | `arnes_cuero`, `carreta_dos_plazas`, `carro_materiales_pequeno`, `carro_muebles_pequeno`, `arado_madera`, `cisterna_pequena` |
 | 3 | `arnes_reforzado`, `diligencia_4`, `carro_materiales_grande`, `carro_muebles_grande`, `carro_jaula`, `cultivadora_semillas`, `cisterna_grande` |
 | 4 | `carruaje_noble_5` (capoteado, tapizado, el más caro del catálogo) |
 
@@ -195,9 +226,19 @@ Pedido: *"si compras una montura o tienes una montura y un carro... al NPC de tr
 
 ## 14. Fases de implementación propuestas (para cuando haya OK)
 
-1. **Fase 1 — cimientos**: `arnes_cuero`/`ponerArnes`, `carro:colocar`/`enganchar`/`desenganchar`, `ConjuntoTiroSchema`, rama de velocidad nueva, `conjunto:montar`/`desmontar` con UN solo carro real (`carreta_2`, categoría personas, el más simple de verificar visualmente con 2 asientos). Verificado con e2e real (mismo criterio que `combate.e2e.mjs`/`agroFauna.e2e.mjs`) antes de seguir.
+**Progreso real 2026-09-04 — adelantado tras el OK ("adelante") del streamer**: se adelantó todo lo que es lógica PURA y catálogo (sin tocar Colyseus), porque esta sesión no puede instalar `node_modules` en `server/` de verdad (`npm install` termina en 0 sin error pero el directorio no persiste entre llamadas — límite del sandbox, no del proyecto) y por tanto no puede compilar ni ejecutar nada que importe `@colyseus/core`/`@colyseus/schema` para verificarlo de verdad. Siguiendo la norma del propio proyecto ("probar antes de dar por hecho"), NO se ha tocado `HubState.ts`/`RoomExteriorBase.ts` sin poder probarlo — se ha construido y probado (`node --test` real, en verde) todo lo que sí es verificable aquí:
+
+- `server/src/mundo/cultivoCasilla.ts` + `server/test/cultivoCasilla.test.ts` (16 tests) — la máquina de estados pura de §9.1/9.2 (labrar/plantar/listaParaCosechar/cosechar), lista para que la capa de Room solo la llame y persista.
+- `server/src/inventario/contenedorMuebles.ts` + `server/test/contenedorMuebles.test.ts` (7 tests) — el contenedor por capacidad de §8.3, mismo criterio.
+- Catálogo (`items/catalogo/items.json`, +4 entradas, cada una con su `_nota` explícita "PENDIENTE de mecanismo de servidor"): `arnes_cuero`, `arnes_reforzado`, `azada_hierro`, `carreta_dos_plazas` — sin receta de crafteo TODAVÍA a propósito (a diferencia de la regla "todo lo inicial lleva receta" de la pasada anterior): craftear un ítem que hoy no hace nada al usarse sería engañoso, la receta se añade en el mismo commit que el mensaje que lo consume.
+- `items/catalogo/nombreBonito.js` ganó `arnes→arnés` (excepción de acento) y `carreta_dos_plazas` en `EXCEPCIONES_FRASE`.
+- `server/test/inventario.test.ts` actualizado (504→508).
+
+**Sigue TODO por hacer** (necesita un entorno con `node_modules` real — máquina del streamer o un sandbox distinto): todo lo que toca Colyseus — `ConjuntoTiroSchema`/`CarroSchema` en `HubState.ts`, los mensajes `mascota:ponerArnes`/`carro:colocar`/`enganchar`/`desenganchar`/`conjunto:montar`/`desmontar`/`apero:*`/`cultivoCasilla:*` en `RoomExteriorBase.ts`, la rama de velocidad nueva, el render de cliente. Las fases originales siguen siendo el plan:
+
+1. **Fase 1 — cimientos**: `mascota:ponerArnes`, `carro:colocar`/`enganchar`/`desenganchar`, `ConjuntoTiroSchema`, rama de velocidad nueva, `conjunto:montar`/`desmontar` con `carreta_dos_plazas` (ya en catálogo). Verificado con e2e real (mismo criterio que `combate.e2e.mjs`/`agroFauna.e2e.mjs`) antes de seguir.
 2. **Fase 2 — categorías de carga**: materiales, muebles (con el `ContenedorMuebles` nuevo), animales, líquidos (con `verterLiquido`), sobre la base ya probada en fase 1.
-3. **Fase 3 — aperos**: arado, cultivadora (y las 3 ampliaciones de §10 si se aprueban), sobre `cultivo:plantar`/`cosechar`/`regar` ya existentes.
+3. **Fase 3 — agricultura de casilla + aperos**: azada + `cultivoCasilla:labrar/plantar/cosechar` (§9.1-9.2) primero, verificado a mano ANTES de automatizarlo — luego arado/cultivadora (§9.3) montados sobre esa base ya probada, y las ampliaciones de §10 si se aprueban.
 4. **Fase 4 — niveles/catálogo completo**: el resto de tamaños/materiales/colores por categoría, `carruaje_noble_5` a nivel 4.
 5. **Fase 5 — trabajador de transporte**: asignación de montura/conjunto propio.
 

@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 504); // 468 (ver historial en commits anteriores) + 28 (docs/GDD_Equipo.md §10, 2026-09-01: 4 armadura tier "madera" + 6 escudos incl. bonificados + 12 armas nuevas incl. bonificadas + 6 ropa civil por oficio) + 8 (docs/GDD_Equipo.md §11, 2026-09-02: ropa por clase social — 2 prendas por parte del cuerpo y por riqueza, cerraba el hueco de piernas/cabeza noble que antes tenían 0)
+  assert.strictEqual(ids.length, 508); // 504 (ver historial en commits anteriores) + 4 (docs/GDD_Carros.md, propuesta 2026-09-04: arnes_cuero/arnes_reforzado/azada_hierro/carreta_dos_plazas — catálogo PENDIENTE de mecanismo de servidor, ver _nota de cada entrada)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");
