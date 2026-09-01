@@ -113,6 +113,39 @@ export interface NpcTutorialColocado {
 }
 
 /**
+ * NPC trabajador contratado (docs/GDD_NPCs_Contratables.md, pedido
+ * 2026-09-01): un Npc real, con 1+ oficios, asignado por su dueño a una
+ * mesa (`construccionId`) y opcionalmente a una receta que craftea solo
+ * (`recetaId`). `fechaContratacionDia`/`ultimoPagoDia` son DÍAS DE MUNDO
+ * (`tiempoMundo().dia`), nunca timestamps reales — el salario mensual se
+ * resuelve perezosamente comparando estos contra el día actual (ver
+ * `server/src/construccion/trabajadores.ts::resolverPayroll`).
+ */
+export interface NpcTrabajador {
+  id: number;
+  mapaId: string;
+  duenoId: number;
+  nombre: string;
+  oficios: string[];
+  construccionId: number | null;
+  recetaId: string | null;
+  x: number;
+  y: number;
+  fechaContratacionDia: number;
+  ultimoPagoDia: number;
+}
+
+export interface NuevoNpcTrabajador {
+  mapaId: string;
+  duenoId: number;
+  nombre: string;
+  oficios: string[];
+  x: number;
+  y: number;
+  diaActual: number;
+}
+
+/**
  * Cuenta de admin (docs/GDD_Admin.md, pedido 2026-08-30) — identidad
  * SEPARADA de `Jugador` (que es libre/mutable por nombre de PJ): esto es
  * una cuenta real, con contraseña propia y/o un login de Twitch ya
@@ -621,6 +654,21 @@ export interface IAlmacenDatos {
   /** `true` si de verdad había una fila con ese id (para que el admin sepa si el id ya no existía). */
   quitarNpcTutorial(id: number): Promise<boolean>;
 
+  // --- NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido 2026-09-01) ---
+  /** Alta: nace en la posición del reclutador, sin mesa ni receta (el jugador las asigna después). */
+  contratarNpcTrabajador(datos: NuevoNpcTrabajador): Promise<NpcTrabajador>;
+  /** Todos los trabajadores (de cualquier dueño) persistidos de un mapa — para recrearlos al arrancar la room. */
+  listarNpcsTrabajadoresDeMapa(mapaId: string): Promise<NpcTrabajador[]>;
+  /** Los trabajadores de UN jugador — para el panel del reclutador y para resolver el pago mensual en bloque. */
+  listarNpcsTrabajadoresDeJugador(duenoId: number): Promise<NpcTrabajador[]>;
+  /** `false` si `construccionId` ya no existe como fila — validado por quien llama, no aquí (esta capa no conoce ConstruccionViva). */
+  asignarMesaNpcTrabajador(id: number, construccionId: number, x: number, y: number): Promise<boolean>;
+  asignarRecetaNpcTrabajador(id: number, recetaId: string | null): Promise<boolean>;
+  /** Pone `ultimoPagoDia = dia` a la vez para varios trabajadores — el pago mensual se cobra "de golpe" a todo el grupo (docs/GDD_NPCs_Contratables.md). */
+  marcarPagoNpcTrabajador(ids: number[], dia: number): Promise<void>;
+  /** Despido/eliminación (a mano por el dueño, o automático por impago) — `false` si el id ya no existía. */
+  despedirNpcTrabajador(id: number): Promise<boolean>;
+
   obtenerFarycoins(jugadorId: number): Promise<number>;
   /** Suma (delta>0) o resta (delta<0) Farycoins de un jugador, TODO O NADA:
    * si restar dejaría el saldo negativo, no toca nada y `ok:false` — mismo
@@ -1066,6 +1114,36 @@ CREATE TABLE IF NOT EXISTS contratos_transporte (
 );
 CREATE INDEX IF NOT EXISTS idx_contratos_origen ON contratos_transporte(origen_construccion_id);
 CREATE INDEX IF NOT EXISTS idx_contratos_destino ON contratos_transporte(destino_tenderete_id);
+-- NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido
+-- 2026-09-01): un NPC real por fila, contratado desde el reclutador de la
+-- capital, con 1+ oficios (JSON de strings — más oficios, más caro, ver
+-- costeContratacionTrabajador en construccion/trabajadores.ts), asignado por
+-- su dueño a UNA mesa de construcción (construccion_id, NULL = recién
+-- contratado, todavía sin mesa) y opcionalmente una receta que craftea solo
+-- (receta_id, NULL = sin asignar, no hace nada todavía). x/y son su
+-- posición actual en el mundo (la del reclutador al contratar; la de la
+-- mesa tras asignarla — GestorAgentes lo trata como "NPC fijo", mismo
+-- mecanismo que npcs_tutoriales, sin caminar hasta allí — regla dura de
+-- agentes.ts: nunca A* en vivo). fecha_contratacion_dia/ultimo_pago_dia son
+-- DÍAS DE MUNDO (tiempoMundo().dia), no timestamps reales — el salario
+-- mensual se resuelve perezosamente comparando estos contra el día actual
+-- (resolverPayroll, mismo patrón que resolverIngresoDiarioNpc).
+CREATE TABLE IF NOT EXISTS npcs_trabajadores (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  mapa_id TEXT NOT NULL,
+  dueno_id INTEGER NOT NULL,             -- FK jugadores.id
+  nombre TEXT NOT NULL,
+  oficios TEXT NOT NULL,                 -- JSON string[] — subconjunto de OFICIOS_JUGADOR_VALIDOS
+  construccion_id INTEGER,               -- FK construcciones.id — mesa asignada, NULL = sin asignar
+  receta_id TEXT,                        -- id de items/catalogo/recetas.json — receta que craftea solo, NULL = sin asignar
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  fecha_contratacion_dia INTEGER NOT NULL,
+  ultimo_pago_dia INTEGER NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_dueno ON npcs_trabajadores(dueno_id);
+CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_mapa ON npcs_trabajadores(mapa_id);
 -- Crafteo (docs/GDD_Crafteo.md, pedido 2026-08-29): XP por oficio — el nivel
 -- se DERIVA de esto en código puro, nunca se persiste el nivel en sí.
 CREATE TABLE IF NOT EXISTS jugador_oficios (
@@ -1503,6 +1581,23 @@ CREATE TABLE IF NOT EXISTS contratos_transporte (
 );
 CREATE INDEX IF NOT EXISTS idx_contratos_origen ON contratos_transporte(origen_construccion_id);
 CREATE INDEX IF NOT EXISTS idx_contratos_destino ON contratos_transporte(destino_tenderete_id);
+-- NPCs trabajadores contratables — ver comentario gemelo en MIGRACIONES_SQLITE.
+CREATE TABLE IF NOT EXISTS npcs_trabajadores (
+  id SERIAL PRIMARY KEY,
+  mapa_id TEXT NOT NULL,
+  dueno_id INTEGER NOT NULL,
+  nombre TEXT NOT NULL,
+  oficios TEXT NOT NULL,
+  construccion_id INTEGER,
+  receta_id TEXT,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  fecha_contratacion_dia INTEGER NOT NULL,
+  ultimo_pago_dia INTEGER NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_dueno ON npcs_trabajadores(dueno_id);
+CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_mapa ON npcs_trabajadores(mapa_id);
 CREATE TABLE IF NOT EXISTS jugador_oficios (
   jugador_id INTEGER NOT NULL,
   oficio TEXT NOT NULL,
@@ -2150,6 +2245,60 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async quitarNpcTutorial(id: number): Promise<boolean> {
     const r = this.bd.prepare("DELETE FROM npcs_tutoriales WHERE id = ?").run(id);
+    return Number(r.changes) > 0;
+  }
+
+  private filaATrabajador(f: Record<string, unknown>): NpcTrabajador {
+    return {
+      id: Number(f.id), mapaId: String(f.mapa_id), duenoId: Number(f.dueno_id), nombre: String(f.nombre),
+      oficios: JSON.parse(String(f.oficios)), construccionId: f.construccion_id == null ? null : Number(f.construccion_id),
+      recetaId: f.receta_id == null ? null : String(f.receta_id), x: Number(f.x), y: Number(f.y),
+      fechaContratacionDia: Number(f.fecha_contratacion_dia), ultimoPagoDia: Number(f.ultimo_pago_dia),
+    };
+  }
+
+  async contratarNpcTrabajador(datos: NuevoNpcTrabajador): Promise<NpcTrabajador> {
+    const creadoEn = new Date().toISOString();
+    const r = this.bd
+      .prepare(
+        `INSERT INTO npcs_trabajadores (mapa_id, dueno_id, nombre, oficios, construccion_id, receta_id, x, y, fecha_contratacion_dia, ultimo_pago_dia, creado_en)
+         VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?)`,
+      )
+      .run(datos.mapaId, datos.duenoId, datos.nombre, JSON.stringify(datos.oficios), datos.x, datos.y, datos.diaActual, datos.diaActual, creadoEn);
+    return {
+      id: Number(r.lastInsertRowid), mapaId: datos.mapaId, duenoId: datos.duenoId, nombre: datos.nombre, oficios: datos.oficios,
+      construccionId: null, recetaId: null, x: datos.x, y: datos.y, fechaContratacionDia: datos.diaActual, ultimoPagoDia: datos.diaActual,
+    };
+  }
+
+  async listarNpcsTrabajadoresDeMapa(mapaId: string): Promise<NpcTrabajador[]> {
+    const filas = this.bd.prepare("SELECT * FROM npcs_trabajadores WHERE mapa_id = ? ORDER BY id").all(mapaId);
+    return filas.map((f) => this.filaATrabajador(f));
+  }
+
+  async listarNpcsTrabajadoresDeJugador(duenoId: number): Promise<NpcTrabajador[]> {
+    const filas = this.bd.prepare("SELECT * FROM npcs_trabajadores WHERE dueno_id = ? ORDER BY id").all(duenoId);
+    return filas.map((f) => this.filaATrabajador(f));
+  }
+
+  async asignarMesaNpcTrabajador(id: number, construccionId: number, x: number, y: number): Promise<boolean> {
+    const r = this.bd.prepare("UPDATE npcs_trabajadores SET construccion_id = ?, x = ?, y = ? WHERE id = ?").run(construccionId, x, y, id);
+    return Number(r.changes) > 0;
+  }
+
+  async asignarRecetaNpcTrabajador(id: number, recetaId: string | null): Promise<boolean> {
+    const r = this.bd.prepare("UPDATE npcs_trabajadores SET receta_id = ? WHERE id = ?").run(recetaId, id);
+    return Number(r.changes) > 0;
+  }
+
+  async marcarPagoNpcTrabajador(ids: number[], dia: number): Promise<void> {
+    if (ids.length === 0) return;
+    const stmt = this.bd.prepare("UPDATE npcs_trabajadores SET ultimo_pago_dia = ? WHERE id = ?");
+    for (const id of ids) stmt.run(dia, id);
+  }
+
+  async despedirNpcTrabajador(id: number): Promise<boolean> {
+    const r = this.bd.prepare("DELETE FROM npcs_trabajadores WHERE id = ?").run(id);
     return Number(r.changes) > 0;
   }
 
@@ -3589,6 +3738,57 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async quitarNpcTutorial(id: number): Promise<boolean> {
     const r = await this.pool.query("DELETE FROM npcs_tutoriales WHERE id = $1", [id]);
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  private filaATrabajador(f: { id: number; mapa_id: string; dueno_id: number; nombre: string; oficios: string; construccion_id: number | null; receta_id: string | null; x: number; y: number; fecha_contratacion_dia: number; ultimo_pago_dia: number }): NpcTrabajador {
+    return {
+      id: f.id, mapaId: f.mapa_id, duenoId: f.dueno_id, nombre: f.nombre, oficios: JSON.parse(f.oficios),
+      construccionId: f.construccion_id, recetaId: f.receta_id, x: f.x, y: f.y,
+      fechaContratacionDia: f.fecha_contratacion_dia, ultimoPagoDia: f.ultimo_pago_dia,
+    };
+  }
+
+  async contratarNpcTrabajador(datos: NuevoNpcTrabajador): Promise<NpcTrabajador> {
+    const creadoEn = new Date().toISOString();
+    const r = await this.pool.query<{ id: number }>(
+      `INSERT INTO npcs_trabajadores (mapa_id, dueno_id, nombre, oficios, construccion_id, receta_id, x, y, fecha_contratacion_dia, ultimo_pago_dia, creado_en)
+       VALUES ($1, $2, $3, $4, NULL, NULL, $5, $6, $7, $7, $8) RETURNING id`,
+      [datos.mapaId, datos.duenoId, datos.nombre, JSON.stringify(datos.oficios), datos.x, datos.y, datos.diaActual, creadoEn],
+    );
+    return {
+      id: r.rows[0].id, mapaId: datos.mapaId, duenoId: datos.duenoId, nombre: datos.nombre, oficios: datos.oficios,
+      construccionId: null, recetaId: null, x: datos.x, y: datos.y, fechaContratacionDia: datos.diaActual, ultimoPagoDia: datos.diaActual,
+    };
+  }
+
+  async listarNpcsTrabajadoresDeMapa(mapaId: string): Promise<NpcTrabajador[]> {
+    const r = await this.pool.query("SELECT * FROM npcs_trabajadores WHERE mapa_id = $1 ORDER BY id", [mapaId]);
+    return r.rows.map((f) => this.filaATrabajador(f));
+  }
+
+  async listarNpcsTrabajadoresDeJugador(duenoId: number): Promise<NpcTrabajador[]> {
+    const r = await this.pool.query("SELECT * FROM npcs_trabajadores WHERE dueno_id = $1 ORDER BY id", [duenoId]);
+    return r.rows.map((f) => this.filaATrabajador(f));
+  }
+
+  async asignarMesaNpcTrabajador(id: number, construccionId: number, x: number, y: number): Promise<boolean> {
+    const r = await this.pool.query("UPDATE npcs_trabajadores SET construccion_id = $1, x = $2, y = $3 WHERE id = $4", [construccionId, x, y, id]);
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async asignarRecetaNpcTrabajador(id: number, recetaId: string | null): Promise<boolean> {
+    const r = await this.pool.query("UPDATE npcs_trabajadores SET receta_id = $1 WHERE id = $2", [recetaId, id]);
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async marcarPagoNpcTrabajador(ids: number[], dia: number): Promise<void> {
+    if (ids.length === 0) return;
+    await this.pool.query("UPDATE npcs_trabajadores SET ultimo_pago_dia = $1 WHERE id = ANY($2::int[])", [dia, ids]);
+  }
+
+  async despedirNpcTrabajador(id: number): Promise<boolean> {
+    const r = await this.pool.query("DELETE FROM npcs_trabajadores WHERE id = $1", [id]);
     return (r.rowCount ?? 0) > 0;
   }
 
