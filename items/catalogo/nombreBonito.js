@@ -20,6 +20,8 @@
 // ---- Frases completas ya fijadas a mano (compuestos donde la regla genérica no basta: orden de palabras, "de la"/"del", términos ya asentados) ----
 const EXCEPCIONES_FRASE = {
   carreta_dos_plazas: "Carreta de Dos Plazas",
+  diligencia_4: "Diligencia de Cuatro Plazas",
+  carruaje_noble_5: "Carruaje Noble de Cinco Plazas",
   carne_caza_mayor: "Carne de Caza Mayor",
   herradura_suerte: "Herradura de la Suerte",
   mortero_mano: "Mortero de Mano",

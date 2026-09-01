@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 517); // 515 (ver historial en commits anteriores) + 2 (docs/GDD_Carros.md §9.3/§14 Fase 3b, 2026-09-04: arado_madera, cultivadora_semillas)
+  assert.strictEqual(ids.length, 519); // 517 (ver historial en commits anteriores) + 2 (docs/GDD_Carros.md §8.1/§11/§14 Fase 4, 2026-09-04: diligencia_4, carruaje_noble_5)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

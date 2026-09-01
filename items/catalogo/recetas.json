@@ -2570,5 +2570,34 @@
     "resultado": { "itemId": "cultivadora_semillas", "cantidad": 1 },
     "tiempoBaseSeg": 70,
     "_nota": "docs/GDD_Carros.md §9.3/§11/§14 Fase 3b (2026-09-04) — receta añadida en el mismo commit que apero:comenzarCultivar (su mecanismo de servidor)."
+  },
+  "diligencia_4_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 12 },
+      { "itemId": "lingote_hierro", "cantidad": 6 },
+      { "itemId": "clavos", "cantidad": 18 },
+      { "itemId": "tela_hilada", "cantidad": 4 }
+    ],
+    "resultado": { "itemId": "diligencia_4", "cantidad": 1 },
+    "tiempoBaseSeg": 110,
+    "_nota": "docs/GDD_Carros.md §8.1/§11/§14 Fase 4 (2026-09-04) — tela_hilada por la capota, mismo criterio que barco_1_construido."
+  },
+  "carruaje_noble_5_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 4,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 18 },
+      { "itemId": "lingote_hierro", "cantidad": 10 },
+      { "itemId": "clavos", "cantidad": 24 },
+      { "itemId": "tela_hilada", "cantidad": 6 },
+      { "itemId": "cuero_curtido", "cantidad": 4 }
+    ],
+    "resultado": { "itemId": "carruaje_noble_5", "cantidad": 1 },
+    "tiempoBaseSeg": 160,
+    "_nota": "docs/GDD_Carros.md §8.1/§11/§14 Fase 4 (2026-09-04) — el más caro del catálogo, nivel 4. tela_hilada (capota) + cuero_curtido (tapizado interior)."
   }
 }
