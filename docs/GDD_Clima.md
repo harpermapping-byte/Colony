@@ -329,11 +329,26 @@ sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
   alrededor de cada roca/árbol/casilla suelta — paredes "locales" (por
   ejemplo alrededor de cada charca) necesitarían geometría por chunk o
   contornos reales, fuera de alcance de un placeholder.
-  Verificado con capturas a nivel fijo (`?nieve=N` por URL, mismo criterio
-  que `?dia=`/`?hora=`, solo depuración) sobre el MISMO día/hora/clima
-  base — comparar nieve real por día de calendario salía "sucio" porque
-  cada día puede tener un clima de fondo distinto e independiente del
-  nivel de nieve.
+
+  **Cómo se verificó de verdad esto** (dos afirmaciones sobre este mismo
+  párrafo salieron mal a la primera intentando comprobarlas sobre el
+  mapa demo — corregido, ver abajo): el mapa demo es UN sector entero
+  (48x48, `tamanoSectorChunks=10` ⇒ sector=240 casillas), así que su
+  borde real cae bien fuera de lo que la cámara ve desde el spawn — nunca
+  pudo haberse visto en esas capturas, y lo que se señaló como "el muro"
+  en una esquina era en realidad una roca del terreno, sin relación con
+  la nieve. Andar hasta el borde de verdad tampoco sirvió de prueba
+  limpia (el mapa demo tiene obstáculos que cortan el camino recto).
+  La verificación real es `client/test/nieveAislado.ts` +
+  `nieveAisladoCaptura.mjs`: un sector sintético mínimo (16x16, sin mapa
+  ni servidor de por medio) renderizado con la función pública real
+  (`crearSectorVisual`) junto a un cubo con la altura exacta de una
+  persona (`proporcionesRig.json`) — confirma con capturas limpias que
+  (a) el borde EXTERIOR del sector sí tiene una cara vertical opaca real,
+  con altura comparable a la del cubo de referencia hasta bien pasada la
+  mitad, y (b) el borde INTERIOR entre hierba y agua NO tiene pared: la
+  cara de arriba simplemente se corta (alfa 0) y se ve lo que hay debajo,
+  sin geometría de pared — confirma la limitación tal cual está descrita.
 - **Hielo**: las casillas de agua se pintan de un tono frío opaco
   (`COLOR_HIELO`) en vez del agua translúcida de siempre, en el mismo
   bucle. **Simplificación documentada**: esto se decide con el nivel de
