@@ -466,25 +466,57 @@ function crearPlanoSector(
   return malla;
 }
 
-/** Opacidad + altura de la capa de nieve de UN plano ya creado, según el nivel (0..NIVEL_MAXIMO_NIEVE) — nunca reconstruye geometría/textura. */
-function aplicarNivelNieveAPlano(plano: THREE.Mesh, nivel: number): void {
-  const material = plano.material as THREE.MeshStandardMaterial;
+/**
+ * Caja de nieve de UN sector (docs/GDD_Clima.md, pedido del streamer:
+ * "tienen que verse caras verticales, no solo el plano" — un plano no
+ * tiene lados, así que nunca se lee como un banco de nieve con volumen).
+ * `BoxGeometry` de altura 1 (se reescala en Y, nunca se reconstruye):
+ * cara de ARRIBA con la textura de máscara de siempre (excluye agua/hielo
+ * por alfa), caras laterales de un blanco sólido — se ven en el borde del
+ * sector, dando esa sensación de "banco" con lados reales en vez de una
+ * alfombra flotando. Limitación conocida (documentada, no un bug): al ser
+ * UNA caja por sector entero (no por casilla, sería carísimo) los muros
+ * verticales solo se notan en el BORDE del sector, no alrededor de cada
+ * roca/árbol/casilla suelta.
+ */
+function crearCajaNieveSector(canvas: HTMLCanvasElement, ancho: number, alto: number): THREE.Mesh {
+  const textura = new THREE.CanvasTexture(canvas);
+  textura.magFilter = THREE.NearestFilter;
+  textura.minFilter = THREE.NearestFilter;
+  textura.colorSpace = THREE.SRGBColorSpace;
+  const arriba = new THREE.MeshStandardMaterial({ map: textura, roughness: 1, metalness: 0, transparent: true, depthWrite: false });
+  const lado = new THREE.MeshStandardMaterial({ color: 0xf1f5f7, roughness: 1, metalness: 0, transparent: true, depthWrite: false });
+  // Grupos de BoxGeometry por defecto: 0=+x, 1=-x, 2=+y(arriba), 3=-y(abajo), 4=+z, 5=-z.
+  const caja = new THREE.Mesh(new THREE.BoxGeometry(ancho, 1, alto), [lado, lado, arriba, lado, lado, lado]);
+  caja.receiveShadow = true;
+  caja.castShadow = true;
+  caja.userData.propioDelSector = true;
+  return caja;
+}
+
+/** Opacidad + altura de la caja de nieve ya creada, según el nivel (0..NIVEL_MAXIMO_NIEVE) — reescala en Y y reposiciona, nunca reconstruye geometría/textura. */
+function aplicarNivelNieveACaja(caja: THREE.Mesh, nivel: number): void {
+  const materiales = caja.material as THREE.MeshStandardMaterial[];
   const fraccion = Math.max(0, Math.min(1, nivel / NIVEL_MAXIMO_NIEVE));
-  material.opacity = OPACIDAD_MAX_NIEVE * fraccion;
-  plano.position.y = ALTURA_MAX_NIEVE * fraccion;
-  plano.visible = nivel > 0;
+  const altura = Math.max(0.001, ALTURA_MAX_NIEVE * fraccion); // escala 0 rompe la malla (matriz no invertible)
+  for (const m of materiales) m.opacity = OPACIDAD_MAX_NIEVE * fraccion;
+  caja.scale.y = altura;
+  caja.position.y = altura / 2; // BoxGeometry centrada — la base se queda pegada a y=0
+  caja.visible = nivel > 0;
 }
 
 // Hielo (docs/GDD_Clima.md): agua con nieve acumulada encima — sustituye
 // el tono translúcido de AGUAS por un tono opaco frío, mismo criterio que
 // el resto de esta tabla (placeholder de color, sin textura real todavía).
 const COLOR_HIELO = new THREE.Color(0xcfe4ec);
-// Capa de nieve en tierra: blanco simple, opacidad y altura crecientes con
-// el nivel (0..NIVEL_MAXIMO_NIEVE) — PLACEHOLDER (docs/GDD_Clima.md §nieve
-// visual): un plano semitransparente por sector, nunca una malla por
-// casilla (sería carísimo). Nunca cubre agua/hielo (ver más abajo).
+// Capa de nieve en tierra: opacidad y altura crecientes con el nivel
+// (0..NIVEL_MAXIMO_NIEVE) — PLACEHOLDER (docs/GDD_Clima.md §nieve
+// visual). Altura calibrada contra `proporcionesRig.json` (altoPierna
+// 0.7 = hasta la cintura): nivel1 ~ tobillos, nivel4 ~ un poco por
+// encima de la cintura — pedido explícito "más altura, no llega ni a la
+// cintura" (la primera versión, 0.22, se quedaba muy corta).
 const OPACIDAD_MAX_NIEVE = 0.85;
-const ALTURA_MAX_NIEVE = 0.22;
+const ALTURA_MAX_NIEVE = 0.95;
 
 function crearTerrenoSector(
   indice: IndiceMapa,
@@ -601,22 +633,23 @@ function crearTerrenoSector(
   planoSuelo.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
   grupo.add(planoFondo, planoSuelo);
 
-  // Capa de nieve (docs/GDD_Clima.md): mismo plano/textura que el suelo,
-  // la máscara ya excluye agua/hielo. Opacidad/altura arrancan acordes al
-  // nivel de HOY; `actualizarNieveSector` las retoca sin reconstruir nada
-  // cuando el nivel global cambie mientras el sector siga materializado.
+  // Capa de nieve (docs/GDD_Clima.md): misma máscara que excluye agua/hielo
+  // de siempre, pero como CAJA (crearCajaNieveSector) en vez de plano — se
+  // ven las caras laterales, no solo una alfombra flotando. Opacidad/altura
+  // arrancan acordes al nivel de HOY; `actualizarNieveSector` las retoca
+  // sin reconstruir nada cuando el nivel global cambie mientras el sector
+  // siga materializado.
   const nieveFinal = margenVisual > 0 ? extenderConMargenClamp(nieveCanvas, margenVisual) : nieveCanvas;
-  const planoNieve = crearPlanoSector(nieveFinal, anchoFinal, altoFinal, true);
-  planoNieve.name = "capaNieve";
-  planoNieve.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
-  // `renderOrder` explícito: dos planos transparentes casi a la misma
-  // altura (suelo y nieve) pueden ordenarse mal en la pasada de
-  // transparencia de Three (por distancia a cámara, no por orden de
-  // escena) y la nieve queda invisible por debajo del suelo. Forzar que
-  // la nieve se dibuje SIEMPRE después del suelo (orden 0) lo evita.
-  planoNieve.renderOrder = 1;
-  aplicarNivelNieveAPlano(planoNieve, nivelNieveActual);
-  grupo.add(planoNieve);
+  const cajaNieve = crearCajaNieveSector(nieveFinal, anchoFinal, altoFinal);
+  cajaNieve.name = "capaNieve";
+  cajaNieve.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
+  // `renderOrder` explícito: por debajo del nivel 1 la caja tiene casi
+  // altura 0 y puede competir con el plano de suelo (misma clase de
+  // problema de orden de transparencia que tenía el plano) — forzarlo a
+  // dibujarse siempre después del suelo lo evita en cualquier nivel.
+  cajaNieve.renderOrder = 1;
+  aplicarNivelNieveACaja(cajaNieve, nivelNieveActual);
+  grupo.add(cajaNieve);
 
   if (margenVisual > 0) {
     // margenVisual>0 hoy SOLO pasa en arenas (game.ts) — ver crearRejillaTactica.
@@ -907,6 +940,6 @@ export function soltarSectorVisual(handle: HandleSector): void {
 
 /** Retoca opacidad/altura de la capa de nieve de un sector YA materializado, sin reconstruir nada — llamar cuando el nivel global de nieve cambie (docs/GDD_Clima.md, una vez por día de mundo). No-op si este sector no tiene capa de nieve (arenas/mazmorras u otro caso raro). */
 export function actualizarNieveSector(handle: HandleSector, nivel: number): void {
-  const plano = handle.grupo.getObjectByName("capaNieve") as THREE.Mesh | undefined;
-  if (plano) aplicarNivelNieveAPlano(plano, nivel);
+  const caja = handle.grupo.getObjectByName("capaNieve") as THREE.Mesh | undefined;
+  if (caja) aplicarNivelNieveACaja(caja, nivel);
 }

@@ -300,29 +300,40 @@ seguido: el nivel cambia como mucho una vez por día de mundo.
 Todo PLACEHOLDER (mismo criterio que el resto del arte del proyecto — se
 sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
 
-- **Capa de nieve** (`client/src/render3d/sectorVisual.ts`): un plano
-  semitransparente MÁS por sector (no una malla por casilla — carísimo),
-  construido en el mismo bucle que ya pinta el canvas de terreno,
-  excluyendo agua/hielo por máscara (alfa 0 en esos píxeles). Opacidad
-  (hasta 0.85) y altura (hasta 0.22) suben linealmente con el nivel
-  0..4 — nunca se reconstruye la geometría/textura al cambiar de nivel,
-  solo se retocan esas dos propiedades (`actualizarNieveSector`,
-  `aplicarNivelNieveAPlano`), así que actualizar TODOS los sectores
-  cargados cuando cambia el nivel global (una vez al día, `game.ts` lo
-  comprueba cada 15s) es barato. Se libera con el mismo mecanismo de
-  limpieza de GPU que ya tenía el resto de `sectorVisual.ts`
-  (`userData.propioDelSector`). **Bug real encontrado al enseñarle
-  capturas al streamer** (dos planos transparentes casi a la misma altura
-  — suelo y nieve — se ordenan por distancia a cámara en la pasada de
-  transparencia de Three, no por orden de escena, y la nieve podía quedar
-  invisible por debajo del suelo): `planoNieve.renderOrder = 1` fuerza que
-  se dibuje siempre DESPUÉS del suelo. Verificado con capturas a nivel
-  fijo (`?nieve=N` por URL, mismo criterio que `?dia=`/`?hora=`, solo
-  depuración) sobre el MISMO día/hora/clima base — comparar nieve real por
-  día de calendario salía "sucio" porque cada día puede tener un clima de
-  fondo distinto e independiente del nivel de nieve, así que antes de este
-  ajuste la comparación confundía el cambio de clima del día con el efecto
-  de la nieve.
+- **Capa de nieve** (`client/src/render3d/sectorVisual.ts`): UNA `BoxGeometry`
+  por sector (no una malla por casilla — carísimo), no un plano — pedido
+  explícito del streamer tras ver la primera versión ("tiene que verse
+  también caras verticales, no solo el plano, y más altura, no llega ni a
+  la cintura"). `crearCajaNieveSector`: cara de ARRIBA con la textura de
+  máscara construida en el mismo bucle que ya pinta el canvas de terreno
+  (excluye agua/hielo por alfa 0), caras LATERALES de un blanco sólido —
+  se ven en el borde del sector como un escalón/banco real, no una
+  alfombra flotando. Altura recalibrada contra `client/src/render3d/
+  proporcionesRig.json` (`altoPierna=0.7` = hasta la cintura del rig):
+  `ALTURA_MAX_NIEVE=0.95` (antes 0.22, se quedaba muy corta) — al nivel
+  máximo las piernas del jugador/NPC quedan visualmente hundidas en la
+  nieve hasta bien pasada la cintura, verificado con capturas recortadas
+  junto a un NPC. Opacidad (hasta 0.85) y altura suben linealmente con el
+  nivel 0..4 reescalando `scale.y`/`position.y` de la caja — nunca se
+  reconstruye geometría/textura al cambiar de nivel
+  (`actualizarNieveSector`/`aplicarNivelNieveACaja`), así que actualizar
+  TODOS los sectores cargados cuando cambia el nivel global (una vez al
+  día, `game.ts` lo comprueba cada 15s) sigue siendo barato. Se libera con
+  el mismo mecanismo de limpieza de GPU que ya tenía el resto de
+  `sectorVisual.ts` (`userData.propioDelSector`, ya soportaba array de
+  materiales). `renderOrder=1` explícito (mismo motivo que el plano
+  anterior: a nivel bajo la caja es casi plana y puede competir con el
+  suelo en la pasada de transparencia).
+  **Limitación conocida** (documentada, no un bug): al ser UNA caja por
+  sector entero, el muro vertical solo se nota en el BORDE del sector, no
+  alrededor de cada roca/árbol/casilla suelta — paredes "locales" (por
+  ejemplo alrededor de cada charca) necesitarían geometría por chunk o
+  contornos reales, fuera de alcance de un placeholder.
+  Verificado con capturas a nivel fijo (`?nieve=N` por URL, mismo criterio
+  que `?dia=`/`?hora=`, solo depuración) sobre el MISMO día/hora/clima
+  base — comparar nieve real por día de calendario salía "sucio" porque
+  cada día puede tener un clima de fondo distinto e independiente del
+  nivel de nieve.
 - **Hielo**: las casillas de agua se pintan de un tono frío opaco
   (`COLOR_HIELO`) en vez del agua translúcida de siempre, en el mismo
   bucle. **Simplificación documentada**: esto se decide con el nivel de
