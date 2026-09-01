@@ -98,3 +98,36 @@ Pedido: ampliar el catálogo INICIAL de armadura/armas (no bakearlas/craftearlas
 - **Ropa civil por oficio**: 6 prendas nuevas en `ropa/catalogo/prendas.json` (torso, mismo patrón que las 7 ya existentes) para oficios de `profesiones.json` que hasta ahora solo caían al "comun" genérico — `delantal_herrero`, `mandil_carpintero`, `tunica_molinero`, `delantal_curtidor`, `tunica_alfarero`, `chaleco_tabernero` — y su contrapartida 1:1 equipable por el jugador en `items.json` (mismo criterio que `camisa_lino_campesina`/`tabardo_guardia`: `prendaId` apunta al id de `prendas.json`, NO a `equipo.json`, porque coinciden 1:1 — el generador rico de NPCs sirve tal cual para el jugador).
 - **Recuento de catálogo**: `items/catalogo/items.json` pasa de 468 a 496 entradas reales (28 nuevas: 4 armadura madera + 6 escudos + 12 armas + 6 ropa civil) — actualizado en `server/test/inventario.test.ts`.
 - **Verificado**: los 3 JSON parsean; `generarPieza`/`ropa/src/generarEquipo.js` genera vóxeles reales para las 8 piezas nuevas de armadura/escudo con su material declarado; `calcularStatsEquipo` simulado suma `defensaFisica` de un escudo en `manoSecundaria` junto con casco/pechera sin ningún cambio de código; suite pura de servidor en verde tras actualizar el recuento (`inventario.test.ts` 45/45, `interpretarPromptRopa.test.ts` 11/11).
+
+## 11. Recetas para el equipo inicial y ropa por clase social (pedido streamer 2026-09-02)
+
+Dos pedidos en el mismo mensaje: (1) *"si a la ropa y a todo debemos añadirle crafteo, al ser parte inicial del juego, todo lo que tengamos de inicio tendrá crafteo sí o sí (no materiales base, a partir de estos)"* — revierte la decisión de §10 de dejar las 28 entradas SIN receta; (2) *"habría que hacer más ropa según clase social — 2 por parte corporal de pobre / 2 de modesto / 2 de rico noble"*.
+
+### 11.1 Recetas para las 28 entradas de §10 (+ 1 hueco preexistente cerrado de paso)
+
+22 recetas nuevas en `items/catalogo/recetas.json` (las 28 entradas menos las 6 variantes `_bonificada`/`_bonificado`, que no se craftean directamente — salen del minijuego de forja de su receta base, mismo mecanismo que YA usaba el resto del catálogo). Mismo patrón de tier→oficio→mesa que ya regía:
+
+- **Tier madera** (armadura + armas primitivas de madera) → oficio `carpintero`, mesa `banco_carpintero`, insumo `madera_dura`, nivel 1, sin minijuego (igual que el tier cuero, que tampoco lo tiene).
+- **Tier cuero** (`escudo_cuero`) → oficio `curtidor`, mesa `tina_curtido`, insumo `cuero_curtido`, nivel 1.
+- **Tier piedra** (`cuchillo_piedra`, `hacha_piedra`) → oficio `picapedrero`, mesa `banco_clasificacion_cincelado` (la misma que ya usaba `piedra_honda_craft` en nivel 1), insumo `piedra_tallada`.
+- **Tier hierro/acero** (`escudo_hierro`/`escudo_acero`, `cimitarra`, `martillo_guerra`, `jabalina`, `tridente`) → oficio `herrero`, mesa según nivel (`yunque_cuerno` nivel 2, `martinete` nivel 4), insumo `lingote_hierro`/`acero`, CON minijuego de forja y `resultadoPerfecto` apuntando a la variante bonificada — mismo patrón que `daga_craft`/`casco_acero_craft`.
+- **Ropa civil por oficio** (las 6 de §10) → oficio `curtidor`, mesa `telar` (lino/lana) o `mesa_corte` (cuero), insumo `tela_hilada`/`cuero_curtido` — mismo patrón que `camisa_lino_campesina_craft`.
+- **Hueco preexistente cerrado de paso**: `camisa_seda_noble` (dada de alta 2026-08-30, antes de esta sesión) NUNCA había tenido receta — descubierto al auditar el catálogo para esta pasada. Se le dio `camisa_seda_noble_craft` (curtidor, telar, `tela_hilada` x4, nivel 3 — más caro que la ropa humilde/modesta, acorde a ser la única prenda noble de entonces).
+- **Verificado**: las 22 (+1) recetas nuevas validadas por script contra `items.json`/`interiores/catalogo/elementos.json` — cero `resultado`/`insumo`/`mesa` que no exista de verdad.
+
+### 11.2 Ropa por clase social — 2 prendas por parte del cuerpo y por riqueza, mínimo garantizado
+
+Auditoría antes de tocar nada: `torso` (humilde 5, modesta 8, **noble 1**), `piernas` (humilde 1, modesta 2, **noble 0**), `cabeza` (humilde 1, modesta 1, **noble 0**) — el hueco real estaba casi todo en NOBLE (piernas y cabeza no tenían NINGUNA prenda noble) y en las prendas "extra" de humilde/piernas y humilde/cabeza. 8 prendas nuevas en `ropa/catalogo/prendas.json` (genéricas, `tagsProfesion:["comun"]`, no atadas a un oficio) cierran exactamente lo que faltaba para que las 9 combinaciones (3 partes × 3 riquezas) tengan SIEMPRE ≥2 candidatas:
+
+- **Torso noble** (+1, ahora 2): `jubon_seda_noble` — mangas cortas, junto a `camisa_seda_noble` (mangas largas).
+- **Piernas humilde** (+1, ahora 2): `pantalon_lino_humilde` — corte recto y remendado, junto a `pantalon_lana_campesino`.
+- **Piernas noble** (+2, ahora 2): `calza_seda_noble` (ajustada) y `pantalon_lana_noble` (holgada, cinturón bordado) — antes CERO.
+- **Cabeza humilde** (+1, ahora 2): `panuelo_lino_humilde` — pañuelo plano, sin el borde vuelto del coif de `gorro_lino_campesino`.
+- **Cabeza modesta** (+1, ahora 2): `gorro_lana_modesta`.
+- **Cabeza noble** (+2, ahora 2): `tocado_seda_noble` y `gorro_piel_noble` (ribeteado, el más abrigado del catálogo) — antes CERO.
+
+Cada una con su contrapartida 1:1 equipable por el jugador en `items.json` (mismo criterio que el resto de ropa civil: `prendaId` apunta al id de `prendas.json`) y su receta en `recetas.json` (oficio `curtidor`, mesa `telar` salvo `gorro_piel_noble` que es `mesa_corte`+`cuero_curtido`). `items.json` pasa de 496 a 504 entradas — actualizado en `server/test/inventario.test.ts`.
+
+`nombreBonito.js` ganó `humilde`/`humildes`/`modesta`/`modesto`/`modestas`/`modestos` en `ADJETIVOS` (faltaban — sin ellos "Pantalón de Lino Humilde" salía como "Pantalón de Lino de Humilde", tratando la riqueza como si fuera un sustantivo).
+
+**Verificado**: script de auditoría confirma las 9 combinaciones parte×riqueza en ≥2 tras el cambio; `generarPrenda` real genera vóxeles para las 8 piezas nuevas con cada material declarado (0 errores); 780 generaciones de `generarPersonaje` (39 NPCs × 20 semillas) sin excepciones; `inventario.test.ts` 45/45 tras actualizar el recuento; `interpretarPromptRopa.test.ts`/`catalogoMonturas.test.ts` sin regresión.

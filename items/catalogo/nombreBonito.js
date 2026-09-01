@@ -145,6 +145,7 @@ const ADJETIVOS = new Set([
   "medicinal", "decorativa", "decorativo", "decorativos", "ornamental", "ornamentado",
   "mecanica", "mecanico", "automatica", "automata", "hidraulico", "manual", "portatil",
   "auxiliar", "completo", "completa", "continua", "continuo", "real", "noble", "nobles",
+  "humilde", "humildes", "modesta", "modesto", "modestas", "modestos",
   "legendario", "mitica", "mitico", "magico", "magicos", "exotica", "silvestre",
   "alquimica", "alquimico", "alquimicas", "alquimicos",
   "clara", "toxica", "vital", "inestable", "radiante",

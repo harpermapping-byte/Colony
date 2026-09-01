@@ -2322,5 +2322,87 @@
     "resultado": { "itemId": "chaleco_tabernero", "cantidad": 1 },
     "tiempoBaseSeg": 12,
     "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+
+  "camisa_seda_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 4 }],
+    "resultado": { "itemId": "camisa_seda_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02) — hueco preexistente cerrado de paso: camisa_seda_noble (dada de alta 2026-08-30) nunca había tenido receta. Nivel mínimo más alto y más insumos que la ropa humilde/modesta, acorde a ser la única prenda noble de entonces."
+  },
+  "jubon_seda_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 4 }],
+    "resultado": { "itemId": "jubon_seda_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02) — ampliación de vestuario por clase social, 'todo lo del catálogo inicial necesita receta'."
+  },
+  "pantalon_lino_humilde_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "pantalon_lino_humilde", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "calza_seda_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 3 }],
+    "resultado": { "itemId": "calza_seda_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "pantalon_lana_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 4 }],
+    "resultado": { "itemId": "pantalon_lana_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "panuelo_lino_humilde_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "panuelo_lino_humilde", "cantidad": 1 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "gorro_lana_modesta_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "gorro_lana_modesta", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "tocado_seda_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 3 }],
+    "resultado": { "itemId": "tocado_seda_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "gorro_piel_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "gorro_piel_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02) — cuero, no tela_hilada (material cuero en prendas.json)."
   }
 }
