@@ -13,8 +13,8 @@ import { EfectosClima } from "./climaVisual";
 // nunca depende de la profundidad de lo que haya detrás, así jamás llega
 // a taparlo del todo por mucho que se aleje la cámara.
 const OPACIDAD_POR_CLIMA: Record<string, number> = {
-  niebla: 0.18,
-  viento: 0.07, // el viento se nota sobre todo por el polvo moviéndose (climaVisual.ts), esta capa es solo un toque
+  niebla: 0.55,
+  viento: 0.22, // el viento se nota sobre todo por el polvo moviéndose (climaVisual.ts), esta capa es solo un toque
 };
 
 const TAMANO_MUNDO_VISIBLE = 16; // unidades de mundo visibles en el eje corto de la cámara
@@ -67,15 +67,17 @@ export class WorldScene {
     // Niebla/viento (docs/GDD_Clima.md): capa 2D lisa por ENCIMA del lienzo
     // 3D pero por DEBAJO de las etiquetas (insertBefore) — nunca satura a
     // sólido como hacía THREE.Fog. Degradado RADIAL (pedido del streamer:
-    // "el centro nítido, hacia los bordes más niebla"): transparente en el
-    // centro de la pantalla, sube hasta el máximo de esa capa en el borde;
-    // `style.opacity` (ver actualizar()) escala el degradado ENTERO según
-    // el clima, así el centro se queda siempre transparente sin importar
-    // la intensidad.
+    // "el centro nítido, hacia los bordes más niebla, que se note") —
+    // `ellipse farthest-side` (no `circle farthest-corner`) para que el
+    // degradado llegue a tope en los 4 bordes por igual, no solo en las
+    // esquinas; el tramo central (0-22%) se deja del todo transparente y
+    // el resto sube fuerte para que se note de verdad. `style.opacity`
+    // (ver actualizar()) escala el degradado ENTERO según el clima, así
+    // el centro se queda siempre despejado sin importar la intensidad.
     this.overlayClima = document.createElement("div");
     Object.assign(this.overlayClima.style, {
       position: "absolute", top: "0", left: "0", right: "0", bottom: "0",
-      background: "radial-gradient(circle at center, rgba(220,230,234,0) 0%, rgba(220,230,234,0.55) 65%, rgba(220,230,234,0.95) 100%)",
+      background: "radial-gradient(ellipse farthest-side at center, rgba(210,222,228,0) 0%, rgba(210,222,228,0) 22%, rgba(210,222,228,0.75) 78%, rgba(210,222,228,1) 100%)",
       opacity: "0", pointerEvents: "none", transition: "opacity 1.5s linear",
     });
     contenedor.insertBefore(this.overlayClima, this.labelRenderer.domElement);

@@ -341,14 +341,17 @@ sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
   sobre el lienzo (`overlayClima`, un `<div>` posicionado igual que el
   `CSS2DRenderer` de las etiquetas, por debajo de ellas) con un degradado
   RADIAL — nunca depende de la profundidad de lo que haya detrás, así
-  jamás llega a taparlo del todo. **Ajustado de nuevo 2026-09-01** (pedido
-  del streamer, "centro nítido, hacia los bordes más niebla"): el fondo es
-  `radial-gradient(circle at center, transparent 0%, ... 65%, ... 100%)`
-  — transparente en el centro de la pantalla, sube hasta el máximo hacia
-  el borde; `style.opacity` (0.18 niebla, 0.07 viento) escala el degradado
-  ENTERO por tipo de clima, así el centro se queda siempre despejado sin
-  importar la intensidad (el viento se nota sobre todo por el polvo
-  moviéndose, esta capa es solo un toque). `FACTOR_LUZ_CLIMA`
+  jamás llega a taparlo del todo. **Ajustado dos veces más 2026-09-01** (pedido del streamer, "centro
+  nítido, hacia los bordes más niebla, que se note"): el fondo es
+  `radial-gradient(ellipse farthest-side at center, transparent 0%,
+  transparent 22%, ... 78%, ... 100%)` — `ellipse farthest-side` (no
+  `circle farthest-corner`) para que el degradado llegue a tope en los 4
+  bordes de la pantalla por igual, no solo en las esquinas diagonales;
+  transparente del todo hasta el 22% central, sube fuerte a partir de ahí
+  hasta alfa 1 en el borde. `style.opacity` (0.55 niebla, 0.22 viento)
+  escala el degradado ENTERO por tipo de clima, así el centro se queda
+  siempre despejado sin importar la intensidad (el viento se nota sobre
+  todo por el polvo moviéndose, esta capa es solo un toque). `FACTOR_LUZ_CLIMA`
   (§4) gana la entrada `niebla: 0.75`. El polvo de viento
   (`climaVisual.ts`) también baja de opacidad (0.25→0.18, mismo pedido de
   "10/20% como mucho") y ahora sopla en una dirección determinista por
