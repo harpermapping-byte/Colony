@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 458); // 428 (ver historial: 388 + grasa + 33 cadáveres de caza + jarabe_catarro + 4 instrumentos musicales + mesa_ajedrez) + 30 variantes "_bonificado/a(s)" de armas/armaduras de herrero (docs/GDD_Crafteo.md §Minijuego de Herrería, 2026-09-01)
+  assert.strictEqual(ids.length, 459); // 428 (ver historial: 388 + grasa + 33 cadáveres de caza + jarabe_catarro + 4 instrumentos musicales + mesa_ajedrez) + camisa_seda_noble (docs/GDD_Ropa_Procedural.md §Sastre legendario) + 30 variantes "_bonificado/a(s)" de armas/armaduras de herrero (docs/GDD_Crafteo.md §Minijuego de Herrería, 2026-09-01)
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");
@@ -260,7 +260,7 @@ test("determinismo: mismo catálogo cargado dos veces da el mismo contenido (sin
 // --- Equipo (docs/GDD_Equipo.md, 2026-08-30) ---
 
 function jugadorVacio(): InventarioJugador {
-  return { cuerpo: crearContenedor(8, 6), extras: new Map(), equipo: {} };
+  return { cuerpo: crearContenedor(8, 6), extras: new Map(), equipo: {}, equipoBlueprintRopa: {} };
 }
 
 test("puedeEquiparEnSlot: un anillo vale para CUALQUIERA de las dos manos (GRUPOS_SLOT)", () => {
@@ -306,6 +306,35 @@ test("equiparItem con esContenedor: crea una rejilla PROPIA en extras, independi
   assert.ok(extra, "debería existir un Contenedor nuevo para 'espalda'");
   assert.strictEqual(extra!.ancho, catalogo["mochila_cuero"].esContenedor!.ancho);
   assert.strictEqual(extra!.alto, catalogo["mochila_cuero"].esContenedor!.alto);
+});
+
+test("equiparItem: si la instancia lleva prendaGeneradaId (sastre legendario), se refleja en equipoBlueprintRopa[slot]", () => {
+  const inv = jugadorVacio();
+  const { instancia } = agregarItem(inv.cuerpo, catalogo, "casco_hierro", 1);
+  instancia!.prendaGeneradaId = 42;
+  const res = equiparItem(inv, catalogo, instancia!.id, "casco");
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(inv.equipoBlueprintRopa["casco"], 42);
+});
+
+test("equiparItem: un ítem normal (sin prendaGeneradaId) NUNCA deja una entrada en equipoBlueprintRopa", () => {
+  const inv = jugadorVacio();
+  const { instancia } = agregarItem(inv.cuerpo, catalogo, "casco_hierro", 1);
+  const res = equiparItem(inv, catalogo, instancia!.id, "casco");
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(inv.equipoBlueprintRopa["casco"], undefined);
+});
+
+test("desequiparItem: la instancia que vuelve al cuerpo conserva el prendaGeneradaId que tenía al equiparse", () => {
+  const inv = jugadorVacio();
+  const { instancia } = agregarItem(inv.cuerpo, catalogo, "casco_hierro", 1);
+  instancia!.prendaGeneradaId = 7;
+  equiparItem(inv, catalogo, instancia!.id, "casco");
+  const res = desequiparItem(inv, catalogo, "casco");
+  assert.strictEqual(res.ok, true);
+  const devuelta = inv.cuerpo.items.find((it) => it.itemId === "casco_hierro");
+  assert.strictEqual(devuelta?.prendaGeneradaId, 7, "no debe perder el blueprint al quitárselo — si no, al volver a ponérselo se vería 'en blanco'");
+  assert.strictEqual(inv.equipoBlueprintRopa["casco"], undefined, "el slot ya no tiene nada equipado");
 });
 
 test("3 contenedores SIMULTÁNEOS (espalda+cinturon+bandolera) — cada uno con su propia rejilla independiente", () => {
@@ -361,7 +390,7 @@ test("desequiparItem: una mochila VACÍA sí se puede quitar, y su Contenedor ex
 });
 
 test("desequiparItem: rechaza sin destruir nada si el cuerpo no tiene hueco libre", () => {
-  const inv: InventarioJugador = { cuerpo: crearContenedor(1, 1), extras: new Map(), equipo: {} };
+  const inv: InventarioJugador = { cuerpo: crearContenedor(1, 1), extras: new Map(), equipo: {}, equipoBlueprintRopa: {} };
   // la única casilla del cuerpo ya está ocupada por otra cosa
   agregarItem(inv.cuerpo, catalogo, "hierro", 1);
   inv.equipo["casco"] = "casco_hierro"; // equipado "a mano" para el test, sin pasar por equiparItem

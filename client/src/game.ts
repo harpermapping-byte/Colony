@@ -17,6 +17,7 @@ import { obtenerConstruibleOPlantilla } from "./construccion/catalogoConstruccio
 import { MenuInteraccion, type OpcionMenuInteraccion } from "./ui/menuInteraccion";
 import { ModalInstrumento } from "./ui/modalInstrumento";
 import { PanelCofre } from "./construccion/panelCofre";
+import { PanelSastreLegendario, type DisenoSastre } from "./construccion/panelSastreLegendario";
 import { reproducirMidi, detenerReproduccion, type TipoInstrumento } from "./audio/instrumentos";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
 import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2 } from "three";
@@ -28,7 +29,7 @@ import { PanelPesca, type EstadoPescaVista } from "./pesca/panelPesca";
 import { PanelCultivo, type EstadoCultivoVista } from "./agricultura/panelCultivo";
 import { PanelInjerto } from "./agricultura/panelInjerto";
 import { PanelCocina, type IngredienteVista } from "./cocina/panelCocina";
-import { aplicarEquipoAlRig } from "./render3d/equipoVisual";
+import { aplicarEquipoAlRig, type BlueprintRopaResuelto } from "./render3d/equipoVisual";
 import { PanelJugador } from "./personaje/panelJugador";
 import { crearPlaceholder } from "./render3d/placeholder";
 import { animalPlaceholder } from "./render3d/animalPlaceholder";
@@ -655,6 +656,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       sacar: (construccionId, instanciaId) => room.send("cofre:sacarItem", { construccionId, instanciaId }),
     });
 
+    // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido 2026-08-31).
+    const panelSastre = new PanelSastreLegendario({
+      contenedor,
+      aceptar: (construccionId, texto, tintes, nombre) => room.send("sastre:tejerAceptar", { construccionId, texto, tintes, nombre }),
+      craftearCopia: (construccionId, prendaGeneradaId) => room.send("sastre:tejerCopia", { construccionId, prendaGeneradaId }),
+      pedirMisDisenos: () => room.send("sastre:misDisenos"),
+    });
+    room.onMessage("sastre:error", (m: { motivo: string }) => panelSastre.mostrarError(m?.motivo || "No se pudo tejer."));
+    room.onMessage("sastre:tejerResultado", () => panelSastre.confirmarCreada());
+    room.onMessage("sastre:tejerCopiaResultado", () => {});
+    room.onMessage("sastre:misDisenos", (m: { disenos: DisenoSastre[] }) => panelSastre.actualizarMisDisenos(m?.disenos || []));
+    // Sonda SOLO-PARA-TESTS (mismo criterio que window.__construccion/__ajedrez de arriba): abre el panel sin depender de acertar el raycast del clic 3D sobre el telar.
+    (window as any).__sastre = { abrirPanel: (construccionId: number) => panelSastre.abrir(construccionId) };
+
     // --- Instrumentos musicales (docs/GDD_Instrumentos.md, pedido
     // 2026-08-31): clic sobre un objeto construido → menú de interacción
     // GENÉRICO (menuInteraccion.ts) — pensado para colgar aquí futuras
@@ -716,6 +731,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
             room.send("cofre:consultar", { construccionId: datos.id });
           },
         });
+      }
+      if (datos.objeto === "telar") {
+        opciones.push({ etiqueta: "Tejer prenda legendaria", accion: () => panelSastre.abrir(datos.id) });
       }
       // Trabajador de producción (docs/GDD_Produccion.md §3bis, pedido
       // 2026-08-31: "trabajador de producción como NPC real" + "podrás sacar
@@ -1243,10 +1261,33 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // ver el equipo de los demás). `sessionId` como semilla: determinista
     // por jugador, así dos piezas iguales no salen idénticas letra a letra
     // entre jugadores distintos (variación de color por vóxel).
-    const actualizarEquipoVisual = () => aplicarEquipoAlRig(rig.objeto, player.inventario.equipo, sessionId);
+    // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario,
+    // pedido 2026-08-31): `equipoBlueprintRopa` es slot->prendaGeneradaId
+    // (solo para los slots con una prenda legendaria puesta) — se resuelve
+    // contra `room.state.blueprintsRopa` (cargado perezosamente por el
+    // servidor la primera vez que hace falta) para que se vea IGUAL que en
+    // el panel del telar, para cualquier jugador que la vea puesta, no
+    // solo su creador.
+    const resolverBlueprintsRopa = (): Record<string, BlueprintRopaResuelto> => {
+      const resueltos: Record<string, BlueprintRopaResuelto> = {};
+      for (const [slot, id] of player.inventario.equipoBlueprintRopa.entries()) {
+        const bp = room.state.blueprintsRopa.get(String(id));
+        if (!bp) continue;
+        try {
+          resueltos[slot] = {
+            prendaBaseId: bp.prendaBaseId, materialId: bp.materialId,
+            detalle: JSON.parse(bp.detalleJson), tintes: JSON.parse(bp.tintesJson),
+          };
+        } catch { /* blueprint corrupto/a medias de sincronizar — ese slot cae al catálogo estático hasta el próximo cambio */ }
+      }
+      return resueltos;
+    };
+    const actualizarEquipoVisual = () => aplicarEquipoAlRig(rig.objeto, player.inventario.equipo, sessionId, resolverBlueprintsRopa());
     actualizarEquipoVisual();
     $(player.inventario.equipo).onAdd(actualizarEquipoVisual);
     $(player.inventario.equipo).onRemove(actualizarEquipoVisual);
+    $(player.inventario.equipoBlueprintRopa).onAdd(actualizarEquipoVisual);
+    $(player.inventario.equipoBlueprintRopa).onRemove(actualizarEquipoVisual);
 
     // Montura (docs/GDD_Monturas.md, pedido 2026-08-30): mientras
     // `monturaEspecieId` no esté vacío, `estado.rig` pasa a ser el animal

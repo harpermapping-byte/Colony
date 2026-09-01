@@ -33,6 +33,8 @@ export function sincronizarContenedor(schema: ContenedorSchema, puro: Contenedor
     s.liquidoTipo = it.liquido?.tipo ?? "";
     s.liquidoVolumenMl = it.liquido?.volumenMl ?? 0;
     s.liquidoContaminada = it.liquido?.contaminada ?? false;
+    // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario) — 0 = ítem normal, mismo criterio "campo ausente = no aplica" que durabilidad/liquido.
+    s.prendaGeneradaId = it.prendaGeneradaId ?? 0;
     schema.items.push(s);
   }
 }
@@ -45,10 +47,20 @@ export function sincronizarContenedor(schema: ContenedorSchema, puro: Contenedor
  * tick. `schema.cuerpo` se sincroniza aparte con `sincronizarContenedor`
  * (quien llama ya lo hacía para "coger"/"soltar", esto no lo duplica).
  */
-export function sincronizarEquipo(schema: InventarioSchema, equipo: SlotsEquipo, extras: Map<string, Contenedor>): void {
+export function sincronizarEquipo(
+  schema: InventarioSchema,
+  equipo: SlotsEquipo,
+  extras: Map<string, Contenedor>,
+  equipoBlueprintRopa: Record<string, number> = {},
+): void {
   schema.equipo.clear();
   for (const [slot, itemId] of Object.entries(equipo)) {
     if (itemId) schema.equipo.set(slot, itemId);
+  }
+  // Sastre legendario — mismo criterio "reconstruye entero" que schema.equipo de arriba.
+  schema.equipoBlueprintRopa.clear();
+  for (const [slot, prendaGeneradaId] of Object.entries(equipoBlueprintRopa)) {
+    if (prendaGeneradaId) schema.equipoBlueprintRopa.set(slot, prendaGeneradaId);
   }
   schema.extras.clear();
   for (const [slot, contenedor] of extras) {

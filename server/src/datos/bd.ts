@@ -507,6 +507,34 @@ export interface PlatoCreado {
   creadoEn: string;
 }
 
+/**
+ * Prenda legendaria bakeada por un sastre (docs/GDD_Ropa_Procedural.md
+ * §Sastre legendario, pedido 2026-08-31: "1 vez al día... una prenda de
+ * ropa nueva pero bakeada en ese momento, no placeholder") — a diferencia
+ * de `PlatoCreado` (que se DEDUPLICA por clave de ingredientes, "misma
+ * receta = mismo plato siempre"), aquí CADA generación es su propio
+ * blueprint aunque el texto sea idéntico: dos sastres distintos con el
+ * mismo prompt no deben compartir diseño (solo el creador puede recraftear
+ * el suyo — pedido explícito), así que la identidad es un id autoincremental,
+ * nunca una clave derivada del contenido.
+ */
+export interface PrendaGenerada {
+  id: number;
+  /** jugadores.id del sastre que la creó — SOLO él puede craftear copias después (pedido explícito). */
+  creadorId: number;
+  /** id real de ropa/catalogo/prendas.json (el arquetipo base que resolvió interpretarPromptTejido). */
+  prendaBaseId: string;
+  materialId: string;
+  /** override de `detalle` sobre el arquetipo base — mismo campo que ya acepta generarPrenda()/generarPrendaVoxel() vía detalleOverride. */
+  detalle: Record<string, unknown>;
+  /** tintes por zona (zonasColor del arquetipo) — vacío = usa el color de material sin tintar. */
+  tintes: Record<string, string>;
+  nombre: string;
+  /** el texto original que el jugador escribió — para mostrarlo en "mis diseños" y depurar interpretaciones raras. */
+  promptTexto: string;
+  creadoEn: string;
+}
+
 // Un único líder bandido supremo (GDD §1): memoria GLOBAL, no por
 // asentamiento — el registro de eventos que alimenta su contexto de IA.
 // tipo/asentamientoId/jugador (docs/GDD_Faccion_Bandidos.md §7quinquies,
@@ -825,6 +853,12 @@ export interface IAlmacenDatos {
   /** Por `clavePlato` (conjunto de tipos de ingrediente) — null si esta combinación nunca se cocinó antes. */
   buscarPlatoPorClave(clave: string): Promise<PlatoCreado | null>;
   listarPlatosCreados(): Promise<PlatoCreado[]>;
+  // Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido 2026-08-31).
+  /** Cooldown de 24h REALES (Date.now(), mismo criterio que resolverResetStockMercader) — `true` y CONSUME el cooldown si tocaba, `false` (sin tocar nada) si sigue en ventana. */
+  resolverCooldownTejidoLegendario(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean>;
+  crearPrendaGenerada(p: Omit<PrendaGenerada, "id" | "creadoEn">): Promise<PrendaGenerada>;
+  obtenerPrendaGenerada(id: number): Promise<PrendaGenerada | null>;
+  listarPrendasGeneradasDeCreador(creadorId: number): Promise<PrendaGenerada[]>;
   cerrar(): Promise<void>;
 }
 
@@ -1238,6 +1272,23 @@ CREATE TABLE IF NOT EXISTS equipo (
   item_id TEXT NOT NULL,
   PRIMARY KEY (jugador_id, slot)
 );
+-- Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido
+-- 2026-08-31): blueprint permanente de una prenda bakeada por un sastre en
+-- el telar — id autoincremental (nunca deduplicado por contenido, a
+-- diferencia de platos_creados: dos sastres con el mismo prompt NO
+-- comparten diseño, cada tirada es su propio blueprint).
+CREATE TABLE IF NOT EXISTS prendas_generadas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  creador_id INTEGER NOT NULL,          -- FK jugadores.id — solo él puede craftear copias después
+  prenda_base_id TEXT NOT NULL,         -- id real de ropa/catalogo/prendas.json
+  material_id TEXT NOT NULL,
+  detalle TEXT NOT NULL,                -- JSON (override sobre el detalle del arquetipo)
+  tintes TEXT NOT NULL,                 -- JSON (zona -> color hex)
+  nombre TEXT NOT NULL,
+  prompt_texto TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_prendas_generadas_creador ON prendas_generadas(creador_id);
 `;
 
 const MIGRACIONES_POSTGRES = `
@@ -1258,6 +1309,7 @@ ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS enfermedades TEXT;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS oficio_1 TEXT NOT NULL DEFAULT '';
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS oficio_2 TEXT NOT NULL DEFAULT '';
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS cambios_oficio INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS ultimo_tejido_legendario_ms BIGINT;
 -- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3) — ver comentario gemelo en MIGRACIONES_SQLITE.
 CREATE TABLE IF NOT EXISTS npcs_tutoriales (
   id SERIAL PRIMARY KEY,
@@ -1598,6 +1650,18 @@ CREATE TABLE IF NOT EXISTS equipo (
   item_id TEXT NOT NULL,
   PRIMARY KEY (jugador_id, slot)
 );
+CREATE TABLE IF NOT EXISTS prendas_generadas (
+  id SERIAL PRIMARY KEY,
+  creador_id INTEGER NOT NULL,
+  prenda_base_id TEXT NOT NULL,
+  material_id TEXT NOT NULL,
+  detalle TEXT NOT NULL,
+  tintes TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  prompt_texto TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_prendas_generadas_creador ON prendas_generadas(creador_id);
 `;
 
 // Mapeo de fila cruda (SQLite o Postgres, misma forma de columnas) a los
@@ -1775,6 +1839,20 @@ function filaAPlatoCreado(f: any): PlatoCreado {
   };
 }
 
+function filaAPrendaGenerada(f: any): PrendaGenerada {
+  return {
+    id: Number(f.id),
+    creadorId: Number(f.creador_id),
+    prendaBaseId: String(f.prenda_base_id),
+    materialId: String(f.material_id),
+    detalle: JSON.parse(f.detalle),
+    tintes: JSON.parse(f.tintes),
+    nombre: String(f.nombre),
+    promptTexto: String(f.prompt_texto),
+    creadoEn: String(f.creado_en),
+  };
+}
+
 function filaACuentaAdmin(f: any): CuentaAdmin {
   return {
     id: Number(f.id),
@@ -1831,6 +1909,9 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     }
     if (!nombresJugadores.has("cambios_oficio")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN cambios_oficio INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!nombresJugadores.has("ultimo_tejido_legendario_ms")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN ultimo_tejido_legendario_ms INTEGER");
     }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
@@ -3204,6 +3285,35 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return filas.map(filaAPlatoCreado);
   }
 
+  async resolverCooldownTejidoLegendario(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
+    const fila = this.bd.prepare("SELECT ultimo_tejido_legendario_ms FROM jugadores WHERE id = ?").get(jugadorId) as any;
+    const ultimo = fila && fila.ultimo_tejido_legendario_ms != null ? Number(fila.ultimo_tejido_legendario_ms) : null;
+    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
+    this.bd.prepare("UPDATE jugadores SET ultimo_tejido_legendario_ms = ? WHERE id = ?").run(ahoraMs, jugadorId);
+    return true;
+  }
+
+  async crearPrendaGenerada(p: Omit<PrendaGenerada, "id" | "creadoEn">): Promise<PrendaGenerada> {
+    const creadoEn = new Date().toISOString();
+    const r = this.bd
+      .prepare(
+        `INSERT INTO prendas_generadas (creador_id, prenda_base_id, material_id, detalle, tintes, nombre, prompt_texto, creado_en)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(p.creadorId, p.prendaBaseId, p.materialId, JSON.stringify(p.detalle), JSON.stringify(p.tintes), p.nombre, p.promptTexto, creadoEn);
+    return { id: Number(r.lastInsertRowid), creadoEn, ...p };
+  }
+
+  async obtenerPrendaGenerada(id: number): Promise<PrendaGenerada | null> {
+    const fila = this.bd.prepare("SELECT * FROM prendas_generadas WHERE id = ?").get(id) as any;
+    return fila ? filaAPrendaGenerada(fila) : null;
+  }
+
+  async listarPrendasGeneradasDeCreador(creadorId: number): Promise<PrendaGenerada[]> {
+    const filas = this.bd.prepare("SELECT * FROM prendas_generadas WHERE creador_id = ?").all(creadorId) as any[];
+    return filas.map(filaAPrendaGenerada);
+  }
+
   async cerrar(): Promise<void> {
     this.bd.close();
   }
@@ -4524,6 +4634,38 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   async listarPlatosCreados(): Promise<PlatoCreado[]> {
     const r = await this.pool.query("SELECT * FROM platos_creados");
     return r.rows.map(filaAPlatoCreado);
+  }
+
+  async resolverCooldownTejidoLegendario(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
+    const fila = await this.pool.query<{ ultimo_tejido_legendario_ms: string | number | null }>(
+      "SELECT ultimo_tejido_legendario_ms FROM jugadores WHERE id = $1",
+      [jugadorId],
+    );
+    const bruto = fila.rows[0]?.ultimo_tejido_legendario_ms;
+    const ultimo = bruto != null ? Number(bruto) : null;
+    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
+    await this.pool.query("UPDATE jugadores SET ultimo_tejido_legendario_ms = $1 WHERE id = $2", [ahoraMs, jugadorId]);
+    return true;
+  }
+
+  async crearPrendaGenerada(p: Omit<PrendaGenerada, "id" | "creadoEn">): Promise<PrendaGenerada> {
+    const creadoEn = new Date().toISOString();
+    const r = await this.pool.query<{ id: number }>(
+      `INSERT INTO prendas_generadas (creador_id, prenda_base_id, material_id, detalle, tintes, nombre, prompt_texto, creado_en)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [p.creadorId, p.prendaBaseId, p.materialId, JSON.stringify(p.detalle), JSON.stringify(p.tintes), p.nombre, p.promptTexto, creadoEn],
+    );
+    return { id: r.rows[0].id, creadoEn, ...p };
+  }
+
+  async obtenerPrendaGenerada(id: number): Promise<PrendaGenerada | null> {
+    const r = await this.pool.query("SELECT * FROM prendas_generadas WHERE id = $1", [id]);
+    return r.rows[0] ? filaAPrendaGenerada(r.rows[0]) : null;
+  }
+
+  async listarPrendasGeneradasDeCreador(creadorId: number): Promise<PrendaGenerada[]> {
+    const r = await this.pool.query("SELECT * FROM prendas_generadas WHERE creador_id = $1", [creadorId]);
+    return r.rows.map(filaAPrendaGenerada);
   }
 
   async cerrar(): Promise<void> {

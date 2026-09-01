@@ -236,24 +236,29 @@ const GENERADORES_POR_TIPO: Record<string, (p: PrendaCatalogo, c: Record<string,
 /**
  * Puerto de ropa/src/generarPrenda.js:generarPrenda — misma firma/
  * comportamiento, catálogos ya resueltos por quien llama (sin fs, JSON
- * importado por Vite). Sin `tintes`/`detalleOverride` todavía (nadie los
- * pide desde el cliente hoy, mismo alcance mínimo que el resto de esta
- * pasada) — se pueden añadir sin rediseño si hiciera falta.
+ * importado por Vite). `detalleOverride`/`tintes` (docs/GDD_Ropa_Procedural.md
+ * §Sastre legendario, pedido 2026-08-31): mezclados sobre el `detalle`/
+ * colores del arquetipo base — el mismo mecanismo que ya soporta
+ * ropa/src/generarPrenda.js, añadido aquí "sin rediseño" tal y como
+ * anticipaba este comentario.
  */
 export function generarPrendaVoxel(
   prenda: PrendaCatalogo,
   material: MaterialPrendaCatalogo,
-  opciones: { semilla: string; prendaId: string; materialId: string; morfologia?: Morfologia },
+  opciones: { semilla: string; prendaId: string; materialId: string; morfologia?: Morfologia; detalleOverride?: Record<string, unknown>; tintes?: Record<string, string> },
 ): VoxelExportado[] {
   const generador = GENERADORES_POR_TIPO[prenda.tipoPrenda];
   if (!generador) {
     console.warn(`generarPrendaVoxel: sin generador para tipoPrenda "${prenda.tipoPrenda}"`);
     return [];
   }
+  const prendaResuelta: PrendaCatalogo = opciones.detalleOverride
+    ? { ...prenda, detalle: { ...prenda.detalle, ...opciones.detalleOverride } }
+    : prenda;
   const rnd = crearPRNG(`${opciones.semilla}|${opciones.prendaId}|${opciones.materialId}`);
-  const colores = resolverColoresPorZona(prenda, material, undefined);
+  const colores = resolverColoresPorZona(prendaResuelta, material, opciones.tintes);
   const cuerpo = aplicarMorfologia(opciones.morfologia);
-  const voxeles = generador(prenda, colores, rnd, cuerpo);
+  const voxeles = generador(prendaResuelta, colores, rnd, cuerpo);
   return voxeles.map((v) => ({
     x: v.x, y: v.y, z: v.z, tam: v.tam, color: v.color,
     pivote: v.pivote || prenda.slotCuerpo,
