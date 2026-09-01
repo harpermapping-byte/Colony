@@ -52,6 +52,16 @@ export class ArenaCombateRoom extends RoomExteriorBase {
     const combate = new CombateSchema();
     combate.gx0 = 0; combate.gy0 = 0; combate.ancho = mapa.ancho; combate.alto = mapa.alto;
     for (let i = 0; i < mapa.casillas.length; i++) combate.obstaculos.push(mapa.casillas[i] === TIPO.SOLIDO ? 1 : 0);
+    // Coste de movimiento por terreno (pedido streamer: "2 PA si la casilla
+    // es terreno difícil/agua") — agua (se nada, TIPO.AGUA/AGUA_PROFUNDA) o
+    // cualquier terreno con modVelocidad<1 (barro, nieve, roca...) ya
+    // cargado en `mapa.velocidad` por cargarMapaColision desde terrenos.json,
+    // sin catálogo nuevo que mantener.
+    combate.costes = new Uint8Array(mapa.casillas.length);
+    for (let i = 0; i < mapa.casillas.length; i++) {
+      const esAgua = mapa.casillas[i] === TIPO.AGUA || mapa.casillas[i] === TIPO.AGUA_PROFUNDA;
+      combate.costes[i] = esAgua || mapa.velocidad[i] < 1 ? 2 : 1;
+    }
     combate.fase = "activo";
 
     // Formación fresca (izquierda/derecha, repartidos alrededor de la fila

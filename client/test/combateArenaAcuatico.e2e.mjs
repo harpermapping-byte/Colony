@@ -255,6 +255,31 @@ async function main() {
     await page.screenshot({ path: rutaCaptura });
     console.log(`   captura: ${rutaCaptura}`);
 
+    // Coste de terreno por PA (docs/GDD_Combate.md §9.3, pedido streamer:
+    // "2 PA si la casilla es terreno difícil/agua") — mar_01 es agua entera,
+    // así que CUALQUIER paso real debe costar 2 PA, no 1 (a diferencia del
+    // bosque de tierra, ver combateArenaTierra.e2e.mjs).
+    if (textoPanelCombate.includes("Tu turno")) {
+      console.log("5) moviendo en combate por agua (combate:mover real, coste de terreno)...");
+      const paInicial = Number(/PA: (\d+)\//.exec(textoPanelCombate)?.[1]);
+      const posInicial = await page.evaluate(() => window.__colonyDebug);
+      let movido = false;
+      let posFinal = posInicial;
+      for (const tecla of ["d", "a", "s", "w"]) {
+        await page.keyboard.press(tecla);
+        await espera(400);
+        posFinal = await page.evaluate(() => window.__colonyDebug);
+        if (posFinal.x !== posInicial.x || posFinal.y !== posInicial.y) { movido = true; break; }
+      }
+      comprobar("combate:mover real mueve al jugador también en la arena acuática", movido, `antes=(${posInicial.x},${posInicial.y}) después=(${posFinal.x},${posFinal.y})`);
+      const paTrasMover = Number(/PA: (\d+)\//.exec(await page.evaluate(() => document.body.innerText))?.[1]);
+      comprobar(
+        "moverse UNA casilla en agua (mar_01, todo agua) consume 2 PA, no 1 — coste de terreno real",
+        movido && paTrasMover === paInicial - 2,
+        `PA antes=${paInicial} después=${paTrasMover}`,
+      );
+    }
+
     comprobar("sin errores de página/consola durante todo el flujo", erroresConsola.length === 0, erroresConsola.slice(0, 5).join(" | "));
 
     console.log(`\n=== RESUMEN: combate acuático real en mapaArenaId="${mapaArenaIdObservado}" (combateId=${combateId}), captura en ${rutaCaptura} ===`);

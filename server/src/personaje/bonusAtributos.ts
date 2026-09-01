@@ -45,3 +45,15 @@ export function cooldownNpcHablarMs(nivelCarisma: number): number {
 export function descuentoComercio(nivelCarisma: number): number {
   return Math.min(0.18, (nivelCarisma - 1) * 0.02);
 }
+
+/**
+ * Carisma -> probabilidad de huir con éxito de un combate (0 a 1), pedido
+ * streamer: "30% base + bonus por Carisma". Adaptado al mismo patrón por
+ * NIVEL (1-10) que el resto de este fichero en vez del "Carisma × 2.5%"
+ * literal sobre un valor de atributo en bruto (este proyecto no tiene esa
+ * escala) — nivel 1 = 30% (base sin bonus, igual que el resto de funciones
+ * de aquí), nivel 10 = 52.5% (+2.5 puntos por nivel).
+ */
+export function probabilidadHuirPorCarisma(nivelCarisma: number): number {
+  return 0.3 + (nivelCarisma - 1) * 0.025;
+}

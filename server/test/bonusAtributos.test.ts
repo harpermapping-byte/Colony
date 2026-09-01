@@ -10,6 +10,7 @@ import {
   factorVelocidadCrafteo,
   pesoMaximoTransportable,
   vidaMaximaPorResistencia,
+  probabilidadHuirPorCarisma,
 } from "../src/personaje/bonusAtributos";
 
 test("pesoMaximoTransportable: nivel 1 es la base (20), nivel 10 el máximo, monótona entre medias", () => {
@@ -49,4 +50,10 @@ test("descuentoComercio: (Comercio fusionado dentro de Carisma) nivel 1 = 0 (pre
   assert.strictEqual(descuentoComercio(1), 0);
   assert.strictEqual(descuentoComercio(10), 0.18);
   assert.strictEqual(descuentoComercio(999), 0.18, "nunca supera el tope, aunque se llame con un nivel fuera de rango");
+});
+
+test("probabilidadHuirPorCarisma: nivel 1 = 30% base (pedido streamer), nivel 10 = 52.5%, monótona entre medias", () => {
+  assert.strictEqual(probabilidadHuirPorCarisma(1), 0.3);
+  assert.strictEqual(probabilidadHuirPorCarisma(10), 0.525);
+  for (let n = 2; n <= 10; n++) assert.ok(probabilidadHuirPorCarisma(n) > probabilidadHuirPorCarisma(n - 1));
 });

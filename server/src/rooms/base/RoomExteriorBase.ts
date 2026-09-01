@@ -35,6 +35,7 @@ import {
   jugarTurnoIA,
   ordenarTurnos,
   resolverAtaque,
+  tirarHuida,
 } from "../../combate/arenaCombate";
 import { Arena, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
@@ -123,6 +124,7 @@ import {
   paMaxPorDestreza,
   factorVelocidadCrafteo,
   descuentoComercio,
+  probabilidadHuirPorCarisma,
 } from "../../personaje/bonusAtributos";
 import { curar, ATAQUE_BASE_JUGADOR, DEFENSA_BASE_JUGADOR } from "../../combate/combate";
 import { RoomConectable, registrarRoom, quitarRoom, registrarJugador, quitarJugador } from "../../twitch/registro";
@@ -738,10 +740,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // cubre null/undefined, no NaN/Infinity/strings — de ahí el check aparte.
       const xValido = Number.isFinite(dir?.x) ? dir!.x : 0;
       const yValido = Number.isFinite(dir?.y) ? dir!.y : 0;
+      // Movimiento libre BLOQUEADO en combate activo (pedido streamer: "el
+      // movimiento cambia al del mundo en general [solo] en combate... fuera
+      // de combate no") — solo dentro del grid táctico real, nunca en la
+      // ventana de unión (fase "pendiente", vive en la room de ORIGEN, el
+      // jugador sigue caminando libre ahí exactamente igual que siempre).
+      // Servidor autoritativo: sin este guardia, un cliente que siguiera
+      // mandando "input" (aunque el cliente oficial ya no lo haga en la
+      // arena) movería player.x/y libremente por colisión normal, peleado
+      // con la posición táctica real que fija combate:mover.
+      const combatePropio = this.combatePorUnidad(client.sessionId);
+      const enCombateActivo = combatePropio?.[1].fase === "activo" && combatePropio[1].unidades.get(client.sessionId)?.estado === "activo";
       this.inputs.set(client.sessionId, {
-        x: clamp(xValido, -1, 1),
-        y: clamp(yValido, -1, 1),
-        correr: !!dir?.correr,
+        x: enCombateActivo ? 0 : clamp(xValido, -1, 1),
+        y: enCombateActivo ? 0 : clamp(yValido, -1, 1),
+        correr: !enCombateActivo && !!dir?.correr,
       });
     });
 
@@ -8055,7 +8068,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   private arenaDeCombate(combate: CombateSchema): Arena {
-    return { ancho: combate.ancho, alto: combate.alto, obstaculos: Uint8Array.from(combate.obstaculos) };
+    return {
+      ancho: combate.ancho,
+      alto: combate.alto,
+      obstaculos: Uint8Array.from(combate.obstaculos),
+      // vacío en la arena provisional de la ventana de unión (nunca se juega
+      // turno a turno de verdad ahí) — costeDeEntrar cae a 1 sin esto.
+      costes: combate.costes.length > 0 ? combate.costes : undefined,
+    };
   }
 
   /** Recorta un NxN de `this.mundo` centrado en (cx,cy) — se desplaza para caber entero si choca con el borde del mapa. */
@@ -8514,6 +8534,23 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     cu.gx = msg.gx; cu.gy = msg.gy; cu.pa -= coste;
 
+    // Sincroniza la posición VISUAL (Player/Companero) con la táctica —
+    // BUG REAL encontrado al cablear el movimiento por tecla (pedido
+    // streamer): `combate:mover` solo tocaba `cu.gx/gy`, nunca la entidad
+    // real que pinta el rig del cliente (game.ts interpola contra
+    // player.x/y, no contra CombateUnidad) — el rig se quedaba clavado
+    // aunque el servidor sí registrara el movimiento táctico.
+    // Sin +0.5: mismo criterio exacto que ArenaCombateRoom.onJoin
+    // (crearJugador(..., cu.gx, cu.gy) a secas) — con +0.5 aquí, el rig
+    // pegaría un salto visible medio casilla en el PRIMER movimiento.
+    if (cu.esJugador) {
+      const jugador = this.state.players.get(cu.id);
+      if (jugador) { jugador.x = combate.gx0 + cu.gx; jugador.y = combate.gy0 + cu.gy; }
+    } else if (cu.duenoSessionId) {
+      const companero = this.state.companeros.get(cu.id);
+      if (companero) { companero.x = combate.gx0 + cu.gx; companero.y = combate.gy0 + cu.gy; }
+    }
+
     // Destreza (docs/GDD_Personaje.md §3.2): moverse por la arena entrena
     // reflejos/agilidad — SOLO si la unidad que se movió es el propio
     // jugador (cu.esJugador); un compañero no tiene atributos de jugador,
@@ -8861,6 +8898,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     void this.avanzarTurnosIA(msg.combateId);
   }
 
+  /**
+   * Huir con probabilidad real (pedido streamer: "30% base + bonus por
+   * Carisma... requiere al menos 1 PA y consume TODOS los PA restantes...
+   * fallo: notifica, agota el turno, pasa al siguiente") — antes siempre
+   * tenía éxito, sin tirada ni coste. `probabilidadHuirPorCarisma` (mismo
+   * patrón "por nivel" que descuentoComercio/paMaxPorDestreza de
+   * bonusAtributos.ts) usa el Carisma YA replicado del jugador.
+   */
   private async manejarCombateHuir(client: Client, msg: { combateId?: string }) {
     if (!msg?.combateId) return;
     const combate = this.state.combates.get(msg.combateId);
@@ -8868,8 +8913,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const idActual = combate.ordenTurnos[combate.turnoActual];
     if (idActual !== client.sessionId) return;
     const cu = combate.unidades.get(client.sessionId);
-    if (!cu) return;
-    cu.estado = "huido";
+    if (!cu || cu.estado !== "activo") return;
+    if (cu.pa < 1) return client.send("combate:error", { motivo: "sin PA suficiente para intentar huir" });
+
+    const nivelCarisma = this.state.players.get(client.sessionId)?.atributos.carisma ?? 1;
+    const exito = tirarHuida(probabilidadHuirPorCarisma(nivelCarisma));
+    cu.pa = 0; // "consumirá TODOS los PA restantes", éxito o fallo
+
+    if (exito) {
+      cu.estado = "huido";
+    } else {
+      client.send("combate:error", { motivo: "intento de huida fallido" });
+    }
     this.avanzarTurno(combate);
     if (await this.comprobarFinDeCombate(msg.combateId)) return;
     void this.avanzarTurnosIA(msg.combateId);

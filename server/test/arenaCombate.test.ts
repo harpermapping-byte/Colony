@@ -10,6 +10,7 @@ import {
   ordenarTurnos,
   resolverAtaque,
   simularCombateAutomatico,
+  tirarHuida,
 } from "../src/combate/arenaCombate";
 import { Arena } from "../src/combate/pathfindingArena";
 
@@ -30,6 +31,12 @@ function unidad(overrides: Partial<UnidadCombate> = {}): UnidadCombate {
 test("calcularIniciativa: determinista con un rnd fijo, y sube la base con rnd creciente", () => {
   assert.strictEqual(calcularIniciativa(10, () => 0), 10);
   assert.strictEqual(calcularIniciativa(10, () => 1), 15);
+});
+
+test("tirarHuida: éxito/fallo exactos en el borde de la probabilidad (rnd inyectable, mismo patrón que calcularIniciativa)", () => {
+  assert.strictEqual(tirarHuida(0.3, () => 0.29), true); // por debajo del umbral -> éxito
+  assert.strictEqual(tirarHuida(0.3, () => 0.3), false); // igual al umbral -> fallo (estrictamente menor que)
+  assert.strictEqual(tirarHuida(0.3, () => 0.31), false);
 });
 
 test("ordenarTurnos: iniciativa descendente", () => {

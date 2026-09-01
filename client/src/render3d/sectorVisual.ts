@@ -253,6 +253,33 @@ function duplicarClustersDesplazados(base: ClusterDecoracion[], hw: number, delt
   }));
 }
 
+// Hash + PRNG determinista (xmur3 + mulberry32, mismo mecanismo que
+// interiores/src/azar.js::crearPRNG y server/src/combate/seleccionArena.ts)
+// — SOLO para las rocas grandes de hito de abajo (pedido streamer: "no me
+// seas literal, añade mas de 1, de 2 a 5 dependiendo del mapa
+// aleatoriamente"): el resto de la decoración de esta función sigue siendo
+// 100% a mano/determinista por ángulo fijo, esto es la ÚNICA parte con
+// variación real — pero sembrada por el nombre+semilla de LA ARENA, nunca
+// Math.random() puro, así que la MISMA arena siempre se ve igual entre
+// visitas y solo cambia "según el mapa" (una arena distinta, otra tirada).
+function hashDeterminista(texto: string): number {
+  let h = 1779033703 ^ texto.length;
+  for (let i = 0; i < texto.length; i++) {
+    h = Math.imul(h ^ texto.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return h >>> 0;
+}
+function prngDesdeSemilla(semilla: number): () => number {
+  let a = semilla >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /**
  * Decoración A MANO del margen visual de una arena (pedido streamer
  * 2026-08-31: "fuera del grid NO TIENE DECORACION... que haya arboles algun
@@ -264,14 +291,16 @@ function duplicarClustersDesplazados(base: ClusterDecoracion[], hw: number, delt
  * en un sitio, en otro menos") — grupos (`colocarClusters`) en ángulos y
  * radios DESIGUALES a propósito (huecos grandes entre unos y otros, tamaño
  * de grupo variable) en vez de un anillo uniforme, alternando ids REALES de
- * catálogo, más fauna/depredadores/NPCs sueltos — todo determinista, nada
- * de PRNG/ruido.
+ * catálogo, más fauna/depredadores/NPCs/rocas de hito sueltos — todo
+ * determinista por ángulo fijo, salvo las rocas de hito (ver
+ * `hashDeterminista`/`prngDesdeSemilla` arriba).
  */
 async function crearDecoracionMargenArena(
   anchoReal: number,
   altoReal: number,
   margenVisual: number,
   leyendaTerreno: string[],
+  semillaArena: string,
 ): Promise<THREE.Group> {
   const tema = clasificarTemaArena(leyendaTerreno);
   const hw = anchoReal / 2; // arenas de hoy son siempre cuadradas (anchoReal===altoReal), un solo semi-lado basta
@@ -287,6 +316,33 @@ async function crearDecoracionMargenArena(
   // densidad, el doble minimo".
   const DELTA_CAPA2 = 33;
   const FACTOR_CAPA2 = 0.7;
+
+  // Rocas grandes de hito (pedido streamer: "rocas grandes como tenemos en
+  // mapa exterior... en las zonas que ahora no has puesto decoracion, algo
+  // sencillo" — mismo espíritu que roca_erratica en el bake real: "hito
+  // raro que rompe la monotonía"; corrección tras verlo: "no me seas
+  // literal, añade mas de 1, de 2 a 5 dependiendo del mapa
+  // aleatoriamente") — de 2 a 5 piezas a escala grande, en un subconjunto
+  // de 8 huecos candidatos (repartidos por el anillo, desplazados de los
+  // ángulos que ya usan los clusters de abajo) elegido con
+  // `prngDesdeSemilla(hashDeterminista(semillaArena+tema))`: "aleatorio"
+  // de verdad entre arenas distintas, pero la MISMA arena sale siempre
+  // igual (nunca Math.random() puro). NUNCA en urbano (pedido explícito:
+  // "menos en ciudad", un pedrusco no pinta nada en mitad de una calle).
+  const ANGULOS_CANDIDATOS_ROCA = [15, 60, 105, 150, 195, 240, 285, 330];
+  const pushRocasGrandes = (ids: string[]) => {
+    const rnd = prngDesdeSemilla(hashDeterminista(`${semillaArena}:${tema}:hito`));
+    const cuenta = 2 + Math.floor(rnd() * 4); // 2..5
+    const angulosDisponibles = [...ANGULOS_CANDIDATOS_ROCA];
+    const radio = hw + margenVisual * 0.6;
+    for (let i = 0; i < cuenta && angulosDisponibles.length > 0; i++) {
+      const anguloDeg = angulosDisponibles.splice(Math.floor(rnd() * angulosDisponibles.length), 1)[0];
+      const id = ids[Math.floor(rnd() * ids.length)];
+      const rad = THREE.MathUtils.degToRad(anguloDeg);
+      const x = Math.sin(rad) * radio, y = Math.cos(rad) * radio;
+      items.push({ tipo: "r", id, x, y, rotacionDeg: anguloHaciaCentro(x, y), escala: 2.2 });
+    }
+  };
 
   if (tema === "exterior") {
     const base: ClusterDecoracion[] = [
@@ -308,6 +364,7 @@ async function crearDecoracionMargenArena(
       const x = Math.sin(rad) * rFauna, y = Math.cos(rad) * rFauna;
       items.push({ tipo: "a", id, x, y, rotacionDeg: anguloHaciaCentro(x, y) });
     }
+    pushRocasGrandes(["roca_erratica", "roca_acantilado_grande", "roca_acantilado_pequena"]);
   } else if (tema === "urbano") {
     const base: ClusterDecoracion[] = [
       { anguloDeg: 15, radio: hw + 1.5, especies: [m("barril"), m("caja_madera"), m("cesta_pan")] },
@@ -338,6 +395,9 @@ async function crearDecoracionMargenArena(
       const x = Math.sin(rad) * rPredador, y = Math.cos(rad) * rPredador;
       items.push({ tipo: "a", id, x, y, rotacionDeg: anguloHaciaCentro(x, y), escala: 2.6 });
     }
+    // roca_coralina/roca_acantilado_grande (no roca_erratica): formación de
+    // arrecife o peñasco sumergido, coherentes bajo el agua.
+    pushRocasGrandes(["roca_coralina", "roca_acantilado_grande"]);
   } else {
     const base: ClusterDecoracion[] = [
       { anguloDeg: 25, radio: hw + 1.4, especies: [rc("guijarros"), rc("canto_rodado")] },
@@ -348,6 +408,7 @@ async function crearDecoracionMargenArena(
       { anguloDeg: 320, radio: hw + 1.3, especies: [rc("pizarra"), rc("canto_rodado")] },
     ];
     items = colocarClusters([...base, ...duplicarClustersDesplazados(base, hw, DELTA_CAPA2, FACTOR_CAPA2)]);
+    pushRocasGrandes(["roca_acantilado_grande", "roca_erratica", "roca_acantilado_pequena"]);
   }
 
   const grupo = await crearDecoracionManual(items);
@@ -758,7 +819,11 @@ export async function crearSectorVisual(
     const tilesSector = indice.tamanoSectorChunks * indice.tamanoChunk;
     const origenTileX = sector.sectorX * tilesSector;
     const origenTileY = sector.sectorY * tilesSector;
-    const decoracion = await crearDecoracionMargenArena(terreno.ancho, terreno.alto, margenVisual, indice.leyendaTerreno);
+    // nombre+semilla del BAKE (indice.json) como semilla de las rocas de
+    // hito: identifica la arena concreta, así "depende del mapa" de verdad
+    // (dos arenas distintas del mismo bioma no salen iguales) sin dejar de
+    // ser la MISMA cada vez que se entra a ESTA arena.
+    const decoracion = await crearDecoracionMargenArena(terreno.ancho, terreno.alto, margenVisual, indice.leyendaTerreno, `${indice.nombre}:${indice.semilla}`);
     decoracion.position.set(origenTileX + terreno.ancho / 2, 0, origenTileY + terreno.alto / 2);
     grupo.add(decoracion);
   }
