@@ -2108,5 +2108,219 @@
     "resultado": { "itemId": "campana_bronce", "cantidad": 1 },
     "tiempoBaseSeg": 30,
     "_nota": "docs/GDD_Instrumentos.md (2026-08-31) — 4 de 4 instrumentos musicales interactivos. \"yunque_cuerno\" es la Mesa Nivel 2 del herrero."
+  },
+
+  "casco_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "casco_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01, ampliación catálogo inicial pedida por el streamer: 'todo lo que tengamos de inicio tendrá crafteo'). Tier madera de casco, tallado por el carpintero — sin minijuego de forja (igual que el tier cuero, que tampoco lo tiene)."
+  },
+  "brazos_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "brazos_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "piernas_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "piernas_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "pechera_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 3 }],
+    "resultado": { "itemId": "pechera_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "escudo_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "escudo_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01) — primer escudo del catálogo, tier de entrada."
+  },
+  "escudo_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "escudo_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "escudo_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "escudo_hierro_bonificado", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "escudo_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 24,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "escudo_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "escudo_acero_bonificado", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 4 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "escudo_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 34,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+
+  "cuchillo_piedra_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 1 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_piedra", "cantidad": 1 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01) — arma primitiva, tier más bajo del catálogo de dagas."
+  },
+  "hacha_piedra_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "hacha_piedra", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "garrote_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "garrote_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "baston_guerra_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "baston_guerra", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+
+  "cimitarra_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "cimitarra_bonificada", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "cimitarra", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "martillo_guerra_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "martillo_guerra_bonificado", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 4 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "martillo_guerra", "cantidad": 1 },
+    "tiempoBaseSeg": 36,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "jabalina_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "jabalina_bonificada", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["banco_ajuste"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 1 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "jabalina", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "tridente_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "tridente_bonificado", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "tridente", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+
+  "delantal_herrero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "delantal_herrero", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01) — ropa civil por oficio, mismo criterio que tabardo_guardia_craft."
+  },
+  "mandil_carpintero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "mandil_carpintero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01) — mismo criterio que camisa_lino_campesina_craft."
+  },
+  "tunica_molinero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "tunica_molinero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "delantal_curtidor_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "delantal_curtidor", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "tunica_alfarero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "tunica_alfarero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "chaleco_tabernero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "chaleco_tabernero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
   }
 }

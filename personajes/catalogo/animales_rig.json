@@ -520,6 +520,30 @@
             10
           ]
         ]
+      },
+      {
+        "id": "chihuahua",
+        "peso": 10,
+        "escala": [0.22, 0.32],
+        "proporciones": { "largoCuerpo": 0.4, "altoCuerpo": 0.26, "anchoCuerpo": 0.18, "altoPata": 0.16, "grosorPata": 0.045, "tamCabeza": 0.26 },
+        "rasgos": { "orejas": "puntiagudas", "cola": "media" },
+        "coloresPosibles": [["#c9a05a", 40], ["#2a2420", 30], ["#e8e0d0", 30]]
+      },
+      {
+        "id": "husky",
+        "peso": 14,
+        "escala": [0.7, 0.88],
+        "proporciones": { "largoCuerpo": 0.78, "altoCuerpo": 0.42, "anchoCuerpo": 0.28, "altoPata": 0.36, "tamCabeza": 0.28 },
+        "rasgos": { "orejas": "puntiagudas", "cola": "media" },
+        "coloresPosibles": [["#e8e0d0", 40], ["#2a2420", 35], ["#8a8580", 25]]
+      },
+      {
+        "id": "bulldog",
+        "peso": 12,
+        "escala": [0.45, 0.6],
+        "proporciones": { "largoCuerpo": 0.55, "altoCuerpo": 0.32, "anchoCuerpo": 0.34, "altoPata": 0.18, "grosorPata": 0.09, "tamCabeza": 0.32 },
+        "rasgos": { "orejas": "caidas", "cola": "corta" },
+        "coloresPosibles": [["#c9a05a", 45], ["#e8e0d0", 35], ["#8a6a45", 20]]
       }
     ]
   },
@@ -676,8 +700,27 @@
             30
           ]
         ]
+      },
+      {
+        "id": "bengala",
+        "peso": 8,
+        "escala": [0.42, 0.58],
+        "coloresPosibles": [["#c9973a", 55], ["#e8dcc0", 25], ["#2a2420", 20]]
+      },
+      {
+        "id": "azul_ruso",
+        "peso": 8,
+        "coloresPosibles": [["#7a8088", 80], ["#a8adb2", 20]]
+      },
+      {
+        "id": "esfinge",
+        "peso": 6,
+        "escala": [0.35, 0.5],
+        "proporciones": { "anchoCuerpo": 0.17, "tamCabeza": 0.21 },
+        "coloresPosibles": [["#e0c8b0", 70], ["#c9a888", 30]]
       }
-    ]
+    ],
+    "_notaRazas": "Ampliación 2026-09-01 (pedido streamer, 'más razas donde tenga sentido'): bengala moteado, azul ruso gris-azulado, esfinge (silueta más fina, sin pelaje representable en vóxeles — se aproxima con un tono de piel claro)."
   },
   "caballo": {
     "esqueleto": "cuadrupedo",
@@ -917,7 +960,13 @@
       ]
     ],
     "montable": true,
-    "velocidadMontura": 6
+    "velocidadMontura": 6,
+    "razas": [
+      { "id": "andaluz", "peso": 30, "escala": [0.85, 1.0], "coloresPosibles": [["#6a6258", 55], ["#8a7a68", 45]] },
+      { "id": "miniatura", "peso": 20, "escala": [0.45, 0.6], "proporciones": { "altoPata": 0.4 }, "coloresPosibles": [["#5a4a38", 50], ["#8a7a68", 50]] },
+      { "id": "comun", "peso": 50 }
+    ],
+    "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): andaluz grande y gris, miniatura pequeño, común = base sin override."
   },
   "cerdo": {
     "_nota": "Montura (pedido 2026-08-30, docs/GDD_Monturas.md, 'y si se te ocurre alguno más') — cuerpo macizo y patas muy cortas, la más lenta de las monturas.",
@@ -1020,9 +1069,21 @@
             30
           ]
         ]
+      },
+      {
+        "id": "mangalica",
+        "peso": 12,
+        "coloresPosibles": [["#d8b878", 70], ["#8a6a45", 30]]
+      },
+      {
+        "id": "kunekune",
+        "peso": 12,
+        "escala": [0.55, 0.7],
+        "proporciones": { "anchoCuerpo": 0.44, "altoPata": 0.18 },
+        "coloresPosibles": [["#2a2420", 35], ["#e8b8a0", 35], ["#8a6a45", 30]]
       }
     ],
-    "_notaRazas": "Razas (pedido 2026-08-30): ibérico y duroc oscuros/rojizos, yorkshire rosado (= color base de siempre), vietnamita pequeño y panzudo."
+    "_notaRazas": "Razas (pedido 2026-08-30, ampliadas 2026-09-01): ibérico y duroc oscuros/rojizos, yorkshire rosado (= color base de siempre), vietnamita pequeño y panzudo, mangalica de capa leonada, kunekune pequeño y rechoncho."
   },
   "buey": {
     "_nota": "Bovino de labranza (par de 'vaca_salvaje', más corpulento y con cuernos) — animal de tiro, no de monta.",
@@ -1058,7 +1119,13 @@
         "#6a3a20",
         30
       ]
-    ]
+    ],
+    "razas": [
+      { "id": "pardo_alpino", "peso": 30, "coloresPosibles": [["#8a7a5a", 70], ["#6a5a40", 30]] },
+      { "id": "retinto", "peso": 30, "coloresPosibles": [["#8a4020", 70], ["#6a3018", 30]] },
+      { "id": "comun", "peso": 40 }
+    ],
+    "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): pardo alpino claro, retinto rojizo oscuro, común = base sin override."
   },
   "gallo": {
     "esqueleto": "ave",
@@ -1100,6 +1167,69 @@
         "#4a5a3a",
         10
       ]
-    ]
+    ],
+    "razas": [
+      { "id": "leghorn", "peso": 25, "coloresPosibles": [["#f0ece0", 80], ["#c9922a", 20]] },
+      { "id": "orpington", "peso": 25, "escala": [1.0, 1.25], "coloresPosibles": [["#c9922a", 70], ["#8a3a28", 30]] },
+      { "id": "sedosa", "peso": 15, "escala": [0.55, 0.7], "proporciones": { "altoPata": 0.14 }, "coloresPosibles": [["#f0ece0", 50], ["#2a2420", 50]] },
+      { "id": "comun", "peso": 35 }
+    ],
+    "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): leghorn blanca ligera, orpington grande y dorada, sedosa pequeña de plumaje suave, común = base sin override."
+  },
+  "oveja": {
+    "esqueleto": "cuadrupedo",
+    "escala": [0.85, 1.05],
+    "proporciones": { "largoCuerpo": 0.85, "altoCuerpo": 0.5, "anchoCuerpo": 0.42, "altoPata": 0.32, "grosorPata": 0.1, "tamCabeza": 0.26 },
+    "rasgos": { "orejas": "laterales", "cola": "corta", "hocico": "medio", "cuernos": "ninguno" },
+    "coloresPosibles": [["#e8e0d0", 50], ["#d8c8a8", 30], ["#8a7a68", 20]],
+    "razas": [
+      { "id": "merina", "peso": 35, "coloresPosibles": [["#f0ece0", 80], ["#e8e0d0", 20]] },
+      { "id": "churra", "peso": 30, "coloresPosibles": [["#d8c8a8", 60], ["#4a3a2a", 40]] },
+      { "id": "negra", "peso": 20, "coloresPosibles": [["#2a2420", 90], ["#3a2f28", 10]] },
+      { "id": "comun", "peso": 15 }
+    ],
+    "_notaRazas": "Ganado ovino de granja (pedido streamer 2026-09-01, 'centrémonos en animales de granja y compañeros'): merina lana clara, churra cara oscura, negra íntegramente oscura, común = base sin override."
+  },
+  "cabra": {
+    "esqueleto": "cuadrupedo",
+    "escala": [0.75, 0.95],
+    "proporciones": { "largoCuerpo": 0.75, "altoCuerpo": 0.48, "anchoCuerpo": 0.3, "altoPata": 0.34, "grosorPata": 0.08, "tamCabeza": 0.24 },
+    "rasgos": { "orejas": "laterales", "cola": "corta", "hocico": "medio", "cuernos": "cortos" },
+    "coloresPosibles": [["#c9b090", 40], ["#8a7a5a", 35], ["#2a2420", 25]],
+    "razas": [
+      { "id": "alpina", "peso": 30, "coloresPosibles": [["#8a5a30", 55], ["#2a2420", 45]] },
+      { "id": "enana_africana", "peso": 25, "escala": [0.45, 0.6], "proporciones": { "altoPata": 0.22 }, "coloresPosibles": [["#2a2420", 50], ["#8a7a5a", 50]] },
+      { "id": "angora", "peso": 20, "coloresPosibles": [["#f0ece0", 85], ["#e8dcc0", 15]] },
+      { "id": "comun", "peso": 25 }
+    ],
+    "_notaRazas": "Ganado caprino de granja (pedido streamer 2026-09-01): alpina oscura, enana africana (mucho más pequeña), angora de pelo claro, común = base sin override."
+  },
+  "oca": {
+    "esqueleto": "ave",
+    "escala": [1.0, 1.25],
+    "proporciones": { "largoCuerpo": 0.45, "altoCuerpo": 0.35, "anchoCuerpo": 0.24, "altoPata": 0.22, "tamCabeza": 0.14 },
+    "rasgos": { "cresta": false, "pico": "largo", "cola": "corta", "vuela": false },
+    "coloresPosibles": [["#e8e0d0", 60], ["#8a8580", 40]],
+    "razas": [
+      { "id": "blanca_domestica", "peso": 40, "coloresPosibles": [["#f0ece0", 90], ["#e8e0d0", 10]] },
+      { "id": "toulouse", "peso": 30, "escala": [1.1, 1.3], "coloresPosibles": [["#8a8580", 70], ["#5a5650", 30]] },
+      { "id": "comun", "peso": 30 }
+    ],
+    "_notaRazas": "Ave de granja (pedido streamer 2026-09-01): blanca doméstica clásica, toulouse gris y más grande, común = base sin override."
+  },
+  "vaca": {
+    "_nota": "Vaca lechera de granja — par doméstico de 'vaca_salvaje' (mismas proporciones base), distinta de 'buey' (bovino de labranza, más corpulento, sin razas de leche). Pedido streamer 2026-09-01: ampliar razas de granja.",
+    "esqueleto": "cuadrupedo",
+    "escala": [0.9, 1.1],
+    "proporciones": { "largoCuerpo": 1.5, "altoCuerpo": 0.75, "anchoCuerpo": 0.6, "altoPata": 0.55, "grosorPata": 0.14, "tamCabeza": 0.42 },
+    "rasgos": { "orejas": "laterales", "cola": "larga", "hocico": "medio", "cuernos": "cortos" },
+    "coloresPosibles": [["#3a2a1c", 30], ["#8a6a45", 28], ["#e8e0d0", 18], ["#221a14", 14], ["#c9b090", 10]],
+    "razas": [
+      { "id": "holstein", "peso": 35, "coloresPosibles": [["#2a2420", 55], ["#f0ece0", 45]] },
+      { "id": "jersey", "peso": 30, "escala": [0.8, 0.95], "coloresPosibles": [["#8a6a45", 80], ["#c9973a", 20]] },
+      { "id": "charolesa", "peso": 25, "escala": [1.0, 1.2], "coloresPosibles": [["#f0ece0", 90], ["#e8dcc0", 10]] },
+      { "id": "comun", "peso": 20 }
+    ],
+    "_notaRazas": "Holstein blanquinegra (aproximada con dos colores sólidos ponderados, mismo truco que 'pinto' en caballo), jersey pequeña y dorada, charolesa grande y clara, común = base sin override."
   }
 }
