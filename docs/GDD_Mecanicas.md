@@ -534,10 +534,36 @@ implementadas tal cual:
 - **Ciclo día/noche y tiempo de mundo**: reloj de mundo PEREZOSO (hora =
   función del timestamp, nada que simular); condiciona spawns nocturnos,
   horarios de NPCs y luz del cliente. Barato y da muchísima atmósfera.
-- **Comida y descanso (supervivencia LIGERA)**: da uso real al tag
-  `comida` y a las camas de interiores — comer/dormir da buffs (velocidad,
-  EXP), NO muerte por hambre (esto es un MMO social de stream, no un
-  survival duro). ⚠️ A confirmar tono con el usuario.
+- ~~Comida y descanso (supervivencia LIGERA)~~ — **✅ resuelto (2026-09-02,
+  decisión delegada por el streamer: "toma tú también decisiones de cómo
+  implementar")**. Tono confirmado tal cual estaba propuesto aquí: buffs de
+  comer/dormir, NO muerte por hambre — `aplicarInanicion` (daño por hambre/
+  sed a 0) sigue exactamente igual, sin tocar. Implementación: NINGÚN
+  sistema de buffs nuevo, reusa `BuffPocion`/`buffsPocionPorSesion` de
+  `docs/GDD_Pociones.md` tal cual (mismo Map, mismas
+  `aplicarBuffsPocion`/`factorBuffPocion`/`tieneEspecialActivo` que ya
+  aplican pociones a velocidad/vidaMax/carga/estamina/XP de oficio) — comer/
+  dormir son otra FUENTE de los mismos buffs, no un mecanismo aparte.
+  - **"Bien alimentado"** (`personaje:consumir`, RoomExteriorBase.ts): si lo
+    restaurado incluye `comida` o `bebida` (cubre tanto un ítem crudo con
+    `restaura` como un plato de `docs/GDD_Cocina.md` con
+    `restauraMultiple` — una poción que solo restaura vida/estamina NO
+    cuenta), +8% de velocidad de movimiento (`stat:"velocidad"`) 5 minutos
+    reales. Pequeño y frecuente, a tono con lo mucho que ya se come en una
+    sesión normal.
+  - **"Descansado"** (`dormir:completar`, ya existía — antes solo
+    rellenaba Estamina al máximo): además, doble XP de oficio
+    (`especial:"xpOficioX2"`) 20 minutos reales — la acción "grande" de las
+    dos (localizar una cama real y esperar), dura bastante más que comer.
+  - Sin cap de apilado, a propósito: las pociones tampoco lo tienen (varias
+    seguidas simplemente se SUMAN/reemplazan por caducidad, ver
+    `alquimia.ts`) — no se inventa una regla nueva solo para comida/sueño.
+  - Test: cubierto por la batería ya existente de `alquimia.test.ts`
+    (`aplicarBuffsPocion`/`factorBuffPocion`/`tieneEspecialActivo`, misma
+    forma de `BuffPocion` que se construye aquí) — sin e2e dedicado de
+    "comer/dormir sube la velocidad/XP de verdad en una room real" todavía
+    (gap de test conocido, mismo criterio que el resto de mecánicas de
+    combate/pociones de este documento).
 - **Misiones/encargos**: NPCs piden "N objetos de tag X" (los tags hacen
   las misiones genéricas y baratas de crear); recompensa moneda/EXP/
   blueprints. Primer uso real de los NPCs antes incluso de la IA

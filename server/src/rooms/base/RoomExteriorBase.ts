@@ -445,6 +445,18 @@ const DURACION_DORMIR_MS = 20_000;
 /** Inanición (comida o bebida a 0): daño paulatino a `vida` por hora REAL — EXCEPCIÓN deliberada a "nadie se hace daño solo con el tiempo" (combate.ts), pedida por el streamer, ver aplicarInanicion(). */
 const DANO_INANICION_POR_HORA = 8;
 
+// --- Comida y descanso (docs/GDD_Mecanicas.md §5.12, decisión 2026-09-02:
+// tono confirmado "buffs de comer/dormir, NO muerte por hambre — MMO social
+// de stream, no survival duro") — reusa BuffPocion tal cual (mismo Map
+// buffsPocionPorSesion, mismas funciones aplicarBuffsPocion/factorBuffPocion/
+// tieneEspecialActivo que ya usan las pociones): comer/beber y dormir NO son
+// un sistema nuevo, son otra FUENTE de los mismos buffs. ---
+/** "Bien alimentado" (personaje:consumir con restaura/restauraMultiple de comida o bebida) — empujón pequeño y frecuente, dura lo que un tentempié. */
+const DURACION_BUFF_BIEN_ALIMENTADO_MS = 5 * 60_000;
+const MAGNITUD_BUFF_BIEN_ALIMENTADO_PCT = 8; // +8% velocidad de movimiento (factorBuffPocion sobre "velocidad")
+/** "Descansado" (dormir:completar en una cama real) — la acción grande de las dos (localizar cama + esperar), dura bastante más: doble XP de oficio durante un buen rato de sesión. */
+const DURACION_BUFF_DESCANSADO_MS = 20 * 60_000;
+
 // --- Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30) — el seguimiento
 // vive aquí (cualquier room); "dar de comer"/domesticar (manejarMascotaDarComidaGenerico,
 // abajo) también vive aquí desde docs/GDD_Monturas.md (2026-08-30) — cada
@@ -2233,6 +2245,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     } else {
       valores = { [entrada.restaura!.vital]: this.aplicarUnVital(player, entrada.restaura!.vital, entrada.restaura!.cantidad) };
     }
+
+    // "Bien alimentado" (docs/GDD_Mecanicas.md §5.12, 2026-09-02) — comer o
+    // beber algo de verdad (no cualquier "consumible": una poción restaura
+    // vida/estamina, no comida/bebida, y no debe dar este buff) da un
+    // empujón pequeño de velocidad, mismo BuffPocion/Map que las pociones.
+    if (valores.comida != null || valores.bebida != null) {
+      const actuales = this.buffsPocionPorSesion.get(client.sessionId) ?? [];
+      this.buffsPocionPorSesion.set(client.sessionId, [
+        ...actuales,
+        { categoria: "stat", stat: "velocidad", magnitudPct: MAGNITUD_BUFF_BIEN_ALIMENTADO_PCT, expiraEn: Date.now() + DURACION_BUFF_BIEN_ALIMENTADO_MS },
+      ]);
+    }
     client.send("personaje:consumido", { itemId: it.itemId, valores });
   }
 
@@ -2661,6 +2685,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       player.durmiendo = false;
       player.vitales.estamina = VITAL_MAX;
     }
+    // "Descansado" (docs/GDD_Mecanicas.md §5.12, 2026-09-02) — doble XP de
+    // oficio un buen rato, mismo BuffPocion/Map que las pociones y que
+    // "bien alimentado" (manejarPersonajeConsumir) — dormir de verdad en una
+    // cama ya recupera la Estamina entera arriba, este es el extra de
+    // "descanso" que le faltaba a la mecánica.
+    const actuales = this.buffsPocionPorSesion.get(client.sessionId) ?? [];
+    this.buffsPocionPorSesion.set(client.sessionId, [
+      ...actuales,
+      { categoria: "especial", especial: "xpOficioX2", expiraEn: Date.now() + DURACION_BUFF_DESCANSADO_MS },
+    ]);
     client.send("dormir:completado", {});
   }
 

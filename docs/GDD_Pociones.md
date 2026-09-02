@@ -85,6 +85,13 @@ Auditoría real del catálogo (`items/catalogo/items.json`, tipo `"recurso"`, te
 
 Igual que el minijuego de forja: movimiento bloqueado mientras `alquimiasEnCurso.has(sessionId)` (mismo `movimientoBloqueado` del handler genérico de `"input"`), doble-inicio rechazado, limpieza en `onLeave`.
 
+**`buffsPocionPorSesion` ya no es solo de pociones (2026-09-02)**: comer/beber
+(`personaje:consumir`) y dormir en cama (`dormir:completar`) también empujan
+`BuffPocion` al mismo Map, reusando `aplicarBuffsPocion`/`factorBuffPocion`/
+`tieneEspecialActivo` tal cual — ver `docs/GDD_Mecanicas.md` §5.12 ("Bien
+alimentado"/"Descansado"). Ni un tipo de buff nuevo ni un Map aparte: solo
+otra fuente de los mismos `{categoria:"stat"|"especial", ...}`.
+
 ## 5. Por qué el bonus vive en la INSTANCIA (a diferencia de herrería)
 
 Decisión verificada contra el código real antes de implementar (mismo criterio que se usó para decidir el bonus de herrería, docs/GDD_Crafteo.md §7ter): `SlotsEquipo` (equipo del jugador) guarda SOLO el `itemId` por slot — un arma/armadura equipada pierde cualquier dato de instancia (por eso el bonus de herrería es un itemId de catálogo `_bonificado` aparte). Una POCIÓN nunca pasa por ahí: se bebe directo desde el inventario (`pocion:beber` lee `ItemInstancia.efectoPocion` y la consume en el momento), así que el resultado estocástico SÍ puede vivir como campo opcional en la instancia — mismo patrón que `durabilidad`/`liquido`, sin necesitar 1 entrada de catálogo por cada combinación posible de efectos (que sería intratable: los efectos son continuos, no discretos).
