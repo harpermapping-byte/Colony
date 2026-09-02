@@ -599,8 +599,55 @@ implementadas tal cual:
   las misiones genéricas y baratas de crear); recompensa moneda/EXP/
   blueprints. Primer uso real de los NPCs antes incluso de la IA
   conversacional.
-- **Chat y social in-game**: chat local/global, emotes del rig, grupos
-  (party) para PvE y reparto de botín; gremios mucho después.
+- ~~Chat y social in-game~~ — **✅ chat local/global resuelto (2026-09-02,
+  pedido literal del streamer: "literalmente no existe ningún canal
+  local/global para que dos jugadores se hablen... esto importante"**, tras
+  auditar el proyecto y confirmar que el único "hablar" que existía era
+  `npc:hablar` (con IA, nunca entre jugadores). `chat:mensaje
+  {texto, canal:"local"|"global"}` (`server/src/rooms/base/
+  RoomExteriorBase.ts::manejarChatMensaje`, protocolo heredado por TODAS
+  las rooms — Hub/región/interior/mazmorra/arena):
+  - **"global"**: `this.broadcast` a TODA la room — "global" es "todo el
+    presente en ESTA instancia" (una `RegionRoom`/`InteriorRoom` es una
+    instancia con tope de jugadores, no el mapa entero) — mismo alcance que
+    cualquier otro broadcast del proyecto. Un chat cruzando varias
+    instancias a la vez exigiría un canal nuevo entre rooms que hoy no
+    existe para nada más — fuera de esta pasada.
+  - **"local"**: solo a quien esté dentro de `RADIO_CHAT_LOCAL=20` casillas
+    (más ancho que `RADIO_INTERACCION=2.2` — una conversación de plaza, no
+    un intercambio cuerpo a cuerpo) — recorre `this.clients` una vez,
+    `client.send` individual por destinatario dentro de rango, sin excluir
+    a quien habla.
+  - Server-authoritative: `nombre` sale siempre de `player.name`, nunca de
+    lo que mande el cliente. Rate-limit mínimo (`CHAT_COOLDOWN_MS=600ms`,
+    anti-flood, no moderación de contenido) y tope de 200 caracteres.
+  - **Cliente** (`client/src/ui/chat.ts`, `PanelChat`): panel persistente
+    esquina inferior izquierda (log + input + botón de canal), DOM plano
+    mismo patrón que `panelCombate.ts`. Enter abre/enfoca el chat (atajo
+    universal de cualquier MMO) y también envía estando ya enfocado; Escape
+    lo cierra. **Bug real encontrado y cerrado al construir esto**: el
+    keydown global de `game.ts` no comprobaba si un `<input>` tenía el foco
+    — escribir un mensaje de chat con letras como "b"/"i"/"m"/"d" disparaba
+    A LA VEZ los atajos de juego correspondientes (modo construcción,
+    inventario, mapa, e incluso MOVERSE de verdad si el mensaje llevaba
+    WASD). Corregido con un guardia al principio del keydown
+    (`document.activeElement instanceof HTMLInputElement/HTMLTextAreaElement`
+    → return) que de paso protege también a cualquier otro panel con
+    `<input>` que ya existiera.
+  - Test: `server/test` sin caso dedicado (handler sin lógica pura
+    extraíble, mismo criterio que el resto de mensajes de
+    `RoomExteriorBase.ts`) — cubierto por dos E2E reales nuevos:
+    `client/test/chat.e2e.mjs` (servidor real, dos sesiones colyseus.js:
+    global llega a ambos, local dejar de llegar cuando uno camina de
+    verdad — input real, no teleport — fuera de `RADIO_CHAT_LOCAL`,
+    rate-limit, mensaje vacío ignorado) y `client/test/chatUI.e2e.mjs`
+    (navegador real vía Playwright: el panel existe, Enter enfoca, escribir
+    "build door test bid" NO mueve al jugador ni abre otros paneles —la
+    regresión de arriba, verificada de verdad, no solo corregida de
+    memoria—, el mensaje aparece en el log, el botón de canal alterna).
+  - Sigue pendiente (no pedido en esta pasada): emotes del rig, grupos
+    (party) para PvE y reparto de botín — gremios ya existen aparte
+    (`docs/GDD_Gremios.md`).
 - **Eventos de mundo**: invasiones, ferias, apariciones raras —
   disparados por el streamer o por hitos de viewers (5.11). Contenido de
   stream puro con el esqueleto de zonas + spawns.

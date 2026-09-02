@@ -27,6 +27,7 @@ import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD
 import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2, Object3D } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
+import { PanelChat } from "./ui/chat";
 import { PanelForja } from "./construccion/panelForja";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
@@ -1851,6 +1852,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   $(room.state).combates.onAdd(() => actualizarPanelCombate());
   $(room.state).combates.onRemove(() => actualizarPanelCombate());
   room.onStateChange(() => actualizarPanelCombate());
+
+  // --- Chat entre jugadores (docs/GDD_Mecanicas.md §5.12, pedido
+  // 2026-09-02: "literalmente no existe ningún canal local/global para que
+  // dos jugadores se hablen") — dos canales, ver server/src/rooms/base/
+  // RoomExteriorBase.ts::manejarChatMensaje y client/src/ui/chat.ts.
+  const panelChat = new PanelChat({
+    contenedor,
+    enviarMensaje: (texto, canal) => room.send("chat:mensaje", { texto, canal }),
+  });
+  room.onMessage("chat:mensaje", (m: { sessionId: string; nombre: string; texto: string; canal: "local" | "global"; ts: number }) => {
+    panelChat.agregarMensaje(m);
+  });
   // Bug real encontrado en el barrido de sistemas 2026-08-31 (mismo motivo
   // que costó tiempo en el e2e de mesaAjedrez: un "*:error" del servidor
   // sin console.log en el cliente es invisible salvo un console.warn
@@ -2420,6 +2433,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   const teclas = new Set<string>();
   window.addEventListener("keydown", (e) => {
+    // Cualquier <input>/<textarea> con foco (chat, login, buscador de un
+    // panel...) se queda con el teclado ENTERO — bug real que destapó el
+    // chat (docs/GDD_Mecanicas.md §5.12): sin este guardia, escribir "hola"
+    // en el chat abría/cerraba inventario (i), modo construcción (b), mapa
+    // (m)... cada letra del mensaje disparaba TAMBIÉN su atajo de juego a
+    // la vez que se escribía. Los paneles con `<input>` anteriores al chat
+    // nunca lo notaron porque nadie escribía ahí mientras jugaba de verdad
+    // (login/nombrar, siempre con el juego en pausa de facto).
+    if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) return;
     const k = e.key.toLowerCase();
     // bucear/subir: pulsación, no mantenida (el servidor valida el medio)
     if (k === "q" && !teclas.has("q")) room.send("nivel", -1);

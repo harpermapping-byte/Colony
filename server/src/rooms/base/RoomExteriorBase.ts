@@ -230,6 +230,14 @@ const DEFENSA_BASE_COMPANERO = 1;
  * ahora una única constante compartida. */
 export const RADIO_INTERACCION = 2.2;
 
+// --- Chat (docs/GDD_Mecanicas.md §5.12, "chat local/global", 2026-09-02) ---
+/** Alcance del canal "local" en casillas — bastante más ancho que RADIO_INTERACCION (una conversación de plaza, no un intercambio cuerpo a cuerpo), pero NO toda la room entera (para eso está "global"). */
+const RADIO_CHAT_LOCAL = 20;
+/** Tope de caracteres por mensaje — nada que ver con moderación de contenido, solo evita payloads absurdos. */
+const CHAT_MAX_CARACTERES = 200;
+/** Anti-spam mínimo: un mensaje cada X ms como mucho, mismo espíritu que el "presupuesto/rate-limit por viewer" ya mencionado para comandos de Twitch (CLAUDE.md), aplicado aquí al chat de jugadores. */
+const CHAT_COOLDOWN_MS = 600;
+
 const ANCHO_CUERPO = 8;
 const ALTO_CUERPO = 6;
 // Inventario compartido del gremio (docs/GDD_Gremios.md §7, pedido
@@ -873,6 +881,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
   /** Buffs de poción activos por sesión (docs/GDD_Pociones.md) — efímero, igual que `montadoPorSesion`: se pierde al desconectar, nunca se persiste. Caducidad comprobada perezosamente (`alquimia.ts::aplicarBuffsPocion`), nunca un tick. */
   protected buffsPocionPorSesion = new Map<string, BuffPocion[]>();
+  /** Chat (docs/GDD_Mecanicas.md §5.12, 2026-09-02) — epoch ms del último mensaje ENVIADO por sesión, para el rate-limit de `chat:mensaje`; efímero, igual que el resto de estos Maps por sesión. */
+  private ultimoChatPorSesion = new Map<string, number>();
 
   // --- Injertos (docs/GDD_Agricultura.md §4) — especies híbridas creadas
   // por OTRAS rooms/sesiones pasadas viven en BD, no en items.json en
@@ -1483,6 +1493,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("asiento:sentarse", (client, msg: { construccionId?: number }) => this.manejarAsientoSentarse(client, msg));
     this.onMessage("asiento:levantarse", (client) => { if (this.sentadoEn.has(client.sessionId)) this.levantarDeAsiento(client.sessionId); });
 
+    // Chat entre jugadores (docs/GDD_Mecanicas.md §5.12, "chat local/global",
+    // 2026-09-02) — hueco real señalado por el streamer: hasta ahora el
+    // único "hablar" era npc:hablar (con IA), CERO canal para que dos
+    // jugadores se hablen entre sí, raro en un MMO social de stream.
+    this.onMessage("chat:mensaje", (client, msg: { texto?: string; canal?: "local" | "global" }) => this.manejarChatMensaje(client, msg));
+
     this.setSimulationInterval(() => this.actualizarMovimiento(), 1000 / TICK_HZ);
     // Seguimiento de mascotas — cosmético, no necesita 30hz (mismo criterio que GestorFauna, 5hz de sobra para un paseo).
     this.clock.setInterval(() => this.moverMascotas(0.2), 200);
@@ -1670,6 +1686,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Cocina (docs/GDD_Cocina.md, pedido 2026-09-01): mismo criterio — sesión a medias se pierde.
     this.cocinasEnCurso.delete(client.sessionId);
     this.buffsPocionPorSesion.delete(client.sessionId);
+    this.ultimoChatPorSesion.delete(client.sessionId);
     this.equipoBlueprintRopaInventario.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
     this.velocidadHieloPorSesion.delete(client.sessionId);
@@ -5692,6 +5709,52 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   private errorAsiento(client: Client, motivo: string) {
     client.send("asiento:error", { motivo });
+  }
+
+  /**
+   * Chat entre jugadores (docs/GDD_Mecanicas.md §5.12, 2026-09-02) — dos
+   * canales, sin sistema nuevo de verdad, solo dos formas de repartir el
+   * mismo mensaje:
+   * - "global": TODA la room (`this.broadcast`) — Hub/región/interior/
+   *   mazmorra/arena son instancias con tope de jugadores, así que "global"
+   *   es "todos los presentes en ESTA instancia", coherente con cómo ya
+   *   funciona cualquier otro broadcast del proyecto (parcelas:estado,
+   *   construccion:nueva...). Un chat de verdad multi-instancia (todo el
+   *   mapa a la vez) exigiría un canal cruzando rooms que no existe hoy
+   *   para nada más — fuera de esta pasada.
+   * - "local": solo a quien esté dentro de RADIO_CHAT_LOCAL de quien habla
+   *   (más ancho que RADIO_INTERACCION — una conversación de plaza, no un
+   *   intercambio cuerpo a cuerpo) — recorre `this.clients` una vez,
+   *   `client.send` individual a cada destinatario dentro de rango
+   *   (incluido quien habla, mismo criterio "servidor autoritativo, el
+   *   cliente nunca eco su propio mensaje" que el resto del proyecto).
+   * Server-authoritative de punta a punta: `nombre` sale de `player.name`
+   * (nunca de lo que mande el cliente), y un rate-limit mínimo
+   * (CHAT_COOLDOWN_MS) evita flood — nada de moderación de contenido, fuera
+   * de alcance de este documento.
+   */
+  private manejarChatMensaje(client: Client, msg: { texto?: string; canal?: "local" | "global" }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+    const texto = (msg?.texto ?? "").trim().slice(0, CHAT_MAX_CARACTERES);
+    if (!texto) return;
+    const canal: "local" | "global" = msg?.canal === "global" ? "global" : "local";
+
+    const ahora = Date.now();
+    const ultimo = this.ultimoChatPorSesion.get(client.sessionId) ?? 0;
+    if (ahora - ultimo < CHAT_COOLDOWN_MS) return client.send("chat:error", { motivo: "espera un momento" });
+    this.ultimoChatPorSesion.set(client.sessionId, ahora);
+
+    const payload = { sessionId: client.sessionId, nombre: player.name, texto, canal, ts: ahora };
+    if (canal === "global") {
+      this.broadcast("chat:mensaje", payload);
+      return;
+    }
+    for (const c of this.clients) {
+      const otro = this.state.players.get(c.sessionId);
+      if (!otro || Math.hypot(otro.x - player.x, otro.y - player.y) > RADIO_CHAT_LOCAL) continue;
+      c.send("chat:mensaje", payload);
+    }
   }
 
   private manejarMesaMover(client: Client, msg: { construccionId?: number; desde?: string; hasta?: string; promocion?: string }) {
