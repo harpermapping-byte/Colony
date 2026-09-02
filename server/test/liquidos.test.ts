@@ -2,7 +2,7 @@
 // (server/src/inventario/liquidos.ts). Ejecutar: npm test (tsx --test).
 import { test } from "node:test";
 import * as assert from "node:assert";
-import { esRecipienteLiquido, tieneLiquido, llenar, vaciar, consumirVolumen } from "../src/inventario/liquidos";
+import { esRecipienteLiquido, tieneLiquido, llenar, vaciar, consumirVolumen, transferirLiquido, LiquidoGranel } from "../src/inventario/liquidos";
 import { EntradaCatalogoItem, ItemInstancia } from "../src/inventario/inventario";
 
 function recipiente(volumenMaxMl: number): EntradaCatalogoItem {
@@ -75,4 +75,67 @@ test("consumirVolumen: bebe hasta lo pedido, nunca más de lo que hay", () => {
 test("consumirVolumen: sobre un recipiente vacío no da nada, no revienta", () => {
   const it = instancia();
   assert.strictEqual(consumirVolumen(it, 100), 0);
+});
+
+// docs/GDD_Carros.md §8.5 (Fase 2, pedido 2026-09-03) — cisterna de carro -> recipiente portable.
+function cisterna(volumenMl: number, volumenMaxMl = 20000, tipo = "agua"): LiquidoGranel {
+  return { tipo, volumenMl, volumenMaxMl };
+}
+
+test("transferirLiquido: llena el recipiente vacío hasta su tope, resta lo mismo de la cisterna", () => {
+  const c = cisterna(20000);
+  const it = instancia();
+  const transferido = transferirLiquido(c, it, recipiente(2000));
+  assert.strictEqual(transferido, 2000);
+  assert.strictEqual(it.liquido?.volumenMl, 2000);
+  assert.strictEqual(it.liquido?.tipo, "agua");
+  assert.strictEqual(c.volumenMl, 18000);
+});
+
+test("transferirLiquido: vacía la cisterna entera si tiene menos que el hueco del recipiente", () => {
+  const c = cisterna(500);
+  const it = instancia();
+  const transferido = transferirLiquido(c, it, recipiente(2000));
+  assert.strictEqual(transferido, 500);
+  assert.strictEqual(it.liquido?.volumenMl, 500);
+  assert.strictEqual(c.volumenMl, 0);
+});
+
+test("transferirLiquido: SUMA sobre el mismo tipo de líquido que ya llevara el destino, respetando el tope", () => {
+  const c = cisterna(20000);
+  const it = instancia();
+  llenar(it, recipiente(2000), "agua"); // ya tiene 2000/2000 lleno
+  const transferido = transferirLiquido(c, it, recipiente(2000));
+  assert.strictEqual(transferido, 0, "ya estaba lleno, no cabe nada más");
+  assert.strictEqual(c.volumenMl, 20000, "la cisterna no pierde nada si no se transfirió nada");
+
+  vaciar(it);
+  const it2 = instancia();
+  llenar(it2, recipiente(2000), "agua");
+  const bebido = consumirVolumen(it2, 500); // deja 1500/2000
+  assert.strictEqual(bebido, 500);
+  const transferido2 = transferirLiquido(c, it2, recipiente(2000));
+  assert.strictEqual(transferido2, 500, "solo lo que faltaba para llenar");
+  assert.strictEqual(it2.liquido?.volumenMl, 2000);
+});
+
+test("transferirLiquido: rechaza mezclar con un líquido DISTINTO ya presente (todo o nada)", () => {
+  const c = cisterna(20000, 20000, "agua");
+  const it = instancia();
+  llenar(it, recipiente(2000), "leche");
+  const transferido = transferirLiquido(c, it, recipiente(2000));
+  assert.strictEqual(transferido, 0);
+  assert.strictEqual(it.liquido?.tipo, "leche", "no se sobrescribe el líquido existente");
+  assert.strictEqual(c.volumenMl, 20000);
+});
+
+test("transferirLiquido: nada si la cisterna está vacía, o el destino no es un recipiente de líquido", () => {
+  const cVacia = cisterna(0);
+  const it = instancia();
+  assert.strictEqual(transferirLiquido(cVacia, it, recipiente(2000)), 0);
+
+  const c = cisterna(20000);
+  const it2 = instancia();
+  assert.strictEqual(transferirLiquido(c, it2, objetoNormal()), 0);
+  assert.strictEqual(it2.liquido, undefined);
 });

@@ -17,6 +17,7 @@
 import * as path from "node:path";
 import { Pool } from "pg";
 import { Contenedor, ItemInstancia, SlotsEquipo, RasgosCultivo } from "../inventario/inventario";
+import { ContenedorMuebles } from "../inventario/contenedorMuebles";
 import { nombresJarlTalCual } from "../construccion/construccion";
 
 // @types/node del monorepo es v20 y no conoce "node:sqlite" (los tipos llegaron en v22.5),
@@ -148,6 +149,16 @@ export interface NpcTrabajador {
   y: number;
   fechaContratacionDia: number;
   ultimoPagoDia: number;
+  /**
+   * docs/GDD_Carros.md §12 (Fase 5, pedido 2026-09-03) — mascota PROPIA
+   * `montable` asignada para que este trabajador (oficio "transporte") viaje
+   * más rápido que a pie. Mutuamente excluyente con `conjuntoAsignadoId`
+   * (una montura suelta o un conjunto fusionado, nunca los dos a la vez —
+   * son dos formas de la MISMA idea: "qué usa para desplazarse").
+   */
+  mascotaAsignadaId: number | null;
+  /** docs/GDD_Carros.md §12 — conjunto de tiro PROPIO asignado; si su categoria es "materiales" también sustituye `cargaPorViaje` por la capacidad real de su rejilla (§12/§8.2). Mutuamente excluyente con `mascotaAsignadaId`. */
+  conjuntoAsignadoId: number | null;
 }
 
 export interface NuevoNpcTrabajador {
@@ -475,6 +486,10 @@ export interface Mascota {
   creadoEn: string;
   /** docs/GDD_Monturas.md (pedido 2026-08-30) — true tras usar un ítem `esMontura` sobre ella (mascota:ponerMontura); solo entonces se puede `mascota:montar`. Permanente, nunca se quita. */
   montura: boolean;
+  /** docs/GDD_Carros.md §2 (pedido 2026-09-03) — true tras usar un ítem `esApero` sobre ella (mascota:ponerArnes); solo entonces se puede `carro:enganchar`. Ranura independiente de `montura` (un animal puede llevar silla Y arnés a la vez). Permanente, nunca se quita. */
+  arnes: boolean;
+  /** docs/GDD_Carros.md §3 — SOLO con arnes:true: `pesoMaximoArnes` del ítem `esApero` consumido (catalogo/items.json), qué carro máximo puede tirar. 0 con arnes:false. */
+  arnesPesoMaximo: number;
 }
 
 /**
@@ -517,6 +532,89 @@ export interface Barco {
   x: number;
   y: number;
   creadoEn: string;
+}
+
+/**
+ * Carro aparcado, SIN enganchar (docs/GDD_Carros.md §3, pedido 2026-09-03):
+ * mismo contrato exacto que Barco — `carro:colocar` lo crea junto al
+ * jugador, `mapaId` es la carpeta bajo assets/mapas/ que lo ancla. Sin dueño
+ * real de "quién puede engancharlo" (mismo criterio "cualquiera" que un
+ * barco varado, GDD_Carros §3) — `jugadorId` es solo quién lo crafteó/colocó.
+ * Deja de existir en cuanto se engancha (pasa a ConjuntoTiro).
+ */
+/**
+ * docs/GDD_Carros.md §5/§8 (Fase 2, pedido 2026-09-03): lo que lleva CARGADO
+ * un carro/conjunto según la `categoria` de su catálogo (`catalogoCarros.ts`)
+ * — como mucho UNA de las 4 claves tiene sentido a la vez (la que
+ * corresponda a esa categoría), el resto quedan `undefined`. Serializado tal
+ * cual a JSON en la columna `contenido` de `carros`/`conjuntos_tiro` (mismo
+ * criterio "un blob TEXT, JSON.stringify/parse a mano" que `construcciones.extra`).
+ * Sobrevive a enganchar/desenganchar: la carga es del CARRO, no del animal.
+ */
+export interface ContenidoCarro {
+  /** categoria "materiales" — rejilla Tetris grande. */
+  carga?: Contenedor;
+  /** categoria "muebles" — capacidad por tamaño, no rejilla (docs/GDD_Carros.md §8.3). */
+  muebles?: ContenedorMuebles;
+  /** categoria "animales" — ids de mascotas propias enjauladas (docs/GDD_Carros.md §8.4). */
+  jaula?: number[];
+  /** categoria "liquidos" — cisterna (docs/GDD_Carros.md §8.5). */
+  liquido?: { tipo: string; volumenMl: number; volumenMaxMl: number };
+}
+
+export interface Carro {
+  id: number;
+  jugadorId: number;
+  tipoId: string;
+  mapaId: string;
+  x: number;
+  y: number;
+  creadoEn: string;
+  contenido: ContenidoCarro | null;
+}
+
+/**
+ * Animal+carro fusionados (docs/GDD_Carros.md §5, pedido 2026-09-03) —
+ * `carro:enganchar` la crea (consume la fila `mascotas` de `mascotaId` sin
+ * borrarla, y la fila `Carro` de origen SÍ se borra), `carro:desenganchar`
+ * la borra de vuelta (recrea un `Carro` aparcado + reactiva la mascota como
+ * "siguiendo"). Ancla en el mundo igual que un barco — sobrevive aparcada
+ * sin conductor a un reinicio de room (HubRoom la rehidrata en onCreate).
+ */
+export interface ConjuntoTiro {
+  id: number;
+  jugadorId: number;
+  mascotaId: number;
+  /** denormalizado desde la mascota fusionada (personajes/catalogo/animales_rig.json) — evita un segundo cruce contra `mascotas` solo para saber qué renderizar al rehidratar en onCreate, mismo criterio que Barco.tipoId. */
+  especieAnimalId: string;
+  carroTipoId: string;
+  mapaId: string;
+  x: number;
+  y: number;
+  creadoEn: string;
+  contenido: ContenidoCarro | null;
+}
+
+/**
+ * Casilla de cultivo a CAMPO ABIERTO (docs/GDD_Carros.md §9.1, Fase 3,
+ * pedido 2026-09-03) — agricultura DIRECTA sobre suelo abierto, en paralelo
+ * a la de construcción (`bancal_cultivo`, sin tocar). A diferencia de un
+ * recolectable silvestre (mundo/recolectables.ts, sin BD, cálculo
+ * perezoso), una casilla labrada/sembrada SÍ se persiste — un jugador no
+ * puede perder días de trabajo si la room se reinicia. `idxCasilla` es
+ * `Math.floor(y) * anchoMapa + Math.floor(x)` (misma convención de índice
+ * global que el resto del proyecto).
+ */
+export interface CasillaCultivo {
+  mapaId: string;
+  idxCasilla: number;
+  x: number;
+  y: number;
+  duenoId: number;
+  estado: "labrada" | "sembrada";
+  semillaId: string | null;
+  /** tiempoMundo().dia en que se plantó — solo con estado "sembrada". */
+  diaPlantado: number | null;
 }
 
 /**
@@ -702,6 +800,8 @@ export interface IAlmacenDatos {
   /** `false` si `construccionId` ya no existe como fila — validado por quien llama, no aquí (esta capa no conoce ConstruccionViva). */
   asignarMesaNpcTrabajador(id: number, construccionId: number, x: number, y: number): Promise<boolean>;
   asignarRecetaNpcTrabajador(id: number, recetaId: string | null): Promise<boolean>;
+  /** docs/GDD_Carros.md §12 (Fase 5) — mismo patrón que asignarMesaNpcTrabajador: pasar `null` en ambos quita la asignación (vuelve a andar a pie). Mutuamente excluyentes, quien llama decide cuál de los dos va con valor. */
+  asignarMonturaNpcTrabajador(id: number, mascotaAsignadaId: number | null, conjuntoAsignadoId: number | null): Promise<boolean>;
   /** Pone `ultimoPagoDia = dia` a la vez para varios trabajadores — el pago mensual se cobra "de golpe" a todo el grupo (docs/GDD_NPCs_Contratables.md). */
   marcarPagoNpcTrabajador(ids: number[], dia: number): Promise<void>;
   /** Despido/eliminación (a mano por el dueño, o automático por impago) — `false` si el id ya no existía. */
@@ -859,6 +959,8 @@ export interface IAlmacenDatos {
   crearContratoTransporte(c: NuevoContratoTransporte): Promise<ContratoTransporte>;
   listarContratosTransporte(): Promise<ContratoTransporte[]>;
   actualizarUltimoViajeContrato(id: number, ultimoViajeResuelto: string): Promise<void>;
+  /** docs/GDD_Carros.md §12 (Fase 5) — recalculada al asignar/quitar montura/conjunto a mitad de ruta activa (la velocidad efectiva cambia, la duración persistida del viaje tiene que seguirla). */
+  actualizarDuracionContrato(id: number, duracionViajeSeg: number): Promise<void>;
   desactivarContratoTransporte(id: number): Promise<void>;
   /** El contrato ACTIVO (si hay) que opera este trabajador de oficio "transporte" — docs/GDD_NPCs_Contratables.md §Fusión con transporte. */
   buscarContratoDeTrabajador(trabajadorId: number): Promise<ContratoTransporte | null>;
@@ -955,6 +1057,8 @@ export interface IAlmacenDatos {
   actualizarUbicacionMascota(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean>;
   /** docs/GDD_Monturas.md — marca `montura:true` permanentemente (mismo compare-and-swap por jugadorId que actualizarUbicacionMascota). */
   ponerMonturaMascota(id: number, jugadorId: number): Promise<boolean>;
+  /** docs/GDD_Carros.md §2 — marca `arnes:true` + `arnesPesoMaximo` permanentemente (mismo compare-and-swap que ponerMonturaMascota, ranura independiente). */
+  ponerArnesMascota(id: number, jugadorId: number, pesoMaximo: number): Promise<boolean>;
   // Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — nace "siguiendo" (RoomExteriorBase lo spawnea de inmediato), mismo patrón que mascotas.
   crearCompanero(jugadorId: number, companeroJugadorId: number, npcOrigenSlot: string, nombre: string): Promise<Companero>;
   listarCompaneros(jugadorId: number): Promise<Companero[]>;
@@ -968,6 +1072,30 @@ export interface IAlmacenDatos {
   listarBarcosDe(mapaId: string): Promise<Barco[]>;
   /** Se llama al desembarcar (ancla donde quedó) y al cruzar de mapa (ancla en el spawn del destino). */
   actualizarPosicionBarco(id: number, mapaId: string, x: number, y: number): Promise<void>;
+  // Carros (docs/GDD_Carros.md §3/§5, pedido 2026-09-03) — mismo patrón exacto que Barcos, con el paso intermedio de fusión en ConjuntoTiro.
+  /** Nace aparcado (carro:colocar) — `contenido` ya inicializado vacío según categoría (docs/GDD_Carros.md §8, Fase 2). */
+  crearCarro(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<Carro>;
+  /** Todos los carros aparcados en ESE mapa — HubRoom los carga a state.carros en onCreate. */
+  listarCarrosDe(mapaId: string): Promise<Carro[]>;
+  /** Se llama al enganchar (deja de estar "aparcado", pasa a ConjuntoTiro). */
+  eliminarCarro(id: number): Promise<void>;
+  /** docs/GDD_Carros.md §8 (Fase 2) — persiste la carga tras `carro:meterCarga`/`meterMueble`/`meterAnimal`/`conectarManguera`/etc. sobre un carro APARCADO. */
+  actualizarContenidoCarro(id: number, contenido: ContenidoCarro | null): Promise<void>;
+  /** carro:enganchar — funde una mascota (ya existente, sin borrar su fila) con un carro (que SÍ se borra vía eliminarCarro) en una entidad nueva; `contenido` es el que traía el carro (sobrevive al enganche, la carga es del carro no del animal). */
+  crearConjuntoTiro(jugadorId: number, mascotaId: number, especieAnimalId: string, carroTipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<ConjuntoTiro>;
+  /** Todos los conjuntos enganchados en ESE mapa (con o sin conductor) — HubRoom los carga a state.conjuntosTiro en onCreate. */
+  listarConjuntosTiroDe(mapaId: string): Promise<ConjuntoTiro[]>;
+  /** Se llama al desmontar el conductor (ancla donde quedó) — mismo criterio que actualizarPosicionBarco. */
+  actualizarPosicionConjuntoTiro(id: number, mapaId: string, x: number, y: number): Promise<void>;
+  /** docs/GDD_Carros.md §8 (Fase 2) — misma idea que actualizarContenidoCarro, pero sobre un conjunto YA enganchado. */
+  actualizarContenidoConjuntoTiro(id: number, contenido: ContenidoCarro | null): Promise<void>;
+  /** carro:desenganchar — separa de vuelta en un Carro aparcado + la mascota vuelve a "siguiendo" (RoomExteriorBase recrea ambos, esto solo borra la fusión). */
+  eliminarConjuntoTiro(id: number): Promise<void>;
+  // Agricultura de casilla (docs/GDD_Carros.md §9.1, Fase 3, pedido 2026-09-03) — cultivoCasilla:labrar/plantar/cosechar.
+  /** Upsert por (mapaId, idxCasilla) — labrar/plantar/cosechar llaman a esto en cada transición de estado. */
+  guardarCasillaCultivo(c: CasillaCultivo): Promise<void>;
+  /** Todas las casillas de cultivo de ESE mapa — iniciarConstruccion las carga a la caché de proceso (cultivoCasillaVivo.ts) la PRIMERA vez que se visita. */
+  listarCasillasCultivoDe(mapaId: string): Promise<CasillaCultivo[]>;
   // Flags globales (docs/GDD_PvP.md, pedido 2026-08-30) — tabla genérica de un solo valor por clave.
   obtenerConfigMundo(clave: string): Promise<string | null>;
   fijarConfigMundo(clave: string, valor: string): Promise<void>;
@@ -1209,7 +1337,9 @@ CREATE TABLE IF NOT EXISTS npcs_trabajadores (
   y REAL NOT NULL,
   fecha_contratacion_dia INTEGER NOT NULL,
   ultimo_pago_dia INTEGER NOT NULL,
-  creado_en TEXT NOT NULL
+  creado_en TEXT NOT NULL,
+  mascota_asignada_id INTEGER,           -- FK mascotas.id, docs/GDD_Carros.md §12 (Fase 5) — NULL = anda a pie
+  conjunto_asignado_id INTEGER           -- FK conjuntos_tiro.id, docs/GDD_Carros.md §12 — mutuamente excluyente con mascota_asignada_id
 );
 CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_dueno ON npcs_trabajadores(dueno_id);
 CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_mapa ON npcs_trabajadores(mapa_id);
@@ -1243,7 +1373,9 @@ CREATE TABLE IF NOT EXISTS mascotas (
   ubicacion TEXT NOT NULL DEFAULT 'siguiendo',
   propiedad_id TEXT,
   creado_en TEXT NOT NULL,
-  montura INTEGER NOT NULL DEFAULT 0
+  montura INTEGER NOT NULL DEFAULT 0,
+  arnes INTEGER NOT NULL DEFAULT 0,
+  arnes_peso_maximo REAL NOT NULL DEFAULT 0
 );
 -- Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30): un Npc real de
 -- poblacion/ reclutado por un jugador. companero_jugador_id es la fila
@@ -1272,6 +1404,55 @@ CREATE TABLE IF NOT EXISTS barcos (
   x REAL NOT NULL,
   y REAL NOT NULL,
   creado_en TEXT NOT NULL
+);
+-- Carros (docs/GDD_Carros.md §3, pedido 2026-09-03): mismo patrón exacto que
+-- barcos — "colocado" (carro:colocar), ancla en el mundo hasta que se
+-- engancha (pasa a conjuntos_tiro) o se vuelve a desenganchar.
+CREATE TABLE IF NOT EXISTS carros (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  jugador_id INTEGER NOT NULL,
+  tipo_id TEXT NOT NULL,
+  mapa_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  creado_en TEXT NOT NULL,
+  contenido TEXT
+);
+-- Conjuntos de tiro (docs/GDD_Carros.md §5, pedido 2026-09-03): animal
+-- (mascota_id, su fila en mascotas NO se borra) + carro fusionados por
+-- carro:enganchar. Ancla en el mundo igual que un carro/barco -- sobrevive
+-- aparcado sin conductor a un reinicio de room. contenido = misma carga que
+-- traía el Carro de origen (JSON, docs/GDD_Carros.md §8 Fase 2) -- la carga
+-- es del carro, no del animal, sobrevive a enganchar/desenganchar.
+CREATE TABLE IF NOT EXISTS conjuntos_tiro (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  jugador_id INTEGER NOT NULL,
+  mascota_id INTEGER NOT NULL,
+  especie_animal_id TEXT NOT NULL,
+  carro_tipo_id TEXT NOT NULL,
+  mapa_id TEXT NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  creado_en TEXT NOT NULL,
+  contenido TEXT
+);
+-- Agricultura de casilla (docs/GDD_Carros.md §9.1, Fase 3, pedido
+-- 2026-09-03): campo abierto labrado/sembrado directamente sobre suelo,
+-- en paralelo a bancal_cultivo (construcción, sin tocar). idx_casilla es
+-- el índice global de casilla dentro de mapa_id (misma convención que el
+-- resto del proyecto) -- persistida porque un jugador no puede perder
+-- días de trabajo si la room se reinicia (a diferencia de un recolectable
+-- silvestre).
+CREATE TABLE IF NOT EXISTS casillas_cultivo (
+  mapa_id TEXT NOT NULL,
+  idx_casilla INTEGER NOT NULL,
+  x REAL NOT NULL,
+  y REAL NOT NULL,
+  dueno_id INTEGER NOT NULL,
+  estado TEXT NOT NULL,
+  semilla_id TEXT,
+  dia_plantado INTEGER,
+  PRIMARY KEY (mapa_id, idx_casilla)
 );
 -- Flags globales de un solo valor (pedido 2026-08-30: PvP apagado por
 -- defecto, el jarl lo activa) — genérica a propósito, cualquier futuro
@@ -1687,6 +1868,8 @@ CREATE TABLE IF NOT EXISTS npcs_trabajadores (
   ultimo_pago_dia INTEGER NOT NULL,
   creado_en TEXT NOT NULL
 );
+ALTER TABLE npcs_trabajadores ADD COLUMN IF NOT EXISTS mascota_asignada_id INTEGER;
+ALTER TABLE npcs_trabajadores ADD COLUMN IF NOT EXISTS conjunto_asignado_id INTEGER;
 CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_dueno ON npcs_trabajadores(dueno_id);
 CREATE INDEX IF NOT EXISTS idx_npcs_trabajadores_mapa ON npcs_trabajadores(mapa_id);
 CREATE TABLE IF NOT EXISTS jugador_oficios (
@@ -1710,7 +1893,9 @@ CREATE TABLE IF NOT EXISTS mascotas (
   ubicacion TEXT NOT NULL DEFAULT 'siguiendo',
   propiedad_id TEXT,
   creado_en TEXT NOT NULL,
-  montura BOOLEAN NOT NULL DEFAULT FALSE
+  montura BOOLEAN NOT NULL DEFAULT FALSE,
+  arnes BOOLEAN NOT NULL DEFAULT FALSE,
+  arnes_peso_maximo DOUBLE PRECISION NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS companeros (
   id SERIAL PRIMARY KEY,
@@ -1724,6 +1909,8 @@ CREATE TABLE IF NOT EXISTS companeros (
   creado_en TEXT NOT NULL
 );
 ALTER TABLE mascotas ADD COLUMN IF NOT EXISTS montura BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE mascotas ADD COLUMN IF NOT EXISTS arnes BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE mascotas ADD COLUMN IF NOT EXISTS arnes_peso_maximo DOUBLE PRECISION NOT NULL DEFAULT 0;
 CREATE TABLE IF NOT EXISTS barcos (
   id SERIAL PRIMARY KEY,
   jugador_id INTEGER NOT NULL,
@@ -1732,6 +1919,41 @@ CREATE TABLE IF NOT EXISTS barcos (
   x DOUBLE PRECISION NOT NULL,
   y DOUBLE PRECISION NOT NULL,
   creado_en TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS carros (
+  id SERIAL PRIMARY KEY,
+  jugador_id INTEGER NOT NULL,
+  tipo_id TEXT NOT NULL,
+  mapa_id TEXT NOT NULL,
+  x DOUBLE PRECISION NOT NULL,
+  y DOUBLE PRECISION NOT NULL,
+  creado_en TEXT NOT NULL,
+  contenido TEXT
+);
+ALTER TABLE carros ADD COLUMN IF NOT EXISTS contenido TEXT;
+CREATE TABLE IF NOT EXISTS conjuntos_tiro (
+  id SERIAL PRIMARY KEY,
+  jugador_id INTEGER NOT NULL,
+  mascota_id INTEGER NOT NULL,
+  especie_animal_id TEXT NOT NULL,
+  carro_tipo_id TEXT NOT NULL,
+  mapa_id TEXT NOT NULL,
+  x DOUBLE PRECISION NOT NULL,
+  y DOUBLE PRECISION NOT NULL,
+  creado_en TEXT NOT NULL,
+  contenido TEXT
+);
+ALTER TABLE conjuntos_tiro ADD COLUMN IF NOT EXISTS contenido TEXT;
+CREATE TABLE IF NOT EXISTS casillas_cultivo (
+  mapa_id TEXT NOT NULL,
+  idx_casilla INTEGER NOT NULL,
+  x DOUBLE PRECISION NOT NULL,
+  y DOUBLE PRECISION NOT NULL,
+  dueno_id INTEGER NOT NULL,
+  estado TEXT NOT NULL,
+  semilla_id TEXT,
+  dia_plantado INTEGER,
+  PRIMARY KEY (mapa_id, idx_casilla)
 );
 CREATE TABLE IF NOT EXISTS configuracion_mundo (
   clave TEXT PRIMARY KEY,
@@ -2066,6 +2288,8 @@ function filaAMascota(f: any): Mascota {
     propiedadId: f.propiedad_id === null || f.propiedad_id === undefined ? null : String(f.propiedad_id),
     creadoEn: String(f.creado_en),
     montura: !!f.montura,
+    arnes: !!f.arnes,
+    arnesPesoMaximo: Number(f.arnes_peso_maximo ?? 0),
   };
 }
 
@@ -2093,6 +2317,50 @@ function filaABarco(f: any): Barco {
     x: Number(f.x),
     y: Number(f.y),
     creadoEn: String(f.creado_en),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaACarro(f: any): Carro {
+  return {
+    id: Number(f.id),
+    jugadorId: Number(f.jugador_id),
+    tipoId: String(f.tipo_id),
+    mapaId: String(f.mapa_id),
+    x: Number(f.x),
+    y: Number(f.y),
+    creadoEn: String(f.creado_en),
+    contenido: f.contenido == null ? null : (JSON.parse(String(f.contenido)) as ContenidoCarro),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaAConjuntoTiro(f: any): ConjuntoTiro {
+  return {
+    id: Number(f.id),
+    jugadorId: Number(f.jugador_id),
+    mascotaId: Number(f.mascota_id),
+    especieAnimalId: String(f.especie_animal_id),
+    carroTipoId: String(f.carro_tipo_id),
+    mapaId: String(f.mapa_id),
+    x: Number(f.x),
+    y: Number(f.y),
+    creadoEn: String(f.creado_en),
+    contenido: f.contenido == null ? null : (JSON.parse(String(f.contenido)) as ContenidoCarro),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filaACasillaCultivo(f: any): CasillaCultivo {
+  return {
+    mapaId: String(f.mapa_id),
+    idxCasilla: Number(f.idx_casilla),
+    x: Number(f.x),
+    y: Number(f.y),
+    duenoId: Number(f.dueno_id),
+    estado: String(f.estado) as "labrada" | "sembrada",
+    semillaId: f.semilla_id === null || f.semilla_id === undefined ? null : String(f.semilla_id),
+    diaPlantado: f.dia_plantado === null || f.dia_plantado === undefined ? null : Number(f.dia_plantado),
   };
 }
 
@@ -2286,6 +2554,26 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     if (!columnasMascotas.some((c) => String(c.name) === "montura")) {
       this.bd.exec("ALTER TABLE mascotas ADD COLUMN montura INTEGER NOT NULL DEFAULT 0");
     }
+    // Mismo patrón para `arnes`/`arnes_peso_maximo` de `mascotas`
+    // (docs/GDD_Carros.md §2, pedido 2026-09-03) — un datos.sqlite de dev
+    // creado antes de este cambio no las tendría.
+    if (!columnasMascotas.some((c) => String(c.name) === "arnes")) {
+      this.bd.exec("ALTER TABLE mascotas ADD COLUMN arnes INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!columnasMascotas.some((c) => String(c.name) === "arnes_peso_maximo")) {
+      this.bd.exec("ALTER TABLE mascotas ADD COLUMN arnes_peso_maximo REAL NOT NULL DEFAULT 0");
+    }
+    // Mismo patrón para `contenido` de `carros`/`conjuntos_tiro`
+    // (docs/GDD_Carros.md §8, Fase 2, pedido 2026-09-03) — un datos.sqlite
+    // de dev creado en Fase 1 no la tendría todavía.
+    const columnasCarros = this.bd.prepare("PRAGMA table_info(carros)").all();
+    if (!columnasCarros.some((c) => String(c.name) === "contenido")) {
+      this.bd.exec("ALTER TABLE carros ADD COLUMN contenido TEXT");
+    }
+    const columnasConjuntosTiro = this.bd.prepare("PRAGMA table_info(conjuntos_tiro)").all();
+    if (!columnasConjuntosTiro.some((c) => String(c.name) === "contenido")) {
+      this.bd.exec("ALTER TABLE conjuntos_tiro ADD COLUMN contenido TEXT");
+    }
     // Mismo patrón para tipo/asentamiento_id/jugador de `memoria_lider`
     // (docs/GDD_Faccion_Bandidos.md §7quinquies) — un datos.sqlite de dev
     // creado antes de este cambio no las tendría.
@@ -2316,6 +2604,17 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     if (!columnasContratos.some((c) => String(c.name) === "trabajador_id")) {
       this.bd.exec("ALTER TABLE contratos_transporte ADD COLUMN trabajador_id INTEGER");
       this.bd.exec("CREATE INDEX IF NOT EXISTS idx_contratos_trabajador ON contratos_transporte(trabajador_id)");
+    }
+    // Mismo patrón para `mascota_asignada_id`/`conjunto_asignado_id` de
+    // `npcs_trabajadores` (docs/GDD_Carros.md §12, Fase 5, pedido
+    // 2026-09-03) — un datos.sqlite de dev creado antes de este cambio no
+    // las tendría.
+    const columnasTrabajadores = this.bd.prepare("PRAGMA table_info(npcs_trabajadores)").all();
+    if (!columnasTrabajadores.some((c) => String(c.name) === "mascota_asignada_id")) {
+      this.bd.exec("ALTER TABLE npcs_trabajadores ADD COLUMN mascota_asignada_id INTEGER");
+    }
+    if (!columnasTrabajadores.some((c) => String(c.name) === "conjunto_asignado_id")) {
+      this.bd.exec("ALTER TABLE npcs_trabajadores ADD COLUMN conjunto_asignado_id INTEGER");
     }
   }
 
@@ -2391,6 +2690,8 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       oficios: JSON.parse(String(f.oficios)), construccionId: f.construccion_id == null ? null : Number(f.construccion_id),
       recetaId: f.receta_id == null ? null : String(f.receta_id), x: Number(f.x), y: Number(f.y),
       fechaContratacionDia: Number(f.fecha_contratacion_dia), ultimoPagoDia: Number(f.ultimo_pago_dia),
+      mascotaAsignadaId: f.mascota_asignada_id == null ? null : Number(f.mascota_asignada_id),
+      conjuntoAsignadoId: f.conjunto_asignado_id == null ? null : Number(f.conjunto_asignado_id),
     };
   }
 
@@ -2405,6 +2706,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return {
       id: Number(r.lastInsertRowid), mapaId: datos.mapaId, duenoId: datos.duenoId, nombre: datos.nombre, oficios: datos.oficios,
       construccionId: null, recetaId: null, x: datos.x, y: datos.y, fechaContratacionDia: datos.diaActual, ultimoPagoDia: datos.diaActual,
+      mascotaAsignadaId: null, conjuntoAsignadoId: null,
     };
   }
 
@@ -2425,6 +2727,13 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async asignarRecetaNpcTrabajador(id: number, recetaId: string | null): Promise<boolean> {
     const r = this.bd.prepare("UPDATE npcs_trabajadores SET receta_id = ? WHERE id = ?").run(recetaId, id);
+    return Number(r.changes) > 0;
+  }
+
+  async asignarMonturaNpcTrabajador(id: number, mascotaAsignadaId: number | null, conjuntoAsignadoId: number | null): Promise<boolean> {
+    const r = this.bd
+      .prepare("UPDATE npcs_trabajadores SET mascota_asignada_id = ?, conjunto_asignado_id = ? WHERE id = ?")
+      .run(mascotaAsignadaId, conjuntoAsignadoId, id);
     return Number(r.changes) > 0;
   }
 
@@ -3228,6 +3537,10 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     this.bd.prepare("UPDATE contratos_transporte SET ultimo_viaje_resuelto = ? WHERE id = ?").run(ultimoViajeResuelto, id);
   }
 
+  async actualizarDuracionContrato(id: number, duracionViajeSeg: number): Promise<void> {
+    this.bd.prepare("UPDATE contratos_transporte SET duracion_viaje_seg = ? WHERE id = ?").run(duracionViajeSeg, id);
+  }
+
   async desactivarContratoTransporte(id: number): Promise<void> {
     this.bd.prepare("UPDATE contratos_transporte SET activo = 0 WHERE id = ?").run(id);
   }
@@ -3619,11 +3932,11 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const r = this.bd
       .prepare("INSERT INTO mascotas (jugador_id, especie_id, ubicacion, propiedad_id, creado_en) VALUES (?, ?, 'siguiendo', NULL, ?)")
       .run(jugadorId, especieId, ahora);
-    return { id: Number(r.lastInsertRowid), jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora, montura: false };
+    return { id: Number(r.lastInsertRowid), jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora, montura: false, arnes: false, arnesPesoMaximo: 0 };
   }
 
   async listarMascotas(jugadorId: number): Promise<Mascota[]> {
-    const filas = this.bd.prepare("SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en, montura FROM mascotas WHERE jugador_id = ?").all(jugadorId);
+    const filas = this.bd.prepare("SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en, montura, arnes, arnes_peso_maximo FROM mascotas WHERE jugador_id = ?").all(jugadorId);
     return filas.map(filaAMascota);
   }
 
@@ -3638,6 +3951,13 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const r = this.bd
       .prepare("UPDATE mascotas SET montura = 1 WHERE id = ? AND jugador_id = ?")
       .run(id, jugadorId);
+    return Number(r.changes) > 0;
+  }
+
+  async ponerArnesMascota(id: number, jugadorId: number, pesoMaximo: number): Promise<boolean> {
+    const r = this.bd
+      .prepare("UPDATE mascotas SET arnes = 1, arnes_peso_maximo = ? WHERE id = ? AND jugador_id = ?")
+      .run(pesoMaximo, id, jugadorId);
     return Number(r.changes) > 0;
   }
 
@@ -3683,6 +4003,75 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async actualizarPosicionBarco(id: number, mapaId: string, x: number, y: number): Promise<void> {
     this.bd.prepare("UPDATE barcos SET mapa_id = ?, x = ?, y = ? WHERE id = ?").run(mapaId, x, y, id);
+  }
+
+  async crearCarro(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<Carro> {
+    const ahora = new Date().toISOString();
+    const contenidoJson = contenido == null ? null : JSON.stringify(contenido);
+    const r = this.bd
+      .prepare("INSERT INTO carros (jugador_id, tipo_id, mapa_id, x, y, creado_en, contenido) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(jugadorId, tipoId, mapaId, x, y, ahora, contenidoJson);
+    return { id: Number(r.lastInsertRowid), jugadorId, tipoId, mapaId, x, y, creadoEn: ahora, contenido };
+  }
+
+  async listarCarrosDe(mapaId: string): Promise<Carro[]> {
+    const filas = this.bd.prepare("SELECT id, jugador_id, tipo_id, mapa_id, x, y, creado_en, contenido FROM carros WHERE mapa_id = ?").all(mapaId);
+    return filas.map(filaACarro);
+  }
+
+  async eliminarCarro(id: number): Promise<void> {
+    this.bd.prepare("DELETE FROM carros WHERE id = ?").run(id);
+  }
+
+  async actualizarContenidoCarro(id: number, contenido: ContenidoCarro | null): Promise<void> {
+    this.bd.prepare("UPDATE carros SET contenido = ? WHERE id = ?").run(contenido == null ? null : JSON.stringify(contenido), id);
+  }
+
+  async crearConjuntoTiro(jugadorId: number, mascotaId: number, especieAnimalId: string, carroTipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<ConjuntoTiro> {
+    const ahora = new Date().toISOString();
+    const contenidoJson = contenido == null ? null : JSON.stringify(contenido);
+    const r = this.bd
+      .prepare("INSERT INTO conjuntos_tiro (jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en, contenido) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, ahora, contenidoJson);
+    return { id: Number(r.lastInsertRowid), jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, creadoEn: ahora, contenido };
+  }
+
+  async listarConjuntosTiroDe(mapaId: string): Promise<ConjuntoTiro[]> {
+    const filas = this.bd
+      .prepare("SELECT id, jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en, contenido FROM conjuntos_tiro WHERE mapa_id = ?")
+      .all(mapaId);
+    return filas.map(filaAConjuntoTiro);
+  }
+
+  async actualizarPosicionConjuntoTiro(id: number, mapaId: string, x: number, y: number): Promise<void> {
+    this.bd.prepare("UPDATE conjuntos_tiro SET mapa_id = ?, x = ?, y = ? WHERE id = ?").run(mapaId, x, y, id);
+  }
+
+  async actualizarContenidoConjuntoTiro(id: number, contenido: ContenidoCarro | null): Promise<void> {
+    this.bd.prepare("UPDATE conjuntos_tiro SET contenido = ? WHERE id = ?").run(contenido == null ? null : JSON.stringify(contenido), id);
+  }
+
+  async eliminarConjuntoTiro(id: number): Promise<void> {
+    this.bd.prepare("DELETE FROM conjuntos_tiro WHERE id = ?").run(id);
+  }
+
+  async guardarCasillaCultivo(c: CasillaCultivo): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO casillas_cultivo (mapa_id, idx_casilla, x, y, dueno_id, estado, semilla_id, dia_plantado)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(mapa_id, idx_casilla) DO UPDATE SET
+           x = excluded.x, y = excluded.y, dueno_id = excluded.dueno_id, estado = excluded.estado,
+           semilla_id = excluded.semilla_id, dia_plantado = excluded.dia_plantado`,
+      )
+      .run(c.mapaId, c.idxCasilla, c.x, c.y, c.duenoId, c.estado, c.semillaId, c.diaPlantado);
+  }
+
+  async listarCasillasCultivoDe(mapaId: string): Promise<CasillaCultivo[]> {
+    const filas = this.bd
+      .prepare("SELECT mapa_id, idx_casilla, x, y, dueno_id, estado, semilla_id, dia_plantado FROM casillas_cultivo WHERE mapa_id = ?")
+      .all(mapaId);
+    return filas.map(filaACasillaCultivo);
   }
 
   async obtenerConfigMundo(clave: string): Promise<string | null> {
@@ -3949,11 +4338,12 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return (r.rowCount ?? 0) > 0;
   }
 
-  private filaATrabajador(f: { id: number; mapa_id: string; dueno_id: number; nombre: string; oficios: string; construccion_id: number | null; receta_id: string | null; x: number; y: number; fecha_contratacion_dia: number; ultimo_pago_dia: number }): NpcTrabajador {
+  private filaATrabajador(f: { id: number; mapa_id: string; dueno_id: number; nombre: string; oficios: string; construccion_id: number | null; receta_id: string | null; x: number; y: number; fecha_contratacion_dia: number; ultimo_pago_dia: number; mascota_asignada_id: number | null; conjunto_asignado_id: number | null }): NpcTrabajador {
     return {
       id: f.id, mapaId: f.mapa_id, duenoId: f.dueno_id, nombre: f.nombre, oficios: JSON.parse(f.oficios),
       construccionId: f.construccion_id, recetaId: f.receta_id, x: f.x, y: f.y,
       fechaContratacionDia: f.fecha_contratacion_dia, ultimoPagoDia: f.ultimo_pago_dia,
+      mascotaAsignadaId: f.mascota_asignada_id, conjuntoAsignadoId: f.conjunto_asignado_id,
     };
   }
 
@@ -3967,6 +4357,7 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return {
       id: r.rows[0].id, mapaId: datos.mapaId, duenoId: datos.duenoId, nombre: datos.nombre, oficios: datos.oficios,
       construccionId: null, recetaId: null, x: datos.x, y: datos.y, fechaContratacionDia: datos.diaActual, ultimoPagoDia: datos.diaActual,
+      mascotaAsignadaId: null, conjuntoAsignadoId: null,
     };
   }
 
@@ -3987,6 +4378,14 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async asignarRecetaNpcTrabajador(id: number, recetaId: string | null): Promise<boolean> {
     const r = await this.pool.query("UPDATE npcs_trabajadores SET receta_id = $1 WHERE id = $2", [recetaId, id]);
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async asignarMonturaNpcTrabajador(id: number, mascotaAsignadaId: number | null, conjuntoAsignadoId: number | null): Promise<boolean> {
+    const r = await this.pool.query(
+      "UPDATE npcs_trabajadores SET mascota_asignada_id = $1, conjunto_asignado_id = $2 WHERE id = $3",
+      [mascotaAsignadaId, conjuntoAsignadoId, id]
+    );
     return (r.rowCount ?? 0) > 0;
   }
 
@@ -4771,6 +5170,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     await this.pool.query("UPDATE contratos_transporte SET ultimo_viaje_resuelto = $1 WHERE id = $2", [ultimoViajeResuelto, id]);
   }
 
+  async actualizarDuracionContrato(id: number, duracionViajeSeg: number): Promise<void> {
+    await this.pool.query("UPDATE contratos_transporte SET duracion_viaje_seg = $1 WHERE id = $2", [duracionViajeSeg, id]);
+  }
+
   async desactivarContratoTransporte(id: number): Promise<void> {
     await this.pool.query("UPDATE contratos_transporte SET activo = 0 WHERE id = $1", [id]);
   }
@@ -5141,12 +5544,12 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       "INSERT INTO mascotas (jugador_id, especie_id, ubicacion, propiedad_id, creado_en) VALUES ($1, $2, 'siguiendo', NULL, $3) RETURNING id",
       [jugadorId, especieId, ahora],
     );
-    return { id: r.rows[0].id, jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora, montura: false };
+    return { id: r.rows[0].id, jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora, montura: false, arnes: false, arnesPesoMaximo: 0 };
   }
 
   async listarMascotas(jugadorId: number): Promise<Mascota[]> {
     const r = await this.pool.query(
-      "SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en, montura FROM mascotas WHERE jugador_id = $1",
+      "SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en, montura, arnes, arnes_peso_maximo FROM mascotas WHERE jugador_id = $1",
       [jugadorId],
     );
     return r.rows.map(filaAMascota);
@@ -5164,6 +5567,14 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     const r = await this.pool.query(
       "UPDATE mascotas SET montura = TRUE WHERE id = $1 AND jugador_id = $2",
       [id, jugadorId],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async ponerArnesMascota(id: number, jugadorId: number, pesoMaximo: number): Promise<boolean> {
+    const r = await this.pool.query(
+      "UPDATE mascotas SET arnes = TRUE, arnes_peso_maximo = $1 WHERE id = $2 AND jugador_id = $3",
+      [pesoMaximo, id, jugadorId],
     );
     return (r.rowCount ?? 0) > 0;
   }
@@ -5220,6 +5631,81 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async actualizarPosicionBarco(id: number, mapaId: string, x: number, y: number): Promise<void> {
     await this.pool.query("UPDATE barcos SET mapa_id = $1, x = $2, y = $3 WHERE id = $4", [mapaId, x, y, id]);
+  }
+
+  async crearCarro(jugadorId: number, tipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<Carro> {
+    const ahora = new Date().toISOString();
+    const contenidoJson = contenido == null ? null : JSON.stringify(contenido);
+    const r = await this.pool.query<{ id: number }>(
+      "INSERT INTO carros (jugador_id, tipo_id, mapa_id, x, y, creado_en, contenido) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+      [jugadorId, tipoId, mapaId, x, y, ahora, contenidoJson],
+    );
+    return { id: r.rows[0].id, jugadorId, tipoId, mapaId, x, y, creadoEn: ahora, contenido };
+  }
+
+  async listarCarrosDe(mapaId: string): Promise<Carro[]> {
+    const r = await this.pool.query(
+      "SELECT id, jugador_id, tipo_id, mapa_id, x, y, creado_en, contenido FROM carros WHERE mapa_id = $1",
+      [mapaId],
+    );
+    return r.rows.map(filaACarro);
+  }
+
+  async eliminarCarro(id: number): Promise<void> {
+    await this.pool.query("DELETE FROM carros WHERE id = $1", [id]);
+  }
+
+  async actualizarContenidoCarro(id: number, contenido: ContenidoCarro | null): Promise<void> {
+    await this.pool.query("UPDATE carros SET contenido = $1 WHERE id = $2", [contenido == null ? null : JSON.stringify(contenido), id]);
+  }
+
+  async crearConjuntoTiro(jugadorId: number, mascotaId: number, especieAnimalId: string, carroTipoId: string, mapaId: string, x: number, y: number, contenido: ContenidoCarro | null): Promise<ConjuntoTiro> {
+    const ahora = new Date().toISOString();
+    const contenidoJson = contenido == null ? null : JSON.stringify(contenido);
+    const r = await this.pool.query<{ id: number }>(
+      "INSERT INTO conjuntos_tiro (jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en, contenido) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+      [jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, ahora, contenidoJson],
+    );
+    return { id: r.rows[0].id, jugadorId, mascotaId, especieAnimalId, carroTipoId, mapaId, x, y, creadoEn: ahora, contenido };
+  }
+
+  async listarConjuntosTiroDe(mapaId: string): Promise<ConjuntoTiro[]> {
+    const r = await this.pool.query(
+      "SELECT id, jugador_id, mascota_id, especie_animal_id, carro_tipo_id, mapa_id, x, y, creado_en, contenido FROM conjuntos_tiro WHERE mapa_id = $1",
+      [mapaId],
+    );
+    return r.rows.map(filaAConjuntoTiro);
+  }
+
+  async actualizarPosicionConjuntoTiro(id: number, mapaId: string, x: number, y: number): Promise<void> {
+    await this.pool.query("UPDATE conjuntos_tiro SET mapa_id = $1, x = $2, y = $3 WHERE id = $4", [mapaId, x, y, id]);
+  }
+
+  async actualizarContenidoConjuntoTiro(id: number, contenido: ContenidoCarro | null): Promise<void> {
+    await this.pool.query("UPDATE conjuntos_tiro SET contenido = $1 WHERE id = $2", [contenido == null ? null : JSON.stringify(contenido), id]);
+  }
+
+  async eliminarConjuntoTiro(id: number): Promise<void> {
+    await this.pool.query("DELETE FROM conjuntos_tiro WHERE id = $1", [id]);
+  }
+
+  async guardarCasillaCultivo(c: CasillaCultivo): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO casillas_cultivo (mapa_id, idx_casilla, x, y, dueno_id, estado, semilla_id, dia_plantado)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (mapa_id, idx_casilla) DO UPDATE SET
+         x = EXCLUDED.x, y = EXCLUDED.y, dueno_id = EXCLUDED.dueno_id, estado = EXCLUDED.estado,
+         semilla_id = EXCLUDED.semilla_id, dia_plantado = EXCLUDED.dia_plantado`,
+      [c.mapaId, c.idxCasilla, c.x, c.y, c.duenoId, c.estado, c.semillaId, c.diaPlantado],
+    );
+  }
+
+  async listarCasillasCultivoDe(mapaId: string): Promise<CasillaCultivo[]> {
+    const r = await this.pool.query(
+      "SELECT mapa_id, idx_casilla, x, y, dueno_id, estado, semilla_id, dia_plantado FROM casillas_cultivo WHERE mapa_id = $1",
+      [mapaId],
+    );
+    return r.rows.map(filaACasillaCultivo);
   }
 
   async obtenerConfigMundo(clave: string): Promise<string | null> {

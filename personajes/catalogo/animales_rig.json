@@ -1,5 +1,6 @@
 {
   "_nota": "Rig/esqueleto de ANIMALES para el generador de personajes — las claves son los MISMOS ids de baker/catalogo/animales.json (el color base sale de su colorDebug: cero duplicados; el generador valida que el id exista). Cada entrada: esqueleto (plantilla de generarAnimal.js: cuadrupedo/ave/insecto — pez/serpiente/cangrejo pendientes de plantilla), proporciones en CASILLAS de la especie adulta media, escala con RANGO [min,max] (cada individuo cae en un punto por semilla, igual que la morfología de NPCs) y rasgos propios de la plantilla (orejas/cuernos/cola/cresta/rayas...). ESTO ES EL ARRANQUE DE PRUEBA (6 especies para validar las 3 plantillas): cuando el streamer dé la orden se etiqueta el listado entero de ~100 especies y se genera todo del tirón, sin tocar el generador.",
+  "_notaReglaPermanente_macho_hembra_cria_2026_09_02": "REGLA PERMANENTE (pedido streamer): toda especie doméstica/de granja/compañía que reciba rig (esqueleto+proporciones+razas) DEBE dar también rig a su trío completo macho/hembra/cría (baker/catalogo/animales.json ya los da de alta como ids separados vía su convención `criaId` — ver docs/GDD_Generador_Personajes.md §convención macho/hembra/cría). NO se duplica el bloque entero: se usa `heredaDe:\"<especieBase>\"` (generarAnimal.js lo resuelve — mismo esqueleto/proporciones/razas/coloresPosibles que la base, solo `escala` es obligatoria en quien hereda y `rasgos` parcial es opcional para diferencias como cuernos más largos en el macho) — `esCria:true` además quita razas/coloresPosibles y limpia cuernos/cresta. Así perro/perra son literalmente EL MISMO modelo 3D, solo cambia qué id de baker/catalogo/animales.json se pidió (=qué sexo/entidad es) — un macho/hembra/cría NUNCA necesita su propio bloque de proporciones copiado a mano. Ver docs/GDD_Generador_Personajes.md 'Trío macho/hembra/cría' para el ejemplo completo, aplicado 2026-09-02.",
   "conejo": {
     "esqueleto": "cuadrupedo",
     "escala": [
@@ -20,6 +21,8 @@
       "hocico": "corto"
     }
   },
+  "coneja": { "heredaDe": "conejo", "escala": [0.85, 1.15], "_nota": "Hembra de \"conejo\" — mismo cuerpo. Auditoría 2026-09-03 (pedido streamer, 'revisa que todos los animales están bien con la regla de sexo'): conejo es domesticable con par urbano real (coneja/gazapo, biomas:[] igual que perro/perra) — trío que se había quedado fuera de la pasada anterior por centrarse en las 9 especies ya con `razas`; conejo no tiene razas propias, así que hereda 'nada' extra, solo el cuerpo." },
+  "gazapo": { "heredaDe": "conejo", "escala": [0.3, 0.45], "esCria": true, "_nota": "Cría de conejo/coneja — sin razas propias (conejo tampoco las tiene)." },
   "lobo": {
     "esqueleto": "cuadrupedo",
     "escala": [
@@ -109,6 +112,8 @@
     "montable": true,
     "velocidadMontura": 8
   },
+  "cierva": { "heredaDe": "ciervo", "escala": [0.9, 1.1], "rasgos": { "cuernos": "ninguno" }, "_nota": "Hembra de \"ciervo\" — mismo cuerpo, sin cuernos (los ramificados son de macho). Auditoría 2026-09-03: ciervo/jabali son domesticable:true con trío real en baker/catalogo/animales.json pero cierva/cervatillo/jabalina/jabato se habían quedado sin rig en la pasada anterior (centrada en las especies YA con `razas`, ciervo/jabali no tienen). Se completan aquí por coherencia — heredan también `montable`/`velocidadMontura` (catalogoMonturas.ts resuelve heredaDe)." },
+  "cervatillo": { "heredaDe": "ciervo", "escala": [0.35, 0.5], "esCria": true, "_nota": "Cría de ciervo/cierva — sin razas propias (ciervo tampoco las tiene), sin cuernos." },
   "jabali": {
     "_nota": "Montura (pedido 2026-08-30, docs/GDD_Monturas.md) — cuerpo bajo y macizo, patas cortas a diferencia de ciervo/caballo.",
     "esqueleto": "cuadrupedo",
@@ -147,6 +152,8 @@
     "montable": true,
     "velocidadMontura": 6.5
   },
+  "jabalina": { "heredaDe": "jabali", "escala": [0.9, 1.15], "_nota": "Hembra de \"jabali\" — mismo cuerpo y colores. Auditoría 2026-09-03 (ver nota de 'cierva')." },
+  "jabato": { "heredaDe": "jabali", "escala": [0.3, 0.45], "esCria": true, "_nota": "Cría de jabali/jabalina — sin colores/razas propios." },
   "gallina_salvaje": {
     "esqueleto": "ave",
     "escala": [
@@ -191,7 +198,9 @@
         "#8f8578",
         10
       ]
-    ]
+    ],
+    "heredaRazasDe": "gallo",
+    "_notaRazas": "Mismas razas que 'gallo' vía heredaRazasDe (docs/GDD_Generador_Personajes.md, pedido streamer 2026-09-02: gallina_salvaje es la hembra doméstica ya rigada, con proporciones/color PROPIOS — solo el reparto de razas se comparte, sin duplicarlo). 'comun' cae a la paleta propia de arriba (sin coloresPosibles en la raza)."
   },
   "abeja": {
     "esqueleto": "insecto",
@@ -520,6 +529,30 @@
             10
           ]
         ]
+      },
+      {
+        "id": "chihuahua",
+        "peso": 10,
+        "escala": [0.22, 0.32],
+        "proporciones": { "largoCuerpo": 0.4, "altoCuerpo": 0.26, "anchoCuerpo": 0.18, "altoPata": 0.16, "grosorPata": 0.045, "tamCabeza": 0.26 },
+        "rasgos": { "orejas": "puntiagudas", "cola": "media" },
+        "coloresPosibles": [["#c9a05a", 40], ["#2a2420", 30], ["#e8e0d0", 30]]
+      },
+      {
+        "id": "husky",
+        "peso": 14,
+        "escala": [0.7, 0.88],
+        "proporciones": { "largoCuerpo": 0.78, "altoCuerpo": 0.42, "anchoCuerpo": 0.28, "altoPata": 0.36, "tamCabeza": 0.28 },
+        "rasgos": { "orejas": "puntiagudas", "cola": "media" },
+        "coloresPosibles": [["#e8e0d0", 40], ["#2a2420", 35], ["#8a8580", 25]]
+      },
+      {
+        "id": "bulldog",
+        "peso": 12,
+        "escala": [0.45, 0.6],
+        "proporciones": { "largoCuerpo": 0.55, "altoCuerpo": 0.32, "anchoCuerpo": 0.34, "altoPata": 0.18, "grosorPata": 0.09, "tamCabeza": 0.32 },
+        "rasgos": { "orejas": "caidas", "cola": "corta" },
+        "coloresPosibles": [["#c9a05a", 45], ["#e8e0d0", 35], ["#8a6a45", 20]]
       }
     ]
   },
@@ -676,8 +709,27 @@
             30
           ]
         ]
+      },
+      {
+        "id": "bengala",
+        "peso": 8,
+        "escala": [0.42, 0.58],
+        "coloresPosibles": [["#c9973a", 55], ["#e8dcc0", 25], ["#2a2420", 20]]
+      },
+      {
+        "id": "azul_ruso",
+        "peso": 8,
+        "coloresPosibles": [["#7a8088", 80], ["#a8adb2", 20]]
+      },
+      {
+        "id": "esfinge",
+        "peso": 6,
+        "escala": [0.35, 0.5],
+        "proporciones": { "anchoCuerpo": 0.17, "tamCabeza": 0.21 },
+        "coloresPosibles": [["#e0c8b0", 70], ["#c9a888", 30]]
       }
-    ]
+    ],
+    "_notaRazas": "Ampliación 2026-09-01 (pedido streamer, 'más razas donde tenga sentido'): bengala moteado, azul ruso gris-azulado, esfinge (silueta más fina, sin pelaje representable en vóxeles — se aproxima con un tono de piel claro)."
   },
   "caballo": {
     "esqueleto": "cuadrupedo",
@@ -835,9 +887,21 @@
       {
         "id": "criollo",
         "peso": 25
+      },
+      {
+        "id": "frison",
+        "peso": 15,
+        "escala": [0.9, 1.05],
+        "coloresPosibles": [["#141210", 90], ["#2a2018", 10]]
+      },
+      {
+        "id": "mustang",
+        "peso": 15,
+        "escala": [0.8, 1.0],
+        "coloresPosibles": [["#8a7050", 30], ["#5a3a20", 30], ["#3a2a1c", 20], ["#c9973a", 20]]
       }
     ],
-    "_notaRazas": "Razas (pedido 2026-08-30, mismo mecanismo ya probado en perro/gato): percherón grande y oscuro, árabe esbelto y veloz, poni pequeño, pinto bicolor, criollo = base sin override."
+    "_notaRazas": "Razas (pedido 2026-08-30, mismo mecanismo ya probado en perro/gato): percherón grande y oscuro, árabe esbelto y veloz, poni pequeño, pinto bicolor, criollo = base sin override. Ampliación 2026-09-02 (pedido streamer, '¿de caballo hay más razas?'): frisón negro elegante, mustang resistente y de colores variados."
   },
   "caballo_salvaje": {
     "_nota": "Montura (pedido 2026-08-30, docs/GDD_Monturas.md) — mismas proporciones que 'caballo', domesticar uno salvaje da un caballo montable igual de rápido; no se renombra a 'caballo' al domesticarse, se queda con su propia entrada de rig.",
@@ -917,7 +981,13 @@
       ]
     ],
     "montable": true,
-    "velocidadMontura": 6
+    "velocidadMontura": 6,
+    "razas": [
+      { "id": "andaluz", "peso": 30, "escala": [0.85, 1.0], "coloresPosibles": [["#6a6258", 55], ["#8a7a68", 45]] },
+      { "id": "miniatura", "peso": 20, "escala": [0.45, 0.6], "proporciones": { "altoPata": 0.4 }, "coloresPosibles": [["#5a4a38", 50], ["#8a7a68", 50]] },
+      { "id": "comun", "peso": 50 }
+    ],
+    "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): andaluz grande y gris, miniatura pequeño, común = base sin override."
   },
   "cerdo": {
     "_nota": "Montura (pedido 2026-08-30, docs/GDD_Monturas.md, 'y si se te ocurre alguno más') — cuerpo macizo y patas muy cortas, la más lenta de las monturas.",
@@ -1020,12 +1090,24 @@
             30
           ]
         ]
+      },
+      {
+        "id": "mangalica",
+        "peso": 12,
+        "coloresPosibles": [["#d8b878", 70], ["#8a6a45", 30]]
+      },
+      {
+        "id": "kunekune",
+        "peso": 12,
+        "escala": [0.55, 0.7],
+        "proporciones": { "anchoCuerpo": 0.44, "altoPata": 0.18 },
+        "coloresPosibles": [["#2a2420", 35], ["#e8b8a0", 35], ["#8a6a45", 30]]
       }
     ],
-    "_notaRazas": "Razas (pedido 2026-08-30): ibérico y duroc oscuros/rojizos, yorkshire rosado (= color base de siempre), vietnamita pequeño y panzudo."
+    "_notaRazas": "Razas (pedido 2026-08-30, ampliadas 2026-09-01): ibérico y duroc oscuros/rojizos, yorkshire rosado (= color base de siempre), vietnamita pequeño y panzudo, mangalica de capa leonada, kunekune pequeño y rechoncho."
   },
   "buey": {
-    "_nota": "Bovino de labranza (par de 'vaca_salvaje', más corpulento y con cuernos) — animal de tiro, no de monta.",
+    "_nota": "Bovino de labranza (par de 'vaca_salvaje', más corpulento y con cuernos). Corrección docs/GDD_Carros.md (pedido streamer 2026-09-03, textual: 'que el buey pueda ser domesticable, montable, y poder tirar de un carro'): SÍ es montable — la nota original decía lo contrario ('no de monta'), pero el pedido de esta sesión lo pide explícitamente para poder ensillarlo o ponerle arnés de tiro. Velocidad de montura más lenta que un burro (4.5): es un animal de labranza corpulento, no de transporte rápido.",
     "esqueleto": "cuadrupedo",
     "escala": [
       1.0,
@@ -1058,7 +1140,15 @@
         "#6a3a20",
         30
       ]
-    ]
+    ],
+    "razas": [
+      { "id": "pardo_alpino", "peso": 30, "coloresPosibles": [["#8a7a5a", 70], ["#6a5a40", 30]] },
+      { "id": "retinto", "peso": 30, "coloresPosibles": [["#8a4020", 70], ["#6a3018", 30]] },
+      { "id": "comun", "peso": 40 }
+    ],
+    "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): pardo alpino claro, retinto rojizo oscuro, común = base sin override.",
+    "montable": true,
+    "velocidadMontura": 5.5
   },
   "gallo": {
     "esqueleto": "ave",
@@ -1100,6 +1190,88 @@
         "#4a5a3a",
         10
       ]
-    ]
-  }
+    ],
+    "razas": [
+      { "id": "leghorn", "peso": 25, "coloresPosibles": [["#f0ece0", 80], ["#c9922a", 20]] },
+      { "id": "orpington", "peso": 25, "escala": [1.0, 1.25], "coloresPosibles": [["#c9922a", 70], ["#8a3a28", 30]] },
+      { "id": "sedosa", "peso": 15, "escala": [0.55, 0.7], "proporciones": { "altoPata": 0.14 }, "coloresPosibles": [["#f0ece0", 50], ["#2a2420", 50]] },
+      { "id": "comun", "peso": 35 }
+    ],
+    "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): leghorn blanca ligera, orpington grande y dorada, sedosa pequeña de plumaje suave, común = base sin override."
+  },
+  "oveja": {
+    "esqueleto": "cuadrupedo",
+    "escala": [0.85, 1.05],
+    "proporciones": { "largoCuerpo": 0.85, "altoCuerpo": 0.5, "anchoCuerpo": 0.42, "altoPata": 0.32, "grosorPata": 0.1, "tamCabeza": 0.26 },
+    "rasgos": { "orejas": "laterales", "cola": "corta", "hocico": "medio", "cuernos": "ninguno" },
+    "coloresPosibles": [["#e8e0d0", 50], ["#d8c8a8", 30], ["#8a7a68", 20]],
+    "razas": [
+      { "id": "merina", "peso": 35, "coloresPosibles": [["#f0ece0", 80], ["#e8e0d0", 20]] },
+      { "id": "churra", "peso": 30, "coloresPosibles": [["#d8c8a8", 60], ["#4a3a2a", 40]] },
+      { "id": "negra", "peso": 20, "coloresPosibles": [["#2a2420", 90], ["#3a2f28", 10]] },
+      { "id": "comun", "peso": 15 }
+    ],
+    "_notaRazas": "Ganado ovino de granja (pedido streamer 2026-09-01, 'centrémonos en animales de granja y compañeros'): merina lana clara, churra cara oscura, negra íntegramente oscura, común = base sin override."
+  },
+  "cabra": {
+    "esqueleto": "cuadrupedo",
+    "escala": [0.75, 0.95],
+    "proporciones": { "largoCuerpo": 0.75, "altoCuerpo": 0.48, "anchoCuerpo": 0.3, "altoPata": 0.34, "grosorPata": 0.08, "tamCabeza": 0.24 },
+    "rasgos": { "orejas": "laterales", "cola": "corta", "hocico": "medio", "cuernos": "cortos" },
+    "coloresPosibles": [["#c9b090", 40], ["#8a7a5a", 35], ["#2a2420", 25]],
+    "razas": [
+      { "id": "alpina", "peso": 30, "coloresPosibles": [["#8a5a30", 55], ["#2a2420", 45]] },
+      { "id": "enana_africana", "peso": 25, "escala": [0.45, 0.6], "proporciones": { "altoPata": 0.22 }, "coloresPosibles": [["#2a2420", 50], ["#8a7a5a", 50]] },
+      { "id": "angora", "peso": 20, "coloresPosibles": [["#f0ece0", 85], ["#e8dcc0", 15]] },
+      { "id": "comun", "peso": 25 }
+    ],
+    "_notaRazas": "Ganado caprino de granja (pedido streamer 2026-09-01): alpina oscura, enana africana (mucho más pequeña), angora de pelo claro, común = base sin override."
+  },
+  "oca": {
+    "esqueleto": "ave",
+    "escala": [1.0, 1.25],
+    "proporciones": { "largoCuerpo": 0.45, "altoCuerpo": 0.35, "anchoCuerpo": 0.24, "altoPata": 0.22, "tamCabeza": 0.14 },
+    "rasgos": { "cresta": false, "pico": "largo", "cola": "corta", "vuela": false },
+    "coloresPosibles": [["#e8e0d0", 60], ["#8a8580", 40]],
+    "razas": [
+      { "id": "blanca_domestica", "peso": 40, "coloresPosibles": [["#f0ece0", 90], ["#e8e0d0", 10]] },
+      { "id": "toulouse", "peso": 30, "escala": [1.1, 1.3], "coloresPosibles": [["#8a8580", 70], ["#5a5650", 30]] },
+      { "id": "comun", "peso": 30 }
+    ],
+    "_notaRazas": "Ave de granja (pedido streamer 2026-09-01): blanca doméstica clásica, toulouse gris y más grande, común = base sin override."
+  },
+  "vaca": {
+    "_nota": "Vaca lechera de granja — par doméstico de 'vaca_salvaje' (mismas proporciones base), distinta de 'buey' (bovino de labranza, más corpulento, sin razas de leche). Pedido streamer 2026-09-01: ampliar razas de granja.",
+    "esqueleto": "cuadrupedo",
+    "escala": [0.9, 1.1],
+    "proporciones": { "largoCuerpo": 1.5, "altoCuerpo": 0.75, "anchoCuerpo": 0.6, "altoPata": 0.55, "grosorPata": 0.14, "tamCabeza": 0.42 },
+    "rasgos": { "orejas": "laterales", "cola": "larga", "hocico": "medio", "cuernos": "cortos" },
+    "coloresPosibles": [["#3a2a1c", 30], ["#8a6a45", 28], ["#e8e0d0", 18], ["#221a14", 14], ["#c9b090", 10]],
+    "razas": [
+      { "id": "holstein", "peso": 35, "coloresPosibles": [["#2a2420", 55], ["#f0ece0", 45]] },
+      { "id": "jersey", "peso": 30, "escala": [0.8, 0.95], "coloresPosibles": [["#8a6a45", 80], ["#c9973a", 20]] },
+      { "id": "charolesa", "peso": 25, "escala": [1.0, 1.2], "coloresPosibles": [["#f0ece0", 90], ["#e8dcc0", 10]] },
+      { "id": "comun", "peso": 20 }
+    ],
+    "_notaRazas": "Holstein blanquinegra (aproximada con dos colores sólidos ponderados, mismo truco que 'pinto' en caballo), jersey pequeña y dorada, charolesa grande y clara, común = base sin override."
+  },
+  "perra": { "heredaDe": "perro", "escala": [0.55, 0.85], "_nota": "Hembra de \"perro\" — mismo cuerpo y razas, solo cambia el id/sexo (docs/GDD_Generador_Personajes.md)." },
+  "cachorro": { "heredaDe": "perro", "escala": [0.18, 0.3], "esCria": true, "_nota": "Cría de perro/perra — sin razas propias, tamaño muy reducido." },
+  "gata": { "heredaDe": "gato", "escala": [0.4, 0.6], "_nota": "Hembra de \"gato\" — mismo cuerpo y razas." },
+  "gatito": { "heredaDe": "gato", "escala": [0.15, 0.25], "esCria": true, "_nota": "Cría de gato/gata — sin razas propias." },
+  "yegua": { "heredaDe": "caballo", "escala": [0.85, 1.05], "_nota": "Hembra de \"caballo\" — mismo cuerpo y razas (incluye frisón/mustang)." },
+  "potro": { "heredaDe": "caballo", "escala": [0.35, 0.5], "esCria": true, "_nota": "Cría de caballo/yegua — sin razas propias." },
+  "burra": { "heredaDe": "burro", "escala": [0.75, 0.95], "_nota": "Hembra de \"burro\" — mismo cuerpo y razas." },
+  "burrito": { "heredaDe": "burro", "escala": [0.3, 0.45], "esCria": true, "_nota": "Cría de burro/burra — sin razas propias." },
+  "cerda": { "heredaDe": "cerdo", "escala": [0.85, 1.05], "_nota": "Hembra de \"cerdo\" — mismo cuerpo y razas." },
+  "cerdito": { "heredaDe": "cerdo", "escala": [0.25, 0.4], "esCria": true, "_nota": "Cría de cerdo/cerda — sin razas propias." },
+  "carnero": { "heredaDe": "oveja", "escala": [0.95, 1.15], "rasgos": { "cuernos": "cortos" }, "_nota": "Macho de \"oveja\" (que ya es el nombre real de la hembra) — mismo cuerpo y razas, algo más grande y con cuernos." },
+  "cordero": { "heredaDe": "oveja", "escala": [0.3, 0.45], "esCria": true, "_nota": "Cría de oveja/carnero — sin razas propias, sin cuernos." },
+  "macho_cabrio": { "heredaDe": "cabra", "escala": [0.85, 1.05], "rasgos": { "cuernos": "largos" }, "_nota": "Macho de \"cabra\" (que ya es el nombre real de la hembra) — mismo cuerpo y razas, algo más grande y con cuernos más largos." },
+  "cabrito": { "heredaDe": "cabra", "escala": [0.25, 0.4], "esCria": true, "_nota": "Cría de cabra/macho_cabrio — sin razas propias, sin cuernos." },
+  "ganso_domestico": { "heredaDe": "oca", "escala": [1.0, 1.25], "_nota": "Macho de \"oca\" (que ya es el nombre real de la hembra) — mismo cuerpo y razas." },
+  "ansarino": { "heredaDe": "oca", "escala": [0.35, 0.5], "esCria": true, "_nota": "Cría de oca/ganso_domestico — sin razas propias." },
+  "toro": { "heredaDe": "vaca", "escala": [1.0, 1.2], "rasgos": { "cuernos": "largos" }, "_nota": "Macho de \"vaca\" (que ya es el nombre real de la hembra doméstica) — mismo cuerpo y razas, algo más grande y con cuernos largos. Distinto de \"buey\" (macho castrado de labranza, no se reproduce, rig propio sin trío)." },
+  "ternero": { "heredaDe": "vaca", "escala": [0.35, 0.5], "esCria": true, "_nota": "Cría de toro/vaca — sin razas propias, sin cuernos." },
+  "pollito": { "heredaDe": "gallo", "escala": [0.2, 0.35], "esCria": true, "_nota": "Cría de gallo/gallina_salvaje — sin razas propias." }
 }

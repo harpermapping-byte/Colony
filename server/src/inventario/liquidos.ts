@@ -41,3 +41,33 @@ export function consumirVolumen(instancia: ItemInstancia, volumenMl: number): nu
   else instancia.liquido = { ...l, volumenMl: restante };
   return bebido;
 }
+
+/** docs/GDD_Carros.md §8.5 (Fase 2, pedido 2026-09-03) — líquido a granel de una cisterna de carro (no es un ItemInstancia, no tiene huella/apilable). */
+export interface LiquidoGranel {
+  tipo: string;
+  volumenMl: number;
+  volumenMaxMl: number;
+}
+
+/**
+ * Vierte de una cisterna (`origen`, a granel) a un recipiente portable
+ * (`destino`) hasta llenarlo o hasta vaciar la cisterna, lo que ocurra
+ * antes — docs/GDD_Carros.md §8.5: "mecanismo NUEVO, no existe transferencia
+ * contenedor→contenedor hoy, solo cisterna→olla vía vaciado total". A
+ * diferencia de `llenar` (sustituye entero), esto SUMA sobre lo que ya
+ * llevara el destino si es el MISMO tipo de líquido; si el destino ya tiene
+ * un líquido DISTINTO no se mezcla (rechaza, transferido=0 — todo o nada,
+ * mismo criterio que el resto del inventario). Muta origen y destino en
+ * sitio; devuelve cuánto se transfirió de verdad.
+ */
+export function transferirLiquido(origen: LiquidoGranel, destino: ItemInstancia, entradaDestino: EntradaCatalogoItem): number {
+  if (!esRecipienteLiquido(entradaDestino) || origen.volumenMl <= 0) return 0;
+  if (destino.liquido && destino.liquido.volumenMl > 0 && destino.liquido.tipo !== origen.tipo) return 0;
+  const yaEnDestino = destino.liquido?.volumenMl ?? 0;
+  const hueco = entradaDestino.volumenMaxMl! - yaEnDestino;
+  const transferido = Math.min(hueco, origen.volumenMl);
+  if (transferido <= 0) return 0;
+  destino.liquido = { tipo: origen.tipo, volumenMl: yaEnDestino + transferido, contaminada: destino.liquido?.contaminada ?? false };
+  origen.volumenMl -= transferido;
+  return transferido;
+}

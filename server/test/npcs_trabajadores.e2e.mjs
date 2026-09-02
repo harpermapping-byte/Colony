@@ -107,8 +107,11 @@ try {
   room.onMessage("reclutador:catalogo", (m) => catalogos.push(m));
   room.send("reclutador:catalogo");
   await esperar(300);
-  if (catalogos.length !== 1 || catalogos[0].oficios.length !== 10) {
-    throw new Error(`FALLO: catálogo debería traer los 10 oficios, llegó ${JSON.stringify(catalogos)}`);
+  // 11 oficios: los 10 de mesa/receta originales + "transporte", fusionado
+  // como oficio contratable normal (docs/GDD_NPCs_Contratables.md §Fusión
+  // con transporte, 2026-09-01) — antes de eso el catálogo traía 10.
+  if (catalogos.length !== 1 || catalogos[0].oficios.length !== 11) {
+    throw new Error(`FALLO: catálogo debería traer los 11 oficios, llegó ${JSON.stringify(catalogos)}`);
   }
   const [c1, c2, c3] = catalogos[0].costePorCantidad;
   if (!(c1 < c2 && (c2 - c1) < (c3 - c2))) {

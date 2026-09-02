@@ -279,6 +279,10 @@ export class Player extends Schema {
   @type("number") barcoId = 0;
   /** Solo con barcoId>0: true = es quien pilota (su input mueve el barco), false = pasajero (se mueve con él). */
   @type("boolean") barcoCapitan = false;
+  /** docs/GDD_Carros.md §4 (pedido 2026-09-03) — id de la fila `conjuntos_tiro` (BD)/clave de state.conjuntosTiro en la que va montado; 0 = ninguna. Mismo criterio que barcoId: el Schema del conjunto NO desaparece (varias plazas posibles), el cliente solo oculta el rig humanoide mientras esto sea >0. */
+  @type("number") conjuntoId = 0;
+  /** Solo con conjuntoId>0: true = lleva las riendas (su input mueve el conjunto entero), false = pasajero (se mueve con él, solo en carros de categoría "personas"). */
+  @type("boolean") conjuntoConductor = false;
 }
 
 // Agente móvil publicado (NPC de asentamiento; mañana bárbaros/fauna con el
@@ -381,6 +385,10 @@ export class Mascota extends Schema {
   @type("string") duenoNombre = "";
   /** docs/GDD_Monturas.md — tiene silla puesta (mascota:ponerMontura) y por tanto se puede `mascota:montar`. Mientras el dueño la está montando, esta entrada DESAPARECE del Schema (fusionada en Player, ver monturaEspecieId) — vuelve a aparecer al desmontar. */
   @type("boolean") montura = false;
+  /** docs/GDD_Carros.md §2 (pedido 2026-09-03) — tiene arnés puesto (mascota:ponerArnes) y por tanto se puede `carro:enganchar`. Ranura independiente de `montura`. Mientras está enganchada, esta entrada DESAPARECE del Schema (fusionada en ConjuntoTiroSchema) — vuelve a aparecer al desenganchar. */
+  @type("boolean") arnes = false;
+  /** docs/GDD_Carros.md §3 — SOLO con arnes:true: peso máximo de carro que puede tirar (del ítem `esApero` consumido). */
+  @type("number") arnesPesoMaximo = 0;
 }
 
 // Compañero NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — un Npc real de
@@ -422,6 +430,36 @@ export class Barco extends Schema {
   @type("number") x = 0;
   @type("number") y = 0;
   @type("string") tipoId = "";
+}
+
+// Carro aparcado, SIN enganchar (docs/GDD_Carros.md §3, pedido 2026-09-03):
+// mismo criterio exacto que Barco — se ancla donde se coloca (carro:colocar)
+// y así se queda hasta que alguien lo engancha a un animal con arnés
+// (carro:enganchar, momento en el que esta entrada desaparece y se funde en
+// ConjuntoTiroSchema) o vuelve a desengancharse.
+export class CarroSchema extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") tipoId = "";
+}
+
+// Animal+carro fusionados (docs/GDD_Carros.md §1/§5, pedido 2026-09-03):
+// mismo espíritu que montar solo (el conductor sustituye su movimiento
+// entero por el del conjunto, RoomExteriorBase.actualizarMovimiento) pero
+// SIEMPRE visible en el Schema como un barco (varias plazas posibles) — solo
+// se oculta el rig humanoide de cada ocupante (Player.conjuntoId > 0).
+// `especieAnimalId` es para el render del animal que tira; `mascotaId`
+// cruza con la fila `mascotas` (BD) fusionada, para poder devolverla intacta
+// al desenganchar. Sin conductor (conductorSessionId === ""): el conjunto
+// entero está quieto, no colisiona con nadie (mismo criterio que un barco
+// varado) — docs/GDD_Carros.md §13.
+export class ConjuntoTiroSchema extends Schema {
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("string") especieAnimalId = "";
+  @type("number") mascotaId = 0;
+  @type("string") carroTipoId = "";
+  @type("string") conductorSessionId = "";
 }
 
 // Objeto soltado al mundo por un jugador (fase 2 de inventario, "soltar" —
@@ -545,6 +583,8 @@ export class HubState extends Schema {
   @type({ map: Mascota }) mascotas = new MapSchema<Mascota>();
   @type({ map: CompaneroSchema }) companeros = new MapSchema<CompaneroSchema>();
   @type({ map: Barco }) barcos = new MapSchema<Barco>();
+  @type({ map: CarroSchema }) carros = new MapSchema<CarroSchema>();
+  @type({ map: ConjuntoTiroSchema }) conjuntosTiro = new MapSchema<ConjuntoTiroSchema>();
   @type({ map: ObjetoMundoSchema }) objetosMundo = new MapSchema<ObjetoMundoSchema>();
   @type({ map: CadaverSchema }) cadaveres = new MapSchema<CadaverSchema>();
   @type({ map: AnimalGranjaSchema }) animalesGranja = new MapSchema<AnimalGranjaSchema>();

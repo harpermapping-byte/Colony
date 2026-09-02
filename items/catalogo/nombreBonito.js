@@ -19,6 +19,9 @@
 
 // ---- Frases completas ya fijadas a mano (compuestos donde la regla genérica no basta: orden de palabras, "de la"/"del", términos ya asentados) ----
 const EXCEPCIONES_FRASE = {
+  carreta_dos_plazas: "Carreta de Dos Plazas",
+  diligencia_4: "Diligencia de Cuatro Plazas",
+  carruaje_noble_5: "Carruaje Noble de Cinco Plazas",
   carne_caza_mayor: "Carne de Caza Mayor",
   herradura_suerte: "Herradura de la Suerte",
   mortero_mano: "Mortero de Mano",
@@ -89,6 +92,7 @@ const EXCEPCIONES_PALABRA = {
   guadana: "guadaña", tapon: "tapón", camion: "camión", sarten: "sartén",
   capitan: "capitán", capitania: "capitanía", catalogo: "catálogo", indice: "índice",
   cartografia: "cartografía", guardian: "guardián", multiple: "múltiple",
+  arnes: "arnés",
   multiples: "múltiples", pantografo: "pantógrafo", glandulas: "glándulas",
   guia: "guía", guias: "guías", hidraulico: "hidráulico", maritimas: "marítimas",
   alamo: "álamo", arbol: "árbol", ataud: "ataúd", automata: "autómata",
@@ -145,6 +149,7 @@ const ADJETIVOS = new Set([
   "medicinal", "decorativa", "decorativo", "decorativos", "ornamental", "ornamentado",
   "mecanica", "mecanico", "automatica", "automata", "hidraulico", "manual", "portatil",
   "auxiliar", "completo", "completa", "continua", "continuo", "real", "noble", "nobles",
+  "humilde", "humildes", "modesta", "modesto", "modestas", "modestos",
   "legendario", "mitica", "mitico", "magico", "magicos", "exotica", "silvestre",
   "alquimica", "alquimico", "alquimicas", "alquimicos",
   "clara", "toxica", "vital", "inestable", "radiante",

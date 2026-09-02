@@ -249,10 +249,15 @@ export class GestorAgentes {
    * al firmar el contrato). Insertado en CALIENTE: no espera a `iniciar()`,
    * puede añadirse en cualquier momento de la vida de la room.
    */
-  agregarAgenteTransportista(slotId: string, nombre: string, origen: Punto, destino: Punto, caminoIda: Punto[], caminoVuelta: Punto[]) {
+  agregarAgenteTransportista(slotId: string, nombre: string, origen: Punto, destino: Punto, caminoIda: Punto[], caminoVuelta: Punto[], velocidadMultiplicador?: number) {
     const npc: NpcBakeado = {
       slotId,
       nombre,
+      // docs/GDD_Carros.md §12 (Fase 5, pedido 2026-09-03): trabajador con
+      // montura/conjunto asignado — multiplicador sobre VEL_NPC (mismo
+      // campo que ya usaba "el corredor especial", ver NpcBakeado.velocidad).
+      // undefined/1 = a pie, sin cambios de comportamiento para el resto.
+      velocidad: velocidadMultiplicador,
       rutina: [
         {
           lugar: "transporte",

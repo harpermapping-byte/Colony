@@ -346,10 +346,54 @@ const ESQUELETOS = {
  * @param {string} especieId - id en baker/catalogo/animales.json Y en personajes/catalogo/animales_rig.json
  * @param {object} opciones - { semilla, catalogos }
  */
+// Herencia de rig (pedido streamer 2026-09-02: "¿la perra y el perro no
+// pueden ser el mismo 3D con un atributo de sexo distinto?" — sí, y con
+// esto es UN CAMPO en vez de duplicar todo el bloque de proporciones/razas).
+// `heredaDe` apunta al id de OTRA especie ya rigada: toma su esqueleto/
+// proporciones/razas/coloresPosibles enteros, sin copiarlos — solo la
+// `escala` (obligatoria en quien hereda: una yegua no tiene por qué medir
+// lo mismo que el caballo) y un `rasgos` PARCIAL opcional (ej. cuernos más
+// largos en el macho) pisan a la base. `esCria:true` además quita razas y
+// coloresPosibles propios (una cría no distingue raza a esta fidelidad
+// visual) y limpia cuernos/cresta (no le han crecido aún) del resultado.
+function limpiarRasgosCria(rasgos) {
+  const limpio = { ...rasgos };
+  if (limpio.cuernos) limpio.cuernos = "ninguno";
+  if ("cresta" in limpio) limpio.cresta = false;
+  return limpio;
+}
+function resolverHerencia(rig, catalogoRig, especieId) {
+  let resuelto = rig;
+  if (rig.heredaDe) {
+    const base = catalogoRig[rig.heredaDe];
+    if (!base) throw new Error(`${especieId}: heredaDe apunta a una especie sin rig: ${rig.heredaDe}`);
+    let rasgos = { ...base.rasgos, ...(rig.rasgos || {}) };
+    if (rig.esCria) rasgos = limpiarRasgosCria(rasgos);
+    resuelto = {
+      esqueleto: base.esqueleto,
+      escala: rig.escala || base.escala,
+      proporciones: base.proporciones,
+      rasgos,
+      razas: rig.esCria ? undefined : base.razas,
+      coloresPosibles: rig.esCria ? undefined : base.coloresPosibles,
+    };
+  } else if (rig.heredaRazasDe) {
+    // Caso más ligero: la especie YA tiene su propio cuerpo/color (ej.
+    // gallina_salvaje, con proporciones reales distintas de gallo) pero
+    // quiere compartir el mismo REPARTO de razas que otra especie — sin
+    // heredar esqueleto/proporciones, solo `razas`.
+    const otra = catalogoRig[rig.heredaRazasDe];
+    if (!otra) throw new Error(`${especieId}: heredaRazasDe apunta a una especie sin rig: ${rig.heredaRazasDe}`);
+    resuelto = { ...rig, razas: otra.razas };
+  }
+  return resuelto;
+}
+
 function generarAnimal(especieId, opciones) {
   const { catalogos, semilla } = opciones;
-  const rig = catalogos.animalesRig[especieId];
-  if (!rig) throw new Error(`Especie sin rig: ${especieId} (añadir a personajes/catalogo/animales_rig.json)`);
+  const rigDeclarado = catalogos.animalesRig[especieId];
+  if (!rigDeclarado) throw new Error(`Especie sin rig: ${especieId} (añadir a personajes/catalogo/animales_rig.json)`);
+  const rig = resolverHerencia(rigDeclarado, catalogos.animalesRig, especieId);
   const baker = catalogos.animalesBaker[especieId];
   if (!baker) throw new Error(`Especie desconocida en baker/catalogo/animales.json: ${especieId}`);
   const plantilla = ESQUELETOS[rig.esqueleto];

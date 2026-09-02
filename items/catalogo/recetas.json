@@ -2166,5 +2166,496 @@
     "resultado": { "itemId": "campana_bronce", "cantidad": 1 },
     "tiempoBaseSeg": 30,
     "_nota": "docs/GDD_Instrumentos.md (2026-08-31) — 4 de 4 instrumentos musicales interactivos. \"yunque_cuerno\" es la Mesa Nivel 2 del herrero."
+  },
+
+  "casco_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "casco_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01, ampliación catálogo inicial pedida por el streamer: 'todo lo que tengamos de inicio tendrá crafteo'). Tier madera de casco, tallado por el carpintero — sin minijuego de forja (igual que el tier cuero, que tampoco lo tiene)."
+  },
+  "brazos_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "brazos_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "piernas_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "piernas_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "pechera_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 3 }],
+    "resultado": { "itemId": "pechera_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "escudo_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "escudo_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01) — primer escudo del catálogo, tier de entrada."
+  },
+  "escudo_cuero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["tina_curtido"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "escudo_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "escudo_hierro_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "escudo_hierro_bonificado", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "escudo_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 24,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "escudo_acero_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "escudo_acero_bonificado", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 4 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "escudo_acero", "cantidad": 1 },
+    "tiempoBaseSeg": 34,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+
+  "cuchillo_piedra_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 1 }, { "itemId": "madera_blanda", "cantidad": 1 }],
+    "resultado": { "itemId": "cuchillo_piedra", "cantidad": 1 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01) — arma primitiva, tier más bajo del catálogo de dagas."
+  },
+  "hacha_piedra_craft": {
+    "oficio": "picapedrero",
+    "mesas": ["banco_clasificacion_cincelado"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "piedra_tallada", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "hacha_piedra", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "garrote_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "garrote_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "baston_guerra_craft": {
+    "oficio": "carpintero",
+    "mesas": ["banco_carpintero"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 2 }],
+    "resultado": { "itemId": "baston_guerra", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+
+  "cimitarra_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "cimitarra_bonificada", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["yunque_cuerno"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "lingote_hierro", "cantidad": 2 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "cimitarra", "cantidad": 1 },
+    "tiempoBaseSeg": 22,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "martillo_guerra_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "martillo_guerra_bonificado", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 4 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "martillo_guerra", "cantidad": 1 },
+    "tiempoBaseSeg": 36,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "jabalina_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "jabalina_bonificada", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["banco_ajuste"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "madera_dura", "cantidad": 1 }, { "itemId": "lingote_hierro", "cantidad": 1 }],
+    "resultado": { "itemId": "jabalina", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "tridente_craft": {
+    "minijuego": "herreria",
+    "resultadoPerfecto": { "itemId": "tridente_bonificado", "cantidad": 1 },
+    "oficio": "herrero",
+    "mesas": ["martinete"],
+    "nivelMinimo": 4,
+    "insumos": [{ "itemId": "acero", "cantidad": 3 }, { "itemId": "madera_dura", "cantidad": 1 }],
+    "resultado": { "itemId": "tridente", "cantidad": 1 },
+    "tiempoBaseSeg": 32,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+
+  "delantal_herrero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "delantal_herrero", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01) — ropa civil por oficio, mismo criterio que tabardo_guardia_craft."
+  },
+  "mandil_carpintero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "mandil_carpintero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01) — mismo criterio que camisa_lino_campesina_craft."
+  },
+  "tunica_molinero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "tunica_molinero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "delantal_curtidor_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "delantal_curtidor", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "tunica_alfarero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "tunica_alfarero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+  "chaleco_tabernero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "chaleco_tabernero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §10 (2026-09-01)."
+  },
+
+  "camisa_seda_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 4 }],
+    "resultado": { "itemId": "camisa_seda_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02) — hueco preexistente cerrado de paso: camisa_seda_noble (dada de alta 2026-08-30) nunca había tenido receta. Nivel mínimo más alto y más insumos que la ropa humilde/modesta, acorde a ser la única prenda noble de entonces."
+  },
+  "jubon_seda_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 4 }],
+    "resultado": { "itemId": "jubon_seda_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02) — ampliación de vestuario por clase social, 'todo lo del catálogo inicial necesita receta'."
+  },
+  "pantalon_lino_humilde_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "pantalon_lino_humilde", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "calza_seda_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 3 }],
+    "resultado": { "itemId": "calza_seda_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "pantalon_lana_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 4 }],
+    "resultado": { "itemId": "pantalon_lana_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "panuelo_lino_humilde_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "panuelo_lino_humilde", "cantidad": 1 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "gorro_lana_modesta_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "gorro_lana_modesta", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "tocado_seda_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 3 }],
+    "resultado": { "itemId": "tocado_seda_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
+  },
+  "gorro_piel_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "gorro_piel_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Equipo.md §11 (2026-09-02) — cuero, no tela_hilada (material cuero en prendas.json)."
+  },
+  "arnes_cuero_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "cuero_curtido", "cantidad": 4 },
+      { "itemId": "lingote_hierro", "cantidad": 2 }
+    ],
+    "resultado": { "itemId": "arnes_cuero", "cantidad": 1 },
+    "tiempoBaseSeg": 20,
+    "_nota": "docs/GDD_Carros.md §2/§11/§14 Fase 1 (2026-09-04) — receta añadida en el mismo commit que mascota:ponerArnes (su mecanismo de servidor)."
+  },
+  "arnes_reforzado_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "cuero_curtido", "cantidad": 8 },
+      { "itemId": "lingote_hierro", "cantidad": 5 }
+    ],
+    "resultado": { "itemId": "arnes_reforzado", "cantidad": 1 },
+    "tiempoBaseSeg": 30,
+    "_nota": "docs/GDD_Carros.md §2/§11/§14 Fase 1 (2026-09-04) — tier alto, mismo criterio que arnes_cuero_craft."
+  },
+  "carreta_dos_plazas_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 8 },
+      { "itemId": "lingote_hierro", "cantidad": 4 },
+      { "itemId": "clavos", "cantidad": 12 }
+    ],
+    "resultado": { "itemId": "carreta_dos_plazas", "cantidad": 1 },
+    "tiempoBaseSeg": 60,
+    "_nota": "docs/GDD_Carros.md §8.1/§11/§14 Fase 1 (2026-09-04) — receta añadida en el mismo commit que carro:colocar/enganchar/ConjuntoTiroSchema (su mecanismo de servidor). Primer carro real jugable del sistema."
+  },
+  "carro_materiales_pequeno_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 7 },
+      { "itemId": "lingote_hierro", "cantidad": 3 },
+      { "itemId": "clavos", "cantidad": 10 }
+    ],
+    "resultado": { "itemId": "carro_materiales_pequeno", "cantidad": 1 },
+    "tiempoBaseSeg": 55,
+    "_nota": "docs/GDD_Carros.md §8.2/§11/§14 Fase 2 (2026-09-04) — receta añadida en el mismo commit que carro:meterCarga/sacarCarga (su mecanismo de servidor)."
+  },
+  "carro_materiales_grande_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 14 },
+      { "itemId": "lingote_hierro", "cantidad": 7 },
+      { "itemId": "clavos", "cantidad": 20 }
+    ],
+    "resultado": { "itemId": "carro_materiales_grande", "cantidad": 1 },
+    "tiempoBaseSeg": 90,
+    "_nota": "docs/GDD_Carros.md §8.2/§11/§14 Fase 2 (2026-09-04) — mismo criterio que carro_materiales_pequeno_craft, tier alto."
+  },
+  "carro_muebles_pequeno_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 7 },
+      { "itemId": "lingote_hierro", "cantidad": 3 },
+      { "itemId": "clavos", "cantidad": 10 }
+    ],
+    "resultado": { "itemId": "carro_muebles_pequeno", "cantidad": 1 },
+    "tiempoBaseSeg": 55,
+    "_nota": "docs/GDD_Carros.md §8.3/§11/§14 Fase 2 (2026-09-04) — receta añadida en el mismo commit que carro:meterMueble/sacarMueble (su mecanismo de servidor)."
+  },
+  "carro_muebles_grande_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 14 },
+      { "itemId": "lingote_hierro", "cantidad": 7 },
+      { "itemId": "clavos", "cantidad": 20 }
+    ],
+    "resultado": { "itemId": "carro_muebles_grande", "cantidad": 1 },
+    "tiempoBaseSeg": 90,
+    "_nota": "docs/GDD_Carros.md §8.3/§11/§14 Fase 2 (2026-09-04) — mismo criterio que carro_muebles_pequeno_craft, tier alto."
+  },
+  "carro_jaula_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 10 },
+      { "itemId": "lingote_hierro", "cantidad": 6 },
+      { "itemId": "clavos", "cantidad": 16 }
+    ],
+    "resultado": { "itemId": "carro_jaula", "cantidad": 1 },
+    "tiempoBaseSeg": 75,
+    "_nota": "docs/GDD_Carros.md §8.4/§11/§14 Fase 2 (2026-09-04) — receta añadida en el mismo commit que carro:meterAnimal/sacarAnimal (su mecanismo de servidor)."
+  },
+  "cisterna_pequena_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 6 },
+      { "itemId": "lingote_hierro", "cantidad": 8 },
+      { "itemId": "clavos", "cantidad": 8 }
+    ],
+    "resultado": { "itemId": "cisterna_pequena", "cantidad": 1 },
+    "tiempoBaseSeg": 60,
+    "_nota": "docs/GDD_Carros.md §8.5/§11/§14 Fase 2 (2026-09-04) — receta añadida en el mismo commit que carro:conectarManguera/verterLiquido (su mecanismo de servidor). Más hierro que madera (cuerpo metálico de la cisterna)."
+  },
+  "azada_hierro_craft": {
+    "oficio": "herrero",
+    "mesas": ["yunque_tocon"],
+    "nivelMinimo": 1,
+    "insumos": [
+      { "itemId": "lingote_hierro", "cantidad": 2 },
+      { "itemId": "madera_blanda", "cantidad": 1 }
+    ],
+    "resultado": { "itemId": "azada_hierro", "cantidad": 1 },
+    "tiempoBaseSeg": 15,
+    "_nota": "docs/GDD_Carros.md §9.2/§14 Fase 3 (2026-09-04) — receta añadida en el mismo commit que cultivoCasilla:labrar (su mecanismo de servidor). Mango de madera_blanda + hoja de lingote_hierro, mismo criterio que el resto de herramientas herrero-carpintero."
+  },
+  "cisterna_grande_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 10 },
+      { "itemId": "lingote_hierro", "cantidad": 16 },
+      { "itemId": "clavos", "cantidad": 14 }
+    ],
+    "resultado": { "itemId": "cisterna_grande", "cantidad": 1 },
+    "tiempoBaseSeg": 100,
+    "_nota": "docs/GDD_Carros.md §8.5/§11/§14 Fase 2 (2026-09-04) — mismo criterio que cisterna_pequena_craft, tier alto."
+  },
+  "arado_madera_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 2,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 6 },
+      { "itemId": "lingote_hierro", "cantidad": 3 },
+      { "itemId": "clavos", "cantidad": 8 }
+    ],
+    "resultado": { "itemId": "arado_madera", "cantidad": 1 },
+    "tiempoBaseSeg": 45,
+    "_nota": "docs/GDD_Carros.md §9.3/§11/§14 Fase 3b (2026-09-04) — receta añadida en el mismo commit que apero:comenzarLabrar (su mecanismo de servidor)."
+  },
+  "cultivadora_semillas_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 9 },
+      { "itemId": "lingote_hierro", "cantidad": 6 },
+      { "itemId": "clavos", "cantidad": 12 }
+    ],
+    "resultado": { "itemId": "cultivadora_semillas", "cantidad": 1 },
+    "tiempoBaseSeg": 70,
+    "_nota": "docs/GDD_Carros.md §9.3/§11/§14 Fase 3b (2026-09-04) — receta añadida en el mismo commit que apero:comenzarCultivar (su mecanismo de servidor)."
+  },
+  "diligencia_4_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 3,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 12 },
+      { "itemId": "lingote_hierro", "cantidad": 6 },
+      { "itemId": "clavos", "cantidad": 18 },
+      { "itemId": "tela_hilada", "cantidad": 4 }
+    ],
+    "resultado": { "itemId": "diligencia_4", "cantidad": 1 },
+    "tiempoBaseSeg": 110,
+    "_nota": "docs/GDD_Carros.md §8.1/§11/§14 Fase 4 (2026-09-04) — tela_hilada por la capota, mismo criterio que barco_1_construido."
+  },
+  "carruaje_noble_5_craft": {
+    "oficio": "ingeniero",
+    "mesas": ["mesa_planos_ingenieria"],
+    "nivelMinimo": 4,
+    "insumos": [
+      { "itemId": "madera_dura", "cantidad": 18 },
+      { "itemId": "lingote_hierro", "cantidad": 10 },
+      { "itemId": "clavos", "cantidad": 24 },
+      { "itemId": "tela_hilada", "cantidad": 6 },
+      { "itemId": "cuero_curtido", "cantidad": 4 }
+    ],
+    "resultado": { "itemId": "carruaje_noble_5", "cantidad": 1 },
+    "tiempoBaseSeg": 160,
+    "_nota": "docs/GDD_Carros.md §8.1/§11/§14 Fase 4 (2026-09-04) — el más caro del catálogo, nivel 4. tela_hilada (capota) + cuero_curtido (tapizado interior)."
   }
 }
