@@ -1,8 +1,8 @@
 {
   "nombre": "testflat",
   "semilla": "testflat-01",
-  "anchoChunks": 2,
-  "altoChunks": 2,
+  "anchoChunks": 6,
+  "altoChunks": 6,
   "tamanoChunk": 32,
   "biomasHabilitados": ["pradera"],
   "separacionMinimaPOI": 100000,

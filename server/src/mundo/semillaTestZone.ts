@@ -127,3 +127,98 @@ export async function sembrarNpcsTutorialTestZone(bd: IAlmacenDatos): Promise<vo
 
   console.log(`[testzone] ${POSICIONES_NPCS_TUTORIAL.length} NPCs tutorial/lore sembrados en "${MAPA_ID_TESTFLAT}".`);
 }
+
+// --- Construcciones nuevas: cocina, sastrería, cultivos, zona de animales ---
+
+// Cocina (nueva zona SUR-ESTE, ~24 casillas del spawn mejorado a 96,96)
+// Construcción con horno, mesas de trabajo
+const COCINA_A_SEMBRAR: { objeto: string; x: number; y: number }[] = [
+  { objeto: "horno_piedra", x: 120, y: 140 }, // cocinero
+  { objeto: "mesa_desollar_carne", x: 122, y: 140 }, // cocinero
+  { objeto: "alacena", x: 120, y: 142 }, // almacenaje
+  { objeto: "mesa_comedor", x: 122, y: 142 }, // para probar comer/descanso
+];
+
+// Sastrería/tejado (nueva zona SUR-OESTE, ~24 casillas del spawn)
+// Aunque "sastre" no es un oficio jugable oficial, dejamos herramientas/mobiliario de confección
+const SASTRE_A_SEMBRAR: { objeto: string; x: number; y: number }[] = [
+  { objeto: "telar_lino", x: 72, y: 140 }, // confección
+  { objeto: "banco_costura", x: 74, y: 140 }, // costura
+];
+
+// Cultivos (zona ESTE, ~32 casillas del spawn, espacio dedicado para semillas/plantas)
+// Notar: no son construcciones sino herramientas + espacio abierto para plantar directamente
+const HERRAMIENTAS_CULTIVO_SEMBRAR: { objeto: string; x: number; y: number }[] = [
+  { objeto: "almacigo_madera", x: 150, y: 100 }, // semillero (contiene semillas)
+  { objeto: "almacigo_madera", x: 152, y: 100 }, // otro semillero
+  { objeto: "compostador", x: 150, y: 102 }, // abono
+];
+
+// Zona de animales domesticados (NORESTE, ~32 casillas)
+// No son construcciones sino colocación de fauna "amigable" para probar domesticar/montar
+// Esto se hace directamente en fauna (GDD_Mundo.ts) al cargar la región, usando "domesticado"
+// Por ahora dejamos comentado (ver cómo hace fauna el animal bakeado)
+
+export async function sembrarCocina(bd: IAlmacenDatos): Promise<void> {
+  const existentes = await bd.listarConstrucciones();
+  // Verificar si ya existe la cocina con una construcción marcada
+  const yaExiste = existentes.some((c) => c.propiedad === "tf_cocina");
+  if (yaExiste) return;
+
+  for (const m of COCINA_A_SEMBRAR) {
+    await bd.insertarConstruccion({
+      propiedad: "tf_cocina", // parcela nueva
+      objeto: m.objeto,
+      categoria: CATEGORIA_MUEBLE,
+      x: m.x,
+      y: m.y,
+      rot: 0,
+      variante: 0,
+      extra: null,
+    });
+  }
+
+  console.log(`[testzone] ${COCINA_A_SEMBRAR.length} muebles de cocina sembrados en "${MAPA_ID_TESTFLAT}".`);
+}
+
+export async function sembrarSasteria(bd: IAlmacenDatos): Promise<void> {
+  const existentes = await bd.listarConstrucciones();
+  const yaExiste = existentes.some((c) => c.propiedad === "tf_sasteria");
+  if (yaExiste) return;
+
+  for (const m of SASTRE_A_SEMBRAR) {
+    await bd.insertarConstruccion({
+      propiedad: "tf_sasteria",
+      objeto: m.objeto,
+      categoria: CATEGORIA_MUEBLE,
+      x: m.x,
+      y: m.y,
+      rot: 0,
+      variante: 0,
+      extra: null,
+    });
+  }
+
+  console.log(`[testzone] ${SASTRE_A_SEMBRAR.length} muebles de sastrería sembrados en "${MAPA_ID_TESTFLAT}".`);
+}
+
+export async function sembrarCultivos(bd: IAlmacenDatos): Promise<void> {
+  const existentes = await bd.listarConstrucciones();
+  const yaExiste = existentes.some((c) => c.propiedad === "tf_cultivos");
+  if (yaExiste) return;
+
+  for (const m of HERRAMIENTAS_CULTIVO_SEMBRAR) {
+    await bd.insertarConstruccion({
+      propiedad: "tf_cultivos",
+      objeto: m.objeto,
+      categoria: CATEGORIA_MUEBLE,
+      x: m.x,
+      y: m.y,
+      rot: 0,
+      variante: 0,
+      extra: null,
+    });
+  }
+
+  console.log(`[testzone] ${HERRAMIENTAS_CULTIVO_SEMBRAR.length} herramientas de cultivo sembradas en "${MAPA_ID_TESTFLAT}".`);
+}

@@ -41,8 +41,8 @@
   ],
   "nombre": "testflat",
   "semilla": "testflat-01",
-  "anchoChunks": 2,
-  "altoChunks": 2,
+  "anchoChunks": 6,
+  "altoChunks": 6,
   "tamanoChunk": 32,
   "biomasHabilitados": [
     "pradera"
@@ -66,13 +66,13 @@
     }
   },
   "ciudad": {
-    "x": 32,
-    "y": 32
+    "x": 96,
+    "y": 96
   },
   "portales": [
     {
       "tipo": "exterior",
-      "x": 58,
+      "x": 150,
       "y": 32,
       "destino": {
         "tipo": "region",

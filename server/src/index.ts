@@ -17,7 +17,13 @@ import { manejarPeticionAdmin } from "./admin/rutasAdmin";
 import { sembrarCuentasAdminIniciales } from "./admin/seedAdmin";
 import { cargarPvpDesdeBd } from "./mundo/pvp";
 import { cargarNombreCapitalDesdeBd } from "./mundo/capital";
-import { sembrarMueblesTestZone, sembrarNpcsTutorialTestZone } from "./mundo/semillaTestZone";
+import {
+  sembrarMueblesTestZone,
+  sembrarNpcsTutorialTestZone,
+  sembrarCocina,
+  sembrarSasteria,
+  sembrarCultivos,
+} from "./mundo/semillaTestZone";
 
 // El BUFFER_SIZE por defecto de @colyseus/schema (8KB, Buffer.poolSize) se
 // queda corto con el Hub real (cientos de NPCs/fauna/construcciones vivas,
@@ -111,9 +117,12 @@ obtenerBdCompartida().then((bd) => cargarNombreCapitalDesdeBd(bd));
 // en arranques siguientes ni si el streamer ya las cambió a mano.
 obtenerBdCompartida().then(sembrarCuentasAdminIniciales);
 
-// Test Zone plana (docs/GDD_TestZone.md, pedido 2026-08-31): siembra
-// mesas/muebles como construcciones REALES y los 17 NPCs tutorial/lore en
-// assets/mapas/testflat/ — mismo criterio "solo la primera vez" que las
-// cuentas de admin de arriba.
+// Test Zone plana (docs/GDD_TestZone.md, pedido 2026-08-31/2026-09-02): siembra
+// mesas/muebles como construcciones REALES, NPCs tutorial/lore, y zonas temáticas
+// (cocina, sastrería, cultivos, animales) en assets/mapas/testflat/ — mismo criterio
+// "solo la primera vez" que las cuentas de admin de arriba.
 obtenerBdCompartida().then(sembrarMueblesTestZone);
 obtenerBdCompartida().then(sembrarNpcsTutorialTestZone);
+obtenerBdCompartida().then(sembrarCocina);
+obtenerBdCompartida().then(sembrarSasteria);
+obtenerBdCompartida().then(sembrarCultivos);

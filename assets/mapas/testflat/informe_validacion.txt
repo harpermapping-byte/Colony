@@ -1,0 +1,3 @@
+ATENCIÓN — se detectaron problemas:
+36 chunks generados, 0 POIs colocados, 0 sin ruta.
+No se colocó ningún POI en todo el mapa — revisa la separación mínima o los biomas habilitados.

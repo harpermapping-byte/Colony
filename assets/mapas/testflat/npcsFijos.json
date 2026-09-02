@@ -1,7 +1,7 @@
 {
-  "_nota": "Test Zone plana (docs/GDD_TestZone.md) - dummy de combate fijo (server/src/mundo/npcsFijos.ts -> cargarNpcsFijos). Los NPCs tutorial/lore de verdad (17) se siembran en la tabla npcs_tutoriales via server/src/mundo/semillaTestZone.ts, no aqui.",
+  "_nota": "Test Zone plana expandida (docs/GDD_TestZone.md) — dummies de combate fijos (server/src/mundo/npcsFijos.ts -> cargarNpcsFijos). Los NPCs tutorial/lore (17) se siembran en npcs_tutoriales via server/src/mundo/semillaTestZone.ts.",
   "npcs": [
-    { "slotId": "dummy_1", "nombre": "Muñeco de Pruebas", "oficio": "dummy_combate", "x": 46, "y": 16 },
-    { "slotId": "dummy_bandido", "nombre": "Bandido", "oficio": "dummy_combate", "x": 48, "y": 16 }
+    { "slotId": "dummy_1", "nombre": "Muñeco de Pruebas", "oficio": "dummy_combate", "x": 130, "y": 64 },
+    { "slotId": "dummy_bandido", "nombre": "Bandido", "oficio": "dummy_combate", "x": 132, "y": 64 }
   ]
 }

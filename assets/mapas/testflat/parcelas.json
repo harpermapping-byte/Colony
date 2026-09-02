@@ -1,27 +1,73 @@
 {
   "version": 1,
   "mapa": "testflat",
-  "siguienteId": 2,
+  "siguienteId": 5,
   "parcelas": {
     "tf_0001": {
       "asentamiento": "testflat",
-      "nombre": "Parcela de Pruebas (Norte del spawn)",
+      "nombre": "Mesas de Crafteo (Norte)",
       "runs": [
-        [10, 26, 37],
-        [11, 26, 37],
-        [12, 26, 37],
-        [13, 26, 37],
-        [14, 26, 37],
-        [15, 26, 37],
-        [16, 26, 37],
-        [17, 26, 37],
-        [18, 26, 37],
-        [19, 26, 37],
-        [20, 26, 37],
-        [21, 26, 37]
+        [74, 90, 107],
+        [75, 90, 107],
+        [76, 90, 107],
+        [77, 90, 107],
+        [78, 90, 107],
+        [79, 90, 107],
+        [80, 90, 107],
+        [81, 90, 107],
+        [82, 90, 107],
+        [83, 90, 107]
       ],
-      "casillas": 144,
+      "casillas": 100,
       "topeProps": 30
+    },
+    "tf_cocina": {
+      "asentamiento": "testflat",
+      "nombre": "Cocina (Sureste)",
+      "runs": [
+        [116, 138, 145],
+        [117, 138, 145],
+        [118, 138, 145],
+        [119, 138, 145],
+        [120, 138, 145],
+        [121, 138, 145],
+        [122, 138, 145],
+        [123, 138, 145]
+      ],
+      "casillas": 64,
+      "topeProps": 10
+    },
+    "tf_sasteria": {
+      "asentamiento": "testflat",
+      "nombre": "Sastrería (Suroeste)",
+      "runs": [
+        [68, 138, 145],
+        [69, 138, 145],
+        [70, 138, 145],
+        [71, 138, 145],
+        [72, 138, 145],
+        [73, 138, 145],
+        [74, 138, 145],
+        [75, 138, 145]
+      ],
+      "casillas": 64,
+      "topeProps": 10
+    },
+    "tf_cultivos": {
+      "asentamiento": "testflat",
+      "nombre": "Cultivos (Noreste Lejano)",
+      "runs": [
+        [144, 94, 155],
+        [145, 94, 155],
+        [146, 94, 155],
+        [147, 94, 155],
+        [148, 94, 155],
+        [149, 94, 155],
+        [150, 94, 155],
+        [151, 94, 155]
+      ],
+      "casillas": 88,
+      "topeProps": 10
     }
   }
 }
