@@ -15,7 +15,7 @@ import { RenderObjetosMundo } from "./mundo/renderObjetosMundo";
 import { PanelMapaMundo } from "./mapa/panelMapaMundo";
 import { ModoConstruccion } from "./construccion/constructor";
 import { ColocadorPlantillas } from "./construccion/colocadorPlantillas";
-import { obtenerConstruibleOPlantilla } from "./construccion/catalogoConstruccion";
+import { obtenerConstruibleOPlantilla, huellaRotada } from "./construccion/catalogoConstruccion";
 import { MenuInteraccion, type OpcionMenuInteraccion } from "./ui/menuInteraccion";
 import { ModalInstrumento } from "./ui/modalInstrumento";
 import { PanelCofre } from "./construccion/panelCofre";
@@ -1443,6 +1443,22 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("tenderete:error", (m: { motivo: string }) => console.log("[tenderete]", m?.motivo));
   room.onMessage("oficio:error", (m: { motivo: string }) => console.log("[oficio]", m?.motivo));
 
+  // Posición mundo del CENTRO de la huella de una construcción real, ya
+  // rotada (pedido 2026-09-02: "sentarse/tumbarse debe vincular y poner al
+  // personaje ENCIMA del objeto") — sin un offset de asiento por pieza para
+  // cada silla/banco/sofá/cama del catálogo (harían falta docenas, ver
+  // `minijuegos/mesasJuego.ts` para el único caso que sí los tiene,
+  // mesa_ajedrez), centrar sobre la huella real es la aproximación honesta:
+  // pone al personaje DE VERDAD sobre el mueble en vez de flotando a hasta
+  // RADIO_INTERACCION casillas de él, que es el bug real que se reportó.
+  function posicionCentroConstruccion(construccionId: number): { x: number; y: number } | null {
+    const datos = renderConstrucciones?.datosDe(construccionId);
+    if (!datos) return null;
+    const construible = obtenerConstruibleOPlantilla(datos.objeto);
+    const huella = huellaRotada(construible?.huella ?? [1, 1], datos.rot);
+    return { x: datos.x + huella[0] / 2, y: datos.y + huella[1] / 2 };
+  }
+
   const jugadores = new Map<string, EstadoJugador>();
   let jugadorLocal: EstadoJugador | null = null;
 
@@ -1560,6 +1576,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           : estado.sentadoSuelo
           ? -HUNDIMIENTO_SENTADO_SUELO
           : 0;
+      }
+      // Vincular al mueble real (pedido 2026-09-02): sentado/durmiendo en una
+      // silla/cama de verdad (sentadoEnId/durmiendoEnId >= 0, -1 = ninguna o
+      // "sentado en el suelo" sin mueble) fija X/Z al CENTRO de la huella del
+      // mueble en vez de dejar el destino en la última posición andada —
+      // antes solo se aplicaba el hundimiento en Y, el personaje se quedaba
+      // flotando cerca del mueble en vez de encima.
+      if (estado.sentado && player.sentadoEnId >= 0) {
+        const centro = posicionCentroConstruccion(player.sentadoEnId);
+        if (centro) { estado.destinoX = centro.x; estado.destinoZ = centro.y; }
+      } else if (estado.durmiendo && player.durmiendoEnId >= 0) {
+        const centro = posicionCentroConstruccion(player.durmiendoEnId);
+        if (centro) { estado.destinoX = centro.x; estado.destinoZ = centro.y; }
       }
       if (player.monturaEspecieId !== monturaActual) {
         monturaActual = player.monturaEspecieId;

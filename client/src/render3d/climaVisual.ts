@@ -157,6 +157,17 @@ function caerParticulas(puntos: THREE.Points, dt: number, velocidad: number, alt
   attr.needsUpdate = true;
 }
 
+// El plano de terreno (sectorVisual.ts::crearPlanoSector) vive en y=0, la
+// misma referencia que usa `objetivoCamara`/`centro` de aquí (worldScene.ts
+// fija destinoCamara.y=0 siempre, sin muestrear la altura real del terreno).
+// Sin este suelo, dejar que la punta de la gota llegue hasta y=0 la pone
+// literalmente al mismo plano de profundidad que el terreno — z-fighting de
+// libro, que en un frame gana el terreno y en el siguiente la gota,
+// parpadeando ("a veces deja de verse sobre el terreno", encontrado jugando
+// 2026-09-02). Reciclar un poco antes de tocar el suelo (no en 0, en
+// SUELO_LLUVIA) la mantiene siempre en un plano de profundidad distinto.
+const SUELO_LLUVIA = 0.2;
+
 /** Igual que `caerParticulas` pero para `LineSegments` de 2 vértices por gota — mueve arriba/abajo a la vez, así el segmento mantiene siempre la misma longitud mientras cae. */
 function caerLineas(lineas: THREE.LineSegments, dt: number, velocidad: number, altura: number): void {
   const attr = lineas.geometry.getAttribute("position") as THREE.BufferAttribute;
@@ -165,7 +176,7 @@ function caerLineas(lineas: THREE.LineSegments, dt: number, velocidad: number, a
     let yArriba = attr.getY(i) - paso;
     let x = attr.getX(i);
     let z = attr.getZ(i);
-    if (yArriba - LARGO_GOTA < 0) { yArriba = altura; x = (Math.random() * 2 - 1) * RADIO_PARTICULAS; z = (Math.random() * 2 - 1) * RADIO_PARTICULAS; }
+    if (yArriba - LARGO_GOTA < SUELO_LLUVIA) { yArriba = altura; x = (Math.random() * 2 - 1) * RADIO_PARTICULAS; z = (Math.random() * 2 - 1) * RADIO_PARTICULAS; }
     attr.setXYZ(i, x, yArriba, z);
     attr.setXYZ(i + 1, x, yArriba - LARGO_GOTA, z);
   }
