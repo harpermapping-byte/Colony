@@ -20,7 +20,10 @@ const ZONAS_TESTFLAT: { etiqueta: string; x: number; y: number }[] = [
   { etiqueta: "Este: Cofres", x: 46, y: 32 },
   { etiqueta: "Oeste: Nodos recolección", x: 17, y: 33 },
   { etiqueta: "Noreste: Dummies combate", x: 47, y: 16 },
-  { etiqueta: "Portal a la aldea", x: 57, y: 32 },
+  // Aldea fusionada 2026-09-02 ("fusionar de verdad"): ya no hay portal que
+  // cruzar, el terreno de testaldea vive directo dentro de testflat con
+  // offset +80,+0 — este botón teleporta a su plaza/ciudad (73,41 -> 153,41).
+  { etiqueta: "Aldea (plaza)", x: 153, y: 41 },
 ];
 const ZONAS_TESTZONE: { etiqueta: string; x: number; y: number }[] = [
   { etiqueta: "Spawn", x: 220, y: 270 },

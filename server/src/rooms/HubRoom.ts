@@ -28,6 +28,7 @@ import { UnidadCombate, calcularIniciativa, simularCombateAutomatico } from "../
 import { TIPO, tipoEn, medioEn, casillaAguaCercana } from "../mundo/colisiones";
 import { cooldownNpcHablarMs } from "../personaje/bonusAtributos";
 import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa, cargarCatalogoNpcsTutoriales, cargarLoreTexto } from "../mundo/npcsFijos";
+import { NpcBakeado } from "../mundo/agentes";
 
 // Lee un `sector_XXX_YYY.json` bakeado y devuelve solo sus objetos de
 // fauna (t==="a") con coordenadas GLOBALAS de casilla — mismo formato de
@@ -173,22 +174,30 @@ export class HubRoom extends RoomExteriorBase {
 
     // NPCs FIJOS (docs/GDD_Profesiones.md ronda 2/3, pedido 2026-08-30): el
     // Hub es LA CAPITAL — donde tiene más sentido un NPC plantado a mano por
-    // el admin (el "maestro de oficios", los tutoriales...). A diferencia de
-    // RegionRoom, el Hub hoy no carga `poblacion.json` (sin NPCs con
-    // rutina) — esto SOLO añade los de `npcsFijos.json` (mapa, hecho a
-    // mano) + los tutoriales que un admin ya colocó en vivo (BD, ronda 3);
-    // sin ninguno de los dos, sin cambio de comportamiento.
+    // el admin (el "maestro de oficios", los tutoriales...) + los de
+    // `npcsFijos.json` (mapa, hecho a mano) + los tutoriales que un admin ya
+    // colocó en vivo (BD, ronda 3). NPCs CON RUTINA (`poblacion.json`,
+    // mismo formato que RegionRoom — pedido 2026-09-02, "fusionar de
+    // verdad" testaldea dentro de testflat: sin esto, un asentamiento
+    // horneado con `poblacion/` fusionado en un mapa Hub se quedaba sin sus
+    // vecinos con casa/trabajo/rutina, exactamente el mismo NPC que si
+    // hubiera vivido en su propia RegionRoom): mismo `NpcBakeado[]`, mismo
+    // GestorAgentes compartido, cero cambio para un Hub sin `poblacion.json`.
     {
+      const rutaPoblacion = path.join(rutaMapa, "poblacion.json");
+      const npcsConRutina: NpcBakeado[] = fs.existsSync(rutaPoblacion)
+        ? (JSON.parse(fs.readFileSync(rutaPoblacion, "utf8")) as { npcs: NpcBakeado[] }).npcs
+        : [];
       const npcsFijos = cargarNpcsFijos(rutaMapa);
       const npcsTutoriales = await cargarNpcsTutorialesDeMapa(await obtenerBdCompartida(), this.mapaIdPropio);
-      const todosLosFijos = [...npcsFijos, ...npcsTutoriales];
+      const todosLosFijos = [...npcsConRutina, ...npcsFijos, ...npcsTutoriales];
       if (todosLosFijos.length > 0) {
         const gestor = this.obtenerOCrearGestorAgentes();
         gestor.iniciar(todosLosFijos, tiempoMundo().hora);
         for (const npc of todosLosFijos) {
           if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
         }
-        console.log(`  ${gestor.cantidad} NPC(s) fijo(s) en el mapa (${npcsTutoriales.length} tutorial(es))`);
+        console.log(`  ${gestor.cantidad} NPC(s) en el mapa (${npcsConRutina.length} con rutina, ${npcsTutoriales.length} tutorial(es))`);
       }
       // NPCs trabajadores contratados (docs/GDD_NPCs_Contratables.md, pedido
       // 2026-09-01) — persistidos por dueño, sobreviven un reinicio del
