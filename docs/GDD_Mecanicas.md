@@ -1,9 +1,28 @@
 # GDD — Mecánicas de juego
 
-Las REGLAS DEL MUNDO que cumple la simulación en vivo (`server/`). Este
-documento es la referencia que las siguientes mecánicas (recursos,
-combate, interiores…) deben respetar; si una mecánica cambia una regla,
-se actualiza aquí en el mismo commit.
+Las REGLAS DEL MUNDO que cumple la simulación en vivo (`server/`) — colisión,
+agua, aparición, y las reglas de vida/ataque/defensa que el resto de
+sistemas de combate/fauna citan como fuente. Este documento es la
+referencia que las demás mecánicas deben respetar; si una regla de estas
+cambia, se actualiza aquí en el mismo commit.
+
+**Reorganizado 2026-09-02** (pedido literal: "hoy engaña a cualquier sesión
+nueva que lo lea primero, incluida yo hoy hasta que verifiqué contra el
+código"). Este documento nació el 2026-08-27 como la VISIÓN completa del
+proyecto entero — recursos, EXP, crafteo, inventario, equipo, vivienda,
+economía, combate, Twitch, todo en un solo archivo, antes de que existiera
+una sola línea de la mayoría. Desde entonces cada sistema se implementó de
+verdad y ganó su propio GDD dedicado, más detallado y más al día que la
+"visión" original — pero el texto se quedó aquí sin podar. Se ha recortado
+duro: las subsecciones de §5 que NADIE cita desde código (verificado con
+`grep -r "GDD_Mecanicas.md §"` sobre todo el repo antes de tocar nada) se
+redujeron a un puntero de una línea al doc dedicado; las que SÍ son la
+fuente citada de verdad en decenas de sitios (§5.4 vida/ataque/defensa,
+§5.11 roles de Twitch, §5.12 comida/descanso+chat) se quedaron con su
+contenido real, solo recortadas de narrativa histórica. Si buscas el
+DISEÑO completo de un sistema ya construido, el doc dedicado manda; si
+buscas si algo está hecho o no, o el número exacto que otro archivo cita
+como "§5.4", mira aquí.
 
 ## 0. Principios
 
@@ -11,43 +30,39 @@ se actualiza aquí en el mismo commit.
   bucear) y dibuja lo que el servidor dicta. Nada de física en cliente.
 - **Unidades: casillas.** 1 casilla del mapa bakeado = 1 unidad de mundo del
   cliente. Las posiciones son floats en casillas; las velocidades,
-  casillas/segundo. (Antes el servidor hablaba en px con 32 px = 1 casilla;
-  se eliminó la conversión.)
+  casillas/segundo.
 - **El catálogo manda.** Qué bloquea y qué se nada NO está escrito en el
   código del servidor: sale de `baker/catalogo/terrenos.json`
   (`transitable`, `requiereNadar`, `modVelocidad`) y del campo `colision`
   de `vegetacion/rocas/animales.json`. El servidor construye su rejilla de
   colisión UNA vez al crear la room (`server/src/mundo/mapaColision.ts`).
-- **Toda mecánica nace servidor-autoritativa y sincronizada** (regla MMO,
-  detallada en §3.5): el cliente solo envía intención y pinta lo que el
-  servidor dicta.
+- **Toda mecánica nace servidor-autoritativa y sincronizada**: el cliente
+  solo envía intención y pinta lo que el servidor dicta. Nada de estado de
+  juego decidido en cliente, nunca — regla transversal a TODO el proyecto,
+  no solo a lo de este documento.
 
-## 1. Colisiones (v1 — vigente)
+## 1. Colisiones (vigente)
 
 Caja SENCILLA e igual para todo, por decisión de diseño (nada de hitboxes
 por forma):
 
 | Cosa | Caja | Regla |
 |---|---|---|
-| PJ (y futuros NPC/animales móviles) | AABB de radio 0.35 casillas | choca con sólidos; con otros PJ se EMPUJA, no se bloquea. Acordado 2026-08-27: cuando la fauna/NPCs sean entidades, su radio NO será fijo — se deriva del catálogo (`personajes/catalogo/animales_rig.json`: `anchoCuerpo/2 × escala` del individuo; NPCs: del torso morfado), nunca a mano ni por malla/vóxel. La vaca empuja como grande, el conejo como chico, la abeja casi nada. |
+| PJ/NPC/animal | AABB de radio 0.35 casillas (derivado del catálogo para fauna/NPCs: `personajes/catalogo/animales_rig.json` — nunca a mano ni por malla/vóxel) | choca con sólidos; con otros PJ se EMPUJA, no se bloquea |
 | Terreno `transitable: false` sin `requiereNadar` (roca_inaccesible, lava…) | su casilla entera | pared |
-| Pieza de catálogo con `colision: true` (árboles con madera, todas las rocas/vetas, animales grandes) | su casilla entera | pared; solo endurece casillas de tierra |
+| Pieza de catálogo con `colision: true` (árboles con madera, rocas/vetas, animales grandes) | su casilla entera | pared; solo endurece casillas de tierra |
 | Terreno con `requiereNadar` (agua, agua_profunda) | — | NO es pared: es un MEDIO (ver §2) |
-| Borde del mapa / chunk ausente | — | pared (los bordes "abiertos" se resolverán con cambio de instancia) |
-| Fuera del mapa | — | pared |
+| Borde del mapa / chunk ausente / fuera del mapa | — | pared |
 
 - Movimiento eje a eje con "slide": chocar en X no anula el avance en Y.
   Al chocar, el PJ queda pegado al borde de la casilla (radio + ε).
 - Subpasos de ≤ 0.25 casillas: ningún paso grande atraviesa una pared.
-- PJ contra PJ: separación suave por pares (se reparten el empuje a partes
-  iguales), re-validada contra los sólidos — nadie acaba dentro de una
-  pared ni dos PJ se atascan mutuamente en un pasillo. O(n²) con
-  `maxClients` 40: barato a 30hz.
-- Interiores (edificios/muebles/paredes): misma regla de casilla cuando el
-  cliente cruce puertas (pendiente; los muebles ya tienen casilla en su
-  instancia bakeada).
+- PJ contra PJ: separación suave por pares, re-validada contra los sólidos
+  — O(n²) con `maxClients` 40: barato a 30hz.
+- Interiores (edificios/muebles/paredes): misma regla de casilla al cruzar
+  puertas — ver `docs/GDD_Sistema_Puertas.md`.
 
-## 2. Agua: nadar y bucear (v1 — vigente)
+## 2. Agua: nadar y bucear (vigente)
 
 El agua es un medio con niveles de profundidad, no un obstáculo:
 
@@ -63,630 +78,247 @@ El agua es un medio con niveles de profundidad, no un obstáculo:
   rápida).
 - Cliente: Q baja / E sube (pulsación; el servidor valida el medio).
   Nadando el rig va medio hundido y tumbado; buceando se le ve a través
-  del agua TRANSLÚCIDA descendiendo hacia el lecho. El agua se pinta en
-  dos planos (`client/src/render3d/terreno.ts`): lecho a y=-1.5 sombreado
-  con la elevación bakeada (hondo = oscuro) + superficie translúcida con
-  el `colorDebug` del catálogo. No hizo falta tocar el bakeador: el mapa
-  ya traía terreno y elevación por casilla.
-- **✅ Aire/ahogo real (2026-09-02, decisión delegada por el streamer)** —
-  `Vitales.aire` (nuevo 7º vital, `server/src/personaje/vitales.ts`, mismo
-  patrón "sin persistencia entre sesiones" que el resto): 100 = pulmones
-  llenos, decae SOLO con `estado==="buceando"` de verdad (nivel<0 — nadar
-  en superficie NO gasta aire), se rellena AL INSTANTE en cuanto se deja de
-  bucear (no es un regen gradual como estamina: en superficie simplemente
-  se respira normal, sin "recuperación parcial" que llevar la cuenta). A 45s
-  reales buceando sin salir a respirar se agota; a partir de ahí `vida` cae
-  ~1.5/seg mientras se siga buceando (`aplicarAhogo`, EXCEPCIÓN deliberada a
-  "nadie se hace daño solo con el tiempo" — mismo permiso ya usado por
-  `aplicarInanicion`) — con vida llena, mata en algo más de 1 minuto seguido
-  sin aire. Integrado en el mismo tick de movimiento que ya deriva
-  `estado`/`nivel` cada frame, sin tick nuevo. Test: 8 casos puros en
-  `vitales.test.ts` — sin e2e dedicado todavía (gap conocido, mismo criterio
-  que el resto de mecánicas de este documento).
-- **✅ Fauna acuática solo colisiona bajo el agua (2026-09-02)** — bug real
-  encontrado al revisar esto: `verificarAgroFauna` (auto-agro de fauna
-  peligrosa) comparaba solo distancia recta jugador↔fauna, así que una
-  especie `requiereAgua` (orca, tiburón...) podía "agrear" a un jugador de
-  pie en tierra firme cerca de la orilla si caía dentro de su `radioAgro`.
-  Ahora, si la especie declara `requiereAgua`, además exige
-  `jugador.estado !== "tierra"` (nadando o buceando cuentan, tierra no) —
-  sin e2e dedicado (el único e2e de orcas existente, `agroFauna.e2e.mjs`,
-  usa un mapa 100% agua donde el jugador nunca pisa tierra, así que no
-  ejercita esta rama; gap de test conocido).
-- **Fuera de esta pasada (decisión 2026-09-02, no un olvido)**: corrientes
-  de agua — quedan explícitamente DESCARTADAS, no solo pospuestas. Motivo:
-  para un MMO social de stream (no un survival/exploración duro), el coste
-  de diseñar+implementar+testear un sistema de corrientes (vectores por
-  casilla, cómo interactúan con `moverAABB`, feedback visual al cliente)
-  no compensa frente a lo que aporta — nadie ha pedido esto y no hay un
-  hueco de gameplay real que resuelva. Si el streamer lo pide explícitamente
-  más adelante, se diseña entonces desde cero.
+  del agua TRANSLÚCIDA descendiendo hacia el lecho (`client/src/render3d/terreno.ts`).
+- **Aire/ahogo real** (`Vitales.aire`, `server/src/personaje/vitales.ts`):
+  decae SOLO buceando de verdad (nivel<0), se rellena al instante al salir
+  a respirar. 45s reales de aguante; agotado, `vida` cae ~1.5/seg mientras
+  se siga buceando (`aplicarAhogo`, misma excepción deliberada a "nadie se
+  hace daño solo con el tiempo" que `aplicarInanicion`, ver §5.4). Test: 8
+  casos puros en `vitales.test.ts` — sin e2e dedicado todavía.
+- **Fauna acuática solo agrea bajo el agua**: una especie `requiereAgua`
+  (orca, tiburón...) exige `jugador.estado !== "tierra"` para agrearlo —
+  de pie en tierra firme cerca de la orilla está fuera de su alcance,
+  aunque caiga dentro de `radioAgro` por distancia recta.
+- **Corrientes de agua: DESCARTADAS explícitamente** (no pospuestas,
+  2026-09-02) — coste de diseño/implementación/test no justificado para un
+  MMO social de stream; nadie lo ha pedido. Si el streamer lo pide
+  explícitamente, se diseña entonces desde cero.
 
-## 3. Recursos y recolección (DISEÑADO, no implementado — acordado 2026-08-27)
+## 3. Recursos y recolección (✅ implementado)
 
-La segunda mecánica, diseñada al detalle antes de codificar. El esqueleto
-sobre el que se cuelga todo lo futuro (crafteo, cocina, comercio, misiones)
-son los CATÁLOGOS, igual que interiores hizo con sus RoomTags.
-
-### 3.1 Tags y materiales en el catálogo
-
-- Cada especie de `vegetacion/rocas/animales.json` recibe **`tags`** (qué
-  ES: `arbol`, `comida`, `mineral`, `hierba`, `valioso`…). Las mecánicas
-  filtran por tag — "el pico pica `mineral`", "la misión pide 5 `hierba`" —
-  y añadir especies nuevas no obliga a tocar ninguna mecánica. Mismo
-  patrón que los RoomTags de interiores.
-- `categoriaRecurso` (ya existe) dice QUÉ material da. Todo su valor debe
-  existir en **`baker/catalogo/materiales.json`** (NUEVO): la lista de todo
-  lo que puede vivir en un inventario — id, nombre, `tags`, tamaño de pila,
-  `uso`. Fuente de verdad del inventario/crafteo/comercio para siempre.
-- Cada especie recolectable recibe un bloque **`recoleccion`**:
-  `herramienta` (obligatoria "en la mano" — ver 3.4), `da` (material +
-  cantidad mín/máx), `golpes` (interacciones hasta agotarse) y
-  `respawnSegundos`.
-
-### 3.2 Golpes y agotado (decisión del usuario)
-
-- **Plantas y cosas pequeñas** (hierbas, flores, setas, bayas): **1 golpe**
-  → material → el prop desaparece para todos.
-- **Árboles y menas**: aguantan **varios golpes** (3–5 por catálogo); cada
-  golpe da material, al último el nodo desaparece.
-- Los golpes restantes de un nodo son estado compartido igual que el
-  agotado (ver 3.5) — dos jugadores pueden turnarse los golpes.
-
-### 3.3 Respawn (decisión del usuario)
-
-- **v1: en el sitio**, con cálculo PEREZOSO (nada de timers): "¿vivo?" =
-  `ahora - agotadoEn > respawnSegundos`, evaluado al mirar el nodo.
-- Tiempos **de juego** desde el principio: orientativo hierbas ~5 min,
-  árboles ~15 min, menas ~30 min (afinable por catálogo).
-- **Excepción para testear**: UNA especie de cada tipo lleva tiempo corto
-  marcado con `_nota` de "tiempo de test, retirar tras testeo" (p. ej.
-  lavanda 30 s, arbol_joven 60 s, guijarros 45 s).
-- **v2 (diseñado, después)**: reaparición EN OTRO PUNTO del pool de spawn
-  regional que ya marca el bakeador, determinista (semilla + contador del
-  nodo). Pensado para bayas/setas/animales; árboles y menas se quedan en
-  respawn en sitio.
-
-### 3.4 Herramientas y equipamiento (decisión del usuario)
-
-- La estructura nace YA con herramienta obligatoria: cada `recoleccion`
-  declara la suya (`hacha` para tag `arbol`, `pico` para `mineral`, `hoz`/
-  `mano` para `hierba`…), y el jugador tiene un slot de EQUIPO **"mano"**
-  en su estado (el germen del equipamiento general: lo que llevas en la
-  mano es lo que usas — recolectar hoy, combate mañana).
-- **v1: la validación va desactivada** (la mano vale para todo) — pero el
-  campo, el slot y el chequeo existen desde el primer día para encenderlos
-  cuando existan herramientas que conseguir.
-
-### 3.5 Sincronización MMO (REGLA TRANSVERSAL para TODA mecánica)
-
-Prioridad número uno del proyecto, fijada aquí como principio:
-
-> **Toda mecánica nace servidor-autoritativa y sincronizada: el cliente
-> solo envía intención y pinta lo que el servidor dicta. Nada de estado de
-> juego decidido en cliente, nunca.**
-
-Aplicado a recursos:
-
-- **Identidad estable de nodo = su casilla** (clave numérica
-  `x + y*ancho`): derivada del mapa bakeado, idéntica para todos los
-  clientes y estable entre reinicios. Sin ids inventados.
-- **Flujo**: cliente envía `recolectar` (tecla **F**, casilla que tiene
-  delante) → el servidor valida (nodo existe y está vivo, jugador
-  adyacente, herramienta si aplica, hueco en inventario) → descuenta
-  golpe / marca agotado con timestamp → mete el material en el inventario
-  → el cambio llega a todos por el patch normal. Si dos recolectan a la
-  vez, el orden de llegada decide: el segundo recibe "agotado". Imposible
-  duplicar.
-- **Sincronización barata**: NO se replica el estado de miles de props —
-  solo el diccionario de **nodos tocados** (casilla → golpes restantes /
-  timestamp de agotado). Todo lo demás se deduce del mapa bakeado que
-  todos tienen. Cambios, no snapshots.
-- **Inventario**: en el estado del jugador (material → cantidad + slot
-  mano). v1 sin UI: contador simple en pantalla.
-- Cliente: el prop agotado se oculta en su `InstancedMesh` (el cliente ya
-  indexa por casilla al instanciar) y reaparece al revivir.
+El sistema descrito originalmente aquí (tags por especie, `golpes`/agotado,
+respawn perezoso, herramienta obligatoria) está implementado tal cual se
+diseñó: `server/src/mundo/recolectables.ts` (nodos vivos/agotados por mapa,
+identidad = casilla, respawn perezoso por timestamp — nunca timers),
+catálogo de materiales y tags en `baker/catalogo/{vegetacion,rocas,animales}.json`
++ `items/catalogo/items.json`. Sincronización barata: solo se replica el
+diccionario de nodos TOCADOS, el resto se deduce del mapa bakeado que todos
+tienen — mismo principio transversal de §0. Sin GDD dedicado propio (se
+quedó aquí porque no ha hecho falta partirlo); si crece más, se le da su
+propio documento como al resto.
 
 ## 4. Aparición
 
 Al entrar a la room se aparece en la `ciudad` del índice del mapa,
 corregida a la casilla de TIERRA pisable más cercana (búsqueda en anillos).
 
-## 5. Sistemas RPG — guía maestra (VISIÓN acordada 2026-08-27; cada sistema se pule aquí antes de codificarse)
+## 5. Sistemas RPG
 
-El MMO RPG "al uso" que persigue el proyecto, apuntado para que cada
-mecánica nueva encaje en este esqueleto en vez de improvisarse. Regla de
-oro repetida: catálogo como fuente de verdad + servidor autoritativo
-(§3.5) en TODOS estos sistemas.
+Regla de oro repetida en todos: catálogo como fuente de verdad + servidor
+autoritativo (§0). Subsecciones **5.4, 5.11 y 5.12** llevan contenido real
+(decenas de citas desde código las tratan como fuente) — el resto son
+punteros cortos a su doc dedicado, que manda sobre el diseño completo.
 
-### 5.1 EXP y habilidades (configurar DESDE EL INICIO)
+### 5.1 EXP y habilidades — ✅ implementado
 
-- Modelo por HABILIDADES que suben con el uso (estilo RuneScape/UO):
-  recolectar madera sube `lenador`, minar sube `mineria`, craftear sube la
-  profesión de la receta, y "casi todas las acciones" dan EXP a la
-  habilidad que les corresponde.
-- **`catalogo/habilidades.json`** (futuro): id, nombre, `uso`, curva de
-  EXP por nivel (una sola fórmula global parametrizada, no una tabla por
-  habilidad), y qué desbloquea cada tramo (blueprints, herramientas).
-- **Un único punto de otorgamiento en el servidor**: toda mecánica emite
-  un evento `accion(habilidad, exp)` a un módulo central de progresión —
-  así el "qué da EXP" vive en el catálogo de cada cosa (la especie dice la
-  EXP de recolectarla, la receta la de craftearla) y nunca desperdigado
-  por el código. Esto es lo que hay que dejar montado desde la primera
-  mecánica que dé EXP (recolección).
-- Habilidades del PJ = estado persistente del jugador (ver 5.7).
+Ver `docs/GDD_Personaje.md` (atributos/vitales) y `docs/GDD_Profesiones.md`
+(oficios, curva de XP compartida en `server/src/progresion/nivel.ts`).
 
-### 5.2 Crafteo con blueprints y profesiones
+### 5.2 Crafteo — ✅ implementado
 
-- **`catalogo/recetas.json`** (futuro): ingredientes (materiales +
-  cantidades), estación necesaria, habilidad + nivel mínimo, EXP que da,
-  resultado (+ cantidad). Los blueprints son conocimiento del PJ: una
-  receta se APRENDE (drop/compra/nivel) y pasa a su lista aprendida.
-- **Las estaciones de crafteo son los muebles de interiores**: la forja,
-  el banco de carpintero o el telar ya existen en el catálogo de
-  interiores con sus RoomTags — la receta referencia el tag del mueble
-  (`forja`), no un mueble concreto. Sinergia directa con lo ya construido.
-- Craftear = interacción validada en servidor: consume ingredientes,
-  produce resultado, da EXP. Atómico (nunca puede quedar a medias).
+Ver `docs/GDD_Crafteo.md` (materiales por tier, refinamiento, recetas —
+276 recetas reales a 2026-09-02).
 
-### 5.3 Inventario: rejilla tipo Tetris + peso (decidido)
+### 5.3 Inventario — ✅ implementado
 
-- Cada objeto de `materiales.json` define **`tamano: [ancho, alto]`** en
-  celdas y **`peso`** por unidad. El inventario es una REJILLA en la que
-  los objetos ocupan su silueta (encajar como Tetris) Y a la vez suma un
-  PESO total contra la capacidad del PJ.
-- **Stack**: el mismo material apila en una celda hasta su pila máxima; el
-  peso del stack es peso unitario × cantidad (stackear no descuenta peso).
-- Capacidad de peso = base del PJ + atributos + equipo (5.4). Pasarse de
-  peso PENALIZA VELOCIDAD progresivamente, estilo Project Zomboid (no
-  bloquea coger) — decidido por el usuario 2026-08-27.
-- Servidor autoritativo también en la COLOCACIÓN: mover un objeto en la
-  rejilla es un mensaje validado (anti-duplicación); el inventario de cada
-  jugador solo se sincroniza a su dueño (filtrado por cliente de
-  Colyseus).
+Ver `docs/GDD_Inventario.md` (rejilla tipo Tetris + peso, tal como se
+diseñó aquí originalmente).
 
-### 5.4 Equipamiento y atributos (decidido en líneas generales)
+### 5.4 Vida, ataque, defensa y combate directo (✅ implementado, base citada por todo el proyecto)
 
-- Slots de equipo: **mano** (ya diseñado en §3.4 — herramienta/arma),
-  cabeza, torso, piernas, pies, espalda… La ropa/armadura da **defensa**,
-  puede dar **capacidad de peso** extra, y las bolsas/mochilas añaden
-  REJILLA extra de inventario (otro grid anidado).
-- Los equipables viven en el mismo catálogo de objetos con tag
-  `equipable` + su slot + sus stats (nada de catálogo aparte).
-
-#### Vida / Ataque / Defensa (✅ implementado, pedido 2026-08-30)
-
-Reglas pedidas explícitamente, diferenciadas por tipo de entidad:
+Fuente de verdad de las stats de combate más básicas — decenas de
+ficheros (`combate/`, `mundo/fauna*.ts`, `datos/bd.ts`, schemas, tests)
+citan este número exacto de sección, así que se queda con contenido real
+en vez de solo un puntero. El DISEÑO completo del combate táctico por
+turnos vive en `docs/GDD_Combate.md`; esto es la base que ese sistema
+reutiliza como fuente de HP.
 
 - **Animales**: NUNCA tienen defensa — su única resistencia es la vida
-  máxima. Sí tienen ataque. La vida máxima escala por categoría
-  (`categoriaVida` en `baker/catalogo/animales.json`, derivada del
-  `tamanoReproduccion`/`peligroso`/`colision` ya existentes, un valor por
-  especie — no aleatorio): cría ~8, pequeño 15-25, mediano 50-65, grande
-  100-200, alfa 300+ (hoy solo tiburón/orca/araña gigante/calamar
-  gigante caen en "alfa", por ser `colision + peligroso` a la vez).
+  máxima. La vida máxima escala por `categoriaVida`
+  (`baker/catalogo/animales.json`): cría ~8, pequeño 15-25, mediano 50-65,
+  grande 100-200, alfa 300+ (tiburón/orca/araña gigante/calamar gigante —
+  `colision + peligroso` a la vez).
 - **Jugadores y NPCs humanoides**: SÍ tienen ataque y defensa. Todo
-  jugador arranca con **100/100 HP** obligatorio. `ataque`/`defensa` son
-  campos numéricos en el Schema de red (`Player.ataque`/`Player.defensa`,
-  base 3/0 — a puño limpio, sin armadura) pensados para subir con
-  equipo/atributos/magia MÁS ADELANTE: esta pasada NO conecta ningún
-  cálculo de equipo todavía (nadie lee del inventario ni de catálogo de
-  items al golpear) — es la base numérica sobre la que enganchará
-  cualquier sistema de equipo/combate futuro, esta pasada u otra.
+  jugador arranca con **100/100 HP** obligatorio. `Player.ataque/defensa`
+  (Schema de red, base 3/0 a puño limpio) suben con equipo real
+  (`recalcularStatsJugador`, ver `docs/GDD_Equipo.md`).
 - **Fórmula de daño** (`server/src/combate/combate.ts`, módulo puro):
-  `daño = max(1, ataque - defensa)` — nunca menos de 1. Para un animal,
-  quien llama pasa `defensa: 0` siempre (no tienen esa estadística), así
-  que reciben el ataque tal cual.
+  `daño = max(1, ataque - defensa)` — nunca menos de 1. Un animal siempre
+  recibe `defensa: 0`.
 - **Regeneración/curación**: NADIE se cura solo con el tiempo — ni
-  jugadores, ni animales, ni NPCs. Un jugador solo sube vida comiendo
-  (fuera de combate) o con pociones/magia; animales y NPCs solo si un
-  jugador los cura A PROPÓSITO con un objeto o magia. Por eso
-  `combate.ts` no tiene ninguna función de "tick" de vida — `curar()` es
-  siempre un evento explícito.
+  jugadores, ni animales, ni NPCs. Solo comiendo (fuera de combate),
+  pociones/magia, o curación explícita de otro jugador. `combate.ts` no
+  tiene ninguna función de "tick" de vida — `curar()` es siempre un evento
+  explícito. Excepciones deliberadas y explícitas a esta regla (dañan solo
+  con el tiempo, pedidas por el streamer): inanición (`aplicarInanicion`,
+  comida o bebida a 0) y ahogo buceando sin aire (`aplicarAhogo`, ver §2).
+- **Catálogo de armas** (`items/catalogo/items.json`, `tipo:"arma"`):
+  cuerpo a cuerpo (alcance 1-3: daga/espada_corta/espada_larga/
+  hacha_combate/maza_guerra/lanza) y a distancia (alcance 4-9, más lentas:
+  honda/arco_corto/arco_largo/ballesta, cada una con `municionId`). Munición
+  (`tipo:"municion"`: piedra_honda/flecha/virote_ballesta) — **✅ cerrado
+  del todo 2026-09-02**: recetas de crafteo reales para las 3, el `alcance`
+  real del arma entra en juego en el combate táctico (antes SIEMPRE 1,
+  cuerpo a cuerpo, sin importar el arma) y disparar consume una unidad de
+  verdad (rechazo sin munición, mismo criterio que "fuera de alcance") —
+  detalle completo de cómo se hizo compatible con el combate instanciado
+  en arena aparte en `docs/GDD_Combate.md` §8. Sin armaduras todavía (solo
+  había armas en esta pasada, pedido explícito del streamer en su momento).
+- **`combate:atacar` (daño directo simple, sin turnos) es el sistema
+  INTERINO** — sigue funcionando sin tocar, pero `docs/GDD_Combate.md`
+  (combate táctico por turnos en rejilla) es el sistema DEFINITIVO desde
+  el 2026-08-30. Excepción: cuando NINGÚN combatiente es jugador (NPC vs
+  animal, NPC vs NPC) el definitivo tampoco usa turnos — se autosimula de
+  golpe (`docs/GDD_Combate.md` §7). Los campos de vida (`Player.vida/
+  vidaMax`, `Fauna.vida/vidaMax/ataque`, persistencia en BD, cadáveres) los
+  reutiliza el táctico tal cual, no inventa unos nuevos.
 
-Piezas: catálogo de vida de fauna (`server/src/mundo/catalogoCombateFauna.ts`,
-separado del catálogo de reproducción porque cubre TAMBIÉN crías y
-población infinita, que no reproducen pero sí pueden recibir daño);
-persistencia (`fauna_salvaje.vida/vida_max/ataque` — el daño sufrido
-sobrevive a desactivar/reactivar un sector; `jugadores.vida/vida_max`);
-Schema de red (`Player`/`Npc`/`Fauna` en `HubState.ts`, con barra de
-vida flotante en el cliente, `client/src/render3d/worldScene.ts`);
-`GestorFaunaSalvaje.recibirDanio`/`curarIndividuo` (mismo patrón
-"mecanismo listo, punto de enganche" que `matarIndividuo`/cadáveres); y
-UN disparador real ya cableado: el mensaje `combate:atacar` de
-`HubRoom.ts` (jugador ataca fauna salvaje activa o a otro jugador,
-dentro de `RADIO_INTERACCION`, servidor autoritativo) — un animal salvaje
-muerto en combate crea su cadáver automáticamente (cierra el círculo con
-el sistema de cadáveres de la fase anterior).
+### 5.5 Objetos por el suelo — ✅ implementado
 
-**Deliberadamente fuera de esta pasada**: NPCs humanoides con id
-persistente (bandidos/`tropas_asentamiento`) no tienen ninguna entidad
-viva en red todavía (confirmado: sin disparador de combate real, ver
-GDD_Faccion_Bandidos.md §2.4) así que no reciben daño; los NPCs civiles
-de asentamiento SÍ tienen stats de combate en su Schema pero nadie los
-ataca (no hay id estable ni ataque cuerpo a cuerpo de NPC hacia jugador);
-sin muerte "de verdad" de jugador — morir en PvP hoy simplemente rellena
-la vida al máximo en el sitio, sin respawn ni penalización (no había
-diseño de eso pactado); sin cooldown/animación/rango de arma más allá
-del radio de interacción genérico; sin armaduras todavía (solo armas,
-ver abajo).
+Ver `docs/GDD_Inventario.md`.
 
-#### Catálogo de armas (✅ items del catálogo, pedido 2026-08-30)
+### 5.6 NPCs con IA conversacional — ✅ implementado
 
-13 entradas nuevas en `items/catalogo/items.json`, `tipo:"arma"` (ya
-declarado en el union `TipoItem` por la propuesta de `GDD_Combate.md`,
-reutilizado tal cual — mismos campos `ataqueFisico`/`alcance`/
-`cooldownMs`/`durabilidadMax`/`desgastePorUso`, sin inventar un segundo
-esquema de stats):
+Ver `docs/GDD_IA_NPCs.md` (Gemini + Groq de respaldo, memoria por
+NPC+jugador con RAG). Pendiente real: el contexto de mundo sigue siendo
+placeholder genérico, no la biografía individual que ya genera
+`poblacion/generarHistoria.js` — cablear eso, ver ese doc.
 
-- **Cuerpo a cuerpo** (alcance 1-3 casillas): `daga`, `espada_corta`,
-  `espada_larga`, `hacha_combate` (distinta de `hacha_talar`, que sigue
-  siendo herramienta de tala sin stats de combate), `maza_guerra`,
-  `lanza`.
-- **A distancia** (alcance 4-9 casillas, más lentas — `cooldownMs`
-  mayor): `honda`, `arco_corto`, `arco_largo`, `ballesta`. Cada una
-  declara `municionId` (campo nuevo en `EntradaCatalogoItem`) apuntando
-  a su munición compatible.
-- **Munición** (`tipo:"municion"`, nuevo valor del union `TipoItem`,
-  apilable, sin `slotEquipo` — se consume, no se equipa): `piedra_honda`,
-  `flecha`, `virote_ballesta`.
+### 5.7 Persistencia — ✅ implementado
 
-Todas con `familiaMaterial`/`tier` (encajan en cadenas de refinamiento
-futuras de `docs/GDD_Crafteo.md`) y desgaste (`durabilidadMax`/
-`desgastePorUso`, mismo `server/src/inventario/desgaste.ts` ya probado).
+`server/src/datos/bd.ts`: `IAlmacenDatos` con SQLite local (dev/tests) y
+Postgres/Neon (producción), elegido por `DATABASE_URL`. Desplegado en
+`colony-server` (Render, Frankfurt, free) — estado de despliegue real
+siempre en `CLAUDE.md`, no aquí (cambia con más frecuencia que este doc).
 
-**✅ Munición a distancia CERRADA (2026-09-02)** — quedaba como el hueco
-real más citado del proyecto ("arco/ballesta/honda existen como armas,
-pero nadie fabrica flechas/virotes/piedras ni se consumen al disparar").
-Ahora: (1) recetas de crafteo reales para las 3 municiones en
-`items/catalogo/recetas.json` (`flecha_craft` — herrero, `yunque_tocon`;
-`virote_ballesta_craft` — herrero, `yunque_cuerno`; `piedra_honda_craft` —
-picapedrero, `banco_clasificacion_cincelado`); (2) el `alcance` real del
-arma en `manoPrincipal` (antes SIEMPRE 1 = cuerpo a cuerpo, sin importar
-qué llevaras) ahora entra en juego de verdad al montar el combate táctico
-(`RoomExteriorBase.crearUnidadCombate`/`alcanceArmaJugador`, funciones
-puras `alcanceDeEquipo`/`municionDeEquipo` en `combate/arenaCombate.ts`);
-(3) disparar con un arma que declara `municionId` SÍ gasta 1 unidad real
-por golpe conectado, y se rechaza el ataque sin munición (mismo criterio
-que "fuera de alcance") — ver `docs/GDD_Combate.md` §8 para el detalle de
-cómo se hizo compatible con el combate INSTANCIADO en arena aparte (el
-inventario no viaja allí tal cual, así que el gasto se snapshotea/aplica
-con un mecanismo dedicado, no leyendo el inventario en vivo de la arena).
-Sigue fuera: `combate:atacar` (el sistema INTERINO de daño directo, ver
-más abajo) no distingue melee de distancia — solo el combate táctico
-(`combate:accion`) lo hace, que es el sistema definitivo. Armaduras siguen
-sin catálogo (solo había armas en esta pasada, pedido explícito del
-streamer en su momento: "de momento... mele y arcos/ballestas/hondas").
+### 5.8 Vivienda / construcción — ✅ implementado
 
-**⚠️ SUSTITUIDO (decisión del streamer, 2026-08-30) — ✅ el táctico ya
-está en pie.** Este sistema de daño DIRECTO simple (radio de
-interacción, sin turnos) queda **INTERINO**: `docs/GDD_Combate.md`
-(combate táctico por turnos en rejilla) es ahora el sistema definitivo,
-YA implementado y probado contra el servidor real (`CombateSchema`,
-mensajes `combate:iniciar/mover/accion/pasarTurno/huir`, panel de
-cliente placeholder, autosimulación NPC-vs-fauna) — ver ese documento
-para el detalle completo. Este `combate:atacar` sigue funcionando sin
-tocar (no se ha borrado nada) hasta que se decida retirarlo. Excepción
-confirmada: cuando NINGÚN combatiente es un jugador (NPC vs animal, NPC
-vs NPC) el sistema definitivo tampoco usa turnos interactivos — se
-autosimula de golpe (ver `docs/GDD_Combate.md` §7). Los campos/Schema
-de vida que sí quedan
-(`Player.vida/vidaMax`, `Fauna.vida/vidaMax/ataque`, persistencia en
-BD, catálogo de vida de fauna, cadáveres) no se tiran — el sistema
-táctico los reutiliza como su fuente de HP, no inventa unos nuevos.
+Ver `docs/GDD_Construccion.md` (el contrato — leer ANTES de tocar nada de
+construcción/parcelas/propiedad) y `docs/GDD_Propiedades.md`.
 
-### 5.5 Objetos por el suelo (persistencia visible, decidido)
+### 5.9 Economía, moneda y tiendas — ✅ implementado
 
-- Dropear un objeto lo saca del inventario y crea un **prop en su casilla
-  visible para TODOS**, durante MUCHO tiempo (orientativo: días de juego,
-  no minutos) — la sensación de mundo persistente que se busca.
-- Mismo patrón de estado que los nodos de recurso: diccionario compartido
-  `casilla → {material, cantidad, caducidad}` con expiración PEREZOSA, y
-  un tope de drops por chunk (el exceso caduca antes) para que el free
-  tier no acumule basura infinita.
-- Recoger un drop = misma interacción F validada en servidor (el primero
-  que llega se lo lleva).
+Ver `docs/GDD_Economia.md`, `docs/GDD_Comercio.md`, `docs/GDD_Mercado.md`.
 
-### 5.6 NPCs con IA conversacional y jugador-a-jugador (visión)
+### 5.9bis Fauna/NPCs como entidades vivas, monturas — ✅ implementado
 
-- NPCs con ficha propia (personalidad, oficio) que **responden con IA y
-  tienen memoria interna** (resumen persistente de lo que han vivido/
-  hablado, no transcripciones enteras). La respuesta es asíncrona: el
-  juego nunca espera a la IA en el tick de simulación.
-- Restricción dura: **todo gratis** → capa de proveedor intercambiable con
-  presupuesto de llamadas (free tiers de APIs de LLM son limitados),
-  respuestas cacheadas para charla trivial, y la memoria en el mismo
-  almacén persistente que el resto (5.7). **✅ Resuelto e implementado**
-  (`server/src/ia/`, ver `docs/GDD_IA_NPCs.md`): Gemini como proveedor
-  principal con Groq de respaldo automático si falla, memoria por
-  (NPC, jugador) recortada + búsqueda por similitud (RAG) para no repetir
-  respuestas, rate-limit de 3s por jugador en `HubRoom.ts` (mensaje
-  `npc:hablar`). Pendiente real: el contexto de mundo que recibe el
-  proveedor sigue siendo un placeholder genérico, no la biografía
-  individual que ya genera `poblacion/generarHistoria.js` — falta cablear
-  eso, y no se ha probado contra las API reales desde este entorno (sin
-  salida de red aquí; sí cubierto por tests con proveedores falsos).
-- Interacción jugador-jugador: comercio con intercambio ATÓMICO arbitrado
-  por servidor (ambos confirman → se ejecuta entero o nada), chat, y más
-  adelante grupos/gremios. Nada de tratos peer-to-peer sin árbitro.
+Ver `docs/GDD_Agentes_Moviles.md` (movimiento/IA), `docs/GDD_Poblacion_NPCs.md`
+(censo/rutinas) y `docs/GDD_Monturas.md`.
 
-### 5.7 Persistencia (transversal)
+### 5.10 Combate PvE/PvP y muerte — ✅ implementado
 
-Habilidades, inventario, equipo, drops en el suelo y nodos tocados deben
-sobrevivir a reinicios del servidor — y el free tier de Render DUERME el
-proceso y no tiene disco persistente. **✅ Resuelto e implementado**
-(`server/src/datos/bd.ts`): interfaz `IAlmacenDatos` con dos motores —
-SQLite local (`node:sqlite`) para desarrollo/tests, Postgres (Neon free
-tier) en producción, elegido automáticamente por `DATABASE_URL`, mismo
-contrato async en los dos. Usado hoy por el sistema de Construcción
-(`docs/GDD_Construccion.md`) con escritura al cambiar, nunca por tick.
-✅ Desplegado y VIVO (2026-08-28): el servicio bueno es **`colony-server`**
-(runtime Node, Frankfurt, free) en `https://colony-server.onrender.com`,
-con auto-deploy en cada push a main — Render no permite cambiar el runtime
-de un servicio ya creado, así que el servicio viejo "Colony" (Docker, URL
-`secret-1-secz`) quedó obsoleto y hay que suspenderlo/borrarlo desde su
-dashboard para no quemar minutos de build. El cliente
-(`client/src/config.ts`) apunta solo: `VITE_COLYSEUS_URL` manda si existe;
-sin ella, localhost en desarrollo y `wss://colony-server.onrender.com` en
-producción (Vercel funciona sin configurar nada en su dashboard). Ojo free
-tier: el proceso DUERME tras ~15 min sin tráfico y la primera conexión
-tarda ~50 s en despertarlo — esperado, no es un fallo.
+Ver `docs/GDD_Combate.md` (táctico por turnos), `docs/GDD_PvP.md` (zonas
+seguras vs PvP activado), `docs/GDD_Caza.md`, y `docs/GDD_Muerte_Respawn.md`
+(objetos sueltos al suelo, equipo con -20% durabilidad flat, respawn en
+cama propia o Hub, cadáver looteable). Las stats base (vida/ataque/
+defensa) viven en §5.4 de este documento.
 
-### 5.8 Vivienda: constructor/decorador de interiores para jugadores (pedido por el usuario)
-
-- El jugador tiene (compra/gana) un edificio propio y lo DECORA él mismo.
-  La base ya existe entera: el motor de interiores con su catálogo de
-  ~140 muebles, edición NO destructiva y colocación validada por RoomTags
-  — el "modo decorador" del jugador es una versión in-game del editor web
-  de `interiores/`, con las mismas reglas de colocación.
-- Los muebles se CRAFTEAN (5.2) o se compran (5.9), viven en el inventario
-  como objetos y al colocarlos pasan a ser estado del interior (instancia
-  con su room propia, ver 5.11-zonas).
-- Permisos: dueño (edita), invitados (entran), público (tienda, 5.9).
-- Fase 2: construir/ampliar la estructura (paredes, habitaciones) con el
-  generador de interiores como base — decorar primero, construir después.
-
-### 5.9 Economía, moneda y tiendas (pedido por el usuario)
-
-- UNA moneda. Entra al mundo por fuentes contadas (venta a NPC, misiones,
-  eventos) y SALE por sumideros (compras a NPC, reparaciones, impuestos de
-  tienda/vivienda) — sin sumideros un MMO se infla, así que cada fuente
-  nueva se apunta aquí con su sumidero.
-- **Tienda de jugador**: un mueble-mostrador en su vivienda (5.8) donde
-  deja objetos con precio; vende incluso con el dueño desconectado. La
-  compra es el mismo intercambio ATÓMICO arbitrado de siempre (objeto ↔
-  moneda, entero o nada).
-- Vendedores NPC con inventario limitado que rota (cálculo perezoso, no
-  timers), precios fijos al principio (nada de economía dinámica hasta
-  que haya datos reales).
-
-### 5.9bis Fauna y NPCs como entidades vivas (acordado 2026-08-27)
-
-Los animales serán COMO los PJ: entidades del servidor con posición
-sincronizada, animación por pivotes y colisión propia — no props del bake.
-Reglas pactadas con el usuario:
-
-- **Visual**: cada individuo se materializa con el creador de personajes
-  (`personajes/generarAnimal.js` → `client/render3d/animalVoxel.ts`, YA
-  implementado y probado con la plaza demo de la ciudad) — determinista por
-  semilla, animación idle por esqueleto y ciclo de andar por contrafase ya
-  listos. El servidor solo sincroniza `especieId + semilla + x,y + estado`
-  (andando/parado/nadando...): el cliente genera el cuerpo localmente,
-  como con los PJ. Nada de mallas por la red.
-- **Colisión**: radio derivado del catálogo (ver tabla de §1) — jamás por
-  malla o vóxel; la física vive en casillas + radios, los vóxeles son SOLO
-  visuales (la optimización gorda del proyecto).
-- **IA solo para quien la necesita, y por presupuesto**: cada especie
-  declarará su comportamiento en catálogo (`pasivo_errante` — pasea y pace;
-  `huidizo` — conejo/ciervo huyen del PJ cercano; `agresivo` — lobo/oso
-  persiguen; `estatico` — abeja/mariposa solo deambulan visualmente). El
-  servidor simula SOLO la fauna con jugadores cerca (mismo principio que el
-  streaming de sectores: lo lejano no cuesta), con tope de entidades
-  activas por room — Render free manda. Las especies `estatico` pueden
-  incluso vivir solo en cliente (deambulan sin verdad de servidor: no
-  interactúan, no cuestan red).
-- **Animación**: solo entidades con esqueleto; pausar el idle fuera de
-  pantalla/lejos cuando haga falta (el bucle de animables ya está
-  centralizado en `game.ts` — es un `if` de distancia).
-
-**Monturas — HECHO (2026-08-30, ver `docs/GDD_Monturas.md` para el diseño
-completo).** Animales montables: el PJ se sube encima y **se convierten en
-UNA sola cosa** a todos los efectos. Reglas pactadas el 2026-08-27,
-implementadas tal cual:
-
-- **Servidor — una entidad física**: montar fusiona los dos cuerpos en uno.
-  Se simula SOLO la montura (su velocidad, su radio de colisión, su medio —
-  un caballo no bucea) y el PJ deja de tener cuerpo propio: va anclado. El
-  input del jugador mueve a la montura. Desmontar los separa de nuevo en
-  dos entidades. Nada de simular dos cuerpos "pegados" — es la misma regla
-  de la ropa: lo montado no tiene física propia.
-- **Cliente — colgar del pivote, como la ropa**: el rig del PJ se cuelga
-  del pivote `cuerpo` de la montura en su punto de silla y HEREDA la
-  animación gratis (galopa la montura, el jinete se mueve con ella — cero
-  código de sincronización). La pose sentada es rotar los pivotes de
-  piernas del rig, que ya existen.
-- **Catálogo como siempre**: `montable: true` en la entrada de la especie
-  (`personajes/catalogo/animales_rig.json`) + su `velocidadMontura`. El
-  punto de silla NO se escribe a mano: se deriva de las proporciones
-  (centro del lomo = `altoPata + altoCuerpo`), así cualquier especie que se
-  marque montable funciona sola — caballo, camello, o lo que se invente.
-- **Solo esqueletos que aguanten**: montable es un flag por especie, no por
-  plantilla — el burro sí, el conejo no, aunque compartan esqueleto.
-
-### 5.10 Combate PvE y PvP (pedido por el usuario)
-
-- Mismo esqueleto que todo lo demás: el arma es lo que llevas en la MANO
-  (slot de §3.4/5.4), sus stats salen del catálogo de objetos, la defensa
-  del equipo puesto, y el servidor resuelve cada golpe (alcance por
-  casillas, cooldown por arma, daño = arma vs defensa; nada calculado en
-  cliente).
-- **PvE**: requiere fauna/criaturas MÓVILES — hoy los animales son props
-  estáticos bakeados. El paso previo es "despertar" a los que tengan tag
-  hostil/cazable: entidades con IA sencilla en servidor (deambular,
-  huir/agredir por cercanía), simuladas SOLO cerca de jugadores activos
-  (regla de oro del free tier) y ancladas a los pools de spawn bakeados.
-- **PvP**: por ZONAS, nunca global: el Hub y las viviendas son seguros;
-  regiones salvajes/mazmorras marcan PvP activado (el mapa bakeado ya
-  tiene regiones/POIs donde colgar la bandera de zona).
-- **Muerte**: ✅ resuelto e implementado (2026-08-30, ampliado 2026-09-01) —
-  ver `docs/GDD_Muerte_Respawn.md`. Resumen: lo suelto de la mochila cae al
-  suelo como objetos recogibles por cualquiera; lo clasificado como equipo
-  (herramienta/arma/equipable) se queda pero con -20% flat de durabilidad;
-  lo PUESTO (rig) no se pierde ni se penaliza; vida al máximo; respawn en
-  la primera cama construida en propiedad propia, si no en el Hub. Deja
-  además un cadáver looteable con la apariencia congelada en el sitio de
-  la muerte. Las animaciones de pegar reutilizan el rig y los clips glTF
-  del taller de PJ.
-
-### 5.11 Twitch: jerarquía, títulos y viewers (pedido por el usuario)
+### 5.11 Twitch: jerarquía, títulos y viewers (✅ implementado — citado por `docs/GDD_Twitch.md` §2)
 
 - Los ROLES del chat de Twitch (mod, VIP, sub, viewer) se traducen en
   TÍTULOS visibles sobre el PJ y en la jerarquía social del pueblo del
   streamer. Perks COSMÉTICOS y sociales (título, color de nombre, acceso a
-  zonas sociales), nunca ventaja de poder — el poder se gana jugando.
+  zonas sociales), NUNCA ventaja de poder — el poder se gana jugando.
 - La vinculación cuenta-Twitch ↔ PJ es parte de la identidad persistente
-  (5.7). Los títulos se refrescan al conectar (rol actual del canal).
-- Viewers desde el chat (visión ya en CLAUDE.md): comandos que influyen en
-  el mundo (eventos, regalos, votar) — cada comando es un mensaje más al
-  servidor autoritativo, con presupuesto/rate-limit por viewer.
+  (§5.7). Los títulos se refrescan al conectar (rol actual del canal).
+- Viewers desde el chat: comandos que influyen en el mundo (eventos,
+  regalos, votar) — cada comando es un mensaje más al servidor
+  autoritativo, con presupuesto/rate-limit por viewer.
 - El STREAMER es el administrador: comandos GM (teleport, spawn de evento,
-  kick/ban) reservados a su cuenta.
+  kick/ban) reservados a su cuenta — ver `docs/GDD_Admin.md` para el
+  diseño completo de sesiones admin/jarl.
 
-### 5.12 Sistemas que faltaban para cerrar el esqueleto (propuestos y aceptados a pulir)
+Diseño completo (jerarquía exacta, refresco de rol, UI de títulos):
+`docs/GDD_Twitch.md`.
 
-- ~~Muerte y respawn~~ — **✅ resuelto**, ver 5.10 y `docs/GDD_Muerte_Respawn.md`.
-- **Zonas e instancias**: el mapa ya es Hub + instancias por diseño; aquí
-  se fijan las REGLAS por zona (seguro/PvP, se puede construir/decorar,
-  capacidad de la instancia, qué rooms de Colyseus abre cada una). Es el
-  paraguas de vivienda (5.8), PvP (5.10) y mazmorras futuras.
-- **Fauna móvil / IA de criaturas**: prerequisito de PvE y de la caza;
-  descrito en 5.10. También da vida al mundo sin combate (ciervos que
-  huyen).
-- **Ciclo día/noche y tiempo de mundo**: reloj de mundo PEREZOSO (hora =
-  función del timestamp, nada que simular); condiciona spawns nocturnos,
-  horarios de NPCs y luz del cliente. Barato y da muchísima atmósfera.
-- ~~Comida y descanso (supervivencia LIGERA)~~ — **✅ resuelto (2026-09-02,
-  decisión delegada por el streamer: "toma tú también decisiones de cómo
-  implementar")**. Tono confirmado tal cual estaba propuesto aquí: buffs de
-  comer/dormir, NO muerte por hambre — `aplicarInanicion` (daño por hambre/
-  sed a 0) sigue exactamente igual, sin tocar. Implementación: NINGÚN
-  sistema de buffs nuevo, reusa `BuffPocion`/`buffsPocionPorSesion` de
-  `docs/GDD_Pociones.md` tal cual (mismo Map, mismas
-  `aplicarBuffsPocion`/`factorBuffPocion`/`tieneEspecialActivo` que ya
-  aplican pociones a velocidad/vidaMax/carga/estamina/XP de oficio) — comer/
-  dormir son otra FUENTE de los mismos buffs, no un mecanismo aparte.
-  - **"Bien alimentado"** (`personaje:consumir`, RoomExteriorBase.ts): si lo
-    restaurado incluye `comida` o `bebida` (cubre tanto un ítem crudo con
-    `restaura` como un plato de `docs/GDD_Cocina.md` con
-    `restauraMultiple` — una poción que solo restaura vida/estamina NO
-    cuenta), +8% de velocidad de movimiento (`stat:"velocidad"`) 5 minutos
-    reales. Pequeño y frecuente, a tono con lo mucho que ya se come en una
-    sesión normal.
-  - **"Descansado"** (`dormir:completar`, ya existía — antes solo
-    rellenaba Estamina al máximo): además, doble XP de oficio
-    (`especial:"xpOficioX2"`) 20 minutos reales — la acción "grande" de las
-    dos (localizar una cama real y esperar), dura bastante más que comer.
-  - Sin cap de apilado, a propósito: las pociones tampoco lo tienen (varias
-    seguidas simplemente se SUMAN/reemplazan por caducidad, ver
-    `alquimia.ts`) — no se inventa una regla nueva solo para comida/sueño.
-  - Test: cubierto por la batería ya existente de `alquimia.test.ts`
-    (`aplicarBuffsPocion`/`factorBuffPocion`/`tieneEspecialActivo`, misma
-    forma de `BuffPocion` que se construye aquí) — sin e2e dedicado de
-    "comer/dormir sube la velocidad/XP de verdad en una room real" todavía
-    (gap de test conocido, mismo criterio que el resto de mecánicas de
-    combate/pociones de este documento).
-- **Misiones/encargos**: NPCs piden "N objetos de tag X" (los tags hacen
-  las misiones genéricas y baratas de crear); recompensa moneda/EXP/
-  blueprints. Primer uso real de los NPCs antes incluso de la IA
-  conversacional.
-- ~~Chat y social in-game~~ — **✅ chat local/global resuelto (2026-09-02,
-  pedido literal del streamer: "literalmente no existe ningún canal
-  local/global para que dos jugadores se hablen... esto importante"**, tras
-  auditar el proyecto y confirmar que el único "hablar" que existía era
-  `npc:hablar` (con IA, nunca entre jugadores). `chat:mensaje
-  {texto, canal:"local"|"global"}` (`server/src/rooms/base/
-  RoomExteriorBase.ts::manejarChatMensaje`, protocolo heredado por TODAS
-  las rooms — Hub/región/interior/mazmorra/arena):
-  - **"global"**: `this.broadcast` a TODA la room — "global" es "todo el
-    presente en ESTA instancia" (una `RegionRoom`/`InteriorRoom` es una
-    instancia con tope de jugadores, no el mapa entero) — mismo alcance que
-    cualquier otro broadcast del proyecto. Un chat cruzando varias
-    instancias a la vez exigiría un canal nuevo entre rooms que hoy no
-    existe para nada más — fuera de esta pasada.
-  - **"local"**: solo a quien esté dentro de `RADIO_CHAT_LOCAL=20` casillas
-    (más ancho que `RADIO_INTERACCION=2.2` — una conversación de plaza, no
-    un intercambio cuerpo a cuerpo) — recorre `this.clients` una vez,
-    `client.send` individual por destinatario dentro de rango, sin excluir
-    a quien habla.
-  - Server-authoritative: `nombre` sale siempre de `player.name`, nunca de
-    lo que mande el cliente. Rate-limit mínimo (`CHAT_COOLDOWN_MS=600ms`,
-    anti-flood, no moderación de contenido) y tope de 200 caracteres.
-  - **Cliente** (`client/src/ui/chat.ts`, `PanelChat`): panel persistente
-    esquina inferior izquierda (log + input + botón de canal), DOM plano
-    mismo patrón que `panelCombate.ts`. Enter abre/enfoca el chat (atajo
-    universal de cualquier MMO) y también envía estando ya enfocado; Escape
-    lo cierra. **Bug real encontrado y cerrado al construir esto**: el
-    keydown global de `game.ts` no comprobaba si un `<input>` tenía el foco
-    — escribir un mensaje de chat con letras como "b"/"i"/"m"/"d" disparaba
-    A LA VEZ los atajos de juego correspondientes (modo construcción,
-    inventario, mapa, e incluso MOVERSE de verdad si el mensaje llevaba
-    WASD). Corregido con un guardia al principio del keydown
-    (`document.activeElement instanceof HTMLInputElement/HTMLTextAreaElement`
-    → return) que de paso protege también a cualquier otro panel con
-    `<input>` que ya existiera.
-  - Test: `server/test` sin caso dedicado (handler sin lógica pura
-    extraíble, mismo criterio que el resto de mensajes de
-    `RoomExteriorBase.ts`) — cubierto por dos E2E reales nuevos:
-    `client/test/chat.e2e.mjs` (servidor real, dos sesiones colyseus.js:
-    global llega a ambos, local dejar de llegar cuando uno camina de
-    verdad — input real, no teleport — fuera de `RADIO_CHAT_LOCAL`,
-    rate-limit, mensaje vacío ignorado) y `client/test/chatUI.e2e.mjs`
-    (navegador real vía Playwright: el panel existe, Enter enfoca, escribir
-    "build door test bid" NO mueve al jugador ni abre otros paneles —la
-    regresión de arriba, verificada de verdad, no solo corregida de
-    memoria—, el mensaje aparece en el log, el botón de canal alterna).
-  - Sigue pendiente (no pedido en esta pasada): emotes del rig, grupos
-    (party) para PvE y reparto de botín — gremios ya existen aparte
-    (`docs/GDD_Gremios.md`).
-- **Eventos de mundo**: invasiones, ferias, apariciones raras —
-  disparados por el streamer o por hitos de viewers (5.11). Contenido de
-  stream puro con el esqueleto de zonas + spawns.
-- **Administración y anti-abuso**: además de los comandos GM del streamer,
-  rate-limit por mensaje, validación estricta de TODOS los inputs (ya es
-  la norma) y registro de acciones económicas (auditar duplicaciones).
+### 5.12 Comida/descanso, chat, y lo que queda de verdad por hacer
 
-### 5.13 Orden de construcción propuesto (actualizado)
+- ✅ **Comida y descanso** (2026-09-02, tono delegado por el streamer,
+  decidido: buffs de comer/dormir, NUNCA muerte por hambre —
+  `aplicarInanicion`, §5.4, sin tocar). Reusa `BuffPocion`/
+  `buffsPocionPorSesion` de `docs/GDD_Pociones.md` tal cual (mismo Map,
+  mismas `aplicarBuffsPocion`/`factorBuffPocion`/`tieneEspecialActivo`)
+  — comer/dormir son otra FUENTE de los mismos buffs, no un mecanismo
+  aparte: "**Bien alimentado**" (`personaje:consumir` con `comida`/
+  `bebida` restaurada, ítem crudo o plato de `docs/GDD_Cocina.md`) da
+  +8% de velocidad 5 min; "**Descansado**" (`dormir:completar`, además de
+  rellenar Estamina al máximo como ya hacía) da doble XP de oficio 20 min.
+  Sin cap de apilado, mismo criterio que las pociones. Test: cubierto por
+  la batería de `alquimia.test.ts` sobre las mismas funciones — sin e2e
+  dedicado de "comer/dormir sube la velocidad/XP de verdad en una room
+  real" todavía (gap conocido).
+- ✅ **Chat local/global entre jugadores** (2026-09-02, pedido literal:
+  "literalmente no existe ningún canal local/global para que dos
+  jugadores se hablen... esto importante" — confirmado por auditoría: el
+  único "hablar" que existía era `npc:hablar`, con IA, nunca entre
+  jugadores). `chat:mensaje {texto, canal:"local"|"global"}`
+  (`RoomExteriorBase.ts::manejarChatMensaje`, heredado por TODAS las
+  rooms): "global" = `this.broadcast` a TODA la room actual (una
+  instancia con tope de jugadores, no el mapa entero — cruzar varias
+  instancias a la vez exigiría un canal nuevo que hoy no existe, fuera de
+  esta pasada); "local" = solo a quien esté dentro de
+  `RADIO_CHAT_LOCAL=20` casillas (recorre `this.clients`, `client.send`
+  individual, incluye a quien habla). Server-authoritative (`nombre`
+  siempre de `player.name`), rate-limit 600ms, tope 200 caracteres, sin
+  moderación de contenido. Cliente: `client/src/ui/chat.ts` (`PanelChat`,
+  DOM plano estilo `panelCombate.ts`), panel persistente esquina inferior
+  izquierda, Enter abre/envía. **Bug real cerrado al construirlo**: el
+  keydown global de `game.ts` no comprobaba si un `<input>` tenía el foco
+  — escribir un mensaje con letras de atajos (b/i/m/d...) disparaba A LA
+  VEZ esos atajos de juego, incluido MOVERSE si el mensaje llevaba WASD;
+  corregido con un guardia (`document.activeElement instanceof
+  HTMLInputElement/HTMLTextAreaElement` → return) que protege también a
+  cualquier otro panel con `<input>`. Test: `client/test/chat.e2e.mjs`
+  (protocolo, dos sesiones reales) + `client/test/chatUI.e2e.mjs`
+  (navegador real vía Playwright — la regresión del guardia, verificada
+  de verdad, no solo corregida de memoria).
+- ✅ **Zonas e instancias, fauna móvil, ciclo día/noche**: resueltos,
+  repartidos entre `docs/GDD_PvP.md` (seguro/PvP), `docs/GDD_Construccion.md`
+  (permisos por parcela), `docs/GDD_Agentes_Moviles.md` (fauna/NPC móviles)
+  y `docs/GDD_Tiempo_Mundo.md`/`docs/GDD_Clima.md` (reloj de mundo
+  perezoso). Nunca se escribieron como un reglamento único "qué puede
+  pasar en cada tipo de zona" — funciona, pero es documentación pendiente
+  de algo que ya existe, no una mecánica que falte.
+- ✅ **Administración y anti-abuso**: `docs/GDD_Admin.md` (comandos GM,
+  sesiones admin/jarl, rate-limit).
+- ⬜ **Misiones/encargos** — cero código todavía. NPCs piden "N objetos de
+  tag X" (los tags ya existen en todo el catálogo, sería genérico y
+  barato de montar); recompensa moneda/EXP/blueprints.
+- ⬜ **Eventos de mundo** — cero código todavía. Invasiones, ferias,
+  apariciones raras, disparados por el streamer o por hitos de viewers,
+  sobre el esqueleto de zonas + spawns que ya existe.
+- ⬜ **Emotes del rig y grupos (party) para PvE** — cero código todavía.
+  Reparto de botín en grupo, emotes de animación. Los gremios
+  (banco+inventario compartido, `docs/GDD_Gremios.md`) YA existen y NO
+  son lo mismo que un grupo de caza temporal.
 
-**Fase A — bucle de juego base**: 1. recursos v1 (§3) + inventario simple
-→ 2. módulo EXP/habilidades + PERSISTENCIA (5.7, la decisión gorda) →
-3. inventario rejilla+peso (5.3) → 4. equipo/slots (5.4) → 5. crafteo
-(5.2) → 6. drops en suelo (5.5).
-**Fase B — mundo vivo**: 7. día/noche → 8. fauna móvil → 9. combate PvE
-(5.10) → 10. comida/descanso ligero → 11. misiones.
-**Fase C — sociedad**: 12. moneda + tiendas NPC (5.9) → 13. zonas e
-instancias formales → 14. vivienda/decorador (5.8) → 15. tiendas de
-jugador → 16. comercio jugador-jugador → 17. chat/grupos.
-**Fase D — el stream y la IA**: 18. Twitch títulos/jerarquía (5.11) →
-19. comandos de viewers + eventos → 20. PvP por zonas → 21. NPCs IA
-conversacional (5.6).
-Cada paso entra por su sección de este GDD, se pule, y solo entonces se
-codifica. El orden dentro de cada fase es flexible; entre fases, no mucho.
+## 6. Cómo se prueba
 
-## 6. Cómo se prueba (obligatorio antes de tocar estas reglas)
-
-- `cd server && npm test` — suite pura de colisiones (8 tests: bloqueo,
-  slide, bordes, agua como medio, niveles, empuje PJ-PJ, mapa demo real).
-- `cd client && node test/mecanicas.e2e.mjs` — juego REAL (Colyseus + Vite
-  + Playwright): spawn, entrar al lago, bucear a -2, salir, y pared que
-  clava al PJ en el borde. Lee la verdad del servidor vía
-  `window.__colonyDebug` (solo del jugador local).
-- `node client/test/concurrencia.e2e.mjs` — testeo de CONCURRENCIA real
-  (2026-09-01, ver `docs/GDD_Construccion.md` §5bis): dos sesiones
-  `colyseus.js` distintas mandando el MISMO mensaje sobre el MISMO recurso
-  a la vez (`Promise.all`), muchas rondas seguidas, contra el mapa
-  principal. Cualquier mensaje nuevo que lea-luego-escriba estado
-  compartido keyed por `construccionId` (o equivalente) debería sumarse
-  aquí, no solo probarse en solitario — un handler que se ve bien
-  ejecutado por un único jugador puede duplicar/perder estado en cuanto
-  dos sesiones lo solapan (Colyseus no serializa `onMessage` async entre
-  sí, ver GDD_Construccion.md §5bis).
+- `cd server && npm test` — suite completa `tsx --test test/*.test.ts`
+  (1172 tests a 2026-09-02: lógica pura de todos los sistemas del §5, no
+  solo colisiones — cada doc dedicado lista los suyos).
+- E2E reales (servidor Colyseus real + colyseus.js/Playwright,
+  `client/test/*.e2e.mjs`/`*.e2e.cjs`, ~25 archivos a 2026-09-02) — fuera
+  de `npm test`, se corren a mano. Patrones a copiar según lo que se
+  prueba:
+  - `client/test/mecanicas.e2e.mjs` — las reglas de ESTE documento
+    (colisión, agua/buceo) contra el mapa demo, leyendo la verdad del
+    servidor vía `window.__colonyDebug`.
+  - `client/test/concurrencia.e2e.mjs` — dos sesiones `colyseus.js`
+    mandando el MISMO mensaje sobre el MISMO recurso a la vez
+    (`Promise.all`), muchas rondas seguidas: el patrón para cualquier
+    mensaje nuevo que lea-luego-escriba estado compartido (Colyseus no
+    serializa `onMessage` async entre sí, ver `GDD_Construccion.md` §5bis
+    y la regla de concurrencia en `CLAUDE.md`).
+  - `client/test/chatUI.e2e.mjs` — el patrón para probar una UI nueva de
+    verdad en un navegador (Playwright), no solo el protocolo de servidor.
