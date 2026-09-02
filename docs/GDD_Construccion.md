@@ -160,6 +160,11 @@ De paso, el testeo destapó un bug de autorización sin relación con la concurr
 
 **Riesgo residual aceptado, documentado en el código** (`resolverUnContrato`): NO se envuelve en ningún lock — se llama desde dentro de handlers que YA sostienen el lock de uno de sus dos recursos (origen o destino), y `ColaPorClave` no es reentrante (pedir la misma clave dos veces se autobloquearía). Ventana mucho más estrecha que las cerradas arriba: dos DISPARADORES distintos resolviendo el mismo contrato de transporte a la vez, y el próximo cálculo perezoso la corrige sola.
 
+**Tercera pasada (2026-09-02, tras fusionarse la rama de Carros/agricultura de casilla)**: al revisar el hueco de ropa se detectó que ese merge trae sistemas nuevos con la MISMA forma de estado compartido — revisados todos:
+- `carro:meterCarga`/`sacarCarga`/`meterMueble`/`sacarMueble`/`meterAnimal`/`sacarAnimal`/`verterLiquido` — YA seguían el patrón correcto (comentario propio en el código: "mismo criterio que guardarContenedorDeCofre") — `contenidoDe()` adjunta el contenedor recién creado de inmediato, igual que el fix de cofres, y el resto del handler es síncrono salvo el `await` final de solo-persistir. Sin carrera, sin necesitar cola.
+- `cultivoCasilla:labrar`/`plantar` — leen `this.casillasCultivo.get(idx)` DESPUÉS de sus `await`, sin ventana. Seguros.
+- `cultivoCasilla:cosechar` — SÍ tenía la carrera: leía la casilla ANTES de sus `await` (BD, híbridos) y la usaba después para calcular la cosecha — dos "cosechar" solapados (mismo jugador, dos pestañas) duplicaban el cultivo. **Fix**: nueva `colaPorCasilla`, keyed por `idxCasilla`; se envolvieron los 3 mensajes `cultivoCasilla:*` con la misma cola (labrar/plantar no la necesitaban hoy, pero así un refactor futuro que adelante su lectura no reabre el hueco en silencio).
+
 ## 6. Cliente — el constructor
 
 - **Tecla B**: entra/sale del modo construcción (solo hace algo si pisas parcela propia). Panel HTML overlay (como los nametags CSS2D: DOM encima del canvas) con los objetos construibles agrupados por categoría, leídos de los catálogos importados al bundle (mismo mecanismo que `catalogoVisual.ts`).

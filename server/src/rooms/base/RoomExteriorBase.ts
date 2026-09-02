@@ -543,6 +543,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * auditoría de concurrencia de 2026-09-02.
    */
   private colaPorAnimal = new ColaPorClave();
+  /**
+   * Misma clase de carrera, esta vez para `this.casillasCultivo` (mapa
+   * `idxCasilla -> CasillaCultivo`, sistema de agricultura de casilla a
+   * mano fusionado con Carros el 2026-09-02): `cultivoCasilla:cosechar`
+   * lee la casilla ANTES de sus `await` (BD, híbridos) y la usa después
+   * para calcular la cosecha — dos "cosechar" solapados sobre la MISMA
+   * casilla (mismo jugador con dos pestañas) duplicaban el cultivo,
+   * calcado a `produccion:recolectar`/`animal:recolectarProducto`.
+   * `cultivoCasilla:labrar`/`plantar` ya leen la casilla DESPUÉS de sus
+   * propios `await` (sin ventana), pero se envuelven igual por si un
+   * refactor futuro mueve esa lectura antes sin darse cuenta. Encontrado
+   * en la auditoría de concurrencia de 2026-09-02, tras fusionarse Carros.
+   */
+  private colaPorCasilla = new ColaPorClave();
   /** Sentarse en el suelo, sin mueble — pose distinta (`sentadoSuelo`), mismo criterio "hasta moverse". */
   private sentadoSuelo = new Set<string>();
   protected mundo!: MundoColision;
@@ -1357,9 +1371,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("carro:verterLiquido", (client, msg: { id?: number; tipo?: "carro" | "conjunto"; instanciaIdDestino?: number }) => void this.manejarCarroVerterLiquido(client, msg));
 
     // --- Agricultura de casilla (docs/GDD_Carros.md §9, Fase 3, pedido 2026-09-03) ---
-    this.onMessage("cultivoCasilla:labrar", (client, msg: { x?: number; y?: number }) => void this.manejarCultivoCasillaLabrar(client, msg));
-    this.onMessage("cultivoCasilla:plantar", (client, msg: { x?: number; y?: number; instanciaIdSemilla?: number }) => void this.manejarCultivoCasillaPlantar(client, msg));
-    this.onMessage("cultivoCasilla:cosechar", (client, msg: { x?: number; y?: number }) => void this.manejarCultivoCasillaCosechar(client, msg));
+    // clave de la cola: idx de casilla si x/y son números válidos, si no un
+    // valor que nunca colisiona con un idx real (el propio handler rechaza
+    // el mensaje mal formado de todos modos).
+    const idxDeMsgCasilla = (msg: { x?: number; y?: number }) =>
+      typeof msg?.x === "number" && typeof msg?.y === "number" ? this.idxCasillaDe(Math.floor(msg.x), Math.floor(msg.y)) : -1;
+    this.onMessage("cultivoCasilla:labrar", (client, msg: { x?: number; y?: number }) => void this.colaPorCasilla.ejecutar(idxDeMsgCasilla(msg), () => this.manejarCultivoCasillaLabrar(client, msg)));
+    this.onMessage("cultivoCasilla:plantar", (client, msg: { x?: number; y?: number; instanciaIdSemilla?: number }) => void this.colaPorCasilla.ejecutar(idxDeMsgCasilla(msg), () => this.manejarCultivoCasillaPlantar(client, msg)));
+    this.onMessage("cultivoCasilla:cosechar", (client, msg: { x?: number; y?: number }) => void this.colaPorCasilla.ejecutar(idxDeMsgCasilla(msg), () => this.manejarCultivoCasillaCosechar(client, msg)));
     this.onMessage("apero:comenzarLabrar", (client, msg: { conjuntoId?: number }) => this.manejarAperoComenzar(client, msg, "labrar"));
     this.onMessage("apero:comenzarCultivar", (client, msg: { conjuntoId?: number }) => this.manejarAperoComenzar(client, msg, "cultivar"));
     this.onMessage("apero:detener", (client, msg: { conjuntoId?: number }) => this.manejarAperoDetener(client, msg));
