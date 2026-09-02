@@ -501,6 +501,31 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * primer ítem metido) — ver `server/src/concurrencia/colaPorClave.ts`.
    */
   private colaPorConstruccion = new ColaPorClave();
+  /**
+   * Misma clase de carrera que `colaPorConstruccion`, pero para
+   * `NpcTrabajador` (`this.trabajadoresActivos`, keyed por `trabajadorId`,
+   * NO por `construccionId` — un trabajador cambia de mesa/ruta, así que la
+   * clave estable es el propio trabajador): `trabajadorPerteneceA` lee un
+   * snapshot de la fila al principio del handler, varios `await` (BD)
+   * después el handler hace `{...fila, campo: nuevo}` y lo escribe de
+   * vuelta — dos mensajes `trabajador:*` solapados sobre el MISMO
+   * trabajador (p.ej. `asignarMesa` + `asignarReceta` casi a la vez) pueden
+   * pisarse igual que ya pasaba con `viva.extra`. Encontrado en la
+   * auditoría de concurrencia de 2026-09-02 (pedido explícito: "rutas de
+   * trabajador... sin auditar").
+   */
+  private colaPorTrabajador = new ColaPorClave();
+  /**
+   * Misma clase de carrera otra vez, esta vez para `AnimalGranjaFila`
+   * (`this.animalesGranjaPuros`, keyed por `animalId`): `manejarAnimal
+   * RecolectarProducto` lee `fila.extra.produccion` antes de varios `await`
+   * (BD, resolución perezosa de escape/reproducción) y lo escribe de vuelta
+   * al final — dos "animal:recolectarProducto" solapados sobre el mismo
+   * animal duplicaban el producto cosechado, calcado al bug real que ya
+   * tenía `produccion:recolectar` sobre construcciones. Encontrado en la
+   * auditoría de concurrencia de 2026-09-02.
+   */
+  private colaPorAnimal = new ColaPorClave();
   /** Sentarse en el suelo, sin mueble — pose distinta (`sentadoSuelo`), mismo criterio "hasta moverse". */
   private sentadoSuelo = new Set<string>();
   protected mundo!: MundoColision;
@@ -987,9 +1012,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // cualquier room, no-op si no tiene ContextoConstruccion.
     this.onMessage("animal:domesticar", (client, msg: { propiedadDestino?: string }) => void this.manejarAnimalDomesticar(client, msg));
     this.onMessage("animal:cargarComedero", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarAnimalCargarComedero(client, msg)));
-    this.onMessage("animal:recolectarProducto", (client, msg: { animalId?: string; producto?: string }) => void this.manejarAnimalRecolectarProducto(client, msg));
-    this.onMessage("animal:sacrificar", (client, msg: { animalId?: string }) => void this.manejarAnimalSacrificar(client, msg));
-    this.onMessage("animal:consultar", (client, msg: { animalId?: string }) => void this.manejarAnimalConsultar(client, msg));
+    this.onMessage("animal:recolectarProducto", (client, msg: { animalId?: string; producto?: string }) => void this.colaPorAnimal.ejecutar(msg?.animalId ?? "", () => this.manejarAnimalRecolectarProducto(client, msg)));
+    this.onMessage("animal:sacrificar", (client, msg: { animalId?: string }) => void this.colaPorAnimal.ejecutar(msg?.animalId ?? "", () => this.manejarAnimalSacrificar(client, msg)));
+    this.onMessage("animal:consultar", (client, msg: { animalId?: string }) => void this.colaPorAnimal.ejecutar(msg?.animalId ?? "", () => this.manejarAnimalConsultar(client, msg)));
 
     // --- gremios (docs/GDD_Gremios.md) — disponibles en las 4 rooms, no
     // dependen de ContextoConstruccion/parcelas (a diferencia de "construir"),
@@ -1120,12 +1145,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("companero:equipar", (client, msg: { instanciaId?: number; slot?: string }) => this.manejarCompaneroEquipar(client, msg));
     this.onMessage("companero:desequipar", (client, msg: { slot?: string }) => this.manejarCompaneroDesequipar(client, msg));
     // Compañero trabajando en producción (docs/GDD_Produccion.md §3bis, pedido 2026-08-31).
-    this.onMessage("companero:asignarTrabajo", (client, msg: { construccionId?: number }) => void this.manejarCompaneroAsignarTrabajo(client, msg));
+    this.onMessage("companero:asignarTrabajo", (client, msg: { construccionId?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCompaneroAsignarTrabajo(client, msg)));
     this.onMessage("companero:llamar", (client) => void this.manejarCompaneroLlamar(client));
     this.onMessage("companero:fijarParticipaCombate", (client, msg: { activo?: boolean }) => this.manejarCompaneroFijarParticipaCombate(client, msg));
     this.onMessage("plantilla:colocar", (client, msg: { tipoEdificioId?: string; x?: number; y?: number; rot?: number }) => this.manejarPlantillaColocar(client, msg));
     this.onMessage("plantilla:comprar", (client, msg: { construccionId?: number }) => this.manejarPlantillaComprar(client, msg));
-    this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.manejarPlantillaAsignarTrabajador(client, msg));
+    this.onMessage("plantilla:asignarTrabajador", (client, msg: { construccionId?: number; activo?: boolean }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarPlantillaAsignarTrabajador(client, msg)));
     // "transporte:contratar" (firma libre, sin coste) fue RETIRADO — fusión
     // con NPCs trabajadores (docs/GDD_NPCs_Contratables.md §Fusión con
     // transporte, pedido 2026-09-01): la única puerta de entrada ahora es
@@ -1156,14 +1181,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("reclutador:catalogo", (client) => this.manejarReclutadorCatalogo(client));
     this.onMessage("reclutador:contratar", (client, msg: { oficios?: string[] }) => void this.manejarReclutadorContratar(client, msg));
     this.onMessage("trabajador:listar", (client) => void this.manejarTrabajadorListar(client));
-    this.onMessage("trabajador:asignarMesa", (client, msg: { trabajadorId?: number; construccionId?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarTrabajadorAsignarMesa(client, msg)));
-    this.onMessage("trabajador:asignarReceta", (client, msg: { trabajadorId?: number; recetaId?: string | null }) => void this.manejarTrabajadorAsignarReceta(client, msg));
+    this.onMessage("trabajador:asignarMesa", (client, msg: { trabajadorId?: number; construccionId?: number }) => void this.colaPorTrabajador.ejecutar(msg?.trabajadorId ?? -1, () => this.manejarTrabajadorAsignarMesa(client, msg)));
+    this.onMessage("trabajador:asignarReceta", (client, msg: { trabajadorId?: number; recetaId?: string | null }) => void this.colaPorTrabajador.ejecutar(msg?.trabajadorId ?? -1, () => this.manejarTrabajadorAsignarReceta(client, msg)));
     // Oficio "transporte" fusionado (docs/GDD_NPCs_Contratables.md §Fusión
     // con transporte, pedido 2026-09-01) — equivalente a asignarMesa pero
     // para una RUTA origen→destino, reusando toda la maquinaria de
     // contratos_transporte/agregarAgenteTransportista ya existente.
-    this.onMessage("trabajador:asignarRuta", (client, msg: { trabajadorId?: number; origenConstruccionId?: number; destinoTenderoteId?: string; destinoConstruccionId?: number }) => void this.manejarTrabajadorAsignarRuta(client, msg));
-    this.onMessage("trabajador:despedir", (client, msg: { trabajadorId?: number }) => void this.manejarTrabajadorDespedir(client, msg));
+    this.onMessage("trabajador:asignarRuta", (client, msg: { trabajadorId?: number; origenConstruccionId?: number; destinoTenderoteId?: string; destinoConstruccionId?: number }) => void this.colaPorTrabajador.ejecutar(msg?.trabajadorId ?? -1, () => this.manejarTrabajadorAsignarRuta(client, msg)));
+    this.onMessage("trabajador:despedir", (client, msg: { trabajadorId?: number }) => void this.colaPorTrabajador.ejecutar(msg?.trabajadorId ?? -1, () => this.manejarTrabajadorDespedir(client, msg)));
     // Panel de gestión (docs/GDD_NPCs_Contratables.md §Panel de gestión,
     // pedido 2026-09-01): construcciones/propiedades REALES del jugador que
     // pregunta, para poblar los selectores de mesa/ruta — reusa
@@ -5712,6 +5737,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * completos ha hecho el contrato desde entonces (resolverTransporte) — y
    * mueve esa cantidad, entera, de un lado a otro. Nunca se llama por
    * temporizador, solo cuando alguien toca el origen o el destino de verdad.
+   *
+   * NO se envuelve en `colaPorConstruccion` a propósito (auditoría de
+   * concurrencia 2026-09-02): esta función lee/escribe `origenViva.extra` Y
+   * `destinoCofre.extra`, pero se llama DESDE dentro de handlers que YA
+   * sostienen ese mismo lock para uno de esos dos ids —
+   * `manejarProduccionRecolectar` (origen) vía `resolverContratosDeOrigen`,
+   * y `manejarCofreConsultar` (destino, si el destino es un cofre) vía
+   * `resolverContratosDeDestino`. `ColaPorClave` no es reentrante: pedir el
+   * MISMO id otra vez aquí dentro se autobloquearía (deadlock). Riesgo
+   * residual aceptado: dos disparadores DISTINTOS (p.ej. `produccion:
+   * recolectar` de un origen + `tenderete:reponer` de su destino) resolviendo
+   * el MISMO contrato justo a la vez siguen pudiendo pisarse — ventana mucho
+   * más estrecha que las cerradas en esta sesión, y el próximo cálculo
+   * perezoso la corrige sola (nunca se pierde dinero/stock de verdad, solo
+   * se puede recalcular una vez de más).
    */
   private async resolverUnContrato(contrato: ContratoTransporte) {
     const ctx = this.ctxConstruccion;
@@ -6944,10 +6984,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (companero.ubicacion === "propiedad" && companero.propiedadId) {
       for (const otra of ctx.vivas.values()) {
         if (otra.propiedad !== companero.propiedadId) continue;
-        const extraOtra = (otra.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
-        if (!extraOtra.produccion?.trabajadorAsignado || extraOtra.produccion.trabajadorTipo !== "companero") break;
-        otra.extra = { ...extraOtra, produccion: { ...extraOtra.produccion, trabajadorAsignado: false, trabajadorTipo: undefined, ultimoCalculo: Date.now() } };
-        await bd.actualizarExtraConstruccion(otra.id, otra.extra);
+        // `otra` es SIEMPRE distinta de `viva` (si coincidiera con la
+        // propiedad de `viva` ya se habría salido arriba con "ya está
+        // trabajando aquí") — bloquear su propio id es seguro, no puede
+        // haber auto-interbloqueo con el lock de `viva.id` que ya sostiene
+        // el registro de este mensaje (ver onMessage("companero:asignarTrabajo")).
+        await this.colaPorConstruccion.ejecutar(otra.id, async () => {
+          const extraOtra = (otra.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
+          if (!extraOtra.produccion?.trabajadorAsignado || extraOtra.produccion.trabajadorTipo !== "companero") return;
+          otra.extra = { ...extraOtra, produccion: { ...extraOtra.produccion, trabajadorAsignado: false, trabajadorTipo: undefined, ultimoCalculo: Date.now() } };
+          await bd.actualizarExtraConstruccion(otra.id, otra.extra);
+        });
         break;
       }
     }
@@ -6977,10 +7024,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (ctx && companero.propiedadId) {
       for (const viva of ctx.vivas.values()) {
         if (viva.propiedad !== companero.propiedadId) continue;
-        const extraActual = (viva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
-        if (!extraActual.produccion?.trabajadorAsignado || extraActual.produccion.trabajadorTipo !== "companero") break;
-        viva.extra = { ...extraActual, produccion: { ...extraActual.produccion, trabajadorAsignado: false, trabajadorTipo: undefined, ultimoCalculo: Date.now() } };
-        await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+        // El construccionId no se conoce hasta aquí (se resuelve por
+        // `companero.propiedadId`), así que este handler no se puede
+        // envolver entero en el registro del mensaje como companero:
+        // asignarTrabajo/plantilla:asignarTrabajador — se bloquea el mismo
+        // `viva.id` en cuanto se sabe, para seguir en la MISMA cola que esos
+        // dos mensajes (los tres tocan `viva.extra.produccion.
+        // trabajadorAsignado` de esta construcción).
+        await this.colaPorConstruccion.ejecutar(viva.id, async () => {
+          const extraActual = (viva.extra ?? {}) as { produccion?: EstadoProduccion; [k: string]: unknown };
+          if (!extraActual.produccion?.trabajadorAsignado || extraActual.produccion.trabajadorTipo !== "companero") return;
+          viva.extra = { ...extraActual, produccion: { ...extraActual.produccion, trabajadorAsignado: false, trabajadorTipo: undefined, ultimoCalculo: Date.now() } };
+          await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+        });
         break;
       }
     }
