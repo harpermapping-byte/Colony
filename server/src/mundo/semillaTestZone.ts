@@ -128,6 +128,33 @@ export async function sembrarNpcsTutorialTestZone(bd: IAlmacenDatos): Promise<vo
   console.log(`[testzone] ${POSICIONES_NPCS_TUTORIAL.length} NPCs tutorial/lore sembrados en "${MAPA_ID_TESTFLAT}".`);
 }
 
+// --- Zona de clima experimental (Noroeste lejano, ~80 casillas del spawn) ---
+// NPC que actúa como "controlador de clima" para probar sistemas de clima
+const NPCS_CLIMA: { tipoTutorial: string; x: number; y: number }[] = [
+  { tipoTutorial: "tutorial_agricultura", x: 80, y: 80 }, // reutilizado como "maestro de clima"
+];
+
+export async function sembrarNpcsClima(bd: IAlmacenDatos): Promise<void> {
+  const existentes = await bd.listarNpcsTutorialesDeMapa(MAPA_ID_TESTFLAT);
+  if (existentes.length > 4) return; // ya sembrados
+
+  const catalogo = cargarCatalogoNpcsTutoriales();
+  for (const p of NPCS_CLIMA) {
+    const arquetipo = catalogo.get(p.tipoTutorial);
+    if (!arquetipo) continue;
+    await bd.colocarNpcTutorial({
+      mapaId: MAPA_ID_TESTFLAT,
+      tipoTutorial: p.tipoTutorial,
+      nombre: "Maestro del Clima (Experimental)",
+      x: p.x,
+      y: p.y,
+      colocadoPor: "seed-testflat",
+    });
+  }
+
+  console.log(`[testzone] NPCs de clima experimental sembrados en "${MAPA_ID_TESTFLAT}".`);
+}
+
 // --- Construcciones nuevas: cocina, sastrería, cultivos, zona de animales ---
 
 // Cocina (nueva zona SUR-ESTE, ~24 casillas del spawn mejorado a 96,96)

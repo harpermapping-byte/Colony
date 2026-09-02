@@ -23,6 +23,7 @@ import {
   sembrarCocina,
   sembrarSasteria,
   sembrarCultivos,
+  sembrarNpcsClima,
 } from "./mundo/semillaTestZone";
 
 // El BUFFER_SIZE por defecto de @colyseus/schema (8KB, Buffer.poolSize) se
@@ -126,3 +127,4 @@ obtenerBdCompartida().then(sembrarNpcsTutorialTestZone);
 obtenerBdCompartida().then(sembrarCocina);
 obtenerBdCompartida().then(sembrarSasteria);
 obtenerBdCompartida().then(sembrarCultivos);
+obtenerBdCompartida().then(sembrarNpcsClima);

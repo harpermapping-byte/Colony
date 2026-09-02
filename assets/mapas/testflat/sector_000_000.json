@@ -6,7 +6,71 @@
       "terreno": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       "elevacion": "6666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666",
       "tamano": 32,
-      "objetos": [],
+      "objetos": [
+        {
+          "x": 60,
+          "y": 94,
+          "objeto": "madera_pino",
+          "cantidad": 3,
+          "variante": 0
+        },
+        {
+          "x": 62,
+          "y": 96,
+          "objeto": "madera_roble",
+          "cantidad": 2,
+          "variante": 0
+        },
+        {
+          "x": 64,
+          "y": 98,
+          "objeto": "rama_seca",
+          "cantidad": 5,
+          "variante": 0
+        },
+        {
+          "x": 68,
+          "y": 94,
+          "objeto": "piedra_gris",
+          "cantidad": 4,
+          "variante": 0
+        },
+        {
+          "x": 70,
+          "y": 96,
+          "objeto": "piedra_caliza",
+          "cantidad": 3,
+          "variante": 0
+        },
+        {
+          "x": 66,
+          "y": 92,
+          "objeto": "filete_carne",
+          "cantidad": 2,
+          "variante": 0
+        },
+        {
+          "x": 68,
+          "y": 98,
+          "objeto": "pechuga_ave",
+          "cantidad": 3,
+          "variante": 0
+        },
+        {
+          "x": 62,
+          "y": 94,
+          "objeto": "hierba_silvestre",
+          "cantidad": 6,
+          "variante": 0
+        },
+        {
+          "x": 64,
+          "y": 96,
+          "objeto": "trebol",
+          "cantidad": 4,
+          "variante": 0
+        }
+      ],
       "pois": []
     },
     "1_0": {

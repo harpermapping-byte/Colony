@@ -17,12 +17,13 @@ POIs, sin fauna/vegetación bakeada.
 | **Norte** | 16 muebles/mesas de CRAFTEO — construcciones REALES en BD. 11 mesas (10 oficios + carpintero x2) + cama, 2 instrumentos (laúd/tambor), silla, mesa de comedor. | x:92-98, y:76-82 | ~14-20 |
 | **Sur** | 17 NPCs tutorial/lore que hablan (políticos reales). | x:88-104, y:140-148 | ~44-52 |
 | **Este** | 12 cofres de mundo con stock infinito: herramientas, armas, armaduras, ropa, pociones, misc + NEW semillas, ingredientes cocina, fibras tela, materiales construcción. | x:108-144, y:94-98 | ~12-48 |
-| **Oeste** | 4 nodos de recolección a mano: roble (madera), trébol (hierba), veta de hierro, conejo (caza). Expandible. | x:60-70, y:94-98 | ~26-36 |
+| **Oeste** | 4 nodos recolección + 9 objetos en suelo (madera, piedra, carnes, hierba) para prueba de recogida. | x:60-70, y:92-98 | ~26-36 |
 | **Noreste** | 2 dummies de combate, vida infinita. | x:130-132, y:64-66 | ~40-42 |
 | **Sureste** | COCINA — construcciones reales: horno, mesas despiece, alacena, mesa comedor. Prueba cocinero/consumibles/descanso. | x:118-122, y:140-142 | ~24-28 |
 | **Suroeste** | SASTRERÍA — construcciones reales: telar, banco costura. Prueba confección/ropa. | x:70-74, y:140-142 | ~44-48 |
 | **Noreste lejano** | CULTIVOS — herramientas: almácigos, compostador. Espacio abierto para pruebas de plantación/cosecha. | x:146-152, y:96-102 | ~50-56 |
-| **Noroeste lejano** | ANIMALES domesticados (pendiente de baking). Zona de fauna: caballos, cabras, ovejas domesticadas para probar monturas/mascotas. | x:54-70, y:64-80 | ~26-40 |
+| **Noroeste lejano** | ANIMALES domesticados (fauna.json): 3 caballos, 2 cabras, 1 oveja. Prueba monturas/mascotas/domesticación. | x:54-70, y:64-80 | ~26-40 |
+| **Noroeste extremo** | CLIMA experimental — NPC "Maestro del Clima" para probar cambios climáticos/biomas. | x:80, y:80 | ~36 |
 | **Este lejano** | Portal a la aldea `testaldea` | (150, 96) | ~54 |
 
 ## Aldea (`assets/mapas/testaldea/`)
