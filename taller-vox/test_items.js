@@ -34,7 +34,7 @@ function assertModeloValido(m, id) {
 // --- armas -------------------------------------------------------------
 
 test("armas: todo id del catálogo tipo:arma clasifica a un arquetipo con función real", () => {
-  assert.strictEqual(armas.IDS_ARMA.length, 19);
+  assert.strictEqual(armas.IDS_ARMA.length, 31);
   for (const id of armas.IDS_ARMA) {
     const arq = armas.clasificarArma(id);
     assert.ok(armas.ARQUETIPO_FN[arq], `${id} -> ${arq} sin función`);
@@ -73,7 +73,7 @@ test("armas: la longitud crece con huella[1] del catálogo (daga corta < espada_
 // --- herramientas --------------------------------------------------------
 
 test("herramientas: todo id del catálogo tipo:herramienta clasifica y genera geometría válida", () => {
-  assert.strictEqual(herramientas.IDS_HERRAMIENTA.length, 70);
+  assert.strictEqual(herramientas.IDS_HERRAMIENTA.length, 71);
   for (const id of herramientas.IDS_HERRAMIENTA) {
     const arq = herramientas.clasificarHerramienta(id);
     assert.ok(herramientas.ARQUETIPO_FN[arq], `${id} -> ${arq} sin función`);
@@ -99,7 +99,7 @@ test("herramientas: determinismo", () => {
 // --- objetos ---------------------------------------------------------------
 
 test("objetos: todo id del catálogo tipo:objeto clasifica (cobertura real o SIN_COBERTURA/BARCO documentados)", () => {
-  assert.strictEqual(objetos.IDS_OBJETO.length, 75);
+  assert.strictEqual(objetos.IDS_OBJETO.length, 77);
   for (const id of objetos.IDS_OBJETO) {
     const arq = objetos.clasificarObjeto(id);
     assert.ok(arq in objetos.ARQUETIPO_FN, `${id} -> ${arq} sin entrada en ARQUETIPO_FN`);
@@ -136,7 +136,7 @@ test("objetos: los 4 barcos no se duplican (ya cubiertos por generar_barco.js)",
 // --- comida ------------------------------------------------------------
 
 test("comida: todo id del catálogo tipo:consumible clasifica y genera geometría válida", () => {
-  assert.strictEqual(comida.IDS_CONSUMIBLE.length, 31);
+  assert.strictEqual(comida.IDS_CONSUMIBLE.length, 35);
   for (const id of comida.IDS_CONSUMIBLE) {
     const arq = comida.clasificarComida(id);
     assert.ok(comida.ARQUETIPO_FN[arq], `${id} -> ${arq} sin función`);

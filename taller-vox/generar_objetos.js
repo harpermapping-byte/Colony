@@ -1,6 +1,6 @@
 "use strict";
 // Generador de vóxeles de OBJETOS (items/catalogo/items.json, tipo:"objeto",
-// 75 ids) — HERRAMIENTA reutilizable, mismo patrón que generar_armas.js/
+// 77 ids) — HERRAMIENTA reutilizable, mismo patrón que generar_armas.js/
 // generar_herramientas.js. Ver cabecera de generar_armas.js para el pacto
 // de alcance (esto es la herramienta; el bakeo de producción lo lanza el
 // streamer cuando decida).
@@ -192,6 +192,27 @@ function generarHerbolario(id, v) {
   return { grid: [gxz, gy, gxz], paleta: b.paleta, cajas: b.cajas };
 }
 
+/** Arnés de tiro (docs/GDD_Carros.md §2): yugo de madera horizontal + dos
+ * correas de cuero colgando de los extremos — se lleva al cuello/pecho del
+ * animal para tirar de un carro, silueta bien distinta de una silla de
+ * MONTAR (esa es un asiento; esto es un yugo con correas). */
+function generarArnes(v) {
+  const anchoYugo = Math.max(6, Math.round(U * 1.1));
+  const grosorYugo = Math.max(1, Math.round(U * 0.14));
+  const largoCorrea = Math.max(3, Math.round(U * 0.6));
+  const b = Builder();
+  const cuero = v.colorDebug;
+  // yugo: barra horizontal de madera por encima de las correas
+  b.caja(0, largoCorrea, 0, anchoYugo - 1, largoCorrea + grosorYugo - 1, grosorYugo - 1, MADERA_MANGO);
+  // dos correas de cuero colgando de cada extremo del yugo
+  b.caja(0, 0, 0, grosorYugo - 1, largoCorrea - 1, grosorYugo - 1, cuero);
+  b.caja(anchoYugo - grosorYugo, 0, 0, anchoYugo - 1, largoCorrea - 1, grosorYugo - 1, cuero);
+  // hebilla metálica central donde se engancha el tiro del carro
+  const cx = Math.round(anchoYugo / 2);
+  b.caja(cx - 1, 0, 0, cx, Math.max(1, Math.round(U * 0.1)) - 1, grosorYugo - 1, METAL_OSCURO);
+  return { grid: [anchoYugo, largoCorrea + grosorYugo, grosorYugo], paleta: b.paleta, cajas: b.cajas };
+}
+
 /** Herramienta de mesa reutilizada: martillo/tenazas/herradura/clavos —
  * mismos arquetipos que generar_herramientas.js, importados aquí para no
  * duplicar geometría (misma silueta real, catálogo de origen distinto). */
@@ -240,6 +261,7 @@ const IDS_HIGIENE = new Set(["jabon", "toalla"]);
 const IDS_CONTENEDOR = new Set(["cubo_madera", "jaula_pajaro"]);
 const IDS_HERBOLARIO = new Set(["mortero_mano", "hierbas_secas"]);
 const IDS_HERRAMIENTA_MESA = new Set(["martillo", "tenazas", "herradura", "clavos"]);
+const IDS_ARNES = new Set(["arnes_cuero", "arnes_reforzado"]); // docs/GDD_Carros.md §2
 
 function clasificarObjeto(id) {
   if (id.startsWith("cadaver_")) return "SIN_COBERTURA";
@@ -254,6 +276,7 @@ function clasificarObjeto(id) {
   if (IDS_CONTENEDOR.has(id)) return "CONTENEDOR";
   if (IDS_HERBOLARIO.has(id)) return "HERBOLARIO";
   if (IDS_HERRAMIENTA_MESA.has(id)) return "HERRAMIENTA_MESA";
+  if (IDS_ARNES.has(id)) return "ARNES";
   return "SIN_COBERTURA";
 }
 
@@ -269,6 +292,7 @@ const ARQUETIPO_FN = {
   MONTURA: (v) => generarMontura(v),
   HERBOLARIO: (v, id) => generarHerbolario(id, v),
   HERRAMIENTA_MESA: (v, id) => generarHerramientaMesa(id, v),
+  ARNES: (v) => generarArnes(v),
   BARCO: null, // ya cubierto por generar_barco.js — no se duplica aquí
   SIN_COBERTURA: null,
 };

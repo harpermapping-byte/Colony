@@ -1,12 +1,12 @@
 "use strict";
 // Generador de vóxeles de HERRAMIENTAS (items/catalogo/items.json,
-// tipo:"herramienta", 70 ids) — HERRAMIENTA reutilizable, mismo patrón que
+// tipo:"herramienta", 71 ids) — HERRAMIENTA reutilizable, mismo patrón que
 // generar_armas.js: arquetipos por silueta (mango+cabeza) + partes reales,
 // exportación a .glb vía exportar_glb.js. Ver la cabecera de generar_armas.js
 // para el pacto de alcance (esto es la herramienta; el bakeo de producción
-// de los 70 ids lo lanza el streamer cuando decida).
+// de los 71 ids lo lanza el streamer cuando decida).
 //
-// Las 70 herramientas reales del catálogo son sobre todo variaciones de
+// Las 71 herramientas reales del catálogo son sobre todo variaciones de
 // "mango + cabeza de trabajo" (hacha/pico/martillo/cuchillo/tenazas...) —
 // muchas comparten familia con las armas por el mismo motivo real: son la
 // misma silueta de herramienta de mano de toda la vida. `familiaMaterial`
@@ -202,7 +202,7 @@ function generarGenerico(v) {
 // --- clasificador (vocabulario de sufijo del id, agrupado en pocos arquetipos) ---
 
 const REGLAS = [
-  [/^hacha_/, "HACHA"],
+  [/^hacha_|^azada_/, "HACHA"], // azada: mismo mango+cabeza plana en ángulo que un hacha de mano.
   [/^pico_/, "PICO"],
   [/^martillo_|^maceta_/, "MARTILLO"],
   [/^tenazas_/, "TENAZAS"],

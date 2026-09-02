@@ -1,12 +1,12 @@
 "use strict";
 // Generador de vóxeles de ARMAS (items/catalogo/items.json, tipo:"arma",
-// 19 ids) — HERRAMIENTA reutilizable, mismo patrón que generar_modelos.js
+// 31 ids) — HERRAMIENTA reutilizable, mismo patrón que generar_modelos.js
 // (mobiliario) y generar_edificio.js (edificios): arquetipos por silueta +
 // partes reales (mango/guarda/hoja o mango/cabeza, no una caja única) +
 // exportación a .glb vía exportar_glb.js.
 //
 // IMPORTANTE (pedido 2026-09-01): este archivo es LA HERRAMIENTA, no un
-// bakeo de producción. El bakeo real (generar+aprobar los 19 .glb finales
+// bakeo de producción. El bakeo real (generar+aprobar los 31 .glb finales
 // y subirlos a assets/armas/) lo lanza el streamer cuando decida — aquí
 // solo se demuestra con una muestra pequeña (ver bloque `if (require.main)`
 // al final) que el generador funciona para el catálogo completo.
@@ -177,10 +177,18 @@ function generarBallesta(v) {
 // --- clasificador ------------------------------------------------------------
 
 function clasificarArma(id) {
-  if (id.startsWith("daga") || id.startsWith("espada")) return "FILO";
+  if (id.startsWith("daga") || id.startsWith("espada") || id.startsWith("cimitarra") || id.startsWith("cuchillo")) return "FILO";
   if (id.startsWith("hacha")) return "HACHA";
-  if (id.startsWith("maza")) return "MAZA";
-  if (id.startsWith("lanza")) return "LANZA";
+  // maza/garrote/martillo de guerra comparten la misma silueta real: mango
+  // + cabeza pesada centrada al final — un martillo de guerra NO es una
+  // hoja (FILO sería un mal ajuste) ni un hacha en cuña (HACHA), es más
+  // cercano a una maza.
+  if (id.startsWith("maza") || id.startsWith("garrote") || id.startsWith("martillo_guerra")) return "MAZA";
+  // lanza/jabalina/tridente/bastón de guerra son todas armas de asta larga
+  // (jabalina = lanza corta arrojadiza, tridente = lanza de 3 puntas,
+  // bastón = asta sin punta metálica) — mismo arquetipo de asta larga,
+  // ninguna es una hoja corta con guarda.
+  if (id.startsWith("lanza") || id.startsWith("jabalina") || id.startsWith("tridente") || id.startsWith("baston_guerra")) return "LANZA";
   if (id.startsWith("arco")) return "ARCO";
   if (id.startsWith("honda")) return "HONDA";
   if (id.startsWith("ballesta")) return "BALLESTA";
