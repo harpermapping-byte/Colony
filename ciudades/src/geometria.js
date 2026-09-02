@@ -27,31 +27,82 @@ function muestrearPoisson(rnd, { ancho, alto, rmin, maxPuntos, valido, intentos 
   return puntos;
 }
 
+// Cola de prioridad binaria (min-heap) por f — mismo patrón que
+// baker/src/caminos.js:ColaPrioridad (no exportada de ahí, se repite aquí:
+// son ~25 líneas sin dependencias, y las dos búsquedas trabajan sobre
+// esquemas de rejilla distintos). Sin esto, extraer el nodo de menor f es
+// un recorrido lineal de TODO el conjunto abierto en cada paso — O(n) por
+// extracción en vez de O(log n) (encontrado en la auditoría de rendimiento
+// de 2026-09-02: el comentario de más abajo llevaba tiempo afirmando
+// "inserción binaria" que el código nunca hacía de verdad).
+class ColaPrioridad {
+  constructor() {
+    this.datos = []; // [{ id, f }]
+  }
+  get size() {
+    return this.datos.length;
+  }
+  insertar(id, f) {
+    this.datos.push({ id, f });
+    let i = this.datos.length - 1;
+    while (i > 0) {
+      const padre = (i - 1) >> 1;
+      if (this.datos[padre].f <= this.datos[i].f) break;
+      [this.datos[padre], this.datos[i]] = [this.datos[i], this.datos[padre]];
+      i = padre;
+    }
+  }
+  extraerMinimo() {
+    const min = this.datos[0];
+    const ultimo = this.datos.pop();
+    if (this.datos.length > 0) {
+      this.datos[0] = ultimo;
+      let i = 0;
+      while (true) {
+        const izq = 2 * i + 1;
+        const der = 2 * i + 2;
+        let menor = i;
+        if (izq < this.datos.length && this.datos[izq].f < this.datos[menor].f) menor = izq;
+        if (der < this.datos.length && this.datos[der].f < this.datos[menor].f) menor = der;
+        if (menor === i) break;
+        [this.datos[menor], this.datos[i]] = [this.datos[i], this.datos[menor]];
+        i = menor;
+      }
+    }
+    return min;
+  }
+}
+
 // --- A* sobre rejilla con coste por casilla ---------------------------------
 // 8 vecinos (diagonal √2) y coste devuelto por `costeDe(x,y)` (Infinity =
 // intransitable). Los caminos "esquivan" colinas y ríos porque subir y
 // mojarse CUESTA, no porque estén prohibidos — si aún así compensa cruzar
-// agua, esa casilla será un puente.
-function aEstrella(ancho, alto, inicio, fin, costeDe) {
+// agua, esa casilla será un puente. `maxNodosExplorados` (mismo criterio que
+// baker/src/caminos.js) es la red de seguridad si el destino resulta
+// inalcanzable: sin tope, la búsqueda explora el mapa entero antes de
+// rendirse.
+function aEstrella(ancho, alto, inicio, fin, costeDe, maxNodosExplorados = 200000) {
   const clave = (x, y) => y * ancho + x;
   const gScore = new Map([[clave(inicio.x, inicio.y), 0]]);
   const desde = new Map();
   const h = (x, y) => Math.hypot(x - fin.x, y - fin.y);
-  // cola de prioridad simple (array ordenado por inserción binaria)
-  const abierta = [{ x: inicio.x, y: inicio.y, f: h(inicio.x, inicio.y) }];
-  const enAbierta = new Set([clave(inicio.x, inicio.y)]);
+  const cola = new ColaPrioridad();
+  cola.insertar(clave(inicio.x, inicio.y), h(inicio.x, inicio.y));
+  const cerrado = new Set();
   const VECINOS = [
     [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
     [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2],
   ];
 
-  while (abierta.length) {
-    // extraer el de menor f
-    let mejor = 0;
-    for (let i = 1; i < abierta.length; i++) if (abierta[i].f < abierta[mejor].f) mejor = i;
-    const actual = abierta.splice(mejor, 1)[0];
-    const kActual = clave(actual.x, actual.y);
-    enAbierta.delete(kActual);
+  let explorados = 0;
+  while (cola.size > 0) {
+    const { id: kActual } = cola.extraerMinimo();
+    if (cerrado.has(kActual)) continue; // entrada obsoleta del heap (no hay decrease-key), se ignora
+    cerrado.add(kActual);
+    explorados++;
+    if (explorados > maxNodosExplorados) return null;
+
+    const actual = { x: kActual % ancho, y: Math.floor(kActual / ancho) };
     if (actual.x === fin.x && actual.y === fin.y) {
       const camino = [{ x: fin.x, y: fin.y }];
       let k = kActual;
@@ -64,17 +115,15 @@ function aEstrella(ancho, alto, inicio, fin, costeDe) {
     for (const [dx, dy, paso] of VECINOS) {
       const nx = actual.x + dx, ny = actual.y + dy;
       if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto) continue;
+      const kVecino = clave(nx, ny);
+      if (cerrado.has(kVecino)) continue;
       const coste = costeDe(nx, ny);
       if (!isFinite(coste)) continue;
-      const kVecino = clave(nx, ny);
       const g = gScore.get(kActual) + paso * coste;
       if (g >= (gScore.get(kVecino) ?? Infinity)) continue;
       desde.set(kVecino, kActual);
       gScore.set(kVecino, g);
-      if (!enAbierta.has(kVecino)) {
-        abierta.push({ x: nx, y: ny, f: g + h(nx, ny) });
-        enAbierta.add(kVecino);
-      }
+      cola.insertar(kVecino, g + h(nx, ny));
     }
   }
   return null; // sin ruta

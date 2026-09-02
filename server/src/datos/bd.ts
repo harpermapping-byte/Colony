@@ -858,8 +858,6 @@ export interface IAlmacenDatos {
   fijarOficioSlot(jugadorId: number, slot: 1 | 2, oficio: string): Promise<void>;
   /** Suma 1 a `jugadores.cambios_oficio` y devuelve el nuevo total — se llama DESPUÉS de cobrar con éxito un `oficio:cambiar` (precio exponencial, ver `Jugador.cambiosOficio`). */
   incrementarCambiosOficio(jugadorId: number): Promise<number>;
-  /** docs/GDD_Personaje.md: XP de atributo — mismo mecanismo EXACTO que oficios (nivel derivado en server/src/progresion/nivel.ts, nunca persistido en sí). */
-  obtenerXpAtributo(jugadorId: number, atributo: string): Promise<number>;
   /** Suma (nunca resta) XP a un atributo — crea la fila si no existía. Devuelve el nuevo total. */
   sumarXpAtributo(jugadorId: number, atributo: string, delta: number): Promise<number>;
   /** docs/GDD_Personaje.md §3.5: día de mundo (tiempoMundo().dia) de la última actividad diaria de entrenamiento que otorgó XP de este atributo — null si nunca. */
@@ -2861,11 +2859,6 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return Number(fila!.xp);
   }
 
-  async obtenerXpAtributo(jugadorId: number, atributo: string): Promise<number> {
-    const fila = this.bd.prepare("SELECT xp FROM jugador_atributos WHERE jugador_id = ? AND atributo = ?").get(jugadorId, atributo);
-    return fila ? Number(fila.xp) : 0;
-  }
-
   async sumarXpAtributo(jugadorId: number, atributo: string, delta: number): Promise<number> {
     const fila = this.bd
       .prepare(
@@ -3298,8 +3291,20 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const debito = await this.ajustarFarycoins(jugador.id, -precioFarycoins);
     if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
 
-    const nuevaExpira = new Date(new Date(prop.expiraEn).getTime() + periodoHoras * 3600_000).toISOString();
-    this.bd.prepare("UPDATE propiedades SET expira_en = ? WHERE id = ? AND dueno = ?").run(nuevaExpira, id, jugador.id);
+    // Compare-and-swap contra el expira_en LEÍDO (mismo criterio que el resto de mutaciones
+    // económicas de este archivo, ver comentario de comprarDeTenderete): entre el await de
+    // ajustarFarycoins arriba y este UPDATE puede colarse otra renovación/revocación concurrente
+    // sobre la MISMA propiedad — sin este guard, la segunda escritura pisa a la primera con una
+    // fecha calculada sobre el mismo expira_en de partida (cobro doble por una sola prórroga real).
+    const expiraLeida = prop.expiraEn;
+    const nuevaExpira = new Date(new Date(expiraLeida).getTime() + periodoHoras * 3600_000).toISOString();
+    const r = this.bd
+      .prepare("UPDATE propiedades SET expira_en = ? WHERE id = ? AND dueno = ? AND expira_en = ?")
+      .run(nuevaExpira, id, jugador.id, expiraLeida);
+    if (Number(r.changes) === 0) {
+      await this.ajustarFarycoins(jugador.id, precioFarycoins); // perdió la carrera: revierte el cobro
+      return { ok: false, motivo: "la propiedad cambió mientras renovabas, inténtalo de nuevo" };
+    }
     await this.creditarJarl(precioFarycoins);
     return { ok: true, expiraEn: nuevaExpira };
   }
@@ -3446,8 +3451,10 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
   async resolverIngresoDiarioNpc(npcNombre: string, diaActual: number): Promise<{ diasAcreditados: number; saldo: number }> {
     const fila = this.bd.prepare("SELECT ultimo_dia_ingreso FROM npc_comerciantes WHERE nombre = ?").get(npcNombre);
     if (!fila) {
-      // primera vez que se ve a este NPC: fija el día de partida, sin retroactivo.
-      this.bd.prepare("INSERT INTO npc_comerciantes (nombre, ultimo_dia_ingreso) VALUES (?, ?)").run(npcNombre, diaActual);
+      // primera vez que se ve a este NPC: fija el día de partida, sin retroactivo. `OR IGNORE`
+      // porque dos jugadores pueden descubrir al mismo NPC casi a la vez — sin esto, el segundo
+      // reventaría contra el PRIMARY KEY(nombre) en vez de simplemente no hacer nada.
+      this.bd.prepare("INSERT OR IGNORE INTO npc_comerciantes (nombre, ultimo_dia_ingreso) VALUES (?, ?)").run(npcNombre, diaActual);
       const npc = await this.obtenerOCrearJugador(npcNombre, saldoInicialPara(npcNombre));
       return { diasAcreditados: 0, saldo: npc.farycoins };
     }
@@ -3456,7 +3463,16 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const npc = await this.obtenerOCrearJugador(npcNombre, saldoInicialPara(npcNombre));
     if (diasAcreditados === 0) return { diasAcreditados: 0, saldo: npc.farycoins };
     const r = await this.ajustarFarycoins(npc.id, diasAcreditados * INGRESO_DIARIO_NPC);
-    this.bd.prepare("UPDATE npc_comerciantes SET ultimo_dia_ingreso = ? WHERE nombre = ?").run(diaActual, npcNombre);
+    // Compare-and-swap contra el ultimo_dia_ingreso LEÍDO (mismo criterio que renovarTenencia): dos
+    // jugadores tocando al mismo NPC casi a la vez pueden leer el mismo ultimoDia antes de que
+    // ninguno escriba — sin este guard, ambos acreditarían los mismos días por duplicado.
+    const upd = this.bd
+      .prepare("UPDATE npc_comerciantes SET ultimo_dia_ingreso = ? WHERE nombre = ? AND ultimo_dia_ingreso = ?")
+      .run(diaActual, npcNombre, ultimoDia);
+    if (Number(upd.changes) === 0) {
+      const revertido = await this.ajustarFarycoins(npc.id, -(diasAcreditados * INGRESO_DIARIO_NPC));
+      return { diasAcreditados: 0, saldo: revertido.saldo };
+    }
     return { diasAcreditados, saldo: r.saldo };
   }
 
@@ -4530,14 +4546,6 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return r.rows[0].xp;
   }
 
-  async obtenerXpAtributo(jugadorId: number, atributo: string): Promise<number> {
-    const r = await this.pool.query<{ xp: number }>(
-      "SELECT xp FROM jugador_atributos WHERE jugador_id = $1 AND atributo = $2",
-      [jugadorId, atributo],
-    );
-    return r.rows.length > 0 ? r.rows[0].xp : 0;
-  }
-
   async sumarXpAtributo(jugadorId: number, atributo: string, delta: number): Promise<number> {
     const r = await this.pool.query<{ xp: number }>(
       `INSERT INTO jugador_atributos (jugador_id, atributo, xp) VALUES ($1, $2, $3)
@@ -4938,10 +4946,16 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     const debito = await this.ajustarFarycoins(jugador.id, -precioFarycoins);
     if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
 
-    const nuevaExpira = new Date(new Date(prop.expiraEn).getTime() + periodoHoras * 3600_000).toISOString();
-    await this.pool.query("UPDATE propiedades SET expira_en = $1 WHERE id = $2 AND dueno = $3", [
-      nuevaExpira, id, jugador.id,
+    // Compare-and-swap contra el expira_en LEÍDO — ver comentario gemelo en la implementación Sqlite.
+    const expiraLeida = prop.expiraEn;
+    const nuevaExpira = new Date(new Date(expiraLeida).getTime() + periodoHoras * 3600_000).toISOString();
+    const r = await this.pool.query("UPDATE propiedades SET expira_en = $1 WHERE id = $2 AND dueno = $3 AND expira_en = $4", [
+      nuevaExpira, id, jugador.id, expiraLeida,
     ]);
+    if ((r.rowCount ?? 0) === 0) {
+      await this.ajustarFarycoins(jugador.id, precioFarycoins); // perdió la carrera: revierte el cobro
+      return { ok: false, motivo: "la propiedad cambió mientras renovabas, inténtalo de nuevo" };
+    }
     await this.creditarJarl(precioFarycoins);
     return { ok: true, expiraEn: nuevaExpira };
   }

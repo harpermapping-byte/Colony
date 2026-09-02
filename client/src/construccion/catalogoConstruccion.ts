@@ -196,8 +196,9 @@ function construirListaPlantillas(): Construible[] {
   return lista;
 }
 
-/** Todo lo construible, en orden de catálogo. */
-export const CONSTRUIBLES: Construible[] = construirLista();
+// Todo lo construible, en orden de catálogo — uso interno (CONSTRUIBLES_POR_CATEGORIA/POR_ID
+// de más abajo son lo que consume el resto del cliente).
+const CONSTRUIBLES: Construible[] = construirLista();
 
 /** Todo lo colocable SOLO por el jarl vía `colocadorPlantillas.ts` (aserradero + proyectos especiales). */
 export const PLANTILLAS_JARL: Construible[] = construirListaPlantillas();

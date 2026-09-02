@@ -42,8 +42,10 @@ const CANTIDAD_POR_TIER = {
   aldea: [4, 8],
   pueblo: [6, 12],
   capital: [8, 16],
+  capital_jarl: [16, 26], // el tier más grande (110-130 edificios, catálogo asentamientos.json) — faltaba, caía al default [4,8] de aldea_pequena
   gran_capital: [12, 22],
   castillo: [2, 5],
+  asentamiento_hostil: [2, 4], // campamento bandido (7-11 edificios) — menos fauna civil (perro/gato/caballo...) que una aldea real, faltaba y caía al mismo default
 };
 
 function enteroEnRango([min, max], rnd) {

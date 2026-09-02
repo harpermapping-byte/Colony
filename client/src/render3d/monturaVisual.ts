@@ -36,10 +36,3 @@ export function aplicarMonturaAlAnimal(animalObjeto: THREE.Object3D, rigJinete: 
     lomo.add(rigJinete);
   }
 }
-
-/** Quita silla + jinete de un animal (al desmontar, o al reciclar la entidad). */
-export function quitarMonturaDeAnimal(animalObjeto: THREE.Object3D): void {
-  animalObjeto.traverse((nodo) => {
-    if (nodo.userData?.[ETIQUETA_MONTURA]) nodo.removeFromParent();
-  });
-}

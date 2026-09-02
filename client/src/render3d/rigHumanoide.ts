@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import proporcionesBase from "./proporcionesRig.json";
 import { aplicarMorfologia, type Morfologia } from "./morfologia";
 
 /**
@@ -20,14 +19,6 @@ import { aplicarMorfologia, type Morfologia } from "./morfologia";
  * (los nombres de hueso de abajo) y esta clase solo cambia la geometría de
  * cada pieza, no la animación ni la API.
  */
-
-// Altura de referencia del personaje de talla base (unidades de mundo;
-// 1 unidad = 1 casilla). Las medidas viven en proporcionesRig.json — la
-// MISMA fuente que usa ropa/src/generarPrenda.js — y cada personaje las
-// recibe ya morfadas por altura/corpulencia/sexo (aplicarMorfologia), así
-// la ropa generada sobre esa misma morfología encaja sin ajuste ninguno.
-export const ALTO_RIG =
-  proporcionesBase.altoPierna + proporcionesBase.altoTorso + proporcionesBase.ladoCabeza; // ≈ 1.57 en talla base
 
 export interface OpcionesRig {
   colorTunica: string; // torso+brazos (la "ropa" del placeholder)

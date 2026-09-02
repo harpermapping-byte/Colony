@@ -10,6 +10,16 @@
  * `ejecutarTickEconomia` es el único punto que lee/escribe de verdad.
  */
 import { Asentamiento, IAlmacenDatos } from "../datos/bd";
+import { ColaPorClave } from "../concurrencia/colaPorClave";
+
+// `marcarTropaMuertaYVerificarConquista` se llama desde RegionRoom.ts (combate exterior de
+// patrulla) E InteriorRoom.ts (combate en el cuartel) para el MISMO asentamiento — ambas rooms
+// viven en el mismo proceso Node (docs/CLAUDE.md: "un solo proceso de servidor"). Sin esto, la
+// última tropa muriendo casi a la vez en ambos sitios puede colar dos conquistas del mismo
+// asentamiento (repuebla dos veces, dos crónicas de IA, memoria del líder duplicada) — encontrado
+// en la auditoría de concurrencia de 2026-09-02. Clave por `asentamientoId`, así conquistas de
+// asentamientos distintos nunca se esperan entre sí.
+const colaPorAsentamiento = new ColaPorClave();
 
 // Guarnición inicial de un asentamiento bandido la primera vez que se
 // descubre (RegionRoom lo llama al cargar una región cuyo indice.json trae
@@ -250,12 +260,14 @@ export async function marcarTropaMuertaYVerificarConquista(
   jugadoresGanadores: string[] = [],
 ): Promise<{ conquistada: boolean }> {
   await bd.marcarTropaMuerta(tropaId);
-  const tropas = await bd.listarTropas(asentamientoId);
-  if (tropas.some((t) => t.estado === "vivo")) return { conquistada: false };
+  return colaPorAsentamiento.ejecutar(asentamientoId, async () => {
+    const tropas = await bd.listarTropas(asentamientoId);
+    if (tropas.some((t) => t.estado === "vivo")) return { conquistada: false };
 
-  const asentamiento = await bd.obtenerOCrearAsentamiento(asentamientoId);
-  if (asentamiento.bando !== "bandido") return { conquistada: false }; // ya conquistada antes
+    const asentamiento = await bd.obtenerOCrearAsentamiento(asentamientoId);
+    if (asentamiento.bando !== "bandido") return { conquistada: false }; // ya conquistada antes (por la otra room)
 
-  await conquistarAsentamiento(bd, asentamiento, rutaMapa, jugadoresGanadores);
-  return { conquistada: true };
+    await conquistarAsentamiento(bd, asentamiento, rutaMapa, jugadoresGanadores);
+    return { conquistada: true };
+  });
 }

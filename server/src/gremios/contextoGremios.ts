@@ -59,8 +59,3 @@ export function obtenerContextoGremios(bd: IAlmacenDatos): Promise<ContextoGremi
   if (!promesa) promesa = construir(bd);
   return promesa;
 }
-
-/** SOLO para tests: resetea la caché de proceso para que el siguiente obtenerContextoGremios() reconstruya desde BD. */
-export function _resetContextoGremiosParaTests(): void {
-  promesa = null;
-}

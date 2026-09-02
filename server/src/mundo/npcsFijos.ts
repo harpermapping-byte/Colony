@@ -161,8 +161,3 @@ export function npcTrabajadorAAgente(fila: NpcTrabajador): NpcBakeado {
     }],
   };
 }
-
-/** Todos los NPCs trabajadores persistidos de un mapa, ya convertidos a NpcBakeado — para recrearlos al arrancar la room (sobreviven un reinicio del servidor). */
-export async function cargarNpcsTrabajadoresDeMapa(bd: { listarNpcsTrabajadoresDeMapa(mapaId: string): Promise<NpcTrabajador[]> }, mapaId: string): Promise<NpcTrabajador[]> {
-  return bd.listarNpcsTrabajadoresDeMapa(mapaId);
-}

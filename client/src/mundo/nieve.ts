@@ -39,8 +39,3 @@ export function nivelNieve(dia: number): number {
   }
   return nivel;
 }
-
-/** Cuánto frena la nieve acumulada en tierra (1 = sin nieve, más lento cuanto más nivel) — "a más capas de nieve más lento te mueves", pedido del streamer. Lineal, tope en el nivel máximo del catálogo. */
-export function multiplicadorVelocidadPorNieve(nivel: number): number {
-  return Math.max(0.4, 1 - nivel * 0.15);
-}

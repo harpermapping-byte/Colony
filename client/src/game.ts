@@ -1823,6 +1823,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     $(enemigo).onChange(() => escena.actualizarVida(`enemigo_${id}`, enemigo.vida, enemigo.vidaMax));
   });
   $(room.state).enemigos.onRemove((_enemigo: any, id: string) => {
+    // Bug real (encontrado en la auditoría de 2026-09-02): sin esto, cada enemigo que muere se
+    // queda para siempre en `animables` (nunca se drena) — con partidas largas de combate contra
+    // bandidos/lobos/jefes, el array crece sin límite reteniendo la malla/materiales THREE.js
+    // de cada enemigo ya muerto, que además sigue ejecutando su animación de reposo cada frame.
+    const figura = enemigosVisual.get(id);
+    if (figura) {
+      const idx = animables.indexOf(figura);
+      if (idx !== -1) animables.splice(idx, 1);
+    }
     enemigosVisual.delete(id);
     escena.quitarEntidad(`enemigo_${id}`);
   });
@@ -2143,13 +2152,24 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // vive instanciada en su propia arena (docs/GDD_Combate.md §9.2) — cono
   // rojo placeholder girando despacio, sin arte todavía (misma UI de
   // testeo que el resto de esta pasada).
+  const combatesAnimables = new Map<string, { actualizar(dt: number): void }>();
   $(room.state).combatesEnCurso.onAdd((marcador: any, id: string) => {
     const cono = new Mesh(new ConeGeometry(0.35, 1, 6), new MeshBasicMaterial({ color: 0xd94040 }));
     cono.position.y = 1.4;
     escena.añadirEntidad(`combate_${id}`, cono, marcador.x, marcador.y, "⚔ combate en curso");
-    animables.push({ actualizar: (dt: number) => { cono.rotation.y += dt; } });
+    const animable = { actualizar: (dt: number) => { cono.rotation.y += dt; } };
+    combatesAnimables.set(id, animable);
+    animables.push(animable);
   });
-  $(room.state).combatesEnCurso.onRemove((_marcador: any, id: string) => escena.quitarEntidad(`combate_${id}`));
+  $(room.state).combatesEnCurso.onRemove((_marcador: any, id: string) => {
+    const animable = combatesAnimables.get(id);
+    if (animable) {
+      const idx = animables.indexOf(animable);
+      if (idx !== -1) animables.splice(idx, 1);
+      combatesAnimables.delete(id);
+    }
+    escena.quitarEntidad(`combate_${id}`);
+  });
 
   // --- Pesca (docs/GDD_Pesca.md, pedido 2026-08-30) — panel PLACEHOLDER de
   // testeo + una boya cosmética SOLO LOCAL (no viaja por el Schema — nadie
@@ -2173,9 +2193,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     panelContenedorTest.actualizarEstado(m?.id, m?.items ?? []));
   let estadoPesca: EstadoPescaVista = null;
   let boyaMesh: Mesh | null = null;
+  let boyaAnimable: { actualizar(): void } | null = null;
   const ID_BOYA = "pesca_boya_propia";
   function quitarBoya() {
     if (boyaMesh) { escena.quitarEntidad(ID_BOYA); boyaMesh = null; }
+    // Bug real (auditoría 2026-09-02): cada lanzamiento añadía un closure nuevo a `animables` sin
+    // quitar nunca el de un lanzamiento anterior — una sesión de pesca larga (muchos lanza/cancela)
+    // acumulaba uno por cada cast, cada uno comprobando en vano `if (!boyaMesh) return` para siempre.
+    if (boyaAnimable) {
+      const idx = animables.indexOf(boyaAnimable);
+      if (idx !== -1) animables.splice(idx, 1);
+      boyaAnimable = null;
+    }
   }
   room.onMessage("pesca:lanzada", (m: { x: number; y: number }) => {
     estadoPesca = "esperando";
@@ -2184,7 +2213,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     boyaMesh = new Mesh(new SphereGeometry(0.12, 8, 8), new MeshBasicMaterial({ color: 0xd9432a }));
     escena.añadirEntidad(ID_BOYA, boyaMesh, m.x, m.y, "🎣");
     const inicio = performance.now();
-    animables.push({
+    boyaAnimable = {
       actualizar: () => {
         if (!boyaMesh) return;
         const t = (performance.now() - inicio) / 1000;
@@ -2192,7 +2221,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         const velocidad = estadoPesca === "picando" ? 10 : 2.5;
         boyaMesh.position.y = 0.15 + Math.sin(t * velocidad) * amplitud;
       },
-    });
+    };
+    animables.push(boyaAnimable);
   });
   room.onMessage("pesca:pica", () => { estadoPesca = "picando"; panelPesca.actualizar(estadoPesca); });
   room.onMessage("pesca:escapado", () => { estadoPesca = "esperando"; panelPesca.actualizar(estadoPesca); });

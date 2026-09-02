@@ -15,6 +15,7 @@ import { CoordenadaSector, sectorDeCasilla, sectoresEnRadio } from "./faunaSalva
 import { EspecieArbol } from "./crecimientoBosques";
 import { ObjetoArbolBakeado, ResultadoResolucionBosque, idArbolBake, resolverSectorBosque } from "./bosqueSector";
 import { MundoColision, TIPO } from "./colisiones";
+import { ColaPorClave } from "../concurrencia/colaPorClave";
 
 /** Misma clave plana que usa faunaSalvajeViva.ts internamente (no exportada de ahí, se repite aquí — una línea, no vale la pena acoplar los dos módulos por esto). */
 function claveSector(s: CoordenadaSector): string {
@@ -67,6 +68,14 @@ export interface DependenciasBosques {
 export class GestorBosques {
   private sectoresActivos = new Map<string, SectorActivo>();
   private contadorPlantado = 0;
+  // Mismo mecanismo que `colaPorConstruccion`/`colaPorTrabajador`/`colaPorAnimal`/`colaPorCasilla`
+  // de RoomExteriorBase.ts (docs de ColaPorClave): `talar`/`plantar` hacen lectura-modificación-
+  // escritura async sobre `sectoresActivos` sin ninguna serialización — dos jugadores talando el
+  // MISMO árbol (o plantando la MISMA casilla) casi a la vez pueden cobrar/plantar por duplicado o
+  // dejar el índice de `arbolesBake`/`crecidos` desincronizado (encontrado en la auditoría de
+  // concurrencia de 2026-09-02). `GestorBosques` no es una Room — no puede reusar las colas de
+  // RoomExteriorBase, así que lleva la suya propia.
+  private colaPorArbol = new ColaPorClave();
 
   constructor(
     private salida: MapSchema<ArbolVivoSchema>,
@@ -212,32 +221,40 @@ export class GestorBosques {
    * es válida (alguien se adelantó, o el sector se desactivó entretanto).
    */
   async talar(ref: RefArbol): Promise<{ especieId: string; etapa: EtapaArbol } | null> {
-    const info = this.sectoresActivos.get(ref.sectorKey);
-    if (!info) return null;
-    const [sectorX, sectorY] = ref.sectorKey.split(",").map(Number);
+    const clave = `${ref.sectorKey}:${ref.tipo}:${ref.tipo === "bake" ? ref.indiceBake : ref.id}`;
+    return this.colaPorArbol.ejecutar(clave, async () => {
+      const info = this.sectoresActivos.get(ref.sectorKey);
+      if (!info) return null;
+      const [sectorX, sectorY] = ref.sectorKey.split(",").map(Number);
 
-    if (ref.tipo === "bake") {
-      const obj = info.arbolesBake[ref.indiceBake];
-      if (!obj) return null;
-      const fila: ArbolVivoFila = {
-        id: idArbolBake(this.deps.mapaId, sectorX, sectorY, obj.indiceOriginal),
-        mapaId: this.deps.mapaId, sectorX, sectorY, especieId: obj.especieId,
-        x: obj.x, y: obj.y, etapa: "adulto", origen: "bake", diaPlantado: null, estado: "talado",
-      };
-      await this.deps.guardarArbolVivo(fila);
-      info.arbolesBake.splice(ref.indiceBake, 1);
-      this.ablandar(obj.x, obj.y);
-      return { especieId: obj.especieId, etapa: "adulto" };
-    }
+      if (ref.tipo === "bake") {
+        const obj = info.arbolesBake[ref.indiceBake];
+        if (!obj) return null; // ya talado por una tarea anterior en esta misma cola
+        const fila: ArbolVivoFila = {
+          id: idArbolBake(this.deps.mapaId, sectorX, sectorY, obj.indiceOriginal),
+          mapaId: this.deps.mapaId, sectorX, sectorY, especieId: obj.especieId,
+          x: obj.x, y: obj.y, etapa: "adulto", origen: "bake", diaPlantado: null, estado: "talado",
+        };
+        await this.deps.guardarArbolVivo(fila);
+        // Releer el índice tras el await: otra tarea de una clave DISTINTA pudo splice-ar
+        // `arbolesBake` de por medio (talar otro árbol del mismo sector) y desplazar posiciones.
+        const idxActual = info.arbolesBake.findIndex((a) => a === obj);
+        if (idxActual === -1) return null;
+        info.arbolesBake.splice(idxActual, 1);
+        this.ablandar(obj.x, obj.y);
+        return { especieId: obj.especieId, etapa: "adulto" };
+      }
 
-    const idx = info.crecidos.findIndex((f) => f.id === ref.id);
-    if (idx === -1) return null;
-    const f = info.crecidos[idx];
-    await this.deps.guardarArbolVivo({ ...f, estado: "talado" });
-    this.salida.delete(f.id);
-    info.crecidos.splice(idx, 1);
-    if (f.etapa === "adulto") this.ablandar(f.x, f.y);
-    return { especieId: f.especieId, etapa: f.etapa };
+      const idx = info.crecidos.findIndex((f) => f.id === ref.id);
+      if (idx === -1) return null;
+      const f = info.crecidos[idx];
+      await this.deps.guardarArbolVivo({ ...f, estado: "talado" });
+      this.salida.delete(f.id);
+      const idxActual = info.crecidos.findIndex((c) => c.id === ref.id);
+      if (idxActual !== -1) info.crecidos.splice(idxActual, 1);
+      if (f.etapa === "adulto") this.ablandar(f.x, f.y);
+      return { especieId: f.especieId, etapa: f.etapa };
+    });
   }
 
   /**
@@ -251,27 +268,31 @@ export class GestorBosques {
     if (!this.deps.catalogo[especieId]) return null;
     const xi = Math.round(x);
     const yi = Math.round(y);
-    if (!this.casillaLibreParaBrote(xi, yi)) return null;
+    // Clave por CASILLA (no por sector): dos plantaciones en la MISMA casilla no pueden solaparse,
+    // pero dos casillas distintas del mismo sector no tienen por qué esperarse la una a la otra.
+    return this.colaPorArbol.ejecutar(`casilla:${xi},${yi}`, async () => {
+      if (!this.casillaLibreParaBrote(xi, yi)) return null;
 
-    const s = sectorDeCasilla(x, y, this.deps.tamanoChunk, this.deps.tamanoSectorChunks);
-    const k = claveSector(s);
-    const info = this.sectoresActivos.get(k);
-    if (!info) return null;
+      const s = sectorDeCasilla(x, y, this.deps.tamanoChunk, this.deps.tamanoSectorChunks);
+      const k = claveSector(s);
+      const info = this.sectoresActivos.get(k);
+      if (!info) return null;
 
-    const ocupado =
-      info.arbolesBake.some((a) => Math.round(a.x) === xi && Math.round(a.y) === yi) ||
-      info.crecidos.some((f) => Math.round(f.x) === xi && Math.round(f.y) === yi);
-    if (ocupado) return null;
+      const ocupado =
+        info.arbolesBake.some((a) => Math.round(a.x) === xi && Math.round(a.y) === yi) ||
+        info.crecidos.some((f) => Math.round(f.x) === xi && Math.round(f.y) === yi);
+      if (ocupado) return null;
 
-    const ahora = this.deps.ahora();
-    const fila: ArbolVivoFila = {
-      id: `arbol:${this.deps.mapaId}:${s.sectorX}:${s.sectorY}:plantado:${ahora}:${this.contadorPlantado++}`,
-      mapaId: this.deps.mapaId, sectorX: s.sectorX, sectorY: s.sectorY, especieId,
-      x: xi, y: yi, etapa: "joven", origen: "plantado", diaPlantado: ahora, estado: "vivo",
-    };
-    await this.deps.guardarArbolVivo(fila);
-    info.crecidos.push(fila);
-    this.publicar(fila);
-    return fila;
+      const ahora = this.deps.ahora();
+      const fila: ArbolVivoFila = {
+        id: `arbol:${this.deps.mapaId}:${s.sectorX}:${s.sectorY}:plantado:${ahora}:${this.contadorPlantado++}`,
+        mapaId: this.deps.mapaId, sectorX: s.sectorX, sectorY: s.sectorY, especieId,
+        x: xi, y: yi, etapa: "joven", origen: "plantado", diaPlantado: ahora, estado: "vivo",
+      };
+      await this.deps.guardarArbolVivo(fila);
+      info.crecidos.push(fila);
+      this.publicar(fila);
+      return fila;
+    });
   }
 }

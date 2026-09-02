@@ -124,7 +124,11 @@ async function esperarCondicion(fn, timeoutMs, intervaloMs = 150) {
  * característica conocida del motor de pruebas en vez de medir la lógica
  * de juego que es lo que de verdad importa.
  */
-async function unirseConReintento(cliente, tipo, opciones, intentos = 5) {
+// intentos=8 (subido de 5, 2026-09-02): el enjambre de vagabundos consistentemente agotaba los 5
+// intentos originales (~10s de espera total) durante una ráfaga de reconexión real de ~29 sesiones
+// — el propio bd.ts documenta que SQLite puede bloquear el hilo 8-10s bajo esa carga, así que 10s de
+// margen de reintento no bastaban ni de sobra. 8 intentos con el mismo backoff dan ~18s de margen.
+async function unirseConReintento(cliente, tipo, opciones, intentos = 8) {
   let ultimoError = null;
   for (let i = 0; i < intentos; i++) {
     try {

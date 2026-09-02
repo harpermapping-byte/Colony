@@ -4869,25 +4869,31 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const tileX = Math.floor(esquema.x);
     const tileY = Math.floor(esquema.y);
     const idx = this.idxCasillaDe(tileX, tileY);
-    if (this.casillasCultivo.has(idx)) return;
-    if (medioEn(this.mundo, tileX + 0.5, tileY + 0.5) !== TIPO.TIERRA) return;
-    if (ctx.ocupacion.has(idx)) return;
-    const parcelaId = parcelaEn(ctx.parcelas, tileX, tileY);
-    if (!parcelaId) return;
-    if (!(await this.esDuenoOJarlDe(ctx, parcelaId, nombre))) return;
+    // Misma cola que `cultivoCasilla:labrar/plantar/cosechar` (docs/GDD_Carros.md §9): sin esto, un
+    // jugador tecleando manualmente sobre la MISMA casilla mientras el arado automático la labra en
+    // este mismo tick puede pisar la escritura del otro (lectura-modificación-escritura solapada
+    // sobre `casillasCultivo`, encontrado en la auditoría de concurrencia de 2026-09-02).
+    await this.colaPorCasilla.ejecutar(idx, async () => {
+      if (this.casillasCultivo.has(idx)) return;
+      if (medioEn(this.mundo, tileX + 0.5, tileY + 0.5) !== TIPO.TIERRA) return;
+      if (ctx.ocupacion.has(idx)) return;
+      const parcelaId = parcelaEn(ctx.parcelas, tileX, tileY);
+      if (!parcelaId) return;
+      if (!(await this.esDuenoOJarlDe(ctx, parcelaId, nombre))) return;
 
-    const bd = await obtenerBdCompartida();
-    const jugador = await bd.obtenerOCrearJugador(nombre);
-    const resultado = labrarCasilla(this.casillasCultivo.get(idx), jugador.id);
-    if (!resultado.ok || !resultado.valor) return;
-    this.casillasCultivo.set(idx, resultado.valor);
-    await bd.guardarCasillaCultivo({
-      mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
-      duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
+      const bd = await obtenerBdCompartida();
+      const jugador = await bd.obtenerOCrearJugador(nombre);
+      const resultado = labrarCasilla(this.casillasCultivo.get(idx), jugador.id);
+      if (!resultado.ok || !resultado.valor) return;
+      this.casillasCultivo.set(idx, resultado.valor);
+      await bd.guardarCasillaCultivo({
+        mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
+        duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
+      });
+      // Feedback al conductor (mismo evento que un labrado manual) — no
+      // espamea a nadie más, solo quien va llevando las riendas del arado.
+      this.clients.find((c) => c.sessionId === esquema.conductorSessionId)?.send("cultivoCasilla:labrada", { x: tileX, y: tileY });
     });
-    // Feedback al conductor (mismo evento que un labrado manual) — no
-    // espamea a nadie más, solo quien va llevando las riendas del arado.
-    this.clients.find((c) => c.sessionId === esquema.conductorSessionId)?.send("cultivoCasilla:labrada", { x: tileX, y: tileY });
   }
 
   /**
@@ -4905,6 +4911,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!nombre) return;
     const contenido = this.contenidoDe("conjunto", conjuntoId);
     if (!contenido.carga) return; // apero sin semillero (p.ej. un arado_madera sin capacidadContenedor)
+    const carga = contenido.carga; // captura estable para las clausuras de abajo (TS pierde el narrowing dentro de async () => {})
     const primeraSemilla = contenido.carga.items.find((it) => this.catalogoItems[it.itemId]?.cultivo);
     if (!primeraSemilla) return; // sin semillas cargadas
     const entradaSemilla = this.catalogoItems[primeraSemilla.itemId];
@@ -4915,29 +4922,40 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const centroX = Math.floor(esquema.x);
     const centroY = Math.floor(esquema.y);
+    // Cada casilla del barrido se resuelve en la cola de SU PROPIO idx (mismo criterio y misma
+    // razón que aplicarAperoLabrarAutomatico): la lectura de `casillasCultivo` vuelve a hacerse
+    // DENTRO de la cola, nunca antes, para no pisar una edición manual concurrente sobre la misma
+    // casilla. Pierde el corte anticipado "sin semillas, deja de barrer" (ahora cada tarea comprueba
+    // la semilla por su cuenta) — sin impacto real con RADIO_CULTIVADORA tan pequeño.
     let cambiado = false;
+    const tareas: Promise<void>[] = [];
     for (let dy = -RADIO_CULTIVADORA; dy <= RADIO_CULTIVADORA; dy++) {
       for (let dx = -RADIO_CULTIVADORA; dx <= RADIO_CULTIVADORA; dx++) {
-        const semilla = contenido.carga.items.find((it) => it.itemId === primeraSemilla.itemId);
-        if (!semilla) { dy = RADIO_CULTIVADORA + 1; break; } // se acabaron las semillas, corta el barrido entero
         const tileX = centroX + dx;
         const tileY = centroY + dy;
         const idx = this.idxCasillaDe(tileX, tileY);
-        const casilla = this.casillasCultivo.get(idx);
-        if (!casilla || casilla.estado !== "labrada" || casilla.duenoId !== jugador.id) continue;
-        const resultado = plantarCasilla(casilla, semilla.itemId, jugador.id, dia);
-        if (!resultado.ok || !resultado.valor) continue;
-        quitarItem(contenido.carga, semilla.id, 1);
-        this.casillasCultivo.set(idx, resultado.valor);
-        await bd.guardarCasillaCultivo({
-          mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
-          duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
-        });
-        cambiado = true;
-        // Feedback al conductor (mismo evento que una siembra manual) por cada casilla realmente sembrada.
-        this.clients.find((c) => c.sessionId === esquema.conductorSessionId)?.send("cultivoCasilla:plantada", { x: tileX, y: tileY, semillaId: semilla.itemId });
+        tareas.push(
+          this.colaPorCasilla.ejecutar(idx, async () => {
+            const semilla = carga.items.find((it) => it.itemId === primeraSemilla.itemId);
+            if (!semilla) return; // se acabaron las semillas
+            const casilla = this.casillasCultivo.get(idx);
+            if (!casilla || casilla.estado !== "labrada" || casilla.duenoId !== jugador.id) return;
+            const resultado = plantarCasilla(casilla, semilla.itemId, jugador.id, dia);
+            if (!resultado.ok || !resultado.valor) return;
+            quitarItem(carga, semilla.id, 1);
+            this.casillasCultivo.set(idx, resultado.valor);
+            await bd.guardarCasillaCultivo({
+              mapaId: this.mapaIdPropio!, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
+              duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
+            });
+            cambiado = true;
+            // Feedback al conductor (mismo evento que una siembra manual) por cada casilla realmente sembrada.
+            this.clients.find((c) => c.sessionId === esquema.conductorSessionId)?.send("cultivoCasilla:plantada", { x: tileX, y: tileY, semillaId: semilla.itemId });
+          }),
+        );
       }
     }
+    await Promise.all(tareas);
     if (cambiado) await this.guardarContenidoCarro("conjunto", conjuntoId, contenido);
   }
 
@@ -9191,40 +9209,53 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const dia = tiempoMundo().dia;
 
     // --- 1) crafteo automático ---
+    // Cada trabajador se procesa dentro de `colaPorTrabajador` (misma cola
+    // que usan los 4 mensajes `trabajador:*` que lo mutan) — sin esto, un
+    // `trabajador:despedir` para X puede colarse a mitad del `await` de
+    // consumirStockTenderete/sumarStockTenderete de ESTE tick para el mismo
+    // X: el tick ya cobró los insumos pero el trabajador desaparece antes
+    // de que el crafte se recoja, perdiendo el stock consumido para
+    // siempre (encontrado en la auditoría de concurrencia de 2026-09-02).
     if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
     const ctx = this.ctxConstruccion;
-    for (const fila of [...this.trabajadoresActivos.values()]) {
-      const enCurso = this.craftesTrabajador.get(fila.id);
-      if (enCurso) {
-        if (!crafteoListo(enCurso, ahora)) continue;
-        const receta = this.catalogoRecetas.get(enCurso.recetaId);
-        this.craftesTrabajador.delete(fila.id);
-        if (receta) {
-          const viva = ctx?.vivas.get(fila.construccionId!);
-          if (viva) await bd.sumarStockTenderete(viva.propiedad, receta.resultado.itemId, receta.resultado.cantidad, 0);
-        }
-        continue; // recogido este tick — el próximo arranca uno nuevo
-      }
-      if (!ctx || fila.construccionId == null || !fila.recetaId) continue;
-      const viva = ctx.vivas.get(fila.construccionId);
-      if (!viva) continue;
-      const receta = this.catalogoRecetas.get(fila.recetaId);
-      if (!receta || !receta.mesas.includes(viva.objeto) || !puedeOperarOficio(fila.oficios, receta.oficio)) continue;
+    await Promise.all(
+      [...this.trabajadoresActivos.values()].map((fila) =>
+        this.colaPorTrabajador.ejecutar(fila.id, async () => {
+          // Releer tras entrar en la cola: pudo despedirse mientras esta tarea esperaba turno.
+          if (!this.trabajadoresActivos.has(fila.id)) return;
+          const enCurso = this.craftesTrabajador.get(fila.id);
+          if (enCurso) {
+            if (!crafteoListo(enCurso, ahora)) return;
+            const receta = this.catalogoRecetas!.get(enCurso.recetaId);
+            this.craftesTrabajador.delete(fila.id);
+            if (receta) {
+              const viva = ctx?.vivas.get(fila.construccionId!);
+              if (viva) await bd.sumarStockTenderete(viva.propiedad, receta.resultado.itemId, receta.resultado.cantidad, 0);
+            }
+            return; // recogido este tick — el próximo arranca uno nuevo
+          }
+          if (!ctx || fila.construccionId == null || !fila.recetaId) return;
+          const viva = ctx.vivas.get(fila.construccionId);
+          if (!viva) return;
+          const receta = this.catalogoRecetas!.get(fila.recetaId);
+          if (!receta || !receta.mesas.includes(viva.objeto) || !puedeOperarOficio(fila.oficios, receta.oficio)) return;
 
-      // Insumos del ALMACÉN DE LA MESA (tenderete_items de su propiedad —
-      // NUNCA el inventario del jugador dueño ni uno propio del
-      // trabajador, decisión documentada en GDD_NPCs_Contratables.md):
-      // se comprueba TODO antes de consumir nada, para no dejar un
-      // consumo parcial si falta el segundo insumo de la lista.
-      const stock = await bd.listarStockTenderete(viva.propiedad);
-      const alcanza = receta.insumos.every((ins) => (stock.find((s) => s.itemId === ins.itemId)?.cantidad ?? 0) >= ins.cantidad);
-      if (!alcanza) continue;
-      for (const ins of receta.insumos) await bd.consumirStockTenderete(viva.propiedad, ins.itemId, ins.cantidad);
-      // Sin bonos de energía/oficio/pócima (a diferencia del jugador): el
-      // trabajador craftea a ritmo BASE siempre — simplificación deliberada,
-      // ver GDD_NPCs_Contratables.md.
-      this.craftesTrabajador.set(fila.id, { recetaId: receta.id, terminaEn: ahora + receta.tiempoBaseSeg * 1000 });
-    }
+          // Insumos del ALMACÉN DE LA MESA (tenderete_items de su propiedad —
+          // NUNCA el inventario del jugador dueño ni uno propio del
+          // trabajador, decisión documentada en GDD_NPCs_Contratables.md):
+          // se comprueba TODO antes de consumir nada, para no dejar un
+          // consumo parcial si falta el segundo insumo de la lista.
+          const stock = await bd.listarStockTenderete(viva.propiedad);
+          const alcanza = receta.insumos.every((ins) => (stock.find((s) => s.itemId === ins.itemId)?.cantidad ?? 0) >= ins.cantidad);
+          if (!alcanza) return;
+          for (const ins of receta.insumos) await bd.consumirStockTenderete(viva.propiedad, ins.itemId, ins.cantidad);
+          // Sin bonos de energía/oficio/pócima (a diferencia del jugador): el
+          // trabajador craftea a ritmo BASE siempre — simplificación deliberada,
+          // ver GDD_NPCs_Contratables.md.
+          this.craftesTrabajador.set(fila.id, { recetaId: receta.id, terminaEn: ahora + receta.tiempoBaseSeg * 1000 });
+        }),
+      ),
+    );
 
     // --- 2) salario mensual, agrupado por dueño (cálculo perezoso) ---
     const porDueno = new Map<number, NpcTrabajador[]>();
@@ -9240,11 +9271,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const saldo = await bd.obtenerFarycoins(duenoId);
       const resultado = resolverPayroll(paraPago, dia, saldo);
       if (!resultado.tocaPagar) continue;
-      for (const despedido of resultado.aDespedir) {
-        await this.desactivarRutaDeTrabajador(bd, despedido.id);
-        this.despedirTrabajadorEnMemoria(despedido.id);
-        await bd.despedirNpcTrabajador(despedido.id);
-      }
+      // Mismo criterio que la sección 1: el despido por impago comparte cola con
+      // `trabajador:despedir` para no chocar si el jugador despide a mano al mismo NPC.
+      await Promise.all(
+        resultado.aDespedir.map((despedido) =>
+          this.colaPorTrabajador.ejecutar(despedido.id, async () => {
+            if (!this.trabajadoresActivos.has(despedido.id)) return; // ya despedido por otra vía mientras esperaba turno
+            await this.desactivarRutaDeTrabajador(bd, despedido.id);
+            this.despedirTrabajadorEnMemoria(despedido.id);
+            await bd.despedirNpcTrabajador(despedido.id);
+          }),
+        ),
+      );
       if (resultado.aPagar.length > 0) {
         await bd.ajustarFarycoins(duenoId, -resultado.costeTotal);
         const ids = resultado.aPagar.map((t) => t.id);

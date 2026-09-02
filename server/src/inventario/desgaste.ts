@@ -31,11 +31,6 @@ export function tieneDurabilidad(entrada: EntradaCatalogoItem): boolean {
   return entrada.durabilidadMax != null && entrada.durabilidadMax > 0;
 }
 
-/** Durabilidad inicial de una instancia recién creada (100% — usado por inventario.ts al crear la instancia). */
-export function durabilidadInicial(entrada: EntradaCatalogoItem): number | undefined {
-  return tieneDurabilidad(entrada) ? entrada.durabilidadMax : undefined;
-}
-
 /**
  * Cierra el hueco de inactividad desde `ultimoUso` hasta `ahoraMs` y dejа
  * `ultimoUso` puesto a `ahoraMs` — llamar SIEMPRE antes de tocar la

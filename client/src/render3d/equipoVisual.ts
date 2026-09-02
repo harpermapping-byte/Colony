@@ -13,11 +13,13 @@ import itemsJson from "../../../items/catalogo/items.json";
  * cliente solo los LEE), lo que un jugador tiene equipado cambia en
  * caliente y es imposible de pre-hornear por combinación — mismo criterio
  * que ya usa `rigHumanoide.ts` (el propio rig del jugador tampoco se
- * pre-hornea, se construye en el navegador). `generarPieza` (ropa/src/
- * generarEquipo.js) es la MISMA función que usaría cualquier bakeador
- * offline — no se duplica su lógica aquí, solo se importa (mismo patrón ya
- * usado por client/src/render3d/catalogoVisual.ts para JSON de otros
- * paquetes, extendido aquí a una función pura sin dependencias de Node).
+ * pre-hornea, se construye en el navegador). `generarPiezaVoxel`
+ * (generarEquipoVoxel.ts) es un PUERTO nativo a TS de la lógica de
+ * `ropa/src/generarEquipo.js` (que solo corre offline/Node) — NO es la misma
+ * función importada, así que un cambio en el generador offline (p.ej. un
+ * slot nuevo en `POSICION_POR_SLOT`) hay que reflejarlo a mano aquí también
+ * (auditoría de concurrencia 2026-09-02, ver el comentario propio de
+ * generarEquipoVoxel.ts).
  *
  * Catálogos importados como JSON de Vite (build-time, no `fs` en el
  * navegador) — `materialesJson` es la MISMA fuente que ya usa el bakeador

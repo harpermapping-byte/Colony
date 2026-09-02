@@ -163,12 +163,20 @@ const servidor = http.createServer(async (req, res) => {
       const q = url.searchParams.get("q");
       const sala = url.searchParams.get("sala");
       if (categoria) resultado = resultado.filter((it) => it.categoria === categoria);
-      if (subcategoria) resultado = resultado.filter((it) => it.subcategoria === subcategoria);
+      // subcategoria/texto reusan la búsqueda REAL de catalogoContenido.js (buscarPorSubcategoria/
+      // buscarPorTexto) en vez de reimplementar el mismo filtro a mano por segunda vez — encontrado
+      // en la auditoría de 2026-09-02: la copia de aquí ya se había desincronizado de la real (esta
+      // no comparaba `it.id` en minúsculas, la de catalogoContenido.js tampoco lo hacía, pero
+      // cualquier cambio futuro en una sola de las dos copias las habría desincronizado en serio).
+      if (subcategoria) {
+        const ids = new Set(catalogoContenido.buscarPorSubcategoria(subcategoria).map((it) => it.id));
+        resultado = resultado.filter((it) => ids.has(it.id));
+      }
       if (tag) resultado = resultado.filter((it) => it.tags.includes(tag));
       if (sala) resultado = resultado.filter((it) => it.salasPermitidas.length === 0 || it.salasPermitidas.includes(sala));
       if (q) {
-        const ql = q.toLowerCase();
-        resultado = resultado.filter((it) => it.id.includes(ql) || it.nombre.toLowerCase().includes(ql) || it.tags.some((t) => t.includes(ql)));
+        const ids = new Set(catalogoContenido.buscarPorTexto(q).map((it) => it.id));
+        resultado = resultado.filter((it) => ids.has(it.id));
       }
       const categorias = [...new Set(catalogoContenido.items.map((it) => it.categoria))].sort();
       const tags = [...new Set(catalogoContenido.items.flatMap((it) => it.tags))].sort();

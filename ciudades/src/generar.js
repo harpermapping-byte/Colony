@@ -929,8 +929,13 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
     if (t === "camino" || t === "adoquin" || t === "puente") return 0.5;
     return 1;
   };
+  // `alcanzable` solo cambia cuando de verdad se talla una senda nueva — recalcularlo en CADA
+  // vuelta del bucle (como se hacía antes) repite el mismo flood-fill completo del mapa para
+  // cada edificio ya conectado, que es la inmensa mayoría (perfilado en la auditoría de
+  // rendimiento de 2026-09-02: floodDesde era la función JS más caliente de todo el bake de una
+  // capital_jarl, por encima incluso de aEstrella). Se recalcula solo tras tallar de verdad.
+  let alcanzable = floodDesde(terreno, spawn, TRANSITABLE_LOCAL);
   for (const ed of todos) {
-    const alcanzable = floodDesde(terreno, spawn, TRANSITABLE_LOCAL);
     if (alcanzable.has(ed.puerta.y * ancho + ed.puerta.x)) continue;
     const senda = aEstrella(ancho, alto, ed.puerta, spawn, costeSenda);
     if (!senda) continue; // el validador lo reportará
@@ -944,6 +949,7 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
       // el A* da pasos diagonales pero se camina a 4 vecinos: rellenar el codo
       if (i > 0 && senda[i].x !== senda[i - 1].x && senda[i].y !== senda[i - 1].y) tallar(senda[i].x, senda[i - 1].y);
     }
+    alcanzable = floodDesde(terreno, spawn, TRANSITABLE_LOCAL);
   }
 
   // --- 6. salida ------------------------------------------------------------

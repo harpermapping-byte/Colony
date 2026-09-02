@@ -99,7 +99,3 @@ export async function reproducirMidi(clave: string, tipo: TipoInstrumento, midiU
 export function detenerReproduccion(clave: string): void {
   detenerClave(clave);
 }
-
-export function estaReproduciendo(clave: string): boolean {
-  return activos.has(clave);
-}

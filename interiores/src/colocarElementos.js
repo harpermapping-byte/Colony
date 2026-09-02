@@ -55,6 +55,22 @@ const CAPAS_POR_FASE = {
 // categoria (tipos_sala.json) y si su riquezaTipica (materiales.json)
 // admite la riqueza de esta sala; así nunca aparece un papel_pintado en una
 // choza humilde solo porque el edificio "prefiera" ese material en teoría.
+// Mismo criterio que cacheAlternativasMaterial de abajo: construirCatalogoContenido re-deriva
+// categoría/subcategoría/tags de las 716 entradas de elementos.json (regex incluidas) — sin
+// cachear, colocarSala() lo repetía DESDE CERO por cada sala de cada edificio del bake (varias
+// plantas × varias salas × decenas de edificios), aunque `catalogos` sea siempre el mismo objeto
+// cargado una vez al arrancar el bake (perfilado en la auditoría de rendimiento de 2026-09-02:
+// ~5.4% de los ticks de un bake de capital_jarl).
+const cacheCatalogoContenido = new WeakMap();
+function catalogoContenidoCacheado(catalogos) {
+  let cache = cacheCatalogoContenido.get(catalogos);
+  if (!cache) {
+    cache = construirCatalogoContenido(catalogos);
+    cacheCatalogoContenido.set(catalogos, cache);
+  }
+  return cache;
+}
+
 const cacheAlternativasMaterial = new WeakMap();
 function alternativasMaterialPorCategoria(catalogos) {
   let cache = cacheAlternativasMaterial.get(catalogos);
@@ -950,7 +966,7 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   // con la MISMA semilla de la sala — catálogo → selección → instancia
   // determinista de punta a punta: dos bakeados con la misma semilla dan
   // siempre la misma variante, sin aleatoriedad no determinista.
-  const catalogoContenido = construirCatalogoContenido(catalogos);
+  const catalogoContenido = catalogoContenidoCacheado(catalogos);
   let contadorInstancia = 0;
   const marcarGenerado = (item) => {
     item.instanceId = `${tipoSalaId}_${semilla}_${contadorInstancia++}`;
