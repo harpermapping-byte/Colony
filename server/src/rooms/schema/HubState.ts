@@ -216,6 +216,16 @@ export class Player extends Schema {
   // para ponerlo a true sin colisión real (ver la nota en RoomExteriorBase).
   @type("boolean") sentado = false;
   @type("boolean") sentadoSuelo = false;
+  // id de la construcción real donde está sentado/tumbado (-1 = ninguna, o
+  // sentadoSuelo sin mueble) — pedido 2026-09-02 ("debe vincular y poner al
+  // personaje encima del objeto"): sin esto el cliente solo sabía la POSE
+  // (sentado sí/no), nunca sobre QUÉ silla/cama exacta, así que no podía
+  // fijar la posición del rig sobre el mueble — solo aplicaba un pequeño
+  // hundimiento en Y donde ya estuviera parado. Replicado para que
+  // cualquier cliente (no solo el que se sienta) pueda calcular la posición
+  // real vía `renderConstrucciones.datosDe(id)` + su huella de catálogo.
+  @type("number") sentadoEnId = -1;
+  @type("number") durmiendoEnId = -1;
   // Debug godMode (admin:debug:godMode, Test Zone, pedido 2026-08-31):
   // jarl/superadmin-only, self-target — con esto activo el jugador no
   // pierde vida (daño ambiental/combate) ni comida/hidratación (ver el

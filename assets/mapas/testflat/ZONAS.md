@@ -36,11 +36,16 @@ Nota Windows: los nombres de archivo de interiores originalmente traían
 `:` (inválido en NTFS) — ya renombrados a `_` con las referencias de
 `indice.json` actualizadas, mismo arreglo aplicado a `testzone`.
 
+Población (2026-09-02, bug real encontrado jugando: "no sale la aldea" — sin
+`poblacion.json` la aldea tenía 0 NPCs reales, así que `game.ts` activaba el
+circuito de personajes DEMO de sitio fijo cerca del spawn, que se veía
+exactamente igual en cualquier mapa sin población — parecía que el cliente
+no había cargado nada nuevo al cruzar el portal): generada con
+`node poblacion/src/exportarAsentamiento.js aldea_pequena testaldea-01 assets/mapas/testaldea`
+(5 NPCs con rutina y vóxeles reales, committeada en `poblacion.json`).
+
 ## Pendiente
 
-- La aldea no tiene población (`poblacion.json`) — se generaría con
-  `node poblacion/src/exportarAsentamiento.js aldea_pequena testaldea-01 assets/mapas/testaldea`
-  si se quiere gente con rutina caminando dentro, no solo edificios vacíos.
 - Patrullas de bandidos reales (las de faja/economía, no el dummy de
   pruebas) requieren un `asentamiento_hostil` bakeado — fuera de alcance de
   esta pasada, ver nota ya existente en `docs/GDD_TestZone.md`.

@@ -930,7 +930,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (((dir?.x ?? 0) !== 0 || (dir?.y ?? 0) !== 0) && this.durmiendo.has(client.sessionId)) {
         this.durmiendo.delete(client.sessionId);
         const durmiente = this.state.players.get(client.sessionId);
-        if (durmiente) durmiente.durmiendo = false;
+        if (durmiente) { durmiente.durmiendo = false; durmiente.durmiendoEnId = -1; }
         client.send("dormir:cancelado", {});
       }
       // Levantarse de la silla/suelo (pedido 2026-08-31: "para levantarte es
@@ -939,7 +939,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if ((dir?.x ?? 0) !== 0 || (dir?.y ?? 0) !== 0) {
         if (this.sentado.delete(client.sessionId)) {
           const j = this.state.players.get(client.sessionId);
-          if (j) j.sentado = false;
+          if (j) { j.sentado = false; j.sentadoEnId = -1; }
         }
         if (this.sentadoSuelo.delete(client.sessionId)) {
           const j = this.state.players.get(client.sessionId);
@@ -2697,6 +2697,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const terminaEn = Date.now() + DURACION_DORMIR_MS;
     this.durmiendo.set(client.sessionId, { terminaEn });
     player.durmiendo = true;
+    player.durmiendoEnId = viva.id;
     client.send("dormir:iniciado", { terminaEn });
   }
 
@@ -2710,6 +2711,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const player = this.state.players.get(client.sessionId);
     if (player) {
       player.durmiendo = false;
+      player.durmiendoEnId = -1;
       player.vitales.estamina = VITAL_MAX;
     }
     // "Descansado" (docs/GDD_Mecanicas.md §5.12, 2026-09-02) — doble XP de
@@ -2750,6 +2752,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (player.sentadoSuelo) player.sentadoSuelo = false;
     this.sentado.add(client.sessionId);
     player.sentado = true;
+    player.sentadoEnId = viva.id;
     client.send("sentar:iniciado", {});
   }
 
@@ -2759,7 +2762,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     this.sentado.delete(client.sessionId);
-    if (player.sentado) player.sentado = false;
+    if (player.sentado) { player.sentado = false; player.sentadoEnId = -1; }
     this.sentadoSuelo.add(client.sessionId);
     player.sentadoSuelo = true;
     client.send("sentar:iniciado", {});
@@ -5742,6 +5745,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.sentadoEn.set(client.sessionId, msg.construccionId);
     this.asientosOcupados.set(msg.construccionId, client.sessionId);
     player.sentado = true;
+    player.sentadoEnId = msg.construccionId;
   }
 
   /** Compartido por cancelar-al-moverse, "asiento:levantarse", onLeave y "recoger" sobre la construcción ocupada. */
@@ -5751,7 +5755,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.sentadoEn.delete(sessionId);
     if (this.asientosOcupados.get(construccionId) === sessionId) this.asientosOcupados.delete(construccionId);
     const player = this.state.players.get(sessionId);
-    if (player) player.sentado = false;
+    if (player) { player.sentado = false; player.sentadoEnId = -1; }
   }
 
   private errorAsiento(client: Client, motivo: string) {
