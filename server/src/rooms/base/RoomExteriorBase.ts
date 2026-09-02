@@ -149,6 +149,7 @@ import {
 } from "../../personaje/bonusAtributos";
 import { curar, ATAQUE_BASE_JUGADOR, DEFENSA_BASE_JUGADOR } from "../../combate/combate";
 import { RoomConectable, registrarRoom, quitarRoom, registrarJugador, quitarJugador } from "../../twitch/registro";
+import { ColaPorClave } from "../../concurrencia/colaPorClave";
 import { obtenerGestorTwitch } from "../../twitch/gestorTwitch";
 import { TipoEvento } from "../../twitch/catalogoEventos";
 import { resolverSesionTwitch } from "../../twitch/oauthLogin";
@@ -488,6 +489,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private durmiendo = new Map<string, { terminaEn: number }>();
   /** Sentarse en un mueble real (esSilla) — mismo espíritu que `durmiendo` pero sin duración: dura hasta que el jugador se mueve. */
   private sentado = new Set<string>();
+  /**
+   * Serializa los mensajes que leen/escriben `ConstruccionViva.extra` (o
+   * cualquier otro estado de room keyed por construcción) por
+   * `construccionId` — sin esto, dos mensajes solapados sobre la MISMA
+   * construcción (dos jugadores, o el mismo jugador haciendo doble clic)
+   * pueden leer el mismo snapshot antes de que el primero escriba, y el
+   * segundo pisa esa escritura al terminar. Bug real encontrado en el
+   * testeo de concurrencia de 2026-09-01 (`produccion:recolectar`
+   * duplicaba lo cosechado; un cofre recién colocado podía perder el
+   * primer ítem metido) — ver `server/src/concurrencia/colaPorClave.ts`.
+   */
+  private colaPorConstruccion = new ColaPorClave();
   /** Sentarse en el suelo, sin mueble — pose distinta (`sentadoSuelo`), mismo criterio "hasta moverse". */
   private sentadoSuelo = new Set<string>();
   protected mundo!: MundoColision;
@@ -964,16 +977,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Encurtido de pieles (docs/GDD_Caza.md) — cubo_sal/barril_curtido,
     // mismo criterio que producción/crafteo: disponible en cualquier room,
     // no-op si no tiene ContextoConstruccion.
-    this.onMessage("curtidor:cargarMaterial", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarCurtidorCargarMaterial(client, msg));
-    this.onMessage("curtidor:meterPiel", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarCurtidorMeterPiel(client, msg));
-    this.onMessage("curtidor:recolectar", (client, msg: { construccionId?: number }) => void this.manejarCurtidorRecolectar(client, msg));
+    this.onMessage("curtidor:cargarMaterial", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCurtidorCargarMaterial(client, msg)));
+    this.onMessage("curtidor:meterPiel", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCurtidorMeterPiel(client, msg)));
+    this.onMessage("curtidor:recolectar", (client, msg: { construccionId?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCurtidorRecolectar(client, msg)));
 
     // Ganadería (docs/GDD_Ganaderia.md) — cría de animales domésticos:
     // domesticar en el exterior o comprar por tenderete, comedero/bebedero,
     // productos vivos (leche/lana/huevos), sacrificar. Disponible en
     // cualquier room, no-op si no tiene ContextoConstruccion.
     this.onMessage("animal:domesticar", (client, msg: { propiedadDestino?: string }) => void this.manejarAnimalDomesticar(client, msg));
-    this.onMessage("animal:cargarComedero", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarAnimalCargarComedero(client, msg));
+    this.onMessage("animal:cargarComedero", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarAnimalCargarComedero(client, msg)));
     this.onMessage("animal:recolectarProducto", (client, msg: { animalId?: string; producto?: string }) => void this.manejarAnimalRecolectarProducto(client, msg));
     this.onMessage("animal:sacrificar", (client, msg: { animalId?: string }) => void this.manejarAnimalSacrificar(client, msg));
     this.onMessage("animal:consultar", (client, msg: { animalId?: string }) => void this.manejarAnimalConsultar(client, msg));
@@ -1036,17 +1049,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // --- producción/plantillas del jarl/transporte (docs/GDD_Produccion.md)
     // — mismo criterio que mercado: disponibles en cualquier room, no-op si
     // esta room no tiene ContextoConstruccion (comprobado dentro de cada handler).
-    this.onMessage("produccion:recolectar", (client, msg: { construccionId?: number }) => this.manejarProduccionRecolectar(client, msg));
+    this.onMessage("produccion:recolectar", (client, msg: { construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarProduccionRecolectar(client, msg)));
 
     // Agricultura (docs/GDD_Agricultura.md, pedido 2026-08-30): bancal/maceta.
-    this.onMessage("cultivo:plantar", (client, msg: { construccionId?: number; instanciaId?: number }) => this.manejarCultivoPlantar(client, msg));
-    this.onMessage("cultivo:regar", (client, msg: { construccionId?: number }) => this.manejarCultivoRegar(client, msg));
-    this.onMessage("cultivo:abonar", (client, msg: { construccionId?: number }) => this.manejarCultivoAbonar(client, msg));
-    this.onMessage("cultivo:cosechar", (client, msg: { construccionId?: number }) => this.manejarCultivoCosechar(client, msg));
-    this.onMessage("cultivo:consultar", (client, msg: { construccionId?: number }) => this.manejarCultivoConsultar(client, msg));
+    this.onMessage("cultivo:plantar", (client, msg: { construccionId?: number; instanciaId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCultivoPlantar(client, msg)));
+    this.onMessage("cultivo:regar", (client, msg: { construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCultivoRegar(client, msg)));
+    this.onMessage("cultivo:abonar", (client, msg: { construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCultivoAbonar(client, msg)));
+    this.onMessage("cultivo:cosechar", (client, msg: { construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCultivoCosechar(client, msg)));
+    this.onMessage("cultivo:consultar", (client, msg: { construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCultivoConsultar(client, msg)));
     // Injertos (docs/GDD_Agricultura.md §4, diseño ya cerrado en el
     // backlog): mesa_injertos + dos semillas cualesquiera -> especie nueva.
-    this.onMessage("injerto:crear", (client, msg: { construccionId?: number; instanciaIdA?: number; instanciaIdB?: number }) => this.manejarInjertoCrear(client, msg));
+    this.onMessage("injerto:crear", (client, msg: { construccionId?: number; instanciaIdA?: number; instanciaIdB?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarInjertoCrear(client, msg)));
 
     // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30, ampliado 2026-08-30
     // "cocina v2"): hoguera (sencillo) o vasija (combina varios ingredientes
@@ -1082,9 +1095,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Cocina v2: quesera (recipiente_queso) — mismo espíritu que curtidor,
     // módulo aparte (server/src/construccion/cuajado.ts) por no encajar
     // igual de bien en el modelo de curtido.ts (ver cabecera de cuajado.ts).
-    this.onMessage("quesera:cargarLeche", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.manejarQueseraCargarLeche(client, msg));
-    this.onMessage("quesera:iniciarLote", (client, msg: { construccionId?: number; conSal?: boolean }) => void this.manejarQueseraIniciarLote(client, msg));
-    this.onMessage("quesera:recolectar", (client, msg: { construccionId?: number }) => void this.manejarQueseraRecolectar(client, msg));
+    this.onMessage("quesera:cargarLeche", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarQueseraCargarLeche(client, msg)));
+    this.onMessage("quesera:iniciarLote", (client, msg: { construccionId?: number; conSal?: boolean }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarQueseraIniciarLote(client, msg)));
+    this.onMessage("quesera:recolectar", (client, msg: { construccionId?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarQueseraRecolectar(client, msg)));
 
     // Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30): vendar/entablillar
     // son primeros auxilios de campo (cualquiera, sin oficio); cirugía y
@@ -1120,9 +1133,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("transporte:cancelar", (client, msg: { contratoId?: number }) => this.manejarTransporteCancelar(client, msg));
     this.onMessage("transporte:estado", (client) => this.manejarTransporteEstado(client));
     // Cofre de construcción (docs/GDD_Produccion.md §3ter, pedido 2026-08-31).
-    this.onMessage("cofre:consultar", (client, msg: { construccionId?: number }) => void this.manejarCofreConsultar(client, msg));
-    this.onMessage("cofre:meterItem", (client, msg: { construccionId?: number; instanciaId?: number }) => void this.manejarCofreMeterItem(client, msg));
-    this.onMessage("cofre:sacarItem", (client, msg: { construccionId?: number; instanciaId?: number }) => void this.manejarCofreSacarItem(client, msg));
+    this.onMessage("cofre:consultar", (client, msg: { construccionId?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCofreConsultar(client, msg)));
+    this.onMessage("cofre:meterItem", (client, msg: { construccionId?: number; instanciaId?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCofreMeterItem(client, msg)));
+    this.onMessage("cofre:sacarItem", (client, msg: { construccionId?: number; instanciaId?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCofreSacarItem(client, msg)));
     // Librería (docs/GDD_Libreria.md, pedido 2026-09-01): la estantería en sí
     // reusa el protocolo cofre:* de arriba TAL CUAL (esContenedor:true) —
     // estos dos mensajes son solo lo NUEVO: escribir y leer libros.
@@ -1131,19 +1144,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     // --- red motriz (docs/GDD_Motriz.md) — mismo criterio: disponible en
     // cualquier room con ContextoConstruccion, no-op si no lo hay.
-    this.onMessage("motriz:accionar", (client, msg: { construccionId?: number; accion?: string; canal?: number }) => this.manejarMotrizAccionar(client, msg));
-    this.onMessage("motriz:consultar", (client, msg: { construccionId?: number }) => this.manejarMotrizConsultar(client, msg));
+    this.onMessage("motriz:accionar", (client, msg: { construccionId?: number; accion?: string; canal?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarMotrizAccionar(client, msg)));
+    this.onMessage("motriz:consultar", (client, msg: { construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarMotrizConsultar(client, msg)));
 
     // --- crafteo (docs/GDD_Crafteo.md) ---
-    this.onMessage("refinamiento:depositar", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.manejarRefinamientoDepositar(client, msg));
-    this.onMessage("crafteo:iniciar", (client, msg: { recetaId?: string; construccionId?: number }) => this.manejarCrafteoIniciar(client, msg));
+    this.onMessage("refinamiento:depositar", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarRefinamientoDepositar(client, msg)));
+    this.onMessage("crafteo:iniciar", (client, msg: { recetaId?: string; construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCrafteoIniciar(client, msg)));
     this.onMessage("crafteo:recolectar", (client) => this.manejarCrafteoRecolectar(client));
 
     // --- NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido 2026-09-01) ---
     this.onMessage("reclutador:catalogo", (client) => this.manejarReclutadorCatalogo(client));
     this.onMessage("reclutador:contratar", (client, msg: { oficios?: string[] }) => void this.manejarReclutadorContratar(client, msg));
     this.onMessage("trabajador:listar", (client) => void this.manejarTrabajadorListar(client));
-    this.onMessage("trabajador:asignarMesa", (client, msg: { trabajadorId?: number; construccionId?: number }) => void this.manejarTrabajadorAsignarMesa(client, msg));
+    this.onMessage("trabajador:asignarMesa", (client, msg: { trabajadorId?: number; construccionId?: number }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarTrabajadorAsignarMesa(client, msg)));
     this.onMessage("trabajador:asignarReceta", (client, msg: { trabajadorId?: number; recetaId?: string | null }) => void this.manejarTrabajadorAsignarReceta(client, msg));
     // Oficio "transporte" fusionado (docs/GDD_NPCs_Contratables.md §Fusión
     // con transporte, pedido 2026-09-01) — equivalente a asignarMesa pero
@@ -1170,7 +1183,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // no una RecetaCrafteo con insumos cerrados) sobre un "caldero" ya
     // construido. "Mismo sistema de activarse que la del herrero": misma
     // forma de protocolo (iniciar -> acción* -> colar/cancelar).
-    this.onMessage("alquimia:iniciar", (client, msg: { construccionId?: number; instanciaIds?: number[] }) => void this.manejarAlquimiaIniciar(client, msg));
+    this.onMessage("alquimia:iniciar", (client, msg: { construccionId?: number; instanciaIds?: number[] }) => void this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarAlquimiaIniciar(client, msg)));
     this.onMessage("alquimia:accion", (client, msg: { accion?: string }) => this.manejarAlquimiaAccion(client, msg));
     this.onMessage("alquimia:colar", (client) => void this.manejarAlquimiaColar(client));
     this.onMessage("alquimia:cancelar", (client) => this.manejarAlquimiaCancelar(client));
@@ -2751,6 +2764,33 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           x, y, rot, variante,
           extra,
         });
+
+        // Revalidación justo antes de comprometer en memoria (bug real del
+        // testeo de concurrencia de 2026-09-01): Colyseus NO serializa
+        // `onMessage` async entre sí — entre la validación de arriba y este
+        // punto ha habido varios `await` (nivel de oficio, impuesto, insertar
+        // en BD) durante los cuales un SEGUNDO "construir" solapado (otro
+        // jugador, o el mismo con doble clic) pudo colarse y reservar la
+        // MISMA casilla en `ctx.ocupacion` sin que este handler se enterase.
+        // De aquí a `aplicarColocacion` no hay ningún `await` más, así que
+        // esta re-comprobación y la escritura son atómicas de verdad
+        // (single-thread de JS) — si alguien ganó la carrera, se deshace lo
+        // ya hecho (fila de BD + ítem consumido) igual que `comprarOAlquilar`
+        // deshace su débito cuando pierde su propia carrera (bd.ts).
+        const veredictoFinal = validarColocacion(ctx, { nombre, entrada, x, y, rot });
+        if (!veredictoFinal.ok) {
+          await bd.borrarConstruccion(id);
+          if (entrada.requiereItemColocar) {
+            const contenedorDevolver = this.inventarios.get(client.sessionId);
+            if (contenedorDevolver) {
+              agregarItem(contenedorDevolver, this.catalogoItems, entrada.requiereItemColocar, 1);
+              const jugadorDevolver = this.state.players.get(client.sessionId);
+              if (jugadorDevolver) sincronizarContenedor(jugadorDevolver.inventario.cuerpo, contenedorDevolver);
+            }
+          }
+          return this.errorConstruir(client, veredictoFinal.motivo);
+        }
+
         aplicarColocacion(ctx, {
           id, propiedad: propiedadId, objeto: entrada.id, categoria: entrada.categoria,
           x, y, rot, variante, colision: entrada.colision, huella: entrada.huella,
@@ -2772,6 +2812,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         return this.errorConstruir(client, "no eres el dueño de esta construcción");
       }
       await bd.obtenerPropiedad(viva.propiedad); // Impuesto del jarl (docs/GDD_Economia.md §6) — mismo criterio que en "construir".
+      // Revalidación tras el await (mismo bug de concurrencia que "construir"
+      // arriba): un segundo "recoger" solapado sobre el MISMO construccionId
+      // pudo colarse mientras este esperaba a la BD y ya borró la
+      // construcción — sin esto, `quitarConstruccion` se llamaría dos veces
+      // (la segunda restauraría la colisión encima de lo que sea que ocupe
+      // esa casilla ahora) y `bd.borrarConstruccion` correría dos veces sobre
+      // un id que ya no existe.
+      if (!ctx.vivas.has(viva.id)) return;
       // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md): recoger la mesa
       // con gente sentada corta la partida y libera las dos sillas — antes
       // de borrar la construcción, para no dejar `mesaAjedrezPorSesion`
@@ -2782,8 +2830,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // de ajedrez de arriba — antes de borrar la construcción.
       const ocupante = this.asientosOcupados.get(viva.id);
       if (ocupante) this.levantarDeAsiento(ocupante);
-      await bd.borrarConstruccion(viva.id);
+      // quitarConstruccion (síncrono) va ANTES del await a la BD a propósito
+      // — es lo que borra `viva.id` de `ctx.vivas`, la señal que lee la
+      // revalidación de arriba. Si fuera después, un "recoger" solapado
+      // durante el await de `borrarConstruccion` seguiría viendo la
+      // construcción "viva" y la procesaría por segunda vez.
       quitarConstruccion(ctx, viva.id); // restaura la colisión del bake
+      await bd.borrarConstruccion(viva.id);
       this.broadcast("construccion:quitada", { id: viva.id });
     });
   }
@@ -6743,6 +6796,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     const id = await bd.insertarConstruccion({ propiedad: plantillaId, objeto: entrada.id, categoria: entrada.categoria, x, y, rot, variante: 0, extra });
+
+    // Misma revalidación que "construir" (RoomExteriorBase §construcción) —
+    // los `await` de arriba (BD) dejan una ventana en la que otro
+    // "plantilla:colocar"/"construir" solapado pudo reservar esta misma
+    // casilla antes de que este handler llegue aquí; de aquí a
+    // `aplicarColocacion` no hay más `await`, así que revalidar en este
+    // punto sí es atómico.
+    const veredictoFinal = validarColocacionPlantilla(ctx, { nombre, entrada, x, y, rot }, capital, RADIO_PLANTILLAS_JARL_CASILLAS);
+    if (!veredictoFinal.ok) {
+      await bd.borrarConstruccion(id);
+      return this.errorPlantilla(client, veredictoFinal.motivo);
+    }
+
     aplicarColocacion(ctx, { id, propiedad: plantillaId, objeto: entrada.id, categoria: entrada.categoria, x, y, rot, variante: 0, colision: entrada.colision, huella: entrada.huella, extra });
     this.broadcast("construccion:nueva", { id, propiedad: plantillaId, objeto: entrada.id, categoria: entrada.categoria, x, y, rot, variante: 0 });
     client.send("plantilla:colocada", { construccionId: id, plantillaId });
@@ -7114,10 +7180,22 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return entrada?.esContenedor ? entrada : null;
   }
 
-  /** dueño de la construcción (o jarl) — mismo criterio que produccion:recolectar. */
+  /**
+   * Dueño de la construcción, o jarl — mismo criterio que
+   * `manejarProduccionRecolectar` (`dueno !== nombre && !esJarl(...)`), pero
+   * el `!!dueno &&` de esta versión rompía esa equivalencia: una parcela sin
+   * dueño asignado (`dueno === null`, el caso normal antes de que el jarl la
+   * reparta — GDD_Construccion §0, "parcela sin dueño = del jarl/
+   * asentamiento") hacía que la función devolviera `false` incluso para el
+   * jarl, dejando sus cofres inaccesibles para todo el mundo. Encontrado en
+   * el testeo de concurrencia de 2026-09-01 al intentar reproducir la
+   * carrera de `cofre:meterItem` sobre un cofre recién colocado en una
+   * parcela todavía sin asignar.
+   */
   private async esDuenoOJarlDe(ctx: ContextoConstruccion, propiedad: string, nombre: string): Promise<boolean> {
+    if (esJarl(ctx, nombre)) return true;
     const dueno = ctx.propiedades.get(propiedad)?.dueno ?? (await this.duenoDeTenderete(propiedad));
-    return !!dueno && (dueno.toLowerCase() === nombre.toLowerCase() || esJarl(ctx, nombre));
+    return !!dueno && dueno.toLowerCase() === nombre.toLowerCase();
   }
 
   private contenedorDeCofre(viva: ConstruccionViva, entrada: EntradaConstruible): Contenedor {

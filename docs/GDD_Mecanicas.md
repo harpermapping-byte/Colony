@@ -558,3 +558,13 @@ codifica. El orden dentro de cada fase es flexible; entre fases, no mucho.
   + Playwright): spawn, entrar al lago, bucear a -2, salir, y pared que
   clava al PJ en el borde. Lee la verdad del servidor vía
   `window.__colonyDebug` (solo del jugador local).
+- `node client/test/concurrencia.e2e.mjs` — testeo de CONCURRENCIA real
+  (2026-09-01, ver `docs/GDD_Construccion.md` §5bis): dos sesiones
+  `colyseus.js` distintas mandando el MISMO mensaje sobre el MISMO recurso
+  a la vez (`Promise.all`), muchas rondas seguidas, contra el mapa
+  principal. Cualquier mensaje nuevo que lea-luego-escriba estado
+  compartido keyed por `construccionId` (o equivalente) debería sumarse
+  aquí, no solo probarse en solitario — un handler que se ve bien
+  ejecutado por un único jugador puede duplicar/perder estado en cuanto
+  dos sesiones lo solapan (Colyseus no serializa `onMessage` async entre
+  sí, ver GDD_Construccion.md §5bis).

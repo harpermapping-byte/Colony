@@ -65,15 +65,32 @@ export interface RosterArena {
   origenRoomId: string;
 }
 
-const registro = new Map<string, RosterArena>();
+/**
+ * Un roster que nadie llega a reclamar (el cliente que inició el combate se
+ * desconecta o cierra la pestaña antes de que `ArenaCombateRoom.onCreate`
+ * llegue a pedirlo) se quedaba en `registro` para siempre — encontrado en el
+ * testeo de concurrencia de 2026-09-01 (varias sesiones abriendo/cerrando
+ * combates sin llegar a entrar a la arena). Fuga pequeña por combate suelto,
+ * pero real bajo carga sostenida. Mismo criterio que el resto del proyecto
+ * (regla 1 CLAUDE.md, "cálculo perezoso para todo lo que cambia con el
+ * tiempo"): nada de `setTimeout`, solo se limpia lo caducado la próxima vez
+ * que alguien registra un roster nuevo.
+ */
+const TTL_ROSTER_MS = 10 * 60 * 1000; // 10 min reales de sobra para que el cliente navegue a la arena.
+
+const registro = new Map<string, { roster: RosterArena; registradoEn: number }>();
 
 export function registrarRosterArena(combateId: string, roster: RosterArena): void {
-  registro.set(combateId, roster);
+  const ahora = Date.now();
+  for (const [id, entrada] of registro) {
+    if (ahora - entrada.registradoEn > TTL_ROSTER_MS) registro.delete(id);
+  }
+  registro.set(combateId, { roster, registradoEn: ahora });
 }
 
 /** Lee y BORRA el roster — se consume una sola vez, al crear la room de arena. */
 export function tomarRosterArena(combateId: string): RosterArena | undefined {
-  const r = registro.get(combateId);
+  const entrada = registro.get(combateId);
   registro.delete(combateId);
-  return r;
+  return entrada?.roster;
 }

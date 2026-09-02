@@ -319,12 +319,20 @@ async function main() {
     const trasReinicio = await paginaB.evaluate(() => window.__construccion.construcciones());
     comprobar(trasReinicio === 5, `tras reiniciar el servidor con la misma BD siguen las 5 construcciones (hay ${trasReinicio})`);
 
-    // la casa guardó su interior generado: se lee el sqlite DIRECTAMENTE
+    // la casa guardó su interior generado: se lee el sqlite DIRECTAMENTE.
+    // OJO: `construcciones` es una tabla ÚNICA compartida por TODOS los
+    // asentamientos (docs/GDD_Construccion.md §1bis) — el arranque del
+    // servidor siembra aparte 19 muebles reales en la Test Zone
+    // ("testflat", parcela tf_0001, ver server/src/mundo/semillaTestZone.ts)
+    // que viven en la MISMA tabla. Filtrar por `p_0001` (la parcela que usa
+    // ESTE test) en vez de contar la tabla entera — bug real encontrado en
+    // el testeo de concurrencia de 2026-09-01: la aserción original contaba
+    // 24 filas (5 de este test + 19 de testflat) y siempre fallaba.
     const { DatabaseSync } = require("node:sqlite");
     const bd = new DatabaseSync(BD_RUTA);
-    const filas = bd.prepare("SELECT objeto, categoria, extra FROM construcciones").all();
+    const filas = bd.prepare("SELECT objeto, categoria, extra FROM construcciones WHERE propiedad = 'p_0001'").all();
     bd.close();
-    comprobar(filas.length === 5, `la BD tiene 5 construcciones (tiene ${filas.length})`);
+    comprobar(filas.length === 5, `la BD tiene 5 construcciones en p_0001 (tiene ${filas.length})`);
     const casa = filas.find((f) => f.objeto === "casa_humilde");
     let salas = 0;
     try {
