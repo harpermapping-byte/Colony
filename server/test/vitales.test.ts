@@ -6,7 +6,7 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import {
   vitalesIniciales, tickVitales, restaurarVital, aplicarInanicion,
-  aplicarTemperaturaCorporal, objetivoTemperaturaCorporal,
+  aplicarTemperaturaCorporal, objetivoTemperaturaCorporal, aplicarAhogo,
   VITAL_MAX, TEMPERATURA_NEUTRA, UMBRAL_CALOR_EXTREMO, UMBRAL_FRIO_EXTREMO,
 } from "../src/personaje/vitales";
 
@@ -192,4 +192,65 @@ test("aplicarTemperaturaCorporal: horasTranscurridas<=0 no hace nada", () => {
 
 test("umbrales: fuera de [UMBRAL_FRIO_EXTREMO, UMBRAL_CALOR_EXTREMO] es donde arranca el efecto extremo", () => {
   assert.ok(UMBRAL_FRIO_EXTREMO < TEMPERATURA_NEUTRA && TEMPERATURA_NEUTRA < UMBRAL_CALOR_EXTREMO);
+});
+
+// --- Buceo: aire/ahogo (docs/GDD_Mecanicas.md §5.4, 2026-09-02) ---
+
+test("aplicarAhogo: no buceando, el aire se rellena al instante (no decae con el tiempo fuera del agua)", () => {
+  const v = vitalesIniciales();
+  v.aire = 10;
+  const estado = { vida: 100 };
+  aplicarAhogo(v, false, estado, 1000, 5);
+  assert.strictEqual(v.aire, VITAL_MAX);
+  assert.strictEqual(estado.vida, 100, "sin daño fuera del agua");
+});
+
+test("aplicarAhogo: buceando, el aire decae con el tiempo sin dañar vida mientras quede algo", () => {
+  const v = vitalesIniciales();
+  const estado = { vida: 100 };
+  aplicarAhogo(v, true, estado, 1000, 45 / 3600 / 2); // media vida de aire (45s totales)
+  assert.ok(v.aire > 0 && v.aire < VITAL_MAX);
+  assert.strictEqual(estado.vida, 100, "todavía queda aire, sin daño");
+});
+
+test("aplicarAhogo: el tick que agota el aire del todo ya daña vida ese mismo tick (mismo criterio simple que aplicarInanicion — sin sub-tick)", () => {
+  const v = vitalesIniciales();
+  const estado = { vida: 100 };
+  aplicarAhogo(v, true, estado, 3600, 45 / 3600); // exactamente los 45s de aguante -> aire a 0
+  assert.strictEqual(v.aire, 0);
+  assert.ok(estado.vida < 100, "el mismo tick que deja el aire a 0 ya descuenta daño de ese tick entero");
+});
+
+test("aplicarAhogo: con el aire YA a 0, cada tick siguiente sigue dañando vida proporcional al tiempo", () => {
+  const v = vitalesIniciales();
+  v.aire = 0;
+  const estado = { vida: 100 };
+  aplicarAhogo(v, true, estado, 3600, 1 / 3600); // 1s sin aire, danoPorHora=3600 -> 1 de daño
+  assert.strictEqual(v.aire, 0, "nunca baja de 0");
+  assert.ok(Math.abs(estado.vida - 99) < 1e-6, `debería haber bajado ~1, quedó en ${estado.vida}`);
+});
+
+test("aplicarAhogo: nunca deja vida negativa aunque se acumule mucho tiempo sin aire", () => {
+  const v = vitalesIniciales();
+  v.aire = 0;
+  const estado = { vida: 5 };
+  aplicarAhogo(v, true, estado, 3600, 10); // muchísimo daño de golpe
+  assert.strictEqual(estado.vida, 0);
+});
+
+test("aplicarAhogo: salir a respirar a mitad de aguante reinicia el aire entero, sin 'recuperación parcial' que recordar", () => {
+  const v = vitalesIniciales();
+  const estado = { vida: 100 };
+  aplicarAhogo(v, true, estado, 1000, 45 / 3600 / 3); // un tercio del aire gastado
+  assert.ok(v.aire < VITAL_MAX);
+  aplicarAhogo(v, false, estado, 1000, 0.001); // sale a la superficie un instante
+  assert.strictEqual(v.aire, VITAL_MAX);
+});
+
+test("aplicarAhogo: horasTranscurridas<=0 no hace nada (ni siquiera rellenar aire fuera del agua)", () => {
+  const v = vitalesIniciales();
+  v.aire = 30;
+  const estado = { vida: 100 };
+  aplicarAhogo(v, false, estado, 1000, 0);
+  assert.strictEqual(v.aire, 30);
 });

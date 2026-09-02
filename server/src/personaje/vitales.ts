@@ -41,13 +41,22 @@ export interface Vitales {
   // por eso vive AQUÍ y no en tickVitales: necesita un dato externo —la
   // temperatura del mundo— que tickVitales no recibe).
   temperatura: number;
+  // Aire mientras se bucea (docs/GDD_Mecanicas.md §5.4, buceo, 2026-09-02):
+  // 100 = pulmones llenos. Decae SOLO con `Player.estado==="buceando"`
+  // (nivel<0 de verdad, no solo nadar en superficie) — se rellena al
+  // instante en cuanto se deja de bucear (aire NO se "recupera poco a
+  // poco" como estamina: en superficie simplemente se respira normal). A 0
+  // empieza a ahogarse (ver `aplicarAhogo`, misma EXCEPCIÓN deliberada a
+  // "nadie se hace daño solo con el tiempo" que ya cubre `aplicarInanicion`
+  // — pedida por el streamer para el mismo bloque de mecánicas).
+  aire: number;
 }
 
 export const VITAL_MAX = 100;
 
-/** Nuevo jugador: todo lleno, `caca` vacía, temperatura corporal neutra — mismo criterio que "nivel 1 = sin XP", empezar sin penalización. */
+/** Nuevo jugador: todo lleno, `caca` vacía, temperatura corporal neutra, pulmones llenos — mismo criterio que "nivel 1 = sin XP", empezar sin penalización. */
 export function vitalesIniciales(): Vitales {
-  return { comida: VITAL_MAX, bebida: VITAL_MAX, sueno: VITAL_MAX, estamina: VITAL_MAX, caca: 0, temperatura: TEMPERATURA_NEUTRA };
+  return { comida: VITAL_MAX, bebida: VITAL_MAX, sueno: VITAL_MAX, estamina: VITAL_MAX, caca: 0, temperatura: TEMPERATURA_NEUTRA, aire: VITAL_MAX };
 }
 
 /**
@@ -174,4 +183,37 @@ export function aplicarTemperaturaCorporal(v: Vitales, temperaturaMundoC: number
     return "frio";
   }
   return null;
+}
+
+// --- Buceo: aire/ahogo (docs/GDD_Mecanicas.md §5.4, pedido 2026-09-02) ---
+// placeholders de balance, mismo criterio que el resto del módulo.
+/** Segundos REALES de aguante bajo el agua antes de quedarse sin aire. */
+const SEGUNDOS_AIRE_BUCEANDO = 45;
+export const TASA_CONSUMO_AIRE_POR_HORA = VITAL_MAX / (SEGUNDOS_AIRE_BUCEANDO / 3600);
+
+/**
+ * Ahogo (docs/GDD_Mecanicas.md §5.4) — mismo integrador simple que
+ * `tickVitales`/`aplicarInanicion`, sin checkpoint. `estaBuceando` es
+ * `Player.estado==="buceando"` (nivel<0 de verdad — nadar en superficie NO
+ * gasta aire, solo sumergirse). Fuera del agua o nadando en superficie el
+ * aire se rellena AL INSTANTE (no gradual, ver nota de `Vitales.aire`): un
+ * jugador que sale a respirar un instante y vuelve a bucear reinicia su
+ * aguante entero, sin "recuperación parcial" que llevar la cuenta.
+ */
+export function aplicarAhogo(
+  v: Vitales,
+  estaBuceando: boolean,
+  estado: { vida: number },
+  danoPorHora: number,
+  horasTranscurridas: number,
+): void {
+  if (horasTranscurridas <= 0) return;
+  if (!estaBuceando) {
+    v.aire = VITAL_MAX;
+    return;
+  }
+  v.aire = clamp(v.aire - TASA_CONSUMO_AIRE_POR_HORA * horasTranscurridas, VITAL_MAX);
+  if (v.aire <= 0) {
+    estado.vida = Math.max(0, estado.vida - danoPorHora * horasTranscurridas);
+  }
 }

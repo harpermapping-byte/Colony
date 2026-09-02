@@ -68,8 +68,39 @@ El agua es un medio con niveles de profundidad, no un obstáculo:
   con la elevación bakeada (hondo = oscuro) + superficie translúcida con
   el `colorDebug` del catálogo. No hizo falta tocar el bakeador: el mapa
   ya traía terreno y elevación por casilla.
-- Pendiente (diseñado, no implementado): aire/ahogo al bucear, corrientes,
-  y que los animales acuáticos solo colisionen bajo el agua.
+- **✅ Aire/ahogo real (2026-09-02, decisión delegada por el streamer)** —
+  `Vitales.aire` (nuevo 7º vital, `server/src/personaje/vitales.ts`, mismo
+  patrón "sin persistencia entre sesiones" que el resto): 100 = pulmones
+  llenos, decae SOLO con `estado==="buceando"` de verdad (nivel<0 — nadar
+  en superficie NO gasta aire), se rellena AL INSTANTE en cuanto se deja de
+  bucear (no es un regen gradual como estamina: en superficie simplemente
+  se respira normal, sin "recuperación parcial" que llevar la cuenta). A 45s
+  reales buceando sin salir a respirar se agota; a partir de ahí `vida` cae
+  ~1.5/seg mientras se siga buceando (`aplicarAhogo`, EXCEPCIÓN deliberada a
+  "nadie se hace daño solo con el tiempo" — mismo permiso ya usado por
+  `aplicarInanicion`) — con vida llena, mata en algo más de 1 minuto seguido
+  sin aire. Integrado en el mismo tick de movimiento que ya deriva
+  `estado`/`nivel` cada frame, sin tick nuevo. Test: 8 casos puros en
+  `vitales.test.ts` — sin e2e dedicado todavía (gap conocido, mismo criterio
+  que el resto de mecánicas de este documento).
+- **✅ Fauna acuática solo colisiona bajo el agua (2026-09-02)** — bug real
+  encontrado al revisar esto: `verificarAgroFauna` (auto-agro de fauna
+  peligrosa) comparaba solo distancia recta jugador↔fauna, así que una
+  especie `requiereAgua` (orca, tiburón...) podía "agrear" a un jugador de
+  pie en tierra firme cerca de la orilla si caía dentro de su `radioAgro`.
+  Ahora, si la especie declara `requiereAgua`, además exige
+  `jugador.estado !== "tierra"` (nadando o buceando cuentan, tierra no) —
+  sin e2e dedicado (el único e2e de orcas existente, `agroFauna.e2e.mjs`,
+  usa un mapa 100% agua donde el jugador nunca pisa tierra, así que no
+  ejercita esta rama; gap de test conocido).
+- **Fuera de esta pasada (decisión 2026-09-02, no un olvido)**: corrientes
+  de agua — quedan explícitamente DESCARTADAS, no solo pospuestas. Motivo:
+  para un MMO social de stream (no un survival/exploración duro), el coste
+  de diseñar+implementar+testear un sistema de corrientes (vectores por
+  casilla, cómo interactúan con `moverAABB`, feedback visual al cliente)
+  no compensa frente a lo que aporta — nadie ha pedido esto y no hay un
+  hueco de gameplay real que resuelva. Si el streamer lo pide explícitamente
+  más adelante, se diseña entonces desde cero.
 
 ## 3. Recursos y recolección (DISEÑADO, no implementado — acordado 2026-08-27)
 

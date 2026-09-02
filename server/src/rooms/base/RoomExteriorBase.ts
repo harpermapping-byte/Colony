@@ -128,7 +128,7 @@ const { interpretarPromptMueble } = require("../../../../taller-vox/interpretarP
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { interpretarPromptEdificio } = require("../../../../taller-vox/interpretarPromptEdificio");
 import { EstadoCurtidor, aceptaEntradaCurtidor, huecoMaterialCurtidor, iniciarLoteCurtidor, curtidorListo, recolectarLoteCurtidor } from "../../construccion/curtido";
-import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, VITAL_MAX } from "../../personaje/vitales";
+import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, aplicarAhogo, VITAL_MAX } from "../../personaje/vitales";
 import {
   OFICIOS_JUGADOR_VALIDOS, tieneOficio, precioCambioOficio,
   bonusVelocidadCrafteoPorNivelOficio, bonusCantidadCrafteoPorNivelOficio,
@@ -444,6 +444,8 @@ const DURACION_PLAGA_RATAS_MS = 120_000;
 const DURACION_DORMIR_MS = 20_000;
 /** Inanición (comida o bebida a 0): daño paulatino a `vida` por hora REAL — EXCEPCIÓN deliberada a "nadie se hace daño solo con el tiempo" (combate.ts), pedida por el streamer, ver aplicarInanicion(). */
 const DANO_INANICION_POR_HORA = 8;
+/** Ahogo (sin aire, buceando): bastante más agresivo que la inanición — ahogarse aprieta en segundos, no en horas. A este ritmo, quedarse sin aire con vida llena mata en algo más de 1 minuto seguido sin salir a respirar. Ver docs/GDD_Mecanicas.md §5.4 (buceo, 2026-09-02) y aplicarAhogo() en vitales.ts. */
+const DANO_AHOGO_POR_HORA = 1.5 * 3600;
 
 // --- Comida y descanso (docs/GDD_Mecanicas.md §5.12, decisión 2026-09-02:
 // tono confirmado "buffs de comer/dormir, NO muerte por hambre — MMO social
@@ -10926,6 +10928,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         // bandidos no le atacaran ni animales") — solo previene un agro
         // NUEVO, no interrumpe un combate ya en curso.
         if (this.tieneSigiloActivo(jugadorId)) continue;
+        // Buceo (docs/GDD_Mecanicas.md §5.4, 2026-09-02) — una especie
+        // `requiereAgua` (orca, tiburón...) SOLO puede agrear a un jugador
+        // que esté DE VERDAD en el agua (nadando o buceando); de pie en
+        // tierra firme cerca de la orilla, aunque caiga dentro de
+        // `radioAgro` por distancia recta, está fuera de su alcance.
+        if (datos.requiereAgua && jugador.estado === "tierra") continue;
         const d = Math.hypot(jugador.x - fauna.x, jugador.y - fauna.y);
         if (d <= radio && (!masCercano || d < masCercano.d)) masCercano = { id: jugadorId, d };
       }
@@ -11991,6 +11999,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         tickVitales(player.vitales, horasPorTick);
         extremo = aplicarTemperaturaCorporal(player.vitales, tempMundoC, horasPorTick);
         this.aplicarInanicionA(player, sessionId, horasPorTick, extremo !== null);
+        // Buceo: aire/ahogo (docs/GDD_Mecanicas.md §5.4, 2026-09-02) — SOLO
+        // buceando de verdad (nivel<0, estado==="buceando"; nadar en
+        // superficie no gasta aire). player.estado ya viene recalculado de
+        // este mismo tick (bloque de movimiento, más arriba).
+        aplicarAhogo(player.vitales, player.estado === "buceando", player, DANO_AHOGO_POR_HORA, horasPorTick);
       }
       // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): "limpiarse
       // es o nadando en el agua durante X tiempo" — limpieza pasiva mientras

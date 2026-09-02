@@ -100,6 +100,10 @@ export class VitalesSchema extends Schema {
   // tick (`aplicarTemperaturaCorporal`) — fuera de rango gasta comida o
   // bebida más rápido y resta al vidaMax efectivo (ver aplicarInanicion).
   @type("number") temperatura = 50;
+  // Aire mientras se bucea (docs/GDD_Mecanicas.md §5.4, buceo, 2026-09-02):
+  // 100 = pulmones llenos, decae SOLO buceando de verdad (nivel<0), se
+  // rellena al instante al salir a respirar — ver vitales.ts::aplicarAhogo.
+  @type("number") aire = 100;
 }
 
 // Nivel de cada atributo (docs/GDD_Personaje.md) — YA derivado de la XP
