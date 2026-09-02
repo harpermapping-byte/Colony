@@ -13,6 +13,23 @@
 // Al cargar el módulo con SQLite, Node emite un ExperimentalWarning ("SQLite
 // is an experimental feature"): es aceptable y esperado, el API síncrono que
 // usamos es estable para SQL básico.
+//
+// ⚠️ Encontrado en el mega-testeo de estrés de 2026-09-02 (~40 sesiones
+// colyseus.js reales, entrando/saliendo/reconectando sin parar): con SQLite
+// de motor, una ráfaga de ~25 desconexiones+reconexiones casi simultáneas
+// (cada una dispara varias lecturas/escrituras — inventario, vitales,
+// mascotas, compañero) bloquea el hilo único de Node varios SEGUNDOS
+// seguidos (confirmado con un monitor de salud sondeando el servidor cada
+// 2s durante la carga: HTTP deja de responder ~8-10s, se recupera, puede
+// repetirse). No es un bug de la lógica del juego — es la consecuencia
+// directa y ya documentada arriba de "DatabaseSync no cede el hilo",
+// simplemente nunca se había medido bajo carga concurrente REAL de muchas
+// sesiones a la vez. Postgres (producción) no debería sufrir esto — es
+// I/O de red de verdad, no bloquea el bucle de eventos — pero no se pudo
+// confirmar desde este entorno (sin salida de red hacia Neon aquí). Si
+// algún día se plantea SQLite para algo más que dev/tests locales con
+// pocos jugadores a la vez, esto es el límite real a tener en cuenta.
+
 
 import * as path from "node:path";
 import { Pool } from "pg";
