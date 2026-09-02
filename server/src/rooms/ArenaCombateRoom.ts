@@ -99,6 +99,8 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       cu.ataqueFisico = p.ataqueFisico;
       cu.defensaFisica = p.defensaFisica;
       cu.alcance = p.alcance;
+      cu.municionId = p.municionId ?? "";
+      cu.municionDisponible = p.municionDisponible ?? 0;
       cu.pasivo = p.pasivo ?? false;
       cu.visual = p.visualCombate ?? "";
       cu.barcoTipoId = p.barcoTipoId ?? "";
@@ -218,6 +220,14 @@ export class ArenaCombateRoom extends RoomExteriorBase {
         // "volverDeCombate" aquí lo reengancharía de vuelta al sitio donde
         // empezó la pelea, pisando su respawn real.
         if (cu.estado === "caido") continue;
+        // Munición a distancia (docs/GDD_Mecanicas.md §5.4, 2026-09-02) —
+        // se descuenta AQUÍ, antes de mandar el portal de vuelta (todavía
+        // conectado a esta room, con su inventario real ya cargado por
+        // `crearJugador`/`cargarInventarioYEquipoDe` — ver el comentario de
+        // `consumirMunicionDeSesion`).
+        if (cu.municionId && cu.municionConsumida > 0) {
+          this.consumirMunicionDeSesion(cu.id, cu.municionId, cu.municionConsumida);
+        }
         const retorno = this.retornosPorJugador.get(cu.id) ?? {};
         const c = this.clients.find((cl) => cl.sessionId === cu.id);
         c?.send("portal:ir", { tipo: "volverDeCombate", ...retorno });

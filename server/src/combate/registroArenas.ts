@@ -48,6 +48,10 @@ export interface ParticipanteArena {
   ataqueFisico: number;
   defensaFisica: number;
   alcance: number;
+  /** docs/GDD_Mecanicas.md §5.4 (munición a distancia, 2026-09-02) — SOLO esJugador con arma a distancia equipada; ausente/"" = cuerpo a cuerpo. Ver CombateUnidad.municionId. */
+  municionId?: string;
+  /** Snapshot de cuántas unidades de `municionId` tenía el jugador en su inventario real al entrar en combate — ausente/0 si `municionId` está ausente. */
+  municionDisponible?: number;
   /** docs/GDD_Caza.md — presa de modo caza: deambula sin rumbo en la arena, nunca ataca (server/src/combate/arenaCombate.ts::jugarTurnoIAPasiva). Ausente/false = IA normal. */
   pasivo?: boolean;
   /** Solo si esJugador — lo que mandó de vuelta en `combate:iniciar`/`combate:unirse`; se reenvía tal cual al terminar. */

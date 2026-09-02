@@ -4,14 +4,17 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import {
   UnidadCombate,
+  alcanceDeEquipo,
   calcularIniciativa,
   enAlcance,
   jugarTurnoIA,
+  municionDeEquipo,
   ordenarTurnos,
   resolverAtaque,
   simularCombateAutomatico,
   tirarHuida,
 } from "../src/combate/arenaCombate";
+import { CatalogoItems } from "../src/inventario/inventario";
 import { Arena } from "../src/combate/pathfindingArena";
 
 function arenaAbierta(ancho = 8, alto = 8): Arena {
@@ -157,6 +160,27 @@ test("jugarTurnoIA: una unidad pasiva no deambula sobre otra unidad activa (juga
   // rnd -> PASOS_DEAMBULAR[1] = {gx:1,gy:0} (derecha, hacia la casilla ocupada): bloqueado.
   const resultado = jugarTurnoIA("conejo", [presa, ocupante], arenaAbierta(), () => 0.2);
   assert.deepStrictEqual(resultado.find((u) => u.id === "conejo")!, presa, "bloqueado por la unidad, no se mueve");
+});
+
+const catalogoArmas: CatalogoItems = {
+  arco_corto: { tipo: "arma", slotEquipo: "manoPrincipal", huella: [1, 2], peso: 1.6, apilable: false, variantes: 3, colorDebug: "#000", alcance: 6, municionId: "flecha" },
+  espada: { tipo: "arma", slotEquipo: "manoPrincipal", huella: [1, 2], peso: 2, apilable: false, variantes: 1, colorDebug: "#000" },
+};
+
+test("alcanceDeEquipo: usa el alcance del catálogo del arma en manoPrincipal", () => {
+  assert.strictEqual(alcanceDeEquipo(catalogoArmas, { manoPrincipal: "arco_corto" }), 6);
+});
+
+test("alcanceDeEquipo: 1 (cuerpo a cuerpo) si el arma no declara alcance, no hay arma o no hay equipo", () => {
+  assert.strictEqual(alcanceDeEquipo(catalogoArmas, { manoPrincipal: "espada" }), 1);
+  assert.strictEqual(alcanceDeEquipo(catalogoArmas, {}), 1);
+  assert.strictEqual(alcanceDeEquipo(catalogoArmas, undefined), 1);
+});
+
+test("municionDeEquipo: devuelve el municionId del arma en manoPrincipal, undefined si no consume ninguna", () => {
+  assert.strictEqual(municionDeEquipo(catalogoArmas, { manoPrincipal: "arco_corto" }), "flecha");
+  assert.strictEqual(municionDeEquipo(catalogoArmas, { manoPrincipal: "espada" }), undefined);
+  assert.strictEqual(municionDeEquipo(catalogoArmas, undefined), undefined);
 });
 
 test("simularCombateAutomatico: es determinista — misma entrada + mismo rnd fijo = mismo resultado", () => {

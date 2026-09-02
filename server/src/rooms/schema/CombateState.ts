@@ -37,6 +37,27 @@ export class CombateUnidad extends Schema {
   ataqueFisico = 0;
   defensaFisica = 0;
   alcance = 1;
+  /**
+   * Munición a distancia (docs/GDD_Mecanicas.md §5.4, 2026-09-02) — SOLO
+   * jugador con arma a distancia equipada (arco/ballesta/honda). "" = cuerpo
+   * a cuerpo, no consume nada. `municionDisponible` es un SNAPSHOT tomado en
+   * la room de origen al entrar en combate (cuántas unidades tenía en el
+   * inventario real en ese momento) — se decrementa en cada disparo dentro
+   * de la arena y BLOQUEA el ataque si llega a 0 (mismo criterio que "sin PA
+   * suficiente"/"fuera de alcance": rechazo antes de gastar turno).
+   * `municionConsumida` cuenta cuántas se han disparado de verdad — es lo
+   * que `ArenaCombateRoom.onCombateResuelto` resta de verdad del inventario
+   * al terminar el combate (`consumirMunicionDeSesion`, RoomExteriorBase.ts).
+   * El chequeo/gasto por turno usa este snapshot y NUNCA el inventario en
+   * vivo de la room donde se ejecute `combate:accion` (docs/GDD_Combate.md
+   * §8/§9.2: `crearJugador` carga el inventario real en segundo plano
+   * también en la arena, pero no hay garantía de que ya haya llegado en el
+   * primer turno) — así el rechazo/gasto es determinista sin depender de
+   * esa carrera.
+   */
+  municionId = "";
+  municionDisponible = 0;
+  municionConsumida = 0;
   /** docs/GDD_Caza.md — fauna no peligrosa en modo caza: deambula, nunca ataca (server/src/combate/arenaCombate.ts::jugarTurnoIAPasiva). */
   pasivo = false;
   /**

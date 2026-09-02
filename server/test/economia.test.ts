@@ -3,7 +3,7 @@
 // en compras/alquileres de propiedad, y venta de un ítem a un NPC.
 import { test } from "node:test";
 import * as assert from "node:assert";
-import { AlmacenDatosSqlite as AlmacenDatos, SALDO_INICIAL_JUGADOR, SALDO_INICIAL_NPC_COMERCIANTE, INGRESO_DIARIO_NPC, saldoInicialPara } from "../src/datos/bd";
+import { AlmacenDatosSqlite as AlmacenDatos, SALDO_INICIAL_JUGADOR, SALDO_INICIAL_NPC_COMERCIANTE, INGRESO_DIARIO_NPC, UMBRAL_EMBARGO_IMPUESTO_PERIODOS, saldoInicialPara } from "../src/datos/bd";
 
 function conJarl<T>(nombres: string, fn: () => Promise<T>): Promise<T> {
   const anterior = process.env.JARL_NOMBRES;
@@ -247,6 +247,82 @@ test("impuesto: si el dueño no puede pagar el lote completo, no se cobra nada y
     const prop = await bd.obtenerPropiedad("p_imp_04");
     assert.strictEqual(await bd.obtenerFarycoins(dueno.id), saldoAntes, "no se cobra nada si no llega para el lote completo");
     assert.ok(prop?.impuestoUltimoCobro, "el reloj NO avanzó — la deuda queda pendiente para cuando pueda pagar");
+    await bd.cerrar();
+  }));
+
+test(`impuesto: por debajo del umbral de embargo (${UMBRAL_EMBARGO_IMPUESTO_PERIODOS - 1} periodos) la propiedad sigue siendo del dueño`, () =>
+  conJarl("Streamer", async () => {
+    const bd = new AlmacenDatos(":memory:");
+    await bd.obtenerOCrearJugador("Bjorn"); // saldo 20, insuficiente para el impuesto de 50
+    await bd.asignarPropiedad("p_imp_06", "parcela", "ciudad", "Bjorn");
+    await bd.configurarImpuestoPropiedad("p_imp_06", true, 50, 24);
+    const bdInterna = bd as unknown as { bd: { prepare(sql: string): { run(...p: unknown[]): unknown } } };
+    const periodosImpagados = UMBRAL_EMBARGO_IMPUESTO_PERIODOS - 1;
+    bdInterna.bd.prepare("UPDATE propiedades SET impuesto_ultimo_cobro = ? WHERE id = ?").run(
+      new Date(Date.now() - periodosImpagados * 24 * 3600_000 - 3600_000).toISOString(), // un pelín más para asegurar el floor
+      "p_imp_06",
+    );
+    const prop = await bd.obtenerPropiedad("p_imp_06");
+    assert.strictEqual(prop?.dueno, "Bjorn", "todavía no llega al umbral — sigue siendo suyo, con deuda acumulada");
+    await bd.cerrar();
+  }));
+
+test(`impuesto: al llegar a ${UMBRAL_EMBARGO_IMPUESTO_PERIODOS} periodos impagados seguidos, el jarl EMBARGA la propiedad`, () =>
+  conJarl("Streamer", async () => {
+    const bd = new AlmacenDatos(":memory:");
+    await bd.obtenerOCrearJugador("Bjorn"); // saldo 20, insuficiente para el impuesto de 50
+    await bd.asignarPropiedad("p_imp_07", "parcela", "ciudad", "Bjorn");
+    await bd.configurarImpuestoPropiedad("p_imp_07", true, 50, 24);
+    const bdInterna = bd as unknown as { bd: { prepare(sql: string): { run(...p: unknown[]): unknown } } };
+    bdInterna.bd.prepare("UPDATE propiedades SET impuesto_ultimo_cobro = ? WHERE id = ?").run(
+      new Date(Date.now() - (UMBRAL_EMBARGO_IMPUESTO_PERIODOS * 24 + 1) * 3600_000).toISOString(),
+      "p_imp_07",
+    );
+    const prop = await bd.obtenerPropiedad("p_imp_07");
+    assert.strictEqual(prop?.dueno, null, "embargado — vuelve al jarl/asentamiento");
+    // Las construcciones de la parcela QUEDAN (GDD_Construccion.md §4) —
+    // revocarPropiedad nunca las toca; esto solo confirma que el impuesto
+    // se apagó del todo, para que el siguiente inquilino empiece limpio.
+    assert.strictEqual(prop?.impuestoActivo, false, "el impuesto se apaga al embargar — el siguiente inquilino empieza sin deuda ajena");
+    assert.strictEqual(prop?.impuestoUltimoCobro, null);
+    await bd.cerrar();
+  }));
+
+test("impuesto: revocar a mano (parcela:revocar) también apaga el impuesto, no solo el embargo automático", () =>
+  conJarl("Streamer", async () => {
+    const bd = new AlmacenDatos(":memory:");
+    await bd.obtenerOCrearJugador("Bjorn");
+    await bd.ajustarFarycoins((await bd.obtenerOCrearJugador("Bjorn")).id, 100);
+    await bd.asignarPropiedad("p_imp_08", "parcela", "ciudad", "Bjorn");
+    await bd.configurarImpuestoPropiedad("p_imp_08", true, 5, 24);
+    await bd.revocarPropiedad("p_imp_08");
+    const prop = await bd.obtenerPropiedad("p_imp_08");
+    assert.strictEqual(prop?.dueno, null);
+    assert.strictEqual(prop?.impuestoActivo, false);
+    assert.strictEqual(prop?.impuestoFarycoins, null);
+    assert.strictEqual(prop?.impuestoUltimoCobro, null);
+    await bd.cerrar();
+  }));
+
+test("impuesto: sin el fix, un nuevo dueño heredaría deuda ajena — con el fix, reasignar tras revocar no cobra nada retroactivo", () =>
+  conJarl("Streamer", async () => {
+    const bd = new AlmacenDatos(":memory:");
+    await bd.obtenerOCrearJugador("Bjorn");
+    await bd.asignarPropiedad("p_imp_09", "parcela", "ciudad", "Bjorn");
+    await bd.configurarImpuestoPropiedad("p_imp_09", true, 5, 24);
+    const bdInterna = bd as unknown as { bd: { prepare(sql: string): { run(...p: unknown[]): unknown } } };
+    bdInterna.bd.prepare("UPDATE propiedades SET impuesto_ultimo_cobro = ? WHERE id = ?").run(
+      new Date(Date.now() - 240 * 3600_000).toISOString(), // 10 periodos de deuda acumulada
+      "p_imp_09",
+    );
+    await bd.revocarPropiedad("p_imp_09"); // el jarl revoca a mano (o pudo haber sido el embargo automático)
+    await bd.asignarPropiedad("p_imp_09", "parcela", "ciudad", "Astrid");
+    const astrid = await bd.obtenerOCrearJugador("Astrid");
+    await bd.ajustarFarycoins(astrid.id, 100);
+    const saldoAntes = await bd.obtenerFarycoins(astrid.id);
+    const prop = await bd.obtenerPropiedad("p_imp_09");
+    assert.strictEqual(await bd.obtenerFarycoins(astrid.id), saldoAntes, "el nuevo dueño no paga NADA de la deuda del anterior");
+    assert.strictEqual(prop?.impuestoActivo, false, "el impuesto sigue apagado hasta que el jarl lo configure de nuevo para ella");
     await bd.cerrar();
   }));
 

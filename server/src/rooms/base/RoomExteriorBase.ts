@@ -33,9 +33,11 @@ import { MundoColision, moverAABB, medioEn, nivelMinimo, separarPJs, TIPO, RADIO
 import {
   UnidadCombate,
   Bando,
+  alcanceDeEquipo,
   calcularIniciativa,
   enAlcance,
   jugarTurnoIA,
+  municionDeEquipo,
   ordenarTurnos,
   resolverAtaque,
   tirarHuida,
@@ -1800,6 +1802,39 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
+   * Munición a distancia (docs/GDD_Mecanicas.md §5.4, 2026-09-02) — resta
+   * `cantidad` unidades de `itemId` del inventario REAL de una sesión (sea
+   * cual sea la room: `this.inventarios` no es más que un Map por
+   * sessionId, y `ArenaCombateRoom` lo hereda igual que cualquier otra
+   * room). La llama `ArenaCombateRoom.onCombateResuelto` cuando el combate
+   * termina, mientras el jugador SIGUE conectado a la arena (todavía no
+   * procesó el `portal:ir` de vuelta) — mutar aquí, en vez de escribir la
+   * BD por su cuenta, es DELIBERADO: `crearJugador` ya dispara
+   * `cargarInventarioYEquipoDe` en segundo plano al entrar a CUALQUIER room
+   * (arena incluida), así que a estas alturas del combate (mínimo varios
+   * turnos jugados) ese Map ya tiene el inventario real cargado — y el
+   * guardado normal de `onLeave` (`guardarInventarioYEquipoDe`) es quien se
+   * encarga de persistirlo después, sin necesidad de tocar la BD dos veces
+   * ni arriesgarse a que ese guardado normal PISE una escritura directa a
+   * BD hecha aparte (el mismo Map es la única fuente que se guarda).
+   */
+  protected consumirMunicionDeSesion(sessionId: string, itemId: string, cantidad: number) {
+    if (cantidad <= 0) return;
+    const contenedor = this.inventarios.get(sessionId);
+    if (!contenedor) return;
+    let restante = cantidad;
+    for (const it of [...contenedor.items]) {
+      if (restante <= 0) break;
+      if (it.itemId !== itemId) continue;
+      const quitar = Math.min(restante, it.cantidad);
+      quitarItem(contenedor, it.id, quitar);
+      restante -= quitar;
+    }
+    const player = this.state.players.get(sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+  }
+
+  /**
    * Dispara el guardado de inventario/equipo de una sesión EN SEGUNDO PLANO
    * (mismo criterio que otorgarXpAtributoPorSesion/cargarMascotasSiguiendoDe
    * — nunca bloquea al jugador que acaba de coger/soltar/equipar/desequipar
@@ -2914,7 +2949,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           // su parcela (construir en ella) es el evento real que dispara el
           // cobro perezoso pendiente, mismo criterio que el resto del
           // proyecto ("nunca un tick, se resuelve en la próxima interacción").
-          await bd.obtenerPropiedad(propiedadId);
+          // Puede EMBARGAR (2026-09-02, §6): si el impuesto se lleva por
+          // delante al dueño, `ctx.propiedades` (caché de la room, solo se
+          // refresca en parcela:asignar/revocar) se quedaría apuntando al
+          // dueño viejo hasta el próximo reinicio — se refresca aquí mismo,
+          // en el punto donde el propio GDD ya documentaba que se dispara.
+          const actualizada = await bd.obtenerPropiedad(propiedadId);
+          const duenoActual = actualizada?.dueno ?? null;
+          if (ctx.propiedades.get(propiedadId)?.dueno !== duenoActual) {
+            ctx.propiedades.set(propiedadId, { dueno: duenoActual });
+            this.broadcast("parcelas:estado", this.estadoParcelas());
+          }
         }
 
         // edificio: su interior se genera UNA VEZ aquí y viaja en extra (§5)
@@ -2977,7 +3022,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (dueno !== nombre && !esJarl(ctx, nombre)) {
         return this.errorConstruir(client, "no eres el dueño de esta construcción");
       }
-      await bd.obtenerPropiedad(viva.propiedad); // Impuesto del jarl (docs/GDD_Economia.md §6) — mismo criterio que en "construir".
+      // Impuesto del jarl (docs/GDD_Economia.md §6) — mismo criterio que en
+      // "construir": puede EMBARGAR, refresca la caché de la room si cambió.
+      const propiedadTrasImpuesto = await bd.obtenerPropiedad(viva.propiedad);
+      const duenoTrasImpuesto = propiedadTrasImpuesto?.dueno ?? null;
+      if (ctx.propiedades.get(viva.propiedad)?.dueno !== duenoTrasImpuesto) {
+        ctx.propiedades.set(viva.propiedad, { dueno: duenoTrasImpuesto });
+        this.broadcast("parcelas:estado", this.estadoParcelas());
+      }
       // Revalidación tras el await (mismo bug de concurrencia que "construir"
       // arriba): un segundo "recoger" solapado sobre el MISMO construccionId
       // pudo colarse mientras este esperaba a la BD y ya borró la
@@ -10618,7 +10670,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     bando: Bando,
     gx: number,
     gy: number,
-    stats: { hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean; esBoss?: boolean; pasivo?: boolean },
+    stats: {
+      hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean; esBoss?: boolean; pasivo?: boolean;
+      alcance?: number; municionId?: string; municionDisponible?: number;
+    },
   ): CombateUnidad {
     const cu = new CombateUnidad();
     cu.id = id;
@@ -10644,8 +10699,43 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     cu.estado = "activo";
     cu.ataqueFisico = stats.ataque;
     cu.defensaFisica = stats.defensa;
-    cu.alcance = 1; // cuerpo a cuerpo por defecto — sin cálculo de arma equipada todavía (GDD_Mecanicas §5.4)
+    // Munición a distancia (docs/GDD_Mecanicas.md §5.4, 2026-09-02): el
+    // alcance real del arma equipada en `manoPrincipal` (arco/ballesta/
+    // honda), calculado por el llamador vía `alcanceArmaJugador` — 1
+    // (cuerpo a cuerpo) si no se pasa nada, mismo comportamiento de
+    // siempre para fauna/enemigo/npc (sin IA de distancia todavía).
+    cu.alcance = stats.alcance ?? 1;
+    cu.municionId = stats.municionId ?? "";
+    cu.municionDisponible = stats.municionDisponible ?? 0;
     return cu;
+  }
+
+  /**
+   * Alcance real (casillas Chebyshev) del arma que el jugador lleva en
+   * `manoPrincipal` — docs/GDD_Mecanicas.md §5.4 (2026-09-02). 1 si no
+   * lleva nada equipado o el catálogo no declara `alcance` (arma cuerpo a
+   * cuerpo). Compañero deliberadamente fuera de esto por ahora: solo pelea
+   * cuerpo a cuerpo (ver nota en manejarCombateUnirse).
+   */
+  private alcanceArmaJugador(sessionId: string): number {
+    return alcanceDeEquipo(this.catalogoItems, this.equipoInventario.get(sessionId));
+  }
+
+  /**
+   * Munición a distancia (docs/GDD_Mecanicas.md §5.4, 2026-09-02) — SNAPSHOT
+   * tomado en la room de ORIGEN (donde `this.inventarios`/`this.equipoInventario`
+   * todavía son los reales de la sesión, antes de saltar a la arena vacía,
+   * ver CombateUnidad.municionId): itemId de munición del arma equipada
+   * (si tiene) + cuántas unidades tiene YA en el inventario. "" / 0 si el
+   * arma es cuerpo a cuerpo o no queda ninguna.
+   */
+  private municionArmaJugador(sessionId: string): { municionId: string; municionDisponible: number } {
+    const equipo = this.equipoInventario.get(sessionId);
+    const municionId = municionDeEquipo(this.catalogoItems, equipo);
+    if (!municionId) return { municionId: "", municionDisponible: 0 };
+    const contenedor = this.inventarios.get(sessionId);
+    const municionDisponible = contenedor?.items.reduce((suma, it) => (it.itemId === municionId ? suma + it.cantidad : suma), 0) ?? 0;
+    return { municionId, municionDisponible };
   }
 
   /**
@@ -10703,6 +10793,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const bandoPropio: Bando = objetivoUnidad.bando === "A" ? "B" : "A";
       const cu = this.crearUnidadCombate(atacanteId, bandoPropio, atacante.x - combate.gx0, atacante.y - combate.gy0, {
         hp: atacante.vida, hpMax: atacante.vidaMax, ataque: atacante.ataque, defensa: atacante.defensa, esJugador: true,
+        alcance: this.alcanceArmaJugador(atacanteId),
+        ...this.municionArmaJugador(atacanteId),
       });
       combate.unidades.set(atacanteId, cu);
       if (combate.fase === "activo") combate.ordenTurnos.push(atacanteId);
@@ -10745,6 +10837,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const uAtacante = this.crearUnidadCombate(atacanteId, "A", atacante.x - gx0, atacante.y - gy0, {
       hp: atacante.vida, hpMax: atacante.vidaMax, ataque: atacante.ataque, defensa: atacante.defensa, esJugador: true,
+      alcance: this.alcanceArmaJugador(atacanteId),
+      ...this.municionArmaJugador(atacanteId),
     });
     const uObjetivo = this.crearUnidadCombate(msg.objetivoId, "B", objetivoStats.x - gx0, objetivoStats.y - gy0, {
       ...objetivoStats, pasivo: esModoCaza,
@@ -10849,6 +10943,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const uJugador = this.crearUnidadCombate(jugadorId, "A", jugador.x - gx0, jugador.y - gy0, {
       hp: jugador.vida, hpMax: jugador.vidaMax, ataque: jugador.ataque, defensa: jugador.defensa, esJugador: true,
+      alcance: this.alcanceArmaJugador(jugadorId),
+      ...this.municionArmaJugador(jugadorId),
     });
     const uFauna = this.crearUnidadCombate(faunaId, "B", faunaStats.x - gx0, faunaStats.y - gy0, faunaStats);
     combate.unidades.set(jugadorId, uJugador);
@@ -10880,6 +10976,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (msg.retorno) this.retornosPendientes.set(jugadorId, msg.retorno);
     const cu = this.crearUnidadCombate(jugadorId, "A", jugador.x - combate.gx0, jugador.y - combate.gy0, {
       hp: jugador.vida, hpMax: jugador.vidaMax, ataque: jugador.ataque, defensa: jugador.defensa, esJugador: true,
+      alcance: this.alcanceArmaJugador(jugadorId),
+      ...this.municionArmaJugador(jugadorId),
     });
     combate.unidades.set(jugadorId, cu);
 
@@ -10977,6 +11075,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         participantes.push({
           id: u.id, bando: u.bando as Bando, esJugador: true,
           hp: u.hp, hpMax: u.hpMax, paMax: u.paMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
+          municionId: u.municionId || undefined, municionDisponible: u.municionId ? u.municionDisponible : undefined,
           nombreJugador: this.state.players.get(u.id)?.name,
           retorno: this.retornosPendientes.get(u.id),
           // Solo si el combate es acuático Y de verdad iba en un barco: el
@@ -11417,6 +11516,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
     if (!enAlcance(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo))) {
       return client.send("combate:error", { motivo: "fuera de alcance" });
+    }
+    // Munición a distancia (docs/GDD_Mecanicas.md §5.4, 2026-09-02): si el
+    // arma equipada al entrar en combate consume munición, hace falta que
+    // quede al menos 1 en el SNAPSHOT tomado al crear la unidad (rechazo
+    // ANTES de gastar PA/turno, mismo criterio que "fuera de alcance" — el
+    // inventario real NO viaja a la arena, docs/GDD_Combate.md §9.2, así que
+    // esto lee/muta el propio CombateUnidad, nunca this.inventarios aquí;
+    // `municionConsumida` es lo que ArenaCombateRoom.onCombateResuelto resta
+    // de verdad del inventario persistido en BD al terminar el combate).
+    if (atacante.esJugador && atacante.municionId) {
+      if (atacante.municionDisponible < 1) return client.send("combate:error", { motivo: "sin munición" });
+      atacante.municionDisponible -= 1;
+      atacante.municionConsumida += 1;
     }
 
     const actualizado = resolverAtaque(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo));

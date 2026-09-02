@@ -16,6 +16,7 @@
  */
 import { Arena, Casilla, distanciaChebyshev, esObstaculo, pasoHacia } from "./pathfindingArena";
 import { aplicarDanio, calcularDanio, estaMuerto } from "./combate";
+import { CatalogoItems, SlotsEquipo } from "../inventario/inventario";
 
 export type Bando = "A" | "B";
 export type EstadoUnidad = "activo" | "caido" | "huido";
@@ -59,6 +60,28 @@ export function tirarHuida(probabilidad: number, rnd: () => number = Math.random
 
 export function enAlcance(atacante: UnidadCombate, objetivo: UnidadCombate): boolean {
   return distanciaChebyshev({ gx: atacante.gx, gy: atacante.gy }, { gx: objetivo.gx, gy: objetivo.gy }) <= atacante.alcance;
+}
+
+/**
+ * Munición a distancia (docs/GDD_Mecanicas.md §5.4, 2026-09-02) — el arma
+ * en el slot `manoPrincipal` decide el `alcance` real de la unidad
+ * (arco/ballesta/honda vs 1 a cuerpo a cuerpo) y si consume munición al
+ * golpear. Puras: RoomExteriorBase las alimenta con SU `catalogoItems`/
+ * `equipoInventario` (Maps de la room), y las usa tanto para construir la
+ * `UnidadCombate` (alcanceDeEquipo) como para el chequeo/consumo en
+ * `manejarCombateAccion` (municionDeEquipo).
+ */
+export function alcanceDeEquipo(catalogo: CatalogoItems, equipo: SlotsEquipo | undefined): number {
+  const armaId = equipo?.manoPrincipal;
+  if (!armaId) return 1;
+  return catalogo[armaId]?.alcance ?? 1;
+}
+
+/** itemId de munición que consume el arma equipada al disparar (arco→flecha, ballesta→virote, honda→piedra) — undefined si es cuerpo a cuerpo o no consume nada. */
+export function municionDeEquipo(catalogo: CatalogoItems, equipo: SlotsEquipo | undefined): string | undefined {
+  const armaId = equipo?.manoPrincipal;
+  if (!armaId) return undefined;
+  return catalogo[armaId]?.municionId;
 }
 
 /** Aplica daño de `atacante` sobre `objetivo` con la fórmula ya existente — devuelve el objetivo actualizado (no muta). */

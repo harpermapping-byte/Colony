@@ -57,6 +57,21 @@ export function saldoInicialPara(nombre: string): number {
 }
 /** Ingreso diario de un NPC comerciante (pedido 2026-08-30: "los npc cada día reciben 20 Farycoins también, así aumentan su dinero") — mismo importe que el saldo inicial de jugador, cálculo perezoso vía `resolverIngresoDiarioNpc`. */
 export const INGRESO_DIARIO_NPC = 20;
+/**
+ * Embargo por impago (docs/GDD_Economia.md §6, decisión 2026-09-02: cierra
+ * el "backlog abierto" que dejó v1 — "la deuda se acumula hasta que pueda
+ * pagar, sin mecanismo de embargo/desahucio todavía"). Si `resolverImpuesto
+ * Propiedad` encuentra `periodos >= UMBRAL_EMBARGO_IMPUESTO_PERIODOS`
+ * SEGUIDOS sin poder cobrar ni uno, el jarl embarga: `revocarPropiedad`
+ * (misma función que usa `parcela:revocar` a mano — lo construido queda,
+ * GDD_Construccion.md §4). No hace falta columna nueva de "impagos
+ * consecutivos": `periodos` ya se recalcula cada vez desde el timestamp
+ * `impuesto_ultimo_cobro` (congelado mientras hay deuda), así que ES el
+ * contador — cálculo perezoso, coherente con el resto del proyecto. 3
+ * periodos da margen real (no embarga al primer despiste) sin dejar
+ * deuda infinita construyendo sobre suelo ajeno de facto.
+ */
+export const UMBRAL_EMBARGO_IMPUESTO_PERIODOS = 3;
 
 export interface Jugador {
   id: number;
@@ -3080,10 +3095,16 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
   // un alquiler como una COMPRA (decisión 2026-08-29: el jarl mantiene
   // autoridad total). Las construcciones de una parcela QUEDAN (GDD §4);
   // aquí no aplica (inmuebles/habitaciones no llevan construcciones propias).
+  // También apaga el impuesto (decisión 2026-09-02, embargo): sin esto, el
+  // siguiente dueño heredaría un `impuesto_ultimo_cobro` congelado de hace
+  // quién sabe cuánto y `resolverImpuestoPropiedad` le cobraría de golpe (o
+  // lo embargaría) por deuda que no es suya — el jarl reactiva el impuesto
+  // a mano si quiere, igual que ya hace con cualquier propiedad nueva.
   async revocarPropiedad(id: string): Promise<void> {
     this.bd
       .prepare(
-        `UPDATE propiedades SET dueno = NULL, asignada_en = ?, modo_tenencia = NULL, precio_farycoins = NULL, periodo_horas = NULL, expira_en = NULL WHERE id = ?`,
+        `UPDATE propiedades SET dueno = NULL, asignada_en = ?, modo_tenencia = NULL, precio_farycoins = NULL, periodo_horas = NULL, expira_en = NULL,
+         impuesto_activo = 0, impuesto_farycoins = NULL, impuesto_periodo_horas = NULL, impuesto_ultimo_cobro = NULL WHERE id = ?`,
       )
       .run(new Date().toISOString(), id);
     // Mercado (docs/GDD_Mercado.md): revocar la propiedad subyacente vacía
@@ -3140,7 +3161,9 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
    * desactivado, sin dueño, o no ha pasado ni un periodo entero todavía.
    * Todo o nada por LOTE: si el dueño no puede pagar el lote completo, no
    * se cobra nada y el reloj NO avanza — la deuda se acumula hasta que
-   * pueda (sin mecanismo de embargo/desahucio todavía, ver GDD). El precio
+   * pueda, o hasta `UMBRAL_EMBARGO_IMPUESTO_PERIODOS` periodos completos
+   * sin cobrar ni uno, momento en que el jarl EMBARGA la propiedad
+   * (`revocarPropiedad`, decisión 2026-09-02 — ver constante). El precio
    * se acredita al jarl con la MISMA `creditarJarl` que compra/alquiler.
    */
   private async resolverImpuestoPropiedad(id: string): Promise<void> {
@@ -3158,7 +3181,14 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     if (periodos <= 0) return;
     const total = periodos * Number(fila.impuesto_farycoins);
     const debito = await this.ajustarFarycoins(Number(fila.dueno), -total);
-    if (!debito.ok) return; // no puede pagar el lote entero — no cobra nada, no avanza el reloj (deuda se acumula)
+    if (!debito.ok) {
+      // no puede pagar el lote entero — no cobra nada, no avanza el reloj
+      // (la deuda se acumula EN el propio `periodos`, que se recalcula
+      // fresco cada vez desde el timestamp congelado: es su propio contador
+      // de impagos consecutivos, no hace falta guardar uno aparte).
+      if (periodos >= UMBRAL_EMBARGO_IMPUESTO_PERIODOS) await this.revocarPropiedad(id);
+      return;
+    }
     const nuevoUltimoCobro = new Date(new Date(String(fila.impuesto_ultimo_cobro)).getTime() + periodos * periodoMs).toISOString();
     this.bd.prepare("UPDATE propiedades SET impuesto_ultimo_cobro = ? WHERE id = ?").run(nuevoUltimoCobro, id);
     await this.creditarJarl(total);
@@ -4742,9 +4772,11 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     );
   }
 
+  /** Mismo contrato/comentario que la implementación SQLite — ver arriba (incluida la limpieza del impuesto, decisión 2026-09-02). */
   async revocarPropiedad(id: string): Promise<void> {
     await this.pool.query(
-      `UPDATE propiedades SET dueno = NULL, asignada_en = $1, modo_tenencia = NULL, precio_farycoins = NULL, periodo_horas = NULL, expira_en = NULL WHERE id = $2`,
+      `UPDATE propiedades SET dueno = NULL, asignada_en = $1, modo_tenencia = NULL, precio_farycoins = NULL, periodo_horas = NULL, expira_en = NULL,
+       impuesto_activo = FALSE, impuesto_farycoins = NULL, impuesto_periodo_horas = NULL, impuesto_ultimo_cobro = NULL WHERE id = $2`,
       [new Date().toISOString(), id],
     );
     await this.pool.query("DELETE FROM tenderete_items WHERE tenderete_id = $1", [id]);
@@ -4806,7 +4838,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     if (periodos <= 0) return;
     const total = periodos * fila.impuesto_farycoins;
     const debito = await this.ajustarFarycoins(fila.dueno, -total);
-    if (!debito.ok) return;
+    if (!debito.ok) {
+      if (periodos >= UMBRAL_EMBARGO_IMPUESTO_PERIODOS) await this.revocarPropiedad(id);
+      return;
+    }
     const nuevoUltimoCobro = new Date(new Date(fila.impuesto_ultimo_cobro).getTime() + periodos * periodoMs).toISOString();
     await this.pool.query("UPDATE propiedades SET impuesto_ultimo_cobro = $1 WHERE id = $2", [nuevoUltimoCobro, id]);
     await this.creditarJarl(total);

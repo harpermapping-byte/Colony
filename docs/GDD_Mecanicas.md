@@ -304,13 +304,28 @@ Todas con `familiaMaterial`/`tier` (encajan en cadenas de refinamiento
 futuras de `docs/GDD_Crafteo.md`) y desgaste (`durabilidadMax`/
 `desgastePorUso`, mismo `server/src/inventario/desgaste.ts` ya probado).
 
-**Fuera de esta pasada**: recetas de crafteo para fabricarlas (hoy solo
-existen como ítems, sin receta en `items/catalogo/recetas.json`); nadie
-CONSUME `municionId` todavía (ni se resta munición del inventario al
-disparar, ni el mensaje `combate:atacar` distingue melee de distancia —
-sigue siendo un único `ataque` plano en `Player`); armaduras (solo hay
-armas esta pasada, el pedido fue explícito: "de momento... mele y
-arcos/ballestas/hondas").
+**✅ Munición a distancia CERRADA (2026-09-02)** — quedaba como el hueco
+real más citado del proyecto ("arco/ballesta/honda existen como armas,
+pero nadie fabrica flechas/virotes/piedras ni se consumen al disparar").
+Ahora: (1) recetas de crafteo reales para las 3 municiones en
+`items/catalogo/recetas.json` (`flecha_craft` — herrero, `yunque_tocon`;
+`virote_ballesta_craft` — herrero, `yunque_cuerno`; `piedra_honda_craft` —
+picapedrero, `banco_clasificacion_cincelado`); (2) el `alcance` real del
+arma en `manoPrincipal` (antes SIEMPRE 1 = cuerpo a cuerpo, sin importar
+qué llevaras) ahora entra en juego de verdad al montar el combate táctico
+(`RoomExteriorBase.crearUnidadCombate`/`alcanceArmaJugador`, funciones
+puras `alcanceDeEquipo`/`municionDeEquipo` en `combate/arenaCombate.ts`);
+(3) disparar con un arma que declara `municionId` SÍ gasta 1 unidad real
+por golpe conectado, y se rechaza el ataque sin munición (mismo criterio
+que "fuera de alcance") — ver `docs/GDD_Combate.md` §8 para el detalle de
+cómo se hizo compatible con el combate INSTANCIADO en arena aparte (el
+inventario no viaja allí tal cual, así que el gasto se snapshotea/aplica
+con un mecanismo dedicado, no leyendo el inventario en vivo de la arena).
+Sigue fuera: `combate:atacar` (el sistema INTERINO de daño directo, ver
+más abajo) no distingue melee de distancia — solo el combate táctico
+(`combate:accion`) lo hace, que es el sistema definitivo. Armaduras siguen
+sin catálogo (solo había armas en esta pasada, pedido explícito del
+streamer en su momento: "de momento... mele y arcos/ballestas/hondas").
 
 **⚠️ SUSTITUIDO (decisión del streamer, 2026-08-30) — ✅ el táctico ya
 está en pie.** Este sistema de daño DIRECTO simple (radio de
@@ -482,10 +497,15 @@ implementadas tal cual:
 - **PvP**: por ZONAS, nunca global: el Hub y las viviendas son seguros;
   regiones salvajes/mazmorras marcan PvP activado (el mapa bakeado ya
   tiene regiones/POIs donde colgar la bandera de zona).
-- **Muerte**: ⚠️ decisión pendiente (qué se pierde: ¿nada / moneda / drops
-  parciales del inventario?). El respawn es en el Hub. Se decide cuando se
-  diseñe combate en detalle; las animaciones de pegar reutilizan el rig y
-  los clips glTF del taller de PJ.
+- **Muerte**: ✅ resuelto e implementado (2026-08-30, ampliado 2026-09-01) —
+  ver `docs/GDD_Muerte_Respawn.md`. Resumen: lo suelto de la mochila cae al
+  suelo como objetos recogibles por cualquiera; lo clasificado como equipo
+  (herramienta/arma/equipable) se queda pero con -20% flat de durabilidad;
+  lo PUESTO (rig) no se pierde ni se penaliza; vida al máximo; respawn en
+  la primera cama construida en propiedad propia, si no en el Hub. Deja
+  además un cadáver looteable con la apariencia congelada en el sitio de
+  la muerte. Las animaciones de pegar reutilizan el rig y los clips glTF
+  del taller de PJ.
 
 ### 5.11 Twitch: jerarquía, títulos y viewers (pedido por el usuario)
 
@@ -503,9 +523,7 @@ implementadas tal cual:
 
 ### 5.12 Sistemas que faltaban para cerrar el esqueleto (propuestos y aceptados a pulir)
 
-- **Muerte y respawn** (transversal a PvE/PvP/supervivencia): qué se
-  conserva, dónde se reaparece, penalización. Sin esto ninguna mecánica de
-  riesgo tiene dientes. (Decisión pendiente, ver 5.10.)
+- ~~Muerte y respawn~~ — **✅ resuelto**, ver 5.10 y `docs/GDD_Muerte_Respawn.md`.
 - **Zonas e instancias**: el mapa ya es Hub + instancias por diseño; aquí
   se fijan las REGLAS por zona (seguro/PvP, se puede construir/decorar,
   capacidad de la instancia, qué rooms de Colyseus abre cada una). Es el
