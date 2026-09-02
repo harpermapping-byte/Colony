@@ -1449,6 +1449,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // only, mismo gate que los NPCs tutoriales — SIEMPRE self-target (cada
     // admin/tester se hace las pruebas a sí mismo, sin selector de objetivo).
     this.onMessage("admin:debug:darItem", (client, msg: { itemId?: string; cantidad?: number }) => this.manejarDebugDarItem(client, msg));
+    // `admin:debug:ajustarFarycoins` (pedido 2026-09-02: "hace falta que el
+    // jarl pueda dar o quitar dinero sin controlar cuentas de otros, como
+    // admin") — mismo patrón self-target que darItem: cierra el hueco real
+    // de testabilidad (contratar un trabajador NPC, comprar un inmueble...
+    // todo cuesta Farycoins reales y hasta ahora no había forma de dotar de
+    // saldo a una cuenta de prueba sin pasar por la economía real del
+    // juego, ver server/test/megaEstresTodasLasMecanicas.e2e.mjs).
+    this.onMessage("admin:debug:ajustarFarycoins", (client, msg: { cantidad?: number }) => void this.manejarDebugAjustarFarycoins(client, msg));
     this.onMessage("admin:debug:limpiarInventario", (client) => this.manejarDebugLimpiarInventario(client));
     this.onMessage("admin:debug:godMode", (client, msg: { activo?: boolean }) => this.manejarDebugGodMode(client, msg));
     this.onMessage("admin:debug:maxOficio", (client, msg: { slot?: 1 | 2 }) => void this.manejarDebugMaxOficio(client, msg));
@@ -5213,6 +5221,27 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!resultado.ok) return client.send("admin:error", { motivo: resultado.motivo === "sin_hueco" ? "sin hueco en el inventario" : "item desconocido" });
     this.persistirInventarioPorSesion(client);
     client.send("admin:debug:ok", { accion: "darItem", itemId: msg.itemId, cantidad });
+  }
+
+  /**
+   * `admin:debug:ajustarFarycoins {cantidad}` — mismo patrón que darItem
+   * (self-target, jarl/superadmin-only): `cantidad` puede ser negativa para
+   * "quitar" dinero de la propia cuenta de prueba. Reusa `bd.ajustarFarycoins`
+   * (compare-and-swap real, la misma primitiva que cobra impuestos/compras),
+   * que ya rechaza dejar el saldo negativo — no hace falta reimplementar esa
+   * comprobación aquí.
+   */
+  private async manejarDebugAjustarFarycoins(client: Client, msg: { cantidad?: number }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
+    const nombre = this.nombreDe(client);
+    if (!nombre) return client.send("admin:error", { motivo: "jugador inválido" });
+    const cantidad = Math.trunc(msg?.cantidad ?? 0);
+    if (!cantidad) return client.send("admin:error", { motivo: "cantidad inválida (usa un entero distinto de 0)" });
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const resultado = await bd.ajustarFarycoins(jugador.id, cantidad);
+    if (!resultado.ok) return client.send("admin:error", { motivo: "saldo insuficiente para esa cantidad" });
+    client.send("admin:debug:ok", { accion: "ajustarFarycoins", cantidad, saldo: resultado.saldo });
   }
 
   /** `admin:debug:limpiarInventario {}` — vacía cuerpo + TODAS las mochilas/bandoleras puestas; el equipo (armadura/arma equipada) se queda puesto a propósito. */

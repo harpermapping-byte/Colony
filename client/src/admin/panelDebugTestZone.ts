@@ -42,6 +42,7 @@ const ITEMS = itemsJson as unknown as Record<string, EntradaItem>;
 export interface OpcionesPanelDebugTestZone {
   contenedor: HTMLElement;
   darItem(itemId: string, cantidad: number): void;
+  ajustarFarycoins(cantidad: number): void;
   limpiarInventario(): void;
   godMode(activo: boolean): void;
   maxOficio(slot: 1 | 2): void;
@@ -159,6 +160,33 @@ export class PanelDebugTestZone {
       this.opciones.darItem(selectItem.value, cantidad);
     };
     filaItem.appendChild(btnDar);
+
+    // --- Farycoins (pedido 2026-09-02: dar/quitar dinero de la propia
+    // cuenta de prueba, self-target, mismo gate jarl que el resto) ---
+    this.separador("Farycoins (cuenta propia)");
+    const filaCoins = this.fila();
+    const inputCoins = document.createElement("input");
+    inputCoins.type = "number";
+    inputCoins.step = "1";
+    inputCoins.value = "100";
+    inputCoins.style.width = "70px";
+    filaCoins.appendChild(inputCoins);
+    const btnDarCoins = document.createElement("button");
+    btnDarCoins.textContent = "Dar";
+    btnDarCoins.style.marginLeft = "4px";
+    btnDarCoins.onclick = () => {
+      const cantidad = Math.trunc(Number(inputCoins.value) || 0);
+      if (cantidad > 0) this.opciones.ajustarFarycoins(cantidad);
+    };
+    filaCoins.appendChild(btnDarCoins);
+    const btnQuitarCoins = document.createElement("button");
+    btnQuitarCoins.textContent = "Quitar";
+    btnQuitarCoins.style.marginLeft = "4px";
+    btnQuitarCoins.onclick = () => {
+      const cantidad = Math.trunc(Number(inputCoins.value) || 0);
+      if (cantidad > 0) this.opciones.ajustarFarycoins(-cantidad);
+    };
+    filaCoins.appendChild(btnQuitarCoins);
 
     // --- Limpiar inventario ---
     this.separador("Inventario");

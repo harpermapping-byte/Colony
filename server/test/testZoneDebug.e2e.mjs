@@ -94,6 +94,33 @@ try {
     comprobar("item inexistente rechazado", !!m?.motivo, JSON.stringify(m));
   }
 
+  // --- ajustarFarycoins (pedido 2026-09-02) ---
+  console.log("5b) admin:debug:ajustarFarycoins da dinero a la propia cuenta...");
+  let saldoTrasDar = null;
+  {
+    const p = esperarMensaje(room, "admin:debug:ok");
+    room.send("admin:debug:ajustarFarycoins", { cantidad: 500 });
+    const m = await p.catch((e) => ({ error: e.message }));
+    comprobar("ajustarFarycoins (dar) responde ok con saldo", m?.accion === "ajustarFarycoins" && typeof m?.saldo === "number", JSON.stringify(m));
+    saldoTrasDar = m?.saldo ?? null;
+  }
+
+  console.log("5c) admin:debug:ajustarFarycoins quita dinero (cantidad negativa)...");
+  {
+    const p = esperarMensaje(room, "admin:debug:ok");
+    room.send("admin:debug:ajustarFarycoins", { cantidad: -200 });
+    const m = await p.catch((e) => ({ error: e.message }));
+    comprobar("ajustarFarycoins (quitar) descuenta del saldo real", m?.saldo === (saldoTrasDar ?? 0) - 200, JSON.stringify({ m, saldoTrasDar }));
+  }
+
+  console.log("5d) admin:debug:ajustarFarycoins nunca deja el saldo en negativo...");
+  {
+    const p = esperarMensaje(room, "admin:error");
+    room.send("admin:debug:ajustarFarycoins", { cantidad: -999999 });
+    const m = await p.catch((e) => ({ error: e.message }));
+    comprobar("quitar más de lo que hay se rechaza limpio (nunca negativo)", !!m?.motivo, JSON.stringify(m));
+  }
+
   // --- limpiarInventario ---
   console.log("5) admin:debug:limpiarInventario...");
   {
@@ -149,6 +176,11 @@ try {
     roomNormal.send("admin:debug:godMode", { activo: true });
     const m = await p.catch((e) => ({ error: e.message }));
     comprobar("jugador normal rechazado", !!m?.motivo, JSON.stringify(m));
+
+    const pCoins = esperarMensaje(roomNormal, "admin:error");
+    roomNormal.send("admin:debug:ajustarFarycoins", { cantidad: 1000 });
+    const mCoins = await pCoins.catch((e) => ({ error: e.message }));
+    comprobar("jugador normal no puede darse Farycoins de prueba", !!mCoins?.motivo, JSON.stringify(mCoins));
 
     // --- cofres de mundo: SIN gate de jarl, cualquiera puede abrir/tomar ---
     console.log("11) jugador normal abre un cofre de mundo (contenedorTest:abrir)...");

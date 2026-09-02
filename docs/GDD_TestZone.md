@@ -66,12 +66,23 @@ Spawn: (220.5, 270.5) — dentro del clúster de zonas (`indice.json.ciudad`).
 `client/src/admin/panelDebugTestZone.ts` — tabla de botones, nada que
 escribir a mano. Solo visible con sesión de admin (jarl/superadmin,
 `client/src/admin/panelLoginAdmin.ts`, credenciales de test en
-`server/src/admin/seedAdmin.ts`). Envuelve 6 mensajes `admin:debug:*`
+`server/src/admin/seedAdmin.ts`). Envuelve 7 mensajes `admin:debug:*`
 (`server/src/rooms/base/RoomExteriorBase.ts`), todos gateados server-side
 con `puedeActuarComoJarl` — el panel es solo conveniencia de UI, el
 servidor es la autoridad real:
 
 - `darItem {itemId, cantidad}`
+- `ajustarFarycoins {cantidad}` (pedido 2026-09-02) — `cantidad` positiva
+  da dinero, negativa quita, siempre sobre la CUENTA PROPIA (self-target,
+  igual que el resto de este bloque — nunca toca la cuenta de otro
+  jugador, "sin controlar cuentas de otros"). Reusa `bd.ajustarFarycoins`
+  (compare-and-swap real, la misma primitiva que cobra impuestos/compras),
+  que ya rechaza dejar el saldo en negativo. Cierra el hueco de
+  testabilidad que encontró el mega-estrés de 2026-09-02
+  (`server/test/megaEstresTodasLasMecanicas.e2e.mjs`): contratar un
+  trabajador NPC, comprar un inmueble... todo cuesta Farycoins reales y
+  antes no había forma de dotar de saldo a una cuenta de prueba sin pasar
+  por la economía real del juego.
 - `limpiarInventario {}`
 - `godMode {activo}` — sin daño ambiental/combate ni gasto de comida/hidratación mientras esté activo (`Player.godMode` en `HubState.ts`).
 - `maxOficio {slot}` — sube la XP del oficio de ese slot al umbral de nivel máximo.
@@ -118,11 +129,12 @@ simple y further prueba el flujo real de construcción de un tirón.
 
 ## 5. Verificación hecha (2026-08-31)
 
-- `server/test/testZoneDebug.e2e.mjs` (NUEVO, sigue el patrón de
-  `oficios.e2e.mjs`): 12/12 — los 6 `admin:debug:*`, gating admin-only,
-  cofres (abrir/tomar/rechazo de id inexistente), y confirmación de que el
-  único límite real al tomar de un cofre es el inventario del jugador, no
-  el propio cofre.
+- `server/test/testZoneDebug.e2e.mjs` (sigue el patrón de
+  `oficios.e2e.mjs`): 16/16 — los 7 `admin:debug:*` (incluido
+  `ajustarFarycoins`: dar, quitar, y rechazo limpio al intentar dejar el
+  saldo negativo), gating admin-only, cofres (abrir/tomar/rechazo de id
+  inexistente), y confirmación de que el único límite real al tomar de un
+  cofre es el inventario del jugador, no el propio cofre.
 - Probado con Playwright headless contra el servidor real: carga de
   terreno/NPCs/fauna, movimiento WASD, login superadmin (dispara
   `location.reload()`, tarda unos segundos en reconectar — normal, no es

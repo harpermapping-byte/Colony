@@ -2121,6 +2121,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         panelDebugTestZone = new PanelDebugTestZone({
           contenedor,
           darItem: (itemId, cantidad) => room.send("admin:debug:darItem", { itemId, cantidad }),
+          ajustarFarycoins: (cantidad) => room.send("admin:debug:ajustarFarycoins", { cantidad }),
           limpiarInventario: () => room.send("admin:debug:limpiarInventario", {}),
           godMode: (activo) => room.send("admin:debug:godMode", { activo }),
           maxOficio: (slot) => room.send("admin:debug:maxOficio", { slot }),
@@ -2132,7 +2133,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   );
   room.onMessage("pvp:actualizado", (m: { on: boolean }) => panelJarl?.actualizarPvp(m.on));
   room.onMessage("capital:renombrada", (m: { nombre: string }) => panelJarl?.actualizarCapital(m?.nombre ?? ""));
-  room.onMessage("admin:debug:ok", (m: { accion: string }) => panelDebugTestZone?.mostrarResultado(`OK: ${m?.accion}`));
+  room.onMessage("admin:debug:ok", (m: { accion: string; saldo?: number }) =>
+    panelDebugTestZone?.mostrarResultado(`OK: ${m?.accion}${m?.saldo !== undefined ? ` (saldo: ${m.saldo})` : ""}`),
+  );
   room.onMessage("admin:error", (m: { motivo: string }) => panelDebugTestZone?.mostrarResultado(`Error: ${m?.motivo}`));
   room.onMessage("pvp:error", (m: { motivo?: string }) => console.log("[pvp]", m?.motivo));
 
