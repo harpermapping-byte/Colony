@@ -12,8 +12,13 @@ TODAS las mecánicas implementadas". Placeholders, sin arte final.
   dirección (una mecánica por dirección cardinal). Arregla además la
   limitación de `testzone` (§4 más abajo): las mesas de crafteo son
   construcciones REALES sembradas en BD, no mobiliario decorativo. Detalle
-  completo en `assets/mapas/testflat/ZONAS.md`. Incluye portal a una aldea
-  de verdad (`testaldea/`, bakeada con `ciudades/`) para probar entrar en
+  completo en `assets/mapas/testflat/ZONAS.md`. Trae una aldea de verdad
+  fusionada DENTRO del propio mapa (`ciudades/`, tier `aldea_pequena`, antes
+  vivía aparte en `testaldea/` cruzando un portal — fusionada de verdad
+  2026-09-02, "pedí que se agrandara el mapa el suelo del testflat para
+  poder spawnear una aldea": el mapa base se rehorneó más grande con
+  `baker/` y los chunks de la aldea se empalmaron dentro con un offset, así
+  que se camina de un lado a otro sin cruzar de room) para probar entrar en
   edificios con interior real.
 - **`testzone`** (el primer intento, más grande y con generación
   procedural real de biomas/mazmorras/POIs) — se mantiene tal cual, sigue
@@ -26,17 +31,20 @@ cruzar a otro mapa exterior — ver GDD_Barcos.md).
 
 ## 0. `testflat` — resumen rápido
 
-Spawn (32.5,32.5), mapa 64x64, césped puro. Alrededor, por dirección (ver
-`assets/mapas/testflat/ZONAS.md` para coordenadas exactas):
+Spawn (32.5,32.5), mapa 208x128 (rehorneado más grande 2026-09-02, detalle
+del proceso de fusión en `assets/mapas/testflat/ZONAS.md`), césped puro
+salvo la aldea fusionada. Alrededor del spawn, por
+dirección (ver `assets/mapas/testflat/ZONAS.md` para coordenadas exactas):
 **Norte** = 16 muebles (11 mesas de los 10 oficios + cama/2 instrumentos
 MIDI/silla/mesa) como construcciones reales sembradas por
 `server/src/mundo/semillaTestZone.ts` al arrancar. **Sur** = 17 NPCs
 tutorial/lore que hablan (nombres reales, sembrados en `npcs_tutoriales`).
 **Este** = 8 cofres de mundo con stock infinito. **Oeste** = 4 nodos de
 recolección a mano (árbol/planta/veta/caza). **Noreste** = 2 dummies de
-combate con vida infinita ("Muñeco de Pruebas" y "Bandido"). Más al este,
-portal a `testaldea` (aldea real bakeada con `ciudades/`, 8 edificios con
-interior de verdad).
+combate con vida infinita ("Muñeco de Pruebas" y "Bandido"). Mucho más al
+este (x:80-192), la aldea `aldea_pequena` fusionada — 8 edificios con
+interior de verdad, muralla, plaza y 5 NPCs con rutina propia, caminable
+directamente desde el spawn sin cruzar de room.
 
 Verificado con servidor real + Playwright (2026-08-31): terreno limpio sin
 errores, spawn correcto, los 16 muebles y 19 NPCs fijos cargan en el
