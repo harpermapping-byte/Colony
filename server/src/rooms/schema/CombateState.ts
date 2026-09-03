@@ -61,6 +61,33 @@ export class CombateUnidad extends Schema {
   /** docs/GDD_Caza.md — fauna no peligrosa en modo caza: deambula, nunca ataca (server/src/combate/arenaCombate.ts::jugarTurnoIAPasiva). */
   pasivo = false;
   /**
+   * Habilidad por familia de arma (docs/GDD_Combate.md, pedido 2026-09-03) —
+   * snapshot tomado al crear la unidad desde el arma equipada en
+   * `manoPrincipal` (`habilidadDeEquipo`), SOLO jugador. "" = sin habilidad
+   * (fauna/enemigo/npc/compañero, o jugador desarmado/con arma sin familia
+   * asignada) — `combate:accion` solo acepta un `habilidadId` que coincida
+   * EXACTO con este snapshot, nunca lo que mande el cliente a ciegas.
+   */
+  habilidadId = "";
+  /** ¿Se movió esta unidad en su turno más reciente? — ver arenaCombate.ts::UnidadCombate.movioEsteTurno. */
+  movioEsteTurno = false;
+  /** Aturdida por un golpe de maza — pierde su próxima acción. Ver arenaCombate.ts::UnidadCombate.aturdido. */
+  aturdido = false;
+  /**
+   * Desgaste de combate (docs/GDD_Combate.md, pedido 2026-09-03: "conectalo
+   * obviamente tambien con armas" — conecta `inventario/desgaste.ts` con
+   * combate) — contadores SOLO servidor acumulados turno a turno mientras
+   * dura el combate, aplicados de una vez al terminar
+   * (`ArenaCombateRoom.onCombateResuelto`, mismo patrón exacto que
+   * `municionConsumida`): `golpesDados` desgasta el ARMA propia
+   * (`manoPrincipal`) cuando esta unidad ataca; `danoAbsorbido` acumula lo
+   * que la defensa de esta unidad "paró" de cada golpe recibido, y desgasta
+   * TODA su armadura equipada al repartirse. Solo tienen efecto real si
+   * `esJugador` (fauna/enemigo/npc no tienen equipo real que desgastar).
+   */
+  golpesDados = 0;
+  danoAbsorbido = 0;
+  /**
    * docs/GDD_Companeros.md (pedido 2026-08-30): sessionId del jugador dueño
    * SOLO si esta unidad es un compañero — "" para todo lo demás (jugador,
    * fauna, enemigo, npc hostil). El compañero NO tiene su propio hueco en

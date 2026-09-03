@@ -35,14 +35,20 @@ import {
   Bando,
   alcanceDeEquipo,
   calcularIniciativa,
+  costeExtraPaDeHabilidad,
   enAlcance,
+  golpesDeHabilidad,
+  habilidadDeEquipo,
   jugarTurnoIA,
   municionDeEquipo,
+  municionExtraDeHabilidad,
   ordenarTurnos,
+  requiereQuietoHabilidad,
   resolverAtaque,
+  resolverAtaqueConHabilidad,
   tirarHuida,
 } from "../../combate/arenaCombate";
-import { Arena, costeCasilla } from "../../combate/pathfindingArena";
+import { Arena, Casilla, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
 import { recolectableCercano, recolectablesAgotadosDeMapa } from "../../mundo/recolectables";
 import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria } from "../../mundo/herramientasRecoleccion";
@@ -1344,7 +1350,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("combate:unirse", (client, msg: { combateId?: string; retorno?: RetornoJugador }) => this.manejarCombateUnirse(client, msg));
     this.onMessage("combate:comenzarYa", (client, msg: { combateId?: string }) => this.manejarCombateComenzarYa(client, msg));
     this.onMessage("combate:mover", (client, msg: { combateId?: string; gx?: number; gy?: number }) => this.manejarCombateMover(client, msg));
-    this.onMessage("combate:accion", (client, msg: { combateId?: string; objetivoId?: string }) => this.manejarCombateAccion(client, msg));
+    this.onMessage("combate:accion", (client, msg: { combateId?: string; objetivoId?: string; unidadId?: string; habilidadId?: string }) => this.manejarCombateAccion(client, msg));
     this.onMessage("combate:pasarTurno", (client, msg: { combateId?: string }) => this.manejarCombatePasarTurno(client, msg));
     this.onMessage("combate:huir", (client, msg: { combateId?: string }) => this.manejarCombateHuir(client, msg));
 
@@ -2244,6 +2250,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         return client.send("personaje:error", { motivo: "no es tu turno" });
       }
       unidadCombate = combate.unidades.get(client.sessionId)!;
+      // Aturdido (maza:aturdir, docs/GDD_Combate.md, 2026-09-03): mismo
+      // guardia que atacar/mover/huir.
+      if (unidadCombate.aturdido) return client.send("personaje:error", { motivo: "estás aturdido, pasa turno" });
       if (unidadCombate.pa < COSTE_PA_OBJETO) return client.send("personaje:error", { motivo: "sin PA suficiente" });
     }
 
@@ -9940,11 +9949,40 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return { enInventario: false };
   }
 
-  /** Bebe una poción ya preparada — aplica sus efectos como BuffPocion (caducidad real, ver alquimia.ts) y recalcula stats YA, sin esperar al siguiente cambio de equipo. */
+  /**
+   * Bebe una poción ya preparada — aplica sus efectos como BuffPocion
+   * (caducidad real, ver alquimia.ts) y recalcula stats YA, sin esperar al
+   * siguiente cambio de equipo.
+   *
+   * Combate (docs/GDD_Combate.md, pedido 2026-09-03: "que las potis se
+   * podran usar durante combates") — mismo criterio EXACTO que
+   * `manejarPersonajeConsumir` ya usa para comida: si el bebedor tiene una
+   * `CombateUnidad` activa en un combate SIN resolver, beber cuenta como su
+   * acción de turno (solo en turno propio, cuesta `COSTE_PA_OBJETO`,
+   * bloqueado si está aturdido) — fuera de combate, cero cambios. El efecto
+   * se refleja DE VERDAD en la pelea en curso: `Player.ataque/defensa/
+   * vidaMax/vida` ya se recalculan más abajo (como siempre), pero
+   * `CombateUnidad` es una COPIA snapshot que no se entera sola
+   * (docs/GDD_Combate.md §2) — se resincroniza aquí, mismo criterio que
+   * `combate:mover` ya hace con `Player.x/y`.
+   */
   private async manejarPocionBeber(client: Client, msg: { instanciaId?: number }) {
     if (typeof msg?.instanciaId !== "number") return;
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
+
+    const enCombate = this.combatePorUnidad(client.sessionId);
+    let unidadCombate: CombateUnidad | null = null;
+    if (enCombate) {
+      const [, combate] = enCombate;
+      if (combate.ordenTurnos[combate.turnoActual] !== client.sessionId) {
+        return client.send("personaje:error", { motivo: "no es tu turno" });
+      }
+      unidadCombate = combate.unidades.get(client.sessionId)!;
+      if (unidadCombate.aturdido) return client.send("personaje:error", { motivo: "estás aturdido, pasa turno" });
+      if (unidadCombate.pa < COSTE_PA_OBJETO) return client.send("personaje:error", { motivo: "sin PA suficiente" });
+    }
+
     const item = contenedor.items.find((it) => it.id === msg.instanciaId);
     // `efectoPocion` (no el itemId) es lo que de verdad identifica una poción
     // bebible — solo `entregarPocion` lo rellena, y ahora hay 5 itemIds
@@ -9958,6 +9996,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.buffsPocionPorSesion.set(client.sessionId, [...actuales, ...nuevosBuffs]);
 
     quitarItem(contenedor, item.id, 1);
+    if (unidadCombate) unidadCombate.pa -= COSTE_PA_OBJETO;
     const player = this.state.players.get(client.sessionId);
     if (player) {
       sincronizarContenedor(player.inventario.cuerpo, contenedor);
@@ -9968,6 +10007,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // sin esperar al siguiente tick de aplicarInanicionA.
       player.vidaMax = this.vidaMaximaConBuffs(client.sessionId, player.atributos.resistencia);
       player.vida = Math.min(player.vida, player.vidaMax);
+      if (unidadCombate) {
+        unidadCombate.ataqueFisico = player.ataque;
+        unidadCombate.defensaFisica = player.defensa;
+        unidadCombate.hpMax = player.vidaMax;
+        unidadCombate.hp = Math.min(unidadCombate.hp, unidadCombate.hpMax);
+      }
     }
     client.send("pocion:bebida", { efectos: item.efectoPocion });
   }
@@ -10862,7 +10907,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       pa: cu.pa, paMax: cu.paMax,
       iniciativa: cu.iniciativa, estado: cu.estado as UnidadCombate["estado"],
       ataqueFisico: cu.ataqueFisico, defensaFisica: cu.defensaFisica, alcance: cu.alcance,
-      pasivo: cu.pasivo,
+      pasivo: cu.pasivo, movioEsteTurno: cu.movioEsteTurno, aturdido: cu.aturdido,
     };
   }
 
@@ -10873,6 +10918,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (!cu) continue;
       const hpAntes = cu.hp;
       cu.gx = u.gx; cu.gy = u.gy; cu.pa = u.pa;
+      // Habilidades por familia de arma (docs/GDD_Combate.md, 2026-09-03):
+      // ambos campos generic-aplicables a CUALQUIER unidad de la lista (no
+      // solo al objetivo de un ataque), igual que gx/gy/pa de arriba —
+      // `movioEsteTurno` lo toca `jugarTurnoIA`/`manejarCombateMover`,
+      // `aturdido` lo toca `resolverAtaqueConHabilidad` (maza) sobre el
+      // objetivo golpeado.
+      if (u.movioEsteTurno !== undefined) cu.movioEsteTurno = u.movioEsteTurno;
+      if (u.aturdido !== undefined) cu.aturdido = u.aturdido;
       // Debug godMode (admin:debug:godMode): un jugador con el flag no pierde
       // vida NI en combate — ni un rasguño, cu.hp se queda como estaba.
       const jugadorGod = cu.esJugador && !!this.state.players.get(u.id)?.godMode;
@@ -10939,7 +10992,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     gy: number,
     stats: {
       hp: number; hpMax: number; ataque: number; defensa: number; esJugador: boolean; esBoss?: boolean; pasivo?: boolean;
-      alcance?: number; municionId?: string; municionDisponible?: number;
+      alcance?: number; municionId?: string; municionDisponible?: number; habilidadId?: string;
     },
   ): CombateUnidad {
     const cu = new CombateUnidad();
@@ -10974,6 +11027,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     cu.alcance = stats.alcance ?? 1;
     cu.municionId = stats.municionId ?? "";
     cu.municionDisponible = stats.municionDisponible ?? 0;
+    // Habilidad por familia de arma (docs/GDD_Combate.md, 2026-09-03) —
+    // snapshot igual que alcance/munición: el llamador la calcula desde el
+    // arma equipada en ORIGEN (`habilidadArmaJugador`) antes de saltar a la
+    // arena. "" = sin habilidad (fauna/enemigo/npc/compañero, o jugador
+    // desarmado/con arma sin familia asignada en el catálogo).
+    cu.habilidadId = stats.habilidadId ?? "";
     return cu;
   }
 
@@ -10986,6 +11045,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   private alcanceArmaJugador(sessionId: string): number {
     return alcanceDeEquipo(this.catalogoItems, this.equipoInventario.get(sessionId));
+  }
+
+  /**
+   * Habilidad de familia del arma que el jugador lleva en `manoPrincipal`
+   * (docs/GDD_Combate.md, 2026-09-03) — "" si no lleva nada o el catálogo no
+   * le asignó ninguna (herramientas, o un arma futura sin `habilidadId`
+   * todavía). Mismo criterio exacto que `alcanceArmaJugador`.
+   */
+  private habilidadArmaJugador(sessionId: string): string {
+    return habilidadDeEquipo(this.catalogoItems, this.equipoInventario.get(sessionId));
   }
 
   /**
@@ -11061,6 +11130,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const cu = this.crearUnidadCombate(atacanteId, bandoPropio, atacante.x - combate.gx0, atacante.y - combate.gy0, {
         hp: atacante.vida, hpMax: atacante.vidaMax, ataque: atacante.ataque, defensa: atacante.defensa, esJugador: true,
         alcance: this.alcanceArmaJugador(atacanteId),
+        habilidadId: this.habilidadArmaJugador(atacanteId),
         ...this.municionArmaJugador(atacanteId),
       });
       combate.unidades.set(atacanteId, cu);
@@ -11105,6 +11175,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const uAtacante = this.crearUnidadCombate(atacanteId, "A", atacante.x - gx0, atacante.y - gy0, {
       hp: atacante.vida, hpMax: atacante.vidaMax, ataque: atacante.ataque, defensa: atacante.defensa, esJugador: true,
       alcance: this.alcanceArmaJugador(atacanteId),
+      habilidadId: this.habilidadArmaJugador(atacanteId),
       ...this.municionArmaJugador(atacanteId),
     });
     const uObjetivo = this.crearUnidadCombate(msg.objetivoId, "B", objetivoStats.x - gx0, objetivoStats.y - gy0, {
@@ -11217,6 +11288,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const uJugador = this.crearUnidadCombate(jugadorId, "A", jugador.x - gx0, jugador.y - gy0, {
       hp: jugador.vida, hpMax: jugador.vidaMax, ataque: jugador.ataque, defensa: jugador.defensa, esJugador: true,
       alcance: this.alcanceArmaJugador(jugadorId),
+      habilidadId: this.habilidadArmaJugador(jugadorId),
       ...this.municionArmaJugador(jugadorId),
     });
     const uFauna = this.crearUnidadCombate(faunaId, "B", faunaStats.x - gx0, faunaStats.y - gy0, faunaStats);
@@ -11250,6 +11322,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const cu = this.crearUnidadCombate(jugadorId, "A", jugador.x - combate.gx0, jugador.y - combate.gy0, {
       hp: jugador.vida, hpMax: jugador.vidaMax, ataque: jugador.ataque, defensa: jugador.defensa, esJugador: true,
       alcance: this.alcanceArmaJugador(jugadorId),
+      habilidadId: this.habilidadArmaJugador(jugadorId),
       ...this.municionArmaJugador(jugadorId),
     });
     combate.unidades.set(jugadorId, cu);
@@ -11349,6 +11422,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           id: u.id, bando: u.bando as Bando, esJugador: true,
           hp: u.hp, hpMax: u.hpMax, paMax: u.paMax, ataqueFisico: u.ataqueFisico, defensaFisica: u.defensaFisica, alcance: u.alcance,
           municionId: u.municionId || undefined, municionDisponible: u.municionId ? u.municionDisponible : undefined,
+          habilidadId: u.habilidadId || undefined,
           nombreJugador: this.state.players.get(u.id)?.name,
           retorno: this.retornosPendientes.get(u.id),
           // Solo si el combate es acuático Y de verdad iba en un barco: el
@@ -11450,6 +11524,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (idActual !== client.sessionId) return client.send("combate:error", { motivo: "no es tu turno" });
     const cu = this.unidadParaAccion(combate, client, msg.unidadId);
     if (!cu || cu.estado !== "activo") return;
+    // Aturdido (maza:aturdir, docs/GDD_Combate.md, 2026-09-03): mismo
+    // guardia que manejarCombateAccion/Huir — solo puede pasar turno.
+    if (cu.aturdido) return client.send("combate:error", { motivo: "estás aturdido, pasa turno" });
 
     const arena = this.arenaDeCombate(combate);
     const ocupadas = new Set<string>();
@@ -11460,6 +11537,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (coste === null) return client.send("combate:error", { motivo: "casilla no alcanzable con tu PA" });
 
     cu.gx = msg.gx; cu.gy = msg.gy; cu.pa -= coste;
+    // hacha:tajoPesado/arco:apuntar (docs/GDD_Combate.md, 2026-09-03) leen
+    // esto — se resetea a `false` para todas las unidades activas en cada
+    // vuelta completa de turnos (avanzarTurno).
+    cu.movioEsteTurno = true;
 
     // Sincroniza la posición VISUAL (Player/Companero) con la táctica —
     // BUG REAL encontrado al cablear el movimiento por tecla (pedido
@@ -11771,7 +11852,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     client.send("medico:jarabeTomado", { curado: true });
   }
 
-  private async manejarCombateAccion(client: Client, msg: { combateId?: string; objetivoId?: string; unidadId?: string }) {
+  private async manejarCombateAccion(client: Client, msg: { combateId?: string; objetivoId?: string; unidadId?: string; habilidadId?: string }) {
     if (!msg?.combateId || !msg?.objetivoId) return;
     const combate = this.state.combates.get(msg.combateId);
     if (!combate) return;
@@ -11780,7 +11861,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const atacante = this.unidadParaAccion(combate, client, msg.unidadId);
     const objetivo = combate.unidades.get(msg.objetivoId);
     if (!atacante || atacante.estado !== "activo" || !objetivo || objetivo.estado !== "activo") return;
-    if (atacante.pa < COSTE_PA_ATAQUE) return client.send("combate:error", { motivo: "sin PA suficiente" });
+    // Aturdido (maza:aturdir, docs/GDD_Combate.md, 2026-09-03): pierde su
+    // acción entera — tiene que pasar turno (avanzarTurno limpia la bandera
+    // ahí), no puede atacar/mover/huir/usar un objeto.
+    if (atacante.aturdido) return client.send("combate:error", { motivo: "estás aturdido, pasa turno" });
+    // Habilidad por familia de arma (docs/GDD_Combate.md, pedido 2026-09-03)
+    // — SOLO se acepta si coincide EXACTO con el snapshot tomado al armar la
+    // unidad (`crearUnidadCombate`, desde el arma equipada en origen): nunca
+    // se confía en lo que mande el cliente. Sin match (o sin `habilidadId`
+    // en el mensaje) cae al ataque base de siempre, "golpear con lo que
+    // tengas" — nunca se rompe ese camino.
+    const habilidadIdValidado = msg.habilidadId && msg.habilidadId === atacante.habilidadId ? atacante.habilidadId : "";
+    const golpes = golpesDeHabilidad(habilidadIdValidado);
+    const costePa = COSTE_PA_ATAQUE + costeExtraPaDeHabilidad(habilidadIdValidado);
+    if (atacante.pa < costePa) return client.send("combate:error", { motivo: "sin PA suficiente" });
     // Anatomía (docs/GDD_Anatomia.md): brazo roto/amputado bloquea atacar —
     // solo aplica si quien ataca es el propio jugador (un compañero no
     // tiene anatomía por zona, ver docs/GDD_Companeros.md).
@@ -11790,25 +11884,55 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!enAlcance(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo))) {
       return client.send("combate:error", { motivo: "fuera de alcance" });
     }
+    // arco:apuntar ("quedarse quieto y disparar dos veces", docs/GDD_Combate.md):
+    // exige no haberse movido en ESTE turno.
+    if (requiereQuietoHabilidad(habilidadIdValidado) && atacante.movioEsteTurno) {
+      return client.send("combate:error", { motivo: "tienes que quedarte quieto para apuntar" });
+    }
     // Munición a distancia (docs/GDD_Mecanicas.md §5.4, 2026-09-02): si el
     // arma equipada al entrar en combate consume munición, hace falta que
-    // quede al menos 1 en el SNAPSHOT tomado al crear la unidad (rechazo
-    // ANTES de gastar PA/turno, mismo criterio que "fuera de alcance" — el
+    // quede al menos `necesaria` (1, o 2 con arco:apuntar — dispara dos
+    // veces) en el SNAPSHOT tomado al crear la unidad (rechazo ANTES de
+    // gastar PA/turno, mismo criterio que "fuera de alcance" — el
     // inventario real NO viaja a la arena, docs/GDD_Combate.md §9.2, así que
     // esto lee/muta el propio CombateUnidad, nunca this.inventarios aquí;
     // `municionConsumida` es lo que ArenaCombateRoom.onCombateResuelto resta
     // de verdad del inventario persistido en BD al terminar el combate).
+    const municionNecesaria = 1 + municionExtraDeHabilidad(habilidadIdValidado);
     if (atacante.esJugador && atacante.municionId) {
-      if (atacante.municionDisponible < 1) return client.send("combate:error", { motivo: "sin munición" });
-      atacante.municionDisponible -= 1;
-      atacante.municionConsumida += 1;
+      if (atacante.municionDisponible < municionNecesaria) return client.send("combate:error", { motivo: "sin munición" });
+      atacante.municionDisponible -= municionNecesaria;
+      atacante.municionConsumida += municionNecesaria;
     }
 
-    const actualizado = resolverAtaque(this.unidadDesdeSchema(atacante), this.unidadDesdeSchema(objetivo));
-    this.aplicarUnidadesASchema(combate, [actualizado]);
-    atacante.pa -= COSTE_PA_ATAQUE;
+    // Resuelve `golpes` impactos en cascada (1 normal, 2 con arco:apuntar) —
+    // cada uno parte del resultado del anterior (el objetivo puede caer a
+    // mitad, o un empuje de lanza cambiar su posición para el siguiente).
+    const arena = this.arenaDeCombate(combate);
+    const ocupadas: Casilla[] = [...combate.unidades.values()]
+      .filter((u) => u.id !== atacante.id && u.id !== objetivo.id && u.estado === "activo")
+      .map((u) => ({ gx: u.gx, gy: u.gy }));
+    const atacantePuro = this.unidadDesdeSchema(atacante);
+    let objetivoActual = this.unidadDesdeSchema(objetivo);
+    let danioTotal = 0, absorbidoTotal = 0;
+    for (let i = 0; i < golpes && objetivoActual.estado === "activo"; i++) {
+      const golpe = resolverAtaqueConHabilidad(atacantePuro, objetivoActual, habilidadIdValidado, arena, ocupadas);
+      objetivoActual = golpe.objetivo;
+      danioTotal += golpe.danio;
+      absorbidoTotal += golpe.absorbido;
+    }
+    this.aplicarUnidadesASchema(combate, [objetivoActual]);
+    atacante.pa -= costePa;
+    // Desgaste de combate (docs/GDD_Combate.md, pedido 2026-09-03: "conectalo
+    // obviamente tambien con armas") — contadores acumulados, aplicados de
+    // verdad al terminar el combate (ArenaCombateRoom.onCombateResuelto,
+    // mismo patrón que la munición de arriba). Solo tiene efecto real si
+    // esJugador (fauna/enemigo/npc no tienen equipo real que desgastar).
+    if (atacante.esJugador) atacante.golpesDados += golpes;
+    if (objetivo.esJugador) objetivo.danoAbsorbido += absorbidoTotal;
+    void danioTotal; // informativo — el daño real ya viaja en objetivo.hp vía aplicarUnidadesASchema
     // Anatomía (docs/GDD_Anatomia.md): solo si el objetivo es un jugador y sigue en pie tras el golpe.
-    if (objetivo.esJugador && actualizado.estado === "activo") {
+    if (objetivo.esJugador && objetivoActual.estado === "activo") {
       void this.aplicarEfectoAnatomicoSiCorresponde(client.sessionId, msg.objetivoId);
     }
 
@@ -11854,6 +11978,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (idActual !== client.sessionId) return;
     const cu = combate.unidades.get(client.sessionId);
     if (!cu || cu.estado !== "activo") return;
+    // Aturdido (maza:aturdir, docs/GDD_Combate.md, 2026-09-03): mismo
+    // guardia que manejarCombateAccion/Mover — solo puede pasar turno.
+    if (cu.aturdido) return client.send("combate:error", { motivo: "estás aturdido, pasa turno" });
     if (cu.pa < 1) return client.send("combate:error", { motivo: "sin PA suficiente para intentar huir" });
 
     const nivelCarisma = this.state.players.get(client.sessionId)?.atributos.carisma ?? 1;
@@ -11870,14 +11997,24 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     void this.avanzarTurnosIA(msg.combateId);
   }
 
-  /** Avanza turnoActual (con vuelta); al dar la vuelta completa regenera PA de las unidades activas. */
+  /**
+   * Avanza turnoActual (con vuelta); al dar la vuelta completa regenera PA
+   * de las unidades activas y resetea `movioEsteTurno` (docs/GDD_Combate.md,
+   * 2026-09-03 — hacha:tajoPesado/arco:apuntar leen ese campo). También
+   * limpia `aturdido` de la unidad cuyo turno acaba de terminar — un golpe
+   * de maza le hace perder ESTA acción (el jugador solo puede pasar turno
+   * mientras dura, los guardias de accion/mover/huir lo bloquean); en
+   * cuanto avanza de verdad (aquí), ya "pagó" el aturdimiento.
+   */
   private avanzarTurno(combate: CombateSchema) {
     if (combate.ordenTurnos.length === 0) return;
+    const actual = combate.unidades.get(combate.ordenTurnos[combate.turnoActual]);
+    if (actual) actual.aturdido = false;
     const anterior = combate.turnoActual;
     combate.turnoActual = (combate.turnoActual + 1) % combate.ordenTurnos.length;
     if (combate.turnoActual <= anterior) {
       for (const cu of combate.unidades.values()) {
-        if (cu.estado === "activo") cu.pa = cu.paMax;
+        if (cu.estado === "activo") { cu.pa = cu.paMax; cu.movioEsteTurno = false; }
       }
     }
   }

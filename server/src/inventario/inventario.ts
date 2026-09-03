@@ -58,6 +58,18 @@ export interface EntradaCatalogoItem {
   municionId?: string;
   /** docs/GDD_Anatomia.md, pedido 2026-08-30 — SOLO armas: qué efecto anatómico produce un golpe conectado (server/src/personaje/anatomia.ts::resolverGolpeAnatomico). "magico"/"fuego" reservados, sin arma que los use todavía. Ausente = sin efecto anatómico (fauna/NPC no llevan este campo). */
   tipoDano?: "cortante" | "contundente" | "perforante" | "magico" | "fuego";
+  /**
+   * docs/GDD_Combate.md, pedido 2026-09-03 ("crealo con todo aquello que se
+   * pueda usar como arma... golpe especial por familia") — SOLO armas:
+   * `"familia:accion"` (ej. `"lanza:embiste"`) que agrupa las 31 armas del
+   * catálogo por `tipoDano`+alcance+identidad real (daga/espada/hacha/maza/
+   * baston/lanza/arco — ver `server/src/combate/arenaCombate.ts::resolverAtaqueConHabilidad`
+   * para qué hace cada familia). Ausente = sin habilidad reconocida (el
+   * ataque base "golpear con lo que tengas" sigue funcionando igual) —
+   * herramientas (`tipo:"herramienta"`) NUNCA llevan este campo a propósito,
+   * fuera de alcance (no son para pelear).
+   */
+  habilidadId?: string;
 
   // --- desgaste (server/src/inventario/desgaste.ts) — ausente = el ítem nunca se desgasta ---
   durabilidadMax?: number;
