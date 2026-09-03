@@ -1494,6 +1494,7 @@
     "_nota": "A diferencia de aserradero (madera en bruto), aquí se fabrica mobiliario/piezas terminadas."
   },
   "torre_mago": {
+    "temaTaller": "alquimia",
     "riqueza": "noble",
     "tieneBodega": true,
     "rangoPlantasAltas": [
@@ -1549,6 +1550,7 @@
     "_nota": "Torre estrecha como faro, pero con sala_alquimia/biblioteca en vez de almacenes — WFC civil normal, nada de mazmorra."
   },
   "academia_magia": {
+    "temaTaller": "alquimia",
     "riqueza": "noble",
     "tieneBodega": true,
     "rangoPlantasAltas": [

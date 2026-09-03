@@ -252,7 +252,7 @@
     "stackMax": 10,
     "variantes": 1,
     "colorDebug": "#b8a888",
-    "_nota": "Encurtido de pieles (docs/GDD_Caza.md), paso 2→3: piel_salada raspada con cuchillo_desollar (acción instantánea, exige oficio curtidor/peletero) — lista para el barril_curtido, donde con curtiente a granel se convierte en cuero_curtido."
+    "_nota": "Encurtido de pieles (docs/GDD_Caza.md), paso 2→3: piel_salada raspada con cuchillo_desollar (acción instantánea, exige oficio curtidor — \"peletero\" quedó absorbido por curtidor en la fusión 2026-08-30, ver docs/GDD_Profesiones.md) — lista para el barril_curtido, donde con curtiente a granel se convierte en cuero_curtido."
   },
   "carbon": {
     "nombre": "Carbón",
@@ -1059,7 +1059,7 @@
     "desgastePorUso": 1,
     "familiaMaterial": "herramienta_cazador",
     "tier": 1,
-    "_nota": "Herramienta de docs/GDD_Caza.md — sin ella (equipada o en el inventario) no se puede desollar un cadáver ni raspar una piel salada, además de tener el oficio curtidor/peletero (Player.oficio). También sirve para animal:sacrificar (docs/GDD_Ganaderia.md), sin exigir oficio para ese verbo. Se desgasta 1 punto por uso (docs/GDD_Crafteo.md, pedido 2026-08-30). docs/GDD_Profesiones.md (2026-08-30): es el \"Cuchillo de Desollar Básico\" (tier 1) del cazador — el verbo en sí lo sigue gateando el oficio curtidor, no cazador; tiers 2-4 son entradas nuevas (cuchillo_cazador_reforzado/cuchillo_desollador_curvo/daga_despiece_mitico)."
+    "_nota": "Herramienta de docs/GDD_Caza.md — sin ella (equipada o en el inventario) no se puede desollar un cadáver ni raspar una piel salada, además de tener el oficio curtidor (Player.oficio) — \"peletero\" quedó absorbido por curtidor en la fusión 2026-08-30, ver docs/GDD_Profesiones.md. También sirve para animal:sacrificar (docs/GDD_Ganaderia.md), sin exigir oficio para ese verbo. Se desgasta 1 punto por uso (docs/GDD_Crafteo.md, pedido 2026-08-30). docs/GDD_Profesiones.md (2026-08-30): es el \"Cuchillo de Desollar Básico\" (tier 1) del cazador — el verbo en sí lo sigue gateando el oficio curtidor, no cazador; tiers 2-4 son entradas nuevas (cuchillo_cazador_reforzado/cuchillo_desollador_curvo/daga_despiece_mitico)."
   },
   "cubo_ordeno": {
     "nombre": "Cubo de Ordeño",
@@ -2716,7 +2716,7 @@
     "stackMax": 20,
     "variantes": 1,
     "colorDebug": "#e8ded0",
-    "_nota": "Anatomía (docs/GDD_Anatomia.md) — cualquier jugador puede vendarse a sí mismo u a otro (medico:vendar), sin oficio. Detiene el sangrado activo al instante; la zona sigue 'cicatrizando' un rato con un malus leve. Receta: sastre, telar, tela_hilada."
+    "_nota": "Anatomía (docs/GDD_Anatomia.md) — cualquier jugador puede vendarse a sí mismo u a otro (medico:vendar), sin oficio. Detiene el sangrado activo al instante; la zona sigue 'cicatrizando' un rato con un malus leve. Receta: curtidor (fusiona sastre, 2026-08-30), telar, tela_hilada."
   },
   "unguento": {
     "nombre": "Ungüento",
