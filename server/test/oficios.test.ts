@@ -7,6 +7,7 @@ import {
   OFICIOS_JUGADOR_VALIDOS, tieneOficio, NIVEL_MAX_OFICIO,
   bonusVelocidadCrafteoPorNivelOficio, bonusCantidadCrafteoPorNivelOficio,
   FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO, precioCambioOficio, PRECIO_BASE_CAMBIO_OFICIO,
+  probabilidadRoturaArmaPorNivelHerrero, PROB_ROTURA_ARMA_NIVEL_1, PROB_ROTURA_ARMA_NIVEL_10,
 } from "../src/personaje/oficios";
 import { cargarCatalogoNpcsTutoriales, cargarLoreTexto } from "../src/mundo/npcsFijos";
 import * as fs from "fs";
@@ -33,6 +34,20 @@ test("bonusVelocidadCrafteoPorNivelOficio: 0% en nivel 1, +50% en nivel 10, line
   const n6 = bonusVelocidadCrafteoPorNivelOficio(6);
   assert.ok(n5 > 0 && n5 < 0.5, "nivel intermedio debe estar entre 0 y el máximo");
   assert.ok(n6 > n5, "más nivel, más bono — nunca al revés");
+});
+
+test("probabilidadRoturaArmaPorNivelHerrero (docs/GDD_Combate.md, 2026-09-03): 20% en nivel 1, 5% en nivel 10, baja con el nivel", () => {
+  assert.strictEqual(probabilidadRoturaArmaPorNivelHerrero(1), PROB_ROTURA_ARMA_NIVEL_1);
+  assert.ok(Math.abs(probabilidadRoturaArmaPorNivelHerrero(NIVEL_MAX_OFICIO) - PROB_ROTURA_ARMA_NIVEL_10) < 1e-9);
+  const n5 = probabilidadRoturaArmaPorNivelHerrero(5);
+  const n6 = probabilidadRoturaArmaPorNivelHerrero(6);
+  assert.ok(n5 < PROB_ROTURA_ARMA_NIVEL_1 && n5 > PROB_ROTURA_ARMA_NIVEL_10, "nivel intermedio debe estar entre los dos extremos");
+  assert.ok(n6 < n5, "más nivel, MENOS probabilidad — al revés que el resto de bonos de oficio");
+});
+
+test("probabilidadRoturaArmaPorNivelHerrero: nivel 0 (sin XP) se trata igual que nivel 1 (clamp), nunca negativo ni por encima del máximo", () => {
+  assert.strictEqual(probabilidadRoturaArmaPorNivelHerrero(0), PROB_ROTURA_ARMA_NIVEL_1);
+  assert.ok(Math.abs(probabilidadRoturaArmaPorNivelHerrero(99) - PROB_ROTURA_ARMA_NIVEL_10) < 1e-9);
 });
 
 test("bonusCantidadCrafteoPorNivelOficio: 0% en nivel 1, +100% (x2) en nivel 10, lineal entre medias", () => {

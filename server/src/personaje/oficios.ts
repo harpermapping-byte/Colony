@@ -85,6 +85,35 @@ export function bonusCantidadCrafteoPorNivelOficio(nivel: number): number {
   return (Math.max(1, Math.min(NIVEL_MAX_OFICIO, nivel)) - 1) / (NIVEL_MAX_OFICIO - 1);
 }
 
+// --- Rotura probabilística de arma en combate (docs/GDD_Combate.md, pedido
+// streamer 2026-09-03: "cada golpe conectado tiene una probabilidad (base
+// 20%) de romperse, si tiene más nivel de herrería baja") ---
+
+/** Probabilidad de rotura de golpe con nivel 1 de herrero (o sin XP alguna — bd.obtenerXpOficio nunca tocado = XP 0 = nivelDeXp(0) = 1, mismo suelo). */
+export const PROB_ROTURA_ARMA_NIVEL_1 = 0.2;
+/** Probabilidad de rotura de golpe con nivel 10 (máximo) de herrero — el mejor forjador rompe sus propias armas mucho menos, nunca cero (siempre hay riesgo real). */
+export const PROB_ROTURA_ARMA_NIVEL_10 = 0.05;
+
+/**
+ * Probabilidad (0..1) de que UN golpe conectado rompa de golpe el arma del
+ * ATACANTE — nada que ver con el desgaste gradual de `desgaste.ts`
+ * (`registrarUso`), es un mecanismo NUEVO y aparte: cada golpe tiene esta
+ * tirada extra, independiente de cuánta durabilidad le quede al arma
+ * todavía. Usa el nivel de XP de oficio "herrero" del ATACANTE — NO hace
+ * falta tenerlo elegido en `oficio1`/`oficio2` (a diferencia de la XP que
+ * se GANA, que sí exige `tieneOficio`; aquí solo se LEE lo que ya sabe
+ * forjar, aunque hoy no esté "activo" como oficio) — mismo criterio que
+ * los blueprints legendarios (`NIVEL_MINIMO_SASTRE_LEGENDARIO`), que
+ * también leen `nivelDeXp(xp)` sin exigir el oficio elegido. Lineal entre
+ * nivel 1 (20%) y nivel 10 (5%) — MISMA forma que
+ * `bonusVelocidadCrafteoPorNivelOficio`, invertida (a más nivel, MENOS
+ * probabilidad en vez de más bono).
+ */
+export function probabilidadRoturaArmaPorNivelHerrero(nivelHerrero: number): number {
+  const n = Math.max(1, Math.min(NIVEL_MAX_OFICIO, nivelHerrero));
+  return PROB_ROTURA_ARMA_NIVEL_1 - ((PROB_ROTURA_ARMA_NIVEL_1 - PROB_ROTURA_ARMA_NIVEL_10) * (n - 1)) / (NIVEL_MAX_OFICIO - 1);
+}
+
 // --- Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30: "que si
 // trabajas o haces acciones suba y cuando llegue a niveles altos te cobren
 // más los npc de tienda y suelten frases") ---

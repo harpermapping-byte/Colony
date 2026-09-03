@@ -582,6 +582,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // ninguna pista de por qué. Solo consola por ahora (mismo criterio que
   // "[puerta]" arriba), no hay panel de combate con hueco para un texto.
   room.onMessage("combate:error", (m: { motivo: string }) => console.log("[combate]", m?.motivo));
+  // Rotura probabilística de arma A MITAD de combate (docs/GDD_Combate.md,
+  // 2026-09-03) — solo consola por ahora, mismo criterio que combate:error
+  // (sin toast/panel dedicado todavía, ver panelCombate.ts).
+  room.onMessage("combate:armaRota", (m: { itemId: string }) => console.log("[combate] arma rota en combate:", m?.itemId));
   // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): solo informativo — F ya
   // cruza el borde si de verdad hay mapa vecino (mismo criterio "sin UI de
   // targeting/confirmación" que cualquier otra puerta), esto es únicamente
@@ -1917,6 +1921,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // era el ÚNICO *:error de todo game.ts sin logear su motivo (demasiado
   // lejos, ya en combate, pvp deshabilitado...) — mismo patrón que el resto.
   room.onMessage("combate:error", (m: { motivo: string }) => console.log("[combate]", m?.motivo));
+  // Rotura probabilística de arma A MITAD de combate (docs/GDD_Combate.md,
+  // 2026-09-03) — solo consola por ahora, mismo criterio que combate:error
+  // (sin toast/panel dedicado todavía, ver panelCombate.ts).
+  room.onMessage("combate:armaRota", (m: { itemId: string }) => console.log("[combate] arma rota en combate:", m?.itemId));
 
   // --- Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería,
   // pedido 2026-09-01) — panel PLACEHOLDER de testeo (ver panelForja.ts),

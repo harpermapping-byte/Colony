@@ -241,6 +241,14 @@ export class ArenaCombateRoom extends RoomExteriorBase {
           const inv = this.inventarioJugador(cu.id);
           if (inv) {
             aplicarDesgasteCombate(inv, this.catalogoItems, cu.golpesDados, cu.danoAbsorbido, Date.now());
+            // Rotura probabilística (docs/GDD_Combate.md, 2026-09-03,
+            // manejarCombateAccion): el desgaste GRADUAL de arriba no
+            // garantiza llegar exactamente a 0 (unos pocos golpes no
+            // agotan una durabilidadMax alta) — si la tirada de esta
+            // pelea rompió el arma DE GOLPE, se fuerza su durabilidad
+            // real a 0 aquí, pisando lo que haya calculado el desgaste
+            // gradual.
+            if (cu.armaRotaEnCombate) inv.equipoDurabilidad.manoPrincipal = 0;
           }
         }
         const retorno = this.retornosPorJugador.get(cu.id) ?? {};
