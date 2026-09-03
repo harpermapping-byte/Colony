@@ -143,6 +143,22 @@ export class EfectosClima {
   }
 }
 
+// El plano de terreno (sectorVisual.ts::crearPlanoSector) vive en y=0, la
+// misma referencia que usa `objetivoCamara`/`centro` de aquí (worldScene.ts
+// fija destinoCamara.y=0 siempre, sin muestrear la altura real del terreno).
+// Sin este suelo, dejar que la partícula llegue hasta y=0 la pone
+// literalmente al mismo plano de profundidad que el terreno — z-fighting de
+// libro, que en un frame gana el terreno y en el siguiente la partícula,
+// parpadeando ("a veces deja de verse sobre el terreno", encontrado jugando
+// 2026-09-02 con la lluvia). Reciclar un poco antes de tocar el suelo (no en
+// 0, en SUELO_LLUVIA/SUELO_NIEVE) la mantiene siempre en un plano de
+// profundidad distinto. La nieve (`caerParticulas`, más abajo) tenía el
+// MISMO bug sin arreglar todavía — mismo `y < 0` exacto — encontrado
+// preguntando el streamer 2026-09-03 "¿la nieve tiene el mismo fallo que
+// tenía la lluvia?": sí, nunca se había tocado.
+const SUELO_LLUVIA = 0.2;
+const SUELO_NIEVE = 0.1; // copo más pequeño que la gota, con menos margen de sobra
+
 /** Partículas que caen a `velocidad` unidades/seg y reaparecen arriba al tocar el suelo — con deriva lateral opcional (nieve). */
 function caerParticulas(puntos: THREE.Points, dt: number, velocidad: number, altura: number, derivaLateral = 0): void {
   const attr = puntos.geometry.getAttribute("position") as THREE.BufferAttribute;
@@ -150,23 +166,12 @@ function caerParticulas(puntos: THREE.Points, dt: number, velocidad: number, alt
     let y = attr.getY(i) - velocidad * dt;
     let x = attr.getX(i);
     if (derivaLateral) x += Math.sin(y * 0.7 + i) * derivaLateral * dt;
-    if (y < 0) { y = altura; x = (Math.random() * 2 - 1) * RADIO_PARTICULAS; }
+    if (y < SUELO_NIEVE) { y = altura; x = (Math.random() * 2 - 1) * RADIO_PARTICULAS; }
     attr.setX(i, x);
     attr.setY(i, y);
   }
   attr.needsUpdate = true;
 }
-
-// El plano de terreno (sectorVisual.ts::crearPlanoSector) vive en y=0, la
-// misma referencia que usa `objetivoCamara`/`centro` de aquí (worldScene.ts
-// fija destinoCamara.y=0 siempre, sin muestrear la altura real del terreno).
-// Sin este suelo, dejar que la punta de la gota llegue hasta y=0 la pone
-// literalmente al mismo plano de profundidad que el terreno — z-fighting de
-// libro, que en un frame gana el terreno y en el siguiente la gota,
-// parpadeando ("a veces deja de verse sobre el terreno", encontrado jugando
-// 2026-09-02). Reciclar un poco antes de tocar el suelo (no en 0, en
-// SUELO_LLUVIA) la mantiene siempre en un plano de profundidad distinto.
-const SUELO_LLUVIA = 0.2;
 
 /** Igual que `caerParticulas` pero para `LineSegments` de 2 vértices por gota — mueve arriba/abajo a la vez, así el segmento mantiene siempre la misma longitud mientras cae. */
 function caerLineas(lineas: THREE.LineSegments, dt: number, velocidad: number, altura: number): void {
