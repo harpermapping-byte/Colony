@@ -6,11 +6,17 @@ import {
   UnidadCombate,
   alcanceDeEquipo,
   calcularIniciativa,
+  costeExtraPaDeHabilidad,
   enAlcance,
+  golpesDeHabilidad,
+  habilidadDeEquipo,
   jugarTurnoIA,
   municionDeEquipo,
+  municionExtraDeHabilidad,
   ordenarTurnos,
+  requiereQuietoHabilidad,
   resolverAtaque,
+  resolverAtaqueConHabilidad,
   simularCombateAutomatico,
   tirarHuida,
 } from "../src/combate/arenaCombate";
@@ -181,6 +187,162 @@ test("municionDeEquipo: devuelve el municionId del arma en manoPrincipal, undefi
   assert.strictEqual(municionDeEquipo(catalogoArmas, { manoPrincipal: "arco_corto" }), "flecha");
   assert.strictEqual(municionDeEquipo(catalogoArmas, { manoPrincipal: "espada" }), undefined);
   assert.strictEqual(municionDeEquipo(catalogoArmas, undefined), undefined);
+});
+
+// --- Habilidades por familia de arma (docs/GDD_Combate.md, pedido 2026-09-03) ---
+
+const catalogoHabilidades: CatalogoItems = {
+  daga: { tipo: "arma", slotEquipo: "manoPrincipal", huella: [1, 1], peso: 1, apilable: false, variantes: 1, colorDebug: "#000", alcance: 1, habilidadId: "daga:puntoDebil" },
+  espada_corta: { tipo: "arma", slotEquipo: "manoPrincipal", huella: [1, 1], peso: 1, apilable: false, variantes: 1, colorDebug: "#000", alcance: 1, habilidadId: "espada:estocada" },
+  hacha_combate: { tipo: "arma", slotEquipo: "manoPrincipal", huella: [1, 1], peso: 1, apilable: false, variantes: 1, colorDebug: "#000", alcance: 1, habilidadId: "hacha:tajoPesado" },
+  maza_guerra: { tipo: "arma", slotEquipo: "manoPrincipal", huella: [1, 1], peso: 1, apilable: false, variantes: 1, colorDebug: "#000", alcance: 1, habilidadId: "maza:aturdir" },
+  baston_guerra: { tipo: "arma", slotEquipo: "manoPrincipal", huella: [1, 1], peso: 1, apilable: false, variantes: 1, colorDebug: "#000", alcance: 2, habilidadId: "baston:barrido" },
+  lanza: { tipo: "arma", slotEquipo: "manoPrincipal", huella: [1, 1], peso: 1, apilable: false, variantes: 1, colorDebug: "#000", alcance: 2, habilidadId: "lanza:embiste" },
+  arco_corto: { tipo: "arma", slotEquipo: "manoPrincipal", huella: [1, 1], peso: 1, apilable: false, variantes: 1, colorDebug: "#000", alcance: 6, municionId: "flecha", habilidadId: "arco:apuntar" },
+  martillo_sin_habilidad: { tipo: "arma", slotEquipo: "manoPrincipal", huella: [1, 1], peso: 1, apilable: false, variantes: 1, colorDebug: "#000", alcance: 1 },
+};
+
+test("habilidadDeEquipo: lee habilidadId del arma en manoPrincipal, \"\" si no tiene/no hay arma/no hay equipo", () => {
+  assert.strictEqual(habilidadDeEquipo(catalogoHabilidades, { manoPrincipal: "lanza" }), "lanza:embiste");
+  assert.strictEqual(habilidadDeEquipo(catalogoHabilidades, { manoPrincipal: "martillo_sin_habilidad" }), "");
+  assert.strictEqual(habilidadDeEquipo(catalogoHabilidades, {}), "");
+  assert.strictEqual(habilidadDeEquipo(catalogoHabilidades, undefined), "");
+});
+
+test("golpesDeHabilidad/costeExtraPaDeHabilidad/municionExtraDeHabilidad/requiereQuietoHabilidad: solo arco:* pide 2 golpes/PA extra/munición extra/quietud, el resto (incluida \"\") va a los valores base", () => {
+  assert.strictEqual(golpesDeHabilidad("arco:apuntar"), 2);
+  assert.strictEqual(costeExtraPaDeHabilidad("arco:apuntar"), 1);
+  assert.strictEqual(municionExtraDeHabilidad("arco:apuntar"), 1);
+  assert.strictEqual(requiereQuietoHabilidad("arco:apuntar"), true);
+  for (const h of ["", "daga:puntoDebil", "espada:estocada", "hacha:tajoPesado", "maza:aturdir", "baston:barrido", "lanza:embiste"]) {
+    assert.strictEqual(golpesDeHabilidad(h), 1, h);
+    assert.strictEqual(costeExtraPaDeHabilidad(h), 0, h);
+    assert.strictEqual(municionExtraDeHabilidad(h), 0, h);
+    assert.strictEqual(requiereQuietoHabilidad(h), false, h);
+  }
+});
+
+test("resolverAtaqueConHabilidad: habilidad vacía o desconocida = idéntico a resolverAtaque (ataque base nunca se rompe)", () => {
+  const atacante = unidad({ ataqueFisico: 15 });
+  const objetivo = unidad({ hp: 50, hpMax: 50, defensaFisica: 5 });
+  const arena = arenaAbierta();
+  const base = resolverAtaque(atacante, objetivo);
+  assert.strictEqual(resolverAtaqueConHabilidad(atacante, objetivo, "", arena).objetivo.hp, base.hp);
+  assert.strictEqual(resolverAtaqueConHabilidad(atacante, objetivo, "algo:inventado", arena).objetivo.hp, base.hp);
+});
+
+test("resolverAtaqueConHabilidad daga:puntoDebil — ignora parte de la defensa, hace MÁS daño que el ataque base", () => {
+  const atacante = unidad({ ataqueFisico: 20 });
+  const objetivo = unidad({ hp: 50, hpMax: 50, defensaFisica: 10 });
+  const base = resolverAtaque(atacante, objetivo).hp;
+  const conHabilidad = resolverAtaqueConHabilidad(atacante, objetivo, "daga:puntoDebil", arenaAbierta()).objetivo.hp;
+  assert.ok(conHabilidad < base, "más daño (menos hp restante) que el ataque base");
+});
+
+test("resolverAtaqueConHabilidad espada:estocada — +daño plano, MÁS daño que el ataque base", () => {
+  const atacante = unidad({ ataqueFisico: 20 });
+  const objetivo = unidad({ hp: 50, hpMax: 50, defensaFisica: 5 });
+  const base = resolverAtaque(atacante, objetivo).hp;
+  const conHabilidad = resolverAtaqueConHabilidad(atacante, objetivo, "espada:estocada", arenaAbierta()).objetivo.hp;
+  assert.ok(conHabilidad < base);
+});
+
+test("resolverAtaqueConHabilidad hacha:tajoPesado — más daño si el objetivo NO se movió este turno, igual que el base si sí se movió", () => {
+  const atacante = unidad({ ataqueFisico: 20 });
+  const quieto = unidad({ hp: 50, hpMax: 50, defensaFisica: 5, movioEsteTurno: false });
+  const movido = unidad({ hp: 50, hpMax: 50, defensaFisica: 5, movioEsteTurno: true });
+  const base = resolverAtaque(atacante, quieto).hp;
+  const hpQuieto = resolverAtaqueConHabilidad(atacante, quieto, "hacha:tajoPesado", arenaAbierta()).objetivo.hp;
+  const hpMovido = resolverAtaqueConHabilidad(atacante, movido, "hacha:tajoPesado", arenaAbierta()).objetivo.hp;
+  assert.ok(hpQuieto < base, "objetivo quieto: más daño que el ataque base");
+  assert.strictEqual(hpMovido, base, "objetivo que ya se movió: idéntico al ataque base");
+});
+
+test("resolverAtaqueConHabilidad maza:aturdir — con rnd por debajo del umbral aturde, por encima no; nunca aturde a un objetivo que cae con el golpe", () => {
+  const atacante = unidad({ ataqueFisico: 10 });
+  const objetivo = unidad({ hp: 50, hpMax: 50, defensaFisica: 0 });
+  const aturdido = resolverAtaqueConHabilidad(atacante, objetivo, "maza:aturdir", arenaAbierta(), [], () => 0);
+  assert.strictEqual(aturdido.objetivo.aturdido, true);
+  const noAturdido = resolverAtaqueConHabilidad(atacante, objetivo, "maza:aturdir", arenaAbierta(), [], () => 0.99);
+  assert.notStrictEqual(noAturdido.objetivo.aturdido, true, "rnd por encima del umbral: no aturde");
+
+  const casiMuerto = unidad({ hp: 1, hpMax: 50, defensaFisica: 0 });
+  const golpeFinal = resolverAtaqueConHabilidad(atacante, casiMuerto, "maza:aturdir", arenaAbierta(), [], () => 0);
+  assert.strictEqual(golpeFinal.objetivo.estado, "caido");
+  assert.notStrictEqual(golpeFinal.objetivo.aturdido, true, "un golpe que mata no aturde además");
+});
+
+test("resolverAtaqueConHabilidad baston:barrido — mismo daño que el ataque base, pero además reduce el PA del objetivo (mínimo 0)", () => {
+  const atacante = unidad({ ataqueFisico: 10 });
+  const objetivo = unidad({ hp: 50, hpMax: 50, defensaFisica: 0, pa: 2 });
+  const r = resolverAtaqueConHabilidad(atacante, objetivo, "baston:barrido", arenaAbierta());
+  assert.strictEqual(r.objetivo.hp, resolverAtaque(atacante, objetivo).hp);
+  assert.strictEqual(r.objetivo.pa, 1);
+  const sinPa = resolverAtaqueConHabilidad(atacante, { ...objetivo, pa: 0 }, "baston:barrido", arenaAbierta());
+  assert.strictEqual(sinPa.objetivo.pa, 0, "nunca baja de 0");
+});
+
+test("resolverAtaqueConHabilidad lanza:embiste — empuja al objetivo 1 casilla alejándose del atacante si la casilla está libre", () => {
+  const atacante = unidad({ gx: 0, gy: 0, ataqueFisico: 10 });
+  const objetivo = unidad({ gx: 1, gy: 0, hp: 50, hpMax: 50, defensaFisica: 0 });
+  const r = resolverAtaqueConHabilidad(atacante, objetivo, "lanza:embiste", arenaAbierta());
+  assert.strictEqual(r.objetivo.gx, 2, "empujado 1 casilla más lejos del atacante");
+  assert.strictEqual(r.objetivo.gy, 0);
+});
+
+test("resolverAtaqueConHabilidad lanza:embiste — no empuja si la casilla destino es un obstáculo o está ocupada, y no empuja un cadáver", () => {
+  const atacante = unidad({ gx: 0, gy: 0, ataqueFisico: 10 });
+  const objetivo = unidad({ gx: 1, gy: 0, hp: 50, hpMax: 50, defensaFisica: 0 });
+
+  const arenaConMuro = arenaAbierta();
+  arenaConMuro.obstaculos[0 * arenaConMuro.ancho + 2] = 1; // (2,0) obstáculo, justo donde caería el empuje
+  const bloqueado = resolverAtaqueConHabilidad(atacante, objetivo, "lanza:embiste", arenaConMuro);
+  assert.strictEqual(bloqueado.objetivo.gx, 1, "sigue en su sitio, el muro bloquea el empuje");
+
+  const ocupada: import("../src/combate/pathfindingArena").Casilla[] = [{ gx: 2, gy: 0 }];
+  const conOcupante = resolverAtaqueConHabilidad(atacante, objetivo, "lanza:embiste", arenaAbierta(), ocupada);
+  assert.strictEqual(conOcupante.objetivo.gx, 1, "otra unidad ya está ahí, no se apila");
+
+  const cadaver = unidad({ gx: 1, gy: 0, hp: 1, hpMax: 50, defensaFisica: 0 });
+  const golpeMortal = resolverAtaqueConHabilidad(atacante, cadaver, "lanza:embiste", arenaAbierta());
+  assert.strictEqual(golpeMortal.objetivo.estado, "caido");
+  assert.strictEqual(golpeMortal.objetivo.gx, 1, "un golpe que mata no empuja el cadáver");
+});
+
+test("resolverAtaqueConHabilidad: absorbido = ataque efectivo - daño real (lo que 'paró' la defensa, para desgastar armadura)", () => {
+  const atacante = unidad({ ataqueFisico: 20 });
+  const objetivo = unidad({ hp: 50, hpMax: 50, defensaFisica: 8 });
+  const r = resolverAtaqueConHabilidad(atacante, objetivo, "", arenaAbierta());
+  assert.strictEqual(r.danio, 12); // 20-8
+  assert.strictEqual(r.absorbido, 8); // toda la defensa se aplicó de verdad
+  // Defensa mayor que el ataque: el daño se clampa a 1 (calcularDanio), pero
+  // lo absorbido nunca puede superar el ataque bruto del golpe.
+  const objetivoBlindado = unidad({ hp: 50, hpMax: 50, defensaFisica: 999 });
+  const rBlindado = resolverAtaqueConHabilidad(atacante, objetivoBlindado, "", arenaAbierta());
+  assert.strictEqual(rBlindado.danio, 1);
+  assert.strictEqual(rBlindado.absorbido, 19); // 20 - 1
+});
+
+test("jugarTurnoIA: una unidad aturdida no ataca ni se mueve, solo se limpia la bandera", () => {
+  const aturdida = unidad({ id: "a", bando: "A", gx: 0, gy: 0, pa: 3, aturdido: true });
+  const objetivo = unidad({ id: "b", bando: "B", gx: 1, gy: 0, hp: 50, hpMax: 50 });
+  const resultado = jugarTurnoIA("a", [aturdida, objetivo], arenaAbierta());
+  const a = resultado.find((u) => u.id === "a")!;
+  assert.strictEqual(a.gx, 0, "no se movió");
+  assert.strictEqual(a.aturdido, false, "la bandera se consume");
+  assert.strictEqual(resultado.find((u) => u.id === "b")!.hp, 50, "no atacó pese a estar en alcance");
+});
+
+test("jugarTurnoIA: marca movioEsteTurno al desplazarse hacia el objetivo, no lo toca si ataca sin moverse", () => {
+  const lejos = unidad({ id: "a", bando: "A", gx: 0, gy: 0, alcance: 1, pa: 2 });
+  const objetivoLejos = unidad({ id: "b", bando: "B", gx: 5, gy: 0 });
+  const seMovio = jugarTurnoIA("a", [lejos, objetivoLejos], arenaAbierta());
+  assert.strictEqual(seMovio.find((u) => u.id === "a")!.movioEsteTurno, true);
+
+  const cerca = unidad({ id: "a", bando: "A", gx: 0, gy: 0, alcance: 1 });
+  const objetivoCerca = unidad({ id: "b", bando: "B", gx: 1, gy: 0, hp: 50, hpMax: 50 });
+  const ataco = jugarTurnoIA("a", [cerca, objetivoCerca], arenaAbierta());
+  assert.strictEqual(ataco.find((u) => u.id === "a")!.movioEsteTurno, undefined, "atacar sin moverse no toca la bandera");
 });
 
 test("simularCombateAutomatico: es determinista — misma entrada + mismo rnd fijo = mismo resultado", () => {

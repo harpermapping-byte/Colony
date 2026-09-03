@@ -54,6 +54,8 @@ export interface ParticipanteArena {
   municionDisponible?: number;
   /** docs/GDD_Caza.md — presa de modo caza: deambula sin rumbo en la arena, nunca ataca (server/src/combate/arenaCombate.ts::jugarTurnoIAPasiva). Ausente/false = IA normal. */
   pasivo?: boolean;
+  /** docs/GDD_Combate.md (2026-09-03) — habilidad por familia de arma, snapshot de `CombateUnidad.habilidadId`. Ausente/"" = sin habilidad reconocida (ataque base). */
+  habilidadId?: string;
   /** Solo si esJugador — lo que mandó de vuelta en `combate:iniciar`/`combate:unirse`; se reenvía tal cual al terminar. */
   retorno?: RetornoJugador;
   /** docs/GDD_Barcos.md (pedido 2026-08-30) — solo si esJugador e iba en un barco al entrar en combate acuático: "barco" (el capitán, uno solo) o "nadando" (el resto de la tripulación). Puramente cosmético, ver CombateUnidad.visual. */

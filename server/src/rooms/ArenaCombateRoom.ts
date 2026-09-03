@@ -7,6 +7,7 @@ import { CombateSchema, CombateUnidad } from "./schema/CombateState";
 import { Fauna, Enemigo, Npc } from "./schema/HubState";
 import { calcularIniciativa, ordenarTurnos, UnidadCombate } from "../combate/arenaCombate";
 import { tomarRosterArena, RetornoJugador } from "../combate/registroArenas";
+import { aplicarDesgasteCombate } from "../inventario/desgasteEquipoCombate";
 
 export interface OpcionesArena {
   combateId: string;
@@ -102,6 +103,7 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       cu.municionId = p.municionId ?? "";
       cu.municionDisponible = p.municionDisponible ?? 0;
       cu.pasivo = p.pasivo ?? false;
+      cu.habilidadId = p.habilidadId ?? "";
       cu.visual = p.visualCombate ?? "";
       cu.barcoTipoId = p.barcoTipoId ?? "";
       combate.unidades.set(cu.id, cu);
@@ -227,6 +229,17 @@ export class ArenaCombateRoom extends RoomExteriorBase {
         // `consumirMunicionDeSesion`).
         if (cu.municionId && cu.municionConsumida > 0) {
           this.consumirMunicionDeSesion(cu.id, cu.municionId, cu.municionConsumida);
+        }
+        // Desgaste de combate (docs/GDD_Combate.md, 2026-09-03) — mismo sitio
+        // y mismo motivo exacto que la munición de arriba: `this.equipoInventario`
+        // de ESTA room (la arena) ya tiene el equipo real cargado en segundo
+        // plano por `crearJugador`/`cargarInventarioYEquipoDe`.
+        if (cu.golpesDados > 0 || cu.danoAbsorbido > 0) {
+          const nombre = this.state.players.get(cu.id)?.name;
+          const equipo = this.equipoInventario.get(cu.id);
+          if (nombre && equipo) {
+            aplicarDesgasteCombate(nombre, equipo, this.catalogoItems, cu.golpesDados, cu.danoAbsorbido, Date.now());
+          }
         }
         const retorno = this.retornosPorJugador.get(cu.id) ?? {};
         const c = this.clients.find((cl) => cl.sessionId === cu.id);
