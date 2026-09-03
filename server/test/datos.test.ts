@@ -385,9 +385,9 @@ test("inventario: equipo — guardar/cargar roundtrip, slot vacío (undefined) n
   const bd = new AlmacenDatos(":memory:");
   const j = await bd.obtenerOCrearJugador("Ivar");
 
-  await bd.guardarEquipo(j.id, { espalda: "mochila_cuero", manoPrincipal: "hacha_talar", cinturon: undefined });
+  await bd.guardarEquipo(j.id, { espalda: "mochila_cuero", manoPrincipal: "hacha_talar", cinturon: undefined }, {});
   const cargado = await bd.cargarEquipo(j.id);
-  assert.deepStrictEqual(cargado, { espalda: "mochila_cuero", manoPrincipal: "hacha_talar" });
+  assert.deepStrictEqual(cargado, { equipo: { espalda: "mochila_cuero", manoPrincipal: "hacha_talar" }, durabilidad: {} });
   await bd.cerrar();
 });
 
@@ -395,10 +395,27 @@ test("inventario: guardarEquipo reemplaza el set completo (quitar un ítem lo bo
   const bd = new AlmacenDatos(":memory:");
   const j = await bd.obtenerOCrearJugador("Ubbe");
 
-  await bd.guardarEquipo(j.id, { espalda: "mochila_cuero", manoPrincipal: "hacha_talar" });
-  await bd.guardarEquipo(j.id, { espalda: "mochila_cuero" }); // se quitó el hacha
+  await bd.guardarEquipo(j.id, { espalda: "mochila_cuero", manoPrincipal: "hacha_talar" }, {});
+  await bd.guardarEquipo(j.id, { espalda: "mochila_cuero" }, {}); // se quitó el hacha
   const cargado = await bd.cargarEquipo(j.id);
-  assert.deepStrictEqual(cargado, { espalda: "mochila_cuero" });
+  assert.deepStrictEqual(cargado, { equipo: { espalda: "mochila_cuero" }, durabilidad: {} });
+  await bd.cerrar();
+});
+
+test("inventario: equipo — la durabilidad viaja por slot y sobrevive al roundtrip, un slot sin entrada no aparece", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const j = await bd.obtenerOCrearJugador("Bjorn");
+
+  await bd.guardarEquipo(
+    j.id,
+    { manoPrincipal: "hacha_talar", torso: "pechera_cuero", anillo: "anillo_cobre" },
+    { manoPrincipal: 42.5, torso: 60 }, // anillo sin durabilidadMax en catálogo: nunca trackeado
+  );
+  const cargado = await bd.cargarEquipo(j.id);
+  assert.deepStrictEqual(cargado, {
+    equipo: { manoPrincipal: "hacha_talar", torso: "pechera_cuero", anillo: "anillo_cobre" },
+    durabilidad: { manoPrincipal: 42.5, torso: 60 },
+  });
   await bd.cerrar();
 });
 

@@ -260,7 +260,7 @@ test("determinismo: mismo catálogo cargado dos veces da el mismo contenido (sin
 // --- Equipo (docs/GDD_Equipo.md, 2026-08-30) ---
 
 function jugadorVacio(): InventarioJugador {
-  return { cuerpo: crearContenedor(8, 6), extras: new Map(), equipo: {}, equipoBlueprintRopa: {} };
+  return { cuerpo: crearContenedor(8, 6), extras: new Map(), equipo: {}, equipoBlueprintRopa: {}, equipoDurabilidad: {} };
 }
 
 test("puedeEquiparEnSlot: un anillo vale para CUALQUIERA de las dos manos (GRUPOS_SLOT)", () => {
@@ -323,6 +323,58 @@ test("equiparItem: un ítem normal (sin prendaGeneradaId) NUNCA deja una entrada
   const res = equiparItem(inv, catalogo, instancia!.id, "casco");
   assert.strictEqual(res.ok, true);
   assert.strictEqual(inv.equipoBlueprintRopa["casco"], undefined);
+});
+
+test("equiparItem: captura la durabilidad REAL de la instancia en equipoDurabilidad[slot] (el hueco que este cambio cierra de raíz)", () => {
+  const inv = jugadorVacio();
+  const { instancia } = agregarItem(inv.cuerpo, catalogo, "casco_hierro", 1);
+  instancia!.durabilidad = 17.5; // pieza ya desgastada, NO a plena durabilidad
+  const res = equiparItem(inv, catalogo, instancia!.id, "casco");
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(inv.equipoDurabilidad["casco"], 17.5, "debe guardar la durabilidad exacta de ESA instancia, no la del catálogo");
+});
+
+test("equiparItem: sin durabilidad explícita en la instancia, captura durabilidadMax del catálogo (nace a tope)", () => {
+  const inv = jugadorVacio();
+  const { instancia } = agregarItem(inv.cuerpo, catalogo, "casco_hierro", 1); // agregarItem ya la deja a durabilidadMax
+  const res = equiparItem(inv, catalogo, instancia!.id, "casco");
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(inv.equipoDurabilidad["casco"], catalogo["casco_hierro"].durabilidadMax);
+});
+
+test("equiparItem: un ítem SIN durabilidadMax en catálogo (p.ej. un anillo) NUNCA deja entrada en equipoDurabilidad", () => {
+  const inv = jugadorVacio();
+  const { instancia } = agregarItem(inv.cuerpo, catalogo, "anillo_oro", 1);
+  assert.strictEqual(catalogo["anillo_oro"].durabilidadMax, undefined, "precondición: este ítem no tiene durabilidad");
+  const res = equiparItem(inv, catalogo, instancia!.id, "anilloIzquierdo");
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(inv.equipoDurabilidad["anilloIzquierdo"], undefined);
+});
+
+test("desequiparItem: la instancia que vuelve al inventario conserva la durabilidad EXACTA que tenía al equiparse (no vuelve a nacer a tope)", () => {
+  const inv = jugadorVacio();
+  const { instancia } = agregarItem(inv.cuerpo, catalogo, "casco_hierro", 1);
+  instancia!.durabilidad = 23.4;
+  equiparItem(inv, catalogo, instancia!.id, "casco");
+  assert.strictEqual(inv.cuerpo.items.length, 0, "precondición: la instancia salió del cuerpo al equiparse");
+
+  const res = desequiparItem(inv, catalogo, "casco");
+  assert.strictEqual(res.ok, true);
+  const devuelta = inv.cuerpo.items.find((it) => it.itemId === "casco_hierro");
+  assert.strictEqual(devuelta?.durabilidad, 23.4, "el bug real que esto cierra: SIN el fix, siempre volvía a durabilidadMax");
+  assert.strictEqual(inv.equipoDurabilidad["casco"], undefined, "el slot ya no tiene nada equipado");
+});
+
+test("desequiparItem: la instancia devuelta refresca ultimoUso a AHORA (no arrastra el reloj de inactividad de antes de equiparse)", () => {
+  const inv = jugadorVacio();
+  const { instancia } = agregarItem(inv.cuerpo, catalogo, "casco_hierro", 1);
+  instancia!.ultimoUso = Date.now() - 999_999_999; // "tocado" hace mucho, antes de equiparse
+  equiparItem(inv, catalogo, instancia!.id, "casco");
+  const antes = Date.now();
+  const res = desequiparItem(inv, catalogo, "casco");
+  assert.strictEqual(res.ok, true);
+  const devuelta = inv.cuerpo.items.find((it) => it.itemId === "casco_hierro");
+  assert.ok(devuelta!.ultimoUso! >= antes, "ultimoUso debe quedar en el momento de desequiparse, no en el de antes de ponérselo");
 });
 
 test("desequiparItem: la instancia que vuelve al cuerpo conserva el prendaGeneradaId que tenía al equiparse", () => {
@@ -390,7 +442,7 @@ test("desequiparItem: una mochila VACÍA sí se puede quitar, y su Contenedor ex
 });
 
 test("desequiparItem: rechaza sin destruir nada si el cuerpo no tiene hueco libre", () => {
-  const inv: InventarioJugador = { cuerpo: crearContenedor(1, 1), extras: new Map(), equipo: {}, equipoBlueprintRopa: {} };
+  const inv: InventarioJugador = { cuerpo: crearContenedor(1, 1), extras: new Map(), equipo: {}, equipoBlueprintRopa: {}, equipoDurabilidad: {} };
   // la única casilla del cuerpo ya está ocupada por otra cosa
   agregarItem(inv.cuerpo, catalogo, "hierro", 1);
   inv.equipo["casco"] = "casco_hierro"; // equipado "a mano" para el test, sin pasar por equiparItem

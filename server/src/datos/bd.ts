@@ -1107,8 +1107,16 @@ export interface IAlmacenDatos {
   guardarContenedor(jugadorId: number, contenedorId: string, contenedor: Contenedor): Promise<void>;
   cargarContenedor(jugadorId: number, contenedorId: string): Promise<Contenedor | null>;
   listarContenedores(jugadorId: number): Promise<Map<string, Contenedor>>;
-  guardarEquipo(jugadorId: number, slots: SlotsEquipo): Promise<void>;
-  cargarEquipo(jugadorId: number): Promise<SlotsEquipo>;
+  // Durabilidad de lo equipado (docs/GDD_Equipo.md, cerrado de raíz
+  // 2026-09-03: antes de esto, `equiparItem` sacaba la ItemInstancia de su
+  // contenedor y la durabilidad real se perdía en el acto — solo había
+  // `item_id` por slot, sin dónde guardar el desgaste de ESA pieza
+  // concreta). `durabilidad` viaja slot -> número, mismo vocabulario que
+  // `InventarioJugador.equipoDurabilidad` (inventario.ts) — SOLO trae
+  // entrada para los slots cuyo item tenga durabilidadMax en catálogo, un
+  // slot sin desgaste real nunca aparece aquí.
+  guardarEquipo(jugadorId: number, slots: SlotsEquipo, durabilidad: Record<string, number>): Promise<void>;
+  cargarEquipo(jugadorId: number): Promise<{ equipo: SlotsEquipo; durabilidad: Record<string, number> }>;
   // Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30) — nace "siguiendo" (RoomExteriorBase la spawnea de inmediato).
   crearMascota(jugadorId: number, especieId: string): Promise<Mascota>;
   listarMascotas(jugadorId: number): Promise<Mascota[]>;
@@ -1718,11 +1726,15 @@ CREATE TABLE IF NOT EXISTS inventarios (
   PRIMARY KEY (jugador_id, contenedor_id)
 );
 -- Equipo: slots con nombre (no rejilla) — un ítem por slot, mismos ids que
--- items/catalogo/items.json (campo slotEquipo).
+-- items/catalogo/items.json (campo slotEquipo). Columna durabilidad
+-- (docs/GDD_Equipo.md, cerrado de raíz 2026-09-03) — NULL si ese slot no
+-- tiene entrada en InventarioJugador.equipoDurabilidad (el ítem no tiene
+-- durabilidadMax en catálogo, o nunca se desgastó todavía).
 CREATE TABLE IF NOT EXISTS equipo (
   jugador_id INTEGER NOT NULL,
   slot TEXT NOT NULL,
   item_id TEXT NOT NULL,
+  durabilidad REAL,
   PRIMARY KEY (jugador_id, slot)
 );
 -- Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido
@@ -2215,8 +2227,13 @@ CREATE TABLE IF NOT EXISTS equipo (
   jugador_id INTEGER NOT NULL,
   slot TEXT NOT NULL,
   item_id TEXT NOT NULL,
+  durabilidad DOUBLE PRECISION,
   PRIMARY KEY (jugador_id, slot)
 );
+-- docs/GDD_Equipo.md, cerrado de raíz 2026-09-03 — un despliegue ya
+-- corriendo antes de este cambio no tendría la columna (CREATE TABLE IF
+-- NOT EXISTS no amplía una tabla ya existente).
+ALTER TABLE equipo ADD COLUMN IF NOT EXISTS durabilidad DOUBLE PRECISION;
 CREATE TABLE IF NOT EXISTS prendas_generadas (
   id SERIAL PRIMARY KEY,
   creador_id INTEGER NOT NULL,
@@ -2700,6 +2717,14 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     }
     if (!columnasTrabajadores.some((c) => String(c.name) === "conjunto_asignado_id")) {
       this.bd.exec("ALTER TABLE npcs_trabajadores ADD COLUMN conjunto_asignado_id INTEGER");
+    }
+    // Mismo patrón para `durabilidad` de `equipo` (docs/GDD_Equipo.md,
+    // cerrado de raíz 2026-09-03: antes de esto la durabilidad de una pieza
+    // equipada se perdía en el acto, sin columna donde guardarla) — un
+    // datos.sqlite de dev creado antes de este cambio no la tendría.
+    const columnasEquipo = this.bd.prepare("PRAGMA table_info(equipo)").all();
+    if (!columnasEquipo.some((c) => String(c.name) === "durabilidad")) {
+      this.bd.exec("ALTER TABLE equipo ADD COLUMN durabilidad REAL");
     }
   }
 
@@ -4110,21 +4135,25 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return mapa;
   }
 
-  async guardarEquipo(jugadorId: number, slots: SlotsEquipo): Promise<void> {
+  async guardarEquipo(jugadorId: number, slots: SlotsEquipo, durabilidad: Record<string, number>): Promise<void> {
     // Reemplazo completo (borrar+reinsertar): más simple que upsert slot a
     // slot y el equipo de un jugador siempre cabe entero en memoria.
     this.bd.prepare("DELETE FROM equipo WHERE jugador_id = ?").run(jugadorId);
-    const insertar = this.bd.prepare("INSERT INTO equipo (jugador_id, slot, item_id) VALUES (?, ?, ?)");
+    const insertar = this.bd.prepare("INSERT INTO equipo (jugador_id, slot, item_id, durabilidad) VALUES (?, ?, ?, ?)");
     for (const [slot, itemId] of Object.entries(slots)) {
-      if (itemId) insertar.run(jugadorId, slot, itemId);
+      if (itemId) insertar.run(jugadorId, slot, itemId, durabilidad[slot] ?? null);
     }
   }
 
-  async cargarEquipo(jugadorId: number): Promise<SlotsEquipo> {
-    const filas = this.bd.prepare("SELECT slot, item_id FROM equipo WHERE jugador_id = ?").all(jugadorId);
-    const slots: SlotsEquipo = {};
-    for (const f of filas) slots[String(f.slot)] = String(f.item_id);
-    return slots;
+  async cargarEquipo(jugadorId: number): Promise<{ equipo: SlotsEquipo; durabilidad: Record<string, number> }> {
+    const filas = this.bd.prepare("SELECT slot, item_id, durabilidad FROM equipo WHERE jugador_id = ?").all(jugadorId);
+    const equipo: SlotsEquipo = {};
+    const durabilidad: Record<string, number> = {};
+    for (const f of filas) {
+      equipo[String(f.slot)] = String(f.item_id);
+      if (f.durabilidad != null) durabilidad[String(f.slot)] = Number(f.durabilidad);
+    }
+    return { equipo, durabilidad };
   }
 
   async crearMascota(jugadorId: number, especieId: string): Promise<Mascota> {
@@ -5801,20 +5830,29 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return mapa;
   }
 
-  async guardarEquipo(jugadorId: number, slots: SlotsEquipo): Promise<void> {
+  async guardarEquipo(jugadorId: number, slots: SlotsEquipo, durabilidad: Record<string, number>): Promise<void> {
     await this.pool.query("DELETE FROM equipo WHERE jugador_id = $1", [jugadorId]);
     for (const [slot, itemId] of Object.entries(slots)) {
-      if (itemId) await this.pool.query("INSERT INTO equipo (jugador_id, slot, item_id) VALUES ($1, $2, $3)", [jugadorId, slot, itemId]);
+      if (itemId) {
+        await this.pool.query("INSERT INTO equipo (jugador_id, slot, item_id, durabilidad) VALUES ($1, $2, $3, $4)", [
+          jugadorId, slot, itemId, durabilidad[slot] ?? null,
+        ]);
+      }
     }
   }
 
-  async cargarEquipo(jugadorId: number): Promise<SlotsEquipo> {
-    const r = await this.pool.query<{ slot: string; item_id: string }>("SELECT slot, item_id FROM equipo WHERE jugador_id = $1", [
-      jugadorId,
-    ]);
-    const slots: SlotsEquipo = {};
-    for (const f of r.rows) slots[f.slot] = f.item_id;
-    return slots;
+  async cargarEquipo(jugadorId: number): Promise<{ equipo: SlotsEquipo; durabilidad: Record<string, number> }> {
+    const r = await this.pool.query<{ slot: string; item_id: string; durabilidad: number | null }>(
+      "SELECT slot, item_id, durabilidad FROM equipo WHERE jugador_id = $1",
+      [jugadorId],
+    );
+    const equipo: SlotsEquipo = {};
+    const durabilidad: Record<string, number> = {};
+    for (const f of r.rows) {
+      equipo[f.slot] = f.item_id;
+      if (f.durabilidad != null) durabilidad[f.slot] = Number(f.durabilidad);
+    }
+    return { equipo, durabilidad };
   }
 
   async crearMascota(jugadorId: number, especieId: string): Promise<Mascota> {
