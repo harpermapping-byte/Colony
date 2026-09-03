@@ -230,15 +230,17 @@ export class ArenaCombateRoom extends RoomExteriorBase {
         if (cu.municionId && cu.municionConsumida > 0) {
           this.consumirMunicionDeSesion(cu.id, cu.municionId, cu.municionConsumida);
         }
-        // Desgaste de combate (docs/GDD_Combate.md, 2026-09-03) — mismo sitio
-        // y mismo motivo exacto que la munición de arriba: `this.equipoInventario`
-        // de ESTA room (la arena) ya tiene el equipo real cargado en segundo
-        // plano por `crearJugador`/`cargarInventarioYEquipoDe`.
+        // Desgaste de combate (docs/GDD_Combate.md, 2026-09-03; persistido de
+        // raíz desde 2026-09-03) — mismo sitio y mismo motivo exacto que la
+        // munición de arriba: `this.inventarioJugador(cu.id)` de ESTA room
+        // (la arena) ya tiene el equipo real cargado en segundo plano por
+        // `crearJugador`/`cargarInventarioYEquipoDe`. Muta `equipoDurabilidad`
+        // in place — el guardado normal de la sesión (onLeave de la arena, al
+        // volver por portal:ir) lo persiste después, sin BD aparte aquí.
         if (cu.golpesDados > 0 || cu.danoAbsorbido > 0) {
-          const nombre = this.state.players.get(cu.id)?.name;
-          const equipo = this.equipoInventario.get(cu.id);
-          if (nombre && equipo) {
-            aplicarDesgasteCombate(nombre, equipo, this.catalogoItems, cu.golpesDados, cu.danoAbsorbido, Date.now());
+          const inv = this.inventarioJugador(cu.id);
+          if (inv) {
+            aplicarDesgasteCombate(inv, this.catalogoItems, cu.golpesDados, cu.danoAbsorbido, Date.now());
           }
         }
         const retorno = this.retornosPorJugador.get(cu.id) ?? {};

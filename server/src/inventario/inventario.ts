@@ -22,6 +22,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { RecetaCrafteo } from "../construccion/crafteo";
+import { tieneDurabilidad } from "./desgaste";
 
 export type TipoItem = "recurso" | "equipable" | "herramienta" | "consumible" | "arma" | "municion" | "objeto" | "semilla";
 
@@ -580,6 +581,17 @@ export interface InventarioJugador {
   equipo: SlotsEquipo;
   /** docs/GDD_Ropa_Procedural.md §Sastre legendario — slot -> prendaGeneradaId, SOLO para slots donde lo equipado es una prenda legendaria (ausente = normal). Paralelo a `equipo`, nunca se pisan entre sí. */
   equipoBlueprintRopa: Record<string, number>;
+  /**
+   * docs/GDD_Equipo.md — slot -> durabilidad REAL de la instancia equipada
+   * ahí, mismo patrón exacto que `equipoBlueprintRopa`: al equiparse, la
+   * `ItemInstancia` sale de su contenedor y solo `itemId` sobrevive en
+   * `equipo[slot]` — sin este mapa paralelo, la durabilidad de ESA
+   * instancia concreta se perdería en el acto (arrancaría siempre a tope al
+   * desequipar). SOLO tiene entrada para slots cuyo item declare
+   * `durabilidadMax` en catálogo (ver `tieneDurabilidad`, desgaste.ts); un
+   * item sin durabilidad nunca aparece aquí.
+   */
+  equipoDurabilidad: Record<string, number>;
 }
 
 function *contenedoresDe(inv: InventarioJugador): Generator<[string, Contenedor]> {
@@ -640,9 +652,15 @@ export function equiparItem(inv: InventarioJugador, catalogo: CatalogoItems, ins
   // Sastre legendario: el aspecto real de esta instancia viaja con ella al
   // equiparse, igual que el itemId — sin esto, quitarse y volver a ponerse
   // una prenda legendaria la convertiría en una copia "en blanco" del
-  // catálogo (mismo bug que tendría durabilidad si se rastreara aquí).
+  // catálogo.
   if (item.prendaGeneradaId) inv.equipoBlueprintRopa[slot] = item.prendaGeneradaId;
   else delete inv.equipoBlueprintRopa[slot];
+  // Durabilidad (docs/GDD_Equipo.md) — MISMO patrón exacto que
+  // equipoBlueprintRopa de arriba: captura el dato de la instancia ANTES de
+  // descartarla, o no habría dónde guardar el desgaste real de ESA pieza
+  // concreta mientras está equipada.
+  if (tieneDurabilidad(entrada)) inv.equipoDurabilidad[slot] = item.durabilidad ?? entrada.durabilidadMax!;
+  else delete inv.equipoDurabilidad[slot];
   if (entrada.esContenedor && SLOTS_CONTENEDOR.has(slot)) {
     inv.extras.set(slot, crearContenedor(entrada.esContenedor.ancho, entrada.esContenedor.alto));
   }
@@ -694,9 +712,22 @@ export function desequiparItem(inv: InventarioJugador, catalogo: CatalogoItems, 
   // siempre la instancia nueva, nunca una pila ajena ya existente.
   const prendaGeneradaId = inv.equipoBlueprintRopa[slot];
   if (prendaGeneradaId && resultado.instancia) resultado.instancia.prendaGeneradaId = prendaGeneradaId;
+  // Durabilidad — MISMO criterio: la instancia nueva se marca con la
+  // durabilidad real que llevaba trackeada mientras estaba equipada (nunca
+  // vuelve a nacer a tope). `ultimoUso` se pone a AHORA, no se hereda de
+  // antes de equiparse — mientras estuvo puesta no había ItemInstancia
+  // viva para que aplicarDesgasteInactividad (desgaste.ts) fuera cerrando
+  // ese hueco, así que dejarlo desfasado penalizaría de golpe TODO el
+  // tiempo que estuvo equipada como si hubiera sido inactividad.
+  const durabilidadTrackeada = inv.equipoDurabilidad[slot];
+  if (durabilidadTrackeada != null && resultado.instancia) {
+    resultado.instancia.durabilidad = durabilidadTrackeada;
+    resultado.instancia.ultimoUso = Date.now();
+  }
 
   delete inv.equipo[slot];
   delete inv.equipoBlueprintRopa[slot];
+  delete inv.equipoDurabilidad[slot];
   if (SLOTS_CONTENEDOR.has(slot)) inv.extras.delete(slot);
   return { ok: true };
 }
