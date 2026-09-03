@@ -231,5 +231,113 @@
       "lana"
     ],
     "_nota": "NPC especial: vendedor callejero con grito propio (el melonero es el primero)."
+  },
+  "apicultor": {
+    "tagsPrenda": [
+      "comun",
+      "apicultor"
+    ],
+    "riquezaTipica": "humilde",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ],
+    "_nota": "Añadido 2026-09-03 (auditoría de oficios): tenía NPC (cabana_apicultor, temaTaller apicultor) sin entrada aquí."
+  },
+  "carnicero": {
+    "tagsPrenda": [
+      "comun",
+      "carnicero"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "cuero",
+      "lana"
+    ],
+    "_nota": "Añadido 2026-09-03 (auditoría de oficios): tenía NPC (carniceria, temaTaller carnicero) sin entrada aquí."
+  },
+  "carpintero_ribera": {
+    "tagsPrenda": [
+      "comun",
+      "carpintero_ribera"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "cuero"
+    ],
+    "_nota": "Añadido 2026-09-03 (auditoría de oficios): tenía NPC (astillero, temaTaller carpintero_ribera) sin entrada aquí."
+  },
+  "cocinero": {
+    "tagsPrenda": [
+      "comun",
+      "cocinero"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ],
+    "_nota": "Añadido 2026-09-03 (auditoría de oficios): tenía NPC (cocina_comunal, temaTaller cocinero) sin entrada aquí."
+  },
+  "fletcher": {
+    "tagsPrenda": [
+      "comun",
+      "fletcher"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "cuero",
+      "lino"
+    ],
+    "_nota": "Añadido 2026-09-03 (auditoría de oficios): tenía NPC (taller_arquero, temaTaller fletcher) sin entrada aquí."
+  },
+  "peletero": {
+    "tagsPrenda": [
+      "comun",
+      "peletero"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "cuero",
+      "lana"
+    ],
+    "_nota": "Añadido 2026-09-03 (auditoría de oficios): tenía NPC (peleteria, temaTaller peletero) sin entrada aquí."
+  },
+  "picapedrero": {
+    "tagsPrenda": [
+      "comun",
+      "picapedrero"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "cuero",
+      "lana"
+    ],
+    "_nota": "Añadido 2026-09-03 (auditoría de oficios): tenía NPC (taller_picapedrero, temaTaller picapedrero) sin entrada aquí."
+  },
+  "vidriero": {
+    "tagsPrenda": [
+      "comun",
+      "vidriero"
+    ],
+    "riquezaTipica": "modesta",
+    "materialesPreferidos": [
+      "lino",
+      "lana"
+    ],
+    "_nota": "Añadido 2026-09-03 (auditoría de oficios): tenía NPC (vidrieria, temaTaller vidriero) sin entrada aquí."
+  },
+  "cazador": {
+    "tagsPrenda": [
+      "comun",
+      "cazador"
+    ],
+    "riquezaTipica": "humilde",
+    "materialesPreferidos": [
+      "cuero",
+      "lana"
+    ],
+    "_nota": "Añadido 2026-09-03: cazador es de los 10 oficios reales de jugador (server/src/personaje/oficios.ts) y ya tenía edificio (cabana_cazador, temaTaller cazador) pero era el único sin NPC ni entrada aquí — cerrado junto con el arquetipo nuevo en personajes/catalogo/npcs.json."
   }
 }
