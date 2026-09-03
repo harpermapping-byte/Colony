@@ -73,7 +73,7 @@ Hueco real que había que tapar: ninguna sala tenía id propio, solo se agrupaba
 
 ## 7. Fuera de alcance de v1 (pendiente, no bloquea)
 
-- Fuente real de Farycoins (llega con Mercado) — hasta entonces, precios reales y sistema funcionalmente probado pero sin uso jugable.
+- ~~Fuente real de Farycoins (llega con Mercado)~~ — **RESUELTO (2026-08-30), ver `docs/GDD_Economia.md`**: saldo inicial 20/jugador, loot 1-20 al matar enemigos hostiles, faucets de Twitch ("Lluvia de dinero"/"Bendición de gremio"), venta a NPC comerciante (saldo propio del NPC, +20/día). Esta nota quedó obsoleta sin actualizar — corregida 2026-09-03 al revisarla de nuevo (el streamer preguntó por este mismo hueco creyéndolo sin cerrar).
 - Amueblar/decorar una habitación o inmueble alquilado (el constructor de `docs/GDD_Construccion.md` es para parcelas exteriores; amueblar interiores comprados es un hueco futuro).
 - Permisos de invitado dentro de una vivienda privada (hoy es binario: dueño+jarl o nadie — sin lista blanca de "amigos que pueden entrar").
 - Notificación al inquilino cuando su alquiler está por vencer — hoy solo se resuelve perezosamente cuando alguien toca la propiedad.
