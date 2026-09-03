@@ -922,6 +922,35 @@ export interface IAlmacenDatos {
     periodoHoras: number,
     precioFarycoins: number,
   ): Promise<{ ok: true; expiraEn: string } | { ok: false; motivo: string }>;
+  // Reventa/oferta de inmueble entre jugadores (docs/GDD_Propiedades.md §7,
+  // pedido 2026-09-03) — el dueño ofrece, el destinatario acepta o no; sin
+  // pasar por el jarl. Mismo primitivo `ajustarFarycoins` que el resto de
+  // la economía, mismo criterio compare-and-swap que `comprarOAlquilar`.
+  /** Upsert: si el dueño ya le había ofrecido esta propiedad a este jugador, actualiza el precio y refresca `creadoEn`. */
+  crearOfertaInmueble(propiedadId: string, ofertadoPorId: number, destinatarioId: number, precioFarycoins: number): Promise<void>;
+  obtenerOfertaInmueble(propiedadId: string, destinatarioId: number): Promise<{ ofertadoPorId: number; precioFarycoins: number; creadoEn: string } | null>;
+  eliminarOfertaInmueble(propiedadId: string, destinatarioId: number): Promise<void>;
+  /** Todas las ofertas sobre una propiedad (cualquier destinatario) — se limpian de golpe al vender/revocar, evita ofertas fantasma sobre un dueño que ya no lo es. */
+  eliminarOfertasDePropiedad(propiedadId: string): Promise<void>;
+  /** Ofertas que ha RECIBIDO este jugador (de cualquier propiedad) — para que las vea al conectar, no solo si estaba online cuando se la hicieron. */
+  listarOfertasRecibidas(jugadorId: number): Promise<Array<{ propiedadId: string; ofertadoPorNombre: string; precioFarycoins: number; creadoEn: string }>>;
+  /** Ofertas que HA HECHO este jugador (como dueño) sobre cualquier propiedad suya. */
+  listarOfertasHechas(jugadorId: number): Promise<Array<{ propiedadId: string; destinatarioNombre: string; precioFarycoins: number; creadoEn: string }>>;
+  /**
+   * Transfiere una propiedad COMPRADA (no alquilada) de un jugador a otro
+   * por un precio acordado — todo o nada: cobra al comprador, solo si el
+   * vendedor SIGUE siendo el dueño en ese instante (CAS `WHERE dueno = ?`)
+   * se completa la venta y se abona al vendedor; si pierde la carrera
+   * (revocada por el jarl, vendida a otro mientras tanto), reembolsa al
+   * comprador y no toca nada más. Sin comisión del jarl — mismo criterio
+   * "sin impuesto" que vender a otro jugador en el Mercado.
+   */
+  transferirPropiedad(
+    id: string,
+    vendedorNombre: string,
+    compradorNombre: string,
+    precioFarycoins: number,
+  ): Promise<{ ok: true; saldoRestante: number } | { ok: false; motivo: string }>;
   // Mercado (docs/GDD_Mercado.md) — `tenderoteId` es el id de una propiedad
   // YA existente (parcela/inmueble/habitación) que su dueño abre como
   // escaparate; sin tabla de "tenderetes" propia, reusa `propiedades` para
@@ -1276,6 +1305,22 @@ CREATE TABLE IF NOT EXISTS propiedades (
   impuesto_farycoins INTEGER,
   impuesto_periodo_horas INTEGER,
   impuesto_ultimo_cobro TEXT
+);
+-- Reventa/oferta de inmueble entre jugadores (docs/GDD_Propiedades.md §7,
+-- pedido 2026-09-03: "solo el jarl puede revocar y reasignar" era el hueco
+-- real) — el DUEÑO actual ofrece su propiedad a OTRO jugador por un precio;
+-- varias ofertas simultáneas a distintos destinatarios son válidas (el
+-- dueño decide a quién vender), PRIMARY KEY por destinatario evita que el
+-- mismo dueño le duplique la oferta a la misma persona. Vive aparte de
+-- propiedades (tabla) — no es dato de la propiedad en sí, es una propuesta
+-- que puede caducar/cancelarse sin tocarla.
+CREATE TABLE IF NOT EXISTS ofertas_inmueble (
+  propiedad_id TEXT NOT NULL,
+  ofertado_por INTEGER NOT NULL,   -- FK jugadores.id, dueño actual en el momento de ofrecer
+  destinatario INTEGER NOT NULL,   -- FK jugadores.id, a quién se le ofrece
+  precio_farycoins INTEGER NOT NULL,
+  creado_en TEXT NOT NULL,
+  PRIMARY KEY (propiedad_id, destinatario)
 );
 CREATE TABLE IF NOT EXISTS construcciones (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1831,6 +1876,16 @@ ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS impuesto_activo INTEGER NOT NUL
 ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS impuesto_farycoins INTEGER;
 ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS impuesto_periodo_horas INTEGER;
 ALTER TABLE propiedades ADD COLUMN IF NOT EXISTS impuesto_ultimo_cobro TEXT;
+-- Reventa/oferta de inmueble entre jugadores — mismo shape que la tabla
+-- gemela SQLite de arriba, ver comentario ahí.
+CREATE TABLE IF NOT EXISTS ofertas_inmueble (
+  propiedad_id TEXT NOT NULL,
+  ofertado_por INTEGER NOT NULL,
+  destinatario INTEGER NOT NULL,
+  precio_farycoins INTEGER NOT NULL,
+  creado_en TEXT NOT NULL,
+  PRIMARY KEY (propiedad_id, destinatario)
+);
 CREATE TABLE IF NOT EXISTS construcciones (
   id SERIAL PRIMARY KEY,
   propiedad TEXT NOT NULL,
@@ -3307,6 +3362,88 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     }
     await this.creditarJarl(precioFarycoins);
     return { ok: true, expiraEn: nuevaExpira };
+  }
+
+  async crearOfertaInmueble(propiedadId: string, ofertadoPorId: number, destinatarioId: number, precioFarycoins: number): Promise<void> {
+    this.bd
+      .prepare(
+        `INSERT INTO ofertas_inmueble (propiedad_id, ofertado_por, destinatario, precio_farycoins, creado_en) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(propiedad_id, destinatario) DO UPDATE SET ofertado_por = excluded.ofertado_por, precio_farycoins = excluded.precio_farycoins, creado_en = excluded.creado_en`,
+      )
+      .run(propiedadId, ofertadoPorId, destinatarioId, precioFarycoins, new Date().toISOString());
+  }
+
+  async obtenerOfertaInmueble(propiedadId: string, destinatarioId: number): Promise<{ ofertadoPorId: number; precioFarycoins: number; creadoEn: string } | null> {
+    const fila = this.bd
+      .prepare("SELECT ofertado_por, precio_farycoins, creado_en FROM ofertas_inmueble WHERE propiedad_id = ? AND destinatario = ?")
+      .get(propiedadId, destinatarioId);
+    return fila ? { ofertadoPorId: Number(fila.ofertado_por), precioFarycoins: Number(fila.precio_farycoins), creadoEn: String(fila.creado_en) } : null;
+  }
+
+  async eliminarOfertaInmueble(propiedadId: string, destinatarioId: number): Promise<void> {
+    this.bd.prepare("DELETE FROM ofertas_inmueble WHERE propiedad_id = ? AND destinatario = ?").run(propiedadId, destinatarioId);
+  }
+
+  async eliminarOfertasDePropiedad(propiedadId: string): Promise<void> {
+    this.bd.prepare("DELETE FROM ofertas_inmueble WHERE propiedad_id = ?").run(propiedadId);
+  }
+
+  async listarOfertasRecibidas(jugadorId: number): Promise<Array<{ propiedadId: string; ofertadoPorNombre: string; precioFarycoins: number; creadoEn: string }>> {
+    const filas = this.bd
+      .prepare(
+        `SELECT o.propiedad_id, j.nombre AS ofertado_por_nombre, o.precio_farycoins, o.creado_en
+         FROM ofertas_inmueble o JOIN jugadores j ON j.id = o.ofertado_por WHERE o.destinatario = ? ORDER BY o.creado_en DESC`,
+      )
+      .all(jugadorId);
+    return filas.map((f) => ({ propiedadId: String(f.propiedad_id), ofertadoPorNombre: String(f.ofertado_por_nombre), precioFarycoins: Number(f.precio_farycoins), creadoEn: String(f.creado_en) }));
+  }
+
+  async listarOfertasHechas(jugadorId: number): Promise<Array<{ propiedadId: string; destinatarioNombre: string; precioFarycoins: number; creadoEn: string }>> {
+    const filas = this.bd
+      .prepare(
+        `SELECT o.propiedad_id, j.nombre AS destinatario_nombre, o.precio_farycoins, o.creado_en
+         FROM ofertas_inmueble o JOIN jugadores j ON j.id = o.destinatario WHERE o.ofertado_por = ? ORDER BY o.creado_en DESC`,
+      )
+      .all(jugadorId);
+    return filas.map((f) => ({ propiedadId: String(f.propiedad_id), destinatarioNombre: String(f.destinatario_nombre), precioFarycoins: Number(f.precio_farycoins), creadoEn: String(f.creado_en) }));
+  }
+
+  async transferirPropiedad(
+    id: string,
+    vendedorNombre: string,
+    compradorNombre: string,
+    precioFarycoins: number,
+  ): Promise<{ ok: true; saldoRestante: number } | { ok: false; motivo: string }> {
+    const prop = await this.obtenerPropiedad(id); // resuelve expiración/impuesto perezosos primero
+    if (!prop || !prop.dueno) return { ok: false, motivo: "esta propiedad no tiene dueño" };
+    if (prop.dueno.toLowerCase() !== vendedorNombre.trim().toLowerCase()) return { ok: false, motivo: "ya no eres el dueño de esta propiedad" };
+    if (prop.modoTenencia !== "compra") return { ok: false, motivo: "solo se puede revender una propiedad comprada, no un alquiler" };
+    const vendedor = await this.obtenerOCrearJugador(vendedorNombre);
+    const comprador = await this.obtenerOCrearJugador(compradorNombre);
+    if (comprador.id === vendedor.id) return { ok: false, motivo: "no puedes comprarte tu propia propiedad" };
+
+    const debito = await this.ajustarFarycoins(comprador.id, -precioFarycoins);
+    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+
+    // Compare-and-swap contra el VENDEDOR leído — mismo criterio que el
+    // resto de este archivo: entre el débito de arriba y este UPDATE, el
+    // jarl podría haber revocado la propiedad o el dueño podría haberla
+    // vendido a otro por otra oferta ya aceptada.
+    const ahora = new Date().toISOString();
+    const r = this.bd
+      .prepare(
+        `UPDATE propiedades SET dueno = ?, asignada_en = ?, precio_farycoins = ?,
+         impuesto_activo = 0, impuesto_farycoins = NULL, impuesto_periodo_horas = NULL, impuesto_ultimo_cobro = NULL
+         WHERE id = ? AND dueno = ? AND modo_tenencia = 'compra'`,
+      )
+      .run(comprador.id, ahora, precioFarycoins, id, vendedor.id);
+    if (Number(r.changes) === 0) {
+      await this.ajustarFarycoins(comprador.id, precioFarycoins); // perdió la carrera: revierte el cobro
+      return { ok: false, motivo: "la propiedad cambió de dueño mientras se procesaba la venta" };
+    }
+    await this.ajustarFarycoins(vendedor.id, precioFarycoins); // directo al vendedor, sin comisión del jarl (mismo criterio que vender a otro jugador en el Mercado)
+    await this.eliminarOfertasDePropiedad(id); // cualquier otra oferta sobre esta propiedad ya no aplica (nuevo dueño)
+    return { ok: true, saldoRestante: debito.saldo };
   }
 
   async listarStockTenderete(tenderoteId: string): Promise<ItemEnVentaTenderete[]> {
@@ -4958,6 +5095,82 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     }
     await this.creditarJarl(precioFarycoins);
     return { ok: true, expiraEn: nuevaExpira };
+  }
+
+  async crearOfertaInmueble(propiedadId: string, ofertadoPorId: number, destinatarioId: number, precioFarycoins: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO ofertas_inmueble (propiedad_id, ofertado_por, destinatario, precio_farycoins, creado_en) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (propiedad_id, destinatario) DO UPDATE SET ofertado_por = EXCLUDED.ofertado_por, precio_farycoins = EXCLUDED.precio_farycoins, creado_en = EXCLUDED.creado_en`,
+      [propiedadId, ofertadoPorId, destinatarioId, precioFarycoins, new Date().toISOString()],
+    );
+  }
+
+  async obtenerOfertaInmueble(propiedadId: string, destinatarioId: number): Promise<{ ofertadoPorId: number; precioFarycoins: number; creadoEn: string } | null> {
+    const r = await this.pool.query<{ ofertado_por: number; precio_farycoins: number; creado_en: string }>(
+      "SELECT ofertado_por, precio_farycoins, creado_en FROM ofertas_inmueble WHERE propiedad_id = $1 AND destinatario = $2",
+      [propiedadId, destinatarioId],
+    );
+    const f = r.rows[0];
+    return f ? { ofertadoPorId: f.ofertado_por, precioFarycoins: f.precio_farycoins, creadoEn: f.creado_en } : null;
+  }
+
+  async eliminarOfertaInmueble(propiedadId: string, destinatarioId: number): Promise<void> {
+    await this.pool.query("DELETE FROM ofertas_inmueble WHERE propiedad_id = $1 AND destinatario = $2", [propiedadId, destinatarioId]);
+  }
+
+  async eliminarOfertasDePropiedad(propiedadId: string): Promise<void> {
+    await this.pool.query("DELETE FROM ofertas_inmueble WHERE propiedad_id = $1", [propiedadId]);
+  }
+
+  async listarOfertasRecibidas(jugadorId: number): Promise<Array<{ propiedadId: string; ofertadoPorNombre: string; precioFarycoins: number; creadoEn: string }>> {
+    const r = await this.pool.query<{ propiedad_id: string; ofertado_por_nombre: string; precio_farycoins: number; creado_en: string }>(
+      `SELECT o.propiedad_id, j.nombre AS ofertado_por_nombre, o.precio_farycoins, o.creado_en
+       FROM ofertas_inmueble o JOIN jugadores j ON j.id = o.ofertado_por WHERE o.destinatario = $1 ORDER BY o.creado_en DESC`,
+      [jugadorId],
+    );
+    return r.rows.map((f) => ({ propiedadId: f.propiedad_id, ofertadoPorNombre: f.ofertado_por_nombre, precioFarycoins: f.precio_farycoins, creadoEn: f.creado_en }));
+  }
+
+  async listarOfertasHechas(jugadorId: number): Promise<Array<{ propiedadId: string; destinatarioNombre: string; precioFarycoins: number; creadoEn: string }>> {
+    const r = await this.pool.query<{ propiedad_id: string; destinatario_nombre: string; precio_farycoins: number; creado_en: string }>(
+      `SELECT o.propiedad_id, j.nombre AS destinatario_nombre, o.precio_farycoins, o.creado_en
+       FROM ofertas_inmueble o JOIN jugadores j ON j.id = o.destinatario WHERE o.ofertado_por = $1 ORDER BY o.creado_en DESC`,
+      [jugadorId],
+    );
+    return r.rows.map((f) => ({ propiedadId: f.propiedad_id, destinatarioNombre: f.destinatario_nombre, precioFarycoins: f.precio_farycoins, creadoEn: f.creado_en }));
+  }
+
+  async transferirPropiedad(
+    id: string,
+    vendedorNombre: string,
+    compradorNombre: string,
+    precioFarycoins: number,
+  ): Promise<{ ok: true; saldoRestante: number } | { ok: false; motivo: string }> {
+    const prop = await this.obtenerPropiedad(id);
+    if (!prop || !prop.dueno) return { ok: false, motivo: "esta propiedad no tiene dueño" };
+    if (prop.dueno.toLowerCase() !== vendedorNombre.trim().toLowerCase()) return { ok: false, motivo: "ya no eres el dueño de esta propiedad" };
+    if (prop.modoTenencia !== "compra") return { ok: false, motivo: "solo se puede revender una propiedad comprada, no un alquiler" };
+    const vendedor = await this.obtenerOCrearJugador(vendedorNombre);
+    const comprador = await this.obtenerOCrearJugador(compradorNombre);
+    if (comprador.id === vendedor.id) return { ok: false, motivo: "no puedes comprarte tu propia propiedad" };
+
+    const debito = await this.ajustarFarycoins(comprador.id, -precioFarycoins);
+    if (!debito.ok) return { ok: false, motivo: "no tienes suficientes Farycoins" };
+
+    const ahora = new Date().toISOString();
+    const r = await this.pool.query(
+      `UPDATE propiedades SET dueno = $1, asignada_en = $2, precio_farycoins = $3,
+       impuesto_activo = 0, impuesto_farycoins = NULL, impuesto_periodo_horas = NULL, impuesto_ultimo_cobro = NULL
+       WHERE id = $4 AND dueno = $5 AND modo_tenencia = 'compra'`,
+      [comprador.id, ahora, precioFarycoins, id, vendedor.id],
+    );
+    if ((r.rowCount ?? 0) === 0) {
+      await this.ajustarFarycoins(comprador.id, precioFarycoins); // perdió la carrera: revierte el cobro
+      return { ok: false, motivo: "la propiedad cambió de dueño mientras se procesaba la venta" };
+    }
+    await this.ajustarFarycoins(vendedor.id, precioFarycoins);
+    await this.eliminarOfertasDePropiedad(id);
+    return { ok: true, saldoRestante: debito.saldo };
   }
 
   async listarStockTenderete(tenderoteId: string): Promise<ItemEnVentaTenderete[]> {
