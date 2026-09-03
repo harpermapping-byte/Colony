@@ -233,6 +233,18 @@ sigue siendo un desarrollo aparte si hiciera falta, coherente con "nunca
 A* en vivo": no se quiso meter una física de separación por tick para
 agentes que ya van sobre raíles bakeados.
 
+**Ampliado a la "zona de pesca" del pescador (2026-09-03)**: mismo problema,
+sitio distinto — el lugar `trabajo` normalmente resuelve a un único punto
+(`centroPuerta(edificioTrabajo)`), correcto para un oficio con 1 puesto por
+edificio, pero si dos pescadores censados acaban en LA MISMA `lonja_pescado`
+(la capacidad de un taller pequeño puede dar de sobra para 2, ver
+`asignarUbicacion.js:capacidadTrabajo`), ambos convergían en la puerta
+exacta. Igual que `campo`/huerto: cuando `edificioTrabajo.tipoEdificioId ===
+"lonja_pescado"`, `generarRutina.js` calcula la orilla real más cercana A LA
+LONJA (`puntoDeAgua`, no a la casa del NPC) y reparte la casilla con el
+MISMO `elegirDePool` (clave `pesca_<edificioId>`, por lonja — dos lonjas del
+mismo bake no comparten pool ni contador).
+
 ### Vendedores especializados fijos por asentamiento
 
 Los oficios de tienda/taller (tendero, panadero, sastre, joyero, alfarero,

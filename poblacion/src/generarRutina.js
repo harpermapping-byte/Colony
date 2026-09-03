@@ -165,7 +165,14 @@ function resolverLugar(lugar, ctx, rnd) {
     case "casa":
       return ctx.casaPunto;
     case "trabajo":
-      return ctx.trabajoPunto ?? ctx.casaPunto;
+      // pescador (lonja_pescado): igual que el huerto de los campesinos —
+      // si varios pescadores trabajan en la MISMA lonja, no converjan en
+      // la puerta exacta. La "zona de pesca" es la orilla real más cercana
+      // a la lonja (no a su casa), repartida por el mismo pool rotatorio;
+      // sin agua intramuros o sin lonja, cae al punto de siempre.
+      return (ctx.trabajoZonaPesca &&
+        elegirDePool(ctx, `pesca_${ctx.trabajoEdificioId}`, ctx.trabajoZonaPesca)) ??
+        ctx.trabajoPunto ?? ctx.casaPunto;
     case "taberna":
       return elegirDePool(ctx, "taberna", ctx.tabernaPunto) ?? ctx.plazaPunto ?? ctx.casaPunto;
     case "plaza":
@@ -300,6 +307,14 @@ function generarRutina(npc, ciudad, catalogos, dia = 0, contadorZonas = {}) {
       ? centroPuerta(edificioTrabajo)
       : npc.puestoExterior
         ? elegirDePool({ ciudad, contadorZonas }, "puestoMercado", focal)
+        : null,
+    // "zona de pesca" del pescador (GDD_Agentes_Moviles.md "no se
+    // apelotonen"): orilla real más cercana a SU lonja (no a su casa —
+    // varios pescadores de la misma lonja comparten faena, no vivienda),
+    // solo cuando su trabajo real es una lonja_pescado.
+    trabajoZonaPesca:
+      edificioTrabajo?.tipoEdificioId === "lonja_pescado"
+        ? puntoDeAgua(ciudad, centroPuerta(edificioTrabajo))
         : null,
     tabernaPunto: buscarTaberna(ciudad),
     plazaPunto: focal,
