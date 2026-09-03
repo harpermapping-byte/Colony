@@ -27,5 +27,6 @@
   "cocinero": ["cocina_comunal"],
   "carnicero": ["carniceria"],
   "carpintero_ribera": ["astillero"],
+  "cazador": ["cabana_cazador"],
   "aldeano": []
 }

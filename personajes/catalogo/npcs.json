@@ -1106,5 +1106,31 @@
       "Sabe reconocer una vía de agua antes de que el capitán se dé cuenta.",
       "Cuenta historias de naufragios que probablemente se ha inventado él mismo."
     ]
+  },
+  "cazador": {
+    "_nota": "Añadido 2026-09-03 (auditoría de oficios): cazador es uno de los 10 oficios reales de jugador (server/src/personaje/oficios.ts) y ya tenía edificio propio (cabana_cazador, interiores/catalogo/tipos_edificio.json) y entrada en poblacion/catalogo/oficiosEdificios.json — era el único de los 10 sin NPC que lo representara.",
+    "profesion": "cazador",
+    "morfologia": {
+      "altura": [
+        0.96,
+        1.12
+      ],
+      "corpulencia": [
+        0.95,
+        1.15
+      ]
+    },
+    "ropa": [
+      "camisa_lino_campesina",
+      "pantalon_lana_campesino",
+      "capa_lana_humilde"
+    ],
+    "colorDebug": "#5a6a3a",
+    "personalidad": "Cazador reservado y observador, más atento al bosque que a la conversación.",
+    "conocimiento": [
+      "Caza y pone trampas en el bosque para traer carne y pieles al asentamiento.",
+      "Conoce las sendas de los animales mejor que los caminos del pueblo.",
+      "Nunca vuelve con las manos vacías, aunque tarde días en volver."
+    ]
   }
 }
