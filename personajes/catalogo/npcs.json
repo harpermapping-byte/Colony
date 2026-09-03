@@ -79,10 +79,11 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
-      "pantalon_lana_campesino"
+      "delantal_herrero",
+      "pantalon_lana_campesino",
+      "guantes_forja_herrero"
     ],
-    "_nota": "Falta el delantal de cuero en el catálogo de prendas — se añade a su ropa cuando exista.",
+    "_nota": "Fix 2026-09-03: llevaba el delantal pendiente de crear desde 2026-09-01 (delantal_herrero, ya existe) y el genérico camisa_lino_campesina en su lugar — más los nuevos guantes_forja_herrero (guante profesión-específico, antes solo noble los tenía).",
     "colorDebug": "#6a6a70",
     "personalidad": "Herrero brusco pero honesto, orgulloso de su oficio, poca paciencia para charlas vacías.",
     "conocimiento": [
@@ -200,7 +201,11 @@
         ]
       ]
     },
-    "ropa": [],
+    "ropa": [
+      "tunica_herbolista",
+      "pantalon_lana_campesino"
+    ],
+    "_nota": "Fix 2026-09-03: llevaba `ropa: []` (SIN NINGUNA prenda) desde que se creó el catálogo — un array vacío no dispara el auto-vestido de elegirConjuntoPorProfesion (personajes/src/generarPersonaje.js solo lo hace si `ropa` es undefined), así que el anciano salía completamente desnudo. Ahora viste tunica_herbolista (dedicada a herbolista) + pantalón genérico.",
     "colorDebug": "#7a6a8a",
     "personalidad": "Anciano herbolista de hablar pausado y sabio, le gusta dar consejos a través de refranes.",
     "conocimiento": [
@@ -224,8 +229,10 @@
     "ropa": [
       "camisa_lino_campesina",
       "pantalon_lana_campesino",
-      "gorro_lino_campesino"
+      "gorro_lino_campesino",
+      "botas_altas_pescador"
     ],
+    "_nota": "Fix 2026-09-03: añadida botas_altas_pescador (bota profesión-específica nueva, antes solo genéricas).",
     "colorDebug": "#4a7a8a",
     "personalidad": "Pescador madrugador y de pocas palabras, más cómodo con las redes que con la gente.",
     "conocimiento": [
@@ -247,9 +254,10 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
+      "mandil_carpintero",
       "pantalon_lana_campesino"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir mandil_carpintero dedicado desde 2026-09-01.",
     "colorDebug": "#8a6a45",
     "personalidad": "Carpintero paciente y meticuloso, orgulloso de que sus muebles duren generaciones.",
     "conocimiento": [
@@ -271,10 +279,11 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
+      "tunica_molinero",
       "pantalon_lana_campesino",
       "gorro_lino_campesino"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir tunica_molinero dedicada desde 2026-09-01.",
     "colorDebug": "#c9b87a",
     "personalidad": "Molinero jovial siempre cubierto de harina, lleva las cuentas del grano de todo el pueblo.",
     "conocimiento": [
@@ -296,9 +305,11 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
-      "pantalon_lana_campesino"
+      "delantal_curtidor",
+      "pantalon_lana_campesino",
+      "gorro_lino_campesino"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir delantal_curtidor dedicado desde 2026-09-01; añadido también gorro_lino_campesino (dedicado a curtidor, comparte tag curtiduria).",
     "colorDebug": "#6a4a3a",
     "personalidad": "Curtidor curtido él mismo por el oficio, resignado a que su taller huela mal y nadie quiera visitarlo.",
     "conocimiento": [
@@ -320,10 +331,11 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
+      "tunica_alfarero",
       "pantalon_lana_campesino",
       "gorro_lino_campesino"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir tunica_alfarero dedicada desde 2026-09-01.",
     "colorDebug": "#a5673f",
     "personalidad": "Alfarera tranquila y algo soñadora, siempre con las manos manchadas de arcilla.",
     "conocimiento": [
@@ -345,9 +357,10 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
+      "mandil_joyero",
       "pantalon_lana_campesino"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir mandil_joyero dedicado desde 2026-09-03.",
     "colorDebug": "#c9a227",
     "personalidad": "Joyero pulcro y desconfiado, mide cada palabra igual que mide el oro.",
     "conocimiento": [
@@ -369,9 +382,10 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
+      "tunica_sastre",
       "pantalon_lana_campesino"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir tunica_sastre dedicada desde 2026-09-03.",
     "colorDebug": "#7a4a8a",
     "personalidad": "Sastre presumido con buen ojo para las telas, opina de la ropa de todo el que entra por su puerta.",
     "conocimiento": [
@@ -393,10 +407,11 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
+      "tunica_panadero",
       "pantalon_lana_campesino",
       "gorro_lino_campesino"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir tunica_panadero dedicada desde 2026-09-03.",
     "colorDebug": "#d9a35c",
     "personalidad": "Panadero madrugador y campechano, el primero en enterarse de todo porque todos pasan por su puerta.",
     "conocimiento": [
@@ -418,9 +433,10 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
+      "chaleco_tabernero",
       "pantalon_lana_campesino"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir chaleco_tabernero dedicado desde 2026-09-01.",
     "colorDebug": "#8a5a3a",
     "personalidad": "Tabernero hablador y sociable, se entera de todos los chismes y rumores del asentamiento antes que nadie.",
     "conocimiento": [
@@ -463,8 +479,10 @@
     },
     "ropa": [
       "habito_sacerdote",
-      "pantalon_lana_campesino"
+      "pantalon_lana_campesino",
+      "capucha_lana_sacerdote"
     ],
+    "_nota": "Fix 2026-09-03: añadida capucha_lana_sacerdote (gorro profesión-específico nuevo, antes solo el hábito cubría el torso).",
     "colorDebug": "#4a4a6a",
     "personalidad": "Sacerdote sereno y de trato amable, siempre dispuesto a escuchar, aunque no siempre a dar la razón.",
     "conocimiento": [
@@ -486,10 +504,11 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
+      "chaleco_tabernero",
       "pantalon_lana_campesino",
       "gorro_lino_campesino"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir chaleco_tabernero dedicado (comparte tag 'tienda' con tendero, ver ropa/catalogo/profesiones.json#tendero).",
     "colorDebug": "#3a8a5a",
     "personalidad": "Tendero regateador nato, siempre intentando sacarle una moneda más al trato.",
     "conocimiento": [
@@ -683,9 +702,11 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
-      "pantalon_lana_campesino"
+      "jubon_seda_noble",
+      "pantalon_lana_noble",
+      "gorro_piel_noble"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina/pantalon_lana_campesino pese a que su profesion es 'noble' (que ya tiene las 6 prendas dedicadas) — un recaudador del jarl no viste como campesino. Vestuario noble sobrio (sin capa de gala ni guantes de seda, sigue siendo trabajo, no un baile).",
     "colorDebug": "#4a4a52",
     "personalidad": "Recaudador de impuestos frío y meticuloso, con un libro de cuentas bajo el brazo; nadie se alegra de verlo llegar a la tienda.",
     "conocimiento": [
@@ -731,10 +752,11 @@
       ]
     },
     "ropa": [
-      "camisa_lino_campesina",
+      "delantal_destilador",
       "pantalon_lana_campesino",
       "gorro_lino_campesino"
     ],
+    "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a que su profesion es 'destilador' (que ya tiene delantal_destilador dedicado desde 2026-09-03) — encaja con que 'carga' sus amuletos con algo parecido a destilería.",
     "colorDebug": "#c9a03a",
     "personalidad": "Vendedora ambulante de amuletos 'de eficacia garantizada' que nadie ha podido demostrar ni desmentir; labia inagotable.",
     "conocimiento": [
@@ -782,8 +804,10 @@
     "ropa": [
       "camisa_lino_campesina",
       "pantalon_lana_campesino",
-      "gorro_lino_campesino"
+      "gorro_lino_campesino",
+      "botas_altas_pescador"
     ],
+    "_nota": "Fix 2026-09-03: añadida botas_altas_pescador (bota profesión-específica nueva, antes solo genéricas).",
     "colorDebug": "#3a7a8a",
     "personalidad": "Pescador de anécdotas más grandes que sus capturas; el pez que 'casi' pescó crece un poco más cada vez que lo cuenta.",
     "conocimiento": [
