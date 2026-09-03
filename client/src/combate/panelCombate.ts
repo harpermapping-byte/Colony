@@ -9,7 +9,50 @@
  *
  * DOM plano inyectado sobre el canvas, mismo patrón que
  * client/src/construccion/constructor.ts — nada de framework.
+ *
+ * Barra de acción (docs/GDD_Combate.md §10.4, pedido streamer 2026-09-03:
+ * "acciones como barra de accion abajo... carencias [habilidades] o
+ * pociones") — cierra el hueco "sin UI de cliente" que dejaron §10.1/§10.3:
+ * golpe especial por familia de arma (`combate:accion` con `habilidadId`,
+ * ya validado server-side contra el arma REAL equipada — este panel solo
+ * sugiere, el servidor decide) y pociones bebibles en combate
+ * (`pocion:beber`). Mismo patrón de import de catálogo que
+ * panelJugador.ts/panelCofre.ts.
  */
+
+import itemsJson from "../../../items/catalogo/items.json";
+
+interface EntradaItemCatalogo {
+  nombre?: string;
+  habilidadId?: string;
+}
+const ITEMS = itemsJson as unknown as Record<string, EntradaItemCatalogo>;
+
+// Verbo/nombre de botón por habilidad — descripción exacta de cada familia
+// en docs/GDD_Combate.md §10.1 (tabla de las 7 familias de arma). Un arma
+// sin `habilidadId` reconocido aquí deja solo el botón "Atacar" normal, sin
+// ningún cambio de comportamiento (pedido explícito).
+const NOMBRE_HABILIDAD: Record<string, string> = {
+  "daga:puntoDebil": "Punto débil",
+  "espada:estocada": "Estocada",
+  "hacha:tajoPesado": "Tajo pesado",
+  "maza:aturdir": "Aturdir",
+  "baston:barrido": "Barrido",
+  "lanza:embiste": "Embestir",
+  "arco:apuntar": "Apuntar y disparar",
+};
+
+// Poción bebible = ItemInstancia con `efectoPocion` (server/src/inventario/
+// inventario.ts) — pero ESE campo nunca se replica al cliente: no está en
+// ItemInstanciaSchema ni lo copia sincronizarSchema.ts (solo vive
+// server-side, ver investigación en el commit de esta barra). El único
+// punto real que crea instancias con `efectoPocion` es `entregarPocion`
+// (manejarAlquimiaColar, RoomExteriorBase.ts), y SIEMPRE con uno de los 5
+// itemId que arma `itemIdPocion()` (alquimia.ts: `pocion_alquimica_<color>`)
+// — así que comprobar el prefijo del itemId es exactamente equivalente en
+// la práctica al criterio real del servidor, sin depender de un campo que
+// el cliente no puede ver.
+const PREFIJO_ITEM_POCION = "pocion_alquimica_";
 
 // Tipos mínimos de lo que necesitamos leer del Schema replicado — evita
 // acoplar este módulo al tipo exacto de colyseus.js/@colyseus/schema.
@@ -34,13 +77,34 @@ interface CombateVista {
   unidades: { get(id: string): UnidadCombateVista | undefined; values(): IterableIterator<UnidadCombateVista> };
 }
 
+interface ItemInstanciaVista {
+  id: number;
+  itemId: string;
+  cantidad: number;
+}
+
+interface InventarioVista {
+  equipo: { get(slot: string): string | undefined };
+  cuerpo: { items: Iterable<ItemInstanciaVista> };
+}
+
+/** Lo mínimo del Player propio (Schema replicado) que esta barra necesita — mismo patrón de "vista mínima" que CombateVista de arriba. */
+interface JugadorPropioVista {
+  inventario: InventarioVista;
+}
+
 export interface OpcionesPanelCombate {
   contenedor: HTMLElement;
   sessionIdPropio: string;
-  enviarAccion(combateId: string, objetivoId: string): void;
+  /** `habilidadId` opcional: si se manda, el servidor valida que coincide con el arma REAL equipada (manoPrincipal) — si no coincide o se omite, cae al ataque base de siempre (docs/GDD_Combate.md §10.1). */
+  enviarAccion(combateId: string, objetivoId: string, habilidadId?: string): void;
   enviarPasarTurno(combateId: string): void;
   enviarHuir(combateId: string): void;
   enviarComenzarYa(combateId: string): void;
+  /** docs/GDD_Combate.md §10.3 — beber una poción a mitad de combate, mismo mensaje `pocion:beber` que fuera de combate. */
+  enviarPocion(instanciaId: number): void;
+  /** Player propio (Schema) para leer el arma equipada y las pociones del inventario — undefined si `room.state.players` todavía no tiene al jugador. */
+  obtenerJugadorPropio(): JugadorPropioVista | undefined;
 }
 
 export class PanelCombate {
@@ -128,6 +192,14 @@ export class PanelCombate {
     propiaDiv.textContent = `Tú: ${Math.round(propia.hp)}/${Math.round(propia.hpMax)} HP — PA: ${propia.pa}/${propia.paMax} (${propia.estado})${indicadorVisual}`;
     this.raiz.appendChild(propiaDiv);
 
+    // Arma equipada -> habilidad especial de su familia (docs/GDD_Combate.md
+    // §10.1) — solo hace falta durante nuestro propio turno, para saber qué
+    // botón extra ofrecer junto a "Atacar" en cada fila de enemigo de abajo.
+    const jugador = this.opciones.obtenerJugadorPropio();
+    const itemIdArma = jugador?.inventario.equipo.get("manoPrincipal");
+    const habilidadId = itemIdArma ? ITEMS[itemIdArma]?.habilidadId : undefined;
+    const nombreHabilidad = habilidadId ? NOMBRE_HABILIDAD[habilidadId] : undefined;
+
     const lista = document.createElement("div");
     lista.style.display = "flex";
     lista.style.flexDirection = "column";
@@ -147,10 +219,51 @@ export class PanelCombate {
         boton.textContent = "Atacar";
         boton.onclick = () => this.opciones.enviarAccion(combateId, u.id);
         fila.appendChild(boton);
+        // Botón extra con el golpe especial de la familia del arma equipada
+        // (junto a "Atacar" normal, no en su lugar — arma sin familia
+        // reconocida no añade nada aquí, comportamiento sin cambios).
+        if (habilidadId && nombreHabilidad) {
+          const botonHabilidad = document.createElement("button");
+          botonHabilidad.textContent = nombreHabilidad;
+          botonHabilidad.title = `Golpe especial de tu arma equipada (${itemIdArma})`;
+          botonHabilidad.onclick = () => this.opciones.enviarAccion(combateId, u.id, habilidadId);
+          fila.appendChild(botonHabilidad);
+        }
       }
       lista.appendChild(fila);
     }
     this.raiz.appendChild(lista);
+
+    // Pociones bebibles (docs/GDD_Combate.md §10.3) — solo durante nuestro
+    // turno, mismo criterio que "Pasar turno"/"Huir" de abajo. El servidor
+    // sigue siendo quien valida PA/aturdido/turno de verdad; aquí solo se
+    // decide qué mostrar.
+    if (esMiTurno) {
+      const pociones = jugador ? [...jugador.inventario.cuerpo.items].filter((it) => it.itemId.startsWith(PREFIJO_ITEM_POCION)) : [];
+      if (pociones.length > 0) {
+        this.raiz.appendChild(this.subtitulo("Pociones"));
+        const listaPociones = document.createElement("div");
+        listaPociones.style.display = "flex";
+        listaPociones.style.flexDirection = "column";
+        listaPociones.style.gap = "4px";
+        listaPociones.style.marginBottom = "8px";
+        for (const it of pociones) {
+          const fila = document.createElement("div");
+          fila.style.display = "flex";
+          fila.style.justifyContent = "space-between";
+          fila.style.gap = "8px";
+          const texto = document.createElement("span");
+          texto.textContent = ITEMS[it.itemId]?.nombre ?? it.itemId;
+          fila.appendChild(texto);
+          const boton = document.createElement("button");
+          boton.textContent = "Beber";
+          boton.onclick = () => this.opciones.enviarPocion(it.id);
+          fila.appendChild(boton);
+          listaPociones.appendChild(fila);
+        }
+        this.raiz.appendChild(listaPociones);
+      }
+    }
 
     const botones = document.createElement("div");
     botones.style.display = "flex";
@@ -166,5 +279,15 @@ export class PanelCombate {
     botones.appendChild(pasar);
     botones.appendChild(huir);
     this.raiz.appendChild(botones);
+  }
+
+  private subtitulo(texto: string): HTMLDivElement {
+    const div = document.createElement("div");
+    div.style.fontWeight = "bold";
+    div.style.fontSize = "12px";
+    div.style.marginTop = "4px";
+    div.style.marginBottom = "2px";
+    div.textContent = texto;
+    return div;
   }
 }
