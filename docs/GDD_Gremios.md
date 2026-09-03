@@ -117,4 +117,4 @@ Confirmado por el streamer: *"el beneficio de tener gremio es que se puede compa
 - ~~Beneficios mecánicos de pertenecer a un gremio~~ — **resuelto (2026-08-30), ver §7bis.**
 - Parcelas o propiedades a nombre del GREMIO (hoy toda propiedad sigue siendo de un jugador individual — §7bis deja que el gremio PAGUE una compra, pero la fila de `propiedades.dueno` sigue apuntando al jugador; una propiedad cuyo dueño real sea el gremio como entidad sigue sin diseñar, ver `docs/GDD_Construccion.md`).
 - Invitaciones persistentes "pendientes de ver" para jugadores desconectados en el momento de la invitación (la fila en BD existe, pero no hay notificación al reconectar).
-- Fuente de Farycoins iniciales (faucet) — hoy `farycoins` nace a 0 y no hay ningún sistema que lo aumente todavía; llegará con Mercado (venta de objetos) y Producción.
+- ~~Fuente de Farycoins iniciales (faucet)~~ — **RESUELTO (2026-08-30), ver `docs/GDD_Economia.md`**: nota obsoleta con datos ya incorrectos incluso en su momento (`farycoins` nace a 20, no a 0, `SALDO_INICIAL_JUGADOR`) — corregida 2026-09-03, mismo apunte duplicado en GDD_Propiedades.md §7 y GDD_Mercado.md §4.
