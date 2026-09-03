@@ -126,6 +126,36 @@ function formaGorro(detalle) {
   };
 }
 
+// t=0 la muñeca (extremo abierto), t=1 la punta de los dedos — mitón sin
+// dedos individuales (estilo vóxel de baja resolución, mismo criterio que
+// el resto del catálogo: el detalle real llega con el arte definitivo).
+function formaGuante(detalle) {
+  return (t) => {
+    if (t < 0.15) return { escalaX: detalle.puño === "ancho" ? 1.15 : 0.95, zona: "puños" }; // puño en la muñeca
+    if (t > 0.85) return { escalaX: 0.8, zona: "cuerpo" }; // se estrecha hacia la punta
+    return { escalaX: 1, zona: "cuerpo" };
+  };
+}
+
+// t=0 la suela (abajo), t=1 la caña/tobillo (arriba, hacia la pernera).
+function formaBota(detalle) {
+  return (t) => {
+    if (t < 0.1) return { escalaX: 1.1, escalaZ: 1.25, zona: "suela" }; // suela, más ancha que el resto
+    if (detalle.caña === "alta" && t > 0.7) return { escalaX: 0.92, zona: "cuerpo" }; // caña ajustada al tobillo
+    return { escalaX: 1, zona: "cuerpo" };
+  };
+}
+
+// t=0 el bajo/dobladillo (abajo, se ensancha para el vuelo típico de una
+// capa), t=1 el cuello (arriba, se recoge para el cierre/broche).
+function formaCapa(detalle) {
+  return (t) => {
+    if (t > 0.92) return { escalaX: 0.65, zona: "cuello" }; // recogida al cuello
+    if (t < 0.1) return { escalaX: detalle.vuelo === "amplio" ? 1.25 : 0.95, zona: "cuerpo" }; // vuelo del bajo
+    return { escalaX: 1 - 0.12 * (1 - t), zona: "cuerpo" }; // se abre suavemente hacia abajo
+  };
+}
+
 // Remiendos: un puñado de vóxeles con color fijo, insertados a mano sobre
 // una parte ya generada (no cambian la silueta, solo el color de unas
 // pocas celdas — como un parche de tela cosido encima).
@@ -219,10 +249,65 @@ function generarPrendaCabeza(prenda, material, colores, rnd, proporcionesRig) {
   return voxeles.map((v) => ({ ...v, pivote: "cabeza" }));
 }
 
+// Manos/pies/capa (docs/GDD_Ropa_Procedural.md, pedido 2026-09-03: "capas
+// pies manos" como slots nuevos de ropa base, además de los ya existentes
+// torso/piernas/cabeza) — mismo patrón exacto que generarPrendaPiernas/
+// Cabeza de arriba, colgado del pivote real que ya usa `equipoVisual.ts`
+// para esos mismos slots físicos (manoIzq/manoDer, piernaIzq/piernaDer con
+// offset al tobillo, torso con offset a la espalda) — cero pivote nuevo en
+// el rig, solo geometría nueva sobre pivotes que ya existían.
+
+function generarPrendaManos(prenda, material, colores, rnd, proporcionesRig) {
+  const { brazo } = proporcionesRig;
+  const w = brazo.manoW * MARGEN_CAPA;
+  const d = brazo.manoD * MARGEN_CAPA;
+  const h = brazo.manoH * MARGEN_CAPA;
+  let voxeles = [];
+  for (const [lado, parteId] of [[-1, "manoIzq"], [1, "manoDer"]]) {
+    const guante = voxelizarParte(
+      { w, h, d, resolucion: prenda.voxelResolucion, formaFn: formaGuante(prenda.detalle), zonaBase: "cuerpo", pivoteYBase: -h * 0.5 },
+      colores, rnd, parteId,
+    );
+    voxeles = voxeles.concat(guante.map((v) => ({ ...v, pivote: lado < 0 ? "manoIzq" : "manoDer" })));
+  }
+  return voxeles;
+}
+
+function generarPrendaPies(prenda, material, colores, rnd, proporcionesRig) {
+  const { pierna, altoPierna } = proporcionesRig;
+  const w = pierna.w * MARGEN_CAPA;
+  const d = pierna.d * 1.15; // un pelín más de fondo que la pernera pura — el pie asoma
+  const alto = altoPierna * (prenda.detalle.caña === "alta" ? 0.3 : 0.18); // bota corta = cubre solo el tobillo, el resto lo cubre el pantalón por encima
+  let voxeles = [];
+  for (const [lado, parteId] of [[-1, "piernaIzq"], [1, "piernaDer"]]) {
+    const bota = voxelizarParte(
+      { w, h: alto, d, resolucion: prenda.voxelResolucion, formaFn: formaBota(prenda.detalle), zonaBase: "cuerpo", pivoteYBase: -altoPierna },
+      colores, rnd, parteId,
+    );
+    voxeles = voxeles.concat(bota.map((v) => ({ ...v, pivote: lado < 0 ? "piernaIzq" : "piernaDer" })));
+  }
+  return voxeles;
+}
+
+function generarPrendaCapa(prenda, material, colores, rnd, proporcionesRig) {
+  const { torso, altoTorso } = proporcionesRig;
+  const w = torso.w * 1.3; // más ancha que el torso: cae por los hombros
+  const d = torso.d * 0.35; // fina y plana, pegada a la espalda (mismo criterio "sin física de tela" que el resto del catálogo)
+  const h = altoTorso * 1.7; // baja más que el torso: manto hasta media pierna
+  const voxeles = voxelizarParte(
+    { w, h, d, resolucion: prenda.voxelResolucion, formaFn: formaCapa(prenda.detalle), zonaBase: "cuerpo", pivoteYBase: -altoTorso * 0.8 },
+    colores, rnd, "espalda",
+  );
+  return voxeles.map((v) => ({ ...v, pivote: "torso" }));
+}
+
 const GENERADORES_POR_TIPO = {
   camisa: generarPrendaTorso,
   pantalon: generarPrendaPiernas,
   gorro: generarPrendaCabeza,
+  guante: generarPrendaManos,
+  bota: generarPrendaPies,
+  capa: generarPrendaCapa,
 };
 
 /**

@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 542); // 491 (rama main: ver historial) + 51 de docs/GDD_Carros.md (Fases 1-4: arneses/carros/aperos/carruajes, ver historial en ese GDD) — confluencia de dos ramas paralelas, base común 468.
+  assert.strictEqual(ids.length, 555); // 542 (ver historial) + 13 de docs/GDD_Ropa_Procedural.md (2026-09-03: 4 prendas de oficio joyero/herbolista/destilador/panadero + 1 de sastre + 8 de los slots nuevos manos/pies/capa).
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

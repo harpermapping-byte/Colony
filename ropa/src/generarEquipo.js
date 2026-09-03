@@ -61,6 +61,12 @@ const POSICION_POR_SLOT = {
   anilloDerecho: { pivotes: ["manoDer"], caja: { w: 0.03, h: 0.03, d: 0.13 }, offset: { x: 0, y: -0.03, z: 0.05 } },
   brazalete: { pivotes: ["manoDer"], ambosLados: true, caja: { w: 0.15, h: 0.04, d: 0.15 }, offset: { x: 0, y: 0.03, z: 0 } },
   espalda: { pivotes: ["torso"], caja: { w: 0.34, h: 0.4, d: 0.16 }, offset: { x: 0, y: 0.2, z: -0.2 } },
+  // Capa/manto (docs/GDD_Ropa_Procedural.md, pedido 2026-09-03: "capas pies
+  // manos" como slots nuevos) — mismo pivote/lado que "espalda" (detrás del
+  // torso) pero MÁS ALTA y ESTRECHA (cuelga hacia abajo como un manto, no un
+  // bulto de mochila) para no confundirse visualmente; slot FÍSICO distinto
+  // así que capa y mochila son compatibles a la vez, nunca se pisan.
+  capa: { pivotes: ["torso"], caja: { w: 0.42, h: 0.62, d: 0.1 }, offset: { x: 0, y: 0.02, z: -0.22 } },
   cinturon: { pivotes: ["torso"], caja: { w: 0.14, h: 0.12, d: 0.1 }, offset: { x: 0.22, y: -0.02, z: 0.02 } },
   bandolera: { pivotes: ["torso"], caja: { w: 0.12, h: 0.42, d: 0.08 }, offset: { x: 0.16, y: 0, z: 0.14 } },
   manoPrincipal: { pivotes: ["manoDer"], caja: { w: 0.06, h: 0.3, d: 0.06 }, offset: { x: 0, y: -0.18, z: 0.06 } },
