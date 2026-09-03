@@ -358,7 +358,7 @@ function capacidadCofre(entrada: EntradaConstruible | undefined): [number, numbe
 const XP_POR_CRAFTEO = 20;
 // --- Sastre legendario (docs/GDD_Ropa_Procedural.md §Sastre legendario, pedido 2026-08-31) ---
 const TELAR_OBJETO_ID = "telar";
-/** Nivel de oficio "sastre" (derivado de XP, nunca persistido en sí — nivelDeXp) a partir del cual se desbloquea "tejer prenda nueva". Placeholder de balance, mismo criterio que el resto del proyecto. */
+/** Nivel de oficio "curtidor" (derivado de XP, nunca persistido en sí — nivelDeXp) a partir del cual se desbloquea "tejer prenda nueva". "Sastre" es el nombre del SISTEMA (GDD_Ropa_Procedural.md §Sastre legendario), no un oficio jugable — curtidor absorbió sastre en la fusión de oficios 2026-08-30 (docs/GDD_Profesiones.md), así que la puerta real usa curtidor; corregido 2026-09-03 tras auditoría (el gate llevaba desde 2026-08-31 comprobando un oficio "sastre" que nunca existió como seleccionable, dejando la función inalcanzable). Placeholder de balance, mismo criterio que el resto del proyecto. */
 const NIVEL_MINIMO_SASTRE_LEGENDARIO = 10;
 const VENTANA_TEJIDO_LEGENDARIO_MS = 24 * 60 * 60 * 1000; // 24h REALES (Date.now()), no día de mundo — mismo criterio que el reinicio de stock de mercaderes.
 /** XP de oficio otorgada al crear un blueprint nuevo (no al craftear copias — eso ya usa XP_POR_CRAFTEO si algún día se registra como receta real). */
@@ -9419,14 +9419,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva || viva.objeto !== TELAR_OBJETO_ID) return this.errorSastre(client, "necesitas estar en un telar");
-    if (!tieneOficio(player.oficio1, player.oficio2, "sastre")) return this.errorSastre(client, "necesitas el oficio de sastre");
+    if (!tieneOficio(player.oficio1, player.oficio2, "curtidor")) return this.errorSastre(client, "necesitas el oficio de curtidor");
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombreJugador);
-    const xp = await bd.obtenerXpOficio(jugador.id, "sastre");
+    const xp = await bd.obtenerXpOficio(jugador.id, "curtidor");
     const nivel = nivelDeXp(xp);
     if (nivel < NIVEL_MINIMO_SASTRE_LEGENDARIO) {
-      return this.errorSastre(client, `necesitas nivel ${NIVEL_MINIMO_SASTRE_LEGENDARIO} de sastre (tienes ${nivel})`);
+      return this.errorSastre(client, `necesitas nivel ${NIVEL_MINIMO_SASTRE_LEGENDARIO} de curtidor (tienes ${nivel})`);
     }
 
     const texto = typeof msg.texto === "string" ? msg.texto.slice(0, 200) : "";
@@ -9456,7 +9456,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!hueco) return this.errorSastre(client, "no tienes hueco en el inventario para la prenda nueva");
 
     const permitido = await bd.resolverCooldownTejidoLegendario(jugador.id, Date.now(), VENTANA_TEJIDO_LEGENDARIO_MS);
-    if (!permitido) return this.errorSastre(client, "el oficio de sastre está fatigado — vuelve mañana");
+    if (!permitido) return this.errorSastre(client, "el oficio de curtidor está fatigado — vuelve mañana");
 
     const blueprint = await bd.crearPrendaGenerada({ creadorId: jugador.id, prendaBaseId, materialId, detalle, tintes, nombre: nombrePrenda, promptTexto: texto });
 
@@ -9478,7 +9478,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (extraSchema) sincronizarContenedor(extraSchema, extra);
     }
 
-    const nuevaXp = await bd.sumarXpOficio(jugador.id, "sastre", this.xpConBuffPocion(client.sessionId, XP_SASTRE_POR_BLUEPRINT));
+    const nuevaXp = await bd.sumarXpOficio(jugador.id, "curtidor", this.xpConBuffPocion(client.sessionId, XP_SASTRE_POR_BLUEPRINT));
     client.send("sastre:tejerResultado", {
       prendaGeneradaId: blueprint.id, prendaBaseId, materialId, detalle, tintes, nombre: blueprint.nombre,
       xp: nuevaXp, nivel: nivelDeXp(nuevaXp),
