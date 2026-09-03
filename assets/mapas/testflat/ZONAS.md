@@ -25,6 +25,45 @@ real de la aldea fusionada (x:80-192).
 | **Noreste** | 2 dummies de combate, vida infinita/regenerable: "Muñeco de Pruebas" y "Bandido" (etiqueta genérica, mismo criterio que los bandidos de dungeon) | x:46-48, y:16 | ~20 |
 | **Este, mucho más lejos** | Aldea fusionada (ver abajo) — sin portal que cruzar, se camina directo | x:80-192, y:0-112 | desde ~48 |
 
+## Fidelidad visual de lo colocado a mano
+
+Pregunta real del streamer (2026-09-03): "¿están bakeados visualmente esos
+objetos, o son placeholder?" — depende de la categoría:
+
+- **Muebles (Norte, 19 piezas)**: son construcciones REALES en BD (sistema
+  de la tecla B), y ese sistema (`client/src/construccion/renderConstrucciones.ts`)
+  hoy SIEMPRE dibuja una caja de color (`colorDebug` del catálogo) — nunca
+  carga un `.glb`, aunque ya existan modelos reales aprobados para algunos
+  de estos ids (`assets/interiores/cama_individual_01.glb`,
+  `arcon_01.glb`, `silla_01.glb`...). El propio código lo documenta como
+  pendiente ("El `.glb` real entrará por `entityLoader`... sin tocar este
+  flujo") — no es una limitación de la Test Zone, es así para CUALQUIER
+  construcción de cualquier jugador en cualquier mapa.
+- **Nodos de recolección (Oeste, roble/trébol/veta/conejo)**: son objetos
+  bakeados de verdad en el `sector_000_000.json` (mismo mecanismo que
+  cualquier árbol/roca/animal del mapa principal — vegetación/rocas vía
+  `entityLoader`, fauna vía el sistema de fauna viva), no una caja de
+  debug ni un mensaje virtual. Su fidelidad visual es la misma que el
+  resto del mundo: los catálogos `roble`/`trebol`/`veta_hierro`/`conejo`
+  solo tienen placeholders 2D (`.png`) todavía, sin `.glb` aprobado — arte
+  pendiente en general, no algo específico de aquí.
+  **Regresión real encontrada y arreglada el 2026-09-03**: la fusión de la
+  aldea (ver más abajo) rehorneó `testflat` desde cero y el postproceso de
+  aplanado vació `objetos` en TODOS los chunks, incluido el que tenía
+  estos 4 objetos colocados a mano en el `testflat` original — se
+  perdieron sin querer. Reinsertados en las coordenadas globales
+  correctas (16,32)/(18,32)/(16,34)/(18,34), re-direccionadas al nuevo
+  chunk/sector con `tamanoChunk=8` (antes 32). Verificado con servidor
+  real: `coger` junto al trébol devuelve el gate real de herramienta
+  ("necesitas una herramienta de curandero"), confirmando que el objeto
+  vuelve a estar registrado como recolectable.
+- **Cofres (Este, 8)**: NO tienen malla/representación visual en el mundo
+  todavía — `client/src/game.ts` los resuelve con la tecla Y a un ÚNICO id
+  fijo (`cofre_test_1`), sin detección de proximidad real ni objeto
+  dibujado por cofre (mismo pendiente que ya documentaba `testzone`).
+- **NPCs (dummies + tutoriales + los de la aldea)**: sí son vóxeles reales
+  del pipeline de `personajes/` (rig + colores por catálogo), no cajas.
+
 ## Aldea fusionada (pedido 2026-09-02: "fusionar de verdad")
 
 Hasta 2026-09-02 la aldea vivía en su propio mapa `assets/mapas/testaldea/`
