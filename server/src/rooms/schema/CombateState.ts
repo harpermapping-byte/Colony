@@ -88,6 +88,24 @@ export class CombateUnidad extends Schema {
   golpesDados = 0;
   danoAbsorbido = 0;
   /**
+   * Rotura probabilística de arma (docs/GDD_Combate.md, pedido streamer
+   * 2026-09-03: "cada golpe conectado tiene una probabilidad de romper el
+   * arma de golpe, no solo desgaste gradual") — una vez `true`, el resto de
+   * golpes de ESTA unidad en ESTE combate rinden `FACTOR_ITEM_ROTO`
+   * (desgaste.ts) en vez del `ataqueFisico` snapshot completo
+   * (`unidadDesdeSchema`), sin tocar el propio snapshot (así el HUD/stats
+   * base no mienten). Se limpia sola al terminar el combate (la unidad se
+   * destruye entera) — nunca se resetea a mitad, un arma rota se queda
+   * rota hasta que el jugador la repare de verdad (`item:reparar`). Si el
+   * arma YA estaba rota por desgaste gradual ANTES de entrar en combate,
+   * el snapshot `ataqueFisico` (tomado de `player.ataque`, que ya pasa por
+   * `calcularStatsEquipo`) ya viene con el factor aplicado de raíz — no
+   * hace falta poner esta bandera a `true` al crear la unidad, solo
+   * cuando la tirada de `manejarCombateAccion` rompe el arma A MITAD de
+   * ESTE combate.
+   */
+  armaRotaEnCombate = false;
+  /**
    * docs/GDD_Companeros.md (pedido 2026-08-30): sessionId del jugador dueño
    * SOLO si esta unidad es un compañero — "" para todo lo demás (jugador,
    * fauna, enemigo, npc hostil). El compañero NO tiene su propio hueco en

@@ -22,7 +22,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { RecetaCrafteo } from "../construccion/crafteo";
-import { tieneDurabilidad } from "./desgaste";
+import { tieneDurabilidad, factorRendimiento } from "./desgaste";
 
 export type TipoItem = "recurso" | "equipable" | "herramienta" | "consumible" | "arma" | "municion" | "objeto" | "semilla";
 
@@ -745,17 +745,52 @@ export interface StatsEquipo {
  * cambia (equipar/desequipar), mismo criterio que ya fijó
  * docs/GDD_Personaje.md §1 para ataque/defensa: "combinar atributos +
  * equipo en el momento de resolver, sin nada que sincronizar de más".
+ *
+ * `equipoDurabilidad` (docs/GDD_Combate.md, pedido streamer 2026-09-03:
+ * "combate no consulta estaRoto/factorDurabilidad todavía... que lo
+ * consulte") — OPCIONAL a propósito (compatibilidad con los pocos
+ * call-sites que todavía no tienen a mano el `InventarioJugador` real,
+ * ver inventario.test.ts): ausente = comportamiento de siempre, stats en
+ * bruto. Con ella, cada pieza con `durabilidadMax` aporta su
+ * ataque/defensa multiplicado por `factorRendimiento` (desgaste.ts) —
+ * ROTA rinde `FACTOR_ITEM_ROTO` fijo (20%, sigue sirviendo con debuff),
+ * sana decae linealmente con el desgaste real. Una pieza sin
+ * `durabilidadMax` (o sin entrada trackeada en `equipoDurabilidad`, o
+ * fuera del mapa = a tope) nunca se ve afectada.
  */
-export function calcularStatsEquipo(catalogo: CatalogoItems, equipo: SlotsEquipo): StatsEquipo {
+export function calcularStatsEquipo(
+  catalogo: CatalogoItems,
+  equipo: SlotsEquipo,
+  equipoDurabilidad: Record<string, number> = {},
+): StatsEquipo {
   const total: StatsEquipo = { defensaFisica: 0, defensaMagica: 0, ataqueFisico: 0, ataqueMagico: 0 };
-  for (const itemId of Object.values(equipo)) {
+  for (const [slot, itemId] of Object.entries(equipo)) {
     if (!itemId) continue;
     const entrada = catalogo[itemId];
     if (!entrada) continue;
-    total.defensaFisica += entrada.defensaFisica ?? 0;
-    total.defensaMagica += entrada.defensaMagica ?? 0;
-    total.ataqueFisico += entrada.ataqueFisico ?? 0;
-    total.ataqueMagico += entrada.ataqueMagico ?? 0;
+    const factor = factorRendimientoPieza(entrada, equipoDurabilidad[slot]);
+    total.defensaFisica += (entrada.defensaFisica ?? 0) * factor;
+    total.defensaMagica += (entrada.defensaMagica ?? 0) * factor;
+    total.ataqueFisico += (entrada.ataqueFisico ?? 0) * factor;
+    total.ataqueMagico += (entrada.ataqueMagico ?? 0) * factor;
   }
   return total;
+}
+
+/**
+ * Factor 0..1 de UNA pieza equipada a partir de su durabilidad ya
+ * TRACKEADA (`equipoDurabilidad[slot]`, ausente = a tope) — construye una
+ * `ItemInstancia` temporal mínima para reusar `factorRendimiento`
+ * (desgaste.ts), mismo patrón que
+ * `desgasteEquipoCombate.ts::instanciaTemporalDe` pero sin `ultimoUso`
+ * real: aquí NUNCA se aplica desgaste por inactividad, solo se LEE el
+ * número ya trackeado tal cual.
+ */
+function factorRendimientoPieza(entrada: EntradaCatalogoItem, durabilidadTrackeada: number | undefined): number {
+  if (!tieneDurabilidad(entrada)) return 1;
+  const instancia: ItemInstancia = {
+    id: -1, itemId: "", cantidad: 1, x: 0, y: 0, rot: 0,
+    durabilidad: durabilidadTrackeada ?? entrada.durabilidadMax,
+  };
+  return factorRendimiento(instancia, entrada);
 }

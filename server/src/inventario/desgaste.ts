@@ -109,3 +109,27 @@ export function factorDurabilidad(instancia: ItemInstancia, entrada: EntradaCata
   if (!tieneDurabilidad(entrada)) return 1;
   return Math.max(0, (instancia.durabilidad ?? entrada.durabilidadMax!) / entrada.durabilidadMax!);
 }
+
+/**
+ * Suelo de rendimiento cuando un ítem está ROTO (docs/GDD_Combate.md,
+ * pedido streamer 2026-09-03: "un arma rota pierde el 80% de su daño se
+ * puede usar con ese debuff") — NO es 0/inutilizable: un arma o pieza de
+ * armadura rota sigue funcionando, solo mucho peor. Deliberadamente NO es
+ * el mismo número que daría `factorDurabilidad` en 0 (que sí sería 0
+ * lineal) — es un SUELO fijo, para que "roto" sea un estado claro y
+ * jugable, no "inservible".
+ */
+export const FACTOR_ITEM_ROTO = 0.2;
+
+/**
+ * Factor 0..1 REAL que hay que aplicar a ataque/defensa de una pieza
+ * equipada (docs/GDD_Combate.md, pedido streamer 2026-09-03: "que
+ * [combate] consulte [estaRoto/factorDurabilidad]") — combina las dos
+ * funciones de arriba en una sola llamada: roto = SIEMPRE `FACTOR_ITEM_ROTO`
+ * exacto (suelo fijo, no decae más allá de eso), sano = `factorDurabilidad`
+ * normal (decae linealmente con el desgaste). Único punto que
+ * `calcularStatsEquipo` (inventario.ts) necesita llamar.
+ */
+export function factorRendimiento(instancia: ItemInstancia, entrada: EntradaCatalogoItem): number {
+  return estaRoto(instancia, entrada) ? FACTOR_ITEM_ROTO : factorDurabilidad(instancia, entrada);
+}

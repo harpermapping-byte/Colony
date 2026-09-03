@@ -10,6 +10,8 @@ import {
   aplicarPenalizacionMuerte,
   estaRoto,
   factorDurabilidad,
+  factorRendimiento,
+  FACTOR_ITEM_ROTO,
   TASA_INACTIVIDAD_HORA,
   FACTOR_DESGASTE_ARMADURA,
   PENALIZACION_MUERTE,
@@ -181,4 +183,20 @@ test("estaRoto / factorDurabilidad: comportamiento en los extremos y a medio cam
   const instRecurso = instanciaDe(RECURSO_SIN_DESGASTE);
   assert.strictEqual(estaRoto(instRecurso, RECURSO_SIN_DESGASTE), false);
   assert.strictEqual(factorDurabilidad(instRecurso, RECURSO_SIN_DESGASTE), 1);
+});
+
+test("factorRendimiento (docs/GDD_Combate.md, 2026-09-03): combina estaRoto/factorDurabilidad — roto = SUELO fijo, NO 0 lineal", () => {
+  const inst = instanciaDe(ESPADA);
+  assert.strictEqual(factorRendimiento(inst, ESPADA), 1, "a tope, rinde al 100%");
+
+  inst.durabilidad = 30;
+  assert.strictEqual(factorRendimiento(inst, ESPADA), 0.3, "sana pero desgastada, decae lineal como factorDurabilidad");
+
+  inst.durabilidad = 0;
+  assert.strictEqual(factorRendimiento(inst, ESPADA), FACTOR_ITEM_ROTO, "rota: suelo fijo del 20%, no el 0% que daría factorDurabilidad sola");
+  assert.notStrictEqual(FACTOR_ITEM_ROTO, 0, "el suelo fijo nunca es 0 — un arma rota sigue funcionando, con debuff");
+
+  // un recurso sin durabilidadMax siempre rinde al 100%, nunca puede "romperse"
+  const instRecurso = instanciaDe(RECURSO_SIN_DESGASTE);
+  assert.strictEqual(factorRendimiento(instRecurso, RECURSO_SIN_DESGASTE), 1);
 });

@@ -56,6 +56,7 @@ import {
   CatalogoItems,
   Contenedor,
   ItemInstancia,
+  EntradaCatalogoItem,
   crearContenedor,
   cargarCatalogoItems,
   quitarItem,
@@ -140,6 +141,7 @@ import {
   bonusVelocidadCrafteoPorNivelOficio, bonusCantidadCrafteoPorNivelOficio,
   UMBRAL_SUCIEDAD_MOLESTO, RECARGO_TIENDA_SUCIEDAD, SUCIEDAD_POR_CRAFTEO, SUCIEDAD_POR_RECOLECTAR,
   RITMO_LIMPIEZA_AGUA_POR_HORA, FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO, NIVEL_MAX_OFICIO,
+  probabilidadRoturaArmaPorNivelHerrero,
 } from "../../personaje/oficios";
 import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente, npcTrabajadorAAgente } from "../../mundo/npcsFijos";
 import {
@@ -166,7 +168,7 @@ import { obtenerGestorTwitch } from "../../twitch/gestorTwitch";
 import { TipoEvento } from "../../twitch/catalogoEventos";
 import { resolverSesionTwitch } from "../../twitch/oauthLogin";
 import { resolverSesionAdmin, IdentidadAdmin } from "../../admin/adminAuth";
-import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto } from "../../inventario/desgaste";
+import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto, tieneDurabilidad, FACTOR_ITEM_ROTO } from "../../inventario/desgaste";
 import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { nombreCapitalOverride, fijarNombreCapital, LONGITUD_MAXIMA_NOMBRE_CAPITAL } from "../../mundo/capital";
@@ -407,6 +409,68 @@ const INTERVALO_BARK_SUCIEDAD_MS = 4000;
 const COOLDOWN_BARK_SUCIEDAD_MS = 30000;
 /** Radio en casillas para que un NPC "note" a un jugador sucio al pasar cerca. */
 const RADIO_BARK_SUCIEDAD = 3;
+
+// --- Reparar equipo (docs/GDD_Combate.md, pedido streamer 2026-09-03: "y
+// reparar (probabilidad del 20% de romperse...)" — hasta esta fecha NO
+// existía NINGÚN mensaje/mecánica de reparación en todo el repo, confirmado
+// leyendo el código; mínimo viable REAL, no un placeholder) ---
+/**
+ * Objetos yunque del catálogo (items/catalogo/recetas.json — las 36 recetas
+ * de herrero con `minijuego:"herreria"` usan `mesas: ["yunque_tocon"]` o
+ * `["yunque_cuerno"]`) — mismo gate de proximidad/existencia que el resto
+ * de estaciones temáticas (TELAR_OBJETO_ID/BANCO_CARPINTERO_OBJETO_ID de
+ * arriba), reusado tal cual para reparar en vez de inventar una estación
+ * nueva. Decisión: UN SOLO gate sirve para armas Y armadura — la inmensa
+ * mayoría de lo desgastable real (`durabilidadMax` en items.json) es
+ * metal (armas + cascos/brazos/manos/piernas de hierro/acero), y las pocas
+ * piezas de cuero/madera con durabilidad son igual de razonables reparadas
+ * "a fuego" en un yunque que inventando 3 estaciones distintas para cubrir
+ * un puñado de ítems cada una — ver docs/GDD_Combate.md.
+ */
+const OBJETOS_YUNQUE_REPARACION = new Set(["yunque_tocon", "yunque_cuerno"]);
+/**
+ * Material de reparación por `familiaMaterial` de items.json (armas, que sí
+ * lo declaran) — mismos insumos REALES que ya consumen las recetas de
+ * crafteo de esa familia (`lingote_hierro` es el insumo más repetido de las
+ * recetas de herrero, `madera_dura`/`cuero_curtido`/`tela_hilada` los
+ * insumos tier1 reales de sus familias respectivas), cantidad pequeña fija
+ * — mismo criterio "número de referencia" que INSUMOS_COPIA_SASTRE/
+ * INSUMOS_COPIA_CARPINTERO de arriba.
+ */
+const INSUMOS_REPARACION_POR_FAMILIA: Record<string, { itemId: string; cantidad: number }> = {
+  metal: { itemId: "lingote_hierro", cantidad: 2 },
+  madera: { itemId: "madera_dura", cantidad: 2 },
+  cuero: { itemId: "cuero_curtido", cantidad: 2 },
+  tela: { itemId: "tela_hilada", cantidad: 2 },
+  piedra: { itemId: "piedra_tallada", cantidad: 2 },
+  precioso: { itemId: "gema_tallada", cantidad: 1 },
+};
+/**
+ * La armadura (cascos/brazos/manos/piernas/pechera/mascara/gafas/escudo)
+ * NO declara `familiaMaterial` en items.json (solo lo declaran las armas) —
+ * mismo criterio que el resto del catálogo cuando un campo no aplica del
+ * todo, así que aquí se infiere del propio itemId por sufijo de material
+ * real ("casco_acero" -> acero), comprobado en orden más específico primero
+ * (acero antes que hierro: ninguno de los dos aparece dentro del otro, pero
+ * el orden documenta la intención). Ítem sin ningún sufijo reconocido =
+ * `undefined`, "no se puede reparar" (mejor rechazar claro que adivinar mal).
+ */
+const MATERIAL_POR_SUFIJO_ITEM_ID: [string, { itemId: string; cantidad: number }][] = [
+  ["acero", { itemId: "acero", cantidad: 2 }],
+  ["hierro", { itemId: "lingote_hierro", cantidad: 2 }],
+  ["cuero", { itemId: "cuero_curtido", cantidad: 2 }],
+  ["madera", { itemId: "madera_dura", cantidad: 2 }],
+];
+/** Insumo de reparación real para `itemId` (docs/GDD_Combate.md) — `familiaMaterial` del catálogo si lo declara (armas), si no por sufijo de itemId (armadura); `undefined` = no se pudo determinar, ese ítem no es reparable por este mecanismo genérico. */
+function insumoReparacionDe(entrada: EntradaCatalogoItem, itemId: string): { itemId: string; cantidad: number } | undefined {
+  if (entrada.familiaMaterial && INSUMOS_REPARACION_POR_FAMILIA[entrada.familiaMaterial]) {
+    return INSUMOS_REPARACION_POR_FAMILIA[entrada.familiaMaterial];
+  }
+  for (const [sufijo, insumo] of MATERIAL_POR_SUFIJO_ITEM_ID) {
+    if (itemId.includes(sufijo)) return insumo;
+  }
+  return undefined;
+}
 
 // --- Atributos (docs/GDD_Personaje.md §3.2, pedido 2026-08-30: "que cada
 // atributo tenga varias formas de sacar exp") — cada atributo tiene AL
@@ -1290,6 +1354,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("refinamiento:depositar", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarRefinamientoDepositar(client, msg)));
     this.onMessage("crafteo:iniciar", (client, msg: { recetaId?: string; construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCrafteoIniciar(client, msg)));
     this.onMessage("crafteo:recolectar", (client) => this.manejarCrafteoRecolectar(client));
+    // Reparar (docs/GDD_Combate.md, pedido streamer 2026-09-03) — junto a un
+    // yunque real, consume material y deja el objeto a durabilidad máxima.
+    // Sin colaPorConstruccion: solo toca el inventario/equipo PROPIO del
+    // jugador (mismo criterio que sastre:tejerAceptar/Copia arriba), nunca
+    // estado compartido de la construcción.
+    this.onMessage("item:reparar", (client, msg: { construccionId?: number; slot?: string; instanciaId?: number }) => void this.manejarItemReparar(client, msg));
 
     // --- NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido 2026-09-01) ---
     this.onMessage("reclutador:catalogo", (client) => this.manejarReclutadorCatalogo(client));
@@ -2106,7 +2176,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const player = this.state.players.get(client.sessionId);
     const equipo = this.equipoInventario.get(client.sessionId);
     if (!player || !equipo) return;
-    const statsEquipo = calcularStatsEquipo(this.catalogoItems, equipo);
+    const equipoDurabilidad = this.equipoDurabilidadInventario.get(client.sessionId) ?? {};
+    const statsEquipo = calcularStatsEquipo(this.catalogoItems, equipo, equipoDurabilidad);
     // Pociones (docs/GDD_Pociones.md, pedido 2026-09-01): buffs activos por
     // encima de lo que ya suma el equipo — perezoso (Date.now() en cada
     // recálculo filtra los ya caducados solo, nunca un tick que los purgue
@@ -3428,7 +3499,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.companeroXpPorSesion.set(client.sessionId, companero.xp);
 
     const nivel = nivelCompanero(companero.xp);
-    const stats = calcularStatsEquipo(this.catalogoItems, equipo);
+    const stats = calcularStatsEquipo(this.catalogoItems, equipo, equipoDurabilidad);
     const esquema = new CompaneroSchema();
     esquema.nombre = companero.nombre;
     esquema.npcOrigenSlot = companero.npcOrigenSlot;
@@ -3713,7 +3784,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.companeroXpPorSesion.set(sessionId, nuevaXp);
     esquema.nivel = nivelCompanero(nuevaXp);
     const inv = this.companeroInventarioPorSesion.get(sessionId);
-    const stats = inv ? calcularStatsEquipo(this.catalogoItems, inv.equipo) : { ataqueFisico: 0, defensaFisica: 0, ataqueMagico: 0, defensaMagica: 0 };
+    const stats = inv
+      ? calcularStatsEquipo(this.catalogoItems, inv.equipo, inv.equipoDurabilidad)
+      : { ataqueFisico: 0, defensaFisica: 0, ataqueMagico: 0, defensaMagica: 0 };
     esquema.ataque = ATAQUE_BASE_COMPANERO + bonusAtaquePorNivelCompanero(esquema.nivel) + stats.ataqueFisico;
     esquema.defensa = DEFENSA_BASE_COMPANERO + bonusDefensaPorNivelCompanero(esquema.nivel) + stats.defensaFisica;
     const bd = await obtenerBdCompartida();
@@ -3723,7 +3796,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private sincronizarYRecalcularCompanero(sessionId: string, inv: InventarioJugador, esquema: CompaneroSchema) {
     sincronizarContenedor(esquema.inventario.cuerpo, inv.cuerpo);
     sincronizarEquipo(esquema.inventario, inv.equipo, inv.extras);
-    const stats = calcularStatsEquipo(this.catalogoItems, inv.equipo);
+    const stats = calcularStatsEquipo(this.catalogoItems, inv.equipo, inv.equipoDurabilidad);
     esquema.ataque = ATAQUE_BASE_COMPANERO + bonusAtaquePorNivelCompanero(esquema.nivel) + stats.ataqueFisico;
     esquema.defensa = DEFENSA_BASE_COMPANERO + bonusDefensaPorNivelCompanero(esquema.nivel) + stats.defensaFisica;
   }
@@ -9087,6 +9160,96 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     });
   }
 
+  private errorReparar(client: Client, motivo: string) {
+    client.send("item:error", { motivo });
+  }
+
+  /**
+   * Repara UN objeto con durabilidad — mínimo viable real (docs/GDD_Combate.md,
+   * pedido streamer 2026-09-03): junto a un yunque real
+   * (`OBJETOS_YUNQUE_REPARACION`), consume un insumo modesto fijo según el
+   * material del objeto (`insumoReparacionDe`) y lo deja a durabilidad
+   * MÁXIMA de una — decisión "mantenlo simple" (sin reparación parcial en
+   * varias tiradas): un jugador con el material a mano siempre puede volver
+   * a un arma/pieza de armadura sana del todo en un solo golpe de martillo.
+   * Sin requisito de oficio (self-service, cualquiera con el material y la
+   * estación puede reparar) — decisión deliberada: el oficio herrero ya
+   * tiene su propio peso real en esta pasada (baja la probabilidad de
+   * ROTURA en combate, ver `probabilidadRoturaArmaPorNivelHerrero`), exigir
+   * ADEMÁS nivel de herrero para reparar penalizaría dos veces al mismo
+   * jugador por lo mismo.
+   *
+   * `msg.slot` repara algo EQUIPADO (arma/armadura puesta — lo que de
+   * verdad se desgasta en combate); `msg.instanciaId` repara algo SUELTO en
+   * el inventario (mochila incluida) — nunca los dos a la vez, `slot` gana
+   * si por lo que sea llegan ambos.
+   */
+  private async manejarItemReparar(client: Client, msg: { construccionId?: number; slot?: string; instanciaId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !ctx || !player || typeof msg?.construccionId !== "number") return;
+
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva || !OBJETOS_YUNQUE_REPARACION.has(viva.objeto)) return this.errorReparar(client, "necesitas estar en un yunque");
+
+    const inv = this.inventarioJugador(client.sessionId);
+    if (!inv) return;
+
+    let itemId: string | undefined;
+    let entrada: EntradaCatalogoItem | undefined;
+    let aplicarReparacion: (() => void) | undefined;
+
+    if (typeof msg.slot === "string" && inv.equipo[msg.slot]) {
+      const slot = msg.slot;
+      itemId = inv.equipo[slot];
+      entrada = itemId ? this.catalogoItems[itemId] : undefined;
+      if (entrada && tieneDurabilidad(entrada)) {
+        aplicarReparacion = () => { inv.equipoDurabilidad[slot] = entrada!.durabilidadMax!; };
+      }
+    } else if (typeof msg.instanciaId === "number") {
+      const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaId)
+        ?? [...inv.extras.values()].flatMap((c) => c.items).find((i) => i.id === msg.instanciaId);
+      if (it) {
+        itemId = it.itemId;
+        entrada = this.catalogoItems[itemId];
+        if (entrada && tieneDurabilidad(entrada)) {
+          aplicarReparacion = () => { it.durabilidad = entrada!.durabilidadMax!; it.ultimoUso = Date.now(); };
+        }
+      }
+    }
+    if (!itemId || !entrada || !aplicarReparacion) return this.errorReparar(client, "ese objeto no se puede reparar");
+
+    const insumo = insumoReparacionDe(entrada, itemId);
+    if (!insumo) return this.errorReparar(client, "no se sabe con qué material reparar este objeto");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    if (!contenedor) return;
+    const disponible = contenedor.items.reduce((suma, i) => (i.itemId === insumo.itemId ? suma + i.cantidad : suma), 0);
+    if (disponible < insumo.cantidad) return this.errorReparar(client, `necesitas ${insumo.cantidad}x ${insumo.itemId}`);
+
+    let restante = insumo.cantidad;
+    for (const it of [...contenedor.items]) {
+      if (restante <= 0) break;
+      if (it.itemId !== insumo.itemId) continue;
+      const quitar = Math.min(restante, it.cantidad);
+      quitarItem(contenedor, it.id, quitar);
+      restante -= quitar;
+    }
+    sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    for (const [slotExtra, extra] of inv.extras) {
+      const extraSchema = player.inventario.extras.get(slotExtra);
+      if (extraSchema) sincronizarContenedor(extraSchema, extra);
+    }
+
+    aplicarReparacion();
+    // Si lo reparado era el arma equipada, ataque/defensa base del jugador
+    // (docs/GDD_Combate.md, "que combate consulte durabilidad") tienen que
+    // reflejar la reparación de inmediato — mismo punto que equipar/desequipar.
+    this.recalcularStatsJugador(client);
+    client.send("item:reparado", { itemId, durabilidad: entrada.durabilidadMax });
+  }
+
   // ==========================================================================
   // NPCs trabajadores contratables (docs/GDD_NPCs_Contratables.md, pedido
   // 2026-09-01) — un reclutador fijo (NpcTutorial categoria "reclutador",
@@ -10923,7 +11086,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       gx: cu.gx, gy: cu.gy, hp: cu.hp, hpMax: cu.hpMax,
       pa: cu.pa, paMax: cu.paMax,
       iniciativa: cu.iniciativa, estado: cu.estado as UnidadCombate["estado"],
-      ataqueFisico: cu.ataqueFisico, defensaFisica: cu.defensaFisica, alcance: cu.alcance,
+      // Rotura de arma A MITAD de combate (docs/GDD_Combate.md, 2026-09-03):
+      // el snapshot `ataqueFisico` se toma tal cual salvo que la tirada de
+      // `manejarCombateAccion` ya rompió el arma esta pelea — entonces se
+      // aplica el mismo suelo fijo que fuera de combate (FACTOR_ITEM_ROTO,
+      // desgaste.ts) sobre el snapshot, sin tocar `cu.ataqueFisico` (el HUD
+      // sigue mostrando el ataque "sano" — solo el golpe real rinde menos).
+      ataqueFisico: cu.armaRotaEnCombate ? cu.ataqueFisico * FACTOR_ITEM_ROTO : cu.ataqueFisico,
+      defensaFisica: cu.defensaFisica, alcance: cu.alcance,
       pasivo: cu.pasivo, movioEsteTurno: cu.movioEsteTurno, aturdido: cu.aturdido,
     };
   }
@@ -11948,6 +12118,36 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (atacante.esJugador) atacante.golpesDados += golpes;
     if (objetivo.esJugador) objetivo.danoAbsorbido += absorbidoTotal;
     void danioTotal; // informativo — el daño real ya viaja en objetivo.hp vía aplicarUnidadesASchema
+
+    // Rotura PROBABILÍSTICA de arma (docs/GDD_Combate.md, pedido streamer
+    // 2026-09-03: "cada golpe conectado tiene una probabilidad... de
+    // romper el arma de golpe") — mecanismo NUEVO y aparte del desgaste
+    // gradual (golpesDados de arriba): SOLO si el atacante es jugador, su
+    // arma en manoPrincipal tiene durabilidad real y todavía NO está rota
+    // (ni por desgaste gradual previo ni por otro golpe de esta misma
+    // pelea) — un arma ya rota no puede "romperse más". La probabilidad
+    // baja con el nivel de XP de oficio herrero del atacante (nunca hace
+    // falta tenerlo elegido en oficio1/oficio2 — mismo criterio que los
+    // blueprints legendarios, ver probabilidadRoturaArmaPorNivelHerrero).
+    if (atacante.esJugador && !atacante.armaRotaEnCombate) {
+      const armaId = this.equipoInventario.get(client.sessionId)?.manoPrincipal;
+      const entradaArma = armaId ? this.catalogoItems[armaId] : undefined;
+      if (armaId && entradaArma && tieneDurabilidad(entradaArma)) {
+        const durabilidadTrackeada = this.equipoDurabilidadInventario.get(client.sessionId)?.manoPrincipal;
+        const yaRotaDeAntes = (durabilidadTrackeada ?? entradaArma.durabilidadMax!) <= 0;
+        if (!yaRotaDeAntes) {
+          const nombreJugador = this.nombreDe(client);
+          const bd = await obtenerBdCompartida();
+          const jugador = nombreJugador ? await bd.obtenerOCrearJugador(nombreJugador) : null;
+          const xpHerrero = jugador ? await bd.obtenerXpOficio(jugador.id, "herrero") : 0;
+          const probabilidad = probabilidadRoturaArmaPorNivelHerrero(nivelDeXp(xpHerrero));
+          if (Math.random() < probabilidad) {
+            atacante.armaRotaEnCombate = true;
+            client.send("combate:armaRota", { itemId: armaId });
+          }
+        }
+      }
+    }
     // Anatomía (docs/GDD_Anatomia.md): solo si el objetivo es un jugador y sigue en pie tras el golpe.
     if (objetivo.esJugador && objetivoActual.estado === "activo") {
       void this.aplicarEfectoAnatomicoSiCorresponde(client.sessionId, msg.objetivoId);

@@ -484,6 +484,33 @@ test("calcularStatsEquipo: sin nada equipado, todo a 0", () => {
   assert.deepStrictEqual(stats, { defensaFisica: 0, defensaMagica: 0, ataqueFisico: 0, ataqueMagico: 0 });
 });
 
+test("calcularStatsEquipo (docs/GDD_Combate.md, 2026-09-03): sin equipoDurabilidad, comportamiento de siempre (compatibilidad)", () => {
+  const equipo = { manoPrincipal: "daga" };
+  const stats = calcularStatsEquipo(catalogo, equipo);
+  assert.strictEqual(stats.ataqueFisico, catalogo["daga"].ataqueFisico);
+});
+
+test("calcularStatsEquipo: una pieza a la MITAD de su durabilidad rinde la mitad de ataque/defensa", () => {
+  const mitad = catalogo["daga"].durabilidadMax! / 2;
+  const stats = calcularStatsEquipo(catalogo, { manoPrincipal: "daga" }, { manoPrincipal: mitad });
+  assert.strictEqual(stats.ataqueFisico, catalogo["daga"].ataqueFisico! * 0.5);
+});
+
+test("calcularStatsEquipo: una pieza ROTA (durabilidad 0) rinde el suelo fijo del 20%, NO el 0% lineal", () => {
+  const stats = calcularStatsEquipo(catalogo, { manoPrincipal: "daga" }, { manoPrincipal: 0 });
+  assert.strictEqual(stats.ataqueFisico, catalogo["daga"].ataqueFisico! * 0.2);
+});
+
+test("calcularStatsEquipo: una pieza a TOPE (o ausente del mapa) rinde el 100%", () => {
+  const stats = calcularStatsEquipo(catalogo, { manoPrincipal: "daga" }, {});
+  assert.strictEqual(stats.ataqueFisico, catalogo["daga"].ataqueFisico);
+});
+
+test("calcularStatsEquipo: defensa de armadura rota también cae al suelo del 20%", () => {
+  const stats = calcularStatsEquipo(catalogo, { casco: "casco_acero" }, { casco: 0 });
+  assert.strictEqual(stats.defensaFisica, catalogo["casco_acero"].defensaFisica! * 0.2);
+});
+
 test("pesoTotalJugador: suma el cuerpo Y cada mochila/bolsa equipada, no solo el cuerpo", () => {
   const inv = jugadorVacio();
   agregarItem(inv.cuerpo, catalogo, "hierro", 2); // peso en el cuerpo
