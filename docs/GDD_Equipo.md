@@ -4,7 +4,7 @@
 
 Investigado antes de diseñar: qué ya existía en `ropa/` (generador procedural de vestuario, solo NPCs), `items/catalogo/items.json` (inventario/equipo con slots YA reservados pero sin mecanismo), `server/src/inventario/inventario.ts` (rejilla tipo Project Zomboid, ya con peso/hueco/contenedores anidados diseñados) y `client/src/render3d/rigHumanoide.ts` (rig de 6 piezas, sin pivote de mano). Gran parte del modelo de datos YA estaba — este trabajo construye el MECANISMO que faltaba (equipar/desequipar de verdad, agregación de stats, render en vivo, UI) sobre ese cimiento, sin reescribirlo.
 
-## 1. Los 19 huecos de equipo
+## 1. Los 19 huecos de equipo (+ `capa`, 2026-09-03, ver nota al pie)
 
 | Grupo | Slots | Stats |
 |---|---|---|
@@ -14,6 +14,9 @@ Investigado antes de diseñar: qué ya existía en `ropa/` (generador procedural
 | Accesorios | `anilloIzquierdo`, `anilloDerecho`, `brazalete` | defensaFisica/defensaMagica/ataqueFisico/ataqueMagico (pequeños, algunos puramente mágicos) |
 | Contenedores | `espalda`, `cinturon`, `bandolera` | `esContenedor` — cada uno con su PROPIA rejilla |
 | Manos (herramienta/arma) | `manoPrincipal`, `manoSecundaria` | ataqueFisico/ataqueMagico |
+| Capa | `capa` (2026-09-03) | defensaFisica/defensaMagica |
+
+**`capa` — slot 20, añadido 2026-09-03** (docs/GDD_Ropa_Procedural.md, pedido streamer: "capas pies manos" como slots nuevos de ropa base): mismo pivote `torso` que `espalda`, pero geometría propia (más alta y estrecha, cuelga hacia abajo como un manto) en `POSICION_POR_SLOT` — slot FÍSICO distinto a propósito, así una capa y una mochila son compatibles a la vez y nunca se pisan (riesgo real que se evitó: reusar `espalda` habría impedido llevar mochila y capa juntas). Sin cambio en `SlotsEquipo`/`puedeEquiparEnSlot` (`server/src/inventario/inventario.ts`): el tipo ya era un índice de string libre, cualquier slot nuevo de catálogo funciona sin tocar el servidor. Tocado a mano: `ropa/src/generarEquipo.js` + `client/src/render3d/generarEquipoVoxel.ts` (las dos copias sincronizadas de `POSICION_POR_SLOT`, ver su cabecera) y `client/src/personaje/panelJugador.ts` (`SLOTS`, la lista de huecos que pinta el panel "Jugador").
 
 **Los 3 slots de contenedor son independientes y simultáneos** (decidido explícitamente con el streamer, no "elige uno de los tres"): un jugador puede llevar mochila + cinturón + bandolera a la vez, cada uno aportando su propia rejilla — Project Zomboid real, no una única "bolsa extra". `bolsa_cinturon`/`mochila_cuero` ya existían de la fase 1 de inventario con el nombre de slot `cinturon`/`espalda`; se mantuvieron esos nombres (no se inventó `cintura` — corregido durante el desarrollo tras detectar la inconsistencia) para no fragmentar el catálogo en dos convenciones.
 

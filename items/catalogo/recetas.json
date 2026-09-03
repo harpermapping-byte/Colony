@@ -2463,6 +2463,123 @@
     "tiempoBaseSeg": 16,
     "_nota": "docs/GDD_Equipo.md §11 (2026-09-02) — cuero, no tela_hilada (material cuero en prendas.json)."
   },
+  "mandil_joyero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "mandil_joyero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — cierra el hueco de joyero sin prenda dedicada, mismo criterio que delantal_herrero_craft."
+  },
+  "tunica_herbolista_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "tunica_herbolista", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — cierra el hueco de herbolista sin prenda dedicada."
+  },
+  "delantal_destilador_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "delantal_destilador", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — cuero (resiste salpicaduras del alambique), mismo criterio que delantal_curtidor_craft. Cierra el hueco de destilador sin prenda dedicada."
+  },
+  "tunica_panadero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "tunica_panadero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — cierra el hueco de panadero sin prenda dedicada."
+  },
+  "tunica_sastre_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "tunica_sastre", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03, pedido streamer: 'sastre sin receta normal') — primer producto NORMAL craftable ligado al oficio sastre (bajo 'curtidor', docs/GDD_Profesiones.md: oficio fusionado que ya absorbió sastre — no hay oficio 'sastre' aparte), aparte del camino bespoke sastre:tejerAceptar/tejerCopia en RoomExteriorBase.ts."
+  },
+  "guantes_lino_humilde_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "guantes_lino_humilde", "cantidad": 1 },
+    "tiempoBaseSeg": 8,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03, slot 'manos' nuevo) — primera receta normal del slot 'manos' como ropa civil (antes solo lo ocupaba armadura, equipo.json)."
+  },
+  "guantes_cuero_trabajo_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 1 }],
+    "resultado": { "itemId": "guantes_cuero_trabajo", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03)."
+  },
+  "guantes_seda_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "guantes_seda_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — tier noble, mismo nivel mínimo que camisa_seda_noble_craft."
+  },
+  "botas_cuero_humilde_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "botas_cuero_humilde", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03, slot 'zapatos' nuevo) — primera receta normal del slot 'zapatos' como ropa civil (antes solo lo ocupaba armadura, equipo.json)."
+  },
+  "botas_altas_modesta_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 2,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "botas_altas_modesta", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — caña alta, más material que la bota corta humilde."
+  },
+  "botas_finas_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }, { "itemId": "tela_hilada", "cantidad": 1 }],
+    "resultado": { "itemId": "botas_finas_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — cuero de calidad combinado con seda, tier noble."
+  },
+  "capa_lana_humilde_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 3 }],
+    "resultado": { "itemId": "capa_lana_humilde", "cantidad": 1 },
+    "tiempoBaseSeg": 16,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03, slot 'capa' nuevo) — primera receta normal del slot 'capa' (docs/GDD_Equipo.md §1, hueco nuevo entre los slots físicos, no de los 19 originales)."
+  },
+  "capa_terciopelo_noble_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 3,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 5 }],
+    "resultado": { "itemId": "capa_terciopelo_noble", "cantidad": 1 },
+    "tiempoBaseSeg": 24,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — la prenda más cara en insumos de todo el catálogo de ropa, tier noble de gala."
+  },
   "arnes_cuero_craft": {
     "oficio": "ingeniero",
     "mesas": ["mesa_planos_ingenieria"],

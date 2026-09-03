@@ -47,6 +47,7 @@ const SLOTS: { slot: string; etiqueta: string }[] = [
   { slot: "rodilleras", etiqueta: "Rodilleras" },
   { slot: "zapatos", etiqueta: "Zapatos" },
   { slot: "espalda", etiqueta: "Espalda" },
+  { slot: "capa", etiqueta: "Capa" },
   { slot: "bandolera", etiqueta: "Bandolera" },
   { slot: "manoPrincipal", etiqueta: "Mano principal" },
   { slot: "manoSecundaria", etiqueta: "Mano secundaria" },

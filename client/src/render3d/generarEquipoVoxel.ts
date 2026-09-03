@@ -70,6 +70,8 @@ const POSICION_POR_SLOT: Record<string, PosicionSlot> = {
   anilloDerecho: { pivotes: ["manoDer"], caja: { w: 0.03, h: 0.03, d: 0.13 }, offset: { x: 0, y: -0.03, z: 0.05 } },
   brazalete: { pivotes: ["manoDer"], ambosLados: true, caja: { w: 0.15, h: 0.04, d: 0.15 }, offset: { x: 0, y: 0.03, z: 0 } },
   espalda: { pivotes: ["torso"], caja: { w: 0.34, h: 0.4, d: 0.16 }, offset: { x: 0, y: 0.2, z: -0.2 } },
+  // Capa/manto — copia exacta de ropa/src/generarEquipo.js, ver su comentario.
+  capa: { pivotes: ["torso"], caja: { w: 0.42, h: 0.62, d: 0.1 }, offset: { x: 0, y: 0.02, z: -0.22 } },
   cinturon: { pivotes: ["torso"], caja: { w: 0.14, h: 0.12, d: 0.1 }, offset: { x: 0.22, y: -0.02, z: 0.02 } },
   bandolera: { pivotes: ["torso"], caja: { w: 0.12, h: 0.42, d: 0.08 }, offset: { x: 0.16, y: 0, z: 0.14 } },
   manoPrincipal: { pivotes: ["manoDer"], caja: { w: 0.06, h: 0.3, d: 0.06 }, offset: { x: 0, y: -0.18, z: 0.06 } },

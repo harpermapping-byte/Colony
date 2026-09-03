@@ -14,7 +14,7 @@ const { crearPRNG } = require("../../interiores/src/azar");
 /**
  * @param {Record<string, object>} prendas catálogo de prendas.json (sin la clave "_nota")
  * @param {{tagsPrenda: string[]}} profesion entrada de profesiones.json
- * @param {"camisa"|"pantalon"|"gorro"} tipoPrenda
+ * @param {"camisa"|"pantalon"|"gorro"|"guante"|"bota"|"capa"} tipoPrenda
  * @param {() => number} rnd generador determinista (mulberry32, crearPRNG)
  * @returns {string|null} id de prenda elegida, null si no hay ninguna de ese tipoPrenda
  */
@@ -35,10 +35,10 @@ function elegirPrendaPorProfesion(prendas, profesion, tipoPrenda, rnd) {
   return empatadas[Math.floor(rnd() * empatadas.length)].id;
 }
 
-/** Conjunto completo (camisa+pantalon+gorro, los 3 tipoPrenda que existen hoy) para una profesión — semilla determinista por nombre de profesión, misma profesión = mismo conjunto siempre. */
+/** Conjunto completo (camisa+pantalon+gorro+guante+bota+capa, los 6 tipoPrenda que existen hoy — mantener en sync al añadir un tipoPrenda nuevo) para una profesión — semilla determinista por nombre de profesión, misma profesión = mismo conjunto siempre. guante/bota/capa son opcionales de verdad: si ninguna prenda de ese tipo comparte tag con la profesión, `elegirPrendaPorProfesion` da null y el NPC simplemente no lleva ese hueco puesto (nunca falla). */
 function elegirConjuntoPorProfesion(prendas, profesion, profesionId) {
   const rnd = crearPRNG(`ropa|${profesionId}`);
-  const tipos = ["camisa", "pantalon", "gorro"];
+  const tipos = ["camisa", "pantalon", "gorro", "guante", "bota", "capa"];
   const resultado = {};
   for (const tipo of tipos) {
     const id = elegirPrendaPorProfesion(prendas, profesion, tipo, rnd);

@@ -69,6 +69,17 @@ const EXCEPCIONES_FRASE = {
   cuchillo_picar_cazo_hierro: "Cuchillo de Picar y Cazo de Hierro",
   espatula_cucharon_madera_noble: "Espátula y Cucharón de Madera Noble",
   cuchillos_chef_real_serpentin_vidrio: "Cuchillos de Chef Real y Serpentín de Vidrio",
+  // Ropa de manos/pies (docs/GDD_Ropa_Procedural.md, 2026-09-03, slots
+  // nuevos) — primeros ids de ropa con base PLURAL ("guantes"/"botas");
+  // la regla genérica no pluraliza el adjetivo de riqueza al final
+  // ("humilde"/"noble"/"modesta" solo se probaron antes con bases
+  // singulares como "camisa"/"pantalon") — corregido a mano aquí, no en
+  // la regla, para no arriesgar el resto del catálogo ya en verde.
+  guantes_lino_humilde: "Guantes de Lino Humildes",
+  guantes_seda_noble: "Guantes de Seda Nobles",
+  botas_cuero_humilde: "Botas de Cuero Humildes",
+  botas_altas_modesta: "Botas Altas Modestas",
+  botas_finas_noble: "Botas Finas Nobles",
 };
 
 // ---- Excepciones de UNA palabra (ñ, hiatos, esdrújulas irregulares que las reglas de sufijo no cubren) ----
