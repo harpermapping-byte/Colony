@@ -1881,10 +1881,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const panelCombate = new PanelCombate({
     contenedor,
     sessionIdPropio: room.sessionId,
-    enviarAccion: (combateId, objetivoId) => room.send("combate:accion", { combateId, objetivoId }),
+    // habilidadId opcional: el servidor valida que coincide con el arma REAL
+    // equipada, mismo criterio "el cliente solo sugiere" del resto del
+    // proyecto (docs/GDD_Combate.md §10.1) — nunca se manda si el panel no
+    // reconoció ninguna familia para el arma equipada.
+    enviarAccion: (combateId, objetivoId, habilidadId) => room.send("combate:accion", { combateId, objetivoId, ...(habilidadId ? { habilidadId } : {}) }),
     enviarPasarTurno: (combateId) => room.send("combate:pasarTurno", { combateId }),
     enviarHuir: (combateId) => room.send("combate:huir", { combateId }),
     enviarComenzarYa: (combateId) => room.send("combate:comenzarYa", { combateId }),
+    // docs/GDD_Combate.md §10.3 — mismo mensaje pocion:beber que fuera de
+    // combate (manejarPocionBeber ya gatea turno/PA/aturdido por su cuenta).
+    enviarPocion: (instanciaId) => room.send("pocion:beber", { instanciaId }),
+    obtenerJugadorPropio: () => room.state.players.get(room.sessionId) as any,
   });
   const actualizarPanelCombate = () => panelCombate.actualizar(room.state.combates as any);
   $(room.state).combates.onAdd(() => actualizarPanelCombate());
