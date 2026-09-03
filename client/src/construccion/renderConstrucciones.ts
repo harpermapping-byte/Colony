@@ -1,10 +1,16 @@
 /**
  * Render de lo CONSTRUIDO por los jugadores (GDD_Construccion §6): mantiene
  * el espejo local de construcciones a partir de los mensajes del protocolo
- * (§4) y una caja placeholder por construcción — `colorDebug` del catálogo,
- * huella rotada, cara superior un punto más clara para que la silueta se
- * lea desde la cámara isométrica. El `.glb` real entrará por `entityLoader`
- * (misma convención de assets) sin tocar este flujo.
+ * (§4). Caja placeholder inmediata (`colorDebug` del catálogo, huella
+ * rotada, cara superior un punto más clara para que la silueta se lea desde
+ * la cámara isométrica) — sustituida por el `.glb` real en cuanto
+ * `entityLoader` lo resuelve (misma convención `assets/interiores/<objeto>_01.glb`
+ * que ya usa `taller-vox/generar_modelos.js` para el mobiliario bakeado de
+ * `interiores/`, pedido 2026-09-03: "hicimos bakeador de muebles... para que
+ * se usara en estos casos"). Excepción: lo PLANTABLE (bancal/maceta) se
+ * queda SIEMPRE con la caja de dos tonos — `tintarSuelo()` pinta agua/
+ * fertilizante en su cara superior, y un modelo real no tiene ahí ningún
+ * hueco que teñir.
  *
  * También sirve de ESPEJO de ocupación para el fantasma del constructor:
  * casillas ocupadas (clave numérica y*anchoMapa+x) y conteo por propiedad
@@ -13,6 +19,7 @@
 import * as THREE from "three";
 import type { WorldScene } from "../render3d/worldScene";
 import { obtenerConstruible, huellaRotada, ALTURA_CATEGORIA, type CategoriaConstruible } from "./catalogoConstruccion";
+import { obtenerPlantilla } from "../render3d/entityLoader";
 
 /** Mensaje "construccion:nueva" / entrada de "construcciones:lista" (contrato §4). */
 export interface ConstruccionRed {
@@ -31,7 +38,12 @@ export interface ConstruccionRed {
 const COLOR_DESCONOCIDO = "#b05ad8";
 
 export class RenderConstrucciones {
-  private readonly piezas = new Map<number, { datos: ConstruccionRed; malla: THREE.Mesh }>();
+  // `esPropia`: true = geometría/material creados aquí (placeholder box),
+  // hay que dispose-arlos al quitar la pieza. false = clon de la plantilla
+  // .glb compartida de `entityLoader` (misma cache que vegetación/rocas/
+  // interiores bakeados) — dispose-arla rompería el resto de instancias
+  // vivas de ese mismo modelo, solo se quita de la escena (gratis).
+  private readonly piezas = new Map<number, { datos: ConstruccionRed; malla: THREE.Object3D; esPropia: boolean }>();
   private readonly ocupadas = new Set<number>();
 
   constructor(
@@ -48,10 +60,13 @@ export class RenderConstrucciones {
   /** "construccion:nueva": alguien (quizá yo) colocó algo — el broadcast es la confirmación. */
   aplicarNueva(c: ConstruccionRed): void {
     if (this.piezas.has(c.id)) this.aplicarQuitada(c.id); // reenvío defensivo: no duplicar mallas
-    const malla = this.crearMalla(c);
-    this.piezas.set(c.id, { datos: c, malla });
+    const malla = this.crearMallaPlaceholder(c);
+    this.piezas.set(c.id, { datos: c, malla, esPropia: true });
     this.escena.añadirEstatico(malla);
     for (const clave of this.clavesHuella(c)) this.ocupadas.add(clave);
+
+    const construible = obtenerConstruible(c.objeto);
+    if (!construible?.plantable) void this.sustituirPorModeloRealSiExiste(c, malla);
   }
 
   /** "construccion:quitada": recogida por su dueño — fuera de escena con dispose real. */
@@ -61,10 +76,43 @@ export class RenderConstrucciones {
     this.piezas.delete(id);
     for (const clave of this.clavesHuella(pieza.datos)) this.ocupadas.delete(clave);
     this.escena.quitarEstatico(pieza.malla);
-    pieza.malla.geometry.dispose();
-    const materiales = Array.isArray(pieza.malla.material) ? pieza.malla.material : [pieza.malla.material];
+    if (pieza.esPropia) this.disposeMallaPropia(pieza.malla as THREE.Mesh);
+  }
+
+  private disposeMallaPropia(malla: THREE.Mesh): void {
+    malla.geometry.dispose();
+    const materiales = Array.isArray(malla.material) ? malla.material : [malla.material];
     // el material de lados se repite en el array: dispose es idempotente
     for (const m of materiales) m.dispose();
+  }
+
+  /** Sustituye la caja placeholder por el `.glb` real en cuanto `entityLoader` lo resuelve — no-op si ya no existe o ya se reemplazó mientras cargaba (mismo criterio "referencia exacta" que evita una condición de carrera con un `aplicarQuitada`/reenvío de por medio). */
+  private async sustituirPorModeloRealSiExiste(c: ConstruccionRed, placeholder: THREE.Object3D): Promise<void> {
+    const plantilla = await obtenerPlantilla("interiores", c.objeto, { tipo: "numerada", indice: 0 });
+    if (!plantilla) return; // sin .glb todavía (taller-vox pendiente para este id) — se queda la caja
+    const actual = this.piezas.get(c.id);
+    if (!actual || actual.malla !== placeholder) return;
+
+    const construible = obtenerConstruible(c.objeto);
+    const [w, h] = construible ? huellaRotada(construible.huella, c.rot) : [1, 1];
+    const instancia = plantilla.clone(true);
+    // Centrada en la misma huella YA rotada que ocupa la caja (mismo
+    // convenio de posición que el servidor: x,y = esquina noroeste de esa
+    // huella) — el modelo, a diferencia de la caja, sí tiene una cara
+    // "de frente" real, así que además se gira físicamente.
+    instancia.position.set(c.x + w / 2, 0, c.y + h / 2);
+    // rot server: 0..3, pasos de 90° horario (huellaRotada). Sin ninguna
+    // construcción rotada todavía en la Test Zone para verificar el
+    // sentido a ojo — si un mueble real sale "mirando" al revés al probar
+    // uno con rot!=0, invertir el signo aquí.
+    instancia.rotation.y = -THREE.MathUtils.degToRad(c.rot * 90);
+    instancia.traverse((o) => { o.castShadow = true; o.receiveShadow = true; });
+    instancia.userData.construccionId = c.id;
+
+    this.escena.quitarEstatico(placeholder);
+    this.disposeMallaPropia(placeholder as THREE.Mesh);
+    this.escena.añadirEstatico(instancia);
+    this.piezas.set(c.id, { datos: c, malla: instancia, esPropia: false });
   }
 
   /** ¿Hay ya una construcción pisando esta casilla? (para el fantasma). */
@@ -126,8 +174,10 @@ export class RenderConstrucciones {
     const oscuro = new THREE.Color("#241a10");
     const claro = new THREE.Color("#c9b48a");
     const color = claro.clone().lerp(oscuro, nivel);
-    const materiales = pieza.malla.material as THREE.MeshStandardMaterial[];
-    materiales[2].color.copy(color); // índice 2 = tapa (mismo orden que crearMalla)
+    // Siempre la caja de dos tonos (lo plantable nunca se sustituye por
+    // .glb real, ver aplicarNueva) — el cast es seguro.
+    const materiales = (pieza.malla as THREE.Mesh).material as THREE.MeshStandardMaterial[];
+    materiales[2].color.copy(color); // índice 2 = tapa (mismo orden que crearMallaPlaceholder)
   }
 
   /** Construcción PLANTABLE más cercana a (x,y) dentro de `radio` — mismo criterio "sin UI de targeting" que coger/portal:usar. */
@@ -178,7 +228,7 @@ export class RenderConstrucciones {
     return claves;
   }
 
-  private crearMalla(c: ConstruccionRed): THREE.Mesh {
+  private crearMallaPlaceholder(c: ConstruccionRed): THREE.Mesh {
     const construible = obtenerConstruible(c.objeto);
     const [w, h] = construible ? huellaRotada(construible.huella, c.rot) : [1, 1];
     const altura = ALTURA_CATEGORIA[c.categoria] ?? 0.8;

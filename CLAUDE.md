@@ -82,4 +82,27 @@ MMO RPG medieval **instanciado** (Hub persistente + instancias con tope de jugad
   `assets/mapas/testflat/ZONAS.md`. Pendiente real: `fauna.json` de la
   aldea (ganado estático) no se fusionó — `HubRoom` no tiene ese bloque
   todavía, `RegionRoom` sí; no afecta caminabilidad ni NPCs con rutina.
+- **Construcciones de jugador (tecla B) ya cargan su `.glb` real cuando existe
+  (2026-09-03)**: pedido del streamer al ver los muebles de la Test Zone como
+  cajas de color pese a que `taller-vox/generar_modelos.js` ya lleva más de
+  100 muebles aprobados y subidos a `assets/interiores/` — `client/src/construccion/renderConstrucciones.ts`
+  nunca los consultaba, siempre dibujaba la caja placeholder (pendiente ya
+  documentado ahí mismo desde que se escribió). Ahora, igual que
+  `interiorVisual.ts` ya hacía para el mobiliario bakeado de `interiores/`:
+  coloca la caja de inmediato (feedback instantáneo, sigue sirviendo de
+  espejo de ocupación para el fantasma del constructor) y la sustituye por
+  el `.glb` real (`entityLoader`, categoría `"interiores"`, convención
+  `<objeto>_01.glb`) en cuanto la carga resuelve — si no existe `.glb`
+  aprobado para ese id todavía, se queda la caja para siempre, sin romper
+  nada. Excepción a propósito: lo PLANTABLE (bancal/maceta) NUNCA se
+  sustituye — `tintarSuelo()` pinta agua/fertilizante en la cara superior de
+  la caja de dos tonos, y un modelo real no tiene ahí ningún hueco que
+  teñir. Verificado con servidor+cliente reales y Playwright en `testflat`:
+  cama/silla/mesa de comedor salen con su modelo 3D real, las mesas de
+  oficio sin `.glb` aprobado (mesa_despiece, forja_campo...) siguen cayendo
+  a la caja — exactamente el comportamiento esperado. **Sin verificar
+  todavía**: el signo de la rotación para una construcción con `rot!=0`
+  (0 = todas las de la Test Zone) — no hay ninguna pieza rotada ahí para
+  comprobar a ojo si el modelo gira en el sentido correcto, ver comentario
+  en el propio código.
 - **Despliegue (comprobado 2026-09-02 vía MCP de Render)**: el servicio `colony-server` (`srv-daa8jdajnfac73frlc40`, Frankfurt, free) SÍ está bien configurado hoy (runtime Node, `rootDir` server, build/start correctos — el bloqueante Docker que señalaba GDD_Construccion.md quedó resuelto en algún momento, el servicio viejo mal configurado ya no existe). Pero está **SUSPENDIDO por el usuario** y su único deploy con éxito quedó fijado en el commit `5581437b` (2026-08-30) — todo lo empujado a `main` desde entonces (incluida esta sesión) NO se ha desplegado. Si se quiere el multijugador en vivo actualizado: reanudar el servicio en el dashboard de Render (auto-deploy ya está activado sobre `main`, así que en cuanto se reanude debería ponerse al día solo).
