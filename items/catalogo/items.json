@@ -1976,7 +1976,8 @@
     "durabilidadMax": 60,
     "desgastePorUso": 1,
     "prendaId": "arma_daga",
-    "tipoDano": "cortante"
+    "tipoDano": "cortante",
+    "habilidadId": "daga:puntoDebil"
   },
 
   "daga_bonificada": {
@@ -2000,7 +2001,8 @@
     "durabilidadMax": 60,
     "desgastePorUso": 1,
     "prendaId": "arma_daga",
-    "tipoDano": "cortante"
+    "tipoDano": "cortante",
+    "habilidadId": "daga:puntoDebil"
   },
   "espada_corta": {
     "nombre": "Espada Corta",
@@ -2022,7 +2024,8 @@
     "durabilidadMax": 100,
     "desgastePorUso": 1,
     "prendaId": "arma_espada",
-    "tipoDano": "cortante"
+    "tipoDano": "cortante",
+    "habilidadId": "espada:estocada"
   },
 
   "espada_corta_bonificada": {
@@ -2046,7 +2049,8 @@
     "durabilidadMax": 100,
     "desgastePorUso": 1,
     "prendaId": "arma_espada",
-    "tipoDano": "cortante"
+    "tipoDano": "cortante",
+    "habilidadId": "espada:estocada"
   },
   "espada_larga": {
     "nombre": "Espada Larga",
@@ -2068,7 +2072,8 @@
     "durabilidadMax": 120,
     "desgastePorUso": 2,
     "prendaId": "arma_espada_larga",
-    "tipoDano": "cortante"
+    "tipoDano": "cortante",
+    "habilidadId": "espada:estocada"
   },
 
   "espada_larga_bonificada": {
@@ -2092,7 +2097,8 @@
     "durabilidadMax": 120,
     "desgastePorUso": 2,
     "prendaId": "arma_espada_larga",
-    "tipoDano": "cortante"
+    "tipoDano": "cortante",
+    "habilidadId": "espada:estocada"
   },
   "hacha_combate": {
     "nombre": "Hacha de Combate",
@@ -2115,7 +2121,8 @@
     "desgastePorUso": 2,
     "_nota": "Distinta de 'hacha_talar' (herramienta de tala, sin stats de combate) — misma silueta, catálogo separado a propósito.",
     "prendaId": "arma_hacha",
-    "tipoDano": "cortante"
+    "tipoDano": "cortante",
+    "habilidadId": "hacha:tajoPesado"
   },
 
   "hacha_combate_bonificada": {
@@ -2140,7 +2147,8 @@
     "desgastePorUso": 2,
     "_nota": "Distinta de 'hacha_talar' (herramienta de tala, sin stats de combate) — misma silueta, catálogo separado a propósito.",
     "prendaId": "arma_hacha",
-    "tipoDano": "cortante"
+    "tipoDano": "cortante",
+    "habilidadId": "hacha:tajoPesado"
   },
   "maza_guerra": {
     "nombre": "Maza de Guerra",
@@ -2162,7 +2170,8 @@
     "durabilidadMax": 130,
     "desgastePorUso": 2,
     "prendaId": "arma_maza",
-    "tipoDano": "contundente"
+    "tipoDano": "contundente",
+    "habilidadId": "maza:aturdir"
   },
 
   "maza_guerra_bonificada": {
@@ -2186,7 +2195,8 @@
     "durabilidadMax": 130,
     "desgastePorUso": 2,
     "prendaId": "arma_maza",
-    "tipoDano": "contundente"
+    "tipoDano": "contundente",
+    "habilidadId": "maza:aturdir"
   },
   "lanza": {
     "nombre": "Lanza",
@@ -2208,7 +2218,8 @@
     "durabilidadMax": 100,
     "desgastePorUso": 1,
     "prendaId": "arma_lanza",
-    "tipoDano": "perforante"
+    "tipoDano": "perforante",
+    "habilidadId": "lanza:embiste"
   },
 
   "lanza_bonificada": {
@@ -2232,7 +2243,8 @@
     "durabilidadMax": 100,
     "desgastePorUso": 1,
     "prendaId": "arma_lanza",
-    "tipoDano": "perforante"
+    "tipoDano": "perforante",
+    "habilidadId": "lanza:embiste"
   },
   "honda": {
     "nombre": "Honda",
@@ -2254,7 +2266,8 @@
     "durabilidadMax": 50,
     "desgastePorUso": 1,
     "municionId": "piedra_honda",
-    "tipoDano": "contundente"
+    "tipoDano": "contundente",
+    "habilidadId": "arco:apuntar"
   },
   "arco_corto": {
     "nombre": "Arco Corto",
@@ -2276,7 +2289,8 @@
     "durabilidadMax": 90,
     "desgastePorUso": 1,
     "municionId": "flecha",
-    "tipoDano": "perforante"
+    "tipoDano": "perforante",
+    "habilidadId": "arco:apuntar"
   },
 
   "arco_corto_bonificado": {
@@ -2300,7 +2314,8 @@
     "durabilidadMax": 90,
     "desgastePorUso": 1,
     "municionId": "flecha",
-    "tipoDano": "perforante"
+    "tipoDano": "perforante",
+    "habilidadId": "arco:apuntar"
   },
   "arco_largo": {
     "nombre": "Arco Largo",
@@ -2322,7 +2337,8 @@
     "durabilidadMax": 110,
     "desgastePorUso": 1,
     "municionId": "flecha",
-    "tipoDano": "perforante"
+    "tipoDano": "perforante",
+    "habilidadId": "arco:apuntar"
   },
 
   "arco_largo_bonificado": {
@@ -2346,7 +2362,8 @@
     "durabilidadMax": 110,
     "desgastePorUso": 1,
     "municionId": "flecha",
-    "tipoDano": "perforante"
+    "tipoDano": "perforante",
+    "habilidadId": "arco:apuntar"
   },
   "ballesta": {
     "nombre": "Ballesta",
@@ -2368,7 +2385,8 @@
     "durabilidadMax": 120,
     "desgastePorUso": 2,
     "municionId": "virote_ballesta",
-    "tipoDano": "perforante"
+    "tipoDano": "perforante",
+    "habilidadId": "arco:apuntar"
   },
 
   "ballesta_bonificada": {
@@ -2392,7 +2410,8 @@
     "durabilidadMax": 120,
     "desgastePorUso": 2,
     "municionId": "virote_ballesta",
-    "tipoDano": "perforante"
+    "tipoDano": "perforante",
+    "habilidadId": "arco:apuntar"
   },
   "cuchillo_piedra": {
     "nombre": "Cuchillo de Piedra",
@@ -2415,6 +2434,7 @@
     "desgastePorUso": 1,
     "prendaId": "arma_daga",
     "tipoDano": "cortante",
+    "habilidadId": "daga:puntoDebil",
     "_nota": "Daga primitiva de pedernal tallado (pedido streamer 2026-09-01: armas de piedra) — tier más bajo del catálogo de dagas, por debajo de 'daga' (hierro). Visual compartido con 'arma_daga' (mismo criterio que daga/daga_bonificada)."
   },
   "hacha_piedra": {
@@ -2438,6 +2458,7 @@
     "desgastePorUso": 2,
     "prendaId": "arma_hacha",
     "tipoDano": "cortante",
+    "habilidadId": "hacha:tajoPesado",
     "_nota": "Hacha de mano con cabeza de piedra atada al mango — tier más bajo del catálogo de hachas, por debajo de 'hacha_combate' (hierro)."
   },
   "garrote_madera": {
@@ -2461,6 +2482,7 @@
     "desgastePorUso": 1,
     "prendaId": "arma_maza",
     "tipoDano": "contundente",
+    "habilidadId": "maza:aturdir",
     "_nota": "Maza primitiva, un tronco tallado — tier más bajo del catálogo de mazas, por debajo de 'maza_guerra' (hierro)."
   },
   "baston_guerra": {
@@ -2484,6 +2506,7 @@
     "desgastePorUso": 1,
     "prendaId": "arma_lanza",
     "tipoDano": "contundente",
+    "habilidadId": "baston:barrido",
     "_nota": "Bastón/cayado de combate a dos manos — reusa el visual de 'arma_lanza' (mismo mango largo)."
   },
 
@@ -2508,6 +2531,7 @@
     "desgastePorUso": 1,
     "prendaId": "arma_espada",
     "tipoDano": "cortante",
+    "habilidadId": "espada:estocada",
     "_nota": "Espada curva rápida, alternativa a 'espada_corta' (menos daño por golpe, cooldown más corto)."
   },
 
@@ -2532,7 +2556,8 @@
     "durabilidadMax": 95,
     "desgastePorUso": 1,
     "prendaId": "arma_espada",
-    "tipoDano": "cortante"
+    "tipoDano": "cortante",
+    "habilidadId": "espada:estocada"
   },
   "martillo_guerra": {
     "nombre": "Martillo de Guerra",
@@ -2555,6 +2580,7 @@
     "desgastePorUso": 3,
     "prendaId": "arma_maza",
     "tipoDano": "contundente",
+    "habilidadId": "maza:aturdir",
     "_nota": "Martillo pesado a dos manos, por encima de 'maza_guerra' — más daño, cooldown más lento."
   },
 
@@ -2579,7 +2605,8 @@
     "durabilidadMax": 150,
     "desgastePorUso": 3,
     "prendaId": "arma_maza",
-    "tipoDano": "contundente"
+    "tipoDano": "contundente",
+    "habilidadId": "maza:aturdir"
   },
   "jabalina": {
     "nombre": "Jabalina",
@@ -2602,6 +2629,7 @@
     "desgastePorUso": 1,
     "prendaId": "arma_lanza",
     "tipoDano": "perforante",
+    "habilidadId": "lanza:embiste",
     "_nota": "Lanza ligera de mano, más alcance que 'lanza' a costa de menos daño — hermana ligera de la lanza, mismo visual."
   },
 
@@ -2626,7 +2654,8 @@
     "durabilidadMax": 65,
     "desgastePorUso": 1,
     "prendaId": "arma_lanza",
-    "tipoDano": "perforante"
+    "tipoDano": "perforante",
+    "habilidadId": "lanza:embiste"
   },
   "tridente": {
     "nombre": "Tridente",
@@ -2649,6 +2678,7 @@
     "desgastePorUso": 2,
     "prendaId": "arma_lanza",
     "tipoDano": "perforante",
+    "habilidadId": "lanza:embiste",
     "_nota": "Lanza de tres puntas de metal, por encima de 'lanza' — más daño y alcance, más lenta."
   },
 
@@ -2673,7 +2703,8 @@
     "durabilidadMax": 120,
     "desgastePorUso": 2,
     "prendaId": "arma_lanza",
-    "tipoDano": "perforante"
+    "tipoDano": "perforante",
+    "habilidadId": "lanza:embiste"
   },
 
   "venda": {

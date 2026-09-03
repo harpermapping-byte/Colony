@@ -41,6 +41,34 @@ export interface UnidadCombate {
   alcance: number;
   /** docs/GDD_Caza.md — fauna NO peligrosa en modo caza: deambula sin rumbo, NUNCA ataca ni persigue, aunque el jugador esté a tiro. Ausente/false = IA normal (jugarTurnoIA). */
   pasivo?: boolean;
+  /**
+   * Habilidad por familia de arma (docs/GDD_Combate.md, pedido 2026-09-03:
+   * "crealo con todo aquello que se pueda usar como arma... golpe especial
+   * por familia") — snapshot tomado al crear la unidad desde
+   * `items.json[armaEquipada].habilidadId` (ver `habilidadDeEquipo`), SOLO
+   * jugador (fauna/enemigo/npc/compañero se quedan en "", sin árbol de
+   * habilidades). "" = sin habilidad reconocida, `combate:accion` sin
+   * `habilidadId` o con uno que no coincide con ESTE snapshot cae siempre
+   * al ataque base — nunca se confía en lo que mande el cliente.
+   */
+  habilidadId?: string;
+  /**
+   * ¿Se movió esta unidad en SU turno más reciente? Reseteado a `false`
+   * para todas las unidades activas en cada vuelta completa de turnos
+   * (mismo punto que la regeneración de PA, `avanzarTurno`) — usado por
+   * `hacha:tajoPesado` ("+daño si el objetivo no se movió") y por
+   * `arco:apuntar` ("quedarse quieto y disparar dos veces": exige que el
+   * PROPIO atacante no se haya movido este turno).
+   */
+  movioEsteTurno?: boolean;
+  /**
+   * Golpe de maza conectado (docs/GDD_Combate.md, `maza:aturdir`): pierde
+   * su próxima acción — un jugador aturdido no puede atacar/mover/huir/usar
+   * un objeto hasta que pase turno; una IA aturdida simplemente no actúa
+   * este turno (`jugarTurnoIA` lo consume y limpia la bandera). Se limpia
+   * también al avanzar el turno de la unidad (RoomExteriorBase.avanzarTurno).
+   */
+  aturdido?: boolean;
 }
 
 /** Iniciativa determinista: base del catálogo/atributo + variación pequeña por `rnd` (fijo en tests = reproducible). */
@@ -84,11 +112,143 @@ export function municionDeEquipo(catalogo: CatalogoItems, equipo: SlotsEquipo | 
   return catalogo[armaId]?.municionId;
 }
 
-/** Aplica daño de `atacante` sobre `objetivo` con la fórmula ya existente — devuelve el objetivo actualizado (no muta). */
-export function resolverAtaque(atacante: UnidadCombate, objetivo: UnidadCombate): UnidadCombate {
-  const danio = calcularDanio(atacante.ataqueFisico, objetivo.defensaFisica);
+/**
+ * `habilidadId` del arma equipada en `manoPrincipal` (docs/GDD_Combate.md,
+ * pedido 2026-09-03) — "" si no lleva nada o el catálogo no le asignó
+ * ninguna familia (herramientas nunca tienen este campo, fuera de alcance a
+ * propósito). Mismo patrón exacto que `alcanceDeEquipo`/`municionDeEquipo`.
+ */
+export function habilidadDeEquipo(catalogo: CatalogoItems, equipo: SlotsEquipo | undefined): string {
+  const armaId = equipo?.manoPrincipal;
+  if (!armaId) return "";
+  return catalogo[armaId]?.habilidadId ?? "";
+}
+
+/** Familia de una habilidad ("daga:puntoDebil" -> "daga") — "" si `habilidadId` está vacío. */
+function familiaDe(habilidadId: string): string {
+  return habilidadId.split(":")[0] ?? "";
+}
+
+/** Golpes por acción para esta habilidad — 2 para "arco:apuntar" ("quedarse quieto y disparar dos veces"), 1 para el resto. */
+export function golpesDeHabilidad(habilidadId: string): number {
+  return familiaDe(habilidadId) === "arco" ? 2 : 1;
+}
+
+/** PA EXTRA (por encima del coste base de un ataque) que exige esta habilidad — solo "arco:apuntar" cuesta más, por el segundo disparo. */
+export function costeExtraPaDeHabilidad(habilidadId: string): number {
+  return familiaDe(habilidadId) === "arco" ? 1 : 0;
+}
+
+/** Munición EXTRA (por encima de 1) que consume esta habilidad por golpe — "arco:apuntar" dispara dos veces, gasta el doble. */
+export function municionExtraDeHabilidad(habilidadId: string): number {
+  return familiaDe(habilidadId) === "arco" ? 1 : 0;
+}
+
+/** "arco:apuntar" exige que el propio atacante no se haya movido este turno ("quedarse quieto y disparar dos veces"). */
+export function requiereQuietoHabilidad(habilidadId: string): boolean {
+  return familiaDe(habilidadId) === "arco";
+}
+
+export interface ResultadoGolpe {
+  objetivo: UnidadCombate;
+  /** Daño de vida realmente aplicado (ya clamped a [0, hp]). */
+  danio: number;
+  /** Cuánto de `ataqueEfectivo` "paró" la defensa — lo que desgasta la armadura del objetivo (docs/GDD_Combate.md, desgaste). */
+  absorbido: number;
+}
+
+/** Resuelve un golpe con ataque/defensa YA modificados por la habilidad que corresponda — núcleo compartido de `resolverAtaque`/`resolverAtaqueConHabilidad`. No muta ninguno de los dos argumentos. */
+function golpear(objetivo: UnidadCombate, ataqueEfectivo: number, defensaEfectiva: number): ResultadoGolpe {
+  const danio = calcularDanio(ataqueEfectivo, defensaEfectiva);
   const stats = aplicarDanio({ vida: objetivo.hp, vidaMax: objetivo.hpMax, ataque: 0, defensa: 0 }, danio);
-  return { ...objetivo, hp: stats.vida, estado: estaMuerto({ vida: stats.vida }) ? "caido" : objetivo.estado };
+  const absorbido = Math.max(0, ataqueEfectivo - danio);
+  return {
+    objetivo: { ...objetivo, hp: stats.vida, estado: estaMuerto({ vida: stats.vida }) ? "caido" : objetivo.estado },
+    danio,
+    absorbido,
+  };
+}
+
+/** Aplica daño de `atacante` sobre `objetivo` con la fórmula ya existente — devuelve el objetivo actualizado (no muta). Ataque base ("golpear con lo que tengas"), sin ninguna habilidad. */
+export function resolverAtaque(atacante: UnidadCombate, objetivo: UnidadCombate): UnidadCombate {
+  return golpear(objetivo, atacante.ataqueFisico, objetivo.defensaFisica).objetivo;
+}
+
+// Factores de las habilidades por familia (docs/GDD_Combate.md, pedido
+// 2026-09-03: "usa tu criterio para asignar una mecánica con carácter a
+// cada familia") — constantes de balance, ajustables sin tocar la forma.
+const FACTOR_DEFENSA_DAGA = 0.7; // daga: golpe preciso, ignora 30% de la defensa (arma rápida y ligera, busca el hueco de la armadura)
+const FACTOR_ATAQUE_ESPADA = 1.25; // espada: estocada técnica, +25% de ataque plano
+const FACTOR_ATAQUE_HACHA_QUIETO = 1.4; // hacha: +40% de ataque si el objetivo no se movió en su último turno (castiga al que no maniobra)
+const PROB_ATURDIR_MAZA = 0.25; // maza: 25% de aturdir al objetivo (pierde su próxima acción)
+
+/**
+ * Empuja `objetivo` 1 casilla en línea recta alejándose de `atacante`
+ * (lanza: "golpe en línea que empuja") — no mueve nada si la casilla
+ * destino es un obstáculo, está fuera de la arena o ya la ocupa otra unidad
+ * activa (`ocupadas`, posiciones de TODAS las demás unidades vivas).
+ */
+function empujarLejosDe(atacante: UnidadCombate, objetivo: UnidadCombate, arena: Arena, ocupadas: Casilla[]): UnidadCombate {
+  const dx = Math.sign(objetivo.gx - atacante.gx);
+  const dy = Math.sign(objetivo.gy - atacante.gy);
+  if (dx === 0 && dy === 0) return objetivo; // misma casilla (no debería pasar en combate real) — nada que empujar
+  const destino: Casilla = { gx: objetivo.gx + dx, gy: objetivo.gy + dy };
+  if (esObstaculo(arena, destino.gx, destino.gy)) return objetivo;
+  if (ocupadas.some((c) => c.gx === destino.gx && c.gy === destino.gy)) return objetivo;
+  return { ...objetivo, gx: destino.gx, gy: destino.gy };
+}
+
+/**
+ * Golpe especial por familia de arma (docs/GDD_Combate.md, pedido
+ * 2026-09-03) — mismo daño base que `resolverAtaque`, pero con una mecánica
+ * de carácter añadida por familia:
+ *   - `daga`: ignora parte de la defensa (golpe preciso).
+ *   - `espada`: +daño plano (estocada técnica, la más "genérica").
+ *   - `hacha`: +daño si el objetivo no se movió en su último turno.
+ *   - `maza`: probabilidad baja de aturdir (pierde su próxima acción).
+ *   - `baston`: reduce el PA restante del objetivo (golpe de barrido).
+ *   - `lanza`: empuja al objetivo 1 casilla en línea (requiere `arena`/`ocupadas`).
+ *   - `arco`/desconocida: sin modificador aquí — el "disparar dos veces" de
+ *     `arco:apuntar` es responsabilidad del LLAMADOR (golpear dos veces con
+ *     esta misma función, ver `golpesDeHabilidad`), no de esta función.
+ * Familia vacía o no reconocida = idéntico a `resolverAtaque` (ataque base).
+ */
+export function resolverAtaqueConHabilidad(
+  atacante: UnidadCombate,
+  objetivo: UnidadCombate,
+  habilidadId: string,
+  arena: Arena,
+  ocupadas: Casilla[] = [],
+  rnd: () => number = Math.random,
+): ResultadoGolpe {
+  const familia = familiaDe(habilidadId);
+  switch (familia) {
+    case "daga":
+      return golpear(objetivo, atacante.ataqueFisico, objetivo.defensaFisica * FACTOR_DEFENSA_DAGA);
+    case "espada":
+      return golpear(objetivo, atacante.ataqueFisico * FACTOR_ATAQUE_ESPADA, objetivo.defensaFisica);
+    case "hacha": {
+      const factor = objetivo.movioEsteTurno ? 1 : FACTOR_ATAQUE_HACHA_QUIETO;
+      return golpear(objetivo, atacante.ataqueFisico * factor, objetivo.defensaFisica);
+    }
+    case "maza": {
+      const r = golpear(objetivo, atacante.ataqueFisico, objetivo.defensaFisica);
+      if (r.objetivo.estado !== "activo") return r; // ya cayó con el golpe — nada que aturdir
+      const aturde = rnd() < PROB_ATURDIR_MAZA;
+      return aturde ? { ...r, objetivo: { ...r.objetivo, aturdido: true } } : r;
+    }
+    case "baston": {
+      const r = golpear(objetivo, atacante.ataqueFisico, objetivo.defensaFisica);
+      return { ...r, objetivo: { ...r.objetivo, pa: Math.max(0, r.objetivo.pa - 1) } };
+    }
+    case "lanza": {
+      const r = golpear(objetivo, atacante.ataqueFisico, objetivo.defensaFisica);
+      if (r.objetivo.estado !== "activo") return r; // no empujes un cadáver
+      return { ...r, objetivo: empujarLejosDe(atacante, r.objetivo, arena, ocupadas) };
+    }
+    default:
+      return golpear(objetivo, atacante.ataqueFisico, objetivo.defensaFisica);
+  }
 }
 
 /** El enemigo vivo más cercano de `unidades` a `u` (bando contrario), o null si no queda ninguno. */
@@ -136,6 +296,10 @@ function jugarTurnoIAPasiva(u: UnidadCombate, unidades: UnidadCombate[], arena: 
 export function jugarTurnoIA(idUnidad: string, unidades: UnidadCombate[], arena: Arena, rnd: () => number = Math.random): UnidadCombate[] {
   const u = unidades.find((x) => x.id === idUnidad);
   if (!u || u.estado !== "activo") return unidades;
+  // Aturdido (maza:aturdir, docs/GDD_Combate.md): pierde esta acción entera
+  // — ni se mueve ni ataca, solo se limpia la bandera (el jugador tiene el
+  // guardia equivalente en RoomExteriorBase.manejarCombateAccion/Mover/Huir).
+  if (u.aturdido) return unidades.map((x) => (x.id === u.id ? { ...x, aturdido: false } : x));
   if (u.pasivo) return jugarTurnoIAPasiva(u, unidades, arena, rnd);
   const objetivo = objetivoMasCercano(u, unidades);
   if (!objetivo) return unidades; // el otro bando ya cayó entero
@@ -152,7 +316,8 @@ export function jugarTurnoIA(idUnidad: string, unidades: UnidadCombate[], arena:
     if (siguiente.gx === pos.gx && siguiente.gy === pos.gy) break; // atrapado
     pos = siguiente;
   }
-  return unidades.map((x) => (x.id === u.id ? { ...x, gx: pos.gx, gy: pos.gy } : x));
+  const movio = pos.gx !== u.gx || pos.gy !== u.gy;
+  return unidades.map((x) => (x.id === u.id ? { ...x, gx: pos.gx, gy: pos.gy, movioEsteTurno: movio || x.movioEsteTurno } : x));
 }
 
 export interface ResultadoCombateAutomatico {

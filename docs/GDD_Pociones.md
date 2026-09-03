@@ -109,6 +109,16 @@ Bug real encontrado (y corregido) durante la implementación: `defensaFisica`/`a
 - `server/test/alquimia.e2e.mjs` — protocolo real contra el servidor: allowlist de ingredientes, sesión completa (iniciar→avivar→colar), mezcla avanzada real (4 bonos garantizados, composición variable con el pool ampliado — verificado en corridas reales con mezclas de stat/especial distintas), buff real aplicado a las stats de combate que la tirada haya tocado tras beber, cancelado sin devolución.
 - `server/test/agroFauna.e2e.mjs`/`herreria.e2e.mjs` re-verificados tras esta pasada (sigilo toca `verificarAgroFauna`, xpOficioX2/producción tocan el mismo `otorgarXpAtributo`/`sumarXpOficio`/`craftesEnCurso` que usa crafteo/forja) — sin regresión.
 
+## 7bis. Beber en combate (pedido 2026-09-03: "sisi que las potis se podran usar por ejemplo durante combates")
+
+Hasta esta pasada `pocion:beber` no sabía nada de combate — funcionaba (y sus buffs SÍ acababan aplicándose a `Player.ataque/defensa` vía `recalcularStatsJugador`), pero la `CombateUnidad` de una pelea en curso es una COPIA snapshot (docs/GDD_Combate.md §2) que no se enteraba sola: el efecto no se notaba DENTRO de la pelea hasta el siguiente `combate:mover`/turno que recalculara algo, y beber no costaba turno ni PA — se podía beber infinitas pociones sin gastar nada mientras esperabas tu turno.
+
+- **(a) Fuera de combate: cero cambios** — mismo camino de siempre.
+- **(b) Dentro de un combate SIN resolver**: mismo criterio EXACTO que `manejarPersonajeConsumir` (comida, ya lo tenía desde antes) — solo en tu propio turno (`combate.ordenTurnos[turnoActual] === sessionId`), cuesta `COSTE_PA_OBJETO` (2, misma constante que ya usaba comida — no una nueva), bloqueado si estás `aturdido` (docs/GDD_Combate.md, maza:aturdir).
+- **(c) El efecto se refleja DE VERDAD en la pelea**: tras `recalcularStatsJugador`/`vidaMaximaConBuffs` (como siempre), si hay una `CombateUnidad` activa se resincronizan sus 4 campos espejo — `ataqueFisico`/`defensaFisica` (del `Player` recién recalculado) y `hpMax`/`hp` (clamped al nuevo máximo, igual que `Player.vida`) — mismo criterio exacto que `combate:mover` ya usa para sincronizar `Player.x/y` con la posición táctica.
+- **Nota sobre "cura vida"**: los efectos de poción NUNCA curan HP instantáneo — `"vida"` es un multiplicador de `vidaMax` (§6/§1.4), igual dentro que fuera de combate; no hay poción de curación directa hoy (ver `docs/GDD_Personaje.md` para consumibles con `restaura.vital:"vida"`, que es un mecanismo DISTINTO, `tipo:"consumible"`, no `efectoPocion`).
+- **Probado**: `server/test/arenaCombate.test.ts`/`desgasteEquipoCombate.test.ts` cubren la lógica pura relacionada de esta misma pasada (habilidades/desgaste); esta parte concreta (PA gate + resincronía) se verificó por lectura de código contra el patrón ya probado de `manejarPersonajeConsumir` — sin un e2e dedicado que beba una poción a mitad de un combate real contra el servidor (gap de test conocido).
+
 ## 8. Pendiente (no mecanismo, contenido/UI)
 
 - **Sin panel de cliente todavía** (mismo estado que crafteo/forja) — protocolo real vía `window.__test`.
