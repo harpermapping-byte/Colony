@@ -312,7 +312,48 @@ export class RegionRoom extends RoomExteriorBase {
       if (!entrada) return client.send("inmueble:error", { motivo: "inmueble desconocido" });
       const bd = await obtenerBdCompartida();
       await bd.revocarPropiedad(this.idInmueble(mapaId, msg!.inmuebleId!));
+      await bd.eliminarOfertasDePropiedad(this.idInmueble(mapaId, msg!.inmuebleId!)); // ofertas sobre el dueño anterior ya no aplican
       this.broadcast("inmueble:actualizado", { id: msg!.inmuebleId, dueno: null, modoTenencia: null, expiraEn: null });
+    });
+
+    // Reventa/oferta entre jugadores (docs/GDD_Propiedades.md §7) — `inmuebleId`
+    // bare como comprar/alquilar/revocar (siempre uno de ESTE mapa); las
+    // respuestas llevan el `propiedadId` completo (`i_<mapaId>:<edificio>`)
+    // porque `cancelarOferta`/`aceptarOferta`/`misOfertas` pueden referirse a
+    // propiedades de OTRO asentamiento (una oferta no caduca al cambiar de mapa).
+    this.onMessage("inmueble:ofrecer", async (client, msg: { inmuebleId?: string; jugadorNombre?: string; precioFarycoins?: number }) => {
+      const entrada = msg?.inmuebleId ? this.inmueblesVendibles.get(msg.inmuebleId) : undefined;
+      if (!entrada || !msg?.jugadorNombre || typeof msg.precioFarycoins !== "number") {
+        return client.send("inmueble:error", { motivo: "inmueble desconocido" });
+      }
+      const propiedadId = this.idInmueble(mapaId, msg.inmuebleId!);
+      const ok = await this.ofrecerPropiedad(client, "inmueble:error", propiedadId, msg.jugadorNombre, msg.precioFarycoins);
+      if (ok) client.send("inmueble:ofertaEnviada", { propiedadId, jugadorNombre: msg.jugadorNombre, precioFarycoins: Math.floor(msg.precioFarycoins) });
+    });
+
+    this.onMessage("inmueble:cancelarOferta", async (client, msg: { propiedadId?: string; jugadorNombre?: string }) => {
+      if (!msg?.propiedadId || !msg?.jugadorNombre) return;
+      const ok = await this.cancelarOfertaPropiedad(client, "inmueble:error", msg.propiedadId, msg.jugadorNombre);
+      if (ok) client.send("inmueble:ofertaCancelada", { propiedadId: msg.propiedadId, jugadorNombre: msg.jugadorNombre });
+    });
+
+    this.onMessage("inmueble:aceptarOferta", async (client, msg: { propiedadId?: string }) => {
+      if (!msg?.propiedadId) return;
+      const r = await this.aceptarOfertaPropiedad(client, "inmueble:error", msg.propiedadId);
+      if (!r) return;
+      // Solo se puede hacer broadcast local de "actualizado" si la propiedad es DE ESTA región
+      // (el inmuebleId corto se recupera quitando el prefijo "i_<mapaId>:"); una propiedad de
+      // OTRO mapa comprada así no tiene con quién compartir el broadcast en ESTA room — el
+      // comprador ya tiene la confirmación directa de `aceptarOfertaPropiedad` de todos modos.
+      const prefijo = this.idInmueble(mapaId, "");
+      if (r.propiedadId.startsWith(prefijo)) {
+        this.broadcast("inmueble:actualizado", { id: r.propiedadId.slice(prefijo.length), dueno: r.duenoNuevo, modoTenencia: "compra", expiraEn: null });
+      }
+    });
+
+    this.onMessage("inmueble:misOfertas", async (client) => {
+      const r = await this.misOfertasPropiedad(client);
+      if (r) client.send("inmueble:misOfertas", r);
     });
   }
 

@@ -6288,6 +6288,103 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return r;
   }
 
+  // ---- Reventa/oferta de inmueble entre jugadores (docs/GDD_Propiedades.md
+  // §7, pedido 2026-09-03: "solo el jarl puede revocar y reasignar" era el
+  // hueco real) — el DUEÑO decide, sin pasar por el jarl. A propósito NO
+  // acepta `puedeActuarComoJarl` como atajo aquí: el jarl ya tiene su propio
+  // poder real sobre esto (`inmueble:revocar`, intacto); dejarle además
+  // vender la propiedad COMPRADA de otro jugador sin su consentimiento
+  // rompería el sentido de haberla comprado. ----
+
+  /** Solo el dueño actual puede ofrecer — ni siquiera el jarl. Empuja `inmueble:ofertaRecibida` al destinatario si está conectado a ESTA room; si no, la oferta sigue en BD y `misOfertasPropiedad` la recupera al reconectar. */
+  protected async ofrecerPropiedad(client: Client, canalError: string, propiedadId: string, jugadorDestinoNombre: string, precioFarycoins: number): Promise<boolean> {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return false;
+    const precio = Math.floor(precioFarycoins);
+    if (!Number.isFinite(precio) || precio <= 0) {
+      client.send(canalError, { motivo: "el precio debe ser mayor que 0" });
+      return false;
+    }
+    const destinoNombre = jugadorDestinoNombre.trim();
+    if (!destinoNombre || destinoNombre.toLowerCase() === nombre.toLowerCase()) {
+      client.send(canalError, { motivo: "no puedes ofrecértela a ti mismo" });
+      return false;
+    }
+    const bd = await obtenerBdCompartida();
+    const prop = await bd.obtenerPropiedad(propiedadId);
+    if (!prop || !prop.dueno) {
+      client.send(canalError, { motivo: "esta propiedad no tiene dueño" });
+      return false;
+    }
+    if (prop.dueno.toLowerCase() !== nombre.toLowerCase()) {
+      client.send(canalError, { motivo: "solo el dueño puede ofrecer esta propiedad" });
+      return false;
+    }
+    if (prop.modoTenencia !== "compra") {
+      client.send(canalError, { motivo: "solo se puede ofrecer una propiedad comprada, no un alquiler" });
+      return false;
+    }
+    const dueno = await bd.obtenerOCrearJugador(nombre);
+    const destino = await bd.obtenerOCrearJugador(destinoNombre);
+    await bd.crearOfertaInmueble(propiedadId, dueno.id, destino.id, precio);
+    this.clientDeJugador(destinoNombre)?.send("inmueble:ofertaRecibida", { propiedadId, ofertadoPor: nombre, precioFarycoins: precio });
+    return true;
+  }
+
+  /** Solo quien hizo la oferta puede cancelarla — el destinatario simplemente no la acepta. */
+  protected async cancelarOfertaPropiedad(client: Client, canalError: string, propiedadId: string, destinatarioNombre: string): Promise<boolean> {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return false;
+    const bd = await obtenerBdCompartida();
+    const destino = await bd.obtenerOCrearJugador(destinatarioNombre.trim());
+    const oferta = await bd.obtenerOfertaInmueble(propiedadId, destino.id);
+    if (!oferta) {
+      client.send(canalError, { motivo: "no hay ninguna oferta que cancelar" });
+      return false;
+    }
+    const dueno = await bd.obtenerOCrearJugador(nombre);
+    if (oferta.ofertadoPorId !== dueno.id) {
+      client.send(canalError, { motivo: "solo quien hizo la oferta puede cancelarla" });
+      return false;
+    }
+    await bd.eliminarOfertaInmueble(propiedadId, destino.id);
+    return true;
+  }
+
+  /** El DESTINATARIO acepta una oferta recibida sobre `propiedadId` — cobra, transfiere el dueño (todo o nada, `bd.transferirPropiedad`) y avisa al vendedor si sigue conectado. */
+  protected async aceptarOfertaPropiedad(client: Client, canalError: string, propiedadId: string): Promise<{ propiedadId: string; duenoNuevo: string; precioFarycoins: number } | null> {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return null;
+    const bd = await obtenerBdCompartida();
+    const comprador = await bd.obtenerOCrearJugador(nombre);
+    // Vía `listarOfertasRecibidas` (no `obtenerOfertaInmueble`) porque ya trae el NOMBRE del
+    // vendedor resuelto por JOIN — hace falta para `bd.transferirPropiedad`, que identifica al
+    // vendedor por nombre (mismo criterio que el resto de este archivo, nunca por id crudo).
+    const oferta = (await bd.listarOfertasRecibidas(comprador.id)).find((o) => o.propiedadId === propiedadId);
+    if (!oferta) {
+      client.send(canalError, { motivo: "no tienes ninguna oferta sobre esa propiedad" });
+      return null;
+    }
+    const r = await bd.transferirPropiedad(propiedadId, oferta.ofertadoPorNombre, nombre, oferta.precioFarycoins);
+    if (!r.ok) {
+      client.send(canalError, { motivo: r.motivo });
+      return null;
+    }
+    // bd.transferirPropiedad ya limpia TODAS las ofertas de esta propiedad (incluida esta) al completarse.
+    this.clientDeJugador(oferta.ofertadoPorNombre)?.send("inmueble:ofertaAceptada", { propiedadId, compradoPor: nombre, precioFarycoins: oferta.precioFarycoins });
+    return { propiedadId, duenoNuevo: nombre, precioFarycoins: oferta.precioFarycoins };
+  }
+
+  /** Ofertas recibidas Y hechas por este jugador, en cualquier propiedad de cualquier asentamiento — para verlas al conectar, no solo si estabas online cuando te llegaron. */
+  protected async misOfertasPropiedad(client: Client) {
+    const nombre = this.nombreDe(client);
+    if (!nombre) return null;
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const [recibidas, hechas] = await Promise.all([bd.listarOfertasRecibidas(jugador.id), bd.listarOfertasHechas(jugador.id)]);
+    return { recibidas, hechas };
+  }
+
   // ---- Mercado (docs/GDD_Mercado.md) ----
   // Un tenderete NO es una entidad propia: vive SOBRE una propiedad que su
   // dueño ya tiene (parcela asignada por el jarl, o inmueble/habitación
