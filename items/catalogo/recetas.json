@@ -2580,6 +2580,33 @@
     "tiempoBaseSeg": 24,
     "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — la prenda más cara en insumos de todo el catálogo de ropa, tier noble de gala."
   },
+  "guantes_forja_herrero_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 2 }],
+    "resultado": { "itemId": "guantes_forja_herrero", "cantidad": 1 },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — primer guante profesión-específico normal (más que guantes_cuero_trabajo genérico), cierra el hueco real de herrero sin guante dedicado."
+  },
+  "botas_altas_pescador_craft": {
+    "oficio": "curtidor",
+    "mesas": ["mesa_corte"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "cuero_curtido", "cantidad": 3 }],
+    "resultado": { "itemId": "botas_altas_pescador", "cantidad": 1 },
+    "tiempoBaseSeg": 14,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — primera bota profesión-específica normal, cierra el hueco real de pescador sin bota dedicada."
+  },
+  "capucha_lana_sacerdote_craft": {
+    "oficio": "curtidor",
+    "mesas": ["telar"],
+    "nivelMinimo": 1,
+    "insumos": [{ "itemId": "tela_hilada", "cantidad": 2 }],
+    "resultado": { "itemId": "capucha_lana_sacerdote", "cantidad": 1 },
+    "tiempoBaseSeg": 10,
+    "_nota": "docs/GDD_Ropa_Procedural.md (2026-09-03) — cierra el hueco de sacerdote sin gorro dedicado."
+  },
   "arnes_cuero_craft": {
     "oficio": "ingeniero",
     "mesas": ["mesa_planos_ingenieria"],

@@ -18,5 +18,5 @@
     "este": { "tipo": "tierra_abierta", "nombre": "frontera-este" },
     "oeste": { "tipo": "mar_abierto", "nombre": "mar-oeste" }
   },
-  "carpetaSalida": "output/mapa-principal"
+  "carpetaSalida": "output/principal"
 }
