@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 555); // 542 (ver historial) + 13 de docs/GDD_Ropa_Procedural.md (2026-09-03: 4 prendas de oficio joyero/herbolista/destilador/panadero + 1 de sastre + 8 de los slots nuevos manos/pies/capa).
+  assert.strictEqual(ids.length, 558); // 555 (ver historial) + 3 de docs/GDD_Ropa_Procedural.md (2026-09-03, tarea de completar ropa/personajes: guantes_forja_herrero, botas_altas_pescador, capucha_lana_sacerdote — primeros guante/bota/gorro profesión-específicos además de noble).
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

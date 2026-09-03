@@ -233,6 +233,7 @@
       "modesta"
     ],
     "tagsProfesion": [
+      "comun",
       "templo"
     ],
     "materialesCompatibles": [
@@ -259,7 +260,7 @@
     "variantes": 1,
     "quitaFrio": 18,
     "quitaCalor": 3,
-    "_nota": "Hábito del cura (pedido del streamer 2026-08-28): túnica de lana oscura para que se le reconozca por la calle. Sotana larga de verdad = forma nueva de prenda, arte futuro."
+    "_nota": "Hábito del cura (pedido del streamer 2026-08-28): túnica de lana oscura para que se le reconozca por la calle. Sotana larga de verdad = forma nueva de prenda, arte futuro. Fix 2026-09-03: le faltaba el tag 'comun' en tagsProfesion (bug real de puntuación, ver GDD) — sin él empataba a 1 coincidencia con cualquier camisa genérica en vez de ganar con 2 (comun+templo); mismo criterio que delantal_herrero y el resto de prendas nuevas."
   },
   "delantal_herrero": {
     "slotCuerpo": "torso",
@@ -692,5 +693,53 @@
     "quitaFrio": 14,
     "quitaCalor": -5,
     "_nota": "Ampliación 2026-09-03. Capa de gala con vuelo amplio, tono profundo (tinte caro) — la pieza más vistosa de la riqueza noble en este catálogo."
+  },
+  "guantes_forja_herrero": {
+    "slotCuerpo": "manos",
+    "tipoPrenda": "guante",
+    "riquezaTipica": ["modesta"],
+    "tagsProfesion": ["comun", "herreria"],
+    "materialesCompatibles": ["cuero"],
+    "zonasColor": ["cuerpo"],
+    "zonasFijas": ["puños"],
+    "voxelResolucion": { "x": 5, "y": 6, "z": 5 },
+    "detalle": { "puño": "ancho" },
+    "colorDebug": "#4a3020",
+    "variantes": 8,
+    "quitaFrio": 6,
+    "quitaCalor": 2,
+    "_nota": "Ampliación 2026-09-03 (streamer: primer conjunto profesión-específico de manos/pies/gorro, más allá del genérico y de noble). Guante de cuero grueso reforzado del herrero, puño ancho para protegerse de chispas del yunque/fragua — mismo patrón que guantes_cuero_trabajo pero con tag 'herreria' propio (gana outright al genérico, 2 coincidencias contra 1)."
+  },
+  "botas_altas_pescador": {
+    "slotCuerpo": "pies",
+    "tipoPrenda": "bota",
+    "riquezaTipica": ["humilde", "modesta"],
+    "tagsProfesion": ["comun", "pescador"],
+    "materialesCompatibles": ["cuero"],
+    "zonasColor": ["cuerpo"],
+    "zonasFijas": ["suela"],
+    "voxelResolucion": { "x": 5, "y": 6, "z": 6 },
+    "detalle": { "caña": "alta" },
+    "colorDebug": "#3a5a4a",
+    "variantes": 8,
+    "quitaFrio": 10,
+    "quitaCalor": 4,
+    "_nota": "Ampliación 2026-09-03. Bota alta encerada del pescador, para vadear agua fría en el embarcadero/orilla — tono verdoso oscuro distinto de botas_altas_modesta, comparte tag 'pescador' con camisa_lino_campesina/gorro_lino_campesino."
+  },
+  "capucha_lana_sacerdote": {
+    "slotCuerpo": "cabeza",
+    "tipoPrenda": "gorro",
+    "riquezaTipica": ["humilde", "modesta"],
+    "tagsProfesion": ["comun", "templo"],
+    "materialesCompatibles": ["lana"],
+    "zonasColor": ["cuerpo"],
+    "zonasFijas": [],
+    "voxelResolucion": { "x": 8, "y": 7, "z": 8 },
+    "detalle": {},
+    "colorDebug": "#3a2c22",
+    "variantes": 1,
+    "quitaFrio": 12,
+    "quitaCalor": 2,
+    "_nota": "Ampliación 2026-09-03. Capucha de lana oscura a juego con habito_sacerdote (mismo tono) — único gorro con tag 'templo', hasta ahora el sacerdote solo tenía cubierto el torso."
   }
 }
