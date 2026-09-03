@@ -801,6 +801,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // BD junto al resto del equipo — límite conocido, documentado en el GDD:
   // sobrevive mientras la room esté viva, no a un reinicio del servidor).
   protected equipoBlueprintRopaInventario = new Map<string, Record<string, number>>();
+  // Durabilidad de lo equipado (docs/GDD_Equipo.md) — MISMO patrón que
+  // equipoBlueprintRopaInventario de arriba, pero esta SÍ se persiste (tabla
+  // `equipo`, columna `durabilidad`, bd.ts::guardarEquipo/cargarEquipo):
+  // este Map es solo la caché por sesión que espeja lo cargado/guardado,
+  // igual que `equipoInventario` espeja `equipo`.
+  protected equipoDurabilidadInventario = new Map<string, Record<string, number>>();
   protected catalogoItems: CatalogoItems = cargarCatalogoItems();
   // Cadáveres (docs/GDD_Caza.md) — estado PURO (state.cadaveres es solo el
   // espejo de red, mismo criterio que `inventarios`/`player.inventario.cuerpo`).
@@ -1636,6 +1642,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.extrasInventario.set(client.sessionId, new Map());
     this.equipoInventario.set(client.sessionId, {});
     this.equipoBlueprintRopaInventario.set(client.sessionId, {});
+    this.equipoDurabilidadInventario.set(client.sessionId, {});
 
     // Mascotas "siguiendo" (docs/GDD_Mascotas.md) — sin awaitear a propósito
     // (mismo criterio que otorgarXpAtributoPorSesion): el jugador entra ya,
@@ -1702,6 +1709,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.buffsPocionPorSesion.delete(client.sessionId);
     this.ultimoChatPorSesion.delete(client.sessionId);
     this.equipoBlueprintRopaInventario.delete(client.sessionId);
+    this.equipoDurabilidadInventario.delete(client.sessionId);
     this.tiempoMovimiento.delete(client.sessionId);
     this.velocidadHieloPorSesion.delete(client.sessionId);
     this.solicitudesComercio.delete(client.sessionId);
@@ -1796,7 +1804,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private async cargarInventarioYEquipoDe(client: Client, nombre: string) {
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
-    const equipo = await bd.cargarEquipo(jugador.id);
+    const { equipo, durabilidad: equipoDurabilidad } = await bd.cargarEquipo(jugador.id);
     const cuerpo = await bd.cargarContenedor(jugador.id, "cuerpo");
 
     // Mochila/bandolera/bolsa de cinturón (SLOTS_CONTENEDOR): solo se cargan
@@ -1830,12 +1838,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       sincronizarContenedor(player.inventario.cuerpo, cuerpo);
     }
     this.equipoInventario.set(client.sessionId, equipo);
+    this.equipoDurabilidadInventario.set(client.sessionId, equipoDurabilidad);
     this.extrasInventario.set(client.sessionId, extras);
     sincronizarEquipo(player.inventario, equipo, extras);
     this.recalcularStatsJugador(client);
   }
 
-  /** Guarda cuerpo + cada mochila/bandolera/bolsa puesta + equipo — reemplazo completo, mismo criterio que sincronizarContenedor/sincronizarEquipo (reconstruye entero, nunca diffea). */
+  /** Guarda cuerpo + cada mochila/bandolera/bolsa puesta + equipo (con su durabilidad real) — reemplazo completo, mismo criterio que sincronizarContenedor/sincronizarEquipo (reconstruye entero, nunca diffea). */
   private async guardarInventarioYEquipoDe(nombre: string, inv: InventarioJugador) {
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
@@ -1843,7 +1852,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     for (const [slot, contenedorExtra] of inv.extras) {
       await bd.guardarContenedor(jugador.id, slot, contenedorExtra);
     }
-    await bd.guardarEquipo(jugador.id, inv.equipo);
+    await bd.guardarEquipo(jugador.id, inv.equipo, inv.equipoDurabilidad);
   }
 
   /**
@@ -2068,14 +2077,22 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.persistirInventarioPorSesion(client);
   }
 
-  /** Vista unificada (cuerpo+extras+equipo) del inventario de UNA sesión — construida sobre los 3 Map puros, nunca guardada aparte (evita que se desincronicen entre sí). */
-  private inventarioJugador(sessionId: string): InventarioJugador | null {
+  /**
+   * Vista unificada (cuerpo+extras+equipo) del inventario de UNA sesión —
+   * construida sobre los Map puros, nunca guardada aparte (evita que se
+   * desincronicen entre sí). `protected`, no `private`: `ArenaCombateRoom`
+   * (subclase) la usa directo en `onCombateResuelto` para aplicar el
+   * desgaste de combate sobre el `InventarioJugador` real, mismo criterio
+   * que `equipoInventario`/`consumirMunicionDeSesion`.
+   */
+  protected inventarioJugador(sessionId: string): InventarioJugador | null {
     const cuerpo = this.inventarios.get(sessionId);
     const extras = this.extrasInventario.get(sessionId);
     const equipo = this.equipoInventario.get(sessionId);
     if (!cuerpo || !extras || !equipo) return null;
     const equipoBlueprintRopa = this.equipoBlueprintRopaInventario.get(sessionId) ?? {};
-    return { cuerpo, extras, equipo, equipoBlueprintRopa };
+    const equipoDurabilidad = this.equipoDurabilidadInventario.get(sessionId) ?? {};
+    return { cuerpo, extras, equipo, equipoBlueprintRopa, equipoDurabilidad };
   }
 
   /**
@@ -3391,7 +3408,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!dueno) return;
     const bd = await obtenerBdCompartida();
     const cuerpo = (await bd.cargarContenedor(companero.companeroJugadorId, "cuerpo")) ?? crearContenedor(4, 4);
-    const equipo = await bd.cargarEquipo(companero.companeroJugadorId);
+    const { equipo, durabilidad: equipoDurabilidad } = await bd.cargarEquipo(companero.companeroJugadorId);
     // Mochila (docs/GDD_Companeros.md, pedido 2026-08-31: "solo mochila, no
     // las 3 que tiene el player") — mismo criterio de carga que un jugador
     // (cargarInventarioYEquipoDe): solo si el equipo guardado dice que sigue
@@ -3403,7 +3420,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const dims = this.catalogoItems[equipo.espalda]?.esContenedor;
       extras.set("espalda", guardado ?? crearContenedor(dims?.ancho ?? 1, dims?.alto ?? 1));
     }
-    const inv: InventarioJugador = { cuerpo, extras, equipo, equipoBlueprintRopa: {} };
+    const inv: InventarioJugador = { cuerpo, extras, equipo, equipoBlueprintRopa: {}, equipoDurabilidad };
     this.companeroInventarioPorSesion.set(client.sessionId, inv);
     this.companeroHambrePorSesion.set(client.sessionId, hambreInicial());
     this.companeroJugadorIdPorSesion.set(client.sessionId, companero.companeroJugadorId);
@@ -3721,7 +3738,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     for (const [slot, contenedorExtra] of inv.extras) {
       await bd.guardarContenedor(companeroJugadorId, slot, contenedorExtra);
     }
-    await bd.guardarEquipo(companeroJugadorId, inv.equipo);
+    await bd.guardarEquipo(companeroJugadorId, inv.equipo, inv.equipoDurabilidad);
   }
 
   /**
