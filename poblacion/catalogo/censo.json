@@ -112,6 +112,20 @@
         1,
         1
       ]
+    },
+    {
+      "npc": "apicultor",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "cazador",
+      "cantidad": [
+        0,
+        1
+      ]
     }
   ],
   "aldea": [
@@ -266,6 +280,34 @@
         0,
         1
       ]
+    },
+    {
+      "npc": "apicultor",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "cazador",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "cocinero",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "carnicero",
+      "cantidad": [
+        0,
+        1
+      ]
     }
   ],
   "pueblo": [
@@ -367,6 +409,58 @@
       "cantidad": [
         0,
         2
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "peletero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "picapedrero",
+      "cantidad": [
+        0,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "fletcher",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "cocinero",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
+      "npc": "carnicero",
+      "cantidad": [
+        0,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "carpintero_ribera",
+      "cantidad": [
+        0,
+        1
       ],
       "familia": true,
       "probFamilia": 0.5
@@ -687,6 +781,60 @@
         0,
         2
       ]
+    },
+    {
+      "npc": "vidriero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "picapedrero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "peletero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "fletcher",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "carnicero",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "carpintero_ribera",
+      "cantidad": [
+        0,
+        1
+      ],
+      "familia": true,
+      "probFamilia": 0.5
     }
   ],
   "castillo": [
@@ -877,6 +1025,60 @@
     },
     {
       "npc": "pescador",
+      "cantidad": [
+        0,
+        3
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "vidriero",
+      "cantidad": [
+        0,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "picapedrero",
+      "cantidad": [
+        0,
+        3
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "peletero",
+      "cantidad": [
+        0,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "fletcher",
+      "cantidad": [
+        0,
+        2
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "carnicero",
+      "cantidad": [
+        0,
+        3
+      ],
+      "familia": true,
+      "probFamilia": 0.5
+    },
+    {
+      "npc": "carpintero_ribera",
       "cantidad": [
         0,
         3
