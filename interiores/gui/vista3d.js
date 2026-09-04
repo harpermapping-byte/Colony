@@ -88,16 +88,43 @@ export function montarVista3D(contenedor, edificio, { colorParaTipoSala, alSelec
         const ox = s.offsetX, oy = s.offsetY;
         const puertas = new Set(s.salaPlanta ? s.salaPlanta.puertas : []);
 
-        // Suelo de la sala (clicable → seleccionar sala)
-        const suelo = caja(r.ancho, 0.14, r.largo, colorParaTipoSala(s.tipoSalaId));
-        suelo.position.set(ox + r.ancho / 2, 0.07, oy + r.largo / 2);
-        suelo.userData = { nivel: planta.nivel, indiceSala };
-        grupoPlanta.add(suelo);
-        suelosClicables.push(suelo);
+        // Máscara real de suelo (catalogo/formasSala.json — docs/GDD_Bakeador_Interiores.md
+        // sección 2): r.mascara es un string 'ancho*largo' de '1'/'0' (mismo
+        // formato que ya consume server/src/mundo/interiorColision.ts para
+        // las salas orgánicas de mazmorras), ausente = sala rectangular de
+        // siempre (todo el rectángulo es suelo). PORT deliberado, no import
+        // — este archivo es ESM de navegador, interiores/src/formasSala.js
+        // es CommonJS de Node; mismo criterio que ya usa el resto del
+        // proyecto para crearPRNG (ver CLAUDE.md, "cada módulo la porta
+        // suelta a propósito, sin dependencia cruzada").
+        const mascaraSala = r.mascara;
+        const esSueloSala = (x, y) => x >= 0 && y >= 0 && x < r.ancho && y < r.largo && (!mascaraSala || mascaraSala[y * r.ancho + x] === "1");
 
-        // Paredes de media altura, casilla a casilla, saltando los huecos
-        // de puerta reales (coordenadas globales de planta en salaPlanta.puertas
-        // — la puerta propia cae una fila/columna más allá del rectángulo).
+        // Suelo: un tile por casilla de suelo REAL (antes una única caja
+        // r.ancho x r.largo — con una plantilla no rectangular dejaba
+        // "suelo" pintado también en los huecos de la máscara).
+        const colorSuelo = colorParaTipoSala(s.tipoSalaId);
+        for (let ty = 0; ty < r.largo; ty++) {
+          for (let tx = 0; tx < r.ancho; tx++) {
+            if (!esSueloSala(tx, ty)) continue;
+            const suelo = caja(1, 0.14, 1, colorSuelo);
+            suelo.position.set(ox + tx + 0.5, 0.07, oy + ty + 0.5);
+            suelo.userData = { nivel: planta.nivel, indiceSala };
+            grupoPlanta.add(suelo);
+            suelosClicables.push(suelo);
+          }
+        }
+
+        // Paredes de media altura: antes solo recorría los 4 lados de la
+        // caja delimitadora (asumía rectángulo completo); ahora recorre
+        // CADA celda de suelo real y pone pared en cualquier lado que
+        // colinde con una celda que NO es suelo real — con rectángulo eso
+        // sigue siendo exactamente el perímetro de siempre; con una
+        // plantilla no rectangular añade también los muros internos que
+        // crea un mordisco/concavidad (el rincón interior de una L, el
+        // hueco central de una U...), saltando los huecos de puerta reales
+        // (coordenadas globales de planta en salaPlanta.puertas) igual que
+        // antes.
         const colorPared = 0x8a8a92;
         function tramoPared(cx, cz, horizontal, hayPuerta) {
           if (hayPuerta) return;
@@ -107,13 +134,14 @@ export function montarVista3D(contenedor, edificio, { colorParaTipoSala, alSelec
           m.position.set(cx, 0.14 + ALTO_PARED / 2, cz);
           grupoPlanta.add(m);
         }
-        for (let px = 0; px < r.ancho; px++) {
-          tramoPared(ox + px + 0.5, oy, true, puertas.has(`${ox + px}_${oy - 1}`)); // norte
-          tramoPared(ox + px + 0.5, oy + r.largo, true, puertas.has(`${ox + px}_${oy + r.largo}`)); // sur
-        }
-        for (let py = 0; py < r.largo; py++) {
-          tramoPared(ox, oy + py + 0.5, false, puertas.has(`${ox - 1}_${oy + py}`)); // oeste
-          tramoPared(ox + r.ancho, oy + py + 0.5, false, puertas.has(`${ox + r.ancho}_${oy + py}`)); // este
+        for (let ty = 0; ty < r.largo; ty++) {
+          for (let tx = 0; tx < r.ancho; tx++) {
+            if (!esSueloSala(tx, ty)) continue;
+            if (!esSueloSala(tx, ty - 1)) tramoPared(ox + tx + 0.5, oy + ty, true, puertas.has(`${ox + tx}_${oy + ty - 1}`)); // norte
+            if (!esSueloSala(tx, ty + 1)) tramoPared(ox + tx + 0.5, oy + ty + 1, true, puertas.has(`${ox + tx}_${oy + ty + 1}`)); // sur
+            if (!esSueloSala(tx - 1, ty)) tramoPared(ox + tx, oy + ty + 0.5, false, puertas.has(`${ox + tx - 1}_${oy + ty}`)); // oeste
+            if (!esSueloSala(tx + 1, ty)) tramoPared(ox + tx + 1, oy + ty + 0.5, false, puertas.has(`${ox + tx + 1}_${oy + ty}`)); // este
+          }
         }
 
         // Mobiliario: cada pieza colocada como caja con su colorDebug, y

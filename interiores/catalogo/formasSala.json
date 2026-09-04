@@ -1,0 +1,154 @@
+{
+  "_nota": "Catálogo de PLANTILLAS DE FORMA DE SALA (docs/GDD_Bakeador_Interiores.md sección 2) — pedido explícito del streamer: NO es Wave Function Collapse ('prefiero que las salas tengan posibilidad de salir de 15 plantillas diferentes con variación de tamaño según edificio'). Cada plantilla es una lista de rectángulos en coordenadas FRACCIONALES [0,1]x[0,1] sobre la caja delimitadora ancho x largo de la sala (x=eje ancho, y=eje largo; y=0 es el muro norte —donde caen las ventanas—, y=1 el muro sur —donde cae la puerta—); interiores/src/formasSala.js los convierte a una máscara real de tiles para el ancho/largo concretos que ya decide colocarSala, así la MISMA plantilla sirve para una sala pequeña de una casa_humilde y para el gran salón de una mansión a escalas de tile distintas (parametrizada, no una rejilla de píxeles fija). `modo:'restar'` quita del área ya sumada (se procesan en el orden del array). `espejoValido:true` deja que interiores/src/formasSala.js la refleje en el eje X con 50% de probabilidad (variedad barata sin declarar una plantilla separada por cada lado). `simetricoEjeX:true` marca las plantillas ya simétricas respecto al eje vertical central — son las únicas candidatas para salas con tipos_sala.json:simetrico=true (columnas/decoración en espejo, colocarElementos.js:colocarSimetrico), porque su máscara admite un par (x, ancho-hw-x) real a ambos lados. Todas garantizan floor real en la fila sur (y→1, donde colocarSala punza la puerta) y quedan validadas (conexión real + área mínima) por interiores/src/formasSala.js — cualquier combinación rara que no lo cumpla cae automáticamente al rectángulo de siempre, nunca se cuela una sala rota.",
+  "rectangulo": {
+    "nombre": "Rectángulo",
+    "descripcion": "La forma de siempre — caja completa, sin recortes. Se mantiene como una plantilla más (no una entrada especial) para que 'salir en rectángulo' siga siendo un resultado válido y frecuente, exactamente el comportamiento de antes de este catálogo.",
+    "simetricoEjeX": true,
+    "espejoValido": false,
+    "piezas": [{ "modo": "sumar", "x0": 0, "y0": 0, "x1": 1, "y1": 1 }]
+  },
+  "ele": {
+    "nombre": "Ele grande",
+    "descripcion": "L clásica de dos brazos anchos (arco noroeste completo, esquina sureste ausente) — sala principal + un ala secundaria real, no un mordisco pequeño.",
+    "simetricoEjeX": false,
+    "espejoValido": true,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 1, "y1": 0.58 },
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 0.58, "y1": 1 }
+    ]
+  },
+  "ele_estrecha": {
+    "nombre": "Ele con brazo estrecho",
+    "descripcion": "L con un brazo principal y un segundo brazo mucho más estrecho (ala/corredor lateral, no una segunda sala del mismo tamaño) — para un pasadizo o mirador colgado de la sala principal.",
+    "simetricoEjeX": false,
+    "espejoValido": true,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 1, "y1": 0.34 },
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 0.32, "y1": 1 }
+    ]
+  },
+  "te": {
+    "nombre": "Te",
+    "descripcion": "Barra ancha pegada al muro norte con un brazo central bajando hacia el sur — nave con cabecera, la puerta cae en el brazo, centrada.",
+    "simetricoEjeX": true,
+    "espejoValido": false,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 1, "y1": 0.36 },
+      { "modo": "sumar", "x0": 0.32, "y0": 0, "x1": 0.68, "y1": 1 }
+    ]
+  },
+  "te_invertida": {
+    "nombre": "Te invertida",
+    "descripcion": "Base ancha pegada al muro sur (mucho sitio para la puerta) con un brazo central más estrecho subiendo hacia el norte — atrio amplio con un ábside al fondo.",
+    "simetricoEjeX": true,
+    "espejoValido": false,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0.64, "x1": 1, "y1": 1 },
+      { "modo": "sumar", "x0": 0.32, "y0": 0, "x1": 0.68, "y1": 0.66 }
+    ]
+  },
+  "u": {
+    "nombre": "U",
+    "descripcion": "Base ancha al sur (puerta con mucho sitio) con dos brazos subiendo hacia el norte y un hueco abierto en medio — patio cubierto en herradura, sin ventana en el hueco central (no hay suelo que la sostenga).",
+    "simetricoEjeX": true,
+    "espejoValido": false,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0.6, "x1": 1, "y1": 1 },
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 0.3, "y1": 1 },
+      { "modo": "sumar", "x0": 0.7, "y0": 0, "x1": 1, "y1": 1 }
+    ]
+  },
+  "cruz": {
+    "nombre": "Cruz",
+    "descripcion": "Planta de cruz/plus real, brazo vertical y horizontal centrados y del mismo grosor — sala de planta simétrica de verdad (capilla, sala ritual), la puerta cae en el pie del brazo sur.",
+    "simetricoEjeX": true,
+    "espejoValido": false,
+    "piezas": [
+      { "modo": "sumar", "x0": 0.32, "y0": 0, "x1": 0.68, "y1": 1 },
+      { "modo": "sumar", "x0": 0, "y0": 0.32, "x1": 1, "y1": 0.68 }
+    ]
+  },
+  "cruz_asimetrica": {
+    "nombre": "Cruz asimétrica",
+    "descripcion": "Nave central estrecha de norte a sur con un crucero ancho más cerca del muro norte (como una capilla con transepto) — distinta lectura de la cruz simple, sigue centrada en el eje X.",
+    "simetricoEjeX": true,
+    "espejoValido": false,
+    "piezas": [
+      { "modo": "sumar", "x0": 0.36, "y0": 0, "x1": 0.64, "y1": 1 },
+      { "modo": "sumar", "x0": 0.12, "y0": 0.15, "x1": 0.88, "y1": 0.4 }
+    ]
+  },
+  "esquina_mordida": {
+    "nombre": "Esquina mordida",
+    "descripcion": "Rectángulo casi completo con UNA esquina (noreste) cortada en diagonal aproximada — el corte nunca toca la fila sur, la puerta sigue teniendo el ancho completo para elegir sitio.",
+    "simetricoEjeX": false,
+    "espejoValido": true,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 1, "y1": 1 },
+      { "modo": "restar", "x0": 0.72, "y0": 0, "x1": 1, "y1": 0.28 }
+    ]
+  },
+  "esquina_mordida_doble": {
+    "nombre": "Esquina mordida doble",
+    "descripcion": "Rectángulo con las DOS esquinas del muro norte cortadas (perfil de escudo/torreón) — el muro sur queda intacto de punta a punta, solo cambia la silueta del fondo de la sala.",
+    "simetricoEjeX": true,
+    "espejoValido": false,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 1, "y1": 1 },
+      { "modo": "restar", "x0": 0.72, "y0": 0, "x1": 1, "y1": 0.28 },
+      { "modo": "restar", "x0": 0, "y0": 0, "x1": 0.28, "y1": 0.28 }
+    ]
+  },
+  "alcoba_lateral": {
+    "nombre": "Alcoba lateral",
+    "descripcion": "Cuerpo principal rectangular con una alcoba/mirador estrecho añadido a un lado, a media altura (no llega ni al muro norte ni al sur) — hornacina real, no un simple bulto.",
+    "simetricoEjeX": false,
+    "espejoValido": true,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 0.78, "y1": 1 },
+      { "modo": "sumar", "x0": 0.78, "y0": 0.32, "x1": 1, "y1": 0.68 }
+    ]
+  },
+  "alcoba_doble": {
+    "nombre": "Alcoba doble",
+    "descripcion": "Cuerpo principal con una alcoba a cada lado (este y oeste), simétrica — nave con dos capillas laterales pequeñas.",
+    "simetricoEjeX": true,
+    "espejoValido": false,
+    "piezas": [
+      { "modo": "sumar", "x0": 0.14, "y0": 0, "x1": 0.86, "y1": 1 },
+      { "modo": "sumar", "x0": 0, "y0": 0.32, "x1": 0.14, "y1": 0.68 },
+      { "modo": "sumar", "x0": 0.86, "y0": 0.32, "x1": 1, "y1": 0.68 }
+    ]
+  },
+  "escalonada": {
+    "nombre": "Escalonada",
+    "descripcion": "Mitad sur a ancho completo (puerta con todo el sitio del mundo) y mitad norte más estrecha, alineada a un lado — perfil en cuña, como una buhardilla bajo un tejado a un agua.",
+    "simetricoEjeX": false,
+    "espejoValido": true,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0.5, "x1": 1, "y1": 1 },
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 0.62, "y1": 0.5 }
+    ]
+  },
+  "mancuerna": {
+    "nombre": "Mancuerna",
+    "descripcion": "Dos bloques (este/oeste) de ancho completo en altura, unidos por un cuello estrecho a media altura — dos ambientes conectados por un paso angosto, en vez de una sala única. La puerta cae en uno de los dos bloques, el más cercano al centro geométrico.",
+    "simetricoEjeX": true,
+    "espejoValido": false,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 0.34, "y1": 1 },
+      { "modo": "sumar", "x0": 0.66, "y0": 0, "x1": 1, "y1": 1 },
+      { "modo": "sumar", "x0": 0.3, "y0": 0.4, "x1": 0.7, "y1": 0.6 }
+    ]
+  },
+  "nicho_central": {
+    "nombre": "Nicho central",
+    "descripcion": "Rectángulo casi completo con un nicho rectangular recortado en el CENTRO del muro norte (no toca ninguna esquina) — como si un altar/chimenea de obra ocupara ese hueco desde fuera de la sala.",
+    "simetricoEjeX": true,
+    "espejoValido": false,
+    "piezas": [
+      { "modo": "sumar", "x0": 0, "y0": 0, "x1": 1, "y1": 1 },
+      { "modo": "restar", "x0": 0.36, "y0": 0, "x1": 0.64, "y1": 0.22 }
+    ]
+  }
+}

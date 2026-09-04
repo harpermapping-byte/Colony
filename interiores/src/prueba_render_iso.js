@@ -16,6 +16,7 @@ const fs = require("fs");
 const path = require("path");
 const { cargarCatalogos } = require("./catalogo");
 const { colocarSala } = require("./colocarElementos");
+const { segmentosDePared } = require("./formasSala");
 
 const catalogos = cargarCatalogos();
 
@@ -27,6 +28,17 @@ const PRUEBAS = [
   { titulo: "sala_alquimia — completo", tipoSalaId: "sala_alquimia", riqueza: "noble", amueblado: "completo", semilla: "prueba-alq-01" },
   { titulo: "capilla — completo (simétrico, religioso)", tipoSalaId: "capilla", riqueza: "modesta", amueblado: "completo", semilla: "prueba-capilla-01" },
   { titulo: "dormitorio_individual — vacío (amueblado:\"vacio\")", tipoSalaId: "dormitorio_individual", riqueza: "humilde", amueblado: "vacio", semilla: "prueba-vacio-01" },
+  // Plantillas de forma (catalogo/formasSala.json, docs/GDD_Bakeador_Interiores.md
+  // sección 2) — semillas encontradas por búsqueda directa (probabilidad
+  // 55% por sala elegible, no garantizado a la primera semilla): confirman
+  // visualmente que el suelo/paredes siguen el perímetro real de la forma,
+  // no el rectángulo completo, con varias plantillas distintas.
+  { titulo: "gran_salon — forma 'te_invertida'", tipoSalaId: "gran_salon", riqueza: "noble", amueblado: "completo", semilla: "busq-gran_salon-1" },
+  { titulo: "sala_comercio — forma 'escalonada'", tipoSalaId: "sala_comercio", riqueza: "modesta", amueblado: "completo", semilla: "busq-sala_comercio-0" },
+  { titulo: "capilla — forma 'cruz' (simétrico)", tipoSalaId: "capilla", riqueza: "noble", amueblado: "completo", semilla: "busq-capilla-0" },
+  { titulo: "salon_baile — forma 'u'", tipoSalaId: "salon_baile", riqueza: "noble", amueblado: "completo", semilla: "busq-salon_baile-1" },
+  { titulo: "biblioteca — forma 'alcoba_doble'", tipoSalaId: "biblioteca", riqueza: "noble", amueblado: "completo", semilla: "busq-biblioteca-4" },
+  { titulo: "salon_jarl — forma 'mancuerna' (simétrico)", tipoSalaId: "salon_jarl", riqueza: "noble", amueblado: "completo", semilla: "busq-salon_jarl-3" },
 ];
 
 const U = 26; // tamaño de unidad isométrica en px
@@ -95,11 +107,14 @@ function alturaPara(item) {
 }
 
 function renderSalaSVG(resultado) {
-  const { ancho, largo, materialSuelo, materialPared, puerta, colocados, colgados, techo } = resultado;
+  const { ancho, largo, mascara, materialSuelo, materialPared, puerta, colocados, colgados, techo } = resultado;
   const colorSuelo = catalogos.materiales[materialSuelo]?.colorDebug || "#c9b896";
   const colorPared = catalogos.materiales[materialPared]?.colorDebug || "#8a8a8a";
+  const esSuelo = (x, y) => x >= 0 && y >= 0 && x < ancho && y < largo && (!mascara || mascara[y * ancho + x] === "1");
 
-  // Límites de la escena en pantalla para fijar el viewBox.
+  // Límites de la escena en pantalla para fijar el viewBox — la caja
+  // delimitadora ancho x largo sigue siendo la cota máxima válida aunque
+  // la sala no la llene entera (plantilla no rectangular).
   const esquinas = [proyectar(0, 0, 0), proyectar(ancho, 0, 0), proyectar(0, largo, 0), proyectar(ancho, largo, ALTURA_PARED)];
   const xs = esquinas.map((p) => p[0]);
   const ys = esquinas.map((p) => p[1]);
@@ -110,38 +125,49 @@ function renderSalaSVG(resultado) {
 
   let cuerpo = "";
 
-  // Suelo: todo el rectángulo ancho x largo, de borde a borde — el muro
-  // no ocupa ninguna casilla propia (colocarElementos.js), es un límite
-  // sin grosor justo en el canto de este mismo rectángulo, así que el
-  // suelo llega hasta ahí sin dejar ningún hueco de por medio.
-  cuerpo += poligono([proyectar(0, 0, 0), proyectar(ancho, 0, 0), proyectar(ancho, largo, 0), proyectar(0, largo, 0)], colorSuelo, 'stroke="#0004" stroke-width="0.5"');
-
-  // Muros sólidos: sur (y=largo, con hueco de puerta) y este (x=ancho) —
-  // los que quedan "al fondo" desde esta cámara, dejando norte/oeste
-  // abiertos para ver el interior. Un segmento de pared por tile, así el
-  // hueco de la puerta es un recorte real, no un simple marcador.
-  const colorParedOscuro = sombrear(colorPared, 0.75);
-  for (let x = 0; x < ancho; x++) {
-    if (puerta.lado === "sur" && x === puerta.x) continue; // hueco de la puerta
-    const p0 = proyectar(x, largo, 0), p1 = proyectar(x + 1, largo, 0);
-    const p2 = proyectar(x + 1, largo, ALTURA_PARED), p3 = proyectar(x, largo, ALTURA_PARED);
-    cuerpo += poligono([p0, p1, p2, p3], colorParedOscuro, 'stroke="#0006" stroke-width="0.6"');
-  }
-  const colorParedClaro = sombrear(colorPared, 0.9);
+  // Suelo: UN tile por casilla de suelo REAL (esSuelo) en vez de un único
+  // rectángulo ancho x largo — con una plantilla no rectangular
+  // (catalogo/formasSala.json), esto es lo que hace visible el perímetro
+  // real de la forma (huecos donde la máscara no tiene suelo); con
+  // rectángulo (mascara ausente) el resultado es visualmente idéntico al
+  // rectángulo único de siempre, solo que dibujado tile a tile.
   for (let y = 0; y < largo; y++) {
-    if (puerta.lado === "este" && y === puerta.y) continue;
-    const p0 = proyectar(ancho, y, 0), p1 = proyectar(ancho, y + 1, 0);
-    const p2 = proyectar(ancho, y + 1, ALTURA_PARED), p3 = proyectar(ancho, y, ALTURA_PARED);
-    cuerpo += poligono([p0, p1, p2, p3], colorParedClaro, 'stroke="#0006" stroke-width="0.6"');
+    for (let x = 0; x < ancho; x++) {
+      if (!esSuelo(x, y)) continue;
+      cuerpo += poligono([proyectar(x, y, 0), proyectar(x + 1, y, 0), proyectar(x + 1, y + 1, 0), proyectar(x, y + 1, 0)], colorSuelo, 'stroke="#0004" stroke-width="0.5"');
+    }
   }
 
-  // Norte/oeste quedan sin muro sólido a propósito (para ver el interior
-  // desde esta cámara) pero eso puede confundir: un mueble pegado a ESOS
-  // dos muros no tiene ninguna línea al lado que lo confirme y parece
-  // "flotando en el centro". Se marca su línea base (sin altura, para no
-  // tapar nada) para poder comprobar a simple vista que el mueble toca
-  // ese borde igual que tocaría el muro sur/este si lo dibujáramos entero.
-  cuerpo += `<polyline points="${[proyectar(0, largo, 0), proyectar(0, 0, 0), proyectar(ancho, 0, 0)].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ")}" fill="none" stroke="#fff8" stroke-width="1.4" stroke-dasharray="3,3"/>`;
+  // Muros: segmentosDePared (formasSala.js) da el perímetro REAL de la
+  // forma — con rectángulo, exactamente los mismos segmentos sur/este de
+  // siempre; con una plantilla no rectangular, incluye TAMBIÉN los muros
+  // internos que crea un mordisco/concavidad (el rincón interior de una L,
+  // por ejemplo). Solo se dibujan sólidos sur/este (los que quedan "al
+  // fondo" desde esta cámara fija); norte/oeste se marcan con una línea
+  // discontinua por segmento (no un único trazo de borde a borde, que con
+  // una forma no rectangular sería engañoso) para poder confirmar que un
+  // mueble pegado ahí toca pared de verdad sin tapar la vista del interior.
+  const colorParedOscuro = sombrear(colorPared, 0.75);
+  const colorParedClaro = sombrear(colorPared, 0.9);
+  for (const seg of segmentosDePared({ ancho, largo, mascara })) {
+    if (seg.lado === "sur") {
+      if (puerta.lado === "sur" && seg.x === puerta.x && seg.y === largo - 1) continue; // hueco de la puerta
+      const p0 = proyectar(seg.x, seg.y + 1, 0), p1 = proyectar(seg.x + 1, seg.y + 1, 0);
+      const p2 = proyectar(seg.x + 1, seg.y + 1, ALTURA_PARED), p3 = proyectar(seg.x, seg.y + 1, ALTURA_PARED);
+      cuerpo += poligono([p0, p1, p2, p3], colorParedOscuro, 'stroke="#0006" stroke-width="0.6"');
+    } else if (seg.lado === "este") {
+      if (puerta.lado === "este" && seg.y === puerta.y) continue;
+      const p0 = proyectar(seg.x + 1, seg.y, 0), p1 = proyectar(seg.x + 1, seg.y + 1, 0);
+      const p2 = proyectar(seg.x + 1, seg.y + 1, ALTURA_PARED), p3 = proyectar(seg.x + 1, seg.y, ALTURA_PARED);
+      cuerpo += poligono([p0, p1, p2, p3], colorParedClaro, 'stroke="#0006" stroke-width="0.6"');
+    } else if (seg.lado === "norte") {
+      const p0 = proyectar(seg.x, seg.y, 0), p1 = proyectar(seg.x + 1, seg.y, 0);
+      cuerpo += `<line x1="${p0[0].toFixed(1)}" y1="${p0[1].toFixed(1)}" x2="${p1[0].toFixed(1)}" y2="${p1[1].toFixed(1)}" stroke="#fff8" stroke-width="1.4" stroke-dasharray="3,3"/>`;
+    } else {
+      const p0 = proyectar(seg.x, seg.y, 0), p1 = proyectar(seg.x, seg.y + 1, 0);
+      cuerpo += `<line x1="${p0[0].toFixed(1)}" y1="${p0[1].toFixed(1)}" x2="${p1[0].toFixed(1)}" y2="${p1[1].toFixed(1)}" stroke="#fff8" stroke-width="1.4" stroke-dasharray="3,3"/>`;
+    }
+  }
 
   // Mobiliario en suelo, ordenado por profundidad (x+y creciente = más
   // cerca de cámara = se dibuja después, por encima de lo lejano).
@@ -194,7 +220,7 @@ function construirHTML() {
     return `
       <div class="sala">
         <h2>${escaparXML(p.titulo)}</h2>
-        <p class="meta">${catSala.categoria}/${escaparXML(catSala.nombre)} · ${r.ancho}x${r.largo} tiles · suelo ${r.materialSuelo} · pared ${r.materialPared} · ${nDecor} piezas</p>
+        <p class="meta">${catSala.categoria}/${escaparXML(catSala.nombre)} · ${r.ancho}x${r.largo} tiles · forma:${r.formaSalaId || "rectangulo"} · suelo ${r.materialSuelo} · pared ${r.materialPared} · ${nDecor} piezas</p>
         ${svg}
         <p class="pie">${escaparXML(pie)}</p>
         <p class="stats">estadisticas: ${escaparXML(statsTxt)}</p>
@@ -217,6 +243,12 @@ function construirHTML() {
   </body></html>`;
 }
 
-const salida = path.join("/tmp/claude-0/-home-user-Secret/75acf9b9-60f3-587e-9641-8725192b1416/scratchpad", "prueba-interiores-iso.html");
+// Ruta de salida configurable por variable de entorno (útil para escribir
+// directo al scratchpad de la sesión que esté verificando un cambio) — antes
+// apuntaba a una ruta absoluta de otra sesión/máquina, ya inválida aquí; por
+// defecto cae a interiores/output/, mismo sitio que ya usa el editor web
+// para guardar/cargar (gui/servidor.js).
+const salida = process.env.SALIDA_PRUEBA_ISO || path.join(__dirname, "..", "output", "prueba-interiores-iso.html");
+fs.mkdirSync(path.dirname(salida), { recursive: true });
 fs.writeFileSync(salida, construirHTML());
 console.log("Escrito:", salida);

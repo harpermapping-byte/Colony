@@ -55,9 +55,15 @@ function elegirNumeroSalas(disponibles, riqueza, rnd) {
 // directamente. "La puerta gana" si por lo que sea coincide con algo ya
 // pintado, para no tapar nunca un hueco ya abierto.
 function pintarSalaEnPlanta(rejillaPiso, resultadoSala, offsetX, offsetY) {
-  const { ancho, largo, puerta } = resultadoSala;
+  const { ancho, largo, puerta, mascara } = resultadoSala;
   for (let y = 0; y < largo; y++) {
     for (let x = 0; x < ancho; x++) {
+      // mascara (catalogo/formasSala.json, string 'ancho*largo' de '1'/'0'):
+      // sala de plantilla no rectangular — solo su suelo real se pinta en
+      // la planta, el resto de la caja delimitadora se queda VACIO (muro
+      // implícito, igual que el margen de separación entre dos salas
+      // vecinas) en vez de rellenarse a rectángulo completo.
+      if (mascara && mascara[y * ancho + x] !== "1") continue;
       const gx = offsetX + x, gy = offsetY + y;
       if (rejillaPiso.get(gx, gy) === TIPO_TILE.PUERTA) continue;
       rejillaPiso.set(gx, gy, TIPO_TILE.SUELO);
@@ -91,8 +97,17 @@ function tilesDePuerta({ eje, limite, inicio, fin }) {
 // tiene sentido (gran salón, sala de comercio grande...), en vez de forzar
 // siempre un rectángulo simple.
 function generarHabitacionCompuestaL({ tipoSalaId, catalogos, riqueza, amueblado, semilla, tipoSalaIdBrazoB }) {
-  const brazoA = colocarSala({ tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:L:A` });
-  const brazoB = colocarSala({ tipoSalaId: tipoSalaIdBrazoB || tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:L:B` });
+  // formaSalaForzada:"rectangulo" en los DOS brazos: esta función ya
+  // construye su propia L fusionando dos rectángulos por una abertura
+  // ancha (algoritmo previo al catálogo de plantillas de forma,
+  // catalogo/formasSala.json) — si un brazo saliera ADEMÁS con su propia
+  // plantilla no rectangular (p.ej. gran_salon es categoría "civico",
+  // elegible), la columna de separación entre los dos brazos podría dejar
+  // de tener suelo real a un lado, encogiendo o rompiendo la abertura que
+  // este algoritmo calcula asumiendo un rectángulo completo en el borde
+  // compartido.
+  const brazoA = colocarSala({ tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:L:A`, formaSalaForzada: "rectangulo" });
+  const brazoB = colocarSala({ tipoSalaId: tipoSalaIdBrazoB || tipoSalaId, catalogos, riqueza, amueblado, semilla: `${semilla}:L:B`, formaSalaForzada: "rectangulo" });
 
   // brazoB cuelga del muro este de brazoA, desplazado hacia abajo para que
   // el conjunto lea como una L (no como dos salas en fila): su borde
@@ -128,9 +143,15 @@ function generarHabitacionCompuestaL({ tipoSalaId, catalogos, riqueza, amueblado
     rejilla.set(colX, gy, TIPO_TILE.PUERTA);
   }
 
+  // Punto de anclaje para encontrar cada brazo en la lista de salas
+  // detectadas: la celda de suelo pegada a su propia puerta (offsetX+puerta.x,
+  // offsetY+brazo.largo-1) — SIEMPRE suelo real por construcción
+  // (mascaraValida en formasSala.js exige suelo en la fila de la puerta),
+  // a diferencia de la esquina superior-izquierda del rectángulo (0,0), que
+  // con una plantilla no rectangular puede caer fuera de la máscara.
   const salasDetectadas = detectarSalas(rejilla);
-  const salaA = salasDetectadas.find((s) => s.tiles.has("0_0"));
-  const salaB = salasDetectadas.find((s) => s.tiles.has(`${offsetXB}_${offsetYB}`));
+  const salaA = salasDetectadas.find((s) => s.tiles.has(`${brazoA.puerta.x}_${brazoA.largo - 1}`));
+  const salaB = salasDetectadas.find((s) => s.tiles.has(`${offsetXB + brazoB.puerta.x}_${offsetYB + brazoB.largo - 1}`));
 
   return {
     tipo: "compuestaL",
@@ -359,12 +380,14 @@ function generarPlanta({ nivel, rol, salasPonderadas, catalogos, riqueza, amuebl
   // salas vecinas — eso ya es, por definición, la conexión entre ambas.
   const salasDetectadas = detectarSalas(rejillaPiso);
   for (const s of salasColocadas) {
-    // (offsetX+1, offsetY+1), no la esquina (offsetX,offsetY): la esquina
-    // puede haber quedado marcada TIPO_TILE.VENTANA por anadirVentanas (el
-    // anillo entero x∈{0,ancho-1}/y∈{0,largo-1} es elegible para ventana,
-    // la esquina incluida) — un punto un paso hacia dentro es siempre suelo
-    // real en cualquier sala (todas miden como mínimo 4x4, colocarSala).
-    const puntoInterior = `${s.offsetX + 1}_${s.offsetY + 1}`;
+    // La celda de suelo pegada a la puerta propia de esta sala
+    // (offsetX+puerta.x, offsetY+largo-1) — SIEMPRE suelo real por
+    // construcción (formasSala.js:mascaraValida exige suelo en la fila de
+    // la puerta), a diferencia de "un paso hacia dentro de la esquina
+    // superior-izquierda" (offsetX+1, offsetY+1): con una plantilla no
+    // rectangular (catalogo/formasSala.json) esa esquina puede caer fuera
+    // de la máscara (una L, una U...), dejando `salaPlanta` en null.
+    const puntoInterior = `${s.offsetX + s.resultado.puerta.x}_${s.offsetY + s.resultado.largo - 1}`;
     s.salaPlanta = salasDetectadas.find((sd) => sd.tiles.has(puntoInterior)) || null;
   }
 
@@ -506,7 +529,7 @@ function generarEdificio({ tipoEdificioId, catalogos, semilla = "edificio", riqu
 // de comprometerse con una (reservarConector). Determinista por `rnd`
 // (mismo PRNG del edificio) para no romper "misma semilla = mismo resultado".
 function buscarHuecoConector(sala, huella, rnd, reservasPorSala) {
-  const { ancho, largo, puerta, colocados } = sala.resultado;
+  const { ancho, largo, puerta, colocados, mascara } = sala.resultado;
   const [hw, hl] = huella;
   if (hw > ancho || hl > largo) return null;
   const reservas = reservasPorSala.get(sala) || [];
@@ -516,6 +539,11 @@ function buscarHuecoConector(sala, huella, rnd, reservasPorSala) {
       for (let dx = 0; dx < hw; dx++) {
         const cx = x0 + dx, cy = y0 + dy;
         if (cx === puerta.x && cy === puerta.y) return false;
+        // Sala de plantilla no rectangular (formasSala.json): la escalera/
+        // trampilla no puede caer fuera del suelo real de la máscara —
+        // sin esto podía "imprimir" suelo pisable dentro de lo que
+        // debería leerse como muro/hueco de la forma.
+        if (mascara && mascara[cy * ancho + cx] !== "1") return false;
         for (const item of colocados) {
           if (cx >= item.x && cx < item.x + item.ancho && cy >= item.y && cy < item.y + item.largo) return false;
         }

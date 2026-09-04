@@ -360,6 +360,14 @@ function renderLienzo() {
   const s = salaActual();
   if (!s) { cont.innerHTML = '<div class="vacio">Genera un edificio y selecciona una sala</div>'; return; }
   const r = s.resultado;
+  // Máscara real de suelo (catalogo/formasSala.json — docs/GDD_Bakeador_Interiores.md
+  // sección 2): r.mascara es un string 'ancho*largo' de '1'/'0', ausente =
+  // sala rectangular de siempre. PORT deliberado del mismo criterio que
+  // interiores/src/formasSala.js:segmentosDePared, no import — este archivo
+  // es un <script> plano de navegador, ese módulo es CommonJS de Node
+  // (mismo patrón que el resto del proyecto para crearPRNG, ver CLAUDE.md).
+  const mascaraSala = r.mascara;
+  const esSueloSala = (x, y) => x >= 0 && y >= 0 && x < r.ancho && y < r.largo && (!mascaraSala || mascaraSala[y * r.ancho + x] === "1");
   const esquinas = [proyectar(0, 0, 0), proyectar(r.ancho, 0, 0), proyectar(0, r.largo, 0), proyectar(r.ancho, r.largo, ALTURA_PARED)];
   const xs = esquinas.map((p) => p[0]), ys = esquinas.map((p) => p[1]);
   const margen = 40;
@@ -367,14 +375,23 @@ function renderLienzo() {
   const minY = Math.min(...ys) - margen, maxY = Math.max(...ys) + margen + 20;
   const svg = svgEl("svg", { width: (maxX - minX).toFixed(0), height: (maxY - minY).toFixed(0), viewBox: `${minX.toFixed(1)} ${minY.toFixed(1)} ${(maxX - minX).toFixed(1)} ${(maxY - minY).toFixed(1)}`, "font-family": "monospace" });
 
-  // suelo
-  svg.appendChild(poligonoEl([proyectar(0, 0, 0), proyectar(r.ancho, 0, 0), proyectar(r.ancho, r.largo, 0), proyectar(0, r.largo, 0)], "#c9b896", { stroke: "#0004", "stroke-width": 0.5 }));
-
-  // casillas clicables (para mover-aquí / añadir-aquí) — el muro no ocupa
-  // casilla propia (colocarElementos.js), todo el rectángulo r.ancho x
-  // r.largo es suelo real.
+  // suelo: un tile por casilla de suelo REAL (antes un único rectángulo
+  // r.ancho x r.largo — con una plantilla no rectangular pintaba suelo
+  // también en los huecos de la máscara).
   for (let y = 0; y < r.largo; y++) {
     for (let x = 0; x < r.ancho; x++) {
+      if (!esSueloSala(x, y)) continue;
+      svg.appendChild(poligonoEl([proyectar(x, y, 0), proyectar(x + 1, y, 0), proyectar(x + 1, y + 1, 0), proyectar(x, y + 1, 0)], "#c9b896", { stroke: "#0004", "stroke-width": 0.5 }));
+    }
+  }
+
+  // casillas clicables (para mover-aquí / añadir-aquí) — el muro no ocupa
+  // casilla propia (colocarElementos.js); con una plantilla no rectangular
+  // solo las celdas de suelo real de la máscara son clicables, así nunca se
+  // puede pedir mover/añadir algo fuera de la forma real de la sala.
+  for (let y = 0; y < r.largo; y++) {
+    for (let x = 0; x < r.ancho; x++) {
+      if (!esSueloSala(x, y)) continue;
       const p0 = proyectar(x, y, 0.01), p1 = proyectar(x + 1, y, 0.01), p2 = proyectar(x + 1, y + 1, 0.01), p3 = proyectar(x, y + 1, 0.01);
       const tile = poligonoEl([p0, p1, p2, p3], "transparent", { style: "cursor:pointer" });
       tile.addEventListener("click", () => {
@@ -385,24 +402,38 @@ function renderLienzo() {
     }
   }
 
-  // muros sur/este sólidos (con hueco de puerta), mismo criterio que prueba_render_iso.js
+  // Muros: antes recorrían solo los 2 lados de la caja delimitadora que
+  // quedan "al fondo" desde esta cámara (sur/este) asumiendo rectángulo
+  // completo; ahora recorren cada celda de suelo real y ponen pared sólida
+  // en su lado sur/este si colinda con una celda que NO es suelo real —
+  // con rectángulo, exactamente el mismo perímetro de siempre; con una
+  // plantilla no rectangular, también los muros internos de un mordisco/
+  // concavidad. norte/oeste se marcan con una línea discontinua POR
+  // SEGMENTO (no un único trazo de borde a borde, que con una forma no
+  // rectangular sería engañoso) para que un mueble pegado ahí no parezca
+  // "flotando" sin tapar la vista del interior — mismo criterio que
+  // prueba_render_iso.js.
   const colorParedOscuro = sombrear("#8a8a8a", 0.75);
-  for (let x = 0; x < r.ancho; x++) {
-    if (r.puerta.lado === "sur" && x === r.puerta.x) continue;
-    const p0 = proyectar(x, r.largo, 0), p1 = proyectar(x + 1, r.largo, 0), p2 = proyectar(x + 1, r.largo, ALTURA_PARED), p3 = proyectar(x, r.largo, ALTURA_PARED);
-    svg.appendChild(poligonoEl([p0, p1, p2, p3], colorParedOscuro, { stroke: "#0006", "stroke-width": 0.6 }));
-  }
   const colorParedClaro = sombrear("#8a8a8a", 0.9);
   for (let y = 0; y < r.largo; y++) {
-    const p0 = proyectar(r.ancho, y, 0), p1 = proyectar(r.ancho, y + 1, 0), p2 = proyectar(r.ancho, y + 1, ALTURA_PARED), p3 = proyectar(r.ancho, y, ALTURA_PARED);
-    svg.appendChild(poligonoEl([p0, p1, p2, p3], colorParedClaro, { stroke: "#0006", "stroke-width": 0.6 }));
+    for (let x = 0; x < r.ancho; x++) {
+      if (!esSueloSala(x, y)) continue;
+      if (!esSueloSala(x, y - 1)) {
+        svg.appendChild(poliLineaEl([proyectar(x, y, 0), proyectar(x + 1, y, 0)], { fill: "none", stroke: "#fff8", "stroke-width": 1.4, "stroke-dasharray": "3,3" }));
+      }
+      if (!esSueloSala(x - 1, y)) {
+        svg.appendChild(poliLineaEl([proyectar(x, y, 0), proyectar(x, y + 1, 0)], { fill: "none", stroke: "#fff8", "stroke-width": 1.4, "stroke-dasharray": "3,3" }));
+      }
+      if (!esSueloSala(x, y + 1) && !(r.puerta.lado === "sur" && x === r.puerta.x && y === r.largo - 1)) {
+        const p0 = proyectar(x, y + 1, 0), p1 = proyectar(x + 1, y + 1, 0), p2 = proyectar(x + 1, y + 1, ALTURA_PARED), p3 = proyectar(x, y + 1, ALTURA_PARED);
+        svg.appendChild(poligonoEl([p0, p1, p2, p3], colorParedOscuro, { stroke: "#0006", "stroke-width": 0.6 }));
+      }
+      if (!esSueloSala(x + 1, y)) {
+        const p0 = proyectar(x + 1, y, 0), p1 = proyectar(x + 1, y + 1, 0), p2 = proyectar(x + 1, y + 1, ALTURA_PARED), p3 = proyectar(x + 1, y, ALTURA_PARED);
+        svg.appendChild(poligonoEl([p0, p1, p2, p3], colorParedClaro, { stroke: "#0006", "stroke-width": 0.6 }));
+      }
+    }
   }
-
-  // Borde discontinuo en norte/oeste: esta cámara no dibuja esos dos muros
-  // como sólidos (para poder ver el interior), así que sin esta línea un
-  // mueble/colgado pegado a ellos parece "flotando" sin ninguna referencia
-  // — mismo criterio que prueba_render_iso.js.
-  svg.appendChild(poliLineaEl([proyectar(0, r.largo, 0), proyectar(0, 0, 0), proyectar(r.ancho, 0, 0)], { fill: "none", stroke: "#fff8", "stroke-width": 1.4, "stroke-dasharray": "3,3" }));
 
   // mobiliario, ordenado por profundidad
   const ordenados = r.colocados.slice().sort((a, b) => (a.x + a.y) - (b.x + b.y));
