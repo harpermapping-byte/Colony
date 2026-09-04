@@ -82,6 +82,14 @@
       <div class="bloque" id="panelSala"><div class="vacio">—</div></div>
     </div>
     <div>
+      <h2>Puerta</h2>
+      <div class="bloque" id="panelPuerta"><div class="vacio">—</div></div>
+    </div>
+    <div>
+      <h2>Ventanas</h2>
+      <div class="bloque" id="panelVentanas"><div class="vacio">—</div></div>
+    </div>
+    <div>
       <h2>Mueble seleccionado</h2>
       <div class="bloque" id="panelMueble"><div class="vacio">Haz clic en un mueble</div></div>
     </div>
@@ -124,6 +132,68 @@ function svgEl(tag, attrs) { const e = document.createElementNS("http://www.w3.o
 function poligonoEl(puntos, fill, extra) { const e = svgEl("polygon", { points: puntos.map((p) => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), fill, ...(extra || {}) }); return e; }
 function poliLineaEl(puntos, extra) { const e = svgEl("polyline", { points: puntos.map((p) => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" "), ...(extra || {}) }); return e; }
 
+// ---- Perímetro real / puerta / ventanas (puerto de interiores/src/edicion.js
+// y formasSala.js — mismo criterio que ya explica el comentario de más
+// abajo sobre esSueloSala: este archivo es un <script> plano de
+// navegador, esos módulos son CommonJS de Node, así que cada uno porta su
+// propia copia suelta a propósito en vez de compartir import). Mantener
+// EXACTAMENTE la misma fórmula que el servidor: es lo que decide qué
+// hotspot del perímetro corresponde a qué (x,y,lado) real que luego
+// valida edicion.js — un desajuste aquí solo produciría un clic que el
+// servidor rechaza, nunca un dato corrupto (la validación real vive en el
+// servidor, esto es puramente para saber dónde dibujar el hotspot).
+function segmentosPerimetroCliente(r) {
+  const anchoS = r.ancho, largoS = r.largo, mascaraSala = r.mascara;
+  const esSuelo = (x, y) => x >= 0 && y >= 0 && x < anchoS && y < largoS && (!mascaraSala || mascaraSala[y * anchoS + x] === "1");
+  const segmentos = [];
+  for (let y = 0; y < largoS; y++) {
+    for (let x = 0; x < anchoS; x++) {
+      if (!esSuelo(x, y)) continue;
+      if (!esSuelo(x, y - 1)) segmentos.push({ x, y, lado: "norte" });
+      if (!esSuelo(x, y + 1)) segmentos.push({ x, y, lado: "sur" });
+      if (!esSuelo(x - 1, y)) segmentos.push({ x, y, lado: "oeste" });
+      if (!esSuelo(x + 1, y)) segmentos.push({ x, y, lado: "este" });
+    }
+  }
+  return segmentos;
+}
+// Punto EXTERIOR proyectado de un segmento de perímetro (x,y,lado) — mismo
+// punto que usa la puerta como su propio x/y cuando cae en ese lado
+// (edicion.js:exteriorDePuerta), usado tanto para el marcador de la
+// puerta real como para cada hotspot clicable de moverPuerta/ventana.
+function puntoExteriorProyectado(s, r, z) {
+  const zz = z || 0;
+  if (s.lado === "norte") return proyectar(s.x + 0.5, 0, zz);
+  if (s.lado === "sur") return proyectar(s.x + 0.5, r.largo, zz);
+  if (s.lado === "oeste") return proyectar(0, s.y + 0.5, zz);
+  return proyectar(r.ancho, s.y + 0.5, zz); // este
+}
+function puntoPuertaProyectado(r) {
+  const p = r.puerta;
+  if (p.lado === "norte") return proyectar(p.x + 0.5, 0, 0);
+  if (p.lado === "este") return proyectar(r.ancho, p.y + 0.5, 0);
+  if (p.lado === "oeste") return proyectar(0, p.y + 0.5, 0);
+  return proyectar(p.x + 0.5, r.largo, 0); // sur (o dato legacy sin lado)
+}
+// Casilla de suelo interior justo detrás de la puerta — mismo criterio
+// que edicion.js:umbralPuerta (ahí es la fuente de verdad; este es solo
+// el puerto de lectura para saber qué wall-tile NO dibujar como sólido).
+function umbralPuertaCliente(r) {
+  const p = r.puerta;
+  if (!p) return null;
+  if (p.lado === "norte") return { x: p.x, y: 0 };
+  if (p.lado === "este") return { x: r.ancho - 1, y: p.y };
+  if (p.lado === "oeste") return { x: 0, y: p.y };
+  return { x: p.x, y: r.largo - 1 }; // sur (o legacy)
+}
+// Casillas de suelo que cubre un tramo de ventana — mismo criterio que
+// edicion.js:celdasVentana (crece en X para norte/sur, en Y para este/oeste).
+function celdasVentanaCliente(lado, x, y, ancho) {
+  const celdas = [];
+  for (let i = 0; i < ancho; i++) celdas.push(lado === "norte" || lado === "sur" ? { x: x + i, y } : { x, y: y + i });
+  return celdas;
+}
+
 // ---- Estado del cliente ----
 let edificio = null;
 let nivelSel = null, indiceSalaSel = null;
@@ -135,6 +205,16 @@ let catalogoContenidoItems = []; // catálogo normalizado (nombre/categoria/subc
 let categoriasCatalogo = [];
 let tagsCatalogo = [];
 let filtroTexto = "", filtroCategoria = "", filtroTag = "";
+
+// ---- Puertas y ventanas como instancia editable (2026-09-04) ----
+// `modoEstructura`: null | {tipo:"moverPuerta"} | {tipo:"anadirVentana", opciones} | {tipo:"moverVentana"}
+// — mismo patrón de "armar y clicar" que `elementoArmado` ya usa para
+// muebles, pero el objetivo del clic aquí es un HOTSPOT del perímetro real
+// (formasSala.js:segmentosDePared, ver segmentosPerimetroCliente más abajo)
+// en vez de una casilla de suelo cualquiera.
+let modoEstructura = null;
+let catalogoVentanas = { forma: {}, tamano: {}, marco: {}, cristal: {} };
+let ventanaOpciones = { forma: "", tamano: "", marco: "", cristal: "" };
 
 const $ = (sel) => document.querySelector(sel);
 const estadoTxt = $("#estadoTxt");
@@ -169,6 +249,8 @@ function renderArbol() {
     planta.salas.forEach((s, i) => {
       const el = document.createElement("div");
       el.className = "sala" + (planta.nivel === nivelSel && i === indiceSalaSel ? " activa" : "");
+      el.dataset.nivel = planta.nivel; // identificar la fila desde fuera (tests) sin depender del texto visible
+      el.dataset.indiceSala = i;
       const origenColor = s.resultado.origen === "modificado" ? "var(--modificado)" : "var(--generado)";
       el.innerHTML = `<span><span class="dot" style="background:${origenColor};display:inline-block;margin-right:6px"></span>${s.tipoSalaId}${s.esPasillo ? " (pasillo)" : ""}</span><span class="hint">${s.resultado.ancho}x${s.resultado.largo}</span>`;
       el.onclick = () => { nivelSel = planta.nivel; indiceSalaSel = i; instanceSel = null; elementoArmado = null; vistaModo = "sala"; renderTodo(); };
@@ -205,6 +287,79 @@ function renderPanelSala() {
     if (res.ok) { s.resultado.tipoSalaId = res.resultado.tipoSalaId; s.resultado.materialSuelo = res.resultado.materialSuelo; s.resultado.materialPared = res.resultado.materialPared; s.resultado.origen = res.resultado.origen; s.tipoSalaId = res.resultado.tipoSalaId; renderTodo(); }
     else avisar(res);
   };
+}
+
+// ---- Panel de puerta (sección "puertas y ventanas como instancia
+// editable") — siempre hay UNA puerta por sala, así que este panel no
+// necesita selección previa: muestra la real y ofrece "Mover puerta" para
+// armar el modo de clic-en-hotspot (hotspotClicado).
+function renderPanelPuerta() {
+  const panel = $("#panelPuerta");
+  const s = salaActual();
+  if (!s) { panel.innerHTML = '<div class="vacio">—</div>'; return; }
+  const p = s.resultado.puerta;
+  const origen = p.origen || "generado";
+  const armado = modoEstructura?.tipo === "moverPuerta";
+  panel.innerHTML = `
+    <div class="fila"><span class="k">Lado</span><span>${p.lado} <span class="estado-origen ${origen}">${origen}</span></span></div>
+    <div class="fila"><span class="k">Posición</span><span>(${p.x}, ${p.y})</span></div>
+    <div class="botones">
+      <button id="btnMoverPuerta" class="${armado ? "armado" : ""}">${armado ? "◎ clic en un hueco del perímetro…" : "🚪 Mover puerta"}</button>
+    </div>
+    <div class="avisos" id="avisosPuerta"></div>`;
+  $("#btnMoverPuerta").onclick = () => {
+    modoEstructura = armado ? null : { tipo: "moverPuerta" };
+    instanceSel = null; elementoArmado = null;
+    renderTodo();
+  };
+}
+
+// ---- Panel de ventanas (mismo pedido): formulario para colocar una
+// nueva (forma/tamaño/marco/cristal de catalogo/ventanas.json) + lista de
+// las ya puestas, cada una con seleccionar/mover/eliminar. `celdasVentanaCliente`
+// se usa solo para el resumen "x tiles en <lado>" del listado.
+function renderPanelVentanas() {
+  const panel = $("#panelVentanas");
+  const s = salaActual();
+  if (!s) { panel.innerHTML = '<div class="vacio">—</div>'; return; }
+  const ventanas = s.resultado.ventanas || [];
+  const armadoAnadir = modoEstructura?.tipo === "anadirVentana";
+  const opcion = (seccion, valor, onchange) => `<select data-eje="${seccion}">${Object.keys(catalogoVentanas[seccion] || {}).map((id) => `<option value="${id}" ${id === valor ? "selected" : ""}>${id}</option>`).join("")}</select>`;
+  panel.innerHTML = `
+    <div class="paleta-controles">
+      ${opcion("forma", ventanaOpciones.forma)}
+      ${opcion("tamano", ventanaOpciones.tamano)}
+      ${opcion("marco", ventanaOpciones.marco)}
+      ${opcion("cristal", ventanaOpciones.cristal)}
+    </div>
+    <div class="botones">
+      <button id="btnAnadirVentana" class="${armadoAnadir ? "armado" : ""}">${armadoAnadir ? "◎ clic en un tramo de pared…" : "🪟 Colocar ventana"}</button>
+    </div>
+    <div style="margin-top:8px">
+      ${ventanas.length === 0 ? '<div class="vacio">sin ventanas</div>' : ventanas.map((v) => `
+        <div class="fila" style="align-items:center">
+          <span><span class="swatch" style="display:inline-block;background:${v.colorDebug || "#a9c9d6"}"></span> ${v.lado} (${v.x},${v.y}) ×${v.ancho} <span class="estado-origen ${v.origen || "generado"}">${v.origen || "generado"}</span></span>
+          <span>
+            <button data-mover="${v.instanceId}" style="padding:2px 6px">↔</button>
+            <button data-eliminar="${v.instanceId}" style="padding:2px 6px">🗑</button>
+          </span>
+        </div>`).join("")}
+    </div>
+    <div class="avisos" id="avisosVentana"></div>`;
+  panel.querySelectorAll("select[data-eje]").forEach((sel) => {
+    sel.onchange = () => { ventanaOpciones[sel.dataset.eje] = sel.value; };
+  });
+  $("#btnAnadirVentana").onclick = () => {
+    if (armadoAnadir) { modoEstructura = null; }
+    else { modoEstructura = { tipo: "anadirVentana", opciones: { ...ventanaOpciones } }; instanceSel = null; elementoArmado = null; }
+    renderTodo();
+  };
+  panel.querySelectorAll("[data-mover]").forEach((b) => {
+    b.onclick = () => { modoEstructura = { tipo: "moverVentana", instanceId: b.dataset.mover }; instanceSel = b.dataset.mover; elementoArmado = null; renderTodo(); };
+  });
+  panel.querySelectorAll("[data-eliminar]").forEach((b) => {
+    b.onclick = () => eliminarVentanaSeleccionada(b.dataset.eliminar);
+  });
 }
 
 // ---- Panel de mueble seleccionado (sección 4/9) ----
@@ -305,6 +460,34 @@ async function anadirEnTile(x, y, forzar) {
   else avisar(res);
 }
 
+// ---- Acciones de puerta/ventana (sección "puertas y ventanas como
+// instancia editable", 2026-09-04) — mismo patrón "armar y clicar en un
+// hotspot" que anadirEnTile ya usa para muebles, aplicado al perímetro
+// real en vez de a una casilla de suelo cualquiera.
+async function hotspotClicado(seg, forzar) {
+  const s = salaActual();
+  if (!modoEstructura) return;
+  if (modoEstructura.tipo === "moverPuerta") {
+    const res = await api("/api/editar/moverPuerta", "POST", { nivel: nivelSel, indiceSala: indiceSalaSel, x: seg.x, y: seg.y, lado: seg.lado, forzar });
+    if (!res.ok && res.requiereForzar && confirm(`Aviso: ${res.avisos.join(", ")}\n¿Mover la puerta de todas formas?`)) return hotspotClicado(seg, true);
+    if (res.ok) { s.resultado = res.resultado; modoEstructura = null; instanceSel = "__puerta__"; renderTodo(); } else avisar(res);
+  } else if (modoEstructura.tipo === "anadirVentana") {
+    const op = modoEstructura.opciones;
+    const res = await api("/api/editar/anadirVentana", "POST", { nivel: nivelSel, indiceSala: indiceSalaSel, x: seg.x, y: seg.y, lado: seg.lado, forma: op.forma, tamano: op.tamano, marco: op.marco, cristal: op.cristal, forzar });
+    if (!res.ok && res.requiereForzar && confirm(`Aviso: ${res.avisos.join(", ")}\n¿Colocar la ventana de todas formas?`)) return hotspotClicado(seg, true);
+    if (res.ok) { s.resultado = res.resultado; modoEstructura = null; instanceSel = res.instanceId; renderTodo(); } else avisar(res);
+  } else if (modoEstructura.tipo === "moverVentana") {
+    const idMovida = modoEstructura.instanceId; // capturado ANTES de limpiar modoEstructura más abajo
+    const res = await api("/api/editar/moverVentana", "POST", { nivel: nivelSel, indiceSala: indiceSalaSel, instanceId: idMovida, x: seg.x, y: seg.y, lado: seg.lado, forzar });
+    if (!res.ok && res.requiereForzar && confirm(`Aviso: ${res.avisos.join(", ")}\n¿Mover la ventana de todas formas?`)) return hotspotClicado(seg, true);
+    if (res.ok) { s.resultado = res.resultado; modoEstructura = null; instanceSel = idMovida; renderTodo(); } else avisar(res);
+  }
+}
+async function eliminarVentanaSeleccionada(instanceId) {
+  const res = await api("/api/editar/eliminarVentana", "POST", { nivel: nivelSel, indiceSala: indiceSalaSel, instanceId });
+  if (res.ok) { const s = salaActual(); s.resultado = res.resultado; if (instanceSel === instanceId) instanceSel = null; renderTodo(); }
+}
+
 // ---- Catálogo de contenido: navegar por categoría, buscar, filtrar por
 // tag, y colocar la pieza elegida (sección 10 del pedido de catálogo de
 // contenido) — sustituye la lista plana de antes por la consulta real al
@@ -389,12 +572,16 @@ function renderLienzo() {
   // casilla propia (colocarElementos.js); con una plantilla no rectangular
   // solo las celdas de suelo real de la máscara son clicables, así nunca se
   // puede pedir mover/añadir algo fuera de la forma real de la sala.
+  // modoEstructura activo (moverPuerta/anadirVentana/moverVentana): el
+  // clic real va en los hotspots del perímetro (más abajo), no aquí — se
+  // desactiva el click de mueble para no disparar los dos gestos a la vez.
   for (let y = 0; y < r.largo; y++) {
     for (let x = 0; x < r.ancho; x++) {
       if (!esSueloSala(x, y)) continue;
       const p0 = proyectar(x, y, 0.01), p1 = proyectar(x + 1, y, 0.01), p2 = proyectar(x + 1, y + 1, 0.01), p3 = proyectar(x, y + 1, 0.01);
       const tile = poligonoEl([p0, p1, p2, p3], "transparent", { style: "cursor:pointer" });
       tile.addEventListener("click", () => {
+        if (modoEstructura) return;
         if (elementoArmado) anadirEnTile(x, y);
         else if (instanceSel) { const item = buscarItemCliente(r, instanceSel); if (item && item.x !== undefined) apiMoverA(x, y); }
       });
@@ -415,6 +602,13 @@ function renderLienzo() {
   // prueba_render_iso.js.
   const colorParedOscuro = sombrear("#8a8a8a", 0.75);
   const colorParedClaro = sombrear("#8a8a8a", 0.9);
+  // Umbral real de la puerta (edicion.js:umbralPuerta, ver el puerto de
+  // arriba): antes esto asumía la puerta siempre en el sur
+  // (`r.puerta.lado==="sur" && x===r.puerta.x && y===r.largo-1`); ahora que
+  // moverPuerta permite los 4 lados, el muro sólido que corresponda (sur O
+  // este) tiene que saltarse el hueco en el lado que sea.
+  const umbralP = umbralPuertaCliente(r);
+  const esUmbralPuerta = (x, y) => !!umbralP && x === umbralP.x && y === umbralP.y;
   for (let y = 0; y < r.largo; y++) {
     for (let x = 0; x < r.ancho; x++) {
       if (!esSueloSala(x, y)) continue;
@@ -424,11 +618,11 @@ function renderLienzo() {
       if (!esSueloSala(x - 1, y)) {
         svg.appendChild(poliLineaEl([proyectar(x, y, 0), proyectar(x, y + 1, 0)], { fill: "none", stroke: "#fff8", "stroke-width": 1.4, "stroke-dasharray": "3,3" }));
       }
-      if (!esSueloSala(x, y + 1) && !(r.puerta.lado === "sur" && x === r.puerta.x && y === r.largo - 1)) {
+      if (!esSueloSala(x, y + 1) && !(r.puerta.lado === "sur" && esUmbralPuerta(x, y))) {
         const p0 = proyectar(x, y + 1, 0), p1 = proyectar(x + 1, y + 1, 0), p2 = proyectar(x + 1, y + 1, ALTURA_PARED), p3 = proyectar(x, y + 1, ALTURA_PARED);
         svg.appendChild(poligonoEl([p0, p1, p2, p3], colorParedOscuro, { stroke: "#0006", "stroke-width": 0.6 }));
       }
-      if (!esSueloSala(x + 1, y)) {
+      if (!esSueloSala(x + 1, y) && !(r.puerta.lado === "este" && esUmbralPuerta(x, y))) {
         const p0 = proyectar(x + 1, y, 0), p1 = proyectar(x + 1, y + 1, 0), p2 = proyectar(x + 1, y + 1, ALTURA_PARED), p3 = proyectar(x + 1, y, ALTURA_PARED);
         svg.appendChild(poligonoEl([p0, p1, p2, p3], colorParedClaro, { stroke: "#0006", "stroke-width": 0.6 }));
       }
@@ -465,13 +659,72 @@ function renderLienzo() {
       "stroke-dasharray": visible ? "" : "2,2",
       style: "cursor:pointer",
     });
-    circ.addEventListener("click", (ev) => { ev.stopPropagation(); instanceSel = c.instanceId; elementoArmado = null; renderTodo(); });
+    circ.addEventListener("click", (ev) => { ev.stopPropagation(); if (modoEstructura) return; instanceSel = c.instanceId; elementoArmado = null; renderTodo(); });
     svg.appendChild(circ);
   }
 
-  const puertaLbl = proyectar(r.puerta.x + 0.5, r.largo, 0);
-  const txt = svgEl("text", { x: puertaLbl[0].toFixed(1), y: (puertaLbl[1] + 14).toFixed(1), "font-size": 8, fill: "#ccc", "text-anchor": "middle" });
+  // Ventanas (resultado.ventanas — catalogo/ventanas.json, sección
+  // "puertas y ventanas como instancia editable" 2026-09-04): antes NO se
+  // dibujaban aquí en absoluto (solo colgados) — cada tramo se pinta como
+  // una barra sobre su lado real, un rectángulo por casilla cubierta
+  // (celdasVentanaCliente), mismo criterio visible/tenue que ya usan los
+  // colgados de arriba según el lado dé a un muro sólido (sur/este) o al
+  // que esta cámara deja discontinuo (norte/oeste).
+  for (const v of r.ventanas || []) {
+    const celdas = celdasVentanaCliente(v.lado, v.x, v.y ?? 0, v.ancho);
+    const visible = v.lado === "sur" || v.lado === "este";
+    const zc = visible ? ALTURA_PARED * 0.55 : ALTURA_PARED * 0.5;
+    const seleccionada = v.instanceId === instanceSel;
+    for (const c of celdas) {
+      const [px, py] =
+        v.lado === "sur" ? proyectar(c.x + 0.5, r.largo, zc)
+        : v.lado === "este" ? proyectar(r.ancho, c.y + 0.5, zc)
+        : v.lado === "norte" ? proyectar(c.x + 0.5, 0, zc)
+        : proyectar(0, c.y + 0.5, zc);
+      const rectV = svgEl("rect", {
+        x: (px - 5).toFixed(1), y: (py - 3.5).toFixed(1), width: 10, height: 7,
+        fill: v.colorDebug || "#a9c9d6", "fill-opacity": visible ? 0.95 : 0.5,
+        stroke: seleccionada ? "#fff" : visible ? "#000" : "#fff",
+        "stroke-width": seleccionada ? 1.6 : 0.7,
+        "stroke-dasharray": visible ? "" : "2,2",
+        style: "cursor:pointer",
+      });
+      rectV.addEventListener("click", (ev) => { ev.stopPropagation(); if (modoEstructura) return; instanceSel = v.instanceId; elementoArmado = null; renderTodo(); });
+      svg.appendChild(rectV);
+    }
+  }
+
+  // Puerta: marcador seleccionable (antes solo una etiqueta de texto fija
+  // al sur) — clicable para abrir su panel (sentinela "__puerta__", no
+  // vive en colocados/colgados/techo así que buscarItemCliente no lo
+  // encuentra a propósito, ver el guardia de teclado más abajo).
+  const [ppx, ppy] = puntoPuertaProyectado(r);
+  const puertaSel = instanceSel === "__puerta__";
+  const marcadorPuerta = svgEl("path", {
+    d: `M ${ppx.toFixed(1)} ${(ppy - 7).toFixed(1)} l 5 7 l -5 7 l -5 -7 z`,
+    fill: "#c98a2a", "fill-opacity": puertaSel ? 1 : 0.85,
+    stroke: puertaSel ? "#fff" : "#0008", "stroke-width": puertaSel ? 1.6 : 0.7,
+    style: "cursor:pointer",
+  });
+  marcadorPuerta.addEventListener("click", (ev) => { ev.stopPropagation(); if (modoEstructura) return; instanceSel = "__puerta__"; elementoArmado = null; renderTodo(); });
+  svg.appendChild(marcadorPuerta);
+  const txt = svgEl("text", { x: ppx.toFixed(1), y: (ppy + 18).toFixed(1), "font-size": 8, fill: "#ccc", "text-anchor": "middle" });
   txt.textContent = "puerta"; svg.appendChild(txt);
+
+  // Hotspots del perímetro real — solo cuando hay un modoEstructura
+  // armado (moverPuerta/anadirVentana/moverVentana): cada punto es un
+  // (x,y,lado) real de segmentosPerimetroCliente, clicable para completar
+  // la operación armada (hotspotClicado). Se dibujan POR ENCIMA de todo
+  // lo demás (últimos en añadirse al SVG) para que siempre sean el
+  // objetivo del clic mientras el modo está activo.
+  if (modoEstructura) {
+    for (const seg of segmentosPerimetroCliente(r)) {
+      const [hx, hy] = puntoExteriorProyectado(seg, r, 0.05);
+      const hotspot = svgEl("circle", { cx: hx.toFixed(1), cy: hy.toFixed(1), r: 4.5, fill: "#6aa0d8", "fill-opacity": 0.9, stroke: "#fff", "stroke-width": 0.9, style: "cursor:pointer" });
+      hotspot.addEventListener("click", (ev) => { ev.stopPropagation(); hotspotClicado(seg); });
+      svg.appendChild(hotspot);
+    }
+  }
 
   cont.innerHTML = "";
   cont.appendChild(svg);
@@ -557,26 +810,32 @@ function dibujarCaja(svg, item, seleccionado) {
   const txt = svgEl("text", { x: lx.toFixed(1), y: ly.toFixed(1), "font-size": 7, fill: "#000", "text-anchor": "middle", stroke: "#fff", "stroke-width": 2.5, style: "paint-order:stroke" });
   txt.textContent = item.id.slice(0, 12);
   g.appendChild(txt);
-  g.addEventListener("click", (ev) => { ev.stopPropagation(); instanceSel = item.instanceId; elementoArmado = null; renderTodo(); });
+  g.addEventListener("click", (ev) => { ev.stopPropagation(); if (modoEstructura) return; instanceSel = item.instanceId; elementoArmado = null; renderTodo(); });
   svg.appendChild(g);
 }
 
 // ---- Teclado: mover/rotar/eliminar la pieza seleccionada ----
 document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") { instanceSel = null; elementoArmado = null; modoEstructura = null; renderTodo(); ev.preventDefault(); return; }
   if (!instanceSel) return;
+  // instanceSel puede ser "__puerta__" (puerta) o el instanceId de una
+  // ventana — ninguna de las dos vive en colocados/colgados/techo, así
+  // que estos atajos (pensados para muebles) no tienen nada que hacer
+  // sobre ellas; Escape (arriba) sigue funcionando igual para las tres.
+  const s = salaActual();
+  if (!s || !buscarItemCliente(s.resultado, instanceSel)) return;
   if (ev.key === "ArrowUp") moverSeleccionado(0, -1);
   else if (ev.key === "ArrowDown") moverSeleccionado(0, 1);
   else if (ev.key === "ArrowLeft") moverSeleccionado(-1, 0);
   else if (ev.key === "ArrowRight") moverSeleccionado(1, 0);
   else if (ev.key.toLowerCase() === "r") rotarSeleccionado();
   else if (ev.key === "Delete" || ev.key === "Backspace") eliminarSeleccionado();
-  else if (ev.key === "Escape") { instanceSel = null; elementoArmado = null; renderTodo(); }
   else return;
   ev.preventDefault();
 });
 
 function renderTodo() {
-  renderArbol(); renderPanelSala(); renderPanelMueble(); renderPaleta();
+  renderArbol(); renderPanelSala(); renderPanelPuerta(); renderPanelVentanas(); renderPanelMueble(); renderPaleta();
   if (vistaModo === "edificio") renderVistaEdificio(); else renderLienzo();
   $("#btnVistaEdificio").textContent = vistaModo === "edificio" ? "🚪 Vista habitación" : "🏢 Vista edificio";
 }
@@ -584,8 +843,8 @@ function renderTodo() {
 // ---- Arranque ----
 let catalogoTiposSala = [];
 async function iniciar() {
-  const [tiposEdificio, tiposSala, elementos, catalogo] = await Promise.all([
-    api("/api/tiposEdificio"), api("/api/tiposSala"), api("/api/elementos"), api("/api/catalogo"),
+  const [tiposEdificio, tiposSala, elementos, catalogo, ventanas] = await Promise.all([
+    api("/api/tiposEdificio"), api("/api/tiposSala"), api("/api/elementos"), api("/api/catalogo"), api("/api/ventanas"),
   ]);
   $("#selTipoEdificio").innerHTML = tiposEdificio.tiposEdificio.map((t) => `<option>${t}</option>`).join("");
   catalogoTiposSala = tiposSala.tiposSala;
@@ -593,6 +852,15 @@ async function iniciar() {
   catalogoContenidoItems = catalogo.items;
   categoriasCatalogo = catalogo.categorias;
   tagsCatalogo = catalogo.tags;
+  catalogoVentanas = { forma: ventanas.forma || {}, tamano: ventanas.tamano || {}, marco: ventanas.marco || {}, cristal: ventanas.cristal || {} };
+  // Opción por defecto de cada eje = la primera del catálogo (mismo
+  // criterio que colocarElementos.js:ejeValido cuando no se pide nada
+  // explícito) — así "Colocar ventana" ya tiene una combinación válida
+  // lista sin que el streamer tenga que tocar los 4 desplegables primero.
+  for (const eje of ["forma", "tamano", "marco", "cristal"]) {
+    const ids = Object.keys(catalogoVentanas[eje]);
+    if (ids.length) ventanaOpciones[eje] = ids[0];
+  }
 
   $("#selCategoriaCatalogo").innerHTML = '<option value="">todas las categorías</option>' + categoriasCatalogo.map((c) => `<option value="${c}">${c}</option>`).join("");
   $("#selTagCatalogo").innerHTML = '<option value="">todos los tags</option>' + tagsCatalogo.map((t) => `<option value="${t}">${t}</option>`).join("");

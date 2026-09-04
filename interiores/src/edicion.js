@@ -13,6 +13,7 @@ const { colocarSala } = require("./colocarElementos");
 const { rotarHuella, rotarOffset, ORIENTACIONES } = require("./rotacion");
 const { calcularEstadisticas } = require("./estadisticas");
 const { reglasParaElemento } = require("./catalogoContenido");
+const { segmentosDePared } = require("./formasSala");
 
 // reglas por defecto cuando no hay definición de catálogo a mano (item
 // suelto sin `catalogos`, o id no encontrado) — reproduce EXACTAMENTE el
@@ -73,6 +74,93 @@ function huellaDentroDeMascara(resultado, x, y, ancho, largo) {
   return true;
 }
 
+// ---- Puertas y ventanas como instancia editable (2026-09-04) ----
+// El generador automático solo punza la puerta en el muro sur y las
+// ventanas en el muro norte (colocarElementos.js — cada sala aislada no
+// sabe qué pared da a fuera hasta que edificio.js compone la planta
+// entera, ver comentario ahí). El editor, en cambio, SÍ deja al streamer
+// decidir a mano cualquiera de los 4 lados del perímetro real de la
+// sala — mismo dato (`resultado.mascara`), reusando la MISMA función que
+// ya usan los renderers de verificación (formasSala.js:segmentosDePared)
+// para no duplicar el cálculo de "qué casilla de suelo toca pared de
+// verdad" por tercera vez.
+
+// Perímetro real de la sala como lista de {x,y,lado} — una esquina
+// cóncava puede aparecer más de una vez (toca pared en dos lados a la
+// vez), exactamente igual que ya asume segmentosDePared en sus otros usos.
+function segmentosPerimetro(resultado) {
+  return segmentosDePared({ ancho: resultado.ancho, largo: resultado.largo, mascara: resultado.mascara });
+}
+
+// Casilla de suelo INTERIOR justo detrás de la puerta (el umbral real de
+// entrada) — generaliza el `entradaY = resultado.largo-1` que este
+// archivo usaba antes (asumía la puerta siempre en el muro sur) a los 4
+// lados posibles ahora que moverPuerta permite cualquiera. Sin `puerta`
+// (no debería pasar, colocarSala siempre la coloca) o con un `lado`
+// desconocido, cae al comportamiento de siempre (sur) por compatibilidad
+// con datos guardados antes de este catálogo.
+function umbralPuerta(resultado) {
+  const { puerta, ancho, largo } = resultado;
+  if (!puerta) return null;
+  if (puerta.lado === "norte") return { x: puerta.x, y: 0 };
+  if (puerta.lado === "este") return { x: ancho - 1, y: puerta.y };
+  if (puerta.lado === "oeste") return { x: 0, y: puerta.y };
+  return { x: puerta.x, y: largo - 1 }; // sur (o dato legacy sin lado)
+}
+
+// Punto EXTERIOR (el hueco en sí, una casilla más allá del límite) para
+// una puerta que cae en (x,y) interior con ese `lado` — inverso de
+// umbralPuerta, mismo criterio de siempre: el muro no ocupa casilla
+// propia, la puerta es el hueco justo al otro lado del límite.
+function exteriorDePuerta(x, y, lado, ancho, largo) {
+  if (lado === "norte") return { x, y: -1 };
+  if (lado === "este") return { x: ancho, y };
+  if (lado === "oeste") return { x: -1, y };
+  return { x, y: largo }; // sur
+}
+
+// Casillas de suelo interior que ocuparía un tramo de ventana de `ancho`
+// tiles arrancando en (x,y) — crece en X para norte/sur (recorre el
+// muro horizontal), en Y para este/oeste (recorre el muro vertical).
+// Mismo sentido de recorrido que ya usa colocarElementos.js para sus
+// propias ventanas automáticas (siempre norte, crecen en X).
+function celdasVentana(lado, x, y, ancho) {
+  const celdas = [];
+  for (let i = 0; i < ancho; i++) celdas.push(lado === "norte" || lado === "sur" ? { x: x + i, y } : { x, y: y + i });
+  return celdas;
+}
+
+function clave(x, y) { return `${x}_${y}`; }
+
+// Valida un tramo de ventana contra el perímetro real: fuera de perímetro
+// es bloqueo duro (una ventana no puede flotar en el vacío, mismo
+// criterio que "fuera_de_limites" para muebles); coincidir con el umbral
+// de la puerta o con un borde ya usado (bordesOcupados — colgado o
+// ventana ya puesta ahí, el mismo Set que ya usa colocarElementos.js)
+// son avisos forzables. `ignorarInstanceId` (moverVentana): no cuenta el
+// propio tramo viejo de la ventana que se está reubicando como "ya
+// ocupado" contra sí misma.
+function validarTramoVentana(resultado, lado, x, y, ancho, ignorarInstanceId) {
+  const segmentos = segmentosPerimetro(resultado);
+  const celdas = celdasVentana(lado, x, y, ancho);
+  for (const c of celdas) {
+    if (!segmentos.some((s) => s.x === c.x && s.y === c.y && s.lado === lado)) return { ok: false, avisos: ["fuera_de_perimetro"] };
+  }
+
+  const bordesOcupados = new Set(resultado.bordesOcupados || []);
+  if (ignorarInstanceId) {
+    const propia = (resultado.ventanas || []).find((v) => v.instanceId === ignorarInstanceId);
+    if (propia) for (const c of celdasVentana(propia.lado, propia.x, propia.y ?? 0, propia.ancho)) bordesOcupados.delete(clave(c.x, c.y));
+  }
+  const umbral = umbralPuerta(resultado);
+  const avisos = [];
+  for (const c of celdas) {
+    if (umbral && c.x === umbral.x && c.y === umbral.y) avisos.push("coincide_con_la_puerta");
+    if (bordesOcupados.has(clave(c.x, c.y))) avisos.push("borde_ya_ocupado");
+  }
+  return { ok: true, avisos: [...new Set(avisos)] };
+}
+
 // Validación de una huella en (x,y): fueraDeLimites es el único motivo de
 // bloqueo duro (sección 9: "impedir... ocupar tiles inválidos" — salirse
 // de la sala rompe el dato, no es una cuestión de gusto). Solapamiento y
@@ -109,12 +197,15 @@ function validarHueco(resultado, x, y, ancho, largo, ocupadas, reglas) {
   if (solapa) avisos.push("solapa_con_otro_mueble");
 
   // La puerta en sí ya no es una casilla de suelo (cae justo fuera del
-  // rectángulo, en y=resultado.largo) — "bloquear la puerta" significa
-  // tapar la última fila de suelo, pegada a ese hueco, por donde se
-  // entra de verdad.
-  const { puerta } = resultado;
-  const entradaY = resultado.largo - 1;
-  const cubrePuerta = x <= puerta.x && puerta.x < x + ancho && y <= entradaY && entradaY < y + largo;
+  // perímetro real) — "bloquear la puerta" significa tapar la casilla de
+  // suelo pegada a ese hueco, por donde se entra de verdad. Antes de
+  // moverPuerta (sección "puertas y ventanas como instancia editable",
+  // 2026-09-04) la puerta SIEMPRE estaba en el muro sur (entradaY =
+  // resultado.largo-1, fijo); ahora puede estar en cualquiera de los 4
+  // lados del perímetro, así que el umbral se calcula por `puerta.lado`
+  // (umbralPuerta, más abajo) en vez de asumir siempre sur.
+  const umbral = umbralPuerta(resultado);
+  const cubrePuerta = !!umbral && x <= umbral.x && umbral.x < x + ancho && y <= umbral.y && umbral.y < y + largo;
   if (cubrePuerta && !reglas.puedeBloquearPuerta) avisos.push("bloquea_la_puerta");
 
   return { ok: true, avisos };
@@ -194,6 +285,111 @@ let contadorManual = 0;
 function nuevoInstanceId(prefijo) {
   contadorManual += 1;
   return `manual_${prefijo}_${Date.now().toString(36)}_${contadorManual}`;
+}
+
+// moverPuerta — puertas/ventanas como instancia editable (2026-09-04):
+// reubica la puerta de la sala a otra casilla del PERÍMETRO REAL, en
+// cualquiera de los 4 lados (el generador automático solo la punza en el
+// sur — ver colocarElementos.js — pero nada en el resto del motor asume
+// eso salvo lo que este mismo archivo ya generalizó arriba con
+// umbralPuerta). `lado` es opcional: con una esquina cóncava (la misma
+// casilla toca pared en 2 lados a la vez) se puede pedir explícito cuál
+// de los dos se quiere; sin pedirlo, se usa el primero que encuentre
+// segmentosPerimetro.
+function moverPuerta(resultado, x, y, opts = {}) {
+  const candidatos = segmentosPerimetro(resultado).filter((s) => s.x === x && s.y === y);
+  if (candidatos.length === 0) return { ok: false, avisos: ["no_es_perimetro_valido"] };
+  const lado = opts.lado && candidatos.some((c) => c.lado === opts.lado) ? opts.lado : candidatos[0].lado;
+
+  // Mismo aviso forzable "bloquea_la_puerta" que ya existía para muebles
+  // (validarHueco) — aquí en sentido inverso: un mueble ya puesto en la
+  // casilla que pasaría a ser el nuevo umbral.
+  const avisos = calcularOcupacion(resultado).has(clave(x, y)) ? ["bloquea_la_puerta"] : [];
+  if (avisos.length > 0 && !opts.forzar) return { ok: false, avisos, requiereForzar: true };
+
+  const destino = exteriorDePuerta(x, y, lado, resultado.ancho, resultado.largo);
+  resultado.puerta = { lado, x: destino.x, y: destino.y, origen: "modificado" };
+  return { ok: true, avisos };
+}
+
+// anadirVentana — coloca una ventana nueva en un tramo de `ancho` tiles
+// del perímetro real, arrancando en (x,y) en el `lado` dado. Los 4 ejes
+// de catálogo (forma/tamano/marco/cristal, ventanas.json) son opcionales
+// — sin especificar, se usa el primero disponible de cada uno (mismo
+// catálogo que ya consulta colocarElementos.js, ejeValido ahí).
+function primerIdCatalogo(seccion) {
+  const entradas = Object.entries(seccion || {}).filter(([id]) => !id.startsWith("_"));
+  return entradas.length > 0 ? entradas[0] : null;
+}
+function anadirVentana(resultado, catalogos, x, y, lado, opts = {}) {
+  const catV = catalogos.ventanas || {};
+  const elegirEje = (seccion, idPedido) => (idPedido && seccion?.[idPedido] ? [idPedido, seccion[idPedido]] : primerIdCatalogo(seccion));
+  const formaEntrada = elegirEje(catV.forma, opts.forma);
+  const tamanoEntrada = elegirEje(catV.tamano, opts.tamano);
+  const marcoEntrada = elegirEje(catV.marco, opts.marco);
+  const cristalEntrada = elegirEje(catV.cristal, opts.cristal);
+  if (!formaEntrada || !tamanoEntrada || !marcoEntrada || !cristalEntrada) return { ok: false, avisos: ["catalogo_ventanas_incompleto"] };
+  const [formaId, formaDef] = formaEntrada;
+  const [tamanoId, tamanoDef] = tamanoEntrada;
+  const [marcoId] = marcoEntrada;
+  const [cristalId, cristalDef] = cristalEntrada;
+
+  const ancho = tamanoDef.anchoTiles || 1;
+  const validacion = validarTramoVentana(resultado, lado, x, y, ancho);
+  if (!validacion.ok) return validacion;
+  if (validacion.avisos.length > 0 && !opts.forzar) return { ok: false, avisos: validacion.avisos, requiereForzar: true };
+
+  // Misma fórmula de aporteLuz que colocarElementos.js (GDD_Bakeador_Interiores
+  // §7bis) — no reinventarla aquí, para que una ventana añadida a mano
+  // aporte luz ambiente exactamente igual que una generada.
+  const factorTamano = tamanoDef.aporteLuz ?? tamanoDef.anchoTiles * (tamanoDef.altaEnPared ? 0.6 : 1);
+  const factorCristal = cristalDef.aporteLuz ?? 1;
+  const aporteLuz = Math.round(factorTamano * factorCristal * 100) / 100;
+
+  const item = {
+    instanceId: nuevoInstanceId("ventana"), x, y, lado, ancho,
+    forma: formaId, tamano: tamanoId, marco: marcoId, cristal: cristalId,
+    aporteLuz, colorDebug: formaDef.colorDebug || "#a9c9d6", origen: "modificado",
+  };
+  resultado.ventanas = [...(resultado.ventanas || []), item];
+  const nuevosBordes = celdasVentana(lado, x, y, ancho).map((c) => clave(c.x, c.y));
+  resultado.bordesOcupados = [...new Set([...(resultado.bordesOcupados || []), ...nuevosBordes])];
+  return { ok: true, avisos: validacion.avisos, instanceId: item.instanceId };
+}
+
+// moverVentana — reubica una ventana ya colocada (a mano o generada) a
+// otro tramo del perímetro, opcionalmente cambiando de lado; conserva su
+// forma/tamaño/marco/cristal/aporteLuz. Libera su tramo viejo de
+// bordesOcupados antes de validar el nuevo (para no chocar consigo misma
+// si se mueve dentro del mismo muro), igual que moverElemento ignora la
+// propia huella al recalcular ocupación.
+function moverVentana(resultado, instanceId, x, y, opts = {}) {
+  const v = (resultado.ventanas || []).find((it) => it.instanceId === instanceId);
+  if (!v) return { ok: false, avisos: ["ventana_no_encontrada"] };
+  const ladoFinal = opts.lado || v.lado;
+
+  const validacion = validarTramoVentana(resultado, ladoFinal, x, y, v.ancho, instanceId);
+  if (!validacion.ok) return validacion;
+  if (validacion.avisos.length > 0 && !opts.forzar) return { ok: false, avisos: validacion.avisos, requiereForzar: true };
+
+  const viejos = new Set(celdasVentana(v.lado, v.x, v.y ?? 0, v.ancho).map((c) => clave(c.x, c.y)));
+  resultado.bordesOcupados = (resultado.bordesOcupados || []).filter((k) => !viejos.has(k));
+  v.lado = ladoFinal; v.x = x; v.y = y; v.origen = "modificado";
+  const nuevosBordes = celdasVentana(ladoFinal, x, y, v.ancho).map((c) => clave(c.x, c.y));
+  resultado.bordesOcupados = [...new Set([...(resultado.bordesOcupados || []), ...nuevosBordes])];
+  return { ok: true, avisos: validacion.avisos };
+}
+
+// eliminarVentana — quita una ventana ya colocada (a mano o generada) y
+// libera su tramo de bordesOcupados, para que un colgado/otra ventana
+// pueda ocupar ese mismo sitio después.
+function eliminarVentana(resultado, instanceId) {
+  const idx = (resultado.ventanas || []).findIndex((v) => v.instanceId === instanceId);
+  if (idx === -1) return { ok: false, avisos: ["ventana_no_encontrada"] };
+  const [v] = resultado.ventanas.splice(idx, 1);
+  const libres = new Set(celdasVentana(v.lado, v.x, v.y ?? 0, v.ancho).map((c) => clave(c.x, c.y)));
+  resultado.bordesOcupados = (resultado.bordesOcupados || []).filter((k) => !libres.has(k));
+  return { ok: true, avisos: [] };
 }
 
 // añadir — sección 4/9: coloca una pieza nueva del catálogo en (x,y).
@@ -322,6 +518,14 @@ function regenerarMobiliario(resultado, catalogos, opts = {}) {
   const conservadas = opts.forzar ? [] : resultado.colocados.filter((it) => it.origen === "modificado");
   const conservadasColgados = opts.forzar ? [] : resultado.colgados.filter((it) => it.origen === "modificado");
   const conservadasTecho = opts.forzar ? [] : resultado.techo.filter((it) => it.origen === "modificado");
+  // Puerta/ventanas movidas o añadidas a mano (2026-09-04): MISMO criterio
+  // exacto que ya protege un mueble modificado — origen:"modificado" a
+  // nivel de la propia puerta/ventana (no de la sala entera, ese
+  // candado más grueso sigue siendo solo de cambiarTipoSala), así que
+  // "regenerar mobiliario" sigue pudiendo rehacer el resto de la sala sin
+  // pisar una puerta reubicada o una ventana añadida a propósito.
+  const puertaConservada = !opts.forzar && resultado.puerta?.origen === "modificado";
+  const ventanasConservadas = opts.forzar ? [] : (resultado.ventanas || []).filter((v) => v.origen === "modificado");
 
   const semillaRegeneracion = `${resultado.semilla}:regen:${Date.now()}`;
   // anchoForzado/largoForzado/formaSalaForzada: "regenerar mobiliario" NUNCA
@@ -364,9 +568,35 @@ function regenerarMobiliario(resultado, catalogos, opts = {}) {
   resultado.colgados = [...conservadasColgados, ...fresco.colgados];
   resultado.techo = [...conservadasTecho, ...fresco.techo];
 
+  // Puerta: si se movió a mano, se queda tal cual (ni siquiera se
+  // recalcula su punto exterior, que de todas formas ya cae en la misma
+  // máscara — anchoForzado/largoForzado/formaSalaForzada garantizan que
+  // la forma no cambió); si no, adopta la de la regeneración fresca
+  // (determinista: colocarSala no tira ningún dado para la puerta, así
+  // que en la práctica esto casi siempre da la misma posición de antes).
+  if (!puertaConservada) resultado.puerta = fresco.puerta;
+
+  // Ventanas: mismo patrón de conservar+concatenar que ya usan colgados
+  // más arriba (sin filtrar solapes entre conservadas y frescas — igual
+  // de aproximado que colgados, no se le pide más rigor a esto que a lo
+  // que ya existía). bordesOcupados se reconstruye desde la regeneración
+  // fresca (sus propios colgados/ventanas) MÁS los bordes de lo
+  // conservado, para que una ventana añadida a mano después de este
+  // regen siga viendo ocupado el sitio real de lo que se acaba de
+  // preservar.
+  resultado.ventanas = [...ventanasConservadas, ...fresco.ventanas];
+  const bordesConservados = [];
+  for (const it of conservadasColgados) bordesConservados.push(`${it.x}_${it.y}`);
+  for (const v of ventanasConservadas) for (const c of celdasVentana(v.lado, v.x, v.y ?? 0, v.ancho)) bordesConservados.push(clave(c.x, c.y));
+  resultado.bordesOcupados = [...new Set([...(fresco.bordesOcupados || []), ...bordesConservados])];
+
   const sobreTodos = resultado.colocados.flatMap((c) => c.sobre || []);
   resultado.estadisticas = calcularEstadisticas([...resultado.colocados, ...resultado.colgados, ...resultado.techo, ...sobreTodos]);
-  return { ok: true, conservadas: conservadas.length + conservadasColgados.length + conservadasTecho.length, nuevas: frescoLibre.length };
+  return {
+    ok: true,
+    conservadas: conservadas.length + conservadasColgados.length + conservadasTecho.length + (puertaConservada ? 1 : 0) + ventanasConservadas.length,
+    nuevas: frescoLibre.length,
+  };
 }
 
 // regenerarHabitacion — sección 6/7: si la sala en sí fue editada a mano
@@ -400,10 +630,16 @@ module.exports = {
   sustituirElemento,
   cambiarEstado,
   cambiarTipoSala,
+  moverPuerta,
+  anadirVentana,
+  moverVentana,
+  eliminarVentana,
   regenerarMobiliario,
   regenerarHabitacion,
   regenerarPiso,
   regenerarEdificio,
   calcularOcupacion,
   buscarItem,
+  segmentosPerimetro,
+  umbralPuerta,
 };

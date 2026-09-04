@@ -187,7 +187,12 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       if (d < mejorDist) { mejorDist = d; xPuertaObjetivo = x; }
     }
   }
-  const puerta = { lado: "sur", x: xPuertaObjetivo, y: largo };
+  // origen:"generado" (edicion.js sección "puertas y ventanas como
+  // instancia editable", 2026-09-04): mismo campo que ya lleva cada mueble
+  // — moverPuerta() lo pone a "modificado" al reubicarla a mano, y
+  // regenerarMobiliario respeta una puerta modificada exactamente igual
+  // que ya respeta un mueble modificado (no la pisa salvo forzar:true).
+  const puerta = { lado: "sur", x: xPuertaObjetivo, y: largo, origen: "generado" };
 
   // Ocupación de suelo: true = libre. Con rectángulo (mascaraGrid null),
   // todo el rectángulo ancho x largo es suelo real, no hay anillo exterior
@@ -358,11 +363,24 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         const factorCristal = cristalDef.aporteLuz ?? 1;
         const aporteLuz = Math.round(factorTamano * factorCristal * 100) / 100;
 
+        // instanceId+origen (edicion.js sección "puertas y ventanas como
+        // instancia editable", 2026-09-04): mismo contrato que ya usa
+        // marcarGenerado() para el mobiliario — un id estable por
+        // INSTANCIA (no por tipo) para que el editor pueda seleccionar/
+        // mover/eliminar una ventana concreta sin ambigüedad, y origen
+        // "generado" para que regenerarMobiliario sepa que esta es
+        // descartable en la próxima regeneración (a diferencia de una
+        // añadida/movida a mano, que edicion.js marca "modificado"). `y`
+        // (siempre 0 aquí: única generación automática, muro norte) viaja
+        // igual que `x` para que edicion.js pueda tratar los 4 lados con
+        // la misma fórmula sin caso especial para lo que generó el bake.
         ventanas.push({
-          x, lado: "norte", ancho: anchoVentana,
+          instanceId: `${tipoSalaId}_${semilla}_ventana_${ventanas.length}`,
+          x, y: 0, lado: "norte", ancho: anchoVentana,
           forma: formaId, tamano: tamanoId, marco: marcoId, cristal: cristalId,
           aporteLuz,
           colorDebug: formaDef.colorDebug || "#a9c9d6",
+          origen: "generado",
         });
       }
     }

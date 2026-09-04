@@ -87,6 +87,17 @@ export function montarVista3D(contenedor, edificio, { colorParaTipoSala, alSelec
         const r = s.resultado;
         const ox = s.offsetX, oy = s.offsetY;
         const puertas = new Set(s.salaPlanta ? s.salaPlanta.puertas : []);
+        // Puerta EDITADA a mano (edicion.js:moverPuerta, sección "puertas y
+        // ventanas como instancia editable" 2026-09-04): `salaPlanta.puertas`
+        // es el conjunto compuesto por edificio.js AL GENERAR el edificio —
+        // una puerta reubicada después con el editor no está ahí, así que
+        // sin esto la vista 3D seguiría abriendo el hueco en el sitio viejo.
+        // `r.puerta.x/y` ya es el punto EXTERIOR en coordenadas locales de
+        // la sala (mismo contrato que colocarElementos.js siempre usó, ver
+        // edicion.js:exteriorDePuerta) — pasar a global es solo sumar el
+        // offset, exactamente igual que la clave que ya arma `puertas`.
+        const claveGlobal = (r.puerta && `${ox + r.puerta.x}_${oy + r.puerta.y}`) || null;
+        const esPuertaPropia = (gx, gy) => `${gx}_${gy}` === claveGlobal;
 
         // Máscara real de suelo (catalogo/formasSala.json — docs/GDD_Bakeador_Interiores.md
         // sección 2): r.mascara es un string 'ancho*largo' de '1'/'0' (mismo
@@ -137,10 +148,10 @@ export function montarVista3D(contenedor, edificio, { colorParaTipoSala, alSelec
         for (let ty = 0; ty < r.largo; ty++) {
           for (let tx = 0; tx < r.ancho; tx++) {
             if (!esSueloSala(tx, ty)) continue;
-            if (!esSueloSala(tx, ty - 1)) tramoPared(ox + tx + 0.5, oy + ty, true, puertas.has(`${ox + tx}_${oy + ty - 1}`)); // norte
-            if (!esSueloSala(tx, ty + 1)) tramoPared(ox + tx + 0.5, oy + ty + 1, true, puertas.has(`${ox + tx}_${oy + ty + 1}`)); // sur
-            if (!esSueloSala(tx - 1, ty)) tramoPared(ox + tx, oy + ty + 0.5, false, puertas.has(`${ox + tx - 1}_${oy + ty}`)); // oeste
-            if (!esSueloSala(tx + 1, ty)) tramoPared(ox + tx + 1, oy + ty + 0.5, false, puertas.has(`${ox + tx + 1}_${oy + ty}`)); // este
+            if (!esSueloSala(tx, ty - 1)) tramoPared(ox + tx + 0.5, oy + ty, true, puertas.has(`${ox + tx}_${oy + ty - 1}`) || esPuertaPropia(ox + tx, oy + ty - 1)); // norte
+            if (!esSueloSala(tx, ty + 1)) tramoPared(ox + tx + 0.5, oy + ty + 1, true, puertas.has(`${ox + tx}_${oy + ty + 1}`) || esPuertaPropia(ox + tx, oy + ty + 1)); // sur
+            if (!esSueloSala(tx - 1, ty)) tramoPared(ox + tx, oy + ty + 0.5, false, puertas.has(`${ox + tx - 1}_${oy + ty}`) || esPuertaPropia(ox + tx - 1, oy + ty)); // oeste
+            if (!esSueloSala(tx + 1, ty)) tramoPared(ox + tx + 1, oy + ty + 0.5, false, puertas.has(`${ox + tx + 1}_${oy + ty}`) || esPuertaPropia(ox + tx + 1, oy + ty)); // este
           }
         }
 
@@ -166,6 +177,26 @@ export function montarVista3D(contenedor, edificio, { colorParaTipoSala, alSelec
           else if (c.lado === "este") { mc.rotation.y = Math.PI / 2; mc.position.set(ox + r.ancho - 0.08, zc, oy + c.y + 0.5); }
           else { mc.rotation.y = Math.PI / 2; mc.position.set(ox + 0.08, zc, oy + c.y + 0.5); }
           grupoPlanta.add(mc);
+        }
+
+        // Ventanas (resultado.ventanas — sección "puertas y ventanas como
+        // instancia editable" 2026-09-04): antes no se representaban aquí
+        // en absoluto. Una franja translúcida por casilla cubierta, a media
+        // pared, en el lado real de la ventana — "hueco real en la pared
+        // donde corresponda" sin necesitar geometría de hueco de verdad
+        // (esto sigue siendo la vista de verificación rápida del editor,
+        // no el render final del cliente).
+        for (const v of r.ventanas || []) {
+          const zc = 0.14 + ALTO_PARED * 0.55;
+          const anchoTramo = v.ancho || 1;
+          for (let i = 0; i < anchoTramo; i++) {
+            const mv = caja(v.lado === "norte" || v.lado === "sur" ? 0.8 : 0.1, 0.4, v.lado === "norte" || v.lado === "sur" ? 0.1 : 0.8, v.colorDebug || "#a9c9d6", { transparent: true, opacity: 0.65 });
+            if (v.lado === "sur") mv.position.set(ox + v.x + i + 0.5, zc, oy + r.largo - 0.07);
+            else if (v.lado === "norte") mv.position.set(ox + v.x + i + 0.5, zc, oy + 0.07);
+            else if (v.lado === "este") mv.position.set(ox + r.ancho - 0.07, zc, oy + (v.y ?? 0) + i + 0.5);
+            else mv.position.set(ox + 0.07, zc, oy + (v.y ?? 0) + i + 0.5);
+            grupoPlanta.add(mv);
+          }
         }
       });
 
