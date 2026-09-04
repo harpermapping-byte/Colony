@@ -150,6 +150,21 @@ const servidor = http.createServer(async (req, res) => {
         .map(([id, def]) => ({ id, capa: def.capa, colorDebug: def.colorDebug, huella: def.huella || [1, 1], colocacion: def.colocacion }));
       return responderJSON(res, 200, { elementos: items });
     }
+    // Catálogo de ventanas (catalogo/ventanas.json — 4 ejes combinables:
+    // forma/tamano/marco/cristal) para los desplegables de "añadir
+    // ventana" del editor — mismas 4 secciones que ya consulta
+    // colocarElementos.js (ejeValido), solo sin filtrar por riqueza aquí
+    // (el editor deja elegir cualquiera a mano; riquezaMinima es solo un
+    // sesgo del generador automático, no una prohibición dura).
+    if (url.pathname === "/api/ventanas" && req.method === "GET") {
+      const limpiar = (seccion) => Object.fromEntries(Object.entries(seccion || {}).filter(([k]) => !k.startsWith("_")));
+      return responderJSON(res, 200, {
+        forma: limpiar(catalogos.ventanas?.forma),
+        tamano: limpiar(catalogos.ventanas?.tamano),
+        marco: limpiar(catalogos.ventanas?.marco),
+        cristal: limpiar(catalogos.ventanas?.cristal),
+      });
+    }
 
     // Catálogo de contenido normalizado (sección 10 del pedido de
     // catálogo): navegación por categoría/subcategoría/tag y búsqueda de
@@ -218,6 +233,14 @@ const servidor = http.createServer(async (req, res) => {
       else if (accion === "sustituir") salida = edicion.sustituirElemento(resultado, catalogos, body.instanceId, body.nuevoElementoId);
       else if (accion === "cambiarEstado") salida = edicion.cambiarEstado(resultado, body.instanceId, body.cambios || {});
       else if (accion === "cambiarTipoSala") salida = edicion.cambiarTipoSala(resultado, catalogos, body.nuevoTipoSalaId);
+      // Puertas/ventanas como instancia editable (2026-09-04): mismo
+      // patrón request/response que el resto de /api/editar/* — el body
+      // trae nivel+indiceSala (para localizar la sala) más los parámetros
+      // propios de cada operación.
+      else if (accion === "moverPuerta") salida = edicion.moverPuerta(resultado, body.x, body.y, { lado: body.lado, forzar: body.forzar });
+      else if (accion === "anadirVentana") salida = edicion.anadirVentana(resultado, catalogos, body.x, body.y, body.lado, { forma: body.forma, tamano: body.tamano, marco: body.marco, cristal: body.cristal, forzar: body.forzar });
+      else if (accion === "moverVentana") salida = edicion.moverVentana(resultado, body.instanceId, body.x, body.y, { lado: body.lado, forzar: body.forzar });
+      else if (accion === "eliminarVentana") salida = edicion.eliminarVentana(resultado, body.instanceId);
       else return responderJSON(res, 404, { ok: false, error: "acción desconocida: " + accion });
 
       return responderJSON(res, 200, { ...salida, resultado: serializarResultadoSala(resultado) });
