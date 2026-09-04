@@ -15,6 +15,7 @@ const { calcularEstadisticas } = require("./estadisticas");
 const { crearPRNG, barajar } = require("./azar");
 const { construirCatalogoContenido } = require("./catalogoContenido");
 const { AnchorType, Priority, RoomTags } = require("./roomTags");
+const { resolverFormaSala, elegirFormaSala } = require("./formasSala");
 
 // RoomTags cuya sala fuerza a las piezas repetidas a formar una FILA a lo
 // largo de un mismo muro (mismo mecanismo, aplicable a cualquier tag que
@@ -134,7 +135,7 @@ function calcularEstadoDesgaste(instanceId, riqueza) {
   return { desgastado, roto, sucio };
 }
 
-function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado, temaProfesion, permiteVentanas = true, materialesPreferidos, nivel }) {
+function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "completo", semilla = "prueba", anchoForzado, largoForzado, temaProfesion, permiteVentanas = true, materialesPreferidos, nivel, formaSalaForzada }) {
   const defSala = catalogos.tiposSala[tipoSalaId];
   if (!defSala) throw new Error(`tipoSala desconocido: ${tipoSalaId}`);
 
@@ -151,37 +152,89 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   const materialSuelo = elegirMaterialConSesgo({ plano: "suelo", materialBase: defSala.materialSuelo, categoriaSala: defSala.categoria, riqueza, preferencias: preferenciasMateriales, catalogos, rnd });
   const materialPared = elegirMaterialConSesgo({ plano: "pared", materialBase: defSala.materialPared, categoriaSala: defSala.categoria, riqueza, preferencias: preferenciasMateriales, catalogos, rnd });
 
-  // El muro NO ocupa ninguna casilla propia — es un límite sin grosor en
-  // el borde de la sala, no una fila/columna de suelo reservada. ancho x
-  // largo es exactamente el suelo caminable de verdad (x∈[0,ancho-1],
-  // y∈[0,largo-1]), sin margen perdido en ningún lado. La puerta, al ser
-  // el hueco EN ese límite, cae en y=largo — una fila más allá de la
-  // última fila de suelo, no sobre una casilla de suelo.
-  const puerta = { lado: "sur", x: Math.floor(ancho / 2), y: largo };
+  // Forma de la sala (docs/GDD_Bakeador_Interiores.md sección 2, catálogo
+  // interiores/catalogo/formasSala.json — NO es WFC, es un catálogo de ~15
+  // plantillas con variación de tamaño, pedido explícito del streamer):
+  // `mascaraGrid` es boolean[largo][ancho] o null si esta sala se queda con
+  // el rectángulo de siempre (la inmensa mayoría — categoría no elegible,
+  // sala pequeña, o simplemente no tocó por probabilidad/validación). Con
+  // null, `esSuelo` degrada a exactamente "dentro de la caja" — cero
+  // diferencia de comportamiento con el motor anterior a este catálogo.
+  // `formaSalaForzada` (opcional): usado por edicion.js:regenerarMobiliario
+  // para forzar la MISMA plantilla que ya tenía la sala (junto con
+  // anchoForzado/largoForzado) — sin esto, "regenerar solo el mobiliario"
+  // podía devolver una sala de forma distinta a la que el jugador ya veía,
+  // rompiendo la promesa de edición no destructiva a nivel de forma.
+  const formaSalaId = formaSalaForzada ?? elegirFormaSala({ tipoSalaId, defSala, catalogoFormas: catalogos.formasSala, semilla, ancho, largo });
+  const formaResuelta = formaSalaId === "rectangulo" ? null : resolverFormaSala({ catalogoFormas: catalogos.formasSala, formaId: formaSalaId, ancho, largo, semilla });
+  const mascaraGrid = formaResuelta ? formaResuelta.grid : null;
+  const esSuelo = (x, y) => x >= 0 && y >= 0 && x < ancho && y < largo && (!mascaraGrid || mascaraGrid[y][x]);
 
-  // Ocupación de suelo: true = libre. Todo el rectángulo ancho x largo es
-  // suelo real, no hay anillo exterior reservado para muro.
+  // El muro NO ocupa ninguna casilla propia — es un límite sin grosor en
+  // el borde de la sala (o del perímetro real de la máscara, si esta sala
+  // salió con una plantilla no rectangular), no una fila/columna de suelo
+  // reservada. La puerta, al ser el hueco EN ese límite, cae en y=largo —
+  // una fila más allá de la última fila de suelo, en la columna de suelo
+  // real más cercana al centro geométrico (con el rectángulo de siempre,
+  // eso es simplemente el centro exacto — mascaraValida ya garantiza que
+  // la fila sur tiene al menos una celda de suelo real donde caer).
+  let xPuertaObjetivo = Math.floor(ancho / 2);
+  if (mascaraGrid) {
+    let mejorDist = Infinity;
+    for (let x = 0; x < ancho; x++) {
+      if (!mascaraGrid[largo - 1][x]) continue;
+      const d = Math.abs(x - xPuertaObjetivo);
+      if (d < mejorDist) { mejorDist = d; xPuertaObjetivo = x; }
+    }
+  }
+  const puerta = { lado: "sur", x: xPuertaObjetivo, y: largo };
+
+  // Ocupación de suelo: true = libre. Con rectángulo (mascaraGrid null),
+  // todo el rectángulo ancho x largo es suelo real, no hay anillo exterior
+  // reservado para muro — con una plantilla no rectangular, las celdas
+  // fuera de la máscara nacen ya ocupadas (nunca libres), así ninguna
+  // función de colocación de más abajo necesita saber que existe una
+  // máscara: simplemente nunca encuentran hueco ahí.
   const libreSuelo = [];
   for (let y = 0; y < largo; y++) {
-    libreSuelo.push(new Array(ancho).fill(true));
+    const fila = new Array(ancho).fill(true);
+    if (mascaraGrid) for (let x = 0; x < ancho; x++) if (!mascaraGrid[y][x]) fila[x] = false;
+    libreSuelo.push(fila);
   }
 
   const esPuerta = (x, y) => x === puerta.x && y === puerta.y;
-  const tocaPared = (x, y) => x === 0 || y === 0 || x === ancho - 1 || y === largo - 1;
+  // Toca pared: cualquier celda de suelo real con al menos un vecino que NO
+  // es suelo real — con rectángulo eso es solo el borde de la caja (mismo
+  // resultado exacto que antes); con una plantilla no rectangular incluye
+  // también los muros internos que crea un mordisco/concavidad (una L
+  // "toca pared" en su rincón interior tanto como en el borde exterior).
+  const tocaPared = (x, y) => esSuelo(x, y) && (!esSuelo(x - 1, y) || !esSuelo(x + 1, y) || !esSuelo(x, y - 1) || !esSuelo(x, y + 1));
+  // Una huella entera cae en suelo real (no solo su esquina) — usado donde
+  // hace falta validar contra la máscara SIN pasar por libreSuelo (decals de
+  // suelo, que nunca llaman a `ocupar`).
+  const huellaEnSuelo = (x, y, hw, hl) => {
+    for (let dy = 0; dy < hl; dy++) for (let dx = 0; dx < hw; dx++) if (!esSuelo(x + dx, y + dy)) return false;
+    return true;
+  };
 
-  // Rejilla real de tiles (sección 2 del pedido de integración): todo el
-  // rectángulo es suelo, con una fila extra de colchón (largo+1) solo
-  // para poder marcar el hueco de la puerta como PUERTA de verdad — esa
-  // fila colchón no es suelo de la sala, es lo que hay justo al otro lado
-  // del límite. `detectarSalas` la reduce a un objeto Sala (tiles +
-  // aberturas) que no sabe ni le importa que este rectángulo viniera de
-  // un flood-fill, una selección manual o una herramienta rectangular —
-  // es la misma forma para las tres. Esa Sala es también la base del
-  // chequeo de circulación de las funciones de colocación de abajo
-  // (sección 6).
+  // Rejilla real de tiles (sección 2 del pedido de integración): solo las
+  // celdas de suelo real (toda la caja con rectángulo, la máscara si esta
+  // sala salió con plantilla) se marcan SUELO — el resto de la caja
+  // delimitadora se queda TIPO_TILE.PARED (relleno inicial de crearRejilla),
+  // exactamente como cualquier otra celda fuera de la sala: es EXACTO lo
+  // que hace que `detectarSalas` (flood-fill) dibuje el perímetro real de
+  // la forma, mordiscos/concavidades incluidos, sin ningún caso especial.
+  // Una fila extra de colchón (largo+1) solo para poder marcar el hueco de
+  // la puerta como PUERTA de verdad — esa fila colchón no es suelo de la
+  // sala, es lo que hay justo al otro lado del límite. `detectarSalas` la
+  // reduce a un objeto Sala (tiles + aberturas) que no sabe ni le importa
+  // que esta forma viniera de un rectángulo, una plantilla de catálogo o
+  // una selección manual — es la misma estructura para las tres. Esa Sala
+  // es también la base del chequeo de circulación de las funciones de
+  // colocación de abajo (sección 6).
   const rejilla = crearRejilla(ancho, largo + 1, TIPO_TILE.PARED);
   for (let y = 0; y < largo; y++) {
-    for (let x = 0; x < ancho; x++) rejilla.set(x, y, TIPO_TILE.SUELO);
+    for (let x = 0; x < ancho; x++) if (esSuelo(x, y)) rejilla.set(x, y, TIPO_TILE.SUELO);
   }
   rejilla.set(puerta.x, puerta.y, TIPO_TILE.PUERTA);
   const [sala] = detectarSalas(rejilla);
@@ -285,7 +338,11 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
         const x = elegirEnteroVentanas(0, ancho - anchoVentana);
         let libre = true;
         for (let dx = 0; dx < anchoVentana; dx++) {
-          if (bordesOcupados.has(`${x + dx}_0`)) { libre = false; break; }
+          // esSuelo(x+dx,0): con una plantilla no rectangular, la fila norte
+          // puede tener tramos sin suelo real detrás (una U abierta al
+          // norte, un nicho central...) — ahí no hay pared de verdad que
+          // agujerear, así que ninguna ventana puede caer encima.
+          if (bordesOcupados.has(`${x + dx}_0`) || !esSuelo(x + dx, 0)) { libre = false; break; }
         }
         if (!libre) continue;
         for (let dx = 0; dx < anchoVentana; dx++) bordesOcupados.add(`${x + dx}_0`);
@@ -711,6 +768,11 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       const x = elegirEntero(0, ancho - hw);
       const y = elegirEntero(0, largo - hl);
       if (solapaOtroDecal(x, y, hw, hl)) continue;
+      // Los decals nunca llaman a ocupar()/huecoLibre (pueden convivir con
+      // mobiliario encima, ver comentario de la función) — así que aquí SÍ
+      // hace falta comprobar la máscara a mano: una alfombra no puede caer
+      // parcialmente fuera del suelo real de una sala no rectangular.
+      if (!huellaEnSuelo(x, y, hw, hl)) continue;
       const item = { id: el.id, x, y, ancho: hw, largo: hl, rotacion: grados, colorDebug: el.colorDebug, capa: el.capa };
       if (el.aportes) item.aportes = el.aportes;
       decalsSuelo.push({ x, y, ancho: hw, largo: hl });
@@ -730,6 +792,10 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
       else if (lado === "oeste") { x = 0; y = elegirEntero(0, largo - 1); }
       else { x = ancho - 1; y = elegirEntero(0, largo - 1); }
       if (esPuerta(x, y)) continue;
+      // Con una plantilla no rectangular, un borde de la caja delimitadora
+      // puede no tener suelo real detrás (p.ej. las esquinas de una L) — no
+      // hay pared de verdad ahí, nada que colgar.
+      if (!esSuelo(x, y)) continue;
       const clave = `${x}_${y}`;
       if (bordesOcupados.has(clave)) continue;
       bordesOcupados.add(clave);
@@ -995,7 +1061,14 @@ function colocarSala({ tipoSalaId, catalogos, riqueza = "modesta", amueblado = "
   // edificio.js lo necesita para su propia post-pasada de ventanas exteriores
   // (sección 7 del GDD) — saber qué segmentos de pared ya usó un
   // colgadoEnPared o una ventana de esta sala para no clavar otra encima.
-  return { tipoSalaId, ancho, largo, materialSuelo, materialPared, riqueza, amueblado, semilla, puerta, sala, colocados, colgados, techo, ventanas, estadisticas, bordesOcupados: [...bordesOcupados], origen: "generado" };
+  // `mascara` (solo si esta sala salió con plantilla no rectangular): MISMO
+  // formato string 'ancho*largo' de '1'/'0' (fila a fila) que ya usan las
+  // salas orgánicas de mazmorras/src/celular.js — server/src/mundo/
+  // interiorColision.ts ya sabe leer ese campo tal cual, cero cambio ahí.
+  // `formaSalaId` viaja aparte solo para depuración/editor (qué plantilla
+  // de catalogo/formasSala.json produjo esta sala) — nada del motor lo
+  // consume para decidir nada, la máscara ya es la fuente de verdad.
+  return { tipoSalaId, ancho, largo, materialSuelo, materialPared, riqueza, amueblado, semilla, puerta, sala, colocados, colgados, techo, ventanas, estadisticas, bordesOcupados: [...bordesOcupados], mascara: formaResuelta ? formaResuelta.mascaraStr : undefined, formaSalaId: formaResuelta ? formaSalaId : "rectangulo", origen: "generado" };
 }
 
 module.exports = { colocarSala, crearPRNG };

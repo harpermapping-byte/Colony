@@ -18,6 +18,7 @@ function cargarCatalogos() {
     puertas: cargarJSON("puertas.json"),
     ventanas: cargarJSON("ventanas.json"),
     elementos: cargarJSON("elementos.json"),
+    formasSala: cargarJSON("formasSala.json"),
   };
 }
 

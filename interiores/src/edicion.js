@@ -60,6 +60,19 @@ function calcularOcupacion(resultado, ignorarInstanceId = null) {
   return ocupadas;
 }
 
+// Comprueba que TODA la huella (x,y,ancho,largo) cae en suelo real de
+// resultado.mascara (string 'ancho*largo' de '1'/'0', mismo formato que
+// interiorColision.ts) — llamar solo cuando resultado.mascara existe.
+function huellaDentroDeMascara(resultado, x, y, ancho, largo) {
+  const { mascara, ancho: anchoSala } = resultado;
+  for (let dy = 0; dy < largo; dy++) {
+    for (let dx = 0; dx < ancho; dx++) {
+      if (mascara[(y + dy) * anchoSala + (x + dx)] !== "1") return false;
+    }
+  }
+  return true;
+}
+
 // Validación de una huella en (x,y): fueraDeLimites es el único motivo de
 // bloqueo duro (sección 9: "impedir... ocupar tiles inválidos" — salirse
 // de la sala rompe el dato, no es una cuestión de gusto). Solapamiento y
@@ -72,10 +85,17 @@ function calcularOcupacion(resultado, ignorarInstanceId = null) {
 // el catálogo solo dice si la pieza los tiene marcados.
 function validarHueco(resultado, x, y, ancho, largo, ocupadas, reglas) {
   const avisos = [];
-  // El muro no ocupa casilla propia (ver colocarElementos.js): el
-  // rectángulo entero resultado.ancho x resultado.largo es suelo válido,
-  // sin margen que restar.
-  const fueraDeLimites = x < 0 || y < 0 || x + ancho > resultado.ancho || y + largo > resultado.largo;
+  // El muro no ocupa casilla propia (ver colocarElementos.js): con una sala
+  // rectangular (resultado.mascara ausente), el rectángulo entero
+  // resultado.ancho x resultado.largo es suelo válido, sin margen que
+  // restar. Con una sala de plantilla no rectangular (catalogo/formasSala.json),
+  // "fuera de límites" incluye también salirse de la máscara real — mismo
+  // bloqueo duro que salirse de la caja, no un aviso ignorable: una pieza
+  // fuera de la forma real de la sala es un dato roto, no una cuestión de
+  // gusto (mismo criterio que ya aplica el resto de esta función).
+  const fueraDeLimites =
+    x < 0 || y < 0 || x + ancho > resultado.ancho || y + largo > resultado.largo ||
+    (resultado.mascara && !huellaDentroDeMascara(resultado, x, y, ancho, largo));
   if (fueraDeLimites) return { ok: false, avisos: ["fuera_de_limites"] };
 
   let solapa = false;
@@ -304,13 +324,30 @@ function regenerarMobiliario(resultado, catalogos, opts = {}) {
   const conservadasTecho = opts.forzar ? [] : resultado.techo.filter((it) => it.origen === "modificado");
 
   const semillaRegeneracion = `${resultado.semilla}:regen:${Date.now()}`;
+  // anchoForzado/largoForzado/formaSalaForzada: "regenerar mobiliario" NUNCA
+  // debe cambiar la forma/tamaño de la sala por debajo del jugador — sin
+  // esto, un colocarSala fresco con una semilla nueva podía volver a tirar
+  // los dados de ancho/largo Y de plantilla de forma (catalogo/formasSala.json)
+  // y devolver una sala de otra forma, aunque `resultado.mascara`/ancho/largo
+  // se quedaran desactualizados (mismatch real entre el mobiliario nuevo y
+  // la máscara vieja). `resultado.formaSalaId` puede no existir en datos
+  // guardados ANTES de este catálogo (undefined) — colocarSala lo trata
+  // igual que "sin forzar", cae a la elección probabilística normal.
   const fresco = colocarSala({
     tipoSalaId: resultado.tipoSalaId,
     catalogos,
     riqueza: resultado.riqueza,
     amueblado: resultado.amueblado,
     semilla: semillaRegeneracion,
+    anchoForzado: resultado.ancho,
+    largoForzado: resultado.largo,
+    formaSalaForzada: resultado.formaSalaId,
   });
+  // Sincroniza forma/máscara con lo que de verdad se acaba de generar (con
+  // formaSalaForzada esto es un no-op salvo en datos legacy sin
+  // formaSalaId, donde puede introducir una máscara por primera vez).
+  resultado.mascara = fresco.mascara;
+  resultado.formaSalaId = fresco.formaSalaId;
 
   const ocupadasPorConservadas = new Set();
   for (const it of conservadas) {
