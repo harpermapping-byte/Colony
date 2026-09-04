@@ -221,10 +221,35 @@ instanciados.
   dados). El modelo vóxel nace con la puerta en z bajo; la `rot` del mapa
   hace el resto. Salida a `<carpetaCiudad>/edificios_glb/` (preview): los
   .glb NO se suben a assets/ sin el flujo de aprobación del taller.
+- **Arte del HITO de plaza generado, PENDIENTE DE APROBAR (2026-09-04)**:
+  `ciudades/src/generar.js` ya coloca el hito real por tier (pozo/fuente/
+  estatua, sin tocar en esta pasada) pero sus 3 ids de
+  `ciudades/catalogo/decoracion.json` (`pozo_agua`/`fuente_piedra`/
+  `estatua_piedra`) no tenían `.glb` — el cliente pintaba una caja. Nuevo
+  arquetipo en el taller de vóxeles, `taller-vox/generar_hitos_plaza.js`
+  (mismo patrón que `generar_naturaleza.js`: lee colorDebug/dimensiones
+  DIRECTO de `decoracion.json`, sin catálogo nuevo), 3 variantes por
+  semilla de cada pieza (pozo: brocal cuadrado/octogonal + postes/viga/
+  torno + cubo colgante de una cuerda; fuente: plato con lámina de agua +
+  pilar + remate con agua opcional; estatua: pedestal + plinto + figura
+  heráldica estilizada — nunca realista — con brazo/objeto alzado opcional
+  en 2 de las 3 variantes). Galería de revisión
+  `taller-vox/prueba_render_hitos_plaza.js` (SVG+PNG isométrico, mismo
+  mini-render que `personajes/src/renderIso.js`) y suite
+  `taller-vox/test_hitos_plaza.js` (8 tests: catálogo real, determinismo,
+  cajas dentro de su propio grid, variedad entre variantes, tamaño
+  coherente con `dimensiones` del catálogo, .glb exportado y válido —
+  magic/JSON/BIN/índices). **NO subido a `assets/` ni aprobado todavía** —
+  falta que el streamer revise la galería y apruebe/pida rehacer antes de
+  copiar los `.glb` aprobados a `assets/interiores/` (misma convención de
+  nombre `<id>_NN.glb` que ya consume `entityLoader.ts` para el resto de
+  deco de `ciudades/`). `ciudades/src/generar.js` y `decoracion.json` NO
+  se tocaron — la lógica de colocación ya estaba completa y correcta.
 
 Pendiente: que el CLIENTE cargue esos .glb por instancia (hoy pinta una
 caja por riqueza con la huella w/h real de cada edificio — el paso al .glb
-espera a que el usuario apruebe el arte), hito de plaza, bakeado especial
+espera a que el usuario apruebe el arte), la subida real del `.glb` del
+hito de plaza (arte ya generado, ver bullet de arriba), bakeado especial
 de la ciudad principal. El export en formato de sectores está verificado
 contra `mapaColision` del servidor y JUGADO de verdad
 (assets/mapas/ciudad_demo + paseo E2E con vídeo).
