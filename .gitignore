@@ -15,6 +15,7 @@ taller-vox/vox/
 taller-vox/vox_edificios/
 taller-vox/naturaleza_generada.json
 taller-vox/edificios_generados.json
+taller-vox/hitos_plaza_generados.json
 taller-vox/muestras_*.json
 taller-vox/node_modules/
 taller-vox/laboratorio-personajes/bundle.js
