@@ -3059,11 +3059,21 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
   }
 
   async disolverGremio(id: number): Promise<void> {
-    const gremio = await this.obtenerGremio(id);
-    if (gremio && gremio.saldoBanco > 0) await this.ajustarFarycoins(gremio.liderJugadorId, gremio.saldoBanco);
+    // Compare-and-swap real: el DELETE...RETURNING consume la fila del
+    // gremio (y captura su saldoBanco) en un único paso síncrono, ANTES de
+    // cualquier await — así un doble "gremio:disolver" para el MISMO id
+    // (doble clic, o dos miembros con permiso a la vez) ya no encuentra fila
+    // la segunda vez y no vuelve a acreditar el banco al líder por
+    // duplicado. Antes leía el gremio, ACREDITABA (con un await real de por
+    // medio) y solo entonces borraba — la ventana entre esas dos cosas era
+    // la misma clase de carrera ya cerrada en renovarTenencia/
+    // resolverIngresoDiarioNpc, sin cubrir aquí hasta ahora.
+    const fila = this.bd
+      .prepare("DELETE FROM gremios WHERE id = ? RETURNING lider_jugador_id, saldo_banco")
+      .get(id);
+    if (fila && Number(fila.saldo_banco) > 0) await this.ajustarFarycoins(Number(fila.lider_jugador_id), Number(fila.saldo_banco));
     this.bd.prepare("DELETE FROM gremio_miembros WHERE gremio_id = ?").run(id);
     this.bd.prepare("DELETE FROM gremio_invitaciones WHERE gremio_id = ?").run(id);
-    this.bd.prepare("DELETE FROM gremios WHERE id = ?").run(id);
   }
 
   async ajustarBancoGremio(gremioId: number, delta: number): Promise<{ ok: boolean; saldo: number }> {
@@ -3279,8 +3289,23 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       if (periodos >= UMBRAL_EMBARGO_IMPUESTO_PERIODOS) await this.revocarPropiedad(id);
       return;
     }
-    const nuevoUltimoCobro = new Date(new Date(String(fila.impuesto_ultimo_cobro)).getTime() + periodos * periodoMs).toISOString();
-    this.bd.prepare("UPDATE propiedades SET impuesto_ultimo_cobro = ? WHERE id = ?").run(nuevoUltimoCobro, id);
+    // Compare-and-swap contra el impuesto_ultimo_cobro LEÍDO (mismo criterio
+    // que renovarTenencia/resolverIngresoDiarioNpc, ver sus comentarios):
+    // `obtenerPropiedad` llama a esto en CADA consulta de la propiedad, así
+    // que dos jugadores (o el jarl y un jugador) mirándola casi a la vez
+    // pueden colarse entre el ajustarFarycoins de arriba y este UPDATE —
+    // sin este guard, ambos leerían el mismo impuesto_ultimo_cobro vencido y
+    // cobrarían el mismo lote de periodos por duplicado. Bug real de la
+    // misma clase que los ya cerrados el 2026-09-02, sin cubrir hasta ahora.
+    const ultimoCobroLeido = String(fila.impuesto_ultimo_cobro);
+    const nuevoUltimoCobro = new Date(new Date(ultimoCobroLeido).getTime() + periodos * periodoMs).toISOString();
+    const upd = this.bd
+      .prepare("UPDATE propiedades SET impuesto_ultimo_cobro = ? WHERE id = ? AND impuesto_ultimo_cobro = ?")
+      .run(nuevoUltimoCobro, id, ultimoCobroLeido);
+    if (Number(upd.changes) === 0) {
+      await this.ajustarFarycoins(Number(fila.dueno), total); // perdió la carrera: revierte el cobro
+      return;
+    }
     await this.creditarJarl(total);
   }
 
@@ -4372,11 +4397,19 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
   }
 
   async resolverCooldownTejidoLegendario(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
-    const fila = this.bd.prepare("SELECT ultimo_tejido_legendario_ms FROM jugadores WHERE id = ?").get(jugadorId) as any;
-    const ultimo = fila && fila.ultimo_tejido_legendario_ms != null ? Number(fila.ultimo_tejido_legendario_ms) : null;
-    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
-    this.bd.prepare("UPDATE jugadores SET ultimo_tejido_legendario_ms = ? WHERE id = ?").run(ahoraMs, jugadorId);
-    return true;
+    // Atómico de una sola sentencia (antes SELECT + UPDATE separados): en la
+    // implementación Postgres esa ventana es una carrera real (red real de
+    // por medio) — dos intentos de tejer legendario casi simultáneos podían
+    // leer el mismo cooldown vencido y colarse los dos, saltándose el límite
+    // de una vez al día. `jugadorId` siempre corresponde a una fila ya
+    // existente (se llama tras `obtenerOCrearJugador`), así que el único
+    // motivo real por el que esto no toca ninguna fila es el cooldown vivo.
+    const r = this.bd
+      .prepare(
+        "UPDATE jugadores SET ultimo_tejido_legendario_ms = ? WHERE id = ? AND (ultimo_tejido_legendario_ms IS NULL OR ? - ultimo_tejido_legendario_ms >= ?) RETURNING id",
+      )
+      .get(ahoraMs, jugadorId, ahoraMs, ventanaMs);
+    return r !== undefined;
   }
 
   async crearPrendaGenerada(p: Omit<PrendaGenerada, "id" | "creadoEn">): Promise<PrendaGenerada> {
@@ -4401,11 +4434,14 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
   }
 
   async resolverCooldownCarpinteriaLegendaria(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
-    const fila = this.bd.prepare("SELECT ultimo_carpinteria_legendaria_ms FROM jugadores WHERE id = ?").get(jugadorId) as any;
-    const ultimo = fila && fila.ultimo_carpinteria_legendaria_ms != null ? Number(fila.ultimo_carpinteria_legendaria_ms) : null;
-    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
-    this.bd.prepare("UPDATE jugadores SET ultimo_carpinteria_legendaria_ms = ? WHERE id = ?").run(ahoraMs, jugadorId);
-    return true;
+    // Atómico de una sola sentencia — mismo motivo/comentario que
+    // resolverCooldownTejidoLegendario (ver arriba).
+    const r = this.bd
+      .prepare(
+        "UPDATE jugadores SET ultimo_carpinteria_legendaria_ms = ? WHERE id = ? AND (ultimo_carpinteria_legendaria_ms IS NULL OR ? - ultimo_carpinteria_legendaria_ms >= ?) RETURNING id",
+      )
+      .get(ahoraMs, jugadorId, ahoraMs, ventanaMs);
+    return r !== undefined;
   }
 
   async crearMuebleGenerado(m: Omit<MuebleGenerado, "id" | "creadoEn">): Promise<MuebleGenerado> {
@@ -4430,11 +4466,14 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
   }
 
   async resolverCooldownIngenieriaLegendaria(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
-    const fila = this.bd.prepare("SELECT ultimo_ingenieria_legendaria_ms FROM jugadores WHERE id = ?").get(jugadorId) as any;
-    const ultimo = fila && fila.ultimo_ingenieria_legendaria_ms != null ? Number(fila.ultimo_ingenieria_legendaria_ms) : null;
-    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
-    this.bd.prepare("UPDATE jugadores SET ultimo_ingenieria_legendaria_ms = ? WHERE id = ?").run(ahoraMs, jugadorId);
-    return true;
+    // Atómico de una sola sentencia — mismo motivo/comentario que
+    // resolverCooldownTejidoLegendario (ver arriba).
+    const r = this.bd
+      .prepare(
+        "UPDATE jugadores SET ultimo_ingenieria_legendaria_ms = ? WHERE id = ? AND (ultimo_ingenieria_legendaria_ms IS NULL OR ? - ultimo_ingenieria_legendaria_ms >= ?) RETURNING id",
+      )
+      .get(ahoraMs, jugadorId, ahoraMs, ventanaMs);
+    return r !== undefined;
   }
 
   async crearEdificioGenerado(e: Omit<EdificioGenerado, "id" | "creadoEn">): Promise<EdificioGenerado> {
@@ -4834,11 +4873,18 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   }
 
   async disolverGremio(id: number): Promise<void> {
-    const gremio = await this.obtenerGremio(id);
-    if (gremio && gremio.saldoBanco > 0) await this.ajustarFarycoins(gremio.liderJugadorId, gremio.saldoBanco);
+    // Compare-and-swap real, mismo criterio que la implementación SQLite (ver
+    // su comentario): el DELETE...RETURNING consume la fila del gremio antes
+    // de acreditar nada, así un doble "disolver" concurrente para el MISMO
+    // id no encuentra fila la segunda vez y no duplica el crédito del banco.
+    const r = await this.pool.query<{ lider_jugador_id: number; saldo_banco: number }>(
+      "DELETE FROM gremios WHERE id = $1 RETURNING lider_jugador_id, saldo_banco",
+      [id],
+    );
+    const fila = r.rows[0];
+    if (fila && fila.saldo_banco > 0) await this.ajustarFarycoins(fila.lider_jugador_id, fila.saldo_banco);
     await this.pool.query("DELETE FROM gremio_miembros WHERE gremio_id = $1", [id]);
     await this.pool.query("DELETE FROM gremio_invitaciones WHERE gremio_id = $1", [id]);
-    await this.pool.query("DELETE FROM gremios WHERE id = $1", [id]);
   }
 
   async ajustarBancoGremio(gremioId: number, delta: number): Promise<{ ok: boolean; saldo: number }> {
@@ -5033,8 +5079,21 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       if (periodos >= UMBRAL_EMBARGO_IMPUESTO_PERIODOS) await this.revocarPropiedad(id);
       return;
     }
-    const nuevoUltimoCobro = new Date(new Date(fila.impuesto_ultimo_cobro).getTime() + periodos * periodoMs).toISOString();
-    await this.pool.query("UPDATE propiedades SET impuesto_ultimo_cobro = $1 WHERE id = $2", [nuevoUltimoCobro, id]);
+    // Compare-and-swap contra el impuesto_ultimo_cobro LEÍDO — mismo criterio
+    // que la implementación SQLite (ver su comentario): aquí el riesgo es
+    // MAYOR (red real de por medio entre el SELECT y este UPDATE), así que
+    // sin este guard dos consultas casi simultáneas a la misma propiedad
+    // cobrarían el mismo lote de impuesto por duplicado.
+    const ultimoCobroLeido = fila.impuesto_ultimo_cobro;
+    const nuevoUltimoCobro = new Date(new Date(ultimoCobroLeido).getTime() + periodos * periodoMs).toISOString();
+    const upd = await this.pool.query(
+      "UPDATE propiedades SET impuesto_ultimo_cobro = $1 WHERE id = $2 AND impuesto_ultimo_cobro = $3",
+      [nuevoUltimoCobro, id, ultimoCobroLeido],
+    );
+    if ((upd.rowCount ?? 0) === 0) {
+      await this.ajustarFarycoins(fila.dueno, total); // perdió la carrera: revierte el cobro
+      return;
+    }
     await this.creditarJarl(total);
   }
 
@@ -6090,15 +6149,19 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   }
 
   async resolverCooldownTejidoLegendario(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
-    const fila = await this.pool.query<{ ultimo_tejido_legendario_ms: string | number | null }>(
-      "SELECT ultimo_tejido_legendario_ms FROM jugadores WHERE id = $1",
-      [jugadorId],
+    // Atómico de una sola sentencia (antes SELECT + UPDATE separados): con
+    // red real de por medio (Postgres), dos intentos de tejer legendario
+    // casi simultáneos podían leer el mismo cooldown vencido y colarse los
+    // dos, saltándose el límite de una vez al día — bug real, sin cubrir en
+    // la auditoría de concurrencia de 2026-09-02. `jugadorId` siempre
+    // corresponde a una fila ya existente (se llama tras `obtenerOCrearJugador`).
+    const r = await this.pool.query<{ id: number }>(
+      `UPDATE jugadores SET ultimo_tejido_legendario_ms = $1
+       WHERE id = $2 AND (ultimo_tejido_legendario_ms IS NULL OR $1 - ultimo_tejido_legendario_ms >= $3)
+       RETURNING id`,
+      [ahoraMs, jugadorId, ventanaMs],
     );
-    const bruto = fila.rows[0]?.ultimo_tejido_legendario_ms;
-    const ultimo = bruto != null ? Number(bruto) : null;
-    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
-    await this.pool.query("UPDATE jugadores SET ultimo_tejido_legendario_ms = $1 WHERE id = $2", [ahoraMs, jugadorId]);
-    return true;
+    return r.rows.length > 0;
   }
 
   async crearPrendaGenerada(p: Omit<PrendaGenerada, "id" | "creadoEn">): Promise<PrendaGenerada> {
@@ -6122,15 +6185,15 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   }
 
   async resolverCooldownCarpinteriaLegendaria(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
-    const fila = await this.pool.query<{ ultimo_carpinteria_legendaria_ms: string | number | null }>(
-      "SELECT ultimo_carpinteria_legendaria_ms FROM jugadores WHERE id = $1",
-      [jugadorId],
+    // Atómico de una sola sentencia — mismo motivo/comentario que
+    // resolverCooldownTejidoLegendario (ver arriba).
+    const r = await this.pool.query<{ id: number }>(
+      `UPDATE jugadores SET ultimo_carpinteria_legendaria_ms = $1
+       WHERE id = $2 AND (ultimo_carpinteria_legendaria_ms IS NULL OR $1 - ultimo_carpinteria_legendaria_ms >= $3)
+       RETURNING id`,
+      [ahoraMs, jugadorId, ventanaMs],
     );
-    const bruto = fila.rows[0]?.ultimo_carpinteria_legendaria_ms;
-    const ultimo = bruto != null ? Number(bruto) : null;
-    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
-    await this.pool.query("UPDATE jugadores SET ultimo_carpinteria_legendaria_ms = $1 WHERE id = $2", [ahoraMs, jugadorId]);
-    return true;
+    return r.rows.length > 0;
   }
 
   async crearMuebleGenerado(m: Omit<MuebleGenerado, "id" | "creadoEn">): Promise<MuebleGenerado> {
@@ -6154,15 +6217,15 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
   }
 
   async resolverCooldownIngenieriaLegendaria(jugadorId: number, ahoraMs: number, ventanaMs: number): Promise<boolean> {
-    const fila = await this.pool.query<{ ultimo_ingenieria_legendaria_ms: string | number | null }>(
-      "SELECT ultimo_ingenieria_legendaria_ms FROM jugadores WHERE id = $1",
-      [jugadorId],
+    // Atómico de una sola sentencia — mismo motivo/comentario que
+    // resolverCooldownTejidoLegendario (ver arriba).
+    const r = await this.pool.query<{ id: number }>(
+      `UPDATE jugadores SET ultimo_ingenieria_legendaria_ms = $1
+       WHERE id = $2 AND (ultimo_ingenieria_legendaria_ms IS NULL OR $1 - ultimo_ingenieria_legendaria_ms >= $3)
+       RETURNING id`,
+      [ahoraMs, jugadorId, ventanaMs],
     );
-    const bruto = fila.rows[0]?.ultimo_ingenieria_legendaria_ms;
-    const ultimo = bruto != null ? Number(bruto) : null;
-    if (ultimo != null && ahoraMs - ultimo < ventanaMs) return false;
-    await this.pool.query("UPDATE jugadores SET ultimo_ingenieria_legendaria_ms = $1 WHERE id = $2", [ahoraMs, jugadorId]);
-    return true;
+    return r.rows.length > 0;
   }
 
   async crearEdificioGenerado(e: Omit<EdificioGenerado, "id" | "creadoEn">): Promise<EdificioGenerado> {
