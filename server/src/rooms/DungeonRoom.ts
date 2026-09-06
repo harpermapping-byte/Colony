@@ -46,7 +46,7 @@ export class DungeonRoom extends InteriorRoom {
   async onCreate(options: OpcionesInterior) {
     await super.onCreate(options);
     this.bd = await obtenerBdCompartida();
-    await this.poblarEnemigos(options);
+    await this.poblarEnemigos();
   }
 
   /** Misma clave que usa `mazmorras_estado` (cooldown de limpieza, §4.2/§7 del GDD) — un único sitio para no arriesgar que las dos fórmulas se desincronicen. */
@@ -54,7 +54,10 @@ export class DungeonRoom extends InteriorRoom {
     return `${this.opciones.mapaId}:${this.opciones.edificio}:${this.interior.nivel}`;
   }
 
-  private async poblarEnemigos(options: OpcionesInterior) {
+  // `this.opciones`/`this.interior` (ya poblados por super.onCreate) traen
+  // todo lo necesario — el parámetro `options` que recibía antes nunca se
+  // leía en el cuerpo (dead param, tsc --noUnusedParameters lo confirma).
+  private async poblarEnemigos() {
     const clave = this.claveMazmorra();
     const limpiadaEn = await this.bd.obtenerLimpiezaMazmorra(clave);
     if (limpiadaEn && Date.now() - new Date(limpiadaEn).getTime() < COOLDOWN_MS) {

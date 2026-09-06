@@ -48,16 +48,6 @@ export function precioCambioOficio(cambios: number): number {
   return PRECIO_BASE_CAMBIO_OFICIO * 2 ** Math.max(0, cambios);
 }
 
-/**
- * Mesas por nivel de oficio (docs/GDD_Profesiones.md §0, 4 tiers ya
- * diseñados: N1..N4) — pedido 2026-08-30: "nivel 0 tienes mesas nivel 1, a
- * nivel 3 o 4 nivel 2, a nivel 5 o 6 nivel 3, a nivel 8 nivel 4". Se toma el
- * extremo alto de cada rango (más conservador): estos son los
- * `nivelOficioMinimo.nivel` reales que llevan las mesas del catálogo
- * (`interiores/catalogo/elementos.json`), MISMA norma para los 10 oficios.
- */
-export const NIVEL_MESA: Record<1 | 2 | 3 | 4, number> = { 1: 1, 2: 4, 3: 6, 4: 8 };
-
 // Nivel máximo real de oficio (UMBRALES_NIVEL ya tiene 10 escalones, ver progresion/nivel.ts).
 export const NIVEL_MAX_OFICIO = 10;
 
