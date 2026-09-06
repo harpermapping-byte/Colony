@@ -358,7 +358,12 @@ export function simularCombateAutomatico(
 
     const orden = ordenarTurnos(unidades.filter((u) => u.estado === "activo"));
     for (const id of orden) {
-      unidades = jugarTurnoIA(id, unidades, arena);
+      // `rnd` del parámetro, NO el default de jugarTurnoIA — bug real: antes
+      // se perdía aquí (llamada sin 4º argumento), así que una unidad
+      // `pasivo` (jugarTurnoIAPasiva SÍ consume rnd) rompía el determinismo
+      // que este mismo módulo promete en su JSDoc ("Determinista si rnd es
+      // fijo") en cuanto hubiera alguna en la simulación.
+      unidades = jugarTurnoIA(id, unidades, arena, rnd);
     }
   }
   return { unidades, bandoGanador: null, turnos: TOPE_TURNOS_AUTOSIMULACION };

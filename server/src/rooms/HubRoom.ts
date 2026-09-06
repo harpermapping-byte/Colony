@@ -358,10 +358,17 @@ export class HubRoom extends RoomExteriorBase {
             tamanoSectorChunks: indice.tamanoSectorChunks,
             ahora: () => tiempoMundo().dia,
             cargarBakeSector: (s) => leerObjetosVegetacionDeSector(rutaMapa, indice.tamanoChunk, s.sectorX, s.sectorY),
-            cargarPersistido: async (s) => ({
-              bakeTalados: (await bd.listarArbolesVivosSector(mapaId, s.sectorX, s.sectorY)).filter((f) => f.origen === "bake"),
-              crecidos: (await bd.listarArbolesVivosSector(mapaId, s.sectorX, s.sectorY)).filter((f) => f.origen !== "bake"),
-            }),
+            cargarPersistido: async (s) => {
+              // Una sola consulta (antes eran dos idénticas, una por cada
+              // filtro) — misma fila nunca cambia de "bake"/"crecido" entre
+              // await y await, así que dos lecturas solo duplicaban I/O real
+              // a BD sin aportar nada.
+              const filas = await bd.listarArbolesVivosSector(mapaId, s.sectorX, s.sectorY);
+              return {
+                bakeTalados: filas.filter((f) => f.origen === "bake"),
+                crecidos: filas.filter((f) => f.origen !== "bake"),
+              };
+            },
             guardarArbolVivo: (a) => bd.guardarArbolVivo(a),
             marcarSectorResuelto: (s, momento) => bd.marcarSectorBosqueResuelto(mapaId, s.sectorX, s.sectorY, momento),
           };
