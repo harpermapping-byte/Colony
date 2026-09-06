@@ -93,6 +93,26 @@ test("jugarTurnoIA: se acerca si el objetivo está fuera de alcance", () => {
   assert.strictEqual(actualizado.hp, a.hp, "moverse no cambia su propia vida");
 });
 
+test("jugarTurnoIA: al perseguir, NUNCA termina el movimiento en la MISMA casilla que el objetivo (bug real corregido 2026-09-06, ver docs/GDD_Combate.md §10.6)", () => {
+  // b a 3 casillas, pa=3 exacto — SIN el fix, pasoHacia caminaba las 3
+  // casillas en línea recta y la tercera aterrizaba literalmente encima de
+  // b (gx=3), violando "una casilla, un ocupante" (que combate:mover y
+  // jugarTurnoIAPasiva ya respetaban). Con el fix, se detiene en gx=2
+  // (adyacente, dentro de alcance=1) en vez de pisar la casilla de b.
+  const a = unidad({ id: "a", bando: "A", gx: 0, gy: 0, alcance: 1, pa: 3 });
+  const b = unidad({ id: "b", bando: "B", gx: 3, gy: 0, hp: 50, hpMax: 50 });
+  const resultado = jugarTurnoIA("a", [a, b], arenaAbierta());
+  const actualizada = resultado.find((u) => u.id === "a")!;
+  const objetivo = resultado.find((u) => u.id === "b")!;
+  assert.notDeepStrictEqual(
+    { gx: actualizada.gx, gy: actualizada.gy },
+    { gx: objetivo.gx, gy: objetivo.gy },
+    "el atacante nunca debe terminar en la misma casilla que su objetivo",
+  );
+  assert.strictEqual(actualizada.gx, 2, "se detiene adyacente (dentro de alcance), no encima");
+  assert.strictEqual(objetivo.hp, 50, "no llegó a atacar este turno, solo se acercó");
+});
+
 test("jugarTurnoIA: no hace nada si la unidad ya cayó, o si no queda enemigo vivo", () => {
   const caida = unidad({ id: "a", bando: "A", estado: "caido" });
   const b = unidad({ id: "b", bando: "B", gx: 1, gy: 0 });

@@ -109,8 +109,18 @@ export function costeCasilla(arena: Arena, origen: Casilla, destino: Casilla, pa
   return distanciasDesde(arena, origen, pa, ocupadas).get(clave(destino)) ?? null;
 }
 
-/** Un paso codicioso hacia `objetivo` (8 direcciones), evitando obstáculos — usado por la IA automática (§7), no por el `combate:mover` interactivo (ese usa `casillasAlcanzables` + el punto exacto que pide el jugador). */
-export function pasoHacia(arena: Arena, desde: Casilla, objetivo: Casilla): Casilla {
+/**
+ * Un paso codicioso hacia `objetivo` (8 direcciones), evitando obstáculos Y
+ * casillas ya ocupadas por otra unidad activa (`ocupadas`, mismo formato
+ * `"gx,gy"` que ya usan `casillasAlcanzables`/`costeCasilla` — bug real
+ * corregido 2026-09-06, ver docs/GDD_Combate.md §10.6: antes la IA no
+ * jugadora podía terminar su turno apilada exactamente en la misma casilla
+ * que su objetivo, violando el invariante "una casilla, un ocupante" que
+ * `combate:mover` (jugador) y `jugarTurnoIAPasiva` ya respetaban) — usado
+ * por la IA automática (§7), no por el `combate:mover` interactivo (ese usa
+ * `casillasAlcanzables` + el punto exacto que pide el jugador).
+ */
+export function pasoHacia(arena: Arena, desde: Casilla, objetivo: Casilla, ocupadas: Set<string> = new Set()): Casilla {
   const dx = Math.sign(objetivo.gx - desde.gx);
   const dy = Math.sign(objetivo.gy - desde.gy);
   if (dx === 0 && dy === 0) return desde;
@@ -120,7 +130,9 @@ export function pasoHacia(arena: Arena, desde: Casilla, objetivo: Casilla): Casi
     { gx: desde.gx, gy: desde.gy + dy },
   ];
   for (const c of candidatos) {
-    if (!esObstaculo(arena, c.gx, c.gy)) return c;
+    if (esObstaculo(arena, c.gx, c.gy)) continue;
+    if (ocupadas.has(clave(c))) continue;
+    return c;
   }
   return desde; // atrapado — se queda quieto este paso
 }

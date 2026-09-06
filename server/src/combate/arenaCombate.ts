@@ -310,9 +310,18 @@ export function jugarTurnoIA(idUnidad: string, unidades: UnidadCombate[], arena:
   }
   // La IA usa TODO su PA restante en moverse cuando no puede atacar todavía
   // — sin reparto inteligente move-vs-ataque (v1, ver GDD_Combate §6).
+  // `ocupadas` (bug real corregido 2026-09-06, ver pasoHacia en
+  // pathfindingArena.ts): sin esto, perseguir a un objetivo cuyo alcance
+  // arma todavía no cubre podía terminar el movimiento EXACTAMENTE en la
+  // misma casilla que el objetivo — las demás unidades no se mueven a
+  // mitad del turno de `u`, así que el set se calcula una sola vez.
+  const ocupadas = new Set<string>();
+  for (const otra of unidades) {
+    if (otra.id !== u.id && otra.estado === "activo") ocupadas.add(`${otra.gx},${otra.gy}`);
+  }
   let pos: Casilla = { gx: u.gx, gy: u.gy };
   for (let paso = 0; paso < u.pa; paso++) {
-    const siguiente = pasoHacia(arena, pos, { gx: objetivo.gx, gy: objetivo.gy });
+    const siguiente = pasoHacia(arena, pos, { gx: objetivo.gx, gy: objetivo.gy }, ocupadas);
     if (siguiente.gx === pos.gx && siguiente.gy === pos.gy) break; // atrapado
     pos = siguiente;
   }
