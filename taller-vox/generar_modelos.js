@@ -1064,26 +1064,31 @@ const ESTRUCTURALES = {
 
 // --- clasificación ---------------------------------------------------------
 
+// Listas de palabras clave por arquetipo — constantes de módulo (no se
+// recrean en cada llamada a clasificar(), que corre una vez por cada una
+// de las ~700 piezas del catálogo): mismo criterio que ya usan sus
+// funciones hermanas de taller-vox (generar_naturaleza.js, generar_comida.js...).
+const PATAS_ASIENTO_KEYWORDS = ["silla", "taburete", "banco", "trono", "mecedora", "reclinatorio"];
+const CAMA_KEYWORDS = ["cama", "litera", "jergon", "cuna"];
+const MESA_KEYWORDS = ["mesa", "atril", "altar", "mostrador", "encimera", "escritorio", "bancada", "yunque", "fregadero", "especiero"];
+const CONTENEDOR_ALTO_KEYWORDS = ["armario", "estanteria", "guardarropa"];
+const CONTENEDOR_BAJO_KEYWORDS = ["baul", "arcon", "cofre", "barril", "tinaja", "caldero", "cesta"];
+const TINA_IDS = ["tina_madera", "bañera"];
+
 function clasificar(id, v) {
-  const patasAsiento = ["silla", "taburete", "banco", "trono", "mecedora", "reclinatorio"];
-  const camas = ["cama", "litera", "jergon", "cuna"];
-  const mesas = ["mesa", "atril", "altar", "mostrador", "encimera", "escritorio", "bancada", "yunque", "fregadero", "especiero"];
   const colgadoParedRe = v.colocacion.includes("colgadoEnPared") || v.anchorType === "WALL_HIGH_FLOATING";
-  const contenedorAlto = ["armario", "estanteria", "guardarropa"];
-  const contenedorBajo = ["baul", "arcon", "cofre", "barril", "tinaja", "caldero", "cesta"];
-  const tinas = ["tina_madera", "bañera"];
   if (ESTRUCTURALES[id]) return "ESTRUCTURAL";
   if (id.startsWith("alfombra") || id === "circulo_ritual") return "ALFOMBRA";
-  if (tinas.includes(id)) return "TINA";
+  if (TINA_IDS.includes(id)) return "TINA";
   if (colgadoParedRe) return "COLGADO_PARED";
-  if (camas.some((k) => id.includes(k))) return "CAMA";
-  if (patasAsiento.some((k) => id.includes(k))) return "ASIENTO";
-  if (mesas.some((k) => id.includes(k)) || v.esSuperficie) return "MESA";
+  if (CAMA_KEYWORDS.some((k) => id.includes(k))) return "CAMA";
+  if (PATAS_ASIENTO_KEYWORDS.some((k) => id.includes(k))) return "ASIENTO";
+  if (MESA_KEYWORDS.some((k) => id.includes(k)) || v.esSuperficie) return "MESA";
   // los cofres (arcon, baúles...) también llevan esContenedor:true, así que
   // el nombre de cofre tiene que comprobarse ANTES que el genérico
   // esContenedor — si no, un cofre con tapa se clasifica como armario con puertas
-  if (contenedorBajo.some((k) => id.includes(k))) return "CONTENEDOR_BAJO";
-  if (v.esContenedor || contenedorAlto.some((k) => id.includes(k))) return "CONTENEDOR_ALTO";
+  if (CONTENEDOR_BAJO_KEYWORDS.some((k) => id.includes(k))) return "CONTENEDOR_BAJO";
+  if (v.esContenedor || CONTENEDOR_ALTO_KEYWORDS.some((k) => id.includes(k))) return "CONTENEDOR_ALTO";
   const [hx, hy] = v.huella;
   if (hx === 1 && hy === 1 && !v.esSuperficie) return "OBJETO_PEQUENO";
   return "GENERICO";

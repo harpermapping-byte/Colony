@@ -382,6 +382,12 @@ const NEVADOS = ["pino_nevado", "abeto_blanco_subalpino"];
 const CACTUS_PALA = ["chumbera"];
 const CACTUS_IDS = ["saguaro", "chumbera"];
 const FRUTO_COLOR = { manzano_silvestre: "#c0392b", peral_silvestre: "#c9c05a", cerezo_silvestre: "#a02030", ciruelo_silvestre: "#5a3a6a", madrono: "#c04a2a", granado: "#a03030", higuera: "#5a4a6a", olivo: "#6a7a3a", limonero: "#e0d040", naranjo: "#e08a20", algarrobo: "#6a4a2a" };
+// Estas dos vivían como arrays inline DENTRO de clasificarVegetacion (una
+// asignación nueva por cada especie del catálogo en cada bake) — subidas
+// aquí arriba con sus hermanas de siempre (CACTUS_IDS, CONIFERAS...), mismo
+// criterio de "constante de módulo, no literal recreado por llamada".
+const ARBUSTO_SIMPLE_IDS = ["arbusto_comun", "seto_silvestre", "acebo"];
+const FLOR_SILVESTRE_IDS = ["lavanda_silvestre", "amapola", "margarita", "diente_de_leon", "manzanilla", "cardo"];
 
 function clasificarVegetacion(id, v) {
   const cat = v.categoriaRecurso || "";
@@ -399,8 +405,8 @@ function clasificarVegetacion(id, v) {
   if (cat === "flor_medicinal") return { arquetipo: "FLOR" };
   if (cat === "alga") return { arquetipo: "ALGA" };
   if (cat === "coral") return { arquetipo: "CORAL" };
-  if (["arbusto_comun", "seto_silvestre", "acebo"].includes(id)) return { arquetipo: "ARBUSTO", opciones: {} };
-  if (["lavanda_silvestre", "amapola", "margarita", "diente_de_leon", "manzanilla", "cardo"].includes(id)) return { arquetipo: "FLOR" };
+  if (ARBUSTO_SIMPLE_IDS.includes(id)) return { arquetipo: "ARBUSTO", opciones: {} };
+  if (FLOR_SILVESTRE_IDS.includes(id)) return { arquetipo: "FLOR" };
   return { arquetipo: "HIERBA" }; // fibra/cereal/raíz/hierbas varias
 }
 
