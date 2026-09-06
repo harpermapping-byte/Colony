@@ -79,15 +79,39 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
     [catalogoRocas, indexarPorBioma(catalogoRocas)],
   ]);
 
+  // Igual que `indices` arriba: el resultado solo depende de (catalogo,
+  // bioma, banda) — banda es un entero discreto 0..6 (bandaDeElevacion en
+  // biomas.js) y bioma tiene un puñado de valores posibles, así que hay
+  // como mucho unas pocas decenas de combinaciones reales por catálogo.
+  // Sin cachear, `objetosEnCasilla` reconstruye este array (con su propio
+  // filtro y su propio array nuevo) UNA VEZ POR CASILLA Y POR CAPA — en un
+  // mapa grande son cientos de miles de veces la misma combinación
+  // (bioma,banda) exacta, filtrando y reservando memoria para el mismo
+  // resultado una y otra vez (perfilado: ~10% de los ticks de un bake
+  // pequeño, ver auditoría de calidad de 2026-09-06).
+  const cacheEntradasValidas = new Map([
+    [catalogoVegetacion, new Map()],
+    [catalogoAnimales, new Map()],
+    [catalogoRocas, new Map()],
+  ]);
   function entradasValidas(catalogo, bioma, banda) {
+    const cachePorClave = cacheEntradasValidas.get(catalogo);
+    const clave = bioma + ":" + banda;
+    const cacheada = cachePorClave.get(clave);
+    if (cacheada !== undefined) return cacheada;
     const lista = indices.get(catalogo).get(bioma);
-    if (!lista || lista.length === 0) return lista || [];
+    if (!lista || lista.length === 0) {
+      const vacio = lista || [];
+      cachePorClave.set(clave, vacio);
+      return vacio;
+    }
     const salida = [];
     for (const [id, datos] of lista) {
       if (datos.bandaElevacionMax !== undefined && banda > datos.bandaElevacionMax) continue;
       if (datos.bandaElevacionMin !== undefined && banda < datos.bandaElevacionMin) continue;
       salida.push([id, datos]);
     }
+    cachePorClave.set(clave, salida);
     return salida;
   }
 
