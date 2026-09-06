@@ -695,7 +695,6 @@ function clavePosicion(x: number, y: number): string {
 }
 
 async function crearPropsSector(
-  indice: IndiceMapa,
   sector: SectorBakeado,
   excluidos: Set<string>,
 ): Promise<{ raiz: THREE.Group; ocultables: Map<string, () => void> }> {
@@ -902,7 +901,7 @@ export async function crearSectorVisual(
   const terreno = crearTerrenoSector(indice, sector, margenVisual, nivelNieveActual);
   grupo.add(terreno.grupo);
   grupo.add(crearMurallaSector(indice, sector));
-  const { raiz, ocultables } = await crearPropsSector(indice, sector, excluidos);
+  const { raiz, ocultables } = await crearPropsSector(sector, excluidos);
   grupo.add(raiz);
   if (margenVisual > 0) {
     // margenVisual>0 hoy SOLO pasa en arenas — decoración A MANO del margen

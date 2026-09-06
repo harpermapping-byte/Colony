@@ -139,7 +139,20 @@ export function aplicarEquipoAlRig(
   blueprintsPorSlot?: Record<string, BlueprintRopaResuelto>,
 ): void {
   rigObjeto.traverse((nodo) => {
-    if (nodo.userData?.[ETIQUETA_EQUIPO]) nodo.removeFromParent();
+    if (!nodo.userData?.[ETIQUETA_EQUIPO]) return;
+    // Memory leak real de GPU (encontrado en la auditoría de calidad de
+    // código 2026-09-06): `aplicarEquipoAlRig` reconstruye TODO el equipo
+    // entero cada vez que CUALQUIER slot cambia (para jugador local Y
+    // remoto), así que esto corre muchas veces por sesión. La geometría de
+    // cada malla es la fusión ÚNICA que arma `mallaDeVoxeles`
+    // (voxelMalla.ts, `mergeGeometries` por llamada) — nunca compartida —
+    // así que quitarla del rig sin liberarla dejaba esa geometría vieja
+    // huérfana en la GPU para siempre. El MATERIAL de voxelMalla.ts sí es
+    // una única constante de módulo compartida por TODO vóxel del juego
+    // (mismo draw call) — a propósito NO se dispone aquí, haría inservible
+    // cualquier otra malla de vóxeles todavía en pantalla.
+    (nodo as THREE.Mesh).geometry?.dispose();
+    nodo.removeFromParent();
   });
   const voxeles = voxelesDeEquipo(equipo, semilla, blueprintsPorSlot);
   for (const [pivote, malla] of mallasPorPivote(voxeles)) {

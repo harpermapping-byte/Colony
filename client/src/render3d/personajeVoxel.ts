@@ -44,8 +44,18 @@ export function crearPersonajeVoxel(datos: PersonajeExportado): RigHumanoide {
   for (const prenda of datos.ropa) todos.push(...prenda.voxeles);
 
   if (datos.voxelesCabeza.length) {
-    // el pelo vóxel real sustituye a la "gorra" placeholder del rig
-    rig.objeto.getObjectByName("peloPlaceholder")?.removeFromParent();
+    // el pelo vóxel real sustituye a la "gorra" placeholder del rig — su
+    // geometría/material son EXCLUSIVOS de esta caja (rigHumanoide.ts crea
+    // una `BoxGeometry`+`MeshStandardMaterial` propia por cada rig, no
+    // comparte nada como sí hace voxelMalla.ts), así que liberarlos aquí es
+    // seguro y evita un pequeño leak de GPU por cada personaje/NPC creado
+    // (auditoría de calidad de código 2026-09-06).
+    const placeholder = rig.objeto.getObjectByName("peloPlaceholder") as THREE.Mesh | undefined;
+    if (placeholder) {
+      placeholder.geometry?.dispose();
+      (placeholder.material as THREE.Material)?.dispose?.();
+      placeholder.removeFromParent();
+    }
   }
 
   for (const [pivote, malla] of mallasPorPivote(todos)) {

@@ -1455,14 +1455,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage(tipo, (m: { motivo?: string }) => console.log(`[${etiqueta}]`, m?.motivo));
   }
 
-  // Tenderete/oficio (docs/GDD_Mercado.md, docs/GDD_Profesiones.md): sin
-  // panel de cliente todavía (protocolo probado por e2e mandando el mensaje
-  // Colyseus real), pero sus "xxx:error" se colaban sin loguear — bug real
-  // encontrado en el barrido de sistemas (2026-08-31), mismo patrón que
-  // combate:error la vez anterior: sin este listener, un rechazo del
-  // servidor (precio inválido, no eres el dueño, oficio desconocido...) era
-  // invisible tanto en juego como en consola.
-  room.onMessage("tenderete:error", (m: { motivo: string }) => console.log("[tenderete]", m?.motivo));
+  // Oficio (docs/GDD_Profesiones.md): sin panel de cliente todavía
+  // (protocolo probado por e2e mandando el mensaje Colyseus real), pero su
+  // "xxx:error" se colaba sin loguear — bug real encontrado en el barrido
+  // de sistemas (2026-08-31), mismo patrón que combate:error la vez
+  // anterior: sin este listener, un rechazo del servidor (oficio
+  // desconocido...) era invisible tanto en juego como en consola.
+  // (tenderete:error NO se registra aquí también: panelTenderete, dentro
+  // del bloque `if (SALA === "hub")` de arriba, ya lo escucha y lo muestra
+  // en el panel real — el mensaje solo puede llegar cuando ese bloque
+  // existe, así que una segunda copia aquí solo duplicaría el log, nunca
+  // añadiría cobertura. Duplicado real encontrado y quitado en la
+  // auditoría de calidad de código 2026-09-06.)
   room.onMessage("oficio:error", (m: { motivo: string }) => console.log("[oficio]", m?.motivo));
 
   // Posición mundo del CENTRO de la huella de una construcción real, ya
@@ -1932,17 +1936,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("chat:mensaje", (m: { sessionId: string; nombre: string; texto: string; canal: "local" | "global"; ts: number }) => {
     panelChat.agregarMensaje(m);
   });
-  // Bug real encontrado en el barrido de sistemas 2026-08-31 (mismo motivo
-  // que costó tiempo en el e2e de mesaAjedrez: un "*:error" del servidor
-  // sin console.log en el cliente es invisible salvo un console.warn
-  // genérico de colyseus.js "onMessage() not registered"): combate:error
-  // era el ÚNICO *:error de todo game.ts sin logear su motivo (demasiado
-  // lejos, ya en combate, pvp deshabilitado...) — mismo patrón que el resto.
-  room.onMessage("combate:error", (m: { motivo: string }) => console.log("[combate]", m?.motivo));
-  // Rotura probabilística de arma A MITAD de combate (docs/GDD_Combate.md,
-  // 2026-09-03) — solo consola por ahora, mismo criterio que combate:error
-  // (sin toast/panel dedicado todavía, ver panelCombate.ts).
-  room.onMessage("combate:armaRota", (m: { itemId: string }) => console.log("[combate] arma rota en combate:", m?.itemId));
+  // combate:error/combate:armaRota ya se registran arriba (justo tras el
+  // join, antes del bloque `if (SALA === "hub")`) — registrarlos otra vez
+  // aquí era un listener duplicado real (colyseus.js/nanoevents acumula
+  // listeners en vez de pisar el anterior): cada rechazo de combate o cada
+  // rotura de arma se logueaba DOS veces en consola. Encontrado y arreglado
+  // en la auditoría de calidad de código 2026-09-06.
 
   // --- Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería,
   // pedido 2026-09-01) — panel PLACEHOLDER de testeo (ver panelForja.ts),

@@ -61,7 +61,6 @@ export class PanelTenderete {
   private raiz: HTMLDivElement;
   private modo: "comprar" | "gestion" | null = null;
   private tenderoteId: string | null = null;
-  private nombreTenderete = "";
   private tendero = false;
   private cajaFarycoins = 0;
   private itemsEscaparate: ItemEscaparateTenderete[] = [];

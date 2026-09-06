@@ -62,7 +62,6 @@ export class EfectosClima {
   private nieveCayendo: THREE.Points;
   private polvo: THREE.Points;
   private charcos: THREE.Group;
-  private charcosColocados = false;
   private tipoAnterior = "";
 
   constructor(scene: THREE.Scene) {
