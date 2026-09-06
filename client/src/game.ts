@@ -2708,6 +2708,16 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     teclas.add(k);
   });
   window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));
+  // Bug real reportado por el streamer ("a veces no reconoce el WASD, va
+  // trabado"): cambiar de pestaña/ventana con una tecla de movimiento
+  // pulsada no siempre dispara su `keyup` (el navegador no lo garantiza
+  // fuera de foco) — la tecla se queda "pegada" en `teclas` para siempre, y
+  // el bucle de abajo cree que sigues andando (o ya no reacciona a soltarla
+  // de verdad al volver). Limpiar TODO el set al perder el foco fuerza al
+  // bucle a recalcular x/y=0 en el siguiente frame y mandar el "parado" real
+  // — volver a pulsar cualquier tecla tras recuperar el foco arranca limpio.
+  window.addEventListener("blur", () => teclas.clear());
+  document.addEventListener("visibilitychange", () => { if (document.hidden) teclas.clear(); });
 
   let ultimaDireccionEnviada: Direction = { x: 0, y: 0 };
   // Última dirección NO nula (docs/GDD_Monturas.md) — para saltar hacia
