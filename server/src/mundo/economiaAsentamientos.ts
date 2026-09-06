@@ -81,9 +81,15 @@ export const COSTE_EQUIPO_NIVEL2_HIERRO = 150;
 export const COSTE_EQUIPO_NIVEL3_HIERRO = 400;
 
 function costeSiguienteNivelEquipo(nivelActual: number): number | null {
+  // `NIVEL_EQUIPO_MAX` es el tope real (antes quedaba solo documentado en el
+  // comentario de arriba, sin que ningún código lo consultase — el cap lo
+  // imponía en la práctica el `return null` de después de los dos `if`,
+  // desincronizable sin avisar si algún día se sube el número sin tocar
+  // aquí). Mismo criterio explícito que ya usa `NIVEL_MURALLA_MAX` en `calcularTick`.
+  if (nivelActual >= NIVEL_EQUIPO_MAX) return null;
   if (nivelActual === 1) return COSTE_EQUIPO_NIVEL2_HIERRO;
   if (nivelActual === 2) return COSTE_EQUIPO_NIVEL3_HIERRO;
-  return null; // ya está al máximo
+  return null;
 }
 
 /**
