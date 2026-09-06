@@ -44,8 +44,9 @@ const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1
 // "a cuadraditos" lo ponen los cambios de color, que siguen cortando
 // rectángulo), pero los edificios enteros pasaban de ~100k triángulos y
 // ~6MB por .glb a algo servible en el plan gratuito.
-function mallarVoxeles(ocupado, unit) {
+function mallarVoxeles(ocupado, unit, centro = [0, 0]) {
   const positions = [], normals = [], colors = [], indices = [];
+  const [centroX, centroZ] = centro;
   let vi = 0;
   for (let d = 0; d < 6; d++) {
     const [dx, dy, dz] = DIRS[d];
@@ -90,9 +91,9 @@ function mallarVoxeles(ocupado, unit) {
         escala[u] = ancho; escala[v] = alto;
         for (const [vx, vy, vz] of verts) {
           positions.push(
-            (min[0] + vx * escala[0]) * unit,
+            (min[0] + vx * escala[0] - centroX) * unit,
             (min[1] + vy * escala[1]) * unit,
-            (min[2] + vz * escala[2]) * unit
+            (min[2] + vz * escala[2] - centroZ) * unit
           );
           normals.push(...normal);
           colors.push(...rgb, 1);
@@ -186,9 +187,22 @@ function construirGLB(mesh, nombre) {
   return Buffer.concat([header, jsonChunkHeader, jsonBuf, binChunkHeader, binBuffer]);
 }
 
-function exportarModelo(model, id, outPath, unit = 0.1) {
+// `centrarXZ` (pedido streamer, "chocas con la cama en una zona que no hay
+// cama"): por defecto el mesh sale anclado por la ESQUINA (0,0,0) — mismo
+// convenio que llevaba desde el principio, sin tocar edificios/naturaleza/
+// personajes (que siguen bajo el flujo de aprobación manual y no se tocan
+// aquí). Los muebles de interiores SÍ necesitan salir CENTRADOS en X/Z: cada
+// consumidor real (`renderConstrucciones.ts`, `interiorVisual.ts`) ya coloca
+// el modelo con `position.set(esquina + ancho/2, y, esquina + alto/2)` — el
+// mismo convenio que usa un `THREE.BoxGeometry` normal (centrado en su
+// origen local) para que el placeholder y el .glb real ocupen EXACTAMENTE
+// el mismo sitio. Con el modelo anclado por la esquina, esa fórmula lo
+// desplazaba medio hueco entero — la colisión (calculada con la esquina real)
+// se quedaba en un sitio y el mueble se VEÍA medio hueco más allá.
+function exportarModelo(model, id, outPath, unit = 0.1, centrarXZ = false) {
   const ocupado = expandirVoxeles(model);
-  const mesh = mallarVoxeles(ocupado, unit);
+  const centro = centrarXZ && model.grid ? [model.grid[0] / 2, model.grid[2] / 2] : [0, 0];
+  const mesh = mallarVoxeles(ocupado, unit, centro);
   const glb = construirGLB(mesh, id);
   fs.writeFileSync(outPath, glb);
   return { voxeles: ocupado.size, triangulos: mesh.indices.length / 3, bytes: glb.length };
