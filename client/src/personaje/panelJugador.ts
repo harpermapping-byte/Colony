@@ -87,6 +87,8 @@ export interface OpcionesPanelJugador {
   desequipar(slot: string): void;
   /** docs/GDD_Inventario.md §10 — mover/soltar una instancia propia a (x,y) de `contenedorDestino` ("cuerpo" o un slot de mochila/bolsa puesta), misma rotación que ya tenía (el skeleton no ofrece rotar al vuelo). */
   mover(instanciaId: number, contenedorDestino: string, x: number, y: number, rot: 0 | 1): void;
+  /** Pedido streamer 2026-09-06 ("intercambiar objetos"): arrastrar un ítem desde el cofre ABIERTO (panelCofre.ts) hasta esta rejilla — el hueco de destino lo decide el servidor solo (cofre:sacarItem ya lo hace así), sin (x,y) que pedirle. Opcional: fuera del Hub no hay ningún cofre abierto posible. */
+  sacarDeCofre?(instanciaId: number): void;
 }
 
 export class PanelJugador {
@@ -206,12 +208,17 @@ export class PanelJugador {
       ev.preventDefault();
       const datos = ev.dataTransfer?.getData("text/plain");
       if (!datos) return;
-      let payload: { instanciaId: number; rot: 0 | 1 };
+      let payload: { instanciaId: number; rot: 0 | 1; origen?: "jugador" | "cofre" };
       try {
         payload = JSON.parse(datos);
       } catch {
         return;
       }
+      // Ítem soltado desde el cofre ABIERTO (panelCofre.ts, pedido streamer
+      // 2026-09-06 "intercambiar objetos") — el hueco lo decide el servidor
+      // solo (cofre:sacarItem ya funciona así), no hace falta el (x,y) de
+      // dónde se soltó.
+      if (payload.origen === "cofre") return this.opciones.sacarDeCofre?.(payload.instanciaId);
       const rect = grid.getBoundingClientRect();
       const x = Math.max(0, Math.min(Math.max(1, contenedor.ancho) - 1, Math.floor((ev.clientX - rect.left) / TAM_CELDA)));
       const y = Math.max(0, Math.min(Math.max(1, contenedor.alto) - 1, Math.floor((ev.clientY - rect.top) / TAM_CELDA)));
@@ -245,7 +252,7 @@ export class PanelJugador {
       celda.title = `${it.itemId} x${it.cantidad}${liquidoTxt}`;
       celda.textContent = `${it.itemId}${it.cantidad > 1 ? ` x${it.cantidad}` : ""}${liquidoTxt}`;
       celda.ondragstart = (ev) => {
-        ev.dataTransfer?.setData("text/plain", JSON.stringify({ instanciaId: it.id, rot: it.rot }));
+        ev.dataTransfer?.setData("text/plain", JSON.stringify({ instanciaId: it.id, rot: it.rot, origen: "jugador" }));
       };
 
       const declarado = entrada?.slotEquipo;

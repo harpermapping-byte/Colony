@@ -122,11 +122,15 @@ export class ArenaCombateRoom extends RoomExteriorBase {
         this.retornosPorJugador.set(p.nombreJugador!, p.retorno ?? { nombre: p.nombreJugador ?? "?", sala: "hub" });
       } else if (p.tipoEntidad === "fauna") {
         const f = new Fauna();
-        f.x = gx; f.y = gy; f.especieId = p.especieId ?? ""; f.vida = p.hp; f.vidaMax = p.hpMax; f.ataque = p.ataqueFisico;
+        // +0.5: centra la entidad en la casilla (docs/GDD_Combate.md, pedido
+        // streamer "los NPC deben estar en el centro de la casilla, ahora
+        // están junto al eje") — ver el mismo comentario en crearJugador
+        // más abajo para el porqué exacto.
+        f.x = gx + 0.5; f.y = gy + 0.5; f.especieId = p.especieId ?? ""; f.vida = p.hp; f.vidaMax = p.hpMax; f.ataque = p.ataqueFisico;
         this.state.fauna.set(p.id, f);
       } else if (p.tipoEntidad === "enemigo") {
         const e = new Enemigo();
-        e.x = gx; e.y = gy; e.enemigoId = p.enemigoId ?? ""; e.variante = p.variante ?? 0; e.esBoss = p.esBoss ?? false;
+        e.x = gx + 0.5; e.y = gy + 0.5; e.enemigoId = p.enemigoId ?? ""; e.variante = p.variante ?? 0; e.esBoss = p.esBoss ?? false;
         e.vida = p.hp; e.vidaMax = p.hpMax; e.ataque = p.ataqueFisico; e.defensa = p.defensaFisica;
         this.state.enemigos.set(p.id, e);
       } else if (p.tipoEntidad === "npc") {
@@ -135,7 +139,7 @@ export class ArenaCombateRoom extends RoomExteriorBase {
         // combate; el aspecto (rig de repuesto si no hay vox propio) lo
         // resuelve el cliente igual que cualquier otro Npc.
         const n = new Npc();
-        n.x = gx; n.y = gy; n.nombre = p.nombreNpc ?? ""; n.hostil = true; n.accion = "combate"; n.visible = true;
+        n.x = gx + 0.5; n.y = gy + 0.5; n.nombre = p.nombreNpc ?? ""; n.hostil = true; n.accion = "combate"; n.visible = true;
         n.vida = p.hp; n.vidaMax = p.hpMax; n.ataque = p.ataqueFisico; n.defensa = p.defensaFisica;
         this.state.npcs.set(p.id, n);
       }
@@ -160,7 +164,15 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       return;
     }
 
-    const player = this.crearJugador(client, { name: nombre }, cu.gx, cu.gy);
+    // +0.5: centra al jugador en la casilla táctica (pedido streamer, ver el
+    // mismo fix en onCreate arriba y en manejarCombateMover de
+    // RoomExteriorBase.ts) — antes se plantaba en la ESQUINA/línea de la
+    // rejilla (crearRejillaTactica dibuja líneas en enteros 0..ancho, así
+    // que el centro real de la casilla `gx` es `gx+0.5`). Aplicado a los
+    // TRES puntos que fijan esta posición (aquí, la creación de fauna/
+    // enemigo/npc de arriba, y cada movimiento) para que nunca haya un
+    // salto: el convenio +0.5 es el mismo desde el primer frame.
+    const player = this.crearJugador(client, { name: nombre }, cu.gx + 0.5, cu.gy + 0.5);
     player.vida = cu.hp; player.vidaMax = cu.hpMax; player.ataque = cu.ataqueFisico; player.defensa = cu.defensaFisica;
 
     // Remapea la unidad de "nombre" (clave provisional, sessionId no existía

@@ -27,6 +27,7 @@ import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD
 import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2, Object3D } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
+import { ResaltadoCombate } from "./render3d/resaltadoCombate";
 import { PanelChat } from "./ui/chat";
 import { PanelForja } from "./construccion/panelForja";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
@@ -614,6 +615,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   let renderConstrucciones: RenderConstrucciones | null = null;
   let renderObjetosMundo: RenderObjetosMundo | null = null;
   let panelAjedrez: PanelAjedrez | null = null;
+  // Cofre/arcón — izados fuera del `if (SALA === "hub")` de abajo por el
+  // MISMO motivo que renderConstrucciones/panelAjedrez arriba: panelJugador
+  // (fuera de ese bloque) necesita mandar "sacar del cofre abierto" cuando
+  // se arrastra un ítem desde `panelCofre` hasta su propia rejilla (pedido
+  // streamer 2026-09-06, "intercambiar objetos" entre el cofre y el tuyo).
+  let cofreObjetivo: { id: number; nombre: string } | null = null;
+  let panelCofre: PanelCofre | null = null;
   // Captura genérica de "último mensaje visto de este tipo" (barrido de
   // sistemas 2026-08-31), izada por el MISMO motivo que renderConstrucciones/
   // panelAjedrez arriba: los mensajes de médico (más abajo, fuera del
@@ -740,10 +748,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
     // Panel real de cofre/arcón (pedido 2026-08-31) — cofreObjetivo lo fija
     // el clic "Abrir X" del menú de interacción, más abajo.
-    let cofreObjetivo: { id: number; nombre: string } | null = null;
-    const panelCofre = new PanelCofre({
+    panelCofre = new PanelCofre({
       contenedor,
       sacar: (construccionId, instanciaId) => room.send("cofre:sacarItem", { construccionId, instanciaId }),
+      // Meter (pedido streamer 2026-09-06, "intercambiar objetos" — antes
+      // cofre:meterItem ya funcionaba en el servidor pero solo lo llamaba
+      // una sonda de test, sin botón/gesto real en la UI) — arrastrar desde
+      // la rejilla del jugador hasta esta rejilla, ver panelCofre.ts.
+      meter: (instanciaId) => { if (cofreObjetivo) room.send("cofre:meterItem", { construccionId: cofreObjetivo.id, instanciaId }); },
       // Librería (docs/GDD_Libreria.md, pedido 2026-09-01): "Leer" aparece en
       // CUALQUIER cofre/librería para filas de tipo "libro" — un libro sigue
       // siendo legible dondequiera que esté guardado.
@@ -1010,9 +1022,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       modalInstrumento.mostrarError(m?.motivo || "No se pudo tocar.");
     });
     room.onMessage("cofre:error", (m: { motivo: string }) => console.log("[cofre]", m?.motivo));
-    room.onMessage("cofre:estado", (m: { construccionId: number; ancho: number; alto: number; items: { id: number; itemId: string; cantidad: number }[] }) => {
-      if (cofreObjetivo) panelCofre.abrir(cofreObjetivo.nombre);
-      panelCofre.actualizarEstado(m.construccionId, m.items || []);
+    room.onMessage("cofre:estado", (m: { construccionId: number; ancho: number; alto: number; items: { id: number; itemId: string; cantidad: number; x: number; y: number; rot: 0 | 1 }[] }) => {
+      if (cofreObjetivo && panelCofre) panelCofre.abrir(cofreObjetivo.nombre);
+      panelCofre?.actualizarEstado(m.construccionId, m.ancho, m.alto, m.items || []);
     });
     // Sentarse (pedido 2026-08-31) — sin panel propio (no hay nada que
     // mostrar salvo la pose, que ya se ve en el rig), solo consola por si
@@ -1288,6 +1300,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     (window as any).__test = {
       enviar: (tipo: string, msg?: unknown) => room.send(tipo, msg),
       sessionId: () => room.sessionId,
+      // Mismo efecto que clicar "Abrir <cofre>" en el menú contextual real
+      // (ver el manejador de clic más abajo) — sin sonda de targeting 3D en
+      // los e2e, mismo criterio que el resto de este objeto (p.ej. "C" en
+      // vez de clicar un enemigo en combate).
+      abrirCofre: (construccionId: number, nombre: string) => {
+        cofreObjetivo = { id: construccionId, nombre };
+        room.send("cofre:consultar", { construccionId });
+      },
       ultimoMensaje: (tipo: string) => ultimosMensajes.get(tipo) ?? null,
       ultimoEstadoGremio: () => ultimoEstadoGremio,
       ultimaInvitacionGremio: () => ultimaInvitacionGremio,
@@ -1925,6 +1945,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   $(room.state).combates.onRemove(() => actualizarPanelCombate());
   room.onStateChange(() => actualizarPanelCombate());
 
+  // Resaltado de casilla ocupada (pedido streamer 2026-09-06, ver
+  // resaltadoCombate.ts) — solo tiene sentido en la arena dedicada, la
+  // única sala con rejilla táctica dibujada de verdad (sectorVisual.ts).
+  const resaltadoCombate = SALA === "arena" ? new ResaltadoCombate(escena) : null;
+  if (resaltadoCombate) {
+    const actualizarResaltadoCombate = () => resaltadoCombate.actualizar(room.state.combates.get(COMBATE_ID) as any);
+    $(room.state).combates.onAdd(() => actualizarResaltadoCombate());
+    $(room.state).combates.onRemove(() => actualizarResaltadoCombate());
+    room.onStateChange(() => actualizarResaltadoCombate());
+  }
+
   // --- Chat entre jugadores (docs/GDD_Mecanicas.md §5.12, pedido
   // 2026-09-02: "literalmente no existe ningún canal local/global para que
   // dos jugadores se hablen") — dos canales, ver server/src/rooms/base/
@@ -2085,6 +2116,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     desequipar: (slot) => room.send("equipo:desequipar", { slot }),
     // Grid drag&drop (docs/GDD_Inventario.md §10, pedido 2026-08-30).
     mover: (instanciaId, contenedorDestino, x, y, rot) => room.send("inventario:mover", { instanciaId, contenedorDestino, x, y, rot }),
+    // Arrastrar un ítem del cofre ABIERTO hasta la rejilla propia (pedido
+    // streamer 2026-09-06, "intercambiar objetos") — protocolo YA existente
+    // y probado (cofre:sacarItem, RoomExteriorBase.ts), sin cablear en la UI
+    // hasta ahora. `cofreObjetivo` vive fuera de este bloque (izado, ver su
+    // declaración) precisamente para que este callback lo alcance.
+    sacarDeCofre: (instanciaId) => { if (cofreObjetivo) room.send("cofre:sacarItem", { construccionId: cofreObjetivo.id, instanciaId }); },
   });
   room.onMessage("equipo:error", (m: { motivo: string }) => console.log("[equipo]", m?.motivo));
   room.onMessage("inventario:error", (m: { motivo: string }) => console.log("[inventario]", m?.motivo));

@@ -11745,15 +11745,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // real que pinta el rig del cliente (game.ts interpola contra
     // player.x/y, no contra CombateUnidad) — el rig se quedaba clavado
     // aunque el servidor sí registrara el movimiento táctico.
-    // Sin +0.5: mismo criterio exacto que ArenaCombateRoom.onJoin
-    // (crearJugador(..., cu.gx, cu.gy) a secas) — con +0.5 aquí, el rig
-    // pegaría un salto visible medio casilla en el PRIMER movimiento.
+    // +0.5 (pedido streamer 2026-09-06: "deben estar en el centro de la
+    // casilla, ahora está junto al eje"): `crearRejillaTactica` dibuja las
+    // líneas de la rejilla en enteros 0..ancho, así que el centro real de
+    // la casilla `gx` es `gx+0.5`, no `gx`. Aplicado A LA VEZ en los otros
+    // dos puntos que fijan esta misma posición (ArenaCombateRoom.onCreate/
+    // onJoin) para que el convenio sea el mismo desde el primer frame —
+    // el salto de medio casilla que motivó no usar +0.5 aquí originalmente
+    // solo pasaría si un punto usa +0.5 y otro no; los tres coinciden ahora.
     if (cu.esJugador) {
       const jugador = this.state.players.get(cu.id);
-      if (jugador) { jugador.x = combate.gx0 + cu.gx; jugador.y = combate.gy0 + cu.gy; }
+      if (jugador) { jugador.x = combate.gx0 + cu.gx + 0.5; jugador.y = combate.gy0 + cu.gy + 0.5; }
     } else if (cu.duenoSessionId) {
       const companero = this.state.companeros.get(cu.id);
-      if (companero) { companero.x = combate.gx0 + cu.gx; companero.y = combate.gy0 + cu.gy; }
+      if (companero) { companero.x = combate.gx0 + cu.gx + 0.5; companero.y = combate.gy0 + cu.gy + 0.5; }
     }
 
     // Destreza (docs/GDD_Personaje.md §3.2): moverse por la arena entrena
