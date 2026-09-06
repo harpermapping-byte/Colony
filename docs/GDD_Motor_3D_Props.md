@@ -150,17 +150,19 @@ footprint coincide con la huella del catálogo). `taller-vox/test_edificio.js`/
 `test_hitos_plaza.js`/`test_items.js`/`test_pj.js` sin regresión (59/59) —
 confirman que el nuevo parámetro opcional no cambia nada para quien no lo pide.
 
-**Pendiente de verdad**: el CÓDIGO del generador ya está arreglado y
-probado, pero `assets/interiores/*.glb` (los ~132 ya subidos, más los que
-faltan del catálogo de 1315 piezas/variantes) siguen siendo los ANTIGUOS
-— el streamer decidió aplicar la regeneración él mismo en vez de que lo
-haga el agente en esta pasada. Para aplicarlo de verdad: `cd taller-vox &&
-node generar_modelos.js && node exportar_lote.js modelos_generados.json
-../assets/interiores --centrar-xz` (este pipeline concreto ya estaba
-exento del visto bueno pieza a pieza, ver comentario en `exportar_lote.js`
-— es una regeneración masiva, no arte nuevo que revisar). Hasta que se
-corra ese comando, el juego sigue mostrando los muebles con el tamaño y
-desplazamiento antiguos.
+**APLICADO (2026-09-06)**: el streamer pidió aplicarlo ya — `assets/interiores/`
+se regeneró entera (1315 `.glb`, antes solo había 132 subidos; 9.3MB en
+total) con `node generar_modelos.js && node exportar_lote.js
+modelos_generados.json ../assets/interiores --centrar-xz`. Verificado de
+punta a punta contra servidor+cliente reales sobre `testflat` (los 19
+muebles sembrados de la Test Zone, `server/src/mundo/semillaTestZone.ts`):
+red confirma `200` en la carga real de `silla_01.glb`/`cama_individual_01.glb`/
+`mesa_comedor_01.glb`/etc. (no placeholder), captura real mostrando los
+muebles ya proporcionados junto al jugador (antes de esta pasada una mesa
+casi le llegaba a la cabeza), y el jugador se detiene pegado al borde
+VISIBLE de la cama al empujar contra ella — ya no queda ningún hueco
+"invisible" de colisión. Nada de esto tocó edificios/naturaleza/personajes
+(fuera de alcance, siguen con el convenio de esquina de siempre).
 
 ## Qué falta (pendiente, no bloquea lo anterior)
 
