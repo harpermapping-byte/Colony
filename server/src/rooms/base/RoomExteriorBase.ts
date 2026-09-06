@@ -2,9 +2,9 @@ import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
 import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, CarroSchema, ConjuntoTiroSchema, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema, BlueprintRopaSchema } from "../schema/HubState";
-import { Cadaver, cadaverDesaparecio, crearCadaver, ANCHO_INVENTARIO_CADAVER, ALTO_INVENTARIO_CADAVER, DatosVisualJugador } from "../../mundo/cadaveres";
+import { Cadaver, cadaverDesaparecio, crearCadaver, DatosVisualJugador } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
-import { rellenarLootCaza, datosDeCadaver, sacrificarAnimalGranja } from "../../mundo/lootCaza";
+import { datosDeCadaver, sacrificarAnimalGranja } from "../../mundo/lootCaza";
 import { EstadoDespiece, VerboDespiece, iniciarDespiece, despiezeListo, recolectarDespiece } from "../../mundo/despiece";
 import { estaEncerrado, tiroEscape } from "../../mundo/ganaderia";
 import { cargarCatalogoReproduccionGranja, resolverReproduccionPropiedad } from "../../mundo/reproduccionGranja";
@@ -42,9 +42,7 @@ import {
   jugarTurnoIA,
   municionDeEquipo,
   municionExtraDeHabilidad,
-  ordenarTurnos,
   requiereQuietoHabilidad,
-  resolverAtaque,
   resolverAtaqueConHabilidad,
   tirarHuida,
 } from "../../combate/arenaCombate";
@@ -82,7 +80,7 @@ import { sincronizarContenedor, sincronizarEquipo } from "../../inventario/sincr
 import { CatalogoMonturas, cargarCatalogoMonturas } from "../../mundo/catalogoMonturas";
 import { CatalogoBarcos, cargarCatalogoBarcos } from "../../mundo/catalogoBarcos";
 import { CatalogoCarros, cargarCatalogoCarros } from "../../mundo/catalogoCarros";
-import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, Carro as CarroFila, ConjuntoTiro as ConjuntoTiroFila, ContenidoCarro, CasillaCultivo, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero, NpcTrabajador } from "../../datos/bd";
+import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila, UbicacionMascota, CultivoHibrido, PlatoCreado, AnimalGranjaFila, Barco as BarcoFila, Carro as CarroFila, ConjuntoTiro as ConjuntoTiroFila, ContenidoCarro, PREFIJO_NPC_COMERCIANTE, PREFIJO_NPC_COMPANERO, Companero, NpcTrabajador } from "../../datos/bd";
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe, parcelaEn } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
@@ -134,7 +132,7 @@ const { interpretarPromptTejido, cargarCatalogoPrendas } = require("../../../../
 const { interpretarPromptMueble } = require("../../../../taller-vox/interpretarPromptMueble");
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { interpretarPromptEdificio } = require("../../../../taller-vox/interpretarPromptEdificio");
-import { EstadoCurtidor, aceptaEntradaCurtidor, huecoMaterialCurtidor, iniciarLoteCurtidor, curtidorListo, recolectarLoteCurtidor } from "../../construccion/curtido";
+import { EstadoCurtidor, aceptaEntradaCurtidor, huecoMaterialCurtidor, iniciarLoteCurtidor, recolectarLoteCurtidor } from "../../construccion/curtido";
 import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, aplicarAhogo, VITAL_MAX } from "../../personaje/vitales";
 import {
   OFICIOS_JUGADOR_VALIDOS, tieneOficio, precioCambioOficio,
@@ -172,11 +170,11 @@ import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto, tiene
 import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { nombreCapitalOverride, fijarNombreCapital, LONGITUD_MAXIMA_NOMBRE_CAPITAL } from "../../mundo/capital";
-import { nuevasClavesReveladas } from "../../mundo/exploracion";
+import { nuevasClavesReveladas, sectorDePosicion, empaquetarSector } from "../../mundo/exploracion";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
 import {
-  EstadoCocina, cocinarSimple, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir,
+  EstadoCocina, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir,
   IngredienteCocina, familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura,
   FamiliaPlato, ResultadoCoccion, OrigenCocina,
   SesionCocina, iniciarSesionCocina, avivarCocina, enfriarCocina, servirCocina, CONFIG_ESTACION_COCINA,
@@ -196,7 +194,7 @@ import {
 } from "../../personaje/enfermedades";
 import { AnatomiaSchema, EnfermedadesSchema, CompaneroSchema } from "../schema/HubState";
 import {
-  probabilidadReclutar, intentarPersuadir, costeReclutar, nivelCompanero,
+  intentarPersuadir, costeReclutar, nivelCompanero,
   bonusAtaquePorNivelCompanero, bonusDefensaPorNivelCompanero,
   EstadoHambreCompanero, hambreInicial, resolverHambreCompanero,
 } from "../../personaje/companeros";
@@ -754,7 +752,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // (best-effort, mismo criterio que anatomia/enfermedades: si no está
   // cargado aún, `revelarExploracionSiHaceFalta` no hace nada esos
   // primeros ticks, sin romper nada).
-  protected exploracionPorSesion = new Map<string, { jugadorId: number; revelados: Set<number> }>();
+  protected exploracionPorSesion = new Map<string, { jugadorId: number; revelados: Set<number>; ultimoSectorEmpaquetado?: number }>();
   private cooldownSaltoMontura = new Map<string, number>(); // sessionId -> epoch ms del próximo salto permitido
 
   // --- Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — a diferencia de una
@@ -877,7 +875,6 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // Poblado por publicarCadaver(); mapaId lo fija cada subclase que llame a
   // publicarCadaver por primera vez (hoy solo HubRoom, vía fauna salvaje).
   protected cadaveresPuros = new Map<string, Cadaver>();
-  private mapaIdCadaveres = "";
   // Ganadería (docs/GDD_Ganaderia.md) — mismo criterio que cadaveresPuros:
   // estado PURO, state.animalesGranja es solo el espejo de red. Poblado por
   // publicarAnimalGranja() en iniciarConstruccion() (disponible en
@@ -2566,7 +2563,6 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   protected publicarCadaver(cadaver: Cadaver) {
     this.cadaveresPuros.set(cadaver.id, cadaver);
-    this.mapaIdCadaveres = cadaver.mapaId;
     const schema = new CadaverSchema();
     schema.x = cadaver.x;
     schema.y = cadaver.y;
@@ -3741,7 +3737,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
     const resultado = equiparItem(invCompanero, this.catalogoItems, msg.instanciaId, msg.slot);
     if (!resultado.ok) return this.errorCompanero(client, resultado.motivo ?? "no_equipable_en_ese_slot");
-    this.sincronizarYRecalcularCompanero(client.sessionId, invCompanero, esquema);
+    this.sincronizarYRecalcularCompanero(invCompanero, esquema);
     void this.persistirInventarioCompanero(client.sessionId);
   }
 
@@ -3751,7 +3747,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!invCompanero || !esquema || typeof msg?.slot !== "string") return;
     const resultado = desequiparItem(invCompanero, this.catalogoItems, msg.slot, Infinity); // el compañero no tiene Fuerza propia todavía — sin tope de peso en esta fase
     if (!resultado.ok) return this.errorCompanero(client, resultado.motivo ?? "slot_vacio");
-    this.sincronizarYRecalcularCompanero(client.sessionId, invCompanero, esquema);
+    this.sincronizarYRecalcularCompanero(invCompanero, esquema);
     void this.persistirInventarioCompanero(client.sessionId);
   }
 
@@ -3793,7 +3789,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     await bd.actualizarXpCompanero(companeroId, duenoJugadorId, nuevaXp);
   }
 
-  private sincronizarYRecalcularCompanero(sessionId: string, inv: InventarioJugador, esquema: CompaneroSchema) {
+  private sincronizarYRecalcularCompanero(inv: InventarioJugador, esquema: CompaneroSchema) {
     sincronizarContenedor(esquema.inventario.cuerpo, inv.cuerpo);
     sincronizarEquipo(esquema.inventario, inv.equipo, inv.extras);
     const stats = calcularStatsEquipo(this.catalogoItems, inv.equipo, inv.equipoDurabilidad);
@@ -5257,6 +5253,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const estado = this.exploracionPorSesion.get(sessionId);
     const tilesPorSector = this.tilesPorSectorExploracion;
     if (!estado || !tilesPorSector || !this.mapaIdPropio) return;
+    // Optimización de tick (30hz, llamada por cada jugador que se mueve
+    // ese frame): mientras siga dentro del MISMO sector que la última vez
+    // que se llegó hasta aquí, `nuevasClavesReveladas` está GARANTIZADO a
+    // devolver [] — el radio de sectores a revelar es función pura de
+    // (sx,sy), y esos candidatos ya quedaron en `estado.revelados` la vez
+    // anterior que se pisó este sector. Cruzar un mapa grande a pie tarda
+    // muchísimos ticks por sector (velocidad tierra vs. tilesPorSector), así
+    // que esto evita repetir la asignación+filtro de ~25 claves en la
+    // inmensísima mayoría de ticks — el resultado final (revelados/BD) es
+    // idéntico, solo cambia CUÁNDO se detecta el caso "nada nuevo".
+    const { sx, sy } = sectorDePosicion(x, y, tilesPorSector);
+    const sectorActual = empaquetarSector(sx, sy);
+    if (estado.ultimoSectorEmpaquetado === sectorActual) return;
+    estado.ultimoSectorEmpaquetado = sectorActual;
     const nuevas = nuevasClavesReveladas(estado.revelados, x, y, tilesPorSector);
     if (nuevas.length === 0) return;
     for (const clave of nuevas) estado.revelados.add(clave);
