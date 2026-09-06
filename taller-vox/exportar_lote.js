@@ -23,7 +23,7 @@ function nombreSalida(clave) {
   return `${clave}_01.glb`;
 }
 
-function exportarLote(archivoModelos, carpetaSalida) {
+function exportarLote(archivoModelos, carpetaSalida, opciones = {}) {
   const modelos = require(path.resolve(archivoModelos));
   fs.mkdirSync(carpetaSalida, { recursive: true });
   const resumen = [];
@@ -35,7 +35,7 @@ function exportarLote(archivoModelos, carpetaSalida) {
     // así que el 0.1 fijo de exportar_glb.js (pensado para U=10 de
     // edificios) desescalaría cualquier mueble con más o menos detalle.
     const unit = 1 / (modelo.resolucion || 10);
-    const stats = exportarModelo(modelo, clave, rutaSalida, unit);
+    const stats = exportarModelo(modelo, clave, rutaSalida, unit, !!opciones.centrarXZ);
     resumen.push({ clave, archivo, ...stats });
   }
   return resumen;
@@ -44,12 +44,16 @@ function exportarLote(archivoModelos, carpetaSalida) {
 module.exports = { exportarLote, nombreSalida };
 
 if (require.main === module) {
-  const [archivoModelos, carpetaSalida] = process.argv.slice(2);
+  const [archivoModelos, carpetaSalida, ...flags] = process.argv.slice(2);
   if (!archivoModelos || !carpetaSalida) {
-    console.log("Uso: node exportar_lote.js <archivoModelos.json> <carpetaSalida>");
+    console.log("Uso: node exportar_lote.js <archivoModelos.json> <carpetaSalida> [--centrar-xz]");
     process.exit(1);
   }
-  const resumen = exportarLote(archivoModelos, carpetaSalida);
+  // --centrar-xz (pedido streamer, colisión desalineada de los muebles):
+  // solo lo usa el lote de modelos_generados.json -> assets/interiores —
+  // edificios/naturaleza siguen con el convenio de esquina de siempre hasta
+  // que se audite ESE pipeline aparte (fuera de esta pasada).
+  const resumen = exportarLote(archivoModelos, carpetaSalida, { centrarXZ: flags.includes("--centrar-xz") });
   const kb = Math.round(resumen.reduce((a, r) => a + r.bytes, 0) / 1024);
   console.log(`Exportados ${resumen.length} .glb a ${carpetaSalida} (${kb} KB total)`);
 }

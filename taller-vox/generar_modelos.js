@@ -245,7 +245,14 @@ function gridDe(huella, alturaCasillas) {
 // --- arquetipos con detalle real ------------------------------------------
 
 function generarAsiento(huella, color, id) {
-  const [gx, gy, gz] = gridDe(huella, id.includes("trono") ? 3.4 : id.includes("mecedora") || id.includes("reclinatorio") ? 2.6 : 2.3);
+  // Alturas reales (pedido streamer: "las sillas son GIGANTES") — antes 2.3
+  // casillas normal / 2.6 mecedora / 3.4 trono: con el rig humano a ~1.57
+  // unidades de alto (client/src/render3d/proporcionesRig.json) una silla
+  // de 2.3 salía casi medio metro MÁS ALTA que la persona sentada en ella.
+  // Recalibrado contra una silla real (~0.85-0.95m), un trono ornamentado
+  // (~1.3m de respaldo) y una mecedora/reclinatorio algo más alto que una
+  // silla normal por el reposacabezas.
+  const [gx, gy, gz] = gridDe(huella, id.includes("trono") ? 1.3 : id.includes("mecedora") || id.includes("reclinatorio") ? 0.95 : 0.85);
   const b = Builder();
   const wood = color, dark = sombrear(color, 0.68), light = sombrear(color, 1.25);
   const legW = Math.max(2, Math.round(U * 0.16));
@@ -313,7 +320,11 @@ function generarAsiento(huella, color, id) {
 
 function generarMesa(huella, color, esSuperficie, id) {
   const especial = ["yunque", "fregadero", "encimera", "mostrador", "especiero", "escritorio", "bancada_cultivo"];
-  const [gx, gy, gz] = gridDe(huella, id === "yunque" ? 1.3 : especial.includes(id) ? 1.9 : 1.9);
+  // Altura real (pedido streamer: "la mesa ENORME") — antes 1.9 casillas
+  // (~2m) para CUALQUIER mesa, casi tan alta como la propia persona; una
+  // mesa/mostrador/escritorio real ronda 0.7-0.8m de altura de tablero. El
+  // yunque se deja un poco más alto (superficie de trabajo de pie, ~0.8m).
+  const [gx, gy, gz] = gridDe(huella, id === "yunque" ? 0.8 : especial.includes(id) ? 0.75 : 0.75);
   const b = Builder();
   const wood = color, dark = sombrear(color, 0.65), light = sombrear(color, 1.3);
 
@@ -403,7 +414,12 @@ function generarMesa(huella, color, esSuperficie, id) {
 }
 
 function generarCama(huella, color, id) {
-  const [gx, gy, gz] = gridDe(huella, 1.5);
+  // Altura real (pedido streamer: "la cama ENORME") — antes 1.5 casillas
+  // (~1.6m) de postes de cabecero para CUALQUIER cama, casi tan alto como
+  // la propia persona de pie. Una cama sencilla (no un dosel de cuatro
+  // postes) real ronda 0.75-0.85m de cabecero, con el colchón mucho más
+  // abajo (la fracción interna de la función ya lo escala solo).
+  const [gx, gy, gz] = gridDe(huella, 0.8);
   const b = Builder();
   const wood = color, dark = sombrear(color, 0.65), light = sombrear(color, 1.3);
   const postW = Math.max(2, Math.round(U * 0.18));

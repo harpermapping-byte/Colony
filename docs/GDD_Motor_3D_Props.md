@@ -92,6 +92,78 @@ Pedido explícito del streamer: armas/herramientas/objetos/comida (`items/catalo
 
 **Tests**: `taller-vox/test_items.js` (`node --test test_items.js`, 16 tests) — clasificación sin arquetipo faltante para el catálogo real completo (19+70+75+31 ids), geometría válida (cajas no vacías, paleta no vacía, grid positivo) para TODOS los ids reales de las 4 categorías (barato: solo cálculo en memoria, no exporta nada), determinismo por id, longitud creciente con `huella`, cobertura de objetos documentada (SIN_COBERTURA/BARCO), y exportación `.glb` real de una muestra de 4 ids (uno por categoría) verificando la cabecera binaria `glTF`.
 
+## Muebles de interiores: proporción y colisión corregidas en el generador (2026-09-06, código listo, `assets/` pendiente de que lo aplique el streamer)
+
+Pedido del streamer jugando de verdad ("las sillas son GIGANTES, la cama y
+mesa ENORMES en proporción a los NPC... las colisiones deben adecuarse...
+que ahora chocas con la cama en una zona que no hay cama"): dos bugs reales
+y distintos en `taller-vox/generar_modelos.js`/`exportar_glb.js`, verificados
+con números (no solo a ojo) antes de tocar nada:
+
+1. **Alturas irreales**: `generarAsiento`/`generarMesa`/`generarCama` fijaban
+   la altura en CASILLAS DE MUNDO directamente como si fueran metros — una
+   `silla` salía a 2.3 unidades de alto (medido de verdad exportando el
+   `.glb`: 2.29u) contra ~1.57u de una persona de pie (`altoPierna+
+   altoTorso+ladoCabeza` de `proporcionesRig.json`) — un 46% MÁS ALTA que
+   quien se sienta en ella. Mesas a 1.9u (casi la altura de un NPC) y camas
+   con postes de cabecero a 1.5u (por encima del pecho de pie). Recalibrado
+   a alturas reales: silla/banco/taburete 0.85u, mecedora/reclinatorio
+   0.95u, trono 1.3u (ornamental, sale ~1.6u con el pico decorativo, sigue
+   siendo el asiento más alto a propósito), mesa/escritorio/mostrador 0.75u,
+   yunque 0.8u, cama 0.8u (con postes/dosel modestos, no un dosel de cuatro
+   postes de palacio). Verificado con captura real junto a una caja del
+   tamaño exacto del rig (`taller-vox/prueba_render_proporciones.js`) — las
+   proporciones ya se leen como muebles normales junto a una persona.
+2. **Colisión desalineada del modelo visual**: `exportarModelo` (el
+   mesher de vóxeles) sacaba SIEMPRE el `.glb` anclado por la ESQUINA
+   (0,0,0) — confirmado midiendo la caja delimitadora real del glTF
+   exportado (`accessors[0].min/max`), no asumido. Pero TODOS los
+   consumidores reales (`client/src/render3d/interiorVisual.ts`,
+   `client/src/construccion/renderConstrucciones.ts`) colocan el modelo con
+   `position.set(esquina + ancho/2, y, esquina + alto/2)` — el mismo
+   convenio que ya usa un `THREE.BoxGeometry` normal (centrado en su propio
+   origen, por eso el placeholder de caja SIEMPRE encajaba bien). Con el
+   modelo real anclado por la esquina en vez de centrado, esa fórmula lo
+   desplazaba MEDIO HUECO ENTERO de donde debía estar — la colisión (que sí
+   usa la esquina real de la huella, `casillasDe()` en
+   `server/src/construccion/construccion.ts`) se quedaba en su sitio
+   correcto mientras el modelo VISIBLE aparecía desplazado, dando
+   exactamente el síntoma reportado: chocar en una casilla donde a simple
+   vista no hay mueble (la cama real está ahí, pero se VE media casilla más
+   allá). Arreglado con un parámetro nuevo `centrarXZ` en `exportarModelo`/
+   `mallarVoxeles` (`taller-vox/exportar_glb.js`) que resta medio grid en
+   X/Z antes de escalar por `unit` — deja el modelo centrado en su propio
+   origen en X/Z (Y se queda apoyada en el suelo, y=0, que sí es correcto)
+   — verificado exportando `silla`/`cama_individual`/`mesa_comedor` y
+   comprobando que el footprint real del `.glb` (`max-min`) coincide con la
+   `huella` real de `interiores/catalogo/elementos.json` centrada en 0.
+   **A propósito NO se toca nada de edificios/naturaleza/personajes** (los
+   otros consumidores de `exportar_glb.js`) — `centrarXZ` por defecto es
+   `false` (comportamiento byte a byte idéntico al de siempre) y solo el
+   lote de muebles de interiores lo activa (`exportar_lote.js ... --centrar-xz`);
+   si esos otros pipelines tienen el mismo bug de anclaje está sin auditar,
+   fuera de esta pasada.
+
+Tests nuevos: `taller-vox/test_muebles_proporcion.js` (7, alturas reales
+contra la persona de referencia + centrado real del `.glb` exportado +
+footprint coincide con la huella del catálogo). `taller-vox/test_edificio.js`/
+`test_hitos_plaza.js`/`test_items.js`/`test_pj.js` sin regresión (59/59) —
+confirman que el nuevo parámetro opcional no cambia nada para quien no lo pide.
+
+**APLICADO (2026-09-06)**: el streamer pidió aplicarlo ya — `assets/interiores/`
+se regeneró entera (1315 `.glb`, antes solo había 132 subidos; 9.3MB en
+total) con `node generar_modelos.js && node exportar_lote.js
+modelos_generados.json ../assets/interiores --centrar-xz`. Verificado de
+punta a punta contra servidor+cliente reales sobre `testflat` (los 19
+muebles sembrados de la Test Zone, `server/src/mundo/semillaTestZone.ts`):
+red confirma `200` en la carga real de `silla_01.glb`/`cama_individual_01.glb`/
+`mesa_comedor_01.glb`/etc. (no placeholder), captura real mostrando los
+muebles ya proporcionados junto al jugador (antes de esta pasada una mesa
+casi le llegaba a la cabeza), y el jugador se detiene pegado al borde
+VISIBLE de la cama al empujar contra ella — ya no queda ningún hueco
+"invisible" de colisión. Nada de esto tocó edificios/naturaleza/personajes
+(fuera de alcance, siguen con el convenio de esquina de siempre).
+
 ## Qué falta (pendiente, no bloquea lo anterior)
 
 - **Bakeo de producción de ítems** (armas/herramientas/objetos/comida): la herramienta de arriba está lista; falta que el streamer decida lanzar `generar_*.js` sin `--muestra` sobre los 195 ids reales, revisar en el visor, y aprobar/subir a `assets/armas|herramientas|objetos|comida/`. Los 33 `cadaver_*` de objetos seguirán con placeholder hasta que se diseñe un arquetipo propio para restos de animal.

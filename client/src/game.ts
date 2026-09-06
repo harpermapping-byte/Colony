@@ -147,9 +147,17 @@ const HUNDIMIENTO_NADANDO = 0.55;
 const HUNDIMIENTO_POR_NIVEL = 0.4;
 // Sentarse/tumbarse (pedido 2026-08-31): mismo mecanismo de "bajar el rig"
 // que nadando, para que la pose de piernas dobladas (rigHumanoide.ts) no
-// deje al personaje flotando por encima del asiento/suelo.
+// deje al personaje flotando por encima del asiento/suelo. `torso.position.y`
+// (rigHumanoide.ts) se queda fijo en ALTO_PIERNA (0.7) para AMBAS poses —
+// todo el ajuste de altura vive aquí, en el hundimiento del rig entero.
+// Bug real reportado por el streamer ("sentarse en el suelo... lo único que
+// hace es subir las piernas y flotar"): 0.4 dejaba la cadera a 0.7-0.4=0.3
+// unidades del suelo — demasiado alto para estar sentado EN EL SUELO (una
+// silla real sí tiene ese hueco, por eso HUNDIMIENTO_SENTADO se deja igual).
+// Subido a 0.55 para que la cadera quede a ~0.15, la altura real de sentarse
+// con las piernas cruzadas/recogidas.
 const HUNDIMIENTO_SENTADO = 0.25;
-const HUNDIMIENTO_SENTADO_SUELO = 0.4;
+const HUNDIMIENTO_SENTADO_SUELO = 0.55;
 
 interface EstadoJugador {
   rig: RigHumanoide;
@@ -843,6 +851,16 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const raycasterClic = new Raycaster();
     escena.renderer.domElement.addEventListener("click", (e) => {
       if (modo.activo()) return; // el modo construcción ya consume sus propios clics (colocar/rotar)
+      // Bug real reportado por el streamer ("si le das otra vez click debería
+      // cerrarse, si no eliges nada, ahora no se cierra más que si eliges una
+      // acción"): el menú YA se cierra solo con el `mousedown` fuera de él
+      // (menuInteraccion.ts), pero ese es un evento ANTERIOR al `click` — así
+      // que un segundo clic en el mismo sitio (o en cualquier otro punto del
+      // lienzo sin mueble debajo) cerraba el menú con el mousedown y esta
+      // misma función lo volvía a abrir acto seguido con el click, dando la
+      // sensación de que nunca se cerraba. Tratar un clic con el menú ya
+      // abierto como "solo cerrar" (nunca reabrir de paso) arregla el toggle.
+      if (menuInteraccion.visible()) { menuInteraccion.ocultar(); return; }
       const r = escena.renderer.domElement.getBoundingClientRect();
       const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       raycasterClic.setFromCamera(ndc, escena.camera);
@@ -2708,6 +2726,16 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     teclas.add(k);
   });
   window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));
+  // Bug real reportado por el streamer ("a veces no reconoce el WASD, va
+  // trabado"): cambiar de pestaña/ventana con una tecla de movimiento
+  // pulsada no siempre dispara su `keyup` (el navegador no lo garantiza
+  // fuera de foco) — la tecla se queda "pegada" en `teclas` para siempre, y
+  // el bucle de abajo cree que sigues andando (o ya no reacciona a soltarla
+  // de verdad al volver). Limpiar TODO el set al perder el foco fuerza al
+  // bucle a recalcular x/y=0 en el siguiente frame y mandar el "parado" real
+  // — volver a pulsar cualquier tecla tras recuperar el foco arranca limpio.
+  window.addEventListener("blur", () => teclas.clear());
+  document.addEventListener("visibilitychange", () => { if (document.hidden) teclas.clear(); });
 
   let ultimaDireccionEnviada: Direction = { x: 0, y: 0 };
   // Última dirección NO nula (docs/GDD_Monturas.md) — para saltar hacia

@@ -27,9 +27,17 @@ import { sembrarMueblesTestZone, sembrarNpcsTutorialTestZone } from "./mundo/sem
 // encoder/Encoder.js: al detectar overflow el encoder se REDIMENSIONA y
 // re-codifica solo (Buffer.alloc + reintento), con un console.warn — no
 // tira el proceso ni pierde datos, es un coste de RENDIMIENTO (ese
-// reencodeo completo de más) que 256KB evita para las cargas ya medidas,
-// con margen para asentamientos/construcciones más grandes.
-Encoder.BUFFER_SIZE = 256 * 1024;
+// reencodeo completo de más) que 256KB evitaba para las cargas medidas
+// entonces. Reventado de nuevo (2026-09-06): un baseline real de
+// server/test/megaEstresTodasLasMecanicas.e2e.mjs con las 40 sesiones
+// actuales volvió a avisar de overflow DOS veces en el pico de estado
+// (combate multi-participante y trabajador/tenderete a la vez), pidiendo
+// 304-336KB — 256KB ya se queda corto hoy, antes de subir el tope de
+// jugadores por sala. Subido a 768KB: deja margen real sobre lo que pidió
+// el aviso más alto (336KB) pensando en la sala llena a 50-60 jugadores
+// (más entidades vivas a la vez, no solo más clientes) que se está
+// evaluando en docs/GDD_Rendimiento.md.
+Encoder.BUFFER_SIZE = 768 * 1024;
 
 const port = Number(process.env.PORT) || 2567;
 
