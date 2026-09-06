@@ -109,7 +109,6 @@ export interface OpcionesPanelCombate {
 
 export class PanelCombate {
   private raiz: HTMLDivElement;
-  private combateIdActivo: string | null = null;
 
   constructor(private opciones: OpcionesPanelCombate) {
     this.raiz = document.createElement("div");
@@ -135,7 +134,6 @@ export class PanelCombate {
     for (const [id, c] of combates.entries()) {
       if (c.unidades.get(this.opciones.sessionIdPropio)) { combateId = id; combate = c; break; }
     }
-    this.combateIdActivo = combateId;
 
     if (!combate || !combateId) {
       this.raiz.style.display = "none";
