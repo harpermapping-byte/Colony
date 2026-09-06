@@ -12,7 +12,7 @@ import * as THREE from "three";
  * sitio" (mundo abierto/mazmorra) no hay ninguna rejilla que resaltar.
  */
 
-const ALTURA_PLANO = 0.025;
+const ALTURA_PLANO = 0.05;
 const LADO_PLANO = 0.94; // ligeramente menor que 1 casilla, así se sigue viendo la línea de rejilla alrededor
 const COLOR_BANDO_A = 0x4a90d9; // mi bando (jugador/aliados/compañero) — azulado
 const COLOR_BANDO_B = 0xd94a4a; // bando contrario — rojizo
@@ -33,20 +33,34 @@ interface CombateVista {
 
 function crearPlano(): THREE.Mesh {
   const geometria = new THREE.PlaneGeometry(LADO_PLANO, LADO_PLANO);
-  // depthTest:false a propósito — confirmado con un probe real en el
-  // renderer de este proyecto (cámara ortográfica + WebGL software bajo
-  // Playwright) que un decal CASI coplanar con el suelo (y=0.025 sobre
-  // y=0) pierde el test de profundidad casi en todo su área contra el
-  // propio plano de suelo (solo un borde de pocos píxeles sobrevivía) —
-  // ni subir la altura a 0.3 ni un polygonOffset moderado lo arreglaban de
-  // verdad. Mismo criterio que el cursor de casilla de cualquier táctico
-  // por turnos (XCOM, Fire Emblem...): la marca de "aquí está la unidad"
-  // se ve SIEMPRE encima del suelo, sin depender de si el motor decide que
-  // el suelo gana el z-test ese frame.
-  const material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.4, depthWrite: false, depthTest: false });
+  // BUG REAL corregido 2026-09-06 (pedido streamer: "el jugador debe verse
+  // por encima del cuadro de color") — el primer intento usaba
+  // `depthTest:false` para ganar SIEMPRE al suelo (un decal casi coplanar,
+  // y=0.025 sobre y=0, perdía el z-test casi en toda su área bajo el
+  // renderer de este proyecto) pero eso lo hacía pintarse encima de
+  // CUALQUIER cosa, jugador incluido, en vez de solo encima del suelo — el
+  // propio jugador quedaba tapado por su propia casilla resaltada.
+  // Arreglo real: `depthTest:true` (para que la geometría de verdad más
+  // cercana a cámara, como el jugador, siga ganando con normalidad) +
+  // `polygonOffset` fuerte (empuja el VALOR de profundidad escrito, no la
+  // posición — gana al suelo coplanar por el margen de offset, que es
+  // órdenes de magnitud menor que la altura real de un jugador de pie, así
+  // que nunca "engaña" al test contra algo genuinamente por encima).
+  // Confirmado con un probe real: factor/units moderados (±4) no bastaban
+  // bajo este renderer, ±50 sí cubre la casilla entera contra el suelo
+  // manteniendo la oclusión correcta contra cualquier cosa por encima.
+  const material = new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: 0.4,
+    depthWrite: false,
+    depthTest: true,
+    polygonOffset: true,
+    polygonOffsetFactor: -50,
+    polygonOffsetUnits: -50,
+  });
   const malla = new THREE.Mesh(geometria, material);
   malla.rotation.x = -Math.PI / 2;
-  malla.renderOrder = 5; // por encima de la rejilla táctica y del suelo, sea cual sea el orden de inserción real
+  malla.renderOrder = 1; // por encima de la rejilla táctica (líneas a y=0.02) — el depthTest real decide el resto
   return malla;
 }
 
