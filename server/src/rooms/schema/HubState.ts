@@ -350,6 +350,20 @@ export class Npc extends Schema {
   // cualquier Npc civil normal, que nunca rellena esto).
   @type("string") enemigoId = "";
   @type("number") variante = 0;
+  // Pose sentado/tumbado real (docs/GDD_Agentes_Moviles.md "vida en
+  // interiores", pedido 2026-09-08: "sentarse en sillas dormir y tumbarse
+  // en su cama... mismas anim que usuario") — MISMO criterio booleano que
+  // `Player.sentado`/`durmiendo`, sin `sentadoEnId`/`durmiendoEnId`
+  // numérico: la silla/cama de un NPC es mobiliario BAKEADO (elementos.json
+  // vía interiorColision.ts), no una `ConstruccionViva` con id propio como
+  // la del jugador, así que no hay nada que resolver del lado cliente por
+  // id — la posición real (ya sobre el mueble) es suficiente. El cliente
+  // los lee genéricamente en el mismo `rig.actualizar(...)` que ya usa
+  // para cualquier entidad (game.ts, comentario "NPCs/fauna/mascotas/
+  // compañeros comparten esta misma interfaz y simplemente nunca lo ponen
+  // a true" — ahora `poblarInterior`/`GestorVidaInterior` sí lo hacen).
+  @type("boolean") sentado = false;
+  @type("boolean") durmiendo = false;
 }
 
 // Enemigo activo de una mazmorra (docs/GDD_Bakeador_Dungeons.md §4) — el bake

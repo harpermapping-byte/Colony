@@ -5,7 +5,7 @@ import { RoomExteriorBase, RADIO_INTERACCION, ObjetoCogible } from "./base/RoomE
 import { Enemigo } from "./schema/HubState";
 import { cargarInterior, InteriorCargado } from "../mundo/interiorColision";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
-import { poblarInterior, NpcConCasa } from "../mundo/agentesInterior";
+import { GestorVidaInterior, NpcConCasa } from "../mundo/agentesInterior";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { diaFraccional } from "../mundo/reproduccionFauna";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
@@ -82,10 +82,34 @@ export class InteriorRoom extends RoomExteriorBase {
     const rutaPoblacion = path.join(rutaDeMapaId(options.mapaId), "poblacion.json");
     if (fs.existsSync(rutaPoblacion)) {
       const poblacion = JSON.parse(fs.readFileSync(rutaPoblacion, "utf8")) as { npcs: NpcConCasa[] };
+      const gestorVida = new GestorVidaInterior();
+      // `this.interior.id` (el campo "id" DENTRO del bake), no
+      // `options.edificio` (nombre de ARCHIVO en disco) — bug real
+      // encontrado 2026-09-08 verificando esta misma pasada contra
+      // testflat/testaldea: su `indice.json` guarda los portales con el
+      // nombre de archivo saneado (p.ej. "casa_humilde_testaldea-01_casa_humilde_4",
+      // guiones bajos), pero `poblacion/src/asignarUbicacion.js` escribe
+      // `casaEdificioId`/`trabajoEdificioId` con el "id" SIN sanear del
+      // interior (con dos puntos, "casa_humilde_testaldea-01:casa_humilde:4")
+      // — la comparación `npc.casaEdificioId === edificioId` de
+      // `GestorVidaInterior.repoblar` nunca coincidía en estos dos mapas,
+      // así que "vida en interiores" llevaba desde su creación sin
+      // poblar NUNCA ningún NPC ahí, en silencio. En el pipeline principal
+      // (ciudades/, `assets/mapas/ciudad_demo/...`) ambos valores YA
+      // coinciden (el nombre de archivo real usa los dos puntos), así que
+      // este cambio es cero-diferencia ahí — solo arregla los mapas donde
+      // de verdad divergían.
       const repoblar = () =>
-        poblarInterior(this.state.npcs, poblacion.npcs, options.edificio, options.nivel ?? 0, this.interior, tiempoMundo().hora);
+        gestorVida.repoblar(this.state.npcs, poblacion.npcs, this.interior.id, options.nivel ?? 0, this.interior, tiempoMundo().hora);
       repoblar();
       this.clock.setInterval(repoblar, 20_000);
+      // Camina de verdad entre salas (2026-09-08, GDD_Agentes_Moviles.md
+      // "vida en interiores" v1.4): un tick MÁS RÁPIDO que `repoblar` solo
+      // para avanzar un paso a quien tenga un camino armado — barato de
+      // sobra (recorre como mucho unos pocos NPCs del edificio actual, no
+      // el mapa entero) y necesario para que la marcha se vea fluida en
+      // vez de un salto cada 20s.
+      this.clock.setInterval(() => gestorVida.avanzarCaminos(this.state.npcs), 500);
     }
 
     // Interacción con la escalera/trampilla más cercana -> cambia de

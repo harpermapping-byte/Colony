@@ -209,6 +209,124 @@ noche (23h forzada) en la planta con dormitorio comunal de una posada de
 `ciudad_demo` aparecen los residentes reales (nombres distintos, vóxeles
 reales) en la sala correcta con los muebles bakeados alrededor.
 
+## Vida en interiores: camina de verdad + silla/cama real (v1.4, 2026-09-08, pedido streamer: "no caminan entre salas dentro de su propio edificio... deberían moverse entre salas sentarse en sillas dormir y tumbarse en su cama de noche" + "sin pose de sentado real para NPCs... por si faltara y tumbado osea tienen mismas anim que usuario")
+
+v1.2 dejaba dicho, a propósito: "Deliberadamente QUIETO, sin caminar entre
+salas... caminar de verdad dentro de casa es un pulido futuro". Esta pasada
+cierra ese pulido con dos piezas, sin tocar la regla dura "nunca A* en
+vivo" (esa regla es sobre el MAPA EXTERIOR — decenas de miles de casillas y
+cientos de agentes a la vez; un interior tiene, como mucho, unos pocos
+miles de casillas y el camino se calcula UNA vez por NPC cuando cambia de
+objetivo, nunca en el tick de movimiento, ver el comentario de
+`interiorColision.ts::caminoEntre`).
+
+1. **Silla/cama REAL**: `interiorColision.ts::cargarInterior()` gana
+   `mueblesPorSala` — las piezas `esCama`/`esSilla` del catálogo
+   (`interiores/catalogo/elementos.json`, mismos flags que ya usa
+   `construccion/catalogo.ts` para el mobiliario del jugador) de cada
+   sala, indexadas por `tipoSalaId`, con su `instanceId` (para reservar) y
+   su casilla de interacción real. `GestorVidaInterior.repoblar()`
+   (`agentesInterior.ts`, antes una función pura `poblarInterior` sin
+   estado — ahora una clase con memoria entre pasadas) prioriza un mueble
+   real sobre el punto genérico de siempre cuando la acción del tramo
+   encaja: `dormir` busca una cama (tumbado, `Npc.durmiendo=true`),
+   `comer`/`socializar`/`beber`/`cotillear`/`contar_historias`/`pedir_sentado`
+   (las acciones de `poblacion/catalogo/perfilesSociales.json` que de
+   verdad se hacen sentado) buscan una silla (`Npc.sentado=true`). Una
+   reserva (`instanceId` -> `slotId`) evita que dos NPCs compartan la
+   MISMA cama/silla a la vez — el segundo cae al punto genérico de sala,
+   como antes. Sin mueble de ese tipo en la sala: comportamiento IDÉNTICO
+   a v1.2 (mismo punto genérico, sin pose).
+2. **Camina de verdad**: cuando el objetivo de un NPC cambia (nueva
+   sala/tramo), `caminoEntre()` (BFS 4-direcciones, nuevo en
+   `interiorColision.ts`) calcula un camino real sobre la MISMA rejilla de
+   colisión del edificio, evitando paredes. `GestorVidaInterior` no mueve
+   al NPC de golpe: guarda el camino y `avanzarCaminos()` (tick nuevo, 500ms,
+   MÁS rápido que el `repoblar()` de 20s) lo adelanta una casilla cada vez
+   — el cliente no necesita NINGÚN cambio para verlo caminar: `game.ts` ya
+   interpola/anima la marcha de cualquier entidad a partir de
+   `destinoX/destinoZ` vs. su posición dibujada ("un NPC es otro que se
+   mueve por patches del servidor, nada más"), jugadores incluidos. La
+   pose sentado/tumbado solo se enciende AL LLEGAR — de camino va de pie.
+   Primera aparición (NPC nunca visto en esta room): salto instantáneo,
+   como siempre — "caminar" solo tiene sentido para un NPC que YA estaba
+   visible en otro punto de este mismo edificio.
+3. **Pose reusada del jugador, no una nueva**: `Npc` (schema) gana
+   `sentado`/`durmiendo` (booleanos, mismo criterio que
+   `Player.sentado`/`durmiendo` — sin `sentadoEnId`/`durmiendoEnId`
+   numérico: la silla/cama de un NPC es mobiliario BAKEADO, no una
+   `ConstruccionViva` con id propio como la del jugador, así que no hace
+   falta resolver nada por id en el cliente). `game.ts` ya llamaba a
+   `rig.actualizar(dt, marcha, ..., estado.sentado, estado.sentadoSuelo,
+   estado.durmiendo, ...)` para TODAS las entidades (jugadores, NPCs,
+   fauna...) desde la pasada de pulido de sentarse/tumbarse del jugador —
+   el comentario de `EstadoJugador` ya decía "NPCs/fauna/mascotas/
+   compañeros comparten esta misma interfaz y simplemente nunca lo ponen a
+   true"; ahora sí lo ponen. Cero pose nueva que mantener: son literalmente
+   las mismas curvas de `rigHumanoide.ts` que ya usa el jugador.
+
+**Bug real de producción encontrado y cerrado en la misma pasada** (no
+hipotético — salió probando la feature nueva contra un bake real, no
+contra fixtures sintéticas): `InteriorRoom.ts` pasaba `options.edificio`
+(el nombre de ARCHIVO en disco, p.ej. `casa_humilde_testaldea-01_casa_humilde_4`,
+con guiones bajos) como clave para comparar contra `npc.casaEdificioId`/
+`trabajoEdificioId` — pero `poblacion/src/asignarUbicacion.js` escribe esos
+campos con el "id" INTERNO del bake (`edificio.interior.id`,
+`casa_humilde_testaldea-01:casa_humilde:4`, con dos puntos). En el
+pipeline principal (`ciudades/`, `assets/mapas/ciudad_demo/`) el nombre de
+archivo real SÍ lleva los dos puntos (Linux los permite), así que ahí
+ambos valores siempre coincidieron por casualidad; en `testaldea`/
+`testflat` los archivos se renombraron a guiones bajos en algún momento
+sin tocar el "id" interno ni `poblacion.json` — la comparación
+`npc.casaEdificioId === edificioId` de `poblarInterior` NUNCA daba
+verdadero ahí, así que "vida en interiores" llevaba desde su creación
+(v1.2, 2026-08-28) sin poblar NUNCA ningún NPC en esos dos mapas, en
+silencio (el "24 NPCs cargan en la misma room" de la fusión de testflat
+del 2026-09-02 era la población EXTERIOR de `GestorAgentes`, un mecanismo
+totalmente distinto que no depende de esta comparación). Arreglado
+comparando contra `this.interior.id` (el mismo id interno del bake que ya
+usa `poblacion.json`) en vez de `options.edificio` — cero diferencia en el
+pipeline principal (ahí ya coincidían), corrige de verdad `testaldea`/
+`testflat`.
+
+`interiorColision.ts` gana además dos correcciones encontradas probando
+`caminoEntre` contra ese mismo bake real (ninguna fixture sintética las
+habría encontrado): (1) `tileInteraccion` del bake es la casilla LOCAL
+ABSOLUTA ya rotada, NO un delta que sumar a `item.x/item.y` — sumarlo dos
+veces mandaba la casilla de interacción de una cama fuera de la sala
+entera; (2) las posiciones del mundo son siempre "casilla+0.5" (convención
+de todo el proyecto) y `Math.round(n+0.5)` redondea SIEMPRE hacia arriba
+en JS (`Math.round(4.5)===5`), así que convertir una posición de vuelta a
+índice de casilla con `Math.round` devolvía la casilla VECINA, no la real
+— cambiado a `Math.floor`. `caminoEntre` también sabe "entrar" en un
+mueble sólido (una cama SÍ bloquea el paso, como cualquier mueble grande)
+routeando hasta su vecino transitable más cercano y añadiendo el mueble
+como último paso — sin esto ningún camino hacia una cama real habría
+encontrado nunca destino.
+
+### Verificado (v1.4)
+
+`server/test/agentesInterior.test.ts` (16 tests: los 8 de v1.2/v1.3 sin
+regresión + 8 nuevos — cama/silla real con pose encendida, sin mueble cae
+al punto genérico de siempre, dos NPCs nunca reservan la misma cama, un
+NPC que cambia de sala CAMINA de verdad —posición avanza paso a paso, no
+salta—, la pose solo se enciende al llegar, y 2 tests directos de
+`caminoEntre` —BFS real que evita paredes, sin hueco no hay camino—).
+`server/test/agentesInteriorBakeReal.test.ts` (NUEVO, 2 tests): contra el
+bake real de `assets/mapas/testflat` — confirma que el bug de mismatch de
+id era real (`interior.id` y el nombre de archivo divergen de verdad en
+este mapa) y que un residente real se tumba EXACTO sobre la cama real de
+su dormitorio a la hora de dormir de su rutina real. Verificado además a
+mano con un script desechable contra `assets/mapas/ciudad_demo` (25
+edificios con mobiliario, 130 piezas `esCama`/`esSilla` reales, 122/130
+con camino real desde el spawn, 0 crashes — el resto son casos de piso
+sin conexión directa al spawn de esa planta, donde el sistema cae al
+punto genérico de siempre en vez de romper). Servidor 1264/1264, `tsc
+--noEmit` limpio en cliente y servidor. **Sin verificación visual en
+cliente real** (servidor+cliente+Playwright viendo a un NPC caminar y
+sentarse en pantalla) — documentado como gap, no dado por bueno sin más,
+mismo criterio honesto que el resto de esta sesión.
+
 ## Zonas comunes sin apelotonarse + vendedores especializados fijos (v1.3, pedido del streamer 2026-08-28)
 
 ### No se apelotonan

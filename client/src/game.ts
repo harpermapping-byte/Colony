@@ -186,9 +186,11 @@ interface EstadoJugador {
   // mascotas/compañeros comparten esta misma interfaz y simplemente nunca
   // lo ponen a true.
   tocandoInstrumento?: boolean;
-  // Sentarse/tumbarse (pedido 2026-08-31) — mismo criterio que
-  // tocandoInstrumento: booleanos replicados que solo mueven la POSE del
-  // rig, la lógica real vive en el servidor. Solo jugadores reales.
+  // Sentarse/tumbarse (pedido 2026-08-31) — booleanos replicados que solo
+  // mueven la POSE del rig, la lógica real vive en el servidor.
+  // `sentadoSuelo` sigue siendo SOLO de jugadores reales (sentarse en el
+  // suelo sin mueble); `sentado`/`durmiendo` los usan también los NPCs
+  // desde 2026-09-08 (GestorVidaInterior, silla/cama bakeada real).
   sentado?: boolean;
   sentadoSuelo?: boolean;
   durmiendo?: boolean;
@@ -1751,6 +1753,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       y: 0,
       nadando: false,
       trabajando: npc.accion === "craftear",
+      sentado: npc.sentado,
+      durmiendo: npc.durmiendo,
     };
     npcsVisual.set(slotId, estado);
     const meta = { nombre: npc.nombre, grito: npc.grito || "", accion: npc.accion, antorcha: null as PointLight | null };
@@ -1763,6 +1767,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       rig.objeto.visible = npc.visible;
       meta.accion = npc.accion;
       estado.trabajando = npc.accion === "craftear";
+      estado.sentado = npc.sentado;
+      estado.durmiendo = npc.durmiendo;
       // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): el
       // servidor cambia `npc.grito` un momento para soltar una frase de
       // "hueles mal" — sin esto la burbuja se quedaría con el pregón

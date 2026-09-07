@@ -23,6 +23,8 @@ const RAIZ_REPO = path.resolve(__dirname, "..", "..", "..");
 interface DefElemento {
   capa?: string;
   anchorType?: string;
+  esCama?: boolean;
+  esSilla?: boolean;
 }
 
 // Colisión PROPIA de interiores — NO la del catálogo de construcción
@@ -47,6 +49,16 @@ function elementoEsSolido(id: string): boolean {
   return def.anchorType !== "FLOOR_DECAL";
 }
 
+/** `esCama`/`esSilla` del catálogo (interiores/catalogo/elementos.json) — mismos flags que ya usa `construccion/catalogo.ts` para el mobiliario del JUGADOR (2026-09-08, "vida en interiores" con silla/cama real). */
+function definicionDe(id: string): DefElemento | undefined {
+  if (!catalogoElementos) {
+    catalogoElementos = JSON.parse(
+      fs.readFileSync(path.join(RAIZ_REPO, "interiores", "catalogo", "elementos.json"), "utf8"),
+    );
+  }
+  return catalogoElementos![id];
+}
+
 interface ElementoColocado {
   id: string;
   x: number;
@@ -58,6 +70,14 @@ interface ElementoColocado {
    * interactúa por la posición del HOST. Fase 2 de inventario ("coger",
    * docs/GDD_Inventario.md §7): antes se descartaba al cargar. */
   sobre?: { id: string; instanceId: string }[];
+  /** instanceId propio del mueble (único y determinista del bake) — "vida
+   * en interiores" con silla/cama real (2026-09-08) lo usa para reservar
+   * qué NPC ocupa cuál, sin que dos coincidan en el mismo mueble. */
+  instanceId?: string;
+  /** Offset [dx,dy] (interiores/src/colocarElementos.js) — casilla exacta
+   * donde sentarse/interactuar, relativa a x/y. Ausente = usar x/y tal cual
+   * (mueble de 1x1 sin offset dedicado, p.ej. la mayoría de sillas). */
+  tileInteraccion?: [number, number];
 }
 
 interface SalaInterior {
@@ -137,6 +157,15 @@ export interface SalaIndexada {
   y: number;
 }
 
+/** Silla/cama real (2026-09-08) — casilla exacta de interacción + instanceId para reservar. */
+export interface MuebleInteractivo {
+  x: number;
+  y: number;
+  instanceId: string;
+  esCama: boolean;
+  esSilla: boolean;
+}
+
 export interface InteriorCargado extends MundoColision {
   id: string;
   /** tipoEdificioId (edificios normales) o tipoDungeonId (mazmorras) — "" si ninguno. Gatea qué acciones de propiedad aplican (docs/GDD_Propiedades.md: ventaJugador/salasAlquilables). */
@@ -155,6 +184,14 @@ export interface InteriorCargado extends MundoColision {
    * sala X" — varias salas del mismo tipo (dos dormitorios) dan varios
    * puntos. Vacío en interiores sin `sala` real por tramo (mazmorras). */
   salasPorTipo: Map<string, { x: number; y: number }[]>;
+  /** Sillas/camas REALES (esCama/esSilla, interiores/catalogo/elementos.json)
+   * de ESTA planta, indexadas por tipoSalaId (GDD_Agentes_Moviles.md "vida
+   * en interiores", pedido 2026-09-08: "sentarse en sillas... tumbarse en
+   * su cama"). `instanceId` deja reservar el mueble concreto por NPC
+   * (GestorVidaInterior) para que dos no coincidan en la misma silla/cama.
+   * Vacío en interiores sin mobiliario de ese tipo (mazmorras, la mayoría
+   * de salas no domésticas). */
+  mueblesPorSala: Map<string, MuebleInteractivo[]>;
   /** Solo las salas ALQUILABLES (dormitorio_individual/dormitorio_comunal) de
    * ESTA planta, con su id estable — docs/GDD_Propiedades.md. Vacío si el
    * edificio no tiene salas de ese tipo en esta planta (la inmensa mayoría). */
@@ -295,6 +332,7 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
   const TIPOS_SALA_ALQUILABLE = new Set(["dormitorio_individual", "dormitorio_comunal"]);
   const salasPorTipo = new Map<string, { x: number; y: number }[]>();
   const salasIndexadas: SalaIndexada[] = [];
+  const mueblesPorSala = new Map<string, MuebleInteractivo[]>();
   for (let salaIndex = 0; salaIndex < salas.length; salaIndex++) {
     const sala = salas[salaIndex];
     const tipoSalaId = (sala as unknown as { tipoSalaId?: string }).tipoSalaId;
@@ -319,6 +357,35 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
     if (TIPOS_SALA_ALQUILABLE.has(tipoSalaId)) {
       salasIndexadas.push({ salaIndex, tipoSalaId, x: puntos[0].x, y: puntos[0].y });
     }
+
+    // Sillas/camas REALES de esta sala (2026-09-08) — mismo `esCama`/
+    // `esSilla` del catálogo que ya usa `construccion/catalogo.ts` para el
+    // mobiliario del jugador. `tileInteraccion`, cuando el bake lo trae, es
+    // la casilla LOCAL (a la sala) YA ROTADA de interacción — coordenada
+    // ABSOLUTA dentro de la sala, no un delta que sumar a item.x/y (bug
+    // real, encontrado probando contra un bake real: sumarlo dos veces
+    // mandaba la "cama" fuera de la sala entera, y `caminoEntre` nunca
+    // encontraba camino). Sin `tileInteraccion`, cae a la esquina x/y del
+    // propio mueble (mismo criterio que el resto de piezas sin ese campo).
+    const muebles: MuebleInteractivo[] = [];
+    for (const item of sala.resultado.colocados) {
+      const def = definicionDe(item.id);
+      if (!def?.esCama && !def?.esSilla) continue;
+      if (!item.instanceId) continue; // pieza sin instanceId propio: nada que reservar de forma estable
+      const [tix, tiy] = item.tileInteraccion ?? [item.x, item.y];
+      muebles.push({
+        x: sala.offsetX + tix,
+        y: sala.offsetY + tiy,
+        instanceId: item.instanceId,
+        esCama: !!def.esCama,
+        esSilla: !!def.esSilla,
+      });
+    }
+    if (muebles.length > 0) {
+      const listaM = mueblesPorSala.get(tipoSalaId) ?? [];
+      listaM.push(...muebles);
+      mueblesPorSala.set(tipoSalaId, listaM);
+    }
   }
 
   return {
@@ -331,9 +398,98 @@ export function cargarInterior(rutaArchivo: string, nivel = 0): InteriorCargado 
     conectores,
     spawnsEnemigos: planta.spawnsEnemigos ?? [],
     salasPorTipo,
+    mueblesPorSala,
     salasIndexadas,
     objetosSueltos,
   };
+}
+
+/**
+ * BFS 4-direcciones (coste uniforme, sin necesidad de Dijkstra) entre dos
+ * casillas de la MISMA planta, para que un NPC camine de verdad entre
+ * salas de su propio edificio (2026-09-08, GDD_Agentes_Moviles.md "vida en
+ * interiores") — NO viola la regla "nada de A* en vivo" de `agentes.ts`
+ * (esa regla es sobre el MAPA EXTERIOR, decenas de miles de casillas y
+ * cientos de agentes simulados a la vez): un interior tiene, como mucho,
+ * unos pocos miles de casillas, y esto solo se llama una vez por NPC
+ * cuando su tramo de rutina cambia de objetivo (raro, cada varias horas de
+ * juego), nunca en el tick de movimiento. `null` = sin camino real (sala
+ * desconectada, no debería pasar tras `garantizarConectividad`, pero un
+ * caller no debe asumirlo).
+ *
+ * Destino SÓLIDO (bug real encontrado probando contra un bake real de
+ * `casa_humilde`, no hipotético): una cama es mobiliario grande, así que
+ * su propia huella —incluida la casilla de `tileInteraccion`— bloquea el
+ * paso en la rejilla de colisión (mismo criterio que cualquier mueble
+ * grande, `elementoEsSolido`). El BFS busca camino hasta la casilla
+ * TRANSITABLE más cercana al destino real y añade el destino como ÚLTIMO
+ * paso "metiéndose" en él — igual que un jugador se tumba en su cama
+ * caminando hasta el borde y acostándose encima, no flotando fuera.
+ */
+export function caminoEntre(
+  interior: InteriorCargado,
+  origen: { x: number; y: number },
+  destino: { x: number; y: number },
+): { x: number; y: number }[] | null {
+  const { ancho, alto, casillas } = interior;
+  // Math.floor, NUNCA Math.round: las posiciones del mundo son SIEMPRE
+  // "casilla + 0.5" (centro de la casilla, convención de todo el proyecto)
+  // — Math.round(n+0.5) redondea SIEMPRE hacia arriba en JS (Math.round(4.5)
+  // === 5), así que recuperaba la casilla de al lado, nunca la real. Bug
+  // real encontrado probando contra un spawn real (redondeaba a una
+  // casilla sólida vecina y `caminoEntre` fallaba con null siempre).
+  const ox = Math.floor(origen.x), oy = Math.floor(origen.y);
+  const dx0 = Math.floor(destino.x), dy0 = Math.floor(destino.y);
+  if (ox === dx0 && oy === dy0) return [];
+  if (casillas[oy * ancho + ox] === TIPO.SOLIDO) return null;
+  const destinoIdxReal = dy0 * ancho + dx0;
+  const destinoSolido = casillas[destinoIdxReal] === TIPO.SOLIDO;
+  // objetivo real del BFS: el propio destino si es transitable, o cualquiera
+  // de sus 4 vecinos transitables si no lo es (entrar en la cama desde el
+  // borde libre más cercano)
+  const objetivos = new Set<number>();
+  if (!destinoSolido) objetivos.add(destinoIdxReal);
+  else {
+    for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = dx0 + ddx, ny = dy0 + ddy;
+      if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto) continue;
+      const nidx = ny * ancho + nx;
+      if (casillas[nidx] !== TIPO.SOLIDO) objetivos.add(nidx);
+    }
+  }
+  if (objetivos.size === 0) return null; // mueble rodeado de sólido por todos lados — no hay por dónde entrar
+
+  const visitado = new Uint8Array(ancho * alto);
+  const previo = new Int32Array(ancho * alto).fill(-1);
+  const origenIdx = oy * ancho + ox;
+  visitado[origenIdx] = 1;
+  const cola: number[] = [origenIdx];
+  let cabeza = 0;
+  let alcanzado = -1;
+  while (cabeza < cola.length) {
+    const idx = cola[cabeza++];
+    if (objetivos.has(idx)) { alcanzado = idx; break; }
+    const x = idx % ancho, y = Math.floor(idx / ancho);
+    for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + ddx, ny = y + ddy;
+      if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto) continue;
+      const nidx = ny * ancho + nx;
+      if (visitado[nidx] || casillas[nidx] === TIPO.SOLIDO) continue;
+      visitado[nidx] = 1;
+      previo[nidx] = idx;
+      cola.push(nidx);
+    }
+  }
+  if (alcanzado < 0) return null;
+  const camino: { x: number; y: number }[] = [];
+  let paso = alcanzado;
+  while (paso !== origenIdx) {
+    camino.push({ x: paso % ancho, y: Math.floor(paso / ancho) });
+    paso = previo[paso];
+  }
+  camino.reverse();
+  if (destinoSolido) camino.push({ x: dx0, y: dy0 }); // último paso: entra en el mueble
+  return camino;
 }
 
 function floodFill(casillas: Uint8Array, ancho: number, alto: number, inicio: { x: number; y: number }): Uint8Array {
