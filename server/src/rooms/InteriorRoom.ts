@@ -60,6 +60,16 @@ export class InteriorRoom extends RoomExteriorBase {
     );
     this.iniciarMovimiento();
 
+    // Interest-management (docs/GDD_Rendimiento.md §Interest-management,
+    // pedido streamer 2026-09-07): `radioTiles=null` = sin recortar nada,
+    // mismo comportamiento exacto que antes de este cambio — un interior es
+    // pequeño y acotado, no compensa el coste de recortar. Cubre también
+    // DungeonRoom (llama a `super.onCreate`, no repite este bloque). Sigue
+    // haciendo falta llamarlo (baja frecuencia de sobra, 2s): es quien
+    // rellena el StateView de cada cliente — sin esto vería estas 4
+    // colecciones vacías (ver comentario junto a @view() en HubState.ts).
+    this.clock.setInterval(() => this.actualizarVistaDeInteres(null), 2000);
+
     if (this.interior.tipoEdificioId === "campamento_hostil") await this.poblarGuarnicionBandida();
 
     // Vida en interiores (GDD_Agentes_Moviles.md v1.2): si el asentamiento
@@ -211,6 +221,10 @@ export class InteriorRoom extends RoomExteriorBase {
     const x = options?.entradaX ?? this.interior.spawnX;
     const y = options?.entradaY ?? this.interior.spawnY;
     this.crearJugador(client, options, x, y);
+    // Interest-management: rellena el StateView de esta sesión YA, sin
+    // esperar al primer tick periódico (hasta 2s) — si no, vería estas 4
+    // colecciones vacías un instante tras unirse.
+    this.actualizarVistaDeInteres(null);
   }
 
   /**

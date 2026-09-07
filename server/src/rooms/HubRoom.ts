@@ -1,7 +1,7 @@
 import { Client } from "@colyseus/core";
 import * as fs from "fs";
 import * as path from "path";
-import { RoomExteriorBase, RADIO_INTERACCION, PA_MAX_COMBATE } from "./base/RoomExteriorBase";
+import { RoomExteriorBase, RADIO_INTERACCION, PA_MAX_COMBATE, RADIO_INTERES_TILES } from "./base/RoomExteriorBase";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { cargarParcelas } from "../construccion/parcelas";
 import { GestorConversacionesNpc } from "../ia/npcChat";
@@ -329,6 +329,15 @@ export class HubRoom extends RoomExteriorBase {
         // como orca/tiburón (agua): un jugador dentro del radioAgro de
         // cualquier fauna `peligroso` entra en combate solo.
         this.clock.setInterval(() => this.verificarAgroFauna(), 200);
+        // Interest-management (docs/GDD_Rendimiento.md §Interest-management,
+        // pedido streamer 2026-09-07 "fase final, cerrar cosas y optimizar a
+        // saco") — recorta players/npcs/fauna/enemigos a lo que esté a
+        // RADIO_INTERES_TILES casillas de cada jugador antes de mandarlo por
+        // red; medido de verdad antes de implementar (~1/3-1/4 de vecinos
+        // visibles con 40 sesiones dispersas). 500ms de sobra: la histéresis
+        // de salida (RADIO_INTERES_TILES+15) ya absorbe el retraso frente al
+        // movimiento real de un jugador.
+        this.clock.setInterval(() => this.actualizarVistaDeInteres(RADIO_INTERES_TILES), 500);
         this.clock.setInterval(() => {
           const posiciones = [...this.state.players.values()].map((p) => ({ x: p.x, y: p.y }));
           this.gestorFaunaSalvaje!
@@ -686,6 +695,10 @@ export class HubRoom extends RoomExteriorBase {
     const nombreSpawn = options?.name?.slice(0, 20) || `Guest-${client.sessionId.slice(0, 4)}`;
     const spawn = await this.resolverSpawnGuardado(nombreSpawn, this.mapa.spawnX, this.mapa.spawnY);
     this.crearJugador(client, options, spawn.x, spawn.y);
+    // Interest-management: rellena el StateView de esta sesión YA, sin
+    // esperar al primer tick periódico (hasta 500ms) — ver mismo comentario
+    // en InteriorRoom.onJoin.
+    this.actualizarVistaDeInteres(RADIO_INTERES_TILES);
 
     // Vida persistida (docs/GDD_Mecanicas.md §5.4): carga best-effort, no
     // bloquea el join — mismo criterio que el resto de datos "oportunistas"

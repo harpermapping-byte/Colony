@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
+import { StateView, Schema } from "@colyseus/schema";
 import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, CarroSchema, ConjuntoTiroSchema, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema, BlueprintRopaSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, crearCadaver, DatosVisualJugador } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
@@ -326,6 +327,20 @@ const RADIO_AGRO_DEFECTO = 5;
 // real cerca de una pelea ajena que quede arrastrado por co-op sin
 // enterarse). Pasado este margen se le pasa el turno automáticamente.
 const GRACIA_JUGADOR_AUSENTE_ARENA_MS = 8_000;
+// Interest management (docs/GDD_Rendimiento.md §Interest-management, pedido
+// streamer 2026-09-07) — radio real de "sigo viendo a este jugador/npc/
+// fauna/enemigo" en Hub/Region, medido contra el mismo tráfico que mide el
+// GDD: a 70 casillas cada jugador ve de media ~1 de cada 3-4 (buen punto
+// medio entre ahorro real y "no hace pop-in raro con quien tienes cerca en
+// pantalla"). `null` (Interior/Dungeon/Arena) = sin recorte, todo visible
+// siempre, mismo comportamiento que antes de este cambio.
+export const RADIO_INTERES_TILES = 70;
+// Histéresis (igual que streamingSectores.ts en el cliente, RADIO_CARGA vs
+// RADIO_DESCARGA): sin margen, un jugador justo en el borde entraría/saldría
+// de la vista de otro en cada tick por un vaivén de un pixel, generando
+// churn de ADD/REMOVE inútil. Se quita de la vista solo bastante más lejos
+// de donde se añadió.
+const RADIO_INTERES_SALIDA_TILES = RADIO_INTERES_TILES + 15;
 
 // --- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ---
 // Placeholders de balance — mismo criterio que pesoMaximoTransportable
@@ -599,6 +614,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // muere con la sesión, igual que `inputs` (nunca se persiste, solo se
   // usa para saber cuándo tocar `otorgarXpAtributoPorSessionId`).
   private tiempoMovimiento = new Map<string, { correr: number; andar: number }>();
+  /**
+   * Interest management (docs/GDD_Rendimiento.md §Interest-management) —
+   * qué claves (`"players:<id>"`/`"npcs:<id>"`/`"fauna:<id>"`/`"enemigos:<id>"`)
+   * tiene AÑADIDAS a su vista cada sesión ahora mismo, para poder diferenciar
+   * en `actualizarVistaDeInteres` quién entra/sale de verdad sin volver a
+   * llamar `view.add()`/`view.remove()` en cada tick para todo el mundo
+   * (StateView lo tolera, pero es trabajo de más sin ganar nada: la vista ya
+   * refleja lo mismo si no ha cambiado nada). Vive y muere con la sesión.
+   */
+  private vistaActualPorSesion = new Map<string, Set<string>>();
   /** Velocidad con inercia mientras se desliza sobre hielo (docs/GDD_Clima.md) — el resto del movimiento no la necesita, es instantáneo. Se borra en cuanto el jugador deja de estar sobre hielo. */
   private velocidadHieloPorSesion = new Map<string, { x: number; y: number }>();
   // Sueño en cama (docs/GDD_Personaje.md §3.6): vive y muere con la sesión,
@@ -1672,6 +1697,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   protected crearJugador(client: Client, options: { name?: string; twitchSession?: string; adminSession?: string }, x: number, y: number): Player {
+    // Interest-management (ver actualizarVistaDeInteres / HubState.ts junto
+    // a @view()): TODA sesión de CUALQUIER room type necesita su StateView
+    // asignada aquí — players/npcs/fauna/enemigos van tageados con @view()
+    // en el schema COMPARTIDO por las 5 room types, así que un cliente sin
+    // vista propia se quedaría sin ver esas 4 colecciones ENTERAS, no solo
+    // "sin recorte". El barrido periódico (`actualizarVistaDeInteres`,
+    // llamado desde el onCreate de cada subclase con el radio que le toque,
+    // `null` = sin recortar) es quien la rellena de verdad tick a tick.
+    client.view = new StateView();
     const player = new Player();
     player.x = x;
     player.y = y;
@@ -1736,6 +1770,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   async onLeave(client: Client) {
+    this.vistaActualPorSesion.delete(client.sessionId); // interest-management (ver actualizarVistaDeInteres) — nada que revertir en el StateView, se destruye con la sesión
     const nombreSaliente = this.state.players.get(client.sessionId)?.name;
     const twitchLoginSaliente = this.twitchLoginPorSesion.get(client.sessionId);
     this.twitchLoginPorSesion.delete(client.sessionId);
@@ -11531,6 +11566,83 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       this.cerrarVentanaCombate(combateId);
     } else {
       this.timeoutsVentanaCombate.set(combateId, this.clock.setTimeout(() => this.cerrarVentanaCombate(combateId), VENTANA_UNION_COMBATE_MS));
+    }
+  }
+
+  /**
+   * Interest management (docs/GDD_Rendimiento.md §Interest-management,
+   * pedido streamer 2026-09-07: "fase final... optimizar a saco") — decide,
+   * por sesión, qué `players`/`npcs`/`fauna`/`enemigos` entran en SU
+   * `client.view` (las 4 colecciones marcadas `@view()` en `HubState.ts`).
+   *
+   * `radioTiles === null` (InteriorRoom/DungeonRoom/ArenaCombateRoom, mapas
+   * pequeños y acotados): añade SIEMPRE todo — mismo comportamiento exacto
+   * que antes de este cambio, ver el porqué de por qué hace falta llamar
+   * esto aquí también (no solo en Hub/Region) en el comentario de
+   * `HubState.ts` junto a los campos `@view()`.
+   *
+   * `radioTiles` real (HubRoom/RegionRoom, mapas grandes): solo entra lo que
+   * esté a `RADIO_INTERES_TILES` o menos del jugador (con histéresis de
+   * salida en `RADIO_INTERES_SALIDA_TILES`, igual que `streamingSectores.ts`
+   * en el cliente evita el pop-in/out en el borde). Medido de verdad antes
+   * de escribir esto (docs/GDD_Rendimiento.md): con 40 sesiones dispersas
+   * por un mapa grande, el servidor manda ~2.9 GB/h solo de posiciones de
+   * jugador aunque estén a 190 casillas sin verse nunca — a 70 casillas de
+   * radio cada uno ve de media ~1 de cada 3-4, ahorro medido de verdad, no
+   * estimado a ojo.
+   *
+   * Puramente de REPLICACIÓN: la simulación del servidor (agro, colisión,
+   * combate, chat local...) sigue leyendo `this.state.*` completo como
+   * siempre — un jugador fuera de la vista de otro sigue existiendo de
+   * verdad para el servidor, solo deja de viajar por la red a ese cliente
+   * concreto.
+   */
+  protected actualizarVistaDeInteres(radioTiles: number | null) {
+    for (const client of this.clients) {
+      const view = client.view;
+      if (!view) continue; // por si algún room type no llegó a asignarla en onJoin (defensivo)
+      const propio = this.state.players.get(client.sessionId);
+      if (!propio) continue; // sesión a medio unir, todavía sin Player propio
+
+      const previas = this.vistaActualPorSesion.get(client.sessionId) ?? new Set<string>();
+      const actuales = new Set<string>();
+      const salidaAlCuadrado = radioTiles === null ? Infinity : RADIO_INTERES_SALIDA_TILES ** 2;
+
+      const evaluarColeccion = (prefijo: string, coleccion: Map<string, { x: number; y: number }>) => {
+        for (const [id, entidad] of coleccion.entries()) {
+          const clave = `${prefijo}:${id}`;
+          let visible: boolean;
+          if (radioTiles === null || id === client.sessionId) {
+            visible = true; // sin recorte (Interior/Dungeon/Arena), o siempre verse a uno mismo
+          } else {
+            const d2 = (entidad.x - propio.x) ** 2 + (entidad.y - propio.y) ** 2;
+            // histéresis: si ya estaba dentro, hace falta salir del radio de
+            // SALIDA (más ancho) para dejar de verse — evita ADD/REMOVE cada
+            // tick a quien ronda justo el borde del radio de entrada.
+            visible = previas.has(clave) ? d2 <= salidaAlCuadrado : d2 <= radioTiles ** 2;
+          }
+          if (visible) {
+            actuales.add(clave);
+            if (!previas.has(clave)) view.add(entidad as unknown as Schema);
+          }
+        }
+      };
+      evaluarColeccion("players", this.state.players);
+      evaluarColeccion("npcs", this.state.npcs);
+      evaluarColeccion("fauna", this.state.fauna);
+      evaluarColeccion("enemigos", this.state.enemigos);
+
+      // lo que estaba antes y ya no está ahora (se alejó, o el propio
+      // objeto desapareció de state.* del todo — mismo camino para ambos,
+      // el segundo caso simplemente no aparece en `actuales`) sale de la vista.
+      for (const clave of previas) {
+        if (actuales.has(clave)) continue;
+        const [prefijo, id] = [clave.slice(0, clave.indexOf(":")), clave.slice(clave.indexOf(":") + 1)];
+        const coleccion = prefijo === "players" ? this.state.players : prefijo === "npcs" ? this.state.npcs : prefijo === "fauna" ? this.state.fauna : this.state.enemigos;
+        const entidad = coleccion.get(id);
+        if (entidad) view.remove(entidad as unknown as Schema);
+      }
+      this.vistaActualPorSesion.set(client.sessionId, actuales);
     }
   }
 

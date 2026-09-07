@@ -1,7 +1,7 @@
 import { Client } from "@colyseus/core";
 import * as fs from "fs";
 import * as path from "path";
-import { RoomExteriorBase, RADIO_INTERACCION } from "./base/RoomExteriorBase";
+import { RoomExteriorBase, RADIO_INTERACCION, RADIO_INTERES_TILES } from "./base/RoomExteriorBase";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { nombreCapitalOverride } from "../mundo/capital";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
@@ -88,6 +88,11 @@ export class RegionRoom extends RoomExteriorBase {
     this.mapaExterior = this.mapa; // habilita "coger" de recolectables del bake (fase 2 de inventario)
     console.log(`Región "${this.mapa.nombre}" (${options.mapaId}): ${this.mapa.ancho}x${this.mapa.alto} casillas`);
     this.iniciarMovimiento();
+
+    // Interest-management (docs/GDD_Rendimiento.md §Interest-management,
+    // pedido streamer 2026-09-07) — mismo mecanismo y radio que HubRoom,
+    // incondicional (no depende de que la región tenga fauna/NPCs).
+    this.clock.setInterval(() => this.actualizarVistaDeInteres(RADIO_INTERES_TILES), 500);
 
     // Construcción-en-regiones: SOLO si el bake de esta región reservó
     // hueco para ello (hoy únicamente la ciudad capital, tier capital_jarl)
@@ -395,6 +400,10 @@ export class RegionRoom extends RoomExteriorBase {
       x = spawn.x; y = spawn.y;
     }
     this.crearJugador(client, options, x, y);
+    // Interest-management: rellena el StateView de esta sesión YA, sin
+    // esperar al primer tick periódico (hasta 500ms) — ver mismo comentario
+    // en HubRoom.onJoin/InteriorRoom.onJoin.
+    this.actualizarVistaDeInteres(RADIO_INTERES_TILES);
     this.enviarEstadoConstruccion(client); // no-op si esta región no tiene parcelasReservadas
   }
 

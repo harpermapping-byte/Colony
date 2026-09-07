@@ -1,4 +1,4 @@
-import { Schema, MapSchema, ArraySchema, type } from "@colyseus/schema";
+import { Schema, MapSchema, ArraySchema, type, view } from "@colyseus/schema";
 import { CombateSchema } from "./CombateState";
 
 // Inventario (docs/Backlog_Mecanicas_Futuras.md "Inventario, contenedores y
@@ -590,10 +590,26 @@ export class ArbolVivoSchema extends Schema {
 }
 
 export class HubState extends Schema {
-  @type({ map: Player }) players = new MapSchema<Player>();
-  @type({ map: Npc }) npcs = new MapSchema<Npc>();
-  @type({ map: Enemigo }) enemigos = new MapSchema<Enemigo>();
-  @type({ map: Fauna }) fauna = new MapSchema<Fauna>();
+  // Interest management (docs/GDD_Rendimiento.md §Interest-management,
+  // pedido streamer 2026-09-07: "fase final, hay que... optimizar a saco" —
+  // medido de verdad antes de tocar nada, ver el GDD: con 40 sesiones
+  // dispersas el servidor manda ~2.9 GB/h solo de posiciones de jugador
+  // aunque estén a 190 casillas de distancia sin verse nunca). `@view()`
+  // marca estas 4 colecciones (las de más volumen y más cambios por tick:
+  // jugadores/npcs/fauna/enemigos se mueven, el resto — cadáveres, objetos
+  // en el suelo, mesas de ajedrez... — no lo hace tanto ni pesa tanto) como
+  // "solo se replican a quien las tenga en su StateView". OJO: esto afecta
+  // a los 5 tipos de room (todos comparten HubState) — cualquier cliente
+  // SIN `client.view` asignado dejaría de ver estas 4 colecciones ENTERAS
+  // (comportamiento real de @colyseus/schema, no un bug) — por eso
+  // `RoomExteriorBase.actualizarVistaDeInteres()` se llama en TODOS los
+  // room types, no solo Hub/Region: en Interior/Dungeon/Arena con radio
+  // `null` añade siempre TODO (mismo comportamiento de antes, sin recorte),
+  // solo Hub/Region filtran de verdad por distancia real.
+  @view() @type({ map: Player }) players = new MapSchema<Player>();
+  @view() @type({ map: Npc }) npcs = new MapSchema<Npc>();
+  @view() @type({ map: Enemigo }) enemigos = new MapSchema<Enemigo>();
+  @view() @type({ map: Fauna }) fauna = new MapSchema<Fauna>();
   @type({ map: Mascota }) mascotas = new MapSchema<Mascota>();
   @type({ map: CompaneroSchema }) companeros = new MapSchema<CompaneroSchema>();
   @type({ map: Barco }) barcos = new MapSchema<Barco>();

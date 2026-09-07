@@ -161,6 +161,12 @@ export class ArenaCombateRoom extends RoomExteriorBase {
     // Revisado cada pocos segundos, barato (una unidad de sobra por combate).
     this.creadaEnMs = Date.now();
     this.clock.setInterval(() => void this.saltarTurnoSiJugadorAusente(this.combateIdPropio, this.creadaEnMs), 2000);
+
+    // Interest-management (docs/GDD_Rendimiento.md §Interest-management,
+    // pedido streamer 2026-09-07): `radioTiles=null` = sin recortar, misma
+    // visibilidad total que antes de este cambio — una arena es pequeña y
+    // acotada, todos los participantes deben verse siempre.
+    this.clock.setInterval(() => this.actualizarVistaDeInteres(null), 2000);
   }
 
   async onJoin(client: Client, options: OpcionesArena) {
@@ -206,6 +212,10 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       this.retornosPorJugador.delete(nombre);
       this.retornosPorJugador.set(client.sessionId, retorno);
     }
+    // Interest-management: rellena el StateView de esta sesión YA, sin
+    // esperar al primer tick periódico — ver mismo comentario en
+    // HubRoom.onJoin/InteriorRoom.onJoin.
+    this.actualizarVistaDeInteres(null);
   }
 
   /**
