@@ -23,6 +23,7 @@ import {
   EspecieReproductiva,
   Huevo,
   buscarPareja,
+  faltanParaCompletarPoblacion,
   huevoEclosiona,
   intentarAparearse,
   resolverParto,
@@ -107,6 +108,16 @@ function idNuevaCria(mapaId: string, sectorX: number, sectorY: number, ahora: nu
   return `${mapaId}:${sectorX}:${sectorY}:cria:${ahora}:${n}`;
 }
 
+/** Relleno de fauna "población infinita" (ver más abajo, paso 3bis) — tag propio para no chocar nunca con un id de cría ni con el id original del bake (`idInicial`, sin tag). */
+function idRellenoInfinita(mapaId: string, sectorX: number, sectorY: number, ahora: number, n: number): string {
+  return `${mapaId}:${sectorX}:${sectorY}:infinita:${ahora}:${n}`;
+}
+
+/** ¿Es esta fila la ORIGINAL del bake (id de `idInicial`, sin tag), viva o muerta? Se usa para sacar el límite real de población infinita de un sector (cuántas bakeó originalmente `decoracion.js` para esa especie) y las posiciones candidatas de respawn, SIN tener que releer el archivo de bake en cada activación — `filasPersistidas` ya guarda hasta las muertas para siempre (ver cabecera del módulo). */
+function esIndividuoBakeOriginal(id: string): boolean {
+  return !id.includes(":cria:") && !id.includes(":infinita:");
+}
+
 export interface ResultadoResolucionSector {
   /** individuos vivos Y muertos que hay que persistir (los muertos se guardan para no "resucitar" en la siguiente resolución). */
   individuos: FaunaSalvajeFila[];
@@ -147,12 +158,18 @@ export function resolverSector(params: {
 
   // Primera activación: población base 1:1 desde lo bakeado, sexo al azar,
   // recién "comida/bebida" (justo aparece, no tiene sentido que nazca con hambre).
+  // Incluye TAMBIÉN especies de "población infinita" (insectos, peces,
+  // aves, marinos... pedido streamer 2026-09-08: antes se descartaban del
+  // todo aquí y nunca llegaban a existir como individuo real — el paso 3bis
+  // más abajo es quien las mantiene rellenas hasta este mismo número tras
+  // esta primera activación, SIN reproducirse (esas especies no pasan por
+  // el paso 4 de apareamiento).
   let individuos: AnimalReproductor[];
   if (ultimaResolucion === null && filasPersistidas.length === 0) {
     individuos = objetosBakeados
       .map((obj, i) => {
         const especie = catalogo[obj.i];
-        if (!especie || especie.poblacionInfinita) return null; // insectos/invertebrados: no pasan por este sistema
+        if (!especie) return null;
         const sexo: SexoFauna = rnd() < 0.5 ? "macho" : "hembra";
         const animal: AnimalReproductor = {
           id: idInicial(mapaId, sectorX, sectorY, i),
@@ -272,6 +289,55 @@ export function resolverSector(params: {
     }
   }
 
+  // 3bis) Fauna "población infinita" (insectos, peces, aves, marinos... —
+  // pedido streamer 2026-09-08: "si se muere uno aparece otro, límite
+  // constante"): NO gesta ni busca pareja (excluida a propósito del paso 4
+  // de abajo), solo se rellena hasta el número que bakeó `decoracion.js`
+  // originalmente para esta especie en este sector. Ese límite y las
+  // posiciones candidatas de respawn salen de las filas YA persistidas
+  // (`esIndividuoBakeOriginal` — el id original del bake, vivo o muerto,
+  // nunca se borra, ver cabecera del módulo) para no tener que releer el
+  // archivo de bake en cada activación: `activarSector` solo lo lee la
+  // PRIMERA vez que se activa un sector (comportamiento ya establecido y
+  // probado, no se toca aquí). Una tirada al resolver el hueco entero,
+  // igual que crías/apareamiento — nunca una explosión de individuos por
+  // haber pasado mucho tiempo sin nadie mirando.
+  const porEspecieInfinita = new Map<string, { limite: number; posiciones: { x: number; y: number }[] }>();
+  for (const a of individuos) {
+    const especie = catalogo[a.especieId];
+    if (!especie?.poblacionInfinita || !esIndividuoBakeOriginal(a.id)) continue;
+    const entrada = porEspecieInfinita.get(a.especieId) ?? { limite: 0, posiciones: [] };
+    entrada.limite++;
+    entrada.posiciones.push({ x: a.x, y: a.y });
+    porEspecieInfinita.set(a.especieId, entrada);
+  }
+  let contadorRelleno = 0;
+  for (const [especieId, { limite, posiciones }] of porEspecieInfinita) {
+    const vivosEspecie = individuos.filter((a) => a.vivo && a.especieId === especieId).length;
+    const faltan = faltanParaCompletarPoblacion(vivosEspecie, limite);
+    for (let k = 0; k < faltan; k++) {
+      contadorRelleno++;
+      const pos = posiciones[Math.floor(rnd() * posiciones.length)];
+      const id = idRellenoInfinita(mapaId, sectorX, sectorY, ahora, contadorRelleno);
+      const c = combateDe(especieId);
+      combatePorId.set(id, { vida: c.vidaMaxima, vidaMax: c.vidaMaxima, ataque: c.ataque });
+      nuevos.push({
+        id,
+        especieId,
+        sexo: rnd() < 0.5 ? "macho" : "hembra",
+        etapa: "adulto",
+        vivo: true,
+        x: pos.x,
+        y: pos.y,
+        ultimaComida: ahora,
+        ultimaBebida: ahora,
+        gestandoDesde: null,
+        gestacionDuracionDias: null,
+        nacioEn: null,
+      });
+    }
+  }
+
   // 4) Nuevos apareamientos: mientras el sector estuvo inactivo se asume
   // que todos comieron/bebieron con normalidad (no se rastrea hambre sin
   // jugadores cerca) — UNA tirada por pareja elegible más cercana, nunca
@@ -288,7 +354,7 @@ export function resolverSector(params: {
   for (const a of vivosAhora) {
     if (a.sexo !== "macho" || a.etapa !== "adulto" || yaIntentado.has(a.id)) continue;
     const especie = catalogo[a.especieId];
-    if (!especie) continue;
+    if (!especie || especie.poblacionInfinita) continue; // población infinita no gesta/aparea — solo se rellena en el paso 3bis
     const candidatas = vivosAhora.filter((c) => c.id !== a.id && !yaIntentado.has(c.id));
     const pareja = buscarPareja(a, especie, candidatas, RADIO_APAREAMIENTO, ahora);
     if (!pareja) continue;

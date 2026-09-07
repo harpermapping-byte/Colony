@@ -43,19 +43,78 @@ test("primera activación: genera un adulto vivo por cada objeto bakeado, sexo a
   assert.strictEqual(r.huevos.length, 0);
 });
 
-test("primera activación: las especies de población infinita (insectos) NO generan individuos", () => {
+test("primera activación: las especies de población infinita (insectos) SÍ generan individuos, 1:1 con el bake", () => {
   const r = resolverSector({
     mapaId: "principal",
     sectorX: 0,
     sectorY: 0,
-    objetosBakeados: [{ i: "abeja", x: 1, y: 1 }],
+    objetosBakeados: [{ i: "abeja", x: 1, y: 1 }, { i: "abeja", x: 2, y: 2 }],
     filasPersistidas: [],
     huevosPersistidos: [],
     ultimaResolucion: null,
     ahora: 10,
     catalogo: CATALOGO,
   });
-  assert.strictEqual(r.individuos.length, 0);
+  assert.strictEqual(r.individuos.length, 2);
+  assert.ok(r.individuos.every((i) => i.especieId === "abeja" && i.etapa === "adulto" && i.estado === "vivo"));
+});
+
+test("resolución de un hueco: población infinita por debajo del límite bakeado se rellena hasta el original, nunca de más", () => {
+  // 3 abejas originales del bake (idInicial, sin tag) — 2 muertas, 1 viva.
+  const viva = fila({ id: "principal:0:0:0", especieId: "abeja", estado: "vivo" });
+  const muerta1 = fila({ id: "principal:0:0:1", especieId: "abeja", estado: "muerto", x: 3, y: 3 });
+  const muerta2 = fila({ id: "principal:0:0:2", especieId: "abeja", estado: "muerto", x: 4, y: 4 });
+  const r = resolverSector({
+    mapaId: "principal",
+    sectorX: 0,
+    sectorY: 0,
+    objetosBakeados: [], // no hace falta releer el bake: el límite sale de las filas persistidas
+    filasPersistidas: [viva, muerta1, muerta2],
+    huevosPersistidos: [],
+    ultimaResolucion: 10,
+    ahora: 15,
+    catalogo: CATALOGO,
+  });
+  const vivasAbeja = r.individuos.filter((i) => i.especieId === "abeja" && i.estado === "vivo");
+  assert.strictEqual(vivasAbeja.length, 3, "rellena hasta las 3 originales del bake (1 ya viva + 2 nuevas)");
+  const muertasAbeja = r.individuos.filter((i) => i.especieId === "abeja" && i.estado === "muerto");
+  assert.strictEqual(muertasAbeja.length, 2, "las originales muertas se conservan, no resucitan ni se borran");
+});
+
+test("resolución de un hueco: población infinita YA al límite no genera ninguna de más", () => {
+  const viva = fila({ id: "principal:0:0:0", especieId: "abeja", estado: "vivo" });
+  const r = resolverSector({
+    mapaId: "principal",
+    sectorX: 0,
+    sectorY: 0,
+    objetosBakeados: [],
+    filasPersistidas: [viva],
+    huevosPersistidos: [],
+    ultimaResolucion: 10,
+    ahora: 15,
+    catalogo: CATALOGO,
+  });
+  assert.strictEqual(r.individuos.length, 1);
+});
+
+test("resolución de un hueco: población infinita nunca gesta ni pone huevos, aunque haya pareja cerca y el rnd sea favorable", () => {
+  const macho = fila({ id: "principal:0:0:0", especieId: "abeja", sexo: "macho", x: 0, y: 0 });
+  const hembra = fila({ id: "principal:0:0:1", especieId: "abeja", sexo: "hembra", x: 1, y: 0 });
+  const r = resolverSector({
+    mapaId: "principal",
+    sectorX: 0,
+    sectorY: 0,
+    objetosBakeados: [],
+    filasPersistidas: [macho, hembra],
+    huevosPersistidos: [],
+    ultimaResolucion: 10,
+    ahora: 15,
+    catalogo: CATALOGO,
+    rnd: RND_APAREA,
+  });
+  assert.strictEqual(r.huevos.length, 0);
+  assert.ok(r.individuos.every((i) => i.gestandoDesde === null));
+  assert.strictEqual(r.individuos.length, 2, "ya estaban las 2 originales al límite, ninguna de más");
 });
 
 test("primera activación: ids deterministas por índice — mismo sector, mismo resultado", () => {
