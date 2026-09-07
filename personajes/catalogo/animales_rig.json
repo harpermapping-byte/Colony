@@ -21,8 +21,23 @@
       "hocico": "corto"
     }
   },
-  "coneja": { "heredaDe": "conejo", "escala": [0.85, 1.15], "_nota": "Hembra de \"conejo\" — mismo cuerpo. Auditoría 2026-09-03 (pedido streamer, 'revisa que todos los animales están bien con la regla de sexo'): conejo es domesticable con par urbano real (coneja/gazapo, biomas:[] igual que perro/perra) — trío que se había quedado fuera de la pasada anterior por centrarse en las 9 especies ya con `razas`; conejo no tiene razas propias, así que hereda 'nada' extra, solo el cuerpo." },
-  "gazapo": { "heredaDe": "conejo", "escala": [0.3, 0.45], "esCria": true, "_nota": "Cría de conejo/coneja — sin razas propias (conejo tampoco las tiene)." },
+  "coneja": {
+    "heredaDe": "conejo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "_nota": "Hembra de \"conejo\" — mismo cuerpo. Auditoría 2026-09-03 (pedido streamer, 'revisa que todos los animales están bien con la regla de sexo'): conejo es domesticable con par urbano real (coneja/gazapo, biomas:[] igual que perro/perra) — trío que se había quedado fuera de la pasada anterior por centrarse en las 9 especies ya con `razas`; conejo no tiene razas propias, así que hereda 'nada' extra, solo el cuerpo."
+  },
+  "gazapo": {
+    "heredaDe": "conejo",
+    "escala": [
+      0.3,
+      0.45
+    ],
+    "esCria": true,
+    "_nota": "Cría de conejo/coneja — sin razas propias (conejo tampoco las tiene)."
+  },
   "lobo": {
     "esqueleto": "cuadrupedo",
     "escala": [
@@ -30,7 +45,7 @@
       1.15
     ],
     "proporciones": {
-      "largoCuerpo": 1.0,
+      "largoCuerpo": 1,
       "altoCuerpo": 0.42,
       "anchoCuerpo": 0.34,
       "altoPata": 0.42,
@@ -112,8 +127,26 @@
     "montable": true,
     "velocidadMontura": 8
   },
-  "cierva": { "heredaDe": "ciervo", "escala": [0.9, 1.1], "rasgos": { "cuernos": "ninguno" }, "_nota": "Hembra de \"ciervo\" — mismo cuerpo, sin cuernos (los ramificados son de macho). Auditoría 2026-09-03: ciervo/jabali son domesticable:true con trío real en baker/catalogo/animales.json pero cierva/cervatillo/jabalina/jabato se habían quedado sin rig en la pasada anterior (centrada en las especies YA con `razas`, ciervo/jabali no tienen). Se completan aquí por coherencia — heredan también `montable`/`velocidadMontura` (catalogoMonturas.ts resuelve heredaDe)." },
-  "cervatillo": { "heredaDe": "ciervo", "escala": [0.35, 0.5], "esCria": true, "_nota": "Cría de ciervo/cierva — sin razas propias (ciervo tampoco las tiene), sin cuernos." },
+  "cierva": {
+    "heredaDe": "ciervo",
+    "escala": [
+      0.9,
+      1.1
+    ],
+    "rasgos": {
+      "cuernos": "ninguno"
+    },
+    "_nota": "Hembra de \"ciervo\" — mismo cuerpo, sin cuernos (los ramificados son de macho). Auditoría 2026-09-03: ciervo/jabali son domesticable:true con trío real en baker/catalogo/animales.json pero cierva/cervatillo/jabalina/jabato se habían quedado sin rig en la pasada anterior (centrada en las especies YA con `razas`, ciervo/jabali no tienen). Se completan aquí por coherencia — heredan también `montable`/`velocidadMontura` (catalogoMonturas.ts resuelve heredaDe)."
+  },
+  "cervatillo": {
+    "heredaDe": "ciervo",
+    "escala": [
+      0.35,
+      0.5
+    ],
+    "esCria": true,
+    "_nota": "Cría de ciervo/cierva — sin razas propias (ciervo tampoco las tiene), sin cuernos."
+  },
   "jabali": {
     "_nota": "Montura (pedido 2026-08-30, docs/GDD_Monturas.md) — cuerpo bajo y macizo, patas cortas a diferencia de ciervo/caballo.",
     "esqueleto": "cuadrupedo",
@@ -122,7 +155,7 @@
       1.15
     ],
     "proporciones": {
-      "largoCuerpo": 1.0,
+      "largoCuerpo": 1,
       "altoCuerpo": 0.5,
       "anchoCuerpo": 0.45,
       "altoPata": 0.35,
@@ -152,8 +185,23 @@
     "montable": true,
     "velocidadMontura": 6.5
   },
-  "jabalina": { "heredaDe": "jabali", "escala": [0.9, 1.15], "_nota": "Hembra de \"jabali\" — mismo cuerpo y colores. Auditoría 2026-09-03 (ver nota de 'cierva')." },
-  "jabato": { "heredaDe": "jabali", "escala": [0.3, 0.45], "esCria": true, "_nota": "Cría de jabali/jabalina — sin colores/razas propios." },
+  "jabalina": {
+    "heredaDe": "jabali",
+    "escala": [
+      0.9,
+      1.15
+    ],
+    "_nota": "Hembra de \"jabali\" — mismo cuerpo y colores. Auditoría 2026-09-03 (ver nota de 'cierva')."
+  },
+  "jabato": {
+    "heredaDe": "jabali",
+    "escala": [
+      0.3,
+      0.45
+    ],
+    "esCria": true,
+    "_nota": "Cría de jabali/jabalina — sin colores/razas propios."
+  },
   "gallina_salvaje": {
     "esqueleto": "ave",
     "escala": [
@@ -319,7 +367,7 @@
     "esqueleto": "ave",
     "escala": [
       0.7,
-      1.0
+      1
     ],
     "proporciones": {
       "largoCuerpo": 0.3,
@@ -533,26 +581,103 @@
       {
         "id": "chihuahua",
         "peso": 10,
-        "escala": [0.22, 0.32],
-        "proporciones": { "largoCuerpo": 0.4, "altoCuerpo": 0.26, "anchoCuerpo": 0.18, "altoPata": 0.16, "grosorPata": 0.045, "tamCabeza": 0.26 },
-        "rasgos": { "orejas": "puntiagudas", "cola": "media" },
-        "coloresPosibles": [["#c9a05a", 40], ["#2a2420", 30], ["#e8e0d0", 30]]
+        "escala": [
+          0.22,
+          0.32
+        ],
+        "proporciones": {
+          "largoCuerpo": 0.4,
+          "altoCuerpo": 0.26,
+          "anchoCuerpo": 0.18,
+          "altoPata": 0.16,
+          "grosorPata": 0.045,
+          "tamCabeza": 0.26
+        },
+        "rasgos": {
+          "orejas": "puntiagudas",
+          "cola": "media"
+        },
+        "coloresPosibles": [
+          [
+            "#c9a05a",
+            40
+          ],
+          [
+            "#2a2420",
+            30
+          ],
+          [
+            "#e8e0d0",
+            30
+          ]
+        ]
       },
       {
         "id": "husky",
         "peso": 14,
-        "escala": [0.7, 0.88],
-        "proporciones": { "largoCuerpo": 0.78, "altoCuerpo": 0.42, "anchoCuerpo": 0.28, "altoPata": 0.36, "tamCabeza": 0.28 },
-        "rasgos": { "orejas": "puntiagudas", "cola": "media" },
-        "coloresPosibles": [["#e8e0d0", 40], ["#2a2420", 35], ["#8a8580", 25]]
+        "escala": [
+          0.7,
+          0.88
+        ],
+        "proporciones": {
+          "largoCuerpo": 0.78,
+          "altoCuerpo": 0.42,
+          "anchoCuerpo": 0.28,
+          "altoPata": 0.36,
+          "tamCabeza": 0.28
+        },
+        "rasgos": {
+          "orejas": "puntiagudas",
+          "cola": "media"
+        },
+        "coloresPosibles": [
+          [
+            "#e8e0d0",
+            40
+          ],
+          [
+            "#2a2420",
+            35
+          ],
+          [
+            "#8a8580",
+            25
+          ]
+        ]
       },
       {
         "id": "bulldog",
         "peso": 12,
-        "escala": [0.45, 0.6],
-        "proporciones": { "largoCuerpo": 0.55, "altoCuerpo": 0.32, "anchoCuerpo": 0.34, "altoPata": 0.18, "grosorPata": 0.09, "tamCabeza": 0.32 },
-        "rasgos": { "orejas": "caidas", "cola": "corta" },
-        "coloresPosibles": [["#c9a05a", 45], ["#e8e0d0", 35], ["#8a6a45", 20]]
+        "escala": [
+          0.45,
+          0.6
+        ],
+        "proporciones": {
+          "largoCuerpo": 0.55,
+          "altoCuerpo": 0.32,
+          "anchoCuerpo": 0.34,
+          "altoPata": 0.18,
+          "grosorPata": 0.09,
+          "tamCabeza": 0.32
+        },
+        "rasgos": {
+          "orejas": "caidas",
+          "cola": "corta"
+        },
+        "coloresPosibles": [
+          [
+            "#c9a05a",
+            45
+          ],
+          [
+            "#e8e0d0",
+            35
+          ],
+          [
+            "#8a6a45",
+            20
+          ]
+        ]
       }
     ]
   },
@@ -713,20 +838,60 @@
       {
         "id": "bengala",
         "peso": 8,
-        "escala": [0.42, 0.58],
-        "coloresPosibles": [["#c9973a", 55], ["#e8dcc0", 25], ["#2a2420", 20]]
+        "escala": [
+          0.42,
+          0.58
+        ],
+        "coloresPosibles": [
+          [
+            "#c9973a",
+            55
+          ],
+          [
+            "#e8dcc0",
+            25
+          ],
+          [
+            "#2a2420",
+            20
+          ]
+        ]
       },
       {
         "id": "azul_ruso",
         "peso": 8,
-        "coloresPosibles": [["#7a8088", 80], ["#a8adb2", 20]]
+        "coloresPosibles": [
+          [
+            "#7a8088",
+            80
+          ],
+          [
+            "#a8adb2",
+            20
+          ]
+        ]
       },
       {
         "id": "esfinge",
         "peso": 6,
-        "escala": [0.35, 0.5],
-        "proporciones": { "anchoCuerpo": 0.17, "tamCabeza": 0.21 },
-        "coloresPosibles": [["#e0c8b0", 70], ["#c9a888", 30]]
+        "escala": [
+          0.35,
+          0.5
+        ],
+        "proporciones": {
+          "anchoCuerpo": 0.17,
+          "tamCabeza": 0.21
+        },
+        "coloresPosibles": [
+          [
+            "#e0c8b0",
+            70
+          ],
+          [
+            "#c9a888",
+            30
+          ]
+        ]
       }
     ],
     "_notaRazas": "Ampliación 2026-09-01 (pedido streamer, 'más razas donde tenga sentido'): bengala moteado, azul ruso gris-azulado, esfinge (silueta más fina, sin pelaje representable en vóxeles — se aproxima con un tono de piel claro)."
@@ -809,7 +974,7 @@
         "peso": 20,
         "escala": [
           0.85,
-          1.0
+          1
         ],
         "proporciones": {
           "largoCuerpo": 1.25,
@@ -846,7 +1011,7 @@
           0.65
         ],
         "proporciones": {
-          "largoCuerpo": 1.0,
+          "largoCuerpo": 1,
           "altoCuerpo": 0.45,
           "altoPata": 0.5,
           "tamCabeza": 0.36
@@ -891,14 +1056,46 @@
       {
         "id": "frison",
         "peso": 15,
-        "escala": [0.9, 1.05],
-        "coloresPosibles": [["#141210", 90], ["#2a2018", 10]]
+        "escala": [
+          0.9,
+          1.05
+        ],
+        "coloresPosibles": [
+          [
+            "#141210",
+            90
+          ],
+          [
+            "#2a2018",
+            10
+          ]
+        ]
       },
       {
         "id": "mustang",
         "peso": 15,
-        "escala": [0.8, 1.0],
-        "coloresPosibles": [["#8a7050", 30], ["#5a3a20", 30], ["#3a2a1c", 20], ["#c9973a", 20]]
+        "escala": [
+          0.8,
+          1
+        ],
+        "coloresPosibles": [
+          [
+            "#8a7050",
+            30
+          ],
+          [
+            "#5a3a20",
+            30
+          ],
+          [
+            "#3a2a1c",
+            20
+          ],
+          [
+            "#c9973a",
+            20
+          ]
+        ]
       }
     ],
     "_notaRazas": "Razas (pedido 2026-08-30, mismo mecanismo ya probado en perro/gato): percherón grande y oscuro, árabe esbelto y veloz, poni pequeño, pinto bicolor, criollo = base sin override. Ampliación 2026-09-02 (pedido streamer, '¿de caballo hay más razas?'): frisón negro elegante, mustang resistente y de colores variados."
@@ -983,9 +1180,49 @@
     "montable": true,
     "velocidadMontura": 6,
     "razas": [
-      { "id": "andaluz", "peso": 30, "escala": [0.85, 1.0], "coloresPosibles": [["#6a6258", 55], ["#8a7a68", 45]] },
-      { "id": "miniatura", "peso": 20, "escala": [0.45, 0.6], "proporciones": { "altoPata": 0.4 }, "coloresPosibles": [["#5a4a38", 50], ["#8a7a68", 50]] },
-      { "id": "comun", "peso": 50 }
+      {
+        "id": "andaluz",
+        "peso": 30,
+        "escala": [
+          0.85,
+          1
+        ],
+        "coloresPosibles": [
+          [
+            "#6a6258",
+            55
+          ],
+          [
+            "#8a7a68",
+            45
+          ]
+        ]
+      },
+      {
+        "id": "miniatura",
+        "peso": 20,
+        "escala": [
+          0.45,
+          0.6
+        ],
+        "proporciones": {
+          "altoPata": 0.4
+        },
+        "coloresPosibles": [
+          [
+            "#5a4a38",
+            50
+          ],
+          [
+            "#8a7a68",
+            50
+          ]
+        ]
+      },
+      {
+        "id": "comun",
+        "peso": 50
+      }
     ],
     "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): andaluz grande y gris, miniatura pequeño, común = base sin override."
   },
@@ -1094,14 +1331,42 @@
       {
         "id": "mangalica",
         "peso": 12,
-        "coloresPosibles": [["#d8b878", 70], ["#8a6a45", 30]]
+        "coloresPosibles": [
+          [
+            "#d8b878",
+            70
+          ],
+          [
+            "#8a6a45",
+            30
+          ]
+        ]
       },
       {
         "id": "kunekune",
         "peso": 12,
-        "escala": [0.55, 0.7],
-        "proporciones": { "anchoCuerpo": 0.44, "altoPata": 0.18 },
-        "coloresPosibles": [["#2a2420", 35], ["#e8b8a0", 35], ["#8a6a45", 30]]
+        "escala": [
+          0.55,
+          0.7
+        ],
+        "proporciones": {
+          "anchoCuerpo": 0.44,
+          "altoPata": 0.18
+        },
+        "coloresPosibles": [
+          [
+            "#2a2420",
+            35
+          ],
+          [
+            "#e8b8a0",
+            35
+          ],
+          [
+            "#8a6a45",
+            30
+          ]
+        ]
       }
     ],
     "_notaRazas": "Razas (pedido 2026-08-30, ampliadas 2026-09-01): ibérico y duroc oscuros/rojizos, yorkshire rosado (= color base de siempre), vietnamita pequeño y panzudo, mangalica de capa leonada, kunekune pequeño y rechoncho."
@@ -1110,7 +1375,7 @@
     "_nota": "Bovino de labranza (par de 'vaca_salvaje', más corpulento y con cuernos). Corrección docs/GDD_Carros.md (pedido streamer 2026-09-03, textual: 'que el buey pueda ser domesticable, montable, y poder tirar de un carro'): SÍ es montable — la nota original decía lo contrario ('no de monta'), pero el pedido de esta sesión lo pide explícitamente para poder ensillarlo o ponerle arnés de tiro. Velocidad de montura más lenta que un burro (4.5): es un animal de labranza corpulento, no de transporte rápido.",
     "esqueleto": "cuadrupedo",
     "escala": [
-      1.0,
+      1,
       1.2
     ],
     "proporciones": {
@@ -1142,9 +1407,38 @@
       ]
     ],
     "razas": [
-      { "id": "pardo_alpino", "peso": 30, "coloresPosibles": [["#8a7a5a", 70], ["#6a5a40", 30]] },
-      { "id": "retinto", "peso": 30, "coloresPosibles": [["#8a4020", 70], ["#6a3018", 30]] },
-      { "id": "comun", "peso": 40 }
+      {
+        "id": "pardo_alpino",
+        "peso": 30,
+        "coloresPosibles": [
+          [
+            "#8a7a5a",
+            70
+          ],
+          [
+            "#6a5a40",
+            30
+          ]
+        ]
+      },
+      {
+        "id": "retinto",
+        "peso": 30,
+        "coloresPosibles": [
+          [
+            "#8a4020",
+            70
+          ],
+          [
+            "#6a3018",
+            30
+          ]
+        ]
+      },
+      {
+        "id": "comun",
+        "peso": 40
+      }
     ],
     "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): pardo alpino claro, retinto rojizo oscuro, común = base sin override.",
     "montable": true,
@@ -1192,86 +1486,2583 @@
       ]
     ],
     "razas": [
-      { "id": "leghorn", "peso": 25, "coloresPosibles": [["#f0ece0", 80], ["#c9922a", 20]] },
-      { "id": "orpington", "peso": 25, "escala": [1.0, 1.25], "coloresPosibles": [["#c9922a", 70], ["#8a3a28", 30]] },
-      { "id": "sedosa", "peso": 15, "escala": [0.55, 0.7], "proporciones": { "altoPata": 0.14 }, "coloresPosibles": [["#f0ece0", 50], ["#2a2420", 50]] },
-      { "id": "comun", "peso": 35 }
+      {
+        "id": "leghorn",
+        "peso": 25,
+        "coloresPosibles": [
+          [
+            "#f0ece0",
+            80
+          ],
+          [
+            "#c9922a",
+            20
+          ]
+        ]
+      },
+      {
+        "id": "orpington",
+        "peso": 25,
+        "escala": [
+          1,
+          1.25
+        ],
+        "coloresPosibles": [
+          [
+            "#c9922a",
+            70
+          ],
+          [
+            "#8a3a28",
+            30
+          ]
+        ]
+      },
+      {
+        "id": "sedosa",
+        "peso": 15,
+        "escala": [
+          0.55,
+          0.7
+        ],
+        "proporciones": {
+          "altoPata": 0.14
+        },
+        "coloresPosibles": [
+          [
+            "#f0ece0",
+            50
+          ],
+          [
+            "#2a2420",
+            50
+          ]
+        ]
+      },
+      {
+        "id": "comun",
+        "peso": 35
+      }
     ],
     "_notaRazas": "Razas (ampliación 2026-09-01, pedido streamer): leghorn blanca ligera, orpington grande y dorada, sedosa pequeña de plumaje suave, común = base sin override."
   },
   "oveja": {
     "esqueleto": "cuadrupedo",
-    "escala": [0.85, 1.05],
-    "proporciones": { "largoCuerpo": 0.85, "altoCuerpo": 0.5, "anchoCuerpo": 0.42, "altoPata": 0.32, "grosorPata": 0.1, "tamCabeza": 0.26 },
-    "rasgos": { "orejas": "laterales", "cola": "corta", "hocico": "medio", "cuernos": "ninguno" },
-    "coloresPosibles": [["#e8e0d0", 50], ["#d8c8a8", 30], ["#8a7a68", 20]],
+    "escala": [
+      0.85,
+      1.05
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.85,
+      "altoCuerpo": 0.5,
+      "anchoCuerpo": 0.42,
+      "altoPata": 0.32,
+      "grosorPata": 0.1,
+      "tamCabeza": 0.26
+    },
+    "rasgos": {
+      "orejas": "laterales",
+      "cola": "corta",
+      "hocico": "medio",
+      "cuernos": "ninguno"
+    },
+    "coloresPosibles": [
+      [
+        "#e8e0d0",
+        50
+      ],
+      [
+        "#d8c8a8",
+        30
+      ],
+      [
+        "#8a7a68",
+        20
+      ]
+    ],
     "razas": [
-      { "id": "merina", "peso": 35, "coloresPosibles": [["#f0ece0", 80], ["#e8e0d0", 20]] },
-      { "id": "churra", "peso": 30, "coloresPosibles": [["#d8c8a8", 60], ["#4a3a2a", 40]] },
-      { "id": "negra", "peso": 20, "coloresPosibles": [["#2a2420", 90], ["#3a2f28", 10]] },
-      { "id": "comun", "peso": 15 }
+      {
+        "id": "merina",
+        "peso": 35,
+        "coloresPosibles": [
+          [
+            "#f0ece0",
+            80
+          ],
+          [
+            "#e8e0d0",
+            20
+          ]
+        ]
+      },
+      {
+        "id": "churra",
+        "peso": 30,
+        "coloresPosibles": [
+          [
+            "#d8c8a8",
+            60
+          ],
+          [
+            "#4a3a2a",
+            40
+          ]
+        ]
+      },
+      {
+        "id": "negra",
+        "peso": 20,
+        "coloresPosibles": [
+          [
+            "#2a2420",
+            90
+          ],
+          [
+            "#3a2f28",
+            10
+          ]
+        ]
+      },
+      {
+        "id": "comun",
+        "peso": 15
+      }
     ],
     "_notaRazas": "Ganado ovino de granja (pedido streamer 2026-09-01, 'centrémonos en animales de granja y compañeros'): merina lana clara, churra cara oscura, negra íntegramente oscura, común = base sin override."
   },
   "cabra": {
     "esqueleto": "cuadrupedo",
-    "escala": [0.75, 0.95],
-    "proporciones": { "largoCuerpo": 0.75, "altoCuerpo": 0.48, "anchoCuerpo": 0.3, "altoPata": 0.34, "grosorPata": 0.08, "tamCabeza": 0.24 },
-    "rasgos": { "orejas": "laterales", "cola": "corta", "hocico": "medio", "cuernos": "cortos" },
-    "coloresPosibles": [["#c9b090", 40], ["#8a7a5a", 35], ["#2a2420", 25]],
+    "escala": [
+      0.75,
+      0.95
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.75,
+      "altoCuerpo": 0.48,
+      "anchoCuerpo": 0.3,
+      "altoPata": 0.34,
+      "grosorPata": 0.08,
+      "tamCabeza": 0.24
+    },
+    "rasgos": {
+      "orejas": "laterales",
+      "cola": "corta",
+      "hocico": "medio",
+      "cuernos": "cortos"
+    },
+    "coloresPosibles": [
+      [
+        "#c9b090",
+        40
+      ],
+      [
+        "#8a7a5a",
+        35
+      ],
+      [
+        "#2a2420",
+        25
+      ]
+    ],
     "razas": [
-      { "id": "alpina", "peso": 30, "coloresPosibles": [["#8a5a30", 55], ["#2a2420", 45]] },
-      { "id": "enana_africana", "peso": 25, "escala": [0.45, 0.6], "proporciones": { "altoPata": 0.22 }, "coloresPosibles": [["#2a2420", 50], ["#8a7a5a", 50]] },
-      { "id": "angora", "peso": 20, "coloresPosibles": [["#f0ece0", 85], ["#e8dcc0", 15]] },
-      { "id": "comun", "peso": 25 }
+      {
+        "id": "alpina",
+        "peso": 30,
+        "coloresPosibles": [
+          [
+            "#8a5a30",
+            55
+          ],
+          [
+            "#2a2420",
+            45
+          ]
+        ]
+      },
+      {
+        "id": "enana_africana",
+        "peso": 25,
+        "escala": [
+          0.45,
+          0.6
+        ],
+        "proporciones": {
+          "altoPata": 0.22
+        },
+        "coloresPosibles": [
+          [
+            "#2a2420",
+            50
+          ],
+          [
+            "#8a7a5a",
+            50
+          ]
+        ]
+      },
+      {
+        "id": "angora",
+        "peso": 20,
+        "coloresPosibles": [
+          [
+            "#f0ece0",
+            85
+          ],
+          [
+            "#e8dcc0",
+            15
+          ]
+        ]
+      },
+      {
+        "id": "comun",
+        "peso": 25
+      }
     ],
     "_notaRazas": "Ganado caprino de granja (pedido streamer 2026-09-01): alpina oscura, enana africana (mucho más pequeña), angora de pelo claro, común = base sin override."
   },
   "oca": {
     "esqueleto": "ave",
-    "escala": [1.0, 1.25],
-    "proporciones": { "largoCuerpo": 0.45, "altoCuerpo": 0.35, "anchoCuerpo": 0.24, "altoPata": 0.22, "tamCabeza": 0.14 },
-    "rasgos": { "cresta": false, "pico": "largo", "cola": "corta", "vuela": false },
-    "coloresPosibles": [["#e8e0d0", 60], ["#8a8580", 40]],
+    "escala": [
+      1,
+      1.25
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.45,
+      "altoCuerpo": 0.35,
+      "anchoCuerpo": 0.24,
+      "altoPata": 0.22,
+      "tamCabeza": 0.14
+    },
+    "rasgos": {
+      "cresta": false,
+      "pico": "largo",
+      "cola": "corta",
+      "vuela": false
+    },
+    "coloresPosibles": [
+      [
+        "#e8e0d0",
+        60
+      ],
+      [
+        "#8a8580",
+        40
+      ]
+    ],
     "razas": [
-      { "id": "blanca_domestica", "peso": 40, "coloresPosibles": [["#f0ece0", 90], ["#e8e0d0", 10]] },
-      { "id": "toulouse", "peso": 30, "escala": [1.1, 1.3], "coloresPosibles": [["#8a8580", 70], ["#5a5650", 30]] },
-      { "id": "comun", "peso": 30 }
+      {
+        "id": "blanca_domestica",
+        "peso": 40,
+        "coloresPosibles": [
+          [
+            "#f0ece0",
+            90
+          ],
+          [
+            "#e8e0d0",
+            10
+          ]
+        ]
+      },
+      {
+        "id": "toulouse",
+        "peso": 30,
+        "escala": [
+          1.1,
+          1.3
+        ],
+        "coloresPosibles": [
+          [
+            "#8a8580",
+            70
+          ],
+          [
+            "#5a5650",
+            30
+          ]
+        ]
+      },
+      {
+        "id": "comun",
+        "peso": 30
+      }
     ],
     "_notaRazas": "Ave de granja (pedido streamer 2026-09-01): blanca doméstica clásica, toulouse gris y más grande, común = base sin override."
   },
   "vaca": {
     "_nota": "Vaca lechera de granja — par doméstico de 'vaca_salvaje' (mismas proporciones base), distinta de 'buey' (bovino de labranza, más corpulento, sin razas de leche). Pedido streamer 2026-09-01: ampliar razas de granja.",
     "esqueleto": "cuadrupedo",
-    "escala": [0.9, 1.1],
-    "proporciones": { "largoCuerpo": 1.5, "altoCuerpo": 0.75, "anchoCuerpo": 0.6, "altoPata": 0.55, "grosorPata": 0.14, "tamCabeza": 0.42 },
-    "rasgos": { "orejas": "laterales", "cola": "larga", "hocico": "medio", "cuernos": "cortos" },
-    "coloresPosibles": [["#3a2a1c", 30], ["#8a6a45", 28], ["#e8e0d0", 18], ["#221a14", 14], ["#c9b090", 10]],
+    "escala": [
+      0.9,
+      1.1
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.5,
+      "altoCuerpo": 0.75,
+      "anchoCuerpo": 0.6,
+      "altoPata": 0.55,
+      "grosorPata": 0.14,
+      "tamCabeza": 0.42
+    },
+    "rasgos": {
+      "orejas": "laterales",
+      "cola": "larga",
+      "hocico": "medio",
+      "cuernos": "cortos"
+    },
+    "coloresPosibles": [
+      [
+        "#3a2a1c",
+        30
+      ],
+      [
+        "#8a6a45",
+        28
+      ],
+      [
+        "#e8e0d0",
+        18
+      ],
+      [
+        "#221a14",
+        14
+      ],
+      [
+        "#c9b090",
+        10
+      ]
+    ],
     "razas": [
-      { "id": "holstein", "peso": 35, "coloresPosibles": [["#2a2420", 55], ["#f0ece0", 45]] },
-      { "id": "jersey", "peso": 30, "escala": [0.8, 0.95], "coloresPosibles": [["#8a6a45", 80], ["#c9973a", 20]] },
-      { "id": "charolesa", "peso": 25, "escala": [1.0, 1.2], "coloresPosibles": [["#f0ece0", 90], ["#e8dcc0", 10]] },
-      { "id": "comun", "peso": 20 }
+      {
+        "id": "holstein",
+        "peso": 35,
+        "coloresPosibles": [
+          [
+            "#2a2420",
+            55
+          ],
+          [
+            "#f0ece0",
+            45
+          ]
+        ]
+      },
+      {
+        "id": "jersey",
+        "peso": 30,
+        "escala": [
+          0.8,
+          0.95
+        ],
+        "coloresPosibles": [
+          [
+            "#8a6a45",
+            80
+          ],
+          [
+            "#c9973a",
+            20
+          ]
+        ]
+      },
+      {
+        "id": "charolesa",
+        "peso": 25,
+        "escala": [
+          1,
+          1.2
+        ],
+        "coloresPosibles": [
+          [
+            "#f0ece0",
+            90
+          ],
+          [
+            "#e8dcc0",
+            10
+          ]
+        ]
+      },
+      {
+        "id": "comun",
+        "peso": 20
+      }
     ],
     "_notaRazas": "Holstein blanquinegra (aproximada con dos colores sólidos ponderados, mismo truco que 'pinto' en caballo), jersey pequeña y dorada, charolesa grande y clara, común = base sin override."
   },
-  "perra": { "heredaDe": "perro", "escala": [0.55, 0.85], "_nota": "Hembra de \"perro\" — mismo cuerpo y razas, solo cambia el id/sexo (docs/GDD_Generador_Personajes.md)." },
-  "cachorro": { "heredaDe": "perro", "escala": [0.18, 0.3], "esCria": true, "_nota": "Cría de perro/perra — sin razas propias, tamaño muy reducido." },
-  "gata": { "heredaDe": "gato", "escala": [0.4, 0.6], "_nota": "Hembra de \"gato\" — mismo cuerpo y razas." },
-  "gatito": { "heredaDe": "gato", "escala": [0.15, 0.25], "esCria": true, "_nota": "Cría de gato/gata — sin razas propias." },
-  "yegua": { "heredaDe": "caballo", "escala": [0.85, 1.05], "_nota": "Hembra de \"caballo\" — mismo cuerpo y razas (incluye frisón/mustang)." },
-  "potro": { "heredaDe": "caballo", "escala": [0.35, 0.5], "esCria": true, "_nota": "Cría de caballo/yegua — sin razas propias." },
-  "burra": { "heredaDe": "burro", "escala": [0.75, 0.95], "_nota": "Hembra de \"burro\" — mismo cuerpo y razas." },
-  "burrito": { "heredaDe": "burro", "escala": [0.3, 0.45], "esCria": true, "_nota": "Cría de burro/burra — sin razas propias." },
-  "cerda": { "heredaDe": "cerdo", "escala": [0.85, 1.05], "_nota": "Hembra de \"cerdo\" — mismo cuerpo y razas." },
-  "cerdito": { "heredaDe": "cerdo", "escala": [0.25, 0.4], "esCria": true, "_nota": "Cría de cerdo/cerda — sin razas propias." },
-  "carnero": { "heredaDe": "oveja", "escala": [0.95, 1.15], "rasgos": { "cuernos": "cortos" }, "_nota": "Macho de \"oveja\" (que ya es el nombre real de la hembra) — mismo cuerpo y razas, algo más grande y con cuernos." },
-  "cordero": { "heredaDe": "oveja", "escala": [0.3, 0.45], "esCria": true, "_nota": "Cría de oveja/carnero — sin razas propias, sin cuernos." },
-  "macho_cabrio": { "heredaDe": "cabra", "escala": [0.85, 1.05], "rasgos": { "cuernos": "largos" }, "_nota": "Macho de \"cabra\" (que ya es el nombre real de la hembra) — mismo cuerpo y razas, algo más grande y con cuernos más largos." },
-  "cabrito": { "heredaDe": "cabra", "escala": [0.25, 0.4], "esCria": true, "_nota": "Cría de cabra/macho_cabrio — sin razas propias, sin cuernos." },
-  "ganso_domestico": { "heredaDe": "oca", "escala": [1.0, 1.25], "_nota": "Macho de \"oca\" (que ya es el nombre real de la hembra) — mismo cuerpo y razas." },
-  "ansarino": { "heredaDe": "oca", "escala": [0.35, 0.5], "esCria": true, "_nota": "Cría de oca/ganso_domestico — sin razas propias." },
-  "toro": { "heredaDe": "vaca", "escala": [1.0, 1.2], "rasgos": { "cuernos": "largos" }, "_nota": "Macho de \"vaca\" (que ya es el nombre real de la hembra doméstica) — mismo cuerpo y razas, algo más grande y con cuernos largos. Distinto de \"buey\" (macho castrado de labranza, no se reproduce, rig propio sin trío)." },
-  "ternero": { "heredaDe": "vaca", "escala": [0.35, 0.5], "esCria": true, "_nota": "Cría de toro/vaca — sin razas propias, sin cuernos." },
-  "pollito": { "heredaDe": "gallo", "escala": [0.2, 0.35], "esCria": true, "_nota": "Cría de gallo/gallina_salvaje — sin razas propias." }
+  "perra": {
+    "heredaDe": "perro",
+    "escala": [
+      0.55,
+      0.85
+    ],
+    "_nota": "Hembra de \"perro\" — mismo cuerpo y razas, solo cambia el id/sexo (docs/GDD_Generador_Personajes.md)."
+  },
+  "cachorro": {
+    "heredaDe": "perro",
+    "escala": [
+      0.18,
+      0.3
+    ],
+    "esCria": true,
+    "_nota": "Cría de perro/perra — sin razas propias, tamaño muy reducido."
+  },
+  "gata": {
+    "heredaDe": "gato",
+    "escala": [
+      0.4,
+      0.6
+    ],
+    "_nota": "Hembra de \"gato\" — mismo cuerpo y razas."
+  },
+  "gatito": {
+    "heredaDe": "gato",
+    "escala": [
+      0.15,
+      0.25
+    ],
+    "esCria": true,
+    "_nota": "Cría de gato/gata — sin razas propias."
+  },
+  "yegua": {
+    "heredaDe": "caballo",
+    "escala": [
+      0.85,
+      1.05
+    ],
+    "_nota": "Hembra de \"caballo\" — mismo cuerpo y razas (incluye frisón/mustang)."
+  },
+  "potro": {
+    "heredaDe": "caballo",
+    "escala": [
+      0.35,
+      0.5
+    ],
+    "esCria": true,
+    "_nota": "Cría de caballo/yegua — sin razas propias."
+  },
+  "burra": {
+    "heredaDe": "burro",
+    "escala": [
+      0.75,
+      0.95
+    ],
+    "_nota": "Hembra de \"burro\" — mismo cuerpo y razas."
+  },
+  "burrito": {
+    "heredaDe": "burro",
+    "escala": [
+      0.3,
+      0.45
+    ],
+    "esCria": true,
+    "_nota": "Cría de burro/burra — sin razas propias."
+  },
+  "cerda": {
+    "heredaDe": "cerdo",
+    "escala": [
+      0.85,
+      1.05
+    ],
+    "_nota": "Hembra de \"cerdo\" — mismo cuerpo y razas."
+  },
+  "cerdito": {
+    "heredaDe": "cerdo",
+    "escala": [
+      0.25,
+      0.4
+    ],
+    "esCria": true,
+    "_nota": "Cría de cerdo/cerda — sin razas propias."
+  },
+  "carnero": {
+    "heredaDe": "oveja",
+    "escala": [
+      0.95,
+      1.15
+    ],
+    "rasgos": {
+      "cuernos": "cortos"
+    },
+    "_nota": "Macho de \"oveja\" (que ya es el nombre real de la hembra) — mismo cuerpo y razas, algo más grande y con cuernos."
+  },
+  "cordero": {
+    "heredaDe": "oveja",
+    "escala": [
+      0.3,
+      0.45
+    ],
+    "esCria": true,
+    "_nota": "Cría de oveja/carnero — sin razas propias, sin cuernos."
+  },
+  "macho_cabrio": {
+    "heredaDe": "cabra",
+    "escala": [
+      0.85,
+      1.05
+    ],
+    "rasgos": {
+      "cuernos": "largos"
+    },
+    "_nota": "Macho de \"cabra\" (que ya es el nombre real de la hembra) — mismo cuerpo y razas, algo más grande y con cuernos más largos."
+  },
+  "cabrito": {
+    "heredaDe": "cabra",
+    "escala": [
+      0.25,
+      0.4
+    ],
+    "esCria": true,
+    "_nota": "Cría de cabra/macho_cabrio — sin razas propias, sin cuernos."
+  },
+  "ganso_domestico": {
+    "heredaDe": "oca",
+    "escala": [
+      1,
+      1.25
+    ],
+    "_nota": "Macho de \"oca\" (que ya es el nombre real de la hembra) — mismo cuerpo y razas."
+  },
+  "ansarino": {
+    "heredaDe": "oca",
+    "escala": [
+      0.35,
+      0.5
+    ],
+    "esCria": true,
+    "_nota": "Cría de oca/ganso_domestico — sin razas propias."
+  },
+  "toro": {
+    "heredaDe": "vaca",
+    "escala": [
+      1,
+      1.2
+    ],
+    "rasgos": {
+      "cuernos": "largos"
+    },
+    "_nota": "Macho de \"vaca\" (que ya es el nombre real de la hembra doméstica) — mismo cuerpo y razas, algo más grande y con cuernos largos. Distinto de \"buey\" (macho castrado de labranza, no se reproduce, rig propio sin trío)."
+  },
+  "ternero": {
+    "heredaDe": "vaca",
+    "escala": [
+      0.35,
+      0.5
+    ],
+    "esCria": true,
+    "_nota": "Cría de toro/vaca — sin razas propias, sin cuernos."
+  },
+  "pollito": {
+    "heredaDe": "gallo",
+    "escala": [
+      0.2,
+      0.35
+    ],
+    "esCria": true,
+    "_nota": "Cría de gallo/gallina_salvaje — sin razas propias."
+  },
+  "liebre": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.55,
+      "altoCuerpo": 0.231,
+      "anchoCuerpo": 0.187,
+      "altoPata": 0.231,
+      "grosorPata": 0.055,
+      "tamCabeza": 0.176
+    },
+    "rasgos": {}
+  },
+  "liebre_de_bosque": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.55,
+      "altoCuerpo": 0.231,
+      "anchoCuerpo": 0.187,
+      "altoPata": 0.231,
+      "grosorPata": 0.055,
+      "tamCabeza": 0.176
+    },
+    "rasgos": {}
+  },
+  "oveja_salvaje": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.85,
+      "altoCuerpo": 0.357,
+      "anchoCuerpo": 0.289,
+      "altoPata": 0.357,
+      "grosorPata": 0.085,
+      "tamCabeza": 0.272
+    },
+    "rasgos": {}
+  },
+  "burro_salvaje": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.2,
+      "altoCuerpo": 0.504,
+      "anchoCuerpo": 0.408,
+      "altoPata": 0.504,
+      "grosorPata": 0.12,
+      "tamCabeza": 0.384
+    },
+    "rasgos": {}
+  },
+  "corzo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.9,
+      "altoCuerpo": 0.378,
+      "anchoCuerpo": 0.306,
+      "altoPata": 0.378,
+      "grosorPata": 0.09,
+      "tamCabeza": 0.288
+    },
+    "rasgos": {}
+  },
+  "corza": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.85,
+      "altoCuerpo": 0.357,
+      "anchoCuerpo": 0.289,
+      "altoPata": 0.357,
+      "grosorPata": 0.085,
+      "tamCabeza": 0.272
+    },
+    "rasgos": {}
+  },
+  "corcino": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.168,
+      "anchoCuerpo": 0.136,
+      "altoPata": 0.168,
+      "grosorPata": 0.04,
+      "tamCabeza": 0.128
+    },
+    "rasgos": {}
+  },
+  "zorro": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.6,
+      "altoCuerpo": 0.252,
+      "anchoCuerpo": 0.204,
+      "altoPata": 0.252,
+      "grosorPata": 0.06,
+      "tamCabeza": 0.192
+    },
+    "rasgos": {
+      "cola": "tupida"
+    }
+  },
+  "raton_de_campo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.18,
+      "altoCuerpo": 0.076,
+      "anchoCuerpo": 0.061,
+      "altoPata": 0.076,
+      "grosorPata": 0.018,
+      "tamCabeza": 0.058
+    },
+    "rasgos": {}
+  },
+  "ratona_de_campo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.17,
+      "altoCuerpo": 0.071,
+      "anchoCuerpo": 0.058,
+      "altoPata": 0.071,
+      "grosorPata": 0.017,
+      "tamCabeza": 0.054
+    },
+    "rasgos": {}
+  },
+  "ratoncillo_de_campo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.12,
+      "altoCuerpo": 0.05,
+      "anchoCuerpo": 0.041,
+      "altoPata": 0.05,
+      "grosorPata": 0.012,
+      "tamCabeza": 0.038
+    },
+    "rasgos": {}
+  },
+  "topo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.2,
+      "altoCuerpo": 0.084,
+      "anchoCuerpo": 0.068,
+      "altoPata": 0.084,
+      "grosorPata": 0.02,
+      "tamCabeza": 0.064
+    },
+    "rasgos": {}
+  },
+  "comadreja": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.35,
+      "altoCuerpo": 0.147,
+      "anchoCuerpo": 0.119,
+      "altoPata": 0.147,
+      "grosorPata": 0.035,
+      "tamCabeza": 0.112
+    },
+    "rasgos": {}
+  },
+  "erizo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.3,
+      "altoCuerpo": 0.126,
+      "anchoCuerpo": 0.102,
+      "altoPata": 0.126,
+      "grosorPata": 0.03,
+      "tamCabeza": 0.096
+    },
+    "rasgos": {}
+  },
+  "tejon": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.65,
+      "altoCuerpo": 0.273,
+      "anchoCuerpo": 0.221,
+      "altoPata": 0.273,
+      "grosorPata": 0.065,
+      "tamCabeza": 0.208
+    },
+    "rasgos": {}
+  },
+  "ardilla": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.3,
+      "altoCuerpo": 0.126,
+      "anchoCuerpo": 0.102,
+      "altoPata": 0.126,
+      "grosorPata": 0.03,
+      "tamCabeza": 0.096
+    },
+    "rasgos": {
+      "cola": "tupida"
+    }
+  },
+  "lince": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.75,
+      "altoCuerpo": 0.315,
+      "anchoCuerpo": 0.255,
+      "altoPata": 0.315,
+      "grosorPata": 0.075,
+      "tamCabeza": 0.24
+    },
+    "rasgos": {}
+  },
+  "lince_boreal": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.8,
+      "altoCuerpo": 0.336,
+      "anchoCuerpo": 0.272,
+      "altoPata": 0.336,
+      "grosorPata": 0.08,
+      "tamCabeza": 0.256
+    },
+    "rasgos": {}
+  },
+  "marta": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.168,
+      "anchoCuerpo": 0.136,
+      "altoPata": 0.168,
+      "grosorPata": 0.04,
+      "tamCabeza": 0.128
+    },
+    "rasgos": {}
+  },
+  "musarana": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.14,
+      "altoCuerpo": 0.059,
+      "anchoCuerpo": 0.048,
+      "altoPata": 0.059,
+      "grosorPata": 0.014,
+      "tamCabeza": 0.045
+    },
+    "rasgos": {}
+  },
+  "oso_pardo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.55,
+      "altoCuerpo": 0.651,
+      "anchoCuerpo": 0.527,
+      "altoPata": 0.651,
+      "grosorPata": 0.155,
+      "tamCabeza": 0.496
+    },
+    "rasgos": {}
+  },
+  "cabra_montesa": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.85,
+      "altoCuerpo": 0.357,
+      "anchoCuerpo": 0.289,
+      "altoPata": 0.357,
+      "grosorPata": 0.085,
+      "tamCabeza": 0.272
+    },
+    "rasgos": {}
+  },
+  "rebeco": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.8,
+      "altoCuerpo": 0.336,
+      "anchoCuerpo": 0.272,
+      "altoPata": 0.336,
+      "grosorPata": 0.08,
+      "tamCabeza": 0.256
+    },
+    "rasgos": {}
+  },
+  "muflon": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.85,
+      "altoCuerpo": 0.357,
+      "anchoCuerpo": 0.289,
+      "altoPata": 0.357,
+      "grosorPata": 0.085,
+      "tamCabeza": 0.272
+    },
+    "rasgos": {}
+  },
+  "marmota": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.168,
+      "anchoCuerpo": 0.136,
+      "altoPata": 0.168,
+      "grosorPata": 0.04,
+      "tamCabeza": 0.128
+    },
+    "rasgos": {}
+  },
+  "lobo_de_las_nieves": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.05,
+      "altoCuerpo": 0.441,
+      "anchoCuerpo": 0.357,
+      "altoPata": 0.441,
+      "grosorPata": 0.105,
+      "tamCabeza": 0.336
+    },
+    "rasgos": {}
+  },
+  "armino": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.3,
+      "altoCuerpo": 0.126,
+      "anchoCuerpo": 0.102,
+      "altoPata": 0.126,
+      "grosorPata": 0.03,
+      "tamCabeza": 0.096
+    },
+    "rasgos": {}
+  },
+  "camello": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.6,
+      "altoCuerpo": 0.672,
+      "anchoCuerpo": 0.544,
+      "altoPata": 0.672,
+      "grosorPata": 0.16,
+      "tamCabeza": 0.512
+    },
+    "rasgos": {}
+  },
+  "gacela": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.85,
+      "altoCuerpo": 0.357,
+      "anchoCuerpo": 0.289,
+      "altoPata": 0.357,
+      "grosorPata": 0.085,
+      "tamCabeza": 0.272
+    },
+    "rasgos": {}
+  },
+  "lagarto_ocelado": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.168,
+      "anchoCuerpo": 0.136,
+      "altoPata": 0.168,
+      "grosorPata": 0.04,
+      "tamCabeza": 0.128
+    },
+    "rasgos": {
+      "orejas": "ninguna",
+      "cola": "larga"
+    }
+  },
+  "lagarto_de_ceniza": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.168,
+      "anchoCuerpo": 0.136,
+      "altoPata": 0.168,
+      "grosorPata": 0.04,
+      "tamCabeza": 0.128
+    },
+    "rasgos": {
+      "orejas": "ninguna",
+      "cola": "larga"
+    }
+  },
+  "chacal_dorado": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.65,
+      "altoCuerpo": 0.273,
+      "anchoCuerpo": 0.221,
+      "altoPata": 0.273,
+      "grosorPata": 0.065,
+      "tamCabeza": 0.208
+    },
+    "rasgos": {}
+  },
+  "fenec": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.35,
+      "altoCuerpo": 0.147,
+      "anchoCuerpo": 0.119,
+      "altoPata": 0.147,
+      "grosorPata": 0.035,
+      "tamCabeza": 0.112
+    },
+    "rasgos": {
+      "orejas": "largas"
+    }
+  },
+  "jerbo": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.2,
+      "altoCuerpo": 0.084,
+      "anchoCuerpo": 0.068,
+      "altoPata": 0.084,
+      "grosorPata": 0.02,
+      "tamCabeza": 0.064
+    },
+    "rasgos": {}
+  },
+  "nutria": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.5,
+      "altoCuerpo": 0.21,
+      "anchoCuerpo": 0.17,
+      "altoPata": 0.21,
+      "grosorPata": 0.05,
+      "tamCabeza": 0.16
+    },
+    "rasgos": {
+      "cola": "larga"
+    }
+  },
+  "castor": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.55,
+      "altoCuerpo": 0.231,
+      "anchoCuerpo": 0.187,
+      "altoPata": 0.231,
+      "grosorPata": 0.055,
+      "tamCabeza": 0.176
+    },
+    "rasgos": {
+      "cola": "plana"
+    }
+  },
+  "cocodrilo_del_pantano": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.5,
+      "altoCuerpo": 0.63,
+      "anchoCuerpo": 0.51,
+      "altoPata": 0.63,
+      "grosorPata": 0.15,
+      "tamCabeza": 0.48
+    },
+    "rasgos": {
+      "orejas": "ninguna",
+      "cola": "larga"
+    }
+  },
+  "galapago": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.35,
+      "altoCuerpo": 0.147,
+      "anchoCuerpo": 0.119,
+      "altoPata": 0.147,
+      "grosorPata": 0.035,
+      "tamCabeza": 0.112
+    },
+    "rasgos": {
+      "orejas": "ninguna",
+      "cola": "corta"
+    }
+  },
+  "foca_comun": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.1,
+      "altoCuerpo": 0.462,
+      "anchoCuerpo": 0.374,
+      "altoPata": 0.462,
+      "grosorPata": 0.11,
+      "tamCabeza": 0.352
+    },
+    "rasgos": {
+      "orejas": "ninguna"
+    }
+  },
+  "foca": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.15,
+      "altoCuerpo": 0.483,
+      "anchoCuerpo": 0.391,
+      "altoPata": 0.483,
+      "grosorPata": 0.115,
+      "tamCabeza": 0.368
+    },
+    "rasgos": {
+      "orejas": "ninguna"
+    }
+  },
+  "morsa": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.5,
+      "altoCuerpo": 0.63,
+      "anchoCuerpo": 0.51,
+      "altoPata": 0.63,
+      "grosorPata": 0.15,
+      "tamCabeza": 0.48
+    },
+    "rasgos": {
+      "orejas": "ninguna"
+    }
+  },
+  "codorniz": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.22,
+      "altoCuerpo": 0.165,
+      "anchoCuerpo": 0.154,
+      "altoPata": 0.088,
+      "tamCabeza": 0.088
+    },
+    "rasgos": {
+      "pico": "corto",
+      "cola": "corta"
+    }
+  },
+  "perdiz": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.28,
+      "altoCuerpo": 0.21,
+      "anchoCuerpo": 0.196,
+      "altoPata": 0.112,
+      "tamCabeza": 0.112
+    },
+    "rasgos": {
+      "pico": "corto",
+      "cola": "abanico"
+    }
+  },
+  "perdiz_nival": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.28,
+      "altoCuerpo": 0.21,
+      "anchoCuerpo": 0.196,
+      "altoPata": 0.112,
+      "tamCabeza": 0.112
+    },
+    "rasgos": {
+      "pico": "corto",
+      "cola": "abanico"
+    }
+  },
+  "alondra": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.2,
+      "altoCuerpo": 0.15,
+      "anchoCuerpo": 0.14,
+      "altoPata": 0.08,
+      "tamCabeza": 0.08
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "ciguena": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.84,
+      "altoCuerpo": 0.63,
+      "anchoCuerpo": 0.588,
+      "altoPata": 0.336,
+      "tamCabeza": 0.336
+    },
+    "rasgos": {
+      "pico": "largo",
+      "cola": "corta"
+    }
+  },
+  "ciguena_negra": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.8,
+      "altoCuerpo": 0.6,
+      "anchoCuerpo": 0.56,
+      "altoPata": 0.32,
+      "tamCabeza": 0.32
+    },
+    "rasgos": {
+      "pico": "largo",
+      "cola": "corta"
+    }
+  },
+  "urraca": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.32,
+      "altoCuerpo": 0.24,
+      "anchoCuerpo": 0.224,
+      "altoPata": 0.128,
+      "tamCabeza": 0.128
+    },
+    "rasgos": {
+      "pico": "corto",
+      "cola": "larga"
+    }
+  },
+  "buho": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.44,
+      "altoCuerpo": 0.33,
+      "anchoCuerpo": 0.308,
+      "altoPata": 0.176,
+      "tamCabeza": 0.176
+    },
+    "rasgos": {
+      "pico": "corto",
+      "cresta": false
+    }
+  },
+  "buho_nival": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.48,
+      "altoCuerpo": 0.36,
+      "anchoCuerpo": 0.336,
+      "altoPata": 0.192,
+      "tamCabeza": 0.192
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "lechuza": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.36,
+      "altoCuerpo": 0.27,
+      "anchoCuerpo": 0.252,
+      "altoPata": 0.144,
+      "tamCabeza": 0.144
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "pajaro_carpintero": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.28,
+      "altoCuerpo": 0.21,
+      "anchoCuerpo": 0.196,
+      "altoPata": 0.112,
+      "tamCabeza": 0.112
+    },
+    "rasgos": {
+      "pico": "largo"
+    }
+  },
+  "arrendajo": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.3,
+      "altoCuerpo": 0.225,
+      "anchoCuerpo": 0.21,
+      "altoPata": 0.12,
+      "tamCabeza": 0.12
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "paloma_torcaz": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.34,
+      "altoCuerpo": 0.255,
+      "anchoCuerpo": 0.238,
+      "altoPata": 0.136,
+      "tamCabeza": 0.136
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "azor": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.44,
+      "altoCuerpo": 0.33,
+      "anchoCuerpo": 0.308,
+      "altoPata": 0.176,
+      "tamCabeza": 0.176
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "aguila_real": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.76,
+      "altoCuerpo": 0.57,
+      "anchoCuerpo": 0.532,
+      "altoPata": 0.304,
+      "tamCabeza": 0.304
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "quebrantahuesos": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.8,
+      "altoCuerpo": 0.6,
+      "anchoCuerpo": 0.56,
+      "altoPata": 0.32,
+      "tamCabeza": 0.32
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "buitre_leonado": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.84,
+      "altoCuerpo": 0.63,
+      "anchoCuerpo": 0.588,
+      "altoPata": 0.336,
+      "tamCabeza": 0.336
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "buitre_carronero": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.56,
+      "altoCuerpo": 0.42,
+      "anchoCuerpo": 0.392,
+      "altoPata": 0.224,
+      "tamCabeza": 0.224
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "halcon_peregrino": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.3,
+      "anchoCuerpo": 0.28,
+      "altoPata": 0.16,
+      "tamCabeza": 0.16
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "avestruz": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.4,
+      "altoCuerpo": 1.05,
+      "anchoCuerpo": 0.98,
+      "altoPata": 0.56,
+      "tamCabeza": 0.56
+    },
+    "rasgos": {
+      "pico": "corto",
+      "cola": "corta",
+      "vuela": false
+    }
+  },
+  "gaviota": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.3,
+      "anchoCuerpo": 0.28,
+      "altoPata": 0.16,
+      "tamCabeza": 0.16
+    },
+    "rasgos": {
+      "pico": "largo"
+    }
+  },
+  "cormoran": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.52,
+      "altoCuerpo": 0.39,
+      "anchoCuerpo": 0.364,
+      "altoPata": 0.208,
+      "tamCabeza": 0.208
+    },
+    "rasgos": {
+      "pico": "largo"
+    }
+  },
+  "pelicano": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.8,
+      "altoCuerpo": 0.6,
+      "anchoCuerpo": 0.56,
+      "altoPata": 0.32,
+      "tamCabeza": 0.32
+    },
+    "rasgos": {
+      "pico": "largo"
+    }
+  },
+  "garza_real": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.76,
+      "altoCuerpo": 0.57,
+      "anchoCuerpo": 0.532,
+      "altoPata": 0.304,
+      "tamCabeza": 0.304
+    },
+    "rasgos": {
+      "pico": "largo",
+      "cola": "corta"
+    }
+  },
+  "cuervo_de_ceniza": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.3,
+      "anchoCuerpo": 0.28,
+      "altoPata": 0.16,
+      "tamCabeza": 0.16
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "cuervo_comun": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.3,
+      "anchoCuerpo": 0.28,
+      "altoPata": 0.16,
+      "tamCabeza": 0.16
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "pato_azulon": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.4,
+      "altoCuerpo": 0.3,
+      "anchoCuerpo": 0.28,
+      "altoPata": 0.16,
+      "tamCabeza": 0.16
+    },
+    "rasgos": {
+      "pico": "largo"
+    }
+  },
+  "ganso_salvaje": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.64,
+      "altoCuerpo": 0.48,
+      "anchoCuerpo": 0.448,
+      "altoPata": 0.256,
+      "tamCabeza": 0.256
+    },
+    "rasgos": {
+      "pico": "largo"
+    }
+  },
+  "oca_salvaje": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.64,
+      "altoCuerpo": 0.48,
+      "anchoCuerpo": 0.448,
+      "altoPata": 0.256,
+      "tamCabeza": 0.256
+    },
+    "rasgos": {
+      "pico": "largo"
+    }
+  },
+  "ansarino_salvaje": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.24,
+      "altoCuerpo": 0.18,
+      "anchoCuerpo": 0.168,
+      "altoPata": 0.096,
+      "tamCabeza": 0.096
+    },
+    "rasgos": {
+      "pico": "largo"
+    }
+  },
+  "cernicalo_vulgar": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.32,
+      "altoCuerpo": 0.24,
+      "anchoCuerpo": 0.224,
+      "altoPata": 0.128,
+      "tamCabeza": 0.128
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "gavilan_comun": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.34,
+      "altoCuerpo": 0.255,
+      "anchoCuerpo": 0.238,
+      "altoPata": 0.136,
+      "tamCabeza": 0.136
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "milano_negro": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.44,
+      "altoCuerpo": 0.33,
+      "anchoCuerpo": 0.308,
+      "altoPata": 0.176,
+      "tamCabeza": 0.176
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "petirrojo": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.16,
+      "altoCuerpo": 0.12,
+      "anchoCuerpo": 0.112,
+      "altoPata": 0.064,
+      "tamCabeza": 0.064
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "frailecillo_atlantico": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.24,
+      "altoCuerpo": 0.18,
+      "anchoCuerpo": 0.168,
+      "altoPata": 0.096,
+      "tamCabeza": 0.096
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "alcatraz_atlantico": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.64,
+      "altoCuerpo": 0.48,
+      "anchoCuerpo": 0.448,
+      "altoPata": 0.256,
+      "tamCabeza": 0.256
+    },
+    "rasgos": {
+      "pico": "largo"
+    }
+  },
+  "aguila_pescadora": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.6,
+      "altoCuerpo": 0.45,
+      "anchoCuerpo": 0.42,
+      "altoPata": 0.24,
+      "tamCabeza": 0.24
+    },
+    "rasgos": {
+      "pico": "corto"
+    }
+  },
+  "cisne_vulgar": {
+    "esqueleto": "ave",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.88,
+      "altoCuerpo": 0.66,
+      "anchoCuerpo": 0.616,
+      "altoPata": 0.352,
+      "tamCabeza": 0.352
+    },
+    "rasgos": {
+      "pico": "largo"
+    }
+  },
+  "mariposa": {
+    "esqueleto": "insecto",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.168,
+      "altoCuerpo": 0.084,
+      "anchoCuerpo": 0.084,
+      "altoPata": 0.035,
+      "tamCabeza": 0.056
+    },
+    "rasgos": {
+      "alas": true,
+      "antenas": true
+    }
+  },
+  "grillo": {
+    "esqueleto": "insecto",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.144,
+      "altoCuerpo": 0.072,
+      "anchoCuerpo": 0.072,
+      "altoPata": 0.03,
+      "tamCabeza": 0.048
+    },
+    "rasgos": {
+      "alas": false,
+      "antenas": true
+    }
+  },
+  "luciernaga": {
+    "esqueleto": "insecto",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.12,
+      "altoCuerpo": 0.06,
+      "anchoCuerpo": 0.06,
+      "altoPata": 0.025,
+      "tamCabeza": 0.04
+    },
+    "rasgos": {
+      "alas": true,
+      "antenas": true
+    }
+  },
+  "libelula": {
+    "esqueleto": "insecto",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.216,
+      "altoCuerpo": 0.108,
+      "anchoCuerpo": 0.108,
+      "altoPata": 0.045,
+      "tamCabeza": 0.072
+    },
+    "rasgos": {
+      "alas": true,
+      "antenas": false
+    }
+  },
+  "avispa_comun": {
+    "esqueleto": "insecto",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.216,
+      "altoCuerpo": 0.108,
+      "anchoCuerpo": 0.108,
+      "altoPata": 0.045,
+      "tamCabeza": 0.072
+    },
+    "rasgos": {
+      "alas": true,
+      "antenas": true,
+      "rayas": "#1a1a0a"
+    }
+  },
+  "escorpion": {
+    "esqueleto": "insecto",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.264,
+      "altoCuerpo": 0.132,
+      "anchoCuerpo": 0.132,
+      "altoPata": 0.055,
+      "tamCabeza": 0.088
+    },
+    "rasgos": {
+      "alas": false,
+      "antenas": false
+    }
+  },
+  "escorpion_de_lava": {
+    "esqueleto": "insecto",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.312,
+      "altoCuerpo": 0.156,
+      "anchoCuerpo": 0.156,
+      "altoPata": 0.065,
+      "tamCabeza": 0.104
+    },
+    "rasgos": {
+      "alas": false,
+      "antenas": false
+    }
+  },
+  "pez_pequeno": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.27,
+      "altoCuerpo": 0.096,
+      "anchoCuerpo": 0.06
+    },
+    "rasgos": {}
+  },
+  "pez_grande": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.72,
+      "altoCuerpo": 0.256,
+      "anchoCuerpo": 0.16
+    },
+    "rasgos": {}
+  },
+  "trucha_rio": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.36,
+      "altoCuerpo": 0.128,
+      "anchoCuerpo": 0.08
+    },
+    "rasgos": {}
+  },
+  "trucha_alpina": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.338,
+      "altoCuerpo": 0.12,
+      "anchoCuerpo": 0.075
+    },
+    "rasgos": {}
+  },
+  "salmon_rio": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.495,
+      "altoCuerpo": 0.176,
+      "anchoCuerpo": 0.11
+    },
+    "rasgos": {}
+  },
+  "carpa_rio": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.405,
+      "altoCuerpo": 0.144,
+      "anchoCuerpo": 0.09
+    },
+    "rasgos": {}
+  },
+  "carpa_lago": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.405,
+      "altoCuerpo": 0.144,
+      "anchoCuerpo": 0.09
+    },
+    "rasgos": {}
+  },
+  "lucio_rio": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.63,
+      "altoCuerpo": 0.224,
+      "anchoCuerpo": 0.14
+    },
+    "rasgos": {
+      "dorsal": "alta"
+    }
+  },
+  "siluro": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.81,
+      "altoCuerpo": 0.288,
+      "anchoCuerpo": 0.18
+    },
+    "rasgos": {}
+  },
+  "pez_gato_desierto": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.54,
+      "altoCuerpo": 0.192,
+      "anchoCuerpo": 0.12
+    },
+    "rasgos": {}
+  },
+  "perca_lago": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.315,
+      "altoCuerpo": 0.112,
+      "anchoCuerpo": 0.07
+    },
+    "rasgos": {}
+  },
+  "arenque": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.225,
+      "altoCuerpo": 0.08,
+      "anchoCuerpo": 0.05
+    },
+    "rasgos": {}
+  },
+  "bacalao": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.585,
+      "altoCuerpo": 0.208,
+      "anchoCuerpo": 0.13
+    },
+    "rasgos": {}
+  },
+  "atun": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.855,
+      "altoCuerpo": 0.304,
+      "anchoCuerpo": 0.19
+    },
+    "rasgos": {
+      "dorsal": "alta"
+    }
+  },
+  "pez_espada": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.99,
+      "altoCuerpo": 0.352,
+      "anchoCuerpo": 0.22
+    },
+    "rasgos": {
+      "dorsal": "alta"
+    }
+  },
+  "sardina": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.18,
+      "altoCuerpo": 0.064,
+      "anchoCuerpo": 0.04
+    },
+    "rasgos": {}
+  },
+  "caballa": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.27,
+      "altoCuerpo": 0.096,
+      "anchoCuerpo": 0.06
+    },
+    "rasgos": {}
+  },
+  "rodaballo": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.405,
+      "altoCuerpo": 0.144,
+      "anchoCuerpo": 0.09
+    },
+    "rasgos": {}
+  },
+  "tenca": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.36,
+      "altoCuerpo": 0.128,
+      "anchoCuerpo": 0.08
+    },
+    "rasgos": {}
+  },
+  "esturion": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.9,
+      "altoCuerpo": 0.32,
+      "anchoCuerpo": 0.2
+    },
+    "rasgos": {}
+  },
+  "raya": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.495,
+      "altoCuerpo": 0.176,
+      "anchoCuerpo": 0.11
+    },
+    "rasgos": {}
+  },
+  "caballito_de_mar": {
+    "esqueleto": "serpiente",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.27,
+      "altoCuerpo": 0.021,
+      "anchoCuerpo": 0.027,
+      "tamCabeza": 0.033
+    },
+    "rasgos": {}
+  },
+  "orca": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 2.25,
+      "altoCuerpo": 0.8,
+      "anchoCuerpo": 0.5
+    },
+    "rasgos": {
+      "dorsal": "alta"
+    }
+  },
+  "ballena_azul": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 3.6,
+      "altoCuerpo": 1.28,
+      "anchoCuerpo": 0.8
+    },
+    "rasgos": {}
+  },
+  "ballena_franca": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 2.925,
+      "altoCuerpo": 1.04,
+      "anchoCuerpo": 0.65
+    },
+    "rasgos": {}
+  },
+  "delfin_mular": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.125,
+      "altoCuerpo": 0.4,
+      "anchoCuerpo": 0.25
+    },
+    "rasgos": {
+      "dorsal": "alta"
+    }
+  },
+  "vibora_del_desierto": {
+    "esqueleto": "serpiente",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.63,
+      "altoCuerpo": 0.049,
+      "anchoCuerpo": 0.063,
+      "tamCabeza": 0.077
+    },
+    "rasgos": {}
+  },
+  "vibora_europea": {
+    "esqueleto": "serpiente",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.675,
+      "altoCuerpo": 0.053,
+      "anchoCuerpo": 0.068,
+      "tamCabeza": 0.083
+    },
+    "rasgos": {}
+  },
+  "anguila_abisal": {
+    "esqueleto": "serpiente",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.17,
+      "altoCuerpo": 0.091,
+      "anchoCuerpo": 0.117,
+      "tamCabeza": 0.143
+    },
+    "rasgos": {}
+  },
+  "anguila_marina": {
+    "esqueleto": "serpiente",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 1.26,
+      "altoCuerpo": 0.098,
+      "anchoCuerpo": 0.126,
+      "tamCabeza": 0.154
+    },
+    "rasgos": {}
+  },
+  "cangrejo_ermitano": {
+    "esqueleto": "crustaceo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.11,
+      "altoCuerpo": 0.045,
+      "anchoCuerpo": 0.15,
+      "altoPata": 0.035
+    },
+    "rasgos": {}
+  },
+  "cangrejo_de_rio": {
+    "esqueleto": "crustaceo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.132,
+      "altoCuerpo": 0.054,
+      "anchoCuerpo": 0.18,
+      "altoPata": 0.042
+    },
+    "rasgos": {}
+  },
+  "langosta": {
+    "esqueleto": "crustaceo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.308,
+      "altoCuerpo": 0.126,
+      "anchoCuerpo": 0.42,
+      "altoPata": 0.098
+    },
+    "rasgos": {}
+  },
+  "gamba": {
+    "esqueleto": "crustaceo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.11,
+      "altoCuerpo": 0.045,
+      "anchoCuerpo": 0.15,
+      "altoPata": 0.035
+    },
+    "rasgos": {}
+  },
+  "percebe": {
+    "esqueleto": "crustaceo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.066,
+      "altoCuerpo": 0.027,
+      "anchoCuerpo": 0.09,
+      "altoPata": 0.021
+    },
+    "rasgos": {}
+  },
+  "sapo": {
+    "esqueleto": "anfibio",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.242,
+      "altoCuerpo": 0.132,
+      "anchoCuerpo": 0.176,
+      "altoPata": 0.11,
+      "tamCabeza": 0.11
+    },
+    "rasgos": {}
+  },
+  "salamandra_ignea": {
+    "esqueleto": "anfibio",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.22,
+      "altoCuerpo": 0.12,
+      "anchoCuerpo": 0.16,
+      "altoPata": 0.1,
+      "tamCabeza": 0.1
+    },
+    "rasgos": {
+      "orejas": "ninguna"
+    }
+  },
+  "pez_linterna": {
+    "esqueleto": "pez",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.225,
+      "altoCuerpo": 0.08,
+      "anchoCuerpo": 0.05
+    },
+    "rasgos": {}
+  },
+  "raton_de_ceniza": {
+    "esqueleto": "cuadrupedo",
+    "escala": [
+      0.85,
+      1.15
+    ],
+    "proporciones": {
+      "largoCuerpo": 0.18,
+      "altoCuerpo": 0.076,
+      "anchoCuerpo": 0.061,
+      "altoPata": 0.076,
+      "grosorPata": 0.018,
+      "tamCabeza": 0.058
+    },
+    "rasgos": {}
+  }
 }
