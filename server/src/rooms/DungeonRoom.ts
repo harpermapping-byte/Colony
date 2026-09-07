@@ -2,8 +2,9 @@ import { InteriorRoom, OpcionesInterior } from "./InteriorRoom";
 import { Enemigo } from "./schema/HubState";
 import { IAlmacenDatos } from "../datos/bd";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
-import { elegirEnemigoDeTema, VARIANTES_POR_ENEMIGO, esEnemigoHumanoide } from "../mundo/catalogoEnemigos";
-import { generarLootBoss } from "../mundo/lootProcedural";
+import { elegirEnemigoDeTema, VARIANTES_POR_ENEMIGO } from "../mundo/catalogoEnemigos";
+import { generarLootBoss, generarLootNormal } from "../mundo/lootProcedural";
+import { GestorEnemigosMazmorra } from "../mundo/enemigosMazmorra";
 import { crearCadaver } from "../mundo/cadaveres";
 import { agregarItem } from "../inventario/inventario";
 import { tiempoMundo } from "../mundo/tiempoMundo";
@@ -42,11 +43,22 @@ const COOLDOWN_MS = 60 * 60 * 1000; // 1h tras limpiarla (§4.2 del GDD)
  */
 export class DungeonRoom extends InteriorRoom {
   private bd!: IAlmacenDatos;
+  private gestorEnemigos: GestorEnemigosMazmorra | null = null;
 
   async onCreate(options: OpcionesInterior) {
     await super.onCreate(options);
     this.bd = await obtenerBdCompartida();
     await this.poblarEnemigos();
+
+    // Movimiento + agro real (docs/GDD_Combate.md §4bis, pedido streamer
+    // 2026-09-07: "moverse correr pelearse morir") — mismo tick de baja
+    // frecuencia (200ms) que ya usan Hub/Region para fauna/patrullas
+    // bandidas; sin enemigos poblados (mazmorra en cooldown), el gestor
+    // simplemente no tiene nada que tickear.
+    this.gestorEnemigos = new GestorEnemigosMazmorra(this.state.enemigos, this.interior);
+    this.gestorEnemigos.registrarExistentes();
+    this.clock.setInterval(() => this.gestorEnemigos!.tick(0.2), 200);
+    this.clock.setInterval(() => this.verificarAgroFauna(), 200);
   }
 
   /** Misma clave que usa `mazmorras_estado` (cooldown de limpieza, §4.2/§7 del GDD) — un único sitio para no arriesgar que las dos fórmulas se desincronicen. */
@@ -90,28 +102,33 @@ export class DungeonRoom extends InteriorRoom {
   }
 
   /**
-   * Loot procedural de cadáver — SOLO jefes humanoides (pedido 2026-08-31:
-   * "solo enemigos humanoide bosses no animales"). Cualquier otro enemigo
-   * de mazmorra (normal, o boss animal como reina_arana/lobo_alfa) sigue
-   * igual que siempre: cae directo a `super.finalizarMuerte` sin cadáver.
+   * Loot procedural de cadáver — TODO enemigo de mazmorra ya deja cadáver
+   * looteable (2026-09-07, cierra el gap "solo boss humanoide tenía loot",
+   * ver docs/GDD_Combate.md §4bis): jefes (humanoides o animales, ya no
+   * distingue) usan el pool grande de `catalogoLootBoss.json`
+   * (`generarLootBoss`, 2-4 piezas de equipo real), enemigos normales usan
+   * el pool pequeño de `catalogoLootNormal.json` (`generarLootNormal`,
+   * 0-1 material común) — con hasta 30 normales por visita
+   * (LIMITE_ENEMIGOS_NORMALES), darles el mismo pool que un boss inundaría
+   * la economía de armas/armaduras.
    */
   protected async finalizarMuerte(id: string, jugadoresGanadores: string[] = []) {
     const enemigo = this.state.enemigos.get(id);
     const eraEnemigo = !!enemigo; // capturar ANTES de que super.finalizarMuerte borre la entidad del Schema
-    const esJefeHumanoide = !!enemigo?.esBoss && esEnemigoHumanoide(enemigo.enemigoId);
-    if (!esJefeHumanoide) {
+    if (!enemigo) {
       await super.finalizarMuerte(id, jugadoresGanadores);
-      if (eraEnemigo) await this.comprobarMazmorraLimpiada();
       return;
     }
 
     // Leer posición/id ANTES de super.finalizarMuerte(id) — borra la entidad del Schema (state.enemigos.delete).
-    const x = enemigo!.x;
-    const y = enemigo!.y;
-    const enemigoId = enemigo!.enemigoId;
-    const variante = enemigo!.variante;
+    const x = enemigo.x;
+    const y = enemigo.y;
+    const enemigoId = enemigo.enemigoId;
+    const variante = enemigo.variante;
+    const esBoss = enemigo.esBoss;
     await super.finalizarMuerte(id, jugadoresGanadores);
-    await this.comprobarMazmorraLimpiada();
+    this.gestorEnemigos?.quitar(id); // deja de tickear/merodear un enemigo ya muerto
+    if (eraEnemigo) await this.comprobarMazmorraLimpiada();
 
     const cadaver = crearCadaver({
       id: `cadaver:${this.opciones.mapaId}:${this.opciones.edificio}:${id}`,
@@ -120,12 +137,13 @@ export class DungeonRoom extends InteriorRoom {
       especieOrigenId: enemigoId,
       x, y,
       ahora: diaFraccional(tiempoMundo().dia, tiempoMundo().hora),
-      // Mismo pool que renderiza al jefe VIVO (docs/GDD_Bakeador_Dungeons.md
+      // Mismo pool que renderiza al enemigo VIVO (docs/GDD_Bakeador_Dungeons.md
       // §4, client `poolEnemigos[enemigoId][variante]`) — el cadáver sale
       // con la MISMA figura, no un rig plano genérico.
       datosVisual: { enemigoId, variante },
     });
-    for (const { itemId, cantidad } of generarLootBoss()) agregarItem(cadaver.contenedor, this.catalogoItems, itemId, cantidad);
+    const loot = esBoss ? generarLootBoss() : generarLootNormal();
+    for (const { itemId, cantidad } of loot) agregarItem(cadaver.contenedor, this.catalogoItems, itemId, cantidad);
     this.publicarCadaver(cadaver);
   }
 

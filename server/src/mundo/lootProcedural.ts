@@ -11,6 +11,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const RUTA_CATALOGO = path.join(__dirname, "..", "combate", "catalogoLootBoss.json");
+const RUTA_CATALOGO_NORMAL = path.join(__dirname, "..", "combate", "catalogoLootNormal.json");
 
 interface EntradaLootBoss {
   itemId: string;
@@ -26,10 +27,17 @@ interface CatalogoLootBoss {
 }
 
 let cache: CatalogoLootBoss | null = null;
+let cacheNormal: CatalogoLootBoss | null = null;
 
 export function cargarCatalogoLootBoss(): CatalogoLootBoss {
   if (!cache) cache = JSON.parse(fs.readFileSync(RUTA_CATALOGO, "utf8")) as CatalogoLootBoss;
   return cache;
+}
+
+/** docs/GDD_Combate.md §4bis — pool de loot de un enemigo de mazmorra NORMAL (no boss), mucho más pequeño que el de boss (ver catalogoLootNormal.json). */
+export function cargarCatalogoLootNormal(): CatalogoLootBoss {
+  if (!cacheNormal) cacheNormal = JSON.parse(fs.readFileSync(RUTA_CATALOGO_NORMAL, "utf8")) as CatalogoLootBoss;
+  return cacheNormal;
 }
 
 /**
@@ -37,6 +45,11 @@ export function cargarCatalogoLootBoss(): CatalogoLootBoss {
  * repetir el mismo itemId dos veces en la misma muerte (evita cadáveres
  * redundantes tipo "3 dagas").
  */
+/** Mismo generador ponderado, sirve tanto para el pool de boss como el de enemigo normal — solo cambia el catálogo. */
+export function generarLootNormal(catalogo: CatalogoLootBoss = cargarCatalogoLootNormal()): { itemId: string; cantidad: number }[] {
+  return generarLootBoss(catalogo);
+}
+
 export function generarLootBoss(catalogo: CatalogoLootBoss = cargarCatalogoLootBoss()): { itemId: string; cantidad: number }[] {
   const numDrops = catalogo.numDropsMin + Math.floor(Math.random() * (catalogo.numDropsMax - catalogo.numDropsMin + 1));
   const disponibles = [...catalogo.pool];

@@ -11563,6 +11563,33 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         return;
       }
     }
+
+    // Enemigos de mazmorra (docs/GDD_Combate.md §4bis, pedido streamer
+    // 2026-09-07: "los enemigos pues moverse correr pelearse morir cosas
+    // asi que tengan uso y aplicación") — mismo mecanismo de agro que la
+    // fauna peligrosa/patrullas bandidas de arriba, con una diferencia real:
+    // un `Enemigo` de mazmorra SIEMPRE es hostil (no existe el concepto de
+    // "enemigo pacífico" ahí, a diferencia de la fauna salvaje), así que no
+    // hace falta consultar ningún catálogo `peligroso` — radio fijo
+    // `RADIO_AGRO_DEFECTO` para todos. Solo tiene efecto en `DungeonRoom`
+    // (única subclase que puebla `state.enemigos` y llama a este método),
+    // pero vive aquí en la base por el mismo motivo que el resto de este
+    // método: es agnóstico de subclase, cero coste si `state.enemigos` está vacío.
+    for (const [enemigoId, enemigo] of this.state.enemigos.entries()) {
+      if (this.combatePorUnidad(enemigoId) || this.enOtraArena.has(enemigoId)) continue;
+
+      let masCercano: { id: string; d: number } | null = null;
+      for (const [jugadorId, jugador] of this.state.players.entries()) {
+        if (this.combatePorUnidad(jugadorId)) continue;
+        if (this.tieneSigiloActivo(jugadorId)) continue; // mismo criterio de sigilo que fauna/bandidos
+        const d = Math.hypot(jugador.x - enemigo.x, jugador.y - enemigo.y);
+        if (d <= RADIO_AGRO_DEFECTO && (!masCercano || d < masCercano.d)) masCercano = { id: jugadorId, d };
+      }
+      if (masCercano) {
+        this.iniciarCombateFaunaVsJugador(enemigoId, masCercano.id);
+        return;
+      }
+    }
   }
 
   /** Abre el combate interactivo real fauna-vs-jugador (bando B=fauna, A=jugador) — mismo montaje de arena/CombateSchema/ventana que manejarCombateIniciar, sin `esModoCaza` (la fauna peligrosa nunca es presa pasiva) ni `client`/`retorno` (dispara la propia fauna: el jugador vuelve al Hub por defecto al terminar, mismo fallback que ya usa ArenaCombateRoom para un PvP sin retorno capturado). */

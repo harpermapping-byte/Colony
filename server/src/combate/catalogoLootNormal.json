@@ -1,0 +1,12 @@
+{
+  "_nota": "docs/GDD_Combate.md §4bis — loot de un enemigo de mazmorra NORMAL (no boss), pedido streamer 2026-09-07 (\"morir cosas asi que tengan uso y aplicacion\"). Pool distinto y mucho más pequeño que catalogoLootBoss.json a propósito: hasta 30 enemigos normales por visita (LIMITE_ENEMIGOS_NORMALES, DungeonRoom.ts), dropear 2-4 armas/armaduras reales cada uno inundaría la economía — aquí solo material común (cuero/tela/piedra/hueso), nunca equipo. Consumido por server/src/mundo/lootProcedural.ts::generarLootNormal.",
+  "numDropsMin": 0,
+  "numDropsMax": 1,
+  "pool": [
+    { "itemId": "cuero_curtido", "peso": 10, "cantidadMin": 1, "cantidadMax": 2 },
+    { "itemId": "tela_hilada", "peso": 8, "cantidadMin": 1, "cantidadMax": 2 },
+    { "itemId": "piedra_comun", "peso": 8, "cantidadMin": 1, "cantidadMax": 3 },
+    { "itemId": "hierro", "peso": 4, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "gema", "peso": 2, "cantidadMin": 1, "cantidadMax": 1 }
+  ]
+}
