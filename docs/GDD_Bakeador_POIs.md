@@ -252,11 +252,23 @@ instanciados.
 código nuevo (`sectorVisual.ts` prueba genéricamente `assets/edificios/
 <tipoEdificioId>_NN.glb`, mismo mecanismo que el resto del proyecto) —
 37 de los 46 `tipoEdificioId` de `ciudades/` ya tienen ese arte aprobado y
-sentado ahí; solo los 9 tipos de oficios censados el 2026-09-04 siguen sin
-`.glb` propio (caen a la caja hasta que se genere su arte). Pendiente real:
-bakeado especial de la ciudad principal. El export en formato de sectores
-está verificado contra `mapaColision` del servidor y JUGADO de verdad
-(assets/mapas/ciudad_demo + paseo E2E con vídeo).
+sentado ahí; solo los 9 tipos de oficios censados el 2026-09-04 seguían sin
+`.glb` propio (caían a la caja).
+
+**Los 9 restantes, cerrados (2026-09-07)**: `cabana_apicultor`/`cabana_cazador`/
+`carniceria`/`cocina_comunal`/`peleteria`/`taller_arquero`/`taller_picapedrero`/
+`vidrieria`/`astillero` ya clasifican solos como arquetipo TALLER en
+`taller-vox/generar_edificio.js::clasificarEdificio` (vía `temaTaller`, sin
+tocar el generador) — `generarEdificio(tipoId, n)` × 4 variantes +
+`exportar_lote.js` directo a `assets/edificios/` (mismo "enganche rápido" ya
+documentado en la cabecera de ese script para el lote de edificios, sin
+revisión pieza a pieza). 36 `.glb` nuevos, validados con `validar_glb.js`
+(magic/JSON/BIN/accessors/triángulos correctos, bounding box coherente con
+la huella real de cada tipo). Los 46/46 `tipoEdificioId` de `ciudades/`
+tienen ya arte real. Pendiente real: bakeado especial de la ciudad
+principal. El export en formato de sectores está verificado contra
+`mapaColision` del servidor y JUGADO de verdad (assets/mapas/ciudad_demo +
+paseo E2E con vídeo).
 
 **`indice.luces` consumido en el cliente (RESUELTO)**: `client/src/game.ts`
 lee `indice.luces` al entrar en una región (no por streaming de sector —
