@@ -308,7 +308,22 @@ export class HubRoom extends RoomExteriorBase {
         // Merodeo a 5hz (igual que la fauna doméstica); activar/desactivar
         // sectores es mucho más caro (E/S a BD) así que va aparte y más
         // despacio — de sobra para notar que un jugador cambió de sector.
-        this.clock.setInterval(() => this.gestorFaunaSalvaje!.tick(0.2), 200);
+        // Desde 2026-09-07 el tick también recibe la posición de cada
+        // jugador (vigía/huida/caza real, docs/GDD_Caza.md §huida) y
+        // devuelve las capturas resueltas ESE tick — la propia room
+        // resuelve la muerte real por el mismo camino que cualquier otra
+        // fauna muerta (`onFaunaMuerta`/`publicarCadaver`), y avisa al
+        // cazador con un mensaje dedicado.
+        this.clock.setInterval(() => {
+          const jugadoresPos = new Map<string, { x: number; y: number }>();
+          for (const [sessionId, p] of this.state.players.entries()) jugadoresPos.set(sessionId, { x: p.x, y: p.y });
+          const atrapados = this.gestorFaunaSalvaje!.tick(0.2, jugadoresPos);
+          for (const { faunaId, sessionId } of atrapados) {
+            void this.onFaunaMuerta(faunaId).then(() => {
+              this.clients.find((c) => c.sessionId === sessionId)?.send("caza:atrapado", { faunaId });
+            });
+          }
+        }, 200);
         // Agro por distancia (docs/GDD_Combate.md §7bis, pedido 2026-08-30) —
         // MISMO intervalo que el merodeo, cubre tanto depredadores de tierra
         // como orca/tiburón (agua): un jugador dentro del radioAgro de
@@ -769,6 +784,11 @@ export class HubRoom extends RoomExteriorBase {
   /** docs/GDD_Combate.md §9.1 — solo el Hub sabe qué fauna es peligrosa (catalogoCombate real), así que solo aquí auto-se-une a una ventana de combate cercana. */
   protected faunaEsPeligrosa(especieId: string): boolean {
     return this.catalogoCombate?.[especieId]?.peligroso ?? false;
+  }
+
+  /** docs/GDD_Caza.md §huida — solo el Hub tiene fauna salvaje viva que cazar. */
+  protected intentarIniciarCaza(faunaId: string, sessionId: string): boolean {
+    return this.gestorFaunaSalvaje?.iniciarCaza(faunaId, sessionId) ?? false;
   }
 
   /**

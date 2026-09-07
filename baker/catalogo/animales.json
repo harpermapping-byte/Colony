@@ -72,7 +72,8 @@
     "dieta": "herbivoro",
     "categoriaVida": "pequeno",
     "vidaMaxima": 15,
-    "ataque": 2
+    "ataque": 2,
+    "velocidad": 3.0
   },
   "oveja_salvaje": {
     "colision": true,
@@ -195,7 +196,8 @@
     "dieta": "herbivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 3.3
   },
   "gallina_salvaje": {
     "biomas": [
@@ -232,7 +234,8 @@
     "poblacionInfinita": true,
     "categoriaVida": "pequeno",
     "vidaMaxima": 15,
-    "ataque": 2
+    "ataque": 2,
+    "velocidad": 2.0
   },
   "perdiz": {
     "biomas": [
@@ -248,7 +251,8 @@
     "poblacionInfinita": true,
     "categoriaVida": "pequeno",
     "vidaMaxima": 15,
-    "ataque": 2
+    "ataque": 2,
+    "velocidad": 2.0
   },
   "alondra": {
     "biomas": [
@@ -314,7 +318,8 @@
     "dieta": "carnivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 2.85
   },
   "raton_de_campo": {
     "biomas": [
@@ -405,7 +410,8 @@
     "dieta": "omnivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 2.2
   },
   "abeja": {
     "biomas": [
@@ -530,7 +536,8 @@
     "dieta": "herbivoro",
     "categoriaVida": "pequeno",
     "vidaMaxima": 15,
-    "ataque": 2
+    "ataque": 2,
+    "velocidad": 3.0
   },
   "ardilla": {
     "biomas": [
@@ -621,7 +628,8 @@
     "dieta": "carnivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 2.4
   },
   "buho": {
     "biomas": [
@@ -697,7 +705,8 @@
     "poblacionInfinita": true,
     "categoriaVida": "pequeno",
     "vidaMaxima": 15,
-    "ataque": 2
+    "ataque": 2,
+    "velocidad": 2.2
   },
   "azor": {
     "biomas": [
@@ -793,7 +802,8 @@
     "dieta": "herbivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 3.15
   },
   "rebeco": {
     "colision": true,
@@ -813,7 +823,8 @@
     "dieta": "herbivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 3.2
   },
   "muflon": {
     "colision": true,
@@ -852,7 +863,8 @@
     "dieta": "herbivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 1.8
   },
   "lobo_de_las_nieves": {
     "colision": true,
@@ -954,7 +966,8 @@
     "poblacionInfinita": true,
     "categoriaVida": "pequeno",
     "vidaMaxima": 15,
-    "ataque": 2
+    "ataque": 2,
+    "velocidad": 2.0
   },
   "armino": {
     "biomas": [
@@ -1012,7 +1025,8 @@
     "dieta": "herbivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 3.4
   },
   "escorpion": {
     "biomas": [
@@ -1193,7 +1207,8 @@
     "poblacionInfinita": true,
     "categoriaVida": "grande",
     "vidaMaxima": 100,
-    "ataque": 10
+    "ataque": 10,
+    "velocidad": 3.35
   },
   "gaviota": {
     "biomas": [
@@ -1837,7 +1852,8 @@
     "dieta": "carnivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 2.3
   },
   "cocodrilo_del_pantano": {
     "colision": true,
@@ -2908,7 +2924,8 @@
     "dieta": "herbivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 2.1
   },
   "vibora_europea": {
     "biomas": [
@@ -3312,7 +3329,8 @@
     "_nota": "Cría de jabali/jabalina — ver nota de convención salvaje. No peligroso (a diferencia de sus padres).",
     "categoriaVida": "cria",
     "vidaMaxima": 8,
-    "ataque": 1
+    "ataque": 1,
+    "velocidad": 1.9
   },
   "cierva": {
     "colision": true,
@@ -3334,7 +3352,8 @@
     "dieta": "herbivoro",
     "categoriaVida": "grande",
     "vidaMaxima": 100,
-    "ataque": 10
+    "ataque": 10,
+    "velocidad": 3.45
   },
   "cervatillo": {
     "biomas": [
@@ -3349,7 +3368,8 @@
     "_nota": "Cría de ciervo/cierva — ver nota de convención salvaje.",
     "categoriaVida": "cria",
     "vidaMaxima": 8,
-    "ataque": 1
+    "ataque": 1,
+    "velocidad": 2.0
   },
   "corza": {
     "colision": true,
@@ -3372,7 +3392,8 @@
     "dieta": "herbivoro",
     "categoriaVida": "mediano",
     "vidaMaxima": 50,
-    "ataque": 5
+    "ataque": 5,
+    "velocidad": 3.3
   },
   "corcino": {
     "biomas": [
@@ -3388,7 +3409,8 @@
     "_nota": "Cría de corzo/corza — ver nota de convención salvaje.",
     "categoriaVida": "cria",
     "vidaMaxima": 8,
-    "ataque": 1
+    "ataque": 1,
+    "velocidad": 2.0
   },
   "macho_cabrio": {
     "colision": true,

@@ -11378,6 +11378,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return false;
   }
 
+  /**
+   * Arranca la caza real de un individuo de fauna (docs/GDD_Caza.md,
+   * rediseño 2026-09-07) — por defecto `false` (una room sin fauna salvaje
+   * viva, p.ej. un interior, no tiene nada que cazar); HubRoom lo
+   * sobreescribe delegando en `GestorFaunaSalvaje.iniciarCaza`. Mismo
+   * patrón hook que `faunaEsPeligrosa`/`estadisticasFaunaDe` justo arriba.
+   */
+  protected intentarIniciarCaza(_faunaId: string, _sessionId: string): boolean {
+    return false;
+  }
+
   /** Hook para cuando un combate de ESTA room se resuelve (bando entero caído/huido) — no-op por defecto; ArenaCombateRoom lo usa para teleportar de vuelta y propagar resultados. */
   protected onCombateResuelto(_combateId: string, _combate: CombateSchema): void {}
 
@@ -11411,6 +11422,25 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const atacante = this.state.players.get(atacanteId);
     if (!atacante || !msg?.objetivoId || msg.objetivoId === atacanteId) return;
     if (this.combatePorUnidad(atacanteId)) return client.send("combate:error", { motivo: "ya estás en combate" });
+
+    // Caza real en mapa abierto (docs/GDD_Caza.md, rediseño 2026-09-07,
+    // pedido streamer: "dándole click sobre el animal y cazar, entonces se
+    // irá corriendo tu npc jugador a por el animal... siempre correrás
+    // más") — fauna existente y NO peligrosa NUNCA pasa por el camino de
+    // arena de abajo: en vez de teleportar a los dos a una arena con la
+    // presa "pasiva" (comportamiento viejo), el animal empieza a huir DE
+    // ESTE jugador en el mapa abierto (`GestorFaunaSalvaje.tick`) hasta que
+    // lo alcanza — el jugador simplemente sigue andando/corriendo con
+    // normalidad, sin mecánica de movimiento nueva que aprender.
+    const especieObjetivoCaza = this.state.fauna.get(msg.objetivoId)?.especieId;
+    if (especieObjetivoCaza !== undefined && !this.faunaEsPeligrosa(especieObjetivoCaza)) {
+      if (this.intentarIniciarCaza(msg.objetivoId, atacanteId)) {
+        client.send("caza:iniciada", { objetivoId: msg.objetivoId });
+      } else {
+        client.send("combate:error", { motivo: "no se puede cazar ahora mismo" });
+      }
+      return;
+    }
     if (msg.retorno) this.retornosPendientes.set(atacanteId, msg.retorno);
 
     // Si el objetivo ya está en un combate (co-op, GDD §1) — únete a ese

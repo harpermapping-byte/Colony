@@ -492,3 +492,116 @@ test("tick: un conejo SIN vecinos de su especie cerca se comporta como antes (ra
   for (let i = 0; i < 60; i++) gestor.tick(0.1);
   assert.ok(Math.hypot(animal.x - x0, animal.y - y0) < 3 + 1.5, "sigue sin alejarse más de su radio de merodeo, igual que un solitario");
 });
+
+// --- Huida/vigía/caza real (docs/GDD_Caza.md §huida, pedido streamer
+// 2026-09-07) — radios por defecto: RADIO_HUIDA_DEFECTO=4, RADIO_VISION_
+// DEFECTO=8, RADIO_CAPTURA=1.5 (nada exportado a propósito, los tests usan
+// distancias claramente dentro/fuera de cada banda para no acoplarse al valor exacto).
+
+test("tick: jugador dentro del radio de VISIÓN (no de huida) pone al conejo en pose de vigía, sin que huya todavía", async () => {
+  const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "conejo", x: 5, y: 5 }] });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const animal = [...salida.values()][0];
+  const x0 = animal.x, y0 = animal.y;
+  const jugadores = new Map([["s1", { x: x0 + 6, y: y0 }]]); // dentro de vision(8), fuera de huida(4)
+  for (let i = 0; i < 20; i++) gestor.tick(0.2, jugadores);
+  assert.strictEqual(animal.accion, "alerta", "debería quedarse en vigía mientras el jugador está en su radio de visión");
+  assert.ok(Math.hypot(animal.x - x0, animal.y - y0) < 0.5, "en vigía no se desplaza, solo vigila");
+});
+
+test("tick: jugador dentro del radio de HUIDA hace que el conejo se aleje de verdad", async () => {
+  const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "conejo", x: 20, y: 20 }] });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const animal = [...salida.values()][0];
+  const x0 = animal.x, y0 = animal.y;
+  const jugador = { x: x0 + 2, y: y0 }; // dentro de huida(4)
+  // Solo 3 ticks (0.6s a VEL=1.0 por defecto): sigue dentro del radio de
+  // huida durante todo el tramo — más ticks y el conejo llegaría a
+  // ESCAPAR del radio de huida (comportamiento correcto, pasaría a
+  // "alerta" al seguir dentro del radio de visión más amplio, no un bug).
+  for (let i = 0; i < 3; i++) gestor.tick(0.2, new Map([["s1", jugador]]));
+  const distFinal = Math.hypot(animal.x - jugador.x, animal.y - jugador.y);
+  const distInicial = Math.hypot(x0 - jugador.x, y0 - jugador.y);
+  assert.ok(distFinal > distInicial, `debería haberse alejado del jugador (inicial ${distInicial.toFixed(2)}, final ${distFinal.toFixed(2)})`);
+  assert.strictEqual(animal.accion, "huyendo");
+});
+
+test("tick: un lobo (peligroso) NUNCA huye ni se pone en vigía aunque el jugador esté encima — usa agro/combate, no huida", async () => {
+  const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "lobo", x: 20, y: 20 }] });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const animal = [...salida.values()][0];
+  const jugador = { x: animal.x + 0.5, y: animal.y }; // pegado, dentro de huida Y captura
+  for (let i = 0; i < 20; i++) gestor.tick(0.2, new Map([["s1", jugador]]));
+  assert.notStrictEqual(animal.accion, "huyendo");
+  assert.notStrictEqual(animal.accion, "alerta");
+});
+
+test("iniciarCaza: rechaza fauna peligrosa (esas se pelean, no se cazan)", async () => {
+  const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "lobo", x: 5, y: 5 }] });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const [id] = [...salida.keys()];
+  assert.strictEqual(gestor.iniciarCaza(id, "s1"), false);
+});
+
+test("iniciarCaza: rechaza un id que no existe", () => {
+  const { gestor } = crearGestor();
+  assert.strictEqual(gestor.iniciarCaza("no_existe", "s1"), false);
+});
+
+test("iniciarCaza + tick: el animal cazado huye del CAZADOR concreto sin importar la distancia (más allá del radio de huida normal)", async () => {
+  const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "conejo", x: 20, y: 20 }] });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const [id] = [...salida.keys()];
+  const animal = salida.get(id)!;
+  const x0 = animal.x, y0 = animal.y;
+  assert.strictEqual(gestor.iniciarCaza(id, "cazador"), true);
+  // Cazador lejos (fuera del radio de huida normal de 4, pero la caza activa no tiene límite de distancia).
+  const cazador = { x: x0 + 7, y: y0 };
+  const atrapados = gestor.tick(0.2, new Map([["cazador", cazador]]));
+  assert.strictEqual(atrapados.length, 0, "todavía no debería atraparlo, sigue lejos");
+  assert.strictEqual(animal.accion, "huyendo", "debería huir del cazador aunque esté fuera del radio de huida normal");
+});
+
+test("iniciarCaza + tick: cuando el cazador alcanza al animal, tick() lo reporta como atrapado y limpia el estado de caza", async () => {
+  const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "conejo", x: 20, y: 20 }] });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const [id] = [...salida.keys()];
+  const animal = salida.get(id)!;
+  gestor.iniciarCaza(id, "cazador");
+  const cazadorPegado = { x: animal.x + 0.5, y: animal.y }; // dentro de RADIO_CAPTURA (1.5)
+  const atrapados = gestor.tick(0.2, new Map([["cazador", cazadorPegado]]));
+  assert.strictEqual(atrapados.length, 1);
+  assert.strictEqual(atrapados[0].faunaId, id);
+  assert.strictEqual(atrapados[0].sessionId, "cazador");
+  // El animal SIGUE vivo hasta que la room llame a matarIndividuo (tick() solo detecta, no mata) — pero ya no está "siendo cazado": un segundo tick no debería volver a reportarlo.
+  const segundoTick = gestor.tick(0.2, new Map([["cazador", cazadorPegado]]));
+  assert.strictEqual(segundoTick.length, 0, "no debería reportar la misma captura dos veces");
+});
+
+test("iniciarCaza + tick: si el cazador se desconecta (falta del mapa de jugadores), la caza se cancela sola sin romper el tick", async () => {
+  const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "conejo", x: 20, y: 20 }] });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const [id] = [...salida.keys()];
+  gestor.iniciarCaza(id, "cazador");
+  assert.doesNotThrow(() => gestor.tick(0.2, new Map())); // cazador ya no está en el mapa de jugadores
+  // La caza se canceló: iniciarla de nuevo con otro jugador debe funcionar sin rechazo por "ya cazado por otro".
+  assert.strictEqual(gestor.iniciarCaza(id, "otro"), true);
+});
+
+test("iniciarCaza: no deja que un segundo jugador robe la caza de otro ya en curso", async () => {
+  const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "conejo", x: 20, y: 20 }] });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const [id] = [...salida.keys()];
+  assert.strictEqual(gestor.iniciarCaza(id, "primero"), true);
+  assert.strictEqual(gestor.iniciarCaza(id, "segundo"), false);
+});
+
+test("matarIndividuo: limpia una caza activa (el animal cazado se muere por otra vía, p.ej. otro jugador lo ataca directamente)", async () => {
+  const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "conejo", x: 5, y: 5 }] });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const [id] = [...salida.keys()];
+  gestor.iniciarCaza(id, "cazador");
+  await gestor.matarIndividuo(id);
+  // Sin esto, cazasActivas se quedaría con una entrada zombi apuntando a un id que ya no existe en ningún sector — verificado indirectamente: iniciarCaza sobre el mismo id ya no encuentra el individuo (murió), así que debe devolver false, no "true" por una entrada stale.
+  assert.strictEqual(gestor.iniciarCaza(id, "otro"), false);
+});

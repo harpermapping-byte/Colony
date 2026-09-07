@@ -35,6 +35,21 @@ export interface EstadisticasCombateAnimal {
   requiereAgua?: boolean;
   /** docs/GDD_Combate.md §7bis (pedido 2026-08-30, "el depredador de tierra [y de agua] con triggers por distancia"): casillas de radio en las que esta especie, si `peligroso`, ataca por su cuenta al jugador más cercano (RoomExteriorBase.verificarAgroFauna) — ya existía en baker/catalogo/animales.json sin consumidor, primera vez que se lee en vivo. undefined = usa RADIO_AGRO_DEFECTO. */
   radioAgro?: number;
+  /**
+   * docs/GDD_Caza.md §huida (pedido streamer 2026-09-07: "habrá animales
+   * más rápidos y más lentos, pero siempre correrás más, aunque sea poco
+   * sobre todo con ciervos") — casillas/segundo de una especie NO
+   * peligrosa al huir/ser cazada (`GestorFaunaSalvaje`). undefined = usa
+   * `VEL` (la constante única de siempre, comportamiento sin cambios para
+   * cualquier especie no calibrada todavía). SIEMPRE debe quedar por
+   * debajo de `VEL_ANDAR` (3.75, `RoomExteriorBase.ts`) — el jugador tiene
+   * que poder alcanzar a cualquier presa incluso sin correr.
+   */
+  velocidad?: number;
+  /** docs/GDD_Caza.md §huida — radio en el que una especie NO peligrosa empieza a HUIR de verdad del jugador más cercano. undefined = usa RADIO_HUIDA_DEFECTO. Solo aplica a especies no `peligroso` y no `domesticable` (esas no huyen — mascotas/ganado hay que poder acercarse). */
+  radioHuida?: number;
+  /** docs/GDD_Caza.md §vigía — radio (mayor que `radioHuida`) en el que una especie NO peligrosa/NO domesticable se pone en pose de vigilancia (`accion:"alerta"`) sin huir todavía. undefined = usa RADIO_VISION_DEFECTO. */
+  radioVision?: number;
 }
 
 export type CatalogoCombateFauna = Record<string, EstadisticasCombateAnimal>;
@@ -51,6 +66,9 @@ interface EntradaCatalogoBaker {
   dieta?: DietaAnimal;
   requiereAgua?: boolean;
   radioAgro?: number;
+  velocidad?: number;
+  radioHuida?: number;
+  radioVision?: number;
 }
 
 // Relleno si una especie llegara a faltar en el catálogo (no debería pasar
@@ -81,6 +99,9 @@ export function cargarCatalogoCombateFauna(rutaAnimalesJson: string): CatalogoCo
       dieta: datos.dieta,
       requiereAgua: datos.requiereAgua,
       radioAgro: datos.radioAgro,
+      velocidad: datos.velocidad,
+      radioHuida: datos.radioHuida,
+      radioVision: datos.radioVision,
     };
   }
   return catalogo;

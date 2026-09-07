@@ -18,7 +18,7 @@ import { MundoColision, TIPO } from "./colisiones";
 import { CatalogoEspecies, ObjetoFaunaBakeado, convertirFilaAAnimal, resolverSector } from "./faunaSalvajeSector";
 import { necesitaAgua, necesitaComida } from "./reproduccionFauna";
 import { Cadaver, crearCadaver } from "./cadaveres";
-import { CatalogoCombateFauna, estadisticasCombatePorDefecto } from "./catalogoCombateFauna";
+import { CatalogoCombateFauna, EstadisticasCombateAnimal, estadisticasCombatePorDefecto } from "./catalogoCombateFauna";
 import { aplicarDanio, curar, estaMuerto } from "../combate/combate";
 import { FaunaHuevoFila, FaunaSalvajeFila } from "../datos/bd";
 import { CatalogoItems } from "../inventario/inventario";
@@ -28,6 +28,20 @@ const RADIO_MERODEO = 3; // casillas — paseo corto alrededor de donde se resol
 const VEL = 1.0;
 const ACCIONES_IDLE = ["sentarse", "jugar", "dormir", "alerta"];
 const RADIO_BUSQUEDA_AGUA = 15; // casillas — hasta dónde busca agua antes de rendirse por este intento
+
+// --- Huida/vigía/caza real (docs/GDD_Caza.md §huida, pedido streamer
+// 2026-09-07: "si se acerca alguien corre... zona de agro el animal corre,
+// zona de visión hará el de vigía... la forma de entrar en combate con
+// animales que no son agresivos es dándole click y cazar, entonces se irá
+// corriendo tu npc jugador a por el animal... siempre correrás más") ---
+const RADIO_HUIDA_DEFECTO = 4; // casillas — especie sin `radioHuida` propio en el catálogo
+const RADIO_VISION_DEFECTO = 8; // casillas — especie sin `radioVision` propio; SIEMPRE > RADIO_HUIDA_DEFECTO
+const RADIO_CAPTURA = 1.5; // casillas — a esta distancia del cazador, la caza activa se resuelve (mismo orden de magnitud que RADIO_INTERACCION del resto del proyecto)
+
+/** Puede huir = no peligrosa (esas atacan, no huyen — verificarAgroFauna) y no domesticable (una mascota/ganado candidato hay que poder acercarse a alimentar, no que salga corriendo). Sin `combate` (especie sin catálogo) se asume que NO puede huir — mismo criterio conservador que el resto de catálogos opcionales. */
+function puedeHuir(combate: EstadisticasCombateAnimal | undefined): boolean {
+  return !!combate && !combate.peligroso && !combate.domesticable;
+}
 
 // --- Manada/banco/bandada (pedido 2026-08-31) — cohesión ligera, no boids
 // completo: cada individuo gregario, al elegir su próximo paseo, desplaza
@@ -111,6 +125,8 @@ interface IndividuoVivo {
 
 export class GestorFaunaSalvaje {
   private sectoresActivos = new Map<string, IndividuoVivo[]>();
+  /** faunaId -> sessionId del jugador que la está cazando activamente (docs/GDD_Caza.md §huida, "click sobre el animal y cazar"). */
+  private cazasActivas = new Map<string, string>();
 
   constructor(
     private salida: MapSchema<Fauna>,
@@ -195,6 +211,7 @@ export class GestorFaunaSalvaje {
       v.fila.y = v.esquema.y;
       await this.deps.guardarIndividuo(v.fila);
       this.salida.delete(v.fila.id);
+      this.cazasActivas.delete(v.fila.id); // una caza activa no sobrevive a que su sector se desactive
     }
     this.sectoresActivos.delete(k);
   }
@@ -225,6 +242,7 @@ export class GestorFaunaSalvaje {
       v.fila.estado = "muerto";
       await this.deps.guardarIndividuo(v.fila);
       this.salida.delete(v.fila.id);
+      this.cazasActivas.delete(v.fila.id);
       vivos.splice(idx, 1);
 
       const cadaver = crearCadaver({
@@ -249,6 +267,32 @@ export class GestorFaunaSalvaje {
   }
 
   /**
+   * Arranca la caza real de un individuo NO peligroso (docs/GDD_Caza.md
+   * §huida, pedido streamer 2026-09-07: "click sobre el animal y cazar,
+   * entonces se irá corriendo tu npc jugador a por el animal") — a partir
+   * de ahora, `tick()` lo hace huir DE ESTE jugador concreto en cada
+   * pasada, sin importar la distancia (a diferencia de `radioHuida`, que
+   * solo dispara la huida de cerca para fauna no cazada todavía), hasta
+   * que `tick()` detecte que el jugador lo alcanzó (`RADIO_CAPTURA`) o el
+   * jugador se desconecte. `false` si el id no está activo, es fauna
+   * `peligroso` (esas se pelean por el camino normal de combate/agro, no
+   * se "cazan"), o ya la está cazando otro jugador.
+   */
+  iniciarCaza(faunaId: string, sessionId: string): boolean {
+    for (const vivos of this.sectoresActivos.values()) {
+      const v = vivos.find((x) => x.fila.id === faunaId);
+      if (!v) continue;
+      const combate = this.deps.catalogoCombate?.[v.fila.especieId];
+      if (combate?.peligroso) return false;
+      const cazadorActual = this.cazasActivas.get(faunaId);
+      if (cazadorActual && cazadorActual !== sessionId) return false; // ya la está cazando otro jugador
+      this.cazasActivas.set(faunaId, sessionId);
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Domestica a un individuo activo (docs/GDD_Ganaderia.md +
    * docs/GDD_Monturas.md, pedido 2026-08-30, mismo método para ambas: un
    * `AnimalGranja` de granja y una mascota/montura salen de aquí igual):
@@ -269,6 +313,7 @@ export class GestorFaunaSalvaje {
       v.fila.estado = "muerto";
       await this.deps.guardarIndividuo(v.fila);
       this.salida.delete(v.fila.id);
+      this.cazasActivas.delete(v.fila.id);
       vivos.splice(idx, 1);
       return v.fila.especieId;
     }
@@ -371,10 +416,70 @@ export class GestorFaunaSalvaje {
    *   Sigue paseando con normalidad; su ventana de 6 días le da margen de
    *   sobra hasta que ese sistema exista.
    */
-  tick(dt: number): void {
+  /**
+   * `jugadores` (docs/GDD_Caza.md §huida, pedido streamer 2026-09-07):
+   * posiciones actuales por sessionId — sin esto (llamada antigua sin
+   * segundo argumento, mapa vacío por defecto) el merodeo se comporta
+   * EXACTAMENTE igual que antes, cero regresión para quien no lo pase.
+   * Devuelve la lista de capturas resueltas ESTE tick (caza activa que
+   * alcanzó `RADIO_CAPTURA`) — quien llama (HubRoom) es responsable de
+   * resolver la muerte real (`onFaunaMuerta`/`publicarCadaver`, el mismo
+   * camino que cualquier otra fauna muerta) y avisar al cazador; aquí solo
+   * se detecta y se limpia `cazasActivas` (síncrono, sin ventana de doble
+   * captura aunque `onFaunaMuerta` tarde un tick de más en resolver).
+   */
+  tick(dt: number, jugadores: Map<string, { x: number; y: number }> = new Map()): { faunaId: string; sessionId: string }[] {
     const ahora = this.deps.ahora();
+    const atrapados: { faunaId: string; sessionId: string }[] = [];
     for (const vivos of this.sectoresActivos.values()) {
       for (const v of vivos) {
+        const combate = this.deps.catalogoCombate?.[v.fila.especieId];
+
+        // Caza activa — prioridad máxima, sin importar la distancia (a
+        // diferencia de radioHuida más abajo, que solo dispara de cerca
+        // para fauna no cazada todavía).
+        const cazadorId = this.cazasActivas.get(v.fila.id);
+        if (cazadorId) {
+          const cazador = jugadores.get(cazadorId);
+          if (!cazador) {
+            this.cazasActivas.delete(v.fila.id); // cazador desconectado/fuera del mapa: la caza se cancela sola
+          } else {
+            const dist = Math.hypot(cazador.x - v.esquema.x, cazador.y - v.esquema.y);
+            if (dist <= RADIO_CAPTURA) {
+              this.cazasActivas.delete(v.fila.id);
+              atrapados.push({ faunaId: v.fila.id, sessionId: cazadorId });
+              continue;
+            }
+            this.huirDe(v, cazador, dt, combate);
+            continue;
+          }
+        }
+
+        // Vigía/huida por proximidad (sin que nadie la esté cazando
+        // activamente) — solo especies que pueden huir de verdad.
+        if (puedeHuir(combate)) {
+          const masCercano = this.jugadorMasCercano(v.esquema, jugadores);
+          if (masCercano) {
+            const radioHuida = combate?.radioHuida ?? RADIO_HUIDA_DEFECTO;
+            const radioVision = combate?.radioVision ?? RADIO_VISION_DEFECTO;
+            if (masCercano.d <= radioHuida) {
+              this.huirDe(v, masCercano, dt, combate);
+              continue;
+            }
+            if (masCercano.d <= radioVision) {
+              // Vigía: se para en seco a mirar, no sigue su paseo — en
+              // cuanto el jugador se acerque más (huida) o se aleje del
+              // todo (vuelve al merodeo normal), reacciona en el siguiente
+              // tick (200ms), no hace falta una pausa larga aquí.
+              v.destino = null;
+              v.objetivoDestino = null;
+              v.esquema.accion = "alerta";
+              v.pausaRestante = 0.3;
+              continue;
+            }
+          }
+        }
+
         if (v.destino) {
           this.avanzarHaciaDestino(v, dt, ahora);
           continue;
@@ -411,6 +516,51 @@ export class GestorFaunaSalvaje {
         }
       }
     }
+    return atrapados;
+  }
+
+  /** Jugador vivo más cercano a una posición, o `null` si `jugadores` está vacío (mismo criterio simple que `verificarAgroFauna` del lado servidor: sin ponderar visibilidad/línea de visión, solo distancia recta). */
+  private jugadorMasCercano(pos: { x: number; y: number }, jugadores: Map<string, { x: number; y: number }>): { sessionId: string; x: number; y: number; d: number } | null {
+    let mejor: { sessionId: string; x: number; y: number; d: number } | null = null;
+    for (const [sessionId, p] of jugadores) {
+      const d = Math.hypot(p.x - pos.x, p.y - pos.y);
+      if (!mejor || d < mejor.d) mejor = { sessionId, x: p.x, y: p.y, d };
+    }
+    return mejor;
+  }
+
+  /**
+   * Aleja a `v` de `amenaza` a su velocidad de huida (especie o `VEL` por
+   * defecto), interrumpiendo cualquier paseo/objetivo de agua en curso —
+   * huir manda sobre cualquier otra prioridad. Sin pathfinding: si el paso
+   * directo choca con un sólido, prueba unos pocos ángulos desviados (mismo
+   * criterio "nunca A* en vivo" que el resto del proyecto); si ninguno
+   * sirve (acorralado de verdad), simplemente no se mueve este tick — no
+   * revienta ni se queda "empujando" contra la pared.
+   */
+  private huirDe(v: IndividuoVivo, amenaza: { x: number; y: number }, dt: number, combate: EstadisticasCombateAnimal | undefined): void {
+    v.destino = null;
+    v.objetivoDestino = null;
+    const vel = combate?.velocidad ?? VEL;
+    const paso = vel * dt;
+    const dx = v.esquema.x - amenaza.x;
+    const dy = v.esquema.y - amenaza.y;
+    const dist = Math.hypot(dx, dy) || 1; // amenaza EXACTAMENTE encima (dist=0, no debería pasar con RADIO_CAPTURA>0): huye en una dirección arbitraria en vez de dividir por 0
+    const anguloBase = Math.atan2(dy / dist, dx / dist);
+    for (const desvio of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) {
+      const ang = anguloBase + desvio;
+      const nx = v.esquema.x + Math.cos(ang) * paso;
+      const ny = v.esquema.y + Math.sin(ang) * paso;
+      if (this.transitable(nx, ny)) {
+        v.esquema.x = nx;
+        v.esquema.y = ny;
+        v.esquema.accion = "huyendo";
+        v.pausaRestante = 0;
+        return;
+      }
+    }
+    // Acorralado: ningún ángulo probado es transitable, se queda quieto este tick.
+    v.esquema.accion = "alerta";
   }
 
   /** Centroide de vecinos ACTIVOS de la misma especie dentro de RADIO_MANADA (busca en todos los sectores activos, no solo el propio — un grupo puede repartirse entre sectores vecinos). `null` si no hay ninguno cerca. */

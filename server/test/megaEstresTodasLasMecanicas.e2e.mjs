@@ -432,15 +432,36 @@ try {
       }
       if (mejor && mejorDist <= 2) {
         let combateAbierto = null;
+        let cazaReal = false;
         const off = room.onMessage("portal:ir", (m) => { if (m.tipo === "combate") combateAbierto = m.combateId; });
+        const offCaza = room.onMessage("caza:iniciada", () => { cazaReal = true; });
         room.send("combate:iniciar", { objetivoId: mejor });
         await esperar(600);
         off();
+        offCaza();
         if (combateAbierto) { objetivoId = mejor; combateId = combateAbierto; break; }
         // por si el combate se resolvió instantáneo (bicho muy débil) o dio error
         if ([...room.state.combates.values()].some((c) => c.unidades.has(room.sessionId))) {
           const [cid] = [...room.state.combates.entries()].find(([, c]) => c.unidades.has(room.sessionId));
           objetivoId = mejor; combateId = cid; break;
+        }
+        if (cazaReal) {
+          // Caza real (docs/GDD_Caza.md §huida, rediseño 2026-09-07): fauna
+          // NO peligrosa (el caso normal cerca del spawn) ya no crea ningún
+          // combate — persigue de verdad hasta alcanzarla, mismo criterio
+          // que combate.e2e.mjs.
+          let cazaAtrapada = null;
+          const offAtrapado = room.onMessage("caza:atrapado", () => { cazaAtrapada = true; });
+          for (let i = 0; i < 150 && !cazaAtrapada; i++) {
+            const f = room.state.fauna.get(mejor);
+            if (!f) { cazaAtrapada = true; break; } // ya no está: atrapada (o el sector se desactivó)
+            const j = room.state.players.get(room.sessionId);
+            room.send("input", { x: f.x - j.x, y: f.y - j.y, correr: true });
+            await esperar(200);
+          }
+          offAtrapado();
+          room.send("input", { x: 0, y: 0 });
+          return { encontrado: true, terminado: !!cazaAtrapada, rondas: 0, cliente };
         }
       } else if (mejor) {
         const f = room.state.fauna.get(mejor);

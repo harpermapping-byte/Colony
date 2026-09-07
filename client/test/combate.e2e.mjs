@@ -100,44 +100,73 @@ try {
   }, 15000, 100);
   comprobar("el jugador llega a menos de RADIO_INTERACCION del objetivo", !!llego, `distancia final=${distanciaInicial().toFixed(2)}`);
 
-  // 3) iniciar combate. Registrar el listener de portal:ir ANTES de mandar
-  // el mensaje (docs/GDD_Caza.md, pedido 2026-08-30): si el objetivo NO es
-  // fauna "peligrosa" (el caso normal para lo que suele haber cerca del
-  // spawn del mapa demo — conejo/ciervo...), el servidor entra en "modo
-  // caza" y salta la ventana de unión ENTERA de forma síncrona dentro del
-  // mismo mensaje — crea el CombateSchema en el Hub Y lo mueve a la arena
-  // (borrándolo del Hub) antes de que llegue ningún patch al cliente, así
-  // que nunca se observa un CombateSchema "pendiente" en room.state.combates
-  // para ese caso. Fauna SÍ peligrosa mantiene el flujo con ventana real.
+  // 3) iniciar combate. Registrar los listeners ANTES de mandar el mensaje.
+  // Dos caminos posibles según el objetivo (docs/GDD_Caza.md §huida,
+  // rediseño 2026-09-07 — antes TODA fauna no peligrosa entraba en "modo
+  // caza" pasivo dentro de una arena; ahora una fauna NO peligrosa nunca
+  // pisa una arena, huye de verdad en el mapa abierto hasta que se la
+  // alcanza):
+  // - Fauna PELIGROSA (rara cerca del spawn del demo, pero posible): sigue
+  //   el flujo de combate real de siempre (ventana de unión → arena →
+  //   turnos → muerte → cadáver) — es la rama que este test sigue
+  //   ejercitando de punta a punta.
+  // - Fauna NO peligrosa (el caso normal cerca del spawn — conejo/ciervo/
+  //   corzo...): `caza:iniciada` en vez de un combate — el resto del test
+  //   verifica la caza real (perseguir hasta alcanzar, cadáver al final)
+  //   en vez de turnos de arena.
   let portalArena = null;
+  let cazaIniciada = null;
   room.onMessage("portal:ir", (m) => (portalArena = m));
+  room.onMessage("caza:iniciada", (m) => (cazaIniciada = m));
   room.send("combate:iniciar", { objetivoId });
 
-  const combateId = await esperarCondicion(() => {
-    if (portalArena?.tipo === "combate") return portalArena.combateId; // modo caza: ya está en la arena
+  const resultado = await esperarCondicion(() => {
+    if (cazaIniciada) return "caza";
     for (const [id, c] of room.state.combates.entries()) {
       if (c.unidades.has(objetivoId)) return id;
     }
     return null;
   }, 3000, 100);
-  comprobar("combate:iniciar crea el combate (directo a arena en modo caza, o CombateSchema en el Hub)", !!combateId, errorRecibido ? JSON.stringify(errorRecibido) : "sin combateId");
-  if (!combateId) throw new Error("no se pudo iniciar combate (probablemente demasiado lejos del animal en el spawn de prueba)");
+  comprobar("combate:iniciar dispara algo (caza real, o CombateSchema en el Hub)", !!resultado, errorRecibido ? JSON.stringify(errorRecibido) : "ninguno de los dos");
+  if (!resultado) throw new Error("no se pudo iniciar combate/caza (probablemente demasiado lejos del animal en el spawn de prueba)");
 
-  const modoCaza = portalArena?.tipo === "combate" && portalArena.combateId === combateId;
-  if (modoCaza) {
-    comprobar("modo caza (fauna no peligrosa): salta la ventana de unión y va directo a la arena (portal:ir)", true, JSON.stringify(portalArena));
-  } else {
-    // 3bis) ventana de unión normal (docs/GDD_Combate.md §9.1) — arranca
-    // "pendiente" (nadie tiene turno todavía); "comenzar ya" la salta, no
-    // hay nadie más que se vaya a unir a pelear contra un animal salvaje
-    // solo. Cerrar la ventana INSTANCIA el combate en una arena aparte
-    // (§9.2) — portal:ir avisa a dónde ir.
-    comprobar("el combate arranca en fase 'pendiente' (ventana de unión)", room.state.combates.get(combateId)?.fase === "pendiente");
-    room.send("combate:comenzarYa", { combateId });
-    const llegoPortal = await esperarCondicion(() => portalArena?.tipo === "combate" && portalArena?.combateId === combateId, 2000, 100);
-    comprobar("comenzarYa cierra la ventana e instancia la arena (portal:ir)", !!llegoPortal, JSON.stringify(portalArena));
-    comprobar("el combate desaparece del Hub (se fue a la arena)", !room.state.combates.has(combateId));
+  if (resultado === "caza") {
+    // Caza real (docs/GDD_Caza.md §huida): el animal huye del jugador —
+    // seguirlo hasta alcanzarlo (RADIO_CAPTURA en el servidor) y comprobar
+    // que se resuelve como cualquier otra fauna muerta (desaparece de
+    // state.fauna, aparece un cadáver looteable con la misma especie).
+    comprobar("caza:iniciada trae el objetivoId correcto", cazaIniciada.objetivoId === objetivoId, JSON.stringify(cazaIniciada));
+    let cazaAtrapada = null;
+    room.onMessage("caza:atrapado", (m) => (cazaAtrapada = m));
+    const alcanzado = await esperarCondicion(() => {
+      const f = room.state.fauna.get(objetivoId);
+      if (!f) return true; // ya no existe: atrapado (o el sector se desactivó, improbable en 20s cerca del spawn)
+      const propioAhora = room.state.players.get(room.sessionId);
+      const dx = f.x - propioAhora.x, dy = f.y - propioAhora.y;
+      room.send("input", { x: Math.sign(dx), y: Math.sign(dy), correr: true });
+      return false;
+    }, 20000, 150);
+    comprobar("persiguiendo de verdad, el jugador acaba alcanzando al animal (siempre corre más)", alcanzado, `fauna sigue viva=${room.state.fauna.has(objetivoId)}`);
+    comprobar("el servidor avisa con caza:atrapado al cazador", !!cazaAtrapada, JSON.stringify(cazaAtrapada));
+    comprobar("el objetivo desaparece de state.fauna al ser atrapado", !room.state.fauna.has(objetivoId));
+    comprobar("aparece algún cadáver tras la captura (loot de caza, mismo mecanismo que matar en combate)", room.state.cadaveres.size > 0, `cadaveres=${room.state.cadaveres.size}`);
+    room.leave();
+    console.log(fallos === 0 ? "\n✅ combate.e2e (rama caza real): todo OK" : `\n❌ combate.e2e: ${fallos} fallo(s)`);
+    matar();
+    process.exit(fallos === 0 ? 0 : 1);
   }
+
+  const combateId = resultado;
+  // Ventana de unión normal (docs/GDD_Combate.md §9.1) — arranca
+  // "pendiente" (nadie tiene turno todavía); "comenzar ya" la salta, no
+  // hay nadie más que se vaya a unir a pelear contra un animal salvaje
+  // solo. Cerrar la ventana INSTANCIA el combate en una arena aparte
+  // (§9.2) — portal:ir avisa a dónde ir.
+  comprobar("el combate arranca en fase 'pendiente' (ventana de unión)", room.state.combates.get(combateId)?.fase === "pendiente");
+  room.send("combate:comenzarYa", { combateId });
+  const llegoPortal = await esperarCondicion(() => portalArena?.tipo === "combate" && portalArena?.combateId === combateId, 2000, 100);
+  comprobar("comenzarYa cierra la ventana e instancia la arena (portal:ir)", !!llegoPortal, JSON.stringify(portalArena));
+  comprobar("el combate desaparece del Hub (se fue a la arena)", !room.state.combates.has(combateId));
 
   room.leave();
   await esperar(300);
