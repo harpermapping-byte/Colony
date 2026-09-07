@@ -244,6 +244,69 @@ test("GestorConversacionesNpc.hablar: con memoria persistente, inyecta lo que el
   assert.deepStrictEqual(guardado, [{ npcId: "herrero", jugador: "Ragnar", mensaje: "¿tienes espadas nuevas?" }]);
 });
 
+// docs/GDD_IA_NPCs.md v3 (pedido streamer: "clasificación de tipos de NPC...
+// qué sabe y qué NO sabe cada uno") — ámbito de conocimiento por ROL,
+// fijo por arquetipo (personajes/catalogo/npcs.json::ambitoConocimientoId +
+// personajes/catalogo/ambitosConocimiento.json), distinto del perfil
+// conversacional (el tono, al azar por individuo).
+
+test("GestorConversacionesNpc.hablar: el ámbito de conocimiento por rol (sabe/NO sabe) se inyecta en el prompt", async () => {
+  let systemPromptRecibido = "";
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "respuesta";
+    },
+  };
+  const gestor = new GestorConversacionesNpc(falso, undefined);
+  // "guardia" es del arquetipo "guardia_capital" (personajes/catalogo/npcs.json).
+  await gestor.hablar("guardia", "Ragnar", "hola");
+  assert.match(systemPromptRecibido, /puedes hablar con soltura/i);
+  assert.match(systemPromptRecibido, /Movimientos recientes de bandidos/);
+  assert.match(systemPromptRecibido, /NO sabes nada de esto/i);
+  assert.match(systemPromptRecibido, /magia antigua o los archimagos/);
+});
+
+test("GestorConversacionesNpc.hablar: el ámbito de conocimiento es del ROL (arquetipo), no cambia aunque el NPC tenga biografía individual propia", async () => {
+  let systemPromptRecibido = "";
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "respuesta";
+    },
+  };
+  const individual: DatosNpcIndividual = {
+    oficio: "guardia",
+    personalidad: "Astrid Guardiana es implacable con los forasteros.",
+    conocimiento: ["Lleva 10 años guardando la puerta este."],
+  };
+  const gestor = new GestorConversacionesNpc(falso, undefined, () => individual);
+  await gestor.hablar("guardia_slot_3", "Ragnar", "hola");
+  assert.match(systemPromptRecibido, /Astrid Guardiana es implacable/); // biografía individual
+  assert.match(systemPromptRecibido, /Movimientos recientes de bandidos/); // ámbito del ROL "guardia_capital"
+});
+
+test("GestorConversacionesNpc.hablar: sin arquetipo real detrás (ambitoConocimientoId indefinido), no rompe ni añade el bloque de ámbito", async () => {
+  let systemPromptRecibido = "";
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "respuesta";
+    },
+  };
+  // Sin `oficio`, leerNpc busca el arquetipo por el propio npcId — que no
+  // existe en personajes/catalogo/npcs.json, así que arquetipo es undefined
+  // y ambitoConocimientoId queda sin definir (comportamiento por defecto).
+  const individual: DatosNpcIndividual = { personalidad: "Alguien sin oficio de catálogo.", conocimiento: ["cosa"] };
+  const gestor = new GestorConversacionesNpc(falso, undefined, () => individual);
+  await gestor.hablar("npc_fantasma_sin_arquetipo", "Ragnar", "hola");
+  assert.doesNotMatch(systemPromptRecibido, /puedes hablar con soltura/i);
+  assert.doesNotMatch(systemPromptRecibido, /NO sabes nada de esto/i);
+});
+
 test("GestorConversacionesNpc.hablar: si la memoria persistente falla al leer o guardar, la conversación sigue funcionando igual (degrada, no rompe)", async () => {
   const falso: IProveedorIA = {
     nombre: "falso",

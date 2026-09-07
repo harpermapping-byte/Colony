@@ -1,9 +1,10 @@
 // Orquesta el diálogo con NPCs (docs/GDD_IA_NPCs.md): junta el contexto
-// general del mundo + el perfil conversacional + la biografía INDIVIDUAL del
-// NPC (o la del arquetipo si no tiene una propia) + lo que sabe (RAG sobre su
-// conocimiento) + memoria real de este jugador concreto + un historial corto
-// anti-repetición, y llama al proveedor de IA (con fallback automático si el
-// principal se queda sin cuota).
+// general del mundo + el perfil conversacional + el ámbito de conocimiento
+// por ROL (v3, qué sabe/qué NO sabe según su arquetipo) + la biografía
+// INDIVIDUAL del NPC (o la del arquetipo si no tiene una propia) + lo que
+// sabe (RAG sobre su conocimiento) + memoria real de este jugador concreto +
+// un historial corto anti-repetición, y llama al proveedor de IA (con
+// fallback automático si el principal se queda sin cuota).
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { IProveedorIA, IProveedorEmbeddings, crearProveedorIA, crearProveedorEmbeddings } from "./proveedor";
@@ -20,12 +21,14 @@ interface EntradaArquetipo {
   profesion?: string;
   personalidad?: string;
   conocimiento?: string[];
+  ambitoConocimientoId?: string;
 }
 
 interface EntradaNpc {
   profesion?: string;
   personalidad?: string;
   conocimiento: string[];
+  ambitoConocimientoId?: string;
 }
 
 interface FragmentoEmbebido {
@@ -86,6 +89,32 @@ function leerPerfilesConversacionales(): Record<string, { instruccion: string }>
   return salida;
 }
 
+interface AmbitoConocimiento {
+  nombre: string;
+  sabe: string[];
+  noSabe: string[];
+}
+
+/**
+ * docs/GDD_IA_NPCs.md v3 (pedido streamer: clasificación de tipos de NPC —
+ * qué sabe y qué NO sabe cada uno según su ROL). Distinto del perfil
+ * conversacional (el TONO, al azar por individuo): esto es el temario fijo
+ * por arquetipo (personajes/catalogo/npcs.json::ambitoConocimientoId) — un
+ * guardia siempre tiene ámbito de guardia, nunca le toca al azar el de un
+ * bandido. Catálogo pequeño (7 entradas), sin coste de IA, mismo patrón de
+ * lectura directa que `leerPerfilesConversacionales`.
+ */
+function leerAmbitosConocimiento(): Record<string, AmbitoConocimiento> {
+  const ruta = path.join(RAIZ_REPO, "personajes", "catalogo", "ambitosConocimiento.json");
+  const catalogo = JSON.parse(fs.readFileSync(ruta, "utf8")) as Record<string, AmbitoConocimiento | string>;
+  const salida: Record<string, AmbitoConocimiento> = {};
+  for (const [id, valor] of Object.entries(catalogo)) {
+    if (id.startsWith("_") || typeof valor === "string") continue;
+    salida[id] = valor;
+  }
+  return salida;
+}
+
 /** Una instancia vive mientras vive la room (estado en RAM): el embedding
  * del conocimiento de cada NPC se calcula una sola vez por proceso (no hay
  * catálogo grande que justifique un bake offline aparte todavía — cuando
@@ -94,6 +123,7 @@ function leerPerfilesConversacionales(): Record<string, { instruccion: string }>
 export class GestorConversacionesNpc {
   private contextoMundo = leerContextoMundo();
   private perfilesConversacionales = leerPerfilesConversacionales();
+  private ambitosConocimiento = leerAmbitosConocimiento();
   private cacheConocimiento = new Map<string, Promise<FragmentoEmbebido[]>>();
   private memoria = new MemoriaConversaciones();
 
@@ -130,6 +160,11 @@ export class GestorConversacionesNpc {
       profesion: individual?.oficio ?? arquetipo?.profesion,
       personalidad: individual?.personalidad ?? arquetipo?.personalidad,
       conocimiento: conocimientoIndividual && conocimientoIndividual.length > 0 ? conocimientoIndividual : (arquetipo?.conocimiento ?? []),
+      // Fijo por ROL, siempre del arquetipo — a diferencia de personalidad/
+      // conocimiento, ningún individuo lo sobreescribe (un herrero concreto
+      // puede tener su propia biografía, pero su ámbito de saber sigue
+      // siendo el de "mercader/artesano", nunca al azar el de un bandido).
+      ambitoConocimientoId: arquetipo?.ambitoConocimientoId,
     };
   }
 
@@ -172,6 +207,7 @@ export class GestorConversacionesNpc {
     const dichoAntes = this.memoria.ultimasRespuestas(npcId, jugador);
     const perfilConversacionalId = this.resolverIndividual(npcId)?.perfilConversacionalId;
     const perfil = perfilConversacionalId ? this.perfilesConversacionales[perfilConversacionalId] : undefined;
+    const ambito = npc.ambitoConocimientoId ? this.ambitosConocimiento[npc.ambitoConocimientoId] : undefined;
 
     // Memoria real de ESTE jugador con ESTE NPC (docs/GDD_IA_NPCs.md) — un
     // fallo leyendo BD nunca debe tumbar la conversación, se sigue como si
@@ -191,6 +227,10 @@ export class GestorConversacionesNpc {
       `Interpretas a "${npcId}"${npc.profesion ? ` (${npc.profesion})` : ""}.`,
       npc.personalidad ? `Tu personalidad: ${npc.personalidad}` : "",
       perfil ? perfil.instruccion : "",
+      ambito?.sabe.length ? `Como ${ambito.nombre}, puedes hablar con soltura de:\n- ${ambito.sabe.join("\n- ")}` : "",
+      ambito?.noSabe.length
+        ? `NO sabes nada de esto — si te preguntan, niégalo, desvía la conversación o admite tu ignorancia, nunca inventes datos como si fueran ciertos:\n- ${ambito.noSabe.join("\n- ")}`
+        : "",
       saber.length ? `Lo que sabes de tu propia vida:\n- ${saber.join("\n- ")}` : "",
       recuerdos.length
         ? `Ya has hablado antes con el jugador "${jugador}". Esto es lo que recuerdas que te dijo, en orden del más reciente al más antiguo:\n- ${recuerdos.join("\n- ")}`

@@ -30,6 +30,7 @@
     ],
     "colorDebug": "#c9a86a",
     "personalidad": "Campesino cordial y algo chismoso, siempre con alguna queja sobre la cosecha o el tiempo.",
+    "ambitoConocimientoId": "aldeano_comun",
     "conocimiento": [
       "Trabaja un campo de cebada al norte del pueblo.",
       "Conoce los cotilleos de todos los vecinos del asentamiento.",
@@ -86,6 +87,7 @@
     "_nota": "Fix 2026-09-03: llevaba el delantal pendiente de crear desde 2026-09-01 (delantal_herrero, ya existe) y el genérico camisa_lino_campesina en su lugar — más los nuevos guantes_forja_herrero (guante profesión-específico, antes solo noble los tenía).",
     "colorDebug": "#6a6a70",
     "personalidad": "Herrero brusco pero honesto, orgulloso de su oficio, poca paciencia para charlas vacías.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Forja herramientas y armas sencillas con el mineral que le traen los mineros.",
       "Necesita más carbón vegetal del que le llega cada semana.",
@@ -131,6 +133,7 @@
     "_nota": "Sin armadura hasta que el catálogo de prendas cubra armaduras.",
     "colorDebug": "#8a3a3a",
     "personalidad": "Guardia serio y vigilante, cumple las normas del jarl al pie de la letra.",
+    "ambitoConocimientoId": "guardia_capital",
     "conocimiento": [
       "Vigila las puertas y calles del asentamiento.",
       "Reporta cualquier robo o pelea directamente al jarl.",
@@ -208,6 +211,7 @@
     "_nota": "Fix 2026-09-03: llevaba `ropa: []` (SIN NINGUNA prenda) desde que se creó el catálogo — un array vacío no dispara el auto-vestido de elegirConjuntoPorProfesion (personajes/src/generarPersonaje.js solo lo hace si `ropa` es undefined), así que el anciano salía completamente desnudo. Ahora viste tunica_herbolista (dedicada a herbolista) + pantalón genérico.",
     "colorDebug": "#7a6a8a",
     "personalidad": "Anciano herbolista de hablar pausado y sabio, le gusta dar consejos a través de refranes.",
+    "ambitoConocimientoId": "erudito_superviviente",
     "conocimiento": [
       "Conoce las hierbas medicinales de la zona y sus usos.",
       "Ha vivido en el pueblo toda su vida y recuerda su historia.",
@@ -235,6 +239,7 @@
     "_nota": "Fix 2026-09-03: añadida botas_altas_pescador (bota profesión-específica nueva, antes solo genéricas).",
     "colorDebug": "#4a7a8a",
     "personalidad": "Pescador madrugador y de pocas palabras, más cómodo con las redes que con la gente.",
+    "ambitoConocimientoId": "minero_explorador",
     "conocimiento": [
       "Sale a pescar antes del amanecer, cuando el agua está en calma.",
       "Conoce las corrientes y los bancos de peces mejor que nadie del pueblo.",
@@ -260,6 +265,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir mandil_carpintero dedicado desde 2026-09-01.",
     "colorDebug": "#8a6a45",
     "personalidad": "Carpintero paciente y meticuloso, orgulloso de que sus muebles duren generaciones.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Talla muebles y vigas para media aldea con madera del aserradero.",
       "Tiene un encargo atrasado que le quita el sueño.",
@@ -286,6 +292,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir tunica_molinero dedicada desde 2026-09-01.",
     "colorDebug": "#c9b87a",
     "personalidad": "Molinero jovial siempre cubierto de harina, lleva las cuentas del grano de todo el pueblo.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Muele el grano de los campesinos a cambio de una parte de la harina.",
       "Depende de que el viento o el agua no le fallen para trabajar.",
@@ -312,6 +319,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir delantal_curtidor dedicado desde 2026-09-01; añadido también gorro_lino_campesino (dedicado a curtidor, comparte tag curtiduria).",
     "colorDebug": "#6a4a3a",
     "personalidad": "Curtidor curtido él mismo por el oficio, resignado a que su taller huela mal y nadie quiera visitarlo.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Trata las pieles que le traen los cazadores hasta convertirlas en cuero.",
       "Su taller apesta y lo sabe — por eso vive un poco apartado.",
@@ -338,6 +346,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir tunica_alfarero dedicada desde 2026-09-01.",
     "colorDebug": "#a5673f",
     "personalidad": "Alfarera tranquila y algo soñadora, siempre con las manos manchadas de arcilla.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Hace vasijas, platos y tinajas en su torno, cocidas en su propio horno.",
       "Conoce el mejor barro de la zona, junto al río.",
@@ -363,6 +372,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir mandil_joyero dedicado desde 2026-09-03.",
     "colorDebug": "#c9a227",
     "personalidad": "Joyero pulcro y desconfiado, mide cada palabra igual que mide el oro.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Engarza piedras y funde metales preciosos para la gente con posibles.",
       "Guarda su mercancía mejor bajo llave que su propia casa.",
@@ -388,6 +398,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir tunica_sastre dedicada desde 2026-09-03.",
     "colorDebug": "#7a4a8a",
     "personalidad": "Sastre presumido con buen ojo para las telas, opina de la ropa de todo el que entra por su puerta.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Cose y remienda ropa para todo el que se lo pueda pagar.",
       "Sueña con conseguir seda de verdad algún día.",
@@ -414,6 +425,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir tunica_panadero dedicada desde 2026-09-03.",
     "colorDebug": "#d9a35c",
     "personalidad": "Panadero madrugador y campechano, el primero en enterarse de todo porque todos pasan por su puerta.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Amasa el pan antes del alba para tenerlo listo al amanecer.",
       "Compra la harina al molinero, y se queja si viene floja.",
@@ -439,6 +451,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir chaleco_tabernero dedicado desde 2026-09-01.",
     "colorDebug": "#8a5a3a",
     "personalidad": "Tabernero hablador y sociable, se entera de todos los chismes y rumores del asentamiento antes que nadie.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Sirve cerveza y comida caliente a quien tenga con qué pagar.",
       "Escucha más secretos que el propio sacerdote, aunque nunca lo admitiría.",
@@ -485,6 +498,7 @@
     "_nota": "Fix 2026-09-03: añadida capucha_lana_sacerdote (gorro profesión-específico nuevo, antes solo el hábito cubría el torso).",
     "colorDebug": "#4a4a6a",
     "personalidad": "Sacerdote sereno y de trato amable, siempre dispuesto a escuchar, aunque no siempre a dar la razón.",
+    "ambitoConocimientoId": "erudito_superviviente",
     "conocimiento": [
       "Oficia los ritos del templo y escucha a quien busca consuelo.",
       "Conoce los nombres de todos los nacidos y enterrados del asentamiento.",
@@ -511,6 +525,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a existir chaleco_tabernero dedicado (comparte tag 'tienda' con tendero, ver ropa/catalogo/profesiones.json#tendero).",
     "colorDebug": "#3a8a5a",
     "personalidad": "Tendero regateador nato, siempre intentando sacarle una moneda más al trato.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Vende de todo un poco, lo que le llega de mercaderes y artesanos del pueblo.",
       "Lleva la cuenta de quién le debe y quién paga siempre puntual.",
@@ -535,6 +550,7 @@
     ],
     "colorDebug": "#8a8072",
     "personalidad": "Vagabundo socarrón y filósofo de taberna: pide monedas o comida con labia, conoce cada rincón y a cada perro del pueblo, y jura que antes fue alguien importante (cada día alguien distinto).",
+    "ambitoConocimientoId": "bandido_arrepentido",
     "conocimiento": [
       "Sabe quién entra y sale de la ciudad a cualquier hora.",
       "Conoce los mejores rincones para dormir sin que la guardia moleste.",
@@ -560,6 +576,7 @@
     ],
     "colorDebug": "#b08d3f",
     "personalidad": "Pregonero de voz atronadora y memoria prodigiosa para el cotilleo: convierte cualquier suceso del reino en noticia de plaza, con más teatro que rigor.",
+    "ambitoConocimientoId": "bardo_rumorero",
     "conocimiento": [
       "Recita las novedades y sucesos recientes del reino (las historias del servidor).",
       "Sabe qué se cuece en el ayuntamiento antes que el propio alcalde.",
@@ -585,6 +602,7 @@
     ],
     "colorDebug": "#7fae4c",
     "personalidad": "Vendedor ambulante de melones, alegre y escandaloso: jura por su burro que sus melones son los mejores del reino y no acepta discusión al respecto.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Sus melones vienen 'de la mejor vega del reino' (nadie sabe cuál).",
       "Su burro se llama Anselmo y tiene opiniones.",
@@ -609,6 +627,7 @@
     ],
     "colorDebug": "#a68a5a",
     "personalidad": "El borracho del pueblo: alegre, sentimental y con la lengua suelta tras la tercera jarra; abraza a desconocidos y jura amistad eterna.",
+    "ambitoConocimientoId": "bardo_rumorero",
     "conocimiento": [
       "Sabe qué NPC tiene un romance secreto (aunque lo cuenta distinto cada vez).",
       "Nunca recuerda cómo llegó a casa la noche anterior.",
@@ -634,6 +653,7 @@
     ],
     "colorDebug": "#c98fae",
     "personalidad": "La chismosa del pueblo: conoce la vida de todos y no se calla ni una, va de puerta en puerta 'a saludar' que dura media hora.",
+    "ambitoConocimientoId": "bardo_rumorero",
     "conocimiento": [
       "Sabe todo lo que pasa en cada casa del pueblo.",
       "Exagera cada historia un poco más en cada repetición.",
@@ -659,6 +679,7 @@
     ],
     "colorDebug": "#8a5ac9",
     "personalidad": "Bardo errante convencido de su talento; canta en la plaza con más entusiasmo que oído, y los vecinos se apartan educadamente.",
+    "ambitoConocimientoId": "bardo_rumorero",
     "conocimiento": [
       "Compone baladas sobre sucesos locales, casi siempre inventadas.",
       "Cree que algún día lo llamarán a la corte real.",
@@ -683,6 +704,7 @@
     ],
     "colorDebug": "#5a6ea6",
     "personalidad": "Profeta callejero de mirada perdida y gesto grandilocuente: anuncia el fin del reino cada semana, sin que el reino se entere de acabarse.",
+    "ambitoConocimientoId": "bardo_rumorero",
     "conocimiento": [
       "Predice desgracias que rara vez ocurren.",
       "Habla con los cuervos y asegura que le responden.",
@@ -709,6 +731,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina/pantalon_lana_campesino pese a que su profesion es 'noble' (que ya tiene las 6 prendas dedicadas) — un recaudador del jarl no viste como campesino. Vestuario noble sobrio (sin capa de gala ni guantes de seda, sigue siendo trabajo, no un baile).",
     "colorDebug": "#4a4a52",
     "personalidad": "Recaudador de impuestos frío y meticuloso, con un libro de cuentas bajo el brazo; nadie se alegra de verlo llegar a la tienda.",
+    "ambitoConocimientoId": "guardia_capital",
     "conocimiento": [
       "Lleva la cuenta exacta de lo que debe cada comercio.",
       "No perdona un impago ni conoce la palabra 'después'.",
@@ -733,6 +756,7 @@
     ],
     "colorDebug": "#a67a3a",
     "personalidad": "Viejo espadachín retirado que entrena cada día contra un poste de madera, contando batallas que crecen con los años.",
+    "ambitoConocimientoId": "guardia_capital",
     "conocimiento": [
       "Ganó (según él) más duelos de los que la memoria del pueblo recuerda.",
       "Ofrece lecciones de esgrima que nadie pidió.",
@@ -759,6 +783,7 @@
     "_nota": "Fix 2026-09-03: llevaba el genérico camisa_lino_campesina pese a que su profesion es 'destilador' (que ya tiene delantal_destilador dedicado desde 2026-09-03) — encaja con que 'carga' sus amuletos con algo parecido a destilería.",
     "colorDebug": "#c9a03a",
     "personalidad": "Vendedora ambulante de amuletos 'de eficacia garantizada' que nadie ha podido demostrar ni desmentir; labia inagotable.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Cada amuleto cura, protege o da suerte — según convenga en el momento.",
       "Cambia el precio según lo desesperado que parezca el comprador.",
@@ -783,6 +808,7 @@
     ],
     "colorDebug": "#e0c080",
     "personalidad": "Niño que parece perdido pero conoce el pueblo mejor que nadie; pregunta por su familia a quien se cruce, entre juegos y carreras.",
+    "ambitoConocimientoId": "bardo_rumorero",
     "conocimiento": [
       "Conoce todos los escondites del pueblo.",
       "Busca a su familia, aunque nunca parece muy preocupado.",
@@ -810,6 +836,7 @@
     "_nota": "Fix 2026-09-03: añadida botas_altas_pescador (bota profesión-específica nueva, antes solo genéricas).",
     "colorDebug": "#3a7a8a",
     "personalidad": "Pescador de anécdotas más grandes que sus capturas; el pez que 'casi' pescó crece un poco más cada vez que lo cuenta.",
+    "ambitoConocimientoId": "bardo_rumorero",
     "conocimiento": [
       "El pez que se le escapó ya mide 'como un hombre', según la última versión.",
       "Conoce cada recodo del río o la costa del asentamiento.",
@@ -834,6 +861,7 @@
     ],
     "colorDebug": "#3a3a3a",
     "personalidad": "Sepulturero nocturno de pocas palabras y humor negro; ronda cerca del templo con su pala y su farol mientras el pueblo duerme.",
+    "ambitoConocimientoId": "erudito_superviviente",
     "conocimiento": [
       "Conoce la historia de cada tumba del cementerio.",
       "No le teme a la oscuridad; dice que los muertos son mejor compañía que los vivos.",
@@ -858,6 +886,7 @@
     ],
     "colorDebug": "#d8d8d8",
     "personalidad": "Artista callejero inmóvil como una estatua en la plaza; solo el parpadeo delata que sigue vivo.",
+    "ambitoConocimientoId": "bardo_rumorero",
     "conocimiento": [
       "Ha visto pasar el día entero sin moverse del sitio.",
       "Escucha todas las conversaciones de la plaza sin que nadie lo note.",
@@ -883,6 +912,7 @@
     ],
     "colorDebug": "#c96a3a",
     "personalidad": "Vecino obsesionado con coleccionar gallinas ajenas 'por accidente'; siempre tiene una excusa preparada.",
+    "ambitoConocimientoId": "bardo_rumorero",
     "conocimiento": [
       "Sabe exactamente cuántas gallinas tiene cada corral del pueblo.",
       "Jura que cada gallina en su saco 'se le coló sola'.",
@@ -907,6 +937,7 @@
     ],
     "colorDebug": "#6ac97a",
     "personalidad": "Vecino que siempre va con prisa a todas partes, como si llegara tarde a algo importante que nadie más conoce.",
+    "ambitoConocimientoId": "bandido_arrepentido",
     "conocimiento": [
       "Nunca llega tarde a nada, pero corre igual.",
       "Conoce el atajo más rápido entre cualquier par de puntos del pueblo.",
@@ -932,6 +963,7 @@
     ],
     "colorDebug": "#d8a020",
     "personalidad": "Apicultor tranquilo y paciente, habla en voz baja para no alterar a sus colmenas.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Extrae miel y cera de las colmenas del asentamiento, temporada tras temporada.",
       "Conoce cada colmena por su carácter — hay unas más tranquilas que otras.",
@@ -956,6 +988,7 @@
     ],
     "colorDebug": "#8a8a8a",
     "personalidad": "Picapedrero fuerte y de pocas palabras, con las manos cubiertas de polvo de piedra.",
+    "ambitoConocimientoId": "minero_explorador",
     "conocimiento": [
       "Talla piedra para los edificios y monumentos del asentamiento.",
       "Sabe qué cantera da la mejor piedra según lo que vayas a construir.",
@@ -980,6 +1013,7 @@
     ],
     "colorDebug": "#8a6040",
     "personalidad": "Peletera meticulosa, cose cada prenda como si fuera para su propia familia.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Transforma las pieles curtidas en abrigos, guantes y botas.",
       "Distingue el pelaje de una docena de animales solo al tacto.",
@@ -1004,6 +1038,7 @@
     ],
     "colorDebug": "#4a7a8a",
     "personalidad": "Vidriero cuidadoso, sabe que un segundo de más junto al horno arruina la pieza.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Sopla y talla cristal para ventanas, copas y adornos.",
       "El horno no se apaga nunca del todo, ni de noche.",
@@ -1028,6 +1063,7 @@
     ],
     "colorDebug": "#8a7040",
     "personalidad": "Arquero y artesano a partes iguales, prueba cada arco antes de darlo por bueno.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Talla arcos y encuerda flechas para cazadores y guardias.",
       "Elige la madera de tejo con la misma calma que un joyero elige una gema.",
@@ -1053,6 +1089,7 @@
     ],
     "colorDebug": "#c9622a",
     "personalidad": "Cocinero orgulloso y ruidoso, cree que su guiso es el mejor del asentamiento.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Prepara la comida para quien pase por la cocina comunal.",
       "Guarda sus mejores especias bajo llave, lejos de manos curiosas.",
@@ -1077,6 +1114,7 @@
     ],
     "colorDebug": "#a85a5a",
     "personalidad": "Carnicero directo y práctico, no se anda con rodeos ni al hablar ni al trabajar.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Despieza y ahúma la carne que traen cazadores y ganaderos.",
       "Sabe qué corte pedir para cada plato, aunque tú no lo sepas.",
@@ -1101,6 +1139,7 @@
     ],
     "colorDebug": "#5a7a8a",
     "personalidad": "Carpintero de ribera curtido por la sal, más cómodo entre cascos de barco que en tierra firme.",
+    "ambitoConocimientoId": "mercader_artesano",
     "conocimiento": [
       "Repara y calafatea los cascos de los barcos que amarran en el astillero.",
       "Sabe reconocer una vía de agua antes de que el capitán se dé cuenta.",
@@ -1127,6 +1166,7 @@
     ],
     "colorDebug": "#5a6a3a",
     "personalidad": "Cazador reservado y observador, más atento al bosque que a la conversación.",
+    "ambitoConocimientoId": "minero_explorador",
     "conocimiento": [
       "Caza y pone trampas en el bosque para traer carne y pieles al asentamiento.",
       "Conoce las sendas de los animales mejor que los caminos del pueblo.",
