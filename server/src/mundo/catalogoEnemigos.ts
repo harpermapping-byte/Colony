@@ -31,3 +31,8 @@ export function elegirEnemigoDeTema(temas: string[], soloBosses: boolean): strin
 export function esEnemigoHumanoide(enemigoId: string): boolean {
   return enemigos[enemigoId]?.tipoRig === "npc";
 }
+
+/** docs/GDD_Combate.md §11ter — temas de un enemigoId (para el loot temático de jefe, catalogoLootTematico.json). Array vacío si el id no existe o no tiene tema. */
+export function temasDeEnemigo(enemigoId: string): string[] {
+  return enemigos[enemigoId]?.temasEnemigo || [];
+}

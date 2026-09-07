@@ -2,7 +2,7 @@ import { InteriorRoom, OpcionesInterior } from "./InteriorRoom";
 import { Enemigo } from "./schema/HubState";
 import { IAlmacenDatos } from "../datos/bd";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
-import { elegirEnemigoDeTema, VARIANTES_POR_ENEMIGO } from "../mundo/catalogoEnemigos";
+import { elegirEnemigoDeTema, VARIANTES_POR_ENEMIGO, temasDeEnemigo } from "../mundo/catalogoEnemigos";
 import { generarLootBoss, generarLootNormal } from "../mundo/lootProcedural";
 import { GestorEnemigosMazmorra } from "../mundo/enemigosMazmorra";
 import { crearCadaver } from "../mundo/cadaveres";
@@ -142,7 +142,7 @@ export class DungeonRoom extends InteriorRoom {
       // con la MISMA figura, no un rig plano genérico.
       datosVisual: { enemigoId, variante },
     });
-    const loot = esBoss ? generarLootBoss() : generarLootNormal();
+    const loot = esBoss ? generarLootBoss(undefined, temasDeEnemigo(enemigoId)) : generarLootNormal();
     for (const { itemId, cantidad } of loot) agregarItem(cadaver.contenedor, this.catalogoItems, itemId, cantidad);
     this.publicarCadaver(cadaver);
   }

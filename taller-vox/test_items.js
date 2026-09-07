@@ -34,7 +34,7 @@ function assertModeloValido(m, id) {
 // --- armas -------------------------------------------------------------
 
 test("armas: todo id del catálogo tipo:arma clasifica a un arquetipo con función real", () => {
-  assert.strictEqual(armas.IDS_ARMA.length, 31);
+  assert.strictEqual(armas.IDS_ARMA.length, 38); // 31 + 7 armas temáticas de enemigo (docs/GDD_Combate.md §11ter, 2026-09-07)
   for (const id of armas.IDS_ARMA) {
     const arq = armas.clasificarArma(id);
     assert.ok(armas.ARQUETIPO_FN[arq], `${id} -> ${arq} sin función`);

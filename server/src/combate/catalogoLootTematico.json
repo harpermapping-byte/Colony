@@ -1,0 +1,10 @@
+{
+  "_nota": "docs/GDD_Combate.md §11ter (2026-09-07, pedido streamer: 'sus armaduras y armas... pero con la tematica del enemigo') — bonus de loot TEMÁTICO por encima del pool genérico de catalogoLootBoss.json: cuando un boss humanoide con `temasEnemigo` conocido aquí muere, hay una probabilidad extra (PROB_LOOT_TEMATICO en lootProcedural.ts) de que caiga UNA pieza (arma o armadura) de SU propio tema, además de los 2-4 drops genéricos de siempre — nunca sustituye al pool genérico, solo lo complementa. Cada tema tiene 1 arma + 1 armadura reales en items/catalogo/items.json, con estadísticas propias y prendaId reusando un arquetipo visual ya existente (arma_daga/arma_hacha/... y pechera_cuero/pechera_cuero_tachonado/pechera_placas_acero) — cero .glb ni catálogo visual nuevo.",
+  "goblin": { "armas": ["daga_oxidada_goblin"], "armaduras": ["peto_cuero_remendado_goblin"] },
+  "trasgo": { "armas": ["lanza_improvisada_trasgo"], "armaduras": ["peto_cuero_ligero_trasgo"] },
+  "no_muerto": { "armas": ["espada_herrumbrosa_no_muerto"], "armaduras": ["coraza_huesos_no_muerto"] },
+  "bandido": { "armas": ["hacha_mellada_bandido"], "armaduras": ["peto_cuero_curtido_bandido"] },
+  "orco": { "armas": ["hacha_guerra_orco"], "armaduras": ["coraza_guerra_orco"] },
+  "cultista": { "armas": ["brasero_ritual_cultista"], "armaduras": ["sotana_protectora_cultista"] },
+  "pirata": { "armas": ["sable_oxidado_pirata"], "armaduras": ["peto_marino_pirata"] }
+}

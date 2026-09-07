@@ -9230,7 +9230,7 @@
     ]
   },
   "circulo_ritual": {
-    "nombre": "Círculo de Ritual",
+    "nombre": "Círculo Ritual",
     "capa": "decorFija",
     "tiposSalaValidos": [
       "sala_ritual"
@@ -9844,7 +9844,7 @@
     ]
   },
   "brasero_ritual": {
-    "nombre": "Brasero de Ritual",
+    "nombre": "Brasero Ritual",
     "capa": "iluminacion",
     "tiposSalaValidos": [
       "camara_ritual_oscura",
@@ -10949,7 +10949,7 @@
     ]
   },
   "antorcha_ritual": {
-    "nombre": "Antorcha de Ritual",
+    "nombre": "Antorcha Ritual",
     "capa": "iluminacion",
     "tiposSalaValidos": [
       "sala_alquimia",

@@ -12,6 +12,7 @@ import * as path from "path";
 
 const RUTA_CATALOGO = path.join(__dirname, "..", "combate", "catalogoLootBoss.json");
 const RUTA_CATALOGO_NORMAL = path.join(__dirname, "..", "combate", "catalogoLootNormal.json");
+const RUTA_CATALOGO_TEMATICO = path.join(__dirname, "..", "combate", "catalogoLootTematico.json");
 
 interface EntradaLootBoss {
   itemId: string;
@@ -26,8 +27,13 @@ interface CatalogoLootBoss {
   pool: EntradaLootBoss[];
 }
 
+interface CatalogoLootTematico {
+  [tema: string]: { armas: string[]; armaduras: string[] };
+}
+
 let cache: CatalogoLootBoss | null = null;
 let cacheNormal: CatalogoLootBoss | null = null;
+let cacheTematico: CatalogoLootTematico | null = null;
 
 export function cargarCatalogoLootBoss(): CatalogoLootBoss {
   if (!cache) cache = JSON.parse(fs.readFileSync(RUTA_CATALOGO, "utf8")) as CatalogoLootBoss;
@@ -40,6 +46,19 @@ export function cargarCatalogoLootNormal(): CatalogoLootBoss {
   return cacheNormal;
 }
 
+/** docs/GDD_Combate.md §11ter — arma/armadura temática por `temasEnemigo`, complemento del pool genérico de boss. */
+export function cargarCatalogoLootTematico(): CatalogoLootTematico {
+  if (!cacheTematico) cacheTematico = JSON.parse(fs.readFileSync(RUTA_CATALOGO_TEMATICO, "utf8")) as CatalogoLootTematico;
+  return cacheTematico;
+}
+
+// Probabilidad de que, ADEMÁS de los numDropsMin-numDropsMax genéricos de
+// siempre, un boss con tema conocido suelte una pieza temática suya (arma o
+// armadura, mitad y mitad) — nunca sustituye al pool genérico, solo lo
+// complementa; nunca se aplica a enemigos normales (generarLootNormal jamás
+// pasa `temas`, respeta el "nunca equipo real" ya documentado ahí).
+const PROB_LOOT_TEMATICO = 0.5;
+
 /**
  * Tira entre numDropsMin y numDropsMax artículos ponderados del pool, sin
  * repetir el mismo itemId dos veces en la misma muerte (evita cadáveres
@@ -50,7 +69,11 @@ export function generarLootNormal(catalogo: CatalogoLootBoss = cargarCatalogoLoo
   return generarLootBoss(catalogo);
 }
 
-export function generarLootBoss(catalogo: CatalogoLootBoss = cargarCatalogoLootBoss()): { itemId: string; cantidad: number }[] {
+/** `temas` (opcional, docs/GDD_Combate.md §11ter): `temasEnemigo` del boss que murió — si alguno tiene entrada en catalogoLootTematico.json, hay una probabilidad extra (PROB_LOOT_TEMATICO) de sumar UNA pieza temática (arma o armadura) al loot genérico de siempre. Nunca la pasa `generarLootNormal` (sigue sin equipo real para enemigos normales). */
+export function generarLootBoss(
+  catalogo: CatalogoLootBoss = cargarCatalogoLootBoss(),
+  temas: string[] = [],
+): { itemId: string; cantidad: number }[] {
   const numDrops = catalogo.numDropsMin + Math.floor(Math.random() * (catalogo.numDropsMax - catalogo.numDropsMin + 1));
   const disponibles = [...catalogo.pool];
   const elegidos: { itemId: string; cantidad: number }[] = [];
@@ -65,6 +88,17 @@ export function generarLootBoss(catalogo: CatalogoLootBoss = cargarCatalogoLootB
     const entrada = disponibles.splice(idx, 1)[0];
     const cantidad = entrada.cantidadMin + Math.floor(Math.random() * (entrada.cantidadMax - entrada.cantidadMin + 1));
     elegidos.push({ itemId: entrada.itemId, cantidad });
+  }
+
+  const tematico = cargarCatalogoLootTematico();
+  for (const tema of temas) {
+    const entrada = tematico[tema];
+    if (!entrada) continue;
+    if (Math.random() < PROB_LOOT_TEMATICO) {
+      const pool = [...entrada.armas, ...entrada.armaduras];
+      if (pool.length > 0) elegidos.push({ itemId: pool[Math.floor(Math.random() * pool.length)], cantidad: 1 });
+    }
+    break; // solo el primer tema con entrada conocida (guardian_arcano es cultista+no_muerto — un único bonus, no dos)
   }
   return elegidos;
 }

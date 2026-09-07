@@ -3,8 +3,8 @@
 // solo bosses humanoides no animales"). Lógica PURA, sin BD ni Colyseus.
 import { test } from "node:test";
 import * as assert from "node:assert";
-import { generarLootBoss, cargarCatalogoLootBoss } from "../src/mundo/lootProcedural";
-import { esEnemigoHumanoide } from "../src/mundo/catalogoEnemigos";
+import { generarLootBoss, cargarCatalogoLootBoss, cargarCatalogoLootTematico } from "../src/mundo/lootProcedural";
+import { esEnemigoHumanoide, temasDeEnemigo } from "../src/mundo/catalogoEnemigos";
 import { cargarCatalogoItems } from "../src/inventario/inventario";
 
 const catalogo = cargarCatalogoLootBoss();
@@ -41,4 +41,54 @@ test("esEnemigoHumanoide: true para un enemigo npc (bandido/goblin/orco...), fal
   assert.strictEqual(esEnemigoHumanoide("lobo_alfa"), false, "boss animal — excluido a propósito");
   assert.strictEqual(esEnemigoHumanoide("reina_arana"), false, "boss animal — excluido a propósito");
   assert.strictEqual(esEnemigoHumanoide("esto_no_existe"), false);
+});
+
+// docs/GDD_Combate.md §11ter (2026-09-07, pedido streamer: "sus armaduras y
+// armas... pero con la tematica del enemigo") — loot temático de boss,
+// complemento del pool genérico de arriba.
+const tematico = cargarCatalogoLootTematico();
+
+test("cargarCatalogoLootTematico: los 7 temas tienen exactamente 1 arma + 1 armadura, todas existen de verdad en items.json", () => {
+  const temasEsperados = ["goblin", "trasgo", "no_muerto", "bandido", "orco", "cultista", "pirata"];
+  for (const tema of temasEsperados) {
+    const entrada = tematico[tema];
+    assert.ok(entrada, `falta el tema ${tema}`);
+    assert.strictEqual(entrada.armas.length, 1, `${tema}: se esperaba 1 arma`);
+    assert.strictEqual(entrada.armaduras.length, 1, `${tema}: se esperaba 1 armadura`);
+    for (const itemId of [...entrada.armas, ...entrada.armaduras]) {
+      assert.ok(itemId in catalogoItems, `${tema}: ${itemId} no está en items.json`);
+    }
+  }
+});
+
+test("generarLootBoss: sin `temas`, nunca cuela loot temático (retrocompatible con las llamadas de siempre)", () => {
+  for (let i = 0; i < 200; i++) {
+    const loot = generarLootBoss(catalogo);
+    assert.ok(!loot.some((l) => l.itemId.endsWith("_goblin") || l.itemId.endsWith("_orco")), "loot temático sin pedirlo");
+  }
+});
+
+test("generarLootBoss: con un tema desconocido, se comporta igual que sin tema (no revienta, nunca añade nada)", () => {
+  for (let i = 0; i < 50; i++) {
+    const loot = generarLootBoss(catalogo, ["tema_que_no_existe"]);
+    assert.ok(loot.length <= catalogo.numDropsMax);
+  }
+});
+
+test("generarLootBoss: con un tema real, en un número suficiente de tiradas cae AL MENOS UNA VEZ el arma o la armadura de ESE tema (probabilístico, no cada vez)", () => {
+  const piezasGoblin = new Set(tematico.goblin.armas.concat(tematico.goblin.armaduras));
+  let vecesConTematico = 0;
+  const N = 300;
+  for (let i = 0; i < N; i++) {
+    const loot = generarLootBoss(catalogo, ["goblin"]);
+    if (loot.some((l) => piezasGoblin.has(l.itemId))) vecesConTematico++;
+  }
+  assert.ok(vecesConTematico > 0, "en 300 tiradas con tema goblin, nunca cayó su pieza temática");
+  assert.ok(vecesConTematico < N, "en 300 tiradas con tema goblin, SIEMPRE cayó — debería ser probabilístico, no garantizado");
+});
+
+test("temasDeEnemigo: devuelve los temasEnemigo reales del catálogo, array vacío si no existe", () => {
+  assert.deepStrictEqual(temasDeEnemigo("jefe_goblin_grande"), ["goblin"]);
+  assert.deepStrictEqual(temasDeEnemigo("guardian_arcano"), ["cultista", "no_muerto"]);
+  assert.deepStrictEqual(temasDeEnemigo("esto_no_existe"), []);
 });

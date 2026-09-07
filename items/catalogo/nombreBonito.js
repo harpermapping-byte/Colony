@@ -80,6 +80,13 @@ const EXCEPCIONES_FRASE = {
   botas_cuero_humilde: "Botas de Cuero Humildes",
   botas_altas_modesta: "Botas Altas Modestas",
   botas_finas_noble: "Botas Finas Nobles",
+  // Armas/armaduras temáticas de enemigo (2026-09-07, pedido streamer:
+  // "sus armaduras y armas... con la temática del enemigo") — "no_muerto"
+  // es un compuesto de dos palabras (no + muerto) que la regla genérica de
+  // sustantivo+sustantivo trocea mal ("de No de Muerto"); fijado a mano
+  // aquí, mismo criterio que el resto de EXCEPCIONES_FRASE.
+  espada_herrumbrosa_no_muerto: "Espada Herrumbrosa de No Muerto",
+  coraza_huesos_no_muerto: "Coraza de Huesos de No Muerto",
 };
 
 // ---- Excepciones de UNA palabra (ñ, hiatos, esdrújulas irregulares que las reglas de sufijo no cubren) ----
@@ -186,6 +193,7 @@ const ADJETIVOS = new Set([
   "motriz", "heraldico", "maritimas", "metrico", "navales", "alquimico",
   "ajustable", "ajustables", "fijo", "fija", "fijos", "fijas",
   "agropecuario", "agropecuaria", "dulce", "dulces",
+  "protectora", "protector", "ritual", "rituales",
 ]);
 
 // Sustantivos que terminan en -ado/-ada por casualidad (NO son participio-
@@ -200,7 +208,7 @@ const SUSTANTIVOS_TERMINADOS_EN_ADO = new Set([
 
 // Mismo caso que arriba pero para "-ido/-idos": son sustantivos completos
 // (el embutido, la comida), no el participio de un verbo.
-const SUSTANTIVOS_TERMINADOS_EN_IDO = new Set(["embutido", "embutidos"]);
+const SUSTANTIVOS_TERMINADOS_EN_IDO = new Set(["embutido", "embutidos", "bandido", "bandidos"]);
 
 // Terminaciones de participio: adjetivo (va pegado, nunca "de" delante) —
 // SALVO que la palabra completa sea uno de los sustantivos de arriba.
