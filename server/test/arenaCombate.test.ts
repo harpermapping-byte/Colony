@@ -113,6 +113,35 @@ test("jugarTurnoIA: al perseguir, NUNCA termina el movimiento en la MISMA casill
   assert.strictEqual(objetivo.hp, 50, "no llegó a atacar este turno, solo se acercó");
 });
 
+test("jugarTurnoIA: respeta el coste real por casilla (terreno difícil/agua), igual que costeCasilla del jugador (bug real corregido 2026-09-07, GDD_Combate.md §11octies)", () => {
+  // Las 3 casillas hacia el objetivo cuestan 2 PA cada una (agua/difícil) —
+  // SIN el fix, el bucle contaba "pasos" (1 paso = 1 PA), así que con
+  // pa=6 habría cruzado las 3 casillas igual que en terreno normal. Con el
+  // fix, a 2 PA/casilla solo le alcanza para 3 casillas exactas (6/2=3).
+  // El coste se paga al ENTRAR en una casilla — partiendo de gx=0 nunca se
+  // "entra" en gx=0, así que las 3 casillas difíciles a marcar son las que
+  // de verdad se cruzan de camino a b: gx=1,2,3.
+  const ancho = 8, alto = 8;
+  const costes = new Uint8Array(ancho * alto).fill(1);
+  for (let gx = 1; gx <= 3; gx++) costes[0 * ancho + gx] = 2;
+  const arena: Arena = { ancho, alto, obstaculos: new Uint8Array(ancho * alto), costes };
+  const a = unidad({ id: "a", bando: "A", gx: 0, gy: 0, alcance: 1, pa: 6, paMax: 6 });
+  const b = unidad({ id: "b", bando: "B", gx: 5, gy: 0 });
+  const resultado = jugarTurnoIA("a", [a, b], arena);
+  const actualizada = resultado.find((u) => u.id === "a")!;
+  assert.strictEqual(actualizada.gx, 3, "con 6 PA a 2 PA/casilla solo cruza 3 casillas de terreno difícil");
+  assert.strictEqual(actualizada.pa, 0, "el PA gastado de verdad (3 casillas × 2) se refleja en pa, no queda intacto");
+});
+
+test("jugarTurnoIA: en terreno normal (coste 1) el PA gastado también se refleja en el resultado", () => {
+  const a = unidad({ id: "a", bando: "A", gx: 0, gy: 0, alcance: 1, pa: 2 });
+  const b = unidad({ id: "b", bando: "B", gx: 5, gy: 0 });
+  const resultado = jugarTurnoIA("a", [a, b], arenaAbierta());
+  const actualizada = resultado.find((u) => u.id === "a")!;
+  assert.strictEqual(actualizada.gx, 2);
+  assert.strictEqual(actualizada.pa, 0, "gastó todo su PA en moverse 2 casillas a 1 PA/casilla");
+});
+
 test("jugarTurnoIA: no hace nada si la unidad ya cayó, o si no queda enemigo vivo", () => {
   const caida = unidad({ id: "a", bando: "A", estado: "caido" });
   const b = unidad({ id: "b", bando: "B", gx: 1, gy: 0 });

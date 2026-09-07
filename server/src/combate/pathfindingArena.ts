@@ -44,8 +44,16 @@ const VECINOS_8 = [
   [-1, 1], [0, 1], [1, 1],
 ];
 
-/** Coste en PA de ENTRAR en `destino` (1 por defecto, o lo que diga `arena.costes` — pedido streamer: "2 PA si la casilla es terreno difícil/agua"). */
-function costeDeEntrar(arena: Arena, destino: Casilla): number {
+/**
+ * Coste en PA de ENTRAR en `destino` (1 por defecto, o lo que diga
+ * `arena.costes` — pedido streamer: "2 PA si la casilla es terreno
+ * difícil/agua"). Exportada (2026-09-07, GDD_Combate.md §11octies) para que
+ * `jugarTurnoIA` consulte el MISMO coste real por casilla que ya usa
+ * `costeCasilla`/`manejarCombateMover` — antes la IA se movía tratando
+ * `pa` como un contador de casillas literal (1 paso = 1 PA siempre),
+ * ignorando terreno difícil/agua por completo.
+ */
+export function costeDeEntrar(arena: Arena, destino: Casilla): number {
   if (!arena.costes) return 1;
   const c = arena.costes[destino.gy * arena.ancho + destino.gx];
   return c > 0 ? c : 1;

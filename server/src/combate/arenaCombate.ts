@@ -14,7 +14,7 @@
  *      animal, NPC vs NPC): `simularCombateAutomatico` resuelve el
  *      encuentro entero de una sentada, sin esperar a nadie.
  */
-import { Arena, Casilla, distanciaChebyshev, esObstaculo, pasoHacia } from "./pathfindingArena";
+import { Arena, Casilla, costeDeEntrar, distanciaChebyshev, esObstaculo, pasoHacia } from "./pathfindingArena";
 import { aplicarDanio, calcularDanio, estaMuerto } from "./combate";
 import { CatalogoItems, SlotsEquipo } from "../inventario/inventario";
 
@@ -319,14 +319,27 @@ export function jugarTurnoIA(idUnidad: string, unidades: UnidadCombate[], arena:
   for (const otra of unidades) {
     if (otra.id !== u.id && otra.estado === "activo") ocupadas.add(`${otra.gx},${otra.gy}`);
   }
+  // Bug real corregido 2026-09-07 (GDD_Combate.md §11octies): este bucle
+  // trataba `u.pa` como un contador de CASILLAS (1 paso = 1 PA siempre),
+  // sin consultar `arena.costes` — a diferencia de `costeCasilla` (la que
+  // usa `manejarCombateMover` para el jugador), que sí descuenta el coste
+  // real por casilla (2 PA en agua/terreno difícil). Con eso, un enemigo
+  // podía cruzar terreno difícil el DOBLE de lejos que un jugador con el
+  // mismo PA. Ahora acumula coste real y para en cuanto el siguiente paso
+  // no le alcanza — y el PA gastado de verdad se refleja en `pa` devuelto,
+  // igual que hace `manejarCombateMover` con `cu.pa -= coste`.
   let pos: Casilla = { gx: u.gx, gy: u.gy };
-  for (let paso = 0; paso < u.pa; paso++) {
+  let paRestante = u.pa;
+  while (paRestante > 0) {
     const siguiente = pasoHacia(arena, pos, { gx: objetivo.gx, gy: objetivo.gy }, ocupadas);
     if (siguiente.gx === pos.gx && siguiente.gy === pos.gy) break; // atrapado
+    const coste = costeDeEntrar(arena, siguiente);
+    if (coste > paRestante) break; // este paso ya no le alcanza con el PA que le queda
+    paRestante -= coste;
     pos = siguiente;
   }
   const movio = pos.gx !== u.gx || pos.gy !== u.gy;
-  return unidades.map((x) => (x.id === u.id ? { ...x, gx: pos.gx, gy: pos.gy, movioEsteTurno: movio || x.movioEsteTurno } : x));
+  return unidades.map((x) => (x.id === u.id ? { ...x, gx: pos.gx, gy: pos.gy, pa: paRestante, movioEsteTurno: movio || x.movioEsteTurno } : x));
 }
 
 export interface ResultadoCombateAutomatico {
@@ -365,6 +378,16 @@ export function simularCombateAutomatico(
     if (!quedanA) return { unidades, bandoGanador: "B", turnos: turno };
     if (!quedanB) return { unidades, bandoGanador: "A", turnos: turno };
 
+    // Recarga el PA al máximo al empezar la ronda — mismo criterio que
+    // `avanzarTurno` (RoomExteriorBase.ts) en el combate interactivo, cada
+    // unidad recupera pa=paMax al iniciar su vuelta. Bug real descubierto
+    // al cerrar §11octies (coste real por casilla en jugarTurnoIA): esta
+    // función NUNCA reseteaba pa entre rondas, así que dependía en
+    // silencio de que jugarTurnoIA jamás decrementara pa (movimiento
+    // "gratis" indefinido) — en cuanto jugarTurnoIA empezó a descontar el
+    // PA gastado de verdad, una unidad podía agotarlo en la ronda 1 y
+    // quedarse inmóvil el resto de la simulación entera.
+    unidades = unidades.map((u) => (u.estado === "activo" ? { ...u, pa: u.paMax } : u));
     const orden = ordenarTurnos(unidades.filter((u) => u.estado === "activo"));
     for (const id of orden) {
       // `rnd` del parámetro, NO el default de jugarTurnoIA — bug real: antes
