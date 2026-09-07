@@ -1087,6 +1087,13 @@
       "probFamilia": 0.5
     },
     {
+      "npc": "cocinero",
+      "cantidad": [
+        0,
+        1
+      ]
+    },
+    {
       "npc": "vagabundo",
       "cantidad": [
         1,
@@ -1198,5 +1205,37 @@
         3
       ]
     }
+  ],
+  "capital_jarl": [
+    { "npc": "aldeano", "cantidad": [24, 39], "familia": true, "probFamilia": 0.6 },
+    { "npc": "herrero", "cantidad": [5, 8], "familia": true, "probFamilia": 0.5 },
+    { "npc": "guardia", "cantidad": [15, 24] },
+    { "npc": "anciano_sabio", "cantidad": [3, 5] },
+    { "npc": "sacerdote", "cantidad": [2, 3] },
+    { "npc": "tabernero", "cantidad": [3, 5], "familia": true, "probFamilia": 0.4 },
+    { "npc": "tendero", "cantidad": [3, 6], "familia": true, "probFamilia": 0.5 },
+    { "npc": "panadero", "cantidad": [3, 5], "familia": true, "probFamilia": 0.5 },
+    { "npc": "sastre", "cantidad": [3, 5], "familia": true, "probFamilia": 0.5 },
+    { "npc": "joyero", "cantidad": [2, 5], "familia": true, "probFamilia": 0.5 },
+    { "npc": "curtidor", "cantidad": [2, 5], "familia": true, "probFamilia": 0.5 },
+    { "npc": "alfarero", "cantidad": [2, 5], "familia": true, "probFamilia": 0.5 },
+    { "npc": "carpintero", "cantidad": [0, 1], "familia": true, "probFamilia": 0.5 },
+    { "npc": "cocinero", "cantidad": [0, 1] },
+    { "npc": "vagabundo", "cantidad": [2, 5] },
+    { "npc": "pregonero", "cantidad": [2, 3] },
+    { "npc": "vendedor_melones", "cantidad": [2, 3] },
+    { "npc": "borracho", "cantidad": [2, 3] },
+    { "npc": "chismosa", "cantidad": [2, 3] },
+    { "npc": "bardo_malo", "cantidad": [0, 3] },
+    { "npc": "profeta", "cantidad": [0, 1] },
+    { "npc": "recaudador", "cantidad": [1, 1] },
+    { "npc": "duelista_jubilado", "cantidad": [0, 1] },
+    { "npc": "vendedora_amuletos", "cantidad": [0, 3] },
+    { "npc": "nino_perdido", "cantidad": [2, 5] },
+    { "npc": "pescador_mentiroso", "cantidad": [0, 1] },
+    { "npc": "sepulturero", "cantidad": [1, 1] },
+    { "npc": "mimo", "cantidad": [0, 3] },
+    { "npc": "coleccionista_gallinas", "cantidad": [0, 1] },
+    { "npc": "corredor", "cantidad": [2, 5] }
   ]
 }

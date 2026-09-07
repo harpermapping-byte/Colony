@@ -24,7 +24,7 @@
   "peletero": ["peleteria"],
   "vidriero": ["vidrieria"],
   "fletcher": ["taller_arquero"],
-  "cocinero": ["cocina_comunal"],
+  "cocinero": ["cocina_comunal", "destileria"],
   "carnicero": ["carniceria"],
   "carpintero_ribera": ["astillero"],
   "cazador": ["cabana_cazador"],
