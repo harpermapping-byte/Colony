@@ -80,6 +80,16 @@ test("armas cuerpo a cuerpo: alcance corto (1-2), las de distancia llegan mucho 
   assert.ok(catalogo["ballesta"].alcance! > catalogo["honda"].alcance!);
 });
 
+test("armas a distancia: alcance calibrado a 2-4 casillas por tier (docs/GDD_Combate.md §11septies, pedido streamer) — valores EXACTOS, no solo el orden, para que una regresión de datos no pase desapercibida otra vez (encontrada así el 2026-09-08: la recalibración se había documentado como hecha pero nunca llegó a items.json)", () => {
+  assert.strictEqual(catalogo["honda"].alcance, 2, "tier0");
+  assert.strictEqual(catalogo["arco_corto"].alcance, 3, "tier1");
+  assert.strictEqual(catalogo["arco_corto_bonificado"].alcance, 3, "tier1 bonificado");
+  assert.strictEqual(catalogo["arco_largo"].alcance, 4, "tier2");
+  assert.strictEqual(catalogo["arco_largo_bonificado"].alcance, 4, "tier2 bonificado");
+  assert.strictEqual(catalogo["ballesta"].alcance, 4, "tier2");
+  assert.strictEqual(catalogo["ballesta_bonificada"].alcance, 4, "tier2 bonificado");
+});
+
 test("todo ítem del catálogo tiene huella/peso/colorDebug válidos", () => {
   for (const [id, e] of Object.entries(catalogo)) {
     assert.ok(Array.isArray(e.huella) && e.huella.length === 2 && e.huella[0] > 0 && e.huella[1] > 0, `${id}: huella inválida`);

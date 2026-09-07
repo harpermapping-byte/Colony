@@ -341,6 +341,15 @@ export class Npc extends Schema {
   // cual — nunca se genera ropa nueva para NPCs, se reusa el pipeline del jugador.
   @type("string") tipoTutorial = "";
   @type({ map: "string" }) equipo = new MapSchema<string>();
+  // Aspecto propio (docs/GDD_Faccion_Bandidos.md §7ter, pedido streamer
+  // 2026-09-08: "patrullas bandidas siguen con rig plano genérico") —
+  // MISMOS dos campos que `Enemigo`, mismo contrato de cliente
+  // (`assets/enemigos/pool.json`): "" = sin archetipo asignado, el
+  // cliente cae al rig genérico de siempre (`voxPorSlot` de poblacion.json
+  // primero, luego este; comportamiento IDÉNTICO al de antes para
+  // cualquier Npc civil normal, que nunca rellena esto).
+  @type("string") enemigoId = "";
+  @type("number") variante = 0;
 }
 
 // Enemigo activo de una mazmorra (docs/GDD_Bakeador_Dungeons.md §4) — el bake

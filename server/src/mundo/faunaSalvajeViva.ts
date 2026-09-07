@@ -38,6 +38,16 @@ const RADIO_HUIDA_DEFECTO = 4; // casillas — especie sin `radioHuida` propio e
 const RADIO_VISION_DEFECTO = 8; // casillas — especie sin `radioVision` propio; SIEMPRE > RADIO_HUIDA_DEFECTO
 const RADIO_CAPTURA = 1.5; // casillas — a esta distancia del cazador, la caza activa se resuelve (mismo orden de magnitud que RADIO_INTERACCION del resto del proyecto)
 
+// --- Depredador cazando presa por su cuenta (pedido streamer 2026-09-08:
+// "los depredadores no cazan presas por su cuenta, un lobo no persigue un
+// conejo solo") — mismo mecanismo persecución/captura que la caza del
+// jugador (iniciarCaza/RADIO_CAPTURA), solo que aquí el "cazador" es otro
+// animal `peligroso` con `dieta:"carnivoro"`, detectado y resuelto solo
+// (nadie tiene que hacer click). Radio de detección igual al de visión de
+// vigía por defecto — un depredador "ve" tan lejos como cualquier presa
+// vigilante ve venir a un jugador, mismo orden de magnitud.
+const RADIO_DETECCION_DEPREDADOR = 8;
+
 /** Puede huir = no peligrosa (esas atacan, no huyen — verificarAgroFauna) y no domesticable (una mascota/ganado candidato hay que poder acercarse a alimentar, no que salga corriendo). Sin `combate` (especie sin catálogo) se asume que NO puede huir — mismo criterio conservador que el resto de catálogos opcionales. */
 function puedeHuir(combate: EstadisticasCombateAnimal | undefined): boolean {
   return !!combate && !combate.peligroso && !combate.domesticable;
@@ -127,6 +137,8 @@ export class GestorFaunaSalvaje {
   private sectoresActivos = new Map<string, IndividuoVivo[]>();
   /** faunaId -> sessionId del jugador que la está cazando activamente (docs/GDD_Caza.md §huida, "click sobre el animal y cazar"). */
   private cazasActivas = new Map<string, string>();
+  /** faunaId del depredador -> faunaId de la presa que está persiguiendo por su cuenta (ver RADIO_DETECCION_DEPREDADOR). */
+  private caceriasAnimales = new Map<string, string>();
 
   constructor(
     private salida: MapSchema<Fauna>,
@@ -212,6 +224,7 @@ export class GestorFaunaSalvaje {
       await this.deps.guardarIndividuo(v.fila);
       this.salida.delete(v.fila.id);
       this.cazasActivas.delete(v.fila.id); // una caza activa no sobrevive a que su sector se desactive
+      this.caceriasAnimales.delete(v.fila.id); // igual para una cacería animal-vs-animal en curso
     }
     this.sectoresActivos.delete(k);
   }
@@ -243,6 +256,7 @@ export class GestorFaunaSalvaje {
       await this.deps.guardarIndividuo(v.fila);
       this.salida.delete(v.fila.id);
       this.cazasActivas.delete(v.fila.id);
+      this.caceriasAnimales.delete(v.fila.id);
       vivos.splice(idx, 1);
 
       const cadaver = crearCadaver({
@@ -314,6 +328,7 @@ export class GestorFaunaSalvaje {
       await this.deps.guardarIndividuo(v.fila);
       this.salida.delete(v.fila.id);
       this.cazasActivas.delete(v.fila.id);
+      this.caceriasAnimales.delete(v.fila.id);
       vivos.splice(idx, 1);
       return v.fila.especieId;
     }
@@ -428,9 +443,13 @@ export class GestorFaunaSalvaje {
    * se detecta y se limpia `cazasActivas` (síncrono, sin ventana de doble
    * captura aunque `onFaunaMuerta` tarde un tick de más en resolver).
    */
-  tick(dt: number, jugadores: Map<string, { x: number; y: number }> = new Map()): { faunaId: string; sessionId: string }[] {
+  tick(
+    dt: number,
+    jugadores: Map<string, { x: number; y: number }> = new Map(),
+  ): { atrapados: { faunaId: string; sessionId: string }[]; cacerias: { depredadorId: string; presaId: string }[] } {
     const ahora = this.deps.ahora();
     const atrapados: { faunaId: string; sessionId: string }[] = [];
+    const cacerias: { depredadorId: string; presaId: string }[] = [];
     for (const vivos of this.sectoresActivos.values()) {
       for (const v of vivos) {
         const combate = this.deps.catalogoCombate?.[v.fila.especieId];
@@ -451,6 +470,43 @@ export class GestorFaunaSalvaje {
               continue;
             }
             this.huirDe(v, cazador, dt, combate);
+            continue;
+          }
+        }
+
+        // Depredador cazando presa por su cuenta (ver RADIO_DETECCION_DEPREDADOR
+        // arriba) — solo especies `peligroso` con `dieta:"carnivoro"` en el
+        // catálogo de reproducción. Prioridad justo debajo de la caza del
+        // jugador (que manda si coincide en la misma presa) y por encima
+        // del resto: un depredador nunca "vigila/huye" (puedeHuir ya lo
+        // excluye), así que esto ocupa exactamente el hueco que dejaba libre.
+        const especieDepredador = this.deps.catalogo[v.fila.especieId];
+        if (combate?.peligroso && especieDepredador?.dieta === "carnivoro") {
+          let presaId = this.caceriasAnimales.get(v.fila.id);
+          let presa = presaId ? this.individuoActivoPorId(presaId) : undefined;
+          if (presaId && !presa) {
+            this.caceriasAnimales.delete(v.fila.id); // la presa ya murió/se desactivó su sector: se cancela sola
+            presaId = undefined;
+          }
+          if (!presaId) {
+            // Sin presa asignada todavía: busca la más cercana dentro del
+            // radio de detección y, si encuentra una, la persigue YA en
+            // este mismo tick (no hace falta esperar al siguiente).
+            const objetivo = this.presaMasCercana(v);
+            if (objetivo && objetivo.d <= RADIO_DETECCION_DEPREDADOR) {
+              presaId = objetivo.v.fila.id;
+              presa = objetivo.v;
+              this.caceriasAnimales.set(v.fila.id, presaId);
+            }
+          }
+          if (presa) {
+            const dist = Math.hypot(presa.esquema.x - v.esquema.x, presa.esquema.y - v.esquema.y);
+            if (dist <= RADIO_CAPTURA) {
+              this.caceriasAnimales.delete(v.fila.id);
+              cacerias.push({ depredadorId: v.fila.id, presaId: presaId! });
+              continue;
+            }
+            this.perseguirA(v, presa.esquema, dt, combate);
             continue;
           }
         }
@@ -516,7 +572,7 @@ export class GestorFaunaSalvaje {
         }
       }
     }
-    return atrapados;
+    return { atrapados, cacerias };
   }
 
   /** Jugador vivo más cercano a una posición, o `null` si `jugadores` está vacío (mismo criterio simple que `verificarAgroFauna` del lado servidor: sin ponderar visibilidad/línea de visión, solo distancia recta). */
@@ -561,6 +617,59 @@ export class GestorFaunaSalvaje {
     }
     // Acorralado: ningún ángulo probado es transitable, se queda quieto este tick.
     v.esquema.accion = "alerta";
+  }
+
+  /**
+   * Acerca a `v` hacia `objetivo` (mismo esqueleto que `huirDe`, sentido
+   * contrario) — usado por el depredador persiguiendo presa. Sin
+   * pathfinding, mismos ángulos de desvío si el paso directo choca.
+   */
+  private perseguirA(v: IndividuoVivo, objetivo: { x: number; y: number }, dt: number, combate: EstadisticasCombateAnimal | undefined): void {
+    v.destino = null;
+    v.objetivoDestino = null;
+    const vel = combate?.velocidad ?? VEL;
+    const paso = vel * dt;
+    const dx = objetivo.x - v.esquema.x;
+    const dy = objetivo.y - v.esquema.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const anguloBase = Math.atan2(dy / dist, dx / dist);
+    for (const desvio of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) {
+      const ang = anguloBase + desvio;
+      const nx = v.esquema.x + Math.cos(ang) * paso;
+      const ny = v.esquema.y + Math.sin(ang) * paso;
+      if (this.transitable(nx, ny)) {
+        v.esquema.x = nx;
+        v.esquema.y = ny;
+        v.esquema.accion = "caminar";
+        v.pausaRestante = 0;
+        return;
+      }
+    }
+    v.esquema.accion = "alerta"; // acorralado: ningún ángulo transitable, se queda quieto este tick
+  }
+
+  /** Busca un individuo activo (cualquier sector) por id — usado para resolver a quién persigue un depredador. `undefined` si ya no está activo (murió, se domesticó, o su sector se desactivó). */
+  private individuoActivoPorId(id: string): IndividuoVivo | undefined {
+    for (const vivos of this.sectoresActivos.values()) {
+      const v = vivos.find((x) => x.fila.id === id);
+      if (v) return v;
+    }
+    return undefined;
+  }
+
+  /** Presa más cercana a `v` entre todos los sectores activos — especie distinta o igual da igual, solo importa que `puedeHuir` (no peligrosa, no domesticable) sea real para ella. `null` si no hay ninguna. */
+  private presaMasCercana(v: IndividuoVivo): { v: IndividuoVivo; d: number } | null {
+    let mejor: { v: IndividuoVivo; d: number } | null = null;
+    for (const vivos of this.sectoresActivos.values()) {
+      for (const otro of vivos) {
+        if (otro === v) continue;
+        const combatePresa = this.deps.catalogoCombate?.[otro.fila.especieId];
+        if (!puedeHuir(combatePresa)) continue;
+        const d = Math.hypot(otro.esquema.x - v.esquema.x, otro.esquema.y - v.esquema.y);
+        if (!mejor || d < mejor.d) mejor = { v: otro, d };
+      }
+    }
+    return mejor;
   }
 
   /** Centroide de vecinos ACTIVOS de la misma especie dentro de RADIO_MANADA (busca en todos los sectores activos, no solo el propio — un grupo puede repartirse entre sectores vecinos). `null` si no hay ninguno cerca. */

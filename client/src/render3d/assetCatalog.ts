@@ -15,7 +15,13 @@
  * generen sus equivalentes en 3D.
  */
 
-export type CategoriaAsset = "vegetacion" | "animales" | "rocas" | "interiores" | "personajes" | "edificios";
+// "herramientas"/"armas" (2026-09-08, pedido streamer: "las herramientas y
+// armas equipadas siguen siendo una caja coloreada, el vóxel real ya
+// existe pero nadie lo consume") — mismo árbol/convención, generados por
+// `taller-vox/generar_herramientas.js`+`generar_armas.js` (clave = id de
+// `items/catalogo/items.json`, NO el `prendaId` coarse que usa la caja
+// placeholder) + `exportar_lote.js`.
+export type CategoriaAsset = "vegetacion" | "animales" | "rocas" | "interiores" | "personajes" | "edificios" | "herramientas" | "armas";
 
 // "terrenos"/"materiales": texturas 2D tileables (docs/GDD_Bakeador_Texturas.md),
 // no modelos — mismo árbol assets/<categoria>/<id>_<NN>.png, pero resueltas

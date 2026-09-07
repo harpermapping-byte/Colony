@@ -749,19 +749,17 @@ Pedido streamer: "fauna 'población infinita' (insectos) no genera nada — prob
 
 Mismo pedido que la deforestación de `docs/GDD_Bosques.md` §10: el apareamiento (paso 4 de `resolverSector`) solo busca pareja DENTRO del mismo sector activo (`buscarPareja`, radio `RADIO_APAREAMIENTO=6`) — si se caza toda una especie reproductora en un sector, o queda un único sexo, esa especie se extingue ahí para siempre; no hay repoblación cruzada desde sectores vecinos ni desde el bake original (los adultos muertos, igual que los árboles talados, se conservan `estado:"muerto"` para siempre, nunca "resucitan"). Confirmado explícitamente que esto se queda TAL CUAL, mismo motivo que los árboles: es la responsabilidad del jugador (cazar sin arrasar una zona) la que hace real el riesgo — un respawn artificial aquí anularía justo el punto. La fauna `poblacionInfinita` de la fase 9 de arriba es la EXCEPCIÓN deliberada (insectos/peces/aves/reptiles pequeños — decorativos, sin drama narrativo si desaparecen y vuelven), no la norma; la fauna reproductora (mamíferos, aves de granja) es la que SÍ debe poder extinguirse localmente.
 
-### Pendiente (fuera de esta pasada)
+### Hecho en la fase 10 (fauna doméstica con hambre/sed+cría fácil, depredadores cazando presa solos, fauna.json de testflat, 2026-09-08)
 
-- **Caza de depredadores con combate y cadáver**: aparcado a propósito —
-  depende de un sistema de combate (vida/daño/ataque) que no existe en
-  ningún sitio del servidor todavía. No es parte de "reproducción", es un
-  prerrequisito mayor aparte. Cuando exista, los carnívoros pasarán a
-  cazar de verdad (hoy solo tienen la ventana de 6 días modelada, sin
-  comportamiento activo).
-- **Domésticos**: persistencia + mecánica de cría "más fácil" —
-  explícitamente dejada para acotar más adelante, no diseñada todavía.
-  La hambre/sed diaria de esta fase 3 tampoco se aplicó a la fauna
-  doméstica urbana (`GestorFauna`/`mundo/fauna.ts`) — solo a la salvaje,
-  que es lo que se pidió esta vez.
+Cierra los 3 pendientes de la fase anterior en la misma pasada (pedido streamer):
+
+- **Fauna doméstica urbana (`GestorFauna`/`mundo/fauna.ts`) gana hambre/sed + reproducción**, reusando las MISMAS reglas puras de `reproduccionFauna.ts` que ya usa la salvaje — SOLO para especies presentes en un `catalogoReproduccion` inyectado (opcional, especie ausente = comportamiento decorativo de siempre, cero regresión). Única diferencia real a propósito: `PROBABILIDAD_APAREAMIENTO_DOMESTICO = 0.85` (vs. el 0.5 salvaje) — "más fácil" porque están acotados en la ciudad, sin depredadores ni competencia por territorio. **Alcance real, explícito**: SIN persistencia todavía (se pierde al reiniciar el servidor) — decisión consciente, no un descuido: es decoración ambiental de ciudad, mucho más barata de dejar en memoria que replicar el mecanismo de sectores/BD de la fauna salvaje; persistirla de verdad queda como ampliación futura si hiciera falta. `RegionRoom` (ya la tenía) y `HubRoom` (nueva, ver bullet siguiente) pasan el catálogo real y tickean `resolverReproduccion()` cada 60s reales, separado del tick de merodeo (200ms).
+- **`fauna.json` de la aldea fusionada en `testflat` (ganado estático), enganchado de verdad**: el gap que dejó la fusión de 2026-09-02 (`testaldea/fauna.json`, 6 animales — perro/gato/gallina_salvaje..., nunca copiado con el offset +80,+0 que sí se aplicó a terreno/edificios/`poblacion.json`) — copiado con el mismo offset (`assets/mapas/testflat/fauna.json` nuevo). **Cambio de código real, no solo datos**: `HubRoom.onCreate` no tenía NINGÚN bloque de fauna doméstica (solo `RegionRoom` la cargaba) — añadido un `GestorFauna` propio para `HubRoom` (campo `gestorFaunaDomestica`, distinto del `gestorFaunaSalvaje` ya existente), mismo patrón try/catch que bosques/fauna salvaje (si falla, el Hub sigue sin fauna doméstica en vez de tumbar la room).
+- **Depredadores cazando presa por su cuenta** (pedido streamer: "los depredadores no cazan presas por su cuenta, un lobo no persigue un conejo solo — cómo hacemos esto fácilmente?") — reusa CASI TODA la infraestructura de persecución/captura que ya existía para la caza del jugador (`iniciarCaza`/`RADIO_CAPTURA`, `docs/GDD_Caza.md` §huida): un individuo `peligroso` con `dieta:"carnivoro"` (del catálogo de reproducción) sin cacería activa busca la presa (`puedeHuir===true`, es decir no peligrosa/no domesticable) más cercana dentro de `RADIO_DETECCION_DEPREDADOR=8`, la persigue con `perseguirA` (mismo esqueleto que `huirDe`, sentido contrario) y la captura al alcanzar `RADIO_CAPTURA`. Mapa nuevo `caceriasAnimales` (`GestorFaunaSalvaje`, separado de `cazasActivas` que es solo jugador→animal), limpiado en los mismos 3 puntos donde ya se limpiaba `cazasActivas` (desactivar sector, morir, domesticar). `tick()` cambia de firma — devolvía un array plano `atrapados[]`, ahora `{atrapados, cacerias}` (todos los call-sites, tests incluidos, actualizados) — `HubRoom` resuelve cada cacería por el mismo camino `onFaunaMuerta` que cualquier fauna muerta, sin mensaje al cliente (nadie lo pidió, a diferencia de `caza:atrapado` del jugador). Verificado con 4 tests nuevos deterministas (`faunaSalvajeViva.test.ts`): persigue de verdad, no persigue fuera de rango, la captura sale en `cacerias` no en `atrapados`, dos presas no se cazan entre sí.
+
+Verificado: `tsc --noEmit` limpio en cliente y servidor, servidor 1252/1252 (10 tests nuevos en `fauna.test.ts` — antes 6, +4 de hambre/sed/reproducción; 4 tests nuevos de depredador en `faunaSalvajeViva.test.ts`, 41→45).
+
+### Pendiente (fuera de esta pasada)
 - **Probar con jugadores reales moviéndose por el mapa principal de
   producción** (esto se verificó con datos reales del mapa demo y con
   dependencias falsas para los caminos de activación/desactivación —

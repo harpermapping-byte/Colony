@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { mallasPorPivote, type VoxelExportado } from "./voxelMalla";
 import { generarPiezaVoxel } from "./generarEquipoVoxel";
 import { generarPrendaVoxel } from "./generarPrendaVoxel";
+import { obtenerPlantilla } from "./entityLoader";
 import equipoJson from "../../../ropa/catalogo/equipo.json";
 import prendasJson from "../../../ropa/catalogo/prendas.json";
 import materialesJson from "../../../interiores/catalogo/materiales.json";
@@ -27,7 +28,7 @@ import itemsJson from "../../../items/catalogo/items.json";
  * verdad"), nunca una copia.
  */
 
-type CatalogoItems = Record<string, { prendaId?: string; slotEquipo?: string }>;
+type CatalogoItems = Record<string, { prendaId?: string; slotEquipo?: string; tipo?: string }>;
 const ITEMS: CatalogoItems = itemsJson as unknown as CatalogoItems;
 const CATALOGOS_ROPA = {
   equipo: equipoJson as Record<string, any>,
@@ -127,6 +128,68 @@ export function voxelesDeEquipo(
   return voxeles;
 }
 
+// Manos (docs/GDD_Motor_3D_Props.md, pedido streamer 2026-09-08: "las
+// herramientas/armas equipadas siguen siendo una caja coloreada, el vóxel
+// real ya existe (taller-vox/generar_herramientas.js+generar_armas.js) pero
+// nadie lo consume") — SOLO estos dos slots (lo que de verdad se ve "en la
+// mano") intentan cargar un `.glb` real por convención de nombre
+// (`assets/herramientas|armas/<itemId>_01.glb`, clave = el id del ítem, NO
+// el `prendaId` coarse que colapsa 60+ ítems a 8 cajas — ver §12bis de
+// GDD_Inventario.md) ANTES de caer a la caja de siempre. Mismo offset/pivote
+// que ya usaba la caja (`POSICION_POR_SLOT` de generarEquipoVoxel.ts,
+// copiado aquí a propósito — mismo límite de sincronía a mano documentado
+// en la cabecera del archivo) — el resto de slots (torso/piernas/cabeza...)
+// NO tiene ningún pipeline de `.glb` todavía, se quedan con la caja tal cual.
+const PIVOTE_MANO: Record<string, string> = { manoPrincipal: "manoDer", manoSecundaria: "manoIzq" };
+const OFFSET_MANO = { x: 0, y: -0.18, z: 0.06 };
+
+/** "herramientas"/"armas" si el ítem tiene `.glb` real posible por su `tipo` de catálogo, `null` si no (cae siempre a la caja). */
+function categoriaRealDeMano(itemId: string): "herramientas" | "armas" | null {
+  const tipo = ITEMS[itemId]?.tipo;
+  if (tipo === "herramienta") return "herramientas";
+  if (tipo === "arma") return "armas";
+  return null;
+}
+
+// Generación actual por rig — incrementada en CADA llamada a
+// `aplicarEquipoAlRig`; la carga async de un `.glb` de mano se descarta si,
+// cuando resuelve, el rig ya pidió una generación más nueva (equipo
+// cambiado de nuevo, o el rig se destruyó) — mismo criterio de guarda de
+// carrera que `renderConstrucciones.ts::sustituirPorModeloRealSiExiste`.
+const generacionPorRig = new WeakMap<THREE.Object3D, number>();
+
+/**
+ * Intenta sustituir la caja de un slot de mano por su `.glb` real — si no
+ * existe (categoría sin pipeline, o pieza sin aprobar/exportar todavía), no
+ * hace nada: la caja síncrona ya puesta por `aplicarEquipoAlRig` se queda.
+ */
+async function intentarPiezaManoReal(rigObjeto: THREE.Object3D, slot: string, itemId: string, generacion: number): Promise<void> {
+  const categoria = categoriaRealDeMano(itemId);
+  if (!categoria) return;
+  const plantilla = await obtenerPlantilla(categoria, itemId, { tipo: "numerada", indice: 0 });
+  if (!plantilla) return; // sin .glb todavía (pieza sin exportar) — caja de siempre, sin error
+  if (generacionPorRig.get(rigObjeto) !== generacion) return; // carrera perdida: el equipo ya cambió de nuevo
+
+  const pivoteNombre = PIVOTE_MANO[slot];
+  const nodo = rigObjeto.getObjectByName(pivoteNombre);
+  if (!nodo) return;
+  // Quita SOLO la caja placeholder de ESTE slot concreto (marcada con el
+  // itemId que la generó) — nunca el resto del equipo, que puede seguir
+  // resolviendo su propia carga real por separado.
+  for (const hijo of [...nodo.children]) {
+    if (hijo.userData?.[ETIQUETA_EQUIPO] && hijo.userData?.slotEquipoMano === slot) {
+      (hijo as THREE.Mesh).geometry?.dispose();
+      hijo.removeFromParent();
+    }
+  }
+  const instancia = plantilla.clone(true);
+  instancia.position.set(OFFSET_MANO.x, OFFSET_MANO.y, OFFSET_MANO.z);
+  instancia.userData[ETIQUETA_EQUIPO] = true;
+  instancia.userData.slotEquipoMano = slot;
+  instancia.userData.esClonReal = true; // NO disponer su geometría al limpiar — es la plantilla cacheada, compartida
+  nodo.add(instancia);
+}
+
 /**
  * Cuelga el equipo (ya generado) del rig — quita primero cualquier malla de
  * equipo previa (mismo pivote o no) para que un cambio de equipo nunca
@@ -138,6 +201,9 @@ export function aplicarEquipoAlRig(
   semilla: string,
   blueprintsPorSlot?: Record<string, BlueprintRopaResuelto>,
 ): void {
+  const generacion = (generacionPorRig.get(rigObjeto) ?? 0) + 1;
+  generacionPorRig.set(rigObjeto, generacion);
+
   rigObjeto.traverse((nodo) => {
     if (!nodo.userData?.[ETIQUETA_EQUIPO]) return;
     // Memory leak real de GPU (encontrado en la auditoría de calidad de
@@ -151,10 +217,42 @@ export function aplicarEquipoAlRig(
     // una única constante de módulo compartida por TODO vóxel del juego
     // (mismo draw call) — a propósito NO se dispone aquí, haría inservible
     // cualquier otra malla de vóxeles todavía en pantalla.
-    (nodo as THREE.Mesh).geometry?.dispose();
+    // Excepción (2026-09-08): un clon de `.glb` real (`esClonReal`) es una
+    // copia de la plantilla cacheada de `entityLoader.ts` — disponer SU
+    // geometría corrompería el caché compartido para el resto de clones.
+    if (!nodo.userData?.esClonReal) (nodo as THREE.Mesh).geometry?.dispose();
     nodo.removeFromParent();
   });
-  const voxeles = voxelesDeEquipo(equipo, semilla, blueprintsPorSlot);
+
+  const entradas: [string, string][] = Symbol.iterator in Object(equipo)
+    ? [...(equipo as Iterable<[string, string]>)]
+    : Object.entries(equipo as Record<string, string>);
+
+  // Slots de mano con categoría real posible: caja síncrona YA (feedback
+  // instantáneo, igual que `renderConstrucciones.ts` con muebles) + intento
+  // async de sustituirla por el `.glb` real cuando resuelva. `mallasPorPivote`
+  // FUSIONA en una única malla todo lo que comparta pivote — "manos"
+  // (guantes), "brazalete" y los dos "anillo*" TAMBIÉN cuelgan de
+  // manoDer/manoIzq (POSICION_POR_SLOT, generarEquipoVoxel.ts) — con
+  // cualquiera de esos puestos a la vez, quitar SOLO la caja del arma para
+  // sustituirla se llevaría por delante su geometría fusionada también. Con
+  // cualquiera de esos slots equipados, esta pasada se queda con la caja de
+  // siempre para AMBAS manos — más seguro que arriesgar corromper el resto
+  // del equipo de esa mano por un caso que además no es el pedido explícito
+  // ("verse en la mano" es sobre todo herramienta/arma sola).
+  const otroSlotEnPivoteMano = entradas.some(([slot, itemId]) => !!itemId && ["manos", "brazalete", "anilloDerecho", "anilloIzquierdo"].includes(slot));
+  const entradasMano = new Map<string, string>();
+  const entradasResto: [string, string][] = [];
+  for (const [slot, itemId] of entradas) {
+    if (!itemId) continue;
+    if (!otroSlotEnPivoteMano && PIVOTE_MANO[slot] && categoriaRealDeMano(itemId)) entradasMano.set(slot, itemId);
+    else entradasResto.push([slot, itemId]);
+  }
+
+  const voxeles = voxelesDeEquipo(entradasResto, semilla, blueprintsPorSlot);
+  for (const [slot, itemId] of entradasMano) {
+    voxeles.push(...voxelesDePieza(itemId, slot, semilla, blueprintsPorSlot?.[slot]));
+  }
   for (const [pivote, malla] of mallasPorPivote(voxeles)) {
     const nodo = rigObjeto.getObjectByName(pivote);
     if (!nodo) {
@@ -162,6 +260,17 @@ export function aplicarEquipoAlRig(
       continue;
     }
     malla.userData[ETIQUETA_EQUIPO] = true;
+    // Marca DE QUÉ slot de mano viene, para que `intentarPiezaManoReal`
+    // pueda quitar solo su propia caja al sustituirla (varias piezas
+    // pueden compartir pivote/malla fusionada — el resto de mallasPorPivote
+    // no toca esto si el slot no es de mano).
+    for (const [slot, itemId] of entradasMano) {
+      if (PIVOTE_MANO[slot] === pivote) malla.userData.slotEquipoMano = slot;
+    }
     nodo.add(malla);
+  }
+
+  for (const [slot, itemId] of entradasMano) {
+    void intentarPiezaManoReal(rigObjeto, slot, itemId, generacion);
   }
 }

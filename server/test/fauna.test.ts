@@ -91,6 +91,82 @@ test("GestorFauna.quitar: false si el id no existe (ya se quitó, o nunca fue un
   assert.strictEqual(gestor.cantidad, 1);
 });
 
+const CATALOGO_REPRODUCCION = {
+  perro: { tamanoReproduccion: "pequeno" as const, poneHuevos: false, dieta: "omnivoro" as const, criaId: "perro" },
+  gallina_domestica: { tamanoReproduccion: "pequeno" as const, poneHuevos: true, dieta: "omnivoro" as const, criaId: "pollito" },
+};
+
+test("GestorFauna: especie SIN catálogo de reproducción — cero comportamiento nuevo (misma pausa/merodeo de siempre)", () => {
+  const mundo = mundoAbierto();
+  const salida = new MapSchema<Fauna>();
+  const gestor = new GestorFauna(salida, mundo, {}, {}, () => 999); // catalogoReproduccion vacío a propósito
+  gestor.iniciar([{ id: "a", especieId: "vaca_salvaje", x: 5, y: 5, radio: 3 }]);
+  for (let i = 0; i < 50; i++) gestor.tick(0.1);
+  gestor.resolverReproduccion(); // no debe explotar ni hacer nada con especies fuera del catálogo
+  assert.strictEqual(gestor.cantidad, 1, "sin reproducción posible, sigue habiendo solo el original");
+});
+
+test("GestorFauna: sed diaria — un adulto con más de 1 día sin beber va derecho al agua más cercana", () => {
+  const mundo = mundoAbierto();
+  // pone una casilla de agua real en (9,9), lejos del spawn (5,5)
+  mundo.casillas[9 * mundo.ancho + 9] = TIPO.AGUA;
+  const salida = new MapSchema<Fauna>();
+  let ahora = 10;
+  const gestor = new GestorFauna(salida, mundo, {}, CATALOGO_REPRODUCCION, () => ahora);
+  gestor.iniciar([{ id: "a", especieId: "perro", x: 5, y: 5, radio: 2 }]);
+  ahora = 12; // más de VENTANA_AGUA_DIAS=1 desde que "nació" ya bebido (ultimaBebida=10)
+  const animal = salida.get("a")!;
+  let fueACaminarHaciaAgua = false;
+  for (let i = 0; i < 300; i++) {
+    gestor.tick(0.1);
+    if (animal.accion === "caminar" && Math.hypot(animal.x - 9.5, animal.y - 9.5) < Math.hypot(5.5 - 9.5, 5.5 - 9.5)) {
+      fueACaminarHaciaAgua = true;
+    }
+  }
+  assert.ok(fueACaminarHaciaAgua, "debería haberse acercado al agua buscando beber");
+});
+
+// rnd totalmente determinista: primeras 2 llamadas fijan sexo opuesto de
+// "m" (macho, 0.1<0.5) y "h" (hembra, 0.9>=0.5) en iniciar(); el resto
+// siempre por debajo de PROBABILIDAD_APAREAMIENTO_DOMESTICO (0.85), así
+// que cualquier intento de apareamiento posterior cuaja siempre.
+function rndFauna(): () => number {
+  const secuencia = [0.1, 0.9];
+  let i = 0;
+  return () => (i < secuencia.length ? secuencia[i++] : 0);
+}
+
+test("GestorFauna.resolverReproduccion: macho+hembra elegibles y cerca, rnd favorable — la hembra queda gestando (perro no pone huevos)", () => {
+  const mundo = mundoAbierto();
+  const salida = new MapSchema<Fauna>();
+  const gestor = new GestorFauna(salida, mundo, {}, CATALOGO_REPRODUCCION, () => 10, rndFauna());
+  gestor.iniciar([
+    { id: "m", especieId: "perro", x: 5, y: 5, radio: 2 },
+    { id: "h", especieId: "perro", x: 5, y: 6, radio: 2 },
+  ]);
+  assert.strictEqual(gestor.estadoReproductivo("m")!.sexo, "macho");
+  assert.strictEqual(gestor.estadoReproductivo("h")!.sexo, "hembra");
+  gestor.resolverReproduccion();
+  assert.notStrictEqual(gestor.estadoReproductivo("h")!.gestandoDesde, null, "con rnd favorable debería haber cuajado el apareamiento");
+});
+
+test("GestorFauna.resolverReproduccion: gestación cumplida da a luz una cría real, con su propio esquema y radio de merodeo por defecto", () => {
+  const mundo = mundoAbierto();
+  const salida = new MapSchema<Fauna>();
+  let ahora = 10;
+  const gestor = new GestorFauna(salida, mundo, {}, CATALOGO_REPRODUCCION, () => ahora, rndFauna());
+  gestor.iniciar([
+    { id: "m", especieId: "perro", x: 5, y: 5, radio: 2 },
+    { id: "h", especieId: "perro", x: 5, y: 5, radio: 2 },
+  ]);
+  gestor.resolverReproduccion(); // cuaja el apareamiento — la hembra queda gestando
+  const antes = gestor.cantidad;
+  ahora = 10 + 20; // tiempo de sobra: gestación "pequeno" es GESTACION_DIAS.pequeno = {3,3} días
+  gestor.resolverReproduccion(); // debería dar a luz
+  assert.strictEqual(gestor.cantidad, antes + 1, "debería haber nacido exactamente una cría nueva");
+  assert.strictEqual(salida.size, antes + 1);
+});
+
 test("GestorFauna: nunca sale de la rejilla transitable (respeta los bordes sólidos)", () => {
   const mundo = mundoAbierto();
   const salida = new MapSchema<Fauna>();

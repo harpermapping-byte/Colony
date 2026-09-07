@@ -1721,7 +1721,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const npcsMeta = new Map<string, { nombre: string; grito: string; accion: string; antorcha: PointLight | null }>();
   $(room.state).npcs.onAdd((npc: any, slotId: string) => {
     const vox = voxPorSlot.get(slotId);
-    const rig = vox ? crearPersonajeVoxel(vox) : crearRigHumanoide({ colorTunica: "#7a6248" });
+    // Aspecto propio de patrulla bandida (docs/GDD_Faccion_Bandidos.md
+    // §7ter, pedido streamer 2026-09-08) — mismo `pool.json` que ya usa
+    // `enemigos.onAdd` más abajo: un Npc normal de poblacion/ SIEMPRE tiene
+    // `vox` (prioridad 1, sin cambio); solo una patrulla (sin entrada en
+    // poblacion.json) trae `enemigoId` relleno, así que cae aquí; sin
+    // ninguno de los dos, el rig genérico plano de siempre.
+    const variantePatrulla = !vox && npc.enemigoId ? poolEnemigos[npc.enemigoId]?.[npc.variante] : undefined;
+    const rig = vox
+      ? crearPersonajeVoxel(vox)
+      : variantePatrulla
+        ? (variantePatrulla.tipoRig === "animal" ? crearAnimalVoxel(variantePatrulla) : crearPersonajeVoxel(variantePatrulla))
+        : crearRigHumanoide({ colorTunica: "#7a6248" });
     rig.objeto.rotation.order = "YXZ";
     rig.objeto.visible = npc.visible;
     // NPC tutorial (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30:

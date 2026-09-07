@@ -138,11 +138,10 @@ personajes DEMO de sitio fijo, indistinguible visualmente de un mapa vacío).
 - Patrullas de bandidos reales (las de faja/economía, no el dummy de
   pruebas) requieren un `asentamiento_hostil` bakeado — fuera de alcance de
   esta pasada, ver nota ya existente en `docs/GDD_TestZone.md`.
-- `fauna.json` de la aldea (ganado/animales domésticos estáticos) NO se
-  fusionó — solo `RegionRoom` lee `fauna.json` (`server/src/rooms/RegionRoom.ts`),
-  `HubRoom` no tiene ese bloque todavía. No afecta a la caminabilidad ni a
-  los NPCs con rutina (ya arreglado, ver arriba); si hace falta ganado en
-  el Hub, replicar el mismo patrón que se usó para `poblacion.json`.
+- ~~`fauna.json` de la aldea (ganado/animales domésticos estáticos) NO se
+  fusionó~~ **RESUELTO (2026-09-08)**: copiado con el mismo offset (+80,+0)
+  que el resto de la fusión (`docs/GDD_Agentes_Moviles.md` fase 10) —
+  `HubRoom` gana su propio `GestorFauna` (antes solo lo tenía `RegionRoom`).
 - El mapa `assets/mapas/testaldea/` en sí (el bake original de la aldea, no
   fusionado) se queda tal cual en el repo — es la fuente de la que se
   copió/offset todo lo de arriba, y sigue sirviendo como aldea standalone

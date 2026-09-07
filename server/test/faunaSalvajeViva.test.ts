@@ -557,7 +557,7 @@ test("iniciarCaza + tick: el animal cazado huye del CAZADOR concreto sin importa
   assert.strictEqual(gestor.iniciarCaza(id, "cazador"), true);
   // Cazador lejos (fuera del radio de huida normal de 4, pero la caza activa no tiene límite de distancia).
   const cazador = { x: x0 + 7, y: y0 };
-  const atrapados = gestor.tick(0.2, new Map([["cazador", cazador]]));
+  const { atrapados } = gestor.tick(0.2, new Map([["cazador", cazador]]));
   assert.strictEqual(atrapados.length, 0, "todavía no debería atraparlo, sigue lejos");
   assert.strictEqual(animal.accion, "huyendo", "debería huir del cazador aunque esté fuera del radio de huida normal");
 });
@@ -569,13 +569,13 @@ test("iniciarCaza + tick: cuando el cazador alcanza al animal, tick() lo reporta
   const animal = salida.get(id)!;
   gestor.iniciarCaza(id, "cazador");
   const cazadorPegado = { x: animal.x + 0.5, y: animal.y }; // dentro de RADIO_CAPTURA (1.5)
-  const atrapados = gestor.tick(0.2, new Map([["cazador", cazadorPegado]]));
+  const { atrapados } = gestor.tick(0.2, new Map([["cazador", cazadorPegado]]));
   assert.strictEqual(atrapados.length, 1);
   assert.strictEqual(atrapados[0].faunaId, id);
   assert.strictEqual(atrapados[0].sessionId, "cazador");
   // El animal SIGUE vivo hasta que la room llame a matarIndividuo (tick() solo detecta, no mata) — pero ya no está "siendo cazado": un segundo tick no debería volver a reportarlo.
   const segundoTick = gestor.tick(0.2, new Map([["cazador", cazadorPegado]]));
-  assert.strictEqual(segundoTick.length, 0, "no debería reportar la misma captura dos veces");
+  assert.strictEqual(segundoTick.atrapados.length, 0, "no debería reportar la misma captura dos veces");
 });
 
 test("iniciarCaza + tick: si el cazador se desconecta (falta del mapa de jugadores), la caza se cancela sola sin romper el tick", async () => {
@@ -604,4 +604,71 @@ test("matarIndividuo: limpia una caza activa (el animal cazado se muere por otra
   await gestor.matarIndividuo(id);
   // Sin esto, cazasActivas se quedaría con una entrada zombi apuntando a un id que ya no existe en ningún sector — verificado indirectamente: iniciarCaza sobre el mismo id ya no encuentra el individuo (murió), así que debe devolver false, no "true" por una entrada stale.
   assert.strictEqual(gestor.iniciarCaza(id, "otro"), false);
+});
+
+// --- Depredador cazando presa por su cuenta (pedido streamer 2026-09-08:
+// "los depredadores no cazan presas por su cuenta, un lobo no persigue un
+// conejo solo") — sin ningún jugador implicado, tick() debe perseguir y
+// reportar la captura en `cacerias` por sí solo.
+
+test("tick: un lobo (peligroso+carnivoro) con un conejo cerca lo persigue por su cuenta, sin jugadores de por medio", async () => {
+  const { gestor, salida } = crearGestor({
+    cargarBakeSector: () => [
+      { i: "lobo", x: 5, y: 5 },
+      { i: "conejo", x: 10, y: 5 }, // dentro de RADIO_DETECCION_DEPREDADOR (8)
+    ],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const entradas = [...salida.entries()];
+  const [loboId] = entradas.find(([, f]) => f.especieId === "lobo")!;
+  const lobo = salida.get(loboId)!;
+  const x0 = lobo.x;
+  for (let i = 0; i < 20; i++) gestor.tick(0.2); // sin jugadores — el mecanismo no depende de ellos
+  assert.ok(lobo.x > x0, "el lobo debería haberse acercado al conejo (está al este)");
+});
+
+test("tick: un lobo lejos de cualquier conejo (fuera de RADIO_DETECCION_DEPREDADOR) no persigue nada", async () => {
+  const { gestor, salida } = crearGestor({
+    cargarBakeSector: () => [
+      { i: "lobo", x: 5, y: 5 },
+      { i: "conejo", x: 35, y: 35 }, // muy lejos, fuera de detección
+    ],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const entradas = [...salida.entries()];
+  const [loboId] = entradas.find(([, f]) => f.especieId === "lobo")!;
+  const lobo = salida.get(loboId)!;
+  const x0 = lobo.x, y0 = lobo.y;
+  for (let i = 0; i < 20; i++) gestor.tick(0.2);
+  assert.ok(Math.hypot(lobo.x - x0, lobo.y - y0) < 6, "sin presa detectable, el lobo solo merodea, no se lanza a perseguir a 30 casillas");
+});
+
+test("tick: lobo pegado a un conejo — la captura se reporta en `cacerias`, no en `atrapados` (eso es solo para el jugador)", async () => {
+  const { gestor, salida } = crearGestor({
+    cargarBakeSector: () => [
+      { i: "lobo", x: 5, y: 5 },
+      { i: "conejo", x: 5.5, y: 5 }, // dentro de RADIO_CAPTURA (1.5) desde el primer tick
+    ],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const entradas = [...salida.entries()];
+  const [loboId] = entradas.find(([, f]) => f.especieId === "lobo")!;
+  const [conejoId] = entradas.find(([, f]) => f.especieId === "conejo")!;
+  const { atrapados, cacerias } = gestor.tick(0.2);
+  assert.strictEqual(atrapados.length, 0, "sin jugador cazando, atrapados debe seguir vacío");
+  assert.strictEqual(cacerias.length, 1);
+  assert.strictEqual(cacerias[0].depredadorId, loboId);
+  assert.strictEqual(cacerias[0].presaId, conejoId);
+});
+
+test("tick: un conejo (no peligroso) nunca inicia una cacería — solo especies peligrosas+carnívoras cazan", async () => {
+  const { gestor, salida } = crearGestor({
+    cargarBakeSector: () => [
+      { i: "conejo", x: 5, y: 5 },
+      { i: "conejo", x: 5.5, y: 5 },
+    ],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const { cacerias } = gestor.tick(0.2);
+  assert.strictEqual(cacerias.length, 0, "dos conejos cerca no deberían cazarse entre sí");
 });

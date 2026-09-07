@@ -158,7 +158,40 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
       if (!def.tier) continue;
       const carpetaPOI = path.join(carpetaSalida, "pois", slug);
       onProgreso(`  POI "${poi.id}" (asentamiento, ${def.tier}) en (${poi.x},${poi.y})...`);
-      hornearCiudadPerezoso()(def.tier, semillaPOI, carpetaPOI);
+      const ciudad = hornearCiudadPerezoso()(def.tier, semillaPOI, carpetaPOI);
+      // Prop 3D exterior de la ciudad (docs/GDD_Bakeador_POIs.md §4.4,
+      // pedido streamer 2026-09-08) — "desde el mapa exterior la ciudad
+      // entera se ve como UNA miniatura 3D amurallada... TODO su volumen
+      // bloquea el paso". Antes esta rama solo dejaba el portal — un
+      // asentamiento no tenía NINGÚN rastro visual/de colisión en el mapa
+      // padre. Reusa EXACTAMENTE el mismo mecanismo genérico que ya usan
+      // los POI "edificio" (mismo `t:"e"`, mismo `objetosPorPOI`, cero
+      // cambio de cliente/servidor: `sectorVisual.ts` ya prueba
+      // `assets/edificios/<tipoEdificioId>_NN.glb` por convención de
+      // nombre) — un `tipoEdificioId` sintético (`ciudad_<tier>`) que
+      // hoy no tiene ningún `.glb` real cae automáticamente al placeholder
+      // de caja ya existente, exactamente el "mientras tanto" que pide el
+      // propio GDD; el `.glb` real de la miniatura es arte pendiente
+      // aparte, no una pieza de código nueva. Huella = el footprint REAL
+      // de la ciudad entera (`ciudad.ancho`/`ciudad.alto`, casillas), no
+      // el tamaño fijo de un edificio suelto.
+      const tipoEdificioIdCiudad = `ciudad_${def.tier}`;
+      objetosPorPOI.set(slug, {
+        x: poi.x,
+        y: poi.y,
+        huella: [ciudad.ancho, ciudad.alto],
+        objeto: {
+          i: tipoEdificioIdCiudad,
+          t: "e",
+          va: semillaDesdeTexto(semillaPOI) % VARIANTES_EDIFICIO,
+          ro: 0,
+          es: 1,
+          w: ciudad.ancho,
+          h: ciudad.alto,
+          dx: 0,
+          dy: 0,
+        },
+      });
       portales.push({
         tipo: "exterior",
         x: poi.x,

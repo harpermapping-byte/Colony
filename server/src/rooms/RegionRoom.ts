@@ -9,6 +9,7 @@ import { NpcBakeado } from "../mundo/agentes";
 import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa } from "../mundo/npcsFijos";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
+import { cargarCatalogoFaunaSalvaje } from "../mundo/catalogoFaunaSalvaje";
 import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
 import { asegurarAsentamientoBandido, marcarTropaMuertaYVerificarConquista } from "../mundo/economiaAsentamientos";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
@@ -20,6 +21,7 @@ import { diaFraccional } from "../mundo/reproduccionFauna";
 import { agregarItem } from "../inventario/inventario";
 import { generarGritoBandido } from "../ia/cronicaBandida";
 import { nombrePoliticoDeterminista } from "../personaje/nombresNpc";
+import { elegirEnemigoDeTema, VARIANTES_POR_ENEMIGO } from "../mundo/catalogoEnemigos";
 
 // Mascotas (docs/GDD_Mascotas.md, pedido 2026-08-30): "si se les da de comer
 // unas 5 veces, podrás convertirlo en tu mascota" — fauna URBANA
@@ -155,9 +157,24 @@ export class RegionRoom extends RoomExteriorBase {
       this.catalogoCombateFauna = cargarCatalogoCombateFauna(
         path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "animales.json"),
       );
-      this.gestorFauna = new GestorFauna(this.state.fauna, this.mundo, this.catalogoCombateFauna);
+      // Hambre/sed + reproducción "más fácil" (pedido streamer 2026-09-08,
+      // docs/GDD_Agentes_Moviles.md "Domésticos: pendiente") — mismo
+      // catálogo de especies reproductoras que ya usa la fauna salvaje,
+      // reusado tal cual (una especie sin `tamanoReproduccion`/`poneHuevos`
+      // reales, o marcada `poblacionInfinita`, sigue sin comportamiento
+      // nuevo — ver mundo/fauna.ts).
+      const catalogoReproduccion = cargarCatalogoFaunaSalvaje(
+        path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "animales.json"),
+      );
+      this.gestorFauna = new GestorFauna(this.state.fauna, this.mundo, this.catalogoCombateFauna, catalogoReproduccion, () => {
+        const t = tiempoMundo();
+        return diaFraccional(t.dia, t.hora);
+      });
       this.gestorFauna.iniciar(datos.fauna);
       this.clock.setInterval(() => this.gestorFauna!.tick(0.2), 200);
+      // Reproducción: baja frecuencia real (60s) — mismo criterio "una
+      // tirada por resolución, no por tick" de faunaSalvajeSector.ts.
+      this.clock.setInterval(() => this.gestorFauna!.resolverReproduccion(), 60_000);
       // Agro por distancia (docs/GDD_Combate.md §7bis, pedido 2026-08-30) —
       // mismo mecanismo que HubRoom, por si una región tuviera fauna urbana
       // `peligroso` (hoy no la tiene, pero el mecanismo no debe vivir solo
@@ -476,6 +493,17 @@ export class RegionRoom extends RoomExteriorBase {
         esquema.vidaMax = esquema.vida;
         esquema.ataque = Math.round(base.ataque * factor);
         esquema.defensa = Math.round(base.defensa * factor);
+        // Aspecto propio (docs/GDD_Faccion_Bandidos.md §7ter, pedido
+        // streamer 2026-09-08) — mismo catálogo/mecanismo que ya usa
+        // DungeonRoom.poblarEnemigos para el `Enemigo` de la guarnición: un
+        // archetipo real del tema "bandido" (nunca boss, el guardia/líder
+        // se queda en el cuartel) + variante al azar entre las generadas.
+        // `elegirEnemigoDeTema` puede devolver `null` si el catálogo se
+        // quedara vacío (no debería pasar, "bandido" ya tiene 4 archetipos)
+        // — en ese caso se queda "" y el cliente cae al rig genérico de
+        // siempre, sin romper nada.
+        esquema.enemigoId = elegirEnemigoDeTema(["bandido"], false) ?? "";
+        esquema.variante = Math.floor(Math.random() * VARIANTES_POR_ENEMIGO);
         this.patrullaTropaDeEnemigo.set(slotId, tropa.id);
       }
     }

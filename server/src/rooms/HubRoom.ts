@@ -8,6 +8,7 @@ import { GestorConversacionesNpc } from "../ia/npcChat";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
 import { cargarCatalogoFaunaSalvaje } from "../mundo/catalogoFaunaSalvaje";
 import { DependenciasFaunaSalvaje, GestorFaunaSalvaje } from "../mundo/faunaSalvajeViva";
+import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
 import { ObjetoFaunaBakeado } from "../mundo/faunaSalvajeSector";
 import { cadaverDesaparecio } from "../mundo/cadaveres";
 import { diaFraccional } from "../mundo/reproduccionFauna";
@@ -125,6 +126,10 @@ export class HubRoom extends RoomExteriorBase {
   // (ver el try/catch de onCreate). `matarIndividuo` es el punto de
   // enganche para un futuro sistema de combate.
   private gestorFaunaSalvaje?: GestorFaunaSalvaje;
+  // Fauna DOMÉSTICA urbana (mundo/fauna.ts, pedido 2026-09-08) — solo
+  // existe si el mapa trae fauna.json (aldeas/ciudades fusionadas en un
+  // Hub, p.ej. testflat); distinta instancia de la salvaje de arriba.
+  private gestorFaunaDomestica?: GestorFauna;
   // Crecimiento de bosques (docs/GDD_Bosques.md) — mismo criterio de
   // opcionalidad y try/catch propio que la fauna salvaje.
   private gestorBosques?: GestorBosques;
@@ -317,12 +322,16 @@ export class HubRoom extends RoomExteriorBase {
         this.clock.setInterval(() => {
           const jugadoresPos = new Map<string, { x: number; y: number }>();
           for (const [sessionId, p] of this.state.players.entries()) jugadoresPos.set(sessionId, { x: p.x, y: p.y });
-          const atrapados = this.gestorFaunaSalvaje!.tick(0.2, jugadoresPos);
+          const { atrapados, cacerias } = this.gestorFaunaSalvaje!.tick(0.2, jugadoresPos);
           for (const { faunaId, sessionId } of atrapados) {
             void this.onFaunaMuerta(faunaId).then(() => {
               this.clients.find((c) => c.sessionId === sessionId)?.send("caza:atrapado", { faunaId });
             });
           }
+          // Depredador cazando presa por su cuenta (docs/GDD_Caza.md, pedido
+          // 2026-09-08) — mismo camino de muerte real que cualquier otra
+          // fauna, sin cazador humano ni mensaje al cliente (nadie lo pidió).
+          for (const { presaId } of cacerias) void this.onFaunaMuerta(presaId);
         }, 200);
         // Agro por distancia (docs/GDD_Combate.md §7bis, pedido 2026-08-30) —
         // MISMO intervalo que el merodeo, cubre tanto depredadores de tierra
@@ -398,6 +407,32 @@ export class HubRoom extends RoomExteriorBase {
           console.log(`  Bosques en vivo activados (${Object.keys(catalogoArboles).length} especies con crecimiento)`);
         } catch (err) {
           console.error("Bosques: no se pudo iniciar, el Hub sigue sin crecimiento de árboles:", err);
+        }
+
+        // Fauna DOMÉSTICA urbana (mundo/fauna.ts) — hasta ahora solo la
+        // cargaba RegionRoom; un mapa Hub con una aldea fusionada dentro
+        // (testflat, pedido 2026-09-02 "agrandar el suelo del testflat
+        // para spawnear una aldea") se quedaba sin su ganado estático,
+        // gap ya documentado en assets/mapas/testflat/ZONAS.md. Mismo
+        // fichero fauna.json, mismo GestorFauna que RegionRoom, con
+        // hambre/sed + reproducción "más fácil" (2026-09-08) ya incluidas
+        // — try/catch propio, igual que bosques: si falla, el Hub sigue
+        // sin fauna doméstica en vez de tumbar la room entera.
+        try {
+          const rutaFauna = path.join(rutaMapa, "fauna.json");
+          if (fs.existsSync(rutaFauna)) {
+            const datosFauna = JSON.parse(fs.readFileSync(rutaFauna, "utf8")) as { fauna: FaunaSpawn[] };
+            this.gestorFaunaDomestica = new GestorFauna(this.state.fauna, this.mapa, this.catalogoCombate, catalogo, () => {
+              const t = tiempoMundo();
+              return diaFraccional(t.dia, t.hora);
+            });
+            this.gestorFaunaDomestica.iniciar(datosFauna.fauna);
+            this.clock.setInterval(() => this.gestorFaunaDomestica!.tick(0.2), 200);
+            this.clock.setInterval(() => this.gestorFaunaDomestica!.resolverReproduccion(), 60_000);
+            console.log(`  ${this.gestorFaunaDomestica.cantidad} animal(es) doméstico(s) urbano(s) en el mapa`);
+          }
+        } catch (err) {
+          console.error("Fauna doméstica: no se pudo iniciar, el Hub sigue sin ella:", err);
         }
       }
     } catch (err) {
