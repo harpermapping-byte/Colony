@@ -99,20 +99,62 @@ function enemigoMasCercano(room) {
   return mejorId;
 }
 
-/** Mata al enemigo `objetivoId` con combate real (mismo flujo no-caza que combate.e2e.mjs: ventana de unión -> comenzarYa -> arena -> turnos -> vuelta). godMode ya activado antes de llamar. */
-async function matarEnemigoReal(client, room, objetivoId, comprobar) {
+/**
+ * Mata a un enemigo con combate real (mismo flujo no-caza que combate.e2e.mjs:
+ * ventana de unión -> comenzarYa -> arena -> turnos -> vuelta). godMode ya
+ * activado antes de llamar.
+ *
+ * `objetivoIdPreferido` es solo un HINT (el enemigo más cercano al punto de
+ * entrada) — NO se asume que `combate:iniciar` vaya a enfrentarlo de verdad.
+ * Causa raíz real del "Sin roster para el combate..." intermitente
+ * (docs/GDD_Combate.md §11quater, investigado 2026-09-07): el jugador entra
+ * literalmente ENCIMA del spawn de un enemigo (a propósito, ver cabecera del
+ * fichero) y el agro automático de enemigos de mazmorra
+ * (`verificarAgroFauna`, tick de 200ms, §11) puede arrastrarlo a un combate
+ * PROPIO contra CUALQUIER enemigo cercano antes de que le dé tiempo a mandar
+ * `combate:iniciar` a mano. Cuando eso pasa, el servidor rechaza
+ * correctamente el `combate:iniciar` manual con "ya estás en combate"
+ * (`RoomExteriorBase.ts`, comportamiento correcto: un jugador no puede abrir
+ * dos combates a la vez) — pero la versión vieja de este test seguía
+ * asumiendo que `objetivoIdPreferido` era el enemigo real y usaba
+ * `combate:comenzarYa` sobre un combate del que el jugador NUNCA formó
+ * parte, así que nadie llegaba a registrar su roster (`registrarRosterArena`)
+ * y `ArenaCombateRoom.onCreate` reventaba con "Sin roster" al intentar
+ * consumirlo. Arreglo real: comprobar primero si el jugador YA está en un
+ * combate propio (agro automático) y, si es así, seguir ESE — nunca asumir
+ * `objetivoIdPreferido`.
+ */
+async function matarEnemigoReal(client, room, objetivoIdPreferido, comprobar) {
   let portalArena = null;
   const alPortal = (m) => { if (m?.tipo === "combate") portalArena = m; };
   room.onMessage("portal:ir", alPortal);
   let errorCombate = null;
   room.onMessage("combate:error", (m) => { errorCombate = m; });
 
-  room.send("combate:iniciar", { objetivoId });
-  const combateId = await esperarCondicion(() => {
-    for (const [id, c] of room.state.combates.entries()) if (c.unidades.has(objetivoId)) return id;
+  const combatePropio = () => {
+    for (const [id, c] of room.state.combates.entries()) if (c.unidades.has(room.sessionId)) return id;
     return null;
-  }, 3000, 100);
-  comprobar(!!combateId, `combate:iniciar crea el combate contra ${objetivoId}`, errorCombate ? JSON.stringify(errorCombate) : "sin combateId");
+  };
+
+  let combateId = combatePropio();
+  if (!combateId) {
+    room.send("combate:iniciar", { objetivoId: objetivoIdPreferido });
+    combateId = await esperarCondicion(combatePropio, 3000, 100);
+  }
+  // El objetivo REAL es quien esté en el bando contrario dentro del combate
+  // ya confirmado — nunca `objetivoIdPreferido` a ciegas: si el agro
+  // automático adelantó al jugador, puede ser un enemigo distinto del más
+  // cercano al punto de entrada (y si hay un aliado co-unido, bando lo
+  // distingue de un enemigo real sin más que mirar `esJugador`/`bando`).
+  let objetivoId = objetivoIdPreferido;
+  if (combateId) {
+    const combate = room.state.combates.get(combateId);
+    const propiaBando = combate.unidades.get(room.sessionId)?.bando;
+    for (const [unidadId, u] of combate.unidades.entries()) {
+      if (u.bando !== propiaBando) { objetivoId = unidadId; break; }
+    }
+  }
+  comprobar(!!combateId, `combate:iniciar (manual o agro automático) mete al jugador en un combate real contra ${objetivoId}`, errorCombate ? JSON.stringify(errorCombate) : "sin combateId");
   if (!combateId) throw new Error("no se pudo iniciar combate real contra el enemigo de mazmorra");
   comprobar(room.state.combates.get(combateId)?.fase === "pendiente", "arranca en fase pendiente (enemigo de mazmorra, nunca modo caza)");
 
@@ -142,25 +184,56 @@ async function matarEnemigoReal(client, room, objetivoId, comprobar) {
   let portalVuelta = null;
   arena.onMessage("portal:ir", (m) => (portalVuelta = m));
 
+  // `rondas` cuenta SOLO turnos reales de Jarl (ataca/mueve/pasa) — nunca
+  // ciclos de espera del turno de otro. Con el agro automático de mazmorra
+  // (§11) es normal que un combate real acabe con un aliado co-unido (aquí,
+  // Centinela) además de Jarl y el enemigo — el turno de Jarl deja de ser
+  // 1 de cada 2 (jugador/enemigo) y pasa a ser 1 de cada 3, así que si
+  // `rondas` contara también los ciclos de espera, el mismo presupuesto fijo
+  // (200) se agotaba esperando SIN haber dado tiempo a que a Jarl le
+  // tocaran sus 200 turnos de verdad (bug real, docs/GDD_Combate.md
+  // §11quater: "e_0 muere... rondas=200" pese a que un combate 1v1
+  // equivalente muere en ~40-45). `esperas` es un tope aparte, generoso,
+  // solo para no colgarse si algo se rompe de verdad (combate nunca avanza).
   let rondas = 0;
+  let esperas = 0;
   let objetivoMuerto = false;
-  while (rondas < 200) {
-    rondas++;
+  while (rondas < 200 && esperas < 1200) {
     const combate = arena.state.combates.get(combateId);
     if (!combate) { objetivoMuerto = true; break; }
     const idActual = combate.ordenTurnos[combate.turnoActual];
-    if (idActual !== arena.sessionId) { await esperar(150); continue; }
+    if (idActual !== arena.sessionId) { esperas++; await esperar(150); continue; }
+    rondas++;
     const objetivo = combate.unidades.get(objetivoId);
     if (!objetivo) { objetivoMuerto = true; break; }
     errorArena = null;
     arena.send("combate:accion", { combateId, objetivoId });
     await esperar(150);
     if (errorArena?.motivo === "fuera de alcance") {
+      // Movimiento voraz: un solo paso diagonal hacia el objetivo. En una
+      // rejilla táctica con obstáculos (`combate.obstaculos`, distinto mapa
+      // de arena cada vez vía `elegirArena`) un paso diagonal puede estar
+      // bloqueado aunque los pasos horizontal/vertical equivalentes NO lo
+      // estén (mismo criterio de muchos tácticos por rejilla: mover en
+      // diagonal exige las dos casillas ortogonales adyacentes libres) — sin
+      // caer a un paso alternativo, Jarl podía quedarse pegado a una esquina
+      // repitiendo el MISMO movimiento fallido las 200 rondas enteras, sin
+      // acercarse nunca (bug real de este test, docs/GDD_Combate.md
+      // §11quater, encontrado con diagnóstico de HP: `objetivo.hp` se
+      // quedaba en 40/40 las 200 rondas, "fuera de alcance" todo el rato).
+      // Se prueba la diagonal directa y, si no avanza de verdad (posición
+      // sin cambios tras el intento), los dos pasos ortogonales sueltos.
       const propia = combate.unidades.get(arena.sessionId);
       const dx = Math.sign(objetivo.gx - propia.gx);
       const dy = Math.sign(objetivo.gy - propia.gy);
-      arena.send("combate:mover", { combateId, gx: propia.gx + dx, gy: propia.gy + dy });
-      await esperar(150);
+      const candidatos = [[propia.gx + dx, propia.gy + dy], [propia.gx + dx, propia.gy], [propia.gx, propia.gy + dy]]
+        .filter(([gx, gy]) => gx !== propia.gx || gy !== propia.gy);
+      for (const [gx, gy] of candidatos) {
+        arena.send("combate:mover", { combateId, gx, gy });
+        await esperar(150);
+        const propiaTrasMover = arena.state.combates.get(combateId)?.unidades.get(arena.sessionId);
+        if (propiaTrasMover && (propiaTrasMover.gx !== propia.gx || propiaTrasMover.gy !== propia.gy)) break;
+      }
     }
     const propiaActual = arena.state.combates.get(combateId)?.unidades.get(arena.sessionId);
     if (!propiaActual || propiaActual.pa <= 0 || errorArena?.motivo === "sin PA suficiente") {
@@ -168,7 +241,7 @@ async function matarEnemigoReal(client, room, objetivoId, comprobar) {
       await esperar(150);
     }
   }
-  comprobar(objetivoMuerto, `${objetivoId} muere en combate real (godMode: el jugador nunca pierde vida)`, `rondas=${rondas}`);
+  comprobar(objetivoMuerto, `${objetivoId} muere en combate real (godMode: el jugador nunca pierde vida)`, `rondas=${rondas} esperas=${esperas}`);
   await esperar(2000); // margen generoso para el aplicarResultadoRemoto "void" (fire-and-forget) de ArenaCombateRoom.ts
   // Sin "retorno" capturado en combate:iniciar (este script no lo manda) el
   // destino cae al Hub por defecto (RoomExteriorBase.ts, comportamiento
@@ -178,6 +251,53 @@ async function matarEnemigoReal(client, room, objetivoId, comprobar) {
   comprobar(!!portalVuelta, "portal:ir llega tras ganar (destino real, sin retorno capturado por este script)", JSON.stringify(portalVuelta));
   arena.leave();
   await esperar(300);
+}
+
+/**
+ * El Centinela se queda en la mazmorra solo para evitar que la room se
+ * destruya (ver cabecera) — pero el agro automático (o el co-op join de
+ * `combate:iniciar`, ambos comportamiento CORRECTO del servidor) puede
+ * arrastrarlo a un combate real sin que este script lo pidiera. Si nadie
+ * controla su unidad ahí, sus turnos solo se resuelven por el margen de
+ * gracia de `saltarTurnoSiJugadorAusente` (8s, docs/GDD_Combate.md §11bis) —
+ * repetido varias veces a lo largo de una pelea agota el presupuesto fijo
+ * de 200 rondas del bucle de combate ANTES de que el enemigo real muera
+ * (segundo síntoma real del intermitente, ver §11quater). Arreglo real: en
+ * cuanto el Centinela recibe SU PROPIO portal:ir de combate, sigue a la
+ * arena con su propia conexión (sin dejar la mazmorra — colyseus.js permite
+ * varias rooms abiertas a la vez en el mismo Client) y pasa turno cada vez
+ * que le toca, como un aliado presente pero pasivo — nunca deja un turno
+ * huérfano esperando el margen de gracia.
+ */
+function seguirCentinelaAArenas(clientCentinela, centinela) {
+  const atendidos = new Set();
+  centinela.onMessage("portal:ir", (m) => {
+    if (m?.tipo !== "combate" || !m.combateId || atendidos.has(m.combateId)) return;
+    atendidos.add(m.combateId);
+    (async () => {
+      try {
+        const arena = await clientCentinela.joinOrCreate("arena", { name: "Centinela", combateId: m.combateId });
+        // El primer patch de estado (MapSchema `combates` incluida) puede
+        // llegar unos ms DESPUÉS de que se resuelva joinOrCreate — esperar
+        // a que exista de verdad antes de leerlo evita reventar con
+        // "Cannot read properties of undefined" y abandonar el seguimiento
+        // a las primeras de cambio (encontrado de verdad corriendo el e2e).
+        await esperarCondicion(() => arena.state?.combates?.get(m.combateId), 3000, 100);
+        arena.send("admin:debug:godMode", { activo: true });
+        for (let i = 0; i < 400; i++) {
+          const combate = arena.state?.combates?.get(m.combateId);
+          if (!combate) break;
+          if (combate.ordenTurnos[combate.turnoActual] === arena.sessionId) {
+            arena.send("combate:pasarTurno", { combateId: m.combateId });
+          }
+          await esperar(150);
+        }
+        try { arena.leave(); } catch {}
+      } catch (e) {
+        console.error("[Centinela] no pudo seguir a su propia arena:", e?.message || e);
+      }
+    })();
+  });
 }
 
 async function main() {
@@ -244,6 +364,7 @@ async function main() {
     console.log("2) el Centinela entra primero y se queda todo el rato — evita que la room se destruya mientras Jarl pelea fuera (ver nota de cabecera)...");
     const centinela = await clientCentinela.joinOrCreate("mazmorra", opcionesJoin("Centinela", spawns[0]));
     await esperarCondicion(() => centinela.state?.players?.get(centinela.sessionId) && centinela.state.enemigos, 5000, 100);
+    seguirCentinelaAArenas(clientCentinela, centinela);
 
     console.log("3) Jarl entra a la MISMA instancia — deben verse los 2 enemigos (mazmorra nunca limpiada todavía)...");
     let room = await client.joinOrCreate("mazmorra", opcionesJoin("Jarl", spawns[0]));

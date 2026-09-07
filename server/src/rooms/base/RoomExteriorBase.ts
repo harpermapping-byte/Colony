@@ -11733,17 +11733,32 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Auto-unión: Enemigo de mazmorra SIEMPRE (son hostiles por definición),
     // Fauna solo si la room sabe que es peligrosa (HubRoom, catalogoCombate).
     // Modo caza (docs/GDD_Caza.md) es estrictamente 1 vs 1: se salta entera.
+    //
+    // `combatePorUnidad(id)` (bug real, docs/GDD_Combate.md §11quater,
+    // investigado 2026-09-07): antes de este guard, un enemigo/fauna/npc que
+    // YA era parte de OTRO combate "pendiente" (p.ej. el agro automático de
+    // `verificarAgroFauna`, §11, crea un combate pendiente por bicho — con
+    // dos jugadores cerca es fácil que dos aparezcan casi a la vez) podía
+    // colarse TAMBIÉN aquí por simple cercanía — quedando "reservado" en DOS
+    // CombateSchema distintos a la vez. Cuando el primero de esos combates
+    // cerraba su ventana antes que el otro, ese enemigo acababa peleando de
+    // verdad en una arena mientras su otro combate (nunca cerrado por nadie)
+    // se quedaba con una unidad fantasma — encontrado con el e2e real
+    // `client/test/mazmorraLimpiada.e2e.cjs` (2 jugadores + 2 enemigos de
+    // mazmorra, agro casi simultáneo). Mismo criterio que `enOtraArena` de
+    // abajo (ya evitaba el caso de "ya está PELEANDO en otra arena"): esto
+    // cierra el hueco simétrico de "ya está pendiente en OTRO combate".
     const sinAutoUnion = this.combatesSinAutoUnion.has(combateId);
     this.combatesSinAutoUnion.delete(combateId);
     if (!sinAutoUnion) {
       for (const [id, e] of this.state.enemigos.entries()) {
-        if (combate.unidades.has(id)) continue;
+        if (combate.unidades.has(id) || this.combatePorUnidad(id) || this.enOtraArena.has(id)) continue;
         if (Math.hypot(e.x - origenX, e.y - origenY) > RADIO_INTERACCION) continue;
         const stats = this.statsCombatiente(id)!;
         combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
       }
       for (const [id, f] of this.state.fauna.entries()) {
-        if (combate.unidades.has(id) || !this.faunaEsPeligrosa(f.especieId)) continue;
+        if (combate.unidades.has(id) || !this.faunaEsPeligrosa(f.especieId) || this.combatePorUnidad(id) || this.enOtraArena.has(id)) continue;
         if (Math.hypot(f.x - origenX, f.y - origenY) > RADIO_INTERACCION) continue;
         const stats = this.statsCombatiente(id)!;
         combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
@@ -11753,7 +11768,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // unirían los 5 de al lado") — mismo criterio que Enemigo: un `Npc`
       // `hostil` SIEMPRE se une si anda cerca, nunca un civil normal.
       for (const [id, n] of this.state.npcs.entries()) {
-        if (combate.unidades.has(id) || !n.hostil) continue;
+        if (combate.unidades.has(id) || !n.hostil || this.combatePorUnidad(id) || this.enOtraArena.has(id)) continue;
         if (Math.hypot(n.x - origenX, n.y - origenY) > RADIO_INTERACCION) continue;
         const stats = this.statsCombatiente(id)!;
         combate.unidades.set(id, this.crearUnidadCombate(id, "B", stats.x - combate.gx0, stats.y - combate.gy0, stats));
