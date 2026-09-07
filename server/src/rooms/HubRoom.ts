@@ -126,6 +126,12 @@ export class HubRoom extends RoomExteriorBase {
   // (ver el try/catch de onCreate). `matarIndividuo` es el punto de
   // enganche para un futuro sistema de combate.
   private gestorFaunaSalvaje?: GestorFaunaSalvaje;
+  // Guardados aparte de `indice` (variable local de onCreate) porque
+  // `intentarReponerFauna` (pedido streamer 2026-09-08, reposición manual
+  // de fauna extinguida localmente) necesita convertir la posición del
+  // jarl a sector en un momento posterior, no solo durante el arranque.
+  private tamanoChunkFauna = 0;
+  private tamanoSectorChunksFauna = 0;
   // Fauna DOMÉSTICA urbana (mundo/fauna.ts, pedido 2026-09-08) — solo
   // existe si el mapa trae fauna.json (aldeas/ciudades fusionadas en un
   // Hub, p.ej. testflat); distinta instancia de la salvaje de arriba.
@@ -259,6 +265,8 @@ export class HubRoom extends RoomExteriorBase {
         tamanoSectorChunks: number;
       };
       if (indice.tamanoSectorChunks) {
+        this.tamanoChunkFauna = indice.tamanoChunk;
+        this.tamanoSectorChunksFauna = indice.tamanoSectorChunks;
         const bd = await obtenerBdCompartida();
         const catalogo = cargarCatalogoFaunaSalvaje(
           path.resolve(__dirname, "..", "..", "..", "baker", "catalogo", "animales.json"),
@@ -837,6 +845,12 @@ export class HubRoom extends RoomExteriorBase {
   /** docs/GDD_Caza.md §huida — solo el Hub tiene fauna salvaje viva que cazar. */
   protected intentarIniciarCaza(faunaId: string, sessionId: string): boolean {
     return this.gestorFaunaSalvaje?.iniciarCaza(faunaId, sessionId) ?? false;
+  }
+
+  /** docs/GDD_Agentes_Moviles.md "Extinción local..." — solo el Hub tiene fauna salvaje viva que reponer. */
+  protected async intentarReponerFauna(especieId: string, cantidad: number, origen: { x: number; y: number }): Promise<number> {
+    if (!this.gestorFaunaSalvaje || !this.tamanoSectorChunksFauna) return 0;
+    return this.gestorFaunaSalvaje.reponerEspecie(especieId, cantidad, origen, this.tamanoChunkFauna, this.tamanoSectorChunksFauna);
   }
 
   /**

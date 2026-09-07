@@ -51,14 +51,19 @@ interface PuertaConexion {
   y: number;
 }
 
-// Ventana real (interiores/src/colocarElementos.js, GDD_Bakeador_Interiores
-// §7bis) — estructura del muro NORTE, con su aporteLuz ya resuelto por el
-// bakeador. `forma/tamano/marco/cristal` identifican la combinación exacta
-// (interiores/catalogo/ventanas.json) para cuando exista arte real; hoy solo
-// se usa `aporteLuz` (luzInteriores.ts) y `colorDebug` (placeholder visual).
+// Ventana real (interiores/src/colocarElementos.js + interiores/src/edicion.js,
+// GDD_Bakeador_Interiores §7bis/§9octies) — cualquiera de los 4 lados del
+// perímetro real desde que las ventanas son instancia editable; `y` solo
+// existe en las de este/oeste (las de norte/sur crecen en X arrancando en
+// `x`, mismo criterio que `celdasVentana` de edicion.js). `forma/tamano/
+// marco/cristal` identifican la combinación exacta (interiores/catalogo/
+// ventanas.json) para cuando exista arte real; hoy solo se usan `aporteLuz`
+// (luzInteriores.ts) y `colorDebug` (placeholder visual: franja de cristal
+// translúcida, mismo patrón ya usado por interiores/gui/vista3d.js).
 interface ElementoVentana {
   x: number;
-  lado: "norte";
+  y?: number;
+  lado: "norte" | "sur" | "este" | "oeste";
   ancho: number;
   aporteLuz: number;
   colorDebug?: string;
@@ -123,6 +128,25 @@ const ALCANCE_LUZ = 6;
 const ALTO_COLGADO = 1.68; // ALTO_PARED * 0.7 (interiores/gui/vista3d.js, mismo criterio de altura)
 const BORDE_PARED = 0.08; // separación del muro para que no se confunda con él (mismo valor que vista3d.js)
 
+// Cristal de ventana (pedido streamer 2026-09-08: "interiores mucho más
+// realistas... que se vieran ventanas en las paredes que no estorban a la
+// vista") — hasta ahora `resultado.ventanas` solo sumaba luz ambiente, la
+// pared se pintaba TOTALMENTE sólida y una ventana era invisible de verdad
+// (bug confirmado leyendo el código, no solo un placeholder feo). El muro
+// sigue sólido detrás (interiores/catalogo/ventanas.json es explícito:
+// "nunca renderizan vista al exterior", el interior es una instancia de
+// mundo separada) — esto es una FRANJA de cristal translúcida superpuesta,
+// mismo patrón ya usado por interiores/gui/vista3d.js en el editor offline,
+// ahora traído al cliente del juego. Se registra en `paredesRegistradas`
+// con el mismo (salaIndex,lado) que la pared que cubre: el cono de visión
+// (conoVision.ts) la oculta EXACTAMENTE cuando oculta esa pared, así una
+// ventana nunca se queda como caja opaca colgada en el aire tapando la
+// vista al interior cuando la pared de detrás ya se escondió.
+const ALTO_BANDA_VENTANA = 0.9;
+const CENTRO_VENTANA = ALTO_PARED * 0.55; // mismo criterio de altura que vista3d.js
+const GROSOR_VENTANA = 0.05;
+const COLOR_VENTANA_DEFECTO = "#a9c9d6"; // colorDebug por defecto de interiores/catalogo/ventanas.json
+
 /** Una luz de interior con su desfase de parpadeo propio (para que no titilen todas a la vez). */
 export interface LuzInterior {
   luz: THREE.PointLight;
@@ -174,6 +198,22 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): Inter
 
   const geoParedH = new THREE.BoxGeometry(1, ALTO_PARED, GROSOR_PARED);
   const geoParedV = new THREE.BoxGeometry(GROSOR_PARED, ALTO_PARED, 1);
+  const geoVentanaH = new THREE.BoxGeometry(1, ALTO_BANDA_VENTANA, GROSOR_VENTANA);
+  const geoVentanaV = new THREE.BoxGeometry(GROSOR_VENTANA, ALTO_BANDA_VENTANA, 1);
+  // Un material de cristal por colorDebug (varias ventanas del mismo bake
+  // suelen compartir la misma combinación de catálogo) — transparent+
+  // depthWrite:false, mismo criterio ya usado en climaVisual.ts/sectorVisual.ts
+  // para no pelearse en el z-buffer con la pared sólida de detrás.
+  const matVentanaPorColor = new Map<string, THREE.MeshBasicMaterial>();
+  function materialVentanaDe(colorDebug: string | undefined): THREE.MeshBasicMaterial {
+    const clave = colorDebug ?? COLOR_VENTANA_DEFECTO;
+    let mat = matVentanaPorColor.get(clave);
+    if (!mat) {
+      mat = new THREE.MeshBasicMaterial({ color: clave, transparent: true, opacity: 0.55, depthWrite: false });
+      matVentanaPorColor.set(clave, mat);
+    }
+    return mat;
+  }
   // Un material de pared por id de interiores/catalogo/materiales.json (no
   // uno global): antes TODA pared del edificio compartía el mismo color
   // plano sin mirar qué material había decidido colocarElementos.js para
@@ -233,6 +273,30 @@ export function crearInteriorVisual(interior: InteriorBakeado, nivel = 0): Inter
         añadirSiNoEsPuerta(grupo, geoParedV, matPared, offsetX, y + 0.5, esPuerta(offsetX - 1, y)));
       registrarPared(paredesRegistradas, salaIndex, "este",
         añadirSiNoEsPuerta(grupo, geoParedV, matPared, offsetX + resultado.ancho, y + 0.5, esPuerta(offsetX + resultado.ancho, y)));
+    }
+
+    // Cristal de ventana, una franja por casilla del tramo — mismo eje de
+    // crecimiento que celdasVentana (interiores/src/edicion.js): norte/sur
+    // crecen en X arrancando en v.x, este/oeste crecen en Y arrancando en
+    // v.y (ausente en las auto-generadas de siempre, todas norte: cae a 0).
+    for (const v of resultado.ventanas ?? []) {
+      const matVentana = materialVentanaDe(v.colorDebug);
+      for (let i = 0; i < v.ancho; i++) {
+        let mesh: THREE.Mesh;
+        if (v.lado === "norte" || v.lado === "sur") {
+          const cx = offsetX + v.x + i + 0.5;
+          const cz = v.lado === "norte" ? offsetY + BORDE_PARED : offsetY + resultado.largo - BORDE_PARED;
+          mesh = new THREE.Mesh(geoVentanaH, matVentana);
+          mesh.position.set(cx, CENTRO_VENTANA, cz);
+        } else {
+          const cz = offsetY + (v.y ?? 0) + i + 0.5;
+          const cx = v.lado === "oeste" ? offsetX + BORDE_PARED : offsetX + resultado.ancho - BORDE_PARED;
+          mesh = new THREE.Mesh(geoVentanaV, matVentana);
+          mesh.position.set(cx, CENTRO_VENTANA, cz);
+        }
+        grupo.add(mesh);
+        registrarPared(paredesRegistradas, salaIndex, v.lado, mesh);
+      }
     }
 
     for (const item of resultado.colocados) {

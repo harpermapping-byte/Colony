@@ -172,6 +172,7 @@ import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { nombreCapitalOverride, fijarNombreCapital, LONGITUD_MAXIMA_NOMBRE_CAPITAL } from "../../mundo/capital";
 import { nuevasClavesReveladas, sectorDePosicion, empaquetarSector } from "../../mundo/exploracion";
+import { COSTE_REPOSICION_FAUNA } from "../../mundo/faunaSalvajeViva";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
 import {
@@ -1576,6 +1577,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // saldo a una cuenta de prueba sin pasar por la economía real del
     // juego, ver server/test/megaEstresTodasLasMecanicas.e2e.mjs).
     this.onMessage("admin:debug:ajustarFarycoins", (client, msg: { cantidad?: number }) => void this.manejarDebugAjustarFarycoins(client, msg));
+    this.onMessage("admin:fauna:reponer", (client, msg: { especieId?: string; cantidad?: number }) => void this.manejarAdminFaunaReponer(client, msg));
     this.onMessage("admin:debug:limpiarInventario", (client) => this.manejarDebugLimpiarInventario(client));
     this.onMessage("admin:debug:godMode", (client, msg: { activo?: boolean }) => this.manejarDebugGodMode(client, msg));
     this.onMessage("admin:debug:maxOficio", (client, msg: { slot?: 1 | 2 }) => void this.manejarDebugMaxOficio(client, msg));
@@ -5537,6 +5539,49 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const resultado = await bd.ajustarFarycoins(jugador.id, cantidad);
     if (!resultado.ok) return client.send("admin:error", { motivo: "saldo insuficiente para esa cantidad" });
     client.send("admin:debug:ok", { accion: "ajustarFarycoins", cantidad, saldo: resultado.saldo });
+  }
+
+  /**
+   * `admin:fauna:reponer {especieId,cantidad}` — jarl/superadmin-only, pero
+   * a diferencia del bloque de arriba NO es un comando de debug de la Test
+   * Zone: actúa sobre el MUNDO real (fauna salvaje junto al jarl, no sobre
+   * sí mismo) y cuesta Farycoins de verdad. Pedido streamer 2026-09-08, en
+   * respuesta directa a docs/GDD_Agentes_Moviles.md "Extinción local de
+   * fauna reproductora" (que confirma a propósito que el juego NUNCA repone
+   * sola una especie cazada hasta desaparecer): "el streamer decide...
+   * desaparece, la compra a un vendedor, o la respawnea, lo que quiera" —
+   * esto es esa herramienta manual, nunca automática. `cantidad` acotada a
+   * 1..5: reponer de golpe una especie entera no es la idea. Cobra ANTES de
+   * intentar crear nada (mismo patrón que cualquier compra real) y
+   * reembolsa la parte que `intentarReponerFauna` no pudo completar (sector
+   * inactivo, especie desconocida en el catálogo, o sin sitio transitable
+   * cerca) — el jarl nunca paga por lo que no se creó.
+   */
+  private async manejarAdminFaunaReponer(client: Client, msg: { especieId?: string; cantidad?: number }) {
+    if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
+    const jugador = this.state.players.get(client.sessionId);
+    const nombre = this.nombreDe(client);
+    if (!jugador || !nombre) return client.send("admin:error", { motivo: "jugador inválido" });
+    const especieId = msg?.especieId;
+    if (!especieId) return client.send("admin:error", { motivo: "falta especieId" });
+    const cantidad = Math.max(1, Math.min(5, Math.floor(msg?.cantidad ?? 1)));
+    const bd = await obtenerBdCompartida();
+    const jugadorBd = await bd.obtenerOCrearJugador(nombre);
+    const costeTotal = cantidad * COSTE_REPOSICION_FAUNA;
+    const cobro = await bd.ajustarFarycoins(jugadorBd.id, -costeTotal);
+    if (!cobro.ok) return client.send("admin:error", { motivo: `saldo insuficiente (cuesta ${costeTotal} Farycoins)` });
+    const creados = await this.intentarReponerFauna(especieId, cantidad, { x: jugador.x, y: jugador.y });
+    if (creados === 0) {
+      await bd.ajustarFarycoins(jugadorBd.id, costeTotal); // nada que reponer: se devuelve el cobro entero
+      return client.send("admin:error", { motivo: "no se pudo reponer (especie desconocida, sector inactivo, o sin sitio libre cerca)" });
+    }
+    const noCreados = cantidad - creados;
+    let saldoFinal = cobro.saldo;
+    if (noCreados > 0) {
+      const reembolso = await bd.ajustarFarycoins(jugadorBd.id, noCreados * COSTE_REPOSICION_FAUNA);
+      if (reembolso.ok) saldoFinal = reembolso.saldo;
+    }
+    client.send("admin:fauna:ok", { accion: "reponer", especieId, creados, coste: creados * COSTE_REPOSICION_FAUNA, saldo: saldoFinal });
   }
 
   /** `admin:debug:limpiarInventario {}` — vacía cuerpo + TODAS las mochilas/bandoleras puestas; el equipo (armadura/arma equipada) se queda puesto a propósito. */
@@ -11464,6 +11509,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   protected intentarIniciarCaza(_faunaId: string, _sessionId: string): boolean {
     return false;
+  }
+
+  /**
+   * Repone fauna extinguida localmente — herramienta MANUAL del jarl (docs/
+   * GDD_Agentes_Moviles.md "Extinción local de fauna reproductora", pedido
+   * streamer 2026-09-08: "el streamer decide... desaparece, la compra a un
+   * vendedor, o la respawnea, lo que quiera"). Por defecto no hace nada (0
+   * repuestos — una room sin fauna salvaje viva, p.ej. un interior, no
+   * tiene nada que reponer); HubRoom lo sobreescribe delegando en
+   * `GestorFaunaSalvaje.reponerEspecie`. Mismo patrón hook que
+   * `faunaEsPeligrosa`/`intentarIniciarCaza` justo arriba. Devuelve cuántos
+   * individuos se crearon de verdad.
+   */
+  protected async intentarReponerFauna(_especieId: string, _cantidad: number, _origen: { x: number; y: number }): Promise<number> {
+    return 0;
   }
 
   /** Hook para cuando un combate de ESTA room se resuelve (bando entero caído/huido) — no-op por defecto; ArenaCombateRoom lo usa para teleportar de vuelta y propagar resultados. */

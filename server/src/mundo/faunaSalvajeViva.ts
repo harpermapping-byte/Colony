@@ -48,6 +48,12 @@ const RADIO_CAPTURA = 1.5; // casillas — a esta distancia del cazador, la caza
 // vigilante ve venir a un jugador, mismo orden de magnitud.
 const RADIO_DETECCION_DEPREDADOR = 8;
 
+// Reposición manual de fauna extinguida localmente (pedido streamer
+// 2026-09-08, ver `reponerEspecie` más abajo) — coste en Farycoins que
+// cobra RoomExteriorBase ANTES de llamar, mismo orden de magnitud que
+// COSTE_TENDERO_SOLO (construccion/trabajadores.ts, 40).
+export const COSTE_REPOSICION_FAUNA = 60;
+
 /** Puede huir = no peligrosa (esas atacan, no huyen — verificarAgroFauna) y no domesticable (una mascota/ganado candidato hay que poder acercarse a alimentar, no que salga corriendo). Sin `combate` (especie sin catálogo) se asume que NO puede huir — mismo criterio conservador que el resto de catálogos opcionales. */
 function puedeHuir(combate: EstadisticasCombateAnimal | undefined): boolean {
   return !!combate && !combate.peligroso && !combate.domesticable;
@@ -726,6 +732,99 @@ export class GestorFaunaSalvaje {
       }
     }
     return null;
+  }
+
+  /** Anillo creciente alrededor de `(cx,cy)` hasta encontrar una casilla transitable — mismo criterio "sin A*, solo un punto donde aparecer" que `buscarAguaCercana`, pero sobre CUALQUIER suelo libre, no agua. `null` si en 6 anillos no hay ninguna (acorralado de verdad). */
+  private posicionTransitableCercana(cx: number, cy: number): { x: number; y: number } | null {
+    const x0 = Math.round(cx);
+    const y0 = Math.round(cy);
+    for (let r = 0; r <= 6; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = x0 + dx;
+          const y = y0 + dy;
+          if (this.transitable(x, y)) return { x, y };
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Repone individuos ADULTOS de `especieId` alrededor de `origen` — pedido
+   * streamer 2026-09-08, respuesta directa a docs/GDD_Agentes_Moviles.md
+   * "Extinción local de fauna reproductora" (que confirma a propósito que
+   * el juego NUNCA repone sola una especie cazada hasta desaparecer de un
+   * sector — "la responsabilidad recae en cómo juega la gente"): esto NO es
+   * una excepción a esa regla, es la herramienta MANUAL que le faltaba al
+   * jarl para decidir en el momento si de verdad quiere revertirla —
+   * "el streamer decide... desaparece, la compra a un vendedor, o la
+   * respawnea, lo que quiera". `RoomExteriorBase` cobra Farycoins ANTES de
+   * llamar aquí (mismo patrón que `darItem`/`ajustarFarycoins`) — enmarca
+   * la reposición como "comprada a un vendedor abstracto" y cubre a la vez
+   * la opción de "spawnearlos", sin duplicar mecanismos para lo que en la
+   * práctica es la misma acción (crear individuos nuevos de la nada).
+   *
+   * Solo actúa si el sector de `origen` YA está activo (el jarl tiene que
+   * estar físicamente ahí, `actualizarPorJugadores` ya lo habrá activado
+   * por su sola presencia) y `especieId` existe en el catálogo de
+   * reproducción — devuelve cuántos individuos creó de verdad (0 si el
+   * sector no está activo, la especie no existe, o no queda ninguna
+   * casilla transitable cerca donde aparecer).
+   */
+  async reponerEspecie(
+    especieId: string,
+    cantidad: number,
+    origen: { x: number; y: number },
+    tamanoChunk: number,
+    tamanoSectorChunks: number,
+  ): Promise<number> {
+    if (!this.deps.catalogo[especieId]) return 0;
+    const s = sectorDeCasilla(origen.x, origen.y, tamanoChunk, tamanoSectorChunks);
+    const vivos = this.sectoresActivos.get(clave(s));
+    if (!vivos) return 0;
+    const combate = this.deps.catalogoCombate?.[especieId] ?? estadisticasCombatePorDefecto();
+    const ahora = this.deps.ahora();
+    let creados = 0;
+    for (let i = 0; i < cantidad; i++) {
+      const pos = this.posicionTransitableCercana(origen.x, origen.y);
+      if (!pos) break;
+      const id = `${this.deps.mapaId}:${s.sectorX}:${s.sectorY}:reponer:${Date.now()}:${i}`;
+      const fila: FaunaSalvajeFila = {
+        id,
+        mapaId: this.deps.mapaId,
+        sectorX: s.sectorX,
+        sectorY: s.sectorY,
+        especieId,
+        sexo: Math.random() < 0.5 ? "macho" : "hembra",
+        etapa: "adulto",
+        estado: "vivo",
+        x: pos.x,
+        y: pos.y,
+        ultimaComida: ahora,
+        ultimaBebida: ahora,
+        gestandoDesde: null,
+        gestacionDuracionDias: null,
+        nacioEn: null,
+        vida: combate.vidaMaxima,
+        vidaMax: combate.vidaMaxima,
+        ataque: combate.ataque,
+      };
+      const esquema = new Fauna();
+      esquema.x = pos.x + 0.5;
+      esquema.y = pos.y + 0.5;
+      esquema.especieId = especieId;
+      esquema.accion = accionIdleAlAzar();
+      esquema.vida = combate.vidaMaxima;
+      esquema.vidaMax = combate.vidaMaxima;
+      esquema.ataque = combate.ataque;
+      this.salida.set(id, esquema);
+      vivos.push({ fila, esquema, destino: null, objetivoDestino: null, pausaRestante: 1 + Math.random() * 3 });
+      await this.deps.guardarIndividuo(fila);
+      creados++;
+    }
+    return creados;
   }
 
   private avanzarHaciaDestino(v: IndividuoVivo, dt: number, ahora: number): void {

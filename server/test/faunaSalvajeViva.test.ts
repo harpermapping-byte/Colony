@@ -672,3 +672,42 @@ test("tick: un conejo (no peligroso) nunca inicia una cacería — solo especies
   const { cacerias } = gestor.tick(0.2);
   assert.strictEqual(cacerias.length, 0, "dos conejos cerca no deberían cazarse entre sí");
 });
+
+// reponerEspecie — herramienta MANUAL de jarl (pedido streamer 2026-09-08,
+// docs/GDD_Agentes_Moviles.md "Extinción local de fauna reproductora").
+test("reponerEspecie: crea N individuos vivos adultos, en el estado de Colyseus y persistidos", async () => {
+  const { gestor, salida, bd } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 }); // el jarl tiene que estar en un sector ya activo
+  const antes = salida.size;
+  const creados = await gestor.reponerEspecie("conejo", 3, { x: 5, y: 5 }, 32, 10);
+  assert.strictEqual(creados, 3);
+  assert.strictEqual(salida.size, antes + 3);
+  assert.strictEqual(gestor.cantidadViva(), antes + 3);
+  const nuevos = [...salida.values()].filter((f) => f.especieId === "conejo");
+  assert.strictEqual(nuevos.length, 3);
+  for (const n of nuevos) assert.ok(n.vidaMax > 0, "sale con vida real del catálogo de combate, no 0");
+  const filasPersistidas = bd.filas.get("0,0")!.filter((f) => f.especieId === "conejo" && f.estado === "vivo");
+  assert.strictEqual(filasPersistidas.length, 3, "cada individuo repuesto se persiste, no solo vive en memoria");
+});
+
+test("reponerEspecie: 0 si el sector NO está activo (el jarl tiene que estar físicamente ahí)", async () => {
+  const { gestor, salida } = crearGestor();
+  const creados = await gestor.reponerEspecie("conejo", 2, { x: 5, y: 5 }, 32, 10);
+  assert.strictEqual(creados, 0);
+  assert.strictEqual(salida.size, 0);
+});
+
+test("reponerEspecie: 0 si la especie no existe en el catálogo (no cuela cualquier string)", async () => {
+  const { gestor } = crearGestor();
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const creados = await gestor.reponerEspecie("dragon_inventado", 2, { x: 5, y: 5 }, 32, 10);
+  assert.strictEqual(creados, 0);
+});
+
+test("reponerEspecie: los individuos repuestos aparecen en el sector correcto (misma conversión que actualizarPorJugadores)", async () => {
+  const { gestor, bd } = crearGestor();
+  await gestor.actualizarPorJugadores([{ x: 5, y: 5 }], 32, 10, 0); // activa solo el sector 0,0
+  await gestor.reponerEspecie("conejo", 1, { x: 5, y: 5 }, 32, 10);
+  const filas = bd.filas.get("0,0") ?? [];
+  assert.ok(filas.some((f) => f.especieId === "conejo" && f.sectorX === 0 && f.sectorY === 0));
+});
