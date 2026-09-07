@@ -1908,12 +1908,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     escena.quitarEntidad(`barco_${id}`);
   });
 
-  // --- Enemigos de mazmorra (docs/GDD_Bakeador_Dungeons.md §4): sin
-  // movimiento/combate todavía (el streamer lo explicará aparte) — aparecen
-  // QUIETOS en su punto, con animación de reposo (mismo circuito que la
-  // demo de personajes/animales: se cuelgan de `animables` en vez de la
-  // interpolación de jugadores/NPCs, que aquí no hace falta).
-  const enemigosVisual = new Map<string, { actualizar(dt: number): void }>();
+  // --- Enemigos de mazmorra (docs/GDD_Bakeador_Dungeons.md §4, movimiento
+  // real desde 2026-09-07 — antes aparecían QUIETOS para siempre): mismo
+  // circuito de interpolación+animación que fauna/NPCs (EstadoJugador,
+  // spread en el bucle de más abajo), NO el `animables` de solo-reposo que
+  // usaba antes — el servidor (GestorEnemigosMazmorra) ya mueve x/y de
+  // verdad, así que necesita la MISMA interpolación suave que cualquier
+  // otra entidad que camina.
+  const enemigosVisual = new Map<string, EstadoJugador>();
   $(room.state).enemigos.onAdd((enemigo: any, id: string) => {
     const variantes = poolEnemigos[enemigo.enemigoId];
     const variante = variantes?.[enemigo.variante];
@@ -1933,20 +1935,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const etiqueta = enemigo.esBoss ? `☠ ${nombreMostrado}` : nombreMostrado;
     escena.añadirEntidad(`enemigo_${id}`, figura.objeto, enemigo.x, enemigo.y, etiqueta);
     escena.actualizarVida(`enemigo_${id}`, enemigo.vida, enemigo.vidaMax);
-    enemigosVisual.set(id, figura);
-    animables.push(figura);
-    $(enemigo).onChange(() => escena.actualizarVida(`enemigo_${id}`, enemigo.vida, enemigo.vidaMax));
+    const estado: EstadoJugador = {
+      rig: figura,
+      destinoX: enemigo.x, destinoZ: enemigo.y, destinoY: 0,
+      x: enemigo.x, z: enemigo.y, y: 0,
+      nadando: false,
+    };
+    enemigosVisual.set(id, estado);
+    $(enemigo).onChange(() => {
+      estado.destinoX = enemigo.x;
+      estado.destinoZ = enemigo.y;
+      escena.actualizarVida(`enemigo_${id}`, enemigo.vida, enemigo.vidaMax);
+    });
   });
   $(room.state).enemigos.onRemove((_enemigo: any, id: string) => {
-    // Bug real (encontrado en la auditoría de 2026-09-02): sin esto, cada enemigo que muere se
-    // queda para siempre en `animables` (nunca se drena) — con partidas largas de combate contra
-    // bandidos/lobos/jefes, el array crece sin límite reteniendo la malla/materiales THREE.js
-    // de cada enemigo ya muerto, que además sigue ejecutando su animación de reposo cada frame.
-    const figura = enemigosVisual.get(id);
-    if (figura) {
-      const idx = animables.indexOf(figura);
-      if (idx !== -1) animables.splice(idx, 1);
-    }
     enemigosVisual.delete(id);
     escena.quitarEntidad(`enemigo_${id}`);
   });
@@ -2851,7 +2853,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const factor = 1 - Math.exp(-12 * dt);
     // Jugadores y NPCs comparten interpolación y animación de marcha: un
     // NPC es "otro que se mueve por patches del servidor", nada más.
-    for (const estado of [...jugadores.values(), ...npcsVisual.values(), ...faunaVisual.values(), ...mascotasVisual.values(), ...companerosVisual.values()]) {
+    for (const estado of [...jugadores.values(), ...npcsVisual.values(), ...faunaVisual.values(), ...mascotasVisual.values(), ...companerosVisual.values(), ...enemigosVisual.values()]) {
       const dx = estado.destinoX - estado.x;
       const dz = estado.destinoZ - estado.z;
       const distancia = Math.hypot(dx, dz);
