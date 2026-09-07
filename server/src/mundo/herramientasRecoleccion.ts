@@ -124,3 +124,17 @@ export function mejorHerramientaPara(
   }
   return mejor;
 }
+
+/**
+ * Cuánto falta (ms, 0 = ya se puede) para el próximo `coger` gateado por
+ * herramienta — GDD_Crafteo.md §8 (2026-09-08): antes el `tier` SOLO
+ * gateaba el acceso ("aunque hoy da igual" decía el propio comentario de
+ * este archivo); ahora una herramienta de tier alto también recolecta más
+ * rápido de verdad (`cooldownMs` del catálogo, escalado por tier). Función
+ * pura (sin `Date.now()` propio) para poder testearla con timestamps
+ * fabricados — `RoomExteriorBase.manejarCoger` es quien la llama con el
+ * reloj real y quien recuerda `ultimoMs` por sesión.
+ */
+export function msFaltantesParaRecolectar(cooldownMs: number, ultimoMs: number, ahoraMs: number): number {
+  return Math.max(0, cooldownMs - (ahoraMs - ultimoMs));
+}

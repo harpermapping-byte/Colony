@@ -426,6 +426,8 @@ export class Mascota extends Schema {
   @type("boolean") arnes = false;
   /** docs/GDD_Carros.md §3 — SOLO con arnes:true: peso máximo de carro que puede tirar (del ítem `esApero` consumido). */
   @type("number") arnesPesoMaximo = 0;
+  /** docs/GDD_Monturas.md §3bis (2026-09-08) — SOLO con montura:true: bonus fraccional de velocidad (0.1 = +10%) del ítem `esMontura` concreto que se usó (tiers de silla_montar). 0 = silla básica, sin bonus. */
+  @type("number") monturaBonusVelocidad = 0;
 }
 
 // Compañero NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — un Npc real de

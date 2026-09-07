@@ -155,3 +155,48 @@ Partiendo de un prototipo externo (server+client con fases calentar/forjar/templ
 - ~~Cómo se consigue un plano nuevo~~ — **resuelto (2026-08-30), ver §7bis: ligado a construir la mesa correspondiente, no a un desbloqueo por jugador.**
 - Umbrales exactos de XP por nivel, y cuánto XP da cada receta — placeholders a afinar como el resto de números de balance del proyecto (`xpOtorgada` por receta ya es asignable desde §7bis, falta rellenarlo).
 - Si un personaje puede tener varios oficios a la vez o hay que especializarse — sigue abierto en el Backlog.
+
+## 8. Ampliación masiva de crafteo + velocidad/durabilidad real por tier + reparto 1-10 (2026-09-08, pedido streamer: "que todos los objetos del mundo ahora puedan craftearse (menos las armas y armaduras de bosses)... herramientas de diferentes materiales (las mas basicas mas lentas, las de mejor material mas rapidas y mas durabilidad) para asi repartirlas en los niveles como tiers")
+
+Cierra dos huecos a la vez: (1) el "mapa de oficios" (artefacto visual pedido en la misma sesión) mostraba las 290 recetas topando en nivel 4-5, niveles 6-10 vacíos en los 10 oficios; (2) el tier de herramienta (1-4, `familiaMaterial: "herramienta_<oficio>"`) YA existía desde 2026-08-30 pero era **solo una puerta de acceso** — el propio código lo decía: "aunque hoy da igual, ninguna se destruye, solo se desgasta" — recolectar tardaba lo mismo con tier 1 que con tier 4, y la durabilidad era una constante plana (60) en vez de escalar.
+
+### 8.1 Alcance real de "todos los objetos" — auditado antes de tocar nada
+
+Antes de generar nada se hizo un barrido real de `items/catalogo/items.json` (614 entradas) cruzado contra `recetas.json` (290 recetas) por `tipo`, para separar el hueco REAL del ruido:
+
+| tipo | sin receta | qué era de verdad |
+|---|---|---|
+| `armadura` | 35/35 | las 5 piezas × 7 temas de `catalogoLootLegendario.json` — **excluido a propósito, sigue siendo el único loot de jefe** |
+| `arma` | 14/45 | 7 legendarias + 7 de `catalogoLootTematico.json` (enemigo temático) — **excluido, mismo criterio** |
+| `equipable` | 7/123 | las 7 armaduras temáticas de `catalogoLootTematico.json` — **excluido** |
+| `semilla` | 32/32 | se consiguen cosechando o comprando a NPC (confirmado por el streamer) — **fuera del reparto a propósito** |
+| `libro` | 18/19 | casi todos son libros de TUTORIAL/lore — el único crafteable de verdad es el que el propio jugador puede escribir (concepto distinto, no una receta más) — **fuera de esta pasada** |
+| `objeto` | 64/77 | 40 son `cadaver_*` (contenedor auto-generado al cazar, no se craftea) + moneda/reliquia/bolsas de semilla (atadas a la exclusión de arriba) — el resto (23: vajilla, iluminación, papelería, arcón...) **SÍ tiene receta nueva** |
+| `recurso` | 90/162 | la mayoría es materia prima BRUTA (mineral, madera en tronco, plantas, carne, pieles) — se sigue recolectando/talando/cazando, NUNCA crafteando (decisión explícita del streamer: "solo procesados") — los 13 PROCESADOS reales (lingotes ×7, acero, bronce, piedra_tallada, cristal_pulido, cuero_curtido, tela_hilada, gema_tallada) + 4 muebles-que-también-son-ítem (silla/mesa_comedor/cama_individual/arcón) **SÍ ganan receta** |
+| `consumible` | 28/35 | 5 son `pocion_alquimica_*` (minijuego de alquimia, `alquimia.ts::itemIdPocion` — ya tienen SU propio camino de crafteo, no uno de recetas.json) — el resto (23: asados, cocinados, pan, mantequilla, queso, raciones) **SÍ gana receta**, cocinero |
+
+Total real: **89 recetas nuevas** sobre ítems que YA existían en el catálogo (cero arte nuevo, cero id nuevo salvo lo del §8.2/8.3) — el resto del "hueco" era ruido (loot exclusivo, subproductos automáticos, materia prima que se recolecta por diseño).
+
+**Los 616 elementos de `interiores/catalogo/elementos.json` sin representación en `items.json`** (de 716 totales, solo 100 tienen un id gemelo en `items.json` — el resto es decorado puramente bakeado: clutter, arquitectura de sala, set-dressing de un taller concreto) se dejan **fuera a propósito** — convertirlos en ítems craftables exigiría darles entrada nueva en `items.json` (peso/categoría/pila) para CADA uno sin la garantía de que tenga sentido cargarlos y colocarlos como mueble de jugador (una bóveda de piedra o una viga de techo no son "un objeto que se lleva en la mochila"). Si el streamer quiere piezas concretas de esa lista crafteables, es una petición dirigida, no un barrido ciego.
+
+### 8.2 Tier 5 — techo nuevo de herramienta por oficio (nivel 5, uno por familia)
+
+Extiende la escalera `tier1→nivel1 ... tier4→nivel4` ya establecida con un quinto peldaño real: `martillo_yunque_celestial` (herrero), `hacha_corazon_roble_milenario` (carpintero), `pico_veta_eterna` (picapedrero), `cuchilla_maestra_talabartero` (curtidor), `buril_luz_prismatica` (joyero), `guadana_cosecha_dorada` (molinero), `podadera_sagrada_arboleda` (curandero), `compas_precision_estelar` (ingeniero), `cuchillo_rastreador_supremo` (cazador), `cuchillo_gran_maestro_cocina` (cocinero) — 10 ítems nuevos, cero arte nuevo (reusan un `prendaId` ya existente, el mismo mecanismo procedural que ya usan armas/herramientas desde 2026-09-07: `equipoVisual.ts` genera el vóxel EN VIVO o carga el `.glb` ya aprobado de `taller-vox/generar_herramientas.js`).
+
+### 8.3 Pieza insignia por oficio (nivel 7-10) — el techo real por encima de lo craftable de siempre
+
+11 ítems nuevos (uno o dos por oficio, herrero se lleva dos por ser el más profundo del catálogo), extendiendo el MEJOR producto ya existente de cada oficio un escalón más — mismo criterio que ya usa el juego para `_bonificado(a)` (mejor material, mejores stats), **nunca compitiendo con el loot legendario de jefe**: `martillo_guerra_mithril`(8)/`peto_placas_mithril`(10) herrero, `gran_salon_ebanisteria_carro_real`(7) carpintero, `coraza_marmol_reforzado`(8) picapedrero, `abrigo_piel_exotica_maestro`(7) curtidor, `diadema_gemas_reales`(9) joyero, `banquete_real_gran_asado`(7) cocinero, `elixir_restauracion_completa`(8) curandero, `ballesta_repeticion_maestra`(9) cazador, `automata_asistente_mecanico`(10) ingeniero, `silo_grano_gremial`(7) molinero.
+
+### 8.4 Velocidad y durabilidad REALES por tier (no solo puerta de acceso)
+
+`items.json`: las 66 herramientas con `familiaMaterial: "herramienta_<oficio>"` (de 71 — las 5 restantes, `cana_pesca`/`cubo_ordeno`/`tijeras_esquilar`/`antorcha_portatil`/`instrumental_cirugia`, nunca tuvieron tier, quedan fuera igual que antes) ganan `cooldownMs` (2200/1700/1300/950/700 ms por tier 1-5) y `durabilidadMax` escalado de verdad (50/90/140/200/280, antes una constante plana de 60 o ausente).
+
+**`server/src/mundo/herramientasRecoleccion.ts`**: nueva función pura `msFaltantesParaRecolectar(cooldownMs, ultimoMs, ahoraMs)`. **`RoomExteriorBase.manejarCoger`**: nuevo `ultimoCogerPorSesion` (Map por sesión, limpiado en `onLeave`) — antes de confirmar una recolección GATEADA por herramienta (rama picapedrero equipada Y rama `mejorHerramientaPara`), comprueba el cooldown de la herramienta CONCRETA usada y rechaza con `coger:error {motivo:"demasiado_pronto", faltanMs}` si no ha pasado suficiente; recoger algo YA soltado por otro jugador sigue instantáneo, como siempre (nunca pasa por `requisitoDeCategoria`). Verificado con `server/test/herramientasRecoleccion.e2e.mjs` (gating real sin regresión) + `server/test/herramientasRecoleccion.test.ts` (17 tests: la función pura con timestamps fabricados + un test de catálogo que confirma que CADA familia mejora cooldown Y durabilidad tier a tier, no solo que existan los campos).
+
+### 8.5 Monturas — 2 tiers nuevos sobre `silla_montar`, con bonus real (no solo cosmético)
+
+`docs/GDD_Monturas.md` §3 ya tenía la silla básica (`esMontura`, consumida por `mascota:ponerMontura`, gatea `mascota:montar`) — pero era un flag booleano, sin distinguir QUÉ silla. Nuevo `bonusVelocidadMontura` en el catálogo (`silla_montar`=0, `silla_montar_reforzada`=0.1, `silla_montar_maestra`=0.2, nivel 3 y 6 respectivamente) que ahora SÍ se persiste por mascota (`Mascota.monturaBonusVelocidad`, columna nueva `montura_bonus_velocidad` migrada en los dos backends, mismo patrón que `arnesPesoMaximo`) y se aplica de verdad a `velocidadMontura` al montar (`manejarMascotaMontar`). Verificado: `server/test/mascotasBd.test.ts` (+1 test, roundtrip del bonus en BD), `server/test/monturas.e2e.mjs` sin regresión (la montura sembrada sin bonus explícito sigue moviéndose exactamente igual que antes — 0 es no-op).
+
+### Verificado (§8, conjunto)
+
+Servidor 1271/1271 (+7 tests nuevos: 5 de velocidad/durabilidad por tier, 2 de bonus de montura en BD), `tsc --noEmit` limpio en cliente y servidor (cliente sin cambios — `equipoVisual.ts` ya renderizaba genéricamente cualquier `prendaId`/material nuevo, cero pieza de arte nueva que aprobar), `items.json` 614→637 entradas (23 nuevas: 10 tier5 + 11 insignia + 2 tiers de montura), `recetas.json` 290→379 (89 nuevas), `server/test/herramientasRecoleccion.e2e.mjs`/`monturas.e2e.mjs`/`npcs_trabajadores_montura.e2e.mjs` sin regresión (el último tiene un fallo de timing PRE-EXISTENTE, confirmado reproduciéndolo igual con `git stash` sobre el commit limpio anterior a esta pasada — no es de esta pasada). **Reparto final por nivel** (recetas por oficio, 1→10): con esta pasada los 10 oficios tienen contenido real en 1-5 y AL MENOS una pieza en 6-10 (herrero e ingeniero llegan a nivel 10, el resto a 7-9) — antes de esta pasada, 9 de 10 oficios topaban en nivel 4. **Sin verificación visual en cliente real** (equipar una pieza insignia nueva y verla en pantalla, craftear un procesado y confirmarlo por Playwright) — documentado como gap, no dado por bueno sin más, mismo criterio honesto que el resto de esta sesión.

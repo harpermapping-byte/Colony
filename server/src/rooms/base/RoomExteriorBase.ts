@@ -50,7 +50,7 @@ import {
 import { Arena, Casilla, costeCasilla } from "../../combate/pathfindingArena";
 import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
 import { recolectableCercano, recolectablesAgotadosDeMapa } from "../../mundo/recolectables";
-import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria } from "../../mundo/herramientasRecoleccion";
+import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria, msFaltantesParaRecolectar } from "../../mundo/herramientasRecoleccion";
 import {
   CatalogoItems,
   Contenedor,
@@ -770,6 +770,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // velocidad real y el cooldown de salto viven aquí, server-only, mismo
   // criterio que pescaPorSesion/tiempoMovimiento.
   protected montadoPorSesion = new Map<string, { mascotaId: number; especieId: string; velocidad: number; arnes: boolean; arnesPesoMaximo: number }>();
+  /** Último `coger` real (herramienta-gateado) por sesión, ms epoch — GDD_Crafteo.md §8
+   * (2026-09-08): la herramienta ahora sí importa lo que tarda, no solo si gatea el
+   * acceso ("aunque hoy da igual", comentario que quedó obsoleto con este cambio).
+   * Solo cubre recolección DEL BAKE (con `requisito`); coger algo ya soltado sigue
+   * instantáneo, como siempre. */
+  private ultimoCogerPorSesion = new Map<string, number>();
   // Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30) — estado PURO completo
   // por sesión (con timestamps de curación en curso, ver anatomia.ts), server
   // -only: el Player.anatomia Schema solo replica el subconjunto de booleanas
@@ -1837,6 +1843,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // a aparecer desmontada en la próxima room a la que entre el dueño.
     this.montadoPorSesion.delete(client.sessionId);
     this.cooldownSaltoMontura.delete(client.sessionId);
+    this.ultimoCogerPorSesion.delete(client.sessionId);
     // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): a diferencia de una
     // mascota, el barco SÍ hace falta anclarlo en BD si el que se
     // desconecta era el último a bordo (si no, quedaría "flotando" en
@@ -2087,12 +2094,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // hierba, comida, fibra...) usa la pose genérica de agacharse, sin
     // herramienta que mostrar.
     let tipoAccion: "recoger" | "picar" = "recoger";
+    // Velocidad real por tier (GDD_Crafteo.md §8, 2026-09-08): coste en ms
+    // de ESTA herramienta concreta si acaba usándose — 0 = sin herramienta
+    // de por medio (objeto suelto, o categoría sin requisito), nunca gatea.
+    let cooldownDeEstaRecoleccion = 0;
     let candidato = this.buscarObjetoSoltadoCercano(player.x, player.y);
     if (!candidato) {
       const delMundo = this.buscarCogibleEnMundo(player.x, player.y);
       if (delMundo) {
         const requisito = requisitoDeCategoria(delMundo.itemId);
         if (requisito) {
+          let entradaHerramientaUsada: (typeof this.catalogoItems)[string] | undefined;
           if (requisito.oficio === "picapedrero") {
             // Pico EQUIPADO en manoPrincipal (pedido streamer 2026-09-06:
             // "picar tiene que tener su animación... con el pico en la mano
@@ -2108,12 +2120,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
               return;
             }
             tipoAccion = "picar";
+            entradaHerramientaUsada = entradaEquipada;
           } else {
             herramientaAUsar = mejorHerramientaPara(contenedor, this.catalogoItems, requisito);
             if (!herramientaAUsar) {
               client.send("coger:error", { motivo: `necesitas una herramienta de ${requisito.oficio} (tier ${requisito.tier} o superior)` });
               return;
             }
+            entradaHerramientaUsada = this.catalogoItems[herramientaAUsar.itemId];
+          }
+          cooldownDeEstaRecoleccion = entradaHerramientaUsada?.cooldownMs ?? 0;
+          const ultimo = this.ultimoCogerPorSesion.get(client.sessionId) ?? 0;
+          const faltan = msFaltantesParaRecolectar(cooldownDeEstaRecoleccion, ultimo, Date.now());
+          if (faltan > 0) {
+            client.send("coger:error", { motivo: "demasiado_pronto", faltanMs: faltan });
+            return;
           }
         }
         candidato = delMundo;
@@ -2139,6 +2160,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // reatrapar algo que ya estaba en el suelo.
     if (tipoAccion === "picar") {
       candidato.confirmar();
+      this.ultimoCogerPorSesion.set(client.sessionId, Date.now());
       this.soltarEnSuelo(player, candidato.itemId, candidato.cantidad);
       this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: tipoAccion });
       player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_RECOLECTAR);
@@ -2163,6 +2185,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return;
     }
     candidato.confirmar();
+    if (cooldownDeEstaRecoleccion > 0) this.ultimoCogerPorSesion.set(client.sessionId, Date.now());
     if (herramientaAUsar) {
       const entradaHerramienta = this.catalogoItems[herramientaAUsar.itemId];
       if (entradaHerramienta) registrarUso(herramientaAUsar, entradaHerramienta, Date.now());
@@ -4088,15 +4111,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const it = contenedor.items.find((i) => this.catalogoItems[i.itemId]?.esMontura === true);
     if (!it) return client.send("mascota:error", { motivo: "sin_silla" });
+    // Tiers de silla (docs/GDD_Monturas.md §3bis, 2026-09-08): el bonus de
+    // velocidad de la silla CONCRETA usada, no solo si tiene o no —
+    // silla_montar (básica) da 0, silla_montar_reforzada/_maestra dan más.
+    const bonusVelocidad = this.catalogoItems[it.itemId]?.bonusVelocidadMontura ?? 0;
     const resultado = quitarItem(contenedor, it.id, 1);
     if (!resultado.ok) return client.send("mascota:error", { motivo: resultado.motivo ?? "sin_silla" });
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
-    const ok = await bd.ponerMonturaMascota(mascotaIdNum, jugador.id);
+    const ok = await bd.ponerMonturaMascota(mascotaIdNum, jugador.id, bonusVelocidad);
     if (!ok) return client.send("mascota:error", { motivo: "no_es_tuya_o_no_esta_cerca" });
     esquema.montura = true;
+    esquema.monturaBonusVelocidad = bonusVelocidad;
     client.send("mascota:actualizada", { mascotaId: mascotaIdNum, ubicacion: "siguiendo" as UbicacionMascota, montura: true });
   }
 
@@ -4118,8 +4146,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!encontrada) return client.send("mascota:error", { motivo: "nada_cerca" });
     const { id: mascotaIdNum, esquema } = encontrada;
     const datosMontura = this.catalogoMonturas[esquema.especieId]!; // ya comprobado por el filtro de arriba
+    // Tiers de silla (docs/GDD_Monturas.md §3bis, 2026-09-08): la velocidad
+    // base de la especie sube un fraccional real con la silla concreta que
+    // lleve puesta — silla_montar (básica) da 0, así que esto es cero
+    // diferencia para monturas con la silla de siempre.
+    const velocidadConSilla = datosMontura.velocidadMontura * (1 + esquema.monturaBonusVelocidad);
 
-    this.montadoPorSesion.set(client.sessionId, { mascotaId: mascotaIdNum, especieId: esquema.especieId, velocidad: datosMontura.velocidadMontura, arnes: esquema.arnes, arnesPesoMaximo: esquema.arnesPesoMaximo });
+    this.montadoPorSesion.set(client.sessionId, { mascotaId: mascotaIdNum, especieId: esquema.especieId, velocidad: velocidadConSilla, arnes: esquema.arnes, arnesPesoMaximo: esquema.arnesPesoMaximo });
     this.quitarMascotaDeSchemaLocal(mascotaIdNum);
     player.monturaEspecieId = esquema.especieId;
     player.monturaMascotaId = mascotaIdNum;

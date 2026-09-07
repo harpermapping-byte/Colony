@@ -85,6 +85,8 @@ export interface EntradaCatalogoItem {
 
   /** docs/GDD_Monturas.md — se consume sobre una mascota propia ya domesticada y `montable` (personajes/catalogo/animales_rig.json) para marcarla `montura:true` de forma permanente. Ausente/false = objeto normal. */
   esMontura?: boolean;
+  /** docs/GDD_Monturas.md §3bis (2026-09-08) — SOLO en ítems `esMontura`: bonus fraccional de velocidad al montar (0.1 = +10%) del tier de silla concreto. Ausente/0 = silla básica, sin bonus. */
+  bonusVelocidadMontura?: number;
 
   /** docs/GDD_Carros.md §2 — arnés de tiro: se consume sobre una mascota propia `montable` (mascota:ponerArnes) para marcarla `arnes:true` de forma permanente, habilitando `carro:enganchar`. Ausente/false = objeto normal. */
   esApero?: boolean;

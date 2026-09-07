@@ -81,10 +81,21 @@ test("ponerMonturaMascota: marca montura=true, es permanente al listar de nuevo"
   const bd = new AlmacenDatos(":memory:");
   const jugador = await bd.obtenerOCrearJugador("Ragnar");
   const mascota = await bd.crearMascota(jugador.id, "caballo");
-  const ok = await bd.ponerMonturaMascota(mascota.id, jugador.id);
+  const ok = await bd.ponerMonturaMascota(mascota.id, jugador.id, 0);
   assert.strictEqual(ok, true);
   const filas = await bd.listarMascotas(jugador.id);
   assert.strictEqual(filas[0].montura, true);
+  await bd.cerrar();
+});
+
+test("ponerMonturaMascota: persiste el bonusVelocidad de una silla de tier superior (docs/GDD_Monturas.md §3bis)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  const jugador = await bd.obtenerOCrearJugador("Ragnar");
+  const mascota = await bd.crearMascota(jugador.id, "caballo");
+  const ok = await bd.ponerMonturaMascota(mascota.id, jugador.id, 0.2);
+  assert.strictEqual(ok, true);
+  const filas = await bd.listarMascotas(jugador.id);
+  assert.strictEqual(filas[0].monturaBonusVelocidad, 0.2);
   await bd.cerrar();
 });
 
@@ -93,7 +104,7 @@ test("ponerMonturaMascota: false si la mascota es de OTRO jugador (nunca deja to
   const ragnar = await bd.obtenerOCrearJugador("Ragnar");
   const lagertha = await bd.obtenerOCrearJugador("Lagertha");
   const mascota = await bd.crearMascota(ragnar.id, "caballo");
-  const ok = await bd.ponerMonturaMascota(mascota.id, lagertha.id);
+  const ok = await bd.ponerMonturaMascota(mascota.id, lagertha.id, 0);
   assert.strictEqual(ok, false);
   const filas = await bd.listarMascotas(ragnar.id);
   assert.strictEqual(filas[0].montura, false, "no se tocó, sigue sin silla");

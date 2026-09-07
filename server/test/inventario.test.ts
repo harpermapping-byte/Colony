@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 614); // 572 (ver historial) + 42 de docs/GDD_Combate.md §11quinquies (2026-09-07, sets legendarios de enemigo sin blueprint: 1 arma + 5 piezas de armadura por cada uno de los 7 temas).
+  assert.strictEqual(ids.length, 637); // 614 (ver historial) + 23 de docs/GDD_Crafteo.md §8 (2026-09-08, ampliación de crafteo: 10 herramientas tier5, 11 piezas insignia, 2 tiers de montura nuevos — el resto de la pasada reusa items YA existentes, solo les añade receta).
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

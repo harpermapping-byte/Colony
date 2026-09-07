@@ -536,6 +536,8 @@ export interface Mascota {
   arnes: boolean;
   /** docs/GDD_Carros.md §3 — SOLO con arnes:true: `pesoMaximoArnes` del ítem `esApero` consumido (catalogo/items.json), qué carro máximo puede tirar. 0 con arnes:false. */
   arnesPesoMaximo: number;
+  /** docs/GDD_Monturas.md §3bis (2026-09-08) — SOLO con montura:true: `bonusVelocidadMontura` del ítem `esMontura` concreto usado (tiers de silla_montar, catalogo/items.json). 0 = silla básica, sin bonus. */
+  monturaBonusVelocidad: number;
 }
 
 /**
@@ -1138,8 +1140,8 @@ export interface IAlmacenDatos {
   listarMascotas(jugadorId: number): Promise<Mascota[]>;
   /** Todo o nada: solo cambia si `id` pertenece de verdad a `jugadorId` — `false` si no existe o es de otro jugador. */
   actualizarUbicacionMascota(id: number, jugadorId: number, ubicacion: UbicacionMascota, propiedadId: string | null): Promise<boolean>;
-  /** docs/GDD_Monturas.md — marca `montura:true` permanentemente (mismo compare-and-swap por jugadorId que actualizarUbicacionMascota). */
-  ponerMonturaMascota(id: number, jugadorId: number): Promise<boolean>;
+  /** docs/GDD_Monturas.md — marca `montura:true` permanentemente (mismo compare-and-swap por jugadorId que actualizarUbicacionMascota). `bonusVelocidad` (§3bis, 2026-09-08) es el `bonusVelocidadMontura` del ítem `esMontura` concreto usado — 0 para la silla básica. */
+  ponerMonturaMascota(id: number, jugadorId: number, bonusVelocidad: number): Promise<boolean>;
   /** docs/GDD_Carros.md §2 — marca `arnes:true` + `arnesPesoMaximo` permanentemente (mismo compare-and-swap que ponerMonturaMascota, ranura independiente). */
   ponerArnesMascota(id: number, jugadorId: number, pesoMaximo: number): Promise<boolean>;
   // Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — nace "siguiendo" (RoomExteriorBase lo spawnea de inmediato), mismo patrón que mascotas.
@@ -1474,7 +1476,8 @@ CREATE TABLE IF NOT EXISTS mascotas (
   creado_en TEXT NOT NULL,
   montura INTEGER NOT NULL DEFAULT 0,
   arnes INTEGER NOT NULL DEFAULT 0,
-  arnes_peso_maximo REAL NOT NULL DEFAULT 0
+  arnes_peso_maximo REAL NOT NULL DEFAULT 0,
+  montura_bonus_velocidad REAL NOT NULL DEFAULT 0
 );
 -- Compañeros NPC (docs/GDD_Companeros.md, pedido 2026-08-30): un Npc real de
 -- poblacion/ reclutado por un jugador. companero_jugador_id es la fila
@@ -2012,7 +2015,8 @@ CREATE TABLE IF NOT EXISTS mascotas (
   creado_en TEXT NOT NULL,
   montura BOOLEAN NOT NULL DEFAULT FALSE,
   arnes BOOLEAN NOT NULL DEFAULT FALSE,
-  arnes_peso_maximo DOUBLE PRECISION NOT NULL DEFAULT 0
+  arnes_peso_maximo DOUBLE PRECISION NOT NULL DEFAULT 0,
+  montura_bonus_velocidad DOUBLE PRECISION NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS companeros (
   id SERIAL PRIMARY KEY,
@@ -2028,6 +2032,7 @@ CREATE TABLE IF NOT EXISTS companeros (
 ALTER TABLE mascotas ADD COLUMN IF NOT EXISTS montura BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE mascotas ADD COLUMN IF NOT EXISTS arnes BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE mascotas ADD COLUMN IF NOT EXISTS arnes_peso_maximo DOUBLE PRECISION NOT NULL DEFAULT 0;
+ALTER TABLE mascotas ADD COLUMN IF NOT EXISTS montura_bonus_velocidad DOUBLE PRECISION NOT NULL DEFAULT 0;
 CREATE TABLE IF NOT EXISTS barcos (
   id SERIAL PRIMARY KEY,
   jugador_id INTEGER NOT NULL,
@@ -2412,6 +2417,7 @@ function filaAMascota(f: any): Mascota {
     montura: !!f.montura,
     arnes: !!f.arnes,
     arnesPesoMaximo: Number(f.arnes_peso_maximo ?? 0),
+    monturaBonusVelocidad: Number(f.montura_bonus_velocidad ?? 0),
   };
 }
 
@@ -2697,6 +2703,11 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     }
     if (!columnasMascotas.some((c) => String(c.name) === "arnes_peso_maximo")) {
       this.bd.exec("ALTER TABLE mascotas ADD COLUMN arnes_peso_maximo REAL NOT NULL DEFAULT 0");
+    }
+    // Mismo patrón para `montura_bonus_velocidad` (docs/GDD_Monturas.md §3bis,
+    // pedido 2026-09-08) — tiers de silla_montar con velocidad real.
+    if (!columnasMascotas.some((c) => String(c.name) === "montura_bonus_velocidad")) {
+      this.bd.exec("ALTER TABLE mascotas ADD COLUMN montura_bonus_velocidad REAL NOT NULL DEFAULT 0");
     }
     // Mismo patrón para `contenido` de `carros`/`conjuntos_tiro`
     // (docs/GDD_Carros.md §8, Fase 2, pedido 2026-09-03) — un datos.sqlite
@@ -4234,11 +4245,11 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     const r = this.bd
       .prepare("INSERT INTO mascotas (jugador_id, especie_id, ubicacion, propiedad_id, creado_en) VALUES (?, ?, 'siguiendo', NULL, ?)")
       .run(jugadorId, especieId, ahora);
-    return { id: Number(r.lastInsertRowid), jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora, montura: false, arnes: false, arnesPesoMaximo: 0 };
+    return { id: Number(r.lastInsertRowid), jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora, montura: false, arnes: false, arnesPesoMaximo: 0, monturaBonusVelocidad: 0 };
   }
 
   async listarMascotas(jugadorId: number): Promise<Mascota[]> {
-    const filas = this.bd.prepare("SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en, montura, arnes, arnes_peso_maximo FROM mascotas WHERE jugador_id = ?").all(jugadorId);
+    const filas = this.bd.prepare("SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en, montura, arnes, arnes_peso_maximo, montura_bonus_velocidad FROM mascotas WHERE jugador_id = ?").all(jugadorId);
     return filas.map(filaAMascota);
   }
 
@@ -4249,10 +4260,10 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return Number(r.changes) > 0;
   }
 
-  async ponerMonturaMascota(id: number, jugadorId: number): Promise<boolean> {
+  async ponerMonturaMascota(id: number, jugadorId: number, bonusVelocidad: number): Promise<boolean> {
     const r = this.bd
-      .prepare("UPDATE mascotas SET montura = 1 WHERE id = ? AND jugador_id = ?")
-      .run(id, jugadorId);
+      .prepare("UPDATE mascotas SET montura = 1, montura_bonus_velocidad = ? WHERE id = ? AND jugador_id = ?")
+      .run(bonusVelocidad, id, jugadorId);
     return Number(r.changes) > 0;
   }
 
@@ -5976,12 +5987,12 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       "INSERT INTO mascotas (jugador_id, especie_id, ubicacion, propiedad_id, creado_en) VALUES ($1, $2, 'siguiendo', NULL, $3) RETURNING id",
       [jugadorId, especieId, ahora],
     );
-    return { id: r.rows[0].id, jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora, montura: false, arnes: false, arnesPesoMaximo: 0 };
+    return { id: r.rows[0].id, jugadorId, especieId, ubicacion: "siguiendo", propiedadId: null, creadoEn: ahora, montura: false, arnes: false, arnesPesoMaximo: 0, monturaBonusVelocidad: 0 };
   }
 
   async listarMascotas(jugadorId: number): Promise<Mascota[]> {
     const r = await this.pool.query(
-      "SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en, montura, arnes, arnes_peso_maximo FROM mascotas WHERE jugador_id = $1",
+      "SELECT id, jugador_id, especie_id, ubicacion, propiedad_id, creado_en, montura, arnes, arnes_peso_maximo, montura_bonus_velocidad FROM mascotas WHERE jugador_id = $1",
       [jugadorId],
     );
     return r.rows.map(filaAMascota);
@@ -5995,10 +6006,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     return (r.rowCount ?? 0) > 0;
   }
 
-  async ponerMonturaMascota(id: number, jugadorId: number): Promise<boolean> {
+  async ponerMonturaMascota(id: number, jugadorId: number, bonusVelocidad: number): Promise<boolean> {
     const r = await this.pool.query(
-      "UPDATE mascotas SET montura = TRUE WHERE id = $1 AND jugador_id = $2",
-      [id, jugadorId],
+      "UPDATE mascotas SET montura = TRUE, montura_bonus_velocidad = $1 WHERE id = $2 AND jugador_id = $3",
+      [bonusVelocidad, id, jugadorId],
     );
     return (r.rowCount ?? 0) > 0;
   }
