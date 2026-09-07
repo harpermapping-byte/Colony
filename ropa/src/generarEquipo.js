@@ -50,6 +50,13 @@ const POSICION_POR_SLOT = {
   mascara: { pivotes: ["cabeza"], caja: { w: 0.3, h: 0.16, d: 0.06 }, offset: { x: 0, y: 0.2, z: 0.16 } },
   gafas: { pivotes: ["cabeza"], caja: { w: 0.26, h: 0.05, d: 0.03 }, offset: { x: 0, y: 0.19, z: 0.17 } },
   pechera: { pivotes: ["torso"], caja: { w: 0.5, h: 0.5, d: 0.28 }, offset: { x: 0, y: 0.28, z: 0 } },
+  // Cuello (collar/gargantilla, pedido streamer 2026-09-08: "meter un
+  // espacio para cuello" al cerrar el ciclo de gemas — hasta ahora un
+  // jugador no tenía dónde llevar un collar, solo anillos/brazaletes en las
+  // manos). Mismo pivote que pechera pero arriba del todo (justo bajo la
+  // cabeza) y una caja pequeña y plana, pegada al pecho — nunca se solapa
+  // con pechera (que cubre más abajo) ni con casco/máscara (pivote cabeza).
+  cuello: { pivotes: ["torso"], caja: { w: 0.18, h: 0.06, d: 0.05 }, offset: { x: 0, y: 0.52, z: 0.13 } },
   brazos: { pivotes: ["brazoDer"], ambosLados: true, caja: { w: 0.16, h: 0.3, d: 0.2 }, offset: { x: 0, y: -0.2, z: 0 } },
   manos: { pivotes: ["manoDer"], ambosLados: true, caja: { w: 0.15, h: 0.18, d: 0.18 }, offset: { x: 0, y: -0.02, z: 0 } },
   piernas: { pivotes: ["piernaDer"], ambosLados: true, caja: { w: 0.19, h: 0.68, d: 0.23 }, offset: { x: 0, y: -0.34, z: 0 } },

@@ -18615,7 +18615,8 @@
     },
     "clearanceFrontal": 1,
     "temasProfesion": [
-      "vidriero"
+      "vidriero",
+      "joyeria"
     ],
     "energia": {
       "consume": 20,
@@ -18715,7 +18716,8 @@
     },
     "clearanceFrontal": 1,
     "temasProfesion": [
-      "vidriero"
+      "vidriero",
+      "joyeria"
     ],
     "variantesNombradas": [
       {

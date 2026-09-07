@@ -1859,6 +1859,10 @@
       {
         "itemId": "lingote_plata",
         "cantidad": 1
+      },
+      {
+        "itemId": "lingote_plomo",
+        "cantidad": 2
       }
     ],
     "resultado": {
@@ -1866,7 +1870,7 @@
       "cantidad": 1
     },
     "tiempoBaseSeg": 35,
-    "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — Vidriera de Mosaico de Vidrio Coloreado."
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — el plomo (came de vidriera real) cierra el único callejón sin salida real del ciclo de minerales: se fundía pero 0 recetas lo pedían después."
   },
   "daga_craft": {
     "minijuego": "herreria",
@@ -3199,8 +3203,8 @@
         "cantidad": 2
       },
       {
-        "itemId": "gema_tallada",
-        "cantidad": 2
+        "itemId": "rubi_tallado",
+        "cantidad": 1
       }
     ],
     "resultado": {
@@ -3208,7 +3212,7 @@
       "cantidad": 1
     },
     "tiempoBaseSeg": 30,
-    "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — antes usaba gema_tallada GENÉRICA (2 unidades) pese a llamarse 'de rubí'; ahora consume rubi_tallado de verdad."
   },
   "silla_pino_craft": {
     "oficio": "carpintero",
@@ -7311,6 +7315,10 @@
       {
         "itemId": "curtiente",
         "cantidad": 1
+      },
+      {
+        "itemId": "sal",
+        "cantidad": 1
       }
     ],
     "resultado": {
@@ -7318,7 +7326,7 @@
       "cantidad": 1
     },
     "tiempoBaseSeg": 13,
-    "_nota": "docs/GDD_Crafteo.md §8 (2026-09-08) — paso de PROCESADO real (el recurso bruto se sigue recolectando/talando/minando, nunca crafteando)."
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — curtido con sal real (además del uso ya existente como ingrediente neutro de alquimia); ahora tiene un uso central, no solo de minijuego secundario."
   },
   "tela_hilada_procesado": {
     "oficio": "curtidor",
@@ -7353,6 +7361,10 @@
       {
         "itemId": "hierba_comestible",
         "cantidad": 2
+      },
+      {
+        "itemId": "turba",
+        "cantidad": 1
       }
     ],
     "resultado": {
@@ -7360,7 +7372,7 @@
       "cantidad": 3
     },
     "tiempoBaseSeg": 15,
-    "_nota": "docs/GDD_Crafteo.md §8 (2026-09-08) — compost real, no es materia prima recolectable."
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 (turba real de compost, mismo uso que en jardinería) — antes turba no tenía NINGÚN consumidor en todo el catálogo."
   },
   "silla_craft": {
     "oficio": "carpintero",
@@ -8400,5 +8412,435 @@
     },
     "tiempoBaseSeg": 40,
     "_nota": "docs/GDD_Monturas.md §3bis (2026-09-08)."
+  },
+  "amatista_tallada_procesado": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_tallado_cristal"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "amatista",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "amatista_tallada",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — cada gema preciosa ya talla su propio itemId, no la 'gema_tallada' genérica."
+  },
+  "esmeralda_tallada_procesado": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_tallado_cristal"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "esmeralda",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "esmeralda_tallada",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — cada gema preciosa ya talla su propio itemId, no la 'gema_tallada' genérica."
+  },
+  "rubi_tallado_procesado": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_tallado_cristal"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "rubi",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "rubi_tallado",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — cada gema preciosa ya talla su propio itemId, no la 'gema_tallada' genérica."
+  },
+  "zafiro_tallado_procesado": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_tallado_cristal"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "zafiro",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "zafiro_tallado",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — cada gema preciosa ya talla su propio itemId, no la 'gema_tallada' genérica."
+  },
+  "diamante_tallado_procesado": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_tallado_cristal"
+    ],
+    "nivelMinimo": 6,
+    "insumos": [
+      {
+        "itemId": "diamante",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "diamante_tallado",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 12,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — cada gema preciosa ya talla su propio itemId, no la 'gema_tallada' genérica."
+  },
+  "anillo_amatista_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "banco_joyero"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "lingote_plata",
+        "cantidad": 2
+      },
+      {
+        "itemId": "amatista_tallada",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "anillo_amatista",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 40
+  },
+  "anillo_esmeralda_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_engarce"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "lingote_plata",
+        "cantidad": 2
+      },
+      {
+        "itemId": "esmeralda_tallada",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "anillo_esmeralda",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 40
+  },
+  "anillo_zafiro_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_esmaltado"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "lingote_oro",
+        "cantidad": 2
+      },
+      {
+        "itemId": "zafiro_tallado",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "anillo_zafiro",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 40
+  },
+  "anillo_diamante_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_fundicion_precioso"
+    ],
+    "nivelMinimo": 8,
+    "insumos": [
+      {
+        "itemId": "lingote_oro",
+        "cantidad": 3
+      },
+      {
+        "itemId": "diamante_tallado",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "anillo_diamante",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 40
+  },
+  "collar_amatista_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_engarce"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "lingote_plata",
+        "cantidad": 3
+      },
+      {
+        "itemId": "amatista_tallada",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "collar_amatista",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55
+  },
+  "collar_esmeralda_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_engarce"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "lingote_plata",
+        "cantidad": 3
+      },
+      {
+        "itemId": "esmeralda_tallada",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "collar_esmeralda",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55
+  },
+  "collar_rubi_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_esmaltado"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "lingote_oro",
+        "cantidad": 2
+      },
+      {
+        "itemId": "rubi_tallado",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "collar_rubi",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55
+  },
+  "collar_zafiro_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_esmaltado"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "lingote_oro",
+        "cantidad": 2
+      },
+      {
+        "itemId": "zafiro_tallado",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "collar_zafiro",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55
+  },
+  "collar_diamante_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "mesa_fundicion_precioso"
+    ],
+    "nivelMinimo": 9,
+    "insumos": [
+      {
+        "itemId": "lingote_oro",
+        "cantidad": 4
+      },
+      {
+        "itemId": "diamante_tallado",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "collar_diamante",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55
+  },
+  "vaso_cristal_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "horno_vidrio"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "vaso_cristal",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — ampliación de catálogo de vidrio interactivo/decorativo pedida por el streamer junto al cierre del ciclo de minerales."
+  },
+  "copa_cristal_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "horno_vidrio"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "copa_cristal",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — ampliación de catálogo de vidrio interactivo/decorativo pedida por el streamer junto al cierre del ciclo de minerales."
+  },
+  "plato_cristal_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "horno_vidrio"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "plato_cristal",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — ampliación de catálogo de vidrio interactivo/decorativo pedida por el streamer junto al cierre del ciclo de minerales."
+  },
+  "jarra_cristal_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "horno_vidrio"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "jarra_cristal",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — ampliación de catálogo de vidrio interactivo/decorativo pedida por el streamer junto al cierre del ciclo de minerales."
+  },
+  "decantador_cristal_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "horno_vidrio"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lingote_plata",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "decantador_cristal",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — ampliación de catálogo de vidrio interactivo/decorativo pedida por el streamer junto al cierre del ciclo de minerales."
+  },
+  "florero_cristal_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "horno_vidrio"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "florero_cristal",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — ampliación de catálogo de vidrio interactivo/decorativo pedida por el streamer junto al cierre del ciclo de minerales."
+  },
+  "frasco_pocion_grande_craft": {
+    "oficio": "joyero",
+    "mesas": [
+      "horno_vidrio"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "frasco_pocion_grande",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — ampliación de catálogo de vidrio interactivo/decorativo pedida por el streamer junto al cierre del ciclo de minerales."
   }
 }

@@ -47,6 +47,15 @@ export const CATEGORIA_HERRAMIENTA_RECOLECCION: Record<string, RequisitoHerramie
   oro: { oficio: "picapedrero", tier: 4 },
   platino: { oficio: "picapedrero", tier: 4 },
   gema: { oficio: "picapedrero", tier: 4 },
+  // Las 5 gemas preciosas (docs/GDD_Crafteo.md, cierre 2026-09-08) ya NO
+  // comparten la categoriaRecurso genérica "gema" (esa se queda solo para
+  // "geoda", la más común de las 6) — mismo tier 4 que "gema", cada una
+  // ahora da su propio itemId real en vez de colapsar todas al mismo.
+  amatista: { oficio: "picapedrero", tier: 4 },
+  esmeralda: { oficio: "picapedrero", tier: 4 },
+  rubi: { oficio: "picapedrero", tier: 4 },
+  zafiro: { oficio: "picapedrero", tier: 4 },
+  diamante: { oficio: "picapedrero", tier: 4 },
 
   // curandero — hierbas/hongos medicinales o tóxicos
   hierba_aromatica: { oficio: "curandero", tier: 1 },

@@ -685,55 +685,197 @@
   "casco_madera": {
     "slotEquipo": "casco",
     "categoria": "armadura",
-    "riquezaTipica": ["humilde"],
-    "materialesCompatibles": ["madera"]
+    "riquezaTipica": [
+      "humilde"
+    ],
+    "materialesCompatibles": [
+      "madera"
+    ]
   },
   "brazos_madera": {
     "slotEquipo": "brazos",
     "categoria": "armadura",
-    "riquezaTipica": ["humilde"],
-    "materialesCompatibles": ["madera"]
+    "riquezaTipica": [
+      "humilde"
+    ],
+    "materialesCompatibles": [
+      "madera"
+    ]
   },
   "piernas_madera": {
     "slotEquipo": "piernas",
     "categoria": "armadura",
-    "riquezaTipica": ["humilde"],
-    "materialesCompatibles": ["madera"]
+    "riquezaTipica": [
+      "humilde"
+    ],
+    "materialesCompatibles": [
+      "madera"
+    ]
   },
   "pechera_madera": {
     "slotEquipo": "pechera",
     "categoria": "armadura",
-    "riquezaTipica": ["humilde"],
-    "materialesCompatibles": ["madera"],
+    "riquezaTipica": [
+      "humilde"
+    ],
+    "materialesCompatibles": [
+      "madera"
+    ],
     "_nota": "Tier más ligero de pechera (por debajo de pechera_cuero) — tablillas de madera endurecida, pedido streamer 2026-09-01."
   },
   "escudo_madera": {
     "slotEquipo": "manoSecundaria",
     "categoria": "escudo",
-    "riquezaTipica": ["humilde"],
-    "materialesCompatibles": ["madera"],
+    "riquezaTipica": [
+      "humilde"
+    ],
+    "materialesCompatibles": [
+      "madera"
+    ],
     "tamano": 0.9,
     "_nota": "Primer escudo del catálogo (pedido streamer 2026-09-01) — visual compartido por varias entradas de items.json vía prendaId, mismo criterio que arma_daga/arma_espada. Sin slot/mecanismo nuevo: se equipa en manoSecundaria."
   },
   "escudo_cuero": {
     "slotEquipo": "manoSecundaria",
     "categoria": "escudo",
-    "riquezaTipica": ["humilde", "modesta"],
-    "materialesCompatibles": ["cuero"],
+    "riquezaTipica": [
+      "humilde",
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "cuero"
+    ],
     "tamano": 0.95
   },
   "escudo_hierro": {
     "slotEquipo": "manoSecundaria",
     "categoria": "escudo",
-    "riquezaTipica": ["modesta"],
-    "materialesCompatibles": ["metal"],
+    "riquezaTipica": [
+      "modesta"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
     "tamano": 1.05
   },
   "escudo_acero": {
     "slotEquipo": "manoSecundaria",
     "categoria": "escudo",
-    "riquezaTipica": ["modesta", "noble"],
-    "materialesCompatibles": ["metal"],
+    "riquezaTipica": [
+      "modesta",
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal"
+    ],
     "tamano": 1.15
+  },
+  "anillo_amatista": {
+    "slotEquipo": "anillo",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "cristal"
+    ],
+    "tamano": 1.05
+  },
+  "anillo_esmeralda": {
+    "slotEquipo": "anillo",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "cristal"
+    ],
+    "tamano": 1.05
+  },
+  "anillo_zafiro": {
+    "slotEquipo": "anillo",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "cristal"
+    ],
+    "tamano": 1.05
+  },
+  "anillo_diamante": {
+    "slotEquipo": "anillo",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "cristal"
+    ],
+    "tamano": 1.05
+  },
+  "collar_amatista": {
+    "slotEquipo": "cuello",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "cristal"
+    ],
+    "tamano": 1.2
+  },
+  "collar_esmeralda": {
+    "slotEquipo": "cuello",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "cristal"
+    ],
+    "tamano": 1.2
+  },
+  "collar_rubi": {
+    "slotEquipo": "cuello",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "cristal"
+    ],
+    "tamano": 1.2
+  },
+  "collar_zafiro": {
+    "slotEquipo": "cuello",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "cristal"
+    ],
+    "tamano": 1.2
+  },
+  "collar_diamante": {
+    "slotEquipo": "cuello",
+    "categoria": "accesorio",
+    "riquezaTipica": [
+      "noble"
+    ],
+    "materialesCompatibles": [
+      "metal",
+      "cristal"
+    ],
+    "tamano": 1.2
   }
 }

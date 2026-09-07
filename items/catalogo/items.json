@@ -11160,5 +11160,409 @@
     "bonusVelocidadMontura": 0.2,
     "durabilidadMax": 260,
     "_nota": "docs/GDD_Monturas.md §3bis (2026-09-08) — tier 3, techo real: +20% de velocidad de montura y el doble de durabilidad de la básica."
+  },
+  "amatista": {
+    "nombre": "Amatista",
+    "tipo": "recurso",
+    "categoriaRecurso": "amatista",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#9a6ac0",
+    "familiaMaterial": "precioso",
+    "tier": 0,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — antes colapsaba en la categoriaRecurso genérica \"gema\" junto con geoda/amatista/esmeralda/rubí/zafiro/diamante (un diamante valía igual que una amatista); ahora cada gema preciosa da su propio itemId real."
+  },
+  "amatista_tallada": {
+    "nombre": "Amatista Tallada",
+    "tipo": "recurso",
+    "familiaMaterial": "precioso",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#b98ae0"
+  },
+  "esmeralda": {
+    "nombre": "Esmeralda",
+    "tipo": "recurso",
+    "categoriaRecurso": "esmeralda",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#2ab868",
+    "familiaMaterial": "precioso",
+    "tier": 0,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — antes colapsaba en la categoriaRecurso genérica \"gema\" junto con geoda/amatista/esmeralda/rubí/zafiro/diamante (un diamante valía igual que una amatista); ahora cada gema preciosa da su propio itemId real."
+  },
+  "esmeralda_tallada": {
+    "nombre": "Esmeralda Tallada",
+    "tipo": "recurso",
+    "familiaMaterial": "precioso",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#3ad880"
+  },
+  "rubi": {
+    "nombre": "Rubí",
+    "tipo": "recurso",
+    "categoriaRecurso": "rubi",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#c8203a",
+    "familiaMaterial": "precioso",
+    "tier": 0,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — antes colapsaba en la categoriaRecurso genérica \"gema\" junto con geoda/amatista/esmeralda/rubí/zafiro/diamante (un diamante valía igual que una amatista); ahora cada gema preciosa da su propio itemId real."
+  },
+  "rubi_tallado": {
+    "nombre": "Rubí Tallado",
+    "tipo": "recurso",
+    "familiaMaterial": "precioso",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#e0304a"
+  },
+  "zafiro": {
+    "nombre": "Zafiro",
+    "tipo": "recurso",
+    "categoriaRecurso": "zafiro",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#2050c0",
+    "familiaMaterial": "precioso",
+    "tier": 0,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — antes colapsaba en la categoriaRecurso genérica \"gema\" junto con geoda/amatista/esmeralda/rubí/zafiro/diamante (un diamante valía igual que una amatista); ahora cada gema preciosa da su propio itemId real."
+  },
+  "zafiro_tallado": {
+    "nombre": "Zafiro Tallado",
+    "tipo": "recurso",
+    "familiaMaterial": "precioso",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#3060e0"
+  },
+  "diamante": {
+    "nombre": "Diamante",
+    "tipo": "recurso",
+    "categoriaRecurso": "diamante",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": true,
+    "stackMax": 15,
+    "variantes": 2,
+    "colorDebug": "#d0f0f8",
+    "familiaMaterial": "precioso",
+    "tier": 0,
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — antes colapsaba en la categoriaRecurso genérica \"gema\" junto con geoda/amatista/esmeralda/rubí/zafiro/diamante (un diamante valía igual que una amatista); ahora cada gema preciosa da su propio itemId real."
+  },
+  "diamante_tallado": {
+    "nombre": "Diamante Tallado",
+    "tipo": "recurso",
+    "familiaMaterial": "precioso",
+    "tier": 1,
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 20,
+    "variantes": 2,
+    "colorDebug": "#e8f8ff"
+  },
+  "anillo_amatista": {
+    "nombre": "Anillo de Amatista",
+    "tipo": "equipable",
+    "slotEquipo": "anillo",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.08,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b98ae0",
+    "ataqueMagico": 2,
+    "prendaId": "anillo_amatista",
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — bonificación temática por tipo de gema, pedido streamer."
+  },
+  "anillo_esmeralda": {
+    "nombre": "Anillo de Esmeralda",
+    "tipo": "equipable",
+    "slotEquipo": "anillo",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.08,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#3ad880",
+    "defensaFisica": 2,
+    "defensaMagica": 0.5,
+    "prendaId": "anillo_esmeralda",
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — bonificación temática por tipo de gema, pedido streamer."
+  },
+  "anillo_zafiro": {
+    "nombre": "Anillo de Zafiro",
+    "tipo": "equipable",
+    "slotEquipo": "anillo",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.08,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#3060e0",
+    "defensaMagica": 3,
+    "prendaId": "anillo_zafiro",
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — bonificación temática por tipo de gema, pedido streamer."
+  },
+  "anillo_diamante": {
+    "nombre": "Anillo de Diamante",
+    "tipo": "equipable",
+    "slotEquipo": "anillo",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.08,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#e8f8ff",
+    "defensaFisica": 2,
+    "defensaMagica": 2,
+    "ataqueFisico": 1,
+    "ataqueMagico": 1,
+    "prendaId": "anillo_diamante",
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — bonificación temática por tipo de gema, pedido streamer."
+  },
+  "collar_amatista": {
+    "nombre": "Collar de Amatista",
+    "tipo": "equipable",
+    "slotEquipo": "cuello",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#b98ae0",
+    "ataqueMagico": 3,
+    "prendaId": "collar_amatista",
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — slot 'cuello' nuevo (20º+1 hueco de equipo, pedido streamer), versión más fuerte que el anillo de la misma gema."
+  },
+  "collar_esmeralda": {
+    "nombre": "Collar de Esmeralda",
+    "tipo": "equipable",
+    "slotEquipo": "cuello",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#3ad880",
+    "defensaFisica": 3,
+    "defensaMagica": 1,
+    "prendaId": "collar_esmeralda",
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — slot 'cuello' nuevo (20º+1 hueco de equipo, pedido streamer), versión más fuerte que el anillo de la misma gema."
+  },
+  "collar_rubi": {
+    "nombre": "Collar de Rubí",
+    "tipo": "equipable",
+    "slotEquipo": "cuello",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#e0304a",
+    "defensaMagica": 5,
+    "ataqueMagico": 5,
+    "prendaId": "collar_rubi",
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — slot 'cuello' nuevo (20º+1 hueco de equipo, pedido streamer), versión más fuerte que el anillo de la misma gema."
+  },
+  "collar_zafiro": {
+    "nombre": "Collar de Zafiro",
+    "tipo": "equipable",
+    "slotEquipo": "cuello",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#3060e0",
+    "defensaMagica": 4,
+    "prendaId": "collar_zafiro",
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — slot 'cuello' nuevo (20º+1 hueco de equipo, pedido streamer), versión más fuerte que el anillo de la misma gema."
+  },
+  "collar_diamante": {
+    "nombre": "Collar de Diamante",
+    "tipo": "equipable",
+    "slotEquipo": "cuello",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.15,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#e8f8ff",
+    "defensaFisica": 3,
+    "defensaMagica": 3,
+    "ataqueFisico": 1.5,
+    "ataqueMagico": 1.5,
+    "prendaId": "collar_diamante",
+    "_nota": "docs/GDD_Crafteo.md, cierre 2026-09-08 — slot 'cuello' nuevo (20º+1 hueco de equipo, pedido streamer), versión más fuerte que el anillo de la misma gema."
+  },
+  "vaso_cristal": {
+    "nombre": "Vaso de Cristal",
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.25,
+    "apilable": true,
+    "stackMax": 8,
+    "variantes": 1,
+    "colorDebug": "#cde8f0"
+  },
+  "copa_cristal": {
+    "nombre": "Copa de Cristal",
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.2,
+    "apilable": true,
+    "stackMax": 8,
+    "variantes": 1,
+    "colorDebug": "#cde8f0"
+  },
+  "plato_cristal": {
+    "nombre": "Plato de Cristal",
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": true,
+    "stackMax": 6,
+    "variantes": 1,
+    "colorDebug": "#cde8f0"
+  },
+  "jarra_cristal": {
+    "nombre": "Jarra de Cristal",
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.6,
+    "apilable": true,
+    "stackMax": 4,
+    "variantes": 1,
+    "colorDebug": "#cde8f0"
+  },
+  "decantador_cristal": {
+    "nombre": "Decantador de Cristal",
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.7,
+    "apilable": true,
+    "stackMax": 3,
+    "variantes": 1,
+    "colorDebug": "#cde8f0"
+  },
+  "florero_cristal": {
+    "nombre": "Florero de Cristal",
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": true,
+    "stackMax": 4,
+    "variantes": 1,
+    "colorDebug": "#cde8f0"
+  },
+  "frasco_pocion_grande": {
+    "nombre": "Frasco de Poción Grande",
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": true,
+    "stackMax": 5,
+    "variantes": 1,
+    "colorDebug": "#cde8f0"
   }
 }
