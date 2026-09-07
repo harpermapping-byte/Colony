@@ -159,6 +159,14 @@ try {
   const roomC = await clienteC.joinOrCreate("hub", { name: NOMBRE_C });
   await esperar(500);
   const jugadorC = roomC.state.players.get(roomC.sessionId);
+  // Pico EQUIPADO en la mano (pedido streamer 2026-09-06, "picar tiene que
+  // tener su animación... con el pico en la mano claro") — antes bastaba con
+  // tenerlo en el cuerpo (mismo criterio que herbolario/cultivo de arriba),
+  // ahora minar exige además que sea justo el que está en manoPrincipal
+  // (mismo criterio ya usado por azada_hierro/hacha_talar).
+  const itemPico = [...jugadorC.inventario.cuerpo.items].find((it) => it.itemId === "pico_minero_hierro");
+  roomC.send("equipo:equipar", { instanciaId: itemPico.id, slot: "manoPrincipal" });
+  await esperar(200);
   const distC = await andarHasta(roomC, jugadorC, ROCA);
   if (distC > 2.2) throw new Error(`FALLO: C no llegó cerca de la roca (dist=${distC.toFixed(2)})`);
 

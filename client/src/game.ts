@@ -1,7 +1,7 @@
 import { Client, getStateCallbacks } from "colyseus.js";
 import { SERVER_URL } from "./config";
 import { WorldScene } from "./render3d/worldScene";
-import { crearRigHumanoide, inclinarCaido, type RigHumanoide } from "./render3d/rigHumanoide";
+import { crearRigHumanoide, inclinarCaido, type RigHumanoide, type AccionHerramienta } from "./render3d/rigHumanoide";
 import { cargarIndice, cargarSector } from "./mapa/cargarMapa";
 import { StreamingSectores } from "./mapa/streamingSectores";
 import { crearSectorVisual, soltarSectorVisual, actualizarNieveSector, type HandleSector } from "./render3d/sectorVisual";
@@ -203,7 +203,21 @@ interface EstadoJugador {
   // asignadas, ver npcsFijos.ts::npcTrabajadorAAgente), dispara la pose fija
   // "trabajando" del rig. Solo NPCs lo usan de verdad.
   trabajando?: boolean;
+  // Recoger/talar/picar/golpear (pedido streamer 2026-09-06) — disparado por
+  // el broadcast "accion:jugador" del servidor (`inicio` en tiempo de
+  // `performance.now()`), consumido en el bucle de render de más abajo:
+  // calcula el progreso 0..1 según DURACION_ACCION_MS y lo pasa a
+  // `rig.actualizar`, limpiándolo solo cuando termina. Solo jugadores reales.
+  accion?: { tipo: AccionHerramienta["tipo"]; inicio: number };
 }
+
+/** Duración de cada acción con herramienta (ms) — ver rigHumanoide.ts::aplicarAccionHerramienta. */
+const DURACION_ACCION_MS: Record<AccionHerramienta["tipo"], number> = {
+  recoger: 550,
+  talar: 750,
+  picar: 750,
+  golpear: 350,
+};
 
 /**
  * Arranca el juego: carga el mapa bakeado (terreno + props), conecta a la
@@ -1293,6 +1307,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // "crafteo:herreria:cancelar".
       "crafteo:herreria:iniciado", "crafteo:herreria:progreso", "crafteo:herreria:completado", "crafteo:herreria:cancelado",
       "oficio:elegido", "oficio:error",
+      "arbol:plantado", "arbol:error", "arbol:talado", "coger:error", "equipo:error",
       "admin:debug:ok", "admin:error",
     ]) {
       room.onMessage(tipo, (m: unknown) => ultimosMensajes.set(tipo, m));
@@ -1307,6 +1322,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       abrirCofre: (construccionId: number, nombre: string) => {
         cofreObjetivo = { id: construccionId, nombre };
         room.send("cofre:consultar", { construccionId });
+      },
+      inspeccionarRigLocal: () => {
+        if (!jugadorLocal) return null;
+        const brazoDer = jugadorLocal.rig.objeto.getObjectByName("brazoDer");
+        const manoDer = jugadorLocal.rig.objeto.getObjectByName("manoDer");
+        return {
+          brazoDerRotX: brazoDer?.rotation.x,
+          torsoRotX: jugadorLocal.rig.objeto.getObjectByName("torso")?.rotation.x,
+          // Ojo: manoDer SIEMPRE tiene un hijo (la propia mano de piel del
+          // rig, ver rigHumanoide.ts::brazo) — solo cuenta el equipo real,
+          // marcado por equipoVisual.ts con userData.equipoVisual=true.
+          manoDerEquipo: manoDer?.children.filter((c: any) => c.userData?.equipoVisual).length ?? 0,
+          accion: jugadorLocal.accion,
+        };
       },
       ultimoMensaje: (tipo: string) => ultimosMensajes.get(tipo) ?? null,
       ultimoEstadoGremio: () => ultimoEstadoGremio,
@@ -1507,6 +1536,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   const jugadores = new Map<string, EstadoJugador>();
   let jugadorLocal: EstadoJugador | null = null;
+
+  // Recoger/talar/picar/golpear (pedido streamer 2026-09-06) — broadcast
+  // genérico del servidor (manejarCoger/arbol:talar/manejarCombateAccion,
+  // RoomExteriorBase.ts/HubRoom.ts), universal a CUALQUIER room con
+  // jugadores (hub/región/interior/mazmorra/arena) igual que este propio
+  // mapa `jugadores` — el bucle de render de más abajo calcula el progreso
+  // 0..1 a partir de `inicio` y lo pasa a rigHumanoide.ts.
+  room.onMessage("accion:jugador", (m: { sessionId: string; tipo: AccionHerramienta["tipo"] }) => {
+    const estado = jugadores.get(m.sessionId);
+    if (estado) estado.accion = { tipo: m.tipo, inicio: performance.now() };
+  });
 
   $(room.state).players.onAdd((player: any, sessionId: string) => {
     const esYo = sessionId === room.sessionId;
@@ -2834,7 +2874,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // abajo — la inclinación va en el sentido contrario al de este rig.
       const inclinacionObjetivo = estado.nadando ? 1.1 : estado.durmiendo ? 1.5 : 0;
       estado.rig.objeto.rotation.x += (inclinacionObjetivo - estado.rig.objeto.rotation.x) * factor;
-      estado.rig.actualizar(dt, marcha, estado.tocandoInstrumento, estado.sentado, estado.sentadoSuelo, estado.durmiendo, false, estado.trabajando);
+      // Recoger/talar/picar/golpear (pedido streamer 2026-09-06) — progreso
+      // 0..1 calculado aquí (rigHumanoide.ts no lleva timers propios, mismo
+      // criterio que el resto de parámetros de `actualizar`); se limpia solo
+      // en cuanto termina, sin esperar a un mensaje de "fin" del servidor.
+      let accionVista: AccionHerramienta | undefined;
+      if (estado.accion) {
+        const duracion = DURACION_ACCION_MS[estado.accion.tipo];
+        const transcurrido = tAhora - estado.accion.inicio;
+        if (transcurrido >= duracion) estado.accion = undefined;
+        else accionVista = { tipo: estado.accion.tipo, progreso: transcurrido / duracion };
+      }
+      estado.rig.actualizar(dt, marcha, estado.tocandoInstrumento, estado.sentado, estado.sentadoSuelo, estado.durmiendo, false, estado.trabajando, accionVista);
     }
 
     // NPCs: antorcha de los turnos de vigilancia (se enciende de noche,

@@ -43,6 +43,88 @@ export function normalizarMarcha(marcha: Marcha | undefined): number {
   return Math.min(2, Math.max(0, marcha));
 }
 
+/**
+ * Acción con herramienta/arma en la mano principal (pedido streamer
+ * 2026-09-06: "talar o picar tiene que tener su animación con el hacha y
+ * pico en la mano... todas serán en 3D y se verá en la mano y en la
+ * animación tendrá coherencia") — UNA sola coreografía de golpe (arriba,
+ * abajo, recuperación) compartida por `talar`/`picar`/`golpear` (mismo
+ * criterio "una coreografía, no una por herramienta" que ya usa `tocando`
+ * para los 4 instrumentos), y una coreografía distinta de agacharse para
+ * `recoger`. `progreso` (0..1, calculado por quien llama — game.ts, a
+ * partir de cuánto dura cada acción) es lo único que varía frame a frame;
+ * el rig no lleva timers propios, mismo patrón que el resto de parámetros
+ * de `actualizar` (ya resueltos por el llamante).
+ */
+export interface AccionHerramienta {
+  tipo: "recoger" | "talar" | "picar" | "golpear";
+  /** 0 = arranca la acción, 1 = termina — el llamante la reinicia a 0 en cada acción nueva. */
+  progreso: number;
+}
+
+/** Pose resultante de una `AccionHerramienta` en un `progreso` dado — ver `poseDeAccionHerramienta`. */
+export interface PoseAccionHerramienta {
+  brazoDerRotX: number;
+  brazoIzqRotX: number;
+  piernaRotX: number;
+  torsoRotX: number;
+  /** Desplazamiento relativo a la altura de pie normal (ALTO_PIERNA) — 0 = de pie normal. */
+  torsoOffsetY: number;
+}
+
+/**
+ * Función PURA (sin THREE.js, sin estado, testable con `node:test` sin
+ * levantar ningún renderer) que calcula la pose de una `AccionHerramienta`
+ * para un `progreso` 0..1 — extraída de `aplicarAccionHerramienta` para que
+ * la propia curva (ángulos exactos por tramo) se pueda verificar de forma
+ * determinista, sin depender de un framerate real (ver
+ * `client/test/rigHumanoide.test.ts`: verificar esto vía Playwright
+ * muestreando frames reales resultó poco fiable bajo el renderer software
+ * de este entorno — un frame perdido en el momento equivocado deja ver un
+ * ángulo cercano a 0 aunque la curva sea correcta).
+ */
+export function poseDeAccionHerramienta(tipo: AccionHerramienta["tipo"], progreso: number): PoseAccionHerramienta {
+  const p = Math.min(1, Math.max(0, progreso));
+  if (tipo === "recoger") {
+    // 0..0.5 agacharse, 0.5..1 levantarse — curva simétrica en "sombrero".
+    const agache = p < 0.5 ? p / 0.5 : 1 - (p - 0.5) / 0.5;
+    return {
+      brazoDerRotX: -agache * 1.3,
+      brazoIzqRotX: -agache * 1.3,
+      piernaRotX: agache * 0.7,
+      torsoRotX: agache * 0.8,
+      torsoOffsetY: -agache * 0.22,
+    };
+  }
+  // Golpe genérico (talar/picar/golpear): 0-0.35 armar, 0.35-0.55 golpe, 0.55-1 recuperar.
+  let anguloBrazo: number;
+  let inclinacionTorso: number;
+  if (p < 0.35) {
+    const t = p / 0.35;
+    anguloBrazo = lerp(0, -2.1, t);
+    inclinacionTorso = lerp(0, -0.15, t);
+  } else if (p < 0.55) {
+    const t = (p - 0.35) / 0.2;
+    anguloBrazo = lerp(-2.1, 0.85, t);
+    inclinacionTorso = lerp(-0.15, 0.3, t);
+  } else {
+    const t = (p - 0.55) / 0.45;
+    anguloBrazo = lerp(0.85, 0, t);
+    inclinacionTorso = lerp(0.3, 0, t);
+  }
+  return {
+    brazoDerRotX: anguloBrazo,
+    brazoIzqRotX: anguloBrazo * 0.3, // el brazo libre acompaña un poco, no en espejo — no sujeta nada
+    piernaRotX: 0,
+    torsoRotX: inclinacionTorso,
+    torsoOffsetY: 0,
+  };
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
 export interface RigHumanoide {
   objeto: THREE.Group;
   /**
@@ -75,8 +157,12 @@ export interface RigHumanoide {
    * mismo criterio que `tocando`/`caido`). Prioridad justo por debajo de
    * `caido` y de las poses sentado/tumbado (nunca deberían coincidir de
    * todas formas: un trabajador nunca se sienta ni cae mientras trabaja).
+   * `accion` (pedido streamer 2026-09-06): golpe de recoger/talar/picar/
+   * golpear — ver `AccionHerramienta` arriba. Se aplica SOBRE la pose de
+   * marcha/idle (normalmente parado, pero no se fuerza) y se pisa por
+   * cualquiera de las poses estáticas de arriba, igual que `tocando`.
    */
-  actualizar(dt: number, marcha?: Marcha, tocando?: boolean, sentado?: boolean, sentadoSuelo?: boolean, tumbado?: boolean, caido?: boolean, trabajando?: boolean): void;
+  actualizar(dt: number, marcha?: Marcha, tocando?: boolean, sentado?: boolean, sentadoSuelo?: boolean, tumbado?: boolean, caido?: boolean, trabajando?: boolean, accion?: AccionHerramienta): void;
   /** Orienta el cuerpo entero hacia una dirección de mundo (dx, dz). */
   orientar(dx: number, dz: number): void;
 }
@@ -187,7 +273,7 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
   let pesoAndar = 0; // 0=parado, 1=en movimiento — con rampa para no cortar en seco
   let pesoCorrer = 0; // 0=andando, 1=corriendo — segunda rampa sobre la primera
 
-  function actualizar(dt: number, marcha: Marcha = 0, tocando = false, sentado = false, sentadoSuelo = false, tumbado = false, caido = false, trabajando = false) {
+  function actualizar(dt: number, marcha: Marcha = 0, tocando = false, sentado = false, sentadoSuelo = false, tumbado = false, caido = false, trabajando = false, accion?: AccionHerramienta) {
     // Cadáver: prioridad absoluta, pose fija desmadejada — nunca se anima
     // (el llamante la aplica una única vez y no vuelve a llamar actualizar).
     if (caido) {
@@ -280,6 +366,33 @@ export function crearRigHumanoide(opciones: OpcionesRig): RigHumanoide {
       cabeza.rotation.x = Math.sin(faseTocando * 0.5) * 0.08;
       torso.rotation.z = Math.sin(faseTocando * 0.5) * 0.03;
     }
+
+    // Acción con herramienta/arma (pedido streamer 2026-09-06) — pisa la
+    // rotación de brazos/torso de arriba a propósito, igual que `tocando`
+    // (ambas cosas ya se cancelan solas desde el llamante, nunca coinciden).
+    if (accion) aplicarAccionHerramienta(accion);
+  }
+
+  /**
+   * `recoger`: agacharse y estirar los dos brazos hacia el suelo, mitad
+   * bajando/mitad subiendo — sin herramienta, sirve para cualquier ítem
+   * suelto o planta.
+   * `talar`/`picar`/`golpear`: UNA misma coreografía de golpe con la mano
+   * principal (armado arriba/atrás -> golpe rápido abajo/delante ->
+   * recuperación), apoyada por un giro leve del torso — el hacha/pico/arma
+   * ya cuelga de `manoDer` vía `equipoVisual.ts` (slot `manoPrincipal` ->
+   * pivote `manoDer`), así que "verse en la mano" es gratis en cuanto el
+   * jugador la tiene equipada ahí; esta función solo mueve el brazo.
+   */
+  function aplicarAccionHerramienta(accion: AccionHerramienta) {
+    const pose = poseDeAccionHerramienta(accion.tipo, accion.progreso);
+    piernaIzq.rotation.x = pose.piernaRotX;
+    piernaDer.rotation.x = pose.piernaRotX;
+    brazoDer.rotation.x = pose.brazoDerRotX;
+    brazoIzq.rotation.x = pose.brazoIzqRotX;
+    torso.rotation.x = pose.torsoRotX;
+    torso.rotation.z = 0;
+    torso.position.y = ALTO_PIERNA + pose.torsoOffsetY;
   }
 
   function orientar(dx: number, dz: number) {

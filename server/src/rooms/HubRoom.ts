@@ -548,11 +548,30 @@ export class HubRoom extends RoomExteriorBase {
       if (!this.gestorBosques) return client.send("arbol:error", { motivo: "sin bosques en este mapa" });
       const contenedor = this.inventarios.get(client.sessionId);
       if (!contenedor) return;
-      if (!contenedor.items.some((it) => it.itemId === "hacha_talar")) {
-        return client.send("arbol:error", { motivo: "necesitas un hacha de talar" });
+      // Hacha EQUIPADA en la mano (pedido streamer 2026-09-06: "talar tiene
+      // que tener su animación... con el hacha en la mano claro") — antes
+      // bastaba con tener "hacha_talar" (tier 2, string exacto) en
+      // CUALQUIER sitio del inventario, ni equipada ni aceptando otros
+      // tiers (hacha_mano_cobre_hierro/hacha_talar_pesada/
+      // hacha_maestro_lenador). Ahora, mismo criterio que `azada_hierro`
+      // para labrar (RoomExteriorBase.ts): cualquier hacha de la familia
+      // "herramienta_carpintero" vale, pero tiene que estar puesta en
+      // manoPrincipal — así el hacha SIEMPRE está en la mano cuando se ve
+      // la animación (equipoVisual.ts la cuelga gratis en cuanto está
+      // equipada).
+      const itemIdEquipado = player.inventario.equipo.get("manoPrincipal");
+      const entradaEquipada = itemIdEquipado ? this.catalogoItems[itemIdEquipado] : undefined;
+      if (!entradaEquipada || entradaEquipada.familiaMaterial !== "herramienta_carpintero") {
+        return client.send("arbol:error", { motivo: "necesitas un hacha de talar equipada en la mano" });
       }
       const cercano = this.gestorBosques.buscarArbolCercano(player.x, player.y, RADIO_INTERACCION);
       if (!cercano) return client.send("arbol:error", { motivo: "no hay ningún árbol cerca" });
+
+      // Animación de talar (client/src/render3d/rigHumanoide.ts) — broadcast
+      // ANTES de resolver, visible para todos en la room (no solo quien
+      // tala); el hacha del hachazo la pone equipoVisual.ts sola, gratis,
+      // porque ya está equipada en manoPrincipal (chequeo de arriba).
+      this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: "talar" });
 
       const resultado = await this.gestorBosques.talar(cercano.ref);
       if (!resultado) return client.send("arbol:error", { motivo: "ese árbol ya no está" });

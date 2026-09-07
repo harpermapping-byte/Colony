@@ -1994,16 +1994,40 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // soltado por otro jugador se coge siempre libre, no hace falta talarlo/
     // minarlo de nuevo.
     let herramientaAUsar: ItemInstancia | undefined;
+    // Pose de recolección (pedido streamer 2026-09-06: "recoger... y talar o
+    // picar tiene que tener su animación con el hacha y pico en la mano") —
+    // "picar" solo para lo que exige un pico de verdad (categoría
+    // picapedrero: roca/mineral/gemas); cualquier otra cosa (objeto suelto,
+    // hierba, comida, fibra...) usa la pose genérica de agacharse, sin
+    // herramienta que mostrar.
+    let tipoAccion: "recoger" | "picar" = "recoger";
     let candidato = this.buscarObjetoSoltadoCercano(player.x, player.y);
     if (!candidato) {
       const delMundo = this.buscarCogibleEnMundo(player.x, player.y);
       if (delMundo) {
         const requisito = requisitoDeCategoria(delMundo.itemId);
         if (requisito) {
-          herramientaAUsar = mejorHerramientaPara(contenedor, this.catalogoItems, requisito);
-          if (!herramientaAUsar) {
-            client.send("coger:error", { motivo: `necesitas una herramienta de ${requisito.oficio} (tier ${requisito.tier} o superior)` });
-            return;
+          if (requisito.oficio === "picapedrero") {
+            // Pico EQUIPADO en manoPrincipal (pedido streamer 2026-09-06:
+            // "picar tiene que tener su animación... con el pico en la mano
+            // claro") — mismo criterio simple que `azada_hierro` para labrar
+            // y el hacha para talar (ver HubRoom.ts): un chequeo directo del
+            // slot, NO `mejorHerramientaPara` (esa escanea `contenedor.items`,
+            // pero equipar YA saca la instancia del contenedor — nunca la
+            // encontraría ahí una vez puesta en la mano).
+            const idEquipado = player.inventario.equipo.get("manoPrincipal");
+            const entradaEquipada = idEquipado ? this.catalogoItems[idEquipado] : undefined;
+            if (!entradaEquipada || entradaEquipada.familiaMaterial !== "herramienta_picapedrero" || (entradaEquipada.tier ?? 0) < requisito.tier) {
+              client.send("coger:error", { motivo: `necesitas un pico (tier ${requisito.tier} o superior) equipado en la mano` });
+              return;
+            }
+            tipoAccion = "picar";
+          } else {
+            herramientaAUsar = mejorHerramientaPara(contenedor, this.catalogoItems, requisito);
+            if (!herramientaAUsar) {
+              client.send("coger:error", { motivo: `necesitas una herramienta de ${requisito.oficio} (tier ${requisito.tier} o superior)` });
+              return;
+            }
           }
         }
         candidato = delMundo;
@@ -2038,6 +2062,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const entradaHerramienta = this.catalogoItems[herramientaAUsar.itemId];
       if (entradaHerramienta) registrarUso(herramientaAUsar, entradaHerramienta, Date.now());
     }
+    // Animación de recoger/picar (client/src/render3d/rigHumanoide.ts) —
+    // visible para todos en la room, no solo quien recolecta.
+    this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: tipoAccion });
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
     this.persistirInventarioPorSesion(client);
     // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): recolectar también ensucia, un poco menos que craftear.
@@ -12106,6 +12133,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       atacante.municionDisponible -= municionNecesaria;
       atacante.municionConsumida += municionNecesaria;
     }
+
+    // Animación de golpe (pedido streamer 2026-09-06, "golpear tiene que
+    // tener su animación") — client/src/render3d/rigHumanoide.ts, misma
+    // coreografía compartida que talar/picar. Solo el jugador real (un
+    // compañero/NPC/fauna atacando no tiene rig de jugador que animar
+    // así) — broadcast a TODA la room del combate (arena dedicada, o la
+    // room de origen si es combate "en el sitio"), no solo al atacante.
+    if (atacante.esJugador) this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: "golpear" });
 
     // Resuelve `golpes` impactos en cascada (1 normal, 2 con arco:apuntar) —
     // cada uno parte del resultado del anterior (el objetivo puede caer a
