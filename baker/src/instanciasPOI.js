@@ -113,7 +113,7 @@ function buscarDefinicion(poi, catalogoPOIs) {
  * @param {(msg:string)=>void} [opciones.onProgreso]
  * @returns {{ portales: Array, objetosPorPOI: Map<string,{x:number,y:number,objeto:object,huella:[number,number]}>, decoracionPorPOI: Map<string,Array<{x:number,y:number,objeto:object}>> }}
  */
-function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catalogoPOIs, catalogoRocas = {}, onProgreso = () => {} }) {
+async function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catalogoPOIs, catalogoRocas = {}, onProgreso = () => {} }) {
   // Requires perezosos: ciudades/interiores son módulos "pesados" (cargan
   // catálogos propios) que la mayoría de bakes de mapa exterior ni tocan
   // (mapas de prueba sin POIs de asentamiento/edificio) — cargarlos solo
@@ -131,6 +131,33 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
   function hornearCiudadPerezoso() {
     if (!hornearCiudad) ({ hornearCiudad } = require("../../ciudades/src/index"));
     return hornearCiudad;
+  }
+  // Población automática de asentamientos (docs/GDD_Poblacion_NPCs.md,
+  // pedido streamer 2026-09-08: "todas incluida capital deben tener
+  // generador automático de población") — antes había que correr
+  // `poblacion/src/exportarAsentamiento.js` A MANO por cada asentamiento
+  // que saliera del bake exterior; ahora se dispara solo, aquí mismo, justo
+  // después de hornear la ciudad, con el MISMO tier+semilla (determinismo
+  // por semilla: da la ciudad idéntica que `generarCiudad` recalcula
+  // internamente para asignar vivienda/trabajo — no hace falta pasarle la
+  // `ciudad` ya horneada). Un fallo puntual (p.ej. red caída si hay
+  // GEMINI_API_KEY puesta) NUNCA debe tirar el bake del mapa entero — se
+  // avisa y se sigue sin población en ESE asentamiento, mismo criterio que
+  // "catálogo mal referenciado: mejor omitir el POI que romper el bake
+  // entero" ya usado más abajo en este archivo.
+  let exportarAsentamiento = null;
+  let escribirPoblacionDeMapa = null;
+  async function poblarAsentamiento(tier, semillaPOI, carpetaPOI, onProgreso) {
+    if (!exportarAsentamiento) {
+      ({ exportarAsentamiento, escribirPoblacionDeMapa } = require("../../poblacion/src/exportarAsentamiento"));
+    }
+    try {
+      const resultado = await exportarAsentamiento(tier, semillaPOI);
+      const { ruta, npcs } = escribirPoblacionDeMapa(resultado, carpetaPOI);
+      onProgreso(`    población: ${npcs} NPC(s) con rutina -> ${ruta}`);
+    } catch (err) {
+      onProgreso(`    ⚠ población: falló para este asentamiento (${err.message}) — sigue sin poblacion.json`);
+    }
   }
   let generarMazmorra = null;
   let catalogosMazmorra = null;
@@ -159,6 +186,7 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
       const carpetaPOI = path.join(carpetaSalida, "pois", slug);
       onProgreso(`  POI "${poi.id}" (asentamiento, ${def.tier}) en (${poi.x},${poi.y})...`);
       const ciudad = hornearCiudadPerezoso()(def.tier, semillaPOI, carpetaPOI);
+      await poblarAsentamiento(def.tier, semillaPOI, carpetaPOI, onProgreso);
       // Prop 3D exterior de la ciudad (docs/GDD_Bakeador_POIs.md §4.4,
       // pedido streamer 2026-09-08) — "desde el mapa exterior la ciudad
       // entera se ve como UNA miniatura 3D amurallada... TODO su volumen
@@ -244,7 +272,12 @@ function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catal
       if (dungeonDef.estiloExterior === "asentamiento") {
         // Idéntico al camino "asentamiento" de arriba, pero con el tier
         // hostil del tipo de mazmorra — sin enemigos dentro de las casas
-        // todavía (pendiente real, ver docs/GDD_Bakeador_Dungeons.md).
+        // todavía (pendiente real, ver docs/GDD_Bakeador_Dungeons.md). A
+        // PROPÓSITO sin `poblarAsentamiento()`: esto es un campamento
+        // hostil (bandidos/facción), no un asentamiento civil — poblarlo
+        // con `poblacion/` metería vecinos con rutina de tienda/taberna
+        // donde debería haber tropas hostiles (docs/GDD_Faccion_Bandidos.md),
+        // un mecanismo aparte que sigue sin construir.
         if (!dungeonDef.tierAsentamiento) continue;
         const carpetaPOI = path.join(carpetaSalida, "pois", slug);
         onProgreso(`  POI "${poi.id}" (mazmorra-asentamiento, ${dungeonDef.tierAsentamiento}) en (${poi.x},${poi.y})...`);

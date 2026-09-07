@@ -77,7 +77,12 @@ function cargarCatalogos() {
 // la interfaz gráfica (gui/servidor.js), para no duplicar la lógica.
 // onProgreso(mensaje) se llama en cada paso, quien lo use decide si lo
 // imprime por consola, lo manda por Server-Sent Events, o lo ignora.
-function generarMapa(config, { onProgreso = () => {} } = {}) {
+// ASYNC desde 2026-09-08 (antes 100% síncrona): `generarInstanciasPOI` ahora
+// puebla cada asentamiento automáticamente (poblacion/), que necesita
+// `await` real (posible llamada de red a Gemini por NPC) — ver
+// docs/GDD_Poblacion_NPCs.md. Los dos llamadores (`baker/src/index.js`,
+// `baker/gui/servidor.js`) ya esperan el resultado con `await`.
+async function generarMapa(config, { onProgreso = () => {} } = {}) {
   const t0 = Date.now();
   const catalogos = cargarCatalogos();
   const { terrenos: catalogoTerrenos, biomas: catalogoBiomas, vegetacion: catalogoVegetacion, animales: catalogoAnimales, rocas: catalogoRocas, pois: catalogoPOIs } = catalogos;
@@ -213,7 +218,7 @@ function generarMapa(config, { onProgreso = () => {} } = {}) {
   // ciudad/portales a mano en hub_test).
   const carpetaSalidaResuelta = path.resolve(config.carpetaSalida || "output");
   const mapaIdPropio = path.basename(carpetaSalidaResuelta);
-  const { portales: portalesPOI, objetosPorPOI, decoracionPorPOI } = generarInstanciasPOI({
+  const { portales: portalesPOI, objetosPorPOI, decoracionPorPOI } = await generarInstanciasPOI({
     pois,
     mapaId: mapaIdPropio,
     carpetaSalida: carpetaSalidaResuelta,

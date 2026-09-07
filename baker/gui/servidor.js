@@ -107,7 +107,7 @@ const servidor = http.createServer(async (req, res) => {
     };
 
     try {
-      const resultado = generarMapa(config, {
+      const resultado = await generarMapa(config, {
         onProgreso: (mensaje) => enviar("progreso", { mensaje }),
       });
       enviar("fin", { ok: true, ...resultado });

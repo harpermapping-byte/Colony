@@ -4,7 +4,7 @@
 const path = require("path");
 const { generarMapa, cargarJSON } = require("./generar");
 
-function main() {
+async function main() {
   const rutaConfig = process.argv[2];
   if (!rutaConfig) {
     console.error("Uso: node src/index.js <config.json>");
@@ -13,7 +13,10 @@ function main() {
   }
 
   const config = cargarJSON(path.resolve(rutaConfig));
-  generarMapa(config, { onProgreso: (msg) => console.log(msg) });
+  await generarMapa(config, { onProgreso: (msg) => console.log(msg) });
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
