@@ -317,6 +317,15 @@ const VENTANA_UNION_COMBATE_MS = 60_000;
 // depredador de tierra [y de agua] con triggers por distancia") — radio de
 // una especie `peligroso` sin `radioAgro` propio en el catálogo.
 const RADIO_AGRO_DEFECTO = 5;
+// Margen real antes de dar por perdido a un jugador arrastrado a un combate
+// (auto-unión por agro/co-op) que nunca llega a conectarse a la arena —
+// bug real encontrado en client/test/mazmorraLimpiada.e2e.cjs (docs/
+// GDD_Combate.md §11bis): `avanzarTurnosIA` se queda esperando para siempre
+// el mensaje de un jugador cuyo cliente jamás hizo joinOrCreate("arena",...),
+// bloqueando el combate entero para el resto (incluido cualquier jugador
+// real cerca de una pelea ajena que quede arrastrado por co-op sin
+// enterarse). Pasado este margen se le pasa el turno automáticamente.
+const GRACIA_JUGADOR_AUSENTE_ARENA_MS = 8_000;
 
 // --- Producción/plantillas del jarl/transporte (docs/GDD_Produccion.md) ---
 // Placeholders de balance — mismo criterio que pesoMaximoTransportable
@@ -12436,6 +12445,30 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       if (!combateVivo) return;
       this.avanzarTurno(combateVivo);
     }
+  }
+
+  /**
+   * Si le toca el turno a un jugador cuyo cliente nunca llegó a conectarse
+   * a ESTA arena (arrastrado por auto-unión de agro/co-op — GDD_Combate.md
+   * §11bis — sin llegar a hacer `joinOrCreate("arena",...)` a tiempo),
+   * pasado `GRACIA_JUGADOR_AUSENTE_ARENA_MS` desde `desdeMs` se le pasa el
+   * turno por él en vez de bloquear el combate entero para siempre
+   * (`avanzarTurnosIA` espera indefinidamente el mensaje de cualquier
+   * unidad `esJugador`, sin este chequeo no hay forma de que avance).
+   * Llamado desde un intervalo propio de `ArenaCombateRoom` — no-op en
+   * cualquier otra room (un combate solo llega a fase "activo" ahí).
+   */
+  protected async saltarTurnoSiJugadorAusente(combateId: string, desdeMs: number) {
+    const combate = this.state.combates.get(combateId);
+    if (!combate || combate.ordenTurnos.length === 0) return;
+    const idActual = combate.ordenTurnos[combate.turnoActual];
+    const cu = combate.unidades.get(idActual);
+    if (!cu || !cu.esJugador || cu.estado !== "activo") return;
+    if (this.clients.some((c) => c.sessionId === idActual)) return; // ya conectado, es su turno de verdad
+    if (Date.now() - desdeMs < GRACIA_JUGADOR_AUSENTE_ARENA_MS) return;
+    this.avanzarTurno(combate);
+    if (await this.comprobarFinDeCombate(combateId)) return;
+    void this.avanzarTurnosIA(combateId);
   }
 
   private bandoTerminado(combate: CombateSchema, bando: Bando): boolean {

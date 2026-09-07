@@ -34,6 +34,7 @@ export interface OpcionesArena {
 export class ArenaCombateRoom extends RoomExteriorBase {
   private combateIdPropio!: string;
   private origenRoomId!: string;
+  private creadaEnMs = 0;
   /** clave = NOMBRE del jugador (sessionId cambia al reconectar aquí — el nombre no) hasta que hace onJoin y se remapea a su sessionId real. */
   private retornosPorJugador = new Map<string, RetornoJugador>();
 
@@ -150,6 +151,16 @@ export class ArenaCombateRoom extends RoomExteriorBase {
     this.state.combates.set(options.combateId, combate);
 
     void this.avanzarTurnosIA(options.combateId); // por si el primer turno es de un no-jugador
+
+    // Bug real (docs/GDD_Combate.md §11bis, encontrado con
+    // client/test/mazmorraLimpiada.e2e.cjs): un jugador arrastrado aquí por
+    // auto-unión (agro de fauna/bandido/enemigo de mazmorra cercano, o
+    // co-op vía combate:iniciar contra el mismo objetivo) que nunca hace
+    // joinOrCreate a ESTA arena deja su turno bloqueado para siempre —
+    // avanzarTurnosIA espera indefinidamente cualquier unidad `esJugador`.
+    // Revisado cada pocos segundos, barato (una unidad de sobra por combate).
+    this.creadaEnMs = Date.now();
+    this.clock.setInterval(() => void this.saltarTurnoSiJugadorAusente(this.combateIdPropio, this.creadaEnMs), 2000);
   }
 
   async onJoin(client: Client, options: OpcionesArena) {
