@@ -15,12 +15,10 @@ import { tiempoMundo } from "../mundo/tiempoMundo";
 import { DependenciasBosques, GestorBosques } from "../mundo/bosquesVivos";
 import { ObjetoArbolBakeado } from "../mundo/bosqueSector";
 import { EspecieArbol } from "../mundo/crecimientoBosques";
-import { quitarItem, excedePesoMaximo } from "../inventario/inventario";
+import { quitarItem } from "../inventario/inventario";
 import { Anatomia, anatomiaInicial } from "../personaje/anatomia";
 import { EstadoEnfermedades, enfermedadesInicial } from "../personaje/enfermedades";
-import { intentarCoger } from "../inventario/cogerSoltar";
 import { sincronizarContenedor } from "../inventario/sincronizarSchema";
-import { pesoMaximoTransportable } from "../personaje/bonusAtributos";
 import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
 import { cargarCatalogoItems } from "../inventario/inventario";
 import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
@@ -587,23 +585,27 @@ export class HubRoom extends RoomExteriorBase {
       // Recompensa (docs/GDD_Bosques.md): madera siempre (más si es adulto
       // que si es un brote joven), semilla de la misma especie solo de un
       // adulto y con 50% — un brote joven todavía no da semilla propia.
-      const pesoMaximo = pesoMaximoTransportable(player.atributos.fuerza);
-      const entregar = (itemId: string, cantidad: number) => {
-        if (excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo)) return false;
-        return intentarCoger(contenedor, this.catalogoItems, { itemId, cantidad }).ok;
-      };
+      // La MADERA (pedido streamer 2026-09-07: "el material no va
+      // inventario, va al suelo cercano para recoger") SIEMPRE cae al
+      // suelo junto al jugador, nunca directo a la mochila — `soltarEnSuelo`
+      // (RoomExteriorBase.ts). La semilla es un producto DISTINTO (ligero,
+      // no es "el material" del árbol) y sigue yendo al inventario con
+      // normalidad, con el mismo fallback a suelo si no cabe (`entregarOSoltar`).
       const entregados: string[] = [];
       const itemMadera = this.especieAMadera[resultado.especieId];
       if (itemMadera) {
         const cantidadMadera = resultado.etapa === "adulto" ? 3 + Math.floor(Math.random() * 3) : 1;
-        if (entregar(itemMadera, cantidadMadera)) entregados.push(itemMadera);
+        this.soltarEnSuelo(player, itemMadera, cantidadMadera);
+        entregados.push(itemMadera);
       }
       if (resultado.etapa === "adulto" && Math.random() < 0.5) {
         const semillaId = `semilla_${resultado.especieId}`;
-        if (this.catalogoItems[semillaId] && entregar(semillaId, 1)) entregados.push(semillaId);
+        if (this.catalogoItems[semillaId]) {
+          this.entregarOSoltar(client, player, semillaId, 1);
+          entregados.push(semillaId);
+        }
       }
 
-      sincronizarContenedor(player.inventario.cuerpo, contenedor);
       void this.otorgarXpAtributoPorSesion(client, "fuerza", XP_FUERZA_TALAR);
       client.send("arbol:talado", { especieId: resultado.especieId, etapa: resultado.etapa, entregados });
     });
@@ -661,8 +663,14 @@ export class HubRoom extends RoomExteriorBase {
     });
   }
 
-  onJoin(client: Client, options: { name?: string }) {
-    this.crearJugador(client, options, this.mapa.spawnX, this.mapa.spawnY);
+  async onJoin(client: Client, options: { name?: string }) {
+    // Posición guardada al desconectar (pedido streamer 2026-09-07: "si te
+    // sales o haces F5 mantienes tu posición") — mismo cálculo de nombre
+    // que hace crearJugador por dentro (options?.name recortado, o
+    // Guest-<sessionId>), resuelto ANTES para poder decidir el spawn real.
+    const nombreSpawn = options?.name?.slice(0, 20) || `Guest-${client.sessionId.slice(0, 4)}`;
+    const spawn = await this.resolverSpawnGuardado(nombreSpawn, this.mapa.spawnX, this.mapa.spawnY);
+    this.crearJugador(client, options, spawn.x, spawn.y);
 
     // Vida persistida (docs/GDD_Mecanicas.md §5.4): carga best-effort, no
     // bloquea el join — mismo criterio que el resto de datos "oportunistas"

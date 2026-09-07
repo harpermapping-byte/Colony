@@ -107,10 +107,29 @@ tienen — mismo principio transversal de §0. Sin GDD dedicado propio (se
 quedó aquí porque no ha hecho falta partirlo); si crece más, se le da su
 propio documento como al resto.
 
+### 3bis. Talar/picar: el material cae al suelo, no va directo a la mochila (2026-09-07)
+
+Pedido literal del streamer: *"el tema de por ejemplo árboles y minas, el material no va inventario, va al suelo cercano para recoger, el resto sí va al inventario, si no hay espacio al suelo, o si no puedes con el peso"*. Dos reglas distintas, no una:
+
+- **Madera (talar, `HubRoom.ts::arbol:talar`) y mineral/piedra (picar, `RoomExteriorBase.manejarCoger` cuando `tipoAccion==="picar"`)**: SIEMPRE caen como `ObjetoMundoSchema` a los pies del jugador (`RoomExteriorBase.soltarEnSuelo`), nunca directo a la mochila — sin comprobar peso/hueco antes, porque el destino nunca es el inventario. `tipoAccion==="picar"` solo se marca cuando el candidato viene FRESCO del bake (requisito de picapedrero, ver `docs/GDD_Inventario.md` §12) — recoger un objeto YA soltado en el suelo (`buscarObjetoSoltadoCercano`) sigue yendo al inventario con normalidad, no vuelve a caer al suelo dos veces.
+- **La semilla de un árbol talado, y CUALQUIER otra recolecta/producción del juego** ("el resto"): sigue yendo al inventario con normalidad; si no cabe (hueco o peso), cae al suelo como fallback en vez de perderse o bloquear la acción — `RoomExteriorBase.entregarOSoltar` (ya existía para crafteo/cocina, `docs/GDD_Crafteo.md`), ahora reusado también en `manejarProduccionRecolectar`, `manejarCurtidorRecolectar`, `manejarCultivoCosechar` y `manejarAnimalRecolectarProducto` — las 4 recolectas de producción/granja que antes simplemente respondían "no tienes hueco en tu inventario" y no dejaban hacer nada; ahora la acción SIEMPRE se completa, el sobrante cae a los pies si no cabe.
+
+Ambas funciones comparten el mismo `ObjetoMundoSchema`/`state.objetosMundo` que el cliente ya sabe pintar y recoger sin cambios (`client/src/mundo/renderObjetosMundo.ts`). Verificado: servidor 1216/1216 sin regresión, `server/test/herramientasRecoleccion.e2e.mjs` actualizado (el mineral picado ya NO aparece en el inventario de C, sí como `objetosMundo` junto a él) y `client/test/accionesAnimacion.e2e.mjs` sin regresión (no comprobaba destino de inventario, solo animación/herramienta en mano).
+
 ## 4. Aparición
 
 Al entrar a la room se aparece en la `ciudad` del índice del mapa,
 corregida a la casilla de TIERRA pisable más cercana (búsqueda en anillos).
+
+## 4bis. Posición del jugador persistida al desconectar/F5 (2026-09-07)
+
+Pedido literal del streamer: *"si te sales o haces F5 mantienes tu posición, se guarda la posición de los jugadores"*. Gap real confirmado antes de tocar nada: `HubRoom.onJoin` siempre llamaba `crearJugador(client, options, this.mapa.spawnX, this.mapa.spawnY)` — un F5/reconexión SIEMPRE volvía al spawn del mapa, sin excepción, no había ninguna columna de posición en `jugadores` (tabla de BD).
+
+- **Guardado** (`RoomExteriorBase.onLeave` → `guardarPosicionDe`, mismo patrón EXACTO que los vitales, §5 más abajo): captura `player.x/y` ANTES de borrar `state.players`, y guarda `pos_x/pos_y/pos_mapa` (3 columnas nuevas en `jugadores`, migradas en los dos backends igual que el resto de columnas de esta tabla) SOLO si `this.mapaIdPropio` no está vacío — o sea, solo en un mapa PERSISTENTE (Hub/Region). `InteriorRoom`/`DungeonRoom` nunca fijan `mapaIdPropio`, así que salir de una mazmorra/interior no guarda nada: esas instancias pueden no existir la próxima vez, "el mismo sitio" no tendría sentido ahí — el jugador vuelve a aparecer por el flujo normal (Hub o el portal que use).
+- **Restauración** (`RoomExteriorBase.resolverSpawnGuardado`, llamado por `HubRoom.onJoin`/`RegionRoom.onJoin` ANTES de `crearJugador`, ambos ahora `async`): usa la posición guardada SOLO si `pos_mapa` coincide EXACTO con `this.mapaIdPropio` de la room a la que se está entrando — evita aparecer con coordenadas de un mapa distinto (p.ej. la última posición guardada en una región no tiene sentido en el Hub, cuyo `mapaIdPropio` es otro). Sin coincidencia (primera vez, o guardada para otro mapa), cae al spawn por defecto de siempre — comportamiento IDÉNTICO al de antes de este cambio.
+- **`RegionRoom`, caso especial**: la posición guardada solo se consulta cuando `options.entradaX` NO viene en el join — es decir, en una reconexión/F5 DIRECTA a esa región. Si el jugador llega cruzando un portal real desde otro mapa (`entradaX/Y` explícitos), ESE punto manda siempre, nunca la última posición guardada de una visita anterior — cruzar un portal y aparecer en un sitio aleatorio de la última vez sería más confuso que útil.
+
+Verificado con un E2E nuevo contra el servidor real (`server/test/persistenciaPosicion.e2e.mjs`): una sesión camina lejos del spawn y se desconecta (`room.leave()`, dispara `onLeave` de verdad), una segunda sesión con el MISMO nombre reaparece en la posición EXACTA de la desconexión (no el spawn), y un nombre NUEVO (nunca guardado) sigue cayendo en el spawn normal del mapa — los tres casos en verde. Servidor 1216/1216 sin regresión, `tsc --noEmit` limpio, `server/test/faccionBandidos.e2e.mjs` (una de las suites que sí ejercita `RegionRoom.onJoin`) sin regresión.
 
 ## 5. Sistemas RPG
 

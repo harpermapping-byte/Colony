@@ -142,6 +142,20 @@ export interface Jugador {
   bebida: number;
   sueno: number;
   estamina: number;
+  /**
+   * Última posición conocida (pedido streamer 2026-09-07: "si te sales o
+   * haces F5 mantienes tu posición") — mismo criterio "se guarda SOLO al
+   * desconectar" que los vitales de arriba. `posMapa` es
+   * `RoomExteriorBase.mapaIdPropio` (Hub/Region — Interior/Dungeon no lo
+   * fijan, así que un jugador saliendo de una mazmorra vuelve al spawn
+   * normal de esa instancia, nunca a mitad de un pasillo bakeado que
+   * puede ni existir la próxima vez). NULL = nunca guardada, o guardada
+   * para un mapa DISTINTO al que se está entrando ahora → cae al spawn
+   * por defecto de ese mapa, nunca a una posición de otro mapa.
+   */
+  posX: number | null;
+  posY: number | null;
+  posMapa: string | null;
 }
 
 /**
@@ -800,6 +814,8 @@ export interface IAlmacenDatos {
   actualizarVidaJugador(jugadorId: number, vida: number, vidaMax: number): Promise<void>;
   /** Vitales (hambre/sed/sueño/estamina) — SOLO se llama al desconectar (`onLeave`), nunca cada tick. Ver el comentario de `Jugador.comida` para el porqué. */
   actualizarVitalesJugador(jugadorId: number, comida: number, bebida: number, sueno: number, estamina: number): Promise<void>;
+  /** Posición guardada al desconectar (pedido streamer 2026-09-07: "si te sales o haces F5 mantienes tu posición") — SOLO se llama en `onLeave`, mismo criterio que `actualizarVitalesJugador`. Ver `Jugador.posX/posY/posMapa`. */
+  guardarPosicionJugador(jugadorId: number, mapaId: string, x: number, y: number): Promise<void>;
   /** docs/GDD_Anatomia.md — JSON de Anatomia; misma cadencia que actualizarVidaJugador (tras un golpe con efecto anatómico o una acción médica), no cada tick. */
   actualizarAnatomiaJugador(jugadorId: number, anatomiaJson: string): Promise<void>;
   /** docs/GDD_Enfermedades.md — JSON de EstadoEnfermedades; misma cadencia que actualizarAnatomiaJugador (inicio/cura de catarro o gripe), no cada tick. */
@@ -1812,6 +1828,10 @@ ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS comida INTEGER NOT NULL DEFAULT 1
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS bebida INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS sueno INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS estamina INTEGER NOT NULL DEFAULT 100;
+-- Posición guardada al desconectar (pedido streamer 2026-09-07): NULL = nunca guardada.
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS pos_x DOUBLE PRECISION;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS pos_y DOUBLE PRECISION;
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS pos_mapa TEXT;
 -- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3) — ver comentario gemelo en MIGRACIONES_SQLITE.
 CREATE TABLE IF NOT EXISTS npcs_tutoriales (
   id SERIAL PRIMARY KEY,
@@ -2624,6 +2644,19 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     if (!nombresJugadores.has("estamina")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN estamina INTEGER NOT NULL DEFAULT 100");
     }
+    // Posición guardada al desconectar (pedido streamer 2026-09-07: "si te
+    // sales o haces F5 mantienes tu posición") — solo se rellena/consulta
+    // para el mapa persistente (Hub/Region, `RoomExteriorBase.mapaIdPropio`
+    // no vacío); NULL = nunca guardada, cae al spawn normal del mapa.
+    if (!nombresJugadores.has("pos_x")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN pos_x REAL");
+    }
+    if (!nombresJugadores.has("pos_y")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN pos_y REAL");
+    }
+    if (!nombresJugadores.has("pos_mapa")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN pos_mapa TEXT");
+    }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
     // cambio no las tendría; CREATE TABLE IF NOT EXISTS no amplía una tabla ya existente.
@@ -2730,7 +2763,7 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async obtenerOCrearJugador(nombre: string, saldoInicial = SALDO_INICIAL_JUGADOR): Promise<Jugador> {
     const existente = this.bd
-      .prepare("SELECT id, nombre, farycoins, vida, vida_max, anatomia, enfermedades, oficio_1, oficio_2, cambios_oficio, comida, bebida, sueno, estamina FROM jugadores WHERE nombre = ?")
+      .prepare("SELECT id, nombre, farycoins, vida, vida_max, anatomia, enfermedades, oficio_1, oficio_2, cambios_oficio, comida, bebida, sueno, estamina, pos_x, pos_y, pos_mapa FROM jugadores WHERE nombre = ?")
       .get(nombre);
     if (existente) {
       return {
@@ -2748,6 +2781,9 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
         bebida: Number(existente.bebida ?? 100),
         sueno: Number(existente.sueno ?? 100),
         estamina: Number(existente.estamina ?? 100),
+        posX: existente.pos_x == null ? null : Number(existente.pos_x),
+        posY: existente.pos_y == null ? null : Number(existente.pos_y),
+        posMapa: existente.pos_mapa == null ? null : String(existente.pos_mapa),
       };
     }
     const r = this.bd
@@ -2756,7 +2792,19 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return {
       id: Number(r.lastInsertRowid), nombre, farycoins: saldoInicial, vida: 100, vidaMax: 100, anatomia: null, enfermedades: null,
       oficio1: "", oficio2: "", cambiosOficio: 0, comida: 100, bebida: 100, sueno: 100, estamina: 100,
+      posX: null, posY: null, posMapa: null,
     };
+  }
+
+  /**
+   * Posición guardada al desconectar (docs/GDD_Mecanicas.md, pedido
+   * streamer 2026-09-07: "si te sales o haces F5 mantienes tu posición")
+   * — mismo criterio "escritura por evento, no por tick" que
+   * `actualizarVitalesJugador`. `mapaId` es `RoomExteriorBase.mapaIdPropio`
+   * de la room en la que estaba (nunca se llama si está vacío).
+   */
+  async guardarPosicionJugador(jugadorId: number, mapaId: string, x: number, y: number): Promise<void> {
+    this.bd.prepare("UPDATE jugadores SET pos_x = ?, pos_y = ?, pos_mapa = ? WHERE id = ?").run(x, y, mapaId, jugadorId);
   }
 
   async fijarOficioSlot(jugadorId: number, slot: 1 | 2, oficio: string): Promise<void> {
@@ -4541,10 +4589,10 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     // devuelve la fila exista ya o se acabe de crear, en una sola ida y vuelta.
     // farycoins SOLO se fija en el INSERT (fila nueva) — el DO UPDATE nunca
     // toca esa columna, así que una fila ya existente conserva su saldo.
-    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number; anatomia: string | null; enfermedades: string | null; oficio_1: string; oficio_2: string; cambios_oficio: number; comida: number; bebida: number; sueno: number; estamina: number }>(
+    const r = await this.pool.query<{ id: number; nombre: string; farycoins: number; vida: number; vida_max: number; anatomia: string | null; enfermedades: string | null; oficio_1: string; oficio_2: string; cambios_oficio: number; comida: number; bebida: number; sueno: number; estamina: number; pos_x: number | null; pos_y: number | null; pos_mapa: string | null }>(
       `INSERT INTO jugadores (nombre, creado_en, farycoins) VALUES ($1, $2, $3)
        ON CONFLICT (nombre) DO UPDATE SET nombre = EXCLUDED.nombre
-       RETURNING id, nombre, farycoins, vida, vida_max, anatomia, enfermedades, oficio_1, oficio_2, cambios_oficio, comida, bebida, sueno, estamina`,
+       RETURNING id, nombre, farycoins, vida, vida_max, anatomia, enfermedades, oficio_1, oficio_2, cambios_oficio, comida, bebida, sueno, estamina, pos_x, pos_y, pos_mapa`,
       [nombre, new Date().toISOString(), saldoInicial]
     );
     return {
@@ -4562,7 +4610,15 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       bebida: r.rows[0].bebida ?? 100,
       sueno: r.rows[0].sueno ?? 100,
       estamina: r.rows[0].estamina ?? 100,
+      posX: r.rows[0].pos_x,
+      posY: r.rows[0].pos_y,
+      posMapa: r.rows[0].pos_mapa,
     };
+  }
+
+  /** Postgres: ver `AlmacenDatosSqlite.guardarPosicionJugador` para el porqué. */
+  async guardarPosicionJugador(jugadorId: number, mapaId: string, x: number, y: number): Promise<void> {
+    await this.pool.query("UPDATE jugadores SET pos_x = $1, pos_y = $2, pos_mapa = $3 WHERE id = $4", [x, y, mapaId, jugadorId]);
   }
 
   async fijarOficioSlot(jugadorId: number, slot: 1 | 2, oficio: string): Promise<void> {

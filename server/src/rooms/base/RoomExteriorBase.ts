@@ -1757,6 +1757,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // guarda por el mismo motivo (desconexión/F5) y con el mismo criterio
     // "aquí sí importa awaitear".
     const vitalesSaliente = this.state.players.get(client.sessionId)?.vitales ?? null;
+    // Posición (pedido streamer 2026-09-07: "si te sales o haces F5
+    // mantienes tu posición") — misma captura ANTES de borrar `state.players`
+    // que vitalesSaliente arriba. Solo tiene sentido en un mapa PERSISTENTE
+    // (`mapaIdPropio` no vacío, Hub/Region — InteriorRoom/DungeonRoom no lo
+    // fijan, ver `crearJugador`): una mazmorra/interior instanciados pueden
+    // no existir la próxima vez, así que no hay "mismo sitio" al que volver.
+    const jugadorSaliente = this.state.players.get(client.sessionId);
+    const posSaliente = this.mapaIdPropio && jugadorSaliente ? { x: jugadorSaliente.x, y: jugadorSaliente.y } : null;
 
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
@@ -1843,6 +1851,40 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     if (nombreSaliente && invSaliente) await this.guardarInventarioYEquipoDe(nombreSaliente, invSaliente);
     if (nombreSaliente && vitalesSaliente) await this.guardarVitalesDe(nombreSaliente, vitalesSaliente);
+    if (nombreSaliente && posSaliente) await this.guardarPosicionDe(nombreSaliente, posSaliente);
+  }
+
+  /**
+   * Guarda la última posición al desconectarse (docs/GDD_Mecanicas.md,
+   * pedido streamer 2026-09-07) — mismo patrón EXACTO que `guardarVitalesDe`
+   * justo arriba (resuelve `jugador.id` por nombre, escritura por evento no
+   * por tick). Solo se llama con `this.mapaIdPropio` no vacío (ver el
+   * comentario de `posSaliente` en `onLeave`).
+   */
+  private async guardarPosicionDe(nombre: string, pos: { x: number; y: number }) {
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    await bd.guardarPosicionJugador(jugador.id, this.mapaIdPropio, pos.x, pos.y);
+  }
+
+  /**
+   * Resuelve dónde debe aparecer un jugador al entrar: su última posición
+   * guardada SI es de ESTE MISMO mapa (`this.mapaIdPropio`, evita
+   * teleportar a un jugador a coordenadas de un mapa distinto — p.ej.
+   * volviendo de una región a un Hub con un `mapaIdPropio` diferente), o
+   * el spawn por defecto del mapa en cualquier otro caso (primera vez,
+   * guardado para otro mapa, o mapa sin `mapaIdPropio` como Interior/
+   * Dungeon). docs/GDD_Mecanicas.md, pedido streamer 2026-09-07: "si te
+   * sales o haces F5 mantienes tu posición".
+   */
+  protected async resolverSpawnGuardado(nombre: string, xPorDefecto: number, yPorDefecto: number): Promise<{ x: number; y: number }> {
+    if (!this.mapaIdPropio) return { x: xPorDefecto, y: yPorDefecto };
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    if (jugador.posMapa === this.mapaIdPropio && jugador.posX != null && jugador.posY != null) {
+      return { x: jugador.posX, y: jugador.posY };
+    }
+    return { x: xPorDefecto, y: yPorDefecto };
   }
 
   /**
@@ -2041,6 +2083,25 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // x2 materiales mientras dure — se dobla ANTES del chequeo de peso, a
     // propósito (cargar el doble también pesa el doble).
     if (this.eventoFarmeoDobleActivo) candidato.cantidad *= 2;
+
+    // Minería (pedido streamer 2026-09-07: "el material [de árboles y
+    // minas] no va inventario, va al suelo cercano para recoger" — mismo
+    // criterio que talar, ver HubRoom.ts): el mineral/piedra recién picado
+    // SIEMPRE cae al suelo, nunca directo a la mochila — a diferencia de
+    // "recoger" (plantas/objetos ya sueltos/fibra...), que sigue yendo al
+    // inventario con normalidad. `tipoAccion==="picar"` solo se marca en
+    // la rama de picapedrero de arriba, nunca para un objeto ya soltado
+    // (`buscarObjetoSoltadoCercano`), así que este bloque no puede
+    // reatrapar algo que ya estaba en el suelo.
+    if (tipoAccion === "picar") {
+      candidato.confirmar();
+      this.soltarEnSuelo(player, candidato.itemId, candidato.cantidad);
+      this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: tipoAccion });
+      player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_RECOLECTAR);
+      void this.otorgarXpAtributoPorSesion(client, "fuerza", XP_FUERZA_POR_RECOLECTA_PESADA * (this.eventoFarmeoDobleActivo ? 2 : 1));
+      void this.otorgarXpAtributoPorSesion(client, "inteligencia", XP_INTELIGENCIA_POR_RECOLECTAR * (this.eventoFarmeoDobleActivo ? 2 : 1));
+      return;
+    }
 
     // Fuerza (docs/GDD_Personaje.md §3.3): el peso máximo transportable
     // ahora SÍ limita de verdad — antes la fórmula existía pero nada la
@@ -7236,16 +7297,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     const contenedor = this.inventarios.get(client.sessionId);
-    if (!contenedor) return;
-    const resultado = intentarCoger(contenedor, this.catalogoItems, { itemId: datos.itemId, cantidad: cantidadEntera });
-    if (!resultado.ok) return this.errorProduccion(client, "no tienes hueco en tu inventario");
+    const player = this.state.players.get(client.sessionId);
+    if (!contenedor || !player) return;
+    // "El resto va al inventario, si no hay espacio al suelo" (pedido
+    // streamer 2026-09-07) — ya no bloquea con error, `entregarOSoltar`
+    // deja el sobrante a los pies del jugador en vez de negarle la
+    // recolecta entera solo porque la mochila esté llena.
+    this.entregarOSoltar(client, player, datos.itemId, cantidadEntera);
 
     const nuevoEstado: EstadoProduccion = { ...resuelto, stock: resuelto.stock - cantidadEntera };
     viva.extra = { ...extraActual, produccion: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
-
-    const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
     client.send("produccion:estado", {
       construccionId: viva.id, itemId: datos.itemId, cantidad: cantidadEntera,
       stockRestante: nuevoEstado.stock, capacidadMax: datos.capacidadMax,
@@ -7387,14 +7449,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return this.errorCultivo(client, nivelAgua(estado, dia) <= 0 ? "le falta agua" : "todavía no está lista para cosechar");
     }
 
-    const contenedor = this.inventarios.get(client.sessionId);
-    if (!contenedor) return;
-    const resultado = resolverCosecha(estado, datosCultivo.cantidadPorCosecha, datosCultivo.cosechaRecurrente, entrada.plantable.multiplicadorCosecha, dia);
-    const cogido = agregarItem(contenedor, this.catalogoItems, datosCultivo.itemIdCosecha, resultado.cantidad);
-    if (!cogido.ok) return this.errorCultivo(client, "no tienes hueco en tu inventario");
-
     const player = this.state.players.get(client.sessionId);
-    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+    if (!player) return;
+    const resultado = resolverCosecha(estado, datosCultivo.cantidadPorCosecha, datosCultivo.cosechaRecurrente, entrada.plantable.multiplicadorCosecha, dia);
+    // "El resto va al inventario, si no hay espacio al suelo" (pedido
+    // streamer 2026-09-07) — mismo criterio que manejarProduccionRecolectar.
+    this.entregarOSoltar(client, player, datosCultivo.itemIdCosecha, resultado.cantidad);
 
     const nuevoEstado: EstadoCultivo = resultado.siguePlantada ? { ...estado, diaPlantado: dia } : {};
     viva.extra = { ...(viva.extra ?? {}), cultivo: nuevoEstado };
@@ -10242,7 +10302,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * cocina simplemente daban error y el jugador se quedaba sin el material
    * ya gastado en el crafteo.
    */
-  private entregarOSoltar(client: Client, player: Player, itemId: string, cantidad: number): { enInventario: boolean } {
+  protected entregarOSoltar(client: Client, player: Player, itemId: string, cantidad: number): { enInventario: boolean } {
     const contenedor = this.inventarios.get(client.sessionId);
     const pesoMaximo = this.pesoMaximoConBuffs(client.sessionId, player.atributos.fuerza);
     const cabePeso = !!contenedor && !excedePesoMaximo(contenedor, this.catalogoItems, itemId, cantidad, pesoMaximo);
@@ -10251,13 +10311,25 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       sincronizarContenedor(player.inventario.cuerpo, contenedor!);
       return { enInventario: true };
     }
+    this.soltarEnSuelo(player, itemId, cantidad);
+    return { enInventario: false };
+  }
+
+  /**
+   * Coloca un ítem SIEMPRE en el suelo junto al jugador, sin intentar
+   * meterlo al inventario (pedido streamer 2026-09-07: "el material [de
+   * árboles y minas] no va inventario, va al suelo cercano para
+   * recoger") — a diferencia de `entregarOSoltar`, que prueba el
+   * inventario primero y esto es solo su fallback. Mismo `ObjetoMundoSchema`
+   * que ya pinta/recoge el cliente sin cambios (docs/GDD_Inventario.md §13).
+   */
+  protected soltarEnSuelo(player: Player, itemId: string, cantidad: number): void {
     const o = new ObjetoMundoSchema();
     o.x = Math.floor(player.x) + 0.5;
     o.y = Math.floor(player.y) + 0.5;
     o.itemId = itemId;
     o.cantidad = cantidad;
     this.state.objetosMundo.set(String(this.siguienteObjetoMundoId++), o);
-    return { enInventario: false };
   }
 
   /**
@@ -10388,16 +10460,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const resultado = recolectarLoteCurtidor(estadoPrevio, datos, Date.now());
     if (!resultado) return this.errorCurtidor(client, estadoPrevio.lote ? "todavía no está listo" : "no hay ningún lote en proceso");
 
-    const contenedor = this.inventarios.get(client.sessionId);
-    if (!contenedor) return;
-    const entregado = intentarCoger(contenedor, this.catalogoItems, { itemId: datos.salida, cantidad: resultado.cantidad });
-    if (!entregado.ok) return this.errorCurtidor(client, "no tienes hueco en tu inventario");
+    // "El resto va al inventario, si no hay espacio al suelo" (pedido
+    // streamer 2026-09-07) — mismo criterio que manejarProduccionRecolectar.
+    this.entregarOSoltar(client, player, datos.salida, resultado.cantidad);
 
     const bd = await obtenerBdCompartida();
     viva.extra = { ...extraActual, curtidor: resultado.estado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
 
-    sincronizarContenedor(player.inventario.cuerpo, contenedor);
     client.send("curtidor:completado", { construccionId: viva.id, itemId: datos.salida, cantidad: resultado.cantidad });
   }
 
@@ -10716,14 +10786,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return this.errorAnimal(client, alimentado ? "todavía no hay nada que recolectar" : "el animal no ha comido ni bebido hoy");
     }
 
-    const resultado = intentarCoger(contenedor, this.catalogoItems, { itemId: cfg.itemId, cantidad: cantidadEntera });
-    if (!resultado.ok) return this.errorAnimal(client, "no tienes hueco en tu inventario");
+    // "El resto va al inventario, si no hay espacio al suelo" (pedido
+    // streamer 2026-09-07) — mismo criterio que manejarProduccionRecolectar.
+    this.entregarOSoltar(client, player, cfg.itemId, cantidadEntera);
 
     const nuevoEstado: EstadoProduccion = { ...resuelto, stock: resuelto.stock - cantidadEntera };
     fila.extra = { ...extraActual, produccion: { ...produccionPrevia, [producto]: nuevoEstado } };
     await bd.actualizarExtraAnimalGranja(fila.id, fila.extra);
 
-    sincronizarContenedor(player.inventario.cuerpo, contenedor);
     client.send("animal:producto", { animalId: fila.id, producto, itemId: cfg.itemId, cantidad: cantidadEntera });
   }
 

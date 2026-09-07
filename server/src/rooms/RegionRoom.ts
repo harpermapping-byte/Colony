@@ -381,9 +381,19 @@ export class RegionRoom extends RoomExteriorBase {
     this.broadcast("inmueble:actualizado", { id: inmuebleId, dueno: nombre, modoTenencia: modo, expiraEn: r.expiraEn });
   }
 
-  onJoin(client: Client, options: OpcionesRegion) {
-    const x = options?.entradaX ?? this.mapa.spawnX;
-    const y = options?.entradaY ?? this.mapa.spawnY;
+  async onJoin(client: Client, options: OpcionesRegion) {
+    // Posición guardada al desconectar (pedido streamer 2026-09-07: "si te
+    // sales o haces F5 mantienes tu posición") — SOLO cuando no viene de un
+    // portal real (`entradaX/Y` explícitos, cruzando desde otro mapa: ESE
+    // punto manda siempre, no la última posición guardada de la vez
+    // anterior) — o sea, solo en una reconexión/F5 directa a esta región.
+    let x = options?.entradaX ?? this.mapa.spawnX;
+    let y = options?.entradaY ?? this.mapa.spawnY;
+    if (options?.entradaX == null) {
+      const nombreSpawn = options?.name?.slice(0, 20) || `Guest-${client.sessionId.slice(0, 4)}`;
+      const spawn = await this.resolverSpawnGuardado(nombreSpawn, x, y);
+      x = spawn.x; y = spawn.y;
+    }
     this.crearJugador(client, options, x, y);
     this.enviarEstadoConstruccion(client); // no-op si esta región no tiene parcelasReservadas
   }

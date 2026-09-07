@@ -178,11 +178,17 @@ try {
   await esperar(500);
   if (erroresC.length !== 0) throw new Error(`FALLO: minar piedra_comun con pico_minero_hierro no debería fallar, llegó ${JSON.stringify(erroresC)}`);
   if (!rocaQuitada) throw new Error("FALLO: la roca debería haber desaparecido del mundo (mundo:objetoQuitado)");
+  // El mineral picado (pedido streamer 2026-09-07: "el material no va
+  // inventario, va al suelo cercano para recoger") cae al suelo como
+  // ObjetoMundoSchema en vez de ir directo a la mochila — a diferencia de
+  // flor_medicinal (jugador B arriba, "recoger" normal, sin cambios).
   const itemsFinalesC = [...jugadorC.inventario.cuerpo.items];
-  if (!itemsFinalesC.some((it) => it.itemId === "piedra_comun")) {
-    throw new Error(`FALLO: piedra_comun debería estar en el inventario de C, llegó ${JSON.stringify(itemsFinalesC)}`);
+  if (itemsFinalesC.some((it) => it.itemId === "piedra_comun")) {
+    throw new Error(`FALLO: piedra_comun NO debería estar en el inventario de C (debe caer al suelo), llegó ${JSON.stringify(itemsFinalesC)}`);
   }
-  console.log("   OK: minería real activada — igual que talar/recolectar, ahora con su propio gating de tier");
+  const piedraEnSuelo = [...roomC.state.objetosMundo.values()].find((o) => o.itemId === "piedra_comun");
+  if (!piedraEnSuelo) throw new Error("FALLO: debería haber un objetosMundo con piedra_comun junto a C tras picar");
+  console.log("   OK: minería real activada — igual que talar, ahora el mineral cae al suelo en vez de ir directo a la mochila");
   await roomC.leave();
 
   console.log("\n✅ TODO OK: gating de herramienta por tier verificado contra el servidor real (incluida la roca, nueva).");
