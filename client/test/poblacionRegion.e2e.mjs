@@ -7,14 +7,13 @@
 //
 // Aviso explícito (pedido del streamer, "sistema de IAs de los pueblos"):
 // esto verifica la parte de MOVIMIENTO/SINCRONIZACIÓN multijugador de los
-// NPCs con rutina (agentes.ts) — NO la IA GENERATIVA de diálogo
-// (npc:hablar), que:
-//   (a) solo existe hoy en HubRoom.ts, no en RegionRoom — un pueblo/aldea
-//       normal no tiene ese handler, es una separación real y ya
-//       documentada del proyecto (CLAUDE.md: "cablear la biografía
-//       individual de poblacion/ al diálogo de IA es el pendiente real"),
-//       no un bug de esta pasada;
-//   (b) exige GEMINI_API_KEY/GROQ_API_KEY, no disponibles en este entorno.
+// NPCs con rutina (agentes.ts) — NO la IA GENERATIVA de diálogo (npc:hablar).
+// ~~(a) solo existe hoy en HubRoom.ts, no en RegionRoom~~ RESUELTO
+// (2026-09-08, docs/GDD_IA_NPCs.md): `npc:hablar` se movió a
+// RoomExteriorBase, funciona en cualquier room con NPCs — ver
+// `server/test/npcHablarIndividual.e2e.mjs`, mismo mapa `ciudad_demo`.
+// Sigue en pie: (b) exige GEMINI_API_KEY/GROQ_API_KEY, no disponibles en
+// este entorno — el proveedor de IA en sí sigue sin poder probarse aquí.
 //
 //   node test/poblacionRegion.e2e.mjs
 

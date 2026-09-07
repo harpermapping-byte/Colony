@@ -142,7 +142,9 @@ import {
   RITMO_LIMPIEZA_AGUA_POR_HORA, FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO, NIVEL_MAX_OFICIO,
   probabilidadRoturaArmaPorNivelHerrero,
 } from "../../personaje/oficios";
-import { cargarCatalogoNpcsTutoriales, npcTutorialAAgente, npcTrabajadorAAgente } from "../../mundo/npcsFijos";
+import { cargarCatalogoNpcsTutoriales, cargarLoreTexto, npcTutorialAAgente, npcTrabajadorAAgente } from "../../mundo/npcsFijos";
+import { GestorConversacionesNpc, DatosNpcIndividual, IMemoriaNpcPersistente } from "../../ia/npcChat";
+import { cooldownNpcHablarMs } from "../../personaje/bonusAtributos";
 import {
   costeContratacionTrabajador, costeContratarOficios, oficiosValidos, puedeOperarOficio, salarioMensualTrabajador,
   resolverPayroll, TrabajadorParaPago, DIAS_POR_MES_TRABAJADOR, OFICIOS_TRABAJADOR_VALIDOS, OFICIO_TRANSPORTE, OFICIO_TENDERO,
@@ -600,6 +602,18 @@ function sumarPorItemId(items: { itemId: string; cantidad: number }[]): { itemId
   return [...totales.entries()].map(([itemId, cantidad]) => ({ itemId, cantidad }));
 }
 
+// Adaptador real de IMemoriaNpcPersistente (docs/GDD_IA_NPCs.md) sobre
+// `bd.ts` — vive fuera de la clase porque es sin estado (cada llamada pide
+// su propia conexión con `obtenerBdCompartida()`, mismo criterio que
+// cualquier handler de esta base) y así una única instancia sirve para
+// TODAS las rooms sin duplicar el adaptador por subclase.
+const memoriaNpcPersistenteReal: IMemoriaNpcPersistente = {
+  obtener: async (npcId, jugador) => (await obtenerBdCompartida()).memoriaNpcJugador(npcId, jugador, 6),
+  agregar: async (npcId, jugador, mensaje) => {
+    await (await obtenerBdCompartida()).registrarMemoriaNpc(npcId, jugador, mensaje);
+  },
+};
+
 /**
  * Base común de las rooms de MOVIMIENTO LIBRE sobre una rejilla de
  * colisión (Hub, regiones/aldeas, interiores de edificio — docs/
@@ -1030,6 +1044,33 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    */
   protected enOtraArena = new Set<string>();
 
+  // Diálogo de NPCs con IA (docs/GDD_IA_NPCs.md) — movido aquí desde
+  // HubRoom (2026-09-08, pedido streamer "ahondar en el tema de las
+  // conversaciones con IA NPC"): antes SOLO funcionaba en el Hub, aunque
+  // RegionRoom también puebla NPCs con rutina/biografía desde el mismo
+  // `poblacion.json`. `resolverNpcIndividual` (hook, no-op por defecto —
+  // mismo patrón que `intentarIniciarCaza`/`faunaEsPeligrosa`) es lo que
+  // cada subclase sobreescribe para que el NPC hable con SU biografía
+  // individual real, no la del arquetipo genérico.
+  protected conversacionesNpc = new GestorConversacionesNpc(
+    undefined,
+    undefined,
+    (npcId) => this.resolverNpcIndividual(npcId),
+    memoriaNpcPersistenteReal,
+  );
+  private ultimoMensajeNpc = new Map<string, number>();
+
+  /**
+   * Datos del NPC individual (poblacion.json, vía mundo/agentes.ts::NpcBakeado)
+   * detrás de este `npcId` — por defecto ninguno (una room sin NPCs con
+   * biografía, p.ej. un interior/mazmorra/arena, cae siempre al arquetipo
+   * genérico); HubRoom/RegionRoom lo sobreescriben con un Map real
+   * construido al cargar su `poblacion.json`.
+   */
+  protected resolverNpcIndividual(_npcId: string): DatosNpcIndividual | undefined {
+    return undefined;
+  }
+
   protected iniciarMovimiento() {
     this.setState(new HubState());
     this.setPatchRate(1000 / 15);
@@ -1136,6 +1177,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     });
 
     this.onMessage("coger", (client) => this.manejarCoger(client));
+    // Diálogo con NPCs (docs/GDD_IA_NPCs.md): respuesta va SOLO al que
+    // preguntó (conversación privada), nunca en broadcast. Movido aquí
+    // desde HubRoom (2026-09-08) para que funcione en cualquier room con
+    // NPCs (Hub Y Region, antes solo Hub).
+    this.onMessage("npc:hablar", (client, msg: { npcId?: string; mensaje?: string }) => void this.manejarNpcHablar(client, msg));
     // Exclusiones del bake por sector (docs/GDD_Bosques.md §7, pedido
     // 2026-08-30: "si se puede recolectar/talar/matar y se hace, acaba
     // desapareciendo" — también visualmente): el cliente lo pide justo
@@ -1822,6 +1868,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.inputs.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);
     this.extrasInventario.delete(client.sessionId);
+    this.ultimoMensajeNpc.delete(client.sessionId);
     this.equipoInventario.delete(client.sessionId);
     // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería): igual
     // que craftesEnCurso, una forja a medias se pierde si el jugador se
@@ -2078,6 +2125,68 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * en la que un segundo "coger" pueda colarse entre "encontrar" y "borrar":
    * el propio single-thread de Colyseus basta para que sea atómico.
    */
+  /**
+   * `npc:hablar {npcId,mensaje}` (docs/GDD_IA_NPCs.md) — dos caminos según
+   * el NPC clicado: un `tipoTutorial`/lore fijo responde con texto
+   * PREDEFINIDO (nunca gasta cuota de Gemini/Groq en algo que no necesita
+   * IA); cualquier otro NPC (civil con rutina, biografía individual o
+   * arquetipo genérico) pasa por `conversacionesNpc.hablar`. Movido desde
+   * HubRoom (2026-09-08) a la base para que funcione en cualquier room con
+   * NPCs, no solo el Hub.
+   */
+  private async manejarNpcHablar(client: Client, msg: { npcId?: string; mensaje?: string }) {
+    const nombre = this.nombreDe(client);
+    if (!nombre || !msg?.npcId || !msg?.mensaje) return;
+    // NPC tutorial/lore (docs/GDD_Profesiones.md ronda 3/4, pedido
+    // 2026-08-30/31): "texto predefinido" — para tutoriales el texto EN
+    // SÍ todavía no está escrito ("ahora no se hace ese texto", pedido
+    // explícito), así que responde con un placeholder que nombra la
+    // mecánica en vez de gastar cuota de Gemini/Groq en una IA que no
+    // pinta nada aquí. Para lore (categoria:"lore"), el texto real vive
+    // en poblacion/catalogo/loreTexto.json — "cuando termine el juego
+    // haré el lore y se pondrá ahí", pedido literal: se lee EN CALIENTE
+    // (sin caché) para que rellenar esa clave más adelante funcione sin
+    // reiniciar el servidor; sin entrada todavía, mismo placeholder que un tutorial.
+    const npcTutorial = this.state.npcs.get(msg.npcId);
+    if (npcTutorial?.tipoTutorial) {
+      const arquetipo = cargarCatalogoNpcsTutoriales().get(npcTutorial.tipoTutorial);
+      const esLore = arquetipo?.categoria === "lore";
+      const loreEscrito = esLore ? cargarLoreTexto()[npcTutorial.tipoTutorial] : undefined;
+      client.send("npc:respuesta", {
+        npcId: msg.npcId,
+        texto: loreEscrito ?? `[${esLore ? "Lore" : "Tutorial"} pendiente de escribir: ${arquetipo?.mecanica ?? npcTutorial.tipoTutorial}]`,
+      });
+      return;
+    }
+    const ahora = Date.now();
+    const anterior = this.ultimoMensajeNpc.get(client.sessionId) ?? 0;
+    // Carisma (docs/GDD_Personaje.md §3.3): "más interacciones o
+    // conversaciones" — más nivel de carisma acorta este cooldown, nunca
+    // por debajo de 1000ms (la cuota de Gemini/Groq sigue mandando).
+    const nivelCarisma = this.state.players.get(client.sessionId)?.atributos.carisma ?? 1;
+    const COOLDOWN_MS = cooldownNpcHablarMs(nivelCarisma);
+    if (ahora - anterior < COOLDOWN_MS) {
+      client.send("npc:error", { npcId: msg.npcId, motivo: "espera un momento antes de volver a hablar" });
+      return;
+    }
+    this.ultimoMensajeNpc.set(client.sessionId, ahora);
+    try {
+      const texto = await this.conversacionesNpc.hablar(msg.npcId, nombre, msg.mensaje.slice(0, 300));
+      client.send("npc:respuesta", { npcId: msg.npcId, texto });
+      // Carisma (docs/GDD_Personaje.md): hablar con un NPC ya está
+      // limitado por el cooldown de arriba (3s), así que reusarlo también
+      // acota la ganancia de XP sin necesidad de un límite propio.
+      const player = this.state.players.get(client.sessionId);
+      if (player) {
+        const bd = await obtenerBdCompartida();
+        const jugador = await bd.obtenerOCrearJugador(nombre);
+        await this.otorgarXpAtributo(bd, jugador.id, "carisma", player, 5, client.sessionId);
+      }
+    } catch (err) {
+      client.send("npc:error", { npcId: msg.npcId, motivo: (err as Error).message });
+    }
+  }
+
   private manejarCoger(client: Client) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;

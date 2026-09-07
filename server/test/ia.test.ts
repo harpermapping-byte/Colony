@@ -5,7 +5,7 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import { IProveedorIA, IProveedorEmbeddings, ProveedorIAConRespaldo } from "../src/ia/proveedor";
 import { similitudCoseno, MemoriaConversaciones } from "../src/ia/memoria";
-import { GestorConversacionesNpc } from "../src/ia/npcChat";
+import { GestorConversacionesNpc, DatosNpcIndividual, IMemoriaNpcPersistente } from "../src/ia/npcChat";
 
 function proveedorFalso(nombre: string, comportamiento: (mensaje: string) => string): IProveedorIA {
   return {
@@ -137,4 +137,129 @@ test("GestorConversacionesNpc.hablar: con conocimiento largo, busca por similitu
   assert.match(systemPromptRecibido, /Forja herramientas/);
   assert.match(systemPromptRecibido, /carbón vegetal/);
   assert.match(systemPromptRecibido, /armas mal forjadas/);
+});
+
+// docs/GDD_IA_NPCs.md (pedido streamer 2026-09-08: "ahondar en el tema de
+// las conversaciones con IA NPC") — biografía individual real (poblacion.json)
+// por encima del arquetipo genérico, perfil conversacional, y memoria real
+// persistida entre conversaciones con el MISMO jugador.
+
+test("GestorConversacionesNpc.hablar: con individuo (poblacion.json), su personalidad/conocimiento PROPIOS ganan al arquetipo genérico", async () => {
+  let systemPromptRecibido = "";
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "respuesta";
+    },
+  };
+  const individual: DatosNpcIndividual = {
+    oficio: "herrero",
+    personalidad: "Ragnar Herrerson es huraño y no confía en forasteros.",
+    conocimiento: ["Vine del norte tras perder mi fragua en un incendio."],
+  };
+  const gestor = new GestorConversacionesNpc(falso, undefined, () => individual);
+  await gestor.hablar("herrero_slot_42", "Lagertha", "hola");
+  assert.match(systemPromptRecibido, /Ragnar Herrerson es huraño/);
+  assert.match(systemPromptRecibido, /perder mi fragua en un incendio/);
+  assert.doesNotMatch(systemPromptRecibido, /Forja herramientas y armas sencillas/, "no debería colarse el conocimiento del arquetipo si el individuo trae el suyo propio");
+});
+
+test("GestorConversacionesNpc.hablar: individuo SIN historia (bake sin GEMINI_API_KEY) cae al arquetipo de su oficio, no se queda mudo", async () => {
+  let systemPromptRecibido = "";
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "respuesta";
+    },
+  };
+  // Igual que un NpcBakeado real con historia:null — sin personalidad/conocimiento propios.
+  const individualSinHistoria: DatosNpcIndividual = { oficio: "herrero" };
+  const gestor = new GestorConversacionesNpc(falso, undefined, () => individualSinHistoria);
+  await gestor.hablar("herrero_slot_7", "Ragnar", "hola");
+  assert.match(systemPromptRecibido, /Forja herramientas y armas sencillas/, "debería caer al conocimiento del arquetipo herrero");
+});
+
+test("GestorConversacionesNpc.hablar: el perfil conversacional (tono) se inyecta en el prompt", async () => {
+  let systemPromptRecibido = "";
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "respuesta";
+    },
+  };
+  const individual: DatosNpcIndividual = { oficio: "herrero", perfilConversacionalId: "chismoso" };
+  const gestor = new GestorConversacionesNpc(falso, undefined, () => individual);
+  await gestor.hablar("herrero_slot_9", "Ragnar", "hola");
+  assert.match(systemPromptRecibido, /cotillear/i);
+});
+
+test("GestorConversacionesNpc.hablar: sin memoria persistente inyectada, avisa de que es la primera vez (comportamiento por defecto, sin BD)", async () => {
+  let systemPromptRecibido = "";
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "respuesta";
+    },
+  };
+  const gestor = new GestorConversacionesNpc(falso, undefined);
+  await gestor.hablar("herrero", "Ragnar", "hola");
+  assert.match(systemPromptRecibido, /primera vez que hablas con el jugador "Ragnar"/);
+});
+
+test("GestorConversacionesNpc.hablar: con memoria persistente, inyecta lo que el jugador dijo antes y guarda el mensaje nuevo", async () => {
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto() {
+      return "respuesta";
+    },
+  };
+  const guardado: { npcId: string; jugador: string; mensaje: string }[] = [];
+  const memoriaFalsa: IMemoriaNpcPersistente = {
+    async obtener(npcId, jugador) {
+      assert.strictEqual(npcId, "herrero");
+      assert.strictEqual(jugador, "Ragnar");
+      return ["Te compré un hacha la semana pasada"];
+    },
+    async agregar(npcId, jugador, mensaje) {
+      guardado.push({ npcId, jugador, mensaje });
+    },
+  };
+  let systemPromptRecibido = "";
+  const proveedorQueCapta: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "¡Ah, tú otra vez!";
+    },
+  };
+  const gestor = new GestorConversacionesNpc(proveedorQueCapta, undefined, undefined, memoriaFalsa);
+  const respuesta = await gestor.hablar("herrero", "Ragnar", "¿tienes espadas nuevas?");
+  assert.match(systemPromptRecibido, /Ya has hablado antes con el jugador "Ragnar"/);
+  assert.match(systemPromptRecibido, /Te compré un hacha la semana pasada/);
+  assert.strictEqual(respuesta, "¡Ah, tú otra vez!");
+  assert.deepStrictEqual(guardado, [{ npcId: "herrero", jugador: "Ragnar", mensaje: "¿tienes espadas nuevas?" }]);
+});
+
+test("GestorConversacionesNpc.hablar: si la memoria persistente falla al leer o guardar, la conversación sigue funcionando igual (degrada, no rompe)", async () => {
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto() {
+      return "sigo aquí";
+    },
+  };
+  const memoriaRota: IMemoriaNpcPersistente = {
+    async obtener() {
+      throw new Error("BD caída");
+    },
+    async agregar() {
+      throw new Error("BD caída");
+    },
+  };
+  const gestor = new GestorConversacionesNpc(falso, undefined, undefined, memoriaRota);
+  const respuesta = await gestor.hablar("herrero", "Ragnar", "hola");
+  assert.strictEqual(respuesta, "sigo aquí");
 });

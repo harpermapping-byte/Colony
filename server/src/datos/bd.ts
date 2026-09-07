@@ -804,6 +804,9 @@ export interface MemoriaLider {
   jugador?: string | null;
 }
 
+/** docs/GDD_IA_NPCs.md — cuántos mensajes de un jugador guarda cada pareja (npc,jugador) como máximo; `memoriaNpcJugador(...,limite)` decide cuántos de esos se inyectan de verdad en un prompt concreto (menos, para no gastar tokens de más). */
+const TOPE_MEMORIA_NPC = 20;
+
 /**
  * Contrato único de persistencia — GDD_Construccion §2. Ambos motores lo
  * implementan tal cual; HubRoom solo conoce esta interfaz, nunca la clase
@@ -1117,6 +1120,20 @@ export interface IAlmacenDatos {
   memoriaLiderReciente(limite: number): Promise<MemoriaLider[]>;
   /** docs/GDD_Faccion_Bandidos.md §7quinquies — historial de ESTE jugador con ESTE asentamiento concreto (para el diálogo de un bandido: "¿ya me conoce?"). Vacío si nunca coincidieron. */
   historialJugadorEnAsentamiento(asentamientoId: string, jugador: string, limite: number): Promise<MemoriaLider[]>;
+  /**
+   * docs/GDD_IA_NPCs.md — memoria de VERDAD entre un NPC concreto y un
+   * jugador concreto (pedido streamer 2026-09-08: "que el npc... quede con
+   * el nombre del player y lo cuente la siguiente conversación"). Guarda lo
+   * que el JUGADOR le dijo (no la respuesta de la IA — es lo único que de
+   * verdad hace falta recordar para que el NPC "sepa cosas" de ese jugador
+   * concreto) — nunca se comparte con otro NPC ni otro jugador, a
+   * propósito (ver "descartado" en el GDD: repetir literalmente lo que un
+   * jugador le contó a un NPC a un tercero es un vector de abuso real en un
+   * juego con chat de IA en directo).
+   */
+  registrarMemoriaNpc(npcId: string, jugador: string, mensaje: string): Promise<void>;
+  /** Últimos mensajes (más reciente primero) que ESE jugador le dijo a ESE NPC — vacío si nunca hablaron. */
+  memoriaNpcJugador(npcId: string, jugador: string, limite: number): Promise<string[]>;
   // Inventario (pedido 2026-08-29, fase 1: catálogo + servidor + persistencia
   // — server/src/inventario/inventario.ts es el contrato de la lógica pura,
   // esto solo guarda/recupera su estado tal cual). `null` en cargarContenedor
@@ -1731,6 +1748,17 @@ CREATE TABLE IF NOT EXISTS memoria_lider (
   asentamiento_id TEXT,  -- NULL si el evento no es de un asentamiento concreto
   jugador TEXT           -- NULL si no hay un jugador concreto atribuible (o el evento es viejo)
 );
+-- Memoria de NPC↔jugador (docs/GDD_IA_NPCs.md, pedido 2026-09-08) — mismo
+-- espíritu que memoria_lider pero por PAREJA (npc_id, jugador), nunca
+-- compartida entre NPCs ni jugadores distintos.
+CREATE TABLE IF NOT EXISTS memoria_npc_jugador (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  npc_id TEXT NOT NULL,
+  jugador TEXT NOT NULL,
+  mensaje TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_memoria_npc_jugador ON memoria_npc_jugador(npc_id, jugador);
 -- Inventario (docs/Backlog_Mecanicas_Futuras.md "Inventario, contenedores y
 -- objetos en el mundo" + server/src/inventario/inventario.ts, pedido
 -- 2026-08-29 fase 1). Un contenedor = una rejilla ("cuerpo", "mochila_1"...);
@@ -2239,6 +2267,14 @@ CREATE TABLE IF NOT EXISTS memoria_lider (
 ALTER TABLE memoria_lider ADD COLUMN IF NOT EXISTS tipo TEXT;
 ALTER TABLE memoria_lider ADD COLUMN IF NOT EXISTS asentamiento_id TEXT;
 ALTER TABLE memoria_lider ADD COLUMN IF NOT EXISTS jugador TEXT;
+CREATE TABLE IF NOT EXISTS memoria_npc_jugador (
+  id SERIAL PRIMARY KEY,
+  npc_id TEXT NOT NULL,
+  jugador TEXT NOT NULL,
+  mensaje TEXT NOT NULL,
+  creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_memoria_npc_jugador ON memoria_npc_jugador(npc_id, jugador);
 CREATE TABLE IF NOT EXISTS inventarios (
   jugador_id INTEGER NOT NULL,
   contenedor_id TEXT NOT NULL,
@@ -4179,6 +4215,29 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return filas.map((f) => filaAMemoriaLider(f));
   }
 
+  async registrarMemoriaNpc(npcId: string, jugador: string, mensaje: string): Promise<void> {
+    this.bd
+      .prepare("INSERT INTO memoria_npc_jugador (npc_id, jugador, mensaje, creado_en) VALUES (?, ?, ?, ?)")
+      .run(npcId, jugador, mensaje, new Date().toISOString());
+    // Tope real (docs/GDD_IA_NPCs.md): esto es memoria de un NPC concreto
+    // sobre un jugador concreto, no un log sin fin — recorta a las últimas
+    // TOPE_MEMORIA_NPC filas de ESTA pareja en cuanto se pasa.
+    this.bd
+      .prepare(
+        `DELETE FROM memoria_npc_jugador WHERE npc_id = ? AND jugador = ? AND id NOT IN (
+           SELECT id FROM memoria_npc_jugador WHERE npc_id = ? AND jugador = ? ORDER BY id DESC LIMIT ?
+         )`,
+      )
+      .run(npcId, jugador, npcId, jugador, TOPE_MEMORIA_NPC);
+  }
+
+  async memoriaNpcJugador(npcId: string, jugador: string, limite: number): Promise<string[]> {
+    const filas = this.bd
+      .prepare("SELECT mensaje FROM memoria_npc_jugador WHERE npc_id = ? AND jugador = ? ORDER BY id DESC LIMIT ?")
+      .all(npcId, jugador, limite) as { mensaje: string }[];
+    return filas.map((f) => f.mensaje);
+  }
+
   async guardarContenedor(jugadorId: number, contenedorId: string, contenedor: Contenedor): Promise<void> {
     const r = this.bd
       .prepare("UPDATE inventarios SET ancho = ?, alto = ?, siguiente_id = ?, items = ? WHERE jugador_id = ? AND contenedor_id = ?")
@@ -5922,6 +5981,27 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       [asentamientoId, jugador, limite],
     );
     return r.rows.map((f) => filaAMemoriaLider(f));
+  }
+
+  async registrarMemoriaNpc(npcId: string, jugador: string, mensaje: string): Promise<void> {
+    await this.pool.query(
+      "INSERT INTO memoria_npc_jugador (npc_id, jugador, mensaje, creado_en) VALUES ($1, $2, $3, $4)",
+      [npcId, jugador, mensaje, new Date().toISOString()],
+    );
+    await this.pool.query(
+      `DELETE FROM memoria_npc_jugador WHERE npc_id = $1 AND jugador = $2 AND id NOT IN (
+         SELECT id FROM memoria_npc_jugador WHERE npc_id = $1 AND jugador = $2 ORDER BY id DESC LIMIT $3
+       )`,
+      [npcId, jugador, TOPE_MEMORIA_NPC],
+    );
+  }
+
+  async memoriaNpcJugador(npcId: string, jugador: string, limite: number): Promise<string[]> {
+    const r = await this.pool.query(
+      "SELECT mensaje FROM memoria_npc_jugador WHERE npc_id = $1 AND jugador = $2 ORDER BY id DESC LIMIT $3",
+      [npcId, jugador, limite],
+    );
+    return r.rows.map((f) => f.mensaje as string);
   }
 
   async guardarContenedor(jugadorId: number, contenedorId: string, contenedor: Contenedor): Promise<void> {

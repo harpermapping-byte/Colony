@@ -14,6 +14,7 @@ const { cargarCatalogos } = require("./catalogo");
 const { generarCenso } = require("./generarCenso");
 const { generarIdentidad, apellidoDeFamilia } = require("./generarIdentidad");
 const { generarHistoria } = require("./generarHistoria");
+const { asignarPerfilConversacional } = require("./asignarPerfilConversacional");
 const { generarPersonaje } = require("../../personajes/src/generarPersonaje");
 const { cargarCatalogos: cargarCatalogosPersonajes } = require("../../personajes/src/catalogo");
 const { cargarCatalogos: cargarCatalogosRopa } = require("../../ropa/src/catalogo");
@@ -110,6 +111,11 @@ async function exportarPoblacion(tierId, semilla, opciones = {}) {
       voxelesCabeza,
       ropa,
       historia: null, // se rellena después: necesita el resumen de familiares ya completo
+      // Perfil conversacional (docs/GDD_IA_NPCs.md, pedido streamer
+      // 2026-09-08: "varios perfiles de npc ia") — determinista, cero coste
+      // de IA, independiente de la biografía (historia) y del perfil social
+      // (asignarPerfil.js, que decide la rutina, no el tono).
+      perfilConversacionalId: asignarPerfilConversacional(slot, catalogos.perfilesConversacionales),
     });
   }
 

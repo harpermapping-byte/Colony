@@ -53,6 +53,10 @@ export interface NpcBakeado {
   tipoTutorial?: string;
   /** Vestimenta del NPC tutorial — slot->itemId, MISMO shape que `InventarioSchema.equipo` del jugador, resuelto del catálogo al colocarlo (server/src/mundo/npcsFijos.ts). */
   equipo?: Record<string, string>;
+  /** docs/GDD_IA_NPCs.md — biografía INDIVIDUAL de este NPC (poblacion/src/generarHistoria.js, una llamada a Gemini por NPC al bakear), null si la llamada falló o no había GEMINI_API_KEY en el bake (el NPC cae al arquetipo genérico de personajes/catalogo/npcs.json). Campo YA presente en poblacion.json desde 2026-08-30; solo faltaba tipar/leer aquí para poder cablearlo al chat en vivo. */
+  historia?: { personalidad: string; conocimiento: string[] } | null;
+  /** docs/GDD_IA_NPCs.md (pedido 2026-09-08) — id de poblacion/catalogo/perfilesConversacionales.json, asignado determinista al bakear (asignarPerfilConversacional.js). Distinto del perfil SOCIAL (rutina/horario) — este decide el TONO de conversación. */
+  perfilConversacionalId?: string | null;
 }
 
 // Más lento que el jugador (VEL_ANDAR 3.75): los NPC pasean, no compiten.

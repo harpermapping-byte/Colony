@@ -313,6 +313,43 @@ test("historialJugadorEnAsentamiento: solo trae los eventos de ESE jugador con E
   await bd.cerrar();
 });
 
+// Memoria de NPC↔jugador (docs/GDD_IA_NPCs.md, pedido streamer 2026-09-08:
+// "que el npc... quede con el nombre del player y lo cuente la siguiente
+// conversación") — mismo espíritu que memoria_lider pero por pareja.
+test("memoriaNpcJugador: registrarMemoriaNpc + memoriaNpcJugador devuelve lo último primero", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.registrarMemoriaNpc("herrero_1", "Ragnar", "Te vendí un hacha ayer");
+  await bd.registrarMemoriaNpc("herrero_1", "Ragnar", "Me preguntaste por el jarl");
+  const recuerdos = await bd.memoriaNpcJugador("herrero_1", "Ragnar", 10);
+  assert.deepStrictEqual(recuerdos, ["Me preguntaste por el jarl", "Te vendí un hacha ayer"]);
+  await bd.cerrar();
+});
+
+test("memoriaNpcJugador: nunca mezcla NPCs ni jugadores distintos", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.registrarMemoriaNpc("herrero_1", "Ragnar", "hola herrero");
+  await bd.registrarMemoriaNpc("herrero_2", "Ragnar", "hola OTRO herrero"); // otro NPC: no debe salir
+  await bd.registrarMemoriaNpc("herrero_1", "Lagertha", "hola desde otra jugadora"); // otro jugador: no debe salir
+  const recuerdos = await bd.memoriaNpcJugador("herrero_1", "Ragnar", 10);
+  assert.deepStrictEqual(recuerdos, ["hola herrero"]);
+  await bd.cerrar();
+});
+
+test("memoriaNpcJugador: sin ninguna conversación previa, vacío (nunca null/undefined)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  assert.deepStrictEqual(await bd.memoriaNpcJugador("herrero_1", "NuncaHabloConEl", 10), []);
+  await bd.cerrar();
+});
+
+test("registrarMemoriaNpc: recorta al tope real por pareja, no crece sin límite", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  for (let i = 0; i < 25; i++) await bd.registrarMemoriaNpc("herrero_1", "Ragnar", `mensaje ${i}`);
+  const recuerdos = await bd.memoriaNpcJugador("herrero_1", "Ragnar", 100); // pide más de lo que puede haber
+  assert.ok(recuerdos.length <= 20, `debería recortar al tope, salieron ${recuerdos.length}`);
+  assert.strictEqual(recuerdos[0], "mensaje 24", "se queda con los más recientes, no los primeros");
+  await bd.cerrar();
+});
+
 // Inventario (pedido 2026-08-29, fase 1) -------------------------------------
 
 test("inventario: guardar/cargar contenedor hace roundtrip exacto (huecos, cantidades, siguienteId)", async () => {

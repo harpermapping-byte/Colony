@@ -29,6 +29,7 @@ import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
 import { ResaltadoCombate } from "./render3d/resaltadoCombate";
 import { PanelChat } from "./ui/chat";
+import { PanelDialogoNpc } from "./npc/panelDialogoNpc";
 import { PanelForja } from "./construccion/panelForja";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
@@ -2026,6 +2027,23 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("chat:mensaje", (m: { sessionId: string; nombre: string; texto: string; canal: "local" | "global"; ts: number }) => {
     panelChat.agregarMensaje(m);
   });
+
+  // --- Diálogo con NPCs con IA (docs/GDD_IA_NPCs.md, pedido streamer
+  // 2026-09-08: "ahondar en el tema de las conversaciones con IA NPC" —
+  // hasta ahora `npc:hablar` solo se probaba desde tests, nunca desde el
+  // juego real). Tecla H abre/cierra hablando con el NPC no hostil más
+  // cercano — mismo criterio "sin UI de targeting, el servidor decide" que
+  // combate (tecla C)/coger, ver más abajo en el bloque de keydown.
+  const panelDialogoNpc = new PanelDialogoNpc({
+    contenedor,
+    enviarMensaje: (npcId, texto) => room.send("npc:hablar", { npcId, mensaje: texto }),
+  });
+  room.onMessage("npc:respuesta", (m: { npcId: string; texto: string }) => {
+    panelDialogoNpc.recibirRespuesta(m.npcId, m.texto);
+  });
+  room.onMessage("npc:error", (m: { npcId: string; motivo: string }) => {
+    panelDialogoNpc.recibirError(m.npcId, m.motivo);
+  });
   // combate:error/combate:armaRota ya se registran arriba (justo tras el
   // join, antes del bloque `if (SALA === "hub")`) — registrarlos otra vez
   // aquí era un listener duplicado real (colyseus.js/nanoevents acumula
@@ -2608,6 +2626,25 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     return mejorId;
   }
 
+  // Mismo radio que hablar/coger (RADIO_INTERACCION del servidor) — un NPC
+  // hostil (patrulla bandida, dummy de combate) nunca se ofrece aquí, ya
+  // tiene su propio camino con la tecla C.
+  const RADIO_HABLAR_CLIENTE = 2.2;
+
+  /** docs/GDD_IA_NPCs.md — NPC (con nombre) no hostil más cercano dentro del radio de hablar, o `null` si no hay ninguno. Mismo criterio "sin UI de targeting" que `objetivoHostilMasCercano`. */
+  function npcParaHablarMasCercano(): { id: string; nombre: string } | null {
+    if (!jugadorLocal) return null;
+    let mejorId: string | null = null;
+    let mejorNombre = "";
+    let mejorDist = RADIO_HABLAR_CLIENTE;
+    for (const [id, n] of room.state.npcs.entries()) {
+      if (n.hostil) continue;
+      const d = Math.hypot(n.x - jugadorLocal.x, n.y - jugadorLocal.z);
+      if (d < mejorDist) { mejorDist = d; mejorId = id; mejorNombre = n.nombre; }
+    }
+    return mejorId ? { id: mejorId, nombre: mejorNombre } : null;
+  }
+
   /** Combate en ventana de unión (fase "pendiente", §9.1) más cercano al que el jugador todavía no pertenece. */
   function combatePendienteMasCercano(): string | null {
     if (!jugadorLocal) return null;
@@ -2710,6 +2747,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "v" && !teclas.has("v")) {
       const combateId = combatePendienteMasCercano();
       if (combateId) room.send("combate:unirse", { combateId, retorno: retornoDeCombate() });
+    }
+    // Hablar con NPCs con IA (docs/GDD_IA_NPCs.md): H abre/cierra la
+    // conversación con el NPC no hostil más cercano — mismo criterio "sin
+    // UI de targeting" que combate (C)/coger. Con el panel ya abierto con
+    // ESE mismo NPC, H lo cierra (toggle); abierto con OTRO NPC, cambia de
+    // conversación sin más (no hace falta cerrar antes).
+    if (k === "h" && !teclas.has("h")) {
+      const npcCercano = npcParaHablarMasCercano();
+      if (panelDialogoNpc.npcAbierto() && panelDialogoNpc.npcAbierto() === npcCercano?.id) {
+        panelDialogoNpc.cerrar();
+      } else if (npcCercano) {
+        panelDialogoNpc.abrirCon(npcCercano.id, npcCercano.nombre);
+      }
     }
     // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería):
     // ESPACIO golpea mientras el panel está en fase FORJAR — mismo criterio

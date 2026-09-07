@@ -6,6 +6,7 @@ import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { nombreCapitalOverride } from "../mundo/capital";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { NpcBakeado } from "../mundo/agentes";
+import { DatosNpcIndividual } from "../ia/npcChat";
 import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa } from "../mundo/npcsFijos";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
@@ -65,6 +66,10 @@ export class RegionRoom extends RoomExteriorBase {
   // "qué existe", no de tenencia — el dueño/precio vive en la BD, se
   // consulta bajo demanda (point-query, nunca cacheado aquí).
   private inmueblesVendibles = new Map<string, { tipoEdificioId: string }>();
+  // docs/GDD_IA_NPCs.md (pedido 2026-09-08) — mismo campo que HubRoom, para
+  // que `resolverNpcIndividual` le dé al chat la biografía REAL de cada NPC
+  // de esta región en vez del arquetipo genérico.
+  private npcsIndividuales = new Map<string, NpcBakeado>();
   // Fauna doméstica urbana (perro/gato...) y catálogo de combate/domesticable
   // ya resuelto — undefined si el bake de esta región no trae fauna.json.
   private gestorFauna?: GestorFauna;
@@ -140,6 +145,10 @@ export class RegionRoom extends RoomExteriorBase {
         for (const npc of todosLosNpcs) {
           if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
         }
+        // docs/GDD_IA_NPCs.md (pedido 2026-09-08) — SOLO los de
+        // `poblacion.json` llevan biografía individual real; mismo criterio
+        // que HubRoom.
+        for (const npc of npcsConRutina) this.npcsIndividuales.set(npc.slotId, npc);
       }
       // NPCs trabajadores contratados (docs/GDD_NPCs_Contratables.md, pedido
       // 2026-09-01) — típicamente en la ciudad capital (el reclutador vive
@@ -432,6 +441,18 @@ export class RegionRoom extends RoomExteriorBase {
   /** Ganadería (docs/GDD_Ganaderia.md): domesticar aquí saca al animal del merodeo urbano (GestorFauna), mismo mecanismo que mascota:darComida. */
   protected async onFaunaDomesticada(id: string): Promise<boolean> {
     return this.gestorFauna?.quitar(id) ?? false;
+  }
+
+  /** docs/GDD_IA_NPCs.md — mismo criterio que HubRoom: biografía individual real del NPC si `poblacion.json` se la generó, `undefined` para NPCs fijos/tutoriales (cae al arquetipo genérico). */
+  protected resolverNpcIndividual(npcId: string): DatosNpcIndividual | undefined {
+    const npc = this.npcsIndividuales.get(npcId);
+    if (!npc) return undefined;
+    return {
+      oficio: npc.oficio,
+      personalidad: npc.historia?.personalidad,
+      conocimiento: npc.historia?.conocimiento,
+      perfilConversacionalId: npc.perfilConversacionalId,
+    };
   }
 
   /**

@@ -4,7 +4,7 @@ import * as path from "path";
 import { RoomExteriorBase, RADIO_INTERACCION, PA_MAX_COMBATE, RADIO_INTERES_TILES } from "./base/RoomExteriorBase";
 import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
 import { cargarParcelas } from "../construccion/parcelas";
-import { GestorConversacionesNpc } from "../ia/npcChat";
+import { DatosNpcIndividual } from "../ia/npcChat";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
 import { cargarCatalogoFaunaSalvaje } from "../mundo/catalogoFaunaSalvaje";
 import { DependenciasFaunaSalvaje, GestorFaunaSalvaje } from "../mundo/faunaSalvajeViva";
@@ -25,8 +25,7 @@ import { cargarCatalogoItems } from "../inventario/inventario";
 import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
 import { UnidadCombate, calcularIniciativa, simularCombateAutomatico } from "../combate/arenaCombate";
 import { TIPO, tipoEn, medioEn, casillaAguaCercana } from "../mundo/colisiones";
-import { cooldownNpcHablarMs } from "../personaje/bonusAtributos";
-import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa, cargarCatalogoNpcsTutoriales, cargarLoreTexto } from "../mundo/npcsFijos";
+import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa } from "../mundo/npcsFijos";
 import { NpcBakeado } from "../mundo/agentes";
 
 // Lee un `sector_XXX_YYY.json` bakeado y devuelve solo sus objetos de
@@ -144,8 +143,12 @@ export class HubRoom extends RoomExteriorBase {
   // Guardado aparte (además de dentro de deps.catalogoCombate) para que lo
   // use también la autosimulación NPC-vs-fauna (docs/GDD_Combate.md §7).
   private catalogoCombate?: CatalogoCombateFauna;
-  private conversacionesNpc = new GestorConversacionesNpc();
-  private ultimoMensajeNpc = new Map<string, number>();
+  // docs/GDD_IA_NPCs.md (pedido 2026-09-08) — slotId -> NpcBakeado completo
+  // (con su biografía individual real), para que `resolverNpcIndividual`
+  // (hook de RoomExteriorBase) le dé al chat la biografía de ESE individuo
+  // en vez del arquetipo genérico. Se llena junto a `oficiosNpc` al cargar
+  // `poblacion.json`, mismo bloque de siempre.
+  private npcsIndividuales = new Map<string, NpcBakeado>();
 
   // Colyseus espera (y awaitea) el lifecycle de creación de la room: async
   // aquí es lo correcto, no un apaño — la matchmaker no da la room por lista
@@ -206,6 +209,11 @@ export class HubRoom extends RoomExteriorBase {
         for (const npc of todosLosFijos) {
           if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
         }
+        // docs/GDD_IA_NPCs.md — SOLO los de `poblacion.json` llevan
+        // biografía individual real (`historia`, generada al bakear el
+        // asentamiento); los fijos/tutoriales de admin no tienen una y
+        // siguen cayendo al arquetipo genérico por su `npcId` de siempre.
+        for (const npc of npcsConRutina) this.npcsIndividuales.set(npc.slotId, npc);
         console.log(`  ${gestor.cantidad} NPC(s) en el mapa (${npcsConRutina.length} con rutina, ${npcsTutoriales.length} tutorial(es))`);
       }
       // NPCs trabajadores contratados (docs/GDD_NPCs_Contratables.md, pedido
@@ -476,65 +484,6 @@ export class HubRoom extends RoomExteriorBase {
       }
     });
 
-    // Diálogo con NPCs (docs/GDD_IA_NPCs.md): respuesta va SOLO al que
-    // preguntó (conversación privada), nunca en broadcast.
-    this.onMessage("npc:hablar", async (client, msg: { npcId?: string; mensaje?: string }) => {
-      const nombre = this.nombreDe(client);
-      if (!nombre || !msg?.npcId || !msg?.mensaje) return;
-      // rate-limit por jugador (GDD_Mecanicas §5.12, "rate-limit por
-      // mensaje" pendiente): sin esto un cliente puede spamear el handler y
-      // agotar la cuota gratuita de Gemini/Groq para todos los jugadores.
-      // NPC tutorial/lore (docs/GDD_Profesiones.md ronda 3/4, pedido
-      // 2026-08-30/31): "texto predefinido" — para tutoriales el texto EN
-      // SÍ todavía no está escrito ("ahora no se hace ese texto", pedido
-      // explícito), así que responde con un placeholder que nombra la
-      // mecánica en vez de gastar cuota de Gemini/Groq en una IA que no
-      // pinta nada aquí. Para lore (categoria:"lore"), el texto real vive
-      // en poblacion/catalogo/loreTexto.json — "cuando termine el juego
-      // haré el lore y se pondrá ahí", pedido literal: se lee EN CALIENTE
-      // (sin caché) para que rellenar esa clave más adelante funcione sin
-      // reiniciar el servidor; sin entrada todavía, mismo placeholder que un tutorial.
-      const npcTutorial = this.state.npcs.get(msg.npcId);
-      if (npcTutorial?.tipoTutorial) {
-        const arquetipo = cargarCatalogoNpcsTutoriales().get(npcTutorial.tipoTutorial);
-        const esLore = arquetipo?.categoria === "lore";
-        const loreEscrito = esLore ? cargarLoreTexto()[npcTutorial.tipoTutorial] : undefined;
-        client.send("npc:respuesta", {
-          npcId: msg.npcId,
-          texto: loreEscrito ?? `[${esLore ? "Lore" : "Tutorial"} pendiente de escribir: ${arquetipo?.mecanica ?? npcTutorial.tipoTutorial}]`,
-        });
-        return;
-      }
-      const ahora = Date.now();
-      const anterior = this.ultimoMensajeNpc.get(client.sessionId) ?? 0;
-      // Carisma (docs/GDD_Personaje.md §3.3): "más interacciones o
-      // conversaciones" — más nivel de carisma acorta este cooldown, nunca
-      // por debajo de 1000ms (la cuota de Gemini/Groq sigue mandando).
-      const nivelCarisma = this.state.players.get(client.sessionId)?.atributos.carisma ?? 1;
-      const COOLDOWN_MS = cooldownNpcHablarMs(nivelCarisma);
-      if (ahora - anterior < COOLDOWN_MS) {
-        client.send("npc:error", { npcId: msg.npcId, motivo: "espera un momento antes de volver a hablar" });
-        return;
-      }
-      this.ultimoMensajeNpc.set(client.sessionId, ahora);
-      try {
-        const texto = await this.conversacionesNpc.hablar(msg.npcId, nombre, msg.mensaje.slice(0, 300));
-        client.send("npc:respuesta", { npcId: msg.npcId, texto });
-        // Carisma (docs/GDD_Personaje.md): hablar con un NPC ya está
-        // limitado por el cooldown de arriba (3s), así que reusarlo también
-        // acota la ganancia de XP sin necesidad de un límite propio.
-        const player = this.state.players.get(client.sessionId);
-        if (player) {
-          const bd = await obtenerBdCompartida();
-          const jugador = await bd.obtenerOCrearJugador(nombre);
-          await this.otorgarXpAtributo(bd, jugador.id, "carisma", player, 5, client.sessionId);
-        }
-      } catch (err) {
-        client.send("npc:error", { npcId: msg.npcId, motivo: (err as Error).message });
-      }
-    });
-
-
     // Combate (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): un jugador
     // ataca a un animal salvaje activo o a otro jugador dentro de
     // RADIO_INTERACCION. Los animales NO tienen defensa (calcularDanio
@@ -801,11 +750,6 @@ export class HubRoom extends RoomExteriorBase {
     this.enviarEstadoConstruccion(client);
   }
 
-  async onLeave(client: Client) {
-    await super.onLeave(client);
-    this.ultimoMensajeNpc.delete(client.sessionId);
-  }
-
   // Combate táctico (docs/GDD_Combate.md): una fauna salvaje muerta en
   // combate pasa por matarIndividuo (persiste, quita del estado Y crea su
   // cadáver — cierra el círculo con el sistema de cadáveres) en vez del
@@ -845,6 +789,18 @@ export class HubRoom extends RoomExteriorBase {
   /** docs/GDD_Caza.md §huida — solo el Hub tiene fauna salvaje viva que cazar. */
   protected intentarIniciarCaza(faunaId: string, sessionId: string): boolean {
     return this.gestorFaunaSalvaje?.iniciarCaza(faunaId, sessionId) ?? false;
+  }
+
+  /** docs/GDD_IA_NPCs.md — biografía individual real del NPC (poblacion.json), si la tiene. `undefined` para NPCs fijos/tutoriales sin biografía (caen al arquetipo genérico en npcChat.ts). */
+  protected resolverNpcIndividual(npcId: string): DatosNpcIndividual | undefined {
+    const npc = this.npcsIndividuales.get(npcId);
+    if (!npc) return undefined;
+    return {
+      oficio: npc.oficio,
+      personalidad: npc.historia?.personalidad,
+      conocimiento: npc.historia?.conocimiento,
+      perfilConversacionalId: npc.perfilConversacionalId,
+    };
   }
 
   /** docs/GDD_Agentes_Moviles.md "Extinción local..." — solo el Hub tiene fauna salvaje viva que reponer. */
