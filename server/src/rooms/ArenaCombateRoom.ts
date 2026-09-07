@@ -8,6 +8,7 @@ import { Fauna, Enemigo, Npc } from "./schema/HubState";
 import { calcularIniciativa, ordenarTurnos, UnidadCombate } from "../combate/arenaCombate";
 import { tomarRosterArena, RetornoJugador } from "../combate/registroArenas";
 import { aplicarDesgasteCombate } from "../inventario/desgasteEquipoCombate";
+import { obtenerBdCompartida } from "../datos/bdCompartida";
 
 export interface OpcionesArena {
   combateId: string;
@@ -246,6 +247,20 @@ export class ArenaCombateRoom extends RoomExteriorBase {
       .filter((u) => u.esJugador && u.estado !== "caido")
       .map((u) => this.state.players.get(u.id)?.name)
       .filter((nombre): nombre is string => !!nombre);
+
+    // docs/GDD_IA_NPCs.md (pedido 2026-09-08: pregonero que cuente
+    // novedades — "combates") — solo cuenta como noticia un combate JUGADOR
+    // contra JUGADOR de verdad (bando perdedor con al menos un jugador
+    // "caído"), nunca cazar fauna o limpiar bandidos/mazmorra: eso
+    // inundaría el log de novedades con cada pelea rutinaria del juego.
+    const jugadoresPerdedores = [...combate.unidades.values()]
+      .filter((u) => u.esJugador && u.estado === "caido")
+      .map((u) => this.state.players.get(u.id)?.name)
+      .filter((nombre): nombre is string => !!nombre);
+    if (jugadoresGanadores.length > 0 && jugadoresPerdedores.length > 0) {
+      const texto = `${jugadoresGanadores.join(" y ")} ${jugadoresGanadores.length > 1 ? "han" : "ha"} vencido a ${jugadoresPerdedores.join(" y ")} en combate.`;
+      void obtenerBdCompartida().then((bd) => bd.registrarNovedad("combate_pvp", texto, { jugador: jugadoresGanadores[0] }));
+    }
 
     for (const cu of combate.unidades.values()) {
       if (cu.esJugador) {

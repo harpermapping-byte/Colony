@@ -128,7 +128,7 @@ export class DungeonRoom extends InteriorRoom {
     const esBoss = enemigo.esBoss;
     await super.finalizarMuerte(id, jugadoresGanadores);
     this.gestorEnemigos?.quitar(id); // deja de tickear/merodear un enemigo ya muerto
-    if (eraEnemigo) await this.comprobarMazmorraLimpiada();
+    if (eraEnemigo) await this.comprobarMazmorraLimpiada(jugadoresGanadores);
 
     const cadaver = crearCadaver({
       id: `cadaver:${this.opciones.mapaId}:${this.opciones.edificio}:${id}`,
@@ -158,9 +158,16 @@ export class DungeonRoom extends InteriorRoom {
    * secuencial), `marcarMazmorraLimpiada` hace UPDATE-o-INSERT, nunca
    * duplica fila.
    */
-  private async comprobarMazmorraLimpiada(): Promise<void> {
+  private async comprobarMazmorraLimpiada(jugadoresGanadores: string[] = []): Promise<void> {
     if (this.state.enemigos.size > 0) return;
     await this.bd.marcarMazmorraLimpiada(this.claveMazmorra());
+    // docs/GDD_IA_NPCs.md (pedido 2026-09-08: pregonero que cuente
+    // novedades del reino) — solo aquí, cuando la mazmorra queda REALMENTE
+    // vacía, no en cada muerte individual de enemigo.
+    const texto = jugadoresGanadores.length > 0
+      ? `${jugadoresGanadores.join(" y ")} ${jugadoresGanadores.length > 1 ? "han" : "ha"} limpiado una mazmorra de la zona.`
+      : "Una mazmorra de la zona ha quedado limpia de enemigos.";
+    await this.bd.registrarNovedad("mazmorra_limpiada", texto, { mapaId: this.opciones.mapaId, jugador: jugadoresGanadores[0] });
   }
 }
 

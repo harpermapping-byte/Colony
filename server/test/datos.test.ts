@@ -350,6 +350,33 @@ test("registrarMemoriaNpc: recorta al tope real por pareja, no crece sin límite
   await bd.cerrar();
 });
 
+// Novedades del reino (docs/GDD_IA_NPCs.md v3bis, pedido streamer 2026-09-08:
+// NPC pregonero que cuente qué ha pasado) — log GLOBAL, no por pareja como
+// memoria_npc_jugador de arriba.
+test("novedadesRecientes: registrarNovedad + novedadesRecientes devuelve lo último primero", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.registrarNovedad("propiedad_nueva", "Ragnar se ha hecho con una nueva propiedad.", { jugador: "Ragnar" });
+  await bd.registrarNovedad("mazmorra_limpiada", "Se ha limpiado una mazmorra de la zona.");
+  const novedades = await bd.novedadesRecientes(10);
+  assert.deepStrictEqual(novedades, ["Se ha limpiado una mazmorra de la zona.", "Ragnar se ha hecho con una nueva propiedad."]);
+  await bd.cerrar();
+});
+
+test("novedadesRecientes: sin ninguna novedad registrada, vacío (nunca null/undefined)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  assert.deepStrictEqual(await bd.novedadesRecientes(10), []);
+  await bd.cerrar();
+});
+
+test("registrarNovedad: recorta al tope GLOBAL, no por pareja/tipo (a diferencia de memoria_npc_jugador)", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  for (let i = 0; i < 210; i++) await bd.registrarNovedad("combate_pvp", `novedad ${i}`);
+  const novedades = await bd.novedadesRecientes(500); // pide más de lo que puede haber
+  assert.ok(novedades.length <= 200, `debería recortar al tope global, salieron ${novedades.length}`);
+  assert.strictEqual(novedades[0], "novedad 209", "se queda con las más recientes, no las primeras");
+  await bd.cerrar();
+});
+
 // Inventario (pedido 2026-08-29, fase 1) -------------------------------------
 
 test("inventario: guardar/cargar contenedor hace roundtrip exacto (huecos, cantidades, siguienteId)", async () => {

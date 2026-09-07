@@ -36,6 +36,7 @@ import { Pool } from "pg";
 import { Contenedor, ItemInstancia, SlotsEquipo, RasgosCultivo } from "../inventario/inventario";
 import { ContenedorMuebles } from "../inventario/contenedorMuebles";
 import { nombresJarlTalCual } from "../construccion/construccion";
+import { tiempoMundo } from "../mundo/tiempoMundo";
 
 // @types/node del monorepo es v20 y no conoce "node:sqlite" (los tipos llegaron en v22.5),
 // así que declaramos a mano lo mínimo que usamos y cargamos con require (estamos en CommonJS).
@@ -806,6 +807,8 @@ export interface MemoriaLider {
 
 /** docs/GDD_IA_NPCs.md — cuántos mensajes de un jugador guarda cada pareja (npc,jugador) como máximo; `memoriaNpcJugador(...,limite)` decide cuántos de esos se inyectan de verdad en un prompt concreto (menos, para no gastar tokens de más). */
 const TOPE_MEMORIA_NPC = 20;
+/** docs/GDD_IA_NPCs.md — tope GLOBAL del log de novedades del reino (pregonero); a diferencia de TOPE_MEMORIA_NPC no es por pareja, es una única cola para todo el servidor. */
+const TOPE_NOVEDADES_MUNDO = 200;
 
 /**
  * Contrato único de persistencia — GDD_Construccion §2. Ambos motores lo
@@ -1134,6 +1137,16 @@ export interface IAlmacenDatos {
   registrarMemoriaNpc(npcId: string, jugador: string, mensaje: string): Promise<void>;
   /** Últimos mensajes (más reciente primero) que ESE jugador le dijo a ESE NPC — vacío si nunca hablaron. */
   memoriaNpcJugador(npcId: string, jugador: string, limite: number): Promise<string[]>;
+  /**
+   * docs/GDD_IA_NPCs.md — "novedades del reino" (pedido streamer: NPC
+   * pregonero que cuente qué pasó — aldeas, combates, mazmorras,
+   * construcciones, negocios, propiedades). Log GLOBAL append-only, NO por
+   * pareja como `memoria_npc_jugador` (cualquier pregonero del reino cuenta
+   * las mismas novedades) — se recorta solo con el mismo criterio de tope.
+   */
+  registrarNovedad(tipo: string, texto: string, opciones?: { jugador?: string; mapaId?: string }): Promise<void>;
+  /** Últimas novedades (más reciente primero) — solo el texto, listo para inyectar en un prompt. */
+  novedadesRecientes(limite: number): Promise<string[]>;
   // Inventario (pedido 2026-08-29, fase 1: catálogo + servidor + persistencia
   // — server/src/inventario/inventario.ts es el contrato de la lógica pura,
   // esto solo guarda/recupera su estado tal cual). `null` en cargarContenedor
@@ -1759,6 +1772,17 @@ CREATE TABLE IF NOT EXISTS memoria_npc_jugador (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_memoria_npc_jugador ON memoria_npc_jugador(npc_id, jugador);
+-- Novedades del reino (docs/GDD_IA_NPCs.md, pedido 2026-09-08: NPC
+-- pregonero que cuente qué ha pasado) — log GLOBAL, no por pareja.
+CREATE TABLE IF NOT EXISTS novedades_mundo (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tipo TEXT NOT NULL,
+  texto TEXT NOT NULL,
+  jugador TEXT,
+  mapa_id TEXT,
+  dia_ingame INTEGER NOT NULL,
+  creado_en TEXT NOT NULL
+);
 -- Inventario (docs/Backlog_Mecanicas_Futuras.md "Inventario, contenedores y
 -- objetos en el mundo" + server/src/inventario/inventario.ts, pedido
 -- 2026-08-29 fase 1). Un contenedor = una rejilla ("cuerpo", "mochila_1"...);
@@ -2275,6 +2299,15 @@ CREATE TABLE IF NOT EXISTS memoria_npc_jugador (
   creado_en TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_memoria_npc_jugador ON memoria_npc_jugador(npc_id, jugador);
+CREATE TABLE IF NOT EXISTS novedades_mundo (
+  id SERIAL PRIMARY KEY,
+  tipo TEXT NOT NULL,
+  texto TEXT NOT NULL,
+  jugador TEXT,
+  mapa_id TEXT,
+  dia_ingame INTEGER NOT NULL,
+  creado_en TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS inventarios (
   jugador_id INTEGER NOT NULL,
   contenedor_id TEXT NOT NULL,
@@ -4238,6 +4271,24 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     return filas.map((f) => f.mensaje);
   }
 
+  async registrarNovedad(tipo: string, texto: string, opciones?: { jugador?: string; mapaId?: string }): Promise<void> {
+    this.bd
+      .prepare("INSERT INTO novedades_mundo (tipo, texto, jugador, mapa_id, dia_ingame, creado_en) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(tipo, texto, opciones?.jugador ?? null, opciones?.mapaId ?? null, tiempoMundo().dia, new Date().toISOString());
+    // Log global, no por pareja (a diferencia de memoria_npc_jugador) —
+    // recorta la tabla ENTERA al tope, no por clave.
+    this.bd
+      .prepare(`DELETE FROM novedades_mundo WHERE id NOT IN (SELECT id FROM novedades_mundo ORDER BY id DESC LIMIT ?)`)
+      .run(TOPE_NOVEDADES_MUNDO);
+  }
+
+  async novedadesRecientes(limite: number): Promise<string[]> {
+    const filas = this.bd
+      .prepare("SELECT texto FROM novedades_mundo ORDER BY id DESC LIMIT ?")
+      .all(limite) as { texto: string }[];
+    return filas.map((f) => f.texto);
+  }
+
   async guardarContenedor(jugadorId: number, contenedorId: string, contenedor: Contenedor): Promise<void> {
     const r = this.bd
       .prepare("UPDATE inventarios SET ancho = ?, alto = ?, siguiente_id = ?, items = ? WHERE jugador_id = ? AND contenedor_id = ?")
@@ -6002,6 +6053,22 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       [npcId, jugador, limite],
     );
     return r.rows.map((f) => f.mensaje as string);
+  }
+
+  async registrarNovedad(tipo: string, texto: string, opciones?: { jugador?: string; mapaId?: string }): Promise<void> {
+    await this.pool.query(
+      "INSERT INTO novedades_mundo (tipo, texto, jugador, mapa_id, dia_ingame, creado_en) VALUES ($1, $2, $3, $4, $5, $6)",
+      [tipo, texto, opciones?.jugador ?? null, opciones?.mapaId ?? null, tiempoMundo().dia, new Date().toISOString()],
+    );
+    await this.pool.query(
+      "DELETE FROM novedades_mundo WHERE id NOT IN (SELECT id FROM novedades_mundo ORDER BY id DESC LIMIT $1)",
+      [TOPE_NOVEDADES_MUNDO],
+    );
+  }
+
+  async novedadesRecientes(limite: number): Promise<string[]> {
+    const r = await this.pool.query("SELECT texto FROM novedades_mundo ORDER BY id DESC LIMIT $1", [limite]);
+    return r.rows.map((f) => f.texto as string);
   }
 
   async guardarContenedor(jugadorId: number, contenedorId: string, contenedor: Contenedor): Promise<void> {

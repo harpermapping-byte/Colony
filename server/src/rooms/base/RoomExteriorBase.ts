@@ -614,6 +614,9 @@ const memoriaNpcPersistenteReal: IMemoriaNpcPersistente = {
   },
 };
 
+/** Mismo criterio que `memoriaNpcPersistenteReal` de arriba — proveedor real de las novedades del reino (docs/GDD_IA_NPCs.md v3bis) para el NPC pregonero, compartido por todas las rooms. */
+const novedadesProveedorReal = async (): Promise<string[]> => (await obtenerBdCompartida()).novedadesRecientes(8);
+
 /**
  * Base común de las rooms de MOVIMIENTO LIBRE sobre una rejilla de
  * colisión (Hub, regiones/aldeas, interiores de edificio — docs/
@@ -1057,6 +1060,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     undefined,
     (npcId) => this.resolverNpcIndividual(npcId),
     memoriaNpcPersistenteReal,
+    novedadesProveedorReal,
   );
   private ultimoMensajeNpc = new Map<string, number>();
 
@@ -3433,6 +3437,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           id, propiedad: propiedadId, objeto: entrada.id, categoria: entrada.categoria,
           x, y, rot, variante,
         });
+        // docs/GDD_IA_NPCs.md (pedido 2026-09-08: pregonero que cuente
+        // novedades — "construcciones nuevas") — solo la categoría
+        // "edificio" (un edificio real, con interior propio), nunca cada
+        // mueble/mesa/cofre colocado con "construir" — eso inundaría el
+        // log con ruido sin ninguna gracia de noticia real.
+        if (entrada.categoria === "edificio") {
+          await bd.registrarNovedad("construccion_nueva", `${nombre} ha levantado un nuevo edificio en el asentamiento.`, { jugador: nombre });
+        }
       },
     );
 
@@ -6713,6 +6725,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const actualizado = await bd.obtenerGremio(gremioId);
       if (gremioVivo && actualizado) gremioVivo.saldoBanco = actualizado.saldoBanco;
     }
+    // docs/GDD_IA_NPCs.md (pedido 2026-09-08: pregonero que cuente
+    // novedades del reino) — solo COMPRA cuenta como "nueva propiedad", un
+    // alquiler temporal de habitación no es la misma noticia.
+    if (params.modo === "compra") {
+      await bd.registrarNovedad("propiedad_nueva", `${nombre} se ha hecho con una nueva propiedad en ${params.asentamiento}.`, {
+        jugador: nombre,
+        mapaId: params.asentamiento,
+      });
+    }
     return r;
   }
 
@@ -6938,12 +6959,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!resultado.ok) return this.errorTenderete(client, resultado.motivo ?? "no se pudo reponer");
 
     const bd = await obtenerBdCompartida();
+    // docs/GDD_IA_NPCs.md (pedido 2026-09-08: pregonero que cuente
+    // novedades — "nuevos negocios") — comprobado ANTES de reponer: si el
+    // tenderete no tenía ningún ítem en venta, esta reposición es la
+    // apertura real del negocio, no un simple reabastecimiento.
+    const esNegocioNuevo = (await bd.listarStockTenderete(msg.tenderoteId)).length === 0;
     try {
       await bd.reponerStockTenderete(msg.tenderoteId, itemId, cantidad, precio);
     } catch (e) {
       contenedor.items = itemsAntes;
       contenedor.siguienteId = siguienteIdAntes;
       throw e;
+    }
+    if (esNegocioNuevo) {
+      await bd.registrarNovedad("negocio_nuevo", `${nombre} ha abierto un nuevo negocio en su tenderete.`, { jugador: nombre });
     }
     const player = this.state.players.get(client.sessionId);
     if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);

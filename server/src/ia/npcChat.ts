@@ -134,6 +134,15 @@ export class GestorConversacionesNpc {
     private resolverIndividual: (npcId: string) => DatosNpcIndividual | undefined = () => undefined,
     /** Sin esto (tests, o una Room sin BD configurada), el diálogo funciona exactamente igual que antes: sin memoria real entre sesiones, solo el anti-repetición en RAM de siempre. */
     private memoriaPersistente?: IMemoriaNpcPersistente,
+    /**
+     * docs/GDD_IA_NPCs.md v3bis (pedido streamer: "un npc llamado pregonero
+     * que te cuente... las novedades del día") — log GLOBAL de sucesos
+     * reales (`bd.ts::novedadesRecientes`), inyectado SOLO si el NPC es de
+     * profesión "pregonero" (ver `hablar`). Sin esto (tests, o sin BD), un
+     * pregonero sigue funcionando con su `conocimiento` de catálogo de
+     * siempre, solo sin novedades reales que anunciar.
+     */
+    private novedadesProveedor?: () => Promise<string[]>,
   ) {}
 
   get disponible(): boolean {
@@ -222,6 +231,20 @@ export class GestorConversacionesNpc {
       }
     }
 
+    // Novedades del reino (docs/GDD_IA_NPCs.md v3bis) — SOLO el pregonero
+    // las anuncia; cualquier otro NPC de rol `bardo_rumorero` (chismosa,
+    // bardo_malo...) sigue con su cotilleo de catálogo de siempre, no el
+    // log real de sucesos. Mismo criterio "degradar, no romper" que la
+    // memoria de arriba si la BD falla.
+    let novedades: string[] = [];
+    if (npc.profesion === "pregonero" && this.novedadesProveedor) {
+      try {
+        novedades = await this.novedadesProveedor();
+      } catch (err) {
+        console.warn(`GestorConversacionesNpc: no se pudieron leer las novedades para ${npcId}: ${(err as Error).message}`);
+      }
+    }
+
     const systemPrompt = [
       this.contextoMundo,
       `Interpretas a "${npcId}"${npc.profesion ? ` (${npc.profesion})` : ""}.`,
@@ -231,6 +254,11 @@ export class GestorConversacionesNpc {
       ambito?.noSabe.length
         ? `NO sabes nada de esto — si te preguntan, niégalo, desvía la conversación o admite tu ignorancia, nunca inventes datos como si fueran ciertos:\n- ${ambito.noSabe.join("\n- ")}`
         : "",
+      novedades.length
+        ? `Eres el pregonero: cuando te pregunten qué ha pasado o por las novedades, anuncia estos sucesos reales y recientes con tu teatro habitual (puedes adornarlos, nunca inventarte otros que no estén aquí):\n- ${novedades.join("\n- ")}`
+        : npc.profesion === "pregonero"
+          ? "Eres el pregonero, pero hoy no tienes ninguna novedad real que contar — dilo con tu propio estilo (p.ej. un día tranquilo, sin sucesos dignos de pregonar), nunca inventes una noticia falsa."
+          : "",
       saber.length ? `Lo que sabes de tu propia vida:\n- ${saber.join("\n- ")}` : "",
       recuerdos.length
         ? `Ya has hablado antes con el jugador "${jugador}". Esto es lo que recuerdas que te dijo, en orden del más reciente al más antiguo:\n- ${recuerdos.join("\n- ")}`

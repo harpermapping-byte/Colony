@@ -243,6 +243,11 @@ export async function conquistarAsentamiento(
       await bd.registrarMemoriaLider(dia, evento, { tipo: "asentamiento_conquistado", asentamientoId: asentamiento.id, jugador });
     }
   }
+  // docs/GDD_IA_NPCs.md (pedido 2026-09-08: pregonero que cuente novedades
+  // del reino) — reusa el MISMO texto ya narrado, una sola entrada (a
+  // diferencia del bucle de memoria_lider de arriba, que registra una copia
+  // POR jugador ganador para su ficha de crónica individual).
+  await bd.registrarNovedad("aldea_conquistada", evento, { mapaId: rutaMapa, jugador: jugadoresGanadores[0] });
   await repoblarAsentamientoConquistado(rutaMapa);
 }
 

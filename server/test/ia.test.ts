@@ -307,6 +307,77 @@ test("GestorConversacionesNpc.hablar: sin arquetipo real detrás (ambitoConocimi
   assert.doesNotMatch(systemPromptRecibido, /NO sabes nada de esto/i);
 });
 
+// docs/GDD_IA_NPCs.md v3bis (pedido streamer: "un npc llamado pregonero que
+// te cuente... las novedades del día") — solo el pregonero anuncia el log
+// real de sucesos (`novedadesProveedor`), inyectado como 5º parámetro.
+
+test("GestorConversacionesNpc.hablar: el pregonero anuncia las novedades reales del proveedor inyectado", async () => {
+  let systemPromptRecibido = "";
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "respuesta";
+    },
+  };
+  const gestor = new GestorConversacionesNpc(falso, undefined, undefined, undefined, async () => [
+    "Ragnar se ha hecho con una nueva propiedad en Kaldrborg.",
+    "Se ha limpiado una mazmorra de la zona.",
+  ]);
+  await gestor.hablar("pregonero", "Lagertha", "¿qué novedades hay?");
+  assert.match(systemPromptRecibido, /Eres el pregonero/i);
+  assert.match(systemPromptRecibido, /Ragnar se ha hecho con una nueva propiedad/);
+  assert.match(systemPromptRecibido, /Se ha limpiado una mazmorra/);
+});
+
+test("GestorConversacionesNpc.hablar: sin novedades reales, el pregonero lo admite en vez de inventar una noticia falsa", async () => {
+  let systemPromptRecibido = "";
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "respuesta";
+    },
+  };
+  const gestor = new GestorConversacionesNpc(falso, undefined, undefined, undefined, async () => []);
+  await gestor.hablar("pregonero", "Lagertha", "¿qué novedades hay?");
+  assert.match(systemPromptRecibido, /no tienes ninguna novedad real que contar/i);
+});
+
+test("GestorConversacionesNpc.hablar: un NPC que NO es pregonero (mismo ámbito bardo_rumorero) nunca recibe el bloque de novedades", async () => {
+  let systemPromptRecibido = "";
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto(systemPrompt) {
+      systemPromptRecibido = systemPrompt;
+      return "respuesta";
+    },
+  };
+  let llamado = false;
+  const gestor = new GestorConversacionesNpc(falso, undefined, undefined, undefined, async () => {
+    llamado = true;
+    return ["esto no debería aparecer nunca"];
+  });
+  // "chismosa" es del mismo ámbito bardo_rumorero que "pregonero", pero NO es el pregonero.
+  await gestor.hablar("chismosa", "Lagertha", "hola");
+  assert.strictEqual(llamado, false, "el proveedor de novedades no debería ni llamarse para un NPC que no es pregonero");
+  assert.doesNotMatch(systemPromptRecibido, /esto no debería aparecer nunca/);
+});
+
+test("GestorConversacionesNpc.hablar: si el proveedor de novedades falla, la conversación del pregonero sigue funcionando igual (degrada, no rompe)", async () => {
+  const falso: IProveedorIA = {
+    nombre: "falso",
+    async generarTexto() {
+      return "sigo aquí";
+    },
+  };
+  const gestor = new GestorConversacionesNpc(falso, undefined, undefined, undefined, async () => {
+    throw new Error("BD caída");
+  });
+  const respuesta = await gestor.hablar("pregonero", "Ragnar", "hola");
+  assert.strictEqual(respuesta, "sigo aquí");
+});
+
 test("GestorConversacionesNpc.hablar: si la memoria persistente falla al leer o guardar, la conversación sigue funcionando igual (degrada, no rompe)", async () => {
   const falso: IProveedorIA = {
     nombre: "falso",
