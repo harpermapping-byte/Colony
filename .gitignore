@@ -3,6 +3,9 @@ dist/
 # base de datos local del servidor (GDD_Construccion §2) — en Render es efímera
 server/datos.sqlite
 server/*.sqlite
+# BD temporales sembradas por los E2E (server/test/*.e2e.mjs) — se crean y
+# se borran solas en cada ejecución, nunca deberían llegar a un commit.
+server/test/*.sqlite*
 .env
 .env.local
 *.log
@@ -45,6 +48,7 @@ assets/mapas/aldea_footprint_test/
 assets/mapas/playtest/
 assets/mapas/bandidos_test/
 assets/mapas/bandidos_cuartel_test/
+assets/mapas/mega_stress_aldea_v2/
 client/test/capturas_playtest/
 client/test/capturas_cono_vision/
 client/test/capturas_luz_interiores/
