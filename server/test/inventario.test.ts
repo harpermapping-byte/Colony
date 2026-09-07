@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 572); // 558 (ver historial) + 14 de docs/GDD_Combate.md §11ter (2026-09-07, armas/armaduras temáticas de enemigo: 1 arma + 1 armadura por cada uno de los 7 temas — goblin/trasgo/no_muerto/bandido/orco/cultista/pirata).
+  assert.strictEqual(ids.length, 614); // 572 (ver historial) + 42 de docs/GDD_Combate.md §11quinquies (2026-09-07, sets legendarios de enemigo sin blueprint: 1 arma + 5 piezas de armadura por cada uno de los 7 temas).
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

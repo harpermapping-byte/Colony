@@ -22,3 +22,23 @@ export type Atributo = (typeof ATRIBUTOS)[number];
 export function esAtributoValido(valor: string): valor is Atributo {
   return (ATRIBUTOS as readonly string[]).includes(valor);
 }
+
+const NIVEL_MAX_ATRIBUTO = 10; // mismo tope que UMBRALES_NIVEL_ATRIBUTO (progresion/nivel.ts)
+
+/**
+ * Bono de velocidad de SPRINT por nivel de resistencia (pedido streamer
+ * 2026-09-07: "no se si vinculamos que correr podrias ir mas rapido
+ * dependiendo de tu nivel de habilidad, si no configuralo") — gap real
+ * confirmado leyendo el código: `RoomExteriorBase.ts` ya otorga XP de
+ * resistencia por correr/andar/recibir golpes (`XP_RESISTENCIA_POR_*`) pero
+ * `VEL_CORRER`/`VEL_ANDAR` eran constantes fijas, la XP nunca se traducía en
+ * NADA jugable — mismo patrón lineal ya usado por
+ * `oficios.ts::bonusVelocidadCrafteoPorNivelOficio` (0% en nivel 1, tope en
+ * nivel 10). Solo afecta al SPRINT (sensación real de "correr más rápido
+ * cuanto más entrenado"), nunca a VEL_ANDAR (el paseo normal no debería
+ * volverse una carrera de atributos) ni a medios que ya sustituyen la
+ * velocidad entera (montura/barco/carro/nadar/bucear).
+ */
+export function bonusVelocidadCorrerPorNivelResistencia(nivel: number): number {
+  return 1 + (0.2 * (Math.max(1, Math.min(NIVEL_MAX_ATRIBUTO, nivel)) - 1)) / (NIVEL_MAX_ATRIBUTO - 1);
+}

@@ -111,6 +111,8 @@ CREATE TABLE IF NOT EXISTS jugador_oficios (
 
 Nivel = función pura de XP (tabla de umbrales, ej. nivel 1=0xp, 2=100xp, 3=300xp...) — no se persiste el nivel en sí, se deriva, mismo espíritu que "nunca dupliques una fuente de verdad". XP sube al completar un crafteo activo (§5) — el refinamiento pasivo (§4) NO da XP (es automatizado, no es "el jugador practicando el oficio").
 
+**Investigado 2026-09-07 (pedido streamer: "revisar si cada nivel de mesa tiene blueprints adecuadas en cada oficio")**: auditando `recetas.json` se confirmó que NINGÚN oficio tiene receta con `nivelMinimo` por encima de 5. Para herrero, una primera lectura ("las 36 piezas `_bonificado(a)` nunca se pueden fabricar, solo caen de loot") resultó ser una falsa alarma propia — SÍ tienen un camino de crafteo real vía `resultadoPerfecto` (§7ter, un golpe 5★ en el minijuego de forja de la receta base las entrega directamente) que el primer script de auditoría no comprobó. El hueco real que SÍ sigue en pie: el nivel de oficio EN SÍ (más allá del minijuego de forja, que solo existe para herrero) no desbloquea ninguna receta nueva por encima de 5 en ningún oficio — sin cerrar todavía, pendiente real. Detalle completo (incluida la corrección) en `docs/GDD_Combate.md` §11sexies.
+
 ## 7bis. Planos ligados a mesas + niveles de oficio (pedido 2026-08-30)
 
 Cierra varias de las preguntas abiertas de §7 (versión anterior de este documento). Confirmado por el streamer:

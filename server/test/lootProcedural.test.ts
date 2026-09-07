@@ -3,7 +3,7 @@
 // solo bosses humanoides no animales"). Lógica PURA, sin BD ni Colyseus.
 import { test } from "node:test";
 import * as assert from "node:assert";
-import { generarLootBoss, cargarCatalogoLootBoss, cargarCatalogoLootTematico } from "../src/mundo/lootProcedural";
+import { generarLootBoss, cargarCatalogoLootBoss, cargarCatalogoLootTematico, cargarCatalogoLootLegendario } from "../src/mundo/lootProcedural";
 import { esEnemigoHumanoide, temasDeEnemigo } from "../src/mundo/catalogoEnemigos";
 import { cargarCatalogoItems } from "../src/inventario/inventario";
 
@@ -91,4 +91,39 @@ test("temasDeEnemigo: devuelve los temasEnemigo reales del catálogo, array vac�
   assert.deepStrictEqual(temasDeEnemigo("jefe_goblin_grande"), ["goblin"]);
   assert.deepStrictEqual(temasDeEnemigo("guardian_arcano"), ["cultista", "no_muerto"]);
   assert.deepStrictEqual(temasDeEnemigo("esto_no_existe"), []);
+});
+
+// docs/GDD_Combate.md §11quinquies (2026-09-07, pedido streamer: "que estas no
+// tienen blueprint, y tienen stats mas altos... sets especiales enteros por
+// partes de cuerpo") — tercer nivel de loot, aún más raro que el temático.
+const legendario = cargarCatalogoLootLegendario();
+const recetasCatalogo: Record<string, { salidaItemId?: string }> = require("../../items/catalogo/recetas.json");
+const idsConReceta = new Set(Object.values(recetasCatalogo).filter((r) => r && r.salidaItemId).map((r) => r.salidaItemId as string));
+
+test("cargarCatalogoLootLegendario: los 7 temas tienen 1 arma + 5 piezas de armadura (6 piezas), todas existen en items.json", () => {
+  const temasEsperados = ["goblin", "trasgo", "no_muerto", "bandido", "orco", "cultista", "pirata"];
+  for (const tema of temasEsperados) {
+    const entrada = legendario[tema];
+    assert.ok(entrada, `falta el tema ${tema}`);
+    assert.strictEqual(entrada.piezas.length, 6, `${tema}: se esperaban 6 piezas (1 arma + 5 de armadura)`);
+    for (const itemId of entrada.piezas) assert.ok(itemId in catalogoItems, `${tema}: ${itemId} no está en items.json`);
+  }
+});
+
+test("las 42 piezas legendarias NUNCA tienen receta de crafteo real (nunca craftables, a propósito)", () => {
+  for (const tema of ["goblin", "trasgo", "no_muerto", "bandido", "orco", "cultista", "pirata"]) {
+    for (const itemId of legendario[tema].piezas) assert.ok(!idsConReceta.has(itemId), `${itemId} tiene receta — debería ser exclusivo de loot`);
+  }
+});
+
+test("generarLootBoss: con un tema real, en un número suficiente de tiradas cae AL MENOS UNA VEZ una pieza legendaria (mucho más raro que el bonus temático, pero no nunca)", () => {
+  const piezasGoblin = new Set(legendario.goblin.piezas);
+  let veces = 0;
+  const N = 600;
+  for (let i = 0; i < N; i++) {
+    const loot = generarLootBoss(catalogo, ["goblin"]);
+    if (loot.some((l) => piezasGoblin.has(l.itemId))) veces++;
+  }
+  assert.ok(veces > 0, "en 600 tiradas con tema goblin, nunca cayó una pieza legendaria");
+  assert.ok(veces < N, "en 600 tiradas, SIEMPRE cayó pieza legendaria — debería ser probabilístico y raro");
 });

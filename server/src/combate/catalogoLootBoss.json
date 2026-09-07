@@ -18,6 +18,11 @@
     { "itemId": "gema", "peso": 8, "cantidadMin": 1, "cantidadMax": 3 },
     { "itemId": "gema_tallada", "peso": 3, "cantidadMin": 1, "cantidadMax": 1 },
     { "itemId": "lingote_oro", "peso": 4, "cantidadMin": 1, "cantidadMax": 2 },
-    { "itemId": "lingote_plata", "peso": 6, "cantidadMin": 1, "cantidadMax": 3 }
+    { "itemId": "lingote_plata", "peso": 6, "cantidadMin": 1, "cantidadMax": 3 },
+    { "itemId": "pocion_alquimica_clara", "peso": 3, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "pocion_alquimica_toxica", "peso": 3, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "pocion_alquimica_vital", "peso": 3, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "pocion_alquimica_inestable", "peso": 2, "cantidadMin": 1, "cantidadMax": 1 },
+    { "itemId": "pocion_alquimica_radiante", "peso": 2, "cantidadMin": 1, "cantidadMax": 1 }
   ]
 }

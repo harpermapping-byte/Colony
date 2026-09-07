@@ -149,7 +149,7 @@ import {
 } from "../../construccion/trabajadores";
 import { contenedoresTestDeMapa } from "../../mundo/contenedoresTest";
 import { nombrePoliticoDeterminista } from "../../personaje/nombresNpc";
-import { Atributo, esAtributoValido } from "../../personaje/atributos";
+import { Atributo, esAtributoValido, bonusVelocidadCorrerPorNivelResistencia } from "../../personaje/atributos";
 import { UMBRALES_NIVEL_ATRIBUTO, UMBRALES_NIVEL } from "../../progresion/nivel";
 import {
   pesoMaximoTransportable,
@@ -12590,7 +12590,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       } else if (medio === TIPO.AGUA || medio === TIPO.AGUA_PROFUNDA) {
         vel = player.nivel < 0 ? VEL_BUCEAR : VEL_NADAR;
       } else if (corriendoDeVerdad) {
-        vel = VEL_CORRER * (this.mundo.velocidad[idx] ?? 1);
+        // Bono real por nivel de resistencia (docs/GDD_Personaje.md §3.4bis,
+        // pedido streamer 2026-09-07) — hasta +20% en nivel 10, mismo criterio
+        // lineal que el resto de bonos por nivel del proyecto.
+        vel = VEL_CORRER * bonusVelocidadCorrerPorNivelResistencia(player.atributos.resistencia) * (this.mundo.velocidad[idx] ?? 1);
         // Poción "más estamina"/"estamina reducida" (docs/GDD_Pociones.md,
         // ampliación 2026-09-01) — no hay un "máximo" de estamina que subir
         // (VITAL_MAX es fijo y compartido por los 5 vitales), así que el

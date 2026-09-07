@@ -87,6 +87,53 @@ const EXCEPCIONES_FRASE = {
   // aquí, mismo criterio que el resto de EXCEPCIONES_FRASE.
   espada_herrumbrosa_no_muerto: "Espada Herrumbrosa de No Muerto",
   coraza_huesos_no_muerto: "Coraza de Huesos de No Muerto",
+  // Set legendario de enemigo (2026-09-07, pedido streamer: "armas/armaduras
+  // que no tienen blueprint... nombres especiales") — nombre curado a mano
+  // por pieza, la regla genérica daría algo plano tipo "Casco Goblin"; el
+  // guion completo de las 42 piezas (7 armas + 35 de armadura, 5 por set)
+  // vive en docs/GDD_Combate.md §11quinquies.
+  legendario_arma_goblin: "Colmillo del Rey Goblin",
+  legendario_casco_goblin: "Yelmo del Rey Goblin",
+  legendario_pechera_goblin: "Coraza del Rey Goblin",
+  legendario_manos_goblin: "Guanteletes del Rey Goblin",
+  legendario_piernas_goblin: "Grebas del Rey Goblin",
+  legendario_zapatos_goblin: "Botas del Rey Goblin",
+  legendario_arma_trasgo: "Porra Machacahuesos Trasgo",
+  legendario_casco_trasgo: "Yelmo de la Horda Trasgo",
+  legendario_pechera_trasgo: "Coraza de la Horda Trasgo",
+  legendario_manos_trasgo: "Guanteletes de la Horda Trasgo",
+  legendario_piernas_trasgo: "Grebas de la Horda Trasgo",
+  legendario_zapatos_trasgo: "Botas de la Horda Trasgo",
+  legendario_arma_no_muerto: "Filo del Alma Errante",
+  legendario_casco_no_muerto: "Yelmo del Alma Errante",
+  legendario_pechera_no_muerto: "Coraza del Alma Errante",
+  legendario_manos_no_muerto: "Guanteletes del Alma Errante",
+  legendario_piernas_no_muerto: "Grebas del Alma Errante",
+  legendario_zapatos_no_muerto: "Botas del Alma Errante",
+  legendario_arma_bandido: "Traidora del Capitán Bandido",
+  legendario_casco_bandido: "Yelmo de la Capitana Bandida",
+  legendario_pechera_bandido: "Coraza de la Capitana Bandida",
+  legendario_manos_bandido: "Guanteletes de la Capitana Bandida",
+  legendario_piernas_bandido: "Grebas de la Capitana Bandida",
+  legendario_zapatos_bandido: "Botas de la Capitana Bandida",
+  legendario_arma_orco: "Rompecráneos de Guerra Orco",
+  legendario_casco_orco: "Yelmo de Guerra Orca",
+  legendario_pechera_orco: "Coraza de Guerra Orca",
+  legendario_manos_orco: "Guanteletes de Guerra Orca",
+  legendario_piernas_orco: "Grebas de Guerra Orca",
+  legendario_zapatos_orco: "Botas de Guerra Orca",
+  legendario_arma_cultista: "Lanza del Vacío Sagrado",
+  legendario_casco_cultista: "Yelmo Ritual del Vacío",
+  legendario_pechera_cultista: "Coraza Ritual del Vacío",
+  legendario_manos_cultista: "Guanteletes Ritual del Vacío",
+  legendario_piernas_cultista: "Grebas Ritual del Vacío",
+  legendario_zapatos_cultista: "Botas Ritual del Vacío",
+  legendario_arma_pirata: "Arco del Corsario Maldito",
+  legendario_casco_pirata: "Yelmo del Corsario Maldito",
+  legendario_pechera_pirata: "Coraza del Corsario Maldito",
+  legendario_manos_pirata: "Guanteletes del Corsario Maldito",
+  legendario_piernas_pirata: "Grebas del Corsario Maldito",
+  legendario_zapatos_pirata: "Botas del Corsario Maldito",
 };
 
 // ---- Excepciones de UNA palabra (ñ, hiatos, esdrújulas irregulares que las reglas de sufijo no cubren) ----

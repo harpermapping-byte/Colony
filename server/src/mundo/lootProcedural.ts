@@ -13,6 +13,7 @@ import * as path from "path";
 const RUTA_CATALOGO = path.join(__dirname, "..", "combate", "catalogoLootBoss.json");
 const RUTA_CATALOGO_NORMAL = path.join(__dirname, "..", "combate", "catalogoLootNormal.json");
 const RUTA_CATALOGO_TEMATICO = path.join(__dirname, "..", "combate", "catalogoLootTematico.json");
+const RUTA_CATALOGO_LEGENDARIO = path.join(__dirname, "..", "combate", "catalogoLootLegendario.json");
 
 interface EntradaLootBoss {
   itemId: string;
@@ -31,9 +32,14 @@ interface CatalogoLootTematico {
   [tema: string]: { armas: string[]; armaduras: string[] };
 }
 
+interface CatalogoLootLegendario {
+  [tema: string]: { piezas: string[] };
+}
+
 let cache: CatalogoLootBoss | null = null;
 let cacheNormal: CatalogoLootBoss | null = null;
 let cacheTematico: CatalogoLootTematico | null = null;
+let cacheLegendario: CatalogoLootLegendario | null = null;
 
 export function cargarCatalogoLootBoss(): CatalogoLootBoss {
   if (!cache) cache = JSON.parse(fs.readFileSync(RUTA_CATALOGO, "utf8")) as CatalogoLootBoss;
@@ -52,12 +58,24 @@ export function cargarCatalogoLootTematico(): CatalogoLootTematico {
   return cacheTematico;
 }
 
+/** docs/GDD_Combate.md §11quinquies — set legendario (arma + 5 piezas de armadura) por tema, sin blueprint y con stats por encima de lo craftable. */
+export function cargarCatalogoLootLegendario(): CatalogoLootLegendario {
+  if (!cacheLegendario) cacheLegendario = JSON.parse(fs.readFileSync(RUTA_CATALOGO_LEGENDARIO, "utf8")) as CatalogoLootLegendario;
+  return cacheLegendario;
+}
+
 // Probabilidad de que, ADEMÁS de los numDropsMin-numDropsMax genéricos de
 // siempre, un boss con tema conocido suelte una pieza temática suya (arma o
 // armadura, mitad y mitad) — nunca sustituye al pool genérico, solo lo
 // complementa; nunca se aplica a enemigos normales (generarLootNormal jamás
 // pasa `temas`, respeta el "nunca equipo real" ya documentado ahí).
 const PROB_LOOT_TEMATICO = 0.5;
+
+// docs/GDD_Combate.md §11quinquies — set legendario (sin blueprint, stats por
+// encima de lo craftable): mucho más raro que el bonus temático de arriba a
+// propósito, para que siga siendo un trofeo de verdad tras varias muertes de
+// boss, no un extra casi garantizado como el temático.
+const PROB_LOOT_LEGENDARIO = 0.12;
 
 /**
  * Tira entre numDropsMin y numDropsMax artículos ponderados del pool, sin
@@ -99,6 +117,16 @@ export function generarLootBoss(
       if (pool.length > 0) elegidos.push({ itemId: pool[Math.floor(Math.random() * pool.length)], cantidad: 1 });
     }
     break; // solo el primer tema con entrada conocida (guardian_arcano es cultista+no_muerto — un único bonus, no dos)
+  }
+
+  const legendario = cargarCatalogoLootLegendario();
+  for (const tema of temas) {
+    const entrada = legendario[tema];
+    if (!entrada) continue;
+    if (Math.random() < PROB_LOOT_LEGENDARIO) {
+      elegidos.push({ itemId: entrada.piezas[Math.floor(Math.random() * entrada.piezas.length)], cantidad: 1 });
+    }
+    break; // mismo criterio que el temático: solo el primer tema con entrada conocida
   }
   return elegidos;
 }
