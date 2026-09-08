@@ -4064,5 +4064,82 @@
       "tamCabeza": 0.058
     },
     "rasgos": {}
+  },
+  "_notaFaunaMarinaRadial_2026_09_08": "Las 12 especies que quedaban SIN rig (docs/GDD_Generador_Personajes.md 'las 137 especies sin ningún rig') eran moluscos/equinodermos/cefalópodos con cuerpo radial o con concha — ningún esqueleto de arriba encaja (todos asumen patas/aleta/cabeza al frente). 9 plantillas nuevas en generarAnimal.js (bivalvo/estrella/erizo/anemona/tubular/pulpo/calamar/caracol/medusa), reusadas donde el cuerpo lo permite (bivalvo sirve para ostra/mejillon/almeja; calamar_gigante hereda el rig de calamar solo con escala mucho mayor, mismo patrón que perro/perra).",
+  "ostra": {
+    "esqueleto": "bivalvo",
+    "escala": [0.85, 1.2],
+    "proporciones": { "anchoCuerpo": 0.09, "largoCuerpo": 0.11, "altoCuerpo": 0.04 },
+    "rasgos": {}
+  },
+  "mejillon": {
+    "esqueleto": "bivalvo",
+    "escala": [0.85, 1.2],
+    "proporciones": { "anchoCuerpo": 0.045, "largoCuerpo": 0.09, "altoCuerpo": 0.04 },
+    "rasgos": {}
+  },
+  "almeja": {
+    "esqueleto": "bivalvo",
+    "escala": [0.85, 1.2],
+    "proporciones": { "anchoCuerpo": 0.08, "largoCuerpo": 0.09, "altoCuerpo": 0.035 },
+    "rasgos": {}
+  },
+  "estrella_de_mar": {
+    "esqueleto": "estrella",
+    "escala": [0.8, 1.25],
+    "proporciones": { "anchoCuerpo": 0.22, "altoCuerpo": 0.025 },
+    "rasgos": {},
+    "coloresPosibles": [["#e08030", 40], ["#c0392b", 20], ["#8e44ad", 15], ["#d4a5a5", 15], ["#f1c40f", 10]],
+    "_notaColores": "5 tonos reales de estrella de mar — el catálogo declara variantes:5, aquí sí se aprovecha (no todas las especies lo hacen)."
+  },
+  "erizo_de_mar": {
+    "esqueleto": "erizo",
+    "escala": [0.8, 1.2],
+    "proporciones": { "anchoCuerpo": 0.13, "altoCuerpo": 0.09 },
+    "rasgos": {}
+  },
+  "anemona_de_mar": {
+    "esqueleto": "anemona",
+    "escala": [0.8, 1.3],
+    "proporciones": { "anchoCuerpo": 0.1, "altoCuerpo": 0.14 },
+    "rasgos": {},
+    "coloresPosibles": [["#c04a90", 30], ["#4ac0a0", 20], ["#e0a030", 20], ["#5a8ac0", 15], ["#c04a4a", 15]],
+    "_notaColores": "el catálogo declara variantes:8, la más colorida del lote — tonos vivos típicos de anémona de arrecife."
+  },
+  "pepino_de_mar": {
+    "esqueleto": "tubular",
+    "escala": [0.8, 1.2],
+    "proporciones": { "largoCuerpo": 0.26, "anchoCuerpo": 0.09, "altoCuerpo": 0.08 },
+    "rasgos": {}
+  },
+  "caracol_de_mar": {
+    "esqueleto": "caracol",
+    "escala": [0.8, 1.2],
+    "proporciones": { "anchoCuerpo": 0.06, "largoCuerpo": 0.1, "altoCuerpo": 0.05, "tamCabeza": 0.055 },
+    "rasgos": {}
+  },
+  "medusa": {
+    "esqueleto": "medusa",
+    "escala": [0.8, 1.3],
+    "proporciones": { "anchoCuerpo": 0.16, "altoCuerpo": 0.12 },
+    "rasgos": {}
+  },
+  "pulpo": {
+    "esqueleto": "pulpo",
+    "escala": [0.9, 1.25],
+    "proporciones": { "tamCabeza": 0.22, "largoCuerpo": 0.28 },
+    "rasgos": {},
+    "_notaProporciones": "largoCuerpo se reusa aquí como longitud de los 8 brazos colgantes, no hay cuerpo/torso separado."
+  },
+  "calamar": {
+    "esqueleto": "calamar",
+    "escala": [0.85, 1.2],
+    "proporciones": { "largoCuerpo": 0.42, "anchoCuerpo": 0.12, "altoCuerpo": 0.13, "tamCabeza": 0.1 },
+    "rasgos": {}
+  },
+  "calamar_gigante": {
+    "heredaDe": "calamar",
+    "escala": [3.2, 4.6],
+    "_nota": "Boss-tier real del catálogo (categoriaVida:alfa, vidaMaxima:300, ataque:40) — mismo rig que calamar, solo mucho más grande, igual patrón que perro/perra."
   }
 }

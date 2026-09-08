@@ -11,9 +11,11 @@
 // pivotes (andar = patas en contrafase, volar = alas). Toda caja se
 // construye con sus 6 caras (regla del streamer: nada se ve hueco).
 //
-// Plantillas de esqueleto implementadas: cuadrupedo, ave, insecto. Las que
-// faltan (pez, serpiente, crustaceo...) se añaden aquí + una entrada por
-// especie en animales_rig.json — el resto no se toca.
+// Plantillas de esqueleto implementadas: cuadrupedo, ave, insecto, pez,
+// serpiente, crustaceo, anfibio (fauna terrestre/de agua dulce con patas o
+// cuerpo alargado) + bivalvo, estrella, erizo, anemona, tubular, pulpo,
+// calamar, caracol, medusa (2026-09-08, fauna marina radial/con concha que
+// no encajaba en ninguna de las anteriores — ver docs/GDD_Generador_Personajes.md).
 
 const { crearPRNG, elegirPonderado } = require("../../interiores/src/azar");
 
@@ -32,6 +34,7 @@ const COLOR_PICO = "#c9922a";
 const COLOR_CRESTA = "#c0392b";
 const COLOR_ALA_INSECTO = "#dfe8f0";
 const COLOR_CUERNO = "#d8cfc0";
+const COLOR_CARNE = "#d89a8a";
 
 // --- Plantillas de esqueleto ---
 // Reciben proporciones YA escaladas al individuo. Convención igual que el
@@ -331,6 +334,214 @@ function esqueletoAnfibio(p, rasgos, color, rnd) {
   return piezas;
 }
 
+// --- Plantillas nuevas: fauna marina radial/con concha (2026-09-08,
+// pedido streamer "crea esa fauna marina que falte") — los 7 esqueletos de
+// arriba están pensados para animales con patas/aleta/cabeza al frente;
+// moluscos con concha, equinodermos radiales y cefalópodos no encajan en
+// ninguno (ya documentado en docs/GDD_Generador_Personajes.md), así que
+// aquí van las plantillas nuevas que sí les corresponden — mismo contrato
+// exacto (piezas = cajas colgando de pivotes con nombre). Limitación real
+// del motor: una caja NUNCA se rota, solo se posiciona — así que un
+// "brazo"/"púa" que debe apuntar en una dirección concreta se resuelve
+// SIEMPRE eligiendo qué dimensión (w/h/d) se alarga en el eje correcto
+// (vertical para lo que cuelga/pincha hacia arriba, profundidad para lo
+// que apunta al frente), nunca con un ángulo arbitrario.
+
+function esqueletoBivalvo(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // Molusco sésil sin cabeza ni patas: dos valvas con bisagra trasera —
+  // "valvaSuperior" queda como pivote propio (hoy fijo, listo para animar
+  // una apertura de filtrado más adelante) y un resquicio de "carne" a la
+  // vista entre ambas, igual que se ve un mejillón/ostra entreabiertos.
+  pieza("valvaInferior", 0, 0, 0, p.anchoCuerpo, p.altoCuerpo * 0.48, p.largoCuerpo, color);
+  pieza("carne", 0, p.altoCuerpo * 0.4, 0, p.anchoCuerpo * 0.7, p.altoCuerpo * 0.12, p.largoCuerpo * 0.75, COLOR_CARNE);
+  pieza("valvaSuperior", 0, p.altoCuerpo * 0.5, 0, p.anchoCuerpo * 0.96, p.altoCuerpo * 0.48, p.largoCuerpo * 0.96, ajustarColor(color, -0.08));
+  return piezas;
+}
+
+function esqueletoEstrella(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // Tumbada sobre el fondo: disco central + 4 brazos cardinales (elongados
+  // de verdad, apuntan en su eje) + 4 nudos diagonales cortos que redondean
+  // la silueta — aproximación de la simetría de 5 brazos con cajas rectas.
+  const grosor = p.altoCuerpo;
+  pieza("cuerpo", 0, 0, 0, p.anchoCuerpo * 0.32, grosor, p.anchoCuerpo * 0.32, color);
+  const largoBrazo = p.anchoCuerpo * 0.42;
+  const anchoBase = p.anchoCuerpo * 0.16;
+  for (const [pivote, dx, dz] of [["brazoN", 0, 1], ["brazoS", 0, -1], ["brazoE", 1, 0], ["brazoO", -1, 0]]) {
+    const w = dx !== 0 ? largoBrazo : anchoBase;
+    const d = dz !== 0 ? largoBrazo : anchoBase;
+    pieza(pivote, dx * (anchoBase + largoBrazo) / 2, 0, dz * (anchoBase + largoBrazo) / 2, w, grosor * 0.85, d, ajustarColor(color, -0.04));
+  }
+  const nub = p.anchoCuerpo * 0.14;
+  for (const [pivote, sx, sz] of [["brazoNE", 1, 1], ["brazoNO", -1, 1], ["brazoSE", 1, -1], ["brazoSO", -1, -1]]) {
+    pieza(pivote, sx * p.anchoCuerpo * 0.24, 0, sz * p.anchoCuerpo * 0.24, nub, grosor * 0.7, nub, ajustarColor(color, -0.08));
+  }
+  return piezas;
+}
+
+function esqueletoErizo(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // Cúpula sobre el fondo + púas: verticales sobre el domo (correcto sin
+  // rotar — una caja vertical pincha "hacia arriba" venga de donde venga
+  // su offset) más un anillo ecuatorial solo en los 4 cardinales, donde sí
+  // se puede alargar la caja en el eje que apunta hacia fuera de verdad.
+  pieza("cuerpo", 0, 0, 0, p.anchoCuerpo, p.altoCuerpo, p.anchoCuerpo, color);
+  const largoPua = p.anchoCuerpo * 0.5;
+  const grosorPua = p.anchoCuerpo * 0.05;
+  pieza("puaCima", 0, p.altoCuerpo * 0.75, 0, grosorPua, largoPua, grosorPua, ajustarColor(color, 0.15));
+  for (const { r, n } of [{ r: 0.35, n: 6 }, { r: 0.65, n: 8 }]) {
+    for (let k = 0; k < n; k++) {
+      const ang = (k / n) * Math.PI * 2;
+      pieza(`pua_${r}_${k}`, Math.cos(ang) * p.anchoCuerpo * r, p.altoCuerpo * 0.72, Math.sin(ang) * p.anchoCuerpo * r, grosorPua, largoPua * (0.85 + rnd() * 0.2), grosorPua, ajustarColor(color, 0.1 + rnd() * 0.08));
+    }
+  }
+  for (const [pivote, dx, dz] of [["puaN", 0, 1], ["puaS", 0, -1], ["puaE", 1, 0], ["puaO", -1, 0]]) {
+    const w = dx !== 0 ? largoPua : grosorPua;
+    const d = dz !== 0 ? largoPua : grosorPua;
+    pieza(pivote, dx * (p.anchoCuerpo / 2 + largoPua / 2), p.altoCuerpo * 0.4, dz * (p.anchoCuerpo / 2 + largoPua / 2), w, grosorPua, d, ajustarColor(color, 0.08));
+  }
+  return piezas;
+}
+
+function esqueletoAnemona(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // Sésil: columna fija al sustrato + corona de tentáculos arriba, cada
+  // uno con su propio pivote (nTentaculos) para poder ondular al animar.
+  pieza("columna", 0, 0, 0, p.anchoCuerpo, p.altoCuerpo * 0.7, p.anchoCuerpo, color);
+  pieza("columna", 0, p.altoCuerpo * 0.6, 0, p.anchoCuerpo * 1.15, p.altoCuerpo * 0.15, p.anchoCuerpo * 1.15, ajustarColor(color, -0.08));
+  const nTentaculos = 10;
+  const largoTent = p.altoCuerpo * 0.9;
+  const grosorTent = p.anchoCuerpo * 0.09;
+  for (let i = 0; i < nTentaculos; i++) {
+    const ang = (i / nTentaculos) * Math.PI * 2;
+    const r = p.anchoCuerpo * 0.5;
+    pieza(`tentaculo${i}`, Math.cos(ang) * r, p.altoCuerpo * 0.75, Math.sin(ang) * r, grosorTent, largoTent, grosorTent, ajustarColor(color, 0.1 + (i % 3) * 0.04));
+  }
+  return piezas;
+}
+
+function esqueletoTubular(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // Cuerpo blando tumbado en el fondo, sin cabeza diferenciada ni patas —
+  // unos pocos segmentos que se afinan hacia los dos extremos, más un
+  // ramillete corto de tentáculos bucales en el extremo delantero.
+  const segmentos = 4;
+  const dSeg = p.largoCuerpo / segmentos;
+  for (let i = 0; i < segmentos; i++) {
+    const z = p.largoCuerpo / 2 - dSeg * (i + 0.5);
+    const factorExtremo = 1 - Math.min(i, segmentos - 1 - i) / (segmentos / 2 - 0.5) * 0.4;
+    pieza(`segmento${i}`, 0, 0, z, p.anchoCuerpo * factorExtremo, p.altoCuerpo * factorExtremo, dSeg * 1.05, ajustarColor(color, (rnd() - 0.5) * 0.05));
+  }
+  const zBoca = p.largoCuerpo / 2 + p.anchoCuerpo * 0.15;
+  for (let i = 0; i < 5; i++) {
+    const x = (i - 2) * p.anchoCuerpo * 0.18;
+    pieza("boca", x, p.altoCuerpo * 0.3, zBoca, p.anchoCuerpo * 0.08, p.anchoCuerpo * 0.08, p.anchoCuerpo * 0.22, ajustarColor(color, 0.15));
+  }
+  return piezas;
+}
+
+function esqueletoPulpo(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // Cabeza abombada elevada sobre 8 brazos colgantes — cajas verticales
+  // (correcto sin rotar: cuelgan hacia el suelo desde un punto de la
+  // cabeza, ninguno "apunta" en diagonal) — pose de reposo sobre roca.
+  const largoBrazo = p.largoCuerpo;
+  const cabezaY = largoBrazo * 0.92;
+  pieza("cabeza", 0, cabezaY, 0, p.tamCabeza, p.tamCabeza * 0.9, p.tamCabeza, color);
+  const ojo = p.tamCabeza * 0.22;
+  for (const lado of [-1, 1]) {
+    pieza("cabeza", lado * (p.tamCabeza / 2 + 0.006), cabezaY + p.tamCabeza * 0.6, p.tamCabeza * 0.3, 0.014, ojo, ojo, COLOR_OJO);
+  }
+  const nBrazos = 8;
+  const grosorBrazo = p.tamCabeza * 0.14;
+  for (let i = 0; i < nBrazos; i++) {
+    const ang = (i / nBrazos) * Math.PI * 2;
+    const r = p.tamCabeza * 0.42;
+    pieza(`brazo${i}`, Math.cos(ang) * r, 0, Math.sin(ang) * r, grosorBrazo, largoBrazo * (0.85 + rnd() * 0.2), grosorBrazo, ajustarColor(color, -0.05 - (i % 2) * 0.05));
+  }
+  return piezas;
+}
+
+function esqueletoCalamar(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // Manto torpedo + aletas laterales (mismo planteamiento que "pez") pero
+  // con un ramillete de brazos/tentáculos colgando de la cabeza en vez de
+  // cola caudal — cada brazo se alarga en PROFUNDIDAD (apunta al frente,
+  // +z, la dirección real de nado) y se reparte en x/y para abrir el
+  // ramillete sin necesitar rotar ninguna caja.
+  const vientre = 0.02;
+  pieza("cuerpo", 0, vientre, 0, p.anchoCuerpo, p.altoCuerpo, p.largoCuerpo * 0.7, color);
+  pieza("cuerpo", 0, vientre, -p.largoCuerpo * 0.42, p.anchoCuerpo * 0.55, p.altoCuerpo * 0.55, p.largoCuerpo * 0.18, ajustarColor(color, -0.08));
+  for (const lado of [-1, 1]) {
+    pieza(lado < 0 ? "aletaIzq" : "aletaDer", lado * (p.anchoCuerpo / 2 + 0.02), vientre + p.altoCuerpo * 0.6, -p.largoCuerpo * 0.2, 0.05, p.altoCuerpo * 0.5, p.largoCuerpo * 0.4, ajustarColor(color, -0.1));
+  }
+  const zCabeza = p.largoCuerpo * 0.42;
+  pieza("cabeza", 0, vientre, zCabeza, p.tamCabeza, p.tamCabeza * 0.85, p.tamCabeza, ajustarColor(color, -0.04));
+  const ojo = p.tamCabeza * 0.24;
+  for (const lado of [-1, 1]) {
+    pieza("cabeza", lado * (p.tamCabeza / 2 + 0.006), vientre + p.tamCabeza * 0.5, zCabeza, 0.014, ojo, ojo, COLOR_OJO);
+  }
+  const nBrazos = 8;
+  const grosorBrazo = p.tamCabeza * 0.12;
+  const zBaseBrazos = zCabeza + p.tamCabeza * 0.5;
+  for (let i = 0; i < nBrazos; i++) {
+    const ang = (i / nBrazos) * Math.PI * 2;
+    const esTentaculoLargo = i < 2; // 2 tentáculos de caza más largos que los 6 brazos
+    const largo = p.tamCabeza * (esTentaculoLargo ? 1.7 : 1.0);
+    pieza(`brazo${i}`, Math.cos(ang) * p.tamCabeza * 0.3, vientre + p.tamCabeza * 0.4 + Math.sin(ang) * p.tamCabeza * 0.25, zBaseBrazos + largo / 2, grosorBrazo, grosorBrazo, largo, ajustarColor(color, -0.1));
+  }
+  return piezas;
+}
+
+function esqueletoCaracol(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // Pie plano reptando por el fondo + concha en espiral aproximada como 3
+  // cajas decrecientes apiladas (sin rotación real, pero el degradado de
+  // tamaño/altura sostiene la lectura "concha enrollada") + 2 tentáculos
+  // oculares largos con el ojo en la punta, lo más reconocible del grupo.
+  pieza("pie", 0, 0, 0, p.anchoCuerpo, p.altoCuerpo * 0.35, p.largoCuerpo, color);
+  const colorConcha = ajustarColor(color, -0.1);
+  pieza("concha", 0, p.altoCuerpo * 0.3, -p.largoCuerpo * 0.1, p.tamCabeza, p.tamCabeza * 0.75, p.tamCabeza, colorConcha);
+  pieza("concha", p.tamCabeza * 0.12, p.altoCuerpo * 0.3 + p.tamCabeza * 0.32, -p.largoCuerpo * 0.05, p.tamCabeza * 0.65, p.tamCabeza * 0.5, p.tamCabeza * 0.65, ajustarColor(colorConcha, -0.06));
+  pieza("concha", p.tamCabeza * 0.2, p.altoCuerpo * 0.3 + p.tamCabeza * 0.55, 0, p.tamCabeza * 0.35, p.tamCabeza * 0.3, p.tamCabeza * 0.35, ajustarColor(colorConcha, -0.12));
+  const largoTent = p.anchoCuerpo * 0.5;
+  const ojo = p.anchoCuerpo * 0.12;
+  for (const lado of [-1, 1]) {
+    pieza("cabeza", lado * p.anchoCuerpo * 0.18, p.altoCuerpo * 0.35, p.largoCuerpo * 0.42, p.anchoCuerpo * 0.06, largoTent, p.anchoCuerpo * 0.06, ajustarColor(color, 0.05));
+    pieza("cabeza", lado * p.anchoCuerpo * 0.18, p.altoCuerpo * 0.35 + largoTent, p.largoCuerpo * 0.42, ojo, ojo, ojo, COLOR_OJO);
+  }
+  return piezas;
+}
+
+function esqueletoMedusa(p, rasgos, color, rnd) {
+  const piezas = [];
+  const pieza = (pivote, cx, y0, cz, w, h, d, c) => piezas.push({ pivote, cx, y0, cz, w, h, d, color: c });
+  // Flota en el agua, misma convención que "pez": ancla cerca de y=0, el
+  // cliente decide su altura de nado real. Campana (2 cajas, más ancha
+  // abajo) + tentáculos colgando en anillo bajo el borde.
+  const base = 0.02;
+  pieza("cuerpo", 0, base, 0, p.anchoCuerpo, p.altoCuerpo * 0.55, p.anchoCuerpo, color);
+  pieza("cuerpo", 0, base + p.altoCuerpo * 0.45, 0, p.anchoCuerpo * 0.8, p.altoCuerpo * 0.55, p.anchoCuerpo * 0.8, ajustarColor(color, 0.1));
+  const nTentaculos = 8;
+  const largoTent = p.altoCuerpo * 2.2;
+  const grosorTent = p.anchoCuerpo * 0.06;
+  for (let i = 0; i < nTentaculos; i++) {
+    const ang = (i / nTentaculos) * Math.PI * 2;
+    const r = p.anchoCuerpo * 0.38;
+    pieza(`tentaculo${i}`, Math.cos(ang) * r, base - largoTent, Math.sin(ang) * r, grosorTent, largoTent, grosorTent, ajustarColor(color, -0.1 - (i % 2) * 0.1));
+  }
+  return piezas;
+}
+
 const ESQUELETOS = {
   cuadrupedo: esqueletoCuadrupedo,
   ave: esqueletoAve,
@@ -339,6 +550,15 @@ const ESQUELETOS = {
   serpiente: esqueletoSerpiente,
   crustaceo: esqueletoCrustaceo,
   anfibio: esqueletoAnfibio,
+  bivalvo: esqueletoBivalvo,
+  estrella: esqueletoEstrella,
+  erizo: esqueletoErizo,
+  anemona: esqueletoAnemona,
+  tubular: esqueletoTubular,
+  pulpo: esqueletoPulpo,
+  calamar: esqueletoCalamar,
+  caracol: esqueletoCaracol,
+  medusa: esqueletoMedusa,
 };
 
 /**

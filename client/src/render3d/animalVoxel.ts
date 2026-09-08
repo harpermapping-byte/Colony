@@ -255,6 +255,66 @@ export function crearAnimalVoxel(datos: AnimalExportado, opciones?: OpcionesAnim
         if (cuerpo) cuerpo.scale.y = 1 + Math.sin(t * 2.4) * 0.03;
         break;
       }
+      // Fauna marina radial/con concha (2026-09-08) — bivalvo/estrella/
+      // erizo/caracol se dejan SIN caso a propósito: son sésiles o casi
+      // inmóviles de verdad (un mejillón cerrado, una estrella de mar no
+      // se ve "respirar"), forzarles animación sería menos fiel que
+      // dejarlos quietos. anemona/medusa/pulpo/calamar/tubular sí tienen
+      // partes blandas que ondulan de verdad.
+      case "anemona": {
+        for (const [nombre, grupo] of pivotes) {
+          if (!nombre.startsWith("tentaculo")) continue;
+          const n = Number(nombre.slice(9)) || 0;
+          grupo.rotation.x = Math.sin(t * 1.1 + n * 0.7) * 0.18;
+          grupo.rotation.z = Math.cos(t * 0.9 + n * 0.5) * 0.12;
+        }
+        break;
+      }
+      case "medusa": {
+        // pulso de nado: la campana se contrae mientras los tentáculos
+        // se arrastran detrás — el cuerpo entero sube un poco con cada
+        // contracción, igual que nada de verdad una medusa.
+        for (const [nombre, grupo] of pivotes) {
+          if (!nombre.startsWith("tentaculo")) continue;
+          const n = Number(nombre.slice(9)) || 0;
+          grupo.rotation.x = Math.sin(t * 1.3 + n * 0.8) * 0.15;
+        }
+        const cuerpo = pivotes.get("cuerpo");
+        if (cuerpo) cuerpo.scale.y = 1 + Math.sin(t * 2.6) * 0.06;
+        raiz.position.y = Math.max(0, Math.sin(t * 2.6)) * 0.02;
+        break;
+      }
+      case "pulpo": {
+        for (const [nombre, grupo] of pivotes) {
+          if (!nombre.startsWith("brazo")) continue;
+          const n = Number(nombre.slice(5)) || 0;
+          grupo.rotation.x = Math.sin(t * 0.9 + n * 0.6) * 0.1;
+          grupo.rotation.z = Math.cos(t * 0.7 + n * 0.4) * 0.08;
+        }
+        break;
+      }
+      case "calamar": {
+        for (const lado of ["aletaIzq", "aletaDer"]) {
+          const aleta = pivotes.get(lado);
+          if (aleta) aleta.rotation.y = Math.sin(t * 3) * 0.15 * (lado === "aletaIzq" ? 1 : -1);
+        }
+        for (const [nombre, grupo] of pivotes) {
+          if (!nombre.startsWith("brazo")) continue;
+          const n = Number(nombre.slice(5)) || 0;
+          grupo.rotation.x = Math.sin(t * 1.4 + n * 0.5) * 0.06;
+        }
+        raiz.rotation.z = Math.sin(t * 1.1) * 0.03;
+        break;
+      }
+      case "tubular": {
+        // ondulación peristáltica sutil, sin patas ni cabeza que animar
+        for (const [nombre, grupo] of pivotes) {
+          if (!nombre.startsWith("segmento")) continue;
+          const n = Number(nombre.slice(8)) || 0;
+          grupo.scale.y = 1 + Math.sin(t * 1.2 + n * 0.8) * 0.08;
+        }
+        break;
+      }
     }
   }
 
