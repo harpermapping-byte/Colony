@@ -13,6 +13,6 @@
     "build:client": "npm run build -w client"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.5.0"
   }
 }
