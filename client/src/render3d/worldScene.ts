@@ -51,6 +51,21 @@ export class WorldScene {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
+    // resize() llama a setSize(..., false) para NO dejar que Three fije el
+    // tamaño CSS del canvas (solo la resolución interna) — sin este CSS
+    // explícito, un <canvas> con solo el atributo width/height puesto (sin
+    // style) se renderiza a TAMAÑO INTRÍNSECO = esos píxeles tal cual, que
+    // con devicePixelRatio>1 (cualquier escalado de Windows por encima del
+    // 100%, muy habitual) es más grande que el contenedor real — el navegador
+    // recorta con el overflow:hidden del contenedor y solo se ve la esquina
+    // superior-izquierda de un lienzo más grande, así que el jugador (bien
+    // centrado DENTRO de ese lienzo) aparece desplazado hacia abajo-derecha
+    // en la pantalla real. Bug real reportado jugando 2026-09-09 ("el pj
+    // está abajo a la derecha, el nombre sí centrado" — el nombre usa
+    // labelRenderer, que SÍ fija su propio style.width/height más abajo).
+    this.renderer.domElement.style.width = "100%";
+    this.renderer.domElement.style.height = "100%";
+    this.renderer.domElement.style.display = "block";
     contenedor.appendChild(this.renderer.domElement);
 
     // Etiquetas de nombre (jugadores) como overlay HTML sincronizado con la
