@@ -2002,7 +2002,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   private async guardarVitalesDe(nombre: string, vitales: { comida: number; bebida: number; sueno: number; estamina: number }) {
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
-    await bd.actualizarVitalesJugador(jugador.id, vitales.comida, vitales.bebida, vitales.sueno, vitales.estamina);
+    // Las columnas son INTEGER (docs/GDD_Personaje.md §2, valores 0-100) pero
+    // los vitales en vivo drenan/regeneran con deltas fraccionarios por tick
+    // — SQLite (dev/test) acepta un REAL en una columna INTEGER sin quejarse
+    // (afinidad de tipos, no la fuerza), pero Postgres real la rechaza de
+    // raíz ("invalid input syntax for type integer"), encontrado jugando de
+    // verdad contra Neon por primera vez (2026-09-08). Redondear aquí, en el
+    // único punto de escritura, en vez de tocar el schema de BD.
+    await bd.actualizarVitalesJugador(
+      jugador.id,
+      Math.round(vitales.comida),
+      Math.round(vitales.bebida),
+      Math.round(vitales.sueno),
+      Math.round(vitales.estamina),
+    );
   }
 
   /**
