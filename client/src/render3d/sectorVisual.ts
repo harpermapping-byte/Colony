@@ -544,13 +544,10 @@ function crearTerrenoSector(
   suelo.width = ancho;
   suelo.height = alto;
   const ctxSuelo = suelo.getContext("2d")!;
-  ctxSuelo.clearRect(0, 0, ancho, alto);
   const fondo = document.createElement("canvas");
   fondo.width = ancho;
   fondo.height = alto;
   const ctxFondo = fondo.getContext("2d")!;
-  ctxFondo.fillStyle = "#000000";
-  ctxFondo.fillRect(0, 0, ancho, alto);
   // Máscara de nieve (docs/GDD_Clima.md): blanco opaco donde SÍ puede haber
   // nieve (tierra), transparente donde no (agua/hielo) — se pinta UNA vez
   // al materializar el sector; la opacidad/altura de todo el plano (no de
@@ -559,8 +556,42 @@ function crearTerrenoSector(
   nieveCanvas.width = ancho;
   nieveCanvas.height = alto;
   const ctxNieve = nieveCanvas.getContext("2d")!;
-  ctxNieve.clearRect(0, 0, ancho, alto);
-  ctxNieve.fillStyle = "#ffffff";
+
+  // Pintado por casilla: antes era fillStyle+fillRect(1x1) POR CASILLA (en
+  // un sector grande del mapa principal, 320x320 = hasta ~100k pares de
+  // llamadas de canvas) — cada fillRect/fillStyle tiene overhead real
+  // (guardar estado, parsear el string de color, rasterizar, compositar)
+  // que se notaba como un tirón real al cruzar a un sector nuevo, O AL
+  // VOLVER a uno ya soltado (se reconstruye igual que la primera vez, el
+  // JSON en caché no evita rehacer el canvas/geometría) — bug real jugando
+  // 2026-09-09, "aunque vuelva a atrás me sigue dando esos lagazos".
+  // Reescrito a ImageData directo (un Uint8ClampedArray por canvas + UNA
+  // sola putImageData al final): mismo resultado píxel a píxel (colores
+  // sólidos/franjas por casilla, sin antialiasing que perder — perfilado
+  // y comparado byte a byte contra la versión vieja), órdenes de magnitud
+  // más barato. Colores por id/elevación memoizados: un terreno o una
+  // franja de agua se repiten miles de veces dentro del mismo sector.
+  const rgbCache = new Map<string, [number, number, number]>();
+  const hexARgb = (hex: string): [number, number, number] => {
+    let v = rgbCache.get(hex);
+    if (!v) {
+      const n = parseInt(hex.slice(1), 16);
+      v = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      rgbCache.set(hex, v);
+    }
+    return v;
+  };
+  const [rHielo, gHielo, bHielo] = hexARgb(`#${COLOR_HIELO.getHexString()}`);
+  const rgbaAguaCache = new Map<string, [number, number, number, number]>();
+  const lechoCache = new Map<string, [number, number, number]>();
+  const datosSuelo = new Uint8ClampedArray(ancho * alto * 4);
+  const datosFondo = new Uint8ClampedArray(ancho * alto * 4);
+  for (let i = 3; i < datosFondo.length; i += 4) datosFondo[i] = 255; // negro opaco por defecto (fillRect inicial de antes)
+  const datosNieve = new Uint8ClampedArray(ancho * alto * 4);
+  const escribir = (buf: Uint8ClampedArray, px: number, py: number, r: number, g: number, b: number, a: number) => {
+    const i = (py * ancho + px) * 4;
+    buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
+  };
 
   const rangoElev = Math.max(1, ELEV_AGUA_MAX - ELEV_AGUA_MIN);
   const solidosPorTipo = new Map<string, number[]>(); // terreno urbano -> [gx,gy,...]
@@ -575,24 +606,30 @@ function crearTerrenoSector(
           if (!solidosPorTipo.has(id)) solidosPorTipo.set(id, []);
           solidosPorTipo.get(id)!.push(origenTileX + baseX + x, origenTileY + baseY + y);
         }
+        const px = baseX + x;
+        const py = baseY + y;
         const agua = AGUAS[id];
         if (!agua) {
-          ctxSuelo.fillStyle = colorTerreno(id);
-          ctxSuelo.fillRect(baseX + x, baseY + y, 1, 1);
-          ctxNieve.fillRect(baseX + x, baseY + y, 1, 1);
+          const [r, g, b] = hexARgb(colorTerreno(id));
+          escribir(datosSuelo, px, py, r, g, b, 255);
+          escribir(datosNieve, px, py, 255, 255, 255, 255);
           continue;
         }
         if (nivelNieveActual > 0) {
           // Hielo (docs/GDD_Clima.md): opaco, sin lecho visible debajo — no
           // se nada encima, es "tierra" a efectos de juego (RoomExteriorBase.ts).
-          ctxSuelo.fillStyle = `#${COLOR_HIELO.getHexString()}`;
-          ctxSuelo.fillRect(baseX + x, baseY + y, 1, 1);
+          escribir(datosSuelo, px, py, rHielo, gHielo, bHielo, 255);
           continue;
         }
-        // superficie translúcida con el color de catálogo aclarado
-        const c = new THREE.Color(colorTerreno(id)).lerp(new THREE.Color(1, 1, 1), ACLARADO_SUPERFICIE);
-        ctxSuelo.fillStyle = `rgba(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)},${agua.alfa})`;
-        ctxSuelo.fillRect(baseX + x, baseY + y, 1, 1);
+        // superficie translúcida con el color de catálogo aclarado —
+        // memoizada por id de agua (solo "agua"/"agua_profunda" existen).
+        let rgbaAgua = rgbaAguaCache.get(id);
+        if (!rgbaAgua) {
+          const c = new THREE.Color(colorTerreno(id)).lerp(new THREE.Color(1, 1, 1), ACLARADO_SUPERFICIE);
+          rgbaAgua = [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), Math.round(agua.alfa * 255)];
+          rgbaAguaCache.set(id, rgbaAgua);
+        }
+        escribir(datosSuelo, px, py, rgbaAgua[0], rgbaAgua[1], rgbaAgua[2], rgbaAgua[3]);
         // lecho: mitad por tipo de agua (somera clara, profunda oscura),
         // mitad por la elevación bakeada (elevación baja = hondo = oscuro).
         // BUG REAL encontrado verificando visualmente la arena acuática
@@ -608,16 +645,26 @@ function crearTerrenoSector(
         // de verdad). Sin dato de elevación, un tono medio fijo es un lecho
         // plano razonable — sigue sin romper nada donde SÍ hay elevación.
         const e = chunk.elevacion ? parseInt(chunk.elevacion[y * chunk.tamano + x], 36) : (ELEV_AGUA_MIN + ELEV_AGUA_MAX) / 2;
-        const eNorm = Math.min(1, Math.max(0, (e - ELEV_AGUA_MIN) / rangoElev));
-        const tono = 0.5 * agua.base + 0.5 * eNorm;
-        const r = Math.round(LECHO_OSCURO.r + (LECHO_CLARO.r - LECHO_OSCURO.r) * tono);
-        const g = Math.round(LECHO_OSCURO.g + (LECHO_CLARO.g - LECHO_OSCURO.g) * tono);
-        const b = Math.round(LECHO_OSCURO.b + (LECHO_CLARO.b - LECHO_OSCURO.b) * tono);
-        ctxFondo.fillStyle = `rgb(${r},${g},${b})`;
-        ctxFondo.fillRect(baseX + x, baseY + y, 1, 1);
+        // memoizado por id+elevación (rango real acotado: base36 = 0..35)
+        const claveLecho = `${id}:${e}`;
+        let lecho = lechoCache.get(claveLecho);
+        if (!lecho) {
+          const eNorm = Math.min(1, Math.max(0, (e - ELEV_AGUA_MIN) / rangoElev));
+          const tono = 0.5 * agua.base + 0.5 * eNorm;
+          lecho = [
+            Math.round(LECHO_OSCURO.r + (LECHO_CLARO.r - LECHO_OSCURO.r) * tono),
+            Math.round(LECHO_OSCURO.g + (LECHO_CLARO.g - LECHO_OSCURO.g) * tono),
+            Math.round(LECHO_OSCURO.b + (LECHO_CLARO.b - LECHO_OSCURO.b) * tono),
+          ];
+          lechoCache.set(claveLecho, lecho);
+        }
+        escribir(datosFondo, px, py, lecho[0], lecho[1], lecho[2], 255);
       }
     }
   }
+  ctxSuelo.putImageData(new ImageData(datosSuelo, ancho, alto), 0, 0);
+  ctxFondo.putImageData(new ImageData(datosFondo, ancho, alto), 0, 0);
+  ctxNieve.putImageData(new ImageData(datosNieve, ancho, alto), 0, 0);
 
   const grupo = new THREE.Group();
   // margenVisual > 0: los planos crecen simétricamente por los 4 lados, así
