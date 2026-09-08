@@ -15,6 +15,21 @@ const loader = new GLTFLoader();
 // remoto salía con el color del local).
 const cachePlantillas = new Map<string, Promise<THREE.Object3D | null>>();
 
+// "animales" (fauna DECORATIVA estática del bakeador exterior — la fauna
+// VIVA simulada usa el rig paramétrico de animalVoxel.ts, cero red) tiene
+// 0/N .glb reales en assets/animales/ (solo quedan los .png placeholder
+// viejos) — confirmado jugando de verdad "Isla 1" por primera vez
+// (2026-09-08): entrar en una zona nueva con mucha fauna decorativa
+// disparaba cientos de peticiones 404 EN PARALELO (una por cada especie+
+// variante nunca vista, Promise.all en sectorVisual.ts), suficiente para
+// notarse como tirones al moverte. La caché por URL de abajo evita
+// RE-pedir la misma, pero no evita ese primer estallido de cientos de
+// URLs distintas a la vez. Cortoccamino aquí en vez de tocar el patrón
+// genérico: en cuanto existan .glb reales de fauna decorativa (mismo
+// pipeline taller-vox que vegetación/rocas), quitar "animales" de este
+// Set y vuelve a intentarlo normal, sin más cambios.
+const CATEGORIAS_SIN_GLB_TODAVIA = new Set<CategoriaAsset>(["animales"]);
+
 export interface PeticionEntidad {
   categoria: CategoriaAsset;
   id: string;
@@ -32,6 +47,10 @@ export interface PeticionEntidad {
  */
 export function obtenerPlantilla(categoria: CategoriaAsset, id: string, variante: Variante): Promise<THREE.Object3D | null> {
   const url = resolverUrlModelo(categoria, id, variante);
+  if (CATEGORIAS_SIN_GLB_TODAVIA.has(categoria)) {
+    if (!cachePlantillas.has(url)) cachePlantillas.set(url, Promise.resolve(null));
+    return cachePlantillas.get(url)!;
+  }
   if (!cachePlantillas.has(url)) {
     cachePlantillas.set(
       url,
