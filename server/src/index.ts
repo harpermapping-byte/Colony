@@ -1,3 +1,8 @@
+// Carga server/.env ANTES que cualquier otro import — varios módulos leen
+// process.env en su propio top-level (DATABASE_URL en bd.ts, credenciales de
+// Twitch/IA...). No-op silencioso si no existe .env (p.ej. en Render, que
+// inyecta las variables directamente en el entorno del proceso).
+import "dotenv/config";
 import { createServer } from "http";
 import { Server } from "@colyseus/core";
 import { Encoder } from "@colyseus/schema";
