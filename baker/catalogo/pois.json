@@ -7,6 +7,9 @@
     { "id": "pozo_aldea", "tipo": "integrado", "categoria": "decorativo", "reglasSitio": ["terrenoLlano"], "radio": 2 },
     { "id": "aldea_agricola", "tipo": "integrado", "categoria": "asentamiento", "tier": "aldea", "reglasSitio": ["terrenoLlano"], "radio": 10, "peso": 4 },
     { "id": "ciudad_poblada_menor", "tipo": "integrado", "categoria": "asentamiento", "tier": "pueblo", "reglasSitio": ["terrenoLlano"], "radio": 16, "peso": 0.6 },
+    { "id": "capital_regional", "tipo": "integrado", "categoria": "asentamiento", "tier": "capital", "reglasSitio": ["terrenoLlano"], "radio": 20, "peso": 0.6 },
+    { "id": "gran_metropoli", "tipo": "integrado", "categoria": "asentamiento", "tier": "gran_capital", "reglasSitio": ["terrenoLlano"], "radio": 30, "peso": 0.2 },
+    { "id": "castillo_real", "tipo": "integrado", "categoria": "asentamiento", "tier": "castillo", "reglasSitio": ["terrenoLlano"], "radio": 12, "peso": 1.5 },
     { "id": "cabana_cazador", "tipo": "integrado", "categoria": "edificio", "tipoEdificioId": "casa_humilde", "reglasSitio": [], "radio": 3, "peso": 6 }
   ],
   "bosque": [
