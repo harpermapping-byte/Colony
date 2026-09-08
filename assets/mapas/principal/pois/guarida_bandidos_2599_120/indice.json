@@ -1,0 +1,1233 @@
+{
+  "version": 1,
+  "tamanoSectorChunks": 10,
+  "leyendaTerreno": [
+    "adoquin",
+    "camino",
+    "cesped",
+    "empalizada",
+    "extramuros",
+    "solar_edificio",
+    "tierra"
+  ],
+  "nombre": "asentamiento_hostil-vetrheim-16:poi:guarida_bandidos_2599_120",
+  "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120",
+  "tier": "asentamiento_hostil",
+  "variante": "llano",
+  "anchoChunks": 16,
+  "altoChunks": 16,
+  "tamanoChunk": 8,
+  "ciudad": {
+    "x": 43,
+    "y": 76
+  },
+  "portales": [
+    {
+      "tipo": "exterior",
+      "x": 39,
+      "y": 76
+    },
+    {
+      "tipo": "interior",
+      "x": 78,
+      "y": 75,
+      "edificio": "campamento_hostil_vetrheim-16:poi:guarida_bandidos_2599_120:campamento_hostil:0",
+      "tipoEdificioId": "campamento_hostil"
+    },
+    {
+      "tipo": "interior",
+      "x": 69,
+      "y": 70,
+      "edificio": "establo_vetrheim-16:poi:guarida_bandidos_2599_120:establo:4",
+      "tipoEdificioId": "establo"
+    },
+    {
+      "tipo": "interior",
+      "x": 66,
+      "y": 82,
+      "edificio": "establo_vetrheim-16:poi:guarida_bandidos_2599_120:establo:3",
+      "tipoEdificioId": "establo"
+    },
+    {
+      "tipo": "interior",
+      "x": 70,
+      "y": 62,
+      "edificio": "casa_humilde_vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:5",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 78,
+      "y": 89,
+      "edificio": "casa_humilde_vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:9",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 93,
+      "y": 69,
+      "edificio": "torre_militar_vetrheim-16:poi:guarida_bandidos_2599_120:torre_militar:1",
+      "tipoEdificioId": "torre_militar"
+    },
+    {
+      "tipo": "interior",
+      "x": 96,
+      "y": 78,
+      "edificio": "casa_humilde_vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:6",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 54,
+      "y": 84,
+      "edificio": "casa_humilde_vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:7",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 69,
+      "y": 58,
+      "edificio": "torre_militar_vetrheim-16:poi:guarida_bandidos_2599_120:torre_militar:8",
+      "tipoEdificioId": "torre_militar"
+    },
+    {
+      "tipo": "interior",
+      "x": 93,
+      "y": 71,
+      "edificio": "casa_humilde_vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:2",
+      "tipoEdificioId": "casa_humilde"
+    }
+  ],
+  "muralla": {
+    "poligono": [
+      [
+        108.6,
+        75
+      ],
+      [
+        109.2,
+        83.4
+      ],
+      [
+        108.1,
+        92.4
+      ],
+      [
+        101.9,
+        98.8
+      ],
+      [
+        95.1,
+        104.1
+      ],
+      [
+        87,
+        106.6
+      ],
+      [
+        78.8,
+        106.1
+      ],
+      [
+        71.4,
+        104.9
+      ],
+      [
+        64,
+        103.9
+      ],
+      [
+        57,
+        101.1
+      ],
+      [
+        50.9,
+        96.4
+      ],
+      [
+        44.5,
+        91
+      ],
+      [
+        42.1,
+        83.1
+      ],
+      [
+        39.9,
+        75
+      ],
+      [
+        42.9,
+        67.1
+      ],
+      [
+        46.1,
+        59.9
+      ],
+      [
+        51,
+        53.8
+      ],
+      [
+        55.9,
+        47.4
+      ],
+      [
+        62.9,
+        43.1
+      ],
+      [
+        70.9,
+        41.4
+      ],
+      [
+        79.1,
+        41.3
+      ],
+      [
+        87.2,
+        42.7
+      ],
+      [
+        93.6,
+        48
+      ],
+      [
+        98.1,
+        54.5
+      ],
+      [
+        104.1,
+        59.7
+      ],
+      [
+        106.6,
+        67.2
+      ]
+    ],
+    "modulos": [
+      {
+        "tipo": "recto",
+        "x": 108.7,
+        "y": 76.4,
+        "rot": 86,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 108.9,
+        "y": 79.2,
+        "rot": 86,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 109.1,
+        "y": 82,
+        "rot": 86,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 109,
+        "y": 84.9,
+        "rot": 97,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 108.6,
+        "y": 87.9,
+        "rot": 97,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 108.3,
+        "y": 90.9,
+        "rot": 97,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 107,
+        "y": 93.4,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 105,
+        "y": 95.6,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 102.9,
+        "y": 97.7,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 100.8,
+        "y": 99.7,
+        "rot": 142,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 98.5,
+        "y": 101.5,
+        "rot": 142,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 96.2,
+        "y": 103.2,
+        "rot": 142,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 93.7,
+        "y": 104.5,
+        "rot": 163,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 91,
+        "y": 105.4,
+        "rot": 163,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 88.3,
+        "y": 106.2,
+        "rot": 163,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 85.6,
+        "y": 106.5,
+        "rot": -176,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 82.9,
+        "y": 106.3,
+        "rot": -176,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 80.1,
+        "y": 106.2,
+        "rot": -176,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 76.9,
+        "y": 105.8,
+        "rot": -171,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 73.2,
+        "y": 105.2,
+        "rot": -171,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 69.5,
+        "y": 104.6,
+        "rot": -173,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 65.9,
+        "y": 104.2,
+        "rot": -173,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 62.8,
+        "y": 103.5,
+        "rot": -158,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 60.5,
+        "y": 102.5,
+        "rot": -158,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 58.2,
+        "y": 101.6,
+        "rot": -158,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 56,
+        "y": 100.3,
+        "rot": -142,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 53.9,
+        "y": 98.7,
+        "rot": -142,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 51.9,
+        "y": 97.1,
+        "rot": -142,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 49.8,
+        "y": 95.5,
+        "rot": -140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 47.7,
+        "y": 93.7,
+        "rot": -140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 45.6,
+        "y": 91.9,
+        "rot": -140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 44.1,
+        "y": 89.7,
+        "rot": -107,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 43.3,
+        "y": 87,
+        "rot": -107,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 42.5,
+        "y": 84.4,
+        "rot": -107,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 41.8,
+        "y": 81.7,
+        "rot": -105,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 41,
+        "y": 79,
+        "rot": -105,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 40.3,
+        "y": 76.3,
+        "rot": -105,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 40.4,
+        "y": 73.7,
+        "rot": -69,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 41.4,
+        "y": 71,
+        "rot": -69,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 42.4,
+        "y": 68.4,
+        "rot": -69,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 43.5,
+        "y": 65.9,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 44.5,
+        "y": 63.5,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 45.6,
+        "y": 61.1,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 47,
+        "y": 58.8,
+        "rot": -51,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 48.6,
+        "y": 56.8,
+        "rot": -51,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 50.2,
+        "y": 54.8,
+        "rot": -51,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 51.8,
+        "y": 52.7,
+        "rot": -52,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 53.5,
+        "y": 50.6,
+        "rot": -52,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 55.1,
+        "y": 48.4,
+        "rot": -52,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 57.1,
+        "y": 46.7,
+        "rot": -32,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 59.4,
+        "y": 45.2,
+        "rot": -32,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 61.7,
+        "y": 43.8,
+        "rot": -32,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 64.2,
+        "y": 42.8,
+        "rot": -11,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 66.9,
+        "y": 42.2,
+        "rot": -11,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 69.6,
+        "y": 41.7,
+        "rot": -11,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 72.3,
+        "y": 41.4,
+        "rot": -1,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 75,
+        "y": 41.4,
+        "rot": -1,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 77.7,
+        "y": 41.4,
+        "rot": -1,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 80.4,
+        "y": 41.6,
+        "rot": 9,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 83.2,
+        "y": 42,
+        "rot": 9,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 85.9,
+        "y": 42.5,
+        "rot": 9,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 88.3,
+        "y": 43.6,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 90.4,
+        "y": 45.4,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 92.5,
+        "y": 47.1,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 94.4,
+        "y": 49.1,
+        "rot": 55,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 95.9,
+        "y": 51.3,
+        "rot": 55,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 97.4,
+        "y": 53.4,
+        "rot": 55,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 99.1,
+        "y": 55.4,
+        "rot": 41,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 101.1,
+        "y": 57.1,
+        "rot": 41,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 103.1,
+        "y": 58.9,
+        "rot": 41,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 104.5,
+        "y": 61,
+        "rot": 71,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 105.4,
+        "y": 63.5,
+        "rot": 71,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 106.2,
+        "y": 66,
+        "rot": 71,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 107,
+        "y": 68.5,
+        "rot": 76,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 107.6,
+        "y": 71.1,
+        "rot": 76,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 108.3,
+        "y": 73.7,
+        "rot": 76,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 108.6,
+        "y": 75,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 108.1,
+        "y": 92.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 95.1,
+        "y": 104.1,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 78.8,
+        "y": 106.1,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 64,
+        "y": 103.9,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 50.9,
+        "y": 96.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 42.1,
+        "y": 83.1,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 42.9,
+        "y": 67.1,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 51,
+        "y": 53.8,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 62.9,
+        "y": 43.1,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 79.1,
+        "y": 41.3,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 93.6,
+        "y": 48,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 104.1,
+        "y": 59.7,
+        "rot": 0,
+        "material": "empalizada"
+      }
+    ]
+  },
+  "caminos": [
+    [
+      [
+        0,
+        79
+      ],
+      [
+        3,
+        78
+      ],
+      [
+        6,
+        78
+      ],
+      [
+        9,
+        78
+      ],
+      [
+        12,
+        78
+      ],
+      [
+        15,
+        78
+      ],
+      [
+        18,
+        78
+      ],
+      [
+        21,
+        78
+      ],
+      [
+        24,
+        77
+      ],
+      [
+        27,
+        77
+      ],
+      [
+        30,
+        76
+      ],
+      [
+        33,
+        76
+      ],
+      [
+        36,
+        76
+      ],
+      [
+        39,
+        76
+      ],
+      [
+        42,
+        76
+      ],
+      [
+        45,
+        76
+      ],
+      [
+        48,
+        76
+      ],
+      [
+        51,
+        76
+      ],
+      [
+        54,
+        76
+      ],
+      [
+        57,
+        76
+      ],
+      [
+        60,
+        76
+      ],
+      [
+        63,
+        76
+      ],
+      [
+        66,
+        76
+      ],
+      [
+        69,
+        75
+      ],
+      [
+        72,
+        75
+      ],
+      [
+        75,
+        75
+      ]
+    ]
+  ],
+  "zonasVerdes": [],
+  "parcelasReservadas": [],
+  "luces": [
+    {
+      "x": 43,
+      "y": 76,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 73,
+      "y": 77,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 73,
+      "y": 73,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 40,
+      "y": 77,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 49,
+      "y": 77,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 58,
+      "y": 77,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 67,
+      "y": 76,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    }
+  ],
+  "edificios": [
+    {
+      "id": "campamento_hostil_vetrheim-16:poi:guarida_bandidos_2599_120:campamento_hostil:0",
+      "tipo": "campamento_hostil",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:campamento_hostil:0",
+      "cx": 80.6,
+      "cy": 72.4,
+      "rot": 45,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 78,
+        "y": 75
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "establo_vetrheim-16:poi:guarida_bandidos_2599_120:establo:4",
+      "tipo": "establo",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:establo:4",
+      "cx": 64.1,
+      "cy": 69.5,
+      "rot": -90,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        },
+        {
+          "ox": 0,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 69,
+        "y": 70
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "establo_vetrheim-16:poi:guarida_bandidos_2599_120:establo:3",
+      "tipo": "establo",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:establo:3",
+      "cx": 67.9,
+      "cy": 86.3,
+      "rot": -207,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 66,
+        "y": 82
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:5",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:5",
+      "cx": 74.4,
+      "cy": 61.5,
+      "rot": 90,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 70,
+        "y": 62
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:9",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:9",
+      "cx": 80.6,
+      "cy": 86.4,
+      "rot": 45,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 78,
+        "y": 89
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "torre_militar_vetrheim-16:poi:guarida_bandidos_2599_120:torre_militar:1",
+      "tipo": "torre_militar",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:torre_militar:1",
+      "cx": 89.1,
+      "cy": 67.3,
+      "rot": -63,
+      "w": 6,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 6,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 93,
+        "y": 69
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:6",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:6",
+      "cx": 95.5,
+      "cy": 81.4,
+      "rot": -180,
+      "w": 8,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 96,
+        "y": 78
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:7",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:7",
+      "cx": 55.2,
+      "cy": 87,
+      "rot": -207,
+      "w": 8,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 54,
+        "y": 84
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "torre_militar_vetrheim-16:poi:guarida_bandidos_2599_120:torre_militar:8",
+      "tipo": "torre_militar",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:torre_militar:8",
+      "cx": 64.6,
+      "cy": 57.5,
+      "rot": -90,
+      "w": 5,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 5,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 69,
+        "y": 58
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:2",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:2",
+      "cx": 96,
+      "cy": 72.2,
+      "rot": -243,
+      "w": 6,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 93,
+        "y": 71
+      },
+      "reservadoJugador": false
+    }
+  ]
+}
