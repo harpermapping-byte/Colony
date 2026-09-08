@@ -79,7 +79,7 @@
       "tipo": "interior",
       "x": 1556,
       "y": 123,
-      "edificio": "ruina_vetrheim-16:poi:ruinas_pequenas_1556_119",
+      "edificio": "ruina_vetrheim-16__poi__ruinas_pequenas_1556_119",
       "tipoEdificioId": "ruina"
     },
     {
@@ -95,14 +95,14 @@
       "tipo": "interior",
       "x": 237,
       "y": 335,
-      "edificio": "ruina_vetrheim-16:poi:ruinas_pequenas_237_331",
+      "edificio": "ruina_vetrheim-16__poi__ruinas_pequenas_237_331",
       "tipoEdificioId": "ruina"
     },
     {
       "tipo": "interior",
       "x": 575,
       "y": 215,
-      "edificio": "guarida_lobos_vetrheim-16:poi:guarida_lobo_575_215",
+      "edificio": "guarida_lobos_vetrheim-16__poi__guarida_lobo_575_215",
       "tipoEdificioId": "guarida_lobos",
       "esMazmorra": true
     },
@@ -110,7 +110,7 @@
       "tipo": "interior",
       "x": 1562,
       "y": 291,
-      "edificio": "cueva_goblins_vetrheim-16:poi:cueva_pequena_1562_291",
+      "edificio": "cueva_goblins_vetrheim-16__poi__cueva_pequena_1562_291",
       "tipoEdificioId": "cueva_goblins",
       "esMazmorra": true
     },
@@ -118,7 +118,7 @@
       "tipo": "interior",
       "x": 1701,
       "y": 325,
-      "edificio": "torre_nigromante_vetrheim-16:poi:torre_vigia_enemiga_1701_321",
+      "edificio": "torre_nigromante_vetrheim-16__poi__torre_vigia_enemiga_1701_321",
       "tipoEdificioId": "torre_nigromante",
       "esMazmorra": true
     },
@@ -144,7 +144,7 @@
       "tipo": "interior",
       "x": 2996,
       "y": 490,
-      "edificio": "cueva_goblins_vetrheim-16:poi:cueva_pequena_2996_490",
+      "edificio": "cueva_goblins_vetrheim-16__poi__cueva_pequena_2996_490",
       "tipoEdificioId": "cueva_goblins",
       "esMazmorra": true
     },
@@ -152,7 +152,7 @@
       "tipo": "interior",
       "x": 577,
       "y": 726,
-      "edificio": "fortaleza_orca_vetrheim-16:poi:fuerte_barbaro_577_722",
+      "edificio": "fortaleza_orca_vetrheim-16__poi__fuerte_barbaro_577_722",
       "tipoEdificioId": "fortaleza_orca",
       "esMazmorra": true
     },
@@ -160,7 +160,7 @@
       "tipo": "interior",
       "x": 2383,
       "y": 622,
-      "edificio": "cueva_trasgos_vetrheim-16:poi:cueva_profunda_2383_622",
+      "edificio": "cueva_trasgos_vetrheim-16__poi__cueva_profunda_2383_622",
       "tipoEdificioId": "cueva_trasgos",
       "esMazmorra": true
     },
@@ -168,7 +168,7 @@
       "tipo": "interior",
       "x": 2472,
       "y": 739,
-      "edificio": "arboleda_corrupta_vetrheim-16:poi:arboleda_corrupta_poi_2472_739",
+      "edificio": "arboleda_corrupta_vetrheim-16__poi__arboleda_corrupta_poi_2472_739",
       "tipoEdificioId": "arboleda_corrupta",
       "esMazmorra": true
     },
@@ -185,7 +185,7 @@
       "tipo": "interior",
       "x": 362,
       "y": 805,
-      "edificio": "ruinas_biblioteca_arcana_vetrheim-16:poi:ruinas_biblioteca_arcana_poi_362_801",
+      "edificio": "ruinas_biblioteca_arcana_vetrheim-16__poi__ruinas_biblioteca_arcana_poi_362_801",
       "tipoEdificioId": "ruinas_biblioteca_arcana",
       "esMazmorra": true
     },
@@ -193,7 +193,7 @@
       "tipo": "interior",
       "x": 1119,
       "y": 950,
-      "edificio": "cueva_aranas_vetrheim-16:poi:cueva_nido_aranas_1119_950",
+      "edificio": "cueva_aranas_vetrheim-16__poi__cueva_nido_aranas_1119_950",
       "tipoEdificioId": "cueva_aranas",
       "esMazmorra": true
     },
@@ -210,7 +210,7 @@
       "tipo": "interior",
       "x": 2233,
       "y": 839,
-      "edificio": "colmena_insectos_vetrheim-16:poi:colmena_insectos_poi_2233_839",
+      "edificio": "colmena_insectos_vetrheim-16__poi__colmena_insectos_poi_2233_839",
       "tipoEdificioId": "colmena_insectos",
       "esMazmorra": true
     },
@@ -227,7 +227,7 @@
       "tipo": "interior",
       "x": 1268,
       "y": 1187,
-      "edificio": "mazmorra_real_vetrheim-16:poi:barracones_abandonados_1268_1183",
+      "edificio": "mazmorra_real_vetrheim-16__poi__barracones_abandonados_1268_1183",
       "tipoEdificioId": "mazmorra_real",
       "esMazmorra": true
     },
@@ -235,28 +235,28 @@
       "tipo": "interior",
       "x": 1998,
       "y": 1129,
-      "edificio": "ruina_vetrheim-16:poi:ruinas_pequenas_1998_1125",
+      "edificio": "ruina_vetrheim-16__poi__ruinas_pequenas_1998_1125",
       "tipoEdificioId": "ruina"
     },
     {
       "tipo": "interior",
       "x": 2901,
       "y": 1073,
-      "edificio": "ruina_vetrheim-16:poi:ruinas_pequenas_2901_1069",
+      "edificio": "ruina_vetrheim-16__poi__ruinas_pequenas_2901_1069",
       "tipoEdificioId": "ruina"
     },
     {
       "tipo": "interior",
       "x": 22,
       "y": 1394,
-      "edificio": "choza_curandero_vetrheim-16:poi:choza_curandero_22_1390",
+      "edificio": "choza_curandero_vetrheim-16__poi__choza_curandero_22_1390",
       "tipoEdificioId": "choza_curandero"
     },
     {
       "tipo": "interior",
       "x": 1096,
       "y": 1300,
-      "edificio": "ruinas_anfiteatro_vetrheim-16:poi:ruinas_medianas_1096_1296",
+      "edificio": "ruinas_anfiteatro_vetrheim-16__poi__ruinas_medianas_1096_1296",
       "tipoEdificioId": "ruinas_anfiteatro",
       "esMazmorra": true
     },
@@ -264,7 +264,7 @@
       "tipo": "interior",
       "x": 2335,
       "y": 1282,
-      "edificio": "ruina_vetrheim-16:poi:ruinas_pequenas_2335_1278",
+      "edificio": "ruina_vetrheim-16__poi__ruinas_pequenas_2335_1278",
       "tipoEdificioId": "ruina"
     },
     {
@@ -280,14 +280,14 @@
       "tipo": "interior",
       "x": 608,
       "y": 1558,
-      "edificio": "ruina_vetrheim-16:poi:ruinas_pequenas_608_1554",
+      "edificio": "ruina_vetrheim-16__poi__ruinas_pequenas_608_1554",
       "tipoEdificioId": "ruina"
     },
     {
       "tipo": "interior",
       "x": 937,
       "y": 1692,
-      "edificio": "ruinas_torre_caida_vetrheim-16:poi:mazmorra_olvidada_937_1688",
+      "edificio": "ruinas_torre_caida_vetrheim-16__poi__mazmorra_olvidada_937_1688",
       "tipoEdificioId": "ruinas_torre_caida",
       "esMazmorra": true
     },
@@ -295,7 +295,7 @@
       "tipo": "interior",
       "x": 1627,
       "y": 1602,
-      "edificio": "nido_aranas_gigante_vetrheim-16:poi:nido_aranas_gigante_poi_1627_1602",
+      "edificio": "nido_aranas_gigante_vetrheim-16__poi__nido_aranas_gigante_poi_1627_1602",
       "tipoEdificioId": "nido_aranas_gigante",
       "esMazmorra": true
     },
@@ -303,14 +303,14 @@
       "tipo": "interior",
       "x": 1802,
       "y": 1943,
-      "edificio": "ruina_vetrheim-16:poi:ruinas_pequenas_1802_1939",
+      "edificio": "ruina_vetrheim-16__poi__ruinas_pequenas_1802_1939",
       "tipoEdificioId": "ruina"
     },
     {
       "tipo": "interior",
       "x": 2229,
       "y": 1828,
-      "edificio": "cripta_ancestral_vetrheim-16:poi:mazmorra_antigua_2229_1824",
+      "edificio": "cripta_ancestral_vetrheim-16__poi__mazmorra_antigua_2229_1824",
       "tipoEdificioId": "cripta_ancestral",
       "esMazmorra": true
     },
@@ -318,7 +318,7 @@
       "tipo": "interior",
       "x": 2885,
       "y": 1885,
-      "edificio": "torre_nigromante_vetrheim-16:poi:torre_vigia_enemiga_2885_1881",
+      "edificio": "torre_nigromante_vetrheim-16__poi__torre_vigia_enemiga_2885_1881",
       "tipoEdificioId": "torre_nigromante",
       "esMazmorra": true
     },
@@ -335,7 +335,7 @@
       "tipo": "interior",
       "x": 282,
       "y": 2142,
-      "edificio": "nido_aranas_gigante_vetrheim-16:poi:nido_aranas_gigante_poi_282_2142",
+      "edificio": "nido_aranas_gigante_vetrheim-16__poi__nido_aranas_gigante_poi_282_2142",
       "tipoEdificioId": "nido_aranas_gigante",
       "esMazmorra": true
     },
@@ -343,14 +343,14 @@
       "tipo": "interior",
       "x": 896,
       "y": 2110,
-      "edificio": "tienda_vetrheim-16:poi:tienda_cazador_896_2106",
+      "edificio": "tienda_vetrheim-16__poi__tienda_cazador_896_2106",
       "tipoEdificioId": "tienda"
     },
     {
       "tipo": "interior",
       "x": 1296,
       "y": 2076,
-      "edificio": "torre_nigromante_vetrheim-16:poi:torre_vigia_enemiga_1296_2072",
+      "edificio": "torre_nigromante_vetrheim-16__poi__torre_vigia_enemiga_1296_2072",
       "tipoEdificioId": "torre_nigromante",
       "esMazmorra": true
     },
@@ -376,7 +376,7 @@
       "tipo": "interior",
       "x": 1157,
       "y": 2390,
-      "edificio": "cueva_murcielagos_vetrheim-16:poi:cueva_colonia_murcielagos_1157_2390",
+      "edificio": "cueva_murcielagos_vetrheim-16__poi__cueva_colonia_murcielagos_1157_2390",
       "tipoEdificioId": "cueva_murcielagos",
       "esMazmorra": true
     },
@@ -384,7 +384,7 @@
       "tipo": "interior",
       "x": 1456,
       "y": 2344,
-      "edificio": "cueva_trasgos_vetrheim-16:poi:cueva_profunda_1456_2344",
+      "edificio": "cueva_trasgos_vetrheim-16__poi__cueva_profunda_1456_2344",
       "tipoEdificioId": "cueva_trasgos",
       "esMazmorra": true
     },
@@ -401,14 +401,14 @@
       "tipo": "interior",
       "x": 2367,
       "y": 2272,
-      "edificio": "casa_humilde_vetrheim-16:poi:cabana_cazador_2367_2268",
+      "edificio": "casa_humilde_vetrheim-16__poi__cabana_cazador_2367_2268",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 2534,
       "y": 2423,
-      "edificio": "ruinas_torre_caida_vetrheim-16:poi:mazmorra_olvidada_2534_2419",
+      "edificio": "ruinas_torre_caida_vetrheim-16__poi__mazmorra_olvidada_2534_2419",
       "tipoEdificioId": "ruinas_torre_caida",
       "esMazmorra": true
     },
@@ -416,7 +416,7 @@
       "tipo": "interior",
       "x": 2909,
       "y": 2543,
-      "edificio": "mazmorra_real_vetrheim-16:poi:barracones_abandonados_2909_2539",
+      "edificio": "mazmorra_real_vetrheim-16__poi__barracones_abandonados_2909_2539",
       "tipoEdificioId": "mazmorra_real",
       "esMazmorra": true
     },
@@ -424,21 +424,21 @@
       "tipo": "interior",
       "x": 184,
       "y": 2639,
-      "edificio": "choza_curandero_vetrheim-16:poi:choza_curandero_184_2635",
+      "edificio": "choza_curandero_vetrheim-16__poi__choza_curandero_184_2635",
       "tipoEdificioId": "choza_curandero"
     },
     {
       "tipo": "interior",
       "x": 650,
       "y": 2697,
-      "edificio": "ruina_vetrheim-16:poi:ruinas_pequenas_650_2693",
+      "edificio": "ruina_vetrheim-16__poi__ruinas_pequenas_650_2693",
       "tipoEdificioId": "ruina"
     },
     {
       "tipo": "interior",
       "x": 968,
       "y": 2788,
-      "edificio": "guarida_lobos_vetrheim-16:poi:guarida_lobo_968_2788",
+      "edificio": "guarida_lobos_vetrheim-16__poi__guarida_lobo_968_2788",
       "tipoEdificioId": "guarida_lobos",
       "esMazmorra": true
     },
@@ -455,7 +455,7 @@
       "tipo": "interior",
       "x": 1353,
       "y": 2794,
-      "edificio": "cueva_trasgos_vetrheim-16:poi:cueva_profunda_1353_2794",
+      "edificio": "cueva_trasgos_vetrheim-16__poi__cueva_profunda_1353_2794",
       "tipoEdificioId": "cueva_trasgos",
       "esMazmorra": true
     },
@@ -463,7 +463,7 @@
       "tipo": "interior",
       "x": 2367,
       "y": 2613,
-      "edificio": "nido_aranas_gigante_vetrheim-16:poi:nido_aranas_gigante_poi_2367_2613",
+      "edificio": "nido_aranas_gigante_vetrheim-16__poi__nido_aranas_gigante_poi_2367_2613",
       "tipoEdificioId": "nido_aranas_gigante",
       "esMazmorra": true
     },
@@ -471,7 +471,7 @@
       "tipo": "interior",
       "x": 607,
       "y": 2968,
-      "edificio": "catacumbas_vetrheim-16:poi:catacumbas_poi_607_2964",
+      "edificio": "catacumbas_vetrheim-16__poi__catacumbas_poi_607_2964",
       "tipoEdificioId": "catacumbas",
       "esMazmorra": true
     },
@@ -479,7 +479,7 @@
       "tipo": "interior",
       "x": 954,
       "y": 2805,
-      "edificio": "mazmorra_real_vetrheim-16:poi:barracones_abandonados_954_2801",
+      "edificio": "mazmorra_real_vetrheim-16__poi__barracones_abandonados_954_2801",
       "tipoEdificioId": "mazmorra_real",
       "esMazmorra": true
     },
@@ -487,7 +487,7 @@
       "tipo": "interior",
       "x": 381,
       "y": 3170,
-      "edificio": "cueva_aranas_vetrheim-16:poi:cueva_nido_aranas_381_3170",
+      "edificio": "cueva_aranas_vetrheim-16__poi__cueva_nido_aranas_381_3170",
       "tipoEdificioId": "cueva_aranas",
       "esMazmorra": true
     },
@@ -495,7 +495,7 @@
       "tipo": "interior",
       "x": 1936,
       "y": 3084,
-      "edificio": "catacumbas_vetrheim-16:poi:catacumbas_poi_1936_3080",
+      "edificio": "catacumbas_vetrheim-16__poi__catacumbas_poi_1936_3080",
       "tipoEdificioId": "catacumbas",
       "esMazmorra": true
     },
@@ -503,7 +503,7 @@
       "tipo": "interior",
       "x": 2335,
       "y": 3005,
-      "edificio": "cueva_murcielagos_vetrheim-16:poi:cueva_colonia_murcielagos_2335_3005",
+      "edificio": "cueva_murcielagos_vetrheim-16__poi__cueva_colonia_murcielagos_2335_3005",
       "tipoEdificioId": "cueva_murcielagos",
       "esMazmorra": true
     }

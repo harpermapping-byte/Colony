@@ -31,63 +31,63 @@
       "tipo": "interior",
       "x": 64,
       "y": 74,
-      "edificio": "campamento_hostil_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:campamento_hostil:0",
+      "edificio": "campamento_hostil_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__campamento_hostil__0",
       "tipoEdificioId": "campamento_hostil"
     },
     {
       "tipo": "interior",
       "x": 63,
       "y": 89,
-      "edificio": "granero_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:granero:6",
+      "edificio": "granero_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__granero__6",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
       "x": 63,
       "y": 61,
-      "edificio": "casa_humilde_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:4",
+      "edificio": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__casa_humilde__4",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 71,
       "y": 78,
-      "edificio": "granero_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:granero:1",
+      "edificio": "granero_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__granero__1",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
       "x": 50,
       "y": 64,
-      "edificio": "granero_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:granero:7",
+      "edificio": "granero_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__granero__7",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
       "x": 70,
       "y": 92,
-      "edificio": "casa_humilde_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:3",
+      "edificio": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__casa_humilde__3",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 56,
       "y": 63,
-      "edificio": "casa_humilde_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:5",
+      "edificio": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__casa_humilde__5",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 78,
       "y": 85,
-      "edificio": "casa_humilde_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:8",
+      "edificio": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__casa_humilde__8",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 61,
       "y": 91,
-      "edificio": "casa_humilde_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:2",
+      "edificio": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__casa_humilde__2",
       "tipoEdificioId": "casa_humilde"
     }
   ],
@@ -939,7 +939,7 @@
   ],
   "edificios": [
     {
-      "id": "campamento_hostil_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:campamento_hostil:0",
+      "id": "campamento_hostil_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__campamento_hostil__0",
       "tipo": "campamento_hostil",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:campamento_hostil:0",
       "cx": 61.7,
@@ -962,7 +962,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "granero_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:granero:6",
+      "id": "granero_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__granero__6",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:granero:6",
       "cx": 59.7,
@@ -991,7 +991,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:4",
+      "id": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__casa_humilde__4",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:4",
       "cx": 67.4,
@@ -1014,7 +1014,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "granero_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:granero:1",
+      "id": "granero_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__granero__1",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:granero:1",
       "cx": 74,
@@ -1043,7 +1043,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "granero_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:granero:7",
+      "id": "granero_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__granero__7",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:granero:7",
       "cx": 49.5,
@@ -1066,7 +1066,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:3",
+      "id": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__casa_humilde__3",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:3",
       "cx": 74.4,
@@ -1089,7 +1089,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:5",
+      "id": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__casa_humilde__5",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:5",
       "cx": 57.2,
@@ -1112,7 +1112,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:8",
+      "id": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__casa_humilde__8",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:8",
       "cx": 80.6,
@@ -1135,7 +1135,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:2",
+      "id": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_237_1108__casa_humilde__2",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_237_1108:casa_humilde:2",
       "cx": 64.3,

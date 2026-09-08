@@ -490,7 +490,11 @@ function generarMazmorra({ tipoDungeonId, catalogosMazmorra, catalogosInteriores
   }
 
   return {
-    id: `${tipoDungeonId}_${semilla}`,
+    // Mismo criterio que interiores/src/edificio.js: este id es un nombre
+    // de archivo real en disco, ':' rompe Windows (NTFS/CreateFile) — se
+    // sanea solo en el id de salida, la semilla sin sanear sigue
+    // determinando el PRNG del resto de la función.
+    id: `${tipoDungeonId}_${semilla}`.replace(/:/g, "__"),
     tipoDungeonId,
     semilla,
     plantas,

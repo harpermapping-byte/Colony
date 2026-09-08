@@ -39,154 +39,154 @@
       "tipo": "interior",
       "x": 76,
       "y": 76,
-      "edificio": "cuartel_guardia_rio-3:cuartel_guardia:3",
+      "edificio": "cuartel_guardia_rio-3__cuartel_guardia__3",
       "tipoEdificioId": "cuartel_guardia"
     },
     {
       "tipo": "interior",
       "x": 87,
       "y": 76,
-      "edificio": "posada_rio-3:posada:1",
+      "edificio": "posada_rio-3__posada__1",
       "tipoEdificioId": "posada"
     },
     {
       "tipo": "interior",
       "x": 90,
       "y": 89,
-      "edificio": "templo_rio-3:templo:0",
+      "edificio": "templo_rio-3__templo__0",
       "tipoEdificioId": "templo"
     },
     {
       "tipo": "interior",
       "x": 80,
       "y": 65,
-      "edificio": "herreria_rio-3:herreria:2",
+      "edificio": "herreria_rio-3__herreria__2",
       "tipoEdificioId": "herreria"
     },
     {
       "tipo": "interior",
       "x": 61,
       "y": 76,
-      "edificio": "casa_modesta_rio-3:casa_modesta:9",
+      "edificio": "casa_modesta_rio-3__casa_modesta__9",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 111,
       "y": 80,
-      "edificio": "casa_modesta_rio-3:casa_modesta:7",
+      "edificio": "casa_modesta_rio-3__casa_modesta__7",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 70,
       "y": 107,
-      "edificio": "taberna_rio-3:taberna:18",
+      "edificio": "taberna_rio-3__taberna__18",
       "tipoEdificioId": "taberna"
     },
     {
       "tipo": "interior",
       "x": 115,
       "y": 87,
-      "edificio": "tienda_rio-3:tienda:17",
+      "edificio": "tienda_rio-3__tienda__17",
       "tipoEdificioId": "tienda"
     },
     {
       "tipo": "interior",
       "x": 52,
       "y": 70,
-      "edificio": "casa_modesta_rio-3:casa_modesta:4",
+      "edificio": "casa_modesta_rio-3__casa_modesta__4",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 75,
       "y": 49,
-      "edificio": "casa_modesta_rio-3:casa_modesta:16",
+      "edificio": "casa_modesta_rio-3__casa_modesta__16",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 102,
       "y": 55,
-      "edificio": "panaderia_rio-3:panaderia:20",
+      "edificio": "panaderia_rio-3__panaderia__20",
       "tipoEdificioId": "panaderia"
     },
     {
       "tipo": "interior",
       "x": 73,
       "y": 83,
-      "edificio": "casa_modesta_rio-3:casa_modesta:11",
+      "edificio": "casa_modesta_rio-3__casa_modesta__11",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 95,
       "y": 62,
-      "edificio": "alfareria_rio-3:alfareria:21",
+      "edificio": "alfareria_rio-3__alfareria__21",
       "tipoEdificioId": "alfareria"
     },
     {
       "tipo": "interior",
       "x": 74,
       "y": 48,
-      "edificio": "botica_rio-3:botica:15",
+      "edificio": "botica_rio-3__botica__15",
       "tipoEdificioId": "botica"
     },
     {
       "tipo": "interior",
       "x": 112,
       "y": 75,
-      "edificio": "curtiduria_rio-3:curtiduria:10",
+      "edificio": "curtiduria_rio-3__curtiduria__10",
       "tipoEdificioId": "curtiduria"
     },
     {
       "tipo": "interior",
       "x": 50,
       "y": 87,
-      "edificio": "granero_rio-3:granero:5",
+      "edificio": "granero_rio-3__granero__5",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
       "x": 93,
       "y": 88,
-      "edificio": "alfareria_rio-3:alfareria:6",
+      "edificio": "alfareria_rio-3__alfareria__6",
       "tipoEdificioId": "alfareria"
     },
     {
       "tipo": "interior",
       "x": 70,
       "y": 57,
-      "edificio": "tienda_rio-3:tienda:8",
+      "edificio": "tienda_rio-3__tienda__8",
       "tipoEdificioId": "tienda"
     },
     {
       "tipo": "interior",
       "x": 57,
       "y": 59,
-      "edificio": "tienda_rio-3:tienda:19",
+      "edificio": "tienda_rio-3__tienda__19",
       "tipoEdificioId": "tienda"
     },
     {
       "tipo": "interior",
       "x": 57,
       "y": 98,
-      "edificio": "curtiduria_rio-3:curtiduria:14",
+      "edificio": "curtiduria_rio-3__curtiduria__14",
       "tipoEdificioId": "curtiduria"
     },
     {
       "tipo": "interior",
       "x": 102,
       "y": 95,
-      "edificio": "tienda_rio-3:tienda:13",
+      "edificio": "tienda_rio-3__tienda__13",
       "tipoEdificioId": "tienda"
     },
     {
       "tipo": "interior",
       "x": 85,
       "y": 109,
-      "edificio": "casa_humilde_rio-3:casa_humilde:12",
+      "edificio": "casa_humilde_rio-3__casa_humilde__12",
       "tipoEdificioId": "casa_humilde"
     }
   ],
@@ -1419,7 +1419,7 @@
   ],
   "edificios": [
     {
-      "id": "cuartel_guardia_rio-3:cuartel_guardia:3",
+      "id": "cuartel_guardia_rio-3__cuartel_guardia__3",
       "tipo": "cuartel_guardia",
       "semilla": "rio-3:cuartel_guardia:3",
       "cx": 72,
@@ -1441,7 +1441,7 @@
       }
     },
     {
-      "id": "posada_rio-3:posada:1",
+      "id": "posada_rio-3__posada__1",
       "tipo": "posada",
       "semilla": "rio-3:posada:1",
       "cx": 91,
@@ -1469,7 +1469,7 @@
       }
     },
     {
-      "id": "templo_rio-3:templo:0",
+      "id": "templo_rio-3__templo__0",
       "tipo": "templo",
       "semilla": "rio-3:templo:0",
       "cx": 86.7,
@@ -1491,7 +1491,7 @@
       }
     },
     {
-      "id": "herreria_rio-3:herreria:2",
+      "id": "herreria_rio-3__herreria__2",
       "tipo": "herreria",
       "semilla": "rio-3:herreria:2",
       "cx": 83,
@@ -1513,7 +1513,7 @@
       }
     },
     {
-      "id": "casa_modesta_rio-3:casa_modesta:9",
+      "id": "casa_modesta_rio-3__casa_modesta__9",
       "tipo": "casa_modesta",
       "semilla": "rio-3:casa_modesta:9",
       "cx": 56.7,
@@ -1535,7 +1535,7 @@
       }
     },
     {
-      "id": "casa_modesta_rio-3:casa_modesta:7",
+      "id": "casa_modesta_rio-3__casa_modesta__7",
       "tipo": "casa_modesta",
       "semilla": "rio-3:casa_modesta:7",
       "cx": 106.1,
@@ -1557,7 +1557,7 @@
       }
     },
     {
-      "id": "taberna_rio-3:taberna:18",
+      "id": "taberna_rio-3__taberna__18",
       "tipo": "taberna",
       "semilla": "rio-3:taberna:18",
       "cx": 71.9,
@@ -1585,7 +1585,7 @@
       }
     },
     {
-      "id": "tienda_rio-3:tienda:17",
+      "id": "tienda_rio-3__tienda__17",
       "tipo": "tienda",
       "semilla": "rio-3:tienda:17",
       "cx": 114.5,
@@ -1607,7 +1607,7 @@
       }
     },
     {
-      "id": "casa_modesta_rio-3:casa_modesta:4",
+      "id": "casa_modesta_rio-3__casa_modesta__4",
       "tipo": "casa_modesta",
       "semilla": "rio-3:casa_modesta:4",
       "cx": 48.1,
@@ -1629,7 +1629,7 @@
       }
     },
     {
-      "id": "casa_modesta_rio-3:casa_modesta:16",
+      "id": "casa_modesta_rio-3__casa_modesta__16",
       "tipo": "casa_modesta",
       "semilla": "rio-3:casa_modesta:16",
       "cx": 76.7,
@@ -1651,7 +1651,7 @@
       }
     },
     {
-      "id": "panaderia_rio-3:panaderia:20",
+      "id": "panaderia_rio-3__panaderia__20",
       "tipo": "panaderia",
       "semilla": "rio-3:panaderia:20",
       "cx": 105,
@@ -1673,7 +1673,7 @@
       }
     },
     {
-      "id": "casa_modesta_rio-3:casa_modesta:11",
+      "id": "casa_modesta_rio-3__casa_modesta__11",
       "tipo": "casa_modesta",
       "semilla": "rio-3:casa_modesta:11",
       "cx": 72.5,
@@ -1695,7 +1695,7 @@
       }
     },
     {
-      "id": "alfareria_rio-3:alfareria:21",
+      "id": "alfareria_rio-3__alfareria__21",
       "tipo": "alfareria",
       "semilla": "rio-3:alfareria:21",
       "cx": 94.5,
@@ -1717,7 +1717,7 @@
       }
     },
     {
-      "id": "botica_rio-3:botica:15",
+      "id": "botica_rio-3__botica__15",
       "tipo": "botica",
       "semilla": "rio-3:botica:15",
       "cx": 72.3,
@@ -1739,7 +1739,7 @@
       }
     },
     {
-      "id": "curtiduria_rio-3:curtiduria:10",
+      "id": "curtiduria_rio-3__curtiduria__10",
       "tipo": "curtiduria",
       "semilla": "rio-3:curtiduria:10",
       "cx": 115.9,
@@ -1761,7 +1761,7 @@
       }
     },
     {
-      "id": "granero_rio-3:granero:5",
+      "id": "granero_rio-3__granero__5",
       "tipo": "granero",
       "semilla": "rio-3:granero:5",
       "cx": 46.1,
@@ -1783,7 +1783,7 @@
       }
     },
     {
-      "id": "alfareria_rio-3:alfareria:6",
+      "id": "alfareria_rio-3__alfareria__6",
       "tipo": "alfareria",
       "semilla": "rio-3:alfareria:6",
       "cx": 95.6,
@@ -1805,7 +1805,7 @@
       }
     },
     {
-      "id": "tienda_rio-3:tienda:8",
+      "id": "tienda_rio-3__tienda__8",
       "tipo": "tienda",
       "semilla": "rio-3:tienda:8",
       "cx": 67.4,
@@ -1827,7 +1827,7 @@
       }
     },
     {
-      "id": "tienda_rio-3:tienda:19",
+      "id": "tienda_rio-3__tienda__19",
       "tipo": "tienda",
       "semilla": "rio-3:tienda:19",
       "cx": 55.5,
@@ -1849,7 +1849,7 @@
       }
     },
     {
-      "id": "curtiduria_rio-3:curtiduria:14",
+      "id": "curtiduria_rio-3__curtiduria__14",
       "tipo": "curtiduria",
       "semilla": "rio-3:curtiduria:14",
       "cx": 59.6,
@@ -1871,7 +1871,7 @@
       }
     },
     {
-      "id": "tienda_rio-3:tienda:13",
+      "id": "tienda_rio-3__tienda__13",
       "tipo": "tienda",
       "semilla": "rio-3:tienda:13",
       "cx": 99.4,
@@ -1893,7 +1893,7 @@
       }
     },
     {
-      "id": "casa_humilde_rio-3:casa_humilde:12",
+      "id": "casa_humilde_rio-3__casa_humilde__12",
       "tipo": "casa_humilde",
       "semilla": "rio-3:casa_humilde:12",
       "cx": 83.5,

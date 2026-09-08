@@ -31,49 +31,49 @@
       "tipo": "interior",
       "x": 60,
       "y": 68,
-      "edificio": "campamento_hostil_vetrheim-16:poi:campamento_barbaros_grande_1816_891:campamento_hostil:0",
+      "edificio": "campamento_hostil_vetrheim-16__poi__campamento_barbaros_grande_1816_891__campamento_hostil__0",
       "tipoEdificioId": "campamento_hostil"
     },
     {
       "tipo": "interior",
       "x": 63,
       "y": 58,
-      "edificio": "arena_combate_vetrheim-16:poi:campamento_barbaros_grande_1816_891:arena_combate:8",
+      "edificio": "arena_combate_vetrheim-16__poi__campamento_barbaros_grande_1816_891__arena_combate__8",
       "tipoEdificioId": "arena_combate"
     },
     {
       "tipo": "interior",
       "x": 78,
       "y": 77,
-      "edificio": "establo_vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:7",
+      "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__7",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
       "x": 54,
       "y": 76,
-      "edificio": "establo_vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:9",
+      "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__9",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
       "x": 63,
       "y": 84,
-      "edificio": "establo_vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:3",
+      "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__3",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
       "x": 74,
       "y": 78,
-      "edificio": "establo_vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:6",
+      "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__6",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
       "x": 87,
       "y": 53,
-      "edificio": "establo_vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:5",
+      "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__5",
       "tipoEdificioId": "establo"
     }
   ],
@@ -943,7 +943,7 @@
   ],
   "edificios": [
     {
-      "id": "campamento_hostil_vetrheim-16:poi:campamento_barbaros_grande_1816_891:campamento_hostil:0",
+      "id": "campamento_hostil_vetrheim-16__poi__campamento_barbaros_grande_1816_891__campamento_hostil__0",
       "tipo": "campamento_hostil",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:campamento_hostil:0",
       "cx": 57.7,
@@ -966,7 +966,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "arena_combate_vetrheim-16:poi:campamento_barbaros_grande_1816_891:arena_combate:8",
+      "id": "arena_combate_vetrheim-16__poi__campamento_barbaros_grande_1816_891__arena_combate__8",
       "tipo": "arena_combate",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:arena_combate:8",
       "cx": 68.7,
@@ -989,7 +989,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:7",
+      "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__7",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:7",
       "cx": 77.5,
@@ -1018,7 +1018,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:9",
+      "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__9",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:9",
       "cx": 50.7,
@@ -1041,7 +1041,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:3",
+      "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__3",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:3",
       "cx": 58.6,
@@ -1064,7 +1064,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:6",
+      "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__6",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:6",
       "cx": 73.5,
@@ -1093,7 +1093,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:5",
+      "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__5",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:5",
       "cx": 84,

@@ -37,98 +37,98 @@
       "tipo": "interior",
       "x": 58,
       "y": 76,
-      "edificio": "templo_vetrheim-16:poi:aldea_agricola_2799_1267:templo:0",
+      "edificio": "templo_vetrheim-16__poi__aldea_agricola_2799_1267__templo__0",
       "tipoEdificioId": "templo"
     },
     {
       "tipo": "interior",
       "x": 75,
       "y": 61,
-      "edificio": "taberna_vetrheim-16:poi:aldea_agricola_2799_1267:taberna:1",
+      "edificio": "taberna_vetrheim-16__poi__aldea_agricola_2799_1267__taberna__1",
       "tipoEdificioId": "taberna"
     },
     {
       "tipo": "interior",
       "x": 82,
       "y": 86,
-      "edificio": "panaderia_vetrheim-16:poi:aldea_agricola_2799_1267:panaderia:2",
+      "edificio": "panaderia_vetrheim-16__poi__aldea_agricola_2799_1267__panaderia__2",
       "tipoEdificioId": "panaderia"
     },
     {
       "tipo": "interior",
       "x": 74,
       "y": 64,
-      "edificio": "panaderia_vetrheim-16:poi:aldea_agricola_2799_1267:panaderia:9",
+      "edificio": "panaderia_vetrheim-16__poi__aldea_agricola_2799_1267__panaderia__9",
       "tipoEdificioId": "panaderia"
     },
     {
       "tipo": "interior",
       "x": 63,
       "y": 92,
-      "edificio": "casa_modesta_vetrheim-16:poi:aldea_agricola_2799_1267:casa_modesta:8",
+      "edificio": "casa_modesta_vetrheim-16__poi__aldea_agricola_2799_1267__casa_modesta__8",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 65,
       "y": 94,
-      "edificio": "casa_modesta_vetrheim-16:poi:aldea_agricola_2799_1267:casa_modesta:5",
+      "edificio": "casa_modesta_vetrheim-16__poi__aldea_agricola_2799_1267__casa_modesta__5",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 60,
       "y": 44,
-      "edificio": "carpinteria_vetrheim-16:poi:aldea_agricola_2799_1267:carpinteria:10",
+      "edificio": "carpinteria_vetrheim-16__poi__aldea_agricola_2799_1267__carpinteria__10",
       "tipoEdificioId": "carpinteria"
     },
     {
       "tipo": "interior",
       "x": 41,
       "y": 59,
-      "edificio": "casa_humilde_vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:11",
+      "edificio": "casa_humilde_vetrheim-16__poi__aldea_agricola_2799_1267__casa_humilde__11",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 40,
       "y": 75,
-      "edificio": "carpinteria_vetrheim-16:poi:aldea_agricola_2799_1267:carpinteria:4",
+      "edificio": "carpinteria_vetrheim-16__poi__aldea_agricola_2799_1267__carpinteria__4",
       "tipoEdificioId": "carpinteria"
     },
     {
       "tipo": "interior",
       "x": 56,
       "y": 91,
-      "edificio": "casa_humilde_vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:6",
+      "edificio": "casa_humilde_vetrheim-16__poi__aldea_agricola_2799_1267__casa_humilde__6",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 93,
       "y": 55,
-      "edificio": "granero_vetrheim-16:poi:aldea_agricola_2799_1267:granero:3",
+      "edificio": "granero_vetrheim-16__poi__aldea_agricola_2799_1267__granero__3",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
       "x": 77,
       "y": 46,
-      "edificio": "casa_humilde_vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:12",
+      "edificio": "casa_humilde_vetrheim-16__poi__aldea_agricola_2799_1267__casa_humilde__12",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 84,
       "y": 84,
-      "edificio": "casa_humilde_vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:7",
+      "edificio": "casa_humilde_vetrheim-16__poi__aldea_agricola_2799_1267__casa_humilde__7",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 90,
       "y": 74,
-      "edificio": "casa_humilde_vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:13",
+      "edificio": "casa_humilde_vetrheim-16__poi__aldea_agricola_2799_1267__casa_humilde__13",
       "tipoEdificioId": "casa_humilde"
     }
   ],
@@ -1154,7 +1154,7 @@
   ],
   "edificios": [
     {
-      "id": "templo_vetrheim-16:poi:aldea_agricola_2799_1267:templo:0",
+      "id": "templo_vetrheim-16__poi__aldea_agricola_2799_1267__templo__0",
       "tipo": "templo",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:templo:0",
       "cx": 54.3,
@@ -1177,7 +1177,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "taberna_vetrheim-16:poi:aldea_agricola_2799_1267:taberna:1",
+      "id": "taberna_vetrheim-16__poi__aldea_agricola_2799_1267__taberna__1",
       "tipo": "taberna",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:taberna:1",
       "cx": 71.7,
@@ -1206,7 +1206,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "panaderia_vetrheim-16:poi:aldea_agricola_2799_1267:panaderia:2",
+      "id": "panaderia_vetrheim-16__poi__aldea_agricola_2799_1267__panaderia__2",
       "tipo": "panaderia",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:panaderia:2",
       "cx": 78.7,
@@ -1229,7 +1229,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "panaderia_vetrheim-16:poi:aldea_agricola_2799_1267:panaderia:9",
+      "id": "panaderia_vetrheim-16__poi__aldea_agricola_2799_1267__panaderia__9",
       "tipo": "panaderia",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:panaderia:9",
       "cx": 78.3,
@@ -1252,7 +1252,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_modesta_vetrheim-16:poi:aldea_agricola_2799_1267:casa_modesta:8",
+      "id": "casa_modesta_vetrheim-16__poi__aldea_agricola_2799_1267__casa_modesta__8",
       "tipo": "casa_modesta",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:casa_modesta:8",
       "cx": 64.9,
@@ -1275,7 +1275,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_modesta_vetrheim-16:poi:aldea_agricola_2799_1267:casa_modesta:5",
+      "id": "casa_modesta_vetrheim-16__poi__aldea_agricola_2799_1267__casa_modesta__5",
       "tipo": "casa_modesta",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:casa_modesta:5",
       "cx": 63.3,
@@ -1298,7 +1298,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "carpinteria_vetrheim-16:poi:aldea_agricola_2799_1267:carpinteria:10",
+      "id": "carpinteria_vetrheim-16__poi__aldea_agricola_2799_1267__carpinteria__10",
       "tipo": "carpinteria",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:carpinteria:10",
       "cx": 61.5,
@@ -1321,7 +1321,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:11",
+      "id": "casa_humilde_vetrheim-16__poi__aldea_agricola_2799_1267__casa_humilde__11",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:11",
       "cx": 44.9,
@@ -1344,7 +1344,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "carpinteria_vetrheim-16:poi:aldea_agricola_2799_1267:carpinteria:4",
+      "id": "carpinteria_vetrheim-16__poi__aldea_agricola_2799_1267__carpinteria__4",
       "tipo": "carpinteria",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:carpinteria:4",
       "cx": 36.6,
@@ -1367,7 +1367,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:6",
+      "id": "casa_humilde_vetrheim-16__poi__aldea_agricola_2799_1267__casa_humilde__6",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:6",
       "cx": 53,
@@ -1390,7 +1390,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "granero_vetrheim-16:poi:aldea_agricola_2799_1267:granero:3",
+      "id": "granero_vetrheim-16__poi__aldea_agricola_2799_1267__granero__3",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:granero:3",
       "cx": 91.3,
@@ -1419,7 +1419,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:12",
+      "id": "casa_humilde_vetrheim-16__poi__aldea_agricola_2799_1267__casa_humilde__12",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:12",
       "cx": 78.5,
@@ -1442,7 +1442,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:7",
+      "id": "casa_humilde_vetrheim-16__poi__aldea_agricola_2799_1267__casa_humilde__7",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:7",
       "cx": 87.6,
@@ -1465,7 +1465,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:13",
+      "id": "casa_humilde_vetrheim-16__poi__aldea_agricola_2799_1267__casa_humilde__13",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:aldea_agricola_2799_1267:casa_humilde:13",
       "cx": 87,

@@ -509,7 +509,16 @@ function generarEdificio({ tipoEdificioId, catalogos, semilla = "edificio", riqu
   }
 
   return {
-    id: `${tipoEdificioId}_${semilla}`,
+    // Este id se usa TAL CUAL como nombre de archivo real en disco
+    // (baker/src/instanciasPOI.js, ciudades/src/index.js) — la semilla
+    // compuesta lleva ':' como separador de namespace (ver más abajo, p.ej.
+    // `${semilla}:${nivel}:${i}`), pero ':' es inválido en un nombre de
+    // archivo de Windows (NTFS lo reserva para alternate data streams,
+    // Windows rechaza directamente el CreateFile). Se sanea SOLO aquí, en
+    // el id de salida — la `semilla` sin sanear se sigue usando tal cual
+    // para el PRNG del resto de la función, así que esto no cambia ni un
+    // bit de lo que ya está horneado con la semilla original.
+    id: `${tipoEdificioId}_${semilla}`.replace(/:/g, "__"),
     tipoEdificioId,
     semilla,
     riqueza: riquezaFinal,

@@ -31,35 +31,35 @@
       "tipo": "interior",
       "x": 66,
       "y": 44,
-      "edificio": "castillo_vetrheim-16:poi:castillo_real_1183_2684:castillo:0",
+      "edificio": "castillo_vetrheim-16__poi__castillo_real_1183_2684__castillo__0",
       "tipoEdificioId": "castillo"
     },
     {
       "tipo": "interior",
       "x": 65,
       "y": 45,
-      "edificio": "cuartel_guardia_vetrheim-16:poi:castillo_real_1183_2684:cuartel_guardia:1",
+      "edificio": "cuartel_guardia_vetrheim-16__poi__castillo_real_1183_2684__cuartel_guardia__1",
       "tipoEdificioId": "cuartel_guardia"
     },
     {
       "tipo": "interior",
       "x": 60,
       "y": 56,
-      "edificio": "torre_militar_vetrheim-16:poi:castillo_real_1183_2684:torre_militar:2",
+      "edificio": "torre_militar_vetrheim-16__poi__castillo_real_1183_2684__torre_militar__2",
       "tipoEdificioId": "torre_militar"
     },
     {
       "tipo": "interior",
       "x": 48,
       "y": 65,
-      "edificio": "casa_modesta_vetrheim-16:poi:castillo_real_1183_2684:casa_modesta:4",
+      "edificio": "casa_modesta_vetrheim-16__poi__castillo_real_1183_2684__casa_modesta__4",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 40,
       "y": 42,
-      "edificio": "establo_vetrheim-16:poi:castillo_real_1183_2684:establo:3",
+      "edificio": "establo_vetrheim-16__poi__castillo_real_1183_2684__establo__3",
       "tipoEdificioId": "establo"
     }
   ],
@@ -864,7 +864,7 @@
   ],
   "edificios": [
     {
-      "id": "castillo_vetrheim-16:poi:castillo_real_1183_2684:castillo:0",
+      "id": "castillo_vetrheim-16__poi__castillo_real_1183_2684__castillo__0",
       "tipo": "castillo",
       "semilla": "vetrheim-16:poi:castillo_real_1183_2684:castillo:0",
       "cx": 60.9,
@@ -893,7 +893,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "cuartel_guardia_vetrheim-16:poi:castillo_real_1183_2684:cuartel_guardia:1",
+      "id": "cuartel_guardia_vetrheim-16__poi__castillo_real_1183_2684__cuartel_guardia__1",
       "tipo": "cuartel_guardia",
       "semilla": "vetrheim-16:poi:castillo_real_1183_2684:cuartel_guardia:1",
       "cx": 69.7,
@@ -922,7 +922,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "torre_militar_vetrheim-16:poi:castillo_real_1183_2684:torre_militar:2",
+      "id": "torre_militar_vetrheim-16__poi__castillo_real_1183_2684__torre_militar__2",
       "tipo": "torre_militar",
       "semilla": "vetrheim-16:poi:castillo_real_1183_2684:torre_militar:2",
       "cx": 63.5,
@@ -945,7 +945,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_modesta_vetrheim-16:poi:castillo_real_1183_2684:casa_modesta:4",
+      "id": "casa_modesta_vetrheim-16__poi__castillo_real_1183_2684__casa_modesta__4",
       "tipo": "casa_modesta",
       "semilla": "vetrheim-16:poi:castillo_real_1183_2684:casa_modesta:4",
       "cx": 47.5,
@@ -968,7 +968,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_vetrheim-16:poi:castillo_real_1183_2684:establo:3",
+      "id": "establo_vetrheim-16__poi__castillo_real_1183_2684__establo__3",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:castillo_real_1183_2684:establo:3",
       "cx": 44,

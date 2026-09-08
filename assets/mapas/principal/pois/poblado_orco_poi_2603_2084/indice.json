@@ -31,77 +31,77 @@
       "tipo": "interior",
       "x": 56,
       "y": 67,
-      "edificio": "campamento_hostil_vetrheim-16:poi:poblado_orco_poi_2603_2084:campamento_hostil:0",
+      "edificio": "campamento_hostil_vetrheim-16__poi__poblado_orco_poi_2603_2084__campamento_hostil__0",
       "tipoEdificioId": "campamento_hostil"
     },
     {
       "tipo": "interior",
       "x": 63,
       "y": 59,
-      "edificio": "arena_combate_vetrheim-16:poi:poblado_orco_poi_2603_2084:arena_combate:7",
+      "edificio": "arena_combate_vetrheim-16__poi__poblado_orco_poi_2603_2084__arena_combate__7",
       "tipoEdificioId": "arena_combate"
     },
     {
       "tipo": "interior",
       "x": 64,
       "y": 69,
-      "edificio": "granero_vetrheim-16:poi:poblado_orco_poi_2603_2084:granero:2",
+      "edificio": "granero_vetrheim-16__poi__poblado_orco_poi_2603_2084__granero__2",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
       "x": 48,
       "y": 57,
-      "edificio": "granero_vetrheim-16:poi:poblado_orco_poi_2603_2084:granero:10",
+      "edificio": "granero_vetrheim-16__poi__poblado_orco_poi_2603_2084__granero__10",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
       "x": 65,
       "y": 72,
-      "edificio": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:4",
+      "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__4",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 43,
       "y": 50,
-      "edificio": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:6",
+      "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__6",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 74,
       "y": 76,
-      "edificio": "establo_vetrheim-16:poi:poblado_orco_poi_2603_2084:establo:9",
+      "edificio": "establo_vetrheim-16__poi__poblado_orco_poi_2603_2084__establo__9",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
       "x": 39,
       "y": 48,
-      "edificio": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:8",
+      "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__8",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 32,
       "y": 62,
-      "edificio": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:1",
+      "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__1",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 75,
       "y": 52,
-      "edificio": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:3",
+      "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__3",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
       "x": 78,
       "y": 75,
-      "edificio": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:5",
+      "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__5",
       "tipoEdificioId": "casa_humilde"
     }
   ],
@@ -957,7 +957,7 @@
   ],
   "edificios": [
     {
-      "id": "campamento_hostil_vetrheim-16:poi:poblado_orco_poi_2603_2084:campamento_hostil:0",
+      "id": "campamento_hostil_vetrheim-16__poi__poblado_orco_poi_2603_2084__campamento_hostil__0",
       "tipo": "campamento_hostil",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:campamento_hostil:0",
       "cx": 53.4,
@@ -980,7 +980,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "arena_combate_vetrheim-16:poi:poblado_orco_poi_2603_2084:arena_combate:7",
+      "id": "arena_combate_vetrheim-16__poi__poblado_orco_poi_2603_2084__arena_combate__7",
       "tipo": "arena_combate",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:arena_combate:7",
       "cx": 58.6,
@@ -1003,7 +1003,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "granero_vetrheim-16:poi:poblado_orco_poi_2603_2084:granero:2",
+      "id": "granero_vetrheim-16__poi__poblado_orco_poi_2603_2084__granero__2",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:granero:2",
       "cx": 67.3,
@@ -1032,7 +1032,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "granero_vetrheim-16:poi:poblado_orco_poi_2603_2084:granero:10",
+      "id": "granero_vetrheim-16__poi__poblado_orco_poi_2603_2084__granero__10",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:granero:10",
       "cx": 45,
@@ -1055,7 +1055,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:4",
+      "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__4",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:4",
       "cx": 62,
@@ -1078,7 +1078,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:6",
+      "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__6",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:6",
       "cx": 45.6,
@@ -1101,7 +1101,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_vetrheim-16:poi:poblado_orco_poi_2603_2084:establo:9",
+      "id": "establo_vetrheim-16__poi__poblado_orco_poi_2603_2084__establo__9",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:establo:9",
       "cx": 73.5,
@@ -1130,7 +1130,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:8",
+      "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__8",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:8",
       "cx": 36,
@@ -1153,7 +1153,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:1",
+      "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__1",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:1",
       "cx": 35.4,
@@ -1176,7 +1176,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:3",
+      "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__3",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:3",
       "cx": 74.5,
@@ -1199,7 +1199,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:5",
+      "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__5",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:5",
       "cx": 77.5,

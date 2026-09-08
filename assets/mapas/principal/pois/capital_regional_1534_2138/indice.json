@@ -42,182 +42,182 @@
       "tipo": "interior",
       "x": 84,
       "y": 93,
-      "edificio": "ayuntamiento_vetrheim-16:poi:capital_regional_1534_2138:ayuntamiento:1",
+      "edificio": "ayuntamiento_vetrheim-16__poi__capital_regional_1534_2138__ayuntamiento__1",
       "tipoEdificioId": "ayuntamiento"
     },
     {
       "tipo": "interior",
       "x": 82,
       "y": 106,
-      "edificio": "templo_vetrheim-16:poi:capital_regional_1534_2138:templo:0",
+      "edificio": "templo_vetrheim-16__poi__capital_regional_1534_2138__templo__0",
       "tipoEdificioId": "templo"
     },
     {
       "tipo": "interior",
       "x": 100,
       "y": 97,
-      "edificio": "cuartel_guardia_vetrheim-16:poi:capital_regional_1534_2138:cuartel_guardia:3",
+      "edificio": "cuartel_guardia_vetrheim-16__poi__capital_regional_1534_2138__cuartel_guardia__3",
       "tipoEdificioId": "cuartel_guardia"
     },
     {
       "tipo": "interior",
       "x": 86,
       "y": 91,
-      "edificio": "casa_gremio_vetrheim-16:poi:capital_regional_1534_2138:casa_gremio:5",
+      "edificio": "casa_gremio_vetrheim-16__poi__capital_regional_1534_2138__casa_gremio__5",
       "tipoEdificioId": "casa_gremio"
     },
     {
       "tipo": "interior",
       "x": 75,
       "y": 109,
-      "edificio": "posada_vetrheim-16:poi:capital_regional_1534_2138:posada:2",
+      "edificio": "posada_vetrheim-16__poi__capital_regional_1534_2138__posada__2",
       "tipoEdificioId": "posada"
     },
     {
       "tipo": "interior",
       "x": 72,
       "y": 114,
-      "edificio": "casa_de_cambio_vetrheim-16:poi:capital_regional_1534_2138:casa_de_cambio:4",
+      "edificio": "casa_de_cambio_vetrheim-16__poi__capital_regional_1534_2138__casa_de_cambio__4",
       "tipoEdificioId": "casa_de_cambio"
     },
     {
       "tipo": "interior",
       "x": 113,
       "y": 93,
-      "edificio": "casa_noble_vetrheim-16:poi:capital_regional_1534_2138:casa_noble:27",
+      "edificio": "casa_noble_vetrheim-16__poi__capital_regional_1534_2138__casa_noble__27",
       "tipoEdificioId": "casa_noble"
     },
     {
       "tipo": "interior",
       "x": 123,
       "y": 110,
-      "edificio": "casa_noble_vetrheim-16:poi:capital_regional_1534_2138:casa_noble:28",
+      "edificio": "casa_noble_vetrheim-16__poi__capital_regional_1534_2138__casa_noble__28",
       "tipoEdificioId": "casa_noble"
     },
     {
       "tipo": "interior",
       "x": 81,
       "y": 134,
-      "edificio": "biblioteca_publica_vetrheim-16:poi:capital_regional_1534_2138:biblioteca_publica:21",
+      "edificio": "biblioteca_publica_vetrheim-16__poi__capital_regional_1534_2138__biblioteca_publica__21",
       "tipoEdificioId": "biblioteca_publica"
     },
     {
       "tipo": "interior",
       "x": 91,
       "y": 65,
-      "edificio": "taberna_vetrheim-16:poi:capital_regional_1534_2138:taberna:12",
+      "edificio": "taberna_vetrheim-16__poi__capital_regional_1534_2138__taberna__12",
       "tipoEdificioId": "taberna"
     },
     {
       "tipo": "interior",
       "x": 112,
       "y": 134,
-      "edificio": "joyeria_vetrheim-16:poi:capital_regional_1534_2138:joyeria:23",
+      "edificio": "joyeria_vetrheim-16__poi__capital_regional_1534_2138__joyeria__23",
       "tipoEdificioId": "joyeria"
     },
     {
       "tipo": "interior",
       "x": 80,
       "y": 135,
-      "edificio": "biblioteca_publica_vetrheim-16:poi:capital_regional_1534_2138:biblioteca_publica:15",
+      "edificio": "biblioteca_publica_vetrheim-16__poi__capital_regional_1534_2138__biblioteca_publica__15",
       "tipoEdificioId": "biblioteca_publica"
     },
     {
       "tipo": "interior",
       "x": 121,
       "y": 74,
-      "edificio": "casa_modesta_vetrheim-16:poi:capital_regional_1534_2138:casa_modesta:9",
+      "edificio": "casa_modesta_vetrheim-16__poi__capital_regional_1534_2138__casa_modesta__9",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 99,
       "y": 139,
-      "edificio": "banos_publicos_vetrheim-16:poi:capital_regional_1534_2138:banos_publicos:24",
+      "edificio": "banos_publicos_vetrheim-16__poi__capital_regional_1534_2138__banos_publicos__24",
       "tipoEdificioId": "banos_publicos"
     },
     {
       "tipo": "interior",
       "x": 123,
       "y": 74,
-      "edificio": "herreria_vetrheim-16:poi:capital_regional_1534_2138:herreria:20",
+      "edificio": "herreria_vetrheim-16__poi__capital_regional_1534_2138__herreria__20",
       "tipoEdificioId": "herreria"
     },
     {
       "tipo": "interior",
       "x": 77,
       "y": 82,
-      "edificio": "peleteria_vetrheim-16:poi:capital_regional_1534_2138:peleteria:7",
+      "edificio": "peleteria_vetrheim-16__poi__capital_regional_1534_2138__peleteria__7",
       "tipoEdificioId": "peleteria"
     },
     {
       "tipo": "interior",
       "x": 111,
       "y": 68,
-      "edificio": "taller_arquero_vetrheim-16:poi:capital_regional_1534_2138:taller_arquero:11",
+      "edificio": "taller_arquero_vetrheim-16__poi__capital_regional_1534_2138__taller_arquero__11",
       "tipoEdificioId": "taller_arquero"
     },
     {
       "tipo": "interior",
       "x": 113,
       "y": 135,
-      "edificio": "casa_modesta_vetrheim-16:poi:capital_regional_1534_2138:casa_modesta:22",
+      "edificio": "casa_modesta_vetrheim-16__poi__capital_regional_1534_2138__casa_modesta__22",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 58,
       "y": 90,
-      "edificio": "casa_modesta_vetrheim-16:poi:capital_regional_1534_2138:casa_modesta:25",
+      "edificio": "casa_modesta_vetrheim-16__poi__capital_regional_1534_2138__casa_modesta__25",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
       "x": 58,
       "y": 84,
-      "edificio": "taller_sastre_vetrheim-16:poi:capital_regional_1534_2138:taller_sastre:26",
+      "edificio": "taller_sastre_vetrheim-16__poi__capital_regional_1534_2138__taller_sastre__26",
       "tipoEdificioId": "taller_sastre"
     },
     {
       "tipo": "interior",
       "x": 56,
       "y": 109,
-      "edificio": "tienda_vetrheim-16:poi:capital_regional_1534_2138:tienda:10",
+      "edificio": "tienda_vetrheim-16__poi__capital_regional_1534_2138__tienda__10",
       "tipoEdificioId": "tienda"
     },
     {
       "tipo": "interior",
       "x": 67,
       "y": 130,
-      "edificio": "panaderia_vetrheim-16:poi:capital_regional_1534_2138:panaderia:16",
+      "edificio": "panaderia_vetrheim-16__poi__capital_regional_1534_2138__panaderia__16",
       "tipoEdificioId": "panaderia"
     },
     {
       "tipo": "interior",
       "x": 82,
       "y": 66,
-      "edificio": "peleteria_vetrheim-16:poi:capital_regional_1534_2138:peleteria:8",
+      "edificio": "peleteria_vetrheim-16__poi__capital_regional_1534_2138__peleteria__8",
       "tipoEdificioId": "peleteria"
     },
     {
       "tipo": "interior",
       "x": 102,
       "y": 63,
-      "edificio": "taller_arquero_vetrheim-16:poi:capital_regional_1534_2138:taller_arquero:13",
+      "edificio": "taller_arquero_vetrheim-16__poi__capital_regional_1534_2138__taller_arquero__13",
       "tipoEdificioId": "taller_arquero"
     },
     {
       "tipo": "interior",
       "x": 125,
       "y": 123,
-      "edificio": "astillero_vetrheim-16:poi:capital_regional_1534_2138:astillero:19",
+      "edificio": "astillero_vetrheim-16__poi__capital_regional_1534_2138__astillero__19",
       "tipoEdificioId": "astillero"
     },
     {
       "tipo": "interior",
       "x": 139,
       "y": 110,
-      "edificio": "botica_vetrheim-16:poi:capital_regional_1534_2138:botica:17",
+      "edificio": "botica_vetrheim-16__poi__capital_regional_1534_2138__botica__17",
       "tipoEdificioId": "botica"
     }
   ],
@@ -1790,7 +1790,7 @@
   ],
   "edificios": [
     {
-      "id": "ayuntamiento_vetrheim-16:poi:capital_regional_1534_2138:ayuntamiento:1",
+      "id": "ayuntamiento_vetrheim-16__poi__capital_regional_1534_2138__ayuntamiento__1",
       "tipo": "ayuntamiento",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:ayuntamiento:1",
       "cx": 80.3,
@@ -1813,7 +1813,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "templo_vetrheim-16:poi:capital_regional_1534_2138:templo:0",
+      "id": "templo_vetrheim-16__poi__capital_regional_1534_2138__templo__0",
       "tipo": "templo",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:templo:0",
       "cx": 87,
@@ -1842,7 +1842,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "cuartel_guardia_vetrheim-16:poi:capital_regional_1534_2138:cuartel_guardia:3",
+      "id": "cuartel_guardia_vetrheim-16__poi__capital_regional_1534_2138__cuartel_guardia__3",
       "tipo": "cuartel_guardia",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:cuartel_guardia:3",
       "cx": 104,
@@ -1871,7 +1871,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_gremio_vetrheim-16:poi:capital_regional_1534_2138:casa_gremio:5",
+      "id": "casa_gremio_vetrheim-16__poi__capital_regional_1534_2138__casa_gremio__5",
       "tipo": "casa_gremio",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:casa_gremio:5",
       "cx": 89.7,
@@ -1894,7 +1894,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "posada_vetrheim-16:poi:capital_regional_1534_2138:posada:2",
+      "id": "posada_vetrheim-16__poi__capital_regional_1534_2138__posada__2",
       "tipo": "posada",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:posada:2",
       "cx": 71.7,
@@ -1923,7 +1923,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_de_cambio_vetrheim-16:poi:capital_regional_1534_2138:casa_de_cambio:4",
+      "id": "casa_de_cambio_vetrheim-16__poi__capital_regional_1534_2138__casa_de_cambio__4",
       "tipo": "casa_de_cambio",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:casa_de_cambio:4",
       "cx": 76,
@@ -1946,7 +1946,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_noble_vetrheim-16:poi:capital_regional_1534_2138:casa_noble:27",
+      "id": "casa_noble_vetrheim-16__poi__capital_regional_1534_2138__casa_noble__27",
       "tipo": "casa_noble",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:casa_noble:27",
       "cx": 118.9,
@@ -1969,7 +1969,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_noble_vetrheim-16:poi:capital_regional_1534_2138:casa_noble:28",
+      "id": "casa_noble_vetrheim-16__poi__capital_regional_1534_2138__casa_noble__28",
       "tipo": "casa_noble",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:casa_noble:28",
       "cx": 117.8,
@@ -1998,7 +1998,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "biblioteca_publica_vetrheim-16:poi:capital_regional_1534_2138:biblioteca_publica:21",
+      "id": "biblioteca_publica_vetrheim-16__poi__capital_regional_1534_2138__biblioteca_publica__21",
       "tipo": "biblioteca_publica",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:biblioteca_publica:21",
       "cx": 83.1,
@@ -2021,7 +2021,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "taberna_vetrheim-16:poi:capital_regional_1534_2138:taberna:12",
+      "id": "taberna_vetrheim-16__poi__capital_regional_1534_2138__taberna__12",
       "tipo": "taberna",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:taberna:12",
       "cx": 93.1,
@@ -2050,7 +2050,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "joyeria_vetrheim-16:poi:capital_regional_1534_2138:joyeria:23",
+      "id": "joyeria_vetrheim-16__poi__capital_regional_1534_2138__joyeria__23",
       "tipo": "joyeria",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:joyeria:23",
       "cx": 110.1,
@@ -2073,7 +2073,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "biblioteca_publica_vetrheim-16:poi:capital_regional_1534_2138:biblioteca_publica:15",
+      "id": "biblioteca_publica_vetrheim-16__poi__capital_regional_1534_2138__biblioteca_publica__15",
       "tipo": "biblioteca_publica",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:biblioteca_publica:15",
       "cx": 77.9,
@@ -2096,7 +2096,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_modesta_vetrheim-16:poi:capital_regional_1534_2138:casa_modesta:9",
+      "id": "casa_modesta_vetrheim-16__poi__capital_regional_1534_2138__casa_modesta__9",
       "tipo": "casa_modesta",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:casa_modesta:9",
       "cx": 117.7,
@@ -2119,7 +2119,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "banos_publicos_vetrheim-16:poi:capital_regional_1534_2138:banos_publicos:24",
+      "id": "banos_publicos_vetrheim-16__poi__capital_regional_1534_2138__banos_publicos__24",
       "tipo": "banos_publicos",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:banos_publicos:24",
       "cx": 98.5,
@@ -2148,7 +2148,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "herreria_vetrheim-16:poi:capital_regional_1534_2138:herreria:20",
+      "id": "herreria_vetrheim-16__poi__capital_regional_1534_2138__herreria__20",
       "tipo": "herreria",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:herreria:20",
       "cx": 126,
@@ -2171,7 +2171,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "peleteria_vetrheim-16:poi:capital_regional_1534_2138:peleteria:7",
+      "id": "peleteria_vetrheim-16__poi__capital_regional_1534_2138__peleteria__7",
       "tipo": "peleteria",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:peleteria:7",
       "cx": 80.3,
@@ -2194,7 +2194,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "taller_arquero_vetrheim-16:poi:capital_regional_1534_2138:taller_arquero:11",
+      "id": "taller_arquero_vetrheim-16__poi__capital_regional_1534_2138__taller_arquero__11",
       "tipo": "taller_arquero",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:taller_arquero:11",
       "cx": 107.7,
@@ -2217,7 +2217,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_modesta_vetrheim-16:poi:capital_regional_1534_2138:casa_modesta:22",
+      "id": "casa_modesta_vetrheim-16__poi__capital_regional_1534_2138__casa_modesta__22",
       "tipo": "casa_modesta",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:casa_modesta:22",
       "cx": 114.7,
@@ -2240,7 +2240,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_modesta_vetrheim-16:poi:capital_regional_1534_2138:casa_modesta:25",
+      "id": "casa_modesta_vetrheim-16__poi__capital_regional_1534_2138__casa_modesta__25",
       "tipo": "casa_modesta",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:casa_modesta:25",
       "cx": 61.9,
@@ -2263,7 +2263,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "taller_sastre_vetrheim-16:poi:capital_regional_1534_2138:taller_sastre:26",
+      "id": "taller_sastre_vetrheim-16__poi__capital_regional_1534_2138__taller_sastre__26",
       "tipo": "taller_sastre",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:taller_sastre:26",
       "cx": 55,
@@ -2286,7 +2286,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "tienda_vetrheim-16:poi:capital_regional_1534_2138:tienda:10",
+      "id": "tienda_vetrheim-16__poi__capital_regional_1534_2138__tienda__10",
       "tipo": "tienda",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:tienda:10",
       "cx": 52.1,
@@ -2309,7 +2309,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "panaderia_vetrheim-16:poi:capital_regional_1534_2138:panaderia:16",
+      "id": "panaderia_vetrheim-16__poi__capital_regional_1534_2138__panaderia__16",
       "tipo": "panaderia",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:panaderia:16",
       "cx": 63.6,
@@ -2332,7 +2332,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "peleteria_vetrheim-16:poi:capital_regional_1534_2138:peleteria:8",
+      "id": "peleteria_vetrheim-16__poi__capital_regional_1534_2138__peleteria__8",
       "tipo": "peleteria",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:peleteria:8",
       "cx": 79,
@@ -2355,7 +2355,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "taller_arquero_vetrheim-16:poi:capital_regional_1534_2138:taller_arquero:13",
+      "id": "taller_arquero_vetrheim-16__poi__capital_regional_1534_2138__taller_arquero__13",
       "tipo": "taller_arquero",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:taller_arquero:13",
       "cx": 103.7,
@@ -2378,7 +2378,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "astillero_vetrheim-16:poi:capital_regional_1534_2138:astillero:19",
+      "id": "astillero_vetrheim-16__poi__capital_regional_1534_2138__astillero__19",
       "tipo": "astillero",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:astillero:19",
       "cx": 128.4,
@@ -2401,7 +2401,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "botica_vetrheim-16:poi:capital_regional_1534_2138:botica:17",
+      "id": "botica_vetrheim-16__poi__capital_regional_1534_2138__botica__17",
       "tipo": "botica",
       "semilla": "vetrheim-16:poi:capital_regional_1534_2138:botica:17",
       "cx": 140.5,

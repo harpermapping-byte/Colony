@@ -31,63 +31,63 @@
       "tipo": "interior",
       "x": 65,
       "y": 68,
-      "edificio": "campamento_hostil_testzone-01:poi:asentamiento_cultistas_poi_281_272:campamento_hostil:0",
+      "edificio": "campamento_hostil_testzone-01__poi__asentamiento_cultistas_poi_281_272__campamento_hostil__0",
       "tipoEdificioId": "campamento_hostil"
     },
     {
       "tipo": "interior",
       "x": 63,
       "y": 70,
-      "edificio": "arena_combate_testzone-01:poi:asentamiento_cultistas_poi_281_272:arena_combate:8",
+      "edificio": "arena_combate_testzone-01__poi__asentamiento_cultistas_poi_281_272__arena_combate__8",
       "tipoEdificioId": "arena_combate"
     },
     {
       "tipo": "interior",
       "x": 77,
       "y": 71,
-      "edificio": "arena_combate_testzone-01:poi:asentamiento_cultistas_poi_281_272:arena_combate:2",
+      "edificio": "arena_combate_testzone-01__poi__asentamiento_cultistas_poi_281_272__arena_combate__2",
       "tipoEdificioId": "arena_combate"
     },
     {
       "tipo": "interior",
       "x": 54,
       "y": 61,
-      "edificio": "establo_testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:7",
+      "edificio": "establo_testzone-01__poi__asentamiento_cultistas_poi_281_272__establo__7",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
       "x": 73,
       "y": 55,
-      "edificio": "establo_testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:4",
+      "edificio": "establo_testzone-01__poi__asentamiento_cultistas_poi_281_272__establo__4",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
       "x": 46,
       "y": 59,
-      "edificio": "establo_testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:5",
+      "edificio": "establo_testzone-01__poi__asentamiento_cultistas_poi_281_272__establo__5",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
       "x": 43,
       "y": 75,
-      "edificio": "granero_testzone-01:poi:asentamiento_cultistas_poi_281_272:granero:1",
+      "edificio": "granero_testzone-01__poi__asentamiento_cultistas_poi_281_272__granero__1",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
       "x": 72,
       "y": 56,
-      "edificio": "establo_testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:3",
+      "edificio": "establo_testzone-01__poi__asentamiento_cultistas_poi_281_272__establo__3",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
       "x": 41,
       "y": 77,
-      "edificio": "casa_humilde_testzone-01:poi:asentamiento_cultistas_poi_281_272:casa_humilde:6",
+      "edificio": "casa_humilde_testzone-01__poi__asentamiento_cultistas_poi_281_272__casa_humilde__6",
       "tipoEdificioId": "casa_humilde"
     }
   ],
@@ -929,7 +929,7 @@
   ],
   "edificios": [
     {
-      "id": "campamento_hostil_testzone-01:poi:asentamiento_cultistas_poi_281_272:campamento_hostil:0",
+      "id": "campamento_hostil_testzone-01__poi__asentamiento_cultistas_poi_281_272__campamento_hostil__0",
       "tipo": "campamento_hostil",
       "semilla": "testzone-01:poi:asentamiento_cultistas_poi_281_272:campamento_hostil:0",
       "cx": 67.6,
@@ -952,7 +952,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "arena_combate_testzone-01:poi:asentamiento_cultistas_poi_281_272:arena_combate:8",
+      "id": "arena_combate_testzone-01__poi__asentamiento_cultistas_poi_281_272__arena_combate__8",
       "tipo": "arena_combate",
       "semilla": "testzone-01:poi:asentamiento_cultistas_poi_281_272:arena_combate:8",
       "cx": 58.6,
@@ -975,7 +975,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "arena_combate_testzone-01:poi:asentamiento_cultistas_poi_281_272:arena_combate:2",
+      "id": "arena_combate_testzone-01__poi__asentamiento_cultistas_poi_281_272__arena_combate__2",
       "tipo": "arena_combate",
       "semilla": "testzone-01:poi:asentamiento_cultistas_poi_281_272:arena_combate:2",
       "cx": 76.5,
@@ -998,7 +998,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:7",
+      "id": "establo_testzone-01__poi__asentamiento_cultistas_poi_281_272__establo__7",
       "tipo": "establo",
       "semilla": "testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:7",
       "cx": 55.9,
@@ -1027,7 +1027,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:4",
+      "id": "establo_testzone-01__poi__asentamiento_cultistas_poi_281_272__establo__4",
       "tipo": "establo",
       "semilla": "testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:4",
       "cx": 77.3,
@@ -1050,7 +1050,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:5",
+      "id": "establo_testzone-01__poi__asentamiento_cultistas_poi_281_272__establo__5",
       "tipo": "establo",
       "semilla": "testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:5",
       "cx": 43,
@@ -1079,7 +1079,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "granero_testzone-01:poi:asentamiento_cultistas_poi_281_272:granero:1",
+      "id": "granero_testzone-01__poi__asentamiento_cultistas_poi_281_272__granero__1",
       "tipo": "granero",
       "semilla": "testzone-01:poi:asentamiento_cultistas_poi_281_272:granero:1",
       "cx": 47,
@@ -1108,7 +1108,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "establo_testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:3",
+      "id": "establo_testzone-01__poi__asentamiento_cultistas_poi_281_272__establo__3",
       "tipo": "establo",
       "semilla": "testzone-01:poi:asentamiento_cultistas_poi_281_272:establo:3",
       "cx": 69.4,
@@ -1131,7 +1131,7 @@
       "reservadoJugador": false
     },
     {
-      "id": "casa_humilde_testzone-01:poi:asentamiento_cultistas_poi_281_272:casa_humilde:6",
+      "id": "casa_humilde_testzone-01__poi__asentamiento_cultistas_poi_281_272__casa_humilde__6",
       "tipo": "casa_humilde",
       "semilla": "testzone-01:poi:asentamiento_cultistas_poi_281_272:casa_humilde:6",
       "cx": 38.7,
