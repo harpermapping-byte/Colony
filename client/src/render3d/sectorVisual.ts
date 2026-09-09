@@ -971,7 +971,20 @@ async function crearPropsSector(
           const escala = new THREE.Vector3();
           const ejeY = new THREE.Vector3(0, 1, 0);
           grupo.objetos.forEach(({ globalX, globalY, obj }, indice2) => {
-            posicion.set(globalX + 0.5, 0, globalY + 0.5);
+            // Bug real encontrado 2026-09-09 (construyendo la silueta de
+            // ciudad): esta rama usaba SIEMPRE +0.5 (centro de UNA casilla),
+            // a diferencia de la rama placeholder de arriba, que sí lee
+            // `obj.dx/dy` (el centro REAL sub-casilla que ciudades/
+            // instanciasPOI.js ya calculan para cualquier "edificio" —
+            // `puerta_asentamiento`/`ciudad_<tier>` incluidos, ambos con
+            // huella PAR de casillas, centro en fracción .0, nunca .5). Con
+            // +0.5 fijo, cualquier edificio real (.glb) cuyo centro no cayera
+            // justo en .5 se renderizaba desplazado hasta 0.5 casillas de su
+            // huella de colisión real — mismo criterio que ya usaba la rama
+            // placeholder, ahora igualado aquí.
+            const centroX = grupo.tipo === "e" && obj.dx !== undefined ? obj.dx : 0.5;
+            const centroZ = grupo.tipo === "e" && obj.dy !== undefined ? obj.dy : 0.5;
+            posicion.set(globalX + centroX, 0, globalY + centroZ);
             rotacion.setFromAxisAngle(ejeY, THREE.MathUtils.degToRad(obj.ro || 0));
             escala.setScalar(obj.es || 1);
             matriz.compose(posicion, rotacion, escala);

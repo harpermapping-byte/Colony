@@ -173,9 +173,119 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
     return { generarMazmorra, catalogosMazmorra };
   }
 
+  // Silueta 3D real del asentamiento (bug real 2026-09-09, "se sigue
+  // viendo... cuadrado morado" — taller-vox/generarSiluetaCiudad.js):
+  // ÚNICA por instancia (cada ciudad tiene su propio polígono de muralla
+  // real), así que se genera y exporta AQUÍ MISMO, en el proceso de
+  // bakeo, con un id que incluye el slug entero — nunca comparte `.glb`
+  // con otro asentamiento del mismo tier. `assets/edificios/` vive fuera
+  // de `carpetaSalida` (que es la salida DE ESTE MAPA, `output/<nombre>/`
+  // o `assets/mapas/<nombre>/` si ya está en su sitio) — es la carpeta de
+  // ARTE compartida de todo el repo, la misma que ya usa taller-vox.
+  let generarSiluetaCiudad = null;
+  let exportarModeloGlb = null;
+  const carpetaAssetsEdificios = path.join(__dirname, "..", "..", "assets", "edificios");
+  function generarYExportarSilueta(ciudad, semillaPOI, slug) {
+    if (!generarSiluetaCiudad) ({ generarSiluetaCiudad } = require("../../taller-vox/generarSiluetaCiudad"));
+    if (!exportarModeloGlb) ({ exportarModelo: exportarModeloGlb } = require("../../taller-vox/exportar_glb"));
+    const id = `ciudad_${slug}`;
+    const rnd = crearPRNG(semillaDesdeTexto(`${semillaPOI}:silueta`));
+    const modelo = generarSiluetaCiudad(ciudad, rnd);
+    fs.mkdirSync(carpetaAssetsEdificios, { recursive: true });
+    exportarModeloGlb(modelo, id, path.join(carpetaAssetsEdificios, `${id}_01.glb`), 0.1, false);
+    return id;
+  }
+
   const portales = [];
   const objetosPorPOI = new Map();
   const decoracionPorPOI = new Map();
+
+  /**
+   * Silueta 3D + puerta funcional de CUALQUIER asentamiento (civil u
+   * hostil, comparten exactamente el mismo `ciudad` real de `ciudades/`)
+   * — factorizado de la rama "asentamiento" tras confirmar que la rama
+   * "mazmorra" con `estiloExterior:"asentamiento"` (campamentos hostiles)
+   * tenía el MISMO bug de origen y encima NUNCA dejaba ni caja ni footprint
+   * sólido (bug real encontrado 2026-09-09 auditando esta función para el
+   * fix de la silueta: un campamento hostil no reservaba `objetosPorPOI`
+   * en absoluto, así que su terreno se quedaba sin marcar "solar_edificio"
+   * — vegetación normal podía superponerse a sus edificios, y su portal
+   * seguía en el centro exacto, igual de inalcanzable que la capital antes
+   * del fix de esta misma noche).
+   */
+  function colocarSiluetaYPuertaDeAsentamiento(ciudad, poi, slug, semillaPOI) {
+    const tipoEdificioIdCiudad = generarYExportarSilueta(ciudad, semillaPOI, slug);
+    objetosPorPOI.set(slug, {
+      x: poi.x,
+      y: poi.y,
+      huella: [ciudad.ancho, ciudad.alto],
+      objeto: {
+        i: tipoEdificioIdCiudad,
+        t: "e",
+        va: 0, // única variante real por instancia — nunca un pool compartido
+        ro: 0,
+        es: 1,
+        w: ciudad.ancho,
+        h: ciudad.alto,
+        dx: 0,
+        dy: 0,
+      },
+    });
+
+    // Puerta real (bug real cerrado 2026-09-09, pedido streamer jugando:
+    // "la capital sigue viéndose por fuera un placeholder, debería verse
+    // una aldea con puerta y poder entrar por ella"): el portal vivía en
+    // el CENTRO GEOMÉTRICO del asentamiento — el mismo punto que el
+    // bloque de arriba reserva entero como `solar_edificio` (terreno
+    // bloqueado) — así que NINGÚN jugador podía llegar nunca a
+    // `RADIO_INTERACCION` de él: inalcanzable a pie, no solo feo. Se añade
+    // una estructura de puerta real y pequeña (huella fija [6,2],
+    // `taller-vox/generar_puerta_asentamiento.js`, mismo tipoEdificioId
+    // sintético -> mismo camino `t:"e"` que la silueta, cero cambio de
+    // cliente) pegada al borde SUR de la silueta, y el portal se mueve
+    // justo delante de ELLA (mismo convenio "+1 fila fuera de la huella"
+    // que ya usa el POI "edificio" suelto) — terreno normal, caminable,
+    // fuera de cualquier huella sólida.
+    const anchoPuerta = 6, altoPuerta = 2;
+    const bordeSurCiudad = poi.y + ciudad.alto / 2;
+    const centroPuertaY = bordeSurCiudad + altoPuerta / 2;
+    objetosPorPOI.set(`${slug}_puerta`, {
+      x: poi.x,
+      y: centroPuertaY,
+      huella: [anchoPuerta, altoPuerta],
+      objeto: {
+        i: "puerta_asentamiento",
+        t: "e",
+        va: semillaDesdeTexto(`${semillaPOI}:puerta`) % VARIANTES_EDIFICIO,
+        ro: 0,
+        es: 1,
+        w: anchoPuerta,
+        h: altoPuerta,
+        dx: 0,
+        dy: 0,
+      },
+    });
+    const puertaX = Math.round(poi.x);
+    const puertaY = Math.round(bordeSurCiudad + altoPuerta) + 1;
+    portales.push({
+      tipo: "exterior",
+      x: puertaX,
+      y: puertaY,
+      // RELATIVO a propósito (bug real 2026-09-09, "la puerta de la
+      // capital da ENOENT al cruzarla"): antes se horneaba
+      // `${mapaId}/pois/${slug}` con el `mapaId` de ESTE bake (derivado
+      // del nombre de la carpeta de SALIDA, `carpetaSalidaResuelta` en
+      // generar.js) — pero el mapa se PROMOCIONA después a una carpeta
+      // con OTRO nombre (`output/vetrheim` -> `assets/mapas/principal/`),
+      // así que la ruta absoluta horneada quedaba apuntando a una
+      // carpeta que no existe en producción. Guardar solo la parte
+      // relativa y dejar que HubRoom/RegionRoom la resuelvan con SU
+      // propio `mapaIdPropio` (que sí refleja la carpeta real de
+      // despliegue, `path.basename(RUTA_MAPA)`) sobrevive a cualquier
+      // renombrado futuro sin tocar el bake.
+      destino: { tipo: "region", mapaId: `pois/${slug}` },
+    });
+  }
 
   for (const poi of pois) {
     const def = buscarDefinicion(poi, catalogoPOIs);
@@ -191,94 +301,7 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
       onProgreso(`  POI "${poi.id}" (asentamiento, ${def.tier}) en (${poi.x},${poi.y})...`);
       const ciudad = hornearCiudadPerezoso()(def.tier, semillaPOI, carpetaPOI);
       await poblarAsentamiento(def.tier, semillaPOI, carpetaPOI, onProgreso);
-      // Prop 3D exterior de la ciudad (docs/GDD_Bakeador_POIs.md §4.4,
-      // pedido streamer 2026-09-08) — "desde el mapa exterior la ciudad
-      // entera se ve como UNA miniatura 3D amurallada... TODO su volumen
-      // bloquea el paso". Antes esta rama solo dejaba el portal — un
-      // asentamiento no tenía NINGÚN rastro visual/de colisión en el mapa
-      // padre. Reusa EXACTAMENTE el mismo mecanismo genérico que ya usan
-      // los POI "edificio" (mismo `t:"e"`, mismo `objetosPorPOI`, cero
-      // cambio de cliente/servidor: `sectorVisual.ts` ya prueba
-      // `assets/edificios/<tipoEdificioId>_NN.glb` por convención de
-      // nombre) — un `tipoEdificioId` sintético (`ciudad_<tier>`) que
-      // hoy no tiene ningún `.glb` real cae automáticamente al placeholder
-      // de caja ya existente, exactamente el "mientras tanto" que pide el
-      // propio GDD; el `.glb` real de la miniatura es arte pendiente
-      // aparte, no una pieza de código nueva. Huella = el footprint REAL
-      // de la ciudad entera (`ciudad.ancho`/`ciudad.alto`, casillas), no
-      // el tamaño fijo de un edificio suelto.
-      const tipoEdificioIdCiudad = `ciudad_${def.tier}`;
-      objetosPorPOI.set(slug, {
-        x: poi.x,
-        y: poi.y,
-        huella: [ciudad.ancho, ciudad.alto],
-        objeto: {
-          i: tipoEdificioIdCiudad,
-          t: "e",
-          va: semillaDesdeTexto(semillaPOI) % VARIANTES_EDIFICIO,
-          ro: 0,
-          es: 1,
-          w: ciudad.ancho,
-          h: ciudad.alto,
-          dx: 0,
-          dy: 0,
-        },
-      });
-
-      // Puerta de asentamiento REAL (bug real cerrado 2026-09-09, pedido
-      // streamer jugando: "la capital sigue viéndose por fuera un
-      // placeholder, debería verse una aldea con puerta y poder entrar por
-      // ella"): antes el portal se dejaba en el CENTRO GEOMÉTRICO de la
-      // ciudad (`poi.x,poi.y`) — el mismo punto que el bloque de arriba
-      // reserva entero como `solar_edificio` (terreno bloqueado), así que
-      // NINGÚN jugador podía llegar nunca a `RADIO_INTERACCION` de él: la
-      // puerta era matemáticamente inalcanzable a pie, no solo fea. Se
-      // añade una estructura de puerta real y pequeña (huella fija [6,2],
-      // `taller-vox/generar_puerta_asentamiento.js`, mismo tipoEdificioId
-      // sintético -> mismo camino `t:"e"` que la caja grande, cero cambio
-      // de cliente) pegada al borde SUR de la caja grande, y el portal se
-      // mueve justo delante de ELLA (mismo convenio "+1 fila fuera de la
-      // huella" que ya usa el POI "edificio" suelto más abajo) — terreno
-      // normal, caminable, fuera de cualquier huella sólida.
-      const anchoPuerta = 6, altoPuerta = 2;
-      const bordeSurCiudad = poi.y + ciudad.alto / 2;
-      const centroPuertaY = bordeSurCiudad + altoPuerta / 2;
-      objetosPorPOI.set(`${slug}_puerta`, {
-        x: poi.x,
-        y: centroPuertaY,
-        huella: [anchoPuerta, altoPuerta],
-        objeto: {
-          i: "puerta_asentamiento",
-          t: "e",
-          va: semillaDesdeTexto(`${semillaPOI}:puerta`) % VARIANTES_EDIFICIO,
-          ro: 0,
-          es: 1,
-          w: anchoPuerta,
-          h: altoPuerta,
-          dx: 0,
-          dy: 0,
-        },
-      });
-      const puertaX = Math.round(poi.x);
-      const puertaY = Math.round(bordeSurCiudad + altoPuerta) + 1;
-      portales.push({
-        tipo: "exterior",
-        x: puertaX,
-        y: puertaY,
-        // RELATIVO a propósito (bug real 2026-09-09, "la puerta de la
-        // capital da ENOENT al cruzarla"): antes se horneaba
-        // `${mapaId}/pois/${slug}` con el `mapaId` de ESTE bake (derivado
-        // del nombre de la carpeta de SALIDA, `carpetaSalidaResuelta` en
-        // generar.js) — pero el mapa se PROMOCIONA después a una carpeta
-        // con OTRO nombre (`output/vetrheim` -> `assets/mapas/principal/`),
-        // así que la ruta absoluta horneada quedaba apuntando a una
-        // carpeta que no existe en producción. Guardar solo la parte
-        // relativa y dejar que HubRoom/RegionRoom la resuelvan con SU
-        // propio `mapaIdPropio` (que sí refleja la carpeta real de
-        // despliegue, `path.basename(RUTA_MAPA)`) sobrevive a cualquier
-        // renombrado futuro sin tocar el bake.
-        destino: { tipo: "region", mapaId: `pois/${slug}` },
-      });
+      colocarSiluetaYPuertaDeAsentamiento(ciudad, poi, slug, semillaPOI);
       continue;
     }
 
@@ -334,12 +357,15 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
         if (!dungeonDef.tierAsentamiento) continue;
         const carpetaPOI = path.join(carpetaSalida, "pois", slug);
         onProgreso(`  POI "${poi.id}" (mazmorra-asentamiento, ${dungeonDef.tierAsentamiento}) en (${poi.x},${poi.y})...`);
-        hornearCiudadPerezoso()(dungeonDef.tierAsentamiento, semillaPOI, carpetaPOI);
-        portales.push({
-          tipo: "exterior", x: poi.x, y: poi.y,
-          // RELATIVO — mismo motivo que la rama "asentamiento" de arriba (ver su comentario).
-          destino: { tipo: "region", mapaId: `pois/${slug}` },
-        });
+        // Bug real cerrado 2026-09-09 (mismo bug de raíz que la rama
+        // "asentamiento" civil, encontrado auditando esta función para su
+        // fix): el `ciudad` que ya devolvía `hornearCiudad` se descartaba
+        // sin usar — un campamento hostil se quedaba sin NINGÚN footprint
+        // sólido (vegetación normal podía superponerse a sus edificios) ni
+        // rastro visual, y su portal seguía en el centro exacto, tan
+        // inalcanzable como la capital antes de esta misma noche.
+        const ciudadHostil = hornearCiudadPerezoso()(dungeonDef.tierAsentamiento, semillaPOI, carpetaPOI);
+        colocarSiluetaYPuertaDeAsentamiento(ciudadHostil, poi, slug, semillaPOI);
         continue;
       }
 
