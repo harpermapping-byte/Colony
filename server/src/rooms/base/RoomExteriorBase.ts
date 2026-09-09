@@ -47,7 +47,7 @@ import {
   resolverAtaqueConHabilidad,
   tirarHuida,
 } from "../../combate/arenaCombate";
-import { Arena, Casilla, costeCasilla } from "../../combate/pathfindingArena";
+import { Arena, Casilla, costeCasilla, casillasAlcanzables } from "../../combate/pathfindingArena";
 import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
 import { recolectableCercano, recolectablesAgotadosDeMapa } from "../../mundo/recolectables";
 import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria, msFaltantesParaRecolectar } from "../../mundo/herramientasRecoleccion";
@@ -1514,6 +1514,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("combate:unirse", (client, msg: { combateId?: string; retorno?: RetornoJugador }) => this.manejarCombateUnirse(client, msg));
     this.onMessage("combate:comenzarYa", (client, msg: { combateId?: string }) => this.manejarCombateComenzarYa(client, msg));
     this.onMessage("combate:mover", (client, msg: { combateId?: string; gx?: number; gy?: number }) => this.manejarCombateMover(client, msg));
+    // Casillas alcanzables con el PA actual (docs/GDD_Combate.md, pedido
+    // streamer 2026-09-09: resaltar en verde ANTES de clicar, no solo
+    // enterarse por el rechazo tras el clic) — bajo demanda, no replicado en
+    // Schema (cambia con cada movimiento/golpe propio Y con el de cualquier
+    // otra unidad que se mueva, recalcularlo en el servidor y mandarlo solo
+    // cuando el cliente lo pide evita mantener un campo replicado que
+    // habría que invalidar constantemente). Ver manejarCombateAlcanzables.
+    this.onMessage("combate:alcanzables", (client, msg: { combateId?: string; unidadId?: string }) => this.manejarCombateAlcanzables(client, msg));
     this.onMessage("combate:accion", (client, msg: { combateId?: string; objetivoId?: string; unidadId?: string; habilidadId?: string }) => this.manejarCombateAccion(client, msg));
     this.onMessage("combate:pasarTurno", (client, msg: { combateId?: string }) => this.manejarCombatePasarTurno(client, msg));
     this.onMessage("combate:huir", (client, msg: { combateId?: string }) => this.manejarCombateHuir(client, msg));
@@ -12245,6 +12253,41 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return cu && cu.duenoSessionId === client.sessionId ? cu : undefined;
     }
     return combate.unidades.get(client.sessionId);
+  }
+
+  /**
+   * Casillas alcanzables con el PA restante de la unidad (pedido streamer
+   * 2026-09-09: resaltarlas en verde en vez de que el jugador solo se
+   * entere por el `combate:error` tras clicar una fuera de alcance) — MISMO
+   * `casillasAlcanzables` (Dijkstra por PA/coste de terreno/ocupación) que
+   * ya usa `manejarCombateMover` para validar de verdad, así lo que se
+   * pinta en el cliente es EXACTAMENTE lo que el servidor aceptaría, nunca
+   * una aproximación aparte que pueda desincronizarse. Bajo demanda (no
+   * Schema replicado): cambia con cada movimiento/golpe PROPIO y con el de
+   * CUALQUIER otra unidad activa (ocupación), mantenerlo como campo
+   * replicado obligaría a invalidarlo en un montón de sitios más — el
+   * cliente simplemente lo vuelve a pedir cuando le hace falta (empieza su
+   * turno, o tras su propio movimiento/ataque).
+   */
+  private manejarCombateAlcanzables(client: Client, msg: { combateId?: string; unidadId?: string }) {
+    if (!msg?.combateId) return;
+    const combate = this.state.combates.get(msg.combateId);
+    if (!combate) return;
+    const cu = this.unidadParaAccion(combate, client, msg.unidadId);
+    if (!cu || cu.estado !== "activo") return client.send("combate:alcanzables", { combateId: msg.combateId, unidadId: msg.unidadId ?? client.sessionId, casillas: [] });
+    const arena = this.arenaDeCombate(combate);
+    const ocupadas = new Set<string>();
+    for (const otra of combate.unidades.values()) {
+      if (otra.id !== cu.id && otra.estado === "activo") ocupadas.add(`${otra.gx},${otra.gy}`);
+    }
+    // Aturdido (mismo criterio que manejarCombateMover/Accion): sin PA que gastar de verdad, nada que resaltar.
+    const casillas = cu.aturdido
+      ? []
+      : [...casillasAlcanzables(arena, { gx: cu.gx, gy: cu.gy }, cu.pa, ocupadas)].map((k) => {
+          const [gx, gy] = k.split(",").map(Number);
+          return { gx, gy };
+        });
+    client.send("combate:alcanzables", { combateId: msg.combateId, unidadId: cu.id, casillas });
   }
 
   private manejarCombateMover(client: Client, msg: { combateId?: string; gx?: number; gy?: number; unidadId?: string }) {

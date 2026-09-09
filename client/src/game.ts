@@ -2130,6 +2130,43 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     $(room.state).combates.onAdd(() => actualizarResaltadoCombate());
     $(room.state).combates.onRemove(() => actualizarResaltadoCombate());
     room.onStateChange(() => actualizarResaltadoCombate());
+
+    // Casillas alcanzables en verde (pedido streamer 2026-09-09: "saldrian
+    // en verde... segun PA" — sin esto, la única forma de saber si una
+    // casilla estaba fuera de alcance era clicarla y que el servidor la
+    // rechazara). NUNCA se calcula aquí: se pide al servidor
+    // (combate:alcanzables, mismo Dijkstra que valida combate:mover de
+    // verdad) y solo se pinta la respuesta — se re-pide cuando cambia algo
+    // que pueda alterar el resultado (mi PA/posición, o la de cualquier
+    // otra unidad activa que pueda bloquear/liberar una casilla), nunca en
+    // cada patch de red sin más (onStateChange dispara con CUALQUIER cambio
+    // de la room, no solo de combate).
+    let firmaAlcanzables = "";
+    const actualizarAlcanzablesSiHaceFalta = () => {
+      const combate = room.state.combates.get(COMBATE_ID) as any;
+      const propia = combate?.unidades.get(room.sessionId);
+      const esMiTurno = !!combate && combate.fase === "activo" && combate.ordenTurnos[combate.turnoActual] === room.sessionId && propia?.estado === "activo";
+      if (!esMiTurno) {
+        if (firmaAlcanzables) { firmaAlcanzables = ""; resaltadoCombate.actualizarAlcanzables(0, 0, []); }
+        return;
+      }
+      const ocupacion = [...combate.unidades.values()]
+        .filter((u: any) => u.estado === "activo")
+        .map((u: any) => `${u.id}:${u.gx},${u.gy}`)
+        .sort()
+        .join("|");
+      const firma = `${propia.pa}:${propia.gx},${propia.gy}:${ocupacion}`;
+      if (firma === firmaAlcanzables) return;
+      firmaAlcanzables = firma;
+      room.send("combate:alcanzables", { combateId: COMBATE_ID });
+    };
+    $(room.state).combates.onAdd(() => actualizarAlcanzablesSiHaceFalta());
+    room.onStateChange(() => actualizarAlcanzablesSiHaceFalta());
+    room.onMessage("combate:alcanzables", (m: { combateId: string; casillas: { gx: number; gy: number }[] }) => {
+      if (m.combateId !== COMBATE_ID) return;
+      const combate = room.state.combates.get(COMBATE_ID) as any;
+      if (combate) resaltadoCombate.actualizarAlcanzables(combate.gx0, combate.gy0, m.casillas);
+    });
   }
 
   // Movimiento/ataque en combate por CLIC (pedido streamer 2026-09-09: "el

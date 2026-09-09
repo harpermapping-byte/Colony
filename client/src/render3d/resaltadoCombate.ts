@@ -16,6 +16,14 @@ const ALTURA_PLANO = 0.05;
 const LADO_PLANO = 0.94; // ligeramente menor que 1 casilla, así se sigue viendo la línea de rejilla alrededor
 const COLOR_BANDO_A = 0x4a90d9; // mi bando (jugador/aliados/compañero) — azulado
 const COLOR_BANDO_B = 0xd94a4a; // bando contrario — rojizo
+// Casillas alcanzables con el PA actual (pedido streamer 2026-09-09:
+// "saldrian en verde... segun PA" — antes solo te enterabas de que una
+// casilla no era alcanzable por el rechazo del servidor TRAS clicar).
+// Opacidad más baja que las de unidad (0.4): son muchas a la vez y no deben
+// competir visualmente con quién está en qué casilla, que es la info más
+// importante.
+const COLOR_ALCANZABLE = 0x5ad96a;
+const OPACIDAD_ALCANZABLE = 0.22;
 
 interface UnidadCombateVista {
   id: string;
@@ -31,7 +39,7 @@ interface CombateVista {
   unidades: { values(): IterableIterator<UnidadCombateVista> };
 }
 
-function crearPlano(): THREE.Mesh {
+function crearPlano(opacidad = 0.4): THREE.Mesh {
   const geometria = new THREE.PlaneGeometry(LADO_PLANO, LADO_PLANO);
   // BUG REAL corregido 2026-09-06 (pedido streamer: "el jugador debe verse
   // por encima del cuadro de color") — el primer intento usaba
@@ -51,7 +59,7 @@ function crearPlano(): THREE.Mesh {
   // manteniendo la oclusión correcta contra cualquier cosa por encima.
   const material = new THREE.MeshBasicMaterial({
     transparent: true,
-    opacity: 0.4,
+    opacity: opacidad,
     depthWrite: false,
     depthTest: true,
     polygonOffset: true,
@@ -67,9 +75,17 @@ function crearPlano(): THREE.Mesh {
 export class ResaltadoCombate {
   private readonly grupo = new THREE.Group();
   private readonly planosPorUnidad = new Map<string, THREE.Mesh>();
+  // Casillas alcanzables (verde) — mapa APARTE, clave "gx,gy" en vez de id
+  // de unidad; grupo propio para poder limpiarlas de golpe sin tocar los
+  // planos de unidad (se recalculan con más frecuencia: cada turno propio y
+  // cada movimiento/ataque propio, mientras que los de unidad solo cambian
+  // con la posición/bando/estado real de cada combatiente).
+  private readonly grupoAlcanzables = new THREE.Group();
+  private readonly planosAlcanzables = new Map<string, THREE.Mesh>();
 
   constructor(escena: { añadirEstatico(objeto: THREE.Object3D): void }) {
     escena.añadirEstatico(this.grupo);
+    escena.añadirEstatico(this.grupoAlcanzables);
   }
 
   /** Reconcilia un plano por unidad ACTIVA — crea/mueve/recolorea el que haga falta, quita los que ya no correspondan. Llamar en cada cambio de estado del combate (mismo criterio que `actualizarPanelCombate`). */
@@ -97,7 +113,37 @@ export class ResaltadoCombate {
     }
   }
 
-  /** Quita todos los planos — llamar al salir de la arena/combate. */
+  /**
+   * Reconcilia las casillas alcanzables en verde (respuesta real del
+   * servidor a `combate:alcanzables` — NUNCA calculado en el cliente, así
+   * lo que se pinta es exactamente lo que `combate:mover` aceptaría, sin
+   * poder desincronizarse de la validación real). `casillas=[]` limpia todo
+   * (turno ajeno, sin PA, aturdido...).
+   */
+  actualizarAlcanzables(gx0: number, gy0: number, casillas: { gx: number; gy: number }[]): void {
+    const vistos = new Set<string>();
+    for (const { gx, gy } of casillas) {
+      const clave = `${gx},${gy}`;
+      vistos.add(clave);
+      let plano = this.planosAlcanzables.get(clave);
+      if (!plano) {
+        plano = crearPlano(OPACIDAD_ALCANZABLE);
+        (plano.material as THREE.MeshBasicMaterial).color.setHex(COLOR_ALCANZABLE);
+        this.planosAlcanzables.set(clave, plano);
+        this.grupoAlcanzables.add(plano);
+      }
+      plano.position.set(gx0 + gx + 0.5, ALTURA_PLANO, gy0 + gy + 0.5);
+    }
+    for (const [clave, plano] of this.planosAlcanzables) {
+      if (vistos.has(clave)) continue;
+      this.grupoAlcanzables.remove(plano);
+      plano.geometry.dispose();
+      (plano.material as THREE.Material).dispose();
+      this.planosAlcanzables.delete(clave);
+    }
+  }
+
+  /** Quita todos los planos (unidad + alcanzables) — llamar al salir de la arena/combate. */
   limpiar(): void {
     for (const plano of this.planosPorUnidad.values()) {
       this.grupo.remove(plano);
@@ -105,5 +151,6 @@ export class ResaltadoCombate {
       (plano.material as THREE.Material).dispose();
     }
     this.planosPorUnidad.clear();
+    this.actualizarAlcanzables(0, 0, []);
   }
 }
