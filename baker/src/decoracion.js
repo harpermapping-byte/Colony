@@ -126,7 +126,16 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
   // factor regional), y solo si acierta se elige QUÉ especie gana,
   // ponderado por su densidadBase relativa — la fauna es bastante más rara
   // que la vegetación a propósito, no se ve un animal en cada casilla.
-  const TECHO_POR_CAPA = { vegetacion: 0.055, fauna: 0.012, rocas: 0.02 };
+  // vegetacion subido de 0.055 a 0.15 (2026-09-09, pedido streamer: "que se
+  // vea más tupido") — medido contra el bake real de Vetrheim/ejemplo-rapido
+  // que el 0.055 original dejaba solo ~1.3% de TODAS las casillas (incluidas
+  // agua/roca/camino, que nunca llevan vegetación) con algo plantado, pese a
+  // que el pool de especies candidatas de una pradera típica ya suma ~19x
+  // ese techo — el cuello de botella real era este número, NO que faltaran
+  // especies en el catálogo (añadir más plantas sin subir esto no cambia la
+  // densidad total, solo reparte el mismo hueco entre más variedad). Sigue
+  // MUY lejos del "casi cada casilla" que motivó bajarlo la primera vez.
+  const TECHO_POR_CAPA = { vegetacion: 0.15, fauna: 0.012, rocas: 0.02 };
   function techoPara(catalogo) {
     return catalogo === catalogoAnimales ? TECHO_POR_CAPA.fauna : catalogo === catalogoRocas ? TECHO_POR_CAPA.rocas : TECHO_POR_CAPA.vegetacion;
   }
