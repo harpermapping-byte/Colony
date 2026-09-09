@@ -784,6 +784,68 @@ async function crearPropsSector(
       const plantilla = await obtenerPlantilla(CATEGORIA_POR_TIPO[grupo.tipo]!, grupo.id, { tipo: "numerada", indice: grupo.variante });
 
       if (plantilla) {
+        // Antes: `plantilla.clone(true)` (deep clone del grafo de nodos) +
+        // `raiz.add()` POR INSTANCIA. Con la mayoría del arte real ya
+        // subido (vegetación 116/116, rocas 39/39, edificios de ciudad
+        // 46/46 — ver CLAUDE.md), esta rama se convirtió SIN que nadie lo
+        // midiera en el camino MAYORITARIO de un sector real: 75-86% de los
+        // props del mapa principal (medido contra los 100 sectores reales
+        // de "Isla 1"), hasta 110-140ms de bloqueo síncrono del hilo
+        // principal en el sector más denso — el tirón real reportado
+        // jugando 2026-09-09 ("se queda quieto y avanza de golpe"), la
+        // segunda causa tras el fix del terreno (crearTerrenoSector). Todo
+        // `.glb` de taller-vox es 1 nodo raíz (Group) + EXACTAMENTE 1 Mesh
+        // hijo, sin transform de nodo (mallado greedy + vertex colors,
+        // nunca esqueleto/jerarquía — confirmado en los ~2.400 `.glb`
+        // reales del repo, cero excepción) — seguro reutilizar su
+        // geometría/material directamente en un único InstancedMesh, mismo
+        // patrón que ya usa la rama placeholder de abajo.
+        const meshReal = plantilla.children.length === 1 && plantilla.children[0] instanceof THREE.Mesh
+          ? (plantilla.children[0] as THREE.Mesh)
+          : null;
+
+        if (meshReal) {
+          meshReal.updateMatrix();
+          const instanciado = new THREE.InstancedMesh(meshReal.geometry, meshReal.material, grupo.objetos.length);
+          instanciado.castShadow = true;
+          instanciado.receiveShadow = true;
+          // OJO: geometría/material son la plantilla COMPARTIDA cacheada en
+          // entityLoader (viva mientras dure la sesión, reusada por
+          // CUALQUIER sector que necesite esta especie+variante) — NUNCA
+          // marcar propioDelSector aquí, o soltarSectorVisual les haría
+          // dispose() y rompería esa geometría para cualquier OTRO sector
+          // materializado con la misma especie a la vez (mismo criterio ya
+          // documentado en la cabecera de este archivo para los clones
+          // `.glb` de antes — solo cambia CÓMO se comparte, no que se
+          // comparta).
+          const matriz = new THREE.Matrix4();
+          const posicion = new THREE.Vector3();
+          const rotacion = new THREE.Quaternion();
+          const escala = new THREE.Vector3();
+          const ejeY = new THREE.Vector3(0, 1, 0);
+          grupo.objetos.forEach(({ globalX, globalY, obj }, indice2) => {
+            posicion.set(globalX + 0.5, 0, globalY + 0.5);
+            rotacion.setFromAxisAngle(ejeY, THREE.MathUtils.degToRad(obj.ro || 0));
+            escala.setScalar(obj.es || 1);
+            matriz.compose(posicion, rotacion, escala);
+            // offset local del mesh dentro de la plantilla — identidad hoy
+            // (verificado), pero compone correcto si algún día deja de serlo.
+            matriz.multiply(meshReal.matrix);
+            instanciado.setMatrixAt(indice2, matriz);
+            ocultables.set(clavePosicion(globalX, globalY), () => {
+              instanciado.setMatrixAt(indice2, matrizCero);
+              instanciado.instanceMatrix.needsUpdate = true;
+            });
+          });
+          instanciado.instanceMatrix.needsUpdate = true;
+          raiz.add(instanciado);
+          return;
+        }
+
+        // Camino de respaldo (guardia de seguridad): si algún `.glb` deja
+        // de cumplir "1 Group + 1 Mesh" (p.ej. una pieza futura con
+        // jerarquía/animación real), esa especie concreta cae sola al clon
+        // individual de siempre — pierde la optimización, nunca rompe nada.
         for (const { globalX, globalY, obj } of grupo.objetos) {
           const instancia = plantilla.clone(true);
           instancia.position.set(globalX + 0.5, 0, globalY + 0.5);
