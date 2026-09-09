@@ -3,6 +3,7 @@ import type { IndiceMapa, SectorBakeado, ObjetoBakeado } from "../mapa/formatoMa
 import { terrenoEn } from "../mapa/formatoMapa";
 import { colorTerreno, colorObjeto, dimensionesObjeto } from "./catalogoVisual";
 import { obtenerPlantilla } from "./entityLoader";
+import { obtenerMallaFaunaDecorativa } from "./faunaDecorativaPool";
 import type { CategoriaAsset } from "./assetCatalog";
 import { crearRigHumanoide } from "./rigHumanoide";
 import { NIVEL_MAXIMO_NIEVE } from "../mundo/nieve";
@@ -779,9 +780,56 @@ async function crearPropsSector(
 
   await Promise.all(
     [...grupos.values()].map(async (grupo) => {
+      // Fauna DECORATIVA (obj.t==="a"): nunca tiene `.glb` en assets/animales/
+      // (fauna estática de fondo, distinta de la fauna VIVA simulada) — su
+      // aspecto sale de un pool pre-generado de mallas fusionadas (mismo
+      // rig procedural que ya usa la fauna viva, `faunaDecorativaPool.ts`),
+      // no de entityLoader/.glb. Antes caía siempre al placeholder de caja
+      // plana (187.241 instancias en el bake real de Vetrheim — el hueco de
+      // arte más grande y más visible del mapa, sin necesitar NINGÚN .glb
+      // nuevo: las 189/189 especies ya tienen rig 3D real).
+      if (grupo.tipo === "a") {
+        const mallaFauna = await obtenerMallaFaunaDecorativa(grupo.id, grupo.variante);
+        if (mallaFauna) {
+          mallaFauna.updateMatrix();
+          const instanciado = new THREE.InstancedMesh(mallaFauna.geometry, mallaFauna.material, grupo.objetos.length);
+          instanciado.castShadow = true;
+          instanciado.receiveShadow = true;
+          // Geometría/material COMPARTIDOS (cacheados en faunaDecorativaPool,
+          // reusados por cualquier sector con la misma especie+variante) —
+          // NUNCA propioDelSector, mismo criterio que la rama .glb de abajo.
+          const matriz = new THREE.Matrix4();
+          const posicion = new THREE.Vector3();
+          const rotacion = new THREE.Quaternion();
+          const escala = new THREE.Vector3();
+          const ejeY = new THREE.Vector3(0, 1, 0);
+          grupo.objetos.forEach(({ globalX, globalY, obj }, indice2) => {
+            posicion.set(globalX + 0.5, 0, globalY + 0.5);
+            rotacion.setFromAxisAngle(ejeY, THREE.MathUtils.degToRad(obj.ro || 0));
+            escala.setScalar(obj.es || 1);
+            matriz.compose(posicion, rotacion, escala);
+            matriz.multiply(mallaFauna.matrix);
+            instanciado.setMatrixAt(indice2, matriz);
+            ocultables.set(clavePosicion(globalX, globalY), () => {
+              instanciado.setMatrixAt(indice2, matrizCero);
+              instanciado.instanceMatrix.needsUpdate = true;
+            });
+          });
+          instanciado.instanceMatrix.needsUpdate = true;
+          raiz.add(instanciado);
+          return;
+        }
+        // Sin pool (fetch fallido o especie sin catálogo — defensivo, no
+        // debería pasar hoy): cae al placeholder de caja de siempre, más
+        // abajo en esta misma función.
+      }
+
       // ¿.glb real de la especie? La sonda va cacheada por URL en
       // entityLoader, así que preguntarlo por cada sector es gratis.
-      const plantilla = await obtenerPlantilla(CATEGORIA_POR_TIPO[grupo.tipo]!, grupo.id, { tipo: "numerada", indice: grupo.variante });
+      const plantilla =
+        grupo.tipo === "a"
+          ? null
+          : await obtenerPlantilla(CATEGORIA_POR_TIPO[grupo.tipo]!, grupo.id, { tipo: "numerada", indice: grupo.variante });
 
       if (plantilla) {
         // Antes: `plantilla.clone(true)` (deep clone del grafo de nodos) +
