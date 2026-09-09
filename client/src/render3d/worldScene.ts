@@ -235,6 +235,21 @@ export class WorldScene {
     this.camera.updateProjectionMatrix();
   }
 
+  /**
+   * Calidad gráfica (docs/GDD_Ajustes.md, pedido streamer 2026-09-09) —
+   * "alta" es EXACTAMENTE el valor fijo que el constructor ya usaba
+   * (cero cambio si nadie toca el ajuste). "baja" apaga sombras (coste real
+   * medido en varias pasadas de rendimiento de esta sesión, CLAUDE.md) y
+   * limita el pixel ratio a 1 — ambos cambiables en caliente sin recrear el
+   * renderer. `antialias` NO se incluye: solo se puede fijar al construir
+   * el `WebGLRenderer`, cambiarlo exigiría reconstruir toda la escena.
+   */
+  fijarCalidadGrafica(nivel: "baja" | "media" | "alta") {
+    const pixelRatioMax = nivel === "alta" ? 2 : nivel === "media" ? 1.5 : 1;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioMax));
+    this.renderer.shadowMap.enabled = nivel !== "baja";
+  }
+
   /** Coordenadas del servidor (x,y en plano top-down) -> plano XZ de Three (Y es la altura). */
   private posicionMundo(x: number, y: number): [number, number] {
     return [x, y]; // el servidor ya habla en casillas: 1 casilla = 1 unidad de mundo

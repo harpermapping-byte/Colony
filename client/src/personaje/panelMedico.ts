@@ -45,6 +45,9 @@ export class PanelMedico {
   private raiz: HTMLDivElement;
   private estado: Record<Zona, EstadoZonaVista> | null = null;
   private enfermedades: EstadoEnfermedadesVista | null = null;
+  private botonCerrar: HTMLButtonElement;
+  private visible = false;
+  private readonly listenersCambio: (() => void)[] = [];
 
   constructor(private opciones: OpcionesPanelMedico) {
     this.raiz = document.createElement("div");
@@ -58,8 +61,43 @@ export class PanelMedico {
     this.raiz.style.borderRadius = "6px";
     this.raiz.style.border = "1px solid #6a3a3a";
     this.raiz.style.minWidth = "220px";
+    this.raiz.style.display = "none"; // pedido streamer 2026-09-09: recogido en el dock, ver dockHud.ts
+
+    this.botonCerrar = document.createElement("button");
+    this.botonCerrar.className = "panel-colony-cerrar";
+    this.botonCerrar.textContent = "✕";
+    this.botonCerrar.title = "Cerrar";
+    this.botonCerrar.style.position = "absolute";
+    this.botonCerrar.style.top = "6px";
+    this.botonCerrar.style.right = "6px";
+    this.botonCerrar.onclick = () => this.alternar();
+
     opciones.contenedor.appendChild(this.raiz);
     this.render();
+
+    window.addEventListener("mousedown", (e) => {
+      if (!this.visible) return;
+      if (e.target instanceof Node && this.raiz.contains(e.target)) return;
+      if (e.target instanceof HTMLElement && e.target.closest(".dock-hud-icono")) return;
+      this.alternar();
+    });
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && this.visible) this.alternar();
+    });
+  }
+
+  alternar() {
+    this.visible = !this.visible;
+    this.raiz.style.display = this.visible ? "block" : "none";
+    for (const cb of this.listenersCambio) cb();
+  }
+
+  estaAbierto() {
+    return this.visible;
+  }
+
+  onCambioEstado(cb: () => void) {
+    this.listenersCambio.push(cb);
   }
 
   actualizarEstado(estado: Record<Zona, EstadoZonaVista>) {
@@ -74,6 +112,7 @@ export class PanelMedico {
 
   private render() {
     this.raiz.innerHTML = "";
+    this.raiz.appendChild(this.botonCerrar);
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "6px";

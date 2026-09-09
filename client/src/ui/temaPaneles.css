@@ -1,24 +1,37 @@
 /**
  * Tema COMPARTIDO de todos los paneles/menús de UI (panelBase.ts/dockHud.ts).
  * Variables centralizadas a propósito: "retocar estéticamente al final" es
- * cambiar ESTE archivo, no cada uno de los paneles que lo usan. Paleta
- * placeholder = la misma pergamino-oscuro que ya usaban panelJugador.ts/
- * panelCombate.ts a mano antes de que existiera este tema compartido.
+ * cambiar ESTE archivo, no cada uno de los paneles que lo usan.
+ *
+ * Estilo "madera + pergamino medieval" (pedido streamer 2026-09-09, con
+ * referencias visuales de otros MMO voxel: marcos de madera tallada, texto
+ * dorado sobre pergamino, dock de iconos circulares) — CSS puro (gradientes
+ * simulando veta de madera y bisel tallado), sin ningún asset de imagen
+ * nuevo. Solo afecta a los paneles ya migrados a `crearMarcoPanel`/
+ * `dockHud.ts` (ver docs/GDD_UI_Paneles.md para el inventario de quién usa
+ * este tema y quién sigue con su estilo inline de siempre) — "luego cada
+ * pestaña se abrirá con su forma" es la migración panel a panel pendiente,
+ * documentada ahí, no resuelta de golpe en este archivo.
  */
 
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap");
+
 :root {
-  --panel-bg: rgba(20, 16, 10, 0.92);
-  --panel-bg-cabecera: rgba(10, 8, 5, 0.55);
-  --panel-borde: #6a5a3a;
-  --panel-texto: #f0e8d8;
-  --panel-texto-tenue: rgba(240, 232, 216, 0.62);
-  --panel-acento: #b8a878;
-  --panel-hover: rgba(255, 255, 255, 0.1);
-  --panel-radio: 6px;
-  --panel-fuente: 13px sans-serif;
-  --panel-sombra: 0 4px 18px rgba(0, 0, 0, 0.5);
-  --dock-bg: rgba(12, 10, 7, 0.85);
-  --error-color: #e08a8a;
+  /* Madera oscura tallada, con un pelín de veta simulada (gradientes, sin imagen). */
+  --panel-bg: linear-gradient(160deg, #4a3420 0%, #3a2716 55%, #2e1f10 100%);
+  --panel-bg-cabecera: linear-gradient(180deg, #2a1c0f, #1c1209);
+  --panel-borde: #1c120a;
+  --panel-borde-tallado: #8a5a2a;
+  --panel-acento: #e0b84a;
+  --panel-texto: #f0ddb0;
+  --panel-texto-tenue: rgba(240, 221, 176, 0.62);
+  --panel-hover: rgba(224, 184, 74, 0.16);
+  --panel-radio: 10px;
+  --panel-fuente-titulo: 700 14px "Cinzel", Georgia, serif;
+  --panel-fuente: 13px "Trebuchet MS", sans-serif;
+  --panel-sombra: 0 6px 22px rgba(0, 0, 0, 0.6), inset 0 0 0 2px var(--panel-borde-tallado), inset 0 0 0 4px rgba(0, 0, 0, 0.35);
+  --dock-bg: linear-gradient(160deg, #4a3420, #2e1f10);
+  --error-color: #e88a6a;
 }
 
 .panel-colony {
@@ -28,7 +41,7 @@
   background: var(--panel-bg);
   color: var(--panel-texto);
   font: var(--panel-fuente);
-  border: 1px solid var(--panel-borde);
+  border: 3px solid var(--panel-borde);
   border-radius: var(--panel-radio);
   box-shadow: var(--panel-sombra);
   max-height: 82vh;
@@ -42,49 +55,52 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 6px 8px 6px 12px;
+  padding: 8px 8px 8px 14px;
   background: var(--panel-bg-cabecera);
-  border-bottom: 1px solid var(--panel-borde);
-  border-radius: var(--panel-radio) var(--panel-radio) 0 0;
-  font-weight: bold;
+  border-bottom: 2px solid var(--panel-borde-tallado);
+  border-radius: 7px 7px 0 0;
+  font: var(--panel-fuente-titulo);
+  color: var(--panel-acento);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  letter-spacing: 0.03em;
   cursor: default;
 }
 
 .panel-colony-cerrar {
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   line-height: 20px;
   padding: 0;
   text-align: center;
-  background: transparent;
-  color: var(--panel-texto);
-  border: 1px solid var(--panel-borde);
-  border-radius: 4px;
+  background: radial-gradient(circle at 35% 30%, #6a4526, #3a2513);
+  color: var(--panel-acento);
+  border: 2px solid var(--panel-borde-tallado);
+  border-radius: 50%;
   font: 12px sans-serif;
   cursor: pointer;
 }
 .panel-colony-cerrar:hover {
-  background: var(--panel-hover);
+  background: radial-gradient(circle at 35% 30%, #8a5a2a, #4a3018);
 }
 
 .panel-colony-cuerpo {
-  padding: 10px 12px;
+  padding: 12px 14px;
   overflow-y: auto;
   user-select: text;
 }
 
 .panel-colony-boton {
-  background: rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, #6a4526, #4a3018);
   color: var(--panel-texto);
-  border: 1px solid var(--panel-borde);
-  border-radius: 4px;
+  border: 1px solid var(--panel-borde-tallado);
+  border-radius: 5px;
   font: inherit;
   padding: 5px 10px;
   cursor: pointer;
 }
 .panel-colony-boton:hover {
-  background: var(--panel-hover);
+  background: linear-gradient(180deg, #8a5a2a, #5a3a1a);
 }
 .panel-colony-boton:disabled {
   opacity: 0.5;
@@ -92,10 +108,10 @@
 }
 
 .panel-colony-input {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.35);
   color: var(--panel-texto);
-  border: 1px solid var(--panel-borde);
-  border-radius: 4px;
+  border: 1px solid var(--panel-borde-tallado);
+  border-radius: 5px;
   font: inherit;
   padding: 6px 8px;
 }
@@ -109,52 +125,54 @@
 
 /* Dock/HUD de iconos — franja fija con un botón por panel registrado.
  * Es el "HUD limpio" pedido: solo iconos visibles, cada uno abre/minimiza
- * su panel. Los paneles nuevos (sin tecla propia) se abren SOLO desde aquí. */
+ * su panel. Los paneles nuevos (sin tecla propia) se abren SOLO desde aquí.
+ * Iconos CIRCULARES con doble marco (madera + dorado), mismo lenguaje
+ * visual que las referencias del streamer. */
 .dock-hud {
   position: fixed;
   left: 50%;
-  bottom: 10px;
+  bottom: 12px;
   transform: translateX(-50%);
   display: flex;
-  gap: 6px;
-  padding: 6px 8px;
+  gap: 8px;
+  padding: 8px 10px;
   background: var(--dock-bg);
-  border: 1px solid var(--panel-borde);
-  border-radius: 10px;
+  border: 3px solid var(--panel-borde);
+  border-radius: 30px;
+  box-shadow: var(--panel-sombra);
   z-index: 30;
   user-select: none;
 }
 
 .dock-hud-icono {
   position: relative;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  font-size: 20px;
+  background: radial-gradient(circle at 35% 30%, #6a4526, #3a2513);
+  border: 2px solid var(--panel-borde-tallado);
+  border-radius: 50%;
   cursor: pointer;
   padding: 0;
 }
 .dock-hud-icono:hover {
-  background: var(--panel-hover);
-  border-color: var(--panel-borde);
+  background: radial-gradient(circle at 35% 30%, #8a5a2a, #4a3018);
 }
 .dock-hud-icono[data-abierto="true"] {
   border-color: var(--panel-acento);
-  background: var(--panel-hover);
+  box-shadow: 0 0 0 2px var(--panel-acento);
 }
 
 .dock-hud-icono-badge {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 9px;
-  height: 9px;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #c0392b;
-  border: 1px solid rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 0, 0, 0.5);
 }

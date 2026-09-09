@@ -28,6 +28,7 @@ export class PanelDialogoNpc {
   private npcIdActual: string | null = null;
   private lineas: LineaDialogo[] = [];
   private esperandoRespuesta = false;
+  private readonly listenersCambio: (() => void)[] = [];
 
   constructor(private opciones: OpcionesPanelDialogoNpc) {
     this.raiz = document.createElement("div");
@@ -116,10 +117,25 @@ export class PanelDialogoNpc {
     this.titulo.appendChild(document.createTextNode(""));
     this.titulo.appendChild(botonCerrar);
     opciones.contenedor.appendChild(this.raiz);
+
+    // Clic fuera cierra (pedido streamer 2026-09-09, mismo criterio que el
+    // resto de paneles — ver panelBase.ts) — ignora los iconos del dock,
+    // que gestionan su propio toggle.
+    window.addEventListener("mousedown", (e) => {
+      if (this.raiz.hidden) return;
+      if (e.target instanceof Node && this.raiz.contains(e.target)) return;
+      if (e.target instanceof HTMLElement && e.target.closest(".dock-hud-icono")) return;
+      this.cerrar();
+    });
   }
 
   estaAbierto(): boolean {
     return !this.raiz.hidden;
+  }
+
+  /** Dock (docs/GDD_UI_Paneles.md) — se dispara en cada abrir/cerrar por cualquier vía. */
+  onCambioEstado(cb: () => void): void {
+    this.listenersCambio.push(cb);
   }
 
   /** `undefined` si el panel está cerrado — para que game.ts sepa si la tecla H debe abrir uno nuevo o cerrar el actual. */
@@ -136,12 +152,15 @@ export class PanelDialogoNpc {
     this.raiz.hidden = false;
     this.renderizarLog();
     this.input.focus();
+    for (const cb of this.listenersCambio) cb();
   }
 
   cerrar() {
+    const estabaAbierto = !this.raiz.hidden;
     this.raiz.hidden = true;
     this.npcIdActual = null;
     this.input.blur();
+    if (estabaAbierto) for (const cb of this.listenersCambio) cb();
   }
 
   private enviarDesdeInput() {

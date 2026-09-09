@@ -14,6 +14,7 @@ import { RenderConstrucciones, type ConstruccionRed } from "./construccion/rende
 import { RenderObjetosMundo } from "./mundo/renderObjetosMundo";
 import { PanelMapaMundo } from "./mapa/panelMapaMundo";
 import { DockHud } from "./ui/dockHud";
+import { resolverTeclaLogica } from "./ajustes/configTeclas";
 import { ModoConstruccion } from "./construccion/constructor";
 import { ColocadorPlantillas } from "./construccion/colocadorPlantillas";
 import { obtenerConstruibleOPlantilla, huellaRotada } from "./construccion/catalogoConstruccion";
@@ -23,7 +24,9 @@ import { PanelCofre } from "./construccion/panelCofre";
 import { PanelSastreLegendario, type DisenoSastre } from "./construccion/panelSastreLegendario";
 import { PanelCarpinteroLegendario, type DisenoCarpintero } from "./construccion/panelCarpinteroLegendario";
 import { PanelIngenieroLegendario, type ProyectoIngeniero } from "./construccion/panelIngenieroLegendario";
-import { reproducirMidi, detenerReproduccion, type TipoInstrumento } from "./audio/instrumentos";
+import { reproducirMidi, detenerReproduccion, fijarVolumenMaestro, type TipoInstrumento } from "./audio/instrumentos";
+import { obtenerVolumenGuardado, obtenerCalidadGuardada } from "./ajustes/configAjustes";
+import { PanelAjustes } from "./ajustes/panelAjustes";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
 import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2, Vector3, Plane, Object3D } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
@@ -232,6 +235,13 @@ const DURACION_ACCION_MS: Record<AccionHerramienta["tipo"], number> = {
  */
 export async function iniciarJuego(contenedor: HTMLElement) {
   const escena = new WorldScene(contenedor, contenedor.clientWidth || 800, contenedor.clientHeight || 600);
+  // Ajustes guardados (docs/GDD_Ajustes.md, pedido streamer 2026-09-09) —
+  // se aplican YA al arrancar, antes de que el jugador toque el panel de
+  // Ajustes; sin nada guardado, esto reproduce el comportamiento de
+  // siempre (volumen 100, calidad "alta" = mismo pixelRatio/sombras fijos
+  // que ya traía el constructor).
+  escena.fijarCalidadGrafica(obtenerCalidadGuardada());
+  fijarVolumenMaestro(obtenerVolumenGuardado());
 
   window.addEventListener("resize", () => {
     escena.resize(contenedor.clientWidth || 800, contenedor.clientHeight || 600);
@@ -585,6 +595,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // CUALQUIER sala: aunque hoy solo se registran paneles del Hub/Region,
   // el dock en sí no asume nada de la sala.
   const dockHud = new DockHud(contenedor);
+
+  // Ajustes (docs/GDD_Ajustes.md, pedido streamer 2026-09-09) — disponible
+  // en CUALQUIER sala, no depende de nada del join.
+  const panelAjustes = new PanelAjustes({
+    contenedor,
+    fijarVolumen: fijarVolumenMaestro,
+    fijarCalidadGrafica: (nivel) => escena.fijarCalidadGrafica(nivel),
+  });
+  dockHud.registrar("ajustes", panelAjustes, { icono: "⚙️", titulo: "Ajustes" });
 
   // Cuenta de jugador (docs/GDD_Cuentas.md): si el token guardado dejó de
   // ser válido (caducó, o el server se reinició y perdió la sesión en
@@ -1505,6 +1524,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     tomarUnguento: () => room.send("medico:tomarUnguento"),
     tomarJarabe: () => room.send("medico:tomarJarabe"),
   });
+  dockHud.registrar("medico", panelMedico, { icono: "🩹", titulo: "Anatomía" });
 
   // Compañero NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — panel
   // PLACEHOLDER de testeo, mismo criterio que panelMedico.
@@ -1519,6 +1539,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     llamar: () => room.send("companero:llamar"),
     fijarParticipaCombate: (activo) => room.send("companero:fijarParticipaCombate", { activo }),
   });
+  dockHud.registrar("companero", panelCompanero, { icono: "🛡️", titulo: "Compañero" });
   room.onMessage("companero:error", (m: { motivo: string }) => console.log("[compañero]", m?.motivo));
   room.onMessage("companero:persuasionFallida", (m: { nombre: string }) => console.log(`[compañero] ${m?.nombre} no se deja convencer todavía`));
   room.onMessage("companero:reclutado", (m: { nombre: string; coste: number }) => console.log(`[compañero] ${m?.nombre} se une por ${m?.coste} Farycoins`));
@@ -2270,6 +2291,25 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("npc:error", (m: { npcId: string; motivo: string }) => {
     panelDialogoNpc.recibirError(m.npcId, m.motivo);
   });
+  // Extraída de la tecla H (más abajo, bloque de keydown) para que el icono
+  // del dock dispare EXACTAMENTE la misma lógica — pedido streamer
+  // 2026-09-09: "hablar con npc debe estar en otro lado, no en pantalla...
+  // zona con diferentes iconos que abran esas pestañas". Con el panel ya
+  // abierto con ESE mismo NPC, cierra (toggle); abierto con OTRO NPC,
+  // cambia de conversación sin más.
+  function alternarDialogoNpc() {
+    const npcCercano = npcParaHablarMasCercano();
+    if (panelDialogoNpc.npcAbierto() && panelDialogoNpc.npcAbierto() === npcCercano?.id) {
+      panelDialogoNpc.cerrar();
+    } else if (npcCercano) {
+      panelDialogoNpc.abrirCon(npcCercano.id, npcCercano.nombre);
+    }
+  }
+  dockHud.registrar(
+    "dialogoNpc",
+    { alternar: alternarDialogoNpc, estaAbierto: () => panelDialogoNpc.estaAbierto(), onCambioEstado: (cb) => panelDialogoNpc.onCambioEstado(cb) },
+    { icono: "💬", titulo: "Hablar con NPC (H)" },
+  );
   // combate:error/combate:armaRota ya se registran arriba (justo tras el
   // join, antes del bloque `if (SALA === "hub")`) — registrarlos otra vez
   // aquí era un listener duplicado real (colyseus.js/nanoevents acumula
@@ -2316,6 +2356,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     dejarEnPropiedad: (mascotaId, propiedadId) => room.send("mascota:dejarEnPropiedad", { mascotaId, propiedadId }),
     ponerMontura: (mascotaId) => room.send("mascota:ponerMontura", { mascotaId }),
   });
+  dockHud.registrar("mascotas", panelMascotas, { icono: "🐾", titulo: "Mascotas (G)" });
   room.onMessage("mascota:lista", (lista: MascotaVista[]) => { panelMascotas.actualizarListado(lista); panelResumen.actualizarMascotas(lista); });
   room.onMessage("mascota:progreso", (m: ProgresoDomesticar) => panelMascotas.actualizarProgreso(m));
   room.onMessage("mascota:domesticada", () => { panelMascotas.actualizarProgreso(null); room.send("mascota:listar"); });
@@ -2912,7 +2953,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // nunca lo notaron porque nadie escribía ahí mientras jugaba de verdad
     // (login/nombrar, siempre con el juego en pausa de facto).
     if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) return;
-    const k = e.key.toLowerCase();
+    // Reasignación de teclas (docs/GDD_Ajustes.md, pedido streamer
+    // 2026-09-09) — ÚNICO punto de integración: traduce la tecla FÍSICA
+    // pulsada a la tecla LÓGICA que el resto de este bloque (sin tocar)
+    // sigue comparando tal cual. Sin ninguna reasignación guardada, esto es
+    // un no-op exacto (mismo `k` de siempre).
+    let k = resolverTeclaLogica(e.key.toLowerCase());
     // bucear/subir: pulsación, no mantenida (el servidor valida el medio)
     if (k === "q" && !teclas.has("q")) room.send("nivel", -1);
     if (k === "e" && !teclas.has("e")) room.send("nivel", 1);
@@ -2995,14 +3041,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // UI de targeting" que combate (C)/coger. Con el panel ya abierto con
     // ESE mismo NPC, H lo cierra (toggle); abierto con OTRO NPC, cambia de
     // conversación sin más (no hace falta cerrar antes).
-    if (k === "h" && !teclas.has("h")) {
-      const npcCercano = npcParaHablarMasCercano();
-      if (panelDialogoNpc.npcAbierto() && panelDialogoNpc.npcAbierto() === npcCercano?.id) {
-        panelDialogoNpc.cerrar();
-      } else if (npcCercano) {
-        panelDialogoNpc.abrirCon(npcCercano.id, npcCercano.nombre);
-      }
-    }
+    if (k === "h" && !teclas.has("h")) alternarDialogoNpc();
     // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería):
     // ESPACIO golpea mientras el panel está en fase FORJAR — mismo criterio
     // "tecla de acción sin targeting" que el resto de este bloque.
@@ -3112,7 +3151,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "f9" && !teclas.has("f9")) panelDebugTestZone?.alternar();
     teclas.add(k);
   });
-  window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));
+  window.addEventListener("keyup", (e) => teclas.delete(resolverTeclaLogica(e.key.toLowerCase())));
   // Bug real reportado por el streamer ("a veces no reconoce el WASD, va
   // trabado"): cambiar de pestaña/ventana con una tecla de movimiento
   // pulsada no siempre dispara su `keyup` (el navegador no lo garantiza

@@ -99,3 +99,17 @@ export async function reproducirMidi(clave: string, tipo: TipoInstrumento, midiU
 export function detenerReproduccion(clave: string): void {
   detenerClave(clave);
 }
+
+/**
+ * Volumen maestro (docs/GDD_Ajustes.md, pedido streamer 2026-09-09) — el
+ * ÚNICO bus de audio real del juego hoy es este (instrumentos MIDI, ver
+ * cabecera del archivo): cada synth se conecta con `.toDestination()`
+ * directo a `Tone.Destination`, así que ajustar ESE nodo global basta, sin
+ * necesidad de un GainNode propio. 0 = mute real (no solo -Infinity dB,
+ * que Tone a veces deja sonar clics); 100 = volumen normal (0dB).
+ */
+export function fijarVolumenMaestro(volumen0a100: number): void {
+  const v = Math.max(0, Math.min(100, volumen0a100));
+  Tone.Destination.mute = v === 0;
+  if (v > 0) Tone.Destination.volume.value = Tone.gainToDb(v / 100);
+}
