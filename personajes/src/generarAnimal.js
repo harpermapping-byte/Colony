@@ -70,14 +70,21 @@ function esqueletoCuadrupedo(p, rasgos, color, rnd) {
     pieza("cabeza", lado * (p.tamCabeza / 2 + 0.004), cabezaY + p.tamCabeza * 0.6, cabezaZ + p.tamCabeza * 0.2, 0.012, ojo, ojo, COLOR_OJO);
   }
 
-  // orejas por rasgo
+  // orejas por rasgo — "ninguna" (reptiles/pinnípedos: lagartos, cocodrilo,
+  // galápago, focas, morsa) no dibuja nada; el resto de valores reales del
+  // catálogo (bug real 2026-09-09, "algunos animales están desproporcionados":
+  // faltaban "cortas" —jabalí/jabalina/jabato— y "ninguna" en esta tabla,
+  // así que su altura salía `undefined*tamCabeza=NaN`, JSON.stringify lo
+  // serializaba como "h":null y el vóxel de oreja quedaba corrupto/invisible).
   const orejas = rasgos.orejas || "puntiagudas";
-  const altoOreja = { largas: 0.9, puntiagudas: 0.45, laterales: 0.2, caidas: 0.65 }[orejas] * p.tamCabeza;
-  const anchoOreja = orejas === "laterales" ? p.tamCabeza * 0.45 : p.tamCabeza * 0.22;
-  for (const lado of [-1, 1]) {
-    const ox = orejas === "laterales" ? lado * (p.tamCabeza / 2 + anchoOreja / 2) : lado * p.tamCabeza * 0.28;
-    const oy = orejas === "laterales" ? cabezaY + p.tamCabeza * 0.6 : cabezaY + p.tamCabeza;
-    pieza("cabeza", ox, oy, cabezaZ - p.tamCabeza * 0.1, anchoOreja, altoOreja, p.tamCabeza * 0.14, ajustarColor(color, -0.05));
+  if (orejas !== "ninguna") {
+    const altoOreja = { largas: 0.9, puntiagudas: 0.45, laterales: 0.2, caidas: 0.65, cortas: 0.28 }[orejas] * p.tamCabeza;
+    const anchoOreja = orejas === "laterales" ? p.tamCabeza * 0.45 : p.tamCabeza * 0.22;
+    for (const lado of [-1, 1]) {
+      const ox = orejas === "laterales" ? lado * (p.tamCabeza / 2 + anchoOreja / 2) : lado * p.tamCabeza * 0.28;
+      const oy = orejas === "laterales" ? cabezaY + p.tamCabeza * 0.6 : cabezaY + p.tamCabeza;
+      pieza("cabeza", ox, oy, cabezaZ - p.tamCabeza * 0.1, anchoOreja, altoOreja, p.tamCabeza * 0.14, ajustarColor(color, -0.05));
+    }
   }
 
   // cuernos por rasgo (cortos = tacos; ramificados = columna + travesaño)
