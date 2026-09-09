@@ -24,9 +24,10 @@ import { PanelCarpinteroLegendario, type DisenoCarpintero } from "./construccion
 import { PanelIngenieroLegendario, type ProyectoIngeniero } from "./construccion/panelIngenieroLegendario";
 import { reproducirMidi, detenerReproduccion, type TipoInstrumento } from "./audio/instrumentos";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
-import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2, Object3D } from "three";
+import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2, Vector3, Plane, Object3D } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
+import { RegistroCombate } from "./combate/registroCombate";
 import { ResaltadoCombate } from "./render3d/resaltadoCombate";
 import { PanelChat } from "./ui/chat";
 import { PanelDialogoNpc } from "./npc/panelDialogoNpc";
@@ -234,6 +235,28 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   window.addEventListener("resize", () => {
     escena.resize(contenedor.clientWidth || 800, contenedor.clientHeight || 600);
   });
+
+  // Registro flotante de eventos de combate (pedido streamer 2026-09-09:
+  // "cuando mueres no sale [texto de] resultado herido") — ver
+  // registroCombate.ts. Independiente de `contenedor`/`escena` de arriba,
+  // así que puede vivir aquí arriba y quedar disponible para el resto de
+  // la función sin depender de qué room sea (`room`/`SALA` todavía no
+  // existen a esta altura).
+  const registroCombate = new RegistroCombate(contenedor);
+
+  // Sonda SOLO-PARA-TESTS (mismo criterio que window.__streaming/__nieve de
+  // más abajo): proyecta una casilla del grid táctico de combate a
+  // coordenadas de PANTALLA reales (CSS px del viewport) — el e2e del clic
+  // para moverte/atacar en combate la usa para disparar un
+  // page.mouse.click(...) de verdad en el sitio exacto de la casilla, en
+  // vez de invocar el handler de clic directamente (probar el camino REAL,
+  // mismo criterio que el resto de e2e de este proyecto).
+  (window as any).__proyectarCasillaCombate = (gx0: number, gy0: number, gx: number, gy: number) => {
+    const punto = new Vector3(gx0 + gx + 0.5, 0, gy0 + gy + 0.5);
+    punto.project(escena.camera);
+    const r = escena.renderer.domElement.getBoundingClientRect();
+    return { x: r.left + ((punto.x + 1) / 2) * r.width, y: r.top + ((1 - punto.y) / 2) * r.height };
+  };
 
   // --- Mundo bakeado por STREAMING de sectores: solo se materializa el
   // anillo alrededor del jugador local; el resto se pide al acercarse y se
@@ -630,13 +653,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // Rechazo de combate:iniciar/accion (lejos, pvp deshabilitado, ya en
   // combate...) — no había NINGÚN listener para esto (encontrado probando
   // la Test Zone 2026-08-31): el jugador pulsaba C y no pasaba nada, sin
-  // ninguna pista de por qué. Solo consola por ahora (mismo criterio que
-  // "[puerta]" arriba), no hay panel de combate con hueco para un texto.
-  room.onMessage("combate:error", (m: { motivo: string }) => console.log("[combate]", m?.motivo));
+  // ninguna pista de por qué. Consola + toast visible (docs/GDD_Combate.md,
+  // pedido streamer 2026-09-09: "no sale [feedback]" — antes solo consola).
+  room.onMessage("combate:error", (m: { motivo: string }) => {
+    console.log("[combate]", m?.motivo);
+    registroCombate.mostrar(m?.motivo ?? "Acción de combate rechazada.", "error");
+  });
   // Rotura probabilística de arma A MITAD de combate (docs/GDD_Combate.md,
-  // 2026-09-03) — solo consola por ahora, mismo criterio que combate:error
-  // (sin toast/panel dedicado todavía, ver panelCombate.ts).
-  room.onMessage("combate:armaRota", (m: { itemId: string }) => console.log("[combate] arma rota en combate:", m?.itemId));
+  // 2026-09-03) — mismo criterio que combate:error de arriba: ahora también
+  // toast, antes solo consola.
+  room.onMessage("combate:armaRota", (m: { itemId: string }) => {
+    console.log("[combate] arma rota en combate:", m?.itemId);
+    registroCombate.mostrar("¡Tu arma se ha roto en combate!", "error");
+  });
   // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): solo informativo — F ya
   // cruza el borde si de verdad hay mapa vecino (mismo criterio "sin UI de
   // targeting/confirmación" que cualquier otra puerta), esto es únicamente
@@ -2009,6 +2038,68 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // Tecla C: ataca al objetivo hostil más cercano dentro de RADIO_COMBATE —
   // mismo criterio de "sin UI de targeting" que ya usa "coger"/"portal:usar".
   const RADIO_COMBATE_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor (server/src/rooms/base/RoomExteriorBase.ts)
+
+  // Nombre legible de un id de unidad de combate (sessionId de jugador, id
+  // de NPC/patrulla, o id de enemigo de mazmorra) para el registro de golpes
+  // de abajo — mismo criterio "bandido, nunca su enemigoId crudo" que ya usa
+  // `enemigos.onAdd` más arriba, reutilizado aquí en vez de guardarlo en
+  // `EstadoJugador` (que no lo tenía, ver registroCombate.ts).
+  const nombreCombateDe = (id: string): string => {
+    if (id === room.sessionId) return "ti";
+    const jugador = jugadores.get(id);
+    if (jugador?.name) return jugador.name;
+    const npc = npcsMeta.get(id);
+    if (npc?.nombre) return npc.nombre;
+    const enemigo = room.state.enemigos.get(id) as any;
+    if (enemigo) return enemigo.enemigoId?.includes("bandido") ? "Bandido" : enemigo.enemigoId;
+    return id;
+  };
+  // Feedback de golpe (pedido streamer 2026-09-09: "cuando mueres no sale
+  // [texto de] resultado herido") — combate:golpe es NUEVO server-side
+  // (RoomExteriorBase.ts::manejarCombateAccion), antes el daño se calculaba
+  // y se tiraba sin más. Solo se muestra si el jugador local participa de
+  // VERDAD en ESE combate concreto (mismo combateId en su propio roster) —
+  // el broadcast es a toda la room de origen (mismo criterio que
+  // "accion:jugador"), así que sin este filtro cualquier pelea ajena en una
+  // room grande ensuciaría la pantalla de todo el mundo.
+  room.onMessage("combate:golpe", (m: { combateId: string; atacanteId: string; objetivoId: string; danio: number; absorbido: number; caido: boolean }) => {
+    const combate = room.state.combates.get(m.combateId) as any;
+    if (!combate?.unidades.get(room.sessionId)) return;
+    const soyAtacante = m.atacanteId === room.sessionId;
+    const soyObjetivo = m.objetivoId === room.sessionId;
+    const sufijoAbsorbido = m.absorbido > 0 ? ` (${m.absorbido} absorbido)` : "";
+    if (soyAtacante) {
+      registroCombate.mostrar(`Le has dado ${m.danio} de daño a ${nombreCombateDe(m.objetivoId)}${sufijoAbsorbido}`, "danoHecho");
+    } else if (soyObjetivo) {
+      registroCombate.mostrar(`${nombreCombateDe(m.atacanteId)} te ha golpeado — ${m.danio} de daño${sufijoAbsorbido}`, "danoRecibido");
+    } else {
+      registroCombate.mostrar(`${nombreCombateDe(m.atacanteId)} golpea a ${nombreCombateDe(m.objetivoId)} (${m.danio})`, "info");
+    }
+    if (m.caido) {
+      registroCombate.mostrar(soyObjetivo ? "Has caído combatiendo." : `${nombreCombateDe(m.objetivoId)} ha caído.`, "muerte");
+    }
+  });
+
+  // Sonda SOLO-PARA-TESTS (mismo criterio que window.__streaming/__nieve/
+  // __proyectarCasillaCombate) — a diferencia de window.__test/__ajedrez
+  // (definidos SOLO dentro de `if (SALA==="hub")`), esta vive aquí porque
+  // el e2e de clic-para-atacar/moverte en combate la necesita DENTRO de la
+  // arena, donde __test/__ajedrez no existen.
+  (window as any).__combateDebug = {
+    sessionId: () => room.sessionId,
+    combates: () => {
+      const salida: { id: string; fase: string; gx0: number; gy0: number; unidades: string[]; unidadesDetalle: { id: string; bando: string; gx: number; gy: number; estado: string; hp: number; pa: number }[] }[] = [];
+      for (const [id, c] of ((room.state as any).combates as Map<string, any>).entries()) {
+        salida.push({
+          id, fase: c.fase, gx0: c.gx0, gy0: c.gy0,
+          unidades: [...c.unidades.keys()],
+          unidadesDetalle: [...c.unidades.values()].map((u: any) => ({ id: u.id, bando: u.bando, gx: u.gx, gy: u.gy, estado: u.estado, hp: u.hp, pa: u.pa })),
+        });
+      }
+      return salida;
+    },
+  };
+
   const panelCombate = new PanelCombate({
     contenedor,
     sessionIdPropio: room.sessionId,
@@ -2039,6 +2130,46 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     $(room.state).combates.onAdd(() => actualizarResaltadoCombate());
     $(room.state).combates.onRemove(() => actualizarResaltadoCombate());
     room.onStateChange(() => actualizarResaltadoCombate());
+  }
+
+  // Movimiento/ataque en combate por CLIC (pedido streamer 2026-09-09: "el
+  // movimiento... con clic sobre casillas... no se movería en WASD") — WASD
+  // (más abajo, dentro de `bucle()`) sigue funcionando igual, un paso por
+  // pulsación; esto es la vía alternativa: clic en una casilla vacía manda
+  // `combate:mover` DIRECTO a esa casilla (el servidor ya hacía el pathfind
+  // completo y cobraba el PA real del camino entero en un solo mensaje —
+  // `manejarCombateMover`/`costeCasilla`, WASD solo lo usaba paso a paso);
+  // clic sobre un enemigo activo manda `combate:accion` (mismo mensaje que
+  // el botón "Atacar" del panel — el golpe especial de arma sigue siendo
+  // solo-botón, sin ambigüedad de qué habilidad querías con un simple
+  // clic). Listener APARTE del de menuInteraccion/construcciones de más
+  // arriba (ese vive dentro de `if (SALA==="hub")`, nunca se registra en
+  // una arena — TypeScript ya lo confirma: `SALA` queda estrechado a
+  // `"hub"` ahí dentro) — sin gate de fase/turno aquí devuelve sin más, el
+  // servidor sigue siendo la autoridad real (rechaza con `combate:error` si
+  // la casilla no es alcanzable con el PA restante).
+  if (SALA === "arena") {
+    const raycasterCombate = new Raycaster();
+    const planoSueloCombate = new Plane(new Vector3(0, 1, 0), 0);
+    escena.renderer.domElement.addEventListener("click", (e) => {
+      const combate = room.state.combates.get(COMBATE_ID) as any;
+      const propia = combate?.unidades.get(room.sessionId);
+      const esMiTurno = !!combate && combate.fase === "activo" && combate.ordenTurnos[combate.turnoActual] === room.sessionId;
+      if (!combate || !propia || propia.estado !== "activo" || !esMiTurno) return;
+      const r = escena.renderer.domElement.getBoundingClientRect();
+      const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      raycasterCombate.setFromCamera(ndc, escena.camera);
+      const punto = new Vector3();
+      if (!raycasterCombate.ray.intersectPlane(planoSueloCombate, punto)) return;
+      const gx = Math.floor(punto.x - combate.gx0);
+      const gy = Math.floor(punto.z - combate.gy0);
+      let objetivoId: string | null = null;
+      for (const u of combate.unidades.values()) {
+        if (u.estado === "activo" && u.bando !== propia.bando && u.gx === gx && u.gy === gy) { objetivoId = u.id; break; }
+      }
+      if (objetivoId) room.send("combate:accion", { combateId: COMBATE_ID, objetivoId });
+      else room.send("combate:mover", { combateId: COMBATE_ID, gx, gy });
+    });
   }
 
   // --- Chat entre jugadores (docs/GDD_Mecanicas.md §5.12, pedido

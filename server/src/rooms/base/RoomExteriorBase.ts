@@ -12674,7 +12674,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // esJugador (fauna/enemigo/npc no tienen equipo real que desgastar).
     if (atacante.esJugador) atacante.golpesDados += golpes;
     if (objetivo.esJugador) objetivo.danoAbsorbido += absorbidoTotal;
-    void danioTotal; // informativo — el daño real ya viaja en objetivo.hp vía aplicarUnidadesASchema
+    // Feedback de golpe (docs/GDD_Combate.md, pedido streamer 2026-09-09:
+    // "cuando mueres no sale [texto de] resultado herido") — `danioTotal`
+    // se calculaba desde siempre pero NUNCA salía de este método (el
+    // comentario que había aquí decía literalmente "informativo, el daño
+    // real ya viaja en objetivo.hp" — cierto para el servidor, pero eso
+    // deja al cliente sin ningún mensaje discreto de "le has dado X" o "has
+    // recibido un golpe", solo el número de HP cambiando en el panel).
+    // Broadcast a TODA la room del combate (arena dedicada, o la room de
+    // origen si es combate "en el sitio") — mismo criterio ya aceptado que
+    // "accion:jugador" un poco más arriba; el cliente filtra por su propio
+    // combate antes de mostrar nada, para no ensuciar con peleas ajenas en
+    // una room grande.
+    this.broadcast("combate:golpe", {
+      combateId: msg.combateId,
+      atacanteId: atacante.id,
+      objetivoId: objetivoActual.id,
+      danio: Math.round(danioTotal),
+      absorbido: Math.round(absorbidoTotal),
+      caido: objetivoActual.estado === "caido",
+    });
 
     // Rotura PROBABILÍSTICA de arma (docs/GDD_Combate.md, pedido streamer
     // 2026-09-03: "cada golpe conectado tiene una probabilidad... de
