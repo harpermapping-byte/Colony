@@ -1,0 +1,160 @@
+/**
+ * Tema COMPARTIDO de todos los paneles/menús de UI (panelBase.ts/dockHud.ts).
+ * Variables centralizadas a propósito: "retocar estéticamente al final" es
+ * cambiar ESTE archivo, no cada uno de los paneles que lo usan. Paleta
+ * placeholder = la misma pergamino-oscuro que ya usaban panelJugador.ts/
+ * panelCombate.ts a mano antes de que existiera este tema compartido.
+ */
+
+:root {
+  --panel-bg: rgba(20, 16, 10, 0.92);
+  --panel-bg-cabecera: rgba(10, 8, 5, 0.55);
+  --panel-borde: #6a5a3a;
+  --panel-texto: #f0e8d8;
+  --panel-texto-tenue: rgba(240, 232, 216, 0.62);
+  --panel-acento: #b8a878;
+  --panel-hover: rgba(255, 255, 255, 0.1);
+  --panel-radio: 6px;
+  --panel-fuente: 13px sans-serif;
+  --panel-sombra: 0 4px 18px rgba(0, 0, 0, 0.5);
+  --dock-bg: rgba(12, 10, 7, 0.85);
+  --error-color: #e08a8a;
+}
+
+.panel-colony {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  color: var(--panel-texto);
+  font: var(--panel-fuente);
+  border: 1px solid var(--panel-borde);
+  border-radius: var(--panel-radio);
+  box-shadow: var(--panel-sombra);
+  max-height: 82vh;
+  min-width: 220px;
+  z-index: 40;
+  user-select: none;
+}
+
+.panel-colony-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px 6px 12px;
+  background: var(--panel-bg-cabecera);
+  border-bottom: 1px solid var(--panel-borde);
+  border-radius: var(--panel-radio) var(--panel-radio) 0 0;
+  font-weight: bold;
+  cursor: default;
+}
+
+.panel-colony-cerrar {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  line-height: 20px;
+  padding: 0;
+  text-align: center;
+  background: transparent;
+  color: var(--panel-texto);
+  border: 1px solid var(--panel-borde);
+  border-radius: 4px;
+  font: 12px sans-serif;
+  cursor: pointer;
+}
+.panel-colony-cerrar:hover {
+  background: var(--panel-hover);
+}
+
+.panel-colony-cuerpo {
+  padding: 10px 12px;
+  overflow-y: auto;
+  user-select: text;
+}
+
+.panel-colony-boton {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--panel-texto);
+  border: 1px solid var(--panel-borde);
+  border-radius: 4px;
+  font: inherit;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.panel-colony-boton:hover {
+  background: var(--panel-hover);
+}
+.panel-colony-boton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.panel-colony-input {
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--panel-texto);
+  border: 1px solid var(--panel-borde);
+  border-radius: 4px;
+  font: inherit;
+  padding: 6px 8px;
+}
+
+.panel-colony-error {
+  color: var(--error-color);
+  font-size: 12px;
+  margin-top: 6px;
+  min-height: 1em;
+}
+
+/* Dock/HUD de iconos — franja fija con un botón por panel registrado.
+ * Es el "HUD limpio" pedido: solo iconos visibles, cada uno abre/minimiza
+ * su panel. Los paneles nuevos (sin tecla propia) se abren SOLO desde aquí. */
+.dock-hud {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--dock-bg);
+  border: 1px solid var(--panel-borde);
+  border-radius: 10px;
+  z-index: 30;
+  user-select: none;
+}
+
+.dock-hud-icono {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+}
+.dock-hud-icono:hover {
+  background: var(--panel-hover);
+  border-color: var(--panel-borde);
+}
+.dock-hud-icono[data-abierto="true"] {
+  border-color: var(--panel-acento);
+  background: var(--panel-hover);
+}
+
+.dock-hud-icono-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #c0392b;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+}

@@ -56,6 +56,7 @@ export class PanelMapaMundo {
   private imagenLista = false;
   private exploracion: DatosExploracion | null = null;
   private visible = false;
+  private readonly listenersCambio: (() => void)[] = [];
 
   constructor(private readonly opciones: OpcionesPanelMapaMundo) {
     this.fondo = document.createElement("div");
@@ -67,20 +68,37 @@ export class PanelMapaMundo {
     this.fondo.style.alignItems = "center";
     this.fondo.style.justifyContent = "center";
     this.fondo.style.flexDirection = "column";
-    this.fondo.onclick = (e) => { if (e.target === this.fondo) this.ocultar(); };
+    this.fondo.onclick = (e) => { if (e.target === this.fondo) this.ocultar(); }; // clic fuera del contenido cierra (pedido streamer 2026-09-09)
+
+    const envoltorio = document.createElement("div");
+    envoltorio.style.position = "relative";
+    envoltorio.style.display = "flex";
+    envoltorio.style.flexDirection = "column";
+    envoltorio.style.alignItems = "center";
+    this.fondo.appendChild(envoltorio);
+
+    const botonCerrar = document.createElement("button");
+    botonCerrar.className = "panel-colony-cerrar";
+    botonCerrar.textContent = "✕";
+    botonCerrar.title = "Cerrar";
+    botonCerrar.style.position = "absolute";
+    botonCerrar.style.top = "-4px";
+    botonCerrar.style.right = "-4px";
+    botonCerrar.onclick = () => this.ocultar();
+    envoltorio.appendChild(botonCerrar);
 
     const titulo = document.createElement("div");
     titulo.textContent = `Mapa — ${opciones.indice.nombre}`;
     titulo.style.color = "#e8e8f0";
     titulo.style.font = "bold 15px sans-serif";
     titulo.style.marginBottom = "8px";
-    this.fondo.appendChild(titulo);
+    envoltorio.appendChild(titulo);
 
     this.canvas = document.createElement("canvas");
     this.canvas.style.border = "2px solid #4a4560";
     this.canvas.style.borderRadius = "4px";
     this.canvas.style.background = "#000";
-    this.fondo.appendChild(this.canvas);
+    envoltorio.appendChild(this.canvas);
     this.ctx = this.canvas.getContext("2d")!;
     this.nieblaCanvas = document.createElement("canvas"); // nunca se añade al DOM, solo buffer intermedio
     this.nieblaCtx = this.nieblaCanvas.getContext("2d")!;
@@ -114,16 +132,27 @@ export class PanelMapaMundo {
     else this.mostrar();
   }
 
+  estaAbierto(): boolean {
+    return this.visible;
+  }
+
+  /** Dock (docs/... pendiente) — se dispara en cada abrir/cerrar por cualquier vía (X, clic fuera, Escape, M). */
+  onCambioEstado(cb: () => void): void {
+    this.listenersCambio.push(cb);
+  }
+
   private mostrar(): void {
     this.visible = true;
     this.fondo.style.display = "flex";
     this.opciones.consultarExploracion(); // siempre pide fresco al abrir — barato, un solo mensaje
     if (this.imagenLista) this.dibujar();
+    for (const cb of this.listenersCambio) cb();
   }
 
   private ocultar(): void {
     this.visible = false;
     this.fondo.style.display = "none";
+    for (const cb of this.listenersCambio) cb();
   }
 
   private dibujar(): void {

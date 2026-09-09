@@ -54,6 +54,8 @@ export interface OpcionesPanelResumen {
 export class PanelResumen {
   private readonly fondo: HTMLDivElement;
   private readonly cuerpo: HTMLDivElement;
+  private botonCerrar!: HTMLButtonElement;
+  private readonly listenersCambio: (() => void)[] = [];
   private visible = false;
   private mascotas: MascotaVista[] = [];
   private propiedades: PropiedadVista[] | null = null; // null = todavía no ha llegado ningún snapshot
@@ -68,9 +70,10 @@ export class PanelResumen {
     this.fondo.style.zIndex = "70";
     this.fondo.style.alignItems = "center";
     this.fondo.style.justifyContent = "center";
-    this.fondo.onclick = (e) => { if (e.target === this.fondo) this.ocultar(); };
+    this.fondo.onclick = (e) => { if (e.target === this.fondo) this.ocultar(); }; // clic fuera del contenido cierra (pedido streamer 2026-09-09)
 
     this.cuerpo = document.createElement("div");
+    this.cuerpo.style.position = "relative";
     this.cuerpo.style.background = "rgba(18,16,22,0.96)";
     this.cuerpo.style.color = "#e8e0f0";
     this.cuerpo.style.font = "13px sans-serif";
@@ -81,6 +84,16 @@ export class PanelResumen {
     this.cuerpo.style.maxHeight = "80vh";
     this.cuerpo.style.overflowY = "auto";
     this.fondo.appendChild(this.cuerpo);
+
+    const botonCerrar = document.createElement("button");
+    botonCerrar.className = "panel-colony-cerrar";
+    botonCerrar.textContent = "✕";
+    botonCerrar.title = "Cerrar";
+    botonCerrar.style.position = "absolute";
+    botonCerrar.style.top = "10px";
+    botonCerrar.style.right = "10px";
+    botonCerrar.onclick = () => this.ocultar();
+    this.botonCerrar = botonCerrar;
 
     document.body.appendChild(this.fondo);
 
@@ -112,20 +125,32 @@ export class PanelResumen {
     else this.mostrar();
   }
 
+  estaAbierto(): boolean {
+    return this.visible;
+  }
+
+  /** Dock (docs/... pendiente) — se dispara en cada abrir/cerrar por cualquier vía (X, clic fuera, Escape, Tab). */
+  onCambioEstado(cb: () => void): void {
+    this.listenersCambio.push(cb);
+  }
+
   private mostrar(): void {
     this.visible = true;
     this.fondo.style.display = "flex";
     this.opciones.consultarPropiedades(); // siempre pide fresco al abrir — barato, un solo mensaje
     this.render();
+    for (const cb of this.listenersCambio) cb();
   }
 
   private ocultar(): void {
     this.visible = false;
     this.fondo.style.display = "none";
+    for (const cb of this.listenersCambio) cb();
   }
 
   private render(): void {
     this.cuerpo.innerHTML = "";
+    this.cuerpo.appendChild(this.botonCerrar); // innerHTML="" arriba lo borra cada vez — se re-añade en cada render
 
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";

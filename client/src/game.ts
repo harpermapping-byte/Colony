@@ -13,6 +13,7 @@ import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelas
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
 import { RenderObjetosMundo } from "./mundo/renderObjetosMundo";
 import { PanelMapaMundo } from "./mapa/panelMapaMundo";
+import { DockHud } from "./ui/dockHud";
 import { ModoConstruccion } from "./construccion/constructor";
 import { ColocadorPlantillas } from "./construccion/colocadorPlantillas";
 import { obtenerConstruibleOPlantilla, huellaRotada } from "./construccion/catalogoConstruccion";
@@ -507,11 +508,23 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // región/interior de ciudades/ no es terreno de jugadores todavía.
   const parcelasArchivo = SALA === "hub" ? await cargarParcelas(RUTA_MAPA) : null;
 
-  // Nombre del jugador local: ?nombre=... en la URL si viene (tests e2e y
-  // futuro login), si no el Viewer-aleatorio de siempre. Math.random vale:
-  // no es generación determinista, solo un apodo de sesión.
+  // Nombre del jugador local: ?nombre=... en la URL si viene (tests e2e),
+  // si no el de la cuenta logueada (pantallaBienvenida.ts guarda
+  // "playerNombre" en localStorage al loguearse/registrarse), si no el
+  // Viewer-aleatorio de siempre. Math.random vale: no es generación
+  // determinista, solo un apodo de sesión.
   const nombreJugador =
-    new URLSearchParams(location.search).get("nombre") || `Viewer-${Math.floor(Math.random() * 1000)}`;
+    new URLSearchParams(location.search).get("nombre") ||
+    localStorage.getItem("playerNombre") ||
+    `Viewer-${Math.floor(Math.random() * 1000)}`;
+
+  // Cuenta de jugador real (docs/GDD_Cuentas.md, pedido streamer
+  // 2026-09-09) — MISMO patrón que twitchSession/adminSession justo abajo,
+  // salvo que se guarda en `localStorage` (no `sessionStorage`): una cuenta
+  // se espera que dure días/semanas sin volver a loguearse, no solo lo que
+  // dure la pestaña. Sin sesión guardada, todo sigue exactamente igual que
+  // siempre (invitado por nombre libre).
+  const playerSession = localStorage.getItem("playerSession") || undefined;
 
   // Login con Twitch (docs/GDD_Twitch.md §7, pedido 2026-08-30): el token
   // llega en la URL solo la primera vez (redirect de vuelta de /auth/twitch/
@@ -541,9 +554,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // en el servidor, así que dos jugadores en el MISMO sitio comparten room.
   const room =
     SALA === "region"
-      ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y, twitchSession, adminSession })
+      ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y, twitchSession, adminSession, playerSession })
       : SALA === "arena"
-        ? await client.joinOrCreate("arena", { name: nombreJugador, combateId: COMBATE_ID, twitchSession, adminSession })
+        ? await client.joinOrCreate("arena", { name: nombreJugador, combateId: COMBATE_ID, twitchSession, adminSession, playerSession })
         : ES_INTERIOR
           ? await client.joinOrCreate(SALA === "mazmorra" ? "mazmorra" : "interior", {
               name: nombreJugador,
@@ -554,6 +567,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
               entradaY: ENTRADA_Y,
               twitchSession,
               adminSession,
+              playerSession,
             })
           : MAPA_ID
             // Barcos y navegación marítima (docs/GDD_Barcos.md, pedido
@@ -561,9 +575,27 @@ export async function iniciarJuego(contenedor: HTMLElement) {
             // mapa exterior — mismo "hub" de siempre, pero server/src/index.ts
             // lo registra también como "hub_mapa" (filterBy mapaId) para no
             // tocar el join normal (sin mapaId) de toda la vida.
-            ? await client.joinOrCreate("hub_mapa", { name: nombreJugador, mapaId: MAPA_ID, twitchSession, adminSession })
-            : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession, adminSession });
+            ? await client.joinOrCreate("hub_mapa", { name: nombreJugador, mapaId: MAPA_ID, twitchSession, adminSession, playerSession })
+            : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession, adminSession, playerSession });
   const $ = getStateCallbacks(room);
+
+  // Dock de iconos del HUD (docs/... pendiente, pedido streamer 2026-09-09:
+  // "HUD limpia con algún emoticono que abre esa pestaña") — se registra
+  // cada panel justo donde ya se construye, más abajo. Disponible en
+  // CUALQUIER sala: aunque hoy solo se registran paneles del Hub/Region,
+  // el dock en sí no asume nada de la sala.
+  const dockHud = new DockHud(contenedor);
+
+  // Cuenta de jugador (docs/GDD_Cuentas.md): si el token guardado dejó de
+  // ser válido (caducó, o el server se reinició y perdió la sesión en
+  // memoria — mismo criterio que twitch/admin), se limpia localStorage para
+  // que la próxima carga vuelva a pedir login en vez de quedarse pensando
+  // que sigue logueado. Disponible en CUALQUIER sala, igual que la sonda de
+  // test de abajo — crearJugador() manda esto desde las 5 room types.
+  room.onMessage("jugador:sesionInvalida", () => {
+    localStorage.removeItem("playerSession");
+    localStorage.removeItem("playerNombre");
+  });
 
   // Sonda mínima SOLO-PARA-TESTS, disponible en CUALQUIER sala (a
   // diferencia de `window.__test` de abajo, que solo existe dentro del
@@ -797,6 +829,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         consultarExploracion: () => room.send("mapa:consultarExploracion"),
       });
       room.onMessage("mapa:exploracion", (m: { sectores: number[]; tilesPorSector: number }) => panelMapaMundo?.aplicarExploracion(m));
+      dockHud.registrar("mapa", panelMapaMundo, { icono: "🗺️", titulo: "Mapa (M)" });
     }
 
     // Los onMessage se registran SIEMPRE (aunque el servidor desplegado aún no
@@ -2298,6 +2331,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     consultarPropiedades: () => room.send("propiedad:listarMias"),
   });
   room.onMessage("propiedad:misPropiedades", (lista: PropiedadVista[]) => panelResumen.actualizarPropiedades(lista));
+  dockHud.registrar("resumen", panelResumen, { icono: "📜", titulo: "Resumen (Tab)" });
 
   // --- Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30) —
   // panel PLACEHOLDER de testeo (ver panelComercio.ts). Tecla T: propone
@@ -2395,6 +2429,21 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   });
   room.onMessage("equipo:error", (m: { motivo: string }) => console.log("[equipo]", m?.motivo));
   room.onMessage("inventario:error", (m: { motivo: string }) => console.log("[inventario]", m?.motivo));
+  // Adaptador, no el panel directo: abrir por icono debe refrescar el
+  // contenido de inmediato, igual que ya hace la tecla I más abajo (sin
+  // esto, el panel se abría en blanco hasta el siguiente cambio de red).
+  dockHud.registrar(
+    "personaje",
+    {
+      alternar: () => {
+        panelJugador.alternar();
+        if (panelJugador.estaVisible()) panelJugador.actualizar(room.state.players.get(room.sessionId));
+      },
+      estaAbierto: () => panelJugador.estaAbierto(),
+      onCambioEstado: (cb) => panelJugador.onCambioEstado(cb),
+    },
+    { icono: "🎒", titulo: "Personaje / Inventario (I)" },
+  );
 
   // --- Login con Twitch (docs/GDD_Twitch.md §7) — PLACEHOLDER de testeo,
   // mismo criterio que el resto de paneles de esta pasada: un enlace suelto

@@ -96,6 +96,9 @@ export class PanelJugador {
   private raiz: HTMLDivElement;
   private visible = false;
 
+  private readonly botonCerrar: HTMLButtonElement;
+  private readonly listenersCambio: (() => void)[] = [];
+
   constructor(private opciones: OpcionesPanelJugador) {
     this.raiz = document.createElement("div");
     this.raiz.style.position = "absolute";
@@ -111,16 +114,53 @@ export class PanelJugador {
     this.raiz.style.maxHeight = "80vh";
     this.raiz.style.overflowY = "auto";
     this.raiz.style.display = "none";
+
+    // X arriba-derecha + clic fuera + Escape (pedido streamer 2026-09-09,
+    // "todas deben tener una X... si no se van a quedar abiertas... también
+    // dando click fuera se debería cerrar") — mismo criterio que
+    // panelBase.ts::crearMarcoPanel, MIGRADO A MANO aquí en vez de reescribir
+    // todo el panel con ese marco (el layout con posición fija a la
+    // izquierda ya está probado y no se toca, solo gana el cierre).
+    this.botonCerrar = document.createElement("button");
+    this.botonCerrar.className = "panel-colony-cerrar";
+    this.botonCerrar.textContent = "✕";
+    this.botonCerrar.title = "Cerrar";
+    this.botonCerrar.style.position = "absolute";
+    this.botonCerrar.style.top = "6px";
+    this.botonCerrar.style.right = "6px";
+    this.botonCerrar.onclick = () => this.alternar();
+
     opciones.contenedor.appendChild(this.raiz);
+
+    window.addEventListener("mousedown", (e) => {
+      if (!this.visible) return;
+      if (e.target instanceof Node && this.raiz.contains(e.target)) return;
+      if (e.target instanceof HTMLElement && e.target.closest(".dock-hud-icono")) return; // ver panelBase.ts: el icono del dock gestiona su propio toggle
+      this.alternar();
+    });
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && this.visible) this.alternar();
+    });
   }
 
   alternar() {
     this.visible = !this.visible;
     this.raiz.style.display = this.visible ? "block" : "none";
+    for (const cb of this.listenersCambio) cb();
   }
 
   estaVisible() {
     return this.visible;
+  }
+
+  /** Alias de `estaVisible()` — dockHud.ts espera este nombre (mismo que expone crearMarcoPanel/PanelMapaMundo/PanelResumen). */
+  estaAbierto() {
+    return this.visible;
+  }
+
+  /** Dock (docs/... pendiente) — se dispara en cada abrir/cerrar por cualquier vía. */
+  onCambioEstado(cb: () => void) {
+    this.listenersCambio.push(cb);
   }
 
   /** Llamar en cada cambio de `player` (onChange/onAdd de Colyseus) — reconstruye todo, mismo criterio "barato a esta frecuencia" que el resto de sincronizaciones del proyecto. */
@@ -131,6 +171,7 @@ export class PanelJugador {
 
   private render(player: any) {
     this.raiz.innerHTML = "";
+    this.raiz.appendChild(this.botonCerrar); // innerHTML="" arriba lo borra cada vez — se re-añade en cada render
 
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
