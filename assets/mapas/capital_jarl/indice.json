@@ -1,0 +1,8506 @@
+{
+  "version": 1,
+  "tamanoSectorChunks": 10,
+  "leyendaTerreno": [
+    "adoquin",
+    "agua",
+    "camino",
+    "cesped",
+    "empalizada",
+    "extramuros",
+    "puente",
+    "solar_edificio",
+    "tierra",
+    "tierra_labrada"
+  ],
+  "nombre": "capital_jarl-kaldrborg",
+  "semilla": "kaldrborg",
+  "tier": "capital_jarl",
+  "variante": "rio",
+  "anchoChunks": 50,
+  "altoChunks": 50,
+  "tamanoChunk": 8,
+  "ciudad": {
+    "x": 256,
+    "y": 325
+  },
+  "portales": [
+    {
+      "tipo": "exterior",
+      "x": 257,
+      "y": 329
+    },
+    {
+      "tipo": "exterior",
+      "x": 125,
+      "y": 284
+    },
+    {
+      "tipo": "exterior",
+      "x": 112,
+      "y": 118
+    },
+    {
+      "tipo": "exterior",
+      "x": 134,
+      "y": 92
+    },
+    {
+      "tipo": "exterior",
+      "x": 323,
+      "y": 87
+    },
+    {
+      "tipo": "exterior",
+      "x": 328,
+      "y": 289
+    },
+    {
+      "tipo": "interior",
+      "x": 245,
+      "y": 177,
+      "edificio": "academia_magia_kaldrborg__academia_magia__10",
+      "tipoEdificioId": "academia_magia"
+    },
+    {
+      "tipo": "interior",
+      "x": 243,
+      "y": 177,
+      "edificio": "ayuntamiento_kaldrborg__ayuntamiento__1",
+      "tipoEdificioId": "ayuntamiento"
+    },
+    {
+      "tipo": "interior",
+      "x": 245,
+      "y": 204,
+      "edificio": "arena_combate_kaldrborg__arena_combate__11",
+      "tipoEdificioId": "arena_combate"
+    },
+    {
+      "tipo": "interior",
+      "x": 212,
+      "y": 197,
+      "edificio": "teatro_kaldrborg__teatro__7",
+      "tipoEdificioId": "teatro"
+    },
+    {
+      "tipo": "interior",
+      "x": 234,
+      "y": 213,
+      "edificio": "posada_kaldrborg__posada__2",
+      "tipoEdificioId": "posada"
+    },
+    {
+      "tipo": "interior",
+      "x": 204,
+      "y": 185,
+      "edificio": "casa_gremio_kaldrborg__casa_gremio__5",
+      "tipoEdificioId": "casa_gremio"
+    },
+    {
+      "tipo": "interior",
+      "x": 255,
+      "y": 214,
+      "edificio": "biblioteca_publica_kaldrborg__biblioteca_publica__6",
+      "tipoEdificioId": "biblioteca_publica"
+    },
+    {
+      "tipo": "interior",
+      "x": 240,
+      "y": 215,
+      "edificio": "museo_kaldrborg__museo__9",
+      "tipoEdificioId": "museo"
+    },
+    {
+      "tipo": "interior",
+      "x": 201,
+      "y": 186,
+      "edificio": "templo_kaldrborg__templo__0",
+      "tipoEdificioId": "templo"
+    },
+    {
+      "tipo": "interior",
+      "x": 253,
+      "y": 167,
+      "edificio": "banos_publicos_kaldrborg__banos_publicos__8",
+      "tipoEdificioId": "banos_publicos"
+    },
+    {
+      "tipo": "interior",
+      "x": 225,
+      "y": 181,
+      "edificio": "cuartel_guardia_kaldrborg__cuartel_guardia__3",
+      "tipoEdificioId": "cuartel_guardia"
+    },
+    {
+      "tipo": "interior",
+      "x": 209,
+      "y": 211,
+      "edificio": "casa_de_cambio_kaldrborg__casa_de_cambio__4",
+      "tipoEdificioId": "casa_de_cambio"
+    },
+    {
+      "tipo": "interior",
+      "x": 303,
+      "y": 154,
+      "edificio": "casa_noble_kaldrborg__casa_noble__12",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 311,
+      "y": 183,
+      "edificio": "casa_noble_kaldrborg__casa_noble__60",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 317,
+      "y": 193,
+      "edificio": "joyeria_kaldrborg__joyeria__21",
+      "tipoEdificioId": "joyeria"
+    },
+    {
+      "tipo": "interior",
+      "x": 316,
+      "y": 230,
+      "edificio": "mansion_kaldrborg__mansion__62",
+      "tipoEdificioId": "mansion"
+    },
+    {
+      "tipo": "interior",
+      "x": 149,
+      "y": 259,
+      "edificio": "casa_noble_kaldrborg__casa_noble__15",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 296,
+      "y": 99,
+      "edificio": "casa_noble_kaldrborg__casa_noble__61",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 237,
+      "y": 93,
+      "edificio": "casa_noble_kaldrborg__casa_noble__75",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 269,
+      "y": 151,
+      "edificio": "casa_noble_kaldrborg__casa_noble__73",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 180,
+      "y": 154,
+      "edificio": "casa_noble_kaldrborg__casa_noble__99",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 236,
+      "y": 93,
+      "edificio": "joyeria_kaldrborg__joyeria__57",
+      "tipoEdificioId": "joyeria"
+    },
+    {
+      "tipo": "interior",
+      "x": 274,
+      "y": 252,
+      "edificio": "joyeria_kaldrborg__joyeria__20",
+      "tipoEdificioId": "joyeria"
+    },
+    {
+      "tipo": "interior",
+      "x": 274,
+      "y": 252,
+      "edificio": "joyeria_kaldrborg__joyeria__100",
+      "tipoEdificioId": "joyeria"
+    },
+    {
+      "tipo": "interior",
+      "x": 161,
+      "y": 101,
+      "edificio": "casa_noble_kaldrborg__casa_noble__94",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 193,
+      "y": 174,
+      "edificio": "casa_noble_kaldrborg__casa_noble__103",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 191,
+      "y": 127,
+      "edificio": "casa_noble_kaldrborg__casa_noble__17",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 254,
+      "y": 229,
+      "edificio": "casa_noble_kaldrborg__casa_noble__30",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 190,
+      "y": 126,
+      "edificio": "casa_noble_kaldrborg__casa_noble__77",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 128,
+      "y": 233,
+      "edificio": "casa_noble_kaldrborg__casa_noble__97",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 297,
+      "y": 123,
+      "edificio": "joyeria_kaldrborg__joyeria__80",
+      "tipoEdificioId": "joyeria"
+    },
+    {
+      "tipo": "interior",
+      "x": 196,
+      "y": 86,
+      "edificio": "casa_noble_kaldrborg__casa_noble__107",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 198,
+      "y": 84,
+      "edificio": "casa_noble_kaldrborg__casa_noble__59",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 292,
+      "y": 236,
+      "edificio": "casa_noble_kaldrborg__casa_noble__96",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 302,
+      "y": 265,
+      "edificio": "escuela_kaldrborg__escuela__29",
+      "tipoEdificioId": "escuela"
+    },
+    {
+      "tipo": "interior",
+      "x": 183,
+      "y": 91,
+      "edificio": "escuela_kaldrborg__escuela__68",
+      "tipoEdificioId": "escuela"
+    },
+    {
+      "tipo": "interior",
+      "x": 243,
+      "y": 145,
+      "edificio": "escuela_kaldrborg__escuela__58",
+      "tipoEdificioId": "escuela"
+    },
+    {
+      "tipo": "interior",
+      "x": 303,
+      "y": 119,
+      "edificio": "taberna_kaldrborg__taberna__32",
+      "tipoEdificioId": "taberna"
+    },
+    {
+      "tipo": "interior",
+      "x": 348,
+      "y": 190,
+      "edificio": "casa_noble_kaldrborg__casa_noble__66",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 254,
+      "y": 168,
+      "edificio": "casa_noble_kaldrborg__casa_noble__113",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 117,
+      "y": 196,
+      "edificio": "casa_noble_kaldrborg__casa_noble__119",
+      "tipoEdificioId": "casa_noble"
+    },
+    {
+      "tipo": "interior",
+      "x": 233,
+      "y": 80,
+      "edificio": "joyeria_kaldrborg__joyeria__111",
+      "tipoEdificioId": "joyeria"
+    },
+    {
+      "tipo": "interior",
+      "x": 129,
+      "y": 143,
+      "edificio": "escuela_kaldrborg__escuela__115",
+      "tipoEdificioId": "escuela"
+    },
+    {
+      "tipo": "interior",
+      "x": 150,
+      "y": 188,
+      "edificio": "taberna_kaldrborg__taberna__117",
+      "tipoEdificioId": "taberna"
+    },
+    {
+      "tipo": "interior",
+      "x": 345,
+      "y": 152,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__35",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 262,
+      "y": 81,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__55",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 184,
+      "y": 295,
+      "edificio": "destileria_kaldrborg__destileria__50",
+      "tipoEdificioId": "destileria"
+    },
+    {
+      "tipo": "interior",
+      "x": 125,
+      "y": 239,
+      "edificio": "escuela_kaldrborg__escuela__22",
+      "tipoEdificioId": "escuela"
+    },
+    {
+      "tipo": "interior",
+      "x": 118,
+      "y": 205,
+      "edificio": "escuela_kaldrborg__escuela__69",
+      "tipoEdificioId": "escuela"
+    },
+    {
+      "tipo": "interior",
+      "x": 200,
+      "y": 301,
+      "edificio": "tienda_kaldrborg__tienda__83",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 149,
+      "y": 259,
+      "edificio": "carpinteria_kaldrborg__carpinteria__38",
+      "tipoEdificioId": "carpinteria"
+    },
+    {
+      "tipo": "interior",
+      "x": 266,
+      "y": 156,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__24",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 272,
+      "y": 125,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__41",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 293,
+      "y": 285,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__47",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 279,
+      "y": 88,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__63",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 182,
+      "y": 90,
+      "edificio": "herreria_kaldrborg__herreria__105",
+      "tipoEdificioId": "herreria"
+    },
+    {
+      "tipo": "interior",
+      "x": 156,
+      "y": 178,
+      "edificio": "taberna_kaldrborg__taberna__27",
+      "tipoEdificioId": "taberna"
+    },
+    {
+      "tipo": "interior",
+      "x": 160,
+      "y": 162,
+      "edificio": "taberna_kaldrborg__taberna__95",
+      "tipoEdificioId": "taberna"
+    },
+    {
+      "tipo": "interior",
+      "x": 180,
+      "y": 119,
+      "edificio": "taller_sastre_kaldrborg__taller_sastre__79",
+      "tipoEdificioId": "taller_sastre"
+    },
+    {
+      "tipo": "interior",
+      "x": 153,
+      "y": 194,
+      "edificio": "botica_kaldrborg__botica__18",
+      "tipoEdificioId": "botica"
+    },
+    {
+      "tipo": "interior",
+      "x": 226,
+      "y": 233,
+      "edificio": "botica_kaldrborg__botica__114",
+      "tipoEdificioId": "botica"
+    },
+    {
+      "tipo": "interior",
+      "x": 174,
+      "y": 289,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__52",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 315,
+      "y": 267,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__86",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 148,
+      "y": 140,
+      "edificio": "escuela_kaldrborg__escuela__84",
+      "tipoEdificioId": "escuela"
+    },
+    {
+      "tipo": "interior",
+      "x": 166,
+      "y": 96,
+      "edificio": "taberna_kaldrborg__taberna__34",
+      "tipoEdificioId": "taberna"
+    },
+    {
+      "tipo": "interior",
+      "x": 318,
+      "y": 264,
+      "edificio": "taller_sastre_kaldrborg__taller_sastre__33",
+      "tipoEdificioId": "taller_sastre"
+    },
+    {
+      "tipo": "interior",
+      "x": 152,
+      "y": 110,
+      "edificio": "tienda_kaldrborg__tienda__53",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 253,
+      "y": 232,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__42",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 161,
+      "y": 214,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__87",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 302,
+      "y": 155,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__90",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 325,
+      "y": 257,
+      "edificio": "establo_kaldrborg__establo__72",
+      "tipoEdificioId": "establo"
+    },
+    {
+      "tipo": "interior",
+      "x": 273,
+      "y": 297,
+      "edificio": "granero_kaldrborg__granero__49",
+      "tipoEdificioId": "granero"
+    },
+    {
+      "tipo": "interior",
+      "x": 173,
+      "y": 286,
+      "edificio": "panaderia_kaldrborg__panaderia__25",
+      "tipoEdificioId": "panaderia"
+    },
+    {
+      "tipo": "interior",
+      "x": 339,
+      "y": 235,
+      "edificio": "panaderia_kaldrborg__panaderia__91",
+      "tipoEdificioId": "panaderia"
+    },
+    {
+      "tipo": "interior",
+      "x": 227,
+      "y": 233,
+      "edificio": "alfareria_kaldrborg__alfareria__48",
+      "tipoEdificioId": "alfareria"
+    },
+    {
+      "tipo": "interior",
+      "x": 209,
+      "y": 121,
+      "edificio": "carpinteria_kaldrborg__carpinteria__104",
+      "tipoEdificioId": "carpinteria"
+    },
+    {
+      "tipo": "interior",
+      "x": 164,
+      "y": 145,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__112",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 315,
+      "y": 105,
+      "edificio": "destileria_kaldrborg__destileria__74",
+      "tipoEdificioId": "destileria"
+    },
+    {
+      "tipo": "interior",
+      "x": 152,
+      "y": 110,
+      "edificio": "granero_kaldrborg__granero__108",
+      "tipoEdificioId": "granero"
+    },
+    {
+      "tipo": "interior",
+      "x": 196,
+      "y": 259,
+      "edificio": "herreria_kaldrborg__herreria__13",
+      "tipoEdificioId": "herreria"
+    },
+    {
+      "tipo": "interior",
+      "x": 258,
+      "y": 119,
+      "edificio": "herreria_kaldrborg__herreria__36",
+      "tipoEdificioId": "herreria"
+    },
+    {
+      "tipo": "interior",
+      "x": 259,
+      "y": 118,
+      "edificio": "herreria_kaldrborg__herreria__92",
+      "tipoEdificioId": "herreria"
+    },
+    {
+      "tipo": "interior",
+      "x": 173,
+      "y": 175,
+      "edificio": "taberna_kaldrborg__taberna__85",
+      "tipoEdificioId": "taberna"
+    },
+    {
+      "tipo": "interior",
+      "x": 303,
+      "y": 277,
+      "edificio": "tienda_kaldrborg__tienda__46",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 292,
+      "y": 236,
+      "edificio": "botica_kaldrborg__botica__102",
+      "tipoEdificioId": "botica"
+    },
+    {
+      "tipo": "interior",
+      "x": 184,
+      "y": 249,
+      "edificio": "panaderia_kaldrborg__panaderia__88",
+      "tipoEdificioId": "panaderia"
+    },
+    {
+      "tipo": "interior",
+      "x": 329,
+      "y": 128,
+      "edificio": "panaderia_kaldrborg__panaderia__106",
+      "tipoEdificioId": "panaderia"
+    },
+    {
+      "tipo": "interior",
+      "x": 231,
+      "y": 157,
+      "edificio": "casa_humilde_kaldrborg__casa_humilde__89",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 192,
+      "y": 177,
+      "edificio": "casa_humilde_kaldrborg__casa_humilde__110",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 289,
+      "y": 131,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__70",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 292,
+      "y": 130,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__71",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 156,
+      "y": 252,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__109",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 178,
+      "y": 136,
+      "edificio": "tienda_kaldrborg__tienda__43",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 305,
+      "y": 106,
+      "edificio": "tienda_kaldrborg__tienda__56",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 145,
+      "y": 126,
+      "edificio": "tienda_kaldrborg__tienda__78",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 256,
+      "y": 256,
+      "edificio": "torre_mago_kaldrborg__torre_mago__65",
+      "tipoEdificioId": "torre_mago"
+    },
+    {
+      "tipo": "interior",
+      "x": 179,
+      "y": 150,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__40",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 144,
+      "y": 118,
+      "edificio": "curtiduria_kaldrborg__curtiduria__82",
+      "tipoEdificioId": "curtiduria"
+    },
+    {
+      "tipo": "interior",
+      "x": 173,
+      "y": 174,
+      "edificio": "granero_kaldrborg__granero__76",
+      "tipoEdificioId": "granero"
+    },
+    {
+      "tipo": "interior",
+      "x": 145,
+      "y": 240,
+      "edificio": "panaderia_kaldrborg__panaderia__23",
+      "tipoEdificioId": "panaderia"
+    },
+    {
+      "tipo": "interior",
+      "x": 243,
+      "y": 118,
+      "edificio": "casa_humilde_kaldrborg__casa_humilde__19",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 244,
+      "y": 306,
+      "edificio": "alfareria_kaldrborg__alfareria__101",
+      "tipoEdificioId": "alfareria"
+    },
+    {
+      "tipo": "interior",
+      "x": 211,
+      "y": 267,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__44",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 325,
+      "y": 257,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__45",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 145,
+      "y": 241,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__93",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 234,
+      "y": 104,
+      "edificio": "casa_modesta_kaldrborg__casa_modesta__98",
+      "tipoEdificioId": "casa_modesta"
+    },
+    {
+      "tipo": "interior",
+      "x": 243,
+      "y": 222,
+      "edificio": "destileria_kaldrborg__destileria__118",
+      "tipoEdificioId": "destileria"
+    },
+    {
+      "tipo": "interior",
+      "x": 277,
+      "y": 295,
+      "edificio": "taller_sastre_kaldrborg__taller_sastre__37",
+      "tipoEdificioId": "taller_sastre"
+    },
+    {
+      "tipo": "interior",
+      "x": 160,
+      "y": 241,
+      "edificio": "taller_sastre_kaldrborg__taller_sastre__51",
+      "tipoEdificioId": "taller_sastre"
+    },
+    {
+      "tipo": "interior",
+      "x": 158,
+      "y": 211,
+      "edificio": "tienda_kaldrborg__tienda__16",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 309,
+      "y": 168,
+      "edificio": "tienda_kaldrborg__tienda__54",
+      "tipoEdificioId": "tienda"
+    },
+    {
+      "tipo": "interior",
+      "x": 247,
+      "y": 222,
+      "edificio": "casa_humilde_kaldrborg__casa_humilde__81",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 164,
+      "y": 149,
+      "edificio": "casa_humilde_kaldrborg__casa_humilde__116",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 229,
+      "y": 168,
+      "edificio": "casa_humilde_kaldrborg__casa_humilde__26",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 174,
+      "y": 234,
+      "edificio": "casa_humilde_kaldrborg__casa_humilde__31",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 244,
+      "y": 117,
+      "edificio": "torre_mago_kaldrborg__torre_mago__28",
+      "tipoEdificioId": "torre_mago"
+    },
+    {
+      "tipo": "interior",
+      "x": 201,
+      "y": 121,
+      "edificio": "torre_mago_kaldrborg__torre_mago__39",
+      "tipoEdificioId": "torre_mago"
+    },
+    {
+      "tipo": "interior",
+      "x": 219,
+      "y": 304,
+      "edificio": "casa_humilde_kaldrborg__casa_humilde__14",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 243,
+      "y": 305,
+      "edificio": "casa_humilde_kaldrborg__casa_humilde__64",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 296,
+      "y": 282,
+      "edificio": "casa_humilde_kaldrborg__casa_humilde__67",
+      "tipoEdificioId": "casa_humilde"
+    }
+  ],
+  "muralla": {
+    "poligono": [
+      [
+        375.1,
+        191
+      ],
+      [
+        372.2,
+        225.8
+      ],
+      [
+        358.8,
+        258.1
+      ],
+      [
+        334.6,
+        282.8
+      ],
+      [
+        309.2,
+        304.3
+      ],
+      [
+        281,
+        322.8
+      ],
+      [
+        247.9,
+        330.4
+      ],
+      [
+        214.1,
+        330
+      ],
+      [
+        181.6,
+        321.2
+      ],
+      [
+        153.2,
+        303.8
+      ],
+      [
+        126.6,
+        283.5
+      ],
+      [
+        109.6,
+        254.7
+      ],
+      [
+        97.7,
+        223.9
+      ],
+      [
+        89.9,
+        191
+      ],
+      [
+        94.5,
+        157.4
+      ],
+      [
+        108.1,
+        126.5
+      ],
+      [
+        128.2,
+        99.9
+      ],
+      [
+        152.1,
+        76.6
+      ],
+      [
+        182.7,
+        63.7
+      ],
+      [
+        214.7,
+        56.3
+      ],
+      [
+        247.3,
+        56.4
+      ],
+      [
+        281.3,
+        58.3
+      ],
+      [
+        310,
+        76.6
+      ],
+      [
+        335.6,
+        98.3
+      ],
+      [
+        361,
+        122.8
+      ],
+      [
+        376.6,
+        155.1
+      ]
+    ],
+    "modulos": [
+      {
+        "tipo": "recto",
+        "x": 375,
+        "y": 192.4,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 374.7,
+        "y": 195.3,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 374.5,
+        "y": 198.2,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 374.2,
+        "y": 201.1,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 374,
+        "y": 204,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 373.8,
+        "y": 206.9,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 373.5,
+        "y": 209.8,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 373.3,
+        "y": 212.7,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 373,
+        "y": 215.6,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 372.8,
+        "y": 218.5,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 372.5,
+        "y": 221.4,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 372.3,
+        "y": 224.3,
+        "rot": 95,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 371.6,
+        "y": 227.1,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 370.5,
+        "y": 229.8,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 369.4,
+        "y": 232.5,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 368.3,
+        "y": 235.2,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 367.2,
+        "y": 237.9,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 366,
+        "y": 240.6,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 364.9,
+        "y": 243.3,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 363.8,
+        "y": 246,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 362.7,
+        "y": 248.7,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 361.6,
+        "y": 251.3,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 360.5,
+        "y": 254,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 359.3,
+        "y": 256.7,
+        "rot": 113,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 357.8,
+        "y": 259.1,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 355.8,
+        "y": 261.2,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 353.8,
+        "y": 263.2,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 351.7,
+        "y": 265.3,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 349.7,
+        "y": 267.4,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 347.7,
+        "y": 269.4,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 345.7,
+        "y": 271.5,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 343.7,
+        "y": 273.5,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 341.7,
+        "y": 275.6,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 339.7,
+        "y": 277.7,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 337.7,
+        "y": 279.7,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 335.6,
+        "y": 281.8,
+        "rot": 134,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 333.5,
+        "y": 283.8,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 331.2,
+        "y": 285.8,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 328.9,
+        "y": 287.7,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 326.6,
+        "y": 289.7,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 324.2,
+        "y": 291.6,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 321.9,
+        "y": 293.6,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 319.6,
+        "y": 295.5,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 317.3,
+        "y": 297.5,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 315,
+        "y": 299.4,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 312.7,
+        "y": 301.4,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 310.4,
+        "y": 303.3,
+        "rot": 140,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 307.9,
+        "y": 305.2,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 305.4,
+        "y": 306.8,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 302.8,
+        "y": 308.5,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 300.2,
+        "y": 310.2,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 297.7,
+        "y": 311.9,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 295.1,
+        "y": 313.6,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 292.5,
+        "y": 315.3,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 290,
+        "y": 316.9,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 287.4,
+        "y": 318.6,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 284.8,
+        "y": 320.3,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 282.3,
+        "y": 322,
+        "rot": 147,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 279.5,
+        "y": 323.2,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 276.5,
+        "y": 323.9,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 273.5,
+        "y": 324.5,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 270.5,
+        "y": 325.2,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 267.5,
+        "y": 325.9,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 264.5,
+        "y": 326.6,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 261.5,
+        "y": 327.3,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 258.4,
+        "y": 328,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 255.4,
+        "y": 328.7,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 252.4,
+        "y": 329.3,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 249.4,
+        "y": 330,
+        "rot": 167,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 246.4,
+        "y": 330.3,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 243.3,
+        "y": 330.3,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 240.2,
+        "y": 330.3,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 237.2,
+        "y": 330.2,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 234.1,
+        "y": 330.2,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 231,
+        "y": 330.2,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 228,
+        "y": 330.1,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 224.9,
+        "y": 330.1,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 221.8,
+        "y": 330.1,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 218.7,
+        "y": 330,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 215.7,
+        "y": 330,
+        "rot": -179,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 212.6,
+        "y": 329.6,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 209.7,
+        "y": 328.8,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 206.7,
+        "y": 328,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 203.8,
+        "y": 327.2,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 200.8,
+        "y": 326.4,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 197.9,
+        "y": 325.6,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 194.9,
+        "y": 324.8,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 192,
+        "y": 324,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 189,
+        "y": 323.2,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 186.1,
+        "y": 322.4,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 183.1,
+        "y": 321.6,
+        "rot": -165,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 180.3,
+        "y": 320.4,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 177.7,
+        "y": 318.8,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 175.2,
+        "y": 317.2,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 172.6,
+        "y": 315.7,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 170,
+        "y": 314.1,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 167.4,
+        "y": 312.5,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 164.8,
+        "y": 310.9,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 162.2,
+        "y": 309.3,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 159.6,
+        "y": 307.7,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 157,
+        "y": 306.1,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 154.5,
+        "y": 304.6,
+        "rot": -149,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 152,
+        "y": 302.8,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 149.5,
+        "y": 301,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 147.1,
+        "y": 299.2,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 144.7,
+        "y": 297.3,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 142.3,
+        "y": 295.5,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 139.9,
+        "y": 293.6,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 137.5,
+        "y": 291.8,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 135.1,
+        "y": 289.9,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 132.7,
+        "y": 288.1,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 130.3,
+        "y": 286.2,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 127.8,
+        "y": 284.4,
+        "rot": -143,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 125.9,
+        "y": 282.2,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 124.3,
+        "y": 279.5,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 122.8,
+        "y": 276.9,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 121.2,
+        "y": 274.3,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 119.6,
+        "y": 271.7,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 118.1,
+        "y": 269.1,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 116.5,
+        "y": 266.5,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 115,
+        "y": 263.9,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 113.4,
+        "y": 261.3,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 111.9,
+        "y": 258.7,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 110.3,
+        "y": 256,
+        "rot": -121,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 109,
+        "y": 253.3,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 107.9,
+        "y": 250.5,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 106.9,
+        "y": 247.7,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 105.8,
+        "y": 244.9,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 104.7,
+        "y": 242.1,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 103.6,
+        "y": 239.3,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 102.5,
+        "y": 236.5,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 101.4,
+        "y": 233.7,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 100.4,
+        "y": 230.9,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 99.3,
+        "y": 228.1,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 98.2,
+        "y": 225.3,
+        "rot": -111,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 97.3,
+        "y": 222.4,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 96.6,
+        "y": 219.4,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 95.9,
+        "y": 216.4,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 95.2,
+        "y": 213.4,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 94.5,
+        "y": 210.4,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 93.8,
+        "y": 207.4,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 93.1,
+        "y": 204.4,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 92.4,
+        "y": 201.5,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 91.6,
+        "y": 198.5,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 90.9,
+        "y": 195.5,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 90.2,
+        "y": 192.5,
+        "rot": -103,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 90.1,
+        "y": 189.5,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 90.5,
+        "y": 186.4,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 90.9,
+        "y": 183.4,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 91.3,
+        "y": 180.3,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 91.8,
+        "y": 177.2,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 92.2,
+        "y": 174.2,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 92.6,
+        "y": 171.1,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 93,
+        "y": 168.1,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 93.4,
+        "y": 165,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 93.9,
+        "y": 161.9,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 94.3,
+        "y": 158.9,
+        "rot": -82,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 95.1,
+        "y": 156,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 96.3,
+        "y": 153.1,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 97.6,
+        "y": 150.3,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 98.8,
+        "y": 147.5,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 100.1,
+        "y": 144.7,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 101.3,
+        "y": 141.9,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 102.5,
+        "y": 139.1,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 103.8,
+        "y": 136.3,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 105,
+        "y": 133.5,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 106.3,
+        "y": 130.7,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 107.5,
+        "y": 127.9,
+        "rot": -66,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 109,
+        "y": 125.3,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 110.9,
+        "y": 122.9,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 112.7,
+        "y": 120.5,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 114.5,
+        "y": 118,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 116.3,
+        "y": 115.6,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 118.2,
+        "y": 113.2,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 120,
+        "y": 110.8,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 121.8,
+        "y": 108.4,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 123.6,
+        "y": 106,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 125.4,
+        "y": 103.5,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 127.3,
+        "y": 101.1,
+        "rot": -53,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 129.3,
+        "y": 98.9,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 131.4,
+        "y": 96.7,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 133.6,
+        "y": 94.6,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 135.8,
+        "y": 92.5,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 137.9,
+        "y": 90.4,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 140.1,
+        "y": 88.3,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 142.3,
+        "y": 86.2,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 144.5,
+        "y": 84,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 146.6,
+        "y": 81.9,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 148.8,
+        "y": 79.8,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 151,
+        "y": 77.7,
+        "rot": -44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 153.4,
+        "y": 76,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 156.2,
+        "y": 74.9,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 159,
+        "y": 73.7,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 161.8,
+        "y": 72.5,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 164.6,
+        "y": 71.3,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 167.4,
+        "y": 70.2,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 170.2,
+        "y": 69,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 173,
+        "y": 67.8,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 175.8,
+        "y": 66.6,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 178.5,
+        "y": 65.5,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 181.3,
+        "y": 64.3,
+        "rot": -23,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 184.2,
+        "y": 63.4,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 187.1,
+        "y": 62.7,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 190,
+        "y": 62,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 192.9,
+        "y": 61.4,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 195.8,
+        "y": 60.7,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 198.7,
+        "y": 60,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 201.6,
+        "y": 59.4,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 204.5,
+        "y": 58.7,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 207.4,
+        "y": 58,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 210.3,
+        "y": 57.4,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 213.2,
+        "y": 56.7,
+        "rot": -13,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 216.1,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 219.1,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 222.1,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 225.1,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 228,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 231,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 234,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 236.9,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 239.9,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 242.9,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 245.9,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 248.9,
+        "y": 56.5,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 252,
+        "y": 56.7,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 255.1,
+        "y": 56.8,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 258.2,
+        "y": 57,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 261.2,
+        "y": 57.2,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 264.3,
+        "y": 57.3,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 267.4,
+        "y": 57.5,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 270.5,
+        "y": 57.7,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 273.6,
+        "y": 57.8,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 276.7,
+        "y": 58,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 279.8,
+        "y": 58.2,
+        "rot": 3,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 282.6,
+        "y": 59.1,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 285.2,
+        "y": 60.8,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 287.8,
+        "y": 62.4,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 290.4,
+        "y": 64.1,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 293.1,
+        "y": 65.8,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 295.7,
+        "y": 67.4,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 298.3,
+        "y": 69.1,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 300.9,
+        "y": 70.8,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 303.5,
+        "y": 72.4,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 306.1,
+        "y": 74.1,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 308.7,
+        "y": 75.8,
+        "rot": 33,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 311.1,
+        "y": 77.6,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 313.5,
+        "y": 79.6,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 315.8,
+        "y": 81.5,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 318.1,
+        "y": 83.5,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 320.5,
+        "y": 85.5,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 322.8,
+        "y": 87.5,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "puerta",
+        "x": 325.1,
+        "y": 89.4,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 327.5,
+        "y": 91.4,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 329.8,
+        "y": 93.4,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 332.1,
+        "y": 95.4,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 334.4,
+        "y": 97.3,
+        "rot": 40,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 336.7,
+        "y": 99.3,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 338.8,
+        "y": 101.4,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 340.9,
+        "y": 103.4,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 343,
+        "y": 105.5,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 345.1,
+        "y": 107.5,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 347.2,
+        "y": 109.5,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 349.3,
+        "y": 111.6,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 351.5,
+        "y": 113.6,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 353.6,
+        "y": 115.6,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 355.7,
+        "y": 117.7,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 357.8,
+        "y": 119.7,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 359.9,
+        "y": 121.8,
+        "rot": 44,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 361.6,
+        "y": 124.1,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 362.9,
+        "y": 126.8,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 364.2,
+        "y": 129.5,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 365.5,
+        "y": 132.2,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 366.8,
+        "y": 134.9,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 368.1,
+        "y": 137.6,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 369.5,
+        "y": 140.3,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 370.8,
+        "y": 143,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 372.1,
+        "y": 145.7,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 373.4,
+        "y": 148.4,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 374.7,
+        "y": 151.1,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 376,
+        "y": 153.8,
+        "rot": 64,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 376.6,
+        "y": 156.6,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 376.4,
+        "y": 159.6,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 376.3,
+        "y": 162.6,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 376.2,
+        "y": 165.6,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 376.1,
+        "y": 168.6,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 375.9,
+        "y": 171.6,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 375.8,
+        "y": 174.5,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 375.7,
+        "y": 177.5,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 375.5,
+        "y": 180.5,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 375.4,
+        "y": 183.5,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 375.3,
+        "y": 186.5,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "recto",
+        "x": 375.2,
+        "y": 189.5,
+        "rot": 92,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 375.1,
+        "y": 191,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 358.8,
+        "y": 258.1,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 309.2,
+        "y": 304.3,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 247.9,
+        "y": 330.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 181.6,
+        "y": 321.2,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 97.7,
+        "y": 223.9,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 94.5,
+        "y": 157.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 128.2,
+        "y": 99.9,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 182.7,
+        "y": 63.7,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 247.3,
+        "y": 56.4,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 310,
+        "y": 76.6,
+        "rot": 0,
+        "material": "empalizada"
+      },
+      {
+        "tipo": "torre",
+        "x": 361,
+        "y": 122.8,
+        "rot": 0,
+        "material": "empalizada"
+      }
+    ]
+  },
+  "caminos": [
+    [
+      [
+        258,
+        399
+      ],
+      [
+        258,
+        396
+      ],
+      [
+        258,
+        393
+      ],
+      [
+        258,
+        390
+      ],
+      [
+        258,
+        387
+      ],
+      [
+        258,
+        384
+      ],
+      [
+        258,
+        381
+      ],
+      [
+        258,
+        378
+      ],
+      [
+        258,
+        375
+      ],
+      [
+        258,
+        372
+      ],
+      [
+        258,
+        369
+      ],
+      [
+        258,
+        366
+      ],
+      [
+        258,
+        363
+      ],
+      [
+        257,
+        360
+      ],
+      [
+        257,
+        357
+      ],
+      [
+        257,
+        354
+      ],
+      [
+        257,
+        351
+      ],
+      [
+        257,
+        348
+      ],
+      [
+        257,
+        345
+      ],
+      [
+        257,
+        342
+      ],
+      [
+        257,
+        339
+      ],
+      [
+        257,
+        336
+      ],
+      [
+        257,
+        333
+      ],
+      [
+        257,
+        330
+      ],
+      [
+        257,
+        327
+      ],
+      [
+        257,
+        324
+      ],
+      [
+        257,
+        321
+      ],
+      [
+        257,
+        318
+      ],
+      [
+        257,
+        315
+      ],
+      [
+        257,
+        312
+      ],
+      [
+        257,
+        309
+      ],
+      [
+        257,
+        306
+      ],
+      [
+        257,
+        303
+      ],
+      [
+        257,
+        300
+      ],
+      [
+        257,
+        297
+      ],
+      [
+        257,
+        294
+      ],
+      [
+        257,
+        291
+      ],
+      [
+        257,
+        288
+      ],
+      [
+        257,
+        285
+      ],
+      [
+        257,
+        282
+      ],
+      [
+        257,
+        279
+      ],
+      [
+        257,
+        276
+      ],
+      [
+        257,
+        273
+      ],
+      [
+        257,
+        270
+      ],
+      [
+        257,
+        267
+      ],
+      [
+        257,
+        264
+      ],
+      [
+        257,
+        261
+      ],
+      [
+        257,
+        258
+      ],
+      [
+        257,
+        255
+      ],
+      [
+        257,
+        252
+      ],
+      [
+        257,
+        249
+      ],
+      [
+        257,
+        246
+      ],
+      [
+        257,
+        243
+      ],
+      [
+        257,
+        240
+      ],
+      [
+        257,
+        237
+      ],
+      [
+        256,
+        234
+      ],
+      [
+        254,
+        231
+      ],
+      [
+        251,
+        228
+      ],
+      [
+        248,
+        225
+      ],
+      [
+        245,
+        222
+      ],
+      [
+        242,
+        219
+      ],
+      [
+        239,
+        216
+      ],
+      [
+        236,
+        213
+      ],
+      [
+        235,
+        210
+      ],
+      [
+        235,
+        207
+      ],
+      [
+        235,
+        204
+      ],
+      [
+        235,
+        201
+      ],
+      [
+        235,
+        198
+      ],
+      [
+        235,
+        195
+      ],
+      [
+        232,
+        192
+      ]
+    ],
+    [
+      [
+        0,
+        399
+      ],
+      [
+        3,
+        396
+      ],
+      [
+        6,
+        393
+      ],
+      [
+        9,
+        390
+      ],
+      [
+        12,
+        387
+      ],
+      [
+        15,
+        384
+      ],
+      [
+        18,
+        381
+      ],
+      [
+        21,
+        378
+      ],
+      [
+        24,
+        375
+      ],
+      [
+        27,
+        372
+      ],
+      [
+        30,
+        369
+      ],
+      [
+        33,
+        366
+      ],
+      [
+        36,
+        363
+      ],
+      [
+        39,
+        360
+      ],
+      [
+        42,
+        357
+      ],
+      [
+        45,
+        354
+      ],
+      [
+        48,
+        351
+      ],
+      [
+        51,
+        348
+      ],
+      [
+        54,
+        345
+      ],
+      [
+        57,
+        342
+      ],
+      [
+        60,
+        339
+      ],
+      [
+        63,
+        336
+      ],
+      [
+        66,
+        333
+      ],
+      [
+        69,
+        330
+      ],
+      [
+        72,
+        327
+      ],
+      [
+        75,
+        324
+      ],
+      [
+        78,
+        321
+      ],
+      [
+        81,
+        320
+      ],
+      [
+        84,
+        317
+      ],
+      [
+        87,
+        314
+      ],
+      [
+        90,
+        311
+      ],
+      [
+        93,
+        308
+      ],
+      [
+        96,
+        305
+      ],
+      [
+        99,
+        302
+      ],
+      [
+        102,
+        301
+      ],
+      [
+        105,
+        301
+      ],
+      [
+        108,
+        301
+      ],
+      [
+        111,
+        298
+      ],
+      [
+        114,
+        295
+      ],
+      [
+        117,
+        292
+      ],
+      [
+        120,
+        289
+      ],
+      [
+        123,
+        286
+      ],
+      [
+        126,
+        283
+      ],
+      [
+        129,
+        280
+      ],
+      [
+        132,
+        277
+      ],
+      [
+        135,
+        274
+      ],
+      [
+        138,
+        271
+      ],
+      [
+        141,
+        268
+      ],
+      [
+        144,
+        265
+      ],
+      [
+        147,
+        262
+      ],
+      [
+        150,
+        259
+      ],
+      [
+        153,
+        256
+      ],
+      [
+        156,
+        253
+      ],
+      [
+        159,
+        250
+      ],
+      [
+        162,
+        247
+      ],
+      [
+        165,
+        244
+      ],
+      [
+        168,
+        241
+      ],
+      [
+        171,
+        238
+      ],
+      [
+        174,
+        235
+      ],
+      [
+        177,
+        232
+      ],
+      [
+        180,
+        229
+      ],
+      [
+        183,
+        227
+      ],
+      [
+        186,
+        227
+      ],
+      [
+        189,
+        227
+      ],
+      [
+        192,
+        227
+      ],
+      [
+        195,
+        226
+      ],
+      [
+        198,
+        223
+      ],
+      [
+        201,
+        220
+      ],
+      [
+        204,
+        217
+      ],
+      [
+        207,
+        214
+      ],
+      [
+        210,
+        211
+      ],
+      [
+        213,
+        208
+      ],
+      [
+        216,
+        205
+      ],
+      [
+        219,
+        202
+      ],
+      [
+        222,
+        199
+      ],
+      [
+        225,
+        197
+      ],
+      [
+        228,
+        194
+      ],
+      [
+        231,
+        191
+      ]
+    ],
+    [
+      [
+        0,
+        75
+      ],
+      [
+        3,
+        77
+      ],
+      [
+        6,
+        78
+      ],
+      [
+        9,
+        78
+      ],
+      [
+        12,
+        79
+      ],
+      [
+        15,
+        80
+      ],
+      [
+        18,
+        83
+      ],
+      [
+        21,
+        86
+      ],
+      [
+        24,
+        89
+      ],
+      [
+        27,
+        92
+      ],
+      [
+        30,
+        95
+      ],
+      [
+        33,
+        98
+      ],
+      [
+        36,
+        101
+      ],
+      [
+        39,
+        101
+      ],
+      [
+        42,
+        101
+      ],
+      [
+        45,
+        104
+      ],
+      [
+        48,
+        107
+      ],
+      [
+        51,
+        110
+      ],
+      [
+        54,
+        112
+      ],
+      [
+        57,
+        112
+      ],
+      [
+        60,
+        112
+      ],
+      [
+        63,
+        112
+      ],
+      [
+        66,
+        115
+      ],
+      [
+        69,
+        115
+      ],
+      [
+        72,
+        115
+      ],
+      [
+        75,
+        115
+      ],
+      [
+        78,
+        115
+      ],
+      [
+        81,
+        115
+      ],
+      [
+        84,
+        115
+      ],
+      [
+        87,
+        115
+      ],
+      [
+        90,
+        115
+      ],
+      [
+        93,
+        115
+      ],
+      [
+        96,
+        115
+      ],
+      [
+        99,
+        115
+      ],
+      [
+        102,
+        115
+      ],
+      [
+        105,
+        115
+      ],
+      [
+        108,
+        115
+      ],
+      [
+        111,
+        117
+      ],
+      [
+        114,
+        120
+      ],
+      [
+        117,
+        123
+      ],
+      [
+        120,
+        124
+      ],
+      [
+        123,
+        124
+      ],
+      [
+        126,
+        125
+      ],
+      [
+        129,
+        128
+      ],
+      [
+        132,
+        129
+      ],
+      [
+        135,
+        129
+      ],
+      [
+        138,
+        131
+      ],
+      [
+        141,
+        134
+      ],
+      [
+        144,
+        134
+      ],
+      [
+        147,
+        134
+      ],
+      [
+        150,
+        134
+      ],
+      [
+        153,
+        136
+      ],
+      [
+        156,
+        139
+      ],
+      [
+        159,
+        142
+      ],
+      [
+        162,
+        145
+      ],
+      [
+        165,
+        148
+      ],
+      [
+        168,
+        151
+      ],
+      [
+        171,
+        154
+      ],
+      [
+        174,
+        157
+      ],
+      [
+        177,
+        160
+      ],
+      [
+        180,
+        163
+      ],
+      [
+        183,
+        166
+      ],
+      [
+        186,
+        169
+      ],
+      [
+        189,
+        172
+      ],
+      [
+        192,
+        175
+      ],
+      [
+        195,
+        178
+      ],
+      [
+        198,
+        181
+      ],
+      [
+        201,
+        184
+      ],
+      [
+        204,
+        187
+      ],
+      [
+        207,
+        190
+      ],
+      [
+        210,
+        193
+      ],
+      [
+        213,
+        196
+      ],
+      [
+        216,
+        199
+      ],
+      [
+        219,
+        202
+      ],
+      [
+        222,
+        199
+      ],
+      [
+        225,
+        197
+      ],
+      [
+        228,
+        194
+      ],
+      [
+        231,
+        191
+      ]
+    ],
+    [
+      [
+        132,
+        0
+      ],
+      [
+        132,
+        3
+      ],
+      [
+        132,
+        6
+      ],
+      [
+        132,
+        9
+      ],
+      [
+        132,
+        12
+      ],
+      [
+        132,
+        15
+      ],
+      [
+        132,
+        18
+      ],
+      [
+        132,
+        21
+      ],
+      [
+        132,
+        24
+      ],
+      [
+        132,
+        27
+      ],
+      [
+        132,
+        30
+      ],
+      [
+        132,
+        33
+      ],
+      [
+        132,
+        36
+      ],
+      [
+        132,
+        39
+      ],
+      [
+        132,
+        42
+      ],
+      [
+        132,
+        45
+      ],
+      [
+        132,
+        48
+      ],
+      [
+        132,
+        51
+      ],
+      [
+        132,
+        54
+      ],
+      [
+        132,
+        57
+      ],
+      [
+        132,
+        60
+      ],
+      [
+        133,
+        63
+      ],
+      [
+        133,
+        66
+      ],
+      [
+        133,
+        69
+      ],
+      [
+        133,
+        72
+      ],
+      [
+        134,
+        75
+      ],
+      [
+        134,
+        78
+      ],
+      [
+        134,
+        81
+      ],
+      [
+        134,
+        84
+      ],
+      [
+        134,
+        87
+      ],
+      [
+        134,
+        90
+      ],
+      [
+        134,
+        93
+      ],
+      [
+        134,
+        96
+      ],
+      [
+        134,
+        99
+      ],
+      [
+        134,
+        102
+      ],
+      [
+        134,
+        105
+      ],
+      [
+        134,
+        108
+      ],
+      [
+        134,
+        111
+      ],
+      [
+        134,
+        114
+      ],
+      [
+        135,
+        117
+      ],
+      [
+        138,
+        120
+      ],
+      [
+        141,
+        123
+      ],
+      [
+        144,
+        126
+      ],
+      [
+        147,
+        129
+      ],
+      [
+        150,
+        132
+      ],
+      [
+        152,
+        135
+      ],
+      [
+        155,
+        138
+      ],
+      [
+        158,
+        141
+      ],
+      [
+        161,
+        144
+      ],
+      [
+        164,
+        147
+      ],
+      [
+        167,
+        150
+      ],
+      [
+        170,
+        153
+      ],
+      [
+        173,
+        156
+      ],
+      [
+        176,
+        159
+      ],
+      [
+        179,
+        162
+      ],
+      [
+        182,
+        165
+      ],
+      [
+        185,
+        168
+      ],
+      [
+        188,
+        171
+      ],
+      [
+        191,
+        174
+      ],
+      [
+        194,
+        177
+      ],
+      [
+        197,
+        180
+      ],
+      [
+        200,
+        183
+      ],
+      [
+        203,
+        186
+      ],
+      [
+        206,
+        189
+      ],
+      [
+        209,
+        192
+      ],
+      [
+        212,
+        195
+      ],
+      [
+        215,
+        198
+      ],
+      [
+        218,
+        201
+      ],
+      [
+        221,
+        200
+      ],
+      [
+        224,
+        197
+      ],
+      [
+        227,
+        195
+      ],
+      [
+        230,
+        192
+      ]
+    ],
+    [
+      [
+        399,
+        0
+      ],
+      [
+        396,
+        3
+      ],
+      [
+        393,
+        6
+      ],
+      [
+        390,
+        9
+      ],
+      [
+        387,
+        12
+      ],
+      [
+        384,
+        15
+      ],
+      [
+        381,
+        18
+      ],
+      [
+        378,
+        21
+      ],
+      [
+        375,
+        24
+      ],
+      [
+        372,
+        27
+      ],
+      [
+        369,
+        30
+      ],
+      [
+        366,
+        33
+      ],
+      [
+        363,
+        36
+      ],
+      [
+        360,
+        39
+      ],
+      [
+        358,
+        42
+      ],
+      [
+        358,
+        45
+      ],
+      [
+        356,
+        48
+      ],
+      [
+        354,
+        51
+      ],
+      [
+        351,
+        54
+      ],
+      [
+        348,
+        57
+      ],
+      [
+        345,
+        60
+      ],
+      [
+        342,
+        63
+      ],
+      [
+        339,
+        66
+      ],
+      [
+        336,
+        69
+      ],
+      [
+        334,
+        72
+      ],
+      [
+        332,
+        75
+      ],
+      [
+        330,
+        78
+      ],
+      [
+        328,
+        81
+      ],
+      [
+        325,
+        84
+      ],
+      [
+        323,
+        87
+      ],
+      [
+        322,
+        90
+      ],
+      [
+        321,
+        93
+      ],
+      [
+        321,
+        96
+      ],
+      [
+        321,
+        99
+      ],
+      [
+        320,
+        102
+      ],
+      [
+        317,
+        105
+      ],
+      [
+        314,
+        108
+      ],
+      [
+        311,
+        111
+      ],
+      [
+        308,
+        114
+      ],
+      [
+        305,
+        117
+      ],
+      [
+        302,
+        120
+      ],
+      [
+        299,
+        123
+      ],
+      [
+        296,
+        126
+      ],
+      [
+        293,
+        129
+      ],
+      [
+        290,
+        132
+      ],
+      [
+        287,
+        135
+      ],
+      [
+        284,
+        138
+      ],
+      [
+        281,
+        141
+      ],
+      [
+        278,
+        144
+      ],
+      [
+        275,
+        147
+      ],
+      [
+        272,
+        150
+      ],
+      [
+        269,
+        153
+      ],
+      [
+        266,
+        156
+      ],
+      [
+        263,
+        159
+      ],
+      [
+        260,
+        162
+      ],
+      [
+        257,
+        165
+      ],
+      [
+        254,
+        168
+      ],
+      [
+        251,
+        171
+      ],
+      [
+        248,
+        174
+      ],
+      [
+        245,
+        177
+      ],
+      [
+        242,
+        180
+      ],
+      [
+        239,
+        183
+      ],
+      [
+        236,
+        186
+      ],
+      [
+        233,
+        189
+      ]
+    ],
+    [
+      [
+        399,
+        329
+      ],
+      [
+        396,
+        329
+      ],
+      [
+        393,
+        329
+      ],
+      [
+        390,
+        329
+      ],
+      [
+        387,
+        329
+      ],
+      [
+        384,
+        329
+      ],
+      [
+        381,
+        329
+      ],
+      [
+        378,
+        329
+      ],
+      [
+        375,
+        329
+      ],
+      [
+        372,
+        328
+      ],
+      [
+        369,
+        325
+      ],
+      [
+        366,
+        322
+      ],
+      [
+        363,
+        320
+      ],
+      [
+        360,
+        320
+      ],
+      [
+        357,
+        318
+      ],
+      [
+        354,
+        315
+      ],
+      [
+        351,
+        312
+      ],
+      [
+        348,
+        309
+      ],
+      [
+        345,
+        306
+      ],
+      [
+        342,
+        303
+      ],
+      [
+        339,
+        300
+      ],
+      [
+        336,
+        297
+      ],
+      [
+        333,
+        294
+      ],
+      [
+        330,
+        291
+      ],
+      [
+        327,
+        288
+      ],
+      [
+        324,
+        285
+      ],
+      [
+        321,
+        282
+      ],
+      [
+        318,
+        279
+      ],
+      [
+        315,
+        276
+      ],
+      [
+        312,
+        273
+      ],
+      [
+        309,
+        270
+      ],
+      [
+        306,
+        267
+      ],
+      [
+        303,
+        264
+      ],
+      [
+        300,
+        261
+      ],
+      [
+        297,
+        258
+      ],
+      [
+        294,
+        255
+      ],
+      [
+        291,
+        252
+      ],
+      [
+        288,
+        249
+      ],
+      [
+        285,
+        246
+      ],
+      [
+        282,
+        243
+      ],
+      [
+        279,
+        240
+      ],
+      [
+        276,
+        237
+      ],
+      [
+        273,
+        234
+      ],
+      [
+        270,
+        231
+      ],
+      [
+        267,
+        228
+      ],
+      [
+        264,
+        225
+      ],
+      [
+        261,
+        222
+      ],
+      [
+        258,
+        219
+      ],
+      [
+        255,
+        216
+      ],
+      [
+        252,
+        213
+      ],
+      [
+        249,
+        210
+      ],
+      [
+        246,
+        207
+      ],
+      [
+        243,
+        204
+      ],
+      [
+        240,
+        201
+      ],
+      [
+        237,
+        198
+      ],
+      [
+        235,
+        195
+      ],
+      [
+        232,
+        192
+      ]
+    ]
+  ],
+  "zonasVerdes": [
+    {
+      "tipo": "parque",
+      "x": 304,
+      "y": 132,
+      "r": 3
+    },
+    {
+      "tipo": "huerto",
+      "x": 129,
+      "y": 116,
+      "r": 3
+    },
+    {
+      "tipo": "parque",
+      "x": 283,
+      "y": 311,
+      "r": 5
+    },
+    {
+      "tipo": "huerto",
+      "x": 224,
+      "y": 258,
+      "r": 4
+    },
+    {
+      "tipo": "huerto",
+      "x": 250,
+      "y": 140,
+      "r": 3
+    },
+    {
+      "tipo": "parque",
+      "x": 331,
+      "y": 139,
+      "r": 3
+    },
+    {
+      "tipo": "parque",
+      "x": 201,
+      "y": 101,
+      "r": 4
+    },
+    {
+      "tipo": "parque",
+      "x": 222,
+      "y": 158,
+      "r": 5
+    },
+    {
+      "tipo": "parque",
+      "x": 215,
+      "y": 254,
+      "r": 4
+    },
+    {
+      "tipo": "parque",
+      "x": 359,
+      "y": 226,
+      "r": 5
+    },
+    {
+      "tipo": "parque",
+      "x": 199,
+      "y": 208,
+      "r": 5
+    },
+    {
+      "tipo": "huerto",
+      "x": 259,
+      "y": 88,
+      "r": 4
+    },
+    {
+      "tipo": "huerto",
+      "x": 283,
+      "y": 115,
+      "r": 5
+    },
+    {
+      "tipo": "huerto",
+      "x": 176,
+      "y": 307,
+      "r": 4
+    },
+    {
+      "tipo": "huerto",
+      "x": 145,
+      "y": 204,
+      "r": 4
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 297,
+      "y": 302,
+      "r": 3
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 246,
+      "y": 319,
+      "r": 4
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 217,
+      "y": 320,
+      "r": 4
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 357,
+      "y": 203,
+      "r": 4
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 359,
+      "y": 163,
+      "r": 3
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 335,
+      "y": 116,
+      "r": 4
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 353,
+      "y": 153,
+      "r": 3
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 356,
+      "y": 183,
+      "r": 4
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 296,
+      "y": 79,
+      "r": 3
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 106,
+      "y": 162,
+      "r": 3
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 178,
+      "y": 75,
+      "r": 4
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 127,
+      "y": 265,
+      "r": 4
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 167,
+      "y": 306,
+      "r": 3
+    },
+    {
+      "tipo": "campo_cultivo",
+      "x": 151,
+      "y": 94,
+      "r": 4
+    }
+  ],
+  "parcelasReservadas": [
+    {
+      "tipo": "especial",
+      "x": 265.5,
+      "y": 192.4,
+      "rot": -180,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 271.5,
+      "y": 178.6,
+      "rot": 0,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 204.4,
+      "y": 226.4,
+      "rot": -225,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 192.4,
+      "y": 236.4,
+      "rot": -225,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 280.4,
+      "y": 152.4,
+      "rot": -225,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 271.6,
+      "y": 135.4,
+      "rot": -135,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 302.6,
+      "y": 201.5,
+      "rot": -90,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 171.6,
+      "y": 249.4,
+      "rot": -135,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 177.6,
+      "y": 221.6,
+      "rot": -45,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 229.5,
+      "y": 274.4,
+      "rot": -180,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 313.7,
+      "y": 214.6,
+      "rot": -243,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 278.4,
+      "y": 228.6,
+      "rot": 45,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 237.5,
+      "y": 260.6,
+      "rot": 0,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 209.4,
+      "y": 112.3,
+      "rot": -27,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 236.6,
+      "y": 135.5,
+      "rot": -90,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "especial",
+      "x": 303.6,
+      "y": 182.5,
+      "rot": -90,
+      "ancho": 14,
+      "largo": 11
+    },
+    {
+      "tipo": "normal",
+      "x": 124.9,
+      "y": 162.7,
+      "rot": -243,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 124.1,
+      "y": 140.3,
+      "rot": -63,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 209.3,
+      "y": 77.1,
+      "rot": -27,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 243.7,
+      "y": 271.9,
+      "rot": -207,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 116.1,
+      "y": 158.3,
+      "rot": -63,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 198,
+      "y": 253,
+      "rot": 45,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 325,
+      "y": 116,
+      "rot": 45,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 124.9,
+      "y": 208.3,
+      "rot": 63,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 164,
+      "y": 275,
+      "rot": 45,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 157,
+      "y": 282,
+      "rot": -135,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 342.1,
+      "y": 214.3,
+      "rot": -63,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 156,
+      "y": 131,
+      "rot": 45,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 194,
+      "y": 220,
+      "rot": -45,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 218,
+      "y": 244,
+      "rot": -45,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 135,
+      "y": 260,
+      "rot": -135,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 291,
+      "y": 88,
+      "rot": 45,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 127.9,
+      "y": 219.3,
+      "rot": 63,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 119.1,
+      "y": 223.7,
+      "rot": -117,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 148,
+      "y": 275,
+      "rot": -135,
+      "ancho": 9,
+      "largo": 7
+    },
+    {
+      "tipo": "normal",
+      "x": 233,
+      "y": 149,
+      "rot": -45,
+      "ancho": 9,
+      "largo": 7
+    }
+  ],
+  "luces": [
+    {
+      "x": 257,
+      "y": 325,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 129,
+      "y": 282,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 116,
+      "y": 120,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 138,
+      "y": 95,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 326,
+      "y": 286,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 239,
+      "y": 201,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 221,
+      "y": 199,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 241,
+      "y": 183,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 258,
+      "y": 323,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 258,
+      "y": 314,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 258,
+      "y": 305,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 258,
+      "y": 296,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 258,
+      "y": 287,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 258,
+      "y": 278,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 258,
+      "y": 269,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 258,
+      "y": 260,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 258,
+      "y": 251,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 258,
+      "y": 242,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 257,
+      "y": 233,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 236,
+      "y": 206,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 131,
+      "y": 279,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 140,
+      "y": 270,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 167,
+      "y": 243,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 184,
+      "y": 228,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 193,
+      "y": 228,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 202,
+      "y": 220,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 221,
+      "y": 201,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 121,
+      "y": 125,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 130,
+      "y": 130,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 148,
+      "y": 135,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 135,
+      "y": 103,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 135,
+      "y": 112,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 219,
+      "y": 203,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 322,
+      "y": 94,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 320,
+      "y": 103,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 311,
+      "y": 112,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 301,
+      "y": 122,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 284,
+      "y": 139,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 275,
+      "y": 148,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 257,
+      "y": 166,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    },
+    {
+      "x": 248,
+      "y": 175,
+      "id": "antorcha_poste",
+      "radio": 4.5,
+      "color": "#ff9a3a"
+    }
+  ],
+  "edificios": [
+    {
+      "id": "academia_magia_kaldrborg__academia_magia__10",
+      "tipo": "academia_magia",
+      "semilla": "kaldrborg:academia_magia:10",
+      "cx": 250.4,
+      "cy": 182.4,
+      "rot": -225,
+      "w": 13,
+      "h": 11,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 11
+        }
+      ],
+      "puerta": {
+        "x": 245,
+        "y": 177
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "ayuntamiento_kaldrborg__ayuntamiento__1",
+      "tipo": "ayuntamiento",
+      "semilla": "kaldrborg:ayuntamiento:1",
+      "cx": 238.6,
+      "cy": 172.6,
+      "rot": -45,
+      "w": 13,
+      "h": 11,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 11
+        }
+      ],
+      "puerta": {
+        "x": 243,
+        "y": 177
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "arena_combate_kaldrborg__arena_combate__11",
+      "tipo": "arena_combate",
+      "semilla": "kaldrborg:arena_combate:11",
+      "cx": 249,
+      "cy": 200,
+      "rot": 45,
+      "w": 14,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 14,
+          "h": 10
+        }
+      ],
+      "puerta": {
+        "x": 245,
+        "y": 204
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "teatro_kaldrborg__teatro__7",
+      "tipo": "teatro",
+      "semilla": "kaldrborg:teatro:7",
+      "cx": 208,
+      "cy": 201,
+      "rot": -135,
+      "w": 13,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 10
+        }
+      ],
+      "puerta": {
+        "x": 212,
+        "y": 197
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "posada_kaldrborg__posada__2",
+      "tipo": "posada",
+      "semilla": "kaldrborg:posada:2",
+      "cx": 230,
+      "cy": 217,
+      "rot": -135,
+      "w": 12,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 10
+        },
+        {
+          "ox": 3,
+          "oy": -7.5,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 234,
+        "y": 213
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_gremio_kaldrborg__casa_gremio__5",
+      "tipo": "casa_gremio",
+      "semilla": "kaldrborg:casa_gremio:5",
+      "cx": 207.7,
+      "cy": 181.3,
+      "rot": 45,
+      "w": 13,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 204,
+        "y": 185
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "biblioteca_publica_kaldrborg__biblioteca_publica__6",
+      "tipo": "biblioteca_publica",
+      "semilla": "kaldrborg:biblioteca_publica:6",
+      "cx": 258.7,
+      "cy": 210.3,
+      "rot": 45,
+      "w": 12,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 255,
+        "y": 214
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "museo_kaldrborg__museo__9",
+      "tipo": "museo",
+      "semilla": "kaldrborg:museo:9",
+      "cx": 243.3,
+      "cy": 211.7,
+      "rot": 45,
+      "w": 13,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 240,
+        "y": 215
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "templo_kaldrborg__templo__0",
+      "tipo": "templo",
+      "semilla": "kaldrborg:templo:0",
+      "cx": 197.7,
+      "cy": 189.3,
+      "rot": -135,
+      "w": 13,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 201,
+        "y": 186
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "banos_publicos_kaldrborg__banos_publicos__8",
+      "tipo": "banos_publicos",
+      "semilla": "kaldrborg:banos_publicos:8",
+      "cx": 249.7,
+      "cy": 163.7,
+      "rot": -45,
+      "w": 12,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 8
+        },
+        {
+          "ox": 0,
+          "oy": -6.5,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 253,
+        "y": 167
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "cuartel_guardia_kaldrborg__cuartel_guardia__3",
+      "tipo": "cuartel_guardia",
+      "semilla": "kaldrborg:cuartel_guardia:3",
+      "cx": 221.7,
+      "cy": 177.7,
+      "rot": -45,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 225,
+        "y": 181
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_de_cambio_kaldrborg__casa_de_cambio__4",
+      "tipo": "casa_de_cambio",
+      "semilla": "kaldrborg:casa_de_cambio:4",
+      "cx": 213,
+      "cy": 215,
+      "rot": -225,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 209,
+        "y": 211
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__12",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:12",
+      "cx": 307,
+      "cy": 150,
+      "rot": 45,
+      "w": 13,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 10
+        }
+      ],
+      "puerta": {
+        "x": 303,
+        "y": 154
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__60",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:60",
+      "cx": 316.9,
+      "cy": 182.5,
+      "rot": 90,
+      "w": 13,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 10
+        },
+        {
+          "ox": 4,
+          "oy": -7,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 311,
+        "y": 183
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "joyeria_kaldrborg__joyeria__21",
+      "tipo": "joyeria",
+      "semilla": "kaldrborg:joyeria:21",
+      "cx": 319.4,
+      "cy": 198.2,
+      "rot": -207,
+      "w": 13,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 10
+        }
+      ],
+      "puerta": {
+        "x": 317,
+        "y": 193
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "mansion_kaldrborg__mansion__62",
+      "tipo": "mansion",
+      "semilla": "kaldrborg:mansion:62",
+      "cx": 315.5,
+      "cy": 235.4,
+      "rot": -180,
+      "w": 14,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 14,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 316,
+        "y": 230
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__15",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:15",
+      "cx": 154,
+      "cy": 264,
+      "rot": -225,
+      "w": 12,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 10
+        },
+        {
+          "ox": -3.5,
+          "oy": -7,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 149,
+        "y": 259
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__61",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:61",
+      "cx": 292,
+      "cy": 103,
+      "rot": -135,
+      "w": 12,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 10
+        },
+        {
+          "ox": 0,
+          "oy": -7,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 296,
+        "y": 99
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__75",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:75",
+      "cx": 242.9,
+      "cy": 92.5,
+      "rot": 90,
+      "w": 12,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 10
+        },
+        {
+          "ox": 3.5,
+          "oy": -7,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 237,
+        "y": 93
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__73",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:73",
+      "cx": 265.3,
+      "cy": 147.3,
+      "rot": -45,
+      "w": 13,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 9
+        },
+        {
+          "ox": 0,
+          "oy": -6.5,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 269,
+        "y": 151
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__99",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:99",
+      "cx": 185.4,
+      "cy": 153.5,
+      "rot": 90,
+      "w": 13,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 9
+        },
+        {
+          "ox": 4,
+          "oy": -6.5,
+          "w": 5,
+          "h": 4
+        },
+        {
+          "ox": -4,
+          "oy": -6.5,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 180,
+        "y": 154
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "joyeria_kaldrborg__joyeria__57",
+      "tipo": "joyeria",
+      "semilla": "kaldrborg:joyeria:57",
+      "cx": 230.6,
+      "cy": 92.5,
+      "rot": -90,
+      "w": 13,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 236,
+        "y": 93
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "joyeria_kaldrborg__joyeria__20",
+      "tipo": "joyeria",
+      "semilla": "kaldrborg:joyeria:20",
+      "cx": 270,
+      "cy": 248,
+      "rot": -45,
+      "w": 11,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 11,
+          "h": 10
+        }
+      ],
+      "puerta": {
+        "x": 274,
+        "y": 252
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "joyeria_kaldrborg__joyeria__100",
+      "tipo": "joyeria",
+      "semilla": "kaldrborg:joyeria:100",
+      "cx": 279,
+      "cy": 257,
+      "rot": -225,
+      "w": 11,
+      "h": 10,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 11,
+          "h": 10
+        }
+      ],
+      "puerta": {
+        "x": 274,
+        "y": 252
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__94",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:94",
+      "cx": 165.7,
+      "cy": 105.7,
+      "rot": -225,
+      "w": 12,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 161,
+        "y": 101
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__103",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:103",
+      "cx": 196.7,
+      "cy": 170.3,
+      "rot": 45,
+      "w": 12,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 9
+        },
+        {
+          "ox": 3.5,
+          "oy": -6.5,
+          "w": 5,
+          "h": 4
+        },
+        {
+          "ox": -3.5,
+          "oy": -6.5,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 193,
+        "y": 174
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__17",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:17",
+      "cx": 192.9,
+      "cy": 131.3,
+      "rot": -207,
+      "w": 13,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 8
+        },
+        {
+          "ox": 4,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 191,
+        "y": 127
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__30",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:30",
+      "cx": 257.3,
+      "cy": 225.7,
+      "rot": 45,
+      "w": 13,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 254,
+        "y": 229
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__77",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:77",
+      "cx": 188.1,
+      "cy": 121.7,
+      "rot": -27,
+      "w": 13,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 190,
+        "y": 126
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__97",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:97",
+      "cx": 132.3,
+      "cy": 231.1,
+      "rot": 63,
+      "w": 13,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 8
+        },
+        {
+          "ox": 0,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 128,
+        "y": 233
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "joyeria_kaldrborg__joyeria__80",
+      "tipo": "joyeria",
+      "semilla": "kaldrborg:joyeria:80",
+      "cx": 293.7,
+      "cy": 119.7,
+      "rot": -45,
+      "w": 13,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 13,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 297,
+        "y": 123
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__107",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:107",
+      "cx": 198.1,
+      "cy": 90.8,
+      "rot": -207,
+      "w": 11,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 11,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 196,
+        "y": 86
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__59",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:59",
+      "cx": 196.1,
+      "cy": 79.7,
+      "rot": -27,
+      "w": 12,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 8
+        },
+        {
+          "ox": 0,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 198,
+        "y": 84
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__96",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:96",
+      "cx": 296.3,
+      "cy": 240.3,
+      "rot": -225,
+      "w": 12,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 8
+        },
+        {
+          "ox": 3.5,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        },
+        {
+          "ox": -3.5,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 292,
+        "y": 236
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "escuela_kaldrborg__escuela__29",
+      "tipo": "escuela",
+      "semilla": "kaldrborg:escuela:29",
+      "cx": 298.7,
+      "cy": 268.3,
+      "rot": -135,
+      "w": 12,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 8
+        },
+        {
+          "ox": 0,
+          "oy": -6,
+          "w": 6,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 302,
+        "y": 265
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "escuela_kaldrborg__escuela__68",
+      "tipo": "escuela",
+      "semilla": "kaldrborg:escuela:68",
+      "cx": 184.9,
+      "cy": 95.3,
+      "rot": -207,
+      "w": 12,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 8
+        },
+        {
+          "ox": 0,
+          "oy": -6,
+          "w": 6,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 183,
+        "y": 91
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "escuela_kaldrborg__escuela__58",
+      "tipo": "escuela",
+      "semilla": "kaldrborg:escuela:58",
+      "cx": 247.7,
+      "cy": 149.7,
+      "rot": -225,
+      "w": 10,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 243,
+        "y": 145
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taberna_kaldrborg__taberna__32",
+      "tipo": "taberna",
+      "semilla": "kaldrborg:taberna:32",
+      "cx": 307.7,
+      "cy": 123.7,
+      "rot": -225,
+      "w": 10,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 9
+        }
+      ],
+      "puerta": {
+        "x": 303,
+        "y": 119
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__66",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:66",
+      "cx": 343.7,
+      "cy": 188.1,
+      "rot": -63,
+      "w": 11,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 11,
+          "h": 8
+        },
+        {
+          "ox": -3,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 348,
+        "y": 190
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__113",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:113",
+      "cx": 258.3,
+      "cy": 172.3,
+      "rot": -225,
+      "w": 11,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 11,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 254,
+        "y": 168
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_noble_kaldrborg__casa_noble__119",
+      "tipo": "casa_noble",
+      "semilla": "kaldrborg:casa_noble:119",
+      "cx": 121.3,
+      "cy": 194.1,
+      "rot": 63,
+      "w": 11,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 11,
+          "h": 8
+        },
+        {
+          "ox": 0,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 117,
+        "y": 196
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "joyeria_kaldrborg__joyeria__111",
+      "tipo": "joyeria",
+      "semilla": "kaldrborg:joyeria:111",
+      "cx": 232.5,
+      "cy": 75.1,
+      "rot": 0,
+      "w": 11,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 11,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 233,
+        "y": 80
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "escuela_kaldrborg__escuela__115",
+      "tipo": "escuela",
+      "semilla": "kaldrborg:escuela:115",
+      "cx": 132.9,
+      "cy": 144.7,
+      "rot": -243,
+      "w": 12,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 12,
+          "h": 7
+        },
+        {
+          "ox": 0,
+          "oy": -5.5,
+          "w": 6,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 129,
+        "y": 143
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taberna_kaldrborg__taberna__117",
+      "tipo": "taberna",
+      "semilla": "kaldrborg:taberna:117",
+      "cx": 147.9,
+      "cy": 183.2,
+      "rot": -27,
+      "w": 9,
+      "h": 9,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 9
+        },
+        {
+          "ox": 2,
+          "oy": -6.5,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 150,
+        "y": 188
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__35",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:35",
+      "cx": 340.7,
+      "cy": 153.9,
+      "rot": -117,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 345,
+        "y": 152
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__55",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:55",
+      "cx": 261.5,
+      "cy": 76.1,
+      "rot": 0,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 262,
+        "y": 81
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "destileria_kaldrborg__destileria__50",
+      "tipo": "destileria",
+      "semilla": "kaldrborg:destileria:50",
+      "cx": 180.7,
+      "cy": 298.3,
+      "rot": -135,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 184,
+        "y": 295
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "escuela_kaldrborg__escuela__22",
+      "tipo": "escuela",
+      "semilla": "kaldrborg:escuela:22",
+      "cx": 124.5,
+      "cy": 243.9,
+      "rot": -180,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        },
+        {
+          "ox": -2,
+          "oy": -6,
+          "w": 6,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 125,
+        "y": 239
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "escuela_kaldrborg__escuela__69",
+      "tipo": "escuela",
+      "semilla": "kaldrborg:escuela:69",
+      "cx": 113.7,
+      "cy": 206.9,
+      "rot": -117,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        },
+        {
+          "ox": -2,
+          "oy": -6,
+          "w": 6,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 118,
+        "y": 205
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "tienda_kaldrborg__tienda__83",
+      "tipo": "tienda",
+      "semilla": "kaldrborg:tienda:83",
+      "cx": 198.1,
+      "cy": 305.3,
+      "rot": -153,
+      "w": 10,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 200,
+        "y": 301
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "carpinteria_kaldrborg__carpinteria__38",
+      "tipo": "carpinteria",
+      "semilla": "kaldrborg:carpinteria:38",
+      "cx": 145.7,
+      "cy": 255.7,
+      "rot": -45,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 149,
+        "y": 259
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__24",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:24",
+      "cx": 270.3,
+      "cy": 160.3,
+      "rot": -225,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 266,
+        "y": 156
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__41",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:41",
+      "cx": 275.3,
+      "cy": 121.7,
+      "rot": 45,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 272,
+        "y": 125
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__47",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:47",
+      "cx": 297.3,
+      "cy": 289.3,
+      "rot": -225,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 293,
+        "y": 285
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__63",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:63",
+      "cx": 275.7,
+      "cy": 91.3,
+      "rot": -135,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 279,
+        "y": 88
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "herreria_kaldrborg__herreria__105",
+      "tipo": "herreria",
+      "semilla": "kaldrborg:herreria:105",
+      "cx": 180.1,
+      "cy": 85.7,
+      "rot": -27,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 182,
+        "y": 90
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taberna_kaldrborg__taberna__27",
+      "tipo": "taberna",
+      "semilla": "kaldrborg:taberna:27",
+      "cx": 160.3,
+      "cy": 179.9,
+      "rot": -243,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 156,
+        "y": 178
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taberna_kaldrborg__taberna__95",
+      "tipo": "taberna",
+      "semilla": "kaldrborg:taberna:95",
+      "cx": 155.7,
+      "cy": 160.1,
+      "rot": -63,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        },
+        {
+          "ox": 0,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 160,
+        "y": 162
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taller_sastre_kaldrborg__taller_sastre__79",
+      "tipo": "taller_sastre",
+      "semilla": "kaldrborg:taller_sastre:79",
+      "cx": 175.1,
+      "cy": 118.5,
+      "rot": -90,
+      "w": 9,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 180,
+        "y": 119
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "botica_kaldrborg__botica__18",
+      "tipo": "botica",
+      "semilla": "kaldrborg:botica:18",
+      "cx": 149.1,
+      "cy": 195.7,
+      "rot": -117,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 153,
+        "y": 194
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "botica_kaldrborg__botica__114",
+      "tipo": "botica",
+      "semilla": "kaldrborg:botica:114",
+      "cx": 221.6,
+      "cy": 232.5,
+      "rot": -90,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 226,
+        "y": 233
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__52",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:52",
+      "cx": 171,
+      "cy": 292,
+      "rot": -135,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 174,
+        "y": 289
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__86",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:86",
+      "cx": 319,
+      "cy": 271,
+      "rot": -225,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 315,
+        "y": 267
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "escuela_kaldrborg__escuela__84",
+      "tipo": "escuela",
+      "semilla": "kaldrborg:escuela:84",
+      "cx": 147.5,
+      "cy": 144.4,
+      "rot": -180,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 148,
+        "y": 140
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taberna_kaldrborg__taberna__34",
+      "tipo": "taberna",
+      "semilla": "kaldrborg:taberna:34",
+      "cx": 163,
+      "cy": 93,
+      "rot": -45,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 166,
+        "y": 96
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taller_sastre_kaldrborg__taller_sastre__33",
+      "tipo": "taller_sastre",
+      "semilla": "kaldrborg:taller_sastre:33",
+      "cx": 315,
+      "cy": 261,
+      "rot": -45,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 318,
+        "y": 264
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "tienda_kaldrborg__tienda__53",
+      "tipo": "tienda",
+      "semilla": "kaldrborg:tienda:53",
+      "cx": 156,
+      "cy": 114,
+      "rot": -225,
+      "w": 10,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 152,
+        "y": 110
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__42",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:42",
+      "cx": 249.7,
+      "cy": 235.3,
+      "rot": -135,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 253,
+        "y": 232
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__87",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:87",
+      "cx": 164.3,
+      "cy": 210.7,
+      "rot": 45,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 161,
+        "y": 214
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__90",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:90",
+      "cx": 298.7,
+      "cy": 158.3,
+      "rot": -135,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 302,
+        "y": 155
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "establo_kaldrborg__establo__72",
+      "tipo": "establo",
+      "semilla": "kaldrborg:establo:72",
+      "cx": 321.7,
+      "cy": 253.7,
+      "rot": -45,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        },
+        {
+          "ox": 1.5,
+          "oy": -6,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 325,
+        "y": 257
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "granero_kaldrborg__granero__49",
+      "tipo": "granero",
+      "semilla": "kaldrborg:granero:49",
+      "cx": 269.7,
+      "cy": 293.7,
+      "rot": -45,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 273,
+        "y": 297
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "panaderia_kaldrborg__panaderia__25",
+      "tipo": "panaderia",
+      "semilla": "kaldrborg:panaderia:25",
+      "cx": 176.3,
+      "cy": 282.7,
+      "rot": 45,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 173,
+        "y": 286
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "panaderia_kaldrborg__panaderia__91",
+      "tipo": "panaderia",
+      "semilla": "kaldrborg:panaderia:91",
+      "cx": 335.7,
+      "cy": 231.7,
+      "rot": -45,
+      "w": 8,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 339,
+        "y": 235
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "alfareria_kaldrborg__alfareria__48",
+      "tipo": "alfareria",
+      "semilla": "kaldrborg:alfareria:48",
+      "cx": 231.4,
+      "cy": 232.5,
+      "rot": 90,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 227,
+        "y": 233
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "carpinteria_kaldrborg__carpinteria__104",
+      "tipo": "carpinteria",
+      "semilla": "kaldrborg:carpinteria:104",
+      "cx": 210.7,
+      "cy": 124.9,
+      "rot": -207,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 209,
+        "y": 121
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__112",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:112",
+      "cx": 167,
+      "cy": 142,
+      "rot": 45,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 164,
+        "y": 145
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "destileria_kaldrborg__destileria__74",
+      "tipo": "destileria",
+      "semilla": "kaldrborg:destileria:74",
+      "cx": 312,
+      "cy": 102,
+      "rot": -45,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 315,
+        "y": 105
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "granero_kaldrborg__granero__108",
+      "tipo": "granero",
+      "semilla": "kaldrborg:granero:108",
+      "cx": 149,
+      "cy": 107,
+      "rot": -45,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 152,
+        "y": 110
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "herreria_kaldrborg__herreria__13",
+      "tipo": "herreria",
+      "semilla": "kaldrborg:herreria:13",
+      "cx": 193,
+      "cy": 262,
+      "rot": -135,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 196,
+        "y": 259
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "herreria_kaldrborg__herreria__36",
+      "tipo": "herreria",
+      "semilla": "kaldrborg:herreria:36",
+      "cx": 256.3,
+      "cy": 122.9,
+      "rot": -153,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 258,
+        "y": 119
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "herreria_kaldrborg__herreria__92",
+      "tipo": "herreria",
+      "semilla": "kaldrborg:herreria:92",
+      "cx": 260.7,
+      "cy": 114.1,
+      "rot": 27,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 259,
+        "y": 118
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taberna_kaldrborg__taberna__85",
+      "tipo": "taberna",
+      "semilla": "kaldrborg:taberna:85",
+      "cx": 172.5,
+      "cy": 179.4,
+      "rot": -180,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        },
+        {
+          "ox": -2,
+          "oy": -5.5,
+          "w": 5,
+          "h": 4
+        }
+      ],
+      "puerta": {
+        "x": 173,
+        "y": 175
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "tienda_kaldrborg__tienda__46",
+      "tipo": "tienda",
+      "semilla": "kaldrborg:tienda:46",
+      "cx": 307,
+      "cy": 281,
+      "rot": -225,
+      "w": 9,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 303,
+        "y": 277
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "botica_kaldrborg__botica__102",
+      "tipo": "botica",
+      "semilla": "kaldrborg:botica:102",
+      "cx": 289.4,
+      "cy": 233.4,
+      "rot": -45,
+      "w": 10,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 292,
+        "y": 236
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "panaderia_kaldrborg__panaderia__88",
+      "tipo": "panaderia",
+      "semilla": "kaldrborg:panaderia:88",
+      "cx": 186.6,
+      "cy": 246.4,
+      "rot": 45,
+      "w": 10,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 184,
+        "y": 249
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "panaderia_kaldrborg__panaderia__106",
+      "tipo": "panaderia",
+      "semilla": "kaldrborg:panaderia:106",
+      "cx": 326.4,
+      "cy": 130.6,
+      "rot": -135,
+      "w": 10,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 329,
+        "y": 128
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_kaldrborg__casa_humilde__89",
+      "tipo": "casa_humilde",
+      "semilla": "kaldrborg:casa_humilde:89",
+      "cx": 235,
+      "cy": 161,
+      "rot": -225,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 231,
+        "y": 157
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_humilde_kaldrborg__casa_humilde__110",
+      "tipo": "casa_humilde",
+      "semilla": "kaldrborg:casa_humilde:110",
+      "cx": 189,
+      "cy": 180,
+      "rot": -135,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 192,
+        "y": 177
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__70",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:70",
+      "cx": 286,
+      "cy": 128,
+      "rot": -45,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 289,
+        "y": 131
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__71",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:71",
+      "cx": 296,
+      "cy": 134,
+      "rot": -225,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 292,
+        "y": 130
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__109",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:109",
+      "cx": 153,
+      "cy": 249,
+      "rot": -45,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 156,
+        "y": 252
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "tienda_kaldrborg__tienda__43",
+      "tipo": "tienda",
+      "semilla": "kaldrborg:tienda:43",
+      "cx": 175,
+      "cy": 133,
+      "rot": -45,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 178,
+        "y": 136
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "tienda_kaldrborg__tienda__56",
+      "tipo": "tienda",
+      "semilla": "kaldrborg:tienda:56",
+      "cx": 302,
+      "cy": 109,
+      "rot": -135,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 305,
+        "y": 106
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "tienda_kaldrborg__tienda__78",
+      "tipo": "tienda",
+      "semilla": "kaldrborg:tienda:78",
+      "cx": 148,
+      "cy": 123,
+      "rot": 45,
+      "w": 8,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 145,
+        "y": 126
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "torre_mago_kaldrborg__torre_mago__65",
+      "tipo": "torre_mago",
+      "semilla": "kaldrborg:torre_mago:65",
+      "cx": 251.7,
+      "cy": 254.1,
+      "rot": -63,
+      "w": 7,
+      "h": 8,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 8
+        }
+      ],
+      "puerta": {
+        "x": 256,
+        "y": 256
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__40",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:40",
+      "cx": 175.1,
+      "cy": 149.5,
+      "rot": -90,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 179,
+        "y": 150
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "curtiduria_kaldrborg__curtiduria__82",
+      "tipo": "curtiduria",
+      "semilla": "kaldrborg:curtiduria:82",
+      "cx": 141.4,
+      "cy": 115.4,
+      "rot": -45,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 144,
+        "y": 118
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "granero_kaldrborg__granero__76",
+      "tipo": "granero",
+      "semilla": "kaldrborg:granero:76",
+      "cx": 172.5,
+      "cy": 170.1,
+      "rot": 0,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 173,
+        "y": 174
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "panaderia_kaldrborg__panaderia__23",
+      "tipo": "panaderia",
+      "semilla": "kaldrborg:panaderia:23",
+      "cx": 144.5,
+      "cy": 236.1,
+      "rot": 0,
+      "w": 9,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 9,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 145,
+        "y": 240
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_kaldrborg__casa_humilde__19",
+      "tipo": "casa_humilde",
+      "semilla": "kaldrborg:casa_humilde:19",
+      "cx": 241.3,
+      "cy": 121.9,
+      "rot": -153,
+      "w": 7,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 243,
+        "y": 118
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "alfareria_kaldrborg__alfareria__101",
+      "tipo": "alfareria",
+      "semilla": "kaldrborg:alfareria:101",
+      "cx": 245.5,
+      "cy": 309.4,
+      "rot": -207,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 244,
+        "y": 306
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__44",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:44",
+      "cx": 214.6,
+      "cy": 270.6,
+      "rot": -225,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 211,
+        "y": 267
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__45",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:45",
+      "cx": 328.6,
+      "cy": 260.6,
+      "rot": -225,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 325,
+        "y": 257
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__93",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:93",
+      "cx": 144.5,
+      "cy": 244.9,
+      "rot": -180,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 145,
+        "y": 241
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_modesta_kaldrborg__casa_modesta__98",
+      "tipo": "casa_modesta",
+      "semilla": "kaldrborg:casa_modesta:98",
+      "cx": 237.6,
+      "cy": 107.6,
+      "rot": -225,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 234,
+        "y": 104
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "destileria_kaldrborg__destileria__118",
+      "tipo": "destileria",
+      "semilla": "kaldrborg:destileria:118",
+      "cx": 240.4,
+      "cy": 224.6,
+      "rot": -135,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 243,
+        "y": 222
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taller_sastre_kaldrborg__taller_sastre__37",
+      "tipo": "taller_sastre",
+      "semilla": "kaldrborg:taller_sastre:37",
+      "cx": 280.6,
+      "cy": 298.6,
+      "rot": -225,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 277,
+        "y": 295
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "taller_sastre_kaldrborg__taller_sastre__51",
+      "tipo": "taller_sastre",
+      "semilla": "kaldrborg:taller_sastre:51",
+      "cx": 159.5,
+      "cy": 237.1,
+      "rot": 0,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 160,
+        "y": 241
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "tienda_kaldrborg__tienda__16",
+      "tipo": "tienda",
+      "semilla": "kaldrborg:tienda:16",
+      "cx": 154.6,
+      "cy": 212.5,
+      "rot": -117,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 158,
+        "y": 211
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "tienda_kaldrborg__tienda__54",
+      "tipo": "tienda",
+      "semilla": "kaldrborg:tienda:54",
+      "cx": 305.6,
+      "cy": 169.5,
+      "rot": -117,
+      "w": 8,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 309,
+        "y": 168
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_kaldrborg__casa_humilde__81",
+      "tipo": "casa_humilde",
+      "semilla": "kaldrborg:casa_humilde:81",
+      "cx": 250,
+      "cy": 219,
+      "rot": 45,
+      "w": 6,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 6,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 247,
+        "y": 222
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_humilde_kaldrborg__casa_humilde__116",
+      "tipo": "casa_humilde",
+      "semilla": "kaldrborg:casa_humilde:116",
+      "cx": 161,
+      "cy": 152,
+      "rot": -135,
+      "w": 6,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 6,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 164,
+        "y": 149
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_humilde_kaldrborg__casa_humilde__26",
+      "tipo": "casa_humilde",
+      "semilla": "kaldrborg:casa_humilde:26",
+      "cx": 225.6,
+      "cy": 167.5,
+      "rot": -90,
+      "w": 8,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 229,
+        "y": 168
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_kaldrborg__casa_humilde__31",
+      "tipo": "casa_humilde",
+      "semilla": "kaldrborg:casa_humilde:31",
+      "cx": 177.3,
+      "cy": 237.3,
+      "rot": -225,
+      "w": 8,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 174,
+        "y": 234
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "torre_mago_kaldrborg__torre_mago__28",
+      "tipo": "torre_mago",
+      "semilla": "kaldrborg:torre_mago:28",
+      "cx": 245.5,
+      "cy": 113.6,
+      "rot": 27,
+      "w": 6,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 6,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 244,
+        "y": 117
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "torre_mago_kaldrborg__torre_mago__39",
+      "tipo": "torre_mago",
+      "semilla": "kaldrborg:torre_mago:39",
+      "cx": 198.4,
+      "cy": 118.4,
+      "rot": -45,
+      "w": 6,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 6,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 201,
+        "y": 121
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_kaldrborg__casa_humilde__14",
+      "tipo": "casa_humilde",
+      "semilla": "kaldrborg:casa_humilde:14",
+      "cx": 220.2,
+      "cy": 301,
+      "rot": 27,
+      "w": 7,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 219,
+        "y": 304
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_kaldrborg__casa_humilde__64",
+      "tipo": "casa_humilde",
+      "semilla": "kaldrborg:casa_humilde:64",
+      "cx": 241.8,
+      "cy": 302,
+      "rot": -27,
+      "w": 7,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 243,
+        "y": 305
+      },
+      "reservadoJugador": true
+    },
+    {
+      "id": "casa_humilde_kaldrborg__casa_humilde__67",
+      "tipo": "casa_humilde",
+      "semilla": "kaldrborg:casa_humilde:67",
+      "cx": 293.7,
+      "cy": 279.7,
+      "rot": -45,
+      "w": 6,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 296,
+        "y": 282
+      },
+      "reservadoJugador": false
+    }
+  ]
+}
