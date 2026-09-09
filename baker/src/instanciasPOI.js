@@ -192,7 +192,33 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
     const rnd = crearPRNG(semillaDesdeTexto(`${semillaPOI}:silueta`));
     const modelo = generarSiluetaCiudad(ciudad, rnd);
     fs.mkdirSync(carpetaAssetsEdificios, { recursive: true });
-    exportarModeloGlb(modelo, id, path.join(carpetaAssetsEdificios, `${id}_01.glb`), 0.1, false);
+    // centrarXZ:true — bug real encontrado 2026-09-09 verificando en vivo la
+    // silueta recién promocionada: `generarSiluetaCiudad`/`generar_edificio.js`
+    // (TODO taller-vox de edificios, no solo esta pieza) autoran sus cajas en
+    // coordenadas de rejilla LOCAL [0,ancho]x[0,alto] — con `centrarXZ:false`
+    // (por defecto, "ancla por la esquina") el origen local (0,0,0) del `.glb`
+    // exportado queda en la ESQUINA de esa rejilla, no en su centro — pero
+    // `colocarSiluetaYPuertaDeAsentamiento` (y, de hecho, TODO objeto "e" de
+    // esta pila de POIs) coloca `x/y` como el CENTRO real del asentamiento
+    // (confirmado con la fórmula de la puerta, `poi.y + alto/2`, que solo
+    // tiene sentido si poi.y es el centro). Con esquina-anclado + centro
+    // asumido, la silueta entera (184x184 casillas en capital_regional)
+    // salía desplazada ~medio footprint (¡92 casillas!) de donde debía — por
+    // eso no se veía nada reconocible cerca de la puerta al verificar en
+    // vivo. `centrarXZ:true` desplaza los vértices por `grid/2` (mitad de la
+    // rejilla nominal), que para esta silueta coincide con el centro real
+    // del contenido con un margen pequeño y aceptable (la muralla real no
+    // siempre cae perfectamente centrada en su propia caja delimitadora) —
+    // mismo mecanismo ya usado para los muebles de interiores desde
+    // 2026-09-06 (`exportar_glb.js`), aquí aplicado por primera vez a un
+    // "edificio". NO se toca el resto de `taller-vox/generar_edificio.js`
+    // (edificios normales de POI/ciudad) en esta pasada — mismo bug
+    // probablemente real ahí también (confirmado empíricamente comparando
+    // bounding boxes de `.glb` reales), pero de blast radius mucho mayor
+    // (cientos de edificios ya bakeados en varios mapas) — fuera de alcance
+    // de "arreglar el cuadrado morado", documentado como pendiente real en
+    // docs/GDD_Motor_3D_Props.md.
+    exportarModeloGlb(modelo, id, path.join(carpetaAssetsEdificios, `${id}_01.glb`), 0.1, true);
     return id;
   }
 

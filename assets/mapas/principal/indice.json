@@ -85,7 +85,7 @@
     {
       "tipo": "exterior",
       "x": 2599,
-      "y": 120,
+      "y": 187,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/guarida_bandidos_2599_120"
@@ -125,7 +125,7 @@
     {
       "tipo": "exterior",
       "x": 1631,
-      "y": 406,
+      "y": 473,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/asentamiento_cultistas_poi_1631_406"
@@ -134,7 +134,7 @@
     {
       "tipo": "exterior",
       "x": 2358,
-      "y": 474,
+      "y": 541,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/asentamiento_cultistas_poi_2358_474"
@@ -200,7 +200,7 @@
     {
       "tipo": "exterior",
       "x": 1816,
-      "y": 891,
+      "y": 958,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/campamento_barbaros_grande_1816_891"
@@ -217,7 +217,7 @@
     {
       "tipo": "exterior",
       "x": 237,
-      "y": 1108,
+      "y": 1175,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/asentamiento_cultistas_poi_237_1108"
@@ -325,7 +325,7 @@
     {
       "tipo": "exterior",
       "x": 58,
-      "y": 2147,
+      "y": 2214,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/poblado_orco_poi_58_2147"
@@ -366,7 +366,7 @@
     {
       "tipo": "exterior",
       "x": 2603,
-      "y": 2084,
+      "y": 2151,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/poblado_orco_poi_2603_2084"
@@ -391,7 +391,7 @@
     {
       "tipo": "exterior",
       "x": 2024,
-      "y": 2258,
+      "y": 2325,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/campamento_barbaros_grande_2024_2258"
