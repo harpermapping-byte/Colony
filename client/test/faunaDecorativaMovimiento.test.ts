@@ -31,6 +31,7 @@ function individuo(overrides: Partial<IndividuoFaunaDecorativa> & { homeX: numbe
     escala: 1,
     destino: null,
     pausaRestante: 0,
+    oculto: false,
     ...overrides,
   };
 }
@@ -67,6 +68,19 @@ test("actualizar: con destino activo, avanza hacia él a VEL=1 casilla/seg", () 
   assert.ok(Math.abs(ind.x - 5.5) < 1e-6, `esperaba x≈5.5, salió ${ind.x}`);
   assert.strictEqual(ind.y, 5);
   assert.ok(ind.destino, "sigue caminando, no ha llegado");
+});
+
+test("actualizar: un individuo oculto (recolectado en vivo) nunca se recompone — su matriz se queda tal cual el ocultamiento la dejó", () => {
+  const ind = individuo({ homeX: 5, homeY: 5, destino: { x: 8, y: 5 }, oculto: true });
+  const matrizAntes = new THREE.Matrix4();
+  ind.instanciado.getMatrixAt(ind.indice, matrizAntes);
+  const animador = new AnimadorFaunaDecorativaSector([ind], SIEMPRE_TRANSITABLE);
+  animador.actualizar(1000);
+  assert.strictEqual(ind.x, 5, "no se mueve aunque tenga destino activo");
+  assert.strictEqual(ind.destino!.x, 8, "el destino no se limpia ni se toca — el individuo simplemente se ignora");
+  const matrizDespues = new THREE.Matrix4();
+  ind.instanciado.getMatrixAt(ind.indice, matrizDespues);
+  assert.deepStrictEqual(matrizAntes.toArray(), matrizDespues.toArray(), "la matriz de instancia nunca se reescribe estando oculto");
 });
 
 test("actualizar: al llegar al destino, lo limpia y fija una pausa de 2-6s", () => {

@@ -850,11 +850,7 @@ async function crearPropsSector(
             matriz.compose(posicion, rotacion, escala);
             matriz.multiply(mallaFauna.matrix);
             instanciado.setMatrixAt(indice2, matriz);
-            ocultables.set(clavePosicion(globalX, globalY), () => {
-              instanciado.setMatrixAt(indice2, matrizCero);
-              instanciado.instanceMatrix.needsUpdate = true;
-            });
-            individuosFaunaDecorativa.push({
+            const individuo: IndividuoFaunaDecorativa = {
               especieId: grupo.id,
               gregario,
               instanciado,
@@ -870,6 +866,13 @@ async function crearPropsSector(
               // caminar todos a la vez el mismo frame — mismo criterio que
               // el servidor, cuya pausa inicial también es aleatoria.
               pausaRestante: Math.random() * 6,
+              oculto: false,
+            };
+            individuosFaunaDecorativa.push(individuo);
+            ocultables.set(clavePosicion(globalX, globalY), () => {
+              individuo.oculto = true; // corta el bucle de animación ANTES de que reescriba esta matriz (docs/GDD_Agentes_Moviles.md fase 11)
+              instanciado.setMatrixAt(indice2, matrizCero);
+              instanciado.instanceMatrix.needsUpdate = true;
             });
           });
           instanciado.instanceMatrix.needsUpdate = true;
@@ -1144,9 +1147,31 @@ export async function crearSectorVisual(
   };
 }
 
-/** Libera GPU/memoria de lo que creó `crearSectorVisual` (llamar tras quitarlo de escena). */
+/**
+ * Libera GPU/memoria de lo que creó `crearSectorVisual` (llamar tras
+ * quitarlo de escena). `geometry`/`material` SOLO se disponen si están
+ * marcados `propioDelSector` (una plantilla `.glb`/malla de fauna decorativa
+ * compartida por `entityLoader`/`faunaDecorativaPool` vive más allá de este
+ * sector, reusada por cualquier otro que necesite la misma especie+variante
+ * a la vez — disponerla rompería esa geometría para el resto).
+ *
+ * `InstancedMesh.dispose()` es DISTINTO: libera el buffer GPU de
+ * `instanceMatrix` (propio de CADA InstancedMesh, nunca compartido entre
+ * sectores aunque su geometría/material sí lo sean) — un leak real
+ * encontrado por un workflow de investigación esta misma noche (2026-09-09):
+ * esta función nunca lo llamaba en NINGUNA rama (placeholder de caja, `.glb`
+ * real, fauna decorativa), así que cada sector realmente dispuesto (fuera
+ * del pool de ocultar/cachear) dejaba huérfano ese buffer para siempre —
+ * reproducido con un stall real de hasta 42s tras acumular miles de
+ * InstancedMesh efímeros en la misma sesión. Seguro llamarlo siempre,
+ * marcado `propioDelSector` o no: nunca toca geometría/material, solo su
+ * propio buffer de instancia.
+ */
 export function soltarSectorVisual(handle: HandleSector): void {
   handle.grupo.traverse((obj) => {
+    if ((obj as THREE.InstancedMesh).isInstancedMesh) {
+      (obj as THREE.InstancedMesh).dispose();
+    }
     if (!obj.userData.propioDelSector) return;
     const malla = obj as THREE.Mesh;
     malla.geometry?.dispose();

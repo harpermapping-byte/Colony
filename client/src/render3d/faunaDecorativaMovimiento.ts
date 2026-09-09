@@ -54,12 +54,23 @@ export interface IndividuoFaunaDecorativa {
   escala: number;
   destino: { x: number; y: number } | null;
   pausaRestante: number;
+  /**
+   * Recolectado/tala en vivo delante del jugador (docs/GDD_Bosques.md §7,
+   * `ocultarPosicion` de `HandleSector`) — hoy NUNCA se dispara para fauna
+   * decorativa (ninguna especie de `baker/catalogo/animales.json` declara
+   * `desaparaceAlRecolectar`/`categoriaRecurso`, confirmado 2026-09-09), pero
+   * si algún día una especie lo hiciera, sin esta bandera el bucle de
+   * animación reescribiría su matriz al frame siguiente y la "reapareceria"
+   * animada — encontrado razonando la arquitectura, cerrado desde el
+   * diseño inicial en vez de dejarlo como trampa latente.
+   */
+  oculto: boolean;
 }
 
 function centroideManada(individuo: IndividuoFaunaDecorativa, mismaEspecie: IndividuoFaunaDecorativa[]): { x: number; y: number } | null {
   let sx = 0, sy = 0, n = 0;
   for (const otro of mismaEspecie) {
-    if (otro === individuo) continue;
+    if (otro === individuo || otro.oculto) continue;
     if (Math.hypot(otro.x - individuo.x, otro.y - individuo.y) <= RADIO_MANADA) {
       sx += otro.x; sy += otro.y; n++;
     }
@@ -128,6 +139,7 @@ export class AnimadorFaunaDecorativaSector {
 
     const instanciadosTocados = new Set<THREE.InstancedMesh>();
     for (const ind of this.individuos) {
+      if (ind.oculto) continue; // recolectado en vivo — su matriz ya quedó a cero, nunca recomputar por encima
       if (ind.destino) {
         const dx = ind.destino.x - ind.x;
         const dy = ind.destino.y - ind.y;
