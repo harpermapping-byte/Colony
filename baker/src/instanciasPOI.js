@@ -33,6 +33,7 @@
 const fs = require("fs");
 const path = require("path");
 const { crearPRNG, semillaDesdeTexto } = require("./ruido");
+const { puntoEnPoligono } = require("../../ciudades/src/geometria");
 
 function slugPOI(poi) {
   return `${poi.id}_${poi.x}_${poi.y}`;
@@ -281,30 +282,33 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
     // espacio que ocupa la aldea/ciudad", no un rectángulo mucho más
     // grande que la muralla real) — `ciudad.ancho`/`ciudad.alto` incluyen
     // MARGEN_EXTRAMUROS=16 casillas de respiro alrededor (ciudades/src/
-    // generar.js), terreno vacío que debería quedar caminable. Se calcula
-    // la caja delimitadora REAL del polígono de muralla (con un margen
-    // pequeño para las torres/almenas, que sobresalen un poco de sus
-    // vértices) y se bloquea SOLO esa, vía los campos opcionales
-    // `xBloqueo`/`yBloqueo`/`huellaBloqueo` de baker/src/generar.js — la
-    // huella VISUAL (`huella`, usada solo si el .glb no llega a cargar y
-    // cae al placeholder) se queda con la caja completa, sin cambio.
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const v of ciudad.poligonoMuralla) {
-      if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x;
-      if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y;
-    }
-    const margenBloqueo = 4;
-    const anchoBloqueo = Math.max(4, Math.ceil(maxX - minX) + margenBloqueo * 2);
-    const altoBloqueo = Math.max(4, Math.ceil(maxY - minY) + margenBloqueo * 2);
-    const cxLocalBloqueo = (minX + maxX) / 2, cyLocalBloqueo = (minY + maxY) / 2;
+    // generar.js), terreno vacío que debería quedar caminable.
+    //
+    // v2 (2026-09-09, mismo día — la v1 con caja rectangular dejaba el
+    // portal 15-24 casillas lejos de la puerta visual, medido en los 12
+    // asentamientos ya promocionados: un polígono orgánico (Perlin) puede
+    // estar muy lejos del borde de SU PROPIA caja delimitadora en casi
+    // cualquier dirección salvo las pocas más extremas, así que "salir de
+    // la caja" desde un punto cualquiera del polígono podía exigir un
+    // empujón enorme). Ahora se bloquea el POLÍGONO REAL de la muralla
+    // (point-in-polygon, `poligonoBloqueo` en baker/src/generar.js),
+    // ligeramente inflado desde el focal (MARGEN_MURO_BLOQUEO) para cubrir
+    // el grosor visual de la muralla/torres — el portal solo necesita
+    // salir de ESE polígono, nunca de una caja mucho más ancha.
+    const MARGEN_MURO_BLOQUEO = 2.5; // casillas, > grosor real de la muralla en mundo (~1.4-1.7u a U=4)
+    const poligonoBloqueoLocal = ciudad.poligonoMuralla.map((v) => {
+      const dx = v.x - ciudad.focal.x, dy = v.y - ciudad.focal.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const f = (d + MARGEN_MURO_BLOQUEO) / d;
+      return { x: ciudad.focal.x + dx * f, y: ciudad.focal.y + dy * f };
+    });
+    const poligonoBloqueoMundo = poligonoBloqueoLocal.map((v) => ({ x: aMundoX(v.x), y: aMundoY(v.y) }));
 
     objetosPorPOI.set(slug, {
       x: poi.x,
       y: poi.y,
       huella: [ciudad.ancho, ciudad.alto],
-      xBloqueo: aMundoX(cxLocalBloqueo),
-      yBloqueo: aMundoY(cyLocalBloqueo),
-      huellaBloqueo: [anchoBloqueo, altoBloqueo],
+      poligonoBloqueo: poligonoBloqueoMundo,
       objeto: {
         i: tipoEdificioIdCiudad,
         t: "e",
@@ -331,31 +335,42 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
     // `generar_puerta_asentamiento.js`, simétrica bilateral Y
     // longitudinalmente — cualquier `ro` que alinee su eje ancho con la
     // tangente vale, sin importar el signo) se coloca y rota exactamente
-    // ahí, y el portal se empuja hacia FUERA en la dirección radial desde
-    // el centro real de la ciudad (`ciudad.focal`, NO el centro
-    // geométrico de la caja: el polígono se construyó alrededor de focal)
-    // hasta salir de la caja de BLOQUEO ajustada de arriba + un margen —
-    // así el portal cae siempre en terreno caminable de verdad, sin
-    // importar cuánto se desvíe `focal` del centro de la caja (hasta ~34
-    // casillas medido en capital_jarl).
+    // ahí.
+    //
+    // v3 (2026-09-09, misma noche, feedback streamer: "la puerta debe
+    // estar bien alineada y centrada... que se entre y se salga solo por
+    // ahí"): dos fixes sobre v2. (1) `ro` se snapea al ángulo recto más
+    // cercano (0/90/180/270) — la muralla se dibuja con bloques cúbicos
+    // alineados a ejes, así que la tangente EXACTA (cualquier ángulo, el
+    // polígono es orgánico) chocaba en diagonal contra un hueco recto. (2)
+    // el portal ya NO se empuja hasta salir de la caja delimitadora
+    // rectangular del polígono (v2) — para un punto no-extremal de un
+    // polígono irregular eso podía exigir un empujón de 15-24 casillas
+    // (medido en los 12 asentamientos ya promocionados), dejando el punto
+    // de interacción lejísimos de la puerta visual — ahora se empuja SOLO
+    // hasta salir del polígono REAL de la muralla (`poligonoBloqueoLocal`,
+    // el mismo que bloquea el terreno, arriba), incrementando en pasos
+    // pequeños desde un margen mínimo — la puerta y el portal quedan
+    // pegados de verdad, sin importar la forma del polígono en ese punto.
     const anchoPuerta = 6, altoPuerta = 2;
     let xPuerta, yPuerta, roPuerta, xPortal, yPortal;
     if (puertaPrincipal) {
       xPuerta = aMundoX(puertaPrincipal.x);
       yPuerta = aMundoY(puertaPrincipal.y);
-      roPuerta = puertaPrincipal.rotDeg;
+      roPuerta = Math.round(puertaPrincipal.rotDeg / 90) * 90;
       const dx = puertaPrincipal.x - ciudad.focal.x, dy = puertaPrincipal.y - ciudad.focal.y;
       const dist = Math.hypot(dx, dy) || 1;
       const ndx = dx / dist, ndy = dy / dist;
-      // distancia hasta salir de la caja de bloqueo (raycast contra AABB,
-      // el punto de partida está DENTRO por construcción) + margen
-      const rx = puertaPrincipal.x - cxLocalBloqueo, ry = puertaPrincipal.y - cyLocalBloqueo;
-      const hw = anchoBloqueo / 2, hh = altoBloqueo / 2;
-      const tx = ndx > 0 ? (hw - rx) / ndx : ndx < 0 ? (-hw - rx) / ndx : Infinity;
-      const ty = ndy > 0 ? (hh - ry) / ndy : ndy < 0 ? (-hh - ry) / ndy : Infinity;
-      const empuje = Math.max(0, Math.min(tx, ty)) + 1.5;
-      xPortal = xPuerta + ndx * empuje;
-      yPortal = yPuerta + ndy * empuje;
+      let empuje = 1.5;
+      while (
+        empuje < 30 &&
+        puntoEnPoligono(puertaPrincipal.x + ndx * empuje, puertaPrincipal.y + ndy * empuje, poligonoBloqueoLocal)
+      ) empuje += 1;
+      empuje += 1; // margen extra tras salir, mismo criterio de siempre
+      const xPortalLocal = puertaPrincipal.x + ndx * empuje;
+      const yPortalLocal = puertaPrincipal.y + ndy * empuje;
+      xPortal = aMundoX(xPortalLocal);
+      yPortal = aMundoY(yPortalLocal);
     } else {
       // Sin puerta real detectada (caso límite, polígono degenerado sin
       // ningún camino cruzándolo — nunca visto en producción, pero no

@@ -41,18 +41,26 @@ scene.add(luz);
 scene.add(new THREE.AmbientLight(0xffffff, 0.65));
 
 const camara = new THREE.OrthographicCamera(-60, 60, 46, -46, 0.1, 500);
-if (vista === "lejos" || vista === "cerca") {
+if (vista === "lejos" || vista === "cerca" || vista === "puertaiso") {
   // vista general isométrica desde fuera, encuadrando toda la ciudad —
   // MISMO ángulo fijo que worldScene.ts::posicionarCamaraIsometrica
   // ((+d,+d,+d) mirando al objetivo), la única cámara real del juego.
   // "cerca" usa un frustum ajustado al tamaño real de la ciudad (como
   // vería un jugador acercándose a pie), "lejos" el mismo encuadre amplio
-  // de antes (para comparar).
-  const objetivo = new THREE.Vector3(centro.x, 0, centro.y);
-  const mitad = vista === "cerca" ? 45 : 110;
+  // de antes (para comparar). "puertaiso" (2026-09-09, verificación del
+  // snap de rotación a 90°) es el MISMO ángulo isométrico fijo, solo que
+  // encuadrado sobre la puerta real en vez del centro de la ciudad — a
+  // diferencia del "puerta" de abajo (look-at dinámico desde el hueco
+  // hacia el centro, útil para continuidad de muralla pero NO representa
+  // el ángulo real del juego).
+  const objetivoPuerta = vista === "puertaiso";
+  const objetivo = objetivoPuerta
+    ? new THREE.Vector3(portal.x, 0, portal.y)
+    : new THREE.Vector3(centro.x, 0, centro.y);
+  const mitad = objetivoPuerta ? 12 : vista === "cerca" ? 45 : 110;
   const alto = mitad * (46 / 60);
   camara.left = -mitad; camara.right = mitad; camara.top = alto; camara.bottom = -alto;
-  const distancia = vista === "cerca" ? 40 : 90;
+  const distancia = objetivoPuerta ? 20 : vista === "cerca" ? 40 : 90;
   camara.position.set(objetivo.x + distancia, distancia, objetivo.z + distancia);
   camara.lookAt(objetivo);
 } else {

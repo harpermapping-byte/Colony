@@ -15,6 +15,7 @@ const { normalizarBordes } = require("./bordes");
 const { crearExportador } = require("./exportar");
 const { generarImagenesResumen } = require("./overview");
 const { validarMapa } = require("./validar");
+const { puntoEnPoligono } = require("../../ciudades/src/geometria");
 
 function cargarJSON(ruta) {
   return JSON.parse(fs.readFileSync(ruta, "utf8"));
@@ -416,17 +417,29 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
   // reserva su huella entera como terreno "solar_edificio" (bloquea el
   // paso, misma convención que ciudades/) para que nadie atraviese la caja.
   //
-  // `xBloqueo`/`yBloqueo`/`huellaBloqueo` (opcionales, 2026-09-09): un POI
-  // puede querer bloquear una huella DISTINTA de la que ocupa visualmente
-  // — caso real: la silueta de un asentamiento entero se coloca/exporta
-  // centrada en TODA su caja delimitadora (incluye MARGEN_EXTRAMUROS,
-  // terreno vacío de sobra alrededor de la muralla real), pero bloquear
-  // esa caja COMPLETA dejaría la puerta real inalcanzable (a decenas de
-  // casillas de cualquier terreno libre) — con estos 3 campos opcionales
-  // `colocarSiluetaYPuertaDeAsentamiento` (instanciasPOI.js) puede pedir
-  // un bloqueo más ajustado a la muralla real sin tocar la posición/huella
-  // visual. Sin pasarlos, comportamiento IDÉNTICO al de siempre (cae a
-  // `info.x/info.y/info.huella`).
+  // `xBloqueo`/`yBloqueo`/`huellaBloqueo` (opcionales): un POI puede querer
+  // bloquear una huella DISTINTA de la que ocupa visualmente — caso real:
+  // la silueta de un asentamiento entero se coloca/exporta centrada en TODA
+  // su caja delimitadora (incluye MARGEN_EXTRAMUROS, terreno vacío de sobra
+  // alrededor de la muralla real). Sin pasarlos, comportamiento IDÉNTICO al
+  // de siempre (cae a `info.x/info.y/info.huella`).
+  //
+  // `poligonoBloqueo` (opcional, coords MUNDO, 2026-09-09): alternativa MÁS
+  // AJUSTADA que un rectángulo — bloquea solo las casillas dentro del
+  // polígono real (point-in-polygon), no su caja delimitadora entera. Bug
+  // real que esto arregla: `colocarSiluetaYPuertaDeAsentamiento` usaba antes
+  // `huellaBloqueo` (la CAJA del polígono de muralla, no el polígono en sí)
+  // para decidir cuánto empujar el portal hacia fuera desde la puerta real
+  // — para un polígono irregular (Perlin), un punto de la muralla puede
+  // estar muy lejos del borde de SU PROPIA caja delimitadora en la
+  // dirección radial (la caja es más ancha que el polígono en casi todas
+  // las direcciones salvo las pocas más extremas), así que el portal podía
+  // acabar empujado 15-24 casillas más allá de la puerta visual — lejos de
+  // "se entra y se sale solo por ahí" (medido en los 12 asentamientos ya
+  // promocionados de Vetrheim antes de este fix). Con el polígono real
+  // (ligeramente inflado, ver MARGEN_MURO_BLOQUEO en instanciasPOI.js) el
+  // portal solo necesita salir del polígono real, nunca de una caja mucho
+  // más ancha en direcciones no radiales.
   const edificiosPOIPorChunk = new Map();
   const footprintEdificiosPOI = new Set();
   for (const info of objetosPorPOI.values()) {
@@ -441,6 +454,21 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
       dx: info.x - Math.floor(info.x),
       dy: info.y - Math.floor(info.y),
     });
+
+    if (info.poligonoBloqueo) {
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const v of info.poligonoBloqueo) {
+        if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x;
+        if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y;
+      }
+      const x0 = Math.floor(minX), x1 = Math.ceil(maxX), y0 = Math.floor(minY), y1 = Math.ceil(maxY);
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          if (puntoEnPoligono(x + 0.5, y + 0.5, info.poligonoBloqueo)) footprintEdificiosPOI.add(`${x}_${y}`);
+        }
+      }
+      continue;
+    }
 
     const xB = info.xBloqueo ?? info.x, yB = info.yBloqueo ?? info.y;
     const [hw, hl] = info.huellaBloqueo || info.huella;

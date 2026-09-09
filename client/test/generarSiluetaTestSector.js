@@ -1,4 +1,3 @@
-"use strict";
 // Genera client/test/siluetaTestSector.json — un sector AISLADO (mismo
 // patrón que nieveAislado.ts) con UN asentamiento real (silueta+puerta,
 // docs/GDD_Bakeador_POIs.md §13ter) para verificar visualmente sin
@@ -12,11 +11,18 @@
 //   abrir http://localhost:5209/test/siluetaAislada.html?vista=cerca
 //
 // El JSON generado NO se comitea (siempre desechable, regenerar cuando
-// haga falta) — ver .gitignore.
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
-const { generarInstanciasPOI } = require("../../baker/src/instanciasPOI.js");
+// haga falta) — ver .gitignore. ESM (no CommonJS): `client/package.json`
+// tiene `"type":"module"`, así que este archivo `.js` SIEMPRE se carga
+// como módulo ES sin importar desde qué carpeta se invoque `node` — un
+// `require()` de nivel superior aquí revienta siempre con
+// "require is not defined in ES module scope".
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { generarInstanciasPOI } from "../../baker/src/instanciasPOI.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function main() {
   const tier = process.argv[2] || "aldea_pequena";
