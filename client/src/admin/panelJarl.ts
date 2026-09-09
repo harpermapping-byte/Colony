@@ -7,7 +7,16 @@
  * gestión de cuentas de admin (crear-cuenta/asignar-jarl/listar-cuentas,
  * rutasAdmin.ts) — comandos que solo tienen sentido para quien ve TODOS
  * los mapas, nunca para un jarl de uno solo.
+ *
+ * Migrado al marco compartido (pedido streamer 2026-09-09: "TODA pantalla
+ * que salga... debe salir así con esta estética") — misma esquina superior
+ * derecha de siempre (`crearMarcoPanel`, panelBase.ts), ahora con
+ * X/clic-fuera/Escape: se abre solo en cuanto se monta (mismo momento que
+ * antes, cuando el servidor confirma la sesión admin) porque antes no
+ * existía forma de ocultrarlo — la X es la única capacidad nueva.
  */
+import { crearMarcoPanel, crearBoton, crearSubtitulo, type MarcoPanel } from "../ui/panelBase";
+
 export interface OpcionesPanelJarl {
   contenedor: HTMLElement;
   esSuperadmin: boolean;
@@ -21,7 +30,7 @@ export interface OpcionesPanelJarl {
 }
 
 export class PanelJarl {
-  private raiz: HTMLDivElement;
+  private readonly marco: MarcoPanel;
   private pvpOn: boolean | null = null;
   private mensajeCuentas = "";
   // Ciudad capital (docs/GDD_Ciudad_Capital.md, pedido 2026-08-31) — ""
@@ -30,21 +39,18 @@ export class PanelJarl {
   private nombreCapital: string | null = null;
 
   constructor(private opciones: OpcionesPanelJarl) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.right = "16px";
-    this.raiz.style.top = "16px";
-    this.raiz.style.background = "rgba(24,18,10,0.9)";
-    this.raiz.style.color = "#f0e8d8";
-    this.raiz.style.font = "12px sans-serif";
-    this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #8a6a2a";
-    this.raiz.style.minWidth = "220px";
-    this.raiz.style.maxHeight = "80vh";
-    this.raiz.style.overflowY = "auto";
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({
+      contenedor: opciones.contenedor,
+      titulo: opciones.esSuperadmin ? "Panel de superadmin" : "Panel de jarl",
+      icono: opciones.esSuperadmin ? "⭐" : "👑",
+      ancho: "240px",
+    });
+    // misma esquina de siempre — crearMarcoPanel solo posiciona por
+    // left/top, así que right se fija a mano tras crear el marco.
+    this.marco.raiz.style.right = "16px";
+    this.marco.raiz.style.top = "16px";
     this.render();
+    this.marco.abrir();
   }
 
   actualizarPvp(on: boolean) {
@@ -71,170 +77,123 @@ export class PanelJarl {
     }
   }
 
-  private render() {
-    this.raiz.innerHTML = "";
+  /** Input de texto con el estilo compartido — panelBase.ts no ofrece variantes con ancho 100%/bloque, así que se arma aquí a mano. */
+  private crearInputBloque(placeholder: string, tipo = "text"): HTMLInputElement {
+    const input = document.createElement("input");
+    input.className = "panel-colony-input";
+    input.type = tipo;
+    input.placeholder = placeholder;
+    input.style.display = "block";
+    input.style.width = "100%";
+    input.style.boxSizing = "border-box";
+    input.style.marginBottom = "4px";
+    return input;
+  }
 
-    const titulo = document.createElement("div");
-    titulo.style.fontWeight = "bold";
-    titulo.style.marginBottom = "8px";
-    titulo.textContent = this.opciones.esSuperadmin ? "⭐ Panel de superadmin" : "👑 Panel de jarl";
-    this.raiz.appendChild(titulo);
+  private crearMensaje(): HTMLDivElement {
+    const div = document.createElement("div");
+    div.style.color = "var(--panel-texto-tenue)";
+    div.style.fontSize = "11px";
+    div.style.marginBottom = "4px";
+    return div;
+  }
+
+  private render() {
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
 
     // --- PvP global (docs/GDD_PvP.md) ---
-    const filaPvp = document.createElement("div");
-    filaPvp.style.marginBottom = "8px";
+    cuerpo.appendChild(crearSubtitulo("⚔️ PvP global"));
     const estadoPvp = this.pvpOn === null ? "?" : this.pvpOn ? "ON" : "OFF";
-    filaPvp.textContent = `PvP global: ${estadoPvp} `;
-    const btnPvpOn = document.createElement("button");
-    btnPvpOn.textContent = "Activar";
-    btnPvpOn.onclick = () => this.opciones.pvpFijar(true);
-    filaPvp.appendChild(btnPvpOn);
-    const btnPvpOff = document.createElement("button");
-    btnPvpOff.textContent = "Desactivar";
-    btnPvpOff.style.marginLeft = "4px";
-    btnPvpOff.onclick = () => this.opciones.pvpFijar(false);
-    filaPvp.appendChild(btnPvpOff);
-    this.raiz.appendChild(filaPvp);
+    const estadoTexto = document.createElement("div");
+    estadoTexto.textContent = `Estado: ${estadoPvp}`;
+    estadoTexto.style.marginBottom = "4px";
+    cuerpo.appendChild(estadoTexto);
+    const filaPvp = document.createElement("div");
+    filaPvp.style.display = "flex";
+    filaPvp.style.gap = "6px";
+    filaPvp.appendChild(crearBoton("Activar", () => this.opciones.pvpFijar(true)));
+    filaPvp.appendChild(crearBoton("Desactivar", () => this.opciones.pvpFijar(false)));
+    cuerpo.appendChild(filaPvp);
 
     // --- Ciudad capital (docs/GDD_Ciudad_Capital.md) ---
-    const separadorCapital = document.createElement("div");
-    separadorCapital.style.marginTop = "6px";
-    separadorCapital.style.paddingTop = "6px";
-    separadorCapital.style.borderTop = "1px solid #8a6a2a";
-    separadorCapital.style.opacity = "0.85";
+    cuerpo.appendChild(crearSubtitulo("🏰 Ciudad capital"));
     const actual = this.nombreCapital === null ? "cargando…" : this.nombreCapital || "(nombre de nacimiento)";
-    separadorCapital.textContent = `Ciudad capital: ${actual}`;
-    this.raiz.appendChild(separadorCapital);
-
+    const lineaCapital = document.createElement("div");
+    lineaCapital.textContent = `Actual: ${actual}`;
+    lineaCapital.style.marginBottom = "4px";
+    cuerpo.appendChild(lineaCapital);
     const filaCapital = document.createElement("div");
-    filaCapital.style.margin = "4px 0";
+    filaCapital.style.display = "flex";
+    filaCapital.style.gap = "6px";
     const inputCapital = document.createElement("input");
+    inputCapital.className = "panel-colony-input";
     inputCapital.placeholder = "nuevo nombre";
-    inputCapital.style.width = "140px";
+    inputCapital.style.flex = "1";
+    inputCapital.style.minWidth = "0";
     filaCapital.appendChild(inputCapital);
-    const btnRenombrar = document.createElement("button");
-    btnRenombrar.textContent = "Renombrar";
-    btnRenombrar.style.marginLeft = "4px";
-    btnRenombrar.onclick = () => { if (inputCapital.value.trim()) this.opciones.renombrarCapital(inputCapital.value.trim()); };
-    filaCapital.appendChild(btnRenombrar);
-    this.raiz.appendChild(filaCapital);
+    filaCapital.appendChild(crearBoton("Renombrar", () => { if (inputCapital.value.trim()) this.opciones.renombrarCapital(inputCapital.value.trim()); }));
+    cuerpo.appendChild(filaCapital);
 
     // --- Pruebas de Twitch (docs/GDD_Twitch.md) — mismos comandos que el bot real, sin depender de un directo activo ---
-    const separadorTwitch = document.createElement("div");
-    separadorTwitch.style.marginTop = "6px";
-    separadorTwitch.style.paddingTop = "6px";
-    separadorTwitch.style.borderTop = "1px solid #8a6a2a";
-    separadorTwitch.style.opacity = "0.85";
-    separadorTwitch.textContent = "Pruebas de Twitch:";
-    this.raiz.appendChild(separadorTwitch);
-
+    cuerpo.appendChild(crearSubtitulo("🎮 Pruebas de Twitch"));
     const filaCanje = document.createElement("div");
-    filaCanje.style.margin = "4px 0";
-    const btnBueno = document.createElement("button");
-    btnBueno.textContent = "Simular canje bueno";
-    btnBueno.onclick = () => this.opciones.simularCanje("bueno");
-    filaCanje.appendChild(btnBueno);
-    const btnMalo = document.createElement("button");
-    btnMalo.textContent = "malo";
-    btnMalo.style.marginLeft = "4px";
-    btnMalo.onclick = () => this.opciones.simularCanje("malo");
-    filaCanje.appendChild(btnMalo);
-    this.raiz.appendChild(filaCanje);
+    filaCanje.style.display = "flex";
+    filaCanje.style.gap = "6px";
+    filaCanje.style.marginBottom = "4px";
+    filaCanje.appendChild(crearBoton("Canje bueno", () => this.opciones.simularCanje("bueno")));
+    filaCanje.appendChild(crearBoton("Canje malo", () => this.opciones.simularCanje("malo")));
+    cuerpo.appendChild(filaCanje);
 
     const filaComando = document.createElement("div");
-    filaComando.style.margin = "4px 0";
+    filaComando.style.display = "flex";
+    filaComando.style.gap = "6px";
+    filaComando.style.marginBottom = "4px";
     const inputComando = document.createElement("input");
+    inputComando.className = "panel-colony-input";
     inputComando.placeholder = "!curar / !comer / !beber / !cagar";
-    inputComando.style.width = "140px";
+    inputComando.style.flex = "1";
+    inputComando.style.minWidth = "0";
     filaComando.appendChild(inputComando);
-    const btnComando = document.createElement("button");
-    btnComando.textContent = "Enviar";
-    btnComando.style.marginLeft = "4px";
-    btnComando.onclick = () => { if (inputComando.value) this.opciones.simularComando(inputComando.value); };
-    filaComando.appendChild(btnComando);
-    this.raiz.appendChild(filaComando);
+    filaComando.appendChild(crearBoton("Enviar", () => { if (inputComando.value) this.opciones.simularComando(inputComando.value); }));
+    cuerpo.appendChild(filaComando);
 
     const filaDirecto = document.createElement("div");
-    filaDirecto.style.margin = "4px 0";
-    const btnDirectoOn = document.createElement("button");
-    btnDirectoOn.textContent = "Forzar directo ON";
-    btnDirectoOn.onclick = () => this.opciones.forzarDirecto(true);
-    filaDirecto.appendChild(btnDirectoOn);
-    const btnDirectoOff = document.createElement("button");
-    btnDirectoOff.textContent = "OFF";
-    btnDirectoOff.style.marginLeft = "4px";
-    btnDirectoOff.onclick = () => this.opciones.forzarDirecto(false);
-    filaDirecto.appendChild(btnDirectoOff);
-    this.raiz.appendChild(filaDirecto);
+    filaDirecto.style.display = "flex";
+    filaDirecto.style.gap = "6px";
+    filaDirecto.appendChild(crearBoton("Forzar directo ON", () => this.opciones.forzarDirecto(true)));
+    filaDirecto.appendChild(crearBoton("OFF", () => this.opciones.forzarDirecto(false)));
+    cuerpo.appendChild(filaDirecto);
 
     // --- Cambiar mi contraseña ---
-    const separadorPassword = document.createElement("div");
-    separadorPassword.style.marginTop = "6px";
-    separadorPassword.style.paddingTop = "6px";
-    separadorPassword.style.borderTop = "1px solid #8a6a2a";
-    separadorPassword.style.opacity = "0.85";
-    separadorPassword.textContent = "Cambiar mi contraseña:";
-    this.raiz.appendChild(separadorPassword);
-
-    const inputActual = document.createElement("input");
-    inputActual.type = "password";
-    inputActual.placeholder = "contraseña actual";
-    inputActual.style.display = "block";
-    inputActual.style.margin = "4px 0";
-    inputActual.style.width = "160px";
-    this.raiz.appendChild(inputActual);
-
-    const inputNueva = document.createElement("input");
-    inputNueva.type = "password";
-    inputNueva.placeholder = "contraseña nueva";
-    inputNueva.style.display = "block";
-    inputNueva.style.margin = "4px 0";
-    inputNueva.style.width = "160px";
-    this.raiz.appendChild(inputNueva);
-
-    const mensajePassword = document.createElement("div");
-    mensajePassword.style.opacity = "0.8";
-    this.raiz.appendChild(mensajePassword);
-
-    const btnCambiarPassword = document.createElement("button");
-    btnCambiarPassword.textContent = "Cambiar";
-    btnCambiarPassword.onclick = async () => {
+    cuerpo.appendChild(crearSubtitulo("🔑 Cambiar mi contraseña"));
+    const inputActual = this.crearInputBloque("contraseña actual", "password");
+    cuerpo.appendChild(inputActual);
+    const inputNueva = this.crearInputBloque("contraseña nueva", "password");
+    cuerpo.appendChild(inputNueva);
+    const mensajePassword = this.crearMensaje();
+    cuerpo.appendChild(mensajePassword);
+    cuerpo.appendChild(crearBoton("Cambiar", async () => {
       const r = await this.llamarHttp("/auth/admin/cambiar-password", {
         passwordActual: inputActual.value,
         passwordNueva: inputNueva.value,
       });
       mensajePassword.textContent = r.ok ? "Contraseña cambiada — vuelve a loguearte." : (r.datos?.error ?? "error");
-    };
-    this.raiz.appendChild(btnCambiarPassword);
+    }));
 
-    if (this.opciones.esSuperadmin) this.renderExtrasSuperadmin();
+    if (this.opciones.esSuperadmin) this.renderExtrasSuperadmin(cuerpo);
   }
 
-  private renderExtrasSuperadmin() {
-    const separador = document.createElement("div");
-    separador.style.marginTop = "8px";
-    separador.style.paddingTop = "6px";
-    separador.style.borderTop = "1px solid #8a6a2a";
-    separador.style.fontWeight = "bold";
-    separador.textContent = "Gestión de cuentas de admin:";
-    this.raiz.appendChild(separador);
+  private renderExtrasSuperadmin(cuerpo: HTMLDivElement) {
+    cuerpo.appendChild(crearSubtitulo("Gestión de cuentas de admin:"));
 
-    const inputUsuarioNuevo = document.createElement("input");
-    inputUsuarioNuevo.placeholder = "usuario nuevo";
-    inputUsuarioNuevo.style.display = "block";
-    inputUsuarioNuevo.style.margin = "4px 0";
-    inputUsuarioNuevo.style.width = "160px";
-    this.raiz.appendChild(inputUsuarioNuevo);
-
-    const inputPasswordNuevo = document.createElement("input");
-    inputPasswordNuevo.type = "password";
-    inputPasswordNuevo.placeholder = "contraseña";
-    inputPasswordNuevo.style.display = "block";
-    inputPasswordNuevo.style.margin = "4px 0";
-    inputPasswordNuevo.style.width = "160px";
-    this.raiz.appendChild(inputPasswordNuevo);
+    const inputUsuarioNuevo = this.crearInputBloque("usuario nuevo");
+    cuerpo.appendChild(inputUsuarioNuevo);
+    const inputPasswordNuevo = this.crearInputBloque("contraseña", "password");
+    cuerpo.appendChild(inputPasswordNuevo);
 
     const selectRol = document.createElement("select");
+    selectRol.className = "panel-colony-input";
     for (const rol of ["jarl", "superadmin"]) {
       const opt = document.createElement("option");
       opt.value = rol;
@@ -242,70 +201,42 @@ export class PanelJarl {
       selectRol.appendChild(opt);
     }
     selectRol.style.display = "block";
-    selectRol.style.margin = "4px 0";
-    this.raiz.appendChild(selectRol);
+    selectRol.style.width = "100%";
+    selectRol.style.boxSizing = "border-box";
+    selectRol.style.marginBottom = "4px";
+    cuerpo.appendChild(selectRol);
 
-    const mensajeCrear = document.createElement("div");
-    mensajeCrear.style.opacity = "0.8";
-    this.raiz.appendChild(mensajeCrear);
-
-    const btnCrear = document.createElement("button");
-    btnCrear.textContent = "Crear cuenta";
-    btnCrear.onclick = async () => {
+    const mensajeCrear = this.crearMensaje();
+    cuerpo.appendChild(mensajeCrear);
+    cuerpo.appendChild(crearBoton("Crear cuenta", async () => {
       const r = await this.llamarHttp("/auth/admin/crear-cuenta", {
         usuario: inputUsuarioNuevo.value,
         password: inputPasswordNuevo.value,
         rol: selectRol.value,
       });
       mensajeCrear.textContent = r.ok ? `Cuenta "${r.datos.usuario}" creada (sin mapa asignado).` : (r.datos?.error ?? "error");
-    };
-    this.raiz.appendChild(btnCrear);
+    }));
 
-    const separadorAsignar = document.createElement("div");
-    separadorAsignar.style.marginTop = "6px";
-    separadorAsignar.textContent = "Asignar jarl de un mapa (1 jarl por mapa):";
-    this.raiz.appendChild(separadorAsignar);
-
-    const inputMapaId = document.createElement("input");
-    inputMapaId.placeholder = "mapaId (ej. principal)";
-    inputMapaId.style.display = "block";
-    inputMapaId.style.margin = "4px 0";
-    inputMapaId.style.width = "160px";
-    this.raiz.appendChild(inputMapaId);
-
-    const inputUsuarioAsignar = document.createElement("input");
-    inputUsuarioAsignar.placeholder = "usuario";
-    inputUsuarioAsignar.style.display = "block";
-    inputUsuarioAsignar.style.margin = "4px 0";
-    inputUsuarioAsignar.style.width = "160px";
-    this.raiz.appendChild(inputUsuarioAsignar);
-
-    const mensajeAsignar = document.createElement("div");
-    mensajeAsignar.style.opacity = "0.8";
-    this.raiz.appendChild(mensajeAsignar);
-
-    const btnAsignar = document.createElement("button");
-    btnAsignar.textContent = "Asignar";
-    btnAsignar.onclick = async () => {
+    cuerpo.appendChild(crearSubtitulo("Asignar jarl de un mapa (1 jarl por mapa):"));
+    const inputMapaId = this.crearInputBloque("mapaId (ej. principal)");
+    cuerpo.appendChild(inputMapaId);
+    const inputUsuarioAsignar = this.crearInputBloque("usuario");
+    cuerpo.appendChild(inputUsuarioAsignar);
+    const mensajeAsignar = this.crearMensaje();
+    cuerpo.appendChild(mensajeAsignar);
+    cuerpo.appendChild(crearBoton("Asignar", async () => {
       const r = await this.llamarHttp("/auth/admin/asignar-jarl", { mapaId: inputMapaId.value, usuario: inputUsuarioAsignar.value });
       mensajeAsignar.textContent = r.ok ? "Asignado." : (r.datos?.error ?? "error");
-    };
-    this.raiz.appendChild(btnAsignar);
+    }));
 
-    const separadorLista = document.createElement("div");
-    separadorLista.style.marginTop = "6px";
-    separadorLista.textContent = "Cuentas:";
-    this.raiz.appendChild(separadorLista);
-
+    cuerpo.appendChild(crearSubtitulo("Cuentas:"));
     const listaCuentas = document.createElement("div");
     listaCuentas.style.fontSize = "11px";
     listaCuentas.style.whiteSpace = "pre-wrap";
+    listaCuentas.style.marginBottom = "4px";
     listaCuentas.textContent = this.mensajeCuentas;
-    this.raiz.appendChild(listaCuentas);
-
-    const btnListar = document.createElement("button");
-    btnListar.textContent = "Refrescar";
-    btnListar.onclick = async () => {
+    cuerpo.appendChild(listaCuentas);
+    cuerpo.appendChild(crearBoton("Refrescar", async () => {
       const r = await this.llamarHttp("/auth/admin/listar-cuentas", {});
       if (!r.ok) {
         this.mensajeCuentas = r.datos?.error ?? "error";
@@ -315,7 +246,6 @@ export class PanelJarl {
           .join("\n");
       }
       this.render();
-    };
-    this.raiz.appendChild(btnListar);
+    }));
   }
 }

@@ -7,7 +7,15 @@
  * sesión de admin confirmada, mismo criterio que PanelJarl). El servidor
  * es la autoridad: si el jugador no es jarl del mapa, cada botón simplemente
  * responde `admin:error` y aquí se refleja el mensaje sin más drama.
+ *
+ * Migrado al marco compartido (pedido streamer 2026-09-09: "TODA pantalla
+ * que salga... debe salir así con esta estética") — misma esquina inferior
+ * izquierda de siempre (`crearMarcoPanel`, panelBase.ts). F9 sigue
+ * alternándolo (`alternar()`), ahora también con X/clic-fuera/Escape — el
+ * viejo "chip" de aviso cuando estaba colapsado ya no hace falta, la X del
+ * marco cumple ese papel.
  */
+import { crearMarcoPanel, crearBoton, crearSubtitulo, crearLineaTexto, type MarcoPanel } from "../ui/panelBase";
 import itemsJson from "../../../items/catalogo/items.json";
 
 // Dos mapas de Test Zone distintos (docs/GDD_TestZone.md) — coordenadas
@@ -54,36 +62,30 @@ export interface OpcionesPanelDebugTestZone {
 }
 
 export class PanelDebugTestZone {
-  private raiz: HTMLDivElement;
-  private visible = true;
+  private readonly marco: MarcoPanel;
   private mensaje = "";
   private godActivo = false;
 
   constructor(private opciones: OpcionesPanelDebugTestZone) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "16px";
-    this.raiz.style.bottom = "16px";
-    this.raiz.style.background = "rgba(20,14,24,0.92)";
-    this.raiz.style.color = "#f0e0f8";
-    this.raiz.style.font = "12px sans-serif";
-    this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #7a4a8a";
-    this.raiz.style.minWidth = "280px";
-    this.raiz.style.maxHeight = "70vh";
-    this.raiz.style.overflowY = "auto";
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({
+      contenedor: opciones.contenedor,
+      titulo: "Debug Test Zone",
+      icono: "🛠️",
+      ancho: "280px",
+    });
+    this.marco.raiz.style.left = "16px";
+    this.marco.raiz.style.bottom = "16px";
     this.render();
+    this.marco.abrir();
   }
 
+  /** F9 — mismo nombre público de siempre, ahora delega en el marco compartido. */
   alternar() {
-    this.visible = !this.visible;
-    this.render();
+    this.marco.alternar();
   }
 
   estaVisible(): boolean {
-    return this.visible;
+    return this.marco.estaAbierto();
   }
 
   mostrarResultado(texto: string) {
@@ -91,42 +93,23 @@ export class PanelDebugTestZone {
     this.render();
   }
 
-  private fila(): HTMLDivElement {
+  private fila(cuerpo: HTMLElement): HTMLDivElement {
     const div = document.createElement("div");
     div.style.margin = "4px 0";
-    this.raiz.appendChild(div);
+    cuerpo.appendChild(div);
     return div;
   }
 
-  private separador(titulo: string) {
-    const div = document.createElement("div");
-    div.style.marginTop = "8px";
-    div.style.paddingTop = "6px";
-    div.style.borderTop = "1px solid #7a4a8a";
-    div.style.fontWeight = "bold";
-    div.textContent = titulo;
-    this.raiz.appendChild(div);
-  }
-
   private render() {
-    this.raiz.innerHTML = "";
-    if (!this.visible) {
-      const chip = document.createElement("div");
-      chip.style.opacity = "0.7";
-      chip.textContent = "🛠️ Panel de debug (F9 para abrir)";
-      this.raiz.appendChild(chip);
-      return;
-    }
-
-    const titulo = document.createElement("div");
-    titulo.style.fontWeight = "bold";
-    titulo.textContent = "🛠️ Debug Test Zone (F9 para cerrar)";
-    this.raiz.appendChild(titulo);
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
+    cuerpo.appendChild(crearLineaTexto("F9 alterna este panel.", { tenue: true, fontSize: "10px" }));
 
     // --- Dar item ---
-    this.separador("Dar ítem");
-    const filaItem = this.fila();
+    cuerpo.appendChild(crearSubtitulo("Dar ítem"));
+    const filaItem = this.fila(cuerpo);
     const selectItem = document.createElement("select");
+    selectItem.className = "panel-colony-input";
     selectItem.style.maxWidth = "170px";
     const porTipo = new Map<string, { id: string; nombre: string }[]>();
     for (const [id, entrada] of Object.entries(ITEMS)) {
@@ -148,6 +131,7 @@ export class PanelDebugTestZone {
     filaItem.appendChild(selectItem);
 
     const inputCantidad = document.createElement("input");
+    inputCantidad.className = "panel-colony-input";
     inputCantidad.type = "number";
     inputCantidad.min = "1";
     inputCantidad.value = "1";
@@ -155,53 +139,45 @@ export class PanelDebugTestZone {
     inputCantidad.style.marginLeft = "4px";
     filaItem.appendChild(inputCantidad);
 
-    const btnDar = document.createElement("button");
-    btnDar.textContent = "Dar";
-    btnDar.style.marginLeft = "4px";
-    btnDar.onclick = () => {
+    const btnDar = crearBoton("Dar", () => {
       const cantidad = Math.max(1, Math.floor(Number(inputCantidad.value) || 1));
       this.opciones.darItem(selectItem.value, cantidad);
-    };
+    });
+    btnDar.style.marginLeft = "4px";
     filaItem.appendChild(btnDar);
 
     // --- Farycoins (pedido 2026-09-02: dar/quitar dinero de la propia
     // cuenta de prueba, self-target, mismo gate jarl que el resto) ---
-    this.separador("Farycoins (cuenta propia)");
-    const filaCoins = this.fila();
+    cuerpo.appendChild(crearSubtitulo("Farycoins (cuenta propia)"));
+    const filaCoins = this.fila(cuerpo);
     const inputCoins = document.createElement("input");
+    inputCoins.className = "panel-colony-input";
     inputCoins.type = "number";
     inputCoins.step = "1";
     inputCoins.value = "100";
     inputCoins.style.width = "70px";
     filaCoins.appendChild(inputCoins);
-    const btnDarCoins = document.createElement("button");
-    btnDarCoins.textContent = "Dar";
-    btnDarCoins.style.marginLeft = "4px";
-    btnDarCoins.onclick = () => {
+    const btnDarCoins = crearBoton("Dar", () => {
       const cantidad = Math.trunc(Number(inputCoins.value) || 0);
       if (cantidad > 0) this.opciones.ajustarFarycoins(cantidad);
-    };
+    });
+    btnDarCoins.style.marginLeft = "4px";
     filaCoins.appendChild(btnDarCoins);
-    const btnQuitarCoins = document.createElement("button");
-    btnQuitarCoins.textContent = "Quitar";
-    btnQuitarCoins.style.marginLeft = "4px";
-    btnQuitarCoins.onclick = () => {
+    const btnQuitarCoins = crearBoton("Quitar", () => {
       const cantidad = Math.trunc(Number(inputCoins.value) || 0);
       if (cantidad > 0) this.opciones.ajustarFarycoins(-cantidad);
-    };
+    });
+    btnQuitarCoins.style.marginLeft = "4px";
     filaCoins.appendChild(btnQuitarCoins);
 
     // --- Limpiar inventario ---
-    this.separador("Inventario");
-    const filaLimpiar = this.fila();
-    const btnLimpiar = document.createElement("button");
-    btnLimpiar.textContent = "Limpiar inventario";
-    btnLimpiar.onclick = () => this.opciones.limpiarInventario();
-    filaLimpiar.appendChild(btnLimpiar);
+    cuerpo.appendChild(crearSubtitulo("Inventario"));
+    const filaLimpiar = this.fila(cuerpo);
+    filaLimpiar.appendChild(crearBoton("Limpiar inventario", () => this.opciones.limpiarInventario()));
 
     // --- God mode ---
-    this.separador("God mode");
-    const filaGod = this.fila();
+    cuerpo.appendChild(crearSubtitulo("God mode"));
+    const filaGod = this.fila(cuerpo);
     const labelGod = document.createElement("label");
     labelGod.style.cursor = "pointer";
     const checkGod = document.createElement("input");
@@ -216,47 +192,39 @@ export class PanelDebugTestZone {
     filaGod.appendChild(labelGod);
 
     // --- Max oficio ---
-    this.separador("Max oficio");
-    const filaOficio = this.fila();
-    const btnOficio1 = document.createElement("button");
-    btnOficio1.textContent = "Slot 1 al máximo";
-    btnOficio1.onclick = () => this.opciones.maxOficio(1);
-    filaOficio.appendChild(btnOficio1);
-    const btnOficio2 = document.createElement("button");
-    btnOficio2.textContent = "Slot 2 al máximo";
+    cuerpo.appendChild(crearSubtitulo("Max oficio"));
+    const filaOficio = this.fila(cuerpo);
+    filaOficio.appendChild(crearBoton("Slot 1 al máximo", () => this.opciones.maxOficio(1)));
+    const btnOficio2 = crearBoton("Slot 2 al máximo", () => this.opciones.maxOficio(2));
     btnOficio2.style.marginLeft = "4px";
-    btnOficio2.onclick = () => this.opciones.maxOficio(2);
     filaOficio.appendChild(btnOficio2);
 
     // --- Resetear nodo ---
-    this.separador("Resetear nodo");
-    const filaNodo = this.fila();
+    cuerpo.appendChild(crearSubtitulo("Resetear nodo"));
+    const filaNodo = this.fila(cuerpo);
     const inputNodo = document.createElement("input");
+    inputNodo.className = "panel-colony-input";
     inputNodo.placeholder = "nodoId";
     inputNodo.style.width = "140px";
     filaNodo.appendChild(inputNodo);
-    const btnNodo = document.createElement("button");
-    btnNodo.textContent = "Resetear";
+    const btnNodo = crearBoton("Resetear", () => { if (inputNodo.value) this.opciones.resetearNodo(inputNodo.value); });
     btnNodo.style.marginLeft = "4px";
-    btnNodo.onclick = () => { if (inputNodo.value) this.opciones.resetearNodo(inputNodo.value); };
     filaNodo.appendChild(btnNodo);
 
     // --- Teleport rápido ---
-    this.separador("Teleport rápido");
+    cuerpo.appendChild(crearSubtitulo("Teleport rápido"));
     for (const zona of ZONAS_ACTIVAS) {
-      const filaZona = this.fila();
+      const filaZona = this.fila(cuerpo);
       filaZona.style.margin = "2px 0";
-      const btnZona = document.createElement("button");
-      btnZona.textContent = zona.etiqueta;
+      const btnZona = crearBoton(zona.etiqueta, () => this.opciones.teleport(zona.x, zona.y));
       btnZona.style.width = "100%";
-      btnZona.onclick = () => this.opciones.teleport(zona.x, zona.y);
       filaZona.appendChild(btnZona);
     }
 
     // --- Resultado del último comando ---
     if (this.mensaje) {
-      const filaMensaje = this.fila();
-      filaMensaje.style.opacity = "0.85";
+      const filaMensaje = this.fila(cuerpo);
+      filaMensaje.style.color = "var(--panel-texto-tenue)";
       filaMensaje.style.whiteSpace = "pre-wrap";
       filaMensaje.textContent = this.mensaje;
     }

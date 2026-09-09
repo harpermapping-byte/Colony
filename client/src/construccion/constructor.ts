@@ -356,26 +356,32 @@ export class ModoConstruccion {
   }
 
   private crearPanel(): { panel: HTMLDivElement; lineaInfo: HTMLDivElement; lineaError: HTMLDivElement } {
-    // estilos una sola vez (varias instancias no duplican la hoja)
+    // estilos una sola vez (varias instancias no duplican la hoja) — paleta
+    // madera/pergamino del tema (pedido streamer 2026-09-09), SIN tocar la
+    // lógica de activación/desactivación por tecla ni los colores del
+    // fantasma/bordes de parcela en el mundo 3D (esos son feedback
+    // funcional de validez, no chrome de panel).
     if (!document.getElementById("estilos-construccion")) {
       const estilos = document.createElement("style");
       estilos.id = "estilos-construccion";
       estilos.textContent = `
         .panel-construccion{position:absolute;top:12px;right:12px;width:260px;max-height:calc(100vh - 40px);
-          overflow-y:auto;background:rgba(17,21,28,0.92);color:#e2e8f0;font:12px/1.4 sans-serif;
-          border:1px solid #2d3748;border-radius:6px;padding:10px;z-index:10;display:none}
-        .panel-construccion h3{margin:0 0 6px;font-size:13px;letter-spacing:.5px}
-        .panel-construccion h4{margin:10px 0 4px;font-size:11px;text-transform:uppercase;color:#a0aec0}
-        .panel-construccion .info{min-height:16px;color:#cbd5e0;border-bottom:1px solid #2d3748;padding-bottom:6px}
-        .panel-construccion .error{display:none;color:#feb2b2;background:rgba(120,30,30,.35);
-          border:1px solid #9b2c2c;border-radius:4px;padding:4px 6px;margin-top:6px}
+          overflow-y:auto;background:var(--panel-bg);color:var(--panel-texto);font:var(--panel-fuente);
+          border:3px solid var(--panel-borde);border-radius:var(--panel-radio);padding:10px;z-index:10;
+          display:none;box-shadow:var(--panel-sombra)}
+        .panel-construccion h3{margin:0 0 6px;font:var(--panel-fuente-titulo);color:var(--panel-acento)}
+        .panel-construccion h4{margin:10px 0 4px;font-size:11px;text-transform:uppercase;color:var(--panel-texto-tenue);
+          border-top:1px solid var(--panel-borde-tallado);padding-top:4px}
+        .panel-construccion .info{min-height:16px;color:var(--panel-texto);border-bottom:1px solid var(--panel-borde-tallado);padding-bottom:6px}
+        .panel-construccion .error{display:none;color:var(--error-color);background:rgba(0,0,0,.3);
+          border:1px solid var(--error-color);border-radius:4px;padding:4px 6px;margin-top:6px}
         .panel-construccion button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;
-          background:transparent;border:1px solid transparent;border-radius:4px;color:#e2e8f0;
-          font:11px sans-serif;padding:3px 5px;cursor:pointer}
-        .panel-construccion button:hover{background:#2d3748}
-        .panel-construccion button.sel{border-color:#48bb78;background:#22543d}
+          background:transparent;border:1px solid transparent;border-radius:5px;color:var(--panel-texto);
+          font:12px "Trebuchet MS",sans-serif;padding:3px 5px;cursor:pointer}
+        .panel-construccion button:hover{background:var(--panel-hover)}
+        .panel-construccion button.sel{border-color:var(--panel-acento);background:var(--panel-hover)}
         .panel-construccion .sw{width:12px;height:12px;border-radius:2px;flex:none;border:1px solid rgba(255,255,255,.25)}
-        .panel-construccion .hu{margin-left:auto;color:#718096}`;
+        .panel-construccion .hu{margin-left:auto;color:var(--panel-texto-tenue)}`;
       document.head.appendChild(estilos);
     }
 
