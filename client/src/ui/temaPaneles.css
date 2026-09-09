@@ -140,7 +140,14 @@
   border: 3px solid var(--panel-borde);
   border-radius: 30px;
   box-shadow: var(--panel-sombra);
-  z-index: 30;
+  /* Por encima de CUALQUIER panel, incluidos los overlays fullscreen
+     (panelMapaMundo.ts/panelResumen.ts, z-index 70 inline) — bug real
+     encontrado haciendo capturas (2026-09-09): con el mapa abierto, su
+     fondo semitransparente se ve "detrás" del dock a simple vista pero
+     en realidad tenía MÁS z-index, así que capturaba los clics y el icono
+     del dock dejaba de responder — no había forma de cerrar el mapa
+     volviendo a tocar su propio icono, solo con clic-fuera/Escape. */
+  z-index: 100;
   user-select: none;
 }
 
