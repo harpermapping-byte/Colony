@@ -84,8 +84,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 2599,
-      "y": 187,
+      "x": 2569,
+      "y": 132,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/guarida_bandidos_2599_120"
@@ -124,8 +124,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 1631,
-      "y": 473,
+      "x": 1671,
+      "y": 446,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/asentamiento_cultistas_poi_1631_406"
@@ -133,8 +133,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 2358,
-      "y": 541,
+      "x": 2398,
+      "y": 432,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/asentamiento_cultistas_poi_2358_474"
@@ -174,8 +174,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 2958,
-      "y": 752,
+      "x": 2996,
+      "y": 728,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/aldea_maderera_2958_693"
@@ -199,8 +199,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 1816,
-      "y": 958,
+      "x": 1852,
+      "y": 872,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/campamento_barbaros_grande_1816_891"
@@ -216,8 +216,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 237,
-      "y": 1175,
+      "x": 279,
+      "y": 1158,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/asentamiento_cultistas_poi_237_1108"
@@ -269,8 +269,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 2799,
-      "y": 1338,
+      "x": 2842,
+      "y": 1247,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/aldea_agricola_2799_1267"
@@ -324,8 +324,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 58,
-      "y": 2214,
+      "x": 95,
+      "y": 2108,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/poblado_orco_poi_58_2147"
@@ -356,8 +356,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 1534,
-      "y": 2233,
+      "x": 1475,
+      "y": 2186,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/capital_regional_1534_2138"
@@ -365,8 +365,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 2603,
-      "y": 2151,
+      "x": 2556,
+      "y": 2045,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/poblado_orco_poi_2603_2084"
@@ -390,8 +390,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 2024,
-      "y": 2325,
+      "x": 2057,
+      "y": 2220,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/campamento_barbaros_grande_2024_2258"
@@ -444,8 +444,8 @@
     },
     {
       "tipo": "exterior",
-      "x": 1183,
-      "y": 2743,
+      "x": 1219,
+      "y": 2655,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/castillo_real_1183_2684"
