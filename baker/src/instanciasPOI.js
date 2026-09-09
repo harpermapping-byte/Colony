@@ -5,7 +5,12 @@
 // campo `categoria`) genera AHORA su instancia real —
 //   - "asentamiento" -> una región ciudades/ completa, anidada en
 //     `<carpetaSalida>/pois/<slug>/`, enlazada por un portal "exterior" con
-//     `destino` (mismo formato que ya consume RegionRoom/HubRoom).
+//     `destino` (mismo formato que ya consume RegionRoom/HubRoom). Su caja
+//     3D (la ciudad entera) + una PUERTA real más pequeña pegada al borde
+//     sur (2026-09-09, bug real: el portal vivía en el centro geométrico,
+//     dentro de su propio `solar_edificio` — inalcanzable a pie) marcan el
+//     asentamiento en el mapa padre; el portal cae justo delante de la
+//     puerta, terreno normal.
 //   - "edificio" -> UN edificio suelto (interiores/generarEdificio) directo
 //     sobre el mapa padre: su interior va a `<carpetaSalida>/interiores/`
 //     (misma carpeta/convención que usa ciudades/), su caja 3D es un objeto
@@ -220,10 +225,47 @@ async function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo,
           dy: 0,
         },
       });
+
+      // Puerta de asentamiento REAL (bug real cerrado 2026-09-09, pedido
+      // streamer jugando: "la capital sigue viéndose por fuera un
+      // placeholder, debería verse una aldea con puerta y poder entrar por
+      // ella"): antes el portal se dejaba en el CENTRO GEOMÉTRICO de la
+      // ciudad (`poi.x,poi.y`) — el mismo punto que el bloque de arriba
+      // reserva entero como `solar_edificio` (terreno bloqueado), así que
+      // NINGÚN jugador podía llegar nunca a `RADIO_INTERACCION` de él: la
+      // puerta era matemáticamente inalcanzable a pie, no solo fea. Se
+      // añade una estructura de puerta real y pequeña (huella fija [6,2],
+      // `taller-vox/generar_puerta_asentamiento.js`, mismo tipoEdificioId
+      // sintético -> mismo camino `t:"e"` que la caja grande, cero cambio
+      // de cliente) pegada al borde SUR de la caja grande, y el portal se
+      // mueve justo delante de ELLA (mismo convenio "+1 fila fuera de la
+      // huella" que ya usa el POI "edificio" suelto más abajo) — terreno
+      // normal, caminable, fuera de cualquier huella sólida.
+      const anchoPuerta = 6, altoPuerta = 2;
+      const bordeSurCiudad = poi.y + ciudad.alto / 2;
+      const centroPuertaY = bordeSurCiudad + altoPuerta / 2;
+      objetosPorPOI.set(`${slug}_puerta`, {
+        x: poi.x,
+        y: centroPuertaY,
+        huella: [anchoPuerta, altoPuerta],
+        objeto: {
+          i: "puerta_asentamiento",
+          t: "e",
+          va: semillaDesdeTexto(`${semillaPOI}:puerta`) % VARIANTES_EDIFICIO,
+          ro: 0,
+          es: 1,
+          w: anchoPuerta,
+          h: altoPuerta,
+          dx: 0,
+          dy: 0,
+        },
+      });
+      const puertaX = Math.round(poi.x);
+      const puertaY = Math.round(bordeSurCiudad + altoPuerta) + 1;
       portales.push({
         tipo: "exterior",
-        x: poi.x,
-        y: poi.y,
+        x: puertaX,
+        y: puertaY,
         destino: { tipo: "region", mapaId: `${mapaId}/pois/${slug}` },
       });
       continue;
