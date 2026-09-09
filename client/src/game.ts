@@ -55,12 +55,15 @@ import { aplicarAnatomiaCompleta } from "./render3d/anatomiaVisual";
 import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista, type EstadoEnfermedadesVista } from "./personaje/panelMedico";
 import { PanelCompanero } from "./personaje/panelCompanero";
 import { PanelResumen, type PropiedadVista } from "./personaje/panelResumen";
-import { PanelLoginAdmin } from "./admin/panelLoginAdmin";
+import { HudVitales } from "./ui/hudVitales";
 import { PanelJarl } from "./admin/panelJarl";
 import { PanelDebugTestZone } from "./admin/panelDebugTestZone";
 import { PanelContenedorTest } from "./mundo/panelContenedorTest";
 import { PanelAjedrez } from "./minijuegos/panelAjedrez";
 import { posicionSilla as posicionSillaMesaJuego, type Silla as SillaMesaJuego } from "./minijuegos/mesasJuego";
+
+// Un único cómputo compartido (antes cada panel de admin/Twitch lo recalculaba a mano).
+const SERVER_URL_HTTP = SERVER_URL.replace(/^ws/, "http");
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -550,10 +553,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   // Sesión de admin (docs/GDD_Admin.md, pedido 2026-08-30) — MISMO patrón
   // que la de Twitch justo arriba: llega en la URL una vez (redirect de
-  // /auth/twitch/callback si la cuenta de Twitch está vinculada a un admin,
-  // o el propio login por usuario/contraseña la guarda directo en
-  // sessionStorage y recarga, ver panelLoginAdmin.ts), sobrevive a
-  // `navegarA` (recarga de página) mientras dure la pestaña.
+  // /auth/twitch/callback si la cuenta de Twitch está vinculada a un admin),
+  // o el login por usuario/contraseña de `inicio/pantallaBienvenida.ts` la
+  // guarda directo en sessionStorage ANTES de llamar a `iniciarJuego`
+  // (nunca hace falta recargar la página, a diferencia del viejo panel
+  // flotante de admin que esto sustituyó) — sobrevive a `navegarA` (recarga
+  // de página al cruzar un portal) mientras dure la pestaña.
   const adminSessionDeUrl = new URLSearchParams(location.search).get("adminSession");
   if (adminSessionDeUrl) sessionStorage.setItem("adminSession", adminSessionDeUrl);
   const adminSession = adminSessionDeUrl || sessionStorage.getItem("adminSession") || undefined;
@@ -597,13 +602,34 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const dockHud = new DockHud(contenedor);
 
   // Ajustes (docs/GDD_Ajustes.md, pedido streamer 2026-09-09) — disponible
-  // en CUALQUIER sala, no depende de nada del join.
+  // en CUALQUIER sala, no depende de nada del join. Sección de Twitch
+  // (pedido 2026-09-09: "si no lo hace [al loguearse] se queda en ajustes
+  // loguearse con twitch") — mismo endpoint que ya ofrece la pantalla de
+  // bienvenida, aquí solo como fallback para quien no lo conectó al entrar.
   const panelAjustes = new PanelAjustes({
     contenedor,
     fijarVolumen: fijarVolumenMaestro,
     fijarCalidadGrafica: (nivel) => escena.fijarCalidadGrafica(nivel),
+    serverUrlHttp: SERVER_URL_HTTP,
+    twitchYaConectando: !!twitchSession,
   });
   dockHud.registrar("ajustes", panelAjustes, { icono: "⚙️", titulo: "Ajustes" });
+  room.onMessage("twitch:loginConfirmado", (m: { twitchLogin: string }) => panelAjustes.actualizarTwitch(m.twitchLogin));
+  room.onMessage("twitch:error", (m: { motivo?: string }) => console.log("[twitch]", m?.motivo));
+
+  // HUD de vitales (pedido streamer 2026-09-09: "falta arriba izquierda un
+  // icono del personaje... y su vida stamina hambre sed") — disponible en
+  // CUALQUIER sala, no depende de nada del join. Se relee cada 500ms en vez
+  // de escuchar onChange (VitalesSchema es un sub-schema anidado que no
+  // burbujea sus cambios al onChange del Player padre) — mismo criterio de
+  // "barato, no hace falta 60hz" ya usado más abajo para proximidad a
+  // bancales/mesas de injerto: los vitales decaen en horas reales, no en ticks.
+  const hudVitales = new HudVitales(contenedor);
+  setInterval(() => {
+    const yo = room.state.players.get(room.sessionId) as any;
+    if (!yo) return;
+    hudVitales.actualizar({ vida: yo.vida, vidaMax: yo.vidaMax, estamina: yo.vitales.estamina, comida: yo.vitales.comida, bebida: yo.vitales.bebida });
+  }, 500);
 
   // Cuenta de jugador (docs/GDD_Cuentas.md): si el token guardado dejó de
   // ser válido (caducó, o el server se reinició y perdió la sesión en
@@ -2486,45 +2512,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     { icono: "🎒", titulo: "Personaje / Inventario (I)" },
   );
 
-  // --- Login con Twitch (docs/GDD_Twitch.md §7) — PLACEHOLDER de testeo,
-  // mismo criterio que el resto de paneles de esta pasada: un enlace suelto
-  // si no has iniciado sesión, un texto si ya lo hiciste. Sin esto, el chat
-  // solo te reconoce cuando tu PJ se llama igual que tu usuario de Twitch
-  // (identidad v1, ver GDD_Construccion.md) — el login soluciona ESO
-  // concretamente, no sustituye el nombre del PJ en el resto del juego.
-  const cajaTwitch = document.createElement("div");
-  cajaTwitch.style.position = "absolute";
-  cajaTwitch.style.left = "16px";
-  cajaTwitch.style.top = "16px";
-  cajaTwitch.style.background = "rgba(20,16,10,0.88)";
-  cajaTwitch.style.color = "#f0e8d8";
-  cajaTwitch.style.font = "13px sans-serif";
-  cajaTwitch.style.padding = "6px 10px";
-  cajaTwitch.style.borderRadius = "6px";
-  cajaTwitch.style.border = "1px solid #6a5a3a";
-  if (twitchSession) {
-    cajaTwitch.textContent = "🎮 Twitch: conectando...";
-  } else {
-    const urlLogin = `${SERVER_URL.replace(/^ws/, "http")}/auth/twitch/login`;
-    cajaTwitch.innerHTML = `<a href="${urlLogin}" style="color:#a970ff">Conectar con Twitch</a> (para que el chat te reconozca)`;
-  }
-  contenedor.appendChild(cajaTwitch);
-  room.onMessage("twitch:loginConfirmado", (m: { twitchLogin: string }) => {
-    cajaTwitch.textContent = `🎮 Twitch: conectado como ${m.twitchLogin}`;
-  });
-  room.onMessage("twitch:error", (m: { motivo?: string }) => console.log("[twitch]", m?.motivo));
-
-  // --- Login de admin (docs/GDD_Admin.md, pedido 2026-08-30) — dual:
-  // usuario/contraseña propios (formulario, PanelLoginAdmin) O una cuenta
-  // de Twitch ya vinculada (el botón "Conectar con Twitch" de arriba sirve
-  // para las dos cosas a la vez si esa cuenta está vinculada — ver
-  // twitch/rutasOauth.ts, añade adminSession al redirect). Sin sesión de
-  // admin, todo sigue exactamente igual que hasta ahora (jugador normal).
+  // --- Estado de admin (docs/GDD_Admin.md) — el LOGIN de admin (dual:
+  // usuario/contraseña propios, o una cuenta de Twitch ya vinculada) ahora
+  // vive en la pantalla de bienvenida (docs/GDD_Cuentas.md, pedido streamer
+  // 2026-09-09: "el login deberia ser para todos... el admin a tener su
+  // cuenta o contraseña podria hacerlo" — ya NO el panel flotante siempre
+  // visible que había antes, `admin/panelLoginAdmin.ts`, eliminado por no
+  // quedarle ningún consumidor). Aquí solo queda el INDICADOR de una sesión
+  // ya activa: sin `adminSession` (no se rellenó esa sección al loguearse)
+  // no se muestra nada en absoluto.
   let identidadAdminActual: { usuario: string; rol: "jarl" | "superadmin"; mapaId: string | null; esJarlAqui: boolean } | null = null;
   const cajaAdmin = document.createElement("div");
   cajaAdmin.style.position = "absolute";
-  cajaAdmin.style.left = "16px";
-  cajaAdmin.style.top = "56px";
+  cajaAdmin.style.right = "16px";
+  cajaAdmin.style.top = "16px";
   contenedor.appendChild(cajaAdmin);
 
   const mostrarEstadoAdmin = (texto: string) => {
@@ -2540,18 +2541,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     cajaAdmin.appendChild(caja);
   };
 
-  if (adminSession) {
-    mostrarEstadoAdmin("👑 Admin: conectando...");
-  } else {
-    new PanelLoginAdmin({
-      contenedor: cajaAdmin,
-      serverUrlHttp: SERVER_URL.replace(/^ws/, "http"),
-      onLoginOk: (token) => {
-        sessionStorage.setItem("adminSession", token);
-        location.reload(); // recarga para que el próximo join mande adminSession, mismo ciclo que el redirect de Twitch
-      },
-    });
-  }
+  if (adminSession) mostrarEstadoAdmin("👑 Admin: conectando...");
   let panelJarl: PanelJarl | null = null;
   let panelDebugTestZone: PanelDebugTestZone | null = null;
   room.onMessage(
@@ -2571,7 +2561,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         panelJarl = new PanelJarl({
           contenedor,
           esSuperadmin: m.rol === "superadmin",
-          serverUrlHttp: SERVER_URL.replace(/^ws/, "http"),
+          serverUrlHttp: SERVER_URL_HTTP,
           adminToken: adminSession,
           pvpFijar: (on) => room.send("pvp:fijar", { on }),
           simularCanje: (tipo) => room.send("twitch:simularCanje", { tipo }),
@@ -2580,6 +2570,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           renombrarCapital: (nombre) => room.send("admin:capital:renombrar", { nombre }),
         });
         room.send("admin:capital:consultar");
+        // PanelJarl (misma esquina top-right, ver panelJarl.ts) ya repite la
+        // identidad en su propia cabecera — la caja de estado suelta se
+        // ocultaría debajo de él (bug real encontrado verificando con
+        // Playwright el login de superadmin unificado en la bienvenida).
+        cajaAdmin.style.display = "none";
       }
       // Panel de debug de la Test Zone (docs/GDD_Admin.md, pedido
       // 2026-08-31): mismo criterio de visibilidad que PanelJarl — el

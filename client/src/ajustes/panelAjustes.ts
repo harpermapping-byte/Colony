@@ -15,6 +15,11 @@
  *   problemas de rendimiento ya documentado en CLAUDE.md.
  * - Teclas → ver `configTeclas.ts` para el diseño de la reasignación
  *   (remapeo de entrada, sin tocar el switch de `game.ts`).
+ * - Twitch → fallback de conexión (pedido streamer 2026-09-09: "lo de
+ *   conectar twitch debe ir al crear cuenta o loguearse, y si no lo hace se
+ *   queda en ajustes loguearse con twitch") — la vía principal es la
+ *   pantalla de bienvenida (`inicio/pantallaBienvenida.ts`), esto es solo
+ *   para quien no lo conectó al entrar. Mismo endpoint, sin duplicar lógica.
  */
 import { crearMarcoPanel, crearBoton, crearSubtitulo, crearLineaTexto } from "../ui/panelBase";
 import { obtenerVolumenGuardado, guardarVolumen, obtenerCalidadGuardada, guardarCalidad, CalidadGrafica } from "./configAjustes";
@@ -24,6 +29,9 @@ export interface OpcionesPanelAjustes {
   contenedor: HTMLElement;
   fijarVolumen(v: number): void;
   fijarCalidadGrafica(nivel: CalidadGrafica): void;
+  serverUrlHttp: string;
+  /** `true` si ya se mandó una `twitchSession` (login desde bienvenida.ts) y se está esperando la confirmación del servidor. */
+  twitchYaConectando: boolean;
 }
 
 /** Nombre legible de una tecla para mostrar en la UI (" " -> "Espacio", "arrowup" -> "↑"...). */
@@ -38,6 +46,7 @@ function etiquetaTecla(tecla: string): string {
 export class PanelAjustes {
   private readonly marco;
   private capturandoAccion: string | null = null;
+  private twitchLoginConfirmado: string | null = null;
 
   constructor(private opciones: OpcionesPanelAjustes) {
     this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Ajustes", icono: "⚙️", ancho: "300px", left: "50%", top: "50%" });
@@ -64,6 +73,12 @@ export class PanelAjustes {
 
   onCambioEstado(cb: () => void) {
     this.marco.onCambioEstado(cb);
+  }
+
+  /** Llamar desde `room.onMessage("twitch:loginConfirmado", ...)`. */
+  actualizarTwitch(twitchLogin: string) {
+    this.twitchLoginConfirmado = twitchLogin;
+    if (this.marco.estaAbierto()) this.render();
   }
 
   private render() {
@@ -125,6 +140,22 @@ export class PanelAjustes {
     cuerpo.appendChild(crearLineaTexto("Calidad gráfica", { tenue: true, fontSize: "11px" }));
     cuerpo.appendChild(filaCalidad);
     cuerpo.appendChild(crearLineaTexto("\"Baja\" apaga sombras y reduce la resolución interna — recomendado si notas tirones.", { tenue: true, fontSize: "10px" }));
+
+    // --- Twitch ---
+    cuerpo.appendChild(crearSubtitulo("🎮 Twitch"));
+    if (this.twitchLoginConfirmado) {
+      cuerpo.appendChild(crearLineaTexto(`Conectado como ${this.twitchLoginConfirmado}`, { fontSize: "12px" }));
+    } else {
+      const enlaceTwitch = document.createElement("a");
+      enlaceTwitch.href = `${this.opciones.serverUrlHttp}/auth/twitch/login`;
+      enlaceTwitch.className = "panel-colony-boton";
+      enlaceTwitch.style.display = "block";
+      enlaceTwitch.style.textAlign = "center";
+      enlaceTwitch.style.textDecoration = "none";
+      enlaceTwitch.textContent = this.opciones.twitchYaConectando ? "🎮 Twitch: conectando..." : "🎮 Conectar con Twitch";
+      cuerpo.appendChild(enlaceTwitch);
+      cuerpo.appendChild(crearLineaTexto("Para que el chat te reconozca por tu nombre de Twitch.", { tenue: true, fontSize: "10px" }));
+    }
 
     // --- Teclas ---
     cuerpo.appendChild(crearSubtitulo("⌨️ Teclas"));

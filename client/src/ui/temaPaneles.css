@@ -183,3 +183,194 @@
   background: #c0392b;
   border: 1px solid rgba(0, 0, 0, 0.5);
 }
+
+/* HUD de vitales (pedido streamer 2026-09-09) — arriba-izquierda, SIEMPRE
+ * visible (ver hudVitales.ts: no es un panel de crearMarcoPanel, no tiene
+ * X). Icono circular + 4 barras apiladas, mismo lenguaje visual madera. */
+.hud-vitales {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 6px;
+  background: var(--dock-bg);
+  border: 3px solid var(--panel-borde);
+  border-radius: 30px;
+  box-shadow: var(--panel-sombra);
+  z-index: 90;
+  user-select: none;
+}
+.hud-vitales-icono {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: radial-gradient(circle at 35% 30%, #6a4526, #3a2513);
+  border: 2px solid var(--panel-borde-tallado);
+  border-radius: 50%;
+}
+.hud-vitales-barras {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.hud-vitales-fila {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.hud-vitales-emoji {
+  font-size: 11px;
+  width: 14px;
+  text-align: center;
+}
+.hud-vitales-pista {
+  width: 90px;
+  height: 7px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.hud-vitales-relleno {
+  height: 100%;
+  width: 100%;
+  transition: width 0.25s ease;
+}
+
+/* Pantalla de bienvenida — PANTALLA COMPLETA (pedido streamer 2026-09-09:
+ * "una pestaña entera toda la pantalla... no puedes jugar sin poner
+ * usuario"). z-index por encima de CUALQUIER otra cosa: dock (100),
+ * overlays fullscreen de mapa/resumen (70 inline), paneles (40). */
+.bienvenida-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, #3a2a18 0%, #14100a 78%);
+}
+.bienvenida-tarjeta {
+  width: min(380px, 90vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--panel-bg);
+  border: 3px solid var(--panel-borde);
+  border-radius: var(--panel-radio);
+  box-shadow: var(--panel-sombra);
+  padding: 22px 24px;
+  color: var(--panel-texto);
+  font: var(--panel-fuente);
+}
+.bienvenida-titulo {
+  font: 700 22px "Cinzel", Georgia, serif;
+  color: var(--panel-acento);
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  margin-bottom: 12px;
+  letter-spacing: 0.03em;
+}
+.bienvenida-pestanas {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+}
+.bienvenida-pestanas button {
+  flex: 1;
+}
+.bienvenida-input {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+.bienvenida-boton-principal {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 14px;
+  padding: 9px;
+}
+.bienvenida-separador {
+  text-align: center;
+  opacity: 0.55;
+  margin: 16px 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.bienvenida-enlace-twitch {
+  display: block;
+  text-align: center;
+  background: linear-gradient(180deg, #6a4526, #4a3018);
+  border: 1px solid var(--panel-borde-tallado);
+  border-radius: 5px;
+  padding: 8px 10px;
+  color: #cdb0ff;
+  text-decoration: none;
+  font-size: 13px;
+}
+.bienvenida-enlace-twitch:hover {
+  background: linear-gradient(180deg, #8a5a2a, #5a3a1a);
+}
+.bienvenida-toggle-admin {
+  margin-top: 18px;
+  font-size: 12px;
+  opacity: 0.65;
+  cursor: pointer;
+  user-select: none;
+}
+.bienvenida-toggle-admin:hover {
+  opacity: 1;
+}
+.bienvenida-spinner {
+  width: 36px;
+  height: 36px;
+  margin: 20px auto;
+  border: 4px solid rgba(224, 184, 74, 0.25);
+  border-top-color: var(--panel-acento);
+  border-radius: 50%;
+  animation: bienvenida-girar 0.9s linear infinite;
+}
+@keyframes bienvenida-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Chat minimizable (pedido streamer 2026-09-09: "el chat se tiene que
+ * poder minimizar con una tecla como la X arriba derecha"). El chat NO usa
+ * crearMarcoPanel (panel persistente con log propio, ver chat.ts) — misma
+ * X redonda del resto del HUD, aplicada a mano sobre su propia cabecera. */
+.chat-colony-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 4px 8px;
+  background: var(--panel-bg-cabecera);
+  border-bottom: 1px solid #6a5a3a;
+  font: 11px "Trebuchet MS", sans-serif;
+  color: var(--panel-texto-tenue);
+}
+.chat-colony-minimizar {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  line-height: 14px;
+  padding: 0;
+  text-align: center;
+  background: radial-gradient(circle at 35% 30%, #6a4526, #3a2513);
+  color: var(--panel-acento);
+  border: 1px solid var(--panel-borde-tallado);
+  border-radius: 50%;
+  font: 11px sans-serif;
+  cursor: pointer;
+}
+.chat-colony-minimizar:hover {
+  background: radial-gradient(circle at 35% 30%, #8a5a2a, #4a3018);
+}
