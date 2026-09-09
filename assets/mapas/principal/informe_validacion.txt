@@ -1,2 +1,0 @@
-OK — sin problemas detectados.
-10000 chunks generados, 69 POIs colocados, 0 sin ruta.
