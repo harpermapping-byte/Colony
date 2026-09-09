@@ -359,16 +359,16 @@ sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
   La mecánica de juego (bloquear nadar, velocidad+deslizamiento) SÍ es
   100% reactiva porque se recalcula cada tick en el servidor — solo el
   pintado tiene este retraso.
-- **Partículas** (`client/src/render3d/climaVisual.ts`, clase
-  `EfectosClima`): nieve y polvo (viento) son `THREE.Points` (caen/derivan
-  como píxeles sueltos); la lluvia es `THREE.LineSegments` (2 vértices por
-  gota, arriba/abajo separados `LARGO_GOTA`, ambos se mueven a la vez) —
-  **corregido 2026-09-01**, pedido del streamer: "la nieve se ve cayendo
-  como píxeles, la lluvia debería verse como líneas" — se lee mejor una
-  gota rápida como estría que como punto. Activadas/desactivadas según
-  `ciclo.clima` de `cicloDia.ts`, siempre centradas en `objetivoCamara`
-  (nunca fijas en coordenadas de mundo — así vale para cualquier punto de
-  un mapa de miles de casillas sin generar nada por streaming aparte).
+- **Partículas de polvo (viento)** (`client/src/render3d/climaVisual.ts`,
+  clase `EfectosClima`): `THREE.Points` que derivan lateralmente con la
+  dirección de viento del día. Activadas/desactivadas según `ciclo.clima`
+  de `cicloDia.ts`, siempre centradas en `objetivoCamara` (nunca fijas en
+  coordenadas de mundo — así vale para cualquier punto de un mapa de miles
+  de casillas sin generar nada por streaming aparte). ~~Nieve y lluvia
+  vivían aquí también, como `THREE.Points`/`THREE.LineSegments` 3D~~ —
+  **movidas a un overlay 2D screen-space el 2026-09-09, ver §14**: el
+  polvo se queda en 3D a propósito (ambiental de fondo, no necesita cubrir
+  el 100% de la pantalla).
 - **Charcos**: `THREE.CircleGeometry` oscuros semitransparentes, un pool
   fijo de 14 recolocados al azar alrededor del jugador SOLO al empezar a
   llover (no cada frame) — decorativos, sin efecto de juego ("no como un
@@ -451,3 +451,63 @@ sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
   velocidad nada más").
 - HUD de clima en pantalla — sigue junto al resto de interfaces
   pendientes (`GDD_Personaje.md §6`).
+
+## 14. Lluvia/nieve como overlay 2D screen-space (2026-09-09)
+
+Pedido del streamer, jugando en directo: "haz que las lluvias nieves y tal
+estén en capa por encima del canvas". El bug de fondo era estructural, no
+solo de magnitud: la lluvia/nieve 3D de §11 (`THREE.LineSegments`/
+`THREE.Points`) se sembraba dentro de un `RADIO_PARTICULAS` (radio de
+MUNDO) alrededor de `objetivoCamara` — cuánto radio hace falta para cubrir
+el 100% del frustum de una cámara ortográfica isométrica depende del
+aspect ratio de la ventana, del ángulo isométrico fijo y del zoom, así que
+cualquier valor fijo es una aproximación que puede volver a quedarse corta
+(ya había pasado una vez esta misma sesión, 13→20, y seguía sin cubrir
+esquinas en pantallas panorámicas).
+
+**Arreglo de raíz, no otro parche de radio**: `client/src/render3d/
+climaPantalla.ts` (nuevo), clase `EfectosClimaPantalla` — un `<canvas>` 2D
+`position:absolute; inset:0` insertado en el DOM entre `overlayClima`
+(niebla) y `labelRenderer.domElement` (nombres/vida), mismo patrón
+`insertBefore` que ya usaba `overlayClima`. Las gotas/copos se generan y
+animan en coordenadas de PÍXEL DE PANTALLA (`x∈[0,ancho]`, `y∈[0,alto]` en
+px CSS lógicos, `dpr` capado a 2 igual que `renderer.setPixelRatio`) — cero
+relación con `objetivoCamara`/mundo 3D, así que "cubre el 100% del
+viewport" es una garantía estructural, no una aproximación por radio.
+Densidad de partículas escalada por ÁREA real de la ventana en `resize()`
+(`ancho*alto`, referencia 1000×700px) — una ventana pequeña no desperdicia
+partículas fuera de encuadre, una 4K no se queda corta. Batching real: un
+único `beginPath()`+`stroke()`/`fill()` por frame para TODAS las
+gotas/copos (nunca uno por partícula). Se engancha al MISMO bucle ya
+existente (`WorldScene.actualizar(dt)`, una vez por `requestAnimationFrame`
+desde `game.ts`) reusando el mismo `dt` y el mismo `ciclo.clima` que ya lee
+`overlayClima`/`EfectosClima` — sin `requestAnimationFrame` propio, sin
+riesgo de desincronía entre dos bucles.
+
+`climaVisual.ts::EfectosClima` pierde `lluvia`/`nieveCayendo` y todo su
+código muerto asociado (`geometriaLluvia`, `caerLineas`, `caerParticulas`,
+`LARGO_GOTA`, `SUELO_LLUVIA`, `SUELO_NIEVE`, `NUM_LLUVIA`, `NUM_NIEVE`) —
+se queda SOLO con polvo (viento) y charcos, ambos en 3D a propósito: el
+polvo es ambiental de fondo (no necesita cobertura de pantalla completa
+como algo que cae delante de la cámara) y los charcos son geometría de
+suelo con perspectiva real que un overlay 2D no puede dar. `climaPantalla`
+se activa/desactiva con `canvas.style.display` (corta el trabajo entero,
+ni `clearRect` ni el bucle de partículas, cuando el clima no es
+lluvia/nieve) y lleva `pointer-events:none` desde el primer commit —
+un canvas absolute cubriendo el 100% del viewport sin esto bloquearía todo
+clic/drag del juego de forma silenciosa.
+
+**Nada toca servidor ni el contrato de red**: `ciclo.clima` sigue siendo
+puramente cliente (`client/src/mundo/clima.ts` deriva lluvia/nieve/niebla/
+viento de datos que el servidor ya manda) — el cambio es 100% cliente, sin
+riesgo de romper ninguna mecánica autoritativa.
+
+Verificado: `cd client && npx tsc --noEmit` limpio, `client/test/*.test.ts`
+37/37 sin regresión, `client/test/climaVisual.e2e.mjs` (servidor+cliente
+reales, Playwright) en verde en los 3 escenarios (nieve acumulada al
+máximo, lluvia, niebla) — capturas confirman que la lluvia ahora cubre el
+viewport de esquina a esquina (antes se veía solo cerca del centro en
+pantallas panorámicas). `climaVisual.e2e.mjs` no necesitó ningún cambio de
+código, solo re-ejecutarse — la sonda `window.__clima()` sigue midiendo lo
+mismo (el tipo de clima resuelto), independiente de qué motor de render lo
+dibuja.

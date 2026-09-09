@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { estadoCiclo } from "./cicloDia";
 import { EfectosClima } from "./climaVisual";
+import { EfectosClimaPantalla } from "./climaPantalla";
 
 // Niebla/viento (docs/GDD_Clima.md, pedido del streamer: "que vea peor,
 // pero que vea, una pequeña molestia — máximo 10/20% de opacidad, nunca
@@ -43,6 +44,7 @@ export class WorldScene {
   // arranca en el ángulo fijo que tenía la escena antes del ciclo
   private direccionLuz = new THREE.Vector3(40, 60, 25).normalize();
   private readonly efectosClima: EfectosClima;
+  private readonly efectosClimaPantalla: EfectosClimaPantalla;
   private readonly overlayClima: HTMLDivElement;
   /** Último clima resuelto (docs/GDD_Clima.md) — expuesto de solo lectura para depuración/tests, mismo criterio que el resto de sondas `window.__*`. */
   climaActual = "";
@@ -96,6 +98,14 @@ export class WorldScene {
       opacity: "0", pointerEvents: "none", transition: "opacity 1.5s linear",
     });
     contenedor.insertBefore(this.overlayClima, this.labelRenderer.domElement);
+
+    // Lluvia/nieve como overlay 2D screen-space (docs/GDD_Clima.md,
+    // climaPantalla.ts) — insertado DESPUÉS de la niebla y ANTES de las
+    // etiquetas (insertBefore labelRenderer, mismo patrón que overlayClima
+    // arriba), así el orden final de atrás hacia adelante queda: [canvas 3D]
+    // [overlayClima niebla] [canvas 2D lluvia/nieve] [labelRenderer
+    // nombres/vida] — los nombres siempre legibles por encima de la lluvia.
+    this.efectosClimaPantalla = new EfectosClimaPantalla(contenedor, this.labelRenderer.domElement);
 
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
     this.posicionarCamaraIsometrica();
@@ -194,9 +204,14 @@ export class WorldScene {
     // peor, pero que vea" — 10/20% como mucho); el resto de climas la dejan
     // en 0 (transparente del todo).
     this.overlayClima.style.opacity = String(OPACIDAD_POR_CLIMA[ciclo.clima] ?? 0);
-    // Partículas/charcos de lluvia-nieve-viento, siempre centrados en lo
-    // que la cámara está mirando (objetivoCamara, no la posición de la
-    // cámara isométrica en sí) — nunca fijos en coordenadas de mundo.
+    // Lluvia/nieve: overlay 2D screen-space, mismo `ciclo.clima` que ya lee
+    // overlayClima/efectosClima — sin rAF propio, dibuja dentro de este
+    // mismo `actualizar()` (canvas 2D no necesita un paso de "presentar"
+    // separado como WebGL).
+    this.efectosClimaPantalla.actualizar(dt, ciclo.clima);
+    // Polvo/charcos, siempre centrados en lo que la cámara está mirando
+    // (objetivoCamara, no la posición de la cámara isométrica en sí) —
+    // nunca fijos en coordenadas de mundo.
     this.efectosClima.actualizar(dt, ciclo.clima, this.objetivoCamara);
   }
 
@@ -226,6 +241,7 @@ export class WorldScene {
   resize(ancho: number, alto: number) {
     this.renderer.setSize(ancho, alto, false);
     this.labelRenderer.setSize(ancho, alto);
+    this.efectosClimaPantalla.resize(ancho, alto);
     const aspecto = ancho / alto;
     const mitad = TAMANO_MUNDO_VISIBLE / 2;
     this.camera.left = -mitad * aspecto;

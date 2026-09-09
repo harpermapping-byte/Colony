@@ -2,13 +2,26 @@ import * as THREE from "three";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 
 /**
- * Efectos visuales de clima (docs/GDD_Clima.md, pedido del streamer) —
- * PLACEHOLDER sencillo, mismo criterio que el resto del arte del proyecto
- * (se sustituye más adelante sin tocar la maquinaria): partículas de
- * lluvia/nieve cayendo, polvo a la deriva con viento, niebla que limita la
- * vista (una molestia pequeña, no ceguera) y charcos decorativos mientras
- * llueve. Todo sigue a la cámara — nunca fijo en el mundo, así vale para
- * un mapa de miles de casillas sin generar nada por streaming aparte.
+ * Efectos visuales de clima 3D (docs/GDD_Clima.md, pedido del streamer):
+ * polvo a la deriva con viento y charcos decorativos mientras llueve. Todo
+ * sigue a la cámara — nunca fijo en el mundo, así vale para un mapa de
+ * miles de casillas sin generar nada por streaming aparte.
+ *
+ * Lluvia/nieve YA NO viven aquí (2026-09-09, pedido streamer: "que las
+ * lluvias nieves y tal estén en capa por encima del canvas") — se movieron
+ * a `climaPantalla.ts`, un overlay 2D screen-space (canvas 2D, coordenadas
+ * de píxel de pantalla en vez de radio de mundo alrededor de la cámara).
+ * El problema de fondo era estructural, no solo de magnitud: cuánto "radio
+ * de mundo" hace falta para cubrir el 100% del frustum de una cámara
+ * ortográfica isométrica depende del aspect ratio de la ventana, del
+ * ángulo isométrico fijo y del nivel de zoom — cualquier radio fijo (13,
+ * luego 20 en la pasada anterior de esta misma sesión) es una aproximación
+ * que puede volver a quedarse corta con solo cambiar el tamaño de ventana.
+ * Un overlay 2D cubre el 100% del viewport por GARANTÍA ESTRUCTURAL (dibuja
+ * en coordenadas de píxel de pantalla real), no por aproximación. Polvo y
+ * charcos se quedan en 3D a propósito: el polvo es ambiental de fondo (no
+ * necesita cobertura de pantalla completa) y los charcos son geometría de
+ * suelo con perspectiva real (un overlay 2D no puede darles eso).
  */
 
 /** Dirección del viento del día (no hay sistema de viento de verdad todavía) — determinista por día de mundo, mismo criterio "nunca Math.random()" que el resto del proyecto, así el polvo siempre sopla igual mientras dure el día en vez de errático. */
@@ -20,17 +33,11 @@ function anguloVientoDelDia(dia: number): number {
   return (h % 360) * (Math.PI / 180);
 }
 
-// RADIO_PARTICULAS antes en 13 — con TAMANO_MUNDO_VISIBLE=16 (worldScene.ts)
-// y una pantalla panorámica (aspecto>1), la esquina de cámara puede pedir
-// más de 13 unidades de mundo, dejando esquinas sin lluvia — bug real
-// reportado jugando 2026-09-09 ("no se aplica como capa por encima de todo
-// el canvas"). Subido a 20 (cubre con margen cualquier aspecto razonable,
-// incluido ultra-wide) + densidad escalada proporcional al área (radio²)
-// para no diluir la lluvia por el radio más grande.
+// RADIO_PARTICULAS: sigue usándolo el polvo (ambiental de fondo, sin el
+// problema de cobertura de pantalla completa que sí tenían lluvia/nieve —
+// ver climaPantalla.ts para esas dos).
 const RADIO_PARTICULAS = 20;
 const ALTURA_PARTICULAS = 9;
-const NUM_LLUVIA = 1200;
-const NUM_NIEVE = 700;
 const NUM_POLVO = 475;
 const NUM_CHARCOS = 14;
 const RADIO_CHARCOS = 10;
@@ -47,42 +54,12 @@ function geometriaAlrededor(n: number, radio: number, altura: number): THREE.Buf
   return geo;
 }
 
-const LARGO_GOTA = 0.35; // longitud de cada segmento de lluvia (estría, no punto)
-
-/** Igual que `geometriaAlrededor` pero con 2 vértices por gota (arriba/abajo, `LineSegments`) — la lluvia se lee como una estría cayendo rápido, no como un píxel suelto (a diferencia de la nieve, que sí cae como copos/puntos). */
-function geometriaLluvia(n: number, radio: number, altura: number): THREE.BufferGeometry {
-  const pos = new Float32Array(n * 2 * 3);
-  for (let i = 0; i < n; i++) {
-    const x = (Math.random() * 2 - 1) * radio;
-    const yArriba = Math.random() * altura;
-    const z = (Math.random() * 2 - 1) * radio;
-    pos[i * 6] = x; pos[i * 6 + 1] = yArriba; pos[i * 6 + 2] = z;
-    pos[i * 6 + 3] = x; pos[i * 6 + 4] = yArriba - LARGO_GOTA; pos[i * 6 + 5] = z;
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-  return geo;
-}
-
 export class EfectosClima {
-  private lluvia: THREE.LineSegments;
-  private nieveCayendo: THREE.Points;
   private polvo: THREE.Points;
   private charcos: THREE.Group;
   private tipoAnterior = "";
 
   constructor(scene: THREE.Scene) {
-    // Lluvia: LÍNEAS (estría), no puntos — se lee mejor cayendo rápido.
-    this.lluvia = new THREE.LineSegments(
-      geometriaLluvia(NUM_LLUVIA, RADIO_PARTICULAS, ALTURA_PARTICULAS),
-      new THREE.LineBasicMaterial({ color: 0xaac8ff, transparent: true, opacity: 0.55, depthWrite: false }),
-    );
-    this.lluvia.visible = false;
-    this.nieveCayendo = new THREE.Points(
-      geometriaAlrededor(NUM_NIEVE, RADIO_PARTICULAS, ALTURA_PARTICULAS),
-      new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.85, depthWrite: false }),
-    );
-    this.nieveCayendo.visible = false;
     this.polvo = new THREE.Points(
       geometriaAlrededor(NUM_POLVO, RADIO_PARTICULAS, ALTURA_PARTICULAS * 0.4),
       // Opacidad baja a propósito (pedido del streamer: "capa al 10/20% de
@@ -109,7 +86,7 @@ export class EfectosClima {
     }
     this.charcos.visible = false;
 
-    scene.add(this.lluvia, this.nieveCayendo, this.polvo, this.charcos);
+    scene.add(this.polvo, this.charcos);
   }
 
   /** Recoloca los charcos al azar dentro de RADIO_CHARCOS del centro — solo se llama al EMPEZAR a llover, nunca por frame. */
@@ -121,22 +98,16 @@ export class EfectosClima {
     }
   }
 
-  /** Avanza la caída/deriva de partículas y activa/desactiva según el tipo de clima de esta franja horaria (docs/GDD_Clima.md). */
+  /** Avanza la deriva de partículas y activa/desactiva según el tipo de clima de esta franja horaria (docs/GDD_Clima.md). */
   actualizar(dt: number, tipo: string, centro: THREE.Vector3): void {
-    this.lluvia.visible = tipo === "lluvia";
-    this.nieveCayendo.visible = tipo === "nieve";
     this.polvo.visible = tipo === "viento";
     this.charcos.visible = tipo === "lluvia";
 
     if (tipo === "lluvia" && this.tipoAnterior !== "lluvia") this.recolocarCharcos(centro);
     this.tipoAnterior = tipo;
 
-    this.lluvia.position.copy(centro);
-    this.nieveCayendo.position.copy(centro);
     this.polvo.position.copy(centro);
 
-    if (this.lluvia.visible) caerLineas(this.lluvia, dt, 9, ALTURA_PARTICULAS);
-    if (this.nieveCayendo.visible) caerParticulas(this.nieveCayendo, dt, 1.3, ALTURA_PARTICULAS, 0.4);
     if (this.polvo.visible) {
       // Dirección determinista por día (docs/GDD_Clima.md, pedido del
       // streamer: "se mueven según dirección del viento, si no hay
@@ -147,51 +118,6 @@ export class EfectosClima {
       derivarParticulas(this.polvo, dt, 2.4, Math.cos(angulo), Math.sin(angulo));
     }
   }
-}
-
-// El plano de terreno (sectorVisual.ts::crearPlanoSector) vive en y=0, la
-// misma referencia que usa `objetivoCamara`/`centro` de aquí (worldScene.ts
-// fija destinoCamara.y=0 siempre, sin muestrear la altura real del terreno).
-// Sin este suelo, dejar que la partícula llegue hasta y=0 la pone
-// literalmente al mismo plano de profundidad que el terreno — z-fighting de
-// libro, que en un frame gana el terreno y en el siguiente la partícula,
-// parpadeando ("a veces deja de verse sobre el terreno", encontrado jugando
-// 2026-09-02 con la lluvia). Reciclar un poco antes de tocar el suelo (no en
-// 0, en SUELO_LLUVIA/SUELO_NIEVE) la mantiene siempre en un plano de
-// profundidad distinto. La nieve (`caerParticulas`, más abajo) tenía el
-// MISMO bug sin arreglar todavía — mismo `y < 0` exacto — encontrado
-// preguntando el streamer 2026-09-03 "¿la nieve tiene el mismo fallo que
-// tenía la lluvia?": sí, nunca se había tocado.
-const SUELO_LLUVIA = 0.2;
-const SUELO_NIEVE = 0.1; // copo más pequeño que la gota, con menos margen de sobra
-
-/** Partículas que caen a `velocidad` unidades/seg y reaparecen arriba al tocar el suelo — con deriva lateral opcional (nieve). */
-function caerParticulas(puntos: THREE.Points, dt: number, velocidad: number, altura: number, derivaLateral = 0): void {
-  const attr = puntos.geometry.getAttribute("position") as THREE.BufferAttribute;
-  for (let i = 0; i < attr.count; i++) {
-    let y = attr.getY(i) - velocidad * dt;
-    let x = attr.getX(i);
-    if (derivaLateral) x += Math.sin(y * 0.7 + i) * derivaLateral * dt;
-    if (y < SUELO_NIEVE) { y = altura; x = (Math.random() * 2 - 1) * RADIO_PARTICULAS; }
-    attr.setX(i, x);
-    attr.setY(i, y);
-  }
-  attr.needsUpdate = true;
-}
-
-/** Igual que `caerParticulas` pero para `LineSegments` de 2 vértices por gota — mueve arriba/abajo a la vez, así el segmento mantiene siempre la misma longitud mientras cae. */
-function caerLineas(lineas: THREE.LineSegments, dt: number, velocidad: number, altura: number): void {
-  const attr = lineas.geometry.getAttribute("position") as THREE.BufferAttribute;
-  const paso = velocidad * dt;
-  for (let i = 0; i < attr.count; i += 2) {
-    let yArriba = attr.getY(i) - paso;
-    let x = attr.getX(i);
-    let z = attr.getZ(i);
-    if (yArriba - LARGO_GOTA < SUELO_LLUVIA) { yArriba = altura; x = (Math.random() * 2 - 1) * RADIO_PARTICULAS; z = (Math.random() * 2 - 1) * RADIO_PARTICULAS; }
-    attr.setXYZ(i, x, yArriba, z);
-    attr.setXYZ(i + 1, x, yArriba - LARGO_GOTA, z);
-  }
-  attr.needsUpdate = true;
 }
 
 /** Deriva en la dirección del viento (dirX,dirZ normalizado) — envuelve como un toroide al salir del radio en vez de caer, así el polvo nunca se agota. */
