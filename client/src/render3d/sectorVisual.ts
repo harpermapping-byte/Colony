@@ -832,7 +832,15 @@ async function crearPropsSector(
         if (mallaFauna) {
           mallaFauna.updateMatrix();
           const instanciado = new THREE.InstancedMesh(mallaFauna.geometry, mallaFauna.material, grupo.objetos.length);
-          instanciado.castShadow = true;
+          // NUNCA castShadow (2026-09-09, playtest real de rendimiento):
+          // fauna decorativa es la capa MÁS numerosa de todo el mapa
+          // (187.241 instancias en el bake real de Vetrheim) — cada una
+          // proyectando sombra multiplica el coste del pase de shadow map
+          // por ese mismo volumen, para un detalle casi imperceptible en
+          // cámara isométrica sobre bichos pequeños de fondo. receiveShadow
+          // se queda (sí se ven pisadas por la sombra de un edificio/árbol
+          // cercano, que es lo que de verdad se nota).
+          instanciado.castShadow = false;
           instanciado.receiveShadow = true;
           // Geometría/material COMPARTIDOS (cacheados en faunaDecorativaPool,
           // reusados por cualquier sector con la misma especie+variante) —
@@ -915,7 +923,16 @@ async function crearPropsSector(
         if (meshReal) {
           meshReal.updateMatrix();
           const instanciado = new THREE.InstancedMesh(meshReal.geometry, meshReal.material, grupo.objetos.length);
-          instanciado.castShadow = true;
+          // castShadow SOLO para lo grande/prominente (edificios `e`, deco
+          // urbana `m` — pocas decenas por sector, sombra que sí se nota).
+          // Vegetación (`v`) y rocas (`r`) son la capa más numerosa de props
+          // reales del mapa (miles por sector) — proyectar sombra desde
+          // cada una multiplica el coste del pase de shadow map sin
+          // aportar nada visible entre tanta instancia pequeña (mismo
+          // criterio que la fauna decorativa, arriba). receiveShadow se
+          // queda siempre puesto: SÍ se nota la sombra de un árbol/edificio
+          // grande cayendo sobre la hierba o una roca.
+          instanciado.castShadow = grupo.tipo !== "v" && grupo.tipo !== "r";
           instanciado.receiveShadow = true;
           // OJO: geometría/material son la plantilla COMPARTIDA cacheada en
           // entityLoader (viva mientras dure la sesión, reusada por
