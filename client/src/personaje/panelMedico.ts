@@ -6,6 +6,7 @@
  * sobre uno mismo); cirugía/prótesis son de oficio curandero, con inputs
  * crudos de sessionId/zona (sin picker de jugador cercano todavía).
  */
+import { crearMarcoPanel, type MarcoPanel } from "../ui/panelBase";
 
 export type Zona = "cabeza" | "torso" | "brazoIzq" | "brazoDer" | "piernaIzq" | "piernaDer";
 export const ZONAS: readonly Zona[] = ["cabeza", "torso", "brazoIzq", "brazoDer", "piernaIzq", "piernaDer"];
@@ -42,62 +43,28 @@ const NOMBRE_ZONA: Record<Zona, string> = {
 };
 
 export class PanelMedico {
-  private raiz: HTMLDivElement;
+  private readonly marco: MarcoPanel;
   private estado: Record<Zona, EstadoZonaVista> | null = null;
   private enfermedades: EstadoEnfermedadesVista | null = null;
-  private botonCerrar: HTMLButtonElement;
-  private visible = false;
-  private readonly listenersCambio: (() => void)[] = [];
 
   constructor(private opciones: OpcionesPanelMedico) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "16px";
-    this.raiz.style.bottom = "180px";
-    this.raiz.style.background = "rgba(20,10,10,0.88)";
-    this.raiz.style.color = "#f0d8d8";
-    this.raiz.style.font = "12px sans-serif";
-    this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #6a3a3a";
-    this.raiz.style.minWidth = "220px";
-    this.raiz.style.display = "none"; // pedido streamer 2026-09-09: recogido en el dock, ver dockHud.ts
-
-    this.botonCerrar = document.createElement("button");
-    this.botonCerrar.className = "panel-colony-cerrar";
-    this.botonCerrar.textContent = "✕";
-    this.botonCerrar.title = "Cerrar";
-    this.botonCerrar.style.position = "absolute";
-    this.botonCerrar.style.top = "6px";
-    this.botonCerrar.style.right = "6px";
-    this.botonCerrar.onclick = () => this.alternar();
-
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Anatomía", icono: "🩹", left: "16px" });
+    // Esquina inferior-izquierda, misma zona que ocupaba antes de migrar.
+    this.marco.raiz.style.top = "auto";
+    this.marco.raiz.style.bottom = "180px";
     this.render();
-
-    window.addEventListener("mousedown", (e) => {
-      if (!this.visible) return;
-      if (e.target instanceof Node && this.raiz.contains(e.target)) return;
-      if (e.target instanceof HTMLElement && e.target.closest(".dock-hud-icono")) return;
-      this.alternar();
-    });
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && this.visible) this.alternar();
-    });
   }
 
   alternar() {
-    this.visible = !this.visible;
-    this.raiz.style.display = this.visible ? "block" : "none";
-    for (const cb of this.listenersCambio) cb();
+    this.marco.alternar();
   }
 
   estaAbierto() {
-    return this.visible;
+    return this.marco.estaAbierto();
   }
 
   onCambioEstado(cb: () => void) {
-    this.listenersCambio.push(cb);
+    this.marco.onCambioEstado(cb);
   }
 
   actualizarEstado(estado: Record<Zona, EstadoZonaVista>) {
@@ -111,13 +78,8 @@ export class PanelMedico {
   }
 
   private render() {
-    this.raiz.innerHTML = "";
-    this.raiz.appendChild(this.botonCerrar);
-    const titulo = document.createElement("div");
-    titulo.style.fontWeight = "bold";
-    titulo.style.marginBottom = "6px";
-    titulo.textContent = "🩹 Anatomía";
-    this.raiz.appendChild(titulo);
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
 
     if (this.estado) {
       for (const zona of ZONAS) {
@@ -133,21 +95,24 @@ export class PanelMedico {
         const fila = document.createElement("div");
         fila.style.marginBottom = "4px";
         fila.textContent = `${NOMBRE_ZONA[zona]}: ${marcas.join(", ")}`;
-        this.raiz.appendChild(fila);
+        cuerpo.appendChild(fila);
 
         if (z.sangrado) {
           const btn = document.createElement("button");
+          btn.className = "panel-colony-boton";
           btn.textContent = "Vendar";
           btn.style.marginRight = "4px";
           btn.onclick = () => this.opciones.vendar(zona, false);
           fila.appendChild(btn);
           const btnUng = document.createElement("button");
+          btnUng.className = "panel-colony-boton";
           btnUng.textContent = "Vendar+ungüento";
           btnUng.onclick = () => this.opciones.vendar(zona, true);
           fila.appendChild(btnUng);
         }
         if (z.fractura) {
           const btn = document.createElement("button");
+          btn.className = "panel-colony-boton";
           btn.textContent = "Entablillar";
           btn.onclick = () => this.opciones.entablillar(zona);
           fila.appendChild(btn);
@@ -160,7 +125,7 @@ export class PanelMedico {
         const sano = document.createElement("div");
         sano.style.opacity = "0.7";
         sano.textContent = "(sin heridas)";
-        this.raiz.appendChild(sano);
+        cuerpo.appendChild(sano);
       }
     }
 
@@ -172,27 +137,29 @@ export class PanelMedico {
       separadorEnf.style.marginTop = "8px";
       separadorEnf.style.paddingTop = "6px";
       separadorEnf.style.borderTop = "1px solid #6a3a3a";
-      this.raiz.appendChild(separadorEnf);
+      cuerpo.appendChild(separadorEnf);
 
       if (this.enfermedades.catarro) {
         const filaCatarro = document.createElement("div");
         filaCatarro.style.marginBottom = "4px";
         filaCatarro.textContent = `🤧 Catarro (ungüentos: ${this.enfermedades.unguentosTomados}/4) `;
         const btnUnguento = document.createElement("button");
+        btnUnguento.className = "panel-colony-boton";
         btnUnguento.textContent = "Tomar ungüento";
         btnUnguento.onclick = () => this.opciones.tomarUnguento();
         filaCatarro.appendChild(btnUnguento);
-        this.raiz.appendChild(filaCatarro);
+        cuerpo.appendChild(filaCatarro);
       }
       if (this.enfermedades.gripe) {
         const filaGripe = document.createElement("div");
         filaGripe.style.marginBottom = "4px";
         filaGripe.textContent = "🥶 Gripe (-50% velocidad) ";
         const btnJarabe = document.createElement("button");
+        btnJarabe.className = "panel-colony-boton";
         btnJarabe.textContent = "Tomar jarabe";
         btnJarabe.onclick = () => this.opciones.tomarJarabe();
         filaGripe.appendChild(btnJarabe);
-        this.raiz.appendChild(filaGripe);
+        cuerpo.appendChild(filaGripe);
       }
     }
 
@@ -204,20 +171,22 @@ export class PanelMedico {
     separador.style.fontSize = "11px";
     separador.style.opacity = "0.8";
     separador.textContent = "Curandero (junto a mesa + instrumental/cama):";
-    this.raiz.appendChild(separador);
+    cuerpo.appendChild(separador);
 
     const inputTarget = document.createElement("input");
+    inputTarget.className = "panel-colony-input";
     inputTarget.placeholder = "sessionId paciente";
     inputTarget.style.width = "100%";
     inputTarget.style.margin = "4px 0";
-    this.raiz.appendChild(inputTarget);
+    cuerpo.appendChild(inputTarget);
 
     const filaCirugia = document.createElement("div");
     const btnCirugia = document.createElement("button");
+    btnCirugia.className = "panel-colony-boton";
     btnCirugia.textContent = "Operar (cirugía)";
     btnCirugia.onclick = () => { if (inputTarget.value) this.opciones.cirugia(inputTarget.value); };
     filaCirugia.appendChild(btnCirugia);
-    this.raiz.appendChild(filaCirugia);
+    cuerpo.appendChild(filaCirugia);
 
     const filaProtesis = document.createElement("div");
     filaProtesis.style.marginTop = "4px";
@@ -230,9 +199,10 @@ export class PanelMedico {
     }
     filaProtesis.appendChild(selectZona);
     const btnProtesis = document.createElement("button");
+    btnProtesis.className = "panel-colony-boton";
     btnProtesis.textContent = "Instalar prótesis";
     btnProtesis.onclick = () => { if (inputTarget.value) this.opciones.protesis(inputTarget.value, selectZona.value as Zona); };
     filaProtesis.appendChild(btnProtesis);
-    this.raiz.appendChild(filaProtesis);
+    cuerpo.appendChild(filaProtesis);
   }
 }

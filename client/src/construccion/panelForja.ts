@@ -5,12 +5,13 @@
  * yunque/martillo — solo texto, barras y botones para poder JUGAR el
  * minijuego y comprobar que el protocolo funciona.
  *
- * DOM plano inyectado sobre el canvas, mismo patrón que panelCombate.ts —
- * nada de framework. Puramente reactivo a mensajes (crafteo:herreria:*): a
- * diferencia de panelCombate (Schema replicado, `combates`), una forja es
- * efímera y por sesión — no hay estado que leer salvo lo que ya trae cada
- * mensaje.
+ * Chrome migrado al marco compartido (`panelBase.ts`, pedido streamer
+ * 2026-09-09: "TODA pantalla debe salir con esta estética") — puramente
+ * reactivo a mensajes (crafteo:herreria:*): a diferencia de panelCombate
+ * (Schema replicado, `combates`), una forja es efímera y por sesión — no
+ * hay estado que leer salvo lo que ya trae cada mensaje.
  */
+import { crearMarcoPanel, crearBoton, type MarcoPanel } from "../ui/panelBase";
 
 export interface SesionForjaVista {
   recetaId: string;
@@ -63,38 +64,48 @@ function estrellas(calidad: number): string {
 }
 
 export class PanelForja {
-  private raiz: HTMLDivElement;
+  private marco: MarcoPanel;
   private cfg: ConfigForjaVista | null = null;
 
   constructor(private opciones: OpcionesPanelForja) {
-    this.raiz = document.createElement("div");
-    Object.assign(this.raiz.style, {
-      position: "absolute", left: "50%", top: "104px", transform: "translateX(-50%)",
-      background: "rgba(24,18,12,0.92)", color: "#f0e8d8", font: "13px sans-serif",
-      padding: "12px 16px", borderRadius: "8px", border: "1px solid #8a5a2a",
-      display: "none", width: "320px", boxShadow: "0 4px 14px rgba(0,0,0,0.5)",
-    } as CSSStyleDeclaration);
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({
+      contenedor: opciones.contenedor,
+      titulo: "Forja",
+      icono: "⚒",
+      left: "50%",
+      top: "104px",
+      ancho: "320px",
+      // Este panel lo muestra/oculta la PROXIMIDAD a la forja (game.ts,
+      // cada 500ms) — no un gesto del jugador. Si Escape/clic-fuera lo
+      // cerraran mientras sigue de pie junto al yunque, el siguiente
+      // mensaje del servidor (temperatura/combustible cambiando) lo
+      // reabriría de golpe, dando sensación de panel que "no se deja
+      // cerrar". Solo se cierra cuando `ocultar()` (llamado desde game.ts
+      // al alejarse, o por el propio botón ✕ de la cabecera) lo decide.
+      cierraAlClicarFuera: false,
+      cierraConEscape: false,
+    });
+    this.marco.raiz.style.transform = "translateX(-50%)";
   }
 
   mostrarSesion(cfg: ConfigForjaVista, sesion: SesionForjaVista) {
     this.cfg = cfg;
-    this.raiz.style.display = "block";
+    this.marco.abrir();
     this.renderizarSesion(sesion);
   }
 
   actualizarSesion(sesion: SesionForjaVista) {
-    if (this.raiz.style.display === "none") return;
+    if (!this.marco.estaAbierto()) return;
     this.renderizarSesion(sesion);
   }
 
   mostrarResultado(resultado: ResultadoForjaVista) {
-    this.raiz.style.display = "block";
+    this.marco.abrir();
     this.renderizarResultado(resultado);
   }
 
   ocultar() {
-    this.raiz.style.display = "none";
+    this.marco.cerrar();
     this.cfg = null;
   }
 
@@ -115,18 +126,19 @@ export class PanelForja {
 
   private renderizarSesion(sesion: SesionForjaVista) {
     const cfg = this.cfg!;
-    this.raiz.innerHTML = "";
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
 
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "8px";
-    titulo.textContent = `⚒ ${FASE_TEXTO[sesion.fase] ?? sesion.fase} — ${sesion.recetaId}`;
-    this.raiz.appendChild(titulo);
+    titulo.textContent = `${FASE_TEXTO[sesion.fase] ?? sesion.fase} — ${sesion.recetaId}`;
+    cuerpo.appendChild(titulo);
 
     // Temperatura: barra con marcas de la ventana óptima (verde) superpuestas.
     const etiquetaTemp = document.createElement("div");
     etiquetaTemp.textContent = `🌡 Temperatura: ${Math.round(sesion.temperatura)}° (óptima ${cfg.temperaturaOptimaMin}–${cfg.temperaturaOptimaMax}°)`;
-    this.raiz.appendChild(etiquetaTemp);
+    cuerpo.appendChild(etiquetaTemp);
     const enOptima = sesion.temperatura >= cfg.temperaturaOptimaMin && sesion.temperatura <= cfg.temperaturaOptimaMax;
     const colorTemp = sesion.temperatura > cfg.temperaturaSobrecalentado ? "#c94a3a" : enOptima ? "#7ec850" : sesion.temperatura < cfg.temperaturaMinimaForja ? "#5a8ac9" : "#d9a63a";
     const barraTemp = this.barra((sesion.temperatura / 100) * 100, colorTemp);
@@ -137,13 +149,13 @@ export class PanelForja {
       border: "1px dashed rgba(255,255,255,0.6)", boxSizing: "border-box",
     } as CSSStyleDeclaration);
     barraTemp.appendChild(zonaOptima);
-    this.raiz.appendChild(barraTemp);
+    cuerpo.appendChild(barraTemp);
 
     // Combustible.
     const etiquetaFuel = document.createElement("div");
     etiquetaFuel.textContent = `🪵 Combustible: ${sesion.combustible}/${cfg.combustibleMax}`;
-    this.raiz.appendChild(etiquetaFuel);
-    this.raiz.appendChild(this.barra((sesion.combustible / cfg.combustibleMax) * 100, "#b0783a", "8px"));
+    cuerpo.appendChild(etiquetaFuel);
+    cuerpo.appendChild(this.barra((sesion.combustible / cfg.combustibleMax) * 100, "#b0783a", "8px"));
 
     // Ritmo (solo relevante en FORJAR) — aguja que el SERVIDOR simula; la
     // zona sombreada es orientativa (la ventana real de "perfecto" se
@@ -151,7 +163,7 @@ export class PanelForja {
     if (sesion.fase === "FORJAR") {
       const etiquetaRitmo = document.createElement("div");
       etiquetaRitmo.textContent = "🎯 Ritmo — golpea con la aguja centrada";
-      this.raiz.appendChild(etiquetaRitmo);
+      cuerpo.appendChild(etiquetaRitmo);
       const barraRitmo = this.barra(0, "transparent", "18px");
       const zonaPerfecta = document.createElement("div");
       Object.assign(zonaPerfecta.style, {
@@ -165,79 +177,67 @@ export class PanelForja {
         width: "3px", marginLeft: "-1.5px", background: "#f0e8d8", boxShadow: "0 0 4px #fff",
       } as CSSStyleDeclaration);
       barraRitmo.appendChild(aguja);
-      this.raiz.appendChild(barraRitmo);
+      cuerpo.appendChild(barraRitmo);
     }
 
     // Golpes + calidad.
     const golpesDiv = document.createElement("div");
     golpesDiv.style.marginBottom = "4px";
     golpesDiv.textContent = `🔨 Golpes: ${sesion.golpes}/${cfg.golpesObjetivo} (✓${sesion.golpesPerfectos} perfectos, ✓${sesion.golpesBuenos} buenos, ✗${sesion.golpesMalos} malos)`;
-    this.raiz.appendChild(golpesDiv);
+    cuerpo.appendChild(golpesDiv);
     const calidadDiv = document.createElement("div");
     calidadDiv.style.marginBottom = "8px";
     calidadDiv.textContent = `Calidad: ${estrellas(sesion.calidad)}`;
-    this.raiz.appendChild(calidadDiv);
+    cuerpo.appendChild(calidadDiv);
 
     // Botones contextuales a la fase.
     const botones = document.createElement("div");
     botones.style.display = "flex";
     botones.style.gap = "8px";
     if (sesion.fase === "CALENTAR" || sesion.fase === "FORJAR") {
-      const avivar = document.createElement("button");
-      avivar.textContent = "🔥 Avivar";
+      const avivar = crearBoton("🔥 Avivar", () => this.opciones.enviarAvivar());
       avivar.disabled = sesion.combustible <= 0;
-      avivar.onclick = () => this.opciones.enviarAvivar();
       botones.appendChild(avivar);
     }
     if (sesion.fase === "FORJAR") {
-      const golpear = document.createElement("button");
-      golpear.textContent = "🔨 Golpear (ESPACIO)";
-      golpear.onclick = () => this.opciones.enviarGolpear();
-      botones.appendChild(golpear);
+      botones.appendChild(crearBoton("🔨 Golpear (ESPACIO)", () => this.opciones.enviarGolpear()));
     }
     if (sesion.fase === "TEMPLAR") {
-      const templarBtn = document.createElement("button");
-      templarBtn.textContent = "💧 Templar";
-      templarBtn.onclick = () => this.opciones.enviarTemplar();
-      botones.appendChild(templarBtn);
+      botones.appendChild(crearBoton("💧 Templar", () => this.opciones.enviarTemplar()));
     }
-    const cancelar = document.createElement("button");
-    cancelar.textContent = "✕ Cancelar";
-    cancelar.onclick = () => this.opciones.enviarCancelar();
-    botones.appendChild(cancelar);
-    this.raiz.appendChild(botones);
+    botones.appendChild(crearBoton("✕ Cancelar", () => this.opciones.enviarCancelar()));
+    cuerpo.appendChild(botones);
   }
 
   private renderizarResultado(resultado: ResultadoForjaVista) {
-    this.raiz.innerHTML = "";
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "6px";
     titulo.textContent = resultado.perfecta ? "✨ ¡FORJA PERFECTA!" : "✅ Forja terminada";
-    this.raiz.appendChild(titulo);
+    cuerpo.appendChild(titulo);
 
     const detalle = document.createElement("div");
     detalle.style.marginBottom = "4px";
     detalle.textContent = `${estrellas(resultado.estrellas / 5)} — ${resultado.cantidad}× ${resultado.itemId}`;
-    this.raiz.appendChild(detalle);
+    cuerpo.appendChild(detalle);
 
     if (resultado.perfecta) {
       const bonus = document.createElement("div");
       bonus.style.color = "#7ec850";
       bonus.textContent = "Objeto bonificado (+25% ataque/defensa)";
-      this.raiz.appendChild(bonus);
+      cuerpo.appendChild(bonus);
     }
     if (resultado.enSuelo) {
       const aviso = document.createElement("div");
       aviso.style.color = "#d9a63a";
       aviso.textContent = "Sin hueco en el inventario — cayó al suelo";
-      this.raiz.appendChild(aviso);
+      cuerpo.appendChild(aviso);
     }
 
-    const cerrar = document.createElement("button");
-    cerrar.textContent = "Cerrar";
+    const cerrar = crearBoton("Cerrar", () => this.ocultar());
     cerrar.style.marginTop = "8px";
-    cerrar.onclick = () => this.ocultar();
-    this.raiz.appendChild(cerrar);
+    cuerpo.appendChild(cerrar);
   }
 }

@@ -20,6 +20,7 @@
  */
 
 import itemsJson from "../../../items/catalogo/items.json";
+import { crearMarcoPanel, crearSubtitulo, crearLineaTexto, type MarcoPanel } from "../ui/panelBase";
 
 interface EntradaItem {
   tipo?: string;
@@ -122,120 +123,73 @@ export interface OpcionesPanelJugador {
 }
 
 export class PanelJugador {
-  private raiz: HTMLDivElement;
-  private visible = false;
+  private readonly marco: MarcoPanel;
   private pestana: "equipo" | "inventario" = "equipo";
   private ultimoPlayer: any = null;
 
-  private readonly botonCerrar: HTMLButtonElement;
-  private readonly listenersCambio: (() => void)[] = [];
-
   constructor(private opciones: OpcionesPanelJugador) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "16px";
-    this.raiz.style.top = "16px";
-    this.raiz.style.background = "rgba(20,16,10,0.88)";
-    this.raiz.style.color = "#f0e8d8";
-    this.raiz.style.font = "13px sans-serif";
-    this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #6a5a3a";
-    this.raiz.style.minWidth = "260px";
-    this.raiz.style.maxHeight = "80vh";
-    this.raiz.style.overflowY = "auto";
-    this.raiz.style.display = "none";
-
-    // X arriba-derecha + clic fuera + Escape (pedido streamer 2026-09-09,
-    // "todas deben tener una X... si no se van a quedar abiertas... también
-    // dando click fuera se debería cerrar") — mismo criterio que
-    // panelBase.ts::crearMarcoPanel, MIGRADO A MANO aquí en vez de reescribir
-    // todo el panel con ese marco (el layout con posición fija a la
-    // izquierda ya está probado y no se toca, solo gana el cierre).
-    this.botonCerrar = document.createElement("button");
-    this.botonCerrar.className = "panel-colony-cerrar";
-    this.botonCerrar.textContent = "✕";
-    this.botonCerrar.title = "Cerrar";
-    this.botonCerrar.style.position = "absolute";
-    this.botonCerrar.style.top = "6px";
-    this.botonCerrar.style.right = "6px";
-    this.botonCerrar.onclick = () => this.alternar();
-
-    opciones.contenedor.appendChild(this.raiz);
-
-    window.addEventListener("mousedown", (e) => {
-      if (!this.visible) return;
-      if (e.target instanceof Node && this.raiz.contains(e.target)) return;
-      if (e.target instanceof HTMLElement && e.target.closest(".dock-hud-icono")) return; // ver panelBase.ts: el icono del dock gestiona su propio toggle
-      this.alternar();
-    });
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && this.visible) this.alternar();
-    });
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Jugador", icono: "🧍", left: "16px", top: "16px" });
   }
 
   alternar() {
-    this.visible = !this.visible;
-    this.raiz.style.display = this.visible ? "block" : "none";
-    for (const cb of this.listenersCambio) cb();
+    this.marco.alternar();
   }
 
   estaVisible() {
-    return this.visible;
+    return this.marco.estaAbierto();
   }
 
   /** Alias de `estaVisible()` — dockHud.ts espera este nombre (mismo que expone crearMarcoPanel/PanelMapaMundo/PanelResumen). */
   estaAbierto() {
-    return this.visible;
+    return this.marco.estaAbierto();
   }
 
-  /** Dock (docs/... pendiente) — se dispara en cada abrir/cerrar por cualquier vía. */
   onCambioEstado(cb: () => void) {
-    this.listenersCambio.push(cb);
+    this.marco.onCambioEstado(cb);
   }
 
   /** Llamar en cada cambio de `player` (onChange/onAdd de Colyseus) — reconstruye todo, mismo criterio "barato a esta frecuencia" que el resto de sincronizaciones del proyecto. */
   actualizar(player: any) {
-    if (!this.visible) return; // evita reconstruir DOM en cada tick de red si el panel está cerrado
+    if (!this.marco.estaAbierto()) return; // evita reconstruir DOM en cada tick de red si el panel está cerrado
     this.render(player);
   }
 
   private render(player: any) {
     this.ultimoPlayer = player;
-    this.raiz.innerHTML = "";
-    this.raiz.appendChild(this.botonCerrar); // innerHTML="" arriba lo borra cada vez — se re-añade en cada render
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
 
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "6px";
-    titulo.textContent = `🧍 ${player.name || "Jugador"}`;
-    this.raiz.appendChild(titulo);
+    titulo.textContent = player.name || "Jugador";
+    cuerpo.appendChild(titulo);
 
-    this.raiz.appendChild(
-      this.linea(
+    cuerpo.appendChild(
+      crearLineaTexto(
         `❤ ${Math.round(player.vida)}/${Math.round(player.vidaMax)}  ⚔ ${player.ataque} (${player.ataqueMagico} mág.)  🛡 ${player.defensa} (${player.defensaMagica} mág.)`,
       ),
     );
     const a = player.atributos;
     if (a) {
-      this.raiz.appendChild(
-        this.linea(`Fuerza ${a.fuerza} · Destreza ${a.destreza} · Inteligencia ${a.inteligencia} · Resistencia ${a.resistencia} · Carisma ${a.carisma}`, "11px"),
+      cuerpo.appendChild(
+        crearLineaTexto(`Fuerza ${a.fuerza} · Destreza ${a.destreza} · Inteligencia ${a.inteligencia} · Resistencia ${a.resistencia} · Carisma ${a.carisma}`, { fontSize: "11px" }),
       );
     }
 
-    this.raiz.appendChild(this.pestanas());
+    cuerpo.appendChild(this.pestanas());
 
     if (this.pestana === "equipo") {
-      this.raiz.appendChild(this.renderMuñecoDePapel(player.inventario.equipo));
+      cuerpo.appendChild(this.renderMuñecoDePapel(player.inventario.equipo));
     } else {
-      this.raiz.appendChild(this.subtitulo("Cuerpo"));
-      this.raiz.appendChild(this.renderGridContenedor("cuerpo", player.inventario.cuerpo));
+      cuerpo.appendChild(crearSubtitulo("Cuerpo"));
+      cuerpo.appendChild(this.renderGridContenedor("cuerpo", player.inventario.cuerpo));
 
       const extras: Map<string, any> = player.inventario.extras;
       for (const [slotExtra, contenedorExtra] of extras) {
         const etiquetaExtra = SLOTS.find((s) => s.slot === slotExtra)?.etiqueta ?? slotExtra;
-        this.raiz.appendChild(this.subtitulo(`Dentro de: ${etiquetaExtra}`));
-        this.raiz.appendChild(this.renderGridContenedor(slotExtra, contenedorExtra));
+        cuerpo.appendChild(crearSubtitulo(`Dentro de: ${etiquetaExtra}`));
+        cuerpo.appendChild(this.renderGridContenedor(slotExtra, contenedorExtra));
       }
     }
   }
@@ -441,24 +395,5 @@ export class PanelJugador {
     }
 
     return grid;
-  }
-
-  private subtitulo(texto: string): HTMLDivElement {
-    const el = document.createElement("div");
-    el.style.fontWeight = "bold";
-    el.style.marginTop = "8px";
-    el.style.marginBottom = "3px";
-    el.style.borderTop = "1px solid #6a5a3a";
-    el.style.paddingTop = "4px";
-    el.textContent = texto;
-    return el;
-  }
-
-  private linea(texto: string, fontSize?: string): HTMLDivElement {
-    const el = document.createElement("div");
-    if (fontSize) el.style.fontSize = fontSize;
-    el.style.marginBottom = "4px";
-    el.textContent = texto;
-    return el;
   }
 }

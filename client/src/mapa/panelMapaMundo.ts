@@ -14,6 +14,7 @@
  */
 import type { IndiceMapa } from "./formatoMapa";
 import type { ArchivoParcelas } from "../construccion/parcelasCliente";
+import { crearMarcoPanel, type MarcoPanel } from "../ui/panelBase";
 
 export interface DatosExploracion {
   /** Claves de sector empaquetadas (mundo/exploracion.ts del servidor: sy*100000+sx) ya reveladas. */
@@ -42,7 +43,14 @@ function desempaquetarSector(clave: number): { sx: number; sy: number } {
 }
 
 export class PanelMapaMundo {
+  // Fondo oscurecido de pantalla completa — crearMarcoPanel da una tarjeta
+  // flotante, no un overlay a pantalla completa; el mapa SÍ necesita
+  // oscurecer todo detrás (mismo criterio que panelResumen.ts). La tarjeta
+  // (`marco.raiz`) se monta DENTRO de este fondo para que "clic fuera de la
+  // tarjeta" (el propio mecanismo de crearMarcoPanel, que mide contra
+  // `marco.raiz`) caiga sobre el fondo y cierre exactamente igual que antes.
   private readonly fondo: HTMLDivElement;
+  private readonly marco: MarcoPanel;
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
   // Niebla en un canvas APARTE, nunca pintado directo sobre el mapa: un
@@ -55,8 +63,6 @@ export class PanelMapaMundo {
   private readonly imagen: HTMLImageElement;
   private imagenLista = false;
   private exploracion: DatosExploracion | null = null;
-  private visible = false;
-  private readonly listenersCambio: (() => void)[] = [];
 
   constructor(private readonly opciones: OpcionesPanelMapaMundo) {
     this.fondo = document.createElement("div");
@@ -67,92 +73,61 @@ export class PanelMapaMundo {
     this.fondo.style.zIndex = "70";
     this.fondo.style.alignItems = "center";
     this.fondo.style.justifyContent = "center";
-    this.fondo.style.flexDirection = "column";
-    this.fondo.onclick = (e) => { if (e.target === this.fondo) this.ocultar(); }; // clic fuera del contenido cierra (pedido streamer 2026-09-09)
+    opciones.contenedor.appendChild(this.fondo);
 
-    const envoltorio = document.createElement("div");
-    envoltorio.style.position = "relative";
-    envoltorio.style.display = "flex";
-    envoltorio.style.flexDirection = "column";
-    envoltorio.style.alignItems = "center";
-    this.fondo.appendChild(envoltorio);
+    this.marco = crearMarcoPanel({ contenedor: this.fondo, titulo: `Mapa — ${opciones.indice.nombre}`, icono: "🗺️" });
+    this.marco.raiz.style.position = "relative"; // el fondo ya centra con flex — el position:absolute del tema rompería el centrado
+    this.marco.onCambioEstado(() => {
+      this.fondo.style.display = this.marco.estaAbierto() ? "flex" : "none";
+      if (this.marco.estaAbierto()) {
+        this.opciones.consultarExploracion(); // siempre pide fresco al abrir — barato, un solo mensaje
+        if (this.imagenLista) this.dibujar();
+      }
+    });
 
-    const botonCerrar = document.createElement("button");
-    botonCerrar.className = "panel-colony-cerrar";
-    botonCerrar.textContent = "✕";
-    botonCerrar.title = "Cerrar";
-    botonCerrar.style.position = "absolute";
-    botonCerrar.style.top = "-4px";
-    botonCerrar.style.right = "-4px";
-    botonCerrar.onclick = () => this.ocultar();
-    envoltorio.appendChild(botonCerrar);
-
-    const titulo = document.createElement("div");
-    titulo.textContent = `Mapa — ${opciones.indice.nombre}`;
-    titulo.style.color = "#e8e8f0";
-    titulo.style.font = "bold 15px sans-serif";
-    titulo.style.marginBottom = "8px";
-    envoltorio.appendChild(titulo);
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.style.display = "flex";
+    cuerpo.style.flexDirection = "column";
+    cuerpo.style.alignItems = "center";
 
     this.canvas = document.createElement("canvas");
-    this.canvas.style.border = "2px solid #4a4560";
+    this.canvas.style.border = "2px solid var(--panel-borde-tallado)";
     this.canvas.style.borderRadius = "4px";
     this.canvas.style.background = "#000";
-    envoltorio.appendChild(this.canvas);
+    cuerpo.appendChild(this.canvas);
     this.ctx = this.canvas.getContext("2d")!;
     this.nieblaCanvas = document.createElement("canvas"); // nunca se añade al DOM, solo buffer intermedio
     this.nieblaCtx = this.nieblaCanvas.getContext("2d")!;
 
     const ayuda = document.createElement("div");
     ayuda.textContent = "Amarillo = tú · Verde = tus parcelas · Escape o M para cerrar";
-    ayuda.style.color = "#c8c8d8";
+    ayuda.style.color = "var(--panel-texto-tenue)";
     ayuda.style.font = "12px sans-serif";
     ayuda.style.marginTop = "8px";
-    this.fondo.appendChild(ayuda);
-
-    document.body.appendChild(this.fondo);
+    cuerpo.appendChild(ayuda);
 
     this.imagen = new Image();
-    this.imagen.onload = () => { this.imagenLista = true; if (this.visible) this.dibujar(); };
+    this.imagen.onload = () => { this.imagenLista = true; if (this.marco.estaAbierto()) this.dibujar(); };
     this.imagen.src = `${opciones.rutaMapa}/mapa_general.png`;
-
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && this.visible) this.ocultar();
-    });
   }
 
   /** Respuesta del servidor a `mapa:consultarExploracion` — game.ts la reenvía aquí. */
   aplicarExploracion(datos: DatosExploracion): void {
     this.exploracion = datos;
-    if (this.visible) this.dibujar();
+    if (this.marco.estaAbierto()) this.dibujar();
   }
 
   alternar(): void {
-    if (this.visible) this.ocultar();
-    else this.mostrar();
+    this.marco.alternar();
   }
 
   estaAbierto(): boolean {
-    return this.visible;
+    return this.marco.estaAbierto();
   }
 
-  /** Dock (docs/... pendiente) — se dispara en cada abrir/cerrar por cualquier vía (X, clic fuera, Escape, M). */
+  /** Dock (docs/GDD_UI_Paneles.md) — se dispara en cada abrir/cerrar por cualquier vía (X, clic fuera, Escape, M). */
   onCambioEstado(cb: () => void): void {
-    this.listenersCambio.push(cb);
-  }
-
-  private mostrar(): void {
-    this.visible = true;
-    this.fondo.style.display = "flex";
-    this.opciones.consultarExploracion(); // siempre pide fresco al abrir — barato, un solo mensaje
-    if (this.imagenLista) this.dibujar();
-    for (const cb of this.listenersCambio) cb();
-  }
-
-  private ocultar(): void {
-    this.visible = false;
-    this.fondo.style.display = "none";
-    for (const cb of this.listenersCambio) cb();
+    this.marco.onCambioEstado(cb);
   }
 
   private dibujar(): void {
