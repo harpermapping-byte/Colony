@@ -76,6 +76,13 @@ export const CATEGORIA_HERRAMIENTA_RECOLECCION: Record<string, RequisitoHerramie
   fruto_seco: { oficio: "molinero", tier: 3 },
   fruta: { oficio: "molinero", tier: 4 },
   hongo_comestible: { oficio: "molinero", tier: 4 },
+  // miel SALVAJE (panal_salvaje, baker/catalogo/vegetacion.json, pedido
+  // streamer 2026-09-09: "panal de abejas del cual con click puedes sacar
+  // miel") — mismo itemId "miel" que ya produce la colmena construible
+  // (server/src/construccion/produccion.ts, camino totalmente aparte), dos
+  // fuentes del mismo recurso real. Tier 3: más raro que baya (den. común)
+  // pero no tan escaso como fruta/hongo_comestible.
+  miel: { oficio: "molinero", tier: 3 },
 };
 
 /**

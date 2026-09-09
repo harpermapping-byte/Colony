@@ -263,6 +263,33 @@ function seta(color, rnd, opciones = {}) {
   return { grid: [g, Math.round(U * 0.55), g], paleta: b.paleta, cajas: b.cajas };
 }
 
+// PANAL: panal de abejas SALVAJE (pedido streamer 2026-09-09) — no encaja
+// en ningún arquetipo existente (ni flor/hongo/arbusto), mismo criterio de
+// "una plantilla nueva si hace falta" (CLAUDE.md filosofía #7). Silueta de
+// lágrima invertida apoyada en el suelo: capas apiladas que crecen hasta
+// ~60% de la altura y luego se estrechan, alternando tono por capa para
+// sugerir el patrón de un nido de avispero/panal real, con un agujero de
+// entrada oscuro en la base.
+function panal(color, rnd) {
+  const b = Builder();
+  const g = Math.round(U * 0.9);
+  const cx = Math.round(g / 2), cz = Math.round(g / 2);
+  const capas = 4 + Math.floor(rnd() * 2);
+  const altoCapa = Math.round(U * 0.16);
+  let y = 0;
+  for (let i = 0; i < capas; i++) {
+    const t = capas > 1 ? i / (capas - 1) : 0;
+    const factor = t < 0.6 ? 0.4 + t * 1.0 : 1.0 - (t - 0.6) * 1.1;
+    const r = Math.max(1, Math.round(U * 0.32 * factor));
+    const tono = i % 2 === 0 ? color : sombrear(color, 0.86);
+    b.caja(cx - r, y, cz - r, cx + r - 1, y + altoCapa - 1, cz + r - 1, tono);
+    y += altoCapa;
+  }
+  const rEntrada = Math.max(1, Math.round(U * 0.09));
+  b.caja(cx - rEntrada, 0, cz - Math.round(U * 0.32) - 1, cx + rEntrada - 1, rEntrada * 2 - 1, cz - Math.round(U * 0.32), "#2a1f10");
+  return { grid: [g, y, g], paleta: b.paleta, cajas: b.cajas };
+}
+
 function cactus(color, rnd, opciones = {}) {
   const b = Builder();
   const g = Math.round(U * 1.4);
@@ -400,6 +427,7 @@ function clasificarVegetacion(id, v) {
     return { arquetipo: "ARBOL_CADUCO" };
   }
   if (cat === "fruta" || cat === "fruto_seco") return { arquetipo: "ARBOL_CADUCO", opciones: { fruto: FRUTO_COLOR[id] || "#c0392b" } };
+  if (id === "panal_salvaje") return { arquetipo: "PANAL" };
   if (cat === "baya") return { arquetipo: "ARBUSTO", opciones: { fruto: v.colorDebug } };
   if (cat.startsWith("hongo_")) return { arquetipo: "SETA", opciones: { motas: id === "amanita", corro: id === "corro_de_setas" } };
   if (cat === "flor_medicinal") return { arquetipo: "FLOR" };
@@ -429,6 +457,7 @@ const ARQUETIPO_FN = {
   HIERBA: hierba,
   FLOR: flor,
   SETA: seta,
+  PANAL: panal,
   CACTUS: cactus,
   ALGA: alga,
   CORAL: coral,
