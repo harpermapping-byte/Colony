@@ -56,6 +56,7 @@ import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista, type EstadoEnferme
 import { PanelCompanero } from "./personaje/panelCompanero";
 import { PanelResumen, type PropiedadVista } from "./personaje/panelResumen";
 import { HudVitales } from "./ui/hudVitales";
+import { RetratoJugador } from "./render3d/retratoJugador";
 import { PanelJarl } from "./admin/panelJarl";
 import { PanelDebugTestZone } from "./admin/panelDebugTestZone";
 import { PanelContenedorTest } from "./mundo/panelContenedorTest";
@@ -238,6 +239,10 @@ const DURACION_ACCION_MS: Record<AccionHerramienta["tipo"], number> = {
  */
 export async function iniciarJuego(contenedor: HTMLElement) {
   const escena = new WorldScene(contenedor, contenedor.clientWidth || 800, contenedor.clientHeight || 600);
+  // Retrato del HUD de vitales (docs/GDD_Cuentas.md, pedido streamer
+  // 2026-09-09: "que salga la cara del pj arriba, no un emote") — cámara
+  // propia sobre la MISMA escena, ver render3d/retratoJugador.ts.
+  const retrato = new RetratoJugador(escena.scene);
   // Ajustes guardados (docs/GDD_Ajustes.md, pedido streamer 2026-09-09) —
   // se aplican YA al arrancar, antes de que el jugador toque el panel de
   // Ajustes; sin nada guardado, esto reproduce el comportamiento de
@@ -624,7 +629,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // burbujea sus cambios al onChange del Player padre) — mismo criterio de
   // "barato, no hace falta 60hz" ya usado más abajo para proximidad a
   // bancales/mesas de injerto: los vitales decaen en horas reales, no en ticks.
-  const hudVitales = new HudVitales(contenedor);
+  const hudVitales = new HudVitales(contenedor, retrato.canvas);
   setInterval(() => {
     const yo = room.state.players.get(room.sessionId) as any;
     if (!yo) return;
@@ -1712,6 +1717,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       escena.seguirPunto(player.x, player.y, true);
       // Primer anillo de sectores YA, sin esperar al primer frame.
       streaming?.actualizar(estado.x, estado.z);
+      // Retrato del HUD de vitales (render3d/retratoJugador.ts): cuelga la
+      // cámara de la cabeza real de ESTE rig y marca todo el rig visible
+      // para ella — nunca para un jugador remoto (nadie necesita ver SU
+      // propia cara en el HUD del jugador local).
+      const cabeza = rig.objeto.getObjectByName("cabeza");
+      if (cabeza) retrato.seguir(cabeza);
+      retrato.marcarVisible(rig.objeto);
     }
 
     // Equipo (docs/GDD_Equipo.md): armadura/accesorios/mochilas puestos —
@@ -1742,7 +1754,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       }
       return resueltos;
     };
-    const actualizarEquipoVisual = () => aplicarEquipoAlRig(rig.objeto, player.inventario.equipo, sessionId, resolverBlueprintsRopa());
+    const actualizarEquipoVisual = () => {
+      aplicarEquipoAlRig(rig.objeto, player.inventario.equipo, sessionId, resolverBlueprintsRopa());
+      // Una pieza de equipo recién añadida nace SOLO en la capa 0 (por
+      // defecto) — sin esto, un casco equipado DESPUÉS de crear el rig se
+      // vería en el mundo pero no en el retrato del HUD (retratoJugador.ts).
+      if (esYo) retrato.marcarVisible(rig.objeto);
+    };
     actualizarEquipoVisual();
     $(player.inventario.equipo).onAdd(actualizarEquipoVisual);
     $(player.inventario.equipo).onRemove(actualizarEquipoVisual);
@@ -3318,6 +3336,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
     escena.actualizar(dt);
     escena.render();
+    retrato.render();
     requestAnimationFrame(bucle);
   }
   requestAnimationFrame(bucle);

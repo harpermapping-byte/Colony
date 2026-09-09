@@ -7,12 +7,12 @@
  * sobre la cabeza de cualquier jugador/NPC/fauna (`worldScene.ts::
  * actualizarVida`), no un menú.
  *
- * Icono PLACEHOLDER (un emoji fijo, no un retrato real): `Player` no
- * replica sexo/morfología/colores al cliente — el creador de personajes
- * (`personajes/`) nunca llegó a generar un retrato 2D, y todo el arte del
- * proyecto es placeholder por diseño (CLAUDE.md, "Filosofía técnica" #7).
- * Sustituir esto por un retrato real es trabajo de ARTE/catálogo futuro,
- * no un bug de esta pieza.
+ * Icono: retrato 3D REAL del jugador (pedido streamer 2026-09-09: "que
+ * salga la cara del pj arriba, no un emote") — `render3d/retratoJugador.ts`
+ * renderiza la cabeza del rig a un `<canvas>` propio, que este archivo solo
+ * monta dentro del marco circular; si `game.ts` no lo pasa (o mientras el
+ * rig del jugador aún no existe, primeros frames tras el join) se ve un
+ * emoji de reserva para no dejar el círculo vacío.
  *
  * `vida`/`vidaMax` viven sueltos en `Player` (fuente única de HP,
  * docs/GDD_Mecanicas.md §5.4); `estamina`/`comida`/`bebida` viven en
@@ -47,14 +47,15 @@ const DEFINICION_BARRAS: { clave: keyof Omit<VitalesVisibles, "vidaMax">; emoji:
 export class HudVitales {
   private readonly barras = new Map<string, BarraVital>();
 
-  constructor(contenedor: HTMLElement) {
+  constructor(contenedor: HTMLElement, retratoCanvas?: HTMLCanvasElement) {
     const raiz = document.createElement("div");
     raiz.className = "hud-vitales";
 
     const icono = document.createElement("div");
     icono.className = "hud-vitales-icono";
-    icono.textContent = "🙂";
     icono.title = "Tu personaje";
+    if (retratoCanvas) icono.appendChild(retratoCanvas);
+    else icono.textContent = "🙂"; // reserva: sin cámara de retrato (no debería pasar en el juego real)
     raiz.appendChild(icono);
 
     const barrasCont = document.createElement("div");
