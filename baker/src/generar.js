@@ -208,19 +208,17 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
 
   // Vinculación con ciudades/ e interiores/ (GDD_Sistema_Puertas.md): cada
   // POI con categoria "asentamiento"/"edificio" en el catálogo genera AQUÍ
-  // su instancia real (región anidada o edificio suelto+interior) — el
-  // mapaId es el nombre de la carpeta de salida (misma convención que usa
-  // el cliente vía VITE_RUTA_MAPA=/assets/mapas/<mapaId> y el servidor vía
-  // resolverMapa.ts), así que solo tiene sentido cuando el bake vive de
-  // verdad bajo assets/mapas/ — un mapa de prueba fuera de ahí sigue
-  // funcionando (los portales resultantes simplemente no resuelven en el
-  // servidor hasta que se copie a su sitio, igual que ya pasaba con
-  // ciudad/portales a mano en hub_test).
+  // su instancia real (región anidada o edificio suelto+interior). El
+  // portal a una región anidada guarda un mapaId RELATIVO (`pois/<slug>`,
+  // ver instanciasPOI.js) — nunca el nombre de esta carpeta de SALIDA
+  // (bug real 2026-09-09: `output/vetrheim` se promociona luego a
+  // `assets/mapas/principal/`, un nombre DISTINTO, y el bake no puede
+  // adivinar de antemano cuál será — HubRoom/RegionRoom.ts resuelven la
+  // ruta relativa con su propio `mapaIdPropio` en tiempo de ejecución, que
+  // sí refleja dónde vive el mapa de verdad).
   const carpetaSalidaResuelta = path.resolve(config.carpetaSalida || "output");
-  const mapaIdPropio = path.basename(carpetaSalidaResuelta);
   const { portales: portalesPOI, objetosPorPOI, decoracionPorPOI } = await generarInstanciasPOI({
     pois,
-    mapaId: mapaIdPropio,
     carpetaSalida: carpetaSalidaResuelta,
     semillaMundo: config.semilla,
     catalogoPOIs,

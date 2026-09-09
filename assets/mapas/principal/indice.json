@@ -88,7 +88,7 @@
       "y": 120,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/guarida_bandidos_2599_120"
+        "mapaId": "pois/guarida_bandidos_2599_120"
       }
     },
     {
@@ -128,7 +128,7 @@
       "y": 406,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/asentamiento_cultistas_poi_1631_406"
+        "mapaId": "pois/asentamiento_cultistas_poi_1631_406"
       }
     },
     {
@@ -137,7 +137,7 @@
       "y": 474,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/asentamiento_cultistas_poi_2358_474"
+        "mapaId": "pois/asentamiento_cultistas_poi_2358_474"
       }
     },
     {
@@ -178,7 +178,7 @@
       "y": 752,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/aldea_maderera_2958_693"
+        "mapaId": "pois/aldea_maderera_2958_693"
       }
     },
     {
@@ -203,7 +203,7 @@
       "y": 891,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/campamento_barbaros_grande_1816_891"
+        "mapaId": "pois/campamento_barbaros_grande_1816_891"
       }
     },
     {
@@ -220,7 +220,7 @@
       "y": 1108,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/asentamiento_cultistas_poi_237_1108"
+        "mapaId": "pois/asentamiento_cultistas_poi_237_1108"
       }
     },
     {
@@ -273,7 +273,7 @@
       "y": 1338,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/aldea_agricola_2799_1267"
+        "mapaId": "pois/aldea_agricola_2799_1267"
       }
     },
     {
@@ -328,7 +328,7 @@
       "y": 2147,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/poblado_orco_poi_58_2147"
+        "mapaId": "pois/poblado_orco_poi_58_2147"
       }
     },
     {
@@ -360,7 +360,7 @@
       "y": 2233,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/capital_regional_1534_2138"
+        "mapaId": "pois/capital_regional_1534_2138"
       }
     },
     {
@@ -369,7 +369,7 @@
       "y": 2084,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/poblado_orco_poi_2603_2084"
+        "mapaId": "pois/poblado_orco_poi_2603_2084"
       }
     },
     {
@@ -394,7 +394,7 @@
       "y": 2258,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/campamento_barbaros_grande_2024_2258"
+        "mapaId": "pois/campamento_barbaros_grande_2024_2258"
       }
     },
     {
@@ -448,7 +448,7 @@
       "y": 2743,
       "destino": {
         "tipo": "region",
-        "mapaId": "vetrheim/pois/castillo_real_1183_2684"
+        "mapaId": "pois/castillo_real_1183_2684"
       }
     },
     {

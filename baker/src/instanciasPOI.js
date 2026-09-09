@@ -110,7 +110,6 @@ function buscarDefinicion(poi, catalogoPOIs) {
 /**
  * @param {object} opciones
  * @param {Array} opciones.pois - salida de colocarPOIs() (pois.js)
- * @param {string} opciones.mapaId - id del mapa PADRE (carpeta bajo assets/mapas/)
  * @param {string} opciones.carpetaSalida - carpeta de salida del mapa padre (misma que crearExportador)
  * @param {string} opciones.semillaMundo - semilla del mapa padre, para derivar sub-semillas deterministas
  * @param {object} opciones.catalogoPOIs - catálogo pois.json ya cargado
@@ -118,7 +117,7 @@ function buscarDefinicion(poi, catalogoPOIs) {
  * @param {(msg:string)=>void} [opciones.onProgreso]
  * @returns {{ portales: Array, objetosPorPOI: Map<string,{x:number,y:number,objeto:object,huella:[number,number]}>, decoracionPorPOI: Map<string,Array<{x:number,y:number,objeto:object}>> }}
  */
-async function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo, catalogoPOIs, catalogoRocas = {}, onProgreso = () => {} }) {
+async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalogoPOIs, catalogoRocas = {}, onProgreso = () => {} }) {
   // Requires perezosos: ciudades/interiores son módulos "pesados" (cargan
   // catálogos propios) que la mayoría de bakes de mapa exterior ni tocan
   // (mapas de prueba sin POIs de asentamiento/edificio) — cargarlos solo
@@ -266,7 +265,19 @@ async function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo,
         tipo: "exterior",
         x: puertaX,
         y: puertaY,
-        destino: { tipo: "region", mapaId: `${mapaId}/pois/${slug}` },
+        // RELATIVO a propósito (bug real 2026-09-09, "la puerta de la
+        // capital da ENOENT al cruzarla"): antes se horneaba
+        // `${mapaId}/pois/${slug}` con el `mapaId` de ESTE bake (derivado
+        // del nombre de la carpeta de SALIDA, `carpetaSalidaResuelta` en
+        // generar.js) — pero el mapa se PROMOCIONA después a una carpeta
+        // con OTRO nombre (`output/vetrheim` -> `assets/mapas/principal/`),
+        // así que la ruta absoluta horneada quedaba apuntando a una
+        // carpeta que no existe en producción. Guardar solo la parte
+        // relativa y dejar que HubRoom/RegionRoom la resuelvan con SU
+        // propio `mapaIdPropio` (que sí refleja la carpeta real de
+        // despliegue, `path.basename(RUTA_MAPA)`) sobrevive a cualquier
+        // renombrado futuro sin tocar el bake.
+        destino: { tipo: "region", mapaId: `pois/${slug}` },
       });
       continue;
     }
@@ -326,7 +337,8 @@ async function generarInstanciasPOI({ pois, mapaId, carpetaSalida, semillaMundo,
         hornearCiudadPerezoso()(dungeonDef.tierAsentamiento, semillaPOI, carpetaPOI);
         portales.push({
           tipo: "exterior", x: poi.x, y: poi.y,
-          destino: { tipo: "region", mapaId: `${mapaId}/pois/${slug}` },
+          // RELATIVO — mismo motivo que la rama "asentamiento" de arriba (ver su comentario).
+          destino: { tipo: "region", mapaId: `pois/${slug}` },
         });
         continue;
       }

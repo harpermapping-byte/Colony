@@ -271,7 +271,8 @@ export class RegionRoom extends RoomExteriorBase {
           y: portal.y,
         });
       } else if (portal.destino) {
-        client.send("portal:ir", { tipo: portal.destino.tipo, mapaId: portal.destino.mapaId });
+        const mapaIdDestino = portal.destino.mapaId ? this.resolverMapaIdDestino(portal.destino.mapaId) : undefined;
+        client.send("portal:ir", { tipo: portal.destino.tipo, mapaId: mapaIdDestino });
       } else {
         client.send("portal:ir", { tipo: "volver" });
       }

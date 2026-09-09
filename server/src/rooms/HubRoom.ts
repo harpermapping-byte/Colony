@@ -478,7 +478,8 @@ export class HubRoom extends RoomExteriorBase {
           y: portal.y,
         });
       } else if (portal.destino) {
-        client.send("portal:ir", { tipo: portal.destino.tipo, mapaId: portal.destino.mapaId });
+        const mapaId = portal.destino.mapaId ? this.resolverMapaIdDestino(portal.destino.mapaId) : undefined;
+        client.send("portal:ir", { tipo: portal.destino.tipo, mapaId });
       } else {
         client.send("portal:error", { motivo: "puerta sin destino configurado" });
       }

@@ -825,6 +825,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected ocupantesDeBarco = new Map<number, string[]>();
   /** id de mapa (carpeta bajo assets/mapas/) que esta room representa — lo fija HubRoom en onCreate; usado para bd.listarBarcosDe/actualizarPosicionBarco. "" en rooms sin barcos (interior/región/arena). */
   protected mapaIdPropio = "";
+
+  /**
+   * Resuelve el `destino.mapaId` baked de un portal "exterior" a una
+   * región anidada (asentamiento civil u hostil, `baker/src/instanciasPOI.js`)
+   * en la ruta REAL de despliegue — bug real 2026-09-09 ("la puerta de la
+   * capital daba ENOENT al cruzarla"): el bake solo conoce el nombre de
+   * SU carpeta de salida (`output/vetrheim`), pero el mapa se promociona
+   * después a otra carpeta (`assets/mapas/principal/`) con nombre
+   * DISTINTO — así que el mapaId horneado como ruta absoluta apuntaba a
+   * una carpeta que no existe en producción. Desde entonces el bake solo
+   * guarda la parte relativa (`pois/<slug>`) y esta función la completa
+   * con `this.mapaIdPropio`, que SÍ refleja dónde vive el mapa de verdad
+   * (`path.basename(RUTA_MAPA)`) — sobrevive a cualquier renombrado
+   * futuro sin tocar el bake. Un `mapaId` que no empiece por "pois/" (p.ej.
+   * un borde de mundo hacia otra isla, `bordesMapa`) ya es una referencia
+   * de nivel superior real y se deja tal cual.
+   */
+  protected resolverMapaIdDestino(mapaId: string): string {
+    return mapaId.startsWith("pois/") ? `${this.mapaIdPropio}/${mapaId}` : mapaId;
+  }
   /** Tamaño de sector en casillas (docs/GDD_Mapa_Mundo.md) — SOLO HubRoom lo rellena en onCreate (mismo alcance que anatomia/enfermedades: niebla de guerra es un feature del mundo persistente, no de regiones/interiores). 0 = niebla de guerra deshabilitada en esta room. */
   protected tilesPorSectorExploracion = 0;
   /** norte/sur/este/oeste del mapa actual (docs/GDD_Barcos.md "Barcos y navegación marítima") — solo HubRoom lo rellena en onCreate; undefined en el resto (RegionRoom/InteriorRoom no tienen "borde de mundo"). */
