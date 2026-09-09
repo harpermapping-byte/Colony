@@ -32,6 +32,7 @@ function individuo(overrides: Partial<IndividuoFaunaDecorativa> & { homeX: numbe
     destino: null,
     pausaRestante: 0,
     oculto: false,
+    acuatico: false,
     ...overrides,
   };
 }
@@ -98,6 +99,22 @@ test("actualizar: nunca elige un destino fuera de lo transitable — se queda en
   animador.actualizar(200);
   assert.strictEqual(ind.destino, null, "sin hueco transitable, no debería tener destino");
   assert.strictEqual(ind.pausaRestante, 2, "pausa fija de 2s cuando fallan los 6 intentos");
+});
+
+test("acuático: el comprobador de transitabilidad recibe el flag acuatico del individuo, nunca ignorado (bug real 2026-09-09: 'los peces se salen del agua')", () => {
+  // Mapa de "agua" muy simple: transitable SOLO si acuatico===true — el
+  // inverso exacto de un animal de tierra normal. Si el pez pasara `false`
+  // (o el comprobador ignorase el parámetro), nunca encontraría destino.
+  const soloAguaSiAcuatico = (_x: number, _y: number, acuatico: boolean) => acuatico;
+  const pez = individuo({ homeX: 5, homeY: 5, pausaRestante: 0, acuatico: true });
+  const animadorPez = new AnimadorFaunaDecorativaSector([pez], soloAguaSiAcuatico);
+  animadorPez.actualizar(200);
+  assert.ok(pez.destino, "el pez SÍ debería encontrar destino en agua (acuatico=true pasado correctamente)");
+
+  const conejo = individuo({ homeX: 5, homeY: 5, pausaRestante: 0, acuatico: false });
+  const animadorConejo = new AnimadorFaunaDecorativaSector([conejo], soloAguaSiAcuatico);
+  animadorConejo.actualizar(200);
+  assert.strictEqual(conejo.destino, null, "un animal de tierra (acuatico=false) NUNCA debería elegir una casilla que solo es transitable para acuáticos");
 });
 
 test("actualizar: recompone la matriz de instancia real (posición visual = x+0.5, y+0.5 en el eje Z)", () => {

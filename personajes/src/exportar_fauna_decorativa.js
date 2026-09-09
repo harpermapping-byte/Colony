@@ -40,9 +40,24 @@ function esGregaria(especieId) {
   return especie.dieta !== "carnivoro" && !especie.peligroso;
 }
 
+// ¿Especie acuática? (bug real reportado jugando 2026-09-09: "los peces se
+// salen fuera del agua, solo pueden estar dentro del agua") — el vagabundeo
+// de fauna decorativa (sectorVisual.ts::crearComprobadorTransitableFauna)
+// usaba UN SOLO criterio de transitabilidad para toda especie (tierra sí,
+// agua no), correcto para animales terrestres pero exactamente al revés
+// para peces/fauna marina (`requiereAgua` en baker/catalogo/animales.json)
+// — necesitan el criterio INVERTIDO (agua sí, tierra no). Se exporta aquí
+// (no en el cliente) por el mismo motivo que `gregarioPorEspecie`: cero
+// catálogo de `baker/` duplicado en el bundle del cliente.
+function esAcuatica(especieId) {
+  const especie = catalogos.animalesBaker[especieId];
+  return !!especie?.requiereAgua;
+}
+
 function exportarPool() {
   const pool = {};
   const gregarioPorEspecie = {};
+  const acuaticoPorEspecie = {};
   const especies = Object.keys(catalogos.animalesBaker).filter((k) => !k.startsWith("_"));
   for (const especieId of especies) {
     if (!catalogos.animalesRig[especieId]) continue; // defensivo: hoy las 189/189 especies tienen rig (ver CLAUDE.md 2026-09-08)
@@ -53,26 +68,28 @@ function exportarPool() {
       pool[especieId].push({ ficha: generado.ficha, piezas: generado.piezas });
     }
     gregarioPorEspecie[especieId] = esGregaria(especieId);
+    acuaticoPorEspecie[especieId] = esAcuatica(especieId);
   }
-  return { pool, gregarioPorEspecie };
+  return { pool, gregarioPorEspecie, acuaticoPorEspecie };
 }
 
 module.exports = { exportarPool };
 
 if (require.main === module) {
-  const { pool, gregarioPorEspecie } = exportarPool();
+  const { pool, gregarioPorEspecie, acuaticoPorEspecie } = exportarPool();
   const carpeta = path.join(__dirname, "..", "..", "assets", "animales");
   fs.mkdirSync(carpeta, { recursive: true });
   const ruta = path.join(carpeta, "pool.json");
   fs.writeFileSync(
     ruta,
     JSON.stringify(
-      { _nota: "Generado por personajes/src/exportar_fauna_decorativa.js — NO editar a mano.", pool, gregarioPorEspecie },
+      { _nota: "Generado por personajes/src/exportar_fauna_decorativa.js — NO editar a mano.", pool, gregarioPorEspecie, acuaticoPorEspecie },
       redondear,
     ),
   );
   const totalEspecies = Object.keys(pool).length;
   const totalVariantes = Object.values(pool).reduce((n, v) => n + v.length, 0);
   const totalGregarias = Object.values(gregarioPorEspecie).filter(Boolean).length;
-  console.log(`${totalEspecies} especies x variantes reales -> ${totalVariantes} variantes totales (${totalGregarias} gregarias) -> ${ruta}`);
+  const totalAcuaticas = Object.values(acuaticoPorEspecie).filter(Boolean).length;
+  console.log(`${totalEspecies} especies x variantes reales -> ${totalVariantes} variantes totales (${totalGregarias} gregarias, ${totalAcuaticas} acuáticas) -> ${ruta}`);
 }

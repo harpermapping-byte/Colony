@@ -55,6 +55,15 @@ export interface IndividuoFaunaDecorativa {
   destino: { x: number; y: number } | null;
   pausaRestante: number;
   /**
+   * Especie acuática (`requiereAgua` en baker/catalogo/animales.json —
+   * peces/fauna marina) — invierte el criterio de transitabilidad del
+   * paseo: SOLO agua, nunca tierra. Bug real reportado jugando 2026-09-09
+   * ("los peces se salen del agua"): el comprobador de transitabilidad
+   * compartido trataba "agua = no transitable" para CUALQUIER especie,
+   * correcto para tierra pero exactamente al revés para peces.
+   */
+  acuatico: boolean;
+  /**
    * Recolectado/tala en vivo delante del jugador (docs/GDD_Bosques.md §7,
    * `ocultarPosicion` de `HandleSector`) — hoy NUNCA se dispara para fauna
    * decorativa (ninguna especie de `baker/catalogo/animales.json` declara
@@ -82,7 +91,7 @@ function centroideManada(individuo: IndividuoFaunaDecorativa, mismaEspecie: Indi
 function elegirDestino(
   individuo: IndividuoFaunaDecorativa,
   mismaEspecie: IndividuoFaunaDecorativa[],
-  esTransitable: (x: number, y: number) => boolean,
+  esTransitable: (x: number, y: number, acuatico: boolean) => boolean,
 ): { x: number; y: number } | null {
   let baseX = individuo.homeX;
   let baseY = individuo.homeY;
@@ -98,7 +107,7 @@ function elegirDestino(
     const distancia = Math.random() * RADIO_MERODEO;
     const cx = baseX + Math.cos(angulo) * distancia;
     const cy = baseY + Math.sin(angulo) * distancia;
-    if (esTransitable(Math.round(cx), Math.round(cy))) return { x: cx, y: cy };
+    if (esTransitable(Math.round(cx), Math.round(cy), individuo.acuatico)) return { x: cx, y: cy };
   }
   return null;
 }
@@ -112,7 +121,7 @@ function elegirDestino(
 export class AnimadorFaunaDecorativaSector {
   private readonly individuos: IndividuoFaunaDecorativa[];
   private readonly porEspecie = new Map<string, IndividuoFaunaDecorativa[]>();
-  private readonly esTransitable: (x: number, y: number) => boolean;
+  private readonly esTransitable: (x: number, y: number, acuatico: boolean) => boolean;
   private acumuladoMs = 0;
   // Reutilizados entre llamadas — cero asignación por individuo/frame.
   private readonly matriz = new THREE.Matrix4();
@@ -121,7 +130,7 @@ export class AnimadorFaunaDecorativaSector {
   private readonly escalaVec = new THREE.Vector3();
   private readonly ejeY = new THREE.Vector3(0, 1, 0);
 
-  constructor(individuos: IndividuoFaunaDecorativa[], esTransitable: (x: number, y: number) => boolean) {
+  constructor(individuos: IndividuoFaunaDecorativa[], esTransitable: (x: number, y: number, acuatico: boolean) => boolean) {
     this.individuos = individuos;
     this.esTransitable = esTransitable;
     for (const ind of individuos) {

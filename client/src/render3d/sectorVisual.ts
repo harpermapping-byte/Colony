@@ -3,23 +3,33 @@ import type { IndiceMapa, SectorBakeado, ObjetoBakeado } from "../mapa/formatoMa
 import { terrenoEn } from "../mapa/formatoMapa";
 import { colorTerreno, colorObjeto, dimensionesObjeto } from "./catalogoVisual";
 import { obtenerPlantilla } from "./entityLoader";
-import { esFaunaDecorativaGregaria, obtenerMallaFaunaDecorativa } from "./faunaDecorativaPool";
+import { esFaunaDecorativaGregaria, esFaunaDecorativaAcuatica, obtenerMallaFaunaDecorativa } from "./faunaDecorativaPool";
 import { AnimadorFaunaDecorativaSector, type IndividuoFaunaDecorativa } from "./faunaDecorativaMovimiento";
 import type { CategoriaAsset } from "./assetCatalog";
 import { crearRigHumanoide } from "./rigHumanoide";
 import { NIVEL_MAXIMO_NIEVE } from "../mundo/nieve";
 
-// Terrenos NO transitables para el vagabundeo de fauna decorativa (docs/
-// GDD_Agentes_Moviles.md, pedido 2026-09-09) — copia MANUAL del subconjunto
-// `transitable:false` de `baker/catalogo/terrenos.json` (fuente de verdad
-// real, NO servida al cliente — mismo criterio ya aceptado en este archivo
-// para `ALTURA_TERRENO_SOLIDO`, que ya duplica a mano una parte de ese
-// mismo catálogo). Si se añade un terreno no transitable nuevo ahí, hay
-// que replicarlo aquí a mano.
+// Terrenos NO transitables para el vagabundeo de fauna decorativa TERRESTRE
+// (docs/GDD_Agentes_Moviles.md, pedido 2026-09-09) — copia MANUAL del
+// subconjunto `transitable:false` de `baker/catalogo/terrenos.json` (fuente
+// de verdad real, NO servida al cliente — mismo criterio ya aceptado en
+// este archivo para `ALTURA_TERRENO_SOLIDO`, que ya duplica a mano una
+// parte de ese mismo catálogo). Si se añade un terreno no transitable
+// nuevo ahí, hay que replicarlo aquí a mano. El agua está aquí a propósito
+// (un animal de tierra no vadea) — ver `TERRENO_AGUA_FAUNA` para el
+// criterio EXACTAMENTE INVERSO que necesita la fauna acuática.
 const TERRENO_NO_TRANSITABLE_FAUNA = new Set([
   "agua_profunda", "agua", "roca_inaccesible", "lava",
   "muralla_piedra", "empalizada", "solar_edificio", "extramuros",
 ]);
+
+// Terrenos de AGUA para el vagabundeo de fauna decorativa ACUÁTICA (peces/
+// fauna marina, `requiereAgua` en baker/catalogo/animales.json) — bug real
+// reportado jugando 2026-09-09 ("los peces se salen del agua"): antes de
+// este fix usaban el mismo criterio que la fauna terrestre (agua =
+// bloqueado), así que un pez elegía cualquier casilla de TIERRA como
+// destino válido. Mismo criterio de copia manual que el Set de arriba.
+const TERRENO_AGUA_FAUNA = new Set(["agua", "agua_profunda"]);
 
 /**
  * Materialización de UN sector del mapa bakeado (terreno + props) — la
@@ -755,10 +765,20 @@ function clavePosicion(x: number, y: number): string {
   return `${x},${y}`;
 }
 
-/** Comprobador de transitabilidad para el vagabundeo de fauna decorativa (docs/GDD_Agentes_Moviles.md) — casilla fuera del sector propio (posible cerca de un borde) se deja pasar sin bloquear, mismo criterio "mejor esfuerzo" ya aceptado para el jitter de manada del propio bakeador. */
-function crearComprobadorTransitableFauna(indice: IndiceMapa, sector: SectorBakeado): (x: number, y: number) => boolean {
+/**
+ * Comprobador de transitabilidad para el vagabundeo de fauna decorativa
+ * (docs/GDD_Agentes_Moviles.md) — casilla fuera del sector propio (posible
+ * cerca de un borde) se deja pasar sin bloquear, mismo criterio "mejor
+ * esfuerzo" ya aceptado para el jitter de manada del propio bakeador.
+ * `acuatico` (2026-09-09) invierte el criterio por completo: un pez SOLO
+ * puede elegir agua como destino, un animal de tierra NUNCA agua — son
+ * conjuntos de terreno disjuntos, nunca "lo mismo pero al revés" por una
+ * negación simple (una casilla de muralla/lava no es agua NI transitable
+ * para ninguno de los dos).
+ */
+function crearComprobadorTransitableFauna(indice: IndiceMapa, sector: SectorBakeado): (x: number, y: number, acuatico: boolean) => boolean {
   const t = indice.tamanoChunk;
-  return (globalX: number, globalY: number) => {
+  return (globalX: number, globalY: number, acuatico: boolean) => {
     const cx = Math.floor(globalX / t);
     const cy = Math.floor(globalY / t);
     const chunk = sector.chunks[`${cx}_${cy}`];
@@ -766,7 +786,7 @@ function crearComprobadorTransitableFauna(indice: IndiceMapa, sector: SectorBake
     const lx = globalX - cx * t;
     const ly = globalY - cy * t;
     const id = terrenoEn(chunk, indice.leyendaTerreno, lx, ly);
-    return !TERRENO_NO_TRANSITABLE_FAUNA.has(id);
+    return acuatico ? TERRENO_AGUA_FAUNA.has(id) : !TERRENO_NO_TRANSITABLE_FAUNA.has(id);
   };
 }
 
@@ -825,9 +845,10 @@ async function crearPropsSector(
       // arte más grande y más visible del mapa, sin necesitar NINGÚN .glb
       // nuevo: las 189/189 especies ya tienen rig 3D real).
       if (grupo.tipo === "a") {
-        const [mallaFauna, gregario] = await Promise.all([
+        const [mallaFauna, gregario, acuatico] = await Promise.all([
           obtenerMallaFaunaDecorativa(grupo.id, grupo.variante),
           esFaunaDecorativaGregaria(grupo.id),
+          esFaunaDecorativaAcuatica(grupo.id),
         ]);
         if (mallaFauna) {
           mallaFauna.updateMatrix();
@@ -875,6 +896,7 @@ async function crearPropsSector(
               // el servidor, cuya pausa inicial también es aleatoria.
               pausaRestante: Math.random() * 6,
               oculto: false,
+              acuatico,
             };
             individuosFaunaDecorativa.push(individuo);
             ocultables.set(clavePosicion(globalX, globalY), () => {

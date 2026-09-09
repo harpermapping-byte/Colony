@@ -27,6 +27,8 @@ interface PoolFaunaDecorativa {
   pool: Record<string, AnimalExportado[]>;
   /** ¿Vagabundea en manada? (2026-09-09) — misma regla exacta que `esGregario` en el servidor (server/src/mundo/faunaSalvajeViva.ts, fauna VIVA): nunca carnívoros ni especies peligrosas. Calculada offline en `exportar_fauna_decorativa.js`, cero catálogo duplicado en cliente. */
   gregarioPorEspecie: Record<string, boolean>;
+  /** ¿Especie acuática (`requiereAgua` en baker/catalogo/animales.json)? (2026-09-09, bug real: "los peces se salen del agua") — invierte el criterio de transitabilidad del vagabundeo: solo agua, nunca tierra. Calculada offline, mismo criterio que `gregarioPorEspecie`. */
+  acuaticoPorEspecie: Record<string, boolean>;
 }
 
 let promesaPool: Promise<PoolFaunaDecorativa | null> | null = null;
@@ -44,6 +46,12 @@ function cargarPool(): Promise<PoolFaunaDecorativa | null> {
 export async function esFaunaDecorativaGregaria(especieId: string): Promise<boolean> {
   const datos = await cargarPool();
   return datos?.gregarioPorEspecie[especieId] ?? false;
+}
+
+/** Mismo criterio que `esFaunaDecorativaGregaria` — ver `PoolFaunaDecorativa.acuaticoPorEspecie`. */
+export async function esFaunaDecorativaAcuatica(especieId: string): Promise<boolean> {
+  const datos = await cargarPool();
+  return datos?.acuaticoPorEspecie[especieId] ?? false;
 }
 
 // Malla fusionada (geometría+material COMPARTIDOS, nunca dispose-ados por
