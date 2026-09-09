@@ -10,6 +10,9 @@ REM      cliente, sin cortar a nadie); cambios de server/ esperan a que no
 REM      haya jugadores para reconstruir y reiniciar PM2.
 REM   2) reinicioProgramado.ps1 -> reinicio de higiene cada 8 horas, tambien
 REM      solo cuando el servidor esta vacio.
+REM   3) copiaSeguridadBd.ps1    -> copia de la base de datos una vez al dia
+REM      (se autolimita: si la ultima copia es de hace menos de 24h, sale sin
+REM      hacer nada, asi no hace falta otra tarea de Windows aparte).
 REM
 REM Ninguno de los dos corta nunca una partida en curso: si hay gente
 REM jugando, ambos se aplazan solos y lo reintentan en la siguiente pasada.
@@ -28,5 +31,8 @@ powershell -ExecutionPolicy Bypass -File "server\deploy\autoActualizar.ps1"
 
 echo [%date% %time%] -- Comprobando reinicio programado --
 powershell -ExecutionPolicy Bypass -File "server\deploy\reinicioProgramado.ps1" -HorasMinimas 8
+
+echo [%date% %time%] -- Comprobando copia de seguridad de la base de datos --
+powershell -ExecutionPolicy Bypass -File "server\deploy\copiaSeguridadBd.ps1"
 
 endlocal

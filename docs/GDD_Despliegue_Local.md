@@ -10,10 +10,29 @@ Cloudflare Tunnel no necesita ni un puerto abierto ni una IP fija: `cloudflared`
 
 Lo que sí importa de la conexión es la **subida** (todo el mapa y los .glb salen del PC), no la bajada.
 
-## Setup inicial (una vez)
+## Instalación: `instalar.bat` (un solo clic, 2026-09-09)
+
+Pedido del streamer al montar el PC nuevo ("necesito que me instales todo... o mejor, hacemos un BAT que autoinicie el servidor y todas las dependencias"). `server/deploy/instalar.bat` se autoeleva a administrador y lanza `instalarTodo.ps1`, que deja el servidor montado **desde cero**:
+
+0. Comprueba `winget` (y lo repara vía `Microsoft.WinGet.Client` si falta; si el Windows es anterior a la build 17763 avisa y para).
+1. Instala lo que falte: **Git** (`Git.Git`, con `--scope machine` para que lo vean también las tareas programadas), **Node.js** (`OpenJS.NodeJS.LTS`), **cloudflared** (`Cloudflare.cloudflared` forzando `--installer-type wix`: el MSI se registra en el PATH del sistema y permite `cloudflared service install`, el portable no).
+2. Instala **PostgreSQL 17** de forma desatendida con una contraseña de superusuario **generada por nosotros** (`--custom "--serverport 5432 --superpassword …"`): si se deja la que pone el instalador por defecto, luego no hay forma de crear la base del juego. Esa contraseña nunca se imprime ni se guarda. Detecta además el **puerto real** del cluster (si 5432 estaba ocupado, el instalador de EDB elige otro y el `.env` apuntaría mal).
+3. Clona el repo (o hace `pull` si ya estaba) en `%USERPROFILE%\Desktop\Colony` por defecto (parámetro `-Carpeta`).
+4. Crea el rol `colony` y la base `colony`, y escribe `DATABASE_URL` en `server/.env` **conservando el resto del archivo**. Si la base ya existía, la respeta con todo lo que tenga dentro.
+5. `npm install` + build de servidor y cliente.
+6. Instala PM2 si falta, arranca (o reinicia) `colony-server`, `pm2 save`, y **comprueba de verdad** que responde en `http://localhost:2567/estado`.
+7. Crea dos Tareas Programadas: `Colony-Mantenimiento` (cada 5 min → `tareaProgramada.bat`) y `Colony-Arranque` (al iniciar sesión → `iniciarServidor.bat`).
+
+**Principio de diseño, no negociable si algún día se toca**: el script nunca da un paso por bueno por el código de salida del instalador — verifica el **binario real** después de cada instalación (`node -v`, existencia de `psql.exe`, el servicio `postgresql*`, respuesta HTTP del servidor). Los códigos de winget que en realidad significan "ya estaba instalado" (`PACKAGE_ALREADY_INSTALLED`, `UPDATE_NOT_APPLICABLE`, `INSTALL_REBOOT_REQUIRED_TO_FINISH`) se tratan como éxito: abortar ahí dejaría al streamer bloqueado sin motivo. Y lo que no se pueda dejar hecho no revienta el script: se acumula y sale al final como lista de "esto lo tienes que hacer tú".
+
+Es **idempotente**: se puede relanzar las veces que haga falta. Lo ya hecho se detecta y se salta, y nunca se pisa una base de datos existente.
+
+**Lo único que NO puede automatizar** es el túnel de Cloudflare, porque exige iniciar sesión en la cuenta desde el navegador. El script termina imprimiendo los comandos exactos (§ "Cloudflare" más abajo).
+
+## Setup manual (alternativa al instalador)
 
 1. Clonar el repo, `npm install` en la raíz (instala los workspaces).
-2. `server/.env` con `DATABASE_URL` (Neon) y el resto de variables — ver `server/.env.example`.
+2. `server/.env` con `DATABASE_URL` y el resto de variables — ver `server/.env.example`.
 3. `npm run build -w server` **y** `npm run build -w client` (los dos: el proceso sirve también la web).
 4. `pm2 start server/deploy/ecosystem.config.js` (fork, no cluster — Colyseus guarda estado de partida en memoria de proceso, un solo fork es obligatorio).
 5. `pm2 save` + `pm2 startup`/paquete `pm2-windows-startup` para que sobreviva a un reinicio del PC.
@@ -73,6 +92,43 @@ Pedido explícito del streamer ("que el pm2 se reinicie solo con cada push a mai
 **Setup (una vez, además del setup inicial de arriba):** una sola Tarea Programada de Windows que ejecute `server\deploy\tareaProgramada.bat` cada pocos minutos (2-5 min es razonable — el coste de cada intento en vacío es solo un `git fetch` y una petición HTTP local). Ese `.bat` encadena las dos tareas de mantenimiento: comprobar GitHub (este script) y el reinicio programado (§ siguiente).
 
 (Configurador de Tareas → Crear tarea básica → Desencadenador "Repetir cada" → Acción "Iniciar un programa": `cmd.exe` con argumentos `/c "C:\ruta\a\Colony\server\deploy\tareaProgramada.bat"`, directorio de inicio `C:\ruta\a\Colony`.)
+
+## Base de datos: PostgreSQL en el propio PC (2026-09-09)
+
+Decisión del streamer al montar el PC dedicado ("usemos PostgreSQL en mi PC entonces"), sustituyendo a Neon. Motivos: sin topes de horas de cómputo del plan gratis, sin coste, y latencia de menos de 1 ms en vez de ~40 ms contra Londres. **Contrapartida asumida: las copias de seguridad pasan a ser responsabilidad nuestra** — de ahí `copiaSeguridadBd.ps1` (§ siguiente), que no es opcional.
+
+**Cero cambios de código**: `bd.ts` usa Postgres en cuanto `DATABASE_URL` esté definida, y no fuerza SSL, así que una cadena local (`postgres://colony:CONTRASEÑA@localhost:5432/colony`) conecta tal cual. **El esquema se crea solo**: las migraciones son idempotentes (94 `CREATE TABLE IF NOT EXISTS`) y corren en cada arranque, así que basta con crear una base de datos VACÍA y un usuario — el servidor levanta sus ~46 tablas la primera vez.
+
+Lo que hay que hacer una vez (lo automatiza el instalador, § "Instalación"):
+1. Instalar PostgreSQL.
+2. Crear el rol y la base del juego:
+   ```sql
+   CREATE ROLE colony WITH LOGIN PASSWORD 'la-que-elijas';
+   CREATE DATABASE colony OWNER colony;
+   ```
+3. Poner `DATABASE_URL=postgres://colony:la-que-elijas@localhost:5432/colony` en `server/.env`.
+
+**Nunca usar el modo SQLite para producción**: existe como fallback cuando `DATABASE_URL` está vacía, pero `node:sqlite` es SÍNCRONO y bloquea el hilo único de Node varios segundos bajo ráfagas de ~25 reconexiones simultáneas (medido, ver `server/src/datos/bd.ts` y el mega-estrés de `CLAUDE.md`) — justo el escenario de un chat entrando en tromba al directo.
+
+**Verificado de verdad en el entorno de desarrollo** (2026-09-09, con un PostgreSQL 16 real, no razonado sobre el papel): base vacía → el servidor arranca y crea las 46 tablas solo; un jugador real entra por navegador y aparece su fila en `jugadores` con vida, vitales, farycoins y posición; se le cambia el saldo a 777 y la posición, **se reinicia el servidor**, vuelve a entrar con el mismo nombre y conserva `id`, saldo y posición exactos (no se duplica la fila); `pg_dump -Fc` produce una copia de 326 KB, se borran los jugadores a propósito y `pg_restore` los devuelve intactos.
+
+## Copias de seguridad de la base de datos (`copiaSeguridadBd.ps1`, 2026-09-09)
+
+Con la BD en el PC ya no hay una nube que respalde nada: si ese disco muere sin copias, se pierden todos los personajes, casas, gremios y la economía del servidor.
+
+El script se lanza desde la MISMA Tarea Programada que el resto del mantenimiento y **se autolimita**: si la última copia tiene menos de 24 h, sale sin hacer nada (así no hace falta una segunda tarea de Windows). Lee la conexión de `server/.env` — una sola fuente de verdad, sin duplicar credenciales —, vuelca con `pg_dump -Fc` a `server/deploy/copias/colony_FECHA.dump`, borra un archivo a medias si falla (una copia corrupta es peor que ninguna) y conserva las 14 más recientes.
+
+Formato "custom" (`-Fc`) a propósito y no `.sql` plano: pesa mucho menos y `pg_restore` puede sacar **una sola tabla** de dentro (por ejemplo devolver los inventarios sin pisar el resto del mundo).
+
+**Cómo restaurar** (documentado aquí porque una copia que no sabes restaurar no es una copia; los comandos están probados de verdad contra este esquema):
+```
+pm2 stop colony-server
+pg_restore -h localhost -U colony -d colony --clean --if-exists "server\deploy\copias\colony_FECHA.dump"
+pm2 start colony-server
+```
+Para una sola tabla: `pg_restore ... --data-only --table=jugadores "…dump"`. La contraseña que pide es la del usuario `colony`, la que está en `DATABASE_URL` dentro de `server/.env`.
+
+**Recomendación pendiente del streamer**: copiar de vez en cuando la carpeta `server/deploy/copias/` a otro sitio (otro disco, un pendrive, la nube). Una copia en el mismo disco que la base de datos protege de un borrado accidental, pero no de que ese disco falle.
 
 ## Reinicio programado cada 8 horas (`reinicioProgramado.ps1`, 2026-09-09)
 

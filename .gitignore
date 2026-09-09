@@ -67,3 +67,8 @@ skills-lock.json
 # desplegado de verdad en ESTA máquina) — puramente de estado del PC de
 # hosting, nunca del repo
 server/deploy/.ultimoCommitDesplegado
+
+# copias de seguridad de la base de datos (server/deploy/copiaSeguridadBd.ps1)
+# — contienen los datos REALES de los jugadores (cuentas, inventarios,
+# economía): nunca deben acabar en el repo
+server/deploy/copias/
