@@ -22,12 +22,14 @@
  *   para quien no lo conectó al entrar. Mismo endpoint, sin duplicar lógica.
  */
 import { crearMarcoPanel, crearBoton, crearSubtitulo, crearLineaTexto } from "../ui/panelBase";
-import { obtenerVolumenGuardado, guardarVolumen, obtenerCalidadGuardada, guardarCalidad, CalidadGrafica } from "./configAjustes";
+import { obtenerVolumenGuardado, guardarVolumen, obtenerVolumenMusicaGuardado, guardarVolumenMusica, obtenerCalidadGuardada, guardarCalidad, CalidadGrafica } from "./configAjustes";
 import { ACCIONES_REASIGNABLES, obtenerTeclaAsignada, asignarTecla, restablecerTeclas } from "./configTeclas";
 
 export interface OpcionesPanelAjustes {
   contenedor: HTMLElement;
   fijarVolumen(v: number): void;
+  /** Bus de audio INDEPENDIENTE del anterior — ver `audio/musicaFondo.ts`. */
+  fijarVolumenMusica(v: number): void;
   fijarCalidadGrafica(nivel: CalidadGrafica): void;
   serverUrlHttp: string;
   /** `true` si ya se mandó una `twitchSession` (login desde bienvenida.ts) y se está esperando la confirmación del servidor. */
@@ -110,7 +112,34 @@ export class PanelAjustes {
     filaVolumen.appendChild(slider);
     filaVolumen.appendChild(etiquetaVolumen);
     cuerpo.appendChild(filaVolumen);
-    cuerpo.appendChild(crearLineaTexto("Solo afecta a instrumentos musicales tocados por jugadores — el juego todavía no tiene música ni efectos de sonido propios.", { tenue: true, fontSize: "10px" }));
+    cuerpo.appendChild(crearLineaTexto("Solo afecta a instrumentos musicales tocados por jugadores.", { tenue: true, fontSize: "10px" }));
+
+    // --- Música de fondo (bus INDEPENDIENTE del de arriba, ver audio/musicaFondo.ts) ---
+    const filaMusica = document.createElement("div");
+    filaMusica.style.display = "flex";
+    filaMusica.style.alignItems = "center";
+    filaMusica.style.gap = "8px";
+    const sliderMusica = document.createElement("input");
+    sliderMusica.type = "range";
+    sliderMusica.min = "0";
+    sliderMusica.max = "100";
+    sliderMusica.value = String(obtenerVolumenMusicaGuardado());
+    sliderMusica.style.flex = "1";
+    const etiquetaMusica = document.createElement("span");
+    etiquetaMusica.style.minWidth = "34px";
+    etiquetaMusica.style.fontSize = "12px";
+    etiquetaMusica.textContent = `${sliderMusica.value}%`;
+    sliderMusica.oninput = () => {
+      const v = Number(sliderMusica.value);
+      etiquetaMusica.textContent = `${v}%`;
+      this.opciones.fijarVolumenMusica(v);
+      guardarVolumenMusica(v);
+    };
+    filaMusica.appendChild(sliderMusica);
+    filaMusica.appendChild(etiquetaMusica);
+    cuerpo.appendChild(crearLineaTexto("🎵 Música de fondo", { fontSize: "12px" }));
+    cuerpo.appendChild(filaMusica);
+    cuerpo.appendChild(crearLineaTexto("Ponlo a 0 para quitarla del todo. Suena en bucle al entrar al juego.", { tenue: true, fontSize: "10px" }));
 
     // --- Pantalla ---
     cuerpo.appendChild(crearSubtitulo("🖥️ Pantalla"));

@@ -25,7 +25,8 @@ import { PanelSastreLegendario, type DisenoSastre } from "./construccion/panelSa
 import { PanelCarpinteroLegendario, type DisenoCarpintero } from "./construccion/panelCarpinteroLegendario";
 import { PanelIngenieroLegendario, type ProyectoIngeniero } from "./construccion/panelIngenieroLegendario";
 import { reproducirMidi, detenerReproduccion, fijarVolumenMaestro, type TipoInstrumento } from "./audio/instrumentos";
-import { obtenerVolumenGuardado, obtenerCalidadGuardada } from "./ajustes/configAjustes";
+import { intentarAutoreproducir as intentarAutoreproducirMusica, fijarVolumenMusica, elementoAudioParaDebug } from "./audio/musicaFondo";
+import { obtenerVolumenGuardado, obtenerVolumenMusicaGuardado, obtenerCalidadGuardada } from "./ajustes/configAjustes";
 import { PanelAjustes } from "./ajustes/panelAjustes";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
 import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2, Vector3, Plane, Object3D } from "three";
@@ -599,6 +600,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
             : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession, adminSession, playerSession });
   const $ = getStateCallbacks(room);
 
+  // Hilo musical de fondo (docs/GDD_Ajustes.md, pedido streamer 2026-09-09:
+  // "que se autoreproduzca nada más entrar, siempre y cuando no tenga en
+  // ajustes quitado volumen") — "entrar" es justo aquí, nada más unirse a
+  // la room; si el navegador bloquea el autoplay por su política de gesto
+  // de usuario, `intentarAutoreproducirMusica` ya reintenta sola en la
+  // primera interacción real, ver audio/musicaFondo.ts.
+  intentarAutoreproducirMusica(obtenerVolumenMusicaGuardado());
+  (window as any).__musicaFondoDebug = elementoAudioParaDebug; // sonda de test, ver client/src/audio/musicaFondo.ts (no en el DOM, no localizable con querySelector)
+
   // Dock de iconos del HUD (docs/... pendiente, pedido streamer 2026-09-09:
   // "HUD limpia con algún emoticono que abre esa pestaña") — se registra
   // cada panel justo donde ya se construye, más abajo. Disponible en
@@ -614,6 +624,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const panelAjustes = new PanelAjustes({
     contenedor,
     fijarVolumen: fijarVolumenMaestro,
+    fijarVolumenMusica,
     fijarCalidadGrafica: (nivel) => escena.fijarCalidadGrafica(nivel),
     serverUrlHttp: SERVER_URL_HTTP,
     twitchYaConectando: !!twitchSession,
