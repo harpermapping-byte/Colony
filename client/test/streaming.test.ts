@@ -137,6 +137,84 @@ test("volver sobre tus pasos re-materializa desde caché, sin refetch", async ()
   assert.equal(refetches.length, 0, `sin refetch de sectores ya cacheados (hubo: ${refetches.join(", ")})`);
 });
 
+// --- Caché de handles YA MATERIALIZADOS (pedido streamer 2026-09-09: "no se
+// puede hacer caché sobre las zonas que ya visitaste asi no tiene que
+// recargar tanto") — con ocultarMaterializado/mostrarMaterializado puestos,
+// salir de rango NO debe llamar a `soltar` (dispose) mientras quepa en el
+// pool: se oculta y se reutiliza tal cual al volver, sin pasar otra vez por
+// `materializar`.
+
+interface RegistroConCache extends Registro {
+  ocultados: string[];
+  mostrados: string[];
+}
+
+function crearStreamingConCache(registro: RegistroConCache, maxSectoresMaterializadosCacheados: number) {
+  return new StreamingSectores<string>({
+    indice: INDICE,
+    obtenerSector: async (sx, sy) => {
+      registro.fetches.push(`${sx}_${sy}`);
+      return sectorFalso(sx, sy);
+    },
+    materializar: async (sector) => {
+      const k = `${sector.sectorX}_${sector.sectorY}`;
+      registro.materializados.add(k);
+      return k;
+    },
+    soltar: (k) => {
+      registro.materializados.delete(k);
+      registro.soltados.push(k);
+    },
+    ocultarMaterializado: (k) => registro.ocultados.push(k),
+    mostrarMaterializado: (k) => registro.mostrados.push(k),
+    maxSectoresMaterializadosCacheados,
+  });
+}
+
+test("con ocultar/mostrar puestos, volver sobre tus pasos reutiliza el handle sin dispose ni rematerializar", async () => {
+  const registro: RegistroConCache = { fetches: [], materializados: new Set(), soltados: [], ocultados: [], mostrados: [] };
+  const streaming = crearStreamingConCache(registro, 6);
+  streaming.actualizar(1760, 1760);
+  await asentar();
+  // Avanzar justo lo necesario para que la COLUMNA 4 (sx=4: 3 sectores,
+  // sy 4/5/6) supere el radio de descarga (352 casillas desde 1600 -> a
+  // partir de x=1952) y volver — un pool de 6 cabe de sobra con solo esa
+  // columna; ir mucho más lejos liberaría más columnas y desbordaría el
+  // pool (ese caso lo cubre el test siguiente, a propósito).
+  for (let x = 1760; x <= 2000; x += 32) {
+    streaming.actualizar(x, 1760);
+    await asentar();
+  }
+  assert.ok(registro.ocultados.includes("4_5"), "al salir de rango debe OCULTARSE, no soltarse");
+  assert.equal(registro.soltados.includes("4_5"), false, "con el pool sin desbordar, nunca debe hacer dispose real");
+  const materializacionesAntesDeVolver = registro.materializados.size;
+  for (let x = 2000; x >= 1760; x -= 32) {
+    streaming.actualizar(x, 1760);
+    await asentar();
+  }
+  assert.ok(registro.mostrados.includes("4_5"), "al volver debe REUTILIZARSE el handle oculto (mostrarMaterializado)");
+  assert.ok(registro.materializados.has("4_5"));
+  // Ninguna llamada nueva a `materializar` para "4_5": el Set ya lo tenía
+  // desde la primera vez (materializar() solo añade, nunca re-añade lo
+  // mismo dos veces con distinto valor) — lo que se comprueba de verdad es
+  // que NO hubo un soltado+remateralizado real de por medio.
+  assert.equal(materializacionesAntesDeVolver, registro.materializados.size, "ningún sector nuevo se materializó al volver, todo salió del pool oculto");
+});
+
+test("el pool de handles ocultos tiene tope: alejarse más allá lo dispone de verdad (LRU)", async () => {
+  const registro: RegistroConCache = { fetches: [], materializados: new Set(), soltados: [], ocultados: [], mostrados: [] };
+  const streaming = crearStreamingConCache(registro, 2); // pool minúsculo a propósito, para forzar el desborde
+  streaming.actualizar(1760, 1760);
+  await asentar();
+  // Cruzar la isla entera de oeste a este: de sobra para desbordar un pool de 2.
+  for (let x = 160; x < 3200; x += 32) {
+    streaming.actualizar(x, 1760);
+    await asentar();
+  }
+  assert.ok(registro.ocultados.length > 0, "algo debió ocultarse por el camino");
+  assert.ok(registro.soltados.length > 0, "con un pool de 2, el desborde debe forzar dispose real de los más antiguos");
+});
+
 test("cada sector se fetchea como mucho una vez aunque el anillo se reevalúe muchas veces", async () => {
   const registro: Registro = { fetches: [], materializados: new Set(), soltados: [] };
   const streaming = crearStreaming(registro);

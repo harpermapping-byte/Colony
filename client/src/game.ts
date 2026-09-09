@@ -316,6 +316,31 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           soltarSectorVisual(handle);
           sectoresActivos.delete(`${sx}_${sy}`);
         },
+        // Caché de sectores YA materializados (pedido streamer 2026-09-09:
+        // "no se puede hacer caché sobre las zonas que ya visitaste") — en
+        // vez de tirar la malla al salir del radio de descarga, se oculta y
+        // se retiene; volver sobre tus pasos la reutiliza sin refetch ni
+        // reconstrucción. `sectoresActivos` se deja SIN tocar aquí a
+        // propósito: el intervalo de nieve de arriba sigue actualizando la
+        // opacidad/altura de un sector oculto igual que uno visible (barato,
+        // solo retoca una malla ya existente) — así nunca aparece con nieve
+        // desfasada al volver a mostrarlo.
+        ocultarMaterializado: (handle) => { handle.grupo.visible = false; },
+        mostrarMaterializado: (handle, sx, sy) => {
+          handle.grupo.visible = true;
+          // Lo que se haya talado/recogido MIENTRAS este sector estaba
+          // oculto no se supo nunca (solo materializar() pide exclusiones,
+          // y reutilizar del pool se salta justo ese paso) — se resincroniza
+          // en segundo plano sin bloquear el "aparece ya" de la línea de
+          // arriba: mismo mecanismo que un chop en vivo delante tuyo
+          // (ocultarPosicion), aplicado retroactivo a todo lo que falte.
+          pedirExclusiones(sx, sy, tilesPorSector).then((excluidos) => {
+            for (const clave of excluidos) {
+              const [x, y] = clave.split(",").map(Number);
+              handle.ocultarPosicion(x, y);
+            }
+          });
+        },
       });
       if (nivelForzado === null) {
         setInterval(() => {

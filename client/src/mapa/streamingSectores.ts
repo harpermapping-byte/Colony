@@ -42,11 +42,28 @@ export interface OpcionesStreaming<H> {
   radioDescargaTiles?: number;
   /** Sectores parseados que se retienen aunque estén soltados (volver sobre tus pasos no refetchea). */
   maxSectoresCacheados?: number;
+  /**
+   * Ocultar/mostrar un handle YA MATERIALIZADO sin reconstruirlo (pedido
+   * streamer 2026-09-09: "no se puede hacer caché sobre las zonas que ya
+   * visitaste así no tiene que recargar tanto" — el JSON ya se cacheaba,
+   * pero la malla/canvas de Three se tiraba y rehacía entera al volver a
+   * un sector soltado). Ambos opcionales — sin ellos, comportamiento
+   * IDÉNTICO al de antes (soltar = dispose inmediato al salir de rango).
+   * Con ellos, un handle que sale del radio de descarga se OCULTA (barato,
+   * normalmente `grupo.visible=false`) y se retiene hasta
+   * `maxSectoresMaterializadosCacheados`; volver a desearlo lo reutiliza
+   * con `mostrarMaterializado`, cero red y cero reconstrucción.
+   */
+  ocultarMaterializado?: (handle: H, sx: number, sy: number) => void;
+  mostrarMaterializado?: (handle: H, sx: number, sy: number) => void;
+  /** Cuántos handles ocultos-pero-vivos se retienen antes de dispose-arlos de verdad (LRU por orden de salida del rango). Sin efecto si no se pasan los dos callbacks de arriba. */
+  maxSectoresMaterializadosCacheados?: number;
 }
 
 const RADIO_CARGA_DEFECTO = 192;
 const RADIO_DESCARGA_DEFECTO = 352;
 const MAX_CACHE_DEFECTO = 25;
+const MAX_CACHE_MATERIALIZADOS_DEFECTO = 6;
 /** No se reevalúa el anillo hasta haberse movido esto (casillas) — el bucle de juego llama cada frame. */
 const UMBRAL_REEVALUACION = 16;
 
@@ -55,7 +72,7 @@ function clave(sx: number, sy: number): string {
 }
 
 export class StreamingSectores<H = unknown> {
-  private readonly opciones: Required<Pick<OpcionesStreaming<H>, "radioCargaTiles" | "radioDescargaTiles" | "maxSectoresCacheados">> & OpcionesStreaming<H>;
+  private readonly opciones: Required<Pick<OpcionesStreaming<H>, "radioCargaTiles" | "radioDescargaTiles" | "maxSectoresCacheados" | "maxSectoresMaterializadosCacheados">> & OpcionesStreaming<H>;
   private readonly tilesPorSector: number;
   private readonly sectoresAncho: number;
   private readonly sectoresAlto: number;
@@ -65,6 +82,8 @@ export class StreamingSectores<H = unknown> {
   private readonly enVuelo = new Map<string, Promise<SectorBakeado | null>>();
   private readonly materializados = new Map<string, H>();
   private readonly materializando = new Set<string>();
+  /** Handles ocultos-pero-vivos (ver `ocultarMaterializado`/`mostrarMaterializado`) — LRU por orden de inserción, se dispose-an solo al desbordar el pool. */
+  private readonly materializadosCacheados = new Map<string, H>();
   /** Conjunto deseado según la última evaluación — la verdad contra la que se resuelven las carreras async. */
   private deseados = new Set<string>();
   private ultimaEvaluacion: { x: number; z: number } | null = null;
@@ -74,6 +93,7 @@ export class StreamingSectores<H = unknown> {
       radioCargaTiles: RADIO_CARGA_DEFECTO,
       radioDescargaTiles: RADIO_DESCARGA_DEFECTO,
       maxSectoresCacheados: MAX_CACHE_DEFECTO,
+      maxSectoresMaterializadosCacheados: MAX_CACHE_MATERIALIZADOS_DEFECTO,
       ...opciones,
     };
     const { indice } = opciones;
@@ -124,18 +144,39 @@ export class StreamingSectores<H = unknown> {
     this.deseados = deseados;
 
     // Soltar SOLO lo que superó el radio de descarga (histéresis: lo que
-    // está entre ambos radios se queda como está, cargado o no).
+    // está entre ambos radios se queda como está, cargado o no). Con los
+    // callbacks de ocultar/mostrar puestos, "soltar" no es dispose
+    // inmediato: se oculta y se retiene en `materializadosCacheados` hasta
+    // que el pool se llena — volver sobre tus pasos lo reutiliza tal cual.
+    const { ocultarMaterializado, mostrarMaterializado } = this.opciones;
     for (const [k, handle] of [...this.materializados]) {
       const [sx, sy] = k.split("_").map(Number);
       if (this.distanciaASector(tileX, tileZ, sx, sy) >= radioDescargaTiles) {
         this.materializados.delete(k);
-        this.opciones.soltar(handle, sx, sy);
+        if (ocultarMaterializado) {
+          ocultarMaterializado(handle, sx, sy);
+          this.materializadosCacheados.set(k, handle);
+          this.podarCacheMaterializados();
+        } else {
+          this.opciones.soltar(handle, sx, sy);
+        }
       }
     }
 
     for (const k of deseados) {
       if (this.materializados.has(k) || this.materializando.has(k)) continue;
       const [sx, sy] = k.split("_").map(Number);
+      const cacheado = this.materializadosCacheados.get(k);
+      if (cacheado) {
+        // Reutilización directa: ya estaba construido, solo oculto — cero
+        // fetch, cero reconstrucción de geometría/canvas (mostrarMaterializado
+        // se encarga de refrescar en segundo plano lo que se haya
+        // talado/recogido mientras estuvo oculto, sin bloquear el "instant show").
+        this.materializadosCacheados.delete(k);
+        mostrarMaterializado?.(cacheado, sx, sy);
+        this.materializados.set(k, cacheado);
+        continue;
+      }
       this.materializando.add(k);
       this.obtenerSectorCacheado(sx, sy)
         .then(async (sector) => {
@@ -150,6 +191,18 @@ export class StreamingSectores<H = unknown> {
           }
         })
         .finally(() => this.materializando.delete(k));
+    }
+  }
+
+  /** Dispose real de los handles ocultos más antiguos que ya no caben en el pool (LRU por orden de inserción — el primero en salir de rango es el primero en perderse). No-op si no se pasaron los callbacks de ocultar/mostrar. */
+  private podarCacheMaterializados(): void {
+    while (this.materializadosCacheados.size > this.opciones.maxSectoresMaterializadosCacheados) {
+      const k = this.materializadosCacheados.keys().next().value;
+      if (k === undefined) return;
+      const handle = this.materializadosCacheados.get(k)!;
+      this.materializadosCacheados.delete(k);
+      const [sx, sy] = k.split("_").map(Number);
+      this.opciones.soltar(handle, sx, sy);
     }
   }
 
@@ -205,6 +258,7 @@ export class StreamingSectores<H = unknown> {
       enCache: this.cache.size,
       enVuelo: this.enVuelo.size,
       materializando: this.materializando.size,
+      materializadosCacheados: this.materializadosCacheados.size,
     };
   }
 }

@@ -20,11 +20,18 @@ function anguloVientoDelDia(dia: number): number {
   return (h % 360) * (Math.PI / 180);
 }
 
-const RADIO_PARTICULAS = 13;
+// RADIO_PARTICULAS antes en 13 — con TAMANO_MUNDO_VISIBLE=16 (worldScene.ts)
+// y una pantalla panorámica (aspecto>1), la esquina de cámara puede pedir
+// más de 13 unidades de mundo, dejando esquinas sin lluvia — bug real
+// reportado jugando 2026-09-09 ("no se aplica como capa por encima de todo
+// el canvas"). Subido a 20 (cubre con margen cualquier aspecto razonable,
+// incluido ultra-wide) + densidad escalada proporcional al área (radio²)
+// para no diluir la lluvia por el radio más grande.
+const RADIO_PARTICULAS = 20;
 const ALTURA_PARTICULAS = 9;
-const NUM_LLUVIA = 500;
-const NUM_NIEVE = 300;
-const NUM_POLVO = 200;
+const NUM_LLUVIA = 1200;
+const NUM_NIEVE = 700;
+const NUM_POLVO = 475;
 const NUM_CHARCOS = 14;
 const RADIO_CHARCOS = 10;
 
