@@ -11,6 +11,18 @@ Guía real del hosting alternativo a Render: el servidor corre 24/7 en el propio
 5. `pm2 save` + `pm2 startup`/paquete `pm2-windows-startup` para que sobreviva a un reinicio del PC.
 6. Cloudflare Tunnel apuntando `play.colony-streamer.online` al puerto local del servidor.
 
+## Arrancar el servidor tras encender/reiniciar el PC (`iniciarServidor.bat`, 2026-09-09)
+
+Pedido del streamer: un "botón" que dar tras encender el PC en vez de acordarse de los comandos de PM2/cloudflared a mano — alternativa MANUAL a instalar `pm2-windows-startup` (el paquete que hace arrancar PM2 solo con Windows, sin tocar nada; ver "Setup inicial" arriba). Con `pm2-windows-startup` instalado no haría falta este `.bat`, pero no molesta tenerlo de todas formas como red de seguridad.
+
+Doble clic en `server\deploy\iniciarServidor.bat` (o ejecutarlo desde una terminal) hace, en este orden:
+1. `pm2 resurrect` — recupera el proceso exacto que había antes de apagar/reiniciar (requiere haber hecho `pm2 save` alguna vez antes, ya sea en el setup inicial o porque el propio script lo hace la primera vez que no encuentra nada).
+2. Si no hay nada guardado todavía (primera vez en esta máquina, o nunca se hizo `pm2 save`): arranca desde cero con `pm2 start server/deploy/ecosystem.config.js` + `pm2 save`.
+3. Comprueba si el túnel de Cloudflare está instalado como servicio de Windows (`sc query cloudflared`) — si lo está, lo arranca (`net start cloudflared`, no-op si ya estaba en marcha; puede necesitar ejecutar el `.bat` como Administrador para poder arrancar el servicio). Si NO está instalado como servicio (se arranca a mano con `cloudflared tunnel run ...` en una ventana aparte), el script solo avisa — ese caso sigue necesitando que se abra esa ventana a mano, este `.bat` no la sustituye.
+4. Muestra `pm2 list` al final para confirmar que `colony-server` aparece como `online`.
+
+**Nunca se dispara solo** — sigue siendo el streamer quien decide encenderlo, igual que `actualizar.ps1`.
+
 ## Actualizar a mano (`actualizar.ps1`)
 
 `git pull` + `npm install` + build + `pm2 restart colony-server`, disparado por el streamer cuando decide que es buen momento (p.ej. sin nadie jugando). Nunca se dispara solo — sigue existiendo para cuando se quiera forzar un redeploy inmediato sin esperar al ciclo de sondeo del script automático de abajo.
