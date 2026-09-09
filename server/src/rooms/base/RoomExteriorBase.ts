@@ -1220,6 +1220,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       for (const { x, y } of await this.arbolesTaladosEnSector(msg.sectorX, msg.sectorY)) {
         posiciones.push(`${x},${y}`);
       }
+      for (const { x, y } of this.posicionesFaunaVivaEnSector(msg.sectorX, msg.sectorY)) {
+        posiciones.push(`${x},${y}`);
+      }
       client.send("sector:exclusiones", { sectorX: msg.sectorX, sectorY: msg.sectorY, posiciones });
     });
     this.onMessage("soltar", (client, msg: { instanciaId?: number; cantidad?: number }) => this.manejarSoltar(client, msg));
@@ -2888,6 +2891,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
   /** Árboles de origen bake talados en un sector de bosque (docs/GDD_Bosques.md) — sobreescrito por HubRoom (único con GestorBosques hoy); `[]` en cualquier otra room. `sectorX/sectorY` en la MISMA numeración que el cliente (mismo `indice.tamanoSectorChunks`). */
   protected async arbolesTaladosEnSector(_sectorX: number, _sectorY: number): Promise<{ x: number; y: number }[]> {
+    return [];
+  }
+
+  /** Posiciones de fauna decorativa (obj.t==="a") cuyo gemelo YA es un individuo vivo real en este sector activo (docs/GDD_Agentes_Moviles.md, pedido 2026-09-09 "la fauna decorativa se debe mover") — sobreescrito por HubRoom (único con GestorFaunaSalvaje hoy); `[]` en cualquier otra room. Mismo criterio que `arbolesTaladosEnSector`: el cliente excluye estas posiciones de su render decorativo estático, así lo que se ve moverse ahí es la fauna viva de verdad (movimiento/manada/caza reales), nunca un gemelo congelado encima. */
+  protected posicionesFaunaVivaEnSector(_sectorX: number, _sectorY: number): { x: number; y: number }[] {
     return [];
   }
 

@@ -113,9 +113,28 @@ function idRellenoInfinita(mapaId: string, sectorX: number, sectorY: number, aho
   return `${mapaId}:${sectorX}:${sectorY}:infinita:${ahora}:${n}`;
 }
 
-/** ¿Es esta fila la ORIGINAL del bake (id de `idInicial`, sin tag), viva o muerta? Se usa para sacar el límite real de población infinita de un sector (cuántas bakeó originalmente `decoracion.js` para esa especie) y las posiciones candidatas de respawn, SIN tener que releer el archivo de bake en cada activación — `filasPersistidas` ya guarda hasta las muertas para siempre (ver cabecera del módulo). */
-function esIndividuoBakeOriginal(id: string): boolean {
-  return !id.includes(":cria:") && !id.includes(":infinita:");
+/**
+ * ¿Es esta fila la ORIGINAL del bake (id de `idInicial`, sin tag), viva o
+ * muerta? Se usa para sacar el límite real de población infinita de un
+ * sector (cuántas bakeó originalmente `decoracion.js` para esa especie) y
+ * las posiciones candidatas de respawn, SIN tener que releer el archivo de
+ * bake en cada activación — `filasPersistidas` ya guarda hasta las muertas
+ * para siempre (ver cabecera del módulo). Además (2026-09-09) sirve para
+ * reconstruir la posición ORIGINAL del bake de un individuo vivo, para que
+ * el cliente excluya su gemelo decorativo (ver `posicionesBakeOriginalVivas`
+ * en `faunaSalvajeViva.ts`).
+ *
+ * BUG REAL cerrado en la misma pasada, encontrado por un test nuevo (no
+ * hipotético): faltaba excluir el tag `:reponer:` (`GestorFaunaSalvaje.
+ * reponerEspecie`, la herramienta manual del jarl, `admin:fauna:reponer`)
+ * — un individuo repuesto a mano en una especie `poblacionInfinita` se
+ * contaba como si fuera del bake ORIGINAL en la siguiente resolución del
+ * sector, inflando para siempre el límite de población objetivo de esa
+ * especie cada vez que se usara la herramienta. Nunca debía contar: es
+ * repoblación manual, no el bake real.
+ */
+export function esIndividuoBakeOriginal(id: string): boolean {
+  return !id.includes(":cria:") && !id.includes(":infinita:") && !id.includes(":reponer:");
 }
 
 export interface ResultadoResolucionSector {

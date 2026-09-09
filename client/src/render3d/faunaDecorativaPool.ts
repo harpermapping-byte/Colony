@@ -25,6 +25,8 @@ import { mallaDeVoxeles, type VoxelExportado } from "./voxelMalla";
 
 interface PoolFaunaDecorativa {
   pool: Record<string, AnimalExportado[]>;
+  /** ¿Vagabundea en manada? (2026-09-09) — misma regla exacta que `esGregario` en el servidor (server/src/mundo/faunaSalvajeViva.ts, fauna VIVA): nunca carnívoros ni especies peligrosas. Calculada offline en `exportar_fauna_decorativa.js`, cero catálogo duplicado en cliente. */
+  gregarioPorEspecie: Record<string, boolean>;
 }
 
 let promesaPool: Promise<PoolFaunaDecorativa | null> | null = null;
@@ -36,6 +38,12 @@ function cargarPool(): Promise<PoolFaunaDecorativa | null> {
       .catch(() => null);
   }
   return promesaPool;
+}
+
+/** `null` mientras el pool no ha terminado de cargar (defensivo — `faunaDecorativaMovimiento.ts` ya llama primero a `obtenerMallaFaunaDecorativa`, que espera a `cargarPool()`, así que en la práctica esto siempre resuelve de inmediato desde caché para cuando se consulta). */
+export async function esFaunaDecorativaGregaria(especieId: string): Promise<boolean> {
+  const datos = await cargarPool();
+  return datos?.gregarioPorEspecie[especieId] ?? false;
 }
 
 // Malla fusionada (geometría+material COMPARTIDOS, nunca dispose-ados por

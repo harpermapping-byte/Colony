@@ -251,6 +251,11 @@ export class StreamingSectores<H = unknown> {
     return this.materializados.get(clave(sx, sy));
   }
 
+  /** Handles VISIBLES ahora mismo (nunca los ocultos-pero-cacheados de `materializadosCacheados`) — para bucles de animación por frame que necesiten recorrerlos todos, p.ej. vagabundeo de fauna decorativa (docs/GDD_Agentes_Moviles.md, pedido 2026-09-09). */
+  handlesMaterializados(): H[] {
+    return [...this.materializados.values()];
+  }
+
   estadisticas() {
     return {
       materializados: this.materializados.size,

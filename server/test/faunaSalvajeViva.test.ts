@@ -160,6 +160,59 @@ test("desactivarSector: guarda la posición final y lo quita del estado de Colys
   assert.strictEqual(fila.y, 7.7);
 });
 
+test("posicionesBakeOriginalVivas: sector nunca activado -> []", () => {
+  const { gestor } = crearGestor();
+  assert.deepStrictEqual(gestor.posicionesBakeOriginalVivas({ sectorX: 0, sectorY: 0 }), []);
+});
+
+test("posicionesBakeOriginalVivas: tras activar, devuelve la posición ORIGINAL del bake por índice — no la que tenga tras vagabundear", async () => {
+  const { gestor, salida } = crearGestor({
+    cargarBakeSector: () => [{ i: "lobo", x: 5, y: 5 }, { i: "conejo", x: 6, y: 6 }],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  // simula vagabundeo real: la posición EN VIVO se aleja de la del bake —
+  // la exclusión debe seguir apuntando al bake, no a esto.
+  for (const f of salida.values()) { f.x = 30.5; f.y = 30.5; }
+  const posiciones = gestor.posicionesBakeOriginalVivas({ sectorX: 0, sectorY: 0 });
+  assert.strictEqual(posiciones.length, 2);
+  assert.ok(posiciones.some((p) => p.x === 5 && p.y === 5));
+  assert.ok(posiciones.some((p) => p.x === 6 && p.y === 6));
+});
+
+test("posicionesBakeOriginalVivas: un individuo muerto ya no aparece", async () => {
+  const { gestor, salida } = crearGestor({
+    cargarBakeSector: () => [{ i: "lobo", x: 5, y: 5 }, { i: "conejo", x: 6, y: 6 }],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const idLobo = [...salida.keys()].find((id) => id.endsWith(":0"))!; // índice 0 del bake = lobo (5,5)
+  assert.ok(idLobo, "debería existir el id del primer individuo bakeado (índice 0)");
+  await gestor.matarIndividuo(idLobo);
+  const posiciones = gestor.posicionesBakeOriginalVivas({ sectorX: 0, sectorY: 0 });
+  assert.strictEqual(posiciones.length, 1);
+  assert.deepStrictEqual(posiciones[0], { x: 6, y: 6 });
+});
+
+test("posicionesBakeOriginalVivas: fauna repuesta por el jarl (reponerEspecie) NUNCA aparece — no tiene gemelo decorativo bakeado", async () => {
+  const { gestor } = crearGestor({
+    cargarBakeSector: () => [{ i: "lobo", x: 5, y: 5 }],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const creados = await gestor.reponerEspecie("conejo", 3, { x: 5, y: 5 }, 320, 1);
+  assert.strictEqual(creados, 3);
+  const posiciones = gestor.posicionesBakeOriginalVivas({ sectorX: 0, sectorY: 0 });
+  assert.strictEqual(posiciones.length, 1, "solo el lobo original del bake, nunca los 3 conejos repuestos");
+  assert.deepStrictEqual(posiciones[0], { x: 5, y: 5 });
+});
+
+test("posicionesBakeOriginalVivas: sector desactivado -> []", async () => {
+  const { gestor } = crearGestor({
+    cargarBakeSector: () => [{ i: "lobo", x: 5, y: 5 }],
+  });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  await gestor.desactivarSector({ sectorX: 0, sectorY: 0 });
+  assert.deepStrictEqual(gestor.posicionesBakeOriginalVivas({ sectorX: 0, sectorY: 0 }), []);
+});
+
 test("actualizarPorJugadores: activa el sector del jugador y sus vecinos, desactiva los que quedan lejos", async () => {
   const { gestor } = crearGestor();
   await gestor.actualizarPorJugadores([{ x: 5, y: 5 }], 32, 10, 1);

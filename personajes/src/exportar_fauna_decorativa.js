@@ -26,8 +26,23 @@ const catalogos = cargarCatalogos();
 
 const redondear = (_clave, v) => (typeof v === "number" ? Math.round(v * 10000) / 10000 : v);
 
+// ¿Se agrupa en manada al vagabundear? (2026-09-09, pedido streamer: "la
+// fauna decorativa se debe mover... los patrones de manada que ya
+// pusimos") — MISMA regla exacta que `esGregario` en
+// server/src/mundo/faunaSalvajeViva.ts (fauna VIVA), para que el
+// movimiento cliente-only de la fauna decorativa se vea igual de creíble:
+// nunca carnívoros ni especies peligrosas (esos vagabundean solos, no
+// forman manada). La fauna decorativa nunca es "cría" (el bake solo coloca
+// adultos), así que ese tercer caso de la regla del servidor no aplica aquí.
+function esGregaria(especieId) {
+  const especie = catalogos.animalesBaker[especieId];
+  if (!especie) return false;
+  return especie.dieta !== "carnivoro" && !especie.peligroso;
+}
+
 function exportarPool() {
   const pool = {};
+  const gregarioPorEspecie = {};
   const especies = Object.keys(catalogos.animalesBaker).filter((k) => !k.startsWith("_"));
   for (const especieId of especies) {
     if (!catalogos.animalesRig[especieId]) continue; // defensivo: hoy las 189/189 especies tienen rig (ver CLAUDE.md 2026-09-08)
@@ -37,22 +52,27 @@ function exportarPool() {
       const generado = generarAnimal(especieId, { catalogos, semilla: `fauna-decorativa-${especieId}-${i}` });
       pool[especieId].push({ ficha: generado.ficha, piezas: generado.piezas });
     }
+    gregarioPorEspecie[especieId] = esGregaria(especieId);
   }
-  return pool;
+  return { pool, gregarioPorEspecie };
 }
 
 module.exports = { exportarPool };
 
 if (require.main === module) {
-  const pool = exportarPool();
+  const { pool, gregarioPorEspecie } = exportarPool();
   const carpeta = path.join(__dirname, "..", "..", "assets", "animales");
   fs.mkdirSync(carpeta, { recursive: true });
   const ruta = path.join(carpeta, "pool.json");
   fs.writeFileSync(
     ruta,
-    JSON.stringify({ _nota: "Generado por personajes/src/exportar_fauna_decorativa.js — NO editar a mano.", pool }, redondear),
+    JSON.stringify(
+      { _nota: "Generado por personajes/src/exportar_fauna_decorativa.js — NO editar a mano.", pool, gregarioPorEspecie },
+      redondear,
+    ),
   );
   const totalEspecies = Object.keys(pool).length;
   const totalVariantes = Object.values(pool).reduce((n, v) => n + v.length, 0);
-  console.log(`${totalEspecies} especies x variantes reales -> ${totalVariantes} variantes totales -> ${ruta}`);
+  const totalGregarias = Object.values(gregarioPorEspecie).filter(Boolean).length;
+  console.log(`${totalEspecies} especies x variantes reales -> ${totalVariantes} variantes totales (${totalGregarias} gregarias) -> ${ruta}`);
 }

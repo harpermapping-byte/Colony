@@ -3,10 +3,23 @@ import type { IndiceMapa, SectorBakeado, ObjetoBakeado } from "../mapa/formatoMa
 import { terrenoEn } from "../mapa/formatoMapa";
 import { colorTerreno, colorObjeto, dimensionesObjeto } from "./catalogoVisual";
 import { obtenerPlantilla } from "./entityLoader";
-import { obtenerMallaFaunaDecorativa } from "./faunaDecorativaPool";
+import { esFaunaDecorativaGregaria, obtenerMallaFaunaDecorativa } from "./faunaDecorativaPool";
+import { AnimadorFaunaDecorativaSector, type IndividuoFaunaDecorativa } from "./faunaDecorativaMovimiento";
 import type { CategoriaAsset } from "./assetCatalog";
 import { crearRigHumanoide } from "./rigHumanoide";
 import { NIVEL_MAXIMO_NIEVE } from "../mundo/nieve";
+
+// Terrenos NO transitables para el vagabundeo de fauna decorativa (docs/
+// GDD_Agentes_Moviles.md, pedido 2026-09-09) — copia MANUAL del subconjunto
+// `transitable:false` de `baker/catalogo/terrenos.json` (fuente de verdad
+// real, NO servida al cliente — mismo criterio ya aceptado en este archivo
+// para `ALTURA_TERRENO_SOLIDO`, que ya duplica a mano una parte de ese
+// mismo catálogo). Si se añade un terreno no transitable nuevo ahí, hay
+// que replicarlo aquí a mano.
+const TERRENO_NO_TRANSITABLE_FAUNA = new Set([
+  "agua_profunda", "agua", "roca_inaccesible", "lava",
+  "muralla_piedra", "empalizada", "solar_edificio", "extramuros",
+]);
 
 /**
  * Materialización de UN sector del mapa bakeado (terreno + props) — la
@@ -742,10 +755,26 @@ function clavePosicion(x: number, y: number): string {
   return `${x},${y}`;
 }
 
+/** Comprobador de transitabilidad para el vagabundeo de fauna decorativa (docs/GDD_Agentes_Moviles.md) — casilla fuera del sector propio (posible cerca de un borde) se deja pasar sin bloquear, mismo criterio "mejor esfuerzo" ya aceptado para el jitter de manada del propio bakeador. */
+function crearComprobadorTransitableFauna(indice: IndiceMapa, sector: SectorBakeado): (x: number, y: number) => boolean {
+  const t = indice.tamanoChunk;
+  return (globalX: number, globalY: number) => {
+    const cx = Math.floor(globalX / t);
+    const cy = Math.floor(globalY / t);
+    const chunk = sector.chunks[`${cx}_${cy}`];
+    if (!chunk) return true;
+    const lx = globalX - cx * t;
+    const ly = globalY - cy * t;
+    const id = terrenoEn(chunk, indice.leyendaTerreno, lx, ly);
+    return !TERRENO_NO_TRANSITABLE_FAUNA.has(id);
+  };
+}
+
 async function crearPropsSector(
+  indice: IndiceMapa,
   sector: SectorBakeado,
   excluidos: Set<string>,
-): Promise<{ raiz: THREE.Group; ocultables: Map<string, () => void> }> {
+): Promise<{ raiz: THREE.Group; ocultables: Map<string, () => void>; animadorFauna: AnimadorFaunaDecorativaSector | null }> {
   const grupos = new Map<string, GrupoEspecie>();
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
@@ -777,6 +806,13 @@ async function crearPropsSector(
   // clon .glb individual simplemente se oculta.
   const ocultables = new Map<string, () => void>();
   const matrizCero = new THREE.Matrix4().makeScale(0, 0, 0);
+  // Vagabundeo/manada de fauna decorativa (docs/GDD_Agentes_Moviles.md,
+  // pedido 2026-09-09) — recolectado aquí mientras se llenan las matrices
+  // iniciales, un único AnimadorFaunaDecorativaSector para TODO el sector
+  // (la búsqueda de vecinos de manada cruza variantes/grupos de la MISMA
+  // especie, ver faunaDecorativaMovimiento.ts).
+  const individuosFaunaDecorativa: IndividuoFaunaDecorativa[] = [];
+  const esTransitableFauna = crearComprobadorTransitableFauna(indice, sector);
 
   await Promise.all(
     [...grupos.values()].map(async (grupo) => {
@@ -789,7 +825,10 @@ async function crearPropsSector(
       // arte más grande y más visible del mapa, sin necesitar NINGÚN .glb
       // nuevo: las 189/189 especies ya tienen rig 3D real).
       if (grupo.tipo === "a") {
-        const mallaFauna = await obtenerMallaFaunaDecorativa(grupo.id, grupo.variante);
+        const [mallaFauna, gregario] = await Promise.all([
+          obtenerMallaFaunaDecorativa(grupo.id, grupo.variante),
+          esFaunaDecorativaGregaria(grupo.id),
+        ]);
         if (mallaFauna) {
           mallaFauna.updateMatrix();
           const instanciado = new THREE.InstancedMesh(mallaFauna.geometry, mallaFauna.material, grupo.objetos.length);
@@ -804,8 +843,9 @@ async function crearPropsSector(
           const escala = new THREE.Vector3();
           const ejeY = new THREE.Vector3(0, 1, 0);
           grupo.objetos.forEach(({ globalX, globalY, obj }, indice2) => {
+            const rotYRad = THREE.MathUtils.degToRad(obj.ro || 0);
             posicion.set(globalX + 0.5, 0, globalY + 0.5);
-            rotacion.setFromAxisAngle(ejeY, THREE.MathUtils.degToRad(obj.ro || 0));
+            rotacion.setFromAxisAngle(ejeY, rotYRad);
             escala.setScalar(obj.es || 1);
             matriz.compose(posicion, rotacion, escala);
             matriz.multiply(mallaFauna.matrix);
@@ -813,6 +853,23 @@ async function crearPropsSector(
             ocultables.set(clavePosicion(globalX, globalY), () => {
               instanciado.setMatrixAt(indice2, matrizCero);
               instanciado.instanceMatrix.needsUpdate = true;
+            });
+            individuosFaunaDecorativa.push({
+              especieId: grupo.id,
+              gregario,
+              instanciado,
+              indice: indice2,
+              homeX: globalX + 0.5,
+              homeY: globalY + 0.5,
+              x: globalX + 0.5,
+              y: globalY + 0.5,
+              rotY: rotYRad,
+              escala: obj.es || 1,
+              destino: null,
+              // Desfasado al azar (0..PAUSA máxima) para que no arranquen a
+              // caminar todos a la vez el mismo frame — mismo criterio que
+              // el servidor, cuya pausa inicial también es aleatoria.
+              pausaRestante: Math.random() * 6,
             });
           });
           instanciado.instanceMatrix.needsUpdate = true;
@@ -954,7 +1011,10 @@ async function crearPropsSector(
     }),
   );
 
-  return { raiz, ocultables };
+  const animadorFauna = individuosFaunaDecorativa.length > 0
+    ? new AnimadorFaunaDecorativaSector(individuosFaunaDecorativa, esTransitableFauna)
+    : null;
+  return { raiz, ocultables, animadorFauna };
 }
 
 const ALTURA_MURALLA: Record<string, number> = { empalizada: 1.7, muralla_piedra: 2.6 };
@@ -1032,6 +1092,8 @@ function crearMurallaSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
 export interface HandleSector {
   grupo: THREE.Group;
   ocultarPosicion: (x: number, y: number) => void;
+  /** Vagabundeo/manada de fauna decorativa (docs/GDD_Agentes_Moviles.md) — llamar una vez por frame desde el bucle de render; no-op si este sector no tiene fauna decorativa. */
+  actualizarFaunaDecorativa: (dtMs: number) => void;
 }
 
 /**
@@ -1058,7 +1120,7 @@ export async function crearSectorVisual(
   const terreno = crearTerrenoSector(indice, sector, margenVisual, nivelNieveActual);
   grupo.add(terreno.grupo);
   grupo.add(crearMurallaSector(indice, sector));
-  const { raiz, ocultables } = await crearPropsSector(sector, excluidos);
+  const { raiz, ocultables, animadorFauna } = await crearPropsSector(indice, sector, excluidos);
   grupo.add(raiz);
   if (margenVisual > 0) {
     // margenVisual>0 hoy SOLO pasa en arenas — decoración A MANO del margen
@@ -1075,7 +1137,11 @@ export async function crearSectorVisual(
     decoracion.position.set(origenTileX + terreno.ancho / 2, 0, origenTileY + terreno.alto / 2);
     grupo.add(decoracion);
   }
-  return { grupo, ocultarPosicion: (x, y) => ocultables.get(clavePosicion(x, y))?.() };
+  return {
+    grupo,
+    ocultarPosicion: (x, y) => ocultables.get(clavePosicion(x, y))?.(),
+    actualizarFaunaDecorativa: (dtMs) => animadorFauna?.actualizar(dtMs),
+  };
 }
 
 /** Libera GPU/memoria de lo que creó `crearSectorVisual` (llamar tras quitarlo de escena). */

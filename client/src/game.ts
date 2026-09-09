@@ -3229,6 +3229,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // Streaming de sectores: seguir al jugador local (barato — solo
     // reevalúa el anillo tras moverse un umbral de casillas).
     if (jugadorLocal) streaming?.actualizar(jugadorLocal.x, jugadorLocal.z);
+    // Vagabundeo/manada de fauna decorativa (docs/GDD_Agentes_Moviles.md,
+    // pedido 2026-09-09) — cada handle throttlea su propio trabajo pesado
+    // internamente (AnimadorFaunaDecorativaSector), esta llamada es barata
+    // para sectores sin fauna o ya al día este frame.
+    if (streaming) for (const handle of streaming.handlesMaterializados()) handle.actualizarFaunaDecorativa(dt * 1000);
 
     // Demo de personajes/animales: animación idle (respirar, colas, alas)
     for (const animable of animables) animable.actualizar(dt);

@@ -776,6 +776,11 @@ export class HubRoom extends RoomExteriorBase {
     return filas.filter((f) => f.origen === "bake" && f.estado === "talado").map((f) => ({ x: f.x, y: f.y }));
   }
 
+  /** docs/GDD_Agentes_Moviles.md, pedido 2026-09-09 ("la fauna decorativa se debe mover") — posiciones ORIGINALES del bake cuyo individuo sigue vivo en este sector activo, para que el cliente excluya el gemelo decorativo congelado (mismo criterio que `arbolesTaladosEnSector`, solo el Hub tiene GestorFaunaSalvaje). */
+  protected posicionesFaunaVivaEnSector(sectorX: number, sectorY: number): { x: number; y: number }[] {
+    return this.gestorFaunaSalvaje?.posicionesBakeOriginalVivas({ sectorX, sectorY }) ?? [];
+  }
+
   /** docs/GDD_Caza.md — solo el Hub conoce categoriaVida/categoriaRecursoCarne/Piel por especie (catalogoCombate real). */
   protected estadisticasFaunaDe(especieId: string) {
     return this.catalogoCombate?.[especieId] ?? null;

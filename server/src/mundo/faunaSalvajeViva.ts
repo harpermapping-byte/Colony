@@ -15,7 +15,7 @@
 import { MapSchema } from "@colyseus/schema";
 import { Fauna } from "../rooms/schema/HubState";
 import { MundoColision, TIPO } from "./colisiones";
-import { CatalogoEspecies, ObjetoFaunaBakeado, convertirFilaAAnimal, resolverSector } from "./faunaSalvajeSector";
+import { CatalogoEspecies, ObjetoFaunaBakeado, convertirFilaAAnimal, esIndividuoBakeOriginal, resolverSector } from "./faunaSalvajeSector";
 import { necesitaAgua, necesitaComida } from "./reproduccionFauna";
 import { Cadaver, crearCadaver } from "./cadaveres";
 import { CatalogoCombateFauna, EstadisticasCombateAnimal, estadisticasCombatePorDefecto } from "./catalogoCombateFauna";
@@ -106,6 +106,13 @@ function clave(s: CoordenadaSector): string {
   return `${s.sectorX},${s.sectorY}`;
 }
 
+/** Índice dentro de `objetosBakeados` de un id `idInicial` (`mapaId:sectorX:sectorY:indice`), o `null` para una cría/relleno — el ÚLTIMO segmento de una cría/relleno TAMBIÉN es un entero (`:cria:${ahora}:${n}`), así que hace falta el gate real de `esIndividuoBakeOriginal`, no basta con comprobar "el último trozo es un número". Se usa SOLO para reconstruir la posición ORIGINAL del bake (ver `posicionesBakeOriginalVivas`) — la fila persistida puede haber vagabundeado desde entonces, el índice no. */
+function indiceBakeOriginal(id: string): number | null {
+  if (!esIndividuoBakeOriginal(id)) return null;
+  const n = Number(id.slice(id.lastIndexOf(":") + 1));
+  return Number.isInteger(n) ? n : null;
+}
+
 export interface DependenciasFaunaSalvaje {
   mapaId: string;
   catalogo: CatalogoEspecies;
@@ -116,7 +123,7 @@ export interface DependenciasFaunaSalvaje {
   mundo: MundoColision;
   /** Día de mundo fraccional actual — inyectado (no Date.now() aquí) para poder testear con un reloj fijo. */
   ahora: () => number;
-  /** Lee `sector_XXX_YYY.json` y devuelve solo los objetos `t==="a"` — solo se llama la PRIMERA vez que se activa un sector. */
+  /** Lee `sector_XXX_YYY.json` y devuelve solo los objetos `t==="a"` — la PRIMERA vez que se activa un sector (población inicial) Y bajo demanda en `posicionesBakeOriginalVivas` (reconstruir la posición ORIGINAL de un individuo vivo para excluir su gemelo decorativo, como mucho una vez por materialización de sector en cliente — nunca por tick). */
   cargarBakeSector: (s: CoordenadaSector) => ObjetoFaunaBakeado[];
   cargarPersistido: (s: CoordenadaSector) => Promise<{
     filas: FaunaSalvajeFila[];
@@ -159,6 +166,47 @@ export class GestorFaunaSalvaje {
     let n = 0;
     for (const vivos of this.sectoresActivos.values()) n += vivos.length;
     return n;
+  }
+
+  /**
+   * Posiciones ORIGINALES del bake (`baker/src/decoracion.js`, obj.t==="a")
+   * de los individuos que hoy siguen VIVOS en este sector activo — pedido
+   * streamer 2026-09-09 ("la fauna decorativa se debe mover... los
+   * patrones de manada que ya pusimos"): la fauna decorativa estática del
+   * cliente (`client/src/render3d/sectorVisual.ts`) lee del MISMO bake
+   * `t==="a"` que aquí sirve de semilla inicial — en cuanto un sector se
+   * activa, CADA animal decorativo original se convierte en un individuo
+   * vivo real (movimiento/manada/caza de verdad, exactamente lo que se
+   * pedía), pero sin esto el cliente seguiría dibujando ADEMÁS un gemelo
+   * decorativo CONGELADO en la posición original — el mecanismo genérico
+   * de `sector:exclusiones` (docs/GDD_Bosques.md §7) es quien lo evita,
+   * esto es la fuente de datos.
+   *
+   * Devuelve la posición ORIGINAL, nunca la actual: `IndividuoVivo.fila.x/y`
+   * se resincroniza desde `esquema.x/y` en varios puntos del gestor (deja
+   * de coincidir con el bake en cuanto el animal vagabundea), así que hay
+   * que reconstruirla por ÍNDICE releyendo `cargarBakeSector` — barato
+   * porque esto se pide como mucho una vez por materialización de sector
+   * en cliente, nunca por tick. Vacío si el sector no está activo o no
+   * queda ningún individuo bake-original vivo (todos murieron/fueron
+   * domesticados — su decoración YA no tiene gemelo vivo que excluir).
+   */
+  posicionesBakeOriginalVivas(s: CoordenadaSector): { x: number; y: number }[] {
+    const vivos = this.sectoresActivos.get(clave(s));
+    if (!vivos) return [];
+    const indices: number[] = [];
+    for (const v of vivos) {
+      const indice = indiceBakeOriginal(v.fila.id);
+      if (indice !== null) indices.push(indice);
+    }
+    if (indices.length === 0) return [];
+    const bake = this.deps.cargarBakeSector(s);
+    const salida: { x: number; y: number }[] = [];
+    for (const i of indices) {
+      const obj = bake[i];
+      if (obj) salida.push({ x: obj.x, y: obj.y });
+    }
+    return salida;
   }
 
   private transitable(x: number, y: number): boolean {
