@@ -23,6 +23,7 @@ import { sembrarCuentasAdminIniciales } from "./admin/seedAdmin";
 import { cargarPvpDesdeBd } from "./mundo/pvp";
 import { cargarNombreCapitalDesdeBd } from "./mundo/capital";
 import { sembrarMueblesTestZone, sembrarNpcsTutorialTestZone } from "./mundo/semillaTestZone";
+import { obtenerConexionesActivas } from "./mundo/contadorConexiones";
 
 // El BUFFER_SIZE por defecto de @colyseus/schema (8KB, Buffer.poolSize) se
 // queda corto con el Hub real (cientos de NPCs/fauna/construcciones vivas,
@@ -53,6 +54,15 @@ const port = Number(process.env.PORT) || 2567;
 const httpServer = createServer((req, res) => {
   if (manejarPeticionLoginTwitch(req, res)) return;
   if (manejarPeticionAdmin(req, res)) return;
+  // Consultado por server/deploy/autoActualizar.ps1 (pedido streamer
+  // 2026-09-09: auto-deploy que nunca corta una partida en curso) — sin
+  // autenticar a propósito, mismo criterio que el health check de abajo:
+  // solo expone un contador, nada sensible.
+  if (req.url === "/estado") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ jugadoresConectados: obtenerConexionesActivas() }));
+    return;
+  }
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Streamer Colony server OK");
 });

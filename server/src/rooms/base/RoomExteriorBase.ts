@@ -175,6 +175,7 @@ import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { nombreCapitalOverride, fijarNombreCapital, LONGITUD_MAXIMA_NOMBRE_CAPITAL } from "../../mundo/capital";
 import { nuevasClavesReveladas, sectorDePosicion, empaquetarSector } from "../../mundo/exploracion";
 import { COSTE_REPOSICION_FAUNA } from "../../mundo/faunaSalvajeViva";
+import { jugadorConectado, jugadorDesconectado } from "../../mundo/contadorConexiones";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
 import {
@@ -1855,10 +1856,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // instante y luego se sustituye por lo guardado, sin bloquear el join.
     void this.cargarInventarioYEquipoDe(client, player.name);
 
+    jugadorConectado(); // contadorConexiones.ts — GET /estado lo usa para saber si es seguro reiniciar el proceso sin cortar partida
     return player;
   }
 
   async onLeave(client: Client) {
+    jugadorDesconectado(); // pareja exacta del incremento en crearJugador — ver contadorConexiones.ts
     this.vistaActualPorSesion.delete(client.sessionId); // interest-management (ver actualizarVistaDeInteres) — nada que revertir en el StateView, se destruye con la sesión
     const nombreSaliente = this.state.players.get(client.sessionId)?.name;
     const twitchLoginSaliente = this.twitchLoginPorSesion.get(client.sessionId);
