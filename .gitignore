@@ -40,6 +40,9 @@ client/test/capturas_aldea_amurallada/
 client/test/capturas_murallas/
 client/test/capturas_mazmorra/
 client/test/capturas_cadaveres/
+# generado por client/test/generarSiluetaTestSector.js (docs/GDD_Bakeador_POIs.md
+# §13ter) — desechable, regenerar cuando haga falta probar la silueta a mano
+client/test/siluetaTestSector.json
 assets/mapas/aldea_test/
 assets/mapas/hub_test/
 assets/mapas/torre_test/

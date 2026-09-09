@@ -415,6 +415,18 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
   // ciudades/, así que el cliente no necesita ningún caso nuevo. También se
   // reserva su huella entera como terreno "solar_edificio" (bloquea el
   // paso, misma convención que ciudades/) para que nadie atraviese la caja.
+  //
+  // `xBloqueo`/`yBloqueo`/`huellaBloqueo` (opcionales, 2026-09-09): un POI
+  // puede querer bloquear una huella DISTINTA de la que ocupa visualmente
+  // — caso real: la silueta de un asentamiento entero se coloca/exporta
+  // centrada en TODA su caja delimitadora (incluye MARGEN_EXTRAMUROS,
+  // terreno vacío de sobra alrededor de la muralla real), pero bloquear
+  // esa caja COMPLETA dejaría la puerta real inalcanzable (a decenas de
+  // casillas de cualquier terreno libre) — con estos 3 campos opcionales
+  // `colocarSiluetaYPuertaDeAsentamiento` (instanciasPOI.js) puede pedir
+  // un bloqueo más ajustado a la muralla real sin tocar la posición/huella
+  // visual. Sin pasarlos, comportamiento IDÉNTICO al de siempre (cae a
+  // `info.x/info.y/info.huella`).
   const edificiosPOIPorChunk = new Map();
   const footprintEdificiosPOI = new Set();
   for (const info of objetosPorPOI.values()) {
@@ -430,8 +442,9 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
       dy: info.y - Math.floor(info.y),
     });
 
-    const [hw, hl] = info.huella;
-    const x0 = Math.round(info.x - hw / 2), y0 = Math.round(info.y - hl / 2);
+    const xB = info.xBloqueo ?? info.x, yB = info.yBloqueo ?? info.y;
+    const [hw, hl] = info.huellaBloqueo || info.huella;
+    const x0 = Math.round(xB - hw / 2), y0 = Math.round(yB - hl / 2);
     for (let dy = 0; dy < hl; dy++) {
       for (let dx = 0; dx < hw; dx++) footprintEdificiosPOI.add(`${x0 + dx}_${y0 + dy}`);
     }

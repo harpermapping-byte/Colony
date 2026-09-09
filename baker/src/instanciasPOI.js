@@ -183,15 +183,27 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
   // o `assets/mapas/<nombre>/` si ya está en su sitio) — es la carpeta de
   // ARTE compartida de todo el repo, la misma que ya usa taller-vox.
   let generarSiluetaCiudad = null;
+  let uVoxelesSilueta = null;
   let exportarModeloGlb = null;
   const carpetaAssetsEdificios = path.join(__dirname, "..", "..", "assets", "edificios");
   function generarYExportarSilueta(ciudad, semillaPOI, slug) {
-    if (!generarSiluetaCiudad) ({ generarSiluetaCiudad } = require("../../taller-vox/generarSiluetaCiudad"));
+    if (!generarSiluetaCiudad) ({ generarSiluetaCiudad, U: uVoxelesSilueta } = require("../../taller-vox/generarSiluetaCiudad"));
     if (!exportarModeloGlb) ({ exportarModelo: exportarModeloGlb } = require("../../taller-vox/exportar_glb"));
     const id = `ciudad_${slug}`;
     const rnd = crearPRNG(semillaDesdeTexto(`${semillaPOI}:silueta`));
     const modelo = generarSiluetaCiudad(ciudad, rnd);
     fs.mkdirSync(carpetaAssetsEdificios, { recursive: true });
+    // v2 (2026-09-09, misma noche que el fix de esquina-vs-centro de
+    // arriba): `generarSiluetaCiudad` reescrito de raíz — muralla continua
+    // real (rasterizada sobre `ciudad.poligonoMuralla`, no bloques cada 3
+    // casillas), edificios sólidos densos (no láminas de tejado flotantes)
+    // y `puertaPrincipal` (posición+ángulo REAL del hueco de la muralla en
+    // el cruce del camino principal) — pedido explícito del streamer tras
+    // ver capturas reales: "no se ve nada de eso... la puerta debe
+    // coincidir con una que se genere en la muralla". Devuelve también
+    // `puertaPrincipal` para que `colocarSiluetaYPuertaDeAsentamiento`
+    // alinee ahí la estructura interactiva y el portal — ver esa función
+    // para el porqué completo. Detalle en docs/GDD_Bakeador_POIs.md §13ter.
     // centrarXZ:true — bug real encontrado 2026-09-09 verificando en vivo la
     // silueta recién promocionada: `generarSiluetaCiudad`/`generar_edificio.js`
     // (TODO taller-vox de edificios, no solo esta pieza) autoran sus cajas en
@@ -218,8 +230,20 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
     // (cientos de edificios ya bakeados en varios mapas) — fuera de alcance
     // de "arreglar el cuadrado morado", documentado como pendiente real en
     // docs/GDD_Motor_3D_Props.md.
-    exportarModeloGlb(modelo, id, path.join(carpetaAssetsEdificios, `${id}_01.glb`), 0.1, true);
-    return id;
+    // unit = 1/U, NUNCA fijo a 0.1: exportar_glb.js escribe vértices en
+    // coordenadas de VÓXEL crudas (`px*U`) y `unit` las reconvierte a
+    // unidades de mundo (1 casilla = 1 unidad de mundo, convención del
+    // resto del juego) — con U=10 (el resto de taller-vox) 1/U=0.1
+    // coincidía por casualidad con el valor fijo que llevaba esta llamada;
+    // al bajar `generarSiluetaCiudad.js` a U=4 (silueta más grande, menos
+    // resolución por casilla, ver su cabecera) ese 0.1 fijo dejaba
+    // 1 casilla = U*0.1 = 0.4 unidades de mundo — la silueta entera se
+    // exportaba a un 40% de su tamaño real, un bug real encontrado
+    // verificando en vivo (la muralla salía como un anillo diminuto muy
+    // por dentro de donde la puerta/portal, calculados en coordenadas de
+    // mundo reales sin este error, sí caían).
+    exportarModeloGlb(modelo, id, path.join(carpetaAssetsEdificios, `${id}_01.glb`), 1 / uVoxelesSilueta, true);
+    return { id, puertaPrincipal: modelo.puertaPrincipal };
   }
 
   const portales = [];
@@ -240,11 +264,47 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
    * del fix de esta misma noche).
    */
   function colocarSiluetaYPuertaDeAsentamiento(ciudad, poi, slug, semillaPOI) {
-    const tipoEdificioIdCiudad = generarYExportarSilueta(ciudad, semillaPOI, slug);
+    const { id: tipoEdificioIdCiudad, puertaPrincipal } = generarYExportarSilueta(ciudad, semillaPOI, slug);
+
+    // Conversión LOCAL (rejilla [0,ancho]x[0,alto] de la ciudad — el mismo
+    // espacio que usan poligonoMuralla/modulosMuralla/edificios.cx,cy) ->
+    // MUNDO: la silueta se exporta con centrarXZ:true (generarYExportarSilueta,
+    // arriba), así que su origen local (0,0,0) cae exactamente en el punto
+    // local (ancho/2, alto/2) — el mismo punto que se coloca en (poi.x, poi.y).
+    // Cualquier punto local (lx,ly) cae entonces en mundo (poi.x+lx-ancho/2,
+    // poi.y+ly-alto/2).
+    const aMundoX = (lx) => poi.x + lx - ciudad.ancho / 2;
+    const aMundoY = (ly) => poi.y + ly - ciudad.alto / 2;
+
+    // Bloqueo de terreno AJUSTADO a la muralla real, no a la caja
+    // delimitadora entera (2026-09-09, pedido streamer: "simula el
+    // espacio que ocupa la aldea/ciudad", no un rectángulo mucho más
+    // grande que la muralla real) — `ciudad.ancho`/`ciudad.alto` incluyen
+    // MARGEN_EXTRAMUROS=16 casillas de respiro alrededor (ciudades/src/
+    // generar.js), terreno vacío que debería quedar caminable. Se calcula
+    // la caja delimitadora REAL del polígono de muralla (con un margen
+    // pequeño para las torres/almenas, que sobresalen un poco de sus
+    // vértices) y se bloquea SOLO esa, vía los campos opcionales
+    // `xBloqueo`/`yBloqueo`/`huellaBloqueo` de baker/src/generar.js — la
+    // huella VISUAL (`huella`, usada solo si el .glb no llega a cargar y
+    // cae al placeholder) se queda con la caja completa, sin cambio.
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const v of ciudad.poligonoMuralla) {
+      if (v.x < minX) minX = v.x; if (v.x > maxX) maxX = v.x;
+      if (v.y < minY) minY = v.y; if (v.y > maxY) maxY = v.y;
+    }
+    const margenBloqueo = 4;
+    const anchoBloqueo = Math.max(4, Math.ceil(maxX - minX) + margenBloqueo * 2);
+    const altoBloqueo = Math.max(4, Math.ceil(maxY - minY) + margenBloqueo * 2);
+    const cxLocalBloqueo = (minX + maxX) / 2, cyLocalBloqueo = (minY + maxY) / 2;
+
     objetosPorPOI.set(slug, {
       x: poi.x,
       y: poi.y,
       huella: [ciudad.ancho, ciudad.alto],
+      xBloqueo: aMundoX(cxLocalBloqueo),
+      yBloqueo: aMundoY(cyLocalBloqueo),
+      huellaBloqueo: [anchoBloqueo, altoBloqueo],
       objeto: {
         i: tipoEdificioIdCiudad,
         t: "e",
@@ -258,32 +318,62 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
       },
     });
 
-    // Puerta real (bug real cerrado 2026-09-09, pedido streamer jugando:
-    // "la capital sigue viéndose por fuera un placeholder, debería verse
-    // una aldea con puerta y poder entrar por ella"): el portal vivía en
-    // el CENTRO GEOMÉTRICO del asentamiento — el mismo punto que el
-    // bloque de arriba reserva entero como `solar_edificio` (terreno
-    // bloqueado) — así que NINGÚN jugador podía llegar nunca a
-    // `RADIO_INTERACCION` de él: inalcanzable a pie, no solo feo. Se añade
-    // una estructura de puerta real y pequeña (huella fija [6,2],
-    // `taller-vox/generar_puerta_asentamiento.js`, mismo tipoEdificioId
-    // sintético -> mismo camino `t:"e"` que la silueta, cero cambio de
-    // cliente) pegada al borde SUR de la silueta, y el portal se mueve
-    // justo delante de ELLA (mismo convenio "+1 fila fuera de la huella"
-    // que ya usa el POI "edificio" suelto) — terreno normal, caminable,
-    // fuera de cualquier huella sólida.
+    // Puerta real, ALINEADA con un hueco real de la muralla (v2,
+    // 2026-09-09, misma noche que el rediseño de generarSiluetaCiudad —
+    // pedido explícito del streamer viendo capturas: "la puerta debe
+    // coincidir con una que se genere en la muralla"). v1 (más temprano
+    // esta misma noche) la pegaba siempre al borde sur FIJO de la caja
+    // delimitadora, sin relación con la muralla real — `puertaPrincipal`
+    // (devuelto por generarSiluetaCiudad, sacado de `ciudad.puertas[0]` +
+    // el módulo "puerta" real más cercano) da la posición Y el ángulo
+    // tangente REALES del hueco que la propia silueta ya dejó en el
+    // anillo — la estructura interactiva (huella fija [6,2],
+    // `generar_puerta_asentamiento.js`, simétrica bilateral Y
+    // longitudinalmente — cualquier `ro` que alinee su eje ancho con la
+    // tangente vale, sin importar el signo) se coloca y rota exactamente
+    // ahí, y el portal se empuja hacia FUERA en la dirección radial desde
+    // el centro real de la ciudad (`ciudad.focal`, NO el centro
+    // geométrico de la caja: el polígono se construyó alrededor de focal)
+    // hasta salir de la caja de BLOQUEO ajustada de arriba + un margen —
+    // así el portal cae siempre en terreno caminable de verdad, sin
+    // importar cuánto se desvíe `focal` del centro de la caja (hasta ~34
+    // casillas medido en capital_jarl).
     const anchoPuerta = 6, altoPuerta = 2;
-    const bordeSurCiudad = poi.y + ciudad.alto / 2;
-    const centroPuertaY = bordeSurCiudad + altoPuerta / 2;
+    let xPuerta, yPuerta, roPuerta, xPortal, yPortal;
+    if (puertaPrincipal) {
+      xPuerta = aMundoX(puertaPrincipal.x);
+      yPuerta = aMundoY(puertaPrincipal.y);
+      roPuerta = puertaPrincipal.rotDeg;
+      const dx = puertaPrincipal.x - ciudad.focal.x, dy = puertaPrincipal.y - ciudad.focal.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const ndx = dx / dist, ndy = dy / dist;
+      // distancia hasta salir de la caja de bloqueo (raycast contra AABB,
+      // el punto de partida está DENTRO por construcción) + margen
+      const rx = puertaPrincipal.x - cxLocalBloqueo, ry = puertaPrincipal.y - cyLocalBloqueo;
+      const hw = anchoBloqueo / 2, hh = altoBloqueo / 2;
+      const tx = ndx > 0 ? (hw - rx) / ndx : ndx < 0 ? (-hw - rx) / ndx : Infinity;
+      const ty = ndy > 0 ? (hh - ry) / ndy : ndy < 0 ? (-hh - ry) / ndy : Infinity;
+      const empuje = Math.max(0, Math.min(tx, ty)) + 1.5;
+      xPortal = xPuerta + ndx * empuje;
+      yPortal = yPuerta + ndy * empuje;
+    } else {
+      // Sin puerta real detectada (caso límite, polígono degenerado sin
+      // ningún camino cruzándolo — nunca visto en producción, pero no
+      // debe romper el bake): mismo fallback fijo de siempre, borde sur.
+      const bordeSurCiudad = poi.y + ciudad.alto / 2;
+      xPuerta = poi.x; yPuerta = bordeSurCiudad + altoPuerta / 2; roPuerta = 0;
+      xPortal = poi.x; yPortal = yPuerta + altoPuerta / 2 + 1;
+    }
+
     objetosPorPOI.set(`${slug}_puerta`, {
-      x: poi.x,
-      y: centroPuertaY,
+      x: xPuerta,
+      y: yPuerta,
       huella: [anchoPuerta, altoPuerta],
       objeto: {
         i: "puerta_asentamiento",
         t: "e",
         va: semillaDesdeTexto(`${semillaPOI}:puerta`) % VARIANTES_EDIFICIO,
-        ro: 0,
+        ro: roPuerta,
         es: 1,
         w: anchoPuerta,
         h: altoPuerta,
@@ -291,12 +381,10 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
         dy: 0,
       },
     });
-    const puertaX = Math.round(poi.x);
-    const puertaY = Math.round(bordeSurCiudad + altoPuerta) + 1;
     portales.push({
       tipo: "exterior",
-      x: puertaX,
-      y: puertaY,
+      x: Math.round(xPortal),
+      y: Math.round(yPortal),
       // RELATIVO a propósito (bug real 2026-09-09, "la puerta de la
       // capital da ENOENT al cruzarla"): antes se horneaba
       // `${mapaId}/pois/${slug}` con el `mapaId` de ESTE bake (derivado
