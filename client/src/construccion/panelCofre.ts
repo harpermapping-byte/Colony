@@ -18,8 +18,21 @@
  * a diferencia del drag&drop DENTRO del inventario propio (que sí reordena
  * a mano con `inventario:mover`). El botón "Sacar" de toda la vida se
  * mantiene igual de accesible que el arrastre.
+ *
+ * Chrome visual migrado al marco compartido (pedido streamer 2026-09-09,
+ * "TODA pantalla... debe salir así con esta estética") — X + clic fuera +
+ * Escape los da `crearMarcoPanel`, el botón "Cerrar" casero se retira. La
+ * rejilla en sí (celdas draggable por (x,y)) sigue siendo un `<div>` con su
+ * propio grid CSS, sin tocar, solo colgado de `marco.cuerpo` en vez del
+ * `raiz` de antes — el drag&drop no depende de qué envuelve a la rejilla.
+ * El nombre real del cofre (variable, lo fija el servidor por `cofre:estado`)
+ * sigue mostrándose como primera línea del cuerpo — la cabecera del marco
+ * usa un título genérico fijo, mismo criterio que el resto de paneles
+ * migrados (p.ej. panelJugador.ts muestra `player.name` en el cuerpo bajo
+ * una cabecera fija "Jugador"), panelBase.ts no ofrece título dinámico.
  */
 import itemsJson from "../../../items/catalogo/items.json";
+import { crearMarcoPanel, type MarcoPanel } from "../ui/panelBase";
 
 interface EntradaItem {
   nombre?: string;
@@ -52,7 +65,7 @@ export interface OpcionesPanelCofre {
 }
 
 export class PanelCofre {
-  private raiz: HTMLDivElement;
+  private readonly marco: MarcoPanel;
   private idAbierto: number | null = null;
   private nombre = "";
   private ancho = 1;
@@ -60,22 +73,16 @@ export class PanelCofre {
   private items: ItemCofre[] = [];
 
   constructor(private opciones: OpcionesPanelCofre) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "50%";
-    this.raiz.style.top = "40%";
-    this.raiz.style.transform = "translate(-50%, -50%)";
-    this.raiz.style.background = "rgba(20,16,10,0.94)";
-    this.raiz.style.color = "#f0e4c8";
-    this.raiz.style.font = "12px sans-serif";
-    this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #8a6a2a";
-    this.raiz.style.minWidth = "220px";
-    this.raiz.style.maxHeight = "60vh";
-    this.raiz.style.overflowY = "auto";
-    this.raiz.style.display = "none";
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Cofre", icono: "🧰", left: "50%", top: "40%" });
+    this.marco.raiz.style.transform = "translate(-50%, -50%)";
+    this.marco.raiz.style.maxHeight = "60vh";
+    // Cerrar por CUALQUIER vía (X, clic fuera, Escape) también olvida el
+    // cofre "abierto" a nivel de datos — mismo criterio que los paneles
+    // legendarios, para no dejar `idAbierto` apuntando a un cofre que ya no
+    // se ve en pantalla.
+    this.marco.onCambioEstado(() => {
+      if (!this.marco.estaAbierto()) this.idAbierto = null;
+    });
   }
 
   abrir(nombre: string) {
@@ -88,35 +95,27 @@ export class PanelCofre {
     this.ancho = Math.max(1, ancho);
     this.alto = Math.max(1, alto);
     this.items = items;
+    this.marco.abrir();
     this.render();
   }
 
   cerrar() {
     this.idAbierto = null;
-    this.raiz.style.display = "none";
+    this.marco.cerrar();
   }
 
   private render() {
-    this.raiz.innerHTML = "";
-    if (this.idAbierto === null) {
-      this.raiz.style.display = "none";
-      return;
-    }
-    this.raiz.style.display = "block";
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
+    if (this.idAbierto === null) return;
 
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "8px";
     titulo.textContent = this.nombre || "Cofre";
-    this.raiz.appendChild(titulo);
+    cuerpo.appendChild(titulo);
 
-    this.raiz.appendChild(this.renderGrid());
-
-    const btnCerrar = document.createElement("button");
-    btnCerrar.textContent = "Cerrar";
-    btnCerrar.style.marginTop = "8px";
-    btnCerrar.onclick = () => this.cerrar();
-    this.raiz.appendChild(btnCerrar);
+    cuerpo.appendChild(this.renderGrid());
   }
 
   /** Rejilla real (mismo patrón que panelJugador.ts::renderGridContenedor) — celdas por (x,y), arrastrables, con botón "Sacar" (y "Leer" si aplica) superpuesto. */

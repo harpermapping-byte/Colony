@@ -2,11 +2,10 @@
  * Panel del tenderete de mercado de jugador (docs/GDD_Mercado.md §12, pedido
  * posterior a v1: mueble `puesto_mercado_jugador` con inventario propio,
  * precios que fija el dueño, tendero contratable, caja de ganancias) —
- * mismo patrón DOM flotante que `panelCofre.ts`/`panelReclutador.ts`: sin
- * targeting propio, el servidor decide quién puede hacer qué ("Gestionar"
- * lo rechaza si no eres el dueño, "Comprar" lo rechaza si lo eres o si no
- * hay tendero contratado — mismo criterio "sin UI de targeting" del resto
- * del proyecto).
+ * marco compartido (`panelBase.ts`, tema madera/pergamino): sin targeting
+ * propio, el servidor decide quién puede hacer qué ("Gestionar" lo rechaza
+ * si no eres el dueño, "Comprar" lo rechaza si lo eres o si no hay tendero
+ * contratado — mismo criterio "sin UI de targeting" del resto del proyecto).
  *
  * Dos modos, un único panel (evita duplicar el DOM flotante):
  * - `comprar`: escaparate público (`tenderete:escaparate`) — precio y
@@ -15,6 +14,7 @@
  *   fijar precio por ítem, reponer desde el propio cuerpo, recoger la caja
  *   de ganancias acumuladas.
  */
+import { crearMarcoPanel, crearBoton, crearInput, crearLineaTexto, crearSubtitulo } from "../ui/panelBase";
 import itemsJson from "../../../items/catalogo/items.json";
 
 interface EntradaItem {
@@ -53,12 +53,8 @@ export interface OpcionesPanelTenderete {
   itemsDelCuerpo(): ItemCuerpoParaReponer[];
 }
 
-const COLOR_FONDO = "rgba(20,16,10,0.94)";
-const COLOR_BORDE = "#8a6a2a";
-const COLOR_TEXTO = "#f0e4c8";
-
 export class PanelTenderete {
-  private raiz: HTMLDivElement;
+  private readonly marco;
   private modo: "comprar" | "gestion" | null = null;
   private tenderoteId: string | null = null;
   private tendero = false;
@@ -68,22 +64,9 @@ export class PanelTenderete {
   private ultimoError = "";
 
   constructor(private opciones: OpcionesPanelTenderete) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "50%";
-    this.raiz.style.top = "40%";
-    this.raiz.style.transform = "translate(-50%, -50%)";
-    this.raiz.style.background = COLOR_FONDO;
-    this.raiz.style.color = COLOR_TEXTO;
-    this.raiz.style.font = "12px sans-serif";
-    this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = `1px solid ${COLOR_BORDE}`;
-    this.raiz.style.minWidth = "260px";
-    this.raiz.style.maxHeight = "65vh";
-    this.raiz.style.overflowY = "auto";
-    this.raiz.style.display = "none";
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Puesto de Mercado", icono: "🏪", left: "50%", top: "40%", ancho: "300px" });
+    this.marco.raiz.style.transform = "translate(-50%, -50%)";
+    this.marco.raiz.style.maxHeight = "65vh";
   }
 
   /** Fija el objetivo del clic — el `tenderete:escaparate`/`tenderete:gestion` de respuesta rellena el resto (mismo patrón que PanelCofre.abrir + actualizarEstado). */
@@ -91,6 +74,7 @@ export class PanelTenderete {
     this.modo = "comprar";
     this.tenderoteId = tenderoteId;
     this.ultimoError = "";
+    this.marco.abrir();
     this.render();
   }
 
@@ -98,6 +82,7 @@ export class PanelTenderete {
     this.modo = "gestion";
     this.tenderoteId = tenderoteId;
     this.ultimoError = "";
+    this.marco.abrir();
     this.render();
   }
 
@@ -124,59 +109,40 @@ export class PanelTenderete {
   cerrar() {
     this.modo = null;
     this.tenderoteId = null;
-    this.raiz.style.display = "none";
+    this.marco.cerrar();
   }
 
   private render() {
-    this.raiz.innerHTML = "";
-    if (this.modo === null || this.tenderoteId === null) {
-      this.raiz.style.display = "none";
-      return;
-    }
-    this.raiz.style.display = "block";
-
-    const titulo = document.createElement("div");
-    titulo.style.fontWeight = "bold";
-    titulo.style.marginBottom = "4px";
-    titulo.textContent = this.modo === "comprar" ? "Puesto de Mercado" : "Mi Tenderete";
-    this.raiz.appendChild(titulo);
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
+    if (this.modo === null || this.tenderoteId === null) return;
 
     if (!this.tendero) {
-      const aviso = document.createElement("div");
-      aviso.style.color = "#e0a060";
-      aviso.style.fontSize = "11px";
-      aviso.style.marginBottom = "6px";
-      aviso.textContent = this.modo === "comprar"
-        ? "Cerrado — este puesto no tiene tendero contratado."
-        : "Sin tendero contratado: los clientes no pueden comprar todavía (contrátalo desde el reclutador).";
-      this.raiz.appendChild(aviso);
+      const aviso = crearLineaTexto(
+        this.modo === "comprar"
+          ? "Cerrado — este puesto no tiene tendero contratado."
+          : "Sin tendero contratado: los clientes no pueden comprar todavía (contrátalo desde el reclutador).",
+        { fontSize: "11px" }
+      );
+      aviso.style.color = "var(--error-color)";
+      cuerpo.appendChild(aviso);
     }
 
     if (this.ultimoError) {
       const err = document.createElement("div");
-      err.style.color = "#e08080";
-      err.style.fontSize = "11px";
-      err.style.marginBottom = "6px";
+      err.className = "panel-colony-error";
       err.textContent = this.ultimoError;
-      this.raiz.appendChild(err);
+      cuerpo.appendChild(err);
     }
 
     if (this.modo === "comprar") this.renderComprar();
     else this.renderGestion();
-
-    const btnCerrar = document.createElement("button");
-    btnCerrar.textContent = "Cerrar";
-    btnCerrar.style.marginTop = "8px";
-    btnCerrar.onclick = () => this.cerrar();
-    this.raiz.appendChild(btnCerrar);
   }
 
   private renderComprar() {
+    const cuerpo = this.marco.cuerpo;
     if (this.itemsEscaparate.length === 0) {
-      const vacio = document.createElement("div");
-      vacio.style.opacity = "0.7";
-      vacio.textContent = "(sin objetos a la venta)";
-      this.raiz.appendChild(vacio);
+      cuerpo.appendChild(crearLineaTexto("(sin objetos a la venta)", { tenue: true }));
       return;
     }
     for (const it of this.itemsEscaparate) {
@@ -190,20 +156,19 @@ export class PanelTenderete {
       etiqueta.style.opacity = it.disponible ? "1" : "0.5";
       etiqueta.textContent = `${nombreDe(it.itemId)} — ${it.precioFarycoins}₣${it.disponible ? "" : " (agotado)"}`;
       fila.appendChild(etiqueta);
-      const btn = document.createElement("button");
-      btn.textContent = "Comprar 1";
+      const btn = crearBoton("Comprar 1", () => this.opciones.comprar(this.tenderoteId!, it.itemId, 1));
       btn.disabled = !it.disponible || !this.tendero;
-      btn.onclick = () => this.opciones.comprar(this.tenderoteId!, it.itemId, 1);
       fila.appendChild(btn);
-      this.raiz.appendChild(fila);
+      cuerpo.appendChild(fila);
     }
   }
 
   private renderGestion() {
+    const cuerpo = this.marco.cuerpo;
     const caja = document.createElement("div");
     caja.style.margin = "4px 0 8px";
     caja.style.padding = "6px 8px";
-    caja.style.background = "rgba(255,255,255,0.06)";
+    caja.style.background = "var(--panel-hover)";
     caja.style.borderRadius = "5px";
     caja.style.display = "flex";
     caja.style.justifyContent = "space-between";
@@ -211,24 +176,15 @@ export class PanelTenderete {
     const etiquetaCaja = document.createElement("span");
     etiquetaCaja.textContent = `Ganancias sin recoger: ${this.cajaFarycoins}₣`;
     caja.appendChild(etiquetaCaja);
-    const btnRecoger = document.createElement("button");
-    btnRecoger.textContent = "Recoger ganancias";
+    const btnRecoger = crearBoton("Recoger ganancias", () => this.opciones.recogerGanancias(this.tenderoteId!));
     btnRecoger.disabled = this.cajaFarycoins <= 0;
-    btnRecoger.onclick = () => this.opciones.recogerGanancias(this.tenderoteId!);
     caja.appendChild(btnRecoger);
-    this.raiz.appendChild(caja);
+    cuerpo.appendChild(caja);
 
-    const subVenta = document.createElement("div");
-    subVenta.style.fontWeight = "bold";
-    subVenta.style.margin = "6px 0 2px";
-    subVenta.textContent = "A la venta";
-    this.raiz.appendChild(subVenta);
+    cuerpo.appendChild(crearSubtitulo("A la venta"));
 
     if (this.itemsGestion.length === 0) {
-      const vacio = document.createElement("div");
-      vacio.style.opacity = "0.7";
-      vacio.textContent = "(nada repuesto todavía)";
-      this.raiz.appendChild(vacio);
+      cuerpo.appendChild(crearLineaTexto("(nada repuesto todavía)", { tenue: true }));
     }
     for (const it of this.itemsGestion) {
       const fila = document.createElement("div");
@@ -240,34 +196,24 @@ export class PanelTenderete {
       const etiqueta = document.createElement("span");
       etiqueta.textContent = `${nombreDe(it.itemId)} x${it.cantidad}`;
       fila.appendChild(etiqueta);
-      const inputPrecio = document.createElement("input");
-      inputPrecio.type = "number";
+      const inputPrecio = crearInput({ tipo: "number" });
       inputPrecio.min = "1";
       inputPrecio.value = String(it.precioFarycoins);
       inputPrecio.style.width = "56px";
       fila.appendChild(inputPrecio);
-      const btnPrecio = document.createElement("button");
-      btnPrecio.textContent = "Fijar precio";
-      btnPrecio.onclick = () => {
+      const btnPrecio = crearBoton("Fijar precio", () => {
         const precio = Math.max(1, Math.floor(Number(inputPrecio.value) || 0));
         this.opciones.fijarPrecio(this.tenderoteId!, it.itemId, precio);
-      };
+      });
       fila.appendChild(btnPrecio);
-      this.raiz.appendChild(fila);
+      cuerpo.appendChild(fila);
     }
 
-    const subReponer = document.createElement("div");
-    subReponer.style.fontWeight = "bold";
-    subReponer.style.margin = "10px 0 2px";
-    subReponer.textContent = "Reponer desde tu inventario";
-    this.raiz.appendChild(subReponer);
+    cuerpo.appendChild(crearSubtitulo("Reponer desde tu inventario"));
 
     const propios = this.opciones.itemsDelCuerpo();
     if (propios.length === 0) {
-      const vacio = document.createElement("div");
-      vacio.style.opacity = "0.7";
-      vacio.textContent = "(no llevas nada encima)";
-      this.raiz.appendChild(vacio);
+      cuerpo.appendChild(crearLineaTexto("(no llevas nada encima)", { tenue: true }));
       return;
     }
     for (const it of propios) {
@@ -280,21 +226,18 @@ export class PanelTenderete {
       const etiqueta = document.createElement("span");
       etiqueta.textContent = `${nombreDe(it.itemId)} x${it.cantidad}`;
       fila.appendChild(etiqueta);
-      const inputPrecio = document.createElement("input");
-      inputPrecio.type = "number";
+      const inputPrecio = crearInput({ tipo: "number" });
       inputPrecio.min = "1";
       inputPrecio.value = "1";
       inputPrecio.title = "Precio en Farycoins";
       inputPrecio.style.width = "48px";
       fila.appendChild(inputPrecio);
-      const btnReponer = document.createElement("button");
-      btnReponer.textContent = "Poner a la venta";
-      btnReponer.onclick = () => {
+      const btnReponer = crearBoton("Poner a la venta", () => {
         const precio = Math.max(1, Math.floor(Number(inputPrecio.value) || 0));
         this.opciones.reponer(this.tenderoteId!, it.instanciaId, it.cantidad, precio);
-      };
+      });
       fila.appendChild(btnReponer);
-      this.raiz.appendChild(fila);
+      cuerpo.appendChild(fila);
     }
   }
 }

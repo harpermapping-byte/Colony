@@ -34,44 +34,43 @@ export class ModalInstrumento {
     this.fondo.onclick = (e) => { if (e.target === this.fondo) this.ocultar(); };
 
     this.caja = document.createElement("div");
-    this.caja.style.background = "#1c1a22";
-    this.caja.style.color = "#eee8f0";
-    this.caja.style.font = "13px sans-serif";
-    this.caja.style.border = "1px solid #4a4560";
-    this.caja.style.borderRadius = "8px";
+    // Paleta madera/pergamino del tema (pedido streamer 2026-09-09) — el
+    // cierre (clic en el fondo, botón Cerrar, Escape) ya es el correcto,
+    // solo se retocan colores/bordes/fuente.
+    this.caja.style.background = "var(--panel-bg)";
+    this.caja.style.color = "var(--panel-texto)";
+    this.caja.style.font = "var(--panel-fuente)";
+    this.caja.style.border = "3px solid var(--panel-borde)";
+    this.caja.style.borderRadius = "var(--panel-radio)";
     this.caja.style.padding = "18px 20px";
     this.caja.style.minWidth = "280px";
-    this.caja.style.boxShadow = "0 8px 24px rgba(0,0,0,0.5)";
+    this.caja.style.boxShadow = "var(--panel-sombra)";
     this.fondo.appendChild(this.caja);
 
     this.titulo = document.createElement("div");
-    this.titulo.style.fontWeight = "bold";
-    this.titulo.style.fontSize = "15px";
+    this.titulo.style.font = "var(--panel-fuente-titulo)";
+    this.titulo.style.color = "var(--panel-acento)";
     this.titulo.style.marginBottom = "12px";
     this.caja.appendChild(this.titulo);
 
     const etiquetaInput = document.createElement("div");
     etiquetaInput.textContent = "URL directa del archivo .mid:";
-    etiquetaInput.style.opacity = "0.8";
+    etiquetaInput.style.color = "var(--panel-texto-tenue)";
     etiquetaInput.style.marginBottom = "4px";
     this.caja.appendChild(etiquetaInput);
 
     this.input = document.createElement("input");
+    this.input.className = "panel-colony-input";
     this.input.type = "text";
     this.input.placeholder = "https://.../cancion.mid";
     this.input.style.width = "100%";
     this.input.style.boxSizing = "border-box";
-    this.input.style.padding = "6px 8px";
     this.input.style.marginBottom = "10px";
-    this.input.style.background = "#0f0e14";
-    this.input.style.color = "inherit";
-    this.input.style.border = "1px solid #4a4560";
-    this.input.style.borderRadius = "4px";
     this.input.onkeydown = (e) => { if (e.key === "Enter") this.confirmarTocar(); };
     this.caja.appendChild(this.input);
 
     this.lineaError = document.createElement("div");
-    this.lineaError.style.color = "#e2704a";
+    this.lineaError.style.color = "var(--error-color)";
     this.lineaError.style.marginBottom = "8px";
     this.lineaError.style.display = "none";
     this.caja.appendChild(this.lineaError);
@@ -81,10 +80,12 @@ export class ModalInstrumento {
     filaBotones.style.gap = "8px";
     filaBotones.style.justifyContent = "flex-end";
     const btnCancelar = document.createElement("button");
+    btnCancelar.className = "panel-colony-boton";
     btnCancelar.textContent = "Cerrar";
     btnCancelar.onclick = () => this.ocultar();
     filaBotones.appendChild(btnCancelar);
     const btnTocar = document.createElement("button");
+    btnTocar.className = "panel-colony-boton";
     btnTocar.textContent = "Tocar";
     btnTocar.onclick = () => this.confirmarTocar();
     filaBotones.appendChild(btnTocar);

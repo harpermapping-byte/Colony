@@ -6,6 +6,7 @@
  *
  * DOM plano inyectado sobre el canvas, mismo patrón que panelCombate.ts.
  */
+import { crearMarcoPanel, type MarcoPanel } from "../ui/panelBase";
 
 export interface MascotaVista {
   id: number;
@@ -30,24 +31,28 @@ export interface OpcionesPanelMascotas {
 }
 
 export class PanelMascotas {
-  private raiz: HTMLDivElement;
+  private readonly marco: MarcoPanel;
   private mascotas: MascotaVista[] = [];
   private progreso: ProgresoDomesticar | null = null;
 
   constructor(private opciones: OpcionesPanelMascotas) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.right = "16px";
-    this.raiz.style.top = "16px";
-    this.raiz.style.background = "rgba(20,16,10,0.88)";
-    this.raiz.style.color = "#f0e8d8";
-    this.raiz.style.font = "13px sans-serif";
-    this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #6a5a3a";
-    this.raiz.style.minWidth = "220px";
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Mascotas", icono: "🐾", top: "16px" });
+    // Esquina superior-derecha, misma zona que ocupaba antes de migrar.
+    this.marco.raiz.style.left = "auto";
+    this.marco.raiz.style.right = "16px";
     this.render();
+  }
+
+  alternar() {
+    this.marco.alternar();
+  }
+
+  estaAbierto() {
+    return this.marco.estaAbierto();
+  }
+
+  onCambioEstado(cb: () => void) {
+    this.marco.onCambioEstado(cb);
   }
 
   /** Llamar al recibir "mascota:lista" del servidor. */
@@ -63,33 +68,28 @@ export class PanelMascotas {
   }
 
   private render() {
-    this.raiz.innerHTML = "";
-
-    const titulo = document.createElement("div");
-    titulo.style.fontWeight = "bold";
-    titulo.style.marginBottom = "6px";
-    titulo.textContent = "🐾 Mascotas";
-    this.raiz.appendChild(titulo);
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
 
     const ayuda = document.createElement("div");
     ayuda.style.fontSize = "11px";
     ayuda.style.opacity = "0.8";
     ayuda.style.marginBottom = "6px";
     ayuda.textContent = "Tecla G: dar de comer (5 veces la convierte en tu mascota). Con silla puesta: N para ponérsela cerca, M para montar/desmontar, Espacio para saltar montado.";
-    this.raiz.appendChild(ayuda);
+    cuerpo.appendChild(ayuda);
 
     if (this.progreso) {
       const p = document.createElement("div");
       p.style.marginBottom = "8px";
       p.textContent = `Dándole de comer... faltan ${this.progreso.faltan} (${this.progreso.veces}/${this.progreso.veces + this.progreso.faltan})`;
-      this.raiz.appendChild(p);
+      cuerpo.appendChild(p);
     }
 
     if (this.mascotas.length === 0) {
       const vacio = document.createElement("div");
       vacio.style.opacity = "0.7";
       vacio.textContent = "Todavía no tienes ninguna.";
-      this.raiz.appendChild(vacio);
+      cuerpo.appendChild(vacio);
       return;
     }
 
@@ -111,6 +111,7 @@ export class PanelMascotas {
 
       if (m.ubicacion === "propiedad") {
         const llamar = document.createElement("button");
+        llamar.className = "panel-colony-boton";
         llamar.textContent = "Llamar";
         llamar.onclick = () => this.opciones.llamar(m.id);
         fila.appendChild(llamar);
@@ -120,11 +121,13 @@ export class PanelMascotas {
         // inventario — aquí solo se pide, igual que el resto del panel).
         if (!m.montura) {
           const ponerSilla = document.createElement("button");
+          ponerSilla.className = "panel-colony-boton";
           ponerSilla.textContent = "Poner silla";
           ponerSilla.onclick = () => this.opciones.ponerMontura(m.id);
           fila.appendChild(ponerSilla);
         }
         const dejar = document.createElement("button");
+        dejar.className = "panel-colony-boton";
         dejar.textContent = "Dejar aquí";
         dejar.onclick = () => {
           const propiedadId = window.prompt("Id de la propiedad donde dejarla (docs/GDD_Propiedades.md):");
@@ -134,6 +137,6 @@ export class PanelMascotas {
       }
       lista.appendChild(fila);
     }
-    this.raiz.appendChild(lista);
+    cuerpo.appendChild(lista);
   }
 }

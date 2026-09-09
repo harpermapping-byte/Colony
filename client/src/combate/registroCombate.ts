@@ -12,17 +12,29 @@
  *
  * También recoge `combate:error`/`combate:armaRota`, que hasta ahora solo
  * se logueaban en consola del navegador (nunca visibles jugando).
+ *
+ * Paleta madera/pergamino (pedido streamer 2026-09-09: "TODA pantalla que
+ * salga... debe salir así con esta estética") — son toasts efímeros que
+ * aparecen y desaparecen solos, así que NO llevan `crearMarcoPanel` (no
+ * encaja un marco persistente con X en algo que se autodestruye); solo se
+ * retoca la paleta de color/fuente/borde de cada línea a las variables de
+ * temaPaneles.css. Se conserva la distinción visual por tipo (crítica para
+ * leer un combate de un vistazo: "he dado daño" vs "he caído") reusando los
+ * dos tonos que YA existen en el tema para eso — `--panel-acento` (dorado,
+ * el mismo que ya marca énfasis en cabeceras/bordes de panel) y
+ * `--error-color` (el mismo rojo que ya usa `.panel-colony-error`) — en vez
+ * de inventar hex nuevos ajenos al tema.
  */
 
 const DURACION_MS = 4500;
 const MAX_VISIBLES = 4;
 
 const COLOR_POR_TIPO: Record<string, string> = {
-  danoHecho: "#8fd18f",
-  danoRecibido: "#e0a05a",
-  muerte: "#e05a5a",
-  error: "#e0e05a",
-  info: "#d8d0c0",
+  danoHecho: "var(--panel-acento)",
+  danoRecibido: "var(--panel-texto)",
+  muerte: "var(--error-color)",
+  error: "var(--error-color)",
+  info: "var(--panel-texto-tenue)",
 };
 
 export class RegistroCombate {
@@ -47,12 +59,12 @@ export class RegistroCombate {
     while (this.raiz.children.length >= MAX_VISIBLES) this.raiz.removeChild(this.raiz.firstChild!);
     const linea = document.createElement("div");
     linea.textContent = texto;
-    linea.style.background = "rgba(20,16,10,0.85)";
+    linea.style.background = "var(--panel-bg-cabecera)";
     linea.style.color = COLOR_POR_TIPO[tipo] ?? COLOR_POR_TIPO.info;
-    linea.style.font = "13px sans-serif";
+    linea.style.font = "var(--panel-fuente)";
     linea.style.padding = "5px 10px";
     linea.style.borderRadius = "4px";
-    linea.style.border = "1px solid #6a5a3a";
+    linea.style.border = "1px solid var(--panel-borde-tallado)";
     linea.style.whiteSpace = "nowrap";
     linea.style.transition = "opacity 0.6s linear";
     this.raiz.appendChild(linea);

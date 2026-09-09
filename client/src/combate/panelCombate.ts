@@ -116,12 +116,17 @@ export class PanelCombate {
     this.raiz.style.left = "50%";
     this.raiz.style.bottom = "16px";
     this.raiz.style.transform = "translateX(-50%)";
-    this.raiz.style.background = "rgba(20,16,10,0.88)";
-    this.raiz.style.color = "#f0e8d8";
-    this.raiz.style.font = "13px sans-serif";
+    // Paleta madera/pergamino del tema (pedido streamer 2026-09-09) — SIN
+    // marco (crearMarcoPanel/X): esta barra debe estar visible todo el
+    // combate, un jugador no puede cerrarla sin querer con clic-fuera o
+    // Escape a mitad de una pelea, así que solo se retoca el color.
+    this.raiz.style.background = "var(--panel-bg)";
+    this.raiz.style.color = "var(--panel-texto)";
+    this.raiz.style.font = "var(--panel-fuente)";
     this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #6a5a3a";
+    this.raiz.style.borderRadius = "var(--panel-radio)";
+    this.raiz.style.border = "2px solid var(--panel-borde-tallado)";
+    this.raiz.style.boxShadow = "var(--panel-sombra)";
     this.raiz.style.display = "none";
     this.raiz.style.minWidth = "260px";
     opciones.contenedor.appendChild(this.raiz);
@@ -156,6 +161,7 @@ export class PanelCombate {
       titulo.textContent = `⏳ Esperando refuerzos... (${restante}s) — ${[...combate.unidades.values()].length} combatientes`;
       this.raiz.appendChild(titulo);
       const comenzar = document.createElement("button");
+      comenzar.className = "panel-colony-boton";
       comenzar.textContent = "Comenzar ya";
       comenzar.onclick = () => this.opciones.enviarComenzarYa(combateId);
       this.raiz.appendChild(comenzar);
@@ -214,6 +220,7 @@ export class PanelCombate {
       fila.appendChild(texto);
       if (esMiTurno && u.estado === "activo") {
         const boton = document.createElement("button");
+        boton.className = "panel-colony-boton";
         boton.textContent = "Atacar";
         boton.onclick = () => this.opciones.enviarAccion(combateId, u.id);
         fila.appendChild(boton);
@@ -222,6 +229,7 @@ export class PanelCombate {
         // reconocida no añade nada aquí, comportamiento sin cambios).
         if (habilidadId && nombreHabilidad) {
           const botonHabilidad = document.createElement("button");
+          botonHabilidad.className = "panel-colony-boton";
           botonHabilidad.textContent = nombreHabilidad;
           botonHabilidad.title = `Golpe especial de tu arma equipada (${itemIdArma})`;
           botonHabilidad.onclick = () => this.opciones.enviarAccion(combateId, u.id, habilidadId);
@@ -254,6 +262,7 @@ export class PanelCombate {
           texto.textContent = ITEMS[it.itemId]?.nombre ?? it.itemId;
           fila.appendChild(texto);
           const boton = document.createElement("button");
+          boton.className = "panel-colony-boton";
           boton.textContent = "Beber";
           boton.onclick = () => this.opciones.enviarPocion(it.id);
           fila.appendChild(boton);
@@ -267,10 +276,12 @@ export class PanelCombate {
     botones.style.display = "flex";
     botones.style.gap = "8px";
     const pasar = document.createElement("button");
+    pasar.className = "panel-colony-boton";
     pasar.textContent = "Pasar turno";
     pasar.disabled = !esMiTurno;
     pasar.onclick = () => this.opciones.enviarPasarTurno(combateId);
     const huir = document.createElement("button");
+    huir.className = "panel-colony-boton";
     huir.textContent = "Huir";
     huir.disabled = !esMiTurno;
     huir.onclick = () => this.opciones.enviarHuir(combateId);
@@ -285,6 +296,7 @@ export class PanelCombate {
     div.style.fontSize = "12px";
     div.style.marginTop = "4px";
     div.style.marginBottom = "2px";
+    div.style.color = "var(--panel-acento)";
     div.textContent = texto;
     return div;
   }

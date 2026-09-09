@@ -7,6 +7,8 @@
  * a la vez, con un NPC concreto) en vez de persistente — se abre/cierra con
  * la tecla H (game.ts) sobre el NPC no hostil más cercano.
  */
+import { crearMarcoPanel, type MarcoPanel } from "../ui/panelBase";
+
 export interface OpcionesPanelDialogoNpc {
   contenedor: HTMLElement;
   enviarMensaje(npcId: string, texto: string): void;
@@ -20,8 +22,8 @@ interface LineaDialogo {
 const MAX_LINEAS = 40;
 
 export class PanelDialogoNpc {
-  private raiz: HTMLDivElement;
-  private titulo: HTMLDivElement;
+  private readonly marco: MarcoPanel;
+  private nombreNpc: HTMLDivElement;
   private log: HTMLDivElement;
   private input: HTMLInputElement;
   private botonEnviar: HTMLButtonElement;
@@ -30,60 +32,52 @@ export class PanelDialogoNpc {
   private esperandoRespuesta = false;
 
   constructor(private opciones: OpcionesPanelDialogoNpc) {
-    this.raiz = document.createElement("div");
-    this.raiz.dataset.testid = "panel-dialogo-npc";
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "50%";
-    this.raiz.style.bottom = "90px";
-    this.raiz.style.transform = "translateX(-50%)";
-    this.raiz.style.width = "360px";
-    this.raiz.style.background = "rgba(20,16,10,0.88)";
-    this.raiz.style.color = "#f0e8d8";
-    this.raiz.style.font = "13px sans-serif";
-    this.raiz.style.borderRadius = "8px";
-    this.raiz.style.border = "1px solid #8a6a3a";
-    this.raiz.style.overflow = "hidden";
-    this.raiz.style.zIndex = "60";
-    this.raiz.hidden = true;
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Hablar", icono: "💬", left: "50%", ancho: "360px" });
+    this.marco.raiz.style.transform = "translateX(-50%)";
+    this.marco.raiz.style.top = "auto";
+    this.marco.raiz.style.bottom = "90px";
+    this.marco.raiz.dataset.testid = "panel-dialogo-npc";
+    // Cerrar por clic-fuera/Escape lo gestiona ya crearMarcoPanel — pero eso
+    // pasa por SU cierre interno, no por nuestro `cerrar()` (que además
+    // limpia npcIdActual y quita el foco del input). npcAbierto() ya gatea
+    // por `marco.estaAbierto()` así que no rompe nada dejarlo sin limpiar,
+    // pero limpiarlo aquí evita arrastrar un npcId viejo al siguiente abrirCon.
+    this.marco.onCambioEstado(() => {
+      if (!this.marco.estaAbierto()) {
+        this.npcIdActual = null;
+        this.input.blur();
+      }
+    });
 
-    this.titulo = document.createElement("div");
-    this.titulo.style.padding = "8px 10px";
-    this.titulo.style.fontWeight = "bold";
-    this.titulo.style.borderBottom = "1px solid #6a5a3a";
-    this.titulo.style.background = "rgba(106,90,58,0.35)";
-    this.titulo.style.display = "flex";
-    this.titulo.style.justifyContent = "space-between";
-    this.raiz.appendChild(this.titulo);
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.style.padding = "0"; // el log/input propios ya traen su padding — el del marco duplicaría el margen
 
-    const botonCerrar = document.createElement("span");
-    botonCerrar.textContent = "✕";
-    botonCerrar.style.cursor = "pointer";
-    botonCerrar.style.opacity = "0.7";
-    botonCerrar.onclick = () => this.cerrar();
+    this.nombreNpc = document.createElement("div");
+    this.nombreNpc.style.padding = "6px 10px 0";
+    this.nombreNpc.style.fontSize = "12px";
+    this.nombreNpc.style.opacity = "0.85";
+    cuerpo.appendChild(this.nombreNpc);
 
     this.log = document.createElement("div");
     this.log.style.height = "180px";
     this.log.style.overflowY = "auto";
     this.log.style.padding = "8px 10px";
     this.log.style.lineHeight = "1.4";
-    this.raiz.appendChild(this.log);
+    cuerpo.appendChild(this.log);
 
     const filaInput = document.createElement("div");
     filaInput.style.display = "flex";
-    filaInput.style.borderTop = "1px solid #6a5a3a";
+    filaInput.style.borderTop = "1px solid var(--panel-borde-tallado)";
 
     this.input = document.createElement("input");
+    this.input.className = "panel-colony-input";
     this.input.dataset.testid = "panel-dialogo-npc-input";
     this.input.type = "text";
     this.input.placeholder = "Escribe algo...";
     this.input.maxLength = 300;
     this.input.style.flex = "1 1 auto";
-    this.input.style.background = "transparent";
-    this.input.style.color = "#f0e8d8";
     this.input.style.border = "none";
-    this.input.style.outline = "none";
-    this.input.style.padding = "8px 10px";
-    this.input.style.font = "13px sans-serif";
+    this.input.style.borderRadius = "0";
     this.input.style.minWidth = "0";
     this.input.onkeydown = (e) => {
       // stopPropagation: mismo motivo que ui/chat.ts — sin esto, cada tecla
@@ -100,31 +94,28 @@ export class PanelDialogoNpc {
     filaInput.appendChild(this.input);
 
     this.botonEnviar = document.createElement("button");
+    this.botonEnviar.className = "panel-colony-boton";
     this.botonEnviar.textContent = "Hablar";
     this.botonEnviar.style.flex = "0 0 auto";
-    this.botonEnviar.style.background = "rgba(106,90,58,0.6)";
-    this.botonEnviar.style.color = "#f0e8d8";
-    this.botonEnviar.style.border = "none";
-    this.botonEnviar.style.borderLeft = "1px solid #6a5a3a";
-    this.botonEnviar.style.padding = "8px 12px";
-    this.botonEnviar.style.cursor = "pointer";
-    this.botonEnviar.style.font = "12px sans-serif";
+    this.botonEnviar.style.borderRadius = "0";
     this.botonEnviar.onclick = () => this.enviarDesdeInput();
     filaInput.appendChild(this.botonEnviar);
 
-    this.raiz.appendChild(filaInput);
-    this.titulo.appendChild(document.createTextNode(""));
-    this.titulo.appendChild(botonCerrar);
-    opciones.contenedor.appendChild(this.raiz);
+    cuerpo.appendChild(filaInput);
   }
 
   estaAbierto(): boolean {
-    return !this.raiz.hidden;
+    return this.marco.estaAbierto();
+  }
+
+  /** Dock (docs/GDD_UI_Paneles.md) — se dispara en cada abrir/cerrar por cualquier vía. */
+  onCambioEstado(cb: () => void): void {
+    this.marco.onCambioEstado(cb);
   }
 
   /** `undefined` si el panel está cerrado — para que game.ts sepa si la tecla H debe abrir uno nuevo o cerrar el actual. */
   npcAbierto(): string | undefined {
-    return this.raiz.hidden ? undefined : (this.npcIdActual ?? undefined);
+    return this.marco.estaAbierto() ? (this.npcIdActual ?? undefined) : undefined;
   }
 
   /** Abre la conversación con un NPC nuevo — limpia el historial visual de cualquier charla anterior (cada NPC es una conversación propia, mismo criterio que un chat 1:1 nuevo). */
@@ -132,16 +123,14 @@ export class PanelDialogoNpc {
     this.npcIdActual = npcId;
     this.lineas = [];
     this.esperandoRespuesta = false;
-    this.titulo.childNodes[0].textContent = nombre || npcId;
-    this.raiz.hidden = false;
+    this.nombreNpc.textContent = nombre || npcId;
+    this.marco.abrir();
     this.renderizarLog();
     this.input.focus();
   }
 
   cerrar() {
-    this.raiz.hidden = true;
-    this.npcIdActual = null;
-    this.input.blur();
+    this.marco.cerrar();
   }
 
   private enviarDesdeInput() {

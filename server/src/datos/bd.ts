@@ -829,6 +829,12 @@ export interface IAlmacenDatos {
   /** docs/GDD_Enfermedades.md — JSON de EstadoEnfermedades; misma cadencia que actualizarAnatomiaJugador (inicio/cura de catarro o gripe), no cada tick. */
   actualizarEnfermedadesJugador(jugadorId: number, enfermedadesJson: string): Promise<void>;
 
+  // --- Cuentas de JUGADOR reales (pedido streamer 2026-09-09) ---
+  /** `null` si no existe ningún jugador con ese nombre (a diferencia de `obtenerOCrearJugador`, esto NUNCA crea la fila — un login no debe poder "adivinar" un personaje nuevo). `passwordHash` es `null` para un personaje "legado" sin reclamar. */
+  obtenerCredencialesJugador(nombre: string): Promise<{ id: number; passwordHash: string | null } | null>;
+  /** Fija/reemplaza la contraseña de un jugador ya existente — usado tanto al reclamar un personaje legado como al cambiarla teniendo sesión. */
+  establecerPasswordJugador(jugadorId: number, passwordHash: string): Promise<void>;
+
   // --- Cuentas de admin (docs/GDD_Admin.md, pedido 2026-08-30) ---
   crearCuentaAdmin(datos: { usuario: string; passwordHash: string | null; twitchLogin: string | null; rol: RolAdmin; mapaId: string | null }): Promise<CuentaAdmin>;
   obtenerCuentaAdminPorUsuario(usuario: string): Promise<CuentaAdmin | null>;
@@ -1274,7 +1280,8 @@ CREATE TABLE IF NOT EXISTS jugadores (
   comida INTEGER NOT NULL DEFAULT 100,  -- vitales (docs/GDD_Personaje.md §2), persistencia 2026-09-01 — ver comentario de Jugador.comida
   bebida INTEGER NOT NULL DEFAULT 100,
   sueno INTEGER NOT NULL DEFAULT 100,
-  estamina INTEGER NOT NULL DEFAULT 100
+  estamina INTEGER NOT NULL DEFAULT 100,
+  password_hash TEXT                    -- cuentas de jugador reales (pedido streamer 2026-09-09): mismo "salt:hash" de admin/passwordHash.ts (reusado tal cual, sin duplicar), NULL = personaje "legado" identificado solo por nombre hasta que se reclame con /auth/jugador/registro — mismo criterio que admin_cuentas.password_hash
 );
 -- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30):
 -- una fila por NPC colocado a mano por un admin/superadmin — RegionRoom/
@@ -1887,6 +1894,8 @@ ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS estamina INTEGER NOT NULL DEFAULT
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS pos_x DOUBLE PRECISION;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS pos_y DOUBLE PRECISION;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS pos_mapa TEXT;
+-- Cuentas de jugador reales (pedido streamer 2026-09-09) — ver comentario gemelo en MIGRACIONES_SQLITE.
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS password_hash TEXT;
 -- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3) — ver comentario gemelo en MIGRACIONES_SQLITE.
 CREATE TABLE IF NOT EXISTS npcs_tutoriales (
   id SERIAL PRIMARY KEY,
@@ -2732,6 +2741,11 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     if (!nombresJugadores.has("pos_mapa")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN pos_mapa TEXT");
     }
+    // Cuentas de jugador reales (pedido streamer 2026-09-09): NULL = personaje
+    // "legado" identificado solo por nombre hasta que se reclame con contraseña.
+    if (!nombresJugadores.has("password_hash")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN password_hash TEXT");
+    }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
     // cambio no las tendría; CREATE TABLE IF NOT EXISTS no amplía una tabla ya existente.
@@ -2874,6 +2888,15 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       oficio1: "", oficio2: "", cambiosOficio: 0, comida: 100, bebida: 100, sueno: 100, estamina: 100,
       posX: null, posY: null, posMapa: null,
     };
+  }
+
+  async obtenerCredencialesJugador(nombre: string): Promise<{ id: number; passwordHash: string | null } | null> {
+    const fila = this.bd.prepare("SELECT id, password_hash FROM jugadores WHERE nombre = ?").get(nombre);
+    return fila ? { id: Number(fila.id), passwordHash: fila.password_hash == null ? null : String(fila.password_hash) } : null;
+  }
+
+  async establecerPasswordJugador(jugadorId: number, passwordHash: string): Promise<void> {
+    this.bd.prepare("UPDATE jugadores SET password_hash = ? WHERE id = ?").run(passwordHash, jugadorId);
   }
 
   /**
@@ -4735,6 +4758,15 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
       posY: r.rows[0].pos_y,
       posMapa: r.rows[0].pos_mapa,
     };
+  }
+
+  async obtenerCredencialesJugador(nombre: string): Promise<{ id: number; passwordHash: string | null } | null> {
+    const r = await this.pool.query<{ id: number; password_hash: string | null }>("SELECT id, password_hash FROM jugadores WHERE nombre = $1", [nombre]);
+    return r.rows.length > 0 ? { id: r.rows[0].id, passwordHash: r.rows[0].password_hash } : null;
+  }
+
+  async establecerPasswordJugador(jugadorId: number, passwordHash: string): Promise<void> {
+    await this.pool.query("UPDATE jugadores SET password_hash = $1 WHERE id = $2", [passwordHash, jugadorId]);
   }
 
   /** Postgres: ver `AlmacenDatosSqlite.guardarPosicionJugador` para el porqué. */

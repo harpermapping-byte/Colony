@@ -13,6 +13,9 @@
 //   3) el mensaje enviado aparece en el log del propio panel (canal local
 //      incluye al que habla).
 //   4) el botón de canal alterna Local/Global.
+//   5) minimizar/restaurar (pedido streamer 2026-09-09: "el chat se tiene
+//      que poder minimizar con una tecla como la X arriba derecha") oculta
+//      y devuelve el input real, sin perder el log acumulado.
 //   node test/chatUI.e2e.mjs [dirCapturas]
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -100,12 +103,25 @@ try {
   comprobar("el mensaje enviado aparece en el propio log (canal local incluye a quien habla)", logTexto.includes(mensaje), logTexto);
   comprobar("el log muestra la etiqueta [Local] por defecto", logTexto.includes("[Local]"), logTexto);
 
-  // Alterna el canal y comprueba el label del botón.
-  const botonCanal = page.locator('[data-testid="panel-chat"] button');
+  // Alterna el canal y comprueba el label del botón (data-testid propio:
+  // desde que el chat es minimizable, `[data-testid="panel-chat"] button`
+  // ya resuelve a 2 botones — el de canal y el de minimizar, ver chat.ts).
+  const botonCanal = page.locator('[data-testid="panel-chat-canal"]');
   const labelAntes = await botonCanal.innerText();
   await botonCanal.click();
   const labelDespues = await botonCanal.innerText();
   comprobar("el botón de canal alterna Local <-> Global", labelAntes !== labelDespues, `${labelAntes} -> ${labelDespues}`);
+
+  // Minimizar/restaurar (chat-colony-minimizar, chat.ts).
+  const botonMinimizar = page.locator('[data-testid="chat-minimizar"]');
+  await botonMinimizar.click();
+  const inputOcultoTrasMinimizar = !(await page.locator('[data-testid="panel-chat-input"]').isVisible());
+  comprobar("minimizar oculta el input del chat", inputOcultoTrasMinimizar, `visible=${!inputOcultoTrasMinimizar}`);
+  await botonMinimizar.click();
+  const inputVisibleTrasRestaurar = await page.locator('[data-testid="panel-chat-input"]').isVisible();
+  comprobar("restaurar vuelve a mostrar el input", inputVisibleTrasRestaurar, `visible=${inputVisibleTrasRestaurar}`);
+  const logTrasRestaurar = await page.locator('[data-testid="panel-chat"]').innerText();
+  comprobar("el log acumulado sigue ahí tras minimizar/restaurar (nada se destruye)", logTrasRestaurar.includes(mensaje), logTrasRestaurar);
 
   const ruta = join(capturas, "chat_ui.png");
   await page.screenshot({ path: ruta });

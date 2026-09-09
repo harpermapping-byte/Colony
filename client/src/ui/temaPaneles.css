@@ -1,0 +1,377 @@
+/**
+ * Tema COMPARTIDO de todos los paneles/menús de UI (panelBase.ts/dockHud.ts).
+ * Variables centralizadas a propósito: "retocar estéticamente al final" es
+ * cambiar ESTE archivo, no cada uno de los paneles que lo usan.
+ *
+ * Estilo "madera + pergamino medieval" (pedido streamer 2026-09-09, con
+ * referencias visuales de otros MMO voxel: marcos de madera tallada, texto
+ * dorado sobre pergamino, dock de iconos circulares) — CSS puro (gradientes
+ * simulando veta de madera y bisel tallado), sin ningún asset de imagen
+ * nuevo. Solo afecta a los paneles ya migrados a `crearMarcoPanel`/
+ * `dockHud.ts` (ver docs/GDD_UI_Paneles.md para el inventario de quién usa
+ * este tema y quién sigue con su estilo inline de siempre) — "luego cada
+ * pestaña se abrirá con su forma" es la migración panel a panel pendiente,
+ * documentada ahí, no resuelta de golpe en este archivo.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap");
+
+:root {
+  /* Madera oscura tallada, con un pelín de veta simulada (gradientes, sin imagen). */
+  --panel-bg: linear-gradient(160deg, #4a3420 0%, #3a2716 55%, #2e1f10 100%);
+  --panel-bg-cabecera: linear-gradient(180deg, #2a1c0f, #1c1209);
+  --panel-borde: #1c120a;
+  --panel-borde-tallado: #8a5a2a;
+  --panel-acento: #e0b84a;
+  --panel-texto: #f0ddb0;
+  --panel-texto-tenue: rgba(240, 221, 176, 0.62);
+  --panel-hover: rgba(224, 184, 74, 0.16);
+  --panel-radio: 10px;
+  --panel-fuente-titulo: 700 14px "Cinzel", Georgia, serif;
+  --panel-fuente: 13px "Trebuchet MS", sans-serif;
+  --panel-sombra: 0 6px 22px rgba(0, 0, 0, 0.6), inset 0 0 0 2px var(--panel-borde-tallado), inset 0 0 0 4px rgba(0, 0, 0, 0.35);
+  --dock-bg: linear-gradient(160deg, #4a3420, #2e1f10);
+  --error-color: #e88a6a;
+}
+
+.panel-colony {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  color: var(--panel-texto);
+  font: var(--panel-fuente);
+  border: 3px solid var(--panel-borde);
+  border-radius: var(--panel-radio);
+  box-shadow: var(--panel-sombra);
+  max-height: 82vh;
+  min-width: 220px;
+  z-index: 40;
+  user-select: none;
+}
+
+.panel-colony-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 8px 8px 14px;
+  background: var(--panel-bg-cabecera);
+  border-bottom: 2px solid var(--panel-borde-tallado);
+  border-radius: 7px 7px 0 0;
+  font: var(--panel-fuente-titulo);
+  color: var(--panel-acento);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  letter-spacing: 0.03em;
+  cursor: default;
+}
+
+.panel-colony-cerrar {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  line-height: 20px;
+  padding: 0;
+  text-align: center;
+  background: radial-gradient(circle at 35% 30%, #6a4526, #3a2513);
+  color: var(--panel-acento);
+  border: 2px solid var(--panel-borde-tallado);
+  border-radius: 50%;
+  font: 12px sans-serif;
+  cursor: pointer;
+}
+.panel-colony-cerrar:hover {
+  background: radial-gradient(circle at 35% 30%, #8a5a2a, #4a3018);
+}
+
+.panel-colony-cuerpo {
+  padding: 12px 14px;
+  overflow-y: auto;
+  user-select: text;
+}
+
+.panel-colony-boton {
+  background: linear-gradient(180deg, #6a4526, #4a3018);
+  color: var(--panel-texto);
+  border: 1px solid var(--panel-borde-tallado);
+  border-radius: 5px;
+  font: inherit;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.panel-colony-boton:hover {
+  background: linear-gradient(180deg, #8a5a2a, #5a3a1a);
+}
+.panel-colony-boton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.panel-colony-input {
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--panel-texto);
+  border: 1px solid var(--panel-borde-tallado);
+  border-radius: 5px;
+  font: inherit;
+  padding: 6px 8px;
+}
+
+.panel-colony-error {
+  color: var(--error-color);
+  font-size: 12px;
+  margin-top: 6px;
+  min-height: 1em;
+}
+
+/* Dock/HUD de iconos — franja fija con un botón por panel registrado.
+ * Es el "HUD limpio" pedido: solo iconos visibles, cada uno abre/minimiza
+ * su panel. Los paneles nuevos (sin tecla propia) se abren SOLO desde aquí.
+ * Iconos CIRCULARES con doble marco (madera + dorado), mismo lenguaje
+ * visual que las referencias del streamer. */
+.dock-hud {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--dock-bg);
+  border: 3px solid var(--panel-borde);
+  border-radius: 30px;
+  box-shadow: var(--panel-sombra);
+  /* Por encima de CUALQUIER panel, incluidos los overlays fullscreen
+     (panelMapaMundo.ts/panelResumen.ts, z-index 70 inline) — bug real
+     encontrado haciendo capturas (2026-09-09): con el mapa abierto, su
+     fondo semitransparente se ve "detrás" del dock a simple vista pero
+     en realidad tenía MÁS z-index, así que capturaba los clics y el icono
+     del dock dejaba de responder — no había forma de cerrar el mapa
+     volviendo a tocar su propio icono, solo con clic-fuera/Escape. */
+  z-index: 100;
+  user-select: none;
+}
+
+.dock-hud-icono {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: radial-gradient(circle at 35% 30%, #6a4526, #3a2513);
+  border: 2px solid var(--panel-borde-tallado);
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+}
+.dock-hud-icono:hover {
+  background: radial-gradient(circle at 35% 30%, #8a5a2a, #4a3018);
+}
+.dock-hud-icono[data-abierto="true"] {
+  border-color: var(--panel-acento);
+  box-shadow: 0 0 0 2px var(--panel-acento);
+}
+
+.dock-hud-icono-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #c0392b;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+}
+
+/* HUD de vitales (pedido streamer 2026-09-09) — arriba-izquierda, SIEMPRE
+ * visible (ver hudVitales.ts: no es un panel de crearMarcoPanel, no tiene
+ * X). Icono circular + 4 barras apiladas, mismo lenguaje visual madera. */
+.hud-vitales {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 6px;
+  background: var(--dock-bg);
+  border: 3px solid var(--panel-borde);
+  border-radius: 30px;
+  box-shadow: var(--panel-sombra);
+  z-index: 90;
+  user-select: none;
+}
+.hud-vitales-icono {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  background: radial-gradient(circle at 35% 30%, #6a4526, #3a2513);
+  border: 2px solid var(--panel-borde-tallado);
+  border-radius: 50%;
+  overflow: hidden; /* recorta el <canvas> del retrato (retratoJugador.ts) al círculo */
+}
+.hud-vitales-barras {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.hud-vitales-fila {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.hud-vitales-emoji {
+  font-size: 11px;
+  width: 14px;
+  text-align: center;
+}
+.hud-vitales-pista {
+  width: 90px;
+  height: 7px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.hud-vitales-relleno {
+  height: 100%;
+  width: 100%;
+  transition: width 0.25s ease;
+}
+
+/* Pantalla de bienvenida — PANTALLA COMPLETA (pedido streamer 2026-09-09:
+ * "una pestaña entera toda la pantalla... no puedes jugar sin poner
+ * usuario"). z-index por encima de CUALQUIER otra cosa: dock (100),
+ * overlays fullscreen de mapa/resumen (70 inline), paneles (40). */
+.bienvenida-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, #3a2a18 0%, #14100a 78%);
+}
+.bienvenida-tarjeta {
+  width: min(380px, 90vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--panel-bg);
+  border: 3px solid var(--panel-borde);
+  border-radius: var(--panel-radio);
+  box-shadow: var(--panel-sombra);
+  padding: 22px 24px;
+  color: var(--panel-texto);
+  font: var(--panel-fuente);
+}
+.bienvenida-titulo {
+  font: 700 22px "Cinzel", Georgia, serif;
+  color: var(--panel-acento);
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  margin-bottom: 12px;
+  letter-spacing: 0.03em;
+}
+.bienvenida-pestanas {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0;
+}
+.bienvenida-pestanas button {
+  flex: 1;
+}
+.bienvenida-input {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+}
+.bienvenida-boton-principal {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 14px;
+  padding: 9px;
+}
+.bienvenida-separador {
+  text-align: center;
+  opacity: 0.55;
+  margin: 16px 0 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.bienvenida-enlace-twitch {
+  display: block;
+  text-align: center;
+  background: linear-gradient(180deg, #6a4526, #4a3018);
+  border: 1px solid var(--panel-borde-tallado);
+  border-radius: 5px;
+  padding: 8px 10px;
+  color: #cdb0ff;
+  text-decoration: none;
+  font-size: 13px;
+}
+.bienvenida-enlace-twitch:hover {
+  background: linear-gradient(180deg, #8a5a2a, #5a3a1a);
+}
+.bienvenida-toggle-admin {
+  margin-top: 18px;
+  font-size: 12px;
+  opacity: 0.65;
+  cursor: pointer;
+  user-select: none;
+}
+.bienvenida-toggle-admin:hover {
+  opacity: 1;
+}
+.bienvenida-spinner {
+  width: 36px;
+  height: 36px;
+  margin: 20px auto;
+  border: 4px solid rgba(224, 184, 74, 0.25);
+  border-top-color: var(--panel-acento);
+  border-radius: 50%;
+  animation: bienvenida-girar 0.9s linear infinite;
+}
+@keyframes bienvenida-girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Chat minimizable (pedido streamer 2026-09-09: "el chat se tiene que
+ * poder minimizar con una tecla como la X arriba derecha"). El chat NO usa
+ * crearMarcoPanel (panel persistente con log propio, ver chat.ts) — misma
+ * X redonda del resto del HUD, aplicada a mano sobre su propia cabecera. */
+.chat-colony-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 4px 8px;
+  background: var(--panel-bg-cabecera);
+  border-bottom: 1px solid #6a5a3a;
+  font: 11px "Trebuchet MS", sans-serif;
+  color: var(--panel-texto-tenue);
+}
+.chat-colony-minimizar {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  line-height: 14px;
+  padding: 0;
+  text-align: center;
+  background: radial-gradient(circle at 35% 30%, #6a4526, #3a2513);
+  color: var(--panel-acento);
+  border: 1px solid var(--panel-borde-tallado);
+  border-radius: 50%;
+  font: 11px sans-serif;
+  cursor: pointer;
+}
+.chat-colony-minimizar:hover {
+  background: radial-gradient(circle at 35% 30%, #8a5a2a, #4a3018);
+}

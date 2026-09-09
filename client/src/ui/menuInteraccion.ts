@@ -24,11 +24,15 @@ export class MenuInteraccion {
     this.raiz = document.createElement("div");
     this.raiz.style.position = "fixed";
     this.raiz.style.zIndex = "50";
-    this.raiz.style.background = "rgba(12,12,18,0.94)";
-    this.raiz.style.color = "#e8e8f0";
-    this.raiz.style.font = "12px sans-serif";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #4a4a5a";
+    // Paleta madera/pergamino del tema (pedido streamer 2026-09-09) — su
+    // cierre por clic-fuera/Escape ya es el correcto, solo se retocan
+    // colores/bordes/fuente.
+    this.raiz.style.background = "var(--panel-bg)";
+    this.raiz.style.color = "var(--panel-texto)";
+    this.raiz.style.font = "var(--panel-fuente)";
+    this.raiz.style.borderRadius = "var(--panel-radio)";
+    this.raiz.style.border = "2px solid var(--panel-borde-tallado)";
+    this.raiz.style.boxShadow = "var(--panel-sombra)";
     this.raiz.style.minWidth = "170px";
     this.raiz.style.padding = "4px";
     this.raiz.style.display = "none";
@@ -67,8 +71,8 @@ export class MenuInteraccion {
     const encabezado = document.createElement("div");
     encabezado.style.fontWeight = "bold";
     encabezado.style.padding = "5px 8px";
-    encabezado.style.opacity = "0.85";
-    encabezado.style.borderBottom = "1px solid rgba(255,255,255,0.15)";
+    encabezado.style.color = "var(--panel-acento)";
+    encabezado.style.borderBottom = "1px solid var(--panel-borde-tallado)";
     encabezado.style.marginBottom = "2px";
     encabezado.textContent = titulo;
     this.raiz.appendChild(encabezado);
@@ -87,7 +91,7 @@ export class MenuInteraccion {
       boton.style.border = "none";
       boton.style.borderRadius = "3px";
       boton.style.cursor = "pointer";
-      boton.onmouseenter = () => { boton.style.background = "rgba(255,255,255,0.14)"; };
+      boton.onmouseenter = () => { boton.style.background = "var(--panel-hover)"; };
       boton.onmouseleave = () => { boton.style.background = "transparent"; };
       boton.onclick = () => { this.ocultar(); opcion.accion(); };
       this.raiz.appendChild(boton);

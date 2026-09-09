@@ -5,11 +5,17 @@
  * preview 3D real con framing dinámico por boundingSphere, swatch de color
  * en vivo, Aceptar, "Mis diseños") — solo cambia el generador que reusa
  * (`generarMuebleVoxel`/`interpretarPromptMueble` en vez de los de ropa).
+ *
+ * Chrome visual migrado al marco compartido (pedido streamer 2026-09-09,
+ * "TODA pantalla... debe salir así con esta estética") — mismo criterio que
+ * el telar: X/clic-fuera/Escape los da `crearMarcoPanel`, el botón "Cerrar"
+ * casero se retira por redundante. Lógica de estado/preview/red intacta.
  */
 import * as THREE from "three";
 import { interpretarPromptMueble, type ResultadoInterpretacionMueble } from "../render3d/interpretarPromptMueble";
 import { generarMuebleVoxel } from "../render3d/generarMuebleVoxel";
 import { mallaDeVoxeles } from "../render3d/voxelMalla";
+import { crearMarcoPanel, crearBoton, crearInput, type MarcoPanel } from "../ui/panelBase";
 
 const LADO_PREVIEW_PX = 220;
 const NOMBRES_TIPO: Record<string, string> = { silla: "Silla", mesa: "Mesa", cama: "Cama", arcon: "Arcón" };
@@ -29,7 +35,7 @@ export interface OpcionesPanelCarpinteroLegendario {
 }
 
 export class PanelCarpinteroLegendario {
-  private raiz: HTMLDivElement;
+  private readonly marco: MarcoPanel;
   private construccionId: number | null = null;
   private texto = "";
   private nombre = "";
@@ -47,24 +53,15 @@ export class PanelCarpinteroLegendario {
   private previewMalla: THREE.Mesh | null = null;
 
   constructor(private opciones: OpcionesPanelCarpinteroLegendario) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "50%";
-    this.raiz.style.top = "50%";
-    this.raiz.style.transform = "translate(-50%, -50%)";
-    this.raiz.style.background = "rgba(18,14,10,0.96)";
-    this.raiz.style.color = "#f0e4c8";
-    this.raiz.style.font = "12px sans-serif";
-    this.raiz.style.padding = "14px 16px";
-    this.raiz.style.borderRadius = "8px";
-    this.raiz.style.border = "1px solid #8a6a2a";
-    this.raiz.style.minWidth = "280px";
-    this.raiz.style.maxWidth = "340px";
-    this.raiz.style.maxHeight = "80vh";
-    this.raiz.style.overflowY = "auto";
-    this.raiz.style.display = "none";
-    this.raiz.style.zIndex = "50";
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Banco de carpintero — tallar mueble legendario", icono: "🪚", left: "50%", top: "50%", ancho: "320px" });
+    this.marco.raiz.style.transform = "translate(-50%, -50%)";
+    this.marco.raiz.style.maxHeight = "80vh";
+    // Mismo motivo que panelSastreLegendario.ts: cerrar por CUALQUIER vía
+    // también apaga `construccionId`, para que el bucle de giro de abajo
+    // deje de renderizar en cuanto el panel deja de estar realmente abierto.
+    this.marco.onCambioEstado(() => {
+      if (!this.marco.estaAbierto()) this.construccionId = null;
+    });
 
     this.previewDiv = document.createElement("div");
     this.previewDiv.style.width = `${LADO_PREVIEW_PX}px`;
@@ -106,13 +103,14 @@ export class PanelCarpinteroLegendario {
     this.preview = null;
     this.error = "";
     this.limpiarMalla3D();
+    this.marco.abrir();
     this.opciones.pedirMisDisenos();
     this.render();
   }
 
   cerrar() {
     this.construccionId = null;
-    this.raiz.style.display = "none";
+    this.marco.cerrar();
   }
 
   private limpiarMalla3D() {
@@ -175,26 +173,18 @@ export class PanelCarpinteroLegendario {
 
   private render() {
     this.previewDiv.remove();
-    this.raiz.innerHTML = "";
-    if (this.construccionId === null) {
-      this.raiz.style.display = "none";
-      return;
-    }
-    this.raiz.style.display = "block";
-
-    const titulo = document.createElement("div");
-    titulo.style.fontWeight = "bold";
-    titulo.style.marginBottom = "8px";
-    titulo.textContent = "🪚 Banco de carpintero — tallar mueble legendario";
-    this.raiz.appendChild(titulo);
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
+    if (this.construccionId === null) return;
 
     const descripcion = document.createElement("div");
     descripcion.style.opacity = "0.85";
     descripcion.style.marginBottom = "8px";
     descripcion.textContent = "Describe el mueble con palabras (tipo, madera, tallado, desgaste, color...). 1 diseño nuevo cada 24h — luego puedes tallar copias cuando quieras.";
-    this.raiz.appendChild(descripcion);
+    cuerpo.appendChild(descripcion);
 
     const inputTexto = document.createElement("textarea");
+    inputTexto.className = "panel-colony-input";
     inputTexto.value = this.texto;
     inputTexto.placeholder = "ej. silla de roble noble tallada con incrustaciones doradas";
     inputTexto.rows = 2;
@@ -202,32 +192,28 @@ export class PanelCarpinteroLegendario {
     inputTexto.style.boxSizing = "border-box";
     inputTexto.style.margin = "4px 0";
     inputTexto.oninput = () => { this.texto = inputTexto.value; };
-    this.raiz.appendChild(inputTexto);
+    cuerpo.appendChild(inputTexto);
 
-    const inputNombre = document.createElement("input");
+    const inputNombre = crearInput({ placeholder: "Nombre del mueble (opcional)" });
     inputNombre.value = this.nombre;
-    inputNombre.placeholder = "Nombre del mueble (opcional)";
     inputNombre.style.width = "100%";
     inputNombre.style.boxSizing = "border-box";
     inputNombre.style.margin = "4px 0";
     inputNombre.oninput = () => { this.nombre = inputNombre.value; };
-    this.raiz.appendChild(inputNombre);
+    cuerpo.appendChild(inputNombre);
 
     const filaBotones = document.createElement("div");
     filaBotones.style.margin = "6px 0";
-    const btnGenerar = document.createElement("button");
-    btnGenerar.textContent = this.preview ? "🔄 Regenerar vista previa" : "Generar vista previa";
+    const btnGenerar = crearBoton(this.preview ? "🔄 Regenerar vista previa" : "Generar vista previa", () => this.generarPreview());
     btnGenerar.style.marginRight = "6px";
-    btnGenerar.onclick = () => this.generarPreview();
     filaBotones.appendChild(btnGenerar);
-    this.raiz.appendChild(filaBotones);
+    cuerpo.appendChild(filaBotones);
 
     if (this.error) {
       const err = document.createElement("div");
-      err.style.color = "#e08080";
-      err.style.margin = "4px 0";
+      err.className = "panel-colony-error";
       err.textContent = this.error;
-      this.raiz.appendChild(err);
+      cuerpo.appendChild(err);
     }
 
     if (this.preview) {
@@ -251,9 +237,9 @@ export class PanelCarpinteroLegendario {
       if (this.preview.incrustado) modificadores.push("incrustado");
       if (this.preview.herraje) modificadores.push("con herrajes");
       if (modificadores.length) linea(`Acabado: ${modificadores.join(", ")}`);
-      this.raiz.appendChild(caja);
+      cuerpo.appendChild(caja);
 
-      this.raiz.appendChild(this.previewDiv);
+      cuerpo.appendChild(this.previewDiv);
 
       if (this.preview.tapizado || this.preview.incrustado) {
         const fila = document.createElement("div");
@@ -269,14 +255,12 @@ export class PanelCarpinteroLegendario {
         colorInput.value = this.colorAcento || this.preview.colorAcento || "#a08060";
         colorInput.oninput = () => { this.colorAcento = colorInput.value; this.actualizarMalla3D(); };
         fila.appendChild(colorInput);
-        this.raiz.appendChild(fila);
+        cuerpo.appendChild(fila);
       }
 
-      const btnAceptar = document.createElement("button");
-      btnAceptar.textContent = "✅ ¡Me gusta, tallarlo!";
+      const btnAceptar = crearBoton("✅ ¡Me gusta, tallarlo!", () => this.opciones.aceptar(this.construccionId!, this.texto, this.nombre));
       btnAceptar.style.marginTop = "6px";
-      btnAceptar.onclick = () => this.opciones.aceptar(this.construccionId!, this.texto, this.nombre);
-      this.raiz.appendChild(btnAceptar);
+      cuerpo.appendChild(btnAceptar);
     }
 
     if (this.disenos.length > 0) {
@@ -284,7 +268,7 @@ export class PanelCarpinteroLegendario {
       tituloDisenos.style.fontWeight = "bold";
       tituloDisenos.style.marginTop = "12px";
       tituloDisenos.textContent = "Mis diseños (tallar copia)";
-      this.raiz.appendChild(tituloDisenos);
+      cuerpo.appendChild(tituloDisenos);
       for (const d of this.disenos) {
         const fila = document.createElement("div");
         fila.style.display = "flex";
@@ -295,18 +279,18 @@ export class PanelCarpinteroLegendario {
         const etiqueta = document.createElement("span");
         etiqueta.textContent = `${d.nombre} (${NOMBRES_TIPO[d.arquetipoId] ?? d.arquetipoId})`;
         fila.appendChild(etiqueta);
-        const btn = document.createElement("button");
-        btn.textContent = "Tallar copia";
-        btn.onclick = () => this.opciones.tallarCopia(this.construccionId!, d.id);
+        const btn = crearBoton("Tallar copia", () => this.opciones.tallarCopia(this.construccionId!, d.id));
         fila.appendChild(btn);
-        this.raiz.appendChild(fila);
+        cuerpo.appendChild(fila);
       }
     }
 
-    const btnCerrar = document.createElement("button");
-    btnCerrar.textContent = "Cerrar";
+    // Además de la X del marco (cierra por clic/fuera/Escape): un botón de
+    // texto explícito — un e2e real (carpinteroIngenieroLegendario.e2e.cjs)
+    // lo busca por texto para cerrar el panel del carpintero antes de pasar
+    // al de ingeniero, así que se conserva.
+    const btnCerrar = crearBoton("Cerrar", () => this.cerrar());
     btnCerrar.style.marginTop = "10px";
-    btnCerrar.onclick = () => this.cerrar();
-    this.raiz.appendChild(btnCerrar);
+    cuerpo.appendChild(btnCerrar);
   }
 }

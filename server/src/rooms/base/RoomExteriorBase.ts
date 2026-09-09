@@ -169,6 +169,7 @@ import { obtenerGestorTwitch } from "../../twitch/gestorTwitch";
 import { TipoEvento } from "../../twitch/catalogoEventos";
 import { resolverSesionTwitch } from "../../twitch/oauthLogin";
 import { resolverSesionAdmin, IdentidadAdmin } from "../../admin/adminAuth";
+import { resolverSesionJugador } from "../../auth/jugadorAuth";
 import { aplicarPenalizacionMuerte, PiezaEquipada, registrarUso, estaRoto, tieneDurabilidad, FACTOR_ITEM_ROTO } from "../../inventario/desgaste";
 import { resolverRespawn } from "../../personaje/respawn";
 import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
@@ -1785,7 +1786,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return esJarlConSesionAdmin(nombre, identidad, this.asentamientoConstruccion);
   }
 
-  protected crearJugador(client: Client, options: { name?: string; twitchSession?: string; adminSession?: string }, x: number, y: number): Player {
+  protected crearJugador(client: Client, options: { name?: string; twitchSession?: string; adminSession?: string; playerSession?: string }, x: number, y: number): Player {
     // Interest-management (ver actualizarVistaDeInteres / HubState.ts junto
     // a @view()): TODA sesión de CUALQUIER room type necesita su StateView
     // asignada aquí — players/npcs/fauna/enemigos van tageados con @view()
@@ -1798,7 +1799,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const player = new Player();
     player.x = x;
     player.y = y;
-    player.name = options?.name?.slice(0, 20) || `Guest-${client.sessionId.slice(0, 4)}`;
+
+    // Cuenta de jugador real (docs/GDD_Cuentas.md, pedido streamer
+    // 2026-09-09) — MISMO patrón que la sesión de Twitch/admin justo abajo:
+    // token reenviado en CADA joinOrCreate, resuelto de nuevo aquí. Con
+    // sesión válida, el nombre real de la CUENTA manda sobre cualquier
+    // `options.name` que el cliente mande — cierra el hueco de seguridad
+    // real (cualquiera podía "ser" cualquier jugador solo escribiendo su
+    // nombre en `?nombre=`). SIN sesión (invitado, o cualquier test/e2e que
+    // no haga login) todo sigue exactamente igual que siempre: nombre libre.
+    const identidadJugador = options?.playerSession ? resolverSesionJugador(options.playerSession) : null;
+    if (options?.playerSession) {
+      client.send(identidadJugador ? "jugador:sesionConfirmada" : "jugador:sesionInvalida", identidadJugador ? { nombre: identidadJugador.nombre } : {});
+    }
+    player.name = identidadJugador?.nombre.slice(0, 20) || options?.name?.slice(0, 20) || `Guest-${client.sessionId.slice(0, 4)}`;
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { x: 0, y: 0 });
 

@@ -3,7 +3,11 @@
  * ya pactado para combate/mascotas/comercio: "placeholder sencillo, la UI
  * final se hace al final del proyecto"). Solo un estado de texto + botón de
  * cancelar; la boya de verdad se ve en el mundo 3D (ver game.ts).
+ *
+ * Chrome migrado al marco compartido (`panelBase.ts`, pedido streamer
+ * 2026-09-09: "TODA pantalla debe salir con esta estética").
  */
+import { crearMarcoPanel, crearBoton, type MarcoPanel } from "../ui/panelBase";
 
 export type EstadoPescaVista = "esperando" | "picando" | null;
 
@@ -13,26 +17,26 @@ export interface OpcionesPanelPesca {
 }
 
 export class PanelPesca {
-  private raiz: HTMLDivElement;
+  private marco: MarcoPanel;
   private estado: EstadoPescaVista = null;
 
   constructor(private opciones: OpcionesPanelPesca) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "50%";
-    this.raiz.style.bottom = "90px";
-    this.raiz.style.transform = "translateX(-50%)";
-    this.raiz.style.background = "rgba(20,16,10,0.88)";
-    this.raiz.style.color = "#f0e8d8";
-    this.raiz.style.font = "13px sans-serif";
-    this.raiz.style.padding = "8px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #6a5a3a";
-    this.raiz.style.display = "flex";
-    this.raiz.style.alignItems = "center";
-    this.raiz.style.gap = "10px";
-    this.raiz.hidden = true;
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({
+      contenedor: opciones.contenedor,
+      titulo: "Pesca",
+      icono: "🎣",
+      // Lo abre/cierra el propio estado de pesca (game.ts, mensajes
+      // pesca:pica/escapado/cancelada) — no un gesto del jugador. Cerrarlo
+      // con Escape/clic-fuera mientras la caña sigue lanzada lo reabriría
+      // en cuanto llegue el siguiente mensaje del servidor, dando sensación
+      // de panel que "no se deja cerrar". Solo `actualizar(null)` (o el
+      // botón ✕, equivalente a cancelar la pesca) lo cierra de verdad.
+      cierraAlClicarFuera: false,
+      cierraConEscape: false,
+    });
+    this.marco.raiz.style.left = "50%";
+    this.marco.raiz.style.bottom = "90px";
+    this.marco.raiz.style.transform = "translateX(-50%)";
     this.render();
   }
 
@@ -42,20 +46,22 @@ export class PanelPesca {
   }
 
   private render() {
-    this.raiz.innerHTML = "";
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
     if (!this.estado) {
-      this.raiz.hidden = true;
+      this.marco.cerrar();
       return;
     }
-    this.raiz.hidden = false;
+    this.marco.abrir();
 
+    const fila = document.createElement("div");
+    fila.style.display = "flex";
+    fila.style.alignItems = "center";
+    fila.style.gap = "10px";
     const texto = document.createElement("span");
     texto.textContent = this.estado === "picando" ? "🐟 ¡Pica! Pulsa U" : "🎣 Pescando... esperando una picada";
-    this.raiz.appendChild(texto);
-
-    const cancelar = document.createElement("button");
-    cancelar.textContent = "Cancelar";
-    cancelar.onclick = () => this.opciones.cancelar();
-    this.raiz.appendChild(cancelar);
+    fila.appendChild(texto);
+    fila.appendChild(crearBoton("Cancelar", () => this.opciones.cancelar()));
+    cuerpo.appendChild(fila);
   }
 }

@@ -7,18 +7,20 @@
  * crema, borde marrón) — panel condicional (oculto hasta pulsar la tecla),
  * mismo criterio que panelCombate.ts.
  *
- * Sección "Equipo": sigue siendo lista+botón (equipar/desequipar no es un
- * gesto de arrastrar, es elegir un hueco por catálogo). Secciones
- * "Cuerpo"/"Dentro de: X" SÍ son rejilla real con drag&drop nativo del
- * navegador (docs/GDD_Inventario.md §10, pedido 2026-08-30: "esqueleto
- * completo, la UI final es lo último") — arrastra una celda a cualquier
- * grid visible (el propio cuerpo o cualquier mochila/bolsa puesta) y suelta
- * para pedir `inventario:mover`; el servidor decide si cabe, aquí no se
- * valida nada por adelantado. Visualmente sigue siendo tosco a propósito
- * (cuadrados de color + texto), la rejilla/posición SÍ es de verdad.
+ * Dos pestañas (pedido streamer 2026-09-09, referencias visuales de otros
+ * MMO voxel): **Equipo** — "muñeco de papel", una silueta central con los
+ * 21 slots dispuestos alrededor en su posición anatómica (casco arriba,
+ * pechera/cinturón/piernas en el centro, armas a los lados...) — y
+ * **Inventario** — la rejilla real de "Cuerpo"/"Dentro de: X" de siempre.
+ * Sigue siendo tosco a propósito (emoji + texto, sin arte de ítem todavía),
+ * SOLO cambió la DISPOSICIÓN — equipar/desequipar/mover/drag&drop son
+ * exactamente la misma mecánica ya probada (docs/GDD_Inventario.md §10):
+ * arrastrar una celda a cualquier grid visible pide `inventario:mover`, el
+ * servidor decide si cabe, aquí no se valida nada por adelantado.
  */
 
 import itemsJson from "../../../items/catalogo/items.json";
+import { crearMarcoPanel, crearSubtitulo, crearLineaTexto, type MarcoPanel } from "../ui/panelBase";
 
 interface EntradaItem {
   tipo?: string;
@@ -52,6 +54,34 @@ const SLOTS: { slot: string; etiqueta: string }[] = [
   { slot: "bandolera", etiqueta: "Bandolera" },
   { slot: "manoPrincipal", etiqueta: "Mano principal" },
   { slot: "manoSecundaria", etiqueta: "Mano secundaria" },
+];
+
+// Emoji genérico por slot — puramente decorativo (sin arte de ítem propio
+// todavía, ver GDD_Motor_3D_Props.md), pensado solo para reconocer la
+// categoría de un vistazo en el "muñeco de papel" de abajo.
+const EMOJI_SLOT: Record<string, string> = {
+  casco: "🪖", mascara: "🎭", gafas: "🕶️", pechera: "🥋", cuello: "📿",
+  hombreras: "🎽", brazos: "💪", coderas: "🦾", manos: "🧤",
+  anilloIzquierdo: "💍", anilloDerecho: "💍", brazalete: "⌚", cinturon: "🎗️",
+  piernas: "👖", rodilleras: "🦵", zapatos: "👢", espalda: "🎒", capa: "🧣",
+  bandolera: "👝", manoPrincipal: "⚔️", manoSecundaria: "🛡️",
+};
+
+// Disposición anatómica del "muñeco de papel" (pedido streamer 2026-09-09,
+// referencias de otros MMO voxel): grid de 3 columnas, la columna central
+// lleva la silueta del personaje ("cuerpo", ocupa 2 filas) MÁS los slots
+// que van sobre el torso/piernas/cabeza reales; las columnas laterales son
+// los slots que cuelgan a los lados (brazos, armas, anillos...). "." es un
+// hueco vacío del grid (sintaxis CSS `grid-template-areas`).
+const FILAS_MUÑECO: [string, string, string][] = [
+  ["gafas", "casco", "mascara"],
+  ["hombreras", "cuerpo", "cuello"],
+  ["manos", "cuerpo", "capa"],
+  ["brazos", "pechera", "espalda"],
+  ["coderas", "cinturon", "bandolera"],
+  ["anilloIzquierdo", "piernas", "anilloDerecho"],
+  ["brazalete", "rodilleras", "."],
+  ["manoPrincipal", "zapatos", "manoSecundaria"],
 ];
 
 // slot genérico de catálogo -> hueco(s) físico(s) reales donde puede caer
@@ -93,97 +123,169 @@ export interface OpcionesPanelJugador {
 }
 
 export class PanelJugador {
-  private raiz: HTMLDivElement;
-  private visible = false;
+  private readonly marco: MarcoPanel;
+  private pestana: "equipo" | "inventario" = "equipo";
+  private ultimoPlayer: any = null;
 
   constructor(private opciones: OpcionesPanelJugador) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "16px";
-    this.raiz.style.top = "16px";
-    this.raiz.style.background = "rgba(20,16,10,0.88)";
-    this.raiz.style.color = "#f0e8d8";
-    this.raiz.style.font = "13px sans-serif";
-    this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #6a5a3a";
-    this.raiz.style.minWidth = "260px";
-    this.raiz.style.maxHeight = "80vh";
-    this.raiz.style.overflowY = "auto";
-    this.raiz.style.display = "none";
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Jugador", icono: "🧍", left: "16px", top: "16px" });
   }
 
   alternar() {
-    this.visible = !this.visible;
-    this.raiz.style.display = this.visible ? "block" : "none";
+    this.marco.alternar();
   }
 
   estaVisible() {
-    return this.visible;
+    return this.marco.estaAbierto();
+  }
+
+  /** Alias de `estaVisible()` — dockHud.ts espera este nombre (mismo que expone crearMarcoPanel/PanelMapaMundo/PanelResumen). */
+  estaAbierto() {
+    return this.marco.estaAbierto();
+  }
+
+  onCambioEstado(cb: () => void) {
+    this.marco.onCambioEstado(cb);
   }
 
   /** Llamar en cada cambio de `player` (onChange/onAdd de Colyseus) — reconstruye todo, mismo criterio "barato a esta frecuencia" que el resto de sincronizaciones del proyecto. */
   actualizar(player: any) {
-    if (!this.visible) return; // evita reconstruir DOM en cada tick de red si el panel está cerrado
+    if (!this.marco.estaAbierto()) return; // evita reconstruir DOM en cada tick de red si el panel está cerrado
     this.render(player);
   }
 
   private render(player: any) {
-    this.raiz.innerHTML = "";
+    this.ultimoPlayer = player;
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
 
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "6px";
-    titulo.textContent = `🧍 ${player.name || "Jugador"}`;
-    this.raiz.appendChild(titulo);
+    titulo.textContent = player.name || "Jugador";
+    cuerpo.appendChild(titulo);
 
-    this.raiz.appendChild(
-      this.linea(
+    cuerpo.appendChild(
+      crearLineaTexto(
         `❤ ${Math.round(player.vida)}/${Math.round(player.vidaMax)}  ⚔ ${player.ataque} (${player.ataqueMagico} mág.)  🛡 ${player.defensa} (${player.defensaMagica} mág.)`,
       ),
     );
     const a = player.atributos;
     if (a) {
-      this.raiz.appendChild(
-        this.linea(`Fuerza ${a.fuerza} · Destreza ${a.destreza} · Inteligencia ${a.inteligencia} · Resistencia ${a.resistencia} · Carisma ${a.carisma}`, "11px"),
+      cuerpo.appendChild(
+        crearLineaTexto(`Fuerza ${a.fuerza} · Destreza ${a.destreza} · Inteligencia ${a.inteligencia} · Resistencia ${a.resistencia} · Carisma ${a.carisma}`, { fontSize: "11px" }),
       );
     }
 
-    this.raiz.appendChild(this.subtitulo("Equipo"));
-    const equipo: Map<string, string> = player.inventario.equipo;
+    cuerpo.appendChild(this.pestanas());
+
+    if (this.pestana === "equipo") {
+      cuerpo.appendChild(this.renderMuñecoDePapel(player.inventario.equipo));
+    } else {
+      cuerpo.appendChild(crearSubtitulo("Cuerpo"));
+      cuerpo.appendChild(this.renderGridContenedor("cuerpo", player.inventario.cuerpo));
+
+      const extras: Map<string, any> = player.inventario.extras;
+      for (const [slotExtra, contenedorExtra] of extras) {
+        const etiquetaExtra = SLOTS.find((s) => s.slot === slotExtra)?.etiqueta ?? slotExtra;
+        cuerpo.appendChild(crearSubtitulo(`Dentro de: ${etiquetaExtra}`));
+        cuerpo.appendChild(this.renderGridContenedor(slotExtra, contenedorExtra));
+      }
+    }
+  }
+
+  private pestanas(): HTMLDivElement {
+    const fila = document.createElement("div");
+    fila.style.display = "flex";
+    fila.style.gap = "4px";
+    fila.style.margin = "8px 0";
+    for (const [id, etiqueta] of [["equipo", "🧍 Equipo"], ["inventario", "🎒 Inventario"]] as const) {
+      const boton = document.createElement("button");
+      boton.textContent = etiqueta;
+      boton.style.flex = "1";
+      boton.style.padding = "4px 0";
+      boton.style.background = this.pestana === id ? "rgba(255,255,255,0.14)" : "transparent";
+      boton.style.color = "#f0e8d8";
+      boton.style.border = "1px solid #6a5a3a";
+      boton.style.borderRadius = "4px";
+      boton.style.cursor = "pointer";
+      boton.style.font = "inherit";
+      boton.onclick = () => { this.pestana = id; this.render(this.ultimoPlayer); };
+      fila.appendChild(boton);
+    }
+    return fila;
+  }
+
+  /**
+   * "Muñeco de papel" (pedido streamer 2026-09-09) — silueta central +
+   * los 21 slots de equipo colocados en su posición anatómica alrededor
+   * (`FILAS_MUÑECO`). Mismo dato/mecánica que la lista de siempre: clic en
+   * una celda equipada la desequipa (`opciones.desequipar`); equipar sigue
+   * haciéndose desde la pestaña Inventario (el botón "Eq." sobre cada
+   * ítem), no es un gesto de arrastrar sobre el muñeco todavía.
+   */
+  private renderMuñecoDePapel(equipo: Map<string, string>): HTMLDivElement {
+    const grid = document.createElement("div");
+    grid.style.display = "grid";
+    grid.style.gridTemplateColumns = "64px 84px 64px";
+    grid.style.gridTemplateRows = `repeat(${FILAS_MUÑECO.length}, 40px)`;
+    grid.style.gridTemplateAreas = FILAS_MUÑECO.map((fila) => `"${fila.join(" ")}"`).join(" ");
+    grid.style.gap = "3px";
+    grid.style.justifyItems = "stretch";
+    grid.style.margin = "0 auto 8px";
+    grid.style.width = "fit-content";
+
     for (const { slot, etiqueta } of SLOTS) {
       const itemId = equipo.get(slot);
-      const fila = document.createElement("div");
-      fila.style.display = "flex";
-      fila.style.justifyContent = "space-between";
-      fila.style.alignItems = "center";
-      fila.style.gap = "6px";
-      fila.style.padding = "1px 0";
+      const celda = document.createElement("div");
+      celda.style.gridArea = slot;
+      celda.style.display = "flex";
+      celda.style.flexDirection = "column";
+      celda.style.alignItems = "center";
+      celda.style.justifyContent = "center";
+      celda.style.background = itemId ? "rgba(184,168,120,0.18)" : "rgba(255,255,255,0.04)";
+      celda.style.border = `1px solid ${itemId ? "#b8a878" : "#6a5a3a"}`;
+      celda.style.borderRadius = "4px";
+      celda.style.fontSize = "16px";
+      celda.style.lineHeight = "1";
+      celda.style.overflow = "hidden";
+      celda.style.cursor = itemId ? "pointer" : "default";
+      celda.title = `${etiqueta}: ${itemId || "vacío"}`;
 
-      const texto = document.createElement("span");
-      texto.textContent = `${etiqueta}: ${itemId || "—"}`;
-      texto.style.opacity = itemId ? "1" : "0.55";
-      fila.appendChild(texto);
+      const icono = document.createElement("div");
+      icono.textContent = EMOJI_SLOT[slot] ?? "❔";
+      icono.style.opacity = itemId ? "1" : "0.35";
+      celda.appendChild(icono);
 
-      if (itemId) {
-        const quitar = document.createElement("button");
-        quitar.textContent = "Quitar";
-        quitar.onclick = () => this.opciones.desequipar(slot);
-        fila.appendChild(quitar);
-      }
-      this.raiz.appendChild(fila);
+      const nombre = document.createElement("div");
+      nombre.textContent = itemId ? itemId.replace(/_/g, " ").slice(0, 12) : etiqueta;
+      nombre.style.fontSize = "8px";
+      nombre.style.opacity = itemId ? "0.9" : "0.45";
+      nombre.style.textAlign = "center";
+      nombre.style.padding = "0 2px";
+      nombre.style.whiteSpace = "nowrap";
+      nombre.style.overflow = "hidden";
+      nombre.style.textOverflow = "ellipsis";
+      nombre.style.maxWidth = "100%";
+      celda.appendChild(nombre);
+
+      if (itemId) celda.onclick = () => this.opciones.desequipar(slot);
+      grid.appendChild(celda);
     }
 
-    this.raiz.appendChild(this.subtitulo("Cuerpo"));
-    this.raiz.appendChild(this.renderGridContenedor("cuerpo", player.inventario.cuerpo));
+    // Silueta central — puramente decorativa (sin arte de personaje 2D
+    // todavía), solo para que el ojo lea "esto es el cuerpo" entre los slots.
+    const silueta = document.createElement("div");
+    silueta.style.gridArea = "cuerpo";
+    silueta.style.display = "flex";
+    silueta.style.alignItems = "center";
+    silueta.style.justifyContent = "center";
+    silueta.style.fontSize = "42px";
+    silueta.style.opacity = "0.5";
+    silueta.textContent = "🧍";
+    grid.appendChild(silueta);
 
-    const extras: Map<string, any> = player.inventario.extras;
-    for (const [slotExtra, contenedorExtra] of extras) {
-      const etiquetaExtra = SLOTS.find((s) => s.slot === slotExtra)?.etiqueta ?? slotExtra;
-      this.raiz.appendChild(this.subtitulo(`Dentro de: ${etiquetaExtra}`));
-      this.raiz.appendChild(this.renderGridContenedor(slotExtra, contenedorExtra));
-    }
+    return grid;
   }
 
   /**
@@ -293,24 +395,5 @@ export class PanelJugador {
     }
 
     return grid;
-  }
-
-  private subtitulo(texto: string): HTMLDivElement {
-    const el = document.createElement("div");
-    el.style.fontWeight = "bold";
-    el.style.marginTop = "8px";
-    el.style.marginBottom = "3px";
-    el.style.borderTop = "1px solid #6a5a3a";
-    el.style.paddingTop = "4px";
-    el.textContent = texto;
-    return el;
-  }
-
-  private linea(texto: string, fontSize?: string): HTMLDivElement {
-    const el = document.createElement("div");
-    if (fontSize) el.style.fontSize = fontSize;
-    el.style.marginBottom = "4px";
-    el.textContent = texto;
-    return el;
   }
 }

@@ -7,6 +7,7 @@
  * instanciaId crudo (sin drag&drop todavía, igual que el resto de estos
  * paneles de esqueleto).
  */
+import { crearMarcoPanel, type MarcoPanel } from "../ui/panelBase";
 
 export interface EstadoCompaneroVista {
   nombre: string;
@@ -32,23 +33,30 @@ export interface OpcionesPanelCompanero {
 }
 
 export class PanelCompanero {
-  private raiz: HTMLDivElement;
+  private readonly marco: MarcoPanel;
   private estado: EstadoCompaneroVista | null = null;
 
   constructor(private opciones: OpcionesPanelCompanero) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.right = "16px";
-    this.raiz.style.bottom = "180px";
-    this.raiz.style.background = "rgba(10,18,12,0.88)";
-    this.raiz.style.color = "#d8f0d8";
-    this.raiz.style.font = "12px sans-serif";
-    this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #3a6a3a";
-    this.raiz.style.minWidth = "220px";
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Compañero", icono: "🛡️", top: "16px" });
+    // Esquina inferior-derecha, misma zona que ocupaba antes de migrar al
+    // marco compartido (crearMarcoPanel solo posiciona con left/top).
+    this.marco.raiz.style.left = "auto";
+    this.marco.raiz.style.right = "16px";
+    this.marco.raiz.style.top = "auto";
+    this.marco.raiz.style.bottom = "180px";
     this.render();
+  }
+
+  alternar() {
+    this.marco.alternar();
+  }
+
+  estaAbierto() {
+    return this.marco.estaAbierto();
+  }
+
+  onCambioEstado(cb: () => void) {
+    this.marco.onCambioEstado(cb);
   }
 
   actualizarEstado(estado: EstadoCompaneroVista | null) {
@@ -57,37 +65,36 @@ export class PanelCompanero {
   }
 
   private render() {
-    this.raiz.innerHTML = "";
-    const titulo = document.createElement("div");
-    titulo.style.fontWeight = "bold";
-    titulo.style.marginBottom = "6px";
-    titulo.textContent = "🛡️ Compañero";
-    this.raiz.appendChild(titulo);
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
 
     if (!this.estado) {
       const info = document.createElement("div");
       info.style.opacity = "0.8";
       info.style.marginBottom = "6px";
       info.textContent = "(sin compañero — habla con un NPC cercano)";
-      this.raiz.appendChild(info);
+      cuerpo.appendChild(info);
 
       const btnDialogo = document.createElement("button");
+      btnDialogo.className = "panel-colony-boton";
       btnDialogo.textContent = "Intentar reclutar (diálogo)";
       btnDialogo.onclick = () => this.opciones.intentarReclutar();
-      this.raiz.appendChild(btnDialogo);
+      cuerpo.appendChild(btnDialogo);
 
       const filaVendedor = document.createElement("div");
       filaVendedor.style.marginTop = "6px";
       const inputVendedor = document.createElement("input");
+      inputVendedor.className = "panel-colony-input";
       inputVendedor.placeholder = "id NPC vendedor";
       inputVendedor.style.width = "100%";
       inputVendedor.style.margin = "4px 0";
       filaVendedor.appendChild(inputVendedor);
       const btnComprar = document.createElement("button");
+      btnComprar.className = "panel-colony-boton";
       btnComprar.textContent = "Comprar de vendedor";
       btnComprar.onclick = () => { if (inputVendedor.value) this.opciones.comprarDeVendedor(inputVendedor.value); };
       filaVendedor.appendChild(btnComprar);
-      this.raiz.appendChild(filaVendedor);
+      cuerpo.appendChild(filaVendedor);
 
       // docs/GDD_Produccion.md §3bis: si el "sin compañero" es en realidad
       // "está trabajando en una plantilla" (desaparece del Schema mientras
@@ -97,54 +104,61 @@ export class PanelCompanero {
       const filaLlamar = document.createElement("div");
       filaLlamar.style.marginTop = "6px";
       const btnLlamar = document.createElement("button");
+      btnLlamar.className = "panel-colony-boton";
       btnLlamar.textContent = "Llamar (si está trabajando)";
       btnLlamar.onclick = () => this.opciones.llamar();
       filaLlamar.appendChild(btnLlamar);
-      this.raiz.appendChild(filaLlamar);
+      cuerpo.appendChild(filaLlamar);
       return;
     }
 
     const info = document.createElement("div");
     info.style.marginBottom = "6px";
     info.textContent = `${this.estado.nombre} — nivel ${this.estado.nivel} — vida ${Math.round(this.estado.vida)}/${Math.round(this.estado.vidaMax)}`;
-    this.raiz.appendChild(info);
+    cuerpo.appendChild(info);
 
     const inputInstancia = document.createElement("input");
+    inputInstancia.className = "panel-colony-input";
     inputInstancia.placeholder = "id instancia";
     inputInstancia.type = "number";
     inputInstancia.style.width = "100%";
     inputInstancia.style.margin = "4px 0";
-    this.raiz.appendChild(inputInstancia);
+    cuerpo.appendChild(inputInstancia);
 
     const filaTransferir = document.createElement("div");
     const btnDar = document.createElement("button");
+    btnDar.className = "panel-colony-boton";
     btnDar.textContent = "Darle objeto";
     btnDar.style.marginRight = "4px";
     btnDar.onclick = () => { const id = Number(inputInstancia.value); if (id) this.opciones.darItem(id); };
     filaTransferir.appendChild(btnDar);
     const btnQuitar = document.createElement("button");
+    btnQuitar.className = "panel-colony-boton";
     btnQuitar.textContent = "Quitarle objeto";
     btnQuitar.onclick = () => { const id = Number(inputInstancia.value); if (id) this.opciones.quitarItem(id); };
     filaTransferir.appendChild(btnQuitar);
-    this.raiz.appendChild(filaTransferir);
+    cuerpo.appendChild(filaTransferir);
 
     const inputSlot = document.createElement("input");
+    inputSlot.className = "panel-colony-input";
     inputSlot.placeholder = "slot (ej. torso, espalda=mochila)";
     inputSlot.style.width = "100%";
     inputSlot.style.margin = "4px 0";
-    this.raiz.appendChild(inputSlot);
+    cuerpo.appendChild(inputSlot);
 
     const filaEquipo = document.createElement("div");
     const btnEquipar = document.createElement("button");
+    btnEquipar.className = "panel-colony-boton";
     btnEquipar.textContent = "Equipar";
     btnEquipar.style.marginRight = "4px";
     btnEquipar.onclick = () => { const id = Number(inputInstancia.value); if (id && inputSlot.value) this.opciones.equipar(id, inputSlot.value); };
     filaEquipo.appendChild(btnEquipar);
     const btnDesequipar = document.createElement("button");
+    btnDesequipar.className = "panel-colony-boton";
     btnDesequipar.textContent = "Desequipar";
     btnDesequipar.onclick = () => { if (inputSlot.value) this.opciones.desequipar(inputSlot.value); };
     filaEquipo.appendChild(btnDesequipar);
-    this.raiz.appendChild(filaEquipo);
+    cuerpo.appendChild(filaEquipo);
 
     // Pedido 2026-08-31: "la gente que apoya debe poder decidir si se une o
     // no, no autounirse" — antes se metía siempre en tu combate sin preguntar.
@@ -159,6 +173,6 @@ export class PanelCompanero {
     labelCombate.appendChild(checkCombate);
     labelCombate.appendChild(document.createTextNode(" se une a mis combates"));
     filaCombate.appendChild(labelCombate);
-    this.raiz.appendChild(filaCombate);
+    cuerpo.appendChild(filaCombate);
   }
 }

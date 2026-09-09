@@ -4,7 +4,11 @@
  * al acercarse a una hoguera o vasija; cambia de forma según cuál sea
  * (hoguera: un solo campo "cocinar tal cual"; vasija: añadir ingredientes
  * + botón preparar, con la lista actual de la vasija).
+ *
+ * Chrome migrado al marco compartido (`panelBase.ts`, pedido streamer
+ * 2026-09-09: "TODA pantalla debe salir con esta estética").
  */
+import { crearMarcoPanel, crearBoton, crearInput, crearLineaTexto, type MarcoPanel } from "../ui/panelBase";
 
 export interface IngredienteVista {
   itemId: string;
@@ -69,7 +73,7 @@ export interface OpcionesPanelCocina {
 }
 
 export class PanelCocina {
-  private raiz: HTMLDivElement;
+  private marco: MarcoPanel;
   private construccionId: number | null = null;
   private estado: EstadoCocinaVista | null = null;
   /** Cuenta atrás LOCAL mientras hierve el agua — evita tener que preguntarle al servidor cada segundo solo para refrescar un número (docs/GDD_Cocina.md). */
@@ -80,19 +84,22 @@ export class PanelCocina {
   private resultado: ResultadoCocinaVista | null = null;
 
   constructor(private opciones: OpcionesPanelCocina) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.right = "16px";
-    this.raiz.style.bottom = "180px";
-    this.raiz.style.background = "rgba(20,16,10,0.88)";
-    this.raiz.style.color = "#f0e8d8";
-    this.raiz.style.font = "13px sans-serif";
-    this.raiz.style.padding = "10px 14px";
-    this.raiz.style.borderRadius = "6px";
-    this.raiz.style.border = "1px solid #6a5a3a";
-    this.raiz.style.minWidth = "220px";
-    this.raiz.hidden = true;
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({
+      contenedor: opciones.contenedor,
+      titulo: "Cocina",
+      icono: "🍲",
+      // Este panel lo muestra/oculta la PROXIMIDAD a la hoguera/vasija
+      // (game.ts, cada 500ms) — no un gesto del jugador. Si Escape/clic-
+      // fuera lo cerraran mientras sigue de pie junto a la estación, el
+      // siguiente mensaje del servidor (agua hirviendo, minijuego en
+      // curso...) lo reabriría de golpe, dando sensación de panel que "no
+      // se deja cerrar". Solo se cierra por `ocultar()`/la propia lógica
+      // interna de proximidad, o el botón ✕ de la cabecera.
+      cierraAlClicarFuera: false,
+      cierraConEscape: false,
+    });
+    this.marco.raiz.style.right = "16px";
+    this.marco.raiz.style.bottom = "180px";
     this.render();
   }
 
@@ -135,7 +142,6 @@ export class PanelCocina {
     this.sesion = sesion;
     this.resultado = null;
     this.pararTemporizador();
-    this.raiz.hidden = false;
     this.render();
   }
 
@@ -151,7 +157,6 @@ export class PanelCocina {
     this.sesionCfg = null;
     this.sesion = null;
     this.resultado = resultado;
-    this.raiz.hidden = false;
     this.render();
   }
 
@@ -164,14 +169,23 @@ export class PanelCocina {
   }
 
   private render() {
-    this.raiz.innerHTML = "";
-    if (this.resultado) return this.renderResultado(this.resultado);
-    if (this.sesionCfg && this.sesion) return this.renderSesion(this.sesionCfg, this.sesion);
-    if (this.construccionId == null || !this.estado) {
-      this.raiz.hidden = true;
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
+    if (this.resultado) {
+      this.marco.abrir();
+      this.renderResultado(this.resultado);
       return;
     }
-    this.raiz.hidden = false;
+    if (this.sesionCfg && this.sesion) {
+      this.marco.abrir();
+      this.renderSesion(this.sesionCfg, this.sesion);
+      return;
+    }
+    if (this.construccionId == null || !this.estado) {
+      this.marco.cerrar();
+      return;
+    }
+    this.marco.abrir();
     const id = this.construccionId;
     const e = this.estado;
 
@@ -179,42 +193,28 @@ export class PanelCocina {
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "6px";
     titulo.textContent = e.esVasija ? `🍲 ${nombreVasija(e.vasija)}` : "🔥 Fuego";
-    this.raiz.appendChild(titulo);
+    cuerpo.appendChild(titulo);
 
     if (!e.esVasija) {
-      const ayuda = document.createElement("div");
-      ayuda.style.fontSize = "11px";
-      ayuda.style.opacity = "0.8";
-      ayuda.style.marginBottom = "6px";
-      ayuda.textContent = "Cocina un ingrediente tal cual, sin combinar.";
-      this.raiz.appendChild(ayuda);
+      cuerpo.appendChild(crearLineaTexto("Cocina un ingrediente tal cual, sin combinar.", { tenue: true, fontSize: "11px" }));
 
       const fila = document.createElement("div");
       fila.style.display = "flex";
       fila.style.gap = "6px";
-      const input = document.createElement("input");
-      input.type = "number";
-      input.placeholder = "id ingrediente";
+      const input = crearInput({ tipo: "number", placeholder: "id ingrediente" });
       input.style.width = "100px";
       fila.appendChild(input);
-      const boton = document.createElement("button");
-      boton.textContent = "Cocinar";
-      boton.onclick = () => {
+      const boton = crearBoton("Cocinar", () => {
         const iid = Number(input.value);
         if (Number.isFinite(iid) && iid > 0) this.opciones.cocinarSimple(id, iid);
         input.value = "";
-      };
+      });
       fila.appendChild(boton);
-      this.raiz.appendChild(fila);
+      cuerpo.appendChild(fila);
       return;
     }
 
-    const ayuda = document.createElement("div");
-    ayuda.style.fontSize = "11px";
-    ayuda.style.opacity = "0.8";
-    ayuda.style.marginBottom = "6px";
-    ayuda.textContent = `Hasta ${e.capacidad} ingredientes distintos — mezclar planta y carne da bonus.`;
-    this.raiz.appendChild(ayuda);
+    cuerpo.appendChild(crearLineaTexto(`Hasta ${e.capacidad} ingredientes distintos — mezclar planta y carne da bonus.`, { tenue: true, fontSize: "11px" }));
 
     // Cocina v2 (docs/GDD_Cocina.md): cuenco_barro_grande (sartén) y
     // tinaja_batidos no necesitan agua ni hervor — directo a añadir.
@@ -228,42 +228,32 @@ export class PanelCocina {
         filaAgua.style.display = "flex";
         filaAgua.style.gap = "6px";
         filaAgua.style.marginBottom = "6px";
-        const inputRecipiente = document.createElement("input");
-        inputRecipiente.type = "number";
-        inputRecipiente.placeholder = "id recipiente con agua";
+        const inputRecipiente = crearInput({ tipo: "number", placeholder: "id recipiente con agua" });
         inputRecipiente.style.width = "150px";
         filaAgua.appendChild(inputRecipiente);
-        const llenar = document.createElement("button");
-        llenar.textContent = "💧 Meter agua y poner al fuego";
-        llenar.onclick = () => {
+        const llenar = crearBoton("💧 Meter agua y poner al fuego", () => {
           const iid = Number(inputRecipiente.value);
           if (Number.isFinite(iid) && iid > 0) this.opciones.llenarAgua(id, iid);
           inputRecipiente.value = "";
-        };
+        });
         filaAgua.appendChild(llenar);
-        this.raiz.appendChild(filaAgua);
+        cuerpo.appendChild(filaAgua);
         return;
       }
       if (!e.hirviendo) {
         const esperando = document.createElement("div");
         esperando.style.marginBottom = "6px";
         esperando.textContent = `🔥 Calentando... ${e.segundosParaHervir}s`;
-        this.raiz.appendChild(esperando);
+        cuerpo.appendChild(esperando);
         return;
       }
     }
 
     if (e.ingredientes.length === 0) {
-      const vacio = document.createElement("div");
-      vacio.style.opacity = "0.7";
-      vacio.style.marginBottom = "6px";
-      vacio.textContent = "(vacía)";
-      this.raiz.appendChild(vacio);
+      cuerpo.appendChild(crearLineaTexto("(vacía)", { tenue: true }));
     } else {
       for (const ing of e.ingredientes) {
-        const fila = document.createElement("div");
-        fila.textContent = `${ing.itemId} x${ing.cantidad}`;
-        this.raiz.appendChild(fila);
+        cuerpo.appendChild(crearLineaTexto(`${ing.itemId} x${ing.cantidad}`));
       }
     }
 
@@ -271,115 +261,94 @@ export class PanelCocina {
     filaAnadir.style.display = "flex";
     filaAnadir.style.gap = "6px";
     filaAnadir.style.margin = "8px 0";
-    const inputId = document.createElement("input");
-    inputId.type = "number";
-    inputId.placeholder = "id ingrediente";
+    const inputId = crearInput({ tipo: "number", placeholder: "id ingrediente" });
     inputId.style.width = "90px";
-    const inputCantidad = document.createElement("input");
-    inputCantidad.type = "number";
-    inputCantidad.placeholder = "cantidad";
+    const inputCantidad = crearInput({ tipo: "number", placeholder: "cantidad" });
     inputCantidad.style.width = "70px";
     filaAnadir.appendChild(inputId);
     filaAnadir.appendChild(inputCantidad);
-    const botonAnadir = document.createElement("button");
-    botonAnadir.textContent = "Añadir";
-    botonAnadir.onclick = () => {
+    const botonAnadir = crearBoton("Añadir", () => {
       const iid = Number(inputId.value);
       const cantidad = Number(inputCantidad.value) || 1;
       if (Number.isFinite(iid) && iid > 0) this.opciones.anadir(id, iid, cantidad);
       inputId.value = "";
       inputCantidad.value = "";
-    };
+    });
     filaAnadir.appendChild(botonAnadir);
-    this.raiz.appendChild(filaAnadir);
+    cuerpo.appendChild(filaAnadir);
 
-    const preparar = document.createElement("button");
-    preparar.textContent = "Preparar plato (arranca el minijuego)";
+    const preparar = crearBoton("Preparar plato (arranca el minijuego)", () => this.opciones.preparar(id));
     preparar.disabled = e.ingredientes.length === 0;
-    preparar.onclick = () => this.opciones.preparar(id);
-    this.raiz.appendChild(preparar);
+    cuerpo.appendChild(preparar);
   }
 
   /** Minijuego real-time (docs/GDD_Cocina.md, pedido 2026-09-01) — mismo criterio de placeholder que el resto del panel: texto plano, sin barras ni escena, solo lo justo para poder JUGAR y comprobar el protocolo. */
   private renderSesion(cfg: ConfigSesionCocinaVista, sesion: EstadoSesionCocinaVista) {
-    this.raiz.hidden = false;
+    const cuerpo = this.marco.cuerpo;
     const id = this.construccionId!;
 
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "6px";
     titulo.textContent = "🔥 Cocinando";
-    this.raiz.appendChild(titulo);
+    cuerpo.appendChild(titulo);
 
     const temp = document.createElement("div");
     temp.textContent = `Temperatura: ${Math.round(sesion.temperatura)}° (ventana ${cfg.temperaturaObjetivoMin}–${cfg.temperaturaObjetivoMax}°)`;
-    this.raiz.appendChild(temp);
+    cuerpo.appendChild(temp);
 
     const enVentana = sesion.temperatura >= cfg.temperaturaObjetivoMin && sesion.temperatura <= cfg.temperaturaObjetivoMax;
     const estadoDiv = document.createElement("div");
     estadoDiv.style.marginBottom = "6px";
     estadoDiv.style.color = enVentana ? "#7ec850" : "#d9a63a";
     estadoDiv.textContent = enVentana ? "✓ dentro de la ventana" : "fuera de la ventana";
-    this.raiz.appendChild(estadoDiv);
+    cuerpo.appendChild(estadoDiv);
 
     const tiempo = document.createElement("div");
     tiempo.style.marginBottom = "8px";
     tiempo.style.opacity = "0.8";
     tiempo.textContent = `Tiempo: ${sesion.segundosTotales.toFixed(1)}s / mínimo ${cfg.duracionMinimaSeg}s — ${sesion.segundosEnVentana.toFixed(1)}s dentro de ventana`;
-    this.raiz.appendChild(tiempo);
+    cuerpo.appendChild(tiempo);
 
     const botones = document.createElement("div");
     botones.style.display = "flex";
     botones.style.gap = "6px";
-    const avivar = document.createElement("button");
-    avivar.textContent = "🔥 Avivar";
-    avivar.onclick = () => this.opciones.avivar(id);
-    botones.appendChild(avivar);
-    const enfriar = document.createElement("button");
-    enfriar.textContent = "💧 Enfriar";
-    enfriar.onclick = () => this.opciones.enfriar(id);
-    botones.appendChild(enfriar);
-    const servir = document.createElement("button");
-    servir.textContent = "🍽 Servir";
+    botones.appendChild(crearBoton("🔥 Avivar", () => this.opciones.avivar(id)));
+    botones.appendChild(crearBoton("💧 Enfriar", () => this.opciones.enfriar(id)));
+    const servir = crearBoton("🍽 Servir", () => this.opciones.servir(id));
     servir.disabled = sesion.segundosTotales < cfg.duracionMinimaSeg;
-    servir.onclick = () => this.opciones.servir(id);
     botones.appendChild(servir);
-    const cancelar = document.createElement("button");
-    cancelar.textContent = "✕ Cancelar";
-    cancelar.onclick = () => this.opciones.cancelarSesion(id);
-    botones.appendChild(cancelar);
-    this.raiz.appendChild(botones);
+    botones.appendChild(crearBoton("✕ Cancelar", () => this.opciones.cancelarSesion(id)));
+    cuerpo.appendChild(botones);
   }
 
   private renderResultado(resultado: ResultadoCocinaVista) {
-    this.raiz.hidden = false;
+    const cuerpo = this.marco.cuerpo;
     const titulo = document.createElement("div");
     titulo.style.fontWeight = "bold";
     titulo.style.marginBottom = "6px";
     titulo.textContent = "✅ Plato servido";
-    this.raiz.appendChild(titulo);
+    cuerpo.appendChild(titulo);
 
     const detalle = document.createElement("div");
     detalle.textContent = `${resultado.cantidad}× ${resultado.nombre}${resultado.mezclaBonus ? " (bonus de mezcla)" : ""}`;
-    this.raiz.appendChild(detalle);
+    cuerpo.appendChild(detalle);
 
     if (resultado.pureza != null) {
       const pureza = document.createElement("div");
       pureza.style.opacity = "0.8";
       pureza.textContent = `Pureza del fuego: ${Math.round(resultado.pureza * 100)}%`;
-      this.raiz.appendChild(pureza);
+      cuerpo.appendChild(pureza);
     }
     if (resultado.enSuelo) {
       const aviso = document.createElement("div");
       aviso.style.color = "#d9a63a";
       aviso.textContent = "Sin hueco en el inventario — cayó al suelo";
-      this.raiz.appendChild(aviso);
+      cuerpo.appendChild(aviso);
     }
 
-    const cerrar = document.createElement("button");
-    cerrar.textContent = "Cerrar";
+    const cerrar = crearBoton("Cerrar", () => this.ocultarSesion());
     cerrar.style.marginTop = "8px";
-    cerrar.onclick = () => this.ocultarSesion();
-    this.raiz.appendChild(cerrar);
+    cuerpo.appendChild(cerrar);
   }
 }

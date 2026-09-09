@@ -8,10 +8,19 @@
  * - "global": llega a toda la room (Hub/región/interior/mazmorra/arena).
  *
  * DOM plano inyectado sobre el canvas, mismo patrón que panelCombate.ts —
- * nada de framework. Panel PERSISTENTE (a diferencia de un panel modal): el
- * log de mensajes siempre está visible, el input solo se activa con Enter
- * (mismo atajo universal de chat de cualquier MMO) para no robarle el
- * teclado al movimiento mientras no se está escribiendo.
+ * nada de framework (`crearMarcoPanel` cierra del todo con la X; el chat es
+ * una pieza permanente del HUD que solo se MINIMIZA, nunca desaparece por
+ * completo — no encaja en ese contrato). Panel PERSISTENTE (a diferencia de
+ * un panel modal): el log de mensajes siempre está visible, el input solo
+ * se activa con Enter (mismo atajo universal de chat de cualquier MMO) para
+ * no robarle el teclado al movimiento mientras no se está escribiendo.
+ *
+ * Minimizable (pedido streamer 2026-09-09: "el chat se tiene que poder
+ * minimizar con una tecla como la X arriba derecha") — cabecera propia con
+ * el mismo botón redondo del resto del HUD (`temaPaneles.css::
+ * .chat-colony-minimizar`); minimizado deja solo la cabecera visible (log +
+ * input ocultos, nunca destruidos: los mensajes que lleguen mientras está
+ * minimizado siguen acumulándose para cuando se reabra).
  */
 
 export interface OpcionesPanelChat {
@@ -31,11 +40,14 @@ const MAX_MENSAJES_VISIBLES = 50;
 
 export class PanelChat {
   private raiz: HTMLDivElement;
+  private cuerpo: HTMLDivElement;
   private log: HTMLDivElement;
   private input: HTMLInputElement;
   private botonCanal: HTMLButtonElement;
+  private botonMinimizar: HTMLButtonElement;
   private canal: "local" | "global" = "local";
   private mensajes: MensajeChatVista[] = [];
+  private minimizado = false;
 
   constructor(private opciones: OpcionesPanelChat) {
     this.raiz = document.createElement("div");
@@ -51,18 +63,39 @@ export class PanelChat {
     this.raiz.style.border = "1px solid #6a5a3a";
     this.raiz.style.overflow = "hidden";
 
+    const cabecera = document.createElement("div");
+    cabecera.className = "chat-colony-cabecera";
+    const etiquetaCabecera = document.createElement("span");
+    etiquetaCabecera.textContent = "💬 Chat";
+    cabecera.appendChild(etiquetaCabecera);
+    this.botonMinimizar = document.createElement("button");
+    this.botonMinimizar.className = "chat-colony-minimizar";
+    this.botonMinimizar.title = "Minimizar";
+    this.botonMinimizar.dataset.testid = "chat-minimizar";
+    this.botonMinimizar.textContent = "–";
+    this.botonMinimizar.onclick = () => {
+      this.minimizado = !this.minimizado;
+      this.actualizarMinimizado();
+    };
+    cabecera.appendChild(this.botonMinimizar);
+    this.raiz.appendChild(cabecera);
+
+    this.cuerpo = document.createElement("div");
+    this.raiz.appendChild(this.cuerpo);
+
     this.log = document.createElement("div");
     this.log.style.height = "150px";
     this.log.style.overflowY = "auto";
     this.log.style.padding = "6px 8px";
     this.log.style.lineHeight = "1.35";
-    this.raiz.appendChild(this.log);
+    this.cuerpo.appendChild(this.log);
 
     const filaInput = document.createElement("div");
     filaInput.style.display = "flex";
     filaInput.style.borderTop = "1px solid #6a5a3a";
 
     this.botonCanal = document.createElement("button");
+    this.botonCanal.dataset.testid = "panel-chat-canal";
     this.botonCanal.style.flex = "0 0 auto";
     this.botonCanal.style.background = "rgba(106,90,58,0.6)";
     this.botonCanal.style.color = "#f0e8d8";
@@ -108,7 +141,7 @@ export class PanelChat {
       }
     };
     filaInput.appendChild(this.input);
-    this.raiz.appendChild(filaInput);
+    this.cuerpo.appendChild(filaInput);
 
     opciones.contenedor.appendChild(this.raiz);
 
@@ -117,14 +150,25 @@ export class PanelChat {
     // aquí (listener propio) y no en el keydown global de game.ts porque
     // ese ya ignora por completo las teclas mientras un <input> tiene el
     // foco (ver el guardia añadido ahí) — sin este listener propio, Enter
-    // nunca llegaría a abrir el chat la primera vez.
+    // nunca llegaría a abrir el chat la primera vez. Si está minimizado,
+    // Enter lo restaura primero — sin esto, Enter enfocaría un input oculto.
     window.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       if (document.activeElement === this.input) return; // ya enfocado: lo gestiona this.input.onkeydown de arriba
       if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) return; // otro input con foco (login, etc.) — no robarle Enter
       e.preventDefault();
+      if (this.minimizado) {
+        this.minimizado = false;
+        this.actualizarMinimizado();
+      }
       this.input.focus();
     });
+  }
+
+  private actualizarMinimizado() {
+    this.cuerpo.style.display = this.minimizado ? "none" : "block";
+    this.botonMinimizar.textContent = this.minimizado ? "＋" : "–";
+    this.botonMinimizar.title = this.minimizado ? "Restaurar" : "Minimizar";
   }
 
   private actualizarBotonCanal() {

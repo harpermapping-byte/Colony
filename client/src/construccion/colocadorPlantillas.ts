@@ -274,24 +274,30 @@ export class ColocadorPlantillas {
   }
 
   private crearPanel(): { panel: HTMLDivElement; lineaInfo: HTMLDivElement; lineaError: HTMLDivElement } {
+    // Paleta madera/pergamino del tema (pedido streamer 2026-09-09) — SIN
+    // tocar la lógica de activación/desactivación por tecla ni los colores
+    // del fantasma en el mundo 3D (feedback funcional de validez, no chrome
+    // de panel). Este panel ya usaba tonos cálidos parecidos de antes; ahora
+    // usa las variables reales para heredar cualquier retoque futuro.
     if (!document.getElementById("estilos-plantillas")) {
       const estilos = document.createElement("style");
       estilos.id = "estilos-plantillas";
       estilos.textContent = `
         .panel-plantillas{position:absolute;top:12px;left:12px;width:260px;max-height:calc(100vh - 40px);
-          overflow-y:auto;background:rgba(28,20,10,0.92);color:#f0e8d8;font:12px/1.4 sans-serif;
-          border:1px solid #8a6a2a;border-radius:6px;padding:10px;z-index:10;display:none}
-        .panel-plantillas h3{margin:0 0 6px;font-size:13px;letter-spacing:.5px}
-        .panel-plantillas .info{min-height:16px;color:#e2d8c0;border-bottom:1px solid #8a6a2a;padding-bottom:6px}
-        .panel-plantillas .error{display:none;color:#feb2b2;background:rgba(120,30,30,.35);
-          border:1px solid #9b2c2c;border-radius:4px;padding:4px 6px;margin-top:6px}
+          overflow-y:auto;background:var(--panel-bg);color:var(--panel-texto);font:var(--panel-fuente);
+          border:3px solid var(--panel-borde);border-radius:var(--panel-radio);padding:10px;z-index:10;
+          display:none;box-shadow:var(--panel-sombra)}
+        .panel-plantillas h3{margin:0 0 6px;font:var(--panel-fuente-titulo);color:var(--panel-acento)}
+        .panel-plantillas .info{min-height:16px;color:var(--panel-texto);border-bottom:1px solid var(--panel-borde-tallado);padding-bottom:6px}
+        .panel-plantillas .error{display:none;color:var(--error-color);background:rgba(0,0,0,.3);
+          border:1px solid var(--error-color);border-radius:4px;padding:4px 6px;margin-top:6px}
         .panel-plantillas button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;
-          background:transparent;border:1px solid transparent;border-radius:4px;color:#f0e8d8;
-          font:11px sans-serif;padding:3px 5px;cursor:pointer}
-        .panel-plantillas button:hover{background:#3a2e18}
-        .panel-plantillas button.sel{border-color:#3ddc78;background:#22543d}
+          background:transparent;border:1px solid transparent;border-radius:5px;color:var(--panel-texto);
+          font:12px "Trebuchet MS",sans-serif;padding:3px 5px;cursor:pointer}
+        .panel-plantillas button:hover{background:var(--panel-hover)}
+        .panel-plantillas button.sel{border-color:var(--panel-acento);background:var(--panel-hover)}
         .panel-plantillas .sw{width:12px;height:12px;border-radius:2px;flex:none;border:1px solid rgba(255,255,255,.25)}
-        .panel-plantillas .hu{margin-left:auto;color:#c8b890}`;
+        .panel-plantillas .hu{margin-left:auto;color:var(--panel-texto-tenue)}`;
       document.head.appendChild(estilos);
     }
 

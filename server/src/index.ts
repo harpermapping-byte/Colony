@@ -19,6 +19,7 @@ import { iniciarDeteccionDirecto } from "./twitch/estadoDirecto";
 import { obtenerGestorTwitch } from "./twitch/gestorTwitch";
 import { manejarPeticionLoginTwitch } from "./twitch/rutasOauth";
 import { manejarPeticionAdmin } from "./admin/rutasAdmin";
+import { manejarPeticionAuthJugador } from "./auth/rutasAuthJugador";
 import { sembrarCuentasAdminIniciales } from "./admin/seedAdmin";
 import { cargarPvpDesdeBd } from "./mundo/pvp";
 import { cargarNombreCapitalDesdeBd } from "./mundo/capital";
@@ -53,6 +54,7 @@ const port = Number(process.env.PORT) || 2567;
 const httpServer = createServer((req, res) => {
   if (manejarPeticionLoginTwitch(req, res)) return;
   if (manejarPeticionAdmin(req, res)) return;
+  if (manejarPeticionAuthJugador(req, res)) return;
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Streamer Colony server OK");
 });

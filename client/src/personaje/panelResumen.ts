@@ -22,6 +22,7 @@
  * (las 26 letras del teclado ya están todas asignadas a otra cosa).
  */
 import type { MascotaVista } from "../mascotas/panelMascotas";
+import { crearMarcoPanel, type MarcoPanel } from "../ui/panelBase";
 
 export interface PropiedadVista {
   id: string;
@@ -52,9 +53,13 @@ export interface OpcionesPanelResumen {
 }
 
 export class PanelResumen {
+  // Fondo oscurecido de pantalla completa — mismo criterio que
+  // panelMapaMundo.ts (crearMarcoPanel da una tarjeta flotante, no un
+  // overlay a pantalla completa; la tarjeta se monta DENTRO de este fondo
+  // para que el "clic fuera cierra" de crearMarcoPanel, que mide contra
+  // `marco.raiz`, caiga sobre el fondo y cierre igual que antes).
   private readonly fondo: HTMLDivElement;
-  private readonly cuerpo: HTMLDivElement;
-  private visible = false;
+  private readonly marco: MarcoPanel;
   private mascotas: MascotaVista[] = [];
   private propiedades: PropiedadVista[] | null = null; // null = todavía no ha llegado ningún snapshot
   private companero: CompaneroVista | null = null;
@@ -68,82 +73,64 @@ export class PanelResumen {
     this.fondo.style.zIndex = "70";
     this.fondo.style.alignItems = "center";
     this.fondo.style.justifyContent = "center";
-    this.fondo.onclick = (e) => { if (e.target === this.fondo) this.ocultar(); };
-
-    this.cuerpo = document.createElement("div");
-    this.cuerpo.style.background = "rgba(18,16,22,0.96)";
-    this.cuerpo.style.color = "#e8e0f0";
-    this.cuerpo.style.font = "13px sans-serif";
-    this.cuerpo.style.padding = "16px 20px";
-    this.cuerpo.style.borderRadius = "8px";
-    this.cuerpo.style.border = "1px solid #5a4a7a";
-    this.cuerpo.style.width = "420px";
-    this.cuerpo.style.maxHeight = "80vh";
-    this.cuerpo.style.overflowY = "auto";
-    this.fondo.appendChild(this.cuerpo);
-
     document.body.appendChild(this.fondo);
 
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && this.visible) this.ocultar();
+    this.marco = crearMarcoPanel({ contenedor: this.fondo, titulo: "Lo que tienes", icono: "🎒", ancho: "420px" });
+    this.marco.raiz.style.position = "relative"; // el fondo ya centra con flex — el position:absolute del tema rompería el centrado
+    this.marco.onCambioEstado(() => {
+      this.fondo.style.display = this.marco.estaAbierto() ? "flex" : "none";
+      if (this.marco.estaAbierto()) {
+        this.opciones.consultarPropiedades(); // siempre pide fresco al abrir — barato, un solo mensaje
+        this.render();
+      }
     });
   }
 
   /** Llamar al recibir "mascota:lista" del servidor (mismo dato que PanelMascotas). */
   actualizarMascotas(mascotas: MascotaVista[]): void {
     this.mascotas = mascotas;
-    if (this.visible) this.render();
+    if (this.marco.estaAbierto()) this.render();
   }
 
   /** Llamar al recibir "propiedad:misPropiedades" del servidor. */
   actualizarPropiedades(propiedades: PropiedadVista[]): void {
     this.propiedades = propiedades;
-    if (this.visible) this.render();
+    if (this.marco.estaAbierto()) this.render();
   }
 
   /** Llamar en cada cambio del compañero propio (mismo `c` que ya alimenta a PanelCompanero) — null si no tiene. */
   actualizarCompanero(companero: CompaneroVista | null): void {
     this.companero = companero;
-    if (this.visible) this.render();
+    if (this.marco.estaAbierto()) this.render();
   }
 
   alternar(): void {
-    if (this.visible) this.ocultar();
-    else this.mostrar();
+    this.marco.alternar();
   }
 
-  private mostrar(): void {
-    this.visible = true;
-    this.fondo.style.display = "flex";
-    this.opciones.consultarPropiedades(); // siempre pide fresco al abrir — barato, un solo mensaje
-    this.render();
+  estaAbierto(): boolean {
+    return this.marco.estaAbierto();
   }
 
-  private ocultar(): void {
-    this.visible = false;
-    this.fondo.style.display = "none";
+  /** Dock (docs/GDD_UI_Paneles.md) — se dispara en cada abrir/cerrar por cualquier vía (X, clic fuera, Escape, Tab). */
+  onCambioEstado(cb: () => void): void {
+    this.marco.onCambioEstado(cb);
   }
 
   private render(): void {
-    this.cuerpo.innerHTML = "";
-
-    const titulo = document.createElement("div");
-    titulo.style.fontWeight = "bold";
-    titulo.style.fontSize = "16px";
-    titulo.style.marginBottom = "4px";
-    titulo.textContent = "🎒 Lo que tienes";
-    this.cuerpo.appendChild(titulo);
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
 
     const ayuda = document.createElement("div");
     ayuda.style.opacity = "0.7";
     ayuda.style.fontSize = "11px";
-    ayuda.style.marginBottom = "12px";
+    ayuda.style.marginBottom = "8px";
     ayuda.textContent = "Tab o Escape para cerrar";
-    this.cuerpo.appendChild(ayuda);
+    cuerpo.appendChild(ayuda);
 
-    this.cuerpo.appendChild(this.seccionMonturas());
-    this.cuerpo.appendChild(this.seccionPropiedades());
-    this.cuerpo.appendChild(this.seccionCompanero());
+    cuerpo.appendChild(this.seccionMonturas());
+    cuerpo.appendChild(this.seccionPropiedades());
+    cuerpo.appendChild(this.seccionCompanero());
   }
 
   private encabezado(texto: string): HTMLDivElement {

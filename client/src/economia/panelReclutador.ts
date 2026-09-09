@@ -1,16 +1,20 @@
 /**
  * Panel del reclutador de NPCs trabajadores (docs/GDD_NPCs_Contratables.md,
- * pedido 2026-09-01) — mismo patrón DOM flotante que el resto de paneles
- * pulidos de esta pasada (`panelSastreLegendario.ts`, `panelCofre.ts`): sin
- * preview 3D (aquí no se genera geometría, solo se contrata/asigna), pero
- * con la misma atención a mostrar SIEMPRE el coste/estado ANTES de que el
- * jugador confirme nada. Tres secciones: contratar (checkboxes de oficio +
- * coste marginal en vivo, incluye "transporte" desde la fusión del pedido
- * 2026-09-01) y gestionar tus trabajadores ya contratados — mesa+receta
- * para los oficios de mesa, RUTA origen→destino para "transporte", ambos
- * selectores poblados SOLO con construcciones reales del jugador
- * (`trabajador:misConstrucciones`, nunca inventadas) — y despedir.
+ * pedido 2026-09-01) — marco compartido (`panelBase.ts`, tema madera/
+ * pergamino, X + clic fuera + Escape). Tres secciones: contratar (checkboxes
+ * de oficio + coste marginal en vivo, incluye "transporte" desde la fusión
+ * del pedido 2026-09-01) y gestionar tus trabajadores ya contratados —
+ * mesa+receta para los oficios de mesa, RUTA origen→destino para
+ * "transporte", ambos selectores poblados SOLO con construcciones reales
+ * del jugador (`trabajador:misConstrucciones`, nunca inventadas) — y
+ * despedir.
+ *
+ * `data-testid="panel-reclutador"` en `marco.raiz` (no en el `cuerpo`) es a
+ * propósito: `client/test/panelReclutador.e2e.mjs` localiza selects con
+ * `[data-testid="panel-reclutador"] select`, que sigue funcionando porque
+ * `cuerpo` cuelga dentro de `raiz`.
  */
+import { crearMarcoPanel, crearBoton, crearSubtitulo, crearLineaTexto } from "../ui/panelBase";
 import recetasJson from "../../../items/catalogo/recetas.json";
 
 interface RecetaCatalogo {
@@ -83,13 +87,8 @@ export interface OpcionesPanelReclutador {
   refrescarConstrucciones(): void;
 }
 
-const COLOR_FONDO = "rgba(20,15,8,0.96)";
-const COLOR_BORDE = "#8a6a2a";
-const COLOR_TEXTO = "#f0e4c8";
-
 export class PanelReclutador {
-  private raiz: HTMLDivElement;
-  private abierto = false;
+  private readonly marco;
   private catalogo: CatalogoReclutadorVista | null = null;
   private trabajadores: TrabajadorVista[] = [];
   private rutas: RutaVista[] = [];
@@ -98,47 +97,30 @@ export class PanelReclutador {
   private ultimoError = "";
 
   constructor(private opciones: OpcionesPanelReclutador) {
-    this.raiz = document.createElement("div");
-    this.raiz.dataset.testid = "panel-reclutador";
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "50%";
-    this.raiz.style.top = "50%";
-    this.raiz.style.transform = "translate(-50%, -50%)";
-    this.raiz.style.background = COLOR_FONDO;
-    this.raiz.style.color = COLOR_TEXTO;
-    this.raiz.style.font = "13px sans-serif";
-    this.raiz.style.padding = "14px 18px";
-    this.raiz.style.borderRadius = "8px";
-    this.raiz.style.border = `1px solid ${COLOR_BORDE}`;
-    this.raiz.style.minWidth = "380px";
-    this.raiz.style.maxWidth = "480px";
-    this.raiz.style.maxHeight = "78vh";
-    this.raiz.style.overflowY = "auto";
-    this.raiz.style.zIndex = "50";
-    this.raiz.hidden = true;
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Reclutador de trabajadores", icono: "🧑‍🔧", left: "50%", top: "50%", ancho: "420px" });
+    this.marco.raiz.dataset.testid = "panel-reclutador";
+    this.marco.raiz.style.transform = "translate(-50%, -50%)";
+    this.marco.raiz.style.maxHeight = "78vh";
     this.render();
   }
 
   estaAbierto(): boolean {
-    return this.abierto;
+    return this.marco.estaAbierto();
   }
 
   abrir() {
-    this.abierto = true;
     this.opciones.refrescarConstrucciones();
-    this.render();
+    this.marco.abrir();
   }
 
   cerrar() {
-    this.abierto = false;
-    this.render();
+    this.marco.cerrar();
   }
 
   alternar() {
-    this.abierto = !this.abierto;
-    if (this.abierto) this.opciones.refrescarConstrucciones();
-    this.render();
+    const abriendoAhora = !this.marco.estaAbierto();
+    this.marco.alternar();
+    if (abriendoAhora) this.opciones.refrescarConstrucciones();
   }
 
   actualizarCatalogo(catalogo: CatalogoReclutadorVista) {
@@ -192,17 +174,13 @@ export class PanelReclutador {
     const seccion = document.createElement("div");
     seccion.style.marginBottom = "10px";
     seccion.style.paddingBottom = "10px";
-    seccion.style.borderBottom = `1px solid #4a3f2a`;
+    seccion.style.borderBottom = "1px solid var(--panel-borde-tallado)";
     if (!this.catalogo) {
       seccion.textContent = "Cargando catálogo...";
       return seccion;
     }
 
-    const sub = document.createElement("div");
-    sub.style.opacity = "0.85";
-    sub.style.marginBottom = "4px";
-    sub.textContent = "Elige 1 o más oficios — cuantos más, más caro (el coste de cada oficio crece con el anterior). \"transporte\" es un oficio más: el trabajador opera rutas en vez de una mesa.";
-    seccion.appendChild(sub);
+    seccion.appendChild(crearLineaTexto("Elige 1 o más oficios — cuantos más, más caro (el coste de cada oficio crece con el anterior). \"transporte\" es un oficio más: el trabajador opera rutas en vez de una mesa.", { tenue: true, fontSize: "12px" }));
 
     for (const oficio of this.catalogo.oficios) {
       const fila = document.createElement("label");
@@ -228,43 +206,31 @@ export class PanelReclutador {
     const resumen = document.createElement("div");
     resumen.style.margin = "8px 0 4px";
     resumen.style.padding = "6px 8px";
-    resumen.style.background = "rgba(255,255,255,0.06)";
+    resumen.style.background = "var(--panel-hover)";
     resumen.style.borderRadius = "5px";
     const lineaCoste = document.createElement("div");
     lineaCoste.style.fontWeight = "bold";
     lineaCoste.textContent = `Coste total: ${this.costeActual()} Farycoins (${this.seleccion.size} oficio${this.seleccion.size === 1 ? "" : "s"})`;
     resumen.appendChild(lineaCoste);
     if (this.seleccion.size < this.catalogo.oficios.length) {
-      const lineaMarginal = document.createElement("div");
-      lineaMarginal.style.opacity = "0.8";
-      lineaMarginal.style.fontSize = "11px";
-      lineaMarginal.textContent = `+1 oficio más costaría ${this.costeMarginalSiguiente()} Farycoins adicionales`;
-      resumen.appendChild(lineaMarginal);
+      resumen.appendChild(crearLineaTexto(`+1 oficio más costaría ${this.costeMarginalSiguiente()} Farycoins adicionales`, { tenue: true, fontSize: "11px" }));
     }
-    const lineaSalario = document.createElement("div");
-    lineaSalario.style.opacity = "0.8";
-    lineaSalario.style.fontSize = "11px";
-    const salarioEstim = this.esTenderoSolo()
-      ? this.catalogo.salarioTenderoSolo
-      : this.catalogo.salarioBasePorOficioMes * Math.max(1, this.seleccion.size);
-    lineaSalario.textContent = this.seleccion.size > 0
-      ? `Salario mensual una vez contratado: ${salarioEstim} Farycoins/mes`
-      : "";
-    resumen.appendChild(lineaSalario);
+    if (this.seleccion.size > 0) {
+      const salarioEstim = this.esTenderoSolo()
+        ? this.catalogo.salarioTenderoSolo
+        : this.catalogo.salarioBasePorOficioMes * Math.max(1, this.seleccion.size);
+      resumen.appendChild(crearLineaTexto(`Salario mensual una vez contratado: ${salarioEstim} Farycoins/mes`, { tenue: true, fontSize: "11px" }));
+    }
     seccion.appendChild(resumen);
 
-    const filaBotones = document.createElement("div");
-    filaBotones.style.marginTop = "6px";
-    const contratar = document.createElement("button");
-    contratar.textContent = "Contratar";
-    contratar.disabled = this.seleccion.size === 0;
-    contratar.onclick = () => {
+    const contratar = crearBoton("Contratar", () => {
       this.opciones.contratar([...this.seleccion]);
       this.seleccion.clear();
       this.render();
-    };
-    filaBotones.appendChild(contratar);
-    seccion.appendChild(filaBotones);
+    });
+    contratar.disabled = this.seleccion.size === 0;
+    contratar.style.marginTop = "6px";
+    seccion.appendChild(contratar);
 
     return seccion;
   }
@@ -272,6 +238,7 @@ export class PanelReclutador {
   /** `<select>` de construcciones REALES del jugador (docs/GDD_NPCs_Contratables.md §Panel de gestión) — nunca una lista inventada, siempre `this.construcciones` (poblada desde `trabajador:misConstrucciones`). `filtro` opcional restringe a una categoría/tipo (p.ej. solo contenedores para destino de ruta). */
   private selectorConstrucciones(seleccionActual: number | null, filtro?: (c: ConstruccionVista) => boolean): HTMLSelectElement {
     const select = document.createElement("select");
+    select.className = "panel-colony-input";
     select.style.maxWidth = "170px";
     const lista = filtro ? this.construcciones.filter(filtro) : this.construcciones;
     if (lista.length === 0) {
@@ -295,13 +262,13 @@ export class PanelReclutador {
   private filaTrabajadorTransporte(t: TrabajadorVista): HTMLElement {
     const rutaActual = this.rutas.find((r) => r.trabajadorId === t.id) ?? null;
 
-    const estado = document.createElement("div");
-    estado.style.opacity = "0.85";
-    estado.style.fontSize = "11px";
+    const estado = crearLineaTexto(
+      rutaActual
+        ? `Ruta activa: construcción #${rutaActual.origenConstruccionId} → ${rutaActual.destinoTenderoteId} (transporta ${rutaActual.itemId})`
+        : "Sin ruta asignada todavía",
+      { tenue: true, fontSize: "11px" }
+    );
     estado.style.margin = "2px 0 6px";
-    estado.textContent = rutaActual
-      ? `Ruta activa: construcción #${rutaActual.origenConstruccionId} → ${rutaActual.destinoTenderoteId} (transporta ${rutaActual.itemId})`
-      : "Sin ruta asignada todavía";
 
     const acciones = document.createElement("div");
     acciones.style.display = "flex";
@@ -326,10 +293,7 @@ export class PanelReclutador {
     const selectDestino = this.selectorConstrucciones(null, (c) => !rutaActual || c.id !== rutaActual.origenConstruccionId);
     acciones.appendChild(selectDestino);
 
-    const asignar = document.createElement("button");
-    asignar.textContent = rutaActual ? "Reasignar ruta" : "Asignar ruta";
-    asignar.disabled = this.construcciones.length === 0;
-    asignar.onclick = () => {
+    const asignar = crearBoton(rutaActual ? "Reasignar ruta" : "Asignar ruta", () => {
       const origenId = Number(selectOrigen.value);
       const destinoId = Number(selectDestino.value);
       if (!origenId || !destinoId) return;
@@ -338,14 +302,13 @@ export class PanelReclutador {
         ? { destinoConstruccionId: destinoId }
         : { destinoTenderoteId: destinoConstruccion?.propiedad ?? "" };
       this.opciones.asignarRuta(t.id, origenId, destino);
-    };
+    });
+    asignar.disabled = this.construcciones.length === 0;
     acciones.appendChild(asignar);
 
-    const despedir = document.createElement("button");
-    despedir.textContent = "Despedir";
+    const despedir = crearBoton("Despedir", () => this.opciones.despedir(t.id));
     despedir.style.marginLeft = "auto";
-    despedir.style.color = "#e08080";
-    despedir.onclick = () => this.opciones.despedir(t.id);
+    despedir.style.color = "var(--error-color)";
     acciones.appendChild(despedir);
 
     const contenedor = document.createElement("div");
@@ -366,13 +329,11 @@ export class PanelReclutador {
     // ti"; ahora un selector real, para poder reasignar sin desplazarse.
     const selectMesa = this.selectorConstrucciones(t.construccionId);
     acciones.appendChild(selectMesa);
-    const asignarMesa = document.createElement("button");
-    asignarMesa.textContent = "Asignar mesa";
-    asignarMesa.disabled = this.construcciones.length === 0;
-    asignarMesa.onclick = () => {
+    const asignarMesa = crearBoton("Asignar mesa", () => {
       const id = Number(selectMesa.value);
       if (id) this.opciones.asignarMesa(t.id, id);
-    };
+    });
+    asignarMesa.disabled = this.construcciones.length === 0;
     acciones.appendChild(asignarMesa);
 
     // Selector de receta: solo las recetas de OFICIOS que este trabajador
@@ -381,6 +342,7 @@ export class PanelReclutador {
     // validación real (mesa compatible con la receta) la sigue haciendo el
     // servidor al recibir trabajador:asignarReceta.
     const selectReceta = document.createElement("select");
+    selectReceta.className = "panel-colony-input";
     selectReceta.style.maxWidth = "170px";
     const opcionVacia = document.createElement("option");
     opcionVacia.value = "";
@@ -397,16 +359,11 @@ export class PanelReclutador {
     }
     acciones.appendChild(selectReceta);
 
-    const asignarReceta = document.createElement("button");
-    asignarReceta.textContent = "Asignar receta";
-    asignarReceta.onclick = () => this.opciones.asignarReceta(t.id, selectReceta.value || null);
-    acciones.appendChild(asignarReceta);
+    acciones.appendChild(crearBoton("Asignar receta", () => this.opciones.asignarReceta(t.id, selectReceta.value || null)));
 
-    const despedir = document.createElement("button");
-    despedir.textContent = "Despedir";
+    const despedir = crearBoton("Despedir", () => this.opciones.despedir(t.id));
     despedir.style.marginLeft = "auto";
-    despedir.style.color = "#e08080";
-    despedir.onclick = () => this.opciones.despedir(t.id);
+    despedir.style.color = "var(--error-color)";
     acciones.appendChild(despedir);
 
     return acciones;
@@ -414,7 +371,7 @@ export class PanelReclutador {
 
   private filaTrabajador(t: TrabajadorVista): HTMLElement {
     const fila = document.createElement("div");
-    fila.style.border = "1px solid #4a3f2a";
+    fila.style.border = "1px solid var(--panel-borde-tallado)";
     fila.style.borderRadius = "5px";
     fila.style.padding = "7px 8px";
     fila.style.margin = "5px 0";
@@ -425,83 +382,48 @@ export class PanelReclutador {
     fila.appendChild(cab);
 
     const esTransporte = t.oficios.includes(OFICIO_TRANSPORTE);
-    if (!esTransporte) {
-      const dia = this.opciones.diaMundoActual();
-      const diasPorMes = this.catalogo?.diasPorMesTrabajador ?? 30;
-      const proximoPagoDia = t.ultimoPagoDia + diasPorMes;
-      const diasRestantes = Math.max(0, proximoPagoDia - dia);
+    const dia = this.opciones.diaMundoActual();
+    const diasPorMes = this.catalogo?.diasPorMesTrabajador ?? 30;
+    const proximoPagoDia = t.ultimoPagoDia + diasPorMes;
+    const diasRestantes = Math.max(0, proximoPagoDia - dia);
 
-      const estado = document.createElement("div");
-      estado.style.opacity = "0.85";
-      estado.style.fontSize = "11px";
-      estado.style.margin = "2px 0";
+    if (!esTransporte) {
       const nombreMesa = t.construccionId != null ? `#${t.construccionId}` : "sin asignar";
       const nombreReceta = t.recetaId ?? "sin asignar";
-      estado.textContent = `Mesa: ${nombreMesa} · Receta: ${nombreReceta} · ${t.recetaId && t.construccionId != null ? "craftando" : "esperando"}`;
+      const estado = crearLineaTexto(`Mesa: ${nombreMesa} · Receta: ${nombreReceta} · ${t.recetaId && t.construccionId != null ? "craftando" : "esperando"}`, { tenue: true, fontSize: "11px" });
+      estado.style.margin = "2px 0";
       fila.appendChild(estado);
-
-      const pago = document.createElement("div");
-      pago.style.opacity = "0.85";
-      pago.style.fontSize = "11px";
-      pago.style.margin = "2px 0 6px";
-      pago.textContent = `Salario: ${this.salarioMensual(t)}₣/mes · próximo pago en ${diasRestantes} día${diasRestantes === 1 ? "" : "s"} (día ${proximoPagoDia})`;
-      fila.appendChild(pago);
-    } else {
-      // el salario mensual y el despido por impago aplican IGUAL a un
-      // trabajador de "transporte" (docs/GDD_NPCs_Contratables.md §Fusión
-      // con transporte) — se muestra el mismo aviso de pago que un oficio de mesa.
-      const dia = this.opciones.diaMundoActual();
-      const diasPorMes = this.catalogo?.diasPorMesTrabajador ?? 30;
-      const proximoPagoDia = t.ultimoPagoDia + diasPorMes;
-      const diasRestantes = Math.max(0, proximoPagoDia - dia);
-      const pago = document.createElement("div");
-      pago.style.opacity = "0.85";
-      pago.style.fontSize = "11px";
-      pago.style.margin = "2px 0 6px";
-      pago.textContent = `Salario: ${this.salarioMensual(t)}₣/mes · próximo pago en ${diasRestantes} día${diasRestantes === 1 ? "" : "s"} (día ${proximoPagoDia})`;
-      fila.appendChild(pago);
     }
+
+    // el salario mensual y el despido por impago aplican IGUAL a un
+    // trabajador de "transporte" (docs/GDD_NPCs_Contratables.md §Fusión
+    // con transporte) — se muestra el mismo aviso de pago que un oficio de mesa.
+    const pago = crearLineaTexto(`Salario: ${this.salarioMensual(t)}₣/mes · próximo pago en ${diasRestantes} día${diasRestantes === 1 ? "" : "s"} (día ${proximoPagoDia})`, { tenue: true, fontSize: "11px" });
+    pago.style.margin = "2px 0 6px";
+    fila.appendChild(pago);
 
     fila.appendChild(esTransporte ? this.filaTrabajadorTransporte(t) : this.filaTrabajadorMesa(t));
     return fila;
   }
 
   private render() {
-    this.raiz.innerHTML = "";
-    if (!this.abierto) {
-      this.raiz.hidden = true;
-      return;
-    }
-    this.raiz.hidden = false;
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
 
-    const titulo = document.createElement("div");
-    titulo.style.fontWeight = "bold";
-    titulo.style.fontSize = "14px";
-    titulo.style.marginBottom = "8px";
-    titulo.textContent = "🧑‍🔧 Reclutador de trabajadores";
-    this.raiz.appendChild(titulo);
-
-    this.raiz.appendChild(this.seccionContratar());
+    cuerpo.appendChild(this.seccionContratar());
 
     if (this.ultimoError) {
       const err = document.createElement("div");
-      err.style.color = "#e08080";
+      err.className = "panel-colony-error";
       err.style.margin = "4px 0 8px";
       err.textContent = this.ultimoError;
-      this.raiz.appendChild(err);
+      cuerpo.appendChild(err);
     }
 
-    const listaTitulo = document.createElement("div");
-    listaTitulo.style.fontWeight = "bold";
-    listaTitulo.style.margin = "6px 0";
-    listaTitulo.textContent = `Tus trabajadores (${this.trabajadores.length})`;
-    this.raiz.appendChild(listaTitulo);
+    cuerpo.appendChild(crearSubtitulo(`Tus trabajadores (${this.trabajadores.length})`));
 
     if (this.trabajadores.length === 0) {
-      const vacio = document.createElement("div");
-      vacio.style.opacity = "0.6";
-      vacio.textContent = "(ninguno todavía)";
-      this.raiz.appendChild(vacio);
+      cuerpo.appendChild(crearLineaTexto("(ninguno todavía)", { tenue: true }));
     } else {
       // "próximo pago del grupo" (docs/GDD_NPCs_Contratables.md §8: el
       // ancla es el ultimoPagoDia MÁS ANTIGUO del grupo — todos cobran de
@@ -512,23 +434,9 @@ export class PanelReclutador {
       const proximoPagoGrupo = anclaMinima + diasPorMes;
       const diasRestantes = Math.max(0, proximoPagoGrupo - this.opciones.diaMundoActual());
       const totalSalarios = this.trabajadores.reduce((s, t) => s + this.salarioMensual(t), 0);
-      const avisoGrupo = document.createElement("div");
-      avisoGrupo.style.opacity = "0.85";
-      avisoGrupo.style.fontSize = "11px";
-      avisoGrupo.style.marginBottom = "4px";
-      avisoGrupo.textContent = `Próximo pago del grupo en ${diasRestantes} día${diasRestantes === 1 ? "" : "s"} (día ${proximoPagoGrupo}) — ${totalSalarios}₣ de golpe`;
-      this.raiz.appendChild(avisoGrupo);
+      cuerpo.appendChild(crearLineaTexto(`Próximo pago del grupo en ${diasRestantes} día${diasRestantes === 1 ? "" : "s"} (día ${proximoPagoGrupo}) — ${totalSalarios}₣ de golpe`, { tenue: true, fontSize: "11px" }));
     }
 
-    for (const t of this.trabajadores) this.raiz.appendChild(this.filaTrabajador(t));
-
-    const cerrar = document.createElement("div");
-    cerrar.style.textAlign = "right";
-    cerrar.style.marginTop = "10px";
-    const boton = document.createElement("button");
-    boton.textContent = "Cerrar";
-    boton.onclick = () => this.cerrar();
-    cerrar.appendChild(boton);
-    this.raiz.appendChild(cerrar);
+    for (const t of this.trabajadores) cuerpo.appendChild(this.filaTrabajador(t));
   }
 }

@@ -13,6 +13,8 @@ import { cargarParcelas, construirIndiceParcelas } from "./construccion/parcelas
 import { RenderConstrucciones, type ConstruccionRed } from "./construccion/renderConstrucciones";
 import { RenderObjetosMundo } from "./mundo/renderObjetosMundo";
 import { PanelMapaMundo } from "./mapa/panelMapaMundo";
+import { DockHud } from "./ui/dockHud";
+import { resolverTeclaLogica } from "./ajustes/configTeclas";
 import { ModoConstruccion } from "./construccion/constructor";
 import { ColocadorPlantillas } from "./construccion/colocadorPlantillas";
 import { obtenerConstruibleOPlantilla, huellaRotada } from "./construccion/catalogoConstruccion";
@@ -22,7 +24,9 @@ import { PanelCofre } from "./construccion/panelCofre";
 import { PanelSastreLegendario, type DisenoSastre } from "./construccion/panelSastreLegendario";
 import { PanelCarpinteroLegendario, type DisenoCarpintero } from "./construccion/panelCarpinteroLegendario";
 import { PanelIngenieroLegendario, type ProyectoIngeniero } from "./construccion/panelIngenieroLegendario";
-import { reproducirMidi, detenerReproduccion, type TipoInstrumento } from "./audio/instrumentos";
+import { reproducirMidi, detenerReproduccion, fijarVolumenMaestro, type TipoInstrumento } from "./audio/instrumentos";
+import { obtenerVolumenGuardado, obtenerCalidadGuardada } from "./ajustes/configAjustes";
+import { PanelAjustes } from "./ajustes/panelAjustes";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
 import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2, Vector3, Plane, Object3D } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
@@ -51,12 +55,16 @@ import { aplicarAnatomiaCompleta } from "./render3d/anatomiaVisual";
 import { PanelMedico, ZONAS, type Zona, type EstadoZonaVista, type EstadoEnfermedadesVista } from "./personaje/panelMedico";
 import { PanelCompanero } from "./personaje/panelCompanero";
 import { PanelResumen, type PropiedadVista } from "./personaje/panelResumen";
-import { PanelLoginAdmin } from "./admin/panelLoginAdmin";
+import { HudVitales } from "./ui/hudVitales";
+import { RetratoJugador } from "./render3d/retratoJugador";
 import { PanelJarl } from "./admin/panelJarl";
 import { PanelDebugTestZone } from "./admin/panelDebugTestZone";
 import { PanelContenedorTest } from "./mundo/panelContenedorTest";
 import { PanelAjedrez } from "./minijuegos/panelAjedrez";
 import { posicionSilla as posicionSillaMesaJuego, type Silla as SillaMesaJuego } from "./minijuegos/mesasJuego";
+
+// Un único cómputo compartido (antes cada panel de admin/Twitch lo recalculaba a mano).
+const SERVER_URL_HTTP = SERVER_URL.replace(/^ws/, "http");
 
 // Colores de referencia de siempre (antes tint de Phaser) — túnica del rig
 // placeholder mientras no exista un catálogo de personajes con su propio
@@ -231,6 +239,17 @@ const DURACION_ACCION_MS: Record<AccionHerramienta["tipo"], number> = {
  */
 export async function iniciarJuego(contenedor: HTMLElement) {
   const escena = new WorldScene(contenedor, contenedor.clientWidth || 800, contenedor.clientHeight || 600);
+  // Retrato del HUD de vitales (docs/GDD_Cuentas.md, pedido streamer
+  // 2026-09-09: "que salga la cara del pj arriba, no un emote") — cámara
+  // propia sobre la MISMA escena, ver render3d/retratoJugador.ts.
+  const retrato = new RetratoJugador(escena.scene);
+  // Ajustes guardados (docs/GDD_Ajustes.md, pedido streamer 2026-09-09) —
+  // se aplican YA al arrancar, antes de que el jugador toque el panel de
+  // Ajustes; sin nada guardado, esto reproduce el comportamiento de
+  // siempre (volumen 100, calidad "alta" = mismo pixelRatio/sombras fijos
+  // que ya traía el constructor).
+  escena.fijarCalidadGrafica(obtenerCalidadGuardada());
+  fijarVolumenMaestro(obtenerVolumenGuardado());
 
   window.addEventListener("resize", () => {
     escena.resize(contenedor.clientWidth || 800, contenedor.clientHeight || 600);
@@ -507,11 +526,23 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // región/interior de ciudades/ no es terreno de jugadores todavía.
   const parcelasArchivo = SALA === "hub" ? await cargarParcelas(RUTA_MAPA) : null;
 
-  // Nombre del jugador local: ?nombre=... en la URL si viene (tests e2e y
-  // futuro login), si no el Viewer-aleatorio de siempre. Math.random vale:
-  // no es generación determinista, solo un apodo de sesión.
+  // Nombre del jugador local: ?nombre=... en la URL si viene (tests e2e),
+  // si no el de la cuenta logueada (pantallaBienvenida.ts guarda
+  // "playerNombre" en localStorage al loguearse/registrarse), si no el
+  // Viewer-aleatorio de siempre. Math.random vale: no es generación
+  // determinista, solo un apodo de sesión.
   const nombreJugador =
-    new URLSearchParams(location.search).get("nombre") || `Viewer-${Math.floor(Math.random() * 1000)}`;
+    new URLSearchParams(location.search).get("nombre") ||
+    localStorage.getItem("playerNombre") ||
+    `Viewer-${Math.floor(Math.random() * 1000)}`;
+
+  // Cuenta de jugador real (docs/GDD_Cuentas.md, pedido streamer
+  // 2026-09-09) — MISMO patrón que twitchSession/adminSession justo abajo,
+  // salvo que se guarda en `localStorage` (no `sessionStorage`): una cuenta
+  // se espera que dure días/semanas sin volver a loguearse, no solo lo que
+  // dure la pestaña. Sin sesión guardada, todo sigue exactamente igual que
+  // siempre (invitado por nombre libre).
+  const playerSession = localStorage.getItem("playerSession") || undefined;
 
   // Login con Twitch (docs/GDD_Twitch.md §7, pedido 2026-08-30): el token
   // llega en la URL solo la primera vez (redirect de vuelta de /auth/twitch/
@@ -527,10 +558,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   // Sesión de admin (docs/GDD_Admin.md, pedido 2026-08-30) — MISMO patrón
   // que la de Twitch justo arriba: llega en la URL una vez (redirect de
-  // /auth/twitch/callback si la cuenta de Twitch está vinculada a un admin,
-  // o el propio login por usuario/contraseña la guarda directo en
-  // sessionStorage y recarga, ver panelLoginAdmin.ts), sobrevive a
-  // `navegarA` (recarga de página) mientras dure la pestaña.
+  // /auth/twitch/callback si la cuenta de Twitch está vinculada a un admin),
+  // o el login por usuario/contraseña de `inicio/pantallaBienvenida.ts` la
+  // guarda directo en sessionStorage ANTES de llamar a `iniciarJuego`
+  // (nunca hace falta recargar la página, a diferencia del viejo panel
+  // flotante de admin que esto sustituyó) — sobrevive a `navegarA` (recarga
+  // de página al cruzar un portal) mientras dure la pestaña.
   const adminSessionDeUrl = new URLSearchParams(location.search).get("adminSession");
   if (adminSessionDeUrl) sessionStorage.setItem("adminSession", adminSessionDeUrl);
   const adminSession = adminSessionDeUrl || sessionStorage.getItem("adminSession") || undefined;
@@ -541,9 +574,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // en el servidor, así que dos jugadores en el MISMO sitio comparten room.
   const room =
     SALA === "region"
-      ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y, twitchSession, adminSession })
+      ? await client.joinOrCreate("region", { name: nombreJugador, mapaId: MAPA_ID, entradaX: ENTRADA_X, entradaY: ENTRADA_Y, twitchSession, adminSession, playerSession })
       : SALA === "arena"
-        ? await client.joinOrCreate("arena", { name: nombreJugador, combateId: COMBATE_ID, twitchSession, adminSession })
+        ? await client.joinOrCreate("arena", { name: nombreJugador, combateId: COMBATE_ID, twitchSession, adminSession, playerSession })
         : ES_INTERIOR
           ? await client.joinOrCreate(SALA === "mazmorra" ? "mazmorra" : "interior", {
               name: nombreJugador,
@@ -554,6 +587,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
               entradaY: ENTRADA_Y,
               twitchSession,
               adminSession,
+              playerSession,
             })
           : MAPA_ID
             // Barcos y navegación marítima (docs/GDD_Barcos.md, pedido
@@ -561,9 +595,57 @@ export async function iniciarJuego(contenedor: HTMLElement) {
             // mapa exterior — mismo "hub" de siempre, pero server/src/index.ts
             // lo registra también como "hub_mapa" (filterBy mapaId) para no
             // tocar el join normal (sin mapaId) de toda la vida.
-            ? await client.joinOrCreate("hub_mapa", { name: nombreJugador, mapaId: MAPA_ID, twitchSession, adminSession })
-            : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession, adminSession });
+            ? await client.joinOrCreate("hub_mapa", { name: nombreJugador, mapaId: MAPA_ID, twitchSession, adminSession, playerSession })
+            : await client.joinOrCreate("hub", { name: nombreJugador, twitchSession, adminSession, playerSession });
   const $ = getStateCallbacks(room);
+
+  // Dock de iconos del HUD (docs/... pendiente, pedido streamer 2026-09-09:
+  // "HUD limpia con algún emoticono que abre esa pestaña") — se registra
+  // cada panel justo donde ya se construye, más abajo. Disponible en
+  // CUALQUIER sala: aunque hoy solo se registran paneles del Hub/Region,
+  // el dock en sí no asume nada de la sala.
+  const dockHud = new DockHud(contenedor);
+
+  // Ajustes (docs/GDD_Ajustes.md, pedido streamer 2026-09-09) — disponible
+  // en CUALQUIER sala, no depende de nada del join. Sección de Twitch
+  // (pedido 2026-09-09: "si no lo hace [al loguearse] se queda en ajustes
+  // loguearse con twitch") — mismo endpoint que ya ofrece la pantalla de
+  // bienvenida, aquí solo como fallback para quien no lo conectó al entrar.
+  const panelAjustes = new PanelAjustes({
+    contenedor,
+    fijarVolumen: fijarVolumenMaestro,
+    fijarCalidadGrafica: (nivel) => escena.fijarCalidadGrafica(nivel),
+    serverUrlHttp: SERVER_URL_HTTP,
+    twitchYaConectando: !!twitchSession,
+  });
+  dockHud.registrar("ajustes", panelAjustes, { icono: "⚙️", titulo: "Ajustes" });
+  room.onMessage("twitch:loginConfirmado", (m: { twitchLogin: string }) => panelAjustes.actualizarTwitch(m.twitchLogin));
+  room.onMessage("twitch:error", (m: { motivo?: string }) => console.log("[twitch]", m?.motivo));
+
+  // HUD de vitales (pedido streamer 2026-09-09: "falta arriba izquierda un
+  // icono del personaje... y su vida stamina hambre sed") — disponible en
+  // CUALQUIER sala, no depende de nada del join. Se relee cada 500ms en vez
+  // de escuchar onChange (VitalesSchema es un sub-schema anidado que no
+  // burbujea sus cambios al onChange del Player padre) — mismo criterio de
+  // "barato, no hace falta 60hz" ya usado más abajo para proximidad a
+  // bancales/mesas de injerto: los vitales decaen en horas reales, no en ticks.
+  const hudVitales = new HudVitales(contenedor, retrato.canvas);
+  setInterval(() => {
+    const yo = room.state.players.get(room.sessionId) as any;
+    if (!yo) return;
+    hudVitales.actualizar({ vida: yo.vida, vidaMax: yo.vidaMax, estamina: yo.vitales.estamina, comida: yo.vitales.comida, bebida: yo.vitales.bebida });
+  }, 500);
+
+  // Cuenta de jugador (docs/GDD_Cuentas.md): si el token guardado dejó de
+  // ser válido (caducó, o el server se reinició y perdió la sesión en
+  // memoria — mismo criterio que twitch/admin), se limpia localStorage para
+  // que la próxima carga vuelva a pedir login en vez de quedarse pensando
+  // que sigue logueado. Disponible en CUALQUIER sala, igual que la sonda de
+  // test de abajo — crearJugador() manda esto desde las 5 room types.
+  room.onMessage("jugador:sesionInvalida", () => {
+    localStorage.removeItem("playerSession");
+    localStorage.removeItem("playerNombre");
+  });
 
   // Sonda mínima SOLO-PARA-TESTS, disponible en CUALQUIER sala (a
   // diferencia de `window.__test` de abajo, que solo existe dentro del
@@ -797,6 +879,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         consultarExploracion: () => room.send("mapa:consultarExploracion"),
       });
       room.onMessage("mapa:exploracion", (m: { sectores: number[]; tilesPorSector: number }) => panelMapaMundo?.aplicarExploracion(m));
+      dockHud.registrar("mapa", panelMapaMundo, { icono: "🗺️", titulo: "Mapa (M)" });
     }
 
     // Los onMessage se registran SIEMPRE (aunque el servidor desplegado aún no
@@ -1472,6 +1555,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     tomarUnguento: () => room.send("medico:tomarUnguento"),
     tomarJarabe: () => room.send("medico:tomarJarabe"),
   });
+  dockHud.registrar("medico", panelMedico, { icono: "🩹", titulo: "Anatomía" });
 
   // Compañero NPC (docs/GDD_Companeros.md, pedido 2026-08-30) — panel
   // PLACEHOLDER de testeo, mismo criterio que panelMedico.
@@ -1486,6 +1570,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     llamar: () => room.send("companero:llamar"),
     fijarParticipaCombate: (activo) => room.send("companero:fijarParticipaCombate", { activo }),
   });
+  dockHud.registrar("companero", panelCompanero, { icono: "🛡️", titulo: "Compañero" });
   room.onMessage("companero:error", (m: { motivo: string }) => console.log("[compañero]", m?.motivo));
   room.onMessage("companero:persuasionFallida", (m: { nombre: string }) => console.log(`[compañero] ${m?.nombre} no se deja convencer todavía`));
   room.onMessage("companero:reclutado", (m: { nombre: string; coste: number }) => console.log(`[compañero] ${m?.nombre} se une por ${m?.coste} Farycoins`));
@@ -1632,6 +1717,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       escena.seguirPunto(player.x, player.y, true);
       // Primer anillo de sectores YA, sin esperar al primer frame.
       streaming?.actualizar(estado.x, estado.z);
+      // Retrato del HUD de vitales (render3d/retratoJugador.ts): cuelga la
+      // cámara de la cabeza real de ESTE rig y marca todo el rig visible
+      // para ella — nunca para un jugador remoto (nadie necesita ver SU
+      // propia cara en el HUD del jugador local).
+      const cabeza = rig.objeto.getObjectByName("cabeza");
+      if (cabeza) retrato.seguir(cabeza);
+      retrato.marcarVisible(rig.objeto);
     }
 
     // Equipo (docs/GDD_Equipo.md): armadura/accesorios/mochilas puestos —
@@ -1662,7 +1754,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       }
       return resueltos;
     };
-    const actualizarEquipoVisual = () => aplicarEquipoAlRig(rig.objeto, player.inventario.equipo, sessionId, resolverBlueprintsRopa());
+    const actualizarEquipoVisual = () => {
+      aplicarEquipoAlRig(rig.objeto, player.inventario.equipo, sessionId, resolverBlueprintsRopa());
+      // Una pieza de equipo recién añadida nace SOLO en la capa 0 (por
+      // defecto) — sin esto, un casco equipado DESPUÉS de crear el rig se
+      // vería en el mundo pero no en el retrato del HUD (retratoJugador.ts).
+      if (esYo) retrato.marcarVisible(rig.objeto);
+    };
     actualizarEquipoVisual();
     $(player.inventario.equipo).onAdd(actualizarEquipoVisual);
     $(player.inventario.equipo).onRemove(actualizarEquipoVisual);
@@ -2237,6 +2335,25 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("npc:error", (m: { npcId: string; motivo: string }) => {
     panelDialogoNpc.recibirError(m.npcId, m.motivo);
   });
+  // Extraída de la tecla H (más abajo, bloque de keydown) para que el icono
+  // del dock dispare EXACTAMENTE la misma lógica — pedido streamer
+  // 2026-09-09: "hablar con npc debe estar en otro lado, no en pantalla...
+  // zona con diferentes iconos que abran esas pestañas". Con el panel ya
+  // abierto con ESE mismo NPC, cierra (toggle); abierto con OTRO NPC,
+  // cambia de conversación sin más.
+  function alternarDialogoNpc() {
+    const npcCercano = npcParaHablarMasCercano();
+    if (panelDialogoNpc.npcAbierto() && panelDialogoNpc.npcAbierto() === npcCercano?.id) {
+      panelDialogoNpc.cerrar();
+    } else if (npcCercano) {
+      panelDialogoNpc.abrirCon(npcCercano.id, npcCercano.nombre);
+    }
+  }
+  dockHud.registrar(
+    "dialogoNpc",
+    { alternar: alternarDialogoNpc, estaAbierto: () => panelDialogoNpc.estaAbierto(), onCambioEstado: (cb) => panelDialogoNpc.onCambioEstado(cb) },
+    { icono: "💬", titulo: "Hablar con NPC (H)" },
+  );
   // combate:error/combate:armaRota ya se registran arriba (justo tras el
   // join, antes del bloque `if (SALA === "hub")`) — registrarlos otra vez
   // aquí era un listener duplicado real (colyseus.js/nanoevents acumula
@@ -2283,6 +2400,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     dejarEnPropiedad: (mascotaId, propiedadId) => room.send("mascota:dejarEnPropiedad", { mascotaId, propiedadId }),
     ponerMontura: (mascotaId) => room.send("mascota:ponerMontura", { mascotaId }),
   });
+  dockHud.registrar("mascotas", panelMascotas, { icono: "🐾", titulo: "Mascotas (G)" });
   room.onMessage("mascota:lista", (lista: MascotaVista[]) => { panelMascotas.actualizarListado(lista); panelResumen.actualizarMascotas(lista); });
   room.onMessage("mascota:progreso", (m: ProgresoDomesticar) => panelMascotas.actualizarProgreso(m));
   room.onMessage("mascota:domesticada", () => { panelMascotas.actualizarProgreso(null); room.send("mascota:listar"); });
@@ -2298,6 +2416,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     consultarPropiedades: () => room.send("propiedad:listarMias"),
   });
   room.onMessage("propiedad:misPropiedades", (lista: PropiedadVista[]) => panelResumen.actualizarPropiedades(lista));
+  dockHud.registrar("resumen", panelResumen, { icono: "📜", titulo: "Resumen (Tab)" });
 
   // --- Comercio jugador-jugador (docs/GDD_Comercio.md, pedido 2026-08-30) —
   // panel PLACEHOLDER de testeo (ver panelComercio.ts). Tecla T: propone
@@ -2395,46 +2514,36 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   });
   room.onMessage("equipo:error", (m: { motivo: string }) => console.log("[equipo]", m?.motivo));
   room.onMessage("inventario:error", (m: { motivo: string }) => console.log("[inventario]", m?.motivo));
+  // Adaptador, no el panel directo: abrir por icono debe refrescar el
+  // contenido de inmediato, igual que ya hace la tecla I más abajo (sin
+  // esto, el panel se abría en blanco hasta el siguiente cambio de red).
+  dockHud.registrar(
+    "personaje",
+    {
+      alternar: () => {
+        panelJugador.alternar();
+        if (panelJugador.estaVisible()) panelJugador.actualizar(room.state.players.get(room.sessionId));
+      },
+      estaAbierto: () => panelJugador.estaAbierto(),
+      onCambioEstado: (cb) => panelJugador.onCambioEstado(cb),
+    },
+    { icono: "🎒", titulo: "Personaje / Inventario (I)" },
+  );
 
-  // --- Login con Twitch (docs/GDD_Twitch.md §7) — PLACEHOLDER de testeo,
-  // mismo criterio que el resto de paneles de esta pasada: un enlace suelto
-  // si no has iniciado sesión, un texto si ya lo hiciste. Sin esto, el chat
-  // solo te reconoce cuando tu PJ se llama igual que tu usuario de Twitch
-  // (identidad v1, ver GDD_Construccion.md) — el login soluciona ESO
-  // concretamente, no sustituye el nombre del PJ en el resto del juego.
-  const cajaTwitch = document.createElement("div");
-  cajaTwitch.style.position = "absolute";
-  cajaTwitch.style.left = "16px";
-  cajaTwitch.style.top = "16px";
-  cajaTwitch.style.background = "rgba(20,16,10,0.88)";
-  cajaTwitch.style.color = "#f0e8d8";
-  cajaTwitch.style.font = "13px sans-serif";
-  cajaTwitch.style.padding = "6px 10px";
-  cajaTwitch.style.borderRadius = "6px";
-  cajaTwitch.style.border = "1px solid #6a5a3a";
-  if (twitchSession) {
-    cajaTwitch.textContent = "🎮 Twitch: conectando...";
-  } else {
-    const urlLogin = `${SERVER_URL.replace(/^ws/, "http")}/auth/twitch/login`;
-    cajaTwitch.innerHTML = `<a href="${urlLogin}" style="color:#a970ff">Conectar con Twitch</a> (para que el chat te reconozca)`;
-  }
-  contenedor.appendChild(cajaTwitch);
-  room.onMessage("twitch:loginConfirmado", (m: { twitchLogin: string }) => {
-    cajaTwitch.textContent = `🎮 Twitch: conectado como ${m.twitchLogin}`;
-  });
-  room.onMessage("twitch:error", (m: { motivo?: string }) => console.log("[twitch]", m?.motivo));
-
-  // --- Login de admin (docs/GDD_Admin.md, pedido 2026-08-30) — dual:
-  // usuario/contraseña propios (formulario, PanelLoginAdmin) O una cuenta
-  // de Twitch ya vinculada (el botón "Conectar con Twitch" de arriba sirve
-  // para las dos cosas a la vez si esa cuenta está vinculada — ver
-  // twitch/rutasOauth.ts, añade adminSession al redirect). Sin sesión de
-  // admin, todo sigue exactamente igual que hasta ahora (jugador normal).
+  // --- Estado de admin (docs/GDD_Admin.md) — el LOGIN de admin (dual:
+  // usuario/contraseña propios, o una cuenta de Twitch ya vinculada) ahora
+  // vive en la pantalla de bienvenida (docs/GDD_Cuentas.md, pedido streamer
+  // 2026-09-09: "el login deberia ser para todos... el admin a tener su
+  // cuenta o contraseña podria hacerlo" — ya NO el panel flotante siempre
+  // visible que había antes, `admin/panelLoginAdmin.ts`, eliminado por no
+  // quedarle ningún consumidor). Aquí solo queda el INDICADOR de una sesión
+  // ya activa: sin `adminSession` (no se rellenó esa sección al loguearse)
+  // no se muestra nada en absoluto.
   let identidadAdminActual: { usuario: string; rol: "jarl" | "superadmin"; mapaId: string | null; esJarlAqui: boolean } | null = null;
   const cajaAdmin = document.createElement("div");
   cajaAdmin.style.position = "absolute";
-  cajaAdmin.style.left = "16px";
-  cajaAdmin.style.top = "56px";
+  cajaAdmin.style.right = "16px";
+  cajaAdmin.style.top = "16px";
   contenedor.appendChild(cajaAdmin);
 
   const mostrarEstadoAdmin = (texto: string) => {
@@ -2450,18 +2559,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     cajaAdmin.appendChild(caja);
   };
 
-  if (adminSession) {
-    mostrarEstadoAdmin("👑 Admin: conectando...");
-  } else {
-    new PanelLoginAdmin({
-      contenedor: cajaAdmin,
-      serverUrlHttp: SERVER_URL.replace(/^ws/, "http"),
-      onLoginOk: (token) => {
-        sessionStorage.setItem("adminSession", token);
-        location.reload(); // recarga para que el próximo join mande adminSession, mismo ciclo que el redirect de Twitch
-      },
-    });
-  }
+  if (adminSession) mostrarEstadoAdmin("👑 Admin: conectando...");
   let panelJarl: PanelJarl | null = null;
   let panelDebugTestZone: PanelDebugTestZone | null = null;
   room.onMessage(
@@ -2481,7 +2579,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         panelJarl = new PanelJarl({
           contenedor,
           esSuperadmin: m.rol === "superadmin",
-          serverUrlHttp: SERVER_URL.replace(/^ws/, "http"),
+          serverUrlHttp: SERVER_URL_HTTP,
           adminToken: adminSession,
           pvpFijar: (on) => room.send("pvp:fijar", { on }),
           simularCanje: (tipo) => room.send("twitch:simularCanje", { tipo }),
@@ -2490,6 +2588,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           renombrarCapital: (nombre) => room.send("admin:capital:renombrar", { nombre }),
         });
         room.send("admin:capital:consultar");
+        // PanelJarl (misma esquina top-right, ver panelJarl.ts) ya repite la
+        // identidad en su propia cabecera — la caja de estado suelta se
+        // ocultaría debajo de él (bug real encontrado verificando con
+        // Playwright el login de superadmin unificado en la bienvenida).
+        cajaAdmin.style.display = "none";
       }
       // Panel de debug de la Test Zone (docs/GDD_Admin.md, pedido
       // 2026-08-31): mismo criterio de visibilidad que PanelJarl — el
@@ -2863,7 +2966,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // nunca lo notaron porque nadie escribía ahí mientras jugaba de verdad
     // (login/nombrar, siempre con el juego en pausa de facto).
     if (document.activeElement instanceof HTMLInputElement || document.activeElement instanceof HTMLTextAreaElement) return;
-    const k = e.key.toLowerCase();
+    // Reasignación de teclas (docs/GDD_Ajustes.md, pedido streamer
+    // 2026-09-09) — ÚNICO punto de integración: traduce la tecla FÍSICA
+    // pulsada a la tecla LÓGICA que el resto de este bloque (sin tocar)
+    // sigue comparando tal cual. Sin ninguna reasignación guardada, esto es
+    // un no-op exacto (mismo `k` de siempre).
+    let k = resolverTeclaLogica(e.key.toLowerCase());
     // bucear/subir: pulsación, no mantenida (el servidor valida el medio)
     if (k === "q" && !teclas.has("q")) room.send("nivel", -1);
     if (k === "e" && !teclas.has("e")) room.send("nivel", 1);
@@ -2946,14 +3054,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // UI de targeting" que combate (C)/coger. Con el panel ya abierto con
     // ESE mismo NPC, H lo cierra (toggle); abierto con OTRO NPC, cambia de
     // conversación sin más (no hace falta cerrar antes).
-    if (k === "h" && !teclas.has("h")) {
-      const npcCercano = npcParaHablarMasCercano();
-      if (panelDialogoNpc.npcAbierto() && panelDialogoNpc.npcAbierto() === npcCercano?.id) {
-        panelDialogoNpc.cerrar();
-      } else if (npcCercano) {
-        panelDialogoNpc.abrirCon(npcCercano.id, npcCercano.nombre);
-      }
-    }
+    if (k === "h" && !teclas.has("h")) alternarDialogoNpc();
     // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería):
     // ESPACIO golpea mientras el panel está en fase FORJAR — mismo criterio
     // "tecla de acción sin targeting" que el resto de este bloque.
@@ -3063,7 +3164,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (k === "f9" && !teclas.has("f9")) panelDebugTestZone?.alternar();
     teclas.add(k);
   });
-  window.addEventListener("keyup", (e) => teclas.delete(e.key.toLowerCase()));
+  window.addEventListener("keyup", (e) => teclas.delete(resolverTeclaLogica(e.key.toLowerCase())));
   // Bug real reportado por el streamer ("a veces no reconoce el WASD, va
   // trabado"): cambiar de pestaña/ventana con una tecla de movimiento
   // pulsada no siempre dispara su `keyup` (el navegador no lo garantiza
@@ -3240,6 +3341,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
     escena.actualizar(dt);
     escena.render();
+    retrato.render();
     requestAnimationFrame(bucle);
   }
   requestAnimationFrame(bucle);
