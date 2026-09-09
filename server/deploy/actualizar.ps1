@@ -1,4 +1,10 @@
-# Actualiza el servidor a la ultima version de GitHub y lo reinicia.
+# Actualiza servidor Y CLIENTE a la ultima version de GitHub y reinicia el
+# proceso.
+#
+# Desde 2026-09-09 el mismo proceso Node sirve tambien el cliente web
+# (client/dist/, ver server/src/estatico/servidorEstatico.ts) — ya no hay
+# Vercel que compile el cliente por su cuenta, asi que este script compila
+# los dos workspaces antes de reiniciar.
 #
 # NUNCA se dispara solo -- lo ejecutas tu a mano en tu PC (PowerShell) cuando
 # decidas que es buen momento para poner en marcha la ultima version subida
@@ -24,6 +30,12 @@ npm install
 
 Write-Host "== Compilando servidor ==" -ForegroundColor Cyan
 npm run build -w server
+
+# El build del cliente copia ADEMAS toda la carpeta assets/ del repo a
+# client/dist/assets/ (client/vite.config.ts::servirAssetsRaiz) — por eso hay
+# que rehacerlo tambien cuando lo unico que cambia es un rehorneado de mapa.
+Write-Host "== Compilando cliente ==" -ForegroundColor Cyan
+npm run build -w client
 
 Write-Host "== Reiniciando proceso (PM2) ==" -ForegroundColor Cyan
 pm2 restart colony-server
