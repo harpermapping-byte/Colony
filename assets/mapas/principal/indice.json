@@ -175,7 +175,7 @@
     {
       "tipo": "exterior",
       "x": 2958,
-      "y": 693,
+      "y": 752,
       "destino": {
         "tipo": "region",
         "mapaId": "vetrheim/pois/aldea_maderera_2958_693"
@@ -270,7 +270,7 @@
     {
       "tipo": "exterior",
       "x": 2799,
-      "y": 1267,
+      "y": 1338,
       "destino": {
         "tipo": "region",
         "mapaId": "vetrheim/pois/aldea_agricola_2799_1267"
@@ -357,7 +357,7 @@
     {
       "tipo": "exterior",
       "x": 1534,
-      "y": 2138,
+      "y": 2233,
       "destino": {
         "tipo": "region",
         "mapaId": "vetrheim/pois/capital_regional_1534_2138"
@@ -445,7 +445,7 @@
     {
       "tipo": "exterior",
       "x": 1183,
-      "y": 2684,
+      "y": 2743,
       "destino": {
         "tipo": "region",
         "mapaId": "vetrheim/pois/castillo_real_1183_2684"
