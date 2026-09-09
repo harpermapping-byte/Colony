@@ -13,6 +13,13 @@
  * cliente y es determinista, así que "Generar" es instantáneo y gratis — el
  * servidor SIEMPRE reinterpreta el mismo texto por su cuenta al aceptar
  * (nunca se envían los parámetros calculados aquí como si fueran definitivos).
+ *
+ * Chrome visual migrado al marco compartido (pedido streamer 2026-09-09,
+ * "TODA pantalla que salga o tengamos ahora debe salir así con esta
+ * estética") — X + clic fuera + Escape ya los da `crearMarcoPanel`, así que
+ * el botón "Cerrar" casero de antes se retira (redundante con la X). Toda
+ * la lógica de estado/preview/red sigue igual, solo cambia dónde cuelga su
+ * DOM (`marco.cuerpo` en vez de un `raiz` a mano).
  */
 import * as THREE from "three";
 import prendasJson from "../../../ropa/catalogo/prendas.json";
@@ -20,6 +27,7 @@ import materialesJson from "../../../interiores/catalogo/materiales.json";
 import { interpretarPromptTejido, type ResultadoInterpretacion } from "../render3d/interpretarPrompt";
 import { generarPrendaVoxel } from "../render3d/generarPrendaVoxel";
 import { mallaDeVoxeles } from "../render3d/voxelMalla";
+import { crearMarcoPanel, crearBoton, crearInput, type MarcoPanel } from "../ui/panelBase";
 
 const PRENDAS = prendasJson as Record<string, any>;
 const MATERIALES = materialesJson as unknown as Record<string, { colorDebug: string }>;
@@ -47,7 +55,7 @@ export interface OpcionesPanelSastreLegendario {
 }
 
 export class PanelSastreLegendario {
-  private raiz: HTMLDivElement;
+  private readonly marco: MarcoPanel;
   private construccionId: number | null = null;
   private texto = "";
   private nombre = "";
@@ -60,7 +68,7 @@ export class PanelSastreLegendario {
   // en el constructor, nunca dentro del subárbol que `render()` destruye
   // con innerHTML="") para no perder el contexto WebGL ni reabrir un
   // renderer nuevo en cada tecla — se desengancha del DOM antes de limpiar
-  // `raiz` y se vuelve a enganchar donde toque en cada `render()`.
+  // `marco.cuerpo` y se vuelve a enganchar donde toque en cada `render()`.
   private previewDiv: HTMLDivElement;
   private previewRenderer: THREE.WebGLRenderer;
   private previewScene: THREE.Scene;
@@ -68,24 +76,16 @@ export class PanelSastreLegendario {
   private previewMalla: THREE.Mesh | null = null;
 
   constructor(private opciones: OpcionesPanelSastreLegendario) {
-    this.raiz = document.createElement("div");
-    this.raiz.style.position = "absolute";
-    this.raiz.style.left = "50%";
-    this.raiz.style.top = "50%";
-    this.raiz.style.transform = "translate(-50%, -50%)";
-    this.raiz.style.background = "rgba(18,14,10,0.96)";
-    this.raiz.style.color = "#f0e4c8";
-    this.raiz.style.font = "12px sans-serif";
-    this.raiz.style.padding = "14px 16px";
-    this.raiz.style.borderRadius = "8px";
-    this.raiz.style.border = "1px solid #8a6a2a";
-    this.raiz.style.minWidth = "280px";
-    this.raiz.style.maxWidth = "340px";
-    this.raiz.style.maxHeight = "80vh";
-    this.raiz.style.overflowY = "auto";
-    this.raiz.style.display = "none";
-    this.raiz.style.zIndex = "50";
-    opciones.contenedor.appendChild(this.raiz);
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Telar — tejer prenda legendaria", icono: "🧵", left: "50%", top: "50%", ancho: "320px" });
+    this.marco.raiz.style.transform = "translate(-50%, -50%)";
+    this.marco.raiz.style.maxHeight = "80vh";
+    // Cerrar por CUALQUIER vía (X, clic fuera, Escape) también apaga el
+    // estado "abierto" del panel — sin esto, cerrar con la X dejaría
+    // `construccionId` como si siguiera abierto y el bucle de giro de abajo
+    // seguiría renderizando la preview de fondo sin sentido.
+    this.marco.onCambioEstado(() => {
+      if (!this.marco.estaAbierto()) this.construccionId = null;
+    });
 
     this.previewDiv = document.createElement("div");
     this.previewDiv.style.width = `${LADO_PREVIEW_PX}px`;
@@ -129,13 +129,14 @@ export class PanelSastreLegendario {
     this.preview = null;
     this.error = "";
     this.limpiarMalla3D();
+    this.marco.abrir();
     this.opciones.pedirMisDisenos();
     this.render();
   }
 
   cerrar() {
     this.construccionId = null;
-    this.raiz.style.display = "none";
+    this.marco.cerrar();
   }
 
   private limpiarMalla3D() {
@@ -212,30 +213,22 @@ export class PanelSastreLegendario {
   }
 
   private render() {
-    // Desenganchar el canvas de la vista previa ANTES de limpiar `raiz` —
+    // Desenganchar el canvas de la vista previa ANTES de limpiar el cuerpo —
     // innerHTML="" destruiría el nodo (y su contexto WebGL) si siguiera
     // dentro; así el MISMO renderer sobrevive de un render() al siguiente.
     this.previewDiv.remove();
-    this.raiz.innerHTML = "";
-    if (this.construccionId === null) {
-      this.raiz.style.display = "none";
-      return;
-    }
-    this.raiz.style.display = "block";
-
-    const titulo = document.createElement("div");
-    titulo.style.fontWeight = "bold";
-    titulo.style.marginBottom = "8px";
-    titulo.textContent = "🧵 Telar — tejer prenda legendaria";
-    this.raiz.appendChild(titulo);
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
+    if (this.construccionId === null) return;
 
     const descripcion = document.createElement("div");
     descripcion.style.opacity = "0.85";
     descripcion.style.marginBottom = "8px";
     descripcion.textContent = "Describe la prenda con palabras (tipo, corte, material, color, estilo...). 1 diseño nuevo cada 24h — luego puedes craftear copias cuando quieras.";
-    this.raiz.appendChild(descripcion);
+    cuerpo.appendChild(descripcion);
 
     const inputTexto = document.createElement("textarea");
+    inputTexto.className = "panel-colony-input";
     inputTexto.value = this.texto;
     inputTexto.placeholder = "ej. túnica noble de seda púrpura con manga larga";
     inputTexto.rows = 2;
@@ -243,32 +236,28 @@ export class PanelSastreLegendario {
     inputTexto.style.boxSizing = "border-box";
     inputTexto.style.margin = "4px 0";
     inputTexto.oninput = () => { this.texto = inputTexto.value; };
-    this.raiz.appendChild(inputTexto);
+    cuerpo.appendChild(inputTexto);
 
-    const inputNombre = document.createElement("input");
+    const inputNombre = crearInput({ placeholder: "Nombre de la prenda (opcional)" });
     inputNombre.value = this.nombre;
-    inputNombre.placeholder = "Nombre de la prenda (opcional)";
     inputNombre.style.width = "100%";
     inputNombre.style.boxSizing = "border-box";
     inputNombre.style.margin = "4px 0";
     inputNombre.oninput = () => { this.nombre = inputNombre.value; };
-    this.raiz.appendChild(inputNombre);
+    cuerpo.appendChild(inputNombre);
 
     const filaBotones = document.createElement("div");
     filaBotones.style.margin = "6px 0";
-    const btnGenerar = document.createElement("button");
-    btnGenerar.textContent = this.preview ? "🔄 Regenerar vista previa" : "Generar vista previa";
+    const btnGenerar = crearBoton(this.preview ? "🔄 Regenerar vista previa" : "Generar vista previa", () => this.generarPreview());
     btnGenerar.style.marginRight = "6px";
-    btnGenerar.onclick = () => this.generarPreview();
     filaBotones.appendChild(btnGenerar);
-    this.raiz.appendChild(filaBotones);
+    cuerpo.appendChild(filaBotones);
 
     if (this.error) {
       const err = document.createElement("div");
-      err.style.color = "#e08080";
-      err.style.margin = "4px 0";
+      err.className = "panel-colony-error";
       err.textContent = this.error;
-      this.raiz.appendChild(err);
+      cuerpo.appendChild(err);
     }
 
     if (this.preview) {
@@ -290,11 +279,11 @@ export class PanelSastreLegendario {
         if (valor == null || valor === false) continue;
         linea(`${NOMBRES_DETALLE[campo] ?? campo}: ${valor === true ? "sí" : String(valor)}`);
       }
-      this.raiz.appendChild(caja);
+      cuerpo.appendChild(caja);
 
       // Vista previa 3D real (pedido 2026-08-31, ronda 2) — MISMO nodo
       // reenganchado cada vez, ver comentario de `render()` arriba.
-      this.raiz.appendChild(this.previewDiv);
+      cuerpo.appendChild(this.previewDiv);
 
       const zonas: string[] = base.zonasColor ?? [];
       if (zonas.length > 0) {
@@ -321,14 +310,12 @@ export class PanelSastreLegendario {
           grupo.appendChild(colorInput);
           filaColores.appendChild(grupo);
         }
-        this.raiz.appendChild(filaColores);
+        cuerpo.appendChild(filaColores);
       }
 
-      const btnAceptar = document.createElement("button");
-      btnAceptar.textContent = "✅ ¡Me gusta, tejerla!";
+      const btnAceptar = crearBoton("✅ ¡Me gusta, tejerla!", () => this.opciones.aceptar(this.construccionId!, this.texto, this.tintes, this.nombre));
       btnAceptar.style.marginTop = "6px";
-      btnAceptar.onclick = () => this.opciones.aceptar(this.construccionId!, this.texto, this.tintes, this.nombre);
-      this.raiz.appendChild(btnAceptar);
+      cuerpo.appendChild(btnAceptar);
     }
 
     if (this.disenos.length > 0) {
@@ -336,7 +323,7 @@ export class PanelSastreLegendario {
       tituloDisenos.style.fontWeight = "bold";
       tituloDisenos.style.marginTop = "12px";
       tituloDisenos.textContent = "Mis diseños (craftear copia)";
-      this.raiz.appendChild(tituloDisenos);
+      cuerpo.appendChild(tituloDisenos);
       for (const d of this.disenos) {
         const fila = document.createElement("div");
         fila.style.display = "flex";
@@ -347,18 +334,17 @@ export class PanelSastreLegendario {
         const etiqueta = document.createElement("span");
         etiqueta.textContent = `${d.nombre} (${NOMBRES_MATERIAL[d.materialId] ?? d.materialId})`;
         fila.appendChild(etiqueta);
-        const btn = document.createElement("button");
-        btn.textContent = "Craftear copia";
-        btn.onclick = () => this.opciones.craftearCopia(this.construccionId!, d.id);
+        const btn = crearBoton("Craftear copia", () => this.opciones.craftearCopia(this.construccionId!, d.id));
         fila.appendChild(btn);
-        this.raiz.appendChild(fila);
+        cuerpo.appendChild(fila);
       }
     }
 
-    const btnCerrar = document.createElement("button");
-    btnCerrar.textContent = "Cerrar";
+    // Además de la X del marco (cierra por clic-fuera/Escape): botón de
+    // texto explícito, mismo criterio que panelCarpinteroLegendario.ts (un
+    // e2e real de ese panel hermano depende de poder cerrarlo por texto).
+    const btnCerrar = crearBoton("Cerrar", () => this.cerrar());
     btnCerrar.style.marginTop = "10px";
-    btnCerrar.onclick = () => this.cerrar();
-    this.raiz.appendChild(btnCerrar);
+    cuerpo.appendChild(btnCerrar);
   }
 }

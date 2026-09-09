@@ -2,8 +2,7 @@
  * Panel de la mesa de AJEDREZ (docs/GDD_Mesas_Minijuego.md) — PLACEHOLDER
  * de testeo, mismo espíritu que `combate/panelCombate.ts`: "que sean
  * placeholder sencillas, la UI de verdad es una pasada final aparte". DOM
- * plano inyectado sobre el canvas, sin framework, mismo patrón que
- * `construccion/constructor.ts` (hoja de estilos propia inyectada una vez).
+ * plano inyectado, sin framework.
  *
  * Tablero con glifos unicode de ajedrez (♔♕♖♗♘♙ / ♚♛♜♝♞♟) leídos
  * directamente del campo FEN replicado — SIEMPRE en orientación blancas
@@ -13,7 +12,19 @@
  * NUNCA valida una jugada — clic origen + clic destino solo PROPONE
  * "mesa:mover"; si es ilegal, el servidor responde "mesa:error" y el
  * tablero no cambia (se re-pinta siempre desde el `fen` autoritativo).
+ *
+ * Chrome visual migrado al marco compartido (pedido streamer 2026-09-09,
+ * "TODA pantalla... debe salir así con esta estética") — solo el
+ * marco/cabecera/fondo que envuelve al tablero, el tablero en sí sigue con
+ * sus propias casillas claras/oscuras y glifos (eso NO es "chrome", es la
+ * pieza interactiva real, se deja intacta). `actualizar()` sigue siendo la
+ * ÚNICA entrada pública, llamada en cada cambio de `room.state.mesasAjedrez`
+ * — abre/cierra el marco según haya o no una mesa propia activa, así que un
+ * clic en la X/fuera/Escape se sobrescribe en el siguiente patch de red
+ * mientras se siga sentado (mismo comportamiento de fondo que ya tenía:
+ * antes de esta migración tampoco había forma de ocultarlo sin levantarse).
  */
+import { crearMarcoPanel, crearBoton, type MarcoPanel } from "../ui/panelBase";
 
 export interface MesaAjedrezVista {
   sillaBlancas: string;
@@ -41,7 +52,7 @@ const GLIFOS: Record<string, string> = {
 const FILAS = ["a", "b", "c", "d", "e", "f", "g", "h"];
 
 export class PanelAjedrez {
-  private readonly raiz: HTMLDivElement;
+  private readonly marco: MarcoPanel;
   private readonly celdas: HTMLDivElement[] = []; // 64, orden: rank8->rank1, a->h (mismo orden que el FEN)
   private readonly lineaEstado: HTMLDivElement;
   private readonly lineaGanador: HTMLDivElement;
@@ -54,22 +65,22 @@ export class PanelAjedrez {
   constructor(private readonly opciones: OpcionesPanelAjedrez) {
     this.inyectarEstilos();
 
-    this.raiz = document.createElement("div");
-    this.raiz.className = "panel-ajedrez";
-    this.raiz.style.display = "none";
-
-    const titulo = document.createElement("h3");
-    titulo.textContent = "Ajedrez";
-    this.raiz.appendChild(titulo);
+    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Ajedrez", icono: "♟️", left: "50%", top: "50%" });
+    this.marco.raiz.style.transform = "translate(-50%, -50%)";
+    this.marco.cuerpo.style.textAlign = "center";
+    // Clase extra (además de "panel-colony" del marco compartido) — un e2e
+    // real (client/test/mesaAjedrez.e2e.cjs) espera ".panel-ajedrez" para
+    // esperar a que el panel esté visible; se conserva para no romperlo.
+    this.marco.raiz.classList.add("panel-ajedrez");
 
     this.lineaEstado = document.createElement("div");
-    this.lineaEstado.className = "estado";
-    this.raiz.appendChild(this.lineaEstado);
+    this.lineaEstado.className = "ajedrez-estado";
+    this.marco.cuerpo.appendChild(this.lineaEstado);
 
     this.lineaGanador = document.createElement("div");
-    this.lineaGanador.className = "ganador";
+    this.lineaGanador.className = "ajedrez-ganador";
     this.lineaGanador.style.display = "none";
-    this.raiz.appendChild(this.lineaGanador);
+    this.marco.cuerpo.appendChild(this.lineaGanador);
 
     const tablero = document.createElement("div");
     tablero.className = "tablero-ajedrez";
@@ -85,15 +96,11 @@ export class PanelAjedrez {
       tablero.appendChild(celda);
       this.celdas.push(celda);
     }
-    this.raiz.appendChild(tablero);
+    this.marco.cuerpo.appendChild(tablero);
 
-    const levantarse = document.createElement("button");
-    levantarse.className = "btn-levantarse";
-    levantarse.textContent = "Levantarse";
-    levantarse.onclick = () => opciones.enviarLevantarse();
-    this.raiz.appendChild(levantarse);
-
-    opciones.contenedor.appendChild(this.raiz);
+    const levantarse = crearBoton("Levantarse", () => opciones.enviarLevantarse());
+    levantarse.style.marginTop = "10px";
+    this.marco.cuerpo.appendChild(levantarse);
   }
 
   /** Llamar cada vez que cambie `room.state.mesasAjedrez` (onAdd/onRemove/onStateChange) — mismo patrón que PanelCombate.actualizar. */
@@ -110,11 +117,11 @@ export class PanelAjedrez {
     this.construccionIdActivo = id !== null ? Number(id) : null;
 
     if (!mesa) {
-      this.raiz.style.display = "none";
+      this.marco.cerrar();
       this.seleccionada = null;
       return;
     }
-    this.raiz.style.display = "block";
+    this.marco.abrir();
     this.colorPropio = mesa.sillaBlancas === this.opciones.sessionIdPropio ? "w" : "b";
     this.renderizar(mesa);
   }
@@ -221,12 +228,8 @@ export class PanelAjedrez {
     const estilos = document.createElement("style");
     estilos.id = "estilos-ajedrez";
     estilos.textContent = `
-      .panel-ajedrez{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-        background:rgba(20,16,10,0.92);color:#f0e8d8;font:13px sans-serif;padding:14px 16px;
-        border-radius:8px;border:1px solid #6a5a3a;z-index:20;text-align:center}
-      .panel-ajedrez h3{margin:0 0 8px;font-size:15px;letter-spacing:.5px}
-      .panel-ajedrez .estado{margin-bottom:6px;min-height:16px}
-      .panel-ajedrez .ganador{margin-bottom:8px;font-weight:bold;color:#ffd76a}
+      .ajedrez-estado{margin-bottom:6px;min-height:16px}
+      .ajedrez-ganador{margin-bottom:8px;font-weight:bold;color:var(--panel-acento)}
       .tablero-ajedrez{display:grid;grid-template-columns:repeat(8,40px);grid-template-rows:repeat(8,40px);
         border:2px solid #3a2f1e;margin:0 auto}
       .tablero-ajedrez .celda{display:flex;align-items:center;justify-content:center;
@@ -235,10 +238,7 @@ export class PanelAjedrez {
       .tablero-ajedrez .celda.oscura{background:#8a6a42}
       .tablero-ajedrez .celda.pieza-blanca{color:#fdfdfd;text-shadow:0 0 2px #000,0 0 1px #000}
       .tablero-ajedrez .celda.pieza-negra{color:#141414;text-shadow:0 0 2px #fff}
-      .tablero-ajedrez .celda.sel{box-shadow:inset 0 0 0 3px #3ddc78}
-      .panel-ajedrez .btn-levantarse{margin-top:10px;padding:5px 14px;cursor:pointer;
-        background:transparent;border:1px solid #6a5a3a;border-radius:4px;color:#e2e8f0;font:12px sans-serif}
-      .panel-ajedrez .btn-levantarse:hover{background:#2d3748}`;
+      .tablero-ajedrez .celda.sel{box-shadow:inset 0 0 0 3px #3ddc78}`;
     document.head.appendChild(estilos);
   }
 }
