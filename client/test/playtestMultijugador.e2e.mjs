@@ -241,7 +241,13 @@ async function main() {
     // especie vale, con preferencia por las grandes.
     const PRESAS_TIERRA = ["cierva", "ciervo", "corzo", "corza", "gacela", "liebre", "liebre_de_bosque", "conejo", "marmota", "perdiz", "codorniz", "cervatillo", "corcino", "aguila_pescadora", "garza", "cigüena", "paloma_torcaz", "cuervo", "faisan"];
     const DIMINUTA = /raton|ardilla|avispa|abeja|mariposa|libelula|escarabajo|hormiga|grillo|saltamontes|mosquito|lombriz|caracol|rana|sapo|lagart|carpa|trucha|pez|bacalao|sardina|salmon|anguila|lucio|barbo|cangrejo|medusa|pulpo|calamar|almeja|mejillon|ostra|erizo|estrella|anemona|pepino|tiburon|orca|ballena|delfin|foca|morsa|lobo|oso|jabal/;
-    const presa = PRESAS_TIERRA.map((e) => fauna.find((f) => f.especieId === e)).find(Boolean) || fauna.find((f) => !DIMINUTA.test(f.especieId)) || fauna[0];
+    // ...y sin fauna PELIGROSA a menos de 12 casillas: en la pasada 9 una
+    // avispa agró a Tester3 nada más acercarse (combate real, arena) y el
+    // resto de pasos lo dio por perdido — el juego funcionando, no un bug.
+    const PELIGROSA = /avispa|avispon|abeja|lobo|oso|jabal|serpiente|vibora|escorpion|tiburon|orca|cocodrilo|puma|lince|aguila_real|buitre/;
+    const sinPeligroCerca = (f) => !fauna.some((g) => PELIGROSA.test(g.especieId) && Math.hypot(g.x - f.x, g.y - f.y) < 12);
+    const candidatas = fauna.filter((f) => !DIMINUTA.test(f.especieId) && sinPeligroCerca(f));
+    const presa = PRESAS_TIERRA.map((e) => candidatas.find((f) => f.especieId === e)).find(Boolean) || candidatas[0] || fauna[0];
     if (presa) {
       console.log(`   presa: ${presa.especieId} (${presa.id}) en (${presa.x.toFixed(1)},${presa.y.toFixed(1)})`);
       // A 7 casillas: fuera de radioHuida (4) para que no salga corriendo antes del clic
@@ -345,6 +351,13 @@ async function main() {
     comprobar("posición persistida tras F5", Math.hypot(antesRecarga.x - trasRecarga.x, antesRecarga.y - trasRecarga.y) < 2, `${antesRecarga.x.toFixed(1)},${antesRecarga.y.toFixed(1)} → ${trasRecarga.x.toFixed(1)},${trasRecarga.y.toFixed(1)}`);
 
     console.log("9) todos se teletransportan a la vez a la misma zona (estrés de sincronía) y se ven entre sí...");
+    // Quien haya acabado en OTRA room (arena por agro real, región de la capital) vuelve al Hub por URL — la reunión es en el Hub.
+    for (const j of jugadores) {
+      if (!j.arranco || !/sala=/.test(j.page.url())) continue;
+      console.log(`   ${j.nombre} estaba en ${j.page.url().replace(/^http:\/\/localhost:\d+/, "")} — vuelve al Hub`);
+      await j.page.goto(`http://localhost:${PUERTO_WEB}/?nombre=${j.nombre}`, { waitUntil: "commit", timeout: 120000 });
+      await esperarJuego(j, 150000).catch(() => {});
+    }
     // Casillas comprobadas libres (5x5) con el cargador real; las anteriores (1500+i,2100+i) eran agua/sólido.
     const sitiosReunion = [[1486.5, 2100.5], [1494.5, 2100.5], [1482.5, 2102.5], [1484.5, 2100.5]];
     await Promise.all(jugadores.map((j, i) => teleport(j, ...sitiosReunion[i]).catch((e) => comprobar(`teleport masivo de ${j.nombre}`, false, String(e).slice(0, 120)))));
