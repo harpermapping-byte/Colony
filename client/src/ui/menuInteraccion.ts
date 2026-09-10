@@ -19,9 +19,26 @@ export interface OpcionMenuInteraccion {
 
 export class MenuInteraccion {
   private readonly raiz: HTMLDivElement;
+  // true SOLO durante el mismo gesto de clic que acaba de cerrar el menú
+  // por "clic fuera" (bug real reportado por el streamer 2026-09-10: un
+  // segundo clic en un punto DISTINTO del lienzo no lo cerraba, lo MOVÍA al
+  // sitio nuevo) — la causa real es que `mousedown` (este archivo) SIEMPRE
+  // se dispara antes que `click` (game.ts) para la misma pulsación, así que
+  // el menú YA está oculto cuando el listener de clic del lienzo llega a
+  // comprobar `visible()` (el guardia que se añadió el 2026-09-06 para un
+  // problema relacionado nunca podía detectar este caso — solo protegía un
+  // clic que aterrizara DENTRO del propio menú, algo que ni siquiera llega
+  // al lienzo). `consumirCierrePorClicFuera()` deja que game.ts sepa "este
+  // clic concreto ya solo tenía que cerrar, no abrir nada nuevo" sin volver
+  // a depender de comparar posiciones. Se resetea al PRINCIPIO de cada
+  // mousedown (no solo al consumirla) para que un clic en OTRA pieza de UI
+  // (p.ej. un icono del dock) de por medio no deje la bandera colgada y
+  // trague de rebote el siguiente clic real sobre el lienzo.
+  private cerradoPorClicFueraEnEsteGesto = false;
 
   constructor() {
     this.raiz = document.createElement("div");
+    this.raiz.dataset.testid = "menu-interaccion";
     this.raiz.style.position = "fixed";
     this.raiz.style.zIndex = "50";
     // Paleta madera/pergamino del tema (pedido streamer 2026-09-09) — su
@@ -42,9 +59,11 @@ export class MenuInteraccion {
     // clic fuera del menú (o cualquier tecla Escape) lo cierra — mismo
     // criterio que un menú contextual normal
     window.addEventListener("mousedown", (e) => {
+      this.cerradoPorClicFueraEnEsteGesto = false; // ver comentario del campo — nunca debe sobrevivir a un mousedown ajeno
       if (this.raiz.style.display === "none") return;
       if (e.target instanceof Node && this.raiz.contains(e.target)) return;
       this.ocultar();
+      this.cerradoPorClicFueraEnEsteGesto = true;
     });
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") this.ocultar();
@@ -53,6 +72,13 @@ export class MenuInteraccion {
 
   visible(): boolean {
     return this.raiz.style.display !== "none";
+  }
+
+  /** Consume (lee y resetea) la bandera de "este clic ya cerró el menú por fuera" — one-shot, ver comentario del campo. */
+  consumirCierrePorClicFuera(): boolean {
+    const c = this.cerradoPorClicFueraEnEsteGesto;
+    this.cerradoPorClicFueraEnEsteGesto = false;
+    return c;
   }
 
   /**

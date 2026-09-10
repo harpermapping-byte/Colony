@@ -211,27 +211,34 @@ function generarSiluetaCiudad(ciudad, rnd) {
     indice++;
   }
 
-  // --- puerta principal: la real más cercana al primer cruce de camino
-  // (ciudad.puertas[0]), con el ángulo tangente de la muralla en ese
-  // punto (modulosMuralla ya lo calcula) — instanciasPOI.js la usa para
-  // alinear la estructura interactiva y el portal real ---
-  let puertaPrincipal = null;
-  if (puertasReales.length) {
-    const p0 = puertasReales[0];
+  // --- las puertas reales, TODAS (bug real cerrado 2026-09-10: antes solo
+  // se devolvía `puertaPrincipal`, ciudad.puertas[0] — instanciasPOI.js solo
+  // colocaba estructura interactiva+portal en ESA, dejando las demás con un
+  // hueco visual real en la muralla pero sin arco ni portal. Con 2-3 puertas
+  // reales típicas por asentamiento, y el punto de spawn/exploración cayendo
+  // a menudo mucho más cerca de una "huérfana" que de la única funcional,
+  // el jugador veía el hueco pero nunca la puerta) — ángulo tangente de la
+  // muralla en cada una (modulosMuralla ya lo calcula), instanciasPOI.js las
+  // usa TODAS para alinear su propia estructura interactiva y portal. ---
+  function anguloDeMurallaEn(px, py) {
     let mejor = null, mejorD = Infinity;
     for (const m of ciudad.modulosMuralla) {
       if (m.tipo !== "puerta") continue;
-      const dd = Math.hypot(m.x - p0.x, m.y - p0.y);
+      const dd = Math.hypot(m.x - px, m.y - py);
       if (dd < mejorD) { mejorD = dd; mejor = m; }
     }
-    puertaPrincipal = { x: p0.x, y: p0.y, rotDeg: mejor ? mejor.rot : 0 };
+    return mejor ? mejor.rot : 0;
   }
+  const puertas = puertasReales.map((p) => ({ x: p.x, y: p.y, rotDeg: anguloDeMurallaEn(p.x, p.y) }));
+  // Retrocompatible: cualquier consumidor que solo conociera puertaPrincipal (ciudad.puertas[0]) sigue funcionando igual.
+  const puertaPrincipal = puertas[0] || null;
 
   return {
     grid: [gx, Math.round(U * 8), gz], // altura nominal generosa (torre de homenaje + almenas) — solo usado por centrarXZ para X/Z, no restringe la geometría real
     paleta: b.paleta,
     cajas: b.cajas,
     puertaPrincipal,
+    puertas,
   };
 }
 

@@ -251,7 +251,11 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
   if (ciudadCapital && config.spawnEnPuerta !== false) {
     const civiles = (entradasAsentamiento || []).filter((e) => !e.hostil);
     if (civiles.length) {
-      civiles.sort((a, b) => Math.hypot(a.poiX - ciudad.x, a.poiY - ciudad.y) - Math.hypot(b.poiX - ciudad.x, b.poiY - ciudad.y));
+      // Desde v4 (§13quinquies) cada asentamiento tiene VARIAS puertas reales:
+      // se elige la puerta (no el centro del asentamiento) más cercana a
+      // `ciudad`, así el spawn cae en la entrada que de verdad mira hacia
+      // el punto que el config considera el corazón del mapa.
+      civiles.sort((a, b) => Math.hypot(a.x - ciudad.x, a.y - ciudad.y) - Math.hypot(b.x - ciudad.x, b.y - ciudad.y));
       spawn = { x: civiles[0].x, y: civiles[0].y };
       onProgreso(`  Spawn en la puerta del asentamiento más cercano a la ciudad: (${spawn.x},${spawn.y}).`);
     }

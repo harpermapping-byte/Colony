@@ -118,7 +118,20 @@ export function npcTutorialAAgente(fila: NpcTutorialColocado, catalogo: Map<stri
   return {
     slotId: `tutorial_${fila.id}`,
     nombre: fila.nombre,
-    oficio: "npc_tutorial",
+    // "maestro_oficios" es el ÚNICO valor que RoomExteriorBase.ts::
+    // npcMaestroOficiosMasCercano reconoce como gate real de
+    // oficio:elegir/oficio:cambiar (ver ese archivo). Bug real cerrado
+    // 2026-09-10: antes CUALQUIER NPC tutorial recibía el mismo marcador
+    // genérico "npc_tutorial" (incluido el propio "Maestro de Oficios",
+    // tipoTutorial "tutorial_oficios") — el jarl podía colocarlo con
+    // admin:npcTutorial:colocar y seguía siendo funcionalmente invisible
+    // para el gate, así que NINGÚN jugador podía elegir oficio pese a
+    // tener el NPC plantado delante. El resto de tipos de tutorial/lore/
+    // reclutador siguen con "npc_tutorial" (valor sin uso funcional hoy,
+    // solo distingue de un NPC de poblacion/ real si algo llegara a
+    // comprobarlo) — el cliente ya identifica al reclutador por
+    // `tipoTutorial`, no por este campo (game.ts).
+    oficio: fila.tipoTutorial === "tutorial_oficios" ? "maestro_oficios" : "npc_tutorial",
     tipoTutorial: fila.tipoTutorial,
     equipo: arquetipo.equipo,
     rutina: [{ lugar: "tutorial", accion: "trabajar", horaInicio: 0, horaFin: 24, punto: { x: fila.x, y: fila.y }, camino: null }],

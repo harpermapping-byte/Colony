@@ -74,10 +74,7 @@
     "x": 1534,
     "y": 2138
   },
-  "spawn": {
-    "x": 1486,
-    "y": 2179
-  },
+  "spawn": {"x":1509,"y":2098},
   "portales": [
     {
       "tipo": "interior",
@@ -281,6 +278,15 @@
       }
     },
     {
+      "tipo": "exterior",
+      "x": 2763,
+      "y": 1289,
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/aldea_agricola_2799_1267"
+      }
+    },
+    {
       "tipo": "interior",
       "x": 608,
       "y": 1558,
@@ -362,6 +368,24 @@
       "tipo": "exterior",
       "x": 1486,
       "y": 2179,
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/capital_regional_1534_2138"
+      }
+    },
+    {
+      "tipo": "exterior",
+      "x": 1509,
+      "y": 2098,
+      "destino": {
+        "tipo": "region",
+        "mapaId": "pois/capital_regional_1534_2138"
+      }
+    },
+    {
+      "tipo": "exterior",
+      "x": 1593,
+      "y": 2148,
       "destino": {
         "tipo": "region",
         "mapaId": "pois/capital_regional_1534_2138"

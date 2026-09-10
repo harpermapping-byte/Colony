@@ -1055,16 +1055,23 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const raycasterClic = new Raycaster();
     escena.renderer.domElement.addEventListener("click", (e) => {
       if (modo.activo()) return; // el modo construcción ya consume sus propios clics (colocar/rotar)
-      // Bug real reportado por el streamer ("si le das otra vez click debería
-      // cerrarse, si no eliges nada, ahora no se cierra más que si eliges una
-      // acción"): el menú YA se cierra solo con el `mousedown` fuera de él
-      // (menuInteraccion.ts), pero ese es un evento ANTERIOR al `click` — así
-      // que un segundo clic en el mismo sitio (o en cualquier otro punto del
-      // lienzo sin mueble debajo) cerraba el menú con el mousedown y esta
-      // misma función lo volvía a abrir acto seguido con el click, dando la
-      // sensación de que nunca se cerraba. Tratar un clic con el menú ya
-      // abierto como "solo cerrar" (nunca reabrir de paso) arregla el toggle.
+      // Toggle real: clic abre, clic (en cualquier sitio) cierra, un TERCER
+      // clic aparte hace falta para volver a abrir en otro lado. El caso
+      // "clic dentro del propio menú" sí llega aquí con visible()===true
+      // (un botón interno lo consume, un hueco vacío del popup no — cierra
+      // sin más). El caso real, el que reportó el streamer 2026-09-10 ("si
+      // clico otra vez en otro sitio del terreno, el menú se MUEVE en vez de
+      // desaparecer"): un clic en un punto DISTINTO del lienzo nunca llega
+      // aquí con visible()===true, porque `mousedown` (menuInteraccion.ts)
+      // se dispara SIEMPRE antes que `click` para la misma pulsación y ya lo
+      // cierra por "clic fuera" — el guardia de arriba (fix del 2026-09-06,
+      // pensado para otro caso) nunca podía atrapar este, así que el código
+      // de abajo seguía abriendo un menú NUEVO en la posición nueva en la
+      // misma pulsación. `consumirCierrePorClicFuera()` es la señal real:
+      // "este clic concreto ya solo tenía que cerrar" — sin ella, se trata
+      // como un clic normal y se procede a abrir donde corresponda.
       if (menuInteraccion.visible()) { menuInteraccion.ocultar(); return; }
+      if (menuInteraccion.consumirCierrePorClicFuera()) return;
       const r = escena.renderer.domElement.getBoundingClientRect();
       const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       raycasterClic.setFromCamera(ndc, escena.camera);
@@ -1685,19 +1692,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage(tipo, (m: { motivo?: string }) => console.log(`[${etiqueta}]`, m?.motivo));
   }
 
-  // Oficio (docs/GDD_Profesiones.md): sin panel de cliente todavía
-  // (protocolo probado por e2e mandando el mensaje Colyseus real), pero su
-  // "xxx:error" se colaba sin loguear — bug real encontrado en el barrido
-  // de sistemas (2026-08-31), mismo patrón que combate:error la vez
-  // anterior: sin este listener, un rechazo del servidor (oficio
-  // desconocido...) era invisible tanto en juego como en consola.
-  // (tenderete:error NO se registra aquí también: panelTenderete, dentro
-  // del bloque `if (SALA === "hub")` de arriba, ya lo escucha y lo muestra
-  // en el panel real — el mensaje solo puede llegar cuando ese bloque
-  // existe, así que una segunda copia aquí solo duplicaría el log, nunca
-  // añadiría cobertura. Duplicado real encontrado y quitado en la
-  // auditoría de calidad de código 2026-09-06.)
-  room.onMessage("oficio:error", (m: { motivo: string }) => console.log("[oficio]", m?.motivo));
+  // Oficio (docs/GDD_Profesiones.md): "oficio:error" YA tiene un listener
+  // real más abajo, junto al selector de oficios del panel de diálogo
+  // (toast + consola) — el que vivía aquí (solo consola, sin panel) se
+  // quitó al cerrar ese gap 2026-09-10 para no duplicar el log, mismo
+  // criterio "un segundo listener del mismo tipo duplica, no sustituye" ya
+  // documentado con combate:error/tenderete:error (auditoría 2026-09-06).
 
   // Posición mundo del CENTRO de la huella de una construcción real, ya
   // rotada (pedido 2026-09-02: "sentarse/tumbarse debe vincular y poner al
@@ -2376,6 +2376,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const panelDialogoNpc = new PanelDialogoNpc({
     contenedor,
     enviarMensaje: (npcId, texto) => room.send("npc:hablar", { npcId, mensaje: texto }),
+    // Oficio (docs/GDD_Profesiones.md, pedido streamer 2026-09-10: "click
+    // sobre elegir oficio") — el propio panel decide slot vacío vs. slot
+    // ocupado (elegir/cambiar) según lo que ya sabe de oficio1/oficio2; aquí
+    // solo mandamos el mensaje de red real. El servidor vuelve a comprobar
+    // TODO (NPC cerca, oficio válido, slot libre/precio) — esto es solo el
+    // gesto de UI, nunca la fuente de verdad.
+    elegirOficio: (oficio) => room.send("oficio:elegir", { oficio }),
+    cambiarOficio: (slot, oficio) => room.send("oficio:cambiar", { slot, oficio }),
   });
   room.onMessage("npc:respuesta", (m: { npcId: string; texto: string }) => {
     panelDialogoNpc.recibirRespuesta(m.npcId, m.texto);
@@ -2394,7 +2402,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (panelDialogoNpc.npcAbierto() && panelDialogoNpc.npcAbierto() === npcCercano?.id) {
       panelDialogoNpc.cerrar();
     } else if (npcCercano) {
-      panelDialogoNpc.abrirCon(npcCercano.id, npcCercano.nombre);
+      const yo = room.state.players.get(room.sessionId) as any;
+      const datosOficios = npcCercano.esMaestroOficios && yo ? { oficio1: yo.oficio1, oficio2: yo.oficio2 } : undefined;
+      panelDialogoNpc.abrirCon(npcCercano.id, npcCercano.nombre, datosOficios);
     }
   }
   dockHud.registrar(
@@ -2597,6 +2607,26 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   });
   room.onMessage("higiene:cagado", () => {
     registroCombate.mostrar("Alivio conseguido.", "info");
+  });
+  // Oficio (docs/GDD_Profesiones.md, pedido streamer 2026-09-10) — mismo
+  // criterio que personaje/higiene arriba: antes "oficio:error" solo se
+  // logueaba en consola (bloque silencioso más abajo, ahora quitado de ahí
+  // para no duplicar) y ni "oficio:elegido" ni "oficio:cambiado" tenían
+  // NINGÚN feedback visible — sin panel todavía, la única señal de que
+  // había funcionado era mirar la consola del navegador. `actualizarOficios`
+  // refresca el selector del panel de diálogo EN CALIENTE (sin cerrar la
+  // conversación) para que el botón recién elegido pase a "✓" al momento.
+  room.onMessage("oficio:error", (m: { motivo: string }) => {
+    console.log("[oficio]", m?.motivo);
+    registroCombate.mostrar(m?.motivo ?? "No se pudo elegir/cambiar el oficio.", "error");
+  });
+  room.onMessage("oficio:elegido", (m: { slot: number; oficio: string }) => {
+    registroCombate.mostrar(`Ahora eres ${m?.oficio ?? "oficio"}.`, "info");
+    if (m?.slot && m?.oficio) panelDialogoNpc.aplicarOficioElegido(m.slot, m.oficio);
+  });
+  room.onMessage("oficio:cambiado", (m: { slot: number; oficioAnterior: string; oficio: string; precioPagado: number }) => {
+    registroCombate.mostrar(`Has cambiado ${m?.oficioAnterior ?? "oficio"} por ${m?.oficio ?? "oficio"} (-${m?.precioPagado ?? 0} Farycoins).`, "info");
+    if (m?.slot && m?.oficio) panelDialogoNpc.aplicarOficioCambiado(m.slot, m.oficio);
   });
   // Adaptador, no el panel directo: abrir por icono debe refrescar el
   // contenido de inmediato, igual que ya hace la tecla I más abajo (sin
@@ -3012,18 +3042,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // tiene su propio camino con la tecla C.
   const RADIO_HABLAR_CLIENTE = 2.2;
 
-  /** docs/GDD_IA_NPCs.md — NPC (con nombre) no hostil más cercano dentro del radio de hablar, o `null` si no hay ninguno. Mismo criterio "sin UI de targeting" que `objetivoHostilMasCercano`. */
-  function npcParaHablarMasCercano(): { id: string; nombre: string } | null {
+  /** docs/GDD_IA_NPCs.md — NPC (con nombre) no hostil más cercano dentro del radio de hablar, o `null` si no hay ninguno. Mismo criterio "sin UI de targeting" que `objetivoHostilMasCercano`. `esMaestroOficios` (tipoTutorial "tutorial_oficios") le dice a panelDialogoNpc si mostrar el selector de oficios. */
+  function npcParaHablarMasCercano(): { id: string; nombre: string; esMaestroOficios: boolean } | null {
     if (!jugadorLocal) return null;
     let mejorId: string | null = null;
     let mejorNombre = "";
+    let mejorEsMaestroOficios = false;
     let mejorDist = RADIO_HABLAR_CLIENTE;
     for (const [id, n] of room.state.npcs.entries()) {
       if (n.hostil) continue;
       const d = Math.hypot(n.x - jugadorLocal.x, n.y - jugadorLocal.z);
-      if (d < mejorDist) { mejorDist = d; mejorId = id; mejorNombre = n.nombre; }
+      if (d < mejorDist) { mejorDist = d; mejorId = id; mejorNombre = n.nombre; mejorEsMaestroOficios = n.tipoTutorial === "tutorial_oficios"; }
     }
-    return mejorId ? { id: mejorId, nombre: mejorNombre } : null;
+    return mejorId ? { id: mejorId, nombre: mejorNombre, esMaestroOficios: mejorEsMaestroOficios } : null;
   }
 
   /** Combate en ventana de unión (fase "pendiente", §9.1) más cercano al que el jugador todavía no pertenece. */
@@ -3139,7 +3170,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // UI de targeting" que combate (C)/coger. Con el panel ya abierto con
     // ESE mismo NPC, H lo cierra (toggle); abierto con OTRO NPC, cambia de
     // conversación sin más (no hace falta cerrar antes).
-    if (k === "h" && !teclas.has("h")) alternarDialogoNpc();
+    // preventDefault (bug real encontrado 2026-09-10 verificando el
+    // selector de oficios con Playwright): abrirCon() enfoca el `<input>`
+    // del panel EN EL MISMO keydown — sin esto, el navegador sigue
+    // insertando el carácter "h" de esta MISMA pulsación en el input recién
+    // enfocado (el foco cambió a mitad del evento, pero la inserción de
+    // texto por defecto se evalúa contra el foco ACTUAL al final del
+    // despacho, no contra el que había al empezar) — cada apertura dejaba
+    // una "h" suelta escrita en el mensaje.
+    if (k === "h" && !teclas.has("h")) { e.preventDefault(); alternarDialogoNpc(); }
     // Minijuego de forja (docs/GDD_Crafteo.md §Minijuego de Herrería):
     // ESPACIO golpea mientras el panel está en fase FORJAR — mismo criterio
     // "tecla de acción sin targeting" que el resto de este bloque.
@@ -3192,8 +3231,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       }
     }
     // Bosques (docs/GDD_Bosques.md): H tala el árbol más cercano (Hacha) —
-    // sin targeting, el servidor busca el más cercano él mismo.
-    if (k === "h" && !teclas.has("h")) room.send("arbol:talar");
+    // sin targeting, el servidor busca el más cercano él mismo. SOLO si no
+    // hay ningún NPC al que hablarle cerca (bug real cerrado 2026-09-10:
+    // "H" también abre/cierra el diálogo con NPCs desde 2026-09-08 — sin
+    // este guardia, hablar con un NPC parado junto a un árbol disparaba
+    // TAMBIÉN `arbol:talar` en cada pulsación, sin que el jugador lo pidiera).
+    if (k === "h" && !teclas.has("h") && !npcParaHablarMasCercano()) room.send("arbol:talar");
     // Mascotas (docs/GDD_Mascotas.md): G da de comer al animal domesticable
     // más cercano (perro/gato urbano) — sin UI de targeting, el servidor
     // decide si hay algo cerca y si se puede (no-op fuera de una región con
