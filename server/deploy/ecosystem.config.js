@@ -29,6 +29,17 @@ module.exports = {
       // todos los jugadores conectados justo cuando más gente había. 4G deja
       // margen real y sigue actuando de red de seguridad ante una fuga.
       max_memory_restart: "4G",
+      // Apagado ORDENADO (2026-09-09): en Windows PM2 no puede entregar
+      // SIGINT/SIGTERM de verdad, así que sin esto `pm2 restart` mataba el
+      // proceso y el guardado de posición/vitales de los jugadores
+      // conectados (RoomExteriorBase.onLeave) NUNCA llegaba a correr. Con
+      // esto, PM2 manda "shutdown" por IPC y el servidor cierra sus salas
+      // como es debido — ver el `process.on("message")` de
+      // server/src/index.ts, que es la otra mitad OBLIGATORIA de este
+      // ajuste: la opción sin ese handler solo conseguiría que PM2 esperase
+      // los 15s enteros antes de matar igual.
+      shutdown_with_message: true,
+      kill_timeout: 15000,
       // Heap explícito acorde al tope de arriba: el límite por defecto de V8
       // depende de la RAM detectada y no tiene por qué coincidir con lo que
       // aquí decidimos.

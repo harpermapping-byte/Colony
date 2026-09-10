@@ -85,6 +85,26 @@ const gameServer = new Server({
   transport: new WebSocketTransport({ server: httpServer }),
 });
 
+// Apagado ORDENADO en Windows (2026-09-09). Colyseus registra su
+// `gracefullyShutdown` sobre SIGINT/SIGTERM/SIGUSR2, pero Windows no tiene
+// señales POSIX de verdad: `pm2 restart` termina el proceso sin que ningún
+// handler llegue a correr, así que `onLeave` —donde se guardan posición y
+// vitales de cada jugador— NO se ejecutaba nunca al reiniciar, y quien
+// estuviera dentro perdía su último guardado en silencio, sin un solo error
+// en los logs. Con `shutdown_with_message: true` (server/deploy/
+// ecosystem.config.js) PM2 avisa por IPC en vez de matar a bocajarro.
+// OJO si algún día se toca: esta pareja va SIEMPRE junta — la opción de PM2
+// sin este handler sería PEOR que no tener nada (PM2 esperaría el
+// `kill_timeout` entero antes de matar igual).
+process.on("message", (mensaje) => {
+  if (mensaje !== "shutdown") return;
+  console.log("Apagado ordenado pedido por PM2 — guardando y cerrando salas...");
+  gameServer.gracefullyShutdown().catch((err) => {
+    console.error("Fallo el apagado ordenado:", err);
+    process.exit(1);
+  });
+});
+
 gameServer.define("hub", HubRoom);
 // Barcos y navegación marítima (docs/GDD_Barcos.md, pedido 2026-08-30):
 // SEGUNDA definición de la MISMA clase, esta vez con mapaId obligatorio vía
