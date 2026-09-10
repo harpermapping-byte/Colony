@@ -177,11 +177,16 @@ Titulo "2/7  PostgreSQL (donde se guardan las partidas)"
 function BuscarBinarioPg($nombre) {
   $claveRaiz = "HKLM:\SOFTWARE\PostgreSQL\Installations"
   if (Test-Path $claveRaiz) {
-    $desdeRegistro = Get-ChildItem $claveRaiz -ErrorAction SilentlyContinue | ForEach-Object {
+    # El @(...) NO es decorativo: si el registro tiene UNA sola instalacion de
+    # PostgreSQL, la tuberia devuelve una CADENA suelta en vez de una lista, y
+    # entonces [0] da su primera LETRA ("C" de "C:\Program Files\...") en vez
+    # de la ruta. Eso rompio el instalador de verdad la primera vez que se
+    # ejecuto en el PC del streamer.
+    $desdeRegistro = @(Get-ChildItem $claveRaiz -ErrorAction SilentlyContinue | ForEach-Object {
       $props = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
       if ($props."Base Directory") { Join-Path $props."Base Directory" "bin\$nombre.exe" }
-    } | Where-Object { $_ -and (Test-Path $_) } | Sort-Object -Descending
-    if ($desdeRegistro) { return $desdeRegistro[0] }
+    } | Where-Object { $_ -and (Test-Path $_) } | Sort-Object -Descending)
+    if ($desdeRegistro.Count -gt 0) { return $desdeRegistro[0] }
   }
   foreach ($raiz in @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ } | Select-Object -Unique) {
     $encontrado = Get-ChildItem (Join-Path $raiz "PostgreSQL\*\bin\$nombre.exe") -ErrorAction SilentlyContinue |
@@ -298,8 +303,17 @@ if (-not $yaConfigurada -and $psql) {
   $passJuego = -join (1..24 | ForEach-Object { $caracteres | Get-Random })
 
   $env:PGPASSWORD = $passSuper
-  $prueba = & $psql -h localhost -p $puertoPg -U postgres -tAc "SELECT 1;" 2>$null
-  if ($LASTEXITCODE -ne 0) {
+  # try/catch ademas de mirar $LASTEXITCODE: con ErrorActionPreference=Stop,
+  # cualquier tropiezo de psql tiraria el script entero con un volcado rojo
+  # ilegible justo en el paso mas delicado.
+  $conecta = $false
+  try {
+    & $psql -h localhost -p $puertoPg -U postgres -tAc "SELECT 1;" 2>$null | Out-Null
+    $conecta = ($LASTEXITCODE -eq 0)
+  } catch {
+    $conecta = $false
+  }
+  if (-not $conecta) {
     Pendiente "No se pudo conectar a PostgreSQL como 'postgres' (contrasena incorrecta o servicio parado). Vuelve a ejecutar el instalador."
   } else {
     $existeRol = & $psql -h localhost -p $puertoPg -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='colony';" 2>$null
