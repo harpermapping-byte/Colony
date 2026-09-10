@@ -230,7 +230,8 @@ export function cargarMapaColision(
   };
 }
 
-function casillaPisableMasCercana(
+/** Casilla TIERRA más cercana a (x0,y0) por anillos de Chebyshev — la usa el spawn del mapa y `admin:debug:teleport` (que antes podía dejar al jugador DENTRO de un árbol/roca, sin poder moverse — playtest multijugador 2026-09-10). */
+export function casillaPisableMasCercana(
   casillas: Uint8Array,
   ancho: number,
   alto: number,

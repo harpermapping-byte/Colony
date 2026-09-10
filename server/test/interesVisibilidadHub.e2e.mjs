@@ -106,6 +106,23 @@ try {
     comprobar("Vis2 vuelve a ver a Vis1 al volver al spawn", vistosVuelta.includes("Vis1"), vistosVuelta.join(","));
   }
 
+  console.log("5) teleport de jarl a una casilla SÓLIDA (1502,2106: vegetación, tipo 3 en el cargador real) — debe ajustarse a la pisable más cercana, nunca dejarlo dentro...");
+  if (seMovio) {
+    rooms[0].send("admin:debug:teleport", { x: 1502.5, y: 2106.5 });
+    await esperar(1500);
+    const p = rooms[0].state.players.get(rooms[0].sessionId);
+    const ajustado = Math.hypot(p.x - 1502.5, p.y - 2106.5) > 0.4 && Math.hypot(p.x - 1502.5, p.y - 2106.5) < 6;
+    comprobar("teleport a casilla sólida se corrige a una pisable cercana (no se queda dentro)", ajustado, `pedido 1502.5,2106.5 -> ${p.x.toFixed(1)},${p.y.toFixed(1)}`);
+    // Y desde ahí SE PUEDE andar (antes: 0.00 casillas, clavado dentro del árbol)
+    const antes = { x: p.x, y: p.y };
+    rooms[0].send("input", { x: 0, y: 1 });
+    await esperar(800);
+    rooms[0].send("input", { x: 0, y: 0 });
+    await esperar(200);
+    const d = Math.hypot(p.x - antes.x, p.y - antes.y);
+    comprobar("tras el teleport corregido, el jugador puede andar", d > 0.5, `${d.toFixed(2)} casillas`);
+  }
+
   for (const r of rooms.slice(0, 3)) await r.leave().catch(() => {});
 } catch (e) {
   fallos++;

@@ -48,7 +48,7 @@ import {
   tirarHuida,
 } from "../../combate/arenaCombate";
 import { Arena, Casilla, costeCasilla, casillasAlcanzables } from "../../combate/pathfindingArena";
-import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
+import { MapaCargado, BordeMapa, casillaPisableMasCercana } from "../../mundo/mapaColision";
 import { recolectableCercano, recolectablesAgotadosDeMapa } from "../../mundo/recolectables";
 import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria, msFaltantesParaRecolectar } from "../../mundo/herramientasRecoleccion";
 import {
@@ -5900,10 +5900,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
     const player = this.state.players.get(client.sessionId);
     if (!player) return client.send("admin:error", { motivo: "jugador inválido" });
-    if (typeof msg?.x !== "number" || typeof msg?.y !== "number") return client.send("admin:error", { motivo: "faltan x/y" });
-    player.x = msg.x;
-    player.y = msg.y;
-    client.send("admin:debug:ok", { accion: "teleport", x: msg.x, y: msg.y });
+    if (typeof msg?.x !== "number" || typeof msg?.y !== "number" || !Number.isFinite(msg.x) || !Number.isFinite(msg.y)) return client.send("admin:error", { motivo: "faltan x/y" });
+    // Nunca dejar al jarl DENTRO de una casilla sólida (árbol/roca/muralla):
+    // moverAABB bloquea cualquier salida desde ahí y se queda clavado hasta
+    // otro teleport (visto en el playtest multijugador 2026-09-10: 3 de 4
+    // destinos "a ojo" cayeron en vegetación densa). Agua sí vale como
+    // destino (nadar/bucear es un medio real), solo se corrige lo SÓLIDO.
+    let x = msg.x, y = msg.y;
+    if (this.mundo && medioEn(this.mundo, x, y) === TIPO.SOLIDO) {
+      const libre = casillaPisableMasCercana(this.mundo.casillas, this.mundo.ancho, this.mundo.alto, Math.floor(x), Math.floor(y));
+      x = libre.x + 0.5;
+      y = libre.y + 0.5;
+    }
+    player.x = x;
+    player.y = y;
+    client.send("admin:debug:ok", { accion: "teleport", x, y });
   }
 
   // --- Cofres de mundo de la Test Zone (pedido 2026-08-31) ---

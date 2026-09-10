@@ -170,7 +170,12 @@ async function main() {
     // recorrido medido no dice nada del movimiento real (visto en la 1ª
     // pasada: 0.21/0.57 casillas "andadas" por el empuje ajeno). Campo
     // abierto al sur de la capital, lejos de la muralla del spawn.
-    const sitios = [[1496.5, 2106.5], [1502.5, 2106.5], [1496.5, 2112.5], [1502.5, 2112.5]];
+    // Casillas comprobadas contra el cargador de colisión REAL del servidor
+    // (5x5 libre alrededor, cargarMapaColision sobre assets/mapas/principal):
+    // en la pasada 7, 3 de los 4 sitios anteriores eran casillas SÓLIDAS
+    // (árbol/roca) y el teleport dejaba al jugador atrapado dentro — 0.00
+    // casillas andadas por colisión, no por el input.
+    const sitios = [[1482.5, 2100.5], [1492.5, 2100.5], [1480.5, 2102.5], [1484.5, 2102.5]];
     const activos = jugadores.filter((j) => j.arranco);
     await Promise.all(activos.map((j) => teleport(j, ...sitios[jugadores.indexOf(j)]).catch((e) => comprobar(`teleport de ${j.nombre} al sitio de andar`, false, String(e).slice(0, 100)))));
     const antes = await Promise.all(jugadores.map((j) => (j.arranco ? pos(j.page) : { x: NaN, y: NaN })));
