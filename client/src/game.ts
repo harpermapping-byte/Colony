@@ -644,7 +644,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   setInterval(() => {
     const yo = room.state.players.get(room.sessionId) as any;
     if (!yo) return;
-    hudVitales.actualizar({ vida: yo.vida, vidaMax: yo.vidaMax, estamina: yo.vitales.estamina, comida: yo.vitales.comida, bebida: yo.vitales.bebida });
+    hudVitales.actualizar({ vida: yo.vida, vidaMax: yo.vidaMax, estamina: yo.vitales.estamina, comida: yo.vitales.comida, bebida: yo.vitales.bebida, caca: yo.vitales.caca });
   }, 500);
 
   // Cuenta de jugador (docs/GDD_Cuentas.md): si el token guardado dejó de
@@ -1640,11 +1640,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     ["curtidor:error", "curtidor"],
     ["dormir:error", "dormir"],
     ["habitacion:error", "habitación"],
-    ["higiene:error", "higiene"],
+    // "higiene:error"/"personaje:error" YA NO van aquí — tienen su propio
+    // listener con toast visible, ver comentario junto a la creación de
+    // panelJugador.ts (usarItem).
     ["inmueble:error", "inmueble"],
     ["motriz:error", "motriz"],
     ["npc:error", "npc"],
-    ["personaje:error", "personaje"],
     ["piel:error", "piel"],
     ["plantilla:error", "plantilla"],
     ["produccion:error", "producción"],
@@ -2522,9 +2523,45 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // hasta ahora. `cofreObjetivo` vive fuera de este bloque (izado, ver su
     // declaración) precisamente para que este callback lo alcance.
     sacarDeCofre: (instanciaId) => { if (cofreObjetivo) room.send("cofre:sacarItem", { construccionId: cofreObjetivo.id, instanciaId }); },
+    // Comer/beber/hoja (docs/GDD_Personaje.md §3.6) — el servidor ya sabía
+    // hacer las dos cosas, solo faltaba una UI que las disparase; decidir
+    // AQUÍ (no en el panel) qué mensaje mandar según el itemId mantiene
+    // panelJugador.ts ajeno al protocolo de red, mismo criterio que el
+    // resto de callbacks de esta interfaz.
+    usarItem: (instanciaId, itemId) => {
+      if (itemId === "hoja") room.send("higiene:cagar", { instanciaId });
+      else room.send("personaje:consumir", { instanciaId });
+    },
   });
   room.onMessage("equipo:error", (m: { motivo: string }) => console.log("[equipo]", m?.motivo));
   room.onMessage("inventario:error", (m: { motivo: string }) => console.log("[inventario]", m?.motivo));
+  // Feedback real de comer/beber/hoja (docs/GDD_Personaje.md §3.6) — antes
+  // "personaje:error"/"higiene:error" solo se logueaban en consola (barrido
+  // de sistemas 2026-08-31, ver el bloque genérico más abajo) y los de
+  // éxito ("personaje:consumido"/"higiene:cagado") ni eso — sin ningún
+  // rastro visible jugando de que comer/beber/usar una hoja hiciera algo.
+  // Reusa el MISMO toast que combate:error/combate:armaRota de arriba
+  // (registroCombate.ts NO es combat-only pese al nombre — es un overlay
+  // genérico de eventos efímeros, mismo criterio "una sola fuente" que el
+  // resto del proyecto). "personaje:error"/"higiene:error" se retiran del
+  // bloque silencioso de abajo para no registrar el mismo tipo dos veces
+  // (bug real ya cerrado una vez en esta sesión con combate:error/
+  // tenderete:error duplicados — un segundo listener del mismo tipo
+  // duplica el log, no lo sustituye).
+  room.onMessage("personaje:error", (m: { motivo: string }) => {
+    console.log("[personaje]", m?.motivo);
+    registroCombate.mostrar(m?.motivo ?? "No se pudo usar el objeto.", "error");
+  });
+  room.onMessage("personaje:consumido", (m: { itemId: string }) => {
+    registroCombate.mostrar(`Has consumido ${m?.itemId ?? "un objeto"}.`, "info");
+  });
+  room.onMessage("higiene:error", (m: { motivo: string }) => {
+    console.log("[higiene]", m?.motivo);
+    registroCombate.mostrar(m?.motivo ?? "No se pudo hacer.", "error");
+  });
+  room.onMessage("higiene:cagado", () => {
+    registroCombate.mostrar("Alivio conseguido.", "info");
+  });
   // Adaptador, no el panel directo: abrir por icono debe refrescar el
   // contenido de inmediato, igual que ya hace la tecla I más abajo (sin
   // esto, el panel se abría en blanco hasta el siguiente cambio de red).
