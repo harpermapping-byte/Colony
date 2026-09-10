@@ -244,7 +244,7 @@ export class InteriorRoom extends RoomExteriorBase {
 
     const x = options?.entradaX ?? this.interior.spawnX;
     const y = options?.entradaY ?? this.interior.spawnY;
-    this.crearJugador(client, options, x, y);
+    await this.crearJugador(client, options, x, y);
     // Interest-management: rellena el StateView de esta sesión YA, sin
     // esperar al primer tick periódico (hasta 2s) — si no, vería estas 4
     // colecciones vacías un instante tras unirse.

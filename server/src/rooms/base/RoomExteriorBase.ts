@@ -1787,7 +1787,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return esJarlConSesionAdmin(nombre, identidad, this.asentamientoConstruccion);
   }
 
-  protected crearJugador(client: Client, options: { name?: string; twitchSession?: string; adminSession?: string; playerSession?: string }, x: number, y: number): Player {
+  protected async crearJugador(client: Client, options: { name?: string; twitchSession?: string; adminSession?: string; playerSession?: string }, x: number, y: number): Promise<Player> {
     // Interest-management (ver actualizarVistaDeInteres / HubState.ts junto
     // a @view()): TODA sesión de CUALQUIER room type necesita su StateView
     // asignada aquí — players/npcs/fauna/enemigos van tageados con @view()
@@ -1818,17 +1818,30 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.inputs.set(client.sessionId, { x: 0, y: 0 });
 
     // Personaje del creador (docs/GDD_Personaje.md, pedido streamer
-    // 2026-09-10) — mismo criterio "sin awaitear a propósito" que las
-    // mascotas más abajo: solo cuentas de jugador REALES tienen ficha
-    // guardada (un invitado sin login nunca pasó por el creador), así que
-    // esto no hace nada si `identidadJugador` es null.
+    // 2026-09-10) — SÍ se awaitea (a diferencia de mascotas/inventario más
+    // abajo, que llegan tarde sin problema porque el cliente los espera por
+    // mensaje aparte): `fichaPersonaje` tiene que estar en el PRIMER
+    // snapshot de estado que Colyseus manda al propio cliente que se une,
+    // porque `game.ts::crearRigDeJugador` solo la lee UNA vez, en el
+    // instante de `players.onAdd`, sin escuchar cambios posteriores. Bug
+    // real encontrado jugando (2026-09-10): sin este await, el personaje
+    // recién creado aparecía con el rig genérico placeholder tras cada F5 —
+    // la consulta a BD (fire-and-forget) casi nunca ganaba la carrera
+    // contra el propio `onJoin` (que ya hace SU propio await de posición
+    // justo antes de llamar aquí, así que Colyseus está listo para
+    // sincronizar al cliente nuevo enseguida) — no era la "rarísima
+    // carrera" que se documentó al escribir esto la primera vez, era el
+    // caso común. Solo cuentas de jugador REALES tienen ficha guardada (un
+    // invitado sin login nunca pasó por el creador), así que esto no hace
+    // nada si `identidadJugador` es null.
     if (identidadJugador) {
-      obtenerBdCompartida()
-        .then((bd) => bd.obtenerFichaPersonaje(identidadJugador.jugadorId))
-        .then((fichaJson) => {
-          if (fichaJson) player.fichaPersonaje = fichaJson;
-        })
-        .catch((err) => console.error("[personaje] no se pudo cargar la ficha de", identidadJugador.nombre, err));
+      try {
+        const bd = await obtenerBdCompartida();
+        const fichaJson = await bd.obtenerFichaPersonaje(identidadJugador.jugadorId);
+        if (fichaJson) player.fichaPersonaje = fichaJson;
+      } catch (err) {
+        console.error("[personaje] no se pudo cargar la ficha de", identidadJugador.nombre, err);
+      }
     }
 
     // Login con Twitch (docs/GDD_Twitch.md §7, pedido 2026-08-30): resuelve

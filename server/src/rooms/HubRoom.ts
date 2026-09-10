@@ -687,7 +687,7 @@ export class HubRoom extends RoomExteriorBase {
     // Guest-<sessionId>), resuelto ANTES para poder decidir el spawn real.
     const nombreSpawn = options?.name?.slice(0, 20) || `Guest-${client.sessionId.slice(0, 4)}`;
     const spawn = await this.resolverSpawnGuardado(nombreSpawn, this.mapa.spawnX, this.mapa.spawnY);
-    this.crearJugador(client, options, spawn.x, spawn.y);
+    await this.crearJugador(client, options, spawn.x, spawn.y);
     // Interest-management: rellena el StateView de esta sesión YA, sin
     // esperar al primer tick periódico (hasta 500ms) — ver mismo comentario
     // en InteriorRoom.onJoin.

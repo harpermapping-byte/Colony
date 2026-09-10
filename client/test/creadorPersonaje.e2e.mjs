@@ -97,15 +97,22 @@ try {
   await page.waitForFunction(() => window.__colonyDebug, null, { timeout: 15000 });
   comprobar("tras confirmar, el creador ya no está en pantalla", (await page.locator('[data-testid="creador-personaje"]').count()) === 0);
   comprobar("tras confirmar, entramos al mundo (window.__colonyDebug real)", !!(await page.evaluate(() => window.__colonyDebug)));
+  comprobar("tras confirmar, la ficha YA llega en el primer snapshot (sin la carrera de la carga fire-and-forget)", (await page.evaluate(() => window.__colonyDebug.tieneFichaPersonaje)) === true);
   await page.screenshot({ path: join(capturas, "creador3_mundo.png") });
 
   // 4) Recargar con la MISMA sesión (localStorage.playerSession persiste) —
   // el login debe devolver `personaje` ya relleno (BD real), así que el
-  // creador NO debe volver a aparecer nunca para esta cuenta.
+  // creador NO debe volver a aparecer nunca para esta cuenta. Bug real
+  // encontrado jugando (2026-09-10): sin awaitear la carga de la ficha en
+  // `RoomExteriorBase.crearJugador`, el personaje volvía a aparecer con el
+  // rig genérico placeholder en CADA F5 — este es exactamente el escenario
+  // que lo reprodujo, verificado ahora con `tieneFichaPersonaje` en vez de
+  // solo comprobar que el creador no reaparece.
   await page.reload();
   await page.waitForFunction(() => window.__colonyDebug, null, { timeout: 15000 });
   comprobar("al recargar con la misma cuenta, NO vuelve a pedir el creador", (await page.locator('[data-testid="creador-personaje"]').count()) === 0);
   comprobar("al recargar, tampoco pide login de nuevo (sesión + ficha ya guardadas)", (await page.locator('[data-testid="pantalla-bienvenida"]').count()) === 0);
+  comprobar("al recargar, la ficha llega YA en el primer snapshot — nunca el rig genérico", (await page.evaluate(() => window.__colonyDebug.tieneFichaPersonaje)) === true);
 
   comprobar("sin errores de JS en toda la sesión", errores.length === 0, errores.join(" | "));
 

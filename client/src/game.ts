@@ -1892,7 +1892,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         escena.seguirPunto(player.x, player.y);
         panelJugador?.actualizar(player);
         // gancho para los tests E2E (Playwright lee la verdad del servidor)
-        (window as any).__colonyDebug = { x: player.x, y: player.y, estado: player.estado, nivel: player.nivel };
+        // — `tieneFichaPersonaje` confirma que `Player.fichaPersonaje` llegó
+        // no vacía en el snapshot inicial (docs/GDD_Personaje.md §7: bug
+        // real de carrera cerrado 2026-09-10, `crearJugador` ahora awaitea
+        // la carga antes de sincronizar al cliente que se une).
+        (window as any).__colonyDebug = { x: player.x, y: player.y, estado: player.estado, nivel: player.nivel, tieneFichaPersonaje: !!player.fichaPersonaje };
         // docs/GDD_Clima.md: clima resuelto en el frame actual (mismo criterio que el resto de sondas __*).
         (window as any).__clima = () => escena.climaActual;
       }
