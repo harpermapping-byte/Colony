@@ -1,6 +1,16 @@
-# Auto-deploy: si hay commits nuevos en origin/main que tocan server/,
-# espera a que el servidor esté VACÍO (GET /estado) y entonces hace
-# git pull + build + pm2 restart, sin intervención manual.
+# Auto-deploy sin intervención manual, con DOS caminos distintos según qué
+# haya cambiado (desde 2026-09-09 el mismo proceso Node sirve también el
+# cliente web, ver server/src/estatico/servidorEstatico.ts):
+#
+#  - Cambios en server/  -> hay que reiniciar el proceso, así que espera a
+#    que el servidor esté VACÍO (GET /estado) antes de build + pm2 restart.
+#  - Cambios solo en client/ (UI) -> el cliente se lee del DISCO en cada
+#    petición, sin caché en memoria del proceso: basta con reconstruir
+#    client/dist y entra en caliente, sin reiniciar y sin esperar a que no
+#    haya nadie jugando.
+#  - Cambios solo en assets/ (rehorneado de mapa, .glb nuevos) -> ni siquiera
+#    eso: /assets/** se sirve directo desde la carpeta del repo, así que el
+#    `git pull` de más abajo YA los ha puesto en vivo.
 #
 # Pensado para lanzarse cada pocos minutos desde una Tarea Programada de
 # Windows (ver docs/GDD_Despliegue_Local.md § Auto-deploy) — a diferencia
@@ -49,28 +59,43 @@ if ($desplegado -eq $remoto) {
 git pull origin main | Out-Null
 
 $tocaServer = git diff --name-only $desplegado $remoto -- server/
-if (-not $tocaServer) {
-  Write-Host "Push nuevo sin cambios en server/ — nada que reiniciar."
+$tocaCliente = git diff --name-only $desplegado $remoto -- client/
+
+if (-not $tocaServer -and -not $tocaCliente) {
+  # Puede haber cambiado assets/ (rehorneado de mapa) o docs: los assets ya
+  # están servidos en vivo por el `git pull` de arriba, no hace falta nada.
+  Write-Host "Push nuevo sin cambios en server/ ni client/ — nada que compilar (los assets, si cambiaron, ya están en vivo)."
   $remoto | Set-Content $marcador -NoNewline
   exit 0
 }
 
-try {
-  $estado = Invoke-RestMethod -Uri "http://localhost:$puertoEstado/estado" -TimeoutSec 5
-} catch {
-  Write-Host "No se pudo consultar /estado (¿el proceso está caído?) — se aplaza el reinicio."
-  exit 0
-}
+if ($tocaServer) {
+  try {
+    $estado = Invoke-RestMethod -Uri "http://localhost:$puertoEstado/estado" -TimeoutSec 5
+  } catch {
+    Write-Host "No se pudo consultar /estado (¿el proceso está caído?) — se aplaza el reinicio."
+    exit 0
+  }
 
-if ($estado.jugadoresConectados -gt 0) {
-  Write-Host "Hay $($estado.jugadoresConectados) jugador(es) conectado(s) — se aplaza el reinicio a la próxima vez."
-  exit 0
-}
+  if ($estado.jugadoresConectados -gt 0) {
+    Write-Host "Hay $($estado.jugadoresConectados) jugador(es) conectado(s) — se aplaza el reinicio a la próxima vez."
+    exit 0
+  }
 
-Write-Host "== Servidor vacío y hay cambios en server/ ($desplegado -> $remoto) — desplegando ==" -ForegroundColor Cyan
-npm install
-npm run build -w server
-pm2 restart colony-server
+  Write-Host "== Servidor vacío y hay cambios en server/ ($desplegado -> $remoto) — desplegando ==" -ForegroundColor Cyan
+  npm install
+  npm run build -w server
+  # Se reconstruye también el cliente: si el mismo push traía cambios de
+  # client/assets, aprovechamos el hueco sin jugadores; si no los traía, el
+  # build es idempotente y no cambia nada servido.
+  npm run build -w client
+  pm2 restart colony-server
+} else {
+  Write-Host "== Cambios solo en client/ ($desplegado -> $remoto) — reconstruyendo cliente en caliente ==" -ForegroundColor Cyan
+  npm install
+  npm run build -w client
+  Write-Host "Cliente actualizado sin reiniciar: los jugadores conectados siguen su partida y verán la versión nueva al recargar."
+}
 
 $remoto | Set-Content $marcador -NoNewline
 Write-Host "== Desplegado $remoto ==" -ForegroundColor Green

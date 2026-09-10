@@ -25,6 +25,7 @@ import { cargarPvpDesdeBd } from "./mundo/pvp";
 import { cargarNombreCapitalDesdeBd } from "./mundo/capital";
 import { sembrarMueblesTestZone, sembrarNpcsTutorialTestZone } from "./mundo/semillaTestZone";
 import { obtenerConexionesActivas } from "./mundo/contadorConexiones";
+import { manejarPeticionEstatica, estadoBuildDelCliente } from "./estatico/servidorEstatico";
 
 // El BUFFER_SIZE por defecto de @colyseus/schema (8KB, Buffer.poolSize) se
 // queda corto con el Hub real (cientos de NPCs/fauna/construcciones vivas,
@@ -48,23 +49,34 @@ Encoder.BUFFER_SIZE = 768 * 1024;
 
 const port = Number(process.env.PORT) || 2567;
 
-// Servidor HTTP plano: responde 200 a cualquier ruta que no sea de login de
-// Twitch, sirve como health check para que Render/Fly.io no maten el
-// proceso pensando que esta caido. Las dos rutas de /auth/twitch/* (docs/
-// GDD_Twitch.md §7) son no-op si faltan las credenciales — ver rutasOauth.ts.
+// Servidor HTTP plano, en este orden: primero las rutas de API (Twitch,
+// admin, cuentas de jugador, health check), luego el CLIENTE entero como
+// estático (pedido streamer 2026-09-09: fuera Vercel, un solo proceso sirve
+// juego + web desde su PC — ver estatico/servidorEstatico.ts) y, si no hay
+// build del cliente todavía, el 200 de texto plano de siempre como health
+// check. Las dos rutas de /auth/twitch/* (docs/GDD_Twitch.md §7) son no-op
+// si faltan las credenciales — ver rutasOauth.ts.
 const httpServer = createServer((req, res) => {
   if (manejarPeticionLoginTwitch(req, res)) return;
   if (manejarPeticionAdmin(req, res)) return;
   if (manejarPeticionAuthJugador(req, res)) return;
   // Consultado por server/deploy/autoActualizar.ps1 (pedido streamer
-  // 2026-09-09: auto-deploy que nunca corta una partida en curso) — sin
-  // autenticar a propósito, mismo criterio que el health check de abajo:
-  // solo expone un contador, nada sensible.
+  // 2026-09-09: auto-deploy que nunca corta una partida en curso) y por
+  // reinicioProgramado.ps1 (reinicio de higiene cada N horas, que usa
+  // `uptimeSegundos` para saber si ya toca) — sin autenticar a propósito,
+  // mismo criterio que el health check de abajo: solo expone un contador y
+  // el tiempo encendido, nada sensible.
   if (req.url === "/estado") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ jugadoresConectados: obtenerConexionesActivas() }));
+    res.end(
+      JSON.stringify({
+        jugadoresConectados: obtenerConexionesActivas(),
+        uptimeSegundos: Math.floor(process.uptime()),
+      })
+    );
     return;
   }
+  if (manejarPeticionEstatica(req, res)) return;
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Streamer Colony server OK");
 });
@@ -96,6 +108,16 @@ gameServer.define("arena", ArenaCombateRoom).filterBy(["combateId"]);
 
 httpServer.listen(port, () => {
   console.log(`Colony server escuchando en el puerto ${port}`);
+  // Dicho en voz alta en el arranque a propósito: si el PC de hosting se
+  // queda sin `client/dist` (build olvidado tras un `git clone` limpio), el
+  // servidor sigue funcionando pero la web da el health check en vez del
+  // juego — sin esta línea en los logs de PM2 eso es un misterio.
+  const cliente = estadoBuildDelCliente();
+  console.log(
+    cliente.existe
+      ? `Cliente web servido desde ${cliente.carpeta}`
+      : `SIN build del cliente en ${cliente.carpeta} — solo API/WebSocket (falta "npm run build -w client")`
+  );
 });
 
 // Twitch (docs/GDD_Twitch.md, pedido 2026-08-30) — UNA sola vez por proceso
