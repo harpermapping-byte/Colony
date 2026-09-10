@@ -49,6 +49,20 @@ function ExisteComando($nombre) {
   return [bool](Get-Command $nombre -ErrorAction SilentlyContinue)
 }
 
+# PM2 se instala como pm2.cmd en la carpeta de binarios globales de npm, que
+# puede no estar en el PATH de esta sesion si Node se acaba de instalar hace
+# un momento (y con nvm-windows cambia de sitio segun la version activa).
+function BuscarPm2 {
+  foreach ($candidato in @((Join-Path $env:APPDATA "npm\pm2.cmd"), (Join-Path $env:ProgramFiles "nodejs\pm2.cmd"))) {
+    if (Test-Path $candidato) { return $candidato }
+  }
+  $enPath = Get-Command pm2.cmd -ErrorAction SilentlyContinue
+  if ($enPath) { return $enPath.Source }
+  $enPath = Get-Command pm2 -ErrorAction SilentlyContinue
+  if ($enPath) { return $enPath.Source }
+  return $null
+}
+
 # winget devuelve codigos "de error" que en realidad significan que el
 # paquete ya estaba puesto. Tratarlos como fallo dejaria al streamer
 # bloqueado sin motivo; tragarselos todos escondería el fallo real.
@@ -318,22 +332,27 @@ if ($hayNode) {
 # ---------------------------------------------------------- 6. PM2 y arranque
 Titulo "6/7  Arrancar el servidor (PM2)"
 if ($hayNode) {
-  if (-not (ExisteComando "pm2")) {
+  $pm2 = BuscarPm2
+  if (-not $pm2) {
     Aviso "Instalando PM2..."
-    npm install -g pm2 2>&1 | Out-Null
+    npm install -g pm2@latest 2>&1 | Out-Null
     RefrescarPath
+    $pm2 = BuscarPm2
   }
-  if (ExisteComando "pm2") {
+  if ($pm2) {
     Bien "PM2 disponible"
+    # Arranca el daemon antes de nada: sin esto, la primera consulta puede
+    # devolver vacio simplemente porque PM2 aun no se habia levantado.
+    & $pm2 ping | Out-Null
     $ecosystem = Join-Path (Join-Path (Join-Path $Carpeta "server") "deploy") "ecosystem.config.js"
-    if ((pm2 jlist 2>$null) -match "colony-server") {
-      pm2 restart colony-server | Out-Null
+    if ((& $pm2 jlist 2>$null) -match "colony-server") {
+      & $pm2 restart colony-server | Out-Null
       Bien "Servidor reiniciado con la version nueva"
     } else {
-      pm2 start $ecosystem | Out-Null
+      & $pm2 start $ecosystem | Out-Null
       Bien "Servidor arrancado"
     }
-    pm2 save | Out-Null
+    & $pm2 save | Out-Null
 
     Start-Sleep -Seconds 8
     try {
@@ -343,7 +362,7 @@ if ($hayNode) {
       Pendiente "El servidor aun no responde en http://localhost:$Puerto — revisa los errores con: pm2 logs colony-server"
     }
   } else {
-    Pendiente "No se pudo instalar PM2 (npm install -g pm2)"
+    Pendiente "No se pudo instalar PM2 (npm install -g pm2@latest)"
   }
 }
 
@@ -353,6 +372,15 @@ $deploy = Join-Path (Join-Path $Carpeta "server") "deploy"
 $batMantenimiento = Join-Path $deploy "tareaProgramada.bat"
 $batArranque = Join-Path $deploy "iniciarServidor.bat"
 
+# Las dos tareas corren como EL USUARIO ACTUAL (sin /RU SYSTEM) a proposito,
+# por dos motivos que rompen el montaje si se hace de otra forma:
+#   1) PM2 guarda su estado en un PM2_HOME por usuario. Como SYSTEM, un
+#      `pm2 resurrect` buscaria en otra carpeta, no encontraria nada, y el
+#      servidor simplemente no arrancaria... sin dar ningun error.
+#   2) `git pull` de un repo PRIVADO usa las credenciales de GitHub guardadas
+#      en el Credential Manager del usuario; SYSTEM no las tiene.
+# A cambio, estas tareas solo corren con la sesion iniciada — en un PC
+# dedicado con inicio de sesion automatico es justo lo que queremos.
 # Cada 5 min: baja cambios de GitHub, reinicia cada 8h si no hay nadie, y hace
 # la copia diaria de la base de datos. Los tres se aplazan solos si hay gente.
 schtasks /Create /TN "Colony-Mantenimiento" /TR "cmd /c `"$batMantenimiento`"" /SC MINUTE /MO 5 /RL HIGHEST /F 2>&1 | Out-Null
@@ -380,28 +408,32 @@ if ($pendientes.Count -eq 0) {
 }
 
 Write-Host ""
-Write-Host "QUEDA UN PASO QUE NO SE PUEDE AUTOMATIZAR: el tunel de Cloudflare," -ForegroundColor Cyan
-Write-Host "porque hay que iniciar sesion en tu cuenta desde el navegador." -ForegroundColor Cyan
+Write-Host "QUEDA UN PASO QUE NO SE PUEDE AUTOMATIZAR: conectar tu dominio," -ForegroundColor Cyan
+Write-Host "porque hay que iniciar sesion en tu cuenta de Cloudflare." -ForegroundColor Cyan
+Write-Host "Son 4 pasos y casi todos con el raton:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  Abre PowerShell y ejecuta, uno por uno:"
+Write-Host "  1) Entra en  https://one.dash.cloudflare.com" -ForegroundColor White
+Write-Host "     Networks  >  Tunnels  >  Create a tunnel  >  Cloudflared"
+Write-Host "     Ponle de nombre 'colony' y guarda."
 Write-Host ""
-Write-Host "    cloudflared tunnel login" -ForegroundColor White
-Write-Host "        (se abre el navegador: elige tu dominio y autoriza)"
-Write-Host "    cloudflared tunnel create colony" -ForegroundColor White
-Write-Host "    cloudflared tunnel route dns colony TU-DOMINIO.com" -ForegroundColor White
+Write-Host "  2) Te ensenara un comando con un TOKEN muy largo. Copia SOLO el token"
+Write-Host "     y ejecuta aqui (en esta misma ventana de administrador):"
 Write-Host ""
-Write-Host "  Crea el archivo  $env:USERPROFILE\.cloudflared\config.yml  con esto"
-Write-Host "  (el ID del tunel lo dice el comando 'create'):"
+Write-Host "        cloudflared service install PEGA-AQUI-EL-TOKEN" -ForegroundColor White
 Write-Host ""
-Write-Host "    tunnel: colony" -ForegroundColor White
-Write-Host "    credentials-file: $env:USERPROFILE\.cloudflared\ID-DEL-TUNEL.json" -ForegroundColor White
-Write-Host "    ingress:" -ForegroundColor White
-Write-Host "      - hostname: TU-DOMINIO.com" -ForegroundColor White
-Write-Host "        service: http://localhost:$Puerto" -ForegroundColor White
-Write-Host "      - service: http_status:404" -ForegroundColor White
+Write-Host "     (Con token, el servicio queda configurado solo y arranca con el PC."
+Write-Host "      Sin token NO funciona: el servicio se crea vacio y el tunel nunca"
+Write-Host "      levanta, aunque parezca que esta corriendo.)"
 Write-Host ""
-Write-Host "  Y para que el tunel arranque solo con el PC:"
-Write-Host "    cloudflared service install" -ForegroundColor White
+Write-Host "  3) En la misma pagina del tunel, pestana 'Public Hostname' > Add:"
+Write-Host "        Subdomain: (dejalo VACIO)" -ForegroundColor White
+Write-Host "        Domain:    TU-DOMINIO.com" -ForegroundColor White
+Write-Host "        Type:      HTTP" -ForegroundColor White
+Write-Host "        URL:       localhost:$Puerto" -ForegroundColor White
+Write-Host ""
+Write-Host "  4) Comprueba que el servicio esta en marcha:"
+Write-Host "        Get-Service Cloudflared" -ForegroundColor White
 Write-Host ""
 Write-Host "Despues entra en https://TU-DOMINIO.com y deberias ver el juego."
+Write-Host "Si tenias un tunel del PC viejo, borralo desde esa misma pagina."
 Write-Host ""

@@ -134,32 +134,50 @@ Para una sola tabla: `pg_restore ... --data-only --table=jugadores "…dump"`. L
 
 Pedido del streamer ("reinicios cada 8 horas automáticos, aparte de si hay commit nuevo"). **No reinicia a hora fija, sino en el primer momento libre pasadas las N horas encendido** (8 por defecto, `-HorasMinimas`).
 
-El motivo es técnico, no una preferencia: Colyseus solo guarda el estado de los jugadores al apagarse si recibe una señal (`SIGINT`/`SIGTERM` → `gracefullyShutdown` → `onLeave` → guarda posición y vitales), y **en Windows `pm2 restart` termina el proceso sin que esos handlers lleguen a correr** (Windows no tiene señales POSIX de verdad). Reiniciar con gente dentro no solo les corta la partida: puede perder su último guardado de posición/vitales. Con el servidor vacío no hay nada que guardar, así que el reinicio es inocuo.
+El motivo es técnico, no una preferencia: reiniciar con gente dentro les corta la partida. Y hasta el arreglo de la sección siguiente, además **perdía su último guardado**.
 
 Decide con el mismo `/estado`: si `uptimeSegundos` ya pasó de las 8 h **y** `jugadoresConectados` está a 0 → `pm2 restart`. Si hay alguien jugando, se aplaza a la siguiente pasada. En la práctica: "se reinicia cada 8 horas, o poco después, cuando no moleste a nadie".
+
+## Apagado ordenado en Windows: bug real de producción, cerrado (2026-09-09)
+
+**Este era un bug vivo en el servidor del streamer, no una precaución teórica.** Colyseus registra su `gracefullyShutdown` (→ dispone las salas → `onLeave` de cada jugador → guarda posición y vitales) sobre `SIGINT`/`SIGTERM`/`SIGUSR2`. Pero **Windows no tiene señales POSIX de verdad**: `pm2 restart` termina el proceso sin que ningún handler llegue a correr (PM2 usa `SIGINT` por defecto, y en Windows eso equivale a una terminación incondicional). Resultado: cada reinicio con alguien conectado perdía su último guardado, **sin un solo error en los logs** — el proceso simplemente desaparecía.
+
+Arreglo, y son **dos mitades obligatorias que van siempre juntas**:
+- `server/deploy/ecosystem.config.js`: `shutdown_with_message: true` + `kill_timeout: 15000`. Con eso PM2 avisa por IPC (mensaje `"shutdown"`) en vez de matar a bocajarro.
+- `server/src/index.ts`: un `process.on("message")` que llama a `gameServer.gracefullyShutdown()`. Colyseus **no** trae este handler.
+
+Poner la opción de PM2 **sin** el handler sería peor que no tocar nada: PM2 mandaría un mensaje que nadie escucha y esperaría los 15 s enteros de `kill_timeout` antes de matar igual.
+
+**Verificado con las dos mitades del experimento** (servidor real contra el Postgres local, cliente `colyseus.js` real que entra y se mueve):
+- Mandando `"shutdown"` por IPC (exactamente lo que hace PM2): el servidor registra el apagado ordenado, cierra en 34 ms con código 0, y la posición del jugador queda en la base de datos (`pos_x = 1503.649`).
+- Matando el proceso con `SIGKILL` (lo que hacía PM2 hasta ahora): cierra en 15 ms, no registra nada, y las columnas `pos_x`/`pos_y` de ese jugador se quedan **vacías**.
+
+El reinicio programado sigue exigiendo servidor vacío de todas formas: con esto el reinicio ya no pierde datos, pero seguir cortando partidas en marcha sería igual de molesto.
 
 ## Cloudflare: servir el juego desde el dominio raíz
 
 Con la web y el juego en el mismo proceso, basta un hostname público apuntando al puerto local (`2567` por defecto). El subdominio `play.colony-streamer.online` que se usaba cuando el cliente estaba en Vercel deja de ser necesario (se puede dejar, no molesta).
 
-Desde la terminal del PC, con el túnel ya creado:
+**Camino recomendado: túnel gestionado desde el dashboard ("remotely-managed"), un solo comando.** Es mucho más simple que el de `config.yml` y evita una trampa real (ver abajo):
 
+1. Entrar en https://one.dash.cloudflare.com → **Networks → Tunnels → Create a tunnel → Cloudflared**, nombre `colony`, guardar.
+2. La página muestra un comando de instalación con un **token** largo. En el PC, como administrador:
+   ```
+   cloudflared service install <TOKEN>
+   ```
+3. En la pestaña **Public Hostname** del mismo túnel → *Add*: Subdomain **vacío**, Domain `colony-streamer.online`, Type **HTTP**, URL `localhost:2567`.
+4. Comprobar: `Get-Service Cloudflared` debe salir *Running*.
+
+**La trampa que ahorra este camino** (confirmada leyendo el código de `cloudflared`, `cmd/cloudflared/windows_service.go`): `cloudflared service install` **sin** token crea el servicio de Windows **sin ningún argumento** en su `ImagePath`. El servicio arranca y aparece como *Running*, pero el túnel nunca se levanta — y no hay ningún error evidente. Con el camino de `config.yml` habría que además copiar `cert.pem` y el `<UUID>.json` a la carpeta del perfil de SYSTEM (`C:\Windows\System32\config\systemprofile\.cloudflared\`) y corregir a mano ese `ImagePath` en el registro. Para un PC de streamer, no compensa.
+
+Si en algún momento se usa la vía de línea de comandos en vez del dashboard, el **dominio raíz (apex) sí está soportado**, pero el registro DNS necesita `--overwrite-dns` si ya existe:
 ```
-cloudflared tunnel route dns NOMBRE-DEL-TUNEL colony-streamer.online
+cloudflared tunnel route dns --overwrite-dns colony colony-streamer.online
 ```
 
-Y en el fichero de configuración del túnel (`C:\Users\<usuario>\.cloudflared\config.yml`), la regla de ingreso apuntando al servidor local:
+Cloudflare termina el HTTPS por su lado, así que el navegador entra por `https://colony-streamer.online` y el WebSocket sale solo como `wss://colony-streamer.online` (mismo origen). **WebSockets funcionan sin configuración adicional.** No hay que configurar nada más en el cliente.
 
-```yaml
-ingress:
-  - hostname: colony-streamer.online
-    service: http://localhost:2567
-  - service: http_status:404
-```
-
-Alternativa por interfaz: Cloudflare Zero Trust → Networks → Tunnels → el túnel → Public Hostname → Add, con hostname `colony-streamer.online` (subdomain vacío), tipo HTTP, URL `localhost:2567`.
-
-Cloudflare termina el HTTPS por su lado, así que el navegador entra por `https://colony-streamer.online` y el WebSocket sale solo como `wss://colony-streamer.online` (mismo origen). No hay que configurar nada más en el cliente.
+**Cambiar de PC no obliga a copiar ficheros**: lo más limpio es crear un túnel nuevo en el dashboard para el PC nuevo y borrar el viejo desde ahí mismo. (Existe `cloudflared tunnel token --cred-file …` para regenerar las credenciales de un túnel ya existente sin ir a buscar el JSON al ordenador antiguo, pero para un no técnico el túnel nuevo es menos propenso a errores.)
 
 **Borrar el proyecto de Vercel y quitar la tarjeta: solo DESPUÉS de confirmar que se juega bien desde el dominio propio.** Mientras tanto no estorba tenerlo.
 
