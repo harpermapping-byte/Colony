@@ -85,6 +85,13 @@ try {
   await page.locator('input[placeholder="usuario de admin"]').fill("superadmin");
   await page.locator('input[placeholder="contraseña de admin"]').fill("colony-superadmin-2026");
   await page.locator('[data-testid="bienvenida-entrar"]').click();
+  // Creador de personaje obligatorio (docs/GDD_Personaje.md §7, pedido
+  // streamer 2026-09-10, otra pasada de esta misma noche): cualquier
+  // cuenta nueva lo ve justo tras el login, ANTES de entrar al mundo —
+  // confirmar con los valores por defecto basta, este e2e no prueba esa
+  // pantalla, solo tiene que atravesarla como cualquier jugador real.
+  await page.waitForSelector('[data-testid="creador-personaje"]', { timeout: 15000 });
+  await page.locator('[data-testid="creador-confirmar"]').click();
   await page.waitForFunction(() => window.__colonyDebug, null, { timeout: 15000 });
   await page.waitForSelector('[data-testid="pantalla-bienvenida"]', { state: "detached", timeout: 15000 });
   await page.waitForFunction(() => window.__test, null, { timeout: 10000 });
