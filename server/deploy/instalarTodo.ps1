@@ -49,6 +49,28 @@ function ExisteComando($nombre) {
   return [bool](Get-Command $nombre -ErrorAction SilentlyContinue)
 }
 
+# Windows PowerShell 5.1 convierte CUALQUIER linea que un programa externo
+# escriba por la salida de error en un error FATAL cuando
+# ErrorActionPreference vale "Stop" — y npm, git o pm2 escriben ahi hasta sus
+# avisos mas inofensivos ("npm warn ..."). Sin esto, el instalador moria por
+# un aviso que no significaba nada. Dentro de este envoltorio los errores
+# vuelven a ser simples mensajes y se decide por el CODIGO DE SALIDA, que es
+# lo unico que de verdad dice si el comando funciono.
+function EjecutarNativo([scriptblock]$bloque, [int]$lineasAMostrar = 3) {
+  $anterior = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    $salida = & $bloque 2>&1 | ForEach-Object { $_.ToString() }
+    $codigo = $LASTEXITCODE
+    if ($salida -and $lineasAMostrar -gt 0) {
+      $salida | Select-Object -Last $lineasAMostrar | ForEach-Object { Write-Host "      $_" -ForegroundColor DarkGray }
+    }
+    return @{ Ok = ($codigo -eq 0); Salida = $salida }
+  } finally {
+    $ErrorActionPreference = $anterior
+  }
+}
+
 # PM2 se instala como pm2.cmd en la carpeta de binarios globales de npm, que
 # puede no estar en el PATH de esta sesion si Node se acaba de instalar hace
 # un momento (y con nvm-windows cambia de sitio segun la version activa).
@@ -251,14 +273,16 @@ if (-not $hayGit) {
 } elseif (Test-Path (Join-Path $Carpeta ".git")) {
   Bien "El proyecto ya estaba en $Carpeta — actualizando"
   Push-Location $Carpeta
-  git fetch origin $Rama
-  git pull origin $Rama
+  # git escribe su progreso por la salida de error: sin el envoltorio, un
+  # "From https://..." bastaria para matar el instalador.
+  [void](EjecutarNativo { git fetch origin $Rama } 1)
+  [void](EjecutarNativo { git pull origin $Rama } 1)
   Pop-Location
 } else {
   Aviso "Descargando el proyecto en $Carpeta"
   Aviso "Al ser un repositorio privado se abrira una ventana para iniciar sesion en GitHub."
   New-Item -ItemType Directory -Force -Path (Split-Path $Carpeta -Parent) | Out-Null
-  git clone --branch $Rama $RepoUrl $Carpeta
+  [void](EjecutarNativo { git clone --branch $Rama $RepoUrl $Carpeta } 2)
   if (Test-Path (Join-Path $Carpeta ".git")) { Bien "Proyecto descargado" }
   else { Pendiente "No se pudo descargar el proyecto desde $RepoUrl" }
 }
@@ -316,19 +340,21 @@ if (-not $yaConfigurada -and $psql) {
   if (-not $conecta) {
     Pendiente "No se pudo conectar a PostgreSQL como 'postgres' (contrasena incorrecta o servicio parado). Vuelve a ejecutar el instalador."
   } else {
-    $existeRol = & $psql -h localhost -p $puertoPg -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='colony';" 2>$null
-    if ($existeRol -eq "1") {
+    # psql tambien escribe avisos (NOTICE) por la salida de error, asi que
+    # todo pasa por el mismo envoltorio que el resto de comandos externos.
+    $rol = EjecutarNativo { & $psql -h localhost -p $puertoPg -U postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='colony';" } 0
+    if (($rol.Salida -join "").Trim() -eq "1") {
       Aviso "El usuario 'colony' ya existia — se le pone una contrasena nueva"
-      & $psql -h localhost -p $puertoPg -U postgres -c "ALTER ROLE colony WITH LOGIN PASSWORD '$passJuego';" | Out-Null
+      [void](EjecutarNativo { & $psql -h localhost -p $puertoPg -U postgres -c "ALTER ROLE colony WITH LOGIN PASSWORD '$passJuego';" } 0)
     } else {
-      & $psql -h localhost -p $puertoPg -U postgres -c "CREATE ROLE colony WITH LOGIN PASSWORD '$passJuego';" | Out-Null
+      [void](EjecutarNativo { & $psql -h localhost -p $puertoPg -U postgres -c "CREATE ROLE colony WITH LOGIN PASSWORD '$passJuego';" } 0)
       Bien "Usuario 'colony' creado"
     }
-    $existeBd = & $psql -h localhost -p $puertoPg -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='colony';" 2>$null
-    if ($existeBd -eq "1") {
+    $bd = EjecutarNativo { & $psql -h localhost -p $puertoPg -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='colony';" } 0
+    if (($bd.Salida -join "").Trim() -eq "1") {
       Bien "La base de datos 'colony' ya existia — se conserva con todo lo que tenga dentro"
     } else {
-      & $psql -h localhost -p $puertoPg -U postgres -c "CREATE DATABASE colony OWNER colony;" | Out-Null
+      [void](EjecutarNativo { & $psql -h localhost -p $puertoPg -U postgres -c "CREATE DATABASE colony OWNER colony;" } 0)
       Bien "Base de datos 'colony' creada"
     }
 
@@ -351,12 +377,20 @@ if (-not $yaConfigurada -and $psql) {
 # ------------------------------------------------------------- 5. Compilacion
 Titulo "5/7  Instalar dependencias y compilar (el paso mas largo)"
 if ($hayNode) {
-  Aviso "npm install..."
-  npm install 2>&1 | Select-Object -Last 2
+  Aviso "npm install... (varios minutos, es normal)"
+  $r = EjecutarNativo { npm install }
+  if (-not $r.Ok) { Pendiente "npm install fallo — mira los mensajes de arriba" }
+
   Aviso "Compilando el servidor..."
-  npm run build -w server 2>&1 | Select-Object -Last 2
-  Aviso "Compilando el cliente (la web del juego)..."
-  npm run build -w client 2>&1 | Select-Object -Last 2
+  $r = EjecutarNativo { npm run build -w server }
+  if (-not $r.Ok) { Pendiente "No se pudo compilar el servidor" }
+
+  Aviso "Compilando el cliente (la web del juego)... (es el paso mas lento)"
+  $r = EjecutarNativo { npm run build -w client }
+  if (-not $r.Ok) { Pendiente "No se pudo compilar el cliente" }
+
+  # Se comprueba el ARCHIVO, no el codigo de salida: es la unica prueba real
+  # de que la web quedo construida.
   if (Test-Path (Join-Path (Join-Path $Carpeta "client") "dist\index.html")) { Bien "Todo compilado" }
   else { Pendiente "El cliente no se compilo (falta client\dist\index.html). Mira los errores mas arriba." }
 } else {
@@ -369,7 +403,7 @@ if ($hayNode) {
   $pm2 = BuscarPm2
   if (-not $pm2) {
     Aviso "Instalando PM2..."
-    npm install -g pm2@latest 2>&1 | Out-Null
+    [void](EjecutarNativo { npm install -g pm2@latest } 2)
     RefrescarPath
     $pm2 = BuscarPm2
   }
@@ -377,16 +411,17 @@ if ($hayNode) {
     Bien "PM2 disponible"
     # Arranca el daemon antes de nada: sin esto, la primera consulta puede
     # devolver vacio simplemente porque PM2 aun no se habia levantado.
-    & $pm2 ping | Out-Null
+    [void](EjecutarNativo { & $pm2 ping } 0)
     $ecosystem = Join-Path (Join-Path (Join-Path $Carpeta "server") "deploy") "ecosystem.config.js"
-    if ((& $pm2 jlist 2>$null) -match "colony-server") {
-      & $pm2 restart colony-server | Out-Null
+    $lista = EjecutarNativo { & $pm2 jlist } 0
+    if ($lista.Salida -match "colony-server") {
+      [void](EjecutarNativo { & $pm2 restart colony-server } 1)
       Bien "Servidor reiniciado con la version nueva"
     } else {
-      & $pm2 start $ecosystem | Out-Null
+      [void](EjecutarNativo { & $pm2 start $ecosystem } 2)
       Bien "Servidor arrancado"
     }
-    & $pm2 save | Out-Null
+    [void](EjecutarNativo { & $pm2 save } 0)
 
     Start-Sleep -Seconds 8
     try {
@@ -417,13 +452,13 @@ $batArranque = Join-Path $deploy "iniciarServidor.bat"
 # dedicado con inicio de sesion automatico es justo lo que queremos.
 # Cada 5 min: baja cambios de GitHub, reinicia cada 8h si no hay nadie, y hace
 # la copia diaria de la base de datos. Los tres se aplazan solos si hay gente.
-schtasks /Create /TN "Colony-Mantenimiento" /TR "cmd /c `"$batMantenimiento`"" /SC MINUTE /MO 5 /RL HIGHEST /F 2>&1 | Out-Null
-if ($LASTEXITCODE -eq 0) { Bien "Tarea 'Colony-Mantenimiento' creada (cada 5 minutos)" }
+$tarea = EjecutarNativo { schtasks /Create /TN "Colony-Mantenimiento" /TR "cmd /c `"$batMantenimiento`"" /SC MINUTE /MO 5 /RL HIGHEST /F } 0
+if ($tarea.Ok) { Bien "Tarea 'Colony-Mantenimiento' creada (cada 5 minutos)" }
 else { Pendiente "No se pudo crear la tarea de mantenimiento — creala a mano (ver docs/GDD_Despliegue_Local.md)" }
 
 # Al iniciar sesion: levanta PM2 con lo que hubiera guardado.
-schtasks /Create /TN "Colony-Arranque" /TR "cmd /c `"$batArranque`"" /SC ONLOGON /RL HIGHEST /F 2>&1 | Out-Null
-if ($LASTEXITCODE -eq 0) { Bien "Tarea 'Colony-Arranque' creada (al encender el PC)" }
+$tarea = EjecutarNativo { schtasks /Create /TN "Colony-Arranque" /TR "cmd /c `"$batArranque`"" /SC ONLOGON /RL HIGHEST /F } 0
+if ($tarea.Ok) { Bien "Tarea 'Colony-Arranque' creada (al encender el PC)" }
 else { Pendiente "No se pudo crear la tarea de arranque — creala a mano (ver docs/GDD_Despliegue_Local.md)" }
 
 # -------------------------------------------------------------------- Resumen
