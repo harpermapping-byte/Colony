@@ -241,6 +241,7 @@ const ADJETIVOS = new Set([
   "ajustable", "ajustables", "fijo", "fija", "fijos", "fijas",
   "agropecuario", "agropecuaria", "dulce", "dulces",
   "protectora", "protector", "ritual", "rituales",
+  "harapienta", "harapiento", "harapientas", "harapientos",
 ]);
 
 // Sustantivos que terminan en -ado/-ada por casualidad (NO son participio-

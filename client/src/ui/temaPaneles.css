@@ -356,6 +356,112 @@
   }
 }
 
+/* Creador de personaje (docs/GDD_Personaje.md, pedido streamer 2026-09-10:
+ * "Creador completo elegible por el jugador... con UI también del estilo
+ * que ya tenemos y justo después del login") — mismo `.bienvenida-fondo`
+ * (pantalla completa, no descartable) pero una tarjeta más ancha: hace
+ * falta sitio para la vista previa 3D girable A LA VEZ que los controles. */
+.creador-tarjeta {
+  width: min(760px, 95vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--panel-bg);
+  border: 3px solid var(--panel-borde);
+  border-radius: var(--panel-radio);
+  box-shadow: var(--panel-sombra);
+  padding: 20px 24px;
+  color: var(--panel-texto);
+  font: var(--panel-fuente);
+}
+.creador-titulo {
+  font: 700 20px "Cinzel", Georgia, serif;
+  color: var(--panel-acento);
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  margin-bottom: 12px;
+  letter-spacing: 0.03em;
+}
+.creador-layout {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.creador-preview {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.creador-preview-canvas {
+  background: radial-gradient(ellipse at center, #2e2013 0%, #14100a 85%);
+  border: 2px solid var(--panel-borde-tallado);
+  border-radius: 8px;
+  cursor: grab;
+  touch-action: none;
+}
+.creador-preview-canvas:active {
+  cursor: grabbing;
+}
+.creador-form {
+  flex: 1 1 320px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.creador-fila {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.creador-fila-etiqueta {
+  font-size: 12px;
+  color: var(--panel-texto-tenue);
+}
+.creador-fila select {
+  width: 100%;
+  box-sizing: border-box;
+}
+.creador-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.creador-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--panel-borde-tallado);
+  cursor: pointer;
+  padding: 0;
+}
+.creador-swatch[data-activo="true"] {
+  border-color: var(--panel-acento);
+  box-shadow: 0 0 0 2px var(--panel-acento);
+}
+.creador-slider-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.creador-slider-fila input[type="range"] {
+  flex: 1;
+}
+.creador-slider-valor {
+  font-size: 11px;
+  color: var(--panel-texto-tenue);
+  width: 34px;
+  text-align: right;
+}
+.creador-sexo-pestanas {
+  display: flex;
+  gap: 6px;
+}
+.creador-sexo-pestanas button {
+  flex: 1;
+}
+
 /* Chat minimizable (pedido streamer 2026-09-09: "el chat se tiene que
  * poder minimizar con una tecla como la X arriba derecha"). El chat NO usa
  * crearMarcoPanel (panel persistente con log propio, ver chat.ts) — misma

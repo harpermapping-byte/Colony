@@ -190,7 +190,7 @@ export class ArenaCombateRoom extends RoomExteriorBase {
     // TRES puntos que fijan esta posición (aquí, la creación de fauna/
     // enemigo/npc de arriba, y cada movimiento) para que nunca haya un
     // salto: el convenio +0.5 es el mismo desde el primer frame.
-    const player = this.crearJugador(client, { name: nombre }, cu.gx + 0.5, cu.gy + 0.5);
+    const player = await this.crearJugador(client, { name: nombre }, cu.gx + 0.5, cu.gy + 0.5);
     player.vida = cu.hp; player.vidaMax = cu.hpMax; player.ataque = cu.ataqueFisico; player.defensa = cu.defensaFisica;
 
     // Remapea la unidad de "nombre" (clave provisional, sessionId no existía

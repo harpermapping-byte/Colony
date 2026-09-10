@@ -49,7 +49,7 @@ import { PanelCocina, type IngredienteVista, type ConfigSesionCocinaVista, type 
 import { aplicarEquipoAlRig, type BlueprintRopaResuelto } from "./render3d/equipoVisual";
 import { PanelJugador } from "./personaje/panelJugador";
 import { crearPlaceholder } from "./render3d/placeholder";
-import { animalPlaceholder } from "./render3d/animalPlaceholder";
+import { generarAnimalVoxel } from "./render3d/generarAnimalVoxel";
 import { aplicarMonturaAlAnimal } from "./render3d/monturaVisual";
 import { crearBarcoVisual } from "./render3d/barcoVisual";
 import { aplicarAnatomiaCompleta } from "./render3d/anatomiaVisual";
@@ -77,6 +77,33 @@ const COLOR_JUGADOR_REMOTO = "#4fd1c5";
 // de poblacion/ ni equipo puesto) — neutro, ni el color de jugador local
 // ni el remoto, para no confundir un cadáver con alguien vivo.
 const COLOR_CADAVER_SIN_EQUIPO = "#6b5744";
+
+/**
+ * Rig de un `Player` real (docs/GDD_Personaje.md, pedido streamer
+ * 2026-09-10: creador de personaje) — `player.fichaPersonaje` es "" para
+ * cualquier invitado sin cuenta o cuenta que aún no completó el creador
+ * (cae al rig placeholder de siempre); con ficha guardada, se dibuja con
+ * pelo/barba/colores/morfología reales vía el mismo `crearPersonajeVoxel`
+ * que ya usan NPCs/compañeros. Gap conocido y documentado (GDD_Personaje.md
+ * §5): esto solo lee el valor que YA tenga el campo replicado en el
+ * instante de `players.onAdd`, sin escuchar cambios posteriores — el
+ * servidor lo resuelve de forma no bloqueante (RoomExteriorBase.crearJugador)
+ * así que en la práctica casi siempre llega a tiempo (una consulta a la BD
+ * local es más rápida que el primer patch de red), pero en la rarísima
+ * carrera en que no lo esté todavía, ese jugador se ve con el rig genérico
+ * hasta su próxima reconexión — nunca rompe nada, solo un aspecto peor.
+ */
+function crearRigDeJugador(player: { fichaPersonaje?: string }, esYo: boolean): RigHumanoide {
+  if (player.fichaPersonaje) {
+    try {
+      const datos = JSON.parse(player.fichaPersonaje) as { ficha: PersonajeExportado["ficha"]; voxelesCabeza: PersonajeExportado["voxelesCabeza"] };
+      return crearPersonajeVoxel({ ficha: datos.ficha, voxelesCabeza: datos.voxelesCabeza, ropa: [] });
+    } catch (err) {
+      console.error("[personaje] ficha guardada corrupta, usando rig genérico:", err);
+    }
+  }
+  return crearRigHumanoide({ colorTunica: esYo ? COLOR_JUGADOR_LOCAL : COLOR_JUGADOR_REMOTO });
+}
 
 // Sistema de puertas (docs/GDD_Sistema_Puertas.md): qué sala Colyseus tocar
 // y qué mapa cargar viene de la URL — un cambio de sala/instancia es una
@@ -1704,7 +1731,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   $(room.state).players.onAdd((player: any, sessionId: string) => {
     const esYo = sessionId === room.sessionId;
-    const rig = crearRigHumanoide({ colorTunica: esYo ? COLOR_JUGADOR_LOCAL : COLOR_JUGADOR_REMOTO });
+    const rig = crearRigDeJugador(player, esYo);
     // yaw primero y luego la inclinación de nado, en el eje que mira el PJ
     rig.objeto.rotation.order = "YXZ";
     const estado: EstadoJugador = {
@@ -1846,7 +1873,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (player.monturaEspecieId !== monturaActual) {
         monturaActual = player.monturaEspecieId;
         if (monturaActual) {
-          const animalRig = crearAnimalVoxel(animalPlaceholder(monturaActual));
+          const animalRig = crearAnimalVoxel(generarAnimalVoxel(monturaActual, `montura|${sessionId}`));
           animalRig.objeto.rotation.order = "YXZ";
           aplicarMonturaAlAnimal(animalRig.objeto, null);
           rig.objeto.visible = false;
@@ -1865,7 +1892,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         escena.seguirPunto(player.x, player.y);
         panelJugador?.actualizar(player);
         // gancho para los tests E2E (Playwright lee la verdad del servidor)
-        (window as any).__colonyDebug = { x: player.x, y: player.y, estado: player.estado, nivel: player.nivel };
+        // — `tieneFichaPersonaje` confirma que `Player.fichaPersonaje` llegó
+        // no vacía en el snapshot inicial (docs/GDD_Personaje.md §7: bug
+        // real de carrera cerrado 2026-09-10, `crearJugador` ahora awaitea
+        // la carga antes de sincronizar al cliente que se une).
+        (window as any).__colonyDebug = { x: player.x, y: player.y, estado: player.estado, nivel: player.nivel, tieneFichaPersonaje: !!player.fichaPersonaje };
         // docs/GDD_Clima.md: clima resuelto en el frame actual (mismo criterio que el resto de sondas __*).
         (window as any).__clima = () => escena.climaActual;
       }
@@ -2005,7 +2036,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const faunaVisual = new Map<string, EstadoJugador>();
   $(room.state).fauna.onAdd((animal: any, id: string) => {
     const vox = voxFaunaPorId.get(id);
-    const criatura = vox ? crearAnimalVoxel(vox) : crearAnimalVoxel(animalPlaceholder(animal.especieId));
+    const criatura = vox ? crearAnimalVoxel(vox) : crearAnimalVoxel(generarAnimalVoxel(animal.especieId, id));
     criatura.orientar(1, 1);
     const estado: EstadoJugador = {
       rig: criatura,
@@ -2032,13 +2063,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   // Mascotas (docs/GDD_Mascotas.md) — mismo circuito visual que fauna
   // doméstica (sin vox propio por id: nace de un spawn de fauna.json que ya
-  // no existe, así que siempre usa la caja placeholder por especie,
-  // animalPlaceholder.ts). Con silla puesta (docs/GDD_Monturas.md,
-  // `mascota.montura`), lleva la silla puesta SIEMPRE que se la ve —
-  // siguiendo o "aparcada" — no solo mientras se está montando.
+  // no existe, así que siempre pasa por generarAnimalVoxel — cuerpo real
+  // para cuadrupedo/ave, caja placeholder para el resto). Con silla puesta
+  // (docs/GDD_Monturas.md, `mascota.montura`), lleva la silla puesta
+  // SIEMPRE que se la ve — siguiendo o "aparcada" — no solo mientras se
+  // está montando.
   const mascotasVisual = new Map<string, EstadoJugador>();
   $(room.state).mascotas.onAdd((mascota: any, id: string) => {
-    const criatura = crearAnimalVoxel(animalPlaceholder(mascota.especieId));
+    const criatura = crearAnimalVoxel(generarAnimalVoxel(mascota.especieId, id));
     criatura.orientar(1, 1);
     if (mascota.montura) aplicarMonturaAlAnimal(criatura.objeto, null);
     const estado: EstadoJugador = {
@@ -2866,11 +2898,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         objeto = rig.objeto;
       }
     } else {
-      // animal (fauna salvaje, único origen que muere hoy): ya se renderiza
-      // en vivo con una caja-placeholder por especie sin vóxel individual
-      // (animalPlaceholder — ver su comentario), así que la especie sola
-      // ya reconstruye el mismo aspecto exacto que tenía viva.
-      const criatura = crearAnimalVoxel(animalPlaceholder(cadaver.especieOrigenId), { caido: true, id });
+      // animal (fauna salvaje, único origen que muere hoy): mismo generador
+      // que en vivo (generarAnimalVoxel, con fallback a animalPlaceholder
+      // dentro) — reconstruye el mismo aspecto que tenía viva, con la pose
+      // "caído" real de patas/alas para cuadrupedo/ave en vez del volcado
+      // genérico que sufría el placeholder de una sola caja.
+      const criatura = crearAnimalVoxel(generarAnimalVoxel(cadaver.especieOrigenId, id), { caido: true, id });
       objeto = criatura.objeto;
     }
 

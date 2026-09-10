@@ -426,7 +426,7 @@ export class RegionRoom extends RoomExteriorBase {
       const spawn = await this.resolverSpawnGuardado(nombreSpawn, x, y);
       x = spawn.x; y = spawn.y;
     }
-    this.crearJugador(client, options, x, y);
+    await this.crearJugador(client, options, x, y);
     // Interest-management: rellena el StateView de esta sesión YA, sin
     // esperar al primer tick periódico (hasta 500ms) — ver mismo comentario
     // en HubRoom.onJoin/InteriorRoom.onJoin.

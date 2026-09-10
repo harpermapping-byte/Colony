@@ -83,6 +83,75 @@
     "quitaCalor": 5,
     "_nota": "Calza/pantalón holgado de cadera, entallado en el tobillo, con cinturón de cuerda/cuero y algún remiendo — ropa de trabajo, no de gala."
   },
+  "camisa_harapienta": {
+    "slotCuerpo": "torso",
+    "tipoPrenda": "camisa",
+    "riquezaTipica": [
+      "humilde"
+    ],
+    "tagsProfesion": [
+      "comun"
+    ],
+    "materialesCompatibles": [
+      "lino",
+      "lana"
+    ],
+    "zonasColor": [
+      "cuerpo"
+    ],
+    "zonasFijas": [
+      "remiendos"
+    ],
+    "voxelResolucion": {
+      "x": 9,
+      "y": 13,
+      "z": 6
+    },
+    "detalle": {
+      "cuello": "irregular",
+      "mangas": "jirones",
+      "bajo": "deshilachado"
+    },
+    "colorDebug": "#8a7a5a",
+    "variantes": 2,
+    "quitaFrio": 3,
+    "quitaCalor": 10,
+    "_nota": "Camisa de arranque (2026-09-10, pedido streamer: 'al crear el personaje que salga con ropa harapienta') — TODO jugador nuevo empieza con esta pieza equipada, nunca craftable (sin receta en items/catalogo/recetas.json a propósito, es el punto de partida más pobre del juego, no un objetivo de crafteo). Mismas piezas de vocabulario 'roto/deshilachado' que ya usaba sudario_hueso_no_muerto, aquí con tagsProfesion:['comun'] para que sea elegible por cualquier civil humilde (streamer, vagabundo, mendigo...), no solo un enemigo temático."
+  },
+  "pantalon_harapiento": {
+    "slotCuerpo": "piernas",
+    "tipoPrenda": "pantalon",
+    "riquezaTipica": [
+      "humilde"
+    ],
+    "tagsProfesion": [
+      "comun"
+    ],
+    "materialesCompatibles": [
+      "lino",
+      "lana"
+    ],
+    "zonasColor": [
+      "cuerpo"
+    ],
+    "zonasFijas": [
+      "remiendos"
+    ],
+    "voxelResolucion": {
+      "x": 8,
+      "y": 15,
+      "z": 5
+    },
+    "detalle": {
+      "corte": "holgado",
+      "bajo": "desigual"
+    },
+    "colorDebug": "#7a6a4a",
+    "variantes": 2,
+    "quitaFrio": 5,
+    "quitaCalor": 5,
+    "_nota": "Pantalón de arranque, pareja de camisa_harapienta — mismo criterio: equipado de fábrica al crear personaje, nunca craftable."
+  },
   "gorro_lino_campesino": {
     "slotCuerpo": "cabeza",
     "tipoPrenda": "gorro",

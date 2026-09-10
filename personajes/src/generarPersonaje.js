@@ -438,4 +438,8 @@ function generarPersonaje(npcId, opciones) {
   return { ficha, voxelesCabeza, cuerpo };
 }
 
-module.exports = { generarPersonaje, ajustarColor };
+// CAJAS_PELO/CAJAS_BARBA/voxelizarCajas exportados desde 2026-09-10 para que
+// generarFichaJugador.js (creador de personaje del jugador, sin ningún dado)
+// pueda reusar el MISMO catálogo de geometría de pelo/barba en vez de
+// duplicarlo — un solo sitio con las 30+15 formas.
+module.exports = { generarPersonaje, ajustarColor, CAJAS_PELO, CAJAS_BARBA, voxelizarCajas };

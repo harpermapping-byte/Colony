@@ -8333,6 +8333,24 @@
     "prendaId": "camisa_lino_campesina",
     "_nota": "docs/GDD_Profesiones.md (2026-08-30) — ropa civil craftable, MISMO pipeline visual que la armadura (ropa/catalogo/equipo.json), no el generador rico de NPCs (ropa/catalogo/prendas.json, sigue sin tocar)."
   },
+  "camisa_harapienta": {
+    "nombre": "Camisa Harapienta",
+    "tipo": "equipable",
+    "slotEquipo": "pechera",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.3,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#8a7a5a",
+    "defensaFisica": 0,
+    "durabilidadMax": 20,
+    "desgastePorUso": 1,
+    "prendaId": "camisa_harapienta",
+    "_nota": "docs/GDD_Personaje.md §7 (2026-09-10, pedido streamer: 'al crear el personaje que salga con ropa harapienta') — equipada automáticamente al confirmar el creador de personaje, junto a pantalon_harapiento. NUNCA craftable (sin receta a propósito en items/catalogo/recetas.json) — es el punto de partida más pobre del juego, no un objetivo de crafteo; se sustituye jugando por cualquier ropa civil real (camisa_lino_campesina...) o de oficio."
+  },
   "camisa_seda_noble": {
     "nombre": "Camisa de Seda Noble",
     "tipo": "equipable",
@@ -8368,6 +8386,24 @@
     "desgastePorUso": 1,
     "prendaId": "pantalon_lana_campesino",
     "_nota": "docs/GDD_Profesiones.md (2026-08-30) — ropa civil craftable, MISMO pipeline visual que la armadura (ropa/catalogo/equipo.json), no el generador rico de NPCs (ropa/catalogo/prendas.json, sigue sin tocar)."
+  },
+  "pantalon_harapiento": {
+    "nombre": "Pantalón Harapiento",
+    "tipo": "equipable",
+    "slotEquipo": "piernas",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.4,
+    "apilable": false,
+    "variantes": 1,
+    "colorDebug": "#7a6a4a",
+    "defensaFisica": 0,
+    "durabilidadMax": 20,
+    "desgastePorUso": 1,
+    "prendaId": "pantalon_harapiento",
+    "_nota": "docs/GDD_Personaje.md §7 (2026-09-10) — pareja de camisa_harapienta, mismo criterio: equipado de fábrica al crear personaje, NUNCA craftable a propósito."
   },
   "gorro_lino_campesino": {
     "nombre": "Gorro de Lino de Campesino",

@@ -120,6 +120,10 @@ Encontrado por una auditoría de seguridad lanzada nada más exponer el servidor
 
 **Decisión tomada, documentada para no repetir el debate**: NO se añadió un `process.on("unhandledRejection")`/`uncaughtException` global en `index.ts` como red de seguridad adicional — un handler global no puede distinguir "esto es seguro seguir sirviendo" (un bug en un handler HTTP sin estado) de "esto puede haber corrompido estado compartido" (un bug en el tick de simulación o en una `Room`), así que envolvería también fallos donde SÍ sería más seguro que el proceso muriera y PM2 lo reinicie limpio. El arreglo se quedó acotado a las rutas HTTP concretas, que es donde vivía el bug real.
 
+## 5quinquies. Creador de personaje justo después del login (2026-09-10)
+
+Cierra el siguiente paso natural del flujo (pregunta del propio streamer: "cuando alguien se loguea y crea cuenta, lo siguiente debería ser el creador de personaje no?") — `/auth/jugador/registro` y `/auth/jugador/login` ahora devuelven también `personaje` (JSON de `{ficha, voxelesCabeza}` ya guardado, o `null`); `pantallaBienvenida.ts` usa ese campo para decidir si mostrar `client/src/personaje/creadorPersonaje.ts` (pantalla completa, obligatoria, mismo criterio "no descartable" que la propia bienvenida) antes de entrar al mundo. Nuevo endpoint `POST /auth/jugador/personaje {token, eleccion}` guarda la elección validada en `jugadores.ficha_personaje`. Detalle completo de la arquitectura (por qué el servidor es la fuente de verdad y el cliente tiene su propio port solo para la vista previa en vivo, la nueva columna, la replicación a otros jugadores) en `docs/GDD_Personaje.md` §7.
+
 ## 6. Pendiente real, no cerrado en esta pasada
 
 - Sin verificación en producción real (Neon/Render) — solo probado contra SQLite de dev.
