@@ -2059,7 +2059,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   });
   // sonda de test (pedido 2026-09-01, verificación de cadáveres):
   // admin:debug:matar necesita el id real del Schema, sin targeting por clic.
-  (window as any).__fauna = () => [...room.state.fauna.entries()].map(([id, a]: [string, any]) => ({ id, especieId: a.especieId }));
+  (window as any).__fauna = () => [...room.state.fauna.entries()].map(([id, a]: [string, any]) => ({ id, especieId: a.especieId, x: a.x, y: a.y, vida: a.vida }));
 
   // Mascotas (docs/GDD_Mascotas.md) — mismo circuito visual que fauna
   // doméstica (sin vox propio por id: nace de un spawn de fauna.json que ya
@@ -2361,7 +2361,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   });
   room.onMessage("chat:mensaje", (m: { sessionId: string; nombre: string; texto: string; canal: "local" | "global"; ts: number }) => {
     panelChat.agregarMensaje(m);
+    ultimosMensajes.set("chat:mensaje", m);
   });
+  // Sonda de test (playtest multijugador 2026-09-10): quién ve este cliente
+  // en `state.players` — mismo criterio que `__npcs`/`__fauna`, sin panel.
+  (window as any).__jugadores = () => [...room.state.players.entries()].map(([id, p]: [string, any]) => ({ id, nombre: p.name, x: p.x, y: p.y, estado: p.estado, vida: p.vida }));
 
   // --- Diálogo con NPCs con IA (docs/GDD_IA_NPCs.md, pedido streamer
   // 2026-09-08: "ahondar en el tema de las conversaciones con IA NPC" —

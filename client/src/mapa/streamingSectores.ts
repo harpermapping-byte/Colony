@@ -58,12 +58,15 @@ export interface OpcionesStreaming<H> {
   mostrarMaterializado?: (handle: H, sx: number, sy: number) => void;
   /** Cuántos handles ocultos-pero-vivos se retienen antes de dispose-arlos de verdad (LRU por orden de salida del rango). Sin efecto si no se pasan los dos callbacks de arriba. */
   maxSectoresMaterializadosCacheados?: number;
+  /** Espera antes de volver a pedir un sector cuyo `obtenerSector` LANZÓ (fallo transitorio de red) — ver `reintentoTras`. */
+  reintentoMs?: number;
 }
 
 const RADIO_CARGA_DEFECTO = 192;
 const RADIO_DESCARGA_DEFECTO = 352;
 const MAX_CACHE_DEFECTO = 25;
 const MAX_CACHE_MATERIALIZADOS_DEFECTO = 6;
+const REINTENTO_MS_DEFECTO = 3000;
 /** No se reevalúa el anillo hasta haberse movido esto (casillas) — el bucle de juego llama cada frame. */
 const UMBRAL_REEVALUACION = 16;
 
@@ -72,7 +75,7 @@ function clave(sx: number, sy: number): string {
 }
 
 export class StreamingSectores<H = unknown> {
-  private readonly opciones: Required<Pick<OpcionesStreaming<H>, "radioCargaTiles" | "radioDescargaTiles" | "maxSectoresCacheados" | "maxSectoresMaterializadosCacheados">> & OpcionesStreaming<H>;
+  private readonly opciones: Required<Pick<OpcionesStreaming<H>, "radioCargaTiles" | "radioDescargaTiles" | "maxSectoresCacheados" | "maxSectoresMaterializadosCacheados" | "reintentoMs">> & OpcionesStreaming<H>;
   private readonly tilesPorSector: number;
   private readonly sectoresAncho: number;
   private readonly sectoresAlto: number;
@@ -87,6 +90,17 @@ export class StreamingSectores<H = unknown> {
   /** Conjunto deseado según la última evaluación — la verdad contra la que se resuelven las carreras async. */
   private deseados = new Set<string>();
   private ultimaEvaluacion: { x: number; z: number } | null = null;
+  /**
+   * Sectores cuyo `obtenerSector` LANZÓ (fallo transitorio de red — un
+   * `ERR_CONNECTION_RESET` real visto en el playtest multijugador
+   * 2026-09-10) → instante a partir del cual se vuelven a pedir. Antes un
+   * fallo así se cacheaba como `null` ("404 definitivo") y ese sector se
+   * quedaba como un AGUJERO en el mapa el resto de la sesión. Mientras haya
+   * alguno pendiente, `actualizar` reevalúa cada llamada (sin esperar a
+   * moverse UMBRAL_REEVALUACION casillas) para que el reintento salga solo
+   * aunque el jugador esté quieto mirando el hueco.
+   */
+  private readonly reintentoTras = new Map<string, number>();
 
   constructor(opciones: OpcionesStreaming<H>) {
     this.opciones = {
@@ -94,6 +108,7 @@ export class StreamingSectores<H = unknown> {
       radioDescargaTiles: RADIO_DESCARGA_DEFECTO,
       maxSectoresCacheados: MAX_CACHE_DEFECTO,
       maxSectoresMaterializadosCacheados: MAX_CACHE_MATERIALIZADOS_DEFECTO,
+      reintentoMs: REINTENTO_MS_DEFECTO,
       ...opciones,
     };
     const { indice } = opciones;
@@ -116,7 +131,7 @@ export class StreamingSectores<H = unknown> {
    * UMBRAL_REEVALUACION casillas desde la última evaluación.
    */
   actualizar(tileX: number, tileZ: number): void {
-    if (this.ultimaEvaluacion) {
+    if (this.ultimaEvaluacion && this.reintentoTras.size === 0) {
       const d = Math.max(Math.abs(tileX - this.ultimaEvaluacion.x), Math.abs(tileZ - this.ultimaEvaluacion.z));
       if (d < UMBRAL_REEVALUACION) return;
     }
@@ -163,8 +178,14 @@ export class StreamingSectores<H = unknown> {
       }
     }
 
+    const ahora = Date.now();
     for (const k of deseados) {
       if (this.materializados.has(k) || this.materializando.has(k)) continue;
+      const reintento = this.reintentoTras.get(k);
+      if (reintento !== undefined) {
+        if (ahora < reintento) continue; // fallo reciente: todavía no toca volver a pedirlo
+        this.reintentoTras.delete(k);
+      }
       const [sx, sy] = k.split("_").map(Number);
       const cacheado = this.materializadosCacheados.get(k);
       if (cacheado) {
@@ -189,6 +210,15 @@ export class StreamingSectores<H = unknown> {
           } else {
             this.opciones.soltar(handle, sx, sy);
           }
+        })
+        .catch((err: unknown) => {
+          // fetch fallido (tras sus propios reintentos, ver cargarMapa.ts):
+          // NO se cachea como inexistente — se anota para volver a pedirlo
+          // pasado `reintentoMs`. Sin este catch sería un unhandled
+          // rejection en consola por cada fallo, y sin la anotación el
+          // sector no se volvería a pedir hasta moverse 16 casillas.
+          this.reintentoTras.set(k, Date.now() + this.opciones.reintentoMs);
+          console.warn(`streaming: sector ${k} no se pudo descargar, se reintentará`, err);
         })
         .finally(() => this.materializando.delete(k));
     }
@@ -264,6 +294,7 @@ export class StreamingSectores<H = unknown> {
       enVuelo: this.enVuelo.size,
       materializando: this.materializando.size,
       materializadosCacheados: this.materializadosCacheados.size,
+      pendientesDeReintento: this.reintentoTras.size,
     };
   }
 }

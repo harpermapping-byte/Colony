@@ -218,7 +218,7 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
   // ruta relativa con su propio `mapaIdPropio` en tiempo de ejecución, que
   // sí refleja dónde vive el mapa de verdad).
   const carpetaSalidaResuelta = path.resolve(config.carpetaSalida || "output");
-  const { portales: portalesPOI, objetosPorPOI, decoracionPorPOI } = await generarInstanciasPOI({
+  const { portales: portalesPOI, objetosPorPOI, decoracionPorPOI, entradasAsentamiento } = await generarInstanciasPOI({
     pois,
     carpetaSalida: carpetaSalidaResuelta,
     semillaMundo: config.semilla,
@@ -237,6 +237,25 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
   // partir). ciudadCapital por defecto true para no romper bakes previos.
   const ciudadCapital = config.ciudadCapital !== false;
   const ciudad = ciudadCapital ? config.ciudad || { x: Math.floor(anchoTiles / 2), y: Math.floor(altoTiles / 2) } : null;
+  // Spawn del mapa = la PUERTA del asentamiento civil más cercano a
+  // `ciudad` (playtest 2026-09-10: `config.ciudad` es el centro de la
+  // capital, pero toda la ciudad es terreno sólido, así que el servidor
+  // buscaba la casilla pisable más cercana al centro y el jugador aparecía
+  // ~80 casillas lejos de la puerta, en campo abierto — ver
+  // mapaColision.ts::casillaPisableMasCercana). El portal exterior de cada
+  // asentamiento YA es una casilla pisable pegada a su puerta real, así que
+  // aparecer ahí es exactamente "aparecer en la puerta de la capital".
+  // Desactivable con `spawnEnPuerta: false` (mapas de prueba que quieren
+  // aparecer literalmente en `ciudad`).
+  let spawn = null;
+  if (ciudadCapital && config.spawnEnPuerta !== false) {
+    const civiles = (entradasAsentamiento || []).filter((e) => !e.hostil);
+    if (civiles.length) {
+      civiles.sort((a, b) => Math.hypot(a.poiX - ciudad.x, a.poiY - ciudad.y) - Math.hypot(b.poiX - ciudad.x, b.poiY - ciudad.y));
+      spawn = { x: civiles[0].x, y: civiles[0].y };
+      onProgreso(`  Spawn en la puerta del asentamiento más cercano a la ciudad: (${spawn.x},${spawn.y}).`);
+    }
+  }
   // Caminos más anchos/gastados y con más decoración cerca de la ciudad,
   // más estrechos/pelados hacia el final de una rama lejana (pedido
   // 2026-08-29) — usado tanto al trazar el camino (más abajo) como en la
@@ -760,6 +779,7 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
     biomasHabilitados,
     bordes,
     ciudad,
+    spawn,
     portales: portalesPOI,
   });
 

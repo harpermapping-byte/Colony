@@ -126,6 +126,8 @@ export function cargarMapaColision(
     tamanoSectorChunks: number;
     leyendaTerreno: string[];
     ciudad?: { x: number; y: number };
+    /** casilla de aparición explícita (baker/src/generar.js: la puerta del asentamiento civil más cercano a `ciudad`) — manda sobre `ciudad` */
+    spawn?: { x: number; y: number };
     portales?: Portal[];
     parcelasReservadas?: ParcelaReservada[];
     bordes?: Record<"norte" | "sur" | "este" | "oeste", BordeMapa>;
@@ -208,7 +210,7 @@ export function cargarMapaColision(
 
   // spawn: la ciudad del índice, o el centro; corregido a la casilla
   // pisable más cercana (búsqueda en anillos, el mapa demo nace en roca)
-  const objetivo = indice.ciudad ?? { x: Math.floor(ancho / 2), y: Math.floor(alto / 2) };
+  const objetivo = indice.spawn ?? indice.ciudad ?? { x: Math.floor(ancho / 2), y: Math.floor(alto / 2) };
   const spawn = casillaPisableMasCercana(casillas, ancho, alto, objetivo.x, objetivo.y);
 
   return {
