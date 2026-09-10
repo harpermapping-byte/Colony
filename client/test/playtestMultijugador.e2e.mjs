@@ -126,7 +126,14 @@ async function main() {
     async function teleport(j, x, y) {
       await esperarJuego(j);
       await j.page.evaluate(({ x, y }) => window.__test.enviar("admin:debug:teleport", { x, y }), { x, y });
-      await j.page.waitForFunction(({ x, y }) => Math.abs(window.__colonyDebug.x - x) < 1 && Math.abs(window.__colonyDebug.y - y) < 1, { x, y }, { timeout: 30000 });
+      // El servidor puede AJUSTAR el destino a la casilla pisable más cercana
+      // (2026-09-10, teleport a casilla sólida): se espera a la posición que
+      // confirma admin:debug:ok, no a la pedida.
+      await j.page.waitForFunction(({ x, y }) => {
+        const ok = window.__test.ultimoMensaje("admin:debug:ok");
+        if (!ok || ok.accion !== "teleport" || Math.hypot(ok.x - x, ok.y - y) > 12) return false;
+        return Math.abs(window.__colonyDebug.x - ok.x) < 1 && Math.abs(window.__colonyDebug.y - ok.y) < 1;
+      }, { x, y }, { timeout: 45000 });
       await asentar(j.page);
     }
     const pos = (page) => page.evaluate(() => ({ x: window.__colonyDebug.x, y: window.__colonyDebug.y, estado: window.__colonyDebug.estado, nivel: window.__colonyDebug.nivel }));
@@ -134,16 +141,20 @@ async function main() {
     async function andarHasta(j, tecla, minDist, timeoutMs = 15000) {
       const inicio = await pos(j.page);
       await j.page.keyboard.down(tecla);
-      let d = 0;
-      const t0 = Date.now();
-      while (Date.now() - t0 < timeoutMs) {
-        await espera(200);
-        const p = await pos(j.page);
-        d = Math.hypot(p.x - inicio.x, p.y - inicio.y);
-        if (d >= minDist) break;
-      }
+      // waitForFunction sondea DENTRO de la página (sin un viaje CDP por
+      // muestra): en la pasada 8, con un evaluate tardando segundos bajo
+      // carga, una petición de 0.5 casillas soltaba la tecla 10 casillas tarde.
+      await j.page.waitForFunction(({ x0, y0, min }) => Math.hypot(window.__colonyDebug.x - x0, window.__colonyDebug.y - y0) >= min, { x0: inicio.x, y0: inicio.y, min: minDist }, { timeout: timeoutMs, polling: 50 }).catch(() => {});
       await j.page.keyboard.up(tecla);
-      return d;
+      const p = await pos(j.page);
+      return Math.hypot(p.x - inicio.x, p.y - inicio.y);
+    }
+    /** Mantiene la tecla hasta que el estado del jugador sea `estado` (o agote el tiempo). */
+    async function andarHastaEstado(j, tecla, estado, timeoutMs = 25000) {
+      await j.page.keyboard.down(tecla);
+      const ok = await j.page.waitForFunction((e) => window.__colonyDebug.estado === e, estado, { timeout: timeoutMs, polling: 50 }).then(() => true).catch(() => false);
+      await j.page.keyboard.up(tecla);
+      return ok;
     }
     async function esperarEstado(j, estado, timeout = ESPERA_ESTADO_MS) {
       return j.page.waitForFunction((e) => window.__colonyDebug.estado === e, estado, { timeout }).then(() => true).catch(() => false);
@@ -194,9 +205,7 @@ async function main() {
 
     console.log("4) Tester2 va al río (1310,2010), entra al agua, nada y bucea (Q) / sube (E)...");
     await teleport(t2, 1310.5, 2010.5);
-    await andarHasta(t2, "a", 4, 20000);
-    let nada = await esperarEstado(t2, "nadando");
-    if (!nada) { await andarHasta(t2, "a", 3, 15000); nada = await esperarEstado(t2, "nadando"); }
+    const nada = await andarHastaEstado(t2, "a", "nadando");
     let e2 = await pos(t2.page);
     comprobar("Tester2 ha entrado en el agua (estado nadando)", nada, `estado=${e2.estado} en (${e2.x.toFixed(1)},${e2.y.toFixed(1)})`);
     if (nada) {
@@ -204,8 +213,8 @@ async function main() {
       comprobar("Q bucea (estado buceando)", await esperarEstado(t2, "buceando"), `estado=${(await pos(t2.page)).estado}`);
       await t2.page.keyboard.press("e");
       comprobar("E vuelve a la superficie (nadando)", await esperarEstado(t2, "nadando"), `estado=${(await pos(t2.page)).estado}`);
-      await andarHasta(t2, "d", 8, 25000);
-      comprobar("Tester2 sale del agua a tierra", await esperarEstado(t2, "tierra"), `estado=${(await pos(t2.page)).estado}`);
+      const salio = await andarHastaEstado(t2, "d", "tierra");
+      comprobar("Tester2 sale del agua a tierra", salio, `estado=${(await pos(t2.page)).estado}`);
     }
 
     console.log("5) Tester3 caza un animal REAL con clic sobre él (menú 'Cazar') y persecución automática...");
@@ -219,8 +228,14 @@ async function main() {
     // servidor como respuesta válida.
     // Orden de preferencia por TAMAÑO del rig: un ratón mide ~0.2 unidades y
     // un clic a un píxel puede no tocar ninguna malla (pasada 7: "sin menú").
-    const PRESAS_TIERRA = ["cierva", "ciervo", "corzo", "corza", "gacela", "liebre", "liebre_de_bosque", "conejo", "marmota", "perdiz", "codorniz", "cervatillo", "corcino", "ardilla", "raton_de_campo", "ratona_de_campo"];
-    const presa = PRESAS_TIERRA.map((e) => fauna.find((f) => f.especieId === e)).find(Boolean) || fauna[0];
+    // Comprobado con una página sola (caza_debug, 2026-09-10): el clic sobre un
+    // águila pescadora abre "Cazar aguila pescadora" — pero una ratona (~0.2
+    // unidades) no tiene malla que tocar a un píxel. Se excluyen diminutos,
+    // insectos y peces (la persecución entraría en el agua); cualquier otra
+    // especie vale, con preferencia por las grandes.
+    const PRESAS_TIERRA = ["cierva", "ciervo", "corzo", "corza", "gacela", "liebre", "liebre_de_bosque", "conejo", "marmota", "perdiz", "codorniz", "cervatillo", "corcino", "aguila_pescadora", "garza", "cigüena", "paloma_torcaz", "cuervo", "faisan"];
+    const DIMINUTA = /raton|ardilla|avispa|abeja|mariposa|libelula|escarabajo|hormiga|grillo|saltamontes|mosquito|lombriz|caracol|rana|sapo|lagart|carpa|trucha|pez|bacalao|sardina|salmon|anguila|lucio|barbo|cangrejo|medusa|pulpo|calamar|almeja|mejillon|ostra|erizo|estrella|anemona|pepino|tiburon|orca|ballena|delfin|foca|morsa|lobo|oso|jabal/;
+    const presa = PRESAS_TIERRA.map((e) => fauna.find((f) => f.especieId === e)).find(Boolean) || fauna.find((f) => !DIMINUTA.test(f.especieId)) || fauna[0];
     if (presa) {
       console.log(`   presa: ${presa.especieId} (${presa.id}) en (${presa.x.toFixed(1)},${presa.y.toFixed(1)})`);
       // A 7 casillas: fuera de radioHuida (4) para que no salga corriendo antes del clic
@@ -298,6 +313,11 @@ async function main() {
       try { await t1.page.waitForURL((u) => u.toString() !== urlDentro, { timeout: 90000, waitUntil: "commit" }); salio = true; } catch {}
       comprobar("F en el spawn de la capital devuelve al exterior", salio, t1.page.url().replace(/^http:\/\/localhost:\d+/, ""));
       if (salio) await esperarJuego(t1, 120000).catch((e) => comprobar("el exterior vuelve a cargar tras salir de la capital", false, String(e)));
+      else {
+        // Sin salida real, los pasos 8-10 (todos en el Hub) no tendrían sentido para Tester1: vuelta al Hub por URL.
+        await t1.page.goto(`http://localhost:${PUERTO_WEB}/?nombre=Tester1`, { waitUntil: "commit", timeout: 120000 });
+        await esperarJuego(t1, 150000).catch(() => {});
+      }
     }
 
     console.log("8) Tester2 recarga (F5) lejos del spawn — la posición debe persistir...");
@@ -309,12 +329,14 @@ async function main() {
     comprobar("posición persistida tras F5", Math.hypot(antesRecarga.x - trasRecarga.x, antesRecarga.y - trasRecarga.y) < 2, `${antesRecarga.x.toFixed(1)},${antesRecarga.y.toFixed(1)} → ${trasRecarga.x.toFixed(1)},${trasRecarga.y.toFixed(1)}`);
 
     console.log("9) todos se teletransportan a la vez a la misma zona (estrés de sincronía) y se ven entre sí...");
-    await Promise.all(jugadores.map((j, i) => teleport(j, 1500.5 + i, 2100.5 + i).catch((e) => comprobar(`teleport masivo de ${j.nombre}`, false, String(e).slice(0, 120)))));
+    // Casillas comprobadas libres (5x5) con el cargador real; las anteriores (1500+i,2100+i) eran agua/sólido.
+    const sitiosReunion = [[1486.5, 2100.5], [1494.5, 2100.5], [1482.5, 2102.5], [1484.5, 2100.5]];
+    await Promise.all(jugadores.map((j, i) => teleport(j, ...sitiosReunion[i]).catch((e) => comprobar(`teleport masivo de ${j.nombre}`, false, String(e).slice(0, 120)))));
     for (const j of jugadores) {
       const otros = NOMBRES.filter((n) => n !== j.nombre);
       const ok = await j.page.waitForFunction((n) => n.every((x) => window.__jugadores().some((p) => p.nombre === x)), otros, { timeout: ESPERA_ESTADO_MS }).then(() => true).catch(() => false);
-      const vistos = await j.page.evaluate(() => window.__jugadores().map((p) => p.nombre));
-      comprobar(`${j.nombre} ve a los otros 3 tras el teleport masivo`, ok, vistos.join(","));
+      const vistos = await j.page.evaluate(() => window.__jugadores().map((p) => `${p.nombre}@${p.x.toFixed(0)},${p.y.toFixed(0)}`));
+      comprobar(`${j.nombre} ve a los otros 3 tras el teleport masivo`, ok, `${vistos.join(" ")} | url=${j.page.url().replace(/^http:\/\/localhost:\d+/, "")}`);
     }
     await t1.page.screenshot({ path: join(CARPETA_CAPTURAS, "playtest_multi_reunion.png") });
 
