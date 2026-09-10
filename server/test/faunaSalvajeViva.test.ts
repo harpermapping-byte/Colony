@@ -631,6 +631,29 @@ test("iniciarCaza + tick: cuando el cazador alcanza al animal, tick() lo reporta
   assert.strictEqual(segundoTick.atrapados.length, 0, "no debería reportar la misma captura dos veces");
 });
 
+test("iniciarCaza + tick: si el cazador se queda a más de RADIO_PERDIDA_CAZA, la caza se cancela y tick() la reporta como perdida (docs/GDD_Caza.md §4ter)", async () => {
+  const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "conejo", x: 20, y: 20 }] });
+  await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+  const [id] = [...salida.keys()];
+  const animal = salida.get(id)!;
+  assert.strictEqual(gestor.iniciarCaza(id, "cazador"), true);
+  assert.deepStrictEqual(gestor.presaCazadaPor("cazador"), { faunaId: id, x: animal.x, y: animal.y });
+  assert.strictEqual(gestor.presaCazadaPor("otro"), null);
+  // A 40 casillas sigue cazada (por encima del radio de huida normal, por debajo del de pérdida = 60).
+  const cerca = gestor.tick(0.2, new Map([["cazador", { x: animal.x + 40, y: animal.y }]]));
+  assert.strictEqual(cerca.perdidas.length, 0);
+  assert.strictEqual(animal.accion, "huyendo");
+  // A 70 casillas (> 60): perdida, reportada UNA sola vez, y la presa deja de huir de él.
+  const lejos = gestor.tick(0.2, new Map([["cazador", { x: animal.x + 70, y: animal.y }]]));
+  assert.deepStrictEqual(lejos.perdidas, [{ faunaId: id, sessionId: "cazador" }]);
+  assert.strictEqual(gestor.presaCazadaPor("cazador"), null, "la caza ya no existe");
+  const otraVez = gestor.tick(0.2, new Map([["cazador", { x: animal.x + 70, y: animal.y }]]));
+  assert.strictEqual(otraVez.perdidas.length, 0, "no se reporta dos veces");
+  assert.notStrictEqual(animal.accion, "huyendo", "sin caza y con el jugador a 70 casillas, vuelve a su vida normal");
+  // Se puede volver a cazar (el estado quedó limpio).
+  assert.strictEqual(gestor.iniciarCaza(id, "cazador"), true);
+});
+
 test("iniciarCaza + tick: si el cazador se desconecta (falta del mapa de jugadores), la caza se cancela sola sin romper el tick", async () => {
   const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "conejo", x: 20, y: 20 }] });
   await gestor.activarSector({ sectorX: 0, sectorY: 0 });

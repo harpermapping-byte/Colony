@@ -356,11 +356,18 @@ export class HubRoom extends RoomExteriorBase {
         this.clock.setInterval(() => {
           const jugadoresPos = new Map<string, { x: number; y: number }>();
           for (const [sessionId, p] of this.state.players.entries()) jugadoresPos.set(sessionId, { x: p.x, y: p.y });
-          const { atrapados, cacerias } = this.gestorFaunaSalvaje!.tick(0.2, jugadoresPos);
+          const { atrapados, cacerias, perdidas } = this.gestorFaunaSalvaje!.tick(0.2, jugadoresPos);
           for (const { faunaId, sessionId } of atrapados) {
             void this.onFaunaMuerta(faunaId).then(() => {
               this.clients.find((c) => c.sessionId === sessionId)?.send("caza:atrapado", { faunaId });
             });
+          }
+          // Presa perdida (docs/GDD_Caza.md §4ter): el cazador se quedó
+          // demasiado atrás — se le avisa y su persecución automática (si
+          // seguía activa) muere con la caza; el animal sigue vivo.
+          for (const { faunaId, sessionId } of perdidas) {
+            this.cazasAutomaticas.delete(sessionId);
+            this.clients.find((c) => c.sessionId === sessionId)?.send("caza:perdida", { faunaId });
           }
           // Depredador cazando presa por su cuenta (docs/GDD_Caza.md, pedido
           // 2026-09-08) — mismo camino de muerte real que cualquier otra
@@ -814,6 +821,11 @@ export class HubRoom extends RoomExteriorBase {
   /** docs/GDD_Caza.md §huida — solo el Hub tiene fauna salvaje viva que cazar. */
   protected intentarIniciarCaza(faunaId: string, sessionId: string): boolean {
     return this.gestorFaunaSalvaje?.iniciarCaza(faunaId, sessionId) ?? false;
+  }
+
+  /** docs/GDD_Caza.md §4ter — posición en vivo de la presa que `sessionId` está cazando, para la persecución automática del servidor. */
+  protected presaCazadaPor(sessionId: string): { x: number; y: number } | null {
+    return this.gestorFaunaSalvaje?.presaCazadaPor(sessionId) ?? null;
   }
 
   /** docs/GDD_IA_NPCs.md — biografía individual real del NPC (poblacion.json), si la tiene. `undefined` para NPCs fijos/tutoriales sin biografía (caen al arquetipo genérico en npcChat.ts). */

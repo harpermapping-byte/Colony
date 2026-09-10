@@ -176,6 +176,7 @@ import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { nombreCapitalOverride, fijarNombreCapital, LONGITUD_MAXIMA_NOMBRE_CAPITAL } from "../../mundo/capital";
 import { nuevasClavesReveladas, sectorDePosicion, empaquetarSector } from "../../mundo/exploracion";
 import { COSTE_REPOSICION_FAUNA } from "../../mundo/faunaSalvajeViva";
+import { EstadoPersecucion, direccionPersecucion, nuevoEstadoPersecucion } from "../../mundo/persecucionCaza";
 import { jugadorConectado, jugadorDesconectado } from "../../mundo/contadorConexiones";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
@@ -629,6 +630,13 @@ const novedadesProveedorReal = async (): Promise<string[]> => (await obtenerBdCo
 export abstract class RoomExteriorBase extends Room<HubState> implements RoomConectable {
   maxClients = 40;
   protected inputs = new Map<string, Direccion>();
+  // Persecución automática de caza (docs/GDD_Caza.md §4ter): sesiones que
+  // pulsaron "Cazar" y desde entonces NO han tocado ninguna tecla de
+  // movimiento — mientras estén aquí, `actualizarMovimiento` las mueve solo
+  // hacia su presa (`presaCazadaPor`). Vive y muere con la sesión, igual
+  // que `inputs`; se limpia sola en cuanto la caza termina (atrapada,
+  // perdida, animal muerto por otro) o el jugador manda un `input` real.
+  protected cazasAutomaticas = new Map<string, EstadoPersecucion>();
   // Resistencia por movimiento (docs/GDD_Personaje.md §3.4): tiempo REAL
   // acumulado corriendo/andando desde el último umbral cruzado — vive y
   // muere con la sesión, igual que `inputs` (nunca se persiste, solo se
@@ -1163,6 +1171,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // cubre null/undefined, no NaN/Infinity/strings — de ahí el check aparte.
       const xValido = Number.isFinite(dir?.x) ? dir!.x : 0;
       const yValido = Number.isFinite(dir?.y) ? dir!.y : 0;
+      // Cualquier movimiento manual real cancela la persecución automática
+      // de caza (docs/GDD_Caza.md §4ter, "el control manual manda siempre")
+      // — soltar teclas (0,0) NO cuenta, mismo criterio que dormir/sentarse.
+      if (xValido !== 0 || yValido !== 0) this.cazasAutomaticas.delete(client.sessionId);
       // Movimiento libre BLOQUEADO en combate activo (pedido streamer: "el
       // movimiento cambia al del mundo en general [solo] en combate... fuera
       // de combate no") — solo dentro del grid táctico real, nunca en la
@@ -1945,6 +1957,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
+    this.cazasAutomaticas.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);
     this.extrasInventario.delete(client.sessionId);
     this.ultimoMensajeNpc.delete(client.sessionId);
@@ -11754,6 +11767,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
+   * Presa que `sessionId` está cazando ahora mismo (posición en vivo), o
+   * `null` si no caza nada / la caza ya terminó — la consulta
+   * `actualizarMovimiento` a 30hz para la persecución automática (docs/
+   * GDD_Caza.md §4ter). Por defecto `null` (sin fauna salvaje viva no hay
+   * nada que perseguir); HubRoom lo sobreescribe delegando en
+   * `GestorFaunaSalvaje.presaCazadaPor`. Mismo patrón hook que
+   * `intentarIniciarCaza` justo arriba.
+   */
+  protected presaCazadaPor(_sessionId: string): { x: number; y: number } | null {
+    return null;
+  }
+
+  /**
    * Repone fauna extinguida localmente — herramienta MANUAL del jarl (docs/
    * GDD_Agentes_Moviles.md "Extinción local de fauna reproductora", pedido
    * streamer 2026-09-08: "el streamer decide... desaparece, la compra a un
@@ -11814,6 +11840,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const especieObjetivoCaza = this.state.fauna.get(msg.objetivoId)?.especieId;
     if (especieObjetivoCaza !== undefined && !this.faunaEsPeligrosa(especieObjetivoCaza)) {
       if (this.intentarIniciarCaza(msg.objetivoId, atacanteId)) {
+        // Desde aquí el servidor mueve al cazador solo hacia la presa
+        // (docs/GDD_Caza.md §4ter, `actualizarMovimiento`) hasta que la
+        // atrape, la pierda, o toque una tecla de movimiento.
+        this.cazasAutomaticas.set(atacanteId, nuevoEstadoPersecucion(atacante.x, atacante.y));
         client.send("caza:iniciada", { objetivoId: msg.objetivoId });
       } else {
         client.send("combate:error", { motivo: "no se puede cazar ahora mismo" });
@@ -13018,9 +13048,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // igual que la temperatura — nunca por jugador. Frena en tierra y
     // congela el agua en hielo (ver más abajo).
     const nivelNieveActual = nivelNieve(tiempoMundo().dia);
-    this.inputs.forEach((dir, sessionId) => {
+    this.inputs.forEach((dirManual, sessionId) => {
       const player = this.state.players.get(sessionId);
       if (!player) return;
+      // Persecución automática de caza (docs/GDD_Caza.md §4ter): sin input
+      // manual, el rumbo lo decide el servidor hacia la presa en vivo, con
+      // esquiva simple si se atasca — nunca `correr` (andar ya gana a
+      // cualquier especie cazable, y el sprint gasta estamina real). Se
+      // apaga sola en cuanto la caza deja de existir (atrapada/perdida).
+      let dir: Direccion = dirManual;
+      const persecucion = this.cazasAutomaticas.get(sessionId);
+      if (persecucion) {
+        const presa = this.presaCazadaPor(sessionId);
+        if (!presa) this.cazasAutomaticas.delete(sessionId);
+        else if (dirManual.x === 0 && dirManual.y === 0) dir = { ...direccionPersecucion(persecucion, player, presa, VEL_ANDAR * dt), correr: false };
+      }
       // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): un pasajero (no
       // capitán) no se mueve con su propio input — su posición la fija el
       // barco entero en la pasada de sincronización, más abajo.

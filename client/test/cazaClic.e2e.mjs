@@ -44,19 +44,29 @@ try {
   const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
   const errores = [];
   page.on("pageerror", (e) => errores.push(String(e?.stack || e).split("\n").slice(0, 2).join(" | ")));
+  // El cliente loguea el MOTIVO de cada cancelación de la persecución automática — si falla, aquí se ve cuál fue.
+  page.on("console", (m) => { if (/\[caza\]/.test(m.text())) console.log("   [pag]", m.text()); });
   await page.goto(`http://localhost:${WEB}/?nombre=${NOMBRE}`, { waitUntil: "commit", timeout: 120000 });
   await page.waitForFunction(() => window.__colonyDebug && window.__test && window.__streaming && window.__streaming().materializados >= 1, null, { timeout: 150000 });
 
-  // Zona junto al río con fauna variada (misma que el playtest multijugador).
-  await page.evaluate(() => window.__test.enviar("admin:debug:teleport", { x: 1310.5, y: 2040.5 }));
-  await page.waitForFunction(() => Math.abs(window.__colonyDebug.x - 1310.5) < 1.5, null, { timeout: 30000 });
+  // Zona junto al río con fauna variada (la del playtest multijugador, unas
+  // decenas de casillas al oeste): el bake tiene ahí corzo/liebres/conejo/
+  // codornices dentro del radio de interés (70 casillas) — presas TERRESTRES
+  // que huyen de verdad (radioHuida), así la persecución tiene que recorrer
+  // camino; un ave como el águila pescadora viene sola hacia el jugador y
+  // deja ambigua la comprobación de "se movió de verdad".
+  await page.evaluate(() => window.__test.enviar("admin:debug:teleport", { x: 1275.5, y: 2015.5 }));
+  await page.waitForFunction(() => Math.abs(window.__colonyDebug.x - 1275.5) < 3, null, { timeout: 30000 });
   await page.waitForFunction(() => window.__fauna().length > 0, null, { timeout: 30000 }).catch(() => {});
   const fauna = await page.evaluate(() => window.__fauna());
   comprobar("hay fauna viva replicada cerca", fauna.length > 0, `${fauna.length}`);
   const DIMINUTA = /raton|ardilla|avispa|avispon|abeja|mariposa|libelula|escarabajo|hormiga|grillo|saltamontes|mosquito|lombriz|caracol|rana|sapo|lagart|carpa|trucha|pez|bacalao|sardina|salmon|anguila|lucio|barbo|cangrejo|medusa|pulpo|calamar|almeja|mejillon|ostra|erizo|estrella|anemona|pepino|tiburon|orca|ballena|delfin|foca|morsa/;
   const PELIGROSA = /avispa|avispon|abeja|lobo|oso|jabal|serpiente|vibora|escorpion|tiburon|orca|cocodrilo|puma|lince/;
   const sinPeligroCerca = (f) => !fauna.some((g) => PELIGROSA.test(g.especieId) && Math.hypot(g.x - f.x, g.y - f.y) < 12);
-  const presa = fauna.find((f) => !DIMINUTA.test(f.especieId) && !PELIGROSA.test(f.especieId) && sinPeligroCerca(f)) || fauna.find((f) => !PELIGROSA.test(f.especieId));
+  const HUYE_A_PIE = /^(corz|liebre|conejo|codorniz|erizo|cierv|gamo)/;
+  const presa = fauna.find((f) => HUYE_A_PIE.test(f.especieId) && sinPeligroCerca(f))
+    || fauna.find((f) => !DIMINUTA.test(f.especieId) && !PELIGROSA.test(f.especieId) && sinPeligroCerca(f))
+    || fauna.find((f) => !PELIGROSA.test(f.especieId));
   if (!presa) throw new Error("sin presa no peligrosa cerca del río — cambia la zona del test");
   console.log(`   presa: ${presa.especieId} (${presa.id}) en (${presa.x.toFixed(1)},${presa.y.toFixed(1)})`);
 
@@ -86,13 +96,19 @@ try {
 
   if (menuOk) {
     await boton.click();
-    const arranque = await page.waitForFunction(() => window.__test.ultimoMensaje("caza:iniciada") || window.__test.ultimoMensaje("combate:error"), null, { timeout: 20000 })
-      .then(() => page.evaluate(() => ({ iniciada: window.__test.ultimoMensaje("caza:iniciada"), error: window.__test.ultimoMensaje("combate:error") })))
-      .catch(() => null);
+    // `__cazaAuto()` se lee DENTRO del mismo waitForFunction que detecta
+    // caza:iniciada (atómico en la página): con WebGL por software la página
+    // puede quedarse segundos sin atender CDP, y una presa que venga hacia el
+    // jugador (aves) puede quedar atrapada antes de una segunda ida y vuelta
+    // — leerlo aparte daba un falso "null" con la caza ya terminada.
+    const arranque = await page.waitForFunction(() => {
+      const iniciada = window.__test.ultimoMensaje("caza:iniciada"), error = window.__test.ultimoMensaje("combate:error");
+      if (!iniciada && !error) return null;
+      return { iniciada, error, auto: window.__cazaAuto(), atrapado: !!window.__test.ultimoMensaje("caza:atrapado") };
+    }, null, { timeout: 20000 }).then((h) => h.jsonValue()).catch(() => null);
     comprobar("'Cazar' arranca la caza (caza:iniciada)", !!arranque?.iniciada, JSON.stringify(arranque));
     if (arranque?.iniciada) {
-      const auto = await page.evaluate(() => window.__cazaAuto());
-      comprobar("la persecución automática queda activa en el cliente", auto === presa.id, String(auto));
+      comprobar("la persecución automática queda activa en el cliente", arranque.auto === presa.id || arranque.atrapado, `${arranque.auto}${arranque.atrapado ? ", ya atrapada" : ""}`);
       const t0 = Date.now();
       const pos0 = await page.evaluate(() => ({ x: window.__colonyDebug.x, y: window.__colonyDebug.y }));
       const atrapado = await page.waitForFunction(() => !!window.__test.ultimoMensaje("caza:atrapado"), null, { timeout: 90000 }).then(() => true).catch(() => false);

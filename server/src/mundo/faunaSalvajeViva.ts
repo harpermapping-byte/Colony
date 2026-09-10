@@ -12,6 +12,7 @@
  * reloj de mundo) se inyectan — nada de fs/BD directos aquí — para poder
  * testear con datos falsos sin tocar disco ni una base de datos real.
  */
+import { RADIO_PERDIDA_CAZA } from "./persecucionCaza";
 import { MapSchema } from "@colyseus/schema";
 import { Fauna } from "../rooms/schema/HubState";
 import { MundoColision, TIPO } from "./colisiones";
@@ -525,7 +526,12 @@ export class GestorFaunaSalvaje {
   tick(
     dt: number,
     jugadores: Map<string, { x: number; y: number }> = new Map(),
-  ): { atrapados: { faunaId: string; sessionId: string }[]; cacerias: { depredadorId: string; presaId: string }[] } {
+  ): {
+    atrapados: { faunaId: string; sessionId: string }[];
+    cacerias: { depredadorId: string; presaId: string }[];
+    /** Cazas canceladas ESTE tick porque el cazador quedó a más de `RADIO_PERDIDA_CAZA` de su presa (docs/GDD_Caza.md §4ter) — la room avisa al cazador (`caza:perdida`); el animal simplemente vuelve a su vida normal. */
+    perdidas: { faunaId: string; sessionId: string }[];
+  } {
     const ahora = this.deps.ahora();
     this.porEspecie.clear();
     for (const vivos of this.sectoresActivos.values()) {
@@ -537,6 +543,7 @@ export class GestorFaunaSalvaje {
     }
     const atrapados: { faunaId: string; sessionId: string }[] = [];
     const cacerias: { depredadorId: string; presaId: string }[] = [];
+    const perdidas: { faunaId: string; sessionId: string }[] = [];
     for (const vivos of this.sectoresActivos.values()) {
       for (const v of vivos) {
         const combate = this.deps.catalogoCombate?.[v.fila.especieId];
@@ -556,8 +563,19 @@ export class GestorFaunaSalvaje {
               atrapados.push({ faunaId: v.fila.id, sessionId: cazadorId });
               continue;
             }
-            this.huirDe(v, cazador, dt, combate);
-            continue;
+            // Presa perdida (docs/GDD_Caza.md §4ter): "sin límite de
+            // distancia" mientras el cazador la sigue, pero si se queda
+            // atrás de verdad (atascado, o dejó de seguirla) la caza se
+            // cancela ANTES de que la presa salga del radio de interés del
+            // cliente — nunca sigue huyendo eternamente de nadie.
+            if (dist > RADIO_PERDIDA_CAZA) {
+              this.cazasActivas.delete(v.fila.id);
+              perdidas.push({ faunaId: v.fila.id, sessionId: cazadorId });
+              // Sin `continue`: este mismo tick ya vuelve a su vida normal (vigía/huida de cerca/paseo).
+            } else {
+              this.huirDe(v, cazador, dt, combate);
+              continue;
+            }
           }
         }
 
@@ -659,7 +677,24 @@ export class GestorFaunaSalvaje {
         }
       }
     }
-    return { atrapados, cacerias };
+    return { atrapados, cacerias, perdidas };
+  }
+
+  /**
+   * Presa que `sessionId` está cazando ahora mismo (id + posición en vivo),
+   * o `null` si no caza nada — lo consulta `actualizarMovimiento` (30hz)
+   * para la persecución automática autoritativa (docs/GDD_Caza.md §4ter).
+   * `cazasActivas` tiene como mucho una entrada por jugador cazando, el
+   * barrido es trivial.
+   */
+  presaCazadaPor(sessionId: string): { faunaId: string; x: number; y: number } | null {
+    for (const [faunaId, cazador] of this.cazasActivas) {
+      if (cazador !== sessionId) continue;
+      const v = this.individuoActivoPorId(faunaId);
+      if (!v) return null;
+      return { faunaId, x: v.esquema.x, y: v.esquema.y };
+    }
+    return null;
   }
 
   /** Jugador vivo más cercano a una posición, o `null` si `jugadores` está vacío (mismo criterio simple que `verificarAgroFauna` del lado servidor: sin ponderar visibilidad/línea de visión, solo distancia recta). */
