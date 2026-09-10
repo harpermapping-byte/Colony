@@ -71,13 +71,17 @@ async function main() {
   process.on("exit", () => { matarTodo(); rmSync(BD_RUTA, { force: true }); });
 
   let browser;
+  // Izados fuera del try: el finally los necesita para guardar los logs
+  // aunque el e2e reviente a medias (bug real del propio test en la 2ª
+  // pasada: declarados dentro del try, el finally daba ReferenceError
+  // silencioso y el log de clientes nunca se escribía).
+  const jugadores = [];
+  const peticionesFallidas = [];
   try {
     await esperarPuerto(`http://localhost:${PUERTO_WS}/`);
     await esperarPuerto(`http://localhost:${PUERTO_WEB}/`);
     browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
 
-    const jugadores = [];
-    const peticionesFallidas = [];
     async function abrirJugador(nombre, extraUrl = "") {
       const context = await browser.newContext({ viewport: { width: 960, height: 600 } });
       const page = await context.newPage();
@@ -92,7 +96,10 @@ async function main() {
       page.on("framenavigated", (f) => { if (f === page.mainFrame()) navegaciones.push(f.url().replace(/^http:\/\/localhost:\d+/, "")); });
       if (process.env.PLAYTEST_DEBUG) page.on("console", (m) => console.log(`   [${nombre}:${m.type()}] ${m.text().slice(0, 200)}`));
       const j = { nombre, page, context, errores, navegaciones };
-      await page.goto(`http://localhost:${PUERTO_WEB}/?nombre=${nombre}${extraUrl}`);
+      // "commit" y no "load": con 3 páginas ya renderizando por software, el
+      // evento load de la 4ª (bundle + primeros .glb) superó los 30s por
+      // defecto en la 2ª pasada — esperarJuego() ya espera lo que importa.
+      await page.goto(`http://localhost:${PUERTO_WEB}/?nombre=${nombre}${extraUrl}`, { waitUntil: "commit", timeout: 120000 });
       await esperarJuego(j);
       jugadores.push(j);
       return j;
