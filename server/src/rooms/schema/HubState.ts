@@ -297,6 +297,21 @@ export class Player extends Schema {
   @type("number") conjuntoId = 0;
   /** Solo con conjuntoId>0: true = lleva las riendas (su input mueve el conjunto entero), false = pasajero (se mueve con él, solo en carros de categoría "personas"). */
   @type("boolean") conjuntoConductor = false;
+  // Personaje elegido en el creador (docs/GDD_Personaje.md, pedido streamer
+  // 2026-09-10: "Creador completo elegible por el jugador... adelante") —
+  // JSON de `{ficha, voxelesCabeza}` (mismo contrato que PersonajeExportado
+  // sin `ropa`, que en un jugador siempre es vacía: la ropa real cuelga de
+  // lo EQUIPADO, ver render3d/equipoVisual.ts). "" = cuenta sin personalizar
+  // (invitado sin cuenta, o cuenta que aún no completó el creador) — el
+  // cliente cae al rig placeholder de siempre (crearRigHumanoide con
+  // colorTunica). Se resuelve de forma NO bloqueante en `crearJugador`
+  // (mismo criterio "sin awaitear a propósito" que las mascotas más abajo):
+  // el jugador entra YA, y este campo se rellena solo en cuanto la BD
+  // resuelve — game.ts lee su valor en el momento de `players.onAdd`, así
+  // que en la rarísima carrera de que la consulta no haya resuelto todavía
+  // ese jugador concreto se ve con el rig genérico hasta su próxima
+  // reconexión (gap conocido, documentado en GDD_Personaje.md).
+  @type("string") fichaPersonaje = "";
 }
 
 // Agente móvil publicado (NPC de asentamiento; mañana bárbaros/fauna con el

@@ -835,6 +835,12 @@ export interface IAlmacenDatos {
   /** Fija/reemplaza la contraseña de un jugador ya existente — usado tanto al reclamar un personaje legado como al cambiarla teniendo sesión. */
   establecerPasswordJugador(jugadorId: number, passwordHash: string): Promise<void>;
 
+  // --- Creador de personaje (docs/GDD_Personaje.md, pedido streamer 2026-09-10) ---
+  /** JSON de `{ficha, voxelesCabeza}` (mismo contrato que PersonajeExportado sin `ropa`, siempre vacía en un jugador real — la ropa real sale de lo equipado). `null` = cuenta sin personalizar todavía (legado, o registrada pero el creador no se completó). */
+  obtenerFichaPersonaje(jugadorId: number): Promise<string | null>;
+  /** Guarda/reemplaza la ficha completa — se llama una vez al confirmar el creador, nunca por tick. */
+  guardarFichaPersonaje(jugadorId: number, fichaJson: string): Promise<void>;
+
   // --- Cuentas de admin (docs/GDD_Admin.md, pedido 2026-08-30) ---
   crearCuentaAdmin(datos: { usuario: string; passwordHash: string | null; twitchLogin: string | null; rol: RolAdmin; mapaId: string | null }): Promise<CuentaAdmin>;
   obtenerCuentaAdminPorUsuario(usuario: string): Promise<CuentaAdmin | null>;
@@ -1896,6 +1902,8 @@ ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS pos_y DOUBLE PRECISION;
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS pos_mapa TEXT;
 -- Cuentas de jugador reales (pedido streamer 2026-09-09) — ver comentario gemelo en MIGRACIONES_SQLITE.
 ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS password_hash TEXT;
+-- Creador de personaje (pedido streamer 2026-09-10) — ver comentario gemelo en MIGRACIONES_SQLITE.
+ALTER TABLE jugadores ADD COLUMN IF NOT EXISTS ficha_personaje TEXT;
 -- NPCs tutoriales fijos (docs/GDD_Profesiones.md ronda 3) — ver comentario gemelo en MIGRACIONES_SQLITE.
 CREATE TABLE IF NOT EXISTS npcs_tutoriales (
   id SERIAL PRIMARY KEY,
@@ -2746,6 +2754,11 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
     if (!nombresJugadores.has("password_hash")) {
       this.bd.exec("ALTER TABLE jugadores ADD COLUMN password_hash TEXT");
     }
+    // Creador de personaje (pedido streamer 2026-09-10): NULL = cuenta sin
+    // personalizar todavía — ver comentario gemelo en MIGRACIONES_POSTGRES.
+    if (!nombresJugadores.has("ficha_personaje")) {
+      this.bd.exec("ALTER TABLE jugadores ADD COLUMN ficha_personaje TEXT");
+    }
     // Mismo patrón para las 4 columnas de tenencia comercial de `propiedades`
     // (docs/GDD_Propiedades.md) — un datos.sqlite de dev creado antes de este
     // cambio no las tendría; CREATE TABLE IF NOT EXISTS no amplía una tabla ya existente.
@@ -2897,6 +2910,15 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
 
   async establecerPasswordJugador(jugadorId: number, passwordHash: string): Promise<void> {
     this.bd.prepare("UPDATE jugadores SET password_hash = ? WHERE id = ?").run(passwordHash, jugadorId);
+  }
+
+  async obtenerFichaPersonaje(jugadorId: number): Promise<string | null> {
+    const fila = this.bd.prepare("SELECT ficha_personaje FROM jugadores WHERE id = ?").get(jugadorId);
+    return fila && fila.ficha_personaje != null ? String(fila.ficha_personaje) : null;
+  }
+
+  async guardarFichaPersonaje(jugadorId: number, fichaJson: string): Promise<void> {
+    this.bd.prepare("UPDATE jugadores SET ficha_personaje = ? WHERE id = ?").run(fichaJson, jugadorId);
   }
 
   /**
@@ -4767,6 +4789,15 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
 
   async establecerPasswordJugador(jugadorId: number, passwordHash: string): Promise<void> {
     await this.pool.query("UPDATE jugadores SET password_hash = $1 WHERE id = $2", [passwordHash, jugadorId]);
+  }
+
+  async obtenerFichaPersonaje(jugadorId: number): Promise<string | null> {
+    const r = await this.pool.query<{ ficha_personaje: string | null }>("SELECT ficha_personaje FROM jugadores WHERE id = $1", [jugadorId]);
+    return r.rows.length > 0 ? r.rows[0].ficha_personaje : null;
+  }
+
+  async guardarFichaPersonaje(jugadorId: number, fichaJson: string): Promise<void> {
+    await this.pool.query("UPDATE jugadores SET ficha_personaje = $1 WHERE id = $2", [fichaJson, jugadorId]);
   }
 
   /** Postgres: ver `AlmacenDatosSqlite.guardarPosicionJugador` para el porqué. */

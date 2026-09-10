@@ -83,6 +83,8 @@ type Modo = "login" | "registro";
 interface RespuestaAuthJugador {
   token?: string;
   nombre?: string;
+  /** `null`/ausente = la cuenta todavía no pasó por el creador de personaje (docs/GDD_Personaje.md, pedido streamer 2026-09-10) — se muestra antes de entrar al mundo. */
+  personaje?: unknown;
   error?: string;
 }
 interface RespuestaAuthAdmin {
@@ -297,6 +299,20 @@ export function mostrarPantallaBienvenida(contenedor: HTMLElement, alContinuar: 
 
       localStorage.setItem("playerSession", respuesta.token);
       localStorage.setItem("playerNombre", respuesta.nombre ?? nombre);
+
+      // Creador de personaje (docs/GDD_Personaje.md, pedido streamer
+      // 2026-09-10: "Creador completo elegible por el jugador... justo
+      // después del login") — `personaje` ausente/null significa que esta
+      // cuenta (nueva, o legado recién reclamada) nunca lo completó todavía.
+      // Import perezoso: la pantalla de bienvenida se monta SIEMPRE al
+      // arrancar, pero el creador (Three.js propio) solo hace falta la
+      // primera vez de cada cuenta.
+      if (!respuesta.personaje) {
+        fondo.remove();
+        const { mostrarCreadorPersonaje } = await import("../personaje/creadorPersonaje");
+        mostrarCreadorPersonaje(contenedor, respuesta.token, alContinuar);
+        return;
+      }
 
       mostrarCargando();
       await alContinuar();

@@ -78,6 +78,33 @@ const COLOR_JUGADOR_REMOTO = "#4fd1c5";
 // ni el remoto, para no confundir un cadáver con alguien vivo.
 const COLOR_CADAVER_SIN_EQUIPO = "#6b5744";
 
+/**
+ * Rig de un `Player` real (docs/GDD_Personaje.md, pedido streamer
+ * 2026-09-10: creador de personaje) — `player.fichaPersonaje` es "" para
+ * cualquier invitado sin cuenta o cuenta que aún no completó el creador
+ * (cae al rig placeholder de siempre); con ficha guardada, se dibuja con
+ * pelo/barba/colores/morfología reales vía el mismo `crearPersonajeVoxel`
+ * que ya usan NPCs/compañeros. Gap conocido y documentado (GDD_Personaje.md
+ * §5): esto solo lee el valor que YA tenga el campo replicado en el
+ * instante de `players.onAdd`, sin escuchar cambios posteriores — el
+ * servidor lo resuelve de forma no bloqueante (RoomExteriorBase.crearJugador)
+ * así que en la práctica casi siempre llega a tiempo (una consulta a la BD
+ * local es más rápida que el primer patch de red), pero en la rarísima
+ * carrera en que no lo esté todavía, ese jugador se ve con el rig genérico
+ * hasta su próxima reconexión — nunca rompe nada, solo un aspecto peor.
+ */
+function crearRigDeJugador(player: { fichaPersonaje?: string }, esYo: boolean): RigHumanoide {
+  if (player.fichaPersonaje) {
+    try {
+      const datos = JSON.parse(player.fichaPersonaje) as { ficha: PersonajeExportado["ficha"]; voxelesCabeza: PersonajeExportado["voxelesCabeza"] };
+      return crearPersonajeVoxel({ ficha: datos.ficha, voxelesCabeza: datos.voxelesCabeza, ropa: [] });
+    } catch (err) {
+      console.error("[personaje] ficha guardada corrupta, usando rig genérico:", err);
+    }
+  }
+  return crearRigHumanoide({ colorTunica: esYo ? COLOR_JUGADOR_LOCAL : COLOR_JUGADOR_REMOTO });
+}
+
 // Sistema de puertas (docs/GDD_Sistema_Puertas.md): qué sala Colyseus tocar
 // y qué mapa cargar viene de la URL — un cambio de sala/instancia es una
 // RECARGA de página con otros parámetros (más simple y robusto que
@@ -1704,7 +1731,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   $(room.state).players.onAdd((player: any, sessionId: string) => {
     const esYo = sessionId === room.sessionId;
-    const rig = crearRigHumanoide({ colorTunica: esYo ? COLOR_JUGADOR_LOCAL : COLOR_JUGADOR_REMOTO });
+    const rig = crearRigDeJugador(player, esYo);
     // yaw primero y luego la inclinación de nado, en el eje que mira el PJ
     rig.objeto.rotation.order = "YXZ";
     const estado: EstadoJugador = {

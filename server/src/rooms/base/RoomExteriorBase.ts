@@ -1817,6 +1817,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.state.players.set(client.sessionId, player);
     this.inputs.set(client.sessionId, { x: 0, y: 0 });
 
+    // Personaje del creador (docs/GDD_Personaje.md, pedido streamer
+    // 2026-09-10) — mismo criterio "sin awaitear a propósito" que las
+    // mascotas más abajo: solo cuentas de jugador REALES tienen ficha
+    // guardada (un invitado sin login nunca pasó por el creador), así que
+    // esto no hace nada si `identidadJugador` es null.
+    if (identidadJugador) {
+      obtenerBdCompartida()
+        .then((bd) => bd.obtenerFichaPersonaje(identidadJugador.jugadorId))
+        .then((fichaJson) => {
+          if (fichaJson) player.fichaPersonaje = fichaJson;
+        })
+        .catch((err) => console.error("[personaje] no se pudo cargar la ficha de", identidadJugador.nombre, err));
+    }
+
     // Login con Twitch (docs/GDD_Twitch.md §7, pedido 2026-08-30): resuelve
     // el token que el cliente trae desde el redirect de OAuth (lo reusa en
     // CADA join — cruzar un portal es una conexión Colyseus nueva) — si es

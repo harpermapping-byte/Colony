@@ -4,8 +4,9 @@
  * sobre el mismo `http.Server` que ya sirve el health check y el WebSocket
  * de Colyseus, sin Express, JSON in/JSON out, sin redirecciones.
  *
- * POST /auth/jugador/registro { nombre, password } -> { token, nombre }
- * POST /auth/jugador/login    { nombre, password } -> { token, nombre }
+ * POST /auth/jugador/registro  { nombre, password } -> { token, nombre, personaje }
+ * POST /auth/jugador/login     { nombre, password } -> { token, nombre, personaje }
+ * POST /auth/jugador/personaje { token, eleccion }  -> { personaje }
  *
  * "registro" cubre DOS casos con el mismo endpoint (menos superficie que
  * separar "crear"/"reclamar"): el nombre no existía todavía → nace un
@@ -15,6 +16,14 @@
  * fijándole la contraseña. Si ya existía CON contraseña, error: ese nombre
  * ya es una cuenta de otra persona.
  *
+ * `personaje` en la respuesta de registro/login (docs/GDD_Personaje.md,
+ * pedido streamer 2026-09-10: creador de personaje) es `null` si la cuenta
+ * todavía no pasó por el creador — el cliente (pantallaBienvenida.ts) lo usa
+ * para decidir si mostrarlo antes de entrar al mundo. `/personaje` es la
+ * confirmación de ESE creador: valida la elección contra el catálogo real
+ * (generarFichaJugador.ts) y la persiste, sin volver a pedir usuario/clave
+ * (usa el `token` de la sesión ya abierta).
+ *
  * Sin sesión ninguna (`playerSession` ausente en el join), el flujo de
  * siempre sigue intacto — nombre libre por `?nombre=` en la URL, usado hoy
  * por toda la suite de tests e2e y por cualquier invitado que no se loguee.
@@ -22,7 +31,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { obtenerBdCompartida } from "../datos/bdCompartida";
 import { hashPassword, verificarPassword } from "../admin/passwordHash";
-import { crearSesionJugador } from "./jugadorAuth";
+import { crearSesionJugador, resolverSesionJugador } from "./jugadorAuth";
+import { generarFichaJugador, type EleccionPersonajeJugador } from "../personaje/generadorFichaJugador";
 
 const LONGITUD_MAXIMA_CUERPO = 64 * 1024;
 const LONGITUD_MINIMA_PASSWORD = 6;
@@ -90,6 +100,21 @@ function validarNombreYPassword(nombre: string | undefined, password: string | u
   return null;
 }
 
+/**
+ * `jugadores.ficha_personaje` guarda `JSON.stringify({ficha, voxelesCabeza})`
+ * — lo devolvemos ya parseado en las respuestas HTTP para que el cliente no
+ * tenga que hacer un segundo `JSON.parse` por su cuenta. `null` = cuenta sin
+ * personalizar todavía (el cliente debe mostrar el creador de personaje).
+ */
+function personajeDesdeJson(fichaJson: string | null): unknown {
+  if (!fichaJson) return null;
+  try {
+    return JSON.parse(fichaJson);
+  } catch {
+    return null; // fila corrupta a medias — mismo criterio que "sin personalizar", nunca revienta el login
+  }
+}
+
 /** `true` si esta petición era de /auth/jugador/* y ya se respondió (o se está respondiendo async) — el llamante debe parar ahí. */
 export function manejarPeticionAuthJugador(req: IncomingMessage, res: ServerResponse): boolean {
   const url = new URL(req.url ?? "/", "http://localhost");
@@ -120,7 +145,8 @@ export function manejarPeticionAuthJugador(req: IncomingMessage, res: ServerResp
         const jugador = await bd.obtenerOCrearJugador(nombre!);
         await bd.establecerPasswordJugador(jugador.id, hashPassword(password!));
         const token = crearSesionJugador({ jugadorId: jugador.id, nombre: jugador.nombre });
-        responderJson(res, 200, { token, nombre: jugador.nombre });
+        const personaje = personajeDesdeJson(await bd.obtenerFichaPersonaje(jugador.id));
+        responderJson(res, 200, { token, nombre: jugador.nombre, personaje });
       } catch (err) {
         // Red de seguridad: cualquier fallo inesperado aquí NUNCA debe tirar
         // el proceso entero (ver comoTexto arriba) — responde 500 y sigue.
@@ -152,9 +178,50 @@ export function manejarPeticionAuthJugador(req: IncomingMessage, res: ServerResp
           return responderJson(res, 401, { error: "nombre o contraseña incorrectos" });
         }
         const token = crearSesionJugador({ jugadorId: credenciales.id, nombre });
-        responderJson(res, 200, { token, nombre });
+        const personaje = personajeDesdeJson(await bd.obtenerFichaPersonaje(credenciales.id));
+        responderJson(res, 200, { token, nombre, personaje });
       } catch (err) {
         console.error("[auth/jugador] error en /login:", err);
+        responderJson(res, 500, { error: "error interno" });
+      }
+    });
+    return true;
+  }
+
+  // Creador de personaje (docs/GDD_Personaje.md, pedido streamer 2026-09-10)
+  // — se llama UNA vez al confirmar el creador (justo tras registro/login,
+  // desde `client/src/personaje/creadorPersonaje.ts`). Requiere sesión de
+  // jugador real: sin `token` válido no hay `jugadorId` al que guardarle
+  // nada. La validación de verdad (ids reales de rasgos.json, rangos de
+  // morfología) vive en `generarFichaJugador` — aquí solo se resuelve la
+  // identidad y se persiste el resultado, nunca se confía en la forma de
+  // `eleccion` tal cual llega (mismo criterio que el resto de este archivo).
+  if (url.pathname === "/auth/jugador/personaje" && req.method === "POST") {
+    leerCuerpoJson<{ token?: unknown; eleccion?: unknown }>(req).then(async (cuerpo) => {
+      try {
+        const token = comoTexto(cuerpo?.token);
+        const identidad = token ? resolverSesionJugador(token) : null;
+        if (!identidad) return responderJson(res, 401, { error: "sesión inválida — vuelve a iniciar sesión" });
+
+        const bruta = cuerpo?.eleccion && typeof cuerpo.eleccion === "object" ? (cuerpo.eleccion as Record<string, unknown>) : {};
+        const eleccion: EleccionPersonajeJugador = {
+          sexo: comoTexto(bruta.sexo),
+          peloEstilo: comoTexto(bruta.peloEstilo),
+          barbaEstilo: comoTexto(bruta.barbaEstilo),
+          peloColorId: comoTexto(bruta.peloColorId),
+          pielColorId: comoTexto(bruta.pielColorId),
+          ojosColorId: comoTexto(bruta.ojosColorId),
+          altura: typeof bruta.altura === "number" ? bruta.altura : undefined,
+          corpulencia: typeof bruta.corpulencia === "number" ? bruta.corpulencia : undefined,
+        };
+        const resultado = generarFichaJugador(eleccion, identidad.nombre);
+        const personaje = { ficha: resultado.ficha, voxelesCabeza: resultado.voxelesCabeza };
+
+        const bd = await obtenerBdCompartida();
+        await bd.guardarFichaPersonaje(identidad.jugadorId, JSON.stringify(personaje));
+        responderJson(res, 200, { personaje });
+      } catch (err) {
+        console.error("[auth/jugador] error en /personaje:", err);
         responderJson(res, 500, { error: "error interno" });
       }
     });
