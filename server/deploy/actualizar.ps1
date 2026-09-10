@@ -1,4 +1,4 @@
-# Actualiza servidor Y CLIENTE a la ultima version de GitHub y reinicia el
+﻿# Actualiza servidor Y CLIENTE a la ultima version de GitHub y reinicia el
 # proceso.
 #
 # Desde 2026-09-09 el mismo proceso Node sirve tambien el cliente web

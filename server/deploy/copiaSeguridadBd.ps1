@@ -1,4 +1,4 @@
-# Copia de seguridad de la base de datos del juego (PostgreSQL local).
+﻿# Copia de seguridad de la base de datos del juego (PostgreSQL local).
 #
 # Pedido del streamer 2026-09-09 al decidir que la BD viva en su propio PC en
 # vez de en Neon: sin nube de por medio, las copias pasan a ser

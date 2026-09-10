@@ -1,4 +1,4 @@
-# Instalador completo del servidor de Colony en un PC Windows, desde cero.
+﻿# Instalador completo del servidor de Colony en un PC Windows, desde cero.
 # Se ejecuta desde instalar.bat (que pide permisos de administrador).
 #
 # Filosofia (importante si algun dia hay que tocarlo): NUNCA da un paso por

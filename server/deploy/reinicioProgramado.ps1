@@ -1,4 +1,4 @@
-# Reinicio de higiene cada N horas (por defecto 8), pedido del streamer
+﻿# Reinicio de higiene cada N horas (por defecto 8), pedido del streamer
 # 2026-09-09 ("que tenga reinicios cada 8 horas automaticos").
 #
 # NO reinicia a hora fija, sino "en el primer momento libre pasadas las N

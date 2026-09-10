@@ -1,4 +1,4 @@
-# Auto-deploy sin intervención manual, con DOS caminos distintos según qué
+﻿# Auto-deploy sin intervención manual, con DOS caminos distintos según qué
 # haya cambiado (desde 2026-09-09 el mismo proceso Node sirve también el
 # cliente web, ver server/src/estatico/servidorEstatico.ts):
 #
