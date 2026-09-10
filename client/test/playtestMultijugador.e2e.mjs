@@ -217,8 +217,10 @@ async function main() {
     // lobo/jabalí es combate de arena, no caza) — si no hay ninguna de la
     // lista, se prueba con la primera que haya y se acepta el rechazo del
     // servidor como respuesta válida.
-    const PRESAS_TIERRA = new Set(["raton_de_campo", "conejo", "liebre", "cierva", "ciervo", "corzo", "corza", "ardilla", "marmota", "perdiz", "codorniz", "liebre_de_bosque", "cervatillo", "corcino", "gacela"]);
-    const presa = fauna.find((f) => PRESAS_TIERRA.has(f.especieId)) || fauna[0];
+    // Orden de preferencia por TAMAÑO del rig: un ratón mide ~0.2 unidades y
+    // un clic a un píxel puede no tocar ninguna malla (pasada 7: "sin menú").
+    const PRESAS_TIERRA = ["cierva", "ciervo", "corzo", "corza", "gacela", "liebre", "liebre_de_bosque", "conejo", "marmota", "perdiz", "codorniz", "cervatillo", "corcino", "ardilla", "raton_de_campo", "ratona_de_campo"];
+    const presa = PRESAS_TIERRA.map((e) => fauna.find((f) => f.especieId === e)).find(Boolean) || fauna[0];
     if (presa) {
       console.log(`   presa: ${presa.especieId} (${presa.id}) en (${presa.x.toFixed(1)},${presa.y.toFixed(1)})`);
       // A 7 casillas: fuera de radioHuida (4) para que no salga corriendo antes del clic
@@ -226,10 +228,19 @@ async function main() {
       const viva = await t3.page.evaluate((id) => window.__fauna().find((f) => f.id === id) || null, presa.id);
       comprobar("la presa sigue replicada tras acercarse", !!viva, JSON.stringify(viva));
       if (viva) {
-        const px = await t3.page.evaluate(({ x, y }) => window.__proyectarMundo(x, y), { x: viva.x, y: viva.y });
-        await t3.page.mouse.click(px.x, px.y);
+        // Varias alturas del rig (la posición en vivo del animal se relee en
+        // cada intento: se mueve) hasta que el clic toque una malla y salga el menú.
         const boton = t3.page.getByRole("button", { name: /^Cazar / });
-        const menuOk = await boton.waitFor({ state: "visible", timeout: ESPERA_ESTADO_MS }).then(() => true).catch(() => false);
+        let menuOk = false;
+        for (const altura of [0.25, 0.5, 0.1, 0.8]) {
+          const ahora = await t3.page.evaluate((id) => window.__fauna().find((f) => f.id === id) || null, presa.id);
+          if (!ahora) break;
+          const px = await t3.page.evaluate(({ x, y, h }) => window.__proyectarMundo(x, y, h), { x: ahora.x, y: ahora.y, h: altura });
+          await t3.page.mouse.click(px.x, px.y);
+          menuOk = await boton.waitFor({ state: "visible", timeout: 8000 }).then(() => true).catch(() => false);
+          if (menuOk) break;
+          await t3.page.keyboard.press("Escape"); // por si el clic abrió otro menú ("Sentarse en el suelo")
+        }
         comprobar("clic sobre el animal abre el menú con 'Cazar'", menuOk, menuOk ? await boton.textContent() : "sin menú");
         if (menuOk) {
           await boton.click();
