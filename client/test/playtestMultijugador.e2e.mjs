@@ -33,7 +33,7 @@ const BD_RUTA = join(tmpdir(), "colony_playtest_multi_e2e.sqlite");
 const PUERTO_WS = 2613;
 const PUERTO_WEB = 5213;
 const NOMBRES = ["Tester1", "Tester2", "Tester3", "Tester4"];
-const ESPERA_ESTADO_MS = 20000;
+const ESPERA_ESTADO_MS = 45000; // 20s se quedaba corto para DECODIFICAR patches en una página saturada (pasada 6)
 
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 const logServidor = [];
@@ -96,7 +96,7 @@ async function main() {
       page.on("requestfailed", (req) => peticionesFallidas.push(`${nombre} ${req.failure()?.errorText} ${req.url().replace(/^http:\/\/localhost:\d+/, "")}`));
       page.on("framenavigated", (f) => { if (f === page.mainFrame()) navegaciones.push(f.url().replace(/^http:\/\/localhost:\d+/, "")); });
       if (process.env.PLAYTEST_DEBUG) page.on("console", (m) => console.log(`   [${nombre}:${m.type()}] ${m.text().slice(0, 200)}`));
-      const j = { nombre, page, context, errores, navegaciones };
+      const j = { nombre, page, context, errores, navegaciones, arranco: false };
       // "commit" y no "load": con 3 páginas ya renderizando por software, el
       // evento load de la 4ª (bundle + primeros .glb) superó los 30s por
       // defecto en la 2ª pasada — esperarJuego() ya espera lo que importa.
@@ -105,12 +105,13 @@ async function main() {
       // abortar la pasada entera: se registra (con sus errores de página) y
       // el resto de pasos sigue con los que sí arrancaron.
       const arranco = await esperarJuego(j).then(() => true).catch(() => false);
+      j.arranco = arranco;
       comprobar(`${nombre} arranca el juego (mundo materializado)`, arranco, errores.slice(0, 3).join(" || ") || "sin errores de página, solo timeout");
       jugadores.push(j);
       return j;
     }
     /** El cliente está dentro del mundo (tras carga inicial o tras navegar a otra sala). */
-    async function esperarJuego(j, timeout = 90000) {
+    async function esperarJuego(j, timeout = 150000) {
       await j.page.waitForFunction(() => window.__colonyDebug && window.__test && window.__streaming && window.__streaming().materializados >= 1, null, { timeout });
     }
     async function asentar(page, timeoutMs = 45000) {
@@ -152,10 +153,16 @@ async function main() {
     for (const n of NOMBRES) await abrirJugador(n);
     for (const j of jugadores) {
       const ok = await j.page.waitForFunction((n) => n.every((x) => window.__jugadores().some((p) => p.nombre === x)), NOMBRES, { timeout: ESPERA_ESTADO_MS }).then(() => true).catch(() => false);
-      const vistos = await j.page.evaluate(() => window.__jugadores().map((p) => p.nombre));
-      comprobar(`${j.nombre} ve a los 4 jugadores en el Hub`, ok, vistos.join(","));
+      // Con posición: un jugador ausente de la vista de otro puede ser interés por distancia (StateView) — pasada 6.
+      const vistos = await j.page.evaluate(() => window.__jugadores().map((p) => `${p.nombre}@${p.x.toFixed(0)},${p.y.toFixed(0)}`));
+      comprobar(`${j.nombre} ve a los 4 jugadores en el Hub`, ok, vistos.join(" "));
     }
-    const [t1, t2, t3, t4] = jugadores;
+    const [t1, t2, t3] = jugadores;
+    // En este sandbox la 4ª página de WebGL por software a veces no llega a
+    // materializar el mundo (pasada 6): si no arrancó, sus papeles (recibir
+    // el chat, el monkey de teclas) los hace Tester1 — la pasada sigue
+    // valiendo como playtest de 3 jugadores reales.
+    const t4 = jugadores[3].arranco ? jugadores[3] : t1;
 
     console.log("2) todos andan a la vez en direcciones distintas (WASD real)...");
     // Cada uno en su propio sitio ANTES de andar: 4 jugadores apilados en el
@@ -164,10 +171,12 @@ async function main() {
     // pasada: 0.21/0.57 casillas "andadas" por el empuje ajeno). Campo
     // abierto al sur de la capital, lejos de la muralla del spawn.
     const sitios = [[1496.5, 2106.5], [1502.5, 2106.5], [1496.5, 2112.5], [1502.5, 2112.5]];
-    await Promise.all(jugadores.map((j, i) => teleport(j, sitios[i][0], sitios[i][1])));
-    const antes = await Promise.all(jugadores.map((j) => pos(j.page)));
-    const recorridos = await Promise.all([andarHasta(t1, "w", 1), andarHasta(t2, "s", 1), andarHasta(t3, "a", 1), andarHasta(t4, "d", 1)]);
-    jugadores.forEach((j, i) => comprobar(`${j.nombre} se ha movido andando`, recorridos[i] >= 1, `${recorridos[i].toFixed(2)} casillas`));
+    const activos = jugadores.filter((j) => j.arranco);
+    await Promise.all(activos.map((j) => teleport(j, ...sitios[jugadores.indexOf(j)]).catch((e) => comprobar(`teleport de ${j.nombre} al sitio de andar`, false, String(e).slice(0, 100)))));
+    const antes = await Promise.all(jugadores.map((j) => (j.arranco ? pos(j.page) : { x: NaN, y: NaN })));
+    const teclasAndar = ["w", "s", "a", "d"];
+    const recorridos = await Promise.all(jugadores.map((j, i) => (j.arranco ? andarHasta(j, teclasAndar[i], 1) : Promise.resolve(NaN))));
+    jugadores.forEach((j, i) => { if (j.arranco) comprobar(`${j.nombre} se ha movido andando`, recorridos[i] >= 1, `${recorridos[i].toFixed(2)} casillas`); });
     const p2 = await pos(t2.page);
     const veT2 = await t1.page.waitForFunction((y) => { const p = window.__jugadores().find((q) => q.nombre === "Tester2"); return p && Math.abs(p.y - y) < 1.5; }, p2.y, { timeout: ESPERA_ESTADO_MS }).then(() => true).catch(() => false);
     comprobar("Tester1 ve la posición actualizada de Tester2 (replicación)", veT2, `Tester2 y=${p2.y.toFixed(1)} vs antes ${antes[1].y.toFixed(1)}`);
@@ -294,8 +303,8 @@ async function main() {
     await t1.page.screenshot({ path: join(CARPETA_CAPTURAS, "playtest_multi_reunion.png") });
 
     console.log("10) Tester3 y Tester4 se van (cierran) — los que quedan siguen viendo el estado correcto...");
-    await t3.context.close();
-    await t4.context.close();
+    await jugadores[2].context.close();
+    await jugadores[3].context.close();
     const quedan = await t1.page.waitForFunction(() => window.__jugadores().length === 2, null, { timeout: ESPERA_ESTADO_MS }).then(() => true).catch(() => false);
     const vistosT1 = await t1.page.evaluate(() => window.__jugadores().map((p) => p.nombre));
     comprobar("tras irse T3/T4, Tester1 solo ve a Tester1 y Tester2", quedan && vistosT1.includes("Tester2"), vistosT1.join(","));

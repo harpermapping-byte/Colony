@@ -678,7 +678,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // bancales/mesas de injerto: los vitales decaen en horas reales, no en ticks.
   const hudVitales = new HudVitales(contenedor, retrato.canvas);
   setInterval(() => {
-    const yo = room.state.players.get(room.sessionId) as any;
+    // `players` es una colección @view() (interest-management): hasta que
+    // llega el primer patch filtrado para ESTE cliente ni siquiera existe en
+    // room.state — sin el `?.`, el primer tick de este intervalo lanzaba un
+    // TypeError real (stack confirmado en el playtest multijugador 2026-09-10
+    // con páginas lentas; inocuo para el juego, pero un error de consola en
+    // cada arranque con red/CPU justas).
+    const yo = room.state.players?.get(room.sessionId) as any;
     if (!yo) return;
     hudVitales.actualizar({ vida: yo.vida, vidaMax: yo.vidaMax, estamina: yo.vitales.estamina, comida: yo.vitales.comida, bebida: yo.vitales.bebida, caca: yo.vitales.caca });
   }, 500);
@@ -3395,8 +3401,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // nuevo cada frame por un cambio de rumbo minúsculo — se sigue
     // respetando "input solo al cambiar dirección".
     if (cazaAutomaticaId && !x && !y && SALA !== "arena") {
-      const presa = room.state.fauna.get(cazaAutomaticaId) as any;
-      const yo = room.state.players.get(room.sessionId) as any;
+      const presa = room.state.fauna?.get(cazaAutomaticaId) as any;
+      const yo = room.state.players?.get(room.sessionId) as any;
       if (!presa || !yo) {
         cazaAutomaticaId = null;
       } else {
