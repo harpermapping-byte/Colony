@@ -38,6 +38,37 @@ const LONGITUD_MAXIMA_CUERPO = 64 * 1024;
 const LONGITUD_MINIMA_PASSWORD = 6;
 const LONGITUD_MAXIMA_NOMBRE = 20; // RoomExteriorBase.crearJugador trunca player.name a 20 — evita la sorpresa de "mi nombre no es el que registré"
 
+// Ropa de arranque (docs/GDD_Personaje.md §7, pedido streamer 2026-09-10:
+// "que al crear el Personaje se le ponga ropa harapienta") — items/catalogo/
+// items.json::camisa_harapienta/pantalon_harapiento, NUNCA craftables a
+// propósito (sin receta en recetas.json). durabilidadMax de ambos = 20.
+const ROPA_INICIAL: Record<string, { itemId: string; durabilidadMax: number }> = {
+  pechera: { itemId: "camisa_harapienta", durabilidadMax: 20 },
+  piernas: { itemId: "pantalon_harapiento", durabilidadMax: 20 },
+};
+
+/**
+ * Viste al jugador con la ropa de arranque, pero SOLO en los slots que
+ * tenga vacíos — nunca pisa equipo real. Esto es lo que hace seguro llamarla
+ * también para un personaje "legado" (nombre que ya jugaba antes de que
+ * existieran las cuentas, reclamado ahora con contraseña): si ya tenía algo
+ * puesto en pechera/piernas de antes, se queda tal cual; solo un jugador
+ * genuinamente NUEVO (ambos slots vacíos) sale vestido con harapos. Sin esta
+ * comprobación, `guardarEquipo` (reemplazo completo) habría podido borrar el
+ * equipo real de un legado por accidente.
+ */
+async function equiparRopaInicialSiHaceFalta(bd: Awaited<ReturnType<typeof obtenerBdCompartida>>, jugadorId: number): Promise<void> {
+  const { equipo, durabilidad } = await bd.cargarEquipo(jugadorId);
+  let cambiado = false;
+  for (const [slot, { itemId, durabilidadMax }] of Object.entries(ROPA_INICIAL)) {
+    if (equipo[slot]) continue;
+    equipo[slot] = itemId;
+    durabilidad[slot] = durabilidadMax;
+    cambiado = true;
+  }
+  if (cambiado) await bd.guardarEquipo(jugadorId, equipo, durabilidad);
+}
+
 const CLIENT_URL = process.env.CLIENT_URL ?? "http://localhost:5173";
 
 function conCors(res: ServerResponse) {
@@ -219,6 +250,7 @@ export function manejarPeticionAuthJugador(req: IncomingMessage, res: ServerResp
 
         const bd = await obtenerBdCompartida();
         await bd.guardarFichaPersonaje(identidad.jugadorId, JSON.stringify(personaje));
+        await equiparRopaInicialSiHaceFalta(bd, identidad.jugadorId);
         responderJson(res, 200, { personaje });
       } catch (err) {
         console.error("[auth/jugador] error en /personaje:", err);
