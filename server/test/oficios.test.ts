@@ -9,7 +9,8 @@ import {
   FRASES_VENDEDOR_SUCIO, FRASES_NPC_SUCIO, precioCambioOficio, PRECIO_BASE_CAMBIO_OFICIO,
   probabilidadRoturaArmaPorNivelHerrero, PROB_ROTURA_ARMA_NIVEL_1, PROB_ROTURA_ARMA_NIVEL_10,
 } from "../src/personaje/oficios";
-import { cargarCatalogoNpcsTutoriales, cargarLoreTexto } from "../src/mundo/npcsFijos";
+import { cargarCatalogoNpcsTutoriales, cargarLoreTexto, npcTutorialAAgente } from "../src/mundo/npcsFijos";
+import type { NpcTutorialColocado } from "../src/datos/bd";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -107,6 +108,22 @@ test("catálogo de NPCs lore (pedido 2026-08-31): al menos 4-5 narradores, categ
   const lore = [...catalogo.values()].filter((n) => n.categoria === "lore");
   assert.ok(lore.length >= 4, `solo ${lore.length} NPC de lore, se pidieron 4-5`);
   for (const n of lore) assert.ok(n.titulo && n.titulo.trim().length > 0, `${n.id}: NPC de lore sin título de sabor`);
+});
+
+test("npcTutorialAAgente: el 'Maestro de Oficios' (tutorial_oficios) recibe el marcador real maestro_oficios, el resto sigue con npc_tutorial (bug real cerrado 2026-09-10)", () => {
+  const catalogo = cargarCatalogoNpcsTutoriales();
+  const filaBase: Omit<NpcTutorialColocado, "tipoTutorial"> = {
+    id: 1, mapaId: "principal", nombre: "Adolfo Suárez González", x: 10, y: 20, colocadoPor: "jarl", colocadoEn: "2026-09-10",
+  };
+  const maestro = npcTutorialAAgente({ ...filaBase, tipoTutorial: "tutorial_oficios" }, catalogo);
+  assert.ok(maestro, "tutorial_oficios debería existir en el catálogo real");
+  assert.strictEqual(maestro!.oficio, "maestro_oficios", "sin esto, npcMaestroOficiosMasCercano nunca lo encuentra y oficio:elegir queda inalcanzable en la práctica");
+  // Cualquier otro arquetipo del catálogo (construcción, crafteo, reclutador...) sigue con el marcador genérico de siempre — no debe "colarse" como maestro de oficios.
+  for (const [id, arquetipo] of catalogo) {
+    if (id === "tutorial_oficios") continue;
+    const npc = npcTutorialAAgente({ ...filaBase, tipoTutorial: id }, catalogo);
+    assert.strictEqual(npc!.oficio, "npc_tutorial", `${id} (${arquetipo.titulo}) no debería colarse como maestro de oficios`);
+  }
 });
 
 test("cargarLoreTexto: en caliente (sin caché) — rellenar una clave se nota sin reiniciar el proceso", () => {

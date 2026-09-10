@@ -244,7 +244,10 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
     // por dentro de donde la puerta/portal, calculados en coordenadas de
     // mundo reales sin este error, sí caían).
     exportarModeloGlb(modelo, id, path.join(carpetaAssetsEdificios, `${id}_01.glb`), 1 / uVoxelesSilueta, true);
-    return { id, puertaPrincipal: modelo.puertaPrincipal };
+    // `puertas` (todas las reales) además de `puertaPrincipal` (retrocompat,
+    // = puertas[0]) — ver colocarSiluetaYPuertaDeAsentamiento, bug real
+    // cerrado 2026-09-10.
+    return { id, puertaPrincipal: modelo.puertaPrincipal, puertas: modelo.puertas };
   }
 
   const portales = [];
@@ -263,9 +266,19 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
    * — vegetación normal podía superponerse a sus edificios, y su portal
    * seguía en el centro exacto, igual de inalcanzable que la capital antes
    * del fix de esta misma noche).
+   *
+   * v4 (2026-09-10, pedido streamer: "aparece nada mas entrar hueco de
+   * puerta pero no puerta para entrar a la ciudad"): las versiones
+   * anteriores solo colocaban arco+portal en `puertas[0]` — la silueta YA
+   * dejaba un hueco visual real en TODAS las puertas del polígono
+   * (generarSiluetaCiudad.js), pero solo una de ellas era cruzable de
+   * verdad. Con 2-3 puertas reales típicas por asentamiento, el punto de
+   * spawn/exploración caía a menudo mucho más cerca de una "huérfana" que
+   * de la única funcional. Ahora TODAS las puertas reales reciben su
+   * propio arco + su propio portal (mismo destino, es la misma ciudad).
    */
   function colocarSiluetaYPuertaDeAsentamiento(ciudad, poi, slug, semillaPOI) {
-    const { id: tipoEdificioIdCiudad, puertaPrincipal } = generarYExportarSilueta(ciudad, semillaPOI, slug);
+    const { id: tipoEdificioIdCiudad, puertaPrincipal, puertas } = generarYExportarSilueta(ciudad, semillaPOI, slug);
 
     // Conversión LOCAL (rejilla [0,ancho]x[0,alto] de la ciudad — el mismo
     // espacio que usan poligonoMuralla/modulosMuralla/edificios.cx,cy) ->
@@ -353,66 +366,80 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
     // pequeños desde un margen mínimo — la puerta y el portal quedan
     // pegados de verdad, sin importar la forma del polígono en ese punto.
     const anchoPuerta = 6, altoPuerta = 2;
-    let xPuerta, yPuerta, roPuerta, xPortal, yPortal;
-    if (puertaPrincipal) {
-      xPuerta = aMundoX(puertaPrincipal.x);
-      yPuerta = aMundoY(puertaPrincipal.y);
-      roPuerta = Math.round(puertaPrincipal.rotDeg / 90) * 90;
-      const dx = puertaPrincipal.x - ciudad.focal.x, dy = puertaPrincipal.y - ciudad.focal.y;
+    // TODAS las puertas reales (bug real cerrado 2026-09-10: antes solo
+    // `puertaPrincipal` — ciudad.puertas[0] — recibía arco+portal; las
+    // demás quedaban con un hueco visual real en la muralla (la silueta ya
+    // las deja abiertas TODAS) pero sin nada que cruzar ahí. Con 2-3
+    // puertas reales típicas por asentamiento, el punto de spawn/
+    // exploración del jugador podía caer mucho más cerca de una
+    // "huérfana" que de la única funcional — literalmente "veo el hueco
+    // pero no la puerta"). Cada una recibe su propio arco + su propio
+    // portal, todos con el MISMO destino (`pois/${slug}` — es la misma
+    // ciudad, da igual por qué puerta se entre).
+    const puertasReales = puertas && puertas.length ? puertas : puertaPrincipal ? [puertaPrincipal] : [];
+    if (puertasReales.length === 0) {
+      // Sin ninguna puerta real detectada (caso límite, polígono
+      // degenerado sin ningún camino cruzándolo — nunca visto en
+      // producción, pero no debe romper el bake): mismo fallback fijo de
+      // siempre, borde sur.
+      const bordeSurCiudad = poi.y + ciudad.alto / 2;
+      const xPuerta = poi.x, yPuerta = bordeSurCiudad + altoPuerta / 2;
+      objetosPorPOI.set(`${slug}_puerta_0`, {
+        x: xPuerta, y: yPuerta, huella: [anchoPuerta, altoPuerta],
+        objeto: { i: "puerta_asentamiento", t: "e", va: semillaDesdeTexto(`${semillaPOI}:puerta:0`) % VARIANTES_EDIFICIO, ro: 0, es: 1, w: anchoPuerta, h: altoPuerta, dx: 0, dy: 0 },
+      });
+      portales.push({ tipo: "exterior", x: Math.round(xPuerta), y: Math.round(yPuerta + altoPuerta / 2 + 1), destino: { tipo: "region", mapaId: `pois/${slug}` } });
+    }
+    puertasReales.forEach((puerta, i) => {
+      const xPuerta = aMundoX(puerta.x);
+      const yPuerta = aMundoY(puerta.y);
+      const roPuerta = Math.round(puerta.rotDeg / 90) * 90;
+      const dx = puerta.x - ciudad.focal.x, dy = puerta.y - ciudad.focal.y;
       const dist = Math.hypot(dx, dy) || 1;
       const ndx = dx / dist, ndy = dy / dist;
       let empuje = 1.5;
       while (
         empuje < 30 &&
-        puntoEnPoligono(puertaPrincipal.x + ndx * empuje, puertaPrincipal.y + ndy * empuje, poligonoBloqueoLocal)
+        puntoEnPoligono(puerta.x + ndx * empuje, puerta.y + ndy * empuje, poligonoBloqueoLocal)
       ) empuje += 1;
       empuje += 1; // margen extra tras salir, mismo criterio de siempre
-      const xPortalLocal = puertaPrincipal.x + ndx * empuje;
-      const yPortalLocal = puertaPrincipal.y + ndy * empuje;
-      xPortal = aMundoX(xPortalLocal);
-      yPortal = aMundoY(yPortalLocal);
-    } else {
-      // Sin puerta real detectada (caso límite, polígono degenerado sin
-      // ningún camino cruzándolo — nunca visto en producción, pero no
-      // debe romper el bake): mismo fallback fijo de siempre, borde sur.
-      const bordeSurCiudad = poi.y + ciudad.alto / 2;
-      xPuerta = poi.x; yPuerta = bordeSurCiudad + altoPuerta / 2; roPuerta = 0;
-      xPortal = poi.x; yPortal = yPuerta + altoPuerta / 2 + 1;
-    }
+      const xPortal = aMundoX(puerta.x + ndx * empuje);
+      const yPortal = aMundoY(puerta.y + ndy * empuje);
 
-    objetosPorPOI.set(`${slug}_puerta`, {
-      x: xPuerta,
-      y: yPuerta,
-      huella: [anchoPuerta, altoPuerta],
-      objeto: {
-        i: "puerta_asentamiento",
-        t: "e",
-        va: semillaDesdeTexto(`${semillaPOI}:puerta`) % VARIANTES_EDIFICIO,
-        ro: roPuerta,
-        es: 1,
-        w: anchoPuerta,
-        h: altoPuerta,
-        dx: 0,
-        dy: 0,
-      },
-    });
-    portales.push({
-      tipo: "exterior",
-      x: Math.round(xPortal),
-      y: Math.round(yPortal),
-      // RELATIVO a propósito (bug real 2026-09-09, "la puerta de la
-      // capital da ENOENT al cruzarla"): antes se horneaba
-      // `${mapaId}/pois/${slug}` con el `mapaId` de ESTE bake (derivado
-      // del nombre de la carpeta de SALIDA, `carpetaSalidaResuelta` en
-      // generar.js) — pero el mapa se PROMOCIONA después a una carpeta
-      // con OTRO nombre (`output/vetrheim` -> `assets/mapas/principal/`),
-      // así que la ruta absoluta horneada quedaba apuntando a una
-      // carpeta que no existe en producción. Guardar solo la parte
-      // relativa y dejar que HubRoom/RegionRoom la resuelvan con SU
-      // propio `mapaIdPropio` (que sí refleja la carpeta real de
-      // despliegue, `path.basename(RUTA_MAPA)`) sobrevive a cualquier
-      // renombrado futuro sin tocar el bake.
-      destino: { tipo: "region", mapaId: `pois/${slug}` },
+      objetosPorPOI.set(`${slug}_puerta_${i}`, {
+        x: xPuerta,
+        y: yPuerta,
+        huella: [anchoPuerta, altoPuerta],
+        objeto: {
+          i: "puerta_asentamiento",
+          t: "e",
+          va: semillaDesdeTexto(`${semillaPOI}:puerta:${i}`) % VARIANTES_EDIFICIO,
+          ro: roPuerta,
+          es: 1,
+          w: anchoPuerta,
+          h: altoPuerta,
+          dx: 0,
+          dy: 0,
+        },
+      });
+      portales.push({
+        tipo: "exterior",
+        x: Math.round(xPortal),
+        y: Math.round(yPortal),
+        // RELATIVO a propósito (bug real 2026-09-09, "la puerta de la
+        // capital da ENOENT al cruzarla"): antes se horneaba
+        // `${mapaId}/pois/${slug}` con el `mapaId` de ESTE bake (derivado
+        // del nombre de la carpeta de SALIDA, `carpetaSalidaResuelta` en
+        // generar.js) — pero el mapa se PROMOCIONA después a una carpeta
+        // con OTRO nombre (`output/vetrheim` -> `assets/mapas/principal/`),
+        // así que la ruta absoluta horneada quedaba apuntando a una
+        // carpeta que no existe en producción. Guardar solo la parte
+        // relativa y dejar que HubRoom/RegionRoom la resuelvan con SU
+        // propio `mapaIdPropio` (que sí refleja la carpeta real de
+        // despliegue, `path.basename(RUTA_MAPA)`) sobrevive a cualquier
+        // renombrado futuro sin tocar el bake.
+        destino: { tipo: "region", mapaId: `pois/${slug}` },
+      });
     });
   }
 
