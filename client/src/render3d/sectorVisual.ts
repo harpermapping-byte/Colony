@@ -8,6 +8,7 @@ import { AnimadorFaunaDecorativaSector, type IndividuoFaunaDecorativa } from "./
 import type { CategoriaAsset } from "./assetCatalog";
 import { crearRigHumanoide } from "./rigHumanoide";
 import { NIVEL_MAXIMO_NIEVE } from "../mundo/nieve";
+import { construirOrillas } from "./orillasTerreno";
 
 // Terrenos NO transitables para el vagabundeo de fauna decorativa TERRESTRE
 // (docs/GDD_Agentes_Moviles.md, pedido 2026-09-09) — copia MANUAL del
@@ -619,6 +620,11 @@ function crearTerrenoSector(
 
   const rangoElev = Math.max(1, ELEV_AGUA_MAX - ELEV_AGUA_MIN);
   const solidosPorTipo = new Map<string, number[]>(); // terreno urbano -> [gx,gy,...]
+  // Entrada de `construirOrillas` (orillasTerreno.ts): qué casillas son agua
+  // y el color sólido de cada una (tierra: el del suelo; agua: el del lecho,
+  // para el faldón del borde del mapa bajo el agua).
+  const esAgua = new Uint8Array(ancho * alto);
+  const rgbOrilla = new Uint8Array(ancho * alto * 3);
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
     const baseX = cx * t - origenTileX;
@@ -637,8 +643,12 @@ function crearTerrenoSector(
           const [r, g, b] = hexARgb(colorTerreno(id));
           escribir(datosSuelo, px, py, r, g, b, 255);
           escribir(datosNieve, px, py, 255, 255, 255, 255);
+          rgbOrilla[(py * ancho + px) * 3] = r;
+          rgbOrilla[(py * ancho + px) * 3 + 1] = g;
+          rgbOrilla[(py * ancho + px) * 3 + 2] = b;
           continue;
         }
+        esAgua[py * ancho + px] = 1;
         if (nivelNieveActual > 0) {
           // Hielo (docs/GDD_Clima.md): opaco, sin lecho visible debajo — no
           // se nada encima, es "tierra" a efectos de juego (RoomExteriorBase.ts).
@@ -683,6 +693,9 @@ function crearTerrenoSector(
           lechoCache.set(claveLecho, lecho);
         }
         escribir(datosFondo, px, py, lecho[0], lecho[1], lecho[2], 255);
+        rgbOrilla[(py * ancho + px) * 3] = lecho[0];
+        rgbOrilla[(py * ancho + px) * 3 + 1] = lecho[1];
+        rgbOrilla[(py * ancho + px) * 3 + 2] = lecho[2];
       }
     }
   }
@@ -703,6 +716,38 @@ function crearTerrenoSector(
   const planoSuelo = crearPlanoSector(sueloFinal, anchoFinal, altoFinal, true);
   planoSuelo.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
   grupo.add(planoFondo, planoSuelo);
+
+  // Orillas y faldón del borde del mapa (orillasTerreno.ts, pedido streamer
+  // 2026-09-10 "la parte vertical del terreno en los bordes, sobre todo con
+  // agua"): una única malla por sector con las caras verticales tierra↔agua
+  // del suelo al lecho. Sin faldón en arenas (margenVisual>0): el bake de una
+  // arena es un mapa de un solo sector, TODOS sus lados serían "borde del
+  // mapa" y el faldón quedaría enterrado bajo el margen visual extendido.
+  const tilesMapaX = indice.anchoChunks * t;
+  const tilesMapaY = indice.altoChunks * t;
+  const orillas = construirOrillas(ancho, alto, esAgua, rgbOrilla, PROFUNDIDAD_FONDO, {
+    oeste: margenVisual === 0 && origenTileX === 0,
+    este: margenVisual === 0 && origenTileX + ancho >= tilesMapaX,
+    norte: margenVisual === 0 && origenTileY === 0,
+    sur: margenVisual === 0 && origenTileY + alto >= tilesMapaY,
+  });
+  if (orillas.quads > 0) {
+    const geometria = new THREE.BufferGeometry();
+    geometria.setAttribute("position", new THREE.BufferAttribute(orillas.posiciones, 3));
+    geometria.setAttribute("color", new THREE.BufferAttribute(orillas.colores, 3));
+    geometria.setAttribute("normal", new THREE.BufferAttribute(orillas.normales, 3));
+    const mallaOrillas = new THREE.Mesh(
+      geometria,
+      // DoubleSide: la cámara isométrica es fija pero una orilla mira hacia
+      // cualquiera de los 4 lados — más barato que decidir el winding por
+      // lado que dejar la mitad de las orillas invisibles por back-face.
+      new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, side: THREE.DoubleSide }),
+    );
+    mallaOrillas.position.set(origenTileX, 0, origenTileY);
+    mallaOrillas.receiveShadow = true;
+    mallaOrillas.userData.propioDelSector = true;
+    grupo.add(mallaOrillas);
+  }
 
   // Capa de nieve (docs/GDD_Clima.md): misma máscara que excluye agua/hielo
   // de siempre, pero como CAJA (crearCajaNieveSector) en vez de plano — se
