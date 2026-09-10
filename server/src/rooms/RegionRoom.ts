@@ -2,7 +2,8 @@ import { Client } from "@colyseus/core";
 import * as fs from "fs";
 import * as path from "path";
 import { RoomExteriorBase, RADIO_INTERACCION, RADIO_INTERES_TILES } from "./base/RoomExteriorBase";
-import { cargarMapaColision, MapaCargado } from "../mundo/mapaColision";
+import { cargarMapaColision, MapaCargado, casillaPisableMasCercana } from "../mundo/mapaColision";
+import { medioEn, TIPO } from "../mundo/colisiones";
 import { nombreCapitalOverride } from "../mundo/capital";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { NpcBakeado } from "../mundo/agentes";
@@ -419,8 +420,9 @@ export class RegionRoom extends RoomExteriorBase {
     // portal real (`entradaX/Y` explícitos, cruzando desde otro mapa: ESE
     // punto manda siempre, no la última posición guardada de la vez
     // anterior) — o sea, solo en una reconexión/F5 directa a esta región.
-    let x = options?.entradaX ?? this.mapa.spawnX;
-    let y = options?.entradaY ?? this.mapa.spawnY;
+    const entrada = this.puntoDeEntradaPorDefecto();
+    let x = options?.entradaX ?? entrada.x;
+    let y = options?.entradaY ?? entrada.y;
     if (options?.entradaX == null) {
       const nombreSpawn = options?.name?.slice(0, 20) || `Guest-${client.sessionId.slice(0, 4)}`;
       const spawn = await this.resolverSpawnGuardado(nombreSpawn, x, y);
@@ -432,6 +434,34 @@ export class RegionRoom extends RoomExteriorBase {
     // en HubRoom.onJoin/InteriorRoom.onJoin.
     this.actualizarVistaDeInteres(RADIO_INTERES_TILES);
     this.enviarEstadoConstruccion(client); // no-op si esta región no tiene parcelasReservadas
+  }
+
+  /**
+   * Dónde aparece quien ENTRA a esta región sin `entradaX/Y` (cruzando la
+   * puerta de un asentamiento desde el mapa exterior — HubRoom manda
+   * `portal:ir {tipo, mapaId}` sin coordenadas): pegado al portal de SALIDA
+   * (`tipo:"exterior"` sin destino) más cercano al spawn del bake, no al
+   * centro de la plaza. Bug real del playtest multijugador 2026-09-10: en
+   * `capital_regional` el spawn (`ciudad`, 50,130) queda a 4.5 casillas del
+   * único portal de salida cercano (46,132), fuera de `RADIO_INTERACCION`
+   * (2.2) — quien entraba no podía volver a salir con F sin "adivinar" dónde
+   * estaba la puerta. Si el portal cae en casilla sólida (arco de la
+   * muralla), la pisable más cercana con salida; sin portales exteriores
+   * (arena, `capital_jarl` suelta...), el spawn de siempre. Un F5/reconexión
+   * sigue restaurando la posición guardada (`resolverSpawnGuardado` manda).
+   */
+  private puntoDeEntradaPorDefecto(): { x: number; y: number } {
+    const salidas = this.mapa.portales.filter((p) => p.tipo === "exterior" && !p.destino);
+    if (salidas.length === 0) return { x: this.mapa.spawnX, y: this.mapa.spawnY };
+    let mejor = salidas[0];
+    let mejorD = Infinity;
+    for (const p of salidas) {
+      const d = Math.hypot(p.x + 0.5 - this.mapa.spawnX, p.y + 0.5 - this.mapa.spawnY);
+      if (d < mejorD) { mejorD = d; mejor = p; }
+    }
+    if (medioEn(this.mapa, mejor.x + 0.5, mejor.y + 0.5) === TIPO.TIERRA) return { x: mejor.x + 0.5, y: mejor.y + 0.5 };
+    const libre = casillaPisableMasCercana(this.mapa.casillas, this.mapa.ancho, this.mapa.alto, mejor.x, mejor.y, true);
+    return { x: libre.x + 0.5, y: libre.y + 0.5 };
   }
 
   /** Mismo criterio que HubRoom — sin esto, docs/GDD_Ganaderia.md (animal:domesticar) y cadaver:desollar no encuentran nunca especie aquí. */

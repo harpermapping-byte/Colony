@@ -151,9 +151,15 @@ async function main() {
     }
     /** Mantiene la tecla hasta que el estado del jugador sea `estado` (o agote el tiempo). */
     async function andarHastaEstado(j, tecla, estado, timeoutMs = 25000) {
+      await j.page.evaluate(() => { window.__estadosVistos = []; });
       await j.page.keyboard.down(tecla);
-      const ok = await j.page.waitForFunction((e) => window.__colonyDebug.estado === e, estado, { timeout: timeoutMs, polling: 50 }).then(() => true).catch(() => false);
+      const ok = await j.page.waitForFunction((e) => {
+        const v = window.__estadosVistos; const actual = `${window.__colonyDebug.estado}@${window.__colonyDebug.x.toFixed(0)}`;
+        if (v[v.length - 1] !== actual) v.push(actual);
+        return window.__colonyDebug.estado === e;
+      }, estado, { timeout: timeoutMs, polling: 50 }).then(() => true).catch(() => false);
       await j.page.keyboard.up(tecla);
+      if (!ok) console.log(`   estados vistos por ${j.nombre} andando (${tecla}): ${(await j.page.evaluate(() => window.__estadosVistos.slice(0, 12).join(" "))) || "ninguno"}`);
       return ok;
     }
     async function esperarEstado(j, estado, timeout = ESPERA_ESTADO_MS) {
@@ -245,6 +251,16 @@ async function main() {
       if (viva) {
         // Varias alturas del rig (la posición en vivo del animal se relee en
         // cada intento: se mueve) hasta que el clic toque una malla y salga el menú.
+        // Cámara ESTABLE antes de proyectar: tras un teleport la cámara sigue
+        // persiguiendo al jugador varios segundos bajo carga, y la proyección
+        // calculada queda obsoleta cuando el clic llega (pasadas 8/9).
+        await t3.page.waitForFunction(() => {
+          const p = window.__proyectarMundo(window.__colonyDebug.x, window.__colonyDebug.y);
+          const w = window;
+          const ok = w.__ultimaProj && Math.hypot(w.__ultimaProj.x - p.x, w.__ultimaProj.y - p.y) < 1.5;
+          w.__ultimaProj = p;
+          return ok;
+        }, null, { timeout: 60000, polling: 400 }).catch(() => {});
         const boton = t3.page.getByRole("button", { name: /^Cazar / });
         let menuOk = false;
         for (const altura of [0.25, 0.5, 0.1, 0.8]) {
