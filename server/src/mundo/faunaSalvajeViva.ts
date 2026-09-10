@@ -228,6 +228,21 @@ export class GestorFaunaSalvaje {
     return salida;
   }
 
+  /**
+   * Modificador de velocidad del terreno bajo (x,y) — el MISMO `modVelocidad`
+   * que frena/acelera al jugador en `actualizarMovimiento` (barro 0.7, nieve
+   * 0.6, camino 1.3...). Se aplica a la huida/persecución de la fauna (docs/
+   * GDD_Caza.md §4ter) para que la promesa "siempre correrás más" se
+   * mantenga en cualquier suelo: sin esto, una liebre (3.0 fijo) huyendo por
+   * barro superaba al cazador (3.75 × 0.7 = 2.6) y no había forma de atraparla.
+   */
+  private factorTerreno(x: number, y: number): number {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const m = this.deps.mundo;
+    if (xi < 0 || yi < 0 || xi >= m.ancho || yi >= m.alto) return 1;
+    return m.velocidad?.[yi * m.ancho + xi] ?? 1;
+  }
+
   private transitable(x: number, y: number): boolean {
     const xi = Math.round(x);
     const yi = Math.round(y);
@@ -720,7 +735,7 @@ export class GestorFaunaSalvaje {
     v.destino = null;
     v.objetivoDestino = null;
     const vel = combate?.velocidad ?? VEL;
-    const paso = vel * dt;
+    const paso = vel * dt * this.factorTerreno(v.esquema.x, v.esquema.y);
     const dx = v.esquema.x - amenaza.x;
     const dy = v.esquema.y - amenaza.y;
     const dist = Math.hypot(dx, dy) || 1; // amenaza EXACTAMENTE encima (dist=0, no debería pasar con RADIO_CAPTURA>0): huye en una dirección arbitraria en vez de dividir por 0
@@ -750,7 +765,7 @@ export class GestorFaunaSalvaje {
     v.destino = null;
     v.objetivoDestino = null;
     const vel = combate?.velocidad ?? VEL;
-    const paso = vel * dt;
+    const paso = vel * dt * this.factorTerreno(v.esquema.x, v.esquema.y);
     const dx = objetivo.x - v.esquema.x;
     const dy = objetivo.y - v.esquema.y;
     const dist = Math.hypot(dx, dy) || 1;

@@ -631,6 +631,25 @@ test("iniciarCaza + tick: cuando el cazador alcanza al animal, tick() lo reporta
   assert.strictEqual(segundoTick.atrapados.length, 0, "no debería reportar la misma captura dos veces");
 });
 
+test("huida: el terreno frena a la presa igual que al jugador (barro 0.7) — la liebre no gana en barro lo que pierde el cazador (docs/GDD_Caza.md §4ter)", async () => {
+  const medir = async (factor: number) => {
+    const mundo = mundoAbierto();
+    mundo.velocidad.fill(factor);
+    const { gestor, salida } = crearGestor({ mundo, cargarBakeSector: () => [{ i: "conejo", x: 20, y: 20 }] });
+    await gestor.activarSector({ sectorX: 0, sectorY: 0 });
+    const [id] = [...salida.keys()];
+    const animal = salida.get(id)!;
+    const x0 = animal.x, y0 = animal.y;
+    gestor.iniciarCaza(id, "cazador");
+    for (let i = 0; i < 5; i++) gestor.tick(0.2, new Map([["cazador", { x: x0 + 7, y: y0 }]]));
+    return Math.hypot(animal.x - x0, animal.y - y0);
+  };
+  const enCesped = await medir(1);
+  const enBarro = await medir(0.7);
+  assert.ok(enCesped > 0.5, `en césped huye de verdad (${enCesped.toFixed(2)})`);
+  assert.ok(Math.abs(enBarro / enCesped - 0.7) < 0.05, `en barro avanza el 70% (${enBarro.toFixed(2)} vs ${enCesped.toFixed(2)})`);
+});
+
 test("iniciarCaza + tick: si el cazador se queda a más de RADIO_PERDIDA_CAZA, la caza se cancela y tick() la reporta como perdida (docs/GDD_Caza.md §4ter)", async () => {
   const { gestor, salida } = crearGestor({ cargarBakeSector: () => [{ i: "conejo", x: 20, y: 20 }] });
   await gestor.activarSector({ sectorX: 0, sectorY: 0 });
