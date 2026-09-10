@@ -79,6 +79,20 @@ function leerCuerpoJson<T>(req: IncomingMessage): Promise<T | null> {
   });
 }
 
+/**
+ * Bug real de producción (2026-09-10, encontrado por auditoría de seguridad
+ * tras exponer el servidor a internet): un cuerpo JSON con un campo
+ * número/booleano/objeto en vez de string (p.ej. `{"usuario":123}`) hacía
+ * que `cuerpo?.usuario?.trim()` lanzara un TypeError SÍNCRONO dentro de una
+ * función `async` — sin `.catch()` en la cadena, eso es un rechazo de
+ * promesa sin manejar y Node mata el proceso entero por defecto. Una
+ * petición anónima, sin login, tiraba el servidor completo. `?.` solo
+ * protege contra null/undefined, nunca contra el tipo equivocado.
+ */
+function comoTexto(valor: unknown): string | undefined {
+  return typeof valor === "string" ? valor : undefined;
+}
+
 /** `true` si esta petición era de /auth/admin/* y ya se respondió (o se está respondiendo async) — el llamante debe parar ahí. */
 export function manejarPeticionAdmin(req: IncomingMessage, res: ServerResponse): boolean {
   const url = new URL(req.url ?? "/", "http://localhost");
@@ -93,116 +107,143 @@ export function manejarPeticionAdmin(req: IncomingMessage, res: ServerResponse):
   }
 
   if (url.pathname === "/auth/admin/login" && req.method === "POST") {
-    leerCuerpoJson<{ usuario?: string; password?: string }>(req).then(async (cuerpo) => {
-      const usuario = cuerpo?.usuario?.trim();
-      const password = cuerpo?.password;
-      if (!usuario || !password) return responderJson(res, 400, { error: "falta usuario o password" });
+    leerCuerpoJson<{ usuario?: unknown; password?: unknown }>(req).then(async (cuerpo) => {
+      try {
+        const usuario = comoTexto(cuerpo?.usuario)?.trim();
+        const password = comoTexto(cuerpo?.password);
+        if (!usuario || !password) return responderJson(res, 400, { error: "falta usuario o password" });
 
-      const bd = await obtenerBdCompartida();
-      const cuenta = await bd.obtenerCuentaAdminPorUsuario(usuario);
-      // Mismo mensaje de error tanto si el usuario no existe como si la
-      // contraseña es incorrecta o la cuenta solo se loguea por Twitch
-      // (passwordHash null) — no dar pistas de qué falló.
-      if (!cuenta || !cuenta.passwordHash || !verificarPassword(password, cuenta.passwordHash)) {
-        return responderJson(res, 401, { error: "usuario o contraseña incorrectos" });
+        const bd = await obtenerBdCompartida();
+        const cuenta = await bd.obtenerCuentaAdminPorUsuario(usuario);
+        // Mismo mensaje de error tanto si el usuario no existe como si la
+        // contraseña es incorrecta o la cuenta solo se loguea por Twitch
+        // (passwordHash null) — no dar pistas de qué falló.
+        if (!cuenta || !cuenta.passwordHash || !verificarPassword(password, cuenta.passwordHash)) {
+          return responderJson(res, 401, { error: "usuario o contraseña incorrectos" });
+        }
+        const token = crearSesionAdmin({ usuario: cuenta.usuario, rol: cuenta.rol, mapaId: cuenta.mapaId });
+        responderJson(res, 200, { token, usuario: cuenta.usuario, rol: cuenta.rol, mapaId: cuenta.mapaId });
+      } catch (err) {
+        // Red de seguridad: cualquier fallo inesperado aquí NUNCA debe tirar
+        // el proceso entero (ver comoTexto arriba) — responde 500 y sigue.
+        console.error("[auth/admin] error en /login:", err);
+        responderJson(res, 500, { error: "error interno" });
       }
-      const token = crearSesionAdmin({ usuario: cuenta.usuario, rol: cuenta.rol, mapaId: cuenta.mapaId });
-      responderJson(res, 200, { token, usuario: cuenta.usuario, rol: cuenta.rol, mapaId: cuenta.mapaId });
     });
     return true;
   }
 
   if (url.pathname === "/auth/admin/cambiar-password" && req.method === "POST") {
-    leerCuerpoJson<{ token?: string; passwordActual?: string; passwordNueva?: string }>(req).then(async (cuerpo) => {
-      const token = cuerpo?.token;
-      const passwordNueva = cuerpo?.passwordNueva;
-      if (!token || !passwordNueva) return responderJson(res, 400, { error: "falta token o passwordNueva" });
-      if (passwordNueva.length < LONGITUD_MINIMA_PASSWORD) {
-        return responderJson(res, 400, { error: `la contraseña nueva debe tener al menos ${LONGITUD_MINIMA_PASSWORD} caracteres` });
+    leerCuerpoJson<{ token?: unknown; passwordActual?: unknown; passwordNueva?: unknown }>(req).then(async (cuerpo) => {
+      try {
+        const token = comoTexto(cuerpo?.token);
+        const passwordNueva = comoTexto(cuerpo?.passwordNueva);
+        if (!token || !passwordNueva) return responderJson(res, 400, { error: "falta token o passwordNueva" });
+        if (passwordNueva.length < LONGITUD_MINIMA_PASSWORD) {
+          return responderJson(res, 400, { error: `la contraseña nueva debe tener al menos ${LONGITUD_MINIMA_PASSWORD} caracteres` });
+        }
+
+        const identidad = resolverSesionAdmin(token);
+        if (!identidad) return responderJson(res, 401, { error: "sesión de admin caducada o inválida — vuelve a loguearte" });
+
+        const bd = await obtenerBdCompartida();
+        const cuenta = await bd.obtenerCuentaAdminPorUsuario(identidad.usuario);
+        if (!cuenta) return responderJson(res, 404, { error: "cuenta de admin no encontrada" });
+
+        // Si ya tenía contraseña propia, exige la actual. Si solo se logueaba
+        // por Twitch (password_hash null), esto es "poner contraseña por
+        // primera vez" — no hay nada que verificar contra.
+        if (cuenta.passwordHash && !verificarPassword(comoTexto(cuerpo?.passwordActual) ?? "", cuenta.passwordHash)) {
+          return responderJson(res, 401, { error: "contraseña actual incorrecta" });
+        }
+
+        await bd.actualizarPasswordAdmin(cuenta.id, hashPassword(passwordNueva));
+        cerrarSesionesDeUsuario(cuenta.usuario); // fuerza volver a loguearse en todas las pestañas
+        responderJson(res, 200, { ok: true });
+      } catch (err) {
+        console.error("[auth/admin] error en /cambiar-password:", err);
+        responderJson(res, 500, { error: "error interno" });
       }
-
-      const identidad = resolverSesionAdmin(token);
-      if (!identidad) return responderJson(res, 401, { error: "sesión de admin caducada o inválida — vuelve a loguearte" });
-
-      const bd = await obtenerBdCompartida();
-      const cuenta = await bd.obtenerCuentaAdminPorUsuario(identidad.usuario);
-      if (!cuenta) return responderJson(res, 404, { error: "cuenta de admin no encontrada" });
-
-      // Si ya tenía contraseña propia, exige la actual. Si solo se logueaba
-      // por Twitch (password_hash null), esto es "poner contraseña por
-      // primera vez" — no hay nada que verificar contra.
-      if (cuenta.passwordHash && !verificarPassword(cuerpo?.passwordActual ?? "", cuenta.passwordHash)) {
-        return responderJson(res, 401, { error: "contraseña actual incorrecta" });
-      }
-
-      await bd.actualizarPasswordAdmin(cuenta.id, hashPassword(passwordNueva));
-      cerrarSesionesDeUsuario(cuenta.usuario); // fuerza volver a loguearse en todas las pestañas
-      responderJson(res, 200, { ok: true });
     });
     return true;
   }
 
   if (url.pathname === "/auth/admin/crear-cuenta" && req.method === "POST") {
-    leerCuerpoJson<{ token?: string; usuario?: string; password?: string; rol?: string }>(req).then(async (cuerpo) => {
-      const identidad = resolverSesionAdmin(cuerpo?.token);
-      if (!identidad || identidad.rol !== "superadmin") return responderJson(res, 403, { error: "solo un superadmin crea cuentas de admin" });
+    leerCuerpoJson<{ token?: unknown; usuario?: unknown; password?: unknown; rol?: unknown }>(req).then(async (cuerpo) => {
+      try {
+        const identidad = resolverSesionAdmin(comoTexto(cuerpo?.token));
+        if (!identidad || identidad.rol !== "superadmin") return responderJson(res, 403, { error: "solo un superadmin crea cuentas de admin" });
 
-      const usuario = cuerpo?.usuario?.trim();
-      const password = cuerpo?.password;
-      const rol = cuerpo?.rol;
-      if (!usuario || !password || (rol !== "jarl" && rol !== "superadmin")) {
-        return responderJson(res, 400, { error: "falta usuario, password o rol ('jarl'|'superadmin')" });
+        const usuario = comoTexto(cuerpo?.usuario)?.trim();
+        const password = comoTexto(cuerpo?.password);
+        const rol = comoTexto(cuerpo?.rol);
+        if (!usuario || !password || (rol !== "jarl" && rol !== "superadmin")) {
+          return responderJson(res, 400, { error: "falta usuario, password o rol ('jarl'|'superadmin')" });
+        }
+        if (password.length < LONGITUD_MINIMA_PASSWORD) {
+          return responderJson(res, 400, { error: `la contraseña debe tener al menos ${LONGITUD_MINIMA_PASSWORD} caracteres` });
+        }
+
+        const bd = await obtenerBdCompartida();
+        if (await bd.obtenerCuentaAdminPorUsuario(usuario)) return responderJson(res, 409, { error: "ese usuario ya existe" });
+
+        // Nace sin mapa asignado (mapaId null) aunque rol sea "jarl" — asignar-jarl
+        // es el único sitio que aplica "1 jarl por mapa" (quita el mapa al jarl
+        // anterior), así que un jarl recién creado empieza sin mapa hasta ese paso.
+        const cuenta = await bd.crearCuentaAdmin({ usuario, passwordHash: hashPassword(password), twitchLogin: null, rol, mapaId: null });
+        responderJson(res, 200, { usuario: cuenta.usuario, rol: cuenta.rol, mapaId: cuenta.mapaId });
+      } catch (err) {
+        console.error("[auth/admin] error en /crear-cuenta:", err);
+        responderJson(res, 500, { error: "error interno" });
       }
-      if (password.length < LONGITUD_MINIMA_PASSWORD) {
-        return responderJson(res, 400, { error: `la contraseña debe tener al menos ${LONGITUD_MINIMA_PASSWORD} caracteres` });
-      }
-
-      const bd = await obtenerBdCompartida();
-      if (await bd.obtenerCuentaAdminPorUsuario(usuario)) return responderJson(res, 409, { error: "ese usuario ya existe" });
-
-      // Nace sin mapa asignado (mapaId null) aunque rol sea "jarl" — asignar-jarl
-      // es el único sitio que aplica "1 jarl por mapa" (quita el mapa al jarl
-      // anterior), así que un jarl recién creado empieza sin mapa hasta ese paso.
-      const cuenta = await bd.crearCuentaAdmin({ usuario, passwordHash: hashPassword(password), twitchLogin: null, rol, mapaId: null });
-      responderJson(res, 200, { usuario: cuenta.usuario, rol: cuenta.rol, mapaId: cuenta.mapaId });
     });
     return true;
   }
 
   if (url.pathname === "/auth/admin/asignar-jarl" && req.method === "POST") {
-    leerCuerpoJson<{ token?: string; mapaId?: string; usuario?: string }>(req).then(async (cuerpo) => {
-      const identidad = resolverSesionAdmin(cuerpo?.token);
-      if (!identidad || identidad.rol !== "superadmin") return responderJson(res, 403, { error: "solo un superadmin asigna jarls" });
+    leerCuerpoJson<{ token?: unknown; mapaId?: unknown; usuario?: unknown }>(req).then(async (cuerpo) => {
+      try {
+        const identidad = resolverSesionAdmin(comoTexto(cuerpo?.token));
+        if (!identidad || identidad.rol !== "superadmin") return responderJson(res, 403, { error: "solo un superadmin asigna jarls" });
 
-      const mapaId = cuerpo?.mapaId?.trim();
-      const usuario = cuerpo?.usuario?.trim();
-      if (!mapaId || !usuario) return responderJson(res, 400, { error: "falta mapaId o usuario" });
+        const mapaId = comoTexto(cuerpo?.mapaId)?.trim();
+        const usuario = comoTexto(cuerpo?.usuario)?.trim();
+        if (!mapaId || !usuario) return responderJson(res, 400, { error: "falta mapaId o usuario" });
 
-      const bd = await obtenerBdCompartida();
-      const r = await bd.asignarJarlDeMapa(mapaId, usuario);
-      if (!r.ok) return responderJson(res, 400, { error: r.motivo });
-      cerrarSesionesDeUsuario(usuario); // el nuevo jarl necesita re-loguearse para que la sesión lleve el mapaId nuevo
-      responderJson(res, 200, { ok: true });
+        const bd = await obtenerBdCompartida();
+        const r = await bd.asignarJarlDeMapa(mapaId, usuario);
+        if (!r.ok) return responderJson(res, 400, { error: r.motivo });
+        cerrarSesionesDeUsuario(usuario); // el nuevo jarl necesita re-loguearse para que la sesión lleve el mapaId nuevo
+        responderJson(res, 200, { ok: true });
+      } catch (err) {
+        console.error("[auth/admin] error en /asignar-jarl:", err);
+        responderJson(res, 500, { error: "error interno" });
+      }
     });
     return true;
   }
 
   if (url.pathname === "/auth/admin/listar-cuentas" && req.method === "POST") {
-    leerCuerpoJson<{ token?: string }>(req).then(async (cuerpo) => {
-      const identidad = resolverSesionAdmin(cuerpo?.token);
-      if (!identidad || identidad.rol !== "superadmin") return responderJson(res, 403, { error: "solo un superadmin lista cuentas" });
+    leerCuerpoJson<{ token?: unknown }>(req).then(async (cuerpo) => {
+      try {
+        const identidad = resolverSesionAdmin(comoTexto(cuerpo?.token));
+        if (!identidad || identidad.rol !== "superadmin") return responderJson(res, 403, { error: "solo un superadmin lista cuentas" });
 
-      const bd = await obtenerBdCompartida();
-      const cuentas = await bd.listarCuentasAdmin();
-      responderJson(res, 200, {
-        cuentas: cuentas.map((c) => ({
-          usuario: c.usuario,
-          rol: c.rol,
-          mapaId: c.mapaId,
-          tienePassword: c.passwordHash !== null,
-          tieneTwitch: c.twitchLogin !== null,
-        })),
-      });
+        const bd = await obtenerBdCompartida();
+        const cuentas = await bd.listarCuentasAdmin();
+        responderJson(res, 200, {
+          cuentas: cuentas.map((c) => ({
+            usuario: c.usuario,
+            rol: c.rol,
+            mapaId: c.mapaId,
+            tienePassword: c.passwordHash !== null,
+            tieneTwitch: c.twitchLogin !== null,
+          })),
+        });
+      } catch (err) {
+        console.error("[auth/admin] error en /listar-cuentas:", err);
+        responderJson(res, 500, { error: "error interno" });
+      }
     });
     return true;
   }

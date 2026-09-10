@@ -68,6 +68,21 @@ function leerCuerpoJson<T>(req: IncomingMessage): Promise<T | null> {
   });
 }
 
+/**
+ * Bug real de producción (2026-09-10, encontrado por auditoría de seguridad
+ * tras exponer el servidor a internet): un cuerpo JSON con `nombre` como
+ * número/booleano/objeto (p.ej. `{"nombre":123}`) hacía que `cuerpo?.nombre?.trim()`
+ * lanzara un TypeError SÍNCRONO dentro de una función `async` — sin ningún
+ * `.catch()` en la cadena, eso se convierte en un rechazo de promesa sin
+ * manejar, y Node mata el proceso entero por defecto. Una petición anónima,
+ * sin login, sin límite de intentos, tiraba el servidor completo. `?.` solo
+ * protege contra null/undefined, nunca contra el tipo equivocado — de ahí
+ * este extractor, que exige `typeof === "string"` de verdad.
+ */
+function comoTexto(valor: unknown): string | undefined {
+  return typeof valor === "string" ? valor : undefined;
+}
+
 function validarNombreYPassword(nombre: string | undefined, password: string | undefined): string | null {
   if (!nombre || !password) return "falta nombre o password";
   if (nombre.trim().length === 0 || nombre.length > LONGITUD_MAXIMA_NOMBRE) return `el nombre debe tener entre 1 y ${LONGITUD_MAXIMA_NOMBRE} caracteres`;
@@ -88,48 +103,60 @@ export function manejarPeticionAuthJugador(req: IncomingMessage, res: ServerResp
   }
 
   if (url.pathname === "/auth/jugador/registro" && req.method === "POST") {
-    leerCuerpoJson<{ nombre?: string; password?: string }>(req).then(async (cuerpo) => {
-      const nombre = cuerpo?.nombre?.trim();
-      const password = cuerpo?.password;
-      const error = validarNombreYPassword(nombre, password);
-      if (error) return responderJson(res, 400, { error });
+    leerCuerpoJson<{ nombre?: unknown; password?: unknown }>(req).then(async (cuerpo) => {
+      try {
+        const nombre = comoTexto(cuerpo?.nombre)?.trim();
+        const password = comoTexto(cuerpo?.password);
+        const error = validarNombreYPassword(nombre, password);
+        if (error) return responderJson(res, 400, { error });
 
-      const bd = await obtenerBdCompartida();
-      const credenciales = await bd.obtenerCredencialesJugador(nombre!);
-      if (credenciales && credenciales.passwordHash) {
-        return responderJson(res, 409, { error: "ese nombre ya tiene una cuenta — si es tuyo, inicia sesión en vez de crear una cuenta nueva" });
+        const bd = await obtenerBdCompartida();
+        const credenciales = await bd.obtenerCredencialesJugador(nombre!);
+        if (credenciales && credenciales.passwordHash) {
+          return responderJson(res, 409, { error: "ese nombre ya tiene una cuenta — si es tuyo, inicia sesión en vez de crear una cuenta nueva" });
+        }
+
+        // Sin fila todavía (personaje nuevo) o fila "legado" sin password (se reclama) — mismo primitivo de siempre.
+        const jugador = await bd.obtenerOCrearJugador(nombre!);
+        await bd.establecerPasswordJugador(jugador.id, hashPassword(password!));
+        const token = crearSesionJugador({ jugadorId: jugador.id, nombre: jugador.nombre });
+        responderJson(res, 200, { token, nombre: jugador.nombre });
+      } catch (err) {
+        // Red de seguridad: cualquier fallo inesperado aquí NUNCA debe tirar
+        // el proceso entero (ver comoTexto arriba) — responde 500 y sigue.
+        console.error("[auth/jugador] error en /registro:", err);
+        responderJson(res, 500, { error: "error interno" });
       }
-
-      // Sin fila todavía (personaje nuevo) o fila "legado" sin password (se reclama) — mismo primitivo de siempre.
-      const jugador = await bd.obtenerOCrearJugador(nombre!);
-      await bd.establecerPasswordJugador(jugador.id, hashPassword(password!));
-      const token = crearSesionJugador({ jugadorId: jugador.id, nombre: jugador.nombre });
-      responderJson(res, 200, { token, nombre: jugador.nombre });
     });
     return true;
   }
 
   if (url.pathname === "/auth/jugador/login" && req.method === "POST") {
-    leerCuerpoJson<{ nombre?: string; password?: string }>(req).then(async (cuerpo) => {
-      const nombre = cuerpo?.nombre?.trim();
-      const password = cuerpo?.password;
-      if (!nombre || !password) return responderJson(res, 400, { error: "falta nombre o password" });
+    leerCuerpoJson<{ nombre?: unknown; password?: unknown }>(req).then(async (cuerpo) => {
+      try {
+        const nombre = comoTexto(cuerpo?.nombre)?.trim();
+        const password = comoTexto(cuerpo?.password);
+        if (!nombre || !password) return responderJson(res, 400, { error: "falta nombre o password" });
 
-      const bd = await obtenerBdCompartida();
-      const credenciales = await bd.obtenerCredencialesJugador(nombre);
-      if (!credenciales || !credenciales.passwordHash) {
-        // Mismo nombre puede existir "legado" sin contraseña todavía — distinto
-        // de "no existe" para no mandar a alguien con personaje real a crear
-        // uno nuevo sin darse cuenta (perdería su progreso), pero SIN
-        // confirmar por email/nombre si el personaje existe de verdad más
-        // allá de esto (el nombre de personaje ya es público en el juego).
-        return responderJson(res, 404, { error: "ese nombre no tiene contraseña todavía — usa 'Crear cuenta' para reclamarlo o registrar uno nuevo" });
+        const bd = await obtenerBdCompartida();
+        const credenciales = await bd.obtenerCredencialesJugador(nombre);
+        if (!credenciales || !credenciales.passwordHash) {
+          // Mismo nombre puede existir "legado" sin contraseña todavía — distinto
+          // de "no existe" para no mandar a alguien con personaje real a crear
+          // uno nuevo sin darse cuenta (perdería su progreso), pero SIN
+          // confirmar por email/nombre si el personaje existe de verdad más
+          // allá de esto (el nombre de personaje ya es público en el juego).
+          return responderJson(res, 404, { error: "ese nombre no tiene contraseña todavía — usa 'Crear cuenta' para reclamarlo o registrar uno nuevo" });
+        }
+        if (!verificarPassword(password, credenciales.passwordHash)) {
+          return responderJson(res, 401, { error: "nombre o contraseña incorrectos" });
+        }
+        const token = crearSesionJugador({ jugadorId: credenciales.id, nombre });
+        responderJson(res, 200, { token, nombre });
+      } catch (err) {
+        console.error("[auth/jugador] error en /login:", err);
+        responderJson(res, 500, { error: "error interno" });
       }
-      if (!verificarPassword(password, credenciales.passwordHash)) {
-        return responderJson(res, 401, { error: "nombre o contraseña incorrectos" });
-      }
-      const token = crearSesionJugador({ jugadorId: credenciales.id, nombre });
-      responderJson(res, 200, { token, nombre });
     });
     return true;
   }
