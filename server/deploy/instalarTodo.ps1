@@ -146,7 +146,13 @@ Bien "winget disponible"
 # ---------------------------------------------------------------- 1. Programas
 Titulo "1/7  Programas necesarios"
 
-$hayGit = AsegurarPrograma "Git" "git" ($FLAGS + @("--id", "Git.Git", "--scope", "machine")) "https://git-scm.com/download/win"
+# Sin "--scope machine" a proposito: en el manifiesto real de Git.Git las
+# filas de scope user y machine son IDENTICAS (mismo instalador, mismos
+# switches), asi que ese flag no cambia donde acaba Git — solo puede hacer
+# que winget no encuentre fila y falle. Lo que de verdad decide que Git vaya
+# a Program Files y al PATH del sistema es la ELEVACION, que instalar.bat ya
+# garantiza.
+$hayGit = AsegurarPrograma "Git" "git" ($FLAGS + @("--id", "Git.Git")) "https://git-scm.com/download/win"
 $hayNode = AsegurarPrograma "Node.js" "node" ($FLAGS + @("--id", "OpenJS.NodeJS.LTS")) "https://nodejs.org/en/download"
 # El MSI de cloudflared si se añade solo al PATH del sistema; el portable no.
 $hayTunel = AsegurarPrograma "cloudflared" "cloudflared" ($FLAGS + @("--id", "Cloudflare.cloudflared", "--installer-type", "wix")) "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"
@@ -164,11 +170,25 @@ if ($hayNode) {
 # --------------------------------------------------------------- 2. PostgreSQL
 Titulo "2/7  PostgreSQL (donde se guardan las partidas)"
 
+# El instalador de PostgreSQL NO añade su carpeta bin al PATH (su propia
+# documentacion dice que lo haga el usuario a mano), asi que hay que resolver
+# la ruta absoluta. Se mira primero el registro, que es donde el propio
+# instalador apunta cada instalacion, y solo despues se adivina por carpetas.
 function BuscarBinarioPg($nombre) {
+  $claveRaiz = "HKLM:\SOFTWARE\PostgreSQL\Installations"
+  if (Test-Path $claveRaiz) {
+    $desdeRegistro = Get-ChildItem $claveRaiz -ErrorAction SilentlyContinue | ForEach-Object {
+      $props = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+      if ($props."Base Directory") { Join-Path $props."Base Directory" "bin\$nombre.exe" }
+    } | Where-Object { $_ -and (Test-Path $_) } | Sort-Object -Descending
+    if ($desdeRegistro) { return $desdeRegistro[0] }
+  }
+  foreach ($raiz in @($env:ProgramFiles, ${env:ProgramFiles(x86)}) | Where-Object { $_ } | Select-Object -Unique) {
+    $encontrado = Get-ChildItem (Join-Path $raiz "PostgreSQL\*\bin\$nombre.exe") -ErrorAction SilentlyContinue |
+      Sort-Object FullName -Descending | Select-Object -First 1
+    if ($encontrado) { return $encontrado.FullName }
+  }
   if (ExisteComando $nombre) { return $nombre }
-  $encontrado = Get-ChildItem "C:\Program Files\PostgreSQL\*\bin\$nombre.exe" -ErrorAction SilentlyContinue |
-    Sort-Object FullName -Descending | Select-Object -First 1
-  if ($encontrado) { return $encontrado.FullName }
   return $null
 }
 
