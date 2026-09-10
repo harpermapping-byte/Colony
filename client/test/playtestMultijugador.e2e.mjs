@@ -91,7 +91,8 @@ async function main() {
         const t = msg.text();
         if (msg.type() === "error" && !t.includes("404") && !/WebSocket|ws:\/\/|ERR_CONNECTION_REFUSED|favicon|ERR_CONNECTION_RESET/i.test(t)) errores.push(t);
       });
-      page.on("pageerror", (err) => errores.push("PAGEERROR " + String(err)));
+      // Con stack (primeras líneas): un "reading 'get'" pelado no dice DÓNDE — pasada 5.
+      page.on("pageerror", (err) => errores.push("PAGEERROR " + String(err?.stack || err).split("\n").slice(0, 5).join(" | ")));
       page.on("requestfailed", (req) => peticionesFallidas.push(`${nombre} ${req.failure()?.errorText} ${req.url().replace(/^http:\/\/localhost:\d+/, "")}`));
       page.on("framenavigated", (f) => { if (f === page.mainFrame()) navegaciones.push(f.url().replace(/^http:\/\/localhost:\d+/, "")); });
       if (process.env.PLAYTEST_DEBUG) page.on("console", (m) => console.log(`   [${nombre}:${m.type()}] ${m.text().slice(0, 200)}`));
@@ -100,7 +101,11 @@ async function main() {
       // evento load de la 4ª (bundle + primeros .glb) superó los 30s por
       // defecto en la 2ª pasada — esperarJuego() ya espera lo que importa.
       await page.goto(`http://localhost:${PUERTO_WEB}/?nombre=${nombre}${extraUrl}`, { waitUntil: "commit", timeout: 120000 });
-      await esperarJuego(j);
+      // Un cliente que no llega a arrancar es un HALLAZGO, no motivo para
+      // abortar la pasada entera: se registra (con sus errores de página) y
+      // el resto de pasos sigue con los que sí arrancaron.
+      const arranco = await esperarJuego(j).then(() => true).catch(() => false);
+      comprobar(`${nombre} arranca el juego (mundo materializado)`, arranco, errores.slice(0, 3).join(" || ") || "sin errores de página, solo timeout");
       jugadores.push(j);
       return j;
     }
