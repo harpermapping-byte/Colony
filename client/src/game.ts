@@ -49,7 +49,7 @@ import { PanelCocina, type IngredienteVista, type ConfigSesionCocinaVista, type 
 import { aplicarEquipoAlRig, type BlueprintRopaResuelto } from "./render3d/equipoVisual";
 import { PanelJugador } from "./personaje/panelJugador";
 import { crearPlaceholder } from "./render3d/placeholder";
-import { animalPlaceholder } from "./render3d/animalPlaceholder";
+import { generarAnimalVoxel } from "./render3d/generarAnimalVoxel";
 import { aplicarMonturaAlAnimal } from "./render3d/monturaVisual";
 import { crearBarcoVisual } from "./render3d/barcoVisual";
 import { aplicarAnatomiaCompleta } from "./render3d/anatomiaVisual";
@@ -1873,7 +1873,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (player.monturaEspecieId !== monturaActual) {
         monturaActual = player.monturaEspecieId;
         if (monturaActual) {
-          const animalRig = crearAnimalVoxel(animalPlaceholder(monturaActual));
+          const animalRig = crearAnimalVoxel(generarAnimalVoxel(monturaActual, `montura|${sessionId}`));
           animalRig.objeto.rotation.order = "YXZ";
           aplicarMonturaAlAnimal(animalRig.objeto, null);
           rig.objeto.visible = false;
@@ -2036,7 +2036,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   const faunaVisual = new Map<string, EstadoJugador>();
   $(room.state).fauna.onAdd((animal: any, id: string) => {
     const vox = voxFaunaPorId.get(id);
-    const criatura = vox ? crearAnimalVoxel(vox) : crearAnimalVoxel(animalPlaceholder(animal.especieId));
+    const criatura = vox ? crearAnimalVoxel(vox) : crearAnimalVoxel(generarAnimalVoxel(animal.especieId, id));
     criatura.orientar(1, 1);
     const estado: EstadoJugador = {
       rig: criatura,
@@ -2063,13 +2063,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   // Mascotas (docs/GDD_Mascotas.md) — mismo circuito visual que fauna
   // doméstica (sin vox propio por id: nace de un spawn de fauna.json que ya
-  // no existe, así que siempre usa la caja placeholder por especie,
-  // animalPlaceholder.ts). Con silla puesta (docs/GDD_Monturas.md,
-  // `mascota.montura`), lleva la silla puesta SIEMPRE que se la ve —
-  // siguiendo o "aparcada" — no solo mientras se está montando.
+  // no existe, así que siempre pasa por generarAnimalVoxel — cuerpo real
+  // para cuadrupedo/ave, caja placeholder para el resto). Con silla puesta
+  // (docs/GDD_Monturas.md, `mascota.montura`), lleva la silla puesta
+  // SIEMPRE que se la ve — siguiendo o "aparcada" — no solo mientras se
+  // está montando.
   const mascotasVisual = new Map<string, EstadoJugador>();
   $(room.state).mascotas.onAdd((mascota: any, id: string) => {
-    const criatura = crearAnimalVoxel(animalPlaceholder(mascota.especieId));
+    const criatura = crearAnimalVoxel(generarAnimalVoxel(mascota.especieId, id));
     criatura.orientar(1, 1);
     if (mascota.montura) aplicarMonturaAlAnimal(criatura.objeto, null);
     const estado: EstadoJugador = {
@@ -2867,11 +2868,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         objeto = rig.objeto;
       }
     } else {
-      // animal (fauna salvaje, único origen que muere hoy): ya se renderiza
-      // en vivo con una caja-placeholder por especie sin vóxel individual
-      // (animalPlaceholder — ver su comentario), así que la especie sola
-      // ya reconstruye el mismo aspecto exacto que tenía viva.
-      const criatura = crearAnimalVoxel(animalPlaceholder(cadaver.especieOrigenId), { caido: true, id });
+      // animal (fauna salvaje, único origen que muere hoy): mismo generador
+      // que en vivo (generarAnimalVoxel, con fallback a animalPlaceholder
+      // dentro) — reconstruye el mismo aspecto que tenía viva, con la pose
+      // "caído" real de patas/alas para cuadrupedo/ave en vez del volcado
+      // genérico que sufría el placeholder de una sola caja.
+      const criatura = crearAnimalVoxel(generarAnimalVoxel(cadaver.especieOrigenId, id), { caido: true, id });
       objeto = criatura.objeto;
     }
 

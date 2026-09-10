@@ -2,18 +2,20 @@ import animalesRigJson from "../../../personajes/catalogo/animales_rig.json";
 import type { AnimalExportado, PiezaAnimal } from "./animalVoxel";
 
 /**
- * Cuerpo PLACEHOLDER de un animal en vivo (mascota o montura) — una única
- * caja con las proporciones reales de `personajes/catalogo/animales_rig.json`,
- * a diferencia del vóxel completo que sí existe para la fauna PRE-HORNEADA
- * (`fauna.json` de cada mapa, `voxFaunaPorId` en game.ts). Una mascota/
- * montura nace en vivo (domesticación en pleno juego, imposible de
- * pre-hornear) así que hoy no tiene vóxel real — antes ni siquiera tenía
- * esta caja (grupo vacío, invisible del todo, `piezas: []`); esto es
- * mínimamente mejor y además da un pivote "lomo" real donde colgar la silla
- * de montura (docs/GDD_Monturas.md, pedido 2026-08-30). El vóxel completo
- * (patas/cabeza/cola reales) queda para cuando se porte `generarAnimal.js`
- * a TypeScript — mismo criterio ya aceptado en el proyecto de "mecanismo
- * real, arte placeholder, se pule después".
+ * Cuerpo PLACEHOLDER de un animal en vivo (fauna salvaje/mascota/montura) —
+ * una única caja con las proporciones reales de
+ * `personajes/catalogo/animales_rig.json`, a diferencia del vóxel completo
+ * que sí existe para la fauna PRE-HORNEADA (`fauna.json` de cada mapa,
+ * `voxFaunaPorId` en game.ts). Da además un pivote "lomo" real donde colgar
+ * la silla de montura (docs/GDD_Monturas.md, pedido 2026-08-30).
+ *
+ * Desde 2026-09-10 (`generarAnimalVoxel.ts`, port parcial de
+ * `personajes/src/generarAnimal.js`) esta caja SOLO se usa como fallback:
+ * especies cuadrupedo/ave (lobos, ciervos, conejos, gallinas, pájaros...) ya
+ * tienen cuerpo articulado real en vivo; el resto de esqueletos (marino/
+ * insectos, 14 de los 16) siguen cayendo aquí hasta portar el resto —
+ * mismo criterio ya aceptado en el proyecto de "mecanismo real, arte
+ * placeholder, se pule después", aplicado de forma incremental.
  */
 
 interface EntradaRig {
