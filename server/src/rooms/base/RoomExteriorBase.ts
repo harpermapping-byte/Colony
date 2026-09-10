@@ -13060,8 +13060,16 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const persecucion = this.cazasAutomaticas.get(sessionId);
       if (persecucion) {
         const presa = this.presaCazadaPor(sessionId);
+        // Mismos bloqueos que el handler de "input" (forja/alquimia/cocina
+        // plantan al jugador) más los estados "quieto a propósito" que un
+        // `input` real levantaría (sentado/tumbado/dormido/pescando): la
+        // persecución no pasa por ese handler, así que aquí simplemente NO
+        // mueve — el jugador se levanta con cualquier tecla, como siempre,
+        // y ese mismo `input` cancela la caza; vuelve a pulsar "Cazar" si quiere.
+        const plantado = this.forjasEnCurso.has(sessionId) || this.alquimiasEnCurso.has(sessionId) || this.cocinasEnCurso.has(sessionId)
+          || this.sentado.has(sessionId) || this.sentadoSuelo.has(sessionId) || this.sentadoEn.has(sessionId) || this.durmiendo.has(sessionId) || this.pescaPorSesion.has(sessionId);
         if (!presa) this.cazasAutomaticas.delete(sessionId);
-        else if (dirManual.x === 0 && dirManual.y === 0) dir = { ...direccionPersecucion(persecucion, player, presa, VEL_ANDAR * dt), correr: false };
+        else if (dirManual.x === 0 && dirManual.y === 0 && !plantado) dir = { ...direccionPersecucion(persecucion, player, presa, VEL_ANDAR * dt), correr: false };
       }
       // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): un pasajero (no
       // capitán) no se mueve con su propio input — su posición la fija el
