@@ -48,11 +48,32 @@ import { crearBoton, crearInput, crearLineaTexto } from "../ui/panelBase";
 
 const SERVER_URL_HTTP = SERVER_URL.replace(/^ws/, "http");
 
-/** `true` si el join debe seguir su curso normal sin pasar por esta pantalla — ver comentario de arriba. */
+/**
+ * `true` si el join debe seguir su curso normal sin pasar por esta pantalla
+ * — ver comentario de arriba.
+ *
+ * Bug real cerrado (2026-09-09, pedido streamer: "hay que arreglar que
+ * funcione la conexión con cuenta de Twitch"): `twitchSession`/
+ * `adminSession` en la URL YA NO saltan esta pantalla por sí solos. Antes sí
+ * lo hacían (arrastrado de un diseño anterior a que la cuenta de jugador
+ * fuera obligatoria) — así que un visitante SIN cuenta que pulsaba
+ * "Conectar con Twitch" desde esta misma pantalla volvía del OAuth con
+ * `?twitchSession=...` en la URL, la pantalla desaparecía sola SIN haber
+ * creado ninguna cuenta, y entraba como invitado anónimo (`Viewer-XXX`) —
+ * exactamente lo que "no puedes jugar sin cuenta" prohíbe, y de paso su
+ * vínculo de Twitch quedaba huérfano de cualquier cuenta real. Ahora la
+ * pantalla sigue mostrándose (con el estado "ya conectado" reflejado, ver
+ * `mostrarPantallaBienvenida`) hasta que el jugador rellena nombre/
+ * contraseña de verdad — `location.search` no cambia entre medias (SPA sin
+ * navegación real), así que `game.ts` sigue leyendo el mismo
+ * `twitchSession`/`adminSession` de la URL cuando por fin arranca el juego,
+ * sin perder nada del vínculo. Solo `nombre` (bypass de test) y una sesión
+ * de JUGADOR ya guardada siguen saltando esta pantalla.
+ */
 export function debeSaltarBienvenida(): boolean {
   if ((navigator as unknown as { webdriver?: boolean }).webdriver) return true; // cualquier test Playwright/Selenium
   const parametros = new URLSearchParams(location.search);
-  if (parametros.get("nombre") || parametros.get("twitchSession") || parametros.get("adminSession")) return true;
+  if (parametros.get("nombre")) return true;
   if (localStorage.getItem("playerSession")) return true;
   return false;
 }
@@ -131,6 +152,14 @@ export function mostrarPantallaBienvenida(contenedor: HTMLElement, alContinuar: 
   let valorAdminUsuario = "";
   let valorAdminPassword = "";
 
+  // Vuelta del OAuth de Twitch (ver comentario de `debeSaltarBienvenida`
+  // arriba) — `twitchLogin` llega en la URL una única vez, junto con
+  // `twitchSession` (que `game.ts` ya lee de `location.search` cuando el
+  // juego arranca, sin que esta pantalla tenga que reenviarlo a ningún
+  // sitio). Solo se usa aquí para reflejar el estado "ya conectado" en vez
+  // de mostrar el enlace como si no se hubiera pulsado.
+  const twitchLoginConectado = new URLSearchParams(location.search).get("twitchLogin");
+
   function render() {
     tarjeta.innerHTML = "";
 
@@ -190,17 +219,24 @@ export function mostrarPantallaBienvenida(contenedor: HTMLElement, alContinuar: 
     // bloquea nada, solo vincula la cuenta de Twitch para que el chat te
     // reconozca (y, si esa cuenta ya está vinculada a un admin, añade
     // también la sesión de jarl/superadmin — mismo mecanismo de siempre,
-    // ver twitch/rutasOauth.ts).
+    // ver twitch/rutasOauth.ts). Vuelta del OAuth (ver
+    // `twitchLoginConectado` arriba): ya no hace falta volver a pulsar el
+    // enlace — el vínculo ya está hecho y se manda solo al terminar de
+    // crear/loguear la cuenta de jugador (obligatoria) de abajo.
     const separadorTwitch = document.createElement("div");
     separadorTwitch.className = "bienvenida-separador";
     separadorTwitch.textContent = "o";
     tarjeta.appendChild(separadorTwitch);
-    const enlaceTwitch = document.createElement("a");
-    enlaceTwitch.href = `${SERVER_URL_HTTP}/auth/twitch/login`;
-    enlaceTwitch.className = "bienvenida-enlace-twitch";
-    enlaceTwitch.textContent = "🎮 Conectar con Twitch";
-    tarjeta.appendChild(enlaceTwitch);
-    tarjeta.appendChild(crearLineaTexto("(si no lo haces ahora, puedes conectarlo luego desde Ajustes)", { tenue: true, fontSize: "11px" }));
+    if (twitchLoginConectado) {
+      tarjeta.appendChild(crearLineaTexto(`🎮 Twitch conectado como ${twitchLoginConectado}`, { fontSize: "12px" }));
+    } else {
+      const enlaceTwitch = document.createElement("a");
+      enlaceTwitch.href = `${SERVER_URL_HTTP}/auth/twitch/login`;
+      enlaceTwitch.className = "bienvenida-enlace-twitch";
+      enlaceTwitch.textContent = "🎮 Conectar con Twitch";
+      tarjeta.appendChild(enlaceTwitch);
+      tarjeta.appendChild(crearLineaTexto("(si no lo haces ahora, puedes conectarlo luego desde Ajustes)", { tenue: true, fontSize: "11px" }));
+    }
 
     // Admin (jarl/superadmin) — sección opcional plegada, unificada aquí en
     // vez del panel flotante siempre-visible que había antes.

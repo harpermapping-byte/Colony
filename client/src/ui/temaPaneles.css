@@ -243,6 +243,18 @@
   width: 100%;
   transition: width 0.25s ease;
 }
+/* "Necesitas cagar" a partir del 75% de `vitales.caca` (docs/GDD_Personaje.md
+ * §3.6, pedido explícito del streamer desde el diseño original: "icono de
+ * necesitas cagar a partir del 75%") — mismo pulso simple que un aviso de
+ * batería baja, nada más llamativo hace falta para una barra ya de por sí
+ * visible en el HUD. */
+@keyframes hud-vitales-pulso-urgente {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.hud-vitales-relleno.urgente {
+  animation: hud-vitales-pulso-urgente 1.1s ease-in-out infinite;
+}
 
 /* Pantalla de bienvenida — PANTALLA COMPLETA (pedido streamer 2026-09-09:
  * "una pestaña entera toda la pantalla... no puedes jugar sin poner

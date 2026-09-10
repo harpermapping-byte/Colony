@@ -15,7 +15,7 @@
  * emoji de reserva para no dejar el círculo vacío.
  *
  * `vida`/`vidaMax` viven sueltos en `Player` (fuente única de HP,
- * docs/GDD_Mecanicas.md §5.4); `estamina`/`comida`/`bebida` viven en
+ * docs/GDD_Mecanicas.md §5.4); `estamina`/`comida`/`bebida`/`caca` viven en
  * `Player.vitales` (docs/GDD_Personaje.md). Colyseus `$(player).onChange`
  * NO burbujea cambios de un sub-schema anidado como `vitales` hasta el
  * padre — en vez de cablear un `$(player.vitales).onChange` en cada sitio
@@ -23,6 +23,17 @@
  * llama a `actualizar()` cada 500ms (mismo patrón ya usado en el propio
  * archivo para proximidad a bancales/mesas de injerto — "barato, no hace
  * falta 60hz", los vitales decaen en HORAS reales).
+ *
+ * Barra "🫃 Necesidad" (pedido streamer 2026-09-09: "se puede añadir la
+ * barra de cagar debajo, como de estómago, vinculada al nivel de cagar")
+ * — cierra un pendiente que el propio diseño original ya preveía
+ * (docs/GDD_Personaje.md §3.6: "icono de 'necesitas cagar' a partir del
+ * 75% de `caca`") pero nunca llegó a construirse por ser "lo último" de UI.
+ * A diferencia de las otras 4 barras, esta va CRECIENTE con la urgencia
+ * (0=vacío/tranquilo, 100=ensucia si no se usa una hoja) — mismo sentido
+ * que el propio campo del servidor, sin invertirlo, para no desincronizar
+ * la lectura visual del dato real. Al 75%+ pulsa (`.urgente`,
+ * `temaPaneles.css`) para que se note sin tener que fijarse en el ancho.
  */
 
 export interface VitalesVisibles {
@@ -31,17 +42,21 @@ export interface VitalesVisibles {
   estamina: number;
   comida: number;
   bebida: number;
+  caca: number;
 }
 
 interface BarraVital {
   relleno: HTMLDivElement;
 }
 
+const UMBRAL_URGENTE_CACA = 75;
+
 const DEFINICION_BARRAS: { clave: keyof Omit<VitalesVisibles, "vidaMax">; emoji: string; color: string; titulo: string }[] = [
   { clave: "vida", emoji: "❤️", color: "#c0392b", titulo: "Vida" },
   { clave: "estamina", emoji: "⚡", color: "#e0b84a", titulo: "Estamina" },
   { clave: "comida", emoji: "🍗", color: "#a0703a", titulo: "Hambre" },
   { clave: "bebida", emoji: "💧", color: "#3a8ec0", titulo: "Sed" },
+  { clave: "caca", emoji: "🫃", color: "#6b7a3a", titulo: "Necesidad (usa una hoja antes de que llegue al tope)" },
 ];
 
 export class HudVitales {
@@ -93,5 +108,8 @@ export class HudVitales {
     this.barras.get("estamina")!.relleno.style.width = pct(v.estamina, 100);
     this.barras.get("comida")!.relleno.style.width = pct(v.comida, 100);
     this.barras.get("bebida")!.relleno.style.width = pct(v.bebida, 100);
+    const rellenoCaca = this.barras.get("caca")!.relleno;
+    rellenoCaca.style.width = pct(v.caca, 100);
+    rellenoCaca.classList.toggle("urgente", v.caca >= UMBRAL_URGENTE_CACA);
   }
 }

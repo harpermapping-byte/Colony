@@ -5,7 +5,12 @@ Guía real del hosting alternativo a Render: el servidor corre 24/7 en el propio
 ## Setup inicial (una vez)
 
 1. Clonar el repo, `npm install` en la raíz (instala los workspaces).
-2. `server/.env` con `DATABASE_URL` (Neon) y el resto de variables — ver `server/.env.example`.
+2. `server/.env` con `DATABASE_URL` (Neon) y el resto de variables — ver `server/.env.example`. Para ESTE dominio concreto, el login con Twitch (`docs/GDD_Twitch.md` §7) necesita exactamente:
+   ```
+   CLIENT_URL=https://colony-streamer.online
+   TWITCH_REDIRECT_URI=https://play.colony-streamer.online/auth/twitch/callback
+   ```
+   `TWITCH_REDIRECT_URI` tiene que coincidir CARÁCTER A CARÁCTER con la "OAuth Redirect URL" registrada en la app de https://dev.twitch.tv/console/apps de la cuenta del streamer (Twitch rechaza el login si no coinciden) — `TWITCH_CLIENT_ID`/`TWITCH_CLIENT_SECRET` salen de esa misma app. Sin las 4 variables puestas, `/auth/twitch/login` responde `503` con un mensaje claro en vez de fallar en silencio — el resto del juego sigue funcionando exactamente igual (identidad por nombre de PJ, como siempre).
 3. `npm run build -w server`.
 4. `pm2 start server/deploy/ecosystem.config.js` (fork, no cluster — Colyseus guarda estado de partida en memoria de proceso, un solo fork es obligatorio).
 5. `pm2 save` + `pm2 startup`/paquete `pm2-windows-startup` para que sobreviva a un reinicio del PC.

@@ -27,6 +27,14 @@ interface EntradaItem {
   slotEquipo?: string;
   peso?: number;
   huella?: [number, number];
+  // Consumibles reales (comida/bebida/pociones que restauran un vital) —
+  // MISMA condición que exige el servidor en `manejarPersonajeConsumir`
+  // (`tipo==="consumible" && (restaura||restauraMultiple)`), replicada aquí
+  // solo para decidir CUÁNDO mostrar el botón "Usar" — el servidor sigue
+  // siendo quien valida y aplica de verdad, esto nunca resta ni cura nada
+  // por sí mismo.
+  restaura?: { vital: string; cantidad: number };
+  restauraMultiple?: Record<string, number>;
 }
 const ITEMS = itemsJson as unknown as Record<string, EntradaItem>;
 
@@ -120,6 +128,15 @@ export interface OpcionesPanelJugador {
   mover(instanciaId: number, contenedorDestino: string, x: number, y: number, rot: 0 | 1): void;
   /** Pedido streamer 2026-09-06 ("intercambiar objetos"): arrastrar un ítem desde el cofre ABIERTO (panelCofre.ts) hasta esta rejilla — el hueco de destino lo decide el servidor solo (cofre:sacarItem ya lo hace así), sin (x,y) que pedirle. Opcional: fuera del Hub no hay ningún cofre abierto posible. */
   sacarDeCofre?(instanciaId: number): void;
+  /**
+   * "Usar" un ítem — comer/beber un consumible real (`personaje:consumir`)
+   * o usar una hoja (`higiene:cagar`), decidido por `game.ts` según
+   * `itemId` (docs/GDD_Personaje.md §3.6: "UI de personaje... icono de
+   * necesitas cagar" era la única pieza que faltaba, el servidor ya
+   * funcionaba de punta a punta). Opcional para no romper ningún consumidor
+   * viejo del panel.
+   */
+  usarItem?(instanciaId: number, itemId: string): void;
 }
 
 export class PanelJugador {
@@ -378,6 +395,31 @@ export class PanelJugador {
           botones.appendChild(boton);
         }
         celda.appendChild(botones);
+      }
+
+      // "Usar" (comer/beber/hoja, ver comentario de `usarItem` en
+      // OpcionesPanelJugador) — misma condición EXACTA que el servidor
+      // exige para aceptar `personaje:consumir` (tipo consumible con
+      // restaura/restauraMultiple), más el caso especial de la hoja
+      // (`higiene:cagar`, tipo "recurso" a propósito — no restaura ningún
+      // vital por sí sola). Esquina opuesta a "Eq." para que un ítem que
+      // (en teoría) fuera ambas cosas a la vez no las solape.
+      const esConsumibleReal = entrada?.tipo === "consumible" && !!(entrada.restaura || entrada.restauraMultiple);
+      const esHoja = it.itemId === "hoja";
+      if ((esConsumibleReal || esHoja) && this.opciones.usarItem) {
+        const botonUsar = document.createElement("button");
+        botonUsar.textContent = esHoja ? "🍃" : "Usar";
+        botonUsar.title = esHoja ? "Usar hoja (higiene)" : "Comer/beber";
+        botonUsar.style.position = "absolute";
+        botonUsar.style.bottom = "0";
+        botonUsar.style.left = "0";
+        botonUsar.style.fontSize = "8px";
+        botonUsar.style.padding = "0 2px";
+        botonUsar.onclick = (ev) => {
+          ev.stopPropagation();
+          this.opciones.usarItem!(it.id, it.itemId);
+        };
+        celda.appendChild(botonUsar);
       }
 
       grid.appendChild(celda);
