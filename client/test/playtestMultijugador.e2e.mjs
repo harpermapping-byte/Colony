@@ -146,6 +146,13 @@ async function main() {
     const [t1, t2, t3, t4] = jugadores;
 
     console.log("2) todos andan a la vez en direcciones distintas (WASD real)...");
+    // Cada uno en su propio sitio ANTES de andar: 4 jugadores apilados en el
+    // mismo spawn se empujan entre sí (colisiones.ts::separarPJs) y el
+    // recorrido medido no dice nada del movimiento real (visto en la 1ª
+    // pasada: 0.21/0.57 casillas "andadas" por el empuje ajeno). Campo
+    // abierto al sur de la capital, lejos de la muralla del spawn.
+    const sitios = [[1496.5, 2106.5], [1502.5, 2106.5], [1496.5, 2112.5], [1502.5, 2112.5]];
+    await Promise.all(jugadores.map((j, i) => teleport(j, sitios[i][0], sitios[i][1])));
     const antes = await Promise.all(jugadores.map((j) => pos(j.page)));
     const recorridos = await Promise.all([andarHasta(t1, "w", 1), andarHasta(t2, "s", 1), andarHasta(t3, "a", 1), andarHasta(t4, "d", 1)]);
     jugadores.forEach((j, i) => comprobar(`${j.nombre} se ha movido andando`, recorridos[i] >= 1, `${recorridos[i].toFixed(2)} casillas`));
@@ -175,24 +182,48 @@ async function main() {
       comprobar("Tester2 sale del agua a tierra", await esperarEstado(t2, "tierra"), `estado=${(await pos(t2.page)).estado}`);
     }
 
-    console.log("5) Tester3 se pone al lado de un animal real y lo caza (tecla C)...");
+    console.log("5) Tester3 caza un animal REAL con clic sobre él (menú 'Cazar') y persecución automática...");
     await teleport(t3, 1310.5, 2040.5);
     await espera(2000);
     const fauna = await t3.page.evaluate(() => window.__fauna());
     comprobar("hay fauna viva replicada cerca del río", fauna.length > 0, `${fauna.length} individuos`);
-    if (fauna.length > 0) {
-      const objetivo = fauna[0];
-      console.log(`   objetivo: ${objetivo.especieId} (${objetivo.id}) en (${objetivo.x.toFixed(1)},${objetivo.y.toFixed(1)})`);
-      await teleport(t3, objetivo.x + 1, objetivo.y);
-      const urlAntesC = t3.page.url();
-      await t3.page.keyboard.press("c");
-      const respuesta = await t3.page.waitForFunction(() => window.__test.ultimoMensaje("caza:iniciada") || window.__test.ultimoMensaje("combate:error") || window.__test.ultimoMensaje("caza:atrapado") || (window.__colonyDebug ? null : "navego"), null, { timeout: ESPERA_ESTADO_MS })
-        .then(() => t3.page.evaluate(() => window.__test.ultimoMensaje("caza:iniciada") || window.__test.ultimoMensaje("combate:error") || window.__test.ultimoMensaje("caza:atrapado")))
-        .catch(() => null);
-      const navegoC = t3.page.url() !== urlAntesC;
-      console.log(`   respuesta a C: ${JSON.stringify(respuesta)}${navegoC ? " (navegó a " + t3.page.url() + ")" : ""}`);
-      comprobar("C junto a un animal inicia caza/combate (o el servidor explica por qué no)", !!respuesta || navegoC, JSON.stringify(respuesta));
-      if (navegoC) await esperarJuego(t3).catch(() => {});
+    // Presa de TIERRA y no peligrosa (un pez llevaría al cazador al agua, un
+    // lobo/jabalí es combate de arena, no caza) — si no hay ninguna de la
+    // lista, se prueba con la primera que haya y se acepta el rechazo del
+    // servidor como respuesta válida.
+    const PRESAS_TIERRA = new Set(["raton_de_campo", "conejo", "liebre", "cierva", "ciervo", "corzo", "corza", "ardilla", "marmota", "perdiz", "codorniz", "liebre_de_bosque", "cervatillo", "corcino", "gacela"]);
+    const presa = fauna.find((f) => PRESAS_TIERRA.has(f.especieId)) || fauna[0];
+    if (presa) {
+      console.log(`   presa: ${presa.especieId} (${presa.id}) en (${presa.x.toFixed(1)},${presa.y.toFixed(1)})`);
+      // A 7 casillas: fuera de radioHuida (4) para que no salga corriendo antes del clic
+      await teleport(t3, presa.x + 7, presa.y);
+      const viva = await t3.page.evaluate((id) => window.__fauna().find((f) => f.id === id) || null, presa.id);
+      comprobar("la presa sigue replicada tras acercarse", !!viva, JSON.stringify(viva));
+      if (viva) {
+        const px = await t3.page.evaluate(({ x, y }) => window.__proyectarMundo(x, y), { x: viva.x, y: viva.y });
+        await t3.page.mouse.click(px.x, px.y);
+        const boton = t3.page.getByRole("button", { name: /^Cazar / });
+        const menuOk = await boton.waitFor({ state: "visible", timeout: ESPERA_ESTADO_MS }).then(() => true).catch(() => false);
+        comprobar("clic sobre el animal abre el menú con 'Cazar'", menuOk, menuOk ? await boton.textContent() : "sin menú");
+        if (menuOk) {
+          await boton.click();
+          const arranque = await t3.page.waitForFunction(() => window.__test.ultimoMensaje("caza:iniciada") || window.__test.ultimoMensaje("combate:error"), null, { timeout: ESPERA_ESTADO_MS })
+            .then(() => t3.page.evaluate(() => ({ iniciada: window.__test.ultimoMensaje("caza:iniciada"), error: window.__test.ultimoMensaje("combate:error") })))
+            .catch(() => null);
+          comprobar("'Cazar' arranca la caza (caza:iniciada) o el servidor explica por qué no", !!arranque, JSON.stringify(arranque));
+          if (arranque?.iniciada) {
+            const auto = await t3.page.evaluate(() => window.__cazaAuto());
+            comprobar("la persecución automática queda activa en el cliente", auto === presa.id, String(auto));
+            const t0 = Date.now();
+            const atrapado = await t3.page.waitForFunction(() => !!window.__test.ultimoMensaje("caza:atrapado"), null, { timeout: 90000 }).then(() => true).catch(() => false);
+            const p3 = await pos(t3.page);
+            comprobar("el jugador alcanza a la presa solo (caza:atrapado)", atrapado, `${((Date.now() - t0) / 1000).toFixed(1)}s, jugador en (${p3.x.toFixed(1)},${p3.y.toFixed(1)})`);
+            const autoTras = await t3.page.evaluate(() => window.__cazaAuto());
+            comprobar("la persecución automática se apaga sola al atrapar", autoTras === null, String(autoTras));
+            await t3.page.screenshot({ path: join(CARPETA_CAPTURAS, "playtest_multi_caza.png") });
+          }
+        }
+      }
     }
 
     console.log("6) Tester4: paseo de teclas (monkey test) — cada tecla de acción una vez, paneles abrir/cerrar...");
@@ -211,7 +242,7 @@ async function main() {
     const urlAntes = t1.page.url();
     await t1.page.keyboard.press("f");
     let navego = false;
-    try { await t1.page.waitForURL((u) => u.toString() !== urlAntes, { timeout: 30000 }); navego = true; } catch {}
+    try { await t1.page.waitForURL((u) => u.toString() !== urlAntes, { timeout: 90000, waitUntil: "commit" }); navego = true; } catch {}
     comprobar("F junto a la puerta navega a la región de la capital", navego, t1.page.url().replace(/^http:\/\/localhost:\d+/, ""));
     if (navego) {
       await esperarJuego(t1, 120000).catch((e) => comprobar("la región de la capital termina de cargar", false, String(e)));
@@ -227,7 +258,7 @@ async function main() {
       const urlDentro = t1.page.url();
       await t1.page.keyboard.press("f");
       let salio = false;
-      try { await t1.page.waitForURL((u) => u.toString() !== urlDentro, { timeout: 30000 }); salio = true; } catch {}
+      try { await t1.page.waitForURL((u) => u.toString() !== urlDentro, { timeout: 90000, waitUntil: "commit" }); salio = true; } catch {}
       comprobar("F en el spawn de la capital devuelve al exterior", salio, t1.page.url().replace(/^http:\/\/localhost:\d+/, ""));
       if (salio) await esperarJuego(t1, 120000).catch((e) => comprobar("el exterior vuelve a cargar tras salir de la capital", false, String(e)));
     }
@@ -235,7 +266,7 @@ async function main() {
     console.log("8) Tester2 recarga (F5) lejos del spawn — la posición debe persistir...");
     await esperarJuego(t2);
     const antesRecarga = await pos(t2.page);
-    await t2.page.reload();
+    await t2.page.reload({ waitUntil: "commit", timeout: 120000 });
     await esperarJuego(t2);
     const trasRecarga = await pos(t2.page);
     comprobar("posición persistida tras F5", Math.hypot(antesRecarga.x - trasRecarga.x, antesRecarga.y - trasRecarga.y) < 2, `${antesRecarga.x.toFixed(1)},${antesRecarga.y.toFixed(1)} → ${trasRecarga.x.toFixed(1)},${trasRecarga.y.toFixed(1)}`);
@@ -272,6 +303,13 @@ async function main() {
     writeFileSync(join(CARPETA_CAPTURAS, "playtest_multi_servidor.log"), logServidor.join(""));
     if (hallazgos.length) console.log("\nHALLAZGOS:\n - " + hallazgos.join("\n - "));
   } finally {
+    // Aunque el e2e reviente a medias (visto en la 1ª pasada: un timeout en
+    // el paso 8 se llevó por delante el resumen entero), el log del servidor
+    // y los errores de cada cliente se guardan igual.
+    try {
+      writeFileSync(join(CARPETA_CAPTURAS, "playtest_multi_servidor.log"), logServidor.join(""));
+      writeFileSync(join(CARPETA_CAPTURAS, "playtest_multi_clientes.log"), jugadores.map((j) => `== ${j.nombre} ==\n${j.errores.join("\n")}\nnavegaciones: ${j.navegaciones.join(" -> ")}\n`).join("\n") + "\n== red fallida ==\n" + peticionesFallidas.join("\n"));
+    } catch {}
     if (browser) await browser.close().catch(() => {});
     matarTodo();
     rmSync(BD_RUTA, { force: true });

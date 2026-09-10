@@ -304,6 +304,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const r = escena.renderer.domElement.getBoundingClientRect();
     return { x: r.left + ((punto.x + 1) / 2) * r.width, y: r.top + ((1 - punto.y) / 2) * r.height };
   };
+  // Misma proyección, para cualquier punto de mundo (x=casilla, z=casilla,
+  // altura opcional) — el playtest multijugador la usa para clicar de verdad
+  // sobre un animal (docs/GDD_Caza.md §4ter).
+  (window as any).__proyectarMundo = (x: number, z: number, y = 0.3) => {
+    const punto = new Vector3(x, y, z);
+    punto.project(escena.camera);
+    const r = escena.renderer.domElement.getBoundingClientRect();
+    return { x: r.left + ((punto.x + 1) / 2) * r.width, y: r.top + ((1 - punto.y) / 2) * r.height };
+  };
 
   // --- Mundo bakeado por STREAMING de sectores: solo se materializa el
   // anillo alrededor del jugador local; el resto se pide al acercarse y se
@@ -778,6 +787,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("combate:error", (m: { motivo: string }) => {
     console.log("[combate]", m?.motivo);
     registroCombate.mostrar(m?.motivo ?? "Acción de combate rechazada.", "error");
+    cazaAutomaticaId = null; // un rechazo del servidor nunca deja al jugador persiguiendo solo (ver caza:iniciada)
   });
   // Rotura probabilística de arma A MITAD de combate (docs/GDD_Combate.md,
   // 2026-09-03) — mismo criterio que combate:error de arriba: ahora también
@@ -786,6 +796,28 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     console.log("[combate] arma rota en combate:", m?.itemId);
     registroCombate.mostrar("¡Tu arma se ha roto en combate!", "error");
   });
+  // Caza real por persecución (docs/GDD_Caza.md §4bis/§4ter): mientras
+  // `cazaAutomaticaId` apunte a un individuo vivo, el bucle de abajo manda
+  // el `input` de movimiento hacia su posición en vivo por el jugador ("se
+  // irá corriendo tu npc jugador a por el animal") — cualquier tecla de
+  // movimiento del jugador lo cancela al instante (el control manual manda
+  // siempre), igual que atraparlo, perderlo de vista o un rechazo del
+  // servidor. NUNCA se manda `correr`: andar ya es más rápido que cualquier
+  // especie cazable (VEL_ANDAR > la más rápida, GDD_Caza §4bis), y el
+  // sprint gasta estamina real.
+  let cazaAutomaticaId: string | null = null;
+  room.onMessage("caza:iniciada", (m: { objetivoId: string }) => {
+    ultimosMensajes.set("caza:iniciada", m);
+    cazaAutomaticaId = m?.objetivoId ?? null;
+    const especie = String((room.state.fauna.get(m?.objetivoId) as any)?.especieId || "presa").replace(/_/g, " ");
+    registroCombate.mostrar(`Persiguiendo a ${especie}… (cualquier tecla de movimiento cancela)`, "info");
+  });
+  room.onMessage("caza:atrapado", (m: { faunaId: string }) => {
+    ultimosMensajes.set("caza:atrapado", m);
+    if (cazaAutomaticaId === m?.faunaId) cazaAutomaticaId = null;
+    registroCombate.mostrar("¡Presa atrapada! Su cadáver queda en el suelo (L para lootear).", "danoHecho");
+  });
+  (window as any).__cazaAuto = () => cazaAutomaticaId; // sonda del playtest multijugador
   // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): solo informativo — F ya
   // cruza el borde si de verdad hay mapa vecino (mismo criterio "sin UI de
   // targeting/confirmación" que cualquier otra puerta), esto es únicamente
@@ -1075,6 +1107,35 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const r = escena.renderer.domElement.getBoundingClientRect();
       const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       raycasterClic.setFromCamera(ndc, escena.camera);
+      // Cazar con clic (docs/GDD_Caza.md §4ter — pedido original del
+      // streamer: "dándole click sobre el animal y cazar, entonces se irá
+      // corriendo tu npc jugador a por el animal"): ANTES del raycast de
+      // muebles/objetos, se prueba contra los rigs de la fauna viva. Hallazgo
+      // del playtest multijugador 2026-09-10: la tecla C exige el animal a
+      // ≤2.2 casillas, pero cualquier especie que huye lo hace desde 4
+      // (`radioHuida`), así que con solo C la caza era casi imposible de
+      // ARRANCAR; el servidor (manejarCombateIniciar, rama caza) nunca
+      // comprobó distancia para fauna no peligrosa — el clic a distancia es
+      // exactamente el diseño pedido. Recursivo a propósito (el rig es un
+      // grupo con varias mallas hijas); el id se recupera remontando padres.
+      const impactosFauna = raycasterClic.intersectObjects([...faunaVisual.values()].map((f) => f.rig.objeto), true);
+      if (impactosFauna.length > 0) {
+        let nodo: Object3D | null = impactosFauna[0].object;
+        while (nodo && !nodo.userData.faunaId) nodo = nodo.parent;
+        const faunaId = nodo?.userData.faunaId as string | undefined;
+        const animal = faunaId ? (room.state.fauna.get(faunaId) as any) : null;
+        if (faunaId && animal) {
+          const nombreEspecie = String(animal.especieId || "animal").replace(/_/g, " ");
+          menuInteraccion.mostrar(e.clientX, e.clientY, nombreEspecie, [
+            // Mismo mensaje que la tecla C: el servidor decide si es caza
+            // (huye, persecución automática de abajo) o combate real (fauna
+            // peligrosa, que sí exige estar a RADIO_INTERACCION — responde
+            // combate:error "demasiado lejos" si no).
+            { etiqueta: `Cazar ${nombreEspecie}`, accion: () => room.send("combate:iniciar", { objetivoId: faunaId, retorno: retornoDeCombate() }) },
+          ]);
+          return;
+        }
+      }
       // Objetos sueltos del mundo (docs/GDD_Ganaderia.md §12, pedido
       // 2026-09-01: "click sobre... el huevo, recoger huevo") — mismo
       // raycast que las construcciones, mallas combinadas; se distingue
@@ -2038,6 +2099,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const vox = voxFaunaPorId.get(id);
     const criatura = vox ? crearAnimalVoxel(vox) : crearAnimalVoxel(generarAnimalVoxel(animal.especieId, id));
     criatura.orientar(1, 1);
+    // Etiqueta para el raycast del clic (docs/GDD_Caza.md §4ter): cualquier
+    // malla hija del animal remonta hasta este objeto para saber a qué
+    // individuo del Schema pertenece.
+    criatura.objeto.userData.faunaId = id;
     const estado: EstadoJugador = {
       rig: criatura,
       destinoX: animal.x, destinoZ: animal.y, destinoY: 0,
@@ -3290,6 +3355,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // (siempre se crea si hay sesión de admin confirmada, pero puede estorbar
     // en pantalla mientras se juega — igual que I con el inventario).
     if (k === "f9" && !teclas.has("f9")) panelDebugTestZone?.alternar();
+    // Cualquier tecla de movimiento manual cancela la persecución automática
+    // de caza (el jugador recupera el control al instante, ver caza:iniciada).
+    if (k === "w" || k === "a" || k === "s" || k === "d" || k.startsWith("arrow")) cazaAutomaticaId = null;
     teclas.add(k);
   });
   window.addEventListener("keyup", (e) => teclas.delete(resolverTeclaLogica(e.key.toLowerCase())));
@@ -3315,10 +3383,31 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const dt = Math.min((tAhora - tAnterior) / 1000, 0.1); // techo: una pestaña en segundo plano no da un salto gigante al volver
     tAnterior = tAhora;
 
-    const x =
+    let x =
       (teclas.has("d") || teclas.has("arrowright") ? 1 : 0) - (teclas.has("a") || teclas.has("arrowleft") ? 1 : 0);
-    const y = (teclas.has("s") || teclas.has("arrowdown") ? 1 : 0) - (teclas.has("w") || teclas.has("arrowup") ? 1 : 0);
+    let y = (teclas.has("s") || teclas.has("arrowdown") ? 1 : 0) - (teclas.has("w") || teclas.has("arrowup") ? 1 : 0);
     const correr = teclas.has("shift");
+    // Persecución automática de la presa (ver caza:iniciada arriba) — solo
+    // sin tecla de movimiento pulsada. Dirección desde la posición REAL del
+    // servidor (no la interpolada) hacia la posición en vivo del animal,
+    // cuantizada a 16 rumbos: el servidor normaliza cualquier vector
+    // (`Math.hypot(dir.x, dir.y)`), y cuantizar evita mandar un `input`
+    // nuevo cada frame por un cambio de rumbo minúsculo — se sigue
+    // respetando "input solo al cambiar dirección".
+    if (cazaAutomaticaId && !x && !y && SALA !== "arena") {
+      const presa = room.state.fauna.get(cazaAutomaticaId) as any;
+      const yo = room.state.players.get(room.sessionId) as any;
+      if (!presa || !yo) {
+        cazaAutomaticaId = null;
+      } else {
+        const dx = presa.x - yo.x, dy = presa.y - yo.y;
+        if (Math.hypot(dx, dy) > 0.6) {
+          const ang = Math.round(Math.atan2(dy, dx) / (Math.PI / 8)) * (Math.PI / 8);
+          x = Math.round(Math.cos(ang) * 1000) / 1000;
+          y = Math.round(Math.sin(ang) * 1000) / 1000;
+        }
+      }
+    }
     if (x || y) ultimaDireccionMirada = { x, y };
 
     // En una arena el movimiento es EN COMBATE (tecla a tecla, gastando PA
