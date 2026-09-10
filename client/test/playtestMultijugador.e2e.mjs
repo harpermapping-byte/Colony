@@ -215,6 +215,12 @@ async function main() {
     let e2 = await pos(t2.page);
     comprobar("Tester2 ha entrado en el agua (estado nadando)", nada, `estado=${e2.estado} en (${e2.x.toFixed(1)},${e2.y.toFixed(1)})`);
     if (nada) {
+      // Soltar la tecla "a tiempo" no es fiable bajo carga (en las pasadas 8-10
+      // Tester2 cruzaba el río entero antes de pulsar Q): para Q/E se le pone
+      // en una casilla de agua real rodeada de agua (1289,2010 — comprobada
+      // con el cargador de colisión: fila y=2010 es agua en x 1288-1292).
+      await teleport(t2, 1289.5, 2010.5);
+      await esperarEstado(t2, "nadando");
       await t2.page.keyboard.press("q");
       comprobar("Q bucea (estado buceando)", await esperarEstado(t2, "buceando"), `estado=${(await pos(t2.page)).estado}`);
       await t2.page.keyboard.press("e");
@@ -327,8 +333,11 @@ async function main() {
       await t1.page.screenshot({ path: join(CARPETA_CAPTURAS, "playtest_multi_capital.png") });
       const d = await andarHasta(t1, "w", 0.5, 15000);
       comprobar("Tester1 puede andar dentro de la capital", d >= 0.5, `${d.toFixed(2)} casillas`);
-      // volver a la puerta (el spawn de la región es el portal de salida) y salir
-      await andarHasta(t1, "s", 0.5, 15000);
+      // volver a la puerta y salir: teleport al portal de salida real de esta
+      // región ((46,132) en capital_regional; el punto de entrada por defecto
+      // ya es ese portal, pero andar "0.5 casillas" bajo carga acaba a 16-27
+      // casillas de él) — RegionRoom acepta admin:debug:teleport igual que el Hub.
+      await teleport(t1, 46.5, 132.5).catch((e) => comprobar("teleport al portal de salida de la capital", false, String(e).slice(0, 100)));
       const urlDentro = t1.page.url();
       await t1.page.keyboard.press("f");
       let salio = false;
