@@ -32,13 +32,33 @@ import { NpcBakeado } from "../mundo/agentes";
 // fauna (t==="a") con coordenadas GLOBALAS de casilla — mismo formato de
 // nombre de archivo que usa `mundo/mapaColision.ts`. `[]` si el sector no
 // existe (fuera del mapa, o hueco sin bakear).
+type SectorBakeLeido = { chunks: Record<string, { objetos: { i: string; t: string; x: number; y: number }[] }> } | null;
+// Caché LRU pequeña del JSON de sector ya parseado: fauna salvaje y bosques
+// vivos activan los MISMOS 9 sectores casi a la vez y cada uno releía y
+// parseaba el archivo entero (0.8-2 MB) por su cuenta — lectura+parseo
+// SÍNCRONOS en el bucle de eventos (perfil de CPU real del playtest
+// 2026-09-10, `leerJSON` tras batchear la persistencia: ~0.6 s por
+// activación de 9 sectores). Cap pequeño a propósito: son objetos grandes y
+// solo interesa el anillo alrededor de los jugadores activos.
+const cacheSectorBake = new Map<string, SectorBakeLeido>();
+const MAX_SECTORES_BAKE_CACHEADOS = 12;
+function leerSectorBakeCacheado(ruta: string): SectorBakeLeido {
+  const cacheado = cacheSectorBake.get(ruta);
+  if (cacheado !== undefined) {
+    cacheSectorBake.delete(ruta); // reinsertar = "usado ahora" (orden de inserción como LRU)
+    cacheSectorBake.set(ruta, cacheado);
+    return cacheado;
+  }
+  const sector: SectorBakeLeido = fs.existsSync(ruta) ? (JSON.parse(fs.readFileSync(ruta, "utf8")) as Exclude<SectorBakeLeido, null>) : null;
+  cacheSectorBake.set(ruta, sector);
+  if (cacheSectorBake.size > MAX_SECTORES_BAKE_CACHEADOS) cacheSectorBake.delete(cacheSectorBake.keys().next().value!);
+  return sector;
+}
+
 function leerObjetosFaunaDeSector(rutaMapa: string, tamanoChunk: number, sectorX: number, sectorY: number): ObjetoFaunaBakeado[] {
   const pad3 = (n: number) => String(n).padStart(3, "0");
-  const ruta = path.join(rutaMapa, `sector_${pad3(sectorX)}_${pad3(sectorY)}.json`);
-  if (!fs.existsSync(ruta)) return [];
-  const sector = JSON.parse(fs.readFileSync(ruta, "utf8")) as {
-    chunks: Record<string, { objetos: { i: string; t: string; x: number; y: number }[] }>;
-  };
+  const sector = leerSectorBakeCacheado(path.join(rutaMapa, `sector_${pad3(sectorX)}_${pad3(sectorY)}.json`));
+  if (!sector) return [];
   const salida: ObjetoFaunaBakeado[] = [];
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
@@ -58,11 +78,8 @@ function leerObjetosFaunaDeSector(rutaMapa: string, tamanoChunk: number, sectorX
 // criterio que la fauna (el lector no sabe de catálogos, solo lee bytes).
 function leerObjetosVegetacionDeSector(rutaMapa: string, tamanoChunk: number, sectorX: number, sectorY: number): ObjetoArbolBakeado[] {
   const pad3 = (n: number) => String(n).padStart(3, "0");
-  const ruta = path.join(rutaMapa, `sector_${pad3(sectorX)}_${pad3(sectorY)}.json`);
-  if (!fs.existsSync(ruta)) return [];
-  const sector = JSON.parse(fs.readFileSync(ruta, "utf8")) as {
-    chunks: Record<string, { objetos: { i: string; t: string; x: number; y: number }[] }>;
-  };
+  const sector = leerSectorBakeCacheado(path.join(rutaMapa, `sector_${pad3(sectorX)}_${pad3(sectorY)}.json`));
+  if (!sector) return [];
   const salida: ObjetoArbolBakeado[] = [];
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
