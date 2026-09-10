@@ -37,7 +37,13 @@ npm run build -w server
 Write-Host "== Compilando cliente ==" -ForegroundColor Cyan
 npm run build -w client
 
+# Se recrea el proceso en vez de reiniciarlo: "pm2 restart" reutiliza la
+# definicion guardada, que puede apuntar a otra carpeta y que NO recoge los
+# cambios de ecosystem.config.js (memoria, apagado ordenado, variables). Como
+# este script lo lanzas tu a mano y a conciencia, recrear es lo correcto.
 Write-Host "== Reiniciando proceso (PM2) ==" -ForegroundColor Cyan
-pm2 restart colony-server
+pm2 delete colony-server
+pm2 start server/deploy/ecosystem.config.js
+pm2 save
 
 Write-Host "== Listo. Ver logs en vivo con: pm2 logs colony-server ==" -ForegroundColor Green

@@ -89,7 +89,20 @@ if ($tocaServer) {
   # client/assets, aprovechamos el hueco sin jugadores; si no los traía, el
   # build es idempotente y no cambia nada servido.
   npm run build -w client
-  pm2 restart colony-server
+
+  # `pm2 restart` reutiliza la definición GUARDADA del proceso, así que un
+  # cambio en ecosystem.config.js (memoria, apagado ordenado, variables de
+  # entorno...) NO se aplicaría nunca. Cuando ese archivo cambia hay que
+  # recrear el proceso para que PM2 relea la configuración.
+  $tocaEcosystem = git diff --name-only $desplegado $remoto -- server/deploy/ecosystem.config.js
+  if ($tocaEcosystem) {
+    Write-Host "ecosystem.config.js ha cambiado — se recrea el proceso para aplicar la configuración nueva."
+    pm2 delete colony-server
+    pm2 start server/deploy/ecosystem.config.js
+    pm2 save
+  } else {
+    pm2 restart colony-server
+  }
 } else {
   Write-Host "== Cambios solo en client/ ($desplegado -> $remoto) — reconstruyendo cliente en caliente ==" -ForegroundColor Cyan
   npm install

@@ -413,20 +413,32 @@ if ($hayNode) {
     # devolver vacio simplemente porque PM2 aun no se habia levantado.
     [void](EjecutarNativo { & $pm2 ping } 0)
     $ecosystem = Join-Path (Join-Path (Join-Path $Carpeta "server") "deploy") "ecosystem.config.js"
+    # SIEMPRE borrar y volver a crear el proceso, nunca "pm2 restart" a secas:
+    # restart reutiliza la definicion GUARDADA de PM2, que puede apuntar a otra
+    # carpeta (una copia vieja del repo) y que ademas NO tiene los ajustes
+    # actuales del ecosystem (apagado ordenado, memoria, UV_THREADPOOL_SIZE).
+    # Paso por esto de verdad en el PC del streamer: el instalador compilaba la
+    # version nueva, decia "reiniciado" y PM2 seguia sirviendo la vieja.
     $lista = EjecutarNativo { & $pm2 jlist } 0
     if ($lista.Salida -match "colony-server") {
-      [void](EjecutarNativo { & $pm2 restart colony-server } 1)
-      Bien "Servidor reiniciado con la version nueva"
-    } else {
-      [void](EjecutarNativo { & $pm2 start $ecosystem } 2)
-      Bien "Servidor arrancado"
+      Aviso "Quitando el proceso anterior de PM2 para recrearlo con la configuracion actual"
+      [void](EjecutarNativo { & $pm2 delete colony-server } 0)
     }
+    [void](EjecutarNativo { & $pm2 start $ecosystem } 2)
+    Bien "Servidor arrancado desde $ecosystem"
     [void](EjecutarNativo { & $pm2 save } 0)
 
     Start-Sleep -Seconds 8
     try {
       $estado = Invoke-RestMethod -Uri "http://localhost:$Puerto/estado" -TimeoutSec 5
-      Bien "El servidor responde en http://localhost:$Puerto (jugadores conectados: $($estado.jugadoresConectados))"
+      # Comprobacion REAL de que corre la version actual: si /estado devuelve el
+      # texto plano del health check en vez de este campo, PM2 esta sirviendo
+      # una compilacion antigua y decir "instalado y corriendo" seria mentira.
+      if ($null -ne $estado.jugadoresConectados) {
+        Bien "El servidor responde y es la version actual (jugadores conectados: $($estado.jugadoresConectados))"
+      } else {
+        Pendiente "El servidor responde en http://localhost:$Puerto pero NO es la version actual (respuesta: '$estado'). Revisa: pm2 logs colony-server"
+      }
     } catch {
       Pendiente "El servidor aun no responde en http://localhost:$Puerto — revisa los errores con: pm2 logs colony-server"
     }
