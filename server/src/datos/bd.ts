@@ -1081,6 +1081,16 @@ export interface IAlmacenDatos {
   // upsert (inserta si no existe, si no actualiza todos los campos).
   listarFaunaSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaSalvajeFila[]>;
   guardarFaunaIndividuo(f: FaunaSalvajeFila): Promise<void>;
+  /**
+   * Mismo upsert que `guardarFaunaIndividuo` pero para un LOTE en una sola
+   * transacción/sentencia — activar un sector persiste miles de individuos
+   * de golpe, y hacerlo fila a fila congelaba el servidor ENTERO ~20s por
+   * sector nuevo con SQLite (perfil de CPU real, playtest 2026-09-10:
+   * 19.3s de `guardarFaunaIndividuo` en `activarSector` — cada `run()`
+   * síncrono cierra su propia transacción implícita con fsync). En Postgres
+   * son miles de round-trips async: no bloquea el hilo, pero sí tarda.
+   */
+  guardarFaunaIndividuos(filas: FaunaSalvajeFila[]): Promise<void>;
   listarHuevosSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaHuevoFila[]>;
   guardarHuevo(h: FaunaHuevoFila): Promise<void>;
   borrarHuevo(id: string): Promise<void>;
@@ -1094,6 +1104,8 @@ export interface IAlmacenDatos {
   // los talados y los nacidos en el sistema (propagación/plantado).
   listarArbolesVivosSector(mapaId: string, sectorX: number, sectorY: number): Promise<ArbolVivoFila[]>;
   guardarArbolVivo(a: ArbolVivoFila): Promise<void>;
+  /** Lote del mismo upsert — activar un sector guarda todos sus árboles crecidos de golpe (mismo motivo que `guardarFaunaIndividuos`). */
+  guardarArbolesVivos(arboles: ArbolVivoFila[]): Promise<void>;
   obtenerUltimaResolucionSectorBosque(mapaId: string, sectorX: number, sectorY: number): Promise<number | null>;
   marcarSectorBosqueResuelto(mapaId: string, sectorX: number, sectorY: number, momento: number): Promise<void>;
   // Cadáveres (docs/GDD_Agentes_Moviles.md, pedido 2026-08-30) — sin
@@ -4081,6 +4093,42 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
       );
   }
 
+  async guardarFaunaIndividuos(filas: FaunaSalvajeFila[]): Promise<void> {
+    if (filas.length === 0) return;
+    // UNA transacción explícita + UNA sentencia preparada reutilizada: sin
+    // esto cada `run()` es su propia transacción con fsync (ms cada una),
+    // y un sector real de Vetrheim trae miles de individuos — ver el
+    // comentario de la interfaz. BEGIN/COMMIT en node:sqlite es síncrono
+    // igual, pero el coste pasa de "miles de fsync" a uno.
+    const sentencia = this.bd.prepare(
+      `INSERT INTO fauna_salvaje
+         (id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
+          ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en,
+          vida, vida_max, ataque)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         sexo = excluded.sexo, etapa = excluded.etapa, estado = excluded.estado,
+         x = excluded.x, y = excluded.y, ultima_comida = excluded.ultima_comida,
+         ultima_bebida = excluded.ultima_bebida, gestando_desde = excluded.gestando_desde,
+         gestacion_duracion_dias = excluded.gestacion_duracion_dias, nacio_en = excluded.nacio_en,
+         vida = excluded.vida, vida_max = excluded.vida_max, ataque = excluded.ataque`,
+    );
+    this.bd.exec("BEGIN");
+    try {
+      for (const f of filas) {
+        sentencia.run(
+          f.id, f.mapaId, f.sectorX, f.sectorY, f.especieId, f.sexo, f.etapa, f.estado, f.x, f.y,
+          f.ultimaComida, f.ultimaBebida, f.gestandoDesde, f.gestacionDuracionDias, f.nacioEn,
+          f.vida, f.vidaMax, f.ataque,
+        );
+      }
+      this.bd.exec("COMMIT");
+    } catch (e) {
+      try { this.bd.exec("ROLLBACK"); } catch {}
+      throw e;
+    }
+  }
+
   async listarHuevosSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaHuevoFila[]> {
     const filas = this.bd
       .prepare(
@@ -4140,6 +4188,23 @@ export class AlmacenDatosSqlite implements IAlmacenDatos {
          ON CONFLICT(id) DO UPDATE SET etapa = excluded.etapa, estado = excluded.estado`,
       )
       .run(a.id, a.mapaId, a.sectorX, a.sectorY, a.especieId, a.x, a.y, a.etapa, a.origen, a.diaPlantado, a.estado);
+  }
+
+  async guardarArbolesVivos(arboles: ArbolVivoFila[]): Promise<void> {
+    if (arboles.length === 0) return;
+    const sentencia = this.bd.prepare(
+      `INSERT INTO arboles_vivos (id, mapa_id, sector_x, sector_y, especie_id, x, y, etapa, origen, dia_plantado, estado)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET etapa = excluded.etapa, estado = excluded.estado`,
+    );
+    this.bd.exec("BEGIN");
+    try {
+      for (const a of arboles) sentencia.run(a.id, a.mapaId, a.sectorX, a.sectorY, a.especieId, a.x, a.y, a.etapa, a.origen, a.diaPlantado, a.estado);
+      this.bd.exec("COMMIT");
+    } catch (e) {
+      try { this.bd.exec("ROLLBACK"); } catch {}
+      throw e;
+    }
   }
 
   async obtenerUltimaResolucionSectorBosque(mapaId: string, sectorX: number, sectorY: number): Promise<number | null> {
@@ -5893,6 +5958,46 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
     );
   }
 
+  async guardarFaunaIndividuos(filas: FaunaSalvajeFila[]): Promise<void> {
+    // INSERT multi-fila troceado (18 parámetros por fila; el tope de
+    // Postgres es 65535 parámetros por sentencia → 2000 filas = 36000,
+    // con margen). Miles de filas pasan de miles de round-trips a un
+    // puñado. Los duplicados dentro del MISMO lote los desduplica antes
+    // (Postgres rechaza "ON CONFLICT DO UPDATE command cannot affect row a
+    // second time" si el mismo id aparece dos veces en un INSERT).
+    const porId = new Map<string, FaunaSalvajeFila>();
+    for (const f of filas) porId.set(f.id, f);
+    const unicas = [...porId.values()];
+    const TROZO = 2000;
+    for (let i = 0; i < unicas.length; i += TROZO) {
+      const trozo = unicas.slice(i, i + TROZO);
+      const valores: unknown[] = [];
+      const tuplas = trozo.map((f, j) => {
+        valores.push(
+          f.id, f.mapaId, f.sectorX, f.sectorY, f.especieId, f.sexo, f.etapa, f.estado, f.x, f.y,
+          f.ultimaComida, f.ultimaBebida, f.gestandoDesde, f.gestacionDuracionDias, f.nacioEn,
+          f.vida, f.vidaMax, f.ataque,
+        );
+        const base = j * 18;
+        return `(${Array.from({ length: 18 }, (_, k) => `$${base + k + 1}`).join(", ")})`;
+      });
+      await this.pool.query(
+        `INSERT INTO fauna_salvaje
+           (id, mapa_id, sector_x, sector_y, especie_id, sexo, etapa, estado, x, y,
+            ultima_comida, ultima_bebida, gestando_desde, gestacion_duracion_dias, nacio_en,
+            vida, vida_max, ataque)
+         VALUES ${tuplas.join(", ")}
+         ON CONFLICT (id) DO UPDATE SET
+           sexo = EXCLUDED.sexo, etapa = EXCLUDED.etapa, estado = EXCLUDED.estado,
+           x = EXCLUDED.x, y = EXCLUDED.y, ultima_comida = EXCLUDED.ultima_comida,
+           ultima_bebida = EXCLUDED.ultima_bebida, gestando_desde = EXCLUDED.gestando_desde,
+           gestacion_duracion_dias = EXCLUDED.gestacion_duracion_dias, nacio_en = EXCLUDED.nacio_en,
+           vida = EXCLUDED.vida, vida_max = EXCLUDED.vida_max, ataque = EXCLUDED.ataque`,
+        valores,
+      );
+    }
+  }
+
   async listarHuevosSector(mapaId: string, sectorX: number, sectorY: number): Promise<FaunaHuevoFila[]> {
     const r = await this.pool.query(
       `SELECT id, mapa_id, sector_x, sector_y, especie_madre_id, x, y, puesto_en, duracion_dias
@@ -5948,6 +6053,31 @@ export class AlmacenDatosPostgres implements IAlmacenDatos {
        ON CONFLICT (id) DO UPDATE SET etapa = EXCLUDED.etapa, estado = EXCLUDED.estado`,
       [a.id, a.mapaId, a.sectorX, a.sectorY, a.especieId, a.x, a.y, a.etapa, a.origen, a.diaPlantado, a.estado],
     );
+  }
+
+  async guardarArbolesVivos(arboles: ArbolVivoFila[]): Promise<void> {
+    // Mismo criterio que guardarFaunaIndividuos: multi-fila troceado (11
+    // parámetros por fila, 3000 filas = 33000 < 65535) y desduplicado por
+    // id dentro del lote.
+    const porId = new Map<string, ArbolVivoFila>();
+    for (const a of arboles) porId.set(a.id, a);
+    const unicas = [...porId.values()];
+    const TROZO = 3000;
+    for (let i = 0; i < unicas.length; i += TROZO) {
+      const trozo = unicas.slice(i, i + TROZO);
+      const valores: unknown[] = [];
+      const tuplas = trozo.map((a, j) => {
+        valores.push(a.id, a.mapaId, a.sectorX, a.sectorY, a.especieId, a.x, a.y, a.etapa, a.origen, a.diaPlantado, a.estado);
+        const base = j * 11;
+        return `(${Array.from({ length: 11 }, (_, k) => `$${base + k + 1}`).join(", ")})`;
+      });
+      await this.pool.query(
+        `INSERT INTO arboles_vivos (id, mapa_id, sector_x, sector_y, especie_id, x, y, etapa, origen, dia_plantado, estado)
+         VALUES ${tuplas.join(", ")}
+         ON CONFLICT (id) DO UPDATE SET etapa = EXCLUDED.etapa, estado = EXCLUDED.estado`,
+        valores,
+      );
+    }
   }
 
   async obtenerUltimaResolucionSectorBosque(mapaId: string, sectorX: number, sectorY: number): Promise<number | null> {

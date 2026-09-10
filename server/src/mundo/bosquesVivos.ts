@@ -62,6 +62,8 @@ export interface DependenciasBosques {
   cargarBakeSector: (s: CoordenadaSector) => ObjetoArbolBakeado[];
   cargarPersistido: (s: CoordenadaSector) => Promise<{ bakeTalados: ArbolVivoFila[]; crecidos: ArbolVivoFila[] }>;
   guardarArbolVivo: (a: ArbolVivoFila) => Promise<void>;
+  /** Lote opcional (una transacción) para los crecidos de un sector al activarlo — mismo motivo que `guardarIndividuos` en fauna salvaje (playtest 2026-09-10). */
+  guardarArbolesVivos?: (arboles: ArbolVivoFila[]) => Promise<void>;
   marcarSectorResuelto: (s: CoordenadaSector, momento: number) => Promise<void>;
 }
 
@@ -142,7 +144,10 @@ export class GestorBosques {
       casillaLibre: (x, y) => this.casillaLibreParaBrote(x, y),
     });
 
-    for (const f of resultado.crecidos) await this.deps.guardarArbolVivo(f);
+    if (resultado.crecidos.length > 0) {
+      if (this.deps.guardarArbolesVivos) await this.deps.guardarArbolesVivos(resultado.crecidos);
+      else for (const f of resultado.crecidos) await this.deps.guardarArbolVivo(f);
+    }
     await this.deps.marcarSectorResuelto(s, ahora);
 
     for (const { x, y } of resultado.recienMaduraron) this.endurecer(x, y);

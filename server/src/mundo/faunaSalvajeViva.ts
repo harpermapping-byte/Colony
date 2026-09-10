@@ -131,6 +131,13 @@ export interface DependenciasFaunaSalvaje {
     ultimaResolucion: number | null;
   }>;
   guardarIndividuo: (f: FaunaSalvajeFila) => Promise<void>;
+  /**
+   * Lote (opcional, retrocompatible con los tests/deps que solo dan
+   * `guardarIndividuo`): activar/desactivar un sector persiste MILES de
+   * individuos de golpe y fila a fila congelaba el servidor ~20s con SQLite
+   * (perfil real, playtest 2026-09-10) — ver `IAlmacenDatos.guardarFaunaIndividuos`.
+   */
+  guardarIndividuos?: (filas: FaunaSalvajeFila[]) => Promise<void>;
   guardarHuevo: (h: FaunaHuevoFila) => Promise<void>;
   marcarSectorResuelto: (s: CoordenadaSector, momento: number) => Promise<void>;
   /** Persiste un cadáver recién creado (docs/GDD_Agentes_Moviles.md, pedido 2026-08-30) — ver `matarIndividuo`. */
@@ -148,6 +155,17 @@ interface IndividuoVivo {
 
 export class GestorFaunaSalvaje {
   private sectoresActivos = new Map<string, IndividuoVivo[]>();
+  /**
+   * Índice `especieId -> individuos activos`, reconstruido al PRINCIPIO de
+   * cada `tick()` (O(n), trivial) para que `centroideManada` solo mire a
+   * los de su especie en vez de recorrer TODOS los sectores activos por
+   * cada individuo que elige destino — perfil de CPU real del playtest
+   * multijugador 2026-09-10: ~27% del tiempo del servidor era ese barrido
+   * O(n²) sobre miles de individuos, dejando los patches a 1-3/s en zonas
+   * con mucha fauna. Vacío = sin construir todavía (se cae al barrido
+   * completo, mismo resultado).
+   */
+  private porEspecie = new Map<string, IndividuoVivo[]>();
   /** faunaId -> sessionId del jugador que la está cazando activamente (docs/GDD_Caza.md §huida, "click sobre el animal y cazar"). */
   private cazasActivas = new Map<string, string>();
   /** faunaId del depredador -> faunaId de la presa que está persiguiendo por su cuenta (ver RADIO_DETECCION_DEPREDADOR). */
@@ -260,7 +278,7 @@ export class GestorFaunaSalvaje {
       vivos.push({ fila, esquema, destino: null, objetivoDestino: null, pausaRestante: 1 + Math.random() * 3 });
     }
 
-    for (const fila of resultado.individuos) await this.deps.guardarIndividuo(fila);
+    await this.guardarLote(resultado.individuos);
     for (const h of resultado.huevos) await this.deps.guardarHuevo(h);
     await this.deps.marcarSectorResuelto(s, this.deps.ahora());
 
@@ -275,12 +293,19 @@ export class GestorFaunaSalvaje {
     for (const v of vivos) {
       v.fila.x = v.esquema.x;
       v.fila.y = v.esquema.y;
-      await this.deps.guardarIndividuo(v.fila);
       this.salida.delete(v.fila.id);
       this.cazasActivas.delete(v.fila.id); // una caza activa no sobrevive a que su sector se desactive
       this.caceriasAnimales.delete(v.fila.id); // igual para una cacería animal-vs-animal en curso
     }
+    await this.guardarLote(vivos.map((v) => v.fila));
     this.sectoresActivos.delete(k);
+  }
+
+  /** Lote si el almacén lo ofrece (una transacción), fila a fila si no (tests/deps mínimas) — mismo resultado persistido. */
+  private async guardarLote(filas: FaunaSalvajeFila[]): Promise<void> {
+    if (filas.length === 0) return;
+    if (this.deps.guardarIndividuos) return this.deps.guardarIndividuos(filas);
+    for (const fila of filas) await this.deps.guardarIndividuo(fila);
   }
 
   /**
@@ -502,6 +527,14 @@ export class GestorFaunaSalvaje {
     jugadores: Map<string, { x: number; y: number }> = new Map(),
   ): { atrapados: { faunaId: string; sessionId: string }[]; cacerias: { depredadorId: string; presaId: string }[] } {
     const ahora = this.deps.ahora();
+    this.porEspecie.clear();
+    for (const vivos of this.sectoresActivos.values()) {
+      for (const v of vivos) {
+        let lista = this.porEspecie.get(v.fila.especieId);
+        if (!lista) this.porEspecie.set(v.fila.especieId, (lista = []));
+        lista.push(v);
+      }
+    }
     const atrapados: { faunaId: string; sessionId: string }[] = [];
     const cacerias: { depredadorId: string; presaId: string }[] = [];
     for (const vivos of this.sectoresActivos.values()) {
@@ -729,14 +762,19 @@ export class GestorFaunaSalvaje {
   /** Centroide de vecinos ACTIVOS de la misma especie dentro de RADIO_MANADA (busca en todos los sectores activos, no solo el propio — un grupo puede repartirse entre sectores vecinos). `null` si no hay ninguno cerca. */
   private centroideManada(v: IndividuoVivo): { x: number; y: number } | null {
     let sx = 0, sy = 0, n = 0;
-    for (const vivos of this.sectoresActivos.values()) {
-      for (const otro of vivos) {
-        if (otro === v || otro.fila.especieId !== v.fila.especieId) continue;
-        if (Math.hypot(otro.esquema.x - v.esquema.x, otro.esquema.y - v.esquema.y) > RADIO_MANADA) continue;
-        sx += otro.esquema.x;
-        sy += otro.esquema.y;
-        n++;
-      }
+    const radio2 = RADIO_MANADA * RADIO_MANADA;
+    // Solo los de su especie (índice de `tick()`); sin índice construido
+    // (llamada fuera de un tick) se recorre todo, mismo resultado.
+    const candidatos = this.porEspecie.size > 0
+      ? (this.porEspecie.get(v.fila.especieId) ?? [])
+      : [...this.sectoresActivos.values()].flat().filter((o) => o.fila.especieId === v.fila.especieId);
+    for (const otro of candidatos) {
+      if (otro === v) continue;
+      const dx = otro.esquema.x - v.esquema.x, dy = otro.esquema.y - v.esquema.y;
+      if (dx * dx + dy * dy > radio2) continue;
+      sx += otro.esquema.x;
+      sy += otro.esquema.y;
+      n++;
     }
     return n > 0 ? { x: sx / n, y: sy / n } : null;
   }

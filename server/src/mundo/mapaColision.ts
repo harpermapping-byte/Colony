@@ -237,17 +237,27 @@ export function casillaPisableMasCercana(
   alto: number,
   x0: number,
   y0: number,
+  // `conSalida`: además de ser TIERRA, exigir al menos un vecino ortogonal
+  // TIERRA — una casilla libre AISLADA entre árboles es "pisable" pero un
+  // jugador dejado ahí no puede dar ni un paso (visto de verdad con el
+  // teleport de jarl, 2026-09-10: el ajuste a la más cercana cayó en un hueco
+  // de 1x1 rodeado de vegetación). Con `conSalida` y sin ninguna candidata
+  // válida en todo el mapa, cae a la búsqueda simple de siempre.
+  conSalida = false,
 ): { x: number; y: number } {
   const radioMax = Math.max(ancho, alto);
+  const esTierra = (x: number, y: number) => x >= 0 && y >= 0 && x < ancho && y < alto && casillas[y * ancho + x] === TIPO.TIERRA;
   for (let r = 0; r < radioMax; r++) {
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // solo el anillo
         const x = x0 + dx, y = y0 + dy;
-        if (x < 0 || y < 0 || x >= ancho || y >= alto) continue;
-        if (casillas[y * ancho + x] === TIPO.TIERRA) return { x, y };
+        if (!esTierra(x, y)) continue;
+        if (conSalida && !(esTierra(x + 1, y) || esTierra(x - 1, y) || esTierra(x, y + 1) || esTierra(x, y - 1))) continue;
+        return { x, y };
       }
     }
   }
+  if (conSalida) return casillaPisableMasCercana(casillas, ancho, alto, x0, y0, false);
   return { x: x0, y: y0 }; // mapa sin tierra: se aparece donde sea
 }

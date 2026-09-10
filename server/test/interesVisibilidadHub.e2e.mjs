@@ -114,13 +114,19 @@ try {
     const ajustado = Math.hypot(p.x - 1502.5, p.y - 2106.5) > 0.4 && Math.hypot(p.x - 1502.5, p.y - 2106.5) < 6;
     comprobar("teleport a casilla sólida se corrige a una pisable cercana (no se queda dentro)", ajustado, `pedido 1502.5,2106.5 -> ${p.x.toFixed(1)},${p.y.toFixed(1)}`);
     // Y desde ahí SE PUEDE andar (antes: 0.00 casillas, clavado dentro del árbol)
-    const antes = { x: p.x, y: p.y };
-    rooms[0].send("input", { x: 0, y: 1 });
-    await esperar(800);
-    rooms[0].send("input", { x: 0, y: 0 });
-    await esperar(200);
-    const d = Math.hypot(p.x - antes.x, p.y - antes.y);
-    comprobar("tras el teleport corregido, el jugador puede andar", d > 0.5, `${d.toFixed(2)} casillas`);
+    // En CUALQUIERA de las 4 direcciones (la casilla corregida garantiza al
+    // menos un vecino libre, no que el sur lo sea).
+    let mejor = 0;
+    for (const dir of [{ x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 0 }, { x: -1, y: 0 }]) {
+      const antes = { x: p.x, y: p.y };
+      rooms[0].send("input", dir);
+      await esperar(700);
+      rooms[0].send("input", { x: 0, y: 0 });
+      await esperar(200);
+      mejor = Math.max(mejor, Math.hypot(p.x - antes.x, p.y - antes.y));
+      if (mejor > 0.5) break;
+    }
+    comprobar("tras el teleport corregido, el jugador puede andar en alguna dirección", mejor > 0.5, `${mejor.toFixed(2)} casillas`);
   }
 
   for (const r of rooms.slice(0, 3)) await r.leave().catch(() => {});

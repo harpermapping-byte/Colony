@@ -5908,7 +5908,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // destino (nadar/bucear es un medio real), solo se corrige lo SÓLIDO.
     let x = msg.x, y = msg.y;
     if (this.mundo && medioEn(this.mundo, x, y) === TIPO.SOLIDO) {
-      const libre = casillaPisableMasCercana(this.mundo.casillas, this.mundo.ancho, this.mundo.alto, Math.floor(x), Math.floor(y));
+      const libre = casillaPisableMasCercana(this.mundo.casillas, this.mundo.ancho, this.mundo.alto, Math.floor(x), Math.floor(y), true);
       x = libre.x + 0.5;
       y = libre.y + 0.5;
     }

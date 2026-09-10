@@ -298,6 +298,7 @@ export class HubRoom extends RoomExteriorBase {
             ultimaResolucion: await bd.obtenerUltimaResolucionSector(mapaId, s.sectorX, s.sectorY),
           }),
           guardarIndividuo: (f) => bd.guardarFaunaIndividuo(f),
+          guardarIndividuos: (filas) => bd.guardarFaunaIndividuos(filas),
           guardarHuevo: (h) => bd.guardarHuevo(h),
           marcarSectorResuelto: (s, momento) => bd.marcarSectorResuelto(mapaId, s.sectorX, s.sectorY, momento),
           crearCadaver: (c) => bd.crearCadaverBd(c),
@@ -417,6 +418,7 @@ export class HubRoom extends RoomExteriorBase {
               };
             },
             guardarArbolVivo: (a) => bd.guardarArbolVivo(a),
+            guardarArbolesVivos: (arboles) => bd.guardarArbolesVivos(arboles),
             marcarSectorResuelto: (s, momento) => bd.marcarSectorBosqueResuelto(mapaId, s.sectorX, s.sectorY, momento),
           };
           this.gestorBosques = new GestorBosques(this.state.arbolesVivos, depsBosques);
