@@ -197,6 +197,10 @@ async function main() {
       console.log("   DEBUG rejillas:", JSON.stringify(dump));
     }
     comprobar("con dos pociones hay 2 props", !!expuestos2 && expuestos2.props === 2, JSON.stringify(expuestos2));
+    // §9.7: cada caja de color se sustituye por el .glb real de la poción
+    // (assets/objetos/pocion_alquimica_clara_01.glb) en cuanto carga.
+    const conModelo = await page.waitForFunction((id) => { const e = window.__test.expuestosVisibles(id); return e && e.conModelo >= 2 ? e : null; }, idEstanteria, { timeout: 8000 }).then((h) => h.jsonValue()).catch(() => null);
+    comprobar("los 2 props ya son el modelo .glb real del frasco, no la caja de color (§9.7)", !!conModelo && conModelo.conModelo === 2 && conModelo.props === 2, JSON.stringify(conModelo));
 
     console.log("5) arrastra la espada → rechazo con toast visible...");
     const r3 = await arrastrarAlCofre(page, "espada", 5);
@@ -221,6 +225,7 @@ async function main() {
       await page.evaluate((xy) => window.__test.enviar("construir", { objeto: "candelabro_pie_hierro", categoria: "mueble", x: xy.x, y: xy.y, rot: 0, variante: 0 }), xy);
       idCandelabro = await page.waitForFunction(() => window.__test.idsDeObjeto("candelabro_pie_hierro")[0] ?? null, null, { timeout: 2500 }).then((h) => h.jsonValue()).catch(() => null);
       if (typeof idCandelabro === "number") { console.log(`   colocado en (${xy.x},${xy.y})`); break; }
+      console.log(`   (${xy.x},${xy.y}) rechazada:`, JSON.stringify(await page.evaluate(() => window.__test.errores())));
     }
     comprobar("el candelabro se coloca en alguna casilla libre junto al spawn", typeof idCandelabro === "number");
     if (typeof idCandelabro === "number") {

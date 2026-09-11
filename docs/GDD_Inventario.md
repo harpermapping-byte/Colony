@@ -149,6 +149,7 @@ Verificado de punta a punta con servidor+cliente+Playwright reales (`client/test
 
 El protocolo `cofre:*` no cambia, pero desde el mobiliario del carpintero (docs/GDD_Construccion.md §9) un contenedor puede: (1) rechazar ítems que no cumplan su `aceptaItems` — `cofre:error "ese mueble solo guarda <etiqueta>"`, ahora visible como toast y como pista "Solo guarda: …" en `panelCofre.ts`; (2) tener una rejilla EXACTA (`rejillaCofre`, p.ej. 6x1 para una estantería de pociones) en vez de la raíz cuadrada de `aportes.almacenamiento`; (3) ser `expositor`: su contenido se dibuja sobre el mueble para todos (`construccion:expuestos`). La regla de `buscarHueco` (el servidor elige la celda, el cliente nunca) sigue igual.
 
+**Actualización 2026-09-11 (misma noche)**: lo expuesto ya se dibuja con el `.glb` real de cada ítem (armas/herramientas/objetos), no solo con una caja de color — `docs/GDD_Construccion.md` §9.7.
 ## 11. "Nombre bonito" — regla permanente para TODO objeto/mueble (pedido 2026-08-30)
 
 Pedido literal del streamer: *"items/mesas solo tienen el id de catálogo; el texto vistoso que describiste en su momento vive en el GDD, nunca en el juego"* — y sobre el alcance, explícito: **"Todo el catálogo ya"** (no solo las entradas nuevas de la sesión). Cierra el gap #3 del repaso de mecánicas pendientes junto con trofeo de pared/ropa civil/molinero (mismo pedido, ver `docs/GDD_Caza.md` y `docs/GDD_Profesiones.md`).

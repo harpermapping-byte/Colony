@@ -30,5 +30,19 @@ const loader = new GLTFLoader();
 const gltf = await loader.loadAsync(url);
 scene.add(gltf.scene);
 
+// `?encuadre=auto`: encuadra la cámara a la caja del modelo — para piezas
+// pequeñas (un frasco de assets/objetos/ mide ~0.3 unidades) el encuadre
+// fijo de arriba, pensado para edificios, no deja ver nada.
+if (params.get("encuadre") === "auto") {
+  const caja = new THREE.Box3().setFromObject(gltf.scene);
+  const centro = caja.getCenter(new THREE.Vector3());
+  const radio = caja.getSize(new THREE.Vector3()).length() * 0.6;
+  camara.left = -radio * 1.28; camara.right = radio * 1.28; camara.top = radio; camara.bottom = -radio;
+  camara.position.copy(centro).add(new THREE.Vector3(radio, radio, radio));
+  camara.lookAt(centro);
+  camara.updateProjectionMatrix();
+  grid.visible = false;
+}
+
 renderer.render(scene, camara);
 (window as any).__listo = true;

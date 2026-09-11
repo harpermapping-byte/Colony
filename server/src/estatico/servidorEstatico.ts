@@ -85,7 +85,7 @@ const TIPOS_MIME: Record<string, string> = {
  * contenido en el nombre (`build.assetsDir` en client/vite.config.ts) — ahí
  * `immutable` sí es correcto, un cambio de contenido cambia el nombre.
  */
-const CATEGORIAS_ARTE = /^\/assets\/(vegetacion|rocas|edificios|interiores|herramientas|armas|personajes|animales|enemigos)\//;
+const CATEGORIAS_ARTE = /^\/assets\/(vegetacion|rocas|edificios|interiores|herramientas|armas|objetos|personajes|animales|enemigos)\//;
 
 function cacheControlPara(rutaUrl: string): string | null {
   if (rutaUrl.startsWith("/_bundle/")) return "public, max-age=31536000, immutable";

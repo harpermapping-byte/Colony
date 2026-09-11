@@ -21,7 +21,10 @@
 // `taller-vox/generar_herramientas.js`+`generar_armas.js` (clave = id de
 // `items/catalogo/items.json`, NO el `prendaId` coarse que usa la caja
 // placeholder) + `exportar_lote.js`.
-export type CategoriaAsset = "vegetacion" | "animales" | "rocas" | "interiores" | "personajes" | "edificios" | "herramientas" | "armas";
+// "objetos" (2026-09-11): vajilla, pociones, libros, joyas, piezas de armadura...
+// — lo que un jugador deja a la vista sobre un expositor (docs/GDD_Construccion.md §9.7),
+// generado por `taller-vox/generar_objetos.js` con la misma clave = id de items.json.
+export type CategoriaAsset = "vegetacion" | "animales" | "rocas" | "interiores" | "personajes" | "edificios" | "herramientas" | "armas" | "objetos";
 
 // "terrenos"/"materiales": texturas 2D tileables (docs/GDD_Bakeador_Texturas.md),
 // no modelos — mismo árbol assets/<categoria>/<id>_<NN>.png, pero resueltas
