@@ -203,6 +203,7 @@ function generarGenerico(v) {
 
 const REGLAS = [
   [/^hacha_|^azada_/, "HACHA"], // azada: mismo mango+cabeza plana en ángulo que un hacha de mano.
+  [/^pala$/, "HACHA"], // pala (docs/GDD_Agricultura.md §9): mismo mango largo + hoja plana que la azada; `pala_amasado` (panadero) sigue GENERICO.
   [/^pico_/, "PICO"],
   [/^martillo_|^maceta_/, "MARTILLO"],
   [/^tenazas_/, "TENAZAS"],

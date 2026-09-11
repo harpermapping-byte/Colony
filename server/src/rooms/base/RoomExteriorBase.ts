@@ -180,7 +180,7 @@ import { COSTE_REPOSICION_FAUNA } from "../../mundo/faunaSalvajeViva";
 import { EstadoPersecucion, direccionPersecucion, nuevoEstadoPersecucion } from "../../mundo/persecucionCaza";
 import { jugadorConectado, jugadorDesconectado } from "../../mundo/contadorConexiones";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
-import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
+import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor, tierraNecesariaDe, tierraQueFalta, ML_POR_RIEGO } from "../../cultivo/cultivo";
 import {
   EstadoCocina, cocinarPlato, clavePlato, nombrePlato, estaHirviendo, segundosParaHervir,
   IngredienteCocina, familiaDePlato, prefijoDe, aceptaEnVasija, aptoParaEnsalada, aportesDesdeRestaura,
@@ -910,6 +910,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * ahí, mismo criterio que `ctxConstruccion` sin rellenar.
    */
   protected casillasCultivo = new Map<number, EstadoCasillaCultivo>();
+  /**
+   * Casillas de suelo ya cavadas con la pala → día de mundo en que se cavó
+   * (docs/GDD_Agricultura.md §9): "se puede sacar una por cuadradito" — la
+   * misma casilla no vuelve a dar tierra hasta pasados DIAS_REGENERACION_TIERRA.
+   * Solo en memoria a propósito: un reinicio del servidor "asienta" el suelo
+   * (vuelve a estar disponible), y con 1.5kg por unidad y 20kg de carga el
+   * abuso posible es irrelevante — no merece una tabla nueva.
+   */
+  private readonly casillasCavadas = new Map<number, number>();
 
   /**
    * Espeja UNA casilla de `casillasCultivo` (Map servidor) en
@@ -1429,6 +1438,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("cultivo:abonar", (client, msg: { construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCultivoAbonar(client, msg)));
     this.onMessage("cultivo:cosechar", (client, msg: { construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCultivoCosechar(client, msg)));
     this.onMessage("cultivo:consultar", (client, msg: { construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCultivoConsultar(client, msg)));
+    // docs/GDD_Agricultura.md §9: tierra para macetas (se mete unidad a unidad) y pala sobre una casilla de suelo (misma cola por casilla que labrar).
+    this.onMessage("cultivo:meterTierra", (client, msg: { construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCultivoMeterTierra(client, msg)));
+    this.onMessage("suelo:cavar", (client, msg: { x?: number; y?: number }) => void this.colaPorCasilla.ejecutar(idxDeMsgCasilla(msg), () => this.manejarSueloCavar(client, msg)));
     // Injertos (docs/GDD_Agricultura.md §4, diseño ya cerrado en el
     // backlog): mesa_injertos + dos semillas cualesquiera -> especie nueva.
     this.onMessage("injerto:crear", (client, msg: { construccionId?: number; instanciaIdA?: number; instanciaIdB?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarInjertoCrear(client, msg)));
@@ -7903,6 +7915,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!entrada?.plantable) return this.errorCultivo(client, "aquí no se puede plantar");
     const estado = this.extraCultivoDe(viva);
     if (estado.semillaId) return this.errorCultivo(client, "ya hay algo plantado — cosecha primero");
+    // §9: una maceta/jardinera vacía de tierra no se puede sembrar — el
+    // bancal (tierraNecesaria ausente) sigue igual que siempre.
+    const faltaTierra = tierraQueFalta(estado, tierraNecesariaDe(entrada.plantable));
+    if (faltaTierra > 0) return this.errorCultivo(client, `falta tierra: mete ${faltaTierra} más (pala sobre el suelo → tierra)`);
 
     const bd = await obtenerBdCompartida();
     await this.asegurarHibridosCargados(bd); // una semilla híbrida creada en OTRA room debe reconocerse aquí también
@@ -7925,7 +7941,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Sembrar riega de golpe (la tierra recién trabajada queda húmeda) pero
     // NO abona — el fertilizante es opcional/bonus, requiere el ítem aparte
     // (docs/GDD_Agricultura.md §3).
-    const nuevoEstado: EstadoCultivo = { semillaId: semilla.itemId, diaPlantado: dia, diaUltimoRiego: dia };
+    // §9: la tierra metida en la maceta se conserva de siembra en siembra
+    // (el resto del estado sí se reinicia a propósito: abono/riego viejos no cuentan).
+    const nuevoEstado: EstadoCultivo = { tierra: estado.tierra, semillaId: semilla.itemId, diaPlantado: dia, diaUltimoRiego: dia };
     viva.extra = { ...(viva.extra ?? {}), cultivo: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
     this.enviarEstadoCultivo(client, viva.id, nuevoEstado);
@@ -7941,6 +7959,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!(await this.duenoOJarlDe(viva, nombre))) return this.errorCultivo(client, "no eres el dueño de esta construcción");
     const estado = this.extraCultivoDe(viva);
     if (!estado.semillaId) return this.errorCultivo(client, "no hay nada plantado aquí");
+
+    // §9 (pedido streamer 2026-09-11): regar ya no es gratis — hace falta un
+    // recipiente con agua (cubo/regadera/cantimplora, `recipiente:llenar`
+    // junto al agua) y cada riego gasta ML_POR_RIEGO. Auto-apuntado como el
+    // fertilizante: el que más agua lleve, para no dejar restos inútiles.
+    const contenedorAgua = this.inventarios.get(client.sessionId);
+    const conAgua = (contenedorAgua?.items ?? []).filter((it) => tieneLiquido(it, "agua")).sort((a, b) => (b.liquido?.volumenMl ?? 0) - (a.liquido?.volumenMl ?? 0));
+    const recipiente = conAgua[0];
+    if (!contenedorAgua || !recipiente) return this.errorCultivo(client, "necesitas un cubo o una regadera con agua");
+    consumirVolumen(recipiente, ML_POR_RIEGO);
+    const playerRiego = this.state.players.get(client.sessionId);
+    if (playerRiego) sincronizarContenedor(playerRiego.inventario.cuerpo, contenedorAgua);
 
     const dia = tiempoMundo().dia;
     const nuevoEstado: EstadoCultivo = { ...estado, diaUltimoRiego: dia };
@@ -8011,7 +8041,8 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // streamer 2026-09-07) — mismo criterio que manejarProduccionRecolectar.
     this.entregarOSoltar(client, player, datosCultivo.itemIdCosecha, resultado.cantidad);
 
-    const nuevoEstado: EstadoCultivo = resultado.siguePlantada ? { ...estado, diaPlantado: dia } : {};
+    // §9: cosechar vacía la maceta de planta, nunca de tierra (la tierra se queda para la siguiente siembra)
+    const nuevoEstado: EstadoCultivo = resultado.siguePlantada ? { ...estado, diaPlantado: dia } : { tierra: estado.tierra };
     viva.extra = { ...(viva.extra ?? {}), cultivo: nuevoEstado };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
 
@@ -8089,7 +8120,82 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       fertilizante: nivelFertilizante(estado, dia),
       diasParaCosecha: datosCultivo && estado.diaPlantado != null ? Math.max(0, datosCultivo.diasCrecimiento - (dia - estado.diaPlantado)) : null,
       listo: datosCultivo ? listaParaCosechar(estado, datosCultivo.diasCrecimiento, dia) : false,
+      // §9: cuánta tierra lleva y cuánta exige (0 = no hace falta, bancal)
+      tierra: Math.max(0, Math.floor(estado.tierra ?? 0)),
+      tierraNecesaria: tierraNecesariaDe(this.entradaDe(this.ctxConstruccion?.vivas.get(construccionId)?.objeto ?? "")?.plantable),
     });
+  }
+
+  /**
+   * docs/GDD_Agricultura.md §9 — mete UNA unidad de `tierra` de la mochila en
+   * una maceta/jardinera (se llama tantas veces como `tierraNecesaria`). Un
+   * bancal no la admite: ya es tierra. La tierra se queda para siempre en la
+   * maceta (cosechar no la vacía).
+   */
+  private async manejarCultivoMeterTierra(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return this.errorCultivo(client, "construcción inexistente");
+    if (!(await this.duenoOJarlDe(viva, nombre))) return this.errorCultivo(client, "no eres el dueño de esta construcción");
+    const entrada = this.entradaDe(viva.objeto);
+    if (!entrada?.plantable) return this.errorCultivo(client, "aquí no se puede plantar");
+    const necesaria = tierraNecesariaDe(entrada.plantable);
+    if (necesaria === 0) return this.errorCultivo(client, "esto no necesita tierra");
+    const estado = this.extraCultivoDe(viva);
+    if (tierraQueFalta(estado, necesaria) === 0) return this.errorCultivo(client, "ya está llena de tierra");
+
+    const contenedor = this.inventarios.get(client.sessionId);
+    const tierra = contenedor?.items.find((it) => it.itemId === "tierra");
+    if (!contenedor || !tierra) return this.errorCultivo(client, "necesitas tierra (pala sobre una casilla de suelo)");
+    quitarItem(contenedor, tierra.id, 1);
+    const player = this.state.players.get(client.sessionId);
+    if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
+
+    const nuevoEstado: EstadoCultivo = { ...estado, tierra: Math.max(0, Math.floor(estado.tierra ?? 0)) + 1 };
+    const bd = await obtenerBdCompartida();
+    viva.extra = { ...(viva.extra ?? {}), cultivo: nuevoEstado };
+    await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.enviarEstadoCultivo(client, viva.id, nuevoEstado);
+  }
+
+  /** Días de mundo que tarda una casilla cavada en volver a dar tierra. */
+  private static readonly DIAS_REGENERACION_TIERRA = 3;
+
+  private errorSuelo(client: Client, motivo: string) {
+    client.send("suelo:error", { motivo });
+  }
+
+  /**
+   * docs/GDD_Agricultura.md §9 — con la pala equipada, saca UNA unidad de
+   * `tierra` de una casilla de suelo de tierra (no agua/roca, sin
+   * construcción encima, no labrada). Sin exigir parcela a propósito (como
+   * coger bayas, no como labrar): la tierra es un recurso del mundo, no una
+   * obra. Cae a la mochila o al suelo si no cabe (`entregarOSoltar`).
+   */
+  private async manejarSueloCavar(client: Client, msg: { x?: number; y?: number }): Promise<void> {
+    const player = this.state.players.get(client.sessionId);
+    if (!player || typeof msg?.x !== "number" || typeof msg?.y !== "number") return;
+    if (Math.hypot(msg.x - player.x, msg.y - player.y) > RADIO_INTERACCION) return this.errorSuelo(client, "demasiado lejos");
+    if (player.inventario.equipo.get("manoPrincipal") !== "pala") return this.errorSuelo(client, "necesitas una pala equipada");
+
+    const tileX = Math.floor(msg.x);
+    const tileY = Math.floor(msg.y);
+    const idx = this.idxCasillaDe(tileX, tileY);
+    // la construcción se comprueba ANTES que el medio: una maceta con colisión vuelve la casilla SOLIDA y el aviso sería engañoso
+    if (this.ctxConstruccion?.ocupacion.has(idx)) return this.errorSuelo(client, "hay una construcción encima");
+    if (medioEn(this.mundo, tileX + 0.5, tileY + 0.5) !== TIPO.TIERRA) return this.errorSuelo(client, "aquí no hay tierra que cavar");
+    if (this.casillasCultivo.has(idx)) return this.errorSuelo(client, "esa casilla está labrada — cava en suelo sin trabajar");
+    const dia = tiempoMundo().dia;
+    const cavadaEl = this.casillasCavadas.get(idx);
+    if (cavadaEl != null && dia - cavadaEl < RoomExteriorBase.DIAS_REGENERACION_TIERRA) {
+      return this.errorSuelo(client, "esta casilla ya está cavada — la tierra tarda unos días en asentarse");
+    }
+    this.casillasCavadas.set(idx, dia);
+    this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: "picar" });
+    this.entregarOSoltar(client, player, "tierra", 1);
+    client.send("suelo:cavado", { x: tileX, y: tileY });
   }
 
   private static readonly NIVEL_MINIMO_INJERTO = 1;

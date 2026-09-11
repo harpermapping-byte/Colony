@@ -15822,5 +15822,86 @@
     "variantes": 1,
     "colorDebug": "#8a7a5a",
     "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"alfombra_lana_grande_craft\" y se coloca como mueble \"alfombra_lana_grande\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Alfombra grande de lana para un salón."
+  },
+  "tierra": {
+    "nombre": "Tierra",
+    "valorBase": 1,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.5,
+    "apilable": true,
+    "stackMax": 10,
+    "variantes": 1,
+    "colorDebug": "#5a3f24",
+    "_nota": "docs/GDD_Agricultura.md §9 (2026-09-11, pedido streamer: 'con la pala en el suelo click, sacar tierra... con eso se llena la maceta') — se saca UNA por casilla de tierra con la pala equipada (`suelo:cavar`, la casilla se asienta unos días antes de poder cavarla otra vez), pesa de verdad, y llena macetas/jardineras (`cultivo:meterTierra`) antes de poder plantar. No es recurso del bake ni tiene receta: su fuente es el propio suelo."
+  },
+  "pala": {
+    "nombre": "Pala",
+    "valorBase": 17,
+    "tipo": "herramienta",
+    "slotEquipo": "manoPrincipal",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 2.2,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#6a6a70",
+    "cooldownMs": 2200,
+    "durabilidadMax": 50,
+    "desgastePorUso": 1,
+    "prendaId": "arma_pico",
+    "familiaMaterial": "herramienta_agricultura",
+    "tier": 1,
+    "_nota": "docs/GDD_Agricultura.md §9 (2026-09-11) — equipada en manoPrincipal, exigida por `suelo:cavar` (sacar tierra de una casilla), mismo criterio que la azada para labrar. Visual en mano 'arma_pico' (placeholder, igual que la azada); .glb propio en assets/herramientas/ (arquetipo HACHA del taller, mismo que la azada)."
+  },
+  "regadera": {
+    "nombre": "Regadera",
+    "valorBase": 31,
+    "tipo": "objeto",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.2,
+    "apilable": false,
+    "variantes": 2,
+    "colorDebug": "#8fa5a8",
+    "volumenMaxMl": 3000,
+    "_nota": "docs/GDD_Agricultura.md §9 / docs/GDD_Inventario.md §9 (2026-09-11) — recipiente de líquido portable pensado para regar: se llena junto al agua (`recipiente:llenar`) y cada riego gasta 500ml (6 riegos por llenado; el cubo de madera da 4, la cantimplora 1). Sirve también para beber como cualquier recipiente."
+  },
+  "jardinera_madera": {
+    "nombre": "Jardinera de Madera",
+    "valorBase": 15,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 6,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#7a5a3a",
+    "_nota": "docs/GDD_Agricultura.md §9 (2026-09-11, pedido streamer 'habrá que crear alguna maceta más') — se craftea con receta \"jardinera_madera_craft\" (carpintero) y se coloca como exterior \"jardinera_madera\" (interiores/catalogo/exteriores.json, requiereItemColocar), mismo patrón que el mobiliario del carpintero (docs/GDD_Construccion.md §9). Necesita 2 de tierra."
+  },
+  "tiesto_piedra": {
+    "nombre": "Tiesto de Piedra",
+    "valorBase": 19,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#8a8a80",
+    "_nota": "docs/GDD_Agricultura.md §9 (2026-09-11) — se craftea con receta \"tiesto_piedra_craft\" (picapedrero) y se coloca como exterior \"tiesto_piedra\" (requiereItemColocar). 'Tiesto' y no 'maceta' a propósito: en este catálogo `maceta_piedra` es el MAZO del picapedrero (herramienta), no un recipiente para plantas."
   }
 }
