@@ -521,6 +521,20 @@ export class ConjuntoTiroSchema extends Schema {
 // la room (memoria pura, igual que Enemigo/Fauna) — un reinicio de Render
 // borra lo soltado sin recoger, decisión explícita documentada en el GDD.
 // Aparece quieto, sin rot ni movimiento (mismo criterio que Enemigo).
+// Casilla de cultivo de campo abierto (docs/GDD_Agricultura.md, cultivoCasilla:*)
+// replicada para que el cliente PUEDA VERLA (tierra labrada / brote) y
+// ofrecer cosechar donde toca — hasta 2026-09-11 solo vivía en el servidor
+// (`casillasCultivo`, Map en memoria + BD) y una casilla labrada o sembrada
+// era invisible para todo el mundo. Clave del MapSchema: idx de casilla
+// (`y*ancho+x`) como string, la misma que usa el servidor.
+export class CasillaCultivoSchema extends Schema {
+  @type("number") x = 0; // casilla entera
+  @type("number") y = 0;
+  @type("string") estado = "labrada"; // "labrada" | "sembrada"
+  @type("string") semillaId = ""; // solo sembrada
+  @type("number") diaPlantado = 0; // tiempoMundo().dia al sembrar, solo sembrada
+}
+
 export class ObjetoMundoSchema extends Schema {
   @type("number") x = 0;
   @type("number") y = 0;
@@ -659,6 +673,7 @@ export class HubState extends Schema {
   @type({ map: CadaverSchema }) cadaveres = new MapSchema<CadaverSchema>();
   @type({ map: AnimalGranjaSchema }) animalesGranja = new MapSchema<AnimalGranjaSchema>();
   @type({ map: ArbolVivoSchema }) arbolesVivos = new MapSchema<ArbolVivoSchema>();
+  @type({ map: CasillaCultivoSchema }) cultivosCasilla = new MapSchema<CasillaCultivoSchema>();
   // Evento Twitch "Eclipse" (docs/GDD_Twitch.md): oscuridad casi total
   // mientras esté activo, sin importar la hora del reloj de mundo — el
   // cliente decide cómo pintarlo (mucho más oscuro que la noche normal),

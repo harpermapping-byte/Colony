@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
 import { StateView, Schema } from "@colyseus/schema";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, CarroSchema, ConjuntoTiroSchema, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema, BlueprintRopaSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, CarroSchema, ConjuntoTiroSchema, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema, BlueprintRopaSchema, CasillaCultivoSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, crearCadaver, DatosVisualJugador } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { datosDeCadaver, sacrificarAnimalGranja } from "../../mundo/lootCaza";
@@ -651,7 +651,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * (StateView lo tolera, pero es trabajo de más sin ganar nada: la vista ya
    * refleja lo mismo si no ha cambiado nada). Vive y muere con la sesión.
    */
-  private vistaActualPorSesion = new Map<string, Set<string>>();
+  // clave "coleccion:id" → INSTANCIA de Schema que ese cliente tiene en su
+  // StateView. Se guarda la instancia (no solo la clave) porque una entidad
+  // puede reemplazarse bajo la MISMA clave sin pasar por el radio — p.ej.
+  // un NPC trabajador al asignarle mesa/receta/ruta (`quitarAgente` +
+  // `agregarNpcFijo` con el mismo slotId): con solo la clave, el cliente se
+  // quedaba viendo la instancia vieja (posición/acción viejas) para siempre
+  // — bug real encontrado con npcs_trabajadores_crafteo.e2e.mjs 2026-09-11.
+  private vistaActualPorSesion = new Map<string, Map<string, Schema>>();
   /** Velocidad con inercia mientras se desliza sobre hielo (docs/GDD_Clima.md) — el resto del movimiento no la necesita, es instantáneo. Se borra en cuanto el jugador deja de estar sobre hielo. */
   private velocidadHieloPorSesion = new Map<string, { x: number; y: number }>();
   // Sueño en cama (docs/GDD_Personaje.md §3.6): vive y muere con la sesión,
@@ -895,6 +902,29 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * ahí, mismo criterio que `ctxConstruccion` sin rellenar.
    */
   protected casillasCultivo = new Map<number, EstadoCasillaCultivo>();
+
+  /**
+   * Espeja UNA casilla de `casillasCultivo` (Map servidor) en
+   * `state.cultivosCasilla` (Schema replicado) para que el cliente la vea
+   * (docs/GDD_Agricultura.md, 2026-09-11). Se llama tras cada mutación real
+   * (labrar/plantar/cosechar, manual o por apero) y una vez por entrada al
+   * hidratar la room — el Map es la fuente de verdad, el Schema solo pinta.
+   */
+  protected sincronizarCasillaCultivo(idx: number): void {
+    const clave = String(idx);
+    const casilla = this.casillasCultivo.get(idx);
+    if (!casilla) { this.state.cultivosCasilla.delete(clave); return; }
+    let esquema = this.state.cultivosCasilla.get(clave);
+    if (!esquema) {
+      esquema = new CasillaCultivoSchema();
+      esquema.x = idx % this.mundo.ancho;
+      esquema.y = Math.floor(idx / this.mundo.ancho);
+      this.state.cultivosCasilla.set(clave, esquema);
+    }
+    esquema.estado = casilla.estado;
+    esquema.semillaId = casilla.semillaId ?? "";
+    esquema.diaPlantado = casilla.diaPlantado ?? 0;
+  }
 
   /**
    * Aperos en uso (docs/GDD_Carros.md §9.3, Fase 3b, pedido 2026-09-03) —
@@ -1290,6 +1320,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Oficio de jugador — ronda 2 (docs/GDD_Profesiones.md): 2 slots, elegir
     // un vacío es gratis, cambiar uno ocupado cuesta Farycoins y reinicia la
     // XP del que se quita — ambos exigen hablar con el NPC maestro_oficios.
+    // Panel de crafteo (docs/GDD_Crafteo.md §10, 2026-09-11): el cliente
+    // necesita saber tu XP/nivel real por oficio para marcar qué recetas
+    // están a tu alcance — la XP vive solo en BD (`jugador_oficios`), nunca
+    // se replicó. Consulta bajo demanda, nunca replicada: cambia solo al
+    // craftear y el propio `crafteo:completado` ya trae la XP nueva.
+    this.onMessage("oficio:consultar", (client, msg: { oficios?: string[] }) => void this.manejarOficioConsultar(client, msg));
     this.onMessage("oficio:elegir", (client, msg: { oficio?: string }) => this.manejarOficioElegir(client, msg));
     this.onMessage("oficio:cambiar", (client, msg: { slot?: number; oficio?: string }) => this.manejarOficioCambiar(client, msg));
 
@@ -2867,6 +2903,25 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * el admin — server/src/mundo/npcsFijos.ts). Cambiarlo cuando el jugador
    * ya tiene 2 elegidos va por `manejarOficioCambiar`.
    */
+  /** XP y nivel reales de los oficios pedidos (por defecto los 2 elegidos) — respuesta `oficio:estado` (docs/GDD_Crafteo.md §10). */
+  private async manejarOficioConsultar(client: Client, msg: { oficios?: string[] }) {
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player) return;
+    const pedidos = Array.isArray(msg?.oficios) ? msg.oficios.filter((o): o is string => typeof o === "string" && OFICIOS_JUGADOR_VALIDOS.has(o)) : [];
+    const oficios = new Set<string>([...pedidos, player.oficio1, player.oficio2].filter((o) => o !== ""));
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const xp: Record<string, number> = {};
+    const nivel: Record<string, number> = {};
+    for (const oficio of oficios) {
+      const puntos = await bd.obtenerXpOficio(jugador.id, oficio);
+      xp[oficio] = puntos;
+      nivel[oficio] = nivelDeXp(puntos);
+    }
+    client.send("oficio:estado", { oficio1: player.oficio1, oficio2: player.oficio2, xp, nivel });
+  }
+
   private async manejarOficioElegir(client: Client, msg: { oficio?: string }) {
     const nombre = this.nombreDe(client);
     const player = this.state.players.get(client.sessionId);
@@ -3312,6 +3367,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           });
         }
       }
+      // Espejo replicado (docs/GDD_Agricultura.md, 2026-09-11): tanto si la room
+      // acaba de hidratar desde BD como si reusa el Map cacheado por mapa, el
+      // Schema de ESTA room arranca vacío y hay que volcarlo entero.
+      for (const idx of this.casillasCultivo.keys()) this.sincronizarCasillaCultivo(idx);
     }
 
     const todasConstrucciones = await bd.listarConstrucciones();
@@ -5228,6 +5287,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!resultado.ok || !resultado.valor) return this.errorCultivoCasilla(client, resultado.motivo ?? "ya_labrada");
 
     this.casillasCultivo.set(idx, resultado.valor);
+    this.sincronizarCasillaCultivo(idx);
     await bd.guardarCasillaCultivo({
       mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
       duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
@@ -5266,6 +5326,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
     this.casillasCultivo.set(idx, resultado.valor);
+    this.sincronizarCasillaCultivo(idx);
     await bd.guardarCasillaCultivo({
       mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
       duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
@@ -5305,6 +5366,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
     this.casillasCultivo.set(idx, resultado.siguienteCasilla);
+    this.sincronizarCasillaCultivo(idx);
     await bd.guardarCasillaCultivo({
       mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
       duenoId: jugador.id, estado: resultado.siguienteCasilla.estado, semillaId: resultado.siguienteCasilla.semillaId ?? null, diaPlantado: resultado.siguienteCasilla.diaPlantado ?? null,
@@ -5378,6 +5440,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const resultado = labrarCasilla(this.casillasCultivo.get(idx), jugador.id);
       if (!resultado.ok || !resultado.valor) return;
       this.casillasCultivo.set(idx, resultado.valor);
+    this.sincronizarCasillaCultivo(idx);
       await bd.guardarCasillaCultivo({
         mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
         duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
@@ -5436,6 +5499,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
             if (!resultado.ok || !resultado.valor) return;
             quitarItem(carga, semilla.id, 1);
             this.casillasCultivo.set(idx, resultado.valor);
+    this.sincronizarCasillaCultivo(idx);
             await bd.guardarCasillaCultivo({
               mapaId: this.mapaIdPropio!, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
               duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
@@ -5709,6 +5773,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const npc = npcTutorialAAgente(fila, cargarCatalogoNpcsTutoriales());
     if (!npc) return; // no debería pasar (el catálogo se acaba de leer arriba), pero por si acaso
     this.obtenerOCrearGestorAgentes().agregarNpcFijo(npc);
+    this.refrescarVistaDeInteresYa();
     if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
     client.send("admin:npcTutorial:colocado", { id: fila.id, tipoTutorial: fila.tipoTutorial, nombre: fila.nombre, x: fila.x, y: fila.y });
   }
@@ -9756,6 +9821,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected registrarTrabajadorEnMemoria(fila: NpcTrabajador) {
     this.trabajadoresActivos.set(fila.id, fila);
     this.obtenerOCrearGestorAgentes().agregarNpcFijo(npcTrabajadorAAgente(fila));
+    this.refrescarVistaDeInteresYa(); // instancia nueva bajo el mismo slotId: que el cliente la vea ya (ver vistaActualPorSesion)
   }
 
   /** Catálogo de oficios contratables + coste por cantidad (1..10 oficios) — igual para cualquiera que pregunte, no depende de quién sea el jugador. */
@@ -11962,20 +12028,38 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * verdad para el servidor, solo deja de viajar por la red a ese cliente
    * concreto.
    */
+  /** Último radio con el que se llamó a `actualizarVistaDeInteres` — para poder refrescar YA fuera del tick (ver `refrescarVistaDeInteresYa`). `undefined` = nunca llamada todavía. */
+  private ultimoRadioInteres: number | null | undefined = undefined;
+
+  /**
+   * Refresca las vistas de interés AHORA, sin esperar al tick periódico
+   * (500ms en Hub/Region): para cuando una entidad `@view()` se reemplaza
+   * bajo la misma clave fuera del tick (trabajador reasignado, NPC tutorial
+   * colocado en caliente) — el cliente vería la instancia vieja hasta medio
+   * segundo, y un mensaje "trabajador:actualizado" llegaría ANTES que el
+   * estado que describe. Barato: solo se dispara en acciones puntuales.
+   */
+  protected refrescarVistaDeInteresYa(): void {
+    if (this.ultimoRadioInteres !== undefined) this.actualizarVistaDeInteres(this.ultimoRadioInteres);
+  }
+
   protected actualizarVistaDeInteres(radioTiles: number | null) {
+    this.ultimoRadioInteres = radioTiles;
     for (const client of this.clients) {
       const view = client.view;
       if (!view) continue; // por si algún room type no llegó a asignarla en onJoin (defensivo)
       const propio = this.state.players.get(client.sessionId);
       if (!propio) continue; // sesión a medio unir, todavía sin Player propio
 
-      const previas = this.vistaActualPorSesion.get(client.sessionId) ?? new Set<string>();
-      const actuales = new Set<string>();
+      const previas = this.vistaActualPorSesion.get(client.sessionId) ?? new Map<string, Schema>();
+      const actuales = new Map<string, Schema>();
       const salidaAlCuadrado = radioTiles === null ? Infinity : RADIO_INTERES_SALIDA_TILES ** 2;
 
       const evaluarColeccion = (prefijo: string, coleccion: Map<string, { x: number; y: number }>) => {
         for (const [id, entidad] of coleccion.entries()) {
           const clave = `${prefijo}:${id}`;
+          const esquema = entidad as unknown as Schema;
+          const previa = previas.get(clave);
           let visible: boolean;
           if (radioTiles === null || id === client.sessionId) {
             visible = true; // sin recorte (Interior/Dungeon/Arena), o siempre verse a uno mismo
@@ -11984,11 +12068,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
             // histéresis: si ya estaba dentro, hace falta salir del radio de
             // SALIDA (más ancho) para dejar de verse — evita ADD/REMOVE cada
             // tick a quien ronda justo el borde del radio de entrada.
-            visible = previas.has(clave) ? d2 <= salidaAlCuadrado : d2 <= radioTiles ** 2;
+            visible = previa ? d2 <= salidaAlCuadrado : d2 <= radioTiles ** 2;
           }
           if (visible) {
-            actuales.add(clave);
-            if (!previas.has(clave)) view.add(entidad as unknown as Schema);
+            actuales.set(clave, esquema);
+            if (previa !== esquema) {
+              // Nueva para este cliente, O la misma clave con OTRA instancia
+              // (entidad reemplazada): la vieja sale, la nueva entra — sin
+              // esto el cliente conservaba la instancia vieja indefinidamente.
+              if (previa) view.remove(previa);
+              view.add(esquema);
+            }
           }
         }
       };
@@ -12000,12 +12090,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // lo que estaba antes y ya no está ahora (se alejó, o el propio
       // objeto desapareció de state.* del todo — mismo camino para ambos,
       // el segundo caso simplemente no aparece en `actuales`) sale de la vista.
-      for (const clave of previas) {
+      for (const [clave, previa] of previas) {
         if (actuales.has(clave)) continue;
-        const [prefijo, id] = [clave.slice(0, clave.indexOf(":")), clave.slice(clave.indexOf(":") + 1)];
-        const coleccion = prefijo === "players" ? this.state.players : prefijo === "npcs" ? this.state.npcs : prefijo === "fauna" ? this.state.fauna : this.state.enemigos;
-        const entidad = coleccion.get(id);
-        if (entidad) view.remove(entidad as unknown as Schema);
+        view.remove(previa);
       }
       this.vistaActualPorSesion.set(client.sessionId, actuales);
     }

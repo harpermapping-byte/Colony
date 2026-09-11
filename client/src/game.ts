@@ -37,6 +37,10 @@ import { ResaltadoCombate } from "./render3d/resaltadoCombate";
 import { PanelChat } from "./ui/chat";
 import { PanelDialogoNpc } from "./npc/panelDialogoNpc";
 import { PanelForja } from "./construccion/panelForja";
+import { PanelCrafteo, MESAS_CON_RECETAS, nombreItem as nombreItemCatalogo } from "./construccion/panelCrafteo";
+import { RenderCultivoCasillas } from "./agricultura/renderCultivoCasillas";
+import itemsJsonCliente from "../../items/catalogo/items.json";
+const CATALOGO_ITEMS_CLIENTE = itemsJsonCliente as unknown as Record<string, { cultivo?: unknown }>;
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
 import { PanelReclutador, type CatalogoReclutadorVista, type TrabajadorVista, type RutaVista, type ConstruccionVista } from "./economia/panelReclutador";
@@ -716,6 +720,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       enviar: (tipo: string, msg?: unknown) => room.send(tipo, msg),
       sessionId: () => room.sessionId,
       ultimoMensaje: (tipo: string) => ultimosMin.get(tipo) ?? null,
+      _limpiar: (tipo: string) => ultimosMin.delete(tipo), // tests: olvidar un mensaje ya consumido para esperar el SIGUIENTE del mismo tipo
     };
   }
 
@@ -1153,16 +1158,50 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // raycast que las construcciones, mallas combinadas; se distingue
       // DESPUÉS por cuál de los dos Map las reconoce (renderObjetosMundo.mallas()
       // vacío en cualquier room que no sea el Hub, ver su instanciación).
-      const impactos = raycasterClic.intersectObjects([...render.mallas(), ...(renderObjetosMundo?.mallas() ?? [])], false);
+      // RECURSIVO a propósito (bug real 2026-09-11, playtest de oficios): una
+      // construcción con `.glb` real es un Group con la malla como HIJO —
+      // con `recursive=false` el raycast solo probaba el Group (sin
+      // geometría) y el clic caía "al suelo" en cualquier mueble con arte
+      // real (la mayoría desde 2026-09-06), así que "Craftear en…",
+      // "Sentarse en…", "Abrir…" por clic solo funcionaban sobre la caja
+      // placeholder. datosDeMalla ya remonta padres hasta el userData.
+      const impactos = raycasterClic.intersectObjects([...render.mallas(), ...(renderObjetosMundo?.mallas() ?? [])], true);
       if (impactos.length === 0) {
         // Clic sin ningún mueble debajo (pedido 2026-08-31: "también puedes
-        // sentarte en el suelo... dando click sobre suelo") — sin raycast
-        // real de terreno, se ofrece siempre que el clic no tocara ningún
-        // mueble: sentar:suelo se sienta donde YA está el jugador, así que
-        // no hace falta saber la casilla exacta del clic.
-        menuInteraccion.mostrar(e.clientX, e.clientY, "Suelo", [
-          { etiqueta: "Sentarse en el suelo", accion: () => room.send("sentar:suelo", {}) },
-        ]);
+        // sentarte en el suelo... dando click sobre suelo"). sentar:suelo se
+        // sienta donde YA está el jugador, no necesita la casilla; la
+        // agricultura de casilla (docs/GDD_Agricultura.md, cultivoCasilla:*,
+        // UI nueva 2026-09-11) SÍ: la casilla exacta sale de cortar el rayo
+        // del clic con el plano del suelo (y=0, 1 casilla = 1 unidad) — el
+        // servidor valida de verdad (parcela propia, azada equipada,
+        // temporada, madurez), aquí solo se ofrece la acción que toca.
+        const opcionesSuelo: OpcionMenuInteraccion[] = [{ etiqueta: "Sentarse en el suelo", accion: () => room.send("sentar:suelo", {}) }];
+        const puntoSuelo = new Vector3();
+        const casilla = raycasterClic.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), 0), puntoSuelo) ? { x: Math.floor(puntoSuelo.x), y: Math.floor(puntoSuelo.z) } : null;
+        let tituloSuelo = "Suelo";
+        if (casilla) {
+          tituloSuelo = `Suelo (${casilla.x},${casilla.y})`;
+          const cultivo = renderCultivo.casillaEn(casilla.x, casilla.y);
+          const yo = room.state.players?.get(room.sessionId) as any;
+          const semillas = new Map<string, { instanciaId: number; cantidad: number }>();
+          for (const it of (yo?.inventario?.cuerpo?.items ?? []) as any[]) {
+            if (!CATALOGO_ITEMS_CLIENTE[it.itemId]?.cultivo) continue;
+            const previa = semillas.get(it.itemId);
+            if (previa) previa.cantidad += it.cantidad; else semillas.set(it.itemId, { instanciaId: it.id, cantidad: it.cantidad });
+          }
+          if (!cultivo) {
+            opcionesSuelo.push({ etiqueta: "Labrar aquí (azada)", accion: () => room.send("cultivoCasilla:labrar", { x: casilla.x + 0.5, y: casilla.y + 0.5 }) });
+          } else if (cultivo.estado === "labrada") {
+            for (const [semillaId, s] of semillas) {
+              opcionesSuelo.push({ etiqueta: `Plantar ${nombreItemCatalogo(semillaId)} (${s.cantidad})`, accion: () => room.send("cultivoCasilla:plantar", { x: casilla.x + 0.5, y: casilla.y + 0.5, instanciaIdSemilla: s.instanciaId }) });
+            }
+            if (semillas.size === 0) opcionesSuelo.push({ etiqueta: "Plantar (no llevas semillas)", accion: () => registroCombate.mostrar("No llevas ninguna semilla encima.", "error") });
+          } else if (cultivo.estado === "sembrada") {
+            tituloSuelo = `${nombreItemCatalogo(cultivo.semillaId)} (${casilla.x},${casilla.y})`;
+            opcionesSuelo.push({ etiqueta: "Cosechar", accion: () => room.send("cultivoCasilla:cosechar", { x: casilla.x + 0.5, y: casilla.y + 0.5 }) });
+          }
+        }
+        menuInteraccion.mostrar(e.clientX, e.clientY, tituloSuelo, opcionesSuelo);
         return;
       }
       const datosObjetoMundo = renderObjetosMundo?.datosDeMalla(impactos[0].object) ?? null;
@@ -1236,6 +1275,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       }
       if (datos.objeto === "mesa_planos_ingenieria") {
         opciones.push({ etiqueta: "Proyectar edificio legendario", accion: () => panelIngeniero.abrir(datos.id) });
+      }
+      // Crafteo en mesa (docs/GDD_Crafteo.md §10, 2026-09-11): cualquier
+      // construcción que sea `mesa` de alguna receta del catálogo abre el
+      // panel de recetas — antes NINGÚN jugador podía craftear desde el
+      // navegador (solo sondas de test mandaban crafteo:iniciar).
+      if (MESAS_CON_RECETAS.has(datos.objeto)) {
+        opciones.push({ etiqueta: `Craftear en ${nombre}`, accion: () => panelCrafteo.abrir(datos.id, datos.objeto, nombre) });
       }
       // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md §7bis.4, pedido
       // 2026-09-01): el auto-apuntado de silla por proximidad+tecla F
@@ -1565,6 +1611,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // "crafteo:herreria:cancelar".
       "crafteo:herreria:iniciado", "crafteo:herreria:progreso", "crafteo:herreria:completado", "crafteo:herreria:cancelado",
       "oficio:elegido", "oficio:error",
+      "construccion:nueva", "construir:error", // playtestOficios.e2e.mjs: colocar una mesa como jarl y saber su id real
       "arbol:plantado", "arbol:error", "arbol:talado", "coger:error", "equipo:error",
       "admin:debug:ok", "admin:error",
     ]) {
@@ -1573,6 +1620,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     (window as any).__test = {
       enviar: (tipo: string, msg?: unknown) => room.send(tipo, msg),
       sessionId: () => room.sessionId,
+      _limpiar: (tipo: string) => ultimosMensajes.delete(tipo), // tests: olvidar un mensaje ya consumido para esperar el SIGUIENTE del mismo tipo (crafteos en cadena)
       // Mismo efecto que clicar "Abrir <cofre>" en el menú contextual real
       // (ver el manejador de clic más abajo) — sin sonda de targeting 3D en
       // los e2e, mismo criterio que el resto de este objeto (p.ej. "C" en
@@ -2527,6 +2575,80 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     forjaFaseActual = null;
     panelForja.ocultar();
   });
+
+  // Panel de crafteo real (docs/GDD_Crafteo.md §10, 2026-09-11) — se abre
+  // desde el menú de interacción de cualquier mesa con recetas (ver el
+  // clic sobre construcciones más arriba). El servidor sigue siendo el
+  // único que valida (nivel/insumos/mesa/plano); aquí solo se pinta lo que
+  // el catálogo público ya sabe y se manda el protocolo de siempre.
+  const panelCrafteo = new PanelCrafteo({
+    contenedor,
+    enviarIniciar: (recetaId, construccionId) => room.send("crafteo:iniciar", { recetaId, construccionId }),
+    enviarRecolectar: () => room.send("crafteo:recolectar"),
+    consultarOficios: (oficios) => room.send("oficio:consultar", { oficios }),
+    inventarioActual: () => {
+      const yo = room.state.players?.get(room.sessionId) as any;
+      const suma = new Map<string, number>();
+      for (const it of (yo?.inventario?.cuerpo?.items ?? []) as any[]) suma.set(it.itemId, (suma.get(it.itemId) ?? 0) + (it.cantidad ?? 1));
+      return suma;
+    },
+    oficiosElegidos: () => {
+      const yo = room.state.players?.get(room.sessionId) as any;
+      return [yo?.oficio1 ?? "", yo?.oficio2 ?? ""];
+    },
+    toast: (texto, tipo) => registroCombate.mostrar(texto, tipo ?? "info"),
+  });
+  room.onMessage("oficio:estado", (m: { oficio1: string; oficio2: string; xp: Record<string, number>; nivel: Record<string, number> }) => {
+    ultimosMensajes.set("oficio:estado", m);
+    panelCrafteo.actualizarOficios(m);
+  });
+  room.onMessage("crafteo:iniciado", (m: { recetaId: string; terminaEn: number }) => panelCrafteo.onIniciado(m));
+  room.onMessage("crafteo:completado", (m: { recetaId?: string; itemId: string; cantidad: number; oficio?: string; xp?: number; nivel?: number; enSuelo?: boolean }) => panelCrafteo.onCompletado(m));
+  room.onMessage("crafteo:error", (m: { motivo: string }) => panelCrafteo.onError(m?.motivo ?? "rechazado"));
+  (window as any).__crafteo = {
+    abrir: (construccionId: number, objeto: string) => panelCrafteo.abrir(construccionId, objeto, objeto),
+    recetasVisibles: () => panelCrafteo.recetasVisibles(),
+    nivelDe: (oficio: string) => panelCrafteo.nivelDe(oficio),
+    estaAbierto: () => panelCrafteo.estaAbierto(),
+    cerrar: () => panelCrafteo.cerrar(),
+  };
+
+  // Casillas de cultivo replicadas (docs/GDD_Agricultura.md, 2026-09-11):
+  // tierra labrada y brotes visibles para cualquiera; el crecimiento se
+  // reevalúa cada pocos segundos (el día de mundo avanza despacio).
+  const renderCultivo = new RenderCultivoCasillas(escena, () => tiempoMundo().dia);
+  $(room.state).cultivosCasilla.onAdd((c: any, id: string) => {
+    const vista = () => ({ x: c.x, y: c.y, estado: c.estado, semillaId: c.semillaId, diaPlantado: c.diaPlantado });
+    renderCultivo.poner(id, vista());
+    $(c).onChange(() => renderCultivo.poner(id, vista()));
+  });
+  $(room.state).cultivosCasilla.onRemove((_c: any, id: string) => renderCultivo.quitar(id));
+  window.setInterval(() => renderCultivo.actualizarCrecimiento(), 5000);
+  const ERRORES_CULTIVO: Record<string, string> = {
+    demasiado_lejos: "Estás demasiado lejos de esa casilla.",
+    necesitas_azada: "Necesitas una azada equipada en la mano.",
+    suelo_no_valido: "Ese suelo no se puede labrar.",
+    suelo_ocupado: "Ahí ya hay algo construido.",
+    fuera_de_parcela: "Solo puedes cultivar dentro de una parcela.",
+    no_es_tu_parcela: "Esa parcela no es tuya.",
+    ya_labrada: "Esa casilla ya está labrada.",
+    sin_labrar: "Primero hay que labrar la casilla.",
+    fuera_de_temporada: "Esa semilla no se siembra en este mes.",
+    eso_no_es_una_semilla: "Eso no es una semilla.",
+    esa_semilla_ya_no_esta: "Ya no llevas esa semilla.",
+    todavia_no: "Todavía no está madura.",
+    sin_hueco: "No tienes hueco en el inventario para la cosecha.",
+  };
+  room.onMessage("cultivoCasilla:labrada", (m: { x: number; y: number }) => { ultimosMensajes.set("cultivoCasilla:labrada", m); registroCombate.mostrar("Casilla labrada.", "info"); });
+  room.onMessage("cultivoCasilla:plantada", (m: { x: number; y: number; semillaId: string }) => { ultimosMensajes.set("cultivoCasilla:plantada", m); registroCombate.mostrar(`Has plantado ${nombreItemCatalogo(m.semillaId)}.`, "info"); });
+  room.onMessage("cultivoCasilla:cosechada", (m: { x: number; y: number; itemId: string; cantidad: number }) => { ultimosMensajes.set("cultivoCasilla:cosechada", m); registroCombate.mostrar(`Has cosechado ${m.cantidad}× ${nombreItemCatalogo(m.itemId)}.`, "danoHecho"); });
+  room.onMessage("cultivoCasilla:error", (m: { motivo: string }) => { ultimosMensajes.set("cultivoCasilla:error", m); registroCombate.mostrar(ERRORES_CULTIVO[m?.motivo] ?? `Cultivo: ${m?.motivo}`, "error"); });
+  (window as any).__cultivo = { casillas: () => renderCultivo.todas(), casillaEn: (x: number, y: number) => renderCultivo.casillaEn(x, y) };
+  // Sonda de inventario propio (tests): id de instancia + itemId + cantidad de lo que llevas en el cuerpo.
+  (window as any).__inventario = () => {
+    const yo = room.state.players?.get(room.sessionId) as any;
+    return ((yo?.inventario?.cuerpo?.items ?? []) as any[]).map((it) => ({ id: it.id, itemId: it.itemId, cantidad: it.cantidad }));
+  };
 
   // --- Mascotas (docs/GDD_Mascotas.md) — panel PLACEHOLDER de testeo (ver panelMascotas.ts). Tecla G: dar de comer al animal domesticable más cercano. ---
   const panelMascotas = new PanelMascotas({

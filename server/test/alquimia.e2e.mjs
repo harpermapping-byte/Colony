@@ -27,10 +27,11 @@ import { DatabaseSync } from "node:sqlite";
 const dirServidor = dirname(fileURLToPath(import.meta.url)).replace(/\/test$/, "");
 const raiz = join(dirServidor, "..");
 const rutaBd = join(dirServidor, "test", "alquimia_e2e.sqlite");
+const rutaTestflat = join(raiz, "assets", "mapas", "testflat");
 const PUERTO = 2607;
 const NOMBRE = "E2E-Curandero";
-const CALDERO_XY = { x: 1600, y: 1601 }; // mismas coords probadas en herreria.e2e.mjs/barridoSistemas2
-const PARCELA_ID = "p_0001";
+const CALDERO_XY = { x: 36, y: 10 }; // dentro de tf_0001 (assets/mapas/testflat), fila libre de muebles de la Test Zone // mismas coords probadas en herreria.e2e.mjs/barridoSistemas2
+const PARCELA_ID = "tf_0001"; // parcela REAL de testflat — el mapa principal se rehorneó (Vetrheim, 2026-09-08) y su parcelas.json quedó vacío: una propiedad p_0001 ya no carga ninguna construcción
 
 for (const f of [rutaBd]) { try { unlinkSync(f); } catch {} }
 
@@ -103,14 +104,24 @@ const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let fallo = null;
 try {
-  console.log("2) arrancando servidor real sobre el mapa principal...");
-  lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO), BD_RUTA: rutaBd });
+  console.log("2) arrancando servidor real sobre testflat (parcela tf_0001 real)...");
+  lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO), RUTA_MAPA: rutaTestflat, BD_RUTA: rutaBd, JARL_NOMBRES: NOMBRE });
   await esperarPuerto(`http://localhost:${PUERTO}/`);
 
   const { Client } = await import(join(raiz, "node_modules/colyseus.js/build/esm/index.mjs"));
   const cliente = new Client(`ws://localhost:${PUERTO}`);
   const room = await cliente.joinOrCreate("hub", { name: NOMBRE });
   await esperar(400);
+
+  // La mesa vive dentro de tf_0001, lejos del spawn de testflat (32.5,32.5):
+  // teletransporte de jarl a la casilla vecina (admin:debug:teleport ajusta a
+  // pisable si hiciera falta) y espera a la posición real replicada.
+  room.send("admin:debug:teleport", { x: 36.5, y: 11.5 });
+  for (let i = 0; i < 100; i++) {
+    const yo = room.state.players.get(room.sessionId);
+    if (yo && Math.hypot(yo.x - 36.5, yo.y - 11.5) < 2) break;
+    await esperar(100);
+  }
 
   const eventos = { iniciado: [], progreso: [], completado: [], cancelado: [], errores: [], bebida: [] };
   room.onMessage("alquimia:iniciado", (m) => eventos.iniciado.push(m));
