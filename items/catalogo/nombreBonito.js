@@ -75,6 +75,20 @@ const EXCEPCIONES_FRASE = {
   // ("humilde"/"noble"/"modesta" solo se probaron antes con bases
   // singulares como "camisa"/"pantalon") — corregido a mano aquí, no en
   // la regla, para no arriesgar el resto del catálogo ya en verde.
+  // Ampliación de coherencia del catálogo (2026-09-11, docs/GDD_Crafteo.md §11) — compuestos con "del", "con", "en" o sustantivo en aposición.
+  pescado_en_aceite: "Pescado en Aceite",
+  festin_del_jarl: "Festín del Jarl",
+  elixir_del_jarl: "Elixir del Jarl",
+  cama_dosel_maestra: "Cama con Dosel Maestra",
+  estatua_marmol_guardian: "Estatua de Mármol del Guardián",
+  fuente_marmol_jarl: "Fuente de Mármol del Jarl",
+  tapiz_bordado_jarl: "Tapiz Bordado del Jarl",
+  prensa_grabado_taller: "Prensa de Grabado de Taller",
+  brazalete_platino_gemas: "Brazalete de Platino con Gemas",
+  collar_estrella_mithril: "Collar Estrella de Mithril",
+  escudo_torre_acero: "Escudo Torre de Acero",
+  cola_animal: "Cola Animal",
+  ballesta_repeticion_maestra: "Ballesta de Repetición Maestra",
   guantes_lino_humilde: "Guantes de Lino Humildes",
   guantes_seda_noble: "Guantes de Seda Nobles",
   botas_cuero_humilde: "Botas de Cuero Humildes",
@@ -157,7 +171,7 @@ const EXCEPCIONES_PALABRA = {
   guadana: "guadaña", tapon: "tapón", camion: "camión", sarten: "sartén",
   capitan: "capitán", capitania: "capitanía", catalogo: "catálogo", indice: "índice",
   cartografia: "cartografía", guardian: "guardián", multiple: "múltiple",
-  arnes: "arnés",
+  arnes: "arnés", festin: "festín", antidoto: "antídoto", raices: "raíces",
   multiples: "múltiples", pantografo: "pantógrafo", glandulas: "glándulas",
   guia: "guía", guias: "guías", hidraulico: "hidráulico", maritimas: "marítimas",
   alamo: "álamo", arbol: "árbol", ataud: "ataúd", automata: "autómata",
@@ -242,6 +256,11 @@ const ADJETIVOS = new Set([
   "agropecuario", "agropecuaria", "dulce", "dulces",
   "protectora", "protector", "ritual", "rituales",
   "harapienta", "harapiento", "harapientas", "harapientos",
+  // "baja"/"bajo" (librería baja, taburete bajo) — adjetivo de altura, no el sustantivo "la baja"; añadido 2026-09-11 al pasar el test de coherencia del catálogo.
+  "baja", "bajo", "bajas", "bajos",
+  // Ampliación 2026-09-11 (docs/GDD_Crafteo.md §11): esencia floral, festín marino, brújula naval, arco compuesto, tónico curativo,
+  // silo/tonel gremial, gemas reales, mochila/silla maestra (solo el femenino — "maestro" ya va en excepciones de frase: hacha del leñador maestro...).
+  "floral", "marino", "marina", "naval", "compuesto", "compuesta", "curativo", "gremial", "reales", "maestra", "maestras",
 ]);
 
 // Sustantivos que terminan en -ado/-ada por casualidad (NO son participio-

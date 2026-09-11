@@ -27,8 +27,15 @@ export const MARGEN_COMPRA_MERCADER = 0.5;
 export const VENTANA_RESET_MERCADER_MS = 24 * 60 * 60 * 1000;
 
 export interface EntradaOficioMercader {
-  /** itemId → precioBase Farycoins/unidad. */
-  pool: Record<string, number>;
+  /**
+   * itemId → precioBase Farycoins/unidad, o `null` = usa el `valorBase` del
+   * catálogo de ítems (docs/GDD_Economia.md §12, 2026-09-11: los 71 precios
+   * fijados a mano en 2026-08-31 se quedaron incoherentes con las recetas —
+   * un lingote a 5 con el hierro a 3×2 — así que el precio de un mercader
+   * sale ahora de la MISMA fórmula que el resto del catálogo; un número
+   * aquí sigue mandando si algún día se quiere un precio especial a mano).
+   */
+  pool: Record<string, number | null>;
   /** Overrides opcionales de config para este oficio en concreto (sin usar hoy, listos para cuando el streamer quiera afinar uno). */
   stockMin?: number;
   stockMax?: number;
@@ -103,6 +110,19 @@ export function elegirArticulosDeMercader(
     [barajado[i], barajado[j]] = [barajado[j], barajado[i]];
   }
   return barajado.slice(0, objetivo).sort();
+}
+
+/**
+ * precioBase real de un artículo del pool: el número fijado a mano si lo hay,
+ * si no el `valorBase` del catálogo de ítems (`valorBaseDe`), y 1 como último
+ * recurso (un ítem sin valorBase calculado no debería existir — el test de
+ * coherencia lo impide — pero un mercader nunca debe vender a 0).
+ */
+export function precioBaseArticulo(entrada: EntradaOficioMercader, itemId: string, valorBaseDe: (itemId: string) => number | undefined): number {
+  const fijado = entrada.pool[itemId];
+  if (typeof fijado === "number" && fijado > 0) return fijado;
+  const valor = valorBaseDe(itemId);
+  return typeof valor === "number" && valor > 0 ? valor : 1;
 }
 
 export function precioVentaMercader(precioBase: number): number {

@@ -20,7 +20,7 @@ import {
   rangoStockMercader,
   limiteCompraDiarioMercader,
   stockAleatorioEnRango,
-  VENTANA_RESET_MERCADER_MS,
+  VENTANA_RESET_MERCADER_MS, precioBaseArticulo,
 } from "../../mercado/catalogoMercaderes";
 import { esRecipienteLiquido, llenar, vaciar, tieneLiquido, consumirVolumen, transferirLiquido } from "../../inventario/liquidos";
 import { crearContenedorMuebles, meterMueble, sacarMueble } from "../../inventario/contenedorMuebles";
@@ -2751,7 +2751,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const it = contenedor.items.find((i) => i.id === msg.instanciaId);
     if (!it) return client.send("personaje:error", { motivo: "no_encontrado" });
     const entrada = this.catalogoItems[it.itemId];
-    if (!entrada || entrada.tipo !== "consumible" || (!entrada.restaura && !entrada.restauraMultiple)) {
+    if (!entrada || entrada.tipo !== "consumible" || (!entrada.restaura && !entrada.restauraMultiple && !entrada.efectoBuff)) {
       return client.send("personaje:error", { motivo: "no_se_puede_consumir" });
     }
 
@@ -2760,7 +2760,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
     if (unidadCombate) unidadCombate.pa -= COSTE_PA_OBJETO;
 
-    let valores: Partial<Record<"vida" | "estamina" | "comida" | "bebida" | "sueno" | "caca", number>>;
+    let valores: Partial<Record<"vida" | "estamina" | "comida" | "bebida" | "sueno" | "caca", number>> = {};
     if (entrada.restauraMultiple) {
       // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30): un plato sube VARIOS
       // vitales a la vez en un solo consumo — mismo aplicarUnVital que abajo,
@@ -2770,8 +2770,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         if (cantidad == null) continue;
         valores[vital] = this.aplicarUnVital(player, vital, cantidad);
       }
-    } else {
-      valores = { [entrada.restaura!.vital]: this.aplicarUnVital(player, entrada.restaura!.vital, entrada.restaura!.cantidad) };
+    } else if (entrada.restaura) {
+      valores = { [entrada.restaura.vital]: this.aplicarUnVital(player, entrada.restaura.vital, entrada.restaura.cantidad) };
+    }
+    // efectoBuff (docs/GDD_Crafteo.md §11, 2026-09-11): consumibles de nivel
+    // alto (banquete real, tónico de agilidad, elixir del jarl) dan un buff
+    // temporal por el MISMO canal que una poción de alquimia — "todos" son
+    // los 4 stats de combate a la vez; el resto, un StatAlquimia concreto.
+    if (entrada.efectoBuff) {
+      const { stat, magnitudPct, duracionSeg } = entrada.efectoBuff;
+      const expiraEn = Date.now() + duracionSeg * 1000;
+      const stats = stat === "todos" ? (["ataqueFisico", "defensaFisica", "ataqueMagico", "defensaMagica"] as const) : ([stat] as const);
+      const actuales = this.buffsPocionPorSesion.get(client.sessionId) ?? [];
+      this.buffsPocionPorSesion.set(client.sessionId, [...actuales, ...stats.map((s) => ({ categoria: "stat" as const, stat: s, magnitudPct, expiraEn }))]);
     }
 
     // "Bien alimentado" (docs/GDD_Mecanicas.md §5.12, 2026-09-02) — comer o
@@ -7375,7 +7386,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const entrada = catalogo.oficios[oficio];
     if (!entrada) return null;
     return elegirArticulosDeMercader(npcId, oficio, entrada, catalogo.config).map((itemId) => {
-      const precioBase = entrada.pool[itemId];
+      const precioBase = precioBaseArticulo(entrada, itemId, (id) => this.catalogoItems[id]?.valorBase);
       return { itemId, precioBase, precioVenta: precioVentaMercader(precioBase), precioCompra: precioCompraMercader(precioBase) };
     });
   }
@@ -7413,7 +7424,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const tenderoteIdVenta = this.tenderoteIdDeNpc(npcId);
     const tenderoteIdCompra = this.tenderoteIdCompraDeNpc(npcId);
     for (const itemId of elegirArticulosDeMercader(npcId, oficio, entrada, catalogo.config)) {
-      const precioBase = entrada.pool[itemId];
+      const precioBase = precioBaseArticulo(entrada, itemId, (id) => this.catalogoItems[id]?.valorBase);
       await bd.fijarStockTenderete(tenderoteIdVenta, itemId, stockAleatorioEnRango(stockMin, stockMax), precioVentaMercader(precioBase));
       await bd.fijarStockTenderete(tenderoteIdCompra, itemId, limiteCompra, precioCompraMercader(precioBase));
     }

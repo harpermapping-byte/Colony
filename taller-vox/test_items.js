@@ -34,7 +34,7 @@ function assertModeloValido(m, id) {
 // --- armas -------------------------------------------------------------
 
 test("armas: todo id del catálogo tipo:arma clasifica a un arquetipo con función real", () => {
-  assert.strictEqual(armas.IDS_ARMA.length, 38); // 31 + 7 armas temáticas de enemigo (docs/GDD_Combate.md §11ter, 2026-09-07)
+  assert.strictEqual(armas.IDS_ARMA.length, 61); // 31 + 7 temáticas de enemigo (§11ter) + 7 legendarias (§11quinquies) + 2 insignia (GDD_Crafteo §8) + 14 de la ampliación 2026-09-11 (GDD_Crafteo §11: 5 de acero templado/mithril con su bonificada = 10, bastón de roble, lanza de caza, arco compuesto, jabalina de acero)
   for (const id of armas.IDS_ARMA) {
     const arq = armas.clasificarArma(id);
     assert.ok(armas.ARQUETIPO_FN[arq], `${id} -> ${arq} sin función`);
@@ -73,7 +73,7 @@ test("armas: la longitud crece con huella[1] del catálogo (daga corta < espada_
 // --- herramientas --------------------------------------------------------
 
 test("herramientas: todo id del catálogo tipo:herramienta clasifica y genera geometría válida", () => {
-  assert.strictEqual(herramientas.IDS_HERRAMIENTA.length, 71);
+  assert.strictEqual(herramientas.IDS_HERRAMIENTA.length, 81); // 71 + 10 tier 5 (docs/GDD_Crafteo.md §8.2, 2026-09-08)
   for (const id of herramientas.IDS_HERRAMIENTA) {
     const arq = herramientas.clasificarHerramienta(id);
     assert.ok(herramientas.ARQUETIPO_FN[arq], `${id} -> ${arq} sin función`);
@@ -99,7 +99,7 @@ test("herramientas: determinismo", () => {
 // --- objetos ---------------------------------------------------------------
 
 test("objetos: todo id del catálogo tipo:objeto clasifica (cobertura real o SIN_COBERTURA/BARCO documentados)", () => {
-  assert.strictEqual(objetos.IDS_OBJETO.length, 77);
+  assert.strictEqual(objetos.IDS_OBJETO.length, 95); // 77 + 12 (barcos/insignia/vidrio 2026-09-08) + 6 bienes de comercio de la ampliación 2026-09-11 (GDD_Crafteo §11)
   for (const id of objetos.IDS_OBJETO) {
     const arq = objetos.clasificarObjeto(id);
     assert.ok(arq in objetos.ARQUETIPO_FN, `${id} -> ${arq} sin entrada en ARQUETIPO_FN`);
@@ -136,7 +136,7 @@ test("objetos: los 4 barcos no se duplican (ya cubiertos por generar_barco.js)",
 // --- comida ------------------------------------------------------------
 
 test("comida: todo id del catálogo tipo:consumible clasifica y genera geometría válida", () => {
-  assert.strictEqual(comida.IDS_CONSUMIBLE.length, 35);
+  assert.strictEqual(comida.IDS_CONSUMIBLE.length, 59); // 35 + 2 insignia (2026-09-08) + 22 platos/bebidas/elixires de la ampliación 2026-09-11 (GDD_Crafteo §11)
   for (const id of comida.IDS_CONSUMIBLE) {
     const arq = comida.clasificarComida(id);
     assert.ok(comida.ARQUETIPO_FN[arq], `${id} -> ${arq} sin función`);

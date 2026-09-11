@@ -111,6 +111,26 @@ export interface EntradaCatalogoItem {
 
   /** docs/GDD_Cocina.md — igual que `restaura` pero con VARIOS vitales a la vez (un plato cocinado sube vida+estamina+comida+bebida en un solo consumo) — `restaura` se queda para consumibles de un solo vital, este es aditivo y nunca sustituye entradas existentes. */
   restauraMultiple?: AportesCocina;
+  /**
+   * docs/GDD_Crafteo.md §11 (2026-09-11) — SOLO consumibles de nivel alto
+   * (banquete, tónico de agilidad, elixir del jarl): buff temporal al
+   * consumirlo, aplicado por `personaje:consumir` sobre el MISMO
+   * `buffsPocionPorSesion` que las pociones de alquimia — `stat` es uno de
+   * StatAlquimia o "todos" (= los 4 stats de combate a la vez). Existía en
+   * el catálogo desde 2026-09-08 sin que nada lo leyera.
+   */
+  efectoBuff?: { stat: "todos" | "ataqueFisico" | "defensaFisica" | "ataqueMagico" | "defensaMagica" | "velocidad" | "vida" | "estamina" | "carga"; magnitudPct: number; duracionSeg: number };
+  /** docs/GDD_Combate.md §11quinquies — pieza de set legendario de jefe, jamás craftable. Informativo aquí (loot y valorBase lo leen). */
+  legendario?: boolean;
+  /**
+   * docs/GDD_Economia.md §12 (2026-09-11) — valor de referencia en Farycoins
+   * de UNA unidad, calculado SIEMPRE por `items/catalogo/valorBase.js`
+   * (crudo por tabla, crafteado = insumos + mano de obra, loot por stats),
+   * nunca a mano. Es el precioBase por defecto de los mercaderes NPC
+   * (server/src/mercado/catalogoMercaderes.ts) y la referencia que muestra
+   * el cliente; los tenderetes de jugador fijan el precio que quieran.
+   */
+  valorBase?: number;
 
   /** docs/GDD_Inventario.md §9 (Líquidos, pedido 2026-08-30) — SOLO en recipientes portables (cantimplora, cubo_madera...): cuánto líquido cabe. Ausente = no es un recipiente de líquido (la mayoría de objetos). A más grande el recipiente, más `volumenMaxMl`. */
   volumenMaxMl?: number;

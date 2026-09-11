@@ -36,9 +36,16 @@ export interface RecetaCatalogo {
   minijuego?: string;
   planoRequerido?: string;
   edificioRequerido?: string;
+  /** XP de oficio que da completarla (items/catalogo/valorBase.js, docs/GDD_Crafteo.md §11). */
+  xpOtorgada?: number;
 }
 
-interface EntradaItem { nombre?: string }
+interface EntradaItem { nombre?: string; valorBase?: number }
+
+/** Valor de referencia (Farycoins) del catálogo — docs/GDD_Economia.md §12; undefined si el ítem no lo tiene calculado. */
+export function valorItem(itemId: string): number | undefined {
+  return ITEMS[itemId]?.valorBase;
+}
 
 export const RECETAS = Object.fromEntries(
   Object.entries(recetasJson as unknown as Record<string, RecetaCatalogo | string>).filter(([id, r]) => !id.startsWith("_") && typeof r === "object" && r !== null && Array.isArray((r as RecetaCatalogo).mesas)),
@@ -280,7 +287,10 @@ export class PanelCrafteo {
       const detalle = document.createElement("div");
       detalle.style.cssText = "font-size:12px;color:var(--panel-texto-tenue)";
       const nivelTxt = nivelActual === null ? `nivel ${receta.nivelMinimo}` : `nivel ${receta.nivelMinimo} (tienes ${nivelActual})`;
-      detalle.textContent = `${nombreOficio(receta.oficio)} ${nivelTxt}${elegido ? "" : " · sin bono (oficio no elegido)"} · ${receta.tiempoBaseSeg}s${receta.minijuego ? ` · minijuego de ${receta.minijuego}` : ""}`;
+      const valor = valorItem(receta.resultado.itemId);
+      const xpTxt = receta.xpOtorgada != null && elegido ? ` · +${receta.xpOtorgada} XP` : "";
+      const valorTxt = valor != null ? ` · ≈${valor * receta.resultado.cantidad}₣` : "";
+      detalle.textContent = `${nombreOficio(receta.oficio)} ${nivelTxt}${elegido ? "" : " · sin bono (oficio no elegido)"} · ${receta.tiempoBaseSeg}s${xpTxt}${valorTxt}${receta.minijuego ? ` · minijuego de ${receta.minijuego}` : ""}`;
       if (!desbloqueada) detalle.style.color = "var(--error-color)";
       fila.appendChild(detalle);
 
