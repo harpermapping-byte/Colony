@@ -12,7 +12,7 @@
 //   1) elegir herrero + carpintero hablando con el maestro (oficio:elegir);
 //   2) el jarl coloca un yunque_tocon y un banco_carpintero en su parcela (construir);
 //   3) clic en el yunque → "Craftear en Yunque" → panel con recetas, clavos desbloqueada, olla (nivel 2) bloqueada;
-//   4) craftear clavos 5 veces → XP real → "¡Herrero nivel 2!" con las recetas nuevas, olla ya desbloqueada;
+//   4) craftear clavos 6 veces → XP real → "¡Herrero nivel 2!" con las recetas nuevas, olla ya desbloqueada;
 //   5) daga (minijuego de forja): Avivar hasta FORJAR, 12 golpes, Templar → daga real en el inventario;
 //   6) agricultura de casilla: labrar con azada, plantar trigo, cosechar una casilla madura — casillas REPLICADAS visibles;
 //   7) carpintero legendario (nivel 10 vía debug): tallar un mueble nuevo desde una descripción.
@@ -125,6 +125,21 @@ try {
   // 2) El jarl coloca las mesas dentro de tf_0001 (fila 10, libre de los muebles de la Test Zone).
   console.log("2) colocar yunque_tocon (36,10) y banco_carpintero (34,10) con `construir`...");
   await teleport(35.5, 11.5);
+  // Coste de materiales para construir mesas de oficio (docs/GDD_Construccion.md
+  // §9, fusionado en la misma sesión que este playtest): yunque_tocon pide
+  // piedra_comun×4+madera_blanda×2, banco_carpintero madera_blanda×9+
+  // piedra_comun×3+madera_dura×2 — sembrado EXACTO (no de sobra): admin:
+  // debug:darItem no comprueba el peso máximo transportable (20kg a nivel 1
+  // de Fuerza), así que cualquier sobrante de estos materiales (2-2.5kg/
+  // unidad) se queda pesando en el inventario para siempre y bloquea
+  // TODO crafteo posterior — entregarOSoltar (el que reparte clavos/daga
+  // más abajo) SÍ comprueba el peso y tira el resultado al suelo en vez de
+  // dártelo si te pasas, precisamente el bug real que sembrar "de sobra"
+  // disparaba aquí.
+  await enviar("admin:debug:darItem", { itemId: "piedra_comun", cantidad: 7 });
+  await enviar("admin:debug:darItem", { itemId: "madera_blanda", cantidad: 11 });
+  await enviar("admin:debug:darItem", { itemId: "madera_dura", cantidad: 2 });
+  await page.waitForFunction(() => window.__inventario().some((i) => i.itemId === "madera_dura"), null, { timeout: 15000 }).catch(() => {});
   await enviar("construir", { objeto: "yunque_tocon", categoria: "mueble", x: 36, y: 10, rot: 0 });
   const nuevaYunque = await esperarMensaje("construccion:nueva", 15000);
   const idYunque = nuevaYunque?.id ?? nuevaYunque?.construccion?.id ?? null;
@@ -166,10 +181,19 @@ try {
   comprobar("clavos (nivel 1) desbloqueada con insumos OK; olla (nivel 2) bloqueada", clavos?.desbloqueada === true && clavos?.insumosOk === true && olla?.desbloqueada === false, JSON.stringify({ clavos, olla }));
   await page.screenshot({ path: join(CAPTURAS, "playtest_oficios_panel_crafteo.png") });
 
-  // 4) Craftear clavos 5 veces (20 XP cada uno → 100 ≥ 90 = nivel 2) por el botón real.
-  console.log("4) craftear clavos ×5 hasta subir a herrero nivel 2...");
+  // 4) Craftear clavos 6 veces por el botón real hasta subir a herrero
+  // nivel 2. `xpOtorgada` real de la receta (17, docs/GDD_Crafteo.md §11.3
+  // — valorBase.js calcula la XP por fórmula desde la ampliación de
+  // catálogo de esa fecha) × 6 = 102 ≥ 90 (umbral real de nivel 2,
+  // generarUmbrales(10,90)); 5 crafteos (85 XP) se quedan cortos — este
+  // playtest se escribió ANTES de esa ampliación de catálogo con el
+  // XP_POR_CRAFTEO plano de entonces (20/crafteo) y nadie lo recalibró al
+  // cambiar la fórmula, hueco real encontrado ejecutando este mismo test
+  // tras fusionar con el trabajo de esa pasada.
+  console.log("4) craftear clavos ×6 hasta subir a herrero nivel 2...");
+  const CRAFTEOS_CLAVOS = 6;
   let crafteosOk = 0, t0 = Date.now();
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < CRAFTEOS_CLAVOS; i++) {
     await page.evaluate(() => window.__test._limpiar?.("crafteo:completado"));
     const boton = page.locator('[data-testid="craftear-clavos_hierro"]');
     const habilitado = await page.waitForFunction(() => { const b = document.querySelector('[data-testid="craftear-clavos_hierro"]'); return !!b && !b.disabled; }, null, { timeout: 15000 }).then(() => true).catch(() => false);
@@ -182,13 +206,13 @@ try {
     crafteosOk++;
   }
   const ultimo = await page.evaluate(() => window.__test.ultimoMensaje("crafteo:completado"));
-  comprobar("5 crafteos de clavos completados por el botón real", crafteosOk === 5, `${crafteosOk}/5 en ${((Date.now() - t0) / 1000).toFixed(1)}s, último=${JSON.stringify(ultimo)}`);
+  comprobar(`${CRAFTEOS_CLAVOS} crafteos de clavos completados por el botón real`, crafteosOk === CRAFTEOS_CLAVOS, `${crafteosOk}/${CRAFTEOS_CLAVOS} en ${((Date.now() - t0) / 1000).toFixed(1)}s, último=${JSON.stringify(ultimo)}`);
   const texto4 = await textoPantalla();
   comprobar("toast '¡Herrero nivel 2!' con las recetas nuevas", /Herrero nivel 2!/.test(texto4) && /Nuevas recetas:/.test(texto4), texto4.match(/¡Herrero nivel 2![^\n]*/)?.[0]?.slice(0, 160) ?? "sin toast");
   recetas = await page.evaluate(() => window.__crafteo.recetasVisibles());
   comprobar("tras subir de nivel, olla (nivel 2) pasa a desbloqueada en el panel", recetas.find((r) => r.id === "olla_metal")?.desbloqueada === true, `nivel ${await page.evaluate(() => window.__crafteo.nivelDe("herrero"))}`);
   const clavosInv = await page.evaluate(() => window.__inventario().filter((i) => i.itemId === "clavos").reduce((a, i) => a + i.cantidad, 0));
-  comprobar("los clavos están de verdad en el inventario", clavosInv >= 50, `${clavosInv} clavos`);
+  comprobar("los clavos están de verdad en el inventario", clavosInv >= CRAFTEOS_CLAVOS * 10, `${clavosInv} clavos`);
   await page.screenshot({ path: join(CAPTURAS, "playtest_oficios_nivel2.png") });
 
   // 5) Minijuego de forja jugado con los botones del panel.

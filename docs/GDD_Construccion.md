@@ -108,7 +108,7 @@ CREATE INDEX IF NOT EXISTS idx_construcciones_prop ON construcciones(propiedad);
 
 El menú de construcción se monta LEYENDO catálogos, nunca listas propias:
 
-- **Muebles**: `interiores/catalogo/elementos.json` — todos los que no sean `capa: "estructural"` ni `specialModifier` de enemigo. Ya traen `huella`, `colorDebug`, `colocacion`/anchors, `variantes`. Campo nuevo OPCIONAL `receta` (materiales, se rellenará al definir la economía; sin receta = gratis por ahora).
+- **Muebles**: `interiores/catalogo/elementos.json` — todos los que no sean `capa: "estructural"` ni `specialModifier` de enemigo. Ya traen `huella`, `colorDebug`, `colocacion`/anchors, `variantes`. Campo OPCIONAL `receta` (materiales) — **implementado de verdad 2026-09-10/11, ver §9**: sin `receta` sigue siendo gratis, con ella el servidor exige y descuenta los insumos reales antes de construir.
 - **Estructuras exteriores**: `interiores/catalogo/exteriores.json` (NUEVO, mismo formato de entrada que elementos): empalizada_tramo, empalizada_puerta, valla_madera, poste_antorcha, pozo, gallinero, bancal_cultivo... con `huella`, `colorDebug`, `variantes`, `uso` y `colision: true|false`.
 - **Edificios**: `interiores/catalogo/tipos_edificio.json` — los que lleven `construible: true` + `huellaExterior: [ancho, largo]` (campos nuevos aditivos; el bakeador de interiores los ignora). Al colocarse generan interior (§5).
 - **Campo reservado `energia`** en cualquier entrada: `{consume: n}` o `{produce: n, fuente: "viento"|"agua"|"movimiento"}` — sin efecto hoy; los molinos del futuro serán entradas de catálogo, no reformas.
@@ -137,7 +137,7 @@ Al recibir `"construir"`:
 2. La huella ROTADA entera cae dentro de ESA misma parcela.
 3. Todas sus casillas son TIERRA transitable en la rejilla (ni agua, ni sólido del bake, ni otra construcción).
 4. La parcela no supera su `topeProps`.
-5. (futuro) El jugador tiene los materiales de `receta`.
+5. El jugador tiene los materiales de `receta` (cuando la entrada la lleva) — **implementado 2026-09-10/11, ver §9**; sin `receta` en el catálogo, este paso no aplica (gratis, como siempre).
 
 Si pasa: inserta en DB, endurece casillas (colisión viva — se guarda una copia `casillasBase` de la rejilla para poder restaurar al recoger), broadcast a todos.
 
@@ -186,11 +186,19 @@ De paso, el testeo destapó un bug de autorización sin relación con la concurr
 - Driver Postgres (Neon) cuando el streamer abra cuenta — solo el adaptador.
 - Entrar a interiores construidos (bloqueado por el render de interiores en cliente, pendiente global).
 - ~~Inmuebles interiores en ciudad~~ — **implementado, ver `docs/GDD_Propiedades.md`** (compra/alquiler comercial de inmuebles enteros y habitaciones sueltas de taberna/posada, 2026-08-29).
-- Receta/materiales reales, permisos, renta, plantillas, planos, energía.
+- ~~Receta/materiales reales~~ — **implementado 2026-09-10/11 para mesas de oficio, ver §9** (permisos/renta/plantillas/planos/energía siguen pendientes).
 - Login real (Twitch) → sustituye la identidad por nombre.
 - Jarl en juego pintando parcelas (misma máscara/formato; hoy solo la herramienta admin).
 - **Edificios pequeños de construcción con catálogo/nombres PROPIOS (pedido 2026-08-29)**: el streamer no quiere que el menú de construcción ofrezca los mismos 5 tipos `construible:true` que hoy comparte con las ciudades (`casa_humilde`, `choza_pescador`, `casa_noble`, `taberna`, `tienda` — `interiores/catalogo/tipos_edificio.json`); pide bakes específicos, de tamaño pequeño, con ids nuevos que no se usen en `ciudades/catalogo/asentamientos.json`. **Encaje: cero fricción de arquitectura** — el mecanismo ya soporta esto tal cual (§3, §5): basta con dar de alta entradas nuevas en `tipos_edificio.json` (`construible:true`, `huellaExterior` pequeña, id nuevo, ej. `cabana_colono`/`taller_colono`) que ninguna calle de `ciudades/` referencie, y generar su `.glb` propio en `taller-vox/` (mismo generador; arquetipo nuevo solo si hace falta que se vean distintas de las de ciudad). El resto del menú (bloques/muebles/decoración) YA es "sin interior" — eso ya es `interiores/catalogo/elementos.json` + `exteriores.json`, sin cambio. Pendiente solo de que el streamer cierre la lista de nombres/tamaños cuando toque construirlo.
 - **NPCs contratables para automatizar producción** — ver `docs/Backlog_Mecanicas_Futuras.md`, sección "NPCs contratables para automatizar producción": bloqueado por varias piezas que aún no existen (dinero, inventario/objetos, recetas de crafteo); el punto de fricción real con ESTE sistema es que un contrato entre dos parcelas necesita una ruta A* calculada UNA VEZ en runtime (al firmar el contrato), algo que hoy no existe — el A* de caminos solo vive como bakeador offline en `baker/src/`, nunca expuesto para llamarse en vivo.
+
+## 9. Coste de materiales real para construir mesas de oficio (2026-09-10/11, pedido streamer: "las de nivel 1 de crafteo fácil con material fácil, las siguientes complicándose con materiales de otras mesas o más elaborados")
+
+El campo `receta` que este documento reservaba desde el principio (§3, §5) ya se rellena y se valida de verdad para las mesas de oficio (`elementos.json`, 61 entradas con `nivelOficioMinimo`) y las 6 vasijas de cocina (`exteriores.json`) — el resto del catálogo (muebles civiles, decoración) sigue sin `receta`, es decir, sigue siendo gratis, sin cambio de comportamiento. Escalado por tier con el material del PROPIO oficio (nunca de otro): nivel 1 usa material bruto/barato en poca cantidad, niveles altos exigen el material PROCESADO de ese mismo oficio (p.ej. lingotes en vez de mineral bruto para el herrero) en cantidad creciente — decisión confirmada con el streamer entre dos alternativas de diseño ("escalado por tier con materiales del propio oficio" vs. cruzar materiales entre oficios), eligiendo la primera.
+
+Servidor: el handler `"construir"` (`RoomExteriorBase.ts`) comprueba TODOS los insumos de `entrada.receta` en el inventario del jugador antes de construir, los descuenta atómicamente, y los devuelve íntegros si la construcción se rechaza después por cualquier otra validación (§5, puntos 1-4). Cliente: `constructor.ts` muestra en el propio botón del menú un tooltip "Requiere nivel N de `<oficio>`. Materiales: X, Y" para cualquier entrada con `nivelOficioMinimo`.
+
+Verificado: `server/test/costeConstruirMesaOficio.e2e.mjs` (colyseus.js directo, 5/5 — rechazo real sin materiales, éxito+descuento real con materiales), servidor 1321/1321, `tsc --noEmit` limpio en cliente y servidor. Detalle completo (incluida la tabla `MATERIAL_POR_TEMA` y el bug real de mesas de oficio ausentes que motivó revisar esto primero) en `docs/GDD_Crafteo.md` §10.
 - **Muebles/edificios legendarios (carpintero/ingeniero) sin resolver aquí todavía** (docs/GDD_Ropa_Procedural.md §Carpintero legendario/§Ingeniero legendario, pedido posterior al sastre) — el mueble tallado por un carpintero SÍ llega como item real al inventario (`silla`/`mesa_comedor`/`cama_individual`/`arcon`, vinculado a `muebles_generados`) pero colocarlo hoy (tecla B) da la geometría ESTÁTICA del catálogo, no la tallada: falta resolver el blueprint por-instancia al construir un `ConstruccionViva` cuyo item de origen traiga un id de `muebles_generados`, mismo tipo de límite ya aceptado para `equipoBlueprintRopa` de la ropa. El edificio proyectado por un ingeniero NO llega todavía a ningún item ni a este colocador — queda solo como blueprint persistente y listable (`edificios_generados`), pendiente de decidir cómo se ofrecería un "diseño propio" junto a las plantillas de `tipos_edificio.json` en la UI de construcción.
 
 ## 9. Mobiliario del carpintero: plazas, calidad de descanso, contenedores con filtro y expositores visuales (2026-09-11)

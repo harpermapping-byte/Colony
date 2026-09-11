@@ -148,6 +148,11 @@ export class PanelCrafteo {
     this.marco.cerrar();
   }
 
+  /** Cierre silencioso desde game.ts cuando el servidor elige un minijuego aparte (forja) en vez de "crafteo:iniciado" normal — le cede el testigo a ese panel sin dejar esta lista de recetas abierta encima. */
+  cerrarPorMinijuegoAparte(): void {
+    if (this.marco.estaAbierto()) this.cerrar();
+  }
+
   /** `oficio:estado` — XP/nivel reales; ANTES del primer crafteo, para poder detectar el salto de nivel después. */
   actualizarOficios(m: { xp?: Record<string, number>; nivel?: Record<string, number> }): void {
     Object.assign(this.xp, m?.xp ?? {});

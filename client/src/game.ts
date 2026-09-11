@@ -38,6 +38,7 @@ import { PanelChat } from "./ui/chat";
 import { PanelDialogoNpc } from "./npc/panelDialogoNpc";
 import { PanelForja } from "./construccion/panelForja";
 import { PanelCrafteo, MESAS_CON_RECETAS, nombreItem as nombreItemCatalogo } from "./construccion/panelCrafteo";
+import { PanelAlquimia, type ConfigAlquimiaVista, type SesionAlquimiaVista, type ResultadoAlquimiaVista } from "./construccion/panelAlquimia";
 import { RenderCultivoCasillas } from "./agricultura/renderCultivoCasillas";
 import itemsJsonCliente from "../../items/catalogo/items.json";
 const CATALOGO_ITEMS_CLIENTE = itemsJsonCliente as unknown as Record<string, { cultivo?: unknown }>;
@@ -1284,9 +1285,16 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // Crafteo en mesa (docs/GDD_Crafteo.md §10, 2026-09-11): cualquier
       // construcción que sea `mesa` de alguna receta del catálogo abre el
       // panel de recetas — antes NINGÚN jugador podía craftear desde el
-      // navegador (solo sondas de test mandaban crafteo:iniciar).
+      // navegador (solo sondas de test mandaban crafteo:iniciar). El caldero
+      // (alquimia) nunca aparece como `mesas` de ninguna receta normal
+      // (`alquimia:iniciar` es un protocolo aparte, sin RecetaCrafteo) — tiene
+      // su PROPIO panel justo abajo.
       if (MESAS_CON_RECETAS.has(datos.objeto)) {
         opciones.push({ etiqueta: `Craftear en ${nombre}`, accion: () => panelCrafteo.abrir(datos.id, datos.objeto, nombre) });
+      }
+      // Alquimia (docs/GDD_Pociones.md, pedido streamer 2026-09-10).
+      if (datos.objeto === "caldero") {
+        opciones.push({ etiqueta: "Preparar poción", accion: () => panelAlquimia.abrir(datos.id) });
       }
       // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md §7bis.4, pedido
       // 2026-09-01): el auto-apuntado de silla por proximidad+tecla F
@@ -1547,12 +1555,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage("asiento:error", (m: { motivo: string }) => { console.log("[asiento]", m?.motivo); registroCombate.mostrar(m?.motivo || "No te puedes sentar ahí.", "error"); });
     room.onMessage("asiento:cancelado", () => console.log("[asiento] cancelado (te has movido)"));
 
-    // Sonda SOLO-PARA-TESTS (e2e con Playwright): el crafteo (docs/
-    // GDD_Crafteo.md) todavía no tiene panel de cliente (ninguna receta lo
-    // usa desde el navegador hoy — el mecanismo es server-only por ahora),
-    // así que esto manda el protocolo Colyseus REAL tal cual lo haría un
-    // futuro panel, sin inventar un mensaje nuevo. mesa:sentarse/levantarse
-    // SÍ tienen UI real (clic sobre la mesa → menú de interacción, ver más
+    // Sonda SOLO-PARA-TESTS (e2e con Playwright): "mesa_ajedrez_craft" (el
+    // tablero en sí) no es una mesa de oficio (sin `nivelOficioMinimo`, el
+    // panel de crafteo genérico de más abajo no la ofrece) — el crafteo REAL
+    // de oficios ya tiene UI (ver `panelCrafteo.ts`, docs/GDD_Crafteo.md,
+    // pedido streamer 2026-09-10), esto sigue mandando el protocolo Colyseus
+    // real a mano solo para el caso del tablero. mesa:sentarse/levantarse SÍ
+    // tienen UI real (clic sobre la mesa → menú de interacción, ver más
     // arriba) — la sonda las deja disponibles igualmente por si un test
     // quiere fijar la silla exacta sin pelear con el raycast del clic 3D
     // (mismo criterio que window.__carpintero/__sastre/__ingeniero).
@@ -1581,10 +1590,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     };
 
     // Sonda SOLO-PARA-TESTS (e2e con Playwright, barrido de sistemas
-    // pedido 2026-08-31): comercio/combate ya tienen panel real más abajo
-    // (mandan el MISMO mensaje que esto); gremios sigue sin panel de
-    // cliente todavía (mismo caso que crafteo/ajedrez arriba, sin mecánica
-    // de UI que lo use hoy). En vez de una sonda a medida por mensaje, esto
+    // pedido 2026-08-31): comercio/combate/crafteo ya tienen panel real (el
+    // de crafteo, más arriba); gremios sigue sin panel de cliente todavía
+    // (sin mecánica de UI que lo use hoy). En vez de una sonda a medida por
+    // mensaje, esto
     // es un paso GENÉRICO al protocolo Colyseus real (mismo room.send que
     // usaría cualquier botón, nunca un atajo que salte validación del
     // servidor) más una lectura de estado sincronizado — evita duplicar
@@ -2590,6 +2599,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("crafteo:herreria:iniciado", (m: { cfg: any; sesion: any }) => {
     forjaFaseActual = m.sesion.fase;
     panelForja.mostrarSesion(m.cfg, m.sesion);
+    // El servidor eligió el minijuego de forja en vez de "crafteo:iniciado"
+    // normal (misma acción "Craftear" del panel de crafteo genérico) — le
+    // cede el testigo a panelForja, que ya sabe jugarlo.
+    panelCrafteo.cerrarPorMinijuegoAparte();
   });
   room.onMessage("crafteo:herreria:progreso", (m: { sesion: any }) => {
     forjaFaseActual = m.sesion.fase;
@@ -2635,11 +2648,45 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("crafteo:error", (m: { motivo: string }) => panelCrafteo.onError(m?.motivo ?? "rechazado"));
   (window as any).__crafteo = {
     abrir: (construccionId: number, objeto: string) => panelCrafteo.abrir(construccionId, objeto, objeto),
+    // Mismo criterio que abrir(), en el vocabulario ya usado por el resto
+    // de sondas de este archivo (__carpintero/__sastre/__ingeniero): abre
+    // el panel sin depender de acertar el raycast del clic 3D.
+    abrirPanel: (construccionId: number, objeto: string) => panelCrafteo.abrir(construccionId, objeto, objeto),
     recetasVisibles: () => panelCrafteo.recetasVisibles(),
     nivelDe: (oficio: string) => panelCrafteo.nivelDe(oficio),
     estaAbierto: () => panelCrafteo.estaAbierto(),
     cerrar: () => panelCrafteo.cerrar(),
+    // Mismo mapeo que panelTenderete.itemsDelCuerpo — lee el inventario YA
+    // replicado (Schema), sin depender de cuándo se vuelca a BD.
+    inventario: () => {
+      const yo = room.state.players.get(room.sessionId);
+      return yo ? [...(yo as any).inventario.cuerpo.items].map((it: any) => ({ instanciaId: it.id, itemId: it.itemId, cantidad: it.cantidad })) : [];
+    },
   };
+
+  // Alquimia/pociones (docs/GDD_Pociones.md, pedido streamer 2026-09-10,
+  // mismo hilo que el panel de crafteo genérico) — cierra el hueco "sin
+  // panel de cliente todavía" (ni siquiera placeholder, a diferencia de
+  // forja/cocina). Fuera del bloque hub-only, mismo criterio que
+  // panelCrafteo: un caldero es válido en cualquier room con construcción.
+  const panelAlquimia = new PanelAlquimia({
+    contenedor,
+    obtenerInventario: () => {
+      const yo = room.state.players.get(room.sessionId);
+      return yo ? [...(yo as any).inventario.cuerpo.items].map((it: any) => ({ instanciaId: it.id, itemId: it.itemId, cantidad: it.cantidad })) : [];
+    },
+    enviarIniciar: (construccionId, instanciaIds) => room.send("alquimia:iniciar", { construccionId, instanciaIds }),
+    enviarAvivar: () => room.send("alquimia:accion", { accion: "avivar" }),
+    enviarEnfriar: () => room.send("alquimia:accion", { accion: "enfriar" }),
+    enviarColar: () => room.send("alquimia:colar"),
+    enviarCancelar: () => room.send("alquimia:cancelar"),
+  });
+  room.onMessage("alquimia:iniciado", (m: { cfg: ConfigAlquimiaVista; sesion: SesionAlquimiaVista }) => panelAlquimia.mostrarIniciado(m.cfg, m.sesion));
+  room.onMessage("alquimia:progreso", (m: { sesion: SesionAlquimiaVista }) => panelAlquimia.actualizarProgreso(m.sesion));
+  room.onMessage("alquimia:completado", (m: ResultadoAlquimiaVista) => panelAlquimia.mostrarResultado(m));
+  room.onMessage("alquimia:cancelado", () => panelAlquimia.mostrarCancelado());
+  room.onMessage("alquimia:error", (m: { motivo: string }) => panelAlquimia.mostrarError(m?.motivo || "No se pudo continuar con la alquimia."));
+  (window as any).__alquimia = { abrirPanel: (construccionId: number) => panelAlquimia.abrir(construccionId) };
 
   // Casillas de cultivo replicadas (docs/GDD_Agricultura.md, 2026-09-11):
   // tierra labrada y brotes visibles para cualquiera; el crecimiento se

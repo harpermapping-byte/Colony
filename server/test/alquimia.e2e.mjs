@@ -68,8 +68,13 @@ let idCaldero;
     { id: 4, itemId: "hongo_medicinal", cantidad: 3, x: 3, y: 0, rot: 0 }, // catalizador
     { id: 5, itemId: "hierba_aromatica", cantidad: 3, x: 4, y: 0, rot: 0 }, // neutro
     { id: 6, itemId: "lingote_hierro", cantidad: 5, x: 5, y: 0, rot: 0 }, // NO permitido en el caldero
+    // Frasco de poción (pedido streamer 2026-09-10: "para craftear pociones
+    // necesitas el frasco + ingredientes") — 3 de sobra: el paso 3 de abajo
+    // exige tener uno presente pero NO lo consume (falla antes, por el
+    // ingrediente no permitido), los pasos 4 y 8 sí consumen uno cada uno.
+    { id: 7, itemId: "frasco_pocion", cantidad: 3, x: 6, y: 0, rot: 0 },
   ]);
-  bd.prepare("INSERT INTO inventarios (jugador_id, contenedor_id, ancho, alto, siguiente_id, items) VALUES (1, 'cuerpo', 8, 6, 7, ?)").run(items);
+  bd.prepare("INSERT INTO inventarios (jugador_id, contenedor_id, ancho, alto, siguiente_id, items) VALUES (1, 'cuerpo', 8, 6, 8, ?)").run(items);
 
   idCaldero = Number(
     bd.prepare("INSERT INTO construcciones (propiedad, objeto, categoria, x, y, rot, variante, extra, creado_en) VALUES (?,?,?,?,?,?,?,?,?)")
@@ -238,8 +243,39 @@ try {
   if (!eventos.errores.some((m) => /ninguna poción/.test(m))) throw new Error(`FALLO: tras cancelar no debería quedar sesión, llegó ${JSON.stringify(eventos.errores)}`);
   console.log("   OK: cancelado y limpiado");
 
+  console.log("9) sin frasco de poción en el inventario, alquimia:iniciar se rechaza (aunque los ingredientes sean válidos)...");
+  // Balance real de frascos en este punto: 3 sembrados, -1 en el paso 4,
+  // +1 al BEBER en el paso 7 (mecánica nueva: beber devuelve el frasco
+  // vacío), -1 en el paso 8 → quedan 2. Se drenan con dos ciclos reales más
+  // (iniciar+cancelar, cada uno consume 1 aunque se cancele — "nunca se
+  // devuelven al cancelar") usando ingredientes con stock de sobra
+  // (hierba_curativa/flor_medicinal/hongo_medicinal, 2 unidades cada uno
+  // tras el paso 4, ninguno tocado por el paso 8).
+  for (const [a, b] of [[2, 3], [2, 4]]) {
+    eventos.iniciado.length = 0;
+    await enviarYEsperar("alquimia:iniciar", { construccionId: idCaldero, instanciaIds: [a, b] }, eventos.iniciado);
+    if (eventos.iniciado.length !== 1) throw new Error(`FALLO: no arrancó el drenado de frasco [${a},${b}], errores=${JSON.stringify(eventos.errores)}`);
+    eventos.errores.length = 0;
+    await enviarYEsperar("alquimia:cancelar", undefined, eventos.cancelado);
+  }
+  // Con el frasco YA en 0 (confirmado leyendo el inventario replicado, no
+  // solo asumido), un intento más con ingredientes por lo demás válidos
+  // (flor_medicinal + hongo_medicinal, ambos con 1 unidad libre) debe
+  // rechazarse por frasco, nunca por ingredientes/nivel.
+  await esperar(300); // margen real para que el parche de Schema alcance al mensaje directo, mismo criterio que el paso 7
+  const inventarioTrasDrenar = [...room.state.players.get(room.sessionId).inventario.cuerpo.items];
+  const frascoRestante = inventarioTrasDrenar.find((it) => it.itemId === "frasco_pocion");
+  if (frascoRestante) throw new Error(`FALLO: debería quedar 0 frascos tras drenar, encontrado ${JSON.stringify(frascoRestante)}`);
+  eventos.errores.length = 0;
+  eventos.iniciado.length = 0;
+  await enviarYEsperar("alquimia:iniciar", { construccionId: idCaldero, instanciaIds: [3, 4] }, eventos.iniciado);
+  if (!eventos.errores.some((m) => /frasco/.test(m))) {
+    throw new Error(`FALLO: sin frascos debería rechazarse pidiendo un frasco, llegó ${JSON.stringify(eventos.errores)}`);
+  }
+  console.log(`   OK: ${JSON.stringify(eventos.errores)}`);
+
   await room.leave();
-  console.log("\n✅ TODO OK: alquimia/pociones verificado contra el servidor real — allowlist de ingredientes, gestión del fuego, mezcla avanzada, entrega real, buff real al beber, cancelado limpio.");
+  console.log("\n✅ TODO OK: alquimia/pociones verificado contra el servidor real — allowlist de ingredientes, gestión del fuego, mezcla avanzada, entrega real, buff real al beber, cancelado limpio, frasco de poción exigido/consumido de verdad.");
 } catch (e) {
   fallo = e;
 } finally {

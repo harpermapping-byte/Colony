@@ -121,7 +121,7 @@ Hasta esta pasada `pocion:beber` no sabía nada de combate — funcionaba (y sus
 
 ## 8. Pendiente (no mecanismo, contenido/UI)
 
-- **Sin panel de cliente todavía** (mismo estado que crafteo/forja) — protocolo real vía `window.__test`.
+- ~~Sin panel de cliente todavía~~ **RESUELTO (2026-09-10), ver §10** — panel real (`panelAlquimia.ts`), único minijuego de oficio que no tenía ni siquiera un placeholder.
 - ~~Cocina: pedido explícito de reutilizar `estacionFuego.ts` para un minijuego análogo en las vasijas de cocina existentes~~ **HECHO 2026-09-01** — ver `docs/GDD_Cocina.md` §18.
 - Los efectos nuevos de §1.4 no tienen todavía ninguna UI que muestre "tienes sigilo activo"/"doble XP activa" al jugador — mismo estado que el resto del proyecto (placeholder primero, UI real al final).
 
@@ -165,4 +165,32 @@ Mismo criterio que §5 ("intratable" un itemId por combinación de EFECTOS) apli
 - `server/test/inventario.test.ts` — conteo de catálogo actualizado (464→468: -1 genérica + 5 variantes).
 - `server/test/alquimia.e2e.mjs` — reverificado contra el servidor real: la combinación de 3 catalizadores+1 corruptivo entrega `pocion_alquimica_radiante` de verdad (no la genérica de antes).
 - `taller-vox/generar_comida.js --muestra` — paletas de color confirmadas distintas por variante.
+
+## 10. Panel de cliente real + frasco de poción reutilizable (2026-09-10)
+
+Pedido streamer, mismo hilo que el panel de crafteo genérico (`docs/GDD_Crafteo.md` §10): *"el tema de la alquimia recuerdo también teníamos juego... necesitamos funcione también como el resto, marcaban que salía si metías X y tal"* + *"las pociones se pueden usar o consumir y se pierde, y se queda el frasco... para craftear pociones necesitas el frasco + ingredientes"*. Cierra el último hueco real de UI del proyecto: alquimia era el ÚNICO minijuego de oficio sin panel de cliente, ni siquiera un placeholder (a diferencia de forja/cocina, que ya tenían uno de testeo desde 2026-09-01).
+
+### 10.1 `client/src/construccion/panelAlquimia.ts` — nuevo
+
+Tres pantallas en el mismo marco (`crearMarcoPanel`, tema pergamino/madera):
+
+1. **Selección** — checkboxes de los ingredientes reales del inventario (filtrados por `alquimiaIngrediente`/`alquimiaCorruptivo`/`alquimiaCatalizador`, mismo catálogo `items.json` que ya usa el servidor), aviso si falta el frasco, y un **preview EN VIVO del color** replicando `alquimia.ts::colorPocion` en el cliente (mismo umbral de mezcla avanzada, 3+ catalizadores únicos) — esto es literalmente el "marcaban qué salía" que recordaba el streamer: nunca decide el resultado real (la tirada de efectos la sigue calculando el servidor al colar), solo anticipa qué COLOR tocará según lo que ya llevas marcado.
+2. **Sesión** — MISMA barra de temperatura con marca de ventana óptima que ya usa `panelForja.ts` (mismo motor `estacionFuego.ts` por debajo, campos `temperaturaObjetivoMin/Max` en vez de los `temperaturaOptimaMin/Max` de forja — nombres distintos, mismo `ConfigEstacion`). Avivar/Enfriar/Colar/Cancelar.
+3. **Resultado** — color+pureza+lista de efectos reales (stat con flecha ▲/▼, o especial con su nombre bonito), igual que hace `alquimia:completado`.
+
+**Decisión de diseño real, no un descuido**: el panel NO tiene ningún reloj local que redibuje la sesión sola cada cierto tiempo (a diferencia del primer borrador, que sí lo tenía) — encontrado con Playwright real: un `setInterval` que reconstruye el `innerHTML` cada 500ms hace que un clic real sobre "Avivar" caiga a veces sobre un botón que el navegador ya está en proceso de sustituir ("element was detached from the DOM"), el mismo bug ya cerrado una vez en `panelCrafteo.ts` para el botón "Recolectar". Con el reloj quitado, el botón **"Colar" ya NUNCA se deshabilita en el cliente** por cuenta propia — si el jugador espera sin tocar nada, es el SERVIDOR quien de verdad sabe cuánto tiempo ha pasado (`Date.now()` real); un colado prematuro simplemente vuelve con el error real ya existente ("demasiado_pronto"), mismo criterio "sin UI de targeting, el servidor decide" que el resto del proyecto — más simple y sin ninguna lógica de tiempo duplicada que mantener sincronizada con el servidor.
+
+Menú de interacción (`game.ts`): clic sobre un `caldero` real ofrece **"Preparar poción"** (nunca "Craftear en X" — el caldero no tiene ninguna receta de `crafteo:iniciar` normal, es el único protocolo aparte; se excluyó a propósito del gate genérico de mesas de oficio de `docs/GDD_Crafteo.md` §10 para no ofrecer un listado vacío y confuso).
+
+### 10.2 Mecánica de frasco (`server/src/rooms/base/RoomExteriorBase.ts`)
+
+- **`manejarAlquimiaIniciar`**: exige un `frasco_pocion` en el inventario, APARTE de los 2-6 `instanciaIds` elegidos como ingredientes (nunca cuenta como ingrediente, nunca entra en `prepararPocion` — el color/efectos siguen dependiendo solo de los ingredientes reales) — sin él, rechaza con `"necesitas un frasco de poción vacío"` antes de tocar nada. Se consume junto a los ingredientes (mismo criterio "nunca se devuelve al cancelar").
+- **`manejarPocionBeber`**: ya NO destruye el ítem entero — tras `quitarItem` de la poción, llama a `entregarOSoltar(client, player, "frasco_pocion", 1)` (mismo helper ya usado por crafteo/cocina para "si no cabe, cae al suelo") devolviendo el frasco VACÍO. Mismo espíritu que `liquidos.ts::vaciar`/`consumirVolumen` (cantimplora/cubo de agua) — aquí como ítem nuevo en vez de mutar la misma instancia, porque el itemId cambia de `pocion_alquimica_<color>` a `frasco_pocion` y `agregarItem` ya sabe apilar/soltar solo.
+- `frasco_pocion`/`frasco_pocion_grande` (`items/catalogo/items.json`) ya existían como objeto de catálogo (craftables por joyero, `frasco_pocion_craft`, cristal_pulido×1 en `horno_vidrio`) pero estaban TOTALMENTE desconectados de la alquimia — esta pasada es lo que les da su primer uso mecánico real.
+
+### 10.3 Verificado
+
+- `server/test/alquimia.e2e.mjs` — reescrito para apuntar a `assets/mapas/testflat` (el de "principal"/Vetrheim se quedó con `parcelas.json` vacío tras el rehorneo, ver `docs/GDD_Bakeador_POIs.md`; este e2e llevaba roto en silencio desde entonces, casualidad NO causada por esta pasada — confirmado reproduciendo el fallo con el código de ANTES de tocar nada) + 2 checks nuevos: sin frasco se rechaza pidiendo uno, y el frasco se recupera de verdad al beber (confirmado con un ciclo completo iniciar→colar→beber→releer inventario). Hallazgo real durante la propia escritura del test: el flujo normal (beber la poción del paso 7) YA devuelve un frasco de regalo — hay que contarlo al calcular cuántos frascos quedan para el check de "sin frasco", la mecánica nueva se demostró sola.
+- `client/test/panelAlquimia.e2e.cjs` (NUEVO, servidor+vite+Playwright reales, BD sqlite sembrada con curandero nivel 2 + 4 ingredientes + 1 frasco + un caldero ya colocado): preview en vivo "Radiante" al marcar 3 catalizadores, preparar consume frasco+ingredientes de verdad, sesión con barra de temperatura real, avivar/colar tras la duración mínima REAL (8s reales, sin acelerar nada), resultado con los efectos reales, y el rechazo real por falta de frasco en un segundo intento — 9/9 comprobaciones.
+- `cd server && npx tsc --noEmit` limpio, `npm test` 1321/1321. `cd client && npx tsc --noEmit` limpio, `client/test/*.test.ts` 73/73.
 - Vista previa rápida (swatches, no el frasco 3D final) generada y enseñada al streamer antes de dar la pasada por cerrada.

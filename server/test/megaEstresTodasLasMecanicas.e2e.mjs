@@ -261,6 +261,13 @@ try {
     await esperar(300);
     room.send("admin:debug:darItem", { itemId: "lingote_hierro", cantidad: 20 });
     await esperar(300);
+    // Coste de materiales para construir (docs/GDD_Construccion.md §3,
+    // 2026-09-10): yunque_tocon ya no es gratis — necesita piedra_comun +
+    // madera_blanda (nivel 1 de herrero, receta real del catálogo).
+    room.send("admin:debug:darItem", { itemId: "piedra_comun", cantidad: 10 });
+    await esperar(300);
+    room.send("admin:debug:darItem", { itemId: "madera_blanda", cantidad: 10 });
+    await esperar(300);
     // puesto_mercado_jugador tiene requiereItemColocar (interiores/catalogo/
     // elementos.json): construir uno exige TENER el ítem en el cuerpo antes
     // de poder colocarlo — igual que cualquier mueble "requiereItemColocar".

@@ -415,6 +415,16 @@ export class ModoConstruccion {
         hu.className = "hu";
         hu.textContent = `${c.huella[0]}×${c.huella[1]}`;
         boton.append(sw, nombre, hu);
+        // Mesas de oficio (docs/GDD_Crafteo.md, coste de materiales pedido
+        // streamer 2026-09-10): tooltip nativo con nivel+receta — el menú
+        // sigue sin filtrar nada (el servidor decide al intentar colocar,
+        // mismo criterio ya documentado para proyectoJarl), esto solo evita
+        // que el jugador tenga que intentarlo a ciegas para enterarse.
+        if (c.nivelOficioMinimo) {
+          const receta = c.receta?.length ? c.receta.map((i) => `${i.cantidad}× ${i.itemId}`).join(", ") : "gratis";
+          boton.title = `Requiere nivel ${c.nivelOficioMinimo.nivel} de ${c.nivelOficioMinimo.oficio}. Materiales: ${receta}`;
+          nombre.style.fontStyle = "italic";
+        }
         boton.addEventListener("click", () => this.seleccionar(c.id));
         this.botones.set(c.id, boton);
         panel.appendChild(boton);
