@@ -135,3 +135,70 @@ export function construirOrillas(
     quads,
   };
 }
+
+// Blanco de la caja de nieve (`crearCajaNieveSector`, sectorVisual.ts) con un
+// degradado sutil arriba->abajo (más oscuro en la base) para que se lea como
+// un corte real de nieve apilada, no una lámina plana de un solo tono.
+const BLANCO_NIEVE: [number, number, number] = [241 / 255, 245 / 255, 247 / 255];
+const FACTOR_ARRIBA_NIEVE = 1;
+const FACTOR_ABAJO_NIEVE = 0.8;
+
+/**
+ * Pared vertical de NIEVE en cada arista tierra↔agua de un sector — mismo
+ * criterio que `construirOrillas` de arriba, pedido streamer 2026-09-11: "la
+ * nieve se ve como transparente, no tiene la capa vertical en bordes". La
+ * caja de nieve (`crearCajaNieveSector`) solo tiene lados sólidos en el
+ * BORDE DEL SECTOR entero (una caja, no una por casilla) — cualquier
+ * río/lago DENTRO del sector solo hacía transparente la textura de la cara
+ * de arriba sobre el agua, sin nada vertical que cerrara el volumen ahí: se
+ * veía el agua/hielo asomando bajo una "alfombra" sin canto, de ahí la
+ * sensación de nieve fantasma. Reusa la MISMA detección de arista que
+ * `construirOrillas` (es exactamente el mismo límite tierra/agua — la
+ * máscara de nieve excluye agua/hielo igual que el suelo real) pero la
+ * pared sube desde el suelo (y=0) hasta y=1 en vez de bajar hacia el lecho:
+ * se reescala en Y junto con la caja (`aplicarNivelNieveAMuro`,
+ * sectorVisual.ts) sin reconstruir nunca la geometría.
+ */
+export function construirMuroNieve(ancho: number, alto: number, esAgua: Uint8Array): GeometriaOrillas {
+  const posiciones: number[] = [];
+  const colores: number[] = [];
+  const normales: number[] = [];
+  let quads = 0;
+  const cArriba: [number, number, number] = [
+    BLANCO_NIEVE[0] * FACTOR_ARRIBA_NIEVE, BLANCO_NIEVE[1] * FACTOR_ARRIBA_NIEVE, BLANCO_NIEVE[2] * FACTOR_ARRIBA_NIEVE,
+  ];
+  const cAbajo: [number, number, number] = [
+    BLANCO_NIEVE[0] * FACTOR_ABAJO_NIEVE, BLANCO_NIEVE[1] * FACTOR_ABAJO_NIEVE, BLANCO_NIEVE[2] * FACTOR_ABAJO_NIEVE,
+  ];
+
+  // Quad vertical de y=0 (suelo) a y=1 (unidad, se reescala después) — mismo
+  // patrón de dos triángulos que `construirOrillas`, DoubleSide en el
+  // material evita tener que acertar el winding por lado.
+  const quad = (x0: number, z0: number, x1: number, z1: number, n: [number, number, number]) => {
+    posiciones.push(
+      x0, 1, z0, x0, 0, z0, x1, 0, z1,
+      x0, 1, z0, x1, 0, z1, x1, 1, z1,
+    );
+    colores.push(...cArriba, ...cAbajo, ...cAbajo, ...cArriba, ...cAbajo, ...cArriba);
+    for (let k = 0; k < 6; k++) normales.push(n[0], n[1], n[2]);
+    quads++;
+  };
+
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < ancho; x++) {
+      const i = y * ancho + x;
+      if (esAgua[i]) continue; // solo las casillas de TIERRA (con nieve) levantan pared hacia el agua
+      if (x > 0 && esAgua[i - 1]) quad(x, y + 1, x, y, [-1, 0, 0]);
+      if (x < ancho - 1 && esAgua[i + 1]) quad(x + 1, y, x + 1, y + 1, [1, 0, 0]);
+      if (y > 0 && esAgua[i - ancho]) quad(x, y, x + 1, y, [0, 0, -1]);
+      if (y < alto - 1 && esAgua[i + ancho]) quad(x + 1, y + 1, x, y + 1, [0, 0, 1]);
+    }
+  }
+
+  return {
+    posiciones: Float32Array.from(posiciones),
+    colores: Float32Array.from(colores),
+    normales: Float32Array.from(normales),
+    quads,
+  };
+}

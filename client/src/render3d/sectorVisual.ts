@@ -1,14 +1,15 @@
 import * as THREE from "three";
 import type { IndiceMapa, SectorBakeado, ObjetoBakeado } from "../mapa/formatoMapa";
 import { terrenoEn } from "../mapa/formatoMapa";
-import { colorTerreno, colorObjeto, dimensionesObjeto } from "./catalogoVisual";
+import { colorTerreno, colorObjeto, dimensionesObjeto, familiaPatronTerreno } from "./catalogoVisual";
+import { obtenerParchesTerreno, obtenerParcheSolido, copiarParcheEnBuffer, hashCasilla, NUM_VARIANTES_PATRON } from "./patronTerreno";
 import { obtenerPlantilla } from "./entityLoader";
 import { esFaunaDecorativaGregaria, esFaunaDecorativaAcuatica, obtenerMallaFaunaDecorativa } from "./faunaDecorativaPool";
 import { AnimadorFaunaDecorativaSector, type IndividuoFaunaDecorativa } from "./faunaDecorativaMovimiento";
 import type { CategoriaAsset } from "./assetCatalog";
 import { crearRigHumanoide } from "./rigHumanoide";
 import { NIVEL_MAXIMO_NIEVE } from "../mundo/nieve";
-import { construirOrillas } from "./orillasTerreno";
+import { construirOrillas, construirMuroNieve } from "./orillasTerreno";
 
 // Terrenos NO transitables para el vagabundeo de fauna decorativa TERRESTRE
 // (docs/GDD_Agentes_Moviles.md, pedido 2026-09-09) — copia MANUAL del
@@ -90,6 +91,31 @@ const ALTURA_TERRENO_SOLIDO: Record<string, number> = {
 // el lecho es un segundo plano a -PROFUNDIDAD_FONDO sombreado por la
 // elevación bakeada (más hondo = más oscuro).
 export const PROFUNDIDAD_FONDO = 1.5;
+
+// Resolución del patrón horneado de suelo (patronTerreno.ts) — pedido
+// streamer 2026-09-11 tras comparar 3 técnicas de render con
+// `client/test/texturaSueloComparacion.ts` ("la prueba B es lo que hay que
+// hacer, a lo mejor algo más de detalle con más casillas"). Elegido con un
+// benchmark real de `crearTerrenoSector` AISLADA de `crearPropsSector`
+// (`client/test/patronSueloAisladoCaptura.mjs`, sin ese aislamiento el
+// coste de red de los .glb de props — cientos de ms — tapa por completo
+// cualquier diferencia de esta función) contra el sector más pesado del
+// mapa principal (320x320 casillas, `sector_009_001.json`), en este mismo
+// sandbox SIN GPU real (ver `docs/GDD_Rendimiento.md` §7 — los números
+// ABSOLUTOS de aquí no representan hardware real, pero la comparación
+// RELATIVA entre valores de PX, medida en el mismo entorno, sí es válida):
+//   PX=1 (mismo camino de código, sin patrón real): ~130-139ms
+//   PX=2 (este valor):                              ~140-151ms  (+10ms)
+//   PX=4:                                           ~163-172ms  (+35ms)
+//   PX=8:                                           ~229-243ms  (+100ms)
+// PX=2 ya se nota (motas/briznas/juntas visibles, ver capturas
+// `client/test/capturas/patron_suelo_*.png`) con un coste incremental
+// pequeño sobre construir el resto del sector (orillas, muro de nieve,
+// caja de nieve — todo lo demás que YA hacía esta función). Subir esta
+// constante es la única palanca si se pide más detalle más adelante, una
+// vez haya feedback de rendimiento en hardware real (con GPU) — ver
+// `docs/GDD_Motor_3D_Props.md`.
+const PX_POR_TILE_SUELO = 2;
 const AGUAS: Record<string, { alfa: number; base: number }> = {
   agua: { alfa: 0.45, base: 0.8 },
   agua_profunda: { alfa: 0.55, base: 0.25 },
@@ -511,8 +537,13 @@ function crearCajaNieveSector(canvas: HTMLCanvasElement, ancho: number, alto: nu
   textura.colorSpace = THREE.SRGBColorSpace;
   const arriba = new THREE.MeshStandardMaterial({ map: textura, roughness: 1, metalness: 0, transparent: true, depthWrite: false });
   const lado = new THREE.MeshStandardMaterial({ color: 0xf1f5f7, roughness: 1, metalness: 0, transparent: true, depthWrite: false });
+  // La base de la caja queda siempre coplanar con el plano de suelo (y=0) —
+  // nadie la ve nunca desde dentro del mundo (cámara isométrica fija, por
+  // encima), así que renderizarla solo suma overdraw/blending redundante
+  // contra el suelo real justo debajo; invisible en vez de reusar `lado`.
+  const abajo = new THREE.MeshStandardMaterial({ visible: false });
   // Grupos de BoxGeometry por defecto: 0=+x, 1=-x, 2=+y(arriba), 3=-y(abajo), 4=+z, 5=-z.
-  const caja = new THREE.Mesh(new THREE.BoxGeometry(ancho, 1, alto), [lado, lado, arriba, lado, lado, lado]);
+  const caja = new THREE.Mesh(new THREE.BoxGeometry(ancho, 1, alto), [lado, lado, arriba, abajo, lado, lado]);
   caja.receiveShadow = true;
   caja.castShadow = true;
   caja.userData.propioDelSector = true;
@@ -530,6 +561,22 @@ function aplicarNivelNieveACaja(caja: THREE.Mesh, nivel: number): void {
   caja.visible = nivel > 0;
 }
 
+/**
+ * Igual que `aplicarNivelNieveACaja` pero para la pared de nieve
+ * (`construirMuroNieve`, orillasTerreno.ts): su geometría ya va de y=0
+ * (base fija en el suelo) a y=1, así que basta con reescalar en Y — a
+ * diferencia de la caja (centrada en su propia geometría) no hace falta
+ * reposicionar nada para mantener la base pegada al suelo.
+ */
+function aplicarNivelNieveAMuro(muro: THREE.Mesh, nivel: number): void {
+  const material = muro.material as THREE.MeshStandardMaterial;
+  const fraccion = Math.max(0, Math.min(1, nivel / NIVEL_MAXIMO_NIEVE));
+  const altura = Math.max(0.001, ALTURA_MAX_NIEVE * fraccion);
+  material.opacity = OPACIDAD_MAX_NIEVE * fraccion;
+  muro.scale.y = altura;
+  muro.visible = nivel > 0;
+}
+
 // Hielo (docs/GDD_Clima.md): agua con nieve acumulada encima — sustituye
 // el tono translúcido de AGUAS por un tono opaco frío, mismo criterio que
 // el resto de esta tabla (placeholder de color, sin textura real todavía).
@@ -543,7 +590,11 @@ const COLOR_HIELO = new THREE.Color(0xcfe4ec);
 const OPACIDAD_MAX_NIEVE = 0.85;
 const ALTURA_MAX_NIEVE = 0.95;
 
-function crearTerrenoSector(
+// Exportada SOLO para poder medirla aislada de `crearPropsSector` (carga de
+// red de .glb, un coste completamente distinto y mucho mayor) en
+// `client/test/patronSueloAislado.ts` — el resto del código sigue
+// llamándola tal cual, vía `crearSectorVisual`.
+export function crearTerrenoSector(
   indice: IndiceMapa,
   sector: SectorBakeado,
   margenVisual = 0,
@@ -566,8 +617,8 @@ function crearTerrenoSector(
   const alto = Math.min(tilesSector, maxTileY);
 
   const suelo = document.createElement("canvas");
-  suelo.width = ancho;
-  suelo.height = alto;
+  suelo.width = ancho * PX_POR_TILE_SUELO;
+  suelo.height = alto * PX_POR_TILE_SUELO;
   const ctxSuelo = suelo.getContext("2d")!;
   const fondo = document.createElement("canvas");
   fondo.width = ancho;
@@ -609,13 +660,36 @@ function crearTerrenoSector(
   const [rHielo, gHielo, bHielo] = hexARgb(`#${COLOR_HIELO.getHexString()}`);
   const rgbaAguaCache = new Map<string, [number, number, number, number]>();
   const lechoCache = new Map<string, [number, number, number]>();
-  const datosSuelo = new Uint8ClampedArray(ancho * alto * 4);
+  const anchoSueloPx = ancho * PX_POR_TILE_SUELO;
+  const datosSuelo = new Uint8ClampedArray(anchoSueloPx * alto * PX_POR_TILE_SUELO * 4);
   const datosFondo = new Uint8ClampedArray(ancho * alto * 4);
   for (let i = 3; i < datosFondo.length; i += 4) datosFondo[i] = 255; // negro opaco por defecto (fillRect inicial de antes)
   const datosNieve = new Uint8ClampedArray(ancho * alto * 4);
   const escribir = (buf: Uint8ClampedArray, px: number, py: number, r: number, g: number, b: number, a: number) => {
     const i = (py * ancho + px) * 4;
     buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
+  };
+  // Parche/color de "suelo" por id de terreno — resuelto UNA VEZ por id (una
+  // decena real por sector, nunca las ~100k casillas) y reusado por
+  // referencia en cada casilla: construir la clave de caché por CASILLA
+  // (con su color ya de por sí variable) medía más caro que el propio
+  // parche (docs/GDD_Motor_3D_Props.md, patrón horneado de suelo). Ids de
+  // agua se resuelven aparte (dependen de `nivelNieveActual`, constante
+  // para toda la llamada, así que la clave sigue siendo el `id` sin más).
+  const entradaSueloPorId = new Map<string, Uint8ClampedArray[] | Uint8ClampedArray>();
+  const resolverEntradaSuelo = (id: string, r: number, g: number, b: number): Uint8ClampedArray[] | Uint8ClampedArray => {
+    let entrada = entradaSueloPorId.get(id);
+    if (entrada) return entrada;
+    const familia = familiaPatronTerreno(id);
+    entrada = familia
+      ? obtenerParchesTerreno(familia, [r, g, b], PX_POR_TILE_SUELO)
+      : obtenerParcheSolido(r, g, b, 255, PX_POR_TILE_SUELO);
+    entradaSueloPorId.set(id, entrada);
+    return entrada;
+  };
+  const pintarSuelo = (tileX: number, tileY: number, gx: number, gy: number, entrada: Uint8ClampedArray[] | Uint8ClampedArray): void => {
+    const parche = Array.isArray(entrada) ? entrada[hashCasilla(gx, gy, 11) % NUM_VARIANTES_PATRON] : entrada;
+    copiarParcheEnBuffer(datosSuelo, anchoSueloPx, tileX, tileY, parche, PX_POR_TILE_SUELO);
   };
 
   const rangoElev = Math.max(1, ELEV_AGUA_MAX - ELEV_AGUA_MIN);
@@ -638,10 +712,12 @@ function crearTerrenoSector(
         }
         const px = baseX + x;
         const py = baseY + y;
+        const gx = origenTileX + px;
+        const gy = origenTileY + py;
         const agua = AGUAS[id];
         if (!agua) {
           const [r, g, b] = hexARgb(colorTerreno(id));
-          escribir(datosSuelo, px, py, r, g, b, 255);
+          pintarSuelo(px, py, gx, gy, resolverEntradaSuelo(id, r, g, b));
           escribir(datosNieve, px, py, 255, 255, 255, 255);
           rgbOrilla[(py * ancho + px) * 3] = r;
           rgbOrilla[(py * ancho + px) * 3 + 1] = g;
@@ -652,7 +728,10 @@ function crearTerrenoSector(
         if (nivelNieveActual > 0) {
           // Hielo (docs/GDD_Clima.md): opaco, sin lecho visible debajo — no
           // se nada encima, es "tierra" a efectos de juego (RoomExteriorBase.ts).
-          escribir(datosSuelo, px, py, rHielo, gHielo, bHielo, 255);
+          // Clave de caché propia ("id:hielo"): el mismo id de agua pinta un
+          // color totalmente distinto según haya nieve o no, y el hielo NUNCA
+          // lleva patrón (sin familia propia todavía, ver `familiaPatronTerreno`).
+          pintarSuelo(px, py, gx, gy, resolverEntradaSuelo(`${id}:hielo`, rHielo, gHielo, bHielo));
           continue;
         }
         // superficie translúcida con el color de catálogo aclarado —
@@ -663,7 +742,17 @@ function crearTerrenoSector(
           rgbaAgua = [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255), Math.round(agua.alfa * 255)];
           rgbaAguaCache.set(id, rgbaAgua);
         }
-        escribir(datosSuelo, px, py, rgbaAgua[0], rgbaAgua[1], rgbaAgua[2], rgbaAgua[3]);
+        {
+          // El agua nunca lleva patrón (ver `familiaPatronTerreno`) pero SÍ
+          // necesita su propio alfa translúcido — un parche sólido con esa
+          // rgba exacta, cacheado por id de agua igual que el resto.
+          let entrada = entradaSueloPorId.get(id);
+          if (!entrada) {
+            entrada = obtenerParcheSolido(rgbaAgua[0], rgbaAgua[1], rgbaAgua[2], rgbaAgua[3], PX_POR_TILE_SUELO);
+            entradaSueloPorId.set(id, entrada);
+          }
+          pintarSuelo(px, py, gx, gy, entrada);
+        }
         // lecho: mitad por tipo de agua (somera clara, profunda oscura),
         // mitad por la elevación bakeada (elevación baja = hondo = oscuro).
         // BUG REAL encontrado verificando visualmente la arena acuática
@@ -699,7 +788,7 @@ function crearTerrenoSector(
       }
     }
   }
-  ctxSuelo.putImageData(new ImageData(datosSuelo, ancho, alto), 0, 0);
+  ctxSuelo.putImageData(new ImageData(datosSuelo, anchoSueloPx, alto * PX_POR_TILE_SUELO), 0, 0);
   ctxFondo.putImageData(new ImageData(datosFondo, ancho, alto), 0, 0);
   ctxNieve.putImageData(new ImageData(datosNieve, ancho, alto), 0, 0);
 
@@ -709,7 +798,11 @@ function crearTerrenoSector(
   // solo se pide geometría/textura más grandes, la posición es la misma.
   const anchoFinal = ancho + margenVisual * 2;
   const altoFinal = alto + margenVisual * 2;
-  const sueloFinal = margenVisual > 0 ? extenderConMargenClamp(suelo, margenVisual) : suelo;
+  // El margen del suelo se extiende en PÍXELES DEL PATRÓN, no en casillas
+  // (su canvas va a PX_POR_TILE_SUELO px/casilla, a diferencia de fondo/nieve
+  // que se quedan en 1px/casilla) — mismo tamaño final en unidades de mundo
+  // (anchoFinal/altoFinal), solo cambia la resolución de la textura.
+  const sueloFinal = margenVisual > 0 ? extenderConMargenClamp(suelo, margenVisual * PX_POR_TILE_SUELO) : suelo;
   const fondoFinal = margenVisual > 0 ? extenderConMargenClamp(fondo, margenVisual) : fondo;
   const planoFondo = crearPlanoSector(fondoFinal, anchoFinal, altoFinal, false);
   planoFondo.position.set(origenTileX + ancho / 2, -PROFUNDIDAD_FONDO, origenTileY + alto / 2);
@@ -766,6 +859,31 @@ function crearTerrenoSector(
   cajaNieve.renderOrder = 1;
   aplicarNivelNieveACaja(cajaNieve, nivelNieveActual);
   grupo.add(cajaNieve);
+
+  // Pared vertical de nieve en cada orilla INTERNA del sector (construirMuroNieve,
+  // orillasTerreno.ts) — la caja de arriba solo tiene lados sólidos en el
+  // borde del sector entero; sin esto, un río/lago dentro del sector dejaba
+  // la nieve pareciendo flotar sin canto sobre el agua (pedido streamer
+  // 2026-09-11 "la nieve... se ve como transparente, no tiene la capa
+  // vertical en bordes"). Reusa el mismo `esAgua` que ya calcula `orillas`.
+  const muroNieveGeom = construirMuroNieve(ancho, alto, esAgua);
+  if (muroNieveGeom.quads > 0) {
+    const geometriaMuro = new THREE.BufferGeometry();
+    geometriaMuro.setAttribute("position", new THREE.BufferAttribute(muroNieveGeom.posiciones, 3));
+    geometriaMuro.setAttribute("color", new THREE.BufferAttribute(muroNieveGeom.colores, 3));
+    geometriaMuro.setAttribute("normal", new THREE.BufferAttribute(muroNieveGeom.normales, 3));
+    const mallaMuroNieve = new THREE.Mesh(
+      geometriaMuro,
+      new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    mallaMuroNieve.name = "muroNieve";
+    mallaMuroNieve.position.set(origenTileX, 0, origenTileY);
+    mallaMuroNieve.renderOrder = 1;
+    mallaMuroNieve.receiveShadow = true;
+    mallaMuroNieve.userData.propioDelSector = true;
+    aplicarNivelNieveAMuro(mallaMuroNieve, nivelNieveActual);
+    grupo.add(mallaMuroNieve);
+  }
 
   if (margenVisual > 0) {
     // margenVisual>0 hoy SOLO pasa en arenas (game.ts) — ver crearRejillaTactica.
@@ -1286,4 +1404,6 @@ export function soltarSectorVisual(handle: HandleSector): void {
 export function actualizarNieveSector(handle: HandleSector, nivel: number): void {
   const caja = handle.grupo.getObjectByName("capaNieve") as THREE.Mesh | undefined;
   if (caja) aplicarNivelNieveACaja(caja, nivel);
+  const muro = handle.grupo.getObjectByName("muroNieve") as THREE.Mesh | undefined;
+  if (muro) aplicarNivelNieveAMuro(muro, nivel);
 }

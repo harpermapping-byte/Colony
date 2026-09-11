@@ -17,6 +17,7 @@ import animalesJson from "../../../baker/catalogo/animales.json";
 import decoracionJson from "../../../ciudades/catalogo/decoracion.json";
 import tiposEdificioJson from "../../../interiores/catalogo/tipos_edificio.json";
 import huellasJson from "../../../ciudades/catalogo/huellas.json";
+import type { FamiliaPatronTerreno } from "./patronTerreno";
 
 interface EntradaCatalogo {
   colorDebug?: string;
@@ -50,6 +51,33 @@ const COLOR_DESCONOCIDO = "#b05ad8"; // magenta apagado: canta a la vista = id s
 
 export function colorTerreno(id: string): string {
   return terrenos[id]?.colorDebug || COLOR_DESCONOCIDO;
+}
+
+/**
+ * Familia de patrón horneado (`patronTerreno.ts`) para un id de terreno —
+ * `null` si ese id todavía se pinta como color plano (agua/hielo/lava/
+ * puente: su propio tratamiento translúcido/lecho es más complejo que un
+ * parche RGBA opaco, fuera de esta pasada). Deriva SIEMPRE de campos que ya
+ * declara `baker/catalogo/terrenos.json` (estratigrafía, `esBaseRocosa`,
+ * `esPlaya`) en vez de una lista de ids a mano — "catálogo como fuente de
+ * verdad" (CLAUDE.md): una entrada nueva de terreno cae en la familia
+ * correcta sola, sin tocar este archivo.
+ */
+export function familiaPatronTerreno(id: string): FamiliaPatronTerreno | null {
+  const entrada = terrenos[id];
+  if (!entrada) return null;
+  if (id.startsWith("agua") || id === "hielo" || id === "lava" || id === "puente") return null;
+  if (id.startsWith("nieve")) return "nieve";
+  if (id === "adoquin" || id === "muralla_piedra" || id.startsWith("roca") || entrada.esBaseRocosa) return "roca";
+  if (id.startsWith("arena") || entrada.estratigrafia === "arenisca" || entrada.esPlaya) return "arena";
+  if (id === "camino") return "camino";
+  if (id.startsWith("cesped") || id === "extramuros") return "cesped";
+  // tierra/tierra_baldia/suelo_barbecho/tierra_labrada/barro(_b)/ceniza(_b)/
+  // roca_volcanica/empalizada/solar_edificio — resto de suelos removidos/
+  // urbanos/quemados, todos con el mismo patrón de guijarros que ya vale
+  // para tierra desnuda (no hay bastante variedad real como para justificar
+  // una familia propia por cada uno).
+  return "tierra";
 }
 
 const TABLA_POR_TIPO: Record<"v" | "r" | "a" | "m", Record<string, EntradaCatalogo>> = {
