@@ -14678,5 +14678,95 @@
     "tiempoBaseSeg": 90,
     "xpOtorgada": 63,
     "_nota": "docs/GDD_Crafteo.md §8 (2026-09-08) — pieza insignia, techo real de progresión del oficio."
+  },
+  "pala_craft": {
+    "oficio": "herrero",
+    "mesas": [
+      "yunque_tocon"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 1
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "pala",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 16,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Agricultura.md §9 (2026-09-11) — pala para sacar tierra de una casilla (suelo:cavar); mismo material y mesa que la azada, algo menos hierro."
+  },
+  "regadera_craft": {
+    "oficio": "herrero",
+    "mesas": [
+      "yunque_tocon",
+      "banco_ajuste"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "regadera",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 24,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Agricultura.md §9 (2026-09-11) — recipiente de 3 litros para regar macetas y bancales (6 riegos por llenado)."
+  },
+  "jardinera_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 4
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "jardinera_madera",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 26,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Agricultura.md §9 (2026-09-11) — jardinera de dos casillas (exteriores.json), la maceta de mayor rendimiento; necesita 2 de tierra para plantar."
+  },
+  "tiesto_piedra_craft": {
+    "oficio": "picapedrero",
+    "mesas": [
+      "mesa_mampuesto",
+      "banco_clasificacion_cincelado"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "piedra_tallada",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "tiesto_piedra",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 24,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Agricultura.md §9 (2026-09-11) — tiesto de piedra tallada (exteriores.json), maceta de una casilla algo mejor que la de barro; necesita 1 de tierra."
   }
 }

@@ -81,7 +81,7 @@ export interface EntradaConstruible {
   /** Pesca pasiva (docs/GDD_Pesca.md) — presente en trampa_pesca/cangrejera/batea_almejas: exige agua ORTOGONALMENTE ADYACENTE a la huella al colocarse (mismo `hayAguaAdyacente` que el molino de agua), nunca dentro de la huella (construcción siempre en tierra). */
   requiereAgua?: boolean;
   /** Agricultura (docs/GDD_Agricultura.md) — presente en bancal_cultivo/maceta_*: superficie donde plantar UNA semilla a la vez (mensajes `cultivo:*`, RoomExteriorBase.ts). `multiplicadorCosecha` escala la cantidad de cada cosecha (macetas grandes rinden más). */
-  plantable?: { multiplicadorCosecha: number };
+  plantable?: { multiplicadorCosecha: number; tierraNecesaria?: number };
   /**
    * Cocina (docs/GDD_Cocina.md) — presente en hoguera_campamento/chimenea_cocina
    * (esVasija:false, solo "cocinar tal cual") y en toda vasija (esVasija:true):
@@ -316,7 +316,7 @@ interface EntradaExterior {
   actividadAtributo?: EntradaActividadAtributo;
   proyectoJarl?: boolean;
   requiereAgua?: boolean;
-  plantable?: { multiplicadorCosecha: number };
+  plantable?: { multiplicadorCosecha: number; tierraNecesaria?: number };
   cocina?: { esVasija: boolean; capacidad?: number; vasija?: string; hierveAgua?: boolean };
   curtidor?: EntradaCurtidor;
   quesera?: boolean;

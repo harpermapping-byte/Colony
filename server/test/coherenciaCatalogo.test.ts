@@ -54,7 +54,8 @@ function fuentesSinReceta(): Set<string> {
   for (const cat of [elementos, exteriores]) for (const e of Object.values(cat)) if (typeof e === "object" && e.produccion) fuentes.add(e.produccion.itemId);
   // Sin categoría de bake pero con fuente real en código: caza/despiece (lootCaza.ts), ganadería (leche/huevo/lana/pienso en fauna.ts), curtido a granel (curtido.ts), letrina (hoja), semillas de árbol al talar, cebo al recolectar.
   for (const id of ["tendones", "tripas", "grasa", "leche", "huevo", "lana", "curtiente", "piel_salada", "piel_raspada", "hoja", "cebo_pesca",
-    "cabeza_trofeo_pequena", "cabeza_trofeo_mediana", "cabeza_trofeo_grande", "moneda_suelta", "reliquia", "libro", "sal"]) fuentes.add(id);
+    "cabeza_trofeo_pequena", "cabeza_trofeo_mediana", "cabeza_trofeo_grande", "moneda_suelta", "reliquia", "libro", "sal",
+    "tierra"]) fuentes.add(id); // tierra: la saca la pala de una casilla de suelo (suelo:cavar, docs/GDD_Agricultura.md §9)
   for (const [id, it] of Object.entries(items)) if (it.tipo === "semilla" || it.tipo === "libro" || id.startsWith("cadaver_") || id.startsWith("pocion_alquimica_")) fuentes.add(id);
   return fuentes;
 }

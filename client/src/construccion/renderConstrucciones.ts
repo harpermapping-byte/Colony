@@ -345,13 +345,15 @@ export class RenderConstrucciones {
   }
 
   /** Agricultura (docs/GDD_Agricultura.md): tiñe la tapa de un bancal/maceta según agua/fertilizante 0-100 — oscuro = buen suelo, marrón clarito = seco/pobre. No-op si la pieza no existe (ya se quitó, o el jugador está en otro mapa). */
-  tintarSuelo(construccionId: number, agua: number, fertilizante: number): void {
+  tintarSuelo(construccionId: number, agua: number, fertilizante: number, tierra = 0, tierraNecesaria = 0): void {
     const pieza = this.piezas.get(construccionId);
     if (!pieza) return;
     const nivel = Math.max(0, Math.min(1, (agua + fertilizante) / 200));
     const oscuro = new THREE.Color("#241a10");
     const claro = new THREE.Color("#c9b48a");
-    const color = claro.clone().lerp(oscuro, nivel);
+    // §9: una maceta sin su tierra se ve VACÍA (gris del recipiente), nunca
+    // como suelo seco — así se distingue "falta tierra" de "falta regar".
+    const color = tierraNecesaria > 0 && tierra < tierraNecesaria ? new THREE.Color("#9a9088") : claro.clone().lerp(oscuro, nivel);
     // Siempre la caja de dos tonos (lo plantable nunca se sustituye por
     // .glb real, ver aplicarNueva) — el cast es seguro.
     const materiales = (pieza.malla as THREE.Mesh).material as THREE.MeshStandardMaterial[];

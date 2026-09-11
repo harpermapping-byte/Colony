@@ -120,6 +120,7 @@ Pedido literal del streamer: *"como tenemos inventario líquidos ahora (amplia s
 
 **Cliente**: panel de cocina (`panelCocina.ts`) cambia el botón "Llenar de agua" gratis por un input con el id de instancia del recipiente + botón "Meter agua y poner al fuego" — mismo criterio placeholder que el resto del panel.
 
+**Actualización 2026-09-11 (docs/GDD_Agricultura.md §9)**: tercer recipiente, `regadera` (3000 ml, herrero nivel 2); regar una maceta/bancal gasta 500 ml de cualquier recipiente con agua de la mochila; y por fin hay UI para llenar/beber — botón "Llenar"/"Beber" en la celda del recipiente (`panelJugador.ts`), `recipiente:*` como toast.
 ## 10. Grid drag&drop entre contenedores (pedido 2026-08-30)
 
 Pedido literal: *"gemini para afinar sistema de grid, si abro un inventario se me abre su grid y veré mi grid de inventario para mover y drag and drop y se traspasa etc"*, y sobre el alcance: *"todo pero la UI y todo es de momento de test, o sea no hay que hacer UI final ni nada, estamos generando el esqueleto de todo"* — se construyó el MECANISMO completo (mensaje de red + `moverItem` real, cross-container incluido), con UI deliberadamente tosca (no la fase de "UI final" de §8).

@@ -31,7 +31,26 @@ export interface EstadoCultivo {
   diaUltimoRiego?: number;
   /** tiempoMundo().dia del último abonado — igual que el riego. */
   diaUltimoAbono?: number;
+  /** Unidades de `tierra` metidas (docs/GDD_Agricultura.md §9) — solo cuenta en plantables con `tierraNecesaria`; se queda tras cosechar (la maceta no se vacía sola). */
+  tierra?: number;
 }
+
+/** Unidades de `tierra` que exige un plantable antes de poder plantar (docs/GDD_Agricultura.md §9). 0/ausente = no hace falta (un bancal YA es tierra labrada). */
+export function tierraNecesariaDe(plantable: { tierraNecesaria?: number } | undefined | null): number {
+  return Math.max(0, Math.floor(plantable?.tierraNecesaria ?? 0));
+}
+
+/** Cuántas unidades de tierra faltan todavía para llegar a `necesaria` — 0 = se puede plantar. */
+export function tierraQueFalta(estado: EstadoCultivo, necesaria: number): number {
+  return Math.max(0, necesaria - Math.max(0, Math.floor(estado.tierra ?? 0)));
+}
+
+/**
+ * Agua que gasta UN riego (docs/GDD_Agricultura.md §9): una cantimplora
+ * entera, 4 riegos por cubo de madera (2000ml), 6 por regadera (3000ml).
+ * Regar deja de ser gratis: hace falta un recipiente con agua en la mochila.
+ */
+export const ML_POR_RIEGO = 500;
 
 /** De 100 (recién regado) a 0 en 4 días de mundo sin volver a regar. */
 export const DECAIMIENTO_AGUA_POR_DIA = 25;

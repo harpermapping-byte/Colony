@@ -60,6 +60,7 @@ const VALOR_CRUDO = {
   oro: 12, platino: 18, gema: 8,
   amatista: 12, esmeralda: 16, rubi: 20, zafiro: 18, diamante: 30,
   coral: 3,
+  tierra: 1, // docs/GDD_Agricultura.md §9 — se saca del suelo con la pala, una por casilla
   // maderas (carpintero) — por tier de hacha
   madera_blanda: 1, madera_abedul: 2, madera_dura: 2, madera_sauce: 3, madera_carbonizada: 3, madera_palmera: 5,
   // plantas

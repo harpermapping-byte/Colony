@@ -23,6 +23,8 @@ import itemsJson from "../../../items/catalogo/items.json";
 import { crearMarcoPanel, crearSubtitulo, crearLineaTexto, type MarcoPanel } from "../ui/panelBase";
 
 interface EntradaItem {
+  /** §9 de docs/GDD_Inventario.md: recipiente de líquido (cubo/cantimplora/regadera) — habilita "Llenar"/"Beber". */
+  volumenMaxMl?: number;
   tipo?: string;
   slotEquipo?: string;
   peso?: number;
@@ -137,6 +139,9 @@ export interface OpcionesPanelJugador {
    * viejo del panel.
    */
   usarItem?(instanciaId: number, itemId: string): void;
+  /** docs/GDD_Agricultura.md §9: llenar un recipiente junto al agua (recipiente:llenar) / beber de él (recipiente:beber). */
+  llenarRecipiente?(instanciaId: number): void;
+  beberRecipiente?(instanciaId: number): void;
 }
 
 export class PanelJugador {
@@ -420,6 +425,28 @@ export class PanelJugador {
           this.opciones.usarItem!(it.id, it.itemId);
         };
         celda.appendChild(botonUsar);
+      }
+
+      // Recipientes de líquido (cubo/cantimplora/regadera, §9): "Llenar" si
+      // está vacío (el servidor exige estar junto al agua) o "Beber" si
+      // lleva agua — regar una maceta gasta de aquí (docs/GDD_Agricultura.md §9).
+      if (entrada?.volumenMaxMl && (this.opciones.llenarRecipiente || this.opciones.beberRecipiente)) {
+        const conAgua = it.liquidoTipo === "agua" && (it.liquidoVolumenMl ?? 0) > 0;
+        const boton = document.createElement("button");
+        boton.textContent = conAgua ? "Beber" : "Llenar";
+        boton.title = conAgua ? `Beber un trago (${it.liquidoVolumenMl}ml)` : "Llenar de agua (junto a un río/lago)";
+        boton.setAttribute("data-testid", conAgua ? "recipiente-beber" : "recipiente-llenar");
+        boton.style.position = "absolute";
+        boton.style.bottom = "0";
+        boton.style.left = "0";
+        boton.style.fontSize = "8px";
+        boton.style.padding = "0 2px";
+        boton.onclick = (ev) => {
+          ev.stopPropagation();
+          if (conAgua) this.opciones.beberRecipiente?.(it.id);
+          else this.opciones.llenarRecipiente?.(it.id);
+        };
+        celda.appendChild(boton);
       }
 
       grid.appendChild(celda);

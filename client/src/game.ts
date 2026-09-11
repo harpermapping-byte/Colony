@@ -1206,6 +1206,8 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           }
           if (!cultivo) {
             opcionesSuelo.push({ etiqueta: "Labrar aquí (azada)", accion: () => room.send("cultivoCasilla:labrar", { x: casilla.x + 0.5, y: casilla.y + 0.5 }) });
+            // docs/GDD_Agricultura.md §9: una palada de tierra por casilla, para llenar macetas
+            opcionesSuelo.push({ etiqueta: "Cavar tierra (pala)", accion: () => room.send("suelo:cavar", { x: casilla.x + 0.5, y: casilla.y + 0.5 }) });
           } else if (cultivo.estado === "labrada") {
             for (const [semillaId, s] of semillas) {
               opcionesSuelo.push({ etiqueta: `Plantar ${nombreItemCatalogo(semillaId)} (${s.cantidad})`, accion: () => room.send("cultivoCasilla:plantar", { x: casilla.x + 0.5, y: casilla.y + 0.5, instanciaIdSemilla: s.instanciaId }) });
@@ -1435,20 +1437,38 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // "sin UI de targeting" que el resto — auto-apuntado por proximidad,
     // RenderConstrucciones.plantableMasCercana) y sus botones ya mandan
     // los mensajes cultivo:*.
+    // Semillas que lleva el jugador ahora mismo (agrupadas por itemId) —
+    // mismo recorrido que el menú del suelo para "Plantar <semilla>".
+    const semillasEnMochila = () => {
+      const yo = room.state.players?.get(room.sessionId) as any;
+      const porId = new Map<string, { instanciaId: number; cantidad: number }>();
+      for (const it of (yo?.inventario?.cuerpo?.items ?? []) as any[]) {
+        if (!CATALOGO_ITEMS_CLIENTE[it.itemId]?.cultivo) continue;
+        const previa = porId.get(it.itemId);
+        if (previa) previa.cantidad += it.cantidad; else porId.set(it.itemId, { instanciaId: it.id, cantidad: it.cantidad });
+      }
+      return [...porId].map(([itemId, s]) => ({ instanciaId: s.instanciaId, etiqueta: `${nombreItemCatalogo(itemId)} (${s.cantidad})` }));
+    };
     const panelCultivo = new PanelCultivo({
       contenedor,
       plantar: (construccionId, instanciaId) => room.send("cultivo:plantar", { construccionId, instanciaId }),
       regar: (construccionId) => room.send("cultivo:regar", { construccionId }),
       abonar: (construccionId) => room.send("cultivo:abonar", { construccionId }),
       cosechar: (construccionId) => room.send("cultivo:cosechar", { construccionId }),
+      meterTierra: (construccionId) => room.send("cultivo:meterTierra", { construccionId }),
+      semillasDisponibles: semillasEnMochila,
     });
     let cultivoCercanoId: number | null = null;
     room.onMessage("cultivo:estado", (m: EstadoCultivoVista) => {
-      render.tintarSuelo(m.construccionId, m.agua, m.fertilizante);
+      render.tintarSuelo(m.construccionId, m.agua, m.fertilizante, m.tierra ?? 0, m.tierraNecesaria ?? 0);
       if (m.construccionId === cultivoCercanoId) panelCultivo.actualizar(m);
     });
-    room.onMessage("cultivo:cosechado", (m: { itemId: string; cantidad: number }) => console.log(`[cultivo] cosechado: ${m?.cantidad}x ${m?.itemId}`));
-    room.onMessage("cultivo:error", (m: { motivo: string }) => console.log("[cultivo]", m?.motivo));
+    room.onMessage("cultivo:cosechado", (m: { itemId: string; cantidad: number }) => { console.log(`[cultivo] cosechado: ${m?.cantidad}x ${m?.itemId}`); registroCombate.mostrar(`Cosechas ${m?.cantidad}× ${nombreItemCatalogo(m?.itemId)}.`, "info"); });
+    // §9: "falta tierra"/"necesitas un cubo con agua" tienen que verse jugando, no solo en consola
+    room.onMessage("cultivo:error", (m: { motivo: string }) => { console.log("[cultivo]", m?.motivo); registroCombate.mostrar(m?.motivo || "No se puede hacer eso aquí.", "error"); });
+    // docs/GDD_Agricultura.md §9: sacar tierra con la pala (menú del suelo → "Cavar tierra")
+    room.onMessage("suelo:cavado", () => registroCombate.mostrar("Sacas una palada de tierra.", "info"));
+    room.onMessage("suelo:error", (m: { motivo: string }) => registroCombate.mostrar(m?.motivo || "Aquí no se puede cavar.", "error"));
     room.onMessage("objeto:abierto", (m: { itemId: string; cantidad: number }) => console.log(`[objeto] abierto: ${m?.cantidad}x ${m?.itemId}`));
     // RADIO_INTERACCION del servidor (2.2, mismo valor que el resto de
     // auto-apuntados del cliente) — chequeo cada 500ms, no cada frame: la
@@ -1845,7 +1865,6 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     ["plantilla:error", "plantilla"],
     ["produccion:error", "producción"],
     ["quesera:error", "quesera"],
-    ["recipiente:error", "recipiente"],
     ["refinamiento:error", "refinamiento"],
     ["soltar:error", "soltar"],
     ["transporte:error", "transporte"],
@@ -2871,7 +2890,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (itemId === "hoja") room.send("higiene:cagar", { instanciaId });
       else room.send("personaje:consumir", { instanciaId });
     },
+    // docs/GDD_Agricultura.md §9: el cubo/regadera se llena junto al agua
+    // y se bebe desde la misma celda — antes `recipiente:*` solo lo
+    // mandaban los tests, ningún jugador podía llenar un cubo.
+    llenarRecipiente: (instanciaId) => room.send("recipiente:llenar", { instanciaId }),
+    beberRecipiente: (instanciaId) => room.send("recipiente:beber", { instanciaId }),
   });
+  room.onMessage("recipiente:llenado", (m: { volumenMl: number }) => registroCombate.mostrar(`Lleno de agua (${m?.volumenMl}ml).`, "info"));
+  room.onMessage("recipiente:error", (m: { motivo?: string }) => { console.log("[recipiente]", m?.motivo); registroCombate.mostrar(m?.motivo || "No se puede con ese recipiente.", "error"); });
+  room.onMessage("recipiente:bebido", (m: { volumenMl: number }) => registroCombate.mostrar(`Bebes un trago (${m?.volumenMl}ml).`, "info"));
   room.onMessage("equipo:error", (m: { motivo: string }) => console.log("[equipo]", m?.motivo));
   room.onMessage("inventario:error", (m: { motivo: string }) => console.log("[inventario]", m?.motivo));
   // Feedback real de comer/beber/hoja (docs/GDD_Personaje.md §3.6) — antes
