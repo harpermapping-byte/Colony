@@ -29,7 +29,12 @@
     "energia": "server/src/construccion/catalogo.ts (copiado a EntradaConstruible.energia) + server/src/construccion/energia.ts:potenciaDisponibleEnCasillas()/factorVelocidadPorEnergia() (BFS de red motriz) + server/src/construccion/construccion.ts:validarColocacion (exige agua adyacente si fuente==='agua') — docs/GDD_Motriz.md",
     "specialModifier": "server/src/construccion/catalogo.ts + client/src/construccion/catalogoConstruccion.ts — excluyen del catálogo construible lo que incluya 'ENEMIGO'; ESPECIAL_NOBLEZA/ESPECIAL_TESORO solo se declaran, no accionan nada más",
     "maxSatelites": "interiores/src/colocarElementos.js:anclaAdmite() — límite de satélites por ancla individual",
-    "lootTier": "SIN CONSUMIDOR — reservado (docs/GDD_Inventario.md: 'campo ya reservado, sin usar')"
+    "lootTier": "SIN CONSUMIDOR — reservado (docs/GDD_Inventario.md: 'campo ya reservado, sin usar')",
+    "plazas": "server/src/construccion/mobiliario.ts:plazasDe + RoomExteriorBase.ts (sentar:iniciar / asiento:sentarse / dormir:iniciar) — cuántos jugadores caben A LA VEZ en un asiento o cama (ausente = 1). Docs: docs/GDD_Construccion.md §9.",
+    "calidadDescanso": "RoomExteriorBase.ts:manejarDormirCompletar — multiplica la duración del buff 'descansado' (xpOficioX2) al dormir en esa cama (ausente = 1). Docs: docs/GDD_Construccion.md §9.",
+    "aceptaItems": "server/src/construccion/mobiliario.ts:aceptaItemEnMueble + RoomExteriorBase.ts:manejarCofreMeterItem + client/src/construccion/panelCofre.ts (pista) — filtro de lo que admite un contenedor: {tipos, slots, prefijos, ids, etiqueta}; cumple con CUALQUIERA de las listas. Docs: docs/GDD_Construccion.md §9.",
+    "rejillaCofre": "RoomExteriorBase.ts:capacidadCofre — rejilla EXACTA [ancho, alto] del contenedor; manda sobre la raíz cuadrada de aportes.almacenamiento. Docs: docs/GDD_Construccion.md §9.",
+    "expositor": "RoomExteriorBase.ts (construccion:nueva / construcciones:lista / construccion:expuestos) + client/src/construccion/renderConstrucciones.ts:actualizarExpuestos — contenedor cuyo contenido se DIBUJA encima del mueble (estanterías, expositores, maniquíes). Docs: docs/GDD_Construccion.md §9."
   },
   "cama_individual": {
     "nombre": "Cama Individual",
@@ -87,7 +92,8 @@
         "peso": 15
       }
     ],
-    "esCama": true
+    "esCama": true,
+    "calidadDescanso": 1
   },
   "cama_doble": {
     "nombre": "Cama Doble",
@@ -150,7 +156,9 @@
         "peso": 15
       }
     ],
-    "esCama": true
+    "esCama": true,
+    "plazas": 2,
+    "calidadDescanso": 1.2
   },
   "litera": {
     "nombre": "Litera",
@@ -666,7 +674,8 @@
         "peso": 12
       }
     ],
-    "esSilla": true
+    "esSilla": true,
+    "plazas": 2
   },
   "mesa_auxiliar": {
     "nombre": "Mesa Auxiliar",
@@ -2231,7 +2240,25 @@
         "id": "estanteria_pociones_desgastada",
         "peso": 20
       }
-    ]
+    ],
+    "esContenedor": true,
+    "rejillaCofre": [
+      6,
+      1
+    ],
+    "aceptaItems": {
+      "prefijos": [
+        "pocion_",
+        "elixir_",
+        "gran_elixir",
+        "tonico_",
+        "antidoto",
+        "jarabe_",
+        "frasco_pocion"
+      ],
+      "etiqueta": "pociones y elixires"
+    },
+    "expositor": true
   },
   "bancada_cultivo": {
     "nombre": "Bancada de Cultivo",
@@ -7405,7 +7432,8 @@
         "peso": 40
       }
     ],
-    "esSilla": true
+    "esSilla": true,
+    "plazas": 2
   },
   "estatua_pequena": {
     "nombre": "Estatua Pequeña",
@@ -7746,7 +7774,19 @@
         "id": "estante_herramientas_formones",
         "peso": 50
       }
-    ]
+    ],
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      2
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "herramienta"
+      ],
+      "etiqueta": "herramientas"
+    },
+    "expositor": true
   },
   "bastidor_secado_pieles": {
     "nombre": "Bastidor de Secado de Pieles",
@@ -8146,7 +8186,21 @@
         "id": "vitrina_joyas_desgastada",
         "peso": 40
       }
-    ]
+    ],
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      2
+    ],
+    "aceptaItems": {
+      "slots": [
+        "anillo",
+        "cuello",
+        "brazalete"
+      ],
+      "etiqueta": "joyas"
+    },
+    "expositor": true
   },
   "tronco_apilado": {
     "nombre": "Tronco Apilado",
@@ -8576,7 +8630,19 @@
         "id": "expositor_armas_hachas",
         "peso": 30
       }
-    ]
+    ],
+    "esContenedor": true,
+    "rejillaCofre": [
+      3,
+      3
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "arma"
+      ],
+      "etiqueta": "armas"
+    },
+    "expositor": true
   },
   "_nota_salas_tematicas": "Refuerzo de las salas más escasas del catálogo (auditoría por RoomTag: cuadra, celda, cripta, letrina, sala_banos, camarote, sala_ritual, sala_juegos y salon_baile tenían 2-6 piezas propias frente a 20-39 de las salas comunes) — piezas nuevas específicas de cada una, no genéricas reetiquetadas.",
   "abrevadero": {
@@ -23809,7 +23875,7 @@
     "requiereItemColocar": "estanteria_tarros_alquimia"
   },
   "secadero_colgante_hierbas": {
-    "nombre": "Secadero de Colgante de Hierbas",
+    "nombre": "Secadero Colgante de Hierbas",
     "capa": "decorFija",
     "tiposSalaValidos": [
       "taller"
@@ -24834,7 +24900,12 @@
       "carpinteria"
     ],
     "_nota": "Objeto decorativo exclusivo craftable (docs/GDD_Crafteo.md §11 (2026-09-11, ampliación y coherencia del catálogo)) — Escritorio de Abedul Tallado, oficio carpintero nivel 6. Escritorio chapado en abedul.",
-    "requiereItemColocar": "escritorio_abedul_tallado"
+    "requiereItemColocar": "escritorio_abedul_tallado",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      2
+    ]
   },
   "armario_nogal_barnizado": {
     "nombre": "Armario de Nogal Barnizado",
@@ -24868,7 +24939,18 @@
       "carpinteria"
     ],
     "_nota": "Objeto decorativo exclusivo craftable (docs/GDD_Crafteo.md §11 (2026-09-11, ampliación y coherencia del catálogo)) — Armario de Nogal Barnizado, oficio carpintero nivel 7. Armario de madera tratada con acabado de barniz.",
-    "requiereItemColocar": "armario_nogal_barnizado"
+    "requiereItemColocar": "armario_nogal_barnizado",
+    "esContenedor": true,
+    "rejillaCofre": [
+      6,
+      5
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "equipable"
+      ],
+      "etiqueta": "ropa y complementos"
+    }
   },
   "cama_dosel_maestra": {
     "nombre": "Cama con Dosel Maestra",
@@ -24902,7 +24984,10 @@
       "carpinteria"
     ],
     "_nota": "Objeto decorativo exclusivo craftable (docs/GDD_Crafteo.md §11 (2026-09-11, ampliación y coherencia del catálogo)) — Cama de Dosel de Maestra, oficio carpintero nivel 8. Cama con dosel de tela reforzada teñida — la obra maestra del carpintero.",
-    "requiereItemColocar": "cama_dosel_maestra"
+    "requiereItemColocar": "cama_dosel_maestra",
+    "esCama": true,
+    "plazas": 2,
+    "calidadDescanso": 2.2
   },
   "estatua_marmol_guardian": {
     "nombre": "Estatua de Mármol del Guardián",
@@ -25140,7 +25225,25 @@
       "molino"
     ],
     "_nota": "Objeto decorativo exclusivo craftable (docs/GDD_Crafteo.md §11 (2026-09-11, ampliación y coherencia del catálogo)) — Tonel de Hidromiel de Gremial, oficio molinero nivel 8. Gran tonel de hidromiel — la obra maestra del molinero.",
-    "requiereItemColocar": "tonel_hidromiel_gremial"
+    "requiereItemColocar": "tonel_hidromiel_gremial",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      2
+    ],
+    "aceptaItems": {
+      "prefijos": [
+        "hidromiel",
+        "vino",
+        "licor",
+        "aguardiente",
+        "cerveza",
+        "sidra",
+        "jarra_"
+      ],
+      "etiqueta": "bebidas"
+    },
+    "expositor": true
   },
   "trofeo_cornamenta_real": {
     "nombre": "Trofeo de Cornamenta Real",
@@ -25175,5 +25278,3653 @@
     ],
     "_nota": "Objeto decorativo exclusivo craftable (docs/GDD_Crafteo.md §11 (2026-09-11, ampliación y coherencia del catálogo)) — Trofeo de Cornamenta Real, oficio cazador nivel 8. Cornamenta real montada sobre madera barnizada — la obra maestra del cazador.",
     "requiereItemColocar": "trofeo_cornamenta_real"
+  },
+  "cama_pino_individual": {
+    "nombre": "Cama Individual de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "funcionalidad": 30,
+      "confort": 8
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cama Individual de Pino, oficio carpintero nivel 1. Cama sencilla de pino con jergón de lana: el primer descanso digno de cualquier casa.",
+    "requiereItemColocar": "cama_pino_individual",
+    "esCama": true,
+    "plazas": 1,
+    "calidadDescanso": 1
+  },
+  "cama_pino_doble": {
+    "nombre": "Cama Doble de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "funcionalidad": 40,
+      "confort": 10
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cama Doble de Pino, oficio carpintero nivel 2. Cama doble de pino: dos personas, mismo colchón de lana.",
+    "requiereItemColocar": "cama_pino_doble",
+    "esCama": true,
+    "plazas": 2,
+    "calidadDescanso": 1
+  },
+  "litera_pino": {
+    "nombre": "Litera de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "funcionalidad": 40,
+      "confort": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Litera de Pino, oficio carpintero nivel 2. Litera de dos alturas: caben dos en el hueco de una cama individual, algo menos cómoda.",
+    "requiereItemColocar": "litera_pino",
+    "esCama": true,
+    "plazas": 2,
+    "calidadDescanso": 0.9
+  },
+  "cama_sauce_mimbre_individual": {
+    "nombre": "Cama Individual de Sauce y Mimbre",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#c9b57a",
+    "aportes": {
+      "funcionalidad": 32,
+      "confort": 10,
+      "decoracion": 4
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cama Individual de Sauce y Mimbre, oficio carpintero nivel 3. Cama ligera de sauce con cabecero trenzado de mimbre.",
+    "requiereItemColocar": "cama_sauce_mimbre_individual",
+    "esCama": true,
+    "plazas": 1,
+    "calidadDescanso": 1.1
+  },
+  "cama_roble_individual": {
+    "nombre": "Cama Individual de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "funcionalidad": 35,
+      "confort": 12,
+      "decoracion": 4
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cama Individual de Roble, oficio carpintero nivel 3. Cama de roble barnizado: más maciza y más mullida que la de pino.",
+    "requiereItemColocar": "cama_roble_individual",
+    "esCama": true,
+    "plazas": 1,
+    "calidadDescanso": 1.25
+  },
+  "cama_roble_doble": {
+    "nombre": "Cama Doble de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "funcionalidad": 45,
+      "confort": 14,
+      "decoracion": 5
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cama Doble de Roble, oficio carpintero nivel 4. Cama doble de roble barnizado para dos.",
+    "requiereItemColocar": "cama_roble_doble",
+    "esCama": true,
+    "plazas": 2,
+    "calidadDescanso": 1.25
+  },
+  "cama_abedul_tallada_individual": {
+    "nombre": "Cama Individual de Abedul Tallada",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "funcionalidad": 38,
+      "confort": 16,
+      "decoracion": 8
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cama Individual de Abedul Tallada, oficio carpintero nivel 5. Cama de abedul con cabecero tallado y colchón de tela reforzada.",
+    "requiereItemColocar": "cama_abedul_tallada_individual",
+    "esCama": true,
+    "plazas": 1,
+    "calidadDescanso": 1.5
+  },
+  "cama_abedul_tallada_doble": {
+    "nombre": "Cama Doble de Abedul Tallada",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "funcionalidad": 48,
+      "confort": 18,
+      "decoracion": 10
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cama Doble de Abedul Tallada, oficio carpintero nivel 6. Cama doble de abedul tallado, la de un matrimonio acomodado.",
+    "requiereItemColocar": "cama_abedul_tallada_doble",
+    "esCama": true,
+    "plazas": 2,
+    "calidadDescanso": 1.5
+  },
+  "cama_noble_dosel_doble": {
+    "nombre": "Cama Noble Doble con Dosel",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "aportes": {
+      "funcionalidad": 50,
+      "confort": 24,
+      "decoracion": 16
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cama Noble Doble con Dosel, oficio carpintero nivel 7. Cama noble con dosel teñido y remates de cobre: el mejor descanso que se puede fabricar.",
+    "requiereItemColocar": "cama_noble_dosel_doble",
+    "esCama": true,
+    "plazas": 2,
+    "calidadDescanso": 2
+  },
+  "divan_seda_noble": {
+    "nombre": "Diván de Seda Noble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#7a2a5a",
+    "aportes": {
+      "confort": 22,
+      "decoracion": 18
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Diván de Seda Noble, oficio carpintero nivel 8. Diván tapizado para sentarse dos o echar una siesta uno: lujo de salón.",
+    "requiereItemColocar": "divan_seda_noble",
+    "esCama": true,
+    "plazas": 2,
+    "calidadDescanso": 0.8,
+    "esSilla": true,
+    "esAsiento": true
+  },
+  "cuna_abedul": {
+    "nombre": "Cuna de Abedul",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "decoracion": 8,
+      "confort": 4
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cuna de Abedul, oficio carpintero nivel 3. Cuna torneada de abedul: decorativa, para un dormitorio con futuro.",
+    "requiereItemColocar": "cuna_abedul"
+  },
+  "taburete_pino": {
+    "nombre": "Taburete de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "confort": 3
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Taburete de Pino, oficio carpintero nivel 1. Taburete de tres patas: se hace en un rato y aguanta lo que le echen.",
+    "requiereItemColocar": "taburete_pino",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 1
+  },
+  "silla_pino_sencilla": {
+    "nombre": "Silla de Pino Sencilla",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "confort": 5
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Silla de Pino Sencilla, oficio carpintero nivel 1. Silla de pino con respaldo de tabla.",
+    "requiereItemColocar": "silla_pino_sencilla",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 1
+  },
+  "banco_roble_doble": {
+    "nombre": "Banco de Roble Doble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "confort": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Banco de Roble Doble, oficio carpintero nivel 2. Banco corrido de roble para dos.",
+    "requiereItemColocar": "banco_roble_doble",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 2
+  },
+  "butaca_lino": {
+    "nombre": "Butaca de Lino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#c9bfa0",
+    "aportes": {
+      "confort": 10,
+      "decoracion": 3
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Butaca de Lino, oficio carpintero nivel 2. Butaca tapizada en lino con relleno de lana.",
+    "requiereItemColocar": "butaca_lino",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 1
+  },
+  "sofa_lino_doble": {
+    "nombre": "Sofá de Lino Doble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#c9bfa0",
+    "aportes": {
+      "confort": 16,
+      "decoracion": 5
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Sofá de Lino Doble, oficio carpintero nivel 3. Sofá de dos plazas tapizado en lino.",
+    "requiereItemColocar": "sofa_lino_doble",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 2
+  },
+  "sofa_lino_triple": {
+    "nombre": "Sofá de Lino Triple",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      3,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#c9bfa0",
+    "aportes": {
+      "confort": 22,
+      "decoracion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 3,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Sofá de Lino Triple, oficio carpintero nivel 4. Sofá de tres plazas en lino: el de la sala común.",
+    "requiereItemColocar": "sofa_lino_triple",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 3
+  },
+  "banco_respaldo_abedul": {
+    "nombre": "Banco de Abedul con Respaldo",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "confort": 8,
+      "decoracion": 5
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Banco de Abedul con Respaldo, oficio carpintero nivel 4. Banco de abedul con respaldo chapado.",
+    "requiereItemColocar": "banco_respaldo_abedul",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 2
+  },
+  "butaca_cuero": {
+    "nombre": "Butaca de Cuero",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#6b3d20",
+    "aportes": {
+      "confort": 13,
+      "decoracion": 5
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Butaca de Cuero, oficio carpintero nivel 4. Butaca de cuero curtido con madera curvada al vapor.",
+    "requiereItemColocar": "butaca_cuero",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 1
+  },
+  "sofa_cuero_doble": {
+    "nombre": "Sofá de Cuero Doble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#6b3d20",
+    "aportes": {
+      "confort": 20,
+      "decoracion": 7
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Sofá de Cuero Doble, oficio carpintero nivel 4. Sofá de cuero de dos plazas.",
+    "requiereItemColocar": "sofa_cuero_doble",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 2
+  },
+  "sofa_cuero_triple": {
+    "nombre": "Sofá de Cuero Triple",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      3,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#6b3d20",
+    "aportes": {
+      "confort": 26,
+      "decoracion": 8
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 3,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Sofá de Cuero Triple, oficio carpintero nivel 5. Sofá de cuero de tres plazas.",
+    "requiereItemColocar": "sofa_cuero_triple",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 3
+  },
+  "silla_abedul_tallada": {
+    "nombre": "Silla de Abedul Tallada",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "confort": 6,
+      "decoracion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Silla de Abedul Tallada, oficio carpintero nivel 5. Silla de abedul con respaldo tallado.",
+    "requiereItemColocar": "silla_abedul_tallada",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 1
+  },
+  "mecedora_sauce": {
+    "nombre": "Mecedora de Sauce",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#c9b57a",
+    "aportes": {
+      "confort": 12,
+      "decoracion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Mecedora de Sauce, oficio carpintero nivel 5. Mecedora de sauce con balancines curvados al vapor.",
+    "requiereItemColocar": "mecedora_sauce",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 1
+  },
+  "butaca_terciopelo_noble": {
+    "nombre": "Butaca de Terciopelo Noble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#7a2a5a",
+    "aportes": {
+      "confort": 16,
+      "decoracion": 10
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Butaca de Terciopelo Noble, oficio carpintero nivel 6. Butaca noble tapizada en tela teñida.",
+    "requiereItemColocar": "butaca_terciopelo_noble",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 1
+  },
+  "sofa_terciopelo_doble": {
+    "nombre": "Sofá de Terciopelo Doble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#7a2a5a",
+    "aportes": {
+      "confort": 24,
+      "decoracion": 12
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Sofá de Terciopelo Doble, oficio carpintero nivel 6. Sofá noble de dos plazas en tela teñida.",
+    "requiereItemColocar": "sofa_terciopelo_doble",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 2
+  },
+  "sofa_terciopelo_triple": {
+    "nombre": "Sofá de Terciopelo Triple",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      3,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#7a2a5a",
+    "aportes": {
+      "confort": 30,
+      "decoracion": 14
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 3,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Sofá de Terciopelo Triple, oficio carpintero nivel 7. Sofá noble de tres plazas: el del gran salón.",
+    "requiereItemColocar": "sofa_terciopelo_triple",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 3
+  },
+  "sillon_orejero_cuero": {
+    "nombre": "Sillón Orejero de Cuero",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#4a3a28",
+    "aportes": {
+      "confort": 20,
+      "decoracion": 10
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Sillón Orejero de Cuero, oficio carpintero nivel 7. Sillón orejero de cuero endurecido, junto a la chimenea.",
+    "requiereItemColocar": "sillon_orejero_cuero",
+    "esSilla": true,
+    "esAsiento": true,
+    "plazas": 1
+  },
+  "caja_pino": {
+    "nombre": "Caja de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "almacenamiento": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Caja de Pino, oficio carpintero nivel 1. Caja de pino con tapa: seis huecos.",
+    "requiereItemColocar": "caja_pino",
+    "esContenedor": true,
+    "rejillaCofre": [
+      3,
+      2
+    ]
+  },
+  "cesto_mimbre_grande": {
+    "nombre": "Cesto de Mimbre Grande",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#c9a86a",
+    "aportes": {
+      "almacenamiento": 9
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cesto de Mimbre Grande, oficio carpintero nivel 1. Cesto grande de mimbre trenzado.",
+    "requiereItemColocar": "cesto_mimbre_grande",
+    "esContenedor": true,
+    "rejillaCofre": [
+      3,
+      3
+    ]
+  },
+  "baul_pino": {
+    "nombre": "Baúl de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "almacenamiento": 12
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Baúl de Pino, oficio carpintero nivel 1. Baúl de pino con bisagras de cuero.",
+    "requiereItemColocar": "baul_pino",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      3
+    ]
+  },
+  "mesa_noche_pino": {
+    "nombre": "Mesita de Noche de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "almacenamiento": 4,
+      "decoracion": 2
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Mesita de Noche de Pino, oficio carpintero nivel 1. Mesita de noche de pino con un cajón pequeño.",
+    "requiereItemColocar": "mesa_noche_pino",
+    "esContenedor": true,
+    "rejillaCofre": [
+      2,
+      2
+    ]
+  },
+  "estante_pared_pino": {
+    "nombre": "Estante de Pared de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "almacenamiento": 4,
+      "decoracion": 3
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Estante de Pared de Pino, oficio carpintero nivel 1. Balda de pino: lo que dejes encima se ve.",
+    "requiereItemColocar": "estante_pared_pino",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      1
+    ],
+    "expositor": true
+  },
+  "perchero_pie_roble": {
+    "nombre": "Perchero de Pie de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 3,
+      "decoracion": 4
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Perchero de Pie de Roble, oficio carpintero nivel 1. Perchero de pie: capas, sombreros y abrigos colgados a la vista.",
+    "requiereItemColocar": "perchero_pie_roble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      3,
+      1
+    ],
+    "aceptaItems": {
+      "slots": [
+        "capa",
+        "casco",
+        "pechera",
+        "espalda"
+      ],
+      "etiqueta": "capas, sombreros y abrigos"
+    },
+    "expositor": true
+  },
+  "cajon_roble": {
+    "nombre": "Cajón de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 9
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cajón de Roble, oficio carpintero nivel 2. Cajón de roble macizo.",
+    "requiereItemColocar": "cajon_roble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      3,
+      3
+    ]
+  },
+  "comoda_pino": {
+    "nombre": "Cómoda de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "almacenamiento": 12,
+      "decoracion": 3
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cómoda de Pino, oficio carpintero nivel 2. Cómoda de pino de tres cajones.",
+    "requiereItemColocar": "comoda_pino",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      3
+    ]
+  },
+  "alacena_cocina_pino": {
+    "nombre": "Alacena de Cocina de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "almacenamiento": 20,
+      "decoracion": 3
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Alacena de Cocina de Pino, oficio carpintero nivel 2. Alacena de cocina: solo comida y provisiones.",
+    "requiereItemColocar": "alacena_cocina_pino",
+    "esContenedor": true,
+    "rejillaCofre": [
+      5,
+      4
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "consumible"
+      ],
+      "prefijos": [
+        "harina",
+        "sal",
+        "carne_",
+        "pescado_",
+        "queso",
+        "mantequilla",
+        "huevo",
+        "leche",
+        "pan",
+        "miel",
+        "grasa",
+        "trigo",
+        "cebada",
+        "avena",
+        "manzana",
+        "baya",
+        "seta",
+        "hongo"
+      ],
+      "etiqueta": "comida y provisiones"
+    }
+  },
+  "estanteria_pociones_pino": {
+    "nombre": "Estantería de Pino para Pociones",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "almacenamiento": 6,
+      "decoracion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Estantería de Pino para Pociones, oficio carpintero nivel 2. Estantería estrecha para seis frascos: las pociones quedan a la vista.",
+    "requiereItemColocar": "estanteria_pociones_pino",
+    "esContenedor": true,
+    "rejillaCofre": [
+      6,
+      1
+    ],
+    "aceptaItems": {
+      "prefijos": [
+        "pocion_",
+        "elixir_",
+        "gran_elixir",
+        "tonico_",
+        "antidoto",
+        "jarabe_",
+        "frasco_pocion"
+      ],
+      "etiqueta": "pociones y elixires"
+    },
+    "expositor": true
+  },
+  "estanteria_platos_pino": {
+    "nombre": "Platero de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "almacenamiento": 10,
+      "decoracion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Platero de Pino, oficio carpintero nivel 2. Platero de pino: platos, jarras y copas expuestos.",
+    "requiereItemColocar": "estanteria_platos_pino",
+    "esContenedor": true,
+    "rejillaCofre": [
+      5,
+      2
+    ],
+    "aceptaItems": {
+      "ids": [
+        "plato",
+        "jarra_agua",
+        "jarra_cerveza",
+        "vaso_cristal",
+        "copa_cristal",
+        "plato_cristal",
+        "jarra_cristal",
+        "decantador_cristal",
+        "florero_cristal",
+        "jarron_esmaltado_real",
+        "taza",
+        "cuenco"
+      ],
+      "prefijos": [
+        "plato",
+        "vaso",
+        "copa",
+        "jarra",
+        "cuenco",
+        "taza",
+        "decantador",
+        "florero",
+        "jarron"
+      ],
+      "etiqueta": "vajilla"
+    },
+    "expositor": true
+  },
+  "expositor_herramientas_pared": {
+    "nombre": "Panel de Herramientas de Pared",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "almacenamiento": 8,
+      "decoracion": 5
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Panel de Herramientas de Pared, oficio carpintero nivel 2. Panel con ganchos para colgar herramientas.",
+    "requiereItemColocar": "expositor_herramientas_pared",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      2
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "herramienta"
+      ],
+      "etiqueta": "herramientas"
+    },
+    "expositor": true
+  },
+  "caja_herramientas_roble": {
+    "nombre": "Caja de Herramientas de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 16
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Caja de Herramientas de Roble, oficio carpintero nivel 3. Caja de herramientas de roble con cantoneras de hierro.",
+    "requiereItemColocar": "caja_herramientas_roble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      4
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "herramienta"
+      ],
+      "etiqueta": "herramientas"
+    }
+  },
+  "cajon_semillas_abedul": {
+    "nombre": "Cajón de Semillas de Abedul",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "almacenamiento": 18
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cajón de Semillas de Abedul, oficio carpintero nivel 3. Cajón compartimentado para semillas.",
+    "requiereItemColocar": "cajon_semillas_abedul",
+    "esContenedor": true,
+    "rejillaCofre": [
+      6,
+      3
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "semilla"
+      ],
+      "etiqueta": "semillas"
+    }
+  },
+  "botellero_roble": {
+    "nombre": "Botellero de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 8,
+      "decoracion": 8
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Botellero de Roble, oficio carpintero nivel 3. Botellero de roble: hidromiel, vino y licores a la vista.",
+    "requiereItemColocar": "botellero_roble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      2
+    ],
+    "aceptaItems": {
+      "prefijos": [
+        "hidromiel",
+        "vino",
+        "licor",
+        "aguardiente",
+        "cerveza",
+        "sidra",
+        "jarra_"
+      ],
+      "etiqueta": "bebidas"
+    },
+    "expositor": true
+  },
+  "expositor_armas_pared": {
+    "nombre": "Expositor de Armas de Pared",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 9,
+      "decoracion": 12
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Expositor de Armas de Pared, oficio carpintero nivel 3. Panel de pared para exponer hasta tres armas.",
+    "requiereItemColocar": "expositor_armas_pared",
+    "esContenedor": true,
+    "rejillaCofre": [
+      3,
+      3
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "arma"
+      ],
+      "etiqueta": "armas"
+    },
+    "expositor": true
+  },
+  "armario_pino": {
+    "nombre": "Armario de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "almacenamiento": 25,
+      "decoracion": 3
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Armario de Pino, oficio carpintero nivel 3. Armario de pino de dos puertas.",
+    "requiereItemColocar": "armario_pino",
+    "esContenedor": true,
+    "rejillaCofre": [
+      5,
+      5
+    ]
+  },
+  "baul_roble_herrajes": {
+    "nombre": "Baúl de Roble con Herrajes",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 18,
+      "decoracion": 4
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Baúl de Roble con Herrajes, oficio carpintero nivel 3. Baúl largo de roble con herrajes de hierro.",
+    "requiereItemColocar": "baul_roble_herrajes",
+    "esContenedor": true,
+    "rejillaCofre": [
+      6,
+      3
+    ]
+  },
+  "mesa_noche_roble_torneada": {
+    "nombre": "Mesita de Noche de Roble Torneada",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 6,
+      "decoracion": 5
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Mesita de Noche de Roble Torneada, oficio carpintero nivel 3. Mesita de noche de roble con patas torneadas.",
+    "requiereItemColocar": "mesa_noche_roble_torneada",
+    "esContenedor": true,
+    "rejillaCofre": [
+      3,
+      2
+    ]
+  },
+  "estanteria_roble_abierta": {
+    "nombre": "Estantería de Roble Abierta",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 16,
+      "decoracion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Estantería de Roble Abierta, oficio carpintero nivel 3. Estantería abierta de roble: todo lo que guardes se ve.",
+    "requiereItemColocar": "estanteria_roble_abierta",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      4
+    ],
+    "expositor": true
+  },
+  "comoda_roble_barnizada": {
+    "nombre": "Cómoda de Roble Barnizada",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 24,
+      "decoracion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cómoda de Roble Barnizada, oficio carpintero nivel 4. Cómoda ancha de roble barnizado.",
+    "requiereItemColocar": "comoda_roble_barnizada",
+    "esContenedor": true,
+    "rejillaCofre": [
+      6,
+      4
+    ]
+  },
+  "aparador_roble": {
+    "nombre": "Aparador de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 18,
+      "decoracion": 7
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Aparador de Roble, oficio carpintero nivel 4. Aparador de comedor de roble.",
+    "requiereItemColocar": "aparador_roble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      6,
+      3
+    ]
+  },
+  "despensa_roble": {
+    "nombre": "Despensa de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 48,
+      "decoracion": 3
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Despensa de Roble, oficio carpintero nivel 4. Despensa grande de roble: comida y provisiones, nada más.",
+    "requiereItemColocar": "despensa_roble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      8,
+      6
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "consumible"
+      ],
+      "prefijos": [
+        "harina",
+        "sal",
+        "carne_",
+        "pescado_",
+        "queso",
+        "mantequilla",
+        "huevo",
+        "leche",
+        "pan",
+        "miel",
+        "grasa",
+        "trigo",
+        "cebada",
+        "avena",
+        "manzana",
+        "baya",
+        "seta",
+        "hongo"
+      ],
+      "etiqueta": "comida y provisiones"
+    }
+  },
+  "armario_ropa_abedul": {
+    "nombre": "Armario de Ropa de Abedul",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "almacenamiento": 30,
+      "decoracion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Armario de Ropa de Abedul, oficio carpintero nivel 4. Armario ropero de abedul: ropa y complementos.",
+    "requiereItemColocar": "armario_ropa_abedul",
+    "esContenedor": true,
+    "rejillaCofre": [
+      6,
+      5
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "equipable"
+      ],
+      "etiqueta": "ropa y complementos"
+    }
+  },
+  "maniqui_armadura": {
+    "nombre": "Maniquí para Armadura",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 6,
+      "decoracion": 12
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Maniquí para Armadura, oficio carpintero nivel 4. Maniquí de madera: viste una armadura completa a la vista.",
+    "requiereItemColocar": "maniqui_armadura",
+    "esContenedor": true,
+    "rejillaCofre": [
+      2,
+      3
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "armadura"
+      ],
+      "etiqueta": "piezas de armadura"
+    },
+    "expositor": true
+  },
+  "escritorio_roble": {
+    "nombre": "Escritorio de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 8,
+      "funcionalidad": 10,
+      "decoracion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Escritorio de Roble, oficio carpintero nivel 4. Escritorio de roble con cajón bajo el tablero.",
+    "requiereItemColocar": "escritorio_roble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      2
+    ]
+  },
+  "armero_pie_roble": {
+    "nombre": "Armero de Pie de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 12,
+      "decoracion": 12
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Armero de Pie de Roble, oficio carpintero nivel 5. Armero de pie con ranuras para cuatro armas.",
+    "requiereItemColocar": "armero_pie_roble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      3
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "arma"
+      ],
+      "etiqueta": "armas"
+    },
+    "expositor": true
+  },
+  "estante_trofeos_roble": {
+    "nombre": "Repisa de Trofeos de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 6,
+      "decoracion": 14
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Repisa de Trofeos de Roble, oficio carpintero nivel 5. Repisa tallada para trofeos de caza y reliquias.",
+    "requiereItemColocar": "estante_trofeos_roble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      3,
+      2
+    ],
+    "aceptaItems": {
+      "prefijos": [
+        "cabeza_trofeo_",
+        "cabeza_ciervo_trofeo",
+        "trofeo_",
+        "reliquia"
+      ],
+      "etiqueta": "trofeos y reliquias"
+    },
+    "expositor": true
+  },
+  "vitrina_libros_abedul": {
+    "nombre": "Vitrina de Abedul para Libros",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "almacenamiento": 12,
+      "decoracion": 12
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Vitrina de Abedul para Libros, oficio carpintero nivel 5. Vitrina acristalada para libros.",
+    "requiereItemColocar": "vitrina_libros_abedul",
+    "esContenedor": true,
+    "rejillaCofre": [
+      6,
+      2
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "libro"
+      ],
+      "etiqueta": "libros"
+    },
+    "expositor": true
+  },
+  "arcon_tratado_reforzado": {
+    "nombre": "Arcón Tratado Reforzado",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#4a3a28",
+    "aportes": {
+      "almacenamiento": 28,
+      "decoracion": 5
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Arcón Tratado Reforzado, oficio carpintero nivel 5. Arcón de madera tratada con refuerzos de hierro.",
+    "requiereItemColocar": "arcon_tratado_reforzado",
+    "esContenedor": true,
+    "rejillaCofre": [
+      7,
+      4
+    ]
+  },
+  "estanteria_abedul_alta": {
+    "nombre": "Estantería de Abedul Alta",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "almacenamiento": 25,
+      "decoracion": 10
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Estantería de Abedul Alta, oficio carpintero nivel 5. Estantería alta de abedul chapado, abierta.",
+    "requiereItemColocar": "estanteria_abedul_alta",
+    "esContenedor": true,
+    "rejillaCofre": [
+      5,
+      5
+    ],
+    "expositor": true
+  },
+  "armario_roble_grande": {
+    "nombre": "Armario de Roble Grande",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 48,
+      "decoracion": 8
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Armario de Roble Grande, oficio carpintero nivel 5. Armario grande de roble, cuatro puertas.",
+    "requiereItemColocar": "armario_roble_grande",
+    "esContenedor": true,
+    "rejillaCofre": [
+      8,
+      6
+    ]
+  },
+  "estanteria_pociones_roble_doble": {
+    "nombre": "Estantería Doble de Roble para Pociones",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 16,
+      "decoracion": 10
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Estantería Doble de Roble para Pociones, oficio carpintero nivel 4. Estantería doble de roble para dieciséis frascos expuestos.",
+    "requiereItemColocar": "estanteria_pociones_roble_doble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      8,
+      2
+    ],
+    "aceptaItems": {
+      "prefijos": [
+        "pocion_",
+        "elixir_",
+        "gran_elixir",
+        "tonico_",
+        "antidoto",
+        "jarabe_",
+        "frasco_pocion"
+      ],
+      "etiqueta": "pociones y elixires"
+    },
+    "expositor": true
+  },
+  "vitrina_joyas_cristal": {
+    "nombre": "Vitrina de Cristal para Joyas",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#bcd6dc",
+    "aportes": {
+      "almacenamiento": 8,
+      "decoracion": 18
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Vitrina de Cristal para Joyas, oficio carpintero nivel 6. Vitrina de cristal con marco de plata: anillos, collares y brazaletes expuestos.",
+    "requiereItemColocar": "vitrina_joyas_cristal",
+    "esContenedor": true,
+    "rejillaCofre": [
+      4,
+      2
+    ],
+    "aceptaItems": {
+      "slots": [
+        "anillo",
+        "cuello",
+        "brazalete"
+      ],
+      "etiqueta": "joyas"
+    },
+    "expositor": true
+  },
+  "tocador_espejo_abedul": {
+    "nombre": "Tocador de Abedul con Espejo",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "almacenamiento": 6,
+      "confort": 6,
+      "decoracion": 12
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Tocador de Abedul con Espejo, oficio carpintero nivel 6. Tocador con espejo y cajón.",
+    "requiereItemColocar": "tocador_espejo_abedul",
+    "esContenedor": true,
+    "rejillaCofre": [
+      3,
+      2
+    ]
+  },
+  "expositor_armas_roble_grande": {
+    "nombre": "Expositor de Armas de Roble Grande",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 18,
+      "decoracion": 18
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Expositor de Armas de Roble Grande, oficio carpintero nivel 6. Expositor grande de roble para seis armas.",
+    "requiereItemColocar": "expositor_armas_roble_grande",
+    "esContenedor": true,
+    "rejillaCofre": [
+      6,
+      3
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "arma"
+      ],
+      "etiqueta": "armas"
+    },
+    "expositor": true
+  },
+  "baul_noble_tallado": {
+    "nombre": "Baúl Noble Tallado",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "aportes": {
+      "almacenamiento": 32,
+      "decoracion": 16
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Baúl Noble Tallado, oficio carpintero nivel 7. Baúl noble tallado con cantoneras de cobre.",
+    "requiereItemColocar": "baul_noble_tallado",
+    "esContenedor": true,
+    "rejillaCofre": [
+      8,
+      4
+    ]
+  },
+  "maniqui_armadura_noble": {
+    "nombre": "Maniquí Noble para Armadura",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "aportes": {
+      "almacenamiento": 6,
+      "decoracion": 20
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Maniquí Noble para Armadura, oficio carpintero nivel 7. Maniquí noble sobre peana de cobre para la armadura de gala.",
+    "requiereItemColocar": "maniqui_armadura_noble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      2,
+      3
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "armadura"
+      ],
+      "etiqueta": "piezas de armadura"
+    },
+    "expositor": true
+  },
+  "armario_ropa_noble_espejo": {
+    "nombre": "Armario de Ropa Noble con Espejo",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "aportes": {
+      "almacenamiento": 48,
+      "decoracion": 18
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Armario de Ropa Noble con Espejo, oficio carpintero nivel 7. Ropero noble con espejo de cuerpo entero.",
+    "requiereItemColocar": "armario_ropa_noble_espejo",
+    "esContenedor": true,
+    "rejillaCofre": [
+      8,
+      6
+    ],
+    "aceptaItems": {
+      "tipos": [
+        "equipable"
+      ],
+      "etiqueta": "ropa y complementos"
+    }
+  },
+  "macetero_pie_roble": {
+    "nombre": "Macetero de Pie de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "decoracion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Macetero de Pie de Roble, oficio carpintero nivel 2. Macetero de pie con planta.",
+    "requiereItemColocar": "macetero_pie_roble"
+  },
+  "mesa_redonda_pino": {
+    "nombre": "Mesa Redonda de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "funcionalidad": 10,
+      "decoracion": 4
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Mesa Redonda de Pino, oficio carpintero nivel 2. Mesa redonda de pino para cuatro.",
+    "requiereItemColocar": "mesa_redonda_pino"
+  },
+  "cuadro_paisaje_marco_pino": {
+    "nombre": "Cuadro de Paisaje con Marco de Pino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "decoracion": 10
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cuadro de Paisaje con Marco de Pino, oficio carpintero nivel 2. Cuadro de paisaje con marco de pino.",
+    "requiereItemColocar": "cuadro_paisaje_marco_pino"
+  },
+  "mesa_centro_abedul": {
+    "nombre": "Mesa de Centro de Abedul",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "funcionalidad": 6,
+      "decoracion": 8
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Mesa de Centro de Abedul, oficio carpintero nivel 3. Mesa baja de centro chapada en abedul.",
+    "requiereItemColocar": "mesa_centro_abedul"
+  },
+  "cuadro_retrato_marco_roble": {
+    "nombre": "Retrato con Marco de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "decoracion": 16
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Retrato con Marco de Roble, oficio carpintero nivel 4. Retrato con marco de roble tallado.",
+    "requiereItemColocar": "cuadro_retrato_marco_roble"
+  },
+  "biombo_abedul_pintado": {
+    "nombre": "Biombo de Abedul Pintado",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "decoracion": 12
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 2,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Biombo de Abedul Pintado, oficio carpintero nivel 5. Biombo de tres hojas con tela pintada.",
+    "requiereItemColocar": "biombo_abedul_pintado"
+  },
+  "espejo_marco_roble": {
+    "nombre": "Espejo con Marco de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "decoracion": 14,
+      "confort": 4
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Espejo con Marco de Roble, oficio carpintero nivel 5. Espejo con marco de roble tallado.",
+    "requiereItemColocar": "espejo_marco_roble"
+  },
+  "espejo_pie_abedul": {
+    "nombre": "Espejo de Pie de Abedul",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "aportes": {
+      "decoracion": 18,
+      "confort": 5
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Espejo de Pie de Abedul, oficio carpintero nivel 6. Espejo de pie de cuerpo entero.",
+    "requiereItemColocar": "espejo_pie_abedul"
+  },
+  "reloj_pared_roble": {
+    "nombre": "Reloj de Pared de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "decoracion": 15,
+      "funcionalidad": 4
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Reloj de Pared de Roble, oficio carpintero nivel 6. Reloj de pared con esfera de cobre.",
+    "requiereItemColocar": "reloj_pared_roble"
+  },
+  "mesa_banquete_noble": {
+    "nombre": "Mesa de Banquete Noble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      3,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "aportes": {
+      "funcionalidad": 20,
+      "decoracion": 22
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 3,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Mesa de Banquete Noble, oficio carpintero nivel 8. Mesa de banquete tallada para el gran salón.",
+    "requiereItemColocar": "mesa_banquete_noble"
+  },
+  "candelero_pino_mesa": {
+    "nombre": "Candelero de Mesa de Pino",
+    "capa": "iluminacion",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "aportes": {
+      "decoracion": 3,
+      "iluminacion": 4
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Candelero de Mesa de Pino, oficio carpintero nivel 1. Candelero torneado de pino con una vela.",
+    "requiereItemColocar": "candelero_pino_mesa"
+  },
+  "candelabro_tres_brazos_madera": {
+    "nombre": "Candelabro de Tres Brazos de Madera",
+    "capa": "iluminacion",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "decoracion": 6,
+      "iluminacion": 7
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Candelabro de Tres Brazos de Madera, oficio carpintero nivel 2. Candelabro de tres brazos torneado en roble.",
+    "requiereItemColocar": "candelabro_tres_brazos_madera"
+  },
+  "lampara_aceite_mesa_cobre": {
+    "nombre": "Lámpara de Aceite de Mesa de Cobre",
+    "capa": "iluminacion",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#b5651d",
+    "aportes": {
+      "decoracion": 5,
+      "iluminacion": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Lámpara de Aceite de Mesa de Cobre, oficio carpintero nivel 2. Lámpara de aceite de sobremesa con tulipa de cristal.",
+    "requiereItemColocar": "lampara_aceite_mesa_cobre"
+  },
+  "candelabro_pie_hierro": {
+    "nombre": "Candelabro de Pie de Hierro",
+    "capa": "iluminacion",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#3a3733",
+    "aportes": {
+      "decoracion": 8,
+      "iluminacion": 9
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Candelabro de Pie de Hierro, oficio carpintero nivel 3. Candelabro de pie de hierro forjado.",
+    "requiereItemColocar": "candelabro_pie_hierro"
+  },
+  "farol_colgante_cobre": {
+    "nombre": "Farol Colgante de Cobre",
+    "capa": "iluminacion",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#b5651d",
+    "aportes": {
+      "decoracion": 8,
+      "iluminacion": 8
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Farol Colgante de Cobre, oficio carpintero nivel 3. Farol de cobre y cristal para colgar.",
+    "requiereItemColocar": "farol_colgante_cobre"
+  },
+  "lampara_aceite_pie_hierro": {
+    "nombre": "Lámpara de Aceite de Pie de Hierro",
+    "capa": "iluminacion",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#3a3733",
+    "aportes": {
+      "decoracion": 8,
+      "iluminacion": 10
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Lámpara de Aceite de Pie de Hierro, oficio carpintero nivel 4. Lámpara de aceite de pie alto.",
+    "requiereItemColocar": "lampara_aceite_pie_hierro"
+  },
+  "candelabro_mesa_cobre": {
+    "nombre": "Candelabro de Mesa de Cobre",
+    "capa": "iluminacion",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#8a6a3a",
+    "aportes": {
+      "decoracion": 10,
+      "iluminacion": 8
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Candelabro de Mesa de Cobre, oficio carpintero nivel 4. Candelabro de sobremesa de cobre bruñido.",
+    "requiereItemColocar": "candelabro_mesa_cobre"
+  },
+  "lampara_arana_cobre": {
+    "nombre": "Araña de Cobre de Seis Velas",
+    "capa": "iluminacion",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#8a6a3a",
+    "aportes": {
+      "decoracion": 20,
+      "iluminacion": 16
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Araña de Cobre de Seis Velas, oficio carpintero nivel 7. Araña de techo de cobre con seis velas.",
+    "requiereItemColocar": "lampara_arana_cobre"
+  },
+  "alfombra_lana_pequena": {
+    "nombre": "Alfombra de Lana Pequeña",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      2
+    ],
+    "variantes": 1,
+    "colorDebug": "#8a7a5a",
+    "aportes": {
+      "decoracion": 8,
+      "confort": 3
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FLOOR_DECAL",
+    "dimensions": {
+      "x": 1,
+      "y": 2
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "curtiduria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Alfombra de Lana Pequeña, oficio curtidor nivel 2. Alfombra pequeña de lana teñida.",
+    "requiereItemColocar": "alfombra_lana_pequena"
+  },
+  "cortina_lino": {
+    "nombre": "Cortina de Lino",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#c9bfa0",
+    "aportes": {
+      "decoracion": 6,
+      "confort": 2
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "curtiduria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Cortina de Lino, oficio curtidor nivel 2. Cortina de lino para una ventana.",
+    "requiereItemColocar": "cortina_lino"
+  },
+  "tapiz_lana_pared": {
+    "nombre": "Tapiz de Lana",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#8a7a5a",
+    "aportes": {
+      "decoracion": 14
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "curtiduria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Tapiz de Lana, oficio curtidor nivel 3. Tapiz de lana con motivo teñido.",
+    "requiereItemColocar": "tapiz_lana_pared"
+  },
+  "alfombra_lana_grande": {
+    "nombre": "Alfombra de Lana Grande",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      2,
+      3
+    ],
+    "variantes": 1,
+    "colorDebug": "#8a7a5a",
+    "aportes": {
+      "decoracion": 18,
+      "confort": 6
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FLOOR_DECAL",
+    "dimensions": {
+      "x": 2,
+      "y": 3
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "curtiduria"
+    ],
+    "_nota": "Mueble craftable exclusivo (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Alfombra de Lana Grande, oficio curtidor nivel 4. Alfombra grande de lana para un salón.",
+    "requiereItemColocar": "alfombra_lana_grande"
+  },
+  "barril_roble": {
+    "nombre": "Barril de Roble",
+    "capa": "decorFija",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "aportes": {
+      "almacenamiento": 9
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble colocable a partir de un ítem que YA existía con receta propia (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Barril de roble: se coloca y guarda nueve huecos.",
+    "requiereItemColocar": "barril_roble",
+    "esContenedor": true,
+    "rejillaCofre": [
+      3,
+      3
+    ]
+  },
+  "lampara_vidrio_coloreado": {
+    "nombre": "Lámpara de Vidrio Coloreado",
+    "capa": "iluminacion",
+    "tiposSalaValidos": [
+      "taller"
+    ],
+    "colocacion": [
+      "libre",
+      "esquina"
+    ],
+    "huella": [
+      1,
+      1
+    ],
+    "variantes": 1,
+    "colorDebug": "#c07ad8",
+    "aportes": {
+      "decoracion": 14,
+      "iluminacion": 10
+    },
+    "allowedRoomTags": [
+      "COMUN_TALLER"
+    ],
+    "anchorType": "FREE_CENTER",
+    "dimensions": {
+      "x": 1,
+      "y": 1
+    },
+    "clearanceFrontal": 0,
+    "temasProfesion": [
+      "carpinteria"
+    ],
+    "_nota": "Mueble colocable a partir de un ítem que YA existía con receta propia (docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero)) — Lámpara de vidrio coloreado del joyero: luz real al colocarla.",
+    "requiereItemColocar": "lampara_vidrio_coloreado"
   }
 }

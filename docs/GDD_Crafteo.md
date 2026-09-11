@@ -297,6 +297,10 @@ Mismo patrón que `nombreBonito.js`: `node items/catalogo/valorBase.js` imprime 
 
 Rango resultante: `flecha`/`piedra_honda` 1₣ … `espada_mithril_bonificada` 1046₣; `pechera_acero_templado` 538₣, `legendario_pechera_*` 516₣, `festin_del_jarl` 146₣.
 
+### 11.5 Mobiliario del carpintero (2026-09-11, misma noche)
+
+88 recetas más sobre las 512 de §11 (84 de carpintero, 4 textiles del curtidor en el telar): camas por tier y plazas, sofás/butacas por material, contenedores, expositores con filtro, lámparas y decoración — todas con el patrón "ítem portador `tipo:"recurso"` + mueble `requiereItemColocar`" de la decoración exclusiva, con `valorBase`/`xpOtorgada` por la fórmula de 11.3 y los tiempos dentro de la banda de su nivel. Qué hace cada mueble al colocarlo (plazas, calidad de descanso, filtro de contenido, contenido visible, luz) vive en docs/GDD_Construccion.md §9 — aquí solo cuenta que son recetas normales del oficio. Catálogo tras esto: 867 ítems, 598 recetas.
+
 ### 11.4 Decisiones tomadas para no repetir el debate
 
 - Los pools de `catalogoMercaderes.json` pasan a `null` = "usa `valorBase`" (`precioBaseArticulo`). Un número sigue mandando si algún día se quiere un precio especial a mano por oficio.

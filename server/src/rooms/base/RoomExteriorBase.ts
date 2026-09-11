@@ -85,6 +85,7 @@ import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe, parcelaEn } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
+import { aceptaItemEnMueble, expuestosDe, factorDescansoDe, plazasDe } from "../../construccion/mobiliario";
 import {
   ContextoConstruccion,
   ConstruccionViva,
@@ -385,6 +386,10 @@ function idDeCofre(destino: string): number | null {
  * es literal porque la rejilla nunca mira peso, solo casillas.
  */
 function capacidadCofre(entrada: EntradaConstruible | undefined): [number, number] {
+  // Mobiliario del carpintero (docs/GDD_Construccion.md §9): rejilla EXACTA
+  // declarada en el catálogo (una estantería de pociones 6x1 enseña 6
+  // frascos en fila, no un cuadrado aproximado) — manda sobre todo lo demás.
+  if (entrada?.rejillaCofre) return [Math.max(1, entrada.rejillaCofre[0]), Math.max(1, entrada.rejillaCofre[1])];
   if (entrada?.libreria) return [entrada.libreria.capacidad, 1];
   const lado = entrada?.almacenamientoCofre ?? 3;
   return [lado, lado];
@@ -762,7 +767,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // preexistente sin tocar), un asiento de 1 plaza sí se bloquea de verdad
   // para no apilar 2 jugadores en la misma silla.
   private sentadoEn = new Map<string, number>();
-  private asientosOcupados = new Map<number, string>();
+  // Un Set por construcción desde el mobiliario del carpintero (docs/
+  // GDD_Construccion.md §9): un sofá de `plazas:3` sienta a tres a la vez,
+  // el tope real lo comprueba `ocupantesDeMueble` contra `plazasDe`.
+  private asientosOcupados = new Map<number, Set<string>>();
   private siguienteComercioId = 1;
   private static readonly VENTANA_SOLICITUD_COMERCIO_MS = 8000;
 
@@ -3221,12 +3229,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return client.send("dormir:error", { motivo: "construcción inexistente" });
-    if (!this.entradaDe(viva.objeto)?.esCama) return client.send("dormir:error", { motivo: "eso no es una cama" });
+    const entradaCama = this.entradaDe(viva.objeto);
+    if (!entradaCama?.esCama) return client.send("dormir:error", { motivo: "eso no es una cama" });
 
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) {
       return client.send("dormir:error", { motivo: "demasiado lejos de la cama" });
+    }
+    // Plazas reales (docs/GDD_Construccion.md §9): una cama individual es
+    // para uno, una doble para dos — antes cualquier número de jugadores
+    // podía "dormir" apilado en la misma cama (gap documentado en
+    // `asientosOcupados`, cerrado aquí para camas con el mismo criterio).
+    if (this.durmientesEnCama(viva.id) >= plazasDe(entradaCama)) {
+      return client.send("dormir:error", { motivo: "esa cama ya está ocupada" });
     }
 
     const terminaEn = Date.now() + DURACION_DORMIR_MS;
@@ -3244,6 +3260,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     this.durmiendo.delete(client.sessionId);
     const player = this.state.players.get(client.sessionId);
+    // La calidad de la cama se lee ANTES de soltar `durmiendoEnId` — es la
+    // única referencia a en qué cama se durmió (docs/GDD_Construccion.md §9).
+    const camaId = player?.durmiendoEnId ?? -1;
+    const entradaCama = camaId >= 0 ? this.entradaDe(this.ctxConstruccion?.vivas.get(camaId)?.objeto ?? "") : undefined;
     if (player) {
       player.durmiendo = false;
       player.durmiendoEnId = -1;
@@ -3257,9 +3277,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const actuales = this.buffsPocionPorSesion.get(client.sessionId) ?? [];
     this.buffsPocionPorSesion.set(client.sessionId, [
       ...actuales,
-      { categoria: "especial", especial: "xpOficioX2", expiraEn: Date.now() + DURACION_BUFF_DESCANSADO_MS },
+      // `calidadDescanso` de la cama (mobiliario del carpintero): pino 1.0,
+      // roble 1.25, abedul 1.5, noble con dosel 2.0 — misma XP doble, más rato.
+      { categoria: "especial", especial: "xpOficioX2", expiraEn: Date.now() + Math.round(DURACION_BUFF_DESCANSADO_MS * factorDescansoDe(entradaCama)) },
     ]);
-    client.send("dormir:completado", {});
+    client.send("dormir:completado", { factorDescanso: factorDescansoDe(entradaCama) });
   }
 
   /**
@@ -3276,12 +3298,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return client.send("sentar:error", { motivo: "construcción inexistente" });
-    if (!this.entradaDe(viva.objeto)?.esSilla) return client.send("sentar:error", { motivo: "ahí no te puedes sentar" });
+    const entradaSilla = this.entradaDe(viva.objeto);
+    if (!entradaSilla?.esSilla) return client.send("sentar:error", { motivo: "ahí no te puedes sentar" });
 
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) {
       return client.send("sentar:error", { motivo: "demasiado lejos del mueble" });
+    }
+    // Plazas (docs/GDD_Construccion.md §9): cuenta a quien ya esté sentado
+    // ahí por CUALQUIERA de los dos mecanismos (clic o tecla F) — antes este
+    // camino no comprobaba ocupación y dos jugadores podían compartir silla.
+    if (this.ocupantesDeMueble(viva.id) >= plazasDe(entradaSilla)) {
+      return client.send("sentar:error", { motivo: "no queda sitio en ese mueble" });
     }
     this.sentadoSuelo.delete(client.sessionId);
     if (player.sentadoSuelo) player.sentadoSuelo = false;
@@ -3612,6 +3641,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         this.broadcast("construccion:nueva", {
           id, propiedad: propiedadId, objeto: entrada.id, categoria: entrada.categoria,
           x, y, rot, variante,
+          // expositor recién colocado: vacío, pero el campo viaja para que el
+          // cliente sepa desde el primer momento que es un expositor
+          expuestos: entrada.expositor ? [] : undefined,
         });
         // docs/GDD_IA_NPCs.md (pedido 2026-09-08: pregonero que cuente
         // novedades — "construcciones nuevas") — solo la categoría
@@ -3657,8 +3689,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // Asiento genérico (docs/GDD_Personaje.md §3.6bis): recoger una silla
       // ocupada levanta a quien esté sentado, mismo criterio que la mesa
       // de ajedrez de arriba — antes de borrar la construcción.
-      const ocupante = this.asientosOcupados.get(viva.id);
-      if (ocupante) this.levantarDeAsiento(ocupante);
+      for (const ocupante of [...(this.asientosOcupados.get(viva.id) ?? [])]) this.levantarDeAsiento(ocupante);
       // quitarConstruccion (síncrono) va ANTES del await a la BD a propósito
       // — es lo que borra `viva.id` de `ctx.vivas`, la señal que lee la
       // revalidación de arriba. Si fuera después, un "recoger" solapado
@@ -3697,6 +3728,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       [...this.ctxConstruccion.vivas.values()].map((c) => ({
         id: c.id, propiedad: c.propiedad, objeto: c.objeto, categoria: c.categoria,
         x: c.x, y: c.y, rot: c.rot, variante: c.variante,
+        expuestos: this.expuestosDeViva(c),
       })),
     );
   }
@@ -6363,11 +6395,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const ctx = this.ctxConstruccion;
     if (!ctx || typeof msg?.construccionId !== "number") return;
     if (this.sentadoEn.has(client.sessionId)) return this.errorAsiento(client, "ya estás sentado en algún sitio");
-    if (this.asientosOcupados.has(msg.construccionId)) return this.errorAsiento(client, "ese asiento ya está ocupado");
 
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return this.errorAsiento(client, "construcción inexistente");
-    if (!this.entradaDe(viva.objeto)?.esAsiento) return this.errorAsiento(client, "eso no es un asiento");
+    const entradaAsiento = this.entradaDe(viva.objeto);
+    if (!entradaAsiento?.esAsiento) return this.errorAsiento(client, "eso no es un asiento");
+    // Plazas (docs/GDD_Construccion.md §9): un banco/sofá de `plazas:N`
+    // admite N a la vez; sin campo sigue siendo 1, el bloqueo de siempre.
+    if (this.ocupantesDeMueble(viva.id) >= plazasDe(entradaAsiento)) return this.errorAsiento(client, "ese asiento ya está ocupado");
 
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -6376,9 +6411,30 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     this.sentadoEn.set(client.sessionId, msg.construccionId);
-    this.asientosOcupados.set(msg.construccionId, client.sessionId);
+    let ocupantes = this.asientosOcupados.get(msg.construccionId);
+    if (!ocupantes) { ocupantes = new Set(); this.asientosOcupados.set(msg.construccionId, ocupantes); }
+    ocupantes.add(client.sessionId);
     player.sentado = true;
     player.sentadoEnId = msg.construccionId;
+  }
+
+  /**
+   * Cuántos jugadores están sentados AHORA en esa construcción, por
+   * cualquiera de los dos mecanismos (clic `sentar:*` o tecla F `asiento:*`)
+   * — ambos escriben `Player.sentado`/`sentadoEnId`, así que el Schema es la
+   * única fuente que los ve juntos (docs/GDD_Construccion.md §9).
+   */
+  private ocupantesDeMueble(construccionId: number): number {
+    let n = 0;
+    this.state.players.forEach((p) => { if (p.sentado && p.sentadoEnId === construccionId) n++; });
+    return n;
+  }
+
+  /** Cuántos jugadores duermen AHORA en esa cama (mismo criterio que `ocupantesDeMueble`, sobre `durmiendo`/`durmiendoEnId`). */
+  private durmientesEnCama(construccionId: number): number {
+    let n = 0;
+    this.state.players.forEach((p) => { if (p.durmiendo && p.durmiendoEnId === construccionId) n++; });
+    return n;
   }
 
   /** Compartido por cancelar-al-moverse, "asiento:levantarse", onLeave y "recoger" sobre la construcción ocupada. */
@@ -6386,7 +6442,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const construccionId = this.sentadoEn.get(sessionId);
     if (construccionId == null) return;
     this.sentadoEn.delete(sessionId);
-    if (this.asientosOcupados.get(construccionId) === sessionId) this.asientosOcupados.delete(construccionId);
+    const ocupantes = this.asientosOcupados.get(construccionId);
+    if (ocupantes) {
+      ocupantes.delete(sessionId);
+      if (ocupantes.size === 0) this.asientosOcupados.delete(construccionId);
+    }
     const player = this.state.players.get(sessionId);
     if (player) { player.sentado = false; player.sentadoEnId = -1; }
   }
@@ -7715,6 +7775,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       agregarItem(contenedorCofre, this.catalogoItems, contrato.itemId, transportadoEntero);
       destinoCofre.extra = { ...extraCofre, contenedor: contenedorCofre };
       await bd.actualizarExtraConstruccion(destinoCofre.id, destinoCofre.extra);
+      this.difundirExpuestosSiExpositor(destinoCofre, contenedorCofre);
     } else {
       await bd.sumarStockTenderete(contrato.destinoTenderoteId, contrato.itemId, transportadoEntero, PRECIO_INICIAL_TRANSPORTE_FARYCOINS);
     }
@@ -9286,6 +9347,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     viva.extra = { ...(viva.extra ?? {}), contenedor };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.difundirExpuestosSiExpositor(viva, contenedor);
+  }
+
+  /**
+   * Expositores (docs/GDD_Construccion.md §9): el contenido de una
+   * estantería/vitrina/maniquí se DIBUJA encima del mueble en TODOS los
+   * clientes, no solo en el del dueño — se difunde la lista de itemIds cada
+   * vez que el contenedor cambia (meter/sacar/entrega de transporte). Un
+   * cofre normal no manda nada: su contenido es privado del dueño.
+   */
+  private difundirExpuestosSiExpositor(viva: ConstruccionViva, contenedor: Contenedor | undefined) {
+    if (!this.entradaDe(viva.objeto)?.expositor) return;
+    this.broadcast("construccion:expuestos", { id: viva.id, expuestos: expuestosDe(contenedor) });
+  }
+
+  /** `expuestos` para el payload de `construccion:nueva`/`construcciones:lista` — solo en expositores; `undefined` (omitido en JSON) para el resto. */
+  private expuestosDeViva(viva: ConstruccionViva): string[] | undefined {
+    if (!this.entradaDe(viva.objeto)?.expositor) return undefined;
+    const extra = (viva.extra ?? {}) as { contenedor?: Contenedor };
+    return expuestosDe(extra.contenedor);
   }
 
   /** Contenido actual de un cofre — dueño o jarl. Resuelve primero cualquier transporte pendiente que entregue aquí (mismo criterio "point-query siempre fresca" que un tenderete). */
@@ -9314,6 +9395,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!(await this.esDuenoOJarlDe(ctx, viva.propiedad, nombre))) return this.errorCofre(client, "no eres el dueño de este cofre");
     const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaId);
     if (!it) return this.errorCofre(client, "no tienes ese ítem");
+    // Filtro de contenido (docs/GDD_Construccion.md §9): una estantería de
+    // pociones no admite una espada, un armario de ropa no admite madera.
+    if (!aceptaItemEnMueble(entrada.aceptaItems, it.itemId, this.catalogoItems[it.itemId])) {
+      return this.errorCofre(client, `ese mueble solo guarda ${entrada.aceptaItems?.etiqueta ?? "otra clase de objetos"}`);
+    }
     const contenedor = this.contenedorDeCofre(viva, entrada);
     const hueco = buscarHueco(contenedor, this.catalogoItems, it.itemId);
     if (!hueco) return this.errorCofre(client, "el cofre está lleno");

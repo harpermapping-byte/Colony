@@ -2803,6 +2803,258 @@
     "xpOtorgada": 18,
     "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 1 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
   },
+  "cama_pino_individual_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 4
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "cama_pino_individual",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cama Individual de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "taburete_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "taburete_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Taburete de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "silla_pino_sencilla_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "silla_pino_sencilla",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Silla de Pino Sencilla: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "caja_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "caja_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Caja de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "cesto_mimbre_grande_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "mimbre",
+        "cantidad": 5
+      },
+      {
+        "itemId": "cuerda",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "cesto_mimbre_grande",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cesto de Mimbre Grande: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "baul_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cuero_grueso",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "baul_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Baúl de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "mesa_noche_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "mesa_noche_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Mesita de Noche de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "estante_pared_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "estante_pared_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Estante de Pared de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "perchero_pie_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "perchero_pie_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Perchero de Pie de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "candelero_pino_mesa_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "torno_madera"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 1
+      },
+      {
+        "itemId": "vela_mesa",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "candelero_pino_mesa",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 18,
+    "xpOtorgada": 19,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Candelero de Mesa de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
   "cepillo_carpintero_craft": {
     "oficio": "carpintero",
     "mesas": [
@@ -3022,6 +3274,394 @@
     "xpOtorgada": 23,
     "_nota": "docs/GDD_Crafteo.md §8 (2026-09-08) — objeto cotidiano ya existente en el catálogo (interiores/catalogo/elementos.json), sin receta hasta ahora."
   },
+  "cama_pino_doble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "cama_pino_doble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cama Doble de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "litera_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 4
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "litera_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Litera de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "banco_roble_doble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "banco_roble_doble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Banco de Roble Doble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "butaca_lino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 3
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "butaca_lino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Butaca de Lino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "cajon_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "cajon_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cajón de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "comoda_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 4
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "comoda_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cómoda de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "alacena_cocina_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 5
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "alacena_cocina_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Alacena de Cocina de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "estanteria_pociones_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "estanteria_pociones_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Estantería de Pino para Pociones: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "estanteria_platos_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "estanteria_platos_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Platero de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "expositor_herramientas_pared_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "expositor_herramientas_pared",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Panel de Herramientas de Pared: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "macetero_pie_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "macetero_pie_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Macetero de Pie de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "mesa_redonda_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 5
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "mesa_redonda_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Mesa Redonda de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "cuadro_paisaje_marco_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 1
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "cuadro_paisaje_marco_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cuadro de Paisaje con Marco de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "candelabro_tres_brazos_madera_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "torno_madera"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 2
+      },
+      {
+        "itemId": "vela_mesa",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "candelabro_tres_brazos_madera",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Candelabro de Tres Brazos de Madera: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "lampara_aceite_mesa_cobre_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "banco_carpintero"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 1
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 1
+      },
+      {
+        "itemId": "aceite",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "lampara_aceite_mesa_cobre",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Lámpara de Aceite de Mesa de Cobre: mueble colocable con la tecla B (requiereItemColocar)."
+  },
   "libreria_doble_craft": {
     "oficio": "carpintero",
     "mesas": [
@@ -3224,6 +3864,430 @@
     "xpOtorgada": 28,
     "_nota": "docs/GDD_Profesiones.md (2026-08-30, sexta pasada) — herramienta tier 3 de carpintero ya catalogada sin receta; el gating de herramientaRecoleccion.ts era inerte sin esto."
   },
+  "cama_sauce_mimbre_individual_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_sauce",
+        "cantidad": 3
+      },
+      {
+        "itemId": "mimbre",
+        "cantidad": 4
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "cama_sauce_mimbre_individual",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cama Individual de Sauce y Mimbre: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "cama_roble_individual_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 3
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "cama_roble_individual",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cama Individual de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "cuna_abedul_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "torno_madera"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 3
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 1
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "cuna_abedul",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cuna de Abedul: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "sofa_lino_doble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 4
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "sofa_lino_doble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Sofá de Lino Doble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "caja_herramientas_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 1
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "caja_herramientas_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Caja de Herramientas de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "cajon_semillas_abedul_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "cajon_semillas_abedul",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cajón de Semillas de Abedul: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "botellero_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "botellero_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Botellero de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "expositor_armas_pared_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 1
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "expositor_armas_pared",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Expositor de Armas de Pared: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "armario_pino_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 4
+      }
+    ],
+    "resultado": {
+      "itemId": "armario_pino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Armario de Pino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "baul_roble_herrajes_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cuero_curtido",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "baul_roble_herrajes",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Baúl de Roble con Herrajes: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "mesa_noche_roble_torneada_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "torno_madera"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 3
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "mesa_noche_roble_torneada",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Mesita de Noche de Roble Torneada: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "estanteria_roble_abierta_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 5
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "estanteria_roble_abierta",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Estantería de Roble Abierta: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "mesa_centro_abedul_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 4
+      },
+      {
+        "itemId": "chapa_abedul",
+        "cantidad": 1
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "mesa_centro_abedul",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Mesa de Centro de Abedul: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "candelabro_pie_hierro_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 3
+      },
+      {
+        "itemId": "vela_mesa",
+        "cantidad": 3
+      },
+      {
+        "itemId": "madera_dura",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "candelabro_pie_hierro",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Candelabro de Pie de Hierro: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "farol_colgante_cobre_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 2
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 2
+      },
+      {
+        "itemId": "cuerda",
+        "cantidad": 1
+      },
+      {
+        "itemId": "aceite",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "farol_colgante_cobre",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Farol Colgante de Cobre: mueble colocable con la tecla B (requiereItemColocar)."
+  },
   "laud_craft": {
     "oficio": "carpintero",
     "mesas": [
@@ -3370,6 +4434,450 @@
     "xpOtorgada": 32,
     "_nota": "docs/GDD_Crafteo.md §11 (2026-09-11, ampliación y coherencia del catálogo) —"
   },
+  "cama_roble_doble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 6
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 4
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "cama_roble_doble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cama Doble de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "sofa_lino_triple_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "estacion_curvado_vapor"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 6
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 6
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 4
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "sofa_lino_triple",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Sofá de Lino Triple: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "banco_respaldo_abedul_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 4
+      },
+      {
+        "itemId": "chapa_abedul",
+        "cantidad": 1
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "banco_respaldo_abedul",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Banco de Abedul con Respaldo: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "butaca_cuero_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "estacion_curvado_vapor"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cuero_curtido",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "butaca_cuero",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Butaca de Cuero: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "sofa_cuero_doble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "estacion_curvado_vapor"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "cuero_curtido",
+        "cantidad": 4
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "sofa_cuero_doble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Sofá de Cuero Doble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "comoda_roble_barnizada_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 5
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "comoda_roble_barnizada",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cómoda de Roble Barnizada: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "aparador_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 5
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "aparador_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Aparador de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "despensa_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 8
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 5
+      }
+    ],
+    "resultado": {
+      "itemId": "despensa_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Despensa de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "armario_ropa_abedul_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 6
+      },
+      {
+        "itemId": "chapa_abedul",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 4
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "armario_ropa_abedul",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Armario de Ropa de Abedul: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "maniqui_armadura_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 3
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 2
+      },
+      {
+        "itemId": "cuero_curtido",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "maniqui_armadura",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Maniquí para Armadura: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "escritorio_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 5
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "escritorio_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Escritorio de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "estanteria_pociones_roble_doble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 5
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "estanteria_pociones_roble_doble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Estantería Doble de Roble para Pociones: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "cuadro_retrato_marco_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 2
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 1
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 2
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "cuadro_retrato_marco_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Retrato con Marco de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "lampara_aceite_pie_hierro_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 2
+      },
+      {
+        "itemId": "madera_dura",
+        "cantidad": 2
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 1
+      },
+      {
+        "itemId": "aceite",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "lampara_aceite_pie_hierro",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Lámpara de Aceite de Pie de Hierro: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "candelabro_mesa_cobre_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 2
+      },
+      {
+        "itemId": "vela_mesa",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "candelabro_mesa_cobre",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Candelabro de Mesa de Cobre: mueble colocable con la tecla B (requiereItemColocar)."
+  },
   "hacha_corazon_roble_milenario_craft": {
     "oficio": "carpintero",
     "mesas": [
@@ -3446,6 +4954,362 @@
     "xpOtorgada": 39,
     "_nota": "docs/GDD_Crafteo.md §11 (2026-09-11, ampliación y coherencia del catálogo) —"
   },
+  "cama_abedul_tallada_individual_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 4
+      },
+      {
+        "itemId": "chapa_abedul",
+        "cantidad": 2
+      },
+      {
+        "itemId": "tela_reforzada",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 3
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "cama_abedul_tallada_individual",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cama Individual de Abedul Tallada: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "sofa_cuero_triple_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "estacion_curvado_vapor"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 6
+      },
+      {
+        "itemId": "cuero_curtido",
+        "cantidad": 6
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 4
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      }
+    ],
+    "resultado": {
+      "itemId": "sofa_cuero_triple",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Sofá de Cuero Triple: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "silla_abedul_tallada_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 2
+      },
+      {
+        "itemId": "chapa_abedul",
+        "cantidad": 1
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "silla_abedul_tallada",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Silla de Abedul Tallada: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "mecedora_sauce_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "estacion_curvado_vapor"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_sauce",
+        "cantidad": 4
+      },
+      {
+        "itemId": "mimbre",
+        "cantidad": 2
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "mecedora_sauce",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Mecedora de Sauce: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "armero_pie_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "armero_pie_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Armero de Pie de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "estante_trofeos_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "estante_trofeos_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Repisa de Trofeos de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "vitrina_libros_abedul_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 5
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 2
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "vitrina_libros_abedul",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Vitrina de Abedul para Libros: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "arcon_tratado_reforzado_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 4
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 3
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cuero_endurecido",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "arcon_tratado_reforzado",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Arcón Tratado Reforzado: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "estanteria_abedul_alta_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 6
+      },
+      {
+        "itemId": "chapa_abedul",
+        "cantidad": 2
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "estanteria_abedul_alta",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Estantería de Abedul Alta: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "armario_roble_grande_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 8
+      },
+      {
+        "itemId": "clavos",
+        "cantidad": 5
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "armario_roble_grande",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Armario de Roble Grande: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "biombo_abedul_pintado_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 4
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "biombo_abedul_pintado",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Biombo de Abedul Pintado: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "espejo_marco_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 5,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 2
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 2
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "espejo_marco_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 45,
+    "xpOtorgada": 40,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Espejo con Marco de Roble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
   "escritorio_abedul_tallado_craft": {
     "oficio": "carpintero",
     "mesas": [
@@ -3473,6 +5337,258 @@
     "tiempoBaseSeg": 50,
     "xpOtorgada": 44,
     "_nota": "docs/GDD_Crafteo.md §11 (2026-09-11, ampliación y coherencia del catálogo) —"
+  },
+  "cama_abedul_tallada_doble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 6,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 6
+      },
+      {
+        "itemId": "chapa_abedul",
+        "cantidad": 3
+      },
+      {
+        "itemId": "tela_reforzada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 4
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "cama_abedul_tallada_doble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55,
+    "xpOtorgada": 45,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cama Doble de Abedul Tallada: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "butaca_terciopelo_noble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 6,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "tela_reforzada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 1
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 2
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "butaca_terciopelo_noble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55,
+    "xpOtorgada": 45,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Butaca de Terciopelo Noble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "sofa_terciopelo_doble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 6,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 4
+      },
+      {
+        "itemId": "tela_reforzada",
+        "cantidad": 4
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 4
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "sofa_terciopelo_doble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55,
+    "xpOtorgada": 45,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Sofá de Terciopelo Doble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "vitrina_joyas_cristal_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 6,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lingote_plata",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "vitrina_joyas_cristal",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55,
+    "xpOtorgada": 45,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Vitrina de Cristal para Joyas: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "tocador_espejo_abedul_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 6,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 1
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "tocador_espejo_abedul",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55,
+    "xpOtorgada": 45,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Tocador de Abedul con Espejo: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "expositor_armas_roble_grande_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 6,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 6
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 2
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "expositor_armas_roble_grande",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55,
+    "xpOtorgada": 45,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Expositor de Armas de Roble Grande: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "espejo_pie_abedul_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 6,
+    "insumos": [
+      {
+        "itemId": "madera_abedul",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 3
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "espejo_pie_abedul",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55,
+    "xpOtorgada": 45,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Espejo de Pie de Abedul: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "reloj_pared_roble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 6,
+    "insumos": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 2
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 1
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "reloj_pared_roble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 55,
+    "xpOtorgada": 45,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Reloj de Pared de Roble: mueble colocable con la tecla B (requiereItemColocar)."
   },
   "armario_nogal_barnizado_craft": {
     "oficio": "carpintero",
@@ -3530,6 +5646,250 @@
     "xpOtorgada": 50,
     "_nota": "docs/GDD_Crafteo.md §8 (2026-09-08) — pieza insignia, techo real de progresión del oficio."
   },
+  "cama_noble_dosel_doble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 7,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 6
+      },
+      {
+        "itemId": "tela_reforzada",
+        "cantidad": 4
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 4
+      },
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 1
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "cama_noble_dosel_doble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 65,
+    "xpOtorgada": 51,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cama Noble Doble con Dosel: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "sofa_terciopelo_triple_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 7,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 6
+      },
+      {
+        "itemId": "tela_reforzada",
+        "cantidad": 6
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 5
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "sofa_terciopelo_triple",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 65,
+    "xpOtorgada": 51,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Sofá de Terciopelo Triple: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "sillon_orejero_cuero_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "estacion_curvado_vapor"
+    ],
+    "nivelMinimo": 7,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cuero_endurecido",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 3
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "sillon_orejero_cuero",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 65,
+    "xpOtorgada": 51,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Sillón Orejero de Cuero: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "baul_noble_tallado_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 7,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 4
+      },
+      {
+        "itemId": "chapa_abedul",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 2
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 2
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "baul_noble_tallado",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 65,
+    "xpOtorgada": 51,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Baúl Noble Tallado: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "maniqui_armadura_noble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 7,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "tela_reforzada",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 1
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "maniqui_armadura_noble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 65,
+    "xpOtorgada": 51,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Maniquí Noble para Armadura: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "armario_ropa_noble_espejo_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 7,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 8
+      },
+      {
+        "itemId": "chapa_abedul",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 2
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 2
+      },
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "armario_ropa_noble_espejo",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 65,
+    "xpOtorgada": 51,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Armario de Ropa Noble con Espejo: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "lampara_arana_cobre_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_ensamblaje"
+    ],
+    "nivelMinimo": 7,
+    "insumos": [
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 4
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 2
+      },
+      {
+        "itemId": "vela_mesa",
+        "cantidad": 6
+      },
+      {
+        "itemId": "cuerda",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "lampara_arana_cobre",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 65,
+    "xpOtorgada": 51,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Araña de Cobre de Seis Velas: mueble colocable con la tecla B (requiereItemColocar)."
+  },
   "cama_dosel_maestra_craft": {
     "oficio": "carpintero",
     "mesas": [
@@ -3561,6 +5921,74 @@
     "tiempoBaseSeg": 80,
     "xpOtorgada": 57,
     "_nota": "docs/GDD_Crafteo.md §11 (2026-09-11, ampliación y coherencia del catálogo) —"
+  },
+  "divan_seda_noble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "estacion_curvado_vapor"
+    ],
+    "nivelMinimo": 8,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 4
+      },
+      {
+        "itemId": "tela_reforzada",
+        "cantidad": 5
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lana",
+        "cantidad": 4
+      },
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "divan_seda_noble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 85,
+    "xpOtorgada": 58,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Diván de Seda Noble: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "mesa_banquete_noble_craft": {
+    "oficio": "carpintero",
+    "mesas": [
+      "mesa_talla_fina"
+    ],
+    "nivelMinimo": 8,
+    "insumos": [
+      {
+        "itemId": "madera_tratada",
+        "cantidad": 8
+      },
+      {
+        "itemId": "chapa_abedul",
+        "cantidad": 4
+      },
+      {
+        "itemId": "barniz",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lingote_cobre",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "mesa_banquete_noble",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 85,
+    "xpOtorgada": 58,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Mesa de Banquete Noble: mueble colocable con la tecla B (requiereItemColocar)."
   },
   "busto_piedra_cincelada_craft": {
     "oficio": "picapedrero",
@@ -6592,6 +9020,54 @@
     "xpOtorgada": 23,
     "_nota": "docs/GDD_Profesiones.md, recetas de equipo ya existente sin craftear (2026-08-30)."
   },
+  "alfombra_lana_pequena_craft": {
+    "oficio": "curtidor",
+    "mesas": [
+      "telar"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "lana",
+        "cantidad": 6
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "alfombra_lana_pequena",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Alfombra de Lana Pequeña: mueble colocable con la tecla B (requiereItemColocar)."
+  },
+  "cortina_lino_craft": {
+    "oficio": "curtidor",
+    "mesas": [
+      "telar"
+    ],
+    "nivelMinimo": 2,
+    "insumos": [
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cuerda",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "cortina_lino",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 25,
+    "xpOtorgada": 24,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Cortina de Lino: mueble colocable con la tecla B (requiereItemColocar)."
+  },
   "botas_finas_noble_craft": {
     "oficio": "curtidor",
     "mesas": [
@@ -6969,6 +9445,34 @@
     "xpOtorgada": 27,
     "_nota": "docs/GDD_Equipo.md §11 (2026-09-02)."
   },
+  "tapiz_lana_pared_craft": {
+    "oficio": "curtidor",
+    "mesas": [
+      "telar"
+    ],
+    "nivelMinimo": 3,
+    "insumos": [
+      {
+        "itemId": "lana",
+        "cantidad": 8
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 2
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 1
+      }
+    ],
+    "resultado": {
+      "itemId": "tapiz_lana_pared",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 30,
+    "xpOtorgada": 29,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Tapiz de Lana: mueble colocable con la tecla B (requiereItemColocar)."
+  },
   "mochila_expedicion_craft": {
     "oficio": "curtidor",
     "mesas": [
@@ -7161,6 +9665,30 @@
     "tiempoBaseSeg": 30,
     "xpOtorgada": 33,
     "_nota": "docs/GDD_Instrumentos.md (2026-08-31) — 1 de 4 instrumentos musicales interactivos. \"tina_curtido\" es la Mesa Nivel 2 del curtidor (NIVEL_MESA en oficios.ts: tier 2 = nivelOficioMinimo.nivel 4), gating explícito pedido por el streamer."
+  },
+  "alfombra_lana_grande_craft": {
+    "oficio": "curtidor",
+    "mesas": [
+      "telar"
+    ],
+    "nivelMinimo": 4,
+    "insumos": [
+      {
+        "itemId": "lana",
+        "cantidad": 14
+      },
+      {
+        "itemId": "tinte",
+        "cantidad": 2
+      }
+    ],
+    "resultado": {
+      "itemId": "alfombra_lana_grande",
+      "cantidad": 1
+    },
+    "tiempoBaseSeg": 35,
+    "xpOtorgada": 34,
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — Alfombra de Lana Grande: mueble colocable con la tecla B (requiereItemColocar)."
   },
   "botas_cuero_endurecido_craft": {
     "oficio": "curtidor",

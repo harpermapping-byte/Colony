@@ -244,7 +244,54 @@ function gridDe(huella, alturaCasillas) {
 
 // --- arquetipos con detalle real ------------------------------------------
 
+/**
+ * Asiento TAPIZADO (sofá/butaca/sillón/diván — docs/GDD_Construccion.md §9,
+ * 2026-09-11): a diferencia de la silla de patas vistas, aquí el cuerpo es un
+ * bloque macizo (base + cojín), con reposabrazos a ambos lados y respaldo
+ * de toda la anchura; el diván pierde el respaldo y un reposabrazos (es para
+ * tumbarse a medias). La huella manda: [2,1] = dos plazas, [3,1] = tres —
+ * los cojines se marcan por plaza para que se lea cuántos caben.
+ */
+function generarAsientoTapizado(huella, color, id) {
+  const esDivan = id.includes("divan");
+  const [gx, gy, gz] = gridDe(huella, esDivan ? 0.6 : 0.85);
+  const b = Builder();
+  const tela = color, dark = sombrear(color, 0.62), light = sombrear(color, 1.18);
+  const madera = sombrear(color, 0.45);
+  const baseH = Math.max(1, Math.round(gy * 0.12));
+  const seatY1 = Math.round(gy * 0.45);
+  const armW = Math.max(2, Math.round(U * 0.16));
+  const armH = Math.round(gy * 0.68);
+  const backT = Math.max(2, Math.round(U * 0.2));
+  // base de madera vista (zócalo) + patas cortas en las esquinas
+  b.caja(1, 0, 1, gx - 2, baseH - 1, gz - 2, madera);
+  // cojín de asiento: un bloque por plaza, con una ranura oscura entre plazas
+  const plazas = Math.max(1, huella[0]);
+  const anchoPlaza = (gx - 2 * armW) / plazas;
+  for (let p = 0; p < plazas; p++) {
+    const x0 = armW + Math.round(anchoPlaza * p), x1 = armW + Math.round(anchoPlaza * (p + 1)) - 1;
+    b.caja(x0, baseH, backT, x1, seatY1, gz - 1, tela);
+    b.caja(x0 + 1, seatY1 + 1, backT + 1, x1 - 1, seatY1 + 1, gz - 2, light); // relleno mullido asomando
+    if (p > 0) b.caja(x0, baseH, backT, x0, seatY1 + 1, gz - 1, dark); // costura entre plazas
+  }
+  // reposabrazos (el diván solo uno, el del cabecero)
+  b.caja(0, baseH, 0, armW - 1, armH, gz - 1, dark);
+  if (!esDivan) b.caja(gx - armW, baseH, 0, gx - 1, armH, gz - 1, dark);
+  // respaldo: toda la anchura, pegado al lado z=0 (la espalda del mueble)
+  if (!esDivan) {
+    b.caja(0, baseH, 0, gx - 1, gy - 1, backT - 1, tela);
+    // botones capitoné en el respaldo (tapizado real, no un bloque liso)
+    for (let x = armW + 2; x < gx - armW - 1; x += Math.max(2, Math.round(U * 0.22))) {
+      for (let y = seatY1 + 2; y < gy - 2; y += Math.max(2, Math.round(U * 0.22))) b.caja(x, y, backT - 1, x, y, backT - 1, dark);
+    }
+  } else {
+    b.caja(0, baseH, 0, gx - 1, seatY1 + 2, backT - 1, tela); // reborde bajo del diván
+  }
+  return { grid: [gx, gy, gz], paleta: b.paleta, cajas: b.cajas };
+}
+
 function generarAsiento(huella, color, id) {
+  if (/sofa|butaca|sillon|divan/.test(id)) return generarAsientoTapizado(huella, color, id);
   // Alturas reales (pedido streamer: "las sillas son GIGANTES") — antes 2.3
   // casillas normal / 2.6 mecedora / 3.4 trono: con el rig humano a ~1.57
   // unidades de alto (client/src/render3d/proporcionesRig.json) una silla
@@ -413,7 +460,58 @@ function generarMesa(huella, color, esSuperficie, id) {
   return { grid: [gx, gy, gz], paleta: b.paleta, cajas: b.cajas };
 }
 
+/**
+ * Cama con DOSEL (docs/GDD_Construccion.md §9, 2026-09-11): cuatro postes
+ * de altura completa, bastidor superior y un techo de tela — la cama base
+ * (colchón/almohada/manta) es exactamente la de generarCama, solo cambia
+ * la estructura de arriba. Altura 1.6 casillas: un dosel real sí llega
+ * por encima de una persona, es su gracia.
+ */
+function generarCamaDosel(huella, color, id) {
+  const base = generarCama(huella, color, id.replace("dosel", "base"));
+  const [gx, , gz] = base.grid;
+  const gy = Math.round(1.6 * U);
+  const b = Builder();
+  for (const [x0, y0, z0, x1, y1, z1, pIdx] of base.cajas) b.caja(x0, y0, z0, x1, y1, z1, base.paleta[pIdx]);
+  const dark = sombrear(color, 0.65), tela = sombrear(color, 1.35);
+  const postW = Math.max(2, Math.round(U * 0.18));
+  for (const [px, pz] of [[0, 0], [gx - postW, 0], [0, gz - postW], [gx - postW, gz - postW]]) b.caja(px, 0, pz, px + postW - 1, gy - 1, pz + postW - 1, dark);
+  const railT = Math.max(1, Math.round(U * 0.1));
+  b.caja(0, gy - railT, 0, gx - 1, gy - 1, postW - 1, dark);
+  b.caja(0, gy - railT, gz - postW, gx - 1, gy - 1, gz - 1, dark);
+  b.caja(0, gy - railT, 0, postW - 1, gy - 1, gz - 1, dark);
+  b.caja(gx - postW, gy - railT, 0, gx - 1, gy - 1, gz - 1, dark);
+  b.caja(1, gy - railT - 1, 1, gx - 2, gy - railT - 1, gz - 2, tela); // techo de tela
+  // cortinajes recogidos en los postes del cabecero
+  b.caja(postW, Math.round(gy * 0.3), 0, postW + 1, gy - railT - 2, 1, tela);
+  b.caja(gx - postW - 2, Math.round(gy * 0.3), 0, gx - postW - 1, gy - railT - 2, 1, tela);
+  return { grid: [gx, gy, gz], paleta: b.paleta, cajas: b.cajas };
+}
+
+/** Litera (2026-09-11): dos camas apiladas en la misma huella — postes de altura completa y un segundo colchón a media altura, con escalera lateral. */
+function generarLitera(huella, color, id) {
+  const base = generarCama(huella, color, id.replace("litera", "cama"));
+  const [gx, , gz] = base.grid;
+  const gy = Math.round(1.55 * U);
+  const b = Builder();
+  for (const [x0, y0, z0, x1, y1, z1, pIdx] of base.cajas) b.caja(x0, y0, z0, x1, y1, z1, base.paleta[pIdx]);
+  const dark = sombrear(color, 0.65), wood = color;
+  const postW = Math.max(2, Math.round(U * 0.18));
+  for (const [px, pz] of [[0, 0], [gx - postW, 0], [0, gz - postW], [gx - postW, gz - postW]]) b.caja(px, 0, pz, px + postW - 1, gy - 1, pz + postW - 1, dark);
+  const altaY0 = Math.round(gy * 0.55);
+  const railT = Math.max(1, Math.round(U * 0.1));
+  b.caja(0, altaY0, 0, gx - 1, altaY0 + railT, gz - 1, wood); // somier de la cama de arriba
+  b.caja(postW, altaY0 + railT + 1, postW, gx - postW - 1, altaY0 + railT + Math.max(2, Math.round(U * 0.2)), gz - postW - 1, "#e8ddc4"); // colchón
+  b.caja(postW + 1, altaY0 + railT + Math.max(2, Math.round(U * 0.2)) + 1, postW + 1, gx - postW - 2, altaY0 + railT + Math.max(2, Math.round(U * 0.2)) + 2, Math.round(gz * 0.32), "#f5f0e2"); // almohada
+  b.caja(0, altaY0 + railT + 1, 0, gx - 1, altaY0 + railT + Math.max(2, Math.round(U * 0.28)), postW - 1, dark); // barandilla del cabecero alto
+  // escalera en el lateral x=gx-1
+  for (let y = Math.round(gy * 0.12); y < altaY0; y += Math.max(2, Math.round(U * 0.14))) b.caja(gx - 1, y, Math.round(gz * 0.55), gx - 1, y, Math.round(gz * 0.8), wood);
+  return { grid: [gx, gy, gz], paleta: b.paleta, cajas: b.cajas };
+}
+
 function generarCama(huella, color, id) {
+  if (id.includes("dosel")) return generarCamaDosel(huella, color, id);
+  if (id.includes("litera")) return generarLitera(huella, color, id);
   // Altura real (pedido streamer: "la cama ENORME") — antes 1.5 casillas
   // (~1.6m) de postes de cabecero para CUALQUIER cama, casi tan alto como
   // la propia persona de pie. Una cama sencilla (no un dosel de cuatro
@@ -496,11 +594,25 @@ function puertaConDetalle(b, x0, y0, z0, x1, y1, z1, wood, dark, ladoTiradorDere
   }
 }
 
+/**
+ * Altura real por tipo de contenedor alto (docs/GDD_Construccion.md §9,
+ * 2026-09-11) — antes TODOS salían a 3.2 casillas (el doble de una persona
+ * de 1.57u, mismo bug "muebles gigantes" ya corregido para silla/mesa/cama
+ * el 2026-09-06 pero no para armarios). Un armario/estantería real ronda
+ * 1.9-2.0m (~1.9u), una cómoda/aparador/botellero la cintura (~0.95u) y
+ * una balda/expositor de pared algo más (~1.25u).
+ */
+function alturaContenedorAlto(id) {
+  if (/comoda|aparador|tocador|mesa_noche|botellero|estante_pared|estante_trofeos|platero|cajon_/.test(id)) return 0.95;
+  if (/estanteria_pociones|expositor_.*_pared|estante_|balda/.test(id)) return 1.25;
+  return 1.9;
+}
+
 function generarContenedorAlto(huella, color, id) {
-  const [gx, gy, gz] = gridDe(huella, 3.2);
+  const [gx, gy, gz] = gridDe(huella, alturaContenedorAlto(id));
   const b = Builder();
   const wood = color, dark = sombrear(color, 0.6), light = sombrear(color, 1.25);
-  const esAbierto = id.includes("estanteria");
+  const esAbierto = /estanteria|estante|expositor|botellero|vitrina|platero|armero/.test(id);
   const plinth = Math.max(1, Math.round(U * 0.12));
   // zócalo
   b.caja(0, 0, 0, gx - 1, plinth - 1, gz - 1, dark);
@@ -517,7 +629,7 @@ function generarContenedorAlto(huella, color, id) {
   const doorY0 = plinth + 1, doorY1 = gy - Math.round(U * 0.12) - 2;
 
   if (esAbierto) {
-    const nBaldas = 4;
+    const nBaldas = gy < U * 1.3 ? 2 : 4; // una balda baja/cómoda abierta no necesita 4 estantes
     if (frenteEnZ) {
       b.caja(0, plinth, 0, gx - 1, gy - Math.round(U * 0.12) - 1, Math.max(1, Math.round(U * 0.08)), dark); // panel trasero en z=0
       for (let i = 1; i <= nBaldas; i++) {
@@ -584,7 +696,7 @@ function generarContenedorBajo(huella, color, id) {
     // cesta de mimbre: cuerpo troncocónico (más ancho arriba), textura de
     // trenzado (bandas horizontales alternas), reborde en el aro y asa en
     // arco — SIN herrajes de metal ni cerradura, eso es de cofre de madera
-    const [gx, gy, gz] = gridDe(huella, 0.9);
+    const [gx, gy, gz] = gridDe(huella, 0.6);
     const b = Builder();
     const mimbre = color, oscuro = sombrear(color, 0.75), claro = sombrear(color, 1.2);
     const capas = 6;
@@ -602,8 +714,11 @@ function generarContenedorBajo(huella, color, id) {
     b.caja(1, gy + asaAltura, Math.round(gz / 2) - 1, gx - 2, gy + asaAltura + 1, Math.round(gz / 2), oscuro); // arco del asa
     return { grid: [gx, gy + asaAltura + 2, gz], paleta: b.paleta, cajas: b.cajas };
   }
-  // baul / arcon / cofre — cofre con tapa y herrajes
-  const [gx, gy, gz] = gridDe(huella, 1.3);
+  // baul / arcon / cofre — cofre con tapa y herrajes. Altura real (2026-09-11,
+  // mismo criterio "muebles gigantes" que silla/mesa/cama/armario): un arcón
+  // llega a la rodilla-cadera (~0.8 casillas, antes 1.3 = a la altura del
+  // pecho), una caja/cajón/cesto queda por debajo (~0.55).
+  const [gx, gy, gz] = gridDe(huella, /caja|cajon|cesto/.test(id) ? 0.55 : 0.8);
   const b = Builder();
   const wood = color, dark = sombrear(color, 0.65);
   const bodyY1 = Math.round(gy * 0.6);
@@ -874,12 +989,116 @@ function generarHerramientaPared(id, color) {
   return { grid: [gx, gy, gz], paleta: b.paleta, cajas: b.cajas };
 }
 
-function generarObjetoPequeno(id, color) {
+// Forma por PALABRA CLAVE para objetos sin entrada exacta en `formas`
+// (mobiliario del carpintero, docs/GDD_Construccion.md §9, 2026-09-11):
+// "candelabro_pie_hierro"/"candelabro_salon_jarl" comparten la forma
+// candelabro, cualquier "lampara_*" la de aceite, etc. Orden importa (la
+// araña se mira antes que "lampara").
+const FORMA_POR_KEYWORD = [
+  ["lampara_arana", "lampara_arana"], ["candelabro", "candelabro"], ["candelero", "candelero"], ["vela", "candelero"],
+  ["lampara", "lampara_aceite"], ["farol", "farol"], ["maniqui", "maniqui"], ["perchero", "perchero"], ["armero", "armero"],
+  ["espejo", "espejo"], ["reloj", "reloj_pie"], ["cuadro", "cuadro"], ["retrato", "cuadro"], ["tapiz", "tapiz"],
+  ["cortina", "cortina"], ["biombo", "biombo"], ["macet", "maceta"],
+];
+function formaPorKeyword(id) {
+  for (const [k, f] of FORMA_POR_KEYWORD) if (id.includes(k)) return f;
+  return null;
+}
+
+/** Sube todo el modelo `dy` vóxeles (piezas colgantes: araña/farol se colocan en el suelo pero cuelgan a la altura del techo). */
+function elevar(modelo, dy) {
+  return { ...modelo, grid: [modelo.grid[0], modelo.grid[1] + dy, modelo.grid[2]], cajas: modelo.cajas.map(([x0, y0, z0, x1, y1, z1, p]) => [x0, y0 + dy, z0, x1, y1 + dy, z1, p]) };
+}
+
+/** Biombo de 3 hojas en zigzag a lo ancho de su huella real (2026-09-11) — antes, con huella [2,1], caía al bulto genérico. */
+function generarBiombo(huella, color) {
+  const gx = Math.round(Math.max(1, huella[0]) * U), gy = Math.round(U * 1.5), gz = Math.round(U * 0.5);
+  const b = Builder();
+  const dark = sombrear(color, 0.65), tela = sombrear(color, 1.15);
+  const hojas = 3, anchoHoja = Math.floor(gx / hojas);
+  const marco = Math.max(1, Math.round(U * 0.06));
+  for (let i = 0; i < hojas; i++) {
+    const x0 = i * anchoHoja, x1 = (i === hojas - 1 ? gx : (i + 1) * anchoHoja) - 1;
+    const z = i % 2 === 0 ? 1 : gz - 2;
+    b.caja(x0, 0, z, x1, gy - 1, z, dark); // marco
+    b.caja(x0 + marco, marco, z, x1 - marco, gy - 1 - marco, z, tela); // tela pintada
+    b.caja(x0 + marco + 1, Math.round(gy * 0.35), z, x1 - marco - 1, Math.round(gy * 0.4), z, dark); // motivo horizontal
+  }
+  return { grid: [gx, gy, gz], paleta: b.paleta, cajas: b.cajas };
+}
+
+function generarObjetoPequeno(id, color, huella = [1, 1]) {
+  if (id.includes("lampara_arana")) return elevar(generarLamparaArana([1, 1]), Math.round(U * 1.0));
+  if (id.includes("biombo")) return generarBiombo(huella, color);
   const G = Math.max(6, Math.round(U * 0.7));
+  // Objetos DE PIE (perchero/maniquí/armero/candelabro de pie/espejo de pie/
+  // cortina...): más altos que anchos — la rejilla cúbica G x G x G los
+  // dejaba a 0.7 casillas, a la altura de la rodilla de una persona.
+  const esDePie = /perchero|maniqui|armero|reloj_pie|antorcha_pie|_pie|cortina/.test(id);
+  const H = esDePie ? Math.round(U * 1.5) : G;
   const b = Builder();
   const dark = sombrear(color, 0.7), light = sombrear(color, 1.3);
+  const cx = Math.round(G / 2);
+  const llama = (x, y, z) => { b.caja(x - 1, y, z - 1, x, y + 2, z, LLAMA_BORDE); b.caja(x - 1, y + 1, z - 1, x, y + 3, z, LLAMA); b.caja(x, y + 1, z, x, y + 2, z, LLAMA_NUCLEO); };
+  const vela = (x, y0, y1, z) => { b.caja(x - 1, y0, z - 1, x, y1, z, "#f0e6c8"); llama(x, y1 + 1, z); };
 
   const formas = {
+    // --- iluminación de pie/mesa (mobiliario del carpintero) ---
+    candelero: () => {
+      b.caja(cx - Math.round(G * 0.3), 0, cx - Math.round(G * 0.3), cx + Math.round(G * 0.3), 0, cx + Math.round(G * 0.3), dark); // pie
+      b.caja(cx - 1, 1, cx - 1, cx, Math.round(H * 0.4), cx, color); // vástago
+      b.caja(cx - 2, Math.round(H * 0.4), cx - 2, cx + 1, Math.round(H * 0.45), cx + 1, dark); // platillo
+      vela(cx, Math.round(H * 0.46), Math.round(H * 0.72), cx);
+    },
+    candelabro: () => {
+      const metal = color;
+      b.caja(cx - Math.round(G * 0.3), 0, cx - Math.round(G * 0.3), cx + Math.round(G * 0.3), 0, cx + Math.round(G * 0.3), dark);
+      b.caja(cx - 1, 1, cx - 1, cx, Math.round(H * 0.5), cx, metal); // fuste
+      const armY = Math.round(H * 0.5);
+      b.caja(1, armY, cx - 1, G - 2, armY + 1, cx, metal); // brazo horizontal
+      for (const x of [2, cx, G - 3]) {
+        b.caja(x - 1, armY + 2, cx - 1, x, armY + 2, cx, dark); // platillo
+        vela(x, armY + 3, Math.round(H * 0.78), cx);
+      }
+    },
+    lampara_aceite: () => {
+      b.caja(cx - Math.round(G * 0.3), 0, cx - Math.round(G * 0.3), cx + Math.round(G * 0.3), 1, cx + Math.round(G * 0.3), dark); // base
+      b.caja(cx - 1, 2, cx - 1, cx, Math.round(H * 0.22), cx, color); // pie (corto en la de mesa, largo en la de pie)
+      b.caja(cx - Math.round(G * 0.28), Math.round(H * 0.22), cx - Math.round(G * 0.28), cx + Math.round(G * 0.28), Math.round(H * 0.45), cx + Math.round(G * 0.28), color); // depósito de aceite
+      b.caja(cx - Math.round(G * 0.2), Math.round(H * 0.46), cx - Math.round(G * 0.2), cx + Math.round(G * 0.2), Math.round(H * 0.88), cx + Math.round(G * 0.2), CRISTAL); // tulipa
+      llama(cx, Math.round(H * 0.5), cx);
+      b.caja(cx - Math.round(G * 0.22), Math.round(H * 0.88), cx - Math.round(G * 0.22), cx + Math.round(G * 0.22), Math.round(H * 0.92), cx + Math.round(G * 0.22), dark); // remate
+    },
+    farol: () => {
+      const r = Math.round(G * 0.28);
+      b.caja(cx - r, Math.round(G * 0.15), cx - r, cx + r, Math.round(G * 0.2), cx + r, METAL); // suelo del farol
+      for (const [dx, dz] of [[-r, -r], [r, -r], [-r, r], [r, r]]) b.caja(cx + dx, Math.round(G * 0.2), cx + dz, cx + dx, Math.round(G * 0.72), cx + dz, METAL); // montantes
+      b.caja(cx - r + 1, Math.round(G * 0.22), cx - r + 1, cx + r - 1, Math.round(G * 0.7), cx + r - 1, CRISTAL); // cristal
+      llama(cx, Math.round(G * 0.3), cx);
+      b.caja(cx - r - 1, Math.round(G * 0.72), cx - r - 1, cx + r + 1, Math.round(G * 0.8), cx + r + 1, METAL); // tejadillo
+      b.caja(cx - 1, Math.round(G * 0.8), cx - 1, cx, Math.round(G * 0.95), cx, METAL); // asa/argolla
+    },
+    maniqui: () => {
+      b.caja(cx - Math.round(G * 0.3), 0, cx - Math.round(G * 0.3), cx + Math.round(G * 0.3), 0, cx + Math.round(G * 0.3), dark); // peana
+      b.caja(cx - 1, 1, cx - 1, cx, Math.round(H * 0.35), cx, dark); // mástil
+      b.caja(cx - Math.round(G * 0.25), Math.round(H * 0.35), cx - Math.round(G * 0.15), cx + Math.round(G * 0.25), Math.round(H * 0.78), cx + Math.round(G * 0.15), color); // torso
+      b.caja(cx - Math.round(G * 0.3), Math.round(H * 0.66), cx - Math.round(G * 0.15), cx + Math.round(G * 0.3), Math.round(H * 0.78), cx + Math.round(G * 0.15), light); // hombros
+      b.caja(cx - 1, Math.round(H * 0.79), cx - 1, cx, Math.round(H * 0.84), cx, dark); // cuello
+      b.caja(cx - 2, Math.round(H * 0.85), cx - 2, cx + 1, H - 1, cx + 1, light); // cabeza
+    },
+    cuadro: () => {
+      const m = generarPanelPared([1, 1], color, "cuadro");
+      for (const [x0, y0, z0, x1, y1, z1, pIdx] of m.cajas) b.caja(x0, y0, z0, x1, y1, z1, m.paleta[pIdx]);
+    },
+    tapiz: () => {
+      const m = generarPanelPared([1, 1], color, "tapiz");
+      for (const [x0, y0, z0, x1, y1, z1, pIdx] of m.cajas) b.caja(x0, y0, z0, x1, y1, z1, m.paleta[pIdx]);
+    },
+    cortina: () => {
+      b.caja(0, H - 1, cx - 1, G - 1, H - 1, cx, METAL); // barra
+      for (let x = 0; x < G; x++) b.caja(x, Math.round(H * 0.05), cx - 1 + (x % 2), x, H - 2, cx - 1 + (x % 2), x % 2 ? dark : color); // pliegues alternos
+      b.caja(1, Math.round(H * 0.45), cx - 2, G - 2, Math.round(H * 0.5), cx + 1, dark); // alzapaño
+    },
     taza: () => { b.caja(1, 0, 1, G - 2, Math.round(G * 0.6), G - 2, color); b.caja(G - 1, Math.round(G * 0.2), Math.round(G / 2) - 1, G, Math.round(G * 0.5), Math.round(G / 2) + 1, color); },
     jarra_agua: () => { b.caja(1, 0, 1, G - 2, Math.round(G * 0.7), G - 2, color); b.caja(Math.round(G * 0.3), Math.round(G * 0.7), Math.round(G * 0.3), Math.round(G * 0.7), G - 1, Math.round(G * 0.7), color); b.caja(G - 1, Math.round(G * 0.3), Math.round(G / 2) - 1, G, Math.round(G * 0.6), Math.round(G / 2) + 1, color); },
     jarra_cerveza: () => { b.caja(1, 0, 1, G - 2, Math.round(G * 0.75), G - 2, color); b.caja(1, Math.round(G * 0.75), 1, G - 2, Math.round(G * 0.75) + 1, G - 2, light); b.caja(G - 1, Math.round(G * 0.25), Math.round(G / 2) - 1, G, Math.round(G * 0.55), Math.round(G / 2) + 1, dark); },
@@ -888,24 +1107,23 @@ function generarObjetoPequeno(id, color) {
     libro: () => { for (let i = 0; i < 3; i++) b.caja(i, i, i, G - 1 - i, Math.round(G * 0.1), G - 1 - i, i === 1 ? light : color); },
     pergamino: () => { b.caja(0, 0, Math.round(G * 0.3), G - 1, Math.round(G * 0.2), Math.round(G * 0.7), "#e8d9a8"); b.caja(0, 0, Math.round(G * 0.3), 1, Math.round(G * 0.25), Math.round(G * 0.7), dark); b.caja(G - 2, 0, Math.round(G * 0.3), G - 1, Math.round(G * 0.25), Math.round(G * 0.7), dark); },
     frasco_pocion: () => { b.caja(Math.round(G * 0.25), 0, Math.round(G * 0.25), Math.round(G * 0.75), Math.round(G * 0.6), Math.round(G * 0.75), CRISTAL); b.caja(Math.round(G * 0.35), Math.round(G * 0.6), Math.round(G * 0.35), Math.round(G * 0.65), Math.round(G * 0.7), Math.round(G * 0.65), color); b.caja(Math.round(G * 0.3), 1, Math.round(G * 0.3), Math.round(G * 0.7), Math.round(G * 0.45), Math.round(G * 0.7), color); },
-    espejo: () => { b.caja(0, 0, Math.round(G * 0.7), G - 1, G - 1, G - 1, dark); b.caja(1, 1, Math.round(G * 0.7) - 1, G - 2, G - 2, Math.round(G * 0.7) - 1, "#cfe0e6"); },
-    reloj_pie: () => { b.caja(Math.round(G * 0.2), 0, Math.round(G * 0.2), Math.round(G * 0.8), G - Math.round(G * 0.15), Math.round(G * 0.8), color); b.caja(Math.round(G * 0.3), G - Math.round(G * 0.3), Math.round(G * 0.15), Math.round(G * 0.7), G - Math.round(G * 0.15), Math.round(G * 0.15) + 1, light); b.caja(Math.round(G * 0.2), G - Math.round(G * 0.15), Math.round(G * 0.15), Math.round(G * 0.8), G - 1, Math.round(G * 0.85), dark); },
-    perchero: () => { b.caja(Math.round(G / 2) - 1, 0, Math.round(G / 2) - 1, Math.round(G / 2), G - 1, Math.round(G / 2), color); for (const dz of [-1, 1]) for (const dx of [-1, 1]) b.caja(Math.round(G / 2) + dx, Math.round(G * 0.75), Math.round(G / 2) + dz, Math.round(G / 2) + dx, Math.round(G * 0.78), Math.round(G / 2) + dz, dark); b.caja(Math.round(G * 0.2), 0, Math.round(G * 0.2), Math.round(G * 0.8), 1, Math.round(G * 0.8), dark); },
+    espejo: () => { b.caja(0, 0, Math.round(G * 0.7), G - 1, H - 1, G - 1, dark); b.caja(1, 1, Math.round(G * 0.7) - 1, G - 2, H - 2, Math.round(G * 0.7) - 1, "#cfe0e6"); },
+    reloj_pie: () => { b.caja(Math.round(G * 0.2), 0, Math.round(G * 0.2), Math.round(G * 0.8), H - Math.round(G * 0.15), Math.round(G * 0.8), color); b.caja(Math.round(G * 0.3), H - Math.round(G * 0.3), Math.round(G * 0.15), Math.round(G * 0.7), H - Math.round(G * 0.15), Math.round(G * 0.15) + 1, light); b.caja(Math.round(G * 0.2), H - Math.round(G * 0.15), Math.round(G * 0.15), Math.round(G * 0.8), H - 1, Math.round(G * 0.85), dark); },
+    perchero: () => { b.caja(Math.round(G / 2) - 1, 0, Math.round(G / 2) - 1, Math.round(G / 2), H - 1, Math.round(G / 2), color); for (const dz of [-1, 1]) for (const dx of [-1, 1]) b.caja(Math.round(G / 2) + dx, Math.round(H * 0.75), Math.round(G / 2) + dz, Math.round(G / 2) + dx, Math.round(H * 0.78), Math.round(G / 2) + dz, dark); b.caja(Math.round(G * 0.2), 0, Math.round(G * 0.2), Math.round(G * 0.8), 1, Math.round(G * 0.8), dark); },
     maceta: () => { b.caja(Math.round(G * 0.15), 0, Math.round(G * 0.15), Math.round(G * 0.85), Math.round(G * 0.4), Math.round(G * 0.85), color); b.caja(Math.round(G * 0.1), Math.round(G * 0.4), Math.round(G * 0.3), Math.round(G * 0.5), Math.round(G * 0.9), Math.round(G * 0.5), "#4a7a3a"); b.caja(Math.round(G * 0.5), Math.round(G * 0.4), Math.round(G * 0.5), Math.round(G * 0.9), G - 1, Math.round(G * 0.7), "#5a8a45"); },
     mortero_mano: () => { b.caja(Math.round(G * 0.2), 0, Math.round(G * 0.2), Math.round(G * 0.8), Math.round(G * 0.35), Math.round(G * 0.8), color); b.caja(Math.round(G * 0.1), 0, Math.round(G * 0.85), Math.round(G * 0.3), Math.round(G * 0.15), G - 1, dark); },
     dados: () => { b.caja(0, 0, 0, Math.round(G * 0.4), Math.round(G * 0.4), Math.round(G * 0.4), "#e8e0d0"); b.caja(Math.round(G * 0.5), 0, Math.round(G * 0.5), Math.round(G * 0.9), Math.round(G * 0.4), Math.round(G * 0.9), "#e8e0d0"); },
     moneda_suelta: () => { b.caja(0, 0, 0, Math.round(G * 0.5), Math.round(G * 0.08), Math.round(G * 0.5), "#d4af37"); b.caja(Math.round(G * 0.6), 0, Math.round(G * 0.3), G - 1, Math.round(G * 0.08), Math.round(G * 0.3) + Math.round(G * 0.5), "#d4af37"); },
     baraja_cartas: () => { for (let i = 0; i < 4; i++) b.caja(i, 0, i, Math.round(G * 0.6) + i, Math.round(G * 0.05), Math.round(G * 0.8) + i, "#e8e0d0"); },
     reliquia: () => { b.caja(Math.round(G * 0.25), 0, Math.round(G * 0.25), Math.round(G * 0.75), Math.round(G * 0.7), Math.round(G * 0.75), "#d4af37"); b.caja(Math.round(G * 0.4), Math.round(G * 0.7), Math.round(G * 0.4), Math.round(G * 0.6), Math.round(G * 0.85), Math.round(G * 0.6), CRISTAL); },
-    armero: () => { b.caja(0, 0, Math.round(G * 0.7), 1, G - 1, Math.round(G * 0.7) + 1, dark); b.caja(G - 2, 0, Math.round(G * 0.7), G - 1, G - 1, Math.round(G * 0.7) + 1, dark); for (const dx of [Math.round(G * 0.35), Math.round(G * 0.65)]) b.caja(dx, Math.round(G * 0.1), Math.round(G * 0.6), dx + 1, G - Math.round(G * 0.1), Math.round(G * 0.6) + 1, METAL_CLARO); },
+    armero: () => { b.caja(0, 0, Math.round(G * 0.7), 1, H - 1, Math.round(G * 0.7) + 1, dark); b.caja(G - 2, 0, Math.round(G * 0.7), G - 1, H - 1, Math.round(G * 0.7) + 1, dark); b.caja(0, Math.round(H * 0.3), Math.round(G * 0.7), G - 1, Math.round(H * 0.3) + 1, Math.round(G * 0.7) + 1, dark); for (const dx of [Math.round(G * 0.35), Math.round(G * 0.65)]) b.caja(dx, Math.round(H * 0.1), Math.round(G * 0.6), dx + 1, H - Math.round(H * 0.1), Math.round(G * 0.6) + 1, METAL_CLARO); },
     brasero: () => { b.caja(Math.round(G * 0.3), 0, Math.round(G * 0.3), Math.round(G * 0.35), Math.round(G * 0.4), Math.round(G * 0.35), METAL); b.caja(Math.round(G * 0.65), 0, Math.round(G * 0.65), Math.round(G * 0.7), Math.round(G * 0.4), Math.round(G * 0.7), METAL); b.caja(Math.round(G * 0.15), Math.round(G * 0.4), Math.round(G * 0.15), Math.round(G * 0.85), Math.round(G * 0.55), Math.round(G * 0.85), METAL_CLARO); b.caja(Math.round(G * 0.25), Math.round(G * 0.55), Math.round(G * 0.25), Math.round(G * 0.75), Math.round(G * 0.65), Math.round(G * 0.75), LLAMA); },
     antorcha_pie: () => {
-      const cx = Math.round(G / 2);
       // base/pie trípode + mástil largo + cabeza envuelta + llama grande y visible (misma receta que la de pared)
       for (const dz of [-1, 1]) b.caja(cx + dz - 1, 0, cx + dz - 1, cx + dz, Math.round(G * 0.06), cx + dz, dark);
-      b.caja(cx - 1, 0, cx - 1, cx, Math.round(G * 0.55), cx, "#6b4a2a");
-      b.caja(cx - 2, Math.round(G * 0.55), cx - 2, cx + 1, Math.round(G * 0.62), cx + 1, "#4a3a28");
-      const flameY0 = Math.round(G * 0.63), flameH = Math.round(G * 0.3);
+      b.caja(cx - 1, 0, cx - 1, cx, Math.round(H * 0.55), cx, "#6b4a2a");
+      b.caja(cx - 2, Math.round(H * 0.55), cx - 2, cx + 1, Math.round(H * 0.62), cx + 1, "#4a3a28");
+      const flameY0 = Math.round(H * 0.63), flameH = Math.round(H * 0.3);
       b.caja(cx - 2, flameY0, cx - 2, cx + 1, flameY0 + flameH, cx + 1, LLAMA_BORDE);
       b.caja(cx - 1, flameY0 + 1, cx - 1, cx, flameY0 + flameH, cx, LLAMA);
       b.caja(cx - 1, flameY0 + Math.round(flameH * 0.4), cx - 1, cx, flameY0 + flameH - 1, cx, LLAMA_NUCLEO);
@@ -926,15 +1144,18 @@ function generarObjetoPequeno(id, color) {
     tintero_pluma: () => { b.caja(Math.round(G * 0.2), 0, Math.round(G * 0.2), Math.round(G * 0.5), Math.round(G * 0.3), Math.round(G * 0.5), "#2a2a2a"); b.caja(Math.round(G * 0.5), Math.round(G * 0.2), Math.round(G * 0.3), G - 1, G - 1, Math.round(G * 0.4), "#e8e4d8"); },
   };
 
-  if (formas[id]) {
-    formas[id]();
+  const forma = formas[id] ? id : formaPorKeyword(id);
+  if (forma && formas[forma]) {
+    formas[forma]();
   } else {
     // clutter/suciedad/escombros genérico — algo más orgánico que una caja lisa
     b.caja(Math.round(G * 0.15), 0, Math.round(G * 0.15), Math.round(G * 0.85), Math.round(G * 0.35), Math.round(G * 0.85), color);
     b.caja(Math.round(G * 0.3), Math.round(G * 0.3), Math.round(G * 0.35), Math.round(G * 0.6), Math.round(G * 0.5), Math.round(G * 0.65), light);
   }
-  const grid = [G, G, G];
-  return { grid, paleta: b.paleta, cajas: b.cajas };
+  const grid = [G, H, G];
+  const modelo = { grid, paleta: b.paleta, cajas: b.cajas };
+  // un farol COLGANTE se cuelga: sube hasta la altura de una lámpara de techo
+  return id.includes("farol_colgante") ? elevar(modelo, Math.round(U * 0.9)) : modelo;
 }
 
 // --- estructurales / especiales (12 piezas trabajadas a mano) ------------
@@ -1068,11 +1289,20 @@ const ESTRUCTURALES = {
 // recrean en cada llamada a clasificar(), que corre una vez por cada una
 // de las ~700 piezas del catálogo): mismo criterio que ya usan sus
 // funciones hermanas de taller-vox (generar_naturaleza.js, generar_comida.js...).
-const PATAS_ASIENTO_KEYWORDS = ["silla", "taburete", "banco", "trono", "mecedora", "reclinatorio"];
+// Mobiliario del carpintero (docs/GDD_Construccion.md §9, 2026-09-11):
+// sofás/butacas/divanes son asientos tapizados, cómodas/alacenas/vitrinas/
+// expositores contenedores altos (abiertos o con puertas según el id),
+// cajas/cajones/cestos contenedores bajos.
+const PATAS_ASIENTO_KEYWORDS = ["silla", "taburete", "banco", "trono", "mecedora", "reclinatorio", "sofa", "butaca", "sillon", "divan"];
 const CAMA_KEYWORDS = ["cama", "litera", "jergon", "cuna"];
-const MESA_KEYWORDS = ["mesa", "atril", "altar", "mostrador", "encimera", "escritorio", "bancada", "yunque", "fregadero", "especiero"];
-const CONTENEDOR_ALTO_KEYWORDS = ["armario", "estanteria", "guardarropa"];
-const CONTENEDOR_BAJO_KEYWORDS = ["baul", "arcon", "cofre", "barril", "tinaja", "caldero", "cesta"];
+const MESA_KEYWORDS = ["mesa", "atril", "altar", "mostrador", "encimera", "escritorio", "bancada", "yunque", "fregadero", "especiero", "tocador"];
+const CONTENEDOR_ALTO_KEYWORDS = ["armario", "estanteria", "guardarropa", "comoda", "alacena", "despensa", "vitrina", "botellero", "expositor", "aparador", "estante", "platero"];
+const CONTENEDOR_BAJO_KEYWORDS = ["baul", "arcon", "cofre", "barril", "tinaja", "caldero", "cesta", "caja", "cajon", "cesto", "tonel"];
+// Objetos de pie que tienen forma propia en generarObjetoPequeno aunque sean
+// contenedores (perchero/maniquí/armero) o lleven "lampara"/"candelabro" —
+// se comprueban ANTES que mesa/contenedor para que un "maniqui_armadura"
+// (esContenedor:true) no salga como un armario con puertas.
+const OBJETO_PROPIO_KEYWORDS = ["maniqui", "perchero", "armero", "candelabro", "candelero", "lampara", "farol", "cuadro", "retrato", "espejo", "reloj_pared", "cortina", "tapiz", "biombo", "macetero"];
 const TINA_IDS = ["tina_madera", "bañera"];
 
 function clasificar(id, v) {
@@ -1083,6 +1313,9 @@ function clasificar(id, v) {
   if (colgadoParedRe) return "COLGADO_PARED";
   if (CAMA_KEYWORDS.some((k) => id.includes(k))) return "CAMA";
   if (PATAS_ASIENTO_KEYWORDS.some((k) => id.includes(k))) return "ASIENTO";
+  if (id.startsWith("tocador")) return "MESA"; // "tocador_espejo_*" es una mesa con espejo, no un espejo
+  if (id.includes("biombo")) return "OBJETO_PEQUENO"; // forma propia con huella real ([2,1]), ver generarBiombo
+  if (OBJETO_PROPIO_KEYWORDS.some((k) => id.includes(k)) && v.huella[0] === 1 && v.huella[1] === 1) return "OBJETO_PEQUENO";
   if (MESA_KEYWORDS.some((k) => id.includes(k)) || v.esSuperficie) return "MESA";
   // los cofres (arcon, baúles...) también llevan esContenedor:true, así que
   // el nombre de cofre tiene que comprobarse ANTES que el genérico
@@ -1204,10 +1437,10 @@ const ARQUETIPO_FN = {
   CONTENEDOR_BAJO: (v, id) => generarContenedorBajo(v.huella, v.colorDebug, id),
   TINA: (v) => generarTina(v.huella, v.colorDebug),
   COLGADO_PARED: (v, id) => generarColgadoPared(id, v),
-  OBJETO_PEQUENO: (v, id) => generarObjetoPequeno(id, v.colorDebug),
+  OBJETO_PEQUENO: (v, id) => generarObjetoPequeno(id, v.colorDebug, v.huella),
   ALFOMBRA: (v, id) => generarAlfombra(v.huella, v.colorDebug, id),
   ESTRUCTURAL: (v, id) => ESTRUCTURALES[id](v),
-  GENERICO: (v) => generarObjetoPequeno("", v.colorDebug),
+  GENERICO: (v) => generarObjetoPequeno("", v.colorDebug, v.huella),
 };
 
 // --- resolución variable por pieza -----------------------------------------
@@ -1245,7 +1478,8 @@ function resolverU(id, arq) {
       else factor = 1.1;
       break;
     case "OBJETO_PEQUENO":
-      if (OBJ_DETALLADO_RES.includes(id)) factor = 1.4;
+      if (/candel|lampara|farol|vela|maniqui/.test(id)) factor = 1.5; // llamas/velas finas necesitan más subdivisión, como las de pared
+      else if (OBJ_DETALLADO_RES.includes(id)) factor = 1.4;
       else if (OBJ_SIMPLE_RES.includes(id)) factor = 0.8; // escombros/ceniza: no ganan nada con más cuadraditos
       else factor = 1.0;
       break;

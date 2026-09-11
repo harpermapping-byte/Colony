@@ -860,7 +860,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // (fuera de ese bloque) necesita mandar "sacar del cofre abierto" cuando
   // se arrastra un ítem desde `panelCofre` hasta su propia rejilla (pedido
   // streamer 2026-09-06, "intercambiar objetos" entre el cofre y el tuyo).
-  let cofreObjetivo: { id: number; nombre: string } | null = null;
+  let cofreObjetivo: { id: number; nombre: string; pista?: string } | null = null;
   let panelCofre: PanelCofre | null = null;
   // Captura genérica de "último mensaje visto de este tipo" (barrido de
   // sistemas 2026-08-31), izada por el MISMO motivo que renderConstrucciones/
@@ -978,6 +978,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage("construcciones:lista", (lista: ConstruccionRed[]) => render.aplicarLista(lista || []));
     room.onMessage("construccion:nueva", (c: ConstruccionRed) => render.aplicarNueva(c));
     room.onMessage("construccion:quitada", (m: { id: number }) => render.aplicarQuitada(m.id));
+    // Expositores (docs/GDD_Construccion.md §9): el servidor difunde el
+    // contenido visible de una estantería/vitrina/maniquí cada vez que cambia.
+    room.onMessage("construccion:expuestos", (m: { id: number; expuestos: string[] }) => render.actualizarExpuestos(m.id, m.expuestos || []));
     // Contador de rechazos para la sonda: el e2e distingue "el servidor aceptó"
     // (sube construcciones) de "el servidor rechazó" (sube este contador) sin
     // rascar el DOM del panel.
@@ -1241,7 +1244,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         opciones.push({
           etiqueta: `Abrir ${nombre}`,
           accion: () => {
-            cofreObjetivo = { id: datos.id, nombre };
+            // pista del filtro de contenido (docs/GDD_Construccion.md §9):
+            // "Solo guarda: pociones y elixires" — el rechazo real lo hace el servidor
+            cofreObjetivo = { id: datos.id, nombre, pista: construible.aceptaItemsEtiqueta ? `Solo guarda: ${construible.aceptaItemsEtiqueta}` : undefined };
             room.send("cofre:consultar", { construccionId: datos.id });
           },
         });
@@ -1339,15 +1344,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       console.log("[instrumento]", m?.motivo);
       modalInstrumento.mostrarError(m?.motivo || "No se pudo tocar.");
     });
-    room.onMessage("cofre:error", (m: { motivo: string }) => console.log("[cofre]", m?.motivo));
+    // Un rechazo del cofre se VE (toast, docs/GDD_Construccion.md §9): con
+    // los muebles con filtro ("ese mueble solo guarda pociones") o sin sitio
+    // ("no queda sitio en ese mueble"), un console.log mudo dejaba al
+    // jugador arrastrando sin saber por qué no entra.
+    room.onMessage("cofre:error", (m: { motivo: string }) => { console.log("[cofre]", m?.motivo); registroCombate.mostrar(m?.motivo || "No se pudo usar el cofre.", "error"); });
     room.onMessage("cofre:estado", (m: { construccionId: number; ancho: number; alto: number; items: { id: number; itemId: string; cantidad: number; x: number; y: number; rot: 0 | 1 }[] }) => {
-      if (cofreObjetivo && panelCofre) panelCofre.abrir(cofreObjetivo.nombre);
+      if (cofreObjetivo && panelCofre) panelCofre.abrir(cofreObjetivo.nombre, cofreObjetivo.pista);
       panelCofre?.actualizarEstado(m.construccionId, m.ancho, m.alto, m.items || []);
     });
     // Sentarse (pedido 2026-08-31) — sin panel propio (no hay nada que
-    // mostrar salvo la pose, que ya se ve en el rig), solo consola por si
-    // falla (mismo criterio que combate:error/puerta arriba).
-    room.onMessage("sentar:error", (m: { motivo: string }) => console.log("[sentar]", m?.motivo));
+    // mostrar salvo la pose, que ya se ve en el rig); el rechazo sí se ve
+    // como toast desde que los asientos tienen plazas (sofá lleno).
+    room.onMessage("sentar:error", (m: { motivo: string }) => { console.log("[sentar]", m?.motivo); registroCombate.mostrar(m?.motivo || "No te puedes sentar ahí.", "error"); });
 
     // Sonda SOLO-PARA-TESTS (e2e con Playwright): manejar el modo construcción
     // sin simular ratón sobre el canvas. No usar desde código de juego.
@@ -1535,7 +1544,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const idAsiento = asientoGenericoAlcanzable(jugadorLocal.x, jugadorLocal.z);
       hintAsiento.style.display = idAsiento != null ? "block" : "none";
     }, 500);
-    room.onMessage("asiento:error", (m: { motivo: string }) => console.log("[asiento]", m?.motivo));
+    room.onMessage("asiento:error", (m: { motivo: string }) => { console.log("[asiento]", m?.motivo); registroCombate.mostrar(m?.motivo || "No te puedes sentar ahí.", "error"); });
     room.onMessage("asiento:cancelado", () => console.log("[asiento] cancelado (te has movido)"));
 
     // Sonda SOLO-PARA-TESTS (e2e con Playwright): el crafteo (docs/
@@ -1626,9 +1635,16 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // los e2e, mismo criterio que el resto de este objeto (p.ej. "C" en
       // vez de clicar un enemigo en combate).
       abrirCofre: (construccionId: number, nombre: string) => {
-        cofreObjetivo = { id: construccionId, nombre };
+        const etiqueta = obtenerConstruibleOPlantilla(render.datosDe(construccionId)?.objeto ?? "")?.aceptaItemsEtiqueta;
+        cofreObjetivo = { id: construccionId, nombre, pista: etiqueta ? `Solo guarda: ${etiqueta}` : undefined };
         room.send("cofre:consultar", { construccionId });
       },
+      // Mobiliario del carpintero (docs/GDD_Construccion.md §9): lo que el
+      // render tiene dibujado sobre un expositor y si una lámpara colocada
+      // tiene luz real — mueblesVisual.e2e.mjs.
+      expuestosVisibles: (construccionId: number) => render.expuestosVisibles(construccionId),
+      tieneLuzConstruccion: (construccionId: number) => render.tieneLuz(construccionId),
+      idsDeObjeto: (objeto: string) => render.idsDeObjeto(objeto),
       inspeccionarRigLocal: () => {
         if (!jugadorLocal) return null;
         const brazoDer = jugadorLocal.rig.objeto.getObjectByName("brazoDer");
@@ -1852,6 +1868,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
   $(room.state).players.onAdd((player: any, sessionId: string) => {
     const esYo = sessionId === room.sessionId;
+    // El panel del jugador se refrescaba solo con `$(player).onChange` (campos
+    // de primer nivel) — mover un ítem a un cofre/estantería solo toca el
+    // array anidado `inventario.cuerpo.items`, así que la rejilla propia se
+    // quedaba enseñando el ítem ya guardado hasta el siguiente cambio de
+    // otra cosa (encontrado por mueblesVisual.e2e.mjs, docs/GDD_Construccion.md
+    // §9). El servidor sincroniza ese array con clear()+push(), así que
+    // onAdd/onRemove disparan en cada resincronización.
+    if (esYo && player.inventario?.cuerpo?.items) {
+      const refrescar = () => { if (panelJugador?.estaVisible()) panelJugador.actualizar(player); };
+      $(player.inventario.cuerpo.items).onAdd(refrescar, false);
+      $(player.inventario.cuerpo.items).onRemove(refrescar);
+    }
     const rig = crearRigDeJugador(player, esYo);
     // yaw primero y luego la inclinación de nado, en el eje que mira el PJ
     rig.objeto.rotation.order = "YXZ";

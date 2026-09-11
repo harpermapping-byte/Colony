@@ -8119,7 +8119,7 @@
     "_nota": "docs/GDD_Profesiones.md, Catálogo de Objetos Decorativos Exclusivos (2026-08-30) — se craftea con receta \"estanteria_tarros_alquimia_craft\" y se coloca como mueble \"estanteria_tarros_alquimia\" (interiores/catalogo/elementos.json, requiereItemColocar), igual que olla_metal/olla_grande."
   },
   "secadero_colgante_hierbas": {
-    "nombre": "Secadero de Colgante de Hierbas",
+    "nombre": "Secadero Colgante de Hierbas",
     "valorBase": 14,
     "tipo": "recurso",
     "huella": [
@@ -14502,5 +14502,1325 @@
     "variantes": 1,
     "colorDebug": "#6a4a30",
     "_nota": "docs/GDD_Crafteo.md §11 (2026-09-11, ampliación y coherencia del catálogo) — se craftea con receta \"trofeo_cornamenta_real_craft\" y se coloca como mueble \"trofeo_cornamenta_real\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que el resto de decoración exclusiva de docs/GDD_Profesiones.md."
+  },
+  "cama_pino_individual": {
+    "nombre": "Cama Individual de Pino",
+    "valorBase": 26,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 6,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cama_pino_individual_craft\" y se coloca como mueble \"cama_pino_individual\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cama sencilla de pino con jergón de lana: el primer descanso digno de cualquier casa."
+  },
+  "cama_pino_doble": {
+    "nombre": "Cama Doble de Pino",
+    "valorBase": 40,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 9,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cama_pino_doble_craft\" y se coloca como mueble \"cama_pino_doble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cama doble de pino: dos personas, mismo colchón de lana."
+  },
+  "litera_pino": {
+    "nombre": "Litera de Pino",
+    "valorBase": 42,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 9,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"litera_pino_craft\" y se coloca como mueble \"litera_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Litera de dos alturas: caben dos en el hueco de una cama individual, algo menos cómoda."
+  },
+  "cama_sauce_mimbre_individual": {
+    "nombre": "Cama Individual de Sauce y Mimbre",
+    "valorBase": 41,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#c9b57a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cama_sauce_mimbre_individual_craft\" y se coloca como mueble \"cama_sauce_mimbre_individual\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cama ligera de sauce con cabecero trenzado de mimbre."
+  },
+  "cama_roble_individual": {
+    "nombre": "Cama Individual de Roble",
+    "valorBase": 50,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cama_roble_individual_craft\" y se coloca como mueble \"cama_roble_individual\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cama de roble barnizado: más maciza y más mullida que la de pino."
+  },
+  "cama_roble_doble": {
+    "nombre": "Cama Doble de Roble",
+    "valorBase": 65,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 12,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cama_roble_doble_craft\" y se coloca como mueble \"cama_roble_doble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cama doble de roble barnizado para dos."
+  },
+  "cama_abedul_tallada_individual": {
+    "nombre": "Cama Individual de Abedul Tallada",
+    "valorBase": 100,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cama_abedul_tallada_individual_craft\" y se coloca como mueble \"cama_abedul_tallada_individual\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cama de abedul con cabecero tallado y colchón de tela reforzada."
+  },
+  "cama_abedul_tallada_doble": {
+    "nombre": "Cama Doble de Abedul Tallada",
+    "valorBase": 151,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 12,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cama_abedul_tallada_doble_craft\" y se coloca como mueble \"cama_abedul_tallada_doble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cama doble de abedul tallado, la de un matrimonio acomodado."
+  },
+  "cama_noble_dosel_doble": {
+    "nombre": "Cama Noble Doble con Dosel",
+    "valorBase": 298,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 14,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cama_noble_dosel_doble_craft\" y se coloca como mueble \"cama_noble_dosel_doble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cama noble con dosel teñido y remates de cobre: el mejor descanso que se puede fabricar."
+  },
+  "divan_seda_noble": {
+    "nombre": "Diván de Seda Noble",
+    "valorBase": 268,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 9,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#7a2a5a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"divan_seda_noble_craft\" y se coloca como mueble \"divan_seda_noble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Diván tapizado para sentarse dos o echar una siesta uno: lujo de salón."
+  },
+  "cuna_abedul": {
+    "nombre": "Cuna de Abedul",
+    "valorBase": 23,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cuna_abedul_craft\" y se coloca como mueble \"cuna_abedul\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cuna torneada de abedul: decorativa, para un dormitorio con futuro."
+  },
+  "taburete_pino": {
+    "nombre": "Taburete de Pino",
+    "valorBase": 8,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"taburete_pino_craft\" y se coloca como mueble \"taburete_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Taburete de tres patas: se hace en un rato y aguanta lo que le echen."
+  },
+  "silla_pino_sencilla": {
+    "nombre": "Silla de Pino Sencilla",
+    "valorBase": 8,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"silla_pino_sencilla_craft\" y se coloca como mueble \"silla_pino_sencilla\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Silla de pino con respaldo de tabla."
+  },
+  "banco_roble_doble": {
+    "nombre": "Banco de Roble Doble",
+    "valorBase": 19,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"banco_roble_doble_craft\" y se coloca como mueble \"banco_roble_doble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Banco corrido de roble para dos."
+  },
+  "butaca_lino": {
+    "nombre": "Butaca de Lino",
+    "valorBase": 27,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#c9bfa0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"butaca_lino_craft\" y se coloca como mueble \"butaca_lino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Butaca tapizada en lino con relleno de lana."
+  },
+  "sofa_lino_doble": {
+    "nombre": "Sofá de Lino Doble",
+    "valorBase": 49,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 7,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#c9bfa0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"sofa_lino_doble_craft\" y se coloca como mueble \"sofa_lino_doble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Sofá de dos plazas tapizado en lino."
+  },
+  "sofa_lino_triple": {
+    "nombre": "Sofá de Lino Triple",
+    "valorBase": 70,
+    "tipo": "recurso",
+    "huella": [
+      3,
+      1
+    ],
+    "peso": 10,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#c9bfa0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"sofa_lino_triple_craft\" y se coloca como mueble \"sofa_lino_triple\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Sofá de tres plazas en lino: el de la sala común."
+  },
+  "banco_respaldo_abedul": {
+    "nombre": "Banco de Abedul con Respaldo",
+    "valorBase": 41,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"banco_respaldo_abedul_craft\" y se coloca como mueble \"banco_respaldo_abedul\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Banco de abedul con respaldo chapado."
+  },
+  "butaca_cuero": {
+    "nombre": "Butaca de Cuero",
+    "valorBase": 56,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#6b3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"butaca_cuero_craft\" y se coloca como mueble \"butaca_cuero\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Butaca de cuero curtido con madera curvada al vapor."
+  },
+  "sofa_cuero_doble": {
+    "nombre": "Sofá de Cuero Doble",
+    "valorBase": 75,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#6b3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"sofa_cuero_doble_craft\" y se coloca como mueble \"sofa_cuero_doble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Sofá de cuero de dos plazas."
+  },
+  "sofa_cuero_triple": {
+    "nombre": "Sofá de Cuero Triple",
+    "valorBase": 110,
+    "tipo": "recurso",
+    "huella": [
+      3,
+      1
+    ],
+    "peso": 11,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#6b3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"sofa_cuero_triple_craft\" y se coloca como mueble \"sofa_cuero_triple\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Sofá de cuero de tres plazas."
+  },
+  "silla_abedul_tallada": {
+    "nombre": "Silla de Abedul Tallada",
+    "valorBase": 37,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"silla_abedul_tallada_craft\" y se coloca como mueble \"silla_abedul_tallada\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Silla de abedul con respaldo tallado."
+  },
+  "mecedora_sauce": {
+    "nombre": "Mecedora de Sauce",
+    "valorBase": 49,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#c9b57a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"mecedora_sauce_craft\" y se coloca como mueble \"mecedora_sauce\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Mecedora de sauce con balancines curvados al vapor."
+  },
+  "butaca_terciopelo_noble": {
+    "nombre": "Butaca de Terciopelo Noble",
+    "valorBase": 177,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#7a2a5a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"butaca_terciopelo_noble_craft\" y se coloca como mueble \"butaca_terciopelo_noble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Butaca noble tapizada en tela teñida."
+  },
+  "sofa_terciopelo_doble": {
+    "nombre": "Sofá de Terciopelo Doble",
+    "valorBase": 230,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 9,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#7a2a5a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"sofa_terciopelo_doble_craft\" y se coloca como mueble \"sofa_terciopelo_doble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Sofá noble de dos plazas en tela teñida."
+  },
+  "sofa_terciopelo_triple": {
+    "nombre": "Sofá de Terciopelo Triple",
+    "valorBase": 331,
+    "tipo": "recurso",
+    "huella": [
+      3,
+      1
+    ],
+    "peso": 12,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#7a2a5a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"sofa_terciopelo_triple_craft\" y se coloca como mueble \"sofa_terciopelo_triple\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Sofá noble de tres plazas: el del gran salón."
+  },
+  "sillon_orejero_cuero": {
+    "nombre": "Sillón Orejero de Cuero",
+    "valorBase": 178,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 6,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#4a3a28",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"sillon_orejero_cuero_craft\" y se coloca como mueble \"sillon_orejero_cuero\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Sillón orejero de cuero endurecido, junto a la chimenea."
+  },
+  "caja_pino": {
+    "nombre": "Caja de Pino",
+    "valorBase": 10,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"caja_pino_craft\" y se coloca como mueble \"caja_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Caja de pino con tapa: seis huecos."
+  },
+  "cesto_mimbre_grande": {
+    "nombre": "Cesto de Mimbre Grande",
+    "valorBase": 17,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#c9a86a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cesto_mimbre_grande_craft\" y se coloca como mueble \"cesto_mimbre_grande\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cesto grande de mimbre trenzado."
+  },
+  "baul_pino": {
+    "nombre": "Baúl de Pino",
+    "valorBase": 16,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"baul_pino_craft\" y se coloca como mueble \"baul_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Baúl de pino con bisagras de cuero."
+  },
+  "mesa_noche_pino": {
+    "nombre": "Mesita de Noche de Pino",
+    "valorBase": 8,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"mesa_noche_pino_craft\" y se coloca como mueble \"mesa_noche_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Mesita de noche de pino con un cajón pequeño."
+  },
+  "estante_pared_pino": {
+    "nombre": "Estante de Pared de Pino",
+    "valorBase": 10,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"estante_pared_pino_craft\" y se coloca como mueble \"estante_pared_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Balda de pino: lo que dejes encima se ve."
+  },
+  "perchero_pie_roble": {
+    "nombre": "Perchero de Pie de Roble",
+    "valorBase": 10,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"perchero_pie_roble_craft\" y se coloca como mueble \"perchero_pie_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Perchero de pie: capas, sombreros y abrigos colgados a la vista."
+  },
+  "cajon_roble": {
+    "nombre": "Cajón de Roble",
+    "valorBase": 17,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cajon_roble_craft\" y se coloca como mueble \"cajon_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cajón de roble macizo."
+  },
+  "comoda_pino": {
+    "nombre": "Cómoda de Pino",
+    "valorBase": 17,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"comoda_pino_craft\" y se coloca como mueble \"comoda_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cómoda de pino de tres cajones."
+  },
+  "alacena_cocina_pino": {
+    "nombre": "Alacena de Cocina de Pino",
+    "valorBase": 18,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 6,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"alacena_cocina_pino_craft\" y se coloca como mueble \"alacena_cocina_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Alacena de cocina: solo comida y provisiones."
+  },
+  "estanteria_pociones_pino": {
+    "nombre": "Estantería de Pino para Pociones",
+    "valorBase": 14,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"estanteria_pociones_pino_craft\" y se coloca como mueble \"estanteria_pociones_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Estantería estrecha para seis frascos: las pociones quedan a la vista."
+  },
+  "estanteria_platos_pino": {
+    "nombre": "Platero de Pino",
+    "valorBase": 14,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"estanteria_platos_pino_craft\" y se coloca como mueble \"estanteria_platos_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Platero de pino: platos, jarras y copas expuestos."
+  },
+  "expositor_herramientas_pared": {
+    "nombre": "Panel de Herramientas de Pared",
+    "valorBase": 16,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"expositor_herramientas_pared_craft\" y se coloca como mueble \"expositor_herramientas_pared\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Panel con ganchos para colgar herramientas."
+  },
+  "caja_herramientas_roble": {
+    "nombre": "Caja de Herramientas de Roble",
+    "valorBase": 32,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"caja_herramientas_roble_craft\" y se coloca como mueble \"caja_herramientas_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Caja de herramientas de roble con cantoneras de hierro."
+  },
+  "cajon_semillas_abedul": {
+    "nombre": "Cajón de Semillas de Abedul",
+    "valorBase": 20,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cajon_semillas_abedul_craft\" y se coloca como mueble \"cajon_semillas_abedul\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cajón compartimentado para semillas."
+  },
+  "botellero_roble": {
+    "nombre": "Botellero de Roble",
+    "valorBase": 22,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"botellero_roble_craft\" y se coloca como mueble \"botellero_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Botellero de roble: hidromiel, vino y licores a la vista."
+  },
+  "expositor_armas_pared": {
+    "nombre": "Expositor de Armas de Pared",
+    "valorBase": 32,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"expositor_armas_pared_craft\" y se coloca como mueble \"expositor_armas_pared\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Panel de pared para exponer hasta tres armas."
+  },
+  "armario_pino": {
+    "nombre": "Armario de Pino",
+    "valorBase": 24,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"armario_pino_craft\" y se coloca como mueble \"armario_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Armario de pino de dos puertas."
+  },
+  "baul_roble_herrajes": {
+    "nombre": "Baúl de Roble con Herrajes",
+    "valorBase": 60,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 7,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"baul_roble_herrajes_craft\" y se coloca como mueble \"baul_roble_herrajes\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Baúl largo de roble con herrajes de hierro."
+  },
+  "mesa_noche_roble_torneada": {
+    "nombre": "Mesita de Noche de Roble Torneada",
+    "valorBase": 29,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"mesa_noche_roble_torneada_craft\" y se coloca como mueble \"mesa_noche_roble_torneada\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Mesita de noche de roble con patas torneadas."
+  },
+  "estanteria_roble_abierta": {
+    "nombre": "Estantería de Roble Abierta",
+    "valorBase": 26,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 6,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"estanteria_roble_abierta_craft\" y se coloca como mueble \"estanteria_roble_abierta\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Estantería abierta de roble: todo lo que guardes se ve."
+  },
+  "comoda_roble_barnizada": {
+    "nombre": "Cómoda de Roble Barnizada",
+    "valorBase": 54,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"comoda_roble_barnizada_craft\" y se coloca como mueble \"comoda_roble_barnizada\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cómoda ancha de roble barnizado."
+  },
+  "aparador_roble": {
+    "nombre": "Aparador de Roble",
+    "valorBase": 41,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"aparador_roble_craft\" y se coloca como mueble \"aparador_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Aparador de comedor de roble."
+  },
+  "despensa_roble": {
+    "nombre": "Despensa de Roble",
+    "valorBase": 38,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 14,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"despensa_roble_craft\" y se coloca como mueble \"despensa_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Despensa grande de roble: comida y provisiones, nada más."
+  },
+  "armario_ropa_abedul": {
+    "nombre": "Armario de Ropa de Abedul",
+    "valorBase": 53,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 9,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"armario_ropa_abedul_craft\" y se coloca como mueble \"armario_ropa_abedul\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Armario ropero de abedul: ropa y complementos."
+  },
+  "maniqui_armadura": {
+    "nombre": "Maniquí para Armadura",
+    "valorBase": 42,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"maniqui_armadura_craft\" y se coloca como mueble \"maniqui_armadura\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Maniquí de madera: viste una armadura completa a la vista."
+  },
+  "escritorio_roble": {
+    "nombre": "Escritorio de Roble",
+    "valorBase": 41,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"escritorio_roble_craft\" y se coloca como mueble \"escritorio_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Escritorio de roble con cajón bajo el tablero."
+  },
+  "armero_pie_roble": {
+    "nombre": "Armero de Pie de Roble",
+    "valorBase": 48,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"armero_pie_roble_craft\" y se coloca como mueble \"armero_pie_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Armero de pie con ranuras para cuatro armas."
+  },
+  "estante_trofeos_roble": {
+    "nombre": "Repisa de Trofeos de Roble",
+    "valorBase": 41,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"estante_trofeos_roble_craft\" y se coloca como mueble \"estante_trofeos_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Repisa tallada para trofeos de caza y reliquias."
+  },
+  "vitrina_libros_abedul": {
+    "nombre": "Vitrina de Abedul para Libros",
+    "valorBase": 63,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 7,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"vitrina_libros_abedul_craft\" y se coloca como mueble \"vitrina_libros_abedul\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Vitrina acristalada para libros."
+  },
+  "arcon_tratado_reforzado": {
+    "nombre": "Arcón Tratado Reforzado",
+    "valorBase": 178,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 10,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#4a3a28",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"arcon_tratado_reforzado_craft\" y se coloca como mueble \"arcon_tratado_reforzado\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Arcón de madera tratada con refuerzos de hierro."
+  },
+  "estanteria_abedul_alta": {
+    "nombre": "Estantería de Abedul Alta",
+    "valorBase": 62,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      2
+    ],
+    "peso": 8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"estanteria_abedul_alta_craft\" y se coloca como mueble \"estanteria_abedul_alta\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Estantería alta de abedul chapado, abierta."
+  },
+  "armario_roble_grande": {
+    "nombre": "Armario de Roble Grande",
+    "valorBase": 80,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 16,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"armario_roble_grande_craft\" y se coloca como mueble \"armario_roble_grande\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Armario grande de roble, cuatro puertas."
+  },
+  "estanteria_pociones_roble_doble": {
+    "nombre": "Estantería Doble de Roble para Pociones",
+    "valorBase": 41,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"estanteria_pociones_roble_doble_craft\" y se coloca como mueble \"estanteria_pociones_roble_doble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Estantería doble de roble para dieciséis frascos expuestos."
+  },
+  "vitrina_joyas_cristal": {
+    "nombre": "Vitrina de Cristal para Joyas",
+    "valorBase": 141,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#bcd6dc",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"vitrina_joyas_cristal_craft\" y se coloca como mueble \"vitrina_joyas_cristal\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Vitrina de cristal con marco de plata: anillos, collares y brazaletes expuestos."
+  },
+  "tocador_espejo_abedul": {
+    "nombre": "Tocador de Abedul con Espejo",
+    "valorBase": 50,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"tocador_espejo_abedul_craft\" y se coloca como mueble \"tocador_espejo_abedul\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Tocador con espejo y cajón."
+  },
+  "expositor_armas_roble_grande": {
+    "nombre": "Expositor de Armas de Roble Grande",
+    "valorBase": 81,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"expositor_armas_roble_grande_craft\" y se coloca como mueble \"expositor_armas_roble_grande\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Expositor grande de roble para seis armas."
+  },
+  "baul_noble_tallado": {
+    "nombre": "Baúl Noble Tallado",
+    "valorBase": 169,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 10,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"baul_noble_tallado_craft\" y se coloca como mueble \"baul_noble_tallado\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Baúl noble tallado con cantoneras de cobre."
+  },
+  "maniqui_armadura_noble": {
+    "nombre": "Maniquí Noble para Armadura",
+    "valorBase": 159,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"maniqui_armadura_noble_craft\" y se coloca como mueble \"maniqui_armadura_noble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Maniquí noble sobre peana de cobre para la armadura de gala."
+  },
+  "armario_ropa_noble_espejo": {
+    "nombre": "Armario de Ropa Noble con Espejo",
+    "valorBase": 256,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 16,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"armario_ropa_noble_espejo_craft\" y se coloca como mueble \"armario_ropa_noble_espejo\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Ropero noble con espejo de cuerpo entero."
+  },
+  "macetero_pie_roble": {
+    "nombre": "Macetero de Pie de Roble",
+    "valorBase": 13,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"macetero_pie_roble_craft\" y se coloca como mueble \"macetero_pie_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Macetero de pie con planta."
+  },
+  "mesa_redonda_pino": {
+    "nombre": "Mesa Redonda de Pino",
+    "valorBase": 18,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"mesa_redonda_pino_craft\" y se coloca como mueble \"mesa_redonda_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Mesa redonda de pino para cuatro."
+  },
+  "cuadro_paisaje_marco_pino": {
+    "nombre": "Cuadro de Paisaje con Marco de Pino",
+    "valorBase": 20,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cuadro_paisaje_marco_pino_craft\" y se coloca como mueble \"cuadro_paisaje_marco_pino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cuadro de paisaje con marco de pino."
+  },
+  "mesa_centro_abedul": {
+    "nombre": "Mesa de Centro de Abedul",
+    "valorBase": 35,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"mesa_centro_abedul_craft\" y se coloca como mueble \"mesa_centro_abedul\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Mesa baja de centro chapada en abedul."
+  },
+  "cuadro_retrato_marco_roble": {
+    "nombre": "Retrato con Marco de Roble",
+    "valorBase": 45,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.2,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cuadro_retrato_marco_roble_craft\" y se coloca como mueble \"cuadro_retrato_marco_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Retrato con marco de roble tallado."
+  },
+  "biombo_abedul_pintado": {
+    "nombre": "Biombo de Abedul Pintado",
+    "valorBase": 52,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"biombo_abedul_pintado_craft\" y se coloca como mueble \"biombo_abedul_pintado\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Biombo de tres hojas con tela pintada."
+  },
+  "espejo_marco_roble": {
+    "nombre": "Espejo con Marco de Roble",
+    "valorBase": 57,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"espejo_marco_roble_craft\" y se coloca como mueble \"espejo_marco_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Espejo con marco de roble tallado."
+  },
+  "espejo_pie_abedul": {
+    "nombre": "Espejo de Pie de Abedul",
+    "valorBase": 74,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#e8d9b0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"espejo_pie_abedul_craft\" y se coloca como mueble \"espejo_pie_abedul\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Espejo de pie de cuerpo entero."
+  },
+  "reloj_pared_roble": {
+    "nombre": "Reloj de Pared de Roble",
+    "valorBase": 74,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"reloj_pared_roble_craft\" y se coloca como mueble \"reloj_pared_roble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Reloj de pared con esfera de cobre."
+  },
+  "mesa_banquete_noble": {
+    "nombre": "Mesa de Banquete Noble",
+    "valorBase": 254,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 18,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#7a2a3a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"mesa_banquete_noble_craft\" y se coloca como mueble \"mesa_banquete_noble\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Mesa de banquete tallada para el gran salón."
+  },
+  "candelero_pino_mesa": {
+    "nombre": "Candelero de Mesa de Pino",
+    "valorBase": 24,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#d9be82",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"candelero_pino_mesa_craft\" y se coloca como mueble \"candelero_pino_mesa\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Candelero torneado de pino con una vela."
+  },
+  "candelabro_tres_brazos_madera": {
+    "nombre": "Candelabro de Tres Brazos de Madera",
+    "valorBase": 68,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#5a3d20",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"candelabro_tres_brazos_madera_craft\" y se coloca como mueble \"candelabro_tres_brazos_madera\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Candelabro de tres brazos torneado en roble."
+  },
+  "lampara_aceite_mesa_cobre": {
+    "nombre": "Lámpara de Aceite de Mesa de Cobre",
+    "valorBase": 45,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.8,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#b5651d",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"lampara_aceite_mesa_cobre_craft\" y se coloca como mueble \"lampara_aceite_mesa_cobre\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Lámpara de aceite de sobremesa con tulipa de cristal."
+  },
+  "candelabro_pie_hierro": {
+    "nombre": "Candelabro de Pie de Hierro",
+    "valorBase": 105,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 4,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#3a3733",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"candelabro_pie_hierro_craft\" y se coloca como mueble \"candelabro_pie_hierro\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Candelabro de pie de hierro forjado."
+  },
+  "farol_colgante_cobre": {
+    "nombre": "Farol Colgante de Cobre",
+    "valorBase": 75,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#b5651d",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"farol_colgante_cobre_craft\" y se coloca como mueble \"farol_colgante_cobre\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Farol de cobre y cristal para colgar."
+  },
+  "lampara_aceite_pie_hierro": {
+    "nombre": "Lámpara de Aceite de Pie de Hierro",
+    "valorBase": 80,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 3,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#3a3733",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"lampara_aceite_pie_hierro_craft\" y se coloca como mueble \"lampara_aceite_pie_hierro\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Lámpara de aceite de pie alto."
+  },
+  "candelabro_mesa_cobre": {
+    "nombre": "Candelabro de Mesa de Cobre",
+    "valorBase": 93,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#8a6a3a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"candelabro_mesa_cobre_craft\" y se coloca como mueble \"candelabro_mesa_cobre\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Candelabro de sobremesa de cobre bruñido."
+  },
+  "lampara_arana_cobre": {
+    "nombre": "Araña de Cobre de Seis Velas",
+    "valorBase": 214,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 6,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#8a6a3a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"lampara_arana_cobre_craft\" y se coloca como mueble \"lampara_arana_cobre\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Araña de techo de cobre con seis velas."
+  },
+  "alfombra_lana_pequena": {
+    "nombre": "Alfombra de Lana Pequeña",
+    "valorBase": 18,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#8a7a5a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"alfombra_lana_pequena_craft\" y se coloca como mueble \"alfombra_lana_pequena\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Alfombra pequeña de lana teñida."
+  },
+  "cortina_lino": {
+    "nombre": "Cortina de Lino",
+    "valorBase": 28,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 1,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#c9bfa0",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"cortina_lino_craft\" y se coloca como mueble \"cortina_lino\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Cortina de lino para una ventana."
+  },
+  "tapiz_lana_pared": {
+    "nombre": "Tapiz de Lana",
+    "valorBase": 29,
+    "tipo": "recurso",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 2.5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#8a7a5a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"tapiz_lana_pared_craft\" y se coloca como mueble \"tapiz_lana_pared\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Tapiz de lana con motivo teñido."
+  },
+  "alfombra_lana_grande": {
+    "nombre": "Alfombra de Lana Grande",
+    "valorBase": 36,
+    "tipo": "recurso",
+    "huella": [
+      2,
+      2
+    ],
+    "peso": 5,
+    "apilable": false,
+    "stackMax": 1,
+    "variantes": 1,
+    "colorDebug": "#8a7a5a",
+    "_nota": "docs/GDD_Construccion.md §9 (2026-09-11, mobiliario del carpintero) — se craftea con receta \"alfombra_lana_grande_craft\" y se coloca como mueble \"alfombra_lana_grande\" (interiores/catalogo/elementos.json, requiereItemColocar), mismo patrón que la decoración exclusiva de docs/GDD_Profesiones.md. Alfombra grande de lana para un salón."
   }
 }

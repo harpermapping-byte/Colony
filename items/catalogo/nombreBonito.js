@@ -19,6 +19,40 @@
 
 // ---- Frases completas ya fijadas a mano (compuestos donde la regla genérica no basta: orden de palabras, "de la"/"del", términos ya asentados) ----
 const EXCEPCIONES_FRASE = {
+  // Mobiliario del carpintero (docs/GDD_Construccion.md §9, 2026-09-11): el
+  // adjetivo de plazas/material va donde lo diría un carpintero ("Cama
+  // Individual de Pino"), y "con" para los complementos (marco, espejo,
+  // herrajes, respaldo) que la regla genérica encadenaría con "de".
+  cama_pino_individual: "Cama Individual de Pino",
+  cama_pino_doble: "Cama Doble de Pino",
+  cama_sauce_mimbre_individual: "Cama Individual de Sauce y Mimbre",
+  cama_roble_individual: "Cama Individual de Roble",
+  cama_roble_doble: "Cama Doble de Roble",
+  cama_abedul_tallada_individual: "Cama Individual de Abedul Tallada",
+  cama_abedul_tallada_doble: "Cama Doble de Abedul Tallada",
+  cama_noble_dosel_doble: "Cama Noble Doble con Dosel",
+  banco_respaldo_abedul: "Banco de Abedul con Respaldo",
+  mesa_noche_pino: "Mesita de Noche de Pino",
+  mesa_noche_roble_torneada: "Mesita de Noche de Roble Torneada",
+  estanteria_pociones_pino: "Estantería de Pino para Pociones",
+  estanteria_pociones_roble_doble: "Estantería Doble de Roble para Pociones",
+  estanteria_platos_pino: "Platero de Pino",
+  expositor_herramientas_pared: "Panel de Herramientas de Pared",
+  baul_roble_herrajes: "Baúl de Roble con Herrajes",
+  maniqui_armadura: "Maniquí para Armadura",
+  maniqui_armadura_noble: "Maniquí Noble para Armadura",
+  estante_trofeos_roble: "Repisa de Trofeos de Roble",
+  vitrina_libros_abedul: "Vitrina de Abedul para Libros",
+  vitrina_joyas_cristal: "Vitrina de Cristal para Joyas",
+  tocador_espejo_abedul: "Tocador de Abedul con Espejo",
+  armario_ropa_noble_espejo: "Armario de Ropa Noble con Espejo",
+  cuadro_paisaje_marco_pino: "Cuadro de Paisaje con Marco de Pino",
+  cuadro_retrato_marco_roble: "Retrato con Marco de Roble",
+  espejo_marco_roble: "Espejo con Marco de Roble",
+  candelero_pino_mesa: "Candelero de Mesa de Pino",
+  candelabro_tres_brazos_madera: "Candelabro de Tres Brazos de Madera",
+  lampara_arana_cobre: "Araña de Cobre de Seis Velas",
+  tapiz_lana_pared: "Tapiz de Lana",
   carreta_dos_plazas: "Carreta de Dos Plazas",
   diligencia_4: "Diligencia de Cuatro Plazas",
   carruaje_noble_5: "Carruaje Noble de Cinco Plazas",
@@ -153,6 +187,7 @@ const EXCEPCIONES_FRASE = {
 // ---- Excepciones de UNA palabra (ñ, hiatos, esdrújulas irregulares que las reglas de sufijo no cubren) ----
 const EXCEPCIONES_PALABRA = {
   arana: "araña", aranas: "arañas", cana: "caña", castano: "castaño",
+  comoda: "cómoda", divan: "diván",
   pequena: "pequeña", pequeno: "pequeño", senales: "señales", rinonera: "riñonera",
   banos: "baños", ordeno: "ordeño", disenio: "diseño", montanas: "montañas",
   raiz: "raíz", baul: "baúl", oido: "oído", laud: "laúd",
@@ -224,6 +259,9 @@ const ADJETIVOS = new Set([
   "basica", "basico", "blanca", "blanco", "blanda", "dura", "duro",
   "larga", "largo", "corta", "corto", "fina", "fino", "grueso", "simple",
   "doble", "agricola", "industrial", "individual", "comun", "comunal", "comunales",
+  // Mobiliario del carpintero (docs/GDD_Construccion.md §9, 2026-09-11)
+  "triple", "abierta", "abierto", "sencilla", "sencillo", "colgante", "orejero", "orejera",
+  "torneada", "torneado", "barnizada", "barnizado", "reforzado", "reforzada", "pintado", "pintada",
   "publica", "publico", "privada", "gratuita", "gratuitas", "religioso", "musical",
   "medicinal", "decorativa", "decorativo", "decorativos", "ornamental", "ornamentado",
   "mecanica", "mecanico", "automatica", "automata", "hidraulico", "manual", "portatil",

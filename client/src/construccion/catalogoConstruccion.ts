@@ -61,6 +61,25 @@ export interface Construible {
    * UX más adelante en vez de dejar las dos activas sin más.
    */
   esAsiento?: boolean;
+  /**
+   * Mobiliario del carpintero (docs/GDD_Construccion.md §9, 2026-09-11):
+   * - `iluminacion`: `capa:"iluminacion"` en elementos.json — al colocarse,
+   *   renderConstrucciones.ts le cuelga una luz puntual cálida real.
+   * - `expositor`: su contenido se dibuja encima (el servidor manda
+   *   `expuestos` en construccion:nueva/lista y `construccion:expuestos`).
+   * - `plazas`: cuántos caben a la vez (informativo en el cliente; el tope
+   *   real lo aplica el servidor).
+   * - `aceptaItemsEtiqueta`: texto del filtro de contenido ("pociones y
+   *   elixires") para la pista del panel del cofre — la regla real vive en
+   *   el servidor (`mobiliario.ts`), el cliente solo la explica.
+   * - `requiereItemColocar`: ítem que se consume al colocarlo (los muebles
+   *   craftables del carpintero nunca son gratis).
+   */
+  iluminacion?: boolean;
+  expositor?: boolean;
+  plazas?: number;
+  aceptaItemsEtiqueta?: string;
+  requiereItemColocar?: string;
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -92,6 +111,10 @@ interface EntradaBruta {
   esSilla?: boolean;
   esContenedor?: boolean;
   esAsiento?: boolean;
+  expositor?: boolean;
+  plazas?: number;
+  aceptaItems?: { etiqueta?: string };
+  requiereItemColocar?: string;
   [k: string]: unknown;
 }
 
@@ -133,6 +156,11 @@ function construirLista(): Construible[] {
       esSilla: e.esSilla,
       esContenedor: e.esContenedor,
       esAsiento: e.esAsiento,
+      iluminacion: e.capa === "iluminacion" ? true : undefined,
+      expositor: e.expositor,
+      plazas: e.plazas,
+      aceptaItemsEtiqueta: e.aceptaItems?.etiqueta,
+      requiereItemColocar: e.requiereItemColocar,
     });
   }
 

@@ -98,3 +98,56 @@ test("footprint real tras centrar coincide con la huella del catálogo (interior
     fs.unlinkSync(tmp);
   }
 });
+
+// --- Mobiliario del carpintero (docs/GDD_Construccion.md §9, 2026-09-11) ---
+
+test("armario/estantería/alacena ya no salen al DOBLE de una persona (antes 3.2 casillas para todo contenedor alto); cómoda/aparador a la cintura", () => {
+  for (const id of ["armario", "estanteria", "armario_roble_grande", "alacena_cocina_pino", "armario_ropa_abedul"]) {
+    assert.ok(modelos[id], `falta ${id}`);
+    const h = alturaMundo(id);
+    assert.ok(h < ALTO_PERSONA * 1.35, `${id} mide ${h.toFixed(2)}u — sigue gigante (persona=${ALTO_PERSONA.toFixed(2)}u)`);
+    assert.ok(h > ALTO_PERSONA * 0.9, `${id} mide ${h.toFixed(2)}u — un armario real llega por encima de la cabeza`);
+  }
+  for (const id of ["comoda_pino", "aparador_roble", "botellero_roble"]) {
+    const h = alturaMundo(id);
+    assert.ok(h < ALTO_PERSONA * 0.7 && h > 0.5, `${id} mide ${h.toFixed(2)}u — una cómoda llega a la cintura`);
+  }
+  for (const id of ["arcon", "baul_pino", "caja_pino", "cesto_mimbre_grande"]) {
+    const h = alturaMundo(id);
+    assert.ok(h < 0.9 && h > 0.4, `${id} mide ${h.toFixed(2)}u — un baúl/caja no pasa de la cadera`);
+  }
+});
+
+test("sofás/butacas/divanes son asientos tapizados: existen, tienen altura de asiento y el triple es más ancho que el doble", () => {
+  for (const id of ["sofa_lino_doble", "sofa_lino_triple", "sofa_cuero_doble", "butaca_cuero", "sillon_orejero_cuero", "divan_seda_noble"]) {
+    assert.ok(modelos[id], `falta ${id}`);
+    assert.strictEqual(modelos[id].arquetipo, "ASIENTO", `${id} no se clasificó como asiento`);
+    const h = alturaMundo(id);
+    assert.ok(h > 0.5 && h < ALTO_PERSONA * 0.7, `${id} mide ${h.toFixed(2)}u`);
+  }
+  assert.ok(modelos.sofa_lino_triple.grid[0] > modelos.sofa_lino_doble.grid[0], "el sofá triple debe ser más ancho que el doble");
+});
+
+test("objetos DE PIE (perchero/maniquí/candelabro de pie/espejo de pie) miden alrededor de una persona, los de mesa no; araña y farol colgante flotan a la altura del techo", () => {
+  for (const id of ["perchero_pie_roble", "maniqui_armadura", "candelabro_pie_hierro", "espejo_pie_abedul", "armero_pie_roble", "perchero"]) {
+    const h = alturaMundo(id);
+    assert.ok(h > ALTO_PERSONA * 0.8 && h < ALTO_PERSONA * 1.15, `${id} mide ${h.toFixed(2)}u — debería rondar la altura de una persona`);
+  }
+  for (const id of ["candelero_pino_mesa", "lampara_aceite_mesa_cobre", "candelabro_mesa_cobre"]) {
+    assert.ok(alturaMundo(id) < 0.8, `${id} es de mesa, no debería pasar de 0.8u`);
+  }
+  for (const id of ["lampara_arana_cobre", "farol_colgante_cobre"]) {
+    const minY = Math.min(...modelos[id].cajas.map((c) => c[1])) / modelos[id].resolucion;
+    assert.ok(minY >= 0.85, `${id}: su vóxel más bajo está a ${minY.toFixed(2)}u — una pieza colgante no puede apoyarse en el suelo`);
+  }
+});
+
+test("las piezas nuevas del carpintero tienen todas modelo generado, ninguna cae al bulto GENERICO", () => {
+  const elementos = require("../interiores/catalogo/elementos.json");
+  const nuevas = Object.keys(elementos).filter((k) => elementos[k]._nota && /mobiliario del carpintero/.test(elementos[k]._nota));
+  assert.ok(nuevas.length >= 80, `esperaba 80+ piezas nuevas, hay ${nuevas.length}`);
+  const sinModelo = nuevas.filter((k) => !modelos[k]);
+  const genericas = nuevas.filter((k) => modelos[k] && modelos[k].arquetipo === "GENERICO");
+  assert.deepStrictEqual(sinModelo, [], "piezas sin modelo");
+  assert.deepStrictEqual(genericas, [], "piezas caídas al arquetipo GENERICO");
+});
