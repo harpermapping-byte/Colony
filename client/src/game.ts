@@ -5,6 +5,7 @@ import { crearRigHumanoide, inclinarCaido, type RigHumanoide, type AccionHerrami
 import { cargarIndice, cargarSector } from "./mapa/cargarMapa";
 import { StreamingSectores } from "./mapa/streamingSectores";
 import { crearSectorVisual, soltarSectorVisual, actualizarNieveSector, type HandleSector } from "./render3d/sectorVisual";
+import { GestorHuellasNieve, sectorYPixelDeCasilla } from "./render3d/huellasNieve";
 import { nivelNieve } from "./mundo/nieve";
 import { crearPersonajeVoxel, type PersonajeExportado } from "./render3d/personajeVoxel";
 import { crearAnimalVoxel, type AnimalExportado } from "./render3d/animalVoxel";
@@ -29,7 +30,7 @@ import { intentarAutoreproducir as intentarAutoreproducirMusica, fijarVolumenMus
 import { obtenerVolumenGuardado, obtenerVolumenMusicaGuardado, obtenerCalidadGuardada } from "./ajustes/configAjustes";
 import { PanelAjustes } from "./ajustes/panelAjustes";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
-import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, Raycaster, Vector2, Vector3, Plane, Object3D } from "three";
+import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, MeshStandardMaterial, Raycaster, Vector2, Vector3, Plane, Object3D } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
 import { RegistroCombate } from "./combate/registroCombate";
@@ -327,6 +328,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // sectores: se salta este bloque entero y se renderiza más abajo.
   let streaming: StreamingSectores<HandleSector> | null = null;
   let indiceMapa: IndiceMapa | null = null; // lo reusa el constructor (ancho del mapa en casillas)
+  // Huellas de nieve (huellasNieve.ts, pedido streamer 2026-09-11) — nivel
+  // global de nieve y el gestor en sí, elevados a este scope EXTERIOR
+  // porque `bucle()` (mucho más abajo) necesita leerlos y el bloque que los
+  // calcula de verdad (`if (!ES_INTERIOR)`) es un bloque interno.
+  let nivelNieveGlobal = 0;
+  let huellasNieve: GestorHuellasNieve | null = null;
 
   // Exclusiones de sector (docs/GDD_Bosques.md §7, pedido 2026-08-30: "si se
   // puede recolectar/talar/matar y se hace, acaba desapareciendo" — también
@@ -385,6 +392,26 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const nivelForzadoParam = new URLSearchParams(location.search).get("nieve");
       const nivelForzado = nivelForzadoParam !== null && Number.isFinite(Number(nivelForzadoParam)) ? Math.max(0, Math.floor(Number(nivelForzadoParam))) : null;
       let nivelNieveActual = nivelForzado ?? nivelNieve(tiempoMundo().dia);
+      nivelNieveGlobal = nivelNieveActual;
+      // Huellas de nieve (huellasNieve.ts): busca el canvas de la caja de
+      // nieve ("capaNieve", ya nombrada por sectorVisual.ts para
+      // `actualizarNieveSector`) del sector materializado que corresponda —
+      // null si ese sector no está activo ahora mismo (fuera de rango, o
+      // sin capa de nieve por alguna razón rara), el gestor ya sabe no-opear.
+      huellasNieve = new GestorHuellasNieve(indice.tamanoSectorChunks, indice.tamanoChunk, (sx, sy) => {
+        const handle = sectoresActivos.get(`${sx}_${sy}`);
+        if (!handle) return null;
+        const caja = handle.grupo.getObjectByName("capaNieve") as Mesh | undefined;
+        // `crearCajaNieveSector` (sectorVisual.ts) le da a la caja un ARRAY
+        // de 6 materiales, uno por cara de la BoxGeometry — [+x,-x,+y,-y,+z,-z]
+        // — la cara de ARRIBA (la que tiene la máscara de nieve como
+        // textura) es el índice 2, nunca `caja.material` a secas (eso da el
+        // array entero, cuyo `.map` es el método de Array, no una Texture).
+        const materiales = caja?.material as MeshStandardMaterial[] | undefined;
+        const textura = materiales?.[2]?.map;
+        if (!textura?.image) return null;
+        return { canvas: textura.image as HTMLCanvasElement, textura };
+      });
       streaming = new StreamingSectores({
         indice,
         obtenerSector: (sx, sy) => cargarSector(RUTA_MAPA, sx, sy),
@@ -399,6 +426,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           escena.quitarEstatico(handle.grupo);
           soltarSectorVisual(handle);
           sectoresActivos.delete(`${sx}_${sy}`);
+          huellasNieve?.olvidarSector(sx, sy);
         },
         // Caché de sectores YA materializados (pedido streamer 2026-09-09:
         // "no se puede hacer caché sobre las zonas que ya visitaste") — en
@@ -431,12 +459,29 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           const nivel = nivelNieve(tiempoMundo().dia);
           if (nivel === nivelNieveActual) return;
           nivelNieveActual = nivel;
+          nivelNieveGlobal = nivel;
           for (const handle of sectoresActivos.values()) actualizarNieveSector(handle, nivel);
         }, 15000);
       }
       // Sonda de depuración/pruebas e2e: estado del streaming en vivo.
       (window as any).__streaming = () => streaming!.estadisticas();
       (window as any).__nieve = () => nivelNieveActual;
+      (window as any).__huellasDebug = () => ({ nivelGlobal: nivelNieveGlobal, activas: huellasNieve?.clavesActivas() ?? [] });
+      // Sonda de test: color real del píxel de la máscara de nieve en una
+      // casilla del mundo — para que un e2e confirme una huella real (RGB
+      // distinto del blanco 255,255,255 de nieve intacta) sin adivinar por
+      // captura de pantalla.
+      (window as any).__colorNieveEn = (x: number, y: number): [number, number, number, number] | null => {
+        const { sx, sy, px, py } = sectorYPixelDeCasilla(Math.floor(x), Math.floor(y), indice.tamanoSectorChunks, indice.tamanoChunk);
+        const handle = sectoresActivos.get(`${sx}_${sy}`);
+        const caja = handle?.grupo.getObjectByName("capaNieve") as Mesh | undefined;
+        const materiales = caja?.material as MeshStandardMaterial[] | undefined;
+        const canvas = materiales?.[2]?.map?.image as HTMLCanvasElement | undefined;
+        const ctx = canvas?.getContext("2d");
+        if (!ctx) return null;
+        const d = ctx.getImageData(px, py, 1, 1).data;
+        return [d[0], d[1], d[2], d[3]];
+      };
 
       for (const farola of indice.luces ?? []) {
         const luz = new PointLight(new Color(farola.color).getHex(), 0, farola.radio, 2);
@@ -3692,6 +3737,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // abajo — la inclinación va en el sentido contrario al de este rig.
       const inclinacionObjetivo = estado.nadando ? 1.1 : estado.durmiendo ? 1.5 : 0;
       estado.rig.objeto.rotation.x += (inclinacionObjetivo - estado.rig.objeto.rotation.x) * factor;
+      // Huellas de nieve (huellasNieve.ts, pedido streamer 2026-09-11):
+      // cualquiera que camine (no nade) sobre nieve real deja marca — un
+      // nadador está sobre agua, nunca pisa nieve, así que ese único
+      // criterio ya basta sin consultar el terreno casilla a casilla.
+      if (andando && !estado.nadando && nivelNieveGlobal > 0) huellasNieve?.registrarPisada(estado, estado.x, estado.z);
       // Recoger/talar/picar/golpear (pedido streamer 2026-09-06) — progreso
       // 0..1 calculado aquí (rigHumanoide.ts no lleva timers propios, mismo
       // criterio que el resto de parámetros de `actualizar`); se limpia solo
@@ -3785,6 +3835,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // Streaming de sectores: seguir al jugador local (barato — solo
     // reevalúa el anillo tras moverse un umbral de casillas).
     if (jugadorLocal) streaming?.actualizar(jugadorLocal.x, jugadorLocal.z);
+    // Huellas de nieve: restaura las que ya cumplieron su tiempo — barato,
+    // solo recorre las activas (acotadas por diseño, nunca miles).
+    huellasNieve?.actualizar(tAhora);
     // Vagabundeo/manada de fauna decorativa (docs/GDD_Agentes_Moviles.md,
     // pedido 2026-09-09) — cada handle throttlea su propio trabajo pesado
     // internamente (AnimadorFaunaDecorativaSector), esta llamada es barata

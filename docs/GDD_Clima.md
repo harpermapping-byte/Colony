@@ -511,3 +511,90 @@ pantallas panorámicas). `climaVisual.e2e.mjs` no necesitó ningún cambio de
 código, solo re-ejecutarse — la sonda `window.__clima()` sigue midiendo lo
 mismo (el tipo de clima resuelto), independiente de qué motor de render lo
 dibuja.
+
+## 15. Huellas de pisada en la nieve (2026-09-11, pedido streamer: "deberia bajar a la mitad la parte que pise cada player o npc o jugador, es viable? y persistente? o que quede la huella X tiempo... y luego que vuelva al estado que estuviera")
+
+Pregunta abierta del streamer, no un diseño ya decidido — respondida con
+una implementación real en vez de solo una opinión. **Lo que NO es viable
+sin rediseñar la capa de nieve entera**: una depresión 3D de verdad
+(bajar la malla justo donde se pisa). La capa de nieve es UNA
+`BoxGeometry` por sector con altura UNIFORME (§11, `crearCajaNieveSector`)
+— no existe altura por casilla, así que "hundir a la mitad" literalmente
+exigiría una malla por casilla o un displacement map real, mucho más caro
+(esta misma sesión ya midió con cuidado el coste de tocar el terreno,
+ver `docs/GDD_Motor_3D_Props.md`, patrón de suelo horneado).
+
+**Lo que SÍ es viable y barato, reusando la arquitectura tal cual**: la
+cara de arriba de la caja YA es una textura de canvas (`nieveCanvas`,
+1px = 1 casilla, blanco opaco = nieve, transparente = agua/hielo) — una
+pisada oscurece esa MISMA textura en la casilla pisada, dándole un tono
+gris azulado (nieve compactada/sucia, el mismo lenguaje visual real de una
+huella en nieve de verdad), y pasado un tiempo se restaura el blanco
+EXACTO original. No hace falta guardar una copia del píxel de antes:
+`crearTerrenoSector` siempre escribe `255,255,255,255` en cualquier
+casilla de tierra, así que "vuelve al estado que estuviera" es literal.
+Tampoco hace falta comprobar si la casilla es agua antes de pintar: un
+no-nadador SOLO puede estar de pie sobre una casilla `!agua` (la misma
+condición que ya decide el blanco de `nieveCanvas`), así que cualquier
+pisada real cae siempre sobre un píxel ya elegible sin necesidad de una
+lectura de canvas (`getImageData`) por pisada.
+
+`client/src/render3d/huellasNieve.ts` (nuevo): `sectorYPixelDeCasilla`
+(función PURA, testeable en Node) traduce una casilla del mundo a su
+sector + píxel local; `GestorHuellasNieve` registra una pisada por
+entidad cuando cambia de casilla (nunca repinta 15-60 veces/segundo
+mientras cruza una), pinta el canvas real del sector correspondiente
+(resuelto por un callback que le pasa `game.ts`, sin acoplarse a
+Three.js/streaming directamente — testeable con un canvas FALSO) y marca
+`textura.needsUpdate=true`; `actualizar(ahora)` restaura al blanco
+cualquier huella que cumplió su tiempo (`DURACION_HUELLA_MS=25000`).
+`olvidarSector` limpia las huellas de un sector que se descarga (su canvas
+se libera/oculta con el sector, perseguirlo no tendría sentido).
+
+**100% cliente, NUNCA sincronizado entre jugadores** — decisión
+deliberada, mismo criterio que los charcos de lluvia o el vagabundeo de
+fauna decorativa: cada cliente pinta sus propias huellas bajo cualquier
+entidad que vea moverse (jugadores, NPCs, fauna, mascotas, compañeros,
+enemigos — el mismo bucle de interpolación de `game.ts::bucle()` que ya
+mueve a todos ellos), con su propio temporizador. Dos jugadores no ven
+exactamente el mismo píxel en el mismo frame, pero tampoco importa para
+un efecto puramente decorativo — sincronizarlo de verdad exigiría Schema
+nuevo, tráfico de red y decisiones de persistencia para algo que nadie
+necesita ver igual en dos pantallas a la vez.
+
+**Bug real encontrado con el primer e2e contra un servidor real** (no
+visible en los tests unitarios, que usan un canvas FALSO): `crearCajaNieveSector`
+le da a la caja de nieve un ARRAY de 6 materiales, uno por cara de la
+`BoxGeometry` (`[+x,-x,+y,-y,+z,-z]`) — la cara de ARRIBA (la que lleva la
+máscara como textura) es el ÍNDICE 2, nunca `caja.material` a secas (eso
+da el array entero, cuyo `.map` es el método `Array.prototype.map`, no una
+`Texture` — `.image` de esa función es `undefined`, así que la sonda
+siempre devolvía `null`). Arreglado leyendo `materiales[2].map`.
+
+Verificado: `client/test/huellasNieve.test.ts` (11 tests: traducción
+casilla→sector/píxel en 3 casos, pintar+marcar sucia, no repintar la misma
+casilla, sí repintar al cambiar de casilla, dos entidades no comparten
+estado, sector no materializado no revienta, restaurar al blanco EXACTO
+solo pasado el tiempo y una única vez, `clavesActivas` para depuración,
+`olvidarSector` no toca otros sectores), `cd client && npx tsc --noEmit`
+limpio, cliente 105/105. **E2E real nuevo** (`client/test/huellasNieve.e2e.mjs`,
+servidor+cliente reales, Playwright, mapa demo, `?nieve=4`): con nieve al
+máximo, caminar de verdad con el teclado deja al menos una casilla del
+tramo recorrido con el gris de huella (`[176,186,196,255]`, confirmado con
+`window.__colorNieveEn(x,y)`, una sonda nueva que lee el píxel real del
+canvas — no una captura de pantalla adivinada); sin nieve acumulada
+(`?nieve=0`), el mismo recorrido deja el canvas intacto. **Nota de
+metodología**: la primera versión del e2e comprobaba solo la casilla FINAL
+del jugador y fallaba de forma intermitente — la posición VISUAL
+interpolada (`estado.x/z` en `game.ts`, la que de verdad decide dónde se
+pinta) persigue con suavizado exponencial la posición autoritativa del
+servidor, así que nunca coinciden al frame exacto; corregido comprobando
+cualquier casilla del TRAMO recorrido en vez de un único punto — no es un
+bug de producción, es una lección sobre cómo testear interpolación cliente
+contra estado de servidor.
+
+**Pendiente real, sin cerrar**: la huella cubre SIEMPRE una casilla entera
+(resolución de la máscara, 1px = 1 casilla) — no hay forma de mostrar una
+huella más pequeña o con forma de pie sin subir esa resolución, algo que
+esta misma sesión ya midió como caro para el terreno base (`PX_POR_TILE_SUELO`,
+`docs/GDD_Motor_3D_Props.md`). Sin verificar en vivo con el streamer.
