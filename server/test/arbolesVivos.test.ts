@@ -70,3 +70,23 @@ test("arboles_sector_resuelto: sin resolver devuelve null, luego marcarSectorBos
   // otro sector no se ve afectado
   assert.strictEqual(await bd.obtenerUltimaResolucionSectorBosque("hub", 9, 9), null);
 });
+
+// Lote (mismo motivo que guardarFaunaIndividuos, playtest 2026-09-10: activar
+// un sector guardaba cada árbol crecido en su propia transacción síncrona).
+test("guardarArbolesVivos (lote): mismo upsert que fila a fila, el último duplicado del lote gana, lote vacío no rompe", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.guardarArbolesVivos([]);
+  await bd.guardarArbolesVivos([
+    filaDeEjemplo({ id: "a" }),
+    filaDeEjemplo({ id: "b", x: 5 }),
+    filaDeEjemplo({ id: "a", estado: "talado" }),
+  ]);
+  const filas = await bd.listarArbolesVivosSector("hub", 0, 0);
+  assert.deepStrictEqual(filas.map((f) => f.id).sort(), ["a", "b"]);
+  assert.strictEqual(filas.find((f) => f.id === "a")!.estado, "talado");
+  await bd.guardarArbolesVivos([filaDeEjemplo({ id: "b", etapa: "adulto" })]);
+  const filas2 = await bd.listarArbolesVivosSector("hub", 0, 0);
+  assert.strictEqual(filas2.length, 2);
+  assert.strictEqual(filas2.find((f) => f.id === "b")!.etapa, "adulto");
+  await bd.cerrar();
+});

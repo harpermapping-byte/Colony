@@ -145,6 +145,10 @@ El clic sobre un `esContenedor` ("Abrir <nombre>" en el menú contextual → `co
 
 Verificado de punta a punta con servidor+cliente+Playwright reales (`client/test/panelCofreGrid.e2e.mjs`, arcón sembrado directo vía BD sin dueño + jarl vía `JARL_NOMBRES`): abrir el inventario propio (tecla I) y el cofre a la vez, arrastrar un ítem real (drag&drop con `DataTransfer` real, no una sonda — ejercita el mismo `ondragstart`/`ondrop` que un arrastre humano) del inventario al cofre (`cofre:meterItem` confirmado por el servidor, la rejilla del cofre deja de estar "(vacío)"), y de vuelta del cofre al inventario (`cofre:sacarItem`, el cofre vuelve a "(vacío)") — round-trip completo en verde, con capturas reales de ambos paneles abiertos a la vez.
 
+## 10ter. Contenedores con filtro y expositores (2026-09-11)
+
+El protocolo `cofre:*` no cambia, pero desde el mobiliario del carpintero (docs/GDD_Construccion.md §9) un contenedor puede: (1) rechazar ítems que no cumplan su `aceptaItems` — `cofre:error "ese mueble solo guarda <etiqueta>"`, ahora visible como toast y como pista "Solo guarda: …" en `panelCofre.ts`; (2) tener una rejilla EXACTA (`rejillaCofre`, p.ej. 6x1 para una estantería de pociones) en vez de la raíz cuadrada de `aportes.almacenamiento`; (3) ser `expositor`: su contenido se dibuja sobre el mueble para todos (`construccion:expuestos`). La regla de `buscarHueco` (el servidor elige la celda, el cliente nunca) sigue igual.
+
 ## 11. "Nombre bonito" — regla permanente para TODO objeto/mueble (pedido 2026-08-30)
 
 Pedido literal del streamer: *"items/mesas solo tienen el id de catálogo; el texto vistoso que describiste en su momento vive en el GDD, nunca en el juego"* — y sobre el alcance, explícito: **"Todo el catálogo ya"** (no solo las entradas nuevas de la sesión). Cierra el gap #3 del repaso de mecánicas pendientes junto con trofeo de pared/ropa civil/molinero (mismo pedido, ver `docs/GDD_Caza.md` y `docs/GDD_Profesiones.md`).

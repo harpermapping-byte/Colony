@@ -225,3 +225,47 @@ test("cada sector se fetchea como mucho una vez aunque el anillo se reevalúe mu
   const unicos = new Set(registro.fetches);
   assert.equal(registro.fetches.length, unicos.size, "ningún sector se pidió dos veces");
 });
+
+test("un fallo TRANSITORIO de red al pedir un sector NO lo da por inexistente: se reintenta pasado reintentoMs y acaba materializado", async () => {
+  // Playtest multijugador 2026-09-10: un ERR_CONNECTION_RESET real en un
+  // fetch — antes se cacheaba como null (404 definitivo) y ese sector se
+  // quedaba como un agujero en el mapa toda la sesión.
+  const registro: Registro = { fetches: [], materializados: new Set(), soltados: [] };
+  let fallosRestantes = 1;
+  const streaming = new StreamingSectores<string>({
+    indice: INDICE,
+    reintentoMs: 0,
+    obtenerSector: async (sx, sy) => {
+      registro.fetches.push(`${sx}_${sy}`);
+      if (sx === 0 && sy === 0 && fallosRestantes-- > 0) throw new Error("ERR_CONNECTION_RESET simulado");
+      return sectorFalso(sx, sy);
+    },
+    materializar: async (sector) => { const k = `${sector.sectorX}_${sector.sectorY}`; registro.materializados.add(k); return k; },
+    soltar: (k) => { registro.materializados.delete(k); registro.soltados.push(k); },
+  });
+  streaming.actualizar(10, 10);
+  await asentar();
+  assert.equal(registro.materializados.size, 0, "el primer intento falló: nada materializado todavía");
+  assert.equal(streaming.estadisticas().pendientesDeReintento, 1);
+  // el jugador NO se mueve (misma casilla): sin el mecanismo de reintento,
+  // actualizar() ignoraría esta llamada por no haberse movido 16 casillas.
+  streaming.actualizar(10, 10);
+  await asentar();
+  assert.ok(registro.materializados.has("0_0"), "tras el reintento el sector se materializa");
+  assert.equal(registro.fetches.filter((f) => f === "0_0").length, 2, "exactamente un reintento");
+  assert.equal(streaming.estadisticas().pendientesDeReintento, 0);
+});
+
+test("un 404 real (obtenerSector devuelve null) sigue siendo definitivo: nunca se reintenta", async () => {
+  const registro: Registro = { fetches: [], materializados: new Set(), soltados: [] };
+  const streaming = new StreamingSectores<string>({
+    indice: INDICE,
+    reintentoMs: 0,
+    obtenerSector: async (sx, sy) => { registro.fetches.push(`${sx}_${sy}`); return null; },
+    materializar: async (sector) => `${sector.sectorX}_${sector.sectorY}`,
+    soltar: () => {},
+  });
+  for (let i = 0; i < 3; i++) { streaming.actualizar(10, 10); await asentar(); }
+  assert.equal(registro.fetches.filter((f) => f === "0_0").length, 1);
+  assert.equal(streaming.estadisticas().pendientesDeReintento, 0);
+});

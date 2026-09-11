@@ -12,6 +12,7 @@
  * reloj de mundo) se inyectan — nada de fs/BD directos aquí — para poder
  * testear con datos falsos sin tocar disco ni una base de datos real.
  */
+import { RADIO_PERDIDA_CAZA } from "./persecucionCaza";
 import { MapSchema } from "@colyseus/schema";
 import { Fauna } from "../rooms/schema/HubState";
 import { MundoColision, TIPO } from "./colisiones";
@@ -131,6 +132,13 @@ export interface DependenciasFaunaSalvaje {
     ultimaResolucion: number | null;
   }>;
   guardarIndividuo: (f: FaunaSalvajeFila) => Promise<void>;
+  /**
+   * Lote (opcional, retrocompatible con los tests/deps que solo dan
+   * `guardarIndividuo`): activar/desactivar un sector persiste MILES de
+   * individuos de golpe y fila a fila congelaba el servidor ~20s con SQLite
+   * (perfil real, playtest 2026-09-10) — ver `IAlmacenDatos.guardarFaunaIndividuos`.
+   */
+  guardarIndividuos?: (filas: FaunaSalvajeFila[]) => Promise<void>;
   guardarHuevo: (h: FaunaHuevoFila) => Promise<void>;
   marcarSectorResuelto: (s: CoordenadaSector, momento: number) => Promise<void>;
   /** Persiste un cadáver recién creado (docs/GDD_Agentes_Moviles.md, pedido 2026-08-30) — ver `matarIndividuo`. */
@@ -148,6 +156,17 @@ interface IndividuoVivo {
 
 export class GestorFaunaSalvaje {
   private sectoresActivos = new Map<string, IndividuoVivo[]>();
+  /**
+   * Índice `especieId -> individuos activos`, reconstruido al PRINCIPIO de
+   * cada `tick()` (O(n), trivial) para que `centroideManada` solo mire a
+   * los de su especie en vez de recorrer TODOS los sectores activos por
+   * cada individuo que elige destino — perfil de CPU real del playtest
+   * multijugador 2026-09-10: ~27% del tiempo del servidor era ese barrido
+   * O(n²) sobre miles de individuos, dejando los patches a 1-3/s en zonas
+   * con mucha fauna. Vacío = sin construir todavía (se cae al barrido
+   * completo, mismo resultado).
+   */
+  private porEspecie = new Map<string, IndividuoVivo[]>();
   /** faunaId -> sessionId del jugador que la está cazando activamente (docs/GDD_Caza.md §huida, "click sobre el animal y cazar"). */
   private cazasActivas = new Map<string, string>();
   /** faunaId del depredador -> faunaId de la presa que está persiguiendo por su cuenta (ver RADIO_DETECCION_DEPREDADOR). */
@@ -209,6 +228,21 @@ export class GestorFaunaSalvaje {
     return salida;
   }
 
+  /**
+   * Modificador de velocidad del terreno bajo (x,y) — el MISMO `modVelocidad`
+   * que frena/acelera al jugador en `actualizarMovimiento` (barro 0.7, nieve
+   * 0.6, camino 1.3...). Se aplica a la huida/persecución de la fauna (docs/
+   * GDD_Caza.md §4ter) para que la promesa "siempre correrás más" se
+   * mantenga en cualquier suelo: sin esto, una liebre (3.0 fijo) huyendo por
+   * barro superaba al cazador (3.75 × 0.7 = 2.6) y no había forma de atraparla.
+   */
+  private factorTerreno(x: number, y: number): number {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const m = this.deps.mundo;
+    if (xi < 0 || yi < 0 || xi >= m.ancho || yi >= m.alto) return 1;
+    return m.velocidad?.[yi * m.ancho + xi] ?? 1;
+  }
+
   private transitable(x: number, y: number): boolean {
     const xi = Math.round(x);
     const yi = Math.round(y);
@@ -260,7 +294,7 @@ export class GestorFaunaSalvaje {
       vivos.push({ fila, esquema, destino: null, objetivoDestino: null, pausaRestante: 1 + Math.random() * 3 });
     }
 
-    for (const fila of resultado.individuos) await this.deps.guardarIndividuo(fila);
+    await this.guardarLote(resultado.individuos);
     for (const h of resultado.huevos) await this.deps.guardarHuevo(h);
     await this.deps.marcarSectorResuelto(s, this.deps.ahora());
 
@@ -275,12 +309,19 @@ export class GestorFaunaSalvaje {
     for (const v of vivos) {
       v.fila.x = v.esquema.x;
       v.fila.y = v.esquema.y;
-      await this.deps.guardarIndividuo(v.fila);
       this.salida.delete(v.fila.id);
       this.cazasActivas.delete(v.fila.id); // una caza activa no sobrevive a que su sector se desactive
       this.caceriasAnimales.delete(v.fila.id); // igual para una cacería animal-vs-animal en curso
     }
+    await this.guardarLote(vivos.map((v) => v.fila));
     this.sectoresActivos.delete(k);
+  }
+
+  /** Lote si el almacén lo ofrece (una transacción), fila a fila si no (tests/deps mínimas) — mismo resultado persistido. */
+  private async guardarLote(filas: FaunaSalvajeFila[]): Promise<void> {
+    if (filas.length === 0) return;
+    if (this.deps.guardarIndividuos) return this.deps.guardarIndividuos(filas);
+    for (const fila of filas) await this.deps.guardarIndividuo(fila);
   }
 
   /**
@@ -500,10 +541,24 @@ export class GestorFaunaSalvaje {
   tick(
     dt: number,
     jugadores: Map<string, { x: number; y: number }> = new Map(),
-  ): { atrapados: { faunaId: string; sessionId: string }[]; cacerias: { depredadorId: string; presaId: string }[] } {
+  ): {
+    atrapados: { faunaId: string; sessionId: string }[];
+    cacerias: { depredadorId: string; presaId: string }[];
+    /** Cazas canceladas ESTE tick porque el cazador quedó a más de `RADIO_PERDIDA_CAZA` de su presa (docs/GDD_Caza.md §4ter) — la room avisa al cazador (`caza:perdida`); el animal simplemente vuelve a su vida normal. */
+    perdidas: { faunaId: string; sessionId: string }[];
+  } {
     const ahora = this.deps.ahora();
+    this.porEspecie.clear();
+    for (const vivos of this.sectoresActivos.values()) {
+      for (const v of vivos) {
+        let lista = this.porEspecie.get(v.fila.especieId);
+        if (!lista) this.porEspecie.set(v.fila.especieId, (lista = []));
+        lista.push(v);
+      }
+    }
     const atrapados: { faunaId: string; sessionId: string }[] = [];
     const cacerias: { depredadorId: string; presaId: string }[] = [];
+    const perdidas: { faunaId: string; sessionId: string }[] = [];
     for (const vivos of this.sectoresActivos.values()) {
       for (const v of vivos) {
         const combate = this.deps.catalogoCombate?.[v.fila.especieId];
@@ -523,8 +578,19 @@ export class GestorFaunaSalvaje {
               atrapados.push({ faunaId: v.fila.id, sessionId: cazadorId });
               continue;
             }
-            this.huirDe(v, cazador, dt, combate);
-            continue;
+            // Presa perdida (docs/GDD_Caza.md §4ter): "sin límite de
+            // distancia" mientras el cazador la sigue, pero si se queda
+            // atrás de verdad (atascado, o dejó de seguirla) la caza se
+            // cancela ANTES de que la presa salga del radio de interés del
+            // cliente — nunca sigue huyendo eternamente de nadie.
+            if (dist > RADIO_PERDIDA_CAZA) {
+              this.cazasActivas.delete(v.fila.id);
+              perdidas.push({ faunaId: v.fila.id, sessionId: cazadorId });
+              // Sin `continue`: este mismo tick ya vuelve a su vida normal (vigía/huida de cerca/paseo).
+            } else {
+              this.huirDe(v, cazador, dt, combate);
+              continue;
+            }
           }
         }
 
@@ -626,7 +692,24 @@ export class GestorFaunaSalvaje {
         }
       }
     }
-    return { atrapados, cacerias };
+    return { atrapados, cacerias, perdidas };
+  }
+
+  /**
+   * Presa que `sessionId` está cazando ahora mismo (id + posición en vivo),
+   * o `null` si no caza nada — lo consulta `actualizarMovimiento` (30hz)
+   * para la persecución automática autoritativa (docs/GDD_Caza.md §4ter).
+   * `cazasActivas` tiene como mucho una entrada por jugador cazando, el
+   * barrido es trivial.
+   */
+  presaCazadaPor(sessionId: string): { faunaId: string; x: number; y: number } | null {
+    for (const [faunaId, cazador] of this.cazasActivas) {
+      if (cazador !== sessionId) continue;
+      const v = this.individuoActivoPorId(faunaId);
+      if (!v) return null;
+      return { faunaId, x: v.esquema.x, y: v.esquema.y };
+    }
+    return null;
   }
 
   /** Jugador vivo más cercano a una posición, o `null` si `jugadores` está vacío (mismo criterio simple que `verificarAgroFauna` del lado servidor: sin ponderar visibilidad/línea de visión, solo distancia recta). */
@@ -652,7 +735,7 @@ export class GestorFaunaSalvaje {
     v.destino = null;
     v.objetivoDestino = null;
     const vel = combate?.velocidad ?? VEL;
-    const paso = vel * dt;
+    const paso = vel * dt * this.factorTerreno(v.esquema.x, v.esquema.y);
     const dx = v.esquema.x - amenaza.x;
     const dy = v.esquema.y - amenaza.y;
     const dist = Math.hypot(dx, dy) || 1; // amenaza EXACTAMENTE encima (dist=0, no debería pasar con RADIO_CAPTURA>0): huye en una dirección arbitraria en vez de dividir por 0
@@ -682,7 +765,7 @@ export class GestorFaunaSalvaje {
     v.destino = null;
     v.objetivoDestino = null;
     const vel = combate?.velocidad ?? VEL;
-    const paso = vel * dt;
+    const paso = vel * dt * this.factorTerreno(v.esquema.x, v.esquema.y);
     const dx = objetivo.x - v.esquema.x;
     const dy = objetivo.y - v.esquema.y;
     const dist = Math.hypot(dx, dy) || 1;
@@ -729,14 +812,19 @@ export class GestorFaunaSalvaje {
   /** Centroide de vecinos ACTIVOS de la misma especie dentro de RADIO_MANADA (busca en todos los sectores activos, no solo el propio — un grupo puede repartirse entre sectores vecinos). `null` si no hay ninguno cerca. */
   private centroideManada(v: IndividuoVivo): { x: number; y: number } | null {
     let sx = 0, sy = 0, n = 0;
-    for (const vivos of this.sectoresActivos.values()) {
-      for (const otro of vivos) {
-        if (otro === v || otro.fila.especieId !== v.fila.especieId) continue;
-        if (Math.hypot(otro.esquema.x - v.esquema.x, otro.esquema.y - v.esquema.y) > RADIO_MANADA) continue;
-        sx += otro.esquema.x;
-        sy += otro.esquema.y;
-        n++;
-      }
+    const radio2 = RADIO_MANADA * RADIO_MANADA;
+    // Solo los de su especie (índice de `tick()`); sin índice construido
+    // (llamada fuera de un tick) se recorre todo, mismo resultado.
+    const candidatos = this.porEspecie.size > 0
+      ? (this.porEspecie.get(v.fila.especieId) ?? [])
+      : [...this.sectoresActivos.values()].flat().filter((o) => o.fila.especieId === v.fila.especieId);
+    for (const otro of candidatos) {
+      if (otro === v) continue;
+      const dx = otro.esquema.x - v.esquema.x, dy = otro.esquema.y - v.esquema.y;
+      if (dx * dx + dy * dy > radio2) continue;
+      sx += otro.esquema.x;
+      sy += otro.esquema.y;
+      n++;
     }
     return n > 0 ? { x: sx / n, y: sy / n } : null;
   }

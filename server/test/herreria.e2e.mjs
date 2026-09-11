@@ -31,14 +31,15 @@ import { DatabaseSync } from "node:sqlite";
 const dirServidor = dirname(fileURLToPath(import.meta.url)).replace(/\/test$/, "");
 const raiz = join(dirServidor, "..");
 const rutaBd = join(dirServidor, "test", "herreria_e2e.sqlite");
+const rutaTestflat = join(raiz, "assets", "mapas", "testflat");
 const PUERTO = 2605;
 const NOMBRE = "E2E-Herrero";
 // Mismas coordenadas que client/test/barridoSistemas2.e2e.cjs (ya
 // verificadas libres/alcanzables desde el spawn real 1600.5,1600.5 del
 // mapa principal, RADIO_INTERACCION=2.2 — no hace falta caminar).
-const SPAWN = { x: 1600.5, y: 1600.5 };
-const YUNQUE_XY = { x: 1600, y: 1601 };
-const PARCELA_ID = "p_0001";
+const SPAWN = { x: 36.5, y: 11.5 }; // casilla vecina a la mesa (teleport de jarl tras unirse)
+const YUNQUE_XY = { x: 36, y: 10 }; // dentro de tf_0001 (assets/mapas/testflat), fila libre de muebles de la Test Zone
+const PARCELA_ID = "tf_0001"; // parcela REAL de testflat — el mapa principal se rehorneó (Vetrheim, 2026-09-08) y su parcelas.json quedó vacío: una propiedad p_0001 ya no carga ninguna construcción
 const LINGOTES_SEMBRADOS = 8; // 4 intentos de daga_craft (2 lingote_hierro cada uno)
 
 for (const f of [rutaBd]) { try { unlinkSync(f); } catch {} }
@@ -123,14 +124,24 @@ const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let fallo = null;
 try {
-  console.log("2) arrancando servidor real sobre el mapa principal...");
-  lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO), BD_RUTA: rutaBd });
+  console.log("2) arrancando servidor real sobre testflat (parcela tf_0001 real)...");
+  lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO), RUTA_MAPA: rutaTestflat, BD_RUTA: rutaBd, JARL_NOMBRES: NOMBRE });
   await esperarPuerto(`http://localhost:${PUERTO}/`);
 
   const { Client } = await import(join(raiz, "node_modules/colyseus.js/build/esm/index.mjs"));
   const cliente = new Client(`ws://localhost:${PUERTO}`);
   const room = await cliente.joinOrCreate("hub", { name: NOMBRE });
   await esperar(400); // deja que el jugador entre del todo antes del primer mensaje
+
+  // La mesa vive dentro de tf_0001, lejos del spawn de testflat (32.5,32.5):
+  // teletransporte de jarl a la casilla vecina (admin:debug:teleport ajusta a
+  // pisable si hiciera falta) y espera a la posición real replicada.
+  room.send("admin:debug:teleport", { x: 36.5, y: 11.5 });
+  for (let i = 0; i < 100; i++) {
+    const yo = room.state.players.get(room.sessionId);
+    if (yo && Math.hypot(yo.x - 36.5, yo.y - 11.5) < 2) break;
+    await esperar(100);
+  }
 
   const progresos = [];
   const completados = [];

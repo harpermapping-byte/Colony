@@ -25,11 +25,38 @@ export async function cargarIndice(rutaBase: string): Promise<IndiceMapa> {
   return r.json();
 }
 
-/** Un sector concreto; null si no existe (borde de mapa no cuadrado, hueco). */
+// Reintentos ante un fallo TRANSITORIO de red (conexión reseteada, 5xx,
+// timeout) — playtest multijugador 2026-09-10: un `ERR_CONNECTION_RESET`
+// real en un fetch de asset bajo carga. Antes CUALQUIER fallo devolvía
+// `null` y `streamingSectores.ts` lo cacheaba como "404 definitivo, no se
+// reintenta": un sector que fallara una sola vez se quedaba como un AGUJERO
+// en el mapa (sin terreno ni props) durante toda la sesión. Solo el 404 de
+// verdad (sector que no existe: borde no cuadrado) es definitivo.
+const REINTENTOS_TRANSITORIOS = 2;
+const ESPERA_REINTENTO_MS = [300, 900];
+
+/**
+ * Un sector concreto; `null` SOLO si no existe (404). Cualquier otro fallo
+ * (red caída, 5xx) se reintenta unas pocas veces y, si persiste, LANZA — el
+ * streaming lo vuelve a pedir más tarde en vez de darlo por inexistente.
+ */
 export async function cargarSector(rutaBase: string, sx: number, sy: number): Promise<SectorBakeado | null> {
-  try {
-    const r = await fetch(`${rutaBase}/sector_${pad3(sx)}_${pad3(sy)}.json`);
-    if (!r.ok) return null;
+  const url = `${rutaBase}/sector_${pad3(sx)}_${pad3(sy)}.json`;
+  for (let intento = 0; ; intento++) {
+    try {
+      return await cargarSectorUnaVez(url, sx, sy);
+    } catch (err) {
+      if (intento >= REINTENTOS_TRANSITORIOS) throw err;
+      await new Promise((r) => setTimeout(r, ESPERA_REINTENTO_MS[Math.min(intento, ESPERA_REINTENTO_MS.length - 1)]));
+    }
+  }
+}
+
+async function cargarSectorUnaVez(url: string, sx: number, sy: number): Promise<SectorBakeado | null> {
+  {
+    const r = await fetch(url);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`sector ${sx},${sy}: HTTP ${r.status}`);
     const sector = (await r.json()) as SectorBakeado;
     // BUG REAL encontrado verificando visualmente docs/GDD_Combate.md §9.6
     // (arena mar_01 con el suelo/fondo en negro puro, sin terreno visible):
@@ -47,8 +74,6 @@ export async function cargarSector(rutaBase: string, sx: number, sy: number): Pr
     if (sector.sectorX === undefined) sector.sectorX = sx;
     if (sector.sectorY === undefined) sector.sectorY = sy;
     return sector;
-  } catch {
-    return null;
   }
 }
 

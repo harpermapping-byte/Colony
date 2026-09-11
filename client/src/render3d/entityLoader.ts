@@ -57,7 +57,17 @@ export function obtenerPlantilla(categoria: CategoriaAsset, id: string, variante
       loader
         .loadAsync(url)
         .then((gltf) => gltf.scene as THREE.Object3D)
-        .catch(() => null),
+        .catch((err: unknown) => {
+          // Solo un 404 real es "no hay modelo" para siempre. Un fallo
+          // TRANSITORIO (conexión reseteada bajo carga, 5xx — visto de
+          // verdad en el playtest multijugador 2026-09-10) se olvida de la
+          // caché: la siguiente petición de esa misma URL (otro sector con
+          // la misma especie, o volver a este) vuelve a intentarlo, en vez
+          // de dejar esa especie como caja de color el resto de la sesión.
+          const status = (err as { response?: { status?: number } } | null)?.response?.status;
+          if (status !== 404) cachePlantillas.delete(url);
+          return null;
+        }),
     );
   }
   return cachePlantillas.get(url)!;

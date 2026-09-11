@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 665); // 663 (ver historial) + 2 ropa de arranque no craftable (2026-09-10: camisa_harapienta/pantalon_harapiento, docs/GDD_Personaje.md §7).
+  assert.strictEqual(ids.length, 867); // 665 (ver historial) + 114 de la ampliación de coherencia del catálogo (2026-09-11, docs/GDD_Crafteo.md §11: 23 materiales intermedios, 22 platos/elixires, 33 piezas de equipo con sus bonificadas, 6 bienes de comercio, 11 muebles exclusivos).
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

@@ -74,6 +74,25 @@ export interface Construible {
   nivelOficioMinimo?: { oficio: string; nivel: number };
   /** Coste de materiales para construir (docs/GDD_Construccion.md §3) — ver EntradaConstruible.receta en el servidor. Ausente = gratis (comportamiento de siempre). */
   receta?: { itemId: string; cantidad: number }[];
+  /**
+   * Mobiliario del carpintero (docs/GDD_Construccion.md §9, 2026-09-11):
+   * - `iluminacion`: `capa:"iluminacion"` en elementos.json — al colocarse,
+   *   renderConstrucciones.ts le cuelga una luz puntual cálida real.
+   * - `expositor`: su contenido se dibuja encima (el servidor manda
+   *   `expuestos` en construccion:nueva/lista y `construccion:expuestos`).
+   * - `plazas`: cuántos caben a la vez (informativo en el cliente; el tope
+   *   real lo aplica el servidor).
+   * - `aceptaItemsEtiqueta`: texto del filtro de contenido ("pociones y
+   *   elixires") para la pista del panel del cofre — la regla real vive en
+   *   el servidor (`mobiliario.ts`), el cliente solo la explica.
+   * - `requiereItemColocar`: ítem que se consume al colocarlo (los muebles
+   *   craftables del carpintero nunca son gratis).
+   */
+  iluminacion?: boolean;
+  expositor?: boolean;
+  plazas?: number;
+  aceptaItemsEtiqueta?: string;
+  requiereItemColocar?: string;
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -107,6 +126,10 @@ interface EntradaBruta {
   esAsiento?: boolean;
   nivelOficioMinimo?: { oficio: string; nivel: number };
   receta?: { itemId: string; cantidad: number }[];
+  expositor?: boolean;
+  plazas?: number;
+  aceptaItems?: { etiqueta?: string };
+  requiereItemColocar?: string;
   [k: string]: unknown;
 }
 
@@ -150,6 +173,11 @@ function construirLista(): Construible[] {
       esAsiento: e.esAsiento,
       nivelOficioMinimo: e.nivelOficioMinimo,
       receta: e.receta,
+      iluminacion: e.capa === "iluminacion" ? true : undefined,
+      expositor: e.expositor,
+      plazas: e.plazas,
+      aceptaItemsEtiqueta: e.aceptaItems?.etiqueta,
+      requiereItemColocar: e.requiereItemColocar,
     });
   }
 

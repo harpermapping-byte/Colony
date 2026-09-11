@@ -128,7 +128,8 @@ const IDS_PLATO = new Set([
   "tomate_cocinado", "fresa_cocinado", "miel_cocinado",
 ]);
 const IDS_PAN = new Set(["pan", "rebanada_pan"]);
-const IDS_BEBIDA = new Set(["jarra_agua", "infusion_energia", "jarabe_catarro"]);
+// Bebidas de cocinero de nivel 3-9 (docs/GDD_Crafteo.md §11, 2026-09-11): misma jarra que el agua/la infusión.
+const IDS_BEBIDA = new Set(["jarra_agua", "infusion_energia", "jarabe_catarro", "hidromiel", "vino_bayas", "licor_hierbas", "aguardiente"]);
 // docs/GDD_Pociones.md (ampliación 2026-09-01): 5 variantes de color según
 // ingredientes (alquimia.ts::colorPocion) — cada una es una entrada real de
 // catálogo con su propio colorDebug, así que generarFrasco (que ya pinta el
@@ -136,6 +137,9 @@ const IDS_BEBIDA = new Set(["jarra_agua", "infusion_energia", "jarabe_catarro"])
 const IDS_FRASCO = new Set([
   "pocion_alquimica_clara", "pocion_alquimica_toxica", "pocion_alquimica_vital",
   "pocion_alquimica_inestable", "pocion_alquimica_radiante", "unguento",
+  // tónicos/elixires de curandero de nivel 2-10 (docs/GDD_Crafteo.md §11, 2026-09-11) — frasco con el líquido de su colorDebug.
+  "tonico_curativo", "antidoto", "elixir_vigor", "tonico_agilidad", "gran_elixir_vitalidad", "panacea", "elixir_del_jarl",
+  "elixir_restauracion_completa",
 ]);
 const IDS_VENDAJE = new Set(["venda", "tablilla", "protesis_madera", "protesis_metal"]);
 const IDS_BLOQUE = new Set(["queso", "mantequilla"]);

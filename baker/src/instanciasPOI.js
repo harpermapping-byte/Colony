@@ -251,6 +251,7 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
   }
 
   const portales = [];
+  const entradasAsentamiento = [];
   const objetosPorPOI = new Map();
   const decoracionPorPOI = new Map();
 
@@ -277,7 +278,7 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
    * de la única funcional. Ahora TODAS las puertas reales reciben su
    * propio arco + su propio portal (mismo destino, es la misma ciudad).
    */
-  function colocarSiluetaYPuertaDeAsentamiento(ciudad, poi, slug, semillaPOI) {
+  function colocarSiluetaYPuertaDeAsentamiento(ciudad, poi, slug, semillaPOI, hostil = false) {
     const { id: tipoEdificioIdCiudad, puertaPrincipal, puertas } = generarYExportarSilueta(ciudad, semillaPOI, slug);
 
     // Conversión LOCAL (rejilla [0,ancho]x[0,alto] de la ciudad — el mismo
@@ -388,6 +389,7 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
         x: xPuerta, y: yPuerta, huella: [anchoPuerta, altoPuerta],
         objeto: { i: "puerta_asentamiento", t: "e", va: semillaDesdeTexto(`${semillaPOI}:puerta:0`) % VARIANTES_EDIFICIO, ro: 0, es: 1, w: anchoPuerta, h: altoPuerta, dx: 0, dy: 0 },
       });
+      entradasAsentamiento.push({ poiX: poi.x, poiY: poi.y, x: Math.round(xPuerta), y: Math.round(yPuerta + altoPuerta / 2 + 1), hostil });
       portales.push({ tipo: "exterior", x: Math.round(xPuerta), y: Math.round(yPuerta + altoPuerta / 2 + 1), destino: { tipo: "region", mapaId: `pois/${slug}` } });
     }
     puertasReales.forEach((puerta, i) => {
@@ -422,6 +424,10 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
           dy: 0,
         },
       });
+      // Entrada de ESTE asentamiento (portal exterior, casilla pisable justo
+      // fuera de la muralla) — generar.js elige entre TODAS las entradas
+      // civiles la más cercana a `config.ciudad` como spawn del mapa.
+      entradasAsentamiento.push({ poiX: poi.x, poiY: poi.y, x: Math.round(xPortal), y: Math.round(yPortal), hostil });
       portales.push({
         tipo: "exterior",
         x: Math.round(xPortal),
@@ -457,7 +463,7 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
       onProgreso(`  POI "${poi.id}" (asentamiento, ${def.tier}) en (${poi.x},${poi.y})...`);
       const ciudad = hornearCiudadPerezoso()(def.tier, semillaPOI, carpetaPOI);
       await poblarAsentamiento(def.tier, semillaPOI, carpetaPOI, onProgreso);
-      colocarSiluetaYPuertaDeAsentamiento(ciudad, poi, slug, semillaPOI);
+      colocarSiluetaYPuertaDeAsentamiento(ciudad, poi, slug, semillaPOI, false);
       continue;
     }
 
@@ -521,7 +527,7 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
         // rastro visual, y su portal seguía en el centro exacto, tan
         // inalcanzable como la capital antes de esta misma noche.
         const ciudadHostil = hornearCiudadPerezoso()(dungeonDef.tierAsentamiento, semillaPOI, carpetaPOI);
-        colocarSiluetaYPuertaDeAsentamiento(ciudadHostil, poi, slug, semillaPOI);
+        colocarSiluetaYPuertaDeAsentamiento(ciudadHostil, poi, slug, semillaPOI, true);
         continue;
       }
 
@@ -559,7 +565,7 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
     }
   }
 
-  return { portales, objetosPorPOI, decoracionPorPOI };
+  return { portales, objetosPorPOI, decoracionPorPOI, entradasAsentamiento };
 }
 
 module.exports = { generarInstanciasPOI, slugPOI };

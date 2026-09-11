@@ -27,17 +27,11 @@ import { DatabaseSync } from "node:sqlite";
 const dirServidor = dirname(fileURLToPath(import.meta.url)).replace(/\/test$/, "");
 const raiz = join(dirServidor, "..");
 const rutaBd = join(dirServidor, "test", "alquimia_e2e.sqlite");
+const rutaTestflat = join(raiz, "assets", "mapas", "testflat");
 const PUERTO = 2607;
 const NOMBRE = "E2E-Curandero";
-const RUTA_MAPA = join(raiz, "assets", "mapas", "testflat");
-const CALDERO_XY = { x: 50, y: 50 }; // lejos de los 19 muebles de semillaTestZone.ts (cerca del spawn 32,32) y de la parcela tf_0001 (no hace falta pisarla, ver PARCELA_ID)
-// "pt_<asentamiento>_..." es el mismo prefijo que ya usan las plantillas del
-// jarl (aserradero) para cargarse en `ctx.vivas` SIN depender de una
-// parcela real de `parcelas.json` (RoomExteriorBase.ts, prefijoPlantilla) —
-// el mapa "principal" (Vetrheim) se rehorneó con `parcelas.json` vacío,
-// así que "p_0001" (usado aquí hasta ahora) ya no existe; con este atajo
-// da igual qué mapa real se use.
-const PARCELA_ID = "pt_testflat_caldero_e2e";
+const CALDERO_XY = { x: 36, y: 10 }; // dentro de tf_0001 (assets/mapas/testflat), fila libre de muebles de la Test Zone // mismas coords probadas en herreria.e2e.mjs/barridoSistemas2
+const PARCELA_ID = "tf_0001"; // parcela REAL de testflat — el mapa principal se rehorneó (Vetrheim, 2026-09-08) y su parcelas.json quedó vacío: una propiedad p_0001 ya no carga ninguna construcción
 
 for (const f of [rutaBd]) { try { unlinkSync(f); } catch {} }
 
@@ -115,14 +109,24 @@ const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let fallo = null;
 try {
-  console.log("2) arrancando servidor real sobre testflat...");
-  lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO), BD_RUTA: rutaBd, RUTA_MAPA });
+  console.log("2) arrancando servidor real sobre testflat (parcela tf_0001 real)...");
+  lanzar("npx", ["tsx", "src/index.ts"], dirServidor, { PORT: String(PUERTO), RUTA_MAPA: rutaTestflat, BD_RUTA: rutaBd, JARL_NOMBRES: NOMBRE });
   await esperarPuerto(`http://localhost:${PUERTO}/`);
 
   const { Client } = await import(join(raiz, "node_modules/colyseus.js/build/esm/index.mjs"));
   const cliente = new Client(`ws://localhost:${PUERTO}`);
   const room = await cliente.joinOrCreate("hub", { name: NOMBRE });
   await esperar(400);
+
+  // La mesa vive dentro de tf_0001, lejos del spawn de testflat (32.5,32.5):
+  // teletransporte de jarl a la casilla vecina (admin:debug:teleport ajusta a
+  // pisable si hiciera falta) y espera a la posición real replicada.
+  room.send("admin:debug:teleport", { x: 36.5, y: 11.5 });
+  for (let i = 0; i < 100; i++) {
+    const yo = room.state.players.get(room.sessionId);
+    if (yo && Math.hypot(yo.x - 36.5, yo.y - 11.5) < 2) break;
+    await esperar(100);
+  }
 
   const eventos = { iniciado: [], progreso: [], completado: [], cancelado: [], errores: [], bebida: [] };
   room.onMessage("alquimia:iniciado", (m) => eventos.iniciado.push(m));

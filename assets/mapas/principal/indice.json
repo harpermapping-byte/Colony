@@ -74,6 +74,7 @@
     "x": 1534,
     "y": 2138
   },
+  "spawn": {"x":1509,"y":2098},
   "portales": [
     {
       "tipo": "interior",

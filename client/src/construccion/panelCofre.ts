@@ -68,6 +68,7 @@ export class PanelCofre {
   private readonly marco: MarcoPanel;
   private idAbierto: number | null = null;
   private nombre = "";
+  private pista = "";
   private ancho = 1;
   private alto = 1;
   private items: ItemCofre[] = [];
@@ -85,8 +86,10 @@ export class PanelCofre {
     });
   }
 
-  abrir(nombre: string) {
+  /** `pista` (docs/GDD_Construccion.md §9): texto del filtro de contenido del mueble ("Solo guarda: pociones y elixires"), o nada en un cofre normal. */
+  abrir(nombre: string, pista?: string) {
     this.nombre = nombre;
+    this.pista = pista ?? "";
   }
 
   /** Refleja `cofre:estado` — si no coincide con el cofre que se pidió abrir, se ignora (llegó de otro clic). */
@@ -114,6 +117,15 @@ export class PanelCofre {
     titulo.style.marginBottom = "8px";
     titulo.textContent = this.nombre || "Cofre";
     cuerpo.appendChild(titulo);
+    if (this.pista) {
+      const pista = document.createElement("div");
+      pista.dataset.testid = "cofre-pista";
+      pista.style.opacity = "0.8";
+      pista.style.fontSize = "0.9em";
+      pista.style.marginBottom = "6px";
+      pista.textContent = this.pista;
+      cuerpo.appendChild(pista);
+    }
 
     cuerpo.appendChild(this.renderGrid());
   }

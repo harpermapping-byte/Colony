@@ -19,6 +19,40 @@
 
 // ---- Frases completas ya fijadas a mano (compuestos donde la regla genérica no basta: orden de palabras, "de la"/"del", términos ya asentados) ----
 const EXCEPCIONES_FRASE = {
+  // Mobiliario del carpintero (docs/GDD_Construccion.md §9, 2026-09-11): el
+  // adjetivo de plazas/material va donde lo diría un carpintero ("Cama
+  // Individual de Pino"), y "con" para los complementos (marco, espejo,
+  // herrajes, respaldo) que la regla genérica encadenaría con "de".
+  cama_pino_individual: "Cama Individual de Pino",
+  cama_pino_doble: "Cama Doble de Pino",
+  cama_sauce_mimbre_individual: "Cama Individual de Sauce y Mimbre",
+  cama_roble_individual: "Cama Individual de Roble",
+  cama_roble_doble: "Cama Doble de Roble",
+  cama_abedul_tallada_individual: "Cama Individual de Abedul Tallada",
+  cama_abedul_tallada_doble: "Cama Doble de Abedul Tallada",
+  cama_noble_dosel_doble: "Cama Noble Doble con Dosel",
+  banco_respaldo_abedul: "Banco de Abedul con Respaldo",
+  mesa_noche_pino: "Mesita de Noche de Pino",
+  mesa_noche_roble_torneada: "Mesita de Noche de Roble Torneada",
+  estanteria_pociones_pino: "Estantería de Pino para Pociones",
+  estanteria_pociones_roble_doble: "Estantería Doble de Roble para Pociones",
+  estanteria_platos_pino: "Platero de Pino",
+  expositor_herramientas_pared: "Panel de Herramientas de Pared",
+  baul_roble_herrajes: "Baúl de Roble con Herrajes",
+  maniqui_armadura: "Maniquí para Armadura",
+  maniqui_armadura_noble: "Maniquí Noble para Armadura",
+  estante_trofeos_roble: "Repisa de Trofeos de Roble",
+  vitrina_libros_abedul: "Vitrina de Abedul para Libros",
+  vitrina_joyas_cristal: "Vitrina de Cristal para Joyas",
+  tocador_espejo_abedul: "Tocador de Abedul con Espejo",
+  armario_ropa_noble_espejo: "Armario de Ropa Noble con Espejo",
+  cuadro_paisaje_marco_pino: "Cuadro de Paisaje con Marco de Pino",
+  cuadro_retrato_marco_roble: "Retrato con Marco de Roble",
+  espejo_marco_roble: "Espejo con Marco de Roble",
+  candelero_pino_mesa: "Candelero de Mesa de Pino",
+  candelabro_tres_brazos_madera: "Candelabro de Tres Brazos de Madera",
+  lampara_arana_cobre: "Araña de Cobre de Seis Velas",
+  tapiz_lana_pared: "Tapiz de Lana",
   carreta_dos_plazas: "Carreta de Dos Plazas",
   diligencia_4: "Diligencia de Cuatro Plazas",
   carruaje_noble_5: "Carruaje Noble de Cinco Plazas",
@@ -75,6 +109,20 @@ const EXCEPCIONES_FRASE = {
   // ("humilde"/"noble"/"modesta" solo se probaron antes con bases
   // singulares como "camisa"/"pantalon") — corregido a mano aquí, no en
   // la regla, para no arriesgar el resto del catálogo ya en verde.
+  // Ampliación de coherencia del catálogo (2026-09-11, docs/GDD_Crafteo.md §11) — compuestos con "del", "con", "en" o sustantivo en aposición.
+  pescado_en_aceite: "Pescado en Aceite",
+  festin_del_jarl: "Festín del Jarl",
+  elixir_del_jarl: "Elixir del Jarl",
+  cama_dosel_maestra: "Cama con Dosel Maestra",
+  estatua_marmol_guardian: "Estatua de Mármol del Guardián",
+  fuente_marmol_jarl: "Fuente de Mármol del Jarl",
+  tapiz_bordado_jarl: "Tapiz Bordado del Jarl",
+  prensa_grabado_taller: "Prensa de Grabado de Taller",
+  brazalete_platino_gemas: "Brazalete de Platino con Gemas",
+  collar_estrella_mithril: "Collar Estrella de Mithril",
+  escudo_torre_acero: "Escudo Torre de Acero",
+  cola_animal: "Cola Animal",
+  ballesta_repeticion_maestra: "Ballesta de Repetición Maestra",
   guantes_lino_humilde: "Guantes de Lino Humildes",
   guantes_seda_noble: "Guantes de Seda Nobles",
   botas_cuero_humilde: "Botas de Cuero Humildes",
@@ -139,6 +187,7 @@ const EXCEPCIONES_FRASE = {
 // ---- Excepciones de UNA palabra (ñ, hiatos, esdrújulas irregulares que las reglas de sufijo no cubren) ----
 const EXCEPCIONES_PALABRA = {
   arana: "araña", aranas: "arañas", cana: "caña", castano: "castaño",
+  comoda: "cómoda", divan: "diván",
   pequena: "pequeña", pequeno: "pequeño", senales: "señales", rinonera: "riñonera",
   banos: "baños", ordeno: "ordeño", disenio: "diseño", montanas: "montañas",
   raiz: "raíz", baul: "baúl", oido: "oído", laud: "laúd",
@@ -157,7 +206,7 @@ const EXCEPCIONES_PALABRA = {
   guadana: "guadaña", tapon: "tapón", camion: "camión", sarten: "sartén",
   capitan: "capitán", capitania: "capitanía", catalogo: "catálogo", indice: "índice",
   cartografia: "cartografía", guardian: "guardián", multiple: "múltiple",
-  arnes: "arnés",
+  arnes: "arnés", festin: "festín", antidoto: "antídoto", raices: "raíces",
   multiples: "múltiples", pantografo: "pantógrafo", glandulas: "glándulas",
   guia: "guía", guias: "guías", hidraulico: "hidráulico", maritimas: "marítimas",
   alamo: "álamo", arbol: "árbol", ataud: "ataúd", automata: "autómata",
@@ -210,6 +259,9 @@ const ADJETIVOS = new Set([
   "basica", "basico", "blanca", "blanco", "blanda", "dura", "duro",
   "larga", "largo", "corta", "corto", "fina", "fino", "grueso", "simple",
   "doble", "agricola", "industrial", "individual", "comun", "comunal", "comunales",
+  // Mobiliario del carpintero (docs/GDD_Construccion.md §9, 2026-09-11)
+  "triple", "abierta", "abierto", "sencilla", "sencillo", "colgante", "orejero", "orejera",
+  "torneada", "torneado", "barnizada", "barnizado", "reforzado", "reforzada", "pintado", "pintada",
   "publica", "publico", "privada", "gratuita", "gratuitas", "religioso", "musical",
   "medicinal", "decorativa", "decorativo", "decorativos", "ornamental", "ornamentado",
   "mecanica", "mecanico", "automatica", "automata", "hidraulico", "manual", "portatil",
@@ -242,6 +294,11 @@ const ADJETIVOS = new Set([
   "agropecuario", "agropecuaria", "dulce", "dulces",
   "protectora", "protector", "ritual", "rituales",
   "harapienta", "harapiento", "harapientas", "harapientos",
+  // "baja"/"bajo" (librería baja, taburete bajo) — adjetivo de altura, no el sustantivo "la baja"; añadido 2026-09-11 al pasar el test de coherencia del catálogo.
+  "baja", "bajo", "bajas", "bajos",
+  // Ampliación 2026-09-11 (docs/GDD_Crafteo.md §11): esencia floral, festín marino, brújula naval, arco compuesto, tónico curativo,
+  // silo/tonel gremial, gemas reales, mochila/silla maestra (solo el femenino — "maestro" ya va en excepciones de frase: hacha del leñador maestro...).
+  "floral", "marino", "marina", "naval", "compuesto", "compuesta", "curativo", "gremial", "reales", "maestra", "maestras",
 ]);
 
 // Sustantivos que terminan en -ado/-ada por casualidad (NO son participio-

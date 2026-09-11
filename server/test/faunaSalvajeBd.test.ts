@@ -115,3 +115,49 @@ test("resolución de sector: null si nunca se resolvió, luego devuelve lo últi
   assert.strictEqual(await bd.obtenerUltimaResolucionSector("principal", 4, 5), null);
   await bd.cerrar();
 });
+
+// Lote (docs/GDD_Rendimiento.md §7.3, playtest 2026-09-10): activar un sector
+// persiste MILES de individuos de golpe; fila a fila con SQLite congelaba el
+// servidor entero ~20s. El lote debe dar EXACTAMENTE el mismo resultado que
+// la versión fila a fila (mismo upsert por id) y hacerlo en una transacción.
+test("guardarFaunaIndividuos (lote): mismo upsert que fila a fila, el último duplicado del lote gana, lote vacío no rompe", async () => {
+  const bd = new AlmacenDatos(":memory:");
+  await bd.guardarFaunaIndividuos([]);
+  await bd.guardarFaunaIndividuos([
+    individuo({ id: "a" }),
+    individuo({ id: "b", especieId: "oso_pardo" }),
+    individuo({ id: "c", sectorX: 1, sectorY: 0 }),
+    individuo({ id: "a", estado: "muerto", x: 99 }), // duplicado dentro del mismo lote: gana el último
+  ]);
+  const filas = await bd.listarFaunaSector("principal", 0, 0);
+  assert.deepStrictEqual(filas.map((f) => f.id).sort(), ["a", "b"]);
+  assert.strictEqual(filas.find((f) => f.id === "a")!.estado, "muerto");
+  assert.strictEqual(filas.find((f) => f.id === "a")!.x, 99);
+  // segundo lote: actualiza sin duplicar (mismo criterio que guardarFaunaIndividuo)
+  await bd.guardarFaunaIndividuos([individuo({ id: "b", vida: 7 })]);
+  const filas2 = await bd.listarFaunaSector("principal", 0, 0);
+  assert.strictEqual(filas2.length, 2);
+  assert.strictEqual(filas2.find((f) => f.id === "b")!.vida, 7);
+  await bd.cerrar();
+});
+
+test("guardarFaunaIndividuos (lote): 3000 individuos en una BD de ARCHIVO real caben en una sola transacción (sin un fsync por fila)", async () => {
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { rmSync } = await import("node:fs");
+  const ruta = join(tmpdir(), `colony-fauna-lote-${process.pid}-${Date.now()}.sqlite`);
+  const bd = new AlmacenDatos(ruta);
+  const filas = Array.from({ length: 3000 }, (_, i) => individuo({ id: `principal:4:6:${i}`, sectorX: 4, sectorY: 6, x: i % 320, y: Math.floor(i / 320) }));
+  const t0 = performance.now();
+  await bd.guardarFaunaIndividuos(filas);
+  const ms = performance.now() - t0;
+  const leidas = await bd.listarFaunaSector("principal", 4, 6);
+  assert.strictEqual(leidas.length, 3000);
+  // Fila a fila (una transacción implícita con fsync cada una) son varios
+  // SEGUNDOS en este mismo tamaño — el lote tiene que quedar muy por debajo.
+  assert.ok(ms < 1500, `el lote de 3000 tardó ${ms.toFixed(0)}ms (esperado < 1500ms)`);
+  await bd.cerrar();
+  rmSync(ruta, { force: true });
+  rmSync(ruta + "-wal", { force: true });
+  rmSync(ruta + "-shm", { force: true });
+});

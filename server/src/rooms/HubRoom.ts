@@ -32,13 +32,33 @@ import { NpcBakeado } from "../mundo/agentes";
 // fauna (t==="a") con coordenadas GLOBALAS de casilla — mismo formato de
 // nombre de archivo que usa `mundo/mapaColision.ts`. `[]` si el sector no
 // existe (fuera del mapa, o hueco sin bakear).
+type SectorBakeLeido = { chunks: Record<string, { objetos: { i: string; t: string; x: number; y: number }[] }> } | null;
+// Caché LRU pequeña del JSON de sector ya parseado: fauna salvaje y bosques
+// vivos activan los MISMOS 9 sectores casi a la vez y cada uno releía y
+// parseaba el archivo entero (0.8-2 MB) por su cuenta — lectura+parseo
+// SÍNCRONOS en el bucle de eventos (perfil de CPU real del playtest
+// 2026-09-10, `leerJSON` tras batchear la persistencia: ~0.6 s por
+// activación de 9 sectores). Cap pequeño a propósito: son objetos grandes y
+// solo interesa el anillo alrededor de los jugadores activos.
+const cacheSectorBake = new Map<string, SectorBakeLeido>();
+const MAX_SECTORES_BAKE_CACHEADOS = 12;
+function leerSectorBakeCacheado(ruta: string): SectorBakeLeido {
+  const cacheado = cacheSectorBake.get(ruta);
+  if (cacheado !== undefined) {
+    cacheSectorBake.delete(ruta); // reinsertar = "usado ahora" (orden de inserción como LRU)
+    cacheSectorBake.set(ruta, cacheado);
+    return cacheado;
+  }
+  const sector: SectorBakeLeido = fs.existsSync(ruta) ? (JSON.parse(fs.readFileSync(ruta, "utf8")) as Exclude<SectorBakeLeido, null>) : null;
+  cacheSectorBake.set(ruta, sector);
+  if (cacheSectorBake.size > MAX_SECTORES_BAKE_CACHEADOS) cacheSectorBake.delete(cacheSectorBake.keys().next().value!);
+  return sector;
+}
+
 function leerObjetosFaunaDeSector(rutaMapa: string, tamanoChunk: number, sectorX: number, sectorY: number): ObjetoFaunaBakeado[] {
   const pad3 = (n: number) => String(n).padStart(3, "0");
-  const ruta = path.join(rutaMapa, `sector_${pad3(sectorX)}_${pad3(sectorY)}.json`);
-  if (!fs.existsSync(ruta)) return [];
-  const sector = JSON.parse(fs.readFileSync(ruta, "utf8")) as {
-    chunks: Record<string, { objetos: { i: string; t: string; x: number; y: number }[] }>;
-  };
+  const sector = leerSectorBakeCacheado(path.join(rutaMapa, `sector_${pad3(sectorX)}_${pad3(sectorY)}.json`));
+  if (!sector) return [];
   const salida: ObjetoFaunaBakeado[] = [];
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
@@ -58,11 +78,8 @@ function leerObjetosFaunaDeSector(rutaMapa: string, tamanoChunk: number, sectorX
 // criterio que la fauna (el lector no sabe de catálogos, solo lee bytes).
 function leerObjetosVegetacionDeSector(rutaMapa: string, tamanoChunk: number, sectorX: number, sectorY: number): ObjetoArbolBakeado[] {
   const pad3 = (n: number) => String(n).padStart(3, "0");
-  const ruta = path.join(rutaMapa, `sector_${pad3(sectorX)}_${pad3(sectorY)}.json`);
-  if (!fs.existsSync(ruta)) return [];
-  const sector = JSON.parse(fs.readFileSync(ruta, "utf8")) as {
-    chunks: Record<string, { objetos: { i: string; t: string; x: number; y: number }[] }>;
-  };
+  const sector = leerSectorBakeCacheado(path.join(rutaMapa, `sector_${pad3(sectorX)}_${pad3(sectorY)}.json`));
+  if (!sector) return [];
   const salida: ObjetoArbolBakeado[] = [];
   for (const [clave, chunk] of Object.entries(sector.chunks)) {
     const [cx, cy] = clave.split("_").map(Number);
@@ -298,6 +315,7 @@ export class HubRoom extends RoomExteriorBase {
             ultimaResolucion: await bd.obtenerUltimaResolucionSector(mapaId, s.sectorX, s.sectorY),
           }),
           guardarIndividuo: (f) => bd.guardarFaunaIndividuo(f),
+          guardarIndividuos: (filas) => bd.guardarFaunaIndividuos(filas),
           guardarHuevo: (h) => bd.guardarHuevo(h),
           marcarSectorResuelto: (s, momento) => bd.marcarSectorResuelto(mapaId, s.sectorX, s.sectorY, momento),
           crearCadaver: (c) => bd.crearCadaverBd(c),
@@ -338,11 +356,18 @@ export class HubRoom extends RoomExteriorBase {
         this.clock.setInterval(() => {
           const jugadoresPos = new Map<string, { x: number; y: number }>();
           for (const [sessionId, p] of this.state.players.entries()) jugadoresPos.set(sessionId, { x: p.x, y: p.y });
-          const { atrapados, cacerias } = this.gestorFaunaSalvaje!.tick(0.2, jugadoresPos);
+          const { atrapados, cacerias, perdidas } = this.gestorFaunaSalvaje!.tick(0.2, jugadoresPos);
           for (const { faunaId, sessionId } of atrapados) {
             void this.onFaunaMuerta(faunaId).then(() => {
               this.clients.find((c) => c.sessionId === sessionId)?.send("caza:atrapado", { faunaId });
             });
+          }
+          // Presa perdida (docs/GDD_Caza.md §4ter): el cazador se quedó
+          // demasiado atrás — se le avisa y su persecución automática (si
+          // seguía activa) muere con la caza; el animal sigue vivo.
+          for (const { faunaId, sessionId } of perdidas) {
+            this.cazasAutomaticas.delete(sessionId);
+            this.clients.find((c) => c.sessionId === sessionId)?.send("caza:perdida", { faunaId });
           }
           // Depredador cazando presa por su cuenta (docs/GDD_Caza.md, pedido
           // 2026-09-08) — mismo camino de muerte real que cualquier otra
@@ -417,6 +442,7 @@ export class HubRoom extends RoomExteriorBase {
               };
             },
             guardarArbolVivo: (a) => bd.guardarArbolVivo(a),
+            guardarArbolesVivos: (arboles) => bd.guardarArbolesVivos(arboles),
             marcarSectorResuelto: (s, momento) => bd.marcarSectorBosqueResuelto(mapaId, s.sectorX, s.sectorY, momento),
           };
           this.gestorBosques = new GestorBosques(this.state.arbolesVivos, depsBosques);
@@ -795,6 +821,11 @@ export class HubRoom extends RoomExteriorBase {
   /** docs/GDD_Caza.md §huida — solo el Hub tiene fauna salvaje viva que cazar. */
   protected intentarIniciarCaza(faunaId: string, sessionId: string): boolean {
     return this.gestorFaunaSalvaje?.iniciarCaza(faunaId, sessionId) ?? false;
+  }
+
+  /** docs/GDD_Caza.md §4ter — posición en vivo de la presa que `sessionId` está cazando, para la persecución automática del servidor. */
+  protected presaCazadaPor(sessionId: string): { x: number; y: number } | null {
+    return this.gestorFaunaSalvaje?.presaCazadaPor(sessionId) ?? null;
   }
 
   /** docs/GDD_IA_NPCs.md — biografía individual real del NPC (poblacion.json), si la tiene. `undefined` para NPCs fijos/tutoriales sin biografía (caen al arquetipo genérico en npcChat.ts). */

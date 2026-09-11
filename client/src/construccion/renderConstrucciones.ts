@@ -20,6 +20,19 @@ import * as THREE from "three";
 import type { WorldScene } from "../render3d/worldScene";
 import { obtenerConstruible, huellaRotada, ALTURA_CATEGORIA, type CategoriaConstruible } from "./catalogoConstruccion";
 import { obtenerPlantilla } from "../render3d/entityLoader";
+import itemsJson from "../../../items/catalogo/items.json";
+
+// Solo color y huella de inventario: es lo único que hace falta para dibujar
+// un ítem EXPUESTO sobre una estantería/vitrina/maniquí como un prop pequeño
+// (docs/GDD_Construccion.md §9) — sin cargar ningún .glb por ítem.
+const ITEMS = itemsJson as unknown as Record<string, { colorDebug?: string; huella?: [number, number]; tipo?: string }>;
+
+/** Luz de una lámpara/candelabro colocado por un jugador (`capa:"iluminacion"`) — misma tonalidad cálida que las lámparas bakeadas de `interiorVisual.ts`. */
+const COLOR_LUZ_MUEBLE = 0xffb066;
+const INTENSIDAD_LUZ_MUEBLE = 1.1;
+const ALCANCE_LUZ_MUEBLE = 6;
+/** Altura de la luz sobre el suelo — un candelabro de pie/araña ilumina desde arriba del mueble, no desde su base. */
+const ALTURA_LUZ_MUEBLE = 1.4;
 
 /** Mensaje "construccion:nueva" / entrada de "construcciones:lista" (contrato §4). */
 export interface ConstruccionRed {
@@ -31,6 +44,8 @@ export interface ConstruccionRed {
   y: number;
   rot: number;
   variante: number;
+  /** Expositores (docs/GDD_Construccion.md §9): itemIds del contenido a dibujar encima — solo viene en muebles `expositor`; el servidor lo refresca con `construccion:expuestos`. */
+  expuestos?: string[];
 }
 
 // Id llegado del servidor que no está en los catálogos del bundle (cliente
@@ -45,6 +60,13 @@ export class RenderConstrucciones {
   // vivas de ese mismo modelo, solo se quita de la escena (gratis).
   private readonly piezas = new Map<number, { datos: ConstruccionRed; malla: THREE.Object3D; esPropia: boolean }>();
   private readonly ocupadas = new Set<number>();
+  // Mobiliario del carpintero (docs/GDD_Construccion.md §9): luz real de
+  // lámparas/candelabros colocados y props de lo expuesto en estanterías/
+  // vitrinas/maniquíes — viven APARTE de la malla del mueble porque esa malla
+  // se sustituye por el .glb real cuando carga (sustituirPorModeloRealSiExiste)
+  // y no queremos perderlos ni recrearlos en ese momento.
+  private readonly luces = new Map<number, THREE.PointLight>();
+  private readonly expuestos = new Map<number, { itemIds: string[]; grupo: THREE.Group }>();
 
   constructor(
     private readonly escena: WorldScene,
@@ -66,6 +88,8 @@ export class RenderConstrucciones {
     for (const clave of this.clavesHuella(c)) this.ocupadas.add(clave);
 
     const construible = obtenerConstruible(c.objeto);
+    if (construible?.iluminacion) this.encenderLuz(c);
+    if (c.expuestos) this.actualizarExpuestos(c.id, c.expuestos);
     if (!construible?.plantable) void this.sustituirPorModeloRealSiExiste(c, malla);
   }
 
@@ -77,6 +101,87 @@ export class RenderConstrucciones {
     for (const clave of this.clavesHuella(pieza.datos)) this.ocupadas.delete(clave);
     this.escena.quitarEstatico(pieza.malla);
     if (pieza.esPropia) this.disposeMallaPropia(pieza.malla as THREE.Mesh);
+    const luz = this.luces.get(id);
+    if (luz) { this.escena.quitarEstatico(luz); luz.dispose(); this.luces.delete(id); }
+    this.quitarExpuestos(id);
+  }
+
+  /** Lámpara/candelabro colocado (docs/GDD_Construccion.md §9): una luz puntual cálida sobre el centro de su huella — coste acotado, son unas pocas por parcela, nunca una por prop del mapa. */
+  private encenderLuz(c: ConstruccionRed): void {
+    const construible = obtenerConstruible(c.objeto);
+    const [w, h] = construible ? huellaRotada(construible.huella, c.rot) : [1, 1];
+    const luz = new THREE.PointLight(COLOR_LUZ_MUEBLE, INTENSIDAD_LUZ_MUEBLE, ALCANCE_LUZ_MUEBLE, 2);
+    luz.position.set(c.x + w / 2, ALTURA_LUZ_MUEBLE, c.y + h / 2);
+    luz.castShadow = false;
+    this.escena.añadirEstatico(luz);
+    this.luces.set(c.id, luz);
+  }
+
+  /**
+   * "construccion:expuestos" (y el campo `expuestos` de nueva/lista): dibuja
+   * el contenido de un expositor como props pequeños sobre la tapa del
+   * mueble — una caja por ítem, del color de catálogo del ítem y más alta
+   * si el ítem es alargado (armas/herramientas de pie contra el panel).
+   * Puramente visual: la rejilla real sigue en el panel del cofre.
+   */
+  actualizarExpuestos(construccionId: number, itemIds: string[]): void {
+    this.quitarExpuestos(construccionId);
+    const pieza = this.piezas.get(construccionId);
+    if (!pieza || itemIds.length === 0) return;
+    const c = pieza.datos;
+    pieza.datos = { ...c, expuestos: itemIds };
+    const construible = obtenerConstruible(c.objeto);
+    const [w, h] = construible ? huellaRotada(construible.huella, c.rot) : [1, 1];
+    // la tapa real del mueble: caja placeholder o .glb, lo que haya ahora mismo
+    const caja = new THREE.Box3().setFromObject(pieza.malla);
+    const topY = Number.isFinite(caja.max.y) ? caja.max.y : ALTURA_CATEGORIA[c.categoria] ?? 0.8;
+
+    const grupo = new THREE.Group();
+    const columnas = Math.max(1, Math.min(itemIds.length, Math.round(w * 4)));
+    const filas = Math.ceil(itemIds.length / columnas);
+    const pasoX = w / (columnas + 1);
+    const pasoZ = h / (filas + 1);
+    const margenSuperior = 0.02;
+    itemIds.forEach((itemId, i) => {
+      const entrada = ITEMS[itemId];
+      const alargado = (entrada?.huella?.[1] ?? 1) >= 2; // espadas/hachas/lanzas de pie
+      const ancho = Math.min(0.16, pasoX * 0.7);
+      const alto = alargado ? 0.55 : 0.18;
+      const fondo = Math.min(0.16, pasoZ * 0.7);
+      const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(entrada?.colorDebug || COLOR_DESCONOCIDO), roughness: 0.7, metalness: entrada?.tipo === "arma" ? 0.4 : 0 });
+      const prop = new THREE.Mesh(new THREE.BoxGeometry(ancho, alto, fondo), material);
+      const col = i % columnas, fila = Math.floor(i / columnas);
+      prop.position.set(c.x + pasoX * (col + 1), topY + margenSuperior + alto / 2, c.y + pasoZ * (fila + 1));
+      prop.castShadow = false;
+      prop.receiveShadow = true;
+      prop.userData.construccionId = c.id; // clic sobre un prop = clic sobre el mueble
+      grupo.add(prop);
+    });
+    this.escena.añadirEstatico(grupo);
+    this.expuestos.set(construccionId, { itemIds, grupo });
+  }
+
+  /** Sonda de test: itemIds que hay dibujados ahora mismo sobre un expositor (y cuántos props reales tiene su grupo). */
+  expuestosVisibles(construccionId: number): { itemIds: string[]; props: number } | null {
+    const e = this.expuestos.get(construccionId);
+    return e ? { itemIds: [...e.itemIds], props: e.grupo.children.length } : null;
+  }
+
+  /** Sonda de test: ¿esta construcción tiene una luz real encendida (lámpara/candelabro colocado)? */
+  tieneLuz(construccionId: number): boolean {
+    return this.luces.has(construccionId);
+  }
+
+  private quitarExpuestos(construccionId: number): void {
+    const actual = this.expuestos.get(construccionId);
+    if (!actual) return;
+    this.expuestos.delete(construccionId);
+    this.escena.quitarEstatico(actual.grupo);
+    for (const hijo of actual.grupo.children) {
+      const m = hijo as THREE.Mesh;
+      m.geometry.dispose();
+      (m.material as THREE.Material).dispose();
+    }
   }
 
   private disposeMallaPropia(malla: THREE.Mesh): void {
@@ -112,7 +217,11 @@ export class RenderConstrucciones {
     this.escena.quitarEstatico(placeholder);
     this.disposeMallaPropia(placeholder as THREE.Mesh);
     this.escena.añadirEstatico(instancia);
-    this.piezas.set(c.id, { datos: c, malla: instancia, esPropia: false });
+    this.piezas.set(c.id, { datos: actual.datos, malla: instancia, esPropia: false });
+    // los props expuestos se apoyaban en la tapa de la caja placeholder —
+    // el .glb real tiene otra altura, se recolocan sobre la nueva tapa
+    const expuestos = this.expuestos.get(c.id);
+    if (expuestos) this.actualizarExpuestos(c.id, expuestos.itemIds);
   }
 
   /** ¿Hay ya una construcción pisando esta casilla? (para el fantasma). */

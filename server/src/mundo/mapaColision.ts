@@ -126,6 +126,8 @@ export function cargarMapaColision(
     tamanoSectorChunks: number;
     leyendaTerreno: string[];
     ciudad?: { x: number; y: number };
+    /** casilla de aparición explícita (baker/src/generar.js: la puerta del asentamiento civil más cercano a `ciudad`) — manda sobre `ciudad` */
+    spawn?: { x: number; y: number };
     portales?: Portal[];
     parcelasReservadas?: ParcelaReservada[];
     bordes?: Record<"norte" | "sur" | "este" | "oeste", BordeMapa>;
@@ -208,7 +210,7 @@ export function cargarMapaColision(
 
   // spawn: la ciudad del índice, o el centro; corregido a la casilla
   // pisable más cercana (búsqueda en anillos, el mapa demo nace en roca)
-  const objetivo = indice.ciudad ?? { x: Math.floor(ancho / 2), y: Math.floor(alto / 2) };
+  const objetivo = indice.spawn ?? indice.ciudad ?? { x: Math.floor(ancho / 2), y: Math.floor(alto / 2) };
   const spawn = casillaPisableMasCercana(casillas, ancho, alto, objetivo.x, objetivo.y);
 
   return {
@@ -228,23 +230,34 @@ export function cargarMapaColision(
   };
 }
 
-function casillaPisableMasCercana(
+/** Casilla TIERRA más cercana a (x0,y0) por anillos de Chebyshev — la usa el spawn del mapa y `admin:debug:teleport` (que antes podía dejar al jugador DENTRO de un árbol/roca, sin poder moverse — playtest multijugador 2026-09-10). */
+export function casillaPisableMasCercana(
   casillas: Uint8Array,
   ancho: number,
   alto: number,
   x0: number,
   y0: number,
+  // `conSalida`: además de ser TIERRA, exigir al menos un vecino ortogonal
+  // TIERRA — una casilla libre AISLADA entre árboles es "pisable" pero un
+  // jugador dejado ahí no puede dar ni un paso (visto de verdad con el
+  // teleport de jarl, 2026-09-10: el ajuste a la más cercana cayó en un hueco
+  // de 1x1 rodeado de vegetación). Con `conSalida` y sin ninguna candidata
+  // válida en todo el mapa, cae a la búsqueda simple de siempre.
+  conSalida = false,
 ): { x: number; y: number } {
   const radioMax = Math.max(ancho, alto);
+  const esTierra = (x: number, y: number) => x >= 0 && y >= 0 && x < ancho && y < alto && casillas[y * ancho + x] === TIPO.TIERRA;
   for (let r = 0; r < radioMax; r++) {
     for (let dy = -r; dy <= r; dy++) {
       for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // solo el anillo
         const x = x0 + dx, y = y0 + dy;
-        if (x < 0 || y < 0 || x >= ancho || y >= alto) continue;
-        if (casillas[y * ancho + x] === TIPO.TIERRA) return { x, y };
+        if (!esTierra(x, y)) continue;
+        if (conSalida && !(esTierra(x + 1, y) || esTierra(x - 1, y) || esTierra(x, y + 1) || esTierra(x, y - 1))) continue;
+        return { x, y };
       }
     }
   }
+  if (conSalida) return casillaPisableMasCercana(casillas, ancho, alto, x0, y0, false);
   return { x: x0, y: y0 }; // mapa sin tierra: se aparece donde sea
 }

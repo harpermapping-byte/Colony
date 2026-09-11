@@ -190,6 +190,38 @@ export interface EntradaConstruible {
    * RoomExteriorBase.ts).
    */
   libreria?: { capacidad: number };
+  /**
+   * Mobiliario del carpintero (docs/GDD_Construccion.md §9, pedido 2026-09-11)
+   * — campos aditivos, todos opcionales, consumidos por `mobiliario.ts`:
+   * - `plazas`: cuántos jugadores caben a la vez en un asiento (`esSilla`/
+   *   `esAsiento`) o cama (`esCama`). Ausente = 1, el comportamiento previo.
+   * - `calidadDescanso`: multiplica la duración del buff "descansado" al
+   *   dormir en esa cama (pino 1.0 → noble con dosel 2.0).
+   * - `aceptaItems`: filtro de contenido de un contenedor (estantería de
+   *   pociones, expositor de armas, armario de ropa...). Sin filtro = cofre.
+   * - `rejillaCofre`: rejilla EXACTA [ancho, alto] del contenedor; manda
+   *   sobre la raíz cuadrada de `aportes.almacenamiento` (`capacidadCofre`).
+   * - `expositor`: el contenido se DIBUJA encima del mueble en el cliente —
+   *   el servidor replica `expuestos` (itemIds) en `construccion:nueva`/
+   *   `construcciones:lista` y difunde `construccion:expuestos` al cambiar.
+   * - `iluminacion`: derivado de `capa:"iluminacion"` — el cliente enciende
+   *   una luz real al colocarlo (lámparas/candelabros craftables).
+   */
+  plazas?: number;
+  calidadDescanso?: number;
+  aceptaItems?: FiltroAceptaItems;
+  rejillaCofre?: [number, number];
+  expositor?: boolean;
+  iluminacion?: boolean;
+}
+
+/** Filtro de contenido de un mueble contenedor (docs/GDD_Construccion.md §9) — cumple con CUALQUIERA de las listas; `etiqueta` es el texto que ve el jugador ("solo guarda: pociones y elixires"). */
+export interface FiltroAceptaItems {
+  tipos?: string[];
+  slots?: string[];
+  prefijos?: string[];
+  ids?: string[];
+  etiqueta?: string;
 }
 
 export interface EntradaActividadAtributo {
@@ -253,6 +285,12 @@ interface EntradaElemento {
   aportes?: { almacenamiento?: number };
   /** docs/GDD_Libreria.md — presente en libreria_baja/alta/doble, siempre junto a esContenedor:true. */
   libreria?: { capacidad: number };
+  /** Mobiliario del carpintero (docs/GDD_Construccion.md §9, 2026-09-11) — ver los campos homónimos de `EntradaConstruible`. */
+  plazas?: number;
+  calidadDescanso?: number;
+  aceptaItems?: FiltroAceptaItems;
+  rejillaCofre?: [number, number];
+  expositor?: boolean;
   /**
    * Corrección real (docs/GDD_Mesas_Minijuego.md, 2026-08-30): este campo
    * YA existía en `elementos.json` (silla_pino/silla_roble/silla_nogal_
@@ -337,6 +375,12 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       almacenamientoCofre: d.esContenedor ? Math.max(2, Math.round(Math.sqrt(d.aportes?.almacenamiento ?? 9))) : undefined,
       libreria: d.libreria,
       requiereItemColocar: d.requiereItemColocar,
+      plazas: d.plazas,
+      calidadDescanso: d.calidadDescanso,
+      aceptaItems: d.aceptaItems,
+      rejillaCofre: d.rejillaCofre,
+      expositor: d.expositor,
+      iluminacion: d.capa === "iluminacion" ? true : undefined,
     });
   }
 

@@ -188,7 +188,8 @@ function clasificarArma(id) {
   // (jabalina = lanza corta arrojadiza, tridente = lanza de 3 puntas,
   // bastón = asta sin punta metálica) — mismo arquetipo de asta larga,
   // ninguna es una hoja corta con guarda.
-  if (id.startsWith("lanza") || id.startsWith("jabalina") || id.startsWith("tridente") || id.startsWith("baston_guerra")) return "LANZA";
+  // alabarda = asta larga con hoja; cualquier bastón (guerra/roble tratado) = asta sin punta.
+  if (id.startsWith("lanza") || id.startsWith("jabalina") || id.startsWith("tridente") || id.startsWith("baston") || id.startsWith("alabarda")) return "LANZA";
   if (id.startsWith("arco")) return "ARCO";
   if (id.startsWith("honda")) return "HONDA";
   if (id.startsWith("ballesta")) return "BALLESTA";

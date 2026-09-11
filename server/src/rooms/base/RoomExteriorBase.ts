@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { Room, Client, Delayed } from "@colyseus/core";
 import { StateView, Schema } from "@colyseus/schema";
-import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, CarroSchema, ConjuntoTiroSchema, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema, BlueprintRopaSchema } from "../schema/HubState";
+import { HubState, Player, ObjetoMundoSchema, MarcadorCombateSchema, Mascota, Barco, CarroSchema, ConjuntoTiroSchema, Fauna, Npc, ComercioSchema, OfertaComercioSchema, CadaverSchema, AnimalGranjaSchema, MesaAjedrezSchema, BlueprintRopaSchema, CasillaCultivoSchema } from "../schema/HubState";
 import { Cadaver, cadaverDesaparecio, crearCadaver, DatosVisualJugador } from "../../mundo/cadaveres";
 import { EstadisticasCombateAnimal, CategoriaVidaAnimal, CategoriaProductoGranja } from "../../mundo/catalogoCombateFauna";
 import { datosDeCadaver, sacrificarAnimalGranja } from "../../mundo/lootCaza";
@@ -20,7 +20,7 @@ import {
   rangoStockMercader,
   limiteCompraDiarioMercader,
   stockAleatorioEnRango,
-  VENTANA_RESET_MERCADER_MS,
+  VENTANA_RESET_MERCADER_MS, precioBaseArticulo,
 } from "../../mercado/catalogoMercaderes";
 import { esRecipienteLiquido, llenar, vaciar, tieneLiquido, consumirVolumen, transferirLiquido } from "../../inventario/liquidos";
 import { crearContenedorMuebles, meterMueble, sacarMueble } from "../../inventario/contenedorMuebles";
@@ -48,7 +48,7 @@ import {
   tirarHuida,
 } from "../../combate/arenaCombate";
 import { Arena, Casilla, costeCasilla, casillasAlcanzables } from "../../combate/pathfindingArena";
-import { MapaCargado, BordeMapa } from "../../mundo/mapaColision";
+import { MapaCargado, BordeMapa, casillaPisableMasCercana } from "../../mundo/mapaColision";
 import { recolectableCercano, recolectablesAgotadosDeMapa } from "../../mundo/recolectables";
 import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria, msFaltantesParaRecolectar } from "../../mundo/herramientasRecoleccion";
 import {
@@ -85,6 +85,7 @@ import { IAlmacenDatos, ModoTenencia, ContratoTransporte, Mascota as MascotaFila
 import { obtenerBdCompartida } from "../../datos/bdCompartida";
 import { IndiceParcelas, runsDe, parcelaEn } from "../../construccion/parcelas";
 import { cargarCatalogoConstruible, cargarCatalogoPlantillas, EntradaConstruible } from "../../construccion/catalogo";
+import { aceptaItemEnMueble, expuestosDe, factorDescansoDe, plazasDe } from "../../construccion/mobiliario";
 import {
   ContextoConstruccion,
   ConstruccionViva,
@@ -176,6 +177,7 @@ import { pvpGlobalHabilitado, fijarPvpGlobal } from "../../mundo/pvp";
 import { nombreCapitalOverride, fijarNombreCapital, LONGITUD_MAXIMA_NOMBRE_CAPITAL } from "../../mundo/capital";
 import { nuevasClavesReveladas, sectorDePosicion, empaquetarSector } from "../../mundo/exploracion";
 import { COSTE_REPOSICION_FAUNA } from "../../mundo/faunaSalvajeViva";
+import { EstadoPersecucion, direccionPersecucion, nuevoEstadoPersecucion } from "../../mundo/persecucionCaza";
 import { jugadorConectado, jugadorDesconectado } from "../../mundo/contadorConexiones";
 import { tocaPicar, elegirCaptura, INTERVALO_PICADA_MS, VENTANA_REACCION_MS, MOVIMIENTOS_BOYA } from "../../personaje/pesca";
 import { EstadoCultivo, nivelAgua, nivelFertilizante, puedeSembrarEnMes, listaParaCosechar, resolverCosecha, mezclarRasgos, derivarCrecimientoHibrido, nombreHibrido, nombreLegible, mezclarColor } from "../../cultivo/cultivo";
@@ -384,6 +386,10 @@ function idDeCofre(destino: string): number | null {
  * es literal porque la rejilla nunca mira peso, solo casillas.
  */
 function capacidadCofre(entrada: EntradaConstruible | undefined): [number, number] {
+  // Mobiliario del carpintero (docs/GDD_Construccion.md §9): rejilla EXACTA
+  // declarada en el catálogo (una estantería de pociones 6x1 enseña 6
+  // frascos en fila, no un cuadrado aproximado) — manda sobre todo lo demás.
+  if (entrada?.rejillaCofre) return [Math.max(1, entrada.rejillaCofre[0]), Math.max(1, entrada.rejillaCofre[1])];
   if (entrada?.libreria) return [entrada.libreria.capacidad, 1];
   const lado = entrada?.almacenamientoCofre ?? 3;
   return [lado, lado];
@@ -629,6 +635,13 @@ const novedadesProveedorReal = async (): Promise<string[]> => (await obtenerBdCo
 export abstract class RoomExteriorBase extends Room<HubState> implements RoomConectable {
   maxClients = 40;
   protected inputs = new Map<string, Direccion>();
+  // Persecución automática de caza (docs/GDD_Caza.md §4ter): sesiones que
+  // pulsaron "Cazar" y desde entonces NO han tocado ninguna tecla de
+  // movimiento — mientras estén aquí, `actualizarMovimiento` las mueve solo
+  // hacia su presa (`presaCazadaPor`). Vive y muere con la sesión, igual
+  // que `inputs`; se limpia sola en cuanto la caza termina (atrapada,
+  // perdida, animal muerto por otro) o el jugador manda un `input` real.
+  protected cazasAutomaticas = new Map<string, EstadoPersecucion>();
   // Resistencia por movimiento (docs/GDD_Personaje.md §3.4): tiempo REAL
   // acumulado corriendo/andando desde el último umbral cruzado — vive y
   // muere con la sesión, igual que `inputs` (nunca se persiste, solo se
@@ -643,7 +656,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * (StateView lo tolera, pero es trabajo de más sin ganar nada: la vista ya
    * refleja lo mismo si no ha cambiado nada). Vive y muere con la sesión.
    */
-  private vistaActualPorSesion = new Map<string, Set<string>>();
+  // clave "coleccion:id" → INSTANCIA de Schema que ese cliente tiene en su
+  // StateView. Se guarda la instancia (no solo la clave) porque una entidad
+  // puede reemplazarse bajo la MISMA clave sin pasar por el radio — p.ej.
+  // un NPC trabajador al asignarle mesa/receta/ruta (`quitarAgente` +
+  // `agregarNpcFijo` con el mismo slotId): con solo la clave, el cliente se
+  // quedaba viendo la instancia vieja (posición/acción viejas) para siempre
+  // — bug real encontrado con npcs_trabajadores_crafteo.e2e.mjs 2026-09-11.
+  private vistaActualPorSesion = new Map<string, Map<string, Schema>>();
   /** Velocidad con inercia mientras se desliza sobre hielo (docs/GDD_Clima.md) — el resto del movimiento no la necesita, es instantáneo. Se borra en cuanto el jugador deja de estar sobre hielo. */
   private velocidadHieloPorSesion = new Map<string, { x: number; y: number }>();
   // Sueño en cama (docs/GDD_Personaje.md §3.6): vive y muere con la sesión,
@@ -747,7 +767,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   // preexistente sin tocar), un asiento de 1 plaza sí se bloquea de verdad
   // para no apilar 2 jugadores en la misma silla.
   private sentadoEn = new Map<string, number>();
-  private asientosOcupados = new Map<number, string>();
+  // Un Set por construcción desde el mobiliario del carpintero (docs/
+  // GDD_Construccion.md §9): un sofá de `plazas:3` sienta a tres a la vez,
+  // el tope real lo comprueba `ocupantesDeMueble` contra `plazasDe`.
+  private asientosOcupados = new Map<number, Set<string>>();
   private siguienteComercioId = 1;
   private static readonly VENTANA_SOLICITUD_COMERCIO_MS = 8000;
 
@@ -887,6 +910,29 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * ahí, mismo criterio que `ctxConstruccion` sin rellenar.
    */
   protected casillasCultivo = new Map<number, EstadoCasillaCultivo>();
+
+  /**
+   * Espeja UNA casilla de `casillasCultivo` (Map servidor) en
+   * `state.cultivosCasilla` (Schema replicado) para que el cliente la vea
+   * (docs/GDD_Agricultura.md, 2026-09-11). Se llama tras cada mutación real
+   * (labrar/plantar/cosechar, manual o por apero) y una vez por entrada al
+   * hidratar la room — el Map es la fuente de verdad, el Schema solo pinta.
+   */
+  protected sincronizarCasillaCultivo(idx: number): void {
+    const clave = String(idx);
+    const casilla = this.casillasCultivo.get(idx);
+    if (!casilla) { this.state.cultivosCasilla.delete(clave); return; }
+    let esquema = this.state.cultivosCasilla.get(clave);
+    if (!esquema) {
+      esquema = new CasillaCultivoSchema();
+      esquema.x = idx % this.mundo.ancho;
+      esquema.y = Math.floor(idx / this.mundo.ancho);
+      this.state.cultivosCasilla.set(clave, esquema);
+    }
+    esquema.estado = casilla.estado;
+    esquema.semillaId = casilla.semillaId ?? "";
+    esquema.diaPlantado = casilla.diaPlantado ?? 0;
+  }
 
   /**
    * Aperos en uso (docs/GDD_Carros.md §9.3, Fase 3b, pedido 2026-09-03) —
@@ -1163,6 +1209,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // cubre null/undefined, no NaN/Infinity/strings — de ahí el check aparte.
       const xValido = Number.isFinite(dir?.x) ? dir!.x : 0;
       const yValido = Number.isFinite(dir?.y) ? dir!.y : 0;
+      // Cualquier movimiento manual real cancela la persecución automática
+      // de caza (docs/GDD_Caza.md §4ter, "el control manual manda siempre")
+      // — soltar teclas (0,0) NO cuenta, mismo criterio que dormir/sentarse.
+      if (xValido !== 0 || yValido !== 0) this.cazasAutomaticas.delete(client.sessionId);
       // Movimiento libre BLOQUEADO en combate activo (pedido streamer: "el
       // movimiento cambia al del mundo en general [solo] en combate... fuera
       // de combate no") — solo dentro del grid táctico real, nunca en la
@@ -1278,6 +1328,12 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // Oficio de jugador — ronda 2 (docs/GDD_Profesiones.md): 2 slots, elegir
     // un vacío es gratis, cambiar uno ocupado cuesta Farycoins y reinicia la
     // XP del que se quita — ambos exigen hablar con el NPC maestro_oficios.
+    // Panel de crafteo (docs/GDD_Crafteo.md §10, 2026-09-11): el cliente
+    // necesita saber tu XP/nivel real por oficio para marcar qué recetas
+    // están a tu alcance — la XP vive solo en BD (`jugador_oficios`), nunca
+    // se replicó. Consulta bajo demanda, nunca replicada: cambia solo al
+    // craftear y el propio `crafteo:completado` ya trae la XP nueva.
+    this.onMessage("oficio:consultar", (client, msg: { oficios?: string[] }) => void this.manejarOficioConsultar(client, msg));
     this.onMessage("oficio:elegir", (client, msg: { oficio?: string }) => this.manejarOficioElegir(client, msg));
     this.onMessage("oficio:cambiar", (client, msg: { slot?: number; oficio?: string }) => this.manejarOficioCambiar(client, msg));
 
@@ -1949,6 +2005,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
+    this.cazasAutomaticas.delete(client.sessionId);
     this.inventarios.delete(client.sessionId);
     this.extrasInventario.delete(client.sessionId);
     this.ultimoMensajeNpc.delete(client.sessionId);
@@ -2706,7 +2763,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const it = contenedor.items.find((i) => i.id === msg.instanciaId);
     if (!it) return client.send("personaje:error", { motivo: "no_encontrado" });
     const entrada = this.catalogoItems[it.itemId];
-    if (!entrada || entrada.tipo !== "consumible" || (!entrada.restaura && !entrada.restauraMultiple)) {
+    if (!entrada || entrada.tipo !== "consumible" || (!entrada.restaura && !entrada.restauraMultiple && !entrada.efectoBuff)) {
       return client.send("personaje:error", { motivo: "no_se_puede_consumir" });
     }
 
@@ -2715,7 +2772,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
     if (unidadCombate) unidadCombate.pa -= COSTE_PA_OBJETO;
 
-    let valores: Partial<Record<"vida" | "estamina" | "comida" | "bebida" | "sueno" | "caca", number>>;
+    let valores: Partial<Record<"vida" | "estamina" | "comida" | "bebida" | "sueno" | "caca", number>> = {};
     if (entrada.restauraMultiple) {
       // Cocina (docs/GDD_Cocina.md, pedido 2026-08-30): un plato sube VARIOS
       // vitales a la vez en un solo consumo — mismo aplicarUnVital que abajo,
@@ -2725,8 +2782,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         if (cantidad == null) continue;
         valores[vital] = this.aplicarUnVital(player, vital, cantidad);
       }
-    } else {
-      valores = { [entrada.restaura!.vital]: this.aplicarUnVital(player, entrada.restaura!.vital, entrada.restaura!.cantidad) };
+    } else if (entrada.restaura) {
+      valores = { [entrada.restaura.vital]: this.aplicarUnVital(player, entrada.restaura.vital, entrada.restaura.cantidad) };
+    }
+    // efectoBuff (docs/GDD_Crafteo.md §11, 2026-09-11): consumibles de nivel
+    // alto (banquete real, tónico de agilidad, elixir del jarl) dan un buff
+    // temporal por el MISMO canal que una poción de alquimia — "todos" son
+    // los 4 stats de combate a la vez; el resto, un StatAlquimia concreto.
+    if (entrada.efectoBuff) {
+      const { stat, magnitudPct, duracionSeg } = entrada.efectoBuff;
+      const expiraEn = Date.now() + duracionSeg * 1000;
+      const stats = stat === "todos" ? (["ataqueFisico", "defensaFisica", "ataqueMagico", "defensaMagica"] as const) : ([stat] as const);
+      const actuales = this.buffsPocionPorSesion.get(client.sessionId) ?? [];
+      this.buffsPocionPorSesion.set(client.sessionId, [...actuales, ...stats.map((s) => ({ categoria: "stat" as const, stat: s, magnitudPct, expiraEn }))]);
     }
 
     // "Bien alimentado" (docs/GDD_Mecanicas.md §5.12, 2026-09-02) — comer o
@@ -2858,6 +2926,25 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * el admin — server/src/mundo/npcsFijos.ts). Cambiarlo cuando el jugador
    * ya tiene 2 elegidos va por `manejarOficioCambiar`.
    */
+  /** XP y nivel reales de los oficios pedidos (por defecto los 2 elegidos) — respuesta `oficio:estado` (docs/GDD_Crafteo.md §10). */
+  private async manejarOficioConsultar(client: Client, msg: { oficios?: string[] }) {
+    const nombre = this.nombreDe(client);
+    const player = this.state.players.get(client.sessionId);
+    if (!nombre || !player) return;
+    const pedidos = Array.isArray(msg?.oficios) ? msg.oficios.filter((o): o is string => typeof o === "string" && OFICIOS_JUGADOR_VALIDOS.has(o)) : [];
+    const oficios = new Set<string>([...pedidos, player.oficio1, player.oficio2].filter((o) => o !== ""));
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const xp: Record<string, number> = {};
+    const nivel: Record<string, number> = {};
+    for (const oficio of oficios) {
+      const puntos = await bd.obtenerXpOficio(jugador.id, oficio);
+      xp[oficio] = puntos;
+      nivel[oficio] = nivelDeXp(puntos);
+    }
+    client.send("oficio:estado", { oficio1: player.oficio1, oficio2: player.oficio2, xp, nivel });
+  }
+
   private async manejarOficioElegir(client: Client, msg: { oficio?: string }) {
     const nombre = this.nombreDe(client);
     const player = this.state.players.get(client.sessionId);
@@ -3146,12 +3233,20 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return client.send("dormir:error", { motivo: "construcción inexistente" });
-    if (!this.entradaDe(viva.objeto)?.esCama) return client.send("dormir:error", { motivo: "eso no es una cama" });
+    const entradaCama = this.entradaDe(viva.objeto);
+    if (!entradaCama?.esCama) return client.send("dormir:error", { motivo: "eso no es una cama" });
 
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) {
       return client.send("dormir:error", { motivo: "demasiado lejos de la cama" });
+    }
+    // Plazas reales (docs/GDD_Construccion.md §9): una cama individual es
+    // para uno, una doble para dos — antes cualquier número de jugadores
+    // podía "dormir" apilado en la misma cama (gap documentado en
+    // `asientosOcupados`, cerrado aquí para camas con el mismo criterio).
+    if (this.durmientesEnCama(viva.id) >= plazasDe(entradaCama)) {
+      return client.send("dormir:error", { motivo: "esa cama ya está ocupada" });
     }
 
     const terminaEn = Date.now() + DURACION_DORMIR_MS;
@@ -3169,6 +3264,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     this.durmiendo.delete(client.sessionId);
     const player = this.state.players.get(client.sessionId);
+    // La calidad de la cama se lee ANTES de soltar `durmiendoEnId` — es la
+    // única referencia a en qué cama se durmió (docs/GDD_Construccion.md §9).
+    const camaId = player?.durmiendoEnId ?? -1;
+    const entradaCama = camaId >= 0 ? this.entradaDe(this.ctxConstruccion?.vivas.get(camaId)?.objeto ?? "") : undefined;
     if (player) {
       player.durmiendo = false;
       player.durmiendoEnId = -1;
@@ -3182,9 +3281,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const actuales = this.buffsPocionPorSesion.get(client.sessionId) ?? [];
     this.buffsPocionPorSesion.set(client.sessionId, [
       ...actuales,
-      { categoria: "especial", especial: "xpOficioX2", expiraEn: Date.now() + DURACION_BUFF_DESCANSADO_MS },
+      // `calidadDescanso` de la cama (mobiliario del carpintero): pino 1.0,
+      // roble 1.25, abedul 1.5, noble con dosel 2.0 — misma XP doble, más rato.
+      { categoria: "especial", especial: "xpOficioX2", expiraEn: Date.now() + Math.round(DURACION_BUFF_DESCANSADO_MS * factorDescansoDe(entradaCama)) },
     ]);
-    client.send("dormir:completado", {});
+    client.send("dormir:completado", { factorDescanso: factorDescansoDe(entradaCama) });
   }
 
   /**
@@ -3201,12 +3302,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return client.send("sentar:error", { motivo: "construcción inexistente" });
-    if (!this.entradaDe(viva.objeto)?.esSilla) return client.send("sentar:error", { motivo: "ahí no te puedes sentar" });
+    const entradaSilla = this.entradaDe(viva.objeto);
+    if (!entradaSilla?.esSilla) return client.send("sentar:error", { motivo: "ahí no te puedes sentar" });
 
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
     if (Math.hypot(viva.x - player.x, viva.y - player.y) > RADIO_INTERACCION) {
       return client.send("sentar:error", { motivo: "demasiado lejos del mueble" });
+    }
+    // Plazas (docs/GDD_Construccion.md §9): cuenta a quien ya esté sentado
+    // ahí por CUALQUIERA de los dos mecanismos (clic o tecla F) — antes este
+    // camino no comprobaba ocupación y dos jugadores podían compartir silla.
+    if (this.ocupantesDeMueble(viva.id) >= plazasDe(entradaSilla)) {
+      return client.send("sentar:error", { motivo: "no queda sitio en ese mueble" });
     }
     this.sentadoSuelo.delete(client.sessionId);
     if (player.sentadoSuelo) player.sentadoSuelo = false;
@@ -3303,6 +3411,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           });
         }
       }
+      // Espejo replicado (docs/GDD_Agricultura.md, 2026-09-11): tanto si la room
+      // acaba de hidratar desde BD como si reusa el Map cacheado por mapa, el
+      // Schema de ESTA room arranca vacío y hay que volcarlo entero.
+      for (const idx of this.casillasCultivo.keys()) this.sincronizarCasillaCultivo(idx);
     }
 
     const todasConstrucciones = await bd.listarConstrucciones();
@@ -3570,6 +3682,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         this.broadcast("construccion:nueva", {
           id, propiedad: propiedadId, objeto: entrada.id, categoria: entrada.categoria,
           x, y, rot, variante,
+          // expositor recién colocado: vacío, pero el campo viaja para que el
+          // cliente sepa desde el primer momento que es un expositor
+          expuestos: entrada.expositor ? [] : undefined,
         });
         // docs/GDD_IA_NPCs.md (pedido 2026-09-08: pregonero que cuente
         // novedades — "construcciones nuevas") — solo la categoría
@@ -3615,8 +3730,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // Asiento genérico (docs/GDD_Personaje.md §3.6bis): recoger una silla
       // ocupada levanta a quien esté sentado, mismo criterio que la mesa
       // de ajedrez de arriba — antes de borrar la construcción.
-      const ocupante = this.asientosOcupados.get(viva.id);
-      if (ocupante) this.levantarDeAsiento(ocupante);
+      for (const ocupante of [...(this.asientosOcupados.get(viva.id) ?? [])]) this.levantarDeAsiento(ocupante);
       // quitarConstruccion (síncrono) va ANTES del await a la BD a propósito
       // — es lo que borra `viva.id` de `ctx.vivas`, la señal que lee la
       // revalidación de arriba. Si fuera después, un "recoger" solapado
@@ -3655,6 +3769,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       [...this.ctxConstruccion.vivas.values()].map((c) => ({
         id: c.id, propiedad: c.propiedad, objeto: c.objeto, categoria: c.categoria,
         x: c.x, y: c.y, rot: c.rot, variante: c.variante,
+        expuestos: this.expuestosDeViva(c),
       })),
     );
   }
@@ -5256,6 +5371,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!resultado.ok || !resultado.valor) return this.errorCultivoCasilla(client, resultado.motivo ?? "ya_labrada");
 
     this.casillasCultivo.set(idx, resultado.valor);
+    this.sincronizarCasillaCultivo(idx);
     await bd.guardarCasillaCultivo({
       mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
       duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
@@ -5294,6 +5410,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
     this.casillasCultivo.set(idx, resultado.valor);
+    this.sincronizarCasillaCultivo(idx);
     await bd.guardarCasillaCultivo({
       mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
       duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
@@ -5333,6 +5450,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
     this.casillasCultivo.set(idx, resultado.siguienteCasilla);
+    this.sincronizarCasillaCultivo(idx);
     await bd.guardarCasillaCultivo({
       mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
       duenoId: jugador.id, estado: resultado.siguienteCasilla.estado, semillaId: resultado.siguienteCasilla.semillaId ?? null, diaPlantado: resultado.siguienteCasilla.diaPlantado ?? null,
@@ -5406,6 +5524,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       const resultado = labrarCasilla(this.casillasCultivo.get(idx), jugador.id);
       if (!resultado.ok || !resultado.valor) return;
       this.casillasCultivo.set(idx, resultado.valor);
+    this.sincronizarCasillaCultivo(idx);
       await bd.guardarCasillaCultivo({
         mapaId: this.mapaIdPropio, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
         duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
@@ -5464,6 +5583,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
             if (!resultado.ok || !resultado.valor) return;
             quitarItem(carga, semilla.id, 1);
             this.casillasCultivo.set(idx, resultado.valor);
+    this.sincronizarCasillaCultivo(idx);
             await bd.guardarCasillaCultivo({
               mapaId: this.mapaIdPropio!, idxCasilla: idx, x: tileX + 0.5, y: tileY + 0.5,
               duenoId: jugador.id, estado: resultado.valor.estado, semillaId: resultado.valor.semillaId ?? null, diaPlantado: resultado.valor.diaPlantado ?? null,
@@ -5737,6 +5857,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const npc = npcTutorialAAgente(fila, cargarCatalogoNpcsTutoriales());
     if (!npc) return; // no debería pasar (el catálogo se acaba de leer arriba), pero por si acaso
     this.obtenerOCrearGestorAgentes().agregarNpcFijo(npc);
+    this.refrescarVistaDeInteresYa();
     if (npc.oficio) this.oficiosNpc.set(npc.slotId, npc.oficio);
     client.send("admin:npcTutorial:colocado", { id: fila.id, tipoTutorial: fila.tipoTutorial, nombre: fila.nombre, x: fila.x, y: fila.y });
   }
@@ -5941,10 +6062,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!this.puedeActuarComoJarl(client)) return client.send("admin:error", { motivo: "solo el jarl/superadmin puede hacer esto" });
     const player = this.state.players.get(client.sessionId);
     if (!player) return client.send("admin:error", { motivo: "jugador inválido" });
-    if (typeof msg?.x !== "number" || typeof msg?.y !== "number") return client.send("admin:error", { motivo: "faltan x/y" });
-    player.x = msg.x;
-    player.y = msg.y;
-    client.send("admin:debug:ok", { accion: "teleport", x: msg.x, y: msg.y });
+    if (typeof msg?.x !== "number" || typeof msg?.y !== "number" || !Number.isFinite(msg.x) || !Number.isFinite(msg.y)) return client.send("admin:error", { motivo: "faltan x/y" });
+    // Nunca dejar al jarl DENTRO de una casilla sólida (árbol/roca/muralla):
+    // moverAABB bloquea cualquier salida desde ahí y se queda clavado hasta
+    // otro teleport (visto en el playtest multijugador 2026-09-10: 3 de 4
+    // destinos "a ojo" cayeron en vegetación densa). Agua sí vale como
+    // destino (nadar/bucear es un medio real), solo se corrige lo SÓLIDO.
+    let x = msg.x, y = msg.y;
+    if (this.mundo && medioEn(this.mundo, x, y) === TIPO.SOLIDO) {
+      const libre = casillaPisableMasCercana(this.mundo.casillas, this.mundo.ancho, this.mundo.alto, Math.floor(x), Math.floor(y), true);
+      x = libre.x + 0.5;
+      y = libre.y + 0.5;
+    }
+    player.x = x;
+    player.y = y;
+    client.send("admin:debug:ok", { accion: "teleport", x, y });
   }
 
   // --- Cofres de mundo de la Test Zone (pedido 2026-08-31) ---
@@ -6304,11 +6436,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const ctx = this.ctxConstruccion;
     if (!ctx || typeof msg?.construccionId !== "number") return;
     if (this.sentadoEn.has(client.sessionId)) return this.errorAsiento(client, "ya estás sentado en algún sitio");
-    if (this.asientosOcupados.has(msg.construccionId)) return this.errorAsiento(client, "ese asiento ya está ocupado");
 
     const viva = ctx.vivas.get(msg.construccionId);
     if (!viva) return this.errorAsiento(client, "construcción inexistente");
-    if (!this.entradaDe(viva.objeto)?.esAsiento) return this.errorAsiento(client, "eso no es un asiento");
+    const entradaAsiento = this.entradaDe(viva.objeto);
+    if (!entradaAsiento?.esAsiento) return this.errorAsiento(client, "eso no es un asiento");
+    // Plazas (docs/GDD_Construccion.md §9): un banco/sofá de `plazas:N`
+    // admite N a la vez; sin campo sigue siendo 1, el bloqueo de siempre.
+    if (this.ocupantesDeMueble(viva.id) >= plazasDe(entradaAsiento)) return this.errorAsiento(client, "ese asiento ya está ocupado");
 
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -6317,9 +6452,30 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
 
     this.sentadoEn.set(client.sessionId, msg.construccionId);
-    this.asientosOcupados.set(msg.construccionId, client.sessionId);
+    let ocupantes = this.asientosOcupados.get(msg.construccionId);
+    if (!ocupantes) { ocupantes = new Set(); this.asientosOcupados.set(msg.construccionId, ocupantes); }
+    ocupantes.add(client.sessionId);
     player.sentado = true;
     player.sentadoEnId = msg.construccionId;
+  }
+
+  /**
+   * Cuántos jugadores están sentados AHORA en esa construcción, por
+   * cualquiera de los dos mecanismos (clic `sentar:*` o tecla F `asiento:*`)
+   * — ambos escriben `Player.sentado`/`sentadoEnId`, así que el Schema es la
+   * única fuente que los ve juntos (docs/GDD_Construccion.md §9).
+   */
+  private ocupantesDeMueble(construccionId: number): number {
+    let n = 0;
+    this.state.players.forEach((p) => { if (p.sentado && p.sentadoEnId === construccionId) n++; });
+    return n;
+  }
+
+  /** Cuántos jugadores duermen AHORA en esa cama (mismo criterio que `ocupantesDeMueble`, sobre `durmiendo`/`durmiendoEnId`). */
+  private durmientesEnCama(construccionId: number): number {
+    let n = 0;
+    this.state.players.forEach((p) => { if (p.durmiendo && p.durmiendoEnId === construccionId) n++; });
+    return n;
   }
 
   /** Compartido por cancelar-al-moverse, "asiento:levantarse", onLeave y "recoger" sobre la construcción ocupada. */
@@ -6327,7 +6483,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const construccionId = this.sentadoEn.get(sessionId);
     if (construccionId == null) return;
     this.sentadoEn.delete(sessionId);
-    if (this.asientosOcupados.get(construccionId) === sessionId) this.asientosOcupados.delete(construccionId);
+    const ocupantes = this.asientosOcupados.get(construccionId);
+    if (ocupantes) {
+      ocupantes.delete(sessionId);
+      if (ocupantes.size === 0) this.asientosOcupados.delete(construccionId);
+    }
     const player = this.state.players.get(sessionId);
     if (player) { player.sentado = false; player.sentadoEnId = -1; }
   }
@@ -7327,7 +7487,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const entrada = catalogo.oficios[oficio];
     if (!entrada) return null;
     return elegirArticulosDeMercader(npcId, oficio, entrada, catalogo.config).map((itemId) => {
-      const precioBase = entrada.pool[itemId];
+      const precioBase = precioBaseArticulo(entrada, itemId, (id) => this.catalogoItems[id]?.valorBase);
       return { itemId, precioBase, precioVenta: precioVentaMercader(precioBase), precioCompra: precioCompraMercader(precioBase) };
     });
   }
@@ -7365,7 +7525,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const tenderoteIdVenta = this.tenderoteIdDeNpc(npcId);
     const tenderoteIdCompra = this.tenderoteIdCompraDeNpc(npcId);
     for (const itemId of elegirArticulosDeMercader(npcId, oficio, entrada, catalogo.config)) {
-      const precioBase = entrada.pool[itemId];
+      const precioBase = precioBaseArticulo(entrada, itemId, (id) => this.catalogoItems[id]?.valorBase);
       await bd.fijarStockTenderete(tenderoteIdVenta, itemId, stockAleatorioEnRango(stockMin, stockMax), precioVentaMercader(precioBase));
       await bd.fijarStockTenderete(tenderoteIdCompra, itemId, limiteCompra, precioCompraMercader(precioBase));
     }
@@ -7656,6 +7816,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       agregarItem(contenedorCofre, this.catalogoItems, contrato.itemId, transportadoEntero);
       destinoCofre.extra = { ...extraCofre, contenedor: contenedorCofre };
       await bd.actualizarExtraConstruccion(destinoCofre.id, destinoCofre.extra);
+      this.difundirExpuestosSiExpositor(destinoCofre, contenedorCofre);
     } else {
       await bd.sumarStockTenderete(contrato.destinoTenderoteId, contrato.itemId, transportadoEntero, PRECIO_INICIAL_TRANSPORTE_FARYCOINS);
     }
@@ -9227,6 +9388,26 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     viva.extra = { ...(viva.extra ?? {}), contenedor };
     await bd.actualizarExtraConstruccion(viva.id, viva.extra);
+    this.difundirExpuestosSiExpositor(viva, contenedor);
+  }
+
+  /**
+   * Expositores (docs/GDD_Construccion.md §9): el contenido de una
+   * estantería/vitrina/maniquí se DIBUJA encima del mueble en TODOS los
+   * clientes, no solo en el del dueño — se difunde la lista de itemIds cada
+   * vez que el contenedor cambia (meter/sacar/entrega de transporte). Un
+   * cofre normal no manda nada: su contenido es privado del dueño.
+   */
+  private difundirExpuestosSiExpositor(viva: ConstruccionViva, contenedor: Contenedor | undefined) {
+    if (!this.entradaDe(viva.objeto)?.expositor) return;
+    this.broadcast("construccion:expuestos", { id: viva.id, expuestos: expuestosDe(contenedor) });
+  }
+
+  /** `expuestos` para el payload de `construccion:nueva`/`construcciones:lista` — solo en expositores; `undefined` (omitido en JSON) para el resto. */
+  private expuestosDeViva(viva: ConstruccionViva): string[] | undefined {
+    if (!this.entradaDe(viva.objeto)?.expositor) return undefined;
+    const extra = (viva.extra ?? {}) as { contenedor?: Contenedor };
+    return expuestosDe(extra.contenedor);
   }
 
   /** Contenido actual de un cofre — dueño o jarl. Resuelve primero cualquier transporte pendiente que entregue aquí (mismo criterio "point-query siempre fresca" que un tenderete). */
@@ -9255,6 +9436,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (!(await this.esDuenoOJarlDe(ctx, viva.propiedad, nombre))) return this.errorCofre(client, "no eres el dueño de este cofre");
     const it = inv.cuerpo.items.find((i) => i.id === msg.instanciaId);
     if (!it) return this.errorCofre(client, "no tienes ese ítem");
+    // Filtro de contenido (docs/GDD_Construccion.md §9): una estantería de
+    // pociones no admite una espada, un armario de ropa no admite madera.
+    if (!aceptaItemEnMueble(entrada.aceptaItems, it.itemId, this.catalogoItems[it.itemId])) {
+      return this.errorCofre(client, `ese mueble solo guarda ${entrada.aceptaItems?.etiqueta ?? "otra clase de objetos"}`);
+    }
     const contenedor = this.contenedorDeCofre(viva, entrada);
     const hueco = buscarHueco(contenedor, this.catalogoItems, it.itemId);
     if (!hueco) return this.errorCofre(client, "el cofre está lleno");
@@ -9819,6 +10005,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   protected registrarTrabajadorEnMemoria(fila: NpcTrabajador) {
     this.trabajadoresActivos.set(fila.id, fila);
     this.obtenerOCrearGestorAgentes().agregarNpcFijo(npcTrabajadorAAgente(fila));
+    this.refrescarVistaDeInteresYa(); // instancia nueva bajo el mismo slotId: que el cliente la vea ya (ver vistaActualPorSesion)
   }
 
   /** Catálogo de oficios contratables + coste por cantidad (1..10 oficios) — igual para cualquiera que pregunte, no depende de quién sea el jugador. */
@@ -11847,6 +12034,19 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
   }
 
   /**
+   * Presa que `sessionId` está cazando ahora mismo (posición en vivo), o
+   * `null` si no caza nada / la caza ya terminó — la consulta
+   * `actualizarMovimiento` a 30hz para la persecución automática (docs/
+   * GDD_Caza.md §4ter). Por defecto `null` (sin fauna salvaje viva no hay
+   * nada que perseguir); HubRoom lo sobreescribe delegando en
+   * `GestorFaunaSalvaje.presaCazadaPor`. Mismo patrón hook que
+   * `intentarIniciarCaza` justo arriba.
+   */
+  protected presaCazadaPor(_sessionId: string): { x: number; y: number } | null {
+    return null;
+  }
+
+  /**
    * Repone fauna extinguida localmente — herramienta MANUAL del jarl (docs/
    * GDD_Agentes_Moviles.md "Extinción local de fauna reproductora", pedido
    * streamer 2026-09-08: "el streamer decide... desaparece, la compra a un
@@ -11907,6 +12107,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const especieObjetivoCaza = this.state.fauna.get(msg.objetivoId)?.especieId;
     if (especieObjetivoCaza !== undefined && !this.faunaEsPeligrosa(especieObjetivoCaza)) {
       if (this.intentarIniciarCaza(msg.objetivoId, atacanteId)) {
+        // Desde aquí el servidor mueve al cazador solo hacia la presa
+        // (docs/GDD_Caza.md §4ter, `actualizarMovimiento`) hasta que la
+        // atrape, la pierda, o toque una tecla de movimiento.
+        this.cazasAutomaticas.set(atacanteId, nuevoEstadoPersecucion(atacante.x, atacante.y));
         client.send("caza:iniciada", { objetivoId: msg.objetivoId });
       } else {
         client.send("combate:error", { motivo: "no se puede cazar ahora mismo" });
@@ -12025,20 +12229,38 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * verdad para el servidor, solo deja de viajar por la red a ese cliente
    * concreto.
    */
+  /** Último radio con el que se llamó a `actualizarVistaDeInteres` — para poder refrescar YA fuera del tick (ver `refrescarVistaDeInteresYa`). `undefined` = nunca llamada todavía. */
+  private ultimoRadioInteres: number | null | undefined = undefined;
+
+  /**
+   * Refresca las vistas de interés AHORA, sin esperar al tick periódico
+   * (500ms en Hub/Region): para cuando una entidad `@view()` se reemplaza
+   * bajo la misma clave fuera del tick (trabajador reasignado, NPC tutorial
+   * colocado en caliente) — el cliente vería la instancia vieja hasta medio
+   * segundo, y un mensaje "trabajador:actualizado" llegaría ANTES que el
+   * estado que describe. Barato: solo se dispara en acciones puntuales.
+   */
+  protected refrescarVistaDeInteresYa(): void {
+    if (this.ultimoRadioInteres !== undefined) this.actualizarVistaDeInteres(this.ultimoRadioInteres);
+  }
+
   protected actualizarVistaDeInteres(radioTiles: number | null) {
+    this.ultimoRadioInteres = radioTiles;
     for (const client of this.clients) {
       const view = client.view;
       if (!view) continue; // por si algún room type no llegó a asignarla en onJoin (defensivo)
       const propio = this.state.players.get(client.sessionId);
       if (!propio) continue; // sesión a medio unir, todavía sin Player propio
 
-      const previas = this.vistaActualPorSesion.get(client.sessionId) ?? new Set<string>();
-      const actuales = new Set<string>();
+      const previas = this.vistaActualPorSesion.get(client.sessionId) ?? new Map<string, Schema>();
+      const actuales = new Map<string, Schema>();
       const salidaAlCuadrado = radioTiles === null ? Infinity : RADIO_INTERES_SALIDA_TILES ** 2;
 
       const evaluarColeccion = (prefijo: string, coleccion: Map<string, { x: number; y: number }>) => {
         for (const [id, entidad] of coleccion.entries()) {
           const clave = `${prefijo}:${id}`;
+          const esquema = entidad as unknown as Schema;
+          const previa = previas.get(clave);
           let visible: boolean;
           if (radioTiles === null || id === client.sessionId) {
             visible = true; // sin recorte (Interior/Dungeon/Arena), o siempre verse a uno mismo
@@ -12047,11 +12269,17 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
             // histéresis: si ya estaba dentro, hace falta salir del radio de
             // SALIDA (más ancho) para dejar de verse — evita ADD/REMOVE cada
             // tick a quien ronda justo el borde del radio de entrada.
-            visible = previas.has(clave) ? d2 <= salidaAlCuadrado : d2 <= radioTiles ** 2;
+            visible = previa ? d2 <= salidaAlCuadrado : d2 <= radioTiles ** 2;
           }
           if (visible) {
-            actuales.add(clave);
-            if (!previas.has(clave)) view.add(entidad as unknown as Schema);
+            actuales.set(clave, esquema);
+            if (previa !== esquema) {
+              // Nueva para este cliente, O la misma clave con OTRA instancia
+              // (entidad reemplazada): la vieja sale, la nueva entra — sin
+              // esto el cliente conservaba la instancia vieja indefinidamente.
+              if (previa) view.remove(previa);
+              view.add(esquema);
+            }
           }
         }
       };
@@ -12063,12 +12291,9 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       // lo que estaba antes y ya no está ahora (se alejó, o el propio
       // objeto desapareció de state.* del todo — mismo camino para ambos,
       // el segundo caso simplemente no aparece en `actuales`) sale de la vista.
-      for (const clave of previas) {
+      for (const [clave, previa] of previas) {
         if (actuales.has(clave)) continue;
-        const [prefijo, id] = [clave.slice(0, clave.indexOf(":")), clave.slice(clave.indexOf(":") + 1)];
-        const coleccion = prefijo === "players" ? this.state.players : prefijo === "npcs" ? this.state.npcs : prefijo === "fauna" ? this.state.fauna : this.state.enemigos;
-        const entidad = coleccion.get(id);
-        if (entidad) view.remove(entidad as unknown as Schema);
+        view.remove(previa);
       }
       this.vistaActualPorSesion.set(client.sessionId, actuales);
     }
@@ -13111,9 +13336,29 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // igual que la temperatura — nunca por jugador. Frena en tierra y
     // congela el agua en hielo (ver más abajo).
     const nivelNieveActual = nivelNieve(tiempoMundo().dia);
-    this.inputs.forEach((dir, sessionId) => {
+    this.inputs.forEach((dirManual, sessionId) => {
       const player = this.state.players.get(sessionId);
       if (!player) return;
+      // Persecución automática de caza (docs/GDD_Caza.md §4ter): sin input
+      // manual, el rumbo lo decide el servidor hacia la presa en vivo, con
+      // esquiva simple si se atasca — nunca `correr` (andar ya gana a
+      // cualquier especie cazable, y el sprint gasta estamina real). Se
+      // apaga sola en cuanto la caza deja de existir (atrapada/perdida).
+      let dir: Direccion = dirManual;
+      const persecucion = this.cazasAutomaticas.get(sessionId);
+      if (persecucion) {
+        const presa = this.presaCazadaPor(sessionId);
+        // Mismos bloqueos que el handler de "input" (forja/alquimia/cocina
+        // plantan al jugador) más los estados "quieto a propósito" que un
+        // `input` real levantaría (sentado/tumbado/dormido/pescando): la
+        // persecución no pasa por ese handler, así que aquí simplemente NO
+        // mueve — el jugador se levanta con cualquier tecla, como siempre,
+        // y ese mismo `input` cancela la caza; vuelve a pulsar "Cazar" si quiere.
+        const plantado = this.forjasEnCurso.has(sessionId) || this.alquimiasEnCurso.has(sessionId) || this.cocinasEnCurso.has(sessionId)
+          || this.sentado.has(sessionId) || this.sentadoSuelo.has(sessionId) || this.sentadoEn.has(sessionId) || this.durmiendo.has(sessionId) || this.pescaPorSesion.has(sessionId);
+        if (!presa) this.cazasAutomaticas.delete(sessionId);
+        else if (dirManual.x === 0 && dirManual.y === 0 && !plantado) dir = { ...direccionPersecucion(persecucion, player, presa, VEL_ANDAR * dt), correr: false };
+      }
       // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): un pasajero (no
       // capitán) no se mueve con su propio input — su posición la fija el
       // barco entero en la pasada de sincronización, más abajo.

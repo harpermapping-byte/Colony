@@ -1,233 +1,317 @@
 /**
- * Panel de crafteo genérico en mesa de oficio (docs/GDD_Crafteo.md, pedido
- * streamer 2026-09-10: "hay que hacer la UI de la conver... elegir oficio" —
- * en el mismo hilo, para crafteo: "los minijuegos de oficio y los sistemas
- * de crafteo... ¿tienen UI ya creada como el resto?"). Cierra el hueco
- * documentado desde el diseño original de `docs/GDD_Crafteo.md` §5 ("el
- * crafteo no tiene panel de cliente hoy" — ni siquiera Forja/Cocina eligen
- * receta de una lista, cada una tiene su propio protocolo de minijuego
- * aparte). Este panel es el primero que de verdad LISTA recetas de
- * `items/catalogo/recetas.json` (vía el mensaje nuevo de servidor
- * `crafteo:recetasDisponibles`, que nunca valida/consume — solo informa) y
- * dispara el mismo `crafteo:iniciar`/`crafteo:recolectar` que ya usaba
- * `window.__ajedrez.craftear` con un `recetaId` fijo a mano.
+ * Panel de CRAFTEO en mesa (docs/GDD_Crafteo.md §10, 2026-09-11) — la UI
+ * que faltaba desde el diseño original: hasta hoy `crafteo:iniciar` solo lo
+ * disparaban sondas de test (`window.__ajedrez`, e2e), ningún jugador real
+ * podía elegir una receta en una mesa desde el navegador.
  *
- * Si la receta elegida usa `minijuego:"herreria"`, el servidor responde con
- * `crafteo:herreria:iniciado` en vez de `crafteo:iniciado` — este panel se
- * cierra solo (ver game.ts) y deja el testigo a `panelForja.ts`, que ya
- * sabía jugar ese protocolo.
+ * Se abre desde el menú de interacción de cualquier construcción cuyo id
+ * aparezca en `mesas` de alguna receta (`items/catalogo/recetas.json`,
+ * importado al bundle igual que hace panelReclutador.ts — el catálogo es
+ * público, no hace falta pedirlo al servidor). Lista las recetas de ESA
+ * mesa con lo que hace falta para cada una (nivel de oficio, insumos que
+ * llevas encima frente a los que pide, minijuego si lo hay) y manda el
+ * protocolo real: crafteo:iniciar → (crafteo:iniciado, progreso local
+ * hasta `terminaEn`) → crafteo:recolectar → crafteo:completado. Todo lo
+ * que se pinta como "puedes/no puedes" es solo una ayuda: el servidor sigue
+ * validando cada crafteo de verdad (validarCrafteo), el botón nunca
+ * sustituye esa validación.
+ *
+ * Subida de nivel: `crafteo:completado` trae la XP/nivel nuevos del
+ * oficio; comparado con el nivel que ya conocíamos (de `oficio:estado`,
+ * pedido al abrir el panel) se detecta el salto y se avisa con un toast
+ * que lista las recetas que se acaban de desbloquear en ESE nivel — "subir
+ * de oficio y ver nuevos crafteos" era invisible antes.
  */
-import { crearMarcoPanel, crearBoton, crearLineaTexto, crearSubtitulo, type MarcoPanel } from "../ui/panelBase";
+import recetasJson from "../../../items/catalogo/recetas.json";
 import itemsJson from "../../../items/catalogo/items.json";
+import { crearMarcoPanel, crearBoton, crearLineaTexto, type MarcoPanel } from "../ui/panelBase";
 
-interface EntradaItemCatalogo {
-  nombre?: string;
-}
-const ITEMS = itemsJson as unknown as Record<string, EntradaItemCatalogo>;
-function nombreItem(itemId: string): string {
-  return ITEMS[itemId]?.nombre ?? itemId;
-}
-
-export interface InsumoVista {
-  itemId: string;
-  cantidad: number;
-}
-
-export interface RecetaVista {
-  id: string;
+export interface RecetaCatalogo {
   oficio: string;
+  mesas: string[];
   nivelMinimo: number;
-  insumos: InsumoVista[];
-  resultado: InsumoVista;
+  insumos: { itemId: string; cantidad: number }[];
+  resultado: { itemId: string; cantidad: number };
   tiempoBaseSeg: number;
-  minijuego: string | null;
-  bloqueadaPorNivel: boolean;
-  edificioFaltante: string | null;
-  planoFaltante: string | null;
+  minijuego?: string;
+  planoRequerido?: string;
+  edificioRequerido?: string;
+  /** XP de oficio que da completarla (items/catalogo/valorBase.js, docs/GDD_Crafteo.md §11). */
+  xpOtorgada?: number;
+}
+
+interface EntradaItem { nombre?: string; valorBase?: number }
+
+/** Valor de referencia (Farycoins) del catálogo — docs/GDD_Economia.md §12; undefined si el ítem no lo tiene calculado. */
+export function valorItem(itemId: string): number | undefined {
+  return ITEMS[itemId]?.valorBase;
+}
+
+export const RECETAS = Object.fromEntries(
+  Object.entries(recetasJson as unknown as Record<string, RecetaCatalogo | string>).filter(([id, r]) => !id.startsWith("_") && typeof r === "object" && r !== null && Array.isArray((r as RecetaCatalogo).mesas)),
+) as Record<string, RecetaCatalogo>;
+const ITEMS = itemsJson as unknown as Record<string, EntradaItem>;
+
+/** Ids de construcción que son mesa de al menos una receta — el menú de interacción ofrece "Craftear" solo en estas. */
+export const MESAS_CON_RECETAS = new Set<string>();
+for (const receta of Object.values(RECETAS)) for (const mesa of receta.mesas) MESAS_CON_RECETAS.add(mesa);
+
+export function nombreItem(itemId: string): string {
+  return ITEMS[itemId]?.nombre ?? itemId.replace(/_/g, " ");
+}
+
+export function nombreOficio(oficio: string): string {
+  return oficio ? oficio.charAt(0).toUpperCase() + oficio.slice(1) : "";
+}
+
+export function recetasDeMesa(objetoId: string): { id: string; receta: RecetaCatalogo }[] {
+  return Object.entries(RECETAS)
+    .filter(([, r]) => r.mesas.includes(objetoId))
+    .map(([id, receta]) => ({ id, receta }))
+    .sort((a, b) => a.receta.nivelMinimo - b.receta.nivelMinimo || a.id.localeCompare(b.id));
+}
+
+/** Recetas de un oficio que se desbloquean EXACTAMENTE en `nivel` (en cualquier mesa) — para el toast de subida de nivel. */
+export function recetasDesbloqueadasEnNivel(oficio: string, nivel: number): { id: string; receta: RecetaCatalogo }[] {
+  return Object.entries(RECETAS)
+    .filter(([, r]) => r.oficio === oficio && r.nivelMinimo === nivel)
+    .map(([id, receta]) => ({ id, receta }));
 }
 
 export interface OpcionesPanelCrafteo {
   contenedor: HTMLElement;
-  /** ¿Tiene el jugador ya estos insumos? (game.ts lo resuelve contra su propio inventario replicado — este panel nunca duplica ese estado.) */
-  tieneInsumos(insumos: InsumoVista[]): boolean;
-  enviarPedirRecetas(construccionId: number): void;
-  enviarIniciar(construccionId: number, recetaId: string): void;
+  enviarIniciar(recetaId: string, construccionId: number): void;
   enviarRecolectar(): void;
+  /** Pide `oficio:estado` al servidor (XP/nivel reales de los oficios indicados). */
+  consultarOficios(oficios: string[]): void;
+  /** Ítems que el jugador lleva encima ahora mismo (itemId → cantidad sumada). */
+  inventarioActual(): Map<string, number>;
+  oficiosElegidos(): [string, string];
+  toast(texto: string, tipo?: "info" | "error" | "danoHecho"): void;
+}
+
+interface CrafteoEnCurso { recetaId: string; terminaEn: number; construccionId: number; recolectarPedido: boolean }
+
+export interface RecetaVista {
+  id: string;
+  nombre: string;
+  oficio: string;
+  nivelMinimo: number;
+  nivelActual: number | null;
+  desbloqueada: boolean;
+  insumosOk: boolean;
+  minijuego: string | null;
 }
 
 export class PanelCrafteo {
-  private marco: MarcoPanel;
-  private construccionId: number | null = null;
-  private nombreMesa = "";
-  private recetas: RecetaVista[] | null = null; // null = todavía esperando la respuesta del servidor
-  private craftenado: { recetaId: string; terminaEn: number } | null = null;
-  private intervaloReloj: ReturnType<typeof setInterval> | null = null;
+  private readonly marco: MarcoPanel;
+  private mesa: { id: number; objeto: string; nombre: string } | null = null;
+  private xp: Record<string, number> = {};
+  private nivel: Record<string, number> = {};
+  private enCurso: CrafteoEnCurso | null = null;
+  private temporizador: number | null = null;
+  private ultimaVista: RecetaVista[] = [];
 
-  constructor(private opciones: OpcionesPanelCrafteo) {
-    this.marco = crearMarcoPanel({ contenedor: opciones.contenedor, titulo: "Crafteo", icono: "🛠", left: "50%", top: "50%", ancho: "380px" });
-    this.marco.raiz.style.transform = "translate(-50%, -50%)";
-    this.marco.raiz.style.maxHeight = "80vh";
-    this.marco.cuerpo.style.overflowY = "auto";
-    // Mismo criterio que panelSastreLegendario.ts: cerrar por CUALQUIER vía
-    // apaga el estado, para que no se quede "abierto" a medias sin sitio
-    // donde pintar (y para el aviso de "cambia de minijuego" de abajo).
+  constructor(private readonly opciones: OpcionesPanelCrafteo) {
+    this.marco = crearMarcoPanel({
+      contenedor: opciones.contenedor,
+      titulo: "Crafteo",
+      icono: "🛠",
+      left: "50%",
+      top: "80px",
+      ancho: "400px",
+    });
+    this.marco.raiz.style.transform = "translateX(-50%)";
     this.marco.onCambioEstado(() => {
-      if (!this.marco.estaAbierto()) {
-        this.construccionId = null;
-        this.detenerReloj();
-      }
+      if (!this.marco.estaAbierto()) this.detenerRefresco();
     });
   }
 
-  abrir(construccionId: number, nombreMesa: string) {
-    this.construccionId = construccionId;
-    this.nombreMesa = nombreMesa;
-    this.recetas = null;
-    this.craftenado = null;
-    this.marco.abrir();
-    this.render();
-    this.opciones.enviarPedirRecetas(construccionId);
+  estaAbierto(): boolean {
+    return this.marco.estaAbierto();
   }
 
-  cerrar() {
+  /** Abre el panel para UNA mesa concreta (clic → "Craftear en …"). */
+  abrir(construccionId: number, objetoId: string, nombreMesa: string): void {
+    this.mesa = { id: construccionId, objeto: objetoId, nombre: nombreMesa };
+    const oficios = [...new Set(recetasDeMesa(objetoId).map((r) => r.receta.oficio))];
+    this.opciones.consultarOficios(oficios);
+    this.marco.abrir();
+    this.refrescar(true);
+    this.detenerRefresco();
+    // Los insumos cambian sin avisar (recoger del suelo, otro crafteo…): un
+    // refresco barato mientras el panel esté a la vista, nunca por patch de red.
+    this.temporizador = window.setInterval(() => this.refrescar(), 1000);
+  }
+
+  cerrar(): void {
     this.marco.cerrar();
   }
 
-  /** Cierre silencioso desde game.ts cuando el servidor cambia a un minijuego aparte (forja) — sin volver a disparar onCambioEstado dos veces (cerrar() ya lo hace una). */
-  cerrarPorMinijuegoAparte() {
+  /** Cierre silencioso desde game.ts cuando el servidor elige un minijuego aparte (forja) en vez de "crafteo:iniciado" normal — le cede el testigo a ese panel sin dejar esta lista de recetas abierta encima. */
+  cerrarPorMinijuegoAparte(): void {
     if (this.marco.estaAbierto()) this.cerrar();
   }
 
-  actualizarRecetas(construccionId: number, recetas: RecetaVista[]) {
-    if (construccionId !== this.construccionId || !this.marco.estaAbierto()) return;
-    this.recetas = recetas;
-    this.render();
+  /** `oficio:estado` — XP/nivel reales; ANTES del primer crafteo, para poder detectar el salto de nivel después. */
+  actualizarOficios(m: { xp?: Record<string, number>; nivel?: Record<string, number> }): void {
+    Object.assign(this.xp, m?.xp ?? {});
+    Object.assign(this.nivel, m?.nivel ?? {});
+    if (this.marco.estaAbierto()) this.refrescar();
   }
 
-  marcarIniciado(recetaId: string, terminaEn: number) {
-    if (!this.marco.estaAbierto()) return;
-    this.craftenado = { recetaId, terminaEn };
-    this.iniciarReloj();
-    this.render();
+  onIniciado(m: { recetaId: string; terminaEn: number }): void {
+    if (!this.mesa) return;
+    this.enCurso = { recetaId: m.recetaId, terminaEn: m.terminaEn, construccionId: this.mesa.id, recolectarPedido: false };
+    this.refrescar(true);
   }
 
-  marcarCompletado() {
-    this.craftenado = null;
-    this.detenerReloj();
-    if (this.marco.estaAbierto() && this.construccionId !== null) {
-      // Recarga el listado — el nivel/XP pudo subir con este mismo crafteo.
-      this.opciones.enviarPedirRecetas(this.construccionId);
-    }
-  }
-
-  marcarError(motivo: string) {
-    if (!this.marco.estaAbierto()) return;
-    this.craftenado = null;
-    this.detenerReloj();
-    this.render(motivo);
-  }
-
-  private iniciarReloj() {
-    this.detenerReloj();
-    this.intervaloReloj = setInterval(() => {
-      if (!this.craftenado) return this.detenerReloj();
-      this.render();
-      // Deja de redibujar en cuanto está listo — el botón "Recolectar" ya
-      // no cambia de texto y así no se reconstruye el DOM bajo un clic real
-      // en curso (bug real encontrado con Playwright: el botón se detectaba
-      // "detached" a media pulsación porque cada 500ms se recreaba entero,
-      // sin necesidad — nada en la sesión cambia una vez lista).
-      if (Date.now() >= this.craftenado.terminaEn) this.detenerReloj();
-    }, 500);
-  }
-
-  private detenerReloj() {
-    if (this.intervaloReloj !== null) {
-      clearInterval(this.intervaloReloj);
-      this.intervaloReloj = null;
-    }
-  }
-
-  private render(error?: string) {
-    const cuerpo = this.marco.cuerpo;
-    cuerpo.innerHTML = "";
-    cuerpo.appendChild(crearLineaTexto(this.nombreMesa, { negrita: true }));
-
-    if (error) {
-      const av = crearLineaTexto(`⚠ ${error}`);
-      av.style.color = "var(--panel-error, #c94a3a)";
-      cuerpo.appendChild(av);
-    }
-
-    if (this.craftenado) {
-      const restanteMs = Math.max(0, this.craftenado.terminaEn - Date.now());
-      const listo = restanteMs <= 0;
-      const receta = this.recetas?.find((r) => r.id === this.craftenado!.recetaId);
-      const nombreResultado = receta ? nombreItem(receta.resultado.itemId) : this.craftenado.recetaId;
-      cuerpo.appendChild(crearLineaTexto(`⏳ Crafteando ${nombreResultado}...`, { negrita: true }));
-      cuerpo.appendChild(crearLineaTexto(listo ? "¡Listo!" : `${Math.ceil(restanteMs / 1000)}s restantes`));
-      cuerpo.appendChild(crearBoton(listo ? "📦 Recolectar" : "Esperando...", () => this.opciones.enviarRecolectar()));
-      return;
-    }
-
-    if (this.recetas === null) {
-      cuerpo.appendChild(crearLineaTexto("Cargando recetas..."));
-      return;
-    }
-    if (this.recetas.length === 0) {
-      cuerpo.appendChild(crearLineaTexto("Esta mesa no tiene ninguna receta asociada todavía."));
-      return;
-    }
-
-    // Agrupado por nivel, más fácil de leer que una lista plana (mismo
-    // criterio de progresión — nivel 1 arriba, avanzado abajo — que ya
-    // documenta docs/GDD_Crafteo.md §2).
-    const porNivel = new Map<number, RecetaVista[]>();
-    for (const r of this.recetas) {
-      if (!porNivel.has(r.nivelMinimo)) porNivel.set(r.nivelMinimo, []);
-      porNivel.get(r.nivelMinimo)!.push(r);
-    }
-    for (const nivel of [...porNivel.keys()].sort((a, b) => a - b)) {
-      cuerpo.appendChild(crearSubtitulo(`Nivel ${nivel}`));
-      for (const r of porNivel.get(nivel)!) {
-        cuerpo.appendChild(this.filaReceta(r));
+  onCompletado(m: { recetaId?: string; itemId: string; cantidad: number; oficio?: string; xp?: number; nivel?: number; enSuelo?: boolean }): void {
+    this.enCurso = null;
+    const nombre = nombreItem(m.itemId);
+    this.opciones.toast(`Has fabricado ${m.cantidad}× ${nombre}${m.enSuelo ? " (no cabía: al suelo)" : ""}`, "danoHecho");
+    if (m.oficio && typeof m.nivel === "number") {
+      const anterior = this.nivel[m.oficio];
+      this.nivel[m.oficio] = m.nivel;
+      if (typeof m.xp === "number") this.xp[m.oficio] = m.xp;
+      if (typeof anterior === "number" && m.nivel > anterior) {
+        const nuevas = recetasDesbloqueadasEnNivel(m.oficio, m.nivel).map((r) => nombreItem(r.receta.resultado.itemId));
+        const lista = nuevas.length ? ` Nuevas recetas: ${nuevas.slice(0, 6).join(", ")}${nuevas.length > 6 ? "…" : ""}.` : "";
+        this.opciones.toast(`¡${nombreOficio(m.oficio)} nivel ${m.nivel}!${lista}`, "info");
       }
     }
+    this.refrescar();
   }
 
-  private filaReceta(r: RecetaVista): HTMLDivElement {
-    const fila = document.createElement("div");
-    fila.style.marginBottom = "8px";
-    fila.style.padding = "4px";
-    fila.style.borderRadius = "4px";
+  onError(motivo: string): void {
+    this.enCurso = null;
+    this.opciones.toast(`Crafteo: ${motivo}`, "error");
+    this.refrescar(true);
+  }
 
-    const tieneInsumos = this.opciones.tieneInsumos(r.insumos);
-    const bloqueoTexto = r.bloqueadaPorNivel
-      ? `nivel ${r.nivelMinimo} insuficiente`
-      : r.edificioFaltante
-        ? `hace falta ${r.edificioFaltante} en el asentamiento`
-        : r.planoFaltante
-          ? `hace falta ${r.planoFaltante} en el asentamiento`
-          : !tieneInsumos
-            ? "faltan insumos"
-            : null;
+  /** Sonda para tests — lo mismo que pinta la lista, en datos. */
+  recetasVisibles(): RecetaVista[] {
+    return this.ultimaVista;
+  }
 
-    const cabecera = crearLineaTexto(
-      `${r.resultado.cantidad}× ${nombreItem(r.resultado.itemId)}${r.minijuego ? " (minijuego)" : ""}`,
-      { negrita: !bloqueoTexto },
-    );
-    if (bloqueoTexto) cabecera.style.opacity = "0.55";
-    fila.appendChild(cabecera);
+  nivelDe(oficio: string): number | null {
+    return typeof this.nivel[oficio] === "number" ? this.nivel[oficio] : null;
+  }
 
-    const insumosTexto = r.insumos.map((i) => `${i.cantidad}× ${nombreItem(i.itemId)}`).join(", ");
-    fila.appendChild(crearLineaTexto(insumosTexto, { tenue: true, fontSize: "0.85em" }));
+  private detenerRefresco(): void {
+    if (this.temporizador !== null) { window.clearInterval(this.temporizador); this.temporizador = null; }
+  }
 
-    if (bloqueoTexto) {
-      fila.appendChild(crearLineaTexto(`🔒 ${bloqueoTexto}`, { tenue: true, fontSize: "0.85em" }));
-    } else {
-      const boton = crearBoton("Craftear", () => this.opciones.enviarIniciar(this.construccionId!, r.id));
-      fila.appendChild(boton);
+  /** Barra/segundos restantes en su sitio + petición automática de recolectar al cumplirse `terminaEn` (con un pequeño margen para no adelantarse al reloj del servidor). */
+  private actualizarProgreso(): void {
+    if (!this.enCurso) return;
+    const receta = RECETAS[this.enCurso.recetaId];
+    const restante = Math.max(0, this.enCurso.terminaEn - Date.now());
+    const total = Math.max(1, (receta?.tiempoBaseSeg ?? 1) * 1000);
+    if (this.progresoTexto) this.progresoTexto.textContent = `Fabricando ${receta ? nombreItem(receta.resultado.itemId) : this.enCurso.recetaId}… ${Math.ceil(restante / 1000)}s`;
+    if (this.progresoRelleno) this.progresoRelleno.style.width = `${Math.round((1 - Math.min(1, restante / total)) * 100)}%`;
+    if (restante <= 0 && !this.enCurso.recolectarPedido) {
+      this.enCurso.recolectarPedido = true;
+      window.setTimeout(() => this.opciones.enviarRecolectar(), 250);
     }
-    return fila;
+  }
+
+  private ultimaFirma = "";
+  private progresoTexto: HTMLDivElement | null = null;
+  private progresoRelleno: HTMLDivElement | null = null;
+
+  /**
+   * Reconstruye la lista SOLO si cambió algo que la afecte (inventario,
+   * nivel, crafteo en curso sí/no) — reconstruir el DOM cada segundo
+   * "por si acaso" dejaba los botones cambiando de nodo bajo el ratón
+   * (un clic real podía caer en un botón recién destruido); la barra de
+   * progreso se actualiza en su sitio sin tocar el resto.
+   */
+  private refrescar(forzar = false): void {
+    if (!this.mesa) return;
+    const inventario = this.opciones.inventarioActual();
+    const [oficio1, oficio2] = this.opciones.oficiosElegidos();
+    const firma = JSON.stringify([[...inventario.entries()].sort(), this.nivel, this.enCurso?.recetaId ?? null, oficio1, oficio2, this.mesa.id]);
+    if (!forzar && firma === this.ultimaFirma) { this.actualizarProgreso(); return; }
+    this.ultimaFirma = firma;
+    const cuerpo = this.marco.cuerpo;
+    cuerpo.innerHTML = "";
+    this.progresoTexto = null;
+    this.progresoRelleno = null;
+    cuerpo.appendChild(crearLineaTexto(this.mesa.nombre, { negrita: true }));
+
+    if (this.enCurso) {
+      const receta = RECETAS[this.enCurso.recetaId];
+      const restante = Math.max(0, this.enCurso.terminaEn - Date.now());
+      const total = Math.max(1, (receta?.tiempoBaseSeg ?? 1) * 1000);
+      const fila = document.createElement("div");
+      fila.dataset.testid = "crafteo-progreso";
+      fila.style.margin = "6px 0 10px";
+      this.progresoTexto = crearLineaTexto(`Fabricando ${receta ? nombreItem(receta.resultado.itemId) : this.enCurso.recetaId}… ${Math.ceil(restante / 1000)}s`);
+      fila.appendChild(this.progresoTexto);
+      const barra = document.createElement("div");
+      barra.style.cssText = "height:8px;border:1px solid var(--panel-borde);border-radius:4px;overflow:hidden;background:rgba(0,0,0,0.25)";
+      this.progresoRelleno = document.createElement("div");
+      this.progresoRelleno.style.cssText = `height:100%;width:${Math.round((1 - Math.min(1, restante / total)) * 100)}%;background:var(--panel-acento)`;
+      barra.appendChild(this.progresoRelleno);
+      fila.appendChild(barra);
+      cuerpo.appendChild(fila);
+      this.actualizarProgreso();
+    }
+
+    const lista = recetasDeMesa(this.mesa.objeto);
+    this.ultimaVista = [];
+    if (lista.length === 0) cuerpo.appendChild(crearLineaTexto("Esta mesa no tiene recetas.", { tenue: true }));
+    for (const { id, receta } of lista) {
+      const nivelActual = this.nivelDe(receta.oficio);
+      const desbloqueada = nivelActual !== null ? nivelActual >= receta.nivelMinimo : receta.nivelMinimo <= 1;
+      const insumosOk = receta.insumos.every((i) => (inventario.get(i.itemId) ?? 0) >= i.cantidad);
+      const elegido = receta.oficio === oficio1 || receta.oficio === oficio2;
+      this.ultimaVista.push({ id, nombre: nombreItem(receta.resultado.itemId), oficio: receta.oficio, nivelMinimo: receta.nivelMinimo, nivelActual, desbloqueada, insumosOk, minijuego: receta.minijuego ?? null });
+
+      const fila = document.createElement("div");
+      fila.dataset.testid = `receta-${id}`;
+      fila.dataset.desbloqueada = String(desbloqueada);
+      fila.style.cssText = `display:flex;flex-direction:column;gap:2px;padding:6px 4px;border-top:1px solid var(--panel-borde);opacity:${desbloqueada ? 1 : 0.55}`;
+      const cabecera = document.createElement("div");
+      cabecera.style.cssText = "display:flex;align-items:center;gap:6px";
+      const titulo = document.createElement("span");
+      titulo.style.flex = "1";
+      titulo.style.fontWeight = "bold";
+      titulo.textContent = `${receta.resultado.cantidad}× ${nombreItem(receta.resultado.itemId)}${receta.minijuego ? " ⚒" : ""}`;
+      cabecera.appendChild(titulo);
+      const boton = crearBoton(this.enCurso ? "…" : "Craftear", () => {
+        if (!this.mesa) return;
+        this.opciones.enviarIniciar(id, this.mesa.id);
+      });
+      boton.dataset.testid = `craftear-${id}`;
+      boton.disabled = !!this.enCurso || !desbloqueada || !insumosOk;
+      cabecera.appendChild(boton);
+      fila.appendChild(cabecera);
+
+      const detalle = document.createElement("div");
+      detalle.style.cssText = "font-size:12px;color:var(--panel-texto-tenue)";
+      const nivelTxt = nivelActual === null ? `nivel ${receta.nivelMinimo}` : `nivel ${receta.nivelMinimo} (tienes ${nivelActual})`;
+      const valor = valorItem(receta.resultado.itemId);
+      const xpTxt = receta.xpOtorgada != null && elegido ? ` · +${receta.xpOtorgada} XP` : "";
+      const valorTxt = valor != null ? ` · ≈${valor * receta.resultado.cantidad}₣` : "";
+      detalle.textContent = `${nombreOficio(receta.oficio)} ${nivelTxt}${elegido ? "" : " · sin bono (oficio no elegido)"} · ${receta.tiempoBaseSeg}s${xpTxt}${valorTxt}${receta.minijuego ? ` · minijuego de ${receta.minijuego}` : ""}`;
+      if (!desbloqueada) detalle.style.color = "var(--error-color)";
+      fila.appendChild(detalle);
+
+      const insumos = document.createElement("div");
+      insumos.style.cssText = "font-size:12px;display:flex;flex-wrap:wrap;gap:4px 10px";
+      for (const i of receta.insumos) {
+        const tienes = inventario.get(i.itemId) ?? 0;
+        const span = document.createElement("span");
+        span.textContent = `${nombreItem(i.itemId)} ${tienes}/${i.cantidad}`;
+        span.style.color = tienes >= i.cantidad ? "var(--panel-acento)" : "var(--error-color)";
+        insumos.appendChild(span);
+      }
+      if (receta.planoRequerido) insumos.appendChild(Object.assign(document.createElement("span"), { textContent: `requiere ${nombreItem(receta.planoRequerido)} en el asentamiento` }));
+      if (receta.edificioRequerido) insumos.appendChild(Object.assign(document.createElement("span"), { textContent: `requiere ${receta.edificioRequerido} construido` }));
+      fila.appendChild(insumos);
+      cuerpo.appendChild(fila);
+    }
   }
 }
