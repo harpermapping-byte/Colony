@@ -137,14 +137,55 @@ async function main() {
     page.on("console", (msg) => {
       const t = msg.text();
       if (t.startsWith("[cofre]")) console.log("   <consola>", t);
+      if (msg.type() === "error") console.log("   <console.error>", t.slice(0, 300));
       if (msg.type() === "error" && !t.includes("404") && !/WebSocket|ws:\/\/|ERR_CONNECTION_REFUSED|ERR_CONNECTION_RESET|fonts\.googleapis|ERR_NAME_NOT_RESOLVED/i.test(t)) erroresConsola.push(t);
     });
-    page.on("pageerror", (err) => erroresConsola.push(String(err)));
+    page.on("pageerror", (err) => { erroresConsola.push(String(err)); console.log("   <pageerror>", String(err).split("\n")[0]); });
 
     console.log(`1) cargando cliente real como "${NOMBRE}" (jarl)...`);
     await page.goto(`http://localhost:${PUERTO_WEB}/?nombre=${encodeURIComponent(NOMBRE)}`);
     await page.waitForFunction(() => window.__colonyDebug && !!window.__test, null, { timeout: 30000 });
     await espera(800);
+
+    console.log("2a) panel de construcción (tecla B): estados gratis/tienes/falta, pestañas y búsqueda (§9.8)...");
+    // la tecla B solo abre el modo si eres dueño de alguna parcela: el jarl se asigna p_0001 (mismo patrón que construccion.e2e.cjs)
+    await page.evaluate((n) => window.__construccion.asignarParcela("p_0001", n), NOMBRE);
+    await page.waitForFunction((n) => window.__construccion.parcelas()?.p_0001?.dueno === n, NOMBRE, { timeout: 10000 }).catch(() => null);
+    await page.keyboard.press("b");
+    await page.waitForFunction(() => window.__construccion?.activo() === true, null, { timeout: 4000 }).catch(() => null);
+    comprobar("la tecla B abre el modo construcción (el jugador es jarl con parcela)", await page.evaluate(() => window.__construccion.activo()));
+    const estados = await page.evaluate(() => ({
+      estanteria: window.__construccion.estadoDe("estanteria_pociones_pino"),
+      cama: window.__construccion.estadoDe("cama_pino_individual"),
+      silla: window.__construccion.estadoDe("silla"),
+      banco: window.__construccion.estadoDe("banco_carpintero"),
+    }));
+    comprobar("la estantería (ítem en el inventario) sale como 'tienes' con ✓ 1", estados.estanteria?.estado === "tienes" && estados.estanteria.insignia === "✓ 1", JSON.stringify(estados.estanteria));
+    comprobar("el tooltip dice quién la craftea y en qué mesa", /carpintero/.test(estados.estanteria?.titulo || "") && /Banco de Carpintero/.test(estados.estanteria?.titulo || ""), estados.estanteria?.titulo);
+    comprobar("una cama del carpintero que NO tienes sale como 'falta' (🔒 ítem)", estados.cama?.estado === "falta" && estados.cama.insignia === "🔒 ítem", JSON.stringify(estados.cama));
+    comprobar("la silla de siempre sigue siendo gratis, sin insignia", estados.silla?.estado === "gratis" && estados.silla.insignia === "", JSON.stringify(estados.silla));
+    comprobar("una mesa de oficio con receta sin materiales sale como 'falta' (🔒 materiales) y el tooltip dice qué falta", estados.banco?.estado === "falta" && estados.banco.insignia === "🔒 materiales" && /Te falta:/.test(estados.banco.titulo), JSON.stringify(estados.banco));
+    const etiqueta = await page.evaluate(() => document.querySelector('.panel-construccion button[data-id="estanteria_pociones_pino"] .nombre')?.textContent);
+    comprobar("el botón muestra el nombre bonito, no el id", etiqueta === "Estantería de Pino para Pociones", String(etiqueta));
+    await page.evaluate(() => window.__construccion.filtrar("puedo"));
+    const visiblesPuedo = await page.evaluate(() => window.__construccion.idsVisibles());
+    comprobar("pestaña 'Puedo colocar': la estantería y la silla siguen, la cama y el banco desaparecen", visiblesPuedo.includes("estanteria_pociones_pino") && visiblesPuedo.includes("silla") && !visiblesPuedo.includes("cama_pino_individual") && !visiblesPuedo.includes("banco_carpintero"), `${visiblesPuedo.length} visibles`);
+    await page.evaluate(() => window.__construccion.filtrar("falta"));
+    const visiblesFalta = await page.evaluate(() => window.__construccion.idsVisibles());
+    comprobar("pestaña 'Me falta': solo lo que no puedes pagar", visiblesFalta.includes("cama_pino_individual") && !visiblesFalta.includes("estanteria_pociones_pino") && !visiblesFalta.includes("silla"), `${visiblesFalta.length} visibles`);
+    await page.evaluate(() => window.__construccion.filtrar("todo"));
+    await page.fill('[data-testid="construccion-busqueda"]', "pociones");
+    const visiblesBusqueda = await page.evaluate(() => window.__construccion.idsVisibles());
+    comprobar("la búsqueda 'pociones' deja solo estanterías/objetos de pociones", visiblesBusqueda.length > 0 && visiblesBusqueda.length < 20 && visiblesBusqueda.includes("estanteria_pociones_pino"), visiblesBusqueda.join(","));
+    const rutaPanel = join(capturas, "muebles_panel_construccion.png");
+    await page.screenshot({ path: rutaPanel });
+    console.log(`   captura (panel con estados/pestañas/búsqueda): ${rutaPanel}`);
+    await page.fill('[data-testid="construccion-busqueda"]', "");
+    await page.keyboard.press("Escape"); // sale del modo construcción (el buscador ya no tiene el foco tras fill+"")
+    await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => window.__construccion?.activo() === false, null, { timeout: 3000 }).catch(() => null);
+    comprobar("Escape cierra el modo construcción", !(await page.evaluate(() => window.__construccion.activo())));
 
     console.log("2) coloca la estantería de pociones (construir = tecla B real) y espera a verla en el render...");
     await page.evaluate((xy) => window.__test.enviar("construir", { objeto: "estanteria_pociones_pino", categoria: "mueble", x: xy.x, y: xy.y, rot: 0, variante: 0 }), ESTANTERIA_XY);
@@ -153,6 +194,12 @@ async function main() {
     if (typeof idEstanteria !== "number") throw new Error("sin estantería no hay nada más que probar");
     const expuestosVacios = await page.evaluate((id) => window.__test.expuestosVisibles(id), idEstanteria);
     comprobar("recién colocada no tiene ningún prop expuesto", expuestosVacios === null || expuestosVacios.props === 0, JSON.stringify(expuestosVacios));
+    // el ítem se consumió al colocarla: al reabrir el panel ya no se puede pagar otra
+    await page.keyboard.press("b");
+    const estadoTras = await page.waitForFunction(() => { const e = window.__construccion?.estadoDe("estanteria_pociones_pino"); return e && e.estado === "falta" ? e : null; }, null, { timeout: 4000 }).then((h) => h.jsonValue()).catch(() => null);
+    comprobar("tras colocarla (ítem consumido) la estantería pasa a 'falta' en el panel", !!estadoTras && estadoTras.estado === "falta", JSON.stringify(estadoTras));
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => window.__construccion?.activo() === false, null, { timeout: 3000 }).catch(() => null);
 
     console.log("3) abre inventario (I) + estantería (abrirCofre) — pista del filtro visible...");
     await page.keyboard.press("i");
@@ -197,6 +244,10 @@ async function main() {
       console.log("   DEBUG rejillas:", JSON.stringify(dump));
     }
     comprobar("con dos pociones hay 2 props", !!expuestos2 && expuestos2.props === 2, JSON.stringify(expuestos2));
+    // §9.7: cada caja de color se sustituye por el .glb real de la poción
+    // (assets/objetos/pocion_alquimica_clara_01.glb) en cuanto carga.
+    const conModelo = await page.waitForFunction((id) => { const e = window.__test.expuestosVisibles(id); return e && e.conModelo >= 2 ? e : null; }, idEstanteria, { timeout: 8000 }).then((h) => h.jsonValue()).catch(() => null);
+    comprobar("los 2 props ya son el modelo .glb real del frasco, no la caja de color (§9.7)", !!conModelo && conModelo.conModelo === 2 && conModelo.props === 2, JSON.stringify(conModelo));
 
     console.log("5) arrastra la espada → rechazo con toast visible...");
     const r3 = await arrastrarAlCofre(page, "espada", 5);
@@ -219,8 +270,9 @@ async function main() {
     let idCandelabro = null;
     for (const xy of CANDIDATAS_CANDELABRO) {
       await page.evaluate((xy) => window.__test.enviar("construir", { objeto: "candelabro_pie_hierro", categoria: "mueble", x: xy.x, y: xy.y, rot: 0, variante: 0 }), xy);
-      idCandelabro = await page.waitForFunction(() => window.__test.idsDeObjeto("candelabro_pie_hierro")[0] ?? null, null, { timeout: 2500 }).then((h) => h.jsonValue()).catch(() => null);
+      idCandelabro = await page.waitForFunction(() => window.__test.idsDeObjeto("candelabro_pie_hierro")[0] ?? null, null, { timeout: 6000 }).then((h) => h.jsonValue()).catch(() => null);
       if (typeof idCandelabro === "number") { console.log(`   colocado en (${xy.x},${xy.y})`); break; }
+      console.log(`   (${xy.x},${xy.y}) rechazada:`, JSON.stringify(await page.evaluate(() => window.__construccion.errores())));
     }
     comprobar("el candelabro se coloca en alguna casilla libre junto al spawn", typeof idCandelabro === "number");
     if (typeof idCandelabro === "number") {

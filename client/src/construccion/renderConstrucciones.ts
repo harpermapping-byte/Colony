@@ -20,11 +20,12 @@ import * as THREE from "three";
 import type { WorldScene } from "../render3d/worldScene";
 import { obtenerConstruible, huellaRotada, ALTURA_CATEGORIA, type CategoriaConstruible } from "./catalogoConstruccion";
 import { obtenerPlantilla } from "../render3d/entityLoader";
+import type { CategoriaAsset } from "../render3d/assetCatalog";
 import itemsJson from "../../../items/catalogo/items.json";
 
 // Solo color y huella de inventario: es lo único que hace falta para dibujar
 // un ítem EXPUESTO sobre una estantería/vitrina/maniquí como un prop pequeño
-// (docs/GDD_Construccion.md §9) — sin cargar ningún .glb por ítem.
+// (docs/GDD_Construccion.md §9) hasta que carga su .glb real (§9.7).
 const ITEMS = itemsJson as unknown as Record<string, { colorDebug?: string; huella?: [number, number]; tipo?: string }>;
 
 /** Luz de una lámpara/candelabro colocado por un jugador (`capa:"iluminacion"`) — misma tonalidad cálida que las lámparas bakeadas de `interiorVisual.ts`. */
@@ -66,7 +67,8 @@ export class RenderConstrucciones {
   // se sustituye por el .glb real cuando carga (sustituirPorModeloRealSiExiste)
   // y no queremos perderlos ni recrearlos en ese momento.
   private readonly luces = new Map<number, THREE.PointLight>();
-  private readonly expuestos = new Map<number, { itemIds: string[]; grupo: THREE.Group }>();
+  private readonly expuestos = new Map<number, { itemIds: string[]; grupo: THREE.Group; version: number }>();
+  private versionExpuestos = 0;
 
   constructor(
     private readonly escena: WorldScene,
@@ -120,8 +122,12 @@ export class RenderConstrucciones {
   /**
    * "construccion:expuestos" (y el campo `expuestos` de nueva/lista): dibuja
    * el contenido de un expositor como props pequeños sobre la tapa del
-   * mueble — una caja por ítem, del color de catálogo del ítem y más alta
-   * si el ítem es alargado (armas/herramientas de pie contra el panel).
+   * mueble. Cada ítem sale al instante como una caja de su color de catálogo
+   * (feedback inmediato, igual que la caja placeholder del propio mueble) y
+   * se sustituye por su `.glb` real en cuanto carga (§9.7: armas de
+   * `assets/armas/`, herramientas de `assets/herramientas/`, el resto de
+   * `assets/objetos/` — `taller-vox/generar_objetos.js`); si no existe
+   * modelo para ese id, la caja se queda para siempre, nunca rompe nada.
    * Puramente visual: la rejilla real sigue en el panel del cofre.
    */
   actualizarExpuestos(construccionId: number, itemIds: string[]): void {
@@ -137,6 +143,12 @@ export class RenderConstrucciones {
     const topY = Number.isFinite(caja.max.y) ? caja.max.y : ALTURA_CATEGORIA[c.categoria] ?? 0.8;
 
     const grupo = new THREE.Group();
+    // Versión por refresco: un .glb que termine de cargar DESPUÉS de que el
+    // expositor se haya vuelto a dibujar (otro ítem metido/sacado, o el
+    // mueble sustituido por su modelo real) no debe colarse en el grupo viejo.
+    const version = ++this.versionExpuestos;
+    this.expuestos.set(construccionId, { itemIds, grupo, version });
+    this.escena.añadirEstatico(grupo);
     const columnas = Math.max(1, Math.min(itemIds.length, Math.round(w * 4)));
     const filas = Math.ceil(itemIds.length / columnas);
     const pasoX = w / (columnas + 1);
@@ -149,22 +161,79 @@ export class RenderConstrucciones {
       const alto = alargado ? 0.55 : 0.18;
       const fondo = Math.min(0.16, pasoZ * 0.7);
       const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(entrada?.colorDebug || COLOR_DESCONOCIDO), roughness: 0.7, metalness: entrada?.tipo === "arma" ? 0.4 : 0 });
-      const prop = new THREE.Mesh(new THREE.BoxGeometry(ancho, alto, fondo), material);
+      const placeholder = new THREE.Mesh(new THREE.BoxGeometry(ancho, alto, fondo), material);
       const col = i % columnas, fila = Math.floor(i / columnas);
-      prop.position.set(c.x + pasoX * (col + 1), topY + margenSuperior + alto / 2, c.y + pasoZ * (fila + 1));
-      prop.castShadow = false;
-      prop.receiveShadow = true;
-      prop.userData.construccionId = c.id; // clic sobre un prop = clic sobre el mueble
-      grupo.add(prop);
+      const px = c.x + pasoX * (col + 1);
+      const pz = c.y + pasoZ * (fila + 1);
+      placeholder.position.set(px, topY + margenSuperior + alto / 2, pz);
+      placeholder.castShadow = false;
+      placeholder.receiveShadow = true;
+      placeholder.userData.construccionId = c.id; // clic sobre un prop = clic sobre el mueble
+      // geometría/material creados aquí → se disponen al quitar (los clones
+      // del .glb comparten la plantilla cacheada y NUNCA se disponen)
+      placeholder.userData.propioDelSector = true;
+      grupo.add(placeholder);
+      void this.sustituirPropExpuesto(construccionId, version, grupo, placeholder, itemId, entrada, {
+        px, pz, topY: topY + margenSuperior,
+        anchoMax: Math.min(0.3, pasoX * 0.85),
+        fondoMax: Math.min(0.3, pasoZ * 0.85),
+        alargado,
+      });
     });
-    this.escena.añadirEstatico(grupo);
-    this.expuestos.set(construccionId, { itemIds, grupo });
   }
 
-  /** Sonda de test: itemIds que hay dibujados ahora mismo sobre un expositor (y cuántos props reales tiene su grupo). */
-  expuestosVisibles(construccionId: number): { itemIds: string[]; props: number } | null {
+  /**
+   * Cambia la caja de color de UN ítem expuesto por su `.glb` real (§9.7).
+   * Escala por caja delimitadora para que cualquier modelo quepa en el hueco
+   * que le toca sobre la tapa (~0.25 casillas), apoyado por su base; las
+   * armas/herramientas (huella alargada) pueden subir más — quedan de pie
+   * contra el panel, el resto tumbado/pequeño.
+   */
+  private async sustituirPropExpuesto(
+    construccionId: number,
+    version: number,
+    grupo: THREE.Group,
+    placeholder: THREE.Mesh,
+    itemId: string,
+    entrada: { tipo?: string } | undefined,
+    sitio: { px: number; pz: number; topY: number; anchoMax: number; fondoMax: number; alargado: boolean },
+  ): Promise<void> {
+    const categoria: CategoriaAsset = entrada?.tipo === "arma" ? "armas" : entrada?.tipo === "herramienta" ? "herramientas" : "objetos";
+    const plantilla = await obtenerPlantilla(categoria, itemId, { tipo: "numerada", indice: 0 });
+    if (!plantilla) return; // sin modelo para este id: se queda la caja
+    const vivo = this.expuestos.get(construccionId);
+    if (!vivo || vivo.version !== version || placeholder.parent !== grupo) return; // el expositor se redibujó mientras cargaba
+
+    const instancia = plantilla.clone(true);
+    const caja = new THREE.Box3().setFromObject(instancia);
+    const tam = new THREE.Vector3();
+    caja.getSize(tam);
+    if (!(tam.x > 0 && tam.y > 0 && tam.z > 0)) return;
+    const altoMax = sitio.alargado ? 0.6 : 0.28;
+    const escala = Math.min(sitio.anchoMax / tam.x, sitio.fondoMax / tam.z, altoMax / tam.y);
+    instancia.scale.setScalar(escala);
+    const centro = new THREE.Vector3();
+    caja.getCenter(centro);
+    // centrado en XZ sobre el hueco y apoyado por su base sobre la tapa
+    instancia.position.set(sitio.px - centro.x * escala, sitio.topY - caja.min.y * escala, sitio.pz - centro.z * escala);
+    instancia.traverse((o) => {
+      o.castShadow = false;
+      o.receiveShadow = true;
+      o.userData.construccionId = construccionId;
+    });
+    instancia.userData.propioDelSector = false;
+
+    grupo.remove(placeholder);
+    this.disposeMallaPropia(placeholder);
+    grupo.add(instancia);
+  }
+
+  /** Sonda de test: itemIds dibujados ahora mismo sobre un expositor, cuántos props tiene su grupo y cuántos de ellos ya son el `.glb` real (no la caja de color). */
+  expuestosVisibles(construccionId: number): { itemIds: string[]; props: number; conModelo: number } | null {
     const e = this.expuestos.get(construccionId);
-    return e ? { itemIds: [...e.itemIds], props: e.grupo.children.length } : null;
+    if (!e) return null;
+    const conModelo = e.grupo.children.filter((h) => !h.userData.propioDelSector).length;
+    return { itemIds: [...e.itemIds], props: e.grupo.children.length, conModelo };
   }
 
   /** Sonda de test: ¿esta construcción tiene una luz real encendida (lámpara/candelabro colocado)? */
@@ -178,9 +247,9 @@ export class RenderConstrucciones {
     this.expuestos.delete(construccionId);
     this.escena.quitarEstatico(actual.grupo);
     for (const hijo of actual.grupo.children) {
-      const m = hijo as THREE.Mesh;
-      m.geometry.dispose();
-      (m.material as THREE.Material).dispose();
+      // solo las cajas de color son nuestras; un clon del .glb comparte
+      // geometría/material con la plantilla cacheada de entityLoader
+      if (hijo.userData.propioDelSector) this.disposeMallaPropia(hijo as THREE.Mesh);
     }
   }
 

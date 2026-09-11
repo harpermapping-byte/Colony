@@ -263,7 +263,111 @@ const IDS_HERBOLARIO = new Set(["mortero_mano", "hierbas_secas"]);
 const IDS_HERRAMIENTA_MESA = new Set(["martillo", "tenazas", "herradura", "clavos"]);
 const IDS_ARNES = new Set(["arnes_cuero", "arnes_reforzado"]); // docs/GDD_Carros.md §2
 
+// --- Expositores (docs/GDD_Construccion.md §9.7, 2026-09-11) ------------------
+// Lo que un jugador deja sobre una estantería/vitrina/maniquí se dibuja con
+// su `.glb` real. Armas y herramientas ya tenían el suyo; esto cubre lo que
+// NO es `tipo:"objeto"` pero sí acaba en un expositor: pociones/elixires
+// (consumibles), libros, joyas (anillo/cuello/brazalete) y piezas de
+// armadura (maniquí). Son formas GENÉRICAS por familia coloreadas con el
+// `colorDebug` del ítem — un frasco es un frasco, lo que cambia es el color
+// del líquido — para no inventar 80 siluetas a mano.
+const RE_POCION = /pocion|elixir|tonico|antidoto|jarabe/;
+const SLOTS_JOYA = new Set(["anillo", "cuello", "brazalete"]);
+const IDS_EXPOSITOR = Object.keys(items).filter((id) => {
+  const v = items[id];
+  if (!v || typeof v !== "object") return false;
+  if (v.tipo === "consumible" && RE_POCION.test(id)) return true;
+  if (v.tipo === "libro") return true;
+  if (v.tipo === "equipable" && SLOTS_JOYA.has(v.slotEquipo)) return true;
+  if (v.tipo === "armadura") return true;
+  return false;
+});
+
+/** Frasco de poción: cuerpo ancho del color del líquido, cuello estrecho de cristal y corcho. */
+function generarFrasco(id, v) {
+  const grande = /grande/.test(id);
+  const gxz = Math.max(3, Math.round(U * (grande ? 0.5 : 0.36)));
+  const gy = Math.max(4, Math.round(U * (grande ? 0.9 : 0.7)));
+  const b = Builder();
+  const cuerpoH = Math.round(gy * 0.55), cuelloW = Math.max(1, Math.round(gxz * 0.4));
+  const c0 = Math.round((gxz - cuelloW) / 2);
+  b.caja(0, 0, 0, gxz - 1, cuerpoH - 1, gxz - 1, v.colorDebug); // líquido
+  b.caja(0, cuerpoH, 0, gxz - 1, cuerpoH, gxz - 1, "#bcd6dc"); // hombro de cristal
+  b.caja(c0, cuerpoH + 1, c0, c0 + cuelloW - 1, gy - 2, c0 + cuelloW - 1, "#bcd6dc"); // cuello
+  b.caja(c0, gy - 1, c0, c0 + cuelloW - 1, gy - 1, c0 + cuelloW - 1, MADERA_MANGO); // corcho
+  return { grid: [gxz, gy, gxz], paleta: b.paleta, cajas: b.cajas };
+}
+
+/** Joya: anillo/brazalete = aro cuadrado hueco tumbado; collar = óvalo plano de eslabones con colgante. */
+function generarJoya(id, v) {
+  const b = Builder();
+  const metal = v.colorDebug;
+  if (v.slotEquipo === "cuello") {
+    const g = Math.max(5, Math.round(U * 0.6));
+    for (let x = 0; x < g; x++) for (let z = 0; z < g; z++) {
+      const dx = (x - (g - 1) / 2) / (g / 2), dz = (z - (g - 1) / 2) / (g / 2);
+      const r = Math.hypot(dx, dz);
+      if (r > 0.7 && r <= 1.0) b.caja(x, 0, z, x, 0, z, metal);
+    }
+    b.caja(Math.round(g / 2) - 1, 0, g - 2, Math.round(g / 2), 1, g - 1, sombrear(metal, 1.3)); // colgante
+    return { grid: [g, 2, g], paleta: b.paleta, cajas: b.cajas };
+  }
+  const g = Math.max(3, Math.round(U * (v.slotEquipo === "brazalete" ? 0.45 : 0.28)));
+  const gy = Math.max(1, Math.round(U * (v.slotEquipo === "brazalete" ? 0.18 : 0.1)));
+  b.caja(0, 0, 0, g - 1, gy - 1, 0, metal); b.caja(0, 0, g - 1, g - 1, gy - 1, g - 1, metal);
+  b.caja(0, 0, 0, 0, gy - 1, g - 1, metal); b.caja(g - 1, 0, 0, g - 1, gy - 1, g - 1, metal);
+  if (v.slotEquipo === "anillo" && /rubi|amatista|esmeralda|zafiro|diamante|gema/.test(id)) b.caja(Math.round(g / 2) - 1, gy, 0, Math.round(g / 2), gy, 0, sombrear(metal, 1.4)); // engaste
+  return { grid: [g, gy + 1, g], paleta: b.paleta, cajas: b.cajas };
+}
+
+/** Pieza de armadura por slot: casco = cúpula, pechera = torso, manos/zapatos = par de bloques, piernas = dos columnas. */
+function generarArmaduraPieza(id, v) {
+  const b = Builder();
+  const c = v.colorDebug, dark = sombrear(c, 0.7);
+  const g = Math.max(4, Math.round(U * 0.55));
+  switch (v.slotEquipo) {
+    case "casco": {
+      const capas = 4;
+      for (let i = 0; i < capas; i++) {
+        const inset = Math.round((i / capas) * g * 0.35);
+        b.caja(inset, i, inset, g - 1 - inset, i, g - 1 - inset, i === 0 ? dark : c);
+      }
+      b.caja(Math.round(g * 0.3), 0, g - 1, Math.round(g * 0.7), 1, g - 1, "#1c1a17"); // visera
+      return { grid: [g, capas, g], paleta: b.paleta, cajas: b.cajas };
+    }
+    case "pechera": {
+      const gy = Math.round(g * 1.3);
+      b.caja(0, 0, Math.round(g * 0.25), g - 1, gy - 1, Math.round(g * 0.75), c);
+      b.caja(Math.round(g * 0.3), 0, Math.round(g * 0.2), Math.round(g * 0.7), gy - 1, Math.round(g * 0.2), dark); // cierre frontal
+      return { grid: [g, gy, g], paleta: b.paleta, cajas: b.cajas };
+    }
+    case "piernas": {
+      const gy = Math.round(g * 1.2), w = Math.max(1, Math.round(g * 0.35));
+      b.caja(0, 0, 0, w - 1, gy - 1, w - 1, c);
+      b.caja(g - w, 0, 0, g - 1, gy - 1, w - 1, c);
+      return { grid: [g, gy, w], paleta: b.paleta, cajas: b.cajas };
+    }
+    default: { // manos / zapatos: dos bloques bajos lado a lado
+      const gy = Math.max(2, Math.round(g * 0.4)), w = Math.max(1, Math.round(g * 0.4));
+      b.caja(0, 0, 0, w - 1, gy - 1, g - 1, c);
+      b.caja(g - w, 0, 0, g - 1, gy - 1, g - 1, c);
+      b.caja(0, gy - 1, 0, w - 1, gy - 1, g - 1, dark);
+      b.caja(g - w, gy - 1, 0, g - 1, gy - 1, g - 1, dark);
+      return { grid: [g, gy, g], paleta: b.paleta, cajas: b.cajas };
+    }
+  }
+}
+
 function clasificarObjeto(id) {
+  const v = items[id];
+  if (v && v.tipo === "armadura") return "ARMADURA";
+  if (v && v.tipo === "equipable" && SLOTS_JOYA.has(v.slotEquipo)) return "JOYA";
+  if (v && v.tipo === "libro") return "PLANO";
+  if (v && v.tipo === "consumible" && RE_POCION.test(id)) return "FRASCO";
+  if (/^frasco_pocion/.test(id)) return "FRASCO";
+  if (/^(vaso|copa|decantador|florero|jarra)_cristal$|^jarron_/.test(id)) return "VASIJA";
+  if (id === "plato_cristal") return "VASIJA";
+  if (/^(catalejo|brujula_naval|reloj_bolsillo|molinillo_especias)$/.test(id)) return "PLANO";
   if (id.startsWith("cadaver_")) return "SIN_COBERTURA";
   if (id.startsWith("barco_")) return "BARCO";
   if (id.startsWith("bolsa_semillas_")) return "SACO";
@@ -293,6 +397,9 @@ const ARQUETIPO_FN = {
   HERBOLARIO: (v, id) => generarHerbolario(id, v),
   HERRAMIENTA_MESA: (v, id) => generarHerramientaMesa(id, v),
   ARNES: (v) => generarArnes(v),
+  FRASCO: (v, id) => generarFrasco(id, v),
+  JOYA: (v, id) => generarJoya(id, v),
+  ARMADURA: (v, id) => generarArmaduraPieza(id, v),
   BARCO: null, // ya cubierto por generar_barco.js — no se duplica aquí
   SIN_COBERTURA: null,
 };
@@ -309,13 +416,13 @@ function generarObjeto(id) {
   return { nombre: v.nombre || id, arquetipo: arq, resolucion: U, ...modelo };
 }
 
-module.exports = { IDS_OBJETO, clasificarObjeto, generarObjeto, ARQUETIPO_FN, U };
+module.exports = { IDS_OBJETO, IDS_EXPOSITOR, clasificarObjeto, generarObjeto, ARQUETIPO_FN, U };
 
 if (require.main === module) {
   const muestra = process.argv.includes("--muestra");
   const ids = muestra
     ? ["plato", "caldero", "jarra_cerveza", "sarten", "silla_montar", "libro", "brasero", "jaula_pajaro"]
-    : IDS_OBJETO;
+    : [...IDS_OBJETO, ...IDS_EXPOSITOR];
   const resultado = {};
   const sinCobertura = [];
   for (const id of ids) {
