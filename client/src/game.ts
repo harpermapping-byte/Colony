@@ -902,6 +902,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       indiceParcelas,
       render,
       enviarConstruir: (mensaje) => room.send("construir", mensaje),
+      // docs/GDD_Construccion.md §9.8: el panel marca qué muebles exigen ítem
+      // y cuáles tienes — cuenta sobre el MISMO contenedor (cuerpo) donde el
+      // servidor busca `requiereItemColocar`/`receta` al colocar.
+      contarItem: (itemId) => {
+        // el panel calcula su estado inicial al construirse, antes del primer
+        // patch de estado (players aún sin instanciar): entonces cuenta 0
+        const yo = (room.state as any).players?.get?.(room.sessionId);
+        let n = 0;
+        for (const it of yo?.inventario?.cuerpo?.items ?? []) if (it.itemId === itemId) n += it.cantidad || 1;
+        return n;
+      },
     });
     const modo = modoConstruccion;
 
@@ -1372,6 +1383,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       activo: () => modo.activo(),
       activar: () => modo.activar(),
       seleccionar: (id: string) => modo.seleccionar(id),
+      // §9.8: estado gratis/tienes/falta, pestañas y lista visible del panel
+      estadoDe: (id: string) => modo.estadoDe(id),
+      filtrar: (f: "todo" | "puedo" | "falta" | "gratis") => modo.filtrar(f),
+      idsVisibles: () => modo.idsVisibles(),
       rotar: () => modo.rotar(),
       colocarEn: (x: number, y: number) => modo.colocarEn(x, y),
       construcciones: () => render.cantidad(),
@@ -1885,7 +1900,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // §9). El servidor sincroniza ese array con clear()+push(), así que
     // onAdd/onRemove disparan en cada resincronización.
     if (esYo && player.inventario?.cuerpo?.items) {
-      const refrescar = () => { if (panelJugador?.estaVisible()) panelJugador.actualizar(player); };
+      const refrescar = () => {
+        if (panelJugador?.estaVisible()) panelJugador.actualizar(player);
+        // el panel de construcción marca "tienes/falta" contra este mismo inventario (§9.8)
+        if (modoConstruccion?.activo()) modoConstruccion.refrescarDisponibilidad();
+      };
       $(player.inventario.cuerpo.items).onAdd(refrescar, false);
       $(player.inventario.cuerpo.items).onRemove(refrescar);
     }

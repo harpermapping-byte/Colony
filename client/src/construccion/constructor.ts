@@ -18,6 +18,30 @@ import {
 } from "./catalogoConstruccion";
 import { crearBordesParcela, type ArchivoParcelas } from "./parcelasCliente";
 import type { RenderConstrucciones } from "./renderConstrucciones";
+import itemsJson from "../../../items/catalogo/items.json";
+import recetasJson from "../../../items/catalogo/recetas.json";
+
+// Solo el nombre bonito del ítem/material y, de cada receta, quién fabrica
+// el ítem que exige un mueble — para la pista "lo craftea el carpintero
+// nivel 2 en Banco de Carpintero" (docs/GDD_Construccion.md §9.8). La regla
+// real (tener el ítem, consumirlo) sigue en el servidor.
+const ITEMS = itemsJson as unknown as Record<string, { nombre?: string }>;
+interface RecetaBruta { oficio?: string; mesas?: string[]; nivelMinimo?: number; resultado?: { itemId?: string } }
+const RECETA_POR_RESULTADO = new Map<string, RecetaBruta>();
+for (const [k, v] of Object.entries(recetasJson as unknown as Record<string, RecetaBruta>)) {
+  if (k.startsWith("_") || !v || typeof v !== "object" || !v.resultado?.itemId) continue;
+  if (!RECETA_POR_RESULTADO.has(v.resultado.itemId)) RECETA_POR_RESULTADO.set(v.resultado.itemId, v);
+}
+
+/**
+ * Qué le pasa al jugador si intenta colocar este construible AHORA
+ * (docs/GDD_Construccion.md §9.8): `gratis` (nada que pagar), `tienes` (el
+ * ítem/los materiales que exige están en el inventario) o `falta`. Es un
+ * ESPEJO local del inventario replicado para que el panel lo marque sin
+ * intentar a ciegas — la verdad sigue siendo `construir:error`.
+ */
+export type EstadoConstruible = "gratis" | "tienes" | "falta";
+export type FiltroConstruccion = "todo" | "puedo" | "falta" | "gratis";
 
 /** Payload del mensaje "construir" (contrato §4). */
 export interface MensajeConstruir {
@@ -40,6 +64,8 @@ export interface OpcionesConstructor {
   indiceParcelas: Map<number, string>;
   render: RenderConstrucciones;
   enviarConstruir(mensaje: MensajeConstruir): void;
+  /** Unidades de un itemId en el inventario propio (cuerpo) — el mismo contenedor donde el servidor busca `requiereItemColocar`/`receta`. Sin él, todo lo que cueste algo se marca como "falta". */
+  contarItem?(itemId: string): number;
 }
 
 // colores pactados: propia verde / ajena gris; fantasma verde válido / rojo no
@@ -80,6 +106,16 @@ export class ModoConstruccion {
   private readonly lineaInfo: HTMLDivElement;
   private readonly lineaError: HTMLDivElement;
   private readonly botones = new Map<string, HTMLButtonElement>();
+  // §9.8: por construible, lo que hace falta para pintar su estado y filtrarlo.
+  // Clave "categoria:id", no solo id: maceta_pequena/maceta_grande existen a
+  // la vez como mueble y como exterior (dos botones legítimos, el servidor
+  // decide por `categoria`) y con solo el id una de las dos filas se quedaba
+  // huérfana — sin estado ni filtro — como pasaba ya en `botones`.
+  private readonly filas = new Map<string, { c: Construible; boton: HTMLButtonElement; insignia: HTMLSpanElement; buscable: string; estado: EstadoConstruible }>();
+  private readonly cabeceras: { h: HTMLElement; claves: string[]; categoria: string }[] = [];
+  private readonly pestanas = new Map<FiltroConstruccion, HTMLButtonElement>();
+  private filtro: FiltroConstruccion = "todo";
+  private busqueda = "";
   private temporizadorError: ReturnType<typeof setTimeout> | null = null;
   private temporizadorAviso: ReturnType<typeof setTimeout> | null = null;
 
@@ -136,7 +172,104 @@ export class ModoConstruccion {
     this._activo = true;
     this.panel.style.display = "block";
     this.lineaInfo.textContent = "Elige un objeto y apunta a tu parcela.";
+    this.refrescarDisponibilidad();
     this.refrescarBordes();
+  }
+
+  /**
+   * Recalcula el estado (gratis/tienes/falta) de TODOS los construibles
+   * contra el inventario actual y reaplica el filtro. Barato (~800 filas,
+   * sin tocar el DOM salvo los textos que cambian) — game.ts lo llama con
+   * cada cambio del inventario propio mientras el modo está activo.
+   */
+  refrescarDisponibilidad(): void {
+    for (const fila of this.filas.values()) {
+      const { estado, insignia, titulo } = this.calcularEstado(fila.c);
+      fila.estado = estado;
+      fila.boton.dataset.estado = estado;
+      if (fila.insignia.textContent !== insignia) fila.insignia.textContent = insignia;
+      if (fila.boton.title !== titulo) fila.boton.title = titulo;
+    }
+    this.aplicarFiltro();
+  }
+
+  /** Estado actual de un construible (sonda de tests y tooltips) — si el id existe como mueble y como exterior, el mueble. */
+  estadoDe(id: string): { estado: EstadoConstruible; insignia: string; titulo: string } | null {
+    const fila = this.filas.get(`mueble:${id}`) ?? this.filas.get(`exterior:${id}`) ?? this.filas.get(`edificio:${id}`);
+    if (!fila) return null;
+    return { estado: fila.estado, insignia: fila.insignia.textContent || "", titulo: fila.boton.title };
+  }
+
+  /** Pestaña activa del panel: todo / puedo colocar / falta / gratis. */
+  filtrar(filtro: FiltroConstruccion): void {
+    this.filtro = filtro;
+    for (const [f, b] of this.pestanas) b.classList.toggle("sel", f === filtro);
+    this.aplicarFiltro();
+  }
+
+  /** Ids visibles ahora mismo en la lista (tras filtro + búsqueda) — sonda de tests. */
+  idsVisibles(): string[] {
+    const ids = new Set<string>();
+    for (const fila of this.filas.values()) if (!fila.boton.classList.contains("oculto")) ids.add(fila.c.id);
+    return [...ids];
+  }
+
+  private contar(itemId: string): number {
+    return this.opciones.contarItem ? Math.max(0, Math.floor(this.opciones.contarItem(itemId))) : 0;
+  }
+
+  private nombreItem(itemId: string): string {
+    return ITEMS[itemId]?.nombre || itemId;
+  }
+
+  private nombreConstruible(id: string): string {
+    return this.filas.get(`mueble:${id}`)?.c.nombre || this.filas.get(`exterior:${id}`)?.c.nombre || id;
+  }
+
+  /** "Lo craftea el carpintero (nivel 2) en Banco de Carpintero" — desde recetas.json, para que el jugador sepa a qué mesa ir. */
+  private comoSeConsigue(itemId: string): string {
+    const r = RECETA_POR_RESULTADO.get(itemId);
+    if (!r?.oficio) return "";
+    const mesas = (r.mesas || []).map((m) => this.nombreConstruible(m)).join(" / ");
+    return `Lo craftea el ${r.oficio}${r.nivelMinimo ? ` (nivel ${r.nivelMinimo})` : ""}${mesas ? ` en ${mesas}` : ""}.`;
+  }
+
+  private calcularEstado(c: Construible): { estado: EstadoConstruible; insignia: string; titulo: string } {
+    const nivel = c.nivelOficioMinimo ? `Requiere nivel ${c.nivelOficioMinimo.nivel} de ${c.nivelOficioMinimo.oficio}. ` : "";
+    if (c.requiereItemColocar) {
+      const n = this.contar(c.requiereItemColocar);
+      const nombre = this.nombreItem(c.requiereItemColocar);
+      const como = this.comoSeConsigue(c.requiereItemColocar);
+      if (n > 0) return { estado: "tienes", insignia: `✓ ${n}`, titulo: `${nivel}Se consume 1× ${nombre} al colocarlo (tienes ${n}). ${como}`.trim() };
+      return { estado: "falta", insignia: "🔒 ítem", titulo: `${nivel}Necesitas ${nombre} en el inventario para colocarlo. ${como}`.trim() };
+    }
+    if (c.receta && c.receta.length > 0) {
+      const faltan = c.receta.filter((i) => this.contar(i.itemId) < i.cantidad);
+      const lista = c.receta.map((i) => `${i.cantidad}× ${this.nombreItem(i.itemId)}`).join(", ");
+      if (faltan.length === 0) return { estado: "tienes", insignia: "✓ materiales", titulo: `${nivel}Materiales (se consumen): ${lista}.` };
+      const faltaTxt = faltan.map((i) => `${i.cantidad - this.contar(i.itemId)}× ${this.nombreItem(i.itemId)}`).join(", ");
+      return { estado: "falta", insignia: "🔒 materiales", titulo: `${nivel}Materiales: ${lista}. Te falta: ${faltaTxt}.` };
+    }
+    return { estado: "gratis", insignia: "", titulo: nivel ? `${nivel}Sin coste de materiales.` : "" };
+  }
+
+  private pasaFiltro(estado: EstadoConstruible): boolean {
+    if (this.filtro === "todo") return true;
+    if (this.filtro === "puedo") return estado !== "falta";
+    return estado === this.filtro;
+  }
+
+  private aplicarFiltro(): void {
+    const q = this.busqueda.trim().toLowerCase();
+    for (const fila of this.filas.values()) {
+      const visible = this.pasaFiltro(fila.estado) && (q === "" || fila.buscable.includes(q));
+      fila.boton.classList.toggle("oculto", !visible);
+    }
+    for (const cab of this.cabeceras) {
+      const visibles = cab.claves.filter((k) => !this.filas.get(k)!.boton.classList.contains("oculto")).length;
+      cab.h.textContent = `${cab.categoria}s (${visibles}/${cab.claves.length})`;
+      cab.h.classList.toggle("oculto", visibles === 0);
+    }
   }
 
   desactivar(): void {
@@ -381,7 +514,17 @@ export class ModoConstruccion {
         .panel-construccion button:hover{background:var(--panel-hover)}
         .panel-construccion button.sel{border-color:var(--panel-acento);background:var(--panel-hover)}
         .panel-construccion .sw{width:12px;height:12px;border-radius:2px;flex:none;border:1px solid rgba(255,255,255,.25)}
-        .panel-construccion .hu{margin-left:auto;color:var(--panel-texto-tenue)}`;
+        .panel-construccion .hu{margin-left:auto;color:var(--panel-texto-tenue)}
+        .panel-construccion .nombre{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .panel-construccion .insignia{flex:none;font-size:10px;padding:0 5px;border-radius:8px;border:1px solid var(--panel-borde-tallado);color:var(--panel-texto-tenue)}
+        .panel-construccion .insignia:empty{display:none}
+        .panel-construccion button[data-estado="tienes"] .insignia{color:#3ddc78;border-color:#3ddc78}
+        .panel-construccion button[data-estado="falta"]{opacity:.6}
+        .panel-construccion .pestanas{display:flex;gap:4px;margin:6px 0 4px;flex-wrap:wrap}
+        .panel-construccion .pestanas button{width:auto;padding:2px 7px;font-size:11px;border-color:var(--panel-borde-tallado)}
+        .panel-construccion .busqueda{width:100%;box-sizing:border-box;margin:0 0 4px;padding:3px 6px;border:1px solid var(--panel-borde-tallado);
+          border-radius:4px;background:rgba(0,0,0,.25);color:var(--panel-texto);font:12px "Trebuchet MS",sans-serif}
+        .panel-construccion .oculto{display:none!important}`;
       document.head.appendChild(estilos);
     }
 
@@ -400,36 +543,62 @@ export class ModoConstruccion {
     lineaError.className = "error";
     panel.appendChild(lineaError);
 
+    // §9.8 (pedido streamer 2026-09-11): pestañas por lo que puedes pagar +
+    // búsqueda por nombre — con ~800 construibles, sin esto el jugador tenía
+    // que intentar a ciegas y leer "necesitas X" en el error del servidor.
+    const pestanas = document.createElement("div");
+    pestanas.className = "pestanas";
+    const ETIQUETAS: [FiltroConstruccion, string][] = [["todo", "Todo"], ["puedo", "Puedo colocar"], ["falta", "Me falta"], ["gratis", "Gratis"]];
+    for (const [f, texto] of ETIQUETAS) {
+      const b = document.createElement("button");
+      b.textContent = texto;
+      b.dataset.filtro = f;
+      b.classList.toggle("sel", f === this.filtro);
+      b.addEventListener("click", () => this.filtrar(f));
+      this.pestanas.set(f, b);
+      pestanas.appendChild(b);
+    }
+    panel.appendChild(pestanas);
+    const busqueda = document.createElement("input");
+    busqueda.className = "busqueda";
+    busqueda.type = "search";
+    busqueda.placeholder = "Buscar mueble…";
+    busqueda.setAttribute("data-testid", "construccion-busqueda");
+    // el modo escucha R/Escape en window: escribir una "r" en el buscador no debe rotar
+    busqueda.addEventListener("keydown", (e) => e.stopPropagation());
+    busqueda.addEventListener("input", () => { this.busqueda = busqueda.value; this.aplicarFiltro(); });
+    panel.appendChild(busqueda);
+
     for (const [categoria, lista] of CONSTRUIBLES_POR_CATEGORIA) {
       const h = document.createElement("h4");
       h.textContent = `${categoria}s (${lista.length})`;
       panel.appendChild(h);
+      this.cabeceras.push({ h, claves: lista.map((c) => `${categoria}:${c.id}`), categoria });
       for (const c of lista) {
         const boton = document.createElement("button");
+        boton.dataset.id = c.id;
         const sw = document.createElement("span");
         sw.className = "sw";
         sw.style.background = c.colorDebug;
+        sw.title = c.id;
         const nombre = document.createElement("span");
-        nombre.textContent = c.id;
+        nombre.className = "nombre";
+        nombre.textContent = c.nombre || c.id; // nombre bonito (docs/GDD_Inventario.md §11); el id sigue en data-id/tooltip del color
+        const insignia = document.createElement("span");
+        insignia.className = "insignia";
         const hu = document.createElement("span");
         hu.className = "hu";
         hu.textContent = `${c.huella[0]}×${c.huella[1]}`;
-        boton.append(sw, nombre, hu);
-        // Mesas de oficio (docs/GDD_Crafteo.md, coste de materiales pedido
-        // streamer 2026-09-10): tooltip nativo con nivel+receta — el menú
-        // sigue sin filtrar nada (el servidor decide al intentar colocar,
-        // mismo criterio ya documentado para proyectoJarl), esto solo evita
-        // que el jugador tenga que intentarlo a ciegas para enterarse.
-        if (c.nivelOficioMinimo) {
-          const receta = c.receta?.length ? c.receta.map((i) => `${i.cantidad}× ${i.itemId}`).join(", ") : "gratis";
-          boton.title = `Requiere nivel ${c.nivelOficioMinimo.nivel} de ${c.nivelOficioMinimo.oficio}. Materiales: ${receta}`;
-          nombre.style.fontStyle = "italic";
-        }
+        boton.append(sw, nombre, insignia, hu);
+        if (c.nivelOficioMinimo) nombre.style.fontStyle = "italic";
         boton.addEventListener("click", () => this.seleccionar(c.id));
         this.botones.set(c.id, boton);
+        this.filas.set(`${categoria}:${c.id}`, { c, boton, insignia, buscable: `${c.nombre || ""} ${c.id}`.toLowerCase(), estado: "gratis" });
         panel.appendChild(boton);
       }
     }
+    // estado inicial (sin inventario todavía, todo lo que cuesta sale como "falta")
+    this.refrescarDisponibilidad();
 
     this.opciones.contenedor.appendChild(panel);
     return { panel, lineaInfo, lineaError };
