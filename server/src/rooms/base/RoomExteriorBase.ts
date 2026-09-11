@@ -1467,6 +1467,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.onMessage("refinamiento:depositar", (client, msg: { construccionId?: number; instanciaId?: number; cantidad?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarRefinamientoDepositar(client, msg)));
     this.onMessage("crafteo:iniciar", (client, msg: { recetaId?: string; construccionId?: number }) => this.colaPorConstruccion.ejecutar(msg?.construccionId ?? -1, () => this.manejarCrafteoIniciar(client, msg)));
     this.onMessage("crafteo:recolectar", (client) => this.manejarCrafteoRecolectar(client));
+    // Panel de crafteo (docs/GDD_Crafteo.md, pedido streamer 2026-09-10: "hay
+    // que hacer la UI"): puramente informativo, sin colaPorConstruccion —
+    // nunca muta `ctx.vivas`/inventario, solo lee para pintar el panel.
+    this.onMessage("crafteo:recetasDisponibles", (client, msg: { construccionId?: number }) => void this.manejarCrafteoRecetasDisponibles(client, msg));
     // Reparar (docs/GDD_Combate.md, pedido streamer 2026-09-03) — junto a un
     // yunque real, consume material y deja el objeto a durabilidad máxima.
     // Sin colaPorConstruccion: solo toca el inventario/equipo PROPIO del
@@ -3458,6 +3462,35 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
           if (jugadorColocar) sincronizarContenedor(jugadorColocar.inventario.cuerpo, contenedorColocar);
         }
 
+        // Coste de materiales para construir (docs/GDD_Construccion.md §3,
+        // pedido streamer 2026-09-10: "que se puedan construir... nivel 1
+        // fácil, las siguientes se van complicando") — mismo criterio que
+        // `requiereItemColocar` justo arriba pero para una LISTA de
+        // materiales sueltos en vez de un único ítem ya crafteado. Nunca
+        // Farycoins (decisión explícita, ver EntradaConstruible.receta).
+        if (entrada.receta && entrada.receta.length > 0) {
+          const contenedorReceta = this.inventarios.get(client.sessionId);
+          if (!contenedorReceta) return this.errorConstruir(client, "sin inventario");
+          const inventarioReceta = sumarPorItemId(contenedorReceta.items);
+          for (const insumo of entrada.receta) {
+            const enInventario = inventarioReceta.find((i) => i.itemId === insumo.itemId)?.cantidad ?? 0;
+            if (enInventario < insumo.cantidad) return this.errorConstruir(client, `te falta ${insumo.itemId} para construir esto`);
+          }
+          // Descuenta instancia a instancia (mismo patrón que manejarCrafteoIniciar), por si el mismo itemId está repartido en varias pilas.
+          for (const insumo of entrada.receta) {
+            let restante = insumo.cantidad;
+            for (const it of [...contenedorReceta.items]) {
+              if (restante <= 0) break;
+              if (it.itemId !== insumo.itemId) continue;
+              const quitar = Math.min(restante, it.cantidad);
+              quitarItem(contenedorReceta, it.id, quitar);
+              restante -= quitar;
+            }
+          }
+          const jugadorReceta = this.state.players.get(client.sessionId);
+          if (jugadorReceta) sincronizarContenedor(jugadorReceta.inventario.cuerpo, contenedorReceta);
+        }
+
         // la parcela puede no tener fila aún (nunca asignada): se crea sin
         // dueño para que la FK de construcciones apunte a algo real
         if (!ctx.propiedades.has(propiedadId)) {
@@ -3517,6 +3550,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
               agregarItem(contenedorDevolver, this.catalogoItems, entrada.requiereItemColocar, 1);
               const jugadorDevolver = this.state.players.get(client.sessionId);
               if (jugadorDevolver) sincronizarContenedor(jugadorDevolver.inventario.cuerpo, contenedorDevolver);
+            }
+          }
+          if (entrada.receta) {
+            const contenedorDevolverReceta = this.inventarios.get(client.sessionId);
+            if (contenedorDevolverReceta) {
+              for (const insumo of entrada.receta) agregarItem(contenedorDevolverReceta, this.catalogoItems, insumo.itemId, insumo.cantidad);
+              const jugadorDevolverReceta = this.state.players.get(client.sessionId);
+              if (jugadorDevolverReceta) sincronizarContenedor(jugadorDevolverReceta.inventario.cuerpo, contenedorDevolverReceta);
             }
           }
           return this.errorConstruir(client, veredictoFinal.motivo);
@@ -9610,6 +9651,52 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     });
   }
 
+  /**
+   * Lista las recetas disponibles en una mesa concreta (docs/GDD_Crafteo.md
+   * §panel de crafteo, pedido streamer 2026-09-10: "hay que hacer la UI de
+   * elegir receta") — puramente informativo, NUNCA valida ni consume nada
+   * (eso lo sigue haciendo `manejarCrafteoIniciar`, con su propia
+   * `colaPorConstruccion`). Marca cada receta con lo que le falta al
+   * jugador (nivel/edificio/plano) para que el panel pueda pintarla
+   * atenuada sin tener que enviarle el catálogo de recetas.json entero.
+   */
+  private async manejarCrafteoRecetasDisponibles(client: Client, msg: { construccionId?: number }) {
+    const nombre = this.nombreDe(client);
+    const ctx = this.ctxConstruccion;
+    if (!nombre || !ctx || typeof msg?.construccionId !== "number") return;
+    const viva = ctx.vivas.get(msg.construccionId);
+    if (!viva) return client.send("crafteo:recetasDisponibles", { construccionId: msg.construccionId, objeto: null, recetas: [] });
+
+    if (!this.catalogoRecetas) this.catalogoRecetas = cargarCatalogoRecetas();
+    const bd = await obtenerBdCompartida();
+    const jugador = await bd.obtenerOCrearJugador(nombre);
+    const xpPorOficio = new Map<string, number>();
+    const existeEnAsentamiento = (objetoId: string) => {
+      for (const v of ctx.vivas.values()) if (v.objeto === objetoId) return true;
+      return false;
+    };
+
+    const recetas: Array<Record<string, unknown>> = [];
+    for (const receta of this.catalogoRecetas.values()) {
+      if (!receta.mesas.includes(viva.objeto)) continue;
+      if (!xpPorOficio.has(receta.oficio)) xpPorOficio.set(receta.oficio, await bd.obtenerXpOficio(jugador.id, receta.oficio));
+      const xp = xpPorOficio.get(receta.oficio)!;
+      recetas.push({
+        id: receta.id, oficio: receta.oficio, nivelMinimo: receta.nivelMinimo,
+        insumos: receta.insumos, resultado: receta.resultado, tiempoBaseSeg: receta.tiempoBaseSeg,
+        minijuego: receta.minijuego ?? null,
+        bloqueadaPorNivel: nivelDeXp(xp) < receta.nivelMinimo,
+        edificioFaltante: receta.edificioRequerido && !existeEnAsentamiento(receta.edificioRequerido) ? receta.edificioRequerido : null,
+        planoFaltante: receta.planoRequerido && !existeEnAsentamiento(receta.planoRequerido) ? receta.planoRequerido : null,
+      });
+    }
+    client.send("crafteo:recetasDisponibles", {
+      construccionId: msg.construccionId, objeto: viva.objeto,
+      nivelesOficio: Object.fromEntries([...xpPorOficio].map(([o, xp]) => [o, nivelDeXp(xp)])),
+      recetas,
+    });
+  }
+
   private errorReparar(client: Client, motivo: string) {
     client.send("item:error", { motivo });
   }
@@ -10478,6 +10565,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     const contenedor = this.inventarios.get(client.sessionId);
     if (!contenedor) return;
+    // Frasco de poción (pedido streamer 2026-09-10: "para craftear pociones
+    // necesitas el frasco + ingredientes") — requisito APARTE de
+    // instanciaIds, nunca cuenta como uno de los 2-6 ingredientes ni entra
+    // en `prepararPocion` (el color/efectos siguen dependiendo solo de los
+    // ingredientes reales). Se consume junto a ellos; el jugador lo
+    // recupera VACÍO al beber la poción resultante (manejarPocionBeber).
+    const frasco = contenedor.items.find((it) => it.itemId === "frasco_pocion");
+    if (!frasco) return this.errorAlquimia(client, "necesitas un frasco de poción vacío");
     const ingredientes: IngredienteAlquimia[] = [];
     for (const instanciaId of msg.instanciaIds) {
       const item = contenedor.items.find((it) => it.id === instanciaId);
@@ -10491,6 +10586,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
 
     // descuenta AHORA, igual que crafteo/forja (nunca se devuelve al cancelar).
     for (const instanciaId of msg.instanciaIds) quitarItem(contenedor, instanciaId, 1);
+    quitarItem(contenedor, frasco.id, 1);
     const player = this.state.players.get(client.sessionId);
     if (player) sincronizarContenedor(player.inventario.cuerpo, contenedor);
 
@@ -10630,6 +10726,14 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const player = this.state.players.get(client.sessionId);
     if (player) {
       sincronizarContenedor(player.inventario.cuerpo, contenedor);
+      // Frasco reutilizable (pedido streamer 2026-09-10: "las pociones se
+      // pueden usar/consumir y se pierde, y se queda el frasco") — beber ya
+      // NO destruye el objeto entero: devuelve un frasco_pocion vacío
+      // (mismo espíritu que liquidos.ts::vaciar para cantimplora/cubo, aquí
+      // como ítem nuevo en vez de mutar la misma instancia porque el
+      // itemId cambia de "pocion_alquimica_X" a "frasco_pocion" —
+      // entregarOSoltar ya sabe apilar/soltar al suelo si no cupiera).
+      this.entregarOSoltar(client, player, "frasco_pocion", 1);
       this.recalcularStatsJugador(client);
       // vidaMax (docs/GDD_Pociones.md, ampliación 2026-09-01: "mas vida"/
       // "vida reducida") no pasa por recalcularStatsJugador (esa es solo

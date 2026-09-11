@@ -61,6 +61,19 @@ export interface Construible {
    * UX más adelante en vez de dejar las dos activas sin más.
    */
   esAsiento?: boolean;
+  /**
+   * Mesa de oficio (docs/GDD_Crafteo.md, panel de crafteo — pedido streamer
+   * 2026-09-10): nivel de oficio exigido para CONSTRUIRLA (server/src/
+   * construccion/catalogo.ts::EntradaConstruible.nivelOficioMinimo). El
+   * cliente lo usa para dos cosas — ofrecer "Craftear aquí" en el menú de
+   * interacción sobre cualquier mesa que lo declare, y atenuar/bloquear en
+   * el panel de la tecla B las que el jugador todavía no puede construir
+   * (antes NUNCA se leía este campo del lado cliente — el servidor era el
+   * único que lo comprobaba, al intentar colocar).
+   */
+  nivelOficioMinimo?: { oficio: string; nivel: number };
+  /** Coste de materiales para construir (docs/GDD_Construccion.md §3) — ver EntradaConstruible.receta en el servidor. Ausente = gratis (comportamiento de siempre). */
+  receta?: { itemId: string; cantidad: number }[];
 }
 
 // Alturas placeholder por categoría (la caja `colorDebug` hasta que exista
@@ -92,6 +105,8 @@ interface EntradaBruta {
   esSilla?: boolean;
   esContenedor?: boolean;
   esAsiento?: boolean;
+  nivelOficioMinimo?: { oficio: string; nivel: number };
+  receta?: { itemId: string; cantidad: number }[];
   [k: string]: unknown;
 }
 
@@ -133,6 +148,8 @@ function construirLista(): Construible[] {
       esSilla: e.esSilla,
       esContenedor: e.esContenedor,
       esAsiento: e.esAsiento,
+      nivelOficioMinimo: e.nivelOficioMinimo,
+      receta: e.receta,
     });
   }
 
@@ -148,6 +165,8 @@ function construirLista(): Construible[] {
       plantable: !!e.plantable,
       cocina: e.cocina,
       produccion: e.produccion,
+      nivelOficioMinimo: e.nivelOficioMinimo,
+      receta: e.receta,
     });
   }
 

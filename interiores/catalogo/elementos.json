@@ -1217,7 +1217,21 @@
     "nivelOficioMinimo": {
       "oficio": "curtidor",
       "nivel": 4
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 5
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 6
+      },
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 2
+      }
+    ]
   },
   "rueca": {
     "nombre": "Rueca",
@@ -2188,7 +2202,17 @@
     "nivelOficioMinimo": {
       "oficio": "curandero",
       "nivel": 2
-    }
+    },
+    "receta": [
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
+    ]
   },
   "estanteria_pociones": {
     "nombre": "Estantería de Pociones",
@@ -7703,7 +7727,21 @@
     "nivelOficioMinimo": {
       "oficio": "carpintero",
       "nivel": 4
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 9
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 3
+      },
+      {
+        "itemId": "madera_dura",
+        "cantidad": 2
+      }
+    ]
   },
   "estante_herramientas": {
     "nombre": "Estante de Herramientas",
@@ -7842,7 +7880,21 @@
     "nivelOficioMinimo": {
       "oficio": "curtidor",
       "nivel": 4
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 5
+      },
+      {
+        "itemId": "cuero_grueso",
+        "cantidad": 5
+      },
+      {
+        "itemId": "cuero_curtido",
+        "cantidad": 2
+      }
+    ]
   },
   "saco_harina": {
     "nombre": "Saco de Harina",
@@ -7946,7 +7998,17 @@
     "nivelOficioMinimo": {
       "oficio": "joyero",
       "nivel": 1
-    }
+    },
+    "receta": [
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
+    ]
   },
   "horno_ceramica": {
     "nombre": "Horno de Cerámica",
@@ -7997,7 +8059,21 @@
     "nivelOficioMinimo": {
       "oficio": "joyero",
       "nivel": 4
-    }
+    },
+    "receta": [
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 6
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "piedra_tallada",
+        "cantidad": 2
+      }
+    ]
   },
   "alambique": {
     "nombre": "Alambique",
@@ -8047,7 +8123,17 @@
     "nivelOficioMinimo": {
       "oficio": "cocinero",
       "nivel": 6
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 12
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 6
+      }
+    ]
   },
   "banco_joyero": {
     "nombre": "Banco de Joyero",
@@ -8098,7 +8184,17 @@
     "nivelOficioMinimo": {
       "oficio": "joyero",
       "nivel": 1
-    }
+    },
+    "receta": [
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 3
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
+    ]
   },
   "vitrina_joyas": {
     "nombre": "Vitrina de Joyas",
@@ -8388,7 +8484,17 @@
     "nivelOficioMinimo": {
       "oficio": "curandero",
       "nivel": 1
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 3
+      }
+    ]
   },
   "estante_tarros_herbolario": {
     "nombre": "Estante de Tarros de Herbolario",
@@ -11758,7 +11864,17 @@
     "nivelOficioMinimo": {
       "oficio": "curandero",
       "nivel": 1
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 3
+      }
+    ]
   },
   "armario_medicinas": {
     "nombre": "Armario de Medicinas",
@@ -14938,7 +15054,9 @@
     "variantes": 3,
     "colorDebug": "#8a6a3a",
     "esContenedor": true,
-    "libreria": { "capacidad": 20 },
+    "libreria": {
+      "capacidad": 20
+    },
     "isMandatory": true,
     "uso": "Estantería baja de madera para guardar libros — su hueco (docs/GDD_Libreria.md) no mira el peso ni el tamaño de lo que entra, solo cuenta libros: hasta 20 a la vez. Craftable por el carpintero (nivel 1, \"libreria_baja_craft\").",
     "requiereItemColocar": "libreria_baja"
@@ -14964,7 +15082,9 @@
     "variantes": 3,
     "colorDebug": "#6a4a2a",
     "esContenedor": true,
-    "libreria": { "capacidad": 40 },
+    "libreria": {
+      "capacidad": 40
+    },
     "isMandatory": true,
     "uso": "Estantería alta hasta el techo — misma huella en el suelo que la baja, el doble de baldas. Hasta 40 libros, sin tope de peso (docs/GDD_Libreria.md). Craftable por el carpintero (nivel 2, \"libreria_alta_craft\").",
     "requiereItemColocar": "libreria_alta"
@@ -14989,7 +15109,9 @@
     "variantes": 3,
     "colorDebug": "#5a3a22",
     "esContenedor": true,
-    "libreria": { "capacidad": 50 },
+    "libreria": {
+      "capacidad": 50
+    },
     "isMandatory": true,
     "uso": "Estantería doble de cuerpo ancho, la más grande del catálogo — hasta 50 libros, sin tope de peso (docs/GDD_Libreria.md). Craftable por el carpintero (nivel 3, \"libreria_doble_craft\").",
     "requiereItemColocar": "libreria_doble"
@@ -17268,7 +17390,21 @@
     "nivelOficioMinimo": {
       "oficio": "carpintero",
       "nivel": 6
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 2
+      }
+    ]
   },
   "mesa_ensamblaje": {
     "nombre": "Mesa de Ensamblaje",
@@ -17318,7 +17454,13 @@
     "nivelOficioMinimo": {
       "oficio": "carpintero",
       "nivel": 8
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 6
+      }
+    ]
   },
   "mesa_talla_fina": {
     "nombre": "Mesa de Talla Fina",
@@ -17368,7 +17510,21 @@
     "nivelOficioMinimo": {
       "oficio": "carpintero",
       "nivel": 6
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 2
+      }
+    ]
   },
   "mesa_esmaltado": {
     "nombre": "Mesa Esmaltado",
@@ -17419,7 +17575,13 @@
     "nivelOficioMinimo": {
       "oficio": "joyero",
       "nivel": 8
-    }
+    },
+    "receta": [
+      {
+        "itemId": "piedra_tallada",
+        "cantidad": 6
+      }
+    ]
   },
   "mesa_moldes": {
     "nombre": "Mesa de Moldes",
@@ -17797,7 +17959,17 @@
     "nivelOficioMinimo": {
       "oficio": "curtidor",
       "nivel": 1
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cuero_grueso",
+        "cantidad": 3
+      }
+    ]
   },
   "mesa_engarce": {
     "nombre": "Mesa de Engarce",
@@ -17847,7 +18019,21 @@
     "nivelOficioMinimo": {
       "oficio": "joyero",
       "nivel": 6
-    }
+    },
+    "receta": [
+      {
+        "itemId": "gema",
+        "cantidad": 4
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 3
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
+    ]
   },
   "mesa_fundicion_precioso": {
     "nombre": "Mesa de Fundición Precioso",
@@ -17901,7 +18087,17 @@
     "nivelOficioMinimo": {
       "oficio": "joyero",
       "nivel": 8
-    }
+    },
+    "receta": [
+      {
+        "itemId": "gema_tallada",
+        "cantidad": 3
+      },
+      {
+        "itemId": "gema",
+        "cantidad": 3
+      }
+    ]
   },
   "mesa_corte": {
     "nombre": "Mesa de Corte",
@@ -17952,7 +18148,21 @@
     "nivelOficioMinimo": {
       "oficio": "curtidor",
       "nivel": 6
-    }
+    },
+    "receta": [
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 4
+      }
+    ]
   },
   "mesa_bordado": {
     "nombre": "Mesa Bordado",
@@ -18002,7 +18212,13 @@
     "nivelOficioMinimo": {
       "oficio": "curtidor",
       "nivel": 8
-    }
+    },
+    "receta": [
+      {
+        "itemId": "tela_hilada",
+        "cantidad": 6
+      }
+    ]
   },
   "mesa_cocina_taberna": {
     "nombre": "Mesa de Cocina de Taberna",
@@ -18479,7 +18695,21 @@
     "nivelOficioMinimo": {
       "oficio": "curtidor",
       "nivel": 6
-    }
+    },
+    "receta": [
+      {
+        "itemId": "cuero_curtido",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "piel_basta",
+        "cantidad": 3
+      }
+    ]
   },
   "mesa_costura_pieles": {
     "nombre": "Mesa de Costura de Pieles",
@@ -18529,7 +18759,13 @@
     "nivelOficioMinimo": {
       "oficio": "curtidor",
       "nivel": 8
-    }
+    },
+    "receta": [
+      {
+        "itemId": "cuero_curtido",
+        "cantidad": 6
+      }
+    ]
   },
   "mesa_destilado_esencias": {
     "nombre": "Mesa de Destilado de Esencias",
@@ -18579,7 +18815,21 @@
     "nivelOficioMinimo": {
       "oficio": "curandero",
       "nivel": 6
-    }
+    },
+    "receta": [
+      {
+        "itemId": "hierbas_secas",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 3
+      }
+    ]
   },
   "horno_vidrio": {
     "nombre": "Horno de Vidrio",
@@ -18635,7 +18885,21 @@
     "nivelOficioMinimo": {
       "oficio": "joyero",
       "nivel": 4
-    }
+    },
+    "receta": [
+      {
+        "itemId": "cuarzo",
+        "cantidad": 6
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 2
+      }
+    ]
   },
   "mesa_soplado": {
     "nombre": "Mesa Soplado",
@@ -18732,7 +18996,21 @@
     "nivelOficioMinimo": {
       "oficio": "joyero",
       "nivel": 6
-    }
+    },
+    "receta": [
+      {
+        "itemId": "cristal_pulido",
+        "cantidad": 4
+      },
+      {
+        "itemId": "cuarzo",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
+    ]
   },
   "mesa_encordado": {
     "nombre": "Mesa Encordado",
@@ -19150,7 +19428,17 @@
     "nivelOficioMinimo": {
       "oficio": "curtidor",
       "nivel": 1
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "cuero_grueso",
+        "cantidad": 2
+      }
+    ]
   },
   "ahumadero_carnes": {
     "nombre": "Ahumadero de Carnes",
@@ -19246,7 +19534,21 @@
     "nivelOficioMinimo": {
       "oficio": "curandero",
       "nivel": 4
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 5
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 5
+      },
+      {
+        "itemId": "hierbas_secas",
+        "cantidad": 2
+      }
+    ]
   },
   "mesa_cirugia": {
     "nombre": "Mesa de Cirugía",
@@ -19296,7 +19598,13 @@
     "nivelOficioMinimo": {
       "oficio": "curandero",
       "nivel": 8
-    }
+    },
+    "receta": [
+      {
+        "itemId": "hierbas_secas",
+        "cantidad": 6
+      }
+    ]
   },
   "mesa_calafateo": {
     "nombre": "Mesa de Calafateo",
@@ -19439,6 +19747,7 @@
   "forja_campo": {
     "nombre": "Forja de Campo",
     "capa": "decorMovible",
+    "isMandatory": true,
     "tiposSalaValidos": [
       "taller"
     ],
@@ -19466,11 +19775,22 @@
     },
     "temasProfesion": [
       "herreria"
+    ],
+    "receta": [
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
     ]
   },
   "yunque_tocon": {
     "nombre": "Yunque de Tocón",
     "capa": "decorMovible",
+    "isMandatory": true,
     "tiposSalaValidos": [
       "taller",
       "arsenal"
@@ -19505,7 +19825,17 @@
     "energia": {
       "consume": 15,
       "multiplicador": 1.5
-    }
+    },
+    "receta": [
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
+    ]
   },
   "forja_piedra": {
     "nombre": "Forja de Piedra",
@@ -19537,6 +19867,20 @@
     },
     "temasProfesion": [
       "herreria"
+    ],
+    "receta": [
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 6
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 2
+      }
     ]
   },
   "yunque_cuerno": {
@@ -19569,6 +19913,20 @@
     },
     "temasProfesion": [
       "herreria"
+    ],
+    "receta": [
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 6
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 2
+      }
     ]
   },
   "taller_armero": {
@@ -19601,6 +19959,20 @@
     },
     "temasProfesion": [
       "herreria"
+    ],
+    "receta": [
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 4
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
     ]
   },
   "banco_ajuste": {
@@ -19633,6 +20005,20 @@
     },
     "temasProfesion": [
       "herreria"
+    ],
+    "receta": [
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 4
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
     ]
   },
   "gran_forja": {
@@ -19665,6 +20051,16 @@
     },
     "temasProfesion": [
       "herreria"
+    ],
+    "receta": [
+      {
+        "itemId": "acero",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 3
+      }
     ]
   },
   "martinete": {
@@ -19701,7 +20097,17 @@
     "energia": {
       "consume": 25,
       "multiplicador": 1.6
-    }
+    },
+    "receta": [
+      {
+        "itemId": "acero",
+        "cantidad": 3
+      },
+      {
+        "itemId": "lingote_hierro",
+        "cantidad": 3
+      }
+    ]
   },
   "banco_tronzado": {
     "nombre": "Banco de Tronzado",
@@ -19733,6 +20139,16 @@
     },
     "temasProfesion": [
       "carpinteria"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 2
+      }
     ]
   },
   "estacion_curvado_vapor": {
@@ -19765,6 +20181,12 @@
     },
     "temasProfesion": [
       "carpinteria"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 6
+      }
     ]
   },
   "mesa_delineante": {
@@ -19797,6 +20219,16 @@
     },
     "temasProfesion": [
       "carpintero_ribera"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 2
+      }
     ]
   },
   "banco_mecanizado": {
@@ -19829,6 +20261,20 @@
     },
     "temasProfesion": [
       "carpintero_ribera"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 9
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 3
+      },
+      {
+        "itemId": "madera_dura",
+        "cantidad": 2
+      }
     ]
   },
   "estacion_maquetas_navales": {
@@ -19861,6 +20307,20 @@
     },
     "temasProfesion": [
       "carpintero_ribera"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 2
+      }
     ]
   },
   "banco_ingenieria_pesada": {
@@ -19893,11 +20353,18 @@
     },
     "temasProfesion": [
       "carpintero_ribera"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_dura",
+        "cantidad": 6
+      }
     ]
   },
   "banco_clasificacion_cincelado": {
     "nombre": "Banco de Clasificación Cincelado",
     "capa": "decorMovible",
+    "isMandatory": true,
     "tiposSalaValidos": [
       "taller"
     ],
@@ -19929,7 +20396,17 @@
     "energia": {
       "consume": 18,
       "multiplicador": 1.4
-    }
+    },
+    "receta": [
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 6
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
+    ]
   },
   "mesa_mampuesto": {
     "nombre": "Mesa de Mampuesto",
@@ -19961,6 +20438,20 @@
     },
     "temasProfesion": [
       "picapedrero"
+    ],
+    "receta": [
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 9
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "piedra_tallada",
+        "cantidad": 2
+      }
     ]
   },
   "estacion_canteria_muelas": {
@@ -19993,6 +20484,20 @@
     },
     "temasProfesion": [
       "picapedrero"
+    ],
+    "receta": [
+      {
+        "itemId": "piedra_tallada",
+        "cantidad": 4
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 6
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 2
+      }
     ]
   },
   "gran_taller_mamposteria": {
@@ -20025,11 +20530,18 @@
     },
     "temasProfesion": [
       "picapedrero"
+    ],
+    "receta": [
+      {
+        "itemId": "piedra_tallada",
+        "cantidad": 6
+      }
     ]
   },
   "mesa_tajado_limpieza": {
     "nombre": "Mesa de Tajado y Limpieza",
     "capa": "decorMovible",
+    "isMandatory": true,
     "tiposSalaValidos": [
       "taller",
       "sala_molino"
@@ -20059,11 +20571,22 @@
     },
     "temasProfesion": [
       "molino"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 4
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 4
+      }
     ]
   },
   "molino_mano": {
     "nombre": "Molino de Mano",
     "capa": "decorMovible",
+    "isMandatory": true,
     "tiposSalaValidos": [
       "taller",
       "sala_molino"
@@ -20097,7 +20620,17 @@
     "energia": {
       "consume": 12,
       "multiplicador": 1.4
-    }
+    },
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 6
+      }
+    ]
   },
   "artesa_amasado": {
     "nombre": "Artesa de Amasado",
@@ -20131,6 +20664,16 @@
     },
     "temasProfesion": [
       "molino"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 6
+      }
     ]
   },
   "estacion_germinacion_mantequeria": {
@@ -20165,6 +20708,16 @@
     },
     "temasProfesion": [
       "molino"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 12
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 12
+      }
     ]
   },
   "gran_molino_agropecuario": {
@@ -20199,11 +20752,22 @@
     },
     "temasProfesion": [
       "molino"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 20
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 20
+      }
     ]
   },
   "estacion_despiece_caza": {
     "nombre": "Estación de Despiece de Caza",
     "capa": "decorMovible",
+    "isMandatory": true,
     "tiposSalaValidos": [
       "taller"
     ],
@@ -20231,6 +20795,16 @@
     },
     "temasProfesion": [
       "cazador"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 4
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 3
+      }
     ]
   },
   "banco_trampero": {
@@ -20263,6 +20837,20 @@
     },
     "temasProfesion": [
       "cazador"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 5
+      },
+      {
+        "itemId": "cuero_grueso",
+        "cantidad": 2
+      }
     ]
   },
   "banco_arqueria_caza": {
@@ -20295,6 +20883,20 @@
     },
     "temasProfesion": [
       "cazador"
+    ],
+    "receta": [
+      {
+        "itemId": "cuero_grueso",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 4
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 3
+      }
     ]
   },
   "estacion_cazador_supremo": {
@@ -20327,11 +20929,18 @@
     },
     "temasProfesion": [
       "cazador"
+    ],
+    "receta": [
+      {
+        "itemId": "cuero_grueso",
+        "cantidad": 6
+      }
     ]
   },
   "fogon_campamento": {
     "nombre": "Fogón de Campamento",
     "capa": "decorMovible",
+    "isMandatory": true,
     "tiposSalaValidos": [
       "taller"
     ],
@@ -20359,6 +20968,16 @@
     },
     "temasProfesion": [
       "cocinero"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 4
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 2
+      }
     ]
   },
   "horno_barro_taberna": {
@@ -20391,6 +21010,16 @@
     },
     "temasProfesion": [
       "cocinero"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 6
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 3
+      }
     ]
   },
   "cocina_mamposteria": {
@@ -20423,6 +21052,16 @@
     },
     "temasProfesion": [
       "cocinero"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 12
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 6
+      }
     ]
   },
   "gran_cocina_destileria": {
@@ -20455,6 +21094,16 @@
     },
     "temasProfesion": [
       "cocinero"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 20
+      },
+      {
+        "itemId": "piedra_comun",
+        "cantidad": 10
+      }
     ]
   },
   "escritorio_escriba": {
@@ -20487,11 +21136,26 @@
     },
     "temasProfesion": [
       "herbolista"
+    ],
+    "receta": [
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 5
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 5
+      },
+      {
+        "itemId": "hierbas_secas",
+        "cantidad": 2
+      }
     ]
   },
   "estacion_boticario": {
     "nombre": "Estación de Boticario",
     "capa": "decorMovible",
+    "isMandatory": true,
     "tiposSalaValidos": [
       "taller"
     ],
@@ -20519,6 +21183,20 @@
     },
     "temasProfesion": [
       "herbolista"
+    ],
+    "receta": [
+      {
+        "itemId": "hierbas_secas",
+        "cantidad": 4
+      },
+      {
+        "itemId": "madera_blanda",
+        "cantidad": 3
+      },
+      {
+        "itemId": "fibra_vegetal",
+        "cantidad": 3
+      }
     ]
   },
   "scriptorium_alquimico": {
@@ -20551,6 +21229,12 @@
     },
     "temasProfesion": [
       "herbolista"
+    ],
+    "receta": [
+      {
+        "itemId": "hierbas_secas",
+        "cantidad": 6
+      }
     ]
   },
   "fuelle_mecanico_pedal": {

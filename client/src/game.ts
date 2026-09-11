@@ -37,6 +37,8 @@ import { ResaltadoCombate } from "./render3d/resaltadoCombate";
 import { PanelChat } from "./ui/chat";
 import { PanelDialogoNpc } from "./npc/panelDialogoNpc";
 import { PanelForja } from "./construccion/panelForja";
+import { PanelCrafteo, type RecetaVista } from "./construccion/panelCrafteo";
+import { PanelAlquimia, type ConfigAlquimiaVista, type SesionAlquimiaVista, type ResultadoAlquimiaVista } from "./construccion/panelAlquimia";
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
 import { PanelReclutador, type CatalogoReclutadorVista, type TrabajadorVista, type RutaVista, type ConstruccionVista } from "./economia/panelReclutador";
@@ -1164,6 +1166,27 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (datos.objeto === "mesa_planos_ingenieria") {
         opciones.push({ etiqueta: "Proyectar edificio legendario", accion: () => panelIngeniero.abrir(datos.id) });
       }
+      // Crafteo genérico (docs/GDD_Crafteo.md): cualquier mesa de oficio real
+      // declara `nivelOficioMinimo` en el catálogo — telar/banco_carpintero
+      // lo tienen A LA VEZ que su propio bespoke legendario de arriba (30/22
+      // recetas normales conviven con el sastre/carpintero legendario en la
+      // MISMA mesa, no son excluyentes). Excluye las vasijas de cocina
+      // (`cuenco_cocina`/`olla_cocina`...): también llevan `nivelOficioMinimo`
+      // pero se craftea en ellas con el protocolo `cocina:*` aparte, nunca
+      // aparecen como `mesas` de ninguna receta — ofrecer "Craftear aquí" ahí
+      // solo daría un listado vacío. El caldero (alquimia) tiene su PROPIO
+      // panel justo abajo, por el mismo motivo — cero receta de crafteo
+      // normal lo referencia (`alquimia:iniciar` es un protocolo aparte, sin
+      // RecetaCrafteo). `mesa_planos_ingenieria` es la única mesa real sin
+      // `nivelOficioMinimo` — se queda solo con su panel legendario, gap
+      // conocido, ver docs/GDD_Crafteo.md.
+      if (construible?.nivelOficioMinimo && !construible?.cocina && datos.objeto !== "caldero") {
+        opciones.push({ etiqueta: `Craftear en ${nombre}`, accion: () => panelCrafteo.abrir(datos.id, nombre) });
+      }
+      // Alquimia (docs/GDD_Pociones.md, pedido streamer 2026-09-10).
+      if (datos.objeto === "caldero") {
+        opciones.push({ etiqueta: "Preparar poción", accion: () => panelAlquimia.abrir(datos.id) });
+      }
       // Mesas de minijuego (docs/GDD_Mesas_Minijuego.md §7bis.4, pedido
       // 2026-09-01): el auto-apuntado de silla por proximidad+tecla F
       // sentaba de forma inconsistente pese a distancia de sobra, sin
@@ -1419,12 +1442,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     room.onMessage("asiento:error", (m: { motivo: string }) => console.log("[asiento]", m?.motivo));
     room.onMessage("asiento:cancelado", () => console.log("[asiento] cancelado (te has movido)"));
 
-    // Sonda SOLO-PARA-TESTS (e2e con Playwright): el crafteo (docs/
-    // GDD_Crafteo.md) todavía no tiene panel de cliente (ninguna receta lo
-    // usa desde el navegador hoy — el mecanismo es server-only por ahora),
-    // así que esto manda el protocolo Colyseus REAL tal cual lo haría un
-    // futuro panel, sin inventar un mensaje nuevo. mesa:sentarse/levantarse
-    // SÍ tienen UI real (clic sobre la mesa → menú de interacción, ver más
+    // Sonda SOLO-PARA-TESTS (e2e con Playwright): "mesa_ajedrez_craft" (el
+    // tablero en sí) no es una mesa de oficio (sin `nivelOficioMinimo`, el
+    // panel de crafteo genérico de más abajo no la ofrece) — el crafteo REAL
+    // de oficios ya tiene UI (ver `panelCrafteo.ts`, docs/GDD_Crafteo.md,
+    // pedido streamer 2026-09-10), esto sigue mandando el protocolo Colyseus
+    // real a mano solo para el caso del tablero. mesa:sentarse/levantarse SÍ
+    // tienen UI real (clic sobre la mesa → menú de interacción, ver más
     // arriba) — la sonda las deja disponibles igualmente por si un test
     // quiere fijar la silla exacta sin pelear con el raycast del clic 3D
     // (mismo criterio que window.__carpintero/__sastre/__ingeniero).
@@ -1453,10 +1477,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     };
 
     // Sonda SOLO-PARA-TESTS (e2e con Playwright, barrido de sistemas
-    // pedido 2026-08-31): comercio/combate ya tienen panel real más abajo
-    // (mandan el MISMO mensaje que esto); gremios sigue sin panel de
-    // cliente todavía (mismo caso que crafteo/ajedrez arriba, sin mecánica
-    // de UI que lo use hoy). En vez de una sonda a medida por mensaje, esto
+    // pedido 2026-08-31): comercio/combate/crafteo ya tienen panel real (el
+    // de crafteo, más arriba); gremios sigue sin panel de cliente todavía
+    // (sin mecánica de UI que lo use hoy). En vez de una sonda a medida por
+    // mensaje, esto
     // es un paso GENÉRICO al protocolo Colyseus real (mismo room.send que
     // usaría cualquier botón, nunca un atajo que salte validación del
     // servidor) más una lectura de estado sincronizado — evita duplicar
@@ -2433,6 +2457,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("crafteo:herreria:iniciado", (m: { cfg: any; sesion: any }) => {
     forjaFaseActual = m.sesion.fase;
     panelForja.mostrarSesion(m.cfg, m.sesion);
+    // El servidor eligió el minijuego de forja en vez de "crafteo:iniciado"
+    // normal (misma acción "Craftear" del panel de crafteo genérico) — le
+    // cede el testigo a panelForja, que ya sabe jugarlo.
+    panelCrafteo.cerrarPorMinijuegoAparte();
   });
   room.onMessage("crafteo:herreria:progreso", (m: { sesion: any }) => {
     forjaFaseActual = m.sesion.fase;
@@ -2446,6 +2474,71 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     forjaFaseActual = null;
     panelForja.ocultar();
   });
+
+  // Crafteo genérico en mesa de oficio (docs/GDD_Crafteo.md, pedido
+  // streamer 2026-09-10: "hay que hacer la UI... ¿tienen UI ya creada?") —
+  // cierra el hueco "sin panel de cliente todavía" que arrastraba desde el
+  // diseño original. Fuera del bloque `if (SALA === "hub")` a propósito —
+  // a diferencia de los 3 paneles legendarios (bespoke, solo Hub), craftear
+  // en una mesa de oficio normal es un protocolo válido en CUALQUIER room
+  // con ContextoConstruccion (mismo criterio que panelForja arriba).
+  // `tieneInsumos` consulta el inventario YA replicado del jugador local,
+  // sin duplicar ningún estado propio.
+  const panelCrafteo = new PanelCrafteo({
+    contenedor,
+    tieneInsumos: (insumos) => {
+      const yo = room.state.players.get(room.sessionId);
+      if (!yo) return false;
+      const porItemId = new Map<string, number>();
+      for (const it of yo.inventario.cuerpo.items as Iterable<{ itemId: string; cantidad: number }>) {
+        porItemId.set(it.itemId, (porItemId.get(it.itemId) ?? 0) + it.cantidad);
+      }
+      return insumos.every((i) => (porItemId.get(i.itemId) ?? 0) >= i.cantidad);
+    },
+    enviarPedirRecetas: (construccionId) => room.send("crafteo:recetasDisponibles", { construccionId }),
+    enviarIniciar: (construccionId, recetaId) => room.send("crafteo:iniciar", { recetaId, construccionId }),
+    enviarRecolectar: () => room.send("crafteo:recolectar"),
+  });
+  room.onMessage("crafteo:recetasDisponibles", (m: { construccionId: number; recetas: RecetaVista[] }) => panelCrafteo.actualizarRecetas(m.construccionId, m.recetas ?? []));
+  room.onMessage("crafteo:iniciado", (m: { recetaId: string; terminaEn: number }) => panelCrafteo.marcarIniciado(m.recetaId, m.terminaEn));
+  room.onMessage("crafteo:completado", () => panelCrafteo.marcarCompletado());
+  room.onMessage("crafteo:error", (m: { motivo: string }) => panelCrafteo.marcarError(m?.motivo || "No se pudo craftear."));
+  // Sonda SOLO-PARA-TESTS (mismo criterio que window.__carpintero/__sastre/
+  // __ingeniero): abre el panel sin depender de acertar el raycast del clic
+  // 3D sobre la mesa exacta.
+  (window as any).__crafteo = {
+    abrirPanel: (construccionId: number, nombreMesa?: string) => panelCrafteo.abrir(construccionId, nombreMesa ?? "Mesa"),
+    // Mismo mapeo que panelTenderete.itemsDelCuerpo — lee el inventario YA
+    // replicado (Schema), sin depender de cuándo se vuelca a BD.
+    inventario: () => {
+      const yo = room.state.players.get(room.sessionId);
+      return yo ? [...(yo as any).inventario.cuerpo.items].map((it: any) => ({ instanciaId: it.id, itemId: it.itemId, cantidad: it.cantidad })) : [];
+    },
+  };
+
+  // Alquimia/pociones (docs/GDD_Pociones.md, pedido streamer 2026-09-10,
+  // mismo hilo que el panel de crafteo genérico) — cierra el hueco "sin
+  // panel de cliente todavía" (ni siquiera placeholder, a diferencia de
+  // forja/cocina). Fuera del bloque hub-only, mismo criterio que
+  // panelCrafteo: un caldero es válido en cualquier room con construcción.
+  const panelAlquimia = new PanelAlquimia({
+    contenedor,
+    obtenerInventario: () => {
+      const yo = room.state.players.get(room.sessionId);
+      return yo ? [...(yo as any).inventario.cuerpo.items].map((it: any) => ({ instanciaId: it.id, itemId: it.itemId, cantidad: it.cantidad })) : [];
+    },
+    enviarIniciar: (construccionId, instanciaIds) => room.send("alquimia:iniciar", { construccionId, instanciaIds }),
+    enviarAvivar: () => room.send("alquimia:accion", { accion: "avivar" }),
+    enviarEnfriar: () => room.send("alquimia:accion", { accion: "enfriar" }),
+    enviarColar: () => room.send("alquimia:colar"),
+    enviarCancelar: () => room.send("alquimia:cancelar"),
+  });
+  room.onMessage("alquimia:iniciado", (m: { cfg: ConfigAlquimiaVista; sesion: SesionAlquimiaVista }) => panelAlquimia.mostrarIniciado(m.cfg, m.sesion));
+  room.onMessage("alquimia:progreso", (m: { sesion: SesionAlquimiaVista }) => panelAlquimia.actualizarProgreso(m.sesion));
+  room.onMessage("alquimia:completado", (m: ResultadoAlquimiaVista) => panelAlquimia.mostrarResultado(m));
+  room.onMessage("alquimia:cancelado", () => panelAlquimia.mostrarCancelado());
+  room.onMessage("alquimia:error", (m: { motivo: string }) => panelAlquimia.mostrarError(m?.motivo || "No se pudo continuar con la alquimia."));
+  (window as any).__alquimia = { abrirPanel: (construccionId: number) => panelAlquimia.abrir(construccionId) };
 
   // --- Mascotas (docs/GDD_Mascotas.md) — panel PLACEHOLDER de testeo (ver panelMascotas.ts). Tecla G: dar de comer al animal domesticable más cercano. ---
   const panelMascotas = new PanelMascotas({

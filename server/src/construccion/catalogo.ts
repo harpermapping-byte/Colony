@@ -135,6 +135,21 @@ export interface EntradaConstruible {
    */
   nivelOficioMinimo?: { oficio: string; nivel: number };
   /**
+   * Coste de materiales para CONSTRUIR (docs/GDD_Construccion.md §3, pedido
+   * streamer 2026-09-10: "que se puedan construir... nivel 1 fácil, las
+   * siguientes se van complicando") — anunciado como pendiente desde el
+   * diseño original ("receta se rellenará al definir la economía") y nunca
+   * implementado hasta ahora: presente en las 67 mesas de oficio reales
+   * (`nivelOficioMinimo` casi siempre viene acompañado de esto, aunque son
+   * campos independientes). Se consume del inventario AL COLOCAR, mismo
+   * criterio que `requiereItemColocar` pero para una LISTA de materiales
+   * sueltos en vez de un único ítem ya crafteado — nunca Farycoins, nunca
+   * material de OTRO oficio (decisión explícita: el nivel 1 usa madera/
+   * piedra base, los tiers altos escalan al procesado propio del oficio,
+   * ver `MATERIAL_POR_TEMA` en el script que rellenó el catálogo).
+   */
+  receta?: { itemId: string; cantidad: number }[];
+  /**
    * Módulo de mejora por adyacencia (docs/GDD_Profesiones.md, pedido
    * 2026-08-30) — presente en los complementos de nivel 2 a 4 (uno de
    * "velocidad" y uno de "cantidad" por mesa): colocado ORTOGONALMENTE
@@ -230,6 +245,7 @@ interface EntradaElemento {
   /** Nacido en paralelo el mismo día que `esSilla` (misma furniture list, dos mecanismos distintos: clic vs tecla F por proximidad — ver la nota en `EntradaConstruible`). */
   esAsiento?: boolean;
   nivelOficioMinimo?: { oficio: string; nivel: number };
+  receta?: { itemId: string; cantidad: number }[];
   mejoraMesa?: { mesa: string; tipo: "velocidad" | "cantidad"; bonus: number };
   instrumento?: string;
   /** docs/GDD_Produccion.md §3ter — mueble de almacenamiento (baúl/arcón/armario...). `aportes.almacenamiento` ya existía en el catálogo (puntuación de decoración, `interiores/`) — se reusa como pista de tamaño real del contenedor. */
@@ -271,6 +287,7 @@ interface EntradaExterior {
   requiereConstruibleAdyacente?: string | string[];
   requiereItemColocar?: string;
   nivelOficioMinimo?: { oficio: string; nivel: number };
+  receta?: { itemId: string; cantidad: number }[];
 }
 
 interface EntradaTipoEdificio {
@@ -313,6 +330,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       esSilla: d.esSilla,
       esAsiento: d.esAsiento,
       nivelOficioMinimo: d.nivelOficioMinimo,
+      receta: d.receta,
       mejoraMesa: d.mejoraMesa,
       instrumento: d.instrumento,
       esContenedor: d.esContenedor,
@@ -346,6 +364,7 @@ export function cargarCatalogoConstruible(): Map<string, EntradaConstruible> {
       requiereConstruibleAdyacente: d.requiereConstruibleAdyacente,
       requiereItemColocar: d.requiereItemColocar,
       nivelOficioMinimo: d.nivelOficioMinimo,
+      receta: d.receta,
     });
   }
 
