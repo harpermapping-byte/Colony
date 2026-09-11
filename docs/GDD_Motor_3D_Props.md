@@ -188,7 +188,7 @@ Sigue igual que en el aviso de arriba: luz y props de expositor de un mueble col
 
 Verificando en vivo la silueta de `docs/GDD_Bakeador_POIs.md` §13 (una pieza NUEVA, huella 184x184) se descubrió que el fix de arriba (leer `obj.dx/dy`) es necesario pero NO suficiente: corrige solo el desplazamiento SUB-casilla (`[0,1)`), pero `taller-vox/exportar_glb.js::exportarModelo` deja por defecto (`centrarXZ:false`) el `.glb` con su origen local en la ESQUINA de su propia rejilla, no en su centro geométrico — confirmado leyendo los accessors reales de `tienda_01.glb` (un edificio normal, ya bakeado, del pipeline de siempre): contenido en X∈[0.4,9.8], centro real en (5.1,4.1), NO en (0,0). Con `x=poi.x` representando el CENTRO del edificio (confirmado por la fórmula de la puerta de cualquier "edificio" POI, `poi.y + hl/2 + 1`) y el mesh anclado por la esquina sin compensación, el modelo real se renderiza desplazado del footprint de colisión por, aproximadamente, la MITAD del ancho/alto del propio edificio — no un residuo sub-casilla, un desplazamiento de varias casillas para un edificio normal (y de decenas para una pieza grande como la silueta de ciudad).
 
-**Cerrado para las piezas de esta sesión** (`generarSiluetaCiudad`/`generar_puerta_asentamiento`, ver §13bis del GDD de POIs): exportadas con `centrarXZ:true`. **NO cerrado para el resto del catálogo de edificios** (`taller-vox/generar_edificio.js`, TODOS los edificios sueltos de POI ya bakeados en `testflat`/`ciudad_demo`/`principal`) — mismo problema estructural, confirmado empíricamente, pero de blast radius mucho mayor (cientos de `.glb` ya aprobados y subidos en varios mapas) — pendiente real, sin abordar, documentado aquí para que la próxima sesión que toque render de edificios lo tenga en cuenta antes de asumir que la posición visual de un edificio coincide con su huella de colisión.
+**Cerrado para las piezas de esta sesión** (`generarSiluetaCiudad`/`generar_puerta_asentamiento`, ver §13bis del GDD de POIs): exportadas con `centrarXZ:true`. **NO cerrado para el resto del catálogo de edificios** (`taller-vox/generar_edificio.js`, TODOS los edificios sueltos de POI ya bakeados en `testflat`/`ciudad_demo`/`principal`) — mismo problema estructural, confirmado empíricamente, pero de blast radius mucho mayor (cientos de `.glb` ya aprobados y subidos en varios mapas) — pendiente real, sin abordar, documentado aquí para que la próxima sesión que toque render de edificios lo tenga en cuenta antes de asumir que la posición visual de un edificio coincide con su huella de colisión. ~~Sin abordar~~ **CERRADO 2026-09-11, ver la sección "Colisión de edificios alineada con su forma real" más abajo — corrección puramente de cliente, sin tocar ningún `.glb` ya aprobado.**
 
 ## Orillas verticales tierra↔agua + faldón del borde del mapa (2026-09-10, pedido streamer: "el terreno es plano, le falta en los bordes —sobre todo donde tenemos agua— la parte vertical del terreno, ese borde que se debería generar")
 
@@ -217,6 +217,90 @@ Verificado: `client/test/patronTerreno.test.ts` (10 tests: bytes correctos, dete
 La caja de nieve (`crearCajaNieveSector`, ver `docs/GDD_Clima.md` §11) es UNA `BoxGeometry` por sector entero con lados sólidos — pero esos lados solo caen en el borde del SECTOR, nunca en un río/lago DENTRO del sector: ahí la cara de arriba se hace transparente sobre el agua sin ningún canto que cierre el volumen, dando la sensación de nieve fantasma/flotante. Cerrado con `orillasTerreno.ts::construirMuroNieve` — MISMA detección de arista que `construirOrillas` (es exactamente el mismo límite tierra/agua) pero la pared sube desde el suelo (y=0) hasta y=1 en vez de bajar hacia el lecho, con un blanco fijo degradado (más oscuro en la base, como un corte real de nieve apilada). Se reescala en Y junto con la caja (`aplicarNivelNieveAMuro`, mismo criterio que `aplicarNivelNieveACaja`) sin reconstruir nunca la geometría cuando cambia el nivel global de nieve. De paso, la cara de ABAJO de la caja de nieve (siempre coplanar con el suelo, invisible desde dentro del mundo) pasó de reusar el material `lado` a uno propio `visible:false` — evita overdraw/blending redundante contra el suelo real justo debajo.
 
 Verificado con el visor aislado YA EXISTENTE `client/test/nieveAislado.ts` (`tipo=agua`, que el propio comentario del archivo documentaba desde su creación como el caso "sin pared, solo un agujero"): capturas antes/después confirman la pared sólida cerrando el volumen sobre el agua, con el cubo de referencia de altura de persona mostrando la nieve hasta la cintura tal como ya calibraba `ALTURA_MAX_NIEVE`. `client/test/muroNieve.test.ts` (6 tests: cero quads sin agua, 4 paredes alrededor de una casilla de agua aislada, alturas 0/1 nunca por debajo del suelo, color blanco fijo más oscuro abajo, sin pared inventada contra el borde del sector, mismo conteo de aristas que `construirOrillas` para el mismo mapa). `cd client && npx tsc --noEmit` limpio, cliente 94/94.
+
+## Colisión de edificios alineada con su forma real (2026-09-11, pedido streamer: "las casas edificios etc al generarse la colision NO COINCIDE con la forma... debe ir vinculada")
+
+Cierra el pendiente documentado desde 2026-09-09 arriba ("Continuación real:
+el fix de arriba solo corrige la fracción sub-casilla — el `.glb` de un
+edificio está anclado por la ESQUINA, no por el centro"). La causa exacta
+ya estaba diagnosticada: `taller-vox/generar_edificio.js` exporta el `.glb`
+de CUALQUIER edificio suelto de POI con `centrarXZ:false` (por defecto) —
+la geometría real arranca en su local (0,0,0), que es su ESQUINA, no su
+centro — mientras que `sectorVisual.ts` posiciona la instancia en el
+CENTRO real del footprint (`obj.dx/dy`, ya arreglado el 2026-09-09 para la
+fracción sub-casilla). Sin compensar esa esquina, el edificio entero se
+renderizaba desplazado ~media anchura/altura de su propia huella de
+colisión — varias casillas para un edificio normal, coherente con la queja
+("la colisión no coincide con la forma": el jugador choca con aire donde
+"debería" estar el edificio, y puede atravesar visualmente donde SÍ hay
+colisión real).
+
+**Cerrado sin tocar NINGÚN `.glb` ya aprobado** (la opción descartada era
+re-exportar con `--centrar-xz` TODO el catálogo de edificios — cientos de
+archivos en varios mapas ya subidos y aprobados por el streamer, exigiría
+repasarlos todos de nuevo): la corrección vive enteramente en el CLIENTE,
+en el mismo punto donde `sectorVisual.ts` ya compone la matriz de cada
+instancia. `client/src/render3d/posicionEdificio.ts` (nuevo, función pura
+`posicionEsquinaEdificio(centroFootprint, rotacion, anchoReal, largoReal,
+escala)`, usa las clases de math de `three` — Vector3/Quaternion, sin
+DOM/WebGL, corre igual en Node) resta, en espacio LOCAL ya rotado y
+escalado, la mitad de la huella real (mismo `obj.w`/`obj.h` que ya usaba
+la rama placeholder) — el resultado es la posición de traslación que hay
+que usar para que la ESQUINA local (0,0,0) de la geometría caiga sobre la
+esquina real de la huella, en vez del centro. Fundamental que sea
+CONSCIENTE de la rotación: los edificios reales de una ciudad NO solo
+rotan en múltiplos de 90° (confirmado en `ciudad_demo`: 45°, -135°, -180°,
+-27°...), así que una compensación fija de "media anchura hacia el oeste"
+solo habría sido correcta para 4 de los infinitos ángulos posibles.
+
+**Verificado con tres métodos independientes, no dado por bueno con solo
+`tsc`**: (1) `client/test/posicionEdificio.test.ts` (6 tests: sin rotación,
+no muta el vector de entrada, 180° cae al lado opuesto, 90° intercambia
+ancho/largo de eje con el signo exacto del convenio de rotación Y de
+Three.js, la escala escala el offset, ida y vuelta exacta centro→esquina→
+centro para un caso real medido). (2) Un script de verificación NUMÉRICA
+leyendo los accessors reales (`POSITION.min/max`) de 4 `.glb` de edificio
+YA aprobados (`alfareria_01`, `templo_01`, `tienda_02`, `casa_humilde_04`)
+con sus rotaciones REALES de un sector de `ciudad_demo` — SIN el fix, el
+centro real de la geometría transformada caía hasta 8.3 unidades del
+centro esperado del footprint (`alfareria_01` 6.5, `templo_01` 8.3); CON
+el fix, el error cae a 0.26-1.2 unidades (la parte no cerrada es el margen
+real entre las dimensiones DECLARADAS en el catálogo, `obj.w`/`obj.h`, y
+las dimensiones REALES del `.glb` exportado — p.ej. 9.40×7.40 contra un
+catálogo de 9×6 —, un desajuste de generación distinto y más pequeño, no
+abordado aquí). (3) Verificación VISUAL real: `client/test/
+colisionEdificioAislado.{html,ts}` + `colisionEdificioAisladoCaptura.mjs`
+(mismo patrón "Aislado" del resto de este documento) carga un sector real
+de `ciudad_demo` con `crearSectorVisual` (el pipeline de producción
+completo, sin atajos) y dibuja un wireframe amarillo en el footprint de
+colisión ESPERADO de cada edificio (centro+`w`/`h` reales, rotados) por
+encima del render real — capturado ANTES (`colision_edificio_ANTES.png`,
+con `git stash` temporal del fix) y DESPUÉS
+(`colision_edificio_fix.png`) del cambio: antes, cada wireframe flota
+sobre tierra vacía mientras el edificio real aparece desplazado al lado;
+después, los 5 edificios del sector (girados a 45°/-135°/-180°/-27°/0°)
+caen limpiamente DENTRO de su propio wireframe.
+
+Verificado además: `cd client && npx tsc --noEmit` limpio, `client/test/*.test.ts`
+111/111 sin regresión (el fix solo añade una rama nueva gateada a
+`grupo.tipo==="e"`, cero cambio de comportamiento para vegetación/rocas/
+fauna decorativa/deco urbana). **Alcance deliberadamente acotado a
+`t:"e"` (edificios)**: el mismo problema estructural (`centrarXZ:false`
+por defecto) también afecta en teoría a vegetación/rocas
+(`taller-vox/generar_naturaleza.js`, confirmado por el propio test de
+`taller-vox` que documenta "SIN centrarXZ (comportamiento por defecto,
+edificios/naturaleza/personajes) sigue ANCLADO en la esquina") — pero ahí
+el desplazamiento es una fracción de una sola casilla (footprint típico
+~0.5-0.8 casillas) frente a varias casillas para un edificio grande, así
+que es mucho menos perceptible y NO es lo que reportó el streamer esta
+vez ("casas edificios etc") — queda fuera de esta pasada, candidato para
+una auditoría futura si se confirma como un problema real jugando.
+**Pendiente real, menor**: el residuo de 0.26-1.2 unidades por el
+desajuste catálogo-vs-`.glb` real (punto 2 arriba) sigue sin cerrar — se
+podría reducir leyendo el `.glb` real en tiempo de bake y escribiendo sus
+dimensiones exactas en vez de las nominales, cambio en el pipeline de
+bake, no de cliente, fuera de alcance de esta pasada. Sin verificar en
+vivo con el streamer.
 
 ## Qué falta (pendiente, no bloquea lo anterior)
 
