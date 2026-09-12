@@ -302,6 +302,179 @@ dimensiones exactas en vez de las nominales, cambio en el pipeline de
 bake, no de cliente, fuera de alcance de esta pasada. Sin verificar en
 vivo con el streamer.
 
+## Ventanas por ala/anexo sin solape + más variedad de techos y detalle por tier/riqueza (2026-09-12, investigación previa de otro agente con números reales, esta pasada implementó y verificó los 2 planes completos)
+
+Reescritura de `taller-vox/generar_edificio.js` en dos bloques, sin tocar
+`ciudades/`/`server/`/`client/` (el `.glb` sigue siendo el mismo formato
+`{grid,paleta,cajas}` de siempre, `exportar_glb.js` no cambió) ni ningún
+catálogo JSON (`tipos_edificio.json`/`materiales.json`/`huellas.json`/
+`asentamientos.json`) — todo el trabajo vive dentro del generador.
+
+**Parte A — el bug real, medido con 3.060 planes reales antes de tocar
+nada**: cuando un edificio tiene ala/anexo (17 de los ~74 `tipoEdificio`
+tienen ala en `huellas.json::alas` — castillo/ayuntamiento/posada/
+casa_gremio/mansion/cuartel_guardia/teatro/museo/academia_magia/casa_noble/
+taberna/templo/granero/establo/banos_publicos/biblioteca_publica/escuela),
+el camino REAL que usa `ciudades/` (`ciudades/src/generar.js` líneas
+~306-313, `oy=-(h/2+ala[1]/2)` SIEMPRE — el ala siempre queda "detrás" del
+cuerpo, sea L/T/U) daba **2545/3060 (83.2%)** edificios con al menos una
+ventana literalmente enterrada en la masa sólida de la OTRA pieza al
+fusionar. Causa doble: (1) `generarAla` pintaba ventanas en LAS DOS caras
+del ala, incluida la que queda embebida (solapada) dentro del cuerpo
+principal tras la fusión; (2) el cuerpo principal pintaba sus propias
+ventanas sin saber que un ala se fusionaría después justo encima de esa
+zona de fachada. Arreglado con 4 piezas:
+
+- **A1, registro unificado**: un único `Map` por edificio
+  (`ctx.registroHuecos`, creado una vez en `generarEdificio`), clave
+  `"${piso.y0}_${cara}"` — sustituye los 3 formatos de clave distintos que
+  llevaban puerta/ventana/balcón cada uno por su lado (`ventanasPorPisoCara`
+  con `"${i}_${cara}"`, i=índice de planta, en 3 arquetipos). `puertaEnFachada`
+  ahora devuelve `{a,c,ph}` y registra su propio hueco ANTES de que
+  `ventanasEnFachada` pinte nada en esa pared — con esto el viejo heurístico
+  `esFrenteConPuerta` (comparaba distancia al centro de la fachada, `vw*1.5`
+  de margen) se ELIMINÓ por completo: una ventana ya no pisa la puerta
+  porque la puerta está registrada como "otro hueco más" en el mismo Map.
+- **A3, `MARGEN_ENTRE_HUECOS=2`** (antes ±1 vóxel a fuego dentro de
+  `rangoLibre`) — exportado, para que un test pueda referenciarlo sin
+  repetir el número.
+- **A4, zona prohibida por ala**: `alas[]` (antes calculado DESPUÉS de
+  llamar al arquetipo, solo para la fusión) se adelanta a ANTES —
+  `offsetAla`/`offsetPiezaPlan` no dependen de nada que calcule el
+  arquetipo, así que mover el cálculo es seguro. Cada ala se expande por
+  `MARGEN_SEGURIDAD_ALA=4` en una caja absoluta (`zonasAlas`), pasada al
+  arquetipo; dentro de `ventanasEnFachada`, antes de colocar una ventana en
+  una pared, cualquier zona cuyo rango en el eje PERPENDICULAR a esa pared
+  llegue a tocarla se proyecta sobre el eje de la pared y se registra como
+  "otro hueco ya puesto" (reusa `rangoLibre`, cero comprobación nueva).
+  `generarAla` gana un parámetro `caraEmbebida` (mapa `{E:"O",O:"E",N:"S"}`
+  por lado del ala, confirmado geométricamente con `offsetAla`/
+  `offsetPiezaPlan` — el ala real de producción, siempre "N", mete su cara
+  "S" en el cuerpo) y deja de pintar ventanas en esa cara, solo en la
+  opuesta.
+- **A5, catálogo de tejados**: `techoEnEscalones` extraído del bucle que
+  antes solo usaba `techoDosAguas` (ahora un caso particular de una sola
+  llamada) + 2 primitivas nuevas — `techoMansarda` (dos tramos del mismo
+  helper, pendiente≈1.3 hasta encoger 35%, luego pendiente≈0.15 casi plano)
+  y `techoCobertizo` (única rampa desde un borde, sin cumbrera, función
+  propia — geometría genuinamente distinta a la simétrica de
+  `techoEnEscalones`). `ESTILOS_TECHO`+`elegirEstiloTecho` (mismo patrón
+  catálogo+pesos que `ESTILOS_VENTANA`), tirado UNA vez por edificio junto
+  al resto de decisiones de aspecto (antes de `densidadVentanas`/`forma`).
+  Gates: CHOZA/GRANERO/TALLER → dosAguas/cobertizo; CASA/POSADA →
+  dosAguas/mansarda/cobertizo (+piramidal si noble y ≥1 planta alta);
+  INSTITUCION → piramidal/abovedado/mansarda; TEMPLO/MILITAR/TORRE/CASTILLO
+  **sin catálogo, silueta intacta** (ni siquiera consumen el rnd() nuevo).
+
+**Parte B — 16 variaciones nuevas por tier/riqueza**, reusando el registro
+de la Parte A donde hace falta (antorchas):
+
+- **Bloque A, chimeneas**: `chimenea()` gana `estilo` ('fina'/'maciza' —
+  radio 0.22×U + colarín + capucha), 70% maciza en noble+piedra; extendida
+  (fina, sin brasas) a INSTITUCION (~25%, tejado trasero) y TEMPLO (~20%,
+  sacristía), arquetipos que antes nunca tenían.
+- **Bloque B, pórtico**: `porticoColumnas` (ya usada por INSTITUCION)
+  reutilizada en CASA/TALLER, 35% si noble+piedra, MUTUAMENTE EXCLUSIVO con
+  el porche pequeño de madera de CASA (si sale pórtico no se tira el dado
+  del porche). Sub-variante "doble altura" (`alturaColumnasPortico`, ≥2
+  plantas altas, 20%).
+- **Bloque C, escudo**: `blasonFachada` gana un parámetro `paleta` (subset
+  discreto `PALETA_BLASON_FAMILIAR`, 2 colores) — reusada en CASA, 45% si
+  noble+piedra (menos que el 80% institucional).
+- **Bloque D, antorchas** (`antorchasJuntoPuertaDet`, nueva): mango +
+  llama a los lados de la puerta, comprueba el registro de huecos antes de
+  pintar. Humilde 15% individual, modesta 35%/noble 55% pareja; CASTILLO/
+  MILITAR pareja al 100% SIN roll — y registradas ANTES que las ventanas de
+  su propia fachada Sur (al revés que el resto de arquetipos): con un
+  portón tan ancho como el de un castillo, dejar que las ventanas se
+  repartieran primero podía dejar sin hueco libre a las dos antorchas en la
+  MISMA semilla — bug real encontrado por el propio test de este bloque,
+  cerrado invirtiendo el orden de registro en `edificioCastillo`/
+  `edificioMilitar`.
+- **Bloque E, entramado + barro**: `cuerpo()` gana `entramadoPlantaBaja`
+  (antes el entramado Tudor era SIEMPRE `p>0` a fuego) — en CHOZA y en la
+  rama humilde de CASA, 30% si material=madera, sustituye `colorMuro` por
+  `BARRO` (= `materiales.adobe.colorDebug`, reusado del catálogo, nunca
+  inventado) antes de `cuerpo()`.
+- **Bloque F, decoración de pared**: `lenaApilada`/`barrilOCestaJuntoPuerta`/
+  `hiedraTrepando` (nuevas), ~35% conjunto, 1 de las 3 por semilla, pesos
+  por riqueza/material — en CASA/CHOZA/TALLER/POSADA.
+
+**2 bugs de test reales encontrados y cerrados verificando, ninguno visible
+solo con `tsc`**: (1) `TRONCO_CLARO` (Bloque F) se eligió como `"#8a6a3a"`
+sin comprobar contra el catálogo — resultó ser EXACTAMENTE
+`materiales.madera.colorDebug`, así que cualquier comprobación por color
+de "hay leña apilada" daba 100% en vez de ~35% (coincidía con CUALQUIER
+muro de madera, la pared más común del proyecto) — cerrado eligiendo
+`"#9c7a4a"`/`"#5c4020"`, verificados programáticamente contra
+`sombrear(materialX, f)` de TODOS los materiales del catálogo en el rango
+f∈[0.5,1.3] antes de fijarlos. (2) el primer intento de `antorchasJuntoPuertaDet`
+calculaba la separación como `Math.round(pw/2)+2` — con una puerta ancha
+(castillo, `pw=16`) esto caía DENTRO del margen de `MARGEN_ENTRE_HUECOS` de
+la propia puerta y `rangoLibre` la rechazaba las dos veces siempre —
+cerrado derivando la posición directamente de `puerta.a`/`puerta.c` con una
+holgura `MARGEN_ENTRE_HUECOS*2+2`, garantizada matemáticamente suficiente.
+
+**Verificado** (`taller-vox/test_edificio.js`, 42/42, +16 tests nuevos
+sobre los 26 ya existentes, todos sin tocar sus aserciones): (a) ninguna
+ventana solapa la puerta real en 3D (marco incluido), 74 tipos × 30
+semillas, 2220 comprobaciones; (b) ninguna ventana de una pieza queda
+enterrada en la masa de la OTRA pieza fusionada, 17 tipos con ala × 3
+formas forzadas (T/L-derecha/L-izquierda, replicando
+`ciudades/src/generar.js`) × 20 semillas = 1020 combinaciones, **0
+enterradas** (el campo nuevo `modelo.limitesPiezas` — fronteras reales
+entre cuerpo principal y cada ala en índices de `cajas` — deja el test
+centrado en el solape ENTRE piezas, sin confundirlo con un solape interno
+de la MISMA pieza como el frontón de un pórtico institucional cruzando una
+ventana de su propio piso de arriba, un problema real pero DISTINTO y
+fuera de alcance de esta pasada); (c) `MARGEN_ENTRE_HUECOS` verificado
+matemáticamente vía `rangoLibre` directo; (d) variedad real de techo
+(≥2-3 formas distintas en 40 semillas según el arquetipo) y
+TEMPLO/MILITAR/TORRE/CASTILLO confirmados con `estiloTecho===null`; (e) los
+6 bloques de la Parte B confirmados presentes en AL MENOS una de 40-100
+semillas de `casa_noble`/`casa_modesta`/`casa_humilde` y AUSENTES en la
+riqueza que no les corresponde. `taller-vox/verificar_alas_muestra_completa.js`
+(nuevo, NO en `node --test`, para reconfirmar cuando se quiera): la muestra
+COMPLETA de 3.060 planes (17×60×3, el mismo tamaño que la investigación
+original) da **0/3060 (0.0%)**, 0.4s. Sondeo de frecuencias reales sobre
+100 semillas de cada riqueza de CASA confirmó que las probabilidades
+pedidas se cumplen dentro del ruido esperado de una muestra de 100
+(chimenea maciza 28/46 piedra-noble ≈61% del 70% pedido, pórtico 20/46≈43%
+del 35%, escudo 23/46≈50% del 45%, antorchas 48/100 noble/30/100
+modesta/10/100 humilde, entramado-barro 21/47 madera-humilde, decoración
+de pared 21-33/100). `taller-vox/test_hitos_plaza.js`+`test_muebles_proporcion.js`+
+`test_pj.js` (28/28) sin regresión — `test_items.js` tiene 2 fallos
+preexistentes y completamente ajenos (no importa `generar_edificio.js`,
+confirmado por grep), sin relación con esta pasada.
+
+**Verificación VISUAL real** (Vite dev + Playwright + `client/test/
+verGlbAislado.html` con `&encuadre=auto`, sirviendo `.glb` de una carpeta
+de staging DENTRO de `taller-vox/vox_edificios/` — ya gitignorada,
+"salidas del taller (regenerables)" — vía la ruta `/@fs/` de Vite,
+`fs.allow` ya cubre la raíz del repo; NINGÚN `.glb` de prueba tocó
+`assets/edificios/`, carpeta de staging borrada al terminar): (i)
+`posada` en T y `casa_noble` en L — ala fusionada sin ninguna ventana
+flotando/enterrada en el punto de unión, confirmado a ojo en las dos
+capturas; (ii) `taberna`/`granero` con `techoCobertizo` — rampa única
+claramente asimétrica, sin cumbrera; (iii) `casa_noble`/`ayuntamiento` con
+`techoMansarda` — perfil de dos pendientes visible (más pronunciada cerca
+del alero, casi plana hacia la cumbrera); (iv) `casa_noble` con
+pórtico+escudo+antorchas a la vez (semilla forzada por script, vista desde
+el lado Sur real con un parámetro `&lado=sur` añadido TEMPORALMENTE a
+`verGlbAislado.ts` para este único chequeo y revertido con `git checkout`
+antes de comitear, cero cambio en el commit final) — escudo y las dos
+antorchas claramente visibles y sin solaparse con la puerta; las 6
+columnas del pórtico + el arquitrabe SÍ están (confirmado leyendo las
+cajas reales: 6 cajas de columna + 1 de arquitrabe, geometría correcta) —
+**hallazgo visual honesto**: contra un muro de piedra del mismo tono
+(`sombrear(colorMuro,1.15)` re-sombreado a 0.8 para la columna) las
+columnas se leen muy sutiles a este zoom/iluminación, casi fundidas con la
+pared — geométricamente correcto, pulido de contraste de color posible
+más adelante si el streamer lo pide al verlo en persona, no abordado aquí
+(scope creep fuera de lo pedido). (v) `casa_humilde`/`choza_pescador` con
+entramado+barro — tono adobe claramente distinto del wood-plank o Tudor
+de estuco de siempre, con las riostras diagonales visibles.
+
 ## Qué falta (pendiente, no bloquea lo anterior)
 
 - **Bakeo de producción de ítems** (armas/herramientas/objetos/comida): la herramienta de arriba está lista; falta que el streamer decida lanzar `generar_*.js` sin `--muestra` sobre los 195 ids reales, revisar en el visor, y aprobar/subir a `assets/armas|herramientas|objetos|comida/`. Los 33 `cadaver_*` de objetos seguirán con placeholder hasta que se diseñe un arquetipo propio para restos de animal. **Aclaración real (2026-09-07, docs/GDD_Inventario.md §12bis)**: esto NO es lo mismo que "verse en la mano equipado" — lo que un jugador tiene EQUIPADO (`slotEquipo`, `manoPrincipal` incluido) se genera EN VIVO en el navegador vía `ropa/catalogo/equipo.json`/`generarEquipoVoxel.ts` (caja simple coloreada por material, ver sección de abajo), completamente aparte de este bakeo — `equipoVisual.ts::aplicarEquipoAlRig` no intenta cargar ningún `.glb` de aquí todavía. Las 66 herramientas del catálogo (`herramienta_*`) YA se ven en la mano desde esa pasada (con la caja simple); ESTE bakeo, cuando se lance, mejoraría su fidelidad (11 arquetipos por silueta real en vez de una caja) pero requiere ADEMÁS enganchar `equipoVisual.ts` a probar el `.glb` real primero (mismo patrón que `renderConstrucciones.ts` ya usa para muebles) — cambio de render de cliente, no solo de bakeo, todavía sin hacer.
