@@ -1717,9 +1717,29 @@ function generarEdificio(tipoId, nn = 1, plan = null, nivel = null, opciones = {
   // piedra con demasiadas ventanitas iguales se veía plana y monótona).
   const densidadVentanas = 0.4 + rnd() * 0.6;
   const nVentanas = crearNVentanas(densidadVentanas);
+  // `opciones.formaFija` (2026-09-12, cierra el bug real "colisión NO
+  // coincide con el modelo" para el LOTE COMPARTIDO de assets/edificios/):
+  // `elegirForma` decide con SU PROPIO PRNG (sembrado solo por tipoId|nn,
+  // sin relación con ninguna instancia real de ciudad) si elonga un eje o
+  // fusiona un ala — pero la huella que de verdad se rasteriza como
+  // colisión sólida en el terreno es la que decide `ciudades/src/generar.js`
+  // con OTRO PRNG (sembrado por la semilla de la CIUDAD). Como los 4 .glb
+  // de `assets/edificios/<tipo>_01..04.glb` los genera `generarTodo()` con
+  // `plan=null` (nunca ligados a una instancia real), cualquier forma que
+  // no sea la base del catálogo (huellas.json) queda SIEMPRE desalineada
+  // de la colisión real que ve el jugador — documentado con números reales
+  // en docs/GDD_Motor_3D_Props.md. Forzar la forma base aquí (sin elongar,
+  // sin ala) no toca el camino real de `plan` (per-instancia, ya usa
+  // `plan.w/plan.h` directamente, nunca `elegirForma`) ni el resto de
+  // llamadas a `generarEdificio` sin este flag (tests, galería de
+  // prueba...) — la variedad visual entre variantes se queda en
+  // material/ventanas/tejado/detalle por tier, que siguen sorteándose
+  // igual que siempre.
   const forma = plan
     ? { ancho: plan.w, largo: plan.h, ala: null }
-    : elegirForma(rnd, tipoId, anchoBase, largoBase, arquetipo);
+    : opciones.formaFija
+      ? { ancho: anchoBase, largo: largoBase, ala: null }
+      : elegirForma(rnd, tipoId, anchoBase, largoBase, arquetipo);
   // alas a fusionar: la aleatoria de elegirForma O las piezas reales del
   // plan (pieza 0 = cuerpo principal, ya construido; el resto son alas L/T/U
   // con su posición exacta en el plano) — ADELANTADAS a ANTES de llamar al
@@ -1795,7 +1815,7 @@ const TIPOS_PRUEBA = ["casa_humilde", "casa_noble", "herreria", "taberna", "ayun
 // (10 arquetipos de prueba × 3 semillas × 3 niveles = 90; con el catálogo
 // completo, ~44 tipos × 4 semillas × 3 niveles ≈ 500 — ESE run grande lo
 // corre el streamer, CLAUDE.md: "los bakes grandes los corre el usuario").
-function generarTodo(soloPrueba, conNiveles = false) {
+function generarTodo(soloPrueba, conNiveles = false, opciones = {}) {
   const resultado = {};
   const conteo = {};
   const tipos = soloPrueba ? TIPOS_PRUEBA : Object.keys(tiposEdificio).filter((id) => !id.startsWith("_"));
@@ -1807,7 +1827,7 @@ function generarTodo(soloPrueba, conNiveles = false) {
     const nVariantes = soloPrueba ? 3 : 4;
     for (let n = 1; n <= nVariantes; n++) {
       for (const nivel of niveles) {
-        const modelo = generarEdificio(tipoId, n, null, nivel);
+        const modelo = generarEdificio(tipoId, n, null, nivel, opciones);
         conteo[modelo.arquetipo] = (conteo[modelo.arquetipo] || 0) + 1;
         const clave = conNiveles ? `${tipoId}_${String(n).padStart(2, "0")}_n${nivel}` : `${tipoId}_${String(n).padStart(2, "0")}`;
         resultado[clave] = modelo;
@@ -1841,9 +1861,17 @@ function generarEdificioConNiveles(tipoId, nn = 1, plan = null, opciones = {}) {
 if (require.main === module) {
   const todo = process.argv.includes("todo");
   const conNiveles = process.argv.includes("niveles");
-  const { resultado, conteo } = generarTodo(!todo, conNiveles);
+  // Esta invocación de CLI (`edificios_generados.json` -> `exportar_lote.js`
+  // -> `assets/edificios/`) ES el LOTE COMPARTIDO real: los 4 .glb por
+  // tipoEdificio que sirve el cliente, sin ninguna instancia de ciudad real
+  // detrás (`plan=null`) — así que `formaFija` va SIEMPRE activo aquí (no
+  // hace falta acordarse de un flag extra al regenerar). Otros consumidores
+  // de `generarTodo()` (`prueba_render_edificios.js`, la galería que sí
+  // quiere ENSEÑAR la variedad de forma; `test_edificio.js`, que prueba
+  // `elegirForma` de verdad) siguen llamándolo sin este flag, sin cambio.
+  const { resultado, conteo } = generarTodo(!todo, conNiveles, { formaFija: true });
   fs.writeFileSync(path.join(__dirname, "edificios_generados.json"), JSON.stringify(resultado));
-  console.log(`Generados: ${Object.keys(resultado).length} modelos (${todo ? "catálogo completo" : "subconjunto de prueba: 10 arquetipos"}${conNiveles ? " × 3 niveles" : ""})`);
+  console.log(`Generados: ${Object.keys(resultado).length} modelos (${todo ? "catálogo completo" : "subconjunto de prueba: 10 arquetipos"}${conNiveles ? " × 3 niveles" : ""}, forma fija = huellas.json base)`);
   console.log("Por arquetipo:", conteo);
 }
 
