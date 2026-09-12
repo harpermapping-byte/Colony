@@ -11,6 +11,7 @@ import { crearRigHumanoide } from "./rigHumanoide";
 import { NIVEL_MAXIMO_NIEVE } from "../mundo/nieve";
 import { construirOrillas, construirMuroNieve } from "./orillasTerreno";
 import { posicionEsquinaEdificio } from "./posicionEdificio";
+import proporcionesRig from "./proporcionesRig.json";
 
 // Terrenos NO transitables para el vagabundeo de fauna decorativa TERRESTRE
 // (docs/GDD_Agentes_Moviles.md, pedido 2026-09-09) — copia MANUAL del
@@ -584,12 +585,17 @@ function aplicarNivelNieveAMuro(muro: THREE.Mesh, nivel: number): void {
 const COLOR_HIELO = new THREE.Color(0xcfe4ec);
 // Capa de nieve en tierra: opacidad y altura crecientes con el nivel
 // (0..NIVEL_MAXIMO_NIEVE) — PLACEHOLDER (docs/GDD_Clima.md §nieve
-// visual). Altura calibrada contra `proporcionesRig.json` (altoPierna
-// 0.7 = hasta la cintura): nivel1 ~ tobillos, nivel4 ~ un poco por
-// encima de la cintura — pedido explícito "más altura, no llega ni a la
-// cintura" (la primera versión, 0.22, se quedaba muy corta).
+// visual). Altura tomada DIRECTAMENTE de `proporcionesRig.json::altoPierna`
+// (el mismo pivote que usa `rigHumanoide.ts` para la cadera, `torso.position.y
+// = ALTO_PIERNA`) en vez de un número suelto — así nivel4 (el máximo)
+// nunca pasa de la cintura por construcción, sin depender de recalibrar
+// a mano si el rig cambia de proporciones. Historial de calibración
+// (pedidos streamer reales, 2026-09-11/12): 0.22 se quedaba corto ("no
+// llega ni a la cintura"), 0.95 se pasaba ("llega casi al cuello" — muy
+// por encima de la cintura real en 0.7); `altoPierna` es exactamente el
+// tope pedido ("como mucho... a la cintura").
 const OPACIDAD_MAX_NIEVE = 0.85;
-const ALTURA_MAX_NIEVE = 0.95;
+const ALTURA_MAX_NIEVE = proporcionesRig.altoPierna;
 
 // Exportada SOLO para poder medirla aislada de `crearPropsSector` (carga de
 // red de .glb, un coste completamente distinto y mucho mayor) en

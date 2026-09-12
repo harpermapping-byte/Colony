@@ -308,12 +308,26 @@ sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
   máscara construida en el mismo bucle que ya pinta el canvas de terreno
   (excluye agua/hielo por alfa 0), caras LATERALES de un blanco sólido —
   se ven en el borde del sector como un escalón/banco real, no una
-  alfombra flotando. Altura recalibrada contra `client/src/render3d/
-  proporcionesRig.json` (`altoPierna=0.7` = hasta la cintura del rig):
-  `ALTURA_MAX_NIEVE=0.95` (antes 0.22, se quedaba muy corta) — al nivel
-  máximo las piernas del jugador/NPC quedan visualmente hundidas en la
-  nieve hasta bien pasada la cintura, verificado con capturas recortadas
-  junto a un NPC. Opacidad (hasta 0.85) y altura suben linealmente con el
+  alfombra flotando. **Altura recalibrada dos veces sobre el mismo pedido
+  (2026-09-11/12)**: primero `ALTURA_MAX_NIEVE=0.95` (fijo, comentario
+  "calibrado contra `proporcionesRig.json`" pero sin importarlo de
+  verdad) — el streamer probó esa versión y reportó que se pasaba
+  ("llega casi al cuello"). Corregido IMPORTANDO
+  `client/src/render3d/proporcionesRig.json` de verdad y usando
+  `ALTURA_MAX_NIEVE = proporcionesRig.altoPierna` (0.7, el mismo pivote
+  que `rigHumanoide.ts` usa para la cadera, `torso.position.y =
+  ALTO_PIERNA`) en vez de un número suelto — así el nivel máximo (4) NUNCA
+  pasa de la cintura por CONSTRUCCIÓN, sin depender de que alguien
+  recalibre a mano si el rig cambia de proporciones. Historial completo:
+  0.22 se quedaba corto ("no llega ni a la cintura"), 0.95 se pasaba
+  ("casi al cuello" — muy por encima de la cintura real en 0.7),
+  `altoPierna` es exactamente el tope pedido ("como mucho... a la
+  cintura"). Verificado leyendo `caja.scale.y` real tras `crearSectorVisual`
+  en un navegador (no solo capturas): `0.7`, idéntico a
+  `proporcionesRig.altoPierna` — y con capturas nuevas de
+  `nieveAisladoCaptura.mjs` confirmando que la superficie de nieve cruza
+  el cubo de referencia (altura real de una persona, 1.57) a un ~45% de
+  su altura desde el suelo, justo la cintura. Opacidad (hasta 0.85) y altura suben linealmente con el
   nivel 0..4 reescalando `scale.y`/`position.y` de la caja — nunca se
   reconstruye geometría/textura al cambiar de nivel
   (`actualizarNieveSector`/`aplicarNivelNieveACaja`), así que actualizar
@@ -345,10 +359,17 @@ sustituye sin tocar la maquinaria cuando el streamer apruebe arte real).
   (`crearSectorVisual`) junto a un cubo con la altura exacta de una
   persona (`proporcionesRig.json`) — confirma con capturas limpias que
   (a) el borde EXTERIOR del sector sí tiene una cara vertical opaca real,
-  con altura comparable a la del cubo de referencia hasta bien pasada la
-  mitad, y (b) el borde INTERIOR entre hierba y agua NO tiene pared: la
-  cara de arriba simplemente se corta (alfa 0) y se ve lo que hay debajo,
-  sin geometría de pared — confirma la limitación tal cual está descrita.
+  con altura comparable a la del cubo de referencia hasta la cintura
+  (no más arriba, tras la recalibración de 2026-09-12 — ver arriba), y
+  (b) el borde INTERIOR entre hierba y agua en su día NO tenía pared
+  (la cara de arriba se cortaba en seco por alfa 0, dejando un "agujero"
+  en vez de una cara sólida) — **cerrado el 2026-09-11 con
+  `construirMuroNieve` (`orillasTerreno.ts`), misma altura
+  `ALTURA_MAX_NIEVE` que la caja principal, detalle completo en
+  `docs/GDD_Motor_3D_Props.md` sección "Pared vertical de nieve en
+  orillas internas"** — la limitación real que queda hoy es solo la de
+  arriba (una única caja por sector, sin muro local alrededor de cada
+  roca/charca suelta).
 - **Hielo**: las casillas de agua se pintan de un tono frío opaco
   (`COLOR_HIELO`) en vez del agua translúcida de siempre, en el mismo
   bucle. **Simplificación documentada**: esto se decide con el nivel de
