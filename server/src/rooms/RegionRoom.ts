@@ -8,6 +8,7 @@ import { nombreCapitalOverride } from "../mundo/capital";
 import { rutaDeMapaId } from "../mundo/resolverMapa";
 import { NpcBakeado } from "../mundo/agentes";
 import { DatosNpcIndividual } from "../ia/npcChat";
+import { nombreBonitoDeTier } from "../mundo/nombresAsentamiento";
 import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa } from "../mundo/npcsFijos";
 import { tiempoMundo } from "../mundo/tiempoMundo";
 import { GestorFauna, FaunaSpawn } from "../mundo/fauna";
@@ -225,6 +226,11 @@ export class RegionRoom extends RoomExteriorBase {
       // única en todo el mapa, docs/GDD_Ciudad_Capital.md) es SIEMPRE zona
       // segura, tenga PvP global activado el jarl o no.
       this.esZonaSeguraPropia = indice.tier === "capital_jarl";
+      // docs/GDD_Poblacion_NPCs.md (panel de inspección, 2026-09-12): guarda
+      // el tier tal cual para `nombreAsentamientoActual()` — sin tier real
+      // (mapas fusionados como testflat/testaldea, o algo bakeado sin
+      // `ciudades/`) se queda `undefined` y el panel simplemente omite "ciudad".
+      this.tierAsentamiento = indice.tier;
       // Nombre custom del jarl (docs/GDD_Ciudad_Capital.md, pedido
       // 2026-08-31) — "" = nunca renombrada, se queda el nombre baked que
       // ya cargó `cargarMapaColision` en `this.mapa.nombre`.
@@ -483,7 +489,18 @@ export class RegionRoom extends RoomExteriorBase {
       personalidad: npc.historia?.personalidad,
       conocimiento: npc.historia?.conocimiento,
       perfilConversacionalId: npc.perfilConversacionalId,
+      familiaId: npc.familiaId,
+      rolFamiliar: npc.rolFamiliar,
+      apellido: npc.apellido,
     };
+  }
+
+  /** `indice.json::tier` de ESTE asentamiento — "" o undefined si el bake no venía de `ciudades/` (testflat/testaldea fusionados, mapas sin tier real). */
+  private tierAsentamiento: string | undefined;
+
+  /** docs/GDD_Poblacion_NPCs.md (2026-09-12) — nombre bonito del tier real de esta región, para el panel de inspección de NPC ("ciudad al que pertenece"). */
+  protected nombreAsentamientoActual(): string | null {
+    return this.tierAsentamiento ? nombreBonitoDeTier(this.tierAsentamiento) : null;
   }
 
   /**

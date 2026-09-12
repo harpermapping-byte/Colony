@@ -29,7 +29,7 @@ const catalogo: CatalogoItems = cargarCatalogoItems();
 test("cargarCatalogoItems: filtra claves _nota* y trae los ítems reales (fase 1 + arcilla + objetos 'sobreSuperficie' curados de fase 2)", () => {
   const ids = Object.keys(catalogo);
   assert.ok(!ids.some((id) => id.startsWith("_")), "alguna clave _nota* se coló");
-  assert.strictEqual(ids.length, 872); // 665 (ver historial) + 114 de la ampliación de coherencia del catálogo (2026-09-11, docs/GDD_Crafteo.md §11: 23 materiales intermedios, 22 platos/elixires, 33 piezas de equipo con sus bonificadas, 6 bienes de comercio, 11 muebles exclusivos) + 5 de tierra/macetas (2026-09-11, docs/GDD_Agricultura.md §9: tierra, pala, regadera, jardinera_madera, tiesto_piedra).
+  assert.strictEqual(ids.length, 873); // 665 (ver historial) + 114 de la ampliación de coherencia del catálogo (2026-09-11, docs/GDD_Crafteo.md §11: 23 materiales intermedios, 22 platos/elixires, 33 piezas de equipo con sus bonificadas, 6 bienes de comercio, 11 muebles exclusivos) + 5 de tierra/macetas (2026-09-11, docs/GDD_Agricultura.md §9: tierra, pala, regadera, jardinera_madera, tiesto_piedra) + 1 de hierba (2026-09-12, docs/GDD_Bakeador_Exteriores.md: recurso toolless de la nueva hierba de suelo).
   assert.ok(catalogo["hierro"], "falta un recurso base");
   assert.ok(catalogo["mochila_cuero"], "falta el ítem equipable de ejemplo");
   assert.strictEqual(catalogo["plato"]?.tipo, "objeto", "falta un objeto curado de interior");

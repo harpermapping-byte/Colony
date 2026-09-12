@@ -57,6 +57,22 @@ export interface NpcBakeado {
   historia?: { personalidad: string; conocimiento: string[] } | null;
   /** docs/GDD_IA_NPCs.md (pedido 2026-09-08) — id de poblacion/catalogo/perfilesConversacionales.json, asignado determinista al bakear (asignarPerfilConversacional.js). Distinto del perfil SOCIAL (rutina/horario) — este decide el TONO de conversación. */
   perfilConversacionalId?: string | null;
+  /**
+   * Familia (docs/GDD_Poblacion_NPCs.md, pedido streamer 2026-09-12: panel
+   * de inspección con "familia si tiene") — YA se calculaba al bakear
+   * (`poblacion/src/generarCenso.js`/`exportarPoblacion.js`) pero se
+   * descartaba antes de escribir `poblacion.json` ("el runtime no lo
+   * necesita todavía"); ahora sí se escribe, campo por campo, para que
+   * `npc:inspeccionar` pueda mostrarlo. `null`/ausente = NPC sin familia
+   * asignada (censo.json sin `familia:true` para ese slot, o perdió el
+   * sorteo de `probFamilia`) — mapas ya horneados ANTES de esta fecha
+   * simplemente no traen estos 3 campos, sin romper nada (opcionales).
+   */
+  familiaId?: string | null;
+  /** "cabeza" | "conyuge" | "hijo" — null si `familiaId` es null. */
+  rolFamiliar?: string | null;
+  /** Apellido REAL del NPC (compartido por toda su familia) — `nombre` ya lo lleva concatenado, este campo lo da SUELTO para el panel de inspección ("Apellido: X" sin tener que parsear `nombre`). */
+  apellido?: string;
 }
 
 // Más lento que el jugador (VEL_ANDAR 3.75): los NPC pasean, no compiten.

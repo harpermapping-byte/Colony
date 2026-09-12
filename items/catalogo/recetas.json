@@ -14768,5 +14768,25 @@
     "tiempoBaseSeg": 24,
     "xpOtorgada": 24,
     "_nota": "docs/GDD_Agricultura.md §9 (2026-09-11) — tiesto de piedra tallada (exteriores.json), maceta de una casilla algo mejor que la de barro; necesita 1 de tierra."
+  },
+  "cuerda_hierba_procesado": {
+    "oficio": "curtidor",
+    "mesas": [
+      "mesa_raspado"
+    ],
+    "nivelMinimo": 1,
+    "insumos": [
+      {
+        "itemId": "hierba",
+        "cantidad": 5
+      }
+    ],
+    "resultado": {
+      "itemId": "cuerda",
+      "cantidad": 2
+    },
+    "tiempoBaseSeg": 8,
+    "xpOtorgada": 17,
+    "_nota": "docs/GDD_Crafteo.md/GDD_Bakeador_Exteriores.md (2026-09-12) — alternativa SIN HERRAMIENTA a `cuerda_procesado` (fibra_vegetal x3 -> cuerda x2, exige herramienta de molinero): la hierba nueva se recolecta a mano, sin oficio ni herramienta, pero rinde peor por unidad a propósito (5 hierba -> 2 cuerda, ~67% peor ratio que la vía con herramienta) — coherente con ser el recurso más básico/abundante del juego, nunca la opción óptima, sin cruzar el 20% de destrucción de valor que exige server/test/coherenciaCatalogo.test.ts. Da utilidad real de crafteo a 'hierba', el recurso que esa misma suite exige que no se quede sin consumidor."
   }
 }

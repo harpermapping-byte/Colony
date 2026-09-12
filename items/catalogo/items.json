@@ -15903,5 +15903,23 @@
     "variantes": 1,
     "colorDebug": "#8a8a80",
     "_nota": "docs/GDD_Agricultura.md §9 (2026-09-11) — se craftea con receta \"tiesto_piedra_craft\" (picapedrero) y se coloca como exterior \"tiesto_piedra\" (requiereItemColocar). 'Tiesto' y no 'maceta' a propósito: en este catálogo `maceta_piedra` es el MAZO del picapedrero (herramienta), no un recipiente para plantas."
+  },
+  "hierba": {
+    "nombre": "Hierba",
+    "valorBase": 1,
+    "tipo": "recurso",
+    "categoriaRecurso": "hierba",
+    "huella": [
+      1,
+      1
+    ],
+    "peso": 0.1,
+    "apilable": true,
+    "stackMax": 30,
+    "variantes": 1,
+    "colorDebug": "#5fae3a",
+    "familiaMaterial": "tela",
+    "tier": 0,
+    "_nota": "docs/GDD_Agricultura.md/GDD_Bakeador_Exteriores.md (2026-09-12, pedido streamer: hierba de suelo recolectable 'a mano', sin herramienta ni oficio) — categoriaRecurso 'hierba' NO está en CATEGORIA_HERRAMIENTA_RECOLECCION a propósito (toolless, distinto de fibra_vegetal/hierba_aromatica que sí exigen herramienta de oficio). Con azada equipada, un solo clic recoge también las hierbas vecinas (server/src/rooms/base/RoomExteriorBase.ts::buscarCogibleEnMundo). Fuente: baker/catalogo/vegetacion.json::hierba_corta."
   }
 }

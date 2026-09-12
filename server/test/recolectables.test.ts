@@ -5,7 +5,7 @@ import { test } from "node:test";
 import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { recolectableCercano, recolectablesAgotadosDeMapa, RecolectableVivo } from "../src/mundo/recolectables";
+import { recolectableCercano, recolectablesCercanosMismoTipo, recolectablesAgotadosDeMapa, RecolectableVivo } from "../src/mundo/recolectables";
 import { cargarMapaColision } from "../src/mundo/mapaColision";
 
 const RAIZ_REPO = path.resolve(__dirname, "..", "..");
@@ -112,6 +112,59 @@ test("recolectablesAgotadosDeMapa: mismo Map por ruta mientras el proceso viva (
   const b = recolectablesAgotadosDeMapa(ruta);
   assert.strictEqual(a, b, "debe ser el MISMO objeto Map en llamadas sucesivas");
   assert.strictEqual(b.get(1), 12345);
+});
+
+// --- Cosecha en área de hierba con azada (docs/GDD_Bakeador_Exteriores.md, pedido streamer 2026-09-12) ---
+
+test("recolectablesCercanosMismoTipo: solo trae el MISMO itemId dentro del radio, excluyendo el idx ya elegido", () => {
+  const recolectables = new Map<number, RecolectableVivo>();
+  const ancho = 100;
+  const idxElegido = 10 * ancho + 10;
+  recolectables.set(idxElegido, { itemId: "hierba", x: 10, y: 10 }); // ya elegida, debe excluirse aunque esté dentro del radio
+  recolectables.set(10 * ancho + 11, { itemId: "hierba", x: 11, y: 10 }); // vecina, misma especie
+  recolectables.set(11 * ancho + 10, { itemId: "hierba", x: 10, y: 11 }); // vecina, misma especie
+  recolectables.set(10 * ancho + 12, { itemId: "trebol", x: 12, y: 10 }); // dentro del radio pero OTRA especie
+  recolectables.set(50 * ancho + 50, { itemId: "hierba", x: 50, y: 50 }); // misma especie pero lejos
+
+  const extras = recolectablesCercanosMismoTipo(recolectables, ancho, 10.5, 10.5, 1.6, "hierba", idxElegido, 4);
+  assert.strictEqual(extras.length, 2, "solo las 2 vecinas hierba dentro del radio, ni el trébol ni la lejana");
+  assert.ok(extras.every((e) => e.item.itemId === "hierba"));
+  assert.ok(!extras.some((e) => e.idx === idxElegido), "nunca se repite el idx ya elegido");
+});
+
+test("recolectablesCercanosMismoTipo: nunca trae más de maxExtra, ordenado por distancia (las más cercanas primero)", () => {
+  const recolectables = new Map<number, RecolectableVivo>();
+  const ancho = 100;
+  for (let i = 0; i < 6; i++) recolectables.set(10 * ancho + (11 + i), { itemId: "hierba", x: 11 + i, y: 10 });
+
+  const extras = recolectablesCercanosMismoTipo(recolectables, ancho, 10.5, 10.5, 10, "hierba", -1, 3);
+  assert.strictEqual(extras.length, 3, "tope de maxExtra respetado aunque haya 6 candidatas dentro del radio");
+  const xs = extras.map((e) => e.item.x);
+  assert.deepStrictEqual(xs, [11, 12, 13], "las 3 más cercanas, en orden de distancia");
+});
+
+test("recolectablesCercanosMismoTipo: maxExtra=0 devuelve [] sin escanear (caso 'sin azada')", () => {
+  const recolectables = new Map<number, RecolectableVivo>([[0, { itemId: "hierba", x: 0, y: 0 }]]);
+  assert.deepStrictEqual(recolectablesCercanosMismoTipo(recolectables, 100, 0.5, 0.5, 5, "hierba", -1, 0), []);
+});
+
+test("recolectablesCercanosMismoTipo: respeta 'agotados' igual que recolectableCercano (salta timestamp futuro, autolimpia el vencido)", () => {
+  const recolectables = new Map<number, RecolectableVivo>();
+  const ancho = 100;
+  const idxAgotado = 10 * ancho + 11;
+  const idxVencido = 10 * ancho + 12;
+  recolectables.set(idxAgotado, { itemId: "hierba", x: 11, y: 10 });
+  recolectables.set(idxVencido, { itemId: "hierba", x: 12, y: 10 });
+  const agotados = new Map<number, number>([
+    [idxAgotado, Date.now() + 60_000], // todavía regenerando
+    [idxVencido, Date.now() - 1000], // ya tocaba reaparecer
+  ]);
+
+  const extras = recolectablesCercanosMismoTipo(recolectables, ancho, 10.5, 10.5, 5, "hierba", -1, 4, agotados);
+  assert.strictEqual(extras.length, 1, "solo la vencida (ya disponible), la que sigue agotada se salta");
+  assert.strictEqual(extras[0].idx, idxVencido);
+  assert.strictEqual(agotados.size, 1, "la vencida se autolimpia del Map de agotados");
+  assert.ok(agotados.has(idxAgotado), "la que de verdad sigue agotada permanece");
 });
 
 test("cargarMapaColision: recargar el MISMO mapa reusa el Map de recolectables (no resetea lo ya cogido — evita el granjeo 'sal y entra' de RegionRoom)", () => {

@@ -83,7 +83,35 @@ export const CATEGORIA_HERRAMIENTA_RECOLECCION: Record<string, RequisitoHerramie
   // fuentes del mismo recurso real. Tier 3: más raro que baya (den. común)
   // pero no tan escaso como fruta/hongo_comestible.
   miel: { oficio: "molinero", tier: 3 },
+
+  // "hierba" (baker/catalogo/vegetacion.json::hierba_corta, pedido streamer
+  // 2026-09-12: "eso puede cualquiera") — DELIBERADAMENTE AUSENTE de esta
+  // tabla: es la ÚNICA categoriaRecurso del bake exterior sin requisito de
+  // herramienta/oficio, "a mano" de verdad, a diferencia de TODAS las demás
+  // hierbas/fibras de arriba (fibra_vegetal, hierba_aromatica...) que sí
+  // exigen una herramienta de oficio equipada. No añadir una entrada aquí
+  // sin que el streamer lo pida explícitamente — sería exactamente el
+  // comportamiento contrario al pedido.
 };
+
+/**
+ * itemId literal del recurso "hierba" (categoriaRecurso del bake, ver
+ * comentario de arriba) — constante compartida para que `RoomExteriorBase`
+ * no repita el string a mano en la comprobación de recolección en área.
+ */
+export const ID_RECURSO_HIERBA = "hierba";
+
+/**
+ * "Azada equipada" (docs/GDD_Bakeador_Exteriores.md, 2026-09-12: "con azada
+ * click sobre una recolectar pero coge varias alrededor") — por PREFIJO de
+ * id, no un id fijo (`azada_hierro` es la única hoy, pero cualquier azada
+ * de tier futuro debería activar la misma cosecha en área sin tocar este
+ * archivo, mismo criterio ya usado para prefijos de convención en el resto
+ * del proyecto, p.ej. `pocion_alquimica_*`).
+ */
+export function esAzada(itemId: string | undefined): boolean {
+  return !!itemId && itemId.startsWith("azada");
+}
 
 /**
  * Reaparición tras recolectar (docs/GDD_Bosques.md/GDD_Profesiones.md,

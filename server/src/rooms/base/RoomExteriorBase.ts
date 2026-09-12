@@ -49,8 +49,8 @@ import {
 } from "../../combate/arenaCombate";
 import { Arena, Casilla, costeCasilla, casillasAlcanzables } from "../../combate/pathfindingArena";
 import { MapaCargado, BordeMapa, casillaPisableMasCercana } from "../../mundo/mapaColision";
-import { recolectableCercano, recolectablesAgotadosDeMapa } from "../../mundo/recolectables";
-import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria, msFaltantesParaRecolectar } from "../../mundo/herramientasRecoleccion";
+import { recolectableCercano, recolectablesCercanosMismoTipo, recolectablesAgotadosDeMapa, RecolectableVivo } from "../../mundo/recolectables";
+import { requisitoDeCategoria, mejorHerramientaPara, tiempoRespawnMsDeCategoria, msFaltantesParaRecolectar, ID_RECURSO_HIERBA, esAzada } from "../../mundo/herramientasRecoleccion";
 import {
   CatalogoItems,
   Contenedor,
@@ -145,6 +145,7 @@ import {
 } from "../../personaje/oficios";
 import { cargarCatalogoNpcsTutoriales, cargarLoreTexto, npcTutorialAAgente, npcTrabajadorAAgente } from "../../mundo/npcsFijos";
 import { GestorConversacionesNpc, DatosNpcIndividual, IMemoriaNpcPersistente } from "../../ia/npcChat";
+import { nombreBonitoDeTier } from "../../mundo/nombresAsentamiento";
 import { cooldownNpcHablarMs } from "../../personaje/bonusAtributos";
 import {
   costeContratacionTrabajador, costeContratarOficios, oficiosValidos, puedeOperarOficio, salarioMensualTrabajador,
@@ -243,6 +244,12 @@ const DEFENSA_BASE_COMPANERO = 1;
  * antes repetido como 2.2 mágico en 3 sitios distintos (un portal por room),
  * ahora una única constante compartida. */
 export const RADIO_INTERACCION = 2.2;
+
+// --- Cosecha en área de hierba con azada (docs/GDD_Bakeador_Exteriores.md, pedido streamer 2026-09-12) ---
+/** Radio (casillas) alrededor de la hierba ya elegida donde la azada arrastra vecinas de la MISMA especie. */
+const RADIO_COSECHA_HIERBA_AZADA = 1.6;
+/** Tope de hierbas EXTRA por golpe de azada (1 + esto = máximo total en un solo "coger"). */
+const MAX_EXTRA_HIERBA_AZADA = 4;
 
 // --- Chat (docs/GDD_Mecanicas.md §5.12, "chat local/global", 2026-09-02) ---
 /** Alcance del canal "local" en casillas — bastante más ancho que RADIO_INTERACCION (una conversación de plaza, no un intercambio cuerpo a cuerpo), pero NO toda la room entera (para eso está "global"). */
@@ -1152,6 +1159,18 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     return undefined;
   }
 
+  /**
+   * Nombre bonito del asentamiento que representa esta room (docs/GDD_
+   * Poblacion_NPCs.md, panel de inspección de NPC: "ciudad al que
+   * pertenece") — `null` por defecto (Hub/Interior/Dungeon/Arena no son
+   * "una ciudad" en sí, o testflat/testaldea son mapas fusionados sin tier
+   * real); `RegionRoom` lo sobreescribe con el `tier` real que ya lee de
+   * `indice.json` al crearse.
+   */
+  protected nombreAsentamientoActual(): string | null {
+    return null;
+  }
+
   protected iniciarMovimiento() {
     this.setState(new HubState());
     this.setPatchRate(1000 / 15);
@@ -1267,6 +1286,11 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // desde HubRoom (2026-09-08) para que funcione en cualquier room con
     // NPCs (Hub Y Region, antes solo Hub).
     this.onMessage("npc:hablar", (client, msg: { npcId?: string; mensaje?: string }) => void this.manejarNpcHablar(client, msg));
+    // Panel de inspección (docs/GDD_Poblacion_NPCs.md, pedido streamer
+    // 2026-09-12: clic sobre un NPC -> "nombre, oficio, ciudad, familia si
+    // tiene") — mismo patrón que npc:hablar (misma resolución de datos),
+    // pero sin gastar cuota de IA: solo lee lo que ya está en memoria.
+    this.onMessage("npc:inspeccionar", (client, msg: { slotId?: string }) => this.manejarNpcInspeccionar(client, msg));
     // Exclusiones del bake por sector (docs/GDD_Bosques.md §7, pedido
     // 2026-08-30: "si se puede recolectar/talar/matar y se hace, acaba
     // desapareciendo" — también visualmente): el cliente lo pide justo
@@ -2352,6 +2376,34 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
   }
 
+  /**
+   * `npc:inspeccionar {slotId}` -> `npc:info` (docs/GDD_Poblacion_NPCs.md,
+   * pedido streamer 2026-09-12: clic sobre un NPC muestra "nombre, ciudad
+   * al que pertenece, oficio, familia si tiene") — SIN gastar cuota de IA,
+   * a diferencia de `npc:hablar`: solo lee lo que ya está en memoria
+   * (`resolverNpcIndividual`, mismo hook que ya alimenta el chat) más
+   * `nombreAsentamientoActual()` (RegionRoom). NPC tutorial/lore o sin
+   * biografía individual -> igual responde con lo que SÍ hay (nombre real
+   * del Schema, sin oficio/familia) en vez de fallar, mismo criterio de
+   * "degradar con gracia" que el resto del proyecto.
+   */
+  private manejarNpcInspeccionar(client: Client, msg: { slotId?: string }) {
+    if (!msg?.slotId) return;
+    const npc = this.state.npcs.get(msg.slotId);
+    if (!npc) return client.send("npc:error", { npcId: msg.slotId, motivo: "NPC ya no está aquí" });
+    const individual = this.resolverNpcIndividual(msg.slotId);
+    client.send("npc:info", {
+      slotId: msg.slotId,
+      nombre: npc.nombre,
+      oficio: individual?.oficio ?? null,
+      ciudad: this.nombreAsentamientoActual(),
+      familia:
+        individual?.familiaId && individual.rolFamiliar
+          ? { apellido: individual.apellido ?? null, rol: individual.rolFamiliar }
+          : null,
+    });
+  }
+
   private manejarCoger(client: Client) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
@@ -2376,7 +2428,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     let cooldownDeEstaRecoleccion = 0;
     let candidato = this.buscarObjetoSoltadoCercano(player.x, player.y);
     if (!candidato) {
-      const delMundo = this.buscarCogibleEnMundo(player.x, player.y);
+      // Azada equipada (docs/GDD_Bakeador_Exteriores.md, 2026-09-12): solo
+      // la lee `buscarCogibleEnMundo` para la cosecha en área de hierba —
+      // pasarla siempre aquí no cambia nada para el resto de categorías
+      // (con requisito de herramienta), que ya validan su propia herramienta
+      // más abajo con `mejorHerramientaPara`/el chequeo directo de pico.
+      const herramientaEquipada = player.inventario.equipo.get("manoPrincipal");
+      const delMundo = this.buscarCogibleEnMundo(player.x, player.y, herramientaEquipada);
       if (delMundo) {
         const requisito = requisitoDeCategoria(delMundo.itemId);
         if (requisito) {
@@ -2515,15 +2573,29 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * Region, tras cargar su mapa); InteriorRoom sobreescribe esto para sus
    * objetos "sobre" en vez de heredar este comportamiento.
    */
-  protected buscarCogibleEnMundo(x: number, y: number): ObjetoCogible | null {
+  protected buscarCogibleEnMundo(x: number, y: number, herramientaEquipadaId?: string): ObjetoCogible | null {
     if (!this.mapaExterior) return null;
     const mapa = this.mapaExterior;
     const agotados = recolectablesAgotadosDeMapa(mapa.rutaMapa);
     const encontrado = recolectableCercano(mapa.recolectables, mapa.ancho, x, y, RADIO_INTERACCION, agotados);
     if (!encontrado) return null;
+    // Cosecha en área de hierba con azada (docs/GDD_Bakeador_Exteriores.md,
+    // pedido streamer 2026-09-12: "con azada click sobre una recolectar
+    // pero coge varias alrededor") — SOLO para ID_RECURSO_HIERBA (toolless
+    // por diseño, "a mano" también funciona con `extras=[]`): con la azada
+    // equipada, arrastra hasta MAX_EXTRA_HIERBA_AZADA hierbas vecinas de la
+    // MISMA especie en el mismo "coger". Nunca aplica a ninguna otra
+    // categoría — el resto sigue exactamente igual que siempre (1 por golpe).
+    const extras: { idx: number; item: RecolectableVivo }[] =
+      encontrado.item.itemId === ID_RECURSO_HIERBA && esAzada(herramientaEquipadaId)
+        ? recolectablesCercanosMismoTipo(
+            mapa.recolectables, mapa.ancho, encontrado.item.x + 0.5, encontrado.item.y + 0.5,
+            RADIO_COSECHA_HIERBA_AZADA, encontrado.item.itemId, encontrado.idx, MAX_EXTRA_HIERBA_AZADA, agotados,
+          )
+        : [];
     return {
       itemId: encontrado.item.itemId,
-      cantidad: 1,
+      cantidad: 1 + extras.length,
       confirmar: () => {
         // Reaparece en el MISMO sitio tras un timer (docs/GDD_Profesiones.md
         // §0, pedido 2026-08-30) — nunca se borra de mapa.recolectables, solo
@@ -2533,6 +2605,13 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         const tiempoRespawnMs = tiempoRespawnMsDeCategoria(encontrado.item.itemId) ?? 15 * 60 * 1000;
         agotados.set(encontrado.idx, Date.now() + tiempoRespawnMs);
         this.broadcast("mundo:objetoQuitado", { origen: "exterior", x: encontrado.item.x, y: encontrado.item.y });
+        // Confirma también las extras de la cosecha en área — cada una con
+        // su propio respawn y su propio aviso al cliente para que dejen de
+        // dibujarse todas, no solo la que se clicó.
+        for (const extra of extras) {
+          agotados.set(extra.idx, Date.now() + tiempoRespawnMs);
+          this.broadcast("mundo:objetoQuitado", { origen: "exterior", x: extra.item.x, y: extra.item.y });
+        }
       },
     };
   }

@@ -837,6 +837,9 @@ export class HubRoom extends RoomExteriorBase {
       personalidad: npc.historia?.personalidad,
       conocimiento: npc.historia?.conocimiento,
       perfilConversacionalId: npc.perfilConversacionalId,
+      familiaId: npc.familiaId,
+      rolFamiliar: npc.rolFamiliar,
+      apellido: npc.apellido,
     };
   }
 
