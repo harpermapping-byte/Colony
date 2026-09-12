@@ -59,11 +59,14 @@ async function exportarAsentamiento(tierId, semilla, opciones = {}) {
 /**
  * Escribe el `poblacion.json` que consume el JUEGO junto al mapa bakeado
  * (GDD_Agentes_Moviles.md): por NPC, lo que el servidor necesita para
- * moverlo (rutina con puntos y caminos bakeados) y lo que el cliente
+ * moverlo (rutina con puntos y caminos bakeados), lo que el cliente
  * necesita para pintarlo (vox = mismo formato PersonajeExportado de
- * demo_personajes.json: ficha + voxelesCabeza + ropa). El resto de la
- * ficha de población (familia, historia...) se queda en el export de
- * estudio de output/ — el runtime no lo necesita todavía.
+ * demo_personajes.json: ficha + voxelesCabeza + ropa) y, desde 2026-09-12
+ * (docs/GDD_Poblacion_NPCs.md, panel de inspección "familia si tiene"), la
+ * identidad de familia (familiaId/rolFamiliar/apellido) — YA se calculaba
+ * arriba, solo se descartaba antes de escribir este archivo. `historia`
+ * (biografía IA) sigue sin escribirse aquí — hallazgo aparte, fuera de
+ * alcance de este cambio, documentado en docs/GDD_IA_NPCs.md.
  */
 function escribirPoblacionDeMapa(resultado, carpetaMapa) {
   // el cliente (VoxelExportado en voxelMalla.ts) solo lee x/y/z/tam/color/
@@ -79,6 +82,15 @@ function escribirPoblacionDeMapa(resultado, carpetaMapa) {
       velocidad: n.velocidad, // multiplicador de velocidad de andar (el "corredor") — undefined = normal
       casaEdificioId: n.casaEdificioId, // interior donde "vive" — InteriorRoom pone aquí a la familia cuando entra un jugador
       trabajoEdificioId: n.trabajoEdificioId, // interior donde "trabaja" — ídem, para verlo vendiendo dentro de su tienda
+      // Familia (docs/GDD_Poblacion_NPCs.md, pedido streamer 2026-09-12:
+      // panel de inspección con "familia si tiene") — YA se calculaba
+      // arriba (generarCenso.js/exportarPoblacion.js) pero se quedaba fuera
+      // de este archivo a propósito ("el runtime no lo necesita todavía",
+      // comentario de esta misma función); ahora sí sale, aditivo y
+      // opcional (null si el slot no formó familia).
+      familiaId: n.familiaId ?? null,
+      rolFamiliar: n.rolFamiliar ?? null,
+      apellido: n.apellido,
       rutina: n.rutina,
       vox: {
         ficha: n.ficha,

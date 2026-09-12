@@ -135,7 +135,18 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
   // especies en el catálogo (añadir más plantas sin subir esto no cambia la
   // densidad total, solo reparte el mismo hueco entre más variedad). Sigue
   // MUY lejos del "casi cada casilla" que motivó bajarlo la primera vez.
-  const TECHO_POR_CAPA = { vegetacion: 0.15, fauna: 0.012, rocas: 0.02 };
+  // fauna bajado de 0.012 a 0.006 (2026-09-12, pedido streamer: "reducimos
+  // la cantidad de animales de decoracion en mapa global") — medido con
+  // ejemplo-rapido.json (único bake de prueba permitido): 391 individuos
+  // activos de fauna decorativa antes → 193 después (~51% menos, escala
+  // lineal como predice `techoPara()`) — vegetación (1493→1530) y rocas
+  // (6981→6978) se mueven solo por ruido de reparto del MISMO `prngLocal`
+  // por casilla entre las 3 capas (cuántas tiradas consume la capa fauna
+  // desplaza en qué punto de la secuencia caen vegetación/rocas) — un
+  // pequeño efecto secundario ya conocido, no un cambio real de esas dos
+  // capas: `techoPara()` sigue despachando `vegetacion:0.15`/`rocas:0.02`
+  // sin tocar, el cambio no puede filtrarse a su PROBABILIDAD de aparecer.
+  const TECHO_POR_CAPA = { vegetacion: 0.15, fauna: 0.006, rocas: 0.02 };
   function techoPara(catalogo) {
     return catalogo === catalogoAnimales ? TECHO_POR_CAPA.fauna : catalogo === catalogoRocas ? TECHO_POR_CAPA.rocas : TECHO_POR_CAPA.vegetacion;
   }

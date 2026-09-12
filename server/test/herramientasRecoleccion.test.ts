@@ -80,10 +80,10 @@ test("tiempoRespawnMsDeCategoria: categoría no listada (o inventada) devuelve u
   assert.strictEqual(tiempoRespawnMsDeCategoria("categoria_inventada_sin_gate"), undefined);
 });
 
-test("cobertura real: todo categoriaRecurso de vegetacion.json/rocas.json con recolectable tiene tabla de gating (o está deliberadamente fuera, semilla/fruta_cultivada)", () => {
+test("cobertura real: todo categoriaRecurso de vegetacion.json/rocas.json con recolectable tiene tabla de gating (o está deliberadamente fuera, semilla/fruta_cultivada/hierba)", () => {
   const vegetacion = JSON.parse(fs.readFileSync(path.join(RAIZ_BAKER, "vegetacion.json"), "utf8")) as Record<string, { categoriaRecurso?: string; desaparaceAlRecolectar?: boolean }>;
   const rocas = JSON.parse(fs.readFileSync(path.join(RAIZ_BAKER, "rocas.json"), "utf8")) as Record<string, { categoriaRecurso?: string; desaparaceAlRecolectar?: boolean }>;
-  const EXENTAS = new Set(["semilla", "fruta_cultivada"]); // agricultura de parcela, sistema aparte (ver comentario del módulo)
+  const EXENTAS = new Set(["semilla", "fruta_cultivada", "hierba"]); // agricultura de parcela (sistema aparte, ver comentario del módulo) + "hierba" (baker/catalogo/vegetacion.json::hierba_corta, pedido streamer 2026-09-12: "eso puede cualquiera") — la ÚNICA categoriaRecurso salvaje SIN requisito de herramienta a propósito, ver el comentario dedicado en herramientasRecoleccion.ts
   const huerfanas = new Set<string>();
   for (const catalogo of [vegetacion, rocas]) {
     for (const [id, def] of Object.entries(catalogo)) {

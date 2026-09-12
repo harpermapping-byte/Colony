@@ -37,7 +37,7 @@ import { ResaltadoCombate } from "./render3d/resaltadoCombate";
 import { PanelChat } from "./ui/chat";
 import { PanelDialogoNpc } from "./npc/panelDialogoNpc";
 import { PanelForja } from "./construccion/panelForja";
-import { PanelCrafteo, MESAS_CON_RECETAS, nombreItem as nombreItemCatalogo } from "./construccion/panelCrafteo";
+import { PanelCrafteo, MESAS_CON_RECETAS, nombreItem as nombreItemCatalogo, nombreOficio } from "./construccion/panelCrafteo";
 import { PanelAlquimia, type ConfigAlquimiaVista, type SesionAlquimiaVista, type ResultadoAlquimiaVista } from "./construccion/panelAlquimia";
 import { RenderCultivoCasillas } from "./agricultura/renderCultivoCasillas";
 import itemsJsonCliente from "../../items/catalogo/items.json";
@@ -53,6 +53,7 @@ import { PanelInjerto } from "./agricultura/panelInjerto";
 import { PanelCocina, type IngredienteVista, type ConfigSesionCocinaVista, type EstadoSesionCocinaVista } from "./cocina/panelCocina";
 import { aplicarEquipoAlRig, type BlueprintRopaResuelto } from "./render3d/equipoVisual";
 import { PanelJugador } from "./personaje/panelJugador";
+import { PanelInspeccion, type FilaInspeccion } from "./ui/panelInspeccion";
 import { crearPlaceholder } from "./render3d/placeholder";
 import { generarAnimalVoxel } from "./render3d/generarAnimalVoxel";
 import { aplicarMonturaAlAnimal } from "./render3d/monturaVisual";
@@ -738,6 +739,134 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     };
   }
 
+  // Panel de inspección (docs/GDD_UI_Paneles.md, pedido streamer
+  // 2026-09-12: "click sobre [NPC/animal]... podrás ver INFO... ciudad,
+  // nombre, oficio, familia") — UNIVERSAL a propósito (disponible en
+  // CUALQUIER sala): un NPC real vive en una aldea/pueblo (RegionRoom), no
+  // en el Hub, así que si esto viviera dentro del `if (SALA === "hub")` de
+  // más abajo nunca se podría inspeccionar a NADIE fuera del Hub — el caso
+  // más común en la práctica. Bug real encontrado con un e2e propio
+  // (client/test/panelInspeccion.e2e.mjs): el clic no hacía NADA en una
+  // aldea horneada aparte porque el listener entero (menú de interacción +
+  // fauna + esta inspección) vivía dentro de ese bloque, nunca registrado
+  // fuera del Hub. Jugador/mascota/compañero/enemigo/árbol se resuelven
+  // enteros del lado cliente (todo lo necesario ya viaja en su Schema);
+  // SOLO el NPC de poblacion/ necesita ida y vuelta al servidor (oficio/
+  // ciudad/familia son datos server-only, ver
+  // RoomExteriorBase.ts::manejarNpcInspeccionar) — `npcInspeccionPendiente`
+  // correla la respuesta con la petición, mismo criterio que
+  // `panelDialogoNpc.npcIdActual` para no colar una respuesta vieja/cruzada.
+  const panelInspeccion = new PanelInspeccion(contenedor);
+  let npcInspeccionPendiente: string | null = null;
+  room.onMessage("npc:info", (m: { slotId: string; nombre: string; oficio: string | null; ciudad: string | null; familia: { apellido: string | null; rol: string } | null }) => {
+    if (!m || m.slotId !== npcInspeccionPendiente) return;
+    npcInspeccionPendiente = null;
+    const filas: FilaInspeccion[] = [{ etiqueta: "Oficio", valor: m.oficio ? nombreOficio(m.oficio) : "Sin oficio" }];
+    if (m.ciudad) filas.push({ etiqueta: "Asentamiento", valor: m.ciudad });
+    if (m.familia) filas.push({ etiqueta: "Familia", valor: `${m.familia.apellido ?? "?"} (${m.familia.rol})` });
+    panelInspeccion.abrir(m.nombre || "NPC", filas, "🧑");
+  });
+  room.onMessage("npc:error", (m: { npcId?: string; motivo?: string }) => {
+    if (!m?.npcId || m.npcId !== npcInspeccionPendiente) return;
+    npcInspeccionPendiente = null;
+    panelInspeccion.cerrar();
+  });
+
+  // Raycast compartido: intenta abrir el panel de inspección contra
+  // NPC/mascota/compañero/enemigo/jugador/árbol — llamado tanto desde el
+  // clic genérico del Hub (más abajo, junto a fauna/objetos/construcción,
+  // SOLO dentro de `if (SALA === "hub")`) como desde el listener universal
+  // de aquí abajo (cualquier otra sala). Sin menú intermedio (ninguno de
+  // estos tipos tiene otra acción de clic hoy) — el panel se abre directo.
+  // Referencia closures a `npcsVisual`/`mascotasVisual`/etc., declaradas
+  // MÁS ABAJO en esta misma función — válido porque esta función solo se
+  // EJECUTA en un clic real, muy después de que esas listas ya existan
+  // (mismo razonamiento que cualquier otro handler de esta función).
+  function intentarInspeccionarClic(raycaster: Raycaster): boolean {
+    const objetosInspeccionables = [
+      ...[...npcsVisual.entries()].map(([, e]) => e.rig.objeto),
+      ...[...mascotasVisual.entries()].map(([, e]) => e.rig.objeto),
+      ...[...companerosVisual.entries()].map(([, e]) => e.rig.objeto),
+      ...[...enemigosVisual.entries()].map(([, e]) => e.rig.objeto),
+      ...[...jugadores.values()].map((e) => e.rig.objeto),
+      ...arbolesVisualObjetos.values(),
+    ];
+    const impactos = raycaster.intersectObjects(objetosInspeccionables, true);
+    if (impactos.length === 0) return false;
+    let nodo: Object3D | null = impactos[0].object;
+    while (nodo && !(nodo.userData.npcSlotId || nodo.userData.mascotaId || nodo.userData.companeroId || nodo.userData.enemigoId || nodo.userData.jugadorSessionId || nodo.userData.arbolId)) {
+      nodo = nodo.parent;
+    }
+    const ud = nodo?.userData ?? {};
+    if (ud.npcSlotId) {
+      const npc = room.state.npcs.get(ud.npcSlotId) as any;
+      if (npc) {
+        npcInspeccionPendiente = ud.npcSlotId;
+        panelInspeccion.abrirCargando(npc.nombre || "NPC", "🧑");
+        room.send("npc:inspeccionar", { slotId: ud.npcSlotId });
+        return true;
+      }
+    } else if (ud.mascotaId) {
+      const mascota = room.state.mascotas.get(ud.mascotaId) as any;
+      if (mascota) {
+        panelInspeccion.abrir(String(mascota.especieId || "mascota").replace(/_/g, " "), [{ etiqueta: "Dueño", valor: mascota.duenoNombre || "?" }], "🐾");
+        return true;
+      }
+    } else if (ud.companeroId) {
+      const companero = room.state.companeros.get(ud.companeroId) as any;
+      if (companero) {
+        panelInspeccion.abrir(companero.nombre || "Compañero", [{ etiqueta: "Sirve a", valor: companero.duenoNombre || "?" }], "🧑");
+        return true;
+      }
+    } else if (ud.enemigoId) {
+      const enemigo = room.state.enemigos.get(ud.enemigoId) as any;
+      if (enemigo) {
+        const nombreMostrado = String(enemigo.enemigoId || "enemigo").includes("bandido") ? "Bandido" : String(enemigo.enemigoId || "enemigo").replace(/_/g, " ");
+        const filas: FilaInspeccion[] = [{ etiqueta: "Vida", valor: `${Math.round(enemigo.vida)}/${Math.round(enemigo.vidaMax)}` }];
+        if (enemigo.esBoss) filas.push({ etiqueta: "Rango", valor: "Jefe" });
+        panelInspeccion.abrir(nombreMostrado, filas, "☠");
+        return true;
+      }
+    } else if (ud.jugadorSessionId) {
+      const jugador = room.state.players.get(ud.jugadorSessionId) as any;
+      if (jugador) {
+        // Sin "nivel" de personaje global en el Schema (Player.nivel es la
+        // profundidad de buceo, 0/-1/-2 — nada que ver con progresión):
+        // la única progresión real es por oficio (jugador_oficios en BD,
+        // server-only), así que aquí solo se muestran los dos elegidos.
+        const oficios = [jugador.oficio1, jugador.oficio2].filter(Boolean).map((o: string) => nombreOficio(o));
+        const filas: FilaInspeccion[] = [{ etiqueta: "Oficio", valor: oficios.length > 0 ? oficios.join(", ") : "Sin oficio" }];
+        if (jugador.gremioNombre) filas.push({ etiqueta: "Gremio", valor: jugador.gremioNombre });
+        panelInspeccion.abrir(jugador.name || "Jugador", filas, "🧑");
+        return true;
+      }
+    } else if (ud.arbolId) {
+      const arbol = room.state.arbolesVivos.get(ud.arbolId) as any;
+      if (arbol) {
+        panelInspeccion.abrir(String(arbol.especieId || "árbol").replace(/_/g, " "), [{ etiqueta: "Etapa", valor: arbol.etapa === "joven" ? "Joven" : "Adulto" }], "🌳");
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Listener UNIVERSAL de clic-para-inspeccionar: el Hub ya tiene su propio
+  // listener genérico (menú de interacción/construcción/fauna, más abajo,
+  // SOLO dentro de `if (SALA === "hub")`) que también llama a
+  // `intentarInspeccionarClic` — este de aquí es la ÚNICA vía en cualquier
+  // OTRA sala (region/interior/mazmorra/arena), donde ese otro listener
+  // nunca llega a registrarse. Mutuamente excluyentes por `SALA` — nunca
+  // compiten por el mismo clic ni hace falta `stopPropagation`.
+  if (SALA !== "hub") {
+    const raycasterInspeccion = new Raycaster();
+    escena.renderer.domElement.addEventListener("click", (e) => {
+      const r = escena.renderer.domElement.getBoundingClientRect();
+      const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      raycasterInspeccion.setFromCamera(ndc, escena.camera);
+      intentarInspeccionarClic(raycasterInspeccion);
+    });
+  }
+
   room.onMessage(
     "portal:ir",
     (info: { tipo: TipoSala | "combate" | "volverDeCombate"; mapaId?: string; mapaArenaId?: string; combateId?: string; edificio?: string; nivel?: number; esMazmorra?: boolean; x?: number; y?: number; [clave: string]: unknown }) => {
@@ -1164,10 +1293,28 @@ export async function iniciarJuego(contenedor: HTMLElement) {
             // peligrosa, que sí exige estar a RADIO_INTERACCION — responde
             // combate:error "demasiado lejos" si no).
             { etiqueta: `Cazar ${nombreEspecie}`, accion: () => room.send("combate:iniciar", { objetivoId: faunaId, retorno: retornoDeCombate() }) },
+            // Inspección (docs/GDD_UI_Paneles.md, 2026-09-12): fauna es la
+            // ÚNICA entidad con una acción de clic ya existente, así que se
+            // ofrece como segunda opción del mismo menú en vez de sustituir
+            // "Cazar" — el resto de tipos (NPC/mascota/jugador/árbol/
+            // compañero/enemigo) no tienen ninguna acción de clic hoy, así
+            // que ahí el panel se abre directo, más abajo.
+            {
+              etiqueta: `Inspeccionar ${nombreEspecie}`,
+              accion: () => {
+                const filas: FilaInspeccion[] = [];
+                if (animal.vidaMax > 0) filas.push({ etiqueta: "Vida", valor: `${Math.round(animal.vida)}/${Math.round(animal.vidaMax)}` });
+                panelInspeccion.abrir(nombreEspecie, filas, "🐾");
+              },
+            },
           ]);
           return;
         }
       }
+      // Inspección del resto de tipos (docs/GDD_UI_Paneles.md, 2026-09-12) —
+      // función compartida con el listener universal de fuera del Hub, ver
+      // su declaración junto a panelInspeccion más arriba en la función.
+      if (intentarInspeccionarClic(raycasterClic)) return;
       // Objetos sueltos del mundo (docs/GDD_Ganaderia.md §12, pedido
       // 2026-09-01: "click sobre... el huevo, recoger huevo") — mismo
       // raycast que las construcciones, mallas combinadas; se distingue
@@ -1930,6 +2077,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const rig = crearRigDeJugador(player, esYo);
     // yaw primero y luego la inclinación de nado, en el eje que mira el PJ
     rig.objeto.rotation.order = "YXZ";
+    rig.objeto.userData.jugadorSessionId = sessionId; // panel de inspección (docs/GDD_UI_Paneles.md, 2026-09-12) — local Y remoto, cualquiera es inspeccionable
     const estado: EstadoJugador = {
       rig,
       destinoX: player.x,
@@ -2129,6 +2277,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         : crearRigHumanoide({ colorTunica: "#7a6248" });
     rig.objeto.rotation.order = "YXZ";
     rig.objeto.visible = npc.visible;
+    // Etiqueta para el raycast del clic (docs/GDD_UI_Paneles.md, panel de
+    // inspección 2026-09-12) — mismo criterio que `userData.faunaId` en
+    // fauna.onAdd: cualquier malla hija remonta hasta este objeto.
+    rig.objeto.userData.npcSlotId = slotId;
     // NPC tutorial (docs/GDD_Profesiones.md ronda 3, pedido 2026-08-30:
     // "se generan vestidos") — sin vóxeles bakeados propios (no vienen de
     // poblacion/), así que se visten reusando TAL CUAL el pipeline de
@@ -2191,6 +2343,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const vox = voxPorSlot.get(c.npcOrigenSlot);
     const rig = vox ? crearPersonajeVoxel(vox) : crearRigHumanoide({ colorTunica: "#7a6248" });
     rig.objeto.rotation.order = "YXZ";
+    rig.objeto.userData.companeroId = id; // panel de inspección (docs/GDD_UI_Paneles.md, 2026-09-12)
     const estado: EstadoJugador = {
       rig, destinoX: c.x, destinoZ: c.y, destinoY: 0, x: c.x, z: c.y, y: 0, nadando: false, name: c.nombre,
       quejaTexto: c.quejaTexto,
@@ -2224,6 +2377,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     porSlot: Object.fromEntries(
       [...npcsVisual.entries()].map(([slotId, n]) => [slotId, { accion: npcsMeta.get(slotId)?.accion ?? null, trabajando: !!n.trabajando }]),
     ),
+    // lista con id+posición+visibilidad real (panelInspeccion.e2e.mjs,
+    // 2026-09-12): para clicar de verdad sobre un NPC concreto hace falta
+    // saber dónde está y si está bajo techo (rig.objeto.visible=false, no
+    // clicable), mismo criterio que `__enemigos().lista`. `tutorial` (true si
+    // `Npc.tipoTutorial` no está vacío) marca un NPC de la Test Zone plantado
+    // a mano; `hostil` (`Npc.hostil`) marca el "dummy_combate" de pruebas —
+    // acercarse a ESE dispara agro automático real (verificarAgroFauna,
+    // arena de combate) y navega la página, sin relación con `portal:usar`.
+    // El e2e filtra ambos para elegir un civil normal seguro de acercarse.
+    lista: [...npcsVisual.entries()].map(([id, n]) => {
+      const npc = room.state.npcs.get(id) as any;
+      return { id, nombre: npcsMeta.get(id)?.nombre ?? null, x: n.destinoX, y: n.destinoZ, visible: n.rig.objeto.visible, tutorial: !!npc?.tipoTutorial, hostil: !!npc?.hostil };
+    }),
   });
 
   // --- Fauna doméstica (GDD_Agentes_Moviles.md v1.3): mismo circuito que
@@ -2272,6 +2438,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   $(room.state).mascotas.onAdd((mascota: any, id: string) => {
     const criatura = crearAnimalVoxel(generarAnimalVoxel(mascota.especieId, id));
     criatura.orientar(1, 1);
+    criatura.objeto.userData.mascotaId = id; // panel de inspección (docs/GDD_UI_Paneles.md, 2026-09-12)
     if (mascota.montura) aplicarMonturaAlAnimal(criatura.objeto, null);
     const estado: EstadoJugador = {
       rig: criatura,
@@ -2340,6 +2507,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const figura = variante.tipoRig === "animal" ? crearAnimalVoxel(variante) : crearPersonajeVoxel(variante);
     figura.objeto.rotation.order = "YXZ";
     figura.orientar(1, 1);
+    figura.objeto.userData.enemigoId = id; // panel de inspección (docs/GDD_UI_Paneles.md, 2026-09-12)
     // Bandidos de mazmorra (pedido 2026-08-31): "serán bandido y punto,
     // nombre de lo que es" — respawnean cada tanto, así que NUNCA llevan
     // nombre de político (a diferencia de los bandidos del mapa exterior,
@@ -3265,12 +3433,21 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // uno de esos no hace desaparecer su modelo todavía, aunque el servidor
   // ya deja pasar por su casilla de verdad. Tecla H tala el árbol más
   // cercano (exige hacha_talar en el inventario, el servidor lo valida).
+  // Map propio (a diferencia de fauna/npcs/mascotas/etc., un árbol NUEVO no
+  // tiene EstadoJugador — es una caja fija sin interpolación) solo para que
+  // el raycast del panel de inspección tenga algo contra qué probar.
+  const arbolesVisualObjetos = new Map<string, Object3D>();
   $(room.state).arbolesVivos.onAdd((arbol: any, id: string) => {
     const joven = arbol.etapa === "joven";
     const caja = crearPlaceholder(joven ? "#4a7a3a" : "#2f5a24", joven ? 0.3 : 0.7, joven ? 0.5 : 1.6, joven ? 0.3 : 0.7);
+    caja.userData.arbolId = id; // panel de inspección (docs/GDD_UI_Paneles.md, 2026-09-12)
+    arbolesVisualObjetos.set(id, caja);
     escena.añadirEntidad(`arbol_${id}`, caja, arbol.x, arbol.y, `${joven ? "🌱" : "🌳"} ${arbol.especieId}`);
   });
-  $(room.state).arbolesVivos.onRemove((_arbol: any, id: string) => escena.quitarEntidad(`arbol_${id}`));
+  $(room.state).arbolesVivos.onRemove((_arbol: any, id: string) => {
+    arbolesVisualObjetos.delete(id);
+    escena.quitarEntidad(`arbol_${id}`);
+  });
   room.onMessage("arbol:error", (m: { motivo: string }) => console.log("[árbol]", m?.motivo));
   room.onMessage("arbol:talado", (m: { especieId: string; etapa: string; entregados: string[] }) =>
     console.log("[árbol] talado", m?.especieId, m?.etapa, "— entregado:", m?.entregados));

@@ -3,6 +3,7 @@ import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRe
 import { estadoCiclo } from "./cicloDia";
 import { EfectosClima } from "./climaVisual";
 import { EfectosClimaPantalla } from "./climaPantalla";
+import { RADIO_NOMBRE_VISIBLE, RADIO_NOMBRE_OCULTAR, decidirVisibilidadNombre } from "./visibilidadNombres";
 
 // Niebla/viento (docs/GDD_Clima.md, pedido del streamer: "que vea peor,
 // pero que vea, una pequeña molestia — máximo 10/20% de opacidad, nunca
@@ -17,6 +18,18 @@ const OPACIDAD_POR_CLIMA: Record<string, number> = {
   niebla: 0.55,
   viento: 0.22, // el viento se nota sobre todo por el polvo moviéndose (climaVisual.ts), esta capa es solo un toque
 };
+
+// Nombres flotantes SOLO de cerca (docs/GDD_UI_Paneles.md, pedido streamer
+// 2026-09-12: "los nombres... solo se muestran al acercarte mucho... o al
+// darle click"): antes se pintaban SIEMPRE mientras la entidad existiera en
+// `room.state` (radio de interés de RED, 70 casillas — server/src/rooms/
+// base/RoomExteriorBase.ts::RADIO_INTERES_TILES, mucho más ancho que
+// "cerca"). Por debajo de RADIO_PERDIDA_CAZA (60)/RADIO_INTERES_TILES (70)
+// del servidor a propósito, mismo criterio documentado ahí ("un radio de UX
+// por debajo del radio de red"). La barra de vida NO se toca — sigue siendo
+// siempre visible, es información de combate, no de identidad. La lógica
+// de histéresis en sí vive en `visibilidadNombres.ts` (módulo sin THREE/DOM,
+// testeable solo — ver el comentario de ese archivo para el porqué).
 
 const TAMANO_MUNDO_VISIBLE = 16; // unidades de mundo visibles en el eje corto de la cámara
 
@@ -288,6 +301,11 @@ export class WorldScene {
       label.position.set(0, 1.85, 0);
       objeto.add(label);
       this.etiquetas.set(idEntidad, div);
+      // Arranca OCULTO: `actualizarVisibilidadNombres()` (llamado desde
+      // `render()`, que se ejecuta cada frame) lo revela en el siguiente
+      // frame si de verdad está cerca — nunca hay un frame "siempre visible"
+      // de más para algo que apareció lejos.
+      div.style.display = "none";
     }
 
     // Barra de vida (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): oculta
@@ -316,6 +334,8 @@ export class WorldScene {
 
   private etiquetas = new Map<string, HTMLDivElement>();
   private barrasVida = new Map<string, { fondo: HTMLDivElement; relleno: HTMLDivElement }>();
+  /** ids con la etiqueta ACTUALMENTE mostrada — evita comparar contra `div.style.display` (string) en el hot path de cada frame. */
+  private nombresVisibles = new Set<string>();
 
   /** Actualiza la barra de vida flotante de una entidad — vidaMax<=0 la oculta (sin datos de combate todavía). */
   actualizarVida(idEntidad: string, vida: number, vidaMax: number) {
@@ -365,11 +385,38 @@ export class WorldScene {
     // entidad). Hay que sacarlo del DOM explícitamente aquí.
     this.etiquetas.get(idEntidad)?.remove();
     this.etiquetas.delete(idEntidad);
+    this.nombresVisibles.delete(idEntidad);
     this.barrasVida.get(idEntidad)?.fondo.remove();
     this.barrasVida.delete(idEntidad);
   }
 
+  /**
+   * Nombres solo de cerca (ver constantes RADIO_NOMBRE_* arriba) — recorre
+   * `etiquetas` (nunca `entidades` entero: solo lo que de verdad tiene
+   * nombre) comparando la posición YA guardada en el propio `Object3D`
+   * contra `objetivoCamara` (el jugador local, ver `seguirPunto`). Solo
+   * cambia `display`, nunca toca el `CSS2DObject` en sí — la limpieza real
+   * sigue siendo cosa de `quitarEntidad`.
+   */
+  private actualizarVisibilidadNombres() {
+    const r2Visible = RADIO_NOMBRE_VISIBLE * RADIO_NOMBRE_VISIBLE;
+    const r2Ocultar = RADIO_NOMBRE_OCULTAR * RADIO_NOMBRE_OCULTAR;
+    for (const [id, div] of this.etiquetas) {
+      const objeto = this.entidades.get(id);
+      if (!objeto) continue;
+      const dx = objeto.position.x - this.objetivoCamara.x;
+      const dz = objeto.position.z - this.objetivoCamara.z;
+      const d2 = dx * dx + dz * dz;
+      const visibleAntes = this.nombresVisibles.has(id);
+      const visibleAhora = decidirVisibilidadNombre(visibleAntes, d2, r2Visible, r2Ocultar);
+      if (visibleAhora === visibleAntes) continue;
+      if (visibleAhora) { this.nombresVisibles.add(id); div.style.display = ""; }
+      else { this.nombresVisibles.delete(id); div.style.display = "none"; }
+    }
+  }
+
   render() {
+    this.actualizarVisibilidadNombres();
     this.renderer.render(this.scene, this.camera);
     this.labelRenderer.render(this.scene, this.camera);
   }

@@ -50,6 +50,10 @@ export interface DatosNpcIndividual {
   personalidad?: string;
   conocimiento?: string[];
   perfilConversacionalId?: string | null;
+  /** docs/GDD_Poblacion_NPCs.md (2026-09-12, panel de inspección) — identidad de familia, si el NPC formó una al bakear. Sin uso en el chat de IA todavía (solo lo lee `manejarNpcInspeccionar`). */
+  familiaId?: string | null;
+  rolFamiliar?: string | null;
+  apellido?: string;
 }
 
 /**

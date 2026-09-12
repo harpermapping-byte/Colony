@@ -137,3 +137,54 @@ export function recolectableCercano(
   }
   return mejor;
 }
+
+/**
+ * Recolección en área (docs/GDD_Bakeador_Exteriores.md, pedido streamer
+ * 2026-09-12: "con azada click sobre una recolectar pero coge varias
+ * alrededor") — hasta `maxExtra` recolectables MÁS, del MISMO `itemId` que
+ * el ya elegido (`idxExcluir`), dentro de `radio` casillas de (x,y). Mismo
+ * criterio de barrido acotado que `recolectableCercano` (nunca el Map
+ * entero) — ordenado por distancia para que la "cosecha" se sienta
+ * coherente (lo más cercano primero) aunque el orden no cambie qué se
+ * recoge, solo en qué orden se marca agotado.
+ */
+export function recolectablesCercanosMismoTipo(
+  recolectables: Map<number, RecolectableVivo>,
+  ancho: number,
+  x: number,
+  y: number,
+  radio: number,
+  itemId: string,
+  idxExcluir: number,
+  maxExtra: number,
+  agotados?: Map<number, number>,
+): { idx: number; item: RecolectableVivo }[] {
+  if (maxExtra <= 0) return [];
+  const r = Math.ceil(radio);
+  const cx = Math.floor(x), cy = Math.floor(y);
+  const ahora = Date.now();
+  const candidatos: { idx: number; item: RecolectableVivo; d: number }[] = [];
+  for (let dy = -r; dy <= r; dy++) {
+    const py = cy + dy;
+    if (py < 0) continue;
+    for (let dx = -r; dx <= r; dx++) {
+      const px = cx + dx;
+      if (px < 0) continue;
+      const idx = py * ancho + px;
+      if (idx === idxExcluir) continue;
+      const item = recolectables.get(idx);
+      if (!item || item.itemId !== itemId) continue;
+      if (agotados) {
+        const disponibleDesde = agotados.get(idx);
+        if (disponibleDesde != null) {
+          if (disponibleDesde > ahora) continue;
+          agotados.delete(idx);
+        }
+      }
+      const d = Math.hypot(item.x + 0.5 - x, item.y + 0.5 - y);
+      if (d < radio) candidatos.push({ idx, item, d });
+    }
+  }
+  candidatos.sort((a, b) => a.d - b.d);
+  return candidatos.slice(0, maxExtra).map(({ idx, item }) => ({ idx, item }));
+}
