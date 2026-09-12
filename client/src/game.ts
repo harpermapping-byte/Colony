@@ -489,6 +489,50 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         escena.añadirEstatico(luz);
         farolasExterior.push({ luz, fase: (farola.x * 31 + farola.y * 17) % 1000 / 1000 });
       }
+
+      // Puertas físicas de asentamiento, ya CLICABLES (docs/GDD_Sistema_
+      // Puertas.md, pedido streamer 2026-09-12: "puerta física clicable ->
+      // entrar a la instancia") — hasta ahora la única forma de cruzar
+      // cualquier puerta/portal era la tecla F a ciegas, sin ninguna pista
+      // visual de que hubiera algo que cruzar ahí. Solo los portales
+      // "exterior" que el bakeador marcó con destino+puertaX/Y+nombreDestino
+      // (baker/src/instanciasPOI.js, 2026-09-12) — ADITIVO: un mapa horneado
+      // ANTES de esa fecha (assets/mapas/principal/ hasta su próximo
+      // rebake) simplemente no trae estos 3 campos y no ofrece ninguna
+      // etiqueta; la tecla F sigue funcionando exactamente igual, sin
+      // cambio de comportamiento ni de protocolo de red.
+      const entradasPortal = (indice.portales ?? []).filter(
+        (p) => p.tipo === "exterior" && !!p.destino && p.puertaX != null && p.puertaY != null && !!p.nombreDestino,
+      ) as { x: number; y: number; puertaX: number; puertaY: number; nombreDestino: string }[];
+      if (entradasPortal.length) {
+        entradasPortal.forEach((p, i) => {
+          // Altura fija sobre el suelo (2.4u — por encima del arco real,
+          // huella [6,2] casillas de generar_puerta_asentamiento.js, y de
+          // cualquier jugador/NPC que pase por debajo). Se crea oculta
+          // (WorldScene.añadirEtiquetaInteractiva) — el intervalo de abajo
+          // decide cuándo mostrarla, nunca se reconstruye.
+          escena.añadirEtiquetaInteractiva(`portal_${i}`, p.puertaX, p.puertaY, 2.4, `Entrar ${p.nombreDestino}`, () => room.send("portal:usar"));
+        });
+        // Mismo ritmo que hintAsiento (500ms, más abajo) — un asentamiento
+        // no se mueve, no hace falta recalcular esto cada frame.
+        const RADIO_ENTRADA_PORTAL_CLIENTE = 2.2; // debe coincidir con RADIO_INTERACCION del servidor
+        setInterval(() => {
+          if (!jugadorLocal) return;
+          for (let i = 0; i < entradasPortal.length; i++) {
+            const p = entradasPortal[i];
+            // MISMO criterio que el servidor (RegionRoom/HubRoom.onMessage
+            // "portal:usar": `Math.hypot(p.x+0.5-player.x, p.y+0.5-player.y)
+            // < RADIO_INTERACCION`) — se mide contra el punto de PORTAL real
+            // (p.x,p.y, la casilla pisable), NUNCA contra la puerta visual
+            // (puertaX/puertaY, que puede estar 2-4 casillas más lejos —
+            // docs/GDD_Bakeador_POIs.md §13quater) para que la etiqueta solo
+            // se muestre cuando el clic vaya a funcionar de verdad, en vez
+            // de una aproximación que pueda desincronizarse del servidor.
+            const d = Math.hypot(p.x + 0.5 - jugadorLocal.x, p.y + 0.5 - jugadorLocal.z);
+            escena.mostrarEtiquetaInteractiva(`portal_${i}`, d < RADIO_ENTRADA_PORTAL_CLIENTE);
+          }
+        }, 400);
+      }
     } catch (err) {
       // Sin mapa no se corta el juego (los jugadores siguen sincronizando
       // sobre el suelo de emergencia), pero el fallo queda visible.
@@ -835,7 +879,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     }
     },
   );
-  room.onMessage("portal:error", (m: { motivo: string }) => console.log("[puerta]", m?.motivo));
+  // Rechazo de "portal:usar" ("no hay puerta cerca") — hasta 2026-09-12 solo
+  // iba a consola, invisible jugando (mismo hueco que ya tenían combate:error/
+  // cofre:error/asiento:error antes de su propio arreglo, ver esos mismos
+  // `room.onMessage` en este archivo); ahora también un toast, mismo patrón.
+  room.onMessage("portal:error", (m: { motivo: string }) => { console.log("[puerta]", m?.motivo); registroCombate.mostrar(m?.motivo || "No hay puerta cerca.", "error"); });
   // Rechazo de combate:iniciar/accion (lejos, pvp deshabilitado, ya en
   // combate...) — no había NINGÚN listener para esto (encontrado probando
   // la Test Zone 2026-08-31): el jugador pulsaba C y no pasaba nada, sin

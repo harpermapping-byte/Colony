@@ -20,6 +20,30 @@ export interface PortalMapa {
   y: number;
   edificio?: string;
   tipoEdificioId?: string;
+  /** Destino real del portal (asentamiento anidado, hub...) — presente desde
+   * 2026-09-12 en los portales `tipo:"exterior"` que hornea
+   * `baker/src/instanciasPOI.js` (docs/GDD_Sistema_Puertas.md, "puerta
+   * física clicable"); opcional porque un mapa horneado ANTES de esa fecha
+   * no lo trae. El cliente no necesita interpretarlo (el servidor ya sabe
+   * a dónde lleva `portal:usar`) — solo sirve para decidir SI este portal
+   * cuenta como "entrada a una instancia" clicable, junto con `puertaX/Y`. */
+  destino?: { tipo: "region" | "hub"; mapaId?: string };
+  /** Coordenadas CONTINUAS del arco/puerta física real (2026-09-12) — a
+   * diferencia de `x,y` (la casilla de PORTAL, empujada fuera de la muralla
+   * en un asentamiento), esto es el centro real de la estructura visible
+   * que el jugador ve y sobre la que se pinta la etiqueta "Entrar <Nombre>".
+   * Opcional: solo lo traen los portales `tipo:"exterior"` de un asentamiento
+   * (aldea/ciudad/campamento); para "edificio"/"mazmorra" sueltos `x,y` YA
+   * es la puerta real, así que no hace falta duplicarlo aquí. */
+  puertaX?: number;
+  puertaY?: number;
+  /** Nombre legible del destino ("Aldea Agricola", "Capital Regional"...),
+   * derivado del id de catálogo del POI por `baker/src/instanciasPOI.js`
+   * (2026-09-12) — nunca traducido a mano, mismo criterio que el resto del
+   * proyecto ("las listas crecen, el código no"). Solo presente si el mapa
+   * se horneó con este campo; sin él, sin etiqueta clicable pero la tecla F
+   * sigue funcionando igual. */
+  nombreDestino?: string;
 }
 
 /** Módulo vectorial de la muralla de un mapa de ciudad (ciudades/src/generar.js

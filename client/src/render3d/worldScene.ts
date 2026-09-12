@@ -369,6 +369,89 @@ export class WorldScene {
     this.barrasVida.delete(idEntidad);
   }
 
+  private readonly etiquetasInteractivas = new Map<string, { objeto: CSS2DObject; div: HTMLDivElement }>();
+
+  /**
+   * Etiqueta flotante CLICABLE, suelta en coordenadas de mundo — pensada
+   * para "Entrar <Nombre>" sobre una puerta física bakeada
+   * (docs/GDD_Sistema_Puertas.md, pedido streamer: "puerta física clicable
+   * -> entrar a la instancia"). A diferencia de `añadirEntidad` (personajes:
+   * nombre + barra de vida colgando de un rig que se mueve), esto es un
+   * único `CSS2DObject` fijo, sin ningún `Object3D` "dueño" — se crea
+   * OCULTA y el llamador decide cuándo mostrarla según la distancia real
+   * del jugador local (mismo criterio "sin UI de targeting" que el resto
+   * del juego, ver `hintAsiento` en game.ts).
+   *
+   * El div hijo lleva `pointerEvents:"auto"` A PROPÓSITO: `labelRenderer`
+   * (el contenedor raíz de TODAS las etiquetas CSS2D) es
+   * `pointerEvents:"none"` para no bloquear el raycast de clic sobre el
+   * mundo 3D — pero un hijo puede reactivar `pointer-events` sin afectar al
+   * resto del árbol (CSS estándar, no un truco propio de Three.js).
+   * Verificado con un e2e real de Playwright (`page.mouse.click` sobre la
+   * etiqueta en pantalla, nunca invocando el handler a mano) — no se dio
+   * por bueno solo porque "debería funcionar" en teoría.
+   *
+   * DOS BUGS REALES encontrados con ese mismo e2e antes de dar esto por
+   * bueno (ninguno se hubiera visto solo con `tsc`/tests unitarios):
+   *
+   * 1) `render()` de `CSS2DRenderer` reescribe `element.style.display` en
+   *    CADA frame según su PROPIO criterio de profundidad/capa — pisando
+   *    cualquier `div.style.display` puesto a mano desde fuera en cuanto
+   *    llega el siguiente frame. Por eso `mostrarEtiquetaInteractiva`
+   *    alterna `div.style.visibility` (que `CSS2DRenderer` JAMÁS toca),
+   *    nunca `div.style.display`.
+   *
+   * 2) Poner `objeto.visible = false` (la propiedad del propio
+   *    `CSS2DObject`, NO la del div) para "crearla oculta" fue la primera
+   *    versión de este código y estaba MAL: `renderObject()` mira
+   *    `object.visible===false` ANTES que nada y, si es `false`, hace
+   *    `hideObject()` y `return` sin llegar NUNCA a la línea que insertó el
+   *    `<div>` en el DOM (`domElement.appendChild(element)`) — así que el
+   *    elemento no existía en el documento en absoluto hasta la primera vez
+   *    que se marcara visible, y un test que esperase "en el DOM aunque
+   *    oculta" (`state:"attached"`) nunca lo encontraba. `objeto.visible`
+   *    se deja SIEMPRE en su valor por defecto (`true`) — el filtro de
+   *    "visible" real de `renderObject()` solo mira la PROFUNDIDAD
+   *    proyectada (`_vector.z`), nunca los límites X/Y de pantalla, así que
+   *    un objeto lejos del jugador se sigue insertando en el DOM igual
+   *    (solo con un `transform` que lo coloca fuera de la vista) — el div
+   *    queda SIEMPRE adjunto, y `visibility:hidden/visible` decide de
+   *    verdad si se ve y si es clicable (un elemento `visibility:hidden` no
+   *    recibe eventos de puntero, exactamente el comportamiento que hacía
+   *    falta).
+   */
+  añadirEtiquetaInteractiva(id: string, x: number, y: number, alturaY: number, texto: string, onClick: () => void) {
+    this.quitarEtiquetaInteractiva(id);
+    const [wx, wz] = this.posicionMundo(x, y);
+    const div = document.createElement("div");
+    div.textContent = texto;
+    div.dataset.testid = id;
+    div.style.cssText =
+      "background:rgba(20,16,10,0.85);color:#f0e8d8;font:13px sans-serif;padding:4px 10px;border-radius:6px;border:1px solid #6a5a3a;white-space:nowrap;pointer-events:auto;cursor:pointer;visibility:hidden;";
+    div.addEventListener("click", (e) => {
+      e.stopPropagation(); // no debe colar el clic al raycast del lienzo detrás (menú de interacción, construcción...)
+      onClick();
+    });
+    const objeto = new CSS2DObject(div);
+    objeto.position.set(wx, alturaY, wz);
+    this.scene.add(objeto);
+    this.etiquetasInteractivas.set(id, { objeto, div });
+  }
+
+  /** Muestra/oculta una etiqueta interactiva ya creada (sin reconstruirla) — pensado para llamarse a ritmo bajo (500ms) según distancia, no en cada frame. Alterna `div.style.visibility`, NUNCA `div.style.display` ni `objeto.visible` (ver comentario de `añadirEtiquetaInteractiva`). */
+  mostrarEtiquetaInteractiva(id: string, visible: boolean) {
+    const e = this.etiquetasInteractivas.get(id);
+    if (e) e.div.style.visibility = visible ? "visible" : "hidden";
+  }
+
+  quitarEtiquetaInteractiva(id: string) {
+    const e = this.etiquetasInteractivas.get(id);
+    if (!e) return;
+    this.scene.remove(e.objeto);
+    e.div.remove(); // mismo motivo que quitarEntidad: CSS2DRenderer no lo saca solo del DOM al quitar el Object3D de la escena
+    this.etiquetasInteractivas.delete(id);
+  }
+
   render() {
     this.renderer.render(this.scene, this.camera);
     this.labelRenderer.render(this.scene, this.camera);

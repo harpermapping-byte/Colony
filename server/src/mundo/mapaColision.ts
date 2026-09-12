@@ -67,6 +67,18 @@ export interface Portal {
   /** true = el interior es una mazmorra (DungeonRoom, con enemigos) en vez
    * de un edificio normal (InteriorRoom) — docs/GDD_Bakeador_Dungeons.md. */
   esMazmorra?: boolean;
+  /** Coordenadas CONTINUAS de la puerta/arco físico real, cuando difieren de
+   * `x,y` (la casilla de PORTAL — para un asentamiento, empujada fuera de la
+   * muralla; `x,y` sigue siendo lo único que el servidor necesita para
+   * resolver `portal:usar`, esto es solo metadata para que el cliente pinte
+   * la etiqueta "Entrar <Nombre>" sobre la estructura visible en vez de
+   * sobre el punto de portal — docs/GDD_Sistema_Puertas.md, 2026-09-12). */
+  puertaX?: number;
+  puertaY?: number;
+  /** Nombre legible del destino ("Aldea Agricola"...), derivado del id de
+   * catálogo del POI por `baker/src/instanciasPOI.js` (2026-09-12) — puro
+   * dato de presentación para el cliente, el servidor nunca lo lee. */
+  nombreDestino?: string;
 }
 
 /** Hueco reservado por el bakeador de ciudades/ (SOLO tiers con `edificios.parcelasReservadas`,

@@ -39,6 +39,16 @@ function slugPOI(poi) {
   return `${poi.id}_${poi.x}_${poi.y}`;
 }
 
+// "aldea_agricola" -> "Aldea Agricola" — nombre legible para la etiqueta de
+// cliente "Entrar <Nombre>" sobre una puerta física (docs/GDD_Sistema_Puertas.md,
+// pedido streamer: "puerta física clicable -> entrar a la instancia"). Mismo
+// criterio ya usado en client/src/cocina/panelCocina.ts::nombreVasija — nunca
+// una tabla curada a mano por id (CLAUDE.md filosofía #7: "las listas
+// CRECEN, el código no").
+function nombreLegibleDesdeId(id) {
+  return String(id).replace(/_/g, " ").replace(/\b\p{L}/gu, (c) => c.toUpperCase());
+}
+
 // taller-vox/generar_edificio.js "todo" exporta 4 variantes por
 // tipoEdificioId (assets/edificios/<tipo>_01..04.glb) — misma cuenta aquí
 // para elegir una determinista por instancia (enganche rápido de arte,
@@ -390,7 +400,14 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
         objeto: { i: "puerta_asentamiento", t: "e", va: semillaDesdeTexto(`${semillaPOI}:puerta:0`) % VARIANTES_EDIFICIO, ro: 0, es: 1, w: anchoPuerta, h: altoPuerta, dx: 0, dy: 0 },
       });
       entradasAsentamiento.push({ poiX: poi.x, poiY: poi.y, x: Math.round(xPuerta), y: Math.round(yPuerta + altoPuerta / 2 + 1), hostil });
-      portales.push({ tipo: "exterior", x: Math.round(xPuerta), y: Math.round(yPuerta + altoPuerta / 2 + 1), destino: { tipo: "region", mapaId: `pois/${slug}` } });
+      // puertaX/puertaY/nombreDestino (2026-09-12, "puerta física clicable ->
+      // entrar a la instancia"): coordenadas CONTINUAS del arco real (no las
+      // del portal, que caen 1 fila fuera) + nombre legible del POI, para que
+      // el cliente pinte una etiqueta "Entrar <Nombre>" clicable sobre la
+      // puerta en vez de depender solo de la tecla F a ciegas — ver
+      // docs/GDD_Sistema_Puertas.md. Aditivo: un mapa YA horneado sin estos
+      // 3 campos sigue funcionando igual con la tecla F, solo sin etiqueta.
+      portales.push({ tipo: "exterior", x: Math.round(xPuerta), y: Math.round(yPuerta + altoPuerta / 2 + 1), puertaX: xPuerta, puertaY: yPuerta, nombreDestino: nombreLegibleDesdeId(poi.id), destino: { tipo: "region", mapaId: `pois/${slug}` } });
     }
     puertasReales.forEach((puerta, i) => {
       const xPuerta = aMundoX(puerta.x);
@@ -432,6 +449,18 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
         tipo: "exterior",
         x: Math.round(xPortal),
         y: Math.round(yPortal),
+        // puertaX/puertaY/nombreDestino (2026-09-12, "puerta física clicable
+        // -> entrar a la instancia"): coordenadas CONTINUAS del arco real
+        // (xPuerta/yPuerta ya calculadas arriba — el CENTRO del arco, no el
+        // punto de portal empujado fuera de la muralla) + nombre legible del
+        // POI, para que el cliente pinte una etiqueta "Entrar <Nombre>"
+        // clicable justo sobre la puerta en vez de depender solo de la tecla
+        // F a ciegas — ver docs/GDD_Sistema_Puertas.md. Aditivo: un mapa YA
+        // horneado sin estos 3 campos sigue funcionando igual con F, solo
+        // sin etiqueta.
+        puertaX: xPuerta,
+        puertaY: yPuerta,
+        nombreDestino: nombreLegibleDesdeId(poi.id),
         // RELATIVO a propósito (bug real 2026-09-09, "la puerta de la
         // capital da ENOENT al cruzarla"): antes se horneaba
         // `${mapaId}/pois/${slug}` con el `mapaId` de ESTE bake (derivado
@@ -498,6 +527,11 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
         y: puertaY,
         edificio: edificio.id,
         tipoEdificioId: def.tipoEdificioId,
+        // nombreDestino (2026-09-12, "puerta física clicable"): aquí `x,y`
+        // YA es la puerta real (un POI "edificio" suelto no tiene arco
+        // separado del portal como sí tiene "asentamiento") — no hace falta
+        // duplicar puertaX/puertaY, el cliente puede usar `x,y` tal cual.
+        nombreDestino: nombreLegibleDesdeId(poi.id),
       });
       continue;
     }
@@ -561,6 +595,9 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
       portales.push({
         tipo: "interior", x: puertaX, y: puertaY,
         edificio: mazmorra.id, tipoEdificioId: def.dungeonTipoId, esMazmorra: true,
+        // nombreDestino (2026-09-12, "puerta física clicable"): mismo
+        // criterio que la rama "edificio" — `x,y` ya es la puerta real.
+        nombreDestino: nombreLegibleDesdeId(poi.id),
       });
     }
   }
