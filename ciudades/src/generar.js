@@ -25,7 +25,7 @@ const { generarEdificio } = require("../../interiores/src/edificio");
 const { CapaRuido } = require("../../baker/src/ruido");
 const {
   muestrearPoisson, aEstrella, puntoEnPoligono, distanciaASegmento,
-  rasterizarSegmento, rasterizarRectRotado,
+  rasterizarSegmento, pintarPolilinea, rasterizarRectRotado,
 } = require("./geometria");
 
 const MARGEN_EXTRAMUROS = 16; // respiro visual alrededor de la muralla (solo caminos)
@@ -238,7 +238,12 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
         y: focal.y + (p.y - focal.y) * factor,
       }));
       for (let i = 0; i < NV; i++) {
-        rasterizarSegmento(ronda[i], ronda[(i + 1) % NV], 1.4, ancho, alto, (x, y) => {
+        // ANCHO_CALLE (2), no un grosor fino propio: por debajo de ~1.8 el
+        // rasterizado deja huecos que solo conectan en diagonal (bug real,
+        // ver docs/GDD_Bakeador_POIs.md §6) — floodDesde/el movimiento real
+        // del juego son 4-direccionales, así que una "calle" diagonal-only
+        // es un muro real para cualquiera que la camine.
+        rasterizarSegmento(ronda[i], ronda[(i + 1) % NV], ANCHO_CALLE, ancho, alto, (x, y) => {
           const t = terreno.get(x, y);
           if (t === idTerrenoMuro || t === "puente" || t === "solar_edificio") return;
           if (esAgua[y * ancho + x]) { terreno.set(x, y, "puente"); return; }
@@ -266,12 +271,16 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
       };
       const ramal = aEstrella(ancho, alto, objetivo, focal, costeRamal);
       if (!ramal) continue;
-      for (const p of ramal) {
-        const t = terreno.get(p.x, p.y);
-        if (t === "adoquin" || t === "puente" || t === idTerrenoMuro || t === "solar_edificio") continue;
-        if (esAgua[p.y * ancho + p.x]) { terreno.set(p.x, p.y, "puente"); continue; }
-        terreno.set(p.x, p.y, dentroMuralla(p.x, p.y) ? "adoquin" : "camino");
-      }
+      // ANCHO_CALLE completo (antes: casilla a casilla, 1 de ancho) — un
+      // ramal de 1 casilla puede cruzar un desnivel/recodo en diagonal pura,
+      // invisible para el movimiento 4-direccional real (mismo bug que la
+      // ronda, ver comentario de ANCHO_CALLE más arriba).
+      pintarPolilinea(ramal, ANCHO_CALLE, ancho, alto, (x, y) => {
+        const t = terreno.get(x, y);
+        if (t === "adoquin" || t === "puente" || t === idTerrenoMuro || t === "solar_edificio") return;
+        if (esAgua[y * ancho + x]) { terreno.set(x, y, "puente"); return; }
+        terreno.set(x, y, dentroMuralla(x, y) ? "adoquin" : "camino");
+      });
     }
   };
 
@@ -523,12 +532,26 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
       if (terreno.get(px, py) !== "solar_edificio") break;
     }
     ed.puerta = { x: px, y: py };
+    // conector puerta->calle: se acumulan los puntos del camino (paso a
+    // paso hacia el origen de calle más cercano, BFS ya calculado) y se
+    // rasteriza TODO el tramo de una vez con ANCHO_CALLE — pintarlo casilla
+    // a casilla (1 de ancho) podía dejar un tramo diagonal-only, invisible
+    // para el movimiento 4-direccional real (mismo bug de la ronda/ramales,
+    // ver ANCHO_CALLE más arriba); esto además vuelve innecesario cualquier
+    // relleno de codo aparte, ya lo hace rasterizarSegmento por construcción.
+    const puntosConector = [{ x: px, y: py }];
     for (let paso = 0; paso < 14 && terreno.dentro(px, py) && !esCalle(px, py); paso++) {
-      if (terreno.get(px, py) === "cesped" || terreno.get(px, py) === "tierra") terreno.set(px, py, "camino");
       const o = origenCalle[py * ancho + px];
       const ox = o % ancho, oy = Math.floor(o / ancho);
       px += Math.sign(ox - px); py += Math.sign(oy - py);
+      puntosConector.push({ x: px, y: py });
     }
+    pintarPolilinea(puntosConector, ANCHO_CALLE, ancho, alto, (x, y) => {
+      const t = terreno.get(x, y);
+      if (t === idTerrenoMuro || t === "solar_edificio") return; // nunca perfora un edificio/muro
+      if (esAgua[y * ancho + x]) { terreno.set(x, y, "puente"); return; }
+      if (t === "cesped" || t === "tierra") terreno.set(x, y, "camino");
+    });
     return true;
   };
 
@@ -910,6 +933,68 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
     }
   }
 
+  // FIXER ESTRUCTURAL de "costuras diagonales" (docs/GDD_Bakeador_POIs.md
+  // §6): un camino/adoquín/puente SIN ningún vecino ORTOGONAL de calle pero
+  // CON un vecino DIAGONAL que sí lo es es un muro real para el movimiento
+  // en vivo — server/src/mundo/colisiones.ts::moverAABB mueve X e Y por
+  // separado, así que un hueco puramente diagonal nunca se cruza andando,
+  // aunque el rasterizado lo pintara "conectado" a ojo. La ronda (grosor
+  // fino histórico) y cualquier ramal/conector que redondeara mal podían
+  // dejar tramos así — Steps 1a-1c ya ensanchan todo a ANCHO_CALLE (grosor
+  // 2, confirmado robusto incluso en diagonal pura), pero este fixer corre
+  // igualmente como red de seguridad estructural ANTES de la reparación
+  // por-puerta de más abajo: esa reparación usa un A* de 8 vecinos que SÍ
+  // "ve" una escalinata diagonal de adoquín como camino válido — sin este
+  // fixer, creería erróneamente que la puerta ya está conectada y no
+  // tallaría nada, dejando el hueco diagonal real sin cerrar.
+  const ES_CALLE_SEAM = new Set(["camino", "adoquin", "puente"]);
+  const repararCosturaDiagonal = (x, y) => {
+    const t0 = terreno.get(x, y);
+    if (!ES_CALLE_SEAM.has(t0)) return false;
+    const tieneOrtoCalle = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+      const t = terreno.get(x + dx, y + dy);
+      return t !== null && ES_CALLE_SEAM.has(t);
+    });
+    if (tieneOrtoCalle) return false; // ya conectada de verdad, nada que hacer
+    for (const [dx, dy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const tDiag = terreno.get(x + dx, y + dy);
+      if (tDiag === null || !ES_CALLE_SEAM.has(tDiag)) continue;
+      // los DOS codos ortogonales que, convertidos, unen (x,y) con la
+      // diagonal a 4-vecinos — se descarta cualquiera que sea muro/solar
+      // real o esté ocupado por árbol/decoración sólida (validarCiudad y
+      // costeSenda ya los tratan como bloqueo real; pintar "camino" encima
+      // no bastaría para hacerlos transitables de verdad)
+      const codos = [{ x: x + dx, y }, { x, y: y + dy }].filter((c) => {
+        const t = terreno.get(c.x, c.y);
+        if (t === null || t === idTerrenoMuro || t === "solar_edificio") return false;
+        const k = c.y * ancho + c.x;
+        return !esArbol.has(k) && !decoSolida.has(k);
+      });
+      if (codos.length === 0) continue; // prueba la siguiente diagonal, si la hay
+      // prefiere el codo que NO sea agua (evita levantar un puente si el
+      // otro lado ya es tierra firme)
+      codos.sort((a, b) => (esAgua[a.y * ancho + a.x] ? 1 : 0) - (esAgua[b.y * ancho + b.x] ? 1 : 0));
+      const elegido = codos[0];
+      const tElegido = terreno.get(elegido.x, elegido.y);
+      if (esAgua[elegido.y * ancho + elegido.x]) terreno.set(elegido.x, elegido.y, "puente");
+      else if (tElegido === "cesped" || tElegido === "tierra" || tElegido === "tierra_labrada") terreno.set(elegido.x, elegido.y, "camino");
+      else continue; // terreno no convertible (p.ej. "extramuros"): prueba otra diagonal
+      return true;
+    }
+    return false;
+  };
+  // dos pasadas por seguridad (la primera puede dejar un segundo seam justo
+  // al lado tras convertir el primero) — cada reparación SOLO añade
+  // conectividad (nunca borra calle existente), así que converge rápido y
+  // nunca empeora nada; una tercera pasada sin reparaciones corta el bucle.
+  for (let pasada = 0; pasada < 2; pasada++) {
+    let reparadas = 0;
+    for (let y = 0; y < alto; y++)
+      for (let x = 0; x < ancho; x++)
+        if (repararCosturaDiagonal(x, y)) reparadas++;
+    if (reparadas === 0) break;
+  }
+
   // reparación de conectividad: toda puerta de edificio DEBE alcanzarse
   // desde la puerta principal — si el río o un solar la dejó aislada, se
   // abre una senda A* (con puente si cruza agua). Garantiza por
@@ -920,36 +1005,78 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
     y: Math.round(p0.y + Math.sin(Math.atan2(focal.y - p0.y, focal.x - p0.x)) * (grosorRaster + 2)),
   };
   const TRANSITABLE_LOCAL = new Set(["cesped", "camino", "adoquin", "tierra", "tierra_labrada", "puente"]);
+  // lista BLANCA (antes negra): cualquier terreno no reconocido aquí —
+  // "extramuros" incluido, introducido por el CONFINAMIENTO justo antes de
+  // este bloque — es intransitable POR DEFECTO en vez de "coste 1 libre"
+  // por omisión. La lista negra vieja no conocía "extramuros" y lo cruzaba
+  // gratis, así que una senda de reparación podía "encontrar ruta" saliendo
+  // del recinto por una zona que en el mapa final es sólida de verdad.
+  const TERRENOS_CONVERTIBLES_SENDA = new Set(["cesped", "tierra", "tierra_labrada", "camino", "adoquin", "puente"]);
   const costeSenda = (x, y) => {
     const t = terreno.get(x, y);
     if (t === idTerrenoMuro || t === "solar_edificio") return Infinity;
     const k = y * ancho + x;
     if (esArbol.has(k) || decoSolida.has(k)) return Infinity; // árbol/valla/farola: la senda los rodea
     if (esAgua[k] && t !== "puente") return 14; // cruzar = construir puente
+    if (!TERRENOS_CONVERTIBLES_SENDA.has(t)) return Infinity;
     if (t === "camino" || t === "adoquin" || t === "puente") return 0.5;
     return 1;
   };
+  // igual que validarCiudad (sus "tapones" temporales, más abajo): un
+  // árbol/farola/valla colisionable bloquea de verdad aunque el terreno de
+  // debajo sea "cesped"/"camino" — sin tratarlo aquí igual, este bucle podía
+  // dar una puerta por "ya alcanzable" (floodDesde ciego a la decoración)
+  // mientras validarCiudad, que SÍ la ve, la seguía reportando rota (bug
+  // real encontrado ampliando la muestra de semillas de los tests, no
+  // parte del plan original — ver ciudades/test/ciudad.test.js).
+  const bloqueadosPorDecoracion = { has: (k) => esArbol.has(k) || decoSolida.has(k) };
   // `alcanzable` solo cambia cuando de verdad se talla una senda nueva — recalcularlo en CADA
   // vuelta del bucle (como se hacía antes) repite el mismo flood-fill completo del mapa para
   // cada edificio ya conectado, que es la inmensa mayoría (perfilado en la auditoría de
   // rendimiento de 2026-09-02: floodDesde era la función JS más caliente de todo el bake de una
   // capital_jarl, por encima incluso de aEstrella). Se recalcula solo tras tallar de verdad.
-  let alcanzable = floodDesde(terreno, spawn, TRANSITABLE_LOCAL);
-  for (const ed of todos) {
+  let alcanzable = floodDesde(terreno, spawn, TRANSITABLE_LOCAL, bloqueadosPorDecoracion);
+  const tallar = (x, y) => {
+    const t = terreno.get(x, y);
+    if (esAgua[y * ancho + x]) terreno.set(x, y, "puente");
+    else if (t === "cesped" || t === "tierra" || t === "tierra_labrada") terreno.set(x, y, "camino");
+  };
+  // recorrido en REVERSA porque un edificio puede sacarse de `todos` (ver
+  // "sin ruta real" más abajo) — splice mientras se itera hacia adelante
+  // se saltaría el elemento siguiente.
+  for (let iEd = todos.length - 1; iEd >= 0; iEd--) {
+    const ed = todos[iEd];
     if (alcanzable.has(ed.puerta.y * ancho + ed.puerta.x)) continue;
-    const senda = aEstrella(ancho, alto, ed.puerta, spawn, costeSenda);
-    if (!senda) continue; // el validador lo reportará
-    const tallar = (x, y) => {
-      const t = terreno.get(x, y);
-      if (esAgua[y * ancho + x]) terreno.set(x, y, "puente");
-      else if (t === "cesped" || t === "tierra" || t === "tierra_labrada") terreno.set(x, y, "camino");
-    };
-    for (let i = 0; i < senda.length; i++) {
-      tallar(senda[i].x, senda[i].y);
-      // el A* da pasos diagonales pero se camina a 4 vecinos: rellenar el codo
-      if (i > 0 && senda[i].x !== senda[i - 1].x && senda[i].y !== senda[i - 1].y) tallar(senda[i].x, senda[i - 1].y);
+    let senda = aEstrella(ancho, alto, ed.puerta, spawn, costeSenda);
+    // reintento con más margen de exploración: el límite por defecto
+    // (200000) ya cubre de sobra cualquier tier actual (el mayor, 400x400,
+    // son 160000 casillas), así que hoy este reintento no debería disparar
+    // nunca — pero un mapa futuro más grande sí podría agotarlo antes de
+    // encontrar la puerta, y "ancho*alto" garantiza explorar el recinto
+    // COMPLETO antes de rendirse.
+    if (!senda) senda = aEstrella(ancho, alto, ed.puerta, spawn, costeSenda, ancho * alto);
+    if (senda) {
+      pintarPolilinea(senda, ANCHO_CALLE, ancho, alto, tallar);
+      alcanzable = floodDesde(terreno, spawn, TRANSITABLE_LOCAL, bloqueadosPorDecoracion);
     }
-    alcanzable = floodDesde(terreno, spawn, TRANSITABLE_LOCAL);
+    if (alcanzable.has(ed.puerta.y * ancho + ed.puerta.x)) continue; // reparado de verdad
+    // NI con más exploración hubo ruta con coste finito, O la que encontró
+    // el A* (8 vecinos, como el resto del bakeador) resultó ser un
+    // espejismo: un tramo de calle ya existente pero puramente diagonal que
+    // el propio fixer estructural de más arriba no pudo cerrar (los dos
+    // codos ortogonales bloqueados por edificios reales — visto de verdad
+    // en capital_jarl, casco apretado con colchón bajo: la calle queda a
+    // veces literalmente encajonada entre dos solares) — floodDesde
+    // (4-direccional, como el movimiento real) sigue sin ver la puerta
+    // pese a que aEstrella "encontró camino". Confirmarlo con la MISMA
+    // conectividad 4-direccional que usa el juego, no solo "senda!=null",
+    // es lo que de verdad decide si hay que rendirse. En vez de dejarlo
+    // roto para que lo reporte validarCiudad (y el bake entero reviente),
+    // se saca del bake: mismo criterio ya aceptado por el streamer para
+    // "edificio sin sitio" (ver "red de seguridad" más arriba) — una
+    // ciudad válida con un edificio menos gana a un bake que no termina.
+    todos.splice(iEd, 1);
+    descartados.push(ed);
   }
 
   // --- 6. salida ------------------------------------------------------------
@@ -974,8 +1101,16 @@ function generarCiudad({ tier, semilla, catalogos, catalogoAsentamientos }) {
 // ---------------------------------------------------------------------------
 const TRANSITABLES = new Set(["cesped", "camino", "adoquin", "tierra", "tierra_labrada", "puente"]);
 
-// flood 4-vecinos sobre una Rejilla de terreno con el conjunto transitable dado
-function floodDesde(terreno, inicio, transitables) {
+// flood 4-vecinos sobre una Rejilla de terreno con el conjunto transitable
+// dado. `bloqueados` (opcional, duck-typed con `.has(k)` sobre el índice
+// empaquetado y*ancho+x) permite tratar como intransitable una casilla que
+// el TIPO de terreno diría "transitable" — árbol/farola/valla sólidos, el
+// mismo criterio que ya usa validarCiudad (sus "tapones" temporales) y que
+// costeSenda ya aplicaba al buscar una senda NUEVA: sin este parámetro, el
+// bucle de reparación de más abajo podía dar por "ya alcanzable" una puerta
+// cuyo ÚNICO conector real estaba tapado por una pieza de decoración, y
+// saltarse la reparación que validarCiudad seguía exigiendo.
+function floodDesde(terreno, inicio, transitables, bloqueados) {
   const visitado = new Set([inicio.y * terreno.ancho + inicio.x]);
   const cola = [[inicio.x, inicio.y]];
   while (cola.length) {
@@ -984,6 +1119,7 @@ function floodDesde(terreno, inicio, transitables) {
       const nx = x + dx, ny = y + dy, k = ny * terreno.ancho + nx;
       if (!terreno.dentro(nx, ny) || visitado.has(k)) continue;
       if (!transitables.has(terreno.get(nx, ny))) continue;
+      if (bloqueados && bloqueados.has(k)) continue;
       visitado.add(k);
       cola.push([nx, ny]);
     }

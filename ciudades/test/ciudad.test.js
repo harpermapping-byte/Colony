@@ -14,15 +14,113 @@ const catalogos = cargarCatalogos();
 const asentamientos = cargarAsentamientos();
 const tiers = Object.keys(asentamientos).filter((k) => !k.startsWith("_"));
 
-test("todos los tiers generan ciudades VÁLIDAS (estancas, conectadas, sin solapes) con 2 semillas", () => {
+// Nº de semillas por tier para el barrido de validez de más abajo: el bug
+// real de conectividad diagonal (docs/GDD_Bakeador_POIs.md §6) SOLO se
+// reprodujo empíricamente en los tiers de radio pequeño y pocas puertas
+// (aldea_pequena/aldea/pueblo/castillo/asentamiento_hostil — un único
+// camino principal, sin red de rutas redundante) — capital/capital_jarl/
+// gran_capital, con más puertas y una malla mucho más densa, no dieron
+// NINGÚN fallo en un barrido de 40 semillas antes del fix. Se pide más
+// muestra donde de verdad hacía falta (34, "deja de depender de la
+// suerte") y se sube una cantidad razonable en el resto (10, x5 sobre las
+// 2 de antes) — 34 semillas en los 3 tiers grandes habría costado varios
+// minutos solo en este test (generarCiudad ahí es O(edificios²) en la capa
+// de decoración, ya documentado en la auditoría de rendimiento de
+// 2026-09-02) sin cubrir un caso que nunca se vio fallar.
+const SEMILLAS_POR_TIER = {
+  aldea_pequena: 34, aldea: 34, pueblo: 34, castillo: 34, asentamiento_hostil: 34,
+  capital: 10, capital_jarl: 10, gran_capital: 10,
+};
+const semillasDeTier = (tier) =>
+  Array.from({ length: SEMILLAS_POR_TIER[tier] ?? 10 }, (_, i) => `barrido-${i + 1}`);
+
+// Mismo chequeo que el fixer estructural de generar.js (repararCosturaDiagonal):
+// un camino/adoquín/puente sin NINGÚN vecino ORTOGONAL de calle pero con un
+// vecino DIAGONAL que sí lo es es un muro real para el movimiento en vivo
+// (server/src/mundo/colisiones.ts::moverAABB mueve X e Y por separado) —
+// generarCiudad debe entregar SIEMPRE un mapa sin ninguna de estas costuras
+// que el fixer PUDIERA haber cerrado, nunca solo "validarCiudad no se
+// queja" (validarCiudad usa el mismo criterio 4-direccional para la
+// conectividad puerta-por-puerta, pero esto lo comprueba en TODA casilla de
+// calle del mapa, no solo en las puertas). Devuelve, por cada costura, las
+// direcciones diagonales que la causan (para que el llamador pueda decidir
+// si era reparable de verdad, ver `esCosturaEvitable` más abajo).
+const ES_CALLE_SEAM = new Set(["camino", "adoquin", "puente"]);
+function encontrarCosturasDiagonales(ciudad) {
+  const { terreno, ancho, alto } = ciudad;
+  const costuras = [];
+  for (let y = 0; y < alto; y++) {
+    for (let x = 0; x < ancho; x++) {
+      if (!ES_CALLE_SEAM.has(terreno.get(x, y))) continue;
+      const tieneOrtoCalle = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
+        const t = terreno.get(x + dx, y + dy);
+        return t !== null && ES_CALLE_SEAM.has(t);
+      });
+      if (tieneOrtoCalle) continue;
+      const diagonalesCalle = [[1, 1], [1, -1], [-1, 1], [-1, -1]].filter(([dx, dy]) => {
+        const t = terreno.get(x + dx, y + dy);
+        return t !== null && ES_CALLE_SEAM.has(t);
+      });
+      if (diagonalesCalle.length > 0) costuras.push({ x, y, diagonales: diagonalesCalle });
+    }
+  }
+  return costuras;
+}
+
+// Una costura es EVITABLE (el fixer debería haberla cerrado) si, para
+// ALGUNA de sus direcciones diagonales, AL MENOS uno de los dos codos
+// ortogonales es convertible de verdad (no muro/solar_edificio real, no
+// árbol/decoración colisionable — mismo criterio EXACTO que usa
+// repararCosturaDiagonal en generar.js). Si TODAS sus direcciones tienen
+// los DOS codos bloqueados por geometría sólida real, no hay ninguna
+// casilla que convertir sin corromper un solar/muro de verdad — un
+// residual estructural aceptado (visto de verdad en `capital_jarl`, casco
+// apretado con colchón mínimo bajo por diseño: una calle puede quedar
+// encajonada entre dos solares reales sin que sobre ni una casilla).
+function esCosturaEvitable(ciudad, costura, catDeco) {
+  const { terreno } = ciudad;
+  const idMuro = terreno.datos.includes("empalizada") ? "empalizada" : "muralla_piedra";
+  const bloqueado = (cx, cy) => {
+    const t = terreno.get(cx, cy);
+    if (t === null || t === idMuro || t === "solar_edificio") return true;
+    if ((ciudad.arboles || []).some((a) => a.x === cx && a.y === cy && a.colisiona !== false)) return true;
+    return (ciudad.deco || []).some((d) => d.x === cx && d.y === cy && catDeco[d.i]?.colision);
+  };
+  return costura.diagonales.some(([dx, dy]) => !bloqueado(costura.x + dx, costura.y) || !bloqueado(costura.x, costura.y + dy));
+}
+
+test("todos los tiers generan ciudades VÁLIDAS (estancas, conectadas, sin solapes) con muchas semillas", () => {
   for (const tier of tiers) {
-    for (const semilla of ["test-1", "test-2"]) {
+    for (const semilla of semillasDeTier(tier)) {
       const ciudad = generarCiudad({ tier, semilla, catalogos });
       const errores = validarCiudad(ciudad);
       assert.deepStrictEqual(errores, [], `${tier}/${semilla}: ${errores.join(" | ")}`);
       assert.ok(ciudad.puertas.length >= 1, `${tier}: sin puertas de muralla`);
       assert.ok(ciudad.modulosMuralla.some((m) => m.tipo === "torre"), `${tier}: sin torres`);
       assert.ok(ciudad.modulosMuralla.some((m) => m.tipo === "puerta"), `${tier}: sin módulo puerta`);
+    }
+  }
+});
+
+test("regresión DIRECTA: aldea_pequena/rio con las semillas 's1' y 's13' (el bug real reportado — camino principal cruzando el río en un paso puramente diagonal, con los dos codos ortogonales de agua) ya valida limpio", () => {
+  const catDeco = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogo", "decoracion.json"), "utf8"));
+  for (const semilla of ["s1", "s13"]) {
+    const ciudad = generarCiudad({ tier: "aldea_pequena", semilla, catalogos });
+    assert.strictEqual(ciudad.variante, "rio", `${semilla}: se esperaba variante río (si el PRNG cambiara de resultado, esta regresión dejaría de probar lo que reportaba el bug)`);
+    const errores = validarCiudad(ciudad);
+    assert.deepStrictEqual(errores, [], `aldea_pequena/${semilla}: ${errores.join(" | ")}`);
+    const costuras = encontrarCosturasDiagonales(ciudad).filter((c) => esCosturaEvitable(ciudad, c, catDeco));
+    assert.deepStrictEqual(costuras, [], `aldea_pequena/${semilla}: quedó alguna costura diagonal EVITABLE sin conexión ortogonal`);
+  }
+});
+
+test("anchura: ninguna casilla de calle depende ÚNICAMENTE de un vecino diagonal, salvo que los dos codos posibles estén bloqueados por geometría real (muro/solar/decoración) y no haya nada seguro que convertir", () => {
+  const catDeco = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogo", "decoracion.json"), "utf8"));
+  for (const tier of tiers) {
+    for (const semilla of ["anchura-1", "anchura-2", "anchura-3"]) {
+      const ciudad = generarCiudad({ tier, semilla, catalogos });
+      const evitables = encontrarCosturasDiagonales(ciudad).filter((c) => esCosturaEvitable(ciudad, c, catDeco));
+      assert.deepStrictEqual(evitables, [], `${tier}/${semilla}: ${evitables.length} costura(s) diagonal(es) EVITABLE(S) sin reparar, p.ej. ${JSON.stringify(evitables[0])}`);
     }
   }
 });
