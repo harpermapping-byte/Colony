@@ -188,7 +188,7 @@ Sigue igual que en el aviso de arriba: luz y props de expositor de un mueble col
 
 Verificando en vivo la silueta de `docs/GDD_Bakeador_POIs.md` §13 (una pieza NUEVA, huella 184x184) se descubrió que el fix de arriba (leer `obj.dx/dy`) es necesario pero NO suficiente: corrige solo el desplazamiento SUB-casilla (`[0,1)`), pero `taller-vox/exportar_glb.js::exportarModelo` deja por defecto (`centrarXZ:false`) el `.glb` con su origen local en la ESQUINA de su propia rejilla, no en su centro geométrico — confirmado leyendo los accessors reales de `tienda_01.glb` (un edificio normal, ya bakeado, del pipeline de siempre): contenido en X∈[0.4,9.8], centro real en (5.1,4.1), NO en (0,0). Con `x=poi.x` representando el CENTRO del edificio (confirmado por la fórmula de la puerta de cualquier "edificio" POI, `poi.y + hl/2 + 1`) y el mesh anclado por la esquina sin compensación, el modelo real se renderiza desplazado del footprint de colisión por, aproximadamente, la MITAD del ancho/alto del propio edificio — no un residuo sub-casilla, un desplazamiento de varias casillas para un edificio normal (y de decenas para una pieza grande como la silueta de ciudad).
 
-**Cerrado para las piezas de esta sesión** (`generarSiluetaCiudad`/`generar_puerta_asentamiento`, ver §13bis del GDD de POIs): exportadas con `centrarXZ:true`. **NO cerrado para el resto del catálogo de edificios** (`taller-vox/generar_edificio.js`, TODOS los edificios sueltos de POI ya bakeados en `testflat`/`ciudad_demo`/`principal`) — mismo problema estructural, confirmado empíricamente, pero de blast radius mucho mayor (cientos de `.glb` ya aprobados y subidos en varios mapas) — pendiente real, sin abordar, documentado aquí para que la próxima sesión que toque render de edificios lo tenga en cuenta antes de asumir que la posición visual de un edificio coincide con su huella de colisión. ~~Sin abordar~~ **CERRADO 2026-09-11, ver la sección "Colisión de edificios alineada con su forma real" más abajo — corrección puramente de cliente, sin tocar ningún `.glb` ya aprobado.**
+**Cerrado para las piezas de esta sesión** (`generarSiluetaCiudad`/`generar_puerta_asentamiento`, ver §13bis del GDD de POIs): exportadas con `centrarXZ:true`. **NO cerrado para el resto del catálogo de edificios** (`taller-vox/generar_edificio.js`, TODOS los edificios sueltos de POI ya bakeados en `testflat`/`ciudad_demo`/`principal`) — mismo problema estructural, confirmado empíricamente, pero de blast radius mucho mayor (cientos de `.glb` ya aprobados y subidos en varios mapas) — pendiente real, sin abordar, documentado aquí para que la próxima sesión que toque render de edificios lo tenga en cuenta antes de asumir que la posición visual de un edificio coincide con su huella de colisión. ~~Sin abordar~~ **CERRADO 2026-09-11, ver la sección "Colisión de edificios alineada con su forma real" más abajo — corrección puramente de cliente, sin tocar ningún `.glb` ya aprobado.** ~~El residuo de 0.26-1.2 unidades que dejó esa corrección quedó pendiente~~ **CERRADO DE RAÍZ 2026-09-12, ver "Colisión de edificios: cierre del residuo catálogo-vs-.glb (Fase 1)" al final de este documento — esta vez SÍ regenerando el `.glb` compartido de edificios, con `--centrar-xz`.**
 
 ## Orillas verticales tierra↔agua + faldón del borde del mapa (2026-09-10, pedido streamer: "el terreno es plano, le falta en los bordes —sobre todo donde tenemos agua— la parte vertical del terreno, ese borde que se debería generar")
 
@@ -295,11 +295,13 @@ el desplazamiento es una fracción de una sola casilla (footprint típico
 que es mucho menos perceptible y NO es lo que reportó el streamer esta
 vez ("casas edificios etc") — queda fuera de esta pasada, candidato para
 una auditoría futura si se confirma como un problema real jugando.
-**Pendiente real, menor**: el residuo de 0.26-1.2 unidades por el
+~~**Pendiente real, menor**: el residuo de 0.26-1.2 unidades por el
 desajuste catálogo-vs-`.glb` real (punto 2 arriba) sigue sin cerrar — se
 podría reducir leyendo el `.glb` real en tiempo de bake y escribiendo sus
 dimensiones exactas en vez de las nominales, cambio en el pipeline de
-bake, no de cliente, fuera de alcance de esta pasada. Sin verificar en
+bake, no de cliente, fuera de alcance de esta pasada.~~ **CERRADO
+2026-09-12, ver "Colisión de edificios: cierre del residuo
+catálogo-vs-.glb (Fase 1)" al final de este documento.** Sin verificar en
 vivo con el streamer.
 
 ## Ventanas por ala/anexo sin solape + más variedad de techos y detalle por tier/riqueza (2026-09-12, investigación previa de otro agente con números reales, esta pasada implementó y verificó los 2 planes completos)
@@ -474,6 +476,110 @@ más adelante si el streamer lo pide al verlo en persona, no abordado aquí
 (scope creep fuera de lo pedido). (v) `casa_humilde`/`choza_pescador` con
 entramado+barro — tono adobe claramente distinto del wood-plank o Tudor
 de estuco de siempre, con las riostras diagonales visibles.
+
+## Colisión de edificios: cierre del residuo catálogo-vs-.glb (Fase 1) (2026-09-12, continuación de "Colisión de edificios alineada con su forma real" — retoma un agente interrumpido por límite de sesión a mitad de tarea, con el trabajo ya bien encaminado en su worktree)
+
+La sección anterior ("Colisión de edificios alineada con su forma real",
+2026-09-11) cerró el bug GRANDE (esquina-vs-centro, varias casillas de
+desplazamiento) con matemática pura en el cliente
+(`posicionEsquinaEdificio`), sin tocar ningún `.glb` — pero dejó un residuo
+DISTINTO y más pequeño, documentado explícitamente como pendiente: el
+lote compartido `assets/edificios/<tipo>_01..04.glb` (una única malla por
+`tipoEdificioId`, reusada por TODAS las instancias de ese tipo en
+cualquier ciudad) se genera con `taller-vox/generar_edificio.js
+generarTodo()` — que, SIN ningún plan de instancia real (`plan=null`),
+elegía su propia forma con `elegirForma(rnd, ...)`: una elongación
+aleatoria del ancho/alto Y una probabilidad de meter un ala/anexo, un
+sorteo PROPIO y ajeno al que `ciudades/src/generar.js` hace por su cuenta
+para cada instancia real (`w = base[0] + jitter(±1)`, más su propia
+tirada independiente de ala en `huellas.alas`). Como la malla compartida
+nunca refleja la forma real de ninguna instancia concreta, comparar sus
+accessors contra el footprint declarado en el catálogo daba SIEMPRE un
+residuo — no un simple redondeo, dos PRNG distintos comparados entre sí.
+
+**Arreglado con `opciones.formaFija`** (`generar_edificio.js`): cuando
+`generarTodo()` genera el LOTE COMPARTIDO (la única invocación real de
+`generarTodo` sin un `plan` de instancia detrás), `elegirForma()` devuelve
+siempre `{ancho:anchoBase, largo:largoBase, ala:null}` — el footprint
+BASE de `ciudades/catalogo/huellas.json::porTipo`, sin elongación propia
+ni ala propia — en vez de tirar sus propios dados. El resto de
+`generarTodo()` (galerías de prueba, tests) no pasa este flag, así que su
+comportamiento no cambia. Con esto, el lote compartido deja de ser una
+forma arbitraria y pasa a ser la representación más fiel posible de "un
+edificio de este tipo, sin modificar" — el mismo criterio que ya usa
+cualquier huella declarada del catálogo.
+
+**Regenerado el lote entero con `--centrar-xz`** (mismo flag ya probado
+con el mobiliario de interiores, 2026-09-06): los 296 `tipoEdificioId`×4
+variantes (312 `.glb` finales en `assets/edificios/`, tras contar también
+los que ya tenían más de 4 variantes de pasadas anteriores) se
+reexportaron con el mesh centrado en su propio origen local — antes
+anclado por la esquina (`centrarXZ:false`, el default histórico de
+edificios/naturaleza). Con esto, `client/src/render3d/sectorVisual.ts` YA
+NO necesita ninguna compensación esquina-vs-centro para `t:"e"`: se quitó
+la llamada a `posicionEsquinaEdificio` (y el import, ahora muerto en este
+archivo — la función se queda exportada en `posicionEdificio.ts`, con su
+test intacto, por si algún `.glb` futuro vuelve a anclarse por esquina) y
+la rama de edificios pasó a usar EXACTAMENTE el mismo camino que ya usaba
+la rama placeholder (`obj.dx`/`obj.dy`, el centro real sub-casilla).
+
+**Segundo bug real cerrado de paso, más grave que el residuo de forma**:
+`ciudades/src/index.js::exportarCiudad` iteraba `for (const p of
+ed.piezas)` y exportaba un objeto renderable `t:"e"` POR PIEZA (cuerpo +
+cada ala), los tres con el MISMO `i`/`va` (la misma referencia al `.glb`
+compartido) — antes de esta pasada eso tenía sentido porque el
+placeholder de caja necesitaba una caja por pieza para que el ala también
+tuviera terreno sólido visible debajo; pero con un `.glb` REAL compartido,
+`sectorVisual.ts::crearPropsSector` agrupa instancias por
+`${t}:${i}:${variante}` y monta UN `InstancedMesh` por grupo — así que un
+edificio con ala (L/T/U, 17 `tipoId` reales de `huellas.json::alas`)
+producía DOS instancias del MISMO edificio en DOS posiciones distintas: un
+edificio fantasma duplicado, desplazado la mitad del ala del original.
+Cerrado exportando el objeto renderable SOLO para `ed.piezas[0]` (el
+cuerpo principal) — las alas siguen alimentando la colisión/terreno sólido
+del bake (`generar.js::rasterizarPiezas`, sin tocar), simplemente ya no
+generan un segundo objeto visible. **Limitación aceptada a propósito**: un
+edificio con ala real tiene hoy terreno sólido correcto sobre el ala pero
+NADA visible ahí (mejor que un fantasma duplicado, no un edificio con ala
+visible de verdad — eso exigiría un `.glb` único por instancia, "Fase 2",
+cambio de arquitectura mayor, fuera de alcance de esta pasada, pendiente
+de que el streamer lo pida con su propio alcance).
+
+**Verificado con 5 métodos independientes, no dado por bueno con solo
+compilar**: (1) 312/312 `.glb` regenerados válidos estructuralmente
+(`taller-vox/validar_glb.js`, 0 inválidos). (2) Lectura NUMÉRICA de
+accessors reales tras el fix: `taberna_01.glb` (catálogo base [10,8]) sale
+centrado en (0,0) con rango X∈[-5.3,5.3]/Z∈[-4.3,4.3] (10.6×8.6, el
+pequeño sobrante es decoración real — ventanas/porche — que sobresale del
+rectángulo base); `templo_01`/`posada_01`/`casa_gremio_01` (catálogo
+[12,9]) dan 12.4-12.6×9.4-9.6, mismo patrón — antes de este fix ninguno de
+estos cuatro habría estado centrado ni habría coincidido con su base de
+catálogo, por construcción (formas y alas propias sorteadas sin relación
+con `huellas.json`). (3) Duplicados: generados 8 `pueblo` reales
+(151 edificios totales, 18 con ala/anexo real) con `generarCiudad`+
+`exportarCiudad` de PRODUCCIÓN, sin atajos — **151 edificios ⇒ 151
+objetos `t:"e"` exportados, exactamente 1:1** (con el código viejo
+habrían sido 169: uno por cada una de las 36 piezas de los 18 edificios
+con ala, más los 133 sin ala). (4) Verificación VISUAL real con el
+harness YA EXISTENTE `client/test/colisionEdificioAislado.{html,ts}`
+(pipeline de producción completo, `crearSectorVisual` sobre un sector real
+de `ciudad_demo`) — captura confirma los edificios visibles cayendo dentro
+de su wireframe de colisión esperado, sin desplazamiento perceptible. (5)
+Bake real de `baker/config/ejemplo-rapido.json` completo sin errores
+nuevos (mismo único aviso preexistente de caminos, sin relación con
+edificios). `cd client && npx tsc --noEmit` limpio, `cd server && npx tsc
+--noEmit` limpio, cliente 111/111, servidor 1356/1356 (cero archivo de
+servidor tocado, sin regresión), `ciudades/test/ciudad.test.js` 15/15,
+`taller-vox/test_edificio.js` 42/42 — todos sin regresión.
+
+**Pendiente real, explícitamente fuera de alcance**: "Fase 2" (un `.glb`
+único generado por instancia real, con su forma/ala/elongación exactas)
+NO se implementó — exigiría generar y exportar un modelo por CADA edificio
+de CADA ciudad bakeada (miles, no cientos) en vez de un lote compartido de
+4 variantes por tipo, cambio de arquitectura que necesita OK explícito del
+streamer antes de tocarlo. Un edificio con ala sigue sin arte visible
+sobre esa ala (solo terreno sólido). Sin verificar en vivo con el
+streamer — mismo criterio honesto del resto de esta sesión.
 
 ## Qué falta (pendiente, no bloquea lo anterior)
 

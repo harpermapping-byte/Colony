@@ -51,32 +51,47 @@ function exportarCiudad(ciudad, carpetaSalida) {
     objetosPorChunk.get(clave).push({ ...objeto, x: Math.floor(gx) - cxCh * TAMANO_CHUNK, y: Math.floor(gy) - cyCh * TAMANO_CHUNK });
   };
   for (const ed of ciudad.edificios) {
-    // UNA caja por PIEZA (cuerpo + cada ala en L/T/U), no una sola por
-    // edificio — con una sola caja del tamaño del cuerpo, un edificio en L
-    // dejaba el ala entera fuera de la caja: se veía el terreno
-    // "solar_edificio" (tierra sucia) asomando donde el ala ocupaba
-    // terreno pero no había caja encima (bug visual reportado). Misma
-    // rotación de pieza-a-mundo que generar.js:rasterizarPiezas, para que
-    // cada caja caiga EXACTO sobre el hueco que esa pieza rasterizó.
     const angulo = (ed.rot * Math.PI) / 180;
     const cosA = Math.cos(angulo), sinA = Math.sin(angulo);
     // Determinista por edificio (mismo criterio que el resto del bakeador:
     // misma semilla = mismo resultado siempre), no por pieza — todas las
     // alas de un mismo edificio en L/T/U comparten fachada/material.
     const va = semillaDesdeTexto(ed.semillaInterior) % VARIANTES_EDIFICIO;
-    for (const p of ed.piezas) {
-      const wx = ed.cx + p.ox * cosA - p.oy * sinA;
-      const wy = ed.cy + p.oy * cosA + p.ox * sinA;
-      // dx/dy: parte fraccionaria del centro real, que el redondeo a
-      // casilla entera de meterObjeto pierde — sin esto la caja 3D del
-      // cliente podía quedar hasta ~0.7 casillas desplazada de la huella
-      // real del terreno. Solo hace falta en edificios: el resto de props
-      // (árboles/deco) no necesitan precisión sub-casilla.
-      meterObjeto(wx, wy, {
-        i: ed.tipoEdificioId, t: "e", va, ro: ed.rot, es: 1, w: p.w, h: p.h,
-        dx: wx - Math.floor(wx), dy: wy - Math.floor(wy),
-      });
-    }
+    // SOLO el CUERPO PRINCIPAL (ed.piezas[0], siempre {ox:0,oy:0,w:ed.w,
+    // h:ed.h} — ver ciudades/src/generar.js) genera un objeto "e"
+    // RENDERIZABLE (2026-09-12, cierra el bug real "edificio con ala
+    // duplicado/fantasma", ver docs/GDD_Motor_3D_Props.md/GDD_Bakeador_POIs.md).
+    // Antes (comentario histórico: "UNA caja por PIEZA, cuerpo + cada ala,
+    // para que no se vea 'solar_edificio' asomando bajo el ala") cada pieza
+    // metía su PROPIO objeto "e" con el mismo `i`/`va` — con la caja
+    // placeholder (sin .glb) eso daba una caja del tamaño correcto por
+    // pieza, sin problema; pero con el .glb REAL (que desde el fix de
+    // `formaFija` de `generar_edificio.js` es SIEMPRE la forma base del
+    // catálogo, sin ala) las DOS piezas agrupan bajo la MISMA clave
+    // `${t}:${i}:${variante}` en `sectorVisual.ts::crearPropsSector` — el
+    // edificio ENTERO se instanciaba una segunda vez en la posición del ala,
+    // desplazado varias casillas (medido: hasta 5.55 casillas en un templo
+    // real ya promocionado). Las alas (`ed.piezas.slice(1)`) siguen
+    // alimentando la colisión REAL sin cambio — `generar.js::rasterizarPiezas`
+    // sigue marcando "solar_edificio" sobre CADA pieza, esto no lo toca, solo
+    // deja de generar un segundo objeto renderizable por ella.
+    // LIMITACIÓN CONOCIDA Y ACEPTADA (documentada a propósito, no escondida):
+    // un edificio real con ala tendrá terreno sólido correcto sobre el ala
+    // pero SIN nada visible ahí — mejor que el fantasma duplicado de antes.
+    // Un .glb real por instancia (con su propia ala fusionada) es la Fase 2
+    // del plan, un cambio de arquitectura mayor fuera de esta pasada.
+    const p = ed.piezas[0];
+    const wx = ed.cx + p.ox * cosA - p.oy * sinA;
+    const wy = ed.cy + p.oy * cosA + p.ox * sinA;
+    // dx/dy: parte fraccionaria del centro real, que el redondeo a
+    // casilla entera de meterObjeto pierde — sin esto la caja 3D del
+    // cliente podía quedar hasta ~0.7 casillas desplazada de la huella
+    // real del terreno. Solo hace falta en edificios: el resto de props
+    // (árboles/deco) no necesitan precisión sub-casilla.
+    meterObjeto(wx, wy, {
+      i: ed.tipoEdificioId, t: "e", va, ro: ed.rot, es: 1, w: p.w, h: p.h,
+      dx: wx - Math.floor(wx), dy: wy - Math.floor(wy),
+    });
   }
   // capa de vegetación: árboles/arbustos como vegetación normal del baker
   // (el cliente ya los instancia; la colisión la decide su catálogo)

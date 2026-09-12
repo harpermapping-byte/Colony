@@ -10,7 +10,6 @@ import type { CategoriaAsset } from "./assetCatalog";
 import { crearRigHumanoide } from "./rigHumanoide";
 import { NIVEL_MAXIMO_NIEVE } from "../mundo/nieve";
 import { construirOrillas, construirMuroNieve } from "./orillasTerreno";
-import { posicionEsquinaEdificio } from "./posicionEdificio";
 import proporcionesRig from "./proporcionesRig.json";
 
 // Terrenos NO transitables para el vagabundeo de fauna decorativa TERRESTRE
@@ -1152,36 +1151,24 @@ async function crearPropsSector(
             // justo en .5 se renderizaba desplazado hasta 0.5 casillas de su
             // huella de colisión real — mismo criterio que ya usaba la rama
             // placeholder, ahora igualado aquí.
+            // Edificios (`t:"e"`) YA NO necesitan compensar esquina-vs-centro
+            // aquí (2026-09-12, cierra el residuo real que dejó pendiente el
+            // fix del 2026-09-11 — ver docs/GDD_Motor_3D_Props.md): el lote
+            // compartido de `assets/edificios/<tipo>_01..04.glb` se
+            // regeneró con `--centrar-xz` (mismo flag ya probado con el
+            // mobiliario de interiores) desde que `generar_edificio.js`
+            // fuerza `opciones.formaFija` para ese lote — el `.glb` ya nace
+            // centrado en su propia rejilla, así que `posicion` (el centro
+            // REAL del footprint, `obj.dx/dy`) es directamente el sitio
+            // correcto, MISMO camino que ya usaba la rama placeholder de
+            // abajo. `posicionEsquinaEdificio` se queda exportada por si
+            // algún `.glb` futuro vuelve a anclarse por esquina, pero ya no
+            // tiene consumidor en este archivo.
             const centroX = grupo.tipo === "e" && obj.dx !== undefined ? obj.dx : 0.5;
             const centroZ = grupo.tipo === "e" && obj.dy !== undefined ? obj.dy : 0.5;
             posicion.set(globalX + centroX, 0, globalY + centroZ);
             rotacion.setFromAxisAngle(ejeY, THREE.MathUtils.degToRad(obj.ro || 0));
             escala.setScalar(obj.es || 1);
-            if (grupo.tipo === "e") {
-              // La colisión NO coincide con la forma visual (pedido
-              // streamer 2026-09-11, "la generacion de edificios debe ir
-              // mejor implementada... la colision NO COINCIDE con la
-              // forma"): `taller-vox/generar_edificio.js` exporta el `.glb`
-              // de un edificio ANCLADO POR LA ESQUINA de su propia rejilla
-              // local (`centrarXZ:false` por defecto en exportar_glb.js,
-              // NUNCA re-exportado con `--centrar-xz` como sí se hizo para
-              // el mobiliario de interiores) — mientras que `posicion` de
-              // arriba es el CENTRO real del footprint (`obj.dx/dy`). Sin
-              // compensar, la geometría (que arranca en su local (0,0), su
-              // ESQUINA) se renderiza con esa esquina en el centro del
-              // footprint, desplazando el edificio entero media anchura/
-              // altura de su huella de colisión real — documentado como
-              // pendiente real en docs/GDD_Motor_3D_Props.md desde
-              // 2026-09-09 ("blast radius mucho mayor: cientos de .glb ya
-              // aprobados y subidos"), cerrado aquí sin tocar NINGÚN .glb
-              // ya aprobado: se resta, en espacio LOCAL ya rotado/escalado,
-              // la mitad de la huella real (mismo `obj.w`/`obj.h` que ya
-              // usa la rama placeholder de abajo, con el mismo fallback).
-              const dimsFallback = dimensionesObjeto(grupo.tipo, grupo.id);
-              const anchoReal = obj.w || dimsFallback.ancho;
-              const largoReal = obj.h || dimsFallback.profundo;
-              posicion.copy(posicionEsquinaEdificio(posicion, rotacion, anchoReal, largoReal, obj.es || 1));
-            }
             matriz.compose(posicion, rotacion, escala);
             // offset local del mesh dentro de la plantilla — identidad hoy
             // (verificado), pero compone correcto si algún día deja de serlo.
