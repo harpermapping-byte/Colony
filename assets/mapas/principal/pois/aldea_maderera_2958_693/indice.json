@@ -37,43 +37,43 @@
     },
     {
       "tipo": "interior",
-      "x": 65,
-      "y": 64,
+      "x": 64,
+      "y": 63,
       "edificio": "taberna_vetrheim-16__poi__aldea_maderera_2958_693__taberna__2",
       "tipoEdificioId": "taberna"
     },
     {
       "tipo": "interior",
       "x": 63,
-      "y": 60,
+      "y": 58,
       "edificio": "granero_vetrheim-16__poi__aldea_maderera_2958_693__granero__1",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
-      "x": 64,
-      "y": 46,
+      "x": 42,
+      "y": 64,
       "edificio": "cabana_cazador_vetrheim-16__poi__aldea_maderera_2958_693__cabana_cazador__3",
       "tipoEdificioId": "cabana_cazador"
     },
     {
       "tipo": "interior",
-      "x": 72,
-      "y": 69,
+      "x": 64,
+      "y": 40,
       "edificio": "casa_humilde_vetrheim-16__poi__aldea_maderera_2958_693__casa_humilde__4",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 72,
-      "y": 71,
+      "x": 63,
+      "y": 39,
       "edificio": "cabana_apicultor_vetrheim-16__poi__aldea_maderera_2958_693__cabana_apicultor__6",
       "tipoEdificioId": "cabana_apicultor"
     },
     {
       "tipo": "interior",
-      "x": 48,
-      "y": 78,
+      "x": 72,
+      "y": 71,
       "edificio": "casa_humilde_vetrheim-16__poi__aldea_maderera_2958_693__casa_humilde__5",
       "tipoEdificioId": "casa_humilde"
     }
@@ -786,26 +786,19 @@
   "zonasVerdes": [
     {
       "tipo": "huerto",
-      "x": 38,
-      "y": 59,
+      "x": 37,
+      "y": 45,
       "r": 3
     },
     {
       "tipo": "huerto",
-      "x": 43,
-      "y": 72,
-      "r": 3
+      "x": 42,
+      "y": 70,
+      "r": 4
     }
   ],
   "parcelasReservadas": [],
   "luces": [
-    {
-      "x": 59,
-      "y": 60,
-      "id": "antorcha_poste",
-      "radio": 4.5,
-      "color": "#ff9a3a"
-    },
     {
       "x": 52,
       "y": 59,
@@ -855,8 +848,8 @@
       "id": "taberna_vetrheim-16__poi__aldea_maderera_2958_693__taberna__2",
       "tipo": "taberna",
       "semilla": "vetrheim-16:poi:aldea_maderera_2958_693:taberna:2",
-      "cx": 61.7,
-      "cy": 67.3,
+      "cx": 60.7,
+      "cy": 66.3,
       "rot": -135,
       "w": 10,
       "h": 8,
@@ -875,8 +868,8 @@
         }
       ],
       "puerta": {
-        "x": 65,
-        "y": 64
+        "x": 64,
+        "y": 63
       },
       "reservadoJugador": false
     },
@@ -885,7 +878,7 @@
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:aldea_maderera_2958_693:granero:1",
       "cx": 66.3,
-      "cy": 56.7,
+      "cy": 54.7,
       "rot": 45,
       "w": 8,
       "h": 8,
@@ -899,7 +892,7 @@
       ],
       "puerta": {
         "x": 63,
-        "y": 60
+        "y": 58
       },
       "reservadoJugador": false
     },
@@ -907,9 +900,32 @@
       "id": "cabana_cazador_vetrheim-16__poi__aldea_maderera_2958_693__cabana_cazador__3",
       "tipo": "cabana_cazador",
       "semilla": "vetrheim-16:poi:aldea_maderera_2958_693:cabana_cazador:3",
-      "cx": 67.4,
-      "cy": 45.5,
-      "rot": 90,
+      "cx": 40.8,
+      "cy": 61,
+      "rot": -27,
+      "w": 7,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 42,
+        "y": 64
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16__poi__aldea_maderera_2958_693__casa_humilde__4",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:aldea_maderera_2958_693:casa_humilde:4",
+      "cx": 67,
+      "cy": 41.2,
+      "rot": -243,
       "w": 7,
       "h": 5,
       "piezas": [
@@ -922,30 +938,7 @@
       ],
       "puerta": {
         "x": 64,
-        "y": 46
-      },
-      "reservadoJugador": false
-    },
-    {
-      "id": "casa_humilde_vetrheim-16__poi__aldea_maderera_2958_693__casa_humilde__4",
-      "tipo": "casa_humilde",
-      "semilla": "vetrheim-16:poi:aldea_maderera_2958_693:casa_humilde:4",
-      "cx": 74.3,
-      "cy": 66.7,
-      "rot": 45,
-      "w": 7,
-      "h": 5,
-      "piezas": [
-        {
-          "ox": 0,
-          "oy": 0,
-          "w": 7,
-          "h": 5
-        }
-      ],
-      "puerta": {
-        "x": 72,
-        "y": 69
+        "y": 40
       },
       "reservadoJugador": true
     },
@@ -953,6 +946,29 @@
       "id": "cabana_apicultor_vetrheim-16__poi__aldea_maderera_2958_693__cabana_apicultor__6",
       "tipo": "cabana_apicultor",
       "semilla": "vetrheim-16:poi:aldea_maderera_2958_693:cabana_apicultor:6",
+      "cx": 60,
+      "cy": 37.8,
+      "rot": -63,
+      "w": 6,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 6,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 63,
+        "y": 39
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16__poi__aldea_maderera_2958_693__casa_humilde__5",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:aldea_maderera_2958_693:casa_humilde:5",
       "cx": 69.7,
       "cy": 73.3,
       "rot": -135,
@@ -969,29 +985,6 @@
       "puerta": {
         "x": 72,
         "y": 71
-      },
-      "reservadoJugador": false
-    },
-    {
-      "id": "casa_humilde_vetrheim-16__poi__aldea_maderera_2958_693__casa_humilde__5",
-      "tipo": "casa_humilde",
-      "semilla": "vetrheim-16:poi:aldea_maderera_2958_693:casa_humilde:5",
-      "cx": 51.4,
-      "cy": 77.5,
-      "rot": 90,
-      "w": 6,
-      "h": 5,
-      "piezas": [
-        {
-          "ox": 0,
-          "oy": 0,
-          "w": 6,
-          "h": 5
-        }
-      ],
-      "puerta": {
-        "x": 48,
-        "y": 78
       },
       "reservadoJugador": false
     }

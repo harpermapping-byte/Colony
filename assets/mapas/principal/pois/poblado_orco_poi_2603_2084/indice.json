@@ -43,64 +43,64 @@
     },
     {
       "tipo": "interior",
-      "x": 64,
-      "y": 69,
+      "x": 49,
+      "y": 67,
       "edificio": "granero_vetrheim-16__poi__poblado_orco_poi_2603_2084__granero__2",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
-      "x": 48,
-      "y": 57,
+      "x": 63,
+      "y": 59,
       "edificio": "granero_vetrheim-16__poi__poblado_orco_poi_2603_2084__granero__10",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
-      "x": 65,
-      "y": 72,
+      "x": 49,
+      "y": 49,
       "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__4",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 43,
-      "y": 50,
+      "x": 42,
+      "y": 74,
       "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__6",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 74,
-      "y": 76,
+      "x": 64,
+      "y": 73,
       "edificio": "establo_vetrheim-16__poi__poblado_orco_poi_2603_2084__establo__9",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
-      "x": 39,
-      "y": 48,
+      "x": 76,
+      "y": 74,
       "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__8",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 32,
-      "y": 62,
+      "x": 42,
+      "y": 74,
       "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__1",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 75,
-      "y": 52,
+      "x": 73,
+      "y": 76,
       "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__3",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 78,
-      "y": 75,
+      "x": 37,
+      "y": 53,
       "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__5",
       "tipoEdificioId": "casa_humilde"
     }
@@ -1006,9 +1006,9 @@
       "id": "granero_vetrheim-16__poi__poblado_orco_poi_2603_2084__granero__2",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:granero:2",
-      "cx": 67.3,
-      "cy": 65.7,
-      "rot": 45,
+      "cx": 45.7,
+      "cy": 63.7,
+      "rot": -45,
       "w": 9,
       "h": 8,
       "piezas": [
@@ -1026,8 +1026,8 @@
         }
       ],
       "puerta": {
-        "x": 64,
-        "y": 69
+        "x": 49,
+        "y": 67
       },
       "reservadoJugador": false
     },
@@ -1035,9 +1035,9 @@
       "id": "granero_vetrheim-16__poi__poblado_orco_poi_2603_2084__granero__10",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:granero:10",
-      "cx": 45,
-      "cy": 60,
-      "rot": -135,
+      "cx": 67,
+      "cy": 63,
+      "rot": -225,
       "w": 9,
       "h": 7,
       "piezas": [
@@ -1049,8 +1049,8 @@
         }
       ],
       "puerta": {
-        "x": 48,
-        "y": 57
+        "x": 63,
+        "y": 59
       },
       "reservadoJugador": false
     },
@@ -1058,9 +1058,9 @@
       "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__4",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:4",
-      "cx": 62,
-      "cy": 75,
-      "rot": -135,
+      "cx": 46,
+      "cy": 46,
+      "rot": -45,
       "w": 8,
       "h": 7,
       "piezas": [
@@ -1072,8 +1072,8 @@
         }
       ],
       "puerta": {
-        "x": 65,
-        "y": 72
+        "x": 49,
+        "y": 49
       },
       "reservadoJugador": false
     },
@@ -1082,8 +1082,8 @@
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:6",
       "cx": 45.6,
-      "cy": 47.4,
-      "rot": 45,
+      "cy": 77.6,
+      "rot": -225,
       "w": 8,
       "h": 6,
       "piezas": [
@@ -1095,8 +1095,8 @@
         }
       ],
       "puerta": {
-        "x": 43,
-        "y": 50
+        "x": 42,
+        "y": 74
       },
       "reservadoJugador": false
     },
@@ -1104,9 +1104,9 @@
       "id": "establo_vetrheim-16__poi__poblado_orco_poi_2603_2084__establo__9",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:establo:9",
-      "cx": 73.5,
-      "cy": 79.9,
-      "rot": -180,
+      "cx": 61.4,
+      "cy": 75.6,
+      "rot": -135,
       "w": 8,
       "h": 6,
       "piezas": [
@@ -1124,8 +1124,8 @@
         }
       ],
       "puerta": {
-        "x": 74,
-        "y": 76
+        "x": 64,
+        "y": 73
       },
       "reservadoJugador": false
     },
@@ -1133,9 +1133,9 @@
       "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__8",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:8",
-      "cx": 36,
-      "cy": 51,
-      "rot": -135,
+      "cx": 74.3,
+      "cy": 70.1,
+      "rot": -27,
       "w": 6,
       "h": 7,
       "piezas": [
@@ -1147,8 +1147,8 @@
         }
       ],
       "puerta": {
-        "x": 39,
-        "y": 48
+        "x": 76,
+        "y": 74
       },
       "reservadoJugador": false
     },
@@ -1156,9 +1156,9 @@
       "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__1",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:1",
-      "cx": 35.4,
-      "cy": 63.5,
-      "rot": -243,
+      "cx": 39.4,
+      "cy": 71.4,
+      "rot": -45,
       "w": 6,
       "h": 6,
       "piezas": [
@@ -1170,8 +1170,8 @@
         }
       ],
       "puerta": {
-        "x": 32,
-        "y": 62
+        "x": 42,
+        "y": 74
       },
       "reservadoJugador": false
     },
@@ -1179,9 +1179,9 @@
       "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__3",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:3",
-      "cx": 74.5,
-      "cy": 48.6,
-      "rot": 0,
+      "cx": 71.8,
+      "cy": 79,
+      "rot": -153,
       "w": 7,
       "h": 5,
       "piezas": [
@@ -1193,8 +1193,8 @@
         }
       ],
       "puerta": {
-        "x": 75,
-        "y": 52
+        "x": 73,
+        "y": 76
       },
       "reservadoJugador": false
     },
@@ -1202,9 +1202,9 @@
       "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_2603_2084__casa_humilde__5",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_2603_2084:casa_humilde:5",
-      "cx": 77.5,
-      "cy": 71.6,
-      "rot": 0,
+      "cx": 34.7,
+      "cy": 50.7,
+      "rot": -45,
       "w": 6,
       "h": 5,
       "piezas": [
@@ -1216,8 +1216,8 @@
         }
       ],
       "puerta": {
-        "x": 78,
-        "y": 75
+        "x": 37,
+        "y": 53
       },
       "reservadoJugador": false
     }

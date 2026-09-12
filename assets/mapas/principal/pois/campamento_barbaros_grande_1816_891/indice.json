@@ -36,45 +36,73 @@
     },
     {
       "tipo": "interior",
-      "x": 63,
-      "y": 58,
+      "x": 52,
+      "y": 67,
       "edificio": "arena_combate_vetrheim-16__poi__campamento_barbaros_grande_1816_891__arena_combate__8",
       "tipoEdificioId": "arena_combate"
     },
     {
       "tipo": "interior",
-      "x": 78,
-      "y": 77,
+      "x": 62,
+      "y": 55,
       "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__7",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
-      "x": 54,
-      "y": 76,
+      "x": 73,
+      "y": 78,
       "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__9",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
-      "x": 63,
-      "y": 84,
+      "x": 56,
+      "y": 53,
       "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__3",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
-      "x": 74,
-      "y": 78,
+      "x": 50,
+      "y": 80,
       "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__6",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
-      "x": 87,
-      "y": 53,
+      "x": 77,
+      "y": 76,
       "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__5",
       "tipoEdificioId": "establo"
+    },
+    {
+      "tipo": "interior",
+      "x": 80,
+      "y": 58,
+      "edificio": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__1",
+      "tipoEdificioId": "establo"
+    },
+    {
+      "tipo": "interior",
+      "x": 54,
+      "y": 47,
+      "edificio": "casa_humilde_vetrheim-16__poi__campamento_barbaros_grande_1816_891__casa_humilde__10",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 89,
+      "y": 51,
+      "edificio": "casa_humilde_vetrheim-16__poi__campamento_barbaros_grande_1816_891__casa_humilde__4",
+      "tipoEdificioId": "casa_humilde"
+    },
+    {
+      "tipo": "interior",
+      "x": 68,
+      "y": 66,
+      "edificio": "casa_humilde_vetrheim-16__poi__campamento_barbaros_grande_1816_891__casa_humilde__2",
+      "tipoEdificioId": "casa_humilde"
     }
   ],
   "muralla": {
@@ -899,13 +927,6 @@
   "parcelasReservadas": [],
   "luces": [
     {
-      "x": 91,
-      "y": 51,
-      "id": "antorcha_poste",
-      "radio": 4.5,
-      "color": "#ff9a3a"
-    },
-    {
       "x": 64,
       "y": 70,
       "id": "antorcha_poste",
@@ -920,8 +941,8 @@
       "color": "#ff9a3a"
     },
     {
-      "x": 87,
-      "y": 56,
+      "x": 88,
+      "y": 55,
       "id": "antorcha_poste",
       "radio": 4.5,
       "color": "#ff9a3a"
@@ -929,13 +950,6 @@
     {
       "x": 79,
       "y": 62,
-      "id": "antorcha_poste",
-      "radio": 4.5,
-      "color": "#ff9a3a"
-    },
-    {
-      "x": 70,
-      "y": 66,
       "id": "antorcha_poste",
       "radio": 4.5,
       "color": "#ff9a3a"
@@ -969,9 +983,9 @@
       "id": "arena_combate_vetrheim-16__poi__campamento_barbaros_grande_1816_891__arena_combate__8",
       "tipo": "arena_combate",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:arena_combate:8",
-      "cx": 68.7,
-      "cy": 55.4,
-      "rot": 63,
+      "cx": 47.6,
+      "cy": 71.4,
+      "rot": -135,
       "w": 14,
       "h": 11,
       "piezas": [
@@ -983,8 +997,8 @@
         }
       ],
       "puerta": {
-        "x": 63,
-        "y": 58
+        "x": 52,
+        "y": 67
       },
       "reservadoJugador": false
     },
@@ -992,9 +1006,9 @@
       "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__7",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:7",
-      "cx": 77.5,
-      "cy": 72.1,
-      "rot": 0,
+      "cx": 65.3,
+      "cy": 51.7,
+      "rot": 45,
       "w": 10,
       "h": 8,
       "piezas": [
@@ -1012,8 +1026,8 @@
         }
       ],
       "puerta": {
-        "x": 78,
-        "y": 77
+        "x": 62,
+        "y": 55
       },
       "reservadoJugador": false
     },
@@ -1021,9 +1035,9 @@
       "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__9",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:9",
-      "cx": 50.7,
-      "cy": 72.7,
-      "rot": -45,
+      "cx": 71.1,
+      "cy": 82.3,
+      "rot": -153,
       "w": 9,
       "h": 8,
       "piezas": [
@@ -1035,8 +1049,8 @@
         }
       ],
       "puerta": {
-        "x": 54,
-        "y": 76
+        "x": 73,
+        "y": 78
       },
       "reservadoJugador": false
     },
@@ -1044,9 +1058,9 @@
       "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__3",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:3",
-      "cx": 58.6,
-      "cy": 83.5,
-      "rot": -90,
+      "cx": 53,
+      "cy": 56,
+      "rot": -135,
       "w": 10,
       "h": 7,
       "piezas": [
@@ -1058,8 +1072,8 @@
         }
       ],
       "puerta": {
-        "x": 63,
-        "y": 84
+        "x": 56,
+        "y": 53
       },
       "reservadoJugador": false
     },
@@ -1067,9 +1081,9 @@
       "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__6",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:6",
-      "cx": 73.5,
-      "cy": 82.9,
-      "rot": -180,
+      "cx": 54.3,
+      "cy": 84.3,
+      "rot": -225,
       "w": 8,
       "h": 8,
       "piezas": [
@@ -1087,8 +1101,8 @@
         }
       ],
       "puerta": {
-        "x": 74,
-        "y": 78
+        "x": 50,
+        "y": 80
       },
       "reservadoJugador": false
     },
@@ -1096,9 +1110,9 @@
       "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__5",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:5",
-      "cx": 84,
-      "cy": 50,
-      "rot": -45,
+      "cx": 80,
+      "cy": 73,
+      "rot": 45,
       "w": 9,
       "h": 7,
       "piezas": [
@@ -1110,8 +1124,100 @@
         }
       ],
       "puerta": {
-        "x": 87,
-        "y": 53
+        "x": 77,
+        "y": 76
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "establo_vetrheim-16__poi__campamento_barbaros_grande_1816_891__establo__1",
+      "tipo": "establo",
+      "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:establo:1",
+      "cx": 77.4,
+      "cy": 55.4,
+      "rot": -45,
+      "w": 10,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 10,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 80,
+        "y": 58
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16__poi__campamento_barbaros_grande_1816_891__casa_humilde__10",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:casa_humilde:10",
+      "cx": 57,
+      "cy": 44,
+      "rot": 45,
+      "w": 7,
+      "h": 7,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 7
+        }
+      ],
+      "puerta": {
+        "x": 54,
+        "y": 47
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16__poi__campamento_barbaros_grande_1816_891__casa_humilde__4",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:casa_humilde:4",
+      "cx": 86.4,
+      "cy": 48.4,
+      "rot": -45,
+      "w": 7,
+      "h": 6,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 7,
+          "h": 6
+        }
+      ],
+      "puerta": {
+        "x": 89,
+        "y": 51
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16__poi__campamento_barbaros_grande_1816_891__casa_humilde__2",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:campamento_barbaros_grande_1816_891:casa_humilde:2",
+      "cx": 71.3,
+      "cy": 69.3,
+      "rot": -225,
+      "w": 8,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 68,
+        "y": 66
       },
       "reservadoJugador": false
     }

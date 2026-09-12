@@ -36,57 +36,57 @@
     },
     {
       "tipo": "interior",
-      "x": 69,
-      "y": 70,
+      "x": 79,
+      "y": 90,
       "edificio": "establo_vetrheim-16__poi__guarida_bandidos_2599_120__establo__4",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
-      "x": 66,
-      "y": 82,
+      "x": 92,
+      "y": 68,
       "edificio": "establo_vetrheim-16__poi__guarida_bandidos_2599_120__establo__3",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
-      "x": 70,
-      "y": 62,
+      "x": 74,
+      "y": 87,
       "edificio": "casa_humilde_vetrheim-16__poi__guarida_bandidos_2599_120__casa_humilde__5",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 78,
-      "y": 89,
+      "x": 70,
+      "y": 59,
       "edificio": "casa_humilde_vetrheim-16__poi__guarida_bandidos_2599_120__casa_humilde__9",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 93,
-      "y": 69,
+      "x": 68,
+      "y": 68,
       "edificio": "torre_militar_vetrheim-16__poi__guarida_bandidos_2599_120__torre_militar__1",
       "tipoEdificioId": "torre_militar"
     },
     {
       "tipo": "interior",
-      "x": 96,
-      "y": 78,
+      "x": 99,
+      "y": 77,
       "edificio": "casa_humilde_vetrheim-16__poi__guarida_bandidos_2599_120__casa_humilde__6",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 54,
-      "y": 84,
+      "x": 49,
+      "y": 72,
       "edificio": "casa_humilde_vetrheim-16__poi__guarida_bandidos_2599_120__casa_humilde__7",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 69,
-      "y": 58,
+      "x": 55,
+      "y": 83,
       "edificio": "torre_militar_vetrheim-16__poi__guarida_bandidos_2599_120__torre_militar__8",
       "tipoEdificioId": "torre_militar"
     },
@@ -1020,9 +1020,9 @@
       "id": "establo_vetrheim-16__poi__guarida_bandidos_2599_120__establo__4",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:establo:4",
-      "cx": 64.1,
-      "cy": 69.5,
-      "rot": -90,
+      "cx": 82.3,
+      "cy": 86.7,
+      "rot": 45,
       "w": 9,
       "h": 8,
       "piezas": [
@@ -1040,8 +1040,8 @@
         }
       ],
       "puerta": {
-        "x": 69,
-        "y": 70
+        "x": 79,
+        "y": 90
       },
       "reservadoJugador": false
     },
@@ -1049,9 +1049,9 @@
       "id": "establo_vetrheim-16__poi__guarida_bandidos_2599_120__establo__3",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:establo:3",
-      "cx": 67.9,
-      "cy": 86.3,
-      "rot": -207,
+      "cx": 88.7,
+      "cy": 64.7,
+      "rot": -45,
       "w": 8,
       "h": 8,
       "piezas": [
@@ -1063,8 +1063,8 @@
         }
       ],
       "puerta": {
-        "x": 66,
-        "y": 82
+        "x": 92,
+        "y": 68
       },
       "reservadoJugador": false
     },
@@ -1072,9 +1072,9 @@
       "id": "casa_humilde_vetrheim-16__poi__guarida_bandidos_2599_120__casa_humilde__5",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:5",
-      "cx": 74.4,
-      "cy": 61.5,
-      "rot": 90,
+      "cx": 71,
+      "cy": 90,
+      "rot": -135,
       "w": 8,
       "h": 7,
       "piezas": [
@@ -1086,8 +1086,8 @@
         }
       ],
       "puerta": {
-        "x": 70,
-        "y": 62
+        "x": 74,
+        "y": 87
       },
       "reservadoJugador": false
     },
@@ -1095,9 +1095,9 @@
       "id": "casa_humilde_vetrheim-16__poi__guarida_bandidos_2599_120__casa_humilde__9",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:9",
-      "cx": 80.6,
-      "cy": 86.4,
-      "rot": 45,
+      "cx": 73.4,
+      "cy": 57.5,
+      "rot": 63,
       "w": 8,
       "h": 6,
       "piezas": [
@@ -1109,8 +1109,8 @@
         }
       ],
       "puerta": {
-        "x": 78,
-        "y": 89
+        "x": 70,
+        "y": 59
       },
       "reservadoJugador": false
     },
@@ -1118,8 +1118,8 @@
       "id": "torre_militar_vetrheim-16__poi__guarida_bandidos_2599_120__torre_militar__1",
       "tipo": "torre_militar",
       "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:torre_militar:1",
-      "cx": 89.1,
-      "cy": 67.3,
+      "cx": 64.1,
+      "cy": 66.3,
       "rot": -63,
       "w": 6,
       "h": 7,
@@ -1132,8 +1132,8 @@
         }
       ],
       "puerta": {
-        "x": 93,
-        "y": 69
+        "x": 68,
+        "y": 68
       },
       "reservadoJugador": false
     },
@@ -1141,31 +1141,8 @@
       "id": "casa_humilde_vetrheim-16__poi__guarida_bandidos_2599_120__casa_humilde__6",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:6",
-      "cx": 95.5,
-      "cy": 81.4,
-      "rot": -180,
-      "w": 8,
-      "h": 5,
-      "piezas": [
-        {
-          "ox": 0,
-          "oy": 0,
-          "w": 8,
-          "h": 5
-        }
-      ],
-      "puerta": {
-        "x": 96,
-        "y": 78
-      },
-      "reservadoJugador": false
-    },
-    {
-      "id": "casa_humilde_vetrheim-16__poi__guarida_bandidos_2599_120__casa_humilde__7",
-      "tipo": "casa_humilde",
-      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:7",
-      "cx": 55.2,
-      "cy": 87,
+      "cx": 100.2,
+      "cy": 80,
       "rot": -207,
       "w": 8,
       "h": 5,
@@ -1178,8 +1155,31 @@
         }
       ],
       "puerta": {
-        "x": 54,
-        "y": 84
+        "x": 99,
+        "y": 77
+      },
+      "reservadoJugador": false
+    },
+    {
+      "id": "casa_humilde_vetrheim-16__poi__guarida_bandidos_2599_120__casa_humilde__7",
+      "tipo": "casa_humilde",
+      "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:casa_humilde:7",
+      "cx": 51.3,
+      "cy": 69.7,
+      "rot": 45,
+      "w": 8,
+      "h": 5,
+      "piezas": [
+        {
+          "ox": 0,
+          "oy": 0,
+          "w": 8,
+          "h": 5
+        }
+      ],
+      "puerta": {
+        "x": 49,
+        "y": 72
       },
       "reservadoJugador": false
     },
@@ -1187,9 +1187,9 @@
       "id": "torre_militar_vetrheim-16__poi__guarida_bandidos_2599_120__torre_militar__8",
       "tipo": "torre_militar",
       "semilla": "vetrheim-16:poi:guarida_bandidos_2599_120:torre_militar:8",
-      "cx": 64.6,
-      "cy": 57.5,
-      "rot": -90,
+      "cx": 56.7,
+      "cy": 86.9,
+      "rot": -207,
       "w": 5,
       "h": 7,
       "piezas": [
@@ -1201,8 +1201,8 @@
         }
       ],
       "puerta": {
-        "x": 69,
-        "y": 58
+        "x": 55,
+        "y": 83
       },
       "reservadoJugador": false
     },

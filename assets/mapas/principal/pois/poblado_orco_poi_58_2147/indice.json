@@ -38,36 +38,36 @@
     },
     {
       "tipo": "interior",
-      "x": 64,
-      "y": 57,
+      "x": 65,
+      "y": 58,
       "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_58_2147__casa_humilde__2",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 56,
-      "y": 74,
+      "x": 54,
+      "y": 76,
       "edificio": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_58_2147__casa_humilde__4",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 78,
-      "y": 71,
+      "x": 57,
+      "y": 50,
       "edificio": "granero_vetrheim-16__poi__poblado_orco_poi_58_2147__granero__1",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
-      "x": 55,
-      "y": 75,
+      "x": 53,
+      "y": 68,
       "edificio": "granero_vetrheim-16__poi__poblado_orco_poi_58_2147__granero__3",
       "tipoEdificioId": "granero"
     },
     {
       "tipo": "interior",
-      "x": 58,
-      "y": 49,
+      "x": 46,
+      "y": 63,
       "edificio": "granero_vetrheim-16__poi__poblado_orco_poi_58_2147__granero__5",
       "tipoEdificioId": "granero"
     },
@@ -1011,8 +1011,8 @@
       "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_58_2147__casa_humilde__2",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_58_2147:casa_humilde:2",
-      "cx": 67,
-      "cy": 54,
+      "cx": 68,
+      "cy": 55,
       "rot": 45,
       "w": 8,
       "h": 7,
@@ -1025,8 +1025,8 @@
         }
       ],
       "puerta": {
-        "x": 64,
-        "y": 57
+        "x": 65,
+        "y": 58
       },
       "reservadoJugador": false
     },
@@ -1034,8 +1034,8 @@
       "id": "casa_humilde_vetrheim-16__poi__poblado_orco_poi_58_2147__casa_humilde__4",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_58_2147:casa_humilde:4",
-      "cx": 60,
-      "cy": 78,
+      "cx": 58,
+      "cy": 80,
       "rot": -225,
       "w": 8,
       "h": 7,
@@ -1048,8 +1048,8 @@
         }
       ],
       "puerta": {
-        "x": 56,
-        "y": 74
+        "x": 54,
+        "y": 76
       },
       "reservadoJugador": false
     },
@@ -1057,9 +1057,9 @@
       "id": "granero_vetrheim-16__poi__poblado_orco_poi_58_2147__granero__1",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_58_2147:granero:1",
-      "cx": 79.7,
-      "cy": 67.1,
-      "rot": 27,
+      "cx": 54,
+      "cy": 53,
+      "rot": -135,
       "w": 8,
       "h": 7,
       "piezas": [
@@ -1071,8 +1071,8 @@
         }
       ],
       "puerta": {
-        "x": 78,
-        "y": 71
+        "x": 57,
+        "y": 50
       },
       "reservadoJugador": false
     },
@@ -1080,9 +1080,9 @@
       "id": "granero_vetrheim-16__poi__poblado_orco_poi_58_2147__granero__3",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_58_2147:granero:3",
-      "cx": 51.7,
-      "cy": 71.7,
-      "rot": -45,
+      "cx": 51.1,
+      "cy": 72.3,
+      "rot": -153,
       "w": 7,
       "h": 8,
       "piezas": [
@@ -1094,8 +1094,8 @@
         }
       ],
       "puerta": {
-        "x": 55,
-        "y": 75
+        "x": 53,
+        "y": 68
       },
       "reservadoJugador": false
     },
@@ -1103,9 +1103,9 @@
       "id": "granero_vetrheim-16__poi__poblado_orco_poi_58_2147__granero__5",
       "tipo": "granero",
       "semilla": "vetrheim-16:poi:poblado_orco_poi_58_2147:granero:5",
-      "cx": 53.6,
-      "cy": 48.5,
-      "rot": -90,
+      "cx": 43,
+      "cy": 66,
+      "rot": -135,
       "w": 7,
       "h": 7,
       "piezas": [
@@ -1123,8 +1123,8 @@
         }
       ],
       "puerta": {
-        "x": 58,
-        "y": 49
+        "x": 46,
+        "y": 63
       },
       "reservadoJugador": false
     },

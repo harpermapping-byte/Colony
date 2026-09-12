@@ -298,6 +298,25 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // existen a esta altura).
   const registroCombate = new RegistroCombate(contenedor);
 
+  // `jugadores`/`jugadorLocal` declarados YA, aquí arriba del todo — bug
+  // real encontrado 2026-09-12 (ver CLAUDE.md, "ReferenceError: Cannot
+  // access 'jugadorLocal' before initialization", intermitente): estas dos
+  // variables vivían declaradas mucho más abajo en esta misma función,
+  // DESPUÉS del `setInterval` de la etiqueta de puerta física (más abajo,
+  // ~línea 520) y del `await client.joinOrCreate(...)` que conecta a
+  // Colyseus — ese `await` es una operación de red de duración variable, y
+  // si tarda más de 400ms (bajo carga real: bake+render a la vez, o una
+  // reconexión con el WebSocket anterior aún cerrándose) el propio
+  // `setInterval` ya registrado podía disparar su callback ANTES de que la
+  // ejecución síncrona llegara a la declaración `let jugadorLocal`, cayendo
+  // en su zona muerta temporal — confirmado de verdad con un repro
+  // dedicado (clic real sobre la etiqueta + recarga, 1 de cada ~3 veces).
+  // Declararlas aquí, antes de CUALQUIER `setInterval`/`await`, las deja
+  // fuera de la zona muerta temporal para siempre — cero cambio de
+  // comportamiento, son simples inicializaciones sin dependencias.
+  const jugadores = new Map<string, EstadoJugador>();
+  let jugadorLocal: EstadoJugador | null = null;
+
   // Sonda SOLO-PARA-TESTS (mismo criterio que window.__streaming/__nieve de
   // más abajo): proyecta una casilla del grid táctico de combate a
   // coordenadas de PANTALLA reales (CSS px del viewport) — el e2e del clic
@@ -2134,9 +2153,6 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     const huella = huellaRotada(construible?.huella ?? [1, 1], datos.rot);
     return { x: datos.x + huella[0] / 2, y: datos.y + huella[1] / 2 };
   }
-
-  const jugadores = new Map<string, EstadoJugador>();
-  let jugadorLocal: EstadoJugador | null = null;
 
   // Recoger/talar/picar/golpear (pedido streamer 2026-09-06) — broadcast
   // genérico del servidor (manejarCoger/arbol:talar/manejarCombateAccion,

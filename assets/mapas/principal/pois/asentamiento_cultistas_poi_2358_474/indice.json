@@ -37,63 +37,63 @@
     {
       "tipo": "interior",
       "x": 76,
-      "y": 52,
+      "y": 54,
       "edificio": "arena_combate_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__arena_combate__8",
       "tipoEdificioId": "arena_combate"
     },
     {
       "tipo": "interior",
-      "x": 75,
-      "y": 66,
+      "x": 74,
+      "y": 54,
       "edificio": "establo_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__establo__2",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
-      "x": 61,
-      "y": 80,
+      "x": 69,
+      "y": 75,
       "edificio": "establo_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__establo__3",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
-      "x": 76,
-      "y": 72,
+      "x": 56,
+      "y": 51,
       "edificio": "establo_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__establo__4",
       "tipoEdificioId": "establo"
     },
     {
       "tipo": "interior",
-      "x": 53,
-      "y": 50,
+      "x": 81,
+      "y": 69,
       "edificio": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__casa_humilde__5",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 54,
-      "y": 49,
+      "x": 83,
+      "y": 43,
       "edificio": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__casa_humilde__9",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 74,
-      "y": 67,
+      "x": 61,
+      "y": 43,
       "edificio": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__casa_humilde__1",
       "tipoEdificioId": "casa_humilde"
     },
     {
       "tipo": "interior",
-      "x": 68,
+      "x": 56,
       "y": 80,
       "edificio": "torre_militar_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__torre_militar__6",
       "tipoEdificioId": "torre_militar"
     },
     {
       "tipo": "interior",
-      "x": 65,
-      "y": 41,
+      "x": 83,
+      "y": 43,
       "edificio": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__casa_humilde__7",
       "tipoEdificioId": "casa_humilde"
     }
@@ -916,13 +916,6 @@
       "color": "#ff9a3a"
     },
     {
-      "x": 81,
-      "y": 49,
-      "id": "antorcha_poste",
-      "radio": 4.5,
-      "color": "#ff9a3a"
-    },
-    {
       "x": 73,
       "y": 58,
       "id": "antorcha_poste",
@@ -958,9 +951,9 @@
       "id": "arena_combate_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__arena_combate__8",
       "tipo": "arena_combate",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_2358_474:arena_combate:8",
-      "cx": 71.6,
-      "cy": 47.6,
-      "rot": -45,
+      "cx": 81.4,
+      "cy": 59.4,
+      "rot": -225,
       "w": 14,
       "h": 11,
       "piezas": [
@@ -973,7 +966,7 @@
       ],
       "puerta": {
         "x": 76,
-        "y": 52
+        "y": 54
       },
       "reservadoJugador": false
     },
@@ -981,9 +974,9 @@
       "id": "establo_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__establo__2",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_2358_474:establo:2",
-      "cx": 78.3,
-      "cy": 62.7,
-      "rot": 45,
+      "cx": 70.7,
+      "cy": 50.7,
+      "rot": -45,
       "w": 9,
       "h": 8,
       "piezas": [
@@ -1001,8 +994,8 @@
         }
       ],
       "puerta": {
-        "x": 75,
-        "y": 66
+        "x": 74,
+        "y": 54
       },
       "reservadoJugador": false
     },
@@ -1010,9 +1003,9 @@
       "id": "establo_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__establo__3",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_2358_474:establo:3",
-      "cx": 60.5,
-      "cy": 75.1,
-      "rot": 0,
+      "cx": 65.7,
+      "cy": 71.7,
+      "rot": -45,
       "w": 9,
       "h": 8,
       "piezas": [
@@ -1030,8 +1023,8 @@
         }
       ],
       "puerta": {
-        "x": 61,
-        "y": 80
+        "x": 69,
+        "y": 75
       },
       "reservadoJugador": false
     },
@@ -1039,9 +1032,9 @@
       "id": "establo_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__establo__4",
       "tipo": "establo",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_2358_474:establo:4",
-      "cx": 80,
-      "cy": 76,
-      "rot": -225,
+      "cx": 54.3,
+      "cy": 54.9,
+      "rot": -153,
       "w": 10,
       "h": 7,
       "piezas": [
@@ -1059,8 +1052,8 @@
         }
       ],
       "puerta": {
-        "x": 76,
-        "y": 72
+        "x": 56,
+        "y": 51
       },
       "reservadoJugador": false
     },
@@ -1068,9 +1061,9 @@
       "id": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__casa_humilde__5",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_2358_474:casa_humilde:5",
-      "cx": 51.3,
-      "cy": 53.9,
-      "rot": -153,
+      "cx": 82.7,
+      "cy": 72.9,
+      "rot": -207,
       "w": 8,
       "h": 7,
       "piezas": [
@@ -1082,8 +1075,8 @@
         }
       ],
       "puerta": {
-        "x": 53,
-        "y": 50
+        "x": 81,
+        "y": 69
       },
       "reservadoJugador": true
     },
@@ -1091,9 +1084,9 @@
       "id": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__casa_humilde__9",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_2358_474:casa_humilde:9",
-      "cx": 55.7,
-      "cy": 45.1,
-      "rot": 27,
+      "cx": 80,
+      "cy": 40,
+      "rot": -45,
       "w": 8,
       "h": 7,
       "piezas": [
@@ -1105,8 +1098,8 @@
         }
       ],
       "puerta": {
-        "x": 54,
-        "y": 49
+        "x": 83,
+        "y": 43
       },
       "reservadoJugador": false
     },
@@ -1114,9 +1107,9 @@
       "id": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__casa_humilde__1",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_2358_474:casa_humilde:1",
-      "cx": 71.7,
-      "cy": 69.3,
-      "rot": -135,
+      "cx": 58.7,
+      "cy": 40.7,
+      "rot": -45,
       "w": 8,
       "h": 5,
       "piezas": [
@@ -1128,8 +1121,8 @@
         }
       ],
       "puerta": {
-        "x": 74,
-        "y": 67
+        "x": 61,
+        "y": 43
       },
       "reservadoJugador": true
     },
@@ -1137,9 +1130,9 @@
       "id": "torre_militar_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__torre_militar__6",
       "tipo": "torre_militar",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_2358_474:torre_militar:6",
-      "cx": 71.3,
-      "cy": 83.3,
-      "rot": -225,
+      "cx": 54.8,
+      "cy": 77,
+      "rot": -27,
       "w": 7,
       "h": 5,
       "piezas": [
@@ -1151,7 +1144,7 @@
         }
       ],
       "puerta": {
-        "x": 68,
+        "x": 56,
         "y": 80
       },
       "reservadoJugador": false
@@ -1160,9 +1153,9 @@
       "id": "casa_humilde_vetrheim-16__poi__asentamiento_cultistas_poi_2358_474__casa_humilde__7",
       "tipo": "casa_humilde",
       "semilla": "vetrheim-16:poi:asentamiento_cultistas_poi_2358_474:casa_humilde:7",
-      "cx": 62.7,
-      "cy": 38.7,
-      "rot": -45,
+      "cx": 86.3,
+      "cy": 46.3,
+      "rot": -225,
       "w": 6,
       "h": 5,
       "piezas": [
@@ -1174,8 +1167,8 @@
         }
       ],
       "puerta": {
-        "x": 65,
-        "y": 41
+        "x": 83,
+        "y": 43
       },
       "reservadoJugador": false
     }

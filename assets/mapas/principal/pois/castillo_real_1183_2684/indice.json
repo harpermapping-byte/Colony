@@ -50,17 +50,17 @@
     },
     {
       "tipo": "interior",
-      "x": 48,
-      "y": 65,
+      "x": 42,
+      "y": 40,
       "edificio": "casa_modesta_vetrheim-16__poi__castillo_real_1183_2684__casa_modesta__4",
       "tipoEdificioId": "casa_modesta"
     },
     {
       "tipo": "interior",
-      "x": 40,
-      "y": 42,
-      "edificio": "establo_vetrheim-16__poi__castillo_real_1183_2684__establo__3",
-      "tipoEdificioId": "establo"
+      "x": 52,
+      "y": 62,
+      "edificio": "herreria_vetrheim-16__poi__castillo_real_1183_2684__herreria__5",
+      "tipoEdificioId": "herreria"
     }
   ],
   "muralla": {
@@ -809,22 +809,12 @@
   "zonasVerdes": [
     {
       "tipo": "parque",
-      "x": 55,
-      "y": 67,
-      "r": 3
+      "x": 47,
+      "y": 56,
+      "r": 5
     }
   ],
-  "parcelasReservadas": [
-    {
-      "tipo": "normal",
-      "x": 39,
-      "y": 37,
-      "rot": -45,
-      "ancho": 9,
-      "largo": 7,
-      "origenDescarte": "herreria"
-    }
-  ],
+  "parcelasReservadas": [],
   "luces": [
     {
       "x": 53,
@@ -843,13 +833,6 @@
     {
       "x": 61,
       "y": 51,
-      "id": "farola_calle",
-      "radio": 6,
-      "color": "#ffb75a"
-    },
-    {
-      "x": 71,
-      "y": 42,
       "id": "farola_calle",
       "radio": 6,
       "color": "#ffb75a"
@@ -948,9 +931,9 @@
       "id": "casa_modesta_vetrheim-16__poi__castillo_real_1183_2684__casa_modesta__4",
       "tipo": "casa_modesta",
       "semilla": "vetrheim-16:poi:castillo_real_1183_2684:casa_modesta:4",
-      "cx": 47.5,
-      "cy": 60.1,
-      "rot": 0,
+      "cx": 46.3,
+      "cy": 44.3,
+      "rot": -225,
       "w": 9,
       "h": 8,
       "piezas": [
@@ -962,31 +945,31 @@
         }
       ],
       "puerta": {
-        "x": 48,
-        "y": 65
+        "x": 42,
+        "y": 40
       },
       "reservadoJugador": false
     },
     {
-      "id": "establo_vetrheim-16__poi__castillo_real_1183_2684__establo__3",
-      "tipo": "establo",
-      "semilla": "vetrheim-16:poi:castillo_real_1183_2684:establo:3",
-      "cx": 44,
-      "cy": 46,
+      "id": "herreria_vetrheim-16__poi__castillo_real_1183_2684__herreria__5",
+      "tipo": "herreria",
+      "semilla": "vetrheim-16:poi:castillo_real_1183_2684:herreria:5",
+      "cx": 56.3,
+      "cy": 66.3,
       "rot": -225,
-      "w": 10,
-      "h": 7,
+      "w": 8,
+      "h": 8,
       "piezas": [
         {
           "ox": 0,
           "oy": 0,
-          "w": 10,
-          "h": 7
+          "w": 8,
+          "h": 8
         }
       ],
       "puerta": {
-        "x": 40,
-        "y": 42
+        "x": 52,
+        "y": 62
       },
       "reservadoJugador": false
     }
