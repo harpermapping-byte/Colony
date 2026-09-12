@@ -81,6 +81,12 @@ export class WorldScene {
     this.renderer.domElement.style.width = "100%";
     this.renderer.domElement.style.height = "100%";
     this.renderer.domElement.style.display = "block";
+    // Controles táctiles (pedido streamer: jugar desde el móvil) — sin esto,
+    // arrastrar el dedo sobre el propio mundo 3D (nada lo intercepta hoy, no
+    // hay cámara arrastrable) lo interpreta el navegador como un intento de
+    // hacer scroll/zoom de la página. Inocuo para ratón/teclado: `touch-action`
+    // solo afecta a punteros táctiles/lápiz.
+    this.renderer.domElement.style.touchAction = "none";
     contenedor.appendChild(this.renderer.domElement);
 
     // Etiquetas de nombre (jugadores) como overlay HTML sincronizado con la

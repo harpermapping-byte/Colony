@@ -24,6 +24,7 @@
 import { crearMarcoPanel, crearBoton, crearSubtitulo, crearLineaTexto } from "../ui/panelBase";
 import { obtenerVolumenGuardado, guardarVolumen, obtenerVolumenMusicaGuardado, guardarVolumenMusica, obtenerCalidadGuardada, guardarCalidad, CalidadGrafica } from "./configAjustes";
 import { ACCIONES_REASIGNABLES, obtenerTeclaAsignada, asignarTecla, restablecerTeclas } from "./configTeclas";
+import { ModoControlesTactiles, obtenerModoControlesGuardado, guardarModoControles } from "../controles/deteccionControl";
 
 export interface OpcionesPanelAjustes {
   contenedor: HTMLElement;
@@ -169,6 +170,31 @@ export class PanelAjustes {
     cuerpo.appendChild(crearLineaTexto("Calidad gráfica", { tenue: true, fontSize: "11px" }));
     cuerpo.appendChild(filaCalidad);
     cuerpo.appendChild(crearLineaTexto("\"Baja\" apaga sombras y reduce la resolución interna — recomendado si notas tirones.", { tenue: true, fontSize: "10px" }));
+
+    // --- Controles táctiles (pedido streamer: "controles para jugar desde
+    // el móvil") — "Automático" detecta solo si el puntero principal del
+    // dispositivo es un dedo (`deteccionControl.ts`), sin mirar el ancho de
+    // pantalla; "Siempre"/"Nunca" fuerzan el resultado para el caso raro que
+    // la detección sola no puede acertar (un híbrido con teclado+ratón
+    // Bluetooth, o simplemente querer probarlos en un PC de escritorio). ---
+    cuerpo.appendChild(crearSubtitulo("📱 Controles táctiles"));
+    const filaControles = document.createElement("div");
+    filaControles.style.display = "flex";
+    filaControles.style.gap = "4px";
+    const modoActual = obtenerModoControlesGuardado();
+    const etiquetasModo: Record<ModoControlesTactiles, string> = { auto: "Automático", siempre: "Siempre", nunca: "Nunca" };
+    for (const modo of ["auto", "siempre", "nunca"] as const) {
+      const boton = crearBoton(etiquetasModo[modo], () => {
+        guardarModoControles(modo);
+        this.render();
+      });
+      boton.dataset.testid = `ajustes-controles-tactiles-${modo}`;
+      boton.style.flex = "1";
+      if (modo === modoActual) boton.style.background = "rgba(255,255,255,0.18)";
+      filaControles.appendChild(boton);
+    }
+    cuerpo.appendChild(filaControles);
+    cuerpo.appendChild(crearLineaTexto("\"Automático\" los muestra solo si el dispositivo se maneja con el dedo (móvil/tablet) — nunca en un PC con ratón, aunque achiques la ventana.", { tenue: true, fontSize: "10px" }));
 
     // --- Twitch ---
     cuerpo.appendChild(crearSubtitulo("🎮 Twitch"));

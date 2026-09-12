@@ -2,7 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Streamer Colony — prototipo</title>
     <style>
       html, body {
@@ -12,6 +12,12 @@
         justify-content: center;
         align-items: center;
         min-height: 100vh;
+        /* Controles táctiles (pedido streamer: jugar desde el móvil) — sin
+           esto, un dedo arrastrando por la pantalla puede hacer rebotar/
+           desplazar la página entera (Safari/Chrome móvil) en vez de mover
+           solo al personaje. No afecta al scroll interno de un panel (es una
+           propiedad de "encadenado", no de "permitir/bloquear" ese scroll). */
+        overscroll-behavior: none;
       }
     </style>
   </head>

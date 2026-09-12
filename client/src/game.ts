@@ -29,6 +29,8 @@ import { reproducirMidi, detenerReproduccion, fijarVolumenMaestro, type TipoInst
 import { intentarAutoreproducir as intentarAutoreproducirMusica, fijarVolumenMusica, elementoAudioParaDebug } from "./audio/musicaFondo";
 import { obtenerVolumenGuardado, obtenerVolumenMusicaGuardado, obtenerCalidadGuardada } from "./ajustes/configAjustes";
 import { PanelAjustes } from "./ajustes/panelAjustes";
+import { ControlesTactiles } from "./controles/controlesTactiles";
+import { controlesTactilesActivos, onCambioControlesTactiles } from "./controles/deteccionControl";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
 import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, MeshStandardMaterial, Raycaster, Vector2, Vector3, Plane, Object3D } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
@@ -782,6 +784,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   dockHud.registrar("ajustes", panelAjustes, { icono: "⚙️", titulo: "Ajustes" });
   room.onMessage("twitch:loginConfirmado", (m: { twitchLogin: string }) => panelAjustes.actualizarTwitch(m.twitchLogin));
   room.onMessage("twitch:error", (m: { motivo?: string }) => console.log("[twitch]", m?.motivo));
+
+  // Controles táctiles (docs/GDD_UI_Paneles.md, pedido streamer: "¿sería
+  // factible hacer controles para jugar desde el móvil?") — disponible en
+  // CUALQUIER sala, mismo criterio que el dock/Ajustes. Solo dispara los
+  // MISMOS KeyboardEvent que produciría un teclado físico (ver
+  // controlesTactiles.ts) — cero cambio en el switch de teclado de más
+  // abajo. `deteccionControl.ts` decide si se ve (automático por
+  // `pointer: coarse`, o el override de Ajustes) y avisa aquí de cualquier
+  // cambio en caliente (el jugador tocando el ajuste, o el propio hardware).
+  const controlesTactiles = new ControlesTactiles({ contenedor });
+  const actualizarControlesTactiles = () => controlesTactiles.actualizarVisibilidad(controlesTactilesActivos());
+  actualizarControlesTactiles();
+  onCambioControlesTactiles(actualizarControlesTactiles);
+  (window as any).__controlesTactilesDebug = controlesTactiles; // sonda de test (Playwright), ver client/test/controlesTactiles.e2e.mjs
 
   // HUD de vitales (pedido streamer 2026-09-09: "falta arriba izquierda un
   // icono del personaje... y su vida stamina hambre sed") — disponible en

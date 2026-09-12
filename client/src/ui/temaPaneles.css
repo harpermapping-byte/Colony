@@ -493,3 +493,80 @@
 .chat-colony-minimizar:hover {
   background: radial-gradient(circle at 35% 30%, #8a5a2a, #4a3018);
 }
+
+/* Controles táctiles (pedido streamer: "controles para jugar desde el
+ * móvil") — ver `controles/controlesTactiles.ts`. El contenedor cubre TODA
+ * la pantalla pero con `pointer-events:none`: solo el joystick, los botones
+ * y el panel "Más acciones" (que reactiva `auto`) capturan el toque, así que
+ * el resto de la pantalla sigue recibiendo taps normales para el mundo (subir
+ * a un banco, atacar por clic, el menú de interacción...). z-index por
+ * encima de un panel normal (40) para que nunca quede tapado por uno que
+ * coincida en una esquina, pero por debajo del HUD de vitales/dock (90/100,
+ * que ya viven en sus propias esquinas sin solape real con esto). */
+.controles-tactiles {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+.controles-tactiles .panel-colony {
+  pointer-events: auto;
+}
+
+.controles-tactiles-joystick-base {
+  position: absolute;
+  left: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(106, 69, 38, 0.55), rgba(46, 31, 16, 0.55));
+  border: 2px solid rgba(138, 90, 42, 0.7);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+}
+.controles-tactiles-joystick-nudo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 50px;
+  height: 50px;
+  margin-left: -25px;
+  margin-top: -25px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(224, 184, 74, 0.85), rgba(138, 90, 42, 0.85));
+  border: 2px solid rgba(28, 18, 10, 0.8);
+  pointer-events: none; /* el arrastre se sigue leyendo desde la BASE — mover el dedo fuera del nudo no debe "soltarlo" */
+}
+
+.controles-tactiles-acciones {
+  position: absolute;
+  right: 20px;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.controles-tactiles-boton {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 35% 30%, rgba(106, 69, 38, 0.75), rgba(46, 31, 16, 0.75));
+  border: 2px solid rgba(138, 90, 42, 0.8);
+  color: var(--panel-texto);
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  cursor: pointer;
+}
+.controles-tactiles-boton:active {
+  background: radial-gradient(circle at 35% 30%, rgba(224, 184, 74, 0.65), rgba(138, 90, 42, 0.65));
+}
