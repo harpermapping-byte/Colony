@@ -159,6 +159,18 @@ function rasterizarSegmento(a, b, grosor, ancho, alto, pintar) {
       if (distanciaASegmento(x + 0.5, y + 0.5, a, b) <= grosor / 2) pintar(x, y);
 }
 
+// Rasteriza una POLILÍNEA completa (array de puntos consecutivos) con el
+// mismo grosor en cada tramo — evita repetir en cada llamador el bucle
+// "por cada par consecutivo, rasterizarSegmento" (generar.js lo necesita
+// para ramales/conectores/sendas de reparación, todos ya A* o BFS que dan
+// una lista de puntos, nunca un único segmento a-b). Un solo punto (o
+// vacío) no pinta nada — no es un segmento.
+function pintarPolilinea(puntos, grosor, ancho, alto, pintar) {
+  for (let i = 0; i + 1 < puntos.length; i++) {
+    rasterizarSegmento(puntos[i], puntos[i + 1], grosor, ancho, alto, pintar);
+  }
+}
+
 // Rasteriza un rectángulo ROTADO (centro, semiejes, ángulo en radianes):
 // las fachadas de los edificios apuntan al camino, no a los ejes del mapa.
 function rasterizarRectRotado(cx, cy, semiAncho, semiAlto, angulo, ancho, alto, pintar) {
@@ -180,5 +192,6 @@ module.exports = {
   puntoEnPoligono,
   distanciaASegmento,
   rasterizarSegmento,
+  pintarPolilinea,
   rasterizarRectRotado,
 };
