@@ -34,6 +34,7 @@ const fs = require("fs");
 const path = require("path");
 const { crearPRNG, semillaDesdeTexto } = require("./ruido");
 const { puntoEnPoligono } = require("../../ciudades/src/geometria");
+const CATALOGO_NOMBRES_ASENTAMIENTOS = require("../catalogo/nombresAsentamientos.json").nombres;
 
 function slugPOI(poi) {
   return `${poi.id}_${poi.x}_${poi.y}`;
@@ -126,7 +127,7 @@ function buscarDefinicion(poi, catalogoPOIs) {
  * @param {object} opciones.catalogoPOIs - catálogo pois.json ya cargado
  * @param {object} [opciones.catalogoRocas] - catálogo rocas.json ya cargado (boca de cueva de mazmorras estiloExterior:"cueva")
  * @param {(msg:string)=>void} [opciones.onProgreso]
- * @returns {{ portales: Array, objetosPorPOI: Map<string,{x:number,y:number,objeto:object,huella:[number,number]}>, decoracionPorPOI: Map<string,Array<{x:number,y:number,objeto:object}>> }}
+ * @returns {{ portales: Array, objetosPorPOI: Map<string,{x:number,y:number,objeto:object,huella:[number,number]}>, decoracionPorPOI: Map<string,Array<{x:number,y:number,objeto:object}>>, entradasAsentamiento: Array, nombresAsentamientos: Map<string,string> }} `nombresAsentamientos` (2026-09-13, docs/GDD_Sistema_Señales.md): slug (slugPOI) -> topónimo real, SOLO asentamientos civiles — usado por generar.js para las señales de dirección en los caminos.
  */
 async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalogoPOIs, catalogoRocas = {}, onProgreso = () => {} }) {
   // Requires perezosos: ciudades/interiores son módulos "pesados" (cargan
@@ -265,6 +266,33 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
   const objetosPorPOI = new Map();
   const decoracionPorPOI = new Map();
 
+  // Nombres propios de asentamientos CIVILES (docs/GDD_Sistema_Señales.md,
+  // pedido streamer 2026-09-13: "faltaría añadir nombres a las ciudades
+  // aldeas... las ciudades y aldeas etc podrán tomar nombres de esta
+  // lista" — lista real en baker/catalogo/nombresAsentamientos.json).
+  // NUNCA para campamentos hostiles (mazmorra-asentamiento, más abajo):
+  // esos siguen con su nombre técnico de siempre. Barajada UNA vez por
+  // mundo (mulberry32 sobre `semillaMundo`, determinista — nunca
+  // Math.random) y repartida en el mismo orden en que se procesan los
+  // POIs; con 50 nombres reales en la lista y unos pocos asentamientos
+  // civiles por mapa, nunca hace falta repetir ninguno en la práctica —
+  // si algún mapa tuviera más asentamientos que nombres, se cicla la
+  // lista añadiendo un sufijo numérico para que ninguno se quede sin.
+  const rndNombres = crearPRNG(semillaDesdeTexto(`${semillaMundo}:nombresAsentamientos`));
+  const nombresBarajados = [...CATALOGO_NOMBRES_ASENTAMIENTOS];
+  for (let i = nombresBarajados.length - 1; i > 0; i--) {
+    const j = Math.floor(rndNombres() * (i + 1));
+    [nombresBarajados[i], nombresBarajados[j]] = [nombresBarajados[j], nombresBarajados[i]];
+  }
+  let indiceNombre = 0;
+  const nombresAsentamientos = new Map(); // slug (slugPOI) -> nombre propio, solo asentamientos civiles
+  function siguienteNombreAsentamiento() {
+    const vuelta = Math.floor(indiceNombre / nombresBarajados.length);
+    const nombre = nombresBarajados[indiceNombre % nombresBarajados.length] + (vuelta > 0 ? ` ${vuelta + 1}` : "");
+    indiceNombre++;
+    return nombre;
+  }
+
   /**
    * Silueta 3D + puerta funcional de CUALQUIER asentamiento (civil u
    * hostil, comparten exactamente el mismo `ciudad` real de `ciudades/`)
@@ -287,9 +315,18 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
    * spawn/exploración caía a menudo mucho más cerca de una "huérfana" que
    * de la única funcional. Ahora TODAS las puertas reales reciben su
    * propio arco + su propio portal (mismo destino, es la misma ciudad).
+   *
+   * v5 (2026-09-13, docs/GDD_Sistema_Señales.md): `nombreDestino` de la
+   * etiqueta "Entrar <Nombre>" pasa a ser el TOPÓNIMO real asignado
+   * (`nombresAsentamientos.get(slug)`, "Guarromán"...) para cualquier
+   * asentamiento CIVIL — antes era siempre el id de catálogo formateado
+   * ("Capital Regional Poi"). Los campamentos hostiles (`hostil=true`)
+   * siguen con el nombre técnico de siempre, `nombresAsentamientos` nunca
+   * lleva su slug.
    */
   function colocarSiluetaYPuertaDeAsentamiento(ciudad, poi, slug, semillaPOI, hostil = false) {
     const { id: tipoEdificioIdCiudad, puertaPrincipal, puertas } = generarYExportarSilueta(ciudad, semillaPOI, slug);
+    const nombreDestino = (!hostil && nombresAsentamientos.get(slug)) || nombreLegibleDesdeId(poi.id);
 
     // Conversión LOCAL (rejilla [0,ancho]x[0,alto] de la ciudad — el mismo
     // espacio que usan poligonoMuralla/modulosMuralla/edificios.cx,cy) ->
@@ -407,7 +444,7 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
       // puerta en vez de depender solo de la tecla F a ciegas — ver
       // docs/GDD_Sistema_Puertas.md. Aditivo: un mapa YA horneado sin estos
       // 3 campos sigue funcionando igual con la tecla F, solo sin etiqueta.
-      portales.push({ tipo: "exterior", x: Math.round(xPuerta), y: Math.round(yPuerta + altoPuerta / 2 + 1), puertaX: xPuerta, puertaY: yPuerta, nombreDestino: nombreLegibleDesdeId(poi.id), destino: { tipo: "region", mapaId: `pois/${slug}` } });
+      portales.push({ tipo: "exterior", x: Math.round(xPuerta), y: Math.round(yPuerta + altoPuerta / 2 + 1), puertaX: xPuerta, puertaY: yPuerta, nombreDestino, destino: { tipo: "region", mapaId: `pois/${slug}` } });
     }
     puertasReales.forEach((puerta, i) => {
       const xPuerta = aMundoX(puerta.x);
@@ -460,7 +497,7 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
         // sin etiqueta.
         puertaX: xPuerta,
         puertaY: yPuerta,
-        nombreDestino: nombreLegibleDesdeId(poi.id),
+        nombreDestino,
         // RELATIVO a propósito (bug real 2026-09-09, "la puerta de la
         // capital da ENOENT al cruzarla"): antes se horneaba
         // `${mapaId}/pois/${slug}` con el `mapaId` de ESTE bake (derivado
@@ -489,8 +526,10 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
     if (categoria === "asentamiento") {
       if (!def.tier) continue;
       const carpetaPOI = path.join(carpetaSalida, "pois", slug);
-      onProgreso(`  POI "${poi.id}" (asentamiento, ${def.tier}) en (${poi.x},${poi.y})...`);
-      const ciudad = hornearCiudadPerezoso()(def.tier, semillaPOI, carpetaPOI);
+      const nombreAsentamiento = siguienteNombreAsentamiento();
+      nombresAsentamientos.set(slug, nombreAsentamiento);
+      onProgreso(`  POI "${poi.id}" (asentamiento, ${def.tier}) en (${poi.x},${poi.y}) — "${nombreAsentamiento}"...`);
+      const ciudad = hornearCiudadPerezoso()(def.tier, semillaPOI, carpetaPOI, { nombreAsentamiento });
       await poblarAsentamiento(def.tier, semillaPOI, carpetaPOI, onProgreso);
       colocarSiluetaYPuertaDeAsentamiento(ciudad, poi, slug, semillaPOI, false);
       continue;
@@ -602,7 +641,7 @@ async function generarInstanciasPOI({ pois, carpetaSalida, semillaMundo, catalog
     }
   }
 
-  return { portales, objetosPorPOI, decoracionPorPOI, entradasAsentamiento };
+  return { portales, objetosPorPOI, decoracionPorPOI, entradasAsentamiento, nombresAsentamientos };
 }
 
 module.exports = { generarInstanciasPOI, slugPOI };

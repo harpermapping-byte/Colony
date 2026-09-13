@@ -557,6 +557,35 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           }
         }, 400);
       }
+
+      // Señales de dirección en los caminos (docs/GDD_Sistema_Señales.md,
+      // pedido streamer 2026-09-13: "dando click sobre el prop... te dice
+      // hacia que POI nombre vas"). Mismo patrón EXACTO que las puertas de
+      // asentamiento de arriba (etiqueta CSS2D creada oculta, mostrada por
+      // proximidad a ritmo bajo) — pero sin ningún mensaje al servidor: el
+      // destino ya viaja completo en el propio bake (`indice.senales`,
+      // datos estáticos), así que el clic solo muestra un toast local.
+      // `indice.senales` es opcional: un mapa horneado antes de esta fecha
+      // simplemente no trae ninguna señal, sin cambio de comportamiento.
+      const senales = indice.senales ?? [];
+      if (senales.length) {
+        senales.forEach((s, i) => {
+          // Altura fija sobre el suelo (2.0u — sobre la punta del tablón
+          // real, taller-vox/generar_senal_camino.js: altoPoste 1.7-2.0u).
+          escena.añadirEtiquetaInteractiva(`senal_${i}`, s.x, s.y, 2.0, `Hacia ${s.destino}`, () => {
+            registroCombate.mostrar(`El camino lleva hacia ${s.destino}.`, "info");
+          });
+        });
+        const RADIO_LECTURA_SENAL_CLIENTE = 3; // casillas — un poco más que el radio de portal, es solo lectura sin acción de servidor
+        setInterval(() => {
+          if (!jugadorLocal) return;
+          for (let i = 0; i < senales.length; i++) {
+            const s = senales[i];
+            const d = Math.hypot(s.x - jugadorLocal.x, s.y - jugadorLocal.z);
+            escena.mostrarEtiquetaInteractiva(`senal_${i}`, d < RADIO_LECTURA_SENAL_CLIENTE);
+          }
+        }, 400);
+      }
     } catch (err) {
       // Sin mapa no se corta el juego (los jugadores siguen sincronizando
       // sobre el suelo de emergencia), pero el fallo queda visible.

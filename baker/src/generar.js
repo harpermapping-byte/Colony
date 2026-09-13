@@ -9,7 +9,7 @@ const { generarHidrologia } = require("./hidrologia");
 const { decidirTerreno, conSubvariante } = require("./terreno");
 const { crearColocadorDecoracion } = require("./decoracion");
 const { colocarPOIs } = require("./pois");
-const { generarInstanciasPOI } = require("./instanciasPOI");
+const { generarInstanciasPOI, slugPOI } = require("./instanciasPOI");
 const { crearBuscadorCaminos } = require("./caminos");
 const { normalizarBordes } = require("./bordes");
 const { crearExportador } = require("./exportar");
@@ -218,7 +218,7 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
   // ruta relativa con su propio `mapaIdPropio` en tiempo de ejecución, que
   // sí refleja dónde vive el mapa de verdad).
   const carpetaSalidaResuelta = path.resolve(config.carpetaSalida || "output");
-  const { portales: portalesPOI, objetosPorPOI, decoracionPorPOI, entradasAsentamiento } = await generarInstanciasPOI({
+  const { portales: portalesPOI, objetosPorPOI, decoracionPorPOI, entradasAsentamiento, nombresAsentamientos } = await generarInstanciasPOI({
     pois,
     carpetaSalida: carpetaSalidaResuelta,
     semillaMundo: config.semilla,
@@ -275,6 +275,31 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
   const dentroDelMapa = (x, y) => x >= 0 && y >= 0 && x < anchoTiles && y < altoTiles;
   const claveTile = (x, y) => y * anchoTiles + x;
   const resultadosCaminos = [];
+  // Señales de dirección (docs/GDD_Sistema_Señales.md, pedido streamer
+  // 2026-09-13): polilínea REAL (waypoints del A*/Dijkstra reducido, antes
+  // de la ondulación cosmética de `marcarSegmentoComoCamino`) de cada
+  // camino que SÍ llegó a un asentamiento CIVIL con nombre propio asignado
+  // (`nombresAsentamientos`, instanciasPOI.js) — se coloca una señal cada
+  // pocos tramos más abajo, junto a `edificiosPOIPorChunk`. Los caminos a
+  // POI "edificio"/"mazmorra" (sin nombre propio) o los que no encontraron
+  // ruta no entran aquí.
+  const caminosParaSenales = [];
+  // Radio de seguridad por asentamiento CIVIL: distancia real centro->puerta
+  // de CADA asentamiento (`entradasAsentamiento`, ya calculado por
+  // instanciasPOI.js con el polígono real de la muralla) — usado más abajo
+  // para no colocar NUNCA una señal dentro de la propia silueta del pueblo.
+  // BUG REAL encontrado con un e2e real (`admin:debug:teleport` saltaba
+  // ~24 casillas buscando tierra firme): un camino corto hacia una aldea
+  // puede caer ENTERO dentro de su footprint sólido (la ruta A* va hasta el
+  // CENTRO de la aldea, no hasta su puerta) — sin este filtro, el punto
+  // "medio" de un camino así queda literalmente dentro de la muralla.
+  const radioSeguridadAsentamiento = new Map(); // clave "x_y" del POI -> radio real hasta su puerta más lejana
+  for (const e of entradasAsentamiento || []) {
+    const clave = `${e.poiX}_${e.poiY}`;
+    const r = Math.hypot(e.x - e.poiX, e.y - e.poiY);
+    radioSeguridadAsentamiento.set(clave, Math.max(radioSeguridadAsentamiento.get(clave) || 0, r));
+  }
+  const MARGEN_SEGURIDAD_ASENTAMIENTO = 4; // casillas extra más allá de la puerta más lejana
 
   if (ciudad) {
     onProgreso("Trazando caminos...");
@@ -333,6 +358,8 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
         for (let i = 0; i < camino.length - 1; i++) {
           marcarSegmentoComoCamino(camino[i], camino[i + 1], tilesCaminoRoad);
         }
+        const nombreDestino = nombresAsentamientos.get(slugPOI(poi));
+        if (nombreDestino && camino.length >= 2) caminosParaSenales.push({ poi, camino, nombreDestino });
       }
     }
     onProgreso(`  ${resultadosCaminos.filter((r) => r.encontrada).length}/${resultadosCaminos.length} caminos trazados con éxito.`);
@@ -519,6 +546,133 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
       });
     }
   }
+
+  // --- Señales de dirección en los caminos (docs/GDD_Sistema_Señales.md,
+  // pedido streamer 2026-09-13: "un sistema de SEÑALES en los caminos que
+  // te indiquen hacia donde va ese camino... cada camino tenga uno cada X
+  // espacio, un prop de dirección al borde de camino") — una por cada
+  // tramo de `DISTANCIA_ENTRE_SENALES` casillas del camino REAL que llegó
+  // a un asentamiento civil con nombre propio (`caminosParaSenales`,
+  // recogido más arriba durante el trazado). Usa la polilínea CRUDA del
+  // A*/Dijkstra reducido (los waypoints de `pasoCaminos` en pasoCaminos,
+  // ~32 casillas de separación real) — ya es una cadencia razonable de
+  // señalización sin tener que resamplear el zigzag cosmético fino que
+  // añade `marcarSegmentoComoCamino`.
+  const NUM_VARIANTES_SENAL = 3; // taller-vox/generar_senal_camino.js::NUM_VARIANTES
+  const DISTANCIA_ENTRE_SENALES = 55; // casillas — "cada X espacio", ni pegadas ni una sola por carretera
+  const MIN_LARGO_PARA_SENAL = 25; // caminos más cortos que esto (POI casi pegado a la red) no necesitan ninguna
+  const OFFSET_BORDE_SENAL = 2.5; // casillas perpendiculares al camino — despeja el ancho real de la calzada (radioCaminoEn: 0-1, es decir 1-3 casillas de ancho)
+  const senalesIndice = [];
+  let indiceSenalGlobal = 0;
+  for (const { poi, camino, nombreDestino } of caminosParaSenales) {
+    // Normaliza el sentido de recorrido para que avanzar por el array
+    // SIEMPRE se acerque al POI — `buscador.buscar` (primer camino, sale de
+    // la ciudad) devuelve [ciudad...poi], pero `buscador.buscarHastaRed`
+    // (resto de caminos, salen del POI) devuelve [poi...red] — el orden
+    // contrario. Sin esto, la mitad de las flechas señalarían en sentido
+    // opuesto al real.
+    const distIni = Math.hypot(camino[0].x - poi.x, camino[0].y - poi.y);
+    const distFin = Math.hypot(camino[camino.length - 1].x - poi.x, camino[camino.length - 1].y - poi.y);
+    const puntos = distIni < distFin ? [...camino].reverse() : camino;
+
+    const acumulada = [0];
+    for (let i = 1; i < puntos.length; i++) {
+      acumulada.push(acumulada[i - 1] + Math.hypot(puntos[i].x - puntos[i - 1].x, puntos[i].y - puntos[i - 1].y));
+    }
+    const largoTotal = acumulada[acumulada.length - 1];
+    if (largoTotal < MIN_LARGO_PARA_SENAL) continue;
+
+    // BUG REAL encontrado verificando con un bake de prueba (no dado por
+    // bueno solo porque el código no lanzaba ningún error): con
+    // `MIN_LARGO_PARA_SENAL` (25) < `DISTANCIA_ENTRE_SENALES` (55) existe
+    // una "zona muerta" — cualquier camino de largo 25-54 pasa el filtro de
+    // "sí necesita señal" pero el bucle de abajo, que arrancaba siempre en
+    // `d=DISTANCIA_ENTRE_SENALES`, nunca llegaba a ejecutarse ni una vez
+    // (`55 < 45` es falso) — ese camino se quedaba sin NINGUNA señal pese a
+    // haber pasado el propio filtro que dice que sí hace falta una.
+    // Reproducido de verdad con `generarInstanciasPOI`+un bake pequeño real
+    // (dos aldeas civiles con nombre, caminos de 32 y 45 casillas — ambos
+    // por encima de MIN_LARGO_PARA_SENAL pero por debajo de
+    // DISTANCIA_ENTRE_SENALES, `senales` salía vacío del todo). Arreglado
+    // garantizando AL MENOS una señal por camino que pase el filtro: el
+    // primer punto de colocación es el menor entre la distancia de
+    // espaciado normal y la mitad del camino (para que un camino corto la
+    // reciba centrada, ni pegada a la red ni pegada a la puerta del POI).
+    const primerPunto = largoTotal < DISTANCIA_ENTRE_SENALES ? largoTotal / 2 : DISTANCIA_ENTRE_SENALES;
+    for (let d = primerPunto; d < largoTotal; d += DISTANCIA_ENTRE_SENALES) {
+      let seg = 0;
+      while (seg < acumulada.length - 2 && acumulada[seg + 1] < d) seg++;
+      const a = puntos[seg], b = puntos[seg + 1];
+      const largoSeg = acumulada[seg + 1] - acumulada[seg] || 1;
+      const t = (d - acumulada[seg]) / largoSeg;
+      const px = a.x + (b.x - a.x) * t;
+      const py = a.y + (b.y - a.y) * t;
+      const dx = (b.x - a.x) / largoSeg, dy = (b.y - a.y) / largoSeg; // ya normalizado (largoSeg = módulo del segmento)
+
+      // Nunca dentro de la propia silueta del asentamiento (ver
+      // `radioSeguridadAsentamiento` más arriba) — un punto de la
+      // polilínea puede caer aquí en un camino corto, donde el tramo
+      // "libre" fuera de la muralla es menor que la mitad del camino total.
+      const radioSeguridad = (radioSeguridadAsentamiento.get(`${poi.x}_${poi.y}`) || 0) + MARGEN_SEGURIDAD_ASENTAMIENTO;
+      if (Math.hypot(px - poi.x, py - poi.y) < radioSeguridad) { indiceSenalGlobal++; continue; }
+
+      // Empuja la señal al BORDE del camino (perpendicular a la marcha),
+      // alternando de lado por índice para que no queden todas en fila a
+      // un lado — con un pequeño reintento si el punto cae justo sobre
+      // una casilla ya marcada como calzada (mismo criterio de "nudge"
+      // que ya usa el empuje de portal en instanciasPOI.js).
+      //
+      // BUG REAL encontrado con un e2e real (no a ojo): el nudge de antes
+      // solo evitaba `tilesCaminoRoad` (no clavar la señal EN la calzada),
+      // pero nunca comprobaba si el punto de destino era agua/roca
+      // impasable — un camino bordeando un lago (frecuente, los caminos
+      // rodean lagos/ríos reales) podía empujar la señal DENTRO del lago.
+      // `admin:debug:teleport` reveló el caso real: la señal calculada caía
+      // tan lejos de cualquier tierra firme que el jugador de prueba
+      // aparecía reubicado ~24 casillas más allá al pedir teleportarse
+      // justo ahí. Mismas comprobaciones que ya usa `costoArista` más
+      // arriba para descartar agua/roca al trazar el propio camino.
+      const bloqueadaParaSenal = (x, y) => {
+        if (!dentroDelMapa(x, y)) return true;
+        const h = hidro.consultar(x, y);
+        if (h.esLago || h.esRio) return true;
+        return bandaEnTile(x, y) === 6;
+      };
+      const perpX = -dy, perpY = dx;
+      const lado = indiceSenalGlobal % 2 === 0 ? 1 : -1;
+      let sx = px, sy = py;
+      let colocada = false;
+      for (const ladoIntento of [lado, -lado]) {
+        for (let intento = 0; intento < 5; intento++) {
+          const offset = OFFSET_BORDE_SENAL + intento;
+          sx = Math.round(px + perpX * offset * ladoIntento);
+          sy = Math.round(py + perpY * offset * ladoIntento);
+          if (!tilesCaminoRoad.has(claveTile(sx, sy)) && !bloqueadaParaSenal(sx, sy)) { colocada = true; break; }
+        }
+        if (colocada) break;
+      }
+      // Sin ningún borde libre a ningún lado (caso raro: camino muy
+      // encajonado entre agua/roca por los dos costados) — mejor omitir
+      // esta señal concreta que clavarla en terreno imposible.
+      if (!colocada) { indiceSenalGlobal++; continue; }
+
+      const roDeg = Math.round((Math.atan2(dy, dx) * 180) / Math.PI); // misma convención que los módulos de muralla (ciudades/src/generar.js)
+      const va = semillaDesdeTexto(`${config.semilla}:senal:${poi.id}:${indiceSenalGlobal}`) % NUM_VARIANTES_SENAL;
+      indiceSenalGlobal++;
+
+      const cx = Math.floor(sx / tamanoChunk), cy = Math.floor(sy / tamanoChunk);
+      const clave = `${cx}_${cy}`;
+      if (!edificiosPOIPorChunk.has(clave)) edificiosPOIPorChunk.set(clave, []);
+      edificiosPOIPorChunk.get(clave).push({
+        i: "senal_camino", t: "m", va, ro: roDeg, es: 1,
+        x: sx - cx * tamanoChunk, y: sy - cy * tamanoChunk,
+      });
+      // Coordenadas MUNDO (no locales de chunk) para la etiqueta clicable
+      // del cliente — mismo criterio que `portales` en indice.json.
+      senalesIndice.push({ x: sx, y: sy, destino: nombreDestino });
+    }
+  }
+  if (senalesIndice.length) onProgreso(`  ${senalesIndice.length} señal(es) de dirección colocadas en los caminos.`);
 
   if (ciudad) {
     const cxCiudad = Math.floor(ciudad.x / tamanoChunk);
@@ -785,6 +939,13 @@ async function generarMapa(config, { onProgreso = () => {} } = {}) {
     ciudad,
     spawn,
     portales: portalesPOI,
+    // Señales de dirección (docs/GDD_Sistema_Señales.md, 2026-09-13):
+    // coordenadas MUNDO + nombre del asentamiento al que apuntan — el
+    // cliente las usa para pintar una etiqueta clicable junto al prop
+    // visual (`t:"m"` id "senal_camino", ya en el sector correspondiente).
+    // Opcional/aditivo: un mapa horneado antes de esta fecha simplemente
+    // no trae `senales`, sin ninguna etiqueta ni error.
+    senales: senalesIndice,
   });
 
   // --- 10. Imagen de resumen ---

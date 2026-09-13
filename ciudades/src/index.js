@@ -32,7 +32,7 @@ function hexRGB(hex) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-function exportarCiudad(ciudad, carpetaSalida) {
+function exportarCiudad(ciudad, carpetaSalida, opciones = {}) {
   const { terreno, elevacion, ancho, alto } = ciudad;
   const anchoChunks = ancho / TAMANO_CHUNK;
   const altoChunks = alto / TAMANO_CHUNK;
@@ -113,7 +113,16 @@ function exportarCiudad(ciudad, carpetaSalida) {
   }
 
   exportador.finalizar({
-    nombre: `${ciudad.tier}-${ciudad.semilla}`,
+    // Nombre propio del asentamiento (docs/GDD_Sistema_Señales.md, pedido
+    // streamer 2026-09-13: "sistema de señales... las ciudades y aldeas
+    // podrán tomar nombres de esta lista") — `baker/src/instanciasPOI.js`
+    // pasa el topónimo real ya asignado (`opciones.nombreAsentamiento`)
+    // para CUALQUIER asentamiento CIVIL; sin él (campamentos hostiles,
+    // `capital_jarl` bakeada suelta por CLI, tests) se queda el nombre
+    // técnico de siempre — cero cambio de comportamiento si nadie lo pasa.
+    // Este `nombre` es el mismo que ya lee `panelMapaMundo.ts` ("Mapa —
+    // <nombre>") y el log de `RegionRoom.ts` al cargar la región.
+    nombre: opciones.nombreAsentamiento || `${ciudad.tier}-${ciudad.semilla}`,
     semilla: ciudad.semilla,
     tier: ciudad.tier,
     variante: ciudad.variante,
@@ -218,7 +227,7 @@ function exportarOverview(ciudad, carpetaSalida, terrenos, tiposEdificio, escala
   fs.writeFileSync(path.join(carpetaSalida, "overview.png"), codificarPNG(ancho * escala, alto * escala, rgba));
 }
 
-function hornearCiudad(tier, semilla, carpetaSalida) {
+function hornearCiudad(tier, semilla, carpetaSalida, opciones = {}) {
   const catalogos = cargarCatalogos();
   const terrenos = JSON.parse(fs.readFileSync(path.join(RAIZ, "baker", "catalogo", "terrenos.json"), "utf8"));
   const ciudad = generarCiudad({ tier, semilla, catalogos });
@@ -226,7 +235,7 @@ function hornearCiudad(tier, semilla, carpetaSalida) {
   if (errores.length) throw new Error("ciudad inválida:\n  - " + errores.join("\n  - "));
 
   fs.mkdirSync(carpetaSalida, { recursive: true });
-  exportarCiudad(ciudad, carpetaSalida);
+  exportarCiudad(ciudad, carpetaSalida, opciones);
   exportarInteriores(ciudad, carpetaSalida);
   exportarFauna(ciudad, carpetaSalida);
   exportarOverview(ciudad, carpetaSalida, terrenos, catalogos.tiposEdificio);

@@ -67,6 +67,20 @@ export interface LuzMapa {
   color: string;
 }
 
+/** Señal de dirección en un camino (baker/src/generar.js, docs/GDD_Sistema_Señales.md,
+ * pedido streamer 2026-09-13: "un sistema de SEÑALES en los caminos que te
+ * indiquen hacia donde va ese camino"). Coordenadas MUNDO (no locales de
+ * chunk, a diferencia de `ObjetoBakeado` — mismo criterio que `PortalMapa`).
+ * El prop visual en sí (`senal_camino`, categoría "m") ya viaja como
+ * cualquier otro objeto de decoración dentro del sector — esto es SOLO la
+ * parte clicable/informativa, resuelta 100% en cliente con datos estáticos
+ * del bake (sin mensaje al servidor). */
+export interface SenalCamino {
+  x: number;
+  y: number;
+  destino: string;
+}
+
 export interface IndiceMapa {
   version: number;
   nombre: string;
@@ -80,6 +94,7 @@ export interface IndiceMapa {
   portales?: PortalMapa[];
   muralla?: { poligono: [number, number][]; modulos: ModuloMuralla[] };
   luces?: LuzMapa[];
+  senales?: SenalCamino[];
 }
 
 /** Objeto colocado por el bakeador dentro de un chunk (claves cortas del export). */
