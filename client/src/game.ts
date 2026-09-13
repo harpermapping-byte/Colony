@@ -30,6 +30,7 @@ import { reproducirMidi, detenerReproduccion, fijarVolumenMaestro, type TipoInst
 import { intentarAutoreproducir as intentarAutoreproducirMusica, fijarVolumenMusica, elementoAudioParaDebug } from "./audio/musicaFondo";
 import { obtenerVolumenGuardado, obtenerVolumenMusicaGuardado, obtenerCalidadGuardada } from "./ajustes/configAjustes";
 import { PanelAjustes } from "./ajustes/panelAjustes";
+import { PanelTutorial, debeAbrirGuiaAutomaticamente } from "./ui/panelTutorial";
 import { ControlesTactiles } from "./controles/controlesTactiles";
 import { controlesTactilesActivos, onCambioControlesTactiles } from "./controles/deteccionControl";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
@@ -785,6 +786,16 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   dockHud.registrar("ajustes", panelAjustes, { icono: "⚙️", titulo: "Ajustes" });
   room.onMessage("twitch:loginConfirmado", (m: { twitchLogin: string }) => panelAjustes.actualizarTwitch(m.twitchLogin));
   room.onMessage("twitch:error", (m: { motivo?: string }) => console.log("[twitch]", m?.motivo));
+
+  // Guía rápida + Novedades (docs/GDD_UI_Paneles.md, pedido streamer
+  // 2026-09-13: "justo al inicio, cuando te logeas, un panel con un
+  // resumen... también un changelog... y en Ajustes o abajo Tutoriales, lo
+  // mismo que el inicio") — mismo panel para las dos cosas: se abre SOLO
+  // una vez al entrar (salvo que el jugador ya haya marcado "no mostrar
+  // automáticamente"), y queda siempre accesible desde su icono del dock.
+  const panelTutorial = new PanelTutorial({ contenedor });
+  dockHud.registrar("tutorial", panelTutorial, { icono: "📖", titulo: "Tutoriales" });
+  if (debeAbrirGuiaAutomaticamente()) panelTutorial.abrir();
 
   // Controles táctiles (docs/GDD_UI_Paneles.md, pedido streamer: "¿sería
   // factible hacer controles para jugar desde el móvil?") — disponible en
