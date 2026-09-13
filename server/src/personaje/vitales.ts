@@ -70,8 +70,9 @@ export const TASA_DECAY_POR_HORA = {
   bebida: VITAL_MAX / 10, // vacía en 10h — la sed aprieta antes que el hambre
   sueno: VITAL_MAX / 20, // vacía en 20h despierto
 };
-/** Estamina no decae sola (nada la gasta todavía — sprint/combate sin construir): se regenera pasivamente hasta el máximo. */
-export const TASA_REGEN_ESTAMINA_POR_HORA = VITAL_MAX / 1;
+// Estamina: ver `regenerarEstamina` más abajo (pedido streamer 2026-09-13,
+// sustituye un regen viejo de VITAL_MAX/1h aquí mismo — invisible frente al
+// gasto real de sprint, 15/s en RoomExteriorBase.ts).
 
 // --- Temperatura corporal (docs/GDD_Clima.md, pedido 2026-08-30) — placeholders de balance, mismo criterio que el resto ---
 export const TEMPERATURA_NEUTRA = 50;
@@ -99,7 +100,35 @@ export function tickVitales(v: Vitales, horasTranscurridas: number): void {
   v.comida = clamp(v.comida - TASA_DECAY_POR_HORA.comida * horasTranscurridas, VITAL_MAX);
   v.bebida = clamp(v.bebida - TASA_DECAY_POR_HORA.bebida * horasTranscurridas, VITAL_MAX);
   v.sueno = clamp(v.sueno - TASA_DECAY_POR_HORA.sueno * horasTranscurridas, VITAL_MAX);
-  v.estamina = clamp(v.estamina + TASA_REGEN_ESTAMINA_POR_HORA * horasTranscurridas, VITAL_MAX);
+  // Estamina NO se toca aquí — ver `regenerarEstamina` (llamada por
+  // segundo desde el mismo tick de movimiento que gasta el sprint, no por
+  // este integrador de horas reales).
+}
+
+/**
+ * Estamina YA no se queda vacía para siempre (pedido streamer 2026-09-13:
+ * "cuando paras de correr se recupera cada X segundos hasta llenarse, ahora
+ * se acaba y ya") — el regen que tenía antes `tickVitales` (VITAL_MAX/1h,
+ * ~0.03/s) era invisible frente a un gasto de sprint de 15/s
+ * (`ESTAMINA_GASTO_POR_SEG_CORRIENDO`, RoomExteriorBase.ts): en la práctica
+ * nunca se notaba que recuperaba dentro de una sesión real, de ahí la
+ * queja. Ahora un ritmo real POR SEGUNDO (mismas unidades que el gasto de
+ * sprint, para poder compararlos a ojo), con dos marchas según lo que el
+ * jugador esté haciendo AHORA MISMO — pedido explícito: "ver si al golpear
+ * o moverse se recupera menos". Llamada por el tick de movimiento
+ * (RoomExteriorBase.ts), nunca mientras el jugador está sprintando de
+ * verdad (eso drena, no regenera, en el mismo tick — el llamador no llama a
+ * las dos cosas a la vez). Placeholders de balance, mismo criterio que el
+ * resto del módulo.
+ */
+export const ESTAMINA_REGEN_QUIETO_POR_SEG = VITAL_MAX / 8; // llena del todo en 8s totalmente parado
+export const ESTAMINA_REGEN_ACTIVO_POR_SEG = VITAL_MAX / 20; // moviéndose (sin correr) o con las manos ocupadas: más lento, nunca cero
+
+/** `ocupado` = se está moviendo (sin sprint) o acaba de recolectar/talar/picar/golpear — regenera más lento pero SIGUE regenerando; `false` (totalmente parado, quieto de verdad) regenera al ritmo rápido. */
+export function regenerarEstamina(v: Vitales, ocupado: boolean, segundosTranscurridos: number): void {
+  if (segundosTranscurridos <= 0) return;
+  const ritmo = ocupado ? ESTAMINA_REGEN_ACTIVO_POR_SEG : ESTAMINA_REGEN_QUIETO_POR_SEG;
+  v.estamina = clamp(v.estamina + ritmo * segundosTranscurridos, VITAL_MAX);
 }
 
 /** Restaura un vital concreto (comer/beber, o sumar `caca` al comer) hasta el tope — usado por `personaje:consumir`. Curar `vida` NO pasa por aquí (ver combate.ts:curar sobre Player directamente). */

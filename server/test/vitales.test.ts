@@ -7,6 +7,7 @@ import * as assert from "node:assert";
 import {
   vitalesIniciales, tickVitales, restaurarVital, aplicarInanicion,
   aplicarTemperaturaCorporal, objetivoTemperaturaCorporal, aplicarAhogo,
+  regenerarEstamina, ESTAMINA_REGEN_QUIETO_POR_SEG, ESTAMINA_REGEN_ACTIVO_POR_SEG,
   VITAL_MAX, TEMPERATURA_NEUTRA, UMBRAL_CALOR_EXTREMO, UMBRAL_FRIO_EXTREMO,
 } from "../src/personaje/vitales";
 
@@ -30,13 +31,42 @@ test("tickVitales: comida/bebida/sueño decaen con las horas transcurridas, nunc
   assert.strictEqual(v.sueno, 0);
 });
 
-test("tickVitales: estamina se regenera sola hasta el máximo (nada la gasta todavía)", () => {
+test("tickVitales: YA NO toca la estamina (regenerarEstamina es quien lo hace, por segundo)", () => {
   const v = vitalesIniciales();
   v.estamina = 50;
-  tickVitales(v, 0.5); // regenera 50/1h * 0.5h = 25
-  assert.ok(v.estamina > 50 && v.estamina <= VITAL_MAX);
-  tickVitales(v, 100);
+  tickVitales(v, 1000); // ninguna cantidad de horas debería moverla
+  assert.strictEqual(v.estamina, 50);
+});
+
+test("regenerarEstamina: parado (quieto) regenera al ritmo rápido hasta el máximo", () => {
+  const v = vitalesIniciales();
+  v.estamina = 50;
+  regenerarEstamina(v, false, 1); // +ESTAMINA_REGEN_QUIETO_POR_SEG en 1s
+  assert.ok(Math.abs(v.estamina - (50 + ESTAMINA_REGEN_QUIETO_POR_SEG)) < 1e-9, `estamina=${v.estamina}`);
+  regenerarEstamina(v, false, 100);
   assert.strictEqual(v.estamina, VITAL_MAX);
+});
+
+test("regenerarEstamina: ocupado (moviéndose o acaba de usar las manos) regenera más lento, pero SIGUE regenerando", () => {
+  const quieto = vitalesIniciales();
+  quieto.estamina = 50;
+  regenerarEstamina(quieto, false, 1);
+  const ocupado = vitalesIniciales();
+  ocupado.estamina = 50;
+  regenerarEstamina(ocupado, true, 1);
+  assert.ok(ocupado.estamina > 50, "ocupado debería seguir recuperando, no quedarse plano");
+  assert.ok(ocupado.estamina < quieto.estamina, "ocupado debería recuperar MENOS que quieto en el mismo tiempo");
+  assert.ok(Math.abs(ocupado.estamina - (50 + ESTAMINA_REGEN_ACTIVO_POR_SEG)) < 1e-9, `estamina=${ocupado.estamina}`);
+});
+
+test("regenerarEstamina: nunca se pasa del máximo, y segundosTranscurridos<=0 no hace nada", () => {
+  const v = vitalesIniciales();
+  regenerarEstamina(v, false, 5);
+  assert.strictEqual(v.estamina, VITAL_MAX);
+  const v2 = vitalesIniciales();
+  v2.estamina = 42;
+  regenerarEstamina(v2, false, 0);
+  assert.strictEqual(v2.estamina, 42);
 });
 
 test("tickVitales: horasTranscurridas<=0 no hace nada (sin efectos raros con dt=0)", () => {
