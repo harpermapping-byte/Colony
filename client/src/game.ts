@@ -963,17 +963,34 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     } else if (ud.mascotaId) {
       const mascota = room.state.mascotas.get(ud.mascotaId) as any;
       if (mascota) {
-        // Dar de comer (tecla G) es parametrizada solo por proximidad en el
-        // servidor (auto-apunta a la mascota domesticable más cercana, sin
-        // id) — ofrecerlo aquí es la misma acción, solo más descubrible al
-        // clicar la mascota en concreto en vez de adivinar la tecla.
-        menuInteraccion.mostrar(clientX, clientY,mascota.especieId ? String(mascota.especieId).replace(/_/g, " ") : "Mascota", [
+        const nombreEspecie = mascota.especieId ? String(mascota.especieId).replace(/_/g, " ") : "Mascota";
+        const opcionesMascota: OpcionMenuInteraccion[] = [
+          // Dar de comer (tecla G) es parametrizada solo por proximidad en el
+          // servidor (auto-apunta a la mascota domesticable más cercana, sin
+          // id) — ofrecerlo aquí es la misma acción, solo más descubrible al
+          // clicar la mascota en concreto en vez de adivinar la tecla.
           { etiqueta: "Dar de comer", accion: () => room.send("mascota:darComida") },
-          {
-            etiqueta: "Inspeccionar",
-            accion: () => panelInspeccion.abrir(String(mascota.especieId || "mascota").replace(/_/g, " "), [{ etiqueta: "Dueño", valor: mascota.duenoNombre || "?" }], "🐾"),
-          },
-        ]);
+        ];
+        // Poner silla/Montar (teclas N/M, docs/GDD_Monturas.md) — SOLO tiene
+        // sentido sobre la PROPIA mascota (el servidor las rechaza si no lo
+        // es, "no es tuya"/similar) — auditoría de interacciones 2026-09-13:
+        // antes solo por teclado sin targeting; aquí se manda el id REAL del
+        // clic en vez de "la más cercana", más preciso con varias mascotas
+        // juntas. yo?.monturaEspecieId (Player, ya replicado) dice si el
+        // jugador YA está montado en ALGO, para no ofrecer "Montar" dos veces.
+        const yo = room.state.players?.get(room.sessionId) as any;
+        if (mascota.duenoNombre === nombreJugador) {
+          if (!mascota.montura) {
+            opcionesMascota.push({ etiqueta: "Poner silla", accion: () => room.send("mascota:ponerMontura", { mascotaId: ud.mascotaId }) });
+          } else if (!yo?.monturaEspecieId) {
+            opcionesMascota.push({ etiqueta: "Montar", accion: () => room.send("mascota:montar", { mascotaId: ud.mascotaId }) });
+          }
+        }
+        opcionesMascota.push({
+          etiqueta: "Inspeccionar",
+          accion: () => panelInspeccion.abrir(nombreEspecie, [{ etiqueta: "Dueño", valor: mascota.duenoNombre || "?" }], "🐾"),
+        });
+        menuInteraccion.mostrar(clientX, clientY, nombreEspecie, opcionesMascota);
         return true;
       }
     } else if (ud.companeroId) {
@@ -2766,6 +2783,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     mascotasVisual.delete(id);
     escena.quitarEntidad(`mascota_${id}`);
   });
+  // sonda de test (mascotaMonturaClic.e2e.cjs, 2026-09-13): mismo patrón que
+  // __fauna/__jugadores — posición real para poder clicar sin adivinar
+  // offsets de pantalla a ciegas.
+  (window as any).__mascotas = () => [...room.state.mascotas.entries()].map(([id, m]: [string, any]) => ({ id, especieId: m.especieId, x: m.x, y: m.y, montura: m.montura, duenoNombre: m.duenoNombre }));
 
   // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — SIEMPRE visibles en
   // state.barcos (a diferencia de una mascota montada, que desaparece del

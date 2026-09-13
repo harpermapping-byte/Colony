@@ -15,6 +15,12 @@ export interface MascotaVista {
   propiedadId: string | null;
   /** docs/GDD_Monturas.md — ya tiene silla puesta (mascota:ponerMontura), se puede montar. */
   montura: boolean;
+  /** docs/GDD_Monturas.md §3bis — bono de velocidad de LA silla concreta puesta (0=básica). Auditoría de interacciones 2026-09-13: ya vivía en BD, nunca llegaba al cliente. */
+  monturaBonusVelocidad?: number;
+  /** docs/GDD_Carros.md §2 — ya tiene arnés puesto (mascota:ponerArnes), se puede enganchar un carro. */
+  arnes?: boolean;
+  /** docs/GDD_Carros.md §3 — SOLO con arnes:true: peso máximo de carro que puede tirar. */
+  arnesPesoMaximo?: number;
 }
 
 export interface ProgresoDomesticar {
@@ -105,8 +111,13 @@ export class PanelMascotas {
       fila.style.gap = "6px";
 
       const texto = document.createElement("span");
-      const etiquetaMontura = m.montura ? " 🐴" : "";
-      texto.textContent = `${m.especieId}${etiquetaMontura} (${m.ubicacion === "siguiendo" ? "te sigue" : `en propiedad ${m.propiedadId}`})`;
+      // Bonos reales de silla/arnés (auditoría de interacciones 2026-09-13):
+      // antes solo se veía SI tenía silla/arnés puestos, nunca cuánto daban
+      // de verdad — dos monturas con silla básica vs. de tier alto se veían
+      // exactamente igual en este panel.
+      const etiquetaMontura = m.montura ? ` 🐴${m.monturaBonusVelocidad ? ` (+${m.monturaBonusVelocidad} vel.)` : ""}` : "";
+      const etiquetaArnes = m.arnes ? ` 🐎 (arnés, hasta ${m.arnesPesoMaximo}kg)` : "";
+      texto.textContent = `${m.especieId}${etiquetaMontura}${etiquetaArnes} (${m.ubicacion === "siguiendo" ? "te sigue" : `en propiedad ${m.propiedadId}`})`;
       fila.appendChild(texto);
 
       if (m.ubicacion === "propiedad") {

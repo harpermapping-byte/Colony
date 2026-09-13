@@ -4474,7 +4474,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     const bd = await obtenerBdCompartida();
     const jugador = await bd.obtenerOCrearJugador(nombre);
     const mascotas = await bd.listarMascotas(jugador.id);
-    client.send("mascota:lista", mascotas.map((m) => ({ id: m.id, especieId: m.especieId, ubicacion: m.ubicacion, propiedadId: m.propiedadId, montura: m.montura })));
+    // arnes/arnesPesoMaximo/monturaBonusVelocidad (auditoría de interacciones
+    // 2026-09-13): ya vivían en la fila de BD desde el diseño original de
+    // monturas/carros pero nunca salían de aquí — el panel no tenía forma
+    // de mostrar el bono real de una silla puesta ni el peso máximo de un
+    // arnés puesto.
+    client.send("mascota:lista", mascotas.map((m) => ({
+      id: m.id, especieId: m.especieId, ubicacion: m.ubicacion, propiedadId: m.propiedadId,
+      montura: m.montura, monturaBonusVelocidad: m.monturaBonusVelocidad, arnes: m.arnes, arnesPesoMaximo: m.arnesPesoMaximo,
+    })));
   }
 
   private async manejarMascotaLlamar(client: Client, msg: { mascotaId?: number }) {

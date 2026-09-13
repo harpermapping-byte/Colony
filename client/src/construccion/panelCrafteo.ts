@@ -78,6 +78,24 @@ export function recetasDesbloqueadasEnNivel(oficio: string, nivel: number): { id
     .map(([id, receta]) => ({ id, receta }));
 }
 
+// Progresión de nivel de oficio (auditoría de interacciones 2026-09-13):
+// `oficio:estado`/`crafteo:completado` YA traían xp/nivel reales, pero el
+// panel solo los usaba para detectar el SALTO de nivel (toast) — nunca
+// mostraba cuánta XP faltaba para el siguiente, así que craftear se sentía
+// sin ningún progreso visible entre subida y subida. Curva portada TAL CUAL
+// de `server/src/progresion/nivel.ts::generarUmbrales(10,90)` — nunca
+// duplicar la fórmula sin comentario, si cambia allí hay que replicarla
+// aquí (mismo criterio ya aceptado para `pesoMaximoTransportable` en
+// panelJugador.ts).
+const UMBRALES_NIVEL_OFICIO = Array.from({ length: 10 }, (_, i) => (90 * i * (i + 1)) / 2);
+
+/** "cuánto llevas / cuánto hace falta para el siguiente nivel", o "(nivel máximo)" en nivel 10. `null` si aún no llegó `oficio:estado`. */
+export function xpProgresoTexto(xp: number | undefined, nivel: number | null): string | null {
+  if (typeof xp !== "number" || nivel === null) return null;
+  if (nivel >= 10) return `${xp} XP (nivel máximo)`;
+  return `${xp}/${UMBRALES_NIVEL_OFICIO[nivel]} XP`;
+}
+
 export interface OpcionesPanelCrafteo {
   contenedor: HTMLElement;
   enviarIniciar(recetaId: string, construccionId: number): void;
@@ -231,7 +249,12 @@ export class PanelCrafteo {
     if (!this.mesa) return;
     const inventario = this.opciones.inventarioActual();
     const [oficio1, oficio2] = this.opciones.oficiosElegidos();
-    const firma = JSON.stringify([[...inventario.entries()].sort(), this.nivel, this.enCurso?.recetaId ?? null, oficio1, oficio2, this.mesa.id]);
+    // `this.xp` entra en la firma desde que el progreso "N/siguiente XP" se
+    // muestra en pantalla (auditoría de interacciones 2026-09-13) — sin
+    // esto, craftear sin cruzar de nivel (el caso normal, XP sube pero
+    // `this.nivel` no cambia) dejaba el número de XP mostrado CONGELADO
+    // hasta el próximo cambio de inventario/nivel/mesa.
+    const firma = JSON.stringify([[...inventario.entries()].sort(), this.nivel, this.xp, this.enCurso?.recetaId ?? null, oficio1, oficio2, this.mesa.id]);
     if (!forzar && firma === this.ultimaFirma) { this.actualizarProgreso(); return; }
     this.ultimaFirma = firma;
     const cuerpo = this.marco.cuerpo;
@@ -239,6 +262,16 @@ export class PanelCrafteo {
     this.progresoTexto = null;
     this.progresoRelleno = null;
     cuerpo.appendChild(crearLineaTexto(this.mesa.nombre, { negrita: true }));
+
+    // XP hacia el siguiente nivel de LOS oficios elegidos (auditoría de
+    // interacciones 2026-09-13) — solo los elegidos, no los 10 del catálogo:
+    // son los únicos que dan XP de verdad al craftear aquí (ver `elegido`
+    // más abajo, "sin bono (oficio no elegido)").
+    for (const oficio of [oficio1, oficio2]) {
+      if (!oficio) continue;
+      const progreso = xpProgresoTexto(this.xp[oficio], this.nivelDe(oficio));
+      if (progreso) cuerpo.appendChild(crearLineaTexto(`${nombreOficio(oficio)} nivel ${this.nivelDe(oficio)} · ${progreso}`, { tenue: true }));
+    }
 
     if (this.enCurso) {
       const receta = RECETAS[this.enCurso.recetaId];
