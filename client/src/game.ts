@@ -438,6 +438,27 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       });
       streaming = new StreamingSectores({
         indice,
+        // Radio MENOR que el default de la clase (192/352) — pedido streamer
+        // 2026-09-13 "el mundo va a 3fps, en aldea va fluido": medido con
+        // renderer.info real (no simulado), el mapa principal tras el rebake
+        // de vegetación más tupida (2026-09-11, TECHO_POR_CAPA.vegetacion
+        // 0.055->0.15) carga hasta ~21.000 props/sector — con el radio
+        // default SIEMPRE hay 9 sectores materializados a la vez (el propio
+        // comentario de streamingSectores.ts: "el anillo 3x3 completo queda
+        // dentro estando en el CENTRO de un sector"), dando ~715 draw calls
+        // y ~1.78M triángulos SOLO de props, frente a los ~25-40 draw calls
+        // de cualquier aldea/ciudad (motor de ciudades/, mucho más parco).
+        // La cámara isométrica solo ve ~16-20 unidades de radio
+        // (TAMANO_MUNDO_VISIBLE, worldScene.ts) — un radio de carga de 192
+        // sobra por 10x. Con 130 (manteniendo el mismo delta de histéresis,
+        // 160, que el default), en el centro de un sector solo se
+        // materializa 1 (medido: 530dc/1.0M tris) en vez de 9 siempre; cerca
+        // de un borde, 2-4. Margen de prefetch de sobra: 130 casillas /
+        // VEL_CORRER máx (6, hasta 7.2 con bonus de Resistencia,
+        // RoomExteriorBase.ts) ~= 18s de antelación antes de cruzar la
+        // frontera, frente a los ~4-6s reales medidos para cargar 1 sector.
+        radioCargaTiles: 130,
+        radioDescargaTiles: 290,
         obtenerSector: (sx, sy) => cargarSector(RUTA_MAPA, sx, sy),
         materializar: async (sector) => {
           const excluidos = await pedirExclusiones(sector.sectorX, sector.sectorY, tilesPorSector);
