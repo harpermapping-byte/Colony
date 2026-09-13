@@ -256,6 +256,15 @@ del mismo dueño, ambos con silla — clica el id=2 y exige
 `Player.monturaMascotaId===2` tras montar, con el id=1 intacto). Detalle
 completo en `CLAUDE.md`, entrada "Corrección real a la parte 6".
 
+**Robustez del e2e, mismo día**: el ángulo de seguimiento de la mascota se
+re-sortea en CADA join (`spawnearMascota`) — en la mala suerte de que quede
+casi alineada con el NPC fijo del mapa demo desde la cámara isométrica,
+ninguna altura de proyección la alcanza (confirmado real: hasta 3/5 pasadas
+seguidas fallando con ese síntoma). Los dos e2e de esta sección reintentan
+a nivel de RECONEXIÓN (`page.reload()`, hasta 6 veces) en vez de perseguir
+el píxel de un ángulo malo — mucho más barato y fiable. Detalle completo en
+`CLAUDE.md`, entrada "Robustez del e2e de silla/montar por clic".
+
 ## 5. Salto
 
 Pedido explícito, sin precedente en el proyecto (el motor de colisión es

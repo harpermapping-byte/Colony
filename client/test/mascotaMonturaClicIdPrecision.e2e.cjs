@@ -128,20 +128,39 @@ async function main() {
     });
     page.on("pageerror", (err) => erroresConsola.push(String(err)));
 
-    console.log("1) cargando cliente real (mismo nombre que el jugador sembrado, con sus 2 caballos reales)...");
-    await page.goto(`http://localhost:${PUERTO_WEB}/?nombre=${NOMBRE}`);
-    await page.waitForFunction(() => !!window.__colonyDebug, null, { timeout: 20000 });
-    await page.waitForFunction(() => (window.__mascotas?.() ?? []).length === 2, null, { timeout: 20000 });
-
     const menuSel = '[data-testid="menu-interaccion"]';
+    // Altura + jitter en (x,y) del mundo, mismo criterio (y misma causa
+    // real) que mascotaMonturaClic.e2e.cjs: el NPC fijo del mapa demo
+    // (`maestro_oficios_demo`, a 1 casilla del spawn) puede ocluir la
+    // mascota en TODAS las alturas de un punto único si el ángulo aleatorio
+    // de seguimiento la deja justo detrás desde la cámara isométrica.
     const ALTURAS_PROBAR = [0.3, 0.6, 0.9, 0.15, 1.1];
+    const JITTER_XY = [[0, 0], [0.3, 0], [-0.3, 0], [0, 0.3], [0, -0.3]];
+    async function esperarMundoListo() {
+      console.log("1) cargando cliente real (mismo nombre que el jugador sembrado, con sus 2 caballos reales)...");
+      await page.waitForFunction(() => !!window.__colonyDebug, null, { timeout: 20000 });
+      // El panel "Guía y novedades" (docs/GDD_UI_Paneles.md §14, 2026-09-13)
+      // se auto-abre CENTRADO la primera vez que se entra al mundo en un
+      // navegador sin preferencia guardada — tapa la zona donde se clica.
+      // Escape lo cierra (crearMarcoPanel, cierraConEscape por defecto); se
+      // espera el CIERRE REAL (no un delay a ciegas), mismo criterio que
+      // mascotaMonturaClic.e2e.cjs tras encontrar ahí una intermitencia real.
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => {
+        const el = document.querySelector('[data-testid="panel-tutorial"]');
+        return !el || getComputedStyle(el).display === "none";
+      }, null, { timeout: 5000 }).catch(() => {});
+      await page.waitForFunction(() => (window.__mascotas?.() ?? []).length === 2, null, { timeout: 20000 });
+      await esperar(300);
+    }
     async function clicarMascotaPorIdYLeerMenu(mascotaId) {
       let ultimaInfo = "";
-      for (let intento = 0; intento < 20; intento++) {
+      for (let intento = 0; intento < 25; intento++) {
         const m = await page.evaluate((id) => window.__mascotas?.()?.find((x) => x.id === id) ?? null, mascotaId);
         if (!m) throw new Error(`la mascota ${mascotaId} desapareció de room.state.mascotas`);
         const altura = ALTURAS_PROBAR[intento % ALTURAS_PROBAR.length];
-        const px = await page.evaluate(([x, y, h]) => window.__proyectarMundo(x, y, h), [m.x, m.y, altura]);
+        const [jx, jy] = JITTER_XY[Math.floor(intento / ALTURAS_PROBAR.length) % JITTER_XY.length];
+        const px = await page.evaluate(([x, y, h]) => window.__proyectarMundo(x, y, h), [m.x + jx, m.y + jy, altura]);
         await page.mouse.click(px.x, px.y);
         await esperar(200);
         const info = await page.evaluate((sel) => {
@@ -150,7 +169,7 @@ async function main() {
           return el.textContent || "";
         }, menuSel);
         if (info != null) return info;
-        ultimaInfo = `(sin menú, mascota ${mascotaId} en ${m.x.toFixed(2)},${m.y.toFixed(2)} -> pantalla ${px.x.toFixed(0)},${px.y.toFixed(0)} altura=${altura})`;
+        ultimaInfo = `(sin menú, mascota ${mascotaId} en ${m.x.toFixed(2)},${m.y.toFixed(2)} -> pantalla ${px.x.toFixed(0)},${px.y.toFixed(0)} altura=${altura} jitter=${jx},${jy})`;
         // Escape, nunca otro clic (docs/GDD_UI_Paneles.md §2bis) — ver la
         // misma lección documentada en mascotaMonturaClic.e2e.cjs.
         await page.keyboard.press("Escape");
@@ -159,10 +178,25 @@ async function main() {
       return ultimaInfo;
     }
 
-    console.log("2) clicando específicamente la mascota id=2 y pulsando 'Montar'...");
-    const menu = await clicarMascotaPorIdYLeerMenu("2");
-    comprobar("la mascota id=2 (con silla) ofrece 'Montar' por clic", /Montar/.test(menu), menu.slice(0, 200));
-    if (!/Montar/.test(menu)) throw new Error("no se pudo llegar a la opción 'Montar' de la mascota 2");
+    // Reintento a nivel de CONEXIÓN, no de píxel — mismo criterio que
+    // mascotaMonturaClic.e2e.cjs: el ángulo de seguimiento de CADA mascota
+    // se re-sortea en cada join, así que recargar da una disposición nueva
+    // en vez de perseguir el píxel exacto de una mala combinación fija.
+    await page.goto(`http://localhost:${PUERTO_WEB}/?nombre=${NOMBRE}`);
+    let menu = "";
+    let encontrada = false;
+    for (let vuelta = 0; vuelta < 6 && !encontrada; vuelta++) {
+      if (vuelta > 0) {
+        console.log(`   (reintento ${vuelta}: reconectando para ángulos de seguimiento nuevos)`);
+        await page.reload();
+      }
+      await esperarMundoListo();
+      console.log("2) clicando específicamente la mascota id=2 y pulsando 'Montar'...");
+      menu = await clicarMascotaPorIdYLeerMenu("2");
+      encontrada = /Montar/.test(menu);
+    }
+    comprobar("la mascota id=2 (con silla) ofrece 'Montar' por clic", encontrada, menu.slice(0, 200));
+    if (!encontrada) throw new Error("no se pudo llegar a la opción 'Montar' de la mascota 2, ni siquiera reconectando varias veces");
     await page.locator(`${menuSel} >> text=Montar`).click();
     await page.waitForFunction(() => (window.__mascotas?.() ?? []).length === 1, null, { timeout: 5000 });
 

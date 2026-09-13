@@ -118,27 +118,36 @@ async function main() {
     });
     page.on("pageerror", (err) => erroresConsola.push(String(err)));
 
-    console.log("1) cargando cliente real (mismo nombre que el jugador sembrado, con su caballo real)...");
-    await page.goto(`http://localhost:${PUERTO_WEB}/?nombre=${NOMBRE}`);
-    await page.waitForFunction(() => !!window.__colonyDebug, null, { timeout: 20000 });
-    // la mascota nace EXACTAMENTE en la posición del dueño (spawnearMascota,
-    // RoomExteriorBase.ts) y solo luego se aleja a ~1.3 unidades — esperar a
-    // que __mascotas() la reporte de verdad, en vez de un delay a ciegas.
-    await page.waitForFunction(() => (window.__mascotas?.() ?? []).length > 0, null, { timeout: 10000 });
-
-    console.log("2) clicando la posición real de la mascota (proyección mundo→pantalla, sin adivinar offsets): 'Poner silla'...");
     const menuSel = '[data-testid="menu-interaccion"]';
-    // Mismo criterio que cazaClic.e2e.mjs: la altura del rig real (cuerpo de
-    // caballo, no un punto fijo del suelo) no es un solo valor conocido de
-    // antemano — probar varias alturas de proyección hasta que el rayo
-    // atraviese de verdad la malla del animal.
+    // Alturas de proyección para dar con la malla real del caballo (mismo
+    // criterio que cazaClic.e2e.mjs — un rig con volumen no tiene una única
+    // altura de impacto correcta).
     const ALTURAS_PROBAR = [0.3, 0.6, 0.9, 0.15, 1.1];
-    async function clicarMascotaYLeerMenu() {
+    async function esperarMundoListo() {
+      console.log("1) cargando cliente real (mismo nombre que el jugador sembrado, con su caballo real)...");
+      await page.waitForFunction(() => !!window.__colonyDebug, null, { timeout: 20000 });
+      // El panel "Guía y novedades" (docs/GDD_UI_Paneles.md §14, 2026-09-13)
+      // se auto-abre CENTRADO la primera vez que se entra al mundo en un
+      // navegador sin preferencia guardada — tapa justo la zona donde se
+      // clica al jugador/mascota. Escape lo cierra (crearMarcoPanel).
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => {
+        const el = document.querySelector('[data-testid="panel-tutorial"]');
+        return !el || getComputedStyle(el).display === "none";
+      }, null, { timeout: 5000 }).catch(() => {});
+      // la mascota nace EXACTAMENTE en la posición del dueño (spawnearMascota,
+      // RoomExteriorBase.ts) y solo luego se aleja a ~1.3 unidades a un
+      // ÁNGULO ALEATORIO nuevo en cada join — esperar a que __mascotas() la
+      // reporte de verdad, en vez de un delay a ciegas.
+      await page.waitForFunction(() => (window.__mascotas?.() ?? []).length > 0, null, { timeout: 10000 });
+      await esperar(300);
+    }
+    async function intentarClicarMascota() {
       let ultimaInfo = "";
-      for (let intento = 0; intento < 20; intento++) {
+      for (let intento = 0; intento < ALTURAS_PROBAR.length; intento++) {
         const m = await page.evaluate(() => window.__mascotas?.()?.[0] ?? null);
         if (!m) throw new Error("la mascota desapareció de room.state.mascotas");
-        const altura = ALTURAS_PROBAR[intento % ALTURAS_PROBAR.length];
+        const altura = ALTURAS_PROBAR[intento];
         const px = await page.evaluate(([x, y, h]) => window.__proyectarMundo(x, y, h), [m.x, m.y, altura]);
         await page.mouse.click(px.x, px.y);
         await esperar(200);
@@ -160,10 +169,32 @@ async function main() {
       }
       return ultimaInfo;
     }
-    const opcionesMenu = await clicarMascotaYLeerMenu();
-    const menuConSilla = /Poner silla/.test(opcionesMenu);
+    // Reintento a nivel de CONEXIÓN, no de píxel: este mapa demo siempre
+    // trae un NPC fijo pegado al spawn (`maestro_oficios_demo`) y la mascota
+    // sigue al jugador a un ÁNGULO ALEATORIO elegido de nuevo en cada join
+    // (`spawnearMascota`, `Math.random()*2π`) — en la mala suerte de que ese
+    // ángulo deje al caballo casi alineado con el NPC desde la cámara
+    // isométrica, NINGUNA altura de proyección lo alcanza (confirmado real:
+    // hasta 3/5 pasadas seguidas fallando con exactamente ese síntoma —
+    // "Suelo" en vez del caballo — probando 5x5 combinaciones de altura+
+    // jitter en píxel, sin éxito). Recargar la página fuerza un join nuevo
+    // con un ángulo nuevo — mucho más fiable que perseguir el píxel exacto.
+    console.log("1) cargando cliente real (mismo nombre que el jugador sembrado, con su caballo real)...");
+    await page.goto(`http://localhost:${PUERTO_WEB}/?nombre=${NOMBRE}`);
+    let opcionesMenu = "";
+    let menuConSilla = false;
+    for (let vuelta = 0; vuelta < 6 && !menuConSilla; vuelta++) {
+      if (vuelta > 0) {
+        console.log(`   (reintento ${vuelta}: reconectando para un ángulo de seguimiento nuevo)`);
+        await page.reload();
+      }
+      await esperarMundoListo();
+      console.log("2) clicando la posición real de la mascota (proyección mundo→pantalla): 'Poner silla'...");
+      opcionesMenu = await intentarClicarMascota();
+      menuConSilla = /Poner silla/.test(opcionesMenu);
+    }
     comprobar("el menú al clicar la propia mascota ofrece 'Poner silla' (sin silla todavía)", menuConSilla, opcionesMenu.slice(0, 200));
-    if (!menuConSilla) throw new Error("no se encontró el caballo clicando su posición real");
+    if (!menuConSilla) throw new Error("no se encontró el caballo clicando su posición real, ni siquiera reconectando varias veces");
 
     console.log("3) clicando 'Poner silla' — debe consumir la silla real y marcar montura...");
     const antesToast = await page.evaluate(() => document.body.innerText);
@@ -172,7 +203,7 @@ async function main() {
     await esperar(500);
 
     console.log("4) clicando de nuevo la mascota: ya con silla, debe ofrecer 'Montar' en vez de 'Poner silla'...");
-    const opcionesMenu2 = await clicarMascotaYLeerMenu();
+    const opcionesMenu2 = await intentarClicarMascota();
     const menuConMontar = /Montar/.test(opcionesMenu2);
     comprobar("tras ponerle silla, el menú ya no ofrece 'Poner silla' otra vez", !/Poner silla/.test(opcionesMenu2), opcionesMenu2.slice(0, 200));
     comprobar("tras ponerle silla, el menú ofrece 'Montar'", menuConMontar, opcionesMenu2.slice(0, 200));
