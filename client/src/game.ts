@@ -817,7 +817,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // cada arranque con red/CPU justas).
     const yo = room.state.players?.get(room.sessionId) as any;
     if (!yo) return;
-    hudVitales.actualizar({ vida: yo.vida, vidaMax: yo.vidaMax, estamina: yo.vitales.estamina, comida: yo.vitales.comida, bebida: yo.vitales.bebida, caca: yo.vitales.caca });
+    hudVitales.actualizar({
+      vida: yo.vida, vidaMax: yo.vidaMax, estamina: yo.vitales.estamina, comida: yo.vitales.comida, bebida: yo.vitales.bebida, caca: yo.vitales.caca,
+      // Auditoría de interacciones 2026-09-13: temperatura/aire ya replican
+      // desde el servidor (docs/GDD_Clima.md/GDD_Mecanicas.md §5.4) pero
+      // nunca se leían aquí — el jugador no tenía forma de saber que se
+      // estaba ahogando hasta que la vida ya empezaba a bajar de verdad.
+      temperatura: yo.vitales.temperatura, aire: yo.vitales.aire, estado: yo.estado,
+    });
   }, 500);
 
   // Cuenta de jugador (docs/GDD_Cuentas.md): si el token guardado dejó de

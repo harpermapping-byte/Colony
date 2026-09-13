@@ -43,20 +43,31 @@ export interface VitalesVisibles {
   comida: number;
   bebida: number;
   caca: number;
+  /** 0-100, 50=neutro (docs/GDD_Clima.md) — fuera de rango gasta comida/bebida más rápido y resta al vidaMax efectivo. Siempre visible: a diferencia de aire, tiene efecto en CUALQUIER momento, no solo buceando. */
+  temperatura: number;
+  /** 0-100, solo decae buceando de verdad (docs/GDD_Mecanicas.md §5.4) — auditoría de interacciones 2026-09-13: sin esto en el HUD, ahogarse (mata en ~1 min sin aire) era completamente invisible hasta que ya dolía. Solo se muestra mientras `estado==="buceando"`. */
+  aire: number;
+  estado: string;
 }
 
 interface BarraVital {
   relleno: HTMLDivElement;
+  fila: HTMLDivElement;
 }
 
 const UMBRAL_URGENTE_CACA = 75;
+// Zona "cómoda" de temperatura (docs/GDD_Clima.md: 50=neutro) — dentro de
+// este margen no pulsa, fuera sí (mismo criterio visual que caca urgente).
+const MARGEN_TEMPERATURA_COMODA = 15;
 
-const DEFINICION_BARRAS: { clave: keyof Omit<VitalesVisibles, "vidaMax">; emoji: string; color: string; titulo: string }[] = [
+const DEFINICION_BARRAS: { clave: keyof Omit<VitalesVisibles, "vidaMax" | "estado">; emoji: string; color: string; titulo: string }[] = [
   { clave: "vida", emoji: "❤️", color: "#c0392b", titulo: "Vida" },
   { clave: "estamina", emoji: "⚡", color: "#e0b84a", titulo: "Estamina" },
   { clave: "comida", emoji: "🍗", color: "#a0703a", titulo: "Hambre" },
   { clave: "bebida", emoji: "💧", color: "#3a8ec0", titulo: "Sed" },
   { clave: "caca", emoji: "🫃", color: "#6b7a3a", titulo: "Necesidad (usa una hoja antes de que llegue al tope)" },
+  { clave: "temperatura", emoji: "🌡️", color: "#c0703a", titulo: "Temperatura corporal (50=cómodo; fuera de rango gasta comida/bebida más rápido)" },
+  { clave: "aire", emoji: "🫧", color: "#3ab0c0", titulo: "Aire (buceando) — sin aire, ahoga en poco más de un minuto" },
 ];
 
 export class HudVitales {
@@ -81,6 +92,7 @@ export class HudVitales {
       const fila = document.createElement("div");
       fila.className = "hud-vitales-fila";
       fila.title = def.titulo;
+      if (def.clave === "aire") fila.hidden = true; // solo visible buceando, ver actualizar()
 
       const emoji = document.createElement("span");
       emoji.className = "hud-vitales-emoji";
@@ -96,7 +108,7 @@ export class HudVitales {
       fila.appendChild(pista);
 
       barrasCont.appendChild(fila);
-      this.barras.set(def.clave, { relleno });
+      this.barras.set(def.clave, { relleno, fila });
     }
 
     contenedor.appendChild(raiz);
@@ -111,5 +123,20 @@ export class HudVitales {
     const rellenoCaca = this.barras.get("caca")!.relleno;
     rellenoCaca.style.width = pct(v.caca, 100);
     rellenoCaca.classList.toggle("urgente", v.caca >= UMBRAL_URGENTE_CACA);
+
+    const rellenoTemp = this.barras.get("temperatura")!.relleno;
+    rellenoTemp.style.width = pct(v.temperatura, 100);
+    rellenoTemp.classList.toggle("urgente", Math.abs(v.temperatura - 50) >= MARGEN_TEMPERATURA_COMODA);
+
+    // Aire: SOLO relevante buceando (docs/GDD_Mecanicas.md §5.4) — el resto
+    // del tiempo vale 100 y no aporta nada, se ocultaría la fila entera para
+    // no ensuciar el HUD con una barra siempre llena e irrelevante.
+    const filaAire = this.barras.get("aire")!;
+    const buceando = v.estado === "buceando";
+    filaAire.fila.hidden = !buceando;
+    if (buceando) {
+      filaAire.relleno.style.width = pct(v.aire, 100);
+      filaAire.relleno.classList.toggle("urgente", v.aire < 30);
+    }
   }
 }

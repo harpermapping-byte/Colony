@@ -84,7 +84,25 @@ El agua es un medio con niveles de profundidad, no un obstáculo:
   a respirar. 45s reales de aguante; agotado, `vida` cae ~1.5/seg mientras
   se siga buceando (`aplicarAhogo`, misma excepción deliberada a "nadie se
   hace daño solo con el tiempo" que `aplicarInanicion`, ver §5.4). Test: 8
-  casos puros en `vitales.test.ts` — sin e2e dedicado todavía.
+  casos puros en `vitales.test.ts`. **Gap real cerrado (auditoría de
+  interacciones 2026-09-13)**: `aire`/`temperatura` replicaban desde el
+  servidor pero `client/src/ui/hudVitales.ts` nunca los leía — un jugador
+  buceando no tenía NINGUNA señal visual de que se estaba quedando sin aire
+  hasta que la vida ya empezaba a caer de verdad. Cerrado con una fila nueva
+  "🫧 Aire" en el HUD de vitales, visible SOLO mientras `estado==="buceando"`
+  (en tierra/nadando en superficie vale 100 y sería ruido visual constante),
+  y una fila "🌡️ Temperatura" siempre visible (50=cómodo, `docs/GDD_Clima.md`).
+  **Bug real de CSS encontrado verificando, no solo escrito y dado por
+  bueno**: ocultar la fila con `elemento.hidden=true` no tenía ningún efecto
+  — `.hud-vitales-fila{display:flex}` gana por especificidad al
+  `[hidden]{display:none}` del user-agent, así que la fila se quedaba
+  visible siempre pese al atributo — cerrado con `.hud-vitales-fila[hidden]{display:none}`
+  explícito en `temaPaneles.css`. Verificado de punta a punta con
+  `client/test/hudVitalesAireTemp.e2e.cjs` (servidor+Vite+Playwright reales,
+  mapa `test_mar_a` — 100% agua, cualquier coordenada sirve): temperatura
+  visible desde el arranque con ~50%, aire oculto nadando en superficie,
+  aparece con ancho real al bucear (`nivel:-1`) y se oculta de nuevo al
+  salir a respirar (`nivel:1`).
 - **Fauna acuática solo agrea bajo el agua**: una especie `requiereAgua`
   (orca, tiburón...) exige `jugador.estado !== "tierra"` para agrearlo —
   de pie en tierra firme cerca de la orilla está fuera de su alcance,
