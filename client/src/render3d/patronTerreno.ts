@@ -27,8 +27,16 @@ export type FamiliaPatronTerreno = "cesped" | "tierra" | "camino" | "roca" | "ar
 // Nº de variantes por (familia, color) — mismo criterio "unas pocas
 // variantes elegidas por semilla" que ya usa el resto del proyecto (fauna,
 // edificios...): suficiente para que el patrón no se note repetido casilla
-// a casilla, sin disparar el número de parches a cachear.
-export const NUM_VARIANTES_PATRON = 4;
+// a casilla, sin disparar el número de parches a cachear. Subido de 4 a 8
+// junto con la resolución (2026-09-13, pedido streamer: "haría falta...
+// variaciones") — cada variante es un parche COMPLETO precalculado (no
+// ruido independiente por píxel), así que con pocas variantes dos casillas
+// cercanas de la misma familia/color pueden mostrar el MISMO parche exacto
+// (con 4, 1 de cada 4 vecinas); doblar a 8 baja esa coincidencia sin coste
+// real en `crearTerrenoSector` — `obtenerParchesTerreno` cachea las 8
+// variantes de un id UNA VEZ para todo el mapa (unas pocas decenas de ids
+// en total), nunca se recalculan por sector ni por casilla.
+export const NUM_VARIANTES_PATRON = 8;
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;
