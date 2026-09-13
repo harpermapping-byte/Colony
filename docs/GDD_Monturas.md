@@ -242,6 +242,29 @@ adivinar offsets de píxel a ciegas no encontraba la mascota real (se aleja
 intentos con un clic en vez de `Escape` podía tragarse el intento
 siguiente— en `CLAUDE.md`, entrada "Auditoría de interacciones, parte 6".
 
+**Corrección real, mismo día**: el `mascotaId` "REAL del clic" de arriba en
+realidad NO llegaba como tal al servidor — `ud.mascotaId` es la clave STRING
+del `Map` de Colyseus, pero `mascotaPropiaCercana` (servidor) solo respeta
+un id explícito cuando `typeof mascotaId === "number"`; una cadena caía en
+silencio a la MISMA rama "auto-apunta a la más cercana" que la tecla, sin
+ningún error visible. El e2e original (una sola mascota sembrada) no podía
+detectarlo — con una sola candidata, "la más cercana" y "la clicada" son
+indistinguibles. Cerrado convirtiendo con `Number(ud.mascotaId)` antes de
+mandar `mascota:ponerMontura`/`mascota:montar`. Verificado de verdad esta
+vez con `client/test/mascotaMonturaClicIdPrecision.e2e.cjs` (dos caballos
+del mismo dueño, ambos con silla — clica el id=2 y exige
+`Player.monturaMascotaId===2` tras montar, con el id=1 intacto). Detalle
+completo en `CLAUDE.md`, entrada "Corrección real a la parte 6".
+
+**Robustez del e2e, mismo día**: el ángulo de seguimiento de la mascota se
+re-sortea en CADA join (`spawnearMascota`) — en la mala suerte de que quede
+casi alineada con el NPC fijo del mapa demo desde la cámara isométrica,
+ninguna altura de proyección la alcanza (confirmado real: hasta 3/5 pasadas
+seguidas fallando con ese síntoma). Los dos e2e de esta sección reintentan
+a nivel de RECONEXIÓN (`page.reload()`, hasta 6 veces) en vez de perseguir
+el píxel de un ángulo malo — mucho más barato y fiable. Detalle completo en
+`CLAUDE.md`, entrada "Robustez del e2e de silla/montar por clic".
+
 ## 5. Salto
 
 Pedido explícito, sin precedente en el proyecto (el motor de colisión es

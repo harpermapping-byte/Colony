@@ -34,7 +34,7 @@ import { PanelTutorial, debeAbrirGuiaAutomaticamente } from "./ui/panelTutorial"
 import { ControlesTactiles } from "./controles/controlesTactiles";
 import { controlesTactilesActivos, onCambioControlesTactiles } from "./controles/deteccionControl";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
-import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, MeshStandardMaterial, Raycaster, Vector2, Vector3, Plane, Object3D } from "three";
+import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, MeshStandardMaterial, Raycaster, Vector2, Vector3, Plane, Object3D, Box3 } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
 import { RegistroCombate } from "./combate/registroCombate";
@@ -968,11 +968,13 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // jugador (ambos rigs muy próximos en pantalla).
       ...[...jugadores.entries()].filter(([sessionId]) => sessionId !== room.sessionId).map(([, e]) => e.rig.objeto),
       ...arbolesVisualObjetos.values(),
+      ...[...barcosVisual.entries()].map(([, e]) => e.rig.objeto),
+      ...cadaveresVisual.values(),
     ];
     const impactos = raycaster.intersectObjects(objetosInspeccionables, true);
     if (impactos.length === 0) return false;
     let nodo: Object3D | null = impactos[0].object;
-    while (nodo && !(nodo.userData.npcSlotId || nodo.userData.mascotaId || nodo.userData.companeroId || nodo.userData.enemigoId || nodo.userData.jugadorSessionId || nodo.userData.arbolId)) {
+    while (nodo && !(nodo.userData.npcSlotId || nodo.userData.mascotaId || nodo.userData.companeroId || nodo.userData.enemigoId || nodo.userData.jugadorSessionId || nodo.userData.arbolId || nodo.userData.barcoId || nodo.userData.cadaverId)) {
       nodo = nodo.parent;
     }
     const ud = nodo?.userData ?? {};
@@ -1018,12 +1020,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         // clic en vez de "la más cercana", más preciso con varias mascotas
         // juntas. yo?.monturaEspecieId (Player, ya replicado) dice si el
         // jugador YA está montado en ALGO, para no ofrecer "Montar" dos veces.
+        // OJO: `ud.mascotaId` es la CLAVE STRING del Map de Colyseus — hay
+        // que convertirla a número antes de mandarla, porque
+        // `mascotaPropiaCercana` (servidor) solo respeta un id explícito
+        // cuando `typeof mascotaId === "number"` (si no, cae en silencio al
+        // "la más cercana" de siempre) — bug real encontrado leyendo el
+        // servidor tras el primer commit de esta pieza, nunca visible en el
+        // e2e porque solo había UNA mascota de por medio.
+        const mascotaIdNum = Number(ud.mascotaId);
         const yo = room.state.players?.get(room.sessionId) as any;
         if (mascota.duenoNombre === nombreJugador) {
           if (!mascota.montura) {
-            opcionesMascota.push({ etiqueta: "Poner silla", accion: () => room.send("mascota:ponerMontura", { mascotaId: ud.mascotaId }) });
+            opcionesMascota.push({ etiqueta: "Poner silla", accion: () => room.send("mascota:ponerMontura", { mascotaId: mascotaIdNum }) });
           } else if (!yo?.monturaEspecieId) {
-            opcionesMascota.push({ etiqueta: "Montar", accion: () => room.send("mascota:montar", { mascotaId: ud.mascotaId }) });
+            opcionesMascota.push({ etiqueta: "Montar", accion: () => room.send("mascota:montar", { mascotaId: mascotaIdNum }) });
           }
         }
         opcionesMascota.push({
@@ -1085,6 +1095,53 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const arbol = room.state.arbolesVivos.get(ud.arbolId) as any;
       if (arbol) {
         panelInspeccion.abrir(String(arbol.especieId || "árbol").replace(/_/g, " "), [{ etiqueta: "Etapa", valor: arbol.etapa === "joven" ? "Joven" : "Adulto" }], "🌳");
+        return true;
+      }
+    } else if (ud.barcoId) {
+      // Auditoría de interacciones 2026-09-13: J/P (colocar/subir-bajar,
+      // docs/GDD_Barcos.md) no tenían ningún targeting — "el más cercano
+      // con hueco" siempre, igual que mascotas/monturas ANTES de esta misma
+      // auditoría. `barcosVisual` ya existe (SIEMPRE visible en
+      // state.barcos, a diferencia de una mascota montada) — mismo patrón
+      // exacto que mascota: id REAL del clic, nunca "el más cercano".
+      const barcoIdNum = Number(ud.barcoId);
+      const barco = room.state.barcos.get(String(barcoIdNum)) as any;
+      if (barco) {
+        const nombreBarco = barco.tipoId ? String(barco.tipoId).replace(/_/g, " ") : "Barco";
+        const yo = room.state.players?.get(room.sessionId) as any;
+        const ocupantes = [...room.state.players.values()].filter((p: any) => p.barcoId === barcoIdNum).length;
+        const opcionesBarco: OpcionMenuInteraccion[] = [];
+        if (yo?.barcoId === barcoIdNum) {
+          opcionesBarco.push({ etiqueta: "Bajar del barco", accion: () => room.send("barco:desmontar") });
+        } else if (!yo?.barcoId) {
+          // Servidor rechaza si no hay hueco ("nada_cerca") o si ya está
+          // embarcado en OTRO ("ya_embarcado") — mismo id explícito que ya
+          // acepta `manejarBarcoMontar` (barcoConHuecoCercano respeta
+          // `typeof barcoId==="number"`, sin el bug string-vs-number que sí
+          // tuvo mascotas — verificado leyendo el servidor antes de esto).
+          opcionesBarco.push({ etiqueta: "Subir a bordo", accion: () => room.send("barco:montar", { barcoId: barcoIdNum }) });
+        }
+        opcionesBarco.push({
+          etiqueta: "Inspeccionar",
+          accion: () => panelInspeccion.abrir(nombreBarco, [{ etiqueta: "Ocupantes", valor: String(ocupantes) }], "⛵"),
+        });
+        menuInteraccion.mostrar(clientX, clientY, nombreBarco, opcionesBarco);
+        return true;
+      }
+    } else if (ud.cadaverId) {
+      // Auditoría de interacciones 2026-09-13: L (cadaverMasCercano) ya
+      // manda el `cadaverId` real del cadáver que encuentra más cerca — el
+      // servidor (manejarCadaverLootear) siempre exigió un id explícito,
+      // nunca "auto-apuntar" — así que clicar el cadáver en concreto es
+      // exactamente el mismo mensaje, solo eligiendo el objetivo con el
+      // ratón en vez de dejar que el cliente busque "el más cercano".
+      const cadaver = room.state.cadaveres.get(ud.cadaverId) as any;
+      if (cadaver) {
+        const nombreCadaver = cadaver.especieOrigenId ? String(cadaver.especieOrigenId).replace(/_/g, " ") : "Cadáver";
+        menuInteraccion.mostrar(clientX, clientY, nombreCadaver, [
+          { etiqueta: "Lootear", accion: () => room.send("cadaver:lootear", { cadaverId: ud.cadaverId }) },
+          { etiqueta: "Inspeccionar", accion: () => panelInspeccion.abrir(nombreCadaver, [{ etiqueta: "Origen", valor: cadaver.tipoOrigen || "?" }], "💀") },
+        ]);
         return true;
       }
     }
@@ -2160,6 +2217,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       "construccion:nueva", "construir:error", // playtestOficios.e2e.mjs: colocar una mesa como jarl y saber su id real
       "arbol:plantado", "arbol:error", "arbol:talado", "coger:error", "equipo:error",
       "admin:debug:ok", "admin:error",
+      // cadaverClic.e2e.cjs (auditoría de interacciones 2026-09-13, Lootear
+      // por clic sobre el cadáver del mundo): confirmar el round-trip real
+      // clic->cadaver:lootear->cadaver:lootado, sin depender de leer un
+      // toast de pantalla.
+      "cadaver:lootado", "cadaver:error",
     ]) {
       room.onMessage(tipo, (m: unknown) => ultimosMensajes.set(tipo, m));
     }
@@ -2827,6 +2889,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // __fauna/__jugadores — posición real para poder clicar sin adivinar
   // offsets de pantalla a ciegas.
   (window as any).__mascotas = () => [...room.state.mascotas.entries()].map(([id, m]: [string, any]) => ({ id, especieId: m.especieId, x: m.x, y: m.y, montura: m.montura, duenoNombre: m.duenoNombre }));
+  // sonda de test (barcoClic.e2e.cjs, 2026-09-13): mismo criterio que
+  // __mascotas — posición real de cada barco para clicarlo sin adivinar.
+  (window as any).__barcos = () => [...room.state.barcos.entries()].map(([id, b]: [string, any]) => ({ id, tipoId: b.tipoId, x: b.x, y: b.y }));
 
   // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — SIEMPRE visibles en
   // state.barcos (a diferencia de una mascota montada, que desaparece del
@@ -2842,6 +2907,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       x: barco.x, z: barco.y, y: 0,
       nadando: false,
     };
+    criatura.objeto.userData.barcoId = id; // panel de inspección/clic (auditoría de interacciones, 2026-09-13)
     barcosVisual.set(id, estado);
     escena.añadirEntidad(`barco_${id}`, criatura.objeto, barco.x, barco.y);
     $(barco).onChange(() => {
@@ -3098,7 +3164,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   });
   // Sonda de test (playtest multijugador 2026-09-10): quién ve este cliente
   // en `state.players` — mismo criterio que `__npcs`/`__fauna`, sin panel.
-  (window as any).__jugadores = () => [...room.state.players.entries()].map(([id, p]: [string, any]) => ({ id, nombre: p.name, x: p.x, y: p.y, estado: p.estado, vida: p.vida }));
+  (window as any).__jugadores = () => [...room.state.players.entries()].map(([id, p]: [string, any]) => ({ id, nombre: p.name, x: p.x, y: p.y, estado: p.estado, vida: p.vida, monturaMascotaId: p.monturaMascotaId, barcoId: p.barcoId }));
 
   // --- Diálogo con NPCs con IA (docs/GDD_IA_NPCs.md, pedido streamer
   // 2026-09-08: "ahondar en el tema de las conversaciones con IA NPC" —
@@ -3699,6 +3765,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // comentario para las limitaciones honestas por tipoOrigen. Estático de
   // por vida: un cadáver no se mueve ni se anima, así que la pose se
   // aplica UNA vez aquí y nunca entra en el bucle de interpolación.
+  // Mismo criterio que barcosVisual/mascotasVisual: Map propio para poder
+  // clicar un cadáver del MUNDO directamente (auditoría de interacciones
+  // 2026-09-13) — la tecla L (cadaverMasCercano()) sigue funcionando igual,
+  // esto solo añade el gesto de clic sobre el cadáver en concreto. El
+  // servidor (manejarCadaverLootear) YA exige un `cadaverId` explícito
+  // desde el diseño original (nunca "auto-apunta"): la tecla L es la que
+  // hace la búsqueda de "el más cercano" del lado del CLIENTE antes de
+  // mandarlo, así que no hace falta ningún cambio de servidor aquí.
+  const cadaveresVisual = new Map<string, Object3D>();
   $(room.state).cadaveres.onAdd((cadaver: any, id: string) => {
     let datos: Record<string, any> = {};
     try {
@@ -3765,17 +3840,27 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     }
 
     if (cadaver.tipoOrigen !== "animal") inclinarCaido(objeto, id);
+    objeto.userData.cadaverId = id; // panel de inspección/clic (auditoría de interacciones, 2026-09-13)
+    cadaveresVisual.set(id, objeto);
     escena.añadirEntidad(`cadaver_${id}`, objeto, cadaver.x, cadaver.y, etiqueta);
   });
-  $(room.state).cadaveres.onRemove((_cadaver: any, id: string) => escena.quitarEntidad(`cadaver_${id}`));
+  $(room.state).cadaveres.onRemove((_cadaver: any, id: string) => { cadaveresVisual.delete(id); escena.quitarEntidad(`cadaver_${id}`); });
+  (window as any).__cadaverBBox = (id: string) => {
+    const obj = cadaveresVisual.get(id);
+    if (!obj) return null;
+    const box = new Box3().setFromObject(obj);
+    return { min: box.min.toArray(), max: box.max.toArray(), pos: obj.position.toArray() };
+  };
   // sonda de test (pedido 2026-09-01, verificación visual de cadáveres).
   (window as any).__cadaveres = () => [...room.state.cadaveres.entries()].map(([id, c]: [string, any]) => ({ id, tipoOrigen: c.tipoOrigen, especieOrigenId: c.especieOrigenId, datosVisual: c.datosVisual, x: c.x, y: c.y }));
   // true entre "procesarIniciado" y "procesado"/error — mismo criterio que
   // "sin cola" del resto del crafteo: como mucho un procesado a la vez, K/O
   // recolectan en vez de arrancar otro mientras esté en curso.
   let procesandoCadaver = false;
-  room.onMessage("cadaver:error", (m: { motivo: string }) => { procesandoCadaver = false; console.log("[cadáver]", m?.motivo); });
-  room.onMessage("cadaver:lootado", (m: { movidos: number }) => console.log("[cadáver] lootados", m?.movidos, "objeto(s)"));
+  // Auditoría de interacciones 2026-09-13: solo consola desde su creación
+  // (2026-08-30) — mismo hueco ya cerrado para cofre/cultivo/asiento/etc.
+  room.onMessage("cadaver:error", (m: { motivo: string }) => { procesandoCadaver = false; console.log("[cadáver]", m?.motivo); registroCombate.mostrar(m?.motivo || "No se pudo usar el cadáver.", "error"); });
+  room.onMessage("cadaver:lootado", (m: { movidos: number }) => { console.log("[cadáver] lootados", m?.movidos, "objeto(s)"); registroCombate.mostrar(m?.movidos > 0 ? `Recoges ${m.movidos} objeto(s) del cadáver.` : "El cadáver no tenía nada que recoger.", "info"); });
   room.onMessage("cadaver:procesarIniciado", (m: { verbo: string; enMesa: boolean; terminaEn: number }) =>
     console.log("[cadáver] procesando", m?.verbo, m?.enMesa ? "(en mesa, rápido)" : "(en el sitio, lento)"));
   room.onMessage("cadaver:procesado", (m: { entregados: string[] }) => { procesandoCadaver = false; console.log("[cadáver] procesado, entregado:", m?.entregados); });

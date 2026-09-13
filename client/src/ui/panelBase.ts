@@ -49,6 +49,14 @@ export interface MarcoPanel {
   onCambioEstado(cb: () => void): void;
 }
 
+// Arrastre por la cabecera (pedido streamer 2026-09-13: "los paneles se
+// puedan mover por si se solapan al abrir con click sobre el y
+// arrastrarlo"). Contador de z-index COMPARTIDO por todos los paneles del
+// marco — arrancar por encima del z-index base (40, temaPaneles.css) y subir
+// con cada arrastre/clic en una cabecera trae ese panel al frente, útil
+// justo para el caso que motivó el pedido (dos paneles solapados).
+let contadorZIndexPanel = 40;
+
 export function crearMarcoPanel(opciones: OpcionesMarcoPanel): MarcoPanel {
   const raiz = document.createElement("div");
   raiz.className = "panel-colony";
@@ -115,6 +123,66 @@ export function crearMarcoPanel(opciones: OpcionesMarcoPanel): MarcoPanel {
       if (e.key === "Escape" && abierto) cerrar();
     });
   }
+
+  // Arrastre: solo si el panel usa `position:absolute` de verdad — los dos
+  // overlays fullscreen centrados por flex (panelResumen.ts/
+  // panelMapaMundo.ts) fuerzan `position:relative` a propósito para no
+  // romper su centrado ("el position:absolute del tema rompería el
+  // centrado"), y ahí arrastrar no tiene sentido: el contenedor ya es
+  // pantalla completa. La comprobación es sobre el estilo COMPUTADO (no
+  // `opciones`) para que siga funcionando aunque el override se haga después
+  // de crear el marco, como ya hacen esos dos paneles.
+  let arrastrando = false;
+  let inicioPuntero = { x: 0, y: 0 };
+  let inicioPanel = { left: 0, top: 0 };
+
+  function origenAncestro(): { left: number; top: number } {
+    const padre = raiz.offsetParent as HTMLElement | null;
+    if (!padre) return { left: 0, top: 0 };
+    const r = padre.getBoundingClientRect();
+    return { left: r.left, top: r.top };
+  }
+
+  cabecera.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return; // solo botón principal del ratón (touch/pen dan 0 igualmente)
+    if (e.target instanceof HTMLElement && e.target.closest(".panel-colony-cerrar")) return;
+    if (getComputedStyle(raiz).position !== "absolute") return;
+    const rectRaiz = raiz.getBoundingClientRect();
+    const origen = origenAncestro();
+    // Neutraliza cualquier transform de centrado (translate(-50%,...), usado
+    // por la mayoría de paneles para centrarse en left:50%/top:50%) y
+    // cualquier anclaje por right/bottom (panelCompanero.ts/panelMascotas.ts)
+    // fijando left/top explícitos que reproducen EXACTAMENTE la posición
+    // visual actual — el panel no debe saltar al primer píxel de arrastre.
+    raiz.style.transform = "none";
+    raiz.style.right = "auto";
+    raiz.style.bottom = "auto";
+    inicioPanel = { left: rectRaiz.left - origen.left, top: rectRaiz.top - origen.top };
+    raiz.style.left = `${inicioPanel.left}px`;
+    raiz.style.top = `${inicioPanel.top}px`;
+    raiz.style.zIndex = String(++contadorZIndexPanel);
+    inicioPuntero = { x: e.clientX, y: e.clientY };
+    arrastrando = true;
+    cabecera.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  cabecera.addEventListener("pointermove", (e) => {
+    if (!arrastrando) return;
+    const origen = origenAncestro();
+    const maxLeft = Math.max(0, window.innerWidth - origen.left - raiz.offsetWidth);
+    const maxTop = Math.max(0, window.innerHeight - origen.top - raiz.offsetHeight);
+    const nuevoLeft = Math.min(maxLeft, Math.max(0, inicioPanel.left + (e.clientX - inicioPuntero.x)));
+    const nuevoTop = Math.min(maxTop, Math.max(0, inicioPanel.top + (e.clientY - inicioPuntero.y)));
+    raiz.style.left = `${nuevoLeft}px`;
+    raiz.style.top = `${nuevoTop}px`;
+  });
+  const terminarArrastre = (e: PointerEvent) => {
+    if (!arrastrando) return;
+    arrastrando = false;
+    if (cabecera.hasPointerCapture(e.pointerId)) cabecera.releasePointerCapture(e.pointerId);
+  };
+  cabecera.addEventListener("pointerup", terminarArrastre);
+  cabecera.addEventListener("pointercancel", terminarArrastre);
 
   return { raiz, cuerpo, abrir, cerrar, alternar, estaAbierto, onCambioEstado: (cb) => listenersCambio.push(cb) };
 }
