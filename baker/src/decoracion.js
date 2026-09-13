@@ -146,7 +146,17 @@ function crearColocadorDecoracion(semilla, catalogoVegetacion, catalogoAnimales,
   // pequeño efecto secundario ya conocido, no un cambio real de esas dos
   // capas: `techoPara()` sigue despachando `vegetacion:0.15`/`rocas:0.02`
   // sin tocar, el cambio no puede filtrarse a su PROBABILIDAD de aparecer.
-  const TECHO_POR_CAPA = { vegetacion: 0.15, fauna: 0.006, rocas: 0.02 };
+  // AMBOS bajados un tramo más (2026-09-13, pedido streamer: "que las
+  // plantas y animales sean menos") — DESPUÉS de que `sectorVisual.ts`
+  // dejara de dibujar el 67% "reserva" del pool (`ac:0`, ver
+  // ObjetoBakeado.ac): antes de ese fix de cliente, lo que se VEÍA en
+  // pantalla era `techo × multiplicadorPool` (0.15×3=0.45 efectivo);
+  // después, es el techo puro (0.15) — un 3x de golpe SIN rebake. Este
+  // recorte de 0.15→0.10 / 0.006→0.004 (~33% menos cada uno) es ADEMÁS de
+  // esa bajada ya aplicada, no en vez de ella — la densidad visible real en
+  // el próximo bake será menor que en NINGÚN punto anterior de esta sesión,
+  // vegetación incluida antes del "más tupido" original.
+  const TECHO_POR_CAPA = { vegetacion: 0.1, fauna: 0.004, rocas: 0.02 };
   function techoPara(catalogo) {
     return catalogo === catalogoAnimales ? TECHO_POR_CAPA.fauna : catalogo === catalogoRocas ? TECHO_POR_CAPA.rocas : TECHO_POR_CAPA.vegetacion;
   }
