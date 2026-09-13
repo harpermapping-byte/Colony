@@ -978,12 +978,20 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         // clic en vez de "la más cercana", más preciso con varias mascotas
         // juntas. yo?.monturaEspecieId (Player, ya replicado) dice si el
         // jugador YA está montado en ALGO, para no ofrecer "Montar" dos veces.
+        // OJO: `ud.mascotaId` es la CLAVE STRING del Map de Colyseus — hay
+        // que convertirla a número antes de mandarla, porque
+        // `mascotaPropiaCercana` (servidor) solo respeta un id explícito
+        // cuando `typeof mascotaId === "number"` (si no, cae en silencio al
+        // "la más cercana" de siempre) — bug real encontrado leyendo el
+        // servidor tras el primer commit de esta pieza, nunca visible en el
+        // e2e porque solo había UNA mascota de por medio.
+        const mascotaIdNum = Number(ud.mascotaId);
         const yo = room.state.players?.get(room.sessionId) as any;
         if (mascota.duenoNombre === nombreJugador) {
           if (!mascota.montura) {
-            opcionesMascota.push({ etiqueta: "Poner silla", accion: () => room.send("mascota:ponerMontura", { mascotaId: ud.mascotaId }) });
+            opcionesMascota.push({ etiqueta: "Poner silla", accion: () => room.send("mascota:ponerMontura", { mascotaId: mascotaIdNum }) });
           } else if (!yo?.monturaEspecieId) {
-            opcionesMascota.push({ etiqueta: "Montar", accion: () => room.send("mascota:montar", { mascotaId: ud.mascotaId }) });
+            opcionesMascota.push({ etiqueta: "Montar", accion: () => room.send("mascota:montar", { mascotaId: mascotaIdNum }) });
           }
         }
         opcionesMascota.push({
@@ -3058,7 +3066,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   });
   // Sonda de test (playtest multijugador 2026-09-10): quién ve este cliente
   // en `state.players` — mismo criterio que `__npcs`/`__fauna`, sin panel.
-  (window as any).__jugadores = () => [...room.state.players.entries()].map(([id, p]: [string, any]) => ({ id, nombre: p.name, x: p.x, y: p.y, estado: p.estado, vida: p.vida }));
+  (window as any).__jugadores = () => [...room.state.players.entries()].map(([id, p]: [string, any]) => ({ id, nombre: p.name, x: p.x, y: p.y, estado: p.estado, vida: p.vida, monturaMascotaId: p.monturaMascotaId }));
 
   // --- Diálogo con NPCs con IA (docs/GDD_IA_NPCs.md, pedido streamer
   // 2026-09-08: "ahondar en el tema de las conversaciones con IA NPC" —
