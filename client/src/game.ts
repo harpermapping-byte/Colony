@@ -34,7 +34,7 @@ import { PanelTutorial, debeAbrirGuiaAutomaticamente } from "./ui/panelTutorial"
 import { ControlesTactiles } from "./controles/controlesTactiles";
 import { controlesTactilesActivos, onCambioControlesTactiles } from "./controles/deteccionControl";
 import { crearInteriorVisual, type InteriorBakeado, type LuzInterior, INTENSIDAD_LUZ as INTENSIDAD_LUZ_INTERIOR } from "./render3d/interiorVisual";
-import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, MeshStandardMaterial, Raycaster, Vector2, Vector3, Plane, Object3D } from "three";
+import { PointLight, Color, Mesh, ConeGeometry, SphereGeometry, MeshBasicMaterial, MeshStandardMaterial, Raycaster, Vector2, Vector3, Plane, Object3D, Box3 } from "three";
 import { tiempoMundo } from "./mundo/tiempoMundo";
 import { PanelCombate } from "./combate/panelCombate";
 import { RegistroCombate } from "./combate/registroCombate";
@@ -940,11 +940,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       ...[...jugadores.entries()].filter(([sessionId]) => sessionId !== room.sessionId).map(([, e]) => e.rig.objeto),
       ...arbolesVisualObjetos.values(),
       ...[...barcosVisual.entries()].map(([, e]) => e.rig.objeto),
+      ...cadaveresVisual.values(),
     ];
     const impactos = raycaster.intersectObjects(objetosInspeccionables, true);
     if (impactos.length === 0) return false;
     let nodo: Object3D | null = impactos[0].object;
-    while (nodo && !(nodo.userData.npcSlotId || nodo.userData.mascotaId || nodo.userData.companeroId || nodo.userData.enemigoId || nodo.userData.jugadorSessionId || nodo.userData.arbolId || nodo.userData.barcoId)) {
+    while (nodo && !(nodo.userData.npcSlotId || nodo.userData.mascotaId || nodo.userData.companeroId || nodo.userData.enemigoId || nodo.userData.jugadorSessionId || nodo.userData.arbolId || nodo.userData.barcoId || nodo.userData.cadaverId)) {
       nodo = nodo.parent;
     }
     const ud = nodo?.userData ?? {};
@@ -1096,6 +1097,22 @@ export async function iniciarJuego(contenedor: HTMLElement) {
           accion: () => panelInspeccion.abrir(nombreBarco, [{ etiqueta: "Ocupantes", valor: String(ocupantes) }], "⛵"),
         });
         menuInteraccion.mostrar(clientX, clientY, nombreBarco, opcionesBarco);
+        return true;
+      }
+    } else if (ud.cadaverId) {
+      // Auditoría de interacciones 2026-09-13: L (cadaverMasCercano) ya
+      // manda el `cadaverId` real del cadáver que encuentra más cerca — el
+      // servidor (manejarCadaverLootear) siempre exigió un id explícito,
+      // nunca "auto-apuntar" — así que clicar el cadáver en concreto es
+      // exactamente el mismo mensaje, solo eligiendo el objetivo con el
+      // ratón en vez de dejar que el cliente busque "el más cercano".
+      const cadaver = room.state.cadaveres.get(ud.cadaverId) as any;
+      if (cadaver) {
+        const nombreCadaver = cadaver.especieOrigenId ? String(cadaver.especieOrigenId).replace(/_/g, " ") : "Cadáver";
+        menuInteraccion.mostrar(clientX, clientY, nombreCadaver, [
+          { etiqueta: "Lootear", accion: () => room.send("cadaver:lootear", { cadaverId: ud.cadaverId }) },
+          { etiqueta: "Inspeccionar", accion: () => panelInspeccion.abrir(nombreCadaver, [{ etiqueta: "Origen", valor: cadaver.tipoOrigen || "?" }], "💀") },
+        ]);
         return true;
       }
     }
@@ -2171,6 +2188,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       "construccion:nueva", "construir:error", // playtestOficios.e2e.mjs: colocar una mesa como jarl y saber su id real
       "arbol:plantado", "arbol:error", "arbol:talado", "coger:error", "equipo:error",
       "admin:debug:ok", "admin:error",
+      // cadaverClic.e2e.cjs (auditoría de interacciones 2026-09-13, Lootear
+      // por clic sobre el cadáver del mundo): confirmar el round-trip real
+      // clic->cadaver:lootear->cadaver:lootado, sin depender de leer un
+      // toast de pantalla.
+      "cadaver:lootado", "cadaver:error",
     ]) {
       room.onMessage(tipo, (m: unknown) => ultimosMensajes.set(tipo, m));
     }
@@ -3714,6 +3736,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // comentario para las limitaciones honestas por tipoOrigen. Estático de
   // por vida: un cadáver no se mueve ni se anima, así que la pose se
   // aplica UNA vez aquí y nunca entra en el bucle de interpolación.
+  // Mismo criterio que barcosVisual/mascotasVisual: Map propio para poder
+  // clicar un cadáver del MUNDO directamente (auditoría de interacciones
+  // 2026-09-13) — la tecla L (cadaverMasCercano()) sigue funcionando igual,
+  // esto solo añade el gesto de clic sobre el cadáver en concreto. El
+  // servidor (manejarCadaverLootear) YA exige un `cadaverId` explícito
+  // desde el diseño original (nunca "auto-apunta"): la tecla L es la que
+  // hace la búsqueda de "el más cercano" del lado del CLIENTE antes de
+  // mandarlo, así que no hace falta ningún cambio de servidor aquí.
+  const cadaveresVisual = new Map<string, Object3D>();
   $(room.state).cadaveres.onAdd((cadaver: any, id: string) => {
     let datos: Record<string, any> = {};
     try {
@@ -3780,17 +3811,27 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     }
 
     if (cadaver.tipoOrigen !== "animal") inclinarCaido(objeto, id);
+    objeto.userData.cadaverId = id; // panel de inspección/clic (auditoría de interacciones, 2026-09-13)
+    cadaveresVisual.set(id, objeto);
     escena.añadirEntidad(`cadaver_${id}`, objeto, cadaver.x, cadaver.y, etiqueta);
   });
-  $(room.state).cadaveres.onRemove((_cadaver: any, id: string) => escena.quitarEntidad(`cadaver_${id}`));
+  $(room.state).cadaveres.onRemove((_cadaver: any, id: string) => { cadaveresVisual.delete(id); escena.quitarEntidad(`cadaver_${id}`); });
+  (window as any).__cadaverBBox = (id: string) => {
+    const obj = cadaveresVisual.get(id);
+    if (!obj) return null;
+    const box = new Box3().setFromObject(obj);
+    return { min: box.min.toArray(), max: box.max.toArray(), pos: obj.position.toArray() };
+  };
   // sonda de test (pedido 2026-09-01, verificación visual de cadáveres).
   (window as any).__cadaveres = () => [...room.state.cadaveres.entries()].map(([id, c]: [string, any]) => ({ id, tipoOrigen: c.tipoOrigen, especieOrigenId: c.especieOrigenId, datosVisual: c.datosVisual, x: c.x, y: c.y }));
   // true entre "procesarIniciado" y "procesado"/error — mismo criterio que
   // "sin cola" del resto del crafteo: como mucho un procesado a la vez, K/O
   // recolectan en vez de arrancar otro mientras esté en curso.
   let procesandoCadaver = false;
-  room.onMessage("cadaver:error", (m: { motivo: string }) => { procesandoCadaver = false; console.log("[cadáver]", m?.motivo); });
-  room.onMessage("cadaver:lootado", (m: { movidos: number }) => console.log("[cadáver] lootados", m?.movidos, "objeto(s)"));
+  // Auditoría de interacciones 2026-09-13: solo consola desde su creación
+  // (2026-08-30) — mismo hueco ya cerrado para cofre/cultivo/asiento/etc.
+  room.onMessage("cadaver:error", (m: { motivo: string }) => { procesandoCadaver = false; console.log("[cadáver]", m?.motivo); registroCombate.mostrar(m?.motivo || "No se pudo usar el cadáver.", "error"); });
+  room.onMessage("cadaver:lootado", (m: { movidos: number }) => { console.log("[cadáver] lootados", m?.movidos, "objeto(s)"); registroCombate.mostrar(m?.movidos > 0 ? `Recoges ${m.movidos} objeto(s) del cadáver.` : "El cadáver no tenía nada que recoger.", "info"); });
   room.onMessage("cadaver:procesarIniciado", (m: { verbo: string; enMesa: boolean; terminaEn: number }) =>
     console.log("[cadáver] procesando", m?.verbo, m?.enMesa ? "(en mesa, rápido)" : "(en el sitio, lento)"));
   room.onMessage("cadaver:procesado", (m: { entregados: string[] }) => { procesandoCadaver = false; console.log("[cadáver] procesado, entregado:", m?.entregados); });
