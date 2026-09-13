@@ -135,7 +135,7 @@ const { interpretarPromptMueble } = require("../../../../taller-vox/interpretarP
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { interpretarPromptEdificio } = require("../../../../taller-vox/interpretarPromptEdificio");
 import { EstadoCurtidor, aceptaEntradaCurtidor, huecoMaterialCurtidor, iniciarLoteCurtidor, recolectarLoteCurtidor } from "../../construccion/curtido";
-import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, aplicarAhogo, VITAL_MAX } from "../../personaje/vitales";
+import { tickVitales, restaurarVital, aplicarInanicion, aplicarTemperaturaCorporal, aplicarAhogo, regenerarEstamina, VITAL_MAX } from "../../personaje/vitales";
 import {
   OFICIOS_JUGADOR_VALIDOS, tieneOficio, precioCambioOficio,
   bonusVelocidadCrafteoPorNivelOficio, bonusCantidadCrafteoPorNivelOficio,
@@ -218,6 +218,13 @@ const VEL_BUCEAR = 1.7;
 const VEL_HIELO = 5;
 const FRICCION_HIELO = 0.12; // suavizado exponencial hacia la velocidad objetivo cada tick — bajo = desliza mucho, 1 = instantáneo (como el resto del movimiento)
 const ESTAMINA_GASTO_POR_SEG_CORRIENDO = 15; // vacía los 100 de estamina en ~6.7s de sprint continuo
+// Regen de estamina (pedido streamer 2026-09-13, ver vitales.ts::
+// regenerarEstamina): ventana tras un recoger/talar/picar/cavar/golpear en
+// la que se sigue contando como "con las manos ocupadas" para el ritmo
+// LENTO de regen — ~2 golpes de la coreografía de herramienta
+// (client/src/render3d/rigHumanoide.ts) de margen, para que no se note un
+// "salto" a ritmo rápido a mitad de una tanda de golpes seguidos.
+const VENTANA_ACTIVIDAD_MANUAL_ESTAMINA_MS = 1200;
 // docs/GDD_Carros.md §6 (pedido 2026-09-03): "más rápido que andando pero
 // más lento que en montura sola" — factor fijo de fase 1 (rango [0.6,0.85]
 // del GDD) sobre la velocidad de la especie que tira; variará por
@@ -826,6 +833,15 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
    * Solo cubre recolección DEL BAKE (con `requisito`); coger algo ya soltado sigue
    * instantáneo, como siempre. */
   private ultimoCogerPorSesion = new Map<string, number>();
+  /**
+   * Última vez (Date.now()) que este jugador hizo algo con las manos —
+   * recolectar/talar/picar/cavar/golpear (pedido streamer 2026-09-13: "ver
+   * si al golpear o moverse se recupera menos [estamina]") — SOLO para
+   * decidir el ritmo de `regenerarEstamina` (vitales.ts), nunca para
+   * cooldowns reales de recolección (eso sigue siendo, exclusivamente,
+   * `ultimoCogerPorSesion`).
+   */
+  protected ultimaActividadManualPorSesion = new Map<string, number>();
   // Anatomía (docs/GDD_Anatomia.md, pedido 2026-08-30) — estado PURO completo
   // por sesión (con timestamps de curación en curso, ver anatomia.ts), server
   // -only: el Player.anatomia Schema solo replica el subconjunto de booleanas
@@ -2069,6 +2085,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     this.montadoPorSesion.delete(client.sessionId);
     this.cooldownSaltoMontura.delete(client.sessionId);
     this.ultimoCogerPorSesion.delete(client.sessionId);
+    this.ultimaActividadManualPorSesion.delete(client.sessionId);
     // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30): a diferencia de una
     // mascota, el barco SÍ hace falta anclarlo en BD si el que se
     // desconecta era el último a bordo (si no, quedaría "flotando" en
@@ -2495,6 +2512,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     if (tipoAccion === "picar") {
       candidato.confirmar();
       this.ultimoCogerPorSesion.set(client.sessionId, Date.now());
+      this.ultimaActividadManualPorSesion.set(client.sessionId, Date.now());
       this.soltarEnSuelo(player, candidato.itemId, candidato.cantidad);
       this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: tipoAccion });
       player.suciedad = Math.min(100, player.suciedad + SUCIEDAD_POR_RECOLECTAR);
@@ -2520,6 +2538,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     }
     candidato.confirmar();
     if (cooldownDeEstaRecoleccion > 0) this.ultimoCogerPorSesion.set(client.sessionId, Date.now());
+    this.ultimaActividadManualPorSesion.set(client.sessionId, Date.now());
     if (herramientaAUsar) {
       const entradaHerramienta = this.catalogoItems[herramientaAUsar.itemId];
       if (entradaHerramienta) registrarUso(herramientaAUsar, entradaHerramienta, Date.now());
@@ -8272,6 +8291,7 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
       return this.errorSuelo(client, "esta casilla ya está cavada — la tierra tarda unos días en asentarse");
     }
     this.casillasCavadas.set(idx, dia);
+    this.ultimaActividadManualPorSesion.set(client.sessionId, Date.now());
     this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: "picar" });
     this.entregarOSoltar(client, player, "tierra", 1);
     client.send("suelo:cavado", { x: tileX, y: tileY });
@@ -13276,7 +13296,10 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
     // compañero/NPC/fauna atacando no tiene rig de jugador que animar
     // así) — broadcast a TODA la room del combate (arena dedicada, o la
     // room de origen si es combate "en el sitio"), no solo al atacante.
-    if (atacante.esJugador) this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: "golpear" });
+    if (atacante.esJugador) {
+      this.ultimaActividadManualPorSesion.set(client.sessionId, Date.now());
+      this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: "golpear" });
+    }
 
     // Resuelve `golpes` impactos en cascada (1 normal, 2 con arco:apuntar) —
     // cada uno parte del resultado del anterior (el objetivo puede caer a
@@ -13627,6 +13650,21 @@ export abstract class RoomExteriorBase extends Room<HubState> implements RoomCon
         player.vitales.estamina = Math.max(0, player.vitales.estamina - ESTAMINA_GASTO_POR_SEG_CORRIENDO * factorGastoEstaminaPocion(buffsEstamina, Date.now()) * dt);
       } else {
         vel = VEL_ANDAR * (this.mundo.velocidad[idx] ?? 1);
+      }
+
+      // Regeneración de estamina (pedido streamer 2026-09-13: "cuando paras
+      // de correr se recupera cada X segundos hasta llenarse, ahora se
+      // acaba y ya") — siempre que NO esté sprintando de verdad (mientras
+      // corre, la rama de arriba ya la está gastando en este mismo tick).
+      // Ritmo real por segundo (vitales.ts::regenerarEstamina), más lento
+      // si se está moviendo o acaba de usar las manos (recolectar/talar/
+      // picar/cavar/golpear — `ultimaActividadManualPorSesion`), a tope solo
+      // parado del todo. Sin comprobar godMode a propósito: el gasto de
+      // sprint tampoco lo comprueba (rama de arriba), así que sería
+      // inconsistente que solo el regen lo hiciera.
+      if (!corriendoDeVerdad && player.vitales.estamina < VITAL_MAX) {
+        const actividadManualReciente = Date.now() - (this.ultimaActividadManualPorSesion.get(sessionId) ?? 0) < VENTANA_ACTIVIDAD_MANUAL_ESTAMINA_MS;
+        regenerarEstamina(player.vitales, seMueve || actividadManualReciente, dt);
       }
 
       // Anatomía (docs/GDD_Anatomia.md): pierna rota/amputada, cicatrizando,

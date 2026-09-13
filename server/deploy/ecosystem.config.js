@@ -22,13 +22,16 @@ module.exports = {
       // usar modo "cluster" (rompería las rooms al repartirse entre
       // procesos). Un único fork es lo correcto aquí.
       exec_mode: "fork",
-      // 4G, no 1G (2026-09-09): el PC de hosting es una máquina DEDICADA con
-      // 32GB, y `max_memory_restart` no es un tope de consumo sino un
-      // GATILLO DE REINICIO — con 1G, un Hub legítimamente grande (mapa
-      // principal + varias rooms vivas + streaming de sectores) tumbaba a
-      // todos los jugadores conectados justo cuando más gente había. 4G deja
-      // margen real y sigue actuando de red de seguridad ante una fuga.
-      max_memory_restart: "4G",
+      // 6G, no 4G (2026-09-13, pedido streamer explícito "aplícale 6GB de
+      // RAM"): el PC de hosting es una máquina DEDICADA con 32GB, y
+      // `max_memory_restart` no es un tope de consumo sino un GATILLO DE
+      // REINICIO (mide RSS del proceso, no solo heap de V8) — subido de 1G a
+      // 4G el 2026-09-09 por el mismo motivo (un Hub grande tumbaba a todos
+      // los jugadores conectados). Ahora en 6G para que COINCIDA con el
+      // techo real de heap de abajo (`--max-old-space-size=6144`) — con 4G
+      // el proceso se habría reiniciado ANTES de poder usar el heap entero
+      // que V8 tiene permiso a reservar, dejando ese margen inútil.
+      max_memory_restart: "6G",
       // Apagado ORDENADO (2026-09-09): en Windows PM2 no puede entregar
       // SIGINT/SIGTERM de verdad, así que sin esto `pm2 restart` mataba el
       // proceso y el guardado de posición/vitales de los jugadores

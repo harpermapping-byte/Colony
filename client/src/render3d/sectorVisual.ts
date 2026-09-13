@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { IndiceMapa, SectorBakeado, ObjetoBakeado } from "../mapa/formatoMapa";
 import { terrenoEn } from "../mapa/formatoMapa";
 import { colorTerreno, colorObjeto, dimensionesObjeto, familiaPatronTerreno } from "./catalogoVisual";
-import { obtenerParchesTerreno, obtenerParcheSolido, copiarParcheEnBuffer, hashCasilla, NUM_VARIANTES_PATRON } from "./patronTerreno";
+import { obtenerParchesTerreno, obtenerParchesTerrenoTranslucido, obtenerParcheSolido, copiarParcheEnBuffer, hashCasilla, NUM_VARIANTES_PATRON, generarParcheTerreno, type FamiliaPatronTerreno } from "./patronTerreno";
 import { obtenerPlantilla } from "./entityLoader";
 import { esFaunaDecorativaGregaria, esFaunaDecorativaAcuatica, obtenerMallaFaunaDecorativa } from "./faunaDecorativaPool";
 import { AnimadorFaunaDecorativaSector, type IndividuoFaunaDecorativa } from "./faunaDecorativaMovimiento";
@@ -106,17 +106,42 @@ export const PROFUNDIDAD_FONDO = 1.5;
 // ABSOLUTOS de aquí no representan hardware real, pero la comparación
 // RELATIVA entre valores de PX, medida en el mismo entorno, sí es válida):
 //   PX=1 (mismo camino de código, sin patrón real): ~130-139ms
-//   PX=2 (este valor):                              ~140-151ms  (+10ms)
+//   PX=2 (valor de la pasada anterior):             ~140-151ms  (+10ms)
 //   PX=4:                                           ~163-172ms  (+35ms)
-//   PX=8:                                           ~229-243ms  (+100ms)
-// PX=2 ya se nota (motas/briznas/juntas visibles, ver capturas
-// `client/test/capturas/patron_suelo_*.png`) con un coste incremental
-// pequeño sobre construir el resto del sector (orillas, muro de nieve,
-// caja de nieve — todo lo demás que YA hacía esta función). Subir esta
-// constante es la única palanca si se pide más detalle más adelante, una
-// vez haya feedback de rendimiento en hardware real (con GPU) — ver
-// `docs/GDD_Motor_3D_Props.md`.
-const PX_POR_TILE_SUELO = 2;
+//   PX=8:                                           ~245-261ms  (+115ms)
+//   PX=10 (este valor):                             ~266-296ms  (+145ms)
+// 2026-09-13, pedido streamer: "el suelo no se ve ni parecido a como vimos
+// en las imagenes de prueba, se ve repetitivo y con poca resolución" — subido
+// de 2 a 10, el MISMO valor que `PX_POR_TILE_B` en
+// `texturaSueloComparacion.ts` (la comparación que el streamer vio y aprobó
+// el 2026-09-11 con "la prueba B es lo que hay que hacer") — a PX=2 los
+// detalles de área (guijarros/mampostería, `tam>=4` en `patronTerreno.ts`)
+// ni siquiera se activaban, así que la producción real nunca llegó a
+// parecerse a lo aprobado; confirmado con capturas reales antes/después
+// (`client/test/capturas/patron_suelo_raw_px{2,8,10}.png`) que PX=10 sí
+// coincide. El coste sigue siendo un ONE-TIME por sector materializado
+// (no por frame), y el hardware real del streamer no es este sandbox sin
+// GPU — subir más esta constante sigue siendo la palanca si se pide aún
+// más detalle, ver `docs/GDD_Motor_3D_Props.md`.
+const PX_POR_TILE_SUELO = 10;
+
+// Resolución de lecho (fondo del mar/río) y de la máscara de nieve
+// acumulada — pedido streamer 2026-09-13, "aplícalo también a lo que
+// falta" (agua/hielo/lecho/nieve quedaron sin patrón en la pasada
+// original). Un valor MENOR que `PX_POR_TILE_SUELO` a propósito: los dos
+// canvas cubren el sector ENTERO (no solo donde hay agua/nieve — un
+// rectángulo no puede recortarse por forma), así que subirlos al mismo
+// PX=10 pagaría ese coste en TODO el sector aunque el agua/nieve reales
+// sean solo una fracción — medido con el mismo arnés que fijó PX_POR_TILE_SUELO
+// (`client/test/patronSueloAisladoCaptura.mjs`, sector más pesado del mapa
+// principal): PX=4 en ambos añade ~20ms sobre el ya subido PX_POR_TILE_SUELO=10
+// (296ms→~316ms), frente a ~+80ms extra si se igualaran a PX=10 — el lecho
+// se ve casi siempre A TRAVÉS del agua translúcida (blend con la
+// superficie, detalle fino aporta poco) y la nieve acumulada es blanco casi
+// uniforme (destellos sutiles) — 4 es suficiente para que ambos dejen de
+// verse un color plano sin duplicar el coste ya asumido para el suelo.
+const PX_POR_TILE_FONDO = 4;
+const PX_POR_TILE_NIEVE = 4;
 const AGUAS: Record<string, { alfa: number; base: number }> = {
   agua: { alfa: 0.45, base: 0.8 },
   agua_profunda: { alfa: 0.55, base: 0.25 },
@@ -578,9 +603,74 @@ function aplicarNivelNieveAMuro(muro: THREE.Mesh, nivel: number): void {
   muro.visible = nivel > 0;
 }
 
+/**
+ * Textura de muro/roca sólida (empalizada/muralla_piedra/roca_inaccesible,
+ * `ALTURA_TERRENO_SOLIDO` + torres/postes de puerta en `crearMurallaSector`)
+ * — mismo sistema de parches horneados que el suelo (familia "roca" para
+ * piedra, "madera" nueva para empalizada), pero repetido por UV en vez de
+ * generado a resolución de sector entero: cada caja real de este archivo
+ * tiene huella CUADRADA (1x1 los muros rectos, 2.2x2.2/1.8x1.8/0.35x0.35 las
+ * torres/postes), así que un único `repeat` sirve para las 4 caras
+ * laterales sin deformar ninguna. Pedido streamer 2026-09-13: "las murallas
+ * y muros... se ven planos" — antes un único `MeshStandardMaterial({color})`
+ * sin ningún detalle, ni en los tramos rectos ni en torres/puertas.
+ */
+const PX_POR_UNIDAD_MURO = 12;
+function familiaMuro(id: string): FamiliaPatronTerreno {
+  // "empalizada" cae en la familia "tierra" (catch-all) dentro de
+  // `familiaPatronTerreno` — correcto para su textura de SUELO (invisible,
+  // la tapa la propia caja) pero aquí queremos madera real; el resto
+  // (muralla_piedra/roca_inaccesible) ya resuelve a "roca" sin más.
+  return id === "empalizada" ? "madera" : (familiaPatronTerreno(id) ?? "roca");
+}
+function semillaDeTexto(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
+const cacheTexturasMuro = new Map<string, THREE.Texture>();
+function texturaMuro(id: string, repeatU: number, repeatV: number): THREE.Texture {
+  const clave = `${id}:${repeatU}:${repeatV}`;
+  let tex = cacheTexturasMuro.get(clave);
+  if (tex) return tex;
+  const n = parseInt(colorTerreno(id).slice(1), 16);
+  const rgb: [number, number, number] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  const tam = PX_POR_UNIDAD_MURO;
+  // copia a un Uint8ClampedArray CONSTRUIDO AQUÍ (no el que devuelve
+  // `generarParcheTerreno` directamente): TS infiere un tipo de buffer más
+  // estrecho para una construcción directa que para el valor de retorno de
+  // una función de otro módulo — mismo patrón ya usado en `datosSuelo`, sin
+  // este paso `new ImageData(...)` no compila con la lib DOM actual.
+  const parche = new Uint8ClampedArray(generarParcheTerreno(familiaMuro(id), rgb, tam, semillaDeTexto(id)));
+  const canvas = document.createElement("canvas");
+  canvas.width = tam;
+  canvas.height = tam;
+  canvas.getContext("2d")!.putImageData(new ImageData(parche, tam, tam), 0, 0);
+  tex = new THREE.CanvasTexture(canvas);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeatU, repeatV);
+  cacheTexturasMuro.set(clave, tex);
+  return tex;
+}
+/**
+ * 6 materiales de `THREE.BoxGeometry` (grupos por defecto: +x,-x,+y(arriba),
+ * -y(abajo),+z,-z) — caras laterales con el patrón tileado verticalmente
+ * `altura` veces (cada "hilada" ocupa 1 unidad real), arriba/abajo con el
+ * mismo patrón pero SIN estirar (repeat 1:1 sobre la huella cuadrada real).
+ */
+function materialesMuro(id: string, anchoBase: number, altura: number): THREE.MeshStandardMaterial[] {
+  const lado = new THREE.MeshStandardMaterial({ map: texturaMuro(id, anchoBase, altura), roughness: 0.95, metalness: 0 });
+  const cima = new THREE.MeshStandardMaterial({ map: texturaMuro(id, anchoBase, anchoBase), roughness: 0.95, metalness: 0 });
+  return [lado, lado, cima, cima, lado, lado];
+}
+
 // Hielo (docs/GDD_Clima.md): agua con nieve acumulada encima — sustituye
-// el tono translúcido de AGUAS por un tono opaco frío, mismo criterio que
-// el resto de esta tabla (placeholder de color, sin textura real todavía).
+// el tono translúcido de AGUAS por un tono opaco frío. Textura de grietas
+// finas propia (familia "hielo", 2026-09-13) sobre este color base.
 const COLOR_HIELO = new THREE.Color(0xcfe4ec);
 // Capa de nieve en tierra: opacidad y altura crecientes con el nivel
 // (0..NIVEL_MAXIMO_NIEVE) — PLACEHOLDER (docs/GDD_Clima.md §nieve
@@ -627,16 +717,17 @@ export function crearTerrenoSector(
   suelo.height = alto * PX_POR_TILE_SUELO;
   const ctxSuelo = suelo.getContext("2d")!;
   const fondo = document.createElement("canvas");
-  fondo.width = ancho;
-  fondo.height = alto;
+  fondo.width = ancho * PX_POR_TILE_FONDO;
+  fondo.height = alto * PX_POR_TILE_FONDO;
   const ctxFondo = fondo.getContext("2d")!;
-  // Máscara de nieve (docs/GDD_Clima.md): blanco opaco donde SÍ puede haber
-  // nieve (tierra), transparente donde no (agua/hielo) — se pinta UNA vez
-  // al materializar el sector; la opacidad/altura de todo el plano (no de
-  // este canvas) es lo que sube y baja con el nivel, ver `actualizarNieveSector`.
+  // Máscara de nieve (docs/GDD_Clima.md): blanco (con el patrón "nieve" de
+  // destellos, 2026-09-13) donde SÍ puede haber nieve (tierra), transparente
+  // donde no (agua/hielo) — se pinta UNA vez al materializar el sector; la
+  // opacidad/altura de todo el plano (no de este canvas) es lo que sube y
+  // baja con el nivel, ver `actualizarNieveSector`.
   const nieveCanvas = document.createElement("canvas");
-  nieveCanvas.width = ancho;
-  nieveCanvas.height = alto;
+  nieveCanvas.width = ancho * PX_POR_TILE_NIEVE;
+  nieveCanvas.height = alto * PX_POR_TILE_NIEVE;
   const ctxNieve = nieveCanvas.getContext("2d")!;
 
   // Pintado por casilla: antes era fillStyle+fillRect(1x1) POR CASILLA (en
@@ -668,12 +759,20 @@ export function crearTerrenoSector(
   const lechoCache = new Map<string, [number, number, number]>();
   const anchoSueloPx = ancho * PX_POR_TILE_SUELO;
   const datosSuelo = new Uint8ClampedArray(anchoSueloPx * alto * PX_POR_TILE_SUELO * 4);
-  const datosFondo = new Uint8ClampedArray(ancho * alto * 4);
+  const anchoFondoPx = ancho * PX_POR_TILE_FONDO;
+  const datosFondo = new Uint8ClampedArray(anchoFondoPx * alto * PX_POR_TILE_FONDO * 4);
   for (let i = 3; i < datosFondo.length; i += 4) datosFondo[i] = 255; // negro opaco por defecto (fillRect inicial de antes)
-  const datosNieve = new Uint8ClampedArray(ancho * alto * 4);
-  const escribir = (buf: Uint8ClampedArray, px: number, py: number, r: number, g: number, b: number, a: number) => {
-    const i = (py * ancho + px) * 4;
-    buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
+  const anchoNievePx = ancho * PX_POR_TILE_NIEVE;
+  const datosNieve = new Uint8ClampedArray(anchoNievePx * alto * PX_POR_TILE_NIEVE * 4);
+  // Único uso restante a 1px/casilla: `rgbOrilla` (vertex colors de
+  // `construirOrillas`, ver más abajo), sin relación con estos canvas.
+  // Solo se llama para casillas de TIERRA (agua/hielo hacen `continue` antes
+  // de llegar aquí) — esas se quedan transparentes, el buffer ya arranca a 0.
+  const pintarNieveTile = (tileX: number, tileY: number, parche: Uint8ClampedArray) => {
+    copiarParcheEnBuffer(datosNieve, anchoNievePx, tileX, tileY, parche, PX_POR_TILE_NIEVE);
+  };
+  const pintarFondoTile = (tileX: number, tileY: number, parche: Uint8ClampedArray) => {
+    copiarParcheEnBuffer(datosFondo, anchoFondoPx, tileX, tileY, parche, PX_POR_TILE_FONDO);
   };
   // Parche/color de "suelo" por id de terreno — resuelto UNA VEZ por id (una
   // decena real por sector, nunca las ~100k casillas) y reusado por
@@ -683,6 +782,18 @@ export function crearTerrenoSector(
   // agua se resuelven aparte (dependen de `nivelNieveActual`, constante
   // para toda la llamada, así que la clave sigue siendo el `id` sin más).
   const entradaSueloPorId = new Map<string, Uint8ClampedArray[] | Uint8ClampedArray>();
+  // Parche de "nieve" único (destellos, mismo para toda casilla de tierra —
+  // el color base SIEMPRE es blanco, así que a diferencia del suelo no hace
+  // falta memoizar por id, solo generar las variantes UNA vez por sector).
+  // Base casi-blanca, NUNCA 255,255,255 puro: los "destellos" de la familia
+  // "nieve" mezclan SIEMPRE hacia 255 (`generarParcheTerreno`) — con blanco
+  // puro de base "hacia 255" no cambia nada (r+(255-r)*factor = r), los
+  // destellos habrían salido invisibles. Con margen (250) sí se notan, sin
+  // desviar el tono percibido del blanco de la capa de nieve.
+  const parchesNieveTierra = obtenerParchesTerreno("nieve", [250, 250, 252], PX_POR_TILE_NIEVE);
+  // Parche de lecho por (id de agua + elevación) — reusa la misma clave que
+  // `lechoCache` (colores ya memoizados por esa combinación).
+  const parchesLechoPorClave = new Map<string, Uint8ClampedArray[]>();
   const resolverEntradaSuelo = (id: string, r: number, g: number, b: number): Uint8ClampedArray[] | Uint8ClampedArray => {
     let entrada = entradaSueloPorId.get(id);
     if (entrada) return entrada;
@@ -724,7 +835,7 @@ export function crearTerrenoSector(
         if (!agua) {
           const [r, g, b] = hexARgb(colorTerreno(id));
           pintarSuelo(px, py, gx, gy, resolverEntradaSuelo(id, r, g, b));
-          escribir(datosNieve, px, py, 255, 255, 255, 255);
+          pintarNieveTile(px, py, parchesNieveTierra[hashCasilla(gx, gy, 17) % NUM_VARIANTES_PATRON]);
           rgbOrilla[(py * ancho + px) * 3] = r;
           rgbOrilla[(py * ancho + px) * 3 + 1] = g;
           rgbOrilla[(py * ancho + px) * 3 + 2] = b;
@@ -735,9 +846,16 @@ export function crearTerrenoSector(
           // Hielo (docs/GDD_Clima.md): opaco, sin lecho visible debajo — no
           // se nada encima, es "tierra" a efectos de juego (RoomExteriorBase.ts).
           // Clave de caché propia ("id:hielo"): el mismo id de agua pinta un
-          // color totalmente distinto según haya nieve o no, y el hielo NUNCA
-          // lleva patrón (sin familia propia todavía, ver `familiaPatronTerreno`).
-          pintarSuelo(px, py, gx, gy, resolverEntradaSuelo(`${id}:hielo`, rHielo, gHielo, bHielo));
+          // color totalmente distinto según haya nieve o no. Familia "hielo"
+          // (grietas finas, 2026-09-13) pedida EXPLÍCITA — nunca pasa por
+          // `familiaPatronTerreno`, que excluye "hielo" a propósito para los
+          // ids REALES de catálogo (agua/lava/puente/nieve de bioma).
+          let entradaHielo = entradaSueloPorId.get(`${id}:hielo`);
+          if (!entradaHielo) {
+            entradaHielo = obtenerParchesTerreno("hielo", [rHielo, gHielo, bHielo], PX_POR_TILE_SUELO);
+            entradaSueloPorId.set(`${id}:hielo`, entradaHielo);
+          }
+          pintarSuelo(px, py, gx, gy, entradaHielo);
           continue;
         }
         // superficie translúcida con el color de catálogo aclarado —
@@ -749,12 +867,15 @@ export function crearTerrenoSector(
           rgbaAguaCache.set(id, rgbaAgua);
         }
         {
-          // El agua nunca lleva patrón (ver `familiaPatronTerreno`) pero SÍ
-          // necesita su propio alfa translúcido — un parche sólido con esa
-          // rgba exacta, cacheado por id de agua igual que el resto.
+          // Familia "agua" (ondas sutiles, 2026-09-13): el COLOR sí lleva
+          // patrón, el ALFA se fuerza uniforme aparte
+          // (`obtenerParchesTerrenoTranslucido`) — mezclar ambos en el mismo
+          // paso habría abierto agujeros de transparencia irregulares en vez
+          // de rizos, y el resto del render de agua depende de un alfa
+          // constante por tipo.
           let entrada = entradaSueloPorId.get(id);
           if (!entrada) {
-            entrada = obtenerParcheSolido(rgbaAgua[0], rgbaAgua[1], rgbaAgua[2], rgbaAgua[3], PX_POR_TILE_SUELO);
+            entrada = obtenerParchesTerrenoTranslucido("agua", [rgbaAgua[0], rgbaAgua[1], rgbaAgua[2]], PX_POR_TILE_SUELO, rgbaAgua[3]);
             entradaSueloPorId.set(id, entrada);
           }
           pintarSuelo(px, py, gx, gy, entrada);
@@ -787,7 +908,16 @@ export function crearTerrenoSector(
           ];
           lechoCache.set(claveLecho, lecho);
         }
-        escribir(datosFondo, px, py, lecho[0], lecho[1], lecho[2], 255);
+        // Familia "lecho" (grano fino, mismo algoritmo que "arena",
+        // 2026-09-13): el color YA está memoizado por `claveLecho`
+        // (id de agua + elevación, rango acotado real ~72 combos), las
+        // variantes del patrón se cachean con esa MISMA clave.
+        let parchesLecho = parchesLechoPorClave.get(claveLecho);
+        if (!parchesLecho) {
+          parchesLecho = obtenerParchesTerreno("lecho", lecho, PX_POR_TILE_FONDO);
+          parchesLechoPorClave.set(claveLecho, parchesLecho);
+        }
+        pintarFondoTile(px, py, parchesLecho[hashCasilla(gx, gy, 19) % NUM_VARIANTES_PATRON]);
         rgbOrilla[(py * ancho + px) * 3] = lecho[0];
         rgbOrilla[(py * ancho + px) * 3 + 1] = lecho[1];
         rgbOrilla[(py * ancho + px) * 3 + 2] = lecho[2];
@@ -795,8 +925,8 @@ export function crearTerrenoSector(
     }
   }
   ctxSuelo.putImageData(new ImageData(datosSuelo, anchoSueloPx, alto * PX_POR_TILE_SUELO), 0, 0);
-  ctxFondo.putImageData(new ImageData(datosFondo, ancho, alto), 0, 0);
-  ctxNieve.putImageData(new ImageData(datosNieve, ancho, alto), 0, 0);
+  ctxFondo.putImageData(new ImageData(datosFondo, anchoFondoPx, alto * PX_POR_TILE_FONDO), 0, 0);
+  ctxNieve.putImageData(new ImageData(datosNieve, anchoNievePx, alto * PX_POR_TILE_NIEVE), 0, 0);
 
   const grupo = new THREE.Group();
   // margenVisual > 0: los planos crecen simétricamente por los 4 lados, así
@@ -804,12 +934,12 @@ export function crearTerrenoSector(
   // solo se pide geometría/textura más grandes, la posición es la misma.
   const anchoFinal = ancho + margenVisual * 2;
   const altoFinal = alto + margenVisual * 2;
-  // El margen del suelo se extiende en PÍXELES DEL PATRÓN, no en casillas
-  // (su canvas va a PX_POR_TILE_SUELO px/casilla, a diferencia de fondo/nieve
-  // que se quedan en 1px/casilla) — mismo tamaño final en unidades de mundo
-  // (anchoFinal/altoFinal), solo cambia la resolución de la textura.
+  // El margen de cada canvas se extiende en PÍXELES DEL PATRÓN propio (cada
+  // uno con su propia resolución PX_POR_TILE_* desde 2026-09-13) — mismo
+  // tamaño final en unidades de mundo (anchoFinal/altoFinal) en los tres,
+  // solo cambia cuántos píxeles de margen hace falta pedir en cada uno.
   const sueloFinal = margenVisual > 0 ? extenderConMargenClamp(suelo, margenVisual * PX_POR_TILE_SUELO) : suelo;
-  const fondoFinal = margenVisual > 0 ? extenderConMargenClamp(fondo, margenVisual) : fondo;
+  const fondoFinal = margenVisual > 0 ? extenderConMargenClamp(fondo, margenVisual * PX_POR_TILE_FONDO) : fondo;
   const planoFondo = crearPlanoSector(fondoFinal, anchoFinal, altoFinal, false);
   planoFondo.position.set(origenTileX + ancho / 2, -PROFUNDIDAD_FONDO, origenTileY + alto / 2);
   const planoSuelo = crearPlanoSector(sueloFinal, anchoFinal, altoFinal, true);
@@ -854,7 +984,7 @@ export function crearTerrenoSector(
   // arrancan acordes al nivel de HOY; `actualizarNieveSector` las retoca
   // sin reconstruir nada cuando el nivel global cambie mientras el sector
   // siga materializado.
-  const nieveFinal = margenVisual > 0 ? extenderConMargenClamp(nieveCanvas, margenVisual) : nieveCanvas;
+  const nieveFinal = margenVisual > 0 ? extenderConMargenClamp(nieveCanvas, margenVisual * PX_POR_TILE_NIEVE) : nieveCanvas;
   const cajaNieve = crearCajaNieveSector(nieveFinal, anchoFinal, altoFinal);
   cajaNieve.name = "capaNieve";
   cajaNieve.position.set(origenTileX + ancho / 2, 0, origenTileY + alto / 2);
@@ -899,20 +1029,28 @@ export function crearTerrenoSector(
   }
 
   // extrusión de los sólidos urbanos: una InstancedMesh de cubos por tipo
-  // de terreno (muralla/empalizada/solar) — mismo coste que los props
+  // de terreno (muralla/empalizada/solar) — mismo coste que los props.
+  // Textura por familia (roca/madera, `materialesMuro`) en vez del color
+  // plano de siempre + una ligera variación de tono POR INSTANCIA
+  // (`instanceColor`, soportado nativamente por MeshStandardMaterial sin
+  // necesitar `vertexColors:true` — three.js lo activa solo mirando
+  // `object.instanceColor !== null`) para que un muro largo no se lea como
+  // la MISMA baldosa de piedra/madera repetida sin ninguna variación real.
   const m = new THREE.Matrix4();
+  const colorInstancia = new THREE.Color();
   for (const [id, coords] of solidosPorTipo) {
     const altura = ALTURA_TERRENO_SOLIDO[id];
     const n = coords.length / 2;
-    const malla = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(1, altura, 1),
-      new THREE.MeshStandardMaterial({ color: colorTerreno(id), roughness: 0.95, metalness: 0 }),
-      n,
-    );
+    const malla = new THREE.InstancedMesh(new THREE.BoxGeometry(1, altura, 1), materialesMuro(id, 1, altura), n);
     for (let i = 0; i < n; i++) {
-      m.makeTranslation(coords[i * 2] + 0.5, altura / 2, coords[i * 2 + 1] + 0.5);
+      const gx = coords[i * 2];
+      const gy = coords[i * 2 + 1];
+      m.makeTranslation(gx + 0.5, altura / 2, gy + 0.5);
       malla.setMatrixAt(i, m);
+      const tono = 0.92 + ((hashCasilla(gx, gy, 23) % 1000) / 1000) * 0.16; // 0.92..1.08
+      malla.setColorAt(i, colorInstancia.setScalar(tono));
     }
+    if (malla.instanceColor) malla.instanceColor.needsUpdate = true;
     malla.castShadow = true;
     malla.receiveShadow = true;
     malla.userData.propioDelSector = true;
@@ -1284,13 +1422,12 @@ function crearMurallaSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
     if (mod.tipo === "recto" || !dentroDeEsteSector(mod.x, mod.y)) continue;
 
     const altoBase = ALTURA_MURALLA[mod.material] ?? 2;
-    const color = colorTerreno(mod.material === "empalizada" ? "empalizada" : "muralla_piedra");
-    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0 });
+    const idMaterial = mod.material === "empalizada" ? "empalizada" : "muralla_piedra";
     const rotRad = THREE.MathUtils.degToRad(mod.rot);
 
     if (mod.tipo === "torre") {
       const alto = altoBase + 1.4;
-      const caja = new THREE.Mesh(new THREE.BoxGeometry(2.2, alto, 2.2), mat);
+      const caja = new THREE.Mesh(new THREE.BoxGeometry(2.2, alto, 2.2), materialesMuro(idMaterial, 2.2, alto));
       caja.position.set(mod.x + 0.5, alto / 2, mod.y + 0.5);
       caja.castShadow = true;
       caja.userData.propioDelSector = true;
@@ -1308,7 +1445,7 @@ function crearMurallaSector(indice: IndiceMapa, sector: SectorBakeado): THREE.Gr
       const py = mod.y + 0.5 + Math.sin(perpendicular) * offset * lado;
       const alto = esPiedra ? altoBase + 1.8 : altoBase + 0.6;
       const ancho = esPiedra ? 1.8 : 0.35;
-      const caja = new THREE.Mesh(new THREE.BoxGeometry(ancho, alto, ancho), mat);
+      const caja = new THREE.Mesh(new THREE.BoxGeometry(ancho, alto, ancho), materialesMuro(idMaterial, ancho, alto));
       caja.position.set(px, alto / 2, py);
       caja.castShadow = true;
       caja.userData.propioDelSector = true;

@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  generarParcheTerreno, obtenerParcheTerreno, obtenerParcheSolido, copiarParcheEnBuffer, hashCasilla,
+  generarParcheTerreno, obtenerParcheTerreno, obtenerParchesTerreno, obtenerParchesTerrenoTranslucido,
+  obtenerParcheSolido, copiarParcheEnBuffer, hashCasilla,
 } from "../src/render3d/patronTerreno";
 
 // Patrón de suelo horneado (pedido streamer 2026-09-11, "la prueba B es lo
@@ -37,11 +38,69 @@ test("el color medio del parche se mantiene cerca del color base (no lo desnatur
   assert.ok(Math.abs(sb / n - base[2]) < 40, `azul medio ${sb / n} lejos de ${base[2]}`);
 });
 
-test("las 6 familias generan sin lanzar excepción a varios tamaños", () => {
+test("las 6 familias originales generan sin lanzar excepción a varios tamaños", () => {
   const familias = ["cesped", "tierra", "camino", "roca", "arena", "nieve"] as const;
   for (const f of familias) for (const tam of [1, 4, 8, 16]) {
     const p = generarParcheTerreno(f, [128, 128, 128], tam, 7);
     assert.equal(p.length, tam * tam * 4);
+  }
+});
+
+// Familias añadidas 2026-09-13 (pedido streamer: "aplícalo también a lo que
+// falta" — agua/hielo/lecho quedaron sin patrón a propósito en la pasada
+// original; "madera" es nueva para los muros de empalizada).
+test("las 4 familias nuevas (agua/hielo/lecho/madera) generan sin lanzar excepción a varios tamaños, siempre opacas", () => {
+  const familias = ["agua", "hielo", "lecho", "madera"] as const;
+  for (const f of familias) for (const tam of [1, 4, 8, 16]) {
+    const p = generarParcheTerreno(f, [80, 120, 160], tam, 7);
+    assert.equal(p.length, tam * tam * 4);
+    for (let i = 3; i < p.length; i += 4) assert.equal(p[i], 255, `${f} tam=${tam}: alfa debe salir opaco de generarParcheTerreno (el alfa translúcido de agua se fuerza aparte)`);
+  }
+});
+
+test("familia 'lecho' comparte el algoritmo de 'arena' a propósito (mismo grano fino, distinto color base)", () => {
+  const arena = generarParcheTerreno("arena", [200, 180, 120], 16, 42);
+  const lecho = generarParcheTerreno("lecho", [200, 180, 120], 16, 42);
+  assert.deepEqual([...arena], [...lecho]);
+});
+
+test("familia 'madera': se distinguen al menos 2 tonos de tabla (no un color plano disfrazado)", () => {
+  const p = generarParcheTerreno("madera", [120, 90, 55], 16, 3);
+  const tonos = new Set<number>();
+  for (let i = 0; i < p.length; i += 4) tonos.add(p[i] * 65536 + p[i + 1] * 256 + p[i + 2]);
+  assert.ok(tonos.size >= 3, `se esperaban varios tonos distintos (tablas+juntas+vetas), salieron ${tonos.size}`);
+});
+
+test("obtenerParchesTerrenoTranslucido: mismo RGB que la versión opaca, alfa forzado al valor pedido en TODOS los píxeles", () => {
+  const opacos = obtenerParchesTerreno("agua", [60, 110, 180], 8);
+  const translucidos = obtenerParchesTerrenoTranslucido("agua", [60, 110, 180], 8, 130);
+  assert.equal(opacos.length, translucidos.length);
+  for (let v = 0; v < opacos.length; v++) {
+    for (let i = 0; i < opacos[v].length; i += 4) {
+      assert.equal(translucidos[v][i], opacos[v][i], "R debe coincidir con la versión opaca");
+      assert.equal(translucidos[v][i + 1], opacos[v][i + 1], "G debe coincidir con la versión opaca");
+      assert.equal(translucidos[v][i + 2], opacos[v][i + 2], "B debe coincidir con la versión opaca");
+      assert.equal(translucidos[v][i + 3], 130, "alfa debe ser el valor forzado, no 255");
+    }
+  }
+});
+
+test("obtenerParchesTerrenoTranslucido cachea por (familia,color,tam,alfa): dos llamadas iguales devuelven la MISMA referencia, un alfa distinto da una copia aparte", () => {
+  const a = obtenerParchesTerrenoTranslucido("agua", [10, 20, 30], 4, 100);
+  const b = obtenerParchesTerrenoTranslucido("agua", [10, 20, 30], 4, 100);
+  assert.equal(a, b);
+  const c = obtenerParchesTerrenoTranslucido("agua", [10, 20, 30], 4, 200);
+  assert.notEqual(a, c);
+  assert.equal(c[0][3], 200);
+});
+
+test("obtenerParchesTerrenoTranslucido nunca muta la caché opaca compartida (mutar una copia no puede corromper `obtenerParchesTerreno`)", () => {
+  const opacosAntes = obtenerParchesTerreno("hielo", [200, 220, 230], 8).map((p) => [...p]);
+  obtenerParchesTerrenoTranslucido("hielo", [200, 220, 230], 8, 50);
+  const opacosDespues = obtenerParchesTerreno("hielo", [200, 220, 230], 8);
+  for (let v = 0; v < opacosDespues.length; v++) {
+    assert.deepEqual([...opacosDespues[v]], opacosAntes[v]);
+    for (let i = 3; i < opacosDespues[v].length; i += 4) assert.equal(opacosDespues[v][i], 255);
   }
 });
 

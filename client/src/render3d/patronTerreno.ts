@@ -22,13 +22,31 @@
  * calculados — nunca vuelve a generar el patrón.
  */
 
-export type FamiliaPatronTerreno = "cesped" | "tierra" | "camino" | "roca" | "arena" | "nieve";
+export type FamiliaPatronTerreno =
+  | "cesped" | "tierra" | "camino" | "roca" | "arena" | "nieve"
+  // Añadidas 2026-09-13 (pedido streamer: "aplícalo también a lo que
+  // falta" — agua/hielo/lecho quedaron sin patrón a propósito en la pasada
+  // original, "su propio tratamiento translúcido/lecho es más complejo que
+  // un parche RGBA opaco"; "madera" es nueva para los muros de empalizada,
+  // ver `sectorVisual.ts::obtenerTexturaMuro`) — "lecho" y "arena" comparten
+  // implementación (mismo grano fino disperso, un fondo de río/lago es
+  // sedimento igual de fino que una playa) pero se documentan por separado
+  // para que el color base de cada uno se calibre sin acoplarlos.
+  | "agua" | "hielo" | "lecho" | "madera";
 
 // Nº de variantes por (familia, color) — mismo criterio "unas pocas
 // variantes elegidas por semilla" que ya usa el resto del proyecto (fauna,
 // edificios...): suficiente para que el patrón no se note repetido casilla
-// a casilla, sin disparar el número de parches a cachear.
-export const NUM_VARIANTES_PATRON = 4;
+// a casilla, sin disparar el número de parches a cachear. Subido de 4 a 8
+// junto con la resolución (2026-09-13, pedido streamer: "haría falta...
+// variaciones") — cada variante es un parche COMPLETO precalculado (no
+// ruido independiente por píxel), así que con pocas variantes dos casillas
+// cercanas de la misma familia/color pueden mostrar el MISMO parche exacto
+// (con 4, 1 de cada 4 vecinas); doblar a 8 baja esa coincidencia sin coste
+// real en `crearTerrenoSector` — `obtenerParchesTerreno` cachea las 8
+// variantes de un id UNA VEZ para todo el mapa (unas pocas decenas de ids
+// en total), nunca se recalculan por sector ni por casilla.
+export const NUM_VARIANTES_PATRON = 8;
 
 function mulberry32(seed: number) {
   let a = seed >>> 0;
@@ -134,8 +152,11 @@ export function generarParcheTerreno(
         for (let dx = 0; dx < junta; dx++) for (let dy = 0; dy < Math.round(tam / 4); dy++) poner(vx + dx, y0 + dy, r, g, b);
       }
     }
-  } else if (familia === "arena") {
-    // motas finas dispersas, más claras u oscuras que la base — grano de arena
+  } else if (familia === "arena" || familia === "lecho") {
+    // motas finas dispersas, más claras u oscuras que la base — grano de
+    // arena/sedimento (mismo algoritmo para playa y lecho de río/mar: un
+    // fondo de agua es sedimento igual de fino que una duna, solo cambia el
+    // color base que ya llega calculado por casilla en `sectorVisual.ts`).
     const motas = Math.max(1, Math.round(tam * tam * 0.05));
     for (let i = 0; i < motas; i++) {
       const factor = rng() * 0.25;
@@ -148,6 +169,58 @@ export function generarParcheTerreno(
     for (let i = 0; i < destellos; i++) {
       const [r, g, b] = mezclar(br, bg, bb, 0.4 + rng() * 0.3, true);
       poner(Math.floor(rng() * tam), Math.floor(rng() * tam), r, g, b);
+    }
+  } else if (familia === "agua") {
+    // ondas: trazos horizontales cortos y sutiles, más claros que la base —
+    // el alfa translúcido real lo fuerza `obtenerParchesTerrenoTranslucido`
+    // DESPUÉS de generar esto (aquí siempre sale opaco, como cualquier
+    // familia — mezclar RGB y alfa en el mismo paso habría dado agujeros de
+    // transparencia irregulares, no rizos, y el resto del render de agua ya
+    // depende de un alfa UNIFORME por tipo).
+    const ondas = Math.max(1, Math.round(tam * 0.35));
+    for (let i = 0; i < ondas; i++) {
+      const y = Math.floor(rng() * tam);
+      const x0 = Math.floor(rng() * tam);
+      const largo = Math.max(2, Math.floor(rng() * tam * 0.6));
+      const [r, g, b] = mezclar(br, bg, bb, 0.1 + rng() * 0.08, true);
+      for (let k = 0; k < largo; k++) poner((x0 + k) % tam, y, r, g, b);
+    }
+  } else if (familia === "hielo") {
+    // grietas finas: paseos aleatorios cortos, más claros que el hielo base
+    const grietas = Math.max(1, Math.round(tam * 0.25));
+    for (let i = 0; i < grietas; i++) {
+      let x = Math.floor(rng() * tam);
+      let y = Math.floor(rng() * tam);
+      const pasos = 2 + Math.floor(rng() * Math.max(2, tam * 0.35));
+      const [r, g, b] = mezclar(br, bg, bb, 0.22, true);
+      for (let k = 0; k < pasos; k++) {
+        poner(x, y, r, g, b);
+        x += rng() < 0.5 ? 1 : -1;
+        y += rng() < 0.6 ? 0 : 1;
+      }
+    }
+  } else if (familia === "madera") {
+    // tablas verticales alternas (empalizada) — anchura de tabla real
+    // (~tam/4, 3-4 tablas visibles por unidad) con junta oscura entre
+    // cada una y un par de vetas horizontales finas.
+    const numTablas = Math.max(2, Math.round(tam / 4));
+    for (let tabla = 0; tabla < numTablas; tabla++) {
+      const x0 = Math.round((tabla * tam) / numTablas);
+      const x1 = Math.round(((tabla + 1) * tam) / numTablas);
+      const clara = tabla % 2 === 0;
+      const [r, g, b] = mezclar(br, bg, bb, 0.08, clara);
+      for (let x = x0; x < x1; x++) for (let y = 0; y < tam; y++) poner(x, y, r, g, b);
+      // junta oscura en el borde izquierdo de la tabla (salvo la primera)
+      if (x0 > 0) {
+        const [jr, jg, jb] = mezclar(br, bg, bb, 0.35, false);
+        for (let y = 0; y < tam; y++) poner(x0, y, jr, jg, jb);
+      }
+    }
+    const vetas = Math.max(1, Math.round(tam / 6));
+    for (let i = 0; i < vetas; i++) {
+      const y = Math.floor(rng() * tam);
+      const [r, g, b] = mezclar(br, bg, bb, 0.15, false);
+      for (let x = 0; x < tam; x++) poner(x, y, r, g, b);
     }
   }
   return datos;
@@ -196,6 +269,38 @@ export function obtenerParchesTerreno(
       parches.push(generarParcheTerreno(familia, colorBase, tam, hashCasilla(v, 0, 7)));
     }
     cacheParchesTerrenoPorId.set(clave, parches);
+  }
+  return parches;
+}
+
+const cacheParchesTranslucidos = new Map<string, Uint8ClampedArray[]>();
+
+/**
+ * Igual que `obtenerParchesTerreno` pero con el canal alfa forzado a un
+ * valor uniforme DESPUÉS de generar el patrón (nunca mezclado en el propio
+ * `generarParcheTerreno`, que solo sabe pintar RGB opaco) — pensado para el
+ * agua: cada tipo (`agua`/`agua_profunda`) tiene su propio alfa fijo de
+ * catálogo, y el patrón de ondas solo debe variar el COLOR, nunca abrir
+ * agujeros de transparencia irregulares en la superficie. Cacheado aparte
+ * (nunca pisa `cacheParchesTerrenoPorId`, que asume alfa=255 siempre) por
+ * `(familia,color,tam,alfaByte)`.
+ */
+export function obtenerParchesTerrenoTranslucido(
+  familia: FamiliaPatronTerreno,
+  colorBase: readonly [number, number, number],
+  tam: number,
+  alfaByte: number,
+): Uint8ClampedArray[] {
+  const clave = `${familia}:${colorBase[0]},${colorBase[1]},${colorBase[2]}:${tam}:${alfaByte}`;
+  let parches = cacheParchesTranslucidos.get(clave);
+  if (!parches) {
+    const opacos = obtenerParchesTerreno(familia, colorBase, tam);
+    parches = opacos.map((p) => {
+      const copia = new Uint8ClampedArray(p);
+      for (let i = 3; i < copia.length; i += 4) copia[i] = alfaByte;
+      return copia;
+    });
+    cacheParchesTranslucidos.set(clave, parches);
   }
   return parches;
 }

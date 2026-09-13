@@ -906,6 +906,73 @@ Verificado (ronda de estos 2 fixes): `cd client && npx tsc --noEmit` limpio, `cl
 
 **Bug real reportado jugando (2026-09-09, madrugada): "los peces se salen fuera del agua, solo pueden estar dentro del agua"** — el vagabundeo de fauna decorativa de esta misma noche usaba UN SOLO comprobador de transitabilidad (`sectorVisual.ts::crearComprobadorTransitableFauna`) para TODA especie, con `TERRENO_NO_TRANSITABLE_FAUNA` marcando "agua"/"agua_profunda" como no transitable — correcto para un animal de tierra, pero exactamente al revés para fauna acuática (`requiereAgua` en `baker/catalogo/animales.json`, 41 especies: peces, moluscos, cetáceos...), que debería ser SOLO transitable en agua. Cerrado con un flag nuevo `IndividuoFaunaDecorativa.acuatico` (calculado offline en `personajes/src/exportar_fauna_decorativa.js::esAcuatica`, exportado a `assets/animales/pool.json::acuaticoPorEspecie`, mismo patrón que `gregarioPorEspecie`) — `crearComprobadorTransitableFauna` ahora recibe el flag como tercer parámetro y consulta un conjunto DISJUNTO `TERRENO_AGUA_FAUNA` (`agua`/`agua_profunda`) en vez de negar el mismo conjunto de siempre. `faunaDecorativaMovimiento.ts::elegirDestino` pasa `individuo.acuatico` en cada llamada al comprobador. Verificado: test nuevo en `faunaDecorativaMovimiento.test.ts` confirma que el flag se respeta en ambas direcciones (un pez SÍ encuentra destino en un mapa "solo agua si acuático", un animal de tierra NUNCA lo hace en el mismo mapa) — `cd client && npx tsc --noEmit` limpio, `client/test/*.test.ts` 52/52. Verificación visual real (servidor+cliente+Playwright, teletransportado junto a un banco real de `bacalao` en `assets/mapas/principal/`, sector marino denso): sin errores, la fauna cercana se promocionó a viva (barras de vida visibles, mismo mecanismo de exclusión de gemelo de la entrada anterior funcionando) sin que nada apareciera fuera del fondo marino — sin una toma cuadro a cuadro de la trayectoria de UN pez concreto (limitación de la captura, no del código), mismo criterio de "gap honesto" del resto de la sesión.
 
+### NPCs de rutina animados mientras trabajan + charla ambiental entre ellos (cliente, 2026-09-13, pedido streamer: "los NPC en las aldeas que hacen acciones de trabajo etc deberían tener animación correspondiente así no se ven estáticos, deben estar animados si conversan entre ellos etc, y las conversaciones se ven encima de sus cabezas como ya tenemos con otros NPC evento de estos")
+
+`Npc.accion` (`server/src/mundo/agentes.ts`, replica el tramo activo de la
+rutina horaria — `trabajar`/`vender`/`entrenar`/`orar`/`socializar`/
+`cotillear`/... de `poblacion/catalogo/perfilesSociales.json`) ya viajaba al
+cliente desde el diseño original de este documento, pero
+`client/src/game.ts` solo aplicaba la pose de "trabajando" del rig
+(inclinado + brazos en balanceo, `rigHumanoide.ts`) a `accion==="craftear"`
+— el único caso real de ese valor es el NPC tutorial artesano
+(`npcsFijos.ts`). Cualquier aldeano real vendiendo en su puesto, rezando en
+el templo, entrenando en el patio de armas o charlando en la plaza se
+quedaba plantado como una estatua de verdad, con o sin gente cerca.
+
+Cerrado con un módulo nuevo y PURO (sin THREE/DOM, mismo criterio que
+`visibilidadNombres.ts`), `client/src/npc/actividadAmbientalNpc.ts`:
+
+- `esAccionOcupada(accion)` amplía el disparador de la pose de trabajando a
+  16 acciones reales: `trabajar`, `vender`, `recaudar`, `entrenar`,
+  `buscar_gallinas`, `bendecir`, `orar`, `misa`, `profetizar`,
+  `contar_historias`, `cantar`, `vigilar_difuntos`, `socializar`,
+  `cotillear`, `beber`, `comer`. Deja SIN animar, a propósito: `estatua`
+  (un artista callejero que imita una estatua — animarlo sería el bug
+  contrario), `tambalear` (bamboleo de borracho, gesto distinto),
+  `pasear`/`patrullar` (ya animan con la marcha real de verdad) y
+  `dormir`/`dormir_calle`/`pedir`/`pedir_sentado`/`ocio`/`vigilar`
+  (quietud/espera intencionada, no "trabajo").
+- `fraseCharla`/`mostrandoCharla`: para las 4 acciones que son literalmente
+  "hablar con otros o al grupo" (`socializar`, `cotillear`,
+  `contar_historias`, `profetizar`) un catálogo FIJO de frases por
+  categoría (vocabulario del Lore Canon real — jarl, Kaldrborg, la
+  Corrupción, el Gran Éxodo, `personajes/catalogo/contexto_mundo.json` —
+  para que encajen con el resto del mundo en vez de sonar genéricas) rota
+  por NPC+tiempo vía un hash determinista de `slotId` (dos vecinos
+  charlando no repiten la misma frase a la vez, ni todos cambian de frase
+  en el mismo tick). NUNCA generadas en vivo/IA — coste cero, mismo
+  criterio que el pregón de los NPCs "especiales" (arriba, v1.1).
+
+Reusa el MISMO mecanismo de burbuja-alternando-con-el-nombre que ya usan el
+pregón/las enfermedades/la queja del compañero (`worldScene.ts::
+textoEtiqueta`) — así hereda gratis la regla de "nombres solo de cerca"
+(docs/GDD_UI_Paneles.md §11, pedido 2026-09-12): `textoEtiqueta` solo
+cambia el CONTENIDO del `<div>`, la VISIBILIDAD la decide aparte y siempre
+la histéresis de proximidad (`visibilidadNombres.ts`) — no hay ningún
+camino nuevo que reintroduzca nombres/burbujas siempre visibles. Cero
+cambio de servidor: `Npc.accion` ya existía desde el diseño v1 de este
+documento, esto es puro cableado de cliente.
+
+Verificado: `client/test/actividadAmbientalNpc.test.ts` (9 tests
+deterministas: acciones ocupadas/no ocupadas, frase nula para acciones sin
+charla, catálogo real, determinismo por NPC+instante, variedad entre NPCs y
+entre ciclos, alternancia mostrar/ocultar), cliente 132/132, `tsc --noEmit`
+limpio. **E2E real nuevo, `client/test/actividadAmbientalNpc.e2e.mjs`**
+(servidor+Vite+Playwright reales, un `pueblo` EFÍMERO horneado al vuelo con
+su población real vía `poblacion/exportarAsentamiento.js` — no la Test
+Zone, que no tiene NPCs con rutina real): confirma en vivo 42/46 NPCs con
+la pose de trabajando activa nada más entrar (acciones reales vistas:
+`socializar, trabajar, comer, vigilar, dormir, bendecir, pregonar, vender,
+profetizar, buscar_gallinas`) y al menos un NPC mostrando de verdad una
+frase del catálogo ("Mi espalda ya no es la de antes.") en su burbuja tras
+esperar más de un ciclo completo de charla (16s) — sin ningún error de
+consola. **Pendiente real**: sin verificación visual en vivo con el
+streamer sobre el mapa principal real (solo sobre el pueblo de prueba); la
+pose de "trabajando" sigue siendo un único gesto genérico (inclinado +
+brazos) reusado para las 16 acciones — no hay un gesto distinto por oficio,
+mismo criterio de "pose fija simple" ya documentado en el resto del
+proyecto, no una limitación nueva de esta pasada.
+
 ## Verificado (v1)
 
 - Test de servidor del gestor: recolocación por hora al crear room,

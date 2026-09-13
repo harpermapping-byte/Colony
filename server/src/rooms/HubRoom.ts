@@ -612,6 +612,7 @@ export class HubRoom extends RoomExteriorBase {
       // ANTES de resolver, visible para todos en la room (no solo quien
       // tala); el hacha del hachazo la pone equipoVisual.ts sola, gratis,
       // porque ya está equipada en manoPrincipal (chequeo de arriba).
+      this.ultimaActividadManualPorSesion.set(client.sessionId, Date.now());
       this.broadcast("accion:jugador", { sessionId: client.sessionId, tipo: "talar" });
 
       const resultado = await this.gestorBosques.talar(cercano.ref);

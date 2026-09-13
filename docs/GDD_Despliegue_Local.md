@@ -139,6 +139,30 @@ Para una sola tabla: `pg_restore ... --data-only --table=jugadores "…dump"`. L
 
 **Recomendación pendiente del streamer**: copiar de vez en cuando la carpeta `server/deploy/copias/` a otro sitio (otro disco, un pendrive, la nube). Una copia en el mismo disco que la base de datos protege de un borrado accidental, pero no de que ese disco falle.
 
+## Reinicio completo de la base de datos (`reiniciarBd.ps1`, 2026-09-13)
+
+Pedido del streamer al rehornear Vetrheim con una semilla nueva ("borramos todo el mapa actual y reiniciamos todo con los nuevos datos") — un mundo con otras coordenadas/ciudades/spawn no deja nada coherente que conservar de las posiciones/propiedades guardadas del mundo viejo, así que hace falta poder vaciar la base de datos entera además de rehornear el mapa (que no vive en la BD, ver más abajo).
+
+```
+powershell -ExecutionPolicy Bypass -File server/deploy/reiniciarBd.ps1 -Confirmar
+```
+
+Sin `-Confirmar` el script se niega a hacer nada (solo avisa). Con `-Confirmar` todavía pide escribir `BORRAR` a mano antes de tocar la base de datos — para saltarse esa segunda pregunta en un uso interactivo ya decidido, añade también `-SinPreguntar` (nunca pensado para que lo dispare un script automático por su cuenta).
+
+Cuatro pasos, cada uno con su propia red de seguridad:
+1. **Fuerza una copia de seguridad fresca** (`copiaSeguridadBd.ps1 -Forzar`, invocada directamente en la misma sesión de PowerShell — nunca lanzando un `powershell`/`pwsh` nuevo, que puede no estar en el PATH). Si falla, se aborta el borrado entero sin tocar nada.
+2. Para el servidor (`pm2 stop colony-server`).
+3. **Vacía el esquema `public`** de la base de datos (`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`), conectando como el propio rol `colony`.
+4. Arranca el servidor de nuevo (`pm2 restart colony-server`) — `bd.ts` recrea sus ~46 tablas solas contra un esquema vacío, ya verificado en una pasada anterior.
+
+**Por qué vaciar el esquema y no `DROP DATABASE`+`CREATE DATABASE`** (decisión tomada tras un fallo real, no una preferencia): el primer intento sí hacía DROP+CREATE de la base de datos completa, pero el rol `colony` que crea `instalarTodo.ps1` solo tiene `LOGIN` (nunca `CREATEDB`) — reproducido de verdad contra un Postgres real en este sandbox: el `DROP DATABASE` como ese rol sin privilegios de superusuario falla igual (necesitaría conectar como `postgres`, cuya contraseña este script no tiene por diseño), y si en cambio se le da `CREATEDB` al rol y el `DROP` sí tiene éxito pero el `CREATE` posterior falla por cualquier otro motivo, el servidor se queda **sin ninguna base de datos a la que conectarse** — un estado peor que el que se intentaba arreglar. Vaciar el esquema en vez de la base de datos entera solo exige ser **dueño** de esa base de datos (que `colony` sí es, la crea el propio instalador) y nunca deja un estado a medias: pase lo que pase a mitad, la base de datos en sí sigue existiendo siempre.
+
+**Verificado de punta a punta contra un PostgreSQL 16 real** (no solo escrito y revisado): sembrada una tabla con una fila real, ejecutado el flujo completo con `pm2` simulado — copia de seguridad real (`pg_dump -Fc`), esquema vaciado (`\dt` confirma "Did not find any relations" tras el paso 3, la base de datos SIGUE existiendo), y la fila sembrada **recuperada de verdad con `pg_restore --clean --if-exists`** sobre la copia que el propio script acababa de crear — la red de seguridad funciona, no solo se ejecuta. Los 3 guardias (`-Confirmar` ausente, confirmación escrita incorrecta, `server/.env` inexistente) responden exactamente como deben, cada uno sin tocar nada.
+
+**Qué NO borra este script** (no vive en la base de datos): el propio mapa horneado (`assets/mapas/principal/`), el código del servidor/cliente, y `assets/mapas/principal/parcelas.json` (se resetea aparte al promocionar un rebake, no aquí).
+
+**Sin probar en el PC real del streamer** — mismo criterio honesto que el resto de este documento: el mecanismo está verificado de punta a punta contra un Postgres real en este sandbox, pero la ejecución real contra la base de datos de producción (con la contraseña real del rol `colony`) la tiene que lanzar él.
+
 ## Reinicio programado cada 8 horas (`reinicioProgramado.ps1`, 2026-09-09)
 
 Pedido del streamer ("reinicios cada 8 horas automáticos, aparte de si hay commit nuevo"). **No reinicia a hora fija, sino en el primer momento libre pasadas las N horas encendido** (8 por defecto, `-HorasMinimas`).

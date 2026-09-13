@@ -1,11 +1,10 @@
 {
   "nombre": "vetrheim",
-  "semilla": "vetrheim-16",
+  "semilla": "vetrheim2-3",
   "anchoChunks": 100,
   "altoChunks": 100,
   "tamanoChunk": 32,
   "ciudadCapital": true,
-  "ciudad": { "x": 1534, "y": 2138 },
   "biomasHabilitados": ["pradera", "bosque", "montana_nevada", "desierto", "costa", "pantano"],
   "separacionMinimaPOI": 200,
   "probabilidadLegendaria": 0.02,

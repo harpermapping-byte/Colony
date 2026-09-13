@@ -2,6 +2,7 @@ import { Client, getStateCallbacks } from "colyseus.js";
 import { SERVER_URL } from "./config";
 import { WorldScene } from "./render3d/worldScene";
 import { crearRigHumanoide, inclinarCaido, type RigHumanoide, type AccionHerramienta } from "./render3d/rigHumanoide";
+import { esAccionOcupada, fraseCharla, mostrandoCharla } from "./npc/actividadAmbientalNpc";
 import { cargarIndice, cargarSector } from "./mapa/cargarMapa";
 import { StreamingSectores } from "./mapa/streamingSectores";
 import { crearSectorVisual, soltarSectorVisual, actualizarNieveSector, type HandleSector } from "./render3d/sectorVisual";
@@ -2576,7 +2577,11 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       z: npc.y,
       y: 0,
       nadando: false,
-      trabajando: npc.accion === "craftear",
+      // pedido streamer 2026-09-13 ("no se ven estáticos"): antes solo
+      // "craftear" (NPC tutorial) aplicaba la pose de trabajando — un
+      // aldeano real vendiendo/rezando/entrenando/charlando se quedaba
+      // plantado. Ver client/src/npc/actividadAmbientalNpc.ts.
+      trabajando: esAccionOcupada(npc.accion),
       sentado: npc.sentado,
       durmiendo: npc.durmiendo,
     };
@@ -2590,7 +2595,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       estado.destinoZ = npc.y;
       rig.objeto.visible = npc.visible;
       meta.accion = npc.accion;
-      estado.trabajando = npc.accion === "craftear";
+      estado.trabajando = esAccionOcupada(npc.accion);
       estado.sentado = npc.sentado;
       estado.durmiendo = npc.durmiendo;
       // Suciedad (docs/GDD_Personaje.md §3.6, pedido 2026-08-30): el
@@ -2668,7 +2673,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // El e2e filtra ambos para elegir un civil normal seguro de acercarse.
     lista: [...npcsVisual.entries()].map(([id, n]) => {
       const npc = room.state.npcs.get(id) as any;
-      return { id, nombre: npcsMeta.get(id)?.nombre ?? null, x: n.destinoX, y: n.destinoZ, visible: n.rig.objeto.visible, tutorial: !!npc?.tipoTutorial, hostil: !!npc?.hostil };
+      return {
+        id,
+        nombre: npcsMeta.get(id)?.nombre ?? null,
+        // accion (actividadAmbientalNpc.e2e.mjs, 2026-09-13): para poder
+        // localizar de verdad un NPC "trabajando"/"conversando" real desde
+        // el test, sin adivinar por posición.
+        accion: npcsMeta.get(id)?.accion ?? null,
+        x: n.destinoX,
+        y: n.destinoZ,
+        visible: n.rig.objeto.visible,
+        tutorial: !!npc?.tipoTutorial,
+        hostil: !!npc?.hostil,
+      };
     }),
   });
 
@@ -4196,6 +4213,15 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       if (meta.grito) {
         const fase = (tSeg + slotId.length * 1.7) % 13;
         escena.textoEtiqueta(`npc_${slotId}`, fase < 4 ? meta.grito : meta.nombre, fase < 4);
+      } else {
+        // Charla ambiental entre NPCs (pedido streamer 2026-09-13: "si
+        // conversan entre ellos... se ven encima de sus cabezas como ya
+        // tenemos con otros NPC evento de estos") — mismo mecanismo de
+        // burbuja alternando con el nombre que el pregón de arriba, pero
+        // con un catálogo de frases en vez de una sola fija por NPC.
+        const frase = fraseCharla(meta.accion, slotId, tSeg);
+        const mostrar = !!frase && mostrandoCharla(slotId, tSeg);
+        escena.textoEtiqueta(`npc_${slotId}`, mostrar ? frase! : meta.nombre, mostrar);
       }
     }
 
