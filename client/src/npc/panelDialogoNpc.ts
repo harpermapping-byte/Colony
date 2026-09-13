@@ -290,18 +290,28 @@ export class PanelDialogoNpc {
     this.opciones.enviarMensaje(this.npcIdActual, texto);
   }
 
-  /** Llamar desde `room.onMessage("npc:respuesta", ...)`. Ignora respuestas de un NPC que ya no es el abierto (el jugador cerró/cambió de conversación mientras la IA respondía). */
+  /**
+   * Llamar desde `room.onMessage("npc:respuesta", ...)`. Ignora respuestas
+   * de un NPC que ya no es el abierto (el jugador cerró/cambió de
+   * conversación mientras la IA respondía) — `esperandoRespuesta` SOLO se
+   * libera si la respuesta es del NPC actual: antes se ponía a `false`
+   * incondicionalmente ANTES del filtro, así que la respuesta TARDÍA de un
+   * NPC viejo podía desbloquear "Enviar" para una conversación NUEVA que
+   * aún seguía esperando la suya (bug real encontrado en la auditoría de
+   * interacciones de 2026-09-13, mismo hallazgo que el cross-contamination
+   * de "npc:error" en `ultimoErrorMercader`, ver game.ts).
+   */
   recibirRespuesta(npcId: string, texto: string) {
-    this.esperandoRespuesta = false;
     if (npcId !== this.npcIdActual) return;
+    this.esperandoRespuesta = false;
     this.lineas.push({ quien: "npc", texto });
     this.recortarYRenderizar();
   }
 
-  /** Llamar desde `room.onMessage("npc:error", ...)`. */
+  /** Llamar desde `room.onMessage("npc:error", ...)` — mismo criterio que `recibirRespuesta` de arriba. */
   recibirError(npcId: string, motivo: string) {
-    this.esperandoRespuesta = false;
     if (npcId !== this.npcIdActual) return;
+    this.esperandoRespuesta = false;
     this.lineas.push({ quien: "error", texto: motivo });
     this.recortarYRenderizar();
   }

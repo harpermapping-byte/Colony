@@ -46,7 +46,7 @@ import { PanelCrafteo, MESAS_CON_RECETAS, nombreItem as nombreItemCatalogo, nomb
 import { PanelAlquimia, type ConfigAlquimiaVista, type SesionAlquimiaVista, type ResultadoAlquimiaVista } from "./construccion/panelAlquimia";
 import { RenderCultivoCasillas } from "./agricultura/renderCultivoCasillas";
 import itemsJsonCliente from "../../items/catalogo/items.json";
-const CATALOGO_ITEMS_CLIENTE = itemsJsonCliente as unknown as Record<string, { cultivo?: unknown }>;
+const CATALOGO_ITEMS_CLIENTE = itemsJsonCliente as unknown as Record<string, { cultivo?: unknown; crecimientoArbol?: { especieArbolId?: string } }>;
 import { PanelMascotas, type MascotaVista, type ProgresoDomesticar } from "./mascotas/panelMascotas";
 import { PanelComercio, type EstadoComercioVista } from "./comercio/panelComercio";
 import { PanelReclutador, type CatalogoReclutadorVista, type TrabajadorVista, type RutaVista, type ConstruccionVista } from "./economia/panelReclutador";
@@ -828,7 +828,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // cada arranque con red/CPU justas).
     const yo = room.state.players?.get(room.sessionId) as any;
     if (!yo) return;
-    hudVitales.actualizar({ vida: yo.vida, vidaMax: yo.vidaMax, estamina: yo.vitales.estamina, comida: yo.vitales.comida, bebida: yo.vitales.bebida, caca: yo.vitales.caca });
+    hudVitales.actualizar({
+      vida: yo.vida, vidaMax: yo.vidaMax, estamina: yo.vitales.estamina, comida: yo.vitales.comida, bebida: yo.vitales.bebida, caca: yo.vitales.caca,
+      // Auditoría de interacciones 2026-09-13: temperatura/aire ya replican
+      // desde el servidor (docs/GDD_Clima.md/GDD_Mecanicas.md §5.4) pero
+      // nunca se leían aquí — el jugador no tenía forma de saber que se
+      // estaba ahogando hasta que la vida ya empezaba a bajar de verdad.
+      temperatura: yo.vitales.temperatura, aire: yo.vitales.aire, estado: yo.estado,
+    });
   }, 500);
 
   // Cuenta de jugador (docs/GDD_Cuentas.md): si el token guardado dejó de
@@ -918,13 +925,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // MÁS ABAJO en esta misma función — válido porque esta función solo se
   // EJECUTA en un clic real, muy después de que esas listas ya existan
   // (mismo razonamiento que cualquier otro handler de esta función).
-  function intentarInspeccionarClic(raycaster: Raycaster): boolean {
+  function intentarInspeccionarClic(raycaster: Raycaster, clientX: number, clientY: number): boolean {
     const objetosInspeccionables = [
       ...[...npcsVisual.entries()].map(([, e]) => e.rig.objeto),
       ...[...mascotasVisual.entries()].map(([, e]) => e.rig.objeto),
       ...[...companerosVisual.entries()].map(([, e]) => e.rig.objeto),
       ...[...enemigosVisual.entries()].map(([, e]) => e.rig.objeto),
-      ...[...jugadores.values()].map((e) => e.rig.objeto),
+      // Nunca el propio rig (auditoría de interacciones 2026-09-13,
+      // encontrado escribiendo su propio e2e de PvP): `jugadores` incluye
+      // TAMBIÉN al jugador local — sin excluirlo, un clic cerca de uno
+      // mismo podía resolver contra el propio rig y ofrecer un sinsentido
+      // ("Atacar <tu propio nombre>"), sobre todo de pie junto a otro
+      // jugador (ambos rigs muy próximos en pantalla).
+      ...[...jugadores.entries()].filter(([sessionId]) => sessionId !== room.sessionId).map(([, e]) => e.rig.objeto),
       ...arbolesVisualObjetos.values(),
     ];
     const impactos = raycaster.intersectObjects(objetosInspeccionables, true);
@@ -937,15 +950,58 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     if (ud.npcSlotId) {
       const npc = room.state.npcs.get(ud.npcSlotId) as any;
       if (npc) {
-        npcInspeccionPendiente = ud.npcSlotId;
-        panelInspeccion.abrirCargando(npc.nombre || "NPC", "🧑");
-        room.send("npc:inspeccionar", { slotId: ud.npcSlotId });
+        const inspeccionar = () => {
+          npcInspeccionPendiente = ud.npcSlotId;
+          panelInspeccion.abrirCargando(npc.nombre || "NPC", "🧑");
+          room.send("npc:inspeccionar", { slotId: ud.npcSlotId });
+        };
+        // Auditoría de interacciones 2026-09-13: "Atacar" (tecla C,
+        // objetivoHostilMasCercano) SÍ cubre NPCs hostiles (patrulla
+        // bandida) desde el diseño original, pero clicarlos solo abría la
+        // inspección — sin opción de atacar por clic. Mismo mensaje EXACTO
+        // que la tecla C (combate:iniciar con el id real del clicado, no
+        // "el más cercano" — más preciso que la tecla).
+        if (npc.hostil) {
+          menuInteraccion.mostrar(clientX, clientY,npc.nombre || "Bandido", [
+            { etiqueta: `Atacar ${npc.nombre || "bandido"}`, accion: () => room.send("combate:iniciar", { objetivoId: ud.npcSlotId, retorno: retornoDeCombate() }) },
+            { etiqueta: "Inspeccionar", accion: inspeccionar },
+          ]);
+        } else {
+          inspeccionar();
+        }
         return true;
       }
     } else if (ud.mascotaId) {
       const mascota = room.state.mascotas.get(ud.mascotaId) as any;
       if (mascota) {
-        panelInspeccion.abrir(String(mascota.especieId || "mascota").replace(/_/g, " "), [{ etiqueta: "Dueño", valor: mascota.duenoNombre || "?" }], "🐾");
+        const nombreEspecie = mascota.especieId ? String(mascota.especieId).replace(/_/g, " ") : "Mascota";
+        const opcionesMascota: OpcionMenuInteraccion[] = [
+          // Dar de comer (tecla G) es parametrizada solo por proximidad en el
+          // servidor (auto-apunta a la mascota domesticable más cercana, sin
+          // id) — ofrecerlo aquí es la misma acción, solo más descubrible al
+          // clicar la mascota en concreto en vez de adivinar la tecla.
+          { etiqueta: "Dar de comer", accion: () => room.send("mascota:darComida") },
+        ];
+        // Poner silla/Montar (teclas N/M, docs/GDD_Monturas.md) — SOLO tiene
+        // sentido sobre la PROPIA mascota (el servidor las rechaza si no lo
+        // es, "no es tuya"/similar) — auditoría de interacciones 2026-09-13:
+        // antes solo por teclado sin targeting; aquí se manda el id REAL del
+        // clic en vez de "la más cercana", más preciso con varias mascotas
+        // juntas. yo?.monturaEspecieId (Player, ya replicado) dice si el
+        // jugador YA está montado en ALGO, para no ofrecer "Montar" dos veces.
+        const yo = room.state.players?.get(room.sessionId) as any;
+        if (mascota.duenoNombre === nombreJugador) {
+          if (!mascota.montura) {
+            opcionesMascota.push({ etiqueta: "Poner silla", accion: () => room.send("mascota:ponerMontura", { mascotaId: ud.mascotaId }) });
+          } else if (!yo?.monturaEspecieId) {
+            opcionesMascota.push({ etiqueta: "Montar", accion: () => room.send("mascota:montar", { mascotaId: ud.mascotaId }) });
+          }
+        }
+        opcionesMascota.push({
+          etiqueta: "Inspeccionar",
+          accion: () => panelInspeccion.abrir(nombreEspecie, [{ etiqueta: "Dueño", valor: mascota.duenoNombre || "?" }], "🐾"),
+        });
+        menuInteraccion.mostrar(clientX, clientY, nombreEspecie, opcionesMascota);
         return true;
       }
     } else if (ud.companeroId) {
@@ -958,9 +1014,18 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const enemigo = room.state.enemigos.get(ud.enemigoId) as any;
       if (enemigo) {
         const nombreMostrado = String(enemigo.enemigoId || "enemigo").includes("bandido") ? "Bandido" : String(enemigo.enemigoId || "enemigo").replace(/_/g, " ");
-        const filas: FilaInspeccion[] = [{ etiqueta: "Vida", valor: `${Math.round(enemigo.vida)}/${Math.round(enemigo.vidaMax)}` }];
-        if (enemigo.esBoss) filas.push({ etiqueta: "Rango", valor: "Jefe" });
-        panelInspeccion.abrir(nombreMostrado, filas, "☠");
+        const inspeccionar = () => {
+          const filas: FilaInspeccion[] = [{ etiqueta: "Vida", valor: `${Math.round(enemigo.vida)}/${Math.round(enemigo.vidaMax)}` }];
+          if (enemigo.esBoss) filas.push({ etiqueta: "Rango", valor: "Jefe" });
+          panelInspeccion.abrir(nombreMostrado, filas, "☠");
+        };
+        // Mismo hallazgo que arriba: los enemigos de mazmorra (SIEMPRE
+        // hostiles, docs/GDD_Combate.md §11) solo se atacaban con la tecla
+        // C — clicarlos solo inspeccionaba. Mismo mensaje que la tecla C.
+        menuInteraccion.mostrar(clientX, clientY,nombreMostrado, [
+          { etiqueta: `Atacar ${nombreMostrado}`, accion: () => room.send("combate:iniciar", { objetivoId: ud.enemigoId, retorno: retornoDeCombate() }) },
+          { etiqueta: "Inspeccionar", accion: inspeccionar },
+        ]);
         return true;
       }
     } else if (ud.jugadorSessionId) {
@@ -970,10 +1035,21 @@ export async function iniciarJuego(contenedor: HTMLElement) {
         // profundidad de buceo, 0/-1/-2 — nada que ver con progresión):
         // la única progresión real es por oficio (jugador_oficios en BD,
         // server-only), así que aquí solo se muestran los dos elegidos.
-        const oficios = [jugador.oficio1, jugador.oficio2].filter(Boolean).map((o: string) => nombreOficio(o));
-        const filas: FilaInspeccion[] = [{ etiqueta: "Oficio", valor: oficios.length > 0 ? oficios.join(", ") : "Sin oficio" }];
-        if (jugador.gremioNombre) filas.push({ etiqueta: "Gremio", valor: jugador.gremioNombre });
-        panelInspeccion.abrir(jugador.name || "Jugador", filas, "🧑");
+        const inspeccionar = () => {
+          const oficios = [jugador.oficio1, jugador.oficio2].filter(Boolean).map((o: string) => nombreOficio(o));
+          const filas: FilaInspeccion[] = [{ etiqueta: "Oficio", valor: oficios.length > 0 ? oficios.join(", ") : "Sin oficio" }];
+          if (jugador.gremioNombre) filas.push({ etiqueta: "Gremio", valor: jugador.gremioNombre });
+          panelInspeccion.abrir(jugador.name || "Jugador", filas, "🧑");
+        };
+        // PvP (tecla C, docs/GDD_PvP.md) y comerciar (tecla T,
+        // docs/GDD_Comercio.md) por clic sobre OTRO jugador — el servidor
+        // ya decide si el PvP/comercio están habilitados en esta zona
+        // (combate:error/npc:error si no), esto solo ofrece el gesto.
+        menuInteraccion.mostrar(clientX, clientY,jugador.name || "Jugador", [
+          { etiqueta: `Atacar ${jugador.name || "jugador"}`, accion: () => room.send("combate:iniciar", { objetivoId: ud.jugadorSessionId, retorno: retornoDeCombate() }) },
+          { etiqueta: "Proponer comercio", accion: () => room.send("comercio:solicitar") },
+          { etiqueta: "Inspeccionar", accion: inspeccionar },
+        ]);
         return true;
       }
     } else if (ud.arbolId) {
@@ -986,20 +1062,162 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     return false;
   }
 
-  // Listener UNIVERSAL de clic-para-inspeccionar: el Hub ya tiene su propio
-  // listener genérico (menú de interacción/construcción/fauna, más abajo,
-  // SOLO dentro de `if (SALA === "hub")`) que también llama a
-  // `intentarInspeccionarClic` — este de aquí es la ÚNICA vía en cualquier
-  // OTRA sala (region/interior/mazmorra/arena), donde ese otro listener
-  // nunca llega a registrarse. Mutuamente excluyentes por `SALA` — nunca
-  // compiten por el mismo clic ni hace falta `stopPropagation`.
-  if (SALA !== "hub") {
+  // Menú genérico de interacción (menuInteraccion.ts) — izado aquí (antes
+  // vivía SOLO dentro de `if (SALA === "hub")`) por la auditoría de
+  // interacciones de 2026-09-13 ("revisa si todas las interacciones están
+  // bien seteadas... retira bindeos de teclas para que se hagan con click
+  // sobre el objeto"): cazar/inspeccionar fauna por clic y el menú de suelo
+  // (sentarse/agricultura) NO dependen del sistema de construcción del
+  // jugador — son estado de mundo universal (fauna, cultivo de casilla),
+  // así que no había motivo real para que solo funcionaran en el Hub. Lo
+  // que SÍ sigue siendo exclusivo del Hub, A PROPÓSITO (ver el bloque
+  // `if (SALA === "hub")` más abajo): mesas de oficio/alquimia/cofres/
+  // tenderetes/legendarios/ajedrez/nido/asignar trabajador — todo eso
+  // cuelga de `RenderConstrucciones`, y la propiedad de parcela (de dónde
+  // sale esa malla) solo existe hoy en el Hub (y, aparte, en la única
+  // región con `parcelasReservadas`, `capital_jarl` — sin portal que lleve
+  // ahí todavía, ver docs/GDD_Bakeador_POIs.md, así que sin impacto real en
+  // partidas de verdad por ahora).
+  const menuInteraccion = new MenuInteraccion();
+
+  /**
+   * Cazar/inspeccionar fauna por clic (docs/GDD_Caza.md §4ter) — extraído a
+   * función compartida en la auditoría de 2026-09-13: antes vivía SOLO
+   * dentro del listener del Hub, así que cazar por clic (la tecla C sí es
+   * universal) no funcionaba en ninguna aldea/región real, donde también
+   * hay fauna salvaje viva. Recursivo a propósito (el rig es un grupo con
+   * varias mallas hijas); el id se recupera remontando padres.
+   */
+  function intentarCazarFaunaClic(raycaster: Raycaster, clientX: number, clientY: number): boolean {
+    const impactosFauna = raycaster.intersectObjects([...faunaVisual.values()].map((f) => f.rig.objeto), true);
+    if (impactosFauna.length === 0) return false;
+    let nodo: Object3D | null = impactosFauna[0].object;
+    while (nodo && !nodo.userData.faunaId) nodo = nodo.parent;
+    const faunaId = nodo?.userData.faunaId as string | undefined;
+    const animal = faunaId ? (room.state.fauna.get(faunaId) as any) : null;
+    if (!faunaId || !animal) return false;
+    const nombreEspecie = String(animal.especieId || "animal").replace(/_/g, " ");
+    menuInteraccion.mostrar(clientX, clientY, nombreEspecie, [
+      // Mismo mensaje que la tecla C: el servidor decide si es caza (huye,
+      // persecución automática) o combate real (fauna peligrosa, que sí
+      // exige RADIO_INTERACCION — responde combate:error "demasiado lejos" si no).
+      { etiqueta: `Cazar ${nombreEspecie}`, accion: () => room.send("combate:iniciar", { objetivoId: faunaId, retorno: retornoDeCombate() }) },
+      {
+        etiqueta: `Inspeccionar ${nombreEspecie}`,
+        accion: () => {
+          const filas: FilaInspeccion[] = [];
+          if (animal.vidaMax > 0) filas.push({ etiqueta: "Vida", valor: `${Math.round(animal.vida)}/${Math.round(animal.vidaMax)}` });
+          panelInspeccion.abrir(nombreEspecie, filas, "🐾");
+        },
+      },
+    ]);
+    return true;
+  }
+
+  /**
+   * Recoger un objeto suelto del mundo por clic (docs/GDD_Ganaderia.md §12)
+   * — extraído a función compartida junto con hacer `renderObjetosMundo`
+   * universal (ver su instanciación más arriba): antes esta rama solo se
+   * alcanzaba desde dentro del Hub.
+   */
+  function intentarRecogerObjetoMundoClic(raycaster: Raycaster, clientX: number, clientY: number): boolean {
+    if (!renderObjetosMundo) return false;
+    const impactos = raycaster.intersectObjects(renderObjetosMundo.mallas(), true);
+    if (impactos.length === 0) return false;
+    const datosObjetoMundo = renderObjetosMundo.datosDeMalla(impactos[0].object);
+    if (!datosObjetoMundo) return false;
+    const nombreObjeto = renderObjetosMundo.nombreDe(datosObjetoMundo.itemId);
+    menuInteraccion.mostrar(clientX, clientY, nombreObjeto, [
+      { etiqueta: `Recoger ${nombreObjeto}`, accion: () => room.send("coger") },
+    ]);
+    return true;
+  }
+
+  /**
+   * Menú del suelo (sentarse/labrar/plantar/cosechar/cavar tierra) — clic
+   * sin nada más debajo (pedido 2026-08-31/2026-09-11). Extraído a función
+   * compartida en la misma auditoría de 2026-09-13: la agricultura de
+   * casilla es estado de mundo (`cultivoCasilla:*`, validado server-side
+   * contra parcela propia/azada/temporada), no del sistema de construcción
+   * — no había motivo para que solo funcionara en el Hub. SIEMPRE muestra
+   * algo (al menos "Sentarse en el suelo"), así que no hace falta que
+   * devuelva si "manejó" el clic — es el último recurso de la cadena.
+   */
+  function mostrarMenuSueloClic(raycaster: Raycaster, clientX: number, clientY: number): void {
+    const opcionesSuelo: OpcionMenuInteraccion[] = [{ etiqueta: "Sentarse en el suelo", accion: () => room.send("sentar:suelo", {}) }];
+    const puntoSuelo = new Vector3();
+    const casilla = raycaster.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), 0), puntoSuelo) ? { x: Math.floor(puntoSuelo.x), y: Math.floor(puntoSuelo.z) } : null;
+    let tituloSuelo = "Suelo";
+    if (casilla) {
+      tituloSuelo = `Suelo (${casilla.x},${casilla.y})`;
+      const cultivo = renderCultivo.casillaEn(casilla.x, casilla.y);
+      const yo = room.state.players?.get(room.sessionId) as any;
+      const semillas = new Map<string, { instanciaId: number; cantidad: number }>();
+      // Semillas de ÁRBOL (docs/GDD_Bosques.md — plantado silvestre, distinto
+      // de cultivoCasilla:plantar en un bancal): auditoría de interacciones
+      // 2026-09-13, hallazgo real — "arbol:plantar" existía en el servidor
+      // desde el diseño original (talar un adulto suelta semilla_<especie>
+      // la mitad de las veces) pero NINGÚN cliente lo mandaba nunca, la
+      // semilla se quedaba sin ningún uso posible en el inventario.
+      const semillasArbol = new Map<string, { instanciaId: number; cantidad: number }>();
+      for (const it of (yo?.inventario?.cuerpo?.items ?? []) as any[]) {
+        const catalogo = CATALOGO_ITEMS_CLIENTE[it.itemId];
+        if (catalogo?.cultivo) {
+          const previa = semillas.get(it.itemId);
+          if (previa) previa.cantidad += it.cantidad; else semillas.set(it.itemId, { instanciaId: it.id, cantidad: it.cantidad });
+        } else if (catalogo?.crecimientoArbol?.especieArbolId) {
+          const previa = semillasArbol.get(it.itemId);
+          if (previa) previa.cantidad += it.cantidad; else semillasArbol.set(it.itemId, { instanciaId: it.id, cantidad: it.cantidad });
+        }
+      }
+      if (!cultivo) {
+        opcionesSuelo.push({ etiqueta: "Labrar aquí (azada)", accion: () => room.send("cultivoCasilla:labrar", { x: casilla.x + 0.5, y: casilla.y + 0.5 }) });
+        // docs/GDD_Agricultura.md §9: una palada de tierra por casilla, para llenar macetas
+        opcionesSuelo.push({ etiqueta: "Cavar tierra (pala)", accion: () => room.send("suelo:cavar", { x: casilla.x + 0.5, y: casilla.y + 0.5 }) });
+        for (const [semillaId, s] of semillasArbol) {
+          opcionesSuelo.push({ etiqueta: `Plantar ${nombreItemCatalogo(semillaId)} (${s.cantidad})`, accion: () => room.send("arbol:plantar", { x: casilla.x + 0.5, y: casilla.y + 0.5, instanciaId: s.instanciaId }) });
+        }
+      } else if (cultivo.estado === "labrada") {
+        for (const [semillaId, s] of semillas) {
+          opcionesSuelo.push({ etiqueta: `Plantar ${nombreItemCatalogo(semillaId)} (${s.cantidad})`, accion: () => room.send("cultivoCasilla:plantar", { x: casilla.x + 0.5, y: casilla.y + 0.5, instanciaIdSemilla: s.instanciaId }) });
+        }
+        if (semillas.size === 0) opcionesSuelo.push({ etiqueta: "Plantar (no llevas semillas)", accion: () => registroCombate.mostrar("No llevas ninguna semilla encima.", "error") });
+      } else if (cultivo.estado === "sembrada") {
+        tituloSuelo = `${nombreItemCatalogo(cultivo.semillaId)} (${casilla.x},${casilla.y})`;
+        opcionesSuelo.push({ etiqueta: "Cosechar", accion: () => room.send("cultivoCasilla:cosechar", { x: casilla.x + 0.5, y: casilla.y + 0.5 }) });
+      }
+    }
+    menuInteraccion.mostrar(clientX, clientY, tituloSuelo, opcionesSuelo);
+  }
+
+  // Listener UNIVERSAL de clic sobre el mundo: el Hub tiene su propio
+  // listener más rico (menú de interacción/construcción, más abajo, SOLO
+  // dentro de `if (SALA === "hub")`, con las opciones EXCLUSIVAS de
+  // construcción de jugador) — este de aquí es la vía en cualquier OTRA
+  // sala (region/interior/mazmorra/arena) para todo lo que SÍ es universal:
+  // cazar/inspeccionar fauna, recoger objetos sueltos, e inspeccionar/
+  // sentarse-labrar-plantar-cosechar en el suelo. Nunca en la arena: el
+  // combate táctico tiene su PROPIO listener de clic (mover/atacar, más
+  // abajo en este archivo) sobre el MISMO `escena.renderer.domElement` —
+  // como son dos `addEventListener("click", ...)` independientes sobre el
+  // mismo elemento, ambos se disparan siempre en el mismo clic (un `return`
+  // dentro de uno no detiene al otro, `stopPropagation` no aplica entre dos
+  // listeners del mismo nodo) — sin esta exclusión, clicar un enemigo en
+  // combate abriría también el panel de inspección ENCIMA del propio golpe,
+  // cada turno (bug real encontrado en la auditoría de interacciones de
+  // 2026-09-13, nunca antes ejercitado contra la arena).
+  if (SALA !== "hub" && SALA !== "arena") {
     const raycasterInspeccion = new Raycaster();
     escena.renderer.domElement.addEventListener("click", (e) => {
+      if (menuInteraccion.visible()) { menuInteraccion.ocultar(); return; }
+      if (menuInteraccion.consumirCierrePorClicFuera()) return;
       const r = escena.renderer.domElement.getBoundingClientRect();
       const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       raycasterInspeccion.setFromCamera(ndc, escena.camera);
-      intentarInspeccionarClic(raycasterInspeccion);
+      if (intentarCazarFaunaClic(raycasterInspeccion, e.clientX, e.clientY)) return;
+      if (intentarInspeccionarClic(raycasterInspeccion, e.clientX, e.clientY)) return;
+      if (intentarRecogerObjetoMundoClic(raycasterInspeccion, e.clientX, e.clientY)) return;
+      mostrarMenuSueloClic(raycasterInspeccion, e.clientX, e.clientY);
     });
   }
 
@@ -1112,6 +1330,26 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   room.onMessage("mapa:vecino", (m: { direccion: string; nombre: string }) => console.log("[barco] mapa vecino a la vista:", m?.direccion, m?.nombre));
   room.onMessage("barco:error", (m: { motivo: string }) => console.log("[barco]", m?.motivo));
 
+  // Dormir en cama (docs/GDD_Personaje.md §3.6, "Tumbarse en X" del menú de
+  // construcciones más abajo manda dormir:iniciar) — bug real encontrado en
+  // la auditoría de interacciones de 2026-09-13: el servidor responde con
+  // dormir:iniciado {terminaEn} y espera que el CLIENTE pida dormir:completar
+  // pasado ese tiempo (mismo patrón "terminaEn" que crafteo, ver el propio
+  // comentario de RoomExteriorBase.ts junto a `durmiendo`), pero ningún
+  // fichero de cliente lo mandaba nunca — tumbarse no hacía absolutamente
+  // nada: ni recuperaba estamina ni daba el buff de "descansado", sin
+  // ningún error visible que lo delatara. Mismo margen de 250ms que
+  // panelCrafteo.ts para no adelantarse al reloj del servidor.
+  room.onMessage("dormir:iniciado", (m: { terminaEn: number }) => {
+    registroCombate.mostrar("Te tumbas a dormir…", "info");
+    window.setTimeout(() => room.send("dormir:completar"), Math.max(0, m.terminaEn - Date.now()) + 250);
+  });
+  room.onMessage("dormir:completado", (m: { factorDescanso: number }) => {
+    const minutos = Math.round((20 * (m.factorDescanso ?? 1)));
+    registroCombate.mostrar(`Descansado: estamina llena y doble XP de oficio durante ${minutos} min.`, "danoHecho");
+  });
+  room.onMessage("dormir:error", (m: { motivo: string }) => { console.log("[dormir]", m?.motivo); registroCombate.mostrar(m?.motivo || "No puedes dormir ahí.", "error"); });
+
   // --- Constructor y render de construcciones (GDD_Construccion §4 y §6) ---
   // Solo en el Hub: una región/interior de ciudades/ no es propiedad de
   // ningún jugador todavía (docs/GDD_Sistema_Puertas.md "Qué falta").
@@ -1138,6 +1376,21 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // `if (SALA === "hub")`) también necesitan escribir aquí, y `__test`
   // (dentro del bloque hub) necesita LEER lo que ellos escriban.
   const ultimosMensajes = new Map<string, unknown>();
+  // Objetos sueltos del mundo (docs/GDD_Ganaderia.md §12, pedido 2026-09-01)
+  // — `state.objetosMundo` es un MapSchema plano presente en CUALQUIER sala
+  // (Hub/Región/Interior/Mazmorra, es la misma HubState compartida), sin
+  // ninguna dependencia del sistema de construcción — UNIVERSAL desde la
+  // auditoría de interacciones de 2026-09-13 (antes limitado al Hub "por
+  // ahora", hueco ya documentado aquí mismo y nunca cerrado: recoger un
+  // huevo/objeto suelto en una aldea real no hacía nada por clic).
+  renderObjetosMundo = new RenderObjetosMundo(escena);
+  const objetosMundoRender = renderObjetosMundo;
+  $(room.state).objetosMundo.onAdd((o: any, id: string) => {
+    objetosMundoRender.aplicarNueva({ id, x: o.x, y: o.y, itemId: o.itemId, cantidad: o.cantidad });
+  });
+  $(room.state).objetosMundo.onRemove((_o: any, id: string) => {
+    objetosMundoRender.aplicarQuitada(id);
+  });
   if (SALA === "hub") {
     const indiceParcelas =
       parcelasArchivo && anchoMapa > 0 ? construirIndiceParcelas(parcelasArchivo, anchoMapa) : new Map<number, string>();
@@ -1146,22 +1399,6 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     // "const modo = modoConstruccion" un poco más abajo: TypeScript no
     // conserva el narrowing de un `let` a través de un closure/callback).
     const render = renderConstrucciones;
-
-    // Objetos sueltos del mundo (docs/GDD_Ganaderia.md §12, pedido
-    // 2026-09-01) — `state.objetosMundo` es un MapSchema plano (sin
-    // protocolo de mensajes propio como construcciones), así que basta con
-    // el trío onAdd/onRemove de siempre. Igual que renderConstrucciones,
-    // limitado al Hub por ahora (mismo alcance ya aceptado para mesas de
-    // minijuego/asiento genérico — extenderlo a Región/Interior es un hueco
-    // conocido y compartido, no específico de esto).
-    renderObjetosMundo = new RenderObjetosMundo(escena);
-    const objetosMundoRender = renderObjetosMundo;
-    $(room.state).objetosMundo.onAdd((o: any, id: string) => {
-      objetosMundoRender.aplicarNueva({ id, x: o.x, y: o.y, itemId: o.itemId, cantidad: o.cantidad });
-    });
-    $(room.state).objetosMundo.onRemove((_o: any, id: string) => {
-      objetosMundoRender.aplicarQuitada(id);
-    });
     modoConstruccion = new ModoConstruccion({
       contenedor,
       escena,
@@ -1372,12 +1609,14 @@ export async function iniciarJuego(contenedor: HTMLElement) {
 
     // --- Instrumentos musicales (docs/GDD_Instrumentos.md, pedido
     // 2026-08-31): clic sobre un objeto construido → menú de interacción
-    // GENÉRICO (menuInteraccion.ts) — pensado para colgar aquí futuras
-    // interacciones sin bindear más teclas ("iremos añadiendo aquí para
-    // evitar bindear de tanta tecla", pedido explícito). Hoy la única
-    // interacción real es "Tocar" sobre los 4 instrumentos craftables;
-    // cualquier otro objeto clicado simplemente no ofrece nada.
-    const menuInteraccion = new MenuInteraccion();
+    // GENÉRICO (menuInteraccion.ts, izado fuera del Hub más arriba desde la
+    // auditoría de interacciones de 2026-09-13 — caza/inspección/suelo por
+    // clic también lo usan en CUALQUIER sala) — pensado para colgar aquí
+    // futuras interacciones sin bindear más teclas ("iremos añadiendo aquí
+    // para evitar bindear de tanta tecla", pedido explícito). Hoy la única
+    // interacción EXCLUSIVA de esta mesa es "Tocar" sobre los 4 instrumentos
+    // craftables; cualquier otro objeto clicado simplemente no ofrece nada
+    // por esta rama (las universales ya se resolvieron antes de llegar aquí).
     let instrumentoObjetivo: { id: number; nombre: string } | null = null;
     const modalInstrumento = new ModalInstrumento({
       tocar: (midiUrl) => {
@@ -1408,104 +1647,30 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const r = escena.renderer.domElement.getBoundingClientRect();
       const ndc = new Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
       raycasterClic.setFromCamera(ndc, escena.camera);
-      // Cazar con clic (docs/GDD_Caza.md §4ter — pedido original del
-      // streamer: "dándole click sobre el animal y cazar, entonces se irá
-      // corriendo tu npc jugador a por el animal"): ANTES del raycast de
-      // muebles/objetos, se prueba contra los rigs de la fauna viva. Hallazgo
-      // del playtest multijugador 2026-09-10: la tecla C exige el animal a
-      // ≤2.2 casillas, pero cualquier especie que huye lo hace desde 4
-      // (`radioHuida`), así que con solo C la caza era casi imposible de
-      // ARRANCAR; el servidor (manejarCombateIniciar, rama caza) nunca
-      // comprobó distancia para fauna no peligrosa — el clic a distancia es
-      // exactamente el diseño pedido. Recursivo a propósito (el rig es un
-      // grupo con varias mallas hijas); el id se recupera remontando padres.
-      const impactosFauna = raycasterClic.intersectObjects([...faunaVisual.values()].map((f) => f.rig.objeto), true);
-      if (impactosFauna.length > 0) {
-        let nodo: Object3D | null = impactosFauna[0].object;
-        while (nodo && !nodo.userData.faunaId) nodo = nodo.parent;
-        const faunaId = nodo?.userData.faunaId as string | undefined;
-        const animal = faunaId ? (room.state.fauna.get(faunaId) as any) : null;
-        if (faunaId && animal) {
-          const nombreEspecie = String(animal.especieId || "animal").replace(/_/g, " ");
-          menuInteraccion.mostrar(e.clientX, e.clientY, nombreEspecie, [
-            // Mismo mensaje que la tecla C: el servidor decide si es caza
-            // (huye, persecución automática de abajo) o combate real (fauna
-            // peligrosa, que sí exige estar a RADIO_INTERACCION — responde
-            // combate:error "demasiado lejos" si no).
-            { etiqueta: `Cazar ${nombreEspecie}`, accion: () => room.send("combate:iniciar", { objetivoId: faunaId, retorno: retornoDeCombate() }) },
-            // Inspección (docs/GDD_UI_Paneles.md, 2026-09-12): fauna es la
-            // ÚNICA entidad con una acción de clic ya existente, así que se
-            // ofrece como segunda opción del mismo menú en vez de sustituir
-            // "Cazar" — el resto de tipos (NPC/mascota/jugador/árbol/
-            // compañero/enemigo) no tienen ninguna acción de clic hoy, así
-            // que ahí el panel se abre directo, más abajo.
-            {
-              etiqueta: `Inspeccionar ${nombreEspecie}`,
-              accion: () => {
-                const filas: FilaInspeccion[] = [];
-                if (animal.vidaMax > 0) filas.push({ etiqueta: "Vida", valor: `${Math.round(animal.vida)}/${Math.round(animal.vidaMax)}` });
-                panelInspeccion.abrir(nombreEspecie, filas, "🐾");
-              },
-            },
-          ]);
-          return;
-        }
-      }
+      // Cazar/inspeccionar fauna por clic — función compartida con el
+      // listener universal (auditoría de interacciones 2026-09-13), ver su
+      // declaración junto a panelInspeccion más arriba en la función.
+      if (intentarCazarFaunaClic(raycasterClic, e.clientX, e.clientY)) return;
       // Inspección del resto de tipos (docs/GDD_UI_Paneles.md, 2026-09-12) —
       // función compartida con el listener universal de fuera del Hub, ver
       // su declaración junto a panelInspeccion más arriba en la función.
-      if (intentarInspeccionarClic(raycasterClic)) return;
-      // Objetos sueltos del mundo (docs/GDD_Ganaderia.md §12, pedido
-      // 2026-09-01: "click sobre... el huevo, recoger huevo") — mismo
-      // raycast que las construcciones, mallas combinadas; se distingue
-      // DESPUÉS por cuál de los dos Map las reconoce (renderObjetosMundo.mallas()
-      // vacío en cualquier room que no sea el Hub, ver su instanciación).
-      // RECURSIVO a propósito (bug real 2026-09-11, playtest de oficios): una
-      // construcción con `.glb` real es un Group con la malla como HIJO —
-      // con `recursive=false` el raycast solo probaba el Group (sin
-      // geometría) y el clic caía "al suelo" en cualquier mueble con arte
-      // real (la mayoría desde 2026-09-06), así que "Craftear en…",
-      // "Sentarse en…", "Abrir…" por clic solo funcionaban sobre la caja
-      // placeholder. datosDeMalla ya remonta padres hasta el userData.
+      if (intentarInspeccionarClic(raycasterClic, e.clientX, e.clientY)) return;
+      // Objetos de CONSTRUCCIÓN de jugador (docs/GDD_Construccion.md) — a
+      // diferencia de fauna/inspección/suelo (ya universales), esto SÍ sigue
+      // siendo exclusivo del Hub (única sala con `RenderConstrucciones`/
+      // parcelas de verdad hoy, ver el comentario grande al principio de
+      // este bloque). Los objetos sueltos del mundo (huevos...) ya son
+      // universales (`renderObjetosMundo`, ver su instanciación) pero se
+      // siguen resolviendo en ESTE mismo raycast combinado para no romper
+      // la prioridad "el más cercano de los dos conjuntos gana" que ya
+      // tenía. RECURSIVO a propósito (bug real 2026-09-11, playtest de
+      // oficios): una construcción con `.glb` real es un Group con la malla
+      // como HIJO — con `recursive=false` el raycast solo probaba el Group
+      // (sin geometría) y el clic caía "al suelo" en cualquier mueble con
+      // arte real. datosDeMalla ya remonta padres hasta el userData.
       const impactos = raycasterClic.intersectObjects([...render.mallas(), ...(renderObjetosMundo?.mallas() ?? [])], true);
       if (impactos.length === 0) {
-        // Clic sin ningún mueble debajo (pedido 2026-08-31: "también puedes
-        // sentarte en el suelo... dando click sobre suelo"). sentar:suelo se
-        // sienta donde YA está el jugador, no necesita la casilla; la
-        // agricultura de casilla (docs/GDD_Agricultura.md, cultivoCasilla:*,
-        // UI nueva 2026-09-11) SÍ: la casilla exacta sale de cortar el rayo
-        // del clic con el plano del suelo (y=0, 1 casilla = 1 unidad) — el
-        // servidor valida de verdad (parcela propia, azada equipada,
-        // temporada, madurez), aquí solo se ofrece la acción que toca.
-        const opcionesSuelo: OpcionMenuInteraccion[] = [{ etiqueta: "Sentarse en el suelo", accion: () => room.send("sentar:suelo", {}) }];
-        const puntoSuelo = new Vector3();
-        const casilla = raycasterClic.ray.intersectPlane(new Plane(new Vector3(0, 1, 0), 0), puntoSuelo) ? { x: Math.floor(puntoSuelo.x), y: Math.floor(puntoSuelo.z) } : null;
-        let tituloSuelo = "Suelo";
-        if (casilla) {
-          tituloSuelo = `Suelo (${casilla.x},${casilla.y})`;
-          const cultivo = renderCultivo.casillaEn(casilla.x, casilla.y);
-          const yo = room.state.players?.get(room.sessionId) as any;
-          const semillas = new Map<string, { instanciaId: number; cantidad: number }>();
-          for (const it of (yo?.inventario?.cuerpo?.items ?? []) as any[]) {
-            if (!CATALOGO_ITEMS_CLIENTE[it.itemId]?.cultivo) continue;
-            const previa = semillas.get(it.itemId);
-            if (previa) previa.cantidad += it.cantidad; else semillas.set(it.itemId, { instanciaId: it.id, cantidad: it.cantidad });
-          }
-          if (!cultivo) {
-            opcionesSuelo.push({ etiqueta: "Labrar aquí (azada)", accion: () => room.send("cultivoCasilla:labrar", { x: casilla.x + 0.5, y: casilla.y + 0.5 }) });
-            // docs/GDD_Agricultura.md §9: una palada de tierra por casilla, para llenar macetas
-            opcionesSuelo.push({ etiqueta: "Cavar tierra (pala)", accion: () => room.send("suelo:cavar", { x: casilla.x + 0.5, y: casilla.y + 0.5 }) });
-          } else if (cultivo.estado === "labrada") {
-            for (const [semillaId, s] of semillas) {
-              opcionesSuelo.push({ etiqueta: `Plantar ${nombreItemCatalogo(semillaId)} (${s.cantidad})`, accion: () => room.send("cultivoCasilla:plantar", { x: casilla.x + 0.5, y: casilla.y + 0.5, instanciaIdSemilla: s.instanciaId }) });
-            }
-            if (semillas.size === 0) opcionesSuelo.push({ etiqueta: "Plantar (no llevas semillas)", accion: () => registroCombate.mostrar("No llevas ninguna semilla encima.", "error") });
-          } else if (cultivo.estado === "sembrada") {
-            tituloSuelo = `${nombreItemCatalogo(cultivo.semillaId)} (${casilla.x},${casilla.y})`;
-            opcionesSuelo.push({ etiqueta: "Cosechar", accion: () => room.send("cultivoCasilla:cosechar", { x: casilla.x + 0.5, y: casilla.y + 0.5 }) });
-          }
-        }
-        menuInteraccion.mostrar(e.clientX, e.clientY, tituloSuelo, opcionesSuelo);
+        mostrarMenuSueloClic(raycasterClic, e.clientX, e.clientY);
         return;
       }
       const datosObjetoMundo = renderObjetosMundo?.datosDeMalla(impactos[0].object) ?? null;
@@ -1713,7 +1878,19 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // lo recién colocado sin tener que adivinar el id que asignó el servidor.
       idsDeObjeto: (objeto: string) => render.idsDeObjeto(objeto),
     };
-    room.onMessage("npc:error", (m: { motivo: string }) => { ultimoErrorMercader = m?.motivo ?? ""; console.log("[npc]", m?.motivo); });
+    // Auditoría de interacciones 2026-09-13: este listener capturaba
+    // CUALQUIER "npc:error" para `ultimoErrorMercader` (sonda de test), sin
+    // distinguir origen — el servidor manda "npc:error" desde 4 sitios
+    // distintos (RoomExteriorBase.ts): diálogo/oficio SIEMPRE llevan
+    // `npcId`, solo el comercio (`errorNpc()`, línea ~7547) lo manda SIN
+    // `npcId` — un rechazo de diálogo con OTRO NPC mientras se probaba
+    // comercio contaminaba `ultimoErrorMercader` con un motivo ajeno. Ahora
+    // solo cuenta el que de verdad no lleva npcId (comercio).
+    room.onMessage("npc:error", (m: { npcId?: string; motivo: string }) => {
+      if (m?.npcId) return; // diálogo/oficio — no es del mercader, otro listener ya lo atiende
+      ultimoErrorMercader = m?.motivo ?? "";
+      console.log("[npc]", m?.motivo);
+    });
     room.onMessage("npc:comercioEscaparate", (m: unknown) => { ultimoEscaparateMercader = m; console.log("[npc] escaparate", m); });
     room.onMessage("npc:compraResultado", (m: unknown) => { ultimaCompraMercader = m; console.log("[npc] compraResultado", m); });
     room.onMessage("npc:ventaResultado", (m: unknown) => { ultimaVentaMercader = m; console.log("[npc] ventaResultado", m); });
@@ -2140,7 +2317,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     ["animal:error", "animal"],
     ["coger:error", "coger"],
     ["curtidor:error", "curtidor"],
-    ["dormir:error", "dormir"],
+    // "dormir:error" YA NO va aquí — tiene su propio listener con toast
+    // visible, junto a dormir:iniciado/completado (ver comentario de la
+    // auditoría de interacciones de 2026-09-13, más arriba).
     ["habitacion:error", "habitación"],
     // "higiene:error"/"personaje:error" YA NO van aquí — tienen su propio
     // listener con toast visible, ver comentario junto a la creación de
@@ -2615,6 +2794,10 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     mascotasVisual.delete(id);
     escena.quitarEntidad(`mascota_${id}`);
   });
+  // sonda de test (mascotaMonturaClic.e2e.cjs, 2026-09-13): mismo patrón que
+  // __fauna/__jugadores — posición real para poder clicar sin adivinar
+  // offsets de pantalla a ciegas.
+  (window as any).__mascotas = () => [...room.state.mascotas.entries()].map(([id, m]: [string, any]) => ({ id, especieId: m.especieId, x: m.x, y: m.y, montura: m.montura, duenoNombre: m.duenoNombre }));
 
   // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — SIEMPRE visibles en
   // state.barcos (a diferencia de una mascota montada, que desaparece del
@@ -3601,10 +3784,17 @@ export async function iniciarJuego(contenedor: HTMLElement) {
     arbolesVisualObjetos.delete(id);
     escena.quitarEntidad(`arbol_${id}`);
   });
-  room.onMessage("arbol:error", (m: { motivo: string }) => console.log("[árbol]", m?.motivo));
+  // Auditoría de interacciones 2026-09-13: "arbol:error"/"arbol:plantado"
+  // solo iban a consola (mismo hueco ya cerrado para cultivo/cofre/sentar
+  // antes en esta sesión) — plantar un árbol (nuevo, "Plantar árbol" del
+  // menú de suelo más abajo) fallaba en silencio si el punto no era válido.
+  room.onMessage("arbol:error", (m: { motivo: string }) => { console.log("[árbol]", m?.motivo); registroCombate.mostrar(m?.motivo || "No se puede hacer eso con el árbol.", "error"); });
   room.onMessage("arbol:talado", (m: { especieId: string; etapa: string; entregados: string[] }) =>
     console.log("[árbol] talado", m?.especieId, m?.etapa, "— entregado:", m?.entregados));
-  room.onMessage("arbol:plantado", (m: { especieId: string }) => console.log("[árbol] plantado", m?.especieId));
+  room.onMessage("arbol:plantado", (m: { especieId: string }) => {
+    console.log("[árbol] plantado", m?.especieId);
+    registroCombate.mostrar(`Has plantado un ${String(m?.especieId || "árbol").replace(/_/g, " ")}.`, "info");
+  });
 
   // Respuesta a pedirExclusiones (docs/GDD_Bosques.md §7) — correlada por sector.
   room.onMessage("sector:exclusiones", (m: { sectorX: number; sectorY: number; posiciones: string[] }) => {

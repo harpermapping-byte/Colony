@@ -161,6 +161,17 @@ equipa uno mismo:
   `client/src/render3d/monturaVisual.ts` cuelga la silla del pivote `lomo`
   en cuanto `mascota.montura===true`, tanto si está "siguiendo" a pie como
   si se está montando.
+- **Bono real de la silla, invisible hasta ahora (auditoría de interacciones
+  2026-09-13)**: `mascota.monturaBonusVelocidad` (por tier de silla) y los
+  campos equivalentes de arnés (`docs/GDD_Carros.md` §2/§3) vivían en BD
+  desde el diseño original pero `mascota:lista` (`RoomExteriorBase.ts`)
+  nunca los mandaba al cliente — dos monturas con silla básica vs. de tier
+  alto se veían exactamente igual en `panelMascotas.ts`, con o sin arnés
+  igual. Cerrado exponiendo los 3 campos ya existentes en el mensaje
+  (`monturaBonusVelocidad`, `arnes`, `arnesPesoMaximo`) y mostrándolos en el
+  panel: "caballo 🐴 (+15 vel.) 🐎 (arnés, hasta 250kg)". Verificado con
+  `client/test/panelMascotasStats.e2e.cjs` (servidor+Vite+Playwright reales,
+  BD sembrada directo con una mascota ya equipada).
 
 ## 4. Montar / desmontar — jugador y montura son UNA entidad
 
@@ -208,6 +219,28 @@ Diseño ya acordado en `docs/GDD_Mecanicas.md` ("Monturas acordado
   añadir eso es "pose sentada rotando los pivotes de piernas del rig", ya
   previsto en el GDD acordado pero fuera de esta pasada por riesgo/tiempo
   (ver §7).
+
+**"Poner silla"/"Montar" por clic sobre la propia mascota, además de N/M
+(auditoría de interacciones 2026-09-13)**: las teclas siguen funcionando
+igual (auto-apuntan a la mascota domesticable propia más cercana), pero
+ahora clicar la mascota EN CONCRETO también ofrece estas dos acciones en el
+menú de interacción (`client/src/game.ts`, rama `ud.mascotaId` de
+`intentarInspeccionarClic`) — "Poner silla" si es tuya y aún no la lleva,
+"Montar" si ya la lleva y no estás montado en nada (`yo?.monturaEspecieId`),
+antes de "Inspeccionar". A diferencia de la tecla, manda el `mascotaId` REAL
+del clic — útil con varias mascotas propias juntas, donde "la más cercana"
+de la tecla puede no ser la que se quiere montar. El servidor sigue siendo
+la autoridad final (mismo rechazo de siempre si por lo que sea no es tuya).
+Verificado con `client/test/mascotaMonturaClic.e2e.cjs` (servidor+Vite+
+Playwright reales): clic sin silla ofrece "Poner silla", tras ponérsela el
+mismo clic ofrece "Montar" en vez de "Poner silla", y al montar la mascota
+desaparece de `room.state.mascotas` (§4 arriba) — lo que en sí mismo prueba
+que no puede volver a montarse dos veces por clic. Detalle de dos bugs
+reales de TEST (no de producción) encontrados escribiendo este e2e —
+adivinar offsets de píxel a ciegas no encontraba la mascota real (se aleja
+~1.3 unidades del dueño a un ángulo aleatorio) y cerrar el menú entre
+intentos con un clic en vez de `Escape` podía tragarse el intento
+siguiente— en `CLAUDE.md`, entrada "Auditoría de interacciones, parte 6".
 
 ## 5. Salto
 

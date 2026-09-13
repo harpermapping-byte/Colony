@@ -225,6 +225,14 @@
   align-items: center;
   gap: 5px;
 }
+/* La fila de aire se oculta con el atributo `hidden` (fuera del agua) —
+   sin este override, `display:flex` de arriba gana por especificidad al
+   `[hidden]{display:none}` del user-agent y el `hidden` no hace nada
+   (bug real encontrado en la auditoría de interacciones 2026-09-13,
+   verificando client/test/hudVitalesAireTemp.e2e.cjs). */
+.hud-vitales-fila[hidden] {
+  display: none;
+}
 .hud-vitales-emoji {
   font-size: 11px;
   width: 14px;

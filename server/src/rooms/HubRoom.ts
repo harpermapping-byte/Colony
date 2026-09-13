@@ -22,7 +22,6 @@ import { EstadoEnfermedades, enfermedadesInicial } from "../personaje/enfermedad
 import { sincronizarContenedor } from "../inventario/sincronizarSchema";
 import { cargarCatalogoCombateFauna, CatalogoCombateFauna } from "../mundo/catalogoCombateFauna";
 import { cargarCatalogoItems } from "../inventario/inventario";
-import { aplicarDanio, calcularDanio, estaMuerto } from "../combate/combate";
 import { UnidadCombate, calcularIniciativa, simularCombateAutomatico } from "../combate/arenaCombate";
 import { TIPO, tipoEn, medioEn, casillaAguaCercana } from "../mundo/colisiones";
 import { cargarNpcsFijos, cargarNpcsTutorialesDeMapa } from "../mundo/npcsFijos";
@@ -511,77 +510,9 @@ export class HubRoom extends RoomExteriorBase {
       }
     });
 
-    // Combate (docs/GDD_Mecanicas.md §5.4, pedido 2026-08-30): un jugador
-    // ataca a un animal salvaje activo o a otro jugador dentro de
-    // RADIO_INTERACCION. Los animales NO tienen defensa (calcularDanio
-    // recibe 0); un jugador SÍ, según su `defensa` de red (Player.defensa
-    // — base 0, sin cálculo de equipo todavía: ese enganche queda para
-    // cuando se decida qué sistema de combate lo conecta, ver la nota de
-    // coordinación con docs/GDD_Combate.md en el GDD de mecánicas).
-    // Servidor autoritativo: el cliente solo pide, nunca decide vida.
-    this.onMessage("combate:atacar", async (client, msg: { objetivoTipo?: "fauna" | "jugador"; objetivoId?: string }) => {
-      const atacante = this.state.players.get(client.sessionId);
-      if (!atacante || !msg?.objetivoTipo || !msg?.objetivoId) return;
-      if (this.brazoInutilizadoDe(client.sessionId)) {
-        return client.send("combate:error", { motivo: "brazo roto o amputado, no puedes atacar" });
-      }
-
-      if (msg.objetivoTipo === "fauna") {
-        if (!this.gestorFaunaSalvaje) return client.send("combate:error", { motivo: "sin fauna salvaje en este mapa" });
-        const animal = this.state.fauna.get(msg.objetivoId);
-        if (!animal) return client.send("combate:error", { motivo: "objetivo no encontrado" });
-        if (Math.hypot(animal.x - atacante.x, animal.y - atacante.y) > RADIO_INTERACCION) {
-          return client.send("combate:error", { motivo: "demasiado lejos" });
-        }
-        const danio = calcularDanio(atacante.ataque, 0); // los animales no tienen defensa
-        const resultado = await this.gestorFaunaSalvaje.recibirDanio(msg.objetivoId, danio);
-        if (!resultado) return client.send("combate:error", { motivo: "objetivo ya no está activo" });
-        this.broadcast("combate:golpe", {
-          objetivoTipo: "fauna", objetivoId: msg.objetivoId, danio,
-          vida: resultado.vida, vidaMax: resultado.vidaMax, muerto: resultado.muerto,
-        });
-        return;
-      }
-
-      // objetivoTipo === "jugador" (PvP)
-      const objetivo = this.state.players.get(msg.objetivoId);
-      if (!objetivo || msg.objetivoId === client.sessionId) return client.send("combate:error", { motivo: "objetivo no válido" });
-      if (Math.hypot(objetivo.x - atacante.x, objetivo.y - atacante.y) > RADIO_INTERACCION) {
-        return client.send("combate:error", { motivo: "demasiado lejos" });
-      }
-      const danio = calcularDanio(atacante.ataque, objetivo.defensa);
-      const stats = aplicarDanio(
-        { vida: objetivo.vida, vidaMax: objetivo.vidaMax, ataque: objetivo.ataque, defensa: objetivo.defensa },
-        danio,
-      );
-      const muerto = estaMuerto(stats);
-      // Sin diseño de muerte/respawn todavía (fuera de esta pasada): por
-      // ahora, morir simplemente rellena la vida al máximo en el sitio —
-      // mejor que un jugador "muerto" andante, sin inventar penalización.
-      objetivo.vida = muerto ? objetivo.vidaMax : stats.vida;
-      if (objetivo.name) {
-        const bd = await obtenerBdCompartida();
-        const jugador = await bd.obtenerOCrearJugador(objetivo.name);
-        await bd.actualizarVidaJugador(jugador.id, objetivo.vida, objetivo.vidaMax);
-      }
-      // Anatomía (docs/GDD_Anatomia.md): solo si el objetivo sigue en pie —
-      // si murió, ya se le rellenó la vida arriba, la herida no aporta nada.
-      if (!muerto) void this.aplicarEfectoAnatomicoSiCorresponde(client.sessionId, msg.objetivoId);
-      this.broadcast("combate:golpe", {
-        objetivoTipo: "jugador", objetivoId: msg.objetivoId, danio,
-        vida: objetivo.vida, vidaMax: objetivo.vidaMax, muerto,
-      });
-    });
-
     // Crecimiento de bosques (docs/GDD_Bosques.md, pedido 2026-08-30) —
     // talar/plantar solo tienen sentido donde hay gestorBosques (el Hub,
     // ver "límite conocido" del GDD: no disponible en RegionRoom todavía).
-    this.onMessage("arbol:consultar", (client) => {
-      const player = this.state.players.get(client.sessionId);
-      if (!player || !this.gestorBosques) return;
-      const cercano = this.gestorBosques.buscarArbolCercano(player.x, player.y, RADIO_INTERACCION);
-      client.send("arbol:info", cercano ? { especieId: cercano.especieId, etapa: cercano.etapa } : null);
-    });
 
     this.onMessage("arbol:talar", async (client) => {
       const player = this.state.players.get(client.sessionId);
