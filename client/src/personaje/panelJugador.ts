@@ -197,6 +197,23 @@ export class PanelJugador {
       cuerpo.appendChild(
         crearLineaTexto(`Fuerza ${a.fuerza} · Destreza ${a.destreza} · Inteligencia ${a.inteligencia} · Resistencia ${a.resistencia} · Carisma ${a.carisma}`, { fontSize: "11px" }),
       );
+      // Peso (auditoría de interacciones 2026-09-13): `pesoMaximoTransportable`
+      // ya existe server-side desde el diseño original (server/src/personaje/
+      // bonusAtributos.ts) y bloquea coger/craftear de verdad, pero nunca se
+      // mostraba en ningún sitio — el jugador solo se enteraba de su límite
+      // cuando un "coger:error"/"crafteo:error" ya lo rechazaba. Mismo cálculo
+      // que `pesoTotalJugador` (server/src/inventario/inventario.ts): cuerpo +
+      // TODAS las mochilas/bolsas equipadas, nunca lo puesto encima (mochilas
+      // dan hueco, no más peso permitido). Fórmula de `pesoMaximoTransportable`
+      // portada tal cual (un único `+4` por nivel de Fuerza) — SIN la poción
+      // "carga" (estado de buff, server-only): el máximo mostrado puede
+      // quedarse un poco corto mientras esa poción esté activa, mismo criterio
+      // de aproximación honesta ya aceptado en otros sitios del proyecto.
+      const pesoActual = this.pesoTotalDe(player);
+      const pesoMaximo = 20 + (a.fuerza - 1) * 4;
+      const lineaPeso = crearLineaTexto(`⚖ ${pesoActual.toFixed(1)}/${pesoMaximo} kg`, { fontSize: "11px" });
+      if (pesoActual > pesoMaximo) lineaPeso.style.color = "var(--error-color, #c0392b)";
+      cuerpo.appendChild(lineaPeso);
     }
 
     cuerpo.appendChild(this.pestanas());
@@ -214,6 +231,21 @@ export class PanelJugador {
         cuerpo.appendChild(this.renderGridContenedor(slotExtra, contenedorExtra));
       }
     }
+  }
+
+  /** Cuerpo + todas las mochilas/bolsas equipadas (`inventario.extras`), mismo alcance exacto que `pesoTotalJugador` server-side — nunca lo puesto en un slot de equipo. */
+  private pesoTotalDe(player: any): number {
+    let total = 0;
+    const sumarContenedor = (contenedor: any) => {
+      for (const it of contenedor?.items ?? []) {
+        const entrada = ITEMS[it.itemId];
+        if (entrada?.peso) total += entrada.peso * it.cantidad;
+      }
+    };
+    sumarContenedor(player.inventario?.cuerpo);
+    const extras: Map<string, any> | undefined = player.inventario?.extras;
+    if (extras) for (const [, contenedorExtra] of extras) sumarContenedor(contenedorExtra);
+    return Math.round(total * 100) / 100;
   }
 
   private pestanas(): HTMLDivElement {
