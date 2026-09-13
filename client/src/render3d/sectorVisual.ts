@@ -106,17 +106,24 @@ export const PROFUNDIDAD_FONDO = 1.5;
 // ABSOLUTOS de aquí no representan hardware real, pero la comparación
 // RELATIVA entre valores de PX, medida en el mismo entorno, sí es válida):
 //   PX=1 (mismo camino de código, sin patrón real): ~130-139ms
-//   PX=2 (este valor):                              ~140-151ms  (+10ms)
+//   PX=2 (valor de la pasada anterior):             ~140-151ms  (+10ms)
 //   PX=4:                                           ~163-172ms  (+35ms)
-//   PX=8:                                           ~229-243ms  (+100ms)
-// PX=2 ya se nota (motas/briznas/juntas visibles, ver capturas
-// `client/test/capturas/patron_suelo_*.png`) con un coste incremental
-// pequeño sobre construir el resto del sector (orillas, muro de nieve,
-// caja de nieve — todo lo demás que YA hacía esta función). Subir esta
-// constante es la única palanca si se pide más detalle más adelante, una
-// vez haya feedback de rendimiento en hardware real (con GPU) — ver
-// `docs/GDD_Motor_3D_Props.md`.
-const PX_POR_TILE_SUELO = 2;
+//   PX=8:                                           ~245-261ms  (+115ms)
+//   PX=10 (este valor):                             ~266-296ms  (+145ms)
+// 2026-09-13, pedido streamer: "el suelo no se ve ni parecido a como vimos
+// en las imagenes de prueba, se ve repetitivo y con poca resolución" — subido
+// de 2 a 10, el MISMO valor que `PX_POR_TILE_B` en
+// `texturaSueloComparacion.ts` (la comparación que el streamer vio y aprobó
+// el 2026-09-11 con "la prueba B es lo que hay que hacer") — a PX=2 los
+// detalles de área (guijarros/mampostería, `tam>=4` en `patronTerreno.ts`)
+// ni siquiera se activaban, así que la producción real nunca llegó a
+// parecerse a lo aprobado; confirmado con capturas reales antes/después
+// (`client/test/capturas/patron_suelo_raw_px{2,8,10}.png`) que PX=10 sí
+// coincide. El coste sigue siendo un ONE-TIME por sector materializado
+// (no por frame), y el hardware real del streamer no es este sandbox sin
+// GPU — subir más esta constante sigue siendo la palanca si se pide aún
+// más detalle, ver `docs/GDD_Motor_3D_Props.md`.
+const PX_POR_TILE_SUELO = 10;
 const AGUAS: Record<string, { alfa: number; base: number }> = {
   agua: { alfa: 0.45, base: 0.8 },
   agua_profunda: { alfa: 0.55, base: 0.25 },
