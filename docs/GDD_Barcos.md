@@ -116,6 +116,26 @@ Si el capitán se baja con pasajeros a bordo, el siguiente en la lista pasa
 a pilotar automáticamente (`RoomExteriorBase.desembarcarSesionId`); si se
 baja el último, el barco ancla su posición actual en BD.
 
+**Subir/bajar también por CLIC (2026-09-13, auditoría de interacciones —
+mismo pedido y mismo patrón que Monturas §4)**: `barco:montar`/`desmontar`
+solo se disparaban con la tecla P, auto-apuntando "el más cercano con
+hueco" — clicar el propio casco (`barcosVisual`, siempre visible en
+`state.barcos`) solo abría el panel de inspección, sin ninguna acción.
+Ahora clicar un barco sin plaza ocupada por el jugador ofrece "Subir a
+bordo" (con el `barcoId` REAL del clicado, no "el más cercano" — más
+preciso con varios barcos anclados juntos; `barcoConHuecoCercano` ya
+respetaba un id explícito de tipo `number` desde el diseño original, sin
+el bug string-vs-number que sí tuvo mascotas) e "Inspeccionar" (tipo +
+ocupantes actuales); ya a bordo, ofrece "Bajar del barco" en su lugar. La
+tecla P sigue funcionando igual (sin targeting) para quien la prefiera.
+Verificado con `client/test/barcoClic.e2e.cjs` (servidor+Vite+Playwright
+reales, `test_mar_a` — mapa 100% agua ya usado por `server/test/
+barcos.e2e.mjs`, para no depender de calcular a mano una casilla de agua
+real del mapa demo): clic → "Subir a bordo" → `Player.barcoId` real →
+clic → "Bajar del barco" → `Player.barcoId` vuelve a 0, con el barco
+siempre intacto en `state.barcos` (nunca desaparece, a diferencia de una
+montura animal).
+
 **Movimiento** (`actualizarMovimiento`): el input del capitán mueve el
 barco a `velocidadBarco` (sin multiplicador de terreno — no tiene sentido
 sobre agua, sin sprint/estamina, "no es el jugador quien se mueve", mismo

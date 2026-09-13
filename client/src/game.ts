@@ -939,11 +939,12 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       // jugador (ambos rigs muy próximos en pantalla).
       ...[...jugadores.entries()].filter(([sessionId]) => sessionId !== room.sessionId).map(([, e]) => e.rig.objeto),
       ...arbolesVisualObjetos.values(),
+      ...[...barcosVisual.entries()].map(([, e]) => e.rig.objeto),
     ];
     const impactos = raycaster.intersectObjects(objetosInspeccionables, true);
     if (impactos.length === 0) return false;
     let nodo: Object3D | null = impactos[0].object;
-    while (nodo && !(nodo.userData.npcSlotId || nodo.userData.mascotaId || nodo.userData.companeroId || nodo.userData.enemigoId || nodo.userData.jugadorSessionId || nodo.userData.arbolId)) {
+    while (nodo && !(nodo.userData.npcSlotId || nodo.userData.mascotaId || nodo.userData.companeroId || nodo.userData.enemigoId || nodo.userData.jugadorSessionId || nodo.userData.arbolId || nodo.userData.barcoId)) {
       nodo = nodo.parent;
     }
     const ud = nodo?.userData ?? {};
@@ -1064,6 +1065,37 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       const arbol = room.state.arbolesVivos.get(ud.arbolId) as any;
       if (arbol) {
         panelInspeccion.abrir(String(arbol.especieId || "árbol").replace(/_/g, " "), [{ etiqueta: "Etapa", valor: arbol.etapa === "joven" ? "Joven" : "Adulto" }], "🌳");
+        return true;
+      }
+    } else if (ud.barcoId) {
+      // Auditoría de interacciones 2026-09-13: J/P (colocar/subir-bajar,
+      // docs/GDD_Barcos.md) no tenían ningún targeting — "el más cercano
+      // con hueco" siempre, igual que mascotas/monturas ANTES de esta misma
+      // auditoría. `barcosVisual` ya existe (SIEMPRE visible en
+      // state.barcos, a diferencia de una mascota montada) — mismo patrón
+      // exacto que mascota: id REAL del clic, nunca "el más cercano".
+      const barcoIdNum = Number(ud.barcoId);
+      const barco = room.state.barcos.get(String(barcoIdNum)) as any;
+      if (barco) {
+        const nombreBarco = barco.tipoId ? String(barco.tipoId).replace(/_/g, " ") : "Barco";
+        const yo = room.state.players?.get(room.sessionId) as any;
+        const ocupantes = [...room.state.players.values()].filter((p: any) => p.barcoId === barcoIdNum).length;
+        const opcionesBarco: OpcionMenuInteraccion[] = [];
+        if (yo?.barcoId === barcoIdNum) {
+          opcionesBarco.push({ etiqueta: "Bajar del barco", accion: () => room.send("barco:desmontar") });
+        } else if (!yo?.barcoId) {
+          // Servidor rechaza si no hay hueco ("nada_cerca") o si ya está
+          // embarcado en OTRO ("ya_embarcado") — mismo id explícito que ya
+          // acepta `manejarBarcoMontar` (barcoConHuecoCercano respeta
+          // `typeof barcoId==="number"`, sin el bug string-vs-number que sí
+          // tuvo mascotas — verificado leyendo el servidor antes de esto).
+          opcionesBarco.push({ etiqueta: "Subir a bordo", accion: () => room.send("barco:montar", { barcoId: barcoIdNum }) });
+        }
+        opcionesBarco.push({
+          etiqueta: "Inspeccionar",
+          accion: () => panelInspeccion.abrir(nombreBarco, [{ etiqueta: "Ocupantes", valor: String(ocupantes) }], "⛵"),
+        });
+        menuInteraccion.mostrar(clientX, clientY, nombreBarco, opcionesBarco);
         return true;
       }
     }
@@ -2806,6 +2838,9 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   // __fauna/__jugadores — posición real para poder clicar sin adivinar
   // offsets de pantalla a ciegas.
   (window as any).__mascotas = () => [...room.state.mascotas.entries()].map(([id, m]: [string, any]) => ({ id, especieId: m.especieId, x: m.x, y: m.y, montura: m.montura, duenoNombre: m.duenoNombre }));
+  // sonda de test (barcoClic.e2e.cjs, 2026-09-13): mismo criterio que
+  // __mascotas — posición real de cada barco para clicarlo sin adivinar.
+  (window as any).__barcos = () => [...room.state.barcos.entries()].map(([id, b]: [string, any]) => ({ id, tipoId: b.tipoId, x: b.x, y: b.y }));
 
   // Barcos (docs/GDD_Barcos.md, pedido 2026-08-30) — SIEMPRE visibles en
   // state.barcos (a diferencia de una mascota montada, que desaparece del
@@ -2821,6 +2856,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
       x: barco.x, z: barco.y, y: 0,
       nadando: false,
     };
+    criatura.objeto.userData.barcoId = id; // panel de inspección/clic (auditoría de interacciones, 2026-09-13)
     barcosVisual.set(id, estado);
     escena.añadirEntidad(`barco_${id}`, criatura.objeto, barco.x, barco.y);
     $(barco).onChange(() => {
@@ -3077,7 +3113,7 @@ export async function iniciarJuego(contenedor: HTMLElement) {
   });
   // Sonda de test (playtest multijugador 2026-09-10): quién ve este cliente
   // en `state.players` — mismo criterio que `__npcs`/`__fauna`, sin panel.
-  (window as any).__jugadores = () => [...room.state.players.entries()].map(([id, p]: [string, any]) => ({ id, nombre: p.name, x: p.x, y: p.y, estado: p.estado, vida: p.vida, monturaMascotaId: p.monturaMascotaId }));
+  (window as any).__jugadores = () => [...room.state.players.entries()].map(([id, p]: [string, any]) => ({ id, nombre: p.name, x: p.x, y: p.y, estado: p.estado, vida: p.vida, monturaMascotaId: p.monturaMascotaId, barcoId: p.barcoId }));
 
   // --- Diálogo con NPCs con IA (docs/GDD_IA_NPCs.md, pedido streamer
   // 2026-09-08: "ahondar en el tema de las conversaciones con IA NPC" —
