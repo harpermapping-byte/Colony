@@ -1108,6 +1108,18 @@ async function crearPropsSector(
     for (const obj of chunk.objetos) {
       // tipos sin categoría de asset conocida no se instancian
       if (!CATEGORIA_POR_TIPO[obj.t]) continue;
+      // Pool de spawn (baker/src/decoracion.js, ver ObjetoBakeado.ac en
+      // formatoMapa.ts): solo el 33% nace activo, el resto (`ac:0`) es
+      // reserva sin propósito hoy — bug real cerrado 2026-09-13, pedido
+      // streamer "reduce un poco... de animales decorativos también que a
+      // lo mejor hay demasiados". Este cliente dibujaba el pool COMPLETO
+      // (activos+reserva) mientras server/src/mundo/mapaColision.ts ya
+      // filtraba por esto mismo para recolectables — así que 2/3 de la
+      // vegetación/rocas/fauna decorativa visible era, además de puro
+      // desperdicio de triángulos, contenido "fantasma": se veía pero el
+      // servidor nunca la tuvo como recolectable de verdad. Mismo criterio
+      // `ac !== 0`, nunca `!ac`.
+      if (obj.ac === 0) continue;
       const globalX = cx * chunk.tamano + obj.x;
       const globalY = cy * chunk.tamano + obj.y;
       // Ya no existe (recolectado, o árbol talado — docs/GDD_Bosques.md §7):

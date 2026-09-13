@@ -110,6 +110,18 @@ export interface ObjetoBakeado {
   h?: number; // solo t:"e" — largo real de la huella en casillas
   dx?: number; // solo t:"e" — parte fraccionaria [0,1) del centro real (x,y son la casilla entera)
   dy?: number;
+  /** Pool de spawn (baker/src/decoracion.js, "pool de puntos de spawn"):
+   * `ac:0` = candidato INACTIVO/reserva (solo 1/3 nace activo,
+   * `multiplicadorPool=3`) — se omite cuando está activo, así que "activo"
+   * es SIEMPRE `ac !== 0`, nunca `!ac` (`!undefined` es `true` en JS).
+   * `server/src/mundo/mapaColision.ts` ya lo respeta para decidir qué es
+   * recolectable de verdad; el renderizado (sectorVisual.ts) hace lo mismo
+   * desde 2026-09-13 — antes dibujaba el pool COMPLETO (activos+reserva,
+   * ~3x lo pretendido), tanto un desperdicio real de rendimiento (miles de
+   * triángulos de más por sector) como un bug de coherencia (vegetación
+   * recolectable "fantasma": se veía pero el servidor no la tenía como
+   * recolectable real). */
+  ac?: number;
 }
 
 export interface ChunkBakeado {
